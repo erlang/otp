@@ -84,10 +84,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-interpret(suite) ->
-    [];
-interpret(doc) ->
-    ["Interpreting modules"];
+%% Interpreting modules.
 interpret(Config) when is_list(Config) ->
     ?line int:n(int:interpreted()),
 
@@ -111,20 +108,10 @@ interpret(Config) when is_list(Config) ->
 
     ok.
 
-guards(suite) ->
-    [];
-guards(doc) ->
-    "Evaluate guards.";
+%% Evaluate guards.
 guards(Config) when is_list(Config) ->
     ok = guards:guards().
 
-
-
-
-append_1(suite) ->
-    [];
-append_1(doc) ->
-    [];
 append_1(Config) when is_list(Config) ->
     io:format("In append_1~n"),
     io:format("code:which(lists1)=~p~n",
@@ -138,10 +125,6 @@ append_1(Config) when is_list(Config) ->
     ?line [10, [elem]]=spawn_eval(lists1,append,[[[10], [[elem]]]]),
     ok.
 
-append_2(suite) ->
-    [];
-append_2(doc) ->
-    [];
 append_2(Config) when is_list(Config) ->
     io:format("In append_2~n"),
     io:format("code:which(lists1)=~p~n",
@@ -152,10 +135,6 @@ append_2(Config) when is_list(Config) ->
     ?line [10, [elem]]=spawn_eval(lists1,append,[[10], [[elem]]]),
     ok.
 
-reverse(suite) ->
-    [];
-reverse(doc) ->
-    [];
 reverse(Config) when is_list(Config) ->
     ?line ok=reverse_test(0),
     ?line ok=reverse_test(1),
@@ -180,14 +159,11 @@ reverse_test(Num) ->
 	    error
     end.
 
-member(suite) ->
-    [];
-member(doc) ->
-    ["Tests the lists1:member() implementation. The function "
-     "is `non-blocking', and only processes 2000 elements "
-     "at a time.",
-     "This test case depends on lists1:reverse() to work, "
-     "wich is tested in a separate test case."];
+%% Tests the lists1:member() implementation. The function
+%% is `non-blocking', and only processes 2000 elements
+%% at a time.
+%% This test case depends on lists1:reverse() to work,
+%% which is tested in a separate test case.
 member(Config) when list(Config) ->
     ?line ok=member_test(0),
     ?line ok=member_test(1),
@@ -224,10 +200,7 @@ spawn_eval(M,F,A) ->
 evaluator(Pid, M,F,A) ->
     Pid ! (catch apply(M,F,A)).
 
-interpretable(suite) ->
-    [];
-interpretable(doc) ->
-    ["Test int:interpretable/1"];
+%% Test int:interpretable/1.
 interpretable(Config) when is_list(Config) ->
 
     %% First make sure that 'lists1' is not loaded

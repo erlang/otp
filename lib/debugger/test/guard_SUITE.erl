@@ -87,8 +87,7 @@ init_per_suite(Config) when is_list(Config) ->
 end_per_suite(Config) when is_list(Config) ->
     ok.
 
-bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";
-bad_arith(suite) -> [];
+%% Test that a bad arithmetic operation in a guard works correctly.
 bad_arith(Config) when list(Config) ->
     ?line 5 = bad_arith1(2, 3),
     ?line 10 = bad_arith1(1, infinity),
@@ -108,8 +107,7 @@ bad_div(A, B) when A div B > 0 ->
 bad_div(_A, _B) ->
     42.
 
-bad_tuple(doc) -> "Test that bad arguments to element/2 are handled correctly.";
-bad_tuple(suite) -> [];
+%% Test that bad arguments to element/2 are handled correctly.
 bad_tuple(Config) when list(Config) ->
     ?line error = bad_tuple1(a),
     ?line error = bad_tuple1({a, b}),
@@ -121,8 +119,7 @@ bad_tuple1(T) when element(1, T) == x -> x;
 bad_tuple1(T) when element(3, T) == y -> y;
 bad_tuple1(_) -> error.
 
-test_heap_guards(doc) -> "";
-test_heap_guards(suite) -> [];
+%% .
 test_heap_guards(Config) when list(Config) ->
     ?line process_flag(trap_exit, true),
     ?line Tuple = {a, tuple, is, built, here, xxx},
@@ -201,8 +198,7 @@ init(_ReplyTo, Fun, Args, Filler) ->
 dummy(_) ->
     ok.
 
-guard_bifs(doc) -> "Test all guard bifs with nasty (but legal arguments).";
-guard_bifs(suite) -> [];
+%% Test all guard bifs with nasty (but legal arguments).
 guard_bifs(Config) when list(Config) ->
     ?line Big = -237849247829874297658726487367328971246284736473821617265433,
     ?line Float = 387924.874,
@@ -329,8 +325,7 @@ guard_bif('node/0', X, Y) when node() == Y ->
 guard_bif('node/1', X, Y) when node(X) == Y ->
     {'node/1', X, Y}.
 
-type_tests(doc) -> "Test the type tests.";
-type_tests(suite) -> [];
+%% Test the type tests.
 type_tests(Config) when list(Config) ->
     ?line Types = all_types(),
     ?line Tests = type_test_desc(),
@@ -1527,8 +1522,7 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-binary_part(doc) ->
-    ["Tests the binary_part/2,3 guard (GC) bif's"];
+%% Tests the binary_part/2,3 guard (GC) bif's.
 binary_part(Config) when is_list(Config) ->
     %% This is more or less a copy of what the guard_SUITE in emulator
     %% does to cover the guard bif's

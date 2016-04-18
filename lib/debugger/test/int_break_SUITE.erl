@@ -65,8 +65,7 @@ end_per_testcase(_Case, _Config) ->
     ?line ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
     ok.
 
-basic(doc) -> "Tests setting a few break points.";
-basic(suite) -> [];
+%% Tests setting a few break points.
 basic(Config) when list(Config) ->
     ?line int:auto_attach([init], {?MODULE,auto_attach}),
     ?line S1 = [] = ordsets1:new_set(),
@@ -80,8 +79,7 @@ basic(Config) when list(Config) ->
     All = lists:sort(int:all_breaks(ordsets1)),
     ok.
 
-cleanup(doc) -> "Make sure that the auto-attach flag is turned off.";
-cleanup(suite) -> [];
+%% Make sure that the auto-attach flag is turned off.
 cleanup(Config) when list(Config) ->
     ?line int:auto_attach(false),
     ok.

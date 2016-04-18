@@ -77,12 +77,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-dbg_ui (doc) ->
-    ["Debugger GUI"];
-
-dbg_ui (suite) ->
-    [];
-
+%% Test Debugger GUI.
 dbg_ui (_Config) ->
     case os:getenv("DISPLAY") of
 	false ->
@@ -135,8 +130,6 @@ check(Case, Config) ->
 
 
 -define(MAN_CASE(Name,Doc, Description),
-	Name(doc) -> [Doc];
-	Name(suite) -> [];
 	Name(Config) ->
 	       ?line io:format("Checking ~p~n",[Name]),
 	       ?line io:format("Config = ~p~n",[Config]),

@@ -38,7 +38,6 @@ end_per_group(_GroupName, Config) ->
 	Config.
 
 
-cleanup(suite) -> [];
 cleanup(_) ->
     ?line Mods = int:interpreted(),
     ?line ok = int:n(Mods),

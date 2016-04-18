@@ -278,7 +278,6 @@ fail_check(Res, _, _) ->
     ct:fail(did_not_fail_in_compiled_code).
 
 %%% Simple working cases
-test1(suite) -> [];
 test1(Config) when is_list(Config) ->
     ?line I_13 = i(13),
     ?line I_big1 = big(1),
@@ -300,7 +299,6 @@ gen(N, S, A) ->
 gen_l(N, S, A) ->
     [?T(<<A:S/little, A:(N-S)/little>>, comp(N, A, S))].
 
-test2(suite) -> [];
 test2(Config) when is_list(Config) ->
     ?line test2(0, 8, 2#10101010101010101),
     ?line test2(0, 8, 2#1111111111).
@@ -328,7 +326,6 @@ t3() ->
      ?N(<<>>)
     ].
 
-test3(suite) -> [];
 test3(Config) when is_list(Config) ->
     ?line Vars = [],
     ?line lists:foreach(fun one_test/1, eval_list(t3(), Vars)).
@@ -339,7 +336,6 @@ gen_u(N, S, A) ->
 gen_u_l(N, S, A) ->
     [?N(<<A:S/little, A:(N-S)/little>>)].
 
-test4(suite) -> [];
 test4(Config) when is_list(Config) ->
     ?line test4(0, 16, 2#10101010101010101),
     ?line test4(0, 16, 2#1111111111).
@@ -360,8 +356,7 @@ gen_b(N, S, A) ->
     [?T(<<A:S/binary-unit:1, A:(N-S)/binary-unit:1>>,
 	binary_to_list(<<A:S/binary-unit:1, A:(N-S)/binary-unit:1>>))].
 
-test5(suite) -> [];
-test5(doc) -> ["OTP-3995"];
+%% OTP-3995.
 test5(Config) when is_list(Config) ->
     ?line test5(0, 8, <<73>>),
     ?line test5(0, 8, <<68>>).
@@ -378,7 +373,6 @@ test5(S, A) ->
     lists:foreach(fun one_test/1, eval_list(gen_b(N, S, A), Vars)).
 
 %%% Failure cases
-testf(suite) -> [];
 testf(Config) when is_list(Config) ->
     ?line ?FAIL(<<3.14>>),
     ?line ?FAIL(<<<<1,2>>>>),
@@ -428,8 +422,7 @@ testf_1(W, B) ->
     ?FAIL_VARS(<<3.14:W/float>>, Vars),
     ?FAIL_VARS(<<B:W/binary>>, [{'B',B}|Vars]).
 
-not_used(doc) ->
-    "Test that constructed binaries that are not used will still give an exception.";
+%% Test that constructed binaries that are not used will still give an exception.
 not_used(Config) when is_list(Config) ->
     ?line ok = not_used1(3, <<"dum">>),
     ?line {'EXIT',{badarg,_}} = (catch not_used1(3, "dum")),
@@ -469,7 +462,7 @@ in_guard(Bin, A, B) when <<A:14,B/float,3:2>> == Bin -> 3;
 in_guard(Bin, A, B) when {a,b,<<A:14,B/float,3:2>>} == Bin -> cant_happen;
 in_guard(_, _, _) -> nope.
 
-mem_leak(doc) -> "Make sure that construction has no memory leak";
+%% Make sure that construction has no memory leak.
 mem_leak(Config) when is_list(Config) ->
     ?line B = make_bin(16, <<0>>),
     ?line mem_leak(1024, B),

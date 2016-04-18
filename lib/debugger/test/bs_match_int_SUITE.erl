@@ -142,7 +142,7 @@ dynamic(Bin, S1, S2, A, B) ->
 	_Other -> erlang:error(badmatch, [Bin,S1,S2,A,B])
     end.
 
-more_dynamic(doc) -> "Extract integers at different alignments and of different sizes.";
+%% Extract integers at different alignments and of different sizes.
 more_dynamic(Config) when is_list(Config) ->
 
     % Unsigned big-endian numbers.

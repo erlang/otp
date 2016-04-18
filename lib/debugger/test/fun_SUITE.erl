@@ -75,9 +75,7 @@ good_call(Config) when is_list(Config) ->
     ?line ok = FF(),
     ok.
 
-bad_apply(doc) ->
-    "Test that the correct EXIT code is returned for all types of bad funs.";
-bad_apply(suite) -> [];
+%% Test that the correct EXIT code is returned for all types of bad funs.
 bad_apply(Config) when is_list(Config) ->
     ?line bad_apply_fc(42, [0]),
     ?line bad_apply_fc(xx, [1]),
@@ -115,9 +113,7 @@ bad_apply_badarg(Fun, Args) ->
 	    ct:fail({bad_result, Other})
     end.
 
-bad_fun_call(doc) ->
-    "Try directly calling bad funs.";
-bad_fun_call(suite) -> [];
+%% Try directly calling bad funs.
 bad_fun_call(Config) when is_list(Config) ->
     ?line bad_call_fc(42),
     ?line bad_call_fc(xx),
@@ -213,10 +209,7 @@ ext_badarity(Config) when is_list(Config) ->
 nothing() ->
     ok.
 
-otp_6061(suite) ->
-    [];
-otp_6061(doc) ->
-    ["Test handling of fun expression referring to uninterpreted code"];
+%% Test handling of fun expression referring to uninterpreted code.
 otp_6061(Config) when is_list(Config) ->
 
     ?line OrigFlag = process_flag(trap_exit, true),

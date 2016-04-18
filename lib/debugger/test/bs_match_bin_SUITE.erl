@@ -60,7 +60,7 @@ init_per_suite(Config) when is_list(Config) ->
 end_per_suite(Config) when is_list(Config) ->
     ok.
 
-byte_split_binary(doc) -> "Tries to split a binary at all byte-aligned positions.";
+%% Tries to split a binary at all byte-aligned positions.
 byte_split_binary(Config) when is_list(Config) ->
     ?line L = lists:seq(0, 57),
     ?line B = mkbin(L),
@@ -77,7 +77,7 @@ byte_split(L, B, Pos) when Pos >= 0 ->
     ?line byte_split(L, B, Pos-1);
 byte_split(_, _, _) -> ok.
 
-bit_split_binary(doc) -> "Tries to split a binary at all positions.";
+%% Tries to split a binary at all positions.
 bit_split_binary(Config) when is_list(Config) ->
     Fun = fun(Bin, List, SkipBef, N) ->
 		  ?line SkipAft = 8*size(Bin) - N - SkipBef,

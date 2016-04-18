@@ -52,8 +52,7 @@ end_per_group(_GroupName, Config) ->
 
 
 
-otp2163(doc) -> ["BIF exit reason"];
-otp2163(suite) -> [];
+%% BIF exit reason.
 otp2163(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
@@ -75,8 +74,7 @@ otp2163(Config) when is_list(Config) ->
     ok.
 
 
-otp4845(doc) -> ["BIF not loading and not bug compatible, OTP-4845 OTP-4859"];
-otp4845(suite) -> [];
+%% BIF not loading and not bug compatible, OTP-4845 OTP-4859.
 otp4845(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 

@@ -73,10 +73,7 @@ end_per_testcase(_Case, _Config) ->
     ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
     ok.
 
-bifs_outside_erlang(doc) ->
-    "Test that BIFs outside the erlang module are correctly evaluated.";
-bifs_outside_erlang(suite) ->
-    [];
+%% Test that BIFs outside the erlang module are correctly evaluated.
 bifs_outside_erlang(Config) when is_list(Config) ->
     Fun = fun() ->
 		  Id = ?IM:ets_new(),
@@ -90,25 +87,16 @@ bifs_outside_erlang(Config) when is_list(Config) ->
     ?line ok = spawn_eval(Fun),
     ok.
 
-spawning(doc) ->
-    "Try evalutate spawn_link/3.";
-spawning(suite) ->
-    [];
+%% Try evalutate spawn_link/3.
 spawning(Config) when is_list(Config) ->
     ?line ok = spawn_eval(fun() -> ?IM:spawn_test() end).
 
-applying(doc) ->
-    "Try various sorts of applies.";
-applying(suite) ->
-    [];
+%% Try various sorts of applies.
 applying(Config) when is_list(Config) ->
     Fun = fun({number,X}, {number,Y}) -> X+Y end,
     ?line ok = spawn_eval(fun() -> ?IM:apply_test(Fun) end).
 
-catch_and_throw(doc) ->
-    "Test catch and throw/1.";
-catch_and_throw(suite) ->
-    [];
+%% Test catch and throw/1.
 catch_and_throw(Config) when is_list(Config) ->
     {a,ball} = spawn_eval(fun() -> ok = ?IM:catch_a_ball(),
 				   catch ?IM:throw_a_ball() end),
@@ -149,17 +137,11 @@ catch_and_throw(Config) when is_list(Config) ->
     ?line {b, ball} = (catch {error, ?IM:more_nocatch(fun(_) -> throw({b,ball}) end)}),
     ok.
 
-external_call(doc) ->
-    "Test external calls.";
-external_call(suite) ->
-    [];
+%% Test external calls.
 external_call(Config) when is_list(Config) ->
     ?line ok = spawn_eval(fun() -> ?IM:external_call_test({some,stupid,data}) end).
 
-test_module_info(doc) ->
-    "Test the module_info/0,1 functions.";
-test_module_info(suite) ->
-    [];
+%% Test the module_info/0,1 functions.
 test_module_info(Config) when is_list(Config) ->
     ?line ModInfo = ?IM:module_info(),
     ?line {value,{exports,Exp}} = lists:keysearch(exports, 1, ModInfo),
@@ -179,9 +161,7 @@ test_module_info(Config) when is_list(Config) ->
 
     ok.
 
-apply_interpreted_fun(doc) ->
-    "Apply a fun defined in interpreted code.";
-apply_interpreted_fun(suite) -> [];
+%% Apply a fun defined in interpreted code.
 apply_interpreted_fun(Config) when is_list(Config) ->
 
     %% Called from uninterpreted code
@@ -224,9 +204,7 @@ apply_interpreted_fun(Config) when is_list(Config) ->
 
     ok.
 
-apply_uninterpreted_fun(doc) ->
-    "Apply a fun defined outside interpreted code.";
-apply_uninterpreted_fun(suite) -> [];
+%% Apply a fun defined outside interpreted code.
 apply_uninterpreted_fun(Config) when is_list(Config) ->
 
     ?line F1 = fun(snape) ->
@@ -267,8 +245,7 @@ interpreted_exit(Config) when is_list(Config) ->
 	  end,
     ok.
 
-otp_8310(doc) ->
-    "OTP-8310. Bugfixes lc/bc and andalso/orelse.";
+%% OTP-8310. Bugfixes lc/bc and andalso/orelse.
 otp_8310(Config) when is_list(Config) ->
     ?line ok = ?IM:otp_8310(),
     ok.
