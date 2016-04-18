@@ -62,11 +62,11 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 app_test(Config) when is_list(Config) ->
-    ?line ?t:app_test(debugger),
+    test_server:app_test(debugger),
     ok.
 
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(debugger).
+    ok = test_server:appup_test(debugger).
 
 erts_debug(Config) when is_list(Config) ->
     c:l(erts_debug),
