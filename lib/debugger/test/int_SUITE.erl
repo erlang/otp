@@ -126,10 +126,10 @@ append_1(suite) ->
 append_1(doc) ->
     [];
 append_1(Config) when is_list(Config) ->
-    ?line test_server:format("In append_1~n"),
-    ?line test_server:format("code:which(lists1)=~p~n",
+    io:format("In append_1~n"),
+    io:format("code:which(lists1)=~p~n",
 			     [code:which(lists1)]),
-    ?line test_server:format("lists1:append([a],[b])=~p~n",
+    io:format("lists1:append([a],[b])=~p~n",
 			     [spawn_eval(lists1,append,[[a],[b]])]),
 
     ?line "abcdef"=spawn_eval(lists1,append,[["abc","def"]]),
@@ -143,8 +143,8 @@ append_2(suite) ->
 append_2(doc) ->
     [];
 append_2(Config) when is_list(Config) ->
-    ?line test_server:format("In append_2~n"),
-    ?line test_server:format("code:which(lists1)=~p~n",
+    io:format("In append_2~n"),
+    io:format("code:which(lists1)=~p~n",
 			     [code:which(lists1)]),
 
     ?line "abcdef"=spawn_eval(lists1,append,["abc", "def"]),
