@@ -127,6 +127,8 @@
                 solvers     = []                :: [solver()]
 	       }).
 
+-type state() :: #state{}.
+
 %%-----------------------------------------------------------------------------
 
 -define(TYPE_LIMIT, 4).
@@ -312,7 +314,7 @@ traverse(Tree, DefinedVars, State) ->
       Hd = cerl:cons_hd(Tree),
       Tl = cerl:cons_tl(Tree),
       {State1, [HdVar, TlVar]} = traverse_list([Hd, Tl], DefinedVars, State),
-      case cerl:is_literal(cerl:fold_literal(Tree)) of
+      case cerl:is_literal(fold_literal_maybe_match(Tree, State)) of
 	true ->
 	  %% We do not need to do anything more here.
 	  {State, t_cons(HdVar, TlVar)};
@@ -448,7 +450,7 @@ traverse(Tree, DefinedVars, State) ->
       Elements = cerl:tuple_es(Tree),
       {State1, EVars} = traverse_list(Elements, DefinedVars, State),
       {State2, TupleType} =
-	case cerl:is_literal(cerl:fold_literal(Tree)) of
+	case cerl:is_literal(fold_literal_maybe_match(Tree, State1)) of
 	  true ->
 	    %% We do not need to do anything more here.
 	    {State, t_tuple(EVars)};
@@ -2056,7 +2058,7 @@ sane_maps(Map1, Map2, Keys, _S1, _S2) ->
 %% Solver v2
 
 -record(v2_state, {constr_data = dict:new() :: dict:dict(),
-                   state :: #state{}}).
+		   state :: state()}).
 
 v2_solve_ref(Fun, Map, State) ->
   V2State = #v2_state{state = State},
@@ -3429,6 +3431,15 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
   find_constraint(Tuple, List ++ Cs);
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
+
+-spec fold_literal_maybe_match(cerl:tree(), state()) -> cerl:tree().
+
+fold_literal_maybe_match(Tree0, State) ->
+  Tree1 = cerl:fold_literal(Tree0),
+  case state__is_in_match(State) of
+    false -> Tree1;
+    true -> dialyzer_utils:refold_pattern(Tree1)
+  end.
 
 lookup_record(Records, Tag, Arity) ->
   case erl_types:lookup_record(Tag, Arity, Records) of
