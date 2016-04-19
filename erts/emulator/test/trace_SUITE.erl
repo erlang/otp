@@ -32,6 +32,7 @@
 	 suspend_system_limit/1, suspend_opts/1, suspend_waiting/1,
 	 new_clear/1, existing_clear/1,
 	 set_on_spawn/1, set_on_first_spawn/1, cpu_timestamp/1,
+	 set_on_link/1, set_on_first_link/1,
 	 system_monitor_args/1, more_system_monitor_args/1,
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
@@ -54,7 +55,8 @@ all() ->
      mutual_suspend, suspend_exit, suspender_exit,
      suspend_system_limit, suspend_opts, suspend_waiting,
      new_clear, existing_clear, set_on_spawn,
-     set_on_first_spawn, system_monitor_args,
+     set_on_first_spawn, set_on_link, set_on_first_link,
+     system_monitor_args,
      more_system_monitor_args, system_monitor_long_gc_1,
      system_monitor_long_gc_2, system_monitor_large_heap_1,
      system_monitor_long_schedule,
@@ -500,6 +502,51 @@ set_on_first_spawn(Config) when is_list(Config) ->
     false = is_send_traced(Child3, Listener, child3),
     receive_nothing(),
     ok.
+
+%% Tests trace(Pid, How, [set_on_link]).
+
+set_on_link(Config) ->
+    Listener = fun_spawn(fun process/0),
+
+    %% Create and trace a process with the set_on_link flag.
+    %% Make sure it is traced.
+    Father_SOL = fun_spawn(fun process/0),
+    1 = erlang:trace(Father_SOL, true, [send, set_on_link]),
+    true = is_send_traced(Father_SOL, Listener, sol_father),
+
+    %% Have the process spawn of two children and test that they
+    %% are traced.
+    [Child1, Child2] = spawn_children(Father_SOL, 2),
+    true = is_send_traced(Child1, Listener, child1),
+    true = is_send_traced(Child2, Listener, child2),
+
+    %% Second generation.
+    [Child11, Child12] = spawn_children(Child1, 2),
+    true = is_send_traced(Child11, Listener, child11),
+    true = is_send_traced(Child12, Listener, child12),
+    ok.
+
+%% Tests trace(Pid, How, [set_on_first_spawn]).
+
+set_on_first_link(Config) ->
+    ct:timetrap({seconds, 10}),
+    Listener = fun_spawn(fun process/0),
+
+    %% Create and trace a process with the set_on_first_spawn flag.
+    %% Make sure it is traced.
+    Parent = fun_spawn(fun process/0),
+    1 = erlang:trace(Parent, true, [send, set_on_first_link]),
+    is_send_traced(Parent, Listener, sol_father),
+
+    %% Have the process spawn off three children and test that the
+    %% first is traced.
+    [Child1, Child2, Child3] = spawn_children(Parent, 3),
+    true = is_send_traced(Child1, Listener, child1),
+    false = is_send_traced(Child2, Listener, child2),
+    false = is_send_traced(Child3, Listener, child3),
+    receive_nothing(),
+    ok.
+
 
 
 %% Tests arguments to erlang:system_monitor/0,1,2
