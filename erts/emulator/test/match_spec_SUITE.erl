@@ -597,16 +597,15 @@ ms_trace3(Config) when is_list(Config) ->
       end),
     ok.
 
-ms_trace_dead(doc) ->
-    ["Test that a dead tracer is removed using ms"];
-ms_trace_dead(suite) -> [];
-ms_trace_dead(Config) when is_list(Config) ->
+%% Test that a dead tracer is removed using ms
+ms_trace_dead(_Config) ->
     Self = self(),
     TFun = fun F() -> receive M -> Self ! M, F() end end,
     {Tracer, MRef} = spawn_monitor(TFun),
     MetaTracer = spawn_link(TFun),
     erlang:trace_pattern({?MODULE, f1, '_'},
-                         [{'_',[],[{trace,[],
+                         [{'_',[],[{message, false},
+                                   {trace,[],
                                     [call,{const,{tracer,Tracer}}]}]}],
                          [{meta, MetaTracer}]),
     erlang:trace_pattern({?MODULE, f2, '_'}, []),
@@ -623,8 +622,6 @@ ms_trace_dead(Config) when is_list(Config) ->
     ?MODULE:f2(3,4),
     TRef = erlang:trace_delivered(all),
     receive {trace_delivered, _, TRef} -> ok end,
-    receive {trace_ts, Self, call, {?MODULE, f1, _}, _} -> ok end,
-    receive {trace_ts, Self, call, {?MODULE, f1, _}, _} -> ok end,
     receive M -> ct:fail({unexpected, M}) after 10 -> ok end.
 
 %% Test that destructive operations in test bif does not really happen

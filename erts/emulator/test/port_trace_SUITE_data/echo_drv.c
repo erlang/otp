@@ -217,6 +217,8 @@ static ErlDrvSSizeT echo_drv_control(ErlDrvData drv_data,
 				     char *buf, ErlDrvSizeT len,
 				     char **rbuf, ErlDrvSizeT rlen)
 {
+    if ((len - 1) > rlen)
+        *rbuf = driver_alloc(len - 1);
     memcpy(*rbuf, buf+1, len-1);
     return len-1;
 }
@@ -232,6 +234,8 @@ static ErlDrvSSizeT echo_drv_call(ErlDrvData drv_data,
                                   char **rbuf, ErlDrvSizeT rlen,
                                   unsigned int *flags)
 {
+    if ((len - command) > rlen)
+        *rbuf = driver_alloc(len - command);
     memcpy(*rbuf, buf+command, len-command);
     return len-command;
 }

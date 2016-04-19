@@ -1860,6 +1860,8 @@ trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
         }
 
         data = TUPLE2(hp, caller, data);
+        hp += 3;
+        ASSERT(hp <= (local_heap + LOCAL_HEAP_SIZE) || orig_hp);
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif,
                            am_receive, data, THE_NON_VALUE);
 
