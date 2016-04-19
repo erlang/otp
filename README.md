@@ -91,7 +91,7 @@ Copyright and License
 
 
    [1]: http://www.erlang.org
-   [2]: http://wiki.github.com/erlang/otp/submitting-patches
+   [2]: http://wiki.github.com/erlang/otp/contribution-guidelines
    [3]: http://www.erlang.org/static/doc/mailinglist.html
    [4]: http://erlang.github.com/otp/
    [5]: HOWTO/INSTALL.md
