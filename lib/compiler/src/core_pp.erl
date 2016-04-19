@@ -84,6 +84,9 @@ maybe_anno(Node, Fun, Ctxt, List) ->
 
 format_anno([_|_]=List, Ctxt) ->
     [$[,format_anno_list(List, Ctxt),$]];
+format_anno({file,Name}, _Ctxt) ->
+    %% Optimization: Reduces file size considerably.
+    io_lib:format("{'file',~p}", [Name]);
 format_anno(Tuple, Ctxt) when is_tuple(Tuple) ->
     [${,format_anno_list(tuple_to_list(Tuple), Ctxt),$}];
 format_anno(Val, Ctxt) when is_atom(Val) ->
