@@ -784,7 +784,7 @@ badmap_term(_Map, #core{in_guard=true}) ->
     %% since it is not user-visible.
     #c_literal{val=badmap};
 badmap_term(Map, #core{in_guard=false}) ->
-    #c_tuple{es=[#c_literal{val=badmap},Map]}.
+    c_tuple([#c_literal{val=badmap},Map]).
 
 map_build_pairs(Map, Es0, Ann, St0) ->
     {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
