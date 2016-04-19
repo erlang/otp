@@ -216,6 +216,7 @@ handle_event(EventType, EventContent, State, Data) ->
     <code type="erl"><![CDATA[
 -module(code_lock).
 -behaviour(gen_statem).
+-define(NAME, code_lock).
 
 -export([start_link/1]).
 -export([button/1]).
@@ -223,10 +224,10 @@ handle_event(EventType, EventContent, State, Data) ->
 -export([locked/3,open/3]).
 
 start_link(Code) ->
-    gen_statem:start_link({local,code_lock}, ?MODULE, Code, []).
+    gen_statem:start_link({local,?NAME}, ?MODULE, Code, []).
 
 button(Digit) ->
-    gen_statem:cast(code_lock, {button,Digit}).
+    gen_statem:cast(?NAME, {button,Digit}).
 
 
 init(Code) ->
@@ -278,7 +279,7 @@ code_change(_Vsn, State, Data, _Extra) ->
     </p>
     <code type="erl"><![CDATA[
 start_link(Code) ->
-    gen_statem:start_link({local,code_lock}, ?MODULE, Code, []).
+    gen_statem:start_link({local,?NAME}, ?MODULE, Code, []).
     ]]></code>
     <p>
       <c>start_link</c> calls the function
@@ -290,9 +291,9 @@ start_link(Code) ->
     <list type="bulleted">
       <item>
         <p>
-	  The first argument, <c>{local,code_lock}</c>, specifies
+	  The first argument, <c>{local,?NAME}</c>, specifies
           the name.  In this case, the <c>gen_statem</c> is locally
-	  registered as <c>code_lock</c>.
+	  registered as <c>code_lock</c> through the macro <c>?NAME</c>.
 	</p>
         <p>
 	  If the name is omitted, the <c>gen_statem</c> is not registered.
@@ -394,11 +395,12 @@ init(Code) ->
     </p>
     <code type="erl"><![CDATA[
 button(Digit) ->
-    gen_statem:cast(code_lock, {button,Digit}).
+    gen_statem:cast(?NAME, {button,Digit}).
     ]]></code>
     <p>
-      <c>code_lock</c> is the name of the <c>gen_statem</c> and must
-      agree with the name used to start it.
+      The first argument is the name of the <c>gen_statem</c> and must
+      agree with the name used to start it so therefore we use the
+      same macro <c>?NAME</c> as when starting.
       <c>{button,Digit}</c> is the actual event content.
     </p>
     <p>
@@ -495,7 +497,7 @@ open(timeout, _,  Data) ->
 ...
 
 code_length() ->
-    gen_statem:call(code_lock, code_length).
+    gen_statem:call(?NAME, code_length).
 
 ...
 locked(...) -> ... ;
@@ -627,7 +629,7 @@ terminate(_Reason, State, _Data) ->
 
 ...
 stop() ->
-    gen_statem:stop(code_lock).
+    gen_statem:stop(?NAME).
       ]]></code>
       <p>
 	This makes the <c>gen_statem</c> call the <c>terminate/3</c>
@@ -882,18 +884,19 @@ open(cast, {button,_}, Data) ->
       </p>
     <code type="erl"><![CDATA[
 -module(code_lock).
+-define(NAME, code_lock_1).
 -export([start_link/1,button/1]).
 
 start_link(Code) ->
     spawn(
       fun () ->
-	      true = register(code_lock, self()),
+	      true = register(?NAME, self()),
 	      do_lock(),
 	      locked(Code, Code)
       end).
 
 button(Digit) ->
-    code_lock ! {button,Digit}.
+    ?NAME ! {button,Digit}.
 
 locked(Code, [Digit|Remaining]) ->
     receive
@@ -1049,6 +1052,7 @@ enter(Tag, State, Data) ->
       <code type="erl"><![CDATA[
 -module(code_lock).
 -behaviour(gen_statem).
+-define(NAME, code_lock_2).
 
 -export([start_link/1,stop/0]).
 -export([button/1,code_length/0]).
@@ -1056,14 +1060,14 @@ enter(Tag, State, Data) ->
 -export([locked/3,open/3]).
 
 start_link(Code) ->
-    gen_statem:start_link({local,code_lock}, ?MODULE, Code, []).
+    gen_statem:start_link({local,?NAME}, ?MODULE, Code, []).
 stop() ->
-    gen_statem:stop(code_lock).
+    gen_statem:stop(?NAME).
 
 button(Digit) ->
-    gen_statem:cast(code_lock, {button,Digit}).
+    gen_statem:cast(?NAME, {button,Digit}).
 code_length() ->
-    gen_statem:call(code_lock, code_length).
+    gen_statem:call(?NAME, code_length).
 
 init(Code) ->
     Data = #{code => Code},
