@@ -126,6 +126,7 @@
 	 %% keep map exports here for now
 	 c_map_pattern/1,
 	 is_c_map/1,
+	 is_c_map_pattern/1,
 	 map_es/1,
 	 map_arg/1,
 	 update_c_map/3,
@@ -1635,6 +1636,11 @@ ann_c_map_pattern(As, Pairs) ->
 is_c_map_empty(#c_map{ es=[] }) -> true;
 is_c_map_empty(#c_literal{val=M}) when is_map(M),map_size(M) =:= 0 -> true;
 is_c_map_empty(_) -> false.
+
+-spec is_c_map_pattern(c_map()) -> boolean().
+
+is_c_map_pattern(#c_map{is_pat=IsPat}) ->
+    IsPat.
 
 -spec ann_c_map([term()], [c_map_pair()]) -> c_map() | c_literal().
 
