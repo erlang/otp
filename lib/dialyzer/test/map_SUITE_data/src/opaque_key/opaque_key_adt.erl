@@ -29,20 +29,20 @@ mt0() -> #{#{} => 3}.
 -spec s0() -> s(atom()).
 s0() -> #{}.
 
--spec s1() -> s(atom()). %% No contract breakage (bad warning)
+-spec s1() -> s(atom()).
 s1() -> #{3 => a}.
 
 -spec s2() -> s(atom() | 3).
-s2() -> #{3 => a}. %% Contract breakage
+s2() -> #{3 => a}. %% Contract breakage (not found)
 
 -spec s3() -> s(atom() | 3).
 s3() -> #{3 => 5, a => 6, 7 => 8}.
 
 -spec s4() -> s(integer()).
-s4() -> #{1 => a}. %% Actual contract breakage (good warning)
+s4() -> #{1 => a}. %% Contract breakage
 
 -spec s5() -> s(1).
-s5() -> #{2 => 3}. %% Contract breakage (not found)
+s5() -> #{2 => 3}. %% Contract breakage
 
 -spec s6() -> s(1).
 s6() -> #{1 => 3}.
@@ -50,7 +50,7 @@ s6() -> #{1 => 3}.
 -spec s7() -> s(integer()).
 s7() -> #{1 => 3}.
 
--spec sm1() -> sm(1). %% No contract breakage (bad warning)
+-spec sm1() -> sm(1).
 sm1() -> #{1 => 2, 3 => a}.
 
 -spec smt1() -> smt(1).
