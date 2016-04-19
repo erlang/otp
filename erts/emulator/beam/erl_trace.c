@@ -629,6 +629,7 @@ do { \
 #  define GET_NOW(m, s, u) do {get_now(m, s, u);} while (0)
 #endif
 
+
 static void
 write_sys_msg_to_port(Eterm unused_to,
 		      Port* trace_port,
@@ -1685,41 +1686,6 @@ profile_scheduler(Eterm scheduler_id, Eterm state) {
     /* Write timestamp in element 6 of the 'msg' tuple */
     hp[-1] = write_ts(erts_system_profile_ts_type, hp, bp, NULL);
 
-#ifndef ERTS_SMP
-    profile_send(NIL, msg);
-    UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
-#undef LOCAL_HEAP_SIZE
-#else
-    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, NIL, NIL, msg, bp);
-#endif
-    erts_smp_mtx_unlock(&smq_mtx);
-
-}
-
-void
-profile_scheduler_q(Eterm scheduler_id, Eterm state, Eterm no_schedulers, Uint Ms, Uint s, Uint us) {
-    Eterm *hp, msg, timestamp;
-    
-#ifndef ERTS_SMP	
-#define LOCAL_HEAP_SIZE (4 + 7)
-    DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
-    UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
-
-    hp = local_heap;
-#else    
-    ErlHeapFragment *bp;
-    Uint hsz;
-
-    hsz = 4 + 7;
-	
-    bp = new_message_buffer(hsz);
-    hp = bp->mem;
-#endif
-
-    erts_smp_mtx_lock(&smq_mtx);
-
-    timestamp = TUPLE3(hp, make_small(Ms), make_small(s), make_small(us)); hp += 4;
-    msg = TUPLE6(hp, am_profile, am_scheduler, scheduler_id, state, no_schedulers, timestamp); hp += 7;
 #ifndef ERTS_SMP
     profile_send(NIL, msg);
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);

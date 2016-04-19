@@ -71,41 +71,6 @@
 #define HAVE_MALLOPT 0
 #endif
 
-/* profile_scheduler mini message queue */
-
-typedef struct {
-    Uint scheduler_id;
-    Uint no_schedulers;
-    Uint Ms;
-    Uint s;
-    Uint us;
-    Eterm state;
-} profile_sched_msg;
-
-typedef struct {
-    profile_sched_msg msg[2];
-    Uint n;
-} profile_sched_msg_q;
-
-#ifdef ERTS_SMP
-
-#if 0 /* Unused */
-static void 
-dispatch_profile_msg_q(profile_sched_msg_q *psmq)
-{
-    int i = 0;
-    profile_sched_msg *msg = NULL;
-    ASSERT(psmq != NULL);
-    for (i = 0; i < psmq->n; i++) {
-        msg = &(psmq->msg[i]);
-	profile_scheduler_q(make_small(msg->scheduler_id), msg->state, am_undefined, msg->Ms, msg->s, msg->us);
-    }
-}
-#endif
-
-#endif
-
-
 Eterm*
 erts_heap_alloc(Process* p, Uint need, Uint xtra)
 {
