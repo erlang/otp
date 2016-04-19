@@ -1651,7 +1651,7 @@ t_map(Pairs0, DefK0, DefV0) ->
       false -> {DefK1, DefV0}
     end,
   {Pairs1, DefK, DefV}
-    = case t_is_singleton(DefK2) of
+    = case is_singleton_type(DefK2) of
 	true  -> {mapdict_insert({DefK2, ?opt, DefV1}, Pairs0), ?none, ?none};
 	false -> {Pairs0,                                       DefK2, DefV1}
       end,
@@ -1684,12 +1684,12 @@ normalise_map_optionals([E|T], DefK, DefV) ->
 
 validate_map_elements([{_,?mand,?none}|_]) -> error({badarg, none_in_mand});
 validate_map_elements([{K1,_,_}|Rest=[{K2,_,_}|_]]) ->
-  case t_is_singleton(K1) andalso K1 < K2 of
+  case is_singleton_type(K1) andalso K1 < K2 of
     false -> error(badarg);
     true -> validate_map_elements(Rest)
   end;
 validate_map_elements([{K,_,_}]) ->
-  case t_is_singleton(K) of
+  case is_singleton_type(K) of
     false -> error(badarg);
     true -> true
   end;
@@ -1841,7 +1841,7 @@ map_put({Key, Value}, ?map(Pairs,DefK,DefV), Opaques) ->
   case t_is_none_or_unit(Key) orelse t_is_none_or_unit(Value) of
     true -> ?none;
     false ->
-      case t_is_singleton(Key) of
+      case is_singleton_type(Key) of
 	true ->
 	  t_map(mapdict_store({Key, ?mand, Value}, Pairs), DefK, DefV);
 	false ->
@@ -1888,7 +1888,7 @@ map_get(Key, ?map(Pairs, DefK, DefV)) ->
       false -> t_none();
       true -> DefV
     end,
-  case t_is_singleton(Key) of
+  case is_singleton_type(Key) of
     false ->
       lists:foldl(fun({K, _, V}, Res) ->
 		      case t_do_overlap(K, Key) of
@@ -1918,7 +1918,7 @@ t_map_is_key(Key, Map, Opaques) ->
 
 map_is_key(_, ?none) -> ?none;
 map_is_key(Key, ?map(Pairs, DefK, _DefV)) ->
-  case t_is_singleton(Key) of
+  case is_singleton_type(Key) of
     true ->
       case lists:keyfind(Key, 1, Pairs) of
 	{Key, ?mand, _}     -> t_atom(true);
@@ -2275,7 +2275,8 @@ t_from_term(T) when is_integer(T) ->   t_integer(T);
 t_from_term(T) when is_map(T) ->
   Pairs = [{t_from_term(K), ?mand, t_from_term(V)}
 	   || {K, V} <- maps:to_list(T)],
-  {Stons, Rest} = lists:partition(fun({K,_,_}) -> t_is_singleton(K) end, Pairs),
+  {Stons, Rest} = lists:partition(fun({K,_,_}) -> is_singleton_type(K) end,
+				  Pairs),
   {DefK, DefV}
     = lists:foldl(fun({K,_,V},{AK,AV}) -> {t_sup(K,AK), t_sup(V,AV)} end,
 		  {t_none(), t_none()}, Rest),
@@ -4987,7 +4988,7 @@ map_from_form([{SKey,MNess,Val}|SPairs], ShdwPs0, MKs0, Pairs0, DefK0, DefV0) ->
      true -> ok
   end,
   {Pairs, DefK, DefV} =
-    case t_is_singleton(Key) of
+    case is_singleton_type(Key) of
       true ->
 	MNess1 = case Val =:= ?none of true -> ?opt; false -> MNess end,
 	{mapdict_insert({Key,MNess1,Val}, Pairs0), DefK0, DefV0};
