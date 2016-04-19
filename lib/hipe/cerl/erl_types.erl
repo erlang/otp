@@ -3694,7 +3694,7 @@ t_subtract_list(T, []) ->
 -spec t_subtract(erl_type(), erl_type()) -> erl_type().
 
 t_subtract(_, ?any) -> ?none;
-t_subtract(_, ?var(_)) -> ?none;
+t_subtract(T, ?var(_)) -> T;
 t_subtract(?any, _) -> ?any;
 t_subtract(?var(_) = T, _) -> T;
 t_subtract(T, ?unit) -> T;
