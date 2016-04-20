@@ -2653,6 +2653,8 @@ find_field(_F, []) -> error.
 %%    Attr :: 'type' | 'opaque'
 %% Checks that a type definition is valid.
 
+-dialyzer({no_match, type_def/6}).
+
 type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
     TypeDefs = St0#lint.types,
     Arity = length(Args),
