@@ -367,20 +367,22 @@ enum ErtsTracerOpt {
     TRACE_FUN_T_SEND    = 2,
     TRACE_FUN_T_RECEIVE = 3,
     TRACE_FUN_T_CALL    = 4,
-    TRACE_FUN_T_RUNNING = 5,
-    TRACE_FUN_T_GC      = 6,
-    TRACE_FUN_T_PROCS   = 7,
-    TRACE_FUN_T_PORTS   = 8,
-    TRACE_FUN_E_SEND    = 9,
-    TRACE_FUN_E_RECEIVE = 10,
-    TRACE_FUN_E_CALL    = 11,
-    TRACE_FUN_E_RUNNING = 12,
-    TRACE_FUN_E_GC      = 13,
-    TRACE_FUN_E_PROCS   = 14,
-    TRACE_FUN_E_PORTS   = 15
+    TRACE_FUN_T_SCHED_PROC = 5,
+    TRACE_FUN_T_SCHED_PORT = 6,
+    TRACE_FUN_T_GC      = 7,
+    TRACE_FUN_T_PROCS   = 8,
+    TRACE_FUN_T_PORTS   = 9,
+    TRACE_FUN_E_SEND    = 10,
+    TRACE_FUN_E_RECEIVE = 11,
+    TRACE_FUN_E_CALL    = 12,
+    TRACE_FUN_E_SCHED_PROC = 13,
+    TRACE_FUN_E_SCHED_PORT = 14,
+    TRACE_FUN_E_GC      = 15,
+    TRACE_FUN_E_PROCS   = 16,
+    TRACE_FUN_E_PORTS   = 17
 };
 
-#define NIF_TRACER_TYPES (16)
+#define NIF_TRACER_TYPES (18)
 
 
 static ERTS_INLINE int
@@ -768,7 +770,7 @@ trace_sched_aux(Process *p, ErtsProcLocks locks, Eterm what)
 	break;
     }
 
-    if (!is_tracer_enabled(p, locks, &p->common, &tnif, TRACE_FUN_E_RUNNING, what))
+    if (!is_tracer_enabled(p, locks, &p->common, &tnif, TRACE_FUN_E_SCHED_PROC, what))
         return;
 
     if (ERTS_PROC_IS_EXITING(p))
@@ -787,7 +789,7 @@ trace_sched_aux(Process *p, ErtsProcLocks locks, Eterm what)
 	hp += 4;
     }
 
-    send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_RUNNING,
+    send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_SCHED_PROC,
                        what, tmp, THE_NON_VALUE);
 }
 
@@ -2017,9 +2019,9 @@ trace_sched_ports_where(Port *t_p, Eterm what, Eterm where) {
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
 		       || erts_thr_progress_is_blocking());
     ERTS_SMP_CHK_NO_PROC_LOCKS;
-    if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_RUNNING, what))
+    if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_SCHED_PORT, what))
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id,
-                           tnif, TRACE_FUN_T_RUNNING,
+                           tnif, TRACE_FUN_T_SCHED_PORT,
                            what, where, THE_NON_VALUE);
 }
 
@@ -2603,9 +2605,13 @@ static void init_tracer_template(ErtsTracerNif *tnif) {
     tnif->tracers[TRACE_FUN_T_CALL].arity = 6;
     tnif->tracers[TRACE_FUN_T_CALL].cb    = NULL;
 
-    tnif->tracers[TRACE_FUN_T_RUNNING].name  = "trace_running";
-    tnif->tracers[TRACE_FUN_T_RUNNING].arity = 6;
-    tnif->tracers[TRACE_FUN_T_RUNNING].cb    = NULL;
+    tnif->tracers[TRACE_FUN_T_SCHED_PROC].name  = "trace_running_procs";
+    tnif->tracers[TRACE_FUN_T_SCHED_PROC].arity = 6;
+    tnif->tracers[TRACE_FUN_T_SCHED_PROC].cb    = NULL;
+
+    tnif->tracers[TRACE_FUN_T_SCHED_PORT].name  = "trace_running_ports";
+    tnif->tracers[TRACE_FUN_T_SCHED_PORT].arity = 6;
+    tnif->tracers[TRACE_FUN_T_SCHED_PORT].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_GC].name  = "trace_garbage_collection";
     tnif->tracers[TRACE_FUN_T_GC].arity = 6;
@@ -2632,9 +2638,13 @@ static void init_tracer_template(ErtsTracerNif *tnif) {
     tnif->tracers[TRACE_FUN_E_CALL].arity = 3;
     tnif->tracers[TRACE_FUN_E_CALL].cb    = NULL;
 
-    tnif->tracers[TRACE_FUN_E_RUNNING].name  = "enabled_running";
-    tnif->tracers[TRACE_FUN_E_RUNNING].arity = 3;
-    tnif->tracers[TRACE_FUN_E_RUNNING].cb    = NULL;
+    tnif->tracers[TRACE_FUN_E_SCHED_PROC].name  = "enabled_running_procs";
+    tnif->tracers[TRACE_FUN_E_SCHED_PROC].arity = 3;
+    tnif->tracers[TRACE_FUN_E_SCHED_PROC].cb    = NULL;
+
+    tnif->tracers[TRACE_FUN_E_SCHED_PORT].name  = "enabled_running_ports";
+    tnif->tracers[TRACE_FUN_E_SCHED_PORT].arity = 3;
+    tnif->tracers[TRACE_FUN_E_SCHED_PORT].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_E_GC].name  = "enabled_garbage_collection";
     tnif->tracers[TRACE_FUN_E_GC].arity = 3;
@@ -2780,7 +2790,7 @@ static ERTS_INLINE int
 send_to_tracer_nif_raw(Process *c_p, Process *tracee,
                        const ErtsTracer tracer, Uint tracee_flags,
                        Eterm t_p_id, ErtsTracerNif *tnif,
-                       enum ErtsTracerOpt topt_arg,
+                       enum ErtsTracerOpt topt,
                        Eterm tag, Eterm msg, Eterm extra, Eterm pam_result)
 {
     if (tnif || (tnif = lookup_tracer_nif(tracer)) != NULL) {
@@ -2788,7 +2798,8 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
         Eterm argv[6], local_heap[3+MAP_SIZE /* values */ + (MAP_SIZE+1 /* keys */)];
         flatmap_t *map = (flatmap_t*)(local_heap+(MAP_SIZE+1));
         Eterm *map_values = flatmap_get_values(map);
-        enum ErtsTracerOpt topt = (tnif->tracers[topt_arg].cb) ? topt_arg : TRACE_FUN_DEFAULT;
+
+        topt = (tnif->tracers[topt].cb) ? topt : TRACE_FUN_DEFAULT;
         ASSERT(topt < NIF_TRACER_TYPES);
 
         argv[0] = tag;
