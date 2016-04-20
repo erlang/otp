@@ -406,10 +406,6 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
                   ErtsTracerNif **tnif_ret,
                   enum ErtsTracerOpt topt, Eterm tag);
 
-#define SEND_TO_TRACER(c_p, tag, msg)                                 \
-    send_to_tracer_nif(c_p, &(c_p)->common, (c_p)->common.id, NULL,   \
-            TRACE_FUN_DEFAULT, tag, msg, THE_NON_VALUE)
-
 static Uint active_sched;
 
 void
@@ -966,7 +962,8 @@ erts_trace_return_to(Process *p, BeamInstr *pc)
 	mfa = TUPLE3(hp, code_ptr[0], code_ptr[1], make_small(code_ptr[2]));
     }
 
-    SEND_TO_TRACER(p, am_return_to, mfa);
+    send_to_tracer_nif(p, &p->common, p->common.id, NULL, TRACE_FUN_T_CALL,
+                       am_return_to, mfa, THE_NON_VALUE);
 }
 
 
