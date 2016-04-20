@@ -306,22 +306,11 @@ l2b([]) ->
 
 channel_data(ChannelId, DataType, Data, Connection, From)
   when is_list(Data)->
-    channel_data(ChannelId, DataType, 
-%%		 list_to_binary(Data), Connection, From);
-		 l2b(Data), Connection, From);
-		 %% try list_to_binary(Data)
-		 %% of
-		 %%     B -> B
-		 %% catch
-		 %%     _:_ -> io:format('BAD BINARY: ~p~n',[Data]),
-		 %% 	    unicode:characters_to_binary(Data)
-		 %% end,
-		 %% Connection, From);
+    channel_data(ChannelId, DataType, l2b(Data), Connection, From);
 
 channel_data(ChannelId, DataType, Data, 
 	     #connection{channel_cache = Cache} = Connection,
 	     From) ->
-    
     case ssh_channel:cache_lookup(Cache, ChannelId) of
 	#channel{remote_id = Id, sent_close = false} = Channel0 ->
 	    {SendList, Channel} =
@@ -338,8 +327,6 @@ channel_data(ChannelId, DataType, Data,
 	    {{replies, Replies ++ FlowCtrlMsgs}, Connection};
 	_ ->
 	    {{replies,[{channel_request_reply,From,{error,closed}}]}, Connection}
-	    %% gen_fsm:reply(From, {error, closed}),
-	    %% {noreply, Connection}
     end.
 
 handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId, 

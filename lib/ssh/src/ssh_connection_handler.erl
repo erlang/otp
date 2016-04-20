@@ -163,18 +163,19 @@ disconnect(Msg = #ssh_msg_disconnect{}, ExtraInfo) ->
 %%--------------------------------------------------------------------
 -spec open_channel(connection_ref(), 
 		   string(),
-		   binary(),
+		   iodata(),
 		   pos_integer(),
 		   pos_integer(),
 		   timeout()
-		  ) -> {ok, channel_id()} | {error, term()}.
+		  ) -> {open, channel_id()} | {error, term()}.
 		   
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 open_channel(ConnectionHandler, 
 	     ChannelType, ChannelSpecificData, InitialWindowSize, MaxPacketSize, 
 	     Timeout) ->
     call(ConnectionHandler,
-	 {open, self(), 
+	 {open, 
+	  self(), 
 	  ChannelType, InitialWindowSize, MaxPacketSize, ChannelSpecificData,
 	  Timeout}).
 
@@ -254,14 +255,14 @@ send_eof(ConnectionHandler, ChannelId) ->
 
 %%--------------------------------------------------------------------
 -spec info(connection_ref()
-	  ) -> [ #channel{} ].
+	  ) -> {ok, [#channel{}]} .
 
 -spec info(connection_ref(),
-	   pid()
-	  ) -> [ #channel{} ].
+	   pid() | all
+	  ) -> {ok, [#channel{}]} .
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 info(ConnectionHandler) ->
-    info(ConnectionHandler, {info, all}).
+    info(ConnectionHandler, all).
 
 info(ConnectionHandler, ChannelProcess) ->
     call(ConnectionHandler, {info, ChannelProcess}).
@@ -340,24 +341,30 @@ renegotiate_data(ConnectionHandler) ->
 %% Internal process state
 %%====================================================================
 -record(data, {
-	  starter                 :: pid(),
-	  auth_user               :: string(),
-	  connection_state        :: #connection{},
-	  latest_channel_id = 0   :: non_neg_integer(),
-	  idle_timer_ref          :: infinity | reference(),
-	  transport_protocol      :: atom(),	% ex: tcp
-	  transport_cb            :: atom(),	% ex: gen_tcp
-	  transport_close_tag     :: atom(),	% ex: tcp_closed
-	  ssh_params              :: #ssh{},
-	  socket                  :: inet:socket(),
-	  decrypted_data_buffer   :: binary(),
-	  encrypted_data_buffer   :: binary(),
-	  undecrypted_packet_length :: non_neg_integer(),
-	  key_exchange_init_msg   :: #ssh_msg_kexinit{},
-	  last_size_rekey = 0     :: non_neg_integer(),
-	  event_queue = []        :: list(),
-	  opts                    :: proplists:proplist(),
-	  recbuf_size             :: pos_integer()
+	  starter                               :: pid(),
+	  auth_user                             :: string()
+						 | undefined,
+	  connection_state                      :: #connection{},
+	  latest_channel_id         = 0         :: non_neg_integer(),
+	  idle_timer_ref                        :: undefined 
+						 | infinity
+						 | reference(),
+	  transport_protocol                    :: atom(),	% ex: tcp
+	  transport_cb                          :: atom(),	% ex: gen_tcp
+	  transport_close_tag                   :: atom(),	% ex: tcp_closed
+	  ssh_params                            :: #ssh{}
+						 | undefined,
+	  socket                                :: inet:socket(),
+	  decrypted_data_buffer     = <<>>      :: binary(),
+	  encrypted_data_buffer     = <<>>      :: binary(),
+	  undecrypted_packet_length             :: undefined | non_neg_integer(),
+	  key_exchange_init_msg                 :: #ssh_msg_kexinit{}
+						 | undefined,
+	  last_size_rekey           = 0         :: non_neg_integer(),
+	  event_queue               = []        :: list(),
+	  opts                                  :: proplists:proplist(),
+	  inet_initial_recbuf_size              :: pos_integer()
+						 | undefined
 	 }).
 
 %%====================================================================
@@ -381,19 +388,20 @@ init_connection_handler(Role, Socket, Opts) ->
 		 transport_close_tag = CloseTag
 		}
     of
-	S -> gen_statem:enter_loop(?MODULE,
-				   [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
-				   handle_event_function,
-				   {hello,Role},
-				   S,
-				   [])
+	S ->
+	    gen_statem:enter_loop(?MODULE,
+				  [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
+				  handle_event_function,
+				  {hello,Role},
+				  S)
     catch
-	_:Error -> init_error(Error, S0)
+	_:Error ->
+	    gen_statem:enter_loop(?MODULE,
+				  [],
+				  handle_event_function,
+				  {init_error,Error},
+				  S0)
     end.
-
-
-init_error(Error, S) ->
-    gen_statem:enter_loop(?MODULE, [], handle_event_function, {init_error,Error}, S, []).
 
 
 init_process_state(Role, Socket, Opts) ->
@@ -405,8 +413,6 @@ init_process_state(Role, Socket, Opts) ->
 				   options = Opts},
 	       starter = proplists:get_value(user_pid, Opts),
 	       socket = Socket,
-	       decrypted_data_buffer = <<>>,
-	       encrypted_data_buffer = <<>>,
 	       opts = Opts
 	      },
     case Role of
@@ -509,7 +515,7 @@ init_ssh_record(Role, Socket, Opts) ->
 		   
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-%%% ######## Error in the initialiasation ####
+%%% ######## Error in the initialisation ####
 
 handle_event(_, _Event, {init_error,Error}, _) ->
     case Error of
@@ -540,7 +546,7 @@ handle_event(_, socket_control, {hello,_}, D) ->
 				  % be max ?MAX_PROTO_VERSION bytes:
 				  {recbuf, ?MAX_PROTO_VERSION},
 				  {nodelay,true}]),
-	    {keep_state, D#data{recbuf_size=Size}};
+	    {keep_state, D#data{inet_initial_recbuf_size=Size}};
 	{error, Reason} ->
 	    {stop, {shutdown,Reason}}
     end;
@@ -567,7 +573,7 @@ handle_event(_, {version_exchange,Version}, {hello,Role}, D) ->
 	    inet:setopts(D#data.socket, [{packet,0},
 					 {mode,binary},
 					 {active, once},
-					 {recbuf, D#data.recbuf_size}]),
+					 {recbuf, D#data.inet_initial_recbuf_size}]),
 	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh1),
 	    ok = send_bytes(SshPacket, D),
 	    {next_state, {kexinit,Role,init}, D#data{ssh_params = Ssh,
@@ -1029,10 +1035,17 @@ handle_event({call,From}, {channel_info,ChannelId,Options}, _, D) ->
 	    {keep_state_and_data, [{reply,From,[]}]}
     end;
 
+
+handle_event({call,From}, {info, all}, _, D) ->
+    Result = ssh_channel:cache_foldl(fun(Channel, Acc) ->
+					     [Channel | Acc]
+				     end,
+				     [], cache(D)),
+    {keep_state_and_data, [{reply, From, {ok,Result}}]};
+    
 handle_event({call,From}, {info, ChannelPid}, _, D) ->
     Result = ssh_channel:cache_foldl(
-	       fun(Channel, Acc) when ChannelPid == all;
-				      Channel#channel.user == ChannelPid ->
+	       fun(Channel, Acc) when Channel#channel.user == ChannelPid ->
 		       [Channel | Acc];
 		  (_, Acc) ->
 		       Acc
@@ -1073,15 +1086,11 @@ handle_event({call,From}, {global_request, Pid, _, _, _} = Request, {connected,_
     {keep_state, D};
 
 handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, {connected,_}, D0) ->
-    case ssh_connection:channel_data(ChannelId, Type, Data, D0#data.connection_state, From) of
-	{{replies, Replies}, Connection} ->
-	    {Repls,D} = send_replies(Replies, D0#data{connection_state = Connection}),
-	    start_timeout(ChannelId, From, Timeout),
-	    {keep_state, D, Repls};
-	{noreply, Connection} ->
-	    start_timeout(ChannelId, From, Timeout),
-	    {keep_state, D0#data{connection_state = Connection}}
-    end;
+    {{replies, Replies}, Connection} =
+	ssh_connection:channel_data(ChannelId, Type, Data, D0#data.connection_state, From),
+    {Repls,D} = send_replies(Replies, D0#data{connection_state = Connection}),
+    start_timeout(ChannelId, From, Timeout),
+    {keep_state, D, Repls};
 
 handle_event({call,From}, {eof, ChannelId}, {connected,_}, D0) ->
     case ssh_channel:cache_lookup(cache(D0), ChannelId) of
@@ -1148,19 +1157,17 @@ handle_event({call,From}, {close, ChannelId}, {connected,_}, D0) ->
 
 
 %%===== Reception of encrypted bytes, decryption and framing
-handle_event(info, {Protocol, Socket, "SSH-" ++ _ = Version}, {hello,_},
-	     #data{socket = Socket,
-		   transport_protocol = Protocol}) ->
-    {keep_state_and_data, [{next_event, internal, {version_exchange,Version}}]};
+handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
+							 transport_protocol = Proto}) ->
+    case Info of
+	"SSH-" ++ _ ->  
+	    {keep_state_and_data, [{next_event, internal, {version_exchange,Info}}]};
+	_ ->
+	    {keep_state_and_data, [{next_event, internal, {info_line,Info}}]}
+    end;
 
-handle_event(info, {Protocol, Socket, Info}, {hello,_},
-	     #data{socket = Socket,
-		   transport_protocol = Protocol}) ->
-    {keep_state_and_data, [{next_event, internal, {info_line,Info}}]};
-
-handle_event(info, {Protocol, Socket, NewData}, StateName,
-	     D0 = #data{socket = Socket,
-			transport_protocol = Protocol}) ->
+handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
+								 transport_protocol = Proto}) ->
     try ssh_transport:handle_packet_part(
 	  D0#data.decrypted_data_buffer,
 	  <<(D0#data.encrypted_data_buffer)/binary, NewData/binary>>,
@@ -1174,7 +1181,7 @@ handle_event(info, {Protocol, Socket, NewData}, StateName,
 			undecrypted_packet_length = undefined,
 			encrypted_data_buffer = EncryptedDataRest},
 	    try
-		ssh_message:decode(set_prefix_if_trouble(DecryptedBytes,D))
+		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D))
 	    of
 		Msg = #ssh_msg_kexinit{} ->
 		    {keep_state, D, [{next_event, internal, {Msg,DecryptedBytes}},
@@ -1194,7 +1201,7 @@ handle_event(info, {Protocol, Socket, NewData}, StateName,
 	{get_more, DecryptedBytes, EncryptedDataRest, RemainingSshPacketLen, Ssh1} ->
 	    %% Here we know that there are not enough bytes in
 	    %% EncryptedDataRest to use. We must wait for more.
-	    inet:setopts(Socket, [{active, once}]),
+	    inet:setopts(Sock, [{active, once}]),
 	    {keep_state, D0#data{encrypted_data_buffer = EncryptedDataRest,
 				 decrypted_data_buffer = DecryptedBytes,
 				 undecrypted_packet_length = RemainingSshPacketLen,
@@ -1354,48 +1361,55 @@ terminate(Reason, StateName, State0) ->
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-format_status(normal, [_, _StateName, State]) ->
-    [{data, [{"State", State}]}];
-format_status(terminate, [_, _StateName, State]) ->
-    Ssh0 = (State#data.ssh_params),
-    Ssh = Ssh0#ssh{c_keyinit = "***",
-		   s_keyinit = "***",
-		   send_mac_key = "***",
-		   send_mac_size =  "***",
-		   recv_mac_key = "***",
-		   recv_mac_size = "***",
-		   encrypt_keys = "***",
-		   encrypt_ctx = "***",
-		   decrypt_keys = "***",
-		   decrypt_ctx = "***",
-		   compress_ctx = "***",
-		   decompress_ctx = "***",
-		   shared_secret =  "***",
-		   exchanged_hash =  "***",
-		   session_id =  "***",
-		   keyex_key =  "***",
-		   keyex_info = "***",
-		   available_host_keys = "***"},
-    [{data, [{"State", State#data{decrypted_data_buffer = "***",
-				  encrypted_data_buffer =  "***",
-				  key_exchange_init_msg = "***",
-				  opts =  "***",
-				  recbuf_size =  "***",
-				  ssh_params = Ssh
-				 }}]}].
+format_status(normal, [_, _StateName, D]) ->
+    [{data, [{"State", D}]}];
+format_status(terminate, [_, _StateName, D]) ->
+    DataPropList0 = fmt_stat_rec(record_info(fields, data), D,
+				 [decrypted_data_buffer,
+				  encrypted_data_buffer,
+				  key_exchange_init_msg,
+				  opts,
+				  inet_initial_recbuf_size]),
+    SshPropList = fmt_stat_rec(record_info(fields, ssh), D#data.ssh_params,
+			       [c_keyinit,
+				s_keyinit,
+				send_mac_key,
+				send_mac_size,
+				recv_mac_key,
+				recv_mac_size,
+				encrypt_keys,
+				encrypt_ctx,
+				decrypt_keys,
+				decrypt_ctx,
+				compress_ctx,
+				decompress_ctx,
+				shared_secret,
+				exchanged_hash,
+				session_id,
+				keyex_key,
+				keyex_info,
+				available_host_keys]),
+    DataPropList = lists:keyreplace(ssh_params, 1, DataPropList0,
+				    {ssh_params,SshPropList}),
+    [{data, [{"State", DataPropList}]}].
 
+
+fmt_stat_rec(FieldNames, Rec, Exclude) ->
+    Values = tl(tuple_to_list(Rec)),
+    [P || {K,_} = P <- lists:zip(FieldNames, Values),
+	  not lists:member(K, Exclude)].
 
 %%--------------------------------------------------------------------
--spec code_change(term(),
+-spec code_change(term() | {down,term()},
 		  state_name(),
 		  #data{},
 		  term()
-		 ) -> {ok, state_name(), #data{}}.
+		 ) -> {gen_statem:callback_mode(), state_name(), #data{}}.
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 code_change(_OldVsn, StateName, State, _Extra) ->
-    {ok, StateName, State}.
+    {handle_event_function, StateName, State}.
 
 
 %%====================================================================
@@ -1577,7 +1591,7 @@ handle_connection_msg(Msg, StateName, State0 =
     end.
 
 
-set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams})
+set_kex_overload_prefix(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams})
   when Op == 30;
        Op == 31
        ->
@@ -1591,7 +1605,7 @@ set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams})
 	_ ->
 	    Msg
     end;
-set_prefix_if_trouble(Msg, _) ->
+set_kex_overload_prefix(Msg, _) ->
     Msg.
 
 kex(#ssh{algorithms=#alg{kex=Kex}}) -> Kex;

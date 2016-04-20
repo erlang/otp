@@ -37,7 +37,7 @@ print() ->
     io:format("~s", [string()]).
 
 print(File) when is_list(File) ->
-    {ok,D} = file:open(File, write),
+    {ok,D} = file:open(File, [write]),
     print(D),
     file:close(D);
 print(D) ->
