@@ -3351,6 +3351,13 @@ if test X${enable_hipe} = Xyes; then
      AC_DEFINE(HIPE,[1],[Define to enable HiPE])
      HIPE_HELPERS="xmerl syntax_tools edoc"
      ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS hipe"
+     case "$ARCH" in
+	  amd64)
+		# For now exec_alloc is only used for hipe on amd64
+		AC_MSG_NOTICE([Enable exec_alloc for hipe code allocation])
+		ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS exec_alloc"
+		;;
+     esac
   fi
 fi
 AC_SUBST(HIPE_HELPERS)

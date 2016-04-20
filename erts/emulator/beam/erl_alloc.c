@@ -30,6 +30,7 @@
 #endif
 #define ERTS_ALLOC_C__
 #define ERTS_ALC_INTERNAL__
+#define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #define ERL_THREADS_EMU_INTERNAL__
 #include "erl_threads.h"
@@ -131,6 +132,9 @@ static ErtsAllocatorState_t ets_alloc_state;
 static ErtsAllocatorState_t driver_alloc_state;
 static ErtsAllocatorState_t fix_alloc_state;
 static ErtsAllocatorState_t literal_alloc_state;
+#ifdef ERTS_ALC_A_EXEC
+static ErtsAllocatorState_t exec_alloc_state;
+#endif
 static ErtsAllocatorState_t test_alloc_state;
 
 typedef struct {
@@ -216,6 +220,7 @@ typedef struct {
     struct au_init driver_alloc;
     struct au_init fix_alloc;
     struct au_init literal_alloc;
+    struct au_init exec_alloc;
     struct au_init test_alloc;
 } erts_alc_hndl_args_init_t;
 
@@ -307,9 +312,9 @@ set_default_literal_alloc_opts(struct au_init *ip)
     ip->init.util.name_prefix	= "literal_";
     ip->init.util.alloc_no	= ERTS_ALC_A_LITERAL;
 #ifndef SMALL_MEMORY
-    ip->init.util.mmbcs 	= 2*1024*1024; /* Main carrier size */
+    ip->init.util.mmbcs 	= 1024*1024; /* Main carrier size */
 #else
-    ip->init.util.mmbcs 	= 1*1024*1024; /* Main carrier size */
+    ip->init.util.mmbcs 	= 256*1024; /* Main carrier size */
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_LITERAL;
     ip->init.util.asbcst	= 0;
@@ -329,14 +334,47 @@ set_default_literal_alloc_opts(struct au_init *ip)
     ip->init.util.sys_dealloc  = &erts_alcu_literal_32_sys_dealloc;
 #elif defined(ARCH_64)
 # ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
-    ip->init.util.mseg_alloc    = &erts_alcu_literal_64_mseg_alloc;
-    ip->init.util.mseg_realloc  = &erts_alcu_literal_64_mseg_realloc;
-    ip->init.util.mseg_dealloc  = &erts_alcu_literal_64_mseg_dealloc;
+    ip->init.util.mseg_alloc    = &erts_alcu_mmapper_mseg_alloc;
+    ip->init.util.mseg_realloc  = &erts_alcu_mmapper_mseg_realloc;
+    ip->init.util.mseg_dealloc  = &erts_alcu_mmapper_mseg_dealloc;
+    ip->init.util.mseg_mmapper  = &erts_literal_mmapper;
 # endif
 #else
 # error Unknown architecture
 #endif
 }
+
+#ifdef ERTS_ALC_A_EXEC
+static void
+set_default_exec_alloc_opts(struct au_init *ip)
+{
+    SET_DEFAULT_ALLOC_OPTS(ip);
+    ip->enable			= 1;
+    ip->thr_spec		= 0;
+    ip->disable_allowed         = 0;
+    ip->thr_spec_allowed        = 0;
+    ip->carrier_migration_allowed = 0;
+    ip->atype			= BESTFIT;
+    ip->init.bf.ao		= 1;
+    ip->init.util.ramv		= 0;
+    ip->init.util.mmsbc		= 0;
+    ip->init.util.sbct		= ~((UWord) 0);
+    ip->init.util.name_prefix	= "exec_";
+    ip->init.util.alloc_no	= ERTS_ALC_A_EXEC;
+    ip->init.util.mmbcs 	= 0; /* No main carrier */
+    ip->init.util.ts 		= ERTS_ALC_MTA_EXEC;
+    ip->init.util.asbcst	= 0;
+    ip->init.util.rsbcst	= 0;
+    ip->init.util.rsbcmt	= 0;
+    ip->init.util.rmbcmt	= 0;
+    ip->init.util.acul		= 0;
+
+    ip->init.util.mseg_alloc    = &erts_alcu_mmapper_mseg_alloc;
+    ip->init.util.mseg_realloc  = &erts_alcu_mmapper_mseg_realloc;
+    ip->init.util.mseg_dealloc  = &erts_alcu_mmapper_mseg_dealloc;
+    ip->init.util.mseg_mmapper  = &erts_exec_mmapper;
+}
+#endif /* ERTS_ALC_A_EXEC */
 
 static void
 set_default_temp_alloc_opts(struct au_init *ip)
@@ -659,6 +697,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_default_fix_alloc_opts(&init.fix_alloc,
 			       fix_type_sizes);
     set_default_literal_alloc_opts(&init.literal_alloc);
+#ifdef ERTS_ALC_A_EXEC
+    set_default_exec_alloc_opts(&init.exec_alloc);
+#endif
     set_default_test_alloc_opts(&init.test_alloc);
 
     if (argc && argv)
@@ -688,6 +729,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.driver_alloc.thr_spec = 0;
     init.fix_alloc.thr_spec = 0;
     init.literal_alloc.thr_spec = 0;
+#ifdef ERTS_ALC_A_EXEC
+    init.exec_alloc.thr_spec = 0;
+#endif
 #endif
 
     /* Make adjustments for carrier migration support */
@@ -701,6 +745,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_carrier_migration_support(&init.driver_alloc);
     adjust_carrier_migration_support(&init.fix_alloc);
     adjust_carrier_migration_support(&init.literal_alloc);
+#ifdef ERTS_ALC_A_EXEC
+    adjust_carrier_migration_support(&init.exec_alloc);
+#endif
 
     if (init.erts_alloc_config) {
 	/* Adjust flags that erts_alloc_config won't like */
@@ -716,6 +763,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	init.driver_alloc.thr_spec = 0;
 	init.fix_alloc.thr_spec = 0;
         init.literal_alloc.thr_spec = 0;
+#ifdef ERTS_ALC_A_EXEC
+        init.exec_alloc.thr_spec = 0;
+#endif
 
 	/* No carrier migration */
 	init.temp_alloc.init.util.acul = 0;
@@ -728,6 +778,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	init.driver_alloc.init.util.acul = 0;
 	init.fix_alloc.init.util.acul = 0;
         init.literal_alloc.init.util.acul = 0;
+#ifdef ERTS_ALC_A_EXEC
+        init.exec_alloc.init.util.acul = 0;
+#endif
     }
 
 #ifdef ERTS_SMP
@@ -745,6 +798,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_tpref(&init.driver_alloc, erts_no_schedulers);
     adjust_tpref(&init.fix_alloc, erts_no_schedulers);
     adjust_tpref(&init.literal_alloc, erts_no_schedulers);
+#ifdef ERTS_ALC_A_EXEC
+    adjust_tpref(&init.exec_alloc, erts_no_schedulers);
+#endif
 
 #else
     /* No thread specific if not smp */
@@ -764,6 +820,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     refuse_af_strategy(&init.driver_alloc);
     refuse_af_strategy(&init.fix_alloc);
     refuse_af_strategy(&init.literal_alloc);
+#ifdef ERTS_ALC_A_EXEC
+    refuse_af_strategy(&init.exec_alloc);
+#endif
 
 #ifdef ERTS_SMP 
     if (!init.temp_alloc.thr_spec)
@@ -808,6 +867,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_au_allocator(ERTS_ALC_A_DRIVER, &init.driver_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_FIXED_SIZE, &init.fix_alloc, ncpu);
     set_au_allocator(ERTS_ALC_A_LITERAL, &init.literal_alloc, ncpu);
+#ifdef ERTS_ALC_A_EXEC
+    set_au_allocator(ERTS_ALC_A_EXEC, &init.exec_alloc, ncpu);
+#endif
     set_au_allocator(ERTS_ALC_A_TEST, &init.test_alloc, ncpu);
 
     for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
@@ -864,7 +926,11 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     start_au_allocator(ERTS_ALC_A_LITERAL,
                        &init.literal_alloc,
                        &literal_alloc_state);
-
+#ifdef ERTS_ALC_A_EXEC
+    start_au_allocator(ERTS_ALC_A_EXEC,
+                       &init.exec_alloc,
+                       &exec_alloc_state);
+#endif
     start_au_allocator(ERTS_ALC_A_TEST,
 		       &init.test_alloc,
 		       &test_alloc_state);
@@ -1499,6 +1565,16 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
                     else
                         handle_au_arg(&init->literal_alloc, &argv[i][3], argv, &i, 0);
 		    break;
+                case 'X':
+                    if (has_prefix("scs", argv[i]+3)) {
+#ifdef ERTS_ALC_A_EXEC
+                        init->mseg.exec_mmap.scs =
+#endif
+                            get_mb_value(argv[i]+6, argv, &i);
+                    }
+                    else
+                        handle_au_arg(&init->exec_alloc, &argv[i][3], argv, &i, 0);
+                    break;
 		case 'D':
 		    handle_au_arg(&init->std_alloc, &argv[i][3], argv, &i, 0);
 		    break;

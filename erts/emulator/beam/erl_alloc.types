@@ -87,6 +87,9 @@ allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
 allocator	LITERAL 	true		literal_alloc
++if exec_alloc
+allocator	EXEC     	true	        exec_alloc
++endif
 
 +else # Non smp build
 
@@ -98,6 +101,9 @@ allocator	EHEAP		false		eheap_alloc
 allocator	ETS		false		ets_alloc
 allocator	FIXED_SIZE	false		fix_alloc
 allocator	LITERAL 	false		literal_alloc
++if exec_alloc
+allocator	EXEC     	false	        exec_alloc
++endif
 
 +endif
 
@@ -338,7 +344,13 @@ type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 # Currently most hipe code use this type.
 type	HIPE		SYSTEM		SYSTEM		hipe_data
 
++if exec_alloc
+type	HIPE_EXEC	EXEC            CODE		hipe_code
 +endif
+
++endif
+
+
 
 +if heap_frag_elim_test
 

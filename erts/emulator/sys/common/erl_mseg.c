@@ -31,6 +31,7 @@
 #  include "config.h"
 #endif
 
+#define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_mseg.h"
 #include "global.h"
@@ -1402,9 +1403,15 @@ erts_mseg_init(ErtsMsegInit_t *init)
 
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
 
-    erts_mmap_init(&erts_dflt_mmapper, &init->dflt_mmap);
+#ifdef ERTS_ALC_A_EXEC
+    /* Initialize erts_exec_mapper *FIRST*, to increase probability
+     * of getting low memory for HiPE AMD64's small code model.
+     */
+    erts_mmap_init(&erts_exec_mmapper, &init->exec_mmap, 1);
+#endif
+    erts_mmap_init(&erts_dflt_mmapper, &init->dflt_mmap, 0);
 #if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
-    erts_mmap_init(&erts_literal_mmapper, &init->literal_mmap);
+    erts_mmap_init(&erts_literal_mmapper, &init->literal_mmap, 0);
 #endif
 
     if (!IS_2POW(GET_PAGE_SIZE))

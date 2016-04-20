@@ -63,6 +63,9 @@
       <tag><c>fix_alloc</c></tag>
       <item>A fast allocator used for some frequently used
        fixed size data types.</item>
+      <tag><c>exec_alloc</c></tag>
+      <item>Allocator used by hipe for native executable code
+      on specific architectures (x86_64).</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated via any of
        the other allocators described above.</item>
@@ -80,7 +83,8 @@
        the number of system calls made.</item>
     </taglist>
     <p><c>sys_alloc</c> and <c>literal_alloc</c> are always enabled and
-      cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
+      cannot be disabled. <c>exec_alloc</c> is only available if it is needed
+      and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
       By default all allocators are enabled.
@@ -248,16 +252,17 @@
       the currently present allocators:</p>
     <list type="bulleted">
       <item><c>B: binary_alloc</c></item>
-      <item><c>I: literal_alloc</c></item>
       <item><c>D: std_alloc</c></item>
       <item><c>E: ets_alloc</c></item>
       <item><c>F: fix_alloc</c></item>
       <item><c>H: eheap_alloc</c></item>
+      <item><c>I: literal_alloc</c></item>
       <item><c>L: ll_alloc</c></item>
       <item><c>M: mseg_alloc</c></item>
       <item><c>R: driver_alloc</c></item>
       <item><c>S: sl_alloc</c></item>
       <item><c>T: temp_alloc</c></item>
+      <item><c>X: exec_alloc</c></item>
       <item><c>Y: sys_alloc</c></item>
     </list>
     <p>The following flags are available for configuration of
@@ -575,6 +580,15 @@
       Erlang code on 64-bit architectures. The default is 1024 (1GB)
       and is usually sufficient. The flag is ignored on 32-bit
       architectures.</item>
+    </taglist>
+    <p>The following flag is special for <c>exec_alloc</c>:</p>
+    <taglist>
+      <tag><marker id="MIscs"/><c><![CDATA[+MXscs <size in MB>]]></c></tag>
+      <item>
+      <c>exec_alloc</c> super carrier size (in MB). The amount of
+      <em>virtual</em> address space reserved for native executable code
+      used by hipe on specific architectures (x86_64). The default is 512 MB.
+      </item>
     </taglist>
     <p>Instrumentation flags:</p>
     <taglist>
