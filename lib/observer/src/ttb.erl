@@ -25,7 +25,8 @@
 -export([tracer/0,tracer/1,tracer/2,p/2,stop/0,stop/1,start_trace/4]).
 -export([get_et_handler/0]).
 -export([tp/2, tp/3, tp/4, ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, 
-	 ctpl/0, ctpl/1, ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3]).
+	 ctpl/0, ctpl/1, ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3,
+	 tpe/2, ctpe/1]).
 -export([seq_trigger_ms/0,seq_trigger_ms/1]).
 -export([write_trace_info/2]).
 -export([write_config/2,write_config/3,run_config/1,run_config/2,list_config/1]).
@@ -479,6 +480,11 @@ tpl(A,B,C,D) ->
     store(tpl,[A,B,C,ms(D)]),
     dbg:tpl(A,B,C,ms(D)).
 
+tpe(A,B) ->
+    ensure_no_overloaded_nodes(),
+    store(tpe,[A,ms(B)]),
+    dbg:tpe(A,ms(B)).
+
 ctp() ->
     store(ctp,[]),
     dbg:ctp().
@@ -517,6 +523,10 @@ ctpg(A,B) ->
 ctpg(A,B,C) ->
     store(ctpg,[A,B,C]),
     dbg:ctpg(A,B,C).
+
+ctpe(A) ->
+    store(ctpe,[A]),
+    dbg:ctpe(A).
 
 ms(return) ->
     [{'_',[],[{return_trace}]}];

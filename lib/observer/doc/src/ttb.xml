@@ -257,17 +257,23 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tp, tpl, ctp, ctpl, ctpg</name>
+      <name>tp, tpl, tpe, ctp, ctpl, ctpg, ctpe</name>
       <fsummary>Set and clear trace patterns.</fsummary>
       <desc>
-        <p>These functions are to be used with
-          trace flag <c>call</c> for setting and clearing trace
-          patterns. When trace flag <c>call</c> is set on a process,
+        <p>These functions are to be used with trace
+          flag <c>call</c>, <c>send</c>, and <c>'receive'</c> for
+          setting and clearing trace patterns.</p>
+	<p>When trace flag <c>call</c> is set on a process,
           function calls are traced on that process if a trace
-          pattern is set for the called function. Trace patterns
-          specify how to trace a function by using match
-          specifications. Match specifications are described in the
-          <seealso marker="erts:users_guide"><c>ERTS User's Guide</c></seealso>.
+          pattern is set for the called function.</p>
+	<p>The <c>send</c> and <c>'receive'</c> flags enable tracing
+	  of all messages sent and received by the process. Trace
+	  patterns set with <c>tpe</c> may limit traced messages based
+	  on the message content, the sender, and/or the receiver.</p>
+	<p>Trace patterns specify how to trace a function or a message
+          by using match specifications. Match specifications are
+          described in the
+          <seealso marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>.
           </p>
         <p>These functions are equivalent to the corresponding
           functions in module
@@ -284,6 +290,8 @@ ttb:p(all, call).</input></pre>
           <item><p>Sets trace patterns on global function calls.</p></item>
           <tag><c>tpl</c></tag>
           <item><p>Sets trace patterns on local and global function calls.</p></item>
+          <tag><c>tpe</c></tag>
+          <item><p>Sets trace patterns on messages.</p></item>
           <tag><c>ctp</c></tag>
           <item><p>Clears trace patterns on local and global function
            calls.</p></item>
@@ -291,13 +299,15 @@ ttb:p(all, call).</input></pre>
           <item><p>Clears trace patterns on local function calls.</p></item>
           <tag><c>ctpg</c></tag>
           <item><p>Clears trace patterns on global function calls.</p></item>
+          <tag><c>ctpe</c></tag>
+          <item><p>Clears trace patterns on messages.</p></item>
         </taglist>
         <p>With <c>tp</c> and <c>tpl</c>, one of the match specification shortcuts
           can be used (for example, <c>ttb:tp(foo_module, caller)</c>).</p>
 	  <p>The shortcuts are as follows:</p>
           <list type="bulleted">
             <item><c>return</c> - for <c>[{'_',[],[{return_trace}]}]</c>
-              (report the return value)</item>
+              (report the return value from a traced function)</item>
             <item><c>caller</c> - for <c>[{'_',[],[{message,{caller}}]}]</c>
               (report the calling function)</item>
             <item><c>{codestr, Str}</c> - for <c>dbg:fun2ms/1</c> arguments
