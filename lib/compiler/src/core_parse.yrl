@@ -196,9 +196,9 @@ tuple_pattern -> '{' anno_patterns '}' : c_tuple('$2').
 
 map_pattern -> '~' '{' '}' '~' : c_map_pattern([]).
 map_pattern -> '~' '{' map_pair_patterns '}' '~' :
-		   c_map_pattern(lists:sort('$3')).
+		   c_map_pattern('$3').
 map_pattern -> '~' '{' map_pair_patterns '|' anno_map_expr '}' '~' :
-		   ann_c_map_pattern('$5', lists:sort('$3')).
+		   ann_c_map_pattern('$5', '$3').
 
 map_pair_patterns -> map_pair_pattern : ['$1'].
 map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
