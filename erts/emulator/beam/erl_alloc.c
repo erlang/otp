@@ -2999,7 +2999,12 @@ erts_allocator_options(void *proc)
 #if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
     terms[length++] = am_atom_put("sys_aligned_alloc", 17);
 #endif
-
+#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+    terms[length++] = ERTS_MAKE_AM("literal_mmap");
+#endif
+#ifdef ERTS_ALC_A_EXEC
+    terms[length++] = ERTS_MAKE_AM("exec_mmap");
+#endif
     features = length ? erts_bld_list(hpp, szp, length, terms) : NIL;
 
 #if defined(__GLIBC__)
