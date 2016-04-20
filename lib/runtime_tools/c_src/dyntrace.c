@@ -177,6 +177,7 @@ static ERL_NIF_TERM atom_closed;
 
 static ERL_NIF_TERM atom_call;
 static ERL_NIF_TERM atom_return_from;
+static ERL_NIF_TERM atom_return_to;
 static ERL_NIF_TERM atom_exception_from;
 #endif
 
@@ -239,6 +240,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     atom_call = enif_make_atom(env,"call");
     atom_return_from = enif_make_atom(env,"return_from");
+    atom_return_to = enif_make_atom(env,"return_to");
     atom_exception_from = enif_make_atom(env,"exception_from");
 #endif
 
@@ -450,6 +452,18 @@ static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             LTTNG3(function_call, pid, undef, 0);
         }
     } else if (argv[0] == atom_return_from) {
+        const ERL_NIF_TERM* tuple;
+        int arity;
+        lttng_decl_mfabuf(mfa);
+
+        if (enif_get_tuple(env, argv[3], &arity, &tuple)) {
+            enif_get_uint(env, tuple[2], &len);
+            lttng_mfa_to_str(tuple[0], tuple[1], len, mfa);
+            LTTNG3(function_return, pid, mfa, 0);
+        } else {
+            LTTNG3(function_return, pid, undef, 0);
+        }
+    } else if (argv[0] == atom_return_to) {
         const ERL_NIF_TERM* tuple;
         int arity;
         lttng_decl_mfabuf(mfa);
