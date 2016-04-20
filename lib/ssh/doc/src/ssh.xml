@@ -241,6 +241,7 @@
            {server2client,['aes128-cbc','3des-cbc']}]},
   {mac,['hmac-sha2-256','hmac-sha1']},
   {compression,[none,zlib]}
+  ]
 }
 </code>
         <p>The example specifies different algorithms in the two directions (client2server and server2client),
