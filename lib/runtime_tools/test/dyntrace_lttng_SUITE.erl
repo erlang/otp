@@ -31,9 +31,12 @@
          t_running_process/1,
          t_running_port/1,
          t_call/1,
+         t_call_return_to/1,
+         t_call_silent/1,
          t_send/1,
          t_receive/1,
-         t_garbage_collection/1]).
+         t_garbage_collection/1,
+         t_all/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -46,10 +49,12 @@ all() ->
      t_running_process,
      t_running_port,
      t_call,
+     t_call_return_to,
+     t_call_silent,
      t_send,
      t_receive,
-     t_garbage_collection].
-
+     t_garbage_collection,
+     t_all].
 
 
 init_per_suite(Config) ->
@@ -92,6 +97,7 @@ end_per_testcase(Case, _Config) ->
 %%  com_ericsson_dyntrace:port_link
 %%  com_ericsson_dyntrace:port_exit
 %%  com_ericsson_dyntrace:port_open
+%%  com_ericsson_dyntrace:port_scheduled
 %%  com_ericsson_dyntrace:process_scheduled
 %%  com_ericsson_dyntrace:process_register
 %%  com_ericsson_dyntrace:process_exit
@@ -198,6 +204,46 @@ t_send(Config) when is_list(Config) ->
     ok = check_tracepoint("com_ericsson_dyntrace:message_send", Res),
     ok.
 
+t_call_return_to(Config) when is_list(Config) ->
+    ok = lttng_start_event("com_ericsson_dyntrace:function_*", Config),
+    _ = erlang:trace(new, true, [{tracer, dyntrace, []}, call, return_to]),
+    _ = erlang:trace_pattern({lists, '_', '_'}, true, [local]),
+    _ = erlang:trace_pattern({?MODULE, '_', '_'}, true, [local]),
+
+    Pid = spawn_link(fun() -> gcfier(10) end),
+    Pid ! {self(), ok},
+    ok = receive {Pid,ok} -> ok end,
+    timer:sleep(10),
+
+    _ = erlang:trace_pattern({?MODULE, '_', '_'}, false, [local]),
+    _ = erlang:trace_pattern({lists, '_', '_'}, false, [local]),
+    _ = erlang:trace(all, false, [call,return_to]),
+    Res = lttng_stop_and_view(Config),
+    ok = check_tracepoint("com_ericsson_dyntrace:function_call", Res),
+    ok.
+
+t_call_silent(Config) when is_list(Config) ->
+    ok = lttng_start_event("com_ericsson_dyntrace:function_*", Config),
+    _ = erlang:trace(new, true, [{tracer, dyntrace, []}, call, silent]),
+    _ = erlang:trace_pattern({?MODULE, '_', '_'}, [{'_',[],[{exception_trace}]}], [local]),
+
+    DontLink = spawn(fun() -> foo_clause_exception(nope) end),
+    Pid = spawn_link(fun() -> waiter() end),
+    Pid ! {self(), ok},
+    ok = receive {Pid,ok} -> ok end,
+
+    timer:sleep(10),
+    undefined = erlang:process_info(DontLink),
+
+    _ = erlang:trace_pattern({?MODULE, '_', '_'}, false, [local]),
+    _ = erlang:trace(all, false, [call]),
+    Res = lttng_stop_and_view(Config),
+    notfound = check_tracepoint("com_ericsson_dyntrace:function_call", Res),
+    notfound = check_tracepoint("com_ericsson_dyntrace:function_return", Res),
+    notfound = check_tracepoint("com_ericsson_dyntrace:function_exception", Res),
+    ok.
+
+
 t_receive(Config) when is_list(Config) ->
     ok = lttng_start_event("com_ericsson_dyntrace:message_receive", Config),
     _ = erlang:trace(new, true, [{tracer, dyntrace, []},'receive']),
@@ -227,12 +273,50 @@ t_garbage_collection(Config) when is_list(Config) ->
     ok = check_tracepoint("com_ericsson_dyntrace:gc_minor_end", Res),
     ok.
 
+t_all(Config) when is_list(Config) ->
+    ok = lttng_start_event("com_ericsson_dyntrace:*", Config),
+    _ = erlang:trace(new, true, [{tracer, dyntrace, []},all]),
+
+    Pid1 = spawn_link(fun() -> waiter() end),
+    Pid1 ! {self(), ok},
+    ok = receive {Pid1,ok} -> ok end,
+
+    Pid2 = spawn_link(fun() -> gcfier() end),
+    Pid2 ! {self(), ok},
+    ok = receive {Pid2,ok} -> ok end,
+    _ = os:cmd("ls"),
+    _ = os:cmd("ls"),
+    timer:sleep(10),
+
+    _ = erlang:trace(all, false, [all]),
+    Res = lttng_stop_and_view(Config),
+
+    ok = check_tracepoint("com_ericsson_dyntrace:process_spawn", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:process_link", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:process_exit", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:process_register", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:port_open", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:port_link", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:port_exit", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:process_scheduled", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:port_scheduled", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:message_send", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:message_receive", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:gc_major_start", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:gc_major_end", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:gc_minor_start", Res),
+    ok = check_tracepoint("com_ericsson_dyntrace:gc_minor_end", Res),
+    ok.
+
+
 %% aux
 
 gcfier() ->
+    gcfier(10000).
+gcfier(N) ->
     receive
         {Pid, ok} ->
-            _ = lists:reverse(lists:seq(1,10000)),
+            _ = lists:reverse(lists:seq(1,N)),
             true = erlang:garbage_collect(),
             Pid ! {self(), ok}
     end.
