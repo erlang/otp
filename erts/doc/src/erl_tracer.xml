@@ -114,11 +114,11 @@
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag">trace_tag()</seealso> | trace_status</v>
         <v>TracerState = term()</v>
-        <v>Tracee = <seealso marker="#type-trace_tag">tracee()</seealso></v>
+        <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
         <v>Result =  trace | discard | remove</v>
       </type>
       <desc>
-        <p>This callback will be called whenever a trace point is triggered. It
+        <p>This callback will be called whenever a tracepoint is triggered. It
         allows the tracer to decide whether a trace should be generated or not.
         This check is made as early as possible in order to limit the amount of
         overhead associated with tracing. If <c>trace</c> is returned the
@@ -132,7 +132,7 @@
         to check if the tracer should still be active. It is called in multiple
         scenarios, but most significantly it is used when tracing is started
         using this tracer.</p>
-        <p>This function may be called multiple times per trace point, so it
+        <p>This function may be called multiple times per tracepoint, so it
         is important that it is both fast and side effect free.</p>
       </desc>
     </func>
@@ -143,17 +143,17 @@
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag">trace_tag()</seealso></v>
         <v>TracerState = term()</v>
-        <v>Tracee = <seealso marker="#type-trace_tag">tracee()</seealso></v>
+        <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
         <v>FirstTraceTerm = term()</v>
         <v>SecondTraceTerm = term() | undefined</v>
         <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
         <v>Result =  ok</v>
       </type>
       <desc>
-        <p>This callback will be called when a trace point is triggered and
+        <p>This callback will be called when a tracepoint is triggered and
         the <seealso marker="#enabled">Module:enabled/3</seealso>
         callback returned <c>trace</c>. In it any side effects needed by
-        the tracer should be done. The trace point payload is located in
+        the tracer should be done. The tracepoint payload is located in
         the <c>FirstTraceTerm</c> and <c>SecondTraceTerm</c>. The content
         of the TraceTerms depends on which <c>TraceTag</c> has been triggered.
         The <c>FirstTraceTerm</c> and <c>SecondTraceTerm</c> correspond to the
@@ -282,7 +282,7 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifPid to_pid;
     if (enif_get_local_pid(env, argv[1], &amp;to_pid))
         if (!enif_is_process_alive(env, &amp;to_pid))
-            /* tracer is dead so we should remove this trace point */
+            /* tracer is dead so we should remove this tracepoint */
             return enif_make_atom(env, "remove");
 
     /* Only generate trace for when tracer != tracee */
