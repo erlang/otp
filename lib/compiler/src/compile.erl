@@ -1798,4 +1798,5 @@ pre_load() ->
 	 v3_core,
 	 v3_kernel,
 	 v3_life],
-    code:ensure_modules_loaded(L).
+    _ = code:ensure_modules_loaded(L),
+    ok.
