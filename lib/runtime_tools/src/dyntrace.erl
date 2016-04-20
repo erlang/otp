@@ -45,7 +45,8 @@
          trace/6,
          trace_procs/6,
          trace_ports/6,
-         trace_running/6,
+         trace_running_procs/6,
+         trace_running_ports/6,
          trace_call/6,
          trace_send/6,
          trace_receive/6,
@@ -53,7 +54,8 @@
 
 -export([enabled_procs/3,
          enabled_ports/3,
-         enabled_running/3,
+         enabled_running_procs/3,
+         enabled_running_ports/3,
          enabled_call/3,
          enabled_send/3,
          enabled_receive/3,
@@ -157,7 +159,10 @@ trace_procs(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm,
 trace_ports(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
-trace_running(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
+trace_running_procs(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_running_ports(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
     erlang:nif_error(nif_not_loaded).
 
 trace_call(_TraceTag, _TracerState, _Tracee, _FirstTraceTerm, _SecondTraceTerm, _Opts) ->
@@ -181,7 +186,10 @@ enabled_procs(_TraceTag, _TracerState, _Tracee) ->
 enabled_ports(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
-enabled_running(_TraceTag, _TracerState, _Tracee) ->
+enabled_running_procs(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_running_ports(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
 enabled_call(_TraceTag, _TracerState, _Tracee) ->

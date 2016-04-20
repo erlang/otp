@@ -196,6 +196,21 @@ TRACEPOINT_EVENT(
     )
 )
 
+TRACEPOINT_EVENT(
+    com_ericsson_dyntrace,
+    port_scheduled,
+    TP_ARGS(
+        char*, p,
+        char*, op,
+        char*, type
+    ),
+    TP_FIELDS(
+        ctf_string(pid, p)
+        ctf_string(entry, op)
+        ctf_string(type, type)
+    )
+)
+
 /* Call tracing */
 
 TRACEPOINT_EVENT(

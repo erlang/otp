@@ -72,7 +72,8 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 #ifdef HAVE_USE_LTTNG
 static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM trace_running_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -80,7 +81,8 @@ static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL
 
 static ERL_NIF_TERM enabled_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM enabled_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enabled_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enabled_running_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enabled_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -96,14 +98,16 @@ static ErlNifFunc nif_funcs[] = {
 #ifdef HAVE_USE_LTTNG
     {"trace_procs", 6, trace_procs},
     {"trace_ports", 6, trace_ports},
-    {"trace_running", 6, trace_running},
+    {"trace_running_procs", 6, trace_running_procs},
+    {"trace_running_ports", 6, trace_running_ports},
     {"trace_call", 6, trace_call},
     {"trace_send", 6, trace_send},
     {"trace_receive", 6, trace_receive},
     {"trace_garbage_collection", 6, trace_garbage_collection},
     {"enabled_procs", 3, enabled_procs},
     {"enabled_ports", 3, enabled_ports},
-    {"enabled_running", 3, enabled_running},
+    {"enabled_running_procs", 3, enabled_running_procs},
+    {"enabled_running_ports", 3, enabled_running_ports},
     {"enabled_call", 3, enabled_call},
     {"enabled_send", 3, enabled_send},
     {"enabled_receive", 3, enabled_receive},
@@ -677,7 +681,7 @@ static ERL_NIF_TERM trace_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return atom_ok;
 }
 
-static ERL_NIF_TERM enabled_running(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM enabled_running_procs(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     ASSERT(argc == 3);
 
@@ -687,15 +691,15 @@ static ERL_NIF_TERM enabled_running(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     return atom_discard;
 }
 
-static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM trace_running_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     lttng_decl_procbuf(pid);
     const ERL_NIF_TERM* tuple;
     char *mfastr = "undefined";
     int arity;
+    lttng_decl_mfabuf(mfa);
 
     lttng_pid_to_str(argv[2], pid);
-    lttng_decl_mfabuf(mfa);
 
     if (enif_get_tuple(env, argv[3], &arity, &tuple)) {
         int val;
@@ -703,8 +707,7 @@ static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         lttng_mfa_to_str(tuple[0], tuple[1], val, mfa);
         mfastr = mfa;
     }
-
-    /* running */
+    /* running processes */
     if (argv[0] == atom_in) {
         LTTNG3(process_scheduled, pid, mfastr, "in");
     } else if (argv[0] == atom_out) {
@@ -716,6 +719,41 @@ static ERL_NIF_TERM trace_running(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         LTTNG3(process_scheduled, pid, mfastr, "out_exiting");
     } else if (argv[0] == atom_out_exited) {
         LTTNG3(process_scheduled, pid, mfastr, "out_exited");
+    }
+
+    return atom_ok;
+}
+
+static ERL_NIF_TERM enabled_running_ports(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    ASSERT(argc == 3);
+
+    if (LTTNG_ENABLED(port_scheduled))
+        return atom_trace;
+
+    return atom_discard;
+}
+
+static ERL_NIF_TERM trace_running_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    lttng_decl_procbuf(pid);
+    lttng_decl_mfabuf(where);
+
+    lttng_portid_to_str(argv[2], pid);
+    erts_snprintf(where, LTTNG_BUFFER_SZ, "%T", argv[3]);
+
+    /* running  ports */
+    if (argv[0] == atom_in) {
+        LTTNG3(port_scheduled, pid, where, "in");
+    } else if (argv[0] == atom_out) {
+        LTTNG3(port_scheduled, pid, where, "out");
+        /* exiting */
+    } else if (argv[0] == atom_in_exiting) {
+        LTTNG3(port_scheduled, pid, where, "in_exiting");
+    } else if (argv[0] == atom_out_exiting) {
+        LTTNG3(port_scheduled, pid, where, "out_exiting");
+    } else if (argv[0] == atom_out_exited) {
+        LTTNG3(port_scheduled, pid, where, "out_exited");
     }
     return atom_ok;
 }
