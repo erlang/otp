@@ -31,7 +31,8 @@
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, encrypted_abstr/1,
 	 strict_record/1,
-	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
+	 missing_testheap/1, cover/1, env/1, core/1,
+	 core_roundtrip/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1
 	]).
@@ -50,7 +51,7 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, encrypted_abstr,
      strict_record,
-     missing_testheap, cover, env, core, asm,
+     missing_testheap, cover, env, core, core_roundtrip, asm,
      sys_pre_attributes, dialyzer, warnings, pre_load_check].
 
 groups() -> 
@@ -789,6 +790,120 @@ compile_forms(Forms, Opts) ->
 	{ok,[],_} ->  ok;
 	Other -> throw({error,Other})
     end.
+
+%% Pretty-print core and read it back. Should be identical.
+
+core_roundtrip(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Outdir = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME)),
+    ok = file:make_dir(Outdir),
+
+    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
+    TestBeams = filelib:wildcard(Wc),
+    test_lib:p_run(fun(F) -> do_core_roundtrip(F, Outdir) end, TestBeams).
+
+do_core_roundtrip(Beam, Outdir) ->
+    try
+	{ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
+	    beam_lib:chunks(Beam, [abstract_code]),
+	do_core_roundtrip_1(Mod, Abstr, Outdir)
+    catch
+	throw:{error,Error} ->
+	    io:format("*** compilation failure '~p' for file ~s\n",
+		      [Error,Beam]),
+	    error;
+	Class:Error ->
+	    io:format("~p: ~p ~p\n~p\n",
+		      [Beam,Class,Error,erlang:get_stacktrace()]),
+	    error
+    end.
+
+do_core_roundtrip_1(Mod, Abstr, Outdir) ->
+    {ok,Mod,Core0} = compile:forms(Abstr, [to_core0]),
+    do_core_roundtrip_2(Mod, Core0, Outdir),
+
+    %% Primarily, test that annotations are accepted for all
+    %% constructs. Secondarily, smoke test cerl_trees:label/1.
+    {Core,_} = cerl_trees:label(Core0),
+    do_core_roundtrip_2(Mod, Core, Outdir).
+
+do_core_roundtrip_2(M, Core0, Outdir) ->
+    CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
+    CorePP = core_pp:format_all(Core0),
+    ok = file:write_file(CoreFile, CorePP),
+
+    %% Parse the .core file and return the result as Core Erlang Terms.
+    Core2 = case compile:file(CoreFile, [report_errors,from_core,
+					 no_copt,to_core,binary]) of
+		{ok,M,Core1} -> Core1;
+		Other -> throw({error,Other})
+	    end,
+    Core = undo_var_translation(Core2),
+    ok = file:delete(CoreFile),
+
+    case cmp_core(Core0, Core, M) of
+	true -> ok;
+	false -> error
+    end,
+
+    ok.
+
+undo_var_translation(Tree) ->
+    F = fun(Node) ->
+		case cerl:is_c_var(Node) of
+		    true ->
+			Name0 = cerl:var_name(Node),
+			try atom_to_list(Name0) of
+			    "_X"++Name ->
+				cerl:update_c_var(Node, list_to_atom(Name));
+			    "_"++Name ->
+				cerl:update_c_var(Node, list_to_atom(Name));
+			    _ ->
+				Node
+			catch
+			    error:badarg ->
+				Node
+
+			end;
+		    false ->
+			Node
+		end
+	end,
+    cerl_trees:map(F, Tree).
+
+cmp_core(E, E, _Mod) ->
+    true;
+cmp_core(M1, M2, Mod) ->
+    cmp_core_fs(cerl:module_defs(M1), cerl:module_defs(M2), Mod).
+
+cmp_core_fs([F1|T1], [F2|T2], Mod) ->
+    cmp_core_f(F1, F2, Mod) andalso cmp_core_fs(T1, T2, Mod);
+cmp_core_fs([], [], _Mod) ->
+    true;
+cmp_core_fs(_, _, _Mod) ->
+    false.
+
+cmp_core_f(E, E, _Mod) ->
+    true;
+cmp_core_f({Name,F1}, {Name,F2}, Mod) ->
+    case diff(F1, F2) of
+	F1 ->
+	    true;
+	Diff ->
+	    io:format("~p ~p:\n~p\n", [Mod,Name,Diff]),
+	    false
+    end.
+
+diff(E, E) ->
+    E;
+diff([H1|T1], [H2|T2]) ->
+    [diff(H1, H2)|diff(T1, T2)];
+diff(T1, T2) when tuple_size(T1) =:= tuple_size(T2) ->
+    L = diff(tuple_to_list(T1), tuple_to_list(T2)),
+    list_to_tuple(L);
+diff(E1, E2) ->
+    {'DIFF',E1,E2}.
+
 
 %% Compile to Beam assembly language (.S) and then try to
 %% run .S through the compiler again.
