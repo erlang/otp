@@ -31,7 +31,9 @@
 
 -export([auto_attach/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [basic, cleanup].
@@ -53,38 +55,33 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line Mod = ordsets1,
-    ?line {module,Mod} = int:i(filename:join(DataDir, Mod)),
-    ?line ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
-    ?line Dog = test_server:timetrap(?t:minutes(0.5)),
-    [{watchdog,Dog}|Config].
+    DataDir = proplists:get_value(data_dir, Config),
+    Mod = ordsets1,
+    {module,Mod} = int:i(filename:join(DataDir, Mod)),
+    ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    ?line ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
-    ?line Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
+    ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
     ok.
 
-basic(doc) -> "Tests setting a few break points.";
-basic(suite) -> [];
+%% Tests setting a few break points.
 basic(Config) when list(Config) ->
-    ?line int:auto_attach([init], {?MODULE,auto_attach}),
-    ?line S1 = [] = ordsets1:new_set(),
-    ?line ok = i:ib(ordsets1, 86),
-    ?line S2 = [xxx] = ordsets1:add_element(xxx, S1),
-    ?line S3 = [xxx,y] = ordsets1:add_element(y, S2),
-    ?line ok = i:ib(ordsets1, union, 2),
-    ?line [xxx,y,z] = ordsets1:union(S3, [z]),
+    int:auto_attach([init], {?MODULE,auto_attach}),
+    S1 = [] = ordsets1:new_set(),
+    ok = i:ib(ordsets1, 86),
+    S2 = [xxx] = ordsets1:add_element(xxx, S1),
+    S3 = [xxx,y] = ordsets1:add_element(y, S2),
+    ok = i:ib(ordsets1, union, 2),
+    [xxx,y,z] = ordsets1:union(S3, [z]),
     All = [{{ordsets1,86}, _}, {{ordsets1,_},_}|_] = lists:sort(int:all_breaks()),
     [] = lists:sort(int:all_breaks(foobar)),
     All = lists:sort(int:all_breaks(ordsets1)),
     ok.
 
-cleanup(doc) -> "Make sure that the auto-attach flag is turned off.";
-cleanup(suite) -> [];
+%% Make sure that the auto-attach flag is turned off.
 cleanup(Config) when list(Config) ->
-    ?line int:auto_attach(false),
+    int:auto_attach(false),
     ok.
 
 auto_attach(Pid) ->

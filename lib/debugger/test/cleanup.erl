@@ -26,22 +26,21 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() -> 
-[cleanup].
+    [cleanup].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
-cleanup(suite) -> [];
 cleanup(_) ->
-    ?line Mods = int:interpreted(),
-    ?line ok = int:n(Mods),
+    Mods = int:interpreted(),
+    ok = int:n(Mods),
     case whereis(interpret) of
 	undefined ->
 	    ok;
