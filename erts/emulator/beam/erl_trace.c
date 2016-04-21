@@ -1409,25 +1409,28 @@ void save_calls(Process *p, Export *e)
  * are all small (atomic) integers.
  */
 void
-trace_gc(Process *p, Eterm what, Uint size)
+trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
 {
     ErtsTracerNif *tnif = NULL;
     Eterm* hp;
-    Eterm msg = NIL;
     Uint sz = 0;
     Eterm tup;
 
-    if (is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif, TRACE_FUN_E_GC, what)) {
+    if (is_tracer_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, &tnif,
+                          TRACE_FUN_E_GC, what)) {
 
-        (void) erts_process_gc_info(p, &sz, NULL);
-        hp = HAlloc(p, sz + 3 + 2);
+        if (is_non_value(msg)) {
 
-        msg = erts_process_gc_info(p, NULL, &hp);
-	tup = TUPLE2(hp, am_wordsize, make_small(size)); hp += 3;
-        msg = CONS(hp, tup, msg); hp += 2;
+            (void) erts_process_gc_info(p, &sz, NULL, 0, 0);
+            hp = HAlloc(p, sz + 3 + 2);
+
+            msg = erts_process_gc_info(p, NULL, &hp, 0, 0);
+            tup = TUPLE2(hp, am_wordsize, make_small(size)); hp += 3;
+            msg = CONS(hp, tup, msg); hp += 2;
+        }
 
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_GC,
-                what, msg, am_undefined, am_true);
+                           what, msg, THE_NON_VALUE, am_true);
     }
 }
 

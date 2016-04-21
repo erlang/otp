@@ -1704,6 +1704,14 @@ void process_main(void)
      BeamInstr *next;
      Eterm result;
 
+     if (!(FCALLS > 0 || FCALLS > neg_o_reds)) {
+         /* If we have run out of reductions, we do a context
+            switch before calling the bif */
+         c_p->arity = 2;
+         c_p->current = NULL;
+         goto context_switch3;
+     }
+
      PRE_BIF_SWAPOUT(c_p);
      c_p->fcalls = FCALLS - 1;
      result = erl_send(c_p, r(0), x(1));
@@ -2810,6 +2818,15 @@ do {						\
 	BeamInstr *next;
 	ErlHeapFragment *live_hf_end;
 
+
+        if (!((FCALLS - 1) > 0 || (FCALLS-1) > neg_o_reds)) {
+            /* If we have run out of reductions, we do a context
+               switch before calling the bif */
+            c_p->arity = ((Export *)Arg(0))->code[2];
+            c_p->current = NULL;
+            goto context_switch3;
+        }
+
         if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
             if (GET_BIF_MODULE(Arg(0)) == am_ets) {
                 ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
@@ -3338,9 +3355,18 @@ do {						\
  context_switch2:		/* Entry for fun calls. */
     c_p->current = I-3;		/* Pointer to Mod, Func, Arity */
 
+ context_switch3:
+
  {
      Eterm* argp;
      int i;
+
+     if (erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_EXITING) {
+         c_p->i = beam_exit;
+         c_p->arity = 0;
+         c_p->current = NULL;
+         goto do_schedule;
+     }
 
      /*
       * Make sure that there is enough room for the argument registers to be saved.
@@ -3509,6 +3535,14 @@ do {						\
 	    BifFunction vbf;
 	    ErlHeapFragment *live_hf_end;
 
+            if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
+                /* If we have run out of reductions, we do a context
+                   switch before calling the nif */
+                c_p->arity = I[-1];
+                c_p->current = NULL;
+                goto context_switch3;
+            }
+
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
@@ -3551,6 +3585,15 @@ do {						\
 	     * code[3]: &&apply_bif
 	     * code[4]: Function pointer to BIF function
 	     */
+
+            if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
+                /* If we have run out of reductions, we do a context
+                   switch before calling the bif */
+                c_p->arity = I[-1];
+                c_p->current = NULL;
+                goto context_switch3;
+            }
+
             if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
                 if ((Eterm)I[-3] == am_ets) {
                     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);

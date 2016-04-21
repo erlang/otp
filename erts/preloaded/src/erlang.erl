@@ -2073,6 +2073,9 @@ open_port(PortName, PortSettings) ->
                   (min_bin_vheap_size, MinBinVHeapSize) -> OldMinBinVHeapSize when
       MinBinVHeapSize :: non_neg_integer(),
       OldMinBinVHeapSize :: non_neg_integer();
+                  (max_heap_size, MaxHeapSize) -> OldMaxHeapSize when
+      MaxHeapSize :: max_heap_size(),
+      OldMaxHeapSize :: max_heap_size();
                   (message_queue_data, MQD) -> OldMQD when
       MQD :: message_queue_data(),
       OldMQD :: message_queue_data();
@@ -2154,6 +2157,7 @@ process_flag(_Flag, _Value) ->
       {messages, MessageQueue :: [term()]} |
       {min_heap_size, MinHeapSize :: non_neg_integer()} |
       {min_bin_vheap_size, MinBinVHeapSize :: non_neg_integer()} |
+      {max_heap_size, MaxHeapSize :: max_heap_size()} |
       {monitored_by, Pids :: [pid()]} |
       {monitors,
        Monitors :: [{process, Pid :: pid() |
@@ -2238,6 +2242,7 @@ setelement(_Index, _Tuple1, _Value) ->
               | {priority, Level :: priority_level()}
               | {fullsweep_after, Number :: non_neg_integer()}
               | {min_heap_size, Size :: non_neg_integer()}
+              | {max_heap_size, Size :: max_heap_size()}
               | {min_bin_vheap_size, VSize :: non_neg_integer()}.
 spawn_opt(_Tuple) ->
    erlang:nif_error(undefined).
@@ -2330,6 +2335,9 @@ subtract(_,_) ->
                                 OldMinBinVHeapSize when
       MinBinVHeapSize :: non_neg_integer(),
       OldMinBinVHeapSize :: non_neg_integer();
+                        (max_heap_size, MaxHeapSize) -> OldMaxHeapSize when
+      MaxHeapSize :: max_heap_size(),
+      OldMaxHeapSize :: max_heap_size();
                         (multi_scheduling, BlockState) -> OldBlockState when
       BlockState :: block | unblock | block_normal | unblock_normal,
       OldBlockState :: blocked | disabled | enabled;
@@ -2511,6 +2519,7 @@ tuple_to_list(_Tuple) ->
           logical_processors_available |
           logical_processors_online) -> unknown | pos_integer();
          (machine) -> string();
+         (max_heap_size) -> {max_heap_size, MaxHeapSize :: max_heap_size()};
          (message_queue_data) -> message_queue_data();
          (min_heap_size) -> {min_heap_size, MinHeapSize :: pos_integer()};
          (min_bin_vheap_size) -> {min_bin_vheap_size,
@@ -2648,6 +2657,13 @@ spawn_monitor(M, F, A) ->
     erlang:error(badarg, [M,F,A]).
 
 
+-type max_heap_size() ::
+        Size :: non_neg_integer()
+        %% TODO change size => to := when -type maps support is finalized
+      | #{ size => non_neg_integer(),
+           kill => boolean(),
+           error_logger => boolean() }.
+
 -type spawn_opt_option() ::
 	link
       | monitor
@@ -2655,6 +2671,7 @@ spawn_monitor(M, F, A) ->
       | {fullsweep_after, Number :: non_neg_integer()}
       | {min_heap_size, Size :: non_neg_integer()}
       | {min_bin_vheap_size, VSize :: non_neg_integer()}
+      | {max_heap_size, Size :: max_heap_size()}
       | {message_queue_data, MQD :: message_queue_data()}.
 
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when

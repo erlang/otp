@@ -275,6 +275,7 @@ atom garbage_collection_info
 atom gc_end
 atom gc_major_end
 atom gc_major_start
+atom gc_max_heap_size
 atom gc_minor_end
 atom gc_minor_start
 atom gc_start
@@ -366,6 +367,7 @@ atom match_spec
 atom match_spec_result
 atom max
 atom maximum
+atom max_heap_size
 atom max_tables max_processes
 atom mbuf_size
 atom md5

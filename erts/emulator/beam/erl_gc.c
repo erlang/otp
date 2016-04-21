@@ -41,6 +41,7 @@
 #endif
 #include "dtrace-wrapper.h"
 #include "erl_bif_unique.h"
+#include "dist.h"
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
@@ -146,7 +147,8 @@ static void offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
 static void offset_off_heap(Process* p, Sint offs, char* area, Uint area_size);
 static void offset_mqueue(Process *p, Sint offs, char* area, Uint area_size);
 static void move_msgq_to_heap(Process *p);
-
+static int reached_max_heap_size(Process *p, Uint total_heap_size,
+                                 Uint extra_heap_size, Uint extra_old_heap_size);
 static void init_gc_info(ErtsGCInfo *gcip);
 
 #ifdef HARDDEBUG
@@ -577,9 +579,11 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 		int need, Eterm* objv, int nobj, int fcalls)
 {
     Uint reclaimed_now = 0;
+    Eterm gc_trace_end_tag;
     int reds;
     ErtsMonotonicTime start_time = 0; /* Shut up faulty warning... */
     ErtsSchedulerData *esdp;
+    erts_aint32_t state;
     ERTS_MSACC_PUSH_STATE_M();
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
@@ -588,7 +592,9 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls)
 	   >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
 
-    if (p->flags & (F_DISABLE_GC|F_DELAY_GC))
+    state = erts_smp_atomic32_read_nob(&p->state);
+
+    if (p->flags & (F_DISABLE_GC|F_DELAY_GC) || state & ERTS_PSFLG_EXITING)
 	return delay_garbage_collection(p, live_hf_end, need, fcalls);
 
     if (p->abandoned_heap)
@@ -623,28 +629,28 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 
     if (GEN_GCS(p) < MAX_GEN_GCS(p) && !(FLAGS(p) & F_NEED_FULLSWEEP)) {
         if (IS_TRACED_FL(p, F_TRACE_GC)) {
-            trace_gc(p, am_gc_minor_start, need);
+            trace_gc(p, am_gc_minor_start, need, THE_NON_VALUE);
         }
         DTRACE2(gc_minor_start, pidbuf, need);
         reds = minor_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
         DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
-        if (IS_TRACED_FL(p, F_TRACE_GC)) {
-            trace_gc(p, am_gc_minor_end, reclaimed_now);
-        }
-        if (reds < 0)
+        if (reds == -1) {
+            if (IS_TRACED_FL(p, F_TRACE_GC)) {
+                trace_gc(p, am_gc_minor_end, reclaimed_now, THE_NON_VALUE);
+            }
             goto do_major_collection;
+        }
+        gc_trace_end_tag = am_gc_minor_end;
     } else {
 do_major_collection:
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC_FULL);
         if (IS_TRACED_FL(p, F_TRACE_GC)) {
-            trace_gc(p, am_gc_major_start, need);
+            trace_gc(p, am_gc_major_start, need, THE_NON_VALUE);
         }
         DTRACE2(gc_major_start, pidbuf, need);
         reds = major_collection(p, live_hf_end, need, objv, nobj, &reclaimed_now);
         DTRACE2(gc_major_end, pidbuf, reclaimed_now);
-        if (IS_TRACED_FL(p, F_TRACE_GC)) {
-            trace_gc(p, am_gc_major_end, reclaimed_now);
-        }
+        gc_trace_end_tag = am_gc_major_end;
         ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC);
     }
 
@@ -659,6 +665,33 @@ do_major_collection:
     ErtsGcQuickSanityCheck(p);
 
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+
+    /* Max heap size has been reached and the process was configured
+       to be killed, so we kill it and set it in a delayed garbage
+       collecting state. There should be no gc_end trace or
+       long_gc/large_gc triggers when this happens as process was
+       killed before a GC could be done. */
+    if (reds == -2) {
+        ErtsProcLocks locks = ERTS_PROC_LOCKS_ALL;
+
+        erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+        erts_send_exit_signal(p, p->common.id, p, &locks,
+                              am_kill, NIL, NULL, 0);
+        erts_smp_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
+
+        /* erts_send_exit_signal looks for ERTS_PSFLG_GC, so
+           we have to remove it after the signal is sent */
+        erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+
+        /* We have to make sure that we have space for need on the heap */
+        return delay_garbage_collection(p, live_hf_end, need, fcalls);
+    }
+
+    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+
+    if (IS_TRACED_FL(p, F_TRACE_GC)) {
+        trace_gc(p, gc_trace_end_tag, reclaimed_now, THE_NON_VALUE);
+    }
 
     if (erts_system_monitor_long_gc != 0) {
 	ErtsMonotonicTime end_time;
@@ -761,6 +794,7 @@ erts_garbage_collect_hibernate(Process* p)
 
 
     heap_size = p->heap_sz + (p->old_htop - p->old_heap) + p->mbuf_sz;
+
     heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_TMP_HEAP,
 				    sizeof(Eterm)*heap_size);
     htop = heap;
@@ -1031,6 +1065,34 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
     Uint size_before = young_gen_usage(p);
 
     /*
+     * Check if we have gone past the max heap size limit
+     */
+
+    if (MAX_HEAP_SIZE_GET(p)) {
+        Uint heap_size = size_before,
+            /* Note that we also count the un-allocated area
+               in between the stack and heap */
+            stack_size = HEAP_END(p) - HEAP_TOP(p),
+            extra_heap_size,
+            extra_old_heap_size = 0;
+
+        /* Add potential old heap size */
+        if (OLD_HEAP(p) == NULL && mature_size != 0) {
+            extra_old_heap_size = erts_next_heap_size(size_before, 1);
+            heap_size += extra_old_heap_size;
+        } else if (OLD_HEAP(p))
+            heap_size += OLD_HEND(p) - OLD_HEAP(p);
+
+        /* Add potential new young heap size */
+        extra_heap_size = next_heap_size(p, stack_size + size_before, 0);
+        heap_size += extra_heap_size;
+
+        if (heap_size > MAX_HEAP_SIZE_GET(p))
+            if (reached_max_heap_size(p, heap_size, extra_heap_size, extra_old_heap_size))
+                return -2;
+    }
+
+    /*
      * Allocate an old heap if we don't have one and if we'll need one.
      */
 
@@ -1138,6 +1200,16 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
     done:
 	ASSERT(HEAP_SIZE(p) == next_heap_size(p, HEAP_SIZE(p), 0));
 	ASSERT(MBUF(p) == NULL);
+
+        /* The heap usage during GC should be larger than what we end up
+           after a GC, even if we grow it. If this assertion is not true
+           we have to check size in grow_new_heap and potentially kill the
+           process from there */
+        ASSERT(!MAX_HEAP_SIZE_GET(p) ||
+               !(MAX_HEAP_SIZE_FLAGS_GET(p) & MAX_HEAP_SIZE_KILL) ||
+               MAX_HEAP_SIZE_GET(p) > (young_gen_usage(p) +
+                                       (OLD_HEND(p) - OLD_HEAP(p)) +
+                                       (HEAP_END(p) - HEAP_TOP(p))));
 
 	return gc_cost(size_after, adjust_size);
     }
@@ -1457,6 +1529,25 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
     if (new_sz == HEAP_SIZE(p) && FLAGS(p) & F_HEAP_GROW) {
         new_sz = next_heap_size(p, HEAP_SIZE(p), 1);
     }
+
+
+    if (MAX_HEAP_SIZE_GET(p)) {
+        Uint heap_size = size_before;
+
+        /* Add unused space in old heap */
+        heap_size += OLD_HEND(p) - OLD_HTOP(p);
+
+        /* Add stack + unused space in young heap */
+        heap_size += HEAP_END(p) - HEAP_TOP(p);
+
+        /* Add size of new young heap */
+        heap_size += new_sz;
+
+        if (MAX_HEAP_SIZE_GET(p) < heap_size)
+            if (reached_max_heap_size(p, heap_size, new_sz, 0))
+                return -2;
+    }
+
     FLAGS(p) &= ~(F_HEAP_GROW|F_NEED_FULLSWEEP);
     n_htop = n_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 						sizeof(Eterm)*new_sz);
@@ -2986,7 +3077,9 @@ erts_gc_info_request(Process *c_p)
 }
 
 Eterm
-erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp)
+erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp,
+                     Uint extra_heap_block,
+                     Uint extra_old_heap_block_size)
 {
     ERTS_DECL_AM(bin_vheap_size);
     ERTS_DECL_AM(bin_vheap_block_size);
@@ -3009,8 +3102,9 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp)
         AM_bin_old_vheap_block_size
     };
     UWord values[] = {
-        OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
-        HEAP_SIZE(p),
+        OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) + extra_old_heap_block_size
+                    : extra_old_heap_block_size,
+        HEAP_SIZE(p) + extra_heap_block,
         MBUF_SIZE(p),
         HIGH_WATER(p) - HEAP_START(p),
         STACK_START(p) - p->stop,
@@ -3054,6 +3148,130 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp)
                                         values);
 
     return res;
+}
+
+static int
+reached_max_heap_size(Process *p, Uint total_heap_size,
+                      Uint extra_heap_size, Uint extra_old_heap_size)
+{
+    Uint max_heap_flags = MAX_HEAP_SIZE_FLAGS_GET(p);
+    if (IS_TRACED_FL(p, F_TRACE_GC) ||
+        max_heap_flags & MAX_HEAP_SIZE_LOG) {
+        Eterm msg;
+        Uint size = 0;
+        Eterm *o_hp , *hp;
+        erts_process_gc_info(p, &size, NULL, extra_heap_size,
+                             extra_old_heap_size);
+        o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, size * sizeof(Eterm));
+        msg = erts_process_gc_info(p, NULL, &hp, extra_heap_size,
+                                   extra_old_heap_size);
+
+        if (max_heap_flags & MAX_HEAP_SIZE_LOG) {
+            int alive = erts_is_alive;
+            erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+            Eterm *o_hp, *hp, args = NIL;
+
+            /* Build the format message */
+            erts_dsprintf(dsbufp, "     Process:          ~p ");
+            if (alive)
+                erts_dsprintf(dsbufp, "on node ~p");
+            erts_dsprintf(dsbufp, "~n     Context:          maximum heap size reached~n");
+            erts_dsprintf(dsbufp, "     Max heap size:    ~p~n");
+            erts_dsprintf(dsbufp, "     Total heap size:  ~p~n");
+            erts_dsprintf(dsbufp, "     Kill:             ~p~n");
+            erts_dsprintf(dsbufp, "     Error Logger:     ~p~n");
+            erts_dsprintf(dsbufp, "     GC Info:          ~p~n");
+
+            /* Build the args in reverse order */
+            o_hp = hp = erts_alloc(ERTS_ALC_T_TMP, 2*(alive ? 7 : 6) * sizeof(Eterm));
+            args = CONS(hp, msg, args); hp += 2;
+            args = CONS(hp, am_true, args); hp += 2;
+            args = CONS(hp, (max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false), args); hp += 2;
+            args = CONS(hp, make_small(total_heap_size), args); hp += 2;
+            args = CONS(hp, make_small(MAX_HEAP_SIZE_GET(p)), args); hp += 2;
+            if (alive) {
+                args = CONS(hp, erts_this_node->sysname, args); hp += 2;
+            }
+            args = CONS(hp, p->common.id, args); hp += 2;
+
+            erts_send_error_term_to_logger(p->group_leader, dsbufp, args);
+            erts_free(ERTS_ALC_T_TMP, o_hp);
+        }
+
+        if (IS_TRACED_FL(p, F_TRACE_GC))
+            trace_gc(p, am_gc_max_heap_size, 0, msg);
+
+        erts_free(ERTS_ALC_T_TMP, o_hp);
+    }
+    /* returns true if we should kill the process */
+    return max_heap_flags & MAX_HEAP_SIZE_KILL;
+}
+
+Eterm
+erts_max_heap_size_map(Sint max_heap_size, Uint max_heap_flags,
+                       Eterm **hpp, Uint *sz)
+{
+    if (!hpp) {
+        *sz += (2*3 + 1 + MAP_HEADER_FLATMAP_SZ);
+        return THE_NON_VALUE;
+    } else {
+        Eterm *hp = *hpp;
+        Eterm keys = TUPLE3(hp, am_error_logger, am_kill, am_size);
+        flatmap_t *mp;
+        hp += 4;
+        mp = (flatmap_t*) hp;
+        mp->thing_word = MAP_HEADER_FLATMAP;
+        mp->size = 3;
+        mp->keys = keys;
+        hp += MAP_HEADER_FLATMAP_SZ;
+        *hp++ = max_heap_flags & MAX_HEAP_SIZE_LOG ? am_true : am_false;
+        *hp++ = max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false;
+        *hp++ = make_small(max_heap_size);
+        *hpp = hp;
+        return make_flatmap(mp);
+    }
+}
+
+int
+erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
+{
+    Sint sz;
+    *max_heap_flags = H_MAX_FLAGS;
+    if (is_small(arg)) {
+        sz = signed_val(arg);
+        *max_heap_flags = H_MAX_FLAGS;
+    } else if (is_map(arg)) {
+        const Eterm *size = erts_maps_get(am_size, arg);
+        const Eterm *kill = erts_maps_get(am_kill, arg);
+        const Eterm *log = erts_maps_get(am_error_logger, arg);
+        if (size && is_small(*size)) {
+            sz = signed_val(*size);
+        } else {
+            /* size is mandatory */
+            return 0;
+        }
+        if (kill) {
+            if (*kill == am_true)
+                *max_heap_flags |= MAX_HEAP_SIZE_KILL;
+            else if (*kill == am_false)
+                *max_heap_flags &= ~MAX_HEAP_SIZE_KILL;
+            else
+                return 0;
+        }
+        if (log) {
+            if (*log == am_true)
+                *max_heap_flags |= MAX_HEAP_SIZE_LOG;
+            else if (*log == am_false)
+                *max_heap_flags &= ~MAX_HEAP_SIZE_LOG;
+            else
+                return 0;
+        }
+    } else
+        return 0;
+    if (sz < 0)
+        return 0;
+    *max_heap_size = sz;
+    return 1;
 }
 
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)

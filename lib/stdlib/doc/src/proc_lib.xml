@@ -73,6 +73,13 @@
       <name name="priority_level"/>
     </datatype>
     <datatype>
+      <name name="max_heap_size"/>
+      <desc>
+        <p>See <seealso marker="erts:erlang#process_flag_max_heap_size">
+          erlang:process_flag(max_heap_size, MaxHeapSize)</seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="dict_or_pid"/>
     </datatype>
   </datatypes>

@@ -50,6 +50,7 @@
 
 #define H_DEFAULT_SIZE  233        /* default (heap + stack) min size */
 #define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
+#define H_DEFAULT_MAX_SIZE 0       /* default max heap size is off */
 
 #define CP_SIZE 1
 
@@ -160,6 +161,8 @@ extern int num_instructions;	/* Number of instruction in opc[]. */
 
 extern int H_MIN_SIZE;		/* minimum (heap + stack) */
 extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
+extern int H_MAX_SIZE;          /* maximum (heap + stack) */
+extern int H_MAX_FLAGS;         /* maximum heap flags  */
 
 extern int erts_atom_table_size;/* Atom table size */
 extern int erts_pd_initial_size;/* Initial Process dictionary table size */

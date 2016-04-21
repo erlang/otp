@@ -918,6 +918,15 @@ struct ErtsPendingSuspend_ {
 #  define BIN_OLD_VHEAP_SZ(p) (p)->bin_old_vheap_sz
 #  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
 
+#  define MAX_HEAP_SIZE_GET(p)     ((p)->max_heap_size >> 2)
+#  define MAX_HEAP_SIZE_SET(p, sz) ((p)->max_heap_size = ((sz) << 2) |  \
+                                    MAX_HEAP_SIZE_FLAGS_GET(p))
+#  define MAX_HEAP_SIZE_FLAGS_GET(p)          ((p)->max_heap_size & 0x3)
+#  define MAX_HEAP_SIZE_FLAGS_SET(p, flags)   ((p)->max_heap_size = flags | \
+                                               ((p)->max_heap_size & ~0x3))
+#  define MAX_HEAP_SIZE_KILL 1
+#  define MAX_HEAP_SIZE_LOG  2
+
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
@@ -935,6 +944,7 @@ struct process {
     Uint heap_sz;		/* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
+    Uint max_heap_size;         /* Maximum size of heap (in words). */
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     volatile unsigned long fp_exception;
@@ -1285,6 +1295,8 @@ typedef struct {
     Uint min_vheap_size;	/* Minimum virtual heap size  */
     int priority;		/* Priority for process. */
     Uint16 max_gen_gcs;		/* Maximum number of gen GCs before fullsweep. */
+    Uint max_heap_size;         /* Maximum heap size in words */
+    Uint max_heap_flags;        /* Maximum heap flags (kill | log) */
     int scheduler;
 } ErlSpawnOpts;
 

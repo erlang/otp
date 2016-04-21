@@ -11021,9 +11021,13 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	p->min_heap_size  = so->min_heap_size;
 	p->min_vheap_size = so->min_vheap_size;
 	p->max_gen_gcs    = so->max_gen_gcs;
+        MAX_HEAP_SIZE_SET(p, so->max_heap_size);
+        MAX_HEAP_SIZE_FLAGS_SET(p, so->max_heap_flags);
     } else {
 	p->min_heap_size  = H_MIN_SIZE;
 	p->min_vheap_size = BIN_VH_MIN_SIZE;
+        MAX_HEAP_SIZE_SET(p, H_MAX_SIZE);
+        MAX_HEAP_SIZE_FLAGS_SET(p, H_MAX_FLAGS);
 	p->max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
     }
     p->schedule_count = 0;
@@ -11600,7 +11604,8 @@ set_proc_exiting(Process *p,
     p->i = (BeamInstr *) beam_exit;
 
 #ifndef ERTS_SMP
-    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)) {
+    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)
+        && !(state & ERTS_PSFLG_GC)) {
 	/*
 	 * I non smp case:
 	 *
