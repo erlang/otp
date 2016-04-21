@@ -112,11 +112,23 @@ create_window(Notebook, ParentPid) ->
 		   match_specs=default_matchspecs()}}.
 
 default_matchspecs() ->
-    Ms = [{"Return Trace", [{'_', [], [{return_trace}]}], "fun(_) -> return_trace() end"},
-	  {"Exception Trace", [{'_', [], [{exception_trace}]}], "fun(_) -> exception_trace() end"},
-	  {"Message Caller", [{'_', [], [{message,{caller}}]}], "fun(_) -> message(caller()) end"},
-	  {"Message Dump", [{'_', [], [{message,{process_dump}}]}], "fun(_) -> message(process_dump()) end"}],
+    [{Key,default_matchspecs(Key)} || Key <- [funcs,send,'receive']].
+default_matchspecs(Key) ->
+    Ms = get_default_matchspecs(Key),
     [make_ms(Name,Term,FunStr) || {Name,Term,FunStr} <- Ms].
+
+get_default_matchspecs(funcs) ->
+    [{"Skeleton", [{'$1', [], [true]}], "fun(Args) -> true end"},
+     {"Return Trace", [{'_', [], [{return_trace}]}],
+      "fun(_) -> return_trace() end"},
+     {"Exception Trace", [{'_', [], [{exception_trace}]}], "fun(_) -> exception_trace() end"},
+     {"Message Caller", [{'_', [], [{message,{caller}}]}], "fun(_) -> message(caller()) end"},
+     {"Message Dump", [{'_', [], [{message,{process_dump}}]}], "fun(_) -> message(process_dump()) end"}];
+get_default_matchspecs(send) ->
+    [{"Skeleton", [{['$1','$2'], [], [true]}], "fun([Pid,Msg]) -> true end"}];
+get_default_matchspecs('receive') ->
+    [{"Skeleton", [{['$1','$2','$3'], [], [true]}], "fun([Node,Pid,Msg]) -> true end"}].
+
 
 create_process_view(Parent) ->
     Panel  = wxPanel:new(Parent),
@@ -192,7 +204,7 @@ create_menues(Parent) ->
 	       #create_menu{id = ?SAVE_TRACEOPTS, text = "Save settings"}]},
 	     {"Options",
 	      [#create_menu{id = ?TRACE_OUTPUT, text = "Output"},
-	       #create_menu{id = ?TRACE_DEFMS, text = "Match Specifications"},
+	       #create_menu{id = ?TRACE_DEFMS, text = "Default Match Specifications for Functions"},
 	       #create_menu{id = ?TRACE_DEFPS, text = "Default Process Options"}]}
 	    ],
     observer_wx:create_menus(Parent, Menus).
@@ -378,7 +390,7 @@ handle_event(#wx{id=?TRACE_DEFPS}, #state{panel=Panel, def_trace_opts=PO} = Stat
 
 handle_event(#wx{id=?TRACE_DEFMS}, #state{panel=Panel, match_specs=Ms} = State) ->
     try %% Return selected MS and sends new MS's to us
-	observer_traceoptions_wx:select_matchspec(self(), Panel, Ms)
+	observer_traceoptions_wx:select_matchspec(self(), Panel, Ms, funcs)
     catch _:_ ->
 	    cancel
     end,
@@ -391,10 +403,22 @@ handle_event(#wx{id=?EDIT_FUNCS_MS}, #state{panel=Panel, tpatterns=TPs,
     try
 	[Module] = get_selected_items(Mview, lists:sort(dict:fetch_keys(TPs))),
 	Selected = get_selected_items(LCtrl, dict:fetch(Module, TPs)),
-	Ms = observer_traceoptions_wx:select_matchspec(self(), Panel, Mss),
+	Key = case Module of
+		  'Events' ->
+		      SelectedEvents = [Event || #tpattern{fa=Event} <- Selected],
+		      E1 = hd(SelectedEvents),
+		      case lists:all(fun(E) when E==E1 -> true; (_) -> false end,
+				     SelectedEvents) of
+			  true -> E1;
+			  false -> throw({error,"Can not set match specs for multiple event types"})
+		      end;
+		  _ -> funcs
+	      end,
+	Ms = observer_traceoptions_wx:select_matchspec(self(), Panel, Mss, Key),
 	Changed = [TP#tpattern{ms=Ms} || TP <- Selected],
 	{noreply, do_add_patterns({Module, Changed}, State)}
-    catch _:_ ->
+    catch {error, Msg} ->
+	    observer_wx:create_txt_dialog(Panel, Msg, "Error", ?wxICON_ERROR),
 	    {noreply, State}
     end;
 
@@ -564,10 +588,17 @@ update_modules_view(Mods, Module, LCtrl) ->
 
 update_functions_view(Funcs, LCtrl) ->
     wxListCtrl:deleteAllItems(LCtrl),
-    wx:foldl(fun(#tpattern{fa=FA, ms=#match_spec{str=Ms}}, Row) ->
+    wx:foldl(fun(#tpattern{m=M, fa=FA, ms=#match_spec{str=Ms}}, Row) ->
 		     _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
 		     ?EVEN(Row) andalso wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
-		     wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str({func,FA})),
+		     FuncStr =
+			 case M of
+			     'Events' ->
+				 observer_lib:to_str(FA);
+			     _ ->
+				 observer_lib:to_str({func,FA})
+			 end,
+		     wxListCtrl:setItem(LCtrl, Row, 0, FuncStr),
 		     wxListCtrl:setItem(LCtrl, Row, 1, Ms),
 		     Row+1
 	     end, 0, Funcs).
@@ -695,6 +726,8 @@ setup_tps([First|Rest], Prev) ->
 setup_tps([], Prev) ->
     [setup_tp(TP) || TP <- lists:reverse(Prev)].
 
+setup_tp(#tpattern{m='Events',fa=Event, ms=#match_spec{term=Ms}}) ->
+    ttb:tpe(Event,Ms);
 setup_tp(#tpattern{m=M,fa={F,A}, ms=#match_spec{term=Ms}}) ->
     ttb:tpl(M,F,A,Ms).
 

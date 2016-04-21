@@ -254,7 +254,13 @@
     <p>
       If function calls are traced, trace patterns must be added by clicking button
       <em>Add Trace Pattern</em>. Select a module, function(s), and a match specification.
-      If no functions are selected, all functions in the module are traced.
+      If no functions are selected, all functions in the module are traced.</p>
+    <p>
+      Trace patterns can also be added for traced messages. This is
+      done in the same way as for traced function calls. Separate
+      trace patterns must be set for sent and received messages.
+    </p>
+    <p>
       A few basic match specifications are provided in the tool, and
       you can provide your own match specifications. The syntax of match
       specifications is described in the <seealso

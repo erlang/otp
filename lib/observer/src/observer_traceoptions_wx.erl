@@ -23,7 +23,7 @@
 -include("observer_defs.hrl").
 
 -export([process_trace/2, trace_pattern/4, select_nodes/2,
-	 output/2, select_matchspec/3]).
+	 output/2, select_matchspec/4]).
 
 process_trace(Parent, Default) ->
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Process Options",
@@ -100,10 +100,17 @@ process_trace(Parent, Default) ->
 
 trace_pattern(ParentPid, Parent, Node, MatchSpecs) ->
     try
-	Module = module_selector(Parent, Node),
-	MFAs  = function_selector(Parent, Node, Module),
-	MatchSpec = select_matchspec(ParentPid, Parent, MatchSpecs),
-	{Module, [#tpattern{m=M,fa={F,A},ms=MatchSpec} || {M,F,A} <- MFAs]}
+	{Module,MFAs,MatchSpec} =
+	    case module_selector(Parent, Node) of
+		{'$trace_event',Event} ->
+		    MS = select_matchspec(ParentPid, Parent, MatchSpecs, Event),
+		    {'Events',[{'Events',Event}],MS};
+		Mod ->
+		    MFAs0 = function_selector(Parent, Node, Mod),
+		    MS = select_matchspec(ParentPid, Parent, MatchSpecs, funcs),
+		    {Mod,MFAs0,MS}
+	    end,
+	{Module, [#tpattern{m=M,fa=FA,ms=MatchSpec} || {M,FA} <- MFAs]}
     catch cancel -> cancel
     end.
 
@@ -112,7 +119,7 @@ select_nodes(Parent, Nodes) ->
     check_selector(Parent, Choices).
 
 module_selector(Parent, Node) ->
-    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Select Module",
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Select Module or Event",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
 			   {size, {400, 400}}]),
     Panel = wxPanel:new(Dialog),
@@ -136,7 +143,9 @@ module_selector(Parent, Node) ->
     wxWindow:setFocus(TxtCtrl),
     %% init data
     Modules = get_modules(Node),
-    AllModules = [{atom_to_list(X), X} || X <- Modules],
+    Events = [{"Messages sent",{'$trace_event',send}},
+	      {"Messages received",{'$trace_event','receive'}}],
+    AllModules = Events ++ [{atom_to_list(X), X} || X <- Modules],
     filter_listbox_data("", AllModules, ListBox),
     wxTextCtrl:connect(TxtCtrl, command_text_updated,
 		       [{callback, fun(#wx{event=#wxCommand{cmdString=Input}}, _) ->
@@ -174,9 +183,9 @@ function_selector(Parent, Node, Module) ->
 					    not(erl_internal:guard_bif(Name, Arity))]),
     ParsedChoices = parse_function_names(Choices),
     case check_selector(Parent, ParsedChoices) of
-	[] -> [{Module, '_', '_'}];
+	[] -> [{Module, {'_', '_'}}];
 	FAs ->
-	    [{Module, F, A} || {F,A} <- FAs]
+	    [{Module, {F, A}} || {F,A} <- FAs]
     end.
 
 check_selector(Parent, ParsedChoices) ->
@@ -268,7 +277,12 @@ get_checked(ListBox, Acc) ->
 	    lists:reverse(Acc)
     end.
 
-select_matchspec(Pid, Parent, MatchSpecs) ->
+select_matchspec(Pid, Parent, AllMatchSpecs, Key) ->
+    {MatchSpecs,RestMS} =
+	case lists:keytake(Key,1,AllMatchSpecs) of
+	    {value,{Key,MSs0},Rest} -> {MSs0,Rest};
+	    false -> {[],AllMatchSpecs}
+	end,
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Trace Match Specifications",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
 			   {size, {400, 400}}]),
@@ -314,7 +328,11 @@ select_matchspec(Pid, Parent, MatchSpecs) ->
 
     Add = fun(_,_) ->
 		  case edit_ms(TextCtrl, new, Parent) of
-		      Ms = #match_spec{} -> add_and_select(-1, Ms, ListBox);
+		      Ms = #match_spec{} ->
+			  add_and_select(-1, Ms, ListBox),
+			  wxWindow:enable(OkButt),
+			  wxWindow:enable(EditMsBtn),
+			  wxWindow:enable(DelMsBtn);
 		      Else -> Else
 		  end
 	  end,
@@ -324,7 +342,11 @@ select_matchspec(Pid, Parent, MatchSpecs) ->
 		       true ->
 			   #match_spec{name=Name} = wxListBox:getClientData(ListBox,SelId),
 			   case edit_ms(TextCtrl, Name, Parent) of
-			       Ms = #match_spec{} -> add_and_select(SelId, Ms, ListBox);
+			       Ms = #match_spec{} ->
+				   add_and_select(SelId, Ms, ListBox),
+				   wxWindow:enable(OkButt),
+				   wxWindow:enable(EditMsBtn),
+				   wxWindow:enable(DelMsBtn);
 			       Else -> Else
 			   end;
 		       false ->
@@ -367,7 +389,7 @@ select_matchspec(Pid, Parent, MatchSpecs) ->
 	    Count = wxListBox:getCount(ListBox),
 	    MSs = [wxListBox:getClientData(ListBox, Id) ||
 		      Id <- lists:seq(0, Count-1)],
-	    Pid ! {update_ms, MSs},
+	    Pid ! {update_ms, [{Key,MSs}|RestMS]},
 	    MS = lists:nth(SelId+1, MSs),
 	    wxDialog:destroy(Dialog),
 	    MS;
