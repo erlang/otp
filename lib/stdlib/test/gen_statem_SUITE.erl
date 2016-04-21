@@ -637,9 +637,9 @@ code_change(Config) ->
     {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
     {idle,data} = sys:get_state(Pid),
     sys:suspend(Pid),
-    sys:change_code(Pid, ?MODULE, old_vsn, extra),
+    sys:change_code(Pid, ?MODULE, old_vsn, state_functions),
     sys:resume(Pid),
-    {idle,{old_vsn,data,extra}} = sys:get_state(Pid),
+    {idle,{old_vsn,data,state_functions}} = sys:get_state(Pid),
     stop_it(Pid).
 
 call_format_status(Config) ->
@@ -1561,8 +1561,8 @@ wrap_result(Result) ->
 
 
 
-code_change(OldVsn, State, Data, Extra) ->
-    {ok,State,{OldVsn,Data,Extra}}.
+code_change(OldVsn, State, Data, CallbackMode) ->
+    {CallbackMode,State,{OldVsn,Data,CallbackMode}}.
 
 format_status(terminate, [_Pdict,State,Data]) ->
     {formatted,State,Data};

@@ -219,7 +219,9 @@
 	    OldState :: state(),
 	    OldData :: data(),
 	    Extra :: term()) ->
-    {ok, NewState :: state(), NewData :: data()}.
+    {NewCallbackMode :: callback_mode(),
+     NewState :: state(),
+     NewData :: data()}.
 
 %% Format the callback module state in some sensible that is
 %% often condensed way.  For StatusOption =:= 'normal' the perferred
@@ -491,17 +493,10 @@ enter_loop(Module, Opts, CallbackMode, State, Data, Server_or_Actions) ->
 	Actions :: [action()] | action()) ->
 			no_return().
 enter_loop(Module, Opts, CallbackMode, State, Data, Server, Actions) ->
-    case is_atom(Module) andalso callback_mode(CallbackMode) of
-	true ->
-	    Parent = gen:get_parent(),
-	    enter(
-	      Module, Opts, CallbackMode, State, Data, Server,
-	      Actions, Parent);
-	false ->
-	    error(
-	      badarg,
-	      [Module,Opts,CallbackMode,State,Data,Server,Actions])
-    end.
+    is_atom(Module) orelse error({atom,Module}),
+    callback_mode(CallbackMode) orelse error({callback_mode,CallbackMode}),
+    Parent = gen:get_parent(),
+    enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -580,15 +575,13 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
     case Result of
 	{CallbackMode,State,Data} ->
 	    case callback_mode(CallbackMode) of
-		true
-		  when CallbackMode =:= state_functions, is_atom(State);
-		       CallbackMode =/= state_functions ->
+		true ->
 		    proc_lib:init_ack(Starter, {ok,self()}),
 		    enter(
 		      Module, Opts, CallbackMode, State, Data,
 		      ServerRef, [], Parent);
 		false ->
-		    Error = {bad_return_value,Result},
+		    Error = {callback_mode,CallbackMode},
 		    proc_lib:init_ack(Starter, {error,Error}),
 		    exit(Error)
 	    end;
@@ -600,7 +593,7 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 		      Module, Opts, CallbackMode, State, Data,
 		      ServerRef, Actions, Parent);
 		false ->
-		    Error = {bad_return_value,Result},
+		    Error = {callback_mode,CallbackMode},
 		    proc_lib:init_ack(Starter, {error,Error}),
 		    exit(Error)
 	    end;
@@ -638,11 +631,12 @@ system_code_change(
 	    Result -> Result
 	end
     of
-	{ok,NewState,NewData} ->
-	    {ok,
-	     S#{
-	       state := NewState,
-	       data := NewData}};
+	{NewCallbackMode,NewState,NewData} ->
+	    callback_mode(NewCallbackMode) orelse
+		error({callback_mode,NewCallbackMode}),
+	    {ok,S#{state := NewState, data := NewData}};
+	{ok,_} = Error ->
+	    error({case_clause,Error});
 	Error ->
 	    Error
     end.
@@ -825,6 +819,18 @@ loop_events(
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, Event, Result);
+	error:badarg when CallbackMode =:= state_functions ->
+	    case erlang:get_stacktrace() of
+		[{erlang,apply,[Module,State,_],_}|Stacktrace] ->
+		    Args = [Type,Content,Data],
+		    terminate(
+		      error,
+		      {undef_state_function,{Module,State,Args}},
+		      Stacktrace,
+		      Debug, S, Q);
+		Stacktrace ->
+		    terminate(error, badarg, Stacktrace, Debug, S, Q)
+	    end;
 	error:undef ->
 	    %% Process an undef to check for the simple mistake
 	    %% of calling a nonexistent state function
@@ -861,7 +867,7 @@ loop_events(
 %% Interpret all callback return variants
 loop_event_result(
   Parent, Debug,
-  #{callback_mode := CallbackMode, state := State, data := Data} = S,
+  #{state := State, data := Data} = S,
   Events, Event, Result) ->
     case Result of
 	stop ->
@@ -887,15 +893,11 @@ loop_event_result(
 		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
 	    %% Since we got back here Replies was bad
 	    terminate(Class, NewReason, Stacktrace, NewDebug, NewS, Q);
-	{next_state,NextState,NewData}
-	  when CallbackMode =:= state_functions, is_atom(NextState);
-	       CallbackMode =/= state_functions ->
+	{next_state,NextState,NewData} ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NextState, NewData, []);
-	{next_state,NextState,NewData,Actions}
-	  when CallbackMode =:= state_functions, is_atom(NextState);
-	       CallbackMode =/= state_functions ->
+	{next_state,NextState,NewData,Actions} ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events, Event,
 	      State, NextState, NewData, Actions);

@@ -90,11 +90,11 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="callback_modes" />
     <title>Callback Modes</title>
     <p>
-      The <c>gen_statem</c> behaviour supports two different
-      <seealso marker="stdlib:gen_statem#type-action">
-	callback modes.
+      The <c>gen_statem</c> behaviour supports two different callback modes.
+      In the mode
+      <seealso marker="stdlib:gen_statem#type-callback_mode">
+	<c>state_functions</c>,
       </seealso>
-      In the mode <c>state_functions</c>,
       the state transition rules are written as a number of Erlang
       functions, which conform to the following convention:
     </p>
@@ -103,7 +103,11 @@ StateName(EventType, EventContent, Data) ->
     .. code for actions here ...
     {next_state, NewStateName, NewData}.</pre>
     <p>
-      In the mode <c>handle_event_function</c> there is only one
+      In the mode
+      <seealso marker="stdlib:gen_statem#type-callback_mode">
+	<c>handle_event_function</c>
+      </seealso>
+      there is only one
       Erlang function that implements all state transition rules:
     </p>
     <pre>
@@ -125,9 +129,7 @@ handle_event(EventType, EventContent, State, Data) ->
       <title>Choosing Callback Mode</title>
       <p>
 	The two
-	<seealso marker="stdlib:gen_statem#type-action">
-	  callback modes
-	</seealso>
+	<seealso marker="#callback_modes">callback modes</seealso>
 	gives different possibilities
 	and restrictions, but one goal remains:
 	you want to handle all possible combinations of
@@ -186,7 +188,7 @@ handle_event(EventType, EventContent, State, Data) ->
     <title>Example</title>
     <p>
       This is an example starting off as equivalent to the the example in the
-      <seealso marker="fsm"><c>gen_fsm</c> behaviour </seealso>
+      <seealso marker="fsm"><c>gen_fsm</c> behaviour</seealso>
       description.  In later chapters additions and tweaks are made
       using features in <c>gen_statem</c> that <c>gen_fsm</c> does not have.
       At the end of this section you can find the example again
@@ -217,6 +219,7 @@ handle_event(EventType, EventContent, State, Data) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock).
+-define(CALLBACK_MODE, state_functions).
 
 -export([start_link/1]).
 -export([button/1]).
@@ -233,7 +236,7 @@ button(Digit) ->
 init(Code) ->
     do_lock(),
     Data = #{code => Code, remaining => Code},
-    {state_functions,locked,Data}.
+    {?CALLBACK_MODE,locked,Data}.
 
 locked(
   cast, {button,Digit},
@@ -264,7 +267,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {ok,State,Data}.
+    {?CALLBACK_MODE,State,Data}.
     ]]></code>
     <p>The code is explained in the next sections.</p>
   </section>
@@ -340,16 +343,20 @@ start_link(Code) ->
       If name registration succeeds, the new <c>gen_statem</c> process
       calls the callback function <c>code_lock:init(Code)</c>.
       This function is expected to return <c>{CallbackMode,State,Data}</c>,
-      where <c>CallbackMode</c> selects callback module state function
-      mode, in this case <c>state_functions</c> that is each state
+      where
+      <seealso marker="#callback_modes">
+	<c>CallbackMode</c>
+      </seealso>
+      selects callback module state function mode, in this case
+      <seealso marker="stdlib:gen_statem#type-callback_mode">
+	<c>state_functions</c>
+      </seealso>
+      through the macro <c>?CALLBACK_MODE</c> that is; each state
       has got its own handler function.
       <c>State</c> is the initial state of the <c>gen_statem</c>,
       in this case <c>locked</c>; assuming the door is locked to begin with.
       <c>Data</c> is the internal server data of the <c>gen_statem</c>.
-      Here the server data is a
-      <seealso marker="stdlib:maps">
-	map
-      </seealso>
+      Here the server data is a <seealso marker="stdlib:maps">map</seealso>
       with the key <c>code</c> that stores
       the correct button sequence and the key <c>remaining</c>
       that stores the remaining correct button sequence
@@ -359,7 +366,7 @@ start_link(Code) ->
 init(Code) ->
     do_lock(),
     Data = #{code => Code, remaining => Code},
-    {state_functions,locked,Data}.
+    {?CALLBACK_MODE,locked,Data}.
     ]]></code>
     <p>
       <seealso marker="stdlib:gen_statem#start_link/3">
@@ -536,13 +543,12 @@ handle_event({call,From}, code_length, #{code := Code} = Data) ->
     </p>
     <code type="erl"><![CDATA[
 ...
+-define(CALLBACK_MODE, state_functions).
+
+...
 -export([handle_event/4]).
 
 ...
-
-init(Code) ->
-    Data = #{code => Code, remaining => Code},
-    {handle_event_function,locked,Data}.
 
 handle_event(cast, {button,Digit}, State, #{code := Code} = Data) ->
     case State of
@@ -598,8 +604,8 @@ handle_event(timeout, _, open, Data) ->
       <code type="erl"><![CDATA[
 init(Args) ->
     process_flag(trap_exit, true),
+    do_lock(),
     ...
-    {CallbackMode,State,Data}.
       ]]></code>
       <p>
 	In this example we let the <c>terminate/3</c> function
@@ -994,11 +1000,18 @@ do_unlock() ->
       utilizing a helper function <c>enter/3</c> for state entry:
     </p>
     <code type="erl"><![CDATA[
-init(Code) ->
-    Data = #{code => Code},
-    enter(state_functions, locked, Data).
+...
+-define(CALLBACK_MODE, state_functions).
 
 ...
+
+init(Code) ->
+    process_flag(trap_exit, true),
+    Data = #{code => Code},
+    enter(?CALLBACK_MODE, locked, Data).
+
+...
+
 locked(internal, enter, _Data) ->
     do_lock(),
     {keep_state,Data#{remaining => Code}};
@@ -1053,6 +1066,7 @@ enter(Tag, State, Data) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock_2).
+-define(CALLBACK_MODE, state_functions).
 
 -export([start_link/1,stop/0]).
 -export([button/1,code_length/0]).
@@ -1070,8 +1084,9 @@ code_length() ->
     gen_statem:call(?NAME, code_length).
 
 init(Code) ->
+    process_flag(trap_exit, true),
     Data = #{code => Code},
-    enter(state_functions, locked, Data).
+    enter(?CALLBACK_MODE, locked, Data).
 
 locked(internal, enter, #{code := Code} = Data) ->
     do_lock(),
@@ -1115,7 +1130,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {ok,State,Data}.
+    {?CALLBACK_MODE,State,Data}.
       ]]></code>
     </section>
 
@@ -1129,14 +1144,10 @@ code_change(_Vsn, State, Data, _Extra) ->
       </p>
       <code type="erl"><![CDATA[
 ...
--export([handle_event/4]).
+-define(CALLBACK_MODE, handle_event_function).
 
 ...
-
-init(Code) ->
-    process_flag(trap_exit, true),
-    Data = #{code => Code},
-    enter(handle_event_function, locked, Data).
+-export([handle_event/4]).
 
 ...
 
@@ -1185,11 +1196,10 @@ handle_event({call,From}, code_length, _State, #{code := Code}) ->
   <section>
     <title>Complex State</title>
     <p>
-      The
-      <seealso marker="stdlib:gen_statem#type-action">
-	callback mode
+      The callback mode
+      <seealso marker="stdlib:gen_statem#type-callback_mode">
+	<c>handle_event_function</c>
       </seealso>
-      <c>handle_event_function</c>
       enables using a non-atom state as described in
       <seealso marker="#callback_modes">
 	Callback Modes,
@@ -1245,6 +1255,7 @@ handle_event({call,From}, code_length, _State, #{code := Code}) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock_3).
+-define(CALLBACK_MODE, handle_event_function).
 
 -export([start_link/2,stop/0]).
 -export([button/1,code_length/0,set_lock_button/1]).
@@ -1267,7 +1278,7 @@ set_lock_button(LockButton) ->
 init({Code,LockButton}) ->
     process_flag(trap_exit, true),
     Data = #{code => Code},
-    enter(handle_event_function, {locked,LockButton}, Data, []).
+    enter(?CALLBACK_MODE, {locked,LockButton}, Data, []).
 
 %% State: locked
 handle_event(internal, enter, {locked,_}, #{code := Code} = Data) ->
@@ -1323,7 +1334,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {ok,State,Data}.
+    {?CALLBACK_MODE,State,Data}.
       ]]></code>
       <p>
 	It may be an ill-fitting model for a physical code lock

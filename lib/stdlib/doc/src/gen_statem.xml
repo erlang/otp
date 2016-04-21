@@ -32,8 +32,9 @@
   <modulesummary>Generic State Machine Behaviour</modulesummary>
   <description>
     <p>
-      A behaviour module for implementing a state machine.
-      Two callback modes are supported.  One for a finite state
+      A behaviour module for implementing a state machine. Two
+      <seealso marker="#type-callback_mode"><em>callback modes</em></seealso>
+      are supported.  One for a finite state
       machine like <seealso marker="gen_fsm">gen_fsm</seealso>
       that requires the state to be an atom and use that state as
       the name of the callback function for a particular state,
@@ -89,13 +90,13 @@ erlang:'!'            -----> Module:StateName/3
       The "<em>state function</em>" for a specific
       <seealso marker="#type-state">state</seealso>
       in a <c>gen_statem</c> is the callback function that is called
-      for all events in this state, and is selected depending on
-      <seealso marker="#type-callback_mode">callback_mode</seealso>
+      for all events in this state, and is selected depending on which
+      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
       that the implementation specifies when the the server starts.
     </p>
     <p>
-      When
-      <seealso marker="#type-callback_mode">callback_mode</seealso>
+      When the
+      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
       is <c>state_functions</c>, the state has to be an atom and
       is used as the state function name.  See
       <seealso marker="#Module:StateName/3">
@@ -110,7 +111,8 @@ erlang:'!'            -----> Module:StateName/3
       </seealso> makes the state name <c>terminate</c> unusable.
     </p>
     <p>
-      When <seealso marker="#type-callback_mode">callback_mode</seealso>
+      When the
+      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
       is <c>handle_event_function</c> the state can be any term
       and the state function name is
       <seealso marker="#Module:handle_event/4">
@@ -208,9 +210,7 @@ erlang:'!'            -----> Module:StateName/3
     <p>
       This example shows a simple pushbutton model
       for a toggling pushbutton implemented with
-      <seealso marker="#type-callback_mode">
-	callback_mode()
-      </seealso>
+      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
       <c>state_functions</c>.
       You can push the button and it replies if it went on or off,
       and you can ask for a count of how many times it has been
@@ -226,6 +226,7 @@ erlang:'!'            -----> Module:StateName/3
 -export([on/3,off/3]).
 
 name() -> pushbutton_statem. % The registered server name
+callback_mode() -> state_functions.
 
 %% API.  This example uses a registered name name()
 %% and does not link to the caller.
@@ -242,12 +243,12 @@ stop() ->
 terminate(_Reason, _State, _Data) ->
     void.
 code_change(_Vsn, State, Data, _Extra) ->
-    {ok,State,Data}.
+    {callback_mode(),State,Data}.
 init([]) ->
     %% Set the callback mode and initial state + data.
     %% Data is used only as a counter.
     State = off, Data = 0,
-    {state_functions,State,Data}.
+    {callback_mode(),State,Data}.
 
 
 %%% State functions
@@ -297,9 +298,7 @@ ok
 
     <p>
       And just to compare styles here is the same example using
-      <seealso marker="#type-callback_mode">
-	<c>callback_mode</c>
-      </seealso>
+      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
       <c>state_functions</c>, or rather here is code to replace
       from the <c>init/1</c> function of the <c>pushbutton.erl</c>
       example file above:
@@ -453,10 +452,8 @@ handle_event(_, _, State, Data) ->
       <name name="state_name" />
       <desc>
 	<p>
-	  If
-	  <seealso marker="#type-callback_mode">
-	    callback_mode
-	  </seealso>
+	  If the
+	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
 	  is <c>state_functions</c>,
 	  the state has to be of this type.
 	</p>
@@ -499,7 +496,7 @@ handle_event(_, _, State, Data) ->
       <name name="callback_mode" />
       <desc>
 	<p>
-	  The <c>callback_mode</c> is selected when starting the
+	  The <em>callback mode</em> is selected when starting the
 	  <c>gen_statem</c> using the return value from
 	  <seealso marker="#Module:init/1">Module:init/1</seealso>
 	  or when calling
@@ -1277,7 +1274,7 @@ handle_event(_, _, State, Data) ->
           return <c>{CallbackMode,State,Data}</c> or
 	  <c>{CallbackMode,State,Data,Actions}</c>.
 	  <c>CallbackMode</c> selects the
-	  <seealso marker="#type-callback_mode">callback_mode()</seealso>.
+	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>.
 	  of the <c>gen_statem</c>.
 	  <c>State</c> is the initial
 	  <seealso marker="#type-state">state()</seealso>
@@ -1344,8 +1341,8 @@ handle_event(_, _, State, Data) ->
 	  Whenever a <c>gen_statem</c> receives an event from
           <seealso marker="#call/2">call/2</seealso>,
           <seealso marker="#cast/2">cast/2</seealso> or
-	  as a normal process message one of these functions is called.
-	  If <seealso marker="#type-callback_mode">callback_mode</seealso>
+	  as a normal process message one of these functions is called.  If
+	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
 	  is <c>state_functions</c> then <c>Module:StateName/3</c> is called,
 	  and if it is <c>handle_event_function</c>
 	  then <c>Module:handle_event/4</c> is called.
@@ -1468,7 +1465,11 @@ handle_event(_, _, State, Data) ->
         <v>&nbsp;&nbsp;Vsn = term()</v>
         <v>OldState = NewState = term()</v>
         <v>Extra = term()</v>
-	<v>Result = {ok,NewState,NewData} | Reason</v>
+	<v>Result = {NewCallbackMode,NewState,NewData} | Reason</v>
+	<v>
+	  NewCallbackMode =
+	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
+	</v>
 	<v>
 	  OldState = NewState =
 	  <seealso marker="#type-state">state()</seealso>
@@ -1484,8 +1485,9 @@ handle_event(_, _, State, Data) ->
 	  This function is called by a <c>gen_statem</c> when it should
           update its internal state during a release upgrade/downgrade,
           that is when the instruction <c>{update,Module,Change,...}</c>
-          where <c>Change={advanced,Extra}</c> is given in
-          the <c>appup</c> file. See
+          where <c>Change={advanced,Extra}</c> is given in the
+	  <seealso marker="sasl:appup"><c>appup</c></seealso>
+	  file. See
           <seealso marker="doc/design_principles:release_handling#instr">
 	    OTP Design Principles
 	  </seealso>
@@ -1499,6 +1501,21 @@ handle_event(_, _, State, Data) ->
           <c>Module</c>. If no such attribute is defined, the version
           is the checksum of the BEAM file.
 	</p>
+	<note>
+	  <p>
+	    If you would dare to change
+	    <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
+	    during release upgrade/downgrade, the upgrade is no problem
+	    since the new code surely knows what <em>callback mode</em>
+	    it needs, but for a downgrade this function will have to
+	    know from the <c>Extra</c> argument that comes from the
+	    <seealso marker="sasl:appup"><c>appup</c></seealso>
+	    file what <em>callback mode</em> the old code did use.
+	    It may also be possible to figure this out
+	    from the <c>{down,Vsn}</c> argument since <c>Vsn</c>
+	    in effect defines the old callback module version.
+	  </p>
+	</note>
         <p>
 	  <c>OldState</c> and <c>OldData</c> is the internal state
 	  of the <c>gen_statem</c>.
@@ -1510,7 +1527,7 @@ handle_event(_, _, State, Data) ->
         <p>
 	  If successful, the function shall return the updated
           internal state in an
-	  <c>{ok,NewState,NewData}</c> tuple.
+	  <c>{NewCallbackMode,NewState,NewData}</c> tuple.
 	</p>
 	<p>
 	  If the function returns <c>Reason</c>, the ongoing
