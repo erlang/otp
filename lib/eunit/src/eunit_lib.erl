@@ -192,7 +192,6 @@ error_msg(Title, Fmt, Args) ->
     io_lib:fwrite("*** ~ts ***\n~ts\n\n", [Title, Msg]).
 
 -ifdef(TEST).
--dialyzer({no_match, format_exception_test_/0}).
 format_exception_test_() ->
     [?_assertMatch(
         "\nymmud:rorre"++_,
@@ -274,7 +273,6 @@ dlist_next([], Xs) ->
 
 
 -ifdef(TEST).
--dialyzer({no_match, dlist_test_/0}).
 dlist_test_() ->
     {"deep list traversal",
      [{"non-list term -> singleton list",
@@ -340,7 +338,6 @@ is_nonempty_string([]) -> false;
 is_nonempty_string(Cs) -> is_string(Cs).
 
 -ifdef(TEST).
--dialyzer({no_match, is_string_test_/0}).
 is_string_test_() ->
     {"is_string",
      [{"no non-lists", ?_assert(not is_string($A))},
@@ -402,7 +399,7 @@ uniq([X | Xs]) -> [X | uniq(Xs)];
 uniq([]) -> [].
 
 -ifdef(TEST).
--dialyzer({[no_match, no_fail_call, no_improper_lists], uniq_test_/0}).
+-dialyzer({[no_fail_call, no_improper_lists], uniq_test_/0}).
 uniq_test_() ->
     {"uniq",
      [?_assertError(function_clause, uniq(ok)),
@@ -581,7 +578,6 @@ trie_match([], _T) ->
 
 -ifdef(TEST).
 
--dialyzer({no_match, trie_test_/0}).
 trie_test_() ->
     [{"basic representation",
       [?_assert(trie_new() =:= gb_trees:empty()),
