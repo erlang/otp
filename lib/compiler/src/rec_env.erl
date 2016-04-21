@@ -603,7 +603,8 @@ generate(_N, Range) ->
     %% same BEAM code.
     case rand:export_seed() of
 	undefined ->
-	    rand:seed(exsplus, {1,42,2053});
+	    _ = rand:seed(exsplus, {1,42,2053}),
+	    ok;
 	_ ->
 	    ok
     end,
