@@ -44,9 +44,7 @@ groups() ->
        beam_compiler_11,beam_compiler_12,
        nested_tuples_in_case_expr,otp_2330,guards,
        {group,vsn},otp_2380,otp_2173,otp_4790,
-       const_list_256,bin_syntax_1,bin_syntax_2,
-       bin_syntax_3,bin_syntax_4,bin_syntax_5,bin_syntax_6,
-       live_var,convopts,
+       const_list_256,live_var,convopts,
        catch_in_catch,redundant_case,long_string,otp_5076,
        complex_guard,otp_5092,otp_5151,otp_5235,otp_5244,
        trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
@@ -107,40 +105,12 @@ end_per_group(_GroupName, Config) ->
 
 ?comp(const_list_256).
 
-?comp(bin_syntax_1).
-?comp(bin_syntax_2).
-?comp(bin_syntax_3).
-?comp(bin_syntax_4).
-
-?comp(bin_syntax_6).
-
 ?comp(otp_5076).
 
 ?comp(complex_guard).
 
 ?comp(otp_5092).
 ?comp(otp_5151).
-
-%%% By Per Gustafsson <pergu@dhcp-12-245.it.uu.se>
-
-bin_syntax_5(Config) when is_list(Config) ->
-    {<<45>>,<<>>} = split({int, 1}, <<1:16,45>>).   
-
-split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
-    {B,T}.
-
-%% This program works with the old version of the compiler
-%% but, the core erlang that it produces have the same variable appearing
-%% looks like this:
-%%
-%% split({int, N}, <<_core1:16, B:N/binary, T/binary>>) when _core1==N
-%%
-%% with my change it will look like this:
-%%
-%% split({int, N}, <<_core1:16, B:_core1/binary, T/binary>>) when _core1==N
-%%
-%% This means that everything worked fine as long as the pattern
-%% matching order was left-to-right but on core erlang any order should be possible
 
 ?comp(live_var).
 
