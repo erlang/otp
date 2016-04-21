@@ -2053,8 +2053,26 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    *hp++ = val;
 	    break;
 	case TAG_PRIMARY_LIST:
+#ifdef SHCOPY_SEND
+            if (erts_is_literal(val,list_val(val))) {
+                *hp++ = val;
+            } else {
+                *hp++ = offset_ptr(val, offs);
+            }
+#else
+            *hp++ = offset_ptr(val, offs);
+#endif
+            break;
 	case TAG_PRIMARY_BOXED:
-	    *hp++ = offset_ptr(val, offs);
+#ifdef SHCOPY_SEND
+            if (erts_is_literal(val,boxed_val(val))) {
+                *hp++ = val;
+            } else {
+                *hp++ = offset_ptr(val, offs);
+            }
+#else
+            *hp++ = offset_ptr(val, offs);
+#endif
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    *hp++ = val;
