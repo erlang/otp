@@ -10932,9 +10932,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     INITIALIZE_SHCOPY(info);
 #endif
 
-#ifdef ERTS_SMP
     erts_smp_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
-#endif
 
     /*
      * Check for errors.
@@ -11235,6 +11233,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
      * Schedule process for execution.
      */
 
+    erts_smp_proc_unlock(parent, locks & ERTS_PROC_LOCKS_ALL_MINOR);
+
     schedule_process(p, state, 0);
 
     VERBOSE(DEBUG_PROCESSES, ("Created a new process: %T\n",p->common.id));
@@ -11248,6 +11248,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         DTRACE2(process_spawn, process_name, mfa);
     }
 #endif
+    return res;
 
  error:
 
