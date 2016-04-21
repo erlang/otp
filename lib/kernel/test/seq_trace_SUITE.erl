@@ -498,7 +498,13 @@ match_set_seq_token(Config) when is_list(Config) ->
 		exit(P2, timeout),
 		{error, "Test node hung"}
 	end,
-    ok = check_match_set_seq_token_log(Lbl, Log),
+
+    %% Sort the log on Pid, as events from different processes
+    %% are not guaranteed to arrive in a certain order to the
+    %% tracer
+    SortedLog = lists:keysort(2, Log),
+
+    ok = check_match_set_seq_token_log(Lbl, SortedLog),
     %%
     stop_node(Sandbox),
     ok.
@@ -551,13 +557,13 @@ do_match_set_seq_token(Label) ->
 
 check_match_set_seq_token_log(
   Label,
-  [{trace,C,call,{?MODULE,countdown,[B,Ref]},  {0,Label,0,C,0}},
-   {trace,C,call,{?MODULE,countdown,[B,Ref,3]},{0,Label,0,C,0}},
-   {trace,B,call,{?MODULE,bounce,   [Ref]},    {0,Label,2,B,1}},
-   {trace,C,call,{?MODULE,countdown,[B,Ref,2]},{0,Label,2,B,1}},
+  [{trace,B,call,{?MODULE,bounce,   [Ref]},    {0,Label,2,B,1}},
    {trace,B,call,{?MODULE,bounce,   [Ref]},    {0,Label,4,B,3}},
-   {trace,C,call,{?MODULE,countdown,[B,Ref,1]},{0,Label,4,B,3}},
    {trace,B,call,{?MODULE,bounce,   [Ref]},    {0,Label,6,B,5}},
+   {trace,C,call,{?MODULE,countdown,[B,Ref]},  {0,Label,0,C,0}},
+   {trace,C,call,{?MODULE,countdown,[B,Ref,3]},{0,Label,0,C,0}},
+   {trace,C,call,{?MODULE,countdown,[B,Ref,2]},{0,Label,2,B,1}},
+   {trace,C,call,{?MODULE,countdown,[B,Ref,1]},{0,Label,4,B,3}},
    {trace,C,call,{?MODULE,countdown,[B,Ref,0]},{0,Label,6,B,5}}
   ]) ->
     ok;
