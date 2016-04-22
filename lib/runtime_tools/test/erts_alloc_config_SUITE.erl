@@ -161,12 +161,12 @@ start_node(Config) ->
 
 start_node(Config, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ?t:start_node(mk_name(Config),
-                  slave,
-                  [{args, "-pa " ++ Pa ++ " " ++ Args}]).
+    test_server:start_node(mk_name(Config),
+                           slave,
+                           [{args, "-pa " ++ Pa ++ " " ++ Args}]).
 
 stop_node(Node) ->
-    true = ?t:stop_node(Node).
+    true = test_server:stop_node(Node).
 
 privfile(Name, Config) ->
     filename:join([proplists:get_value(priv_dir, Config),

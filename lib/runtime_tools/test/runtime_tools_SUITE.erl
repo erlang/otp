@@ -37,11 +37,11 @@ all() ->
 
 
 app_file(_Config) ->
-    ok = ?t:app_test(runtime_tools),
+    ok = test_server:app_test(runtime_tools),
     ok.
 
 appup_file(_Config) ->
-    ok = ?t:appup_test(runtime_tools).
+    ok = test_server:appup_test(runtime_tools).
 
 start_stop_app(_Config) ->
     ok = application:start(runtime_tools),

@@ -62,7 +62,7 @@ end_per_suite(_Config) ->
     ok.
 
 smoke(Config) ->
-    Emu = ?t:lookup_config(emu_name, Config),
+    Emu = test_server:lookup_config(emu_name, Config),
     BinEmu = list_to_binary(Emu),
     case erlang:system_info(dynamic_trace) of
 	dtrace ->
@@ -89,8 +89,7 @@ process(_Config) ->
 	      {probe,"process-hibernate"},
 	      {action,[{printf,["hibernate %s %s\n",{arg,0},{arg,1}]}]},
 	      {probe,"process-exit"},
-	      {action,[{printf,["exit %s %s\n",{arg,0},{arg,1}]}]}
-	     ],
+	      {action,[{printf,["exit %s %s\n",{arg,0},{arg,1}]}]}],
     F = fun() ->
 		{Pid,Ref} = spawn_monitor(fun my_process/0),
 		Pid ! hibernate,
