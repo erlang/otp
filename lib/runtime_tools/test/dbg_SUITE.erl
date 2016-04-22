@@ -110,7 +110,7 @@ tiny(Config) when is_list(Config) ->
                 Pid ! {dbg_test, stop};
             true ->
                 ok=file:set_cwd(OldCurDir),
-                ?t:fail("Could not spawn external test process.~n"),
+                ct:fail("Could not spawn external test process.~n"),
                 failure
         end
     after
@@ -533,7 +533,7 @@ file_port_schedfix1(Config) when is_list(Config) ->
     if P > 100 ->
            Reason = {BottomLine, '>', "100%"},
            erlang:display({file_port_schedfix, fail, Reason}),
-           test_server:fail(Reason);
+           ct:fail(Reason);
        true ->
            {comment, BottomLine}
     end.
