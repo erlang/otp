@@ -361,7 +361,8 @@ wx_object(Config) ->
     wx:new(),
     Me = self(),
     Init = fun() ->
-		   Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Test wx_object", [{size, {500, 400}}]),
+		   Frame0 = wxFrame:new(wx:null(), ?wxID_ANY, "Test wx_object", [{size, {500, 400}}]),
+		   Frame = wx_object:set_pid(Frame0, self()),
 		   Sz = wxBoxSizer:new(?wxHORIZONTAL),
 		   Panel = wxPanel:new(Frame),
 		   wxSizer:add(Sz, Panel, [{flag, ?wxEXPAND}, {proportion, 1}]),
@@ -371,6 +372,7 @@ wx_object(Config) ->
 		   {Frame, {Frame, Panel}}
 	   end,
     Frame = ?mt(wxFrame, wx_obj_test:start([{init, Init}])),
+
     timer:sleep(500),
     ?m(ok, check_events(flush())),
 
@@ -378,6 +380,11 @@ wx_object(Config) ->
     ?m({call, foobar, {Me, _}}, wx_object:call(Frame, foobar)),
     ?m(ok, wx_object:cast(Frame, foobar2)),
     ?m([{cast, foobar2}|_], flush()),
+
+    ?m(Frame, wx_obj_test:who_are_you(Frame)),
+    {call, {Frame,Panel}, _} = wx_object:call(Frame, fun(US) -> US end),
+    ?m(false, wxWindow:getParent(Panel) =:= Frame),
+    ?m(true, wx:equal(wxWindow:getParent(Panel),Frame)),
     FramePid = wx_object:get_pid(Frame),
     io:format("wx_object pid ~p~n",[FramePid]),
     FramePid ! foo3,
