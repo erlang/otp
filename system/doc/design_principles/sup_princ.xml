@@ -402,8 +402,8 @@ supervisor:delete_child(Sup, Id)</code>
       restarts.</p>
   </section>
 
-  <marker id="simple"/>
   <section>
+    <marker id="simple"/>
     <title>Simplified one_for_one Supervisors</title>
     <p>A supervisor with restart strategy <c>simple_one_for_one</c> is
       a simplified <c>one_for_one</c> supervisor, where all child

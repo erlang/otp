@@ -36,6 +36,15 @@
     manual page in STDLIB, where all interface functions and callback
     functions are described in detail.
   </p>
+  <p>
+    This is a new behaviour in OTP-19.0.
+    It has been thoroughly reviewed, is stable enough
+    to be used by at least two heavy OTP applications, and is here to stay.
+    But depending on user feedback, we do not expect
+    but might find it necessary to make minor
+    not backwards compatible changes into OTP-20.0,
+    so its state can be designated as "not quite experimental"...
+  </p>
 
 <!-- =================================================================== -->
 
