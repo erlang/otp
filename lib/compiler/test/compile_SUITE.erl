@@ -546,7 +546,6 @@ verify_abstract(Target) ->
 has_crypto() ->
     try
 	crypto:start(),
-	<<_,_,_,_,_>> = crypto:rand_bytes(5),
 	crypto:stop(),
 	true
     catch
