@@ -104,7 +104,7 @@ init_sftp_dirs(Config) ->
     DstDir = filename:join(UserDir, "sftp_dst"),
     ok = file:make_dir(DstDir),
     N = 100 * 1024*1024,
-    ok = file:write_file(filename:join(SrcDir,SrcFile), crypto:rand_bytes(N)),
+    ok = file:write_file(filename:join(SrcDir,SrcFile), crypto:strong_rand_bytes(N)),
     [{sftp_src_dir,SrcDir}, {sftp_dst_dir,DstDir}, {src_file,SrcFile}, {sftp_size,N}
      | Config].
 
