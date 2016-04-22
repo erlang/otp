@@ -52,8 +52,6 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%% The test cases ------------------------------------------------------------
 %%%
 
-basic(doc) -> [];
-basic(suite) -> [];
 basic(Config) when is_list(Config) ->
     ErtsAllocConfig = privfile("generated", Config),
 

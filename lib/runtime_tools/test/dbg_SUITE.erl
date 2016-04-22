@@ -45,8 +45,7 @@ all() ->
      erl_tracer, distributed_erl_tracer].
 
 
-big(suite) -> [];
-big(doc) -> ["Rudimentary interface test"];
+%% Rudimentary interface test
 big(Config) when is_list(Config) ->
     {ok,OldCurDir} = file:get_cwd(),
     Datadir=proplists:get_value(data_dir, Config),
@@ -87,8 +86,7 @@ big(Config) when is_list(Config) ->
     ok.
 
 
-tiny(suite) -> [];
-tiny(doc) -> ["Rudimentary interface test"];
+%% Rudimentary interface test
 tiny(Config) when is_list(Config) ->
     {ok,OldCurDir} = file:get_cwd(),
     Datadir=proplists:get_value(data_dir, Config),
@@ -119,10 +117,7 @@ tiny(Config) when is_list(Config) ->
     end,
     ok.
 
-simple(suite) ->
-    [];
-simple(doc) ->
-    ["Simple interface test with own handler"];
+%% Simple interface test with own handler
 simple(Config) when is_list(Config) ->
     try
         start(),
@@ -137,10 +132,7 @@ simple(Config) when is_list(Config) ->
     end,
     ok.
 
-message(suite) ->
-    [];
-message(doc) ->
-    ["Simple interface test with pam code that appends a message"];
+%% Simple interface test with pam code that appends a message
 message(Config) when is_list(Config) ->
     {ok, _} = start(),
     try
@@ -159,10 +151,7 @@ message(Config) when is_list(Config) ->
      {trace,S,call,{dbg,ln,[]},S}] = flush(),
     ok.
 
-distributed(suite) ->
-    [];
-distributed(doc) ->
-    ["Simple test of distributed tracing"];
+%% Simple test of distributed tracing
 distributed(Config) when is_list(Config) ->
     {ok, _} = start(),
     Node = start_slave(),
@@ -199,10 +188,7 @@ distributed(Config) when is_list(Config) ->
     ok.
 
 
-local_trace(suite) ->
-    [];
-local_trace(doc) ->
-    ["Tests tracing of local function calls."];
+%% Tests tracing of local function calls.
 local_trace(Config) when is_list(Config) ->
     {ok, _} = start(),
     try
@@ -251,10 +237,7 @@ local_trace(Config) when is_list(Config) ->
     end,
     ok.
 
-port(suite) ->
-    [];
-port(doc) ->
-    ["Test that tracing on port works"];
+%% Test that tracing on port works
 port(Config) when is_list(Config) ->
     try
         S = self(),
@@ -280,10 +263,7 @@ port(Config) when is_list(Config) ->
     end,
     ok.
 
-saved_patterns(suite) ->
-    [];
-saved_patterns(doc) ->
-    ["Tests saving of match_spec's."];
+%% Tests saving of match_spec's.
 saved_patterns(Config) when is_list(Config) ->
     dbg:stop(),
     {ok,[{saved,1}]} =
@@ -317,10 +297,7 @@ not_exported(N) ->
 exported(N) ->
     not_exported(N).
 
-ip_port(suite) ->
-    [];
-ip_port(doc) ->
-    ["Test tracing to IP port"];
+%% Test tracing to IP port
 ip_port(Config) when is_list(Config) ->
     stop(),
     Port = dbg:trace_port(ip, 0),
@@ -346,11 +323,7 @@ ip_port(Config) when is_list(Config) ->
 
 
 
-ip_port_busy(suite) ->
-    [];
-ip_port_busy(doc) ->
-    ["Test that the dbg server does not hang if the tracer don't start ",
-     "(OTP-3592)"];
+%% Test that the dbg server does not hang if the tracer don't start (OTP-3592)
 ip_port_busy(Config) when is_list(Config) ->
     stop(),
     Tracer = dbg:trace_port(ip, 4745),
@@ -366,10 +339,7 @@ ip_port_busy(Config) when is_list(Config) ->
 
 
 
-file_port(suite) ->
-    [];
-file_port(doc) ->
-    ["Test tracing to file port (simple)"];
+%% Test tracing to file port (simple)
 file_port(Config) when is_list(Config) ->
     stop(),
     {A,B,C} = erlang:now(),
@@ -398,10 +368,7 @@ file_port(Config) when is_list(Config) ->
     end,
     ok.
 
-file_port2(suite) ->
-    [];
-file_port2(doc) ->
-    ["Test tracing to file port with 'follow_file'"];
+%% Test tracing to file port with 'follow_file'
 file_port2(Config) when is_list(Config) ->
     stop(),
     {A,B,C} = erlang:now(),
@@ -434,10 +401,7 @@ file_port2(Config) when is_list(Config) ->
     end,
     ok.
 
-file_port_schedfix(suite) ->
-    [];
-file_port_schedfix(doc) ->
-    ["Test that the scheduling timestamp fix for trace flag 'running' works."];
+%% Test that the scheduling timestamp fix for trace flag 'running' works.
 file_port_schedfix(Config) when is_list(Config) ->
     case (catch erlang:system_info(smp_support)) of
         true ->
@@ -538,10 +502,7 @@ file_port_schedfix1(Config) when is_list(Config) ->
            {comment, BottomLine}
     end.
 
-wrap_port(suite) ->
-    [];
-wrap_port(doc) ->
-    ["Test tracing to wrapping file port"];
+%% Test tracing to wrapping file port
 wrap_port(Config) when is_list(Config) ->
     Self = self(),
     stop(),
@@ -636,10 +597,7 @@ wrap_port_result([{trace, S, call, {?MODULE, tracee2, [M]}, hej},
     wrap_port_result(Tail, S, M-1).
 
 
-wrap_port_time(suite) ->
-    [];
-wrap_port_time(doc) ->
-    ["Test tracing to time limited wrapping file port"];
+%% Test tracing to time limited wrapping file port
 wrap_port_time(Config) when is_list(Config) ->
     stop(),
     {A,B,C} = erlang:now(),
@@ -689,10 +647,7 @@ wrap_port_time(Config) when is_list(Config) ->
     end,
     ok.
 
-with_seq_trace(suite) ->
-    [];
-with_seq_trace(doc) ->
-    ["Test ordinary tracing combined with seq_trace"];
+%% Test ordinary tracing combined with seq_trace
 with_seq_trace(Config) when is_list(Config) ->
     try
         {ok, Server} = start(),
@@ -718,12 +673,8 @@ with_seq_trace(Config) when is_list(Config) ->
     end,
     ok.
 
-dead_suspend(suite) ->
-    [];
-dead_suspend(doc) ->
-    ["Test that trace messages concerning a now dead process does "
-     "not crash dbg."];
 
+%% Test that trace messages concerning a now dead process does not crash dbg.
 dead_suspend(Config) when is_list(Config) ->
     start(),
     try
