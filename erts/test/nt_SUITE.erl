@@ -37,13 +37,13 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 3}}].
 
-all() -> 
-    case os:type() of
-        {win32, nt} ->
-            [nt, service_basic, service_env, user_env, synced,
-             service_prio, logout, debug, restart, restart_always,
-             stopaction];
-        _ -> [nt]
+all() ->
+    case {os:type(), os:version()} of
+	{{win32, nt}, Vsn} when Vsn =< {6,1,999999} ->
+	    [nt, service_basic, service_env, user_env, synced,
+	     service_prio, logout, debug, restart, restart_always,
+	     stopaction];
+	_ -> [nt]
     end.
 
 init_per_testcase(_Func, Config) ->
@@ -367,11 +367,13 @@ stopaction(Config) when is_list(Config) ->
 %%% other platforms than NT.
 
 nt(Config) when is_list(Config) ->
-    case os:type() of
-        {win32,nt} ->
-            nt_run();
-        _ ->
-            {skipped, "This test case is intended for Win NT only."}
+    case {os:type(), os:version()} of
+	{{win32, nt}, Vsn} when Vsn =< {6,1,999999} ->
+	    nt_run();
+	{{win32, nt},  _} ->
+	    {skipped, "This test case requires admin privileges on Win 8 and later."};
+	_ ->
+	    {skipped, "This test case is intended for Win NT only."}
     end.
 
 
