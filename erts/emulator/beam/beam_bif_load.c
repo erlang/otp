@@ -832,7 +832,7 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp)
 
     /*
      * Message queue can contains funs, but (at least currently) no
-     * constants. If we got references to this module from the message
+     * literals. If we got references to this module from the message
      * queue, a GC cannot remove these...
      */
 
@@ -853,7 +853,7 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp)
 	for (; hfrag; hfrag = hfrag->next) {
 	    if (check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size))
 		return am_true;
-	    /* Should not contain any constants... */
+	    /* Should not contain any literals... */
 	    ASSERT(!any_heap_refs(&hfrag->mem[0],
 				  &hfrag->mem[hfrag->used_size],
                                   literals,
@@ -908,7 +908,7 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp)
 #ifdef DEBUG
 	/*
 	 * Message buffer fragments should not have any references
-	 * to constants, and off heap lists should already have
+	 * to literals, and off heap lists should already have
 	 * been moved into process off heap structure.
 	 */
 	for (msgp = rp->msg_frag; msgp; msgp = msgp->next) {
@@ -945,7 +945,7 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp)
 	need_gc &= ~done_gc;
 
 	/*
-	 * Try to get rid of constants by by garbage collecting.
+	 * Try to get rid of literals by by garbage collecting.
 	 * Clear both fvalue and ftrace.
 	 */
 
