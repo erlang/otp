@@ -130,27 +130,13 @@ handle_cast(_, S) ->
 
 -spec handle_info(term(), state()) -> {'noreply', state()}.
 
+handle_info({'DOWN', _, process, Caller, normal}, S) ->
+    {noreply, gb_trees:delete(Caller, S)};
 handle_info({'DOWN', _, process, Caller, Reason}, S) ->
     case gb_trees:lookup(Caller, S) of
-	{value, To} ->
-	    receive
-		{Caller, {reply, Reply}} ->
-		    gen_server:reply(To, Reply)
-	    after 0 ->
-		    gen_server:reply(To, {badrpc, {'EXIT', Reason}})
-	    end,
+        {value, To} ->
+	    gen_server:reply(To, {badrpc, {'EXIT', Reason}}),
 	    {noreply, gb_trees:delete(Caller, S)};
-	none ->
-	    {noreply, S}
-    end;
-handle_info({Caller, {reply, Reply}}, S) ->
-    case gb_trees:lookup(Caller, S) of
-	{value, To} ->
-	    receive
-		{'DOWN', _, process, Caller, _} -> 
-		    gen_server:reply(To, Reply),
-		    {noreply, gb_trees:delete(Caller, S)}
-	    end;
 	none ->
 	    {noreply, S}
     end;
@@ -190,7 +176,6 @@ code_change(_, S, _) ->
 %% Auxiliary function to avoid a false dialyzer warning -- do not inline
 %%
 handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
-    RpcServer = self(),
     %% Spawn not to block the rpc server.
     {Caller,_} =
 	erlang:spawn_monitor(
@@ -205,7 +190,7 @@ handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
 			  Result ->
 			      Result
 		      end,
-		  RpcServer ! {self(), {reply, Reply}}
+		  gen_server:reply(To, Reply)
 	  end),
     {noreply, gb_trees:insert(Caller, To, S)}.
 
