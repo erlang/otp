@@ -142,10 +142,10 @@ make_basic_config(ErtsAllocConfig) ->
 %%
 
 display_file(FileName) ->
-    ?t:format("filename: ~s~n", [FileName]),
+    io:format("filename: ~s~n", [FileName]),
     {ok, Bin} = file:read_file(FileName),
     io:format("~s", [binary_to_list(Bin)]),
-    ?t:format("eof: ~s~n", [FileName]),
+    io:format("eof: ~s~n", [FileName]),
     ok.
 
 mk_name(Config) when is_list(Config) ->
