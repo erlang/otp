@@ -27,7 +27,7 @@
 -export([all/0, suite/0, link_receive_call_correlation/0,
          receive_trace/1, link_receive_call_correlation/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
-	 procs_trace/1, dist_procs_trace/1,
+	 procs_trace/1, dist_procs_trace/1, procs_new_trace/1,
 	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
 	 suspend_system_limit/1, suspend_opts/1, suspend_waiting/1,
 	 new_clear/1, existing_clear/1,
@@ -456,6 +456,34 @@ dist_procs_trace(Config) when is_list(Config) ->
     true = stop_node(OtherNode),
     ok.
 
+%% Test trace(new, How, [procs]).
+procs_new_trace(Config) when is_list(Config) ->
+    Self = self(),
+    process_flag(trap_exit, true),
+    %%
+    Proc1 = spawn_link(?MODULE, process, [Self]),
+    io:format("Proc1 = ~p ~n", [Proc1]),
+    %%
+    0 = erlang:trace(new, true, [procs]),
+
+    MFA = {?MODULE, process, [Self]},
+    %%
+    %% spawn, link
+    Proc1 ! {spawn_link_please, Self, MFA},
+    Proc3 = receive {spawned, Proc1, P3} -> P3 end,
+    receive {trace, Proc3, spawned, Proc1, MFA} -> ok end,
+    receive {trace, Proc3, getting_linked, Proc1} -> ok end,
+    io:format("Proc3 = ~p ~n", [Proc3]),
+    receive_nothing(),
+    %%
+    %%
+    %% exit (not linked to tracing process)
+    Reason1 = make_ref(),
+    Proc1 ! {exit_please, Reason1},
+    receive {'EXIT', Proc1, Reason1} -> ok end,
+    {trace, Proc3, exit, Reason1} = receive_first_trace(),
+    receive_nothing(),
+    ok.
 
 
 
