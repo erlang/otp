@@ -20,31 +20,22 @@
 -module(dbg_SUITE).
 
 %% Test functions
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
          big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
          ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
          with_seq_trace/1, dead_suspend/1, local_trace/1,
          saved_patterns/1, tracer_exit_on_stop/1,
          erl_tracer/1, distributed_erl_tracer/1]).
--export([init_per_testcase/2, end_per_testcase/2]).
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
 -export([enabled/3, trace/6, load_nif/1]).
 
 -include_lib("common_test/include/ct.hrl").
--define(default_timeout, ?t:minutes(1)).
 
-init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [big, tiny, simple, message, distributed, port, ip_port,
@@ -52,21 +43,6 @@ all() ->
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
      local_trace, saved_patterns, tracer_exit_on_stop,
      erl_tracer, distributed_erl_tracer].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 big(suite) -> [];
