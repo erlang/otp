@@ -44,15 +44,15 @@ basic(Config) when is_list(Config) ->
 
     basic_test(erlang:system_info(message_queue_data)),
 
-    {ok, Node1} = start_node(Config, "+xmqd off_heap"),
+    {ok, Node1} = start_node(Config, "+hmqd off_heap"),
     ok = rpc:call(Node1, ?MODULE, basic_test, [off_heap]),
     stop_node(Node1),
 
-    {ok, Node2} = start_node(Config, "+xmqd on_heap"),
+    {ok, Node2} = start_node(Config, "+hmqd on_heap"),
     ok = rpc:call(Node2, ?MODULE, basic_test, [on_heap]),
     stop_node(Node2),
 
-    {ok, Node3} = start_node(Config, "+xmqd mixed"),
+    {ok, Node3} = start_node(Config, "+hmqd mixed"),
     ok = rpc:call(Node3, ?MODULE, basic_test, [mixed]),
     stop_node(Node3),
 

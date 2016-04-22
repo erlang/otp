@@ -4371,7 +4371,7 @@ os_prompt% </pre>
         </taglist>
 	<p>
 	  The default <c>message_queue_data</c> process flag is determined
-	  by the <seealso marker="erl#+xmqd"><c>+xmqd</c></seealso>
+	  by the <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso>
 	  <c>erl</c> command line argument.
 	</p>
 	<p>
@@ -4878,7 +4878,9 @@ os_prompt% </pre>
           <tag><c>{total_heap_size, <anno>Size</anno>}</c></tag>
           <item>
             <p><c><anno>Size</anno></c> is the total size, in words, of all heap
-	    fragments of the process. This includes the process stack.</p>
+	    fragments of the process. This includes the process stack and
+            any unreceived messages that are considered to be part of the
+            heap. </p>
           </item>
           <tag><c>{trace, <anno>InternalTraceFlags</anno>}</c></tag>
           <item>
@@ -5709,7 +5711,7 @@ true</pre>
 	    flag. <c><anno>MQD</anno></c> should be either <c>off_heap</c>,
 	    <c>on_heap</c>, or <c>mixed</c>. The default
 	    <c>message_queue_data</c> process flag is determined by the
-	    <seealso marker="erl#+xmqd"><c>+xmqd</c></seealso> <c>erl</c>
+	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso> <c>erl</c>
 	    command line argument. For more information, see the
 	    documentation of
             <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
@@ -7388,7 +7390,7 @@ ok
             <p>Returns the default value of the <c>message_queue_data</c>
 	    process flag which is either <c>off_heap</c>, <c>on_heap</c>, or <c>mixed</c>.
 	    This default is set by the <c>erl</c> command line argument
-	    <seealso marker="erl#+xmqd"><c>+xmqd</c></seealso>. For more information on the
+	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso>. For more information on the
 	    <c>message_queue_data</c> process flag, see documentation of
             <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
 	    MQD)</c></seealso>.</p>
