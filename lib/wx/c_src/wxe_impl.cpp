@@ -238,9 +238,10 @@ void WxeApp::dispatch_cmds()
   if(wxe_status != WXE_INITIATED)
     return;
   recurse_level++;
-  // fprintf(stderr, "\r\ndispatch_normal %d\r\n", level);fflush(stderr);
+  // fprintf(stderr, "\r\ndispatch_normal %d\r\n", recurse_level);fflush(stderr);
+  wxe_queue->cb_start = 0;
   dispatch(wxe_queue);
-  // fprintf(stderr, "\r\ndispatch_done \r\n");fflush(stderr);
+  // fprintf(stderr, "\r\ndispatch_done %d\r\n", recurse_level);fflush(stderr);
   recurse_level--;
 
   // Cleanup old memenv's and deleted objects
