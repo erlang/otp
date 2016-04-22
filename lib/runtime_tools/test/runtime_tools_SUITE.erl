@@ -64,7 +64,7 @@ end_per_group(_GroupName, Config) ->
 
 
 app_file(_Config) ->
-    ?line ok = ?t:app_test(runtime_tools),
+    ok = ?t:app_test(runtime_tools),
     ok.
 
 appup_file(_Config) ->

@@ -21,12 +21,12 @@
 
 %% Test functions
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
-	 ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
-	 ip_port_busy/1, wrap_port/1, wrap_port_time/1,
-	 with_seq_trace/1, dead_suspend/1, local_trace/1,
-	 saved_patterns/1, tracer_exit_on_stop/1,
+         init_per_group/2,end_per_group/2, 
+         big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
+         ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
+         ip_port_busy/1, wrap_port/1, wrap_port_time/1,
+         with_seq_trace/1, dead_suspend/1, local_trace/1,
+         saved_patterns/1, tracer_exit_on_stop/1,
          erl_tracer/1, distributed_erl_tracer/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([tracee1/1, tracee2/1]).
@@ -37,7 +37,7 @@
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
@@ -72,41 +72,41 @@ end_per_group(_GroupName, Config) ->
 big(suite) -> [];
 big(doc) -> ["Rudimentary interface test"];
 big(Config) when is_list(Config) ->
-	?line {ok,OldCurDir} = file:get_cwd(),
-	Datadir=?config(data_dir, Config),
-	Privdir=?config(priv_dir, Config),
-	?line ok=file:set_cwd(Privdir),
+    {ok,OldCurDir} = file:get_cwd(),
+    Datadir=?config(data_dir, Config),
+    Privdir=?config(priv_dir, Config),
+    ok=file:set_cwd(Privdir),
     try
-	%% make sure dbg is stopped (and returns correctly)
-	?line ok = dbg:stop(),
+        %% make sure dbg is stopped (and returns correctly)
+        ok = dbg:stop(),
 
-	%% compile test module and make sure it is loaded.
-	?line {ok,Mod} = compile:file(Datadir++"/dbg_test",[trace]),
-	?line code:purge(dbg_test),
-	?line {module, Mod}=code:load_file(dbg_test),
+        %% compile test module and make sure it is loaded.
+        {ok,Mod} = compile:file(Datadir++"/dbg_test",[trace]),
+        code:purge(dbg_test),
+        {module, Mod}=code:load_file(dbg_test),
 
-	%% run/debug a named test function.
-	?line Pid = spawn_link(dbg_test, loop, [Config]),
-	?line true = register(dbg_test_loop, Pid),
-	?line {ok,_} = dbg:tracer(),
-	?line {ok,[{matched, _node, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
-	?line ok = dbg:c(dbg_test, test, [Config]),
-	?line ok = dbg:i(),
-	?line dbg_test_loop ! {dbg_test, stop},
-	unregister(dbg_test_loop),
-	?line ok = dbg:stop(),
+        %% run/debug a named test function.
+        Pid = spawn_link(dbg_test, loop, [Config]),
+        true = register(dbg_test_loop, Pid),
+        {ok,_} = dbg:tracer(),
+        {ok,[{matched, _node, 1}]} = dbg:p(dbg_test_loop, [m,p,c]),
+        ok = dbg:c(dbg_test, test, [Config]),
+        ok = dbg:i(),
+        dbg_test_loop ! {dbg_test, stop},
+        unregister(dbg_test_loop),
+        ok = dbg:stop(),
 
-	%% run/debug a Pid.
-	?line Pid2=spawn_link(dbg_test,loop,[Config]),
-	?line {ok,_} = dbg:tracer(),
-	?line {ok,[{matched, _node, 1}]} = dbg:p(Pid2,[s,r,p]),
-	?line ok = dbg:c(dbg_test, test, [Config]),
-	?line ok = dbg:i(),
-	?line Pid2 ! {dbg_test, stop},
+        %% run/debug a Pid.
+        Pid2=spawn_link(dbg_test,loop,[Config]),
+        {ok,_} = dbg:tracer(),
+        {ok,[{matched, _node, 1}]} = dbg:p(Pid2,[s,r,p]),
+        ok = dbg:c(dbg_test, test, [Config]),
+        ok = dbg:i(),
+        Pid2 ! {dbg_test, stop},
 
-	?line ok=file:set_cwd(OldCurDir)
+        ok=file:set_cwd(OldCurDir)
     after
-	?line dbg:stop()
+        dbg:stop()
     end,
     ok.
 
@@ -114,32 +114,32 @@ big(Config) when is_list(Config) ->
 tiny(suite) -> [];
 tiny(doc) -> ["Rudimentary interface test"];
 tiny(Config) when is_list(Config) ->
-    ?line {ok,OldCurDir} = file:get_cwd(),
+    {ok,OldCurDir} = file:get_cwd(),
     Datadir=?config(data_dir, Config),
     Privdir=?config(priv_dir, Config),
-    ?line ok=file:set_cwd(Privdir),
+    ok=file:set_cwd(Privdir),
     try
-	%% compile test module and make sure it is loaded.
-	?line {ok, Mod} = compile:file(Datadir++"/dbg_test",[trace]),
-	?line code:purge(dbg_test),
-	?line {module, Mod}=code:load_file(dbg_test),
+        %% compile test module and make sure it is loaded.
+        {ok, Mod} = compile:file(Datadir++"/dbg_test",[trace]),
+        code:purge(dbg_test),
+        {module, Mod}=code:load_file(dbg_test),
 
-	?line Pid=spawn_link(dbg_test,loop,[Config]),
-	if
-	    is_pid(Pid) ->
-		?line dbg:tracer(),
-		?line {ok,[{matched, _node, 1}]} = dbg:p(Pid,[s,r,m,p,c]),
-		?line ok = dbg:c(dbg_test,test,[Config]),
-		?line ok = dbg:i(),
-		?line Pid ! {dbg_test, stop};
-	    true ->
-		?line ok=file:set_cwd(OldCurDir),
-		?t:fail("Could not spawn external test process.~n"),
-		failure
-	end
+        Pid=spawn_link(dbg_test,loop,[Config]),
+        if
+            is_pid(Pid) ->
+                dbg:tracer(),
+                {ok,[{matched, _node, 1}]} = dbg:p(Pid,[s,r,m,p,c]),
+                ok = dbg:c(dbg_test,test,[Config]),
+                ok = dbg:i(),
+                Pid ! {dbg_test, stop};
+            true ->
+                ok=file:set_cwd(OldCurDir),
+                ?t:fail("Could not spawn external test process.~n"),
+                failure
+        end
     after
-	?line ok = dbg:stop(),
-        ?line ok = file:set_cwd(OldCurDir)
+        ok = dbg:stop(),
+        ok = file:set_cwd(OldCurDir)
     end,
     ok.
 
@@ -149,15 +149,15 @@ simple(doc) ->
     ["Simple interface test with own handler"];
 simple(Config) when is_list(Config) ->
     try
-	?line start(),
-	?line dbg:p(self(),call),
-	?line dbg:tp(dbg,ltp,[]),
-	?line dbg:ltp(),
-	?line stop(),
-	?line S = self(),
-	?line [{trace,S,call,{dbg,ltp,[]}}] = flush()
+        start(),
+        dbg:p(self(),call),
+        dbg:tp(dbg,ltp,[]),
+        dbg:ltp(),
+        stop(),
+        S = self(),
+        [{trace,S,call,{dbg,ltp,[]}}] = flush()
     after
-	?line dbg:stop()
+        dbg:stop()
     end,
     ok.
 
@@ -166,21 +166,21 @@ message(suite) ->
 message(doc) ->
     ["Simple interface test with pam code that appends a message"];
 message(Config) when is_list(Config) ->
-    ?line {ok, _} = start(),
+    {ok, _} = start(),
     try
-	?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-	?line {ok, X} = dbg:tp(dbg,ltp,[{'_',[],[{message, {self}}]}]),
-	?line {value, {saved, Saved}} = lists:keysearch(saved, 1, X),
-	?line {ok, Y} = dbg:tp(dbg,ln,Saved),
-	?line {value, {saved, Saved}} = lists:keysearch(saved, 1, Y),
-	?line ok = dbg:ltp(),
-	?line ok = dbg:ln()
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, X} = dbg:tp(dbg,ltp,[{'_',[],[{message, {self}}]}]),
+        {value, {saved, Saved}} = lists:keysearch(saved, 1, X),
+        {ok, Y} = dbg:tp(dbg,ln,Saved),
+        {value, {saved, Saved}} = lists:keysearch(saved, 1, Y),
+        ok = dbg:ltp(),
+        ok = dbg:ln()
     after
-	?line stop()
+        stop()
     end,
-    ?line S = self(),
-    ?line [{trace,S,call,{dbg,ltp,[]},S},
-	   {trace,S,call,{dbg,ln,[]},S}] = flush(),
+    S = self(),
+    [{trace,S,call,{dbg,ltp,[]},S},
+     {trace,S,call,{dbg,ln,[]},S}] = flush(),
     ok.
 
 distributed(suite) ->
@@ -188,37 +188,37 @@ distributed(suite) ->
 distributed(doc) ->
     ["Simple test of distributed tracing"];
 distributed(Config) when is_list(Config) ->
-    ?line {ok, _} = start(),
-    ?line Node = start_slave(),
+    {ok, _} = start(),
+    Node = start_slave(),
     try
-	?line RexPid = rpc:call(Node, erlang, whereis, [rex]),
-	?line RexPidList = pid_to_list(RexPid),
-	?line {ok, Node} = dbg:n(Node),
-	?line {ok, X} = dbg:p(all,call),
-	?line {value, {matched, Node, _}} = lists:keysearch(Node, 2, X),
-	?line {ok, Y} = dbg:p(RexPidList, s),
-	?line {value, {matched, Node, 1}} = lists:keysearch(Node, 2, Y),
-	?line {ok, Z} = dbg:tp(dbg,ltp,[]),
-	?line {value, {matched, Node, 1}} = lists:keysearch(Node, 2, Z),
-	?line dbg:cn(Node),
-	?line dbg:tp(dbg,ln,[]),
-	?line ok = rpc:call(Node, dbg, ltp, []),
-	?line ok = rpc:call(Node, dbg, ln, []),
-	?line ok = dbg:ln(),
-	?line S = self(),
-	?line {TraceSend, TraceCall} =
-	lists:partition(fun ({trace,RP,send,_,_}) when RP =:= RexPid -> true;
-			    (_) -> false end,
-			flush()),
-	?line [_|_] = TraceSend,
-	?line [{trace,Pid,call,{dbg,ltp,[]}},
-	       {trace,S,call,{dbg,ln,[]}}] = TraceCall,
-	?line Node = node(Pid),
-	%%
-	?line stop()
+        RexPid = rpc:call(Node, erlang, whereis, [rex]),
+        RexPidList = pid_to_list(RexPid),
+        {ok, Node} = dbg:n(Node),
+        {ok, X} = dbg:p(all,call),
+        {value, {matched, Node, _}} = lists:keysearch(Node, 2, X),
+        {ok, Y} = dbg:p(RexPidList, s),
+        {value, {matched, Node, 1}} = lists:keysearch(Node, 2, Y),
+        {ok, Z} = dbg:tp(dbg,ltp,[]),
+        {value, {matched, Node, 1}} = lists:keysearch(Node, 2, Z),
+        dbg:cn(Node),
+        dbg:tp(dbg,ln,[]),
+        ok = rpc:call(Node, dbg, ltp, []),
+        ok = rpc:call(Node, dbg, ln, []),
+        ok = dbg:ln(),
+        S = self(),
+        {TraceSend, TraceCall} =
+        lists:partition(fun ({trace,RP,send,_,_}) when RP =:= RexPid -> true;
+                            (_) -> false end,
+                        flush()),
+        [_|_] = TraceSend,
+        [{trace,Pid,call,{dbg,ltp,[]}},
+         {trace,S,call,{dbg,ln,[]}}] = TraceCall,
+        Node = node(Pid),
+        %%
+        stop()
     after
-	?line stop_slave(Node),
-        ?line stop()
+        stop_slave(Node),
+        stop()
     end,
     ok.
 
@@ -228,50 +228,50 @@ local_trace(suite) ->
 local_trace(doc) ->
     ["Tests tracing of local function calls."];
 local_trace(Config) when is_list(Config) ->
-    ?line {ok, _} = start(),
+    {ok, _} = start(),
     try
-	?line S = self(),
-	?line %% Split "<X.Y.Z>" into {X, Y, Z}
-	?line "<"++L1 = L = pid_to_list(S),
-	?line NoDot = fun ($.) -> false; (_) -> true end,
-	?line {LX,"."++L2} = lists:splitwith(NoDot, L1),
-	?line {LY,"."++L3} = lists:splitwith(NoDot, L2),
-	?line ">"++L4 = lists:reverse(L3),
-	?line LZ = lists:reverse(L4),
-	?line X = 0 = list_to_integer(LX),
-	?line Y = list_to_integer(LY),
-	?line Z = list_to_integer(LZ),
-	?line XYZ = {X, Y, Z},
-	?line io:format("Self = ~w = ~w~n", [S,XYZ]),
-	?line {ok, [{matched, _node, 1}]} = dbg:p(S,call),
-	?line {ok, [{matched, _node, 1}]} = dbg:p(XYZ,call),
-	if Z =:= 0 ->
-		?line {ok, [{matched, _node, 1}]} = dbg:p(Y,call);
-	   true -> ok
-	end,
-	?line {ok, [{matched, _node, 1}]} = dbg:p(L,call),
-	?line {ok, _} = dbg:tpl(?MODULE,not_exported,[]),
-	?line 4 = not_exported(2),
-	?line [{trace,S,call,{?MODULE,not_exported,[2]}}] = flush(),
-	?line {ok, _} = dbg:tp(?MODULE,exported,[]),
-	?line 4 = ?MODULE:exported(2),
-	?line [{trace,S,call,{?MODULE,exported,[2]}},
-	       {trace,S,call,{?MODULE,not_exported,[2]}}] = flush(),
-	?line {ok, _} = dbg:ctpl(?MODULE),
-	?line 4 = ?MODULE:exported(2),
-	?line [{trace,S,call,{?MODULE,exported,[2]}}] = flush(),
-	?line {ok, _} = dbg:tpl(?MODULE,not_exported,[]),
-	?line {ok, _} = dbg:ctp(?MODULE),
-	?line 4 = ?MODULE:exported(2),
-	?line [] = flush(),
-	?line {ok, _} = dbg:tpl(?MODULE,not_exported,x),
-	?line catch ?MODULE:exported(x),
-	?line [{trace,S,call,{dbg_SUITE,not_exported,[x]}},
-	       {trace,S,exception_from,
-		{dbg_SUITE,not_exported,1},
-		{error,badarith}}] = flush()
+        S = self(),
+        %% Split "<X.Y.Z>" into {X, Y, Z}
+        "<"++L1 = L = pid_to_list(S),
+        NoDot = fun ($.) -> false; (_) -> true end,
+        {LX,"."++L2} = lists:splitwith(NoDot, L1),
+        {LY,"."++L3} = lists:splitwith(NoDot, L2),
+        ">"++L4 = lists:reverse(L3),
+        LZ = lists:reverse(L4),
+        X = 0 = list_to_integer(LX),
+        Y = list_to_integer(LY),
+        Z = list_to_integer(LZ),
+        XYZ = {X, Y, Z},
+        io:format("Self = ~w = ~w~n", [S,XYZ]),
+        {ok, [{matched, _node, 1}]} = dbg:p(S,call),
+        {ok, [{matched, _node, 1}]} = dbg:p(XYZ,call),
+        if Z =:= 0 ->
+               {ok, [{matched, _node, 1}]} = dbg:p(Y,call);
+           true -> ok
+        end,
+        {ok, [{matched, _node, 1}]} = dbg:p(L,call),
+        {ok, _} = dbg:tpl(?MODULE,not_exported,[]),
+        4 = not_exported(2),
+        [{trace,S,call,{?MODULE,not_exported,[2]}}] = flush(),
+        {ok, _} = dbg:tp(?MODULE,exported,[]),
+        4 = ?MODULE:exported(2),
+        [{trace,S,call,{?MODULE,exported,[2]}},
+         {trace,S,call,{?MODULE,not_exported,[2]}}] = flush(),
+        {ok, _} = dbg:ctpl(?MODULE),
+        4 = ?MODULE:exported(2),
+        [{trace,S,call,{?MODULE,exported,[2]}}] = flush(),
+        {ok, _} = dbg:tpl(?MODULE,not_exported,[]),
+        {ok, _} = dbg:ctp(?MODULE),
+        4 = ?MODULE:exported(2),
+        [] = flush(),
+        {ok, _} = dbg:tpl(?MODULE,not_exported,x),
+        catch ?MODULE:exported(x),
+        [{trace,S,call,{dbg_SUITE,not_exported,[x]}},
+         {trace,S,exception_from,
+          {dbg_SUITE,not_exported,1},
+          {error,badarith}}] = flush()
     after
-	?line stop()
+        stop()
     end,
     ok.
 
@@ -282,25 +282,25 @@ port(doc) ->
 port(Config) when is_list(Config) ->
     try
         S = self(),
-	start(),
+        start(),
         TestFile = filename:join(proplists:get_value(priv_dir, Config),"port_test"),
         Fun = dbg:trace_port(file, TestFile),
 
         %% Do a run to get rid of all extra port operations
         port_close(Fun()),
 
-	dbg:p(new,ports),
+        dbg:p(new,ports),
         Port = Fun(),
         port_close(Port),
-	stop(),
+        stop(),
 
         TraceFileDrv = list_to_atom(lists:flatten(["trace_file_drv n ",TestFile])),
-	[{trace,Port,open,S,TraceFileDrv},
+        [{trace,Port,open,S,TraceFileDrv},
          {trace,Port,getting_linked,S},
          {trace,Port,closed,normal},
          {trace,Port,unlink,S}] = flush()
     after
-	dbg:stop()
+        dbg:stop()
     end,
     ok.
 
@@ -309,27 +309,27 @@ saved_patterns(suite) ->
 saved_patterns(doc) ->
     ["Tests saving of match_spec's."];
 saved_patterns(Config) when is_list(Config) ->
-    ?line dbg:stop(),
-    ?line {ok,[{saved,1}]} =
-	dbg:tp(dbg,ctp,1,[{'_',[],[{message, blahonga}]}]),
-    ?line {ok,[{saved,2}]} =
-	dbg:tp(dbg,ctp,1,[{['_'],[],[{message, blahonga}]}]),
-    ?line Privdir=?config(priv_dir, Config),
-    ?line file:make_dir(Privdir),
-    ?line File = filename:join([Privdir, "blahonga.ms"]),
-    ?line dbg:wtp(File),
-    ?line dbg:stop(),
-    ?line dbg:ctp('_','_','_'),
-    ?line {ok, _} = start(),
+    dbg:stop(),
+    {ok,[{saved,1}]} =
+    dbg:tp(dbg,ctp,1,[{'_',[],[{message, blahonga}]}]),
+    {ok,[{saved,2}]} =
+    dbg:tp(dbg,ctp,1,[{['_'],[],[{message, blahonga}]}]),
+    Privdir=?config(priv_dir, Config),
+    file:make_dir(Privdir),
+    File = filename:join([Privdir, "blahonga.ms"]),
+    dbg:wtp(File),
+    dbg:stop(),
+    dbg:ctp('_','_','_'),
+    {ok, _} = start(),
     try
-	?line dbg:rtp(File),
-	?line {ok,[{matched,_node,1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
-	?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-	?line dbg:ltp(),
-	?line S = self(),
-	?line [{trace,S,call,{dbg,ltp,[]},blahonga}] = flush()
+        dbg:rtp(File),
+        {ok,[{matched,_node,1},{saved,1}]} = dbg:tp(dbg,ltp,0,1),
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        dbg:ltp(),
+        S = self(),
+        [{trace,S,call,{dbg,ltp,[]},blahonga}] = flush()
     after
-	?line stop()
+        stop()
     end,
     ok.
 
@@ -346,25 +346,25 @@ ip_port(suite) ->
 ip_port(doc) ->
     ["Test tracing to IP port"];
 ip_port(Config) when is_list(Config) ->
-    ?line stop(),
-    ?line Port = dbg:trace_port(ip, 0),
-    ?line {ok, _} = dbg:tracer(port, Port),
+    stop(),
+    Port = dbg:trace_port(ip, 0),
+    {ok, _} = dbg:tracer(port, Port),
     try
-	?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-	?line {ok, X} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
-	?line {value, {saved, _Saved}} = lists:keysearch(saved, 1, X),
-	?line {ok, Y} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
-	?line {value, {saved, _}} = lists:keysearch(saved, 1, Y),
-	?line ok = dbg:ltp(),
-	?line ok = dbg:ln(),
-	?line {ok, IpPort} = dbg:trace_port_control(get_listen_port),
-	?line io:format("IpPort = ~p~n", [IpPort]),
-	?line dbg:trace_client(ip, IpPort, {fun myhandler/2, self()}),
-	?line S = self(),
-	?line [{trace,S,call,{dbg,ltp,[]},S},
-	       {trace,S,call,{dbg,ln,[]},hej}] = flush()
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, X} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
+        {value, {saved, _Saved}} = lists:keysearch(saved, 1, X),
+        {ok, Y} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
+        {value, {saved, _}} = lists:keysearch(saved, 1, Y),
+        ok = dbg:ltp(),
+        ok = dbg:ln(),
+        {ok, IpPort} = dbg:trace_port_control(get_listen_port),
+        io:format("IpPort = ~p~n", [IpPort]),
+        dbg:trace_client(ip, IpPort, {fun myhandler/2, self()}),
+        S = self(),
+        [{trace,S,call,{dbg,ltp,[]},S},
+         {trace,S,call,{dbg,ln,[]},hej}] = flush()
     after
-	?line stop()
+        stop()
     end,
     ok.
 
@@ -376,17 +376,17 @@ ip_port_busy(doc) ->
     ["Test that the dbg server does not hang if the tracer don't start ",
      "(OTP-3592)"];
 ip_port_busy(Config) when is_list(Config) ->
-    ?line stop(),
-    ?line Tracer = dbg:trace_port(ip, 4745),
-    ?line Port = Tracer(),
-    ?line {error, Reason} = dbg:tracer(port, Tracer),
+    stop(),
+    Tracer = dbg:trace_port(ip, 4745),
+    Port = Tracer(),
+    {error, Reason} = dbg:tracer(port, Tracer),
     try
-	?line io:format("Error reason = ~p~n", [Reason]),
-	?line true = port_close(Port)
+        io:format("Error reason = ~p~n", [Reason]),
+        true = port_close(Port)
     after
-	?line dbg:stop()
+        dbg:stop()
     end,
-    ?line ok.
+    ok.
 
 
 
@@ -395,30 +395,30 @@ file_port(suite) ->
 file_port(doc) ->
     ["Test tracing to file port (simple)"];
 file_port(Config) when is_list(Config) ->
-    ?line stop(),
-    ?line {A,B,C} = erlang:now(),
-    ?line FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-	integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    ?line FName = filename:join([?config(data_dir, Config), FTMP]),
-    ?line Port = dbg:trace_port(file, FName),
-    ?line {ok, _} = dbg:tracer(port, Port),
+    stop(),
+    {A,B,C} = erlang:now(),
+    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
+    integer_to_list(B) ++ "-" ++ integer_to_list(C),
+    FName = filename:join([?config(data_dir, Config), FTMP]),
+    Port = dbg:trace_port(file, FName),
+    {ok, _} = dbg:tracer(port, Port),
     try
-	?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-	?line {ok, X} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
-	?line {value, {saved, _Saved}} = lists:keysearch(saved, 1, X),
-	?line {ok, Y} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
-	?line {value, {saved, _}} = lists:keysearch(saved, 1, Y),
-	?line ok = dbg:ltp(),
-	?line ok = dbg:ln(),
-	?line stop(),
-	?line dbg:trace_client(file, FName, {fun myhandler/2, self()}),
-	?line S = self(),
-	?line [{trace,S,call,{dbg,ltp,[]},S},
-	       {trace,S,call,{dbg,ln,[]},hej},
-	       end_of_trace] = flush()
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, X} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
+        {value, {saved, _Saved}} = lists:keysearch(saved, 1, X),
+        {ok, Y} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
+        {value, {saved, _}} = lists:keysearch(saved, 1, Y),
+        ok = dbg:ltp(),
+        ok = dbg:ln(),
+        stop(),
+        dbg:trace_client(file, FName, {fun myhandler/2, self()}),
+        S = self(),
+        [{trace,S,call,{dbg,ltp,[]},S},
+         {trace,S,call,{dbg,ln,[]},hej},
+         end_of_trace] = flush()
     after
-	?line stop(),
-        ?line file:delete(FName)
+        stop(),
+        file:delete(FName)
     end,
     ok.
 
@@ -430,31 +430,31 @@ file_port2(Config) when is_list(Config) ->
     stop(),
     {A,B,C} = erlang:now(),
     FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
-	"-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
+    "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
     FName = filename:join([?config(data_dir, Config), FTMP]),
     %% Ok, lets try with flush and follow_file, not a chance on VxWorks
     %% with NFS caching...
     Port2 = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port2),
     try
-	{ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-	{ok, _} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
-	{ok, _} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
-	ok = dbg:ltp(),
-	ok = dbg:flush_trace_port(),
-	dbg:trace_client(follow_file, FName,
-	  	       {fun myhandler/2, self()}),
-	S = self(),
-	[{trace,S,call,{dbg,ltp,[]},S}] = flush(),
-	ok = dbg:ln(),
-	ok = dbg:flush_trace_port(),
-	receive after 1000 -> ok end, %% Polls every second...
-	[{trace,S,call,{dbg,ln,[]},hej}] = flush(),
-	stop(),
-	[] = flush()
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, _} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
+        {ok, _} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
+        ok = dbg:ltp(),
+        ok = dbg:flush_trace_port(),
+        dbg:trace_client(follow_file, FName,
+                         {fun myhandler/2, self()}),
+        S = self(),
+        [{trace,S,call,{dbg,ltp,[]},S}] = flush(),
+        ok = dbg:ln(),
+        ok = dbg:flush_trace_port(),
+        receive after 1000 -> ok end, %% Polls every second...
+        [{trace,S,call,{dbg,ln,[]},hej}] = flush(),
+        stop(),
+        [] = flush()
     after
-	stop(),
-	file:delete(FName)
+        stop(),
+        file:delete(FName)
     end,
     ok.
 
@@ -463,26 +463,26 @@ file_port_schedfix(suite) ->
 file_port_schedfix(doc) ->
     ["Test that the scheduling timestamp fix for trace flag 'running' works."];
 file_port_schedfix(Config) when is_list(Config) ->
-    ?line case (catch erlang:system_info(smp_support)) of
-	      true ->
-		  {skip, "No schedule fix on SMP"};
-	      _ ->
-		  try
-		      file_port_schedfix1(Config)
-		  after
-		      dbg:stop()
-		  end
-	  end.
+    case (catch erlang:system_info(smp_support)) of
+        true ->
+            {skip, "No schedule fix on SMP"};
+        _ ->
+            try
+                file_port_schedfix1(Config)
+            after
+                dbg:stop()
+            end
+    end.
 file_port_schedfix1(Config) when is_list(Config) ->
-    ?line stop(),
-    ?line {A,B,C} = erlang:now(),
-    ?line FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
-	"-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    ?line FName = filename:join([?config(data_dir, Config), FTMP]),
+    stop(),
+    {A,B,C} = erlang:now(),
+    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
+    "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
+    FName = filename:join([?config(data_dir, Config), FTMP]),
     %%
-    ?line Port = dbg:trace_port(file, {FName, wrap, ".wraplog", 8*1024, 4}),
-    ?line {ok, _} = dbg:tracer(port, Port),
-    ?line {ok,[{matched,_node,0}]} = dbg:p(new,[running,procs,send,timestamp]),
+    Port = dbg:trace_port(file, {FName, wrap, ".wraplog", 8*1024, 4}),
+    {ok, _} = dbg:tracer(port, Port),
+    {ok,[{matched,_node,0}]} = dbg:p(new,[running,procs,send,timestamp]),
     %%
     %% Generate the trace data
     %%
@@ -503,63 +503,63 @@ file_port_schedfix1(Config) when is_list(Config) ->
     %% execution time. Wallclock. A normal result is about 10 times more
     %% without schedule in - schedule out compensation (OTP-3938).
     %%
-    ?line ok = token_volleyball(3, 4, 8),
+    ok = token_volleyball(3, 4, 8),
     %%
-    ?line {ok,[{matched,_,_}]} = dbg:p(all, [clear]),
-    ?line stop(),
+    {ok,[{matched,_,_}]} = dbg:p(all, [clear]),
+    stop(),
     % Some debug code to run on all platforms, for finding the fault on genny
     % Dont touch please /PaN
-    ?line io:format("Trace dump by PaN BEGIN~n"),
-    ?line dbg:trace_client(file,{FName, wrap, ".wraplog"},{fun(end_of_trace,Pid)-> Pid ! done; (Mesg,Pid) -> io:format("~w~n",[Mesg]),Pid end,self()}),
+    io:format("Trace dump by PaN BEGIN~n"),
+    dbg:trace_client(file,{FName, wrap, ".wraplog"},{fun(end_of_trace,Pid)-> Pid ! done; (Mesg,Pid) -> io:format("~w~n",[Mesg]),Pid end,self()}),
     receive done -> ok end,
-    ?line io:format("Trace dump by PaN END~n"),
-      %%
+    io:format("Trace dump by PaN END~n"),
+    %%
     %% Get the trace result
     %%
-    ?line Tag = make_ref(),
-    ?line dbg:trace_client(file, {FName, wrap, ".wraplog"},
-			   {fun schedstat_handler/2, {self(), Tag, []}}),
-    ?line Result =
-	receive
-	    {Tag, D} ->
-		lists:map(
-		  fun({Pid, {A1, B1, C1}}) ->
-			  {Pid, C1/1000000 + B1 + A1*1000000}
-		  end,
-		  D)
-	end,
-    ?line ok = io:format("Result=~p", [Result]),
-%    erlang:display({?MODULE, ?LINE, Result}),
+    Tag = make_ref(),
+    dbg:trace_client(file, {FName, wrap, ".wraplog"},
+                     {fun schedstat_handler/2, {self(), Tag, []}}),
+    Result =
+    receive
+        {Tag, D} ->
+            lists:map(
+              fun({Pid, {A1, B1, C1}}) ->
+                      {Pid, C1/1000000 + B1 + A1*1000000}
+              end,
+              D)
+    end,
+    ok = io:format("Result=~p", [Result]),
+    %    erlang:display({?MODULE, ?LINE, Result}),
     %%
     %% Analyze the result
     %%
-    ?line {Min, Max} =
-	lists:foldl(
-	  fun({_Pid, M}, {Mi, Ma}) ->
-		  {if M < Mi -> M; true -> Mi end,
-		   if M > Ma -> M; true -> Ma end}
-	  end,
-	  {void, 0},
-	  Result),
+    {Min, Max} =
+    lists:foldl(
+      fun({_Pid, M}, {Mi, Ma}) ->
+              {if M < Mi -> M; true -> Mi end,
+               if M > Ma -> M; true -> Ma end}
+      end,
+      {void, 0},
+      Result),
     % More PaN debug
-    ?line io:format("Min = ~f, Max = ~f~n",[Min,Max]),
+    io:format("Min = ~f, Max = ~f~n",[Min,Max]),
     %%
     %% Cleanup
     %%
-    ?line ToBeDeleted = filelib:wildcard(FName++"*"++".wraplog"),
-    ?line lists:map(fun file:delete/1, ToBeDeleted),
-%    io:format("ToBeDeleted=~p", [ToBeDeleted]),
+    ToBeDeleted = filelib:wildcard(FName++"*"++".wraplog"),
+    lists:map(fun file:delete/1, ToBeDeleted),
+    %    io:format("ToBeDeleted=~p", [ToBeDeleted]),
     %%
     %% Present the result
     %%
     P = (Max / Min - 1) * 100,
     BottomLine = lists:flatten(io_lib:format("~.2f %", [P])),
     if P > 100 ->
-	    Reason = {BottomLine, '>', "100%"},
-	    erlang:display({file_port_schedfix, fail, Reason}),
-	    test_server:fail(Reason);
+           Reason = {BottomLine, '>', "100%"},
+           erlang:display({file_port_schedfix, fail, Reason}),
+           test_server:fail(Reason);
        true ->
-	    {comment, BottomLine}
+           {comment, BottomLine}
     end.
 
 wrap_port(suite) ->
@@ -567,82 +567,82 @@ wrap_port(suite) ->
 wrap_port(doc) ->
     ["Test tracing to wrapping file port"];
 wrap_port(Config) when is_list(Config) ->
-    ?line Self = self(),
-    ?line stop(),
-    ?line {A,B,C} = erlang:now(),
-    ?line FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-	integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    ?line FName = filename:join([?config(data_dir, Config), FTMP]),
-    ?line FNameWildcard = FName++"*"++".trace",
+    Self = self(),
+    stop(),
+    {A,B,C} = erlang:now(),
+    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
+    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
+    FName = filename:join([?config(data_dir, Config), FTMP]),
+    FNameWildcard = FName++"*"++".trace",
     %% WrapSize=0 and WrapCnt=11 will force the trace to wrap after
     %% every trace message, and to contain only the last 10 entries
     %% after trace stop since the last file will be empty waiting
     %% for its first trace message.
-    ?line WrapSize = 0,
-    ?line WrapCnt = 11,
-    ?line WrapFilesSpec = {FName, wrap, ".trace", WrapSize, WrapCnt},
-    ?line wrap_port_init(WrapFilesSpec),
+    WrapSize = 0,
+    WrapCnt = 11,
+    WrapFilesSpec = {FName, wrap, ".trace", WrapSize, WrapCnt},
+    wrap_port_init(WrapFilesSpec),
     %% The number of iterations, N, is tested to place wrap the log,
     %% giving a gap in the filename sequence at index 3.
     %% This should be a difficult case for
     %% the trace_client file sorting functionality.
     N = 7,
-    ?line lists:foreach(
-	    fun(Cnt) ->
-		    ?MODULE:tracee1(Cnt),
-		    ?MODULE:tracee2(Cnt)
-	    end,
-	    lists:seq(1, N)),
-    ?line stop(),
+    lists:foreach(
+      fun(Cnt) ->
+              ?MODULE:tracee1(Cnt),
+              ?MODULE:tracee2(Cnt)
+      end,
+      lists:seq(1, N)),
+    stop(),
     try
-	?line Files1 = filelib:wildcard(FNameWildcard),
-	?line io:format("~p~n", [Files1]),
-	?line Tc1 = dbg:trace_client(file, WrapFilesSpec,
-				     {fun myhandler/2, {wait_for_go,Self}}),
-	?line Tref1 = erlang:monitor(process, Tc1),
-	Tc1 ! {go,Self},
-	?line [{'DOWN',Tref1,_,_,normal},
-	       end_of_trace
-	       |Result] = lists:reverse(flush()),
-	?line M = N - (WrapCnt-1) div 2,
-	?line M = wrap_port_result(Result, Self, N),
-	%%
-	%% Start a new wrap log with the same name to verify that
-	%% all files are cleared at wrap log start. Only produce
-	%% two trace messages to also place the gap at index 3,
-	%% so the trace log will be misinterpreted.
-	%%
-	?line wrap_port_init(WrapFilesSpec),
-	?line Files2 = filelib:wildcard(FNameWildcard),
-	?line io:format("~p~n", [Files2]),
-	?line -1 = ?MODULE:tracee1(-1),
-	?line -1 = ?MODULE:tracee2(-1),
-	?line stop(),
-	?line Files = filelib:wildcard(FNameWildcard),
-	?line io:format("~p~n", [Files]),
-	?line Tc2 = dbg:trace_client(file, WrapFilesSpec,
-				     {fun myhandler/2, {wait_for_go,Self}}),
-	?line Tref2 = erlang:monitor(process, Tc2),
-	Tc2 ! {go,Self},
-	?line [{trace,Self,call,{?MODULE,tracee1,[-1]},Self},
-	       {trace,Self,call,{?MODULE,tracee2,[-1]},hej},
-	       end_of_trace,
-	       {'DOWN',Tref2,_,_,normal}] = flush(),
-	%%
-	?line lists:map(fun(F) -> file:delete(F) end, Files)
+        Files1 = filelib:wildcard(FNameWildcard),
+        io:format("~p~n", [Files1]),
+        Tc1 = dbg:trace_client(file, WrapFilesSpec,
+                               {fun myhandler/2, {wait_for_go,Self}}),
+        Tref1 = erlang:monitor(process, Tc1),
+        Tc1 ! {go,Self},
+        [{'DOWN',Tref1,_,_,normal},
+         end_of_trace
+         |Result] = lists:reverse(flush()),
+        M = N - (WrapCnt-1) div 2,
+        M = wrap_port_result(Result, Self, N),
+        %%
+        %% Start a new wrap log with the same name to verify that
+        %% all files are cleared at wrap log start. Only produce
+        %% two trace messages to also place the gap at index 3,
+        %% so the trace log will be misinterpreted.
+        %%
+        wrap_port_init(WrapFilesSpec),
+        Files2 = filelib:wildcard(FNameWildcard),
+        io:format("~p~n", [Files2]),
+        -1 = ?MODULE:tracee1(-1),
+        -1 = ?MODULE:tracee2(-1),
+        stop(),
+        Files = filelib:wildcard(FNameWildcard),
+        io:format("~p~n", [Files]),
+        Tc2 = dbg:trace_client(file, WrapFilesSpec,
+                               {fun myhandler/2, {wait_for_go,Self}}),
+        Tref2 = erlang:monitor(process, Tc2),
+        Tc2 ! {go,Self},
+        [{trace,Self,call,{?MODULE,tracee1,[-1]},Self},
+         {trace,Self,call,{?MODULE,tracee2,[-1]},hej},
+         end_of_trace,
+         {'DOWN',Tref2,_,_,normal}] = flush(),
+        %%
+        lists:map(fun(F) -> file:delete(F) end, Files)
     after
-	?line stop()
+        stop()
     end,
     ok.
 
 wrap_port_init(WrapFilesSpec) ->
-    ?line Port = dbg:trace_port(file, WrapFilesSpec),
-    ?line {ok, _} = dbg:tracer(port, Port),
-    ?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-    ?line {ok, X} = dbg:tp(?MODULE, tracee1,[{'_',[],[{message, {self}}]}]),
-    ?line {value, {saved, _Saved}} = lists:keysearch(saved, 1, X),
-    ?line {ok, Y} = dbg:tp(?MODULE, tracee2, [{'_',[],[{message, hej}]}]),
-    ?line {value, {saved, _}} = lists:keysearch(saved, 1, Y),
+    Port = dbg:trace_port(file, WrapFilesSpec),
+    {ok, _} = dbg:tracer(port, Port),
+    {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+    {ok, X} = dbg:tp(?MODULE, tracee1,[{'_',[],[{message, {self}}]}]),
+    {value, {saved, _Saved}} = lists:keysearch(saved, 1, X),
+    {ok, Y} = dbg:tp(?MODULE, tracee2, [{'_',[],[{message, hej}]}]),
+    {value, {saved, _}} = lists:keysearch(saved, 1, Y),
     ok.
 
 tracee1(X) ->
@@ -654,9 +654,9 @@ tracee2(X) ->
 wrap_port_result([], _S, M) ->
     M;
 wrap_port_result([{trace, S, call, {?MODULE, tracee2, [M]}, hej},
-		  {trace, S, call, {?MODULE, tracee1, [M]}, S} | Tail],
-		 S,
-		 M) ->
+                  {trace, S, call, {?MODULE, tracee1, [M]}, S} | Tail],
+                 S,
+                 M) ->
     wrap_port_result(Tail, S, M-1).
 
 
@@ -665,51 +665,51 @@ wrap_port_time(suite) ->
 wrap_port_time(doc) ->
     ["Test tracing to time limited wrapping file port"];
 wrap_port_time(Config) when is_list(Config) ->
-    ?line stop(),
-    ?line {A,B,C} = erlang:now(),
-    ?line FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
-	integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    ?line FName = filename:join([?config(data_dir, Config), FTMP]),
+    stop(),
+    {A,B,C} = erlang:now(),
+    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
+    integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
+    FName = filename:join([?config(data_dir, Config), FTMP]),
     %% WrapTime=2 and WrapCnt=4 will force the trace to wrap after
     %% every 2 seconds, and to contain between 3*2 and 4*2 seconds
     %% of trace entries.
-    ?line WrapFilesSpec = {FName, wrap, ".trace", {time, 2000}, 4},
-    ?line Port = dbg:trace_port(file, WrapFilesSpec),
-    ?line {ok, _} = dbg:tracer(port, Port),
+    WrapFilesSpec = {FName, wrap, ".trace", {time, 2000}, 4},
+    Port = dbg:trace_port(file, WrapFilesSpec),
+    {ok, _} = dbg:tracer(port, Port),
     try
-	?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-	?line {ok, X} = dbg:tp(?MODULE, tracee1,[{'_',[],[{message, {self}}]}]),
-	?line {value, {saved, _Saved1}} = lists:keysearch(saved, 1, X),
-	?line {ok, Y} = dbg:tp(?MODULE, tracee2, [{'_',[],[{message, hej}]}]),
-	?line {value, {saved, _Saved2}} = lists:keysearch(saved, 1, Y),
-	%% The delays in the iterations places two trace messages in each
-	%% trace file, but the last which is empty waiting for its first
-	%% trace message. The number of iterations is chosen so that
-	%% one trace file has been wasted, and therefore the first pair
-	%% of trace messages.
-	?line lists:foreach(
-		fun(Cnt) ->
-			receive after 1000 -> ok end,
-			?MODULE:tracee1(Cnt),
-			?MODULE:tracee2(Cnt),
-			receive after 1100 -> ok end
-		end,
-		lists:seq(1, 4)),
-	?line stop(),
-	?line Files = filelib:wildcard(FName ++ "*" ++ ".trace"),
-	?line io:format("~p~n", [Files]),
-	?line dbg:trace_client(file, WrapFilesSpec, {fun myhandler/2, self()}),
-	?line S = self(),
-	?line [{trace, S, call, {?MODULE, tracee1, [2]}, S},
-	       {trace, S, call, {?MODULE, tracee2, [2]}, hej},
-	       {trace, S, call, {?MODULE, tracee1, [3]}, S},
-	       {trace, S, call, {?MODULE, tracee2, [3]}, hej},
-	       {trace, S, call, {?MODULE, tracee1, [4]}, S},
-	       {trace, S, call, {?MODULE, tracee2, [4]}, hej},
-	       end_of_trace] = flush(),
-	?line lists:map(fun(F) -> file:delete(F) end, Files)
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, X} = dbg:tp(?MODULE, tracee1,[{'_',[],[{message, {self}}]}]),
+        {value, {saved, _Saved1}} = lists:keysearch(saved, 1, X),
+        {ok, Y} = dbg:tp(?MODULE, tracee2, [{'_',[],[{message, hej}]}]),
+        {value, {saved, _Saved2}} = lists:keysearch(saved, 1, Y),
+        %% The delays in the iterations places two trace messages in each
+        %% trace file, but the last which is empty waiting for its first
+        %% trace message. The number of iterations is chosen so that
+        %% one trace file has been wasted, and therefore the first pair
+        %% of trace messages.
+        lists:foreach(
+          fun(Cnt) ->
+                  receive after 1000 -> ok end,
+                  ?MODULE:tracee1(Cnt),
+                  ?MODULE:tracee2(Cnt),
+                  receive after 1100 -> ok end
+          end,
+          lists:seq(1, 4)),
+        stop(),
+        Files = filelib:wildcard(FName ++ "*" ++ ".trace"),
+        io:format("~p~n", [Files]),
+        dbg:trace_client(file, WrapFilesSpec, {fun myhandler/2, self()}),
+        S = self(),
+        [{trace, S, call, {?MODULE, tracee1, [2]}, S},
+         {trace, S, call, {?MODULE, tracee2, [2]}, hej},
+         {trace, S, call, {?MODULE, tracee1, [3]}, S},
+         {trace, S, call, {?MODULE, tracee2, [3]}, hej},
+         {trace, S, call, {?MODULE, tracee1, [4]}, S},
+         {trace, S, call, {?MODULE, tracee2, [4]}, hej},
+         end_of_trace] = flush(),
+        lists:map(fun(F) -> file:delete(F) end, Files)
     after
-	?line stop()
+        stop()
     end,
     ok.
 
@@ -719,26 +719,26 @@ with_seq_trace(doc) ->
     ["Test ordinary tracing combined with seq_trace"];
 with_seq_trace(Config) when is_list(Config) ->
     try
-	?line {ok, Server} = start(),
-	?line {ok, Tracer} = dbg:get_tracer(),
-	?line {ok, X} = dbg:tp(dbg, get_tracer, [{[],[],
-						  [{set_seq_token, send, true}]}]),
-	?line {value, {saved, _}} = lists:keysearch(saved, 1, X),
-	?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-	?line seq_trace:set_system_tracer(Tracer),
-	?line dbg:get_tracer(),
-	receive
-	    after 1 ->
-		    ok
-	    end,
-	?line S = self(),
-	?line ThisNode = node(),
-	?line [{trace,S,call,{dbg,get_tracer,[]}},
-	       {seq_trace,0,{send,_,S,Server,{S,{get_tracer,ThisNode}}}},
-	       {seq_trace,0,{send,_,Server,S,{dbg,{ok,Tracer}}}}] =
-	flush()
+        {ok, Server} = start(),
+        {ok, Tracer} = dbg:get_tracer(),
+        {ok, X} = dbg:tp(dbg, get_tracer, [{[],[],
+                                            [{set_seq_token, send, true}]}]),
+        {value, {saved, _}} = lists:keysearch(saved, 1, X),
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        seq_trace:set_system_tracer(Tracer),
+        dbg:get_tracer(),
+        receive
+        after 1 ->
+                  ok
+        end,
+        S = self(),
+        ThisNode = node(),
+        [{trace,S,call,{dbg,get_tracer,[]}},
+         {seq_trace,0,{send,_,S,Server,{S,{get_tracer,ThisNode}}}},
+         {seq_trace,0,{send,_,Server,S,{dbg,{ok,Tracer}}}}] =
+        flush()
     after
-	?line stop()
+        stop()
     end,
     ok.
 
@@ -749,11 +749,11 @@ dead_suspend(doc) ->
      "not crash dbg."];
 
 dead_suspend(Config) when is_list(Config) ->
-    ?line start(),
+    start(),
     try
-	survived = run_dead_suspend()
+        survived = run_dead_suspend()
     after
-	?line stop()
+        stop()
     end.
 
 run_dead_suspend() ->
@@ -766,10 +766,10 @@ run_dead_suspend() ->
     spawn(?MODULE, dummy, []),
     receive after 1000 -> ok end,
     case whereis(dbg) of
-	undefined ->
-	    died;
-	_ ->
-	    survived
+        undefined ->
+            died;
+        _ ->
+            survived
     end.
 
 dummy() ->
@@ -781,10 +781,10 @@ tracer_exit_on_stop(_) ->
     %% Tracer blocks waiting for fun to complete so that the trace message and
     %% the exit signal message from the dbg process are in its message queue.
     Fun = fun() ->
-	    ?MODULE:dummy(),
-	    Ref = erlang:trace_delivered(self()),
-	    receive {trace_delivered, _, Ref} -> stop() end
-	end,
+                  ?MODULE:dummy(),
+                  Ref = erlang:trace_delivered(self()),
+                  receive {trace_delivered, _, Ref} -> stop() end
+          end,
     {ok, _} = dbg:tracer(process, {fun spawn_once_handler/2, {self(), Fun}}),
     {ok, Tracer} = dbg:get_tracer(),
     MRef = monitor(process, Tracer),
@@ -803,9 +803,9 @@ spawn_once_handler(Event, {Pid, done} = State) ->
 spawn_once_handler(Event, {Pid, Fun}) ->
     {_, Ref} = spawn_monitor(Fun),
     receive
-	{'DOWN', Ref, _, _, _} ->
-	    Pid ! Event,
-	    {Pid, done}
+        {'DOWN', Ref, _, _, _} ->
+            Pid ! Event,
+            {Pid, done}
     end.
 
 %% Test that erl_tracer modules work correctly
@@ -898,38 +898,38 @@ wait_node(_,0) ->
     no;
 wait_node(Node, N) ->
     case net_adm:ping(Node) of
-	pong ->
-	    ok;
-	pang ->
-	    receive
-	    after 1000 ->
-		    ok
-	    end,
-	    wait_node(Node, N - 1)
+        pong ->
+            ok;
+        pang ->
+            receive
+            after 1000 ->
+                      ok
+            end,
+            wait_node(Node, N - 1)
     end.
 
 myhandler(Message, {wait_for_go,Pid}) ->
     receive
-	{go,Pid} ->
-	    myhandler(Message, Pid)
+        {go,Pid} ->
+            myhandler(Message, Pid)
     end;
 myhandler(Message, Relay) ->
     Relay ! Message,
     case Message of
-	end_of_trace ->
-	    ok;
-	_ ->
-	    Relay
+        end_of_trace ->
+            ok;
+        _ ->
+            Relay
     end.
 
 flush() ->
     flush([]).
 flush(Acc) ->
     receive
-	X ->
-	    flush(Acc ++ [X])
+        X ->
+            flush(Acc ++ [X])
     after 1000 ->
-	    Acc
+              Acc
     end.
 
 start() ->
@@ -943,88 +943,88 @@ stop() ->
 
 schedstat_handler(TraceMsg, {Parent, Tag, Data} = State) ->
     case TraceMsg of
-	{trace_ts, Pid, in, _, Ts} ->
-	    NewData =
-		case lists:keysearch(Pid, 1, Data) of
-		    {value, {Pid, Acc}} ->
-			[{Pid, Acc, Ts} | lists:keydelete(Pid, 1, Data)];
-		    false ->
-			[{Pid, {0, 0, 0}, Ts} | Data];
-		    Other ->
-			exit(Parent, {?MODULE, ?LINE, Other}),
-			erlang:display({?MODULE, ?LINE, Other}),
-			Data
-		end,
-	    {Parent, Tag, NewData};
-	{trace_ts, Pid, out, _, {A3, B3, C3}} ->
-	    NewData =
-		case lists:keysearch(Pid, 1, Data) of
-		    {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
-			[{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
-			 lists:keydelete(Pid, 1, Data)];
-		    Other ->
-			exit(Parent, {?MODULE, ?LINE, Other}),
-			erlang:display({?MODULE, ?LINE, Other}),
-			Data
-		end,
-	    {Parent, Tag, NewData};
-	{trace_ts, Pid, exit, normal, {A3, B3, C3}} ->
-	    NewData =
-		case lists:keysearch(Pid, 1, Data) of
-		    {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
-			[{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
-			 lists:keydelete(Pid, 1, Data)];
-		    {value, {Pid, _Acc}} ->
-			Data;
-		    false ->
-			[{Pid, {0, 0, 0}} | Data];
-		    Other ->
-			exit(Parent, {?MODULE, ?LINE, Other}),
-			erlang:display({?MODULE, ?LINE, Other}),
-			Data
-		end,
-	    {Parent, Tag, NewData};
-	{trace_ts, _Pid, send, _Msg, _OtherPid, _Ts} ->
-	    State;
-	end_of_trace ->
-	    Parent ! {Tag, Data},
-	    State
+        {trace_ts, Pid, in, _, Ts} ->
+            NewData =
+            case lists:keysearch(Pid, 1, Data) of
+                {value, {Pid, Acc}} ->
+                    [{Pid, Acc, Ts} | lists:keydelete(Pid, 1, Data)];
+                false ->
+                    [{Pid, {0, 0, 0}, Ts} | Data];
+                Other ->
+                    exit(Parent, {?MODULE, ?LINE, Other}),
+                    erlang:display({?MODULE, ?LINE, Other}),
+                    Data
+            end,
+            {Parent, Tag, NewData};
+        {trace_ts, Pid, out, _, {A3, B3, C3}} ->
+            NewData =
+            case lists:keysearch(Pid, 1, Data) of
+                {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
+                    [{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
+                     lists:keydelete(Pid, 1, Data)];
+                Other ->
+                    exit(Parent, {?MODULE, ?LINE, Other}),
+                    erlang:display({?MODULE, ?LINE, Other}),
+                    Data
+            end,
+            {Parent, Tag, NewData};
+        {trace_ts, Pid, exit, normal, {A3, B3, C3}} ->
+            NewData =
+            case lists:keysearch(Pid, 1, Data) of
+                {value, {Pid, {A1, B1, C1}, {A2, B2, C2}}} ->
+                    [{Pid, {A3-A2+A1, B3-B2+B1, C3-C2+C1}} |
+                     lists:keydelete(Pid, 1, Data)];
+                {value, {Pid, _Acc}} ->
+                    Data;
+                false ->
+                    [{Pid, {0, 0, 0}} | Data];
+                Other ->
+                    exit(Parent, {?MODULE, ?LINE, Other}),
+                    erlang:display({?MODULE, ?LINE, Other}),
+                    Data
+            end,
+            {Parent, Tag, NewData};
+        {trace_ts, _Pid, send, _Msg, _OtherPid, _Ts} ->
+            State;
+        end_of_trace ->
+            Parent ! {Tag, Data},
+            State
     end.
 
 
 
 pass_token(Token, Next, Loops) ->
     receive
-	{Token, 1} = Msg ->
-	    sendloop(Loops),
-	    Next ! Msg;
-	{Token, _Cnt} = Msg->
-	    sendloop(Loops),
-	    Next ! Msg,
-	    pass_token(Token, Next, Loops)
+        {Token, 1} = Msg ->
+            sendloop(Loops),
+            Next ! Msg;
+        {Token, _Cnt} = Msg->
+            sendloop(Loops),
+            Next ! Msg,
+            pass_token(Token, Next, Loops)
     end.
 
 pass_token(Token, Final, Cnt, Loops) ->
     receive
-	{Token, start, Next} ->
-	    sendloop(Loops),
-	    Msg = {Token, Cnt},
-	    Next ! Msg,
-	    pass_token(Token, Final, Next, Cnt, Loops)
+        {Token, start, Next} ->
+            sendloop(Loops),
+            Msg = {Token, Cnt},
+            Next ! Msg,
+            pass_token(Token, Final, Next, Cnt, Loops)
     end.
 
 pass_token(Token, Final, Next, Cnt, Loops) ->
     receive
-	{Token, 1} ->
-	    sendloop(Loops),
-	    Msg = {Token, done},
-	    Final ! Msg;
-	{Token, Cnt} ->
-	    sendloop(Loops),
-	    NextCnt = Cnt-1,
-	    Msg = {Token, NextCnt},
-	    Next ! Msg,
-	    pass_token(Token, Final, Next, NextCnt, Loops)
+        {Token, 1} ->
+            sendloop(Loops),
+            Msg = {Token, done},
+            Final ! Msg;
+        {Token, Cnt} ->
+            sendloop(Loops),
+            NextCnt = Cnt-1,
+            Msg = {Token, NextCnt},
+            Next ! Msg,
+            pass_token(Token, Final, Next, NextCnt, Loops)
     end.
 
 sendloop(Loops) ->
