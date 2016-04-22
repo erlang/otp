@@ -49,8 +49,8 @@ big(suite) -> [];
 big(doc) -> ["Rudimentary interface test"];
 big(Config) when is_list(Config) ->
     {ok,OldCurDir} = file:get_cwd(),
-    Datadir=?config(data_dir, Config),
-    Privdir=?config(priv_dir, Config),
+    Datadir=proplists:get_value(data_dir, Config),
+    Privdir=proplists:get_value(priv_dir, Config),
     ok=file:set_cwd(Privdir),
     try
         %% make sure dbg is stopped (and returns correctly)
@@ -91,8 +91,8 @@ tiny(suite) -> [];
 tiny(doc) -> ["Rudimentary interface test"];
 tiny(Config) when is_list(Config) ->
     {ok,OldCurDir} = file:get_cwd(),
-    Datadir=?config(data_dir, Config),
-    Privdir=?config(priv_dir, Config),
+    Datadir=proplists:get_value(data_dir, Config),
+    Privdir=proplists:get_value(priv_dir, Config),
     ok=file:set_cwd(Privdir),
     try
         %% compile test module and make sure it is loaded.
@@ -290,7 +290,7 @@ saved_patterns(Config) when is_list(Config) ->
     dbg:tp(dbg,ctp,1,[{'_',[],[{message, blahonga}]}]),
     {ok,[{saved,2}]} =
     dbg:tp(dbg,ctp,1,[{['_'],[],[{message, blahonga}]}]),
-    Privdir=?config(priv_dir, Config),
+    Privdir=proplists:get_value(priv_dir, Config),
     file:make_dir(Privdir),
     File = filename:join([Privdir, "blahonga.ms"]),
     dbg:wtp(File),
@@ -375,7 +375,7 @@ file_port(Config) when is_list(Config) ->
     {A,B,C} = erlang:now(),
     FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
     integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([?config(data_dir, Config), FTMP]),
+    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
     Port = dbg:trace_port(file, FName),
     {ok, _} = dbg:tracer(port, Port),
     try
@@ -407,7 +407,7 @@ file_port2(Config) when is_list(Config) ->
     {A,B,C} = erlang:now(),
     FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
     "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([?config(data_dir, Config), FTMP]),
+    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
     %% Ok, lets try with flush and follow_file, not a chance on VxWorks
     %% with NFS caching...
     Port2 = dbg:trace_port(file, FName),
@@ -454,7 +454,7 @@ file_port_schedfix1(Config) when is_list(Config) ->
     {A,B,C} = erlang:now(),
     FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
     "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([?config(data_dir, Config), FTMP]),
+    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
     %%
     Port = dbg:trace_port(file, {FName, wrap, ".wraplog", 8*1024, 4}),
     {ok, _} = dbg:tracer(port, Port),
@@ -548,7 +548,7 @@ wrap_port(Config) when is_list(Config) ->
     {A,B,C} = erlang:now(),
     FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
     integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([?config(data_dir, Config), FTMP]),
+    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
     FNameWildcard = FName++"*"++".trace",
     %% WrapSize=0 and WrapCnt=11 will force the trace to wrap after
     %% every trace message, and to contain only the last 10 entries
@@ -645,7 +645,7 @@ wrap_port_time(Config) when is_list(Config) ->
     {A,B,C} = erlang:now(),
     FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++ "-" ++
     integer_to_list(B) ++ "-" ++ integer_to_list(C) ++ "-",
-    FName = filename:join([?config(data_dir, Config), FTMP]),
+    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
     %% WrapTime=2 and WrapCnt=4 will force the trace to wrap after
     %% every 2 seconds, and to contain between 3*2 and 4*2 seconds
     %% of trace entries.

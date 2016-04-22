@@ -45,7 +45,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
      {erl_flags_env, save_env()} | Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    restore_env(?config(erl_flags_env, Config)),
+    restore_env(proplists:get_value(erl_flags_env, Config)),
     ok.
 
 %%%
@@ -151,7 +151,7 @@ display_file(FileName) ->
 mk_name(Config) when is_list(Config) ->
     {A, B, C} = now(),
     list_to_atom(atom_to_list(?MODULE)
-                 ++ "-" ++ atom_to_list(?config(testcase, Config))
+                 ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
                  ++ "-" ++ integer_to_list(A)
                  ++ "-" ++ integer_to_list(B)
                  ++ "-" ++ integer_to_list(C)).
@@ -169,8 +169,8 @@ stop_node(Node) ->
     true = ?t:stop_node(Node).
 
 privfile(Name, Config) ->
-    filename:join([?config(priv_dir, Config),
-                   atom_to_list(?config(testcase, Config)) ++ "." ++ Name]).
+    filename:join([proplists:get_value(priv_dir, Config),
+                   atom_to_list(proplists:get_value(testcase, Config)) ++ "." ++ Name]).
 
 save_env() ->
     {erl_flags,
