@@ -693,6 +693,8 @@ it like `debugMsg'. The result is always `ok'.</dd>
 shown truncated.) The result is always the value of `Expr', so this
 macro can be wrapped around any expression to display its value when
 the code is compiled with debugging enabled.</dd>
+<dt>`debugValAll(Expr)'</dt>
+<dd>This is almost same as `debugVal(Expr)`, but doesn't truncate terms to print.</dd>
 <dt>`debugTime(Text,Expr)'</dt>
 <dd>Prints `Text' and the wall clock time for evaluation of `Expr'. The
 result is always the value of `Expr', so this macro can be wrapped
