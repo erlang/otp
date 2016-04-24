@@ -117,7 +117,7 @@ new_binary(Process *p, byte *buf, Uint len)
  * When heap binary is not desired...
  */
 
-Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
+Eterm erts_new_mso_binary(Process *p, byte *buf, Uint len)
 {
     ProcBin* pb;
     Binary* bptr;
