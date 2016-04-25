@@ -61,6 +61,7 @@
 	       map_arg/1, map_es/1,
 	       ann_c_map/3,
 	       update_c_map/3,
+	       is_c_map_pattern/1, ann_c_map_pattern/2,
 	       map_pair_key/1,map_pair_val/1,map_pair_op/1,
 	       ann_c_map_pair/4,
 	       update_c_map_pair/4
@@ -752,10 +753,17 @@ label(T, N, Env) ->
 	    {As, N2} = label_ann(T, N1),
 	    {ann_c_tuple_skel(As, Ts), N2};
  	map ->
-	    {M,  N1} = label(map_arg(T), N, Env),
-	    {Ts, N2} = label_list(map_es(T), N1, Env),
-	    {As, N3} = label_ann(T, N2),
-	    {ann_c_map(As, M, Ts), N3};
+	    case is_c_map_pattern(T) of
+		false ->
+		    {M,  N1} = label(map_arg(T), N, Env),
+		    {Ts, N2} = label_list(map_es(T), N1, Env),
+		    {As, N3} = label_ann(T, N2),
+		    {ann_c_map(As, M, Ts), N3};
+		true ->
+		    {Ts, N1} = label_list(map_es(T), N, Env),
+		    {As, N2} = label_ann(T, N1),
+		    {ann_c_map_pattern(As, Ts), N2}
+	    end;
 	map_pair ->
 	    {Op,  N1} = label(map_pair_op(T), N, Env),
 	    {Key, N2} = label(map_pair_key(T), N1, Env),

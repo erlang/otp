@@ -21,7 +21,7 @@
 
 -module(core_pp).
 
--export([format/1]).
+-export([format/1,format_all/1]).
 
 -include("core_parse.hrl").
 
@@ -38,20 +38,30 @@
 	       item_indent = 2 :: integer(),
 	       body_indent = 4 :: integer(),
 	       tab_width = 8   :: non_neg_integer(),
-	       line = 0        :: integer()}).
+	       line = 0        :: integer(),
+	       clean = true    :: boolean()}).
 
 -spec format(cerl:cerl()) -> iolist().
 
 format(Node) ->
     format(Node, #ctxt{}).
 
-maybe_anno(Node, Fun, Ctxt) ->
+-spec format_all(cerl:cerl()) -> iolist().
+
+format_all(Node) ->
+    format(Node, #ctxt{clean=false}).
+
+maybe_anno(Node, Fun, #ctxt{clean=false}=Ctxt) ->
     As = cerl:get_ann(Node),
-    case get_line(As) of
+    maybe_anno(Node, Fun, Ctxt, As);
+maybe_anno(Node, Fun, #ctxt{clean=true}=Ctxt) ->
+    As0 = cerl:get_ann(Node),
+    case get_line(As0) of
 	none ->
-	    maybe_anno(Node, Fun, Ctxt, As);
+	    maybe_anno(Node, Fun, Ctxt, As0);
   	Line ->
-	    if  Line > Ctxt#ctxt.line ->
+	    As = strip_line(As0),
+	    if Line > Ctxt#ctxt.line ->
 		    [io_lib:format("%% Line ~w",[Line]),
 		     nl_indent(Ctxt),
 		     maybe_anno(Node, Fun, Ctxt#ctxt{line = Line}, As)
@@ -61,22 +71,22 @@ maybe_anno(Node, Fun, Ctxt) ->
 	    end
     end.
 
-maybe_anno(Node, Fun, Ctxt, As) ->
-    case strip_line(As) of
-	[] ->
-	    Fun(Node, Ctxt);
-	List ->
-	    Ctxt1 = add_indent(Ctxt, 2),
-	    Ctxt2 = add_indent(Ctxt1, 3),
-	    ["( ",
-	     Fun(Node, Ctxt1),
-	     nl_indent(Ctxt1),
-	     "-| ",format_anno(List, Ctxt2)," )"
-	    ]
-    end.
+maybe_anno(Node, Fun, Ctxt, []) ->
+    Fun(Node, Ctxt);
+maybe_anno(Node, Fun, Ctxt, List) ->
+    Ctxt1 = add_indent(Ctxt, 2),
+    Ctxt2 = add_indent(Ctxt1, 3),
+    ["( ",
+     Fun(Node, Ctxt1),
+     nl_indent(Ctxt1),
+     "-| ",format_anno(List, Ctxt2)," )"
+    ].
 
 format_anno([_|_]=List, Ctxt) ->
     [$[,format_anno_list(List, Ctxt),$]];
+format_anno({file,Name}, _Ctxt) ->
+    %% Optimization: Reduces file size considerably.
+    io_lib:format("{'file',~p}", [Name]);
 format_anno(Tuple, Ctxt) when is_tuple(Tuple) ->
     [${,format_anno_list(tuple_to_list(Tuple), Ctxt),$}];
 format_anno(Val, Ctxt) when is_atom(Val) ->
@@ -172,7 +182,8 @@ format_1(#c_tuple{es=Es}, Ctxt) ->
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      $}
     ];
-format_1(#c_map{arg=#c_literal{val=M},es=Es}, Ctxt) when is_map(M),map_size(M)=:=0 ->
+format_1(#c_map{arg=#c_literal{anno=[],val=M},es=Es}, Ctxt)
+  when is_map(M), map_size(M) =:= 0 ->
     ["~{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "}~"
@@ -195,9 +206,16 @@ format_1(#c_values{es=Es}, Ctxt) ->
 format_1(#c_alias{var=V,pat=P}, Ctxt) ->
     Txt = [format(V, Ctxt)|" = "],
     [Txt|format(P, add_indent(Ctxt, width(Txt, Ctxt)))];
-format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
-    Vs = [cerl:set_ann(V, []) || V <- Vs0],
-    case is_simple_term(A) of
+format_1(#c_let{anno=Anno0,vars=Vs0,arg=A0,body=B}, #ctxt{clean=Clean}=Ctxt) ->
+    {Vs,A,Anno} = case Clean of
+		      false ->
+			  {Vs0,A0,Anno0};
+		      true ->
+			  {[cerl:set_ann(V, []) || V <- Vs0],
+			   cerl:set_ann(A0, []),
+			   []}
+		  end,
+    case is_simple_term(A) andalso Anno =:= [] of
 	false ->
 	    Ctxt1 = add_indent(Ctxt, Ctxt#ctxt.body_indent),
 	    ["let ",
@@ -214,7 +232,7 @@ format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
 	    ["let ",
 	     format_values(Vs, add_indent(Ctxt, 4)),
 	     " = ",
-	     format(cerl:set_ann(A, []), Ctxt1),
+	     format(A, Ctxt1),
 	     nl_indent(Ctxt),
 	     "in  "
 	     | format(B, add_indent(Ctxt, 4))
@@ -362,7 +380,10 @@ format_values(Vs, Ctxt) ->
      format_hseq(Vs, ",", add_indent(Ctxt, 1), fun format/2),
      $>].
 
-format_bitstr(#c_bitstr{val=V,size=S,unit=U,type=T,flags=Fs}, Ctxt0) ->
+format_bitstr(Node, Ctxt) ->
+    maybe_anno(Node, fun do_format_bitstr/2, Ctxt).
+
+do_format_bitstr(#c_bitstr{val=V,size=S,unit=U,type=T,flags=Fs}, Ctxt0) ->
     Vs = [S, U, T, Fs],
     Ctxt1 = add_indent(Ctxt0, 2),
     Val = format(V, Ctxt1),
@@ -387,7 +408,7 @@ format_clause_1(#c_clause{pats=Ps,guard=G,body=B}, Ctxt) ->
 					 width(Ptxt, Ctxt) + 6))];
 	 false ->
 	     [nl_indent(Ctxt2), "when ",
-	      format_guard(G, add_indent(Ctxt2, 2))]
+	      format_guard(G, add_indent(set_class(Ctxt2, expr), 2))]
      end++
      " ->",
      nl_indent(Ctxt2)
