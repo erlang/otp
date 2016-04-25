@@ -447,12 +447,6 @@ file_port_schedfix1(Config) when is_list(Config) ->
     %%
     {ok,[{matched,_,_}]} = dbg:p(all, [clear]),
     stop(),
-    % Some debug code to run on all platforms, for finding the fault on genny
-    % Dont touch please /PaN
-    io:format("Trace dump by PaN BEGIN~n"),
-    dbg:trace_client(file,{FName, wrap, ".wraplog"},{fun(end_of_trace,Pid)-> Pid ! done; (Mesg,Pid) -> io:format("~w~n",[Mesg]),Pid end,self()}),
-    receive done -> ok end,
-    io:format("Trace dump by PaN END~n"),
     %%
     %% Get the trace result
     %%
@@ -473,14 +467,12 @@ file_port_schedfix1(Config) when is_list(Config) ->
     %%
     %% Analyze the result
     %%
-    {Min, Max} =
-    lists:foldl(
-      fun({_Pid, M}, {Mi, Ma}) ->
-              {if M < Mi -> M; true -> Mi end,
-               if M > Ma -> M; true -> Ma end}
-      end,
-      {void, 0},
-      Result),
+    {Min, Max} = lists:foldl(fun({_Pid, M}, {Mi, Ma}) ->
+                                     {if M < Mi -> M; true -> Mi end,
+                                      if M > Ma -> M; true -> Ma end}
+                             end,
+                             {void, 0},
+                             Result),
     % More PaN debug
     io:format("Min = ~f, Max = ~f~n",[Min,Max]),
     %%
