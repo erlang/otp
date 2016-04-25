@@ -855,17 +855,17 @@ suite({rsa_psk, aes_256_cbc,sha}) ->
 
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
 
-suite({psk, aes_128_gcm, null}) ->
+suite({psk, aes_128_gcm, null, sha256}) ->
     ?TLS_PSK_WITH_AES_128_GCM_SHA256;
-suite({psk, aes_256_gcm, null}) ->
+suite({psk, aes_256_gcm, null, sha384}) ->
     ?TLS_PSK_WITH_AES_256_GCM_SHA384;
-suite({dhe_psk, aes_128_gcm, null}) ->
+suite({dhe_psk, aes_128_gcm, null, sha256}) ->
     ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256;
-suite({dhe_psk, aes_256_gcm, null}) ->
+suite({dhe_psk, aes_256_gcm, null, sha384}) ->
     ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384;
-suite({rsa_psk, aes_128_gcm, null}) ->
+suite({rsa_psk, aes_128_gcm, null, sha256}) ->
     ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256;
-suite({rsa_psk, aes_256_gcm, null}) ->
+suite({rsa_psk, aes_256_gcm, null, sha384}) ->
     ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384;
 
 suite({psk, aes_128_cbc, sha256}) ->
@@ -972,74 +972,74 @@ suite({ecdh_anon, aes_256_cbc, sha}) ->
     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA;
 
 %%% RFC 5289 EC TLS suites
-suite({ecdhe_ecdsa, aes_128_cbc, sha256}) ->
+suite({ecdhe_ecdsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256;
-suite({ecdhe_ecdsa, aes_256_cbc, sha384}) ->
+suite({ecdhe_ecdsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384;
-suite({ecdh_ecdsa, aes_128_cbc, sha256}) ->
+suite({ecdh_ecdsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256;
-suite({ecdh_ecdsa, aes_256_cbc, sha384}) ->
+suite({ecdh_ecdsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384;
-suite({ecdhe_rsa, aes_128_cbc, sha256}) ->
+suite({ecdhe_rsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256;
-suite({ecdhe_rsa, aes_256_cbc, sha384}) ->
+suite({ecdhe_rsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384;
-suite({ecdh_rsa, aes_128_cbc, sha256}) ->
+suite({ecdh_rsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256;
-suite({ecdh_rsa, aes_256_cbc, sha384}) ->
+suite({ecdh_rsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384;
 
 %% RFC 5288 AES-GCM Cipher Suites
-suite({rsa, aes_128_gcm, null}) ->
+suite({rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_RSA_WITH_AES_128_GCM_SHA256;
 suite({rsa, aes_256_gcm, null}) ->
     ?TLS_RSA_WITH_AES_256_GCM_SHA384;
-suite({dhe_rsa, aes_128_gcm, null}) ->
+suite({dhe_rsa, aes_128_gcm, null, sha384}) ->
     ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256;
-suite({dhe_rsa, aes_256_gcm, null}) ->
+suite({dhe_rsa, aes_256_gcm, null, sha256}) ->
     ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384;
-suite({dh_rsa, aes_128_gcm, null}) ->
+suite({dh_rsa, aes_128_gcm, null, sha384}) ->
     ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256;
-suite({dh_rsa, aes_256_gcm, null}) ->
+suite({dh_rsa, aes_256_gcm, null, sha256}) ->
     ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384;
-suite({dhe_dss, aes_128_gcm, null}) ->
+suite({dhe_dss, aes_128_gcm, null, sha384}) ->
     ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256;
-suite({dhe_dss, aes_256_gcm, null}) ->
+suite({dhe_dss, aes_256_gcm, null, sha256}) ->
     ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384;
-suite({dh_dss, aes_128_gcm, null}) ->
+suite({dh_dss, aes_128_gcm, null, sha384}) ->
     ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256;
-suite({dh_dss, aes_256_gcm, null}) ->
+suite({dh_dss, aes_256_gcm, null, sha384}) ->
     ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384;
-suite({dh_anon, aes_128_gcm, null}) ->
+suite({dh_anon, aes_128_gcm, null, sha256}) ->
     ?TLS_DH_anon_WITH_AES_128_GCM_SHA256;
-suite({dh_anon, aes_256_gcm, null}) ->
+suite({dh_anon, aes_256_gcm, null, sha384}) ->
     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384;
 
 %% RFC 5289 ECC AES-GCM Cipher Suites
-suite({ecdhe_ecdsa, aes_128_gcm, null}) ->
+suite({ecdhe_ecdsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-suite({ecdhe_ecdsa, aes_256_gcm, null}) ->
+suite({ecdhe_ecdsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;
-suite({ecdh_ecdsa, aes_128_gcm, null}) ->
+suite({ecdh_ecdsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256;
-suite({ecdh_ecdsa, aes_256_gcm, null}) ->
+suite({ecdh_ecdsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384;
-suite({ecdhe_rsa, aes_128_gcm, null}) ->
+suite({ecdhe_rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
-suite({ecdhe_rsa, aes_256_gcm, null}) ->
+suite({ecdhe_rsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
-suite({ecdh_rsa, aes_128_gcm, null}) ->
+suite({ecdh_rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256;
-suite({ecdh_rsa, aes_256_gcm, null}) ->
+suite({ecdh_rsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384;
 
 
 %% draft-agl-tls-chacha20poly1305-04 Chacha20/Poly1305 Suites
-suite({ecdhe_rsa, chacha20_poly1305, null}) ->
+suite({ecdhe_rsa, chacha20_poly1305, null, sha256}) ->
     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
-suite({ecdhe_ecdsa, chacha20_poly1305, null}) ->
+suite({ecdhe_ecdsa, chacha20_poly1305, null, sha256}) ->
     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
-suite({dhe_rsa, chacha20_poly1305, null}) ->
+suite({dhe_rsa, chacha20_poly1305, null, sha256}) ->
     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256.
 
 %%--------------------------------------------------------------------

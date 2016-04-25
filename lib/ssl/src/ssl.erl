@@ -1089,10 +1089,7 @@ binary_cipher_suites(Version, []) ->
     %% Defaults to all supported suites that does
     %% not require explicit configuration
     ssl_cipher:filter_suites(ssl_cipher:suites(Version));
-binary_cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) -> %% Backwards compatibility
-    Ciphers = [{KeyExchange, Cipher, Hash} || {KeyExchange, Cipher, Hash, _} <- Ciphers0],
-    binary_cipher_suites(Version, Ciphers);
-binary_cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
+binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 
