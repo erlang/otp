@@ -68,7 +68,7 @@
 
 -type util_cpus() :: 'all' | integer() | [integer()].
 -type util_state() :: 'user' | 'nice_user' | 'kernel' | 'wait' | 'idle'.
--type util_value() :: {util_state(), float()} | float().
+-type util_value() :: [{util_state(), float()}] | float().
 -type util_desc() :: {util_cpus(), util_value(), util_value(), []}.
 
 %%----------------------------------------------------------------------
