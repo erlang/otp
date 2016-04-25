@@ -887,6 +887,10 @@ schedstat_handler(TraceMsg, {Parent, Tag, Data} = State) ->
                     Data
             end,
             {Parent, Tag, NewData};
+        {trace_ts,_Pid,spawned,_OtherPid,_,_Ts} ->
+            State;
+        {trace_ts,_Pid,getting_linked,_OtherPid,_Ts} ->
+            State;
         {trace_ts, Pid, exit, normal, {A3, B3, C3}} ->
             NewData =
             case lists:keysearch(Pid, 1, Data) of
