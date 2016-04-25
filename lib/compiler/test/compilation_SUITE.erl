@@ -45,7 +45,7 @@ groups() ->
        {group,vsn},otp_2380,otp_4790,
        const_list_256,live_var,convopts,
        catch_in_catch,redundant_case,long_string,otp_5076,
-       complex_guard,otp_5092,otp_5151,otp_5235,otp_5244,
+       otp_5092,otp_5151,otp_5235,otp_5244,
        trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
        otp_6121a,otp_6121b,otp_7202,otp_7345,on_load,
@@ -98,9 +98,6 @@ end_per_group(_GroupName, Config) ->
 ?comp(const_list_256).
 
 ?comp(otp_5076).
-
-?comp(complex_guard).
-
 ?comp(otp_5092).
 ?comp(otp_5151).
 
