@@ -41,7 +41,7 @@ groups() ->
        beam_compiler_5,beam_compiler_6,beam_compiler_7,
        beam_compiler_8,beam_compiler_9,beam_compiler_10,
        beam_compiler_11,beam_compiler_12,
-       nested_tuples_in_case_expr,otp_2330,guards,
+       nested_tuples_in_case_expr,otp_2330,
        {group,vsn},otp_2380,otp_4790,
        const_list_256,live_var,convopts,
        catch_in_catch,redundant_case,long_string,otp_5076,
@@ -92,8 +92,6 @@ end_per_group(_GroupName, Config) ->
 ?comp(otp_5235).
 
 ?comp(otp_5244).
-
-?comp(guards).
 
 ?comp(pattern_expr).
 
