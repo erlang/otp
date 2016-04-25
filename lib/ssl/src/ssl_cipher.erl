@@ -1,4 +1,4 @@
-%%
+%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2007-2016. All Rights Reserved.
@@ -39,7 +39,8 @@
 	 suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
-	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1]).
+	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
+	 random_bytes/1]).
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
@@ -49,7 +50,8 @@
 			   | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
 -type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
 -type sign_algo()         :: rsa | dsa | ecdsa.
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
+-type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | 
+			     psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()} % Pre TLS 1.2 
 			     %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
 			   | {key_algo(), cipher(), hash(), hash() | default_prf}. 
@@ -102,7 +104,7 @@ cipher_init(?RC4, IV, Key) ->
     State = crypto:stream_init(rc4, Key),
     #cipher_state{iv = IV, key = Key, state = State};
 cipher_init(?AES_GCM, IV, Key) ->
-    <<Nonce:64>> = ssl:random_bytes(8),
+    <<Nonce:64>> = random_bytes(8),
     #cipher_state{iv = IV, key = Key, nonce = Nonce};
 cipher_init(_BCA, IV, Key) ->
     #cipher_state{iv = IV, key = Key}.
@@ -1472,6 +1474,16 @@ is_acceptable_prf(Prf, Algos) ->
 is_fallback(CipherSuites)->
     lists:member(?TLS_FALLBACK_SCSV, CipherSuites).
 
+
+%%--------------------------------------------------------------------
+-spec random_bytes(integer()) -> binary().
+
+%%
+%% Description: Generates cryptographically secure random sequence 
+%%--------------------------------------------------------------------
+random_bytes(N) ->
+    crypto:strong_rand_bytes(N).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1712,7 +1724,7 @@ get_padding_aux(BlockSize, PadLength) ->
 
 random_iv(IV) ->
     IVSz = byte_size(IV),
-    ssl:random_bytes(IVSz).
+    random_bytes(IVSz).
 
 next_iv(Bin, IV) ->
     BinSz = byte_size(Bin),

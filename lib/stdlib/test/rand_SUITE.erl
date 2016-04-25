@@ -377,7 +377,7 @@ crypto_seed() ->
 crypto_next(<<Num:64, Bin/binary>>) ->
     {Num, Bin};
 crypto_next(_) ->
-    crypto_next(crypto:rand_bytes((64 div 8)*100)).
+    crypto_next(crypto:strong_rand_bytes((64 div 8)*100)).
 
 crypto_uniform({Api, Data0}) ->
     {Int, Data} = crypto_next(Data0),

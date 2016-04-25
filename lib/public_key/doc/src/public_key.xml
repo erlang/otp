@@ -118,7 +118,7 @@
       <p><c> not_encrypted | cipher_info()}</c></p></item>
       
       <tag><c>cipher_info() = </c></tag>
-      <item><p><c>{"RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC", crypto:rand_bytes(8)</c></p>
+      <item><p><c>{"RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC", crypto:strong_rand_bytes(8)</c></p>
       <p><c>| {#'PBEParameter{}, digest_type()} | #'PBES2-params'{}}</c></p>
       </item>
       

@@ -869,7 +869,7 @@ aes_cbc256_crypto_tar(Config) ->
 		  {"d1",fn("d1",Config)}  % Dir
 		 ]),
     Key = <<"This is a 256 bit key. Boring...">>,
-    Ivec0 = crypto:rand_bytes(16),
+    Ivec0 = crypto:strong_rand_bytes(16),
     DataSize = 1024,  % data_size rem 16 = 0 for aes_cbc
 
     Cinitw = fun() -> {ok, Ivec0, DataSize} end,
@@ -914,7 +914,7 @@ aes_ctr_stream_crypto_tar(Config) ->
 		  {"d1",fn("d1",Config)}  % Dir
 		 ]),
     Key = <<"This is a 256 bit key. Boring...">>,
-    Ivec0 = crypto:rand_bytes(16),
+    Ivec0 = crypto:strong_rand_bytes(16),
 
     Cinitw = Cinitr = fun() -> {ok, crypto:stream_init(aes_ctr,Key,Ivec0)} end,
 

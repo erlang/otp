@@ -199,7 +199,7 @@ encrypted_pem(Config) when is_list(Config) ->
 
     RSAKey = public_key:der_decode('RSAPrivateKey', DerRSAKey),
 
-    Salt0 = crypto:rand_bytes(8),
+    Salt0 = crypto:strong_rand_bytes(8),
     Entry0 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
 					 {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
     RSAKey = public_key:pem_entry_decode(Entry0,"1234abcd"),
@@ -208,7 +208,7 @@ encrypted_pem(Config) when is_list(Config) ->
     [{'RSAPrivateKey', _, {"DES-EDE3-CBC", Salt0}}] =
 	erl_make_certs:pem_to_der(Des3KeyFile),
 
-    Salt1 = crypto:rand_bytes(8),
+    Salt1 = crypto:strong_rand_bytes(8),
     Entry1 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey,
 					   {{"DES-CBC", Salt1}, "4567efgh"}),
     DesKeyFile = filename:join(Datadir, "des_client_key.pem"),

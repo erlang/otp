@@ -551,7 +551,7 @@ last_delay_timer({_,_}, TRef, {_, LastClient}) ->
 new_id(_, 0, _, _) ->
     <<>>;
 new_id(Port, Tries, Cache, CacheCb) ->
-    Id = crypto:rand_bytes(?NUM_OF_SESSION_ID_BYTES),
+    Id = ssl_cipher:random_bytes(?NUM_OF_SESSION_ID_BYTES),
     case CacheCb:lookup(Cache, {Port, Id}) of
 	undefined ->
 	    Now = erlang:monotonic_time(),

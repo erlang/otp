@@ -308,6 +308,8 @@
       <desc>
 	<p>Generates public keys of type <c>Type</c>.
 	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>
+	May throw exception <c>low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".
 	</p>
       </desc>
     </func>
@@ -592,22 +594,6 @@
 	used for instance by older versions of the SSL protocol. See also <seealso
 	marker="public_key:public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</seealso>
 	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>rand_bytes(N) -> binary()</name>
-      <fsummary>Generate a binary of random bytes</fsummary>
-      <type>
-        <v>N = integer()</v>
-      </type>
-      <desc>
-        <p>Generates N bytes randomly uniform 0..255, and returns the
-        result in a binary. Uses the <c>crypto</c> library pseudo-random
-        number generator.</p>
-        <p>This function is not recommended for cryptographic purposes.
-        Please use <seealso marker="#strong_rand_bytes/1">
-        strong_rand_bytes/1</seealso> instead.</p>
       </desc>
     </func>
 

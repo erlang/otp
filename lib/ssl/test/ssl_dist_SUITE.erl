@@ -194,7 +194,7 @@ payload(Config) when is_list(Config) ->
 	     ok = apply_on_ssl_node(
 		    NH2,
 		    fun () ->
-			    Msg = crypto:rand_bytes(100000),
+			    Msg = crypto:strong_rand_bytes(100000),
 			    SslPid ! {self(), Msg},
 			    receive
 				{SslPid, Msg} ->

@@ -1317,7 +1317,7 @@ generate_key(String) when is_list(String) ->
 encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     Bin1 = case byte_size(Bin0) rem BlockSize of
 	       0 -> Bin0;
-	       N -> list_to_binary([Bin0,crypto:rand_bytes(BlockSize-N)])
+	       N -> list_to_binary([Bin0,crypto:strong_rand_bytes(BlockSize-N)])
 	   end,
     Bin = crypto:block_encrypt(Type, Key, IVec, Bin1),
     TypeString = atom_to_list(Type),
