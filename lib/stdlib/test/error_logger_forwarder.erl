@@ -20,7 +20,7 @@
 -module(error_logger_forwarder).
 
 %% API.
--export([register/0]).
+-export([register/0, unregister/0]).
 
 %% Internal export for error_logger.
 -export([init/1,
@@ -32,6 +32,10 @@
 %%
 register() ->
     error_logger:add_report_handler(?MODULE, self()).
+
+unregister() ->
+    Self = self(),
+    Self = error_logger:delete_report_handler(?MODULE).
 
 init(Tester) ->
     {ok,Tester}.

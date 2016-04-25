@@ -31,12 +31,23 @@
   <module>gen_fsm</module>
   <modulesummary>Generic Finite State Machine Behaviour</modulesummary>
   <description>
+    <note>
+      <p>
+	There is a new behaviour
+	<seealso marker="gen_statem"><c>gen_statem</c></seealso>
+	that is intended to replace <c>gen_fsm</c> for new code.
+	It has the same features and add some really useful.
+	This module will not be removed for the foreseeable future
+	to keep old state machine implementations running.
+      </p>
+    </note>
     <p>A behaviour module for implementing a finite state machine.
       A generic finite state machine process (gen_fsm) implemented
       using this module will have a standard set of interface functions
       and include functionality for tracing and error reporting. It will
       also fit into an OTP supervision tree. Refer to
-      <seealso marker="doc/design_principles:fsm">OTP Design Principles</seealso> for more information.</p>
+      <seealso marker="doc/design_principles:fsm">OTP Design Principles</seealso> for more information.
+    </p>
     <p>A gen_fsm assumes all specific parts to be located in a callback
       module exporting a pre-defined set of functions. The relationship
       between the behaviour functions and the callback functions can be
@@ -848,6 +859,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
     <title>SEE ALSO</title>
     <p><seealso marker="gen_event">gen_event(3)</seealso>,
       <seealso marker="gen_server">gen_server(3)</seealso>,
+      <seealso marker="gen_statem">gen_statem(3)</seealso>,
       <seealso marker="supervisor">supervisor(3)</seealso>,
       <seealso marker="proc_lib">proc_lib(3)</seealso>,
       <seealso marker="sys">sys(3)</seealso></p>

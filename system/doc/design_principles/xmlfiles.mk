@@ -25,6 +25,7 @@ DESIGN_PRINCIPLES_CHAPTER_FILES = \
 	distributed_applications.xml \
 	events.xml \
 	fsm.xml \
+	statem.xml \
 	gen_server_concepts.xml \
 	included_applications.xml \
 	release_handling.xml \

@@ -472,13 +472,15 @@ trans_init(gen,init_it,[gen_server,_,_,supervisor_bridge,[Module|_],_]) ->
     {supervisor_bridge,Module,1};
 trans_init(gen,init_it,[gen_server,_,_,_,supervisor_bridge,[Module|_],_]) ->
     {supervisor_bridge,Module,1};
-trans_init(gen,init_it,[gen_server,_,_,Module,_,_]) ->
+trans_init(gen,init_it,[GenMod,_,_,Module,_,_])
+  when GenMod =:= gen_server;
+       GenMod =:= gen_statem;
+       GenMod =:= gen_fsm ->
     {Module,init,1};
-trans_init(gen,init_it,[gen_server,_,_,_,Module|_]) ->
-    {Module,init,1};
-trans_init(gen,init_it,[gen_fsm,_,_,Module,_,_]) ->
-    {Module,init,1};
-trans_init(gen,init_it,[gen_fsm,_,_,_,Module|_]) ->
+trans_init(gen,init_it,[GenMod,_,_,_,Module|_])
+  when GenMod =:= gen_server;
+       GenMod =:= gen_statem;
+       GenMod =:= gen_fsm ->
     {Module,init,1};
 trans_init(gen,init_it,[gen_event|_]) ->
     {gen_event,init_it,6};

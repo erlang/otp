@@ -30,6 +30,7 @@
   <xi:include href="../specs/specs_gen_event.xml"/>
   <xi:include href="../specs/specs_gen_fsm.xml"/>
   <xi:include href="../specs/specs_gen_server.xml"/>
+  <xi:include href="../specs/specs_gen_statem.xml"/>
   <xi:include href="../specs/specs_io.xml"/>
   <xi:include href="../specs/specs_io_lib.xml"/>
   <xi:include href="../specs/specs_lib.xml"/>
