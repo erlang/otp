@@ -230,9 +230,7 @@ build_attributes(Opts, SourceFile, Attr, MD5) ->
 		[_|_] -> [{source,SourceFile}]
 	    end,
     Misc = case member(slim, Opts) of
-	       false ->
-		   {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),
-		   [{time,{Y,Mo,D,H,Mi,S}}|Misc0];
+	       false -> Misc0;
 	       true -> []
 	   end,
     Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],
