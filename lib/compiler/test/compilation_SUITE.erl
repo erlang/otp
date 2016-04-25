@@ -49,8 +49,7 @@ groups() ->
        trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
        otp_6121a,otp_6121b,otp_7202,otp_7345,on_load,
-       string_table,otp_8949_a,otp_8949_b,split_cases,
-       beam_utils_liveopt]}].
+       string_table,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
     Config.
@@ -601,24 +600,6 @@ do_otp_8949_a() ->
 	    end
     end.
     
-otp_8949_b(Config) when is_list(Config) ->
-    self() ! something,
-    value = otp_8949_b([], false),
-    {'EXIT',_} = (catch otp_8949_b([], true)),
-    ok.
-
-%% Would cause an endless loop in beam_utils.
-otp_8949_b(A, B) ->
-    Var = id(value),
-    if
-	A == [], B == false ->
-	    ok
-    end,
-    receive
-        something ->
-	    id(Var)
-    end.
-    
 split_cases(_) ->
     dummy1 = do_split_cases(x),
     {'EXIT',{{badmatch,b},_}} = (catch do_split_cases(y)),
@@ -633,22 +614,6 @@ do_split_cases(A) ->
 	    a=b
     end,
     Z.
-
--record(alarmInfo, {type,cause,origin}).
-
-beam_utils_liveopt(Config) ->
-    F = beam_utils_liveopt_fun(42, pebkac, user),
-    void = F(42, #alarmInfo{type=sctp,cause=pebkac,origin=user}),
-    ok.
-    
-beam_utils_liveopt_fun(Peer, Cause, Origin) ->
-    fun(PeerNo, AlarmInfo)
-	  when PeerNo == Peer andalso
-	       AlarmInfo == #alarmInfo{type=sctp,
-				       cause=Cause,
-				       origin=Origin} ->
-	    void
-    end.
 
 
 id(I) -> I.
