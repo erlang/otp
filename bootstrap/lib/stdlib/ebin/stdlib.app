@@ -65,6 +65,7 @@
 	     gen_event,
 	     gen_fsm,
 	     gen_server,
+	     gen_statem,
 	     io,
 	     io_lib,
 	     io_lib_format,
