@@ -128,6 +128,7 @@ static ERL_NIF_TERM atom_badarg;
 static ERL_NIF_TERM atom_ok;
 
 static ERL_NIF_TERM atom_trace;
+static ERL_NIF_TERM atom_seq_trace;
 static ERL_NIF_TERM atom_remove;
 static ERL_NIF_TERM atom_discard;
 
@@ -191,6 +192,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_ok = enif_make_atom(env,"ok");
 
     atom_trace = enif_make_atom(env,"trace");
+    atom_seq_trace = enif_make_atom(env,"seq_trace");
     atom_remove = enif_make_atom(env,"remove");
     atom_discard = enif_make_atom(env,"discard");
 
@@ -285,19 +287,8 @@ static ERL_NIF_TERM user_trace_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 static ERL_NIF_TERM enabled(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef HAVE_USE_DTRACE
-    ErlNifPid to;
+#ifdef HAVE_USE_LTTNG
     ASSERT(argc == 3);
-    /* Only generate trace events when probe is enabled */
-    if (argv[0] == atom_seq_trace) {
-        if (!erlang_trace_seq_enabled())
-            return atom_discard;
-    } else if (!erlang_trace_enabled()) {
-        return atom_discard;
-    }
-
-    return atom_trace;
-#elif HAVE_USE_LTTNG
     return atom_trace;
 #endif
     return atom_remove;
@@ -305,46 +296,6 @@ static ERL_NIF_TERM enabled(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef HAVE_USE_DTRACE
-    size_t sz = BUFF_SIZE;
-    char buff[BUFF_SIZE];
-    ASSERT(argc == 6);
-
-    if (argv[0] == atom_seq_trace) {
-        if (erlang_trace_seq_enabled()) {
-            char *label = buff,
-                *seq_info = buff + BUFF_SIZE/4;
-            erts_snprintf(label, 1*BUFF_SIZE/4, "%T", argv[2]);
-            erts_snprintf(seq_info, 3*BUFF_SIZE/4, "%T", argv[3]);
-            erlang_trace_seq(label, seq_info);
-        }
-    } else {
-        char *event, p[DTRACE_TERM_BUF_SIZE], state, arg1, arg2, arg3;
-
-        event = buff + BUFF_SIZE - sz;
-        sz -= enif_get_atom(env, argv[0], event, sz, ERL_NIF_LATIN1);
-
-        state = buff + BUFF_SIZE - sz;
-        sz -= erts_snprintf(state, sz, "%T", argv[1]);
-
-        if (enif_is_pid(argv[2]) || enif_is_port(argv[2]))
-            dtrace_pid_str(argv[2], p);
-        else
-            p = NULL;
-
-        arg1 = buff + BUFF_SIZE - sz;
-        sz -= erts_snprintf(arg1, sz, "%T", argv[3]);
-
-        if (argc == 6) {
-            arg2 = buff + BUFF_SIZE - sz;
-            sz -= erts_snprintf(arg2, sz, "%T", argv[4]);
-        } else
-            args2 = NULL;
-
-        erlang_trace(p, event, state, arg1, arg2);
-
-    }
-#endif
     return atom_ok;
 }
 
