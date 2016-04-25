@@ -3432,7 +3432,7 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
 
--spec fold_literal_maybe_match(cerl:tree(), state()) -> cerl:tree().
+-spec fold_literal_maybe_match(cerl:cerl(), state()) -> cerl:cerl().
 
 fold_literal_maybe_match(Tree0, State) ->
   Tree1 = cerl:fold_literal(Tree0),
