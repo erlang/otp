@@ -135,7 +135,7 @@ handle_event(EventType, EventContent, State, Data) ->
     </p>
 
     <section>
-      <title>Choosing Callback Mode</title>
+      <title>Choosing the Callback Mode</title>
       <p>
 	The two
 	<seealso marker="#callback_modes">callback modes</seealso>
@@ -157,7 +157,7 @@ handle_event(EventType, EventContent, State, Data) ->
 	on state name for you.  This encourages the callback module
 	to gather the implementation of all event actions particular
 	to one state in the same place in the code
-	hence focus on one state at the time.
+	hence to focus on one state at the time.
       </p>
       <p>
 	This mode fits well when you have a regular state diagram
@@ -216,7 +216,7 @@ handle_event(EventType, EventContent, State, Data) ->
       it is is wrong, we start all over,
       waiting for a new button sequence.
     </p>
-    <image file="code_lock.png">
+    <image file="../design_principles/code_lock.png">
       <icaption>Code lock state diagram</icaption>
     </image>
     <p>
@@ -842,9 +842,9 @@ open(cast, {button,_}, Data) ->
       changed i.e <c>OldState =/= NewState</c>.
     </p>
     <p>
-      Postponing is ordered by the
+      Postponing is ordered by the state transition
       <seealso marker="stdlib:gen_statem#type-action">
-	state transition action
+	action
       </seealso>
       <c>postpone</c>.
     </p>
@@ -951,9 +951,9 @@ do_unlock() ->
       passing non-system messages to the callback module.
     </p>
     <p>
-      The
+      The state transition
       <seealso marker="stdlib:gen_statem#type-action">
-	state transition action
+	action
       </seealso>
       <c>postpone</c> is designed to be able to model
       selective receives.  A selective receive implicitly postpones
@@ -974,9 +974,10 @@ do_unlock() ->
     <title>Self Generated Events</title>
     <p>
       It may be beneficial in some cases to be able to generate events
-      to your own state machine.  This can be done with the
+      to your own state machine.
+      This can be done with the state transition
       <seealso marker="stdlib:gen_statem#type-action">
-	state transition action
+	action
       </seealso>
       <c>{next_event,EventType,EventContent}</c>.
     </p>
@@ -1054,7 +1055,7 @@ enter(Tag, State, Data) ->
       and some more utilizing the entry actions,
       which deserves a new state diagram:
     </p>
-    <image file="code_lock_2.png">
+    <image file="../design_principles/code_lock_2.png">
       <icaption>Code lock state diagram revisited</icaption>
     </image>
     <p>
@@ -1203,6 +1204,71 @@ handle_event({call,From}, code_length, _State, #{code := Code}) ->
 <!-- =================================================================== -->
 
   <section>
+    <title>Filter the State</title>
+    <p>
+      The example servers so far in this chapter will for example
+      when killed by an exit signal or due to an internal error
+      print out the full internal state in the error log.
+      This state contains both the code lock code
+      and which digits that remains to unlock.
+    </p>
+    <p>
+      This state data can be regarded as sensitive,
+      and maybe not what you want in the error log
+      because of something unpredictable happening.
+    </p>
+    <p>
+      Another reason to filter the state can be
+      that the state is too big to print out since it fills
+      the error log with uninteresting details.
+    </p>
+    <p>
+      To avoid this you can format the internal state
+      that gets in the error log and gets returned from
+      <seealso marker="stdlib:sys#get_status/1">
+	<c>sys:get_status/1,2</c>
+      </seealso>
+      by implementing the
+      <seealso marker="stdlib:gen_statem#Module:format_status/2">
+	<c>Module:format_status/2</c>
+      </seealso>
+      function, for example like this:
+    </p>
+    <code type="erl"><![CDATA[
+...
+-export([init/1,terminate/3,code_change/4,format_status/2]).
+...
+
+format_status(Opt, [_PDict,State,Data]) ->
+    StateData =
+	{State,
+	 maps:filter(
+	   fun (code, _) -> false;
+	       (remaining, _) -> false;
+	       (_, _) -> true
+	   end,
+	   Data)},
+    case Opt of
+	terminate ->
+	    StateData;
+	normal ->
+	    [{data,[{"State",StateData}]}]
+    end.
+    ]]></code>
+    <p>
+      It is not mandatory to implement a
+      <seealso marker="stdlib:gen_statem#Module:format_status/2">
+	<c>Module:format_status/2</c>
+      </seealso>
+      function.  If you do not a default implementation is used that
+      does the same as this example function without filtering
+      the <c>Data</c> term that is: <c>StateData = {State,Data}</c>.
+    </p>
+  </section>
+
+<!-- =================================================================== -->
+
+  <section>
     <title>Complex State</title>
     <p>
       The callback mode
@@ -1260,7 +1326,7 @@ handle_event({call,From}, code_length, _State, #{code := Code}) ->
       where <c>StateName</c> is as before
       and <c>LockButton</c> is the current lock button:
     </p>
-      <code type="erl"><![CDATA[
+    <code type="erl"><![CDATA[
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock_3).
@@ -1268,7 +1334,7 @@ handle_event({call,From}, code_length, _State, #{code := Code}) ->
 
 -export([start_link/2,stop/0]).
 -export([button/1,code_length/0,set_lock_button/1]).
--export([init/1,terminate/3,code_change/4]).
+-export([init/1,terminate/3,code_change/4,format_status/2]).
 -export([handle_event/4]).
 
 start_link(Code, LockButton) ->
@@ -1286,51 +1352,65 @@ set_lock_button(LockButton) ->
 
 init({Code,LockButton}) ->
     process_flag(trap_exit, true),
-    Data = #{code => Code},
+    Data = #{code => Code, remaining => undefined, timer => undefined},
     enter(?CALLBACK_MODE, {locked,LockButton}, Data, []).
 
-%% State: locked
-handle_event(internal, enter, {locked,_}, #{code := Code} = Data) ->
-    do_lock(),
-    {keep_state,Data#{remaining => Code}};
 handle_event(
-  {call,From}, {button,Digit}, {locked,LockButton},
-  #{code := Code, remaining := Remaining} = Data) ->
-    case Remaining of
-        [Digit] -> % Complete
-            enter(next_state, {open,LockButton}, Data, [{reply,From,ok}]);
-        [Digit|Rest] -> % Incomplete
-            {keep_state,Data#{remaining := Rest},[{reply,From,ok}]};
-        [_|_] -> % Wrong
-            {keep_state,Data#{remaining := Code},[{reply,From,ok}]}
-    end;
-%%
-%% State: open
-handle_event(internal, enter, {open,_}, Data) ->
-    Tref = erlang:start_timer(10000, self(), lock),
-    do_unlock(),
-    {keep_state,Data#{timer => Tref}};
-handle_event(
-  info, {timeout,Tref,lock}, {open,LockButton},
-  #{timer := Tref} = Data) ->
-    enter(next_state, {locked,LockButton}, Data, []);
-handle_event(
-  {call,From}, {button,LockButton}, {open,LockButton},
-  #{timer := Tref} = Data) ->
-    erlang:cancel_timer(Tref),
-    enter(next_state, {locked,LockButton}, Data, [{reply,From,locked}]);
-handle_event({call,_}, {button,_}, {open,_}, _) ->
-    {keep_state_and_data,[postpone]};
-%%
-%% Any state
-handle_event(
-  {call,From}, {set_lock_button,NewLockButton}, {StateName,OldLockButton},
-  Data) ->
+  {call,From}, {set_lock_button,NewLockButton},
+  {StateName,OldLockButton}, Data) ->
     {next_state,{StateName,NewLockButton},Data,
      [{reply,From,OldLockButton}]};
-handle_event({call,From}, code_length, _State, #{code := Code}) ->
-    {keep_state_and_data,[{reply,From,length(Code)}]}.
+handle_event(
+  {call,From}, code_length,
+  {_StateName,_LockButton}, #{code := Code}) ->
+    {keep_state_and_data,
+     [{reply,From,length(Code)}]};
+handle_event(
+  EventType, EventContent,
+  {locked,LockButton}, #{code := Code, remaining := Remaining} = Data) ->
+    case {EventType,EventContent} of
+	{internal,enter} ->
+	    do_lock(),
+	    {keep_state,Data#{remaining := Code}};
+	{{call,From},{button,Digit}} ->
+	    case Remaining of
+		[Digit] -> % Complete
+		    next_state(
+		      {open,LockButton}, Data,
+		      [{reply,From,ok}]);
+		[Digit|Rest] -> % Incomplete
+		    {keep_state,Data#{remaining := Rest},
+		     [{reply,From,ok}]};
+		[_|_] -> % Wrong
+		    {keep_state,Data#{remaining := Code},
+		     [{reply,From,ok}]}
+	    end
+    end;
+handle_event(
+  EventType, EventContent,
+  {open,LockButton}, #{timer := Timer} = Data) ->
+    case {EventType,EventContent} of
+	{internal,enter} ->
+	    Tref = erlang:start_timer(10000, self(), lock),
+	    do_unlock(),
+	    {keep_state,Data#{timer := Tref}};
+	{info,{timeout,Timer,lock}} ->
+	    next_state({locked,LockButton}, Data, []);
+	{{call,From},{button,Digit}} ->
+	    if
+		Digit =:= LockButton ->
+		    erlang:cancel_timer(Timer),
+		    next_state(
+		      {locked,LockButton}, Data,
+		      [{reply,From,locked}]);
+		true ->
+		    {keep_state_and_data,
+		     [postpone]}
+	    end
+    end.
 
+next_state(State, Data, Actions) ->
+    enter(next_state, State, Data, Actions).
 enter(Tag, State, Data, Actions) ->
     {Tag,State,Data,[{next_event,internal,enter}|Actions]}.
 
@@ -1344,13 +1424,28 @@ terminate(_Reason, State, _Data) ->
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
     {?CALLBACK_MODE,State,Data}.
-      ]]></code>
-      <p>
-	It may be an ill-fitting model for a physical code lock
-	that the <c>button/1</c> call might hang until the lock
-	is locked.  But for an API in general it is really not
-	that strange.
-      </p>
+format_status(Opt, [_PDict,State,Data]) ->
+    StateData =
+	{State,
+	 maps:filter(
+	   fun (code, _) -> false;
+	       (remaining, _) -> false;
+	       (_, _) -> true
+	   end,
+	   Data)},
+    case Opt of
+	terminate ->
+	    StateData;
+	normal ->
+	    [{data,[{"State",StateData}]}]
+    end.
+    ]]></code>
+    <p>
+      It may be an ill-fitting model for a physical code lock
+      that the <c>button/1</c> call might hang until the lock
+      is locked.  But for an API in general it is really not
+      that strange.
+    </p>
   </section>
 
 </chapter>
