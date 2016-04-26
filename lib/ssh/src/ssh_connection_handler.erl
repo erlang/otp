@@ -349,6 +349,8 @@ renegotiate_data(ConnectionHandler) ->
 	  idle_timer_ref                        :: undefined 
 						 | infinity
 						 | reference(),
+	  idle_timer_value          = infinity  :: infinity
+						 | pos_integer(),
 	  transport_protocol                    :: atom(),	% ex: tcp
 	  transport_cb                          :: atom(),	% ex: gen_tcp
 	  transport_close_tag                   :: atom(),	% ex: tcp_closed
@@ -405,7 +407,7 @@ init_connection_handler(Role, Socket, Opts) ->
 
 
 init_process_state(Role, Socket, Opts) ->
-    S = #data{connection_state =
+    D = #data{connection_state =
 		   C = #connection{channel_cache = ssh_channel:cache_create(),
 				   channel_id_seed = 0,
 				   port_bindings = [],
@@ -420,10 +422,9 @@ init_process_state(Role, Socket, Opts) ->
 	    %% Start the renegotiation timers
 	    timer:apply_after(?REKEY_TIMOUT,      gen_statem, cast, [self(), renegotiate]),
 	    timer:apply_after(?REKEY_DATA_TIMOUT, gen_statem, cast, [self(), data_size]),
-	    S#data{idle_timer_ref = get_idle_time(Opts)};
-
+	    cache_init_idle_timer(D);
 	server ->
-	    S#data{connection_state = init_connection(Role, C, Opts)}
+	    D#data{connection_state = init_connection(Role, C, Opts)}
     end.
 
 
@@ -537,8 +538,8 @@ handle_event(_, _Event, {init_error,Error}, _) ->
 handle_event(_, socket_control, {hello,_}, D) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(D#data.ssh_params)),
     ok = send_bytes(VsnMsg, D),
-    case getopt(recbuf, Socket=D#data.socket) of
-	{ok, Size} ->
+    case inet:getopts(Socket=D#data.socket, [recbuf]) of
+	{ok, [{recbuf,Size}]} ->
 	    %% Set the socket to the hello text line handling mode:
 	    inet:setopts(Socket, [{packet, line},
 				  {active, once},
@@ -547,8 +548,9 @@ handle_event(_, socket_control, {hello,_}, D) ->
 				  {recbuf, ?MAX_PROTO_VERSION},
 				  {nodelay,true}]),
 	    {keep_state, D#data{inet_initial_recbuf_size=Size}};
-	{error, Reason} ->
-	    {stop, {shutdown,Reason}}
+
+	Other ->
+	    {stop, {shutdown,{unexpected_getopts_return, Other}}}
     end;
 
 handle_event(_, {info_line,_Line}, {hello,Role}, D) ->
@@ -1069,15 +1071,13 @@ handle_event({call,From}, {request, ChannelPid, ChannelId, Type, Data, Timeout},
     D = handle_request(ChannelPid, ChannelId, Type, Data, true, From, D0),
     %% Note reply to channel will happen later when reply is recived from peer on the socket
     start_timeout(ChannelId, From, Timeout),
-    handle_idle_timeout(D),
-    {keep_state, D};
+    {keep_state, cache_request_idle_timer_check(D)};
 
 handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, {connected,_}, D0) ->
     D = handle_request(ChannelId, Type, Data, true, From, D0),
     %% Note reply to channel will happen later when reply is recived from peer on the socket
     start_timeout(ChannelId, From, Timeout),
-    handle_idle_timeout(D),
-    {keep_state, D};
+    {keep_state, cache_request_idle_timer_check(D)};
 
 handle_event({call,From}, {global_request, Pid, _, _, _} = Request, {connected,_}, D0) ->
     D1 = handle_global_request(Request, D0),
@@ -1122,7 +1122,7 @@ handle_event({call,From},
 				     }),
     D = add_request(true, ChannelId, From, D2),
     start_timeout(ChannelId, From, Timeout),
-    {keep_state, remove_timer_ref(D)};
+    {keep_state, cache_cancel_idle_timer(D)};
 
 handle_event({call,From}, {send_window, ChannelId}, {connected,_}, D) ->
     Reply = case ssh_channel:cache_lookup(cache(D), ChannelId) of
@@ -1149,8 +1149,7 @@ handle_event({call,From}, {close, ChannelId}, {connected,_}, D0) ->
 	#channel{remote_id = Id} = Channel ->
 	    D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
 	    ssh_channel:cache_update(cache(D1), Channel#channel{sent_close = true}),
-	    handle_idle_timeout(D1),
-	    {keep_state, D1, [{reply,From,ok}]};
+	    {keep_state, cache_request_idle_timer_check(D1), [{reply,From,ok}]};
 	undefined ->
 	    {keep_state_and_data, [{reply,From,ok}]}
     end;
@@ -1263,8 +1262,8 @@ handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D0) ->
 handle_event(info, {'EXIT', _Sup, Reason}, _, _) ->
     {stop, {shutdown, Reason}};
 
-handle_event(info, {check_cache, _ , _}, _, D) ->
-    {keep_state, check_cache(D)};
+handle_event(info, check_cache, _, D) ->
+    {keep_state, cache_check_set_idle_timer(D)};
 
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
     case unexpected_fun(UnexpectedMessage, D) of
@@ -1462,14 +1461,6 @@ renegotiation({_,_,ReNeg}) -> ReNeg == renegotiation;
 renegotiation(_) -> false.
 
 %%--------------------------------------------------------------------
-get_idle_time(SshOptions) ->
-    case proplists:get_value(idle_time, SshOptions) of
-	infinity ->
-	    infinity;
-	_IdleTime -> %% We dont want to set the timeout on first connect
-	    undefined
-    end.
-
 supported_host_keys(client, _, Options) ->
     try
 	case proplists:get_value(public_key,
@@ -1663,14 +1654,6 @@ handle_global_request({global_request, _, "cancel-tcpip-forward" = Type,
     send_msg(Msg, State).
 
 %%%----------------------------------------------------------------
-handle_idle_timeout(#data{opts = Opts}) ->
-    case proplists:get_value(idle_time, Opts, infinity) of
-	infinity ->
-	    ok;
-	IdleTime ->
-	    erlang:send_after(IdleTime, self(), {check_cache, [], []})
-    end.
-
 handle_channel_down(ChannelPid, D) ->
     ssh_channel:cache_foldl(
 	       fun(Channel, Acc) when Channel#channel.user == ChannelPid ->
@@ -1680,7 +1663,7 @@ handle_channel_down(ChannelPid, D) ->
 		  (_,Acc) ->
 		       Acc
 	       end, [], cache(D)),
-    {{replies, []}, check_cache(D)}.
+    {{replies, []}, cache_check_set_idle_timer(D)}.
 
 
 update_sys(Cache, Channel, Type, ChannelPid) ->
@@ -1826,8 +1809,6 @@ get_repl(noreply, Acc) ->
 get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
-
-
 %%%----------------------------------------------------------------
 disconnect_fun({disconnect,Msg}, D) ->
     disconnect_fun(Msg, D);
@@ -1864,38 +1845,65 @@ debug_fun(#ssh_msg_debug{always_display = Display,
     end.
 
 
+%%%----------------------------------------------------------------
+%%% Cache idle timer that closes the connection if there are no
+%%% channels open for a while.
 
-check_cache(D) ->
-    %% Check the number of entries in Cache
-    case proplists:get_value(size, ets:info(cache(D))) of
+cache_init_idle_timer(D) ->
+    case proplists:get_value(idle_time, D#data.opts, infinity) of
+	infinity ->
+	    D#data{idle_timer_value = infinity,
+		   idle_timer_ref = infinity	% A flag used later...
+		  };
+	IdleTime ->
+	    %% We dont want to set the timeout on first connect
+	    D#data{idle_timer_value = IdleTime}
+    end.
+
+
+cache_check_set_idle_timer(D = #data{idle_timer_ref = undefined,
+				     idle_timer_value = IdleTime}) ->
+    %% No timer set - shall we set one?
+    case ssh_channel:cache_info(num_entries, cache(D)) of
+	0 when IdleTime == infinity ->
+	    %% No. Meaningless to set a timer that fires in an infinite time...
+	    D;
 	0 ->
-	    case proplists:get_value(idle_time, D#data.opts, infinity) of
-		infinity ->
-		    D;
-		Time ->
-		    handle_idle_timer(Time, D)
-	    end;
+	    %% Yes, we'll set one since the cache is empty and it should not
+	    %% be that for a specified time
+	    D#data{idle_timer_ref =
+		       erlang:send_after(IdleTime, self(), {'EXIT',[],"Timeout"})};
 	_ ->
+	    %% No - there are entries in the cache
 	    D
-    end.
+    end;
+cache_check_set_idle_timer(D) ->
+    %% There is already a timer set or the timeout time is infinite
+    D.
+    
 
-handle_idle_timer(Time, #data{idle_timer_ref = undefined} = State) ->
-    TimerRef = erlang:send_after(Time, self(), {'EXIT', [], "Timeout"}),
-    State#data{idle_timer_ref=TimerRef};
-handle_idle_timer(_, State) ->
-    State.
-
-remove_timer_ref(State) ->
-    case State#data.idle_timer_ref of
-	infinity -> %% If the timer is not activated
-	    State;
-	undefined -> %% If we already has cancelled the timer
-	    State;
-	TimerRef -> %% Timer is active
+cache_cancel_idle_timer(D) ->
+    case D#data.idle_timer_ref of
+	infinity -> 
+	    %% The timer is not activated
+	    D;
+	undefined ->
+	    %% The timer is already cancelled
+	    D;
+	TimerRef -> 
+	    %% The timer is active
 	    erlang:cancel_timer(TimerRef),
-	    State#data{idle_timer_ref = undefined}
+	    D#data{idle_timer_ref = undefined}
     end.
 
+
+cache_request_idle_timer_check(D = #data{idle_timer_value = infinity}) ->
+    D;
+cache_request_idle_timer_check(D = #data{idle_timer_value = IdleTime}) ->
+    erlang:send_after(IdleTime, self(), check_cache),
+    D.
+
+%%%----------------------------------------------------------------
 socket_control(Socket, Pid, Transport) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
@@ -1933,10 +1941,3 @@ start_timeout(_,_, infinity) ->
 start_timeout(Channel, From, Time) ->
     erlang:send_after(Time, self(), {timeout, {Channel, From}}).
 
-getopt(Opt, Socket) ->
-    case inet:getopts(Socket, [Opt]) of
-	{ok, [{Opt, Value}]} ->
-	    {ok, Value};
-	Other ->
-	    {error, {unexpected_getopts_return, Other}}
-    end.
