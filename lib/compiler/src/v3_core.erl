@@ -510,8 +510,16 @@ unforce(_, Vs) -> Vs.
 
 exprs([E0|Es0], St0) ->
     {E1,Eps,St1} = expr(E0, St0),
-    {Es1,St2} = exprs(Es0, St1),
-    {Eps ++ [E1] ++ Es1,St2};
+    case E1 of
+	#iprimop{name=#c_literal{val=match_fail}} ->
+	    %% Must discard the rest of the body, because it
+	    %% may refer to variables that have not been bound.
+	    %% Example: {ok={error,E}} = foo(), E.
+	    {Eps ++ [E1],St1};
+	_ ->
+	    {Es1,St2} = exprs(Es0, St1),
+	    {Eps ++ [E1] ++ Es1,St2}
+    end;
 exprs([], St) -> {[],St}.
 
 %% expr(Expr, State) -> {Cexpr,[PreExp],State}.
@@ -681,9 +689,14 @@ expr({match,L,P0,E0}, St0) ->
     Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
     case P2 of
 	nomatch ->
-	    St = add_warning(L, nomatch, St5),
-	    {#icase{anno=#a{anno=Lanno},
-		    args=[E2],clauses=[],fc=Fc},Eps1++Eps2,St};
+	    St6 = add_warning(L, nomatch, St5),
+	    {Expr,Eps3,St} = safe(E1, St6),
+	    Eps = Eps1 ++ Eps2 ++ Eps3,
+	    Badmatch = c_tuple([#c_literal{val=badmatch},Expr]),
+	    Fail = #iprimop{anno=#a{anno=Lanno},
+			    name=#c_literal{val=match_fail},
+			    args=[Badmatch]},
+	    {Fail,Eps,St};
 	Other when not is_atom(Other) ->
 	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps1++Eps2,St5}
     end;

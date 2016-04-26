@@ -150,6 +150,9 @@ aliases(Config) when is_list(Config) ->
     none = mixed_aliases({a,42}),
     none = mixed_aliases(42),
 
+    %% Non-matching aliases.
+    {'EXIT',{{badmatch,42},_}} = (catch nomatch_alias(42)),
+
     ok.
 
 str_alias(V) ->
@@ -258,6 +261,10 @@ mixed_aliases([b] = <<X:8>>) -> {b,X};
 mixed_aliases(<<X:8>> = {a,X}) -> {c,X};
 mixed_aliases([X] = <<X:8>>) -> {d,X};
 mixed_aliases(_) -> none.
+
+nomatch_alias(I) ->
+    {ok={A,B}} = id(I),
+    {A,B}.
 
 %% OTP-7018.
 
