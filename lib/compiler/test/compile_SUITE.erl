@@ -31,13 +31,11 @@
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, encrypted_abstr/1,
 	 strict_record/1,
-	 missing_testheap/1, cover/1, env/1, core/1,
+	 cover/1, env/1, core/1,
 	 core_roundtrip/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1
 	]).
-
--export([init/3]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -51,7 +49,7 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, encrypted_abstr,
      strict_record,
-     missing_testheap, cover, env, core, core_roundtrip, asm,
+     cover, env, core, core_roundtrip, asm,
      sys_pre_attributes, dialyzer, warnings, pre_load_check].
 
 groups() -> 
@@ -648,46 +646,6 @@ test_sloppy() ->
     Turtle = record_access:turtle(),
     {1,2} = record_access:test(Turtle),
     Turtle.
-
-missing_testheap(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    Opts = [{outdir,PrivDir}],
-    OldPath = code:get_path(),
-    try
-	code:add_patha(PrivDir),
-	c:c(filename:join(DataDir, "missing_testheap1"), Opts),
-	c:c(filename:join(DataDir, "missing_testheap2"), Opts),
-	ok = test(fun() ->
-			  missing_testheap1:f({a,self()},{state,true,b})
-		  end, {a,b}),
-	ok = test(fun() ->
-			  missing_testheap2:f({a,self()},16#80000000) end,
-			bigger)
-	after
-	    code:set_path(OldPath),
-	    file:delete(filename:join(PrivDir, "missing_testheap1.beam")),
-	    file:delete(filename:join(PrivDir, "missing_testheap2.beam"))
-	end,
-    ok.
-    
-test(Fun, Result) ->
-    test(500, Fun, Result, []).
-
-test(0, _, _, _) ->
-    ok;
-test(Iter, Fun, Result, Filler) ->
-    spawn(?MODULE, init, [self(), Fun, list_to_tuple(Filler)]),
-    receive
-	{result, Result} ->
-	    test(Iter-1, Fun, Result, [0|Filler]);
-	{result, Other} ->
-	    io:format("Expected ~p; got ~p~n", [Result, Other]),
-	    ct:fail(failed)
-    end.
-
-init(ReplyTo, Fun, _Filler) ->
-    ReplyTo ! {result, Fun()}.
 
 env(Config) when is_list(Config) ->
     {Simple,Target} = get_files(Config, simple, env),
