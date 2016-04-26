@@ -3006,9 +3006,29 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp)
     };
 
     Eterm res = THE_NON_VALUE;
+    ErtsMessage *mp;
 
     ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == sizeof(tags)/sizeof(*tags));
     ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == ERTS_PROCESS_GC_INFO_MAX_TERMS);
+
+    if (p->abandoned_heap) {
+        Eterm *htop, *heap;
+        ERTS_GET_ORIG_HEAP(p, heap, htop);
+        values[3] = HIGH_WATER(p) - heap;
+        values[6] = htop - heap;
+    }
+
+    if (p->flags & F_ON_HEAP_MSGQ) {
+        /* If on heap messages in the internal queue are counted
+           as being part of the heap, so we have to add them to the
+           am_mbuf_size value. process_info(total_heap_size) should
+           be the same as adding old_heap_block_size + heap_block_size
+           + mbuf_size.
+        */
+        for (mp = p->msg.first; mp; mp = mp->next)
+            if (mp->data.attached)
+                values[2] += erts_msg_attached_data_size(mp);
+    }
 
     res = erts_bld_atom_uword_2tup_list(hpp,
                                         sizep,
