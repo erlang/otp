@@ -61,6 +61,19 @@ which_port(#mod{config_db = ConfigDb}) ->
 which_peername(#mod{init_data = #init_data{peername = {_, RemoteAddr}}}) ->
     RemoteAddr.
 
+which_peercert(#mod{socket_type = {Type, _}, socket = Socket}) when Type == essl;
+								    Type == ssl ->
+    case ssl:peercert(Socket) of
+	{ok, Cert} ->
+	    Cert;
+	{error, no_peercert} -> 
+	    no_peercert;
+	_  ->
+	    undefined
+    end;
+which_peercert(_) -> %% Not an ssl connection
+    undefined.
+
 which_resolve(#mod{init_data = #init_data{resolve = Resolve}}) ->
     Resolve.
 
@@ -78,6 +91,7 @@ create_basic_elements(esi, ModData) ->
      {server_port,       which_port(ModData)},
      {request_method,    which_method(ModData)},
      {remote_addr,       which_peername(ModData)},
+     {peer_cert,         which_peercert(ModData)},
      {script_name,       which_request_uri(ModData)}];
 
 create_basic_elements(cgi, ModData) ->
