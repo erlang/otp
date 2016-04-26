@@ -860,8 +860,9 @@ erts_alcu_literal_32_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void* res;
     Uint sz = ERTS_SUPERALIGNED_CEILING(*size_p);
-    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
-                   && !allctr->t && allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
+                   allctr->t == 0);
+    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
 
     res = erts_alcu_mseg_alloc(allctr, &sz, flags);
     if (res) {
@@ -877,8 +878,9 @@ erts_alcu_literal_32_mseg_realloc(Allctr_t *allctr, void *seg,
 {
     void* res;
     Uint new_sz = ERTS_SUPERALIGNED_CEILING(*new_size_p);
-    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
-                   && !allctr->t && allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
+                   allctr->t == 0);
+    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
 
     if (seg && old_size)
         clear_literal_range(seg, old_size);
@@ -894,8 +896,9 @@ void
 erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
                                Uint flags)
 {
-    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
-                   && !allctr->t && allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
+                   allctr->t == 0);
+    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
 
     erts_alcu_mseg_dealloc(allctr, seg, size, flags);
 
@@ -1007,8 +1010,9 @@ erts_alcu_literal_32_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 {
     void* res;
     Uint size = ERTS_SUPERALIGNED_CEILING(*size_p);
-    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
-                   && !allctr->t && allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
+                   allctr->t == 0);
+    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
 
     res = erts_alcu_sys_alloc(allctr, &size, 1);
     if (res) {
@@ -1024,8 +1028,9 @@ erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, Uint* size_p, Uint
     void* res;
     Uint size = ERTS_SUPERALIGNED_CEILING(*size_p);
 
-    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
-                   && !allctr->t && allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
+                   allctr->t == 0);
+    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
 
     if (ptr && old_size)
         clear_literal_range(ptr, old_size);
@@ -1040,8 +1045,9 @@ erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, Uint* size_p, Uint
 void
 erts_alcu_literal_32_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
 {
-    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL
-                   && !allctr->t && allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
+                   allctr->t == 0);
+    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
 
     erts_alcu_sys_dealloc(allctr, ptr, size, 1);
 
