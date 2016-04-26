@@ -1736,7 +1736,9 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	   ERTS_TRACE_FLAGS(BIF_P) &= ~F_SENSITIVE;
        }
        erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
-       BIF_RET(old_value);
+       /* make sure to bump all reds so that we get
+          rescheduled immediately so setting takes effect */
+       BIF_RET2(old_value, CONTEXT_REDS);
    }
    else if (BIF_ARG_1 == am_monitor_nodes) {
        /*
