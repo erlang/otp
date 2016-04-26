@@ -196,8 +196,7 @@ hello(start, #state{host = Host, port = Port, role = client,
     {Record, State} = next_record(State1),
     next_state(hello, hello, Record, State);
 
-hello(Hello = #client_hello{client_version = ClientVersion,
-			    extensions = #hello_extensions{hash_signs = HashSigns}},
+hello(Hello = #client_hello{client_version = ClientVersion},
       State = #state{connection_states = ConnectionStates0,
 		     port = Port, session = #session{own_certificate = Cert} = Session0,
 		     renegotiation = {Renegotiation, _},
@@ -209,9 +208,7 @@ hello(Hello = #client_hello{client_version = ClientVersion,
         {Version, {Type, Session},
 	 ConnectionStates,
 	 #hello_extensions{ec_point_formats = EcPointFormats,
-			   elliptic_curves = EllipticCurves} = ServerHelloExt} ->
-            HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, 
-						     dtls_v1:corresponding_tls_version(Version)),
+			   elliptic_curves = EllipticCurves} = ServerHelloExt, HashSign} ->
             ssl_connection:hello({common_client_hello, Type, ServerHelloExt, HashSign},
 				 State#state{connection_states  = ConnectionStates,
 					     negotiated_version = Version,

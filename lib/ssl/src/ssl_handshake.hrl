@@ -95,7 +95,7 @@
 
 -record(hello_extensions, {
 	  renegotiation_info,
-	  hash_signs,          % supported combinations of hashes/signature algos
+	  signature_algs,          % supported combinations of hashes/signature algos
           alpn,
 	  next_protocol_negotiation = undefined, % [binary()]
 	  srp,
