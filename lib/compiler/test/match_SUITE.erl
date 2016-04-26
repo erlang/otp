@@ -24,7 +24,7 @@
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
-      coverage/1]).
+	 coverage/1,grab_bag/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -38,7 +38,8 @@ groups() ->
     [{p,[parallel],
       [pmatch,mixed,aliases,match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,
-       underscore,match_map,map_vars_used,coverage]}].
+       underscore,match_map,map_vars_used,coverage,
+       grab_bag]}].
 
 
 init_per_suite(Config) ->
@@ -93,9 +94,9 @@ mixit(X) ->
 	     2 -> b;
 	     3 -> 42;
 	     4 -> 77;
-	     5 -> blurf;
-	     6 -> 87987987;
-	     7 -> {a,b,c}
+	     4+1 -> blurf;
+	     5+1 -> 87987987;
+	     6+1 -> {a,b,c}
 	 end of
 	a -> glufs;
 	b -> klafs;
@@ -464,5 +465,54 @@ coverage_2(1, a, x) -> ok;
 coverage_2(2, b, x) -> ok.
 
 coverage_3([$a]++[]++"bc") -> ok.
+
+grab_bag(_Config) ->
+    [_|T] = id([a,b,c]),
+    [b,c] = id(T),
+
+    T1 = fun() ->
+		 [_|_] = x
+	 end,
+    {'EXIT',_} = (catch T1()),
+
+    T2 = fun(A, B) ->
+		 case {{element(1, A),element(2, B)},
+		       {element(2, A),element(2, B)}} of
+		     {Same,Same} -> ok;
+		     {{0,1},{up,X}} -> id(X);
+		     {_,{X,_}} -> id(X)
+		 end
+	 end,
+    ok = T2({a,a,z,z}, {z,a,z}),
+    1 = T2({0,up}, {zzz,1}),
+    y = T2({x,y}, {a,z,z}),
+
+    %% OTP-5244.
+    L = [{stretch,0,0},
+	 {bad,[]},
+	 {bad,atom},
+	 {bad,0},
+	 {bad,16#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA},
+	 {bad,16#555555555555555555555555555555555555555555555555555}],
+    ok = grab_bag_remove_failure(L, unit, 0),
+
+    ok.
+
+grab_bag_remove_failure([], _Unit, _MaxFailure) ->
+    ok;
+grab_bag_remove_failure([{bad,Bad}|_], _Unit, _MaxFailure) ->
+    Bad;
+grab_bag_remove_failure([{stretch,_,Mi}=Stretch | Specs], Unit, _MaxFailure) ->
+    {MinMax,NewMaxFailure} = id({min,1}),
+    case {MinMax,grab_bag_remove_failure(Specs, Unit, NewMaxFailure)} of
+	{min,{NewMaxFailure,Rest}} ->
+	    {done,[{fixed,Mi} | Rest]};
+	{min,_} when Specs =/= [] ->
+	    grab_bag_remove_failure([Stretch|tl(Specs)], Unit, NewMaxFailure);
+	{min,_} ->
+	    ok
+    end.
+
+
 
 id(I) -> I.
