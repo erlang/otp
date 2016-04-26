@@ -181,7 +181,7 @@
   <p>
     Because it is common to end a map type with <c>any() =&gt; any()</c> to denote
     that keys that do not belong to any other pair in <c>PairList</c> are
-    allowed, and may map to any value, the shorhand notation <c>...</c> is
+    allowed, and may map to any value, the shorthand notation <c>...</c> is
     allowed as the last pair of a map type.
   </p>
   <p>
