@@ -216,19 +216,23 @@ erlang:'!'            -----> Module:StateName/3
       if bad arguments are given.
     </p>
     <p>
-      The <c>gen_statem</c> process can go into hibernation (see
-      <seealso marker="erts:erlang#hibernate/3">
-	<c>erlang:hibernate/3</c>
-      </seealso>) if a
+      The <c>gen_statem</c> process can go into hibernation; see
+      <seealso marker="proc_lib#hibernate/3">
+	<c>proc_lib:hibernate/3</c>.
+      </seealso>
+      It is done when a
       <seealso marker="#state_function">state function</seealso> or
       <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
       specifies <c>hibernate</c> in the returned
       <seealso marker="#type-action"><c>Actions</c></seealso>
-      list. This might be useful if the server is expected to be idle
-      for a long time. However use this feature with care
-      since hibernation implies at least two garbage collections
-      (when hibernating and shortly after waking up) and that is not
-      something you would want to do between each event on a busy server.
+      list. This feature might be useful to reclaim process heap memory
+      while the server is expected to be idle for a long time.
+      However, use this feature with care
+      since hibernation can be too costly
+      to use after every event; see
+      <seealso marker="erts:erlang#hibernate/3">
+	<c>erlang:hibernate/3</c>.
+      </seealso>
     </p>
   </description>
 
@@ -619,7 +623,8 @@ handle_event(_, _, State, Data) ->
 	    to wait for the next message.  In hibernation the next
 	    non-system event awakens the <c>gen_statem</c>, or rather
 	    the next incoming message awakens the <c>gen_statem</c>
-	    but if it is a system event it goes back into hibernation.
+	    but if it is a system event
+	    it goes right back into hibernation.
 	  </item>
 	</list>
       </desc>
@@ -645,9 +650,13 @@ handle_event(_, _, State, Data) ->
 	  </seealso>
 	  before going into <c>receive</c>
 	  to wait for a new external event.
-	  If there are enqueued events the <c>hibernate</c>
-	  is ignored as if an event just arrived and awakened
-	  the <c>gen_statem</c>.
+	  If there are enqueued events,
+	  to prevent receiving any new event; a
+	  <seealso marker="erts:erlang#garbage_collect/0">
+	    <c>garbage_collect/0</c>
+	  </seealso> is done instead to simulate
+	  that the <c>gen_statem</c> entered hibernation
+	  and immediately got awakened by the oldest enqueued event.
 	</p>
       </desc>
     </datatype>

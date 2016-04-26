@@ -723,8 +723,8 @@ wakeup_from_hibernate(Parent, Debug, S) ->
 %% and some detours through sys and proc_lib
 
 %% Entry point for system_continue/3
-loop(Parent, Debug, #{hibernate := Hib} = S) ->
-    case Hib of
+loop(Parent, Debug, #{hibernate := Hibernate} = S) ->
+    case Hibernate of
 	true ->
 	    %% Does not return but restarts process at
 	    %% wakeup_from_hibernate/3 that jumps to loop_receive/3
@@ -754,8 +754,7 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		    %% but this will stand out in the crash report...
 		    ?TERMINATE(exit, Reason, Debug, S, [EXIT]);
 		{timeout,Timer,Content} when Timer =/= undefined ->
-		    loop_event(
-		      Parent, Debug, S, {timeout,Content});
+		    loop_event(Parent, Debug, S, {timeout,Content});
 		_ ->
 		    %% Cancel Timer if running
 		    case Timer of
@@ -788,15 +787,15 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
     end.
 
 loop_event(Parent, Debug, S, Event) ->
-    %% The timer field in S is now invalid and ignored
-    %% until we get back to loop/3
+    %% The timer field and the hibernate flag in S
+    %% are now invalid and ignored until we get back to loop/3
     NewDebug = sys_debug(Debug, S, {in,Event}),
     %% Here the queue of not yet processed events is created
-    loop_events(Parent, NewDebug, S, [Event]).
+    loop_events(Parent, NewDebug, S, [Event], false).
 
 %% Process first the event queue, or if it is empty
 %% loop back to receive a new event
-loop_events(Parent, Debug, S, []) ->
+loop_events(Parent, Debug, S, [], _Hibernate) ->
     loop(Parent, Debug, S);
 loop_events(
   Parent, Debug,
@@ -804,7 +803,16 @@ loop_events(
     module := Module,
     state := State,
     data := Data} = S,
-  [{Type,Content} = Event|Events] = Q) ->
+  [{Type,Content} = Event|Events] = Q,
+  Hibernate) ->
+    %% If the Hibernate flag is true here it can only be
+    %% because it was set from an event action
+    %% and we did not go into hibernation since there
+    %% were events in queue, so we do what the user
+    %% might depend on i.e collect garbage which
+    %% would have happened if we actually hibernated
+    %% and immediately was awakened
+    Hibernate andalso garbage_collect(),
     try
 	case CallbackMode of
 	    state_functions ->
@@ -869,6 +877,8 @@ loop_event_result(
   Parent, Debug,
   #{state := State, data := Data} = S,
   Events, Event, Result) ->
+    %% From now until we loop back to the loop_events/4
+    %% the state and data fields in S are old
     case Result of
 	stop ->
 	    ?TERMINATE(exit, normal, Debug, S, [Event|Events]);
@@ -1094,7 +1104,7 @@ loop_event_actions(
 	timer := Timer,
 	postponed := P,
 	hibernate := Hibernate},
-      Q).
+      Q, Hibernate).
 
 %%---------------------------------------------------------------------------
 %% Server helpers
