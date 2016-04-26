@@ -1368,6 +1368,7 @@ format_status(terminate, [_, _StateName, D]) ->
 				 [decrypted_data_buffer,
 				  encrypted_data_buffer,
 				  key_exchange_init_msg,
+				  user_passwords,
 				  opts,
 				  inet_initial_recbuf_size]),
     SshPropList = fmt_stat_rec(record_info(fields, ssh), D#data.ssh_params,
