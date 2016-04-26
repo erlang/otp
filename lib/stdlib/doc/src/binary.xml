@@ -366,7 +366,7 @@
 
 <code>
 1> binary:matches(&lt;&lt;"abcde"&gt;&gt;,
-                  [&lt;&lt;"bcde"&gt;&gt;,&lt;&lt;"bc"&gt;&gt;>,&lt;&lt;"de"&gt;&gt;],[]).
+                  [&lt;&lt;"bcde"&gt;&gt;,&lt;&lt;"bc"&gt;&gt;,&lt;&lt;"de"&gt;&gt;],[]).
 [{1,4}]
 </code>
 
