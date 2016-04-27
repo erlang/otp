@@ -1160,8 +1160,13 @@ mod_to_bin([Dir|Tail], Mod) ->
     case erl_prim_loader:get_file(File) of
 	error -> 
 	    mod_to_bin(Tail, Mod);
-	{ok,Bin,FName} ->
-	    {Mod,Bin,absname(FName)}
+	{ok,Bin,_} ->
+	    case filename:pathtype(File) of
+		absolute ->
+		    {Mod,Bin,File};
+		_ ->
+		    {Mod,Bin,absname(File)}
+	    end
     end;
 mod_to_bin([], Mod) ->
     %% At last, try also erl_prim_loader's own method
