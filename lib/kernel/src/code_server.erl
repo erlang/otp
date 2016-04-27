@@ -76,7 +76,7 @@ init(Ref, Parent, [Root,Mode]) ->
 	    interactive ->
 		LibDir = filename:append(Root, "lib"),
 		{ok,Dirs} = erl_prim_loader:list_dir(LibDir),
-		{Paths,_Libs} = make_path(LibDir, Dirs),
+		Paths = make_path(LibDir, Dirs),
 		UserLibPaths = get_user_lib_dirs(),
 		["."] ++ UserLibPaths ++ Paths;
 	    _ ->
@@ -111,7 +111,7 @@ get_user_lib_dirs() ->
 get_user_lib_dirs_1([Dir|DirList]) ->
     case erl_prim_loader:list_dir(Dir) of
 	{ok, Dirs} ->
-	    {Paths,_Libs} = make_path(Dir, Dirs),
+	    Paths = make_path(Dir, Dirs),
 	    %% Only add paths trailing with ./ebin.
 	    [P || P <- Paths, filename:basename(P) =:= "ebin"] ++
 		get_user_lib_dirs_1(DirList);
@@ -371,7 +371,7 @@ handle_call(Other,{_From,_Tag}, S) ->
 %%
 make_path(BundleDir, Bundles0) ->
     Bundles = choose_bundles(Bundles0),
-    make_path(BundleDir, Bundles, [], []).
+    make_path(BundleDir, Bundles, []).
 
 choose_bundles(Bundles) ->
     ArchiveExt = archive_extension(),
@@ -457,41 +457,47 @@ choose([{Name,NumVsn,NewFullName}=New|Bs], Acc, ArchiveExt) ->
 choose([],Acc, _ArchiveExt) ->
     Acc.
 
-make_path(_,[],Res,Bs) ->
-    {Res,Bs};
-make_path(BundleDir,[Bundle|Tail],Res,Bs) ->
-    Dir = filename:append(BundleDir,Bundle),
-    Ebin = filename:append(Dir,"ebin"),
+make_path(_, [], Res) ->
+    Res;
+make_path(BundleDir, [Bundle|Tail], Res) ->
+    Dir = filename:append(BundleDir, Bundle),
+    Ebin = filename:append(Dir, "ebin"),
     %% First try with /ebin
     case erl_prim_loader:read_file_info(Ebin) of
 	{ok,#file_info{type=directory}} ->
-	    make_path(BundleDir,Tail,[Ebin|Res],[Bundle|Bs]);
+	    make_path(BundleDir, Tail, [Ebin|Res]);
 	_ ->
 	    %% Second try with archive
 	    Ext = archive_extension(),
-	    Base = filename:basename(Dir, Ext),
-	    Ebin2 = filename:join([filename:dirname(Dir), Base ++ Ext, Base, "ebin"]),
+	    Base = filename:basename(Bundle, Ext),
+	    Ebin2 = filename:join([BundleDir, Base ++ Ext, Base, "ebin"]),
 	    Ebins = 
 		case split(Base, "-") of
 		    [_, _|_] = Toks ->
 			AppName = join(lists:sublist(Toks, length(Toks)-1),"-"),
-			Ebin3 = filename:join([filename:dirname(Dir), Base ++ Ext, AppName, "ebin"]),
+			Ebin3 = filename:join([BundleDir, Base ++ Ext,
+					       AppName, "ebin"]),
 			[Ebin3, Ebin2, Dir];
 		    _ ->
 			[Ebin2, Dir]
 		end,
-	    try_ebin_dirs(Ebins,BundleDir,Tail,Res,Bundle, Bs)
+	    case try_ebin_dirs(Ebins) of
+		{ok,FoundEbin} ->
+		    make_path(BundleDir, Tail, [FoundEbin|Res]);
+		error ->
+		    make_path(BundleDir, Tail, Res)
+	    end
     end.
 
-try_ebin_dirs([Ebin | Ebins],BundleDir,Tail,Res,Bundle,Bs) ->
+try_ebin_dirs([Ebin|Ebins]) ->
     case erl_prim_loader:read_file_info(Ebin) of
 	{ok,#file_info{type=directory}} -> 
-	    make_path(BundleDir,Tail,[Ebin|Res],[Bundle|Bs]);
+	    {ok,Ebin};
 	_ ->
-	    try_ebin_dirs(Ebins,BundleDir,Tail,Res,Bundle,Bs)
+	    try_ebin_dirs(Ebins)
     end;
-try_ebin_dirs([],BundleDir,Tail,Res,_Bundle,Bs) ->
-    make_path(BundleDir,Tail,Res,Bs).
+try_ebin_dirs([]) ->
+    error.
 
 
 %%
