@@ -1448,4 +1448,75 @@ format_status(Opt, [_PDict,State,Data]) ->
     </p>
   </section>
 
+<!-- =================================================================== -->
+
+  <section>
+    <title>Hibernation</title>
+    <p>
+      If you have many servers in one node
+      and they have some state(s) in their lifetime in which
+      the servers can be expected to idle for a while,
+      and the amount of heap memory all these servers need
+      is a problem; then it is possible to minimize
+      the memory footprint of a server by hibernating it through
+      <seealso marker="stdlib:proc_lib#hibernate/3">
+	<c>proc_lib:hibernate/3</c>.
+      </seealso>
+    </p>
+    <note>
+      <p>
+	To hibernate a process is rather costly. See
+	<seealso marker="erts:erlang#hibernate/3">
+	  <c>erlang:hibernate/3</c>.
+	</seealso>
+	It is in general not something you want to do
+	after every event.
+      </p>
+    </note>
+    <p>
+      We can in this example hibernate in the <c>{open,_}</c> state
+      since what normally happens in that state is that
+      the state timeout after a while
+      triggers a transition to <c>{locked,_}</c>:
+    </p>
+    <code type="erl"><![CDATA[
+...
+handle_event(
+  EventType, EventContent,
+  {open,LockButton}, #{timer := Timer} = Data) ->
+    case {EventType,EventContent} of
+	{internal,enter} ->
+	    Tref = erlang:start_timer(10000, self(), lock),
+	    do_unlock(),
+	    {keep_state,Data#{timer := Tref},[hibernate]};
+...
+    ]]></code>
+    <p>
+      The
+      <seealso marker="stdlib:gen_statem#type-hibernate">
+	<c>[hibernate]</c>
+      </seealso>
+      action list on the last line
+      when entering the <c>{open,_}</c> state is the only change.
+      If any event arrives in the <c>{open,_},</c> state we
+      do not bother to re-hibernate, so the server stays
+      awake after any event.
+    </p>
+    <p>
+      To change that we would need to insert
+      the <c>hibernate</c> action in more places,
+      for example for the state independent <c>set_lock_button</c>
+      and <c>code_length</c> operations that then would have to
+      be aware of using <c>hibernate</c> while in the
+      <c>{open,_}</c> state which would clutter the code.
+    </p>
+    <p>
+      This server probably does not use an amount of
+      heap memory worth hibernating for.
+      To gain anything from hibernation your server would
+      have to actually produce some garbage during callback execution,
+      for which this example server may serve as a bad example.
+    </p>
+  </section>
+
 </chapter>
