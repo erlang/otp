@@ -364,14 +364,14 @@ If Result > 0, the packet only consists of [119, Result].
 	  NodeInfo is, as expressed in Erlang:
 	</p>
 	<code>
-	io:format("active name     ~ts at port ~p, fd = ~p ~n",
+	io:format("active name     ~ts at port ~p, fd = ~p~n",
 	          [NodeName, Port, Fd]).
 	</code>
 	<p>
 	  or
 	</p>
 	<code>
-	io:format("old/unused name ~ts at port ~p, fd = ~p~n",
+	io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 	          [NodeName, Port, Fd]).
 	</code>
 
