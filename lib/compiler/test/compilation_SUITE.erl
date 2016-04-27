@@ -19,10 +19,47 @@
 %%% Purpose : Compiles various modules with tough code
 
 -module(compilation_SUITE).
+-export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+	 beam_compiler_4/1,
+	 beam_compiler_6/1,
+	 beam_compiler_7/1,
+	 beam_compiler_8/1,
+	 beam_compiler_9/1,
+	 beam_compiler_10/1,
+	 beam_compiler_11/1,
+	 compiler_1/1,
+	 const_list_256/1,
+	 convopts/1,
+	 live_var/1,
+	 on_load/1,
+	 on_load_inline/1,
+	 opt_crash/1,
+	 otp_2330/1,
+	 otp_2380/1,
+	 otp_4790/1,
+	 otp_5151/1,
+	 otp_5235/1,
+	 otp_5404/1,
+	 otp_5436/1,
+	 otp_5481/1,
+	 otp_5553/1,
+	 otp_5632/1,
+	 otp_5714/1,
+	 otp_5872/1,
+	 otp_6121/1,
+	 otp_7202/1,
+	 otp_8949_a/1,
+	 redundant_case/1,
+	 self_compile/1,
+	 self_compile_old_inliner/1,
+	 split_cases/1,
+	 string_table/1,
+	 vsn_1/1,
+	 vsn_2/1,
+	 vsn_3/1]).
 
 -include_lib("common_test/include/ct.hrl").
-
--compile(export_all).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -47,7 +84,7 @@ groups() ->
        otp_5151,otp_5235,
        opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
-       otp_7202,on_load,
+       otp_7202,on_load,on_load_inline,
        string_table,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
@@ -65,11 +102,7 @@ end_per_group(_GroupName, Config) ->
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).
 
--define(comp_fail(N),
-	N(Config) when is_list(Config) -> failure(N, Config)).
-
 ?comp(compiler_1).
-?comp(compiler_4).
 
 ?comp(beam_compiler_4).
 ?comp(beam_compiler_6).
@@ -77,7 +110,6 @@ end_per_group(_GroupName, Config) ->
 ?comp(beam_compiler_9).
 ?comp(beam_compiler_10).
 ?comp(beam_compiler_11).
-?comp(beam_compiler_13).
 
 ?comp(otp_2330).
 ?comp(otp_2380).
@@ -130,45 +162,6 @@ redundant_case_1(2) -> d;
 redundant_case_1(3) -> d;
 redundant_case_1(4) -> d;
 redundant_case_1(_) -> d.
-
-failure(Module, Conf) ->
-    Src = filename:join(proplists:get_value(data_dir, Conf),
-			atom_to_list(Module)),
-    Out = proplists:get_value(priv_dir, Conf),
-    io:format("Compiling: ~ts\n", [Src]),
-    CompRc = compile:file(Src, [{outdir,Out},return,time]),
-    io:format("Result: ~p\n",[CompRc]),
-    case CompRc of
-	error -> ok;
-	{error,Errors,_} -> check_errors(Errors);
-	_ -> ct:fail({no_error, CompRc})
-    end,
-    ok.
-
-check_errors([{_,Eds}|T]) ->
-    check_error(Eds),
-    check_errors(T);
-check_errors([]) -> ok.
-
-check_error([{_,Mod,Error}|T]) ->
-    check_error_1(Mod:format_error(Error)),
-    check_error(T);
-check_error([{Mod,Error}|T]) ->
-    check_error_1(Mod:format_error(Error)),
-    check_error(T);
-check_error([]) -> ok.
-
-check_error_1(Str0) ->
-    Str = lists:flatten(Str0),
-    io:format("~s\n", [Str]),
-    case Str of
-	"internal"++_=Str ->
-	    ct:fail(internal_compiler_error);
-	_ ->
-	    ok
-    end.
-
--define(TC(Body), tc(fun() -> Body end, ?LINE)).
 
 try_it(Module, Conf) ->
     Timetrap = {minutes,10},
@@ -237,16 +230,6 @@ load_and_call(Out, Module) ->
 
     process_flag(trap_exit, false),
     ok.
-
-
-tc(F, Line) ->
-    {Diff,Value} = timer:tc(erlang, apply, [F,[]]),
-    io:format("~p: ~p\n", [Line,Diff]),
-    Value.
-    
-from(H, [H | T]) -> T;
-from(H, [_ | T]) -> from(H, T);
-from(_, []) -> [].
 
 
 %% Test generation of 'vsn' attribute.
@@ -387,10 +370,6 @@ compile_compiler(Files, OutDir, Version, InlineOpts) ->
 
 compiler_src() ->
     filelib:wildcard(filename:join([code:lib_dir(compiler), "src", "*.erl"])).
-
-compiler_modules(Dir) ->
-    Files = filelib:wildcard(filename:join(Dir, "*.beam")),
-    [list_to_atom(filename:rootname(filename:basename(F))) || F <- Files].
 
 make_compiler_dir(Priv, Dir0) ->
     Dir = filename:join(Priv, Dir0),
