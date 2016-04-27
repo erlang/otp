@@ -34,6 +34,7 @@
       <p><em>Runtime Tools</em></p>
   </description>
 
+  <xi:include href="LTTng.xml"/>
   <xi:include href="DTRACE.xml"/>
   <xi:include href="SYSTEMTAP.xml"/>
 </part>
