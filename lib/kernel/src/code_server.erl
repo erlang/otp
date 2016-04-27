@@ -794,20 +794,6 @@ insert_name(Name, Dir, Db) ->
     true.
 
 archive_subdirs(AppDir) ->
-    IsDir =
-	fun(RelFile) ->
-		File = filename:join([AppDir, RelFile]),
-		case erl_prim_loader:read_file_info(File) of
-		    {ok, #file_info{type = directory}} ->
-			false;
-		    _ ->
-			true
-		end
-	end,
-    {Base, ArchiveDirs} = all_archive_subdirs(AppDir),
-    {Base, lists:filter(IsDir, ArchiveDirs)}.
-
-all_archive_subdirs(AppDir) ->
     Ext = archive_extension(),
     Base = filename:basename(AppDir),
     Dirs = 
@@ -821,12 +807,12 @@ all_archive_subdirs(AppDir) ->
     try_archive_subdirs(AppDir ++ Ext, Base, Dirs).
 
 try_archive_subdirs(Archive, Base, [Dir | Dirs]) ->
-    ArchiveDir = filename:join([Archive, Dir]),
+    ArchiveDir = filename:append(Archive, Dir),
     case erl_prim_loader:list_dir(ArchiveDir) of
 	{ok, Files} ->
 	    IsDir =
 		fun(RelFile) ->
-			File = filename:join([ArchiveDir, RelFile]),
+			File = filename:append(ArchiveDir, RelFile),
 			case erl_prim_loader:read_file_info(File) of
 			    {ok, #file_info{type = directory}} ->
 				true;
