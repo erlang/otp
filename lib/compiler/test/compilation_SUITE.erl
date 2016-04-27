@@ -171,13 +171,7 @@ check_error_1(Str0) ->
 -define(TC(Body), tc(fun() -> Body end, ?LINE)).
 
 try_it(Module, Conf) ->
-    %% Change 'false' to 'true' to start a new node for every module.
-    try_it(false, Module, Conf).
-
-try_it(StartNode, Module, Conf) ->
-    try_it(StartNode, Module, {minutes,10}, Conf).
-
-try_it(StartNode, Module, Timetrap, Conf) ->
+    Timetrap = {minutes,10},
     OtherOpts = [],			%Can be changed to [time] if needed
     Src = filename:join(proplists:get_value(data_dir, Conf),
 			atom_to_list(Module)),
@@ -188,16 +182,6 @@ try_it(StartNode, Module, Timetrap, Conf) ->
     io:format("Result: ~p\n",[CompRc0]),
     {ok,_Mod} = CompRc0,
 
-    Node = case StartNode of
-	       false ->
-		   node();
-	       true ->
-		   Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-		   {ok,Node0} = start_node(compiler, Pa),
-		   Node0
-	   end,
-		   
-    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
     load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
@@ -208,7 +192,7 @@ try_it(StartNode, Module, Timetrap, Conf) ->
 
     io:format("Result: ~p\n",[CompRc1]),
     {ok,_Mod} = CompRc1,
-    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
     io:format("Compiling (with old inliner): ~s\n", [Src]),
@@ -217,7 +201,7 @@ try_it(StartNode, Module, Timetrap, Conf) ->
 				 {inline,1000}|OtherOpts]),
     io:format("Result: ~p\n",[CompRc2]),
     {ok,_Mod} = CompRc2,
-    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    load_and_call(Out, Module),
 
     ct:timetrap(Timetrap),
     io:format("Compiling (from assembly): ~s\n", [Src]),
@@ -226,12 +210,8 @@ try_it(StartNode, Module, Timetrap, Conf) ->
     CompRc3 = compile:file(Asm, [from_asm,{outdir,Out},report|OtherOpts]),
     io:format("Result: ~p\n",[CompRc3]),
     {ok,_} = CompRc3,
-    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
+    load_and_call(Out, Module),
 
-    case StartNode of
-	false -> ok;
-	true -> test_server:stop_node(Node)
-    end,
     ok.
 
 load_and_call(Out, Module) ->
@@ -264,14 +244,6 @@ tc(F, Line) ->
     io:format("~p: ~p\n", [Line,Diff]),
     Value.
     
-start_node(Name, Args) ->
-    case test_server:start_node(Name, slave, [{args, Args}]) of
-	{ok, Node} ->
-	    {ok, Node};
-	Error  ->
-	    ct:fail(Error)
-    end.
-
 from(H, [H | T]) -> T;
 from(H, [_ | T]) -> from(H, T);
 from(_, []) -> [].
