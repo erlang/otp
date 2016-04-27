@@ -41,6 +41,7 @@
 %%        -s             : Start own processes.
 %% 
 %% Experimental flags:
+%%        -profile_boot    : Use an 'eprof light' to profile boot sequence
 %%        -init_debug      : Activate debug printouts in init
 %%        -loader_debug    : Activate debug printouts in erl_prim_loader
 %%        -code_path_choice : strict | relaxed
@@ -184,6 +185,11 @@ boot(BootArgs) ->
     erl_tracer:on_load(),
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
+    %% We don't get to profile parsing of BootArgs
+    case get_flag(profile_boot, Flags, false) of
+        false -> ok;
+        true  -> debug_profile_start()
+    end,
     Start = map(fun prepare_run_args/1, Start0),
     boot(Start, Flags, Args).
 
@@ -765,7 +771,14 @@ do_boot(Init,Flags,Start) ->
     %% print the node name into the Purify log.
     (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
 
-    start_em(Start).
+    start_em(Start),
+    case get_flag(profile_boot,Flags,false) of
+        false -> ok;
+        true  ->
+            debug_profile_format_mfas(debug_profile_mfas()),
+            debug_profile_stop()
+    end,
+    ok.
 
 get_root(Flags) ->
     case get_argument(root, Flags) of
@@ -1339,3 +1352,64 @@ run_on_load_handlers([M|Ms], Debug) ->
 	    end
     end;
 run_on_load_handlers([], _) -> ok.
+
+
+%% debug profile (light variant of eprof)
+debug_profile_start() ->
+    _ = erlang:trace_pattern({'_','_','_'},true,[call_time]),
+    _ = erlang:trace_pattern(on_load,true,[call_time]),
+    _ = erlang:trace(all,true,[call]),
+    ok.
+
+debug_profile_stop() ->
+    _ = erlang:trace_pattern({'_','_','_'},false,[call_time]),
+    _ = erlang:trace_pattern(on_load,false,[call_time]),
+    _ = erlang:trace(all,false,[call]),
+    ok.
+
+debug_profile_mfas() ->
+    _ = erlang:trace_pattern({'_','_','_'},pause,[call_time]),
+    _ = erlang:trace_pattern(on_load,pause,[call_time]),
+    MFAs = collect_loaded_mfas() ++ erlang:system_info(snifs),
+    collect_mfas(MFAs,[]).
+
+%% debug_profile_format_mfas should be called at the end of the boot phase
+%% so all pertinent modules should be loaded at that point.
+debug_profile_format_mfas(MFAs0) ->
+    MFAs = lists:sort(MFAs0),
+    lists:foreach(fun({{Us,C},{M,F,A}}) ->
+                          Str = io_lib:format("~w:~w/~w", [M,F,A]),
+                          io:format(standard_error,"~55s - ~6w : ~w us~n", [Str,C,Us])
+                  end, MFAs),
+    ok.
+
+collect_loaded_mfas() ->
+    Ms = [M || M <- [element(1, Mi) || Mi <- code:all_loaded()]],
+    collect_loaded_mfas(Ms,[]).
+
+collect_loaded_mfas([],MFAs) -> MFAs;
+collect_loaded_mfas([M|Ms],MFAs0) ->
+    MFAs = [{M,F,A} || {F,A} <- M:module_info(functions)],
+    collect_loaded_mfas(Ms,MFAs ++ MFAs0).
+
+
+collect_mfas([], Info) -> Info;
+collect_mfas([MFA|MFAs],Info) ->
+    case erlang:trace_info(MFA,call_time) of
+        {call_time, []} ->
+            collect_mfas(MFAs,Info);
+        {call_time, false} ->
+            collect_mfas(MFAs,Info);
+        {call_time, Data} ->
+            case collect_mfa(MFA,Data,0,0) of
+                {{0,_},_} ->
+                    %% ignore mfas with zero time
+                    collect_mfas(MFAs,Info);
+                MfaData ->
+                    collect_mfas(MFAs,[MfaData|Info])
+            end
+    end.
+
+collect_mfa(Mfa,[],Count,Time) -> {{Time,Count},Mfa};
+collect_mfa(Mfa,[{_Pid,C,S,Us}|Data],Count,Time) ->
+    collect_mfa(Mfa,Data,Count + C,Time + S * 1000000 + Us).
