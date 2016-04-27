@@ -168,6 +168,7 @@ renegotiate_tests() ->
 
 cipher_tests() ->
     [cipher_suites,
+     cipher_suites_consistency,
      ciphers_rsa_signed_certs,
      ciphers_rsa_signed_certs_openssl_names,
      ciphers_dsa_signed_certs,
@@ -909,6 +910,18 @@ cipher_suites(Config) when is_list(Config) ->
     true = lists:member(MandatoryCipherSuite, Suites),
     Suites = ssl:cipher_suites(erlang),
     [_|_] =ssl:cipher_suites(openssl).
+
+%%--------------------------------------------------------------------
+cipher_suites_consistency() ->
+    [{doc,"Test API function cipher_suites/0's consistency with "
+          "accepted formats"}].
+
+cipher_suites_consistency(Config) when is_list(Config) ->
+    [_|_] = Suites = ssl:cipher_suites(),
+    Suites = ssl:cipher_suites(erlang),
+    true = lists:all(fun is_binary/1,
+                     [catch ssl_cipher:suite(Suite)
+                      || Suite <- Suites]).
 
 %%--------------------------------------------------------------------
 socket_options() ->
