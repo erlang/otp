@@ -639,7 +639,10 @@ system_code_change(
 	{NewCallbackMode,NewState,NewData} ->
 	    callback_mode(NewCallbackMode) orelse
 		error({callback_mode,NewCallbackMode}),
-	    {ok,S#{state := NewState, data := NewData}};
+	    {ok,
+	     S#{callback_mode := NewCallbackMode,
+		state := NewState,
+		data := NewData}};
 	{ok,_} = Error ->
 	    error({case_clause,Error});
 	Error ->

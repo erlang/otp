@@ -634,12 +634,14 @@ sys1(Config) ->
     stop_it(Pid).
 
 code_change(Config) ->
+    Mode = handle_event_function,
     {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
     {idle,data} = sys:get_state(Pid),
     sys:suspend(Pid),
-    sys:change_code(Pid, ?MODULE, old_vsn, state_functions),
+    sys:change_code(Pid, ?MODULE, old_vsn, Mode),
     sys:resume(Pid),
-    {idle,{old_vsn,data,state_functions}} = sys:get_state(Pid),
+    {idle,{old_vsn,data,Mode}} = sys:get_state(Pid),
+    Mode = gen_statem:call(Pid, get_callback_mode),
     stop_it(Pid).
 
 call_format_status(Config) ->
@@ -1478,6 +1480,8 @@ next_events(Type, Content, Data) ->
     end.
 
 
+handle_common_events({call,From}, get_callback_mode, _, _) ->
+    {keep_state_and_data,{reply,From,state_functions}};
 handle_common_events({call,From}, get, State, Data) ->
     {keep_state,Data,
      [{reply,From,{state,State,Data}}]};
@@ -1501,6 +1505,8 @@ handle_common_events(cast, {'alive?',Pid}, _, Data) ->
 handle_common_events(_, _, _, _) ->
     undefined.
 
+handle_event({call,From}, get_callback_mode, _, _) ->
+    {keep_state_and_data,{reply,From,handle_event_function}};
 %% Wrapper state machine that uses a map state machine spec
 handle_event(
   Type, Event, State, [Data|Machine])
