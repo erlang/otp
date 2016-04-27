@@ -581,7 +581,7 @@ crl_cache_check_pass(Config) when is_list(Config) ->
     NodeDir = filename:join([PrivDir, "Certs"]),
     DistOpts = "-ssl_dist_opt "
         "client_crl_check true "
-        "client_crl_cache {ssl_dist_SUITE,{internal,\\\"" ++ NodeDir ++ "\\\"}}",
+        "client_crl_cache {ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}",
     NewConfig =
         [{many_verify_opts, true}, {additional_dist_opts, DistOpts}] ++ Config,
 
@@ -607,7 +607,7 @@ crl_cache_check_fail(Config) when is_list(Config) ->
     NodeDir = filename:join([PrivDir, "Certs"]),
     DistOpts = "-ssl_dist_opt "
         "client_crl_check true "
-        "client_crl_cache {ssl_dist_SUITE,{internal,\\\"" ++ NodeDir ++ "\\\"}}",
+        "client_crl_cache {ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}",
     NewConfig =
         [{many_verify_opts, true},
          %% The server uses a revoked certificate.
@@ -631,7 +631,7 @@ crl_cache_check_fail(Config) when is_list(Config) ->
 lookup(_DistributionPoint, _DbHandle) ->
     not_available.
 
-select({rdnSequence, NameParts}, {_, NodeDir}) ->
+select({rdnSequence, NameParts}, {NodeDir, _}) ->
     %% Extract the CN from the issuer name...
     [CN] = [CN ||
                [#'AttributeTypeAndValue'{
