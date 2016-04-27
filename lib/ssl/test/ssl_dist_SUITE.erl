@@ -812,7 +812,7 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 	++ integer_to_list(ListenPort) ++ " "
 	++ Args ++ " "
 	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
-	++ "-kernel error_logger '{file,\"" ++ Pwd ++ "/error_log." ++ Name ++ "\"}' "
+	++ "-kernel error_logger \"{file,\\\"" ++ Pwd ++ "/error_log." ++ Name ++ "\\\"}\" "
 	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
 
 %%
