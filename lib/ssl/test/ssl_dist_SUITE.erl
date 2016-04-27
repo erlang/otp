@@ -452,8 +452,16 @@ verify_fun_fail(Config) when is_list(Config) ->
 
 verify_fail_always(_Certificate, _Event, _State) ->
     %% Create an ETS table, to record the fact that the verify function ran.
-    ets:new(verify_fun_ran, [public, named_table, {heir, whereis(ssl_tls_dist_proxy), {}}]),
-    ets:insert(verify_fun_ran, {verify_fail_always_ran, true}),
+    %% Spawn a new process, to avoid the ETS table disappearing.
+    Parent = self(),
+    spawn(
+      fun() ->
+	      ets:new(verify_fun_ran, [public, named_table]),
+	      ets:insert(verify_fun_ran, {verify_fail_always_ran, true}),
+	      Parent ! go_ahead,
+	      timer:sleep(infinity)
+      end),
+    receive go_ahead -> ok end,
     {fail, bad_certificate}.
 
 %%--------------------------------------------------------------------
@@ -490,8 +498,16 @@ verify_fun_pass(Config) when is_list(Config) ->
 
 verify_pass_always(_Certificate, _Event, State) ->
     %% Create an ETS table, to record the fact that the verify function ran.
-    ets:new(verify_fun_ran, [public, named_table, {heir, whereis(ssl_tls_dist_proxy), {}}]),
-    ets:insert(verify_fun_ran, {verify_pass_always_ran, true}),
+    %% Spawn a new process, to avoid the ETS table disappearing.
+    Parent = self(),
+    spawn(
+      fun() ->
+	      ets:new(verify_fun_ran, [public, named_table]),
+	      ets:insert(verify_fun_ran, {verify_pass_always_ran, true}),
+	      Parent ! go_ahead,
+	      timer:sleep(infinity)
+      end),
+    receive go_ahead -> ok end,
     {valid, State}.
 %%--------------------------------------------------------------------
 crl_check_pass() ->
