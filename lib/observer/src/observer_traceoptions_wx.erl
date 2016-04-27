@@ -327,7 +327,7 @@ select_matchspec(Pid, Parent, AllMatchSpecs, Key) ->
     filter_listbox_data("", Choices, ListBox),
 
     Add = fun(_,_) ->
-		  case edit_ms(TextCtrl, new, Parent) of
+		  case edit_ms(TextCtrl, new, Dialog) of
 		      Ms = #match_spec{} ->
 			  add_and_select(-1, Ms, ListBox),
 			  wxWindow:enable(OkButt),
@@ -341,7 +341,7 @@ select_matchspec(Pid, Parent, AllMatchSpecs, Key) ->
 		   case SelId >= 0 of
 		       true ->
 			   #match_spec{name=Name} = wxListBox:getClientData(ListBox,SelId),
-			   case edit_ms(TextCtrl, Name, Parent) of
+			   case edit_ms(TextCtrl, Name, Dialog) of
 			       Ms = #match_spec{} ->
 				   add_and_select(SelId, Ms, ListBox),
 				   wxWindow:enable(OkButt),
