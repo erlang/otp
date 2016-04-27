@@ -39,7 +39,7 @@
 -export([encode_plain_text/4, encode_handshake/3, encode_change_cipher_spec/2]).
 
 %% Protocol version handling
--export([protocol_version/1, lowest_protocol_version/2,
+-export([protocol_version/1, lowest_protocol_version/2, lowest_protocol_version/1,
 	 highest_protocol_version/1, supported_protocol_versions/0,
 	 is_acceptable_version/2]).
 
@@ -254,6 +254,18 @@ lowest_protocol_version(Version = {M,_}, {N, _}) when M > N ->
     Version;
 lowest_protocol_version(_,Version) ->
     Version.
+
+%%--------------------------------------------------------------------
+-spec lowest_protocol_version([dtls_version()]) -> dtls_version().
+%%     
+%% Description: Lowest protocol version present in a list
+%%--------------------------------------------------------------------
+lowest_protocol_version([]) ->
+    lowest_protocol_version();
+lowest_protocol_version(Versions) ->
+    [Ver | Vers] = Versions,
+    lowest_list_protocol_version(Ver, Vers).
+
 %%--------------------------------------------------------------------
 -spec highest_protocol_version([dtls_version()]) -> dtls_version().
 %%
@@ -301,6 +313,12 @@ supported_protocol_versions([]) ->
 
 supported_protocol_versions([_|_] = Vsns) ->
     Vsns.
+
+%% highest_protocol_version() ->
+%%     highest_protocol_version(supported_protocol_versions()).
+
+lowest_protocol_version() ->
+    lowest_protocol_version(supported_protocol_versions()).
 
 supported_connection_protocol_versions([]) ->
     ?ALL_DATAGRAM_SUPPORTED_VERSIONS.
@@ -421,3 +439,8 @@ mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
 calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
     NewSeq = (Epoch bsl 48) + SeqNo,
     <<NewSeq:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
+
+lowest_list_protocol_version(Ver, []) ->
+    Ver;
+lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
+    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).
