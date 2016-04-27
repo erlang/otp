@@ -772,6 +772,29 @@ suite({dh_anon, des_cbc, sha}) ->
     ?TLS_DH_anon_WITH_DES_CBC_SHA;
 suite({dh_anon, '3des_ede_cbc', sha}) ->
     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA;
+%% 4-tuple form
+suite({rsa, rc4_128, md5, default_prf}) ->
+    ?TLS_RSA_WITH_RC4_128_MD5;
+suite({rsa, rc4_128, sha, default_prf}) ->
+    ?TLS_RSA_WITH_RC4_128_SHA;
+suite({rsa, des_cbc, sha, default_prf}) ->
+    ?TLS_RSA_WITH_DES_CBC_SHA;
+suite({rsa, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_RSA_WITH_3DES_EDE_CBC_SHA;
+suite({dhe_dss, des_cbc, sha, default_prf}) ->
+    ?TLS_DHE_DSS_WITH_DES_CBC_SHA;
+suite({dhe_dss, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA;
+suite({dhe_rsa, des_cbc, sha, default_prf}) ->
+    ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
+suite({dhe_rsa, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA;
+suite({dh_anon, rc4_128, md5, default_prf}) ->
+    ?TLS_DH_anon_WITH_RC4_128_MD5;
+suite({dh_anon, des_cbc, sha, default_prf}) ->
+    ?TLS_DH_anon_WITH_DES_CBC_SHA;
+suite({dh_anon, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA;
 
 %%% TSL V1.1 AES suites
 suite({rsa, aes_128_cbc, sha}) ->
@@ -789,6 +812,23 @@ suite({dhe_dss, aes_256_cbc, sha}) ->
 suite({dhe_rsa, aes_256_cbc, sha}) ->
     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
 suite({dh_anon, aes_256_cbc, sha}) ->
+    ?TLS_DH_anon_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({rsa, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_RSA_WITH_AES_128_CBC_SHA;
+suite({dhe_dss, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA;
+suite({dhe_rsa, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA;
+suite({dh_anon, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_DH_anon_WITH_AES_128_CBC_SHA;
+suite({rsa, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_RSA_WITH_AES_256_CBC_SHA;
+suite({dhe_dss, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA;
+suite({dhe_rsa, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
+suite({dh_anon, aes_256_cbc, sha, default_prf}) ->
     ?TLS_DH_anon_WITH_AES_256_CBC_SHA;
 
 %% TLS v1.2 suites
@@ -810,6 +850,23 @@ suite({dhe_rsa, aes_256_cbc, sha256}) ->
 suite({dh_anon, aes_128_cbc, sha256}) ->
     ?TLS_DH_anon_WITH_AES_128_CBC_SHA256;
 suite({dh_anon, aes_256_cbc, sha256}) ->
+    ?TLS_DH_anon_WITH_AES_256_CBC_SHA256;
+%% 4-tuple form
+suite({rsa, aes_128_cbc, sha256, default_prf}) ->
+    ?TLS_RSA_WITH_AES_128_CBC_SHA256;
+suite({rsa, aes_256_cbc, sha256, default_prf}) ->
+    ?TLS_RSA_WITH_AES_256_CBC_SHA256;
+suite({dhe_dss, aes_128_cbc, sha256, default_prf}) ->
+    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256;
+suite({dhe_rsa, aes_128_cbc, sha256, default_prf}) ->
+    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256;
+suite({dhe_dss, aes_256_cbc, sha256, default_prf}) ->
+    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256;
+suite({dhe_rsa, aes_256_cbc, sha256, default_prf}) ->
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
+suite({dh_anon, aes_128_cbc, sha256, default_prf}) ->
+    ?TLS_DH_anon_WITH_AES_128_CBC_SHA256;
+suite({dh_anon, aes_256_cbc, sha256, default_prf}) ->
     ?TLS_DH_anon_WITH_AES_256_CBC_SHA256;
 
 %%% PSK Cipher Suites RFC 4279
@@ -838,6 +895,31 @@ suite({rsa_psk, aes_128_cbc,sha}) ->
     ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA;
 suite({rsa_psk, aes_256_cbc,sha}) ->
     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({psk, rc4_128, sha, default_prf}) ->
+    ?TLS_PSK_WITH_RC4_128_SHA;
+suite({psk, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_PSK_WITH_3DES_EDE_CBC_SHA;
+suite({psk, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_PSK_WITH_AES_128_CBC_SHA;
+suite({psk, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_PSK_WITH_AES_256_CBC_SHA;
+suite({dhe_psk, rc4_128, sha, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_RC4_128_SHA;
+suite({dhe_psk, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA;
+suite({dhe_psk, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA;
+suite({dhe_psk, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA;
+suite({rsa_psk, rc4_128, sha, default_prf}) ->
+    ?TLS_RSA_PSK_WITH_RC4_128_SHA;
+suite({rsa_psk, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA;
+suite({rsa_psk, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA;
+suite({rsa_psk, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA;
 
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
 
@@ -853,6 +935,19 @@ suite({rsa_psk, aes_128_gcm, null}) ->
     ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256;
 suite({rsa_psk, aes_256_gcm, null}) ->
     ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384;
+% 4-tuple form
+suite({psk, aes_128_gcm, null, sha256}) ->
+    ?TLS_PSK_WITH_AES_128_GCM_SHA256;
+suite({psk, aes_256_gcm, null, sha384}) ->
+    ?TLS_PSK_WITH_AES_256_GCM_SHA384;
+suite({dhe_psk, aes_128_gcm, null, sha256}) ->
+    ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256;
+suite({dhe_psk, aes_256_gcm, null, sha384}) ->
+    ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384;
+suite({rsa_psk, aes_128_gcm, null, sha256}) ->
+    ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256;
+suite({rsa_psk, aes_256_gcm, null, sha384}) ->
+    ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384;
 
 suite({psk, aes_128_cbc, sha256}) ->
     ?TLS_PSK_WITH_AES_128_CBC_SHA256;
@@ -866,6 +961,19 @@ suite({rsa_psk, aes_128_cbc, sha256}) ->
     ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256;
 suite({rsa_psk, aes_256_cbc, sha384}) ->
     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384;
+%% 4-tuple form
+suite({psk, aes_128_cbc, sha256, default_prf}) ->
+    ?TLS_PSK_WITH_AES_128_CBC_SHA256;
+suite({psk, aes_256_cbc, sha384, default_prf}) ->
+    ?TLS_PSK_WITH_AES_256_CBC_SHA384;
+suite({dhe_psk, aes_128_cbc, sha256, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256;
+suite({dhe_psk, aes_256_cbc, sha384, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384;
+suite({rsa_psk, aes_128_cbc, sha256, default_prf}) ->
+    ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256;
+suite({rsa_psk, aes_256_cbc, sha384, default_prf}) ->
+    ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384;
 
 suite({psk, null, sha256}) ->
     ?TLS_PSK_WITH_NULL_SHA256;
@@ -878,6 +986,19 @@ suite({dhe_psk, null, sha384}) ->
 suite({rsa_psk, null, sha256}) ->
     ?TLS_RSA_PSK_WITH_NULL_SHA256;
 suite({rsa_psk, null, sha384}) ->
+    ?TLS_RSA_PSK_WITH_NULL_SHA384;
+%% 4-tuple form
+suite({psk, null, sha256, default_prf}) ->
+    ?TLS_PSK_WITH_NULL_SHA256;
+suite({psk, null, sha384, default_prf}) ->
+    ?TLS_PSK_WITH_NULL_SHA384;
+suite({dhe_psk, null, sha256, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_NULL_SHA256;
+suite({dhe_psk, null, sha384, default_prf}) ->
+    ?TLS_DHE_PSK_WITH_NULL_SHA384;
+suite({rsa_psk, null, sha256, default_prf}) ->
+    ?TLS_RSA_PSK_WITH_NULL_SHA256;
+suite({rsa_psk, null, sha384, default_prf}) ->
     ?TLS_RSA_PSK_WITH_NULL_SHA384;
 
 %%% SRP Cipher Suites RFC 5054
@@ -900,6 +1021,25 @@ suite({srp_rsa, aes_256_cbc, sha}) ->
     ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA;
 suite({srp_dss, aes_256_cbc, sha}) ->
     ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({srp_anon, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA;
+suite({srp_rsa, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA;
+suite({srp_dss, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA;
+suite({srp_anon, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_SRP_SHA_WITH_AES_128_CBC_SHA;
+suite({srp_rsa, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA;
+suite({srp_dss, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA;
+suite({srp_anon, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA;
+suite({srp_rsa, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA;
+suite({srp_dss, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA;
 
 %%% RFC 4492 EC TLS suites
 suite({ecdh_ecdsa, null, sha}) ->
@@ -912,6 +1052,17 @@ suite({ecdh_ecdsa, aes_128_cbc, sha}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA;
 suite({ecdh_ecdsa, aes_256_cbc, sha}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({ecdh_ecdsa, null, sha, default_prf}) ->
+    ?TLS_ECDH_ECDSA_WITH_NULL_SHA;
+suite({ecdh_ecdsa, rc4_128, sha, default_prf}) ->
+    ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA;
+suite({ecdh_ecdsa, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA;
+suite({ecdh_ecdsa, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA;
+suite({ecdh_ecdsa, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA;
 
 suite({ecdhe_ecdsa, null, sha}) ->
     ?TLS_ECDHE_ECDSA_WITH_NULL_SHA;
@@ -922,6 +1073,17 @@ suite({ecdhe_ecdsa, '3des_ede_cbc', sha}) ->
 suite({ecdhe_ecdsa, aes_128_cbc, sha}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA;
 suite({ecdhe_ecdsa, aes_256_cbc, sha}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({ecdhe_ecdsa, null, sha, default_prf}) ->
+    ?TLS_ECDHE_ECDSA_WITH_NULL_SHA;
+suite({ecdhe_ecdsa, rc4_128, sha, default_prf}) ->
+    ?TLS_ECDHE_ECDSA_WITH_RC4_128_SHA;
+suite({ecdhe_ecdsa, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA;
+suite({ecdhe_ecdsa, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA;
+suite({ecdhe_ecdsa, aes_256_cbc, sha, default_prf}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA;
 
 suite({ecdh_rsa, null, sha}) ->
@@ -934,6 +1096,17 @@ suite({ecdh_rsa, aes_128_cbc, sha}) ->
     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA;
 suite({ecdh_rsa, aes_256_cbc, sha}) ->
     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({ecdh_rsa, null, sha, default_prf}) ->
+    ?TLS_ECDH_RSA_WITH_NULL_SHA;
+suite({ecdh_rsa, rc4_128, sha, default_prf}) ->
+    ?TLS_ECDH_RSA_WITH_RC4_128_SHA;
+suite({ecdh_rsa, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA;
+suite({ecdh_rsa, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA;
+suite({ecdh_rsa, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA;
 
 suite({ecdhe_rsa, null, sha}) ->
     ?TLS_ECDHE_RSA_WITH_NULL_SHA;
@@ -945,6 +1118,17 @@ suite({ecdhe_rsa, aes_128_cbc, sha}) ->
     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
 suite({ecdhe_rsa, aes_256_cbc, sha}) ->
     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({ecdhe_rsa, null, sha, default_prf}) ->
+    ?TLS_ECDHE_RSA_WITH_NULL_SHA;
+suite({ecdhe_rsa, rc4_128, sha, default_prf}) ->
+    ?TLS_ECDHE_RSA_WITH_RC4_128_SHA;
+suite({ecdhe_rsa, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA;
+suite({ecdhe_rsa, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA;
+suite({ecdhe_rsa, aes_256_cbc, sha, default_prf}) ->
+    ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA;
 
 suite({ecdh_anon, null, sha}) ->
     ?TLS_ECDH_anon_WITH_NULL_SHA;
@@ -955,6 +1139,17 @@ suite({ecdh_anon, '3des_ede_cbc', sha}) ->
 suite({ecdh_anon, aes_128_cbc, sha}) ->
     ?TLS_ECDH_anon_WITH_AES_128_CBC_SHA;
 suite({ecdh_anon, aes_256_cbc, sha}) ->
+    ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA;
+%% 4-tuple form
+suite({ecdh_anon, null, sha, default_prf}) ->
+    ?TLS_ECDH_anon_WITH_NULL_SHA;
+suite({ecdh_anon, rc4_128, sha, default_prf}) ->
+    ?TLS_ECDH_anon_WITH_RC4_128_SHA;
+suite({ecdh_anon, '3des_ede_cbc', sha, default_prf}) ->
+    ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA;
+suite({ecdh_anon, aes_128_cbc, sha, default_prf}) ->
+    ?TLS_ECDH_anon_WITH_AES_128_CBC_SHA;
+suite({ecdh_anon, aes_256_cbc, sha, default_prf}) ->
     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA;
 
 %%% RFC 5289 EC TLS suites
@@ -973,6 +1168,23 @@ suite({ecdhe_rsa, aes_256_cbc, sha384}) ->
 suite({ecdh_rsa, aes_128_cbc, sha256}) ->
     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256;
 suite({ecdh_rsa, aes_256_cbc, sha384}) ->
+    ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384;
+%% 4-tuple form
+suite({ecdhe_ecdsa, aes_128_cbc, sha256, sha256}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256;
+suite({ecdhe_ecdsa, aes_256_cbc, sha384, sha384}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384;
+suite({ecdh_ecdsa, aes_128_cbc, sha256, sha256}) ->
+    ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256;
+suite({ecdh_ecdsa, aes_256_cbc, sha384, sha384}) ->
+    ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384;
+suite({ecdhe_rsa, aes_128_cbc, sha256, sha256}) ->
+    ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256;
+suite({ecdhe_rsa, aes_256_cbc, sha384, sha384}) ->
+    ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384;
+suite({ecdh_rsa, aes_128_cbc, sha256, sha256}) ->
+    ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256;
+suite({ecdh_rsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384;
 
 %% RFC 5288 AES-GCM Cipher Suites
@@ -1000,6 +1212,31 @@ suite({dh_anon, aes_128_gcm, null}) ->
     ?TLS_DH_anon_WITH_AES_128_GCM_SHA256;
 suite({dh_anon, aes_256_gcm, null}) ->
     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384;
+%% 4-tuple form
+suite({rsa, aes_128_gcm, null, sha256}) ->
+    ?TLS_RSA_WITH_AES_128_GCM_SHA256;
+suite({rsa, aes_256_gcm, null, sha384}) ->
+    ?TLS_RSA_WITH_AES_256_GCM_SHA384;
+suite({dhe_rsa, aes_128_gcm, null, sha256}) ->
+    ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256;
+suite({dhe_rsa, aes_256_gcm, null, sha384}) ->
+    ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384;
+suite({dh_rsa, aes_128_gcm, null, sha256}) ->
+    ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256;
+suite({dh_rsa, aes_256_gcm, null, sha384}) ->
+    ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384;
+suite({dhe_dss, aes_128_gcm, null, sha256}) ->
+    ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256;
+suite({dhe_dss, aes_256_gcm, null, sha384}) ->
+    ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384;
+suite({dh_dss, aes_128_gcm, null, sha256}) ->
+    ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256;
+suite({dh_dss, aes_256_gcm, null, sha384}) ->
+    ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384;
+suite({dh_anon, aes_128_gcm, null, sha256}) ->
+    ?TLS_DH_anon_WITH_AES_128_GCM_SHA256;
+suite({dh_anon, aes_256_gcm, null, sha384}) ->
+    ?TLS_DH_anon_WITH_AES_256_GCM_SHA384;
 
 %% RFC 5289 ECC AES-GCM Cipher Suites
 suite({ecdhe_ecdsa, aes_128_gcm, null}) ->
@@ -1018,6 +1255,23 @@ suite({ecdh_rsa, aes_128_gcm, null}) ->
     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256;
 suite({ecdh_rsa, aes_256_gcm, null}) ->
     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384;
+%% 4-tuple form
+suite({ecdhe_ecdsa, aes_128_gcm, null, sha256}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
+suite({ecdhe_ecdsa, aes_256_gcm, null, sha384}) ->
+    ?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;
+suite({ecdh_ecdsa, aes_128_gcm, null, sha256}) ->
+    ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256;
+suite({ecdh_ecdsa, aes_256_gcm, null, sha384}) ->
+    ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384;
+suite({ecdhe_rsa, aes_128_gcm, null, sha256}) ->
+    ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
+suite({ecdhe_rsa, aes_256_gcm, null, sha384}) ->
+    ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
+suite({ecdh_rsa, aes_128_gcm, null, sha256}) ->
+    ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256;
+suite({ecdh_rsa, aes_256_gcm, null, sha384}) ->
+    ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384;
 
 
 %% draft-agl-tls-chacha20poly1305-04 Chacha20/Poly1305 Suites
@@ -1026,6 +1280,13 @@ suite({ecdhe_rsa, chacha20_poly1305, null}) ->
 suite({ecdhe_ecdsa, chacha20_poly1305, null}) ->
     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
 suite({dhe_rsa, chacha20_poly1305, null}) ->
+    ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
+%% 4-tuple form
+suite({ecdhe_rsa, chacha20_poly1305, null, sha256}) ->
+    ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
+suite({ecdhe_ecdsa, chacha20_poly1305, null, sha256}) ->
+    ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
+suite({dhe_rsa, chacha20_poly1305, null, sha256}) ->
     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256.
 
 %%--------------------------------------------------------------------
