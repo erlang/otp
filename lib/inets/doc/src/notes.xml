@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.2.1</title>
+  <section><title>Inets 6.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add environment information item peer_cert to mod_esi</p>
+          <p>
+	    Own Id: OTP-13510</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
