@@ -43,7 +43,7 @@ groups() ->
        otp_2330,
        {group,vsn},otp_2380,otp_4790,
        const_list_256,live_var,convopts,
-       catch_in_catch,redundant_case,long_string,otp_5076,
+       catch_in_catch,redundant_case,otp_5076,
        otp_5092,otp_5151,otp_5235,
        trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
@@ -345,11 +345,6 @@ vsn_3(Conf) when is_list(Conf) ->
 get_vsn(M) ->
     {vsn,V} = lists:keyfind(vsn, 1, M:module_info(attributes)),
     V.
-
-long_string(Config) when is_list(Config) ->
-    %% The test must complete in one minute - it should be plenty of time.
-    try_it(false, long_string, {minutes,1}, Config),
-    ok.
 
 compile_load(Module, Dir, Conf) ->
     Src = filename:join(Dir, atom_to_list(Module)),
