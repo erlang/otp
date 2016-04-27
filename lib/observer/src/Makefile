@@ -67,6 +67,7 @@ MODULES= \
 	observer_html_lib \
 	observer_lib \
 	observer_perf_wx \
+	observer_port_wx \
 	observer_pro_wx \
 	observer_procinfo \
 	observer_sys_wx \

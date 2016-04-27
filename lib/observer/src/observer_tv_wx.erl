@@ -315,6 +315,7 @@ display_table_info(Parent0, Node, Source, Table) ->
 
     {_, Sizer, _} = observer_lib:display_info(Frame, [IdInfo,Settings,Memory]),
     wxSizer:setSizeHints(Sizer, Frame),
+    wxWindow:setMinSize(Frame, {300, -1}),
     wxFrame:center(Frame),
     wxFrame:show(Frame).
 
