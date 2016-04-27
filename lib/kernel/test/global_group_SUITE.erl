@@ -1153,6 +1153,16 @@ test_exit(Config) when is_list(Config) ->
         rpc:call(Cp1, global_group, send, [king, "The message"]),
     undefined = rpc:call(Cp1, global_group, whereis_name, [king]),
 
+    % make sure the search process really exits after every global_group operations
+    ProcessCount0 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    _ = rpc:call(Cp1, global_group, whereis_name, [{node, Cp1nn}, whatever_pid_name]),
+    ProcessCount1 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    _ = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
+    ProcessCount2 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    _ = rpc:call(Cp1, global_group, send, [{node, Cp1nn}, whatever_pid_name, msg]),
+    ProcessCount3 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    ProcessCount0 = ProcessCount1 = ProcessCount2 = ProcessCount3,
+
     %% stop the nodes, and make sure names are released.
     stop_node(Cp1),
     stop_node(Cp2),
