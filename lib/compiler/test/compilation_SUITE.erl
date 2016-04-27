@@ -47,7 +47,7 @@ groups() ->
        otp_5151,otp_5235,
        opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
-       otp_7202,otp_7345,on_load,
+       otp_7202,on_load,
        string_table,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
@@ -437,112 +437,6 @@ compare_compilers(ADir, BDir) ->
     %% compare unequal.
     ["beam_asm.beam"] = [filename:basename(A) || {A,_} <- D],
     ok.
-
-%%%
-%%% The only test of the following code is that it compiles.
-%%%
-
-%% Slightly simplifed from megaco_binary_term_id_gen.
-%%  beam_block failed to note that the {gc_bif,'-'...} instruction could
-%%  fail, and that therefore {y,0} need to be initialized.
-%%    {allocate,8,6}.
-%%                     %% {init,{y,0}} needed here.       
-%%    {get_list,{x,1},{x,6},{x,7}}.
-%%    {'catch',{y,7},{f,3}}.
-%%    {move,{x,4},{y,1}}.
-%%    {move,{x,3},{y,2}}.
-%%    {move,{x,2},{y,3}}.
-%%    {move,{x,5},{y,4}}.
-%%    {move,{x,7},{y,5}}.
-%%    {move,{x,6},{y,6}}.
-%%    {gc_bif,'-',{f,0},8,[{x,3},{x,6}],{x,0}}.
-%%    {move,{x,0},{y,0}}.
-
-encode_wildcards3([],[],_,_) -> [];
-encode_wildcards3([Level|Levels],[BitsInLevel|BitsRest],LevelNo,TotSize) ->
-    case (catch ?MODULE:encode_wildcard(Level,BitsInLevel,TotSize-BitsInLevel,
-					length(Levels))) of
-	{'EXIT',{Reason,Info}} ->
-	    exit({Reason,{LevelNo,Info}});
-
-	no_wildcard ->
-	    encode_wildcards3(Levels,BitsRest,LevelNo+1,TotSize-BitsInLevel);
-	    
-	{level,Wl} ->  
-	    [Wl|
-	     encode_wildcards3(Levels,BitsRest,LevelNo+1,TotSize-BitsInLevel)];
-
-	{recursive,Wr} ->  
-	    [Wr]
-    end.
-
-%% Slightly simplified code from hipe_rtl_ssapre.
-%%  beam_block used to do the following incorrect optimization:
-%%
-%%    {gc_bif,length,{f,0},1,[{x,0}],{x,3}}.
-%%                                   ^^^^^ Was {x,0} - changing to {x,3} is not safe.
-%%    {gc_bif,'+',{f,0},0,[{y,2},{integer,1}],{x,0}}.
-%%                     ^^^ Only one register live
-%%     . . .
-%%    {call_last,4,{f,2},4}.   %% beam_validator noted that {x,3} wasn't live.
-
-find_operands(Cfg,XsiGraph,[],_Count) ->
-    {Cfg,XsiGraph};
-find_operands(Cfg,XsiGraph,ActiveList,Count) ->
-    {NewCfg,TempActiveList}=?MODULE:find_operands_for_active_list(Cfg,XsiGraph,
-								  ActiveList,[]),
-    NewActiveList=lists:reverse(TempActiveList),
-    [Count+1, length(NewActiveList), length(digraph:vertices(XsiGraph))],
-    find_operands(NewCfg,XsiGraph,NewActiveList,Count+1).
-
-
-%% The following code
-%%
-%%    {get_list,{x,2},{x,0},{x,1}}.
-%%    {gc_bif,length,{f,0},1,[{x,0}],{x,0}}.
-%%    {move,{x,0},{x,1}}.
-%%
-%% was incorrectly optimized to
-%%
-%%    {get_list,{x,2},{x,0},{y,0}}.
-%%    {gc_bif,length,{f,0},3,[{x,0}],{x,1}}.
-%%
-%% because beam_block:is_transparent({x,1},
-%%                                  {gc_bif,length,{f,0},3,[{x,0}],{x,1}}
-%% incorrectly returned true.
-
--record(contextId,{cid,device_type,contextRef}).
--record(dpRef,{cid,tlli,ms_device_context_id}).
--record(qosProfileBssgp,{peak_bit_rate_msb,
-                              peak_bit_rate_lsb,
-                              t_a_precedence}).
--record(llUnitdataReq,{sapi,
-                            l3_pdu_length,
-                            pdu_life}).
--record(ptmsi,{value}).
-
-otp_7345(Config) when is_list(Config) ->
-    #llUnitdataReq{l3_pdu_length=3,pdu_life=4} =
-	otp_7345(#contextId{}, 0, [[1,2,3],4,5]).
-
-
-otp_7345(ObjRef, _RdEnv, Args) ->
-    Cid = ObjRef#contextId.cid,
-    _ =	#dpRef{cid = Cid,
-		     ms_device_context_id = cid_id,
-		     tlli = #ptmsi{value = 0}},
-    _ =	#qosProfileBssgp{peak_bit_rate_msb = 0,
-			 peak_bit_rate_lsb = 80,
-			 t_a_precedence = 49},
-    [Cpdu|_] = Args,
-    LlUnitdataReq =
-	#llUnitdataReq{sapi = 7,
-		       l3_pdu_length = length(Cpdu),
-		       pdu_life =
-		       id(42)
-		       div
-		       10},
-    id(LlUnitdataReq).
 
 %% Check the generation of the string table.
 
