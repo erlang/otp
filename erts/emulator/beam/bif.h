@@ -52,6 +52,7 @@ extern Export *erts_convert_time_unit_trap;
 	(p)->fcalls = 0; 			\
     else 					\
 	(p)->fcalls = -CONTEXT_REDS;		\
+    ASSERT(ERTS_BIF_REDS_LEFT((p)) == 0);	\
 } while(0)
 
 #define ERTS_VBUMP_ALL_REDS_INTERNAL(p, fcalls)				\

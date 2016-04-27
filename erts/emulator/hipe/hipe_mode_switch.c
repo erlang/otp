@@ -218,15 +218,37 @@ static __inline__ void hipe_pop_beam_trap_frame(Process *p)
 Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 {
     unsigned result;
-#if NR_ARG_REGS > 5
-    /* When NR_ARG_REGS > 5, we need to protect the process' input
-       reduction count (which BEAM stores in def_arg_reg[5]) from
-       being clobbered by the arch glue code. */
     Eterm reds_in = p->def_arg_reg[5];
-#endif
-#if NR_ARG_REGS > 4
-    Eterm o_reds = p->def_arg_reg[4];
-#endif
+    /*
+     * Process is in the normal case scheduled out when reduction
+     * count reach zero. When "save calls" is enabled reduction
+     * count is subtracted with CONTEXT_REDS, i.e. initial reduction
+     * count will be zero or less and process is scheduled out
+     * when -CONTEXT_REDS is reached.
+     *
+     * HiPE does not support the "save calls" feature, so we switch
+     * to using a positive reduction counter when executing in
+     * hipe mode, but need to restore the "save calls" when
+     * returning to beam. We also need to hide the save calls buffer
+     * from BIFs. We do that by moving the saved calls buf to
+     * suspended saved calls buf.
+     *
+     * Beam has initial reduction count in stored in p->def_arg_reg[5].
+     *
+     * Beam expects -neg_o_reds to be found in p->def_arg_reg[4]
+     * on return to beam.
+     */
+
+    {
+	struct saved_calls *scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+	if (scb) {
+	    reds_in += CONTEXT_REDS;
+	    p->fcalls += CONTEXT_REDS;
+	    ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, scb);
+	}
+    }
+
+    p->flags |= F_HIPE_MODE; /* inform bifs where we are comming from... */
 
     p->i = NULL;
     /* Set current_function to undefined. stdlib hibernate tests rely on it. */
@@ -481,12 +503,21 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
       do_schedule:
 	  {
-#if !(NR_ARG_REGS > 5)
-	      int reds_in = p->def_arg_reg[5];
+	      struct saved_calls *scb;
+
+	      scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, NULL);
+	      if (scb)
+		  ERTS_PROC_SET_SAVED_CALLS_BUF(p, scb);
+
+#ifdef DEBUG
+	      ASSERT(p->debug_reds_in == reds_in);
 #endif
+	      p->flags &= ~F_HIPE_MODE;
+
 	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
 	      p = schedule(p, reds_in - p->fcalls);
 	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
+	      ASSERT(!(p->flags & F_HIPE_MODE));
 #ifdef ERTS_SMP
 	      p->hipe_smp.have_receive_locks = 0;
 	      reg = p->scheduler_data->x_reg_array;
@@ -501,28 +532,32 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 		  reg[i] = argp[i];
 	  }
 	  {
-#if !(NR_ARG_REGS > 5)
-	      Eterm reds_in;
-#endif
-#if !(NR_ARG_REGS > 4)
-	      Eterm o_reds;
-#endif
+	      struct saved_calls *scb;
 
 	      reds_in = p->fcalls;
-	      o_reds = 0;
-	      if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
-		  o_reds = reds_in;
-		  reds_in = 0;
-		  p->fcalls = 0;
-	      }
-	      p->def_arg_reg[4] = o_reds;
 	      p->def_arg_reg[5] = reds_in;
+#ifdef DEBUG
+	      p->debug_reds_in = reds_in;
+#endif
 	      if (p->i == hipe_beam_pc_resume) {
+		  p->flags |= F_HIPE_MODE; /* inform bifs where we are comming from... */
+		  scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+		  if (scb)
+		      ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, scb);
 		  p->i = NULL;
 		  p->arity = 0;
 		  goto do_resume;
 	      }
+
+	      scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
+	      if (!scb)
+		  p->def_arg_reg[4] = 0;
+	      else {
+		  p->def_arg_reg[4] = CONTEXT_REDS;
+		  p->fcalls = -CONTEXT_REDS + reds_in;
+	      }
 	  }
+
 	  HIPE_CHECK_PCB(p);
 	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  p->def_arg_reg[3] = result;
@@ -562,14 +597,29 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
       default:
 	erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: result %#x\r\n", result);
     }
+
+    {
+	struct saved_calls *scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, NULL);
+	if (!scb)
+	    p->def_arg_reg[4] = 0;
+	else {
+	    p->def_arg_reg[4] = CONTEXT_REDS;
+	    p->fcalls -= CONTEXT_REDS;
+	    ERTS_PROC_SET_SAVED_CALLS_BUF(p, scb);
+	}
+    }
+
     HIPE_CHECK_PCB(p);
     p->def_arg_reg[3] = result;
-#if NR_ARG_REGS > 4
-    p->def_arg_reg[4] = o_reds;
-#endif
 #if NR_ARG_REGS > 5
+    /*
+     * When NR_ARG_REGS > 5, we need to protect the process' input
+     * reduction count (which BEAM stores in def_arg_reg[5]) from
+     * being clobbered by the arch glue code.
+     */
     p->def_arg_reg[5] = reds_in;
 #endif
+    p->flags &= ~F_HIPE_MODE;
     return p;
 }
 

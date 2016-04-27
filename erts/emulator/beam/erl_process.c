@@ -9240,6 +9240,21 @@ erts_set_process_priority(Process *p, Eterm value)
     }
 }
 
+static int
+scheduler_gc_proc(Process *c_p, int reds_left)
+{
+    int fcalls, reds;
+    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	fcalls = reds_left;
+    else
+	fcalls = reds_left - CONTEXT_REDS;
+    reds = erts_garbage_collect_nobump(c_p, 0, c_p->arg_reg, c_p->arity, fcalls);
+    ASSERT(reds_left >= reds);
+    return reds;
+}
+
+
+
 /*
  * schedule() is called from BEAM (process_main()) or HiPE
  * (hipe_mode_switch()) when the current process is to be
@@ -9318,6 +9333,7 @@ Process *schedule(Process *p, int calls)
 #endif
 
 	reds = actual_reds = calls - esdp->virtual_reds;
+	ASSERT(actual_reds >= 0);
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
 	    reds = ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST;
 	esdp->virtual_reds = 0;
@@ -9740,7 +9756,7 @@ Process *schedule(Process *p, int calls)
 
 	    esdp->current_process = p;
 
-
+	    calls = 0;
 	    reds = context_reds;
 
 #ifdef ERTS_SMP
@@ -9819,9 +9835,7 @@ Process *schedule(Process *p, int calls)
 		/* Migrate to dirty scheduler... */
 	    sunlock_sched_out_proc:
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-		p->fcalls = reds;
 		goto sched_out_proc;
-
 	    }
 	}
 	else {
@@ -9856,8 +9870,6 @@ Process *schedule(Process *p, int calls)
 
 #endif /* ERTS_SMP */
 
-	p->fcalls = reds;
-
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
 	if (IS_TRACED(p)) {
@@ -9890,14 +9902,15 @@ Process *schedule(Process *p, int calls)
 	     * not allowed to execute system tasks.
 	     */
 	    if (!(p->flags & F_DELAY_GC)) {
-		reds -= execute_sys_tasks(p, &state, reds);
+		int cost = execute_sys_tasks(p, &state, reds);
+		calls += cost;
+		reds -= cost;
 		if (reds <= 0
 #ifdef ERTS_DIRTY_SCHEDULERS
 		    || ERTS_SCHEDULER_IS_DIRTY(esdp)
 		    || (state & ERTS_PSFLGS_DIRTY_WORK)
 #endif
 		    ) {
-		    p->fcalls = reds;
 		    goto sched_out_proc;
 		}
 	    }
@@ -9910,8 +9923,9 @@ Process *schedule(Process *p, int calls)
 
 		if (((state & (ERTS_PSFLG_SUSPENDED
 			       | ERTS_PSFLG_ACTIVE)) != ERTS_PSFLG_ACTIVE)
-		    && !(state & ERTS_PSFLG_EXITING))
+		    && !(state & ERTS_PSFLG_EXITING)) {
 		    goto sched_out_proc;
+		}
 
 		n = e = state;
 		n &= ~ERTS_PSFLG_RUNNING_SYS;
@@ -9930,11 +9944,11 @@ Process *schedule(Process *p, int calls)
 
 	if (ERTS_IS_GC_DESIRED(p)) {
 	    if (!(state & ERTS_PSFLG_EXITING) && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
-		reds -= erts_garbage_collect_nobump(p, 0, p->arg_reg, p->arity);
-		if (reds <= 0) {
-		    p->fcalls = reds;
+		int cost = scheduler_gc_proc(p, reds);
+		calls += cost;
+		reds -= cost;
+		if (reds <= 0)
 		    goto sched_out_proc;
-		}
 	    }
 	}
 
@@ -9942,6 +9956,8 @@ Process *schedule(Process *p, int calls)
 	    free_proxy_proc(proxy_p);
 	    proxy_p = NULL;
 	}
+
+	p->fcalls = reds;
 	    
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
@@ -10211,21 +10227,24 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    else {
 		if (!garbage_collected) {
 		    FLAGS(c_p) |= F_NEED_FULLSWEEP;
-		    reds -= erts_garbage_collect_nobump(c_p,
-							0,
-							c_p->arg_reg,
-							c_p->arity);
+		    reds -= scheduler_gc_proc(c_p, reds);
 		    garbage_collected = 1;
 		}
 		st_res = am_true;
 	    }
 	    break;
 	case ERTS_PSTT_CPC: {
+	    int fcalls;
             int cpc_reds = 0;
+	    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+		fcalls = reds;
+	    else
+		fcalls = reds - CONTEXT_REDS;
 	    st_res = erts_check_process_code(c_p,
 					     st->arg[0],
                                              unsigned_val(st->arg[1]),
-					     &cpc_reds);
+					     &cpc_reds,
+					     fcalls);
             reds -= cpc_reds;
 	    if (is_non_value(st_res)) {
 		/* Needed gc, but gc was disabled */
@@ -10256,6 +10275,9 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
     } while (qmask && reds > 0);
 
     *statep = state;
+
+    if (in_reds < reds)
+	return in_reds;
 
     return in_reds - reds;
 }
@@ -11482,8 +11504,10 @@ delete_process(Process* p)
 
     psd = (ErtsPSD *) erts_smp_atomic_read_nob(&p->psd);
 
-    if (psd)
+    if (psd) {
+	erts_smp_atomic_set_nob(&p->psd, (erts_aint_t) NULL); /* Reduction counting depends on this... */
 	erts_free(ERTS_ALC_T_PSD, psd);
+    }
 
     /* Clean binaries and funs */
     erts_cleanup_offheap(&p->off_heap);
@@ -12577,6 +12601,8 @@ erts_continue_exit_process(Process *p)
     
     dep = (p->flags & F_DISTRIBUTION) ? erts_this_dist_entry : NULL;
     scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+    if (scb)
+	p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
     pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
     nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
 

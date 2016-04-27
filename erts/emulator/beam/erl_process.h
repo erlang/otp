@@ -805,8 +805,15 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_CALL_TIME_BP			3
 #define ERTS_PSD_DELAYED_GC_TASK_QS		4
 #define ERTS_PSD_NIF_TRAP_EXPORT		5
+#ifdef HIPE
+#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	6
+#endif
 
+#ifdef HIPE
+#define ERTS_PSD_SIZE				7
+#else
 #define ERTS_PSD_SIZE				6
+#endif
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -1070,6 +1077,10 @@ struct process {
 #ifdef FORCE_HEAP_FRAGS
     Uint space_verified;        /* Avoid HAlloc forcing heap fragments when */ 
     Eterm* space_verified_from; /* we rely on available heap space (TestHeap) */
+#endif
+
+#ifdef DEBUG
+    Uint debug_reds_in;
 #endif
 };
 
@@ -1342,6 +1353,7 @@ extern int erts_system_profile_ts_type;
 #define F_DELAY_GC           (1 << 16) /* Similar to disable GC (see below) */
 #define F_SCHDLR_ONLN_WAITQ  (1 << 17) /* Process enqueued waiting to change schedulers online */
 #define F_HAVE_BLCKD_NMSCHED (1 << 18) /* Process has blocked normal multi-scheduling */
+#define F_HIPE_MODE          (1 << 19)
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1998,6 +2010,13 @@ erts_psd_set(Process *p, int ix, void *data)
     erts_psd_get((P), ERTS_PSD_NIF_TRAP_EXPORT)
 #define ERTS_PROC_SET_NIF_TRAP_EXPORT(P, NTE) \
     erts_psd_set((P), ERTS_PSD_NIF_TRAP_EXPORT, (void *) (NTE))
+
+#ifdef HIPE
+#define ERTS_PROC_GET_SUSPENDED_SAVED_CALLS_BUF(P) \
+  ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF))
+#define ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(P, SCB) \
+  ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF, (void *) (SCB)))
+#endif
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p, Eterm handler);
