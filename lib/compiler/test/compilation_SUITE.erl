@@ -43,11 +43,11 @@ groups() ->
        otp_2330,
        {group,vsn},otp_2380,otp_4790,
        const_list_256,live_var,convopts,
-       catch_in_catch,redundant_case,otp_5076,
+       redundant_case,otp_5076,
        otp_5092,otp_5151,otp_5235,
-       trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
+       opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
-       otp_6121a,otp_6121b,otp_7202,otp_7345,on_load,
+       otp_7202,otp_7345,on_load,
        string_table,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
@@ -91,11 +91,6 @@ end_per_group(_GroupName, Config) ->
 ?comp(otp_5151).
 
 ?comp(live_var).
-
-?comp(trycatch_4).
-
-?comp(catch_in_catch).
-
 ?comp(opt_crash).
 
 ?comp(otp_5404).
@@ -106,8 +101,6 @@ end_per_group(_GroupName, Config) ->
 ?comp(otp_5714).
 ?comp(otp_5872).
 ?comp(otp_6121).
-?comp(otp_6121a).
-?comp(otp_6121b).
 ?comp(convopts).
 ?comp(otp_7202).
 ?comp(on_load).

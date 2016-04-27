@@ -26,7 +26,7 @@
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1,
-	 hockey/1]).
+	 hockey/1,handle_info/1,catch_in_catch/1,grab_bag/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -42,7 +42,7 @@ groups() ->
        after_oops,eclectic,rethrow,nested_of,nested_catch,
        nested_after,nested_horrid,last_call_optimization,
        bool,plain_catch_coverage,andalso_orelse,get_in_try,
-       hockey]}].
+       hockey,handle_info,catch_in_catch,grab_bag]}].
 
 
 init_per_suite(Config) ->
@@ -919,8 +919,6 @@ andalso_orelse_1(A, B) ->
 	     catched
      end,B}.
 
-id(I) -> I.
-
 andalso_orelse_2({Type,Keyval}) ->
    try
        if is_atom(Type) andalso length(Keyval) > 0 -> ok;
@@ -957,3 +955,86 @@ hockey() ->
     receive _ -> (b = fun() -> ok end)
     + hockey, +x after 0 -> ok end, try (a = fun() -> ok end) + hockey, +
     y catch _ -> ok end.
+
+
+-record(state, {foo}).
+
+handle_info(_Config) ->
+    do_handle_info({foo}, #state{}),
+    ok.
+
+do_handle_info({_}, State) ->
+   handle_info_ok(),
+   State#state{foo = bar},
+   case ok of
+   _ ->
+     case catch handle_info_ok() of
+     ok ->
+       {stop, State}
+     end
+   end;
+do_handle_info(_, State) ->
+   (catch begin
+     handle_info_ok(),
+     State#state{foo = bar}
+   end),
+   case ok of
+   _ ->
+     case catch handle_info_ok() of
+     ok ->
+       {stop, State}
+     end
+   end.
+
+handle_info_ok() -> ok.
+
+'catch_in_catch'(_Config) ->
+    process_flag(trap_exit, true),
+    Pid = spawn_link(fun() ->
+			     catch_in_catch_init(x),
+			     exit(good_exit)
+		     end),
+    receive
+	{'EXIT',Pid,good_exit} ->
+	    ok;
+	Other ->
+	    io:format("Unexpected: ~p\n", [Other]),
+	    error
+    after 32000 ->
+	    io:format("No message received\n"),
+	    error
+    end.
+
+'catch_in_catch_init'(Param) ->
+    process_flag(trap_exit, true),
+    %% The catches were improperly nested, causing a "No catch found" crash.
+    (catch begin
+           id(Param),
+           (catch exit(bar))
+       end
+    ),
+    ignore.
+
+grab_bag(_Config) ->
+    %% Thanks to Martin Bjorklund.
+    _ = fun() -> ok end,
+    try
+	fun() -> ok end
+    after
+	fun({A, B}) -> A + B end
+    end,
+
+    %% Thanks to Tim Rath.
+    A = {6},
+    try
+	io:fwrite("")
+    after
+	fun () ->
+		fun () -> {_} = A end
+	end
+    end,
+
+    ok.
+
+
+id(I) -> I.
