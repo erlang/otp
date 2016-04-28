@@ -65,7 +65,7 @@
 
 %% Cipher suites handling
 -export([available_suites/2, available_signature_algs/3, cipher_suites/2,
-	 select_session/11, supported_ecc/1]).
+	 select_session/11, supported_ecc/1, available_signature_algs/4]).
 
 %% Extensions handling
 -export([client_hello_extensions/6,
@@ -2171,3 +2171,11 @@ is_acceptable_hash_sign(_,_,_,_) ->
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
+available_signature_algs(undefined, SupportedHashSigns, _, {Major, Minor}) when
+      (Major >= 3) andalso (Minor >= 3) ->
+    SupportedHashSigns;
+available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns,
+		     _, {Major, Minor}) when (Major >= 3) andalso (Minor >= 3) ->
+    ordsets:intersection(ClientHashSigns, SupportedHashSigns);
+available_signature_algs(_, _, _, _) ->
+    undefined.
