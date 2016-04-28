@@ -35,9 +35,11 @@
 -define(ADD_NEW_PORTS, 309).
 -define(ADD_TP, 310).
 -define(TRACE_OUTPUT, 311).
--define(TRACE_DEFMS,  312).
--define(DEF_PROC_OPTS,  313).
--define(DEF_PORT_OPTS,  314).
+-define(DEF_MS_FUNCS,  312).
+-define(DEF_MS_SEND,  313).
+-define(DEF_MS_RECV,  314).
+-define(DEF_PROC_OPTS,  315).
+-define(DEF_PORT_OPTS,  316).
 
 -define(NODES_WIN, 330).
 -define(ADD_NODES, 331).
@@ -241,7 +243,9 @@ create_menues(Parent) ->
 	       #create_menu{id = ?SAVE_TRACEOPTS, text = "Save settings"}]},
 	     {"Options",
 	      [#create_menu{id = ?TRACE_OUTPUT, text = "Output"},
-	       #create_menu{id = ?TRACE_DEFMS, text = "Default Match Specifications for Functions"},
+	       #create_menu{id = ?DEF_MS_FUNCS, text = "Default Match Specifications for Functions"},
+	       #create_menu{id = ?DEF_MS_SEND, text = "Default Match Specifications for 'send'"},
+	       #create_menu{id = ?DEF_MS_RECV, text = "Default Match Specifications for 'receive'"},
 	       #create_menu{id = ?DEF_PROC_OPTS, text = "Default Process Options"},
 	       #create_menu{id = ?DEF_PORT_OPTS, text = "Default Port Options"}]}
 	    ],
@@ -463,9 +467,25 @@ handle_event(#wx{id=?DEF_PORT_OPTS}, #state{panel=Panel, def_port_flags=PO} = St
 	    {noreply, State}
     end;
 
-handle_event(#wx{id=?TRACE_DEFMS}, #state{panel=Panel, match_specs=Ms} = State) ->
+handle_event(#wx{id=?DEF_MS_FUNCS}, #state{panel=Panel, match_specs=Ms} = State) ->
     try %% Return selected MS and sends new MS's to us
 	observer_traceoptions_wx:select_matchspec(self(), Panel, Ms, funcs)
+    catch _:_ ->
+	    cancel
+    end,
+    {noreply, State};
+
+handle_event(#wx{id=?DEF_MS_SEND}, #state{panel=Panel, match_specs=Ms} = State) ->
+    try %% Return selected MS and sends new MS's to us
+	observer_traceoptions_wx:select_matchspec(self(), Panel, Ms, send)
+    catch _:_ ->
+	    cancel
+    end,
+    {noreply, State};
+
+handle_event(#wx{id=?DEF_MS_RECV}, #state{panel=Panel, match_specs=Ms} = State) ->
+    try %% Return selected MS and sends new MS's to us
+	observer_traceoptions_wx:select_matchspec(self(), Panel, Ms, 'receive')
     catch _:_ ->
 	    cancel
     end,
