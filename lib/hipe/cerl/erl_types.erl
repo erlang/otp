@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -4611,7 +4611,7 @@ t_from_form({type, _L, 'fun', [{type, _, any}, Range]}, TypeNames,
 t_from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
             TypeNames, ET, S, MR, V, D, L) ->
   {Dom1, L1} = list_from_form(Domain, TypeNames, ET, S, MR, V, D, L),
-  {Ran1, L2} = t_from_form(Range, TypeNames, ET, S, MR, V, D - 1, L1),
+  {Ran1, L2} = t_from_form(Range, TypeNames, ET, S, MR, V, D, L1),
   {t_fun(Dom1, Ran1), L2};
 t_from_form({type, _L, identifier, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
   {t_identifier(), L};
