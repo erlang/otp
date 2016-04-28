@@ -144,6 +144,9 @@ help() ->
 "       Forcibly unregisters a name with epmd~n"
 "       (only allowed if -relaxed_command_check was given when~n"
 "       epmd was started).~n"
+"    -systemd~n"
+"       Wait for socket from systemd. The option makes sense~n"
+"       when started from .socket unit.~n"
 	),
 	init:stop().
 
@@ -156,8 +159,8 @@ daemon(Addr, Port) ->
 	%% Run daemonised - ignored for now FIXME
 	_Daemonize = check_arg(daemon),
 
-	%% ignored - autodetection of systemd
-	check_arg(systemd) andalso error_logger:warning_msg("-systemd option is ignored (autodetected)~n"),
+	%% Check if EPMD needs to emit systemd notification (if possible)
+	Systemd = check_arg(systemd),
 
 	%% Allow this instance of epmd to be killed with
 	%% epmd -kill even if there are registered nodes.
@@ -174,6 +177,7 @@ daemon(Addr, Port) ->
 
 	application:set_env(erlpmd, argv, #argv{address = Addr,
 						port = Port,
+						systemd = Systemd,
 						relaxed_command_check = RelaxedCommandCheck,
 						debug = Debug,
 						packet_timeout = PacketTimeout,

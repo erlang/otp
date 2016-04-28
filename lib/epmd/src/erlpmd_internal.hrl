@@ -20,6 +20,7 @@
 
 -record(argv, {address = {0,0,0,0},
 	       port = 4369,
+	       systemd = false,
                relaxed_command_check = false,
 	       debug = false,
 	       packet_timeout = 0,
