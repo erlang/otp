@@ -159,7 +159,8 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
 		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
-	    AvailableHashSigns = available_signature_algs(ClientHashSigns, SupportedHashSigns, Cert, Version),
+	    AvailableHashSigns = ssl_handshake:available_signature_algs(
+				   ClientHashSigns, SupportedHashSigns, Cert, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, AvailableHashSigns, Compressions,
@@ -283,15 +284,4 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	{ConnectionStates, ProtoExt, Protocol} ->
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
-
-available_signature_algs(undefined, SupportedHashSigns, _, {Major, Minor}) when 
-      (Major >= 3) andalso (Minor >= 3) ->
-    SupportedHashSigns;
-available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns, 
-		     _, {Major, Minor}) when (Major >= 3) andalso (Minor >= 3) ->
-    sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
-				   sets:from_list(SupportedHashSigns)));
-available_signature_algs(_, _, _, _) -> 
-    undefined.
-
 
