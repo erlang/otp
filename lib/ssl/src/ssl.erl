@@ -980,6 +980,8 @@ validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) an
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
+handle_hashsigns_option(Value, {Major, _Minor} = Version) when Major == 254 ->
+    handle_hashsigns_option(Value, dtls_v1:corresponding_tls_version(Version));
 handle_hashsigns_option(Value, {Major, Minor} = Version) when is_list(Value) 
 							      andalso Major >= 3 andalso Minor >= 3->
     case tls_v1:signature_algs(Version, Value) of
