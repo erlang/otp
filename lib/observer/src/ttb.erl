@@ -398,16 +398,16 @@ arg_list([A1|A],Acc) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Set trace flags on processes
-p(Procs0,Flags0) ->
+p(ProcsPorts0,Flags0) ->
     ensure_no_overloaded_nodes(),
-    store(p,[Procs0,Flags0]),
-    no_store_p(Procs0,Flags0).
-no_store_p(Procs0,Flags0) ->
+    store(p,[ProcsPorts0,Flags0]),
+    no_store_p(ProcsPorts0,Flags0).
+no_store_p(ProcsPorts0,Flags0) ->
     case transform_flags(to_list(Flags0)) of
 	{error,Reason} -> 
 	    {error,Reason};
 	Flags ->
-	    Procs = procs(Procs0),
+	    ProcsPorts = procs_ports(ProcsPorts0),
 	    case lists:foldl(fun(P,{PMatched,Ps}) -> case dbg:p(P,Flags) of
 					     {ok,Matched} -> 
 						 {[{P,Matched}|PMatched],[P|Ps]};
@@ -415,7 +415,7 @@ no_store_p(Procs0,Flags0) ->
 						 display_warning(P,Reason),
 						 {PMatched,Ps}
 						     end
-			     end,{[],[]},Procs) of
+			     end,{[],[]},ProcsPorts) of
 		{[],[]} -> {error, no_match};
 		{SuccMatched,Succ} ->
 		    no_store_write_trace_info(flags,{Succ,Flags}),
@@ -430,20 +430,22 @@ transform_flags(Flags) ->
     dbg:transform_flags([timestamp | Flags]).
 
 
-procs(Procs) when is_list(Procs) ->
-    lists:foldl(fun(P,Acc) -> proc(P)++Acc end,[],Procs);
-procs(Proc) ->
-    proc(Proc).
+procs_ports(Procs) when is_list(Procs) ->
+    lists:foldl(fun(P,Acc) -> proc_port(P)++Acc end,[],Procs);
+procs_ports(Proc) ->
+    proc_port(Proc).
 
-proc(Procs) when Procs=:=all; Procs=:=ports; Procs=:=processes;
-                 Procs=:=existing; Procs=:=existing_ports; Procs=:=existing_processes;
-                 Procs=:=new; Procs=:=new_ports; Procs=:=new_processes ->
-    [Procs];
-proc(Name) when is_atom(Name) ->
+proc_port(P) when P=:=all; P=:=ports; P=:=processes;
+                 P=:=existing; P=:=existing_ports; P=:=existing_processes;
+                 P=:=new; P=:=new_ports; P=:=new_processes ->
+    [P];
+proc_port(Name) when is_atom(Name) ->
     [Name]; % can be registered on this node or other node
-proc(Pid) when is_pid(Pid) ->
+proc_port(Pid) when is_pid(Pid) ->
     [Pid];
-proc({global,Name}) ->
+proc_port(Port) when is_port(Port) ->
+    [Port];
+proc_port({global,Name}) ->
     case global:whereis_name(Name) of
 	Pid when is_pid(Pid) ->
 	    [Pid];
