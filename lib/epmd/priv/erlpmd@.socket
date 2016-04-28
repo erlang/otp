@@ -1,0 +1,9 @@
+[Unit]
+Description=ErlPmd Server Activation Socket
+
+[Socket]
+ListenStream=%i:4369
+Accept=false
+
+[Install]
+WantedBy=sockets.target

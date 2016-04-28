@@ -1,0 +1,25 @@
+[Unit]
+Description=Erlang Port Mapper Daemon
+After=network.target
+Requires=erlpmd@.socket
+
+[Service]
+User=erlpmd
+Group=erlpmd
+Type=notify
+StandardOutput=journal
+StandardError=journal
+WorkingDirectory=/var/empty
+DeviceAllow=/dev/null rw
+PrivateTmp=true
+NoNewPrivileges=true
+Restart=always
+LimitNPROC=4
+LimitFSIZE=0
+ExecStart=/usr/bin/erl -s erlpmd_ctl -smp disable -noshell -noinput -relaxed_command_check
+# FIXME add generic erlpmd helpers foir that instead of using epmd as a cli
+ExecStop=/usr/bin/epmd -kill
+
+[Install]
+Also=erlpmd@.socket
+Alias=epmd.service
