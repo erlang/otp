@@ -14630,24 +14630,10 @@ validator = (wxValidator *) getPtr(bp,memenv); bp += 4;
  rt.addBool(Result);
  break;
 }
-case wxGauge_GetBezelFace: { // wxGauge::GetBezelFace
- wxGauge *This = (wxGauge *) getPtr(bp,memenv); bp += 4;
- if(!This) throw wxe_badarg(0);
- int Result = This->GetBezelFace();
- rt.addInt(Result);
- break;
-}
 case wxGauge_GetRange: { // wxGauge::GetRange
  wxGauge *This = (wxGauge *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  int Result = This->GetRange();
- rt.addInt(Result);
- break;
-}
-case wxGauge_GetShadowWidth: { // wxGauge::GetShadowWidth
- wxGauge *This = (wxGauge *) getPtr(bp,memenv); bp += 4;
- if(!This) throw wxe_badarg(0);
- int Result = This->GetShadowWidth();
  rt.addInt(Result);
  break;
 }
@@ -14665,25 +14651,11 @@ case wxGauge_IsVertical: { // wxGauge::IsVertical
  rt.addBool(Result);
  break;
 }
-case wxGauge_SetBezelFace: { // wxGauge::SetBezelFace
- wxGauge *This = (wxGauge *) getPtr(bp,memenv); bp += 4;
- int * w = (int *) bp; bp += 4;
- if(!This) throw wxe_badarg(0);
- This->SetBezelFace(*w);
- break;
-}
 case wxGauge_SetRange: { // wxGauge::SetRange
  wxGauge *This = (wxGauge *) getPtr(bp,memenv); bp += 4;
  int * r = (int *) bp; bp += 4;
  if(!This) throw wxe_badarg(0);
  This->SetRange(*r);
- break;
-}
-case wxGauge_SetShadowWidth: { // wxGauge::SetShadowWidth
- wxGauge *This = (wxGauge *) getPtr(bp,memenv); bp += 4;
- int * w = (int *) bp; bp += 4;
- if(!This) throw wxe_badarg(0);
- This->SetShadowWidth(*w);
  break;
 }
 case wxGauge_SetValue: { // wxGauge::SetValue
