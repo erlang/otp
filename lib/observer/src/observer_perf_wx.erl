@@ -142,6 +142,8 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL, event=#wxCommand{type=command_menu_sel
 	#ti{fetch=F0} = Ti -> %% Same fetch interval force refresh
 	    Wins = [W#win{max=undefined} || W <- Wins0],
 	    {noreply, precalc(State#state{time=Ti, wins=Wins})};
+	Ti when Old =:= undefined ->
+	    {noreply, State#state{time=Ti}};
 	Ti -> %% Changed fetch interval, drop all data
 	    {noreply, restart_fetcher(node(Old), State#state{time=Ti})}
     end;
