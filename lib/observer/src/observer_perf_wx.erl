@@ -762,7 +762,10 @@ make_gc(Panel,UseGC) ->
 
 destroy_gc({GC, DC}) ->
     (GC =/= false) andalso ?wxGC:destroy(GC),
-    wxPaintDC:destroy(DC).
+    case DC =/= false andalso wx:getObjectType(DC) of
+	false -> ok;
+	Type -> Type:destroy(DC)
+    end.
 
 haveGC() ->
     try

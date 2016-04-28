@@ -302,7 +302,9 @@ handle_info({delivery, _Pid, app, _Curr, {[], [], [], []}},
 handle_info({delivery, Pid, app, Curr, AppData},
 	    State = #state{panel=Panel, appmon=Pid, current=Curr, usegc=UseGC,
 			   app_w=AppWin, paint=#paint{font=Font}}) ->
-    GC = make_gc(AppWin, UseGC),
+    GC = if UseGC -> {?wxGC:create(AppWin), false};
+	    true ->  {false, wxWindowDC:new(AppWin)}
+	 end,
     setFont(GC, Font, {0,0,0}),
     App = build_tree(AppData, GC),
     destroy_gc(GC),
