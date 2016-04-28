@@ -183,6 +183,38 @@ handle_event(#wx{id=?ID_CLOSE_PORT}, State = #state{selected=Sel, ports=Ports}) 
 	    {noreply, State#state{selected=undefined}}
     end;
 
+handle_event(#wx{id=?ID_TRACE_PORTS}, #state{selected=Sel, ports=Ports}=State)  ->
+    case Sel of
+	undefined ->
+	    observer_wx:create_txt_dialog(State#state.panel, "No selected port",
+					  "Tracer", ?wxICON_EXCLAMATION),
+	    {noreply, State};
+	R when is_integer(R) ->
+	    Port = lists:nth(Sel+1, Ports),
+	    observer_trace_wx:add_ports(observer_wx:get_tracer(), [Port#port.id]),
+	    {noreply,  State}
+    end;
+
+handle_event(#wx{id=?ID_TRACE_NAMES}, #state{selected=Sel, ports=Ports}=State)  ->
+    case Sel of
+	undefined ->
+	    observer_wx:create_txt_dialog(State#state.panel, "No selected port",
+					  "Tracer", ?wxICON_EXCLAMATION),
+	    {noreply, State};
+	R when is_integer(R) ->
+	    Port = lists:nth(Sel+1, Ports),
+	    IdOrReg = case Port#port.name of
+			  ignore -> Port#port.id;
+			  Name -> Name
+		      end,
+	    observer_trace_wx:add_ports(observer_wx:get_tracer(), [IdOrReg]),
+	    {noreply,  State}
+    end;
+
+handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
+    observer_trace_wx:add_ports(observer_wx:get_tracer(), [new_ports]),
+    {noreply,  State};
+
 handle_event(#wx{id=?ID_REFRESH_INTERVAL},
 	     State = #state{grid=Grid, timer=Timer0}) ->
     Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),

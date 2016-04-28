@@ -335,7 +335,7 @@ handle_event(#wx{id=?ID_TRACE_NAMES}, #state{sel={SelIds,_Pids}, holder=Holder, 
     end;
 
 handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
-    observer_trace_wx:add_processes(observer_wx:get_tracer(), [new]),
+    observer_trace_wx:add_processes(observer_wx:get_tracer(), [new_processes]),
     {noreply,  State};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},

@@ -19,7 +19,7 @@
 
 -module(observer_trace_wx).
 
--export([start_link/2, add_processes/2]).
+-export([start_link/2, add_processes/2, add_ports/2]).
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_cast/2]).
 
@@ -31,11 +31,13 @@
 -define(SAVE_TRACEOPTS, 305).
 -define(LOAD_TRACEOPTS, 306).
 -define(TOGGLE_TRACE, 307).
--define(ADD_NEW, 308).
--define(ADD_TP, 309).
--define(TRACE_OUTPUT, 310).
--define(TRACE_DEFMS,  311).
--define(TRACE_DEFPS,  312).
+-define(ADD_NEW_PROCS, 308).
+-define(ADD_NEW_PORTS, 309).
+-define(ADD_TP, 310).
+-define(TRACE_OUTPUT, 311).
+-define(TRACE_DEFMS,  312).
+-define(DEF_PROC_OPTS,  313).
+-define(DEF_PORT_OPTS,  314).
 
 -define(NODES_WIN, 330).
 -define(ADD_NODES, 331).
@@ -45,36 +47,45 @@
 -define(EDIT_PROCS, 341).
 -define(REMOVE_PROCS, 342).
 
--define(MODULES_WIN, 350).
+-define(PORT_WIN, 350).
+-define(EDIT_PORTS, 351).
+-define(REMOVE_PORTS, 352).
 
--define(FUNCS_WIN, 360).
--define(EDIT_FUNCS_MS, 361).
--define(REMOVE_FUNCS_MS, 362).
+-define(MODULES_WIN, 360).
 
--define(LOG_WIN, 370).
--define(LOG_SAVE, 321).
--define(LOG_CLEAR, 322).
+-define(FUNCS_WIN, 370).
+-define(EDIT_FUNCS_MS, 371).
+-define(REMOVE_FUNCS_MS, 372).
+
+-define(LOG_WIN, 380).
+-define(LOG_SAVE, 381).
+-define(LOG_CLEAR, 382).
 
 -record(state,
 	{parent,
 	 panel,
-	 n_view,  p_view, m_view, f_view,  %% The listCtrl's
+	 n_view, proc_view, port_view, m_view, f_view,  %% The listCtrl's
 	 logwin, %% The latest log window
 	 nodes = [],
 	 toggle_button,
-	 tpids = [],  %% #tpid
-	 def_trace_opts = [],
+	 tpids = [],  % #titem
+	 tports = [], % #titem
+	 def_proc_flags = [],
+	 def_port_flags = [],
 	 output = [],
 	 tpatterns = dict:new(), % Key =:= Module::atom, Value =:= {M, F, A, MatchSpec}
 	 match_specs = []}). % [ #match_spec{} ]
 
--record(tpid, {pid, opts}).
+-record(titem, {id, opts}).
 
 start_link(Notebook, ParentPid) ->
     wx_object:start_link(?MODULE, [Notebook, ParentPid], []).
 
 add_processes(Tracer, Pids) when is_list(Pids) ->
     wx_object:cast(Tracer, {add_processes, Pids}).
+
+add_ports(Tracer, Ports) when is_list(Ports) ->
+    wx_object:cast(Tracer, {add_ports, Ports}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -87,11 +98,13 @@ create_window(Notebook, ParentPid) ->
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     Splitter = wxSplitterWindow:new(Panel, [{size, wxWindow:getClientSize(Panel)},
 					    {style, ?SASH_STYLE}]),
-    {NodeProcView, NodeView, ProcessView} = create_process_view(Splitter),
+    {NodeProcView, NodeView, ProcessView, PortView} =
+	create_proc_port_view(Splitter),
     {MatchSpecView,ModView,FuncView} = create_matchspec_view(Splitter),
     wxSplitterWindow:setSashGravity(Splitter, 0.5),
     wxSplitterWindow:setMinimumPaneSize(Splitter,50),
-    wxSplitterWindow:splitHorizontally(Splitter, NodeProcView, MatchSpecView),
+    wxSplitterWindow:splitHorizontally(Splitter, NodeProcView, MatchSpecView,
+				       [{sashPosition,368}]),
     wxSizer:add(Sizer, Splitter, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}, {proportion, 1}]),
     %% Buttons
     Buttons = wxBoxSizer:new(?wxHORIZONTAL),
@@ -99,7 +112,8 @@ create_window(Notebook, ParentPid) ->
     wxSizer:add(Buttons, ToggleButton, [{flag, ?wxALIGN_CENTER_VERTICAL}]),
     wxSizer:addSpacer(Buttons, 15),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NODES, [{label, "Add Nodes"}])),
-    wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW, [{label, "Add 'new' Process"}])),
+    wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW_PROCS, [{label, "Add 'new' Processes"}])),
+    wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_NEW_PORTS, [{label, "Add 'new' Ports"}])),
     wxSizer:add(Buttons, wxButton:new(Panel, ?ADD_TP, [{label, "Add Trace Pattern"}])),
     wxMenu:connect(Panel, command_togglebutton_clicked, [{skip, true}]),
     wxMenu:connect(Panel, command_button_clicked, [{skip, true}]),
@@ -107,7 +121,8 @@ create_window(Notebook, ParentPid) ->
 				 {border, 5}, {proportion,0}]),
     wxWindow:setSizer(Panel, Sizer),
     {Panel, #state{parent=ParentPid, panel=Panel,
-		   n_view=NodeView, p_view=ProcessView, m_view=ModView, f_view=FuncView,
+		   n_view=NodeView, proc_view=ProcessView, port_view=PortView,
+		   m_view=ModView, f_view=FuncView,
 		   toggle_button = ToggleButton,
 		   match_specs=default_matchspecs()}}.
 
@@ -130,13 +145,15 @@ get_default_matchspecs('receive') ->
     [{"Skeleton", [{['$1','$2','$3'], [], [true]}], "fun([Node,Pid,Msg]) -> true end"}].
 
 
-create_process_view(Parent) ->
+create_proc_port_view(Parent) ->
     Panel  = wxPanel:new(Parent),
     MainSz = wxBoxSizer:new(?wxHORIZONTAL),
     Style = ?wxLC_REPORT bor ?wxLC_HRULES,
     Splitter = wxSplitterWindow:new(Panel, [{style, ?SASH_STYLE}]),
     Nodes = wxListCtrl:new(Splitter, [{winid, ?NODES_WIN}, {style, Style}]),
-    Procs = wxListCtrl:new(Splitter, [{winid, ?PROC_WIN}, {style, Style}]),
+    ProcsPortsSplitter = wxSplitterWindow:new(Splitter, [{style, ?SASH_STYLE}]),
+    Procs = wxListCtrl:new(ProcsPortsSplitter, [{winid,?PROC_WIN},{style,Style}]),
+    Ports = wxListCtrl:new(ProcsPortsSplitter, [{winid,?PORT_WIN},{style,Style}]),
     Li = wxListItem:new(),
     wxListItem:setText(Li, "Nodes"),
     wxListCtrl:insertColumn(Nodes, 0, Li),
@@ -148,24 +165,44 @@ create_process_view(Parent) ->
 			   wxListCtrl:setColumnWidth(Procs, Col, DefSize),
 			   Col + 1
 		   end,
-    ListItems = [{"Process Id",    ?wxLIST_FORMAT_CENTER,  120},
-		 {"Trace Options", ?wxLIST_FORMAT_LEFT, 300}],
-    lists:foldl(AddProc, 0, ListItems),
+    ProcListItems = [{"Process Id",    ?wxLIST_FORMAT_CENTER,  120},
+		     {"Trace Options", ?wxLIST_FORMAT_LEFT, 300}],
+    lists:foldl(AddProc, 0, ProcListItems),
+
+    AddPort = fun({Name, Align, DefSize}, Col) ->
+			   wxListItem:setText(Li, Name),
+			   wxListItem:setAlign(Li, Align),
+			   wxListCtrl:insertColumn(Ports, Col, Li),
+			   wxListCtrl:setColumnWidth(Ports, Col, DefSize),
+			   Col + 1
+		   end,
+    PortListItems = [{"Port Id",    ?wxLIST_FORMAT_CENTER,  120},
+		     {"Trace Options", ?wxLIST_FORMAT_LEFT, 300}],
+    lists:foldl(AddPort, 0, PortListItems),
+
     wxListItem:destroy(Li),
 
     wxSplitterWindow:setSashGravity(Splitter, 0.0),
     wxSplitterWindow:setMinimumPaneSize(Splitter,50),
-    wxSplitterWindow:splitVertically(Splitter, Nodes, Procs, [{sashPosition, 155}]),
+    wxSplitterWindow:splitVertically(Splitter, Nodes, ProcsPortsSplitter,
+				     [{sashPosition, 155}]),
     wxSizer:add(MainSz, Splitter, [{flag, ?wxEXPAND}, {proportion, 1}]),
 
+    wxSplitterWindow:setSashGravity(ProcsPortsSplitter, 0.5),
+    wxSplitterWindow:setMinimumPaneSize(ProcsPortsSplitter,50),
+    wxSplitterWindow:splitHorizontally(ProcsPortsSplitter, Procs, Ports,
+				       [{sashPosition, 182}]),
+
     wxListCtrl:connect(Procs, command_list_item_right_click),
+    wxListCtrl:connect(Ports, command_list_item_right_click),
     wxListCtrl:connect(Nodes, command_list_item_right_click),
     wxListCtrl:connect(Procs, size, [{skip, true}]),
+    wxListCtrl:connect(Ports, size, [{skip, true}]),
     wxListCtrl:connect(Nodes, size, [{skip, true}]),
 
     wxPanel:setSizer(Panel, MainSz),
     wxWindow:setFocus(Procs),
-    {Panel, Nodes, Procs}.
+    {Panel, Nodes, Procs, Ports}.
 
 create_matchspec_view(Parent) ->
     Panel  = wxPanel:new(Parent),
@@ -205,7 +242,8 @@ create_menues(Parent) ->
 	     {"Options",
 	      [#create_menu{id = ?TRACE_OUTPUT, text = "Output"},
 	       #create_menu{id = ?TRACE_DEFMS, text = "Default Match Specifications for Functions"},
-	       #create_menu{id = ?TRACE_DEFPS, text = "Default Process Options"}]}
+	       #create_menu{id = ?DEF_PROC_OPTS, text = "Default Process Options"},
+	       #create_menu{id = ?DEF_PORT_OPTS, text = "Default Port Options"}]}
 	    ],
     observer_wx:create_menus(Parent, Menus).
 
@@ -218,11 +256,19 @@ handle_event(#wx{obj=Obj, event=#wxSize{size={W,_}}}, State) ->
     end,
     {noreply, State};
 
-handle_event(#wx{id=?ADD_NEW}, State = #state{panel=Parent, def_trace_opts=TraceOpts}) ->
+handle_event(#wx{id=?ADD_NEW_PROCS}, State = #state{panel=Parent, def_proc_flags=TraceOpts}) ->
     try
 	Opts = observer_traceoptions_wx:process_trace(Parent, TraceOpts),
-	Process = #tpid{pid=new, opts=Opts},
-	{noreply, do_add_processes([Process], State#state{def_trace_opts=Opts})}
+	Process = #titem{id=new_processes, opts=Opts},
+	{noreply, do_add_processes([Process], State#state{def_proc_flags=Opts})}
+    catch cancel -> {noreply, State}
+    end;
+
+handle_event(#wx{id=?ADD_NEW_PORTS}, State = #state{panel=Parent, def_port_flags=TraceOpts}) ->
+    try
+	Opts = observer_traceoptions_wx:port_trace(Parent, TraceOpts),
+	Port = #titem{id=new_ports, opts=Opts},
+	{noreply, do_add_ports([Port], State#state{def_port_flags=Opts})}
     catch cancel -> {noreply, State}
     end;
 
@@ -249,22 +295,23 @@ handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, command
 	     #state{panel = Panel,
 		    nodes = Nodes,
 		    tpids = TProcs,
+		    tports = TPorts,
 		    tpatterns = TPs0,
 		    toggle_button = ToggleBtn,
 		    output = Opts
 		   } = State) ->
     try
 	TPs = dict:to_list(TPs0),
-	(TProcs == []) andalso throw({error, "No processes traced"}),
+	(TProcs == []) andalso (TPorts == []) andalso throw({error, "No processes or ports traced"}),
 	(Nodes == []) andalso throw({error, "No nodes traced"}),
-	HaveCallTrace = fun(#tpid{opts=Os}) -> lists:member(functions,Os) end,
+	HaveCallTrace = fun(#titem{opts=Os}) -> lists:member(functions,Os) end,
 	WStr = "Call trace actived but no trace patterns used",
 	(TPs == []) andalso lists:any(HaveCallTrace, TProcs) andalso
 	    observer_wx:create_txt_dialog(Panel, WStr, "Warning", ?wxICON_WARNING),
 
 	{TTB, LogWin}  = ttb_output_args(Panel, Opts),
 	{ok, _} = ttb:tracer(Nodes, TTB),
-	setup_ttb(TPs, TProcs),
+	setup_ttb(TPs, TProcs, TPorts),
 	wxToggleButton:setLabel(ToggleBtn, "Stop Trace"),
 	{noreply, State#state{logwin=LogWin}}
     catch {error, Msg} ->
@@ -314,7 +361,8 @@ handle_event(#wx{id=?LOG_SAVE, userData=TCtrl}, #state{panel=Panel} = State) ->
 
 handle_event(#wx{id = ?SAVE_TRACEOPTS},
 	     #state{panel = Panel,
-		    def_trace_opts = TraceOpts,
+		    def_proc_flags = ProcFlags,
+		    def_port_flags = PortFlags,
 		    match_specs = MatchSpecs,
 		    tpatterns = TracePatterns,
 		    output = Output
@@ -324,7 +372,7 @@ handle_event(#wx{id = ?SAVE_TRACEOPTS},
 	?wxID_OK ->
 	    Path = wxFileDialog:getPath(Dialog),
 	    write_file(Panel, Path,
-		       TraceOpts, MatchSpecs, Output,
+		       ProcFlags, PortFlags, MatchSpecs, Output,
 		       dict:to_list(TracePatterns)
 		      );
 	_ ->
@@ -351,6 +399,9 @@ handle_event(#wx{id=Type, event=#wxList{type=command_list_item_right_click}},
 		?PROC_WIN ->
 		    [{?EDIT_PROCS, "Edit process options"},
 		     {?REMOVE_PROCS, "Remove processes"}];
+		?PORT_WIN ->
+		    [{?EDIT_PORTS, "Edit port options"},
+		     {?REMOVE_PORTS, "Remove ports"}];
 		?FUNCS_WIN ->
 		    [{?EDIT_FUNCS_MS, "Edit matchspecs"},
 		     {?REMOVE_FUNCS_MS, "Remove trace patterns"}];
@@ -364,26 +415,50 @@ handle_event(#wx{id=Type, event=#wxList{type=command_list_item_right_click}},
     wxMenu:destroy(Menu),
     {noreply, State};
 
-handle_event(#wx{id=?EDIT_PROCS}, #state{panel=Panel, tpids=Tpids, p_view=Ps} = State) ->
+handle_event(#wx{id=?EDIT_PROCS}, #state{panel=Panel, tpids=Tpids, proc_view=Procs} = State) ->
     try
-	[#tpid{opts=DefOpts}|_] = Selected = get_selected_items(Ps, Tpids),
+	[#titem{opts=DefOpts}|_] = Selected = get_selected_items(Procs, Tpids),
 	Opts = observer_traceoptions_wx:process_trace(Panel, DefOpts),
-	Changed = [Tpid#tpid{opts=Opts} || Tpid <- Selected],
-	{noreply, do_add_processes(Changed, State#state{def_trace_opts=Opts})}
+	Changed = [Tpid#titem{opts=Opts} || Tpid <- Selected],
+	{noreply, do_add_processes(Changed, State#state{def_proc_flags=Opts})}
     catch _:_ ->
 	    {noreply, State}
     end;
 
-handle_event(#wx{id=?REMOVE_PROCS}, #state{tpids=Tpids, p_view=LCtrl} = State) ->
+handle_event(#wx{id=?REMOVE_PROCS}, #state{tpids=Tpids, proc_view=LCtrl} = State) ->
     Selected = get_selected_items(LCtrl, Tpids),
     Pids = Tpids -- Selected,
-    update_process_view(Pids, LCtrl),
+    update_p_view(Pids, LCtrl),
     {noreply, State#state{tpids=Pids}};
 
-handle_event(#wx{id=?TRACE_DEFPS}, #state{panel=Panel, def_trace_opts=PO} = State) ->
+handle_event(#wx{id=?EDIT_PORTS}, #state{panel=Panel, tports=Tports, port_view=Ports} = State) ->
+    try
+	[#titem{opts=DefOpts}|_] = Selected = get_selected_items(Ports, Tports),
+	Opts = observer_traceoptions_wx:port_trace(Panel, DefOpts),
+	Changed = [Tport#titem{opts=Opts} || Tport <- Selected],
+	{noreply, do_add_ports(Changed, State#state{def_port_flags=Opts})}
+    catch _:_ ->
+	    {noreply, State}
+    end;
+
+handle_event(#wx{id=?REMOVE_PORTS}, #state{tports=Tports, port_view=LCtrl} = State) ->
+    Selected = get_selected_items(LCtrl, Tports),
+    Ports = Tports -- Selected,
+    update_p_view(Ports, LCtrl),
+    {noreply, State#state{tports=Ports}};
+
+handle_event(#wx{id=?DEF_PROC_OPTS}, #state{panel=Panel, def_proc_flags=PO} = State) ->
     try
 	Opts = observer_traceoptions_wx:process_trace(Panel, PO),
-	{noreply, State#state{def_trace_opts=Opts}}
+	{noreply, State#state{def_proc_flags=Opts}}
+    catch _:_ ->
+	    {noreply, State}
+    end;
+
+handle_event(#wx{id=?DEF_PORT_OPTS}, #state{panel=Panel, def_port_flags=PO} = State) ->
+    try
+	Opts = observer_traceoptions_wx:port_trace(Panel, PO),
+	{noreply, State#state{def_port_flags=Opts}}
     catch _:_ ->
 	    {noreply, State}
     end;
@@ -401,24 +476,34 @@ handle_event(#wx{id=?EDIT_FUNCS_MS}, #state{panel=Panel, tpatterns=TPs,
 					    match_specs=Mss
 					   } = State) ->
     try
-	[Module] = get_selected_items(Mview, lists:sort(dict:fetch_keys(TPs))),
-	Selected = get_selected_items(LCtrl, dict:fetch(Module, TPs)),
-	Key = case Module of
-		  'Events' ->
-		      SelectedEvents = [Event || #tpattern{fa=Event} <- Selected],
-		      E1 = hd(SelectedEvents),
-		      case lists:all(fun(E) when E==E1 -> true; (_) -> false end,
-				     SelectedEvents) of
-			  true -> E1;
-			  false -> throw({error,"Can not set match specs for multiple event types"})
-		      end;
-		  _ -> funcs
-	      end,
-	Ms = observer_traceoptions_wx:select_matchspec(self(), Panel, Mss, Key),
-	Changed = [TP#tpattern{ms=Ms} || TP <- Selected],
-	{noreply, do_add_patterns({Module, Changed}, State)}
+	case get_selected_items(Mview, lists:sort(dict:fetch_keys(TPs))) of
+	    [] ->
+		throw({error,"No module selected"});
+	    [Module] ->
+		Selected = get_selected_items(LCtrl, dict:fetch(Module, TPs)),
+		Key = case Module of
+			  'Events' ->
+			      SelectedEvents =
+				  [Event || #tpattern{fa=Event} <- Selected],
+			      E1 = hd(SelectedEvents),
+			      case lists:all(fun(E) when E==E1 -> true;
+						(_) -> false
+					     end,
+					     SelectedEvents) of
+				  true -> E1;
+				  false -> throw({error,"Can not set match specs for multiple event types"})
+			      end;
+			  _ -> funcs
+		      end,
+		Ms = observer_traceoptions_wx:select_matchspec(self(), Panel,
+							       Mss, Key),
+		Changed = [TP#tpattern{ms=Ms} || TP <- Selected],
+		{noreply, do_add_patterns({Module, Changed}, State)}
+	end
     catch {error, Msg} ->
 	    observer_wx:create_txt_dialog(Panel, Msg, "Error", ?wxICON_ERROR),
+	    {noreply, State};
+	  cancel ->
 	    {noreply, State}
     end;
 
@@ -482,11 +567,20 @@ handle_call(Msg, From, _State) ->
     error({unhandled_call, Msg, From}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-handle_cast({add_processes, Pids}, State = #state{panel=Parent, def_trace_opts=TraceOpts}) ->
+handle_cast({add_processes, Pids}, State = #state{panel=Parent, def_proc_flags=TraceOpts}) ->
     try
 	Opts = observer_traceoptions_wx:process_trace(Parent, TraceOpts),
-	POpts = [#tpid{pid=Pid, opts=Opts} || Pid <- Pids],
-	S = do_add_processes(POpts, State#state{def_trace_opts=Opts}),
+	POpts = [#titem{id=Pid, opts=Opts} || Pid <- Pids],
+	S = do_add_processes(POpts, State#state{def_proc_flags=Opts}),
+	{noreply, S}
+    catch cancel ->
+	    {noreply, State}
+    end;
+handle_cast({add_ports, Ports}, State = #state{panel=Parent, def_port_flags=TraceOpts}) ->
+    try
+	Opts = observer_traceoptions_wx:port_trace(Parent, TraceOpts),
+	POpts = [#titem{id=Id, opts=Opts} || Id <- Ports],
+	S = do_add_ports(POpts, State#state{def_port_flags=Opts}),
 	{noreply, S}
     catch cancel ->
 	    {noreply, State}
@@ -534,13 +628,25 @@ do_add_patterns({Module, NewPs}, State=#state{tpatterns=TPs0, m_view=Mview, f_vi
 	    State#state{tpatterns=TPs}
     end.
 
-do_add_processes(POpts, S0=#state{n_view=Nview, p_view=LCtrl, tpids=OldPids, nodes=Ns0}) ->
-    case merge_pids(POpts, OldPids) of
-	{OldPids, [], []} ->
-	    S0;
-	{Pids, New, _Changed} ->
-	    update_process_view(Pids, LCtrl),
-	    Ns1 = lists:usort([node(Pid) || #tpid{pid=Pid} <- New, is_pid(Pid)]),
+do_add_processes(POpts, S0=#state{n_view=Nview, proc_view=LCtrl, tpids=OldPids, nodes=OldNodes}) ->
+    CheckFun = fun(Pid) -> is_pid(Pid) end,
+    {Pids, Nodes} = do_add_pid_or_port(POpts, Nview, LCtrl,
+					OldPids, OldNodes, CheckFun),
+    S0#state{tpids=Pids, nodes=Nodes}.
+
+do_add_ports(POpts, S0=#state{n_view=Nview, port_view=LCtrl, tports=OldPorts, nodes=OldNodes}) ->
+    CheckFun = fun(Port) -> is_port(Port) end,
+    {Ports, Nodes} = do_add_pid_or_port(POpts, Nview, LCtrl,
+					OldPorts, OldNodes, CheckFun),
+    S0#state{tports=Ports, nodes=Nodes}.
+
+do_add_pid_or_port(POpts, Nview, LCtrl, OldPs, Ns0, Check) ->
+    case merge_trace_items(POpts, OldPs) of
+	{OldPs, [], []} ->
+	    {OldPs,Ns0};
+	{Ps, New, _Changed} ->
+	    update_p_view(Ps, LCtrl),
+	    Ns1 = lists:usort([node(Id) || #titem{id=Id} <- New, Check(Id)]),
 	    Nodes = case ordsets:subtract(Ns1, Ns0) of
 			[] -> Ns0; %% No new Nodes
 			NewNs ->
@@ -549,20 +655,21 @@ do_add_processes(POpts, S0=#state{n_view=Nview, p_view=LCtrl, tpids=OldPids, nod
 			    update_nodes_view(All, Nview),
 			    All
 		    end,
-	    S0#state{tpids=Pids, nodes=Nodes}
+	    {Ps, Nodes}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-update_process_view(Pids, LCtrl) ->
+update_p_view(PidsOrPorts, LCtrl) ->
+    %% pid- or port-view
     wxListCtrl:deleteAllItems(LCtrl),
-    wx:foldl(fun(#tpid{pid=Pid, opts=Opts}, Row) ->
+    wx:foldl(fun(#titem{id=Id, opts=Opts}, Row) ->
 		     _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
 		     ?EVEN(Row) andalso
 			 wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
-		     wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str(Pid)),
+		     wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str(Id)),
 		     wxListCtrl:setItem(LCtrl, Row, 1, observer_lib:to_str(Opts)),
 		     Row+1
-	     end, 0, Pids).
+	     end, 0, PidsOrPorts).
 
 update_nodes_view(Nodes, LCtrl) ->
     wxListCtrl:deleteAllItems(LCtrl),
@@ -604,20 +711,24 @@ update_functions_view(Funcs, LCtrl) ->
 	     end, 0, Funcs).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-merge_pids([N1=#tpid{pid=new}|Ns], [N2=#tpid{pid=new}|Old]) ->
-    {Pids, New, Changed} = merge_pids_1(Ns,Old),
-    {[N1|Pids], New, [{N2,N2}|Changed]};
-merge_pids([N1=#tpid{pid=new}|Ns], Old) ->
-    {Pids, New, Changed} = merge_pids_1(Ns,Old),
-    {[N1|Pids], [N1|New], Changed};
-merge_pids(Ns, [N2=#tpid{pid=new}|Old]) ->
-    {Pids, New, Changed} = merge_pids_1(Ns,Old),
-    {[N2|Pids], New, Changed};
-merge_pids(New, Old) ->
-    merge_pids_1(New, Old).
+%% Trace items are processes and ports
+merge_trace_items([N1=#titem{id=NewP}|Ns], [N2=#titem{id=NewP}|Old])
+  when NewP==new_processes; NewP==new_ports ->
+    {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
+    {[N1|Ids], New, [{N2,N2}|Changed]};
+merge_trace_items([N1=#titem{id=NewP}|Ns], Old)
+  when NewP==new_processes; NewP==new_ports ->
+    {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
+    {[N1|Ids], [N1|New], Changed};
+merge_trace_items(Ns, [N2=#titem{id=NewP}|Old])
+  when NewP==new_processes; NewP==new_ports ->
+    {Ids, New, Changed} = merge_trace_items_1(Ns,Old),
+    {[N2|Ids], New, Changed};
+merge_trace_items(New, Old) ->
+    merge_trace_items_1(New, Old).
 
-merge_pids_1(New, Old) ->
-    merge(lists:sort(New), Old, #tpid.pid, [], [], []).
+merge_trace_items_1(New, Old) ->
+    merge(lists:sort(New), Old, #titem.id, [], [], []).
 
 merge_patterns(New, Old) ->
     merge(lists:sort(New), Old, #tpattern.fa, [], [], []).
@@ -707,10 +818,12 @@ create_logwindow(Parent, true) ->
     wxFrame:show(LogWin),
     {LogWin, Text}.
 
-setup_ttb(TPs, TPids) ->
+setup_ttb(TPs, TPids, TPorts) ->
     _R1 = [setup_tps(FTP, []) || {_, FTP} <- TPs],
-    _R2 = [ttb:p(Pid, dbg_flags(Flags)) || #tpid{pid=Pid, opts=Flags} <- TPids],
-    [#tpid{pid=_Pid, opts=_Flags}|_] = TPids,
+    _R2 = [ttb:p(Pid, dbg_flags(proc,Flags)) ||
+	      #titem{id=Pid, opts=Flags} <- TPids],
+    _R3 = [ttb:p(Port, dbg_flags(port,Flags)) ||
+	      #titem{id=Port, opts=Flags} <- TPorts],
     ok.
 
 %% Sigh order is important
@@ -731,17 +844,18 @@ setup_tp(#tpattern{m='Events',fa=Event, ms=#match_spec{term=Ms}}) ->
 setup_tp(#tpattern{m=M,fa={F,A}, ms=#match_spec{term=Ms}}) ->
     ttb:tpl(M,F,A,Ms).
 
-dbg_flags(Flags) ->
-    [dbg_flag(Flag) || Flag <- Flags].
+dbg_flags(Type,Flags) ->
+    [dbg_flag(Type,Flag) || Flag <- Flags].
 
-dbg_flag(send) -> s;
-dbg_flag('receive') -> r;
-dbg_flag(functions) -> c;
-dbg_flag(on_spawn) -> sos;
-dbg_flag(on_link) -> sol;
-dbg_flag(on_first_spawn) -> sofs;
-dbg_flag(on_first_link) -> sofl;
-dbg_flag(events) -> p.
+dbg_flag(_,send) -> s;
+dbg_flag(_,'receive') -> r;
+dbg_flag(proc,functions) -> c;
+dbg_flag(proc,on_spawn) -> sos;
+dbg_flag(proc,on_link) -> sol;
+dbg_flag(proc,on_first_spawn) -> sofs;
+dbg_flag(proc,on_first_link) -> sofl;
+dbg_flag(proc,events) -> p;
+dbg_flag(port,events) -> ports.
 
 textformat(Trace) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
     format_trace(Trace, tuple_size(Trace)-1, element(tuple_size(Trace),Trace));
@@ -817,23 +931,28 @@ ftup(Trace, Index, Size) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-write_file(Frame, Filename, TraceOps, MatchSpecs, Output, TPs) ->
-    FormatMS = fun(#match_spec{name=Id, term=T, func=F}) ->
-		       io_lib:format("[{name,\"~s\"}, {term, ~w}, {func, \"~s\"}]",
-				     [Id, T, F])
+write_file(Frame, Filename, ProcFlags, PortFlags, MatchSpecs, Output, TPs) ->
+    MSToList = fun(#match_spec{name=Id, term=T, func=F}) ->
+		       [{name,Id},{term,T},{func,F}]
 	       end,
-    FormatTP = fun({Module, FTPs}) ->
-		       List = format_ftp(FTPs, FormatMS),
-		       io_lib:format("{tp, ~w, [~s]}.~n",[Module, List])
-	       end,
+    MSTermList = [{ms,Key,[MSToList(MS) || MS <- MSs]} ||
+		     {Key,MSs} <- MatchSpecs],
+    TPToTuple = fun(#tpattern{fa={F,A}, ms=Ms}) ->
+		       {F,A,MSToList(Ms)}
+		end,
+    ModuleTermList = [{tp, Module, [TPToTuple(FTP) || FTP <- FTPs]} ||
+			 {Module,FTPs} <- TPs],
+
     Str =
 	["%%%\n%%% This file is generated by Observer\n",
 	 "%%%\n%%% DO NOT EDIT!\n%%%\n",
-	 [["{ms, ", FormatMS(Ms), "}.\n"] || Ms <- MatchSpecs],
-	 "{traceopts, ", io_lib:format("~w",[TraceOps]) ,"}.\n",
-	 "{output, ", io_lib:format("~w",[Output]) ,"}.\n",
-	 [FormatTP(TP) || TP <- TPs]
+	 [io_lib:format("~p.~n",[MSTerm]) || MSTerm <- MSTermList],
+	 io_lib:format("~p.~n",[{procflags,ProcFlags}]),
+	 io_lib:format("~p.~n",[{portflags,PortFlags}]),
+	 io_lib:format("~p.~n",[{output,Output}]),
+	 [io_lib:format("~p.~n",[ModuleTerm]) || ModuleTerm <- ModuleTermList]
 	],
+
     case file:write_file(Filename, list_to_binary(Str)) of
 	ok ->
 	    success;
@@ -842,38 +961,66 @@ write_file(Frame, Filename, TraceOps, MatchSpecs, Output, TPs) ->
 	    observer_wx:create_txt_dialog(Frame, FailMsg, "Error", ?wxICON_ERROR)
     end.
 
-format_ftp([#tpattern{fa={F,A}, ms=Ms}], FormatMS) ->
-    io_lib:format("{~w, ~w, ~s}", [F,A,FormatMS(Ms)]);
-format_ftp([#tpattern{fa={F,A}, ms=Ms}|Rest], FormatMS) ->
-    [io_lib:format("{~w, ~w, ~s},~n     ", [F,A,FormatMS(Ms)]),
-     format_ftp(Rest, FormatMS)].
-
-read_settings(Filename, #state{match_specs=Ms0, def_trace_opts=TO0} = State) ->
+read_settings(Filename, #state{match_specs=Ms0, def_proc_flags=ProcFs0, def_port_flags=PortFs0} = State) ->
     case file:consult(Filename) of
 	{ok, Terms} ->
-	    Ms  = lists:usort(Ms0 ++ [parse_ms(MsList) || {ms, MsList} <- Terms]),
-	    TOs = lists:usort(TO0 ++ proplists:get_value(traceopts, Terms, [])),
+	    Ms = parse_ms(Terms, Ms0),
+	    ProcFs1 = proplists:get_value(procflags, Terms, []) ++
+		proplists:get_value(traceopts, Terms, []), % for backwards comp.
+	    ProcFs = lists:usort(ProcFs0 ++ ProcFs1),
+	    PortFs = lists:usort(PortFs0 ++
+				     proplists:get_value(portflags, Terms, [])),
 	    Out = proplists:get_value(output, Terms, []),
 	    lists:foldl(fun parse_tp/2,
-			State#state{match_specs=Ms, def_trace_opts=TOs, output=Out},
+			State#state{match_specs=Ms, def_proc_flags=ProcFs,
+				    def_port_flags=PortFs, output=Out},
 			Terms);
 	{error, _} ->
-	    observer_wx:create_txt_dialog(State#state.panel, "Could not load settings",
+	    observer_wx:create_txt_dialog(State#state.panel,
+					  "Could not load settings",
 					  "Error", ?wxICON_ERROR),
 	    State
     end.
 
-parse_ms(Opts) ->
-    Name = proplists:get_value(name, Opts, "TracePattern"),
-    Term = proplists:get_value(term, Opts, [{'_',[],[ok]}]),
-    FunStr = proplists:get_value(term, Opts, "fun(_) -> ok end"),
-    make_ms(Name, Term, FunStr).
+parse_ms(Terms, OldMSs) ->
+    MSs =
+	case [{Key,[make_ms(MS) || MS <- MSs]} || {ms,Key,MSs} <- Terms] of
+	    [] ->
+		case [make_ms(MS) || {ms,MS} <- Terms] of
+		    [] ->
+			[];
+		    FuncMSs -> % for backwards compatibility
+			[{funcs,FuncMSs}]
+		end;
+	    KeyMSs ->
+		KeyMSs
+	end,
+    parse_ms_1(MSs, dict:from_list(OldMSs)).
+
+parse_ms_1([{Key,MSs} | T], Dict) ->
+    parse_ms_1(T, dict:append_list(Key,MSs,Dict));
+parse_ms_1([],Dict) ->
+    [{Key,rm_dups(MSs,[])} || {Key,MSs} <- dict:to_list(Dict)].
+
+rm_dups([H|T],Acc) ->
+    case lists:member(H,Acc) of
+	true ->
+	    rm_dups(T,Acc);
+	false ->
+	    rm_dups(T,[H|Acc])
+    end;
+rm_dups([],Acc) ->
+    lists:reverse(Acc).
+
+make_ms(MS) ->
+    [{func,FunStr},{name,Name},{term,Term}] = lists:keysort(1,MS),
+    make_ms(Name,Term,FunStr).
 
 make_ms(Name, Term, FunStr) ->
     #match_spec{name=Name, term=Term, str=io_lib:format("~w", Term), func = FunStr}.
 
 parse_tp({tp, Mod, FAs}, State) ->
-    Patterns = [#tpattern{m=Mod,fa={F,A}, ms=parse_ms(List)} ||
+    Patterns = [#tpattern{m=Mod,fa={F,A}, ms=make_ms(List)} ||
 		   {F,A,List} <- FAs],
     do_add_patterns({Mod, Patterns}, State);
 parse_tp(_, State) ->

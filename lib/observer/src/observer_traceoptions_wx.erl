@@ -22,7 +22,7 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
--export([process_trace/2, trace_pattern/4, select_nodes/2,
+-export([process_trace/2, port_trace/2, trace_pattern/4, select_nodes/2,
 	 output/2, select_matchspec/4]).
 
 process_trace(Parent, Default) ->
@@ -91,6 +91,42 @@ process_trace(Parent, Default) ->
 			    wxCheckBox:getValue(Box)
 		    end,
 	    Opts = [Id || {Tick, Id} <- All, Check(Tick)],
+	    wxDialog:destroy(Dialog),
+	    lists:reverse(Opts);
+	?wxID_CANCEL ->
+	    wxDialog:destroy(Dialog),
+	    throw(cancel)
+    end.
+
+port_trace(Parent, Default) ->
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Port Options",
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER}]),
+    Panel = wxPanel:new(Dialog),
+    MainSz = wxBoxSizer:new(?wxVERTICAL),
+    OptsSz = wxStaticBoxSizer:new(?wxVERTICAL, Panel,  [{label, "Tracing options"}]),
+
+    SendBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace send message", []),
+    check_box(SendBox, lists:member(send, Default)),
+    RecBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace receive message", []),
+    check_box(RecBox, lists:member('receive', Default)),
+    EventBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace port events", []),
+    check_box(EventBox, lists:member(events, Default)),
+
+    [wxSizer:add(OptsSz, CheckBox, []) || CheckBox <- [SendBox,RecBox,EventBox]],
+    wxSizer:add(OptsSz, 150, -1),
+
+    wxPanel:setSizer(Panel, OptsSz),
+    wxSizer:add(MainSz, Panel, [{flag, ?wxEXPAND}, {proportion,1}]),
+    Buttons = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+    wxSizer:add(MainSz, Buttons, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
+    wxWindow:setSizerAndFit(Dialog, MainSz),
+    wxSizer:setSizeHints(MainSz, Dialog),
+
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    All = [{SendBox, send}, {RecBox, 'receive'},
+		   {EventBox, events}],
+	    Opts = [Id || {Tick, Id} <- All, wxCheckBox:getValue(Tick)],
 	    wxDialog:destroy(Dialog),
 	    lists:reverse(Opts);
 	?wxID_CANCEL ->
