@@ -301,6 +301,30 @@ false</code>
 		</func>
 
 		<func>
+			<name name="take" arity="2"/>
+			<fsummary></fsummary>
+			<desc>
+				<p>
+					The function removes the <c><anno>Key</anno></c>, if it exists, and its associated value from
+                    <c><anno>Map1</anno></c> and returns a tuple with the removed <c><anno>Value</anno></c> and
+                    the new map <c><anno>Map2</anno></c> without key <c><anno>Key</anno></c>.
+                    If the key does not exist <c>error</c> is returned.
+				</p>
+				<p>
+					The call will fail with a <c>{badmap,Map}</c> exception if <c><anno>Map1</anno></c> is not a map.
+				</p>
+				<p>Example:</p>
+				<code type="none">
+> Map = #{"a" => "hello", "b" => "world"}.
+#{"a" => "hello", "b" => "world"}
+> maps:take("a",Map).
+{"hello",#{"b" => "world"}}
+> maps:take("does not exist",Map).
+error</code>
+			</desc>
+		</func>
+
+		<func>
 			<name name="size" arity="1"/>
 			<fsummary></fsummary>
 			<desc>
@@ -356,6 +380,42 @@ false</code>
 #{"a" => 42}</code>
 			</desc>
 		</func>
+
+        <func>
+            <name name="update_with" arity="3"/>
+            <fsummary></fsummary>
+            <desc>
+                <p>Update a value in a <c><anno>Map1</anno></c> associated with <c><anno>Key</anno></c> by
+                    calling <c><anno>Fun</anno></c> on the old value to get a new value. An exception
+                    <c>{badkey,<anno>Key</anno>}</c> is generated if
+                    <c><anno>Key</anno></c> is not present in the map.</p>
+            <p>Example:</p>
+            <code type="none">
+> Map = #{"counter" => 1},
+  Fun = fun(V) -> V + 1 end,
+  maps:update_with("counter",Fun,Map).
+#{"counter" => 2}</code>
+			</desc>
+        </func>
+
+        <func>
+            <name name="update_with" arity="4"/>
+            <fsummary></fsummary>
+            <desc>
+                <p>Update a value in a <c><anno>Map1</anno></c> associated with <c><anno>Key</anno></c> by
+                    calling <c><anno>Fun</anno></c> on the old value to get a new value.
+                    If <c><anno>Key</anno></c> is not present
+                    in <c><anno>Map1</anno></c> then <c><anno>Init</anno></c> will be associated with
+                    <c><anno>Key</anno></c>.
+                </p>
+                <p>Example:</p>
+                <code type="none">
+> Map = #{"counter" => 1},
+  Fun = fun(V) -> V + 1 end,
+  maps:update_with("new counter",Fun,42,Map).
+#{"counter" => 1,"new counter" => 42}</code>
+            </desc>
+        </func>
 
 		<func>
 			<name name="values" arity="1"/>

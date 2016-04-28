@@ -54,6 +54,7 @@
  * - maps:new/0
  * - maps:put/3
  * - maps:remove/2
+ * - maps:take/2
  * - maps:to_list/1
  * - maps:update/3
  * - maps:values/1
@@ -93,7 +94,7 @@ static Uint hashmap_subtree_size(Eterm node);
 static Eterm hashmap_to_list(Process *p, Eterm map);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
-static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node);
+static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node, Eterm *value);
 static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_validated_list(Process *p, Eterm list, Uint size);
 static Eterm hashmap_from_unsorted_array(ErtsHeapFactory*, hxnode_t *hxns, Uint n, int reject_dupkeys);
@@ -1521,10 +1522,45 @@ BIF_RETTYPE maps_put_3(BIF_ALIST_3) {
     BIF_ERROR(BIF_P, BADMAP);
 }
 
-/* maps:remove/3 */
+/* maps:take/2 */
 
-int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
+BIF_RETTYPE maps_take_2(BIF_ALIST_2) {
+    if (is_map(BIF_ARG_2)) {
+        Eterm res, map, val;
+        if (erts_maps_take(BIF_P, BIF_ARG_1, BIF_ARG_2, &map, &val)) {
+            Eterm *hp = HAlloc(BIF_P, 3);
+            res   = make_tuple(hp);
+            *hp++ = make_arityval(2);
+            *hp++ = val;
+            *hp++ = map;
+            BIF_RET(res);
+        }
+        BIF_RET(am_error);
+    }
+    BIF_P->fvalue = BIF_ARG_2;
+    BIF_ERROR(BIF_P, BADMAP);
+}
+
+/* maps:remove/2 */
+
+BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
+    if (is_map(BIF_ARG_2)) {
+        Eterm res;
+        (void) erts_maps_take(BIF_P, BIF_ARG_1, BIF_ARG_2, &res, NULL);
+        BIF_RET(res);
+    }
+    BIF_P->fvalue = BIF_ARG_2;
+    BIF_ERROR(BIF_P, BADMAP);
+}
+
+/* erts_maps_take
+ * return 1 if key is found, otherwise 0
+ * If the key is not found res (output map) will be map (input map)
+ */
+int erts_maps_take(Process *p, Eterm key, Eterm map,
+                   Eterm *res, Eterm *value) {
     Uint32 hx;
+    Eterm ret;
     if (is_flatmap(map)) {
 	Sint n;
 	Uint need;
@@ -1537,7 +1573,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 
 	if (n == 0) {
 	    *res = map;
-	    return 1;
+	    return 0;
 	}
 
 	ks = flatmap_get_keys(mp);
@@ -1564,6 +1600,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 	if (is_immed(key)) {
 	    while (1) {
 		if (*ks == key) {
+                    if (value) *value = *vs;
 		    goto found_key;
 		} else if (--n) {
 		    *mhp++ = *vs++;
@@ -1574,6 +1611,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 	} else {
 	    while(1) {
 		if (EQ(*ks, key)) {
+                    if (value) *value = *vs;
 		    goto found_key;
 		} else if (--n) {
 		    *mhp++ = *vs++;
@@ -1589,7 +1627,7 @@ int erts_maps_remove(Process *p, Eterm key, Eterm map, Eterm *res) {
 	HRelease(p, hp_start + need, hp_start);
 
 	*res = map;
-	return 1;
+	return 0;
 
 found_key:
 	/* Copy rest of keys and values */
@@ -1601,19 +1639,13 @@ found_key:
     }
     ASSERT(is_hashmap(map));
     hx = hashmap_make_hash(key);
-    *res = hashmap_delete(p, hx, key, map);
-    return 1;
-}
-
-BIF_RETTYPE maps_remove_2(BIF_ALIST_2) {
-    if (is_map(BIF_ARG_2)) {
-	Eterm res;
-	if (erts_maps_remove(BIF_P, BIF_ARG_1, BIF_ARG_2, &res)) {
-	    BIF_RET(res);
-	}
+    ret = hashmap_delete(p, hx, key, map, value);
+    if (is_value(ret)) {
+        *res = ret;
+        return 1;
     }
-    BIF_P->fvalue = BIF_ARG_2;
-    BIF_ERROR(BIF_P, BADMAP);
+    *res = map;
+    return 0;
 }
 
 int erts_maps_update(Process *p, Eterm key, Eterm value, Eterm map, Eterm *res) {
@@ -2322,7 +2354,8 @@ static Eterm hashmap_values(Process* p, Eterm node) {
     return res;
 }
 
-static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
+static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
+                            Eterm map, Eterm *value) {
     Eterm *hp = NULL, *nhp = NULL, *hp_end = NULL;
     Eterm *ptr;
     Eterm hdr, res = map, node = map;
@@ -2337,8 +2370,12 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
 	switch(primary_tag(node)) {
 	    case TAG_PRIMARY_LIST:
 		if (EQ(CAR(list_val(node)), key)) {
+                    if (value) {
+                        *value = CDR(list_val(node));
+                    }
 		    goto unroll;
 		}
+                res = THE_NON_VALUE;
 		goto not_found;
 	    case TAG_PRIMARY_BOXED:
 		ptr = boxed_val(node);
@@ -2365,6 +2402,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
                             n    = hashmap_bitcount(hval);
                         } else {
                             /* not occupied */
+                            res = THE_NON_VALUE;
                             goto not_found;
                         }
 
@@ -2394,6 +2432,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm map) {
 			    break;
 			}
 			/* not occupied */
+                        res = THE_NON_VALUE;
 			goto not_found;
 		    default:
 			erts_exit(ERTS_ERROR_EXIT, "bad header tag %ld\r\n", hdr & _HEADER_MAP_SUBTAG_MASK);
