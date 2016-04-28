@@ -927,22 +927,22 @@ check_pars(Name,Dir) ->
     end.
 
 del_ebin(Dir) ->
-    case filename:basename(Dir) of
-	"ebin" -> 
-	    Dir2 = filename:dirname(Dir),
-	    Dir3 = filename:dirname(Dir2),
-	    Ext = archive_extension(),
-	    case filename:extension(Dir3) of
-		E when E =:= Ext ->
-		    %% Strip archive extension
-		    filename:join([filename:dirname(Dir3), 
-				   filename:basename(Dir3, Ext)]);
-		_ ->
-		    Dir2
-	    end;
-	_ ->
-	    Dir
-    end.
+    filename:join(del_ebin_1(filename:split(Dir))).
+
+del_ebin_1([Parent,App,"ebin"]) ->
+    Ext = archive_extension(),
+    case filename:basename(Parent, Ext) of
+	Parent ->
+	    %% Plain directory.
+	    [Parent,App];
+	Archive ->
+	    %% Archive.
+	    [Archive]
+    end;
+del_ebin_1([H|T]) ->
+    [H|del_ebin_1(T)];
+del_ebin_1([]) ->
+    [].
 
 replace_name(Dir, Db) ->
     case get_name(Dir) of
