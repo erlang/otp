@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 apply_fun/1,apply_mf/1,bs_init/1,bs_save/1,
 	 is_not_killed/1,is_not_used_at/1,
-	 select/1,y_catch/1]).
+	 select/1,y_catch/1,otp_8949_b/1,liveopt/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -41,7 +41,9 @@ groups() ->
        is_not_killed,
        is_not_used_at,
        select,
-       y_catch
+       y_catch,
+       otp_8949_b,
+       liveopt
       ]}].
 
 init_per_suite(Config) ->
@@ -231,6 +233,40 @@ do_y_catch_1(<<_,_/binary>>, _) ->
     false.
 
 do_y_catch_2(_) -> {a,b,c}.
+
+otp_8949_b(_Config) ->
+    self() ! something,
+    value = otp_8949_b([], false),
+    {'EXIT',_} = (catch otp_8949_b([], true)),
+    ok.
+
+%% Would cause an endless loop in beam_utils.
+otp_8949_b(A, B) ->
+    Var = id(value),
+    if
+	A == [], B == false ->
+	    ok
+    end,
+    receive
+        something ->
+	    id(Var)
+    end.
+
+-record(alarmInfo, {type,cause,origin}).
+
+liveopt(_Config) ->
+    F = liveopt_fun(42, pebkac, user),
+    void = F(42, #alarmInfo{type=sctp,cause=pebkac,origin=user}),
+    ok.
+
+liveopt_fun(Peer, Cause, Origin) ->
+    fun(PeerNo, AlarmInfo)
+	  when PeerNo == Peer andalso
+	       AlarmInfo == #alarmInfo{type=sctp,
+				       cause=Cause,
+				       origin=Origin} ->
+	    void
+    end.
 
 
 %% The identity function.

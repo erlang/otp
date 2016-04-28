@@ -28,7 +28,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
-	 nested_access/1,coverage/1]).
+	 nested_access/1,coverage/1,grab_bag/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -48,7 +48,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [errors,record_test_2,record_test_3,
        record_access_in_guards,guard_opt,eval_once,foobar,
-       missing_test_heap,nested_access,coverage]}].
+       missing_test_heap,nested_access,coverage,grab_bag]}].
 
 
 init_per_suite(Config) ->
@@ -600,5 +600,61 @@ coverage(Config) when is_list(Config) ->
     end,
     #rr{a=1,b=2,c=42} = id(R),			%Test for correctness.
     ok.
+
+
+-record(default_fun, {a = fun(X) -> X*X end}).
+
+%% compiler treats records with 1 and 2 fields differently...
+-record(gb_nil, {}).
+-record(gb_foo, {hello=1}).
+-record(gb_bar, {hello=2,there=3}).
+
+%% Taken from compilation_SUITE.
+grab_bag(_Config) ->
+    T1 = fun() ->
+		 X = #foo{},
+		 Y = #foo{},
+		 {X#foo.a == Y#foo.a,X#foo.b}
+	 end,
+    {true,undefined} = T1(),
+
+    T2 = fun(X, Y) ->
+		 first_arg(X#foo.a =/= Y#foo.a, X#foo.b =/= X#foo.b)
+	 end,
+    true = T2(#foo{a=x,b=z}, #foo{a=y,b=z}),
+
+    T3 = fun() ->
+		 #default_fun{a=Fun} = id(#default_fun{}),
+		 9 = Fun(3)
+	 end,
+    T3(),
+
+    %% Stupid code, but the compiler used to crash.
+    T4 = fun() ->
+		 F0 = fun() ->
+			      R1 = #gb_nil{},
+			      R2 = R1#gb_nil{},
+			      R1 = R2
+		      end,
+		 F1 = fun() ->
+			      R1 = #gb_foo{},
+			      R2 = R1#gb_foo{},
+			      R1 = R2
+		      end,
+
+		 F2 = fun() ->
+			      R1 = #gb_bar{},
+			      R2 = R1#gb_bar{},
+			      R1 = R2
+		      end,
+		 F0(),
+		 F1(),
+		 F2()
+	 end,
+    T4(),
+
+    ok.
+
+first_arg(First, _) -> First.
 
 id(I) -> I.

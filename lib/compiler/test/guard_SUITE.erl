@@ -28,7 +28,7 @@
 	 or_guard/1,more_or_guards/1,
 	 complex_or_guards/1,and_guard/1,
 	 xor_guard/1,more_xor_guards/1,
-	 old_guard_tests/1,
+	 old_guard_tests/1,complex_guard/1,
 	 build_in_guard/1,gbif/1,
 	 t_is_boolean/1,is_function_2/1,
 	 tricky/1,rel_ops/1,rel_op_combinations/1,literal_type_tests/1,
@@ -48,7 +48,8 @@ groups() ->
       [misc,const_cond,basic_not,complex_not,nested_nots,
        semicolon,complex_semicolon,comma,or_guard,
        more_or_guards,complex_or_guards,and_guard,xor_guard,
-       more_xor_guards,build_in_guard,old_guard_tests,gbif,
+       more_xor_guards,build_in_guard,
+       old_guard_tests,complex_guard,gbif,
        t_is_boolean,is_function_2,tricky,
        rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
@@ -946,6 +947,26 @@ og(_) -> what.
 
 on(V) when number(V) -> number;
 on(_) -> not_number.
+
+complex_guard(_Config) ->
+    _ = [true = do_complex_guard(X, Y, Z) ||
+	    X <- [4,5], Y <- [4,5], Z <- [4,5]],
+    _ = [true = do_complex_guard(X, Y, Z) ||
+	    X <- [1,2,3], Y <- [1,2,3], Z <- [1,2,3]],
+    _ = [catch do_complex_guard(X, Y, Z) ||
+	    X <- [1,2,3,4,5], Y <- [0,6], Z <- [1,2,3,4,5]],
+    ok.
+
+do_complex_guard(X1, Y1, Z1) ->
+    if
+	((X1 =:= 4) or (X1 =:= 5)) and
+	((Y1 =:= 4) or (Y1 =:= 5)) and
+	((Z1 =:= 4) or (Z1 =:= 5)) or
+	((X1 =:= 1) or (X1 =:= 2) or (X1 =:= 3)) and
+	((Y1 =:= 1) or (Y1 =:= 2) or (Y1 =:= 3)) and
+	((Z1 =:= 1) or (Z1 =:= 2) or (Z1 =:= 3)) ->
+	    true
+    end.
 
 gbif(Config) when is_list(Config) ->
     error = gbif_1(1, {false,true}),

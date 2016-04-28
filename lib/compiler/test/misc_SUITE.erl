@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
-	 confused_literals/1,integer_encoding/1,override_bif/1]).
+	 confused_literals/1,integer_encoding/0,integer_encoding/1,
+	 override_bif/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 

@@ -24,11 +24,11 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 fun_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
+	 size_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
 	 bin_tail/1,save_restore/1,
 	 partitioned_bs_match/1,function_clause/1,
 	 unit/1,shared_sub_bins/1,bin_and_float/1,
-	 dec_subidentifiers/1,skip_optional_tag/1,
+	 dec_subidentifiers/1,skip_optional_tag/1,decode_integer/1,
 	 wfbm/1,degenerated_match/1,bs_sum/1,coverage/1,
 	 multiple_uses/1,zero_label/1,followed_by_catch/1,
 	 matching_meets_construction/1,simon/1,matching_and_andalso/1,
@@ -38,7 +38,7 @@
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
-	 bad_literals/1,good_literals/1]).
+	 bad_literals/1,good_literals/1,constant_propagation/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -56,11 +56,11 @@ all() ->
 
 groups() -> 
     [{p,[parallel],
-      [fun_shadow,int_float,otp_5269,null_fields,wiger,
+      [size_shadow,int_float,otp_5269,null_fields,wiger,
        bin_tail,save_restore,
        partitioned_bs_match,function_clause,unit,
        shared_sub_bins,bin_and_float,dec_subidentifiers,
-       skip_optional_tag,wfbm,degenerated_match,bs_sum,
+       skip_optional_tag,decode_integer,wfbm,degenerated_match,bs_sum,
        coverage,multiple_uses,zero_label,followed_by_catch,
        matching_meets_construction,simon,
        matching_and_andalso,otp_7188,otp_7233,otp_7240,
@@ -69,7 +69,7 @@ groups() ->
        no_partition,calling_a_binary,binary_in_map,
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
-       bad_literals,good_literals]}].
+       bad_literals,good_literals,constant_propagation]}].
 
 
 init_per_suite(Config) ->
@@ -91,32 +91,53 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
 
-fun_shadow(Config) when is_list(Config) ->
-    %% OTP-5270
-    7 = fun_shadow_1(),
-    7 = fun_shadow_2(8),
-    7 = fun_shadow_3(),
-    no = fun_shadow_4(8),
+size_shadow(Config) when is_list(Config) ->
+    %% Originally OTP-5270.
+    7 = size_shadow_1(),
+    7 = size_shadow_2(8),
+    7 = size_shadow_3(),
+    no = size_shadow_4(8),
+    Any = {any,term,goes},
+    {2577,Any,-175,whatever} =
+	(size_shadow_5(Any, 12))(<<2577:12>>, -175, whatever),
+    {7777,Any,42,whatever} =
+	(size_shadow_6(Any, 13))(42, <<7777:13>>, whatever),
+    {<<45>>,<<>>} = size_shadow_7({int,1}, <<1:16,45>>),
+    {'EXIT',{function_clause,_}} =
+	(catch size_shadow_7({int,42}, <<1:16,45>>)),
     ok.
 
-fun_shadow_1() ->
+size_shadow_1() ->
     L = 8,
     F = fun(<<L:L,B:L>>) -> B end,
     F(<<16:8, 7:16>>).
 
-fun_shadow_2(L) ->
+size_shadow_2(L) ->
     F = fun(<<L:L,B:L>>) -> B end,
     F(<<16:8, 7:16>>).
 
-fun_shadow_3() ->
+size_shadow_3() ->
     L = 8,
     F = fun(<<L:L,B:L,L:L>>) -> B end,
     F(<<16:8, 7:16,16:16>>).
 
-fun_shadow_4(L) ->
+size_shadow_4(L) ->
     F = fun(<<L:L,B:L,L:L>>) -> B;
 	   (_) -> no end,
     F(<<16:8, 7:16,15:16>>).
+
+size_shadow_5(X, Y) ->
+    fun (<< A:Y >>, Y, B) -> fum(A, X, Y, B) end.
+
+size_shadow_6(X, Y) ->
+    fun (Y, << A:Y >>, B) -> fum(A, X, Y, B) end.
+
+fum(A, B, C, D) ->
+    {A,B,C,D}.
+
+size_shadow_7({int,N}, <<N:16,B:N/binary,T/binary>>) ->
+    {B,T}.
+
 
 int_float(Config) when is_list(Config) ->
     %% OTP-5323
@@ -503,6 +524,23 @@ skip_optional_tag(<<>>, Binary) ->
 skip_optional_tag(<<Tag,RestTag/binary>>, <<Tag,Rest/binary>>) ->
     skip_optional_tag(RestTag, Rest);
 skip_optional_tag(_, _) -> missing.
+
+decode_integer(_Config) ->
+    {10795,<<43>>,whatever} = decode_integer(1, <<42,43>>, whatever),
+    {-28909,<<19>>,whatever} = decode_integer(1, <<143,19>>, whatever),
+    ok.
+
+decode_integer(Len, <<B1:1,B2:7,Bs/binary>>, RemovedBytes) when B1 == 0 ->
+    Bin = <<_Skip:Len/unit:8, Buffer2/binary>> = <<B1:1,B2:7,Bs/binary>>,
+    Size = byte_size(Bin),
+    <<Int:Size/unit:8>> = Bin,
+    {Int,Buffer2,RemovedBytes};
+decode_integer(Len, <<B1:1,B2:7,Bs/binary>>, RemovedBytes)  ->
+    Bin = <<_Skip:Len/unit:8,Buffer2/binary>> = <<B1:1,B2:7,Bs/binary>>,
+    Size = byte_size(Bin),
+    <<N:Size/unit:8>> = <<B2,Bs/binary>>,
+    Int = N - (1 bsl (8 * size(Bin) -1)),
+    {Int,Buffer2,RemovedBytes}.
 
 -define(DATELEN, 16).
 
@@ -1386,6 +1424,32 @@ good_literals(_Config) ->
     %% unit > 1
     <<16#cafebeef:4/unit:8>> = id(<<16#cafebeef:32>>),
     ok.
+
+constant_propagation(_Config) ->
+    <<5>> = constant_propagation_a(a, <<5>>),
+    {'EXIT',{{case_clause,b},_}} = (catch constant_propagation_a(b, <<5>>)),
+    258 = constant_propagation_b(<<1,2>>),
+    F = constant_propagation_c(),
+    259 = F(<<1,3>>),
+    ok.
+
+constant_propagation_a(X, Y) ->
+    case X of
+	a -> Y2 = 8
+    end,
+    <<5:Y2>> = Y.
+
+constant_propagation_b(B) ->
+    Sz = 16,
+    <<X:Sz/integer>> = B,
+    X.
+
+constant_propagation_c() ->
+    Size = 16,
+    fun(Bin) ->
+	    <<X:Size/integer>> = Bin,
+	    X
+    end.
 
 
 check(F, R) ->

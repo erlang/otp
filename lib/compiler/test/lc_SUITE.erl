@@ -89,6 +89,18 @@ basic(Config) when is_list(Config) ->
     %% Filter expressions with andalso/orelse.
     "abc123" = alphanum("?abc123.;"),
 
+    %% Aliased patterns.
+    [] = [t || {C=D}={_,_} <- []],
+    [] = [X || {X,{Y}={X,X}} <- []],
+    [t] = [t || "a"++"b" = "ab" <- ["ab"]],
+
+    %% Strange filter block.
+    [] = [{X,Y} || {X} <- [], begin Y = X, Y =:= X end],
+    [{a,a}] = [{X,Y} || {X} <- [{a}], begin Y = X, Y =:= X end],
+
+    %% Not matching.
+    [] = [3 || {3=4} <- []],
+
     %% Error cases.
     [] = [{xx,X} || X <- L0, element(2, X) == no_no_no],
     {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
