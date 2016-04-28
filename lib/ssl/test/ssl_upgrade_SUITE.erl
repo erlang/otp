@@ -60,7 +60,7 @@ end_per_suite(Config) ->
     crypto:stop().
 
 init_per_testcase(_TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({minutes, 1}),
     Config.
 

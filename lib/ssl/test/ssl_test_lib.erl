@@ -1326,3 +1326,11 @@ protocol_options(Config, Options) ->
     Protocol = proplists:get_value(protocol, Config, tls),
     {Protocol, Opts} = lists:keyfind(Protocol, 1, Options),
     Opts.
+
+ct_log_supported_protocol_versions(Config) ->
+    case proplists:get_value(protocol, Config) of
+	dtls ->
+	    ct:log("DTLS version ~p~n ", [dtls_record:supported_protocol_versions()]);
+	_ ->
+	    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()])
+    end.
