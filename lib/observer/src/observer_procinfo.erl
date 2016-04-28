@@ -125,11 +125,11 @@ handle_event(#wx{event=#wxMouse{type=left_down}, userData=TargetPid}, State) ->
     {noreply, State};
 
 handle_event(#wx{obj=Obj, event=#wxMouse{type=enter_window}}, State) ->
-    wxTextCtrl:setForegroundColour(Obj,{0,0,100,255}),
+    wxStaticText:setForegroundColour(Obj,{0,0,100,255}),
     {noreply, State};
 
 handle_event(#wx{obj=Obj, event=#wxMouse{type=leave_window}}, State) ->
-    wxTextCtrl:setForegroundColour(Obj,?wxBLUE),
+    wxStaticText:setForegroundColour(Obj,?wxBLUE),
     {noreply, State};
 
 handle_event(#wx{event=#wxHtmlLink{linkInfo=#wxHtmlLinkInfo{href=Href}}},
