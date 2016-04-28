@@ -333,7 +333,7 @@ init_per_testcase(TestCase, Config) when TestCase == client_renegotiate;
 					 TestCase == renegotiate_dos_mitigate_active;
 					 TestCase == renegotiate_dos_mitigate_passive;
 					 TestCase == renegotiate_dos_mitigate_absolute ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 30}),
     Config;
 
@@ -343,12 +343,11 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
 					 TestCase == ciphers_rsa_signed_certs_openssl_names;
 					 TestCase == versions_option,
 					 TestCase == tls_tcp_connect_big ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
-
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 30}),
     Config;
 init_per_testcase(rizzo, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 40}),
     Config;
 init_per_testcase(prf, Config) ->
@@ -380,11 +379,11 @@ init_per_testcase(prf, Config) ->
 init_per_testcase(TestCase, Config) when TestCase == tls_ssl_accept_timeout;
 					 TestCase == tls_client_closes_socket;
 					 TestCase == tls_downgrade ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 15}),
     Config;
 init_per_testcase(clear_pem_cache, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 20}),
     Config;
 init_per_testcase(raw_ssl_option, Config) ->
@@ -402,17 +401,12 @@ init_per_testcase(accept_pool, Config) ->
 	dtls ->
             {skip, "Not yet supported on DTLS sockets"};
 	_ ->
-	    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+	    ssl_test_lib:ct_log_supported_protocol_versions(Config),
 	    Config
     end;
 
 init_per_testcase(_TestCase, Config) ->
-    case proplists:get_value(protocol, Config) of
-	dtls ->
-	    ct:log("DTLS version ~p~n ", [dtls_record:supported_protocol_versions()]);
-	_ ->
-	    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()])
-    end,
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
     Config.
 
@@ -4301,7 +4295,7 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    des_dhe_rsa ->
 		{ssl_test_lib:ssl_options(client_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ssl_test_lib:ssl_options(server_rsa_opts, Config)]};
+		  ssl_test_lib:ssl_options(server_opts, Config)]};
 	    des_rsa ->
 		{ssl_test_lib:ssl_options(client_opts, Config),
 		 [{ciphers, Ciphers} |
@@ -4328,6 +4322,7 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     %% process_flag(trap_exit, true),
     ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
     ct:log("Server Opts ~p~n", [ServerOpts]),
+    ct:log("Client Opts ~p~n", [ClientOpts]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     ErlangCipherSuite = erlang_cipher_suite(CipherSuite),
