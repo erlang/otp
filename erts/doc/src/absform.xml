@@ -636,6 +636,9 @@
        <item>If A is an association type <c>K => V</c>, where
         <c>K</c> and <c>V</c> are types, then Rep(A) =
         <c>{type,LINE,map_field_assoc,[Rep(K),Rep(V)]}</c>.</item>
+       <item>If A is an association type <c>K := V</c>, where
+        <c>K</c> and <c>V</c> are types, then Rep(A) =
+        <c>{type,LINE,map_field_exact,[Rep(K),Rep(V)]}</c>.</item>
       </list>
     </section>
 

@@ -671,6 +671,10 @@ map_pair_types([{type,Line,map_field_assoc,[K,V]}|Ps]) ->
     K1 = type(K),
     V1 = type(V),
     [{type,Line,map_field_assoc,[K1,V1]}|map_pair_types(Ps)];
+map_pair_types([{type,Line,map_field_exact,[K,V]}|Ps]) ->
+    K1 = type(K),
+    V1 = type(V),
+    [{type,Line,map_field_exact,[K1,V1]}|map_pair_types(Ps)];
 map_pair_types([]) -> [].
 
 field_types([{type,Line,field_type,[{atom,La,A},T]}|Fs]) ->

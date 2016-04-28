@@ -48,6 +48,7 @@
 	 t_is_float/1, t_is_fun/1,
 	 t_is_integer/1, t_non_neg_integer/0,
 	 t_is_list/1, t_is_nil/1, t_is_none/1, t_is_number/1,
+	 t_is_singleton/1,
 
          t_limit/2, t_list/0, t_list/1,
 	 t_list_elements/1, t_nonempty_list/1, t_maybe_improper_list/0,
@@ -57,7 +58,7 @@
 	 t_timeout/0, t_tuple/0, t_tuple/1,
          t_var/1, t_var_name/1,
 	 t_none/0, t_unit/0,
-	 t_map/1
+	 t_map/0, t_map/1, t_map_get/2, t_map_put/2
      ]).
 
 -include("dialyzer.hrl").
@@ -125,6 +126,8 @@
 		mfas                            :: [tuple()],
                 solvers     = []                :: [solver()]
 	       }).
+
+-type state() :: #state{}.
 
 %%-----------------------------------------------------------------------------
 
@@ -311,7 +314,7 @@ traverse(Tree, DefinedVars, State) ->
       Hd = cerl:cons_hd(Tree),
       Tl = cerl:cons_tl(Tree),
       {State1, [HdVar, TlVar]} = traverse_list([Hd, Tl], DefinedVars, State),
-      case cerl:is_literal(cerl:fold_literal(Tree)) of
+      case cerl:is_literal(fold_literal_maybe_match(Tree, State)) of
 	true ->
 	  %% We do not need to do anything more here.
 	  {State, t_cons(HdVar, TlVar)};
@@ -392,8 +395,18 @@ traverse(Tree, DefinedVars, State) ->
       {State2, _} = traverse_list(Funs, DefinedVars1, State1),
       traverse(Body, DefinedVars1, State2);
     literal ->
-      Type = t_from_term(cerl:concrete(Tree)),
-      {State, Type};
+      %% Maps are special; a literal pattern matches more than just the value
+      %% constructed by the literal. For example #{} constructs the empty map,
+      %% but matches every map.
+      case state__is_in_match(State) of
+	true ->
+	  Tree1 = dialyzer_utils:refold_pattern(Tree),
+	  case cerl:is_literal(Tree1) of
+	    false -> traverse(Tree1, DefinedVars, State);
+	    true -> {State, t_from_term(cerl:concrete(Tree))}
+	  end;
+	_ -> {State, t_from_term(cerl:concrete(Tree))}
+      end;
     module ->
       Defs = cerl:module_defs(Tree),
       Funs = [Fun || {_Var, Fun} <- Defs],
@@ -437,7 +450,7 @@ traverse(Tree, DefinedVars, State) ->
       Elements = cerl:tuple_es(Tree),
       {State1, EVars} = traverse_list(Elements, DefinedVars, State),
       {State2, TupleType} =
-	case cerl:is_literal(cerl:fold_literal(Tree)) of
+	case cerl:is_literal(fold_literal_maybe_match(Tree, State1)) of
 	  true ->
 	    %% We do not need to do anything more here.
 	    {State, t_tuple(EVars)};
@@ -476,7 +489,111 @@ traverse(Tree, DefinedVars, State) ->
 	[] -> {State2, TupleType}
       end;
     map ->
-	{State, t_map([])};
+      Entries = cerl:map_es(Tree),
+      MapFoldFun = fun(Entry, AccState) ->
+		       AccState1 = state__set_in_match(AccState, false),
+		       {AccState2, KeyVar} = traverse(cerl:map_pair_key(Entry),
+						      DefinedVars, AccState1),
+		       AccState3 = state__set_in_match(
+				     AccState2, state__is_in_match(AccState)),
+		       {AccState4, ValVar} = traverse(cerl:map_pair_val(Entry),
+						      DefinedVars, AccState3),
+		       {{KeyVar, ValVar}, AccState4}
+		   end,
+      {Pairs, State1} = lists:mapfoldl(MapFoldFun, State, Entries),
+      %% We mustn't recurse into map arguments to matches. Not only are they
+      %% syntactically only allowed to be the literal #{}, but that would also
+      %% cause an infinite recursion, since traverse/3 unfolds literals with
+      %% maps in them using dialyzer_utils:reflow_pattern/1.
+      {State2, ArgVar} =
+	case state__is_in_match(State) of
+	  false -> traverse(cerl:map_arg(Tree), DefinedVars, State1);
+	  true -> {State1, t_map()}
+	end,
+      MapVar = mk_var(Tree),
+      MapType = ?mk_fun_var(
+		   fun(Map) ->
+		       lists:foldl(
+			 fun({K,V}, TypeAcc) ->
+			     t_map_put({lookup_type(K, Map),
+					lookup_type(V, Map)},
+				       TypeAcc)
+			 end, t_inf(t_map(), lookup_type(ArgVar, Map)),
+			 Pairs)
+		   end, [ArgVar | lists:append([[K,V] || {K,V} <- Pairs])]),
+      %% TODO: does the "same element appearing several times" problem apply
+      %% here too?
+      Fun =
+	fun({KeyVar, ValVar}, {AccState, ShadowKeys}) ->
+	    %% If Val is known to be the last association of Key (i.e. Key
+	    %% is not in ShadowKeys), Val must be a subtype of what is
+	    %% associated to Key in Tree
+	    TypeFun =
+	      fun(Map) ->
+		  KeyType = lookup_type(KeyVar, Map),
+		  case t_is_singleton(KeyType) of
+		    false -> t_any();
+		    true ->
+		      MT = t_inf(lookup_type(MapVar, Map), t_map()),
+		      case t_is_none(MT) of
+			true -> t_none();
+			false ->
+			  DisjointFromKeyType =
+			    fun(ShadowKey) ->
+				t_is_none(t_inf(lookup_type(ShadowKey, Map),
+						KeyType))
+			    end,
+			  case lists:all(DisjointFromKeyType, ShadowKeys) of
+			    true -> t_map_get(KeyType, MT);
+			    %% A later association might shadow this one
+			    false -> t_any()
+			  end
+		      end
+		  end
+	      end,
+	    ValType = ?mk_fun_var(TypeFun, [KeyVar, MapVar | ShadowKeys]),
+	    {state__store_conj(ValVar, sub, ValType, AccState),
+	     [KeyVar | ShadowKeys]}
+	end,
+      %% Accumulate shadowing keys right-to-left
+      {State3, _} = lists:foldr(Fun, {State2, []}, Pairs),
+      %% In a map expression, Arg must contain all keys that are inserted with
+      %% the exact (:=) operator, and are known (i.e. are not in ShadowedKeys)
+      %% to not have been introduced by a previous association
+      State4 =
+	case state__is_in_match(State) of
+	  true -> State3;
+	  false ->
+	    ArgFun =
+	      fun(Map) ->
+		  FoldFun =
+		    fun({{KeyVar, _}, Entry}, {AccType, ShadowedKeys}) ->
+			OpTree = cerl:map_pair_op(Entry),
+			KeyType = lookup_type(KeyVar, Map),
+			AccType1 =
+			  case cerl:is_literal(OpTree) andalso
+			    cerl:concrete(OpTree) =:= exact of
+			    true ->
+			      case t_is_none(t_inf(ShadowedKeys, KeyType)) of
+				true ->
+				  t_map_put({KeyType, t_any()}, AccType);
+				false ->
+				  AccType
+			      end;
+			    false ->
+			      AccType
+			  end,
+			{AccType1, t_sup(KeyType, ShadowedKeys)}
+		    end,
+		  %% Accumulate shadowed keys left-to-right
+		  {ResType, _} = lists:foldl(FoldFun, {t_map(), t_none()},
+					     lists:zip(Pairs, Entries)),
+		  ResType
+	      end,
+	    ArgType = ?mk_fun_var(ArgFun, [KeyVar || {KeyVar, _} <- Pairs]),
+	    state__store_conj(ArgVar, sub, ArgType, State3)
+	end,
+      {state__store_conj(MapVar, sub, MapType, State4), MapVar};
     values ->
       %% We can get into trouble when unifying products that have the
       %% same element appearing several times. Handle these cases by
@@ -948,6 +1065,7 @@ get_type_test({erlang, is_float, 1}) ->     {ok, t_float()};
 get_type_test({erlang, is_function, 1}) ->  {ok, t_fun()};
 get_type_test({erlang, is_integer, 1}) ->   {ok, t_integer()};
 get_type_test({erlang, is_list, 1}) ->      {ok, t_list()};
+get_type_test({erlang, is_map, 1}) ->       {ok, t_map()};
 get_type_test({erlang, is_number, 1}) ->    {ok, t_number()};
 get_type_test({erlang, is_pid, 1}) ->       {ok, t_pid()};
 get_type_test({erlang, is_port, 1}) ->      {ok, t_port()};
@@ -1004,7 +1122,9 @@ bitstr_val_constr(SizeType, UnitVal, Flags) ->
       end
   end.
 
-get_safe_underapprox_1([Pat|Left], Acc, Map) ->
+get_safe_underapprox_1([Pat0|Left], Acc, Map) ->
+  %% Maps should be treated as patterns, not as literals
+  Pat = dialyzer_utils:refold_pattern(Pat0),
   case cerl:type(Pat) of
     alias ->
       APat = cerl:alias_pat(Pat),
@@ -1048,8 +1168,35 @@ get_safe_underapprox_1([Pat|Left], Acc, Map) ->
       Type = t_tuple(Ts),
       get_safe_underapprox_1(Left, [Type|Acc], Map1);
     map ->
-      %% TODO: Can maybe do something here
-      throw(dont_know);
+      %% Some assertions in case the syntax gets more premissive in the future
+      true = #{} =:= cerl:concrete(cerl:map_arg(Pat)),
+      true = lists:all(fun(P) ->
+			   cerl:is_literal(Op = cerl:map_pair_op(P)) andalso
+			     exact =:= cerl:concrete(Op)
+		       end, cerl:map_es(Pat)),
+      KeyTrees = lists:map(fun cerl:map_pair_key/1, cerl:map_es(Pat)),
+      ValTrees = lists:map(fun cerl:map_pair_val/1, cerl:map_es(Pat)),
+      %% Keys must not be underapproximated. Overapproximations are safe.
+      Keys = get_safe_overapprox(KeyTrees),
+      {Vals, Map1} = get_safe_underapprox_1(ValTrees, [], Map),
+      case lists:all(fun erl_types:t_is_singleton/1, Keys) of
+	false -> throw(dont_know);
+	true -> ok
+      end,
+      SortedPairs = lists:sort(lists:zip(Keys, Vals)),
+      %% We need to deal with duplicates ourselves
+      SquashDuplicates =
+	fun SquashDuplicates([{K,First},{K,Second}|List]) ->
+	    case t_is_none(Inf = t_inf(First, Second)) of
+	      true -> throw(dont_know);
+	      false -> [{K, Inf}|SquashDuplicates(List)]
+	    end;
+	    SquashDuplicates([Good|Rest]) ->
+	    [Good|SquashDuplicates(Rest)];
+	    SquashDuplicates([]) -> []
+	end,
+      Type = t_map(SquashDuplicates(SortedPairs)),
+      get_safe_underapprox_1(Left, [Type|Acc], Map1);
     values ->
       Es = cerl:values_es(Pat),
       {Ts, Map1} = get_safe_underapprox_1(Es, [], Map),
@@ -1063,6 +1210,15 @@ get_safe_underapprox_1([Pat|Left], Acc, Map) ->
   end;
 get_safe_underapprox_1([], Acc, Map) ->
   {lists:reverse(Acc), Map}.
+
+get_safe_overapprox(Pats) ->
+  lists:map(fun get_safe_overapprox_1/1, Pats).
+
+get_safe_overapprox_1(Pat) ->
+  case cerl:is_literal(Lit = cerl:fold_literal(Pat)) of
+    true  -> t_from_term(cerl:concrete(Lit));
+    false -> t_any()
+  end.
 
 %%----------------------------------------
 %% Guards
@@ -1263,6 +1419,8 @@ get_bif_constr({erlang, is_integer, 1}, Dst, [Arg], State) ->
   get_bif_test_constr(Dst, Arg, t_integer(), State);
 get_bif_constr({erlang, is_list, 1}, Dst, [Arg], State) ->
   get_bif_test_constr(Dst, Arg, t_maybe_improper_list(), State);
+get_bif_constr({erlang, is_map, 1}, Dst, [Arg], State) ->
+  get_bif_test_constr(Dst, Arg, t_map(), State);
 get_bif_constr({erlang, is_number, 1}, Dst, [Arg], State) ->
   get_bif_test_constr(Dst, Arg, t_number(), State);
 get_bif_constr({erlang, is_pid, 1}, Dst, [Arg], State) ->
@@ -1900,7 +2058,7 @@ sane_maps(Map1, Map2, Keys, _S1, _S2) ->
 %% Solver v2
 
 -record(v2_state, {constr_data = dict:new() :: dict:dict(),
-                   state :: #state{}}).
+		   state :: state()}).
 
 v2_solve_ref(Fun, Map, State) ->
   V2State = #v2_state{state = State},
@@ -2975,13 +3133,24 @@ mk_constraint_ref(Id, Deps) ->
 
 mk_constraint_list(Type, List) ->
   List1 = ordsets:from_list(lift_lists(Type, List)),
-  List2 = ordsets:filter(fun(X) -> get_deps(X) =/= [] end, List1),
-  Deps = calculate_deps(List2),
+  case Type of
+    conj ->
+      List2 = ordsets:filter(fun(X) -> get_deps(X) =/= [] end, List1),
+      mk_constraint_list_cont(Type, List2);
+    disj ->
+      case lists:any(fun(X) -> get_deps(X) =:= [] end, List1) of
+	true -> mk_constraint_list_cont(Type, [mk_constraint_any(eq)]);
+	false -> mk_constraint_list_cont(Type, List1)
+      end
+  end.
+
+mk_constraint_list_cont(Type, List) ->
+  Deps = calculate_deps(List),
   case Deps =:= [] of
     true -> #constraint_list{type = conj,
 			     list = [mk_constraint_any(eq)],
 			     deps = []};
-    false -> #constraint_list{type = Type, list = List2, deps = Deps}
+    false -> #constraint_list{type = Type, list = List, deps = Deps}
   end.
 
 lift_lists(Type, List) ->
@@ -3262,6 +3431,15 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
   find_constraint(Tuple, List ++ Cs);
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
+
+-spec fold_literal_maybe_match(cerl:cerl(), state()) -> cerl:cerl().
+
+fold_literal_maybe_match(Tree0, State) ->
+  Tree1 = cerl:fold_literal(Tree0),
+  case state__is_in_match(State) of
+    false -> Tree1;
+    true -> dialyzer_utils:refold_pattern(Tree1)
+  end.
 
 lookup_record(Records, Tag, Arity) ->
   case erl_types:lookup_record(Tag, Arity, Records) of
