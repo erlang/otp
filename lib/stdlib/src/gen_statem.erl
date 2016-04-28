@@ -282,16 +282,6 @@ event_type(Type) ->
    STACKTRACE(),
    try throw(ok) catch _ -> erlang:get_stacktrace() end).
 
--define(
-   TERMINATE(Class, Reason, Debug, S, Q),
-   terminate(
-     begin Class end,
-     begin Reason end,
-     ?STACKTRACE(),
-     begin Debug end,
-     begin S end,
-     begin Q end)).
-
 %%%==========================================================================
 %%% API
 
@@ -550,7 +540,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent) ->
       postponed => P,
       hibernate => false,
       timer => undefined},
-    NewDebug = sys_debug(Debug, S, {enter,Event,State}),
+    NewDebug = sys_debug(Debug, S, State, {enter,Event,State}),
     loop_event_actions(
       Parent, NewDebug, S, Events,
       State, Data, P, Event, State, NewActions).
@@ -622,8 +612,12 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 system_continue(Parent, Debug, S) ->
     loop(Parent, Debug, S).
 
-system_terminate(Reason, _Parent, Debug, S) ->
-    ?TERMINATE(exit, Reason, Debug, S, []).
+system_terminate(
+  Reason, _Parent, Debug,
+  #{state := State, data := Data, postponed := P} = S) ->
+    terminate(
+      exit, Reason, ?STACKTRACE(),
+      Debug, S, [], State, Data, P).
 
 system_code_change(
   #{module := Module,
@@ -662,7 +656,7 @@ system_replace_state(
 format_status(
   Opt,
   [PDict,SysState,Parent,Debug,
-   #{name := Name, postponed := P} = S]) ->
+   #{name := Name, postponed := P, state := State, data := Data} = S]) ->
     Header = gen:format_status_header("Status for state machine", Name),
     Log = sys:get_debug(log, Debug, []),
     [{header,Header},
@@ -671,7 +665,7 @@ format_status(
        {"Parent",Parent},
        {"Logged Events",Log},
        {"Postponed",P}]} |
-     case format_status(Opt, PDict, S) of
+     case format_status(Opt, PDict, S, State, Data) of
 	 L when is_list(L) -> L;
 	 T -> [T]
      end].
@@ -681,15 +675,15 @@ format_status(
 %% them, not as the real erlang messages.  Use trace for that.
 %%---------------------------------------------------------------------------
 
-print_event(Dev, {in,Event}, #{name := Name}) ->
+print_event(Dev, {in,Event}, {Name,_}) ->
     io:format(
       Dev, "*DBG* ~p received ~s~n",
       [Name,event_string(Event)]);
-print_event(Dev, {out,Reply,{To,_Tag}}, #{name := Name}) ->
+print_event(Dev, {out,Reply,{To,_Tag}}, {Name,_}) ->
     io:format(
       Dev, "*DBG* ~p sent ~p to ~p~n",
       [Name,Reply,To]);
-print_event(Dev, {Tag,Event,NextState}, #{name := Name, state := State}) ->
+print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
     StateString =
 	case NextState of
 	    State ->
@@ -709,12 +703,13 @@ event_string(Event) ->
 	    io_lib:format("~w ~p", [EventType,EventContent])
     end.
 
-sys_debug(Debug, S, Entry) ->
+sys_debug(Debug, #{name := Name}, State, Entry) ->
     case Debug of
 	[] ->
 	    Debug;
 	_ ->
-	    sys:handle_debug(Debug, fun print_event/3, S, Entry)
+	    sys:handle_debug(
+	      Debug, fun print_event/3, {Name,State}, Entry)
     end.
 
 %%%==========================================================================
@@ -728,7 +723,7 @@ wakeup_from_hibernate(Parent, Debug, S) ->
 %%% State Machine engine implementation of proc_lib/gen server
 
 %% Server loop, consists of all loop* functions
-%% and some detours through sys and proc_lib
+%% and detours through sys:handle_system_message/7 and proc_lib:hibernate/3
 
 %% Entry point for system_continue/3
 loop(Parent, Debug, #{hibernate := Hibernate} = S) ->
@@ -757,10 +752,13 @@ loop_receive(Parent, Debug, #{timer := Timer} = S) ->
 		    sys:handle_system_msg(
 		      Req, Pid, Parent, ?MODULE, Debug, S, Hibernate);
 		{'EXIT',Parent,Reason} = EXIT ->
+		    #{state := State, data := Data, postponed := P} = S,
 		    %% EXIT is not a 2-tuple and therefore
 		    %% not an event and has no event_type(),
 		    %% but this will stand out in the crash report...
-		    ?TERMINATE(exit, Reason, Debug, S, [EXIT]);
+		    terminate(
+		      exit, Reason, ?STACKTRACE(),
+		      Debug, S, [EXIT], State, Data, P);
 		{timeout,Timer,Content} when Timer =/= undefined ->
 		    loop_receive_result(
 		      Parent, Debug, S, {timeout,Content});
@@ -801,14 +799,14 @@ loop_receive_result(
     data := Data,
     postponed := P} = S,
   Event) ->
-    %% The S map is now dismantled and will not be restored
-    %% until we return to loop/3 or have to terminate.
+    %% The engine state map S is now dismantled
+    %% and will not be restored until we return to loop/3.
     %%
     %% The fields 'callback_mode', 'module', and 'name' are still valid.
     %% The fields 'state', 'data', and 'postponed' are held in arguments.
     %% The fields 'timer' and 'hibernate' will be recalculated.
     %%
-    NewDebug = sys_debug(Debug, S, {in,Event}),
+    NewDebug = sys_debug(Debug, S, State, {in,Event}),
     %% Here the queue of not yet handled events is created
     Events = [],
     Hibernate = false,
@@ -896,9 +894,11 @@ loop_event(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
 		      Stacktrace,
-		      Debug, S, [Event|Events]);
+		      Debug, S, [Event|Events], State, Data, P);
 		Stacktrace ->
-		    terminate(error, badarg, Stacktrace, Debug, S, [Event|Events])
+		    terminate(
+		      error, badarg, Stacktrace,
+		      Debug, S, [Event|Events], State, Data, P)
 	    end;
 	error:undef ->
 	    %% Process an undef to check for the simple mistake
@@ -913,7 +913,7 @@ loop_event(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
 		      Stacktrace,
-		      Debug, S, [Event|Events]);
+		      Debug, S, [Event|Events], State, Data, P);
 		[{Module,handle_event,
 		  [Type,Content,State,Data]=Args,
 		  _}
@@ -921,17 +921,19 @@ loop_event(
 		when CallbackMode =:= handle_event_function ->
 		    terminate(
 		      error,
-		      {undef_state_function,
-		       {Module,handle_event,Args}},
+		      {undef_state_function,{Module,handle_event,Args}},
 		      Stacktrace,
-		      Debug, S, [Event|Events]);
+		      Debug, S, [Event|Events], State, Data, P);
 		Stacktrace ->
 		    terminate(
-		      error, undef, Stacktrace, Debug, S, [Event|Events])
+		      error, undef, Stacktrace,
+		      Debug, S, [Event|Events], State, Data, P)
 	    end;
 	Class:Reason ->
 	    Stacktrace = erlang:get_stacktrace(),
-	    terminate(Class, Reason, Stacktrace, Debug, S, [Event|Events])
+	    terminate(
+	      Class, Reason, Stacktrace,
+	      Debug, S, [Event|Events], State, Data, P)
     end.
 
 %% Interpret all callback return variants
@@ -939,33 +941,27 @@ loop_event_result(
   Parent, Debug, S, Events, State, Data, P, Event, Result) ->
     case Result of
 	stop ->
-	    NewS = S#{state := State, data := Data, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(exit, normal, Debug, NewS, Q);
+	    terminate(
+	      exit, normal, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, Data, P);
 	{stop,Reason} ->
-	    NewS = S#{state := State, data := Data, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(exit, Reason, Debug, NewS, Q);
+	    terminate(
+	      exit, Reason, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, Data, P);
 	{stop,Reason,NewData} ->
-	    NewS = S#{state := State, data := NewData, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(exit, Reason, Debug, NewS, Q);
+	    terminate(
+	      exit, Reason, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, NewData, P);
 	{stop_and_reply,Reason,Replies} ->
-	    NewS = S#{state := State, data := Data, postponed := P},
 	    Q = [Event|Events],
-	    [Class,NewReason,Stacktrace,NewDebug] =
-		reply_then_terminate(
-		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
-	    %% Since we got back here Replies was bad
-	    terminate(Class, NewReason, Stacktrace, NewDebug, NewS, Q);
+	    reply_then_terminate(
+	      exit, Reason, ?STACKTRACE(),
+	      Debug, S, Q, State, Data, P, Replies);
 	{stop_and_reply,Reason,Replies,NewData} ->
-	    NewS = S#{state := State, data := NewData, postponed := P},
 	    Q = [Event|Events],
-	    [Class,NewReason,Stacktrace,NewDebug] =
-		reply_then_terminate(
-		  exit, Reason, ?STACKTRACE(), Debug, NewS, Q, Replies),
-	    %% Since we got back here Replies was bad
-	    terminate(Class, NewReason, Stacktrace, NewDebug, NewS, Q);
+	    reply_then_terminate(
+	      exit, Reason, ?STACKTRACE(),
+	      Debug, S, Q, State, NewData, P, Replies);
 	{next_state,NextState,NewData} ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events,
@@ -991,10 +987,9 @@ loop_event_result(
 	      Parent, Debug, S, Events,
 	      State, Data, P, Event, State, Actions);
 	_ ->
-	    NewS = S#{state := State, data := Data, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(
-	      error, {bad_return_value,Result}, Debug, NewS, Q)
+	    terminate(
+	      error, {bad_return_value,Result}, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, Data, P)
     end.
 
 loop_event_actions(
@@ -1023,17 +1018,15 @@ loop_event_actions(
 	{reply,From,Reply} ->
 	    case from(From) of
 		true ->
-		    NewDebug = do_reply(Debug, S, From, Reply),
+		    NewDebug = do_reply(Debug, S, State, From, Reply),
 		    loop_event_actions(
 		      Parent, NewDebug, S, Events,
 		      State, NewData, P, Event, NextState, Actions,
 		      Postpone, Hibernate, Timeout, NextEvents);
 		false ->
-		    NewS =
-			S#{state := State, data := NewData, postponed := P},
-		    Q = [Event|Events],
-		    ?TERMINATE(
-		       error, {bad_action,Action}, Debug, NewS, Q)
+		    terminate(
+		      error, {bad_action,Action}, ?STACKTRACE(),
+		      Debug, S, [Event|Events], State, NewData, P)
 	    end;
 	{next_event,Type,Content} ->
 	    case event_type(Type) of
@@ -1044,11 +1037,9 @@ loop_event_actions(
 		      Postpone, Hibernate, Timeout,
 		      [{Type,Content}|NextEvents]);
 		false ->
-		    NewS =
-			S#{state := State, data := NewData, postponed := P},
-		    Q = [Event|Events],
-		    ?TERMINATE(
-		       error, {bad_action,Action}, Debug, NewS, Q)
+		    terminate(
+		      error, {bad_action,Action}, ?STACKTRACE(),
+		      Debug, S, [Event|Events], State, NewData, P)
 	    end;
 	%% Actions that set options
 	{postpone,NewPostpone} when is_boolean(NewPostpone) ->
@@ -1057,10 +1048,9 @@ loop_event_actions(
 	      State, NewData, P, Event, NextState, Actions,
 	      NewPostpone, Hibernate, Timeout, NextEvents);
 	{postpone,_} ->
-	    NewS = S#{state := State, data := NewData, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, NewS, Q);
+	    terminate(
+	      error, {bad_action,Action}, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, NewData, P);
 	postpone ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events,
@@ -1072,10 +1062,9 @@ loop_event_actions(
 	      State, NewData, P, Event, NextState, Actions,
 	      Postpone, NewHibernate, Timeout, NextEvents);
 	{hibernate,_} ->
-	    NewS = S#{state := State, data := NewData, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, NewS, Q);
+	    terminate(
+	      error, {bad_action,Action}, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, NewData, P);
 	hibernate ->
 	    loop_event_actions(
 	      Parent, Debug, S, Events,
@@ -1092,10 +1081,9 @@ loop_event_actions(
 	      State, NewData, P, Event, NextState, Actions,
 	      Postpone, Hibernate, NewTimeout, NextEvents);
 	{timeout,_,_} ->
-	    NewS = S#{state := State, data := NewData, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, NewS, Q);
+	    terminate(
+	      error, {bad_action,Action}, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, NewData, P);
 	infinity -> % Clear timer - it will never trigger
 	    loop_event_actions(
 	      Parent, Debug, S, Events,
@@ -1108,10 +1096,9 @@ loop_event_actions(
 	      State, NewData, P, Event, NextState, Actions,
 	      Postpone, Hibernate, NewTimeout, NextEvents);
 	_ ->
-	    NewS = S#{state := State, data := NewData, postponed := P},
-	    Q = [Event|Events],
-	    ?TERMINATE(
-	       error, {bad_action,Action}, Debug, NewS, Q)
+	    terminate(
+	      error, {bad_action,Action}, ?STACKTRACE(),
+	      Debug, S, [Event|Events], State, NewData, P)
     end;
 %%
 %% End of actions list
@@ -1142,7 +1129,7 @@ loop_event_actions(
     %%
     NewDebug =
 	sys_debug(
-	  Debug, S,
+	  Debug, S, State,
 	  case Postpone of
 	      true ->
 		  {postpone,Event,NextState};
@@ -1155,39 +1142,45 @@ loop_event_actions(
 %%---------------------------------------------------------------------------
 %% Server helpers
 
-reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, Replies) ->
+reply_then_terminate(
+  Class, Reason, Stacktrace,
+  Debug, S, Q, State, Data, P, Replies) ->
     if
 	is_list(Replies) ->
 	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, Debug, S, Q, Replies);
+	      Class, Reason, Stacktrace,
+	      Debug, S, Q, State, Data, P, Replies);
 	true ->
 	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, Debug, S, Q, [Replies])
+	      Class, Reason, Stacktrace,
+	      Debug, S, Q, State, Data, P, [Replies])
     end.
 %%
-do_reply_then_terminate(Class, Reason, Stacktrace, Debug, S, Q, []) ->
-    terminate(Class, Reason, Stacktrace, Debug, S, Q);
 do_reply_then_terminate(
-  Class, Reason, Stacktrace, Debug, S, Q, [R|Rs]) ->
+  Class, Reason, Stacktrace, Debug, S, Q, State, Data, P, []) ->
+    terminate(Class, Reason, Stacktrace, Debug, S, Q, State, Data, P);
+do_reply_then_terminate(
+  Class, Reason, Stacktrace, Debug, S, Q, State, Data, P, [R|Rs]) ->
     case R of
 	{reply,{_To,_Tag}=From,Reply} ->
-	    NewDebug = do_reply(Debug, S, From, Reply),
+	    NewDebug = do_reply(Debug, S, State, From, Reply),
 	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
+	      Class, Reason, Stacktrace,
+	      NewDebug, S, Q, State, Data, P, Rs);
 	_ ->
-	    [error,{bad_action,R},?STACKTRACE(),Debug]
+	    terminate(
+	      error, {bad_action,R}, ?STACKTRACE(),
+	      Debug, S, Q, State, Data, P)
     end.
 
-do_reply(Debug, S, From, Reply) ->
+do_reply(Debug, S, State, From, Reply) ->
     reply(From, Reply),
-    sys_debug(Debug, S, {out,Reply,From}).
+    sys_debug(Debug, S, State, {out,Reply,From}).
 
 
 terminate(
-  Class, Reason, Stacktrace, Debug,
-  #{module := Module,
-    state := State, data := Data} = S,
-  Q) ->
+  Class, Reason, Stacktrace,
+  Debug, #{module := Module} = S, Q, State, Data, P) ->
     try Module:terminate(Reason, State, Data) of
 	_ -> ok
     catch
@@ -1195,8 +1188,8 @@ terminate(
 	C:R ->
 	    ST = erlang:get_stacktrace(),
 	    error_info(
-	      C, R, ST, Debug, S, Q,
-	      format_status(terminate, get(), S)),
+	      C, R, ST, Debug, S, Q, P,
+	      format_status(terminate, get(), S, State, Data)),
 	    erlang:raise(C, R, ST)
     end,
     case Reason of
@@ -1205,8 +1198,8 @@ terminate(
 	{shutdown,_} -> ok;
 	_ ->
 	    error_info(
-	      Class, Reason, Stacktrace, Debug, S, Q,
-	      format_status(terminate, get(), S))
+	      Class, Reason, Stacktrace, Debug, S, Q, P,
+	      format_status(terminate, get(), S, State, Data))
     end,
     case Stacktrace of
 	[] ->
@@ -1217,9 +1210,8 @@ terminate(
 
 error_info(
   Class, Reason, Stacktrace, Debug,
-  #{name := Name, callback_mode := CallbackMode,
-    state := State, postponed := P},
-  Q, FmtData) ->
+  #{name := Name, callback_mode := CallbackMode},
+  Q, P, FmtData) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
 	    [{M,F,Args,_}|ST]
@@ -1248,46 +1240,49 @@ error_info(
     error_logger:format(
       "** State machine ~p terminating~n" ++
 	  case Q of
-	      [] ->
-		  "";
-	      _ ->
-		  "** Last event = ~p~n"
+	      [] -> "";
+	      _ -> "** Last event = ~p~n"
 	  end ++
-	  "** When Server state  = ~p~n" ++
+	  "** When server state  = ~p~n" ++
 	  "** Reason for termination = ~w:~p~n" ++
-	  "** State = ~p~n" ++
 	  "** Callback mode = ~p~n" ++
-	  "** Queued/Postponed = ~w/~w~n" ++
+	  case Q of
+	      [_,_|_] -> "** Queued = ~p~n";
+	      _ -> ""
+	  end ++
+	  case P of
+	      [] -> "";
+	      _ -> "** Postponed = ~p~n"
+	  end ++
 	  case FixedStacktrace of
-	      [] ->
-		  "";
-	      _ ->
-		  "** Stacktrace =~n"
-		      "**  ~p~n"
+	      [] -> "";
+	      _ -> "** Stacktrace =~n**  ~p~n"
 	  end,
       [Name |
        case Q of
-	   [] ->
-	       [];
-	   [Event|_] ->
-	       [Event]
+	   [] -> [];
+	   [Event|_] -> [Event]
        end] ++
 	  [FmtData,Class,FixedReason,
-	   State,CallbackMode,length(Q),length(P)] ++
+	   CallbackMode] ++
+	  case Q of
+	      [_|[_|_] = Events] -> [Events];
+	      _ -> []
+	  end ++
+	  case P of
+	      [] -> [];
+	      _ -> [P]
+	  end ++
 	  case FixedStacktrace of
-	      [] ->
-		  [];
-	      _ ->
-		  [FixedStacktrace]
+	      [] -> [];
+	      _ -> [FixedStacktrace]
 	  end),
     sys:print_log(Debug),
     ok.
 
 
 %% Call Module:format_status/2 or return a default value
-format_status(
-  Opt, PDict,
-  #{module := Module, state := State, data := Data}) ->
+format_status(Opt, PDict, #{module := Module}, State, Data) ->
     case erlang:function_exported(Module, format_status, 2) of
 	true ->
 	    try Module:format_status(Opt, [PDict,State,Data])
