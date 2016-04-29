@@ -615,18 +615,23 @@ exclude(Dir,Path) ->
 %%
 %%
 get_name(Dir) ->
-    get_name2(get_name1(Dir), []).
+    get_name_from_splitted(filename:split(Dir)).
 
-get_name1(Dir) ->
-    case lists:reverse(filename:split(Dir)) of
-	["ebin",DirName|_] -> DirName;
-	[DirName|_]        -> DirName;
-	_                  -> ""        % No name !
-    end.
+get_name_from_splitted([DirName,"ebin"]) ->
+    discard_after_hyphen(DirName);
+get_name_from_splitted([DirName]) ->
+    discard_after_hyphen(DirName);
+get_name_from_splitted([_|T]) ->
+    get_name_from_splitted(T);
+get_name_from_splitted([]) ->
+    "".						%No name.
 
-get_name2([$-|_],Acc) -> lists:reverse(Acc);
-get_name2([H|T],Acc)  -> get_name2(T,[H|Acc]);
-get_name2(_,Acc)      -> lists:reverse(Acc).
+discard_after_hyphen("-"++_) ->
+    [];
+discard_after_hyphen([H|T]) ->
+    [H|discard_after_hyphen(T)];
+discard_after_hyphen([]) ->
+    [].
 
 check_path(Path) ->
     PathChoice = init:code_path_choice(),
