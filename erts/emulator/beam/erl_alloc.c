@@ -2963,6 +2963,10 @@ erts_allocator_options(void *proc)
     atoms[length] = am_atom_put("alloc_util", 10); 
     terms[length++] = erts_alcu_au_info_options(NULL, NULL, hpp, szp);
 
+
+    atoms[length] = ERTS_MAKE_AM("erts_mmap");
+    terms[length++] = erts_mmap_info_options(&erts_dflt_mmapper, NULL, NULL,
+                                             NULL, hpp, szp);
     {
 	Eterm o[3], v[3];
 	o[0] = am_atom_put("m", 1);
