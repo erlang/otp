@@ -5166,7 +5166,7 @@ revert_function_type(Node) ->
 %% @see function_type/1
 %% @see function_type/2
 
--spec function_type_arguments(syntaxTree()) -> any_arity | syntaxTree().
+-spec function_type_arguments(syntaxTree()) -> any_arity | [syntaxTree()].
 
 function_type_arguments(Node) ->
     case unwrap(Node) of
@@ -5203,33 +5203,34 @@ function_type_return(Node) ->
 %% @see constraint_body/1
 
 -record(constraint, {name :: syntaxTree(),
-                     type :: syntaxTree()}).
+                     types :: [syntaxTree()]}).
 
 %% type(Node) = constraint
 %% data(Node) = #constraint{name :: Name,
-%%                          type :: Type}
+%%                          types :: [Type]}
 %%
 %%      Name = syntaxTree()
 %%      Type = syntaxTree()
 %%
 %% `erl_parse' representation:
 %%
-%% {type, Pos, constraint, [{atom, Pos, is_subtype}, Name, Type]}
+%% {type, Pos, constraint, [Name, [Var, Type]]}
 %%
-%%      Name = erl_parse()
+%%      Name = {atom, Pos, is_subtype}
+%%      Var = erl_parse()
 %%      Type = erl_parse()
 
--spec constraint(syntaxTree(), syntaxTree()) -> syntaxTree().
+-spec constraint(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
-constraint(Name, Type) ->
+constraint(Name, Types) ->
     tree(constraint,
-         #constraint{name = Name, type = Type}).
+         #constraint{name = Name, types = Types}).
 
 revert_constraint(Node) ->
     Pos = get_pos(Node),
     Name = constraint_argument(Node),
-    Type = constraint_body(Node),
-    {type, Pos, constraint, [Name, Type]}.
+    Types = constraint_body(Node),
+    {type, Pos, constraint, [Name, Types]}.
 
 
 %% =====================================================================
@@ -5252,14 +5253,14 @@ constraint_argument(Node) ->
 %%
 %% @see constraint/2
 
--spec constraint_body(syntaxTree()) -> syntaxTree().
+-spec constraint_body(syntaxTree()) -> [syntaxTree()].
 
 constraint_body(Node) ->
     case unwrap(Node) of
-        {type, _, constraint, [_, Type]} ->
-            Type;
+        {type, _, constraint, [_, Types]} ->
+            Types;
         Node1 ->
-            (data(Node1))#constraint.type
+            (data(Node1))#constraint.types
     end.
 
 
