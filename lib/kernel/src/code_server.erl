@@ -779,7 +779,7 @@ init_namedb(Path) ->
     Db.
     
 init_namedb([P|Path], Db) ->
-    insert_name(P, Db),
+    insert_dir(P, Db),
     init_namedb(Path, Db);
 init_namedb([], _) ->
     ok.
@@ -792,14 +792,18 @@ clear_namedb([], _) ->
     ok.
 -endif.
 
-insert_name(Dir, Db) ->
-    case get_name(Dir) of
-	Dir  -> false;
-	Name -> insert_name(Name, Dir, Db)
-    end.
+%% Dir must be a complete pathname (not only a name).
+insert_dir(Dir, Db) ->
+    Splitted = filename:split(Dir),
+    Name = get_name_from_splitted(Splitted),
+    AppDir = filename:join(del_ebin_1(Splitted)),
+    do_insert_name(Name, AppDir, Db).
 
 insert_name(Name, Dir, Db) ->
     AppDir = del_ebin(Dir),
+    do_insert_name(Name, AppDir, Db).
+
+do_insert_name(Name, AppDir, Db) ->
     {Base, SubDirs} = archive_subdirs(AppDir),
     ets:insert(Db, {Name, AppDir, Base, SubDirs}),
     true.
