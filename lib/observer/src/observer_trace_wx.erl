@@ -198,6 +198,7 @@ create_proc_port_view(Parent) ->
     wxListCtrl:connect(Procs, command_list_item_right_click),
     wxListCtrl:connect(Ports, command_list_item_right_click),
     wxListCtrl:connect(Nodes, command_list_item_right_click),
+    wxListCtrl:connect(Nodes, command_list_item_selected),
     wxListCtrl:connect(Procs, size, [{skip, true}]),
     wxListCtrl:connect(Ports, size, [{skip, true}]),
     wxListCtrl:connect(Nodes, size, [{skip, true}]),
@@ -293,6 +294,15 @@ handle_event(#wx{id=?MODULES_WIN, event=#wxList{type=command_list_item_selected,
 	     State = #state{tpatterns=TPs, m_view=Mview, f_view=Fview}) ->
     Module = list_to_atom(wxListCtrl:getItemText(Mview, Row)),
     update_functions_view(dict:fetch(Module, TPs), Fview),
+    {noreply, State};
+
+handle_event(#wx{id=?NODES_WIN,
+		 event=#wxList{type=command_list_item_selected, itemIndex=Row}},
+	     State = #state{tpids=Tpids, tports=Tports, n_view=Nview,
+			    proc_view=ProcView, port_view=PortView}) ->
+    Node = list_to_atom(wxListCtrl:getItemText(Nview, Row)),
+    update_p_view(Tpids, ProcView, Node),
+    update_p_view(Tports, PortView, Node),
     {noreply, State};
 
 handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, commandInt = 1}},
@@ -679,6 +689,13 @@ do_add_pid_or_port(POpts, Nview, LCtrl, OldPs, Ns0, Check) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+update_p_view(PidsOrPorts0, LCtrl, Node) ->
+    %% Show processes/ports belonging to the given node,
+    %% and processes/ports traced by name
+    PidsOrPorts = [P || P <- PidsOrPorts0,
+			is_atom(P#titem.id) orelse node(P#titem.id)==Node],
+    update_p_view(PidsOrPorts,LCtrl).
+
 update_p_view(PidsOrPorts, LCtrl) ->
     %% pid- or port-view
     wxListCtrl:deleteAllItems(LCtrl),
