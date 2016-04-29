@@ -32,7 +32,8 @@
 
 -import(lists, [foreach/2]).
 
--type on_load_item() :: {reference(),module(),file:name_all(),[pid()]}.
+-type on_load_item() :: {{pid(),reference()},module(),
+			 file:name_all(),[pid()]}.
 
 -record(state, {supervisor :: pid(),
 		root :: file:name_all(),
@@ -155,8 +156,8 @@ loop(#state{supervisor=Supervisor}=State0) ->
 	    system_terminate(Reason, Supervisor, [], State0);
 	{system, From, Msg} ->
 	    handle_system_msg(running,Msg, From, Supervisor, State0);
-	{'DOWN',Ref,process,_,Res} ->
-	    State = finish_on_load(Ref, Res, State0),
+	{'DOWN',Ref,process,Pid,Res} ->
+	    State = finish_on_load({Pid,Ref}, Res, State0),
 	    loop(State);
 	_Msg ->
 	    loop(State0)
@@ -1312,38 +1313,46 @@ handle_on_load(Mod, File, From, #state{on_load=OnLoad0}=St0) ->
 		  Res = erlang:call_on_load_function(Mod),
 		  exit(Res)
 	  end,
-    {_,Ref} = spawn_monitor(Fun),
-    OnLoad = [{Ref,Mod,File,[From]}|OnLoad0],
+    PidRef = spawn_monitor(Fun),
+    OnLoad = [{PidRef,Mod,File,[From]}|OnLoad0],
     St = St0#state{on_load=OnLoad},
     {noreply,St}.
 
 pending_on_load(_, _, #state{on_load=[]}) ->
     no;
 pending_on_load(Mod, From, #state{on_load=OnLoad0}=St) ->
-    case lists:keymember(Mod, 2, OnLoad0) of
+    case lists:keyfind(Mod, 2, OnLoad0) of
 	false ->
 	    no;
-	true ->
+	{{From,_Ref},Mod,_File,_Pids} ->
+	    %% The on_load function tried to make an external
+	    %% call to its own module. That would be a deadlock.
+	    %% Fail the call. (The call is probably from error_handler,
+	    %% and it will ignore the actual error reason and cause
+	    %% an undef execption.)
+	    _ = reply(From, {error,deadlock}),
+	    {yes,St};
+	{_,_,_,_} ->
 	    OnLoad = pending_on_load_1(Mod, From, OnLoad0),
 	    {yes,St#state{on_load=OnLoad}}
     end.
 
-pending_on_load_1(Mod, From, [{Ref,Mod,File,Pids}|T]) ->
-    [{Ref,Mod,File,[From|Pids]}|T];
+pending_on_load_1(Mod, From, [{PidRef,Mod,File,Pids}|T]) ->
+    [{PidRef,Mod,File,[From|Pids]}|T];
 pending_on_load_1(Mod, From, [H|T]) ->
     [H|pending_on_load_1(Mod, From, T)];
 pending_on_load_1(_, _, []) -> [].
 
-finish_on_load(Ref, OnLoadRes, #state{on_load=OnLoad0,moddb=Db}=State) ->
-    case lists:keyfind(Ref, 1, OnLoad0) of
+finish_on_load(PidRef, OnLoadRes, #state{on_load=OnLoad0,moddb=Db}=State) ->
+    case lists:keyfind(PidRef, 1, OnLoad0) of
 	false ->
 	    %% Since this process in general silently ignores messages
 	    %% it doesn't understand, it should also ignore a 'DOWN'
 	    %% message with an unknown reference.
 	    State;
-	{Ref,Mod,File,WaitingPids} ->
+	{PidRef,Mod,File,WaitingPids} ->
 	    finish_on_load_1(Mod, File, OnLoadRes, WaitingPids, Db),
-	    OnLoad = [E || {R,_,_,_}=E <- OnLoad0, R =/= Ref],
+	    OnLoad = [E || {R,_,_,_}=E <- OnLoad0, R =/= PidRef],
 	    State#state{on_load=OnLoad}
     end.
 

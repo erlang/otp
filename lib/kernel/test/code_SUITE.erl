@@ -35,7 +35,7 @@
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
-	 on_load_purge/1,
+	 on_load_purge/1, on_load_self_call/1,
 	 big_boot_embedded/1,
 	 native_early_modules/1, get_mode/1,
 	 normalized_paths/1]).
@@ -65,7 +65,7 @@ all() ->
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors, on_load_update,
-     on_load_purge,
+     on_load_purge, on_load_self_call,
      big_boot_embedded, native_early_modules, get_mode, normalized_paths].
 
 groups() ->
@@ -1521,6 +1521,32 @@ on_load_purge(_Config) ->
 	    after 10000 ->
 		    ct:fail(no_down_message)
 	    end
+    end.
+
+on_load_self_call(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    register(Mod, self()),
+    Tree = ?Q(["-module('@Mod@').\n",
+	       "-export([ext/0]).\n",
+	       "-on_load(f/0).\n",
+	       "f() ->\n",
+	       "  '@Mod@' ! (catch '@Mod@':ext()),\n",
+	       "  ok.\n",
+	       "ext() -> good_work.\n"]),
+        merl:print(Tree),
+    {ok,Mod,Code} = merl:compile(Tree),
+
+    {'EXIT',{undef,_}} = on_load_do_load(Mod, Code),
+    good_work = on_load_do_load(Mod, Code),
+
+    ok.
+
+on_load_do_load(Mod, Code) ->
+    spawn(fun() ->
+		  {module,Mod} = code:load_binary(Mod, "", Code)
+	  end),
+    receive
+	Any -> Any
     end.
 
 %% Test that the native code of early loaded modules is loaded.
