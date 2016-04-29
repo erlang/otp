@@ -996,10 +996,7 @@ info_options(ErtsMsegAllctr_t *ma,
 	     Uint **hpp,
 	     Uint *szp)
 {
-    Eterm res;
-
-    res = erts_mmap_info_options(&erts_dflt_mmapper,
-                                 prefix, print_to_p, print_to_arg, hpp, szp);
+    Eterm res = NIL;
 
     if (print_to_p) {
 	int to = *print_to_p;

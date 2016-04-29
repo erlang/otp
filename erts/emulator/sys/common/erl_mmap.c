@@ -2099,6 +2099,7 @@ int erts_mmap_in_supercarrier(ErtsMemMapper* mm, void *ptr)
 }
 
 static struct {
+    Eterm options;
     Eterm total;
     Eterm total_sa;
     Eterm total_sua;
@@ -2132,6 +2133,7 @@ static void init_atoms(void)
     erts_mtx_lock(&am.init_mutex);
 
     if (!am.is_initialized) {
+        AM_INIT(options);
         AM_INIT(total);
         AM_INIT(total_sa);
         AM_INIT(total_sua);
@@ -2387,9 +2389,9 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
     Eterm seg_tags[] = { am.used, am.max, am.allocated, am.reserved, am.used_sa, am.used_sua };
     Eterm group[2];
     Eterm group_tags[] = { am.sizes, am.free_segs };
-    Eterm list[2];
-    Eterm list_tags[2]; /* { am.supercarrier, am.os } */
-    int lix;
+    Eterm list[3];
+    Eterm list_tags[3]; /* { am.options, am.supercarrier, am.os } */
+    int lix = 0;
     Eterm res = THE_NON_VALUE;
 
     if (!hpp) {
@@ -2411,6 +2413,12 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
         emis->os_used = mm->size.os.used;
         erts_smp_mtx_unlock(&mm->mtx);
     }
+
+    list[lix] = erts_mmap_info_options(mm, "option ", print_to_p, print_to_arg,
+                                       hpp, szp);
+    list_tags[lix] = am.options;
+    lix++;
+
 
     if (print_to_p) {
         int to = *print_to_p;
@@ -2441,7 +2449,6 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
             init_atoms();
         }
 
-        lix = 0;
         if (mm->supercarrier) {
             group[0] = erts_bld_atom_uword_2tup_list(hpp, szp,
                                                      sizeof(size_tags)/sizeof(Eterm),
