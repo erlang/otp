@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ init_sftp_dirs(Config) ->
     DstDir = filename:join(UserDir, "sftp_dst"),
     ok = file:make_dir(DstDir),
     N = 100 * 1024*1024,
-    ok = file:write_file(filename:join(SrcDir,SrcFile), crypto:rand_bytes(N)),
+    ok = file:write_file(filename:join(SrcDir,SrcFile), crypto:strong_rand_bytes(N)),
     [{sftp_src_dir,SrcDir}, {sftp_dst_dir,DstDir}, {src_file,SrcFile}, {sftp_size,N}
      | Config].
 

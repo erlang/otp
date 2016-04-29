@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2015. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,13 +41,16 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-
 #ifdef HAVE_WORKING_POSIX_OPENPT
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE 600 
+#  ifndef _XOPEN_SOURCE
+     /* On OS X and BSD, we must leave _XOPEN_SOURCE undefined in order for
+      * the prototype of vsyslog() to be included.
+      */
+#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__))
+#      define _XOPEN_SOURCE 600
+#    endif
+#  endif
 #endif
-#endif
-
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -65,6 +68,7 @@
 #include <dirent.h>
 #include <termios.h>
 #include <time.h>
+
 #ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
 #endif
@@ -73,6 +77,9 @@
 #endif
 #ifdef HAVE_UTMP_H
 #  include <utmp.h>
+#endif
+#ifdef HAVE_LIBUTIL_H
+#  include <libutil.h>
 #endif
 #ifdef HAVE_UTIL_H
 #  include <util.h>
@@ -84,25 +91,81 @@
 #  include <stropts.h>
 #endif
 
-#include "run_erl_common.h"
+#include "run_erl.h"
 #include "safe_string.h"    /* sn_printf, strn_cpy, strn_cat, etc */
+
+#ifdef O_NONBLOCK
+#  define DONT_BLOCK_PLEASE O_NONBLOCK
+#else
+#  define DONT_BLOCK_PLEASE O_NDELAY
+#  ifndef EAGAIN
+#    define EAGAIN -3898734
+#  endif
+#endif
+
+#define noDEBUG
+
+#define DEFAULT_LOG_GENERATIONS 5
+#define LOG_MAX_GENERATIONS     1000      /* No more than 1000 log files */
+#define LOG_MIN_GENERATIONS     2         /* At least two to switch between */
+#define DEFAULT_LOG_MAXSIZE     100000
+#define LOG_MIN_MAXSIZE         1000      /* Smallast value for changing log file */
+#define LOG_STUBNAME            "erlang.log."
+#define LOG_PERM                0664
+#define DEFAULT_LOG_ACTIVITY_MINUTES    5
+#define DEFAULT_LOG_ALIVE_MINUTES       15
+#define DEFAULT_LOG_ALIVE_FORMAT        "%a %b %e %T %Z %Y"
+#define ALIVE_BUFFSIZ                   256
+
+#define PERM            0600
+#define STATUSFILENAME  "/run_erl.log"
+#define PIPE_STUBNAME   "erlang.pipe"
+#define PIPE_STUBLEN    strlen(PIPE_STUBNAME)
+
+#ifndef FILENAME_MAX
+#define FILENAME_MAX 250
+#endif
+
+#ifndef O_SYNC
+#define O_SYNC 0
+#define USE_FSYNC 1
+#endif
 
 #define MAX(x,y)  ((x) > (y) ? (x) : (y))
 
+#define FILENAME_BUFSIZ FILENAME_MAX
+
 /* prototypes */
 static void usage(char *);
+static int create_fifo(char *name, int perm);
 static int open_pty_master(char **name, int *sfd);
 static int open_pty_slave(char *name);
 static void pass_on(pid_t);
 static void exec_shell(char **);
+static void status(const char *format,...);
+static void error_logf(int priority, int line, const char *format,...);
 static void catch_sigchild(int);
+static int next_log(int log_num);
+static int prev_log(int log_num);
+static int find_next_log_num(void);
+static int open_log(int log_num, int flags);
+static void write_to_log(int* lfd, int* log_num, char* buf, int len);
 static void daemon_init(void);
+static char *simple_basename(char *path);
 static void init_outbuf(void);
 static int outbuf_size(void);
 static void clear_outbuf(void);
 static char* outbuf_first(void);
 static void outbuf_delete(int bytes);
 static void outbuf_append(const char* bytes, int n);
+static int write_all(int fd, const char* buf, int len);
+static int extract_ctrl_seq(char* buf, int len);
+static void set_window_size(unsigned col, unsigned row);
+
+static ssize_t sf_write(int fd, const void *buffer, size_t len);
+static ssize_t sf_read(int fd, void *buffer, size_t len);
+static int sf_open(const char *path, int flags, mode_t mode);
+static int sf_close(int fd);
 
 #ifdef DEBUG
 static void show_terminal_settings(struct termios *t);
@@ -110,11 +173,20 @@ static void show_terminal_settings(struct termios *t);
 
 /* static data */
 static char fifo1[FILENAME_BUFSIZ], fifo2[FILENAME_BUFSIZ];
+static char statusfile[FILENAME_BUFSIZ];
+static char log_dir[FILENAME_BUFSIZ];
 static char pipename[FILENAME_BUFSIZ];
 static FILE *stdstatus = NULL;
+static int log_generations = DEFAULT_LOG_GENERATIONS;
+static int log_maxsize     = DEFAULT_LOG_MAXSIZE;
+static int log_alive_minutes = DEFAULT_LOG_ALIVE_MINUTES;
+static int log_activity_minutes = DEFAULT_LOG_ACTIVITY_MINUTES;
+static int log_alive_in_gmt = 0;
+static char log_alive_format[ALIVE_BUFFSIZ+1];
 static int run_daemon = 0;
 static char *program_name;
 static int mfd; /* master pty fd */
+static unsigned protocol_ver = RUN_ERL_LO_VER; /* assume lowest to begin with */
 
 /*
  * Output buffer.
@@ -145,13 +217,29 @@ static char* outbuf_in;
                                   LOG_PID|LOG_CONS|LOG_NOWAIT,LOG_USER)
 #endif
 
+#define ERROR0(Prio,Format) error_logf(Prio,__LINE__,Format"\n")
+#define ERROR1(Prio,Format,A1) error_logf(Prio,__LINE__,Format"\n",A1)
+#define ERROR2(Prio,Format,A1,A2) error_logf(Prio,__LINE__,Format"\n",A1,A2)
+
+#ifdef HAVE_STRERROR
+#    define ADD_ERRNO(Format) "errno=%d '%s'\n"Format"\n",errno,strerror(errno)
+#else
+#    define ADD_ERRNO(Format) "errno=%d\n"Format"\n",errno
+#endif
+#define ERRNO_ERR0(Prio,Format) error_logf(Prio,__LINE__,ADD_ERRNO(Format))
+#define ERRNO_ERR1(Prio,Format,A1) error_logf(Prio,__LINE__,ADD_ERRNO(Format),A1)
+
+
 int main(int argc, char **argv)
 {
   int childpid;
   int sfd = -1;
-  char *ptyslave=NULL;
+  int fd;
+  char *p, *ptyslave=NULL;
   int i = 1;
   int off_argv;
+  int calculated_pipename = 0;
+  int highest_pipe_num = 0;
 
   program_name = argv[0];
 
@@ -169,16 +257,122 @@ int main(int argc, char **argv)
 
   off_argv = i;
   strn_cpy(pipename, sizeof(pipename), argv[i++]);
-
-  erts_run_erl_log_init(run_daemon,argv[i]);
+  strn_cpy(log_dir, sizeof(log_dir), argv[i]);
+  strn_cpy(statusfile, sizeof(statusfile), log_dir);
+  strn_cat(statusfile, sizeof(statusfile), STATUSFILENAME);
 
 #ifdef DEBUG
-  erts_run_erl_log_status("%s: pid is : %d\n", argv[0], getpid());
+  status("%s: pid is : %d\n", argv[0], getpid());
 #endif
 
-  /* Open read and write fifo */
-  if (erts_run_erl_open_fifo(pipename,fifo1,fifo2))
-    exit(1);
+  /* Get values for LOG file handling from the environment */
+  if ((p = getenv("RUN_ERL_LOG_ALIVE_MINUTES"))) {
+      log_alive_minutes = atoi(p);
+      if (!log_alive_minutes) {
+	  ERROR1(LOG_ERR,"Minimum value for RUN_ERL_LOG_ALIVE_MINUTES is 1 "
+		 "(current value is %s)",p);
+      }
+      log_activity_minutes = log_alive_minutes / 3;
+      if (!log_activity_minutes) {
+	  ++log_activity_minutes;
+      }
+  }
+  if ((p = getenv("RUN_ERL_LOG_ACTIVITY_MINUTES"))) {
+     log_activity_minutes = atoi(p);
+      if (!log_activity_minutes) {
+	  ERROR1(LOG_ERR,"Minimum value for RUN_ERL_LOG_ACTIVITY_MINUTES is 1 "
+		 "(current value is %s)",p);
+      }
+  } 
+  if ((p = getenv("RUN_ERL_LOG_ALIVE_FORMAT"))) {
+      if (strlen(p) > ALIVE_BUFFSIZ) {
+	  ERROR1(LOG_ERR, "RUN_ERL_LOG_ALIVE_FORMAT can contain a maximum of "
+		 "%d characters", ALIVE_BUFFSIZ);
+      }
+      strn_cpy(log_alive_format, sizeof(log_alive_format), p);
+  } else {
+      strn_cpy(log_alive_format, sizeof(log_alive_format), DEFAULT_LOG_ALIVE_FORMAT);
+  }
+  if ((p = getenv("RUN_ERL_LOG_ALIVE_IN_UTC")) && strcmp(p,"0")) {
+      ++log_alive_in_gmt;
+  }
+  if ((p = getenv("RUN_ERL_LOG_GENERATIONS"))) {
+    log_generations = atoi(p);
+    if (log_generations < LOG_MIN_GENERATIONS)
+      ERROR1(LOG_ERR,"Minimum RUN_ERL_LOG_GENERATIONS is %d", LOG_MIN_GENERATIONS);
+    if (log_generations > LOG_MAX_GENERATIONS)
+      ERROR1(LOG_ERR,"Maximum RUN_ERL_LOG_GENERATIONS is %d", LOG_MAX_GENERATIONS);
+  }
+
+  if ((p = getenv("RUN_ERL_LOG_MAXSIZE"))) {
+    log_maxsize = atoi(p);
+    if (log_maxsize < LOG_MIN_MAXSIZE)
+      ERROR1(LOG_ERR,"Minimum RUN_ERL_LOG_MAXSIZE is %d", LOG_MIN_MAXSIZE);
+  }
+
+  /*
+   * Create FIFOs and open them 
+   */
+
+  if(*pipename && pipename[strlen(pipename)-1] == '/') {
+    /* The user wishes us to find a unique pipe name in the specified */
+    /* directory */
+    DIR *dirp;
+    struct dirent *direntp;
+
+    calculated_pipename = 1;
+    dirp = opendir(pipename);
+    if(!dirp) {
+      ERRNO_ERR1(LOG_ERR,"Can't access pipe directory '%s'.", pipename);
+      exit(1);
+    }
+
+    /* Check the directory for existing pipes */
+    
+    while((direntp=readdir(dirp)) != NULL) {
+      if(strncmp(direntp->d_name,PIPE_STUBNAME,PIPE_STUBLEN)==0) {
+	int num = atoi(direntp->d_name+PIPE_STUBLEN+1);
+	if(num > highest_pipe_num)
+	  highest_pipe_num = num;
+      }
+    }	
+    closedir(dirp);
+    strn_catf(pipename, sizeof(pipename), "%s.%d",
+	      PIPE_STUBNAME, highest_pipe_num+1);
+  } /* if */
+
+  for(;;) {
+      /* write FIFO - is read FIFO for `to_erl' program */
+      strn_cpy(fifo1, sizeof(fifo1), pipename);
+      strn_cat(fifo1, sizeof(fifo1), ".r");
+      if (create_fifo(fifo1, PERM) < 0) {
+	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for writing.", fifo1);
+	  exit(1);
+      }
+      
+      /* read FIFO - is write FIFO for `to_erl' program */
+      strn_cpy(fifo2, sizeof(fifo2), pipename);
+      strn_cat(fifo2, sizeof(fifo2), ".w");
+      
+      /* Check that nobody is running run_erl already */
+      if ((fd = sf_open(fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
+	  /* Open as client succeeded -- run_erl is already running! */
+	  sf_close(fd);
+	  if (calculated_pipename) {
+	      ++highest_pipe_num;
+	      strn_catf(pipename, sizeof(pipename), "%s.%d",
+			PIPE_STUBNAME, highest_pipe_num+1);
+	      continue;
+	  } 
+	  fprintf(stderr, "Erlang already running on pipe %s.\n", pipename);
+	  exit(1);
+      }
+      if (create_fifo(fifo2, PERM) < 0) { 
+	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for reading.", fifo2);
+	  exit(1);
+      }
+      break;
+  }
 
   /*
    * Open master pseudo-terminal
@@ -250,7 +444,7 @@ int main(int argc, char **argv)
     sf_close(2);
 
     if (dup(sfd) != 0 || dup(sfd) != 1 || dup(sfd) != 2) {
-      erts_run_erl_log_status("Cannot dup\n");
+      status("Cannot dup\n");
     }
     sf_close(sfd);
     exec_shell(argv+off_argv); /* exec_shell expects argv[2] to be */
@@ -293,7 +487,9 @@ static void pass_on(pid_t childpid)
     struct timeval timeout;
     time_t last_activity;
     char buf[BUFSIZ];
-    int rfd, wfd=0;
+    char log_alive_buffer[ALIVE_BUFFSIZ+1];
+    int lognum;
+    int rfd, wfd=0, lfd=0;
     int maxfd;
     int ready;
     int got_some = 0; /* from to_erl */
@@ -308,12 +504,13 @@ static void pass_on(pid_t childpid)
     }
     
 #ifdef DEBUG
-    erts_run_erl_log_status("run_erl: %s opened for reading\n", fifo2);
+    status("run_erl: %s opened for reading\n", fifo2);
 #endif
     
     /* Open the log file */
     
-    erts_run_erl_log_open();
+    lognum = find_next_log_num();
+    lfd = open_log(lognum, O_RDWR|O_APPEND|O_CREAT|O_SYNC);
     
     /* Enter the work loop */
     
@@ -332,8 +529,7 @@ static void pass_on(pid_t childpid)
 	    writefds_ptr = &writefds;
 	}
 	time(&last_activity);
-	/* don't assume old BSD bug */
-	timeout.tv_sec  = erts_run_erl_log_alive_minutes()*60;
+	timeout.tv_sec  = log_alive_minutes*60; /* don't assume old BSD bug */
 	timeout.tv_usec = 0;
 	ready = select(maxfd + 1, &readfds, writefds_ptr, NULL, &timeout);
 	if (ready < 0) {
@@ -363,7 +559,28 @@ static void pass_on(pid_t childpid)
 
 	    /* Check how long time we've been inactive */
 	    time(&now);
-	    erts_run_erl_log_activity(!ready,now,last_activity);
+	    if(!ready || now - last_activity > log_activity_minutes*60) {
+		/* Either a time out: 15 minutes without action, */
+		/* or something is coming in right now, but it's a long time */
+		/* since last time, so let's write a time stamp this message */
+		struct tm *tmptr;
+		if (log_alive_in_gmt) {
+		    tmptr = gmtime(&now);
+		} else {
+		    tmptr = localtime(&now);
+		}
+		if (!strftime(log_alive_buffer, ALIVE_BUFFSIZ, log_alive_format,
+			      tmptr)) {
+		    strn_cpy(log_alive_buffer, sizeof(log_alive_buffer),
+			     "(could not format time in 256 positions "
+			     "with current format string.)");
+		}
+		log_alive_buffer[ALIVE_BUFFSIZ] = '\0';
+
+		sn_printf(buf, sizeof(buf), "\n===== %s%s\n", 
+			  ready?"":"ALIVE ", log_alive_buffer);
+		write_to_log(&lfd, &lognum, buf, strlen(buf));
+	    }
 	}
 
 	/*
@@ -398,7 +615,7 @@ static void pass_on(pid_t childpid)
 	 */
 	if (FD_ISSET(mfd, &readfds)) {
 #ifdef DEBUG
-	    erts_run_erl_log_status("Pty master read; ");
+	    status("Pty master read; ");
 #endif
 	    if ((len = sf_read(mfd, buf, BUFSIZ)) <= 0) {
 		sf_close(rfd);
@@ -416,7 +633,7 @@ static void pass_on(pid_t childpid)
 		exit(0);
 	    }
 
-	    erts_run_erl_log_write(buf, len);
+	    write_to_log(&lfd, &lognum, buf, len);
 
 	    /*
 	     * Save in the output queue.
@@ -432,7 +649,7 @@ static void pass_on(pid_t childpid)
 	 */
 	if (FD_ISSET(rfd, &readfds)) {
 #ifdef DEBUG
-	    erts_run_erl_log_status("FIFO read; ");
+	    status("FIFO read; ");
 #endif
 	    if ((len = sf_read(rfd, buf, BUFSIZ)) < 0) {
 		sf_close(rfd);
@@ -461,7 +678,7 @@ static void pass_on(pid_t childpid)
 		     * should succeed. But in case of error, we just ignore it.
 		     */
 		    if ((wfd = sf_open(fifo1, O_WRONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
-			erts_run_erl_log_status("Client expected on FIFO %s, but can't open (len=%d)\n",
+			status("Client expected on FIFO %s, but can't open (len=%d)\n",
 			       fifo1, len);
 			sf_close(rfd);
 			rfd = sf_open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0);
@@ -473,7 +690,7 @@ static void pass_on(pid_t childpid)
 		    } 
 		    else {
 #ifdef DEBUG
-			erts_run_erl_log_status("run_erl: %s opened for writing\n", fifo1);
+			status("run_erl: %s opened for writing\n", fifo1);
 #endif
 		    }
 		}
@@ -489,15 +706,14 @@ static void pass_on(pid_t childpid)
 
 		/* Write the message */
 #ifdef DEBUG
-		erts_run_erl_log_status("Pty master write; ");
+		status("Pty master write; ");
 #endif
-		len = erts_run_erl_extract_ctrl_seq(buf, len, mfd);
+		len = extract_ctrl_seq(buf, len);
 
 		if(len==1 && buf[0] == '\003') {
 		    kill(childpid,SIGINT);
-		}
-		else if (len>0 && erts_run_erl_write_all(mfd, buf, len) != len)
-		  {
+		} 
+		else if (len>0 && write_all(mfd, buf, len) != len) {
 		    ERRNO_ERR0(LOG_ERR,"Error in writing to terminal.");
 		    sf_close(rfd);
 		    if(wfd) sf_close(wfd);
@@ -506,7 +722,7 @@ static void pass_on(pid_t childpid)
 		}
 	    }
 #ifdef DEBUG
-	    erts_run_erl_log_status("OK\n");
+	    status("OK\n");
 #endif
 	}
     }
@@ -514,6 +730,173 @@ static void pass_on(pid_t childpid)
 
 static void catch_sigchild(int sig)
 {
+}
+
+/*
+ * next_log:
+ * Returns the index number that follows the given index number.
+ * (Wrapping after log_generations)
+ */
+static int next_log(int log_num) {
+  return log_num>=log_generations?1:log_num+1;
+}
+
+/*
+ * prev_log:
+ * Returns the index number that precedes the given index number.
+ * (Wrapping after log_generations)
+ */
+static int prev_log(int log_num) {
+  return log_num<=1?log_generations:log_num-1;
+}
+
+/*
+ * find_next_log_num()
+ * Searches through the log directory to check which logs that already
+ * exist. It finds the "hole" in the sequence, and returns the index
+ * number for the last log in the log sequence. If there is no hole, index
+ * 1 is returned.
+ */
+static int find_next_log_num(void) {
+  int i, next_gen, log_gen;
+  DIR *dirp;
+  struct dirent *direntp;
+  int log_exists[LOG_MAX_GENERATIONS+1];
+  int stub_len = strlen(LOG_STUBNAME);
+
+  /* Initialize exiting log table */
+
+  for(i=log_generations; i>=0; i--)
+    log_exists[i] = 0;
+  dirp = opendir(log_dir);
+  if(!dirp) {
+    ERRNO_ERR1(LOG_ERR,"Can't access log directory '%s'", log_dir);
+    exit(1);
+  }
+
+  /* Check the directory for existing logs */
+
+  while((direntp=readdir(dirp)) != NULL) {
+    if(strncmp(direntp->d_name,LOG_STUBNAME,stub_len)==0) {
+      int num = atoi(direntp->d_name+stub_len);
+      if(num < 1 || num > log_generations)
+	continue;
+      log_exists[num] = 1;
+    }
+  }	
+  closedir(dirp);
+
+  /* Find out the next available log file number */
+
+  next_gen = 0;
+  for(i=log_generations; i>=0; i--) {
+    if(log_exists[i])
+      if(next_gen)
+	break;
+      else 
+	;
+    else
+      next_gen = i;
+  }
+
+  /* Find out the current log file number */
+
+  if(next_gen)
+    log_gen = prev_log(next_gen);
+  else
+    log_gen = 1;
+
+  return log_gen;
+} /* find_next_log_num() */
+
+/* open_log()
+ * Opens a log file (with given index) for writing. Writing may be
+ * at the end or a trucnating write, according to flags.
+ * A LOGGING STARTED and time stamp message is inserted into the log file
+ */
+static int open_log(int log_num, int flags)
+{
+  char buf[FILENAME_MAX];
+  time_t now;
+  struct tm *tmptr;
+  char log_buffer[ALIVE_BUFFSIZ+1];
+  int lfd;
+
+  /* Remove the next log (to keep a "hole" in the log sequence) */
+  sn_printf(buf, sizeof(buf), "%s/%s%d",
+	    log_dir, LOG_STUBNAME, next_log(log_num));
+  unlink(buf);
+
+  /* Create or continue on the current log file */
+  sn_printf(buf, sizeof(buf), "%s/%s%d", log_dir, LOG_STUBNAME, log_num);
+  if((lfd = sf_open(buf, flags, LOG_PERM))<0){
+      ERRNO_ERR1(LOG_ERR,"Can't open log file '%s'.", buf);
+    exit(1);
+  }
+
+  /* Write a LOGGING STARTED and time stamp into the log file */
+  time(&now);
+  if (log_alive_in_gmt) {
+      tmptr = gmtime(&now);
+  } else {
+      tmptr = localtime(&now);
+  }
+  if (!strftime(log_buffer, ALIVE_BUFFSIZ, log_alive_format,
+		tmptr)) {
+      strn_cpy(log_buffer, sizeof(log_buffer),
+	      "(could not format time in 256 positions "
+	      "with current format string.)");
+  }
+  log_buffer[ALIVE_BUFFSIZ] = '\0';
+
+  sn_printf(buf, sizeof(buf), "\n=====\n===== LOGGING STARTED %s\n=====\n",
+	    log_buffer);
+  if (write_all(lfd, buf, strlen(buf)) < 0)
+      status("Error in writing to log.\n");
+
+#if USE_FSYNC
+  fsync(lfd);
+#endif
+
+  return lfd;
+}
+
+/* write_to_log()
+ * Writes a message to a log file. If the current log file is full,
+ * a new log file is opened.
+ */
+static void write_to_log(int* lfd, int* log_num, char* buf, int len)
+{
+  int size;
+
+  /* Decide if new logfile needed, and open if so */
+  
+  size = lseek(*lfd,0,SEEK_END);
+  if(size+len > log_maxsize) {
+    sf_close(*lfd);
+    *log_num = next_log(*log_num);
+    *lfd = open_log(*log_num, O_RDWR|O_CREAT|O_TRUNC|O_SYNC); 
+  }
+
+  /* Write to log file */
+
+  if (write_all(*lfd, buf, len) < 0) {
+    status("Error in writing to log.\n");
+  }
+
+#if USE_FSYNC
+  fsync(*lfd);
+#endif
+}
+
+/* create_fifo()
+ * Creates a new fifo with the given name and permission.
+ */
+static int create_fifo(char *name, int perm)
+{
+  if ((mkfifo(name, perm) < 0) && (errno != EEXIST))
+    return -1;
+  return 0;
 }
 
 
@@ -712,9 +1095,9 @@ static void exec_shell(char **argv)
   else
     argv[0] = sh;
   argv[1] = "-c";
-  erts_run_erl_log_status("Args before exec of shell:\n");
+  status("Args before exec of shell:\n");
   for (vp = argv, i = 0; *vp; vp++, i++)
-    erts_run_erl_log_status("argv[%d] = %s\n", i, *vp);
+    status("argv[%d] = %s\n", i, *vp);
   if (stdstatus) {
       fclose(stdstatus);
   }
@@ -725,6 +1108,26 @@ static void exec_shell(char **argv)
   ERRNO_ERR0(LOG_ERR,"Could not execv");
 }
 
+/* status()
+ * Prints the arguments to a status file
+ * Works like printf (see vfrpintf)
+ */
+static void status(const char *format,...)
+{
+  va_list args;
+  time_t now;
+
+  if (stdstatus == NULL)
+    stdstatus = fopen(statusfile, "w");
+  if (stdstatus == NULL)
+    return;
+  now = time(NULL);
+  fprintf(stdstatus, "run_erl [%d] %s", (int)getpid(), ctime(&now));
+  va_start(args, format);
+  vfprintf(stdstatus, format, args);
+  va_end(args);
+  fflush(stdstatus);
+}
 
 static void daemon_init(void) 
      /* As R Stevens wants it, to a certain extent anyway... */ 
@@ -764,10 +1167,47 @@ static void daemon_init(void)
     run_daemon = 1;
 }
 
+/* error_logf()
+ * Prints the arguments to stderr or syslog
+ * Works like printf (see vfprintf)
+ */
+static void error_logf(int priority, int line, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+#ifdef HAVE_SYSLOG_H
+    if (run_daemon) {
+	vsyslog(priority,format,args);
+    }
+    else
+#endif
+    {
+	time_t now = time(NULL);
+	fprintf(stderr, "run_erl:%d [%d] %s", line, (int)getpid(), ctime(&now));
+	vfprintf(stderr, format, args);
+    }
+    va_end(args);
+}	
+
 static void usage(char *pname)
 {
-  fprintf(stderr, "Usage: ");
-  fprintf(stderr, RUN_ERL_USAGE, pname);
+  fprintf(stderr, "Usage: %s (pipe_name|pipe_dir/) log_dir \"command [parameters ...]\"\n", pname);
+  fprintf(stderr, "\nYou may also set the environment variables RUN_ERL_LOG_GENERATIONS\n");
+  fprintf(stderr, "and RUN_ERL_LOG_MAXSIZE to the number of log files to use and the\n");
+  fprintf(stderr, "size of the log file when to switch to the next log file\n");
+}
+
+/* Instead of making sure basename exists, we do our own */
+static char *simple_basename(char *path)
+{
+    char *ptr;
+    for (ptr = path; *ptr != '\0'; ++ptr) {
+	if (*ptr == '/') {
+	    path = ptr + 1;
+	}
+    }
+    return path;
 }
 
 static void init_outbuf(void)
@@ -837,6 +1277,114 @@ static void outbuf_append(const char* buf, int n)
     memcpy(outbuf_in, buf, n);
     outbuf_in += n;
 }
+
+/* Call write() until entire buffer has been written or error.
+ * Return len or -1.
+ */
+static int write_all(int fd, const char* buf, int len)
+{
+    int left = len;
+    int written;
+    for (;;) {
+	written = sf_write(fd,buf,left);
+	if (written == left) {
+	    return len;
+	}
+	if (written < 0) {
+	    return -1;
+	}
+	left -= written;
+	buf += written;
+    }
+}
+
+static ssize_t sf_read(int fd, void *buffer, size_t len) {
+    ssize_t n = 0;
+
+    do { n = read(fd, buffer, len); } while (n < 0 && errno == EINTR);
+
+    return n;
+}
+
+static ssize_t sf_write(int fd, const void *buffer, size_t len) {
+    ssize_t n = 0;
+
+    do { n = write(fd, buffer, len); } while (n < 0 && errno == EINTR);
+
+    return n;
+}
+
+static int sf_open(const char *path, int type, mode_t mode) {
+    int fd = 0;
+
+    do { fd = open(path, type, mode); } while(fd < 0 && errno == EINTR);
+
+    return fd;
+}
+static int sf_close(int fd) {
+    int res = 0;
+
+    do { res = close(fd); } while(fd < 0 && errno == EINTR);
+
+    return res;
+}
+/* Extract any control sequences that are ment only for run_erl
+ * and should not be forwarded to the pty.
+ */
+static int extract_ctrl_seq(char* buf, int len)
+{
+    static const char prefix[] = "\033_";
+    static const char suffix[] = "\033\\";
+    char* bufend = buf + len;
+    char* start = buf;
+    char* command;
+    char* end;
+    
+    for (;;) {
+	start = find_str(start, bufend-start, prefix);
+	if (!start) break;
+	
+	command = start + strlen(prefix);
+	end = find_str(command, bufend-command, suffix);
+	if (end) {
+	    unsigned col, row;
+	    if (sscanf(command,"version=%u", &protocol_ver)==1) {
+		/*fprintf(stderr,"to_erl v%u\n", protocol_ver);*/
+	    }
+	    else if (sscanf(command,"winsize=%u,%u", &col, &row)==2) {
+		set_window_size(col,row);
+	    }
+	    else {
+		ERROR2(LOG_ERR, "Ignoring unknown ctrl command '%.*s'\n",
+		       (int)(end-command), command);
+	    }
+	  
+	    /* Remove ctrl sequence from buf */
+	    end += strlen(suffix);
+	    memmove(start, end, bufend-end);
+	    bufend -= end - start;
+	}
+	else {
+	    ERROR2(LOG_ERR, "Missing suffix in ctrl sequence '%.*s'\n",
+		   (int)(bufend-start), start);
+	    break;
+	}
+    }
+    return bufend - buf;
+}
+
+static void set_window_size(unsigned col, unsigned row)
+{
+#ifdef TIOCSWINSZ	
+    struct winsize ws;
+    ws.ws_col = col;
+    ws.ws_row = row;
+    if (ioctl(mfd, TIOCSWINSZ, &ws) < 0) {
+	ERRNO_ERR0(LOG_ERR,"Failed to set window size");
+    }
+#endif
+}
+
 
 #ifdef DEBUG
 

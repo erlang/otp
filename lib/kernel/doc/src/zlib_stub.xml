@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,13 +31,9 @@
     <rev>A</rev>
   </header>
   <module>zlib</module>
-  <modulesummary>Zlib Compression interface.</modulesummary>
-  <description><p>
-
-  The module zlib is moved to the runtime system
-  application.  Please see <seealso
-  marker="erts:zlib">zlib(3)</seealso> in the
-  erts reference manual instead.
-
-  </p></description>
+  <modulesummary>Zlib compression interface.</modulesummary>
+  <description>
+  <p>This module is moved to the
+    <seealso marker="erts:zlib"><c>ERTS</c></seealso> application.</p>
+  </description>
 </erlref>

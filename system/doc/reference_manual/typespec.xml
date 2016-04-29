@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -69,7 +69,7 @@
     <p>
       For integers and atoms, it is allowed for singleton types; for example,
       the integers
-      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>).
+      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>.
 
       All other types are built using unions of either predefined
       types or singleton types. In a type union between a type and one
@@ -148,9 +148,9 @@
   Union :: Type1 | Type2
 ]]></pre>
   <p>
-    The general form of bitstrings is <c>&lt;&lt;_:M, _:_*N&gt;&gt;</c>,
+    The general form of bit strings is <c>&lt;&lt;_:M, _:_*N&gt;&gt;</c>,
     where <c>M</c> and <c>N</c> are positive integers. It denotes a
-    bitstring that is <c>M + (k*N)</c> bits long (that is, a bitstring that
+    bit string that is <c>M + (k*N)</c> bits long (that is, a bit string that
     starts with <c>M</c> bits and continues with <c>k</c> segments of
     <c>N</c> bits each, where <c>k</c> is also a positive integer).
     The notations <c>&lt;&lt;_:_*N&gt;&gt;</c>, <c>&lt;&lt;_:M&gt;&gt;</c>,
@@ -495,7 +495,8 @@
     </p>
     <pre>  -spec id(X) -> X when X :: tuple().</pre>
     <p>
-      Currently, the <c>::</c> constraint (read as <c>is_subtype</c>) is
+      Currently, the <c>::</c> constraint
+      (read as &laquo;is a subtype of&raquo;) is
       the only guard constraint that can be used in the <c>'when'</c>
       part of a <c>'-spec'</c> attribute.
     </p>
@@ -513,7 +514,7 @@
 	<em>the same</em> tuple.
       </p>
       <p>
-	However, it is up to the tools that process the specificationss
+	However, it is up to the tools that process the specifications
         to choose whether to take this extra information into account
         or not.
       </p>
@@ -529,16 +530,6 @@
     <pre>
   -spec foo({X, integer()}) -> X when X :: atom()
          ; ([Y]) -> Y when Y :: number().</pre>
-    <note>
-      <p>
-      For backwards compatibility the following form is also allowed:
-      </p>
-      <pre>  -spec id(X) -> X when is_subtype(X, tuple()).</pre>
-      <p>
-	but its use is discouraged. It will be removed in a future
-	Erlang/OTP release.
-      </p>
-    </note>
     <p>
       Some functions in Erlang are not meant to return; 
       either because they define servers or because they are used to 

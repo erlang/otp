@@ -230,19 +230,19 @@ api_report(_Config) ->
     ok.
 
 api_to_file(Config) ->
-    DataDir  = ?config(data_dir, Config),
+    DataDir  = proplists:get_value(data_dir, Config),
     Filename = filename:join([DataDir, "system_information_report_1.dat"]),
     ok      = system_information:to_file(Filename),
     {ok, _} = file:consult(Filename),
     {save_config, [{report_name, Filename}]}.
 
 api_from_file(Config) ->
-    {api_to_file, Saved} = ?config(saved_config, Config),
-    DataDir = ?config(data_dir, Config),
+    {api_to_file, Saved} = proplists:get_value(saved_config, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Fname1  = filename:join([DataDir, "information_test_report.dat"]),
     Report1 = system_information:from_file(Fname1),
     ok      = validate_report(Report1),
-    Fname2  = ?config(report_name, Saved),
+    Fname2  = proplists:get_value(report_name, Saved),
     Report2 = system_information:from_file(Fname2),
     ok      = validate_report(Report2),
     ok.
@@ -253,7 +253,7 @@ api_start_stop(_Config) ->
     ok.
 
 validate_server_interface(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Fname1  = filename:join([DataDir, "information_test_report.dat"]),
     %% load old report
     ok = system_information:load_report(file, Fname1),

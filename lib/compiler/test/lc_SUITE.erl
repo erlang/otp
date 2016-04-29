@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,9 +26,11 @@
 	 empty_generator/1,no_export/1,shadow/1,
 	 effect/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -59,12 +61,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = test_server:timetrap(?t:minutes(1)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
 basic(Config) when is_list(Config) ->
@@ -171,7 +170,7 @@ no_gen_verify(Res, A, B) ->
 	ShouldBe -> ok;
 	_ ->
 	    io:format("A = ~p; B = ~p; Expected = ~p, actual = ~p", [A,B,ShouldBe,Res]),
-	    ?t:fail()
+	    ct:fail(failed)
     end.
 
 no_gen_eval(Fun, Res) ->

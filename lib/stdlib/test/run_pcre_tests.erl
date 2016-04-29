@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,8 +69,6 @@ pick_exec_options([]) ->
 test([],_,_,_) ->
     0;
 test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
-    %io:format("."),
-    %case RE of <<>> -> io:format("Empty re:~w~n",[Line]); _ -> ok end,
     Unicode = lists:member(unicode,Options0),
     RE = case REAsList of
 	     true ->
@@ -90,7 +88,6 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
 		   end,
     case Cres of
 	{ok,P} ->
-	    %erlang:display({testrun,RE,P,Tests,ExecOptions,Xopt,XMode}),
 	    case (catch testrun(RE,P,Tests,ExecOptions,Xopt,XMode)) of
 		N when is_integer(N) ->
 		    N + test(T,PreCompile,XMode,REAsList);
@@ -125,16 +122,10 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
 loopexec(_,_,X,Y,_,_) when X > Y ->
     {match,[]};
 loopexec(P,Chal,X,Y,Unicode,Xopt) ->
-    %io:format("~p~n",[X]),
     case re:run(Chal,P,[{offset,X}]++Xopt) of
 	nomatch ->
-	    %io:format(" re:exec(~p,~p,[{offset,~p}]) -> ~p~n",
-	%	      [P,Chal,X,no]),
 	    {match,[]};
-	    %loopexec(P,Chal,X+1,Y);
 	{match,[{A,B}|More]} ->
-	    %io:format(" re:exec(~p,~p,[{offset,~p}]) -> ~p~n",
-	%	      [P,Chal,X,{match,[{A,B}|More]}]),
 	    {match,Rest} = 
 		case B>0 of
 		    true ->
@@ -169,7 +160,6 @@ forward(Chal,A,N,true) ->
 	       _ ->
 		   1
 	   end,
-    %io:format("Forward ~p~n",[Forw]),
     forward(Chal,A+Forw,N-1,true).
     
 contains_eightbit(<<>>) ->
@@ -334,8 +324,6 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 				    nomatch ->
 					nomatch;
 				    {match, Reslist} ->
-					%io:format("re:run(~w,~w,~w) -> ~w~n",[Chal,P,ExecOpt++Xopt++
-					%    [{capture,all,list}],Reslist]),
 					UFix = lists:member(unicode,EO),
 					{match,bfix([if 
 							 UFix =:= true -> list_to_utf8(L); 
@@ -425,7 +413,6 @@ pickline(Start,Stop,Bin) when Stop >= size(Bin) ->
     {Res,Stop};
     
 pickline(Start,Stop,Bin) ->
-    %erlang:display({Start,Stop,size(Bin)}),
     <<_:Stop/binary,Ch,_/binary>> = Bin,
     case Ch of
 	$\n ->
@@ -465,15 +452,13 @@ stru([{_,<<>>}|T]) ->
     stru(T);
 stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
     {T,Re} = find_rest_re(Ch,[{Line,Re0}|T0]),
-    %io:format("DBG: ~p~n",[Re]),
     {NewRe,<< Ch, Options/binary >>} = end_of_re(Ch,Re),
     case interpret_options_x(backstrip(frontstrip(Options)),NewRe) of
 	{Olist,<<>>} -> 
 	    U = lists:member(unicode,Olist),
 	    case T of
 		[{_,<<$-,_/binary>>}|Con] ->
-		    %Debug output, we skip those 
-		    %io:format("Skipping debug (~w)~n",[Line]),
+		    %%Debug output, we skip those
 		    TmpT = skip_debug(Con),
 		    {NewT,Matches} = stru2(TmpT,U),
 		    [{NewRe,Line,Olist,Matches}|stru(NewT)];
@@ -482,12 +467,10 @@ stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
 		    {NewT,Matches} = stru2(NewT0,U),
 		    [{NewRe,Line,Olist,Matches}|stru(NewT)];
 		[{_,<<Bla,_/binary>>}|_] when Bla =/= $  ->
-		    %io:format("Skipping blabla (~w)~n",[Line]),
 		    NewT = skip_until_empty(T),
 		    stru(NewT);
 		_ ->
 		    {NewT,Matches} = stru2(T,U),
-		    %erlang:display({NewRe,Line,Olist,Matches}),
 		    Matches1 = case U of
 				   true ->
 				       Matches ++
@@ -496,7 +479,6 @@ stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
 				   false ->
 				       Matches
 			       end,
-		    %erlang:display({NewRe,Line,Olist,Matches1}),
 		    [{NewRe,Line,Olist,Matches1}|stru(NewT)]
 	    end;
 	{_,Rest} ->
@@ -605,7 +587,7 @@ backslash_end(<<_,R/binary>>) ->
     backslash_end(R).
 
 stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
-    % A challenge
+    %% A challenge
     case  (catch responses(T,U)) of
 	{NewT,Rlist} ->
 	    {NewNewT,StrList} = stru2(NewT,U),
@@ -765,17 +747,17 @@ pick_offset(Rest) ->
 escape(<<>>,_) ->
     {[],<<>>};
 escape(<<$\\, Ch, Rest/binary>>,U) when Ch >= $A, Ch =< $Z; Ch =:= $? ->
-    %Options in the string...
+    %%Options in the string...
     NewOpts = eopt(Ch),
     {MoreOpts,Tail} = escape(Rest,U),
     {NewOpts ++ MoreOpts,Tail};
 escape(<<$\\, $>, Rest/binary>>,U) ->
-    %Offset Options in the string...
+    %%Offset Options in the string...
     {NewOpt,NewRest} = pick_offset(Rest),
     {MoreOpts,Tail} = escape(NewRest,U),
     {[NewOpt|MoreOpts],Tail};
 escape(<<$\\, $<, Rest/binary>>,U) ->
-    %CR Options in the string...
+    %%CR Options in the string...
     {NewOpt,NewRest} = pinch_cr(Rest),
     {MoreOpts,Tail} = escape(NewRest,U),
     {[NewOpt|MoreOpts],Tail};
@@ -789,7 +771,6 @@ escape(<<$\\, Ch, Rest/binary>>,U) ->
 			     {<<$\\>>,<<Ch,Rest/binary>>}
 		     end;
 		 CCC ->
-		     %erlang:display({escape,CCC}),
 		     {<<CCC>>,Rest}
 	     end,
     {MoreOpts,Tail} = escape(NR,U),
@@ -877,7 +858,6 @@ multi_esc(<<$x,${,N,O,$},Rest/binary>>,Unicode)
 	 ((N >= $a) and (N =< $f))) and 
 	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
 	 ((O >= $a) and (O =< $f)))) -> 
-    %io:format("~p(~p)~n",[<<$x,${,N,O,$}>>,get(unicode)]),
     Cha = (trx(N) bsl 4) bor trx(O),
     case Unicode of
 	false ->
@@ -974,8 +954,8 @@ single_esc($\\) ->
     $\\;
 single_esc($a) ->
     7;
-%single_esc(Ch) when Ch >= $A, Ch =< $Z -> % eh?
-%    Ch;
+%%single_esc(Ch) when Ch >= $A, Ch =< $Z -> % eh?
+%%    Ch;
 
 single_esc(_) ->
     no.
@@ -1003,8 +983,6 @@ gen_split_test(OneFile) ->
     io:format(F,"-module(~s).~n",[ErlModule]),
     io:format(F,"-compile(export_all).~n",[]),
     io:format(F,"-compile(no_native).~n",[]),
-    %io:format(F,"-include(\"test_server.hrl\").~n",[]),
-    %io:format(F,"-define(line,erlang:display(?LINE),).~n",[]),
     io:format(F,"%% This file is generated by running ~w:gen_split_test(~p)~n",
 	      [?MODULE,OneFile]),
     io:format(F,"join([]) -> [];~n",[]),
@@ -1083,7 +1061,7 @@ dumponesplit(F,{RE,Line,O,TS}) ->
 %% Generate replacement tests from indatafile, 
 %% you will need perl on the machine
 gen_repl_test(OneFile) ->
-    random:seed(1219,687731,62804),
+    rand:seed(exsplus, {1219,687731,62804}),
     {ok,Bin} = file:read_file(OneFile),
     Lines = splitfile(0,Bin,1),
     Structured = stru(Lines),
@@ -1095,7 +1073,6 @@ gen_repl_test(OneFile) ->
     io:format(F,"-module(~s).~n",[ErlModule]),
     io:format(F,"-compile(export_all).~n",[]),
     io:format(F,"-compile(no_native).~n",[]),
-    %io:format(F,"-include(\"test_server.hrl\").~n",[]),
     io:format(F,"%% This file is generated by running ~w:gen_repl_test(~p)~n",
 	      [?MODULE,OneFile]),
     io:format(F,"run() ->~n",[]),
@@ -1237,15 +1214,15 @@ btr(_) ->
 
 
 ranchar() ->
-    case random:uniform(10) of
+    case rand:uniform(10) of
 	9 -> $&;
         10 -> <<"\\1">>;		 
 	N when N < 5 ->
-	    random:uniform($Z-$A)+$A-1;
+	    rand:uniform($Z-$A)+$A-1;
 	M when M < 9 ->
-	    random:uniform($z-$a)+$a-1
+	    rand:uniform($z-$a)+$a-1
     end.
 
 ranstring() ->
-    iolist_to_binary([ranchar() || _ <- lists:duplicate(random:uniform(20),0) ]).
+    iolist_to_binary([ranchar() || _ <- lists:duplicate(rand:uniform(20),0) ]).
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,21 +83,6 @@ int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
     return 0;
 }
 
-/*
- * Memory allocator for executable code.
- *
- * This is required on AMD64 because some Linux kernels
- * (including 2.6.10-rc1 and newer www.kernel.org ones)
- * default to non-executable memory mappings, causing
- * ordinary malloc() memory to be non-executable.
- *
- * Implementing this properly also allows us to ensure that
- * executable code ends up in the low 2GB of the address space,
- * as required by HiPE/AMD64's small code model.
- */
-static unsigned int code_bytes;
-static char *code_next;
-
 #if 0	/* change to non-zero to get allocation statistics at exit() */
 static unsigned int total_mapped, nr_joins, nr_splits, total_alloc, nr_allocs, nr_large, total_lost;
 static unsigned int atexit_done;
@@ -121,101 +106,20 @@ static void atexit_alloc_code_stats(void)
 #define ALLOC_CODE_STATS(X)	do{}while(0)
 #endif
 
-/* FreeBSD 6.1 breakage */
-#if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
-#define MAP_ANONYMOUS MAP_ANON
-#endif
-
-static int morecore(unsigned int alloc_bytes)
-{
-    unsigned int map_bytes;
-    char *map_hint, *map_start;
-
-    /* Page-align the amount to allocate. */
-    map_bytes = (alloc_bytes + 4095) & ~4095;
-
-    /* Round up small allocations. */
-    if (map_bytes < 1024*1024)
-	map_bytes = 1024*1024;
-    else
-	ALLOC_CODE_STATS(++nr_large);
-
-    /* Create a new memory mapping, ensuring it is executable
-       and in the low 2GB of the address space. Also attempt
-       to make it adjacent to the previous mapping. */
-    map_hint = code_next + code_bytes;
-#if !defined(MAP_32BIT)
-    /* FreeBSD doesn't have MAP_32BIT, and it doesn't respect
-       a plain map_hint (returns high mappings even though the
-       hint refers to a free area), so we have to use both map_hint
-       and MAP_FIXED to get addresses below the 2GB boundary.
-       This is even worse than the Linux/ppc64 case.
-       Similarly, Solaris 10 doesn't have MAP_32BIT,
-       and it doesn't respect a plain map_hint. */
-    if (!map_hint) /* first call */
-	map_hint = (char*)(512*1024*1024); /* 0.5GB */
-#endif
-    if ((unsigned long)map_hint & 4095)
-	abort();
-    map_start = mmap(map_hint, map_bytes,
-		     PROT_EXEC|PROT_READ|PROT_WRITE,
-		     MAP_PRIVATE|MAP_ANONYMOUS
-#if defined(MAP_32BIT)
-		     |MAP_32BIT
-#elif defined(__FreeBSD__) || defined(__sun__)
-		     |MAP_FIXED
-#endif
-		     ,
-		     -1, 0);
-    ALLOC_CODE_STATS(fprintf(stderr, "%s: mmap(%p,%u,...) == %p\r\n", __FUNCTION__, map_hint, map_bytes, map_start));
-#if !defined(MAP_32BIT)
-    if (map_start != MAP_FAILED &&
-	(((unsigned long)map_start + (map_bytes-1)) & ~0x7FFFFFFFUL)) {
-	fprintf(stderr, "mmap with hint %p returned code memory %p\r\n", map_hint, map_start);
-	abort();
-    }
-#endif
-    if (map_start == MAP_FAILED)
-	return -1;
-
-    ALLOC_CODE_STATS(total_mapped += map_bytes);
-
-    /* Merge adjacent mappings, so the trailing portion of the previous
-       mapping isn't lost. In practice this is quite successful. */
-    if (map_start == map_hint) {
-	ALLOC_CODE_STATS(++nr_joins);
-	code_bytes += map_bytes;
-#if !defined(MAP_32BIT)
-	if (!code_next) /* first call */
-	    code_next = map_start;
-#endif
-    } else {
-	ALLOC_CODE_STATS(++nr_splits);
-	ALLOC_CODE_STATS(total_lost += code_bytes);
-	code_next = map_start;
-	code_bytes = map_bytes;
-    }
-
-    ALLOC_CODE_STATS(atexit_alloc_code_stats());
-
-    return 0;
-}
-
+/*
+ * Memory allocator for executable code.
+ *
+ * We use a dedicated allocator for executable code (from OTP 19.0)
+ * to make sure the memory we get is executable (PROT_EXEC)
+ * and to ensure that executable code ends up in the low 2GB
+ * of the address space, as required by HiPE/AMD64's small code model.
+ */
 static void *alloc_code(unsigned int alloc_bytes)
 {
-    void *res;
-
-    /* Align function entries. */
-    alloc_bytes = (alloc_bytes + 3) & ~3;
-
-    if (code_bytes < alloc_bytes && morecore(alloc_bytes) != 0)
-	return NULL;
     ALLOC_CODE_STATS(++nr_allocs);
     ALLOC_CODE_STATS(total_alloc += alloc_bytes);
-    res = code_next;
-    code_next += alloc_bytes;
-    code_bytes -= alloc_bytes;
-    return res;
+
+    return erts_alloc(ERTS_ALC_T_HIPE_EXEC, alloc_bytes);
 }
 
 void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *p)

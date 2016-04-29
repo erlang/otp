@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>inet_res</title>
@@ -29,52 +29,50 @@
     <rev>A</rev>
   </header>
   <module>inet_res</module>
-  <modulesummary>A Rudimentary DNS Client</modulesummary>
+  <modulesummary>A rudimentary DNS client.</modulesummary>
   <description>
-    <p>Performs DNS name resolving towards recursive name servers</p>
-    <p>See also 
-      <seealso marker="erts:inet_cfg">
-        ERTS User's Guide: Inet configuration
-      </seealso> for more
-      information on how to configure an Erlang runtime system for IP
-      communication and how to enable this DNS client by defining
-      <c><![CDATA['dns']]></c> as a lookup method. It then acts
-      as a backend for the resolving functions in
-      <seealso marker="kernel:inet">inet</seealso>.</p>
+    <p>This module performs DNS name resolving to recursive name servers.</p>
+    <p>See also
+      <seealso marker="erts:inet_cfg">ERTS User's Guide: Inet Configuration</seealso>
+      for more information about how to configure an Erlang runtime system
+      for IP communication, and how to enable this DNS client by defining
+      <c><![CDATA['dns']]></c> as a lookup method.
+      The DNS client then acts as a backend for the resolving functions in
+      <seealso marker="kernel:inet"><c>inet</c></seealso>.</p>
     <p>This DNS client can resolve DNS records even if it
       is not used for normal name resolving in the node.</p>
-    <p>This is not a full-fledged resolver. It is just a
-      DNS client that relies on asking trusted recursive nameservers.</p>
+    <p>This is not a full-fledged resolver, only a
+      DNS client that relies on asking trusted recursive name servers.</p>
   </description>
 
   <section>
     <title>Name Resolving</title>
     <p>UDP queries are used unless resolver option
       <c>usevc</c> is <c>true</c>, which forces TCP queries.
-      If the query is to large for UDP, TCP is used instead.
-      For regular DNS queries 512 bytes is the size limit.
-      When EDNS is enabled (resolver option
-      <c>edns</c> is set to the EDNS version i.e <c>0</c>
+      If the query is too large for UDP, TCP is used instead.
+      For regular DNS queries, 512 bytes is the size limit.</p>
+    <p>When EDNS is enabled (resolver option
+      <c>edns</c> is set to the EDNS version (that is, <c>0</c>
       instead of <c>false</c>), resolver option
-      <c>udp_payload_size</c> sets the limit. If a nameserver
-      replies with the TC bit set (truncation), indicating
+      <c>udp_payload_size</c> sets the limit. If a name server
+      replies with the TC bit set (truncation), indicating that
       the answer is incomplete, the query is retried
-      to that nameserver using TCP. The resolver option
+      to that name server using TCP. Resolver option
       <c>udp_payload_size</c> also sets the advertised
-      size for the max allowed reply size, if EDNS is
-      enabled, otherwise the nameserver uses the limit
-      512 byte. If the reply is larger it gets truncated,
-      forcing a TCP re-query.</p>
-    <p>For UDP queries, the resolver options <c>timeout</c>
+      size for the maximum allowed reply size, if EDNS is
+      enabled, otherwise the name server uses the limit
+      512 bytes. If the reply is larger, it gets truncated,
+      forcing a TCP requery.</p>
+    <p>For UDP queries, resolver options <c>timeout</c>
       and <c>retry</c> control retransmission.
-      Each nameserver in the <c>nameservers</c> list is
-      tried with a timeout of <c>timeout</c> / <c>retry</c>.
-      Then all nameservers are tried again doubling the
-      timeout, for a total of <c>retry</c> times.</p>
-    <p>For queries that not use the <c>search</c> list,
+      Each name server in the <c>nameservers</c> list is
+      tried with a time-out of <c>timeout</c>/<c>retry</c>.
+      Then all name servers are tried again, doubling the
+      time-out, for a total of <c>retry</c> times.</p>
+    <p>For queries not using the <c>search</c> list,
       if the query to all <c>nameservers</c> results in
-      <c>{error,nxdomain}</c>or an empty answer, the same
-      query is tried for the <c>alt_nameservers</c>.</p>
+      <c>{error,nxdomain}</c> or an empty answer, the same
+      query is tried for <c>alt_nameservers</c>.</p>
   </section>
 
   <section>
@@ -92,11 +90,13 @@
       <name name="res_error"/>
     </datatype>
   </datatypes>
+
   <section>
     <title>DNS Types</title>
     <p><marker id="dns_types"/>
       The following data types concern the DNS client:</p>
   </section>
+
   <datatypes>
     <datatype>
       <name name="dns_name"/>
@@ -112,10 +112,10 @@
       <name name="dns_msg"/>
       <desc>
         <p>This is the start of a hiearchy of opaque data structures
-          that can be examined with access functions in inet_dns that
-          return lists of {Field,Value} tuples. The arity 2 functions
-          just return the value for a given field.</p>
-<pre>
+          that can be examined with access functions in <c>inet_dns</c>, which
+          return lists of <c>{Field,Value}</c> tuples. The arity 2 functions
+          only return the value for a specified field.</p>
+        <pre>
 dns_msg() = DnsMsg
     inet_dns:msg(DnsMsg) ->
         [ {header, dns_header()}
@@ -163,63 +163,55 @@ dns_rr() = DnsRr
                      | {z, integer()}
                      | {data, dns_data()} ]
     inet_dns:rr(DnsRr, Field) -> Value</pre>
-
-<p>There is an info function for the types above:</p>
-
-<pre>
+        <p>There is an information function for the types above:</p>
+        <pre>
 inet_dns:record_type(dns_msg()) -> msg;
 inet_dns:record_type(dns_header()) -> header;
 inet_dns:record_type(dns_query()) -> dns_query;
 inet_dns:record_type(dns_rr()) -> rr;
 inet_dns:record_type(_) -> undefined.</pre>
-
-<p>So; inet_dns:(inet_dns:record_type(X))(X) will convert
-any of these data structures into a {Field,Value} list.</p>
+        <p>So, <c>inet_dns:(inet_dns:record_type(X))(X)</c> converts
+          any of these data structures into a <c>{Field,Value}</c> list.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="dns_data"/>
-      <desc><p><c><anno>Regexp</anno></c> is a string with characters encoded in the
-         UTF-8 coding standard.</p>
+      <desc>
+        <p><c><anno>Regexp</anno></c> is a string with characters encoded
+          in the UTF-8 coding standard.</p>
       </desc>
     </datatype>
   </datatypes>
 
-
   <funcs>
-
     <func>
       <name name="getbyname" arity="2"/>
       <name name="getbyname" arity="3"/>
-      <fsummary>Resolve a DNS record of the given type for the given host
-      </fsummary>
+      <fsummary>Resolve a DNS record of the specified type for the specified
+      host.</fsummary>
       <desc>
-        <p>Resolve a DNS record of the given type for the given host,
-          of class <c>in</c>. On success returns a <c>hostent()</c> record with
-          <c>dns_data()</c> elements in the address list field.
-        </p><p>
-          This function uses the resolver option <c>search</c> that
+        <p>Resolves a DNS record of the specified type for the specified host,
+          of class <c>in</c>. Returns, on success, a <c>hostent()</c> record
+          with <c>dns_data()</c> elements in the address list field.</p>
+        <p>This function uses resolver option <c>search</c> that
           is a list of domain names. If the name to resolve contains
           no dots, it is prepended to each domain name in the
           search list, and they are tried in order. If the name
           contains dots, it is first tried as an absolute name
-          and if that fails the search list is used. If the name
-          has a trailing dot it is simply supposed to be
-          an absolute name and the search list is not used.
-        </p>
+          and if that fails, the search list is used. If the name
+          has a trailing dot, it is supposed to be
+          an absolute name and the search list is not used.</p>
       </desc>
     </func>
 
     <func>
       <name name="gethostbyaddr" arity="1"/>
       <name name="gethostbyaddr" arity="2"/>
-      <fsummary>Return a hostent record for the host with the given address
-      </fsummary>
+      <fsummary>Return a hostent record for the host with the specified
+        address.</fsummary>
       <desc>
         <p>Backend functions used by
-          <seealso marker="kernel:inet#gethostbyaddr/1">
-            inet:gethostbyaddr/1
-          </seealso>.
+          <seealso marker="kernel:inet#gethostbyaddr/1"><c>inet:gethostbyaddr/1</c></seealso>.
         </p>
       </desc>
     </func>
@@ -228,22 +220,19 @@ any of these data structures into a {Field,Value} list.</p>
       <name name="gethostbyname" arity="1"/>
       <name name="gethostbyname" arity="2"/>
       <name name="gethostbyname" arity="3"/>
-      <fsummary>Return a hostent record for the host with the given name
+      <fsummary>Return a hostent record for the host with the specified name.
       </fsummary>
       <desc>
         <p>Backend functions used by
-          <seealso marker="kernel:inet#gethostbyname/1">
-            inet:gethostbyname/1,2
-          </seealso>.
-        </p><p>
-          This function uses the resolver option <c>search</c> just like 
-          <seealso marker="#getbyname/2">getbyname/2,3</seealso>.
-        </p><p>
-          If the resolver option <c>inet6</c> is <c>true</c>,
-          an IPv6 address is looked up, and if that fails
-          the IPv4 address is looked up and returned on
-          IPv6 mapped IPv4 format.
+          <seealso marker="kernel:inet#gethostbyname/1"><c>inet:gethostbyname/1,2</c></seealso>.
         </p>
+        <p>This function uses resolver option <c>search</c> just like
+          <seealso marker="#getbyname/2"><c>getbyname/2,3</c></seealso>.
+        </p>
+        <p>If resolver option <c>inet6</c> is <c>true</c>,
+          an IPv6 address is looked up. If that fails,
+          the IPv4 address is looked up and returned on
+          IPv6-mapped IPv4 format.</p>
       </desc>
     </func>
 
@@ -251,22 +240,21 @@ any of these data structures into a {Field,Value} list.</p>
       <name name="lookup" arity="3"/>
       <name name="lookup" arity="4"/>
       <name name="lookup" arity="5"/>
-      <fsummary>Resolve the DNS data for the record of the given type and class
-        for the given name
-      </fsummary>
+      <fsummary>Resolve the DNS data for the record of the specified type
+        and class for the specified name.</fsummary>
       <desc>
-        <p>Resolve the DNS data for the record of the given type and class
-          for the given name. On success filters out the answer records
-          with the correct <c><anno>Class</anno></c> and <c><anno>Type</anno></c> and returns
-          a list of their data fields. So a lookup for type <c>any</c>
-          will give an empty answer since the answer records have
+        <p>Resolves the DNS data for the record of the specified type and class
+          for the specified name. On success, filters out the answer records
+          with the correct <c><anno>Class</anno></c> and
+          <c><anno>Type</anno></c>, and returns
+          a list of their data fields. So, a lookup for type <c>any</c>
+          gives an empty answer, as the answer records have
           specific types that are not <c>any</c>. An empty answer
-          as well as a failed lookup returns an empty list.
-        </p><p>
-          Calls <seealso marker="#resolve/3">resolve/2..4</seealso>
+          or a failed lookup returns an empty list.</p>
+        <p>Calls
+          <seealso marker="#resolve/3"><c>resolve/*</c></seealso>
           with the same arguments and filters the result, so
-          <c><anno>Opts</anno></c> is explained there.
-        </p>
+          <c><anno>Opts</anno></c> is described for those functions.</p>
       </desc>      
     </func>
 
@@ -274,90 +262,77 @@ any of these data structures into a {Field,Value} list.</p>
       <name name="resolve" arity="3"/>
       <name name="resolve" arity="4"/>
       <name name="resolve" arity="5"/>
-      <fsummary>Resolve a DNS record of the given type and class
-        for the given name
-      </fsummary>
+      <fsummary>Resolve a DNS record of the specified type and class
+        for the specified name.</fsummary>
       <desc>
-        <p>Resolve a DNS record of the given type and class for the given name.
-          The returned <c>dns_msg()</c> can be examined using
-          access functions in <c>inet_db</c> as described 
-          in <seealso marker="#dns_types">DNS Types</seealso>.
-        </p><p>
-          If <c><anno>Name</anno></c> is an <c>ip_address()</c>, the domain name
-          to query for is generated as the standard reverse
-          ".IN-ADDR.ARPA." name for an IPv4 address, or the
-          ".IP6.ARPA." name for an IPv6 address.
-          In this case you most probably want to use
-          <c><anno>Class</anno> = in</c> and <c><anno>Type</anno> = ptr</c> but it
-          is not done automatically.
-        </p><p>
-          <c><anno>Opts</anno></c> override the corresponding resolver options.
-          If the option <c>nameservers</c> is given, it is
-          also assumed that it is the complete list of nameserves,
-          so the resolver option <c>alt_nameserves</c> is ignored.
-          Of course, if that option is also given to this function,
-          it is used.
-        </p><p>
-          The <c>verbose</c> option (or rather <c>{verbose,true}</c>),
+        <p>Resolves a DNS record of the specified type and class for the
+          specified name. The returned <c>dns_msg()</c> can be examined using
+          access functions in <c>inet_db</c>, as described in section
+          in <seealso marker="#dns_types">DNS Types</seealso>.</p>
+        <p>If <c><anno>Name</anno></c> is an <c>ip_address()</c>, the domain
+          name to query for is generated as the standard reverse
+          <c>".IN-ADDR.ARPA."</c> name for an IPv4 address, or the
+          <c>".IP6.ARPA."</c> name for an IPv6 address.
+          In this case, you most probably want to use
+          <c><anno>Class</anno> = in</c> and <c><anno>Type</anno> = ptr</c>,
+          but it is not done automatically.</p>
+        <p><c><anno>Opts</anno></c> overrides the corresponding resolver
+          options. If option <c>nameservers</c> is specified, it is
+          assumed that it is the complete list of name serves,
+          so resolver option <c>alt_nameserves</c> is ignored.
+          However, if option <c>alt_nameserves</c> is also specified to this
+          function, it is used.</p>
+        <p>Option <c>verbose</c> (or rather <c>{verbose,true}</c>)
           causes diagnostics printout through
-          <seealso marker="stdlib:io#format/3">io:format/2</seealso>
-          of queries, replies retransmissions, etc, similar
-          to from utilities like <c>dig</c>, <c>nslookup</c> et.al.
-        </p><p>
-          If <c><anno>Opt</anno></c> is an arbitrary atom it is interpreted
+          <seealso marker="stdlib:io#format/3"><c>io:format/2</c></seealso>
+          of queries, replies retransmissions, and so on, similar
+          to from utilities, such as <c>dig</c> and <c>nslookup</c>.</p>
+        <p>If <c><anno>Opt</anno></c> is any atom, it is interpreted
           as <c>{<anno>Opt</anno>,true}</c> unless the atom string starts with
-          <c>"no"</c> making the interpretation <c>{<anno>Opt</anno>,false}</c>.
-          For example: <c>usevc</c> is an alias for <c>{usevc,true}</c>,
-          and <c>nousevc</c> an alias for <c>{usevc,false}</c>.
-        </p><p>
-          The <c>inet6</c> option currently has no effect on this function.
-          You probably want to use <c><anno>Type</anno> = a | aaaa</c> instead.
-        </p>
+          <c>"no"</c>, making the
+          interpretation <c>{<anno>Opt</anno>,false}</c>.
+          For example, <c>usevc</c> is an alias for <c>{usevc,true}</c>
+          and <c>nousevc</c> is an alias for <c>{usevc,false}</c>.</p>
+        <p>Option <c>inet6</c> has no effect on this function. You
+          probably want to use <c><anno>Type</anno> = a | aaaa</c> instead.</p>
       </desc>      
     </func>
-
   </funcs>
 
-
-
   <section>
-    <title>Examples</title>
-    <p>Access functions example: how
-      <seealso marker="#lookup/3">lookup/3</seealso>
-      could have been implemented using
-      <seealso marker="#resolve/3">resolve/3</seealso>
-      from outside the module.
-    </p><code type="none">
-    example_lookup(Name, Class, Type) ->
-        case inet_res:resolve(Name, Class, Type) of
-            {ok,Msg} ->
-                [inet_dns:rr(RR, data)
-                 || RR &lt;- inet_dns:msg(Msg, anlist),
-                    inet_dns:rr(RR, type) =:= Type,
-                    inet_dns:rr(RR, class) =:= Class];
-            {error,_} ->
-                []
-        end.</code>
+    <title>Example</title>
+    <p>This access functions example shows how
+      <seealso marker="#lookup/3"><c>lookup/3</c></seealso>
+      can be implemented using
+      <seealso marker="#resolve/3"><c>resolve/3</c></seealso>
+      from outside the module:</p>
+    <code type="none">
+example_lookup(Name, Class, Type) ->
+    case inet_res:resolve(Name, Class, Type) of
+        {ok,Msg} ->
+            [inet_dns:rr(RR, data)
+             || RR &lt;- inet_dns:msg(Msg, anlist),
+                 inet_dns:rr(RR, type) =:= Type,
+                 inet_dns:rr(RR, class) =:= Class];
+        {error,_} ->
+            []
+     end.</code>
   </section>
-
-
 
   <section>
     <title>Legacy Functions</title>
-    <p>These have been deprecated due to the annoying double
-      meaning of the nameservers/timeout argument, and
-      because they had no decent place for a resolver options list.</p>
+    <p>These are deprecated because the annoying double
+      meaning of the name servers/time-out argument, and
+      because they have no decent place for a resolver options list.</p>
   </section>
 
   <funcs>
-
     <func>
       <name name="nslookup" arity="3"/>
       <name name="nslookup" arity="4" clause_i="1"/>
       <name name="nslookup" arity="4" clause_i="2"/>
-      <fsummary>Resolve a DNS record of the given type and class
-        for the given name
-      </fsummary>
+      <fsummary>Resolve a DNS record of the specified type and class for the
+        specified name.</fsummary>
       <type variable="Name"/>
       <type variable="Class"/>
       <type variable="Type"/>
@@ -365,23 +340,20 @@ any of these data structures into a {Field,Value} list.</p>
       <type variable="Nameservers"/>
       <type variable="Reason"/>
       <desc>
-        <p>Resolve a DNS record of the given type and class for the given name.
-        </p>
+        <p>Resolves a DNS record of the specified type and class for the
+          specified name.</p>
       </desc>      
     </func>
 
     <func>
       <name name="nnslookup" arity="4"/>
       <name name="nnslookup" arity="5"/>
-      <fsummary>Resolve a DNS record of the given type and class
-        for the given name
-      </fsummary>
+      <fsummary>Resolve a DNS record of the specified type and class
+        for the specified name.</fsummary>
       <desc>
-        <p>Resolve a DNS record of the given type and class for the given name.
-        </p>
+        <p>Resolves a DNS record of the specified type and class for the
+          specified name.</p>
       </desc>      
     </func>
-
   </funcs>
-
 </erlref>

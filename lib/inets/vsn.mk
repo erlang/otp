@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2015. All Rights Reserved.
+# Copyright Ericsson AB 2001-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,6 @@
 # %CopyrightEnd%
 
 APPLICATION = inets
-INETS_VSN   = 6.2
+INETS_VSN   = 6.2.1
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(INETS_VSN)$(PRE_VSN)"

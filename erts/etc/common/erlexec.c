@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@
 static const char plusM_au_allocs[]= {
     'u',	/* all alloc_util allocators */
     'B',	/* binary_alloc		*/
+    'I',	/* literal_alloc	*/
     'D',	/* std_alloc		*/
     'E',	/* ets_alloc		*/
     'F',	/* fix_alloc		*/
@@ -73,6 +74,7 @@ static const char plusM_au_allocs[]= {
     'R',	/* driver_alloc		*/
     'S',	/* sl_alloc		*/
     'T',	/* temp_alloc		*/
+    'X',	/* exec_alloc		*/
     'Z',        /* test_alloc           */
     '\0'
 };
@@ -121,6 +123,8 @@ static char *plusM_other_switches[] = {
     "Ym",
     "Ytp",
     "Ytt",
+    "Iscs",
+    "Xscs",
     NULL
 };
 
@@ -153,6 +157,12 @@ static char *plush_val_switches[] = {
 /* +r arguments with values */
 static char *plusr_val_switches[] = {
     "g",
+    NULL
+};
+
+/* +x arguments with values */
+static char *plusx_val_switches[] = {
+    "mqd",
     NULL
 };
 
@@ -976,6 +986,20 @@ int main(int argc, char **argv)
 		      add_Eargs(argv[i+1]);
 		      i++;
 		      break;
+		  case 'x':
+		      if (!is_one_of_strings(&argv[i][2], plusx_val_switches)) {
+			  goto the_default;
+		      } else {
+			  if (i+1 >= argc
+			      || argv[i+1][0] == '-'
+			      || argv[i+1][0] == '+')
+			      usage(argv[i]);
+			  argv[i][0] = '-';
+			  add_Eargs(argv[i]);
+			  add_Eargs(argv[i+1]);
+			  i++;
+		      }
+		      break;
 		  case 'z':
 		      if (!is_one_of_strings(&argv[i][2], plusz_val_switches)) {
 			  goto the_default;
@@ -1176,7 +1200,7 @@ usage_aux(void)
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] "
 	  "[+SP PERCENTAGE_SCHEDULERS:PERCENTAGE_SCHEDULERS_ONLINE] "
 	  "[+T LEVEL] [+V] [+v] "
-	  "[+W<i|w|e>] [+z MISC_OPTION] [args ...]\n");
+	  "[+W<i|w|e>]  [+x DEFAULT_PROC_FLAGS] [+z MISC_OPTION] [args ...]\n");
   exit(1);
 }
 

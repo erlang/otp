@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,6 +110,17 @@ init_per_group(_, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(TestCase, Config) when TestCase == cert_expired;
+					 TestCase == invalid_signature_client;
+					 TestCase == invalid_signature_server;
+					 TestCase == extended_key_usage_verify_none;
+					 TestCase == extended_key_usage_verify_peer;
+					 TestCase == critical_extension_verify_none;
+					 TestCase == critical_extension_verify_peer;
+					 TestCase == no_authority_key_identifier;
+					 TestCase == no_authority_key_identifier_and_nonstandard_encoding->
+    ssl:clear_pem_cache(),
+    init_per_testcase(common, Config);
 init_per_testcase(_TestCase, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 5}),

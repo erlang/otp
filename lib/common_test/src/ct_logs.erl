@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1833,7 +1833,7 @@ make_all_runs_index(When) ->
     AbsName = ?abs(?all_runs_name),
     notify_and_lock_file(AbsName),
     if When == start -> ok;
-       true -> io:put_chars("Updating " ++ AbsName ++ "... ")
+       true -> io:put_chars("Updating " ++ AbsName ++ " ... ")
     end,
 
     %% check if log cache should be used, and if it exists
@@ -2572,7 +2572,7 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
 make_all_suites_index1(When, AbsIndexName, AllTestLogDirs) ->
     IndexName = ?index_name,
     if When == start -> ok;
-       true -> io:put_chars("Updating " ++ AbsIndexName ++ "... ")
+       true -> io:put_chars("Updating " ++ AbsIndexName ++ " ... ")
     end,
     case catch make_all_suites_index2(IndexName, AllTestLogDirs) of
 	{'EXIT', Reason} ->

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2007-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@
 
 #endif
 
-#define ERTS_PROC_LOCK_MAX_BIT 4
+#define ERTS_PROC_LOCK_MAX_BIT 5
 
 typedef erts_aint32_t ErtsProcLocks;
 
@@ -84,6 +84,7 @@ typedef struct erts_proc_lock_t_ {
     erts_lcnt_lock_t lcnt_msgq;
     erts_lcnt_lock_t lcnt_btm;
     erts_lcnt_lock_t lcnt_status;
+    erts_lcnt_lock_t lcnt_trace;
 #endif
 #elif ERTS_PROC_LOCK_RAW_MUTEX_IMPL
     erts_mtx_t main;
@@ -91,6 +92,7 @@ typedef struct erts_proc_lock_t_ {
     erts_mtx_t msgq;
     erts_mtx_t btm;
     erts_mtx_t status;
+    erts_mtx_t trace;
 #else
 #  error "no implementation"
 #endif
@@ -137,9 +139,18 @@ typedef struct erts_proc_lock_t_ {
  *   Protects the following fields in the process structure:
  *   * pending_suspenders
  *   * suspendee
+ *   * sys_tasks
  *   * ...
  */
-#define ERTS_PROC_LOCK_STATUS		(((ErtsProcLocks) 1) << ERTS_PROC_LOCK_MAX_BIT)
+#define ERTS_PROC_LOCK_STATUS		(((ErtsProcLocks) 1) << 4)
+
+/*
+ * Trace message lock:
+ *   Protects the order in which messages are sent
+ *   from trace nifs. This lock is taken inside enif_send.
+ *
+ */
+#define ERTS_PROC_LOCK_TRACE            (((ErtsProcLocks) 1) << ERTS_PROC_LOCK_MAX_BIT)
 
 /*
  * Special fields:
@@ -154,8 +165,8 @@ typedef struct erts_proc_lock_t_ {
  *   all process locks are held, and are allowed to be read if
  *   at least one process lock (whichever one doesn't matter)
  *   is held:
- *     * tracer_proc
- *     * tracer_flags
+ *     * common.tracer
+ *     * common.trace_flags
  *
  *   The following fields are only allowed to be accessed if
  *   both the schedule queue lock and at least one process lock
@@ -198,17 +209,15 @@ typedef struct erts_proc_lock_t_ {
 
 /* ERTS_PROC_LOCKS_* are combinations of process locks */
 
-#define ERTS_PROC_LOCKS_MSG_RECEIVE	(ERTS_PROC_LOCK_MSGQ		\
-					 | ERTS_PROC_LOCK_STATUS)
-#define ERTS_PROC_LOCKS_MSG_SEND	(ERTS_PROC_LOCK_MSGQ		\
-					 | ERTS_PROC_LOCK_STATUS)
+#define ERTS_PROC_LOCKS_MSG_RECEIVE	ERTS_PROC_LOCK_MSGQ
+#define ERTS_PROC_LOCKS_MSG_SEND	ERTS_PROC_LOCK_MSGQ
 #define ERTS_PROC_LOCKS_XSIG_SEND	ERTS_PROC_LOCK_STATUS
 
 #define ERTS_PROC_LOCKS_ALL \
   ((((ErtsProcLocks) 1) << (ERTS_PROC_LOCK_MAX_BIT + 1)) - 1)
 
 #define ERTS_PROC_LOCKS_ALL_MINOR	(ERTS_PROC_LOCKS_ALL \
-					 & ~ERTS_PROC_LOCK_MAIN)
+                                         & ~ERTS_PROC_LOCK_MAIN)
 
 
 #define ERTS_PIX_LOCKS_BITS		10
@@ -260,6 +269,7 @@ void erts_proc_lc_might_unlock(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_have_proc_locks(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_proc_locks(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_only_proc_main(Process *p);
+void erts_proc_lc_chk_only_proc(Process *p, ErtsProcLocks locks);
 void erts_proc_lc_chk_no_proc_locks(char *file, int line);
 ErtsProcLocks erts_proc_lc_my_proc_locks(Process *p);
 int erts_proc_lc_trylock_force_busy(Process *p, ErtsProcLocks locks);
@@ -477,9 +487,15 @@ erts_smp_proc_raw_trylock__(Process *p, ErtsProcLocks locks)
     if (locks & ERTS_PROC_LOCK_STATUS)
 	if (erts_mtx_trylock(&p->lock.status) == EBUSY)
 	    goto busy_status;
+    if (locks & ERTS_PROC_LOCK_TRACE)
+	if (erts_mtx_trylock(&p->lock.trace) == EBUSY)
+	    goto busy_trace;
 
     return 0;
 
+busy_trace:
+    if (locks & ERTS_PROC_LOCK_TRACE)
+	erts_mtx_unlock(&p->lock.trace);
 busy_status:
     if (locks & ERTS_PROC_LOCK_BTM)
 	erts_mtx_unlock(&p->lock.btm);
@@ -568,6 +584,8 @@ erts_smp_proc_lock__(Process *p,
 	erts_mtx_lock(&p->lock.btm);
     if (locks & ERTS_PROC_LOCK_STATUS)
 	erts_mtx_lock(&p->lock.status);
+    if (locks & ERTS_PROC_LOCK_TRACE)
+	erts_mtx_lock(&p->lock.trace);
 
 #ifdef ERTS_PROC_LOCK_DEBUG
     erts_proc_lock_op_debug(p, locks, 1);
@@ -653,6 +671,8 @@ erts_smp_proc_unlock__(Process *p,
     erts_proc_lock_op_debug(p, locks, 0);
 #endif
 
+    if (locks & ERTS_PROC_LOCK_TRACE)
+	erts_mtx_unlock(&p->lock.trace);
     if (locks & ERTS_PROC_LOCK_STATUS)
 	erts_mtx_unlock(&p->lock.status);
     if (locks & ERTS_PROC_LOCK_BTM)

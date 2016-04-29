@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -278,9 +278,14 @@ ErtsMonotonicTime
 erts_check_next_timeout_time(ErtsSchedulerData *esdp)
 {
     ErtsTimerWheel *tiw = esdp->timer_wheel;
+    ErtsMonotonicTime time;
+    ERTS_MSACC_DECLARE_CACHE_X();
     if (tiw->true_next_timeout_time)
 	return tiw->next_timeout_time;
-    return find_next_timeout(esdp, tiw, 1, 0, 0);
+    ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_X(ERTS_MSACC_STATE_TIMERS);
+    time = find_next_timeout(esdp, tiw, 1, 0, 0);
+    ERTS_MSACC_POP_STATE_M_X();
+    return time;
 }
 
 #ifndef ERTS_TW_DEBUG
@@ -336,6 +341,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 {
     int tiw_pos_ix, slots, yielded_slot_restarted, yield_count;
     ErtsMonotonicTime bump_to, tmp_slots, old_pos;
+    ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 
     yield_count = ERTS_TWHEEL_BUMP_YIELD_LIMIT;
 
@@ -371,6 +377,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 		tiw->next_timeout_time = curr_time + ERTS_MONOTONIC_DAY;
 		tiw->pos = bump_to;
 		tiw->yield_slot = ERTS_TWHEEL_SLOT_INACTIVE;
+                ERTS_MSACC_POP_STATE_M_X();
 		return;
 	    }
 
@@ -382,6 +389,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 		    tiw->yield_slot = ERTS_TWHEEL_SLOT_AT_ONCE;
 		    tiw->true_next_timeout_time = 1;
 		    tiw->next_timeout_time = ERTS_CLKTCKS_TO_MONOTONIC(old_pos);
+                    ERTS_MSACC_POP_STATE_M_X();
 		    return;
 		}
 
@@ -400,8 +408,10 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 		p = tiw->at_once.head;
 	    }
 
-	    if (tiw->pos >= bump_to)
+	    if (tiw->pos >= bump_to) {
+                ERTS_MSACC_POP_STATE_M_X();
 		break;
+            }
 
 	    if (tiw->nto == 0)
 		goto empty_wheel;
@@ -478,6 +488,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 			    tiw->yield_slot = tiw_pos_ix;
 			    tiw->yield_slots_left = slots;
 			    tiw->yield_start_pos = old_pos;
+                            ERTS_MSACC_POP_STATE_M_X();
 			    return; /* Yield! */
 			}
 
@@ -500,6 +511,7 @@ erts_bump_timers(ErtsTimerWheel *tiw, ErtsMonotonicTime curr_time)
 
     /* Search at most two seconds ahead... */
     (void) find_next_timeout(NULL, tiw, 0, curr_time, ERTS_SEC_TO_MONOTONIC(2));
+    ERTS_MSACC_POP_STATE_M_X();
 }
 
 Uint
@@ -569,6 +581,7 @@ erts_twheel_set_timer(ErtsTimerWheel *tiw,
 		      ErtsMonotonicTime timeout_pos)
 {
     ErtsMonotonicTime timeout_time;
+    ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 
     p->u.func.timeout = timeout;
     p->u.func.cancel = cancel;
@@ -612,6 +625,7 @@ erts_twheel_set_timer(ErtsTimerWheel *tiw,
 	tiw->true_next_timeout_time = 1;
 	tiw->next_timeout_time = timeout_time;
     }
+    ERTS_MSACC_POP_STATE_M_X();
 }
 
 void
@@ -620,11 +634,13 @@ erts_twheel_cancel_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p)
     if (p->slot != ERTS_TWHEEL_SLOT_INACTIVE) {
 	ErlCancelProc cancel;
 	void *arg;
+        ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_TIMERS);
 	remove_timer(tiw, p);
 	cancel = p->u.func.cancel;
 	arg = p->u.func.arg;
 	if (cancel)
 	    (*cancel)(arg);
+        ERTS_MSACC_POP_STATE_M_X();
     }
 }
 

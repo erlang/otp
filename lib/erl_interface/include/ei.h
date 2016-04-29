@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,8 +121,11 @@
 #define ERL_SMALL_ATOM_UTF8_EXT 'w'
 #define ERL_REFERENCE_EXT     'e'
 #define ERL_NEW_REFERENCE_EXT 'r'
+#define ERL_NEWER_REFERENCE_EXT 'Z'
 #define ERL_PORT_EXT          'f'
+#define ERL_NEW_PORT_EXT      'Y'
 #define ERL_PID_EXT           'g'
+#define ERL_NEW_PID_EXT       'X'
 #define ERL_SMALL_TUPLE_EXT   'h'
 #define ERL_LARGE_TUPLE_EXT   'i'
 #define ERL_NIL_EXT           'j'

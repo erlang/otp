@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,7 +98,7 @@ init([]) ->
 	      {kernel_config, start_link, []},
 	      permanent, 2000, worker, [kernel_config]},
     Code = {code_server,
-	    {code, start_link, get_code_args()},
+	    {code, start_link, []},
 	    permanent, 2000, worker, [code]},
     File = {file_server_2,
 	    {file_server, start_link, []},
@@ -157,12 +157,6 @@ init(safe) ->
     init:run_on_load_handlers(),
 
     {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
-
-get_code_args() ->
-    case init:get_argument(nostick) of
-	{ok, [[]]} -> [[nostick]];
-	_ -> []
-    end.
 
 start_dist_ac() ->
     Spec = [{dist_ac,{dist_ac,start_link,[]},permanent,2000,worker,[dist_ac]}],

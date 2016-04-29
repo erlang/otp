@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 %%
 -module(int_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -31,37 +31,30 @@
 -export([interpret/1, guards/1, interpretable/1]).
 -export([ append_1/1, append_2/1, member/1, reverse/1]).
 
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
-
 init_per_testcase(interpretable, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config];
+    Config;
 init_per_testcase(_Case, Config) ->
 
     %% Interpret some existing and non-existing modules
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {module, lists1} = int:i(filename:join([DataDir,lists1])),
-    ?line {module, guards} = int:i(filename:join([DataDir,guards])),
+    DataDir = proplists:get_value(data_dir, Config),
+    {module, lists1} = int:i(filename:join([DataDir,lists1])),
+    {module, guards} = int:i(filename:join([DataDir,guards])),
 
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(interpretable, Config) ->
-    ?line Dog=?config(watchdog, Config),
-    ?line test_server:timetrap_cancel(Dog),
+end_per_testcase(interpretable, _Config) ->
     ok;
 end_per_testcase(_Case, Config) ->
 
     %% Quit interpreting
-    ?line ok = int:n(lists1),
-    ?line ok = int:n(guards),
+    ok = int:n(lists1),
+    ok = int:n(guards),
 
-    ?line Dog=?config(watchdog, Config),
-    ?line test_server:timetrap_cancel(Dog),
-    ?line ok.
+    ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [interpret, guards, {group, list_suite}, interpretable].
@@ -71,6 +64,14 @@ groups() ->
      {append, [], [append_1, append_2]}].
 
 init_per_suite(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,OldCwd} = file:get_cwd(),
+    try
+	ok = file:set_cwd(DataDir),
+	make:all()
+    after
+	file:set_cwd(OldCwd)
+    end,
     Config.
 
 end_per_suite(_Config) ->
@@ -83,83 +84,62 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-interpret(suite) ->
-    [];
-interpret(doc) ->
-    ["Interpreting modules"];
+%% Interpreting modules.
 interpret(Config) when is_list(Config) ->
-    ?line int:n(int:interpreted()),
+    int:n(int:interpreted()),
 
     %% Interpret some existing and non-existing modules
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {module, lists1} = int:i(filename:join([DataDir,lists1])),
-    ?line {module, ordsets1} = int:i(filename:join([DataDir,ordsets1])),
-    ?line error = int:i(non_existent_module),
+    DataDir = proplists:get_value(data_dir, Config),
+    {module, lists1} = int:i(filename:join([DataDir,lists1])),
+    {module, ordsets1} = int:i(filename:join([DataDir,ordsets1])),
+    error = int:i(non_existent_module),
 
     %% Check that the interpreter has the right view.
-    ?line ExpectedResult = lists:sort([lists1, ordsets1]),
-    ?line Result = int:interpreted(),
-    ?line ExpectedResult = lists:sort(Result),
+    ExpectedResult = lists:sort([lists1, ordsets1]),
+    Result = int:interpreted(),
+    ExpectedResult = lists:sort(Result),
 
     %% Uniterpret the modules.
-    ?line ok = int:n(non_existent_module),
-    ?line ok = int:n(lists1),
-    ?line [ordsets1] = int:interpreted(),
-    ?line ok = int:n("ordsets1"),
-    ?line [] = int:interpreted(),
+    ok = int:n(non_existent_module),
+    ok = int:n(lists1),
+    [ordsets1] = int:interpreted(),
+    ok = int:n("ordsets1"),
+    [] = int:interpreted(),
 
     ok.
 
-guards(suite) ->
-    [];
-guards(doc) ->
-    "Evaluate guards.";
+%% Evaluate guards.
 guards(Config) when is_list(Config) ->
     ok = guards:guards().
 
-
-
-
-append_1(suite) ->
-    [];
-append_1(doc) ->
-    [];
 append_1(Config) when is_list(Config) ->
-    ?line test_server:format("In append_1~n"),
-    ?line test_server:format("code:which(lists1)=~p~n",
-			     [code:which(lists1)]),
-    ?line test_server:format("lists1:append([a],[b])=~p~n",
-			     [spawn_eval(lists1,append,[[a],[b]])]),
+    io:format("In append_1~n"),
+    io:format("code:which(lists1)=~p~n",
+	      [code:which(lists1)]),
+    io:format("lists1:append([a],[b])=~p~n",
+	      [spawn_eval(lists1,append,[[a],[b]])]),
 
-    ?line "abcdef"=spawn_eval(lists1,append,[["abc","def"]]),
-    ?line [hej, du,[glade, [bagare]]]=
+    "abcdef"=spawn_eval(lists1,append,[["abc","def"]]),
+    [hej, du,[glade, [bagare]]]=
 	spawn_eval(lists1,append,[[[hej], [du], [[glade, [bagare]]]]]),
-    ?line [10, [elem]]=spawn_eval(lists1,append,[[[10], [[elem]]]]),
+    [10, [elem]]=spawn_eval(lists1,append,[[[10], [[elem]]]]),
     ok.
 
-append_2(suite) ->
-    [];
-append_2(doc) ->
-    [];
 append_2(Config) when is_list(Config) ->
-    ?line test_server:format("In append_2~n"),
-    ?line test_server:format("code:which(lists1)=~p~n",
-			     [code:which(lists1)]),
+    io:format("In append_2~n"),
+    io:format("code:which(lists1)=~p~n",
+	      [code:which(lists1)]),
 
-    ?line "abcdef"=spawn_eval(lists1,append,["abc", "def"]),
-    ?line [hej, du]=spawn_eval(lists1,append,[[hej], [du]]),
-    ?line [10, [elem]]=spawn_eval(lists1,append,[[10], [[elem]]]),
+    "abcdef"=spawn_eval(lists1,append,["abc", "def"]),
+    [hej, du]=spawn_eval(lists1,append,[[hej], [du]]),
+    [10, [elem]]=spawn_eval(lists1,append,[[10], [[elem]]]),
     ok.
 
-reverse(suite) ->
-    [];
-reverse(doc) ->
-    [];
 reverse(Config) when is_list(Config) ->
-    ?line ok=reverse_test(0),
-    ?line ok=reverse_test(1),
-    ?line ok=reverse_test(2),
-    ?line ok=reverse_test(537),
+    ok=reverse_test(0),
+    ok=reverse_test(1),
+    ok=reverse_test(2),
+    ok=reverse_test(537),
     ok.
 
 reverse_test(0) ->
@@ -179,19 +159,16 @@ reverse_test(Num) ->
 	    error
     end.
 
-member(suite) ->
-    [];
-member(doc) ->
-    ["Tests the lists1:member() implementation. The function "
-     "is `non-blocking', and only processes 2000 elements "
-     "at a time.",
-     "This test case depends on lists1:reverse() to work, "
-     "wich is tested in a separate test case."];
+%% Tests the lists1:member() implementation. The function
+%% is `non-blocking', and only processes 2000 elements
+%% at a time.
+%% This test case depends on lists1:reverse() to work,
+%% which is tested in a separate test case.
 member(Config) when list(Config) ->
-    ?line ok=member_test(0),
-    ?line ok=member_test(1),
-    ?line ok=member_test(100),
-    ?line ok=member_test(537),
+    ok=member_test(0),
+    ok=member_test(1),
+    ok=member_test(100),
+    ok=member_test(537),
     ok.
 
 member_test(0) ->
@@ -223,69 +200,79 @@ spawn_eval(M,F,A) ->
 evaluator(Pid, M,F,A) ->
     Pid ! (catch apply(M,F,A)).
 
-interpretable(suite) ->
-    [];
-interpretable(doc) ->
-    ["Test int:interpretable/1"];
+%% Test int:interpretable/1.
 interpretable(Config) when is_list(Config) ->
 
     %% First make sure that 'lists1' is not loaded
     case code:is_loaded(lists1) of
 	{file, _Loaded} ->
-	    ?line code:purge(lists1),
-	    ?line code:delete(lists1),
-	    ?line code:purge(lists1);
+	    code:purge(lists1),
+	    code:delete(lists1),
+	    code:purge(lists1);
 	false -> ignore
     end,
 
     %% true
-    ?line DataDir = filename:dirname(?config(data_dir, Config)),
-    ?line true = code:add_patha(DataDir),
-    ?line true = int:interpretable(lists1),
-    ?line true = int:interpretable(filename:join([DataDir,lists1])),
-    ?line true = code:del_path(DataDir),
+    DataDir = filename:dirname(proplists:get_value(data_dir, Config)),
+    true = code:add_patha(DataDir),
+    true = int:interpretable(lists1),
+    true = int:interpretable(filename:join([DataDir,lists1])),
+    true = code:del_path(DataDir),
 
-    %% {error, no_src}
-    ?line PrivDir = filename:join(?config(priv_dir, Config), ""),
-    ?line {ok, _} = file:copy(filename:join([DataDir,"lists1.beam"]),
-			      filename:join([PrivDir,"lists1.beam"])),
-    ?line true = code:add_patha(PrivDir),
-
-    ?line {error, no_src} = int:interpretable(lists1),
-    ?line ok = file:delete(filename:join([PrivDir,"lists1.beam"])),
+    %% true (from source)
+    PrivDir = filename:join(proplists:get_value(priv_dir, Config), ""),
+    {ok, _} = file:copy(filename:join([DataDir,"lists1.beam"]),
+			filename:join([PrivDir,"lists1.beam"])),
+    true = code:add_patha(PrivDir),
+    true = int:interpretable(lists1),
+    ok = file:delete(filename:join([PrivDir,"lists1.beam"])),
 
     %% {error, no_beam}
     Src = filename:join([PrivDir,"lists1.erl"]),
-    ?line {ok, _} = file:copy(filename:join([DataDir,"lists1.erl"]),
-			      Src),
-    ?line {error, no_beam} = int:interpretable(Src),
+    {ok, _} = file:copy(filename:join([DataDir,"lists1.erl"]),
+			Src),
+    {error, no_beam} = int:interpretable(Src),
 
     %% {error, no_debug_info}
-    ?line {ok, _} = compile:file(Src, [{outdir,PrivDir}]),
-    ?line {error, no_debug_info} = int:interpretable(Src),
-    ?line {error, no_debug_info} = int:interpretable(lists1),
-    ?line ok = file:delete(Src),
-    ?line true = code:del_path(PrivDir),
+    {ok, _} = compile:file(Src, [{outdir,PrivDir}]),
+    {error, no_debug_info} = int:interpretable(Src),
+    {error, no_debug_info} = int:interpretable(lists1),
+    ok = file:delete(Src),
+    true = code:del_path(PrivDir),
+
+    %% {error, no_src}
+    {ok, lists2, Binary} = compile:forms([{attribute,1,module,lists2}], []),
+    code:load_binary(lists2, "unknown", Binary),
+    {error, no_src} = int:interpretable(lists2),
 
     %% {error, badarg}
-    ?line {error, badarg} = int:interpretable(pride),
-    ?line {error, badarg} = int:interpretable("prejudice.erl"),
+    {error, badarg} = int:interpretable(pride),
+    {error, badarg} = int:interpretable("prejudice.erl"),
 
     %% {error, {app,App}}
-    ?line {error, {app,_}} = int:interpretable(file),
-    ?line {error, {app,_}} = int:interpretable(lists),
-    ?line case int:interpretable(dbg_ieval) of
-	      {error, {app,_}} ->
-		  ok;
-	      {error, badarg} ->
-		  case code:which(dbg_ieval) of
-		      cover_compiled ->
-			  ok;
-		      Other1 ->
-			  ?line ?t:fail({unexpected_result, Other1})
-		  end;
-	      Other2 ->
-		  ?line ?t:fail({unexpected_result, Other2})
-	  end,
-
+    case filename:basename(code:lib_dir(kernel)) of
+	"kernel" ->
+	    %% Development system (not installed). We are allowed
+	    %% to interpret modules in kernel and stdlib
+	    %% (at our own risk).
+	    ok;
+	"kernel-" ++ _ ->
+	    %% Installed system. Certain applications (including
+	    %% kernel and stdlib) cannot be interpreted.
+	    {error, {app,_}} = int:interpretable(file),
+	    {error, {app,_}} = int:interpretable(lists),
+	    case int:interpretable(dbg_ieval) of
+		{error, {app,_}} ->
+		    ok;
+		{error, badarg} ->
+		    case code:which(dbg_ieval) of
+			cover_compiled ->
+			    ok;
+			Other1 ->
+			    ct:fail({unexpected_result, Other1})
+		    end;
+		Other2 ->
+		    ct:fail({unexpected_result, Other2})
+	    end
+    end,
     ok.

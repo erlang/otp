@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2015. All Rights Reserved.
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ HRL_FILES_NEEDED_IN_TEST = \
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INCLUDES = -I. -I$(ERL_TOP)/lib/test_server/include/
+INCLUDES = -I.
 
 DATADIRS = ssl_basic_SUITE_data
 
@@ -100,8 +100,7 @@ RELSYSDIR = $(RELEASE_PATH)/ssl_test
 # The path to the test_server ebin dir is needed when 
 # running the target "targets".
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../../internal_tools/test_server/ebin \
-	             $(INCLUDES) 
+ERL_COMPILE_FLAGS += $(INCLUDES)
 
 # ----------------------------------------------------
 # Targets

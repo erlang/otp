@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,11 +35,6 @@
 #    undef ERL_DRV_DEPRECATED_FUNC
 #    define ERL_DRV_DEPRECATED_FUNC __attribute__((deprecated))
 #  endif
-#endif
-
-/* This is OK to override by the NIF/driver implementor */
-#if defined(HALFWORD_HEAP_EMULATOR_SAVED__) && !defined(HALFWORD_HEAP_EMULATOR)
-#define HALFWORD_HEAP_EMULATOR HALFWORD_HEAP_EMULATOR_SAVED__
 #endif
 
 #include "erl_drv_nif.h"
@@ -131,6 +126,7 @@ typedef struct {
 #define ERL_DRV_FLAG_USE_PORT_LOCKING	(1 << 0)
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
 #define ERL_DRV_FLAG_NO_BUSY_MSGQ	(1 << 2)
+#define ERL_DRV_FLAG_USE_INIT_ACK	(1 << 3)
 
 /*
  * Integer types
@@ -340,22 +336,23 @@ typedef struct erl_drv_entry {
 
 #ifdef STATIC_ERLANG_DRIVER
 #  define ERLANG_DRIVER_NAME(NAME) NAME ## _driver_init
+#  define ERL_DRIVER_EXPORT
 #else
 #  define ERLANG_DRIVER_NAME(NAME) driver_init
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_DRIVER_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_DRIVER_EXPORT __global
+#  else
+#    define ERL_DRIVER_EXPORT
+#  endif
 #endif
 
-/* For windows dynamic drivers */
 #ifndef ERL_DRIVER_TYPES_ONLY
 
-#if defined(__WIN32__)
-#  define DRIVER_INIT(DRIVER_NAME) \
-  __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void);	\
-    __declspec(dllexport) ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
-#else 
-#  define DRIVER_INIT(DRIVER_NAME) \
-    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
-    ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
-#endif
+#define DRIVER_INIT(DRIVER_NAME) \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 
 #define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))
 #define ERL_DRV_BUSY_MSGQ_READ_ONLY	((ErlDrvSizeT) 0)
@@ -661,15 +658,11 @@ EXTERN char *driver_dl_error(void);
 EXTERN int erl_drv_putenv(const char *key, char *value);
 EXTERN int erl_drv_getenv(const char *key, char *value, size_t *value_size);
 
-#ifdef __OSE__
-typedef ErlDrvUInt ErlDrvOseEventId;
-EXTERN union SIGNAL *erl_drv_ose_get_signal(ErlDrvEvent ev);
-EXTERN ErlDrvEvent erl_drv_ose_event_alloc(SIGSELECT sig, ErlDrvOseEventId handle,
-					   ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig), void *extra);
-EXTERN void erl_drv_ose_event_free(ErlDrvEvent ev);
-EXTERN void erl_drv_ose_event_fetch(ErlDrvEvent ev, SIGSELECT *sig,
-                  ErlDrvOseEventId *handle, void **extra);
-#endif
+/* spawn start init ack */
+EXTERN void erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res);
+
+/* set the pid seen in port_info */
+EXTERN void erl_drv_set_os_pid(ErlDrvPort ix, ErlDrvSInt pid);
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 

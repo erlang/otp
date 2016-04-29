@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@
 
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
 	 setup_keys/8, suites/1, prf/5,
-	 ecc_curves/1, oid_to_enum/1, enum_to_oid/1]).
+	 ecc_curves/1, oid_to_enum/1, enum_to_oid/1, 
+	 default_signature_algs/1, signature_algs/2]).
 
 %%====================================================================
 %% Internal application API
@@ -208,9 +209,7 @@ suites(Minor) when Minor == 1; Minor == 2 ->
       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
       ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
       ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
-      ?TLS_RSA_WITH_AES_128_CBC_SHA,
-      ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
-      ?TLS_RSA_WITH_DES_CBC_SHA
+      ?TLS_RSA_WITH_AES_128_CBC_SHA
     ];
 suites(3) ->
     [
@@ -257,6 +256,52 @@ suites(3) ->
      %% ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256
     ] ++ suites(2).
 
+
+
+signature_algs({3, 3}, HashSigns) ->
+    CryptoSupports =  crypto:supports(),
+    Hashes = proplists:get_value(hashs, CryptoSupports),
+    PubKeys = proplists:get_value(public_keys, CryptoSupports),
+    Supported = lists:foldl(fun({Hash, dsa = Sign} = Alg, Acc) ->
+				    case proplists:get_bool(dss, PubKeys) 
+					andalso proplists:get_bool(Hash, Hashes)
+					andalso is_pair(Hash, Sign, Hashes)
+				    of
+					true ->
+					    [Alg | Acc];
+					false ->
+					    Acc
+				    end;
+			       ({Hash, Sign} = Alg, Acc) -> 
+				    case proplists:get_bool(Sign, PubKeys) 
+					andalso proplists:get_bool(Hash, Hashes) 
+					andalso is_pair(Hash, Sign, Hashes)
+				    of
+					true ->
+					    [Alg | Acc];
+					false ->
+					    Acc
+				    end
+			    end, [], HashSigns),
+    lists:reverse(Supported).
+
+default_signature_algs({3, 3} = Version) ->
+    Default = [%% SHA2
+	       {sha512, ecdsa},
+	       {sha512, rsa},
+	       {sha384, ecdsa},
+	       {sha384, rsa},
+	       {sha256, ecdsa},
+	       {sha256, rsa},
+	       {sha224, ecdsa},
+	       {sha224, rsa},
+	       %% SHA
+	       {sha, ecdsa},
+	       {sha, rsa},
+	       {sha, dsa}],
+    signature_algs(Version, Default);
+default_signature_algs(_) ->
+    undefined.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -341,6 +386,17 @@ finished_label(client) ->
     <<"client finished">>;
 finished_label(server) ->
     <<"server finished">>.
+
+is_pair(sha, dsa, _) ->
+    true;
+is_pair(_, dsa, _) ->
+    false;
+is_pair(Hash, ecdsa, Hashs) ->
+    AtLeastSha = Hashs -- [md2,md4,md5],
+    lists:member(Hash, AtLeastSha);
+is_pair(Hash, rsa, Hashs) ->
+    AtLeastMd5 = Hashs -- [md2,md4],
+    lists:member(Hash, AtLeastMd5).
 
 %% list ECC curves in prefered order
 ecc_curves(_Minor) ->

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,15 +42,8 @@
 #  define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
-#if !HEAP_ON_C_STACK
-#  define DECLARE_TMP(VariableName,N,P)  \
-     Eterm *VariableName = ((ERTS_PROC_GET_SCHDATA(P)->erl_arith_tmp_heap) + (2 * N))
-#else
-#  define DECLARE_TMP(VariableName,N,P) \
-     Eterm VariableName[2]
-#endif
-#  define ARG_IS_NOT_TMP(Arg,Tmp) ((Arg) != make_big((Tmp)))
-
+#define DECLARE_TMP(VariableName,N,P)  Eterm VariableName[2]
+#define ARG_IS_NOT_TMP(Arg,Tmp) ((Arg) != make_big((Tmp)))
 
 static Eterm shift(Process* p, Eterm arg1, Eterm arg2, int right);
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@
 	 get_env/0,set_env/1, debug/1,
 	 batch/1,foreach/2,map/2,foldl/3,foldr/3,
 	 getObjectType/1, typeCast/2,
-	 null/0, is_null/1]).
+	 null/0, is_null/1, equal/2]).
 
 -export([create_memory/1, get_memory_bin/1,
 	 retain_memory/1, release_memory/1]).
@@ -152,6 +152,10 @@ null() ->
 %% @doc Returns true if object is null, false otherwise
 -spec is_null(wx_object()) -> boolean().
 is_null(#wx_ref{ref=NULL}) -> NULL =:= 0.
+
+%% @doc Returns true if both arguments references the same object, false otherwise
+-spec equal(wx_object(), wx_object()) -> boolean().
+equal(#wx_ref{ref=Ref1}, #wx_ref{ref=Ref2}) -> Ref1 =:= Ref2.
 
 %% @doc Returns the object type
 -spec getObjectType(wx_object()) -> atom().

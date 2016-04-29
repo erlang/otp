@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(file_sorter_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -28,9 +28,9 @@
 -define(t,test_server).
 -define(privdir(_), "./file_sorter_SUITE_priv").
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
--define(privdir(Conf), ?config(priv_dir, Conf)).
+-define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -49,15 +49,14 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [basic, badarg, term_sort, term_keysort,
@@ -83,377 +82,323 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-basic(doc) ->
-    ["Basic test case."];
-basic(suite) -> 
-    [];
+%% Basic test case.
 basic(Config) when is_list(Config) ->
     Fmt = binary,
     Arg = {format,Fmt},
     Foo = outfile("foo", Config),
     P0 = pps(),
 
-    ?line F1s = [F1] = to_files([[]], Fmt, Config),
-    ?line ok = file_sorter:sort(F1),
-    ?line [] = from_files(F1, Fmt),
-    ?line ok = file_sorter:keysort(17, F1),
-    ?line [] = from_files(F1, Fmt),
-    ?line ok = file_sorter:merge(F1s, Foo),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:keymerge(17, F1s, Foo),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files([Foo | F1s]),
+    F1s = [F1] = to_files([[]], Fmt, Config),
+    ok = file_sorter:sort(F1),
+    [] = from_files(F1, Fmt),
+    ok = file_sorter:keysort(17, F1),
+    [] = from_files(F1, Fmt),
+    ok = file_sorter:merge(F1s, Foo),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:keymerge(17, F1s, Foo),
+    [] = from_files(Foo, Fmt),
+    delete_files([Foo | F1s]),
 
-    ?line [F2] = to_files([[foo,bar]], Fmt, Config),
-    ?line ok = file_sorter:sort([F2], F2, Arg),
-    ?line [bar,foo] = from_files(F2, Fmt),
-    ?line delete_files(F2),
+    [F2] = to_files([[foo,bar]], Fmt, Config),
+    ok = file_sorter:sort([F2], F2, Arg),
+    [bar,foo] = from_files(F2, Fmt),
+    delete_files(F2),
 
-    ?line Fs1 = to_files([[foo],[bar]], Fmt, Config),
-    ?line ok = file_sorter:sort(Fs1, Foo, Arg),
-    ?line [bar,foo] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:merge(Fs1, Foo, Arg),
-    ?line [bar,foo] = from_files(Foo, Fmt),
-    ?line delete_files([Foo | Fs1]),
+    Fs1 = to_files([[foo],[bar]], Fmt, Config),
+    ok = file_sorter:sort(Fs1, Foo, Arg),
+    [bar,foo] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:merge(Fs1, Foo, Arg),
+    [bar,foo] = from_files(Foo, Fmt),
+    delete_files([Foo | Fs1]),
 
-    ?line Fmt2 = binary_term,
-    ?line Arg2 = {format, Fmt2},
-    ?line [F3] = to_files([[{foo,1},{bar,2}]], Fmt2, Config),
-    ?line ok = file_sorter:keysort([2], [F3], F3, Arg2),
-    ?line [{foo,1},{bar,2}] = from_files(F3, Fmt2),
-    ?line delete_files(F3),
+    Fmt2 = binary_term,
+    Arg2 = {format, Fmt2},
+    [F3] = to_files([[{foo,1},{bar,2}]], Fmt2, Config),
+    ok = file_sorter:keysort([2], [F3], F3, Arg2),
+    [{foo,1},{bar,2}] = from_files(F3, Fmt2),
+    delete_files(F3),
 
-    ?line Fs2 = to_files([[{foo,1}],[{bar,2}]], Fmt2, Config),
-    ?line ok = file_sorter:keysort(1, Fs2, Foo, Arg2),
-    ?line [{bar,2},{foo,1}] = from_files(Foo, Fmt2),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:keymerge(1, Fs2, Foo, Arg2),
-    ?line [{bar,2},{foo,1}] = from_files(Foo, Fmt2),
-    ?line delete_files([Foo | Fs2]),
+    Fs2 = to_files([[{foo,1}],[{bar,2}]], Fmt2, Config),
+    ok = file_sorter:keysort(1, Fs2, Foo, Arg2),
+    [{bar,2},{foo,1}] = from_files(Foo, Fmt2),
+    delete_files(Foo),
+    ok = file_sorter:keymerge(1, Fs2, Foo, Arg2),
+    [{bar,2},{foo,1}] = from_files(Foo, Fmt2),
+    delete_files([Foo | Fs2]),
 
-    ?line true = P0 =:= pps(),
+    true = P0 =:= pps(),
 
     ok.
 
-badarg(doc) ->
-    ["Call functions with bad arguments."];
-badarg(suite) -> 
-    [];
+%% Call functions with bad arguments.
 badarg(Config) when is_list(Config) ->
     PrivDir = ?privdir(Config),
     BadFile = filename:join(PrivDir, "not_a_file"),
     ABadFile = filename:absname(BadFile),
-    ?line file:delete(BadFile),
-    ?line {error,{file_error,ABadFile,enoent}} = 
+    file:delete(BadFile),
+    {error,{file_error,ABadFile,enoent}} =
 	file_sorter:sort(BadFile),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:sort({flipp})),
-    ?line {error,{file_error,ABadFile,enoent}} = 
+    {error,{file_error,ABadFile,enoent}} =
 	file_sorter:keysort(1, BadFile),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:keysort(1, {flipp})),
 
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:merge([{flipp}],foo)),
-    ?line {error,{file_error,ABadFile,enoent}} = 
+    {error,{file_error,ABadFile,enoent}} =
 	file_sorter:keymerge(1,[BadFile],foo),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:keymerge(1,[{flipp}],foo)),
-    ?line {'EXIT', {{badarg, _}, _}} = 
+    {'EXIT', {{badarg, _}, _}} =
 	(catch file_sorter:merge(fun(X) -> X end, foo)),
-    ?line {'EXIT', {{badarg, _}, _}} = 
+    {'EXIT', {{badarg, _}, _}} =
 	(catch file_sorter:keymerge(1, fun(X) -> X end, foo)),
 
-    ?line {error,{file_error,ABadFile,enoent}} = 
+    {error,{file_error,ABadFile,enoent}} =
 	file_sorter:check(BadFile),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:check({flipp})),
-    ?line {error,{file_error,ABadFile,enoent}} = 
+    {error,{file_error,ABadFile,enoent}} =
 	file_sorter:keycheck(1, BadFile),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:keycheck(1, {flipp})),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:check([{flipp}],foo)),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:keycheck(1,[{flipp}],foo)),
-    ?line {'EXIT', {{badarg, _}, _}} = 
+    {'EXIT', {{badarg, _}, _}} =
 	(catch file_sorter:check(fun(X) -> X end, foo)),
-    ?line {'EXIT', {{badarg, _}, _}} = 
+    {'EXIT', {{badarg, _}, _}} =
 	(catch file_sorter:keycheck(1, fun(X) -> X end, foo)),
 
-    ?line Fs1 = to_files([[1,2,3]], binary_term, Config),
-    ?line {'EXIT', {{badarg, flipp}, _}} = 
+    Fs1 = to_files([[1,2,3]], binary_term, Config),
+    {'EXIT', {{badarg, flipp}, _}} =
 	(catch file_sorter:check(Fs1 ++ flipp, [])),
     [F1] = Fs1,
-    ?line {error,{file_error,_,_}} = 
+    {error,{file_error,_,_}} =
         file_sorter:sort(Fs1, foo, [{tmpdir,F1},{size,0}]),
-    ?line delete_files(Fs1),
-    ?line Fs2 = to_files([[1,2,3]], binary_term, Config),
+    delete_files(Fs1),
+    Fs2 = to_files([[1,2,3]], binary_term, Config),
     {error,{file_error,_,enoent}} = 
 	file_sorter:sort(Fs2, foo, [{tmpdir,filename:absname(BadFile)},
                                     {size,0}]),
-    ?line delete_files(Fs2),
+    delete_files(Fs2),
 
-    ?line {'EXIT', {{badarg, bad}, _}} = 
+    {'EXIT', {{badarg, bad}, _}} =
 	(catch file_sorter:check([], [{format,term} | bad])),
-    ?line {'EXIT', {{badarg, [{flipp}]}, _}} = 
+    {'EXIT', {{badarg, [{flipp}]}, _}} =
 	(catch file_sorter:check([{flipp}])),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch file_sorter:keycheck(1, {flipp})),
-    ?line {'EXIT', {{badarg, [{flipp}]}, _}} = 
+    {'EXIT', {{badarg, [{flipp}]}, _}} =
 	(catch file_sorter:keycheck(2, [{flipp}])),
-    ?line {error,{file_error,_,eisdir}} = file_sorter:keycheck(1, []),
-    ?line {'EXIT', {{badarg, kp}, _}} = (catch file_sorter:keycheck(kp, [])),
-    ?line {'EXIT', {{badarg, kp}, _}} = 
+    {error,{file_error,_,eisdir}} = file_sorter:keycheck(1, []),
+    {'EXIT', {{badarg, kp}, _}} = (catch file_sorter:keycheck(kp, [])),
+    {'EXIT', {{badarg, kp}, _}} =
 	(catch file_sorter:keycheck([1, kp], [])),
-    ?line {'EXIT', {{badarg, kp}, _}} = 
+    {'EXIT', {{badarg, kp}, _}} =
 	(catch file_sorter:keycheck([1 | kp], [])),
-    ?line {'EXIT', {{badarg, []}, _}} = (catch file_sorter:keycheck([], [])),
-    ?line {'EXIT', {{badarg, {format, foo}}, _}} = 
+    {'EXIT', {{badarg, []}, _}} = (catch file_sorter:keycheck([], [])),
+    {'EXIT', {{badarg, {format, foo}}, _}} =
 	(catch file_sorter:check([], {format,foo})),
-    ?line {'EXIT', {{badarg, not_an_option}, _}} = 
+    {'EXIT', {{badarg, not_an_option}, _}} =
 	(catch file_sorter:keycheck(7, [], [not_an_option])),
-    ?line {'EXIT', {{badarg, format}, _}} = 
+    {'EXIT', {{badarg, format}, _}} =
 	(catch file_sorter:keycheck(1, [], [{format, binary}])),
-    ?line {'EXIT', {{badarg, order}, _}} = 
+    {'EXIT', {{badarg, order}, _}} =
 	(catch file_sorter:keycheck(1, [], [{order, fun compare/2}])),
 
-    ?line do_badarg(fun(I, O) -> file_sorter:sort(I, O) end,
-		    fun(Kp, I, O) -> file_sorter:keysort(Kp, I, O) end,
-		    BadFile),
-    ?line do_badarg_opt(fun(I, O, X) -> file_sorter:sort(I, O, X) end,
-			fun(Kp, I, O, X) -> file_sorter:keysort(Kp, I, O, X) 
-			end),
-    ?line do_badarg(fun(I, O) -> file_sorter:merge(I, O) end,
-		    fun(Kp, I, O) -> file_sorter:keymerge(Kp, I, O) end, 
-		    BadFile),
-    ?line do_badarg_opt(fun(I, O, X) -> file_sorter:merge(I, O, X) end,
-			fun(Kp, I, O, X) -> file_sorter:keymerge(Kp, I, O, X) 
-			end).
+    do_badarg(fun(I, O) -> file_sorter:sort(I, O) end,
+	      fun(Kp, I, O) -> file_sorter:keysort(Kp, I, O) end,
+	      BadFile),
+    do_badarg_opt(fun(I, O, X) -> file_sorter:sort(I, O, X) end,
+		  fun(Kp, I, O, X) -> file_sorter:keysort(Kp, I, O, X)
+		  end),
+    do_badarg(fun(I, O) -> file_sorter:merge(I, O) end,
+	      fun(Kp, I, O) -> file_sorter:keymerge(Kp, I, O) end,
+	      BadFile),
+    do_badarg_opt(fun(I, O, X) -> file_sorter:merge(I, O, X) end,
+		  fun(Kp, I, O, X) -> file_sorter:keymerge(Kp, I, O, X)
+		  end).
 
 do_badarg(F, KF, BadFile) ->
     [Char | _] = BadFile,
     AFlipp = filename:absname(flipp),
-    ?line {error,{file_error,AFlipp,enoent}} = F([flipp | flopp], foo),
-    ?line {'EXIT', {{badarg, {foo,bar}}, _}} = (catch F([], {foo,bar})),
-    ?line {'EXIT', {{badarg, Char}, _}} = (catch F(BadFile, [])),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = (catch F({flipp}, [])),
+    {error,{file_error,AFlipp,enoent}} = F([flipp | flopp], foo),
+    {'EXIT', {{badarg, {foo,bar}}, _}} = (catch F([], {foo,bar})),
+    {'EXIT', {{badarg, Char}, _}} = (catch F(BadFile, [])),
+    {'EXIT', {{badarg, {flipp}}, _}} = (catch F({flipp}, [])),
 
-    ?line {'EXIT', {{badarg, Char}, _}} = (catch KF(1, BadFile, [])),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = (catch KF(1, {flipp}, [])),
-    ?line {error,{file_error,AFlipp,enoent}} = 
+    {'EXIT', {{badarg, Char}, _}} = (catch KF(1, BadFile, [])),
+    {'EXIT', {{badarg, {flipp}}, _}} = (catch KF(1, {flipp}, [])),
+    {error,{file_error,AFlipp,enoent}} =
 	KF(2, [flipp | flopp], foo),
-    ?line {'EXIT', {{badarg, {foo,bar}}, _}} = (catch KF(1, [], {foo,bar})),
-    ?line {'EXIT', {{badarg, kp}, _}} = (catch KF(kp, [], foo)),
-    ?line {'EXIT', {{badarg, kp}, _}} = (catch KF([1, kp], [], foo)),
-    ?line {'EXIT', {{badarg, kp}, _}} = (catch KF([1 | kp], [], foo)),
-    ?line {'EXIT', {{badarg, []}, _}} = (catch KF([], [], foo)),
+    {'EXIT', {{badarg, {foo,bar}}, _}} = (catch KF(1, [], {foo,bar})),
+    {'EXIT', {{badarg, kp}, _}} = (catch KF(kp, [], foo)),
+    {'EXIT', {{badarg, kp}, _}} = (catch KF([1, kp], [], foo)),
+    {'EXIT', {{badarg, kp}, _}} = (catch KF([1 | kp], [], foo)),
+    {'EXIT', {{badarg, []}, _}} = (catch KF([], [], foo)),
     ok.
 
 do_badarg_opt(F, KF) ->
     AFlipp = filename:absname(flipp),
-    ?line {error,{file_error,AFlipp,enoent}} = 
-	   F([flipp | flopp], foo, []),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = (catch F([{flipp}], foo, [])),
-    ?line {'EXIT', {{badarg, {out,put}}, _}} = (catch F([], {out,put}, [])),
-    ?line {'EXIT', {{badarg, not_an_option}, _}} = 
+    {error,{file_error,AFlipp,enoent}} =
+	F([flipp | flopp], foo, []),
+    {'EXIT', {{badarg, {flipp}}, _}} = (catch F([{flipp}], foo, [])),
+    {'EXIT', {{badarg, {out,put}}, _}} = (catch F([], {out,put}, [])),
+    {'EXIT', {{badarg, not_an_option}, _}} =
 	(catch F([], foo, [not_an_option])),
-    ?line {'EXIT', {{badarg, {format, foo}}, _}} = 
-	   (catch F([], foo, {format,foo})),
-    ?line {'EXIT', {{badarg, {size,foo}}, _}} = (catch F([], foo, {size,foo})),
+    {'EXIT', {{badarg, {format, foo}}, _}} =
+	(catch F([], foo, {format,foo})),
+    {'EXIT', {{badarg, {size,foo}}, _}} = (catch F([], foo, {size,foo})),
 
-    ?line {'EXIT', {{badarg, {size, -1}}, _}} = (catch F([], foo, {size,-1})),
-    ?line {'EXIT', {{badarg, {no_files, foo}}, _}} = 
+    {'EXIT', {{badarg, {size, -1}}, _}} = (catch F([], foo, {size,-1})),
+    {'EXIT', {{badarg, {no_files, foo}}, _}} =
 	(catch F([], foo, {no_files,foo})),
-    ?line {'EXIT', {{badarg, {no_files, 1}}, _}} = 
+    {'EXIT', {{badarg, {no_files, 1}}, _}} =
 	(catch F([], foo, {no_files,1})),
-    ?line {'EXIT', {{badarg, 1}, _}} = (catch F([], foo, {tmpdir,1})),
-    ?line {'EXIT', {{badarg, {order,1}}, _}} = (catch F([], foo, {order,1})),
-    ?line {'EXIT', {{badarg, {compressed, flopp}}, _}} = 
-	   (catch F([], foo, {compressed,flopp})),
-    ?line {'EXIT', {{badarg, {unique,flopp}}, _}} = 
-	   (catch F([], foo, {unique,flopp})),
-    ?line {'EXIT', {{badarg, {header,foo}}, _}} = 
+    {'EXIT', {{badarg, 1}, _}} = (catch F([], foo, {tmpdir,1})),
+    {'EXIT', {{badarg, {order,1}}, _}} = (catch F([], foo, {order,1})),
+    {'EXIT', {{badarg, {compressed, flopp}}, _}} =
+	(catch F([], foo, {compressed,flopp})),
+    {'EXIT', {{badarg, {unique,flopp}}, _}} =
+	(catch F([], foo, {unique,flopp})),
+    {'EXIT', {{badarg, {header,foo}}, _}} =
 	(catch F([], foo, {header,foo})),
-    ?line {'EXIT', {{badarg, {header, 0}}, _}} = 
+    {'EXIT', {{badarg, {header, 0}}, _}} =
 	(catch F([], foo, {header,0})),
-    ?line {'EXIT', {{badarg, {header, 1 bsl 35}}, _}} = 
+    {'EXIT', {{badarg, {header, 1 bsl 35}}, _}} =
 	(catch F([], foo, {header,1 bsl 35})),
-    ?line {'EXIT', {{badarg, header}, _}} = 
+    {'EXIT', {{badarg, header}, _}} =
 	(catch F([], foo, [{header,1},{format,term}])),
 
-    ?line {'EXIT', {{badarg, not_an_option}, _}} = 
+    {'EXIT', {{badarg, not_an_option}, _}} =
 	(catch KF(7, [], foo, [not_an_option])),
-    ?line {'EXIT', {{badarg,format}, _}} = 
+    {'EXIT', {{badarg,format}, _}} =
 	(catch KF(1, [], foo, [{format, binary}])),
-    ?line {'EXIT', {{badarg, order}, _}} = 
+    {'EXIT', {{badarg, order}, _}} =
 	(catch KF(1, [], foo, [{order, fun compare/2}])),
-    ?line {'EXIT', {{badarg, {flipp}}, _}} = 
+    {'EXIT', {{badarg, {flipp}}, _}} =
 	(catch KF(2, [{flipp}], foo,[])),
-    ?line {error,{file_error,AFlipp,enoent}} = 
+    {error,{file_error,AFlipp,enoent}} =
 	KF(2, [flipp | flopp], foo,[]),
-    ?line {'EXIT', {{badarg, {out, put}}, _}} = 
+    {'EXIT', {{badarg, {out, put}}, _}} =
 	(catch KF(1, [], {out,put}, [])),
-    ?line {'EXIT', {{badarg, kp}, _}} = (catch KF(kp, [], foo, [])),
-    ?line {'EXIT', {{badarg, kp}, _}} = (catch KF([1, kp], [], foo, [])),
-    ?line {'EXIT', {{badarg, kp}, _}} = (catch KF([1 | kp], [], foo, [])),
+    {'EXIT', {{badarg, kp}, _}} = (catch KF(kp, [], foo, [])),
+    {'EXIT', {{badarg, kp}, _}} = (catch KF([1, kp], [], foo, [])),
+    {'EXIT', {{badarg, kp}, _}} = (catch KF([1 | kp], [], foo, [])),
     ok.
 
-term_sort(doc) ->
-    ["Sort terms on files."];
-term_sort(suite) ->
-    [];
+%% Sort terms on files.
 term_sort(Config) when is_list(Config) ->
-    ?line sort(term, [{compressed,false}], Config),
-    ?line sort(term, [{order, fun compare/2}], Config),
-    ?line sort(term, [{order, ascending}, {compressed,true}], Config),
-    ?line sort(term, [{order, descending}], Config),
+    sort(term, [{compressed,false}], Config),
+    sort(term, [{order, fun compare/2}], Config),
+    sort(term, [{order, ascending}, {compressed,true}], Config),
+    sort(term, [{order, descending}], Config),
     ok.
 
-term_keysort(doc) ->
-    ["Keysort terms on files."];
-term_keysort(suite) ->
-    [];
+%% Keysort terms on files.
 term_keysort(Config) when is_list(Config) ->
-    ?line keysort(term, [{tmpdir, ""}], Config),
-    ?line keysort(term, [{order,descending}], Config),
+    keysort(term, [{tmpdir, ""}], Config),
+    keysort(term, [{order,descending}], Config),
     ok.
 
-binary_term_sort(doc) ->
-    ["Sort binary terms on files."];
-binary_term_sort(suite) ->
-    [];
+%% Sort binary terms on files.
 binary_term_sort(Config) when is_list(Config) ->
     PrivDir = ?privdir(Config),
-    ?line sort({2, binary_term}, [], Config),
-    ?line sort(binary_term, [{tmpdir, list_to_atom(PrivDir)}], Config),
-    ?line sort(binary_term, [{tmpdir,PrivDir}], Config),
-    ?line sort({3,binary_term}, [{order, fun compare/2}], Config),
-    ?line sort(binary_term, [{order, fun compare/2}], Config),
-    ?line sort(binary_term, [{order,descending}], Config),
+    sort({2, binary_term}, [], Config),
+    sort(binary_term, [{tmpdir, list_to_atom(PrivDir)}], Config),
+    sort(binary_term, [{tmpdir,PrivDir}], Config),
+    sort({3,binary_term}, [{order, fun compare/2}], Config),
+    sort(binary_term, [{order, fun compare/2}], Config),
+    sort(binary_term, [{order,descending}], Config),
     ok.
 
-binary_term_keysort(doc) ->
-    ["Keysort binary terms on files."];
-binary_term_keysort(suite) ->
-    [];
+%% Keysort binary terms on files.
 binary_term_keysort(Config) when is_list(Config) ->
-    ?line keysort({3, binary_term}, [], Config),
-    ?line keysort(binary_term, [], Config),
-    ?line keysort(binary_term, [{order,descending}], Config),
+    keysort({3, binary_term}, [], Config),
+    keysort(binary_term, [], Config),
+    keysort(binary_term, [{order,descending}], Config),
     ok.
 
-binary_sort(doc) ->
-    ["Sort binaries on files."];
-binary_sort(suite) ->
-    [];
+%% Sort binaries on files.
 binary_sort(Config) when is_list(Config) ->
     PrivDir = ?privdir(Config),
-    ?line sort({2, binary}, [], Config),
-    ?line sort(binary, [{tmpdir, list_to_atom(PrivDir)}], Config),
-    ?line sort(binary, [{tmpdir,PrivDir}], Config),
-    ?line sort({3,binary}, [{order, fun compare/2}], Config),
-    ?line sort(binary, [{order, fun compare/2}], Config),
-    ?line sort(binary, [{order,descending}], Config),
+    sort({2, binary}, [], Config),
+    sort(binary, [{tmpdir, list_to_atom(PrivDir)}], Config),
+    sort(binary, [{tmpdir,PrivDir}], Config),
+    sort({3,binary}, [{order, fun compare/2}], Config),
+    sort(binary, [{order, fun compare/2}], Config),
+    sort(binary, [{order,descending}], Config),
     ok.
 
-term_merge(doc) ->
-    ["Merge terms on files."];
-term_merge(suite) ->
-    [];
+%% Merge terms on files.
 term_merge(Config) when is_list(Config) ->
-    ?line merge(term, [{order, fun compare/2}], Config),
-    ?line merge(term, [{order, ascending}, {compressed,true}], Config),
-    ?line merge(term, [{order, descending}, {compressed,false}], Config),
+    merge(term, [{order, fun compare/2}], Config),
+    merge(term, [{order, ascending}, {compressed,true}], Config),
+    merge(term, [{order, descending}, {compressed,false}], Config),
     ok.
 
-term_keymerge(doc) ->
-    ["Keymerge terms on files."];
-term_keymerge(suite) ->
-    [];
+%% Keymerge terms on files.
 term_keymerge(Config) when is_list(Config) ->
-    ?line keymerge(term, [], Config),
-    ?line keymerge(term, [{order, descending}], Config),
-    ?line funmerge(term, [], Config),
+    keymerge(term, [], Config),
+    keymerge(term, [{order, descending}], Config),
+    funmerge(term, [], Config),
     ok.
 
-binary_term_merge(doc) ->
-    ["Merge binary terms on files."];
-binary_term_merge(suite) ->
-    [];
+%% Merge binary terms on files.
 binary_term_merge(Config) when is_list(Config) ->
-    ?line merge(binary_term, [], Config),
-    ?line merge({7, binary_term}, [], Config),
-    ?line merge({3, binary_term}, [{order, fun compare/2}], Config),
+    merge(binary_term, [], Config),
+    merge({7, binary_term}, [], Config),
+    merge({3, binary_term}, [{order, fun compare/2}], Config),
     ok.
 
-binary_term_keymerge(doc) ->
-    ["Keymerge binary terms on files."];
-binary_term_keymerge(suite) ->
-    [];
+%% Keymerge binary terms on files.
 binary_term_keymerge(Config) when is_list(Config) ->
-    ?line keymerge({3, binary_term}, [], Config),
-    ?line keymerge(binary_term, [], Config),
-    ?line funmerge({3, binary_term}, [], Config),
-    ?line funmerge(binary_term, [], Config),
+    keymerge({3, binary_term}, [], Config),
+    keymerge(binary_term, [], Config),
+    funmerge({3, binary_term}, [], Config),
+    funmerge(binary_term, [], Config),
     ok.
 
-binary_merge(doc) ->
-    ["Merge binaries on files."];
-binary_merge(suite) ->
-    [];
+%% Merge binaries on files.
 binary_merge(Config) when is_list(Config) ->
-    ?line merge(binary, [], Config),
-    ?line merge({7, binary}, [], Config),
-    ?line merge({3, binary}, [{order, fun compare/2}], Config),
+    merge(binary, [], Config),
+    merge({7, binary}, [], Config),
+    merge({3, binary}, [{order, fun compare/2}], Config),
     ok.
 
-term_check(doc) ->
-    ["Check terms on files."];
-term_check(suite) ->
-    [];
+%% Check terms on files.
 term_check(Config) when is_list(Config) ->
-    ?line check(term, Config),
+    check(term, Config),
     ok.
 
-binary_term_check(doc) ->
-    ["Check binary terms on files."];
-binary_term_check(suite) ->
-    [];
+%% Check binary terms on files.
 binary_term_check(Config) when is_list(Config) ->
-    ?line check(binary_term, Config),
+    check(binary_term, Config),
     ok.
 
-term_keycheck(doc) ->
-    ["Keycheck terms on files."];
-term_keycheck(suite) ->
-    [];
+%% Keycheck terms on files.
 term_keycheck(Config) when is_list(Config) ->
-    ?line keycheck(term, Config),
+    keycheck(term, Config),
     ok.
 
-binary_term_keycheck(doc) ->
-    ["Keycheck binary terms on files."];
-binary_term_keycheck(suite) ->
-    [];
+%% Keycheck binary terms on files.
 binary_term_keycheck(Config) when is_list(Config) ->
-    ?line keycheck(binary_term, Config),
+    keycheck(binary_term, Config),
     ok.
 
-binary_check(doc) ->
-    ["Check binary terms on files."];
-binary_check(suite) ->
-    [];
+%% Check binary terms on files.
 binary_check(Config) when is_list(Config) ->
-    ?line check(binary, Config),
+    check(binary, Config),
     ok.
 
-inout(doc) ->
-    ["Funs as input or output."];
-inout(suite) ->
-    [];
+%% Funs as input or output.
 inout(Config) when is_list(Config) ->
     BTF = {format, binary_term},
     Foo = outfile("foo", Config),
@@ -462,52 +407,52 @@ inout(Config) when is_list(Config) ->
     End = fun(read) -> end_of_input end,
 
     IF1 = fun(read) -> {[1,7,5], End} end,
-    ?line ok = file_sorter:sort(IF1, Foo, [{format, term}]),
+    ok = file_sorter:sort(IF1, Foo, [{format, term}]),
     %% 'close' is called, but the return value is caught and ignored.
     IF2 = fun(read) -> {[1,2,3], fun(close) -> throw(ignored) end} end,
-    ?line {error, bad_object} = file_sorter:sort(IF2, Foo, BTF),
+    {error, bad_object} = file_sorter:sort(IF2, Foo, BTF),
 
     IF3 = fun(no_match) -> foo end,
-    ?line {'EXIT', {function_clause, _}} = 
+    {'EXIT', {function_clause, _}} =
 	(catch file_sorter:sort(IF3, Foo)),
     IF4 = fun(read) -> throw(my_message) end,
-    ?line my_message = (catch file_sorter:sort(IF4, Foo)),
+    my_message = (catch file_sorter:sort(IF4, Foo)),
     IF5 = fun(read) -> {error, my_error} end,
-    ?line {error, my_error} = file_sorter:sort(IF5, Foo),
+    {error, my_error} = file_sorter:sort(IF5, Foo),
 
     %% Output is fun.
-    ?line {error, bad_object} = 
+    {error, bad_object} =
 	file_sorter:sort(IF2, fun(close) -> ignored end, BTF),
     Args = [{format, term}],
-    ?line {error, bad_object} = 
-       file_sorter:keysort(1, IF2, fun(close) -> ignored end, Args),
+    {error, bad_object} =
+	file_sorter:keysort(1, IF2, fun(close) -> ignored end, Args),
     OF1 = fun(close) -> fine; (L) when is_list(L) -> fun(close) -> nice end end,
-    ?line nice = file_sorter:sort(IF1, OF1, Args),
+    nice = file_sorter:sort(IF1, OF1, Args),
     OF2 = fun(_) -> my_return end,
-    ?line my_return = file_sorter:sort(IF1, OF2, Args),
+    my_return = file_sorter:sort(IF1, OF2, Args),
     OF3 = fun(_) -> throw(my_message) end,
-    ?line my_message = (catch file_sorter:sort(IF1, OF3, Args)),
+    my_message = (catch file_sorter:sort(IF1, OF3, Args)),
     OF4 = fun(no_match) -> foo end,
-    ?line {'EXIT', {function_clause, _}} = 
+    {'EXIT', {function_clause, _}} =
 	(catch file_sorter:sort(IF1, OF4, Args)),
 
-    ?line P0 = pps(),
-    ?line Fs1 = to_files([[3,1,2,5,4], [8,3,10]], term, Config),
-    ?line error = file_sorter:sort(Fs1, fun(_) -> error end, Args),
-    ?line delete_files(Fs1),
+    P0 = pps(),
+    Fs1 = to_files([[3,1,2,5,4], [8,3,10]], term, Config),
+    error = file_sorter:sort(Fs1, fun(_) -> error end, Args),
+    delete_files(Fs1),
 
-    ?line true = P0 =:= pps(),
+    true = P0 =:= pps(),
 
     %% Passing a value from the input functions to the output functions.
     IFV1 = fun(read) -> {end_of_input, 17} end,
     OFV1 = fun({value, Value}) -> ofv(Value, []) end,
-    ?line {17, []} = file_sorter:sort(IFV1, OFV1, Args),
+    {17, []} = file_sorter:sort(IFV1, OFV1, Args),
 
     %% Output is not a fun. The value returned by input funs is ignored.
     %% OTP-5009.
-    ?line ok = file_sorter:sort(IFV1, Foo, [{format,term}]),
-    ?line [] = from_files(Foo, term),
-    ?line delete_files(Foo),
+    ok = file_sorter:sort(IFV1, Foo, [{format,term}]),
+    [] = from_files(Foo, term),
+    delete_files(Foo),
 
     ok.
 
@@ -518,10 +463,7 @@ ofv(Value, A) ->
 	    ofv(Value, [L | A])
     end.
 
-many(doc) ->
-    ["Many temporary files."];
-many(suite) ->
-    [];
+%% Many temporary files.
 many(Config) when is_list(Config) ->
     Foo = outfile("foo", Config),
     PrivDir = ?privdir(Config),
@@ -530,171 +472,168 @@ many(Config) when is_list(Config) ->
     Args = [{format, term}],
     L1 = lists:map(fun(I) -> {one, two, three, I} end, lists:seq(1,1000)),
     L2 = lists:map(fun(I) -> {four, five, six, I} end, lists:seq(1,1000)),
-    ?line Fs2 = to_files([L1, L2], term, Config),
-    ?line ok = file_sorter:sort(Fs2, Foo, [{size,1000} | Args]),
-    ?line R = lists:sort(L1++L2),
-    ?line R = from_files(Foo, term),
-    ?line 2000 = length(R),
-    ?line ok = file_sorter:sort(Fs2, Foo, [{no_files,4},{size,1000} | Args]),
-    ?line R = from_files(Foo, term),
-    ?line ok = 
+    Fs2 = to_files([L1, L2], term, Config),
+    ok = file_sorter:sort(Fs2, Foo, [{size,1000} | Args]),
+    R = lists:sort(L1++L2),
+    R = from_files(Foo, term),
+    2000 = length(R),
+    ok = file_sorter:sort(Fs2, Foo, [{no_files,4},{size,1000} | Args]),
+    R = from_files(Foo, term),
+    ok =
 	file_sorter:sort(Fs2, Foo, 
 			 [{no_files,4},{size,1000},{order,descending} | Args]),
-    ?line true = lists:reverse(R) =:= from_files(Foo, term),
-    ?line ok = 
+    true = lists:reverse(R) =:= from_files(Foo, term),
+    ok =
 	file_sorter:sort(Fs2, Foo, 
 			 [{no_files,4},{size,1000},
 			  {order,fun compare/2} | Args]),
-    ?line R = from_files(Foo, term),
-    ?line ok = file_sorter:keysort(4, Fs2, Foo, 
-				   [{no_files,4},{size,1000} | Args]),
-    ?line RK = lists:keysort(4, L1++L2),
-    ?line RK = from_files(Foo, term),
-    ?line delete_files(Foo),
-    ?line ok = 
+    R = from_files(Foo, term),
+    ok = file_sorter:keysort(4, Fs2, Foo,
+			     [{no_files,4},{size,1000} | Args]),
+    RK = lists:keysort(4, L1++L2),
+    RK = from_files(Foo, term),
+    delete_files(Foo),
+    ok =
 	file_sorter:keysort(4, Fs2, Foo, 
-		      [{no_files,4},{size,1000},{order,descending} | Args]),
-    ?line true = lists:reverse(RK) =:= from_files(Foo, term),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:keysort(4, Fs2, Foo, 
-				   [{size,500},{order,descending} | Args]),
-    ?line true = lists:reverse(RK) =:= from_files(Foo, term),
-    ?line delete_files(Foo),
-    ?line error = file_sorter:sort(Fs2, fun(_) -> error end, 
-				   [{tmpdir, PrivDir}, {no_files,3}, 
-				    {size,10000} | Args]),
+			    [{no_files,4},{size,1000},{order,descending} | Args]),
+    true = lists:reverse(RK) =:= from_files(Foo, term),
+    delete_files(Foo),
+    ok = file_sorter:keysort(4, Fs2, Foo,
+			     [{size,500},{order,descending} | Args]),
+    true = lists:reverse(RK) =:= from_files(Foo, term),
+    delete_files(Foo),
+    error = file_sorter:sort(Fs2, fun(_) -> error end,
+			     [{tmpdir, PrivDir}, {no_files,3},
+			      {size,10000} | Args]),
 
     TmpDir = filename:join(PrivDir, "tmpdir"),
     file:del_dir(TmpDir),
-    ?line ok = file:make_dir(TmpDir),
-    ?line case os:type() of
-	      {unix, _} ->
-		  ?line ok = file:change_mode(TmpDir, 8#0000),
-		  ?line {error, {file_error, _,_}} = 
-		      file_sorter:sort(Fs2, fun(_M) -> foo end, 
-				       [{no_files,3},{size,10000},
-					{tmpdir,TmpDir} | Args]);
-	      _ ->
-		  true
-	  end,
-    ?line ok = file:del_dir(TmpDir),
+    ok = file:make_dir(TmpDir),
+    case os:type() of
+	{unix, _} ->
+	    ok = file:change_mode(TmpDir, 8#0000),
+	    {error, {file_error, _,_}} =
+		file_sorter:sort(Fs2, fun(_M) -> foo end,
+				 [{no_files,3},{size,10000},
+				  {tmpdir,TmpDir} | Args]);
+	_ ->
+	    true
+    end,
+    ok = file:del_dir(TmpDir),
     delete_files(Fs2),
-    ?line true = P0 =:= pps(),
+    true = P0 =:= pps(),
     ok.
 
-misc(doc) ->
-    ["Some other tests."];
-misc(suite) ->
-    [];
+%% Some other tests.
 misc(Config) when is_list(Config) ->
     BTF = {format, binary_term},
     Foo = outfile("foo", Config),
     FFoo = filename:absname(Foo),
     P0 = pps(),
 
-    ?line [File] = Fs1 = to_files([[1,3,2]], term, Config),
-    ?line ok = file:write_file(Foo,<<>>),
-    ?line case os:type() of
-	      {unix, _} ->
-                  ok = file:change_mode(Foo, 8#0000),
-                  {error,{file_error,FFoo,eacces}} = 
-                      file_sorter:sort(Fs1, Foo, {format,term});
-              _ ->
-                  true
-          end,
-    ?line file:delete(Foo),
-    ?line NoBytes = 16, % RAM memory will never get this big, or?
-    ?line ALot = (1 bsl (NoBytes*8)) - 1,
-    ?line ok = file:write_file(File, <<ALot:NoBytes/unit:8,"foobar">>),
+    [File] = Fs1 = to_files([[1,3,2]], term, Config),
+    ok = file:write_file(Foo,<<>>),
+    case os:type() of
+	{unix, _} ->
+	    ok = file:change_mode(Foo, 8#0000),
+	    {error,{file_error,FFoo,eacces}} =
+		file_sorter:sort(Fs1, Foo, {format,term});
+	_ ->
+	    true
+    end,
+    file:delete(Foo),
+    NoBytes = 16, % RAM memory will never get this big, or?
+    ALot = (1 bsl (NoBytes*8)) - 1,
+    ok = file:write_file(File, <<ALot:NoBytes/unit:8,"foobar">>),
     FFile = filename:absname(File),
-    ?line {error, {bad_object,FFile}} = 
+    {error, {bad_object,FFile}} =
         file_sorter:sort(Fs1, Foo, [BTF, {header, 20}]),
-    ?line ok = file:write_file(File, <<30:32,"foobar">>),
-    ?line {error, {premature_eof, FFile}} = file_sorter:sort(Fs1, Foo, BTF),
-    ?line ok = file:write_file(File, <<6:32,"foobar">>),
-    ?line {error, {bad_object,FFile}} = file_sorter:sort(Fs1, Foo, BTF),
-    ?line case os:type() of
-              {unix, _} ->
-                  ok = file:change_mode(File, 8#0000),
-                  {error, {file_error,FFile,eacces}} = 
-                      file_sorter:sort(Fs1, Foo),
-                  {error, {file_error,FFile,eacces}} = 
-                      file_sorter:sort(Fs1, Foo, {format, binary_term});
-              _ ->
-                  true
-          end,
-    ?line delete_files(Fs1),
-    ?line true = P0 =:= pps(),
+    ok = file:write_file(File, <<30:32,"foobar">>),
+    {error, {premature_eof, FFile}} = file_sorter:sort(Fs1, Foo, BTF),
+    ok = file:write_file(File, <<6:32,"foobar">>),
+    {error, {bad_object,FFile}} = file_sorter:sort(Fs1, Foo, BTF),
+    case os:type() of
+	{unix, _} ->
+	    ok = file:change_mode(File, 8#0000),
+	    {error, {file_error,FFile,eacces}} =
+		file_sorter:sort(Fs1, Foo),
+	    {error, {file_error,FFile,eacces}} =
+		file_sorter:sort(Fs1, Foo, {format, binary_term});
+	_ ->
+	    true
+    end,
+    delete_files(Fs1),
+    true = P0 =:= pps(),
 
     %% bigger than chunksize
-    ?line E1 = <<32000:32, 10:256000>>,
-    ?line E2 = <<32000:32, 5:256000>>,
-    ?line E3 = <<32000:32, 8:256000>>,
-    ?line ok = file:write_file(Foo, [E1, E2, E3]),
-    ?line ok = file_sorter:sort([Foo], Foo, [{format,binary},{size,10000}]),
-    ?line ok = file_sorter:sort([Foo], Foo, [{format,fun(X) -> X end},
-                                             {size,10000}]),
-    ?line Es = list_to_binary([E2,E3,E1]),
-    ?line {ok, Es} = file:read_file(Foo),
-    ?line delete_files(Foo),
-    ?line true = P0 =:= pps(),
+    E1 = <<32000:32, 10:256000>>,
+    E2 = <<32000:32, 5:256000>>,
+    E3 = <<32000:32, 8:256000>>,
+    ok = file:write_file(Foo, [E1, E2, E3]),
+    ok = file_sorter:sort([Foo], Foo, [{format,binary},{size,10000}]),
+    ok = file_sorter:sort([Foo], Foo, [{format,fun(X) -> X end},
+				       {size,10000}]),
+    Es = list_to_binary([E2,E3,E1]),
+    {ok, Es} = file:read_file(Foo),
+    delete_files(Foo),
+    true = P0 =:= pps(),
 
     %% keysort more than one element
     L = [{c,1,a},{c,2,b},{c,3,c},{b,1,c},{b,2,b},{b,3,a},{a,1,a},{a,2,b},
          {a,3,c}],
-    ?line Fs2 = to_files([L], binary_term, Config),
-    ?line ok = file_sorter:keysort([2,3], Fs2, Foo, {format, binary_term}),
-    ?line KS2_1 = from_files(Foo, binary_term),
-    ?line KS2_2 = lists:keysort(2,lists:keysort(3, L)),
-    ?line KS2_1 = KS2_2,
-    ?line ok = file_sorter:keysort([2,3], Fs2, Foo, 
-                                   [{format, binary_term},{size,5}]),
-    ?line KS2_3 = from_files(Foo, binary_term),
-    ?line KS2_3 = KS2_2,
-    ?line ok = file_sorter:keysort([2,3,1], Fs2, Foo, {format, binary_term}),
-    ?line KS3_1 = from_files(Foo, binary_term),
-    ?line KS3_2 = lists:keysort(2, lists:keysort(3,lists:keysort(1, L))),
-    ?line KS3_1 = KS3_2,
-    ?line ok = file_sorter:keysort([2,3,1], Fs2, Foo, 
-                                   [{format, binary_term},{size,5}]),
-    ?line KS3_3 = from_files(Foo, binary_term),
-    ?line KS3_3 = KS3_2,
-    ?line delete_files([Foo | Fs2]),
-    ?line true = P0 =:= pps(),
+    Fs2 = to_files([L], binary_term, Config),
+    ok = file_sorter:keysort([2,3], Fs2, Foo, {format, binary_term}),
+    KS2_1 = from_files(Foo, binary_term),
+    KS2_2 = lists:keysort(2,lists:keysort(3, L)),
+    KS2_1 = KS2_2,
+    ok = file_sorter:keysort([2,3], Fs2, Foo,
+			     [{format, binary_term},{size,5}]),
+    KS2_3 = from_files(Foo, binary_term),
+    KS2_3 = KS2_2,
+    ok = file_sorter:keysort([2,3,1], Fs2, Foo, {format, binary_term}),
+    KS3_1 = from_files(Foo, binary_term),
+    KS3_2 = lists:keysort(2, lists:keysort(3,lists:keysort(1, L))),
+    KS3_1 = KS3_2,
+    ok = file_sorter:keysort([2,3,1], Fs2, Foo,
+			     [{format, binary_term},{size,5}]),
+    KS3_3 = from_files(Foo, binary_term),
+    KS3_3 = KS3_2,
+    delete_files([Foo | Fs2]),
+    true = P0 =:= pps(),
 
     %% bigger than chunksize
     %% Assumes that CHUNKSIZE = 16384. Illustrates that the Last argument
     %% of merge_files/5 is necessary. 
-    ?line EP1 = erlang:make_tuple(2728,foo),
-    ?line EP2 = lists:duplicate(2729,qqq),
-    ?line LL = [EP1, EP2, EP1, EP2, EP1, EP2],
-    ?line Fs3 = to_files([LL], binary, Config),
-    ?line ok = file_sorter:sort(Fs3, Foo, [{format,binary}, {unique,true}]),
-    ?line [EP1,EP2] = from_files(Foo, binary),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:sort(Fs3, Foo, 
-                                [{format,binary_term}, {unique,true}, 
-                                 {size,30000}]),
-    ?line [EP1,EP2] = from_files(Foo, binary_term),
-    ?line delete_files([Foo | Fs3]),
+    EP1 = erlang:make_tuple(2728,foo),
+    EP2 = lists:duplicate(2729,qqq),
+    LL = [EP1, EP2, EP1, EP2, EP1, EP2],
+    Fs3 = to_files([LL], binary, Config),
+    ok = file_sorter:sort(Fs3, Foo, [{format,binary}, {unique,true}]),
+    [EP1,EP2] = from_files(Foo, binary),
+    delete_files(Foo),
+    ok = file_sorter:sort(Fs3, Foo,
+			  [{format,binary_term}, {unique,true},
+			   {size,30000}]),
+    [EP1,EP2] = from_files(Foo, binary_term),
+    delete_files([Foo | Fs3]),
 
-    ?line true = P0 =:= pps(),
+    true = P0 =:= pps(),
 
-    ?line BE1 = <<20000:32, 17:160000>>,
-    ?line BE2 = <<20000:32, 1717:160000>>,
-    ?line ok = file:write_file(Foo, [BE1,BE2,BE1,BE2]),
-    ?line ok = file_sorter:sort([Foo], Foo, [{format,binary},
-                                             {size,10000},
-                                             {unique,true}]),
-    ?line BEs = list_to_binary([BE1, BE2]),
-    ?line {ok, BEs} = file:read_file(Foo),
-    ?line delete_files(Foo),
-    ?line true = P0 =:= pps(),
+    BE1 = <<20000:32, 17:160000>>,
+    BE2 = <<20000:32, 1717:160000>>,
+    ok = file:write_file(Foo, [BE1,BE2,BE1,BE2]),
+    ok = file_sorter:sort([Foo], Foo, [{format,binary},
+				       {size,10000},
+				       {unique,true}]),
+    BEs = list_to_binary([BE1, BE2]),
+    {ok, BEs} = file:read_file(Foo),
+    delete_files(Foo),
+    true = P0 =:= pps(),
 
-    ?line Fs4 = to_files([[7,4,1]], binary_term, Config),
-    ?line {error, {bad_term, _}} = file_sorter:sort(Fs4, Foo, {format, term}),
-    ?line delete_files([Foo | Fs4]),
-    ?line true = P0 =:= pps(),
+    Fs4 = to_files([[7,4,1]], binary_term, Config),
+    {error, {bad_term, _}} = file_sorter:sort(Fs4, Foo, {format, term}),
+    delete_files([Foo | Fs4]),
+    true = P0 =:= pps(),
 
     ok.
 
@@ -708,71 +647,71 @@ sort(Fmt, XArgs, Config) ->
     Foo = outfile("foo", Config),
 
     %% Input is a fun. Output is a fun.
-    ?line [] = file_sorter:sort(input([], 2, Fmt), output([], Fmt), Args),
-    ?line L1 = [3,1,2,5,4],
-    ?line S1 = file_sorter:sort(input(L1, 2, Fmt), output([], Fmt), TmpArgs),
-    ?line S1 = rev(lists:sort(L1), TmpArgs),
+    [] = file_sorter:sort(input([], 2, Fmt), output([], Fmt), Args),
+    L1 = [3,1,2,5,4],
+    S1 = file_sorter:sort(input(L1, 2, Fmt), output([], Fmt), TmpArgs),
+    S1 = rev(lists:sort(L1), TmpArgs),
 
     %% Input is a file. Output is a fun.
-    ?line [] = file_sorter:sort([], output([], Fmt), Args),
-    ?line L2 = [3,1,2,5,4],
-    ?line Fs1 = to_files([L2], Fmt, Config),
-    ?line S2 = file_sorter:sort(Fs1, output([], Fmt), TmpArgs),
-    ?line S2 = rev(lists:sort(L2), TmpArgs),
-    ?line delete_files(Fs1),
+    [] = file_sorter:sort([], output([], Fmt), Args),
+    L2 = [3,1,2,5,4],
+    Fs1 = to_files([L2], Fmt, Config),
+    S2 = file_sorter:sort(Fs1, output([], Fmt), TmpArgs),
+    S2 = rev(lists:sort(L2), TmpArgs),
+    delete_files(Fs1),
 
     %% Input is a file. Output is a file
-    ?line ok = file_sorter:sort([], Foo, Args),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:sort([], Foo, [{unique,true} | Args]),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line L3 = [3,1,2,5,4,6],
-    ?line Fs2 = to_files([L3], Fmt, Config),
-    ?line ok = file_sorter:sort(Fs2, Foo, Args),
-    ?line true = rev(lists:sort(L3), Args) =:= from_files(Foo, Fmt),
-    ?line delete_files([Foo | Fs2]),
-    ?line L4 = [1,3,4,1,2,5,4,5,6],
-    ?line Fs3 = to_files([L4], Fmt, Config),
-    ?line ok = file_sorter:sort(Fs3, Foo, Args++[{unique,true}, 
-						 {size,100000}]),
-    ?line true = rev(lists:usort(L4), Args) =:= from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:sort(Fs3, Foo, Args++[{unique,true}]),
-    ?line true = rev(lists:usort(L4), Args) =:= from_files(Foo, Fmt),
-    ?line delete_files([Foo | Fs3]),
+    ok = file_sorter:sort([], Foo, Args),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:sort([], Foo, [{unique,true} | Args]),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    L3 = [3,1,2,5,4,6],
+    Fs2 = to_files([L3], Fmt, Config),
+    ok = file_sorter:sort(Fs2, Foo, Args),
+    true = rev(lists:sort(L3), Args) =:= from_files(Foo, Fmt),
+    delete_files([Foo | Fs2]),
+    L4 = [1,3,4,1,2,5,4,5,6],
+    Fs3 = to_files([L4], Fmt, Config),
+    ok = file_sorter:sort(Fs3, Foo, Args++[{unique,true},
+					   {size,100000}]),
+    true = rev(lists:usort(L4), Args) =:= from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:sort(Fs3, Foo, Args++[{unique,true}]),
+    true = rev(lists:usort(L4), Args) =:= from_files(Foo, Fmt),
+    delete_files([Foo | Fs3]),
 
     %% Input is a fun. Output is a file.
-    ?line ok = file_sorter:sort(input([], 2, Fmt), Foo, Args),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line L5 = [3,1,2,5,4,7],
-    ?line ok = file_sorter:sort(input(L5, 2, Fmt), Foo, Args),
-    ?line true = rev(lists:sort(L5), Args) =:= from_files(Foo, Fmt),
-    ?line delete_files(Foo),
+    ok = file_sorter:sort(input([], 2, Fmt), Foo, Args),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    L5 = [3,1,2,5,4,7],
+    ok = file_sorter:sort(input(L5, 2, Fmt), Foo, Args),
+    true = rev(lists:sort(L5), Args) =:= from_files(Foo, Fmt),
+    delete_files(Foo),
 
     %% Removing duplicate keys.
     KFun = key_compare(2),
     L6 = [{5,e},{2,b},{3,c},{1,a},{4,d}] ++ [{2,c},{1,b},{4,a}],
     KUArgs = lists:keydelete(order, 1, Args) ++ 
-             [{unique, true}, {order, KFun},{size,100000}],
-    ?line ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KUArgs),
-    ?line true = rev(lists:ukeysort(2, L6), KUArgs) =:= from_files(Foo, Fmt),
+	[{unique, true}, {order, KFun},{size,100000}],
+    ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KUArgs),
+    true = rev(lists:ukeysort(2, L6), KUArgs) =:= from_files(Foo, Fmt),
     KArgs = lists:keydelete(unique, 1, KUArgs),
-    ?line ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KArgs),
-    ?line true = rev(lists:keysort(2, L6), KArgs) =:= from_files(Foo, Fmt),
+    ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KArgs),
+    true = rev(lists:keysort(2, L6), KArgs) =:= from_files(Foo, Fmt),
 
     %% Removing duplicate keys. Again.
     KUArgs2 = lists:keydelete(order, 1, Args) ++ 
-              [{unique, true}, {order, KFun},{size,5}],
-    ?line ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KUArgs2),
-    ?line true = rev(lists:ukeysort(2, L6), KUArgs2) =:= from_files(Foo, Fmt),
+	[{unique, true}, {order, KFun},{size,5}],
+    ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KUArgs2),
+    true = rev(lists:ukeysort(2, L6), KUArgs2) =:= from_files(Foo, Fmt),
     KArgs2 = lists:keydelete(unique, 1, KUArgs2),
-    ?line ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KArgs2),
-    ?line true = rev(lists:keysort(2, L6), KArgs2) =:= from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    
+    ok = file_sorter:sort(input(L6, 2, Fmt), Foo, KArgs2),
+    true = rev(lists:keysort(2, L6), KArgs2) =:= from_files(Foo, Fmt),
+    delete_files(Foo),
+
     ok.
 
 keysort(Fmt, XArgs, Config) ->
@@ -781,58 +720,58 @@ keysort(Fmt, XArgs, Config) ->
     Foo = outfile("foo", Config),
 
     %% Input is files. Output is a file.
-    ?line ok = file_sorter:keysort(2, [], Foo, Args),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:keysort(2, [], Foo, [{unique,true} | Args]),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line L0 = [{a,2},{a,1},{a,2},{a,2},{a,1},{a,2},{a,2},{a,3}],
-    ?line Fs0 = to_files([L0], Fmt, Config),
-    ?line S = rev(lists:ukeysort(1, L0), Args),
-    ?line ok = 
+    ok = file_sorter:keysort(2, [], Foo, Args),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:keysort(2, [], Foo, [{unique,true} | Args]),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    L0 = [{a,2},{a,1},{a,2},{a,2},{a,1},{a,2},{a,2},{a,3}],
+    Fs0 = to_files([L0], Fmt, Config),
+    S = rev(lists:ukeysort(1, L0), Args),
+    ok =
 	file_sorter:keysort(1, Fs0, Foo, Args ++ [{unique,true},
 						  {size,100000}]),
-    ?line S = from_files(Foo, Fmt),
-    ?line ok = 
+    S = from_files(Foo, Fmt),
+    ok =
 	file_sorter:keysort(1, Fs0, Foo, Args ++ [{unique,true},
 						  {size,5}]),
-    ?line S = from_files(Foo, Fmt),
-    ?line ok = file_sorter:keysort(1, Fs0, Foo, Args ++ [{unique,true}]),
-    ?line S = from_files(Foo, Fmt),
-    ?line delete_files([Foo | Fs0]),
-    ?line L11 = [{a,1,x4},{b,2,x4},{c,3,x4}],
-    ?line L21 = [{a,1,x3},{b,2,x3},{c,3,x3}],
-    ?line L31 = [{a,1,x2},{b,2,x2},{c,3,x2}],
-    ?line L41 = [{a,1,x1},{b,2,x1},{c,3,x1}],
-    ?line All = [L11, L21, L31, L41],
-    ?line AllFlat = lists:append(All),
-    ?line Sorted = rev(lists:keysort(2, AllFlat), Args),
-    ?line Fs1 = to_files(All, Fmt, Config),
-    ?line ok = file_sorter:keysort(2, Fs1, Foo, Args),
-    ?line Sorted = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
+    S = from_files(Foo, Fmt),
+    ok = file_sorter:keysort(1, Fs0, Foo, Args ++ [{unique,true}]),
+    S = from_files(Foo, Fmt),
+    delete_files([Foo | Fs0]),
+    L11 = [{a,1,x4},{b,2,x4},{c,3,x4}],
+    L21 = [{a,1,x3},{b,2,x3},{c,3,x3}],
+    L31 = [{a,1,x2},{b,2,x2},{c,3,x2}],
+    L41 = [{a,1,x1},{b,2,x1},{c,3,x1}],
+    All = [L11, L21, L31, L41],
+    AllFlat = lists:append(All),
+    Sorted = rev(lists:keysort(2, AllFlat), Args),
+    Fs1 = to_files(All, Fmt, Config),
+    ok = file_sorter:keysort(2, Fs1, Foo, Args),
+    Sorted = from_files(Foo, Fmt),
+    delete_files(Foo),
 
     %% Input is files. Output is a fun.
-    ?line [] = file_sorter:keysort(2, [], output([], Fmt), Args),
-    ?line KS1 = file_sorter:keysort(2, Fs1, output([], Fmt), TmpArgs),
-    ?line Sorted = KS1,
-    ?line delete_files(Fs1),
+    [] = file_sorter:keysort(2, [], output([], Fmt), Args),
+    KS1 = file_sorter:keysort(2, Fs1, output([], Fmt), TmpArgs),
+    Sorted = KS1,
+    delete_files(Fs1),
 
     %% Input is a fun. Output is a file.
-    ?line ok = file_sorter:keysort(2, input([], 2, Fmt), Foo, Args),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:keysort(2, input(AllFlat, 4, Fmt), Foo, Args),
-    ?line Sorted = from_files(Foo,  Fmt),
-    ?line delete_files(Foo),
+    ok = file_sorter:keysort(2, input([], 2, Fmt), Foo, Args),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:keysort(2, input(AllFlat, 4, Fmt), Foo, Args),
+    Sorted = from_files(Foo,  Fmt),
+    delete_files(Foo),
 
     %% Input is a fun. Output is a fun.
-    ?line [] = file_sorter:keysort(2, input([], 2, Fmt), output([], Fmt),Args),
-    ?line KS2 = 
+    [] = file_sorter:keysort(2, input([], 2, Fmt), output([], Fmt),Args),
+    KS2 =
 	file_sorter:keysort(2, input(AllFlat, 4, Fmt), output([], Fmt), 
 			    TmpArgs),
-    ?line Sorted = KS2,
+    Sorted = KS2,
     ok.
 
 merge(Fmt, XArgs, Config) ->
@@ -840,35 +779,35 @@ merge(Fmt, XArgs, Config) ->
     Foo = outfile("foo", Config),
 
     %% Input is a file. Output is a fun.
-    ?line [] = file_sorter:merge([], output([], Fmt), Args),
-    ?line L2 = [[1,3,5],[2,4,5]],
-    ?line Fs1 = to_files(L2, Fmt, Config),
-    ?line S2 = file_sorter:sort(Fs1, output([], Fmt), Args),
-    ?line S2 = rev(lists:sort(lists:append(L2)), Args),
-    ?line delete_files(Fs1),
+    [] = file_sorter:merge([], output([], Fmt), Args),
+    L2 = [[1,3,5],[2,4,5]],
+    Fs1 = to_files(L2, Fmt, Config),
+    S2 = file_sorter:sort(Fs1, output([], Fmt), Args),
+    S2 = rev(lists:sort(lists:append(L2)), Args),
+    delete_files(Fs1),
 
     %% Input is a file. Output is a file
-    ?line ok = file_sorter:merge([], Foo, Args),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:merge([], Foo, [{unique,true} | Args]),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line L31 = [1,2,3],
-    ?line L32 = [2,3,4],
-    ?line L33 = [4,5,6],
-    ?line L3r = [L31, L32, L33],
-    ?line L3 = [rev(L31,Args), rev(L32,Args), rev(L33,Args)],
-    ?line Fs2 = to_files(L3, Fmt, Config),
-    ?line ok = file_sorter:merge(Fs2, Foo, Args),
-    ?line true = rev(lists:merge(L3r), Args) =:= from_files(Foo, Fmt),
-    ?line ok = file_sorter:merge(Fs2, Foo, Args++[{unique,true}, 
-						  {size,100000}]),
-    ?line true = rev(lists:umerge(L3r), Args) =:= from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:merge(Fs2, Foo, Args++[{unique,true}]),
-    ?line true = rev(lists:umerge(L3r), Args) =:= from_files(Foo, Fmt),
-    ?line delete_files([Foo | Fs2]),
+    ok = file_sorter:merge([], Foo, Args),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:merge([], Foo, [{unique,true} | Args]),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    L31 = [1,2,3],
+    L32 = [2,3,4],
+    L33 = [4,5,6],
+    L3r = [L31, L32, L33],
+    L3 = [rev(L31,Args), rev(L32,Args), rev(L33,Args)],
+    Fs2 = to_files(L3, Fmt, Config),
+    ok = file_sorter:merge(Fs2, Foo, Args),
+    true = rev(lists:merge(L3r), Args) =:= from_files(Foo, Fmt),
+    ok = file_sorter:merge(Fs2, Foo, Args++[{unique,true},
+					    {size,100000}]),
+    true = rev(lists:umerge(L3r), Args) =:= from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:merge(Fs2, Foo, Args++[{unique,true}]),
+    true = rev(lists:umerge(L3r), Args) =:= from_files(Foo, Fmt),
+    delete_files([Foo | Fs2]),
 
     ok.
 
@@ -877,83 +816,83 @@ keymerge(Fmt, XArgs, Config) ->
     Foo = outfile("foo", Config),
 
     %% Input is files. Output is a file.
-    ?line ok = file_sorter:keymerge(2, [], Foo, Args),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:keymerge(2, [], Foo, [{unique,true} | Args]),
-    ?line [] = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
-    ?line L0 = [rev([{a,1},{a,2}], Args), rev([{a,2},{a,1},{a,3}], Args)],
-    ?line Fs0 = to_files(L0, Fmt, Config),
-    ?line delete_files(Foo),
-    ?line ok = file_sorter:keymerge(1, Fs0, Foo, Args ++ [{unique,false}]),
-    ?line S2 = rev([{a,1},{a,2},{a,2},{a,1},{a,3}], Args),
-    ?line S2 = from_files(Foo, Fmt),
-    ?line delete_files([Foo | Fs0]),
-    ?line L11 = [{a,1,x4},{b,2,x4},{c,3,x4}],
-    ?line L21 = [{a,1,x3},{b,2,x3},{c,3,x3}],
-    ?line L31 = [{a,1,x2},{b,2,x2},{c,3,x2}],
-    ?line L41 = [{a,1,x1},{b,2,x1},{c,3,x1}],
-    ?line All = 
+    ok = file_sorter:keymerge(2, [], Foo, Args),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    ok = file_sorter:keymerge(2, [], Foo, [{unique,true} | Args]),
+    [] = from_files(Foo, Fmt),
+    delete_files(Foo),
+    L0 = [rev([{a,1},{a,2}], Args), rev([{a,2},{a,1},{a,3}], Args)],
+    Fs0 = to_files(L0, Fmt, Config),
+    delete_files(Foo),
+    ok = file_sorter:keymerge(1, Fs0, Foo, Args ++ [{unique,false}]),
+    S2 = rev([{a,1},{a,2},{a,2},{a,1},{a,3}], Args),
+    S2 = from_files(Foo, Fmt),
+    delete_files([Foo | Fs0]),
+    L11 = [{a,1,x4},{b,2,x4},{c,3,x4}],
+    L21 = [{a,1,x3},{b,2,x3},{c,3,x3}],
+    L31 = [{a,1,x2},{b,2,x2},{c,3,x2}],
+    L41 = [{a,1,x1},{b,2,x1},{c,3,x1}],
+    All =
 	[rev(L11, Args), rev(L21, Args), rev(L31, Args), rev(L41, Args)],
-    ?line Merged1 = lists:keymerge(2, L11, L21),
-    ?line Merged2 = lists:keymerge(2, L31, L41),
-    ?line Merged = rev(lists:keymerge(2, Merged1, Merged2), Args),
-    ?line Fs1 = to_files(All, Fmt, Config),
-    ?line ok = file_sorter:keymerge(2, Fs1, Foo, Args),
-    ?line Merged = from_files(Foo, Fmt),
+    Merged1 = lists:keymerge(2, L11, L21),
+    Merged2 = lists:keymerge(2, L31, L41),
+    Merged = rev(lists:keymerge(2, Merged1, Merged2), Args),
+    Fs1 = to_files(All, Fmt, Config),
+    ok = file_sorter:keymerge(2, Fs1, Foo, Args),
+    Merged = from_files(Foo, Fmt),
 
     fun() -> 
-    UArgs = [{unique,true} | Args],
-    ?line UMerged1 = lists:ukeymerge(2, L11, L21),
-    ?line UMerged2 = lists:ukeymerge(2, L31, L41),
-    ?line UMerged = rev(lists:ukeymerge(2, UMerged1, UMerged2), Args),
-    ?line ok = file_sorter:keymerge(2, Fs1, Foo, UArgs),
-    ?line UMerged = from_files(Foo, Fmt),
-    UArgs2 = make_args(Fmt, [{unique,true}, {size,50} | XArgs]),
-    ?line ok = file_sorter:keymerge(2, Fs1, Foo, UArgs2),
-    ?line UMerged = from_files(Foo, Fmt),
-    ?line List = rev([{a,1,x4},{b,2,x4},{c,3,x4}], Args),
-    ?line FsL = to_files([List], Fmt, Config),
-    ?line ok = file_sorter:keymerge(2, FsL, Foo, UArgs),
-    ?line List = from_files(Foo, Fmt),
-    ?line List1 = [{a,1,x4},{b,2,x4},{c,3,x4}],
-    ?line List2 = [{a,3,x4},{b,4,x4},{c,5,x4}],
-    ?line FsLL = to_files([rev(List1, Args), rev(List2, Args)], Fmt, Config),
-    ?line ok = file_sorter:keymerge(2, FsLL, Foo, UArgs),
-    ?line List1_2 = rev(lists:ukeymerge(2, List1, List2), Args),
-    ?line List1_2 = from_files(Foo, Fmt),
-    ?line delete_files(Foo)
+	    UArgs = [{unique,true} | Args],
+	    UMerged1 = lists:ukeymerge(2, L11, L21),
+	    UMerged2 = lists:ukeymerge(2, L31, L41),
+	    UMerged = rev(lists:ukeymerge(2, UMerged1, UMerged2), Args),
+	    ok = file_sorter:keymerge(2, Fs1, Foo, UArgs),
+	    UMerged = from_files(Foo, Fmt),
+	    UArgs2 = make_args(Fmt, [{unique,true}, {size,50} | XArgs]),
+	    ok = file_sorter:keymerge(2, Fs1, Foo, UArgs2),
+	    UMerged = from_files(Foo, Fmt),
+	    List = rev([{a,1,x4},{b,2,x4},{c,3,x4}], Args),
+	    FsL = to_files([List], Fmt, Config),
+	    ok = file_sorter:keymerge(2, FsL, Foo, UArgs),
+	    List = from_files(Foo, Fmt),
+	    List1 = [{a,1,x4},{b,2,x4},{c,3,x4}],
+	    List2 = [{a,3,x4},{b,4,x4},{c,5,x4}],
+	    FsLL = to_files([rev(List1, Args), rev(List2, Args)], Fmt, Config),
+	    ok = file_sorter:keymerge(2, FsLL, Foo, UArgs),
+	    List1_2 = rev(lists:ukeymerge(2, List1, List2), Args),
+	    List1_2 = from_files(Foo, Fmt),
+	    delete_files(Foo)
     end(),
 
     %% Input is files. Output is a fun.
-    ?line Fs3 = to_files(All, Fmt, Config),
-    ?line [] = file_sorter:keysort(2, [], output([], Fmt), Args),
-    ?line KS1 = file_sorter:keymerge(2, Fs3, output([], Fmt), Args),
-    ?line Merged = KS1,
-    ?line delete_files([Foo | Fs3]),
+    Fs3 = to_files(All, Fmt, Config),
+    [] = file_sorter:keysort(2, [], output([], Fmt), Args),
+    KS1 = file_sorter:keymerge(2, Fs3, output([], Fmt), Args),
+    Merged = KS1,
+    delete_files([Foo | Fs3]),
 
-    ?line L2 = [[{a,1}],[{a,2}],[{a,3}],[{a,4}],[{a,5}],[{a,6}],[{a,7}]],
-    ?line Fs2 = to_files(L2, Fmt, Config),
-    ?line M = file_sorter:keymerge(1, Fs2, output([], Fmt), Args),
-    ?line M = rev(lists:append(L2), Args),
-    ?line delete_files(Fs2),
+    L2 = [[{a,1}],[{a,2}],[{a,3}],[{a,4}],[{a,5}],[{a,6}],[{a,7}]],
+    Fs2 = to_files(L2, Fmt, Config),
+    M = file_sorter:keymerge(1, Fs2, output([], Fmt), Args),
+    M = rev(lists:append(L2), Args),
+    delete_files(Fs2),
 
-    ?line LL1 = [{d,4},{e,5},{f,6}],
-    ?line LL2 = [{a,1},{b,2},{c,3}],
-    ?line LL3 = [{j,10},{k,11},{l,12}],
-    ?line LL4 = [{g,7},{h,8},{i,9}],
-    ?line LL5 = [{p,16},{q,17},{r,18}],
-    ?line LL6 = [{m,13},{n,14},{o,15}],
-    ?line LLAll = [rev(LL1, Args),rev(LL2, Args),rev(LL3, Args),
-                   rev(LL4, Args),rev(LL5, Args),rev(LL6, Args)],
-    ?line FsLL6 = to_files(LLAll, Fmt, Config),
-    ?line LL = rev(lists:sort(lists:append(LLAll)), Args),
-    ?line ok = file_sorter:keymerge(1, FsLL6, Foo, Args),
-    ?line LL = from_files(Foo, Fmt),
-    ?line ok = file_sorter:keymerge(1, FsLL6, Foo, [{unique,true} | Args]),
-    ?line LL = from_files(Foo, Fmt),
-    ?line delete_files([Foo | FsLL6]),
+    LL1 = [{d,4},{e,5},{f,6}],
+    LL2 = [{a,1},{b,2},{c,3}],
+    LL3 = [{j,10},{k,11},{l,12}],
+    LL4 = [{g,7},{h,8},{i,9}],
+    LL5 = [{p,16},{q,17},{r,18}],
+    LL6 = [{m,13},{n,14},{o,15}],
+    LLAll = [rev(LL1, Args),rev(LL2, Args),rev(LL3, Args),
+	     rev(LL4, Args),rev(LL5, Args),rev(LL6, Args)],
+    FsLL6 = to_files(LLAll, Fmt, Config),
+    LL = rev(lists:sort(lists:append(LLAll)), Args),
+    ok = file_sorter:keymerge(1, FsLL6, Foo, Args),
+    LL = from_files(Foo, Fmt),
+    ok = file_sorter:keymerge(1, FsLL6, Foo, [{unique,true} | Args]),
+    LL = from_files(Foo, Fmt),
+    delete_files([Foo | FsLL6]),
 
     ok.
 
@@ -963,84 +902,84 @@ funmerge(Fmt, XArgs, Config) ->
     UArgs = [{unique,true} | Args],
     Foo = outfile(foo, Config),
 
-    ?line EFs = to_files([[]], Fmt, Config),
-    ?line ok = file_sorter:merge(EFs, Foo, UArgs),
-    ?line [] = from_files(Foo, Fmt),
+    EFs = to_files([[]], Fmt, Config),
+    ok = file_sorter:merge(EFs, Foo, UArgs),
+    [] = from_files(Foo, Fmt),
     delete_files([Foo | EFs]),
 
-    ?line L11 = [{a,1,x4},{b,2,x4},{c,3,x4}],
-    ?line L21 = [{a,1,x3},{b,2,x3},{c,3,x3}],
-    ?line L31 = [{a,1,x2},{b,2,x2},{c,3,x2}],
-    ?line L41 = [{a,1,x1},{b,2,x1},{c,3,x1}],
-    ?line CAll = [L11, L21, L31, L41],
-    ?line CMerged1 = lists:merge(KComp, L11, L21),
-    ?line CMerged2 = lists:merge(KComp, L31, L41),
-    ?line CMerged = lists:merge(KComp, CMerged1, CMerged2),
-    ?line CFs1 = to_files(CAll, Fmt, Config),
-    ?line ok = file_sorter:merge(CFs1, Foo, Args),
-    ?line CMerged = from_files(Foo, Fmt),
+    L11 = [{a,1,x4},{b,2,x4},{c,3,x4}],
+    L21 = [{a,1,x3},{b,2,x3},{c,3,x3}],
+    L31 = [{a,1,x2},{b,2,x2},{c,3,x2}],
+    L41 = [{a,1,x1},{b,2,x1},{c,3,x1}],
+    CAll = [L11, L21, L31, L41],
+    CMerged1 = lists:merge(KComp, L11, L21),
+    CMerged2 = lists:merge(KComp, L31, L41),
+    CMerged = lists:merge(KComp, CMerged1, CMerged2),
+    CFs1 = to_files(CAll, Fmt, Config),
+    ok = file_sorter:merge(CFs1, Foo, Args),
+    CMerged = from_files(Foo, Fmt),
 
     Args4 = make_args(Fmt, [{size,50} | XArgs]),
-    ?line ok = file_sorter:merge(CFs1, Foo, [{order,KComp} | Args4]),
-    ?line CMerged = from_files(Foo, Fmt),
+    ok = file_sorter:merge(CFs1, Foo, [{order,KComp} | Args4]),
+    CMerged = from_files(Foo, Fmt),
 
-    ?line UMerged1 = lists:umerge(KComp, L11, L21),
-    ?line UMerged2 = lists:umerge(KComp, L31, L41),
-    ?line UMerged = lists:umerge(KComp, UMerged1, UMerged2),
-    ?line ok = file_sorter:merge(CFs1, Foo, [{order,KComp} | UArgs]),
-    ?line UMerged = from_files(Foo, Fmt),
+    UMerged1 = lists:umerge(KComp, L11, L21),
+    UMerged2 = lists:umerge(KComp, L31, L41),
+    UMerged = lists:umerge(KComp, UMerged1, UMerged2),
+    ok = file_sorter:merge(CFs1, Foo, [{order,KComp} | UArgs]),
+    UMerged = from_files(Foo, Fmt),
     UArgs2 = 
         lists:keydelete(order, 1,
                         make_args(Fmt, [{unique,true}, {size,50} | XArgs])),
-    ?line ok = file_sorter:merge(CFs1, Foo, [{order,KComp} | UArgs2]),
-    ?line UMerged = from_files(Foo, Fmt),
-    ?line delete_files(Foo),
+    ok = file_sorter:merge(CFs1, Foo, [{order,KComp} | UArgs2]),
+    UMerged = from_files(Foo, Fmt),
+    delete_files(Foo),
 
-    ?line List1 = [{a,1,x4},{b,2,x4},{c,3,x4}],
-    ?line List2 = [{a,3,x4},{b,4,x4},{c,5,x4}],
-    ?line List3 = [{a,5,x4},{b,6,x4},{c,7,x4}],
-    ?line FsLL = to_files([List1, List2, List3], Fmt, Config),
-    ?line ok = file_sorter:merge(FsLL, Foo, Args),
-    ?line List1_2 = lists:merge(KComp,lists:merge(KComp,List1,List2),List3),
-    ?line List1_2 = from_files(Foo, Fmt),
-    ?line ok = file_sorter:merge(FsLL, Foo, [{order,KComp} | UArgs]),
-    ?line UList1_2 = 
+    List1 = [{a,1,x4},{b,2,x4},{c,3,x4}],
+    List2 = [{a,3,x4},{b,4,x4},{c,5,x4}],
+    List3 = [{a,5,x4},{b,6,x4},{c,7,x4}],
+    FsLL = to_files([List1, List2, List3], Fmt, Config),
+    ok = file_sorter:merge(FsLL, Foo, Args),
+    List1_2 = lists:merge(KComp,lists:merge(KComp,List1,List2),List3),
+    List1_2 = from_files(Foo, Fmt),
+    ok = file_sorter:merge(FsLL, Foo, [{order,KComp} | UArgs]),
+    UList1_2 =
         lists:umerge(KComp,lists:umerge(KComp, List1, List2),List3),
-    ?line UList1_2 = from_files(Foo, Fmt),
-    ?line delete_files([Foo | CFs1]),
+    UList1_2 = from_files(Foo, Fmt),
+    delete_files([Foo | CFs1]),
 
     fun() ->
-    ?line LL1 = [{d,4},{e,5},{f,6}],
-    ?line LL2 = [{a,1},{b,2},{c,3}],
-    ?line LL3 = [{j,10},{k,11},{l,12}],
-    ?line LL4 = [{g,7},{h,8},{i,9}],
-    ?line LL5 = [{p,16},{q,17},{r,18}],
-    ?line LL6 = [{m,13},{n,14},{o,15}],
-    ?line LLAll = [LL1,LL2,LL3,LL4,LL5,LL6],
-    ?line FsLL6 = to_files(LLAll, Fmt, Config),
-    ?line LL = lists:sort(lists:append(LLAll)),
-    ?line ok = file_sorter:merge(FsLL6, Foo, Args),
-    ?line LL = from_files(Foo, Fmt),
-    ?line ok = file_sorter:merge(FsLL6, Foo, UArgs),
-    ?line LL = from_files(Foo, Fmt),
-    ?line delete_files([Foo | FsLL6])
+	    LL1 = [{d,4},{e,5},{f,6}],
+	    LL2 = [{a,1},{b,2},{c,3}],
+	    LL3 = [{j,10},{k,11},{l,12}],
+	    LL4 = [{g,7},{h,8},{i,9}],
+	    LL5 = [{p,16},{q,17},{r,18}],
+	    LL6 = [{m,13},{n,14},{o,15}],
+	    LLAll = [LL1,LL2,LL3,LL4,LL5,LL6],
+	    FsLL6 = to_files(LLAll, Fmt, Config),
+	    LL = lists:sort(lists:append(LLAll)),
+	    ok = file_sorter:merge(FsLL6, Foo, Args),
+	    LL = from_files(Foo, Fmt),
+	    ok = file_sorter:merge(FsLL6, Foo, UArgs),
+	    LL = from_files(Foo, Fmt),
+	    delete_files([Foo | FsLL6])
     end(),
 
     fun() ->
-    ?line RLL1 = [{b,2},{h,8},{n,14}],
-    ?line RLL2 = [{a,1},{g,7},{m,13}],
-    ?line RLL3 = [{d,4},{j,10},{p,16}],
-    ?line RLL4 = [{c,3},{i,9},{o,15}],
-    ?line RLL5 = [{f,6},{l,12},{r,18}],
-    ?line RLL6 = [{e,5},{k,11},{q,17}],
-    ?line RLLAll = [RLL1,RLL2,RLL3,RLL4,RLL5,RLL6],
-    ?line RFsLL6 = to_files(RLLAll, Fmt, Config),
-    ?line RLL = lists:sort(lists:append(RLLAll)),
-    ?line ok = file_sorter:merge(RFsLL6, Foo, Args),
-    ?line RLL = from_files(Foo, Fmt),
-    ?line ok = file_sorter:merge(RFsLL6, Foo, UArgs),
-    ?line RLL = from_files(Foo, Fmt),
-    ?line delete_files([Foo | RFsLL6])
+	    RLL1 = [{b,2},{h,8},{n,14}],
+	    RLL2 = [{a,1},{g,7},{m,13}],
+	    RLL3 = [{d,4},{j,10},{p,16}],
+	    RLL4 = [{c,3},{i,9},{o,15}],
+	    RLL5 = [{f,6},{l,12},{r,18}],
+	    RLL6 = [{e,5},{k,11},{q,17}],
+	    RLLAll = [RLL1,RLL2,RLL3,RLL4,RLL5,RLL6],
+	    RFsLL6 = to_files(RLLAll, Fmt, Config),
+	    RLL = lists:sort(lists:append(RLLAll)),
+	    ok = file_sorter:merge(RFsLL6, Foo, Args),
+	    RLL = from_files(Foo, Fmt),
+	    ok = file_sorter:merge(RFsLL6, Foo, UArgs),
+	    RLL = from_files(Foo, Fmt),
+	    delete_files([Foo | RFsLL6])
     end(),
 
     ok.
@@ -1054,57 +993,57 @@ check(Fmt, Config) ->
     L1 = [3,1,2,5,4],
     [F1_0] = Fs1 = to_files([L1], Fmt, Config),
     F1 = filename:absname(F1_0),
-    ?line {ok, [{F1,2,1}]} = file_sorter:check(Fs1, Args),
-    ?line {ok, [{F1,2,1}]} = file_sorter:check(Fs1, [{order,Fun} | Args]),
-    ?line {ok, [{F1,2,1}]} = file_sorter:check(Fs1, [{unique,true} | Args]),
-    ?line {ok, [{F1,2,1}]} = 
+    {ok, [{F1,2,1}]} = file_sorter:check(Fs1, Args),
+    {ok, [{F1,2,1}]} = file_sorter:check(Fs1, [{order,Fun} | Args]),
+    {ok, [{F1,2,1}]} = file_sorter:check(Fs1, [{unique,true} | Args]),
+    {ok, [{F1,2,1}]} =
 	file_sorter:check(Fs1, [{order,Fun},{unique,true} | Args]),
-    ?line {ok, [{F1,3,2}]} = 
+    {ok, [{F1,3,2}]} =
 	file_sorter:check(Fs1, [{order,descending} | Args]),
-    ?line {ok, [{F1,3,2}]} = 
+    {ok, [{F1,3,2}]} =
 	file_sorter:check(Fs1, [{unique,true},{order,descending} | Args]),
-    ?line delete_files(Fs1),
-    
+    delete_files(Fs1),
+
     L2 = [[1,2,2,3,3,4,5,5],[5,5,4,3,3,2,2,1]],
     [F2_0,F3_0] = Fs2 = to_files(L2, Fmt, Config),
     F2 = filename:absname(F2_0),
     F3 = filename:absname(F3_0),
-    ?line {ok, [{F3,3,4}]} = file_sorter:check(Fs2, Args),
-    ?line {ok, [{F3,3,4}]} = file_sorter:check(Fs2, [{order,Fun} | Args]),
-    ?line {ok, [{F2,3,2},{F3,2,5}]} = 
+    {ok, [{F3,3,4}]} = file_sorter:check(Fs2, Args),
+    {ok, [{F3,3,4}]} = file_sorter:check(Fs2, [{order,Fun} | Args]),
+    {ok, [{F2,3,2},{F3,2,5}]} =
 	file_sorter:check(Fs2, [{unique, true} | Args]),
-    ?line {ok, [{F2,3,2},{F3,2,5}]} = 
+    {ok, [{F2,3,2},{F3,2,5}]} =
 	file_sorter:check(Fs2, [{order,Fun},{unique, true} | Args]),
-    ?line {ok, [{F2,2,2}]} = 
+    {ok, [{F2,2,2}]} =
 	file_sorter:check(Fs2, [{order,descending} | Args]),
-    ?line {ok, [{F2,2,2},{F3,2,5}]} = 
+    {ok, [{F2,2,2},{F3,2,5}]} =
 	file_sorter:check(Fs2, [{unique,true},{order,descending} | Args]),
-    ?line delete_files(Fs2),
-    
+    delete_files(Fs2),
+
     L3 = [1,2,3,4],
-    ?line Fs3 = to_files([L3], Fmt, Config),
-    ?line {ok, []} = file_sorter:check(Fs3, [{unique,true} | Args]),
-    ?line {ok, []} = 
+    Fs3 = to_files([L3], Fmt, Config),
+    {ok, []} = file_sorter:check(Fs3, [{unique,true} | Args]),
+    {ok, []} =
 	file_sorter:check(Fs3, [{unique,true},{order,Fun} | Args]),
-    ?line delete_files(Fs3),
+    delete_files(Fs3),
 
     %% big objects
-    ?line T1 = erlang:make_tuple(10000,foo),
-    ?line T2 = erlang:make_tuple(10000,bar),
-    ?line L4 = [T1,T2],
-    ?line [FF_0] = Fs4 = to_files([L4], Fmt, Config),
+    T1 = erlang:make_tuple(10000,foo),
+    T2 = erlang:make_tuple(10000,bar),
+    L4 = [T1,T2],
+    [FF_0] = Fs4 = to_files([L4], Fmt, Config),
     FF = filename:absname(FF_0),
-    ?line {ok, [{FF,2,T2}]} = file_sorter:check(Fs4, [{unique,true} | Args]),
-    ?line delete_files(Fs4),
+    {ok, [{FF,2,T2}]} = file_sorter:check(Fs4, [{unique,true} | Args]),
+    delete_files(Fs4),
 
     CFun = key_compare(2),
     L10 = [[{1,a},{2,b},T10_1={1,b},{3,c}], [{1,b},T10_2={2,a}]],
     [F10_0,F11_0] = Fs10 = to_files(L10, Fmt, Config),
     F10_1 = filename:absname(F10_0),
     F11_1 = filename:absname(F11_0),
-    ?line {ok, [{F10_1,3,T10_1},{F11_1,2,T10_2}]} = 
+    {ok, [{F10_1,3,T10_1},{F11_1,2,T10_2}]} =
         file_sorter:check(Fs10, [{unique,true},{order,CFun} | Args]),
-    ?line delete_files(Fs10),
+    delete_files(Fs10),
 
     ok.
 
@@ -1112,31 +1051,31 @@ keycheck(Fmt, Config) ->
     Args0 = make_args(Fmt, [{size,5}]),
     Args = Args0 ++ [{tmpdir,?privdir(Config)}],
 
-    ?line L1 = [[{a,1},{b,2}], [{c,2},{b,1},{a,3}]],
-    ?line [F1_0,F2_0] = Fs1 = to_files(L1, Fmt, Config),
+    L1 = [[{a,1},{b,2}], [{c,2},{b,1},{a,3}]],
+    [F1_0,F2_0] = Fs1 = to_files(L1, Fmt, Config),
     F1 = filename:absname(F1_0),
     F2 = filename:absname(F2_0),
-    ?line {ok, [{F2,2,{b,1}}]} = file_sorter:keycheck(1, Fs1, Args),
-    ?line {ok, [{F2,2,{b,1}}]} = 
+    {ok, [{F2,2,{b,1}}]} = file_sorter:keycheck(1, Fs1, Args),
+    {ok, [{F2,2,{b,1}}]} =
 	file_sorter:keycheck(1, Fs1, [{unique,true} | Args]),
-    ?line {ok, [{F1,2,{b,2}}]} = 
+    {ok, [{F1,2,{b,2}}]} =
 	file_sorter:keycheck(1, Fs1, [{order,descending},{unique,true} | Args]),
-    ?line delete_files(Fs1),
-    
+    delete_files(Fs1),
+
     L2 = [[{a,1},{a,2},{a,2},{b,2}], [{c,2},{b,1},{b,2},{b,2},{a,3}]],
-    ?line [F3_0,F4_0] = Fs2 = to_files(L2, Fmt, Config),
+    [F3_0,F4_0] = Fs2 = to_files(L2, Fmt, Config),
     F3 = filename:absname(F3_0),
     F4 = filename:absname(F4_0),
-    ?line {ok, [{F4,2,{b,1}}]} = file_sorter:keycheck(1, Fs2, Args),
-    ?line {ok, [{F3,2,{a,2}},{F4,2,{b,1}}]} = 
+    {ok, [{F4,2,{b,1}}]} = file_sorter:keycheck(1, Fs2, Args),
+    {ok, [{F3,2,{a,2}},{F4,2,{b,1}}]} =
 	file_sorter:keycheck(1, Fs2, [{unique,true} | Args]),
-    ?line {ok, [{F3,4,{b,2}}]} = 
+    {ok, [{F3,4,{b,2}}]} =
 	file_sorter:keycheck(1, Fs2, [{order,descending} | Args]),
-    ?line {ok, [{F3,2,{a,2}},{F4,3,{b,2}}]} = 
+    {ok, [{F3,2,{a,2}},{F4,3,{b,2}}]} =
 	file_sorter:keycheck(1, Fs2, 
 			     [{order,descending},{unique,true} | Args]),
-    ?line delete_files(Fs2),
-    
+    delete_files(Fs2),
+
     ok.
 
 rev(L, Args) ->
@@ -1330,9 +1269,9 @@ c(Fd, Bin0, Size0, NoBytes, HL, L) ->
 	eof when Size0 =:= 0 ->
 	    lists:reverse(L);
         eof ->
-	    test_server:fail({error, premature_eof});
+	    ct:fail({error, premature_eof});
 	Error ->
-	    test_server:fail(Error)
+	    ct:fail(Error)
     end.
 
 c1(Fd, B, BinSize, HL, L) -> 
@@ -1347,7 +1286,7 @@ c1(Fd, B, BinSize, HL, L) ->
 		    <<BinTerm:Size/binary, R/binary>> = Bin,	    
 		    E = case catch binary_to_term(BinTerm) of
                             {'EXIT', _} ->
-				test_server:fail({error, bad_object});
+				ct:fail({error, bad_object});
 			    Term ->
 				Term
 			end,

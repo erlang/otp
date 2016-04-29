@@ -1,9 +1,2 @@
 %% -*- erlang -*-
 {incl_app,common_test,details}.
-{cross,common_test,[{test_server,[erl2html2,
-				  test_server,
-				  test_server_ctrl,
-				  test_server_gl,
-				  test_server_io,
-				  test_server_node,
-				  test_server_sup]}]}.

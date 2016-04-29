@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2012. All Rights Reserved.
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,10 +100,7 @@ ifeq ($(USE_MEGACO_HIPE),true)
 ERL_COMPILE_FLAGS += +native -Dmegaco_hipe_special=true
 endif
 
-ERL_COMPILE_FLAGS += \
-	$(MEGACO_ERL_COMPILE_FLAGS)         \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
-	-I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS += $(MEGACO_ERL_COMPILE_FLAGS)
 
 ERL_PATH = -pa ../../megaco/examples/simple \
            -pa ../../megaco/ebin \

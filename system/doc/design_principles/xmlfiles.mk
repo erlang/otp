@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009. All Rights Reserved.
+# Copyright Ericsson AB 2009-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ DESIGN_PRINCIPLES_CHAPTER_FILES = \
 	distributed_applications.xml \
 	events.xml \
 	fsm.xml \
+	statem.xml \
 	gen_server_concepts.xml \
 	included_applications.xml \
 	release_handling.xml \

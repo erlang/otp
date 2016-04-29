@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,13 +28,15 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%------------------------------------------------------------------------------
 %% Suite definition
 %%------------------------------------------------------------------------------
 
-suite() -> [{ct_hooks, [ts_install_cth]}].
+suite() ->
+    [{ct_hooks, [ts_install_cth]},
+     {timetrap,{minutes,60}}].
 
 all() ->
     [{group, compile},
@@ -194,18 +196,15 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Func, Config) ->
-    CaseDir = filename:join(?config(priv_dir, Config), Func),
+    CaseDir = filename:join(proplists:get_value(priv_dir, Config), Func),
     ok = filelib:ensure_dir(filename:join([CaseDir, dummy_file])),
     true = code:add_patha(CaseDir),
-
-    Dog = case Func of
-              testRfcs -> ct:timetrap({minutes, 90});
-              _        -> ct:timetrap({minutes, 60})
-          end,
-    [{case_dir, CaseDir}, {watchdog, Dog}|Config].
+    [{case_dir, CaseDir}|Config].
 
 end_per_testcase(_Func, Config) ->
-    code:del_path(?config(case_dir, Config)).
+    CaseDir = proplists:get_value(case_dir, Config),
+    asn1_test_lib:rm_dirs([CaseDir]),
+    code:del_path(CaseDir).
 
 %%------------------------------------------------------------------------------
 %% Test runners
@@ -243,7 +242,7 @@ opts(Rule) when is_atom(Rule) -> [];
 opts({_Rule, Opts})         -> Opts.
 
 run_case(Config, Fun, Rule, Opts) ->
-    CaseDir = ?config(case_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     Dir = filename:join([CaseDir, join(Rule, Opts)]),
     ok = filelib:ensure_dir(filename:join([Dir, dummy_file])),
     replace_path(CaseDir, Dir),
@@ -465,7 +464,7 @@ testSeqExtension(Config, Rule, Opts) ->
 			       "SeqExtension2"],
 			      Config,
                               [Rule|Opts]),
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     testSeqExtension:main(Rule, DataDir, [Rule|Opts]).
 
 testSeqOptional(Config) -> test(Config, fun testSeqOptional/3).
@@ -585,8 +584,8 @@ constraint_equivalence(Config, Rule, Opts) ->
     asn1_test_lib:compile(M, Config, [Rule|Opts]).
 
 constraint_equivalence_abs(Config) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     Asn1Spec = "ConstraintEquivalence",
     Asn1Src = filename:join(DataDir, Asn1Spec),
     ok = asn1ct:compile(Asn1Src, [abs,{outdir,CaseDir}]),
@@ -637,7 +636,7 @@ module_test(M0, Config, Rule, Opts) ->
 	    %% value for 'Filter' is not guaranteed to terminate.
 	    ok;
 	M ->
-	    TestOpts = [{i, ?config(case_dir, Config)}],
+	    TestOpts = [{i, proplists:get_value(case_dir, Config)}],
 	    case asn1ct:test(M, TestOpts) of
 		ok ->
 		    ok;
@@ -768,7 +767,7 @@ testInfObjectClass(Config, Rule, Opts) ->
 
 testUniqueObjectSets(Config) -> test(Config, fun testUniqueObjectSets/3).
 testUniqueObjectSets(Config, Rule, Opts) ->
-    CaseDir = ?config(case_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     testUniqueObjectSets:main(CaseDir, Rule, Opts).
 
 testInfObjExtract(Config) -> test(Config, fun testInfObjExtract/3).
@@ -993,6 +992,9 @@ testS1AP(Config, Rule, Opts) ->
 	    ok
     end.
 
+testRfcs() ->
+    [{timetrap,{minutes,90}}].
+
 testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
 testRfcs(Config, Rule, Opts) ->
     case erlang:system_info(system_architecture) of
@@ -1136,7 +1138,7 @@ test_modules() ->
      "CCSNARG3"].
 
 test_OTP_9688(Config) ->
-    PrivDir = ?config(case_dir, Config),
+    PrivDir = proplists:get_value(case_dir, Config),
     Data = "
 OTP-9688 DEFINITIONS ::= BEGIN
 
@@ -1172,12 +1174,10 @@ testTimer_uper(Config) ->
     testTimer:go().
 
 %% Test of multiple-line comment, OTP-8043
-testComment(suite) -> [];
 testComment(Config) ->
     asn1_test_lib:compile("Comment", Config, []),
     asn1_test_lib:roundtrip('Comment', 'Seq', {'Seq',12,true}).
 
-testName2Number(suite) -> [];
 testName2Number(Config) ->
     N2NOptions = [{n2n,Type} || Type <- ['CauseMisc', 'CauseProtocol',
                                          'CauseRadioNetwork',

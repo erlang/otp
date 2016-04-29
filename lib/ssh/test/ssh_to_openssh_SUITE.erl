@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{minutes,1}}].
+    [{timetrap,{seconds,40}}].
 
 all() -> 
     case os:find_executable("ssh") of

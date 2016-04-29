@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -693,9 +693,9 @@ event_module(Config) when is_list(Config) ->
 	  end,
 
     ?match({[ok, ok], []}, rpc:multicall(Nodes, mnesia, start, [Def])),
-    receive after 1000 -> ok end,
+    receive after 2000 -> ok end,
     mnesia_event ! {get_log, self()},
-    DebugLog1 = receive 
+    DebugLog1 = receive
 		    {log, L1} -> L1
 		after 10000 -> [timeout]
 		end,
@@ -706,9 +706,9 @@ event_module(Config) when is_list(Config) ->
 
     ?match({[ok], []}, rpc:multicall([N2], mnesia, start, [])),
 
-    receive after 1000 -> ok end,
+    receive after 2000 -> ok end,
     mnesia_event ! {get_log, self()},
-    DebugLog = receive 
+    DebugLog = receive
 		   {log, L} -> L
 	       after 10000 -> [timeout]
 	       end,

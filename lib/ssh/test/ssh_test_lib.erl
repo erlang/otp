@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ std_simple_sftp(Host, Port, Config, Opts) ->
     DataFile = filename:join(UserDir, "test.data"),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
     {ok, ChannelRef} = ssh_sftp:start_channel(ConnectionRef),
-    Data = crypto:rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
+    Data = crypto:strong_rand_bytes(proplists:get_value(std_simple_sftp_size,Config,10)),
     ok = ssh_sftp:write_file(ChannelRef, DataFile, Data),
     {ok,ReadData} = file:read_file(DataFile),
     ok = ssh:close(ConnectionRef),
@@ -354,7 +354,7 @@ setup_rsa_pass_pharse(DataDir, UserDir, Phrase) ->
 setup_pass_pharse(KeyBin, OutFile, Phrase) ->
     [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
     Key =  public_key:pem_entry_decode(Entry0),
-    Salt = crypto:rand_bytes(8),
+    Salt = crypto:strong_rand_bytes(8),
     Entry = public_key:pem_entry_encode(KeyType, Key,
 					{{"DES-CBC", Salt}, Phrase}),
     Pem = public_key:pem_encode([Entry]),

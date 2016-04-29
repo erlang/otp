@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -497,31 +497,7 @@ node_table_hash(void *venp)
     Uint32 cre = ((ErlNode *) venp)->creation;
     HashValue h = atom_tab(atom_val(((ErlNode *) venp)->sysname))->slot.bucket.hvalue;
 
-    h *= PRIME0;
-    h += cre & 0xff;
-
-#if MAX_CREATION >= (1 << 8)
-    h *= PRIME1;
-    h += (cre >> 8) & 0xff;
-#endif
-
-#if MAX_CREATION >= (1 << 16)
-    h *= PRIME2;
-    h += (cre >> 16) & 0xff;
-#endif
-
-#if MAX_CREATION >= (1 << 24)
-    h *= PRIME3;
-    h += (cre >> 24) & 0xff;
-#endif
-
-#if 0
-/* XXX Problems in older versions of GCC */
- #if MAX_CREATION >= (1UL << 32)
- #error "MAX_CREATION larger than size of expected creation storage (Uint32)"
- #endif
-#endif
-    return h;
+    return (h + cre) * PRIME0;
 }
 
 static int
@@ -599,7 +575,7 @@ erts_node_table_info(int to, void *to_arg)
 }
 
 
-ErlNode *erts_find_or_insert_node(Eterm sysname, Uint creation)
+ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation)
 {
     ErlNode *res;
     ErlNode ne;
@@ -787,10 +763,13 @@ void erts_init_node_tables(int dd_sec)
     erts_smp_rwmtx_init_opt(&erts_node_table_rwmtx, &rwmtx_opt, "node_table");
     erts_smp_rwmtx_init_opt(&erts_dist_table_rwmtx, &rwmtx_opt, "dist_table");
 
-    f.hash  = (H_FUN)			dist_table_hash;
-    f.cmp   = (HCMP_FUN)		dist_table_cmp;
-    f.alloc = (HALLOC_FUN)		dist_table_alloc;
-    f.free  = (HFREE_FUN)		dist_table_free;
+    f.hash       = (H_FUN)		dist_table_hash;
+    f.cmp        = (HCMP_FUN)		dist_table_cmp;
+    f.alloc      = (HALLOC_FUN)		dist_table_alloc;
+    f.free       = (HFREE_FUN)		dist_table_free;
+    f.meta_alloc = (HMALLOC_FUN) 	erts_alloc;
+    f.meta_free  = (HMFREE_FUN) 	erts_free;
+    f.meta_print = (HMPRINT_FUN) 	erts_print;
     hash_init(ERTS_ALC_T_DIST_TABLE, &erts_dist_table, "dist_table", 11, f);
 
     f.hash  = (H_FUN)      			node_table_hash;
@@ -1157,23 +1136,11 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 			break;
 		    }
 		if (insert_bin) {
-#if HALFWORD_HEAP
-		    UWord val = (UWord) u.pb->val;
-		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE*2); /* extra place allocated */
-#else
 		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE);
-#endif
 		    Uint *hp = &id_heap[0];
 		    InsertedBin *nib;
-#if HALFWORD_HEAP
-		    int actual_need = BIG_UWORD_HEAP_SIZE(val);
-		    ASSERT(actual_need <= (BIG_UINT_HEAP_SIZE*2));
-		    UseTmpHeapNoproc(actual_need);
-		    a.id = erts_bld_uword(&hp, NULL, (UWord) val);
-#else
 		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		    a.id = erts_bld_uint(&hp, NULL, (Uint) u.pb->val);
-#endif
 		    erts_match_prog_foreach_offheap(u.pb->val,
 						    insert_offheap2,
 						    (void *) &a);
@@ -1181,11 +1148,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    nib->bin_val = u.pb->val;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
-#if HALFWORD_HEAP
-		    UnUseTmpHeapNoproc(actual_need);
-#else
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
-#endif
 		}
 	    }		
 	    break;
@@ -1371,56 +1334,50 @@ setup_reference_table(void)
     for (i = 0; i < max; i++) {
 	Process *proc = erts_pix2proc(i);
 	if (proc) {
-	    ErlMessage *msg;
+	    int mli;
+	    ErtsMessage *msg_list[] = {
+		proc->msg.first,
+#ifdef ERTS_SMP
+		proc->msg_inq.first,
+#endif
+		proc->msg_frag};
 
 	    /* Insert Heap */
 	    insert_offheap(&(proc->off_heap),
 			   HEAP_REF,
 			   proc->common.id);
-	    /* Insert message buffers */
+	    /* Insert heap fragments buffers */
 	    for(hfp = proc->mbuf; hfp; hfp = hfp->next)
 		insert_offheap(&(hfp->off_heap),
 			       HEAP_REF,
 			       proc->common.id);
-	    /* Insert msg msg buffers */
-	    for (msg = proc->msg.first; msg; msg = msg->next) {
-		ErlHeapFragment *heap_frag = NULL;
-		if (msg->data.attached) {
-		    if (is_value(ERL_MESSAGE_TERM(msg)))
-			heap_frag = msg->data.heap_frag;
-		    else {
-			if (msg->data.dist_ext->dep)
-			    insert_dist_entry(msg->data.dist_ext->dep,
-					      HEAP_REF, proc->common.id, 0);
-			if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
-			    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
+
+	    /* Insert msg buffers */
+	    for (mli = 0; mli < sizeof(msg_list)/sizeof(msg_list[0]); mli++) {
+		ErtsMessage *msg;
+		for (msg = msg_list[mli]; msg; msg = msg->next) {
+		    ErlHeapFragment *heap_frag = NULL;
+		    if (msg->data.attached) {
+			if (msg->data.attached == ERTS_MSG_COMBINED_HFRAG)
+			    heap_frag = &msg->hfrag;
+			else if (is_value(ERL_MESSAGE_TERM(msg)))
+			    heap_frag = msg->data.heap_frag;
+			else {
+			    if (msg->data.dist_ext->dep)
+				insert_dist_entry(msg->data.dist_ext->dep,
+						  HEAP_REF, proc->common.id, 0);
+			    if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
+				heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
+			}
+		    }
+		    while (heap_frag) {
+			insert_offheap(&(heap_frag->off_heap),
+				       HEAP_REF,
+				       proc->common.id);
+			heap_frag = heap_frag->next;
 		    }
 		}
-		if (heap_frag)
-		    insert_offheap(&(heap_frag->off_heap),
-				   HEAP_REF,
-				   proc->common.id);
 	    }
-#ifdef ERTS_SMP
-	    for (msg = proc->msg_inq.first; msg; msg = msg->next) {
-		ErlHeapFragment *heap_frag = NULL;
-		if (msg->data.attached) {
-		    if (is_value(ERL_MESSAGE_TERM(msg)))
-			heap_frag = msg->data.heap_frag;
-		    else {
-			if (msg->data.dist_ext->dep)
-			    insert_dist_entry(msg->data.dist_ext->dep,
-					      HEAP_REF, proc->common.id, 0);
-			if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
-			    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
-		    }
-		}
-		if (heap_frag)
-		    insert_offheap(&(heap_frag->off_heap),
-				   HEAP_REF,
-				   proc->common.id);
-	    }
-#endif
 	    /* Insert links */
 	    if (ERTS_P_LINKS(proc))
 		insert_links(ERTS_P_LINKS(proc), proc->common.id);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1227,7 +1227,8 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
 %% Send data using sendfile
 %%
 
--define(MAX_CHUNK_SIZE, (1 bsl 20)*20). %% 20 MB, has to fit in primary memory
+%% 1 MB, Windows seems to behave badly if it is much larger then this
+-define(MAX_CHUNK_SIZE, (1 bsl 20)).
 
 -spec sendfile(RawFile, Socket, Offset, Bytes, Opts) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | 

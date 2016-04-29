@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,15 +55,15 @@ typedef struct {
 } BpCount;
 
 typedef struct {
-    erts_smp_atomic_t pid;
+    erts_smp_atomic_t tracer;
     erts_refc_t refc;
-} BpMetaPid;
+} BpMetaTracer;
 
 typedef struct generic_bp_data {
     Uint flags;
     Binary* local_ms;		/* Match spec for local call trace */
     Binary* meta_ms;		/* Match spec for meta trace */
-    BpMetaPid* meta_pid;	/* Meta trace pid */
+    BpMetaTracer* meta_tracer;	/* Meta tracer */
     BpCount* count;		/* For call count */
     BpDataTime* time;		/* For time trace */
 } GenericBpData;
@@ -132,10 +132,10 @@ void erts_set_call_trace_bif(BeamInstr *pc, Binary *match_spec, int local);
 void erts_clear_call_trace_bif(BeamInstr *pc, int local);
 
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec,
-			  Eterm tracer_pid);
+			  ErtsTracer tracer);
 void erts_clear_mtrace_break(BpFunctions *f);
 void erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec,
-			 Eterm tracer_pid);
+			 ErtsTracer tracer);
 void erts_clear_mtrace_bif(BeamInstr *pc);
 
 void erts_set_debug_break(BpFunctions *f);
@@ -150,13 +150,13 @@ void erts_clear_export_break(Module *modp, BeamInstr* pc);
 
 BeamInstr erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
-		      Uint32 *ret_flags, Eterm *tracer_pid);
+                           Uint32 *ret_flags, ErtsTracer *tracer);
 
 int erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret, int local);
 int erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret,
-			 Eterm *tracer_pid_rte);
+			 ErtsTracer *tracer_ret);
 int erts_is_mtrace_bif(BeamInstr *pc, Binary **match_spec_ret,
-		       Eterm *tracer_pid_ret);
+		       ErtsTracer *tracer_ret);
 int erts_is_native_break(BeamInstr *pc);
 int erts_is_count_break(BeamInstr *pc, Uint *count_ret);
 int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *call_time);

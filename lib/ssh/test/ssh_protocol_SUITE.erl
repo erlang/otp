@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,7 +43,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,2}}].
+     {timetrap,{seconds,40}}].
 
 all() -> 
     [{group,tool_tests},
@@ -308,7 +308,7 @@ no_common_alg_client_disconnects(Config) ->
 			  {send, hello},
 			  {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 			  {send,  #ssh_msg_kexinit{ % with unsupported "SOME-UNSUPPORTED"
-				     cookie = 247381486335508958743193106082599558706,
+				     cookie = <<80,158,95,51,174,35,73,130,246,141,200,49,180,190,82,234>>,
 				     kex_algorithms = ["diffie-hellman-group1-sha1"],
 				     server_host_key_algorithms = ["SOME-UNSUPPORTED"],  % SIC!
 				     encryption_algorithms_client_to_server = ["aes128-ctr"],

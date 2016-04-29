@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 {
     const char* s = buf + *index, * s0 = s;
-    int i, n, sign;
+    int n, sign;
     char c;
 
     if (term == NULL) return -1;
@@ -47,47 +47,27 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	break;
     case ERL_FLOAT_EXT:
     case NEW_FLOAT_EXT:
-        return ei_decode_double(buf, index, &term->value.d_val);
+        return (ei_decode_double(buf, index, &term->value.d_val) < 0
+                ? -1 : 1);
     case ERL_ATOM_EXT:
     case ERL_ATOM_UTF8_EXT:
     case ERL_SMALL_ATOM_EXT:
     case ERL_SMALL_ATOM_UTF8_EXT:
-	return ei_decode_atom(buf, index, term->value.atom_name);
+	return (ei_decode_atom(buf, index, term->value.atom_name) < 0
+                ? -1 : 1);
     case ERL_REFERENCE_EXT:
-	/* first the nodename */
-	if (get_atom(&s, term->value.ref.node, NULL) < 0) return -1;
-        /* now the numbers: num (4), creation (1) */
-	term->value.ref.n[0] = get32be(s);
-	term->value.ref.len = 1;
-	term->value.ref.creation = get8(s) & 0x03;
-	break;
     case ERL_NEW_REFERENCE_EXT:
-	/* first the integer count */
-	term->value.ref.len = get16be(s);
-	/* then the nodename */
-	if (get_atom(&s, term->value.ref.node, NULL) < 0) return -1;
-	/* creation */
-	term->value.ref.creation = get8(s) & 0x03;
-	/* finally the id integers */
-	for (i = 0; (i<term->value.ref.len) && (i<3); i++) {
-	    term->value.ref.n[i] = get32be(s);
-	}
-	if (term->value.ref.len > 3) {
-	    s += 4 * (term->value.ref.len - 3);
-	}
-	break;
+    case ERL_NEWER_REFERENCE_EXT:
+        return (ei_decode_ref(buf, index, &term->value.ref) < 0
+                ? -1 : 1);
     case ERL_PORT_EXT:
-	if (get_atom(&s, term->value.port.node, NULL) < 0) return -1;
-	term->value.port.id = get32be(s) & 0x0fffffff; /* 28 bits */;
-	term->value.port.creation = get8(s) & 0x03;
-	break;
+    case ERL_NEW_PORT_EXT:
+        return (ei_decode_port(buf, index, &term->value.port) < 0
+                ? -1 : 1);
     case ERL_PID_EXT:
-	if (get_atom(&s, term->value.pid.node, NULL) < 0) return -1;
-	/* now the numbers: num (4), serial (4), creation (1) */
-	term->value.pid.num = get32be(s) & 0x7fff; /* 15 bits */
-	term->value.pid.serial = get32be(s) & 0x1fff; /* 13 bits */
-	term->value.pid.creation = get8(s) & 0x03; /* 2 bits */
-	break;
+    case ERL_NEW_PID_EXT:
+        return (ei_decode_pid(buf, index, &term->value.pid) < 0
+                ? -1 : 1);
     case ERL_SMALL_TUPLE_EXT:
 	term->arity = get8(s);
 	break;

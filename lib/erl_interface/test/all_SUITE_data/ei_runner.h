@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,10 +52,11 @@ void free_packet(char*);
  */
 
 #define fail(reason) do_fail(__FILE__, __LINE__, reason)
+#define fail1(reason, a1) do_fail(__FILE__, __LINE__, reason, a1)
 #define report(ok) do_report(__FILE__, __LINE__, ok)
 
 void do_report(char* file, int line, int ok);
-void do_fail(char* file, int line, char* reason);
+void do_fail(const char* file, int line, const char* reason, ...);
 void send_buffer(char* buf, int size);
 void message(char* format, ...);
 

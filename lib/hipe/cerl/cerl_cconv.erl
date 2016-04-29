@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -710,7 +710,7 @@ ren__new() ->
 ren__add(Key, Value, Ren) ->
     dict:store(Key, Value, Ren).
 
-ren__map(Key, Ren) ->  
+ren__map(Key, Ren) ->
     case dict:find(Key, Ren) of
 	{ok, Value} ->
 	    Value;
@@ -722,11 +722,14 @@ ren__map(Key, Ren) ->
 %% ---------------------------------------------------------------------
 %% State
 
--record(state, {module :: module(), function :: {atom(), arity()},
-		names, refs, defs = []}).
+-record(state, {module             :: module(),
+		function           :: {atom(), arity()} | 'undefined',
+		names = sets:new() :: sets:set(),  %% XXX: refine
+		refs  = dict:new() :: dict:dict(), %% XXX: refine
+		defs  = []}).
 
 s__new(Module) ->
-    #state{module = Module, names = sets:new(), refs = dict:new()}.
+    #state{module = Module}.
 
 s__add_function_name(Name, S) ->
     S#state{names = sets:add_element(Name, S#state.names)}.

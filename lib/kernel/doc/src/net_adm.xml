@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -25,95 +25,105 @@
     <title>net_adm</title>
     <prepared>Claes Wikstrom</prepared>
     <docno>1</docno>
-    <date>96-09-10</date>
+    <date>1996-09-10</date>
     <rev>A</rev>
   </header>
   <module>net_adm</module>
-  <modulesummary>Various Erlang Net Administration Routines</modulesummary>
+  <modulesummary>Various Erlang net administration routines.</modulesummary>
   <description>
     <p>This module contains various network utility functions.</p>
   </description>
+
   <funcs>
     <func>
       <name name="dns_hostname" arity="1"/>
-      <fsummary>Official name of a host</fsummary>
+      <fsummary>Official name of a host.</fsummary>
       <desc>
         <p>Returns the official name of <c><anno>Host</anno></c>, or
           <c>{error, <anno>Host</anno>}</c> if no such name is found. See also
-          <c>inet(3)</c>.</p>
+          <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="host_file" arity="0"/>
-      <fsummary>Read the <c>.hosts.erlang</c>file</fsummary>
+      <fsummary>Read file <c>.hosts.erlang</c>.</fsummary>
       <desc>
-        <p>Reads the <c>.hosts.erlang</c> file, see the section
-          <em>Files</em> below. Returns the hosts in this file as a
-          list, or returns <c>{error, <anno>Reason</anno>}</c> if the file could not
-          be read or the Erlang terms on the file could not be interpreted.</p>
+        <p>Reads file <c>.hosts.erlang</c>, see section
+          <seealso marker="#files">Files</seealso>. Returns the hosts in this
+          file as a list. Returns <c>{error, <anno>Reason</anno>}</c> if the
+          file cannot be read or the Erlang terms on the file cannot be
+          interpreted.</p>
       </desc>
     </func>
+
     <func>
       <name name="localhost" arity="0"/>
-      <fsummary>Name of the local host</fsummary>
+      <fsummary>Name of the local host.</fsummary>
       <desc>
         <p>Returns the name of the local host. If Erlang was started
-          with the <c>-name</c> command line flag, <c><anno>Name</anno></c> is
+          with command-line flag <c>-name</c>, <c><anno>Name</anno></c> is
           the fully qualified name.</p>
       </desc>
     </func>
+
     <func>
       <name name="names" arity="0"/>
       <name name="names" arity="1"/>
-      <fsummary>Names of Erlang nodes at a host</fsummary>
+      <fsummary>Names of Erlang nodes at a host.</fsummary>
       <desc>
-        <p>Similar to <c>epmd -names</c>, see <c>epmd(1)</c>.
-          <c><anno>Host</anno></c> defaults to the local host. Returns the names and
-          associated port numbers of the Erlang nodes that <c>epmd</c>
-          at the specified host has registered.</p>
-        <p>Returns <c>{error, address}</c> if <c>epmd</c> is not
-          running.</p>
+        <p>Similar to <c>epmd -names</c>, see
+          <seealso marker="erts:epmd"><c>erts:epmd(1)</c></seealso>.
+          <c><anno>Host</anno></c> defaults to the local host. Returns the
+          names and associated port numbers of the Erlang nodes that
+          <c>epmd</c> registered at the specified host. Returns
+          <c>{error, address}</c> if <c>epmd</c> is not operational.</p>
+        <p><em>Example:</em></p>
         <pre>
 (arne@dunn)1> <input>net_adm:names().</input>
 {ok,[{"arne",40262}]}</pre>
       </desc>
     </func>
+
     <func>
       <name name="ping" arity="1"/>
-      <fsummary>Set up a connection to a node</fsummary>
+      <fsummary>Set up a connection to a node.</fsummary>
       <desc>
-        <p>Tries to set up a connection to <c><anno>Node</anno></c>. Returns
-          <c>pang</c> if it fails, or <c>pong</c> if it is successful.</p>
+        <p>Sets up a connection to <c><anno>Node</anno></c>. Returns
+          <c>pong</c> if it is successful, otherwise <c>pang</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="world" arity="0"/>
       <name name="world" arity="1"/>
-      <fsummary>Lookup and connect to all nodes at all hosts in <c>.hosts.erlang</c></fsummary>
+      <fsummary>Lookup and connect to all nodes at all hosts in
+        <c>.hosts.erlang</c>.</fsummary>
       <type name="verbosity"/>
       <desc>
-        <p>This function calls <c>names(Host)</c> for all hosts which
+        <p>Calls <c>names(Host)</c> for all hosts that
           are specified in the Erlang host file <c>.hosts.erlang</c>,
-          collects the replies and then evaluates <c>ping(Node)</c> on
-          all those nodes. Returns the list of all nodes that were,
-	  successfully pinged.</p>
+          collects the replies, and then evaluates <c>ping(Node)</c> on
+          all those nodes. Returns the list of all nodes that are
+          successfully pinged.</p>
         <p><c><anno>Arg</anno></c> defaults to <c>silent</c>.
-	 If <c><anno>Arg</anno> == verbose</c>, the function writes information about which
-          nodes it is pinging to stdout.</p>
+          If <c><anno>Arg</anno> == verbose</c>, the function writes
+          information about which nodes it is pinging to <c>stdout</c>.</p>
         <p>This function can be useful when a node is started, and
-          the names of the other nodes in the network are not initially
-          known.</p>
-        <p>Failure: <c>{error, Reason}</c> if <c>host_file()</c>
+          the names of the other network nodes are not initially known.</p>
+        <p>Returns <c>{error, Reason}</c> if <c>host_file()</c>
           returns <c>{error, Reason}</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="world_list" arity="1"/>
       <name name="world_list" arity="2"/>
-      <fsummary>Lookup and connect to all nodes at specified hosts</fsummary>
+      <fsummary>Lookup and connect to all nodes at specified hosts.</fsummary>
       <type name="verbosity"/>
       <desc>
-        <p>As <c>world/0,1</c>, but the hosts are given as argument
+        <p>Same as <seealso marker="#world/1"><c>world/0,1</c></seealso>,
+          but the hosts are specified as argument
           instead of being read from <c>.hosts.erlang</c>.</p>
       </desc>
     </func>
@@ -121,13 +131,14 @@
 
   <section>
     <title>Files</title>
-    <p>The <c>.hosts.erlang</c> file consists of a number of host names
+    <marker id="files"/>
+    <p>File <c>.hosts.erlang</c> consists of a number of host names
       written as Erlang terms. It is looked for in the current work
       directory, the user's home directory, and <c>$OTP_ROOT</c>
       (the root directory of Erlang/OTP), in that order.</p>
-    <p>The format of the <c>.hosts.erlang</c> file must be one host
-      name per line. The host names must be within quotes as shown in
-      the following example:</p>
+    <p>The format of file <c>.hosts.erlang</c> must be one host
+      name per line. The host names must be within quotes.</p>
+    <p><em>Example:</em></p>
     <pre>
 'super.eua.ericsson.se'.
 'renat.eua.ericsson.se'.

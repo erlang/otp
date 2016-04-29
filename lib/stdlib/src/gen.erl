@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 %%%
 %%% The standard behaviour should export init_it/6.
 %%%-----------------------------------------------------------------
--export([start/5, start/6, debug_options/1,
+-export([start/5, start/6, debug_options/2,
+	 name/1, unregister_name/1, get_proc_name/1, get_parent/0,
 	 call/3, call/4, reply/2, stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
@@ -124,7 +125,7 @@ init_it(GenMod, Starter, Parent, Mod, Args, Options) ->
     init_it2(GenMod, Starter, Parent, self(), Mod, Args, Options).
 
 init_it(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
-    case name_register(Name) of
+    case register_name(Name) of
 	true ->
 	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options);
 	{false, Pid} ->
@@ -297,19 +298,19 @@ where({global, Name}) -> global:whereis_name(Name);
 where({via, Module, Name}) -> Module:whereis_name(Name);
 where({local, Name})  -> whereis(Name).
 
-name_register({local, Name} = LN) ->
+register_name({local, Name} = LN) ->
     try register(Name, self()) of
 	true -> true
     catch
 	error:_ ->
 	    {false, where(LN)}
     end;
-name_register({global, Name} = GN) ->
+register_name({global, Name} = GN) ->
     case global:register_name(Name, self()) of
 	yes -> true;
 	no -> {false, where(GN)}
     end;
-name_register({via, Module, Name} = GN) ->
+register_name({via, Module, Name} = GN) ->
     case Module:register_name(Name, self()) of
 	yes ->
 	    true;
@@ -317,34 +318,108 @@ name_register({via, Module, Name} = GN) ->
 	    {false, where(GN)}
     end.
 
+name({local,Name}) -> Name;
+name({global,Name}) -> Name;
+name({via,_, Name}) -> Name;
+name(Pid) when is_pid(Pid) -> Pid.
+
+unregister_name({local,Name}) ->
+    try unregister(Name) of
+	_ -> ok
+    catch
+	_:_ -> ok
+    end;
+unregister_name({global,Name}) ->
+    _ = global:unregister_name(Name),
+    ok;
+unregister_name({via, Mod, Name}) ->
+    _ = Mod:unregister_name(Name),
+    ok;
+unregister_name(Pid) when is_pid(Pid) ->
+    ok.
+
+get_proc_name(Pid) when is_pid(Pid) ->
+    Pid;
+get_proc_name({local, Name}) ->
+    case process_info(self(), registered_name) of
+	{registered_name, Name} ->
+	    Name;
+	{registered_name, _Name} ->
+	    exit(process_not_registered);
+	[] ->
+	    exit(process_not_registered)
+    end;
+get_proc_name({global, Name}) ->
+    case global:whereis_name(Name) of
+	undefined ->
+	    exit(process_not_registered_globally);
+	Pid when Pid =:= self() ->
+	    Name;
+	_Pid ->
+	    exit(process_not_registered_globally)
+    end;
+get_proc_name({via, Mod, Name}) ->
+    case Mod:whereis_name(Name) of
+	undefined ->
+	    exit({process_not_registered_via, Mod});
+	Pid when Pid =:= self() ->
+	    Name;
+	_Pid ->
+	    exit({process_not_registered_via, Mod})
+    end.
+
+get_parent() ->
+    case get('$ancestors') of
+	[Parent | _] when is_pid(Parent) ->
+	    Parent;
+	[Parent | _] when is_atom(Parent) ->
+	    name_to_pid(Parent);
+	_ ->
+	    exit(process_was_not_started_by_proc_lib)
+    end.
+
+name_to_pid(Name) ->
+    case whereis(Name) of
+	undefined ->
+	    case global:whereis_name(Name) of
+		undefined ->
+		    exit(could_not_find_registered_name);
+		Pid ->
+		    Pid
+	    end;
+	Pid ->
+	    Pid
+    end.
+
 
 timeout(Options) ->
-    case opt(timeout, Options) of
-	{ok, Time} ->
+    case lists:keyfind(timeout, 1, Options) of
+	{_,Time} ->
 	    Time;
-	_ ->
+	false ->
 	    infinity
     end.
 
 spawn_opts(Options) ->
-    case opt(spawn_opt, Options) of
-	{ok, Opts} ->
+    case lists:keyfind(spawn_opt, 1, Options) of
+	{_,Opts} ->
 	    Opts;
-	_ ->
+	false ->
 	    []
     end.
 
-opt(Op, [{Op, Value}|_]) ->
-    {ok, Value};
-opt(Op, [_|Options]) ->
-    opt(Op, Options);
-opt(_, []) ->
-    false.
-
-debug_options(Opts) ->
-    case opt(debug, Opts) of
-	{ok, Options} -> sys:debug_options(Options);
-	_ -> []
+debug_options(Name, Opts) ->
+    case lists:keyfind(debug, 1, Opts) of
+	{_,Options} ->
+	    try sys:debug_options(Options)
+	    catch _:_ ->
+		    error_logger:format(
+		      "~p: ignoring erroneous debug options - ~p~n",
+		      [Name,Options]),
+		    []
+	    end;
+	false ->
+	    []
     end.
 
 format_status_header(TagLine, Pid) when is_pid(Pid) ->

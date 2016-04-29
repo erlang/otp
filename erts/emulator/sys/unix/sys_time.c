@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,8 @@
 #  include <sys/procfs.h>
 #  include <fcntl.h>
 #endif
+
+static void init_perf_counter(void);
 
 /******************* Routines for time measurement *********************/
 
@@ -403,6 +405,8 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 #else
 #  error Missing erts_os_system_time() implementation
 #endif
+
+    init_perf_counter();
 
 }
 
@@ -908,10 +912,120 @@ erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
 
 #endif
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * Performance counter functions                                             *
+\*                                                                           */
+
+
+/* What resolution to spin to in micro seconds */
+#define RESOLUTION 100
+/* How many iterations to spin */
+#define ITERATIONS 1
+/* How many significant figures to round to */
+#define SIGFIGS 3
+
+static ErtsSysPerfCounter calculate_perf_counter_unit(void) {
+    int i;
+    ErtsSysPerfCounter pre, post;
+    double value = 0;
+    double round_factor;
+#if defined(HAVE_GETHRTIME) && defined(GETHRTIME_WITH_CLOCK_GETTIME)
+    struct timespec basetime,comparetime;
+#define __GETTIME(arg) clock_gettime(CLOCK_MONOTONIC,arg)
+#define __GETUSEC(arg) (arg.tv_nsec / 1000)
+#else
+    SysTimeval basetime,comparetime;
+#define __GETTIME(arg) sys_gettimeofday(arg)
+#define __GETUSEC(arg) arg.tv_usec
+#endif
+
+    for (i = 0; i < ITERATIONS; i++) {
+        /* Make sure usec just flipped over at current resolution */
+        __GETTIME(&basetime);
+        do {
+            __GETTIME(&comparetime);
+        } while ((__GETUSEC(basetime) / RESOLUTION) == (__GETUSEC(comparetime) / RESOLUTION));
+
+        pre = erts_sys_perf_counter();
+
+        __GETTIME(&basetime);
+        do {
+            __GETTIME(&comparetime);
+        } while ((__GETUSEC(basetime) / RESOLUTION) == (__GETUSEC(comparetime) / RESOLUTION));
+
+        post = erts_sys_perf_counter();
+
+        value += post - pre;
+    }
+    /* After this value is ticks per us */
+    value /= (RESOLUTION*ITERATIONS);
+
+    /* We round to 3 significant figures */
+    round_factor = pow(10.0, SIGFIGS - ceil(log10(value)));
+    value = ((ErtsSysPerfCounter)(value * round_factor + 0.5)) / round_factor;
+
+    /* convert to ticks per second */
+    return 1000000 * value;
+}
+
+static int have_rdtscp(void)
+{
+#if defined(ETHR_X86_RUNTIME_CONF__)
+    /* On early x86 cpu's the tsc varies with the current speed of the cpu,
+       which means that the time per tick vary depending on the current
+       load of the cpu. We do not want this as it would give very scewed
+       numbers when the cpu is mostly idle.
+       The linux kernel seems to think that checking for constant and
+       reliable is enough to trust the counter so we do the same.
+
+       If this test is not good enough, I don't know what we'll do.
+       Maybe fallback on erts_sys_hrtime always, but that would be a shame as
+       rdtsc is about 3 times faster than hrtime... */
+    return ETHR_X86_RUNTIME_CONF_HAVE_CONSTANT_TSC__ &&
+        ETHR_X86_RUNTIME_CONF_HAVE_TSC_RELIABLE__;
+#else
+    return 0;
+#endif
+}
+
+static ErtsSysPerfCounter rdtsc(void)
+{
+ /*  It may have been a good idea to put the cpuid instruction before
+     the rdtsc, but I decided against it because it is not really
+     needed for msacc, and it slows it down by quite a bit (5-7 times slower).
+     As a result though, this timestamp becomes much less
+     accurate as it might be re-ordered to be executed way before or after this
+     function is called.
+ */
+    ErtsSysPerfCounter ts;
+#if defined(__x86_64__)
+    __asm__ __volatile__ ("rdtsc\n\t"
+                          "shl $32, %%rdx\n\t"
+                          "or %%rdx, %0" : "=a" (ts) : : "rdx");
+#elif defined(__i386__)
+    __asm__ __volatile__ ("rdtsc\n\t"
+                           : "=A" (ts) );
+#endif
+    return ts;
+}
+
+static void init_perf_counter(void)
+{
+    if (have_rdtscp()) {
+        erts_sys_time_data__.r.o.perf_counter = rdtsc;
+        erts_sys_time_data__.r.o.perf_counter_unit = calculate_perf_counter_unit();
+    } else {
+        erts_sys_time_data__.r.o.perf_counter = erts_sys_hrtime;
+        erts_sys_time_data__.r.o.perf_counter_unit = ERTS_HRTIME_UNIT;
+    }
+}
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #ifdef HAVE_GETHRVTIME_PROCFS_IOCTL
 
+/* The code below only has effect on solaris < 10,
+   needed in order for gehhrvtime to work properly */
 int sys_start_hrvtime(void)
 {
     long msacct = PR_MSACCT;

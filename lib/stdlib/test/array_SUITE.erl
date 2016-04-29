@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,12 +20,7 @@
 
 -module(array_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
-
-%% Default timetrap timeout (set in init_per_testcase).
-%% This should be set relatively high (10-15 times the expected
-%% max testcasetime).
--define(default_timeout, ?t:seconds(60)).
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -66,7 +61,9 @@
 %%
 %% all/1
 %%
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [new_test, fix_test, relax_test, resize_test,
@@ -93,12 +90,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 -define(LEAFSIZE,10).
@@ -111,19 +105,19 @@ end_per_testcase(_Case, Config) ->
 		}).
 
 -define(_assert(What), 
-	begin ?line true = What end
+	begin true = What end
        ).
 -define(_assertNot(What), 
-	begin ?line false = What end
+	begin false = What end
        ).
 
 -define(_assertMatch(Res,What), 
 	begin 
-	    ?line case What of Res -> ok end
+	    case What of Res -> ok end
 	end
        ).
 -define(_assertError(Reas,What), 
-	begin ?line fun() ->
+	begin fun() ->
 			    try What of
 				A_Success -> exit({test_error, A_Success})
 			    catch error:Reas -> ok end
@@ -131,9 +125,9 @@ end_per_testcase(_Case, Config) ->
 	end
        ).
 
--define(LET(Var,Expr, Test), begin ?line fun() -> Var = Expr, Test end() end).
+-define(LET(Var,Expr, Test), begin fun() -> Var = Expr, Test end() end).
 
--define(_test(Expr), begin ?line Expr end).
+-define(_test(Expr), begin Expr end).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Some helpers to be able to run the tests without testserver
@@ -152,18 +146,7 @@ t(What) ->
 				  io:format("Failed ~p:~p ~p ~p~n   ~p~n", 
 					    [T,Line,_E,_R, erlang:get_stacktrace()])
 			  end
-		  end, expand(What)).
-
-expand(All) ->
-    lists:reverse(expand(All,[])).
-expand([H|T], Acc)  -> 
-    case ?MODULE:H(suite) of
-	[] -> expand(T,[H|Acc]);
-	Cs -> 
-	    R = expand(Cs, Acc),
-	    expand(T, R)
-    end;
-expand([], Acc) -> Acc.
+		  end, What).
 
 %%%%% extract tests 
 
@@ -173,8 +156,6 @@ extract_tests() ->
     try 
 	Tests = extract_tests(In,Out,[]),
 	Call = fun(Test) ->
-		       io:format(Out, "~s(doc) -> [];~n", [Test]),
-		       io:format(Out, "~s(suite) -> [];~n", [Test]),
 		       io:format(Out, "~s(Config) when is_list(Config) -> ~s_(), ok.~n",
 				 [Test, Test])
 	       end,
@@ -775,54 +756,20 @@ sparse_foldr_test_() ->
 				   set(0,0,new())))))     
     ].
 
-new_test(doc) -> [];
-new_test(suite) -> [];
 new_test(Config) when is_list(Config) -> new_test_(), ok.
-fix_test(doc) -> [];
-fix_test(suite) -> [];
 fix_test(Config) when is_list(Config) -> fix_test_(), ok.
-relax_test(doc) -> [];
-relax_test(suite) -> [];
 relax_test(Config) when is_list(Config) -> relax_test_(), ok.
-resize_test(doc) -> [];
-resize_test(suite) -> [];
 resize_test(Config) when is_list(Config) -> resize_test_(), ok.
-set_get_test(doc) -> [];
-set_get_test(suite) -> [];
 set_get_test(Config) when is_list(Config) -> set_get_test_(), ok.
-to_list_test(doc) -> [];
-to_list_test(suite) -> [];
 to_list_test(Config) when is_list(Config) -> to_list_test_(), ok.
-sparse_to_list_test(doc) -> [];
-sparse_to_list_test(suite) -> [];
 sparse_to_list_test(Config) when is_list(Config) -> sparse_to_list_test_(), ok.
-from_list_test(doc) -> [];
-from_list_test(suite) -> [];
 from_list_test(Config) when is_list(Config) -> from_list_test_(), ok.
-to_orddict_test(doc) -> [];
-to_orddict_test(suite) -> [];
 to_orddict_test(Config) when is_list(Config) -> to_orddict_test_(), ok.
-sparse_to_orddict_test(doc) -> [];
-sparse_to_orddict_test(suite) -> [];
 sparse_to_orddict_test(Config) when is_list(Config) -> sparse_to_orddict_test_(), ok.
-from_orddict_test(doc) -> [];
-from_orddict_test(suite) -> [];
 from_orddict_test(Config) when is_list(Config) -> from_orddict_test_(), ok.
-map_test(doc) -> [];
-map_test(suite) -> [];
 map_test(Config) when is_list(Config) -> map_test_(), ok.
-sparse_map_test(doc) -> [];
-sparse_map_test(suite) -> [];
 sparse_map_test(Config) when is_list(Config) -> sparse_map_test_(), ok.
-foldl_test(doc) -> [];
-foldl_test(suite) -> [];
 foldl_test(Config) when is_list(Config) -> foldl_test_(), ok.
-sparse_foldl_test(doc) -> [];
-sparse_foldl_test(suite) -> [];
 sparse_foldl_test(Config) when is_list(Config) -> sparse_foldl_test_(), ok.
-foldr_test(doc) -> [];
-foldr_test(suite) -> [];
 foldr_test(Config) when is_list(Config) -> foldr_test_(), ok.
-sparse_foldr_test(doc) -> [];
-sparse_foldr_test(suite) -> [];
 sparse_foldr_test(Config) when is_list(Config) -> sparse_foldr_test_(), ok.

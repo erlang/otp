@@ -359,9 +359,9 @@ new_variable_name(S) ->
 %% within a reasonably small range relative to the number of elements in
 %% the set.
 %%
-%% This function uses the module `random' to generate new
+%% This function uses the module `rand' to generate new
 %% keys. The seed it uses may be initialized by calling
-%% `random:seed/0' or `random:seed/3' before this
+%% `rand:seed/1' or `rand:seed/2' before this
 %% function is first called.
 %%
 %% @see new_variable_name/1
@@ -404,7 +404,13 @@ start_range(S) ->
 %% order, but (pseudo-)randomly distributed over the range.
 
 generate(_Key, Range) ->
-    random:uniform(Range).    % works well
+    _ = case rand:export_seed() of
+	    undefined ->
+		rand:seed(exsplus, {753,8,73});
+	    _ ->
+		ok
+	end,
+    rand:uniform(Range).			% works well
 
 
 %% =====================================================================

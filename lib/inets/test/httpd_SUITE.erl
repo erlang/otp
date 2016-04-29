@@ -755,7 +755,11 @@ esi(Config) when is_list(Config) ->
     %% Check "ErlScriptNoCache" directive (default: false)
     ok = http_status("GET /cgi-bin/erl/httpd_example:get ",
 		     Config, [{statuscode, 200},
-		      {no_header, "cache-control"}]).
+		      {no_header, "cache-control"}]),
+    ok = http_status("GET /cgi-bin/erl/httpd_example:peer ",
+	  	     Config, [{statuscode, 200},
+	 	      {header, "peer-cert-exist", peer(Config)}]).
+ 
 %%-------------------------------------------------------------------------
 mod_esi_chunk_timeout(Config) when is_list(Config) -> 
     ok = httpd_1_1:mod_esi_chunk_timeout(?config(type, Config), 
@@ -2065,3 +2069,11 @@ response_default_headers() ->
      {"X-Frame-Options", "SAMEORIGIN"},
      %% Override built-in default
      {"Date", "Override-date"}].
+
+peer(Config) ->
+   case proplists:get_value(type, Config) of
+      ssl ->
+        "true";
+      _ ->
+        "false"
+   end.   

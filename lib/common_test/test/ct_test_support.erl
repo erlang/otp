@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -414,14 +414,14 @@ ct_rpc({M,F,A}, Config) ->
 %%%-----------------------------------------------------------------
 %%% random_error/1
 random_error(Config) when is_list(Config) ->
-    random:seed(os:timestamp()),
+    rand:seed(exsplus),
     Gen = fun(0,_) -> ok; (N,Fun) -> Fun(N-1, Fun) end,
-    Gen(random:uniform(100), Gen),
+    Gen(rand:uniform(100), Gen),
 
     ErrorTypes = ['BADMATCH','BADARG','CASE_CLAUSE','FUNCTION_CLAUSE',
 		  'EXIT','THROW','UNDEF'],
-    Type = lists:nth(random:uniform(length(ErrorTypes)), ErrorTypes),
-    Where = case random:uniform(2) of
+    Type = lists:nth(rand:uniform(length(ErrorTypes)), ErrorTypes),
+    Where = case rand:uniform(2) of
 		1 ->
 		    io:format("ct_test_support *returning* error of type ~w",
 			      [Type]),

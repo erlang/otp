@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,13 +78,14 @@ erts_deep_process_dump(int to, void *to_arg)
     dump_binaries(to, to_arg, all_binaries);
 }
 
-Uint erts_process_memory(Process *p) {
-  ErlMessage *mp;
+Uint erts_process_memory(Process *p, int incl_msg_inq) {
+  ErtsMessage *mp;
   Uint size = 0;
   struct saved_calls *scb;
   size += sizeof(Process);
 
-  ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+  if (incl_msg_inq)
+      ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
 
   erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
   erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
@@ -92,7 +93,7 @@ Uint erts_process_memory(Process *p) {
   if (p->old_hend && p->old_heap)
     size += (p->old_hend - p->old_heap) * sizeof(Eterm);
 
-  size += p->msg.len * sizeof(ErlMessage);
+  size += p->msg.len * sizeof(ErtsMessage);
 
   for (mp = p->msg.first; mp; mp = mp->next)
     if (mp->data.attached)
@@ -102,7 +103,7 @@ Uint erts_process_memory(Process *p) {
     size += p->arity * sizeof(p->arg_reg[0]);
   }
 
-  if (p->psd)
+  if (erts_smp_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
     size += sizeof(ErtsPSD);
 
   scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
@@ -119,7 +120,7 @@ static void
 dump_process_info(int to, void *to_arg, Process *p)
 {
     Eterm* sp;
-    ErlMessage* mp;
+    ErtsMessage* mp;
     int yreg = -1;
 
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
@@ -365,7 +366,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 
     while (x != OUR_NIL) {
 	if (is_CP(x)) {
-	    next = (Eterm *) EXPAND_POINTER(x);
+	    next = (Eterm *) x;
 	} else if (is_list(x)) {
 	    ptr = list_val(x);
 	    if (ptr[0] != OUR_NIL) {
@@ -378,7 +379,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		    ptr[1] = make_small(0);
 		}
 		x = ptr[0];
-		ptr[0] = (Eterm) COMPRESS_POINTER(next);
+		ptr[0] = (Eterm) next;
 		next = ptr + 1;
 		continue;
 	    }
@@ -408,7 +409,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 			ptr[0] = OUR_NIL;
 		    } else {
 			x = ptr[arity];
-			ptr[0] = (Eterm) COMPRESS_POINTER(next);
+			ptr[0] = (Eterm) next;
 			next = ptr + arity - 1;
 			continue;
 		    }
@@ -617,7 +618,7 @@ erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg) {
     if (psflg)
         erts_print(to, to_arg, " | ");
 
-    for (i = 0; i < ERTS_PSFLG_MAX && psflg; i++) {
+    for (i = 0; i <= ERTS_PSFLG_MAX && psflg; i++) {
         erts_aint32_t chk = (1 << i);
         if (psflg & chk) {
             switch (chk) {
@@ -657,16 +658,16 @@ erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg) {
                 erts_print(to, to_arg, "PROXY"); break;
             case ERTS_PSFLG_DELAYED_SYS:
                 erts_print(to, to_arg, "DELAYED_SYS"); break;
-#ifdef ERTS_DIRTY_SCHEDULERS
+            case ERTS_PSFLG_OFF_HEAP_MSGQ:
+                erts_print(to, to_arg, "OFF_HEAP_MSGQ"); break;
+            case ERTS_PSFLG_ON_HEAP_MSGQ:
+                erts_print(to, to_arg, "ON_HEAP_MSGQ"); break;
             case ERTS_PSFLG_DIRTY_CPU_PROC:
                 erts_print(to, to_arg, "DIRTY_CPU_PROC"); break;
             case ERTS_PSFLG_DIRTY_IO_PROC:
                 erts_print(to, to_arg, "DIRTY_IO_PROC"); break;
-            case ERTS_PSFLG_DIRTY_CPU_PROC_IN_Q:
-                erts_print(to, to_arg, "DIRTY_CPU_PROC_IN_Q"); break;
-            case ERTS_PSFLG_DIRTY_IO_PROC_IN_Q:
-                erts_print(to, to_arg, "DIRTY_IO_PROC_IN_Q"); break;
-#endif
+            case ERTS_PSFLG_DIRTY_ACTIVE_SYS:
+                erts_print(to, to_arg, "DIRTY_ACTIVE_SYS"); break;
             default:
                 erts_print(to, to_arg, "UNKNOWN(%d)", chk); break;
             }

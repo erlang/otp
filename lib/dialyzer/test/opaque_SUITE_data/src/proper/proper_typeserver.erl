@@ -781,7 +781,8 @@ add_mod_info({attribute,_Line,record,{RecName,Fields}},
 	true ->
 	    ModInfo;
 	false ->
-	    TypedRecord = {attribute,0,type,{{record,RecName},Fields,[]}},
+            A = erl_anno:new(0),
+	    TypedRecord = {attribute,A,type,{{record,RecName},Fields,[]}},
 	    add_mod_info(TypedRecord, ModInfo)
     end;
 add_mod_info({attribute,_Line,Kind,{Name,TypeForm,VarForms}},

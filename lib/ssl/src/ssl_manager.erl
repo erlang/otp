@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -551,7 +551,7 @@ last_delay_timer({_,_}, TRef, {_, LastClient}) ->
 new_id(_, 0, _, _) ->
     <<>>;
 new_id(Port, Tries, Cache, CacheCb) ->
-    Id = crypto:rand_bytes(?NUM_OF_SESSION_ID_BYTES),
+    Id = ssl_cipher:random_bytes(?NUM_OF_SESSION_ID_BYTES),
     case CacheCb:lookup(Cache, {Port, Id}) of
 	undefined ->
 	    Now = erlang:monotonic_time(),

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2015</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.2</title>
+  <section><title>Inets 6.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mend ipv6_host_with_brackets option in httpc</p>
+          <p>
+	    Own Id: OTP-13417</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

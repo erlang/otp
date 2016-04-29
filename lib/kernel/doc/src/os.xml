@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,97 +29,107 @@
     <rev></rev>
   </header>
   <module>os</module>
-  <modulesummary>Operating System Specific Functions</modulesummary>
+  <modulesummary>Operating system-specific functions.</modulesummary>
   <description>
-    <p>The functions in this module are operating system specific.
-      Careless use of these functions will result in programs that will
+    <p>The functions in this module are operating system-specific.
+      Careless use of these functions results in programs that will
       only run on a specific platform. On the other hand, with careful
-      use these functions can be of help in enabling a program to run on
+      use, these functions can be of help in enabling a program to run on
       most platforms.</p>
   </description>
+
   <funcs>
     <func>
       <name name="cmd" arity="1"/>
-      <fsummary>Execute a command in a shell of the target OS</fsummary>
+      <fsummary>Execute a command in a shell of the target OS.</fsummary>
       <desc>
-        <p>Executes <c><anno>Command</anno></c> in a command shell of the target OS,
-          captures the standard output of the command and returns this
+        <p>Executes <c><anno>Command</anno></c> in a command shell of the
+          target OS,
+          captures the standard output of the command, and returns this
           result as a string. This function is a replacement of
-          the previous <c>unix:cmd/1</c>; on a Unix platform they are
-          equivalent.</p>
-        <p>Examples:</p>
+          the previous function <c>unix:cmd/1</c>; they are equivalent on a
+          Unix platform.</p>
+        <p><em>Examples:</em></p>
         <code type="none">
 LsOut = os:cmd("ls"), % on unix platform
 DirOut = os:cmd("dir"), % on Win32 platform</code>
-        <p>Note that in some cases, standard output of a command when
+        <p>Notice that in some cases, standard output of a command when
           called from another program (for example, <c>os:cmd/1</c>)
-          may differ, compared to the standard output of the command
+          can differ, compared with the standard output of the command
           when called directly from an OS command shell.</p>
       </desc>
     </func>
+
     <func>
       <name name="find_executable" arity="1"/>
       <name name="find_executable" arity="2"/>
-      <fsummary>Absolute filename of a program</fsummary>
+      <fsummary>Absolute filename of a program.</fsummary>
       <desc>
-        <p>These two functions look up an executable program given its
-          name and a search path, in the same way as the underlying
-          operating system. <c>find_executable/1</c> uses the current
-          execution path (that is, the environment variable PATH on
+        <p>These two functions look up an executable program, with the
+          specified name and a search path, in the same way as the underlying
+          OS. <c>find_executable/1</c> uses the current
+          execution path (that is, the environment variable <c>PATH</c> on
           Unix and Windows).</p>
-        <p><c><anno>Path</anno></c>, if given, should conform to the syntax of
-          execution paths on the operating system. The absolute
-          filename of the executable program <c><anno>Name</anno></c> is returned,
-          or <c>false</c> if the program was not found.</p>
+        <p><c><anno>Path</anno></c>, if specified, is to conform to the syntax
+          of execution paths on the OS. Returns the absolute filename of the
+          executable program <c><anno>Name</anno></c>,
+          or <c>false</c> if the program is not found.</p>
       </desc>
     </func>
+
     <func>
       <name name="getenv" arity="0"/>
-      <fsummary>List all environment variables</fsummary>
+      <fsummary>List all environment variables.</fsummary>
       <desc>
         <p>Returns a list of all environment variables.
-          Each environment variable is given as a single string on
+          Each environment variable is expressed as a single string on
           the format <c>"VarName=Value"</c>, where <c>VarName</c> is
           the name of the variable and <c>Value</c> its value.</p>
-	<p>If Unicode file name encoding is in effect (see the <seealso
-	marker="erts:erl#file_name_encoding">erl manual
-	page</seealso>), the strings may contain characters with
-	codepoints > 255.</p>
+	<p>If Unicode filename encoding is in effect (see the
+          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	  page</seealso>), the strings can contain characters with
+	  codepoints &gt; 255.</p>
       </desc>
     </func>
+
     <func>
       <name name="getenv" arity="1"/>
-      <fsummary>Get the value of an environment variable</fsummary>
+      <fsummary>Get the value of an environment variable.</fsummary>
       <desc>
         <p>Returns the <c><anno>Value</anno></c> of the environment variable
-          <c><anno>VarName</anno></c>, or <c>false</c> if the environment variable
-          is undefined.</p>
-	<p>If Unicode file name encoding is in effect (see the <seealso
-	marker="erts:erl#file_name_encoding">erl manual
-	page</seealso>), the strings (both <c><anno>VarName</anno></c> and
-	<c><anno>Value</anno></c>) may contain characters with codepoints > 255.</p>
+          <c><anno>VarName</anno></c>, or <c>false</c> if the environment
+          variable is undefined.</p>
+	<p>If Unicode filename encoding is in effect (see the
+          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	  page</seealso>), the strings <c><anno>VarName</anno></c> and
+	  <c><anno>Value</anno></c> can contain characters with
+          codepoints &gt; 255.</p>
       </desc>
     </func>
+
     <func>
       <name name="getenv" arity="2"/>
-      <fsummary>Get the value of an environment variable</fsummary>
+      <fsummary>Get the value of an environment variable.</fsummary>
       <desc>
         <p>Returns the <c><anno>Value</anno></c> of the environment variable
-          <c><anno>VarName</anno></c>, or <c>DefaultValue</c> if the environment variable
-          is undefined.</p>
-	<p>If Unicode file name encoding is in effect (see the <seealso
-	marker="erts:erl#file_name_encoding">erl manual
-	page</seealso>), the strings (both <c><anno>VarName</anno></c> and
-	<c><anno>Value</anno></c>) may contain characters with codepoints > 255.</p>
+          <c><anno>VarName</anno></c>, or <c>DefaultValue</c> if the
+          environment variable is undefined.</p>
+	<p>If Unicode filename encoding is in effect (see the
+          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	page</seealso>), the strings <c><anno>VarName</anno></c> and
+	<c><anno>Value</anno></c> can contain characters with
+        codepoints &gt; 255.</p>
       </desc>
     </func>
+
     <func>
       <name name="getpid" arity="0"/>
-      <fsummary>Return the process identifier of the emulator process</fsummary>
+      <fsummary>Return the process identifier of the emulator
+        process.</fsummary>
       <desc>
         <p>Returns the process identifier of the current Erlang emulator
-          in the format most commonly used by the operating system
-          environment. <c><anno>Value</anno></c> is returned as a string containing
+          in the format most commonly used by the OS environment.
+          Returns <c><anno>Value</anno></c> as a string containing
           the (usually) numerical identifier for a process. On Unix,
           this is typically the return value of the <c>getpid()</c>
           system call. On Windows,
@@ -127,125 +137,156 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           system call is used.</p>
       </desc>
     </func>
+
     <func>
       <name name="putenv" arity="2"/>
-      <fsummary>Set a new value for an environment variable</fsummary>
+      <fsummary>Set a new value for an environment variable.</fsummary>
       <desc>
-        <p>Sets a new <c><anno>Value</anno></c> for the environment variable
+        <p>Sets a new <c><anno>Value</anno></c> for environment variable
           <c><anno>VarName</anno></c>.</p>
-	<p>If Unicode filename encoding is in effect (see the <seealso
-	marker="erts:erl#file_name_encoding">erl manual
-	page</seealso>), the strings (both <c><anno>VarName</anno></c> and
-	<c><anno>Value</anno></c>) may contain characters with codepoints > 255.</p>
-	<p>On Unix platforms, the environment will be set using UTF-8 encoding
-	if Unicode file name translation is in effect. On Windows the 
-	environment is set using wide character interfaces.</p>
+	<p>If Unicode filename encoding is in effect (see the
+          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	  page</seealso>), the strings <c><anno>VarName</anno></c> and
+	  <c><anno>Value</anno></c> can contain characters with
+          codepoints &gt; 255.</p>
+	<p>On Unix platforms, the environment is set using UTF-8 encoding
+	  if Unicode filename translation is in effect. On Windows, the
+	  environment is set using wide character interfaces.</p>
       </desc>
     </func>
+
     <func>
       <name name="system_time" arity="0"/>
-      <fsummary>Current OS system time</fsummary>
+      <fsummary>Current OS system time.</fsummary>
       <desc>
-	<p>Returns current
+	<p>Returns the current
 	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
 	in <c>native</c>
 	<seealso marker="erts:erlang#type_time_unit">time unit</seealso>.</p>
-
-	<note><p>This time is <em>not</em> a monotonically increasing time.</p></note>
+	<note><p>This time is <em>not</em> a monotonically increasing time.</p>
+        </note>
       </desc>
     </func>
+
     <func>
       <name name="system_time" arity="1"/>
-      <fsummary>Current OS system time</fsummary>
+      <fsummary>Current OS system time.</fsummary>
       <desc>
-	<p>Returns current
+	<p>Returns the current
 	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
 	converted into the <c><anno>Unit</anno></c> passed as argument.</p>
-
-	<p>Calling <c>os:system_time(<anno>Unit</anno>)</c> is equivalent to: 
-	<seealso marker="erts:erlang#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso><c>(</c><seealso marker="#system_time/0"><c>os:system_time()</c></seealso><c>,
+	<p>Calling <c>os:system_time(<anno>Unit</anno>)</c> is equivalent to
+	<seealso marker="erts:erlang#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso>(<seealso marker="#system_time/0"><c>os:system_time()</c></seealso><c>,
 	native, <anno>Unit</anno>)</c>.</p>
-
-	<note><p>This time is <em>not</em> a monotonically increasing time.</p></note>
+	<note><p>This time is <em>not</em> a monotonically increasing time.</p>
+        </note>
       </desc>
     </func>
+
     <func>
       <name name="timestamp" arity="0"/>
-      <fsummary>Current OS system time on the erlang:timestamp/0 format</fsummary>
+      <fsummary>Current OS system time on the <c>erlang:timestamp/0</c> format.</fsummary>
       <type_desc variable="Timestamp">Timestamp = {MegaSecs, Secs, MicroSecs}</type_desc>
       <desc>
-      <p>Returns current
+      <p>Returns the current
 	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
-        in the same format as <seealso marker="erts:erlang#timestamp/0">erlang:timestamp/0</seealso>.
-	The tuple can be used together with the function
-	<seealso marker="stdlib:calendar#now_to_universal_time/1">calendar:now_to_universal_time/1</seealso> 
-        or <seealso marker="stdlib:calendar#now_to_local_time/1">calendar:now_to_local_time/1</seealso> to
-        get calendar time. Using the calendar time together with the <c>MicroSecs</c> part of the return
-        tuple from this function allows you to log timestamps in high resolution and consistent with the
-        time in the rest of the operating system.</p>
-      <p>Example of code formatting a string in the format &quot;DD Mon YYYY HH:MM:SS.mmmmmm&quot;, where
-         DD is the day of month, Mon is the textual month name, YYYY is the year, HH:MM:SS is the time and
-         mmmmmm is the microseconds in six positions:</p>
-<code>
+        in the same format as
+        <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+	The tuple can be used together with function
+	<seealso marker="stdlib:calendar#now_to_universal_time/1"><c>calendar:now_to_universal_time/1</c></seealso>
+        or <seealso marker="stdlib:calendar#now_to_local_time/1"><c>calendar:now_to_local_time/1</c></seealso>
+        to get calendar time. Using the calendar time, together with the
+        <c>MicroSecs</c> part of the return tuple from this function, allows
+        you to log time stamps in high resolution and consistent with the
+        time in the rest of the OS.</p>
+      <p>Example of code formatting a string in format
+        &quot;DD Mon YYYY HH:MM:SS.mmmmmm&quot;, where DD is the day of month,
+        Mon is the textual month name, YYYY is the year, HH:MM:SS is the time,
+        and mmmmmm is the microseconds in six positions:</p>
+      <code>
 -module(print_time).
 -export([format_utc_timestamp/0]).
 format_utc_timestamp() ->
     TS = {_,_,Micro} = os:timestamp(),
-    {{Year,Month,Day},{Hour,Minute,Second}} = 
-	calendar:now_to_universal_time(TS),
+    {{Year,Month,Day},{Hour,Minute,Second}} =
+calendar:now_to_universal_time(TS),
     Mstr = element(Month,{"Jan","Feb","Mar","Apr","May","Jun","Jul",
-			  "Aug","Sep","Oct","Nov","Dec"}),
+    "Aug","Sep","Oct","Nov","Dec"}),
     io_lib:format("~2w ~s ~4w ~2w:~2..0w:~2..0w.~6..0w",
-		  [Day,Mstr,Year,Hour,Minute,Second,Micro]).
-</code>
-
-       <p>The module above could be used in the following way:</p>
-<pre>
+    [Day,Mstr,Year,Hour,Minute,Second,Micro]).</code>
+       <p>This module can be used as follows:</p>
+       <pre>
 1> <input>io:format("~s~n",[print_time:format_utc_timestamp()]).</input>
-29 Apr 2009  9:55:30.051711
-</pre>
+29 Apr 2009  9:55:30.051711</pre>
        <p>OS system time can also be retreived by
-	<seealso marker="#system_time/0"><c>os:system_time/0</c></seealso>,
-	and <seealso marker="#system_time/1"><c>os:system_time/1</c></seealso>.</p>
+	<seealso marker="#system_time/0"><c>system_time/0</c></seealso> and
+	<seealso marker="#system_time/1"><c>system_time/1</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="perf_counter" arity="0"/>
+      <fsummary>Returns a performance counter</fsummary>
+      <desc>
+        <p>Returns the current performance counter value in <c>perf_counter</c>
+	<seealso marker="erts:erlang#type_time_unit">time unit</seealso>.
+        This is a highly optimized call that might not be traceable.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name name="perf_counter" arity="1"/>
+      <fsummary>Returns a performance counter</fsummary>
+      <desc><p>Returns a performance counter that can be used as a very fast and
+      high resolution timestamp. This counter is read directly from the hardware or operating
+      system with the same guarantees. This means that two consecutive calls
+      to the function are not guaranteed to be monotonic, though it most likely will be.
+      The performance counter will be converted to the resolution passed as an argument.</p>
+      <pre>1> <input>T1 = os:perf_counter(1000),receive after 10000 -> ok end,T2 = os:perf_counter(1000).</input>
+176525861
+2> <input>T2 - T1.</input>
+10004</pre>
       </desc>
     </func>
     <func>
       <name name="type" arity="0"/>
-      <fsummary>Return the OS family and, in some cases, OS name of the current operating system</fsummary>
+      <fsummary>Return the OS family and, in some cases, the OS name of the
+        current OS.</fsummary>
       <desc>
-        <p>Returns the <c><anno>Osfamily</anno></c> and, in some cases, <c><anno>Osname</anno></c>
-          of the current operating system.</p>
-        <p>On Unix, <c><anno>Osname</anno></c> will have same value as
+        <p>Returns the <c><anno>Osfamily</anno></c> and, in some cases, the
+          <c><anno>Osname</anno></c> of the current OS.</p>
+        <p>On Unix, <c><anno>Osname</anno></c> has the same value as
           <c>uname -s</c> returns, but in lower case. For example, on
-          Solaris 1 and 2, it will be <c>sunos</c>.</p>
-        <p>In Windows, <c><anno>Osname</anno></c> will be either <c>nt</c> (on
-          Windows NT), or <c>windows</c> (on Windows 95).</p>
+          Solaris 1 and 2, it is <c>sunos</c>.</p>
+        <p>On Windows, <c><anno>Osname</anno></c> is <c>nt</c>.</p>
         <note>
-          <p>Think twice before using this function. Use the
-            <c>filename</c> module if you want to inspect or build
-            file names in a portable way.
-            Avoid matching on the <c><anno>Osname</anno></c> atom.</p>
+          <p>Think twice before using this function. Use module
+            <seealso marker="stdlib:filename"><c>filename</c></seealso>
+            if you want to inspect or build filenames in a portable way.
+            Avoid matching on atom <c><anno>Osname</anno></c>.</p>
         </note>
       </desc>
     </func>
+
     <func>
       <name name="unsetenv" arity="1"/>
-      <fsummary>Delete an environment variable</fsummary>
+      <fsummary>Delete an environment variable.</fsummary>
       <desc>
 	<p>Deletes the environment variable <c><anno>VarName</anno></c>.</p>
-	<p>If Unicode filename encoding is in effect (see the <seealso
-	marker="erts:erl#file_name_encoding">erl manual
-	page</seealso>), the string (<c><anno>VarName</anno></c>) may
-	contain characters with codepoints > 255.</p>
+	<p>If Unicode filename encoding is in effect (see the
+        <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	page</seealso>), the string <c><anno>VarName</anno></c> can
+	contain characters with codepoints &gt; 255.</p>
       </desc>
     </func>
+
     <func>
       <name name="version" arity="0"/>
-      <fsummary>Return the Operating System version</fsummary>
+      <fsummary>Return the OS versions.</fsummary>
       <desc>
-        <p>Returns the operating system version.
+        <p>Returns the OS version.
           On most systems, this function returns a tuple, but a string
-          will be returned instead if the system has versions which
+          is returned instead if the system has versions that
           cannot be expressed as three numbers.</p>
         <note>
           <p>Think twice before using this function. If you still need

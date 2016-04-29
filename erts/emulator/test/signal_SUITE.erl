@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,12 +28,10 @@
 -module(signal_SUITE).
 -author('rickard.s.green@ericsson.com').
 
--define(DEFAULT_TIMEOUT_SECONDS, 120).
-
 %-define(line_trace, 1).
--include_lib("test_server/include/test_server.hrl").
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-include_lib("common_test/include/ct.hrl").
+-export([all/0, suite/0,init_per_suite/1, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases
 -export([xm_sig_order/1,
@@ -51,16 +49,12 @@
 	 pending_exit_group_leader/1,
 	 exit_before_pending_exit/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    ?line Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SECONDS)),
     available_internal_state(true),
-    ?line [{testcase, Func},{watchdog, Dog}|Config].
+    [{testcase, Func}|Config].
 
 end_per_testcase(_Func, Config) ->
-    ?line Dog = ?config(watchdog, Config),
-    ?line ?t:timetrap_cancel(Dog).
+    ok.
 
 init_per_suite(Config) ->
     Config.
@@ -70,7 +64,9 @@ end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(not_running_optimization, true),
     available_internal_state(false).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     [xm_sig_order, pending_exit_unlink_process,
@@ -83,41 +79,30 @@ all() ->
      pending_exit_process_info_2, pending_exit_group_leader,
      exit_before_pending_exit].
 
-groups() -> 
-    [].
 
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-xm_sig_order(doc) -> ["Test that exit signals and messages are received "
-		      "in correct order"];
-xm_sig_order(suite) -> [];
+%% Test that exit signals and messages are received in correct order
 xm_sig_order(Config) when is_list(Config) ->
-    ?line LNode = node(),
-    ?line repeat(fun () -> xm_sig_order_test(LNode) end, 1000),
-    ?line {ok, RNode} = start_node(Config),
-    ?line repeat(fun () -> xm_sig_order_test(RNode) end, 1000),
-    ?line stop_node(RNode),
-    ?line ok.
+    LNode = node(),
+    repeat(fun () -> xm_sig_order_test(LNode) end, 1000),
+    {ok, RNode} = start_node(Config),
+    repeat(fun () -> xm_sig_order_test(RNode) end, 1000),
+    stop_node(RNode),
+    ok.
     
 
 xm_sig_order_test(Node) ->
-    ?line P = spawn(Node, fun () -> xm_sig_order_proc() end),
-    ?line M = erlang:monitor(process, P),
-    ?line P ! may_reach,
-    ?line P ! may_reach,
-    ?line P ! may_reach,
-    ?line exit(P, good_signal_order),
-    ?line P ! may_not_reach,
-    ?line P ! may_not_reach,
-    ?line P ! may_not_reach,
-    ?line receive
+    P = spawn(Node, fun () -> xm_sig_order_proc() end),
+    M = erlang:monitor(process, P),
+    P ! may_reach,
+    P ! may_reach,
+    P ! may_reach,
+    exit(P, good_signal_order),
+    P ! may_not_reach,
+    P ! may_not_reach,
+    P ! may_not_reach,
+    receive
 	      {'DOWN', M, process, P, R} ->
-		  ?line good_signal_order = R
+		  good_signal_order = R
 	  end.
 
 xm_sig_order_proc() ->
@@ -128,168 +113,149 @@ xm_sig_order_proc() ->
     end,
     xm_sig_order_proc().
 
-pending_exit_unlink_process(doc) -> [];
-pending_exit_unlink_process(suite) -> [];
 pending_exit_unlink_process(Config) when is_list(Config) ->
-    ?line pending_exit_test(self(), unlink).
+    pending_exit_test(self(), unlink).
 
-pending_exit_unlink_dist_process(doc) -> [];
-pending_exit_unlink_dist_process(suite) -> [];
 pending_exit_unlink_dist_process(Config) when is_list(Config) ->
-    ?line {ok, Node} = start_node(Config),
-    ?line From = spawn(Node, fun () -> receive after infinity -> ok end end),
-    ?line Res = pending_exit_test(From, unlink),
-    ?line stop_node(Node),
-    ?line Res.
+    {ok, Node} = start_node(Config),
+    From = spawn(Node, fun () -> receive after infinity -> ok end end),
+    Res = pending_exit_test(From, unlink),
+    stop_node(Node),
+    Res.
 
-pending_exit_unlink_port(doc) -> [];
-pending_exit_unlink_port(suite) -> [];
 pending_exit_unlink_port(Config) when is_list(Config) ->
-    ?line pending_exit_test(hd(erlang:ports()), unlink).
+    pending_exit_test(hd(erlang:ports()), unlink).
 
-pending_exit_trap_exit(doc) -> [];
-pending_exit_trap_exit(suite) -> [];
 pending_exit_trap_exit(Config) when is_list(Config) ->
-    ?line pending_exit_test(self(), trap_exit).
+    pending_exit_test(self(), trap_exit).
 
-pending_exit_receive(doc) -> [];
-pending_exit_receive(suite) -> [];
 pending_exit_receive(Config) when is_list(Config) ->
-    ?line pending_exit_test(self(), 'receive').
+    pending_exit_test(self(), 'receive').
 
-pending_exit_exit(doc) -> [];
-pending_exit_exit(suite) -> [];
 pending_exit_exit(Config) when is_list(Config) ->
-    ?line pending_exit_test(self(), exit).
+    pending_exit_test(self(), exit).
 
-pending_exit_gc(doc) -> [];
-pending_exit_gc(suite) -> [];
 pending_exit_gc(Config) when is_list(Config) ->
-    ?line pending_exit_test(self(), gc).
+    pending_exit_test(self(), gc).
 
 pending_exit_test(From, Type) ->
-    ?line case catch erlang:system_info(smp_support) of
-	      true ->
-		  ?line OTE = process_flag(trap_exit, true),
-		  ?line Ref = make_ref(),
-		  ?line Master = self(),
-		  ?line ExitBySignal = case Type of
-					   gc ->
-					       lists:duplicate(10000,
-							       exit_by_signal);
-					   _ ->
-					       exit_by_signal
-				       end,
-		  ?line Pid = spawn_link(
-				fun () ->
-					receive go -> ok end,
-					false = have_pending_exit(),
-					exit = fake_exit(From,
-							 self(),
-							 ExitBySignal),
-					true = have_pending_exit(),
-					Master ! {self(), Ref, Type},
-					case Type of
-					    gc ->
-						force_gc(),
-						erlang:yield();
-					    unlink ->
-						unlink(From);
-					    trap_exit ->
-						process_flag(trap_exit, true);
-					    'receive' ->
-						receive _ -> ok
-						after 0 -> ok
-						end;
-					    exit ->
-						ok
-					end,
-					exit(exit_by_myself)
-				end),
-		  ?line Mon = erlang:monitor(process, Pid),
-		  ?line Pid ! go,
-		  ?line Reason = receive
-				     {'DOWN', Mon, process, Pid, R} ->
-					 ?line receive
-						   {Pid, Ref, Type} ->
-						       ?line ok
-					       after 0 ->
-						       ?line ?t:fail(premature_exit)
-					       end,
-					 ?line case Type of
-						   exit ->
-						       ?line exit_by_myself = R;
-						   _ ->
-						       ?line ExitBySignal = R
-					       end
-				 end,
-		  ?line receive
-			    {'EXIT', Pid, R2} ->
-				?line Reason = R2
-			end,
-		  ?line process_flag(trap_exit, OTE),
-		  ?line ok,
-		  {comment,
-		   "Test only valid with current SMP emulator."};
-	      _ ->
-		  {skipped,
-		   "SMP support not enabled. "
-		   "Test only valid with current SMP emulator."}
-	  end.
+    case catch erlang:system_info(smp_support) of
+        true ->
+            OTE = process_flag(trap_exit, true),
+            Ref = make_ref(),
+            Master = self(),
+            ExitBySignal = case Type of
+                               gc ->
+                                   lists:duplicate(10000,
+                                                   exit_by_signal);
+                               _ ->
+                                   exit_by_signal
+                           end,
+            Pid = spawn_link(
+                    fun () ->
+                            receive go -> ok end,
+                            false = have_pending_exit(),
+                            exit = fake_exit(From,
+                                             self(),
+                                             ExitBySignal),
+                            true = have_pending_exit(),
+                            Master ! {self(), Ref, Type},
+                            case Type of
+                                gc ->
+                                    force_gc(),
+                                    erlang:yield();
+                                unlink ->
+                                    unlink(From);
+                                trap_exit ->
+                                    process_flag(trap_exit, true);
+                                'receive' ->
+                                    receive _ -> ok
+                                    after 0 -> ok
+                                    end;
+                                exit ->
+                                    ok
+                            end,
+                            exit(exit_by_myself)
+                    end),
+            Mon = erlang:monitor(process, Pid),
+            Pid ! go,
+            Reason = receive
+                         {'DOWN', Mon, process, Pid, R} ->
+                             receive
+                                 {Pid, Ref, Type} ->
+                                     ok
+                             after 0 ->
+                                       ct:fail(premature_exit)
+                             end,
+                             case Type of
+                                 exit ->
+                                     exit_by_myself = R;
+                                 _ ->
+                                     ExitBySignal = R
+                             end
+                     end,
+            receive
+                {'EXIT', Pid, R2} ->
+                    Reason = R2
+            end,
+            process_flag(trap_exit, OTE),
+            ok,
+            {comment, "Test only valid with current SMP emulator."};
+        _ ->
+            {skipped, "SMP support not enabled. Test only valid with current SMP emulator."}
+    end.
 
 
 
-exit_before_pending_exit(doc) -> [];
-exit_before_pending_exit(suite) -> [];
 exit_before_pending_exit(Config) when is_list(Config) ->
     %% This is a testcase testcase very specific to the smp
     %% implementation as it is of the time of writing.
     %%
     %% The testcase tries to check that a process can
     %% exit by itself even though it has a pending exit.
-    ?line OTE = process_flag(trap_exit, true),
-    ?line Master = self(),
-    ?line Tester = spawn_link(
-		     fun () ->
-			     Opts = case {erlang:system_info(run_queues),
-					  erlang:system_info(schedulers_online)} of
-					{RQ, SO} when RQ =:= 1; SO =:= 1 -> [];
-					_ ->
-					    process_flag(scheduler, 1),
-					    [{scheduler, 2}]
-				    end,
-			     P = self(),
-			     Exiter = spawn_opt(fun () ->
-							receive
-							    {exit_me, P, R} ->
-								exit(P, R)
-							end
-						end, Opts),
-			     erlang:yield(),
-			     Exiter ! {exit_me, self(), exited_by_exiter},
-			     %% We want to get a pending exit
-			     %% before we exit ourselves. We
-			     %% don't want to be scheduled out
-			     %% since we will then see the
-			     %% pending exit.
-			     %%
-			     %% Do something that takes
-			     %% relatively long time but
-			     %% consumes few reductions...
-			     repeat(fun() -> erlang:system_info(procs) end,10),
-			     %% ... then exit.
-			     Master ! {self(),
-				       pending_exit,
-				       have_pending_exit()},
-			     exit(exited_by_myself)
-		     end),
-    ?line PendingExit = receive {Tester, pending_exit, PE} -> PE end,
-    ?line receive
+    OTE = process_flag(trap_exit, true),
+    Master = self(),
+    Tester = spawn_link(
+               fun () ->
+                       Opts = case {erlang:system_info(run_queues),
+                                    erlang:system_info(schedulers_online)} of
+                                  {RQ, SO} when RQ =:= 1; SO =:= 1 -> [];
+                                  _ ->
+                                      process_flag(scheduler, 1),
+                                      [{scheduler, 2}]
+                              end,
+                       P = self(),
+                       Exiter = spawn_opt(fun () ->
+                                                  receive
+                                                      {exit_me, P, R} ->
+                                                          exit(P, R)
+                                                  end
+                                          end, Opts),
+                       erlang:yield(),
+                       Exiter ! {exit_me, self(), exited_by_exiter},
+                       %% We want to get a pending exit
+                       %% before we exit ourselves. We
+                       %% don't want to be scheduled out
+                       %% since we will then see the
+                       %% pending exit.
+                       %%
+                       %% Do something that takes
+                       %% relatively long time but
+                       %% consumes few reductions...
+                       repeat(fun() -> erlang:system_info(procs) end,10),
+                       %% ... then exit.
+                       Master ! {self(),
+                                 pending_exit,
+                                 have_pending_exit()},
+                       exit(exited_by_myself)
+               end),
+    PendingExit = receive {Tester, pending_exit, PE} -> PE end,
+    receive
 	      {'EXIT', Tester, exited_by_myself} ->
-		  ?line process_flag(trap_exit, OTE),
-		  ?line ok;
+		  process_flag(trap_exit, OTE),
+		  ok;
 	      Msg ->
-		  ?line ?t:fail({unexpected_message, Msg})
+		  ct:fail({unexpected_message, Msg})
 	  end,
     NoScheds = integer_to_list(erlang:system_info(schedulers_online)),
     {comment,
@@ -304,101 +270,101 @@ exit_before_pending_exit(Config) when is_list(Config) ->
 -define(PE_INFO_REPEAT, 100).
 
 pending_exit_is_process_alive(Config) when is_list(Config) ->
-    ?line S = exit_op_test_init(),
-    ?line TestFun = fun (P) -> false = is_process_alive(P) end,
-    ?line repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
-    ?line verify_pending_exit_success(S),
-    ?line comment().
+    S = exit_op_test_init(),
+    TestFun = fun (P) -> false = is_process_alive(P) end,
+    repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
+    verify_pending_exit_success(S),
+    comment().
 
 pending_exit_process_info_1(Config) when is_list(Config) ->
-    ?line S = exit_op_test_init(),
-    ?line TestFun = fun (P) ->
+    S = exit_op_test_init(),
+    TestFun = fun (P) ->
 			    undefined = process_info(P)
 		    end,
-    ?line repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
-    ?line verify_pending_exit_success(S),
-    ?line comment().
+    repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
+    verify_pending_exit_success(S),
+    comment().
 
 pending_exit_process_info_2(Config) when is_list(Config) ->
-    ?line S0 = exit_op_test_init(),
-    ?line repeated_exit_op_test(fun (P) ->
+    S0 = exit_op_test_init(),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, messages)
 				end, ?PE_INFO_REPEAT),
-    ?line S1 = verify_pending_exit_success(S0),
-    ?line repeated_exit_op_test(fun (P) ->
+    S1 = verify_pending_exit_success(S0),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, status)
 				end, ?PE_INFO_REPEAT),
-    ?line S2 = verify_pending_exit_success(S1),
-    ?line repeated_exit_op_test(fun (P) ->
+    S2 = verify_pending_exit_success(S1),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, links)
 				end, ?PE_INFO_REPEAT),
-    ?line S3 = verify_pending_exit_success(S2),
-    ?line repeated_exit_op_test(fun (P) ->
+    S3 = verify_pending_exit_success(S2),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, [messages])
 				end, ?PE_INFO_REPEAT),
-    ?line S4 = verify_pending_exit_success(S3),
-    ?line repeated_exit_op_test(fun (P) ->
+    S4 = verify_pending_exit_success(S3),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, [status])
 				end, ?PE_INFO_REPEAT),
-    ?line S5 = verify_pending_exit_success(S4),
-    ?line repeated_exit_op_test(fun (P) ->
+    S5 = verify_pending_exit_success(S4),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, [links])
 				end, ?PE_INFO_REPEAT),
-    ?line S6 = verify_pending_exit_success(S5),
-    ?line repeated_exit_op_test(fun (P) ->
+    S6 = verify_pending_exit_success(S5),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, [status,
 								     links])
 				end, ?PE_INFO_REPEAT),
-    ?line S7 = verify_pending_exit_success(S6),
-    ?line repeated_exit_op_test(fun (P) ->
+    S7 = verify_pending_exit_success(S6),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, [messages,
 								     status])
 				end, ?PE_INFO_REPEAT),
-    ?line S8 = verify_pending_exit_success(S7),
-    ?line repeated_exit_op_test(fun (P) ->
+    S8 = verify_pending_exit_success(S7),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, [messages,
 								     links])
 				end, ?PE_INFO_REPEAT),
-    ?line S9 = verify_pending_exit_success(S8),
-    ?line repeated_exit_op_test(
+    S9 = verify_pending_exit_success(S8),
+    repeated_exit_op_test(
 	    fun (P) ->
 		    undefined = process_info(P, [message_queue_len,
 						 status])
 	    end, ?PE_INFO_REPEAT),
-    ?line S10 = verify_pending_exit_success(S9),
-    ?line repeated_exit_op_test(fun (P) ->
+    S10 = verify_pending_exit_success(S9),
+    repeated_exit_op_test(fun (P) ->
 					undefined = process_info(P, [messages,
 								     links,
 								     status])
 				end, ?PE_INFO_REPEAT),
-    ?line verify_pending_exit_success(S10),
-    ?line comment().
+    verify_pending_exit_success(S10),
+    comment().
 
 pending_exit_process_display(Config) when is_list(Config) ->
-    ?line S = exit_op_test_init(),
-    ?line TestFun = fun (P) ->
+    S = exit_op_test_init(),
+    TestFun = fun (P) ->
 			    badarg = try
 					 erlang:process_display(P, backtrace)
 				     catch
 					 error:badarg -> badarg
 				     end
 		    end,
-    ?line repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
-    ?line verify_pending_exit_success(S),
-    ?line comment().
+    repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
+    verify_pending_exit_success(S),
+    comment().
 
 pending_exit_group_leader(Config) when is_list(Config) ->
-    ?line S = exit_op_test_init(),
-    ?line TestFun = fun (P) ->
+    S = exit_op_test_init(),
+    TestFun = fun (P) ->
 			    badarg = try
 					 group_leader(self(), P)
 				     catch
 					 error:badarg -> badarg
 				     end
 		    end,
-    ?line repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
-    ?line verify_pending_exit_success(S),
-    ?line comment().
+    repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
+    verify_pending_exit_success(S),
+    comment().
 
 %%
 %% -- Internal utils --------------------------------------------------------
@@ -517,14 +483,14 @@ repeat(Fun, N) when is_integer(N)  ->
 
 start_node(Config) ->
     Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-" ++ atom_to_list(?config(testcase, Config))
+			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-" ++ integer_to_list(erlang:system_time(seconds))
 			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
-    ?t:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
+    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 have_pending_exit() ->
     have_pending_exit(self()).
@@ -540,15 +506,15 @@ fake_exit(From, To, Reason) ->
 
 available_internal_state(Bool) when Bool == true; Bool == false ->
     case {Bool,
-	  (catch erts_debug:get_internal_state(available_internal_state))} of
-	{true, true} ->
-	    true;
-	{false, true} ->
-	    erts_debug:set_internal_state(available_internal_state, false),
-	    true;
-	{true, _} ->
-	    erts_debug:set_internal_state(available_internal_state, true),
-	    false;
-	{false, _} ->
-	    false
+          (catch erts_debug:get_internal_state(available_internal_state))} of
+        {true, true} ->
+            true;
+        {false, true} ->
+            erts_debug:set_internal_state(available_internal_state, false),
+            true;
+        {true, _} ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            false;
+        {false, _} ->
+            false
     end.

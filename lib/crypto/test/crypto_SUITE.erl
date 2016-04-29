@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@ all() ->
      {group, aes_ctr},
      {group, aes_gcm},
      {group, chacha20_poly1305},
+     {group, aes_cbc},
      mod_pow,
      exor,
      rand_uniform
@@ -107,7 +108,8 @@ groups() ->
      {rc4, [], [stream]}, 
      {aes_ctr, [], [stream]},
      {aes_gcm, [], [aead]},
-     {chacha20_poly1305, [], [aead]}
+     {chacha20_poly1305, [], [aead]},
+     {aes_cbc, [], [block]}
     ].
 
 %%-------------------------------------------------------------------
@@ -118,10 +120,10 @@ init_per_suite(Config) ->
 		_ ->
 		    Config
 	    catch error:low_entropy ->
-		    %% Make sure we are on OSE, otherwise we want to crash
-		    {ose,_} = os:type(),
+                    %% We are testing on an OS with low entropy in its random
+                    %% seed. So we have to seed it with a binary to get started.
 
-		    %% This is NOT how you want to seed this, it is just here
+		    %% This is NOT how you want to do seeding, it is just here
 		    %% to make the tests pass. Check your OS manual for how you
 		    %% really want to seed.
 		    {H,M,L} = erlang:now(),
@@ -267,7 +269,6 @@ rand_uniform() ->
     [{doc, "rand_uniform and random_bytes testing"}].
 rand_uniform(Config) when is_list(Config) ->
     rand_uniform_aux_test(10),
-    10 = byte_size(crypto:rand_bytes(10)),
     10 = byte_size(crypto:strong_rand_bytes(10)).
 
 %%--------------------------------------------------------------------
@@ -363,6 +364,21 @@ block_cipher({Type, Key,  IV, PlainText}) ->
 	    ok;
 	Other ->
 	    ct:fail({{crypto, block_decrypt, [Type, Key, IV, CipherText]}, {expected, Plain}, {got, Other}})
+    end;
+
+block_cipher({Type, Key, IV, PlainText, CipherText}) ->
+    Plain = iolist_to_binary(PlainText),
+    case crypto:block_encrypt(Type, Key, IV, Plain) of
+	CipherText ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto, block_encrypt, [Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
+    end,
+    case crypto:block_decrypt(Type, Key, IV, CipherText) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto, block_decrypt, [Type, Key, IV, CipherText]}, {expected, Plain}, {got, Other1}})
     end.
 
 block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc;
@@ -370,7 +386,11 @@ block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc;
 							 Type == aes_cbc; 
 							 Type == des_cbf
 							 ->
-     block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), []);
+    block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), []);
+block_cipher_increment({Type, Key, IV, PlainTexts, _CipherText}) when Type == aes_cbc ->
+    Plain = iolist_to_binary(PlainTexts),
+    Blocks = [iolistify(Block) || << Block:128/bitstring >> <= Plain],
+    block_cipher_increment(Type, Key, IV, IV, Blocks, Plain, []);
 block_cipher_increment({_Type, _, _, _}) ->
     ok;
 block_cipher_increment({_,_,_}) ->
@@ -437,6 +457,21 @@ aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag}) ->
 	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, CipherTag}}, {got, Other0}})
     end,
     case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, CipherTag}) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
+    end;
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen}) ->
+    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
+    Plain = iolist_to_binary(PlainText),
+    case crypto:block_encrypt(Type, Key, IV, {AAD, Plain, TagLen}) of
+	{CipherText, TruncatedCipherTag} ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, TruncatedCipherTag}}, {got, Other0}})
+    end,
+    case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, TruncatedCipherTag}) of
 	Plain ->
 	    ok;
 	Other1 ->
@@ -552,7 +587,9 @@ do_block_iolistify({des_ede3 = Type, Key, IV, PlainText}) ->
 do_block_iolistify({Type, Key, PlainText}) ->
     {Type, iolistify(Key), iolistify(PlainText)};
 do_block_iolistify({Type, Key, IV, PlainText}) ->
-    {Type, iolistify(Key), IV, iolistify(PlainText)}.
+    {Type, iolistify(Key), IV, iolistify(PlainText)};
+do_block_iolistify({Type, Key, IV, PlainText, CipherText}) ->
+    {Type, iolistify(Key), IV, iolistify(PlainText), CipherText}.
 
 iolistify(<<"Test With Truncation">>)->
     %% Do not iolistify as it spoils this special case
@@ -611,8 +648,8 @@ ipow(A, B, M, Prod)  ->
 do_exor(B) ->
     Z1 = zero_bin(B),
     Z1 = crypto:exor(B, B),
-    B1 = crypto:rand_bytes(100),
-    B2 = crypto:rand_bytes(100),
+    B1 = crypto:strong_rand_bytes(100),
+    B2 = crypto:strong_rand_bytes(100),
     Z2 = zero_bin(B1),
     Z2 = crypto:exor(B1, B1),
     Z2 = crypto:exor(B2, B2),
@@ -803,6 +840,9 @@ group_config(aes_gcm, Config) ->
 group_config(chacha20_poly1305, Config) ->
     AEAD = chacha20_poly1305(),
     [{aead, AEAD} | Config];
+group_config(aes_cbc, Config) ->
+    Block = aes_cbc(),
+    [{block, Block} | Config];
 group_config(_, Config) ->
     Config.
 
@@ -1166,6 +1206,50 @@ rc2_cbc() ->
       <<72,91,135,182,25,42,35,210>>,
      <<36,245,206,158,168,230,58,69,148,137,32,192,250,41,237,181,181,251, 192,2,175,135,177,171,57,30,111,117,159,149,15,28,88,158,28,81,28,115, 85,219,241,82,117,222,91,85,73,117,164,25,182,52,191,64,123,57,26,19, 211,27,253,31,194,219,231,104,247,240,172,130,119,21,225,154,101,247, 32,216,42,216,133,169,78,22,97,27,227,26,196,224,172,168,17,9,148,55, 203,91,252,40,61,226,236,221,215,160,78,63,13,181,68,57,196,241,185, 207, 116,129,152,237,60,139,247,153,27,146,161,246,222,98,185,222,152, 187,135, 236,86,34,7,110,91,230,173,34,160,242,202,222,121,127,181,140, 101,203,195, 190,88,250,86,147,127,87,72,126,171,16,71,47,110,248,88, 14,29,143,161,152, 129,236,148,22,152,186,208,119,70,8,174,193,203,100, 193,203,200,117,102,242, 134,142,96,125,135,200,217,190,76,117,50,70, 209,186,101,241,200,91,40,193,54, 90,195,38,47,59,197,38,234,86,223,16, 51,253,204,129,20,171,66,21,241,26,135,216, 196,114,110,91,15,53,40, 164,201,136,113,95,247,51,181,208,241,68,168,98,151,36, 155,72,24,57, 42,191,14,125,204,10,167,214,233,138,115,125,234,121,134,227,26,247, 77,200,117,110,117,111,168,156,206,67,159,149,189,173,150,193,91,199, 216,153,22, 189,137,185,89,160,13,131,132,58,109,28,110,246,252,251,14, 232,91,38,52,29,101,188,69,123,50,0,130,178,93,73,239,118,7,77,35,59, 253,10,159,45,86,142,37,78,232,48>>
      }].
+
+%% AES CBC test vectors from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
+aes_cbc() ->
+    [
+     %% F.2.1 CBC-AES128.Encrypt, F.2.2 CBC-AES128.Decrypt
+     {aes_cbc,
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),                    %% Key
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),                    %% IV
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"                      %% PlainText
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710"),
+      hexstr2bin("7649abac8119b246cee98e9b12e9197d"                      %% CipherText
+		 "5086cb9b507219ee95db113a917678b2"
+		 "73bed6b8e3c1743b7116e69e22229516"
+		 "3ff1caa1681fac09120eca307586e1a7")},
+     %% F.2.3 CBC-AES192.Encrypt, F.2.4 CBC-AES192.Decrypt
+     {aes_cbc,
+      hexstr2bin("8e73b0f7da0e6452c810f32b809079e5"                      %% Key
+		 "62f8ead2522c6b7b"),
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),                    %% IV
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"                      %% PlainText
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710"),
+      hexstr2bin("4f021db243bc633d7178183a9fa071e8"                      %% CipherText
+		 "b4d9ada9ad7dedf4e5e738763f69145a"
+		 "571b242012fb7ae07fa9baac3df102e0"
+		 "08b0e27988598881d920a9e64f5615cd")},
+     %% F.2.5 CBC-AES256.Encrypt, F.2.6 CBC-AES256.Decrypt
+     {aes_cbc,
+      hexstr2bin("603deb1015ca71be2b73aef0857d7781"                      %% Key
+		 "1f352c073b6108d72d9810a30914dff4"),
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),                    %% IV
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"                      %% PlainText
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710"),
+      hexstr2bin("f58c4c04d6e5f1ba779eabfb5f7bfbd6"                      %% CipherText
+		 "9cfc4e967edb808d679f777bc6702c7d"
+		 "39f23369a9d9bacfa530e26304231461"
+		 "b2eb05e2c39be9fcda6c19078c6a9d1b")}
+    ].
+
 aes_cbc128() ->
     [{aes_cbc128,
       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
@@ -1306,6 +1390,14 @@ aes_ecb() ->
      %% F.1.1 ECB-AES128.Encrypt, F.1.2 ECB-AES128.Decrypt
      {aes_ecb,
       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710")},
+     %% F.1.3 ECB-AES192.Encrypt, F.1.4 ECB-AES192.Decrypt
+     {aes_ecb,
+      hexstr2bin("8e73b0f7da0e6452c810f32b809079e5"
+		 "62f8ead2522c6b7b"),
       hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
 		 "ae2d8a571e03ac9c9eb76fac45af8e51"
 		 "30c81c46a35ce411e5fbc1191a0a52ef"
@@ -1860,7 +1952,36 @@ aes_gcm() ->
 		 "eeb2b22aafde6419a058ab4f6f746bf4"
 		 "0fc0c3b780f244452da3ebf1c5d82cde"
 		 "a2418997200ef82e44ae7e3f"),
-      hexstr2bin("a44a8266ee1c8eb0c8b5d4cf5ae9f19a")}                    %% CipherTag
+      hexstr2bin("a44a8266ee1c8eb0c8b5d4cf5ae9f19a")},                   %% CipherTag
+
+     %% Test Case 0 for TagLength = 1
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"),           %% Key
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("58"),                                                  %% CipherTag
+      1},                                                                %% TagLength
+
+     %% Test Case 18 for TagLength = 1
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("5a8def2f0c9e53f1f75d7853659e2a20"                      %% CipherText
+		 "eeb2b22aafde6419a058ab4f6f746bf4"
+		 "0fc0c3b780f244452da3ebf1c5d82cde"
+		 "a2418997200ef82e44ae7e3f"),
+      hexstr2bin("a4"),                                                  %% CipherTag
+      1}                                                                 %% TagLength
     ].
 
 %% http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04

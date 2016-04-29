@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "2.7"},
+  {vsn, "3.0"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -65,6 +65,7 @@
 	     gen_event,
 	     gen_fsm,
 	     gen_server,
+	     gen_statem,
 	     io,
 	     io_lib,
 	     io_lib_format,

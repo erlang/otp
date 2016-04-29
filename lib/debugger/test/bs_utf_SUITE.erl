@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,10 +28,12 @@
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -compile([no_jopt,time]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     cases().
@@ -52,31 +54,28 @@ cases() ->
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
-    Dog = test_server:timetrap(?t:minutes(1)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line test_lib:interpret(?MODULE),
-    ?line true = lists:member(?MODULE, int:interpreted()),
+    test_lib:interpret(?MODULE),
+    true = lists:member(?MODULE, int:interpreted()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
     ok.
 
 utf8_roundtrip(Config) when is_list(Config) ->
-    ?line [utf8_roundtrip_1(P) || P <- utf_data()],
+    [utf8_roundtrip_1(P) || P <- utf_data()],
     ok.
 
 utf8_roundtrip_1({Str,Bin,Bin}) ->
-    ?line Str = utf8_to_list(Bin),
-    ?line Bin = list_to_utf8(Str),
-    ?line [ok = utf8_guard(C, <<42,C/utf8>>) || C <- Str],
-    ?line [error = utf8_guard(C, <<C/utf8>>) || C <- Str],
+    Str = utf8_to_list(Bin),
+    Bin = list_to_utf8(Str),
+    [ok = utf8_guard(C, <<42,C/utf8>>) || C <- Str],
+    [error = utf8_guard(C, <<C/utf8>>) || C <- Str],
     ok.
 
 utf8_guard(C, Bin) when <<42,C/utf8>> =:= Bin -> ok;
@@ -106,14 +105,14 @@ utf8_len(<<_/utf8,T/binary>>, N) ->
 utf8_len(<<>>, N) -> N.
 
 utf16_roundtrip(Config) when is_list(Config) ->
-    ?line {Str,Big,Big,Little,Little} = utf16_data(),
-    ?line 4 = utf16_big_len(Big),
-    ?line 4 = utf16_little_len(Little),
-    ?line Str = big_utf16_to_list(Big),
-    ?line Str = little_utf16_to_list(Little),
+    {Str,Big,Big,Little,Little} = utf16_data(),
+    4 = utf16_big_len(Big),
+    4 = utf16_little_len(Little),
+    Str = big_utf16_to_list(Big),
+    Str = little_utf16_to_list(Little),
 
-    ?line Big = list_to_big_utf16(Str),
-    ?line Little = list_to_little_utf16(Str),
+    Big = list_to_big_utf16(Str),
+    Little = list_to_little_utf16(Str),
 
     ok.
 
@@ -154,14 +153,14 @@ little_utf16_to_list(<<H/little-utf16,T/binary>>) ->
 little_utf16_to_list(<<>>) -> [].
 
 utf32_roundtrip(Config) when is_list(Config) ->
-    ?line {Str,Big,Big,Little,Little} = utf32_data(),
-    ?line 4 = utf32_big_len(Big),
-    ?line 4 = utf32_little_len(Little),
-    ?line Str = big_utf32_to_list(Big),
-    ?line Str = little_utf32_to_list(Little),
+    {Str,Big,Big,Little,Little} = utf32_data(),
+    4 = utf32_big_len(Big),
+    4 = utf32_little_len(Little),
+    Str = big_utf32_to_list(Big),
+    Str = little_utf32_to_list(Little),
 
-    ?line Big = list_to_big_utf32(Str),
-    ?line Little = list_to_little_utf32(Str),
+    Big = list_to_big_utf32(Str),
+    Little = list_to_little_utf32(Str),
 
     ok.
 
@@ -203,7 +202,7 @@ little_utf32_to_list(<<>>) -> [].
 
 
 guard(Config) when is_list(Config) ->
-    ?line error = do_guard(16#D800),
+    error = do_guard(16#D800),
     ok.
 
 do_guard(C) when byte_size(<<C/utf8>>) =/= 42 -> ok;
@@ -215,13 +214,13 @@ do_guard(_) -> error.
 %% the delayed creation of sub-binaries works.
 
 extreme_tripping(Config) when is_list(Config) ->
-    ?line Unicode = lists:seq(0, 1024),
-    ?line Utf8 = unicode_to_utf8(Unicode, <<>>),
-    ?line Utf16 = utf8_to_utf16(Utf8, <<>>),
-    ?line Utf32 = utf8_to_utf32(Utf8, <<>>),
-    ?line Utf32 = utf16_to_utf32(Utf16, <<>>),
-    ?line Utf8 = utf32_to_utf8(Utf32, <<>>),
-    ?line Unicode = utf32_to_unicode(Utf32),
+    Unicode = lists:seq(0, 1024),
+    Utf8 = unicode_to_utf8(Unicode, <<>>),
+    Utf16 = utf8_to_utf16(Utf8, <<>>),
+    Utf32 = utf8_to_utf32(Utf8, <<>>),
+    Utf32 = utf16_to_utf32(Utf16, <<>>),
+    Utf8 = utf32_to_utf8(Utf32, <<>>),
+    Unicode = utf32_to_unicode(Utf32),
     ok.
 
 unicode_to_utf8([C|T], Bin) ->
@@ -249,7 +248,7 @@ utf32_to_unicode(<<C/utf32,T/binary>>) ->
 utf32_to_unicode(<<>>) -> [].
 
 utf_data() ->
-%% From RFC-3629.
+    %% From RFC-3629.
 
     %% Give the compiler a change to do some constant propagation.
     NotIdentical = 16#2262,
@@ -287,7 +286,7 @@ utf16_data() ->
 
      %% Little endian (the two binaries should be equal).
      <<RaHieroglyph/little-utf16,16#3D/little-utf16,
-      16#52/little-utf16,16#61/little-utf16>>,
+       16#52/little-utf16,16#61/little-utf16>>,
      <<16#08,16#D8,16#45,16#DF,16#3D,16#00,16#52,16#00,16#61,16#00>>}.
 
 utf32_data() ->
@@ -301,6 +300,6 @@ utf32_data() ->
 
      %% Little endian.
      <<16#0041/little-utf32,NotIdentical/little-utf32,
-      16#0391/little-utf32,16#002E/little-utf32>>,
+       16#0391/little-utf32,16#002E/little-utf32>>,
      <<16#41:32/little,NotIdentical:32/little,
-      16#0391:32/little,16#2E:32/little>>}.
+       16#0391:32/little,16#2E:32/little>>}.

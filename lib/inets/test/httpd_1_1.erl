@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -233,14 +233,6 @@ trace(Type, Port, Host, Node)->
 					  "Max-Forwards:2\r\n\r\n",
 					  [{statuscode, 200}]).
 head(Type, Port, Host, Node)->
-    %% mod_include 
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
-				       "HEAD /fsize.shtml HTTP/1.0\r\n\r\n", 
-				       [{statuscode, 200},
-				       {version, "HTTP/1.0"}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
-			"HEAD /fsize.shtml HTTP/1.1\r\nhost:" ++ 
-			Host  ++ "\r\n\r\n", [{statuscode, 200}]),
     %% mod_esi
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
 			"HEAD /cgi-bin/erl/httpd_example/newformat"

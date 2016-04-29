@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -172,6 +172,7 @@ static ErlDrvData trace_file_start(ErlDrvPort port, char *buff);
 static void trace_file_stop(ErlDrvData handle);
 static void trace_file_output(ErlDrvData handle, char *buff,
 			      ErlDrvSizeT bufflen);
+static void trace_file_outputv(ErlDrvData handle, ErlIOVec *ev);
 static void trace_file_finish(void);
 static ErlDrvSSizeT trace_file_control(ErlDrvData handle,
 				      unsigned int command, 
@@ -214,7 +215,7 @@ ErlDrvEntry trace_file_driver_entry = {
     NULL,                  /* void * that is not used (BC) */
     trace_file_control,    /* F_PTR control, port_control callback */
     trace_file_timeout,    /* F_PTR timeout, driver_set_timer callback */
-    NULL,                  /* F_PTR outputv, reserved */
+    trace_file_outputv,    /* F_PTR outputv, reserved */
     NULL, /* ready_async */
     NULL, /* flush */
     NULL, /* call */
@@ -363,6 +364,16 @@ static void trace_file_stop(ErlDrvData handle)
 /*
 ** Data sent from erlang to port.
 */
+static void trace_file_outputv(ErlDrvData handle, ErlIOVec *ev)
+{
+    int i;
+    for (i = 0; i < ev->vsize; i++) {
+        if (ev->iov[i].iov_len)
+            trace_file_output(handle, ev->iov[i].iov_base,
+                              ev->iov[i].iov_len);
+    }
+}
+
 static void trace_file_output(ErlDrvData handle, char *buff,
 			      ErlDrvSizeT bufflen)
 {

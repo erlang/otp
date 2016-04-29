@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2013. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,8 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 ERTS_APPLICATIONS = stdlib sasl kernel compiler
 
 # Then these have to be build
-ERLANG_APPLICATIONS = tools test_server common_test runtime_tools \
-			inets parsetools
+ERLANG_APPLICATIONS = tools common_test runtime_tools inets parsetools
 
 # These are only build if -a is given to otp_build or make is used directly
 ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
@@ -35,8 +34,8 @@ ALL_ERLANG_APPLICATIONS = xmerl edoc erl_docgen snmp otp_mibs erl_interface \
 	          ic mnesia crypto orber os_mon syntax_tools \
 	          public_key ssl observer odbc diameter \
 	          cosTransactions cosEvent cosTime cosNotification \
-	          cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-		  eunit ssh typer percept eldap dialyzer hipe ose
+	          cosProperty cosFileTransfer cosEventDomain et megaco \
+		  eunit ssh typer percept eldap dialyzer hipe
 
 ifdef BUILD_ALL
   ERLANG_APPLICATIONS += $(ALL_ERLANG_APPLICATIONS)

@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 
 %% ----------------------------------------------------------------------------
 
--type abstract_code() :: [tuple()]. %% XXX: import from somewhere
+-type abstract_code() :: [erl_parse:abstract_form()].
 -type comp_options()  :: [compile:option()].
 -type mod_or_fname()  :: module() | file:filename().
 -type fa()            :: {atom(), arity()}.
@@ -297,8 +297,8 @@ get_record_fields([], _RecDict, Acc) ->
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
-  TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
-  TempRecords1 = process_opaque_types0(TempRecords, TempExpTypes),
+  ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
+  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
@@ -310,7 +310,7 @@ process_record_remote_types(CServer) ->
                         Site = {record, {Module, Name, Arity}},
                         [{FieldName, Field,
                           erl_types:t_from_form(Field,
-                                                TempExpTypes,
+                                                ExpTypes,
                                                 Site,
                                                 TempRecords1)}
                          || {FieldName, Field, _} <- Fields]
@@ -323,9 +323,8 @@ process_record_remote_types(CServer) ->
 	dict:map(RecordFun, Record)
     end,
   NewRecords = dict:map(ModuleFun, TempRecords1),
-  ok = check_record_fields(NewRecords, TempExpTypes),
-  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
-  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
+  ok = check_record_fields(NewRecords, ExpTypes),
+  dialyzer_codeserver:finalize_records(NewRecords, CServer).
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,

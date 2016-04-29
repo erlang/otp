@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 
 -module(ignore_cores).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init/1, fini/1, setup/3, setup/4, restore/1, dir/1]).
 
@@ -53,7 +53,7 @@ init(Config) ->
 fini(Config) ->
     #ignore_cores{org_cwd = OrgCWD,
 		  org_path = OrgPath,
-		  org_pwd_env = OrgPWD} = ?config(ignore_cores, Config),
+		  org_pwd_env = OrgPWD} = proplists:get_value(ignore_cores, Config),
     ok = file:set_cwd(OrgCWD),
     true = code:set_path(OrgPath),
     case OrgPWD of
@@ -70,10 +70,10 @@ setup(Suite, Testcase, Config, SetCwd) when is_atom(Suite),
                                             is_list(Config) ->
     #ignore_cores{org_cwd = OrgCWD,
 		  org_path = OrgPath,
-		  org_pwd_env = OrgPWD} = ?config(ignore_cores, Config),
+		  org_pwd_env = OrgPWD} = proplists:get_value(ignore_cores, Config),
     Path = lists:map(fun (".") -> OrgCWD; (Dir) -> Dir end, OrgPath),
     true = code:set_path(Path),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     IgnDir = filename:join([PrivDir,
 			 atom_to_list(Suite)
 			 ++ "_"
@@ -94,7 +94,7 @@ setup(Suite, Testcase, Config, SetCwd) when is_atom(Suite),
     end,
     ok = file:write_file(filename:join([IgnDir, "ignore_core_files"]), <<>>),
     %% cores are dumped in /cores on MacOS X
-    CoresDir = case {?t:os_type(), filelib:is_dir("/cores")} of
+    CoresDir = case {os:type(), filelib:is_dir("/cores")} of
 		   {{unix,darwin}, true} ->
 		       filelib:fold_files("/cores",
 					  "^core.*$",
@@ -119,7 +119,7 @@ restore(Config) ->
 		  org_path = OrgPath,
 		  org_pwd_env = OrgPWD,
 		  ign_dir = IgnDir,
-		  cores_dir = CoresDir} = ?config(ignore_cores, Config),
+		  cores_dir = CoresDir} = proplists:get_value(ignore_cores, Config),
     try
 	case CoresDir of
 	    false ->
@@ -155,5 +155,5 @@ restore(Config) ->
 
 
 dir(Config) ->
-    #ignore_cores{ign_dir = Dir} = ?config(ignore_cores, Config),
+    #ignore_cores{ign_dir = Dir} = proplists:get_value(ignore_cores, Config),
     Dir.

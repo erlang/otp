@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -398,6 +398,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	break;
 
     case ERL_PID_EXT:
+    case ERL_NEW_PID_EXT:
 	ei_decode_pid(termbuf,index,&pid);
 	show_pid(stream,&pid);
 	break;
@@ -432,6 +433,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
     
     case ERL_REFERENCE_EXT:
     case ERL_NEW_REFERENCE_EXT:
+    case ERL_NEWER_REFERENCE_EXT:
 	ei_decode_ref(termbuf,index,&ref);
 	fprintf(stream,"#Ref<%s",ref.node);
 	for (i = 0; i < ref.len; i++) {
@@ -441,6 +443,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	break;
 
     case ERL_PORT_EXT:
+    case ERL_NEW_PORT_EXT:
 	ei_decode_port(termbuf,index,&port);
 	fprintf(stream,"#Port<%s.%u.%u>",port.node,port.id,port.creation);
 	break;

@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,13 +14,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(num_bif_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Tests the BIFs:
 %% 	abs/1
@@ -36,22 +36,22 @@
 %%	integer_to_binary/2
 %%	binary_to_integer/1
 
--export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_string/1, t_integer_to_string/1,
-	 t_string_to_integer/1,
+	 t_string_to_integer/1, t_list_to_integer_edge_cases/1,
 	 t_string_to_float_safe/1, t_string_to_float_risky/1,
 	 t_round/1, t_trunc/1
      ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [t_abs, t_float, t_float_to_string, t_integer_to_string,
      {group, t_string_to_float}, t_string_to_integer, t_round,
-     t_trunc].
+     t_trunc, t_list_to_integer_edge_cases].
 
-groups() -> 
+groups() ->
     [{t_string_to_float, [],
       [t_string_to_float_safe, t_string_to_float_risky]}].
 
@@ -73,7 +73,7 @@ t_abs(Config) when is_list(Config) ->
     5.5 = abs(id(5.5)),
     0.0 = abs(id(0.0)),
     100.0 = abs(id(-100.0)),
-    
+
     %% Integers.
     5 = abs(id(5)),
     0 = abs(id(0)),
@@ -93,7 +93,7 @@ t_abs(Config) when is_list(Config) ->
     BigNum = abs(BigNum),
     BigNum = abs(-BigNum),
     ok.
-    
+
 t_float(Config) when is_list(Config) ->
     0.0 = float(id(0)),
     2.5 = float(id(2.5)),
@@ -109,7 +109,7 @@ t_float(Config) when is_list(Config) ->
     %% Extremly big bignums.
     Big = id(list_to_integer(id(lists:duplicate(2000, $1)))),
     {'EXIT', {badarg, _}} = (catch float(Big)),
-    
+
     ok.
 
 
@@ -183,7 +183,7 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.2300000000e+20",1.23e20, [{scientific, 10}, compact]),
     test_fts("1.23000000000000000000e+20",1.23e20, []),
     ok.
-    
+
 test_fts(Expect, Float) ->
     Expect = float_to_list(Float),
     BinExpect = list_to_binary(Expect),
@@ -255,7 +255,7 @@ t_round(Config) when is_list(Config) ->
     256 = round(id(255.6)),
     -1033 = round(id(-1033.3)),
     -1034 = round(id(-1033.6)),
-    
+
     % OTP-3722:
     X = id((1 bsl 27) - 1),
     MX = -X,
@@ -345,9 +345,9 @@ t_integer_to_string(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:integer_to_binary(Value)),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:integer_to_list(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
 
@@ -416,27 +416,27 @@ t_string_to_integer(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch binary_to_integer(Value)),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:list_to_integer(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
-    
+
     % Default base error cases
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:binary_to_integer(
 				       list_to_binary(Value))),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:list_to_integer(Value))
 		  end,["1.0"," 1"," -1","","+"]),
-    
+
     % Custom base error cases
     lists:foreach(fun({Value,Base}) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch binary_to_integer(
 				       list_to_binary(Value),Base)),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:list_to_integer(Value,Base))
 		  end,[{" 1",1},{" 1",37},{"2",2},{"C",11},
 		       {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
@@ -449,10 +449,61 @@ t_string_to_integer(Config) when is_list(Config) ->
 
     ok.
 
+%% Tests edge cases for list_to_integer; compares with known good values
+
+t_list_to_integer_edge_cases(Config) when is_list(Config) ->
+    %% Take integer literals and compare to their representation in ExtTerm
+    T = [
+        {16, "0", <<131,97,0>>},
+        {16, "-0", <<131,97,0>>},
+
+        {16, "f", <<131,97,15>>},
+        {16, "-f", <<131,98,255,255,255,241>>},
+
+        {16, "0000000000000000000000000000000000000000000000000f",
+            <<131,97,15>>},
+        {16, "-0000000000000000000000000000000000000000000000000f",
+            <<131,98,255,255,255,241>>},
+
+        {16, "ffffffff", <<131,110,4,0,255,255,255,255>>},
+        {16, "-ffffffff", <<131,110,4,1,255,255,255,255>>},
+
+        {16, "7fffffff", <<131,110,4,0,255,255,255,127>>},
+        {16, "-7fffffff", <<131,98,128,0,0,1>>},
+
+        {16, "ffffffffffffffff",
+            <<131,110,8,0,255,255,255,255,255,255,255,255>>},
+        {16, "-ffffffffffffffff",
+            <<131,110,8,1,255,255,255,255,255,255,255,255>>},
+
+        {16, "7fffffffffffffff",
+            <<131,110,8,0,255,255,255,255,255,255,255,127>>},
+        {16, "-7fffffffffffffff",
+            <<131,110,8,1,255,255,255,255,255,255,255,127>>},
+
+        %% Alleged 32-bit corner case (should not happen on 64-bit). At 32-4
+        %% bits we may corrupt sign bit and fall out of SMALL_INT range.
+        {2, "1000000000000000000000000000", <<131,98,8,0,0,0>>},
+        {2, "-1000000000000000000000000000", <<131,98,248,0,0,0>>},
+
+        %% 64-bit corner case (should not happen on 32-bit) at 64-4 bits we
+        %% corrupt sign bit and fall out of SMALL_INT range (bam! all dead)
+        {2, "100000000000000000000000000000000000000000000000000000000000",
+            <<131,110,8,0,0,0,0,0,0,0,0,8>>},
+        {2, "-100000000000000000000000000000000000000000000000000000000000",
+            <<131,110,8,1,0,0,0,0,0,0,0,8>>}
+    ],
+    [begin
+         io:format("~s base ~p vs ~p~n", [Str, Base, Bin]),
+         FromStr = list_to_integer(Str, Base),
+         FromStr = binary_to_term(Bin)
+     end || {Base, Str, Bin} <- T],
+    ok.
+
 test_sti(Num) ->
     [begin
 	 io:format("Testing ~p:~p",[Num,Base]),
-	 test_sti(Num,Base) 
+	 test_sti(Num,Base)
      end|| Base <- lists:seq(2,36)].
 
 test_sti(Num,Base) ->

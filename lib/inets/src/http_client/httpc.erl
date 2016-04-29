@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -556,7 +556,7 @@ handle_request(Method, Url,
 
 	    Request = #request{from          = Receiver,
 			       scheme        = Scheme, 
-			       address       = {Host, Port},
+			       address       = {host_address(Host, BracketedHost), Port},
 			       path          = MaybeEscPath,
 			       pquery        = MaybeEscQuery,
 			       method        = Method,
@@ -1268,3 +1268,7 @@ child_name(Pid, [_ | Children]) ->
 %% d(_, _, _) ->
 %%     ok.
 
+host_address(Host, false) ->
+    Host;
+host_address(Host, true) ->
+    string:strip(string:strip(Host, right, $]), left, $[).

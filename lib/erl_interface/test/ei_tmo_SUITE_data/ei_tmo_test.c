@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -512,18 +512,21 @@ TESTCASE(send_tmo)
 	    for (i=0;i < iterations; ++i) {
 		res = ei_send_tmo(com_sock, &pid, send_buffer.buff, 
 				  send_buffer.index, 5000);
-		DEBUGF(("Sent bindata (%d):\n",res));
+		if (res < 0) {
+		    DEBUGF(("Sent bindata failed (%d) after %d iterations:\n", res, i));
+		    break;
+		}
 #ifdef DEBUG
+		if (i < 10 || (i % 100 == 0))  /* don't flood the log */
 		{
 		    int ndx = 0;
 		    int v;
+		    DEBUGF(("%d: Sent bindata (%d): ", i, res));
 		    ei_decode_version(send_buffer.buff,&ndx,&v);
 		    ei_print_term(debugfile, send_buffer.buff, &ndx);
+		    DEBUGF(("\n"));
 		}
 #endif
-		DEBUGF(("\n"));
-		if (res < 0) 
-		    break;
 	    }
 	    if (res < 0) {
 		DEBUGF(("ei_send_tmo failure at line %d\n",__LINE__));

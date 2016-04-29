@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,12 +35,15 @@ int ei_skip_term(const char* buf, int* index)
 			      NULL, NULL) < 0) return -1;
 	break;
     case ERL_PID_EXT:
+    case ERL_NEW_PID_EXT:
 	if (ei_decode_pid(buf, index, NULL) < 0) return -1;
 	break;
     case ERL_PORT_EXT:
+    case ERL_NEW_PORT_EXT:
 	if (ei_decode_port(buf, index, NULL) < 0) return -1;
 	break;
     case ERL_NEW_REFERENCE_EXT:
+    case ERL_NEWER_REFERENCE_EXT:
     case ERL_REFERENCE_EXT:
 	if (ei_decode_ref(buf, index, NULL) < 0) return -1;
 	break;

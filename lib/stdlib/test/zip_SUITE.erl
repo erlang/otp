@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,8 +28,7 @@
          compress_control/1,
 	 foldl/1]).
 
--include_lib("test_server/include/test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/zip.hrl").
 
@@ -57,12 +56,11 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-borderline(doc) ->
-    ["Test creating, listing and extracting one file from an archive "
-     "multiple times with different file sizes. Also check that the "
-     "modification date of the extracted file has survived."];
+%% Test creating, listing and extracting one file from an archive
+%% multiple times with different file sizes. Also check that the
+%% modification date of the extracted file has survived.
 borderline(Config) when is_list(Config) ->
-    RootDir = ?config(priv_dir, Config),
+    RootDir = proplists:get_value(priv_dir, Config),
     TempDir = filename:join(RootDir, "borderline"),
     ok = file:make_dir(TempDir),
 
@@ -179,7 +177,7 @@ match_output(eof, Expect, Port) ->
 kill_port_and_fail(Port, Reason) ->
     unlink(Port),
     exit(Port, die),
-    test_server:fail(Reason).
+    ct:fail(Reason).
 
 make_cmd(Cmd) ->
     Cmd.
@@ -216,12 +214,10 @@ random_byte_list(_X, 0, Result) ->
 next_random(X) ->
     (X*17059465+1) band 16#fffffffff.
 
-atomic(doc) ->
-    ["Test the 'atomic' operations: zip/unzip/list_dir, on archives."
-     "Also test the 'cooked' option."];
-atomic(suite) -> [];
+%% Test the 'atomic' operations: zip/unzip/list_dir, on archives.
+%% Also test the 'cooked' option.
 atomic(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name,_,_} <- DataFiles],
     io:format("Names: ~p", [Names]),
@@ -244,12 +240,10 @@ atomic(Config) when is_list(Config) ->
 
     ok.
 
-openzip_api(doc) ->
-    ["Test the openzip_open/2, openzip_get/1, openzip_get/2, openzip_close/1 "
-     "and openzip_list_dir/1 functions."];
-openzip_api(suite) -> [];
+%% Test the openzip_open/2, openzip_get/1, openzip_get/2, openzip_close/1
+%% and openzip_list_dir/1 functions.
 openzip_api(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name, _, _} <- DataFiles],
     io:format("Names: ~p", [Names]),
@@ -283,12 +277,10 @@ openzip_api(Config) when is_list(Config) ->
 
     ok.
 
-zip_api(doc) ->
-    ["Test the zip_open/2, zip_get/1, zip_get/2, zip_close/1 "
-     "and zip_list_dir/1 functions."];
-zip_api(suite) -> [];
+%% Test the zip_open/2, zip_get/1, zip_get/2, zip_close/1,
+%% and zip_list_dir/1 functions.
 zip_api(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name, _, _} <- DataFiles],
     io:format("Names: ~p", [Names]),
@@ -319,13 +311,11 @@ zip_api(Config) when is_list(Config) ->
     %% Clean up.
     delete_files([Names]),
 
-   ok.
+    ok.
 
-open_leak(doc) ->
-    ["Test that zip doesn't leak processes and ports where the "
-     "controlling process dies without closing an zip opened with "
-     "zip:zip_open/1."];
-open_leak(suite) -> [];
+%% Test that zip doesn't leak processes and ports where the
+%% controlling process dies without closing an zip opened with
+%% zip:zip_open/1.
 open_leak(Config) when is_list(Config) ->
     %% Create a zip archive
     Zip = "zip.zip",
@@ -359,13 +349,10 @@ spawned_zip_dead(ZipSrv) ->
             false
     end.
 
-unzip_options(doc) ->
-    ["Test options for unzip, only cwd and file_list currently"];
-unzip_options(suite) ->
-    [];
+%% Test options for unzip, only cwd and file_list currently.
 unzip_options(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Long = filename:join(DataDir, "abc.zip"),
 
     %% create a temp directory
@@ -375,28 +362,25 @@ unzip_options(Config) when is_list(Config) ->
     FList = ["quotes/rain.txt","wikipedia.txt"],
 
     %% Unzip a zip file in Subdir
-    ?line {ok, RetList} = zip:unzip(Long, [{cwd, Subdir},
-                                           {file_list, FList}]),
+    {ok, RetList} = zip:unzip(Long, [{cwd, Subdir},
+				     {file_list, FList}]),
 
     %% Verify.
-    ?line true = (length(FList) =:= length(RetList)),
-    ?line lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
-                                 {ok,B} = file:read_file(filename:join(Subdir, F)) end,
-                        FList),
-    ?line lists:foreach(fun(F)-> ok = file:delete(F) end,
-                        RetList),
+    true = (length(FList) =:= length(RetList)),
+    lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
+			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
+		  FList),
+    lists:foreach(fun(F)-> ok = file:delete(F) end,
+		  RetList),
 
     %% Clean up and verify no more files.
-    ?line 0 = delete_files([Subdir]),
+    0 = delete_files([Subdir]),
     ok.
 
-unzip_jar(doc) ->
-    ["Test unzip a jar file (OTP-7382)"];
-unzip_jar(suite) ->
-    [];
+%% Test unzip a jar file (OTP-7382).
 unzip_jar(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     JarFile = filename:join(DataDir, "test.jar"),
 
     %% create a temp directory
@@ -409,28 +393,25 @@ unzip_jar(Config) when is_list(Config) ->
     {ok, RetList} = zip:unzip(JarFile),
 
     %% Verify.
-    ?line lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
-                                 {ok,B} = file:read_file(filename:join(Subdir, F)) end,
-                        FList),
-    ?line lists:foreach(fun(F)-> ok = file:delete(F) end,
-                        RetList),
+    lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
+			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
+		  FList),
+    lists:foreach(fun(F)-> ok = file:delete(F) end,
+		  RetList),
 
     %% Clean up and verify no more files.
-    ?line 0 = delete_files([Subdir]),
+    0 = delete_files([Subdir]),
     ok.
 
-zip_options(doc) ->
-    ["Test the options for unzip, only cwd currently"];
-zip_options(suite) ->
-    [];
+%% Test the options for unzip, only cwd currently.
 zip_options(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ok = file:set_cwd(PrivDir),
     DataFiles = data_files(),
     Names = [Name || {Name, _, _} <- DataFiles],
 
     %% Make sure cwd is not where we get the files
-    ok = file:set_cwd(?config(data_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
 
     %% Create a zip archive
     {ok, {_,Zip}} =
@@ -460,10 +441,7 @@ zip_options(Config) when is_list(Config) ->
 
     ok.
 
-list_dir_options(doc) ->
-    ["Test the options for list_dir... one day"];
-list_dir_options(suite) ->
-    [];
+%% Test the options for list_dir... one day.
 list_dir_options(Config) when is_list(Config) ->
     ok.
 
@@ -515,10 +493,9 @@ create_files([]) ->
 %% make_dirs([], Dir) ->
 %%     Dir.
 
-bad_zip(doc) ->
-    ["Try zip:unzip/1 on some corrupted zip files."];
+%% Try zip:unzip/1 on some corrupted zip files.
 bad_zip(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
     try_bad("bad_crc",    {bad_crc, "abc.txt"}, Config),
     try_bad("bad_central_directory", bad_central_directory, Config),
     try_bad("bad_file_header",    bad_file_header, Config),
@@ -538,7 +515,7 @@ try_bad(N, R, Config) ->
 try_bad(Name0, Reason, What, Config) ->
     %% Intentionally no macros here.
 
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Name = Name0 ++ ".zip",
     io:format("~nTrying ~s", [Name]),
     Full = filename:join(DataDir, Name),
@@ -548,14 +525,13 @@ try_bad(Name0, Reason, What, Config) ->
             io:format("Result: ~p\n", [Expected]);
         Other ->
             io:format("unzip/2 returned ~p (expected ~p)\n", [Other, Expected]),
-            test_server:fail({bad_return_value, Other})
+            ct:fail({bad_return_value, Other})
     end.
 
-unzip_to_binary(doc) ->
-    ["Test extracting to binary with memory option."];
+%% Test extracting to binary with memory option.
 unzip_to_binary(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     WorkDir = filename:join(PrivDir, "unzip_to_binary"),
     _ = file:make_dir(WorkDir),
 
@@ -574,11 +550,10 @@ unzip_to_binary(Config) when is_list(Config) ->
 
     ok.
 
-zip_to_binary(doc) ->
-    ["Test compressing to binary with memory option."];
+%% Test compressing to binary with memory option.
 zip_to_binary(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     WorkDir = filename:join(PrivDir, "zip_to_binary"),
     _ = file:make_dir(WorkDir),
 
@@ -607,8 +582,7 @@ zip_to_binary(Config) when is_list(Config) ->
 
     ok.
 
-aliases(doc) ->
-    ["Test using the aliases, extract/2, table/2 and create/3"];
+%% Test using the aliases, extract/2, table/2 and create/3.
 aliases(Config) when is_list(Config) ->
     {_, _, X0} = erlang:timestamp(),
     Size = 100,
@@ -629,11 +603,10 @@ aliases(Config) when is_list(Config) ->
 
 
 
-unzip_from_binary(doc) ->
-    ["Test extracting a zip archive from a binary."];
+%% Test extracting a zip archive from a binary.
 unzip_from_binary(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ExtractDir = filename:join(PrivDir, "extract_from_binary"),
     ok = file:make_dir(ExtractDir),
     Archive = filename:join(ExtractDir, "abc.zip"),
@@ -699,11 +672,9 @@ do_delete_files([Item|Rest], Cnt) ->
     end,
     do_delete_files(Rest, Cnt + DelCnt).
 
-compress_control(doc) ->
-    ["Test control of which files that should be compressed"];
-compress_control(suite) -> [];
+%% Test control of which files that should be compressed.
 compress_control(Config) when is_list(Config) ->
-    ok = file:set_cwd(?config(priv_dir, Config)),
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
     Dir = "compress_control",
     Files = [
              {Dir,                                                          dir,   $d},
@@ -834,32 +805,32 @@ extensions([], Old) ->
     Old.
 
 foldl(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join([PrivDir, "foldl.zip"]),
 
     FooBin = <<"FOO">>,
     BarBin = <<"BAR">>,
     Files = [{"foo", FooBin}, {"bar", BarBin}],
-    ?line {ok, {File, Bin}} = zip:create(File, Files, [memory]),
+    {ok, {File, Bin}} = zip:create(File, Files, [memory]),
     ZipFun = fun(N, I, B, Acc) -> [{N, B(), I()} | Acc] end,
-    ?line {ok, FileSpec} = zip:foldl(ZipFun, [], {File, Bin}),
-    ?line [{"bar", BarBin, #file_info{}}, {"foo", FooBin, #file_info{}}] = FileSpec,
-    ?line {ok, {File, Bin}} = zip:create(File, lists:reverse(FileSpec), [memory]),
-    ?line {foo_bin, FooBin} =
+    {ok, FileSpec} = zip:foldl(ZipFun, [], {File, Bin}),
+    [{"bar", BarBin, #file_info{}}, {"foo", FooBin, #file_info{}}] = FileSpec,
+    {ok, {File, Bin}} = zip:create(File, lists:reverse(FileSpec), [memory]),
+    {foo_bin, FooBin} =
 	try
 	    zip:foldl(fun("foo", _, B, _) -> throw(B()); (_, _, _, Acc) -> Acc end, [], {File, Bin})
 	catch
 	    throw:FooBin ->
 		{foo_bin, FooBin}
 	end,
-    ?line ok = file:write_file(File, Bin),
-    ?line {ok, FileSpec} = zip:foldl(ZipFun, [], File),
+    ok = file:write_file(File, Bin),
+    {ok, FileSpec} = zip:foldl(ZipFun, [], File),
 
-    ?line {error, einval} = zip:foldl(fun() -> ok end, [], File),
-    ?line {error, einval} = zip:foldl(ZipFun, [], 42),
-    ?line {error, einval} = zip:foldl(ZipFun, [], {File, 42}),
+    {error, einval} = zip:foldl(fun() -> ok end, [], File),
+    {error, einval} = zip:foldl(ZipFun, [], 42),
+    {error, einval} = zip:foldl(ZipFun, [], {File, 42}),
 
-    ?line ok = file:delete(File),
-    ?line {error, enoent} = zip:foldl(ZipFun, [], File),
+    ok = file:delete(File),
+    {error, enoent} = zip:foldl(ZipFun, [], File),
 
     ok.

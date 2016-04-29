@@ -514,15 +514,17 @@ parse_forms([]) ->
 parse_2(Ts) ->
     %% one or more comma-separated expressions?
     %% (recall that Ts has no dot tokens if we get to this stage)
-    case erl_parse:parse_exprs(Ts ++ [{dot,0}]) of
+    A = a0(),
+    case erl_parse:parse_exprs(Ts ++ [{dot,A}]) of
         {ok, Exprs} -> Exprs;
         {error, E} ->
-            parse_3(Ts ++ [{'end',0}, {dot,0}], [E])
+            parse_3(Ts ++ [{'end',A}, {dot,A}], [E])
     end.
 
 parse_3(Ts, Es) ->
     %% try-clause or clauses?
-    case erl_parse:parse_exprs([{'try',0}, {atom,0,true}, {'catch',0} | Ts]) of
+    A = a0(),
+    case erl_parse:parse_exprs([{'try',A}, {atom,A,true}, {'catch',A} | Ts]) of
         {ok, [{'try',_,_,_,_,_}=X]} ->
             %% get the right kind of qualifiers in the clause patterns
             erl_syntax:try_expr_handlers(X);
@@ -533,7 +535,8 @@ parse_3(Ts, Es) ->
 parse_4(Ts, Es) ->
     %% fun-clause or clauses? (`(a)' is also a pattern, but `(a,b)' isn't,
     %% so fun-clauses must be tried before normal case-clauses
-    case erl_parse:parse_exprs([{'fun',0} | Ts]) of
+    A = a0(),
+    case erl_parse:parse_exprs([{'fun',A} | Ts]) of
         {ok, [{'fun',_,{clauses,Cs}}]} -> Cs;
         {error, E} ->
             parse_5(Ts, [E|Es])
@@ -541,7 +544,8 @@ parse_4(Ts, Es) ->
 
 parse_5(Ts, Es) ->
     %% case-clause or clauses?
-    case erl_parse:parse_exprs([{'case',0}, {atom,0,true}, {'of',0} | Ts]) of
+    A = a0(),
+    case erl_parse:parse_exprs([{'case',A}, {atom,A,true}, {'of',A} | Ts]) of
         {ok, [{'case',_,_,Cs}]} -> Cs;
         {error, E} ->
             %% select the best error to report
@@ -1210,7 +1214,7 @@ merge_comments(StartLine, Cs, [], Acc) ->
     merge_comments(StartLine, [], [],
                    [erl_syntax:set_pos(
                       erl_syntax:comment(Indent, Text),
-                      StartLine + Line - 1)
+                      anno(StartLine + Line - 1))
                     || {Line, _, Indent, Text} <- Cs] ++ Acc);
 merge_comments(StartLine, [C|Cs], [T|Ts], Acc) ->
     {Line, _Col, Indent, Text} = C,
@@ -1228,3 +1232,9 @@ merge_comments(StartLine, [C|Cs], [T|Ts], Acc) ->
                    [erl_syntax:comment(Indent, Text)], T),
             merge_comments(StartLine, Cs, [Tc|Ts], Acc)
     end.
+
+a0() ->
+    anno(0).
+
+anno(Location) ->
+    erl_anno:new(Location).

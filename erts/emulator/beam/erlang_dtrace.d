@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011-2012.
+ * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011-2016.
  * All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -699,6 +699,35 @@ provider erlang {
      * @param If failure, the errno of the error.                         arg5
      */
     probe efile_drv__return(int, int, char *, int, int, int);
+
+
+/*
+ * The set of probes called by the erlang tracer nif backend. In order
+ * to receive events on these you both have to enable tracing in erlang
+ * using the trace bifs and also from dtrace/systemtap.
+ */
+
+
+    /**
+     * A trace message of type `event` was triggered by process `p`.
+     *
+     *
+     * @param p the PID (string form) of the process
+     * @param event the event that was triggered (i.e. call or spawn)
+     * @param state the state of the tracer nif as a string
+     * @param arg1 first argument to the trace event
+     * @param arg2 second argument to the trace event
+     */
+    probe trace(char *p, char *event, char *state, char *arg1, char *arg2);
+
+    /**
+     * A sequence trace message of type `label` was triggered.
+     *
+     * @param state the state of the tracer nif as a string
+     * @param label the seq trace label
+     * @param seq_info the seq trace info tuple as a string
+     */
+    probe trace_seq(char *state, char *label, char *seq_info);
 
 /*
  * NOTE:

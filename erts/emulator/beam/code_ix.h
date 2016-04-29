@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ void erts_release_code_write_permission(void);
  * Must be followed by calls to either "end" and "commit" or "abort" before
  * code write permission can be released.
  */
-void erts_start_staging_code_ix(void);
+void erts_start_staging_code_ix(int num_new);
 
 /* End the staging.
  * Preceded by "start" and must be followed by "commit".

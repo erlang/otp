@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,13 +31,9 @@
     <rev>A</rev>
   </header>
   <module>init</module>
-  <modulesummary>Coordination of System Startup</modulesummary>
-  <description><p>
-
-  The module init is moved to the runtime system
-  application.  Please see <seealso
-  marker="erts:init">init(3)</seealso> in the
-  erts reference manual instead.
-
-  </p></description>
+  <modulesummary>Coordination of system startup.</modulesummary>
+  <description>
+  <p>This module is moved to the
+    <seealso marker="erts:init"><c>ERTS</c></seealso> application.</p>
+  </description>
 </erlref>

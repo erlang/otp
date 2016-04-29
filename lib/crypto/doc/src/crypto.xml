@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2014</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -135,9 +135,8 @@
 
      <code>stream_cipher() = rc4 | aes_ctr </code>
 
-     <code>block_cipher() =  aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
-     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
-     | des_ede3 | rc2_cbc </code>
+     <code>block_cipher() =  aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
+     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | rc2_cbc </code>
 
      <code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code>
 
@@ -160,8 +159,9 @@
      <code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> <p>md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
-     <code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb8 | aes_cfb128| aes_cbc256 | aes_ige256 | aes_gcm | chacha20_poly1305 | rc2_cbc | aes_ctr| rc4  </code>
+     <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
+     aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc | des_cfb |
+     des3_cbc | des3_cbf | des_ede3 | rc2_cbc | rc4 </code>
      <code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
@@ -203,6 +203,7 @@
     <func>
       <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
       <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
+      <name>block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = block_cipher() </v>
@@ -210,6 +211,7 @@
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
         <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+        <v>TagLength = 1..16</v>
       </type>
       <desc>
         <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
@@ -306,6 +308,8 @@
       <desc>
 	<p>Generates public keys of type <c>Type</c>.
 	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>
+	May throw exception <c>low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".
 	</p>
       </desc>
     </func>
@@ -590,22 +594,6 @@
 	used for instance by older versions of the SSL protocol. See also <seealso
 	marker="public_key:public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</seealso>
 	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>rand_bytes(N) -> binary()</name>
-      <fsummary>Generate a binary of random bytes</fsummary>
-      <type>
-        <v>N = integer()</v>
-      </type>
-      <desc>
-        <p>Generates N bytes randomly uniform 0..255, and returns the
-        result in a binary. Uses the <c>crypto</c> library pseudo-random
-        number generator.</p>
-        <p>This function is not recommended for cryptographic purposes.
-        Please use <seealso marker="#strong_rand_bytes/1">
-        strong_rand_bytes/1</seealso> instead.</p>
       </desc>
     </func>
 

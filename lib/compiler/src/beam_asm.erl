@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,11 +30,12 @@
 module(Code, Abst, SourceFile, Opts) ->
     {ok,assemble(Code, Abst, SourceFile, Opts)}.
 
-assemble({Mod,Exp,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
+assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
+    Exp = cerl_sets:from_list(Exp0),
     {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
     build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts).
 
@@ -61,7 +62,7 @@ insert_on_load_instruction(Is0, Entry) ->
     Bef ++ [El,on_load|Is].
 
 assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
-    Dict1 = case member({Name,Arity}, Exp) of
+    Dict1 = case cerl_sets:is_element({Name,Arity}, Exp) of
 		true ->
 		    beam_dict:export(Name, Arity, Entry, Dict0);
 		false ->
@@ -224,10 +225,12 @@ flatten_imports(Imps) ->
     list_to_binary(map(fun({M,F,A}) -> <<M:32,F:32,A:32>> end, Imps)).
 
 build_attributes(Opts, SourceFile, Attr, MD5) ->
+    Misc0 = case SourceFile of
+		[] -> [];
+		[_|_] -> [{source,SourceFile}]
+	    end,
     Misc = case member(slim, Opts) of
-	       false ->
-		   {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),
-		   [{time,{Y,Mo,D,H,Mi,S}},{source,SourceFile}];
+	       false -> Misc0;
 	       true -> []
 	   end,
     Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],

@@ -2634,11 +2634,9 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 					data=TestDir}),
 	    {ok,Cwd} = file:get_cwd(),
 	    ok = file:set_cwd(TestDir),
-	    TestServerInclude = get_dir(test_server, "include"),
 	    CtInclude = get_dir(common_test, "include"),
 	    XmerlInclude = get_dir(xmerl, "include"),
-	    ErlFlags = UserInclude ++ [{i,TestServerInclude},
-				       {i,CtInclude},
+	    ErlFlags = UserInclude ++ [{i,CtInclude},
 				       {i,XmerlInclude},
 				       debug_info],
 	    Result =

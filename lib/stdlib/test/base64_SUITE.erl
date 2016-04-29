@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,19 +34,17 @@
 	 roundtrip_1/1, roundtrip_2/1, roundtrip_3/1, roundtrip_4/1]).
 
 init_per_testcase(_, Config) ->
-    Dog = test_server:timetrap(?t:minutes(4)),
-    NewConfig = lists:keydelete(watchdog, 1, Config),
-    [{watchdog, Dog} | NewConfig].
+    Config.
 
-end_per_testcase(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_, _Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,4}}].
 
 all() -> 
     [base64_encode, base64_decode, base64_otp_5635,
@@ -72,10 +70,7 @@ end_per_group(_GroupName, Config) ->
 
 
 %%-------------------------------------------------------------------------
-base64_encode(doc) ->
-    ["Test base64:encode/1."];
-base64_encode(suite) ->
-    [];
+%% Test base64:encode/1.
 base64_encode(Config) when is_list(Config) ->
     %% Two pads
     <<"QWxhZGRpbjpvcGVuIHNlc2FtZQ==">> =
@@ -90,10 +85,7 @@ base64_encode(Config) when is_list(Config) ->
 	base64:encode_to_string(<<"0123456789!@#0^&*();:<>,. []{}">>),
     ok.
 %%-------------------------------------------------------------------------
-base64_decode(doc) ->
-    ["Test base64:decode/1."];
-base64_decode(suite) ->
-    [];
+%% Test base64:decode/1.
 base64_decode(Config) when is_list(Config) ->
     %% Two pads
     <<"Aladdin:open sesame">> =
@@ -117,28 +109,18 @@ base64_decode(Config) when is_list(Config) ->
 	  <<"MDEy MzQ1Njc4 \tOSFAIzBeJ \niooKTs6 PD4sLi \r\nBbXXt9">>),
     ok.
 %%-------------------------------------------------------------------------
-base64_otp_5635(doc) ->
-    ["OTP-5635: Some data doesn't pass through base64:decode/1 "
-     "correctly"];
-base64_otp_5635(suite) ->
-    [];
+%% OTP-5635: Some data doesn't pass through base64:decode/1 correctly.
 base64_otp_5635(Config) when is_list(Config) ->
     <<"===">> = base64:decode(base64:encode("===")),
     ok.
 %%-------------------------------------------------------------------------
-base64_otp_6279(doc) ->
-    ["OTP-6279: Guard needed so that function fails in a correct"
-     "way for faulty input i.e. function_clause"];
-base64_otp_6279(suite) ->
-    [];
+%% OTP-6279: Guard needed so that function fails in a correct
+%% way for faulty input, i.e. function_clause.
 base64_otp_6279(Config) when is_list(Config) ->
     {'EXIT',{function_clause, _}} = (catch base64:decode("dGVzda==a")),
     ok.
 %%-------------------------------------------------------------------------
-big(doc) ->
-    ["Encode and decode big binaries."];
-big(suite) ->
-    [];
+%% Encode and decode big binaries.
 big(Config) when is_list(Config) ->
     Big = make_big_binary(300000),
     B = base64:encode(Big),
@@ -148,10 +130,7 @@ big(Config) when is_list(Config) ->
     Big = base64:mime_decode(B),
     ok.
 %%-------------------------------------------------------------------------
-illegal(doc) ->
-    ["Make sure illegal characters are rejected when decoding."];
-illegal(suite) ->
-    [];
+%% Make sure illegal characters are rejected when decoding.
 illegal(Config) when is_list(Config) ->
     {'EXIT',{function_clause, _}} = (catch base64:decode("()")),
     ok.
@@ -159,10 +138,8 @@ illegal(Config) when is_list(Config) ->
 %% mime_decode and mime_decode_to_string have different implementations
 %% so test both with the same input separately. Both functions have
 %% the same implementation for binary/string arguments.
-mime_decode(doc) ->
-    ["Test base64:mime_decode/1."];
-mime_decode(suite) ->
-    [];
+%%
+%% Test base64:mime_decode/1.
 mime_decode(Config) when is_list(Config) ->
     %% Test correct padding
     <<"one">> = base64:mime_decode(<<"b25l">>),
@@ -202,10 +179,8 @@ mime_decode(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 %% Repeat of mime_decode() tests
-mime_decode_to_string(doc) ->
-    ["Test base64:mime_decode_to_string/1."];
-mime_decode_to_string(suite) ->
-    [];
+
+%% Test base64:mime_decode_to_string/1.
 mime_decode_to_string(Config) when is_list(Config) ->
     %% Test correct padding
     "one" = base64:mime_decode_to_string(<<"b25l">>),
@@ -340,7 +315,7 @@ interleaved_ws_roundtrip_1([], Base64List, Bin, List) ->
 random_byte_list(0, Acc) ->
     Acc;
 random_byte_list(N, Acc) -> 
-    random_byte_list(N-1, [random:uniform(255)|Acc]).
+    random_byte_list(N-1, [rand:uniform(255)|Acc]).
 
 make_big_binary(N) ->
     list_to_binary(mbb(N, [])).

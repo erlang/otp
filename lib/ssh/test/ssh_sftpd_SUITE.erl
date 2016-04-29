@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{minutes,3}}].
+    [{timetrap,{seconds,40}}].
 
 all() -> 
     [open_close_file, 

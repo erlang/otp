@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@
 -module(asn1_test_lib).
 
 -export([compile/3,compile_all/3,compile_erlang/3,
+	 rm_dirs/1,
 	 hex_to_bin/1,
 	 match_value/2,
 	 parallel/0,
 	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 run_dialyzer() ->
     false.
@@ -34,8 +35,8 @@ run_dialyzer() ->
 compile(File, Config, Options) -> compile_all([File], Config, Options).
 
 compile_all(Files, Config, Options) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     [compile_file(filename:join(DataDir, F), [{outdir, CaseDir},
 					      debug_info|Options])
          || F <- Files],
@@ -99,11 +100,23 @@ compile_file(File, Options) ->
     end.
 
 compile_erlang(Mod, Config, Options) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     M = list_to_atom(Mod),
     {ok, M} = compile:file(filename:join(DataDir, Mod),
                            [report,{i,CaseDir},{outdir,CaseDir}|Options]).
+
+rm_dirs([Dir|Dirs]) ->
+    {ok,L0} = file:list_dir(Dir),
+    L = [filename:join(Dir, F) || F <- L0],
+    IsDir = fun(F) -> filelib:is_dir(F) end,
+    {Subdirs,Files} = lists:partition(IsDir, L),
+    _ = [ok = file:delete(F) || F <- Files],
+    rm_dirs(Subdirs),
+    ok = file:del_dir(Dir),
+    rm_dirs(Dirs);
+rm_dirs([]) ->
+    ok.
 
 hex_to_bin(S) ->
     << <<(hex2num(C)):4>> || C <- S, C =/= $\s >>.

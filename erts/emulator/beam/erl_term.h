@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,33 +21,9 @@
 #ifndef __ERL_TERM_H
 #define __ERL_TERM_H
 
-#include "sys.h" /* defines HALFWORD_HEAP */
+#include "erl_mmap.h"
 
 typedef UWord Wterm;  /* Full word terms */
-
-#if HALFWORD_HEAP
-#  define HEAP_ON_C_STACK 0
-#  if HALFWORD_ASSERT
-#    ifdef ET_DEBUG
-#      undef ET_DEBUG
-#    endif
-#    define ET_DEBUG 1
-#  endif
-#  if 1
-#    define CHECK_POINTER_MASK 0xFFFFFFFF00000000UL
-#    define COMPRESS_POINTER(APointer) ((Eterm) (UWord) (APointer))
-#    define EXPAND_POINTER(AnEterm) ((UWord) (AnEterm))
-#  else
-#    define CHECK_POINTER_MASK 0x0UL
-#    define COMPRESS_POINTER(AnUint) (AnUint)
-#    define EXPAND_POINTER(APointer) (APointer)
-#  endif
-#else
-#  define HEAP_ON_C_STACK 1
-#  define CHECK_POINTER_MASK 0x0UL
-#  define COMPRESS_POINTER(AnUint) (AnUint)
-#  define EXPAND_POINTER(APointer) (APointer)
-#endif
 
 struct erl_node_; /* Declared in erl_node_tables.h */
 
@@ -73,6 +49,24 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _ET_DECLARE_CHECKED(TF,F,TX)
 #define _ET_APPLY(F,X)	_unchecked_##F(X)
 #endif
+
+#if defined(ARCH_64)
+#  define TAG_PTR_MASK__	0x7
+#  if !defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+#    ifdef HIPE
+#      error Hipe on 64-bit needs a real mmap as it does not support the literal tag
+#    endif
+#    define TAG_LITERAL_PTR	0x4
+#  else
+#    undef TAG_LITERAL_PTR
+#  endif
+#elif defined(ARCH_32)
+#  define TAG_PTR_MASK__	0x3
+#  undef TAG_LITERAL_PTR
+#else
+#  error Not supported arch
+#endif
+
 
 #define _TAG_PRIMARY_SIZE	2
 #define _TAG_PRIMARY_MASK	0x3
@@ -190,15 +184,13 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 
 /* boxed object access methods */
-#if HALFWORD_HEAP
-#define _is_taggable_pointer(x)	 (((UWord)(x) & (CHECK_POINTER_MASK | 0x3)) == 0)
-#define _boxed_precond(x)        (is_boxed(x))
-#else
-#define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
+
+#define _is_taggable_pointer(x)	 (((Uint)(x) & TAG_PTR_MASK__) == 0)
+
 #define  _boxed_precond(x)       (is_boxed(x))
-#endif
-#define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
-#define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
+
+#define _is_aligned(x)		(((Uint)(x) & TAG_PTR_MASK__) == 0)
+#define _unchecked_make_boxed(x) ((Uint)(x) + TAG_PRIMARY_BOXED)
 _ET_DECLARE_CHECKED(Eterm,make_boxed,const Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
@@ -209,12 +201,16 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #else
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
-#define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
+#ifdef TAG_LITERAL_PTR
+#define _unchecked_boxed_val(x) _unchecked_ptr_val(x)
+#else
+#define _unchecked_boxed_val(x) ((Eterm*) ((x) - TAG_PRIMARY_BOXED))
+#endif
 _ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
+#define _unchecked_make_list(x)	((Uint)(x) + TAG_PRIMARY_LIST)
 _ET_DECLARE_CHECKED(Eterm,make_list,const Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
@@ -226,12 +222,12 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_list(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_LIST)
 #define is_not_list(x)		(!is_list((x)))
 #endif
-#if HALFWORD_HEAP
 #define _list_precond(x)        (is_list(x))
+#ifdef TAG_LITERAL_PTR
+#define _unchecked_list_val(x) _unchecked_ptr_val(x)
 #else
-#define _list_precond(x)       (is_list(x))
+#define _unchecked_list_val(x) ((Eterm*) ((x) - TAG_PRIMARY_LIST))
 #endif
-#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
 _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
@@ -242,15 +238,22 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define CDR(x)  ((x)[1])
 
 /* generic tagged pointer (boxed or list) access methods */
-#define _unchecked_ptr_val(x)	((Eterm*) EXPAND_POINTER((x) & ~((Uint) 0x3)))
+#define _unchecked_ptr_val(x)	((Eterm*) ((x) & ~((Uint) TAG_PTR_MASK__)))
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
 #define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
 #define byte_offset_ptr(x,offs) _unchecked_byte_offset_ptr(x,offs)  /*XXX*/
 
+#ifdef TAG_LITERAL_PTR
+#define _unchecked_is_not_literal_ptr(x) (!((x) & TAG_LITERAL_PTR))
+#define is_not_literal_ptr(x) _unchecked_is_not_literal_ptr((x)) /*XXX*/
+#define is_literal_ptr(x) (!is_not_literal_ptr((x))) /*XXX*/
+#endif
+
+
 /* fixnum ("small") access methods */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define SMALL_BITS	(64-4)
 #define SMALL_DIGITS	(17)
 #else
@@ -396,11 +399,7 @@ _ET_DECLARE_CHECKED(Eterm*,fun_val,Wterm)
 _ET_DECLARE_CHECKED(Eterm*,export_val,Wterm)
 #define export_val(x)	_ET_APPLY(export_val,(x))
 #define is_export_header(x)	((x) == HEADER_EXPORT)
-#if HALFWORD_HEAP
-#define HEADER_EXPORT   _make_header(2,_TAG_HEADER_EXPORT)
-#else
 #define HEADER_EXPORT   _make_header(1,_TAG_HEADER_EXPORT)
-#endif
 
 /* bignum access methods */
 #define make_pos_bignum_header(sz)	_make_header((sz),_TAG_HEADER_POS_BIG)
@@ -424,7 +423,7 @@ _ET_DECLARE_CHECKED(Eterm*,big_val,Wterm)
 #define big_val(x)		_ET_APPLY(big_val,(x))
 
 /* flonum ("float") access methods */
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #define HEADER_FLONUM   _make_header(1,_TAG_HEADER_FLOAT)
 #else
 #define HEADER_FLONUM	_make_header(2,_TAG_HEADER_FLOAT)
@@ -445,12 +444,12 @@ typedef union float_def
     byte   fb[sizeof(ieee754_8)];
     Uint16 fs[sizeof(ieee754_8) / sizeof(Uint16)];
     Uint32 fw[sizeof(ieee754_8) / sizeof(Uint32)];
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     Uint   fdw;
 #endif
 } FloatDef;
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
 #define FLOAT_VAL_GET_DOUBLE(fval, f) (f).fdw = *((fval)+1)
 
@@ -559,14 +558,6 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 
 #define _GETBITS(X,Pos,Size) (((X) >> (Pos)) & ~(~((Uint) 0) << (Size)))
 
-/*
- * Creation in node specific data (pids, ports, refs)
- */
-
-#define _CRE_SIZE  		2
-
-/* MAX value for the creation field in pid, port and reference */
-#define MAX_CREATION	(1 << _CRE_SIZE)
 
 /*
  *  PID layout (internal pids):
@@ -580,7 +571,7 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
  *
  *  n : number
  *
- *  Old pid layout:
+ *  Very old pid layout:
  *
  *   |3 3 2 2 2 2 2 2|2 2 2 2 1 1 1 1|1 1 1 1 1 1    |               |
  *   |1 0 9 8 7 6 5 4|3 2 1 0 9 8 7 6|5 4 3 2 1 0 9 8|7 6 5 4 3 2 1 0|
@@ -727,7 +718,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_port_node,Eterm)
 #define ERTS_MAX_REF_NUMBERS	3
 #define ERTS_REF_NUMBERS	ERTS_MAX_REF_NUMBERS
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 #  define ERTS_REF_WORDS	(ERTS_REF_NUMBERS/2 + 1)
 #  define ERTS_REF_32BIT_WORDS  (ERTS_REF_NUMBERS+1)
 #else
@@ -749,7 +740,7 @@ typedef struct {
 #define make_ref_thing_header(DW) \
   _make_header((DW)+REF_THING_HEAD_SIZE-1,_TAG_HEADER_REF)
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
 /*
  * Ref layout on a 64-bit little endian machine:
@@ -1009,27 +1000,20 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #define MAP_HEADER_VAL(Hdr)   (((Hdr) >> (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ + MAP_HEADER_ARITY_SZ)) & (0xffff))
 
 #define make_hashmap(x)		      make_boxed((Eterm*)(x))
-#define make_hashmap_rel 	      make_boxed_rel
 #define is_hashmap(x)		      (is_boxed((x)) && is_hashmap_header(*boxed_val((x))))
 #define is_not_hashmap(x)             (!is_hashmap(x))
-#define is_hashmap_rel(RTERM,BASE)    is_hashmap(rterm2wterm(RTERM,BASE))
 #define is_hashmap_header(x)	      (((x) & (_HEADER_MAP_HASHMAP_HEAD_MASK)) == HAMT_SUBTAG_HEAD_ARRAY)
 #define hashmap_val(x)		      _unchecked_boxed_val((x))
-#define hashmap_val_rel(RTERM, BASE)  hashmap_val(rterm2wterm(RTERM, BASE))
 
 #define make_flatmap(x)               make_boxed((Eterm*)(x))
-#define make_flatmap_rel(x, BASE)     make_boxed_rel((Eterm*)(x),(BASE))
 #define is_flatmap(x)                 (is_boxed((x)) && is_flatmap_header(*boxed_val((x))))
-#define is_flatmap_rel(RTERM,BASE)    is_flatmap(rterm2wterm(RTERM,BASE))
 #define is_not_flatmap(x)             (!is_flatmap((x)))
 #define is_flatmap_header(x)          (((x) & (_HEADER_MAP_SUBTAG_MASK)) == HAMT_SUBTAG_HEAD_FLATMAP)
 #define flatmap_val(x)                (_unchecked_boxed_val((x)))
-#define flatmap_val_rel(RTERM, BASE)  flatmap_val(rterm2wterm(RTERM, BASE))
 
 #define is_map_header(x)       (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_MAP)
 #define is_map(x)              (is_boxed((x)) && is_map_header(*boxed_val(x)))
 #define is_not_map(x)          (!is_map(x))
-#define is_map_rel(RTERM,BASE) is_map(rterm2wterm(RTERM,BASE))
 
 /* number tests */
 
@@ -1048,14 +1032,14 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #error "fix yer arch, like"
 #endif
 
-#define _unchecked_make_cp(x)	((Eterm) COMPRESS_POINTER(x))
+#define _unchecked_make_cp(x)	((Eterm)(x))
 _ET_DECLARE_CHECKED(Eterm,make_cp,BeamInstr*)
 #define make_cp(x)	_ET_APPLY(make_cp,(x))
 
 #define is_not_CP(x)	((x) & _CPMASK)
 #define is_CP(x)	(!is_not_CP(x))
 
-#define _unchecked_cp_val(x)	((BeamInstr*) EXPAND_POINTER(x))
+#define _unchecked_cp_val(x)	((BeamInstr*) (x))
 _ET_DECLARE_CHECKED(BeamInstr*,cp_val,Eterm)
 #define cp_val(x)	_ET_APPLY(cp_val,(x))
 
@@ -1071,44 +1055,40 @@ _ET_DECLARE_CHECKED(Uint,catch_val,Eterm)
 /*
  * Overloaded tags.
  *
- * SMALL = 15
- * ATOM/NIL=7
+ * In the loader, we want to tag a term in a way so that it can
+ * be any literal (atom/integer/float/tuple/list/binary) or a
+ * register.
  *
- * Note that the two least significant bits in SMALL/ATOM/NIL always are 3;
- * thus, we can distinguish register from literals by looking at only these
- * two bits.
+ * We can achive that by overloading the PID and PORT tags to
+ * mean X and Y registers. That works because there are no
+ * pid or port literals.
  */
 
-#define X_REG_DEF	0
-#define Y_REG_DEF	1
-#define R_REG_DEF	2
+#define _LOADER_TAG_XREG _TAG_IMMED1_PID
+#define _LOADER_TAG_YREG _TAG_IMMED1_PORT
+#define _LOADER_TAG_SIZE _TAG_IMMED1_SIZE
+#define _LOADER_MASK _TAG_IMMED1_MASK
 
-#define beam_reg_tag(x)	((x) & 3)
+#define LOADER_X_REG _LOADER_TAG_XREG
+#define LOADER_Y_REG _LOADER_TAG_YREG
 
-#define make_rreg()	R_REG_DEF
-#define make_xreg(ix)	(((ix) * sizeof(Eterm)) | X_REG_DEF)
-#define make_yreg(ix)	(((ix) * sizeof(Eterm)) | Y_REG_DEF)
+#define make_loader_x_reg(R) (((R) << _LOADER_TAG_SIZE) | _LOADER_TAG_XREG)
+#define make_loader_y_reg(R) (((R) << _LOADER_TAG_SIZE) | _LOADER_TAG_YREG)
 
-#define _is_xreg(x)	(beam_reg_tag(x) == X_REG_DEF)
-#define _is_yreg(x)	(beam_reg_tag(x) == Y_REG_DEF)
+#define loader_reg_index(R) ((R) >> _LOADER_TAG_SIZE)
 
-#define _unchecked_x_reg_offset(R)	((R) - X_REG_DEF)
-_ET_DECLARE_CHECKED(Uint,x_reg_offset,Uint)
-#define x_reg_offset(R)	_ET_APPLY(x_reg_offset,(R))
+#define loader_tag(T) ((T) & _LOADER_MASK)
 
-#define _unchecked_y_reg_offset(R)	((R) - Y_REG_DEF)
-_ET_DECLARE_CHECKED(Uint,y_reg_offset,Uint)
-#define y_reg_offset(R)	_ET_APPLY(y_reg_offset,(R))
+#define _is_loader_x_reg(x) (loader_tag(x) == _LOADER_TAG_XREG)
+#define _is_loader_y_reg(x) (loader_tag(x) == _LOADER_TAG_YREG)
 
-#define reg_index(R) ((R) / sizeof(Eterm))
+#define _unchecked_loader_x_reg_index(R) ((R) >> _LOADER_TAG_SIZE)
+_ET_DECLARE_CHECKED(Uint,loader_x_reg_index,Uint)
+#define loader_x_reg_index(R) _ET_APPLY(loader_x_reg_index,(R))
 
-#define _unchecked_x_reg_index(R)	((R) >> 2)
-_ET_DECLARE_CHECKED(Uint,x_reg_index,Uint)
-#define x_reg_index(R)	_ET_APPLY(x_reg_index,(R))
-
-#define _unchecked_y_reg_index(R)	((R) >> 2)
-_ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
-#define y_reg_index(R)	_ET_APPLY(y_reg_index,(R))
+#define _unchecked_loader_y_reg_index(R)  ((R) >> _LOADER_TAG_SIZE)
+_ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
+#define loader_y_reg_index(R) _ET_APPLY(loader_y_reg_index,(R))
 
 /*
  * Backwards compatibility definitions:
@@ -1141,11 +1121,11 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define FIRST_VACANT_TAG_DEF    0x12
 
 #if ET_DEBUG
-extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);
-#define tag_val_def(x)	tag_val_def_debug((x),__FILE__,__LINE__)
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm, const char*, unsigned);
 #else
-extern unsigned tag_val_def(Wterm);
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm);
 #endif
+
 #define not_eq_tags(X,Y)	(tag_val_def((X)) ^ tag_val_def((Y)))
 
 #define NUMBER_CODE(x,y)	((tag_val_def(x) << 5) | tag_val_def(y))
@@ -1160,81 +1140,83 @@ extern unsigned tag_val_def(Wterm);
 #define FLOAT_BIG 	_NUMBER_CODE(FLOAT_DEF,BIG_DEF)
 #define FLOAT_FLOAT	_NUMBER_CODE(FLOAT_DEF,FLOAT_DEF)
 
-#if HALFWORD_HEAP
-#define ptr2rel(PTR,BASE) ((Eterm*)((char*)(PTR) - (char*)(BASE)))
-#define rterm2wterm(REL,BASE) ((Wterm)(REL) + (Wterm)(BASE))
+#define is_same(A,B) ((A)==(B))
 
-#else /* HALFWORD_HEAP */
+void erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz);
 
-#define ptr2rel(PTR,BASE) (PTR)
-#define rterm2wterm(REL,BASE) (REL)
-
-#endif /* !HALFWORD_HEAP */
-
-#define make_list_rel(PTR, BASE) make_list(ptr2rel(PTR,BASE))
-#define make_boxed_rel(PTR, BASE) make_boxed(ptr2rel(PTR,BASE))
-#define make_fun_rel make_boxed_rel
-#define make_binary_rel make_boxed_rel
-#define make_tuple_rel make_boxed_rel
-#define make_external_rel make_boxed_rel
-#define make_internal_ref_rel make_boxed_rel
-#define make_big_rel make_boxed_rel
-
-#define binary_val_rel(RTERM, BASE) binary_val(rterm2wterm(RTERM, BASE))
-#define list_val_rel(RTERM, BASE) list_val(rterm2wterm(RTERM, BASE))
-#define boxed_val_rel(RTERM, BASE) boxed_val(rterm2wterm(RTERM, BASE))
-#define tuple_val_rel(RTERM, BASE) tuple_val(rterm2wterm(RTERM, BASE))
-#define export_val_rel(RTERM, BASE) export_val(rterm2wterm(RTERM, BASE))
-#define fun_val_rel(RTERM, BASE) fun_val(rterm2wterm(RTERM, BASE))
-#define big_val_rel(RTERM,BASE)	big_val(rterm2wterm(RTERM,BASE))
-#define float_val_rel(RTERM,BASE) float_val(rterm2wterm(RTERM,BASE))
-#define internal_ref_val_rel(RTERM,BASE) internal_ref_val(rterm2wterm(RTERM,BASE))
-
-#define external_thing_ptr_rel(RTERM, BASE) external_thing_ptr(rterm2wterm(RTERM, BASE))
-#define external_data_words_rel(RTERM,BASE) external_data_words(rterm2wterm(RTERM,BASE))
-
-#define external_port_node_rel(RTERM,BASE) external_port_node(rterm2wterm(RTERM,BASE))
-#define external_port_data_rel(RTERM,BASE) external_port_data(rterm2wterm(RTERM,BASE))
-
-#define is_external_pid_rel(RTERM,BASE) is_external_pid(rterm2wterm(RTERM,BASE))
-#define external_pid_node_rel(RTERM,BASE) external_pid_node(rterm2wterm(RTERM,BASE))
-#define external_pid_data_rel(RTERM,BASE) external_pid_data(rterm2wterm(RTERM,BASE))
-
-#define is_binary_rel(RTERM,BASE) is_binary(rterm2wterm(RTERM,BASE))
-#define is_float_rel(RTERM,BASE) is_float(rterm2wterm(RTERM,BASE))
-#define is_fun_rel(RTERM,BASE) is_fun(rterm2wterm(RTERM,BASE))
-#define is_big_rel(RTERM,BASE) is_big(rterm2wterm(RTERM,BASE))
-#define is_export_rel(RTERM,BASE) is_export(rterm2wterm(RTERM,BASE))
-#define is_tuple_rel(RTERM,BASE) is_tuple(rterm2wterm(RTERM,BASE))
-
-#define GET_DOUBLE_REL(RTERM, f, BASE) GET_DOUBLE(rterm2wterm(RTERM,BASE), f)
-
-#define ref_thing_ptr_rel(RTERM,BASE) ref_thing_ptr(rterm2wterm(RTERM,BASE))
-#define is_internal_ref_rel(RTERM,BASE) is_internal_ref(rterm2wterm(RTERM,BASE))
-#define is_external_rel(RTERM,BASE) is_external(rterm2wterm(RTERM,BASE))
-#define is_external_port_rel(RTERM,BASE) is_external_port(rterm2wterm(RTERM,BASE))
-#define is_external_ref_rel(RTERM,BASE) is_external_ref(rterm2wterm(RTERM,BASE))
-
-#define external_node_rel(RTERM,BASE) external_node(rterm2wterm(RTERM,BASE))
-
-
-#if HALFWORD_HEAP
-ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
+#if ET_DEBUG
+#define ET_ASSERT(expr,file,line) \
+do { \
+    if (!(expr)) \
+	erl_assert_error("TYPE ASSERTION: " #expr, __FUNCTION__, file, line); \
+} while(0)
+#else
+#define ET_ASSERT(expr,file,line)	do { } while(0)
+#endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
-{
-    /* If bases differ, assume a and b are on different "heaps",
-       ie can only be same if immed */
-    ASSERT(a_base == b_base || is_immed(a) || is_immed(b)
-	   || rterm2wterm(a,a_base) != rterm2wterm(b,b_base));
 
-    return a == b && (a_base == b_base || is_immed(a));
+#if ET_DEBUG
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm x, const char *file, unsigned line)
+#else
+ERTS_GLB_INLINE unsigned tag_val_def(Wterm x)
+#define file __FILE__
+#define line __LINE__
+#endif
+{
+    static char *msg = "tag_val_def error";
+
+    switch (x & _TAG_PRIMARY_MASK) {
+    case TAG_PRIMARY_LIST:
+	ET_ASSERT(_list_precond(x),file,line);
+	return LIST_DEF;
+      case TAG_PRIMARY_BOXED: {
+	  Eterm hdr = *boxed_val(x);
+	  ET_ASSERT(is_header(hdr),file,line);
+	  switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):	return TUPLE_DEF;
+	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
+	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
+	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):	return REF_DEF;
+	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):	return FLOAT_DEF;
+	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):     return EXPORT_DEF;
+	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):	return FUN_DEF;
+	    case (_TAG_HEADER_EXTERNAL_PID >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PID_DEF;
+	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):	return EXTERNAL_PORT_DEF;
+	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):	return EXTERNAL_REF_DEF;
+	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):	return MAP_DEF;
+	    case (_TAG_HEADER_REFC_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
+	    case (_TAG_HEADER_HEAP_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
+	    case (_TAG_HEADER_SUB_BIN >> _TAG_PRIMARY_SIZE):	return BINARY_DEF;
+	    case (_TAG_HEADER_BIN_MATCHSTATE >> _TAG_PRIMARY_SIZE): return MATCHSTATE_DEF;
+	  }
+
+	  break;
+      }
+      case TAG_PRIMARY_IMMED1: {
+	  switch ((x & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
+	    case (_TAG_IMMED1_PID >> _TAG_PRIMARY_SIZE):	return PID_DEF;
+	    case (_TAG_IMMED1_PORT >> _TAG_PRIMARY_SIZE):	return PORT_DEF;
+	    case (_TAG_IMMED1_IMMED2 >> _TAG_PRIMARY_SIZE): {
+		switch ((x & _TAG_IMMED2_MASK) >> _TAG_IMMED1_SIZE) {
+		  case (_TAG_IMMED2_ATOM >> _TAG_IMMED1_SIZE):	return ATOM_DEF;
+		  case (_TAG_IMMED2_NIL >> _TAG_IMMED1_SIZE):	return NIL_DEF;
+		}
+		break;
+	    }
+	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):	return SMALL_DEF;
+	  }
+	  break;
+      }
+    }
+    erl_assert_error(msg, __FUNCTION__, file, line);
+#undef file
+#undef line
 }
 #endif
 
-#else /* !HALFWORD_HEAP */
-#define is_same(A,A_BASE,B,B_BASE) ((A)==(B))
+#if ET_DEBUG
+#define tag_val_def(X) tag_val_def(X, __FILE__, __LINE__)
 #endif
 
 #endif	/* __ERL_TERM_H */

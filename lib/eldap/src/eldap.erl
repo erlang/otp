@@ -272,7 +272,7 @@ modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup, Controls)
 
 %%% Sanity checks !
 
-bool_p(Bool) when Bool==true;Bool==false -> Bool.
+bool_p(Bool) when is_boolean(Bool) -> Bool.
 
 optional([])    -> asn1_NOVALUE;
 optional(Value) -> Value.
@@ -1101,10 +1101,13 @@ log(_, _, _, _) ->
 %%% Misc. routines
 %%% --------------------------------------------------------------------
 
-send(To,Msg) -> To ! {self(),Msg}.
+send(To,Msg) ->
+    To ! {self(), Msg},
+    ok.
+
 recv(From)   ->
     receive
-	{From,Msg} -> Msg;
+	{From, Msg} -> Msg;
 	{'EXIT', From, Reason} ->
 	    {error, {internal_error, Reason}}
     end.

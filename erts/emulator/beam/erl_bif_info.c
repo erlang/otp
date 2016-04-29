@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #  include "config.h"
 #endif
 
+#define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
@@ -64,6 +65,7 @@ static Export* alloc_sizes_trap = NULL;
 static Export* gather_io_bytes_trap = NULL;
 
 static Export *gather_sched_wall_time_res_trap;
+static Export *gather_msacc_res_trap;
 static Export *gather_gc_info_res_trap;
 static Export *gather_system_check_res_trap;
 
@@ -74,9 +76,6 @@ static char otp_version[] = ERLANG_OTP_VERSION;
 static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     "%s"
 				     " [erts-" ERLANG_VERSION "]"
-#if !HEAP_ON_C_STACK && !HALFWORD_HEAP
-				     " [no-c-stack-objects]"
-#endif
 #ifndef OTP_RELEASE
 #ifdef ERLANG_GIT_VERSION
 				     " [source-" ERLANG_GIT_VERSION "]"
@@ -85,11 +84,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #endif
 #endif	
 #ifdef ARCH_64
-#if HALFWORD_HEAP
-				     " [64-bit halfword]"
-#else
 				     " [64-bit]"
-#endif
 #endif
 #ifdef ERTS_SMP
 				     " [smp:%beu:%beu]"
@@ -132,11 +127,17 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef ERTS_FRMPTR
 				     " [frame-pointer]"
 #endif
+#ifdef USE_LTTNG
+				     " [lttng]"
+#endif
 #ifdef USE_DTRACE
 				     " [dtrace]"
 #endif
 #ifdef USE_SYSTEMTAP
 				     " [systemtap]"
+#endif
+#ifdef SHCOPY
+				     " [sharing-preserving]"
 #endif
 				     "\n");
 
@@ -323,13 +324,11 @@ erts_print_system_version(int to, void *arg, Process *c_p)
     char *ov = otp_version;
 #ifdef ERTS_SMP
     Uint total, online, active;
-#ifdef ERTS_DIRTY_SCHEDULERS
     Uint dirty_cpu, dirty_cpu_onln, dirty_io;
 
-    (void) erts_schedulers_state(&total, &online, &active, &dirty_cpu, &dirty_cpu_onln, &dirty_io, 0);
-#else
-    (void) erts_schedulers_state(&total, &online, &active, NULL, NULL, NULL, 0);
-#endif
+    erts_schedulers_state(&total, &online, &active,
+			  &dirty_cpu, &dirty_cpu_onln, NULL,
+			  &dirty_io, NULL);
 #endif
     for (i = 0; i < sizeof(otp_version)-4; i++) {
 	if (ov[i] == '-' && ov[i+1] == 'r' && ov[i+2] == 'c')
@@ -597,6 +596,8 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
+    am_message_queue_data,
+    am_garbage_collection_info
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -644,6 +645,8 @@ pi_arg2ix(Eterm arg)
     case am_min_bin_vheap_size:			return 28;
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
+    case am_message_queue_data:			return 31;
+    case am_garbage_collection_info:		return 32;
     default:					return -1;
     }
 }
@@ -672,18 +675,12 @@ static Eterm pi_1_keys[] = {
 #define ERTS_PI_1_NO_OF_KEYS (sizeof(pi_1_keys)/sizeof(Eterm))
 
 static Eterm pi_1_keys_list;
-#if HEAP_ON_C_STACK
 static Eterm pi_1_keys_list_heap[2*ERTS_PI_1_NO_OF_KEYS];
-#endif
 
 static void
 process_info_init(void)
 {
-#if HEAP_ON_C_STACK
     Eterm *hp = &pi_1_keys_list_heap[0];
-#else
-    Eterm *hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM,sizeof(Eterm)*2*ERTS_PI_1_NO_OF_KEYS);
-#endif
     int i;
 
     pi_1_keys_list = NIL;
@@ -732,9 +729,10 @@ pi_pid2proc(Process *c_p, Eterm pid, ErtsProcLocks info_locks)
 
 
 
-BIF_RETTYPE
+static BIF_RETTYPE
 process_info_aux(Process *BIF_P,
 		 Process *rp,
+		 ErtsProcLocks rp_locks,
 		 Eterm rpid,
 		 Eterm item,
 		 int always_wrap);
@@ -825,10 +823,32 @@ process_info_list(Process *c_p, Eterm pid, Eterm list, int always_wrap,
 	*fail_type = ERTS_PI_FAIL_TYPE_AWAIT_EXIT;
 	goto done;
     }
-    else if (!(locks & ERTS_PROC_LOCK_STATUS)) {
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+    else {
+	ErtsProcLocks unlock_locks = 0;
+
+	if (c_p == rp)
+	    locks |= ERTS_PROC_LOCK_MAIN;
+
+	if (!(locks & ERTS_PROC_LOCK_STATUS))
+	    unlock_locks |= ERTS_PROC_LOCK_STATUS;
+
+	if (locks & ERTS_PROC_LOCK_MSGQ) {
+	    /*
+	     * Move in queue into private queue and
+	     * release msgq lock, enabling others to
+	     * send messages to the process while it
+	     * is being inspected...
+	     */
+	    ASSERT(locks & ERTS_PROC_LOCK_MAIN);
+	    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
+	    locks &= ~ERTS_PROC_LOCK_MSGQ;
+	    unlock_locks |= ERTS_PROC_LOCK_MSGQ;
+	}
+
+	if (unlock_locks)
+	    erts_smp_proc_unlock(rp, unlock_locks);
+
     }
-	
 
     /*
      * We always handle 'messages' first if it should be part
@@ -840,7 +860,7 @@ process_info_list(Process *c_p, Eterm pid, Eterm list, int always_wrap,
     if (want_messages) {
 	ix = pi_arg2ix(am_messages);
 	ASSERT(part_res[ix] == THE_NON_VALUE);
-	part_res[ix] = process_info_aux(c_p, rp, pid, am_messages, always_wrap);
+	part_res[ix] = process_info_aux(c_p, rp, locks, pid, am_messages, always_wrap);
 	ASSERT(part_res[ix] != THE_NON_VALUE);
     }
 
@@ -848,7 +868,7 @@ process_info_list(Process *c_p, Eterm pid, Eterm list, int always_wrap,
 	ix = res_elem_ix[res_elem_ix_ix];
 	if (part_res[ix] == THE_NON_VALUE) {
 	    arg = pi_ix2arg(ix);
-	    part_res[ix] = process_info_aux(c_p, rp, pid, arg, always_wrap);
+	    part_res[ix] = process_info_aux(c_p, rp, locks, pid, arg, always_wrap);
 	    ASSERT(part_res[ix] != THE_NON_VALUE);
 	}
     }
@@ -979,9 +999,31 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
 	ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_undefined);
     }
     else {
+	ErtsProcLocks unlock_locks = 0;
+
+	if (BIF_P == rp)
+	    info_locks |= ERTS_PROC_LOCK_MAIN;
+
 	if (!(info_locks & ERTS_PROC_LOCK_STATUS))
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-	res = process_info_aux(BIF_P, rp, pid, BIF_ARG_2, 0);
+	    unlock_locks |= ERTS_PROC_LOCK_STATUS;
+
+	if (info_locks & ERTS_PROC_LOCK_MSGQ) {
+	    /*
+	     * Move in queue into private queue and
+	     * release msgq lock, enabling others to
+	     * send messages to the process while it
+	     * is being inspected...
+	     */
+	    ASSERT(info_locks & ERTS_PROC_LOCK_MAIN);
+	    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
+	    info_locks &= ~ERTS_PROC_LOCK_MSGQ;
+	    unlock_locks |= ERTS_PROC_LOCK_MSGQ;
+	}
+
+	if (unlock_locks)
+	    erts_smp_proc_unlock(rp, unlock_locks);
+
+	res = process_info_aux(BIF_P, rp, info_locks, pid, BIF_ARG_2, 0);
     }
     ASSERT(is_value(res));
 
@@ -999,6 +1041,7 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
 Eterm
 process_info_aux(Process *BIF_P,
 		 Process *rp,
+		 ErtsProcLocks rp_locks,
 		 Eterm rpid,
 		 Eterm item,
 		 int always_wrap)
@@ -1070,171 +1113,55 @@ process_info_aux(Process *BIF_P,
 	break;
 
     case am_messages: {
-	ErlMessage* mp;
-	int n;
 
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
-	n = rp->msg.len;
-
-	if (n == 0 || ERTS_TRACE_FLAGS(rp) & F_SENSITIVE) {
+	if (rp->msg.len == 0 || ERTS_TRACE_FLAGS(rp) & F_SENSITIVE) {
 	    hp = HAlloc(BIF_P, 3);
 	} else {
-	    int remove_bad_messages = 0;
-	    struct {
-		Uint copy_struct_size;
-		ErlMessage* msgp;
-	    } *mq = erts_alloc(ERTS_ALC_T_TMP, n*sizeof(*mq));
-	    Sint i = 0;
-	    Uint heap_need = 3;
+	    ErtsMessageInfo *mip;
+	    Sint i;
+	    Uint heap_need;
+#ifdef DEBUG
 	    Eterm *hp_end;
+#endif
 
-	    for (mp = rp->msg.first; mp; mp = mp->next) {
-		heap_need += 2;
-		mq[i].msgp = mp;
-		if (rp != BIF_P) {
-		    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-		    if (is_value(msg)) {
-			mq[i].copy_struct_size = (is_immed(msg)? 0 :
-						  size_object(msg));
-		    }
-		    else if (mq[i].msgp->data.attached) {
-			mq[i].copy_struct_size
-			    = erts_msg_attached_data_size(mq[i].msgp);
-		    }
-		    else {
-			/* Bad distribution message; ignore */
-			remove_bad_messages = 1;
-			mq[i].copy_struct_size = 0;
-		    }
-		    heap_need += mq[i].copy_struct_size;
-		}
-		else {
-		    mq[i].copy_struct_size = mp->data.attached ?
-                        erts_msg_attached_data_size(mp) : 0;
-		}
-		i++;
+	    mip = erts_alloc(ERTS_ALC_T_TMP,
+			     rp->msg.len*sizeof(ErtsMessageInfo));
+
+	    /*
+	     * Note that message queue may shrink when calling
+	     * erts_prep_msgq_for_inspection() since it removes
+	     * corrupt distribution messages.
+	     */
+	    heap_need = erts_prep_msgq_for_inspection(BIF_P, rp, rp_locks, mip);
+	    heap_need += 3; /* top 2-tuple */
+	    heap_need += rp->msg.len*2; /* Cons cells */
+
+	    hp = HAlloc(BIF_P, heap_need); /* heap_need is exact */
+#ifdef DEBUG
+	    hp_end = hp + heap_need;
+#endif
+
+	    /* Build list of messages... */
+	    for (i = rp->msg.len - 1, res = NIL; i >= 0; i--) {
+		Eterm msg = ERL_MESSAGE_TERM(mip[i].msgp);
+		Uint sz = mip[i].size;
+
+		if (sz != 0)
+		    msg = copy_struct(msg, sz, &hp, &BIF_P->off_heap);
+
+		res = CONS(hp, msg, res);
+		hp += 2;
 	    }
 
-            if (rp != BIF_P) {
-                hp = HAlloc(BIF_P, heap_need);
-                hp_end = hp + heap_need;
-                ASSERT(i == n);
-                for (i--; i >= 0; i--) {
-                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-		    if (is_value(msg)) {
-			if (mq[i].copy_struct_size)
-			    msg = copy_struct(msg,
-					      mq[i].copy_struct_size,
-					      &hp,
-					      &MSO(BIF_P));
-		    }
-		    else if (mq[i].msgp->data.attached) {
-			ErlHeapFragment *hfp;
-			/*
-			 * Decode it into a message buffer and attach it
-			 * to the message instead of the attached external
-			 * term.
-			 *
-			 * Note that we may not pass a process pointer
-			 * to erts_msg_distext2heap(), since it would then
-			 * try to alter locks on that process.
-			 */
-			msg = erts_msg_distext2heap(
-			    NULL, NULL, &hfp, &ERL_MESSAGE_TOKEN(mq[i].msgp),
-			    mq[i].msgp->data.dist_ext);
+	    ASSERT(hp_end == hp + 3);
 
-			ERL_MESSAGE_TERM(mq[i].msgp) = msg;
-			mq[i].msgp->data.heap_frag = hfp;
-
-			if (is_non_value(msg)) {
-			    ASSERT(!mq[i].msgp->data.heap_frag);
-			    /* Bad distribution message; ignore */
-			    remove_bad_messages = 1;
-			    continue;
-			}
-			else {
-			    /* Make our copy of the message */
-			    ASSERT(size_object(msg) == erts_used_frag_sz(hfp));
-			    msg = copy_struct(msg,
-					      erts_used_frag_sz(hfp),
-					      &hp,
-					      &MSO(BIF_P));
-			}
-		    }
-		    else {
-			/* Bad distribution message; ignore */
-			remove_bad_messages = 1;
-			continue;
-		    }
-                    res = CONS(hp, msg, res);
-                    hp += 2;
-		}
-                HRelease(BIF_P, hp_end, hp+3);
-            }
-	    else {
-                for (i--; i >= 0; i--) {
-                    ErtsHeapFactory factory;
-                    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
-
-                    erts_factory_proc_prealloc_init(&factory, BIF_P,
-                                                    mq[i].copy_struct_size+2);
-		    if (mq[i].msgp->data.attached) {
-			/* Decode it on the heap */
-			erts_move_msg_attached_data_to_heap(&factory,
-							    mq[i].msgp);
-			msg = ERL_MESSAGE_TERM(mq[i].msgp);
-			ASSERT(!mq[i].msgp->data.attached);
-                    }
-                    if (is_value(msg)) {
-                        hp = erts_produce_heap(&factory, 2, 0);
-                        res = CONS(hp, msg, res);
-                    }
-                    else {
-                        /* Bad distribution message; ignore */
-                        remove_bad_messages = 1;
-                        continue;
-                    }
-                    erts_factory_close(&factory);
-		}
-                hp = HAlloc(BIF_P, 3);
-	    }
-	    erts_free(ERTS_ALC_T_TMP, mq);
-	    if (remove_bad_messages) {
-		ErlMessage **mpp;
-		/*
-		 * We need to remove bad distribution messages from
-		 * the queue, so that the value returned for
-		 * 'message_queue_len' is consistent with the value
-		 * returned for 'messages'.
-		 */
-		mpp = &rp->msg.first;
-		mp = rp->msg.first;
-		while (mp) {
-		    if (is_value(ERL_MESSAGE_TERM(mp))) {
-			mpp = &mp->next;
-			mp = mp->next;
-		    }
-		    else {
-			ErlMessage* bad_mp = mp;
-			ASSERT(!mp->data.attached);
-			if (rp->msg.save == &mp->next)
-			    rp->msg.save = mpp;
-			if (rp->msg.last == &mp->next)
-			    rp->msg.last = mpp;
-			*mpp = mp->next;
-			mp = mp->next;
-			rp->msg.len--;
-			free_message(bad_mp);
-		    }
-		}
-	    }
+	    erts_free(ERTS_ALC_T_TMP, mip);
 	}
 	break;
     }
 
     case am_message_queue_len:
 	hp = HAlloc(BIF_P, 3);
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
 	res = make_small(rp->msg.len);
 	break;
 
@@ -1422,7 +1349,7 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_total_heap_size: {
-	ErlMessage *mp;
+	ErtsMessage *mp;
 	Uint total_heap_size;
 	Uint hsz = 3;
 
@@ -1431,8 +1358,6 @@ process_info_aux(Process *BIF_P,
 	    total_heap_size += rp->old_hend - rp->old_heap;
 
 	total_heap_size += rp->mbuf_sz;
-
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
 
 	for (mp = rp->msg.first; mp; mp = mp->next)
 	    if (mp->data.attached)
@@ -1455,7 +1380,7 @@ process_info_aux(Process *BIF_P,
 
     case am_memory: { /* Memory consumed in bytes */
 	Uint hsz = 3;
-	Uint size = erts_process_memory(rp);
+	Uint size = erts_process_memory(rp, 0);
 	(void) erts_bld_uint(NULL, &hsz, size);
 	hp = HAlloc(BIF_P, hsz);
 	res = erts_bld_uint(&hp, NULL, size);
@@ -1478,6 +1403,32 @@ process_info_aux(Process *BIF_P,
 	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(MIN_VHEAP_SIZE(rp))); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 	break;
+    }
+
+    case am_garbage_collection_info: {
+        Uint sz = 0, actual_sz = 0;
+
+        if (rp == BIF_P) {
+            sz += ERTS_PROCESS_GC_INFO_MAX_SIZE;
+        } else {
+            erts_process_gc_info(rp, &sz, NULL);
+            sz += 3;
+        }
+
+        hp = HAlloc(BIF_P, sz);
+        res = erts_process_gc_info(rp, &actual_sz, &hp);
+
+        /* We may have some extra space, fill with 0 tuples */
+        if (actual_sz <= sz - 3) {
+            for (; actual_sz < sz - 3; hp++, actual_sz++)
+                hp[0] = make_arityval(0);
+        } else {
+            for (; actual_sz < sz; hp++, actual_sz++)
+                hp[0] = make_arityval(0);
+            hp = HAlloc(BIF_P, 3);
+        }
+
+        break;
     }
 
     case am_group_leader: {
@@ -1534,7 +1485,7 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_last_calls: {
-	struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(BIF_P);
+	struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(rp);
 	if (!scb) {
 	    hp = HAlloc(BIF_P, 3);
 	    res = am_false;
@@ -1580,6 +1531,25 @@ process_info_aux(Process *BIF_P,
 	}
 	break;
     }
+
+    case am_message_queue_data:
+	switch (rp->flags & (F_OFF_HEAP_MSGQ|F_ON_HEAP_MSGQ)) {
+	case F_OFF_HEAP_MSGQ:
+	    res = am_off_heap;
+	    break;
+	case F_ON_HEAP_MSGQ:
+	    res = am_on_heap;
+	    break;
+	case 0:
+	    res = am_mixed;
+	    break;
+	default:
+	    res = am_error;
+	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
+	    break;
+	}
+	hp = HAlloc(BIF_P, 3);
+	break;
 
     default:
 	return THE_NON_VALUE; /* will produce badarg */
@@ -1755,7 +1725,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	if (arity == 2) {
 	    Eterm res = THE_NON_VALUE;
 	    char *buf;
-	    int len = is_string(*tp);
+	    Sint len = is_string(*tp);
 	    if (len <= 0)
 		return res;
 	    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
@@ -1774,7 +1744,7 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	    else {
 		Eterm res = THE_NON_VALUE;
 		char *buf;
-		int len = is_string(tp[1]);
+		Sint len = is_string(tp[1]);
 		if (len <= 0)
 		    return res;
 		buf = (char *) erts_alloc(ERTS_ALC_T_TMP, len+1);
@@ -2077,12 +2047,18 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #ifndef ERTS_SMP
 	BIF_RET(am_disabled);
 #else
+#ifndef ERTS_DIRTY_SCHEDULERS
 	if (erts_no_schedulers == 1)
 	    BIF_RET(am_disabled);
-	else {
-	    BIF_RET(erts_is_multi_scheduling_blocked()
-		    ? am_blocked
-		    : am_enabled);
+	else
+#endif
+	{
+	    int msb = erts_is_multi_scheduling_blocked();
+	    BIF_RET(!msb
+		    ? am_enabled
+		    : (msb > 0
+		       ? am_blocked
+		       : am_blocked_normal));
 	}
 #endif
     } else if (BIF_ARG_1 == am_build_type) {
@@ -2188,8 +2164,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = build_snifs_term(&hp, NULL, NIL);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_sequential_tracer) {
-	val = erts_get_system_seq_tracer();
-	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false);
+	ErtsTracer seq_tracer = erts_get_system_seq_tracer();
+        val = erts_tracer_to_term(BIF_P, seq_tracer);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_sequential_tracer, val);
 	BIF_RET(res);
@@ -2551,77 +2527,120 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = TUPLE3(hp, make_small(1), make_small(1), make_small(1));
 	BIF_RET(res);
 #else
+	Eterm *hp;
 	Uint total, online, active;
-	switch (erts_schedulers_state(&total,
-				      &online,
-				      &active,
-				      NULL,
-				      NULL,
-				      NULL,
-				      1)) {
-	case ERTS_SCHDLR_SSPND_DONE: {
-	    Eterm *hp = HAlloc(BIF_P, 4);
-	    res = TUPLE3(hp,
-			 make_small(total),
-			 make_small(online),
-			 make_small(active));
-	    BIF_RET(res);
+	erts_schedulers_state(&total, &online, &active,
+			      NULL, NULL, NULL, NULL, NULL);
+	hp = HAlloc(BIF_P, 4);
+	res = TUPLE3(hp,
+		     make_small(total),
+		     make_small(online),
+		     make_small(active));
+	BIF_RET(res);
+#endif
+    } else if (ERTS_IS_ATOM_STR("schedulers_state", BIF_ARG_1)) {
+#ifndef ERTS_SMP
+	Eterm *hp = HAlloc(BIF_P, 4);
+	res = TUPLE3(hp, make_small(1), make_small(1), make_small(1));
+	BIF_RET(res);
+#else
+	Eterm *hp;
+	Uint total, online, active;
+	erts_schedulers_state(&total, &online, &active,
+			      NULL, NULL, NULL, NULL, NULL);
+	hp = HAlloc(BIF_P, 4);
+	res = TUPLE3(hp,
+		     make_small(total),
+		     make_small(online),
+		     make_small(active));
+	BIF_RET(res);
+#endif
+    } else if (ERTS_IS_ATOM_STR("all_schedulers_state", BIF_ARG_1)) {
+#ifndef ERTS_SMP
+	Eterm *hp = HAlloc(BIF_P, 2+5);
+	res = CONS(hp+5,
+		   TUPLE4(hp,
+			  am_normal,
+			  make_small(1),
+			  make_small(1),
+			  make_small(1)),
+		   NIL);
+	BIF_RET(res);
+#else
+	Eterm *hp, tpl;
+	Uint sz, total, online, active,
+	    dirty_cpu_total, dirty_cpu_online, dirty_cpu_active,
+	    dirty_io_total, dirty_io_active;
+	erts_schedulers_state(&total, &online, &active,
+			      &dirty_cpu_total, &dirty_cpu_online, &dirty_cpu_active,
+			      &dirty_io_total, &dirty_io_active);
+
+	sz = 2+5;
+	if (dirty_cpu_total)
+	    sz += 2+5;
+	if (dirty_io_total)
+	    sz += 2+5;
+
+	hp = HAlloc(BIF_P, sz);
+
+	res = NIL;
+	if (dirty_io_total) {
+	    tpl = TUPLE4(hp,
+			 am_dirty_io,
+			 make_small(dirty_io_total),
+			 make_small(dirty_io_total),
+			 make_small(dirty_io_active));
+	    hp += 5;
+	    res = CONS(hp, tpl, res);
+	    hp += 2;
 	}
-	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
-	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP1(bif_export[BIF_system_info_1],
-		      BIF_P, BIF_ARG_1);
-	default:
-	    ASSERT(0);
-	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+	if (dirty_cpu_total) {
+	    tpl = TUPLE4(hp,
+			 am_dirty_cpu,
+			 make_small(dirty_cpu_total),
+			 make_small(dirty_cpu_online),
+			 make_small(dirty_cpu_active));
+	    hp += 5;
+	    res = CONS(hp, tpl, res);
+	    hp += 2;
 	}
+	tpl = TUPLE4(hp,
+		     am_normal,
+		     make_small(total),
+		     make_small(online),
+		     make_small(active));
+	hp += 5;
+	res = CONS(hp, tpl, res);
+	BIF_RET(res);
 #endif
     } else if (ERTS_IS_ATOM_STR("schedulers_online", BIF_ARG_1)) {
 #ifndef ERTS_SMP
 	BIF_RET(make_small(1));
 #else
-	Uint total, online, active;
-	switch (erts_schedulers_state(&total, &online, &active, NULL, NULL, NULL, 1)) {
-	case ERTS_SCHDLR_SSPND_DONE:
-	    BIF_RET(make_small(online));
-	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
-	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP1(bif_export[BIF_system_info_1],
-		      BIF_P, BIF_ARG_1);
-	default:
-	    ASSERT(0);
-	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
-	}
+	Uint online;
+	erts_schedulers_state(NULL, &online, NULL, NULL, NULL, NULL, NULL, NULL);
+	BIF_RET(make_small(online));
 #endif
     } else if (ERTS_IS_ATOM_STR("schedulers_active", BIF_ARG_1)) {
 #ifndef ERTS_SMP
 	BIF_RET(make_small(1));
 #else
-	Uint total, online, active;
-	switch (erts_schedulers_state(&total, &online, &active, NULL, NULL, NULL, 1)) {
-	case ERTS_SCHDLR_SSPND_DONE:
-	    BIF_RET(make_small(active));
-	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
-	    ERTS_VBUMP_ALL_REDS(BIF_P);
-	    BIF_TRAP1(bif_export[BIF_system_info_1],
-		      BIF_P, BIF_ARG_1);
-	default:
-	    ASSERT(0);
-	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
-	}
+	Uint active;
+	erts_schedulers_state(NULL, NULL, &active, NULL, NULL, NULL, NULL, NULL);
+	BIF_RET(make_small(active));
 #endif
 #if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers", BIF_ARG_1)) {
 	Uint dirty_cpu;
-	erts_schedulers_state(NULL, NULL, NULL, &dirty_cpu, NULL, NULL, 1);
+	erts_schedulers_state(NULL, NULL, NULL, &dirty_cpu, NULL, NULL, NULL, NULL);
 	BIF_RET(make_small(dirty_cpu));
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers_online", BIF_ARG_1)) {
 	Uint dirty_cpu_onln;
-	erts_schedulers_state(NULL, NULL, NULL, NULL, &dirty_cpu_onln, NULL, 1);
+	erts_schedulers_state(NULL, NULL, NULL, NULL, &dirty_cpu_onln, NULL, NULL, NULL);
 	BIF_RET(make_small(dirty_cpu_onln));
     } else if (ERTS_IS_ATOM_STR("dirty_io_schedulers", BIF_ARG_1)) {
 	Uint dirty_io;
-	erts_schedulers_state(NULL, NULL, NULL, NULL, NULL, &dirty_io, 1);
+	erts_schedulers_state(NULL, NULL, NULL, NULL, NULL, NULL, &dirty_io, NULL);
 	BIF_RET(make_small(dirty_io));
 #endif
     } else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
@@ -2675,7 +2694,16 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	if (erts_no_schedulers == 1)
 	    BIF_RET(NIL);
 	else
-	    BIF_RET(erts_multi_scheduling_blockers(BIF_P));
+	    BIF_RET(erts_multi_scheduling_blockers(BIF_P, 0));
+#endif
+    } else if (ERTS_IS_ATOM_STR("normal_multi_scheduling_blockers", BIF_ARG_1)) {
+#ifndef ERTS_SMP
+	BIF_RET(NIL);
+#else
+	if (erts_no_schedulers == 1)
+	    BIF_RET(NIL);
+	else
+	    BIF_RET(erts_multi_scheduling_blockers(BIF_P, 1));
 #endif
     } else if (ERTS_IS_ATOM_STR("modified_timing_level", BIF_ARG_1)) {
 	BIF_RET(ERTS_USE_MODIFIED_TIMING()
@@ -2725,6 +2753,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #elif defined(USE_SYSTEMTAP)
 	DECL_AM(systemtap);
 	BIF_RET(AM_systemtap);
+#elif defined(USE_LTTNG)
+	DECL_AM(lttng);
+	BIF_RET(AM_lttng);
 #else
 	BIF_RET(am_none);
 #endif
@@ -2742,6 +2773,19 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_true);
     }
 #endif
+    else if (BIF_ARG_1 == am_message_queue_data) {
+	switch (erts_default_spo_flags & (SPO_ON_HEAP_MSGQ|SPO_OFF_HEAP_MSGQ)) {
+	case SPO_OFF_HEAP_MSGQ:
+	    BIF_RET(am_off_heap);
+	case SPO_ON_HEAP_MSGQ:
+	    BIF_RET(am_on_heap);
+	case 0:
+	    BIF_RET(am_mixed);
+	default:
+	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
+	    BIF_RET(am_error);
+	}
+    }
     else if (ERTS_IS_ATOM_STR("compile_info",BIF_ARG_1)) {
 	Uint  sz;
 	Eterm res = NIL, tup, text;
@@ -2779,6 +2823,20 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     }
     else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
 	BIF_RET(erts_eager_check_io ? am_true : am_false);
+    }
+    else if (ERTS_IS_ATOM_STR("literal_test",BIF_ARG_1)) {
+#ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
+#ifdef ARCH_64
+	DECL_AM(range);
+	BIF_RET(AM_range);
+#else /* ARCH_32 */
+	DECL_AM(range_bitmask);
+	BIF_RET(AM_range_bitmask);
+#endif /* ARCH_32 */
+#else  /* ! ERTS_HAVE_IS_IN_LITERAL_RANGE */
+	DECL_AM(tag);
+	BIF_RET(AM_tag);
+#endif
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -3268,6 +3326,14 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	    szp = NULL;
 	    hpp = &hp;
 	}
+#ifdef ERTS_ENABLE_MSACC
+    } else if (BIF_ARG_1 == am_microstate_accounting) {
+        Eterm threads;
+        res = erts_msacc_request(BIF_P, ERTS_MSACC_GATHER, &threads);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP2(gather_msacc_res_trap, BIF_P, res, threads);
+#endif
     } else if (BIF_ARG_1 == am_context_switches) {
 	Eterm cs = erts_make_integer(erts_get_total_context_switches(), BIF_P);
 	hp = HAlloc(BIF_P, 3);
@@ -3488,7 +3554,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    BIF_RET(res);
 	}
         else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
-            BIF_RET(erts_mmap_debug_info(BIF_P));
+            BIF_RET(erts_mmap_debug_info(&erts_dflt_mmapper, BIF_P));
         }
 	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
 	    BIF_RET(erts_debug_get_unique_monotonic_integer_state(BIF_P));
@@ -3910,9 +3976,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_false);
 	    }
 	    else {
-		FLAGS(rp) |= F_FORCE_GC;
-		if (BIF_P != rp)
-		    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+		ERTS_FORCE_GC(BIF_P);
 		BIF_RET(am_true);
 	    }
 	}
@@ -4131,6 +4195,17 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		BIF_RET(am_ok);
 	    }
 	}
+        else if (ERTS_IS_ATOM_STR("fill_heap", BIF_ARG_1)) {
+            UWord left = HeapWordsLeft(BIF_P);
+            if (left > 1) {
+                Eterm* hp = HAlloc(BIF_P, left);
+                *hp = make_pos_bignum_header(left - 1);
+            }
+            if (BIF_ARG_2 == am_true) {
+                FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
+            }
+            BIF_RET(am_ok);
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -4380,14 +4455,17 @@ static void os_info_init(void)
     os_flavor(buf, 1024);
     flav = erts_atom_put((byte *) buf, strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM, (3+4)*sizeof(Eterm));
+    hp = erts_alloc(ERTS_ALC_T_LITERAL, (3+4)*sizeof(Eterm));
     os_type_tuple = TUPLE2(hp, type, flav);
+    erts_set_literal_tag(&os_type_tuple, hp, 3);
+
     hp += 3;
     os_version(&major, &minor, &build);
     os_version_tuple = TUPLE3(hp,
 			      make_small(major),
 			      make_small(minor),
 			      make_small(build));
+    erts_set_literal_tag(&os_version_tuple, hp, 4);
 }
 
 void
@@ -4404,6 +4482,8 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erlang, am_gather_gc_info_result, 1);
     gather_io_bytes_trap
 	= erts_export_put(am_erts_internal, am_gather_io_bytes, 2);
+    gather_msacc_res_trap
+	= erts_export_put(am_erts_internal, am_gather_microstate_accounting_result, 2);
     gather_system_check_res_trap
 	= erts_export_put(am_erts_internal, am_gather_system_check_result, 1);
     process_info_init();

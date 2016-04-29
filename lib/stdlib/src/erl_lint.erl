@@ -31,11 +31,7 @@
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
--export([modify_line/2]).
-
 -import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
-
--deprecated([{modify_line, 2, next_major_release}]).
 
 %% bool_option(OnOpt, OffOpt, Default, Options) -> boolean().
 %% value_option(Flag, Default, Options) -> Value.
@@ -79,7 +75,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 %%-define(DEBUGF(X,Y), io:format(X, Y)).
 -define(DEBUGF(X,Y), void).
 
--type line() :: erl_anno:line().     % a convenient alias
+-type line() :: erl_anno:anno().     % a convenient alias
 -type fa()   :: {atom(), arity()}.   % function+arity
 -type ta()   :: {atom(), arity()}.   % type+arity
 
@@ -238,6 +234,9 @@ format_error({removed, MFA, ReplacementMFA, Rel}) ->
 		  "use ~s", [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
 format_error({removed, MFA, String}) when is_list(String) ->
     io_lib:format("~s: ~s", [format_mfa(MFA), String]);
+format_error({removed_type, MNA, ReplacementMNA, Rel}) ->
+    io_lib:format("the type ~s was removed in ~s; use ~s instead",
+                  [format_mna(MNA), Rel, format_mna(ReplacementMNA)]);
 format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete", [F, A]);
 format_error({too_many_arguments,Arity}) ->
@@ -361,6 +360,9 @@ format_error({redefine_type, {TypeName, Arity}}) ->
 		  [TypeName, gen_type_paren(Arity)]);
 format_error({type_syntax, Constr}) ->
     io_lib:format("bad ~w type", [Constr]);
+format_error(old_abstract_code) ->
+    io_lib:format("abstract code generated before Erlang/OTP 19.0 and "
+                  "having typed record fields cannot be compiled", []);
 format_error({redefine_spec, {M, F, A}}) ->
     io_lib:format("spec for ~w:~w/~w already defined", [M, F, A]);
 format_error({redefine_spec, {F, A}}) ->
@@ -374,9 +376,9 @@ format_error({spec_fun_undefined, {F, A}}) ->
 format_error({missing_spec, {F,A}}) ->
     io_lib:format("missing specification for function ~w/~w", [F, A]);
 format_error(spec_wrong_arity) ->
-    "spec has the wrong arity";
+    "spec has wrong arity";
 format_error(callback_wrong_arity) ->
-    "callback has the wrong arity";
+    "callback has wrong arity";
 format_error({deprecated_builtin_type, {Name, Arity},
               Replacement, Rel}) ->
     UseS = case Replacement of
@@ -415,6 +417,9 @@ format_mfa({M, F, A}) when is_integer(A) ->
 
 format_mf(M, F, ArityString) when is_atom(M), is_atom(F) ->
     atom_to_list(M) ++ ":" ++ atom_to_list(F) ++ "/" ++ ArityString.
+
+format_mna({M, N, A}) when is_integer(A) ->
+    atom_to_list(M) ++ ":" ++ atom_to_list(N) ++ gen_type_paren(A).
 
 format_where(L) when is_integer(L) ->
     io_lib:format("(line ~p)", [L]);
@@ -694,7 +699,12 @@ set_form_file({function,L,N,A,C}, File) ->
 set_form_file(Form, _File) ->
     Form.
 
+set_file(Ts, File) when is_list(Ts) ->
+    [anno_set_file(T, File) || T <- Ts];
 set_file(T, File) ->
+    anno_set_file(T, File).
+
+anno_set_file(T, File) ->
     F = fun(Anno) -> erl_anno:set_file(File, Anno) end,
     erl_parse:map_anno(F, T).
 
@@ -1136,7 +1146,7 @@ check_untyped_records(Forms, St0) ->
 	    RecNames = dict:fetch_keys(St0#lint.records),
 	    %% these are the records with field(s) containing type info
 	    TRecNames = [Name ||
-			    {attribute,_,type,{{record,Name},Fields,_}} <- Forms,
+			    {attribute,_,record,{Name,Fields}} <- Forms,
 			    lists:all(fun ({typed_record_field,_,_}) -> true;
 					  (_) -> false
 				      end, Fields)],
@@ -1146,7 +1156,8 @@ check_untyped_records(Forms, St0) ->
 			      [] -> St; % exclude records with no fields
 			      [_|_] -> add_warning(L, {untyped_record, N}, St)
 			  end
-		  end, St0, RecNames -- TRecNames);
+		  end, St0, ordsets:subtract(ordsets:from_list(RecNames),
+                                             ordsets:from_list(TRecNames)));
 	false ->
 	    St0
     end.
@@ -2436,7 +2447,10 @@ record_def(Line, Name, Fs0, St0) ->
         true -> add_error(Line, {redefine_record,Name}, St0);
         false ->
             {Fs1,St1} = def_fields(normalise_fields(Fs0), Name, St0),
-            St1#lint{records=dict:store(Name, {Line,Fs1}, St1#lint.records)}
+            St2 = St1#lint{records=dict:store(Name, {Line,Fs1},
+                                              St1#lint.records)},
+            Types = [T || {typed_record_field, _, T} <- Fs0],
+            check_type({type, nowarn(), product, Types}, St2)
     end.
 
 %% def_fields([RecDef], RecordName, State) -> {[DefField],State}.
@@ -2639,11 +2653,8 @@ find_field(_F, []) -> error.
 %%    Attr :: 'type' | 'opaque'
 %% Checks that a type definition is valid.
 
-type_def(_Attr, _Line, {record, _RecName}, Fields, [], St0) ->
-    %% The record field names and such are checked in the record format.
-    %% We only need to check the types.
-    Types = [T || {typed_record_field, _, T} <- Fields],
-    check_type({type, nowarn(), product, Types}, St0);
+-dialyzer({no_match, type_def/6}).
+
 type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
     TypeDefs = St0#lint.types,
     Arity = length(Args),
@@ -2705,8 +2716,6 @@ check_type(Types, St) ->
 
 check_type({ann_type, _L, [_Var, Type]}, SeenVars, St) ->
     check_type(Type, SeenVars, St);
-check_type({paren_type, _L, [Type]}, SeenVars, St) ->
-    check_type(Type, SeenVars, St);
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, St0) ->
     St = deprecated_type(L, Mod, Name, Args, St0),
@@ -2746,10 +2755,8 @@ check_type({type, L, range, [From, To]}, SeenVars, St) ->
 	    _ -> add_error(L, {type_syntax, range}, St)
 	end,
     {SeenVars, St1};
-check_type({type, L, map, any}, SeenVars, St) ->
-    %% To get usage right while map/0 is a newly_introduced_builtin_type.
-    St1 = used_type({map, 0}, L, St),
-    {SeenVars, St1};
+check_type({type, _L, map, any}, SeenVars, St) ->
+    {SeenVars, St};
 check_type({type, _L, map, Pairs}, SeenVars, St) ->
     lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
 			check_type(Pair, AccSeenVars, AccSt)
@@ -2806,6 +2813,8 @@ check_type({user_type, L, TypeName, Args}, SeenVars, St) ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 			check_type(T, AccSeenVars, AccSt)
 		end, {SeenVars, St1}, Args);
+check_type([{typed_record_field,Field,_T}|_], SeenVars, St) ->
+    {SeenVars, add_error(element(2, Field), old_abstract_code, St)};
 check_type(I, SeenVars, St) ->
     case erl_eval:partial_eval(I) of
         {integer,_ILn,_Integer} -> {SeenVars, St};
@@ -2855,7 +2864,6 @@ used_type(TypePair, L, #lint{usage = Usage, file = File} = St) ->
 is_default_type({Name, NumberOfTypeVariables}) ->
     erl_internal:is_type(Name, NumberOfTypeVariables).
 
-is_newly_introduced_builtin_type({map, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
@@ -2876,7 +2884,7 @@ spec_decl(Line, MFA0, TypeSpecs, St0 = #lint{specs = Specs, module = Mod}) ->
     St1 = St0#lint{specs = dict:store(MFA, Line, Specs)},
     case dict:is_key(MFA, Specs) of
 	true -> add_error(Line, {redefine_spec, MFA0}, St1);
-	false -> check_specs(TypeSpecs, Arity, St1)
+	false -> check_specs(TypeSpecs, spec_wrong_arity, Arity, St1)
     end.
 
 %% callback_decl(Line, Fun, Types, State) -> State.
@@ -2890,7 +2898,8 @@ callback_decl(Line, MFA0, TypeSpecs,
             St1 = St0#lint{callbacks = dict:store(MFA, Line, Callbacks)},
             case dict:is_key(MFA, Callbacks) of
                 true -> add_error(Line, {redefine_callback, MFA0}, St1);
-                false -> check_specs(TypeSpecs, Arity, St1)
+                false -> check_specs(TypeSpecs, callback_wrong_arity,
+                                     Arity, St1)
             end
     end.
 
@@ -2927,7 +2936,7 @@ is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
 
-check_specs([FunType|Left], Arity, St0) ->
+check_specs([FunType|Left], ETag, Arity, St0) ->
     {FunType1, CTypes} =
 	case FunType of
 	    {type, _, bounded_fun, [FT = {type, _, 'fun', _}, Cs]} ->
@@ -2935,18 +2944,16 @@ check_specs([FunType|Left], Arity, St0) ->
 		{FT, lists:append(Types0)};
 	    {type, _, 'fun', _} = FT -> {FT, []}
 	end,
-    SpecArity =
-	case FunType1 of
-	    {type, L, 'fun', [any, _]} -> any;
-	    {type, L, 'fun', [{type, _, product, D}, _]} -> length(D)
-	end,
+    {type, L, 'fun', [{type, _, product, D}, _]} = FunType1,
+    SpecArity = length(D),
     St1 = case Arity =:= SpecArity of
 	      true -> St0;
-	      false -> add_error(L, spec_wrong_arity, St0)
+	      false -> %% Cannot happen if called from the compiler.
+                  add_error(L, ETag, St0)
 	  end,
     St2 = check_type({type, nowarn(), product, [FunType1|CTypes]}, St1),
-    check_specs(Left, Arity, St2);
-check_specs([], _Arity, St) ->
+    check_specs(Left, ETag, Arity, St2);
+check_specs([], _ETag, _Arity, St) ->
     St.
 
 nowarn() ->
@@ -2988,9 +2995,10 @@ add_missing_spec_warnings(Forms, St0, Type) ->
 		[{FA,L} || {function,L,F,A,_} <- Forms,
 			   not lists:member(FA = {F,A}, Specs)];
 	    exported ->
-		Exps = gb_sets:to_list(St0#lint.exports) -- pseudolocals(),
+		Exps0 = gb_sets:to_list(St0#lint.exports) -- pseudolocals(),
+                Exps = Exps0 -- Specs,
 		[{FA,L} || {function,L,F,A,_} <- Forms,
-			   member(FA = {F,A}, Exps -- Specs)]
+			   member(FA = {F,A}, Exps)]
 	end,
     foldl(fun ({FA,L}, St) ->
 		  add_warning(L, {missing_spec,FA}, St)
@@ -3003,7 +3011,9 @@ check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	    L = gb_sets:to_list(ExpTs) ++ dict:fetch_keys(D),
 	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
-		fun(Type, #typeinfo{line = FileLine}, AccSt) ->
+                fun({{record, _}=_Type, 0}, _, AccSt) ->
+                        AccSt; % Before Erlang/OTP 19.0
+                   (Type, #typeinfo{line = FileLine}, AccSt) ->
                         case loc(FileLine, AccSt) of
 			    {FirstFile, _} ->
 				case gb_sets:is_member(Type, UsedTypes) of
@@ -3190,8 +3200,8 @@ handle_generator(P,E,Vt,Uvt,St0) ->
 handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
     case lists:last(Segments) of
         {bin_element,Line,{var,_,_},default,Flags} when is_list(Flags) ->
-            case member(binary, Flags) orelse member(bits, Flags)
-                                       orelse member(bitstring, Flags) of
+            case member(binary, Flags) orelse member(bytes, Flags)
+              orelse member(bits, Flags) orelse member(bitstring, Flags) of
                 true ->
                     add_error(Line, unsized_binary_in_bin_gen_pattern, St);
                 false ->
@@ -3485,13 +3495,6 @@ vt_no_unused(Vt) -> [V || {_,{_,U,_L}}=V <- Vt, U =/= unused].
 copy_expr(Expr, Anno) ->
     erl_parse:map_anno(fun(_A) -> Anno end, Expr).
 
-%% modify_line(Form, Fun) -> Form
-%% modify_line(Expression, Fun) -> Expression
-%%  Applies Fun to each line number occurrence.
-
-modify_line(T, F0) ->
-    erl_parse:map_anno(F0, T).
-
 %% Check a record_info call. We have already checked that it is not
 %% shadowed by an import.
 
@@ -3574,6 +3577,8 @@ deprecated_type(L, M, N, As, St) ->
                 false ->
                     St
             end;
+        {removed, Replacement, Rel} ->
+            add_warning(L, {removed_type, {M,N,NAs}, Replacement, Rel}, St);
         no ->
             St
     end.

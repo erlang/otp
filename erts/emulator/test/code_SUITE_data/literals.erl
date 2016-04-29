@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 -module(literals).
 -export([a/0,b/0,huge_bignum/0,binary/0,unused_binaries/0,bits/0]).
+-export([msg1/0,msg2/0,msg3/0,msg4/0,msg5/0]).
 
 a() ->
     {a,42.0,[7,38877938333399637266518333334747]}.
@@ -101,3 +102,9 @@ unused_binaries() ->
 
 bits() ->
     {bits,<<42:13,?MB_1>>}.
+
+msg1() -> "halloj".
+msg2() -> {"hello","world"}.
+msg3() -> <<"halloj">>.
+msg4() -> #{ 1=> "hello", b => "world"}.
+msg5() -> {1,2,3,4,5,6}.

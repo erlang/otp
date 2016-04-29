@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 -compile(export_all).
 
 -include("odbc_test.hrl").
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 unique_table_name() ->                              
     lists:reverse(lists:foldl(fun($@, Acc) -> [$t, $A |Acc] ;

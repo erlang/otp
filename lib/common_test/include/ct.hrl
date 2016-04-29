@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
--include_lib("test_server/include/test_server.hrl").
 
 %% the log level is used as argument to any CT logging function
 -define(MIN_IMPORTANCE, 0 ).
@@ -37,3 +35,9 @@
 %% name of process executing the CT Hook init and terminate function
 -define(CT_HOOK_INIT_PROCESS, ct_util_server).
 -define(CT_HOOK_TERMINATE_PROCESS, ct_util_server).
+
+%% Backward compatibility for test_server test suites.
+%% DO NOT USE IN NEW TEST SUITES.
+-define(line,).
+-define(t,test_server).
+-define(config,test_server:lookup_config).

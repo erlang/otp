@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,26 +19,21 @@
 %%
 -module(edlin_expand_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
-
 -export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
--include_lib("test_server/include/test_server.hrl").
-
-%% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [normal, quoted_fun, quoted_module, quoted_both].
@@ -63,10 +58,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-normal(doc) ->
-    [""];
-normal(suite) ->
-    [];
 normal(Config) when is_list(Config) ->
     {module,expand_test} = c:l(expand_test),
     %% These tests might fail if another module with the prefix
@@ -85,10 +76,7 @@ normal(Config) when is_list(Config) ->
     {yes,"arity_entirely()",[]} = do_expand("expand_test:expand0"),
     ok.
 
-quoted_fun(doc) ->
-    ["Normal module name, some function names using quoted atoms"];
-quoted_fun(suite) ->
-    [];
+%% Normal module name, some function names using quoted atoms.
 quoted_fun(Config) when is_list(Config) ->
     {module,expand_test} = c:l(expand_test),
     {module,expand_test1} = c:l(expand_test1),
@@ -121,10 +109,6 @@ quoted_fun(Config) when is_list(Config) ->
     {yes,"(",[]} = do_expand("expand_test:module_info"),
     ok.
 
-quoted_module(doc) ->
-    [""];
-quoted_module(suite) ->
-    [];
 quoted_module(Config) when is_list(Config) ->
     {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
     {yes, "Caps':", []} = do_expand("'ExpandTest"),
@@ -138,8 +122,6 @@ quoted_module(Config) when is_list(Config) ->
 	     {"a_less_fun_name",1}]} = do_expand("'ExpandTestCaps':a_"),
     ok.
 
-quoted_both(suite) ->
-    [];
 quoted_both(Config) when is_list(Config) ->
     {module,'ExpandTestCaps'} = c:l('ExpandTestCaps'),
     {module,'ExpandTestCaps1'} = c:l('ExpandTestCaps1'),

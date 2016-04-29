@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,11 +21,7 @@
 -module(fun_SUITE).
 -compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
--define(default_timeout, ?t:minutes(1)).
-
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,
 	 equality/1,ordering/1,
 	 fun_to_port/1,t_hash/1,t_phash/1,t_phash2/1,md5/1,
@@ -35,9 +31,12 @@
 
 -export([nothing/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
+
 
 all() -> 
     [bad_apply, bad_fun_call, badarity, ext_badarity,
@@ -46,45 +45,18 @@ all() ->
      const_propagation, t_arity, t_is_function2, t_fun_info,
      t_fun_info_mfa].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
-bad_apply(doc) ->
-    "Test that the correct EXIT code is returned for all types of bad funs.";
-bad_apply(suite) -> [];
+%% Test that the correct EXIT code is returned for all types of bad funs.
 bad_apply(Config) when is_list(Config) ->
-    ?line bad_apply_fc(42, [0]),
-    ?line bad_apply_fc(xx, [1]),
-    ?line bad_apply_fc({}, [2]),
-    ?line bad_apply_fc({1}, [3]),
-    ?line bad_apply_fc({1,2,3}, [4]),
-    ?line bad_apply_fc({1,2,3}, [5]),
-    ?line bad_apply_fc({1,2,3,4}, [6]),
-    ?line bad_apply_fc({1,2,3,4,5,6}, [7]),
-    ?line bad_apply_fc({1,2,3,4,5}, [8]),
-    ?line bad_apply_badarg({1,2}, [9]),
+    bad_apply_fc(42, [0]),
+    bad_apply_fc(xx, [1]),
+    bad_apply_fc({}, [2]),
+    bad_apply_fc({1}, [3]),
+    bad_apply_fc({1,2,3}, [4]),
+    bad_apply_fc({1,2,3}, [5]),
+    bad_apply_fc({1,2,3,4}, [6]),
+    bad_apply_fc({1,2,3,4,5,6}, [7]),
+    bad_apply_fc({1,2,3,4,5}, [8]),
+    bad_apply_badarg({1,2}, [9]),
     ok.
 
 bad_apply_fc(Fun, Args) ->
@@ -96,7 +68,7 @@ bad_apply_fc(Fun, Args) ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 bad_apply_badarg(Fun, Args) ->
@@ -108,23 +80,21 @@ bad_apply_badarg(Fun, Args) ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result, Other})
+	    ct:fail({bad_result, Other})
     end.
 
-bad_fun_call(doc) ->
-    "Try directly calling bad funs.";
-bad_fun_call(suite) -> [];
+%% Try directly calling bad funs.
 bad_fun_call(Config) when is_list(Config) ->
-    ?line bad_call_fc(42),
-    ?line bad_call_fc(xx),
-    ?line bad_call_fc({}),
-    ?line bad_call_fc({1}),
-    ?line bad_call_fc({1,2,3}),
-    ?line bad_call_fc({1,2,3}),
-    ?line bad_call_fc({1,2,3,4}),
-    ?line bad_call_fc({1,2,3,4,5,6}),
-    ?line bad_call_fc({1,2,3,4,5}),
-    ?line bad_call_fc({1,2}),
+    bad_call_fc(42),
+    bad_call_fc(xx),
+    bad_call_fc({}),
+    bad_call_fc({1}),
+    bad_call_fc({1,2,3}),
+    bad_call_fc({1,2,3}),
+    bad_call_fc({1,2,3,4}),
+    bad_call_fc({1,2,3,4,5,6}),
+    bad_call_fc({1,2,3,4,5}),
+    bad_call_fc({1,2}),
     ok.
 
 bad_call_fc(Fun) ->
@@ -135,74 +105,74 @@ bad_call_fc(Fun) ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	Other ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 %% Call and apply valid funs with wrong number of arguments.
 
 badarity(Config) when is_list(Config) ->
-    ?line Fun = fun() -> ok end,
-    ?line Stupid = {stupid,arguments},
-    ?line Args = [some,{stupid,arguments},here],
+    Fun = fun() -> ok end,
+    Stupid = {stupid,arguments},
+    Args = [some,{stupid,arguments},here],
 
     %% Simple call.
 
-    ?line Res = (catch Fun(some, Stupid, here)),
+    Res = (catch Fun(some, Stupid, here)),
     erlang:garbage_collect(),
     erlang:yield(),
     case Res of
 	{'EXIT',{{badarity,{Fun,Args}},_}} ->
-	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
+	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	_ ->
-	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?line ?t:fail({bad_result,Res})
+	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
+	    ct:fail({bad_result,Res})
     end,
 
     %% Apply.
 
-    ?line Res2 = (catch apply(Fun, Args)),
+    Res2 = (catch apply(Fun, Args)),
     erlang:garbage_collect(),
     erlang:yield(),
     case Res2 of
 	{'EXIT',{{badarity,{Fun,Args}},_}} ->
-	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
+	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
 	_ ->
-	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
-	    ?line ?t:fail({bad_result,Res2})
+	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
+	    ct:fail({bad_result,Res2})
     end,
     ok.
 
 %% Call and apply valid external funs with wrong number of arguments.
 
 ext_badarity(Config) when is_list(Config) ->
-    ?line Fun = fun ?MODULE:nothing/0,
-    ?line Stupid = {stupid,arguments},
-    ?line Args = [some,{stupid,arguments},here],
+    Fun = fun ?MODULE:nothing/0,
+    Stupid = {stupid,arguments},
+    Args = [some,{stupid,arguments},here],
 
     %% Simple call.
 
-    ?line Res = (catch Fun(some, Stupid, here)),
+    Res = (catch Fun(some, Stupid, here)),
     erlang:garbage_collect(),
     erlang:yield(),
     case Res of
 	{'EXIT',{{badarity,{Fun,Args}},_}} ->
-	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
+	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
 	_ ->
-	    ?line ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
-	    ?line ?t:fail({bad_result,Res})
+	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
+	    ct:fail({bad_result,Res})
     end,
 
     %% Apply.
 
-    ?line Res2 = (catch apply(Fun, Args)),
+    Res2 = (catch apply(Fun, Args)),
     erlang:garbage_collect(),
     erlang:yield(),
     case Res2 of
 	{'EXIT',{{badarity,{Fun,Args}},_}} ->
-	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
+	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]);
 	_ ->
-	    ?line ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
-	    ?line ?t:fail({bad_result,Res2})
+	    ok = io:format("apply(~p, ~p) -> ~p\n", [Fun,Args,Res2]),
+	    ct:fail({bad_result,Res2})
     end,
     ok.
 
@@ -214,29 +184,29 @@ nothing() ->
 equality(Config) when is_list(Config) ->
     F0 = fun() -> 1 end,
     F0_copy = copy_term(F0),
-    ?line true = eq(F0, F0),
-    ?line true = eq(F0, F0_copy),
+    true = eq(F0, F0),
+    true = eq(F0, F0_copy),
 
     %% Compare different arities.
     F1 = fun(X) -> X + 1 end,
-    ?line true = eq(F1, F1),
-    ?line false = eq(F0, F1),
-    ?line false = eq(F0_copy, F1),
+    true = eq(F1, F1),
+    false = eq(F0, F1),
+    false = eq(F0_copy, F1),
 
     %% Compare different environments.
     G1 = make_fun(1),
     G2 = make_fun(2),
-    ?line true = eq(G1, G1),
-    ?line true = eq(G2, G2),
-    ?line false = eq(G1, G2),
-    ?line false = eq(G2, G1),
+    true = eq(G1, G1),
+    true = eq(G2, G2),
+    false = eq(G1, G2),
+    false = eq(G2, G1),
     G1_copy = copy_term(G1),
-    ?line true = eq(G1, G1_copy),
+    true = eq(G1, G1_copy),
 
     %% Compare fun with binaries.
     B = list_to_binary([7,8,9]),
-    ?line false = eq(B, G1),
-    ?line false = eq(G1, B),
+    false = eq(B, G1),
+    false = eq(G1, B),
 
     %% Compare external funs.
     FF0 = fun aa:blurf/0,
@@ -246,23 +216,23 @@ equality(Config) when is_list(Config) ->
     FF3 = fun erlang:exit/2,
     FF4 = fun z:ff/0,
 
-    ?line true = eq(FF0, FF0),
-    ?line true = eq(FF0, FF0_copy),
-    ?line true = eq(FF1, FF1),
-    ?line true = eq(FF2, FF2),
-    ?line true = eq(FF3, FF3),
-    ?line true = eq(FF4, FF4),
-    ?line false = eq(FF0, FF1),
-    ?line false = eq(FF0, FF2),
-    ?line false = eq(FF0, FF3),
-    ?line false = eq(FF0, FF4),
-    ?line false = eq(FF1, FF0),
-    ?line false = eq(FF1, FF2),
-    ?line false = eq(FF1, FF3),
-    ?line false = eq(FF1, FF4),
-    ?line false = eq(FF2, FF3),
-    ?line false = eq(FF2, FF4),
-    ?line false = eq(FF3, FF4),
+    true = eq(FF0, FF0),
+    true = eq(FF0, FF0_copy),
+    true = eq(FF1, FF1),
+    true = eq(FF2, FF2),
+    true = eq(FF3, FF3),
+    true = eq(FF4, FF4),
+    false = eq(FF0, FF1),
+    false = eq(FF0, FF2),
+    false = eq(FF0, FF3),
+    false = eq(FF0, FF4),
+    false = eq(FF1, FF0),
+    false = eq(FF1, FF2),
+    false = eq(FF1, FF3),
+    false = eq(FF1, FF4),
+    false = eq(FF2, FF3),
+    false = eq(FF2, FF4),
+    false = eq(FF3, FF4),
 
     %% EEP37
     H1 = fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end,
@@ -285,7 +255,7 @@ copy_term(Term) ->
 make_fun(X) ->
     fun() -> X end.
 	    
-ordering(doc) -> "Tests ordering of funs.";
+%% Tests ordering of funs.
 ordering(Config) when is_list(Config) ->
     F1 = make_fun(1, 2),
     F1_copy = copy_term(F1),
@@ -298,140 +268,139 @@ ordering(Config) when is_list(Config) ->
     FF3 = fun erlang:exit/2,
     FF4 = fun z:ff/0,
 
-    ?line true = FF0 < FF1,
-    ?line true = FF1 < FF2,
-    ?line true = FF2 < FF3,
-    ?line true = FF3 < FF4,
+    true = FF0 < FF1,
+    true = FF1 < FF2,
+    true = FF2 < FF3,
+    true = FF3 < FF4,
 
-    ?line true = FF0 > F1,
-    ?line true = FF0 > F2,
-    ?line true = FF0 > F3,
-    ?line true = FF4 > F1,
-    ?line true = FF4 > F2,
-    ?line true = FF4 > F3,
+    true = FF0 > F1,
+    true = FF0 > F2,
+    true = FF0 > F3,
+    true = FF4 > F1,
+    true = FF4 > F2,
+    true = FF4 > F3,
 
-    ?line true = F1 == F1,
-    ?line true = F1 == F1_copy,
-    ?line true = F1 /= F2,
+    true = F1 == F1,
+    true = F1 == F1_copy,
+    true = F1 /= F2,
 
-    ?line true = F1 < F2,
-    ?line true = F2 > F1,
-    ?line true = F2 < F3,
-    ?line true = F3 > F2,
+    true = F1 < F2,
+    true = F2 > F1,
+    true = F2 < F3,
+    true = F3 > F2,
 
-    ?line false = F1 > F2,
-    ?line false = F2 > F3,
+    false = F1 > F2,
+    false = F2 > F3,
 
     %% Compare with binaries.
 
     B = list_to_binary([7,8,9,10]),
-    ?line false = B == F1,
-    ?line false = F1 == B,
+    false = B == F1,
+    false = F1 == B,
 
-    ?line true = F1 < B,
-    ?line true = B > F2,
+    true = F1 < B,
+    true = B > F2,
 
-    ?line false = F1 > B,
-    ?line false = B < F2,
+    false = F1 > B,
+    false = B < F2,
 
-    ?line false = F1 >= B,
-    ?line false = B =< F2,
+    false = F1 >= B,
+    false = B =< F2,
 
     %% Compare module funs with binaries.
-    ?line false = B == FF1,
-    ?line false = FF1 == B,
+    false = B == FF1,
+    false = FF1 == B,
 
-    ?line true = FF1 < B,
-    ?line true = B > FF2,
+    true = FF1 < B,
+    true = B > FF2,
 
-    ?line false = FF1 > B,
-    ?line false = B < FF2,
+    false = FF1 > B,
+    false = B < FF2,
 
-    ?line false = FF1 >= B,
-    ?line false = B =< FF2,
+    false = FF1 >= B,
+    false = B =< FF2,
 
     %% Create a port and ref.
 
-    ?line Path = ?config(priv_dir, Config),
-    ?line AFile = filename:join(Path, "vanilla_file"),
-    ?line P = open_port(AFile, [out]),
-    ?line R = make_ref(),
+    Path = proplists:get_value(priv_dir, Config),
+    AFile = filename:join(Path, "vanilla_file"),
+    P = open_port(AFile, [out]),
+    R = make_ref(),
 
     %% Compare funs with ports and refs.
 
-    ?line true = R < F3,
-    ?line true = F3 > R,
-    ?line true = F3 < P,
-    ?line true = P > F3,
+    true = R < F3,
+    true = F3 > R,
+    true = F3 < P,
+    true = P > F3,
 
-    ?line true = R =< F3,
-    ?line true = F3 >= R,
-    ?line true = F3 =< P,
-    ?line true = P >= F3,
+    true = R =< F3,
+    true = F3 >= R,
+    true = F3 =< P,
+    true = P >= F3,
 
-    ?line false = R > F3,
-    ?line false = F3 < R,
-    ?line false = F3 > P,
-    ?line false = P < F3,
+    false = R > F3,
+    false = F3 < R,
+    false = F3 > P,
+    false = P < F3,
 
     %% Compare funs with conses and nils.
 
-    ?line true = F1 < [a],
-    ?line true = F1 < [],
-    ?line true = [a,b] > F1,
-    ?line true = [] > F1,
+    true = F1 < [a],
+    true = F1 < [],
+    true = [a,b] > F1,
+    true = [] > F1,
 
-    ?line false = [1] < F1,
-    ?line false = [] < F1,
-    ?line false = F1 > [2],
-    ?line false = F1 > [],
+    false = [1] < F1,
+    false = [] < F1,
+    false = F1 > [2],
+    false = F1 > [],
 
-    ?line false = [1] =< F1,
-    ?line false = [] =< F1,
-    ?line false = F1 >= [2],
-    ?line false = F1 >= [],
+    false = [1] =< F1,
+    false = [] =< F1,
+    false = F1 >= [2],
+    false = F1 >= [],
 
     %% Compare module funs with conses and nils.
 
-    ?line true = FF1 < [a],
-    ?line true = FF1 < [],
-    ?line true = [a,b] > FF1,
-    ?line true = [] > FF1,
+    true = FF1 < [a],
+    true = FF1 < [],
+    true = [a,b] > FF1,
+    true = [] > FF1,
 
-    ?line false = [1] < FF1,
-    ?line false = [] < FF1,
-    ?line false = FF1 > [2],
-    ?line false = FF1 > [],
+    false = [1] < FF1,
+    false = [] < FF1,
+    false = FF1 > [2],
+    false = FF1 > [],
 
-    ?line false = [1] =< FF1,
-    ?line false = [] =< FF1,
-    ?line false = FF1 >= [2],
-    ?line false = FF1 >= [],
+    false = [1] =< FF1,
+    false = [] =< FF1,
+    false = FF1 >= [2],
+    false = FF1 >= [],
     ok.
 
 make_fun(X, Y) ->
     fun(A) -> A*X+Y end.
 
-fun_to_port(doc) -> "Try sending funs to ports (should fail).";
-fun_to_port(suite) -> [];
+%% Try sending funs to ports (should fail).
 fun_to_port(Config) when is_list(Config) ->
-    ?line fun_to_port(Config, xxx),
-    ?line fun_to_port(Config, fun() -> 42 end),
-    ?line fun_to_port(Config, [fun() -> 43 end]),
-    ?line fun_to_port(Config, [1,fun() -> 44 end]),
-    ?line fun_to_port(Config, [0,1|fun() -> 45 end]),
+    fun_to_port(Config, xxx),
+    fun_to_port(Config, fun() -> 42 end),
+    fun_to_port(Config, [fun() -> 43 end]),
+    fun_to_port(Config, [1,fun() -> 44 end]),
+    fun_to_port(Config, [0,1|fun() -> 45 end]),
     B64K = build_io_list(65536),
-    ?line fun_to_port(Config, [B64K,fun() -> 45 end]),
-    ?line fun_to_port(Config, [B64K|fun() -> 45 end]),
+    fun_to_port(Config, [B64K,fun() -> 45 end]),
+    fun_to_port(Config, [B64K|fun() -> 45 end]),
     ok.
 
 fun_to_port(Config, IoList) ->
-    Path = ?config(priv_dir, Config),
+    Path = proplists:get_value(priv_dir, Config),
     AFile = filename:join(Path, "vanilla_file"),
     Port = open_port(AFile, [out]),
     case catch port_command(Port, IoList) of
 	{'EXIT',{badarg,_}} -> ok;
-	Other -> ?t:fail({unexpected_retval,Other})
+	Other -> ct:fail({unexpected_retval,Other})
     end.
 
 build_io_list(0) -> [];
@@ -443,86 +412,83 @@ build_io_list(N) ->
 	1 -> [7,L|L]
     end.
 
-t_hash(doc) -> "Test the hash/2 BIF on funs.";
-t_hash(suite) -> [];
+%% Test the hash/2 BIF on funs.
 t_hash(Config) when is_list(Config) ->
     F1 = fun(_X) -> 1 end,
     F2 = fun(_X) -> 2 end,
-    ?line true = hash(F1) /= hash(F2),
+    true = hash(F1) /= hash(F2),
 
     G1 = make_fun(1, 2, 3),
     G2 = make_fun(1, 2, 3),
     G3 = make_fun(1, 2, 4),
-    ?line true = hash(G1) == hash(G2),
-    ?line true = hash(G2) /= hash(G3),
+    true = hash(G1) == hash(G2),
+    true = hash(G2) /= hash(G3),
 
     FF0 = fun erlang:abs/1,
     FF1 = fun erlang:exit/1,
     FF2 = fun erlang:exit/2,
     FF3 = fun blurf:exit/2,
-    ?line true = hash(FF0) =/= hash(FF1),
-    ?line true = hash(FF0) =/= hash(FF2),
-    ?line true = hash(FF0) =/= hash(FF3),
-    ?line true = hash(FF1) =/= hash(FF2),
-    ?line true = hash(FF1) =/= hash(FF3),
-    ?line true = hash(FF2) =/= hash(FF3),
+    true = hash(FF0) =/= hash(FF1),
+    true = hash(FF0) =/= hash(FF2),
+    true = hash(FF0) =/= hash(FF3),
+    true = hash(FF1) =/= hash(FF2),
+    true = hash(FF1) =/= hash(FF3),
+    true = hash(FF2) =/= hash(FF3),
     ok.
 
 hash(Term) ->
     erlang:hash(Term, 16#7ffffff).
 
-t_phash(doc) -> "Test the phash/2 BIF on funs.";
-t_phash(suite) -> [];
+%% Test the phash/2 BIF on funs.
 t_phash(Config) when is_list(Config) ->
     F1 = fun(_X) -> 1 end,
     F2 = fun(_X) -> 2 end,
-    ?line true = phash(F1) /= phash(F2),
+    true = phash(F1) /= phash(F2),
 
     G1 = make_fun(1, 2, 3),
     G2 = make_fun(1, 2, 3),
     G3 = make_fun(1, 2, 4),
-    ?line true = phash(G1) == phash(G2),
-    ?line true = phash(G2) /= phash(G3),
+    true = phash(G1) == phash(G2),
+    true = phash(G2) /= phash(G3),
 
     FF0 = fun erlang:abs/1,
     FF1 = fun erlang:exit/1,
     FF2 = fun erlang:exit/2,
     FF3 = fun blurf:exit/2,
-    ?line true = phash(FF0) =/= phash(FF1),
-    ?line true = phash(FF0) =/= phash(FF2),
-    ?line true = phash(FF0) =/= phash(FF3),
-    ?line true = phash(FF1) =/= phash(FF2),
-    ?line true = phash(FF1) =/= phash(FF3),
-    ?line true = phash(FF2) =/= phash(FF3),
+    true = phash(FF0) =/= phash(FF1),
+    true = phash(FF0) =/= phash(FF2),
+    true = phash(FF0) =/= phash(FF3),
+    true = phash(FF1) =/= phash(FF2),
+    true = phash(FF1) =/= phash(FF3),
+    true = phash(FF2) =/= phash(FF3),
     
     ok.
 
 phash(Term) ->
     erlang:phash(Term, 16#7ffffff).
 
-t_phash2(doc) -> "Test the phash2/2 BIF on funs.";
-t_phash2(suite) -> [];
+%% Test the phash2/2 BIF on funs.
 t_phash2(Config) when is_list(Config) ->
     F1 = fun(_X) -> 1 end,
     F2 = fun(_X) -> 2 end,
-    ?line true = phash2(F1) /= phash2(F2),
+    true = phash2(F1) /= phash2(F2),
 
     G1 = make_fun(1, 2, 3),
     G2 = make_fun(1, 2, 3),
     G3 = make_fun(1, 2, 4),
-    ?line true = phash2(G1) == phash2(G2),
-    ?line true = phash2(G2) /= phash2(G3),
+    true = phash2(G1) == phash2(G2),
+    true = phash2(G2) /= phash2(G3),
 
     FF0 = fun erlang:abs/1,
     FF1 = fun erlang:exit/1,
     FF2 = fun erlang:exit/2,
     FF3 = fun blurf:exit/2,
-    ?line true = phash2(FF0) =/= phash2(FF1),
-    ?line true = phash2(FF0) =/= phash2(FF2),
-    ?line true = phash2(FF0) =/= phash2(FF3),
-    ?line true = phash2(FF1) =/= phash2(FF2),
-    ?line true = phash2(FF1) =/= phash2(FF3),
-    ?line true = phash2(FF2) =/= phash2(FF3),
+    true = phash2(FF0) =/= phash2(FF1),
+    true = phash2(FF0) =/= phash2(FF2),
+    true = phash2(FF0) =/= phash2(FF3),
+    true = phash2(FF1) =/= phash2(FF2),
+    true = phash2(FF1) =/= phash2(FF3),
+    true = phash2(FF2) =/= phash2(FF3),
     
     ok.
 
@@ -532,52 +498,51 @@ phash2(Term) ->
 make_fun(X, Y, Z) ->
     fun() -> {X,Y,Z} end.
 
-md5(doc) -> "Test that MD5 bifs reject funs properly.";
-md5(suite) -> [];
+%% Test that MD5 bifs reject funs properly.
 md5(Config) when is_list(Config) ->
     _ = size(erlang:md5_init()),
 
     %% Try funs in the i/o list.
-    ?line bad_md5(fun(_X) -> 42 end),
-    ?line bad_md5([fun(_X) -> 43 end]),
-    ?line bad_md5([1,fun(_X) -> 44 end]),
-    ?line bad_md5([1|fun(_X) -> 45 end]),
-    ?line B64K = build_io_list(65536),
-    ?line bad_md5([B64K,fun(_X) -> 46 end]),
-    ?line bad_md5([B64K|fun(_X) -> 46 end]),
+    bad_md5(fun(_X) -> 42 end),
+    bad_md5([fun(_X) -> 43 end]),
+    bad_md5([1,fun(_X) -> 44 end]),
+    bad_md5([1|fun(_X) -> 45 end]),
+    B64K = build_io_list(65536),
+    bad_md5([B64K,fun(_X) -> 46 end]),
+    bad_md5([B64K|fun(_X) -> 46 end]),
     ok.
     
 bad_md5(Bad) ->
     {'EXIT',{badarg,_}} = (catch erlang:md5(Bad)).
 
 refc(Config) when is_list(Config) ->
-    ?line F1 = fun_factory(2),
-    ?line {refc,2} = erlang:fun_info(F1, refc),
-    ?line F2 = fun_factory(42),
-    ?line {refc,3} = erlang:fun_info(F1, refc),
+    F1 = fun_factory(2),
+    {refc,2} = erlang:fun_info(F1, refc),
+    F2 = fun_factory(42),
+    {refc,3} = erlang:fun_info(F1, refc),
 
-    ?line process_flag(trap_exit, true),
-    ?line Pid = spawn_link(fun() -> {refc,4} = erlang:fun_info(F1, refc) end),
+    process_flag(trap_exit, true),
+    Pid = spawn_link(fun() -> {refc,4} = erlang:fun_info(F1, refc) end),
     receive
 	{'EXIT',Pid,normal} -> ok;
-	Other -> ?line ?t:fail({unexpected,Other})
+	Other -> ct:fail({unexpected,Other})
     end,
-    ?line process_flag(trap_exit, false),
-    ?line {refc,3} = erlang:fun_info(F1, refc),
+    process_flag(trap_exit, false),
+    {refc,3} = erlang:fun_info(F1, refc),
 
     %% Garbage collect. Only the F2 fun will be left.
-    ?line 7 = F1(5),
-    ?line true = erlang:garbage_collect(),
-    ?line 40 = F2(-2),
-    ?line {refc,2} = erlang:fun_info(F2, refc),
+    7 = F1(5),
+    true = erlang:garbage_collect(),
+    40 = F2(-2),
+    {refc,2} = erlang:fun_info(F2, refc),
     ok.
 
 fun_factory(Const) ->
     fun(X) -> X + Const end.
 
 refc_ets(Config) when is_list(Config) ->
-    ?line F = fun(X) -> X + 33 end,
-    ?line {refc,2} = erlang:fun_info(F, refc),
+    F = fun(X) -> X + 33 end,
+    {refc,2} = erlang:fun_info(F, refc),
 
     refc_ets_set(F, [set]),
     refc_ets_set(F, [ordered_set]),
@@ -586,115 +551,112 @@ refc_ets(Config) when is_list(Config) ->
     ok.
 
 refc_ets_set(F1, Options) ->
-    ?line io:format("~p", [Options]),
-    ?line Tab = ets:new(kalle, Options),
-    ?line true = ets:insert(Tab, {a_key,F1}),
-    ?line 3 = fun_refc(F1),
-    ?line [{a_key,F3}] = ets:lookup(Tab, a_key),
-    ?line 4 = fun_refc(F1),
-    ?line true = ets:insert(Tab, {a_key,not_a_fun}),
-    ?line 3 = fun_refc(F1),
-    ?line true = ets:insert(Tab, {another_key,F1}),
-    ?line 4 = fun_refc(F1),
-    ?line true = ets:delete(Tab),
-    ?line 3 = fun_refc(F1),
-    ?line 10 = F3(-23),
-    ?line true = erlang:garbage_collect(),
-    ?line 2 = fun_refc(F1),
+    io:format("~p", [Options]),
+    Tab = ets:new(kalle, Options),
+    true = ets:insert(Tab, {a_key,F1}),
+    3 = fun_refc(F1),
+    [{a_key,F3}] = ets:lookup(Tab, a_key),
+    4 = fun_refc(F1),
+    true = ets:insert(Tab, {a_key,not_a_fun}),
+    3 = fun_refc(F1),
+    true = ets:insert(Tab, {another_key,F1}),
+    4 = fun_refc(F1),
+    true = ets:delete(Tab),
+    3 = fun_refc(F1),
+    10 = F3(-23),
+    true = erlang:garbage_collect(),
+    2 = fun_refc(F1),
     ok.
 
 refc_ets_bag(F1, Options) ->
-    ?line io:format("~p", [Options]),
-    ?line Tab = ets:new(kalle, Options),
-    ?line true = ets:insert(Tab, {a_key,F1}),
-    ?line 3 = fun_refc(F1),
-    ?line [{a_key,F3}] = ets:lookup(Tab, a_key),
-    ?line 4 = fun_refc(F1),
-    ?line true = ets:insert(Tab, {a_key,not_a_fun}),
-    ?line 4 = fun_refc(F1),
-    ?line true = ets:insert(Tab, {another_key,F1}),
-    ?line 5 = fun_refc(F1),
-    ?line true = ets:delete(Tab),
-    ?line 3 = fun_refc(F1),
-    ?line 10 = F3(-23),
-    ?line true = erlang:garbage_collect(),
-    ?line 2 = fun_refc(F1),
+    io:format("~p", [Options]),
+    Tab = ets:new(kalle, Options),
+    true = ets:insert(Tab, {a_key,F1}),
+    3 = fun_refc(F1),
+    [{a_key,F3}] = ets:lookup(Tab, a_key),
+    4 = fun_refc(F1),
+    true = ets:insert(Tab, {a_key,not_a_fun}),
+    4 = fun_refc(F1),
+    true = ets:insert(Tab, {another_key,F1}),
+    5 = fun_refc(F1),
+    true = ets:delete(Tab),
+    3 = fun_refc(F1),
+    10 = F3(-23),
+    true = erlang:garbage_collect(),
+    2 = fun_refc(F1),
     ok.
 
 refc_dist(Config) when is_list(Config) ->
-    ?line {ok,Node} = start_node(fun_SUITE_refc_dist),
-    ?line process_flag(trap_exit, true),
-    ?line Pid = spawn_link(Node,
-			   fun() -> receive
-					Fun when is_function(Fun) ->
-					    2 = fun_refc(Fun),
-					    exit({normal,Fun}) end
-			   end),
-    ?line F = fun() -> 42 end,
-    ?line 2 = fun_refc(F),
-    ?line Pid ! F,
+    {ok,Node} = start_node(fun_SUITE_refc_dist),
+    process_flag(trap_exit, true),
+    Pid = spawn_link(Node, fun() -> receive
+                                        Fun when is_function(Fun) ->
+                                            2 = fun_refc(Fun),
+                                            exit({normal,Fun}) end
+                           end),
+    F = fun() -> 42 end,
+    2 = fun_refc(F),
+    Pid ! F,
     F2 = receive
 	     {'EXIT',Pid,{normal,Fun}} -> Fun;
-	     Other -> ?line ?t:fail({unexpected,Other})
+	     Other -> ct:fail({unexpected,Other})
 	 end,
     %% dist.c:net_mess2 have a reference to Fun for a while since
     %% Fun is passed in an exit signal. Wait until it is gone.
-    ?line wait_until(fun () -> 4 =/= fun_refc(F2) end),
-    ?line 3 = fun_refc(F2),
-    ?line true = erlang:garbage_collect(),
-    ?line 2 = fun_refc(F),
+    wait_until(fun () -> 4 =/= fun_refc(F2) end),
+    3 = fun_refc(F2),
+    true = erlang:garbage_collect(),
+    2 = fun_refc(F),
     refc_dist_send(Node, F).
 
 refc_dist_send(Node, F) ->
-    ?line Pid = spawn_link(Node,
-			   fun() -> receive
-					{To,Fun} when is_function(Fun) ->
-					    wait_until(fun () ->
-							       2 =:= fun_refc(Fun)
-						       end),
-					    To ! Fun
-				    end
-			   end),
-    ?line 2 = fun_refc(F),
+    Pid = spawn_link(Node, fun() -> receive
+                                        {To,Fun} when is_function(Fun) ->
+                                            wait_until(fun () ->
+                                                               2 =:= fun_refc(Fun)
+                                                       end),
+                                            To ! Fun
+                                    end
+                           end),
+    2 = fun_refc(F),
     Pid ! {self(),F},
     F2 = receive
 	     Fun when is_function(Fun) -> Fun;
-	     Other -> ?line ?t:fail({unexpected,Other})
+	     Other -> ct:fail({unexpected,Other})
 	 end,
     receive {'EXIT',Pid,normal} -> ok end,
     %% No reference from dist.c:net_mess2 since Fun is passed
     %% in an ordinary message.
-    ?line 3 = fun_refc(F),
-    ?line 3 = fun_refc(F2),
+    3 = fun_refc(F),
+    3 = fun_refc(F2),
     refc_dist_reg_send(Node, F).
 
 refc_dist_reg_send(Node, F) ->
-    ?line true = erlang:garbage_collect(),
-    ?line 2 = fun_refc(F),
-    ?line Ref = make_ref(),
-    ?line Me = self(),
-    ?line Pid = spawn_link(Node,
-			   fun() ->
-				   true = register(my_fun_tester, self()),
-				   Me ! Ref,
-				   receive
-				       {Me,Fun} when is_function(Fun) ->
-					   2 = fun_refc(Fun),
-					   Me ! Fun
-				   end
-			   end),
+    true = erlang:garbage_collect(),
+    2 = fun_refc(F),
+    Ref = make_ref(),
+    Me = self(),
+    Pid = spawn_link(Node, fun() ->
+                                   true = register(my_fun_tester, self()),
+                                   Me ! Ref,
+                                   receive
+                                       {Me,Fun} when is_function(Fun) ->
+                                           2 = fun_refc(Fun),
+                                           Me ! Fun
+                                   end
+                           end),
     erlang:yield(),
-    ?line 2 = fun_refc(F),
+    2 = fun_refc(F),
     receive Ref -> ok end,
     {my_fun_tester,Node} ! {self(),F},
     F2 = receive
 	     Fun when is_function(Fun) -> Fun;
-	     Other -> ?line ?t:fail({unexpected,Other})
+	     Other -> ct:fail({unexpected,Other})
 	 end,
     receive {'EXIT',Pid,normal} -> ok end,
 
-    ?line 3 = fun_refc(F),
-    ?line 3 = fun_refc(F2),
+    3 = fun_refc(F),
+    3 = fun_refc(F2),
     ok.
     
 fun_refc(F) ->
@@ -702,67 +664,67 @@ fun_refc(F) ->
     Count.
 
 const_propagation(Config) when is_list(Config) ->
-    ?line Fun1 = fun start_node/1,
-    ?line 2 = fun_refc(Fun1),
-    ?line Fun2 = Fun1,
-    ?line my_cmp({Fun1,Fun2}),
+    Fun1 = fun start_node/1,
+    2 = fun_refc(Fun1),
+    Fun2 = Fun1,
+    my_cmp({Fun1,Fun2}),
 
-    ?line Fun3 = fun() -> ok end,
-    ?line 2 = fun_refc(Fun3),
-    ?line Fun4 = Fun3,
-    ?line my_cmp({Fun3,Fun4}),
+    Fun3 = fun() -> ok end,
+    2 = fun_refc(Fun3),
+    Fun4 = Fun3,
+    my_cmp({Fun3,Fun4}),
     ok.
 
 my_cmp({Fun,Fun}) -> ok;
 my_cmp({Fun1,Fun2}) ->
     io:format("Fun1: ~p", [erlang:fun_info(Fun1)]),
     io:format("Fun2: ~p", [erlang:fun_info(Fun2)]),
-    ?t:fail().
+    ct:fail(no_match).
 
 t_arity(Config) when is_list(Config) ->
-    ?line 0 = fun_arity(fun() -> ok end),
-    ?line 0 = fun_arity(fun() -> Config end),
-    ?line 1 = fun_arity(fun(X) -> X+1 end),
-    ?line 1 = fun_arity(fun(X) -> Config =:= X end),
+    0 = fun_arity(fun() -> ok end),
+    0 = fun_arity(fun() -> Config end),
+    1 = fun_arity(fun(X) -> X+1 end),
+    1 = fun_arity(fun(X) -> Config =:= X end),
     A = id(42),
 
     %% Test that the arity is transferred properly.
-    ?line process_flag(trap_exit, true),
-    ?line {ok,Node} = start_node(fun_test_arity),
-    ?line hello_world = spawn_call(Node, fun() -> hello_world end),
-    ?line 0 = spawn_call(Node, fun(X) -> X end),
-    ?line 42 = spawn_call(Node, fun(_X) -> A end),
-    ?line 43 = spawn_call(Node, fun(X, Y) -> A+X+Y end),
-    ?line 1 = spawn_call(Node, fun(X, Y) -> X+Y end),
-    ?line 45 = spawn_call(Node, fun(X, Y, Z) -> A+X+Y+Z end),
+    process_flag(trap_exit, true),
+    {ok,Node} = start_node(fun_test_arity),
+    hello_world = spawn_call(Node, fun() -> hello_world end),
+    0 = spawn_call(Node, fun(X) -> X end),
+    42 = spawn_call(Node, fun(_X) -> A end),
+    43 = spawn_call(Node, fun(X, Y) -> A+X+Y end),
+    1 = spawn_call(Node, fun(X, Y) -> X+Y end),
+    45 = spawn_call(Node, fun(X, Y, Z) -> A+X+Y+Z end),
     ok.
 
 t_is_function2(Config) when is_list(Config) ->
     false = is_function(id({a,b}), 0),
     false = is_function(id({a,b}), 234343434333433433),
-    ?line true = is_function(fun() -> ok end, 0),
-    ?line true = is_function(fun(_) -> ok end, 1),
-    ?line false = is_function(fun(_) -> ok end, 0),
+    true = is_function(fun() -> ok end, 0),
+    true = is_function(fun(_) -> ok end, 1),
+    false = is_function(fun(_) -> ok end, 0),
 
-    ?line true = is_function(fun erlang:abs/1, 1),
-    ?line true = is_function(fun erlang:abs/99, 99),
-    ?line false = is_function(fun erlang:abs/1, 0),
-    ?line false = is_function(fun erlang:abs/99, 0),
+    true = is_function(fun erlang:abs/1, 1),
+    true = is_function(fun erlang:abs/99, 99),
+    false = is_function(fun erlang:abs/1, 0),
+    false = is_function(fun erlang:abs/99, 0),
 
-    ?line false = is_function(id(self()), 0),
-    ?line false = is_function(id({a,b,c}), 0),
-    ?line false = is_function(id({a}), 0),
-    ?line false = is_function(id([a,b,c]), 0),
+    false = is_function(id(self()), 0),
+    false = is_function(id({a,b,c}), 0),
+    false = is_function(id({a}), 0),
+    false = is_function(id([a,b,c]), 0),
 
     %% Bad arity argument.
-    ?line bad_arity(a),
-    ?line bad_arity(-1),
-    ?line bad_arity(-9738974938734938793873498378),
-    ?line bad_arity([]),
-    ?line bad_arity(fun() -> ok end),
-    ?line bad_arity({}),
-    ?line bad_arity({a,b}),
-    ?line bad_arity(self()),
+    bad_arity(a),
+    bad_arity(-1),
+    bad_arity(-9738974938734938793873498378),
+    bad_arity([]),
+    bad_arity(fun() -> ok end),
+    bad_arity({}),
+    bad_arity({a,b}),
+    bad_arity(self()),
     ok.
 
 bad_arity(A) ->
@@ -771,59 +733,57 @@ bad_arity(A) ->
     ok.
 
 t_fun_info(Config) when is_list(Config) ->
-    ?line F = fun t_fun_info/1,
-    ?line try F(blurf) of
+    F = fun t_fun_info/1,
+    try F(blurf) of
 	      FAny ->
-		  io:format("should fail; returned ~p\n", [FAny]),
-		  ?line ?t:fail()
+		  ct:fail("should fail; returned ~p\n", [FAny])
 	  catch
 	      error:function_clause -> ok
 	  end,
-    ?line {module,?MODULE} = erlang:fun_info(F, module),
-    ?line case erlang:fun_info(F, name) of
+    {module,?MODULE} = erlang:fun_info(F, module),
+    case erlang:fun_info(F, name) of
 	      undefined ->
-		  ?line ?t:fail();
+		  ct:fail(no_fun_info);
 	      _ -> ok
 	  end,
-    ?line {arity,1} = erlang:fun_info(F, arity),
-    ?line {env,[]} = erlang:fun_info(F, env),
-    ?line verify_not_undef(F, index),
-    ?line verify_not_undef(F, uniq),
-    ?line verify_not_undef(F, new_index),
-    ?line verify_not_undef(F, new_uniq),
-    ?line verify_not_undef(F, refc),
-    ?line {'EXIT',_} = (catch erlang:fun_info(F, blurf)),    
+    {arity,1} = erlang:fun_info(F, arity),
+    {env,[]} = erlang:fun_info(F, env),
+    verify_not_undef(F, index),
+    verify_not_undef(F, uniq),
+    verify_not_undef(F, new_index),
+    verify_not_undef(F, new_uniq),
+    verify_not_undef(F, refc),
+    {'EXIT',_} = (catch erlang:fun_info(F, blurf)),    
 
     %% Module fun.
-    ?line FF = fun ?MODULE:t_fun_info/1,
-    ?line try FF(blurf) of
+    FF = fun ?MODULE:t_fun_info/1,
+    try FF(blurf) of
 	      FFAny ->
-		  io:format("should fail; returned ~p\n", [FFAny]),
-		  ?line ?t:fail()
+		  ct:fail("should fail; returned ~p\n", [FFAny])
 	  catch
 	      error:function_clause -> ok
 	  end,
 
-    ?line {module,?MODULE} = erlang:fun_info(FF, module),
-    ?line {name,t_fun_info} = erlang:fun_info(FF, name),
-    ?line {arity,1} = erlang:fun_info(FF, arity),
-    ?line {env,[]} = erlang:fun_info(FF, env),
-    ?line verify_undef(FF, index),
-    ?line verify_undef(FF, uniq),
-    ?line verify_undef(FF, new_index),
-    ?line verify_undef(FF, new_uniq),
-    ?line verify_undef(FF, refc),
-    ?line {'EXIT',_} = (catch erlang:fun_info(FF, blurf)),
+    {module,?MODULE} = erlang:fun_info(FF, module),
+    {name,t_fun_info} = erlang:fun_info(FF, name),
+    {arity,1} = erlang:fun_info(FF, arity),
+    {env,[]} = erlang:fun_info(FF, env),
+    verify_undef(FF, index),
+    verify_undef(FF, uniq),
+    verify_undef(FF, new_index),
+    verify_undef(FF, new_uniq),
+    verify_undef(FF, refc),
+    {'EXIT',_} = (catch erlang:fun_info(FF, blurf)),
 
     %% Not fun.
-    ?line bad_info(abc),
-    ?line bad_info(42),
-    ?line bad_info({fun erlang:list_to_integer/1}),
-    ?line bad_info([42]),
-    ?line bad_info([]),
-    ?line bad_info(self()),
-    ?line bad_info(<<>>),
-    ?line bad_info(<<1,2>>),
+    bad_info(abc),
+    bad_info(42),
+    bad_info({fun erlang:list_to_integer/1}),
+    bad_info([42]),
+    bad_info([]),
+    bad_info(self()),
+    bad_info(<<>>),
+    bad_info(<<1,2>>),
     ok.
 
 t_fun_info_mfa(Config) when is_list(Config) ->
@@ -847,8 +807,7 @@ t_fun_info_mfa(Config) when is_list(Config) ->
 bad_info(Term) ->
     try	erlang:fun_info(Term, module) of
 	Any ->
-	    io:format("should fail; returned ~p\n", [Any]),
-	    ?t:fail()
+	    ict:fail("should fail; returned ~p\n", [Any])
     catch
 	error:badarg -> ok
     end.
@@ -859,7 +818,7 @@ verify_undef(Fun, Tag) ->
 verify_not_undef(Fun, Tag) ->
     case erlang:fun_info(Fun, Tag) of
 	{Tag,undefined} ->
-	    ?t:fail();
+	    ct:fail("tag ~w not defined in fun_info", [Tag]);
 	{Tag,_} -> ok
     end.
 	    
@@ -884,15 +843,15 @@ spawn_call(Node, AFun) ->
     Pid ! {AFun,AFun,AFun},
     Res = receive
 	      {result,R} -> R;
-	      Other -> ?t:fail({bad_message,Other})
+	      Other -> ct:fail({bad_message,Other})
 	  after 10000 ->
-		  ?t:fail(timeout_waiting_for_result)
+		  ct:fail(timeout_waiting_for_result)
 	  end,
     receive
 	{'EXIT',Pid,normal} -> ok;
-	Other2 -> ?t:fail({bad_message_waiting_for_exit,Other2})
+	Other2 -> ct:fail({bad_message_waiting_for_exit,Other2})
     after 10000 ->
-	    ?t:fail(timeout_waiting_for_exit)
+	    ct:fail(timeout_waiting_for_exit)
     end,
     Res.
 
@@ -911,6 +870,3 @@ wait_until(Fun) ->
 	true -> ok;
 	_ -> receive after 100 -> wait_until(Fun) end
     end.
-
-% stop_node(Node) ->
-%    test_server:stop_node(Node).

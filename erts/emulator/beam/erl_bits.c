@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -282,7 +282,7 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	 * Simply shift whole bytes into the result.
 	 */
 	switch (BYTE_OFFSET(n)) {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 	case 7: w = (w << 8) | *bp++;
 	case 6: w = (w << 8) | *bp++;
 	case 5: w = (w << 8) | *bp++;
@@ -387,7 +387,7 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
     case 3: 
 	v32 = LSB[0] + (LSB[1]<<8) + (LSB[2]<<16); 
 	goto big_small;
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     case 4:
 	v32 = (LSB[0] + (LSB[1]<<8) + (LSB[2]<<16) + (LSB[3]<<24));
 	if (!IS_USMALL(sgn, v32)) {

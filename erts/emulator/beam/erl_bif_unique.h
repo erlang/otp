@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,8 +41,9 @@ void erts_make_ref_in_array(Uint32 ref[ERTS_MAX_REF_NUMBERS]);
  * not necessarily correspond to the end result.
  */
 Sint64 erts_raw_get_unique_monotonic_integer(void);
-Uint erts_raw_unique_monotonic_integer_heap_size(Sint64 raw);
-Eterm erts_raw_make_unique_monotonic_integer_value(Eterm **hpp, Sint64 raw);
+Uint erts_raw_unique_monotonic_integer_heap_size(Sint64 raw, int positive);
+Eterm erts_raw_make_unique_monotonic_integer_value(Eterm **hpp, Sint64 raw,
+                                                   int positive);
 
 Sint64 erts_get_min_unique_monotonic_integer(void);
 
@@ -53,8 +54,11 @@ Eterm erts_debug_get_unique_monotonic_integer_state(Process *c_p);
 #define ERTS_UNIQUE_INT_RAW_VALUES 2
 #define ERTS_MAX_UNIQUE_INT_HEAP_SIZE ERTS_UINT64_ARRAY_TO_BIG_MAX_HEAP_SZ(2)
 
-Uint erts_raw_unique_integer_heap_size(Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES]);
-Eterm erts_raw_make_unique_integer(Eterm **hpp, Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES]);
+Uint erts_raw_unique_integer_heap_size(Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES],
+                                       int positive);
+Eterm erts_raw_make_unique_integer(Eterm **hpp,
+                                   Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES],
+                                   int postive);
 void erts_raw_get_unique_integer(Uint64 val[ERTS_UNIQUE_INT_RAW_VALUES]);
 Sint64 erts_get_min_unique_integer(void);
 

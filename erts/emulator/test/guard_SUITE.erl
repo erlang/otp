@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 
 -module(guard_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, bad_arith/1, bad_tuple/1, 
+-export([all/0, suite/0,
+         bad_arith/1, bad_tuple/1,
 	 test_heap_guards/1, guard_bifs/1,
 	 type_tests/1,guard_bif_binary_part/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init/3]).
 -import(lists, [member/2]).
@@ -36,27 +36,12 @@ all() ->
     [bad_arith, bad_tuple, test_heap_guards, guard_bifs,
      type_tests, guard_bif_binary_part].
 
-groups() -> 
-    [].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";
+%% Test that a bad arithmetic operation in a guard works correctly.
 bad_arith(Config) when is_list(Config) ->
-    ?line 5 = bad_arith1(2, 3),
-    ?line 10 = bad_arith1(1, infinity),
-    ?line 10 = bad_arith1(infinity, 1),
+    5 = bad_arith1(2, 3),
+    10 = bad_arith1(1, infinity),
+    10 = bad_arith1(infinity, 1),
     ok.
 
 bad_arith1(T1, T2) when T1+T2 < 10 ->
@@ -64,12 +49,12 @@ bad_arith1(T1, T2) when T1+T2 < 10 ->
 bad_arith1(_, _) ->
     10.
 
-bad_tuple(doc) -> "Test that bad arguments to element/2 are handled correctly.";
+%% Test that bad arguments to element/2 are handled correctly.
 bad_tuple(Config) when is_list(Config) ->
-    ?line error = bad_tuple1(a),
-    ?line error = bad_tuple1({a, b}),
-    ?line x = bad_tuple1({x, b}),
-    ?line y = bad_tuple1({a, b, y}),
+    error = bad_tuple1(a),
+    error = bad_tuple1({a, b}),
+    x = bad_tuple1({x, b}),
+    y = bad_tuple1({a, b, y}),
     ok.
 
 bad_tuple1(T) when element(1, T) == x ->
@@ -79,26 +64,25 @@ bad_tuple1(T) when element(3, T) == y ->
 bad_tuple1(_) ->
     error.
 
-test_heap_guards(doc) -> "";
 test_heap_guards(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(2)),
+    ct:timetrap({minutes, 2}),
     
-    ?line process_flag(trap_exit, true),
-    ?line Tuple = {a, tuple, is, built, here, xxx},
-    ?line List = [a, list, is, built, here],
+    process_flag(trap_exit, true),
+    Tuple = {a, tuple, is, built, here, xxx},
+    List = [a, list, is, built, here],
 
-    ?line 'try'(fun a_case/1, [Tuple], [Tuple]),
-    ?line 'try'(fun a_case/1, [List], [List, List]),
-    ?line 'try'(fun a_case/1, [a], [a]),
+    'try'(fun a_case/1, [Tuple], [Tuple]),
+    'try'(fun a_case/1, [List], [List, List]),
+    'try'(fun a_case/1, [a], [a]),
 
-    ?line 'try'(fun an_if/1, [Tuple], [Tuple]),
-    ?line 'try'(fun an_if/1, [List], [List, List]),
-    ?line 'try'(fun an_if/1, [a], [a]),
+    'try'(fun an_if/1, [Tuple], [Tuple]),
+    'try'(fun an_if/1, [List], [List, List]),
+    'try'(fun an_if/1, [a], [a]),
 
-    ?line 'try'(fun receive_test/1, [Tuple], [Tuple]),
-    ?line 'try'(fun receive_test/1, [List], [List, List]),
-    ?line 'try'(fun receive_test/1, [a], [a]),
-    ?line test_server:timetrap_cancel(Dog).
+    'try'(fun receive_test/1, [Tuple], [Tuple]),
+    'try'(fun receive_test/1, [List], [List, List]),
+    'try'(fun receive_test/1, [a], [a]),
+    ok.
 
 a_case(V) ->
     case V of
@@ -143,12 +127,11 @@ a_receive() ->
     Pid = spawn_link(?MODULE, init, [Fun,Args,list_to_tuple(Filler)]),
     receive
 	{'EXIT', Pid, {result, Result}} ->
-	    ?line 'try'(Iter-1, Fun, Args, Result, [0|Filler]);
+	    'try'(Iter-1, Fun, Args, Result, [0|Filler]);
 	{result, Other} ->
-	    ?line io:format("Expected ~p; got ~p~n", [Result, Other]),
-	    ?line test_server:fail();
+	    ct:fail("Expected ~p; got ~p~n", [Result, Other]);
 	Other ->
-	    ?line test_server:fail({unexpected_message, Other})
+	    ct:fail({unexpected_message, Other})
     end.
 
 init(Fun, Args, Filler) ->
@@ -165,15 +148,14 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-guard_bif_binary_part(doc) ->
-    ["Test the binary_part/2,3 guard BIF's extensively"];
+%% Test the binary_part/2,3 guard BIF's extensively
 guard_bif_binary_part(Config) when is_list(Config) ->
     %% Overflow tests that need to be unoptimized
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary_part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
 				 -16#7FFFFFFFFFFFFFFF-1})),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary_part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
 				 16#7FFFFFFFFFFFFFFF})),
@@ -198,66 +180,66 @@ guard_bif_binary_part(Config) when is_list(Config) ->
 
 
 do_binary_part_guard() ->
-    ?line 1 = bptest(<<1,2,3>>),
-    ?line 2 = bptest(<<2,1,3>>),
-    ?line error = bptest(<<1>>),
-    ?line error = bptest(<<>>),
-    ?line error = bptest(apa),
-    ?line 3 = bptest(<<2,3,3>>),
+    1 = bptest(<<1,2,3>>),
+    2 = bptest(<<2,1,3>>),
+    error = bptest(<<1>>),
+    error = bptest(<<>>),
+    error = bptest(apa),
+    3 = bptest(<<2,3,3>>),
     % With one variable (pos)
-    ?line 1 = bptest(<<1,2,3>>,1),
-    ?line 2 = bptest(<<2,1,3>>,1),
-    ?line error = bptest(<<1>>,1),
-    ?line error = bptest(<<>>,1),
-    ?line error = bptest(apa,1),
-    ?line 3 = bptest(<<2,3,3>>,1),
+    1 = bptest(<<1,2,3>>,1),
+    2 = bptest(<<2,1,3>>,1),
+    error = bptest(<<1>>,1),
+    error = bptest(<<>>,1),
+    error = bptest(apa,1),
+    3 = bptest(<<2,3,3>>,1),
     % With one variable (length)
-    ?line 1 = bptesty(<<1,2,3>>,1),
-    ?line 2 = bptesty(<<2,1,3>>,1),
-    ?line error = bptesty(<<1>>,1),
-    ?line error = bptesty(<<>>,1),
-    ?line error = bptesty(apa,1),
-    ?line 3 = bptesty(<<2,3,3>>,2),
+    1 = bptesty(<<1,2,3>>,1),
+    2 = bptesty(<<2,1,3>>,1),
+    error = bptesty(<<1>>,1),
+    error = bptesty(<<>>,1),
+    error = bptesty(apa,1),
+    3 = bptesty(<<2,3,3>>,2),
     % With one variable (whole tuple)
-    ?line 1 = bptestx(<<1,2,3>>,{1,1}),
-    ?line 2 = bptestx(<<2,1,3>>,{1,1}),
-    ?line error = bptestx(<<1>>,{1,1}),
-    ?line error = bptestx(<<>>,{1,1}),
-    ?line error = bptestx(apa,{1,1}),
-    ?line 3 = bptestx(<<2,3,3>>,{1,2}),
+    1 = bptestx(<<1,2,3>>,{1,1}),
+    2 = bptestx(<<2,1,3>>,{1,1}),
+    error = bptestx(<<1>>,{1,1}),
+    error = bptestx(<<>>,{1,1}),
+    error = bptestx(apa,{1,1}),
+    3 = bptestx(<<2,3,3>>,{1,2}),
     % With two variables
-    ?line 1 = bptest(<<1,2,3>>,1,1),
-    ?line 2 = bptest(<<2,1,3>>,1,1),
-    ?line error = bptest(<<1>>,1,1),
-    ?line error = bptest(<<>>,1,1),
-    ?line error = bptest(apa,1,1),
-    ?line 3 = bptest(<<2,3,3>>,1,2),
+    1 = bptest(<<1,2,3>>,1,1),
+    2 = bptest(<<2,1,3>>,1,1),
+    error = bptest(<<1>>,1,1),
+    error = bptest(<<>>,1,1),
+    error = bptest(apa,1,1),
+    3 = bptest(<<2,3,3>>,1,2),
     % Direct (autoimported) call, these will be evaluated by the compiler...
-    ?line <<2>> = binary_part(<<1,2,3>>,1,1),
-    ?line <<1>> = binary_part(<<2,1,3>>,1,1),
+    <<2>> = binary_part(<<1,2,3>>,1,1),
+    <<1>> = binary_part(<<2,1,3>>,1,1),
     % Compiler warnings due to constant evaluation expected (3)
-    ?line badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
-    ?line badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
-    ?line badarg = ?MASK_ERROR(binary_part(apa,1,1)),
-    ?line <<3,3>> = binary_part(<<2,3,3>>,1,2),
+    badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
+    badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
+    badarg = ?MASK_ERROR(binary_part(apa,1,1)),
+    <<3,3>> = binary_part(<<2,3,3>>,1,2),
     % Direct call through apply
-    ?line <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
-    ?line <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
+    <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
+    <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
     % Compiler warnings due to constant evaluation expected (3)
-    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
-    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
-    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
-    ?line <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
+    badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
+    badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
+    badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
+    <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
     % Constant propagation
-    ?line  Bin = <<1,2,3>>,
-    ?line  ok = if
+     Bin = <<1,2,3>>,
+     ok = if
 		    binary_part(Bin,1,1) =:= <<2>> ->
 			ok;
 		    %% Compiler warning, clause cannot match (expected)
 		    true ->
 			error
 		end,
-    ?line  ok = if
+     ok = if
 		    binary_part(Bin,{1,1}) =:= <<2>> ->
 			ok;
 		    %% Compiler warning, clause cannot match (expected)
@@ -323,91 +305,91 @@ bptest(_,_,_) ->
     error.
 
 
-guard_bifs(doc) -> "Test all guard bifs with nasty (but legal arguments).";
+%% Test all guard bifs with nasty (but legal arguments).
 guard_bifs(Config) when is_list(Config) ->
-    ?line Big = -237849247829874297658726487367328971246284736473821617265433,
-    ?line Float = 387924.874,
+    Big = -237849247829874297658726487367328971246284736473821617265433,
+    Float = 387924.874,
 
     %% Succeding use of guard bifs.
 
-    ?line try_gbif('abs/1', Big, -Big),
-    ?line try_gbif('float/1', Big, float(Big)),
-    ?line try_gbif('float/1', Big, float(id(Big))),
-    ?line try_gbif('trunc/1', Float, 387924.0),
-    ?line try_gbif('round/1', Float, 387925.0),
-    ?line try_gbif('length/1', [], 0),
+    try_gbif('abs/1', Big, -Big),
+    try_gbif('float/1', Big, float(Big)),
+    try_gbif('float/1', Big, float(id(Big))),
+    try_gbif('trunc/1', Float, 387924.0),
+    try_gbif('round/1', Float, 387925.0),
+    try_gbif('length/1', [], 0),
 
-    ?line try_gbif('length/1', [a], 1),
-    ?line try_gbif('length/1', [a, b], 2),
-    ?line try_gbif('length/1', lists:seq(0, 31), 32),
+    try_gbif('length/1', [a], 1),
+    try_gbif('length/1', [a, b], 2),
+    try_gbif('length/1', lists:seq(0, 31), 32),
 
-    ?line try_gbif('hd/1', [a], a),
-    ?line try_gbif('hd/1', [a, b], a),
+    try_gbif('hd/1', [a], a),
+    try_gbif('hd/1', [a, b], a),
 
-    ?line try_gbif('tl/1', [a], []),
-    ?line try_gbif('tl/1', [a, b], [b]),
-    ?line try_gbif('tl/1', [a, b, c], [b, c]),
+    try_gbif('tl/1', [a], []),
+    try_gbif('tl/1', [a, b], [b]),
+    try_gbif('tl/1', [a, b, c], [b, c]),
 
-    ?line try_gbif('size/1', {}, 0),
-    ?line try_gbif('size/1', {a}, 1),
-    ?line try_gbif('size/1', {a, b}, 2),
-    ?line try_gbif('size/1', {a, b, c}, 3),
-    ?line try_gbif('size/1', list_to_binary([]), 0),
-    ?line try_gbif('size/1', list_to_binary([1]), 1),
-    ?line try_gbif('size/1', list_to_binary([1, 2]), 2),
-    ?line try_gbif('size/1', list_to_binary([1, 2, 3]), 3),
+    try_gbif('size/1', {}, 0),
+    try_gbif('size/1', {a}, 1),
+    try_gbif('size/1', {a, b}, 2),
+    try_gbif('size/1', {a, b, c}, 3),
+    try_gbif('size/1', list_to_binary([]), 0),
+    try_gbif('size/1', list_to_binary([1]), 1),
+    try_gbif('size/1', list_to_binary([1, 2]), 2),
+    try_gbif('size/1', list_to_binary([1, 2, 3]), 3),
 
-    ?line try_gbif('bit_size/1', <<0:7>>, 7),
+    try_gbif('bit_size/1', <<0:7>>, 7),
 
-    ?line try_gbif('element/2', {x}, {1, x}),
-    ?line try_gbif('element/2', {x, y}, {1, x}),
-    ?line try_gbif('element/2', {x, y}, {2, y}),
+    try_gbif('element/2', {x}, {1, x}),
+    try_gbif('element/2', {x, y}, {1, x}),
+    try_gbif('element/2', {x, y}, {2, y}),
 
-    ?line try_gbif('self/0', 0, self()),
-    ?line try_gbif('node/0', 0, node()),
-    ?line try_gbif('node/1', self(), node()),
+    try_gbif('self/0', 0, self()),
+    try_gbif('node/0', 0, node()),
+    try_gbif('node/1', self(), node()),
 
     %% Failing use of guard bifs.
 
-    ?line try_fail_gbif('abs/1', Big, 1),
-    ?line try_fail_gbif('abs/1', [], 1),
+    try_fail_gbif('abs/1', Big, 1),
+    try_fail_gbif('abs/1', [], 1),
 
-    ?line try_fail_gbif('float/1', Big, 42),
-    ?line try_fail_gbif('float/1', [], 42),
+    try_fail_gbif('float/1', Big, 42),
+    try_fail_gbif('float/1', [], 42),
 
-    ?line try_fail_gbif('trunc/1', Float, 0.0),
-    ?line try_fail_gbif('trunc/1', [], 0.0),
+    try_fail_gbif('trunc/1', Float, 0.0),
+    try_fail_gbif('trunc/1', [], 0.0),
 
-    ?line try_fail_gbif('round/1', Float, 1.0),
-    ?line try_fail_gbif('round/1', [], a),
+    try_fail_gbif('round/1', Float, 1.0),
+    try_fail_gbif('round/1', [], a),
 
-    ?line try_fail_gbif('length/1', [], 1),
-    ?line try_fail_gbif('length/1', [a], 0),
-    ?line try_fail_gbif('length/1', a, 0),
-    ?line try_fail_gbif('length/1', {a}, 0),
+    try_fail_gbif('length/1', [], 1),
+    try_fail_gbif('length/1', [a], 0),
+    try_fail_gbif('length/1', a, 0),
+    try_fail_gbif('length/1', {a}, 0),
 
-    ?line try_fail_gbif('hd/1', [], 0),
-    ?line try_fail_gbif('hd/1', [a], x),
-    ?line try_fail_gbif('hd/1', x, x),
+    try_fail_gbif('hd/1', [], 0),
+    try_fail_gbif('hd/1', [a], x),
+    try_fail_gbif('hd/1', x, x),
 
-    ?line try_fail_gbif('tl/1', [], 0),
-    ?line try_fail_gbif('tl/1', [a], x),
-    ?line try_fail_gbif('tl/1', x, x),
+    try_fail_gbif('tl/1', [], 0),
+    try_fail_gbif('tl/1', [a], x),
+    try_fail_gbif('tl/1', x, x),
 
-    ?line try_fail_gbif('size/1', {}, 1),
-    ?line try_fail_gbif('size/1', [], 0),
-    ?line try_fail_gbif('size/1', [a], 1),
-    ?line try_fail_gbif('size/1', fun() -> 1 end, 0),
-    ?line try_fail_gbif('size/1', fun() -> 1 end, 1),
+    try_fail_gbif('size/1', {}, 1),
+    try_fail_gbif('size/1', [], 0),
+    try_fail_gbif('size/1', [a], 1),
+    try_fail_gbif('size/1', fun() -> 1 end, 0),
+    try_fail_gbif('size/1', fun() -> 1 end, 1),
 
-    ?line try_fail_gbif('element/2', {}, {1, x}),
-    ?line try_fail_gbif('element/2', {x}, {1, y}),
-    ?line try_fail_gbif('element/2', [], {1, z}),
+    try_fail_gbif('element/2', {}, {1, x}),
+    try_fail_gbif('element/2', {x}, {1, y}),
+    try_fail_gbif('element/2', [], {1, z}),
 
-    ?line try_fail_gbif('self/0', 0, list_to_pid("<0.0.0>")),
-    ?line try_fail_gbif('node/0', 0, xxxx),
-    ?line try_fail_gbif('node/1', self(), xxx),
-    ?line try_fail_gbif('node/1', yyy, xxx),
+    try_fail_gbif('self/0', 0, list_to_pid("<0.0.0>")),
+    try_fail_gbif('node/0', 0, xxxx),
+    try_fail_gbif('node/1', self(), xxx),
+    try_fail_gbif('node/1', yyy, xxx),
     ok.
 
 try_gbif(Id, X, Y) ->
@@ -415,9 +397,7 @@ try_gbif(Id, X, Y) ->
 	{Id, X, Y} ->
 	    io:format("guard_bif(~p, ~p, ~p) -- ok", [Id, X, Y]);
 	Other ->
-	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
-				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+            ct:fail("guard_bif(~p, ~p, ~p) -- bad result: ~p\n", [Id, X, Y, Other])
     end.
 
 try_fail_gbif(Id, X, Y) ->
@@ -425,9 +405,7 @@ try_fail_gbif(Id, X, Y) ->
 	{'EXIT',{function_clause,[{?MODULE,guard_bif,[Id,X,Y],_}|_]}} ->
 	    io:format("guard_bif(~p, ~p, ~p) -- ok", [Id,X,Y]);
 	Other ->
-	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
-				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+            ct:fail("guard_bif(~p, ~p, ~p) -- bad result: ~p\n", [Id, X, Y, Other])
     end.
 
 guard_bif('abs/1', X, Y) when abs(X) == Y ->
@@ -457,22 +435,20 @@ guard_bif('node/0', X, Y) when node() == Y ->
 guard_bif('node/1', X, Y) when node(X) == Y ->
     {'node/1', X, Y}.
 
-type_tests(doc) -> "Test the type tests.";
+%% Test the type tests.
 type_tests(Config) when is_list(Config) ->
-    ?line Types = all_types(),
-    ?line Tests = type_test_desc(),
-    ?line put(errors, 0),
-    ?line put(violations, 0),
-    ?line type_tests(Tests, Types),
-    ?line case {get(errors), get(violations)} of
+    Types = all_types(),
+    Tests = type_test_desc(),
+    put(errors, 0),
+    put(violations, 0),
+    type_tests(Tests, Types),
+    case {get(errors), get(violations)} of
 	      {0, 0} ->
 		  ok;
 	      {0, N} ->
 		  {comment, integer_to_list(N) ++ " standard violation(s)"};
 	      {Errors, Violations} ->
-		  io:format("~p sub test(s) failed, ~p violation(s)",
-			    [Errors, Violations]),
-		  ?line test_server:fail()
+		  ct:fail("~p sub test(s) failed, ~p violation(s)", [Errors, Violations])
 	  end.
 
 type_tests([{Test, AllowedTypes}| T], AllTypes) ->
@@ -499,7 +475,7 @@ type_tests(Test, [Type|T], Allowed) ->
 		when is_list(Loc) ->
 		    ok;
 		{'EXIT',Other} ->
-		    ?line test_server:fail({unexpected_error_reason,Other});
+		    ct:fail({unexpected_error_reason,Other});
 		tuple when is_function(Value) ->
 		    io:format("Standard violation: Test ~p(~p) should fail",
 			      [Test, Value]),

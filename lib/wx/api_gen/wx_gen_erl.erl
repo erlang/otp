@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1089,7 +1089,7 @@ gen_enums_ints() ->
     %% open_write("../include/wx.hrl"), opened in gen_event_recs
     w("~n%% Hardcoded Records~n", []),
     w("-record(wxMouseState, {x :: integer(), y :: integer(),~n"
-      "          leftDown :: boolean(), middleDown :: boolean, rightDown :: boolean, ~n"
+      "          leftDown :: boolean(), middleDown :: boolean(), rightDown :: boolean(), ~n"
       "          controlDown :: boolean(), shiftDown :: boolean(),~n"
       "          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()~n"
       "        }).~n", []),

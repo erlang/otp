@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,9 +22,11 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,long/1,evil_write/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,10}}].
 
 all() -> 
     [long, evil_write].
@@ -49,11 +51,8 @@ init_per_suite(Config) when is_list(Config) ->
 end_per_suite(Config) when is_list(Config) ->
     Config.
 
-
-long(doc) -> "Test long keys and entries (OTP-3446).";
+%% Test long keys and entries (OTP-3446).
 long(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
-
     LongKey = "software\\" ++
 	lists:flatten(lists:duplicate(10, "..\\software\\")) ++
 	"Ericsson\\Erlang",
@@ -76,12 +75,9 @@ long(Config) when is_list(Config) ->
     %% Done.
 
     ok = win32reg:close(Reg),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 evil_write(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
-
     Key = "Software\\Ericsson\\Erlang",
     {ok,Reg} = win32reg:open([read,write]),
     ok = win32reg:change_key(Reg, "\\hkcu"),
@@ -95,13 +91,12 @@ evil_write(Config) when is_list(Config) ->
 
     %% Done.
     ok = win32reg:close(Reg),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 evil_write_1(Reg, [_|[_|_]=Key]=Key0) ->
-    ?line io:format("Key = ~p\n", [Key0]),
-    ?line ok = win32reg:set_value(Reg, Key0, "A good value for me"),
-    ?line {ok,_Val} = win32reg:value(Reg, Key0),
-    ?line ok = win32reg:delete_value(Reg, Key0),
+    io:format("Key = ~p\n", [Key0]),
+    ok = win32reg:set_value(Reg, Key0, "A good value for me"),
+    {ok,_Val} = win32reg:value(Reg, Key0),
+    ok = win32reg:delete_value(Reg, Key0),
     evil_write_1(Reg, Key);
 evil_write_1(_, [_]) -> ok.

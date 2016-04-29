@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,13 +126,19 @@ butlast([H|T]) -> [H|butlast(T)].
 
 constraints_to_string([]) ->
   "";
-constraints_to_string([{type, _, constraint, [{atom, _, What}, Types]}]) ->
-  atom_to_list(What) ++ "(" ++
-    sequence([erl_types:t_form_to_string(T) || T <- Types], ",") ++ ")";
 constraints_to_string([{type, _, constraint, [{atom, _, What}, Types]}|Rest]) ->
-  atom_to_list(What) ++ "(" ++
-    sequence([erl_types:t_form_to_string(T) || T <- Types], ",")
-    ++ "), " ++ constraints_to_string(Rest).
+  S = constraint_to_string(What, Types),
+  case Rest of
+    [] -> S;
+    _ -> S ++ ", " ++ constraints_to_string(Rest)
+  end.
+
+constraint_to_string(is_subtype, [{var, _, Var}, T]) ->
+  atom_to_list(Var) ++ " :: " ++ erl_types:t_form_to_string(T);
+constraint_to_string(What, Types) ->
+  atom_to_list(What) ++ "("
+    ++ sequence([erl_types:t_form_to_string(T) || T <- Types], ",")
+    ++ ")".
 
 sequence([], _Delimiter) -> "";
 sequence([H], _Delimiter) -> H;
@@ -161,8 +167,7 @@ process_contract_remote_types(CodeServer) ->
   dialyzer_codeserver:finalize_contracts(NewContractDict, NewCallbackDict,
 					 CodeServer).
 
--type opaques() :: [erl_types:erl_type()] | 'universe'.
--type opaques_fun() :: fun((module()) -> opaques()).
+-type opaques_fun() :: fun((module()) -> [erl_types:erl_type()]).
 
 -type fun_types() :: dict:dict(label(), erl_types:type_table()).
 

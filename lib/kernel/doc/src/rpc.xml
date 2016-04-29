@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -25,328 +25,388 @@
     <title>rpc</title>
     <prepared>Claes Wikstrom</prepared>
     <docno>1</docno>
-    <date>96-09-10</date>
+    <date>1996-09-10</date>
     <rev>A</rev>
   </header>
   <module>rpc</module>
-  <modulesummary>Remote Procedure Call Services</modulesummary>
+  <modulesummary>Remote Procedure Call services.</modulesummary>
   <description>
-    <p>This module contains services which are similar to remote
-      procedure calls. It also contains broadcast facilities and 
+    <p>This module contains services similar to Remote
+      Procedure Calls. It also contains broadcast facilities and
       parallel evaluators. A remote procedure call is a method to call
       a function on a remote node and collect the answer. It is used
       for collecting information on a remote node, or for running a
       function with some specific side effects on the remote node.</p>
   </description>
+
   <datatypes>
     <datatype>
       <name name="key"/>
       <desc>
-        <p>As returned by <seealso marker="#async_call/4">
-          <c>async_call/4</c>.</seealso></p>
+        <p>As returned by
+          <seealso marker="#async_call/4"><c>async_call/4</c></seealso>.</p>
       </desc>
     </datatype>
   </datatypes>
+
   <funcs>
     <func>
-      <name name="call" arity="4"/>
-      <fsummary>Evaluate a function call on a node</fsummary>
+      <name name="abcast" arity="2"/>
+      <fsummary>Broadcast a message asynchronously to a registered process on
+        all nodes.</fsummary>
       <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c> on the node
-          <c><anno>Node</anno></c> and returns the corresponding value <c><anno>Res</anno></c>, or
+        <p>Equivalent to <c>abcast([node()|nodes()], <anno>Name</anno>,
+        <anno>Msg</anno>)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="abcast" arity="3"/>
+      <fsummary>Broadcast a message asynchronously to a registered process on
+        specific nodes.</fsummary>
+      <desc>
+        <p>Broadcasts the message <c><anno>Msg</anno></c> asynchronously to
+          the registered process <c><anno>Name</anno></c> on the specified
+          nodes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="async_call" arity="4"/>
+      <fsummary>Evaluate a function call on a node, asynchronous
+      version.</fsummary>
+      <desc>
+        <p>Implements <em>call streams with promises</em>, a type of
+          RPC that does not suspend the caller until the result is
+          finished. Instead, a key is returned, which can be used
+          later to collect the value. The key can be viewed as a
+          promise to deliver the answer.</p>
+        <p>In this case, the key <c><anno>Key</anno></c> is returned, which
+          can be used in a subsequent call to
+          <seealso marker="#yield/1"><c>yield/1</c></seealso> or
+          <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
+          to retrieve the value of evaluating <c>apply(<anno>Module</anno>,
+          <anno>Function</anno>, <anno>Args</anno>)</c> on node
+          <c><anno>Node</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="block_call" arity="4"/>
+      <fsummary>Evaluate a function call on a node in the RPC server's
+        context.</fsummary>
+      <desc>
+        <p>Same as <seealso marker="#call/4"><c>call/4</c></seealso>,
+          but the RPC server at <c><anno>Node</anno></c> does
+          not create a separate process to handle the call. Thus,
+          this function can be used if the intention of the call is to
+          block the RPC server from any other incoming requests until
+          the request has been handled. The function can also be used
+          for efficiency reasons when very small fast functions are
+          evaluated, for example, BIFs that are guaranteed not to
+          suspend.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="block_call" arity="5"/>
+      <fsummary>Evaluate a function call on a node in the RPC server's
+        context.</fsummary>
+      <desc>
+        <p>Same as
+          <seealso marker="#block_call/4"><c>block_call/4</c></seealso>,
+          but with a time-out value in the same manner as
+          <seealso marker="#call/5"><c>call/5</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="call" arity="4"/>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+      <desc>
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
+          the corresponding value <c><anno>Res</anno></c>, or
           <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.</p>
       </desc>
     </func>
+
     <func>
       <name name="call" arity="5"/>
-      <fsummary>Evaluate a function call on a node</fsummary>
+      <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c> on the node
-          <c><anno>Node</anno></c> and returns the corresponding value <c><anno>Res</anno></c>, or
-          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails. <c><anno>Timeout</anno></c> is
-          a timeout value in milliseconds. If the call times out,
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
+          the corresponding value <c><anno>Res</anno></c>, or
+          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
+          <c><anno>Timeout</anno></c> is
+          a time-out value in milliseconds. If the call times out,
           <c><anno>Reason</anno></c> is <c>timeout</c>.</p>
         <p>If the reply arrives after the call times out, no message
-          will contaminate the caller's message queue, since this
+          contaminates the caller's message queue, as this
           function spawns off a middleman process to act as (a void)
           destination for such an orphan reply. This feature also makes
           this function more expensive than <c>call/4</c> at
           the caller's end.</p>
       </desc>
     </func>
+
     <func>
-      <name name="block_call" arity="4"/>
-      <fsummary>Evaluate a function call on a node in the RPC server's context</fsummary>
+      <name name="cast" arity="4"/>
+      <fsummary>Run a function on a node ignoring the result.</fsummary>
       <desc>
-        <p>Like <c>call/4</c>, but the RPC server at <c><anno>Node</anno></c> does
-          not create a separate process to handle the call. Thus,
-          this function can be used if the intention of the call is to
-          block the RPC server from any other incoming requests until
-          the request has been handled. The function can also be used 
-          for efficiency reasons when very small fast functions are
-          evaluated, for example BIFs that are guaranteed not to
-          suspend.</p>
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on node
+          <c><anno>Node</anno></c>. No response is delivered and the calling
+          process is not suspended until the evaluation is complete, as
+          is the case with
+          <seealso marker="#call/4"><c>call/4,5</c></seealso>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="block_call" arity="5"/>
-      <fsummary>Evaluate a function call on a node in the RPC server's context</fsummary>
+      <name name="eval_everywhere" arity="3"/>
+      <fsummary>Run a function on all nodes, ignoring the result.</fsummary>
       <desc>
-        <p>Like <c>block_call/4</c>, but with a timeout value in
-          the same manner as <c>call/5</c>.</p>
+        <p>Equivalent to <c>eval_everywhere([node()|nodes()],
+          <anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="async_call" arity="4"/>
-      <fsummary>Evaluate a function call on a node, asynchronous version</fsummary>
+      <name name="eval_everywhere" arity="4"/>
+      <fsummary>Run a function on specific nodes, ignoring the
+        result.</fsummary>
       <desc>
-        <p>Implements <em>call streams with promises</em>, a type of
-          RPC which does not suspend the caller until the result is
-          finished. Instead, a key is returned which can be used at a
-          later stage to collect the value. The key can be viewed as a
-          promise to deliver the answer.</p>
-        <p>In this case, the key <c><anno>Key</anno></c> is returned, which can be
-          used in a subsequent call to <c>yield/1</c> or
-          <c>nb_yield/1,2</c> to retrieve the value of evaluating
-          <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c> on the node <c><anno>Node</anno></c>.</p>
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on
+          the specified nodes. No answers are collected.</p>
       </desc>
     </func>
+
     <func>
-      <name name="yield" arity="1"/>
-      <fsummary>Deliver the result of evaluating a function call on a node (blocking)</fsummary>
+      <name name="multi_server_call" arity="2"/>
+      <fsummary>Interact with the servers on a number of nodes.</fsummary>
       <desc>
-        <p>Returns the promised answer from a previous
-          <c>async_call/4</c>. If the answer is available, it is
-          returned immediately. Otherwise, the calling process is
-          suspended until the answer arrives from <c>Node</c>.</p>
+        <p>Equivalent to <c>multi_server_call([node()|nodes()],
+          <anno>Name</anno>, <anno>Msg</anno>)</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="nb_yield" arity="1"/>
-      <fsummary>Deliver the result of evaluating a function call on a node (non-blocking)</fsummary>
+      <name name="multi_server_call" arity="3"/>
+      <fsummary>Interact with the servers on a number of nodes.</fsummary>
       <desc>
-        <p>Equivalent to <c>nb_yield(<anno>Key</anno>, 0)</c>.</p>
+        <p>Can be used when interacting with servers called
+          <c><anno>Name</anno></c> on the specified nodes. It is assumed that
+          the servers receive messages in the format
+          <c>{From, <anno>Msg</anno>}</c> and reply using
+          <c>From ! {<anno>Name</anno>, Node, <anno>Reply</anno>}</c>, where
+          <c>Node</c> is the name of the node where the server is located.
+          The function returns <c>{<anno>Replies</anno>,
+          <anno>BadNodes</anno>}</c>, where <c><anno>Replies</anno></c> is a
+          list of all <c><anno>Reply</anno></c> values, and
+          <c><anno>BadNodes</anno></c> is one of the following:</p>
+        <list type="bulleted">
+          <item>A list of the nodes that do not exist</item>
+          <item>A list of the nodes where the server does not exist</item>
+          <item>A list of the nodes where the server terminatd before sending
+          any reply.</item>
+        </list>
       </desc>
     </func>
-    <func>
-      <name name="nb_yield" arity="2"/>
-      <fsummary>Deliver the result of evaluating a function call on a node (non-blocking)</fsummary>
-      <desc>
-        <p>This is a non-blocking version of <c>yield/1</c>. It returns
-          the tuple <c>{value, <anno>Val</anno>}</c> when the computation has
-          finished, or <c>timeout</c> when <c><anno>Timeout</anno></c> milliseconds
-          has elapsed.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="multicall" arity="3"/>
-      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
-        <p>Equivalent to <c>multicall([node()|nodes()], <anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>, infinity)</c>.</p>
+        <p>Equivalent to <c>multicall([node()|nodes()], <anno>Module</anno>,
+          <anno>Function</anno>, <anno>Args</anno>, infinity)</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="multicall" arity="4" clause_i="1"/>
-      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
-        <p>Equivalent to <c>multicall(<anno>Nodes</anno>, <anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>, infinity)</c>.</p>
+        <p>Equivalent to <c>multicall(<anno>Nodes</anno>, <anno>Module</anno>,
+          <anno>Function</anno>, <anno>Args</anno>, infinity)</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="multicall" arity="4" clause_i="2"/>
-      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
-        <p>Equivalent to <c>multicall([node()|nodes()], <anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>, <anno>Timeout</anno>)</c>.</p>
+        <p>Equivalent to <c>multicall([node()|nodes()], <anno>Module</anno>,
+          <anno>Function</anno>, <anno>Args</anno>,
+          <anno>Timeout</anno>)</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="multicall" arity="5"/>
-      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
-        <p>In contrast to an RPC, a multicall is an RPC which is sent
+        <p>In contrast to an RPC, a multicall is an RPC that is sent
           concurrently from one client to multiple servers. This is
-          useful for collecting some information from a set of nodes,
+          useful for collecting information from a set of nodes,
           or for calling a function on a set of nodes to achieve some
           side effects. It is semantically the same as iteratively
           making a series of RPCs on all the nodes, but the multicall
-          is faster as all the requests are sent at the same time
+          is faster, as all the requests are sent at the same time
           and are collected one by one as they come back.</p>
-        <p>The function evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c>
-          on the specified nodes and collects the answers. It returns 
-          <c>{<anno>ResL</anno>, <anno>BadNodes</anno>}</c>, where <c><anno>BadNodes</anno></c> is a list
+        <p>The function evaluates <c>apply(<anno>Module</anno>,
+          <anno>Function</anno>, <anno>Args</anno>)</c>
+          on the specified nodes and collects the answers. It returns
+          <c>{<anno>ResL</anno>, <anno>BadNodes</anno>}</c>, where
+          <c><anno>BadNodes</anno></c> is a list
           of the nodes that terminated or timed out during computation,
           and <c><anno>ResL</anno></c> is a list of the return values.
           <c><anno>Timeout</anno></c> is a time (integer) in milliseconds, or
           <c>infinity</c>.</p>
         <p>The following example is useful when new object code is to
-          be loaded on all nodes in the network, and also indicates
-          some side effects RPCs may produce:</p>
+          be loaded on all nodes in the network, and indicates
+          some side effects that RPCs can produce:</p>
         <code type="none">
-%% Find object code for module Mod 
-{Mod, Bin, File} = code:get_object_code(Mod), 
+%% Find object code for module Mod
+{Mod, Bin, File} = code:get_object_code(Mod),
 
-%% and load it on all nodes including this one 
+%% and load it on all nodes including this one
 {ResL, _} = rpc:multicall(code, load_binary, [Mod, File, Bin]),
 
 %% and then maybe check the ResL list.</code>
       </desc>
     </func>
+
     <func>
-      <name name="cast" arity="4"/>
-      <fsummary>Run a function on a node ignoring the result</fsummary>
+      <name name="nb_yield" arity="1"/>
+      <fsummary>Deliver the result of evaluating a function call on a node
+        (non-blocking).</fsummary>
       <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c> on the node
-          <c><anno>Node</anno></c>. No response is delivered and the calling
-          process is not suspended until the evaluation is complete, as
-          is the case with <c>call/4,5</c>.</p>
+        <p>Equivalent to <c>nb_yield(<anno>Key</anno>, 0)</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="eval_everywhere" arity="3"/>
-      <fsummary>Run a function on all nodes, ignoring the result</fsummary>
+      <name name="nb_yield" arity="2"/>
+      <fsummary>Deliver the result of evaluating a function call on a node
+        (non-blocking).</fsummary>
       <desc>
-        <p>Equivalent to <c>eval_everywhere([node()|nodes()], <anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c>.</p>
+        <p>Non-blocking version of
+          <seealso marker="#yield/1"><c>yield/1</c></seealso>. It returns
+          the tuple <c>{value, <anno>Val</anno>}</c> when the computation is
+          finished, or <c>timeout</c> when <c><anno>Timeout</anno></c>
+          milliseconds has elapsed.</p>
       </desc>
     </func>
-    <func>
-      <name name="eval_everywhere" arity="4"/>
-      <fsummary>Run a function on specific nodes, ignoring the result</fsummary>
-      <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c> on
-          the specified nodes. No answers are collected.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="abcast" arity="2"/>
-      <fsummary>Broadcast a message asynchronously to a registered process on all nodes</fsummary>
-      <desc>
-        <p>Equivalent to <c>abcast([node()|nodes()], <anno>Name</anno>, <anno>Msg</anno>)</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="abcast" arity="3"/>
-      <fsummary>Broadcast a message asynchronously to a registered process on specific nodes</fsummary>
-      <desc>
-        <p>Broadcasts the message <c><anno>Msg</anno></c> asynchronously to
-          the registered process <c><anno>Name</anno></c> on the specified nodes.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="sbcast" arity="2"/>
-      <fsummary>Broadcast a message synchronously to a registered process on all nodes</fsummary>
-      <desc>
-        <p>Equivalent to <c>sbcast([node()|nodes()], <anno>Name</anno>, <anno>Msg</anno>)</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="sbcast" arity="3"/>
-      <fsummary>Broadcast a message synchronously to a registered process on specific nodes</fsummary>
-      <desc>
-        <p>Broadcasts the message <c><anno>Msg</anno></c> synchronously to
-          the registered process <c><anno>Name</anno></c> on the specified nodes.</p>
-        <p>Returns <c>{<anno>GoodNodes</anno>, <anno>BadNodes</anno>}</c>, where <c><anno>GoodNodes</anno></c>
-          is the list of nodes which have <c><anno>Name</anno></c> as a registered
-          process.</p>
-        <p>The function is synchronous in the sense that it is known
-          that all servers have received the message when the call
-          returns. It is not possible to know that the servers have
-          actually processed the message.</p>
-        <p>Any further messages sent to the servers, after this
-          function has returned, will be received by all servers after
-          this message.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="server_call" arity="4"/>
-      <fsummary>Interact with a server on a node</fsummary>
-      <desc>
-        <p>This function can be used when interacting with a server
-          called <c><anno>Name</anno></c> at node <c><anno>Node</anno></c>. It is assumed that
-          the server receives messages in the format
-          <c>{From, <anno>Msg</anno>}</c> and replies using <c>From ! {<anno>ReplyWrapper</anno>, <anno>Node</anno>, <anno>Reply</anno>}</c>. This function makes such
-          a server call and ensures that the entire call is packed into
-          an atomic transaction which either succeeds or fails. It
-          never hangs, unless the server itself hangs.</p>
-        <p>The function returns the answer <c><anno>Reply</anno></c> as produced by
-          the server <c><anno>Name</anno></c>, or <c>{error, <anno>Reason</anno>}</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="multi_server_call" arity="2"/>
-      <fsummary>Interact with the servers on a number of nodes</fsummary>
-      <desc>
-        <p>Equivalent to <c>multi_server_call([node()|nodes()], <anno>Name</anno>, <anno>Msg</anno>)</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="multi_server_call" arity="3"/>
-      <fsummary>Interact with the servers on a number of nodes</fsummary>
-      <desc>
-        <p>This function can be used when interacting with servers
-          called <c><anno>Name</anno></c> on the specified nodes. It is assumed that
-          the servers receive messages in the format <c>{From, <anno>Msg</anno>}</c>
-          and reply using <c>From ! {<anno>Name</anno>, Node, <anno>Reply</anno>}</c>, where
-          <c>Node</c> is the name of the node where the server is
-          located. The function returns <c>{<anno>Replies</anno>, <anno>BadNodes</anno>}</c>,
-          where <c><anno>Replies</anno></c> is a list of all <c><anno>Reply</anno></c> values and
-          <c><anno>BadNodes</anno></c> is a list of the nodes which did not exist, or
-          where the server did not exist, or where the server terminated
-          before sending any reply.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="safe_multi_server_call" arity="2"/>
-      <name name="safe_multi_server_call" arity="3"/>
-      <fsummary>Interact with the servers on a number of nodes (deprecated)</fsummary>
-      <desc>
-        <warning>
-          <p>This function is deprecated. Use
-            <c>multi_server_call/2,3</c> instead.</p>
-        </warning>
-        <p>In Erlang/OTP R6B and earlier releases,
-          <c>multi_server_call/2,3</c> could not handle the case
-          where the remote node exists, but there is no server called
-          <c><anno>Name</anno></c>. Instead this function had to be used. In
-          Erlang/OTP R7B and later releases, however, the functions are
-          equivalent, except for this function being slightly slower.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="parallel_eval" arity="1"/>
-      <fsummary>Evaluate several function calls on all nodes in parallel</fsummary>
+      <fsummary>Evaluate many function calls on all nodes in
+        parallel.</fsummary>
       <desc>
-        <p>For every tuple in <c><anno>FuncCalls</anno></c>, evaluates
-          <c>apply(<anno>Module</anno>, <anno>Function</anno>, <anno>Args</anno>)</c> on some node in
+        <p>Evaluates, for every tuple in <c><anno>FuncCalls</anno></c>,
+          <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on some node in
           the network. Returns the list of return values, in the same
           order as in <c><anno>FuncCalls</anno></c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="pinfo" arity="1"/>
+      <fsummary>Information about a process.</fsummary>
+      <desc>
+        <p>Location transparent version of the BIF
+          <seealso marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seealso> in <c>ERTS</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="pinfo" arity="2" clause_i="1"/>
+      <name name="pinfo" arity="2" clause_i="2"/>
+      <fsummary>Information about a process.</fsummary>
+      <desc>
+        <p>Location transparent version of the BIF
+          <seealso marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seealso> in <c>ERTS</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="pmap" arity="3"/>
-      <fsummary>Parallell evaluation of mapping a function over a list </fsummary>
+      <fsummary>Parallell evaluation of mapping a function over a
+        list.</fsummary>
       <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>, [<anno>Elem</anno>|<anno>ExtraArgs</anno>])</c>,
-          for every element <c><anno>Elem</anno></c> in <c><anno>List1</anno></c>, in parallel.
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          [<anno>Elem</anno>|<anno>ExtraArgs</anno>])</c> for every element
+          <c><anno>Elem</anno></c> in <c><anno>List1</anno></c>, in parallel.
           Returns the list of return values, in the same order as in
           <c><anno>List1</anno></c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="pinfo" arity="1"/>
-      <fsummary>Information about a process</fsummary>
+      <name name="sbcast" arity="2"/>
+      <fsummary>Broadcast a message synchronously to a registered process on
+        all nodes.</fsummary>
       <desc>
-        <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/1">
-          <c>process_info/1</c></seealso>.</p>
+        <p>Equivalent to <c>sbcast([node()|nodes()], <anno>Name</anno>,
+          <anno>Msg</anno>)</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="pinfo" arity="2"/>
-      <fsummary>Information about a process</fsummary>
+      <name name="sbcast" arity="3"/>
+      <fsummary>Broadcast a message synchronously to a registered process on
+        specific nodes.</fsummary>
       <desc>
-        <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/2">
-          <c>process_info/2</c></seealso>.</p>
+        <p>Broadcasts the message <c><anno>Msg</anno></c> synchronously to
+          the registered process <c><anno>Name</anno></c> on the specified
+          nodes.</p>
+        <p>Returns <c>{<anno>GoodNodes</anno>, <anno>BadNodes</anno>}</c>,
+          where <c><anno>GoodNodes</anno></c> is the list of nodes that have
+          <c><anno>Name</anno></c> as a registered process.</p>
+        <p>The function is synchronous in the sense that it is known
+          that all servers have received the message when the call
+          returns. It is not possible to know that the servers have
+          processed the message.</p>
+        <p>Any further messages sent to the servers, after this
+          function has returned, are received by all servers after
+          this message.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="server_call" arity="4"/>
+      <fsummary>Interact with a server on a node.</fsummary>
+      <desc>
+        <p>Can be used when interacting with a server called
+          <c><anno>Name</anno></c> on node <c><anno>Node</anno></c>. It is
+          assumed that the server receives messages in the format
+          <c>{From, <anno>Msg</anno>}</c> and replies using
+          <c>From ! {<anno>ReplyWrapper</anno>, <anno>Node</anno>,
+          <anno>Reply</anno>}</c>. This function makes such
+          a server call and ensures that the entire call is packed into
+          an atomic transaction, which either succeeds or fails. It
+          never hangs, unless the server itself hangs.</p>
+        <p>The function returns the answer <c><anno>Reply</anno></c> as
+          produced by the server <c><anno>Name</anno></c>, or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="yield" arity="1"/>
+      <fsummary>Deliver the result of evaluating a function call on a node
+        (blocking).</fsummary>
+      <desc>
+        <p>Returns the promised answer from a previous
+          <seealso marker="#async_call/4"><c>async_call/4</c></seealso>.
+          If the answer is available, it is
+          returned immediately. Otherwise, the calling process is
+          suspended until the answer arrives from <c>Node</c>.</p>
       </desc>
     </func>
   </funcs>

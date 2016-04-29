@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,14 +106,24 @@ reset_trace() ->
 
 %% reset_trace(Pid) -> % this might be a useful function too
 
--type tracer() :: (Pid :: pid()) | port() | 'false'.
+-type tracer() :: (Pid :: pid()) | port() |
+                  (TracerModule :: {module(), term()}) |
+                  'false'.
 
 -spec set_system_tracer(Tracer) -> OldTracer when
       Tracer :: tracer(),
       OldTracer :: tracer().
 
-set_system_tracer(Pid) ->
-    erlang:system_flag(sequential_tracer, Pid).
+set_system_tracer({Module, State} = Tracer) ->
+    case erlang:module_loaded(Module) of
+        false ->
+            Module:enabled(trace_status, erlang:self(), State);
+        true ->
+            ok
+    end,
+    erlang:system_flag(sequential_tracer, Tracer);
+set_system_tracer(Tracer) ->
+    erlang:system_flag(sequential_tracer, Tracer).
 
 -spec get_system_tracer() -> Tracer when
       Tracer :: tracer().

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
      renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([random_bytes/1, handle_options/2]).
+-export([handle_options/2]).
 
 -deprecated({negotiated_next_protocol, 1, next_major_release}).
 -deprecated({connection_info, 1, next_major_release}).
@@ -581,22 +581,6 @@ format_error(Error) ->
             Other
     end.
 
-%%--------------------------------------------------------------------
--spec random_bytes(integer()) -> binary().
-
-%%
-%% Description: Generates cryptographically secure random sequence if possible
-%% fallbacks on pseudo random function
-%%--------------------------------------------------------------------
-random_bytes(N) ->
-    try crypto:strong_rand_bytes(N) of
-	RandBytes ->
-	    RandBytes
-    catch
-	error:low_entropy ->
-	    crypto:rand_bytes(N)
-    end.
-
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
@@ -700,6 +684,10 @@ handle_options(Opts0, Role) ->
 		    srp_identity = handle_option(srp_identity, Opts, undefined),
 		    ciphers    = handle_cipher_option(proplists:get_value(ciphers, Opts, []), 
 						      RecordCb:highest_protocol_version(Versions)),
+		    signature_algs = handle_hashsigns_option(proplists:get_value(signature_algs, Opts, 
+									     default_option_role(server, 
+												 tls_v1:default_signature_algs(Versions), Role)),
+							 RecordCb:highest_protocol_version(Versions)), 
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
 		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
@@ -708,7 +696,7 @@ handle_options(Opts0, Role) ->
 							 default_option_role(server, true, Role), 
 							 server, Role),
 		    renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
-		    hibernate_after = handle_option(hibernate_after, Opts, undefined),
+		    hibernate_after = handle_option(hibernate_after, Opts, infinity),
 		    erl_dist = handle_option(erl_dist, Opts, false),
 		    alpn_advertised_protocols =
 			handle_option(alpn_advertised_protocols, Opts, undefined),
@@ -749,7 +737,7 @@ handle_options(Opts0, Role) ->
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback],
+		  fallback, signature_algs],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -897,10 +885,13 @@ validate_option(client_renegotiation, Value) when is_boolean(Value) ->
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
 
-validate_option(hibernate_after, undefined) ->
-    undefined;
+validate_option(hibernate_after, undefined) -> %% Backwards compatibility
+    infinity;
+validate_option(hibernate_after, infinity) ->
+    infinity;
 validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
+
 validate_option(erl_dist,Value) when is_boolean(Value) ->
     Value;
 validate_option(Opt, Value)
@@ -989,6 +980,18 @@ validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) an
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
+handle_hashsigns_option(Value, {Major, Minor} = Version) when is_list(Value) 
+							      andalso Major >= 3 andalso Minor >= 3->
+    case tls_v1:signature_algs(Version, Value) of
+	[] ->
+	    throw({error, {options, no_supported_algorithms, {signature_algs, Value}}});
+	_ ->	
+	    Value
+    end;
+handle_hashsigns_option(_, {Major, Minor} = Version) when Major >= 3 andalso Minor >= 3->
+    handle_hashsigns_option(tls_v1:default_signature_algs(Version), Version);
+handle_hashsigns_option(_, _Version) ->
+    undefined.
 
 validate_options([]) ->
 	[];
@@ -1089,10 +1092,7 @@ binary_cipher_suites(Version, []) ->
     %% Defaults to all supported suites that does
     %% not require explicit configuration
     ssl_cipher:filter_suites(ssl_cipher:suites(Version));
-binary_cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) -> %% Backwards compatibility
-    Ciphers = [{KeyExchange, Cipher, Hash} || {KeyExchange, Cipher, Hash, _} <- Ciphers0],
-    binary_cipher_suites(Version, Ciphers);
-binary_cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
+binary_cipher_suites(Version, [Tuple|_] = Ciphers0) when is_tuple(Tuple) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
     binary_cipher_suites(Version, Ciphers);
 
@@ -1285,6 +1285,13 @@ new_ssl_options([{server_name_indication, Value} | Rest], #ssl_options{} = Opts,
     new_ssl_options(Rest, Opts#ssl_options{server_name_indication = validate_option(server_name_indication, Value)}, RecordCB);
 new_ssl_options([{honor_cipher_order, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{honor_cipher_order = validate_option(honor_cipher_order, Value)}, RecordCB);
+new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 
+    new_ssl_options(Rest, 
+		    Opts#ssl_options{signature_algs = 
+					 handle_hashsigns_option(Value, 
+								 RecordCB:highest_protocol_version())}, 
+		    RecordCB);
+
 new_ssl_options([{Key, Value} | _Rest], #ssl_options{}, _) -> 
     throw({error, {options, {Key, Value}}}).
 

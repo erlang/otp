@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ Sint erts_re_set_loop_limit(Sint limit)
 
 static int term_to_int(Eterm term, int *sp)
 {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
     if (is_small(term)) {
 	Uint x = signed_val(term);
@@ -151,7 +151,7 @@ static int term_to_int(Eterm term, int *sp)
 
 static Eterm make_signed_integer(int x, Process *p)
 {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     return make_small(x);
 #else
     Eterm* hp;

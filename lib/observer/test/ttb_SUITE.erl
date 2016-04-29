@@ -2,7 +2,7 @@
 %% %CopyrightBegin%
 %%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([foo/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
 -define(OUTPUT, "handler_output").
@@ -819,6 +819,7 @@ myhandler(_Fd,Trace,_,Relay) ->
 
 simple_call_handler() ->
     {fun(A, {trace_ts, _, call, _, _} ,_,_) -> io:format(A, "ok.~n", []);
+	(A, {drop, N}, _, _) -> io:format(A, "{drop, ~p}.", [N]);
 	(_, end_of_trace, _, _) -> ok end, []}.
 
 marking_call_handler() ->
@@ -954,17 +955,24 @@ begin_trace_local(ServerNode, ClientNode, Dest) ->
     ?line ttb:tpl(client, get, []).
 
 check_size(N, Dest, Output, ServerNode, ClientNode) ->
-    ?line begin_trace(ServerNode, ClientNode, Dest),
-    ?line case Dest of
+    begin_trace(ServerNode, ClientNode, Dest),
+    case Dest of
         {local, _} ->
-            ?line ttb_helper:msgs_ip(N);
+            ttb_helper:msgs_ip(N);
         _ ->
-            ?line ttb_helper:msgs(N)
+	    ttb_helper:msgs(N)
     end,
-    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
-    ?line ttb:format(D, [{out, Output}, {handler, simple_call_handler()}]),
-    ?line {ok, Ret} = file:consult(Output),
-    ?line true = (N + 1 == length(Ret)).
+    {_, D} = ttb:stop([fetch, return_fetch_dir]),
+    ttb:format(D, [{out, Output}, {handler, simple_call_handler()}]),
+    {ok, Ret} = file:consult(Output),
+    check_output(N+1, Ret).
+
+check_output(Expected, Ret)
+  when length(Ret) =:= Expected -> ok;
+check_output(Expected, Ret) ->
+    io:format("~p~n",[Ret]),
+    io:format("Expected ~p got ~p ~n",[Expected, length(Ret)]),
+    Expected = length(Ret).
 
 fetch_when_no_option_given(suite) ->
     [];
@@ -1166,8 +1174,8 @@ changing_cwd_on_control_node(Config) when is_list(Config) ->
     ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(?OUTPUT),
-    ?line true = (2*(NumMsgs + 1) == length(Ret)),
-    ?line ok = file:set_cwd(OldDir).
+    check_output(2*(NumMsgs + 1),Ret),
+    ok = file:set_cwd(OldDir).
 changing_cwd_on_control_node(cleanup,_Config) ->
     ?line stop_client_and_server().
 
@@ -1176,18 +1184,19 @@ changing_cwd_on_control_node_with_local_trace(suite) ->
 changing_cwd_on_control_node_with_local_trace(doc) ->
     ["Changing cwd on control node during local tracing is safe"];
 changing_cwd_on_control_node_with_local_trace(Config) when is_list(Config) ->
-    ?line {ok, OldDir} = file:get_cwd(),
-    ?line {ServerNode, ClientNode} = start_client_and_server(),
-    ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
-    ?line NumMsgs = 3,
-    ?line ttb_helper:msgs_ip(NumMsgs),
-    ?line ok = file:set_cwd(".."),
-    ?line ttb_helper:msgs_ip(NumMsgs),
-    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
-    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
-    ?line {ok, Ret} = file:consult(?OUTPUT),
-    ?line true = (2*(NumMsgs + 1) == length(Ret)),
-    ?line ok = file:set_cwd(OldDir).
+    {ok, OldDir} = file:get_cwd(),
+    {ServerNode, ClientNode} = start_client_and_server(),
+    begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
+    NumMsgs = 3,
+    ttb_helper:msgs_ip(NumMsgs),
+    ok = file:set_cwd(".."),
+    ttb_helper:msgs_ip(NumMsgs),
+    {_, D} = ttb:stop([fetch, return_fetch_dir]),
+    ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
+    {ok, Ret} = file:consult(?OUTPUT),
+    Expected = 2*(NumMsgs + 1),
+    check_output(Expected, Ret),
+    ok = file:set_cwd(OldDir).
 changing_cwd_on_control_node_with_local_trace(cleanup,_Config) ->
     ?line stop_client_and_server().
 
@@ -1205,7 +1214,7 @@ changing_cwd_on_remote_node(Config) when is_list(Config) ->
     ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(?OUTPUT),
-    ?line true = (2*(NumMsgs + 1) == length(Ret)).
+    check_output(2*(NumMsgs + 1),Ret).
 changing_cwd_on_remote_node(cleanup,_Config) ->
     ?line stop_client_and_server().
 
@@ -1497,7 +1506,7 @@ logic(N, M, TracingType) ->
     ct:log("formatted ~p",[{D,?OUTPUT}]),
     ?line {ok, Ret} = file:consult(?OUTPUT),
     ct:log("consulted: ~p",[Ret]),
-    ?line M = length(Ret).
+    check_output(M,Ret).
 
 begin_trace_with_resume(ServerNode, ClientNode, Dest) ->
     ?line {ok, _} = ttb:tracer([ServerNode,ClientNode], [{file, Dest}, resume]),

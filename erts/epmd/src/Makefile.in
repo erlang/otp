@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1998-2012. All Rights Reserved.
+# Copyright Ericsson AB 1998-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,6 @@
 #
 include $(ERL_TOP)/make/target.mk
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-include $(ERL_TOP)/make/$(TARGET)/ose_lm.mk
-endif
-
 ifeq ($(TYPE),debug)
 PURIFY     =
 TYPEMARKER = .debug
@@ -32,21 +28,13 @@ else
 ifeq ($(TYPE),purify)
 PURIFY     = purify
 TYPEMARKER =
-ifeq ($(findstring ose,$(TARGET)),ose)
-  TYPE_FLAGS = -DPURIFY
-else
-  TYPE_FLAGS = -O2 -DPURIFY
-endif
+TYPE_FLAGS = -O2 -DPURIFY
 else
 
 override TYPE = opt
 PURIFY     =
 TYPEMARKER =
-ifeq ($(findstring ose,$(TARGET)),ose)
-  TYPE_FLAGS =
-else
-  TYPE_FLAGS = -O2
-endif
+TYPE_FLAGS = -O2
 endif
 endif
 
@@ -68,11 +56,7 @@ else
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
-else
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@ -lm
-endif
 endif
 endif
 
@@ -82,11 +66,7 @@ CC      = @CC@
 WFLAGS  = @WFLAGS@
 CFLAGS  = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) $(WFLAGS) $(ERTS_INCL)
 LD      = @LD@
-ifeq ($(findstring ose,$(TARGET)),ose)
-LIBS    = $(ERTS_INTERNAL_LIBS) @LIBS@
-else
 LIBS    = @LIBS@ @SYSTEMD_DAEMON_LIBS@ $(ERTS_INTERNAL_LIBS)
-endif
 LDFLAGS = @LDFLAGS@
 
 
@@ -135,25 +115,12 @@ clean:
 	rm -f *.o
 	rm -f *~ core
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(OBJDIR)/ose_confd.o: $(OSE_CONFD)
-	$(V_CC) $(CFLAGS) -o $@ -c $<
-$(OBJDIR)/crt0_lm.o: $(CRT0_LM)
-	$(V_CC) $(CFLAGS) -o $@ -c $<
-OSE_LM_OBJS += $(OBJDIR)/ose_confd.o $(OBJDIR)/crt0_lm.o
-endif
-
 #
 # Objects & executables
 #
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(BINDIR)/$(EPMD): $(EPMD_OBJS) $(ERTS_LIB) $(OSE_LM_OBJS)
-	$(call build-ose-load-module, $@, $(EPMD_OBJS) $(OSE_LM_OBJS), $(LIBS), $(EPMD_LMCONF))
-else
 $(BINDIR)/$(EPMD): $(EPMD_OBJS) $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)
-endif
 
 $(OBJDIR)/%.o: %.c epmd.h epmd_int.h
 	$(V_CC) $(CFLAGS) $(EPMD_FLAGS) -o $@ -c $<
