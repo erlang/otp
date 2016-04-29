@@ -321,7 +321,7 @@ handle_event(#wx{id=?ID_TRACE_PIDS}, #state{sel={_, Pids}, panel=Panel}=State)  
 	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
 	    {noreply, State};
 	Pids ->
-	    observer_trace_wx:add_processes(observer_wx:get_tracer(), Pids),
+	    observer_trace_wx:add_processes(Pids),
 	    {noreply,  State}
     end;
 
@@ -332,12 +332,12 @@ handle_event(#wx{id=?ID_TRACE_NAMES}, #state{sel={SelIds,_Pids}, holder=Holder, 
 	    {noreply, State};
 	_ ->
 	    PidsOrReg = call(Holder, {get_name_or_pid, self(), SelIds}),
-	    observer_trace_wx:add_processes(observer_wx:get_tracer(), PidsOrReg),
+	    observer_trace_wx:add_processes(PidsOrReg),
 	    {noreply,  State}
     end;
 
 handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
-    observer_trace_wx:add_processes(observer_wx:get_tracer(), [new_processes]),
+    observer_trace_wx:add_processes([new_processes]),
     {noreply,  State};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},

@@ -32,11 +32,12 @@
 -define(ID_REFRESH, 301).
 -define(ID_REFRESH_INTERVAL, 302).
 -define(ID_PORT_INFO, 303).
--define(ID_TRACE_PORTS, 304).
--define(ID_TRACE_NAMES, 305).
--define(ID_TRACE_NEW, 306).
--define(ID_TRACE_ALL, 307).
--define(ID_CLOSE_PORT, 308).
+-define(ID_PORT_INFO_SELECTED, 304).
+-define(ID_TRACE_PORTS, 305).
+-define(ID_TRACE_NAMES, 306).
+-define(ID_TRACE_NEW, 307).
+-define(ID_TRACE_ALL, 308).
+-define(ID_CLOSE_PORT, 309).
 
 -define(TRACE_PORTS_STR, "Trace selected ports").
 -define(TRACE_NAMES_STR, "Trace selected ports, "
@@ -64,7 +65,7 @@
 	  panel,
 	  node=node(),
 	  opt=#opt{},
-	  selected,
+	  right_clicked_port,
 	  ports,
 	  timer,
 	  open_wins=[]
@@ -76,7 +77,7 @@ start_link(Notebook,  Parent) ->
 init([Notebook, Parent]) ->
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
-    Style = ?wxLC_REPORT bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES,
+    Style = ?wxLC_REPORT bor ?wxLC_HRULES,
     Grid = wxListCtrl:new(Panel, [{winid, ?GRID}, {style, Style}]),
     wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxALL},
 			      {proportion, 1}, {border, 5}]),
@@ -99,7 +100,6 @@ init([Notebook, Parent]) ->
 
     wxListCtrl:connect(Grid, command_list_item_right_click),
     wxListCtrl:connect(Grid, command_list_item_activated),
-    wxListCtrl:connect(Grid, command_list_item_selected),
     wxListCtrl:connect(Grid, command_list_col_click),
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
@@ -143,76 +143,92 @@ handle_event(#wx{event=#wxList{type=command_list_item_activated,
     NewOpened = display_port_info(Grid, Port, Opened),
     {noreply, State#state{open_wins=NewOpened}};
 
-handle_event(#wx{event=#wxList{type=command_list_item_right_click}},
-	     State=#state{panel=Panel}) ->
-
-    Menu = wxMenu:new(),
-    wxMenu:append(Menu, ?ID_PORT_INFO, "Port info"),
-    wxMenu:append(Menu, ?ID_TRACE_PORTS, "Trace ports",
-		  [{help, ?TRACE_PORTS_STR}]),
-    wxMenu:append(Menu, ?ID_TRACE_NAMES, "Trace named ports (all nodes)",
-		  [{help, ?TRACE_NAMES_STR}]),
-    wxMenu:append(Menu, ?ID_CLOSE_PORT, "Close Port"),
-    wxWindow:popupMenu(Panel, Menu),
-    wxMenu:destroy(Menu),
-    {noreply, State};
-
-handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Index}},
-	     State) ->
-    {noreply, State#state{selected=Index}};
+handle_event(#wx{event=#wxList{type=command_list_item_right_click,
+			       itemIndex=Index}},
+	     State=#state{panel=Panel, ports=Ports}) ->
+    case Index of
+	-1 ->
+	    {noreply, State};
+	_ ->
+	    Port = lists:nth(Index+1, Ports),
+	    Menu = wxMenu:new(),
+	    wxMenu:append(Menu, ?ID_PORT_INFO,
+			  "Port info for " ++ erlang:port_to_list(Port#port.id)),
+	    wxMenu:append(Menu, ?ID_TRACE_PORTS,
+			  "Trace selected ports",
+			  [{help, ?TRACE_PORTS_STR}]),
+	    wxMenu:append(Menu, ?ID_TRACE_NAMES,
+			  "Trace selected ports by name (all nodes)",
+			  [{help, ?TRACE_NAMES_STR}]),
+	    wxMenu:append(Menu, ?ID_CLOSE_PORT,
+			  "Close " ++ erlang:port_to_list(Port#port.id)),
+	    wxWindow:popupMenu(Panel, Menu),
+	    wxMenu:destroy(Menu),
+	    {noreply, State#state{right_clicked_port=Port}}
+    end;
 
 handle_event(#wx{id=?ID_PORT_INFO},
-	     State = #state{grid=Grid, ports=Ports,
-			    selected=Sel, open_wins=Opened}) ->
-    case Sel of
+	     State = #state{grid=Grid, right_clicked_port=Port,
+			    open_wins=Opened}) ->
+    case Port of
 	undefined ->
 	    {noreply, State};
-	R when is_integer(R) ->
-	    Port = lists:nth(Sel+1, Ports),
+	_ ->
 	    NewOpened = display_port_info(Grid, Port, Opened),
+	    {noreply, State#state{right_clicked_port=undefined,
+				  open_wins=NewOpened}}
+    end;
+
+handle_event(#wx{id=?ID_PORT_INFO_SELECTED},
+	     State = #state{grid=Grid, ports=Ports, open_wins=Opened}) ->
+    case get_selected_items(Grid,Ports) of
+	[] ->
+	    observer_wx:create_txt_dialog(State#state.panel, "No selected ports",
+					  "Port Info", ?wxICON_EXCLAMATION),
+	    {noreply, State};
+	Selected ->
+	    NewOpened = lists:foldl(fun(P,O) -> display_port_info(Grid, P, O) end,
+				    Opened, Selected),
 	    {noreply, State#state{open_wins = NewOpened}}
     end;
 
-handle_event(#wx{id=?ID_CLOSE_PORT}, State = #state{selected=Sel, ports=Ports}) ->
-    case Sel of
+handle_event(#wx{id=?ID_CLOSE_PORT}, State = #state{right_clicked_port=Port}) ->
+    case Port of
 	undefined ->
 	    {noreply, State};
-	R when is_integer(R) ->
-	    Port = lists:nth(Sel+1, Ports),
+	_ ->
 	    erlang:port_close(Port#port.id),
-	    {noreply, State#state{selected=undefined}}
-    end;
+	    {noreply, State#state{right_clicked_port=undefined}}
+	end;
 
-handle_event(#wx{id=?ID_TRACE_PORTS}, #state{selected=Sel, ports=Ports}=State)  ->
-    case Sel of
-	undefined ->
-	    observer_wx:create_txt_dialog(State#state.panel, "No selected port",
-					  "Tracer", ?wxICON_EXCLAMATION),
-	    {noreply, State};
-	R when is_integer(R) ->
-	    Port = lists:nth(Sel+1, Ports),
-	    observer_trace_wx:add_ports(observer_wx:get_tracer(), [Port#port.id]),
-	    {noreply,  State}
-    end;
+handle_event(#wx{id=?ID_TRACE_PORTS}, #state{grid=Grid, ports=Ports}=State)  ->
+    case get_selected_items(Grid, Ports) of
+	[] ->
+	    observer_wx:create_txt_dialog(State#state.panel, "No selected ports",
+					  "Tracer", ?wxICON_EXCLAMATION);
+	Selected ->
+	    SelectedIds = [Port#port.id || Port <- Selected],
+	    observer_trace_wx:add_ports(SelectedIds)
+    end,
+    {noreply,  State};
 
-handle_event(#wx{id=?ID_TRACE_NAMES}, #state{selected=Sel, ports=Ports}=State)  ->
-    case Sel of
-	undefined ->
-	    observer_wx:create_txt_dialog(State#state.panel, "No selected port",
-					  "Tracer", ?wxICON_EXCLAMATION),
-	    {noreply, State};
-	R when is_integer(R) ->
-	    Port = lists:nth(Sel+1, Ports),
-	    IdOrReg = case Port#port.name of
-			  ignore -> Port#port.id;
-			  Name -> Name
-		      end,
-	    observer_trace_wx:add_ports(observer_wx:get_tracer(), [IdOrReg]),
-	    {noreply,  State}
-    end;
+handle_event(#wx{id=?ID_TRACE_NAMES}, #state{grid=Grid, ports=Ports}=State)  ->
+    case get_selected_items(Grid, Ports) of
+	[] ->
+	    observer_wx:create_txt_dialog(State#state.panel, "No selected ports",
+					  "Tracer", ?wxICON_EXCLAMATION);
+	Selected ->
+	    IdsOrRegs =
+		[case Port#port.name of
+		     undefined -> Port#port.id;
+		     Name -> Name
+		 end || Port <- Selected],
+	    observer_trace_wx:add_ports(IdsOrRegs)
+    end,
+    {noreply,  State};
 
 handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
-    observer_trace_wx:add_ports(observer_wx:get_tracer(), [new_ports]),
+    observer_trace_wx:add_ports([new_ports]),
     {noreply,  State};
 
 handle_event(#wx{id=?ID_REFRESH_INTERVAL},
@@ -292,11 +308,18 @@ code_change(_, _, State) ->
 create_menus(Parent) ->
     MenuEntries =
 	[{"View",
-	  [#create_menu{id = ?ID_PORT_INFO, text = "Port information\tCtrl-I"},
+	  [#create_menu{id = ?ID_PORT_INFO_SELECTED,
+			text = "Port info for selected ports\tCtrl-I"},
 	   separator,
 	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
 	   #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval..."}
-	  ]}],
+	  ]},
+	 {"Trace",
+	  [#create_menu{id=?ID_TRACE_PORTS, text="Trace selected ports"},
+	   #create_menu{id=?ID_TRACE_NAMES, text="Trace selected ports by name (all nodes)"},
+	   #create_menu{id=?ID_TRACE_NEW, text="Trace new ports"}
+	  ]}
+	],
     observer_wx:create_menus(Parent, MenuEntries).
 
 get_ports(Node) ->
@@ -332,9 +355,9 @@ list_to_portrec(PL) ->
 	  id_str = erlang:port_to_list(PortId),
 	  slot = proplists:get_value(id, PL),
 	  connected = proplists:get_value(connected, PL),
-	  links = proplists:get_value(links, PL, ignore),
-	  name = proplists:get_value(registered_name, PL, ignore),
-	  monitors = proplists:get_value(monitors, PL, ignore),
+	  links = proplists:get_value(links, PL, []),
+	  name = proplists:get_value(registered_name, PL, []),
+	  monitors = proplists:get_value(monitors, PL, []),
 	  controls = proplists:get_value(name, PL)}.
 
 portrec_to_list(#port{id = Id,
@@ -388,8 +411,15 @@ port_info_fields(Port) ->
 	   {"Controls",         controls}]},
 	 {scroll_boxes,
 	  [{"Links",1,{click,links}},
-	   {"Monitors",1,{click,monitors}}]}],
+	   {"Monitors",1,{click,filter_monitor_info()}}]}],
     observer_lib:fill_info(Struct, Port).
+
+filter_monitor_info() ->
+    fun(Data) ->
+	    Ms = proplists:get_value(monitors, Data),
+	    [Pid || {process, Pid} <- Ms]
+    end.
+
 
 handle_error(Foo) ->
     Str = io_lib:format("ERROR: ~s~n",[Foo]),
@@ -412,8 +442,7 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
 		   true -> ignore
 		end,
 
-		lists:foreach(fun({_, ignore}) -> ignore;
-				 ({Col, Val}) ->
+		lists:foreach(fun({Col, Val}) ->
 				      wxListCtrl:setItem(Grid, Row, Col,
 							 observer_lib:to_str(Val))
 			      end,
@@ -426,3 +455,25 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
 	       end,
     lists:foldl(Update, 0, PortInfo),
     PortInfo.
+
+
+get_selected_items(Grid, Data) ->
+    get_indecies(get_selected_items(Grid, -1, []), Data).
+get_selected_items(Grid, Index, ItemAcc) ->
+    Item = wxListCtrl:getNextItem(Grid, Index, [{geometry, ?wxLIST_NEXT_ALL},
+						{state, ?wxLIST_STATE_SELECTED}]),
+    case Item of
+	-1 ->
+	    lists:reverse(ItemAcc);
+	_ ->
+	    get_selected_items(Grid, Item, [Item | ItemAcc])
+    end.
+
+get_indecies(Items, Data) ->
+    get_indecies(Items, 0, Data).
+get_indecies([I|Rest], I, [H|T]) ->
+    [H|get_indecies(Rest, I+1, T)];
+get_indecies(Rest = [_|_], I, [_|T]) ->
+    get_indecies(Rest, I+1, T);
+get_indecies(_, _, _) ->
+    [].

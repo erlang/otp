@@ -19,7 +19,7 @@
 
 -module(observer_trace_wx).
 
--export([start_link/2, add_processes/2, add_ports/2]).
+-export([start_link/2, add_processes/1, add_ports/1]).
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_cast/2]).
 
@@ -83,11 +83,11 @@
 start_link(Notebook, ParentPid) ->
     wx_object:start_link(?MODULE, [Notebook, ParentPid], []).
 
-add_processes(Tracer, Pids) when is_list(Pids) ->
-    wx_object:cast(Tracer, {add_processes, Pids}).
+add_processes(Pids) when is_list(Pids) ->
+    wx_object:cast(observer_wx:get_tracer(), {add_processes, Pids}).
 
-add_ports(Tracer, Ports) when is_list(Ports) ->
-    wx_object:cast(Tracer, {add_ports, Ports}).
+add_ports(Ports) when is_list(Ports) ->
+    wx_object:cast(observer_wx:get_tracer(), {add_ports, Ports}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
