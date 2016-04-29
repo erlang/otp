@@ -1486,6 +1486,16 @@ do {								\
 extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA);
 Eterm erts_match_set_lint(Process *p, Eterm matchexpr); 
 extern void erts_match_set_release_result(Process* p);
+ERTS_GLB_INLINE void erts_match_set_release_result_trace(Process* p, Eterm);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE
+void erts_match_set_release_result_trace(Process* p, Eterm pam_result)
+{
+    if (is_not_immed(pam_result))
+        erts_match_set_release_result(p);
+}
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 enum erts_pam_run_flags {
     ERTS_PAM_TMP_RESULT=1,
@@ -1493,12 +1503,12 @@ enum erts_pam_run_flags {
     ERTS_PAM_CONTIGUOUS_TUPLE=4,
     ERTS_PAM_IGNORE_TRACE_SILENT=8
 };
-extern Eterm erts_match_set_run(Process *p,
-                                Process *self,
-                                Binary *mpsp,
-				Eterm *args, int num_args,
-				enum erts_pam_run_flags in_flags,
-				Uint32 *return_flags);
+extern Eterm erts_match_set_run_trace(Process *p,
+                                      Process *self,
+                                      Binary *mpsp,
+                                      Eterm *args, int num_args,
+                                      enum erts_pam_run_flags in_flags,
+                                      Uint32 *return_flags);
 extern Eterm erts_match_set_get_source(Binary *mpsp);
 extern void erts_match_prog_foreach_offheap(Binary *b,
 					    void (*)(ErlOffHeap *, void *),

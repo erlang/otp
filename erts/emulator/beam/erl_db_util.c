@@ -414,19 +414,27 @@ get_match_pseudo_process(Process *c_p, Uint heap_size)
 {
     ErtsMatchPseudoProcess *mpsp;
 #ifdef ERTS_SMP
-    ErtsSchedulerData *esdp = c_p ? c_p->scheduler_data : erts_get_scheduler_data();
+    ErtsSchedulerData *esdp;
 
-    mpsp = (ErtsMatchPseudoProcess *) esdp->match_pseudo_process;
-    if (mpsp)
+    esdp = c_p ? c_p->scheduler_data : erts_get_scheduler_data();
+
+    mpsp = esdp ? esdp->match_pseudo_process :
+        (ErtsMatchPseudoProcess*) erts_smp_tsd_get(match_pseudo_process_key);
+
+    if (mpsp) {
+        ASSERT(mpsp == erts_smp_tsd_get(match_pseudo_process_key));
+        ASSERT(mpsp->process.scheduler_data == esdp);
 	cleanup_match_pseudo_process(mpsp, 0);
+    }
     else {
 	ASSERT(erts_smp_tsd_get(match_pseudo_process_key) == NULL);
 	mpsp = create_match_pseudo_process();
-	esdp->match_pseudo_process = (void *) mpsp;
+        if (esdp) {
+            esdp->match_pseudo_process = (void *) mpsp;
+        }
+        mpsp->process.scheduler_data = esdp;
 	erts_smp_tsd_set(match_pseudo_process_key, (void *) mpsp);
     }
-    ASSERT(mpsp == erts_smp_tsd_get(match_pseudo_process_key));
-    mpsp->process.scheduler_data = esdp;
 #else
     mpsp = match_pseudo_process;
     cleanup_match_pseudo_process(mpsp, 0);
@@ -1206,32 +1214,37 @@ done:
     return ret;
 }
     
-Eterm erts_match_set_run(Process *c_p,
-                         Process *self,
-                         Binary *mpsp,
-			 Eterm *args, int num_args,
-			 enum erts_pam_run_flags in_flags,
-			 Uint32 *return_flags) 
+/* Returns
+ *   am_false      if no match or
+ *                 if {message,false} has been called,
+ *   am_true       if {message,_} has NOT been called or
+ *                 if {message,true} has been called,
+ *   Msg           if {message,Msg} has been called.
+ *
+ *   If return value is_not_immed
+ *   then erts_match_set_release_result_trace() must be called to release it.
+ */
+Eterm erts_match_set_run_trace(Process *c_p,
+                               Process *self,
+                               Binary *mpsp,
+                               Eterm *args, int num_args,
+                               enum erts_pam_run_flags in_flags,
+                               Uint32 *return_flags)
 {
     Eterm ret;
 
     ret = db_prog_match(c_p, self, mpsp, NIL, args, num_args,
 			in_flags, return_flags);
-#if defined(HARDDEBUG)
-    if (is_non_value(ret)) {
-	erts_fprintf(stderr, "Failed\n");
-    } else {
-	erts_fprintf(stderr, "Returning : %T\n", ret);
+
+    ASSERT(!(is_non_value(ret) && *return_flags));
+
+    if (is_non_value(ret) || ret == am_false) {
+        erts_match_set_release_result(c_p);
+        return am_false;
     }
-#endif
+    if (is_immed(ret))
+        erts_match_set_release_result(c_p);
     return ret;
-    /* Returns 
-     *   THE_NON_VALUE if no match
-     *   am_false      if {message,false} has been called,
-     *   am_true       if {message,_} has not been called or
-     *                 if {message,true} has been called,
-     *   Msg           if {message,Msg} has been called.
-     */
 }
 
 static Eterm erts_match_set_run_ets(Process *p, Binary *mpsp,
@@ -1774,6 +1787,7 @@ Eterm db_prog_match(Process *c_p,
 #endif /* DMC_DEBUG */
 
     ERTS_UNDEF(n,0);
+    ERTS_UNDEF(current_scheduled,NULL);
 
     ASSERT(c_p || !(in_flags & ERTS_PAM_COPY_RESULT));
 
@@ -1784,8 +1798,8 @@ Eterm db_prog_match(Process *c_p,
        because of floating point exceptions. Do *after* mpsp is set!!! */
 
     esdp = ERTS_GET_SCHEDULER_DATA_FROM_PROC(psp);
-    ASSERT(esdp != NULL);
-    current_scheduled = esdp->current_process;
+    if (esdp)
+        current_scheduled = esdp->current_process;
     /* SMP: psp->scheduler_data is set by get_match_pseudo_process */
 
 #ifdef DMC_DEBUG
@@ -2517,7 +2531,8 @@ success:
     }
 #endif
 
-    esdp->current_process = current_scheduled;
+    if (esdp)
+        esdp->current_process = current_scheduled;
 
     return ret;
 #undef FAIL
@@ -5073,7 +5088,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    }
 	    save_cp = p->cp;
 	    p->cp = NULL;
-	    res = erts_match_set_run(p, p,
+	    res = erts_match_set_run_trace(p, p,
                       mps, arr, n,
 		      ERTS_PAM_COPY_RESULT|ERTS_PAM_IGNORE_TRACE_SILENT,
 		      &ret_flags);
