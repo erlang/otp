@@ -4429,22 +4429,32 @@ init_done:
 	    SKIP(1+atom_extra_skip);
 	    atom_extra_skip = 0;
 	    break;
-        case PID_EXT:
         case NEW_PID_EXT:
+	    atom_extra_skip = 12;
+	    goto case_PID;
+        case PID_EXT:
 	    atom_extra_skip = 9;
+	case_PID:
 	    /* In case it is an external pid */
 	    heap_size += EXTERNAL_THING_HEAD_SIZE + 1;
 	    terms++;
 	    break;
-        case PORT_EXT:
         case NEW_PORT_EXT:
+	    atom_extra_skip = 8;
+	    goto case_PORT;
+        case PORT_EXT:
 	    atom_extra_skip = 5;
+	case_PORT:
 	    /* In case it is an external port */
 	    heap_size += EXTERNAL_THING_HEAD_SIZE + 1;
 	    terms++;
 	    break;
-        case NEW_REFERENCE_EXT:
 	case NEWER_REFERENCE_EXT:
+	    atom_extra_skip = 4;
+	    goto case_NEW_REFERENCE;
+        case NEW_REFERENCE_EXT:
+	    atom_extra_skip = 1;
+	case_NEW_REFERENCE:
 	    {
 		int id_words;
 
@@ -4455,7 +4465,7 @@ init_done:
 		    goto error;
 
 		ep += 2;
-		atom_extra_skip = 1 + 4*id_words;
+		atom_extra_skip += 4*id_words;
 		/* In case it is an external ref */
 #if defined(ARCH_64)
 		heap_size += EXTERNAL_THING_HEAD_SIZE + id_words/2 + 1;
