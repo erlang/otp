@@ -37,9 +37,10 @@
 	       indent = 0      :: integer(),
 	       item_indent = 2 :: integer(),
 	       body_indent = 4 :: integer(),
-	       tab_width = 8   :: non_neg_integer(),
 	       line = 0        :: integer(),
 	       clean = true    :: boolean()}).
+
+-define(TAB_WIDTH, 8).
 
 -spec format(cerl:cerl()) -> iolist().
 
@@ -470,37 +471,46 @@ format_map_pair(Op, K, V, Ctxt0) ->
     Ctxt2 = add_indent(Ctxt0, width(Txt, Ctxt1)),
     [Txt,Op,format(V, Ctxt2)].
 
-indent(Ctxt) -> indent(Ctxt#ctxt.indent, Ctxt).
-
-indent(N, _) when N =< 0 -> "";
-indent(N, Ctxt) ->
-    T = Ctxt#ctxt.tab_width,
-    string:chars($\t, N div T, string:chars($\s, N rem T)).
+indent(#ctxt{indent=N}) ->
+    if
+	N =< 0 ->
+	    "";
+	true ->
+	    string:chars($\t, N div ?TAB_WIDTH, spaces(N rem ?TAB_WIDTH))
+    end.
 
 nl_indent(Ctxt) -> [$\n|indent(Ctxt)].
 
+spaces(0) -> "";
+spaces(1) -> " ";
+spaces(2) -> "  ";
+spaces(3) -> "   ";
+spaces(4) -> "    ";
+spaces(5) -> "     ";
+spaces(6) -> "      ";
+spaces(7) -> "       ".
 
 unindent(T, Ctxt) ->
-    unindent(T, Ctxt#ctxt.indent, Ctxt, []).
+    unindent(T, Ctxt#ctxt.indent, []).
 
-unindent(T, N, _, C) when N =< 0 ->
+unindent(T, N, C) when N =< 0 ->
     [T|C];
-unindent([$\s|T], N, Ctxt, C) ->
-    unindent(T, N - 1, Ctxt, C);
-unindent([$\t|T], N, Ctxt, C) ->
-    Tab = Ctxt#ctxt.tab_width,
+unindent([$\s|T], N, C) ->
+    unindent(T, N - 1, C);
+unindent([$\t|T], N, C) ->
+    Tab = ?TAB_WIDTH,
     if N >= Tab ->
-	    unindent(T, N - Tab, Ctxt, C);
+	    unindent(T, N - Tab, C);
        true ->
-	    unindent([string:chars($\s, Tab - N)|T], 0, Ctxt, C)
+	    unindent([spaces(Tab - N)|T], 0, C)
     end;
-unindent([L|T], N, Ctxt, C) when is_list(L) ->
-    unindent(L, N, Ctxt, [T|C]);
-unindent([H|T], _, _, C) ->
+unindent([L|T], N, C) when is_list(L) ->
+    unindent(L, N, [T|C]);
+unindent([H|T], _, C) ->
     [H|[T|C]];
-unindent([], N, Ctxt, [H|T]) ->
-    unindent(H, N, Ctxt, T);
-unindent([], _, _, []) -> [].
+unindent([], N, [H|T]) ->
+    unindent(H, N, T);
+unindent([], _, []) -> [].
 
 
 width(Txt, Ctxt) ->
@@ -509,7 +519,7 @@ width(Txt, Ctxt) ->
     end.
 
 width([$\t|T], A, Ctxt, C) ->
-    width(T, A + Ctxt#ctxt.tab_width, Ctxt, C);
+    width(T, A + ?TAB_WIDTH, Ctxt, C);
 width([$\n|T], _, Ctxt, C) ->
     width(unindent([T|C], Ctxt), Ctxt);
 width([H|T], A, Ctxt, C) when is_list(H) ->
