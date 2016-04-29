@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<chapter>
+    <header>
+        <copyright>
+            <year>2016</year><year>2016</year>
+            <holder>Ericsson AB. All Rights Reserved.</holder>
+        </copyright>
+        <legalnotice>
+            Licensed under the Apache License, Version 2.0 (the "License");
+            you may not use this file except in compliance with the License.
+            You may obtain a copy of the License at
+
+            http://www.apache.org/licenses/LICENSE-2.0
+
+            Unless required by applicable law or agreed to in writing, software
+            distributed under the License is distributed on an "AS IS" BASIS,
+            WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            See the License for the specific language governing permissions and
+            limitations under the License.
+        </legalnotice>
+
+        <title>LTTng and Erlang/OTP</title>
+        <prepared></prepared>
+        <responsible></responsible>
+        <docno></docno>
+        <approved></approved>
+        <checked></checked>
+        <date>2016-04-27</date>
+        <rev></rev>
+        <file>LTTng.xml</file>
+    </header>
+
+    <section>
+        <title>Introduction</title>
+        <p>The Linux Trace Toolkit: next generation is an open source system software package
+            for correlated tracing of the Linux kernel, user applications and libraries. </p>
+        <p>For more information, please visit <url href="http://lttng.org">http://lttng.org</url></p>
+    </section>
+
+    <section>
+        <title>Building Erlang/OTP with LTTng support</title>
+        <p>
+            Configure and build Erlang with LTTng support:
+        </p>
+        <p>For LTTng to work properly with Erlang/OTP you need
+            the following packages installed:</p>
+
+      <list type="bulleted">
+          <item><p>LTTng-tools: a command line interface to control tracing sessions.</p></item>
+          <item><p>LTTng-UST: user space tracing library.</p></item>
+      </list>
+
+      <p>On Ubuntu this can be installed via <c>aptitude</c>:</p>
+
+      <code type="none">$ sudo aptitude install lttng-tools liblttng-ust-dev</code>
+      <p>See <url href="http://lttng.org/docs/#doc-installing-lttng">Installing LTTng</url>
+          for more information on how to install LTTng on your system.</p>
+
+      <p>After LTTng is properly installed on the system Erlang/OTP can be built with LTTng support.</p>
+ 
+
+<code type="none">$ ./configure --with-dynamic-trace=lttng
+$ make </code>
+    </section>
+
+    <section>
+        <title>Dyntrace Tracepoints</title>
+        <p>All tracepoints are in the domain of <c>com_ericsson_dyntrace</c></p>
+        <p>All Erlang types are the string equivalent in LTTng.</p>
+
+        <p><em>process_spawn</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>parent : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">process_spawn: { cpu_id = 3 }, { pid = "&lt;0.131.0&gt;", parent = "&lt;0.130.0&gt;", entry = "erlang:apply/2" }</code></p>
+
+        <p><em>process_link</em></p>
+        <list type="bulleted">
+            <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>from : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">process_link: { cpu_id = 3 }, { from = "&lt;0.130.0&gt;", to = "&lt;0.131.0&gt;", type = "link" }</code></p>
+
+
+        <p><em>process_exit</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">process_exit: { cpu_id = 3 }, { pid = "&lt;0.130.0&gt;", reason = "normal" }</code></p>
+
+        <p><em>process_register</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>name : string</c> :: Registered name. Ex. <c>"error_logger"</c></item>
+            <item><c>type : string</c> :: <c>"register" | "unregister"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">process_register: { cpu_id = 0 }, { pid = "&lt;0.128.0&gt;", name = "dyntrace_lttng_SUITE" type = "register" }</code></p>
+
+        <p><em>process_scheduled</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>type : string</c> :: <c>"in" | "out" | "in_exiting" | "out_exiting" | "out_exited"</c></item>
+        </list>
+
+        <p>Example:</p>
+        <p><code type="none">process_scheduled: { cpu_id = 0 }, { pid = "&lt;0.136.0&gt;", entry = "erlang:apply/2", type = "in" }</code></p>
+
+
+        <p><em>port_open</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+        </list>
+
+        <p>Example:</p>
+        <p><code type="none">port_open: { cpu_id = 5 }, { pid = "&lt;0.131.0&gt;", driver = "'/bin/sh -s unix:cmd'", port = "#Port&lt;0.1887&gt;" }</code></p>
+
+        <p><em>port_exit</em></p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">port_exit: { cpu_id = 5 }, { port = "#Port&lt;0.1887&gt;", reason = "normal" }</code></p>
+
+        <p><em>port_link</em></p>
+        <list type="bulleted">
+            <item><c>to : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>from : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">port_link: { cpu_id = 5 }, { from = "#Port&lt;0.1887&gt;", to = "&lt;0.131.0&gt;", type = "unlink" }</code></p>
+
+        <p><em>port_scheduled</em></p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>entry : string</c> :: Callback. Ex. <c>"open"</c></item>
+            <item><c>type : string</c> :: <c>"in" | "out" | "in_exiting" | "out_exiting" | "out_exited"</c></item>
+        </list>
+
+        <p>Example:</p>
+        <p><code type="none">port_scheduled: { cpu_id = 5 }, { pid = "#Port&lt;0.1905&gt;", entry = "close", type = "out" }</code></p>
+
+        <p><em>function_call</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">function_call: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:'-t_call/1-fun-1-'/0", depth = 0 }</code></p>
+
+        <p><em>function_return</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">function_return: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:waiter/0", depth = 0 }</code></p>
+
+        <p><em>function_exception</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>class : string</c> :: Error reason. Ex. <c>"error"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">function_exception: { cpu_id = 5 }, { pid = "&lt;0.144.0&gt;", entry = "t:call_exc/1", class = "error" }</code></p>
+
+        <p><em>message_send</em></p>
+        <list type="bulleted">
+            <item><c>from : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>message : string</c> :: Message sent. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">message_send: { cpu_id = 3 }, { from = "#Port&lt;0.1938&gt;", to = "&lt;0.160.0&gt;", message = "{#Port&lt;0.1938&gt;,eof}" }</code></p>
+
+        <p><em>message_receive</em></p>
+        <list type="bulleted">
+            <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>message : string</c> :: Message received. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">message_receive: { cpu_id = 7 }, { to = "&lt;0.167.0&gt;", message = "{&lt;0.165.0&gt;,ok}" }</code></p>
+
+        <p><em>gc_minor_start</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>need : integer</c> :: Heap need. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">gc_minor_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 0, heap = 610, old_heap = 0 }</code></p>
+
+        <p><em>gc_minor_end</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>reclaimed : integer</c> :: Heap reclaimed. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">gc_minor_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 120, heap = 1598, old_heap = 1598 }</code></p>
+
+        <p><em>gc_major_start</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>need : integer</c> :: Heap need. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">gc_major_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 8, heap = 2586, old_heap = 1598 }</code></p>
+
+        <p><em>gc_major_end</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>reclaimed : integer</c> :: Heap reclaimed. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">gc_major_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 240, heap = 4185, old_heap = 0 }</code></p>
+
+    </section>
+
+    <section>
+        <title>Examples</title>
+    </section>
+</chapter>

@@ -3,12 +3,29 @@
 -export([enabled/3, trace/6, on_load/0]).
 
 -type tracee() :: port() | pid() | undefined.
--type trace_tag() :: send | send_to_non_existing_process | 'receive' |
-                     call | return_to | return_from | exception_from |
-                     spawn | spawned | exit | link | unlink | getting_linked |
-                     getting_unlinked | register | unregister | in | out |
-                     in_exiting | out_exiting | out_exited |
-                     open | closed | gc_start | gc_end.
+
+-type trace_tag_running_ports() :: in | out | in_exiting | out_exiting | out_exited.
+-type trace_tag_running_procs() :: in | out | in_exiting | out_exiting | out_exited.
+-type trace_tag_send() :: send | send_to_non_existing_process.
+-type trace_tag_receive() :: 'receive'.
+-type trace_tag_call() :: call | return_to | return_from | exception_from.
+-type trace_tag_procs() :: spawn | spawned | exit | link | unlink
+                         | getting_linked | getting_unlinked
+                         | register | unregister.
+-type trace_tag_ports() :: open | closed  | link | unlink
+                         | getting_linked | getting_unlinked.
+-type trace_tag_gc() :: gc_minor_start | gc_minor_end
+                      | gc_major_start | gc_major_end.
+
+-type trace_tag() :: trace_tag_send()
+                   | trace_tag_receive()
+                   | trace_tag_call()
+                   | trace_tag_procs()
+                   | trace_tag_ports()
+                   | trace_tag_running_procs()
+                   | trace_tag_running_ports()
+                   | trace_tag_gc().
+
 -type trace_opts() :: #{ match_spec_result => true | term(),
                          scheduler_id => undefined | non_neg_integer(),
                          timestamp => undefined | timestamp | cpu_timestamp |

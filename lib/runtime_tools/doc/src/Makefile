@@ -45,7 +45,7 @@ XML_REF3_FILES = dbg.xml dyntrace.xml erts_alloc_config.xml system_information.x
 XML_REF6_FILES = runtime_tools_app.xml
 
 XML_PART_FILES = part_notes.xml part_notes_history.xml part.xml
-XML_CHAPTER_FILES = notes.xml notes_history.xml
+XML_CHAPTER_FILES = notes.xml notes_history.xml LTTng.xml
 
 GENERATED_XML_FILES = DTRACE.xml SYSTEMTAP.xml
 

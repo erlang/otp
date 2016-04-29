@@ -3157,7 +3157,7 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
     /* Verify that function is part of this module */
     int i;
     for (i = 0; i < mod->entry->num_of_funcs; i++)
-        if (fun == mod->entry->funcs+i)
+        if (fun == &(mod->entry->funcs[i]))
             break;
     ASSERT(i < mod->entry->num_of_funcs);
     if (p)

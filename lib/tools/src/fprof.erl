@@ -1629,15 +1629,24 @@ trace_handler({trace_ts, Pid, in, {_M, _F, Args} = MFArgs, TS} = Trace,
     TS;
 %%
 %% gc_start
-trace_handler({trace_ts, Pid, gc_start, _Func, TS} = Trace,
-	      Table, _, Dump) ->
+trace_handler({trace_ts, Pid, gc_minor_start, _Func, TS} = Trace, Table, _, Dump) ->
     dump_stack(Dump, get(Pid), Trace),
     trace_gc_start(Table, Pid, TS),
     TS;
+
+trace_handler({trace_ts, Pid, gc_major_start, _Func, TS} = Trace, Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    trace_gc_start(Table, Pid, TS),
+    TS;
+
 %%
 %% gc_end
-trace_handler({trace_ts, Pid, gc_end, _Func, TS} = Trace,
-	      Table, _, Dump) ->
+trace_handler({trace_ts, Pid, gc_minor_end, _Func, TS} = Trace, Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    trace_gc_end(Table, Pid, TS),
+    TS;
+
+trace_handler({trace_ts, Pid, gc_major_end, _Func, TS} = Trace, Table, _, Dump) ->
     dump_stack(Dump, get(Pid), Trace),
     trace_gc_end(Table, Pid, TS),
     TS;

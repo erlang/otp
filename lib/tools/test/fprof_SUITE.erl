@@ -949,8 +949,8 @@ handle_trace({trace_ts,Pid,return_to,MFA,TS},P) ->
     end,
     put({Pid,last_ts},TS),
     P;
-handle_trace({trace_ts,Pid,gc_start,_,TS},P) ->
-    ?dbg("~p",[{{gc_start,Pid},get(Pid)}]),
+handle_trace({trace_ts,Pid,gc_minor_start,_,TS},P) ->
+    ?dbg("~p",[{{gc_minor_start,Pid},get(Pid)}]),
     case get(Pid) of
         [suspend|_] = Stack ->
             T = ts_sub(TS,get({Pid,last_ts})),
@@ -970,8 +970,40 @@ handle_trace({trace_ts,Pid,gc_start,_,TS},P) ->
     end,
     put({Pid,last_ts},TS),
     P;
-handle_trace({trace_ts,Pid,gc_end,_,TS},P) ->
-    ?dbg("~p",[{{gc_end,Pid},get(Pid)}]),
+handle_trace({trace_ts,Pid,gc_major_start,_,TS},P) ->
+    ?dbg("~p",[{{gc_minor_start,Pid},get(Pid)}]),
+    case get(Pid) of
+        [suspend|_] = Stack ->
+            T = ts_sub(TS,get({Pid,last_ts})),
+            insert(Pid,garbage_collect),
+            update_acc(Pid,Stack,T),
+            put(Pid,[garbage_collect|Stack]);
+        [CallingMFA|_] = Stack ->
+            T = ts_sub(TS,get({Pid,last_ts})),
+            insert(Pid,garbage_collect),
+            update_own(Pid,CallingMFA,T),
+            update_acc(Pid,Stack,T),
+            put(Pid,[garbage_collect|Stack]);
+        undefined ->
+            put(first_ts,TS),
+            put(Pid,[garbage_collect]),
+            insert(Pid,garbage_collect)
+    end,
+    put({Pid,last_ts},TS),
+    P;
+handle_trace({trace_ts,Pid,gc_minor_end,_,TS},P) ->
+    ?dbg("~p",[{{gc_minor_end,Pid},get(Pid)}]),
+    T = ts_sub(TS,get({Pid,last_ts})),
+    case get(Pid) of
+        [garbage_collect|RestOfStack] = Stack ->
+            update_own(Pid,garbage_collect,T),
+            update_acc(Pid,Stack,T),
+            put(Pid,RestOfStack)
+    end,
+    put({Pid,last_ts},TS),
+    P;
+handle_trace({trace_ts,Pid,gc_major_end,_,TS},P) ->
+    ?dbg("~p",[{{gc_major_end,Pid},get(Pid)}]),
     T = ts_sub(TS,get({Pid,last_ts})),
     case get(Pid) of
         [garbage_collect|RestOfStack] = Stack ->

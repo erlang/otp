@@ -236,13 +236,13 @@ gc(Config) when is_list(Config) ->
 
     trace_info(Garber, flags),
     Garber ! hi,
-    expect({trace,Garber,gc_start,info}),
-    expect({trace,Garber,gc_end,info}),
+    expect({trace,Garber,gc_major_start,info}),
+    expect({trace,Garber,gc_major_end,info}),
 
     trac(Garber, true, [garbage_collection,timestamp]),
     Garber ! hi,
-    expect({trace_ts,Garber,gc_start,info,ts}),
-    expect({trace_ts,Garber,gc_end,info,ts}),
+    expect({trace_ts,Garber,gc_major_start,info,ts}),
+    expect({trace_ts,Garber,gc_major_end,info,ts}),
 
     ok.
 

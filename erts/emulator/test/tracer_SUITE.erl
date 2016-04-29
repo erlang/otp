@@ -468,12 +468,12 @@ gc_start(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, gc_start, State, Pid, _, undefined, Opts} = Msg,
+                        {Pid, gc_major_start, State, Pid, _, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts)
                 end
              end,
 
-    test(gc_start, garbage_collection, Tc, Expect, true).
+    test(gc_major_start, garbage_collection, Tc, Expect, true).
 
 gc_end(_Config) ->
 
@@ -488,12 +488,12 @@ gc_end(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, gc_end, State, Pid, _, undefined, Opts} = Msg,
+                        {Pid, gc_major_end, State, Pid, _, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts)
                 end
              end,
 
-    test(gc_end, garbage_collection, Tc, Expect, true).
+    test(gc_major_end, garbage_collection, Tc, Expect, true).
 
 test(Event, Tc, Expect) ->
     test(Event, Tc, Expect, true).

@@ -311,7 +311,7 @@ gc_trace(Config) when is_list(Config) ->
 
     wait_trace(Self),
     {messages,Messages} = process_info(Tracer, messages),    
-    [{trace,Self,gc_start,_},{trace,Self,gc_end,_}] = Messages,
+    [{trace,Self,gc_major_start,_},{trace,Self,gc_major_end,_}] = Messages,
 
     unlink(Tracer), exit(Tracer, kill),
     ok.
