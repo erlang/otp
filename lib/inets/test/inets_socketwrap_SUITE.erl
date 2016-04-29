@@ -61,8 +61,8 @@ end_per_testcase(_, Config) ->
 start_httpd_fd() ->
     [{doc, "Start/stop of httpd service with socket wrapper"}].
 start_httpd_fd(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     HttpdConf = [{port, 80}, {ipfamily, inet},
 		 {server_name, "httpd_fd_test"}, {server_root, PrivDir},
 		 {document_root, PrivDir}, {bind_address, any}],
@@ -94,7 +94,7 @@ start_httpd_fd(Config) when is_list(Config) ->
 start_tftpd_fd() ->
     [{doc, "Start/stop of tfpd service with socket wrapper"}].
 start_tftpd_fd(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     case setup_node_info(node()) of
 	{skip, _}  = Skip ->
 	    Skip;
