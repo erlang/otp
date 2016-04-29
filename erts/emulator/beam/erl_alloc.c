@@ -2841,7 +2841,7 @@ erts_allocator_info(int to, void *arg)
 	int i;
 	for (i = 0; i <= max; i++) {
 	    erts_print(to, arg, "=allocator:mseg_alloc[%d]\n", i);
-	    erts_mseg_info(i, &to, arg, 0, NULL, NULL);
+	    erts_mseg_info(i, &to, arg, 0, 0, NULL, NULL);
 	}
 	erts_print(to, arg, "=allocator:erts_mmap.default_mmap\n");
 	erts_mmap_info(&erts_dflt_mmapper, &to, arg, NULL, NULL, &emis);
@@ -3241,10 +3241,8 @@ reply_alloc_info(void *vair)
 		case ERTS_ALC_INFO_A_MSEG_ALLOC:
 		    alloc_atom = erts_bld_atom(hpp, szp, "mseg_alloc");
 #if HAVE_ERTS_MSEG
-		    ainfo = (air->only_sz
-			     ? NIL
-			     : erts_mseg_info(0, NULL, NULL, hpp != NULL,
-					      hpp, szp));
+		    ainfo = erts_mseg_info(0, NULL, NULL, hpp != NULL,
+                                           air->only_sz, hpp, szp);
 		    ainfo = erts_bld_tuple3(hpp, szp,
                                             alloc_atom,
                                             make_small(0),
@@ -3287,10 +3285,8 @@ reply_alloc_info(void *vair)
 	    case ERTS_ALC_INFO_A_MSEG_ALLOC:
 #if HAVE_ERTS_MSEG && defined(ERTS_SMP)
 		alloc_atom = erts_bld_atom(hpp, szp, "mseg_alloc");
-		ainfo = (air->only_sz
-			 ? NIL
-			 : erts_mseg_info(sched_id, NULL, NULL,
-					  hpp != NULL, hpp, szp));
+		ainfo = erts_mseg_info(sched_id, NULL, NULL,
+                                       hpp != NULL, air->only_sz, hpp, szp);
 		ainfo = erts_bld_tuple(hpp, szp, 3,
 				       alloc_atom,
 				       make_small(sched_id),
