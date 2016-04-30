@@ -62,7 +62,8 @@
          too_many_arguments/1,
          basic_errors/1,bin_syntax_errors/1,
          predef/1,
-         maps/1,maps_type/1,otp_11851/1,otp_11879/1,otp_13230/1,
+         maps/1,maps_type/1,maps_parallel_match/1,
+         otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1]).
 
 suite() ->
@@ -81,7 +82,8 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, otp_11851, otp_11879, otp_13230,
+     maps, maps_type, maps_parallel_match,
+     otp_11851, otp_11879, otp_13230,
      record_errors].
 
 groups() -> 
@@ -3560,8 +3562,6 @@ predef(Config) when is_list(Config) ->
     ok.
 
 maps(Config) ->
-    %% TODO: test key patterns, not done because map patterns are going to be
-    %% changed a lot.
     Ts = [{illegal_map_construction,
            <<"t() ->
                   #{ a := b,
@@ -3666,6 +3666,51 @@ maps_type(Config) when is_list(Config) ->
 	 ">>,
 	 [],
 	 {errors,[{3,erl_lint,{builtin_type,{map,0}}}],[]}}],
+    [] = run(Config, Ts),
+    ok.
+
+maps_parallel_match(Config) when is_list(Config) ->
+    Ts = [{parallel_map_patterns_unbound1,
+           <<"
+           t(#{} = M) ->
+               #{K := V} = #{k := K} = M,
+               V.
+           ">>,
+           [],
+           {errors,[{3,erl_lint,{unbound_var,'K'}}],[]}},
+          {parallel_map_patterns_unbound2,
+           <<"
+           t(#{} = M) ->
+               #{K1 := V1} =
+               #{K2 := V2} =
+               #{k1 := K1,k2 := K2} = M,
+               [V1,V2].
+           ">>,
+           [],
+           {errors,[{3,erl_lint,{unbound_var,'K1'}},
+                    {3,erl_lint,{unbound_var,'K1'}},
+                    {4,erl_lint,{unbound_var,'K2'}},
+                    {4,erl_lint,{unbound_var,'K2'}}],[]}},
+          {parallel_map_patterns_bound,
+           <<"
+           t(#{} = M,K1,K2) ->
+               #{K1 := V1} =
+               #{K2 := V2} =
+               #{k1 := K1,k2 := K2} = M,
+               [V1,V2].
+           ">>,
+           [],
+           []},
+          {parallel_map_patterns_literal,
+           <<"
+           t(#{} = M) ->
+               #{k1 := V1} =
+               #{k2 := V2} =
+               #{k1 := V1,k2 := V2} = M,
+               [V1,V2].
+           ">>,
+           [],
+           []}],
     [] = run(Config, Ts),
     ok.
 
