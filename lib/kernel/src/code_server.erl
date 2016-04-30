@@ -461,10 +461,10 @@ make_path(BundleDir, [Bundle|Tail], Res) ->
     Dir = filename:append(BundleDir, Bundle),
     Ebin = filename:append(Dir, "ebin"),
     %% First try with /ebin
-    case erl_prim_loader:read_file_info(Ebin) of
-	{ok,#file_info{type=directory}} ->
+    case is_dir(Ebin) of
+	true ->
 	    make_path(BundleDir, Tail, [Ebin|Res]);
-	_ ->
+	false ->
 	    %% Second try with archive
 	    Ext = archive_extension(),
 	    Base = filename:basename(Bundle, Ext),
@@ -487,11 +487,9 @@ make_path(BundleDir, [Bundle|Tail], Res) ->
     end.
 
 try_ebin_dirs([Ebin|Ebins]) ->
-    case erl_prim_loader:read_file_info(Ebin) of
-	{ok,#file_info{type=directory}} -> 
-	    {ok,Ebin};
-	_ ->
-	    try_ebin_dirs(Ebins)
+    case is_dir(Ebin) of
+	true -> {ok,Ebin};
+	false -> try_ebin_dirs(Ebins)
     end;
 try_ebin_dirs([]) ->
     error.
@@ -648,23 +646,23 @@ check_path(Path) ->
 do_check_path([], _PathChoice, _ArchiveExt, Acc) -> 
     {ok, lists:reverse(Acc)};
 do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
-    case catch erl_prim_loader:read_file_info(Dir) of
-	{ok, #file_info{type=directory}} -> 
+    case is_dir(Dir) of
+	true ->
 	    do_check_path(Tail, PathChoice, ArchiveExt, [Dir | Acc]);
-	_ when PathChoice =:= strict ->
+	false when PathChoice =:= strict ->
 	    %% Be strict. Only use dir as explicitly stated
 	    {error, bad_directory};
-	_ when PathChoice =:= relaxed ->
+	false when PathChoice =:= relaxed ->
 	    %% Be relaxed
 	    case catch lists:reverse(filename:split(Dir)) of
 		{'EXIT', _} ->
 		    {error, bad_directory};
 		["ebin", App] ->
 		    Dir2 = filename:join([App ++ ArchiveExt, App, "ebin"]),
-		    case erl_prim_loader:read_file_info(Dir2) of
-			{ok, #file_info{type = directory}} ->
+		    case is_dir(Dir2) of
+			true ->
 			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
-			_ ->
+			false ->
 			    {error, bad_directory}
 		    end;    
 		["ebin", App, OptArchive | RevTop] ->
@@ -684,10 +682,10 @@ do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
 				Top = lists:reverse([OptArchive | RevTop]),
 				filename:join(Top ++ [App ++ ArchiveExt, App, "ebin"])
 			end,
-		    case erl_prim_loader:read_file_info(Dir2) of
-			{ok, #file_info{type = directory}} ->
+		    case is_dir(Dir2) of
+			true ->
 			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
-			_ ->
+			false ->
 			    {error, bad_directory}
 		    end;    
 		_ ->
@@ -828,16 +826,10 @@ try_archive_subdirs(Archive, Base, [Dir | Dirs]) ->
     ArchiveDir = filename:append(Archive, Dir),
     case erl_prim_loader:list_dir(ArchiveDir) of
 	{ok, Files} ->
-	    IsDir =
-		fun(RelFile) ->
-			File = filename:append(ArchiveDir, RelFile),
-			case erl_prim_loader:read_file_info(File) of
-			    {ok, #file_info{type = directory}} ->
-				true;
-			    _ ->
-				false
-			end
-		end,
+	    IsDir = fun(RelFile) ->
+			    File = filename:append(ArchiveDir, RelFile),
+			    is_dir(File)
+		    end,
 	    {Dir, lists:filter(IsDir, Files)};
 	_ ->
 	    try_archive_subdirs(Archive, Base, Dirs)
@@ -1245,6 +1237,11 @@ do_purge(Mod) ->
 do_soft_purge(Mod) ->
     erts_code_purger:soft_purge(Mod).
 
+is_dir(Path) ->
+    case erl_prim_loader:read_file_info(Path) of
+	{ok,#file_info{type=directory}} -> true;
+	_ -> false
+    end.
 
 %%%
 %%% Loading of multiple modules in parallel.
