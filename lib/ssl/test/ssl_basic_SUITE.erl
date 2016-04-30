@@ -236,7 +236,10 @@ error_handling_tests_tls()->
 
 rizzo_tests() ->
     [rizzo,
-     no_rizzo_rc4].
+     no_rizzo_rc4,
+     rizzo_one_n_minus_one,
+     rizzo_zero_n,
+     rizzo_disabled].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -346,10 +349,27 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 30}),
     Config;
+
 init_per_testcase(rizzo, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 40}),
     Config;
+
+init_per_testcase(rizzo_one_n_minus_one, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 40}),
+    rizzo_add_mitigation_option(one_n_minus_one, Config);
+
+init_per_testcase(rizzo_zero_n, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 40}),
+    rizzo_add_mitigation_option(zero_n, Config);
+
+init_per_testcase(rizzo_disabled, Config) ->
+    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ct:timetrap({seconds, 40}),
+    rizzo_add_mitigation_option(disabled, Config);
+
 init_per_testcase(prf, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 40}),
@@ -3488,6 +3508,36 @@ no_rizzo_rc4(Config) when is_list(Config) ->
     run_send_recv_rizzo(Ciphers, Config, Version,
 			{?MODULE, send_recv_result_active_no_rizzo, []}).
 
+rizzo_one_n_minus_one() ->
+    [{doc,"Test that the 1/n-1-split mitigation of Rizzo/Dungon attack can be explicitly selected"}].
+
+rizzo_one_n_minus_one(Config) when is_list(Config) ->
+    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
+    Prop = proplists:get_value(tc_group_properties, Config),
+    Version = proplists:get_value(name, Prop),
+    run_send_recv_rizzo(Ciphers, Config, Version,
+			 {?MODULE, send_recv_result_active_rizzo, []}).
+
+rizzo_zero_n() ->
+    [{doc,"Test that the 0/n-split mitigation of Rizzo/Dungon attack can be explicitly selected"}].
+
+rizzo_zero_n(Config) when is_list(Config) ->
+    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
+    Prop = proplists:get_value(tc_group_properties, Config),
+    Version = proplists:get_value(name, Prop),
+    run_send_recv_rizzo(Ciphers, Config, Version,
+			 {?MODULE, send_recv_result_active_no_rizzo, []}).
+
+rizzo_disabled() ->
+    [{doc,"Test that the mitigation of Rizzo/Dungon attack can be explicitly disabled"}].
+
+rizzo_disabled(Config) when is_list(Config) ->
+    Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
+    Prop = proplists:get_value(tc_group_properties, Config),
+    Version = proplists:get_value(name, Prop),
+    run_send_recv_rizzo(Ciphers, Config, Version,
+			 {?MODULE, send_recv_result_active_no_rizzo, []}).
+
 %%--------------------------------------------------------------------
 new_server_wants_peer_cert() ->
     [{doc, "Test that server configured to do client certification does"
@@ -3960,6 +4010,18 @@ renegotiate_rejected(Socket) ->
     ssl:send(Socket, "Hello world"),
     ok.
 
+rizzo_add_mitigation_option(Value, Config) ->
+    lists:foldl(fun(Opt, Acc) ->
+                    case proplists:get_value(Opt, Acc) of
+                      undefined -> Acc;
+                      C ->
+                        N = lists:keystore(beast_mitigation, 1, C,
+                                           {beast_mitigation, Value}),
+                        lists:keystore(Opt, 1, Acc, {Opt, N})
+                    end
+                end, Config,
+                [client_opts, client_dsa_opts, server_opts, server_dsa_opts,
+                 server_ecdsa_opts, server_ecdh_rsa_opts]).
     
 new_config(PrivDir, ServerOpts0) ->
     CaCertFile = proplists:get_value(cacertfile, ServerOpts0),

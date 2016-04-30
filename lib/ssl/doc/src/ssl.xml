@@ -417,10 +417,24 @@ fun(srp, Username :: string(), UserState :: term()) ->
       If set to <c>false</c>, it disables the block cipher padding check
       to be able to interoperate with legacy software.</p></item>
 
-    </taglist>
-
         <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
 	vulnerable to the Poodle attack.</p></warning>
+
+      <tag><c>{beast_mitigation, one_n_minus_one | zero_n | disabled}</c></tag>
+      <item><p>Affects SSL-3.0 and TLS-1.0 connections only. Used to change the BEAST
+       mitigation strategy to interoperate with legacy software.
+       Defaults to <c>one_n_minus_one</c></p>.
+
+      <p><c>one_n_minus_one</c> - Perform 1/n-1 BEAST mitigation.</p>
+
+      <p><c>zero_n</c> - Perform 0/n BEAST mitigation.</p>
+
+      <p><c>disabled</c> - Disable BEAST mitigation.</p></item>
+
+        <warning><p>Using <c>{beast_mitigation, disabled}</c> makes SSL or TLS
+        vulnerable to the BEAST attack.</p></warning>
+    </taglist>
+
   </section>
   
   <section>
