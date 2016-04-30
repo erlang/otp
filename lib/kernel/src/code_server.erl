@@ -381,12 +381,10 @@ choose_bundles(Bundles) ->
 
 create_bundle(FullName, ArchiveExt) ->
     BaseName = filename:basename(FullName, ArchiveExt),
-    case split(BaseName, "-") of
-	[_, _|_] = Toks ->
-	    VsnStr = lists:last(Toks),
+    case split_base(BaseName) of
+	{Name, VsnStr} ->
 	    case vsn_to_num(VsnStr) of
 		{ok, VsnNum} ->
-		    Name = join(lists:sublist(Toks, length(Toks)-1),"-"),
 		    {Name,VsnNum,FullName};
 		false ->
 		    {FullName,[0],FullName}
@@ -472,9 +470,8 @@ make_path(BundleDir, [Bundle|Tail], Res) ->
 	    Base = filename:basename(Bundle, Ext),
 	    Ebin2 = filename:join([BundleDir, Base ++ Ext, Base, "ebin"]),
 	    Ebins = 
-		case split(Base, "-") of
-		    [_, _|_] = Toks ->
-			AppName = join(lists:sublist(Toks, length(Toks)-1),"-"),
+		case split_base(Base) of
+		    {AppName,_} ->
 			Ebin3 = filename:join([BundleDir, Base ++ Ext,
 					       AppName, "ebin"]),
 			[Ebin3, Ebin2, Dir];
@@ -632,6 +629,16 @@ discard_after_hyphen([H|T]) ->
     [H|discard_after_hyphen(T)];
 discard_after_hyphen([]) ->
     [].
+
+split_base(BaseName) ->
+    case split(BaseName, "-") of
+	[_, _|_] = Toks ->
+	    Vsn = lists:last(Toks),
+	    AllButLast = lists:droplast(Toks),
+	    {join(AllButLast, "-"),Vsn};
+	[_|_] ->
+	    BaseName
+    end.
 
 check_path(Path) ->
     PathChoice = init:code_path_choice(),
@@ -809,16 +816,12 @@ do_insert_name(Name, AppDir, Db) ->
     true.
 
 archive_subdirs(AppDir) ->
-    Ext = archive_extension(),
     Base = filename:basename(AppDir),
-    Dirs = 
-	case split(Base, "-") of
-	    [_, _|_] = Toks ->
-		Base2 = join(lists:sublist(Toks, length(Toks)-1), "-"),
-		[Base2, Base];
-	    _ ->
-		[Base]
+    Dirs = case split_base(Base) of
+	       {Name, _} -> [Name, Base];
+	    _ -> [Base]
 	end,
+    Ext = archive_extension(),
     try_archive_subdirs(AppDir ++ Ext, Base, Dirs).
 
 try_archive_subdirs(Archive, Base, [Dir | Dirs]) ->
