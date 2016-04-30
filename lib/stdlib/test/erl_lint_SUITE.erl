@@ -3603,6 +3603,26 @@ maps(Config) ->
 	   {errors,[{1,erl_lint,illegal_map_construction},
                     {1,erl_lint,{unbound_var,'X'}}],
             []}},
+          {legal_map_pattern,
+	   <<"
+               -record(mapkey, {a=1,b=2}).
+               t(M,K1) ->
+                     #{ a := 1,
+                        $a := 1, $z := 99,
+                        #{a=>val} := 2,
+                        K1 := 1337,
+                        #mapkey{a = 10} := wat,
+                        #{{a,val}=>val} := 2,
+                        #{ \"hi\" => wazzup, hi => ho } := yep,
+                        ok := 1.0,
+                        [3+3] := nope,
+                        1.0 := yep,
+                        {3.0+3} := nope,
+                        {yep} := yep
+                      } = M.
+	   ">>,
+	   [],
+	   []},
 	  {legal_map_construction,
 	   <<"t(V) -> #{ a => 1,
 			#{a=>V} => 2,
