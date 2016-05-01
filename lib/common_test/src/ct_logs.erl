@@ -609,7 +609,8 @@ log_timestamp({MS,S,US}) ->
 		      ct_log_fd,
 		      tc_groupleaders,
 		      stylesheet,
-		      async_print_jobs}).
+		      async_print_jobs,
+		      tc_esc_chars}).
 
 logger(Parent, Mode, Verbosity) ->
     register(?MODULE,self()),
@@ -728,13 +729,18 @@ logger(Parent, Mode, Verbosity) ->
 	   end
      end || {Cat,VLvl} <- Verbosity],
     io:nl(CtLogFd),
+    TcEscChars = case application:get_env(common_test, esc_chars) of
+		   {ok,ECBool} -> ECBool;
+		   _           -> true
+	       end,
     logger_loop(#logger_state{parent=Parent,
 			      log_dir=AbsDir,
 			      start_time=Time,
 			      orig_GL=group_leader(),
 			      ct_log_fd=CtLogFd,
 			      tc_groupleaders=[],
-			      async_print_jobs=[]}).
+			      async_print_jobs=[],
+			      tc_esc_chars=TcEscChars}).
 
 copy_priv_files([SrcF | SrcFs], [DestF | DestFs]) ->
     case file:copy(SrcF, DestF) of
@@ -760,20 +766,21 @@ logger_loop(State) ->
 		end,
 	    if Importance >= (100-VLvl) ->
 		    CtLogFd = State#logger_state.ct_log_fd,
+		    DoEscChars = State#logger_state.tc_esc_chars and EscChars,
 		    case get_groupleader(Pid, GL, State) of
 			{tc_log,TCGL,TCGLs} ->
 			    case erlang:is_process_alive(TCGL) of
 				true ->
 				    State1 = print_to_log(SyncOrAsync, Pid,
 							  Category, TCGL, Content,
-							  EscChars, State),
+							  DoEscChars, State),
 				    logger_loop(State1#logger_state{
 						  tc_groupleaders = TCGLs});
 				false ->
 				    %% Group leader is dead, so write to the
 				    %% CtLog or unexpected_io log instead
 				    unexpected_io(Pid, Category, Importance,
-						  Content, CtLogFd, EscChars),
+						  Content, CtLogFd, DoEscChars),
 
 				    logger_loop(State)			    
 			    end;
@@ -782,7 +789,7 @@ logger_loop(State) ->
 			    %% to ct_log, else write to unexpected_io
 			    %% log
 			    unexpected_io(Pid, Category, Importance, Content,
-					  CtLogFd, EscChars),
+					  CtLogFd, DoEscChars),
 			    logger_loop(State#logger_state{
 					  tc_groupleaders = TCGLs})
 		    end;

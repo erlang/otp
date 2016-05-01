@@ -124,6 +124,7 @@
   [-duration HHMMSS [-force_stop [skip_rest]]] |
   [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
   [-basic_html]
+  [-no_esc_chars]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
   [-exit_status ignore_config]
@@ -162,6 +163,7 @@
   [-duration HHMMSS [-force_stop [skip_rest]]] |
   [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]
   [-basic_html]
+  [-no_esc_chars]
   [-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
    CTHModuleN CTHOptsN]
   [-exit_status ignore_config]</pre>
@@ -186,7 +188,8 @@
   [-muliply_timetraps Multiplier]
   [-scale_timetraps]
   [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
-  [-basic_html]</pre>
+  [-basic_html]
+  [-no_esc_chars]</pre>
   </section>
 
   <section>
