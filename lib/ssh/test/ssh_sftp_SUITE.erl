@@ -424,7 +424,7 @@ remove_file(Config) when is_list(Config) ->
     ok = ssh_sftp:delete(Sftp, FileName),
     {ok, NewFiles} = ssh_sftp:list_dir(Sftp, PrivDir),
     false = lists:member(filename:basename(FileName), NewFiles),
-    {error, _} = ssh_sftp:delete(Sftp, FileName).
+    {error, no_such_file} = ssh_sftp:delete(Sftp, FileName).
 %%--------------------------------------------------------------------
 rename_file() ->
     [{doc, "Test API function rename_file/2"}].
