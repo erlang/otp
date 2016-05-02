@@ -610,8 +610,8 @@ server_register_session(Port, Session, #state{session_cache_server_max = Max,
 
 do_register_session(Key, Session, Max, Pid, Cache, CacheCb) ->
     try CacheCb:size(Cache) of
-	N when N > Max  ->
-	  invalidate_session_cache(Pid, CacheCb, Cache);
+	Max ->
+	    invalidate_session_cache(Pid, CacheCb, Cache);
 	_ ->	
 	    CacheCb:update(Cache, Key, Session),
 	    Pid
