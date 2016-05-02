@@ -324,7 +324,7 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
     com_ericsson_otp,
-    aio_pool_add,
+    aio_pool_put,
     TP_ARGS(
         char*, port,
         int, length
