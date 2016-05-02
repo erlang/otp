@@ -1002,10 +1002,14 @@ Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA) {
     Binary *bin;
     Uint sz;
     Eterm *hp;
-    Uint flags = DCOMP_TRACE;
+    Uint flags;
 
-    if (is_tuple(MFA)) flags |= DCOMP_CALL_TRACE;
-    if (MFA != am_receive) flags |= DCOMP_ALLOW_TRACE_OPS;
+    switch (MFA) {
+    case am_receive: flags = DCOMP_TRACE; break;
+    case am_send:    flags = DCOMP_TRACE | DCOMP_ALLOW_TRACE_OPS; break;
+    default:
+        flags = DCOMP_TRACE | DCOMP_CALL_TRACE | DCOMP_ALLOW_TRACE_OPS;
+    }
     
     bin = db_match_set_compile(p, matchexpr, flags);
     if (bin != NULL) {
