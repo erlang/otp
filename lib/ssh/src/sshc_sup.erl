@@ -64,7 +64,7 @@ child_spec(_) ->
     Name = undefined, % As simple_one_for_one is used.
     StartFunc = {ssh_connection_handler, start_link, []},
     Restart = temporary,
-    Shutdown = infinity,
+    Shutdown = 4000,
     Modules = [ssh_connection_handler],
-    Type = supervisor,
+    Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
