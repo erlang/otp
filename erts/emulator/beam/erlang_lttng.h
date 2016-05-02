@@ -218,13 +218,13 @@ TRACEPOINT_EVENT(
     driver_stop,
     TP_ARGS(
         char*, pid,
-        char*, driver,
-        char*, port
+        char*, port,
+        char*, driver
     ),
     TP_FIELDS(
         ctf_string(pid, pid)
-        ctf_string(driver, driver)
         ctf_string(port, port)
+        ctf_string(driver, driver)
     )
 )
 
