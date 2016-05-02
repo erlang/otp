@@ -42,26 +42,32 @@ connect(Host, Port, Options) ->
     ConnectionRef.
 
 daemon(Options) ->
-    daemon(any, inet_port(), Options).
+    daemon(any, 0, Options).
 
 daemon(Port, Options) when is_integer(Port) ->
     daemon(any, Port, Options);
 daemon(Host, Options) ->
-    daemon(Host, inet_port(), Options).
+    daemon(Host, 0, Options).
+
 
 daemon(Host, Port, Options) ->
     ct:log("~p:~p Calling ssh:daemon(~p, ~p, ~p)",[?MODULE,?LINE,Host,Port,Options]),
     case ssh:daemon(Host, Port, Options) of
 	{ok, Pid} when Host == any ->
 	    ct:log("ssh:daemon ok (1)",[]),
-	    {Pid, hostname(), Port};
+	    {Pid, hostname(), daemon_port(Port,Pid)};
 	{ok, Pid} ->
 	    ct:log("ssh:daemon ok (2)",[]),
-	    {Pid, Host, Port};
+	    {Pid, Host, daemon_port(Port,Pid)};
 	Error ->
 	    ct:log("ssh:daemon error ~p",[Error]),
 	    Error
     end.
+
+daemon_port(0, Pid) -> {ok,Dinf} = ssh:daemon_info(Pid),
+		       proplists:get_value(port, Dinf);
+daemon_port(Port, _) -> Port.
+    
 
 
 std_daemon(Config, ExtraOpts) ->

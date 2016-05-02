@@ -192,6 +192,9 @@ stop_acceptor(Sup) ->
     [{Name, AcceptorSup}] =
 	[{SupName, ASup} || {SupName, ASup, _, [ssh_acceptor_sup]} <- 
 			  supervisor:which_children(Sup)],
-    supervisor:terminate_child(AcceptorSup, Name).
-
-
+    case supervisor:terminate_child(AcceptorSup, Name) of
+        ok ->
+            supervisor:delete_child(AcceptorSup, Name);
+        Error ->
+            Error
+    end.

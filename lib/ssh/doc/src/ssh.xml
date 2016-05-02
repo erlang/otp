@@ -360,7 +360,8 @@
       </type>
       <desc>
         <p>Starts a server listening for SSH connections on the given
-        port.</p>
+        port. If the <c>Port</c> is 0, a random free port is selected. See
+	<seealso marker="#daemon_info/1">daemon_info/1</seealso> about how to find the selected port number.</p>
 	<p>Options:</p>
         <taglist>
 	  <tag><c><![CDATA[{inet, inet | inet6}]]></c></tag>
@@ -679,6 +680,18 @@
 
 	</taglist>
       </desc>   
+    </func>
+
+    <func>
+      <name>daemon_info(Daemon) -> {ok, [{port,Port}]} | {error,Error}</name>
+      <fsummary>Get info about a daemon</fsummary>
+      <type>
+        <v>Port = integer()</v>
+	<v>Error = bad_daemon_ref</v>
+      </type>
+      <desc>
+	<p>Returns a key-value list with information about the daemon. For now, only the listening port is returned. This is intended for the case the daemon is started with the port set to 0.</p>
+      </desc>
     </func>
 
     <func>
