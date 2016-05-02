@@ -76,7 +76,7 @@ init(Ref, Parent, [Root,Mode]) ->
 	    interactive ->
 		LibDir = filename:append(Root, "lib"),
 		{ok,Dirs} = erl_prim_loader:list_dir(LibDir),
-		{Paths,_Libs} = make_path(LibDir, Dirs),
+		Paths = make_path(LibDir, Dirs),
 		UserLibPaths = get_user_lib_dirs(),
 		["."] ++ UserLibPaths ++ Paths;
 	    _ ->
@@ -111,7 +111,7 @@ get_user_lib_dirs() ->
 get_user_lib_dirs_1([Dir|DirList]) ->
     case erl_prim_loader:list_dir(Dir) of
 	{ok, Dirs} ->
-	    {Paths,_Libs} = make_path(Dir, Dirs),
+	    Paths = make_path(Dir, Dirs),
 	    %% Only add paths trailing with ./ebin.
 	    [P || P <- Paths, filename:basename(P) =:= "ebin"] ++
 		get_user_lib_dirs_1(DirList);
@@ -371,7 +371,7 @@ handle_call(Other,{_From,_Tag}, S) ->
 %%
 make_path(BundleDir, Bundles0) ->
     Bundles = choose_bundles(Bundles0),
-    make_path(BundleDir, Bundles, [], []).
+    make_path(BundleDir, Bundles, []).
 
 choose_bundles(Bundles) ->
     ArchiveExt = archive_extension(),
@@ -381,12 +381,10 @@ choose_bundles(Bundles) ->
 
 create_bundle(FullName, ArchiveExt) ->
     BaseName = filename:basename(FullName, ArchiveExt),
-    case split(BaseName, "-") of
-	[_, _|_] = Toks ->
-	    VsnStr = lists:last(Toks),
+    case split_base(BaseName) of
+	{Name, VsnStr} ->
 	    case vsn_to_num(VsnStr) of
 		{ok, VsnNum} ->
-		    Name = join(lists:sublist(Toks, length(Toks)-1),"-"),
 		    {Name,VsnNum,FullName};
 		false ->
 		    {FullName,[0],FullName}
@@ -457,41 +455,44 @@ choose([{Name,NumVsn,NewFullName}=New|Bs], Acc, ArchiveExt) ->
 choose([],Acc, _ArchiveExt) ->
     Acc.
 
-make_path(_,[],Res,Bs) ->
-    {Res,Bs};
-make_path(BundleDir,[Bundle|Tail],Res,Bs) ->
-    Dir = filename:append(BundleDir,Bundle),
-    Ebin = filename:append(Dir,"ebin"),
+make_path(_, [], Res) ->
+    Res;
+make_path(BundleDir, [Bundle|Tail], Res) ->
+    Dir = filename:append(BundleDir, Bundle),
+    Ebin = filename:append(Dir, "ebin"),
     %% First try with /ebin
-    case erl_prim_loader:read_file_info(Ebin) of
-	{ok,#file_info{type=directory}} ->
-	    make_path(BundleDir,Tail,[Ebin|Res],[Bundle|Bs]);
-	_ ->
+    case is_dir(Ebin) of
+	true ->
+	    make_path(BundleDir, Tail, [Ebin|Res]);
+	false ->
 	    %% Second try with archive
 	    Ext = archive_extension(),
-	    Base = filename:basename(Dir, Ext),
-	    Ebin2 = filename:join([filename:dirname(Dir), Base ++ Ext, Base, "ebin"]),
+	    Base = filename:basename(Bundle, Ext),
+	    Ebin2 = filename:join([BundleDir, Base ++ Ext, Base, "ebin"]),
 	    Ebins = 
-		case split(Base, "-") of
-		    [_, _|_] = Toks ->
-			AppName = join(lists:sublist(Toks, length(Toks)-1),"-"),
-			Ebin3 = filename:join([filename:dirname(Dir), Base ++ Ext, AppName, "ebin"]),
+		case split_base(Base) of
+		    {AppName,_} ->
+			Ebin3 = filename:join([BundleDir, Base ++ Ext,
+					       AppName, "ebin"]),
 			[Ebin3, Ebin2, Dir];
 		    _ ->
 			[Ebin2, Dir]
 		end,
-	    try_ebin_dirs(Ebins,BundleDir,Tail,Res,Bundle, Bs)
+	    case try_ebin_dirs(Ebins) of
+		{ok,FoundEbin} ->
+		    make_path(BundleDir, Tail, [FoundEbin|Res]);
+		error ->
+		    make_path(BundleDir, Tail, Res)
+	    end
     end.
 
-try_ebin_dirs([Ebin | Ebins],BundleDir,Tail,Res,Bundle,Bs) ->
-    case erl_prim_loader:read_file_info(Ebin) of
-	{ok,#file_info{type=directory}} -> 
-	    make_path(BundleDir,Tail,[Ebin|Res],[Bundle|Bs]);
-	_ ->
-	    try_ebin_dirs(Ebins,BundleDir,Tail,Res,Bundle,Bs)
+try_ebin_dirs([Ebin|Ebins]) ->
+    case is_dir(Ebin) of
+	true -> {ok,Ebin};
+	false -> try_ebin_dirs(Ebins)
     end;
-try_ebin_dirs([],BundleDir,Tail,Res,_Bundle,Bs) ->
-    make_path(BundleDir,Tail,Res,Bs).
+try_ebin_dirs([]) ->
+    error.
 
 
 %%
@@ -609,18 +610,33 @@ exclude(Dir,Path) ->
 %%
 %%
 get_name(Dir) ->
-    get_name2(get_name1(Dir), []).
+    get_name_from_splitted(filename:split(Dir)).
 
-get_name1(Dir) ->
-    case lists:reverse(filename:split(Dir)) of
-	["ebin",DirName|_] -> DirName;
-	[DirName|_]        -> DirName;
-	_                  -> ""        % No name !
+get_name_from_splitted([DirName,"ebin"]) ->
+    discard_after_hyphen(DirName);
+get_name_from_splitted([DirName]) ->
+    discard_after_hyphen(DirName);
+get_name_from_splitted([_|T]) ->
+    get_name_from_splitted(T);
+get_name_from_splitted([]) ->
+    "".						%No name.
+
+discard_after_hyphen("-"++_) ->
+    [];
+discard_after_hyphen([H|T]) ->
+    [H|discard_after_hyphen(T)];
+discard_after_hyphen([]) ->
+    [].
+
+split_base(BaseName) ->
+    case split(BaseName, "-") of
+	[_, _|_] = Toks ->
+	    Vsn = lists:last(Toks),
+	    AllButLast = lists:droplast(Toks),
+	    {join(AllButLast, "-"),Vsn};
+	[_|_] ->
+	    BaseName
     end.
-
-get_name2([$-|_],Acc) -> lists:reverse(Acc);
-get_name2([H|T],Acc)  -> get_name2(T,[H|Acc]);
-get_name2(_,Acc)      -> lists:reverse(Acc).
 
 check_path(Path) ->
     PathChoice = init:code_path_choice(),
@@ -630,23 +646,23 @@ check_path(Path) ->
 do_check_path([], _PathChoice, _ArchiveExt, Acc) -> 
     {ok, lists:reverse(Acc)};
 do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
-    case catch erl_prim_loader:read_file_info(Dir) of
-	{ok, #file_info{type=directory}} -> 
+    case is_dir(Dir) of
+	true ->
 	    do_check_path(Tail, PathChoice, ArchiveExt, [Dir | Acc]);
-	_ when PathChoice =:= strict ->
+	false when PathChoice =:= strict ->
 	    %% Be strict. Only use dir as explicitly stated
 	    {error, bad_directory};
-	_ when PathChoice =:= relaxed ->
+	false when PathChoice =:= relaxed ->
 	    %% Be relaxed
 	    case catch lists:reverse(filename:split(Dir)) of
 		{'EXIT', _} ->
 		    {error, bad_directory};
 		["ebin", App] ->
 		    Dir2 = filename:join([App ++ ArchiveExt, App, "ebin"]),
-		    case erl_prim_loader:read_file_info(Dir2) of
-			{ok, #file_info{type = directory}} ->
+		    case is_dir(Dir2) of
+			true ->
 			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
-			_ ->
+			false ->
 			    {error, bad_directory}
 		    end;    
 		["ebin", App, OptArchive | RevTop] ->
@@ -666,10 +682,10 @@ do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
 				Top = lists:reverse([OptArchive | RevTop]),
 				filename:join(Top ++ [App ++ ArchiveExt, App, "ebin"])
 			end,
-		    case erl_prim_loader:read_file_info(Dir2) of
-			{ok, #file_info{type = directory}} ->
+		    case is_dir(Dir2) of
+			true ->
 			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
-			_ ->
+			false ->
 			    {error, bad_directory}
 		    end;    
 		_ ->
@@ -768,7 +784,7 @@ init_namedb(Path) ->
     Db.
     
 init_namedb([P|Path], Db) ->
-    insert_name(P, Db),
+    insert_dir(P, Db),
     init_namedb(Path, Db);
 init_namedb([], _) ->
     ok.
@@ -781,59 +797,39 @@ clear_namedb([], _) ->
     ok.
 -endif.
 
-insert_name(Dir, Db) ->
-    case get_name(Dir) of
-	Dir  -> false;
-	Name -> insert_name(Name, Dir, Db)
-    end.
+%% Dir must be a complete pathname (not only a name).
+insert_dir(Dir, Db) ->
+    Splitted = filename:split(Dir),
+    Name = get_name_from_splitted(Splitted),
+    AppDir = filename:join(del_ebin_1(Splitted)),
+    do_insert_name(Name, AppDir, Db).
 
 insert_name(Name, Dir, Db) ->
     AppDir = del_ebin(Dir),
+    do_insert_name(Name, AppDir, Db).
+
+do_insert_name(Name, AppDir, Db) ->
     {Base, SubDirs} = archive_subdirs(AppDir),
     ets:insert(Db, {Name, AppDir, Base, SubDirs}),
     true.
 
 archive_subdirs(AppDir) ->
-    IsDir =
-	fun(RelFile) ->
-		File = filename:join([AppDir, RelFile]),
-		case erl_prim_loader:read_file_info(File) of
-		    {ok, #file_info{type = directory}} ->
-			false;
-		    _ ->
-			true
-		end
-	end,
-    {Base, ArchiveDirs} = all_archive_subdirs(AppDir),
-    {Base, lists:filter(IsDir, ArchiveDirs)}.
-
-all_archive_subdirs(AppDir) ->
-    Ext = archive_extension(),
     Base = filename:basename(AppDir),
-    Dirs = 
-	case split(Base, "-") of
-	    [_, _|_] = Toks ->
-		Base2 = join(lists:sublist(Toks, length(Toks)-1), "-"),
-		[Base2, Base];
-	    _ ->
-		[Base]
+    Dirs = case split_base(Base) of
+	       {Name, _} -> [Name, Base];
+	    _ -> [Base]
 	end,
+    Ext = archive_extension(),
     try_archive_subdirs(AppDir ++ Ext, Base, Dirs).
 
 try_archive_subdirs(Archive, Base, [Dir | Dirs]) ->
-    ArchiveDir = filename:join([Archive, Dir]),
+    ArchiveDir = filename:append(Archive, Dir),
     case erl_prim_loader:list_dir(ArchiveDir) of
 	{ok, Files} ->
-	    IsDir =
-		fun(RelFile) ->
-			File = filename:join([ArchiveDir, RelFile]),
-			case erl_prim_loader:read_file_info(File) of
-			    {ok, #file_info{type = directory}} ->
-				true;
-			    _ ->
-				false
-			end
-		end,
+	    IsDir = fun(RelFile) ->
+			    File = filename:append(ArchiveDir, RelFile),
+			    is_dir(File)
+		    end,
 	    {Dir, lists:filter(IsDir, Files)};
 	_ ->
 	    try_archive_subdirs(Archive, Base, Dirs)
@@ -927,22 +923,22 @@ check_pars(Name,Dir) ->
     end.
 
 del_ebin(Dir) ->
-    case filename:basename(Dir) of
-	"ebin" -> 
-	    Dir2 = filename:dirname(Dir),
-	    Dir3 = filename:dirname(Dir2),
-	    Ext = archive_extension(),
-	    case filename:extension(Dir3) of
-		E when E =:= Ext ->
-		    %% Strip archive extension
-		    filename:join([filename:dirname(Dir3), 
-				   filename:basename(Dir3, Ext)]);
-		_ ->
-		    Dir2
-	    end;
-	_ ->
-	    Dir
-    end.
+    filename:join(del_ebin_1(filename:split(Dir))).
+
+del_ebin_1([Parent,App,"ebin"]) ->
+    Ext = archive_extension(),
+    case filename:basename(Parent, Ext) of
+	Parent ->
+	    %% Plain directory.
+	    [Parent,App];
+	Archive ->
+	    %% Archive.
+	    [Archive]
+    end;
+del_ebin_1([H|T]) ->
+    [H|del_ebin_1(T)];
+del_ebin_1([]) ->
+    [].
 
 replace_name(Dir, Db) ->
     case get_name(Dir) of
@@ -1174,8 +1170,13 @@ mod_to_bin([Dir|Tail], Mod) ->
     case erl_prim_loader:get_file(File) of
 	error -> 
 	    mod_to_bin(Tail, Mod);
-	{ok,Bin,FName} ->
-	    {Mod,Bin,absname(FName)}
+	{ok,Bin,_} ->
+	    case filename:pathtype(File) of
+		absolute ->
+		    {Mod,Bin,File};
+		_ ->
+		    {Mod,Bin,absname(File)}
+	    end
     end;
 mod_to_bin([], Mod) ->
     %% At last, try also erl_prim_loader's own method
@@ -1236,6 +1237,11 @@ do_purge(Mod) ->
 do_soft_purge(Mod) ->
     erts_code_purger:soft_purge(Mod).
 
+is_dir(Path) ->
+    case erl_prim_loader:read_file_info(Path) of
+	{ok,#file_info{type=directory}} -> true;
+	_ -> false
+    end.
 
 %%%
 %%% Loading of multiple modules in parallel.
