@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -285,12 +285,12 @@ ETERM *erl_mk_pid(const char *node,
 	erl_errno = ENOMEM;
 	return NULL;
     }
-    erl_mk_pid_helper(ep, number, serial, creation);
+    erl_mk_pid_helper(ep, number, serial, creation & 0x03);
     return ep;
 }
 
 void erl_mk_pid_helper(ETERM *ep, unsigned int number, 
-		       unsigned int serial, unsigned char creation)
+		       unsigned int serial, unsigned int creation)
 {
     ERL_PID_NUMBER(ep)   = number & 0x7fff; /* 15 bits */
     if (ei_internal_use_r9_pids_ports()) {
@@ -299,7 +299,7 @@ void erl_mk_pid_helper(ETERM *ep, unsigned int number,
     else {
 	ERL_PID_SERIAL(ep)   = serial & 0x1fff;  /* 13 bits */
     }
-    ERL_PID_CREATION(ep) = creation & 0x03; /* 2 bits */
+    ERL_PID_CREATION(ep) = creation; /* 32 bits */
 }
 
 /*
@@ -326,7 +326,7 @@ ETERM *erl_mk_port(const char *node,
     return ep;
 }
 
-void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned char creation)
+void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned int creation)
 {
     if (ei_internal_use_r9_pids_ports()) {
 	ERL_PORT_NUMBER(ep)   = number & 0x3ffff; /* 18 bits */
@@ -334,7 +334,7 @@ void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned char creation)
     else {
 	ERL_PORT_NUMBER(ep)   = number & 0x0fffffff; /* 18 bits */
     }
-    ERL_PORT_CREATION(ep) = creation & 0x03; /* 2 bits */
+    ERL_PORT_CREATION(ep) = creation; /* 32 bits */
 }
 
 /*
@@ -344,7 +344,7 @@ ETERM *__erl_mk_reference (ETERM* t,
 			   const char *node,
 			   size_t len,
 			   unsigned int n[],
-			   unsigned char creation)
+			   unsigned int creation)
 {
     if (t == NULL) {
 	if (node == NULL) return NULL;
@@ -363,7 +363,7 @@ ETERM *__erl_mk_reference (ETERM* t,
     ERL_REF_NUMBERS(t)[0]   = n[0] & 0x3ffff; /* 18 bits */
     ERL_REF_NUMBERS(t)[1]   = n[1];
     ERL_REF_NUMBERS(t)[2]   = n[2];
-    ERL_REF_CREATION(t) = creation & 0x03; /* 2 bits */
+    ERL_REF_CREATION(t) = creation; /* 32 bits */
 
     return t;
 }

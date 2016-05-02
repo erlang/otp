@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ class wxeCommand
     wxeCommand();
     virtual ~wxeCommand(); // Use Delete()
 
-    wxeCommand * Save() { return this; };
+    wxeCommand * Save(int Op) { op = Op; return this; };
     void Delete();
 
     ErlDrvTermData   caller;

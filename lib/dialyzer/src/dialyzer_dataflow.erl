@@ -72,7 +72,7 @@
 	 t_tuple/0, t_tuple/1, t_tuple_args/1, t_tuple_args/2,
          t_tuple_subtypes/2,
 	 t_unit/0, t_unopaque/2,
-	 t_map/1
+	 t_map/0, t_map/1, t_is_singleton/2
      ]).
 
 %%-define(DEBUG, true).
@@ -99,19 +99,29 @@
 
 -define(BITS, 128).
 
--record(state, {callgraph            :: dialyzer_callgraph:callgraph(),
-                codeserver           :: dialyzer_codeserver:codeserver(),
-		envs                 :: env_tab(),
-		fun_tab		     :: fun_tab(),
-                fun_homes            :: dict:dict(label(), mfa()),
-		plt		     :: dialyzer_plt:plt(),
-		opaques              :: [type()],
+%% Types with comment 'race' are due to dialyzer_races.erl.
+-record(state, {callgraph            :: dialyzer_callgraph:callgraph()
+                                      | 'undefined', % race
+                codeserver           :: dialyzer_codeserver:codeserver()
+                                      | 'undefined', % race
+		envs                 :: env_tab()
+                                      | 'undefined', % race
+		fun_tab		     :: fun_tab()
+                                      | 'undefined', % race
+                fun_homes            :: dict:dict(label(), mfa())
+                                      | 'undefined', % race
+		plt		     :: dialyzer_plt:plt()
+                                      | 'undefined', % race
+		opaques              :: [type()]
+                                      | 'undefined', % race
 		races = dialyzer_races:new() :: dialyzer_races:races(),
 		records = dict:new() :: types(),
-		tree_map	     :: dict:dict(label(), cerl:cerl()),
+		tree_map	     :: dict:dict(label(), cerl:cerl())
+                                      | 'undefined', % race
 		warning_mode = false :: boolean(),
 		warnings = []        :: [raw_warning()],
-		work                 :: {[_], [_], sets:set()},
+		work                 :: {[_], [_], sets:set()}
+                                      | 'undefined', % race
 		module               :: module(),
                 curr_fun             :: curr_fun()
                }).
@@ -332,8 +342,6 @@ traverse(Tree, Map, State) ->
       handle_tuple(Tree, Map, State);
     map ->
       handle_map(Tree, Map, State);
-    map_pair ->
-      handle_map_pair(Tree, Map, State);
     values ->
       Elements = cerl:values_es(Tree),
       {State1, Map1, EsType} = traverse_list(Elements, Map, State),
@@ -1092,15 +1100,54 @@ handle_try(Tree, Map, State) ->
 %%----------------------------------------
 
 handle_map(Tree,Map,State) ->
-    Pairs = cerl:map_es(Tree),
-    {State1, Map1, TypePairs} = traverse_list(Pairs,Map,State),
-    {State1, Map1, t_map(TypePairs)}.
+  Pairs = cerl:map_es(Tree),
+  Arg = cerl:map_arg(Tree),
+  {State1, Map1, ArgType} = traverse(Arg, Map, State),
+  ArgType1 = t_inf(t_map(), ArgType),
+  case t_is_none_or_unit(ArgType1) of
+    true ->
+      {State1, Map1, ArgType1};
+    false ->
+      {State2, Map2, TypePairs, ExactKeys} =
+	traverse_map_pairs(Pairs, Map1, State1, t_none(), [], []),
+      InsertPair = fun({KV,assoc,_},Acc) -> erl_types:t_map_put(KV,Acc);
+		      ({KV,exact,KVTree},Acc) ->
+		       case t_is_none(T=erl_types:t_map_update(KV,Acc)) of
+			 true -> throw({none, Acc, KV, KVTree});
+			 false -> T
+		       end
+		   end,
+      try lists:foldl(InsertPair, ArgType1, TypePairs)
+      of ResT ->
+	  BindT = t_map([{K, t_any()} || K <- ExactKeys]),
+	  case bind_pat_vars_reverse([Arg], [BindT], [], Map2, State2) of
+	    {error, _, _, _, _} -> {State2, Map2, ResT};
+	    {Map3, _} ->           {State2, Map3, ResT}
+	  end
+      catch {none, MapType, {K,_}, KVTree} ->
+	  Msg2 = {map_update, [format_type(MapType, State2),
+			       format_type(K, State2)]},
+	  {state__add_warning(State2, ?WARN_MAP_CONSTRUCTION, KVTree, Msg2),
+	   Map2, t_none()}
+      end
+  end.
 
-handle_map_pair(Tree,Map,State) ->
-  Key = cerl:map_pair_key(Tree),
-  Val = cerl:map_pair_val(Tree),
+traverse_map_pairs([], Map, State, _ShadowKeys, PairAcc, KeyAcc) ->
+  {State, Map, lists:reverse(PairAcc), KeyAcc};
+traverse_map_pairs([Pair|Pairs], Map, State, ShadowKeys, PairAcc, KeyAcc) ->
+  Key = cerl:map_pair_key(Pair),
+  Val = cerl:map_pair_val(Pair),
+  Op = cerl:map_pair_op(Pair),
   {State1, Map1, [K,V]} = traverse_list([Key,Val],Map,State),
-  {State1, Map1, {K,V}}.
+  KeyAcc1 =
+    case cerl:is_literal(Op) andalso cerl:concrete(Op) =:= exact andalso
+      t_is_singleton(K, State#state.opaques) andalso
+      t_is_none(t_inf(ShadowKeys, K)) of
+      true -> [K|KeyAcc];
+      false -> KeyAcc
+  end,
+  traverse_map_pairs(Pairs, Map1, State1, t_sup(K, ShadowKeys),
+		     [{{K,V},cerl:concrete(Op),Pair}|PairAcc], KeyAcc1).
 
 %%----------------------------------------
 
@@ -1435,7 +1482,9 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
   {NewMap, TypeOut} =
     case cerl:type(Pat) of
       alias ->
-	AliasPat = cerl:alias_pat(Pat),
+	%% Map patterns are more allowing than the type of their literal. We
+	%% must unfold AliasPat if it is a literal.
+	AliasPat = dialyzer_utils:refold_pattern(cerl:alias_pat(Pat)),
 	Var = cerl:alias_var(Pat),
 	Map1 = enter_subst(Var, AliasPat, Map),
 	{Map2, [PatType]} = bind_pat_vars([AliasPat], [Type], [],
@@ -1476,14 +1525,59 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	    {Map1, t_cons(HdType, TlType)}
 	end;
       literal ->
-	Literal = literal_type(Pat),
-	case t_is_none(t_inf(Literal, Type, Opaques)) of
+	Pat0 = dialyzer_utils:refold_pattern(Pat),
+	case cerl:is_literal(Pat0) of
 	  true ->
-	    bind_opaque_pats(Literal, Type, Pat, State);
-	  false -> {Map, Literal}
+	    Literal = literal_type(Pat),
+	    case t_is_none(t_inf(Literal, Type, Opaques)) of
+	      true ->
+		bind_opaque_pats(Literal, Type, Pat, State);
+	      false -> {Map, Literal}
+	    end;
+	  false ->
+	    %% Retry with the unfolded pattern
+	    {Map1, [PatType]}
+	      = bind_pat_vars([Pat0], [Type], [], Map, State, Rev),
+	    {Map1, PatType}
 	end;
       map ->
-	  {Map, t_map([])};
+	MapT = t_inf(Type, t_map(), Opaques),
+	case t_is_none(MapT) of
+	  true ->
+	    bind_opaque_pats(t_map(), Type, Pat, State);
+	  false ->
+	    case Rev of
+	      %% TODO: Reverse matching (propagating a matched subset back to a value)
+	      true -> {Map, MapT};
+	      false ->
+		FoldFun =
+		  fun(Pair, {MapAcc, ListAcc}) ->
+		      %% Only exact (:=) can appear in patterns
+		      exact = cerl:concrete(cerl:map_pair_op(Pair)),
+		      Key = cerl:map_pair_key(Pair),
+		      KeyType =
+			case cerl:type(Key) of
+			  var ->
+			    case state__lookup_type_for_letrec(Key, State) of
+			      error -> lookup_type(Key, MapAcc);
+			      {ok, RecType} -> RecType
+			    end;
+			  literal ->
+			    literal_type(Key)
+			end,
+		      Bind = erl_types:t_map_get(KeyType, MapT),
+		      {MapAcc1, [ValType]} =
+			bind_pat_vars([cerl:map_pair_val(Pair)],
+				      [Bind], [], MapAcc, State, Rev),
+		      case t_is_singleton(KeyType, Opaques) of
+			true  -> {MapAcc1, [{KeyType, ValType}|ListAcc]};
+			false -> {MapAcc1, ListAcc}
+		      end
+		  end,
+		{Map1, Pairs} = lists:foldl(FoldFun, {Map, []}, cerl:map_es(Pat)),
+		{Map1, t_inf(MapT, t_map(Pairs))}
+	    end
+	end;
       tuple ->
 	Es = cerl:tuple_es(Pat),
 	{TypedRecord, Prototype} =
@@ -1700,15 +1794,58 @@ bind_guard(Guard, Map, Env, Eval, State) ->
     'try' ->
       Arg = cerl:try_arg(Guard),
       [Var] = cerl:try_vars(Guard),
+      EVars = cerl:try_evars(Guard),
       %%?debug("Storing: ~w\n", [Var]),
-      NewEnv = dict:store(get_label(Var), Arg, Env),
-      bind_guard(cerl:try_body(Guard), Map, NewEnv, Eval, State);
+      Map1 = join_maps_begin(Map),
+      Map2 = mark_as_fresh(EVars, Map1),
+      %% Visit handler first so we know if it should be ignored
+      {{HandlerMap, HandlerType}, HandlerE} =
+	try {bind_guard(cerl:try_handler(Guard), Map2, Env, Eval, State), none}
+	catch throw:HE ->
+	    {{Map2, t_none()}, HE}
+	end,
+      BodyEnv = dict:store(get_label(Var), Arg, Env),
+      Wanted = case Eval of pos -> t_atom(true); neg -> t_atom(false);
+		 dont_know -> t_any() end,
+      case t_is_none(t_inf(HandlerType, Wanted)) of
+	%% Handler won't save us; pretend it does not exist
+	true -> bind_guard(cerl:try_body(Guard), Map, BodyEnv, Eval, State);
+	false ->
+	  {{BodyMap, BodyType}, BodyE} =
+	    try {bind_guard(cerl:try_body(Guard), Map1, BodyEnv,
+			    Eval, State), none}
+	    catch throw:BE ->
+		{{Map1, t_none()}, BE}
+	    end,
+	  Map3 = join_maps_end([BodyMap, HandlerMap], Map1),
+	  case t_is_none(Sup = t_sup(BodyType, HandlerType)) of
+	    true ->
+	      %% Pick a reason. N.B. We assume that the handler is always
+	      %% compiler-generated if the body is; that way, we won't need to
+	      %% check.
+	      Fatality = case {BodyE, HandlerE} of
+			   {{fatal_fail, _}, _} -> fatal_fail;
+			   {_, {fatal_fail, _}} -> fatal_fail;
+			   _ -> fail
+			 end,
+	      throw({Fatality,
+		     case {BodyE, HandlerE} of
+		       {{_, Rsn}, _} when Rsn =/= none -> Rsn;
+		       {_, {_,Rsn}} -> Rsn;
+		       _ -> none
+		     end});
+	    false -> {Map3, Sup}
+	  end
+      end;
     tuple ->
       Es0 = cerl:tuple_es(Guard),
       {Map1, Es} = bind_guard_list(Es0, Map, Env, dont_know, State),
       {Map1, t_tuple(Es)};
     map ->
-      {Map, t_map([])};
+      case Eval of
+	dont_know -> handle_guard_map(Guard, Map, Env, State);
+	_PosOrNeg -> {Map, t_none()}  %% Map exprs do not produce bools
+      end;
     'let' ->
       Arg = cerl:let_arg(Guard),
       [Var] = cerl:let_vars(Guard),
@@ -1751,7 +1888,7 @@ handle_guard_call(Guard, Map, Env, Eval, State) ->
     {erlang, F, 1} when F =:= is_atom; F =:= is_boolean;
 			F =:= is_binary; F =:= is_bitstring;
 			F =:= is_float; F =:= is_function;
-			F =:= is_integer; F =:= is_list;
+			F =:= is_integer; F =:= is_list; F =:= is_map;
 			F =:= is_number; F =:= is_pid; F =:= is_port;
 			F =:= is_reference; F =:= is_tuple ->
       handle_guard_type_test(Guard, F, Map, Env, Eval, State);
@@ -1831,6 +1968,7 @@ bind_type_test(Eval, TypeTest, ArgType, State) ->
 	   is_function -> t_fun();
 	   is_integer -> t_integer();
 	   is_list -> t_maybe_improper_list();
+	   is_map -> t_map();
 	   is_number -> t_number();
 	   is_pid -> t_pid();
 	   is_port -> t_port();
@@ -2339,6 +2477,30 @@ bind_guard_list([G|Gs], Map, Env, Eval, State, Acc) ->
 bind_guard_list([], Map, _Env, _Eval, _State, Acc) ->
   {Map, lists:reverse(Acc)}.
 
+handle_guard_map(Guard, Map, Env, State) ->
+  Pairs = cerl:map_es(Guard),
+  Arg = cerl:map_arg(Guard),
+  {Map1, ArgType0} = bind_guard(Arg, Map, Env, dont_know, State),
+  ArgType1 = t_inf(t_map(), ArgType0),
+  case t_is_none_or_unit(ArgType1) of
+    true -> {Map1, t_none()};
+    false ->
+      {Map2, TypePairs} = bind_guard_map_pairs(Pairs, Map1, Env, State, []),
+      {Map2, lists:foldl(fun({KV,assoc},Acc) -> erl_types:t_map_put(KV,Acc);
+			    ({KV,exact},Acc) -> erl_types:t_map_update(KV,Acc)
+			 end, ArgType1, TypePairs)}
+  end.
+
+bind_guard_map_pairs([], Map, _Env, _State, PairAcc) ->
+  {Map, lists:reverse(PairAcc)};
+bind_guard_map_pairs([Pair|Pairs], Map, Env, State, PairAcc) ->
+  Key = cerl:map_pair_key(Pair),
+  Val = cerl:map_pair_val(Pair),
+  Op = cerl:map_pair_op(Pair),
+  {Map1, [K,V]} = bind_guard_list([Key,Val],Map,Env,dont_know,State),
+  bind_guard_map_pairs(Pairs, Map1, Env, State,
+		       [{{K,V},cerl:concrete(Op)}|PairAcc]).
+
 -type eval() :: 'pos' | 'neg' | 'dont_know'.
 
 -spec signal_guard_fail(eval(), cerl:c_call(), [type()],
@@ -2411,7 +2573,9 @@ filter_fail_clauses([Clause|Left]) ->
   case (cerl:clause_pats(Clause) =:= []) of
     true ->
       Body = cerl:clause_body(Clause),
-      case cerl:is_literal(Body) andalso (cerl:concrete(Body) =:= fail) of
+      case cerl:is_literal(Body) andalso (cerl:concrete(Body) =:= fail) orelse
+	cerl:is_c_primop(Body) andalso
+	(cerl:atom_val(cerl:primop_name(Body)) =:= match_fail) of
 	true -> filter_fail_clauses(Left);
 	false -> [Clause|filter_fail_clauses(Left)]
       end;
@@ -2629,8 +2793,9 @@ store_map(Key, Val, #map{dict = Dict, ref = undefined} = Map) ->
 store_map(Key, Val, #map{dict = Dict, modified = Mod} = Map) ->
   Map#map{dict = dict:store(Key, Val, Dict), modified = [Key | Mod]}.
 
-enter_subst(Key, Val, #map{subst = Subst} = MS) ->
+enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
   KeyLabel = get_label(Key),
+  Val = dialyzer_utils:refold_pattern(Val0),
   case cerl:is_literal(Val) of
     true ->
       store_map(KeyLabel, literal_type(Val), MS);
@@ -2693,6 +2858,9 @@ mark_as_fresh([Tree|Left], Map) ->
       bitstr ->
 	%% The Size field is not fresh.
 	{SubTrees1 -- [cerl:bitstr_size(Tree)], Map};
+      map_pair ->
+	%% The keys are not fresh
+	{SubTrees1 -- [cerl:map_pair_key(Tree)], Map};
       var ->
 	{SubTrees1, enter_type(Tree, t_any(), Map)};
       _ ->

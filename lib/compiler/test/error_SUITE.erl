@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(error_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -65,7 +65,7 @@ bif_clashes(Config) when is_list(Config) ->
            [return_warnings],
 	   {error,
 	    [{4, erl_lint,{call_to_redefined_old_bif,{length,1}}}], []} }],
-    ?line [] = run(Config, Ts),
+    [] = run(Config, Ts),
     Ts1 = [{bif_clashes2,
            <<"
               -export([t/0]).
@@ -76,7 +76,7 @@ bif_clashes(Config) when is_list(Config) ->
            [return_warnings],
 	    {error,
 	     [{3, erl_lint,{redefine_old_bif_import,{length,1}}}], []} }],
-    ?line [] = run(Config, Ts1),
+    [] = run(Config, Ts1),
     Ts00 = [{bif_clashes3,
            <<"
               -export([t/0]).
@@ -89,7 +89,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	   []}],
-    ?line [] = run(Config, Ts00),
+    [] = run(Config, Ts00),
     Ts11 = [{bif_clashes4,
            <<"
               -export([t/0]).
@@ -100,7 +100,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	    []}],
-    ?line [] = run(Config, Ts11),
+    [] = run(Config, Ts11),
     Ts000 = [{bif_clashes5,
            <<"
               -export([t/0]).
@@ -113,7 +113,7 @@ bif_clashes(Config) when is_list(Config) ->
            [return_warnings],
 	   {warning,
 	    [{4, erl_lint,{call_to_redefined_bif,{binary_part,3}}}]} }],
-    ?line [] = run(Config, Ts000),
+    [] = run(Config, Ts000),
     Ts111 = [{bif_clashes6,
            <<"
               -export([t/0]).
@@ -124,7 +124,7 @@ bif_clashes(Config) when is_list(Config) ->
            [return_warnings],
 	    {warning,
 	     [{3, erl_lint,{redefine_bif_import,{binary_part,3}}}]} }],
-    ?line [] = run(Config, Ts111),
+    [] = run(Config, Ts111),
     Ts2 = [{bif_clashes7,
            <<"
               -export([t/0]).
@@ -139,7 +139,7 @@ bif_clashes(Config) when is_list(Config) ->
           {error,
            [{7,erl_lint,{define_import,{length,1}}}],
            []} }],
-    ?line [] = run2(Config, Ts2),
+    [] = run2(Config, Ts2),
     Ts3 = [{bif_clashes8,
            <<"
               -export([t/1]).
@@ -153,7 +153,7 @@ bif_clashes(Config) when is_list(Config) ->
           {error,
            [{4,erl_lint,{illegal_guard_local_call,{length,1}}}],
            []} }],
-    ?line [] = run2(Config, Ts3),
+    [] = run2(Config, Ts3),
     Ts4 = [{bif_clashes9,
            <<"
               -export([t/1]).
@@ -166,7 +166,7 @@ bif_clashes(Config) when is_list(Config) ->
           {error,
            [{5,erl_lint,{illegal_guard_local_call,{length,1}}}],
            []} }],
-    ?line [] = run2(Config, Ts4),
+    [] = run2(Config, Ts4),
 
     ok.
 
@@ -175,23 +175,23 @@ bif_clashes(Config) when is_list(Config) ->
 
 %% Tests that a head mismatch is reported on the correct line (OTP-2125).
 head_mismatch_line(Config) when is_list(Config) ->
-    ?line [E|_] = get_compilation_errors(Config, "head_mismatch_line"),
-    ?line {26, Mod, Reason} = E,
-    ?line Mod:format_error(Reason),
+    [E|_] = get_compilation_errors(Config, "head_mismatch_line"),
+    {26, Mod, Reason} = E,
+    Mod:format_error(Reason),
     ok.
 
 %% Compiles a test file and returns the list of errors.
 
 get_compilation_errors(Config, Filename) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line File = filename:join(DataDir, Filename),
-    ?line {error, [{_Name, E}|_], []} = compile:file(File, [return_errors]),
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, Filename),
+    {error, [{_Name, E}|_], []} = compile:file(File, [return_errors]),
     E.
 
 warnings_as_errors(Config) when is_list(Config) ->
-    ?line TestFile = test_filename(Config),
-    ?line BeamFile = filename:rootname(TestFile, ".erl") ++ ".beam",
-    ?line OutDir = ?config(priv_dir, Config),
+    TestFile = test_filename(Config),
+    BeamFile = filename:rootname(TestFile, ".erl") ++ ".beam",
+    OutDir = proplists:get_value(priv_dir, Config),
 
     Ts1 = [{warnings_as_errors,
            <<"
@@ -203,8 +203,8 @@ warnings_as_errors(Config) when is_list(Config) ->
 	    {error,
 	     [],
 	     [{3,erl_lint,{unused_var,'A'}}]} }],
-    ?line [] = run(Ts1, TestFile, write_beam),
-    ?line false = filelib:is_regular(BeamFile),
+    [] = run(Ts1, TestFile, write_beam),
+    false = filelib:is_regular(BeamFile),
 
     Ts2 = [{warning_unused_var,
            <<"
@@ -216,9 +216,9 @@ warnings_as_errors(Config) when is_list(Config) ->
 	    {warning,
 	       [{3,erl_lint,{unused_var,'A'}}]} }],
 
-    ?line [] = run(Ts2, TestFile, write_beam),
-    ?line true = filelib:is_regular(BeamFile),
-    ?line ok = file:delete(BeamFile),
+    [] = run(Ts2, TestFile, write_beam),
+    true = filelib:is_regular(BeamFile),
+    ok = file:delete(BeamFile),
 
     ok.
 
@@ -295,7 +295,7 @@ bad_utf8(Config) ->
 
 
 run(Config, Tests) ->
-    ?line File = test_filename(Config),
+    File = test_filename(Config),
     run(Tests, File, dont_write_beam).
 
 run(Tests, File, WriteBeam) ->
@@ -304,7 +304,7 @@ run(Tests, File, WriteBeam) ->
                     E -> 
                         BadL;
                     Bad -> 
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end
@@ -312,7 +312,7 @@ run(Tests, File, WriteBeam) ->
     lists:foldl(F, [], Tests).
 
 run2(Config, Tests) ->
-    ?line File = test_filename(Config),
+    File = test_filename(Config),
     run2(Tests, File, dont_write_beam).
 
 run2(Tests, File, WriteBeam) ->
@@ -321,7 +321,7 @@ run2(Tests, File, WriteBeam) ->
                     E ->
                         BadL;
                     Bad ->
-                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Bad]),
 			fail()
                 end
@@ -338,56 +338,45 @@ filter(X) ->
 
 test_filename(Conf) ->
     Filename = ["errors_test_",test_lib:uniq(),".erl"],
-    DataDir = ?config(priv_dir, Conf),
+    DataDir = proplists:get_value(priv_dir, Conf),
     filename:join(DataDir, Filename).
 
 run_test(Test0, File, Warnings, WriteBeam) ->
     ModName = filename:rootname(filename:basename(File), ".erl"),
     Mod = list_to_atom(ModName),
     Test = ["-module(",ModName,"). ",Test0],
-    ?line Opts = case WriteBeam of
-		     dont_write_beam ->
-			 [binary,return_errors|Warnings];
-		     write_beam ->
-			 [return_errors|Warnings]
-		 end,
-    ?line ok = file:write_file(File, Test),
+    Opts = case WriteBeam of
+	       dont_write_beam ->
+		   [binary,return_errors|Warnings];
+	       write_beam ->
+		   [return_errors|Warnings]
+	   end,
+    ok = file:write_file(File, Test),
 
     %% Compile once just to print all errors and warnings.
-    ?line compile:file(File, [binary,report|Warnings]),
+    compile:file(File, [binary,report|Warnings]),
 
     %% Test result of compilation.
     io:format("~p\n", [Opts]),
-    ?line Res = case compile:file(File, Opts) of
-		    {ok,Mod,_,[{_File,Ws}]} ->
-			%io:format("compile:file(~s,~p) ->~n~p~n",
-			%	  [File,Opts,Ws]),
-			{warning,Ws};
-		    {ok,Mod,_,[]} ->
-			%io:format("compile:file(~s,~p) ->~n~p~n",
-			%	  [File,Opts,Ws]),
-			[];
-		    {ok,Mod,[{_File,Ws}]} ->
-			{warning,Ws};
-		    {ok,Mod,[]} ->
-			[];
-		    {error,[{XFile,Es}],Ws} = _ZZ when is_list(XFile) ->
-			%io:format("compile:file(~s,~p) ->~n~p~n",
-			%	  [File,Opts,_ZZ]),
-			{error,Es,Ws};
-		    {error,[{XFile,Es1},{XFile,Es2}],Ws} = _ZZ
-		      when is_list(XFile) ->
-			%io:format("compile:file(~s,~p) ->~n~p~n",
-			%	  [File,Opts,_ZZ]),
-			{error,Es1++Es2,Ws};
-		    {error,Es,[{_File,Ws}]} = _ZZ->
-			%io:format("compile:file(~s,~p) ->~n~p~n",
-			%	  [File,Opts,_ZZ]),
-			{error,Es,Ws}
-		end,
+    Res = case compile:file(File, Opts) of
+	      {ok,Mod,_,[{_File,Ws}]} ->
+		  {warning,Ws};
+	      {ok,Mod,_,[]} ->
+		  [];
+	      {ok,Mod,[{_File,Ws}]} ->
+		  {warning,Ws};
+	      {ok,Mod,[]} ->
+		  [];
+	      {error,[{XFile,Es}],Ws} = _ZZ when is_list(XFile) ->
+		  {error,Es,Ws};
+	      {error,[{XFile,Es1},{XFile,Es2}],Ws} = _ZZ
+		when is_list(XFile) ->
+		  {error,Es1++Es2,Ws};
+	      {error,Es,[{_File,Ws}]} = _ZZ->
+		  {error,Es,Ws}
+	  end,
     file:delete(File),
     Res.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

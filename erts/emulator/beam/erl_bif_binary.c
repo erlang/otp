@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,10 +55,8 @@
 
 /* Init and local variables */
 
-static Export binary_match_trap_export;
-static BIF_RETTYPE binary_match_trap(BIF_ALIST_3);
-static Export binary_matches_trap_export;
-static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3);
+static Export binary_find_trap_export;
+static BIF_RETTYPE binary_find_trap(BIF_ALIST_3);
 static Export binary_longest_prefix_trap_export;
 static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3);
 static Export binary_longest_suffix_trap_export;
@@ -70,19 +68,15 @@ static BIF_RETTYPE binary_copy_trap(BIF_ALIST_2);
 static Uint max_loop_limit;
 
 static BIF_RETTYPE
-binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
+binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags);
 static BIF_RETTYPE
-binary_matches(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
+binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
 
 void erts_init_bif_binary(void)
 {
-    erts_init_trap_export(&binary_match_trap_export,
-			  am_erlang, am_binary_match_trap, 3,
-			  &binary_match_trap);
-
-    erts_init_trap_export(&binary_matches_trap_export,
-			  am_erlang, am_binary_matches_trap, 3,
-			  &binary_matches_trap);
+    erts_init_trap_export(&binary_find_trap_export,
+			  am_erlang, am_binary_find_trap, 3,
+			  &binary_find_trap);
 
     erts_init_trap_export(&binary_longest_prefix_trap_export,
 			  am_erlang, am_binary_longest_prefix_trap, 3,
@@ -314,8 +308,8 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 /*
  * Aho Corasick - Build a Trie and fill in the failure functions
  * when all strings are added.
- * The algorithm is nicely described by Dieter Bühler of University of
- * Tübingen:
+ * The algorithm is nicely described by Dieter BÃ¼hler of University of
+ * TÃ¼bingen:
  * http://www-sr.informatik.uni-tuebingen.de/~buehler/AC/AC.html
  */
 
@@ -537,21 +531,23 @@ static void ac_init_find_all(ACFindAllState *state, ACTrie *act, Sint startpos, 
     state->out = NULL;
 }
 
-static void ac_restore_find_all(ACFindAllState *state, char *buff)
+static void ac_restore_find_all(ACFindAllState *state,
+                                const ACFindAllState *src)
 {
-    memcpy(state,buff,sizeof(ACFindAllState));
+    memcpy(state, src, sizeof(ACFindAllState));
     if (state->allocated > 0) {
 	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) * (state->allocated));
-	memcpy(state->out,buff+sizeof(ACFindAllState),sizeof(FindallData)*state->m);
+	memcpy(state->out, src+1, sizeof(FindallData)*state->m);
     } else {
 	state->out = NULL;
     }
 }
 
-static void ac_serialize_find_all(ACFindAllState *state, char *buff)
+static void ac_serialize_find_all(const ACFindAllState *state,
+                                  ACFindAllState *dst)
 {
-    memcpy(buff,state,sizeof(ACFindAllState));
-    memcpy(buff+sizeof(ACFindAllState),state->out,sizeof(FindallData)*state->m);
+    memcpy(dst, state, sizeof(ACFindAllState));
+    memcpy(dst+1, state->out, sizeof(FindallData)*state->m);
 }
 
 static void ac_clean_find_all(ACFindAllState *state)
@@ -564,9 +560,6 @@ static void ac_clean_find_all(ACFindAllState *state)
     state->allocated = 0;
 #endif
 }
-
-#define SIZEOF_AC_SERIALIZED_FIND_ALL_STATE(S) \
-          (sizeof(ACFindAllState)+(sizeof(FindallData)*(S).m))
 
 /*
  * Differs to the find_first function in that it stores all matches and the values
@@ -814,24 +807,24 @@ static void bm_init_find_all(BMFindAllState *state, Sint startpos, Uint len)
     state->out = NULL;
 }
 
-static void bm_restore_find_all(BMFindAllState *state, char *buff)
+static void bm_restore_find_all(BMFindAllState *state,
+                                const BMFindAllState *src)
 {
-    memcpy(state,buff,sizeof(BMFindAllState));
+    memcpy(state, src, sizeof(BMFindAllState));
     if (state->allocated > 0) {
 	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) *
 				(state->allocated));
-	memcpy(state->out,buff+sizeof(BMFindAllState),
-	       sizeof(FindallData)*state->m);
+	memcpy(state->out, src+1, sizeof(FindallData)*state->m);
     } else {
 	state->out = NULL;
     }
 }
 
-static void bm_serialize_find_all(BMFindAllState *state, char *buff)
+static void bm_serialize_find_all(const BMFindAllState *state,
+                                  BMFindAllState *dst)
 {
-    memcpy(buff,state,sizeof(BMFindAllState));
-    memcpy(buff+sizeof(BMFindAllState),state->out,
-	   sizeof(FindallData)*state->m);
+    memcpy(dst, state, sizeof(BMFindAllState));
+    memcpy(dst+1, state->out, sizeof(FindallData)*state->m);
 }
 
 static void bm_clean_find_all(BMFindAllState *state)
@@ -844,9 +837,6 @@ static void bm_clean_find_all(BMFindAllState *state)
     state->allocated = 0;
 #endif
 }
-
-#define SIZEOF_BM_SERIALIZED_FIND_ALL_STATE(S) \
-          (sizeof(BMFindAllState)+(sizeof(FindallData)*(S).m))
 
 /*
  * Differs to the find_first function in that it stores all matches and the
@@ -1030,274 +1020,54 @@ BIF_RETTYPE binary_compile_pattern_1(BIF_ALIST_1)
 #define DO_BIN_MATCH_BADARG -1
 #define DO_BIN_MATCH_RESTART -2
 
-static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hsend,
-			   Eterm type, Binary *bin, Eterm state_term,
-			   Eterm *res_term)
-{
-    byte *bytes;
-    Uint bitoffs, bitsize;
-    byte *temp_alloc = NULL;
+#define BINARY_FIND_ALL		0x01
+#define BINARY_SPLIT_TRIM	0x02
+#define BINARY_SPLIT_TRIM_ALL	0x04
 
-    ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
-    if (bitsize != 0) {
-	goto badarg;
-    }
-    if (bitoffs != 0) {
-	bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
-    }
-    if (state_term != NIL) {
-	Eterm *ptr = big_val(state_term);
-	type = ptr[1];
-    }
+typedef struct BinaryFindState {
+    Eterm type;
+    Uint  flags;
+    Uint  hsstart;
+    Uint  hsend;
+    Eterm (*not_found_result) (Process *, Eterm, struct BinaryFindState *);
+    Eterm (*single_result)    (Process *, Eterm, struct BinaryFindState *, Sint, Sint);
+    Eterm (*global_result)    (Process *, Eterm, struct BinaryFindState *, FindallData *, Uint);
+} BinaryFindState;
 
-    if (type == am_bm) {
-	BMData *bm;
-	Sint pos;
-	Eterm ret;
-	Eterm *hp;
-	BMFindFirstState state;
-	Uint reds = get_reds(p, BM_LOOP_FACTOR);
-	Uint save_reds = reds;
+typedef struct BinaryFindState_bignum {
+    Eterm           bignum_hdr;
+    BinaryFindState bfs;
+    union {
+	BMFindFirstState bmffs;
+	BMFindAllState   bmfas;
+	ACFindFirstState acffs;
+	ACFindAllState   acfas;
+    } data;
+} BinaryFindState_bignum;
 
-	bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	dump_bm_data(bm);
-#endif
-	if (state_term == NIL) {
-	    bm_init_find_first_match(&state, hsstart, hsend);
-	} else {
-	    Eterm *ptr = big_val(state_term);
-	    memcpy(&state,ptr+2,sizeof(state));
-	}
-#ifdef HARDDEBUG
-	erts_printf("(bm) state->pos = %ld, state->len = %lu\n",state.pos,
-		    state.len);
-#endif
-	pos = bm_find_first_match(&state, bm, bytes, &reds);
-	if (pos == BM_NOT_FOUND) {
-	    ret = am_nomatch;
-	} else if (pos == BM_RESTART) {
-	    int x = (sizeof(BMFindFirstState) / sizeof(Eterm)) +
-		!!(sizeof(BMFindFirstState) % sizeof(Eterm));
-#ifdef HARDDEBUG
-	    erts_printf("Trap bm!\n");
-#endif
-	    hp = HAlloc(p,x+2);
-	    hp[0] = make_pos_bignum_header(x+1);
-	    hp[1] = type;
-	    memcpy(hp+2,&state,sizeof(state));
-	    *res_term = make_big(hp);
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    return DO_BIN_MATCH_RESTART;
-	} else {
-	    Eterm erlen = erts_make_integer((Uint) bm->len, p);
-	    ret = erts_make_integer(pos,p);
-	    hp = HAlloc(p,3);
-	    ret = TUPLE2(hp, ret, erlen);
-	}
-	erts_free_aligned_binary_bytes(temp_alloc);
-	BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
-	*res_term = ret;
-	return DO_BIN_MATCH_OK;
-    } else if (type == am_ac) {
-	ACTrie *act;
-	Uint pos, rlen;
-	int acr;
-	ACFindFirstState state;
-	Eterm ret;
-	Eterm *hp;
-	Uint reds = get_reds(p, AC_LOOP_FACTOR);
-	Uint save_reds = reds;
+#define SIZEOF_BINARY_FIND_STATE(S) \
+	  (sizeof(BinaryFindState)+sizeof(S))
 
-	act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	dump_ac_trie(act);
-#endif
-	if (state_term == NIL) {
-	    ac_init_find_first_match(&state, act, hsstart, hsend);
-	} else {
-	    Eterm *ptr = big_val(state_term);
-	    memcpy(&state,ptr+2,sizeof(state));
-	}
-	acr = ac_find_first_match(&state, bytes, &pos, &rlen, &reds);
-	if (acr == AC_NOT_FOUND) {
-	    ret = am_nomatch;
-	} else if (acr == AC_RESTART) {
-	    int x = (sizeof(state) / sizeof(Eterm)) +
-		!!(sizeof(ACFindFirstState) % sizeof(Eterm));
-#ifdef HARDDEBUG
-	    erts_printf("Trap ac!\n");
-#endif
-	    hp = HAlloc(p,x+2);
-	    hp[0] = make_pos_bignum_header(x+1);
-	    hp[1] = type;
-	    memcpy(hp+2,&state,sizeof(state));
-	    *res_term = make_big(hp);
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    return DO_BIN_MATCH_RESTART;
-	} else {
-	    Eterm epos = erts_make_integer(pos,p);
-	    Eterm erlen = erts_make_integer(rlen,p);
-	    hp = HAlloc(p,3);
-	    ret = TUPLE2(hp, epos, erlen);
-	}
-	erts_free_aligned_binary_bytes(temp_alloc);
-	BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
-	*res_term = ret;
-	return DO_BIN_MATCH_OK;
-    }
- badarg:
-    return DO_BIN_MATCH_BADARG;
-}
+#define SIZEOF_BINARY_FIND_ALL_STATE(S) \
+	  (sizeof(BinaryFindState)+sizeof(S)+(sizeof(FindallData)*(S).m))
 
-static int do_binary_matches(Process *p, Eterm subject, Uint hsstart,
-			     Uint hsend, Eterm type, Binary *bin,
-			     Eterm state_term, Eterm *res_term)
-{
-    byte *bytes;
-    Uint bitoffs, bitsize;
-    byte *temp_alloc = NULL;
-
-    ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
-    if (bitsize != 0) {
-	goto badarg;
-    }
-    if (bitoffs != 0) {
-	bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
-    }
-    if (state_term != NIL) {
-	Eterm *ptr = big_val(state_term);
-	type = ptr[1];
-    }
-
-    if (type == am_bm) {
-	BMData *bm;
-	Sint pos;
-	Eterm ret,tpl;
-	Eterm *hp;
-	BMFindAllState state;
-	Uint reds = get_reds(p, BM_LOOP_FACTOR);
-	Uint save_reds = reds;
-
-	bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	dump_bm_data(bm);
-#endif
-	if (state_term == NIL) {
-	    bm_init_find_all(&state, hsstart, hsend);
-	} else {
-	    Eterm *ptr = big_val(state_term);
-	    bm_restore_find_all(&state,(char *) (ptr+2));
-	}
-
-	pos = bm_find_all_non_overlapping(&state, bm, bytes, &reds);
-	if (pos == BM_NOT_FOUND) {
-	    ret = NIL;
-	} else if (pos == BM_RESTART) {
-	    int x =
-		(SIZEOF_BM_SERIALIZED_FIND_ALL_STATE(state) / sizeof(Eterm)) +
-		!!(SIZEOF_BM_SERIALIZED_FIND_ALL_STATE(state) % sizeof(Eterm));
-#ifdef HARDDEBUG
-	    erts_printf("Trap bm!\n");
-#endif
-	    hp = HAlloc(p,x+2);
-	    hp[0] = make_pos_bignum_header(x+1);
-	    hp[1] = type;
-	    bm_serialize_find_all(&state, (char *) (hp+2));
-	    *res_term = make_big(hp);
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    bm_clean_find_all(&state);
-	    return DO_BIN_MATCH_RESTART;
-	} else {
-	    FindallData *fad = state.out;
-	    int i;
-	    for (i = 0; i < state.m; ++i) {
-		fad[i].epos = erts_make_integer(fad[i].pos,p);
-		fad[i].elen = erts_make_integer(fad[i].len,p);
-	    }
-	    hp = HAlloc(p,state.m * (3 + 2));
-	    ret = NIL;
-	    for (i = state.m - 1; i >= 0; --i) {
-		tpl = TUPLE2(hp, fad[i].epos, fad[i].elen);
-		hp +=3;
-		ret = CONS(hp,tpl,ret);
-		hp += 2;
-	    }
-	}
-	erts_free_aligned_binary_bytes(temp_alloc);
-	bm_clean_find_all(&state);
-	BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
-	*res_term = ret;
-	return DO_BIN_MATCH_OK;
-    } else if (type == am_ac) {
-	ACTrie *act;
-	int acr;
-	ACFindAllState state;
-	Eterm ret,tpl;
-	Eterm *hp;
-	Uint reds = get_reds(p, AC_LOOP_FACTOR);
-	Uint save_reds = reds;
-
-	act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
-#ifdef HARDDEBUG
-	dump_ac_trie(act);
-#endif
-	if (state_term == NIL) {
-	    ac_init_find_all(&state, act, hsstart, hsend);
-	} else {
-	    Eterm *ptr = big_val(state_term);
-	    ac_restore_find_all(&state,(char *) (ptr+2));
-	}
-	acr = ac_find_all_non_overlapping(&state, bytes, &reds);
-	if (acr == AC_NOT_FOUND) {
-	    ret = NIL;
-	} else if (acr == AC_RESTART) {
-	    int x =
-		(SIZEOF_AC_SERIALIZED_FIND_ALL_STATE(state) / sizeof(Eterm)) +
-		!!(SIZEOF_AC_SERIALIZED_FIND_ALL_STATE(state) % sizeof(Eterm));
-#ifdef HARDDEBUG
-	    erts_printf("Trap ac!\n");
-#endif
-	    hp = HAlloc(p,x+2);
-	    hp[0] = make_pos_bignum_header(x+1);
-	    hp[1] = type;
-	    ac_serialize_find_all(&state, (char *) (hp+2));
-	    *res_term = make_big(hp);
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    ac_clean_find_all(&state);
-	    return DO_BIN_MATCH_RESTART;
-	} else {
-	    FindallData *fad = state.out;
-	    int i;
-	    for (i = 0; i < state.m; ++i) {
-		fad[i].epos = erts_make_integer(fad[i].pos,p);
-		fad[i].elen = erts_make_integer(fad[i].len,p);
-	    }
-	    hp = HAlloc(p,state.m * (3 + 2));
-	    ret = NIL;
-	    for (i = state.m - 1; i >= 0; --i) {
-		tpl = TUPLE2(hp, fad[i].epos, fad[i].elen);
-		hp +=3;
-		ret = CONS(hp,tpl,ret);
-		hp += 2;
-	    }
-	}
-	erts_free_aligned_binary_bytes(temp_alloc);
-	ac_clean_find_all(&state);
-	BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
-	*res_term = ret;
-	return DO_BIN_MATCH_OK;
-    }
- badarg:
-    return DO_BIN_MATCH_BADARG;
-}
+static Eterm do_match_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs);
+static Eterm do_match_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    Sint pos, Sint len);
+static Eterm do_match_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    FindallData *fad, Uint fad_sz);
+static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs);
+static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    Sint pos, Sint len);
+static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    FindallData *fad, Uint fad_sz);
 
 static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 {
     Eterm *tp;
     Uint pos;
     Sint len;
-    if (l == ((Eterm) 0) || l == NIL) {
+    if (l == THE_NON_VALUE || l == NIL) {
 	/* Invalid term or NIL, we're called from binary_match(es)_2 or
 	   have no options*/
 	*posp = 0;
@@ -1355,116 +1125,372 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
     }
 }
 
-static BIF_RETTYPE binary_match_trap(BIF_ALIST_3)
+static int parse_split_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp, Uint *optp)
 {
-    int runres;
-    Eterm result;
-    Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
-    runres = do_binary_match(BIF_P,BIF_ARG_1,0,0,NIL,bin,BIF_ARG_2,&result);
-    if (runres == DO_BIN_MATCH_OK) {
-	BIF_RET(result);
+    Eterm *tp;
+    Uint pos;
+    Sint len;
+    *optp = 0;
+    *posp = 0;
+    *endp = binary_size(bin);
+    if (l == THE_NON_VALUE || l == NIL) {
+	return 0;
+    } else if (is_list(l)) {
+	while(is_list(l)) {
+	    Eterm t = CAR(list_val(l));
+	    Uint orig_size;
+	    if (is_atom(t)) {
+		if (t == am_global) {
+		    *optp |= BINARY_FIND_ALL;
+		    l = CDR(list_val(l));
+		    continue;
+		}
+		if (t == am_trim) {
+		    *optp |= BINARY_SPLIT_TRIM;
+		    l = CDR(list_val(l));
+		    continue;
+		}
+		if (t == am_trim_all) {
+		    *optp |= BINARY_SPLIT_TRIM_ALL;
+		    l = CDR(list_val(l));
+		    continue;
+		}
+	    }
+	    if (!is_tuple(t)) {
+		goto badarg;
+	    }
+	    tp = tuple_val(t);
+	    if (arityval(*tp) != 2) {
+		goto badarg;
+	    }
+	    if (tp[1] != am_scope || is_not_tuple(tp[2])) {
+		goto badarg;
+	    }
+	    tp = tuple_val(tp[2]);
+	    if (arityval(*tp) != 2) {
+		goto badarg;
+	    }
+	    if (!term_to_Uint(tp[1], &pos)) {
+		goto badarg;
+	    }
+	    if (!term_to_Sint(tp[2], &len)) {
+		goto badarg;
+	    }
+	    if (len < 0) {
+		Uint lentmp = -(Uint)len;
+		/* overflow */
+		if ((Sint)lentmp < 0) {
+		    goto badarg;
+		}
+		len = lentmp;
+		pos -= len;
+	    }
+	    /* overflow */
+	    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
+		goto badarg;
+	    }
+	    *endp = len + pos;
+	    *posp = pos;
+	    if ((orig_size = binary_size(bin)) < pos ||
+		orig_size < (*endp)) {
+		goto badarg;
+	    }
+	    l = CDR(list_val(l));
+	}
+	return 0;
     } else {
-	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP3(&binary_match_trap_export, BIF_P, BIF_ARG_1, result,
-		  BIF_ARG_3);
+    badarg:
+	return 1;
     }
 }
 
-static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3)
+static int do_binary_find(Process *p, Eterm subject, BinaryFindState *bfs, Binary *bin,
+			  Eterm state_term, Eterm *res_term)
 {
+    byte *bytes;
+    Uint bitoffs, bitsize;
+    byte *temp_alloc = NULL;
+    BinaryFindState_bignum *state_ptr = NULL;
+
+    ERTS_GET_BINARY_BYTES(subject, bytes, bitoffs, bitsize);
+    if (bitsize != 0) {
+	goto badarg;
+    }
+    if (bitoffs != 0) {
+	bytes = erts_get_aligned_binary_bytes(subject, &temp_alloc);
+    }
+    if (state_term != NIL) {
+	state_ptr = (BinaryFindState_bignum *)(big_val(state_term));
+	bfs = &(state_ptr->bfs);
+    }
+
+    if (bfs->flags & BINARY_FIND_ALL) {
+	if (bfs->type == am_bm) {
+	    BMData *bm;
+	    Sint pos;
+	    BMFindAllState state;
+	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_bm_data(bm);
+#endif
+	    if (state_term == NIL) {
+		bm_init_find_all(&state, bfs->hsstart, bfs->hsend);
+	    } else {
+		bm_restore_find_all(&state, &(state_ptr->data.bmfas));
+	    }
+
+	    pos = bm_find_all_non_overlapping(&state, bm, bytes, &reds);
+	    if (pos == BM_NOT_FOUND) {
+		*res_term = bfs->not_found_result(p, subject, bfs);
+	    } else if (pos == BM_RESTART) {
+		int x =
+		    (SIZEOF_BINARY_FIND_ALL_STATE(state) / sizeof(Eterm)) +
+		    !!(SIZEOF_BINARY_FIND_ALL_STATE(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap bm!\n");
+#endif
+		state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+		state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		bm_serialize_find_all(&state, &state_ptr->data.bmfas);
+		*res_term = make_big(&state_ptr->bignum_hdr);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		bm_clean_find_all(&state);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		*res_term = bfs->global_result(p, subject, bfs, state.out, state.m);
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    bm_clean_find_all(&state);
+	    BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
+	    return DO_BIN_MATCH_OK;
+	} else if (bfs->type == am_ac) {
+	    ACTrie *act;
+	    int acr;
+	    ACFindAllState state;
+	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_ac_trie(act);
+#endif
+	    if (state_term == NIL) {
+		ac_init_find_all(&state, act, bfs->hsstart, bfs->hsend);
+	    } else {
+		ac_restore_find_all(&state, &(state_ptr->data.acfas));
+	    }
+	    acr = ac_find_all_non_overlapping(&state, bytes, &reds);
+	    if (acr == AC_NOT_FOUND) {
+		*res_term = bfs->not_found_result(p, subject, bfs);
+	    } else if (acr == AC_RESTART) {
+		int x =
+		    (SIZEOF_BINARY_FIND_ALL_STATE(state) / sizeof(Eterm)) +
+		    !!(SIZEOF_BINARY_FIND_ALL_STATE(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap ac!\n");
+#endif
+                state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+		state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		ac_serialize_find_all(&state, &state_ptr->data.acfas);
+		*res_term = make_big(&state_ptr->bignum_hdr);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		ac_clean_find_all(&state);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		*res_term = bfs->global_result(p, subject, bfs, state.out, state.m);
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    ac_clean_find_all(&state);
+	    BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
+	    return DO_BIN_MATCH_OK;
+	}
+    } else {
+	if (bfs->type == am_bm) {
+	    BMData *bm;
+	    Sint pos;
+	    BMFindFirstState state;
+	    Uint reds = get_reds(p, BM_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_bm_data(bm);
+#endif
+	    if (state_term == NIL) {
+		bm_init_find_first_match(&state, bfs->hsstart, bfs->hsend);
+	    } else {
+		memcpy(&state, &state_ptr->data.bmffs, sizeof(BMFindFirstState));
+	    }
+
+#ifdef HARDDEBUG
+	    erts_printf("(bm) state->pos = %ld, state->len = %lu\n",state.pos,
+			state.len);
+#endif
+	    pos = bm_find_first_match(&state, bm, bytes, &reds);
+	    if (pos == BM_NOT_FOUND) {
+		*res_term = bfs->not_found_result(p, subject, bfs);
+	    } else if (pos == BM_RESTART) {
+		int x =
+		    (SIZEOF_BINARY_FIND_STATE(state) / sizeof(Eterm)) +
+		    !!(SIZEOF_BINARY_FIND_STATE(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap bm!\n");
+#endif
+                state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+                state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		memcpy(&state_ptr->data.acffs, &state, sizeof(BMFindFirstState));
+		*res_term = make_big(&state_ptr->bignum_hdr);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		*res_term = bfs->single_result(p, subject, bfs, pos, bm->len);
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
+	    return DO_BIN_MATCH_OK;
+	} else if (bfs->type == am_ac) {
+	    ACTrie *act;
+	    Uint pos, rlen;
+	    int acr;
+	    ACFindFirstState state;
+	    Uint reds = get_reds(p, AC_LOOP_FACTOR);
+	    Uint save_reds = reds;
+
+	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	    dump_ac_trie(act);
+#endif
+	    if (state_term == NIL) {
+		ac_init_find_first_match(&state, act, bfs->hsstart, bfs->hsend);
+	    } else {
+		memcpy(&state, &state_ptr->data.acffs, sizeof(ACFindFirstState));
+	    }
+	    acr = ac_find_first_match(&state, bytes, &pos, &rlen, &reds);
+	    if (acr == AC_NOT_FOUND) {
+		*res_term = bfs->not_found_result(p, subject, bfs);
+	    } else if (acr == AC_RESTART) {
+		int x =
+		    (SIZEOF_BINARY_FIND_STATE(state) / sizeof(Eterm)) +
+		    !!(SIZEOF_BINARY_FIND_STATE(state) % sizeof(Eterm));
+#ifdef HARDDEBUG
+		erts_printf("Trap ac!\n");
+#endif
+		state_ptr = (BinaryFindState_bignum*) HAlloc(p, x+1);
+		state_ptr->bignum_hdr = make_pos_bignum_header(x);
+		memcpy(&state_ptr->bfs, bfs, sizeof(BinaryFindState));
+		memcpy(&state_ptr->data.acffs, &state, sizeof(ACFindFirstState));
+		*res_term = make_big(&state_ptr->bignum_hdr);
+		erts_free_aligned_binary_bytes(temp_alloc);
+		return DO_BIN_MATCH_RESTART;
+	    } else {
+		*res_term = bfs->single_result(p, subject, bfs, pos, rlen);
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
+	    return DO_BIN_MATCH_OK;
+	}
+    }
+ badarg:
+    return DO_BIN_MATCH_BADARG;
+}
+
+static BIF_RETTYPE
+binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, Uint flags)
+{
+    BinaryFindState bfs;
+    Eterm *tp;
+    Binary *bin;
+    Eterm bin_term = NIL;
     int runres;
     Eterm result;
-    Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
-    runres = do_binary_matches(BIF_P,BIF_ARG_1,0,0,NIL,bin,BIF_ARG_2,&result);
-    if (runres == DO_BIN_MATCH_OK) {
-	BIF_RET(result);
-    } else {
-	BUMP_ALL_REDS(BIF_P);
-	BIF_TRAP3(&binary_matches_trap_export, BIF_P, BIF_ARG_1, result,
-		  BIF_ARG_3);
+
+    if (is_not_binary(arg1)) {
+	goto badarg;
     }
+    bfs.flags = flags;
+    if (parse_match_opts_list(arg3, arg1, &(bfs.hsstart), &(bfs.hsend))) {
+	goto badarg;
+    }
+    if (bfs.hsend == 0) {
+	BIF_RET(do_match_not_found_result(p, arg1, &bfs));
+    }
+    if (is_tuple(arg2)) {
+	tp = tuple_val(arg2);
+	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
+	    goto badarg;
+	}
+	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
+	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
+	    goto badarg;
+	}
+	bfs.type = tp[1];
+	bin = ((ProcBin *) binary_val(tp[2]))->val;
+	if (bfs.type == am_bm &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
+	    goto badarg;
+	}
+	if (bfs.type == am_ac &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
+	    goto badarg;
+	}
+	bin_term = tp[2];
+    } else if (do_binary_match_compile(arg2, &(bfs.type), &bin)) {
+	goto badarg;
+    }
+    bfs.not_found_result = &do_match_not_found_result;
+    bfs.single_result = &do_match_single_result;
+    bfs.global_result = &do_match_global_result;
+    runres = do_binary_find(p, arg1, &bfs, bin, NIL, &result);
+    if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
+	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
+	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
+    } else if (bin_term == NIL) {
+	erts_bin_free(bin);
+    }
+    switch (runres) {
+    case DO_BIN_MATCH_OK:
+	BIF_RET(result);
+    case DO_BIN_MATCH_RESTART:
+	BUMP_ALL_REDS(p);
+	BIF_TRAP3(&binary_find_trap_export, p, arg1, result, bin_term);
+    default:
+	goto badarg;
+    }
+ badarg:
+    BIF_ERROR(p,BADARG);
+}
+
+BIF_RETTYPE binary_match_2(BIF_ALIST_2)
+{
+    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE, 0);
 }
 
 BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 {
-    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, 0);
 }
 
-static BIF_RETTYPE
-binary_match(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
+BIF_RETTYPE binary_matches_2(BIF_ALIST_2)
 {
-    Uint hsstart;
-    Uint hsend;
-    Eterm *tp;
-    Eterm type;
-    Binary *bin;
-    Eterm bin_term = NIL;
-    int runres;
-    Eterm result;
-
-    if (is_not_binary(arg1)) {
-	goto badarg;
-    }
-    if (parse_match_opts_list(arg3,arg1,&hsstart,&hsend)) {
-	goto badarg;
-    }
-    if (hsend == 0) {
-	BIF_RET(am_nomatch);
-    }
-    if (is_tuple(arg2)) {
-	tp = tuple_val(arg2);
-	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
-	    goto badarg;
-	}
-	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
-	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
-	    goto badarg;
-	}
-	type = tp[1];
-	bin = ((ProcBin *) binary_val(tp[2]))->val;
-	if (type == am_bm &&
-	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
-	    goto badarg;
-	}
-	if (type == am_ac &&
-	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
-	    goto badarg;
-	}
-	bin_term = tp[2];
-    } else if (do_binary_match_compile(arg2,&type,&bin)) {
-	goto badarg;
-    }
-    runres = do_binary_match(p,arg1,hsstart,hsend,type,bin,NIL,&result);
-    if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
-	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
-	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
-    } else if (bin_term == NIL) {
-	erts_bin_free(bin);
-    }
-    switch (runres) {
-    case DO_BIN_MATCH_OK:
-	BIF_RET(result);
-    case DO_BIN_MATCH_RESTART:
-	BUMP_ALL_REDS(p);
-	BIF_TRAP3(&binary_match_trap_export, p, arg1, result, bin_term);
-    default:
-	goto badarg;
-    }
- badarg:
-    BIF_ERROR(p,BADARG);
+    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE, BINARY_FIND_ALL);
 }
 
 BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
 {
-    return binary_matches(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    return binary_match(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BINARY_FIND_ALL);
 }
 
 static BIF_RETTYPE
-binary_matches(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
+binary_split(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 {
-    Uint hsstart, hsend;
+    BinaryFindState bfs;
     Eterm *tp;
-    Eterm type;
     Binary *bin;
     Eterm bin_term = NIL;
     int runres;
@@ -1473,11 +1499,12 @@ binary_matches(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     if (is_not_binary(arg1)) {
 	goto badarg;
     }
-    if (parse_match_opts_list(arg3,arg1,&hsstart,&hsend)) {
+    if (parse_split_opts_list(arg3, arg1, &(bfs.hsstart), &(bfs.hsend), &(bfs.flags))) {
 	goto badarg;
     }
-    if (hsend == 0) {
-	BIF_RET(NIL);
+    if (bfs.hsend == 0) {
+	result = do_split_not_found_result(p, arg1, &bfs);
+	BIF_RET(result);
     }
     if (is_tuple(arg2)) {
 	tp = tuple_val(arg2);
@@ -1488,54 +1515,267 @@ binary_matches(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
 	    goto badarg;
 	}
-	type = tp[1];
+	bfs.type = tp[1];
 	bin = ((ProcBin *) binary_val(tp[2]))->val;
-	if (type == am_bm &&
+	if (bfs.type == am_bm &&
 	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
 	    goto badarg;
 	}
-	if (type == am_ac &&
+	if (bfs.type == am_ac &&
 	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
 	    goto badarg;
 	}
 	bin_term = tp[2];
-    } else if (do_binary_match_compile(arg2,&type,&bin)) {
+    } else if (do_binary_match_compile(arg2, &(bfs.type), &bin)) {
 	goto badarg;
     }
-    runres = do_binary_matches(p,arg1,hsstart,hsend,type,bin,
-			       NIL,&result);
+    bfs.not_found_result = &do_split_not_found_result;
+    bfs.single_result = &do_split_single_result;
+    bfs.global_result = &do_split_global_result;
+    runres = do_binary_find(p, arg1, &bfs, bin, NIL, &result);
     if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
 	Eterm *hp = HAlloc(p, PROC_BIN_SIZE);
 	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), bin);
     } else if (bin_term == NIL) {
 	erts_bin_free(bin);
     }
-    switch (runres) {
+    switch(runres) {
     case DO_BIN_MATCH_OK:
 	BIF_RET(result);
     case DO_BIN_MATCH_RESTART:
-	BUMP_ALL_REDS(p);
-	BIF_TRAP3(&binary_matches_trap_export, p, arg1, result,
-		  bin_term);
+	BIF_TRAP3(&binary_find_trap_export, p, arg1, result, bin_term);
     default:
 	goto badarg;
     }
  badarg:
-    BIF_ERROR(p,BADARG);
+    BIF_ERROR(p, BADARG);
 }
 
-
-BIF_RETTYPE binary_match_2(BIF_ALIST_2)
+BIF_RETTYPE binary_split_2(BIF_ALIST_2)
 {
-    return binary_match(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
+    return binary_split(BIF_P, BIF_ARG_1, BIF_ARG_2, THE_NON_VALUE);
 }
 
-
-BIF_RETTYPE binary_matches_2(BIF_ALIST_2)
+BIF_RETTYPE binary_split_3(BIF_ALIST_3)
 {
-    return binary_matches(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
+    return binary_split(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 }
 
+static Eterm do_match_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs)
+{
+    if (bfs->flags & BINARY_FIND_ALL) {
+	return NIL;
+    } else {
+	return am_nomatch;
+    }
+}
+
+static Eterm do_match_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    Sint pos, Sint len)
+{
+    Eterm erlen;
+    Eterm *hp;
+    Eterm ret;
+
+    erlen = erts_make_integer((Uint)(len), p);
+    ret = erts_make_integer(pos, p);
+    hp = HAlloc(p, 3);
+    ret = TUPLE2(hp, ret, erlen);
+
+    return ret;
+}
+
+static Eterm do_match_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    FindallData *fad, Uint fad_sz)
+{
+    Sint i;
+    Eterm tpl;
+    Eterm *hp;
+    Eterm ret;
+
+    for (i = 0; i < fad_sz; ++i) {
+	fad[i].epos = erts_make_integer(fad[i].pos, p);
+	fad[i].elen = erts_make_integer(fad[i].len, p);
+    }
+    hp = HAlloc(p, fad_sz * (3 + 2));
+    ret = NIL;
+    for (i = fad_sz - 1; i >= 0; --i) {
+	tpl = TUPLE2(hp, fad[i].epos, fad[i].elen);
+	hp += 3;
+	ret = CONS(hp, tpl, ret);
+	hp += 2;
+    }
+
+    return ret;
+}
+
+static Eterm do_split_not_found_result(Process *p, Eterm subject, BinaryFindState *bfs)
+{
+    Eterm *hp;
+    Eterm ret;
+
+    if (bfs->flags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)
+        && binary_size(subject) == 0) {
+        return NIL;
+    }
+    hp = HAlloc(p, 2);
+    ret = CONS(hp, subject, NIL);
+
+    return ret;
+}
+
+static Eterm do_split_single_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    Sint pos, Sint len)
+{
+    size_t orig_size;
+    Eterm orig;
+    Uint offset;
+    Uint bit_offset;
+    Uint bit_size;
+    ErlSubBin *sb1;
+    ErlSubBin *sb2;
+    Eterm *hp;
+    Eterm ret;
+
+    orig_size = binary_size(subject);
+
+    if ((bfs->flags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL)) &&
+	(orig_size - pos - len) == 0) {
+	if (pos == 0) {
+	    ret = NIL;
+	} else {
+	    hp = HAlloc(p, (ERL_SUB_BIN_SIZE + 2));
+	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+	    sb1 = (ErlSubBin *) hp;
+	    sb1->thing_word = HEADER_SUB_BIN;
+	    sb1->size = pos;
+	    sb1->offs = offset;
+	    sb1->orig = orig;
+	    sb1->bitoffs = bit_offset;
+	    sb1->bitsize = bit_size;
+	    sb1->is_writable = 0;
+	    hp += ERL_SUB_BIN_SIZE;
+
+	    ret = CONS(hp, make_binary(sb1), NIL);
+	    hp += 2;
+	}
+    } else {
+	if ((bfs->flags & BINARY_SPLIT_TRIM_ALL) && (pos == 0)) {
+	    hp = HAlloc(p, 1 * (ERL_SUB_BIN_SIZE + 2));
+	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+	    sb1 = NULL;
+	} else {
+	    hp = HAlloc(p, 2 * (ERL_SUB_BIN_SIZE + 2));
+	    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+	    sb1 = (ErlSubBin *) hp;
+	    sb1->thing_word = HEADER_SUB_BIN;
+	    sb1->size = pos;
+	    sb1->offs = offset;
+	    sb1->orig = orig;
+	    sb1->bitoffs = bit_offset;
+	    sb1->bitsize = 0;
+	    sb1->is_writable = 0;
+	    hp += ERL_SUB_BIN_SIZE;
+	}
+
+	sb2 = (ErlSubBin *) hp;
+	sb2->thing_word = HEADER_SUB_BIN;
+	sb2->size = orig_size - pos - len;
+	sb2->offs = offset + pos + len;
+	sb2->orig = orig;
+	sb2->bitoffs = bit_offset;
+	sb2->bitsize = bit_size;
+	sb2->is_writable = 0;
+	hp += ERL_SUB_BIN_SIZE;
+
+	ret = CONS(hp, make_binary(sb2), NIL);
+	hp += 2;
+	if (sb1 != NULL) {
+	    ret = CONS(hp, make_binary(sb1), ret);
+	    hp += 2;
+	}
+    }
+    return ret;
+}
+
+static Eterm do_split_global_result(Process *p, Eterm subject, BinaryFindState *bfs,
+				    FindallData *fad, Uint fad_sz)
+{
+    size_t orig_size;
+    Eterm orig;
+    Uint offset;
+    Uint bit_offset;
+    Uint bit_size;
+    ErlSubBin *sb;
+    Sint i;
+    Sint tail;
+    Uint list_size;
+    Uint end_pos;
+    Uint do_trim = bfs->flags & (BINARY_SPLIT_TRIM | BINARY_SPLIT_TRIM_ALL);
+    Eterm *hp;
+    Eterm *hendp;
+    Eterm ret;
+
+    tail = fad_sz - 1;
+    list_size = fad_sz + 1;
+    orig_size = binary_size(subject);
+    end_pos = (Uint)(orig_size);
+
+    hp = HAlloc(p, list_size * (ERL_SUB_BIN_SIZE + 2));
+    hendp = hp + list_size * (ERL_SUB_BIN_SIZE + 2);
+    ERTS_GET_REAL_BIN(subject, orig, offset, bit_offset, bit_size);
+    ASSERT(bit_size == 0);
+
+    ret = NIL;
+
+    for (i = tail; i >= 0; --i) {
+	sb = (ErlSubBin *)(hp);
+	sb->size = end_pos - (fad[i].pos + fad[i].len);
+	if (!(sb->size == 0 && do_trim)) {
+	    sb->thing_word = HEADER_SUB_BIN;
+	    sb->offs = offset + fad[i].pos + fad[i].len;
+	    sb->orig = orig;
+	    sb->bitoffs = bit_offset;
+	    sb->bitsize = 0;
+	    sb->is_writable = 0;
+	    hp += ERL_SUB_BIN_SIZE;
+	    ret = CONS(hp, make_binary(sb), ret);
+	    hp += 2;
+	    do_trim &= ~BINARY_SPLIT_TRIM;
+	}
+	end_pos = fad[i].pos;
+    }
+
+    sb = (ErlSubBin *)(hp);
+    sb->size = fad[0].pos;
+    if (!(sb->size == 0 && do_trim)) {
+	sb->thing_word = HEADER_SUB_BIN;
+	sb->offs = offset;
+	sb->orig = orig;
+	sb->bitoffs = bit_offset;
+	sb->bitsize = 0;
+	sb->is_writable = 0;
+	hp += ERL_SUB_BIN_SIZE;
+	ret = CONS(hp, make_binary(sb), ret);
+	hp += 2;
+    }
+    HRelease(p, hendp, hp);
+    return ret;
+}
+
+static BIF_RETTYPE binary_find_trap(BIF_ALIST_3)
+{
+    int runres;
+    Eterm result;
+    Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
+    runres = do_binary_find(BIF_P, BIF_ARG_1, NULL, bin, BIF_ARG_2, &result);
+    if (runres == DO_BIN_MATCH_OK) {
+	BIF_RET(result);
+    } else {
+	BUMP_ALL_REDS(BIF_P);
+	BIF_TRAP3(&binary_find_trap_export, BIF_P, BIF_ARG_1, result, BIF_ARG_3);
+    }
+}
 
 BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 {
@@ -2550,7 +2790,6 @@ BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
     }
     pb = (ProcBin *) binary_val(bin);
     if (pb->thing_word == HEADER_PROC_BIN) {
-	/* XXX:PaN - Halfword - orig_size is a long, we should handle that */
 	res = erts_make_integer((Uint) pb->val->orig_size, BIF_P);
     } else { /* heap binary */
 	res = erts_make_integer((Uint) ((ErlHeapBin *) pb)->size, BIF_P);
@@ -2568,7 +2807,7 @@ BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
 #endif
 
 static int get_need(Uint u) {
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
     if (u > 0xFFFFFFFFUL) {
 	if (u > 0xFFFFFFFFFFFFUL) {
 	    if (u > 0xFFFFFFFFFFFFFFUL) {

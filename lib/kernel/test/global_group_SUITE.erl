@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,15 +28,17 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-%-compile(export_all).
+%%-compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(NODES, [node()|nodes()]).
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end)).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,
@@ -46,10 +48,10 @@ groups() ->
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_suite(Config) ->
@@ -77,15 +79,13 @@ end_per_suite(_Config) ->
     ok.
 
 -define(TESTCASE, testcase_name).
--define(testcase, ?config(?TESTCASE, Config)).
+-define(testcase, proplists:get_value(?TESTCASE, Config)).
 
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(5)),
-    [{?TESTCASE, Case}, {watchdog, Dog}|Config].
+init_per_testcase(Case, Config) ->
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 %%-----------------------------------------------------------------
 %% Test suites for global groups.
@@ -94,198 +94,191 @@ end_per_testcase(_Func, Config) ->
 %%-----------------------------------------------------------------
 
 
-start_gg_proc(suite) -> [];
-start_gg_proc(doc) -> ["Check that the global_group processes are started automatically. "];
+%% Check that the global_group processes are started automatically. .
 start_gg_proc(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd}=file:open(File, [write]),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "global_group.config"),
+    {ok, Fd}=file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
-    ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
+    config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
-    ?line Cp1nn = node_at(Ncp1),
-    ?line Cp2nn = node_at(Ncp2),
-    ?line Cp3nn = node_at(Ncp3),
+    Cp1nn = node_at(Ncp1),
+    Cp2nn = node_at(Ncp2),
+    Cp3nn = node_at(Ncp3),
 
-    ?line {ok, Cp1} = start_node(Ncp1, Config),
-    ?line {ok, Cp2} = start_node(Ncp2, Config),
-    ?line {ok, Cp3} = start_node(Ncp3, Config),
+    {ok, Cp1} = start_node(Ncp1, Config),
+    {ok, Cp2} = start_node(Ncp2, Config),
+    {ok, Cp3} = start_node(Ncp3, Config),
 
-    ?line [] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
-    ?line [] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
-    ?line [] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
+    [] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
+    [] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
+    [] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
 
-    % stop the nodes, and make sure names are released.
+    %% stop the nodes, and make sure names are released.
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
     ok.
-    
 
 
-no_gg_proc(suite) -> [];
-no_gg_proc(doc) -> ["Start a system without global groups. Nodes are not "
-		    "synced at start (sync_nodes_optional is not defined)"];
+
+%% Start a system without global groups. Nodes are not
+%% synced at start (sync_nodes_optional is not defined).
 no_gg_proc(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "no_global_group.config"),
+    {ok, Fd} = file:open(File, [write]),
+    config_no(Fd),
 
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "no_global_group.config"),
-    ?line {ok, Fd} = file:open(File, [write]),
-    ?line config_no(Fd),
+    NN = node_name(atom_to_list(node())),
+    Cp1nn = list_to_atom("cp1@" ++ NN),
+    Cp2nn = list_to_atom("cp2@" ++ NN),
+    Cp3nn = list_to_atom("cp3@" ++ NN),
+    Cpxnn = list_to_atom("cpx@" ++ NN),
+    Cpynn = list_to_atom("cpy@" ++ NN),
+    Cpznn = list_to_atom("cpz@" ++ NN),
 
-    ?line NN = node_name(atom_to_list(node())),
-    ?line Cp1nn = list_to_atom("cp1@" ++ NN),
-    ?line Cp2nn = list_to_atom("cp2@" ++ NN),
-    ?line Cp3nn = list_to_atom("cp3@" ++ NN),
-    ?line Cpxnn = list_to_atom("cpx@" ++ NN),
-    ?line Cpynn = list_to_atom("cpy@" ++ NN),
-    ?line Cpznn = list_to_atom("cpz@" ++ NN),
-
-    ?line {ok, Cp1} = start_node_no(cp1, Config),
-    ?line {ok, Cp2} = start_node_no(cp2, Config),
-    ?line {ok, Cp3} = start_node_no(cp3, Config),
-    ?line {ok, Cpx} = start_node_no(cpx, Config),
-    ?line {ok, Cpy} = start_node_no(cpy, Config),
-    ?line {ok, Cpz} = start_node_no(cpz, Config),
+    {ok, Cp1} = start_node_no(cp1, Config),
+    {ok, Cp2} = start_node_no(cp2, Config),
+    {ok, Cp3} = start_node_no(cp3, Config),
+    {ok, Cpx} = start_node_no(cpx, Config),
+    {ok, Cpy} = start_node_no(cpy, Config),
+    {ok, Cpz} = start_node_no(cpz, Config),
 
     %% let the nodes know of each other
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp2nn]),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp3nn]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [Cpxnn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cpynn]),
-    ?line pong = rpc:call(Cpy, net_adm, ping, [Cpznn]),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp2nn]),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp3nn]),
+    pong = rpc:call(Cp3, net_adm, ping, [Cpxnn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cpynn]),
+    pong = rpc:call(Cpy, net_adm, ping, [Cpznn]),
 
-    ?line wait_for_ready_net(),
+    wait_for_ready_net(),
 
-    ?line [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
-    ?line [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
-    ?line [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
-    ?line [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}]),
-    ?line [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}]),
-    ?line [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}]),
+    [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
+    [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
+    [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
+    [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}]),
+    [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}]),
+    [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}]),
 
 
-    % start a proc and register it
-    ?line {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
+    %% start a proc and register it
+    {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
 
-    ?line RegNames = lists:sort([test2,test_server]),
+    RegNames = lists:sort([test2,test_server]),
 
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}])),
 
 
-    ?line undefined = rpc:call(Cp3, global_group, global_groups, []),
+    undefined = rpc:call(Cp3, global_group, global_groups, []),
 
-    ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
-			      Cpxnn, Cpynn, Cpznn],
-    ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line [] = (Own_nodes -- Own_nodes_should),
-    ?line [] = (Own_nodes_should -- Own_nodes),
-    
-    ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout2)
-				 end,
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout3)
-				 end,
-    ?line Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout4)
-				 end,
+    Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn,
+			Cpxnn, Cpynn, Cpznn],
+    Own_nodes = rpc:call(Cp3, global_group, own_nodes, []),
+    [] = (Own_nodes -- Own_nodes_should),
+    [] = (Own_nodes_should -- Own_nodes),
+
+    Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+    Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout3)
+    end,
+    Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout4)
+    end,
 
 
-    % start a proc and register it
-    ?line {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
+    %% start a proc and register it
+    {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
 
 
     %%------------------------------------
     %% Test monitor nodes
     %%------------------------------------
-    ?line Pid2 = rpc:call(Cp1, global_group, send, [{node, Cp2nn}, test2, monitor]),
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, monitor]),
+    Pid2 = rpc:call(Cp1, global_group, send, [{node, Cp2nn}, test2, monitor]),
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, monitor]),
 
 
-    % Kill node Cp1
-    ?line Pid2 = 
+    %% Kill node Cp1
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodedown, Cp1}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodedown, Cp1}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cp1),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    ct:sleep(100),
+    stop_node(Cp1),
+    ct:sleep(1000),
 
-    % Kill node Cpz
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Kill node Cpz
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodedown, Cpz}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodedown, Cpz}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cpz),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    ct:sleep(100),
+    stop_node(Cpz),
+    ct:sleep(1000),
 
-    % Restart node Cp1
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Restart node Cp1
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodeup, Cp1}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodeup, Cp1}]),
-    ?line {ok, Cp1} = start_node_no(cp1, Config),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp1nn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cp1nn]),
-    ?line wait_for_ready_net(),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    {ok, Cp1} = start_node_no(cp1, Config),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp1nn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cp1nn]),
+    wait_for_ready_net(),
 
-    % Restart node Cpz
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Restart node Cpz
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodeup, Cpz}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodeup, Cpz}]),
-    ?line {ok, Cpz} = start_node_no(cpz, Config),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cpznn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cpznn]),
-    ?line wait_for_ready_net(),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    {ok, Cpz} = start_node_no(cpz, Config),
+    pong = rpc:call(Cp2, net_adm, ping, [Cpznn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cpznn]),
+    wait_for_ready_net(),
 
-    % stop the nodes, and make sure names are released.
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% stop the nodes, and make sure names are released.
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
@@ -293,174 +286,169 @@ no_gg_proc(Config) when is_list(Config) ->
     stop_node(Cpy),
     stop_node(Cpz),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
     ok.
-    
 
 
 
-no_gg_proc_sync(suite) -> [];
-no_gg_proc_sync(doc) -> 
-    ["Start a system without global groups, but syncing the nodes by using " 
-     "sync_nodes_optional."];
+
+%% Start a system without global groups, but syncing the nodes by using
+%% sync_nodes_optional.
 no_gg_proc_sync(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "no_global_group_sync.config"),
-    ?line {ok, Fd} = file:open(File, [write]),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "no_global_group_sync.config"),
+    {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz], Config),
-    ?line config_sync(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz),
+    config_sync(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz),
 
-    ?line Cp1nn = node_at(Ncp1),
-    ?line Cp2nn = node_at(Ncp2),
-    ?line Cp3nn = node_at(Ncp3),
-    ?line Cpxnn = node_at(Ncpx),
-    ?line Cpynn = node_at(Ncpy),
-    ?line Cpznn = node_at(Ncpz),
+    Cp1nn = node_at(Ncp1),
+    Cp2nn = node_at(Ncp2),
+    Cp3nn = node_at(Ncp3),
+    Cpxnn = node_at(Ncpx),
+    Cpynn = node_at(Ncpy),
+    Cpznn = node_at(Ncpz),
 
-    ?line {ok, Cp1} = start_node_no2(Ncp1, Config),
-    ?line {ok, Cp2} = start_node_no2(Ncp2, Config),
-    ?line {ok, Cp3} = start_node_no2(Ncp3, Config),
-    ?line {ok, Cpx} = start_node_no2(Ncpx, Config),
-    ?line {ok, Cpy} = start_node_no2(Ncpy, Config),
-    ?line {ok, Cpz} = start_node_no2(Ncpz, Config),
+    {ok, Cp1} = start_node_no2(Ncp1, Config),
+    {ok, Cp2} = start_node_no2(Ncp2, Config),
+    {ok, Cp3} = start_node_no2(Ncp3, Config),
+    {ok, Cpx} = start_node_no2(Ncpx, Config),
+    {ok, Cpy} = start_node_no2(Ncpy, Config),
+    {ok, Cpz} = start_node_no2(Ncpz, Config),
 
     %% let the nodes know of each other
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp2nn]),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp3nn]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [Cpxnn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cpynn]),
-    ?line pong = rpc:call(Cpy, net_adm, ping, [Cpznn]),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp2nn]),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp3nn]),
+    pong = rpc:call(Cp3, net_adm, ping, [Cpxnn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cpynn]),
+    pong = rpc:call(Cpy, net_adm, ping, [Cpznn]),
 
-    ?line wait_for_ready_net(),
+    wait_for_ready_net(),
 
-    ?line [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
-    ?line [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
-    ?line [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
-    ?line [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}]),
-    ?line [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}]),
-    ?line [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}]),
+    [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
+    [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
+    [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
+    [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}]),
+    [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}]),
+    [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}]),
 
 
-    % start a proc and register it
-    ?line {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
+    %% start a proc and register it
+    {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
 
-    ?line RegNames = lists:sort([test2,test_server]),
+    RegNames = lists:sort([test2,test_server]),
 
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}])),
 
 
-    ?line undefined = rpc:call(Cp3, global_group, global_groups, []),
+    undefined = rpc:call(Cp3, global_group, global_groups, []),
 
-    ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
-			      Cpxnn, Cpynn, Cpznn],
-    ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line [] = (Own_nodes -- Own_nodes_should),
-    ?line [] = (Own_nodes_should -- Own_nodes),
-    
-    ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout2)
-				 end,
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout3)
-				 end,
-    ?line Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout4)
-				 end,
+    Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn,
+			Cpxnn, Cpynn, Cpznn],
+    Own_nodes = rpc:call(Cp3, global_group, own_nodes, []),
+    [] = (Own_nodes -- Own_nodes_should),
+    [] = (Own_nodes_should -- Own_nodes),
+
+    Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+    Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout3)
+    end,
+    Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout4)
+    end,
 
 
-    % start a proc and register it
-    ?line {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
+    %% start a proc and register it
+    {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
 
 
     %%------------------------------------
     %% Test monitor nodes
     %%------------------------------------
-    ?line Pid2 = rpc:call(Cp1, global_group, send, [{node, Cp2nn}, test2, monitor]),
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, monitor]),
+    Pid2 = rpc:call(Cp1, global_group, send, [{node, Cp2nn}, test2, monitor]),
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, monitor]),
 
 
-    % Kill node Cp1
-    ?line Pid2 = 
+    %% Kill node Cp1
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodedown, Cp1}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodedown, Cp1}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cp1),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    ct:sleep(100),
+    stop_node(Cp1),
+    ct:sleep(1000),
 
-    % Kill node Cpz
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Kill node Cpz
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodedown, Cpz}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodedown, Cpz}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cpz),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    ct:sleep(100),
+    stop_node(Cpz),
+    ct:sleep(1000),
 
-    % Restart node Cp1
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Restart node Cp1
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodeup, Cp1}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodeup, Cp1}]),
-    ?line {ok, Cp1} = start_node_no2(Ncp1, Config),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp1nn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cp1nn]),
-    ?line wait_for_ready_net(),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    {ok, Cp1} = start_node_no2(Ncp1, Config),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp1nn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cp1nn]),
+    wait_for_ready_net(),
 
-    % Restart node Cpz
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Restart node Cpz
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodeup, Cpz}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodeup, Cpz}]),
-    ?line {ok, Cpz} = start_node_no2(Ncpz, Config),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cpznn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cpznn]),
-    ?line wait_for_ready_net(),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    {ok, Cpz} = start_node_no2(Ncpz, Config),
+    pong = rpc:call(Cp2, net_adm, ping, [Cpznn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cpznn]),
+    wait_for_ready_net(),
 
-    % stop the nodes, and make sure names are released.
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% stop the nodes, and make sure names are released.
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
@@ -468,173 +456,168 @@ no_gg_proc_sync(Config) when is_list(Config) ->
     stop_node(Cpy),
     stop_node(Cpz),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
     ok.
-    
 
 
 
-compatible(suite) -> [];
-compatible(doc) -> 
-    ["Check that a system without global groups is compatible with the old R4 system."];
+
+%% Check that a system without global groups is compatible with the old R4 system.
 compatible(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "global_group_comp.config"),
-    ?line {ok, Fd} = file:open(File, [write]),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "global_group_comp.config"),
+    {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz], Config),
-    ?line config_comp(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz),
+    config_comp(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz),
 
-    ?line Cp1nn = node_at(Ncp1),
-    ?line Cp2nn = node_at(Ncp2),
-    ?line Cp3nn = node_at(Ncp3),
-    ?line Cpxnn = node_at(Ncpx),
-    ?line Cpynn = node_at(Ncpy),
-    ?line Cpznn = node_at(Ncpz),
+    Cp1nn = node_at(Ncp1),
+    Cp2nn = node_at(Ncp2),
+    Cp3nn = node_at(Ncp3),
+    Cpxnn = node_at(Ncpx),
+    Cpynn = node_at(Ncpy),
+    Cpznn = node_at(Ncpz),
 
-    ?line {ok, Cp1} = start_node_comp(Ncp1, Config),
-    ?line {ok, Cp2} = start_node_comp(Ncp2, Config),
-    ?line {ok, Cp3} = start_node_comp(Ncp3, Config),
-    ?line {ok, Cpx} = start_node_comp(Ncpx, Config),
-    ?line {ok, Cpy} = start_node_comp(Ncpy, Config),
-    ?line {ok, Cpz} = start_node_comp(Ncpz, Config),
+    {ok, Cp1} = start_node_comp(Ncp1, Config),
+    {ok, Cp2} = start_node_comp(Ncp2, Config),
+    {ok, Cp3} = start_node_comp(Ncp3, Config),
+    {ok, Cpx} = start_node_comp(Ncpx, Config),
+    {ok, Cpy} = start_node_comp(Ncpy, Config),
+    {ok, Cpz} = start_node_comp(Ncpz, Config),
 
     %% let the nodes know of each other
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cp2nn]),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp3nn]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [Cpxnn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cpynn]),
-    ?line pong = rpc:call(Cpy, net_adm, ping, [Cpznn]),
+    pong = rpc:call(Cp1, net_adm, ping, [Cp2nn]),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp3nn]),
+    pong = rpc:call(Cp3, net_adm, ping, [Cpxnn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cpynn]),
+    pong = rpc:call(Cpy, net_adm, ping, [Cpznn]),
 
-    ?line wait_for_ready_net(),
+    wait_for_ready_net(),
 
-    ?line [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
-    ?line [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
-    ?line [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
-    ?line [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}]),
-    ?line [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}]),
-    ?line [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}]),
+    [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
+    [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}]),
+    [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}]),
+    [test_server] = rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}]),
+    [test_server] = rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}]),
+    [test_server] = rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}]),
 
 
-    % start a proc and register it
-    ?line {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
+    %% start a proc and register it
+    {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
 
-    ?line RegNames = lists:sort([test2,test_server]),
+    RegNames = lists:sort([test2,test_server]),
 
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp2, global_group, registered_names, [{node, Cp2nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp3, global_group, registered_names, [{node, Cp3nn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp1, global_group, registered_names, [{node, Cpxnn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp2, global_group, registered_names, [{node, Cpynn}])),
-    ?line RegNames = 
+    RegNames =
 	lists:sort(
 	  rpc:call(Cp3, global_group, registered_names, [{node, Cpznn}])),
 
 
-    ?line undefined = rpc:call(Cp3, global_group, global_groups, []),
+    undefined = rpc:call(Cp3, global_group, global_groups, []),
 
-    ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
-			      Cpxnn, Cpynn, Cpznn],
-    ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line [] = (Own_nodes -- Own_nodes_should),
-    ?line [] = (Own_nodes_should -- Own_nodes),
-    
-    ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout2)
-				 end,
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout3)
-				 end,
-    ?line Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
-    ?line receive
-	      {pong, Cp2} -> ok
-				 after
-				     2000 -> test_server:fail(timeout4)
-				 end,
+    Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn,
+			Cpxnn, Cpynn, Cpznn],
+    Own_nodes = rpc:call(Cp3, global_group, own_nodes, []),
+    [] = (Own_nodes -- Own_nodes_should),
+    [] = (Own_nodes_should -- Own_nodes),
+
+    Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+    Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout3)
+    end,
+    Pid2 = rpc:call(Cpz, global_group, send, [test2, {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout4)
+    end,
 
 
-    % start a proc and register it
-    ?line {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
+    %% start a proc and register it
+    {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
 
 
     %%------------------------------------
     %% Test monitor nodes
     %%------------------------------------
-    ?line Pid2 = rpc:call(Cp1, global_group, send, [{node, Cp2nn}, test2, monitor]),
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, monitor]),
+    Pid2 = rpc:call(Cp1, global_group, send, [{node, Cp2nn}, test2, monitor]),
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, monitor]),
 
 
-    % Kill node Cp1
-    ?line Pid2 = 
+    %% Kill node Cp1
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodedown, Cp1}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodedown, Cp1}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cp1),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    ct:sleep(100),
+    stop_node(Cp1),
+    ct:sleep(1000),
 
-    % Kill node Cpz
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Kill node Cpz
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodedown, Cpz}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodedown, Cpz}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cpz),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    ct:sleep(100),
+    stop_node(Cpz),
+    ct:sleep(1000),
 
-    % Restart node Cp1
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Restart node Cp1
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodeup, Cp1}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodeup, Cp1}]),
-    ?line {ok, Cp1} = start_node_comp(Ncp1, Config),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cp1nn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cp1nn]),
-    ?line wait_for_ready_net(),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    {ok, Cp1} = start_node_comp(Ncp1, Config),
+    pong = rpc:call(Cp2, net_adm, ping, [Cp1nn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cp1nn]),
+    wait_for_ready_net(),
 
-    % Restart node Cpz
-    ?line Pid2 = 
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% Restart node Cpz
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, {wait_nodeup, Cpz}]),
-    ?line PidX = 
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, {wait_nodeup, Cpz}]),
-    ?line {ok, Cpz} = start_node_comp(Ncpz, Config),
-    ?line pong = rpc:call(Cp2, net_adm, ping, [Cpznn]),
-    ?line pong = rpc:call(Cpx, net_adm, ping, [Cpznn]),
-    ?line wait_for_ready_net(),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    {ok, Cpz} = start_node_comp(Ncpz, Config),
+    pong = rpc:call(Cp2, net_adm, ping, [Cpznn]),
+    pong = rpc:call(Cpx, net_adm, ping, [Cpznn]),
+    wait_for_ready_net(),
 
-    % stop the nodes, and make sure names are released.
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+
+    %% stop the nodes, and make sure names are released.
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
@@ -642,147 +625,137 @@ compatible(Config) when is_list(Config) ->
     stop_node(Cpy),
     stop_node(Cpz),
 
-    ?line ?UNTIL(undefined =:= global:whereis_name(test)),
-    ?line test_server:timetrap_cancel(Dog),
+    ?UNTIL(undefined =:= global:whereis_name(test)),
     ok.
-    
 
 
 
-one_grp(suite) -> [];
-one_grp(doc) -> ["Test a system with only one global group. "];
+
+%% Test a system with only one global group. .
 one_grp(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, [write]),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "global_group.config"),
+    {ok, Fd} = file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
-    ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
+    config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
-    ?line {ok, Cp1} = start_node(Ncp1, Config),
-    ?line {ok, Cp2} = start_node(Ncp2, Config),
-    ?line {ok, Cp3} = start_node(Ncp3, Config),
+    {ok, Cp1} = start_node(Ncp1, Config),
+    {ok, Cp2} = start_node(Ncp2, Config),
+    {ok, Cp3} = start_node(Ncp3, Config),
 
-    % sleep a while to make the global_group to sync...
-    test_server:sleep(1000),
+    %% sleep a while to make the global_group to sync...
+    ct:sleep(1000),
 
-    % start a proc and register it
-    ?line {Pid, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
+    %% start a proc and register it
+    {Pid, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
 
-    % test that it is registered at all nodes
-    ?line Pid = rpc:call(Cp1, global, whereis_name, [test]),
-    ?line Pid = rpc:call(Cp2, global, whereis_name, [test]),
-    ?line Pid = rpc:call(Cp3, global, whereis_name, [test]),
+    %% test that it is registered at all nodes
+    Pid = rpc:call(Cp1, global, whereis_name, [test]),
+    Pid = rpc:call(Cp2, global, whereis_name, [test]),
+    Pid = rpc:call(Cp3, global, whereis_name, [test]),
     
-    % try to register the same name
-    ?line no = rpc:call(Cp1, global, register_name, [test, self()]),
+    %% try to register the same name
+    no = rpc:call(Cp1, global, register_name, [test, self()]),
     
-    % let process exit, check that it is unregistered automatically
+    %% let process exit, check that it is unregistered automatically
     Pid ! die,
-    ?line 
-    ?UNTIL(begin
+        ?UNTIL(begin
                (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
                (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
                (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))
            end),
     
-    % test re_register
-    ?line {Pid2, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
-    ?line Pid2 = rpc:call(Cp3, global, whereis_name, [test]),    
+    %% test re_register
+    {Pid2, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
+    Pid2 = rpc:call(Cp3, global, whereis_name, [test]),
     Pid3 = rpc:call(Cp3, ?MODULE, start_proc_rereg, [test]),
-    ?line Pid3 = rpc:call(Cp3, global, whereis_name, [test]),        
+    Pid3 = rpc:call(Cp3, global, whereis_name, [test]),
 
-    % test sending
+    %% test sending
     rpc:call(Cp1, global, send, [test, {ping, self()}]),
     receive
 	{pong, Cp3} -> ok
     after
-	2000 -> test_server:fail(timeout1)
+	2000 -> ct:fail(timeout1)
     end,
 
     rpc:call(Cp3, global, send, [test, {ping, self()}]),
     receive
 	{pong, Cp3} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
-    ?line rpc:call(Cp3, global, unregister_name, [test]),    
-    ?line undefined = rpc:call(Cp1, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cp2, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cp3, global, whereis_name, [test]),
+    rpc:call(Cp3, global, unregister_name, [test]),
+    undefined = rpc:call(Cp1, global, whereis_name, [test]),
+    undefined = rpc:call(Cp2, global, whereis_name, [test]),
+    undefined = rpc:call(Cp3, global, whereis_name, [test]),
 
     Pid3 ! die,
-    ?line ?UNTIL(undefined =:= rpc:call(Cp3, global, whereis_name, [test])),
+    ?UNTIL(undefined =:= rpc:call(Cp3, global, whereis_name, [test])),
 
-    % register a proc
-    ?line {_, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
+    %% register a proc
+    {_, yes} = rpc:call(Cp3, ?MODULE, start_proc, [test]),
 
-    % stop the nodes, and make sure names are released.
+    %% stop the nodes, and make sure names are released.
     stop_node(Cp3),
 
-    ?line ?UNTIL(undefined =:= rpc:call(Cp1, global, whereis_name, [test])),
+    ?UNTIL(undefined =:= rpc:call(Cp1, global, whereis_name, [test])),
     Pid2 ! die,
 
     stop_node(Cp1),
     stop_node(Cp2),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
-    
 
 
 
 
-one_grp_x(suite) -> [];
-one_grp_x(doc) -> ["Check a system with only one global group. "
-		   "Start the nodes with different time intervals. "];
+
+%% Check a system with only one global group.
+%% Start the nodes with different time intervals.
 one_grp_x(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, [write]),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "global_group.config"),
+    {ok, Fd} = file:open(File, [write]),
     [Ncp1,Ncp2,Ncp3] = node_names([cp1, cp2, cp3], Config),
-    ?line config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
+    config(Fd, Ncp1, Ncp2, Ncp3, "cpx", "cpy", "cpz", "cpq"),
 
-    ?line {ok, Cp1} = start_node(Ncp1, Config),
-    % sleep a while to make the global_group to sync...
-    test_server:sleep(1000),
+    {ok, Cp1} = start_node(Ncp1, Config),
+    %% sleep a while to make the global_group to sync...
+    ct:sleep(1000),
 
-    % start a proc and register it
-    ?line {Pid, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
+    %% start a proc and register it
+    {Pid, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
 
-    ?line {ok, Cp2} = start_node(Ncp2, Config),
-    % sleep a while to make the global_group to sync...
-    test_server:sleep(1000),
+    {ok, Cp2} = start_node(Ncp2, Config),
+    %% sleep a while to make the global_group to sync...
+    ct:sleep(1000),
 
-    % test that it is registered at all nodes
-    ?line Pid = rpc:call(Cp1, global, whereis_name, [test]),
-    ?line Pid = rpc:call(Cp2, global, whereis_name, [test]),
+    %% test that it is registered at all nodes
+    Pid = rpc:call(Cp1, global, whereis_name, [test]),
+    Pid = rpc:call(Cp2, global, whereis_name, [test]),
 
-    ?line {ok, Cp3} = start_node(Ncp3, Config),
-    % sleep a while to make the global_group to sync...
-    test_server:sleep(1000),
+    {ok, Cp3} = start_node(Ncp3, Config),
+    %% sleep a while to make the global_group to sync...
+    ct:sleep(1000),
 
-    ?line Pid = rpc:call(Cp3, global, whereis_name, [test]),
+    Pid = rpc:call(Cp3, global, whereis_name, [test]),
     
-    % try to register the same name
-    ?line no = rpc:call(Cp1, global, register_name, [test, self()]),
+    %% try to register the same name
+    no = rpc:call(Cp1, global, register_name, [test, self()]),
     
-    % let process exit, check that it is unregistered automatically
+    %% let process exit, check that it is unregistered automatically
     Pid ! die,
-    ?line 
-    ?UNTIL(begin
+        ?UNTIL(begin
                (undefined =:= rpc:call(Cp1, global, whereis_name, [test])) and
                (undefined =:= rpc:call(Cp2, global, whereis_name, [test])) and
                (undefined =:= rpc:call(Cp3, global, whereis_name, [test]))
            end),
     
-    % test re_register
-    ?line {Pid2, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
-    ?line Pid2 = rpc:call(Cp3, global, whereis_name, [test]),    
+    %% test re_register
+    {Pid2, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
+    Pid2 = rpc:call(Cp3, global, whereis_name, [test]),
 
     Pid2 ! die,
 
@@ -790,296 +763,291 @@ one_grp_x(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
-    
 
 
 
 
 
-two_grp(suite) -> [];
-two_grp(doc) -> ["Test a two global group system. "];
+
+%% Test a two global group system. .
 two_grp(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, [write]),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "global_group.config"),
+    {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz,Ncpq] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz,cpq], Config),
-    ?line config(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz, Ncpq),
+    config(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz, Ncpq),
 
-    ?line Cp1nn = node_at(Ncp1),
-    ?line Cp2nn = node_at(Ncp2),
-    ?line Cp3nn = node_at(Ncp3),
-    ?line Cpxnn = node_at(Ncpx),
-    ?line Cpynn = node_at(Ncpy),
-    ?line Cpznn = node_at(Ncpz),
+    Cp1nn = node_at(Ncp1),
+    Cp2nn = node_at(Ncp2),
+    Cp3nn = node_at(Ncp3),
+    Cpxnn = node_at(Ncpx),
+    Cpynn = node_at(Ncpy),
+    Cpznn = node_at(Ncpz),
 
-    ?line {ok, Cp1} = start_node(Ncp1, Config),
-    ?line {ok, Cp2} = start_node(Ncp2, Config),
-    ?line {ok, Cp3} = start_node(Ncp3, Config),
-    ?line {ok, Cpx} = start_node(Ncpx, Config),
-    ?line {ok, Cpy} = start_node(Ncpy, Config),
-    ?line {ok, Cpz} = start_node(Ncpz, Config),
+    {ok, Cp1} = start_node(Ncp1, Config),
+    {ok, Cp2} = start_node(Ncp2, Config),
+    {ok, Cp3} = start_node(Ncp3, Config),
+    {ok, Cpx} = start_node(Ncpx, Config),
+    {ok, Cpy} = start_node(Ncpy, Config),
+    {ok, Cpz} = start_node(Ncpz, Config),
 
     %% The groups (cpq not started):
     %% [{nc1, [cp1,cp2,cp3]}, {nc2, [cpx,cpy,cpz]}, {nc3, [cpq]}]
 
-    % sleep a while to make the global_groups to sync...
-    test_server:sleep(1000),
+    %% sleep a while to make the global_groups to sync...
+    ct:sleep(1000),
 
-    % check the global group names
-    ?line {nc1, [nc2, nc3]} = rpc:call(Cp1, global_group, global_groups, []),
-    ?line {nc1, [nc2, nc3]} = rpc:call(Cp2, global_group, global_groups, []),
-    ?line {nc1, [nc2, nc3]} = rpc:call(Cp3, global_group, global_groups, []),
-    ?line {nc2, [nc1, nc3]} = rpc:call(Cpx, global_group, global_groups, []),
-    ?line {nc2, [nc1, nc3]} = rpc:call(Cpy, global_group, global_groups, []),
-    ?line {nc2, [nc1, nc3]} = rpc:call(Cpz, global_group, global_groups, []),
+    %% check the global group names
+    {nc1, [nc2, nc3]} = rpc:call(Cp1, global_group, global_groups, []),
+    {nc1, [nc2, nc3]} = rpc:call(Cp2, global_group, global_groups, []),
+    {nc1, [nc2, nc3]} = rpc:call(Cp3, global_group, global_groups, []),
+    {nc2, [nc1, nc3]} = rpc:call(Cpx, global_group, global_groups, []),
+    {nc2, [nc1, nc3]} = rpc:call(Cpy, global_group, global_groups, []),
+    {nc2, [nc1, nc3]} = rpc:call(Cpz, global_group, global_groups, []),
 
-    % check the global group nodes
-    ?line [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp1, global_group, own_nodes, []),
-    ?line [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp2, global_group, own_nodes, []),
-    ?line [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp3, global_group, own_nodes, []),
-    ?line [Cpxnn, Cpynn, Cpznn] = rpc:call(Cpx, global_group, own_nodes, []),
-    ?line [Cpxnn, Cpynn, Cpznn] = rpc:call(Cpy, global_group, own_nodes, []),
-    ?line [Cpxnn, Cpynn, Cpznn] = rpc:call(Cpz, global_group, own_nodes, []),
+    %% check the global group nodes
+    [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp1, global_group, own_nodes, []),
+    [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp2, global_group, own_nodes, []),
+    [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp3, global_group, own_nodes, []),
+    [Cpxnn, Cpynn, Cpznn] = rpc:call(Cpx, global_group, own_nodes, []),
+    [Cpxnn, Cpynn, Cpznn] = rpc:call(Cpy, global_group, own_nodes, []),
+    [Cpxnn, Cpynn, Cpznn] = rpc:call(Cpz, global_group, own_nodes, []),
 
 
-    % start a proc and register it
-    ?line {Pid1, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
+    %% start a proc and register it
+    {Pid1, yes} = rpc:call(Cp1, ?MODULE, start_proc, [test]),
 
-    ?line Pid1 = rpc:call(Cp1, global_group, send, [test, {io, from_cp1}]),
-    ?line Pid1 = rpc:call(Cpx, global_group, send, [test, {io, from_cpx}]),
-    ?line Pid1 = rpc:call(Cp1, global_group, send, [{group,nc1}, test, 
-                                                    {io, from_cp1}]),
-    ?line [test] = 
+    Pid1 = rpc:call(Cp1, global_group, send, [test, {io, from_cp1}]),
+    Pid1 = rpc:call(Cpx, global_group, send, [test, {io, from_cpx}]),
+    Pid1 = rpc:call(Cp1, global_group, send, [{group,nc1}, test,
+					      {io, from_cp1}]),
+    [test] =
         rpc:call(Cpx, global_group, registered_names, [{node, Cp1nn}]),
-    ?line [test] = 
+    [test] =
         rpc:call(Cpx, global_group, registered_names, [{group, nc1}]),
-    ?line [] = rpc:call(Cpx, global_group, registered_names, [{node, Cpxnn}]),
-    ?line [] = rpc:call(Cpx, global_group, registered_names, [{group, nc2}]),
-    ?line Pid1 = rpc:call(Cpx, global_group, send, [{group,nc1}, test, 
-                                                    {io, from_cp1}]),
-    ?line {badarg,{test,{io,from_cpx}}} = 
+    [] = rpc:call(Cpx, global_group, registered_names, [{node, Cpxnn}]),
+    [] = rpc:call(Cpx, global_group, registered_names, [{group, nc2}]),
+    Pid1 = rpc:call(Cpx, global_group, send, [{group,nc1}, test,
+					      {io, from_cp1}]),
+    {badarg,{test,{io,from_cpx}}} =
 	rpc:call(Cp1, global_group, send, [{group,nc2}, test, {io, from_cpx}]),
-    ?line {badarg,{test,{io,from_cpx}}} = 
+    {badarg,{test,{io,from_cpx}}} =
 	rpc:call(Cpx, global_group, send, [{group,nc2}, test, {io, from_cpx}]),
 
 
 
-    % test that it is registered at all nodes
-    ?line Pid1 = rpc:call(Cp1, global, whereis_name, [test]),
-    ?line Pid1 = rpc:call(Cp2, global, whereis_name, [test]),
-    ?line Pid1 = rpc:call(Cp3, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cpx, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cpy, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cpz, global, whereis_name, [test]),
-    
-    % start a proc and register it
-    ?line {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
+    %% test that it is registered at all nodes
+    Pid1 = rpc:call(Cp1, global, whereis_name, [test]),
+    Pid1 = rpc:call(Cp2, global, whereis_name, [test]),
+    Pid1 = rpc:call(Cp3, global, whereis_name, [test]),
+    undefined = rpc:call(Cpx, global, whereis_name, [test]),
+    undefined = rpc:call(Cpy, global, whereis_name, [test]),
+    undefined = rpc:call(Cpz, global, whereis_name, [test]),
 
-    % test that it is registered at all nodes
-    ?line Pid1 = rpc:call(Cp1, global, whereis_name, [test]),
-    ?line Pid1 = rpc:call(Cp2, global, whereis_name, [test]),
-    ?line Pid1 = rpc:call(Cp3, global, whereis_name, [test]),
-    ?line PidX = rpc:call(Cpx, global, whereis_name, [test]),
-    ?line PidX = rpc:call(Cpy, global, whereis_name, [test]),
-    ?line PidX = rpc:call(Cpz, global, whereis_name, [test]),
-    
+    %% start a proc and register it
+    {PidX, yes} = rpc:call(Cpx, ?MODULE, start_proc, [test]),
+
+    %% test that it is registered at all nodes
+    Pid1 = rpc:call(Cp1, global, whereis_name, [test]),
+    Pid1 = rpc:call(Cp2, global, whereis_name, [test]),
+    Pid1 = rpc:call(Cp3, global, whereis_name, [test]),
+    PidX = rpc:call(Cpx, global, whereis_name, [test]),
+    PidX = rpc:call(Cpy, global, whereis_name, [test]),
+    PidX = rpc:call(Cpz, global, whereis_name, [test]),
+
     Pid1 ! die,
     %% If we don't wait for global on other nodes to have updated its
     %% tables, 'test' may still be defined at the point when it is
     %% tested a few lines below.
-    ?line
-    ?UNTIL(begin 
+    ?UNTIL(begin
                Pid = rpc:call(Cp2, global, whereis_name, [test]),
                undefined =:= Pid
            end),
 
-    % start a proc and register it
-    ?line {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
+    %% start a proc and register it
+    {Pid2, yes} = rpc:call(Cp2, ?MODULE, start_proc, [test2]),
 
-    % test that it is registered at all nodes
-    ?line Pid2 = rpc:call(Cp1, global, whereis_name, [test2]),
-    ?line Pid2 = rpc:call(Cp2, global, whereis_name, [test2]),
-    ?line Pid2 = rpc:call(Cp3, global, whereis_name, [test2]),
-    ?line PidX = rpc:call(Cpx, global, whereis_name, [test]),
-    ?line PidX = rpc:call(Cpy, global, whereis_name, [test]),
-    ?line PidX = rpc:call(Cpz, global, whereis_name, [test]),
-    
-    ?line undefined = rpc:call(Cp1, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cp2, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cp3, global, whereis_name, [test]),
-    ?line undefined = rpc:call(Cpx, global, whereis_name, [test2]),
-    ?line undefined = rpc:call(Cpy, global, whereis_name, [test2]),
-    ?line undefined = rpc:call(Cpz, global, whereis_name, [test2]),
-    
+    %% test that it is registered at all nodes
+    Pid2 = rpc:call(Cp1, global, whereis_name, [test2]),
+    Pid2 = rpc:call(Cp2, global, whereis_name, [test2]),
+    Pid2 = rpc:call(Cp3, global, whereis_name, [test2]),
+    PidX = rpc:call(Cpx, global, whereis_name, [test]),
+    PidX = rpc:call(Cpy, global, whereis_name, [test]),
+    PidX = rpc:call(Cpz, global, whereis_name, [test]),
 
-    ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
+    undefined = rpc:call(Cp1, global, whereis_name, [test]),
+    undefined = rpc:call(Cp2, global, whereis_name, [test]),
+    undefined = rpc:call(Cp3, global, whereis_name, [test]),
+    undefined = rpc:call(Cpx, global, whereis_name, [test2]),
+    undefined = rpc:call(Cpy, global, whereis_name, [test2]),
+    undefined = rpc:call(Cpz, global, whereis_name, [test2]),
+
+
+    Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
+    Pid2 = rpc:call(Cp2, global_group, send, [test2, {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
-    ?line Pid2 = rpc:call(Cp3, global_group, send, [test2, {ping, self()}]),
+    Pid2 = rpc:call(Cp3, global_group, send, [test2, {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
-    end,
-
-    ?line PidX = rpc:call(Cpx, global_group, send, [test, {ping, self()}]),
-    receive
-	{pong, Cpx} -> ok
-    after
-	2000 -> test_server:fail(timeout2)
-    end,
-    ?line PidX = rpc:call(Cpy, global_group, send, [test, {ping, self()}]),
-    receive
-	{pong, Cpx} -> ok
-    after
-	2000 -> test_server:fail(timeout2)
-    end,
-    ?line PidX = rpc:call(Cpz, global_group, send, [test, {ping, self()}]),
-    receive
-	{pong, Cpx} -> ok
-    after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
-    ?line Pid2 = rpc:call(Cpx, global_group, send, [{node, Cp1nn}, test2, 
-                                                    {ping, self()}]),
+    PidX = rpc:call(Cpx, global_group, send, [test, {ping, self()}]),
     receive
-	{pong, Cp2} -> ok
+	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
-    ?line Pid2 = rpc:call(Cpy, global_group, send, [{node, Cp2nn}, test2, 
-                                                    {ping, self()}]),
+    PidX = rpc:call(Cpy, global_group, send, [test, {ping, self()}]),
     receive
-	{pong, Cp2} -> ok
+	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
-    ?line Pid2 = rpc:call(Cpz, global_group, send, [{node, Cp3nn}, test2, 
-                                                    {ping, self()}]),
+    PidX = rpc:call(Cpz, global_group, send, [test, {ping, self()}]),
     receive
-	{pong, Cp2} -> ok
+	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
 
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpznn}, test, 
-                                                    {ping, self()}]),
-    receive
-	{pong, Cpx} -> ok
-    after
-	2000 -> test_server:fail(timeout2)
-    end,
-    ?line PidX = rpc:call(Cpy, global_group, send, [{node, Cpxnn}, test, 
-                                                    {ping, self()}]),
-    receive
-	{pong, Cpx} -> ok
-    after
-	2000 -> test_server:fail(timeout2)
-    end,
-    ?line PidX = rpc:call(Cpz, global_group, send, [{node, Cpynn}, test, 
-                                                    {ping, self()}]),
-    receive
-	{pong, Cpx} -> ok
-    after
-	2000 -> test_server:fail(timeout2)
-    end,
-
-    ?line Pid2 = rpc:call(Cpx, global_group, send, [{group, nc1}, test2, 
-                                                    {ping, self()}]),
+    Pid2 = rpc:call(Cpx, global_group, send, [{node, Cp1nn}, test2,
+					      {ping, self()}]),
     receive
 	{pong, Cp2} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
     end,
-    ?line PidX = rpc:call(Cpy, global_group, send, [{group, nc2}, test, 
-                                                    {ping, self()}]),
+    Pid2 = rpc:call(Cpy, global_group, send, [{node, Cp2nn}, test2,
+					      {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+    Pid2 = rpc:call(Cpz, global_group, send, [{node, Cp3nn}, test2,
+					      {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpznn}, test,
+					      {ping, self()}]),
     receive
 	{pong, Cpx} -> ok
     after
-	2000 -> test_server:fail(timeout2)
+	2000 -> ct:fail(timeout2)
+    end,
+    PidX = rpc:call(Cpy, global_group, send, [{node, Cpxnn}, test,
+					      {ping, self()}]),
+    receive
+	{pong, Cpx} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+    PidX = rpc:call(Cpz, global_group, send, [{node, Cpynn}, test,
+					      {ping, self()}]),
+    receive
+	{pong, Cpx} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+
+    Pid2 = rpc:call(Cpx, global_group, send, [{group, nc1}, test2,
+					      {ping, self()}]),
+    receive
+	{pong, Cp2} -> ok
+    after
+	2000 -> ct:fail(timeout2)
+    end,
+    PidX = rpc:call(Cpy, global_group, send, [{group, nc2}, test,
+					      {ping, self()}]),
+    receive
+	{pong, Cpx} -> ok
+    after
+	2000 -> ct:fail(timeout2)
     end,
 
     %%------------------------------------
     %% Test monitor nodes
     %%------------------------------------
-    ?line Pid2 = 
+    Pid2 =
         rpc:call(Cp1, global_group, send, [{node, Cp2nn}, test2, monitor]),
-    ?line PidX = 
+    PidX =
         rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, monitor]),    
 
 
-    % Kill node Cp1
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, 
-                                                    {wait_nodedown, Cp1}]),
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, 
-                                                    {wait_nodedown, Cp1}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cp1),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop_nodedown),
-    ?line  PidX = 
+    %% Kill node Cp1
+    Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2,
+					      {wait_nodedown, Cp1}]),
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test,
+					      {wait_nodedown, Cp1}]),
+    ct:sleep(100),
+    stop_node(Cp1),
+    ct:sleep(1000),
+
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop_nodedown),
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, to_loop]),
 
-    % Kill node Cpz
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, 
-                                                    {wait_nodedown, Cpz}]),
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, 
-                                                    {wait_nodedown, Cpz}]),
-    ?line test_server:sleep(100),
-    ?line stop_node(Cpz),
-    ?line test_server:sleep(1000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop_nodedown),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
-    ?line Pid2 = 
+    %% Kill node Cpz
+    Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2,
+					      {wait_nodedown, Cpz}]),
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test,
+					      {wait_nodedown, Cpz}]),
+    ct:sleep(100),
+    stop_node(Cpz),
+    ct:sleep(1000),
+
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop_nodedown),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, to_loop]),
 
-    % Restart node Cp1
-    ?line [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp2, global_group, own_nodes, []),
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, 
-                                                    {wait_nodeup, Cp1}]),
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, 
-                                                    {wait_nodeup, Cp1}]),
-    ?line test_server:sleep(100),
-    ?line {ok, Cp1} = start_node(Ncp1, Config),
-    ?line test_server:sleep(5000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop_nodeup),
-    ?line PidX = 
+    %% Restart node Cp1
+    [Cp1nn, Cp2nn, Cp3nn] = rpc:call(Cp2, global_group, own_nodes, []),
+    Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2,
+					      {wait_nodeup, Cp1}]),
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test,
+					      {wait_nodeup, Cp1}]),
+    ct:sleep(100),
+    {ok, Cp1} = start_node(Ncp1, Config),
+    ct:sleep(5000),
+
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop_nodeup),
+    PidX =
 	rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, to_loop]),
 
 
-    % Restart node Cpz
-    ?line Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, 
-                                                    {wait_nodeup, Cpz}]),
-    ?line PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test, 
-                                                    {wait_nodeup, Cpz}]),
-    ?line test_server:sleep(100),
-    ?line {ok, Cpz} = start_node(Ncpz, Config),
-    ?line test_server:sleep(5000),
-    
-    ?line ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop_nodeup),
-    ?line ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
-    ?line Pid2 = 
+    %% Restart node Cpz
+    Pid2 = rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2,
+					      {wait_nodeup, Cpz}]),
+    PidX = rpc:call(Cpx, global_group, send, [{node, Cpxnn}, test,
+					      {wait_nodeup, Cpz}]),
+    ct:sleep(100),
+    {ok, Cpz} = start_node(Ncpz, Config),
+    ct:sleep(5000),
+
+    ok = assert_loop(Cp2, Cp2nn, test2, Pid2, loop_nodeup),
+    ok = assert_loop(Cpx, Cpxnn, test, PidX, loop),
+    Pid2 =
 	rpc:call(Cp2, global_group, send, [{node, Cp2nn}, test2, to_loop]),
 
 
@@ -1093,72 +1061,68 @@ two_grp(Config) when is_list(Config) ->
     stop_node(Cpy),
     stop_node(Cpz),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
-    
 
 
-hidden_groups(suite) -> [];
-hidden_groups(doc) -> ["Test hidden global groups."];
+
+%% Test hidden global groups.
 hidden_groups(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(200)),
-
-    ?line Dir = ?config(priv_dir, Config),
-    ?line File = filename:join(Dir, "global_group.config"),
-    ?line {ok, Fd} = file:open(File, [write]),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "global_group.config"),
+    {ok, Fd} = file:open(File, [write]),
 
     [Ncp1,Ncp2,Ncp3,Ncpx,Ncpy,Ncpz,Ncpq] = 
         node_names([cp1,cp2,cp3,cpx,cpy,cpz,cpq], Config),
-    ?line config_hidden(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz, Ncpq),
+    config_hidden(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz, Ncpq),
 
-    ?line {ok, Cp1} = start_node(Ncp1, Config),
-    ?line {ok, Cp2} = start_node(Ncp2, Config),
-    ?line {ok, Cp3} = start_node(Ncp3, Config),
-    ?line {ok, Cpx} = start_node(Ncpx, Config),
-    ?line {ok, Cpy} = start_node(Ncpy, Config),
-    ?line {ok, Cpz} = start_node(Ncpz, Config),
-    ?line {ok, Cpq} = start_node(Ncpq, Config),
+    {ok, Cp1} = start_node(Ncp1, Config),
+    {ok, Cp2} = start_node(Ncp2, Config),
+    {ok, Cp3} = start_node(Ncp3, Config),
+    {ok, Cpx} = start_node(Ncpx, Config),
+    {ok, Cpy} = start_node(Ncpy, Config),
+    {ok, Cpz} = start_node(Ncpz, Config),
+    {ok, Cpq} = start_node(Ncpq, Config),
 
-    % sleep a while to make the global_groups to sync...
-    test_server:sleep(1000),
+    %% sleep a while to make the global_groups to sync...
+    ct:sleep(1000),
 
-    % check the global group names
-    ?line {nc1, [nc2, nc3]} = rpc:call(Cp1, global_group, global_groups, []),
-    ?line {nc1, [nc2, nc3]} = rpc:call(Cp2, global_group, global_groups, []),
-    ?line {nc1, [nc2, nc3]} = rpc:call(Cp3, global_group, global_groups, []),
-    ?line {nc2, [nc1, nc3]} = rpc:call(Cpx, global_group, global_groups, []),
-    ?line {nc2, [nc1, nc3]} = rpc:call(Cpy, global_group, global_groups, []),
-    ?line {nc2, [nc1, nc3]} = rpc:call(Cpz, global_group, global_groups, []),
+    %% check the global group names
+    {nc1, [nc2, nc3]} = rpc:call(Cp1, global_group, global_groups, []),
+    {nc1, [nc2, nc3]} = rpc:call(Cp2, global_group, global_groups, []),
+    {nc1, [nc2, nc3]} = rpc:call(Cp3, global_group, global_groups, []),
+    {nc2, [nc1, nc3]} = rpc:call(Cpx, global_group, global_groups, []),
+    {nc2, [nc1, nc3]} = rpc:call(Cpy, global_group, global_groups, []),
+    {nc2, [nc1, nc3]} = rpc:call(Cpz, global_group, global_groups, []),
 
-    % check the global group nodes
-    ?line [Cp1, Cp2, Cp3] = rpc:call(Cp1, global_group, own_nodes, []),
-    ?line [Cp1, Cp2, Cp3] = rpc:call(Cp2, global_group, own_nodes, []),
-    ?line [Cp1, Cp2, Cp3] = rpc:call(Cp3, global_group, own_nodes, []),
-    ?line [Cpx, Cpy, Cpz] = rpc:call(Cpx, global_group, own_nodes, []),
-    ?line [Cpx, Cpy, Cpz] = rpc:call(Cpy, global_group, own_nodes, []),
-    ?line [Cpx, Cpy, Cpz] = rpc:call(Cpz, global_group, own_nodes, []),
-    ?line [Cpq]           = rpc:call(Cpq, global_group, own_nodes, []),
+    %% check the global group nodes
+    [Cp1, Cp2, Cp3] = rpc:call(Cp1, global_group, own_nodes, []),
+    [Cp1, Cp2, Cp3] = rpc:call(Cp2, global_group, own_nodes, []),
+    [Cp1, Cp2, Cp3] = rpc:call(Cp3, global_group, own_nodes, []),
+    [Cpx, Cpy, Cpz] = rpc:call(Cpx, global_group, own_nodes, []),
+    [Cpx, Cpy, Cpz] = rpc:call(Cpy, global_group, own_nodes, []),
+    [Cpx, Cpy, Cpz] = rpc:call(Cpz, global_group, own_nodes, []),
+    [Cpq]           = rpc:call(Cpq, global_group, own_nodes, []),
 
-    % Make some inter group connections
-    ?line pong = rpc:call(Cp1, net_adm, ping, [Cpx]),
-    ?line pong = rpc:call(Cpy, net_adm, ping, [Cp2]),
-    ?line pong = rpc:call(Cp3, net_adm, ping, [Cpx]),
-    ?line pong = rpc:call(Cpz, net_adm, ping, [Cp3]),
-    ?line pong = rpc:call(Cpq, net_adm, ping, [Cp1]),
-    ?line pong = rpc:call(Cpz, net_adm, ping, [Cpq]),
+    %% Make some inter group connections
+    pong = rpc:call(Cp1, net_adm, ping, [Cpx]),
+    pong = rpc:call(Cpy, net_adm, ping, [Cp2]),
+    pong = rpc:call(Cp3, net_adm, ping, [Cpx]),
+    pong = rpc:call(Cpz, net_adm, ping, [Cp3]),
+    pong = rpc:call(Cpq, net_adm, ping, [Cp1]),
+    pong = rpc:call(Cpz, net_adm, ping, [Cpq]),
 
-    % Check that no inter group connections are visible
+    %% Check that no inter group connections are visible
     NC1Nodes = lists:sort([Cp1, Cp2, Cp3]),
     NC2Nodes = lists:sort([Cpx, Cpy, Cpz]),
-    ?line NC1Nodes = lists:sort([Cp1|rpc:call(Cp1, erlang, nodes, [])]),
-    ?line NC1Nodes = lists:sort([Cp2|rpc:call(Cp2, erlang, nodes, [])]),
-    ?line NC1Nodes = lists:sort([Cp3|rpc:call(Cp3, erlang, nodes, [])]),
-    ?line NC2Nodes = lists:sort([Cpx|rpc:call(Cpx, erlang, nodes, [])]),
-    ?line NC2Nodes = lists:sort([Cpy|rpc:call(Cpy, erlang, nodes, [])]),
-    ?line NC2Nodes = lists:sort([Cpz|rpc:call(Cpz, erlang, nodes, [])]),
+    NC1Nodes = lists:sort([Cp1|rpc:call(Cp1, erlang, nodes, [])]),
+    NC1Nodes = lists:sort([Cp2|rpc:call(Cp2, erlang, nodes, [])]),
+    NC1Nodes = lists:sort([Cp3|rpc:call(Cp3, erlang, nodes, [])]),
+    NC2Nodes = lists:sort([Cpx|rpc:call(Cpx, erlang, nodes, [])]),
+    NC2Nodes = lists:sort([Cpy|rpc:call(Cpy, erlang, nodes, [])]),
+    NC2Nodes = lists:sort([Cpz|rpc:call(Cpz, erlang, nodes, [])]),
     NC12Nodes = lists:append(NC1Nodes, NC2Nodes),
-    ?line false = lists:any(fun(N) -> lists:member(N, NC12Nodes) end,
-			    rpc:call(Cpq, erlang, nodes, [])),
+    false = lists:any(fun(N) -> lists:member(N, NC12Nodes) end,
+		      rpc:call(Cpq, erlang, nodes, [])),
 
 
     stop_node(Cp1),
@@ -1169,63 +1133,68 @@ hidden_groups(Config) when is_list(Config) ->
     stop_node(Cpz),
     stop_node(Cpq),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
-    
 
-test_exit(suite) -> [];
-test_exit(doc) -> ["Checks when the search process exits. "];
+
+%% Checks when the search process exits. .
 test_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
+    NN = node_name(atom_to_list(node())),
+    Cp1nn = list_to_atom("cp1@" ++ NN),
 
-    ?line NN = node_name(atom_to_list(node())),
-    ?line Cp1nn = list_to_atom("cp1@" ++ NN),
+    {ok, Cp1} = start_node(cp1, Config),
+    {ok, Cp2} = start_node(cp2, Config),
+    {ok, Cp3} = start_node(cp3, Config),
 
-    ?line {ok, Cp1} = start_node(cp1, Config),
-    ?line {ok, Cp2} = start_node(cp2, Config),
-    ?line {ok, Cp3} = start_node(cp3, Config),
+    ct:sleep(1000),
 
-    test_server:sleep(1000),
-
-    ?line {error, illegal_function_call} = 
+    {error, illegal_function_call} =
         rpc:call(Cp1, global_group, registered_names_test, [{node, Cp1nn}]),
-    ?line {badarg,_} = 
+    {badarg,_} =
         rpc:call(Cp1, global_group, send, [king, "The message"]),
-    ?line undefined = rpc:call(Cp1, global_group, whereis_name, [king]),
+    undefined = rpc:call(Cp1, global_group, whereis_name, [king]),
 
-    % stop the nodes, and make sure names are released.
+    % make sure the search process really exits after every global_group operations
+    ProcessCount0 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    _ = rpc:call(Cp1, global_group, whereis_name, [{node, Cp1nn}, whatever_pid_name]),
+    ProcessCount1 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    _ = rpc:call(Cp1, global_group, registered_names, [{node, Cp1nn}]),
+    ProcessCount2 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    _ = rpc:call(Cp1, global_group, send, [{node, Cp1nn}, whatever_pid_name, msg]),
+    ProcessCount3 = rpc:call(Cp1, erlang, system_info, [process_count]),
+    ProcessCount0 = ProcessCount1 = ProcessCount2 = ProcessCount3,
+
+    %% stop the nodes, and make sure names are released.
     stop_node(Cp1),
     stop_node(Cp2),
     stop_node(Cp3),
 
-    % sleep to let the nodes die
-    test_server:sleep(1000),
+    %% sleep to let the nodes die
+    ct:sleep(1000),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
-    
+
 
 start_node(Name, Config) ->
     Pa=filename:dirname(code:which(?MODULE)),
-    Dir=?config(priv_dir, Config),
+    Dir=proplists:get_value(priv_dir, Config),
     ConfFile = "  -config " ++ filename:join(Dir, "global_group"),
     test_server:start_node(Name, slave, [{args, "-pa " ++ Pa ++ ConfFile}]).
 
 start_node_no(Name, Config) ->
     Pa=filename:dirname(code:which(?MODULE)),
-    Dir=?config(priv_dir, Config),
+    Dir=proplists:get_value(priv_dir, Config),
     ConfFile = "  -config " ++ filename:join(Dir, "no_global_group"),
     test_server:start_node(Name, slave, [{args, "-pa " ++ Pa ++ ConfFile}]).
 
 start_node_no2(Name, Config) ->
     Pa=filename:dirname(code:which(?MODULE)),
-    Dir=?config(priv_dir, Config),
+    Dir=proplists:get_value(priv_dir, Config),
     ConfFile = "  -config " ++ filename:join(Dir, "no_global_group_sync"),
     test_server:start_node(Name, slave, [{args, "-pa " ++ Pa ++ ConfFile}]).
 
 start_node_comp(Name, Config) ->
     Pa=filename:dirname(code:which(?MODULE)),
-    Dir=?config(priv_dir, Config),
+    Dir=proplists:get_value(priv_dir, Config),
     ConfFile = "  -config " ++ filename:join(Dir, "global_group_comp"),
     test_server:start_node(Name, slave, [{args, "-pa " ++ Pa ++ ConfFile}]).
 
@@ -1242,17 +1211,17 @@ node_name(Name, Config) ->
     lists:concat([Name,U,?testcase,U,Pid,U,U,L]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 wait_for_ready_net() ->
     Nodes = lists:sort(?NODES),
     ?UNTIL(begin
                lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
-               lists:all(fun(N) -> 
-                                 LNs = rpc:call(N, erlang, nodes, []),
-                                 Nodes =:= lists:sort([N | LNs])
-                         end, Nodes)
+		   lists:all(fun(N) ->
+				     LNs = rpc:call(N, erlang, nodes, []),
+				     Nodes =:= lists:sort([N | LNs])
+			     end, Nodes)
            end).
 
 get_known(Node) ->
@@ -1262,11 +1231,11 @@ get_known(Node) ->
 config_hidden(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz, Ncpq) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s', "
-                                                   " '~s@~s','~s@~s','~s@~s']},"
-	                     "{sync_nodes_timeout, 1000},"
-                             "{global_groups, [{nc1, hidden, ['~s@~s','~s@~s','~s@~s']}, "
-                                              "{nc2, hidden, ['~s@~s','~s@~s','~s@~s']}, "
-	                                      "{nc3, normal, ['~s@~s']}]} ] }]. ~n",
+	      " '~s@~s','~s@~s','~s@~s']},"
+	      "{sync_nodes_timeout, 1000},"
+	      "{global_groups, [{nc1, hidden, ['~s@~s','~s@~s','~s@~s']}, "
+	      "{nc2, hidden, ['~s@~s','~s@~s','~s@~s']}, "
+	      "{nc3, normal, ['~s@~s']}]} ] }]. ~n",
 	      [Ncp1, M, Ncp2, M, Ncp3, M,  
                Ncpx, M, Ncpy, M, Ncpz, M, 
                Ncp1, M, Ncp2, M, Ncp3, M,  
@@ -1276,11 +1245,11 @@ config_hidden(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz, Ncpq) ->
 config(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz, Ncpq) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s', "
-                                                   " '~s@~s','~s@~s','~s@~s']},"
-	          "{sync_nodes_timeout, 1000},"
-                  "{global_groups, [{nc1, ['~s@~s','~s@~s','~s@~s']}, "
-                                " {nc2, ['~s@~s','~s@~s','~s@~s']}, "
-	                         "{nc3, ['~s@~s']}]} ] }]. ~n",
+	      " '~s@~s','~s@~s','~s@~s']},"
+	      "{sync_nodes_timeout, 1000},"
+	      "{global_groups, [{nc1, ['~s@~s','~s@~s','~s@~s']}, "
+	      " {nc2, ['~s@~s','~s@~s','~s@~s']}, "
+	      "{nc3, ['~s@~s']}]} ] }]. ~n",
 	      [Ncp1, M, Ncp2, M, Ncp3, M,  
                Ncpx, M, Ncpy, M, Ncpz, M, 
                Ncp1, M, Ncp2, M, Ncp3, M,  
@@ -1293,9 +1262,9 @@ config_no(Fd) ->
 config_sync(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s', "
-                                                   " '~s@~s','~s@~s','~s@~s']},"
-	          "{sync_nodes_timeout, 1000},"
-                  "{global_groups, []} ] }] .~n",
+	      " '~s@~s','~s@~s','~s@~s']},"
+	      "{sync_nodes_timeout, 1000},"
+	      "{global_groups, []} ] }] .~n",
 	      [Ncp1, M, Ncp2, M, Ncp3, M,  
                Ncpx, M, Ncpy, M, Ncpz, M]).
 
@@ -1303,8 +1272,8 @@ config_sync(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz) ->
 config_comp(Fd, Ncp1, Ncp2, Ncp3, Ncpx, Ncpy, Ncpz) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s', "
-                                                   " '~s@~s','~s@~s','~s@~s']},"
-	          "{sync_nodes_timeout, 1000} ] }] .~n",
+	      " '~s@~s','~s@~s','~s@~s']},"
+	      "{sync_nodes_timeout, 1000} ] }] .~n",
 	      [Ncp1, M, Ncp2, M, Ncp3, M,  
                Ncpx, M, Ncpy, M, Ncpz, M]).
 
@@ -1325,7 +1294,7 @@ start_proc(Name) ->
     receive
 	{Pid, Res} -> {Pid, Res}
     end.
-    
+
 start_proc_rereg(Name) ->
     Pid = spawn(?MODULE, init2, [self(), Name]),
     receive
@@ -1437,9 +1406,9 @@ assert_loop(Cp, CpName, Name, NamePid, Loop) ->
         Loop ->
             ok;
         Other1 ->
-            test_server:fail(Other1)
+            ct:fail(Other1)
     after 5000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end.
 
 loop_until_true(Fun) ->

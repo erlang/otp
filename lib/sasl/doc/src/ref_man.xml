@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,7 +35,6 @@
   </description>
   <xi:include href="sasl_app.xml"/>
   <xi:include href="alarm_handler.xml"/>
-  <xi:include href="overload.xml"/>
   <xi:include href="rb.xml"/>
   <xi:include href="release_handler.xml"/>
   <xi:include href="systools.xml"/>

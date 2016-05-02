@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ renumber_labels([{bif,is_record,{f,_},
     renumber_labels(Is, Acc, St);
 renumber_labels([{test,is_record,{f,_}=Fail,
 		  [Term,{atom,Tag}=TagAtom,{integer,Arity}]}|Is0], Acc, St) ->
-    Tmp = {x,1023},
+    Tmp = {x,1022},
     Is = case is_record_tuple(Term, Tag, Arity) of
 	     yes ->
 		 Is0;
@@ -190,17 +190,11 @@ replace([{test,Test,{f,Lbl},Ops}|Is], Acc, D) ->
 replace([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Live,Ops,Dst}|Acc], D);
 replace([{select,I,R,{f,Fail0},Vls0}|Is], Acc, D) ->
-    Vls1 = map(fun ({f,L}) -> {f,label(L, D)};
-		   (Other) -> Other end, Vls0),
+    Vls = map(fun ({f,L}) -> {f,label(L, D)};
+		   (Other) -> Other
+	      end, Vls0),
     Fail = label(Fail0, D),
-    case redundant_values(Vls1, Fail, []) of
-	[] ->
-	    %% Oops, no choices left. The loader will not accept that.
-	    %% Convert to a plain jump.
-	    replace(Is, [{jump,{f,Fail}}|Acc], D);
-	Vls ->
-	    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D)
-    end;
+    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D);
 replace([{'try',R,{f,Lbl}}|Is], Acc, D) ->
     replace(Is, [{'try',R,{f,label(Lbl, D)}}|Acc], D);
 replace([{'catch',R,{f,Lbl}}|Is], Acc, D) ->
@@ -241,12 +235,6 @@ label(Old, D) ->
 	{value,Val} -> Val;
 	none -> throw({error,{undefined_label,Old}})
     end.
-	    
-redundant_values([_,{f,Fail}|Vls], Fail, Acc) ->
-    redundant_values(Vls, Fail, Acc);
-redundant_values([Val,Lbl|Vls], Fail, Acc) ->
-    redundant_values(Vls, Fail, [Lbl,Val|Acc]);
-redundant_values([], _, Acc) -> reverse(Acc).
 
 %%%
 %%% Final fixup of bs_start_match2/5,bs_save2/bs_restore2 instructions for

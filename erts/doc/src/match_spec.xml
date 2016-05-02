@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -287,7 +287,7 @@
         can <em>not</em> be one of the atoms <c><![CDATA[all]]></c>, <c><![CDATA[new]]></c> or 
         <c><![CDATA[existing]]></c> (unless, of course, they are registered names).
         <c><![CDATA[P2]]></c> can <em>not</em> be <c><![CDATA[cpu_timestamp]]></c> nor
-        <c><![CDATA[{tracer,_}]]></c>.
+        <c><![CDATA[tracer]]></c>.
         Returns <c><![CDATA[true]]></c> and may only be used in
         the <c><![CDATA[MatchBody]]></c> part when tracing.
         </p>
@@ -298,7 +298,7 @@
         be either a process identifier or a registered name and is given
         as the first argument to the match_spec function. 
         <c><![CDATA[P2]]></c> can <em>not</em> be <c><![CDATA[cpu_timestamp]]></c> nor
-        <c><![CDATA[{tracer,_}]]></c>. Returns
+        <c><![CDATA[tracer]]></c>. Returns
         <c><![CDATA[true]]></c> and may only be used in the <c><![CDATA[MatchBody]]></c> part
         when tracing.
         </p>
@@ -308,11 +308,14 @@
         disable list is applied first, but effectively all changes
         are applied atomically. The trace flags
         are the same as for <c><![CDATA[erlang:trace/3]]></c> not including
-        <c><![CDATA[cpu_timestamp]]></c> but including <c><![CDATA[{tracer,_}]]></c>. If a
+        <c><![CDATA[cpu_timestamp]]></c> but including <c><![CDATA[tracer]]></c>. If a
         tracer is specified in both lists, the tracer in the 
         enable list takes precedence. If no tracer is specified the
         same tracer as the process executing the match spec is 
-        used. With three parameters to this function the first is 
+        used. When using a <seealso marker="erl_tracer">tracer module</seealso>
+        the module has to be loaded before the match specification is executed.
+        If it is not loaded the match will fail.
+        With three parameters to this function the first is
         either a process identifier or the registered name of a
         process to set trace flags on, the second is the disable
         list, and the third is the enable list. Returns
@@ -525,7 +528,7 @@
   </section>
 
   <section>
-    <title>Examples</title>
+    <title>ETS Examples</title>
     <p>Match an argument list of three where the first and third arguments 
       are equal:</p>
     <code type="none"><![CDATA[
@@ -615,6 +618,45 @@
     ]]></code>
     <p>The function <c><![CDATA[ets:test_ms/2]]></c> can be useful for testing
       complicated ets matches.</p>
+  </section>
+  <section>
+    <title>Tracing Examples</title>
+    <p>Only generate trace message if trace control word is set to 1:</p>
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{get_tcw},{const, 1}}],
+  []}]
+    ]]></code>
+    <p>Only generate trace message if there is a seq trace token:</p>
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{is_seq_trace},{const, 1}}],
+  []}]
+    ]]></code>
+    <p>Remove 'silent' trace flag when first argument is 'verbose'
+    and add it when it is 'silent':</p>
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{hd, '$1'},verbose}],
+  [{trace, [silent],[]}]},
+ {'$1',
+  [{'==',{hd, '$1'},silent}],
+  [{trace, [],[silent]}]}]
+    ]]></code>
+    <p>Add return_trace message if function is of arity 3:</p>
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{length, '$1'},3}],
+  [{return_trace}]},
+ {'_',[],[]}]
+    ]]></code>
+    <p>Only generate trace message if function is of arity 3 and first argument is 'trace':</p>
+    <code type="none"><![CDATA[
+[{['trace','$2','$3'],
+  [],
+  []},
+ {'_',[],[]}]
+    ]]></code>
   </section>
 </chapter>
 

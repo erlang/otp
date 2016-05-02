@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -90,8 +90,9 @@
       a process terminates with an unexpected reason, which is any reason 
       other than <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.
       Processes using behaviors
-      <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso> or 
-      <seealso marker="stdlib:gen_fsm"><c>gen_fsm</c></seealso> 
+      <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>,
+      <seealso marker="stdlib:gen_fsm"><c>gen_fsm</c></seealso> or
+      <seealso marker="stdlib:gen_statem"><c>gen_statem</c></seealso>
       are examples of such processes. A crash report contains the following items:</p>
     <taglist>
       <tag><c>Crasher</c></tag>

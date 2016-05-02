@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2013. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ MODULES =  \
 	beam_asm \
 	beam_block \
 	beam_bool \
+	beam_bs \
 	beam_bsm \
 	beam_clean \
 	beam_dead \
@@ -62,6 +63,7 @@ MODULES =  \
 	beam_opcodes \
 	beam_peep \
 	beam_receive \
+	beam_reorder \
 	beam_split \
 	beam_trim \
 	beam_type \

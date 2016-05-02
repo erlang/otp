@@ -18,7 +18,7 @@ rec_api.erl:104: Matching of pattern {'r2', 10} tagged with a record name violat
 rec_api.erl:113: The attempt to match a term of type #r3{f1::queue:queue(_)} against the pattern {'r3', 'a'} breaks the opaqueness of queue:queue(_)
 rec_api.erl:118: Record construction #r3{f1::10} violates the declared type of field f1::queue:queue(_)
 rec_api.erl:123: The attempt to match a term of type #r3{f1::10} against the pattern {'r3', 10} breaks the opaqueness of queue:queue(_)
-rec_api.erl:24: Record construction #r1{f1::10} violates the declared type of field f1::'undefined' | rec_api:a()
+rec_api.erl:24: Record construction #r1{f1::10} violates the declared type of field f1::rec_api:a()
 rec_api.erl:29: Matching of pattern {'r1', 10} tagged with a record name violates the declared type of #r1{f1::10}
 rec_api.erl:33: The attempt to match a term of type rec_adt:r1() against the pattern {'r1', 'a'} breaks the opaqueness of the term
 rec_api.erl:35: Invalid type specification for function rec_api:adt_t1/1. The success typing is (#r1{f1::'a'}) -> #r1{f1::'a'}
@@ -70,8 +70,8 @@ simple1_api.erl:478: The call 'foo':A(A::simple1_adt:a()) breaks the opaqueness 
 simple1_api.erl:486: The call A:'foo'(A::simple1_adt:a()) breaks the opaqueness of the term A :: simple1_adt:a()
 simple1_api.erl:499: The call 'foo':A(A::simple1_api:i()) requires that A is of type atom() not simple1_api:i()
 simple1_api.erl:503: The call 'foo':A(A::simple1_adt:i()) requires that A is of type atom() not simple1_adt:i()
-simple1_api.erl:507: The call A:'foo'(A::simple1_api:i()) requires that A is of type atom() | tuple() not simple1_api:i()
-simple1_api.erl:511: The call A:'foo'(A::simple1_adt:i()) requires that A is of type atom() | tuple() not simple1_adt:i()
+simple1_api.erl:507: The call A:'foo'(A::simple1_api:i()) requires that A is of type atom() not simple1_api:i()
+simple1_api.erl:511: The call A:'foo'(A::simple1_adt:i()) requires that A is of type atom() not simple1_adt:i()
 simple1_api.erl:519: Guard test A::simple1_adt:d2() == B::simple1_adt:d1() contains opaque terms as 1st and 2nd arguments
 simple1_api.erl:534: Guard test A::simple1_adt:d1() >= 3 contains an opaque term as 1st argument
 simple1_api.erl:536: Guard test A::simple1_adt:d1() == 3 contains an opaque term as 1st argument

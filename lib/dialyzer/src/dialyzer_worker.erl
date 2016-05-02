@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,20 +21,20 @@
 
 -module(dialyzer_worker).
 
--export([launch/4, sequential/4]).
+-export([launch/4]).
 
 -export_type([worker/0]).
 
--type worker() :: pid(). %%opaque
+-opaque worker() :: pid().
 
 -type mode()        :: dialyzer_coordinator:mode().
 -type coordinator() :: dialyzer_coordinator:coordinator().
 -type init_data()   :: dialyzer_coordinator:init_data().
--type result()      :: dialyzer_coordinator:result().
+-type job()         :: dialyzer_coordinator:job().
 
 -record(state, {
 	  mode             :: mode(),
-	  job              :: mfa_or_funlbl() | file:filename(),
+	  job              :: job(),
 	  coordinator      :: coordinator(),
 	  init_data        :: init_data(),
 	  depends_on  = [] :: list()
@@ -52,23 +52,28 @@
 
 %%--------------------------------------------------------------------
 
--spec launch(mode(), [mfa_or_funlbl()], init_data(), coordinator()) -> worker().
+-spec launch(mode(), job(), init_data(), coordinator()) -> worker().
 
 launch(Mode, Job, InitData, Coordinator) ->
   State = #state{mode        = Mode,
 		 job         = Job,
 		 init_data   = InitData,
 		 coordinator = Coordinator},
-  InitState =
-    case Mode of
-      X when X =:= 'typesig'; X =:= 'dataflow' -> initializing;
-      X when X =:= 'compile'; X =:= 'warnings' -> running
-    end,
-  spawn_link(fun() -> loop(InitState, State) end).
+  spawn_link(fun() -> init(State) end).
 
 %%--------------------------------------------------------------------
 
-loop(updating, State) ->
+init(#state{job = SCC, mode = Mode, init_data = InitData} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+  DependsOn = dialyzer_succ_typings:find_depends_on(SCC, InitData),
+  ?debug("Deps ~p: ~p\n",[SCC, DependsOn]),
+  loop(updating, State#state{depends_on = DependsOn});
+init(#state{mode = Mode} = State) when
+    Mode =:= 'compile'; Mode =:= 'warnings' ->
+  loop(running, State).
+
+loop(updating, #state{mode = Mode} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
   ?debug("Update: ~p\n",[State#state.job]),
   NextStatus =
     case waits_more_success_typings(State) of
@@ -76,16 +81,13 @@ loop(updating, State) ->
       false -> running
     end,
   loop(NextStatus, State);
-loop(initializing, #state{job = SCC, init_data = InitData} = State) ->
-  DependsOn = dialyzer_succ_typings:find_depends_on(SCC, InitData),
-  ?debug("Deps ~p: ~p\n",[State#state.job, DependsOn]),
-  loop(updating, State#state{depends_on = DependsOn});
-loop(waiting, State) ->
+loop(waiting, #state{mode = Mode} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
   ?debug("Wait: ~p\n",[State#state.job]),
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
 loop(running, #state{mode = 'compile'} = State) ->
-  dialyzer_coordinator:wait_activation(),
+  dialyzer_coordinator:request_activation(State#state.coordinator),
   ?debug("Compile: ~s\n",[State#state.job]),
   Result =
     case start_compilation(State) of
@@ -97,7 +99,7 @@ loop(running, #state{mode = 'compile'} = State) ->
     end,
   report_to_coordinator(Result, State);
 loop(running, #state{mode = 'warnings'} = State) ->
-  dialyzer_coordinator:wait_activation(),
+  dialyzer_coordinator:request_activation(State#state.coordinator),
   ?debug("Warning: ~s\n",[State#state.job]),
   Result = collect_warnings(State),
   report_to_coordinator(Result, State);
@@ -168,23 +170,4 @@ continue_compilation(Label, Data) ->
   dialyzer_analysis_callgraph:continue_compilation(Label, Data).
 
 collect_warnings(#state{job = Job, init_data = InitData}) ->
-  dialyzer_succ_typings:collect_warnings(Job, InitData).
-
-%%------------------------------------------------------------------------------
-
--type extra() :: label() | 'unused'.
-
--spec sequential(mode(), [mfa_or_funlbl()], init_data(), extra()) -> result().
-
-sequential('compile', Job, InitData, Extra) ->
-  case dialyzer_analysis_callgraph:start_compilation(Job, InitData) of
-    {ok, EstimatedSize, Data} ->
-      {EstimatedSize, continue_compilation(Extra, Data)};
-    {error, _Reason} = Error -> {0, Error}
-  end;
-sequential('typesig', Job, InitData, _Extra) ->
-  dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
-sequential('dataflow', Job, InitData, _Extra) ->
-  dialyzer_succ_typings:refine_one_module(Job, InitData);
-sequential('warnings', Job, InitData, _Extra) ->
   dialyzer_succ_typings:collect_warnings(Job, InitData).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -655,10 +655,6 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
     Start = filename:join([InstallDir,bin,start]),
     {ok,Node} = start_node(Start,FromVsn,FromAppsVsns),
 
-    %% Add path to this module, to allow calls to get_appup/2
-    Dir = filename:dirname(code:which(?MODULE)),
-    _ = rpc:call(Node,code,add_pathz,[Dir]),
-
     ct:log("Node started: ~p",[Node]),
     CtData = #ct_data{from = [{A,V,code:lib_dir(A)} || {A,V} <- FromAppsVsns],
 		      to=[{A,V,code:lib_dir(A)} || {A,V} <- ToAppsVsns]},
@@ -766,7 +762,7 @@ create_relfile(AppsVsns,CreateDir,RelName0,RelVsn) ->
     %% Should test tools really be included? Some library functions
     %% here could be used by callback, but not everything since
     %% processes of these applications will not be running.
-    TestToolAppsVsns0 = get_vsns([test_server,common_test]),
+    TestToolAppsVsns0 = get_vsns([common_test]),
     TestToolAppsVsns =
 	[{A,V,none} || {A,V} <- TestToolAppsVsns0,
 		       false == lists:keymember(A,1,AllAppsVsns0)],

@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,13 +126,19 @@ butlast([H|T]) -> [H|butlast(T)].
 
 constraints_to_string([]) ->
   "";
-constraints_to_string([{type, _, constraint, [{atom, _, What}, Types]}]) ->
-  atom_to_list(What) ++ "(" ++
-    sequence([erl_types:t_form_to_string(T) || T <- Types], ",") ++ ")";
 constraints_to_string([{type, _, constraint, [{atom, _, What}, Types]}|Rest]) ->
-  atom_to_list(What) ++ "(" ++
-    sequence([erl_types:t_form_to_string(T) || T <- Types], ",")
-    ++ "), " ++ constraints_to_string(Rest).
+  S = constraint_to_string(What, Types),
+  case Rest of
+    [] -> S;
+    _ -> S ++ ", " ++ constraints_to_string(Rest)
+  end.
+
+constraint_to_string(is_subtype, [{var, _, Var}, T]) ->
+  atom_to_list(Var) ++ " :: " ++ erl_types:t_form_to_string(T);
+constraint_to_string(What, Types) ->
+  atom_to_list(What) ++ "("
+    ++ sequence([erl_types:t_form_to_string(T) || T <- Types], ",")
+    ++ ")".
 
 sequence([], _Delimiter) -> "";
 sequence([H], _Delimiter) -> H;
@@ -161,8 +167,7 @@ process_contract_remote_types(CodeServer) ->
   dialyzer_codeserver:finalize_contracts(NewContractDict, NewCallbackDict,
 					 CodeServer).
 
--type opaques() :: [erl_types:erl_type()] | 'universe'.
--type opaques_fun() :: fun((module()) -> opaques()).
+-type opaques_fun() :: fun((module()) -> [erl_types:erl_type()]).
 
 -type fun_types() :: dict:dict(label(), erl_types:type_table()).
 
@@ -272,20 +277,25 @@ check_extraneous_1(Contract, SuccType) ->
   case [CR || CR <- CRngs,
               erl_types:t_is_none(erl_types:t_inf(CR, STRng))] of
     [] ->
-      CRngList = list_part(CRng),
-      STRngList = list_part(STRng),
-      case is_not_nil_list(CRngList) andalso is_not_nil_list(STRngList) of
-        false -> ok;
-        true ->
-          CRngElements = erl_types:t_list_elements(CRngList),
-          STRngElements = erl_types:t_list_elements(STRngList),
-          Inf = erl_types:t_inf(CRngElements, STRngElements),
-          case erl_types:t_is_none(Inf) of
-            true -> {error, invalid_contract};
-            false -> ok
-          end
+      case bad_extraneous_list(CRng, STRng)
+	orelse bad_extraneous_map(CRng, STRng)
+      of
+	true -> {error, invalid_contract};
+	false -> ok
       end;
     CRs -> {error, {extra_range, erl_types:t_sup(CRs), STRng}}
+  end.
+
+bad_extraneous_list(CRng, STRng) ->
+  CRngList = list_part(CRng),
+  STRngList = list_part(STRng),
+  case is_not_nil_list(CRngList) andalso is_not_nil_list(STRngList) of
+    false -> false;
+    true ->
+      CRngElements = erl_types:t_list_elements(CRngList),
+      STRngElements = erl_types:t_list_elements(STRngList),
+      Inf = erl_types:t_inf(CRngElements, STRngElements),
+      erl_types:t_is_none(Inf)
   end.
 
 list_part(Type) ->
@@ -293,6 +303,18 @@ list_part(Type) ->
 
 is_not_nil_list(Type) ->
   erl_types:t_is_list(Type) andalso not erl_types:t_is_nil(Type).
+
+bad_extraneous_map(CRng, STRng) ->
+  CRngMap = map_part(CRng),
+  STRngMap = map_part(STRng),
+  (not is_empty_map(CRngMap)) andalso (not is_empty_map(STRngMap))
+    andalso is_empty_map(erl_types:t_inf(CRngMap, STRngMap)).
+
+map_part(Type) ->
+  erl_types:t_inf(erl_types:t_map(), Type).
+
+is_empty_map(Type) ->
+  erl_types:t_is_equal(Type, erl_types:t_from_term(#{})).
 
 %% This is the heart of the "range function"
 -spec process_contracts([contract_pair()], [erl_types:erl_type()]) ->

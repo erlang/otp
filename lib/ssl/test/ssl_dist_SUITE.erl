@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -194,7 +194,7 @@ payload(Config) when is_list(Config) ->
 	     ok = apply_on_ssl_node(
 		    NH2,
 		    fun () ->
-			    Msg = crypto:rand_bytes(100000),
+			    Msg = crypto:strong_rand_bytes(100000),
 			    SslPid ! {self(), Msg},
 			    receive
 				{SslPid, Msg} ->

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -954,18 +954,23 @@ public class OtpInputStream extends ByteArrayInputStream {
 
         tag = read1skip_version();
 
-        if (tag != OtpExternal.pidTag) {
+        if (tag != OtpExternal.pidTag &&
+	    tag != OtpExternal.newPidTag) {
             throw new OtpErlangDecodeException(
                     "Wrong tag encountered, expected " + OtpExternal.pidTag
+		    + " or " + OtpExternal.newPidTag
                             + ", got " + tag);
         }
 
         node = read_atom();
-        id = read4BE() & 0x7fff; // 15 bits
-        serial = read4BE() & 0x1fff; // 13 bits
-        creation = read1() & 0x03; // 2 bits
+        id = read4BE();
+        serial = read4BE();
+	if (tag == OtpExternal.pidTag)
+	    creation = read1();
+	else
+	    creation = read4BE();
 
-        return new OtpErlangPid(node, id, serial, creation);
+        return new OtpErlangPid(tag, node, id, serial, creation);
     }
 
     /**
@@ -984,17 +989,22 @@ public class OtpInputStream extends ByteArrayInputStream {
 
         tag = read1skip_version();
 
-        if (tag != OtpExternal.portTag) {
+        if (tag != OtpExternal.portTag &&
+	    tag != OtpExternal.newPortTag) {
             throw new OtpErlangDecodeException(
                     "Wrong tag encountered, expected " + OtpExternal.portTag
+		    + " or " + OtpExternal.newPortTag
                             + ", got " + tag);
         }
 
         node = read_atom();
-        id = read4BE() & 0xfffffff; // 28 bits
-        creation = read1() & 0x03; // 2 bits
+        id = read4BE();
+	if (tag == OtpExternal.portTag)
+	    creation = read1();
+	else
+	    creation = read4BE();
 
-        return new OtpErlangPort(node, id, creation);
+        return new OtpErlangPort(tag, node, id, creation);
     }
 
     /**
@@ -1021,16 +1031,23 @@ public class OtpInputStream extends ByteArrayInputStream {
             return new OtpErlangRef(node, id, creation);
 
         case OtpExternal.newRefTag:
+        case OtpExternal.newerRefTag:
             final int arity = read2BE();
+            if (arity > 3) {
+		throw new OtpErlangDecodeException(
+		    "Ref arity " + arity + " too large ");
+	    }
             node = read_atom();
-            creation = read1() & 0x03; // 2 bits
+	    if (tag == OtpExternal.newRefTag)
+		creation = read1();
+	    else
+		creation = read4BE();
 
             final int[] ids = new int[arity];
             for (int i = 0; i < arity; i++) {
                 ids[i] = read4BE();
             }
-            ids[0] &= 0x3ffff; // first id gets truncated to 18 bits
-            return new OtpErlangRef(node, ids, creation);
+            return new OtpErlangRef(tag, node, ids, creation);
 
         default:
             throw new OtpErlangDecodeException(
@@ -1200,15 +1217,18 @@ public class OtpInputStream extends ByteArrayInputStream {
 
         case OtpExternal.refTag:
         case OtpExternal.newRefTag:
+        case OtpExternal.newerRefTag:
             return new OtpErlangRef(this);
 
         case OtpExternal.mapTag:
             return new OtpErlangMap(this);
 
         case OtpExternal.portTag:
+        case OtpExternal.newPortTag:
             return new OtpErlangPort(this);
 
         case OtpExternal.pidTag:
+        case OtpExternal.newPidTag:
             return new OtpErlangPid(this);
 
         case OtpExternal.stringTag:

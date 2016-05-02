@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,11 +91,6 @@ const int etp_arch_bits = 32;
 #else
 # error "Not 64-bit, nor 32-bit arch"
 #endif
-#if HALFWORD_HEAP
-const int etp_halfword = 1;
-#else
-const int etp_halfword = 0;
-#endif
 #ifdef HIPE
 const int etp_hipe = 1;
 #else
@@ -157,7 +152,7 @@ volatile int erts_writing_erl_crash_dump = 0;
 int erts_initialized = 0;
 
 #if defined(USE_THREADS) && !defined(ERTS_SMP)
-static erts_tid_t main_thread;
+erts_tid_t erts_main_thread;
 #endif
 
 int erts_use_sender_punish;
@@ -197,7 +192,7 @@ Uint32 verbose;             /* See erl_debug.h for information about verbose */
 
 int erts_atom_table_size = ATOM_LIMIT;	/* Maximum number of atoms */
 
-int erts_pd_initial_size = 10;
+int erts_pd_initial_size = 8;  /* must be power of 2 */
 
 int erts_modified_timing_level;
 
@@ -393,11 +388,13 @@ erl_init(int ncpu,
     erts_mseg_late_init(); /* Must be after timer (erts_init_time()) and thread
 			      initializations */
 #endif
+    erl_sys_late_init();
 #ifdef HIPE
     hipe_mode_switch_init(); /* Must be after init_load/beam_catches/init */
 #endif
     packet_parser_init();
     erl_nif_init();
+    erts_msacc_init();
 }
 
 static Eterm
@@ -436,12 +433,35 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     hp += 2;
     args = CONS(hp, env, args);
 
-    so.flags = SPO_SYSTEM_PROC;
+    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
     res = erl_create_process(&parent, start_mod, am_start, args, &so);
     erts_smp_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
     erts_cleanup_empty_process(&parent);
     return res;
 }
+
+static Eterm
+erl_system_process_otp(Eterm parent_pid, char* modname)
+{
+    Eterm start_mod;
+    Process* parent;
+    ErlSpawnOpts so;
+    Eterm res;
+
+    start_mod = erts_atom_put((byte *) modname, sys_strlen(modname), ERTS_ATOM_ENC_LATIN1, 1);
+    if (erts_find_function(start_mod, am_start, 0,
+			   erts_active_code_ix()) == NULL) {
+	erts_exit(ERTS_ERROR_EXIT, "No function %s:start/0\n", modname);
+    }
+
+    parent = erts_pid2proc(NULL, 0, parent_pid, ERTS_PROC_LOCK_MAIN);
+
+    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
+    res = erl_create_process(parent, start_mod, am_start, NIL, &so);
+    erts_smp_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
+    return res;
+}
+
 
 Eterm
 erts_preloaded(Process* p)
@@ -635,6 +655,8 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-W<i|w|e>      set error logger warnings mapping,\n");
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
+    erts_fprintf(stderr, "-xmqd  val     set default message queue data flag for processes,\n");
+    erts_fprintf(stderr, "               valid values are: off_heap | on_heap | mixed\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
     erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds\n");
@@ -723,6 +745,10 @@ early_init(int *argc, char **argv) /*
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
 
+#if defined(USE_THREADS) && !defined(ERTS_SMP)
+    erts_main_thread = erts_thr_self();
+#endif
+
     erts_save_emu_args(*argc, argv);
 
     erts_sched_compact_load = 1;
@@ -776,9 +802,6 @@ early_init(int *argc, char **argv) /*
 			       (erts_aint32_t) ((Uint16) -1));
 
     erts_pre_init_process();
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-    main_thread = erts_thr_self();
-#endif
 
     /*
      * We need to know the number of schedulers to use before we
@@ -1172,6 +1195,7 @@ early_init(int *argc, char **argv) /*
 	erts_thr_late_init(&elid);
     }
 #endif
+    erts_msacc_early_init();
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_late_init();
@@ -1236,6 +1260,7 @@ erl_start(int argc, char **argv)
     ErtsTimeWarpMode time_warp_mode;
     int node_tab_delete_delay = ERTS_NODE_TAB_DELAY_GC_DEFAULT;
     ErtsDbSpinCount db_spin_count = ERTS_DB_SPNCNT_NORMAL;
+    Eterm otp_ring0_pid;
 
     set_default_time_adj(&time_correction,
 			 &time_warp_mode);
@@ -1405,6 +1430,7 @@ erl_start(int argc, char **argv)
 		    case 't': verbose |= DEBUG_THREADS; break;
 		    case 'p': verbose |= DEBUG_PROCESSES; break;
 		    case 'm': verbose |= DEBUG_MESSAGES; break;
+		    case 'c': verbose |= DEBUG_SHCOPY; break;
 		    default : erts_fprintf(stderr,"Unknown verbose option: %c\n",*ch);
 		    }
 		}
@@ -1417,6 +1443,7 @@ erl_start(int argc, char **argv)
 	    if (verbose & DEBUG_THREADS) erts_printf("THREADS ");
 	    if (verbose & DEBUG_PROCESSES) erts_printf("PROCESSES ");
 	    if (verbose & DEBUG_MESSAGES) erts_printf("MESSAGES ");
+	    if (verbose & DEBUG_SHCOPY) erts_printf("SHCOPY ");
             erts_printf("\n");
 #else
 	    erts_fprintf(stderr, "warning: -v (only in debug compiled code)\n");
@@ -1479,7 +1506,7 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM, ("using minimum heap size %d\n", H_MIN_SIZE));
 	    } else if (has_prefix("pds", sub_param)) {
 		arg = get_arg(sub_param+3, argv[i+1], &i);
-		if ((erts_pd_initial_size = atoi(arg)) <= 0) {
+		if (!erts_pd_set_initial_size(atoi(arg))) {
 		    erts_fprintf(stderr, "bad initial process dictionary size %s\n", arg);
 		    erts_usage();
 		}
@@ -2020,6 +2047,32 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 
+	case 'x': {
+	    char *sub_param = argv[i]+2;
+	    if (has_prefix("mqd", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if (sys_strcmp(arg, "mixed") == 0)
+		    erts_default_spo_flags &= ~(SPO_ON_HEAP_MSGQ|SPO_OFF_HEAP_MSGQ);
+		else if (sys_strcmp(arg, "on_heap") == 0) {
+		    erts_default_spo_flags &= ~SPO_OFF_HEAP_MSGQ;
+		    erts_default_spo_flags |= SPO_ON_HEAP_MSGQ;
+		}
+		else if (sys_strcmp(arg, "off_heap") == 0) {
+		    erts_default_spo_flags &= ~SPO_ON_HEAP_MSGQ;
+		    erts_default_spo_flags |= SPO_OFF_HEAP_MSGQ;
+		}
+		else {
+		    erts_fprintf(stderr,
+				 "Invalid message_queue_data flag: %s\n", arg);
+		    erts_usage();
+		}
+	    } else {
+		erts_fprintf(stderr, "bad -x option %s\n", argv[i]);
+		erts_usage();
+	    }
+	    break;
+        }
+
 	case 'z': {
 	    char *sub_param = argv[i]+2;
 
@@ -2073,7 +2126,8 @@ erl_start(int argc, char **argv)
 				 "Invalid ets busy wait threshold: %s\n", arg);
 		    erts_usage();
 		}
-	    } else {
+	    }
+	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
 	    }
@@ -2134,6 +2188,7 @@ erl_start(int argc, char **argv)
 	init_break_handler();
     if (replace_intr)
 	erts_replace_intr();
+    sys_init_suspend_handler();
 #endif
 
     boot_argc = argc - i;  /* Number of arguments to init */
@@ -2156,8 +2211,10 @@ erl_start(int argc, char **argv)
 
     erts_initialized = 1;
 
-    (void) erl_first_process_otp("otp_ring0", NULL, 0,
-				 boot_argc, boot_argv);
+    otp_ring0_pid = erl_first_process_otp("otp_ring0", NULL, 0,
+					  boot_argc, boot_argv);
+
+    (void) erl_system_process_otp(otp_ring0_pid, "erts_code_purger");
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
@@ -2167,6 +2224,7 @@ erl_start(int argc, char **argv)
 #else
     {
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        erts_msacc_init_thread("scheduler", 1, 1);
 	erts_thr_set_main_status(1, 1);
 #if ERTS_USE_ASYNC_READY_Q
 	esdp->aux_work_data.async_ready.queue
@@ -2232,7 +2290,7 @@ system_cleanup(int flush_async)
     if (!flush_async
 	|| !erts_initialized
 #if defined(USE_THREADS) && !defined(ERTS_SMP)
-	|| !erts_equal_tids(main_thread, erts_thr_self())
+	|| !erts_equal_tids(erts_main_thread, erts_thr_self())
 #endif
 	)
 	return;

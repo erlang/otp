@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -304,13 +304,9 @@ hello(#hello_request{}, #state{role = client} = State0, Connection) ->
     {Record, State} = Connection:next_record(State0),
     Connection:next_state(hello, hello, Record, State);
 
-hello({common_client_hello, Type, ServerHelloExt, NegotiatedHashSign},
+hello({common_client_hello, Type, ServerHelloExt},
       State, Connection) ->
-    do_server_hello(Type, ServerHelloExt,
-		    %% Note NegotiatedHashSign is only negotiated for real if
-		    %% if TLS version is at least TLS-1.2 
-		    State#state{hashsign_algorithm = NegotiatedHashSign}, Connection);
-
+    do_server_hello(Type, ServerHelloExt, State, Connection);
 hello(timeout, State, _) ->
     {next_state, hello, State, hibernate};
 
@@ -442,7 +438,8 @@ certify(#server_key_exchange{exchange_keys = Keys},
        Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
 
     Params = ssl_handshake:decode_server_key(Keys, Alg, Version),
-    HashSign = negotiated_hashsign(Params#server_key_params.hashsign, Alg, Version),
+    %% Use negotiated value if TLS-1.2 otherwhise return default
+    HashSign = negotiated_hashsign(Params#server_key_params.hashsign, Alg, PubKeyInfo, Version),
     case is_anonymous(Alg) of
 	true ->
 	    calculate_secret(Params#server_key_params.params,
@@ -464,11 +461,18 @@ certify(#server_key_exchange{} = Msg,
 
 certify(#certificate_request{hashsign_algorithms = HashSigns},
 	#state{session = #session{own_certificate = Cert},
-        negotiated_version = Version} = State0, Connection) ->
-    HashSign = ssl_handshake:select_hashsign(HashSigns, Cert, Version),
-    {Record, State} = Connection:next_record(State0#state{client_certificate_requested = true}),
-    Connection:next_state(certify, certify, Record,
-			  State#state{cert_hashsign_algorithm = HashSign});
+	       key_algorithm = KeyExAlg,
+	       ssl_options = #ssl_options{signature_algs = SupportedHashSigns},
+	       negotiated_version = Version} = State0, Connection) ->
+
+    case ssl_handshake:select_hashsign(HashSigns, Cert, KeyExAlg, SupportedHashSigns, Version) of
+	#alert {} = Alert ->
+	    Connection:handle_own_alert(Alert, Version, certify, State0);
+	NegotiatedHashSign -> 
+	    {Record, State} = Connection:next_record(State0#state{client_certificate_requested = true}),
+	    Connection:next_state(certify, certify, Record,
+				  State#state{cert_hashsign_algorithm = NegotiatedHashSign})
+    end;
 
 %% PSK and RSA_PSK might bypass the Server-Key-Exchange
 certify(#server_hello_done{},
@@ -498,7 +502,7 @@ certify(#server_hello_done{},
 	       role = client,
 	       key_algorithm = Alg} = State0, Connection)
   when Alg == rsa_psk ->
-    Rand = ssl:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
     RSAPremasterSecret = <<?BYTE(Major), ?BYTE(Minor), Rand/binary>>,
     case ssl_handshake:premaster_secret({Alg, PSKIdentity}, PSKLookup, RSAPremasterSecret) of
 	#alert{} = Alert ->
@@ -576,13 +580,15 @@ cipher(#hello_request{}, State0, Connection) ->
 
 cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashSign},
        #state{role = server,
-	      public_key_info = {Algo, _, _} =PublicKeyInfo,
+	      key_algorithm = KexAlg,
+	      public_key_info = PublicKeyInfo,
 	      negotiated_version = Version,
 	      session = #session{master_secret = MasterSecret},
 	      tls_handshake_history = Handshake
 	     } = State0, Connection) ->
-
-    HashSign = ssl_handshake:select_hashsign_algs(CertHashSign, Algo, Version),
+    
+    %% Use negotiated value if TLS-1.2 otherwhise return default
+    HashSign = negotiated_hashsign(CertHashSign, KexAlg, PublicKeyInfo, Version),
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
 					  Version, HashSign, MasterSecret, Handshake) of
 	valid ->
@@ -1448,7 +1454,8 @@ rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret, PublicKeyInfo = {Alg
 rsa_psk_key_exchange(_, _, _, _) ->
     throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
 
-request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},
+request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer, 
+						      signature_algs = SupportedHashSigns},
 			   connection_states = ConnectionStates0,
 			   cert_db = CertDbHandle,
 			   cert_db_ref = CertDbRef,
@@ -1456,7 +1463,9 @@ request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},
     #connection_state{security_parameters =
 			  #security_parameters{cipher_suite = CipherSuite}} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
-    Msg = ssl_handshake:certificate_request(CipherSuite, CertDbHandle, CertDbRef, Version),
+    HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, Version, [Version]),
+    Msg = ssl_handshake:certificate_request(CipherSuite, CertDbHandle, CertDbRef, 
+					    HashSigns, Version),
     State = Connection:send_handshake(Msg, State0),
     State#state{client_certificate_requested = true};
 
@@ -1876,20 +1885,21 @@ handle_resumed_session(SessId, #state{connection_states = ConnectionStates0,
     end.
 
 make_premaster_secret({MajVer, MinVer}, rsa) ->
-    Rand = ssl:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.
 
-negotiated_hashsign(undefined, Alg, Version) ->
+negotiated_hashsign(undefined, KexAlg, PubKeyInfo, Version) ->
     %% Not negotiated choose default 
-    case is_anonymous(Alg) of
+    case is_anonymous(KexAlg) of
 	true ->
 	    {null, anon};
 	false ->
-	    ssl_handshake:select_hashsign_algs(Alg, Version)
+	    {PubAlg, _, _} = PubKeyInfo,
+	    ssl_handshake:select_hashsign_algs(undefined, PubAlg, Version)
     end;
-negotiated_hashsign(HashSign = {_, _}, _, _) ->
+negotiated_hashsign(HashSign = {_, _}, _, _, _) ->
     HashSign.
 
 ssl_options_list(SslOptions) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,11 +28,9 @@
 %%%-------------------------------------------------------------------
 -module(install_SUITE).
 
-%-define(line_trace, 1).
-
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
-	 init_per_suite/1, end_per_suite/1,
-	 init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2]).
 
 -export([bin_default/1,
 	 bin_default_dirty/1,
@@ -49,10 +47,9 @@
 	 bin_dirname_fail/1,
 	 bin_no_use_dirname_fail/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(1)).
 -define(JOIN(A,B,C), filename:join(A, B, C)).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record(inst, {mkdirs = true,
 	       symlinks = true,
@@ -77,19 +74,12 @@ dont_need_symlink_cases() ->
      bin_unreasonable_path, 'bin white space',
      bin_no_srcfile].
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     dont_need_symlink_cases() ++ need_symlink_cases().
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 %%
@@ -97,29 +87,29 @@ end_per_group(_GroupName, Config) ->
 %%
 
 bin_default(Config) when is_list(Config) ->
-    ?line E = "/usr/local",
-    ?line Bs = "/usr/local/bin",
-    ?line Be = Bs,
-    ?line EBs = "/usr/local/lib/erlang/bin",
-    ?line EBe = EBs,
-    ?line RP = "../lib/erlang/bin",
+    E = "/usr/local",
+    Bs = "/usr/local/bin",
+    Be = Bs,
+    EBs = "/usr/local/lib/erlang/bin",
+    EBe = EBs,
+    RP = "../lib/erlang/bin",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "absolute"} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}};
+				     {ok,{absolute,B,join([TP,EP,EBe])}};
 				 {true, _} ->
-				     ?line {ok,{relative,B,RP}}
+				     {ok,{relative,B,RP}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -128,30 +118,30 @@ bin_default(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_default_dirty(Config) when is_list(Config) ->
-    ?line E = "/usr/./local/lib/..",
-    ?line Bs = "/usr/local//lib/../lib/erlang/../../bin",
-    ?line Be = "/usr/local/lib/../lib/erlang/../../bin",
-    ?line EBs = "/usr/local/lib/../lib/erlang/../erlang/bin/x/y/../..//",
-    ?line EBe = "/usr/local/lib/../lib/erlang/../erlang/bin/x/y/../..",
-    ?line RP = "../lib/erlang/bin",
+    E = "/usr/./local/lib/..",
+    Bs = "/usr/local//lib/../lib/erlang/../../bin",
+    Be = "/usr/local/lib/../lib/erlang/../../bin",
+    EBs = "/usr/local/lib/../lib/erlang/../erlang/bin/x/y/../..//",
+    EBe = "/usr/local/lib/../lib/erlang/../erlang/bin/x/y/../..",
+    RP = "../lib/erlang/bin",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "absolute"} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,EP,EBe])}};
 				 {true, _} ->
-				     ?line {ok,{relative,B,RP}}
+				     {ok,{relative,B,RP}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -161,29 +151,29 @@ bin_default_dirty(Config) when is_list(Config) ->
 
 
 bin_outside_eprfx(Config) when is_list(Config) ->
-    ?line E = "/usr/local",
-    ?line Bs = "/usr/bin",
-    ?line Be = Bs,
-    ?line EBs = "/usr/local/lib/erlang/bin",
-    ?line EBe = EBs,
-    ?line RP = "../local/lib/erlang/bin",
+    E = "/usr/local",
+    Bs = "/usr/bin",
+    Be = Bs,
+    EBs = "/usr/local/lib/erlang/bin",
+    EBe = EBs,
+    RP = "../local/lib/erlang/bin",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "relative"} ->
-				     ?line {ok,{relative,B,RP}};
+				     {ok,{relative,B,RP}};
 				 {true, _} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}}
+				     {ok,{absolute,B,join([TP,EP,EBe])}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -193,29 +183,29 @@ bin_outside_eprfx(Config) when is_list(Config) ->
 
 
 bin_outside_eprfx_dirty(Config) when is_list(Config) ->
-    ?line E = "/usr/local/lib/..",
-    ?line Bs = "/usr/local/lib/../../bin",
-    ?line Be = Bs,
-    ?line EBs = "/usr/local/lib/erlang/bin",
-    ?line EBe = EBs,
-    ?line RP = "../local/lib/erlang/bin",
+    E = "/usr/local/lib/..",
+    Bs = "/usr/local/lib/../../bin",
+    Be = Bs,
+    EBs = "/usr/local/lib/erlang/bin",
+    EBe = EBs,
+    RP = "../local/lib/erlang/bin",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "relative"} ->
-				     ?line {ok,{relative,B,RP}};
+				     {ok,{relative,B,RP}};
 				 {true, _} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}}
+				     {ok,{absolute,B,join([TP,EP,EBe])}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -224,33 +214,33 @@ bin_outside_eprfx_dirty(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_unreasonable_path(Config) when is_list(Config) ->
-    ?line E = "/usr/local/../../..",
-    ?line Bs = "/usr/local/../../../bin",
-    ?line Be = Bs,
-    ?line EBs = "/usr/local/../../../bin_unreasonable_path/usr/local/lib/erlang/bin",
-    ?line EBe = EBs,
-    ?line RP = "../bin_unreasonable_path/usr/local/lib/erlang/bin",
+    E = "/usr/local/../../..",
+    Bs = "/usr/local/../../../bin",
+    Be = Bs,
+    EBs = "/usr/local/../../../bin_unreasonable_path/usr/local/lib/erlang/bin",
+    EBe = EBs,
+    RP = "../bin_unreasonable_path/usr/local/lib/erlang/bin",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {TP, SL, BSL} of
 				 {_, false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {_, false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {"", true, "relative"} ->
 				     {error, unreasonable_path};
 				 {"", true, _} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}};
+				     {ok,{absolute,B,join([TP,EP,EBe])}};
 				 {_, true, "absolute"} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}};
+				     {ok,{absolute,B,join([TP,EP,EBe])}};
 				 _ ->
-				     ?line {ok,{relative,B,RP}}
+				     {ok,{relative,B,RP}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -259,7 +249,7 @@ bin_unreasonable_path(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_unreachable_absolute(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/opt/local/lib/erlang/usr/bin"),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     Erl = join([TDir, "/opt/local/lib/erlang/bin/erl"]),
@@ -270,28 +260,28 @@ bin_unreachable_absolute(Config) when is_list(Config) ->
     ok = file:write_file(Erlc, "erlc"),
     ok = file:make_symlink("../../../opt/local/lib/erlang/usr",
 			   join([TDir, "/usr/local/lib/erlang"])),
-    ?line E = "/usr/local",
-    ?line Bs = "/usr/local/bin",
-    ?line Be = Bs,
-    ?line EBs = "/usr/local/lib/erlang/../bin",
-    ?line EBe = EBs,
+    E = "/usr/local",
+    Bs = "/usr/local/bin",
+    Be = Bs,
+    EBs = "/usr/local/lib/erlang/../bin",
+    EBe = EBs,
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "relative"} ->
 				     {error, unreachable_absolute};
 				 {true, _} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}}
+				     {ok,{absolute,B,join([TP,EP,EBe])}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -300,7 +290,7 @@ bin_unreachable_absolute(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_unreachable_relative(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     make_dirs(TDir, "/opt/local/bin"),
     make_dirs(TDir, "/usr/local/lib/erlang/bin"),
@@ -311,28 +301,28 @@ bin_unreachable_relative(Config) when is_list(Config) ->
     ok = file:make_symlink("../../opt/local/bin",
 			   join([TDir, "/usr/local/bin"])),
 
-    ?line E = "/usr/local",
-    ?line Bs = "/usr/local/bin",
-    ?line Be = Bs,
-    ?line EBs = "/usr/local/lib/erlang/bin",
-    ?line EBe = EBs,
+    E = "/usr/local",
+    Bs = "/usr/local/bin",
+    Be = Bs,
+    EBs = "/usr/local/lib/erlang/bin",
+    EBe = EBs,
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "relative"} ->
 				     {error, unreachable_relative};
 				 {true, _} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}}
+				     {ok,{absolute,B,join([TP,EP,EBe])}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -341,7 +331,7 @@ bin_unreachable_relative(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_ok_symlink(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/usr/local/bin"),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     Erl = join([TDir, "/opt/local/lib/erlang/bin/erl"]),
@@ -350,29 +340,29 @@ bin_ok_symlink(Config) when is_list(Config) ->
     ok = file:write_file(Erlc, "erlc"),
     ok = file:make_symlink("../../opt/local/lib",
 			   join([TDir, "/usr/local/lib"])),
-    ?line E = "/usr/local",
-    ?line Bs = "/usr/local/bin",
-    ?line Be = Bs,
-    ?line EBs = "/usr/local/lib/erlang/bin",
-    ?line EBe = EBs,
-    ?line RP = "../lib/erlang/bin",
+    E = "/usr/local",
+    Bs = "/usr/local/bin",
+    Be = Bs,
+    EBs = "/usr/local/lib/erlang/bin",
+    EBe = EBs,
+    RP = "../lib/erlang/bin",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "absolute"} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}};
+				     {ok,{absolute,B,join([TP,EP,EBe])}};
 				 {true, _} ->
-				     ?line {ok,{relative,B,RP}}
+				     {ok,{relative,B,RP}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -381,7 +371,7 @@ bin_ok_symlink(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_same_dir(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/usr/local/bin"),
     make_dirs(TDir, "/usr/local/lib"),
     ok = file:make_symlink("..", join([TDir, "/usr/local/lib/erlang"])),
@@ -417,29 +407,29 @@ bin_not_abs(Config) when is_list(Config) ->
 
 
 'bin white space'(Config) when is_list(Config) ->
-    ?line E = "/u s r/local",
-    ?line Bs = "/u s r/local/b	i	n",
-    ?line Be = Bs,
-    ?line EBs = "/u s r/local/lib/erl	ang/bin",
-    ?line EBe = EBs,
-    ?line RP = "../lib/erl	ang/bin",
+    E = "/u s r/local",
+    Bs = "/u s r/local/b	i	n",
+    Be = Bs,
+    EBs = "/u s r/local/lib/erl	ang/bin",
+    EBe = EBs,
+    RP = "../lib/erl	ang/bin",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "absolute"} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}};
+				     {ok,{absolute,B,join([TP,EP,EBe])}};
 				 {true, _} ->
-				     ?line {ok,{relative,B,RP}}
+				     {ok,{relative,B,RP}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -448,29 +438,29 @@ bin_not_abs(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_dirname_fail(Config) when is_list(Config) ->
-    ?line E = "/opt",
-    ?line Bs = "/opt/lib/../bin",
-    ?line Be = Bs,
-    ?line EBs = "/opt/lib/erlang/otp/bin",
-    ?line EBe = EBs,
-    ?line CMDPRFX = "PATH=\""++?config(data_dir,Config)++":"++os:getenv("PATH")++"\"",
+    E = "/opt",
+    Bs = "/opt/lib/../bin",
+    Be = Bs,
+    EBs = "/opt/lib/erlang/otp/bin",
+    EBe = EBs,
+    CMDPRFX = "PATH=\""++proplists:get_value(data_dir,Config)++":"++os:getenv("PATH")++"\"",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "relative"} ->
-				     ?line {error, dirname_failed};
+				     {error, dirname_failed};
 				 {true, _} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}}
+				     {ok,{absolute,B,join([TP,EP,EBe])}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -480,30 +470,30 @@ bin_dirname_fail(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_no_use_dirname_fail(Config) when is_list(Config) ->
-    ?line E = "/opt",
-    ?line Bs = "/opt/bin",
-    ?line Be = Bs,
-    ?line EBs = "/opt/lib/erlang/otp/bin",
-    ?line EBe = EBs,
-    ?line RP = "../lib/erlang/otp/bin",
-    ?line CMDPRFX = "PATH=\""++?config(data_dir,Config)++":"++os:getenv("PATH")++"\"",
+    E = "/opt",
+    Bs = "/opt/bin",
+    Be = Bs,
+    EBs = "/opt/lib/erlang/otp/bin",
+    EBe = EBs,
+    RP = "../lib/erlang/otp/bin",
+    CMDPRFX = "PATH=\""++proplists:get_value(data_dir,Config)++":"++os:getenv("PATH")++"\"",
     ChkRes = fun (Res, #inst{test_prefix = TP,
 			     destdir = D,
 			     extra_prefix = EP,
 			     bindir_symlinks = BSL,
 			     symlinks = SL}) ->
-		     ?line B = join([TP, D, EP, Be]),
+		     B = join([TP, D, EP, Be]),
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false, _} ->
-				     ?line {ok,{absolute,
+				     {ok,{absolute,
 						B,join([TP,D,EP,EBe])}};
 				 {true, "absolute"} ->
-				     ?line {ok,{absolute,B,join([TP,EP,EBe])}};
+				     {ok,{absolute,B,join([TP,EP,EBe])}};
 				 {true, _} ->
-				     ?line {ok,{relative,B,RP}}
+				     {ok,{relative,B,RP}}
 			       end,
 		     expect(Expct, Res)
 	     end,
@@ -513,7 +503,7 @@ bin_no_use_dirname_fail(Config) when is_list(Config) ->
 			      erlang_bindir = EBs}, ChkRes).
 
 bin_no_srcfile(Config) when is_list(Config) ->
-    TDir = ?config(test_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     make_dirs(TDir, "/opt/local/bin"),
     make_dirs(TDir, "/opt/local/lib/erlang/bin"),
     Erl = join([TDir, "/opt/local/lib/erlang/bin/erl"]),
@@ -525,13 +515,13 @@ bin_no_srcfile(Config) when is_list(Config) ->
 		     Expct = case {SL, BSL} of
 				 {false, _} when BSL == "relative";
 						 BSL == "absolute" ->
-				     ?line {error, no_ln_s};
+				     {error, no_ln_s};
 				 {false,_} ->
-				     ?line {error,{no_srcfile, Erlc}};
+				     {error,{no_srcfile, Erlc}};
 				 {true, "absolute"} ->
-				     ?line {error,{no_srcfile, Erlc}};
+				     {error,{no_srcfile, Erlc}};
 				 {true, _} ->
-				     ?line {error,{no_srcfile, RP_Erlc}}
+				     {error,{no_srcfile, RP_Erlc}}
 			     end,
 		     expect(Expct, Res)
 	     end,
@@ -549,34 +539,34 @@ bin_no_srcfile(Config) when is_list(Config) ->
 %%
 
 expect(X, X) ->
-    ?t:format("result: ~p~n", [X]),
-    ?t:format("-----------------------------------------------~n", []),
+    io:format("result: ~p~n", [X]),
+    io:format("-----------------------------------------------~n", []),
     ok;
 expect(X, Y) ->
-    ?t:format("expected: ~p~n", [X]),
-    ?t:format("got     : ~p~n", [Y]),
-    ?t:format("-----------------------------------------------~n", []),
-    ?t:fail({X,Y}).
+    io:format("expected: ~p~n", [X]),
+    io:format("got     : ~p~n", [Y]),
+    io:format("-----------------------------------------------~n", []),
+    ct:fail({X,Y}).
     
 init_per_suite(Config) ->
-    PD = ?config(priv_dir, Config),
-    SymLinks = case ?t:os_type() of
-		   {win32, _} -> false;
-		   _ ->
-		       case file:make_symlink("nothing",
-					      filename:join(PD,
-							    "symlink_test")) of
-			   ok -> true;
-			   _ -> false
-		       end
-	       end,
+    PD = proplists:get_value(priv_dir, Config),
+    SymLinks = case os:type() of
+                   {win32, _} -> false;
+                   _ ->
+                       case file:make_symlink("nothing",
+                                              filename:join(PD, "symlink_test")) of
+                           ok -> true;
+                           _ -> false
+                       end
+               end,
     [{symlinks, SymLinks} | Config].
 
 end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(Case, Config) ->
-    init_per_testcase_aux(?config(symlinks,Config),?t:os_type(),Case,Config).
+    init_per_testcase_aux(proplists:get_value(symlinks,Config),
+                          os:type(),Case,Config).
 
 init_per_testcase_aux(_, {win32, _}, _Case, _Config) ->
     {skip, "Not on windows"};
@@ -586,17 +576,12 @@ init_per_testcase_aux(false, OsType, Case, Config) ->
 	true -> {skip, "Cannot create symbolic links"}
     end;
 init_per_testcase_aux(true, _OsType, Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{watchdog, Dog},
-     {testcase, Case},
-     {test_dir, make_dirs(?config(priv_dir, Config), atom_to_list(Case))}
+    [{testcase, Case},
+     {test_dir, make_dirs(proplists:get_value(priv_dir, Config), atom_to_list(Case))}
      | Config].
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
-
 
 make_dirs(Root, Suffix) ->
     do_make_dirs(Root, string:tokens(Suffix, [$/])).
@@ -616,9 +601,9 @@ install_bin(Config, #inst{mkdirs = MkDirs,
 			  exec_prefix = EXEC_PREFIX,
 			  bindir = BINDIR,
 			  erlang_bindir = ERLANG_BINDIR} = Inst, ChkRes) ->
-    PDir = ?config(priv_dir, Config),
-    TDir = ?config(test_dir, Config),
-    TD = atom_to_list(?config(testcase, Config)),
+    PDir = proplists:get_value(priv_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
+    TD = atom_to_list(proplists:get_value(testcase, Config)),
     case MkDirs of
 	false -> ok;
 	true ->
@@ -641,7 +626,7 @@ install_bin(Config, #inst{mkdirs = MkDirs,
 			   bindir = join([TDir, BINDIR]),
 			   erlang_bindir = join([TDir, ERLANG_BINDIR])},
 		 ChkRes),
-    case ?config(symlinks, Config) of
+    case proplists:get_value(symlinks, Config) of
 	true -> ok;
 	false -> {comment, "No symlink tests run, since symlinks not working"}
     end.
@@ -664,7 +649,7 @@ install_bin2(Config, Inst, ChkRes) ->
     install_bin3(Config, Inst#inst{symlinks = false,
 				   ln_s = "cp -p",
 				   bindir_symlinks = "absolute"}, ChkRes),
-    case ?config(symlinks, Config) of
+    case proplists:get_value(symlinks, Config) of
 	true ->
 	    install_bin3(Config, Inst#inst{symlinks = true,
 					   ln_s = "ln -s"}, ChkRes),
@@ -690,9 +675,9 @@ install_bin3(Config,
 		       erlang_bindir = ERLANG_BINDIR,
 		       bindir_symlinks = BINDIR_SYMLINKS} = Inst,
 		 ChkRes) ->
-    Test = ?config(testcase, Config),
-    DDir = ?config(data_dir, Config),
-    TDir = ?config(test_dir, Config),
+    Test = proplists:get_value(testcase, Config),
+    DDir = proplists:get_value(data_dir, Config),
+    TDir = proplists:get_value(test_dir, Config),
     InstallBin = filename:join(DDir, "install_bin"),
     ResFile = filename:join(TDir, atom_to_list(Test) ++ "-result.txt"),
     Cmd = CMD_PRFX ++ " "
@@ -705,7 +690,7 @@ install_bin3(Config,
 	++ "\" --exec-prefix \"" ++ EXEC_PREFIX
 	++ "\" --test-file \"" ++ ResFile ++ "\" erl erlc",
 
-    ?t:format("CMD_PRFX        = \"~s\"~n"
+    io:format("CMD_PRFX        = \"~s\"~n"
 	      "LN_S            = \"~s\"~n" 
 	      "BINDIR_SYMLINKS = \"~s\"~n"
 	      "exec_prefix     = \"~s\"~n"
@@ -716,9 +701,9 @@ install_bin3(Config,
 	      [CMD_PRFX, LN_S, BINDIR_SYMLINKS, EXEC_PREFIX, BINDIR,
 	       ERLANG_BINDIR, EXTRA_PREFIX, DESTDIR]),
 
-    ?t:format("$ ~s~n", [Cmd]),
+    io:format("$ ~s~n", [Cmd]),
     CmdOutput = os:cmd(Cmd),
-    ?t:format("~s~n", [CmdOutput]),    
+    io:format("~s~n", [CmdOutput]),
     ChkRes(case file:consult(ResFile) of
 	       {ok, [Res]} -> Res;
 	       Err -> exit({result, Err})
@@ -731,4 +716,3 @@ join([""|Ds]) ->
     join(Ds);
 join([D|Ds]) ->
     "/" ++ string:strip(D, both, $/) ++ join(Ds).
-

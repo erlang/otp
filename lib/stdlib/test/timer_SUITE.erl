@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 -export([big_test/1, collect/3, i_t/3, a_t/2]).
 -export([do_nrev/1, internal_watchdog/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Random test of the timer module. This is a really nasty test, as it
 %% runs a lot of timeouts and then checks in the end if any of them
@@ -41,7 +41,9 @@
 %% reasonable on different machines; therefore the test can sometimes
 %% fail, even though the timer module is ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [do_big_test].
@@ -65,23 +67,19 @@ end_per_group(_GroupName, Config) ->
 %% ------------------------------------------------------- %%
 
 do_big_test(TConfig) when is_list(TConfig) ->
-    Dog = ?t:timetrap(?t:minutes(20)),
     Save = process_flag(trap_exit, true),
     Result = big_test(200),
     process_flag(trap_exit, Save),
-    ?t:timetrap_cancel(Dog),
     report_result(Result).
 
 report_result(ok) -> ok;
-report_result(Error) -> ?line test_server:fail(Error).
+report_result(Error) -> ct:fail(Error).
 
 %% ------------------------------------------------------- %%
 
 big_test(N) ->
     C = start_collect(),
     system_time(), system_time(), system_time(),
-    random:seed(erlang:timestamp()),
-    random:uniform(100),random:uniform(100),random:uniform(100),
 
     big_loop(C, N, []),
 
@@ -100,7 +98,7 @@ big_test(N) ->
     Result = analyze_report(Report),
     %%io:format("big_test is done: ~w~n", [Result]),
     Result.
-    
+
 big_loop(_C, 0, []) ->
     %%io:format("All processes are done!~n", []),
     ok;
@@ -111,8 +109,8 @@ big_loop(C, 0, Pids) ->
 	{'EXIT', Pid, done} ->
 	    big_loop(C, 0, lists:delete(Pid, Pids));
 	{'EXIT', Pid, Error} ->
-	    ?line ok = io:format("XXX Pid ~w died with reason ~p~n",
-				 [Pid, Error]),
+	    ok = io:format("XXX Pid ~w died with reason ~p~n",
+			   [Pid, Error]),
 	    big_loop(C, 0, lists:delete(Pid, Pids))
     end;
 big_loop(C, N, Pids) ->
@@ -121,24 +119,24 @@ big_loop(C, N, Pids) ->
 	{'EXIT', Pid, done} ->
 	    big_loop(C, N, lists:delete(Pid, Pids));
 	{'EXIT', Pid, Error} ->
-	    ?line ok =io:format("XXX Internal error: Pid ~w died, reason ~p~n",
-				 [Pid, Error]),
+	    ok =io:format("XXX Internal error: Pid ~w died, reason ~p~n",
+			  [Pid, Error]),
 	    big_loop(C, N, lists:delete(Pid, Pids))
     after 0 ->
 
 	    %% maybe start an interval timer test
-	    Pids1 = maybe_start_i_test(Pids, C, random:uniform(4)),
-	    
+	    Pids1 = maybe_start_i_test(Pids, C, rand:uniform(4)),
+
 	    %% start 1-4 "after" tests
-	    Pids2 = start_after_test(Pids1, C, random:uniform(4)),
+	    Pids2 = start_after_test(Pids1, C, rand:uniform(4)),
 	    %%Pids2=Pids1,
 
 	    %% wait a little while
-	    timer:sleep(random:uniform(200)*3),
+	    timer:sleep(rand:uniform(200)*3),
 
 	    %% spawn zero, one or two nrev to get some load ;-/
-	    Pids3 = start_nrev(Pids2, random:uniform(100)),
-	    
+	    Pids3 = start_nrev(Pids2, rand:uniform(100)),
+
 	    big_loop(C, N-1, Pids3)
     end.
 
@@ -148,20 +146,20 @@ start_nrev(Pids, N) when N < 25 ->
 start_nrev(Pids, N) when N < 75 ->
     [spawn_link(timer_SUITE, do_nrev, [1])|Pids];
 start_nrev(Pids, _N) ->
-    NrevPid1 = spawn_link(timer_SUITE, do_nrev, [random:uniform(1000)*10]),
+    NrevPid1 = spawn_link(timer_SUITE, do_nrev, [rand:uniform(1000)*10]),
     NrevPid2 = spawn_link(timer_SUITE, do_nrev, [1]),
     [NrevPid1,NrevPid2|Pids].
-    
+
 
 start_after_test(Pids, C, 1) ->
-    TO1 = random:uniform(100)*47,
+    TO1 = rand:uniform(100)*47,
     [s_a_t(C, TO1)|Pids];
 start_after_test(Pids, C, 2) ->
-    TO1 = random:uniform(100)*47,
-    TO2 = TO1 div random:uniform(3) + 101,
+    TO1 = rand:uniform(100)*47,
+    TO2 = TO1 div rand:uniform(3) + 101,
     [s_a_t(C, TO1),s_a_t(C, TO2)|Pids];
 start_after_test(Pids, C, N) ->
-    TO1 = random:uniform(100)*47,
+    TO1 = rand:uniform(100)*47,
     start_after_test([s_a_t(C, TO1)|Pids], C, N-1).
 
 s_a_t(C, TimeOut) ->
@@ -179,16 +177,16 @@ a_t(C, TimeOut) ->
 	watchdog ->
 	    Stop = system_time(),
 	    report(C, Start,Stop,TimeOut),
-	    ?line ok = io:format("Internal watchdog timeout (a), not good!!~n",
-				 []),
+	    ok = io:format("Internal watchdog timeout (a), not good!!~n",
+			   []),
 	    exit(done)
     end.
 
 
 maybe_start_i_test(Pids, C, 1) ->
     %% ok do it
-    TOI = random:uniform(53)*49,
-    CountI = random:uniform(10) + 3,                      % at least 4 times
+    TOI = rand:uniform(53)*49,
+    CountI = rand:uniform(10) + 3,		% at least 4 times
     [spawn_link(timer_SUITE, i_t, [C, TOI, CountI])|Pids];
 maybe_start_i_test(Pids, _C, _) ->
     Pids.
@@ -210,8 +208,8 @@ i_wait(Start, Prev, Times, TimeOut, Times, Ref, C) ->
 	    Now = system_time(),
 	    report_interval(C, {final,Times}, Start, Prev, Now, TimeOut),
 	    timer:cancel(Ref),
-	    ?line ok = io:format("Internal watchdog timeout (i), not good!!~n",
-				 []),
+	    ok = io:format("Internal watchdog timeout (i), not good!!~n",
+			   []),
 	    exit(done)
     end;
 i_wait(Start, Prev, Count, TimeOut, Times, Ref, C) ->
@@ -223,8 +221,8 @@ i_wait(Start, Prev, Count, TimeOut, Times, Ref, C) ->
 	watchdog ->
 	    Now = system_time(),
 	    report_interval(C, {final,Count}, Start, Prev, Now, TimeOut),
-	    ?line ok = io:format("Internal watchdog timeout (j), not good!!~n",
-				 []),
+	    ok = io:format("Internal watchdog timeout (j), not good!!~n",
+			   []),
 	    exit(done)
     end.
 
@@ -290,13 +288,6 @@ update(New, Stat) when New < Stat#stat.min ->
     Stat#stat{n=Stat#stat.n + 1, min=New, avg=(New+Stat#stat.avg) div 2};
 update(New, Stat) ->
     Stat#stat{n=Stat#stat.n + 1, avg=(New+Stat#stat.avg) div 2}.
-
-%update(New, {N,Max,Min,Avg}) when New>Max ->
-%    {N+1,New,Min,(New+Avg) div 2};
-%update(New, {N,Max,Min,Avg}) when New<Min ->
-%    {N+1,Max,New,(New+Avg) div 2};
-%update(New, {N,Max,Min,Avg}) ->
-%    {N+1,Max,Min,(New+Avg) div 2}.
 
 print_report({E,LateS,EarlyS,I}) ->
     Early = EarlyS#stat.n, Late = LateS#stat.n,
@@ -381,10 +372,10 @@ nrev([]) ->
     [];
 nrev([H|T]) ->
     append(nrev(T), [H]).
-    
+
 append([H|T],Z) ->
-	[H|append(T,Z)];
+    [H|append(T,Z)];
 append([],X) ->
-	X.
+    X.
 
 %% ------------------------------------------------------- %%

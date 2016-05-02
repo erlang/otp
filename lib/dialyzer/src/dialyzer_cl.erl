@@ -2,7 +2,7 @@
 %%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 -include_lib("kernel/include/file.hrl").  % needed for #file_info{}
 
 -record(cl_state,
-	{backend_pid                      :: pid(),
+	{backend_pid                      :: pid() | 'undefined',
 	 erlang_mode     = false          :: boolean(),
 	 external_calls  = []             :: [mfa()],
          external_types  = []             :: [mfa()],

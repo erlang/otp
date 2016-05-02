@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,3 +49,14 @@
 -define(LCTRL_WDECR, 4). %% Remove some pixels in column width to avoid creating unnecessary scrollbar
 
 -define(SASH_STYLE, ?wxSP_LIVE_UPDATE bor ?wxSP_NOBORDER bor ?wxSP_3DSASH).
+
+-define(DISP_FREQ, 10). %% per second
+-define(FETCH_DATA, 2). %% per second
+-define(DISP_SECONDS, 60).
+
+-record(ti, {tick=0, disp=?DISP_FREQ/?FETCH_DATA, fetch=?FETCH_DATA, secs=?DISP_SECONDS}).
+
+-record(win, {name, panel, size, geom,
+	      graphs=[], no_samples=0,
+	      max, state,
+	      info=[]}).

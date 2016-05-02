@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,59 +19,39 @@
 %%
 
 -module(lcnt_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
--export([init_per_suite/1, end_per_suite/1]).
+-export([all/0, suite/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([
-	t_load/1,
-	t_conflicts/1,
-	t_locations/1,
-	t_swap_keys/1
-    ]).
-
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(4)).
-
-init_per_suite(Config) when is_list(Config) ->
-    Config.
-
-end_per_suite(Config) when is_list(Config) ->
-    Config.
+-export([t_load/1,
+         t_conflicts/1,
+         t_locations/1,
+         t_swap_keys/1]).
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog,Dog} | Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     catch lcnt:stop(),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,4}}].
 
-all() -> [t_load, t_conflicts, t_locations, t_swap_keys].
-
-groups() -> [].
-
-init_per_group(_GroupName, Config) -> Config.
-
-end_per_group(_GroupName, Config) -> Config.
-
+all() ->
+    [t_load, t_conflicts, t_locations, t_swap_keys].
 
 %%----------------------------------------------------------------------
 %% Tests
 %%----------------------------------------------------------------------
 
-t_load(suite) -> [];
-t_load(doc) -> ["Load data from file."];
+%% Load data from file.
 t_load(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_load_file(Files),
@@ -84,10 +64,9 @@ t_load_file([File|Files]) ->
     ok = lcnt:stop(),
     t_load_file(Files).
 
-t_conflicts(suite) -> [];
-t_conflicts(doc) -> ["API: conflicts"];
+%% API: conflicts
 t_conflicts(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_conflicts_file(Files),
@@ -118,10 +97,9 @@ test_conflicts_opts([Opt|Opts]) ->
     ok = lcnt:conflicts(Opt),
     test_conflicts_opts(Opts).
 
-t_locations(suite) -> [];
-t_locations(doc) -> ["API: locations"];
+%% API: locations
 t_locations(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_locations_file(Files),
@@ -151,10 +129,9 @@ test_locations_opts([Opt|Opts]) ->
     ok = lcnt:locations(Opt),
     test_locations_opts(Opts).
 
-t_swap_keys(suite) -> [];
-t_swap_keys(doc) -> ["Test interchanging port/process id with class"];
+%% Test interchanging port/process id with class
 t_swap_keys(Config) when is_list(Config) ->
-    Path = ?config(data_dir, Config),
+    Path = proplists:get_value(data_dir, Config),
     Files = [filename:join([Path,"big_bang_40.lcnt"]),
 	     filename:join([Path,"ehb_3_3_hist.lcnt"])],
     ok = t_swap_keys_file(Files),
@@ -169,12 +146,3 @@ t_swap_keys_file([File|Files]) ->
     ok = lcnt:conflicts(),
     ok = lcnt:stop(),
     t_swap_keys_file(Files).
-
-
-%%----------------------------------------------------------------------
-%% Auxiliary tests
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Auxiliary
-%%----------------------------------------------------------------------

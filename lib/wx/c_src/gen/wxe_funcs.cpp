@@ -40,17 +40,19 @@
 void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
 {
  char * bp = Ecmd.buffer;
+ int op = Ecmd.op;
+ Ecmd.op = -1;
  wxeMemEnv *memenv = getMemEnv(Ecmd.port);
-  wxeReturn rt = wxeReturn(WXE_DRV_PORT, Ecmd.caller, true);
+ wxeReturn rt = wxeReturn(WXE_DRV_PORT, Ecmd.caller, true);
  try {
- switch (Ecmd.op)
+ switch (op)
 {
   case DESTROY_OBJECT: {
      void *This = getPtr(bp,memenv);
      wxeRefData *refd = getRefData(This);
      if(This && refd) {
        if(recurse_level > 1 && refd->type != 4) {
-          delayed_delete->Append(Ecmd.Save());
+          delayed_delete->Append(Ecmd.Save(op));
        } else {
           delete_object(This, refd);
           ((WxeApp *) wxTheApp)->clearPtr(This);}
@@ -114,7 +116,7 @@ case 101: { // wxEvtHandler::Disconnect
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
   if(eventType > 0) {
     if(recurse_level > 1) {
-      delayed_delete->Append(Ecmd.Save());
+      delayed_delete->Append(Ecmd.Save(op));
     } else {
      bool Result = This->Disconnect((int) *winid,(int) *lastId,eventType,
                                     (wxObjectEventFunction)(wxEventFunction)
@@ -15631,14 +15633,18 @@ case wxListCtrl_GetViewRect: { // wxListCtrl::GetViewRect
  break;
 }
 case wxListCtrl_HitTest: { // wxListCtrl::HitTest
+ int flags;
+ long pSubItem;
  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
  int * pointX = (int *) bp; bp += 4;
  int * pointY = (int *) bp; bp += 4;
  wxPoint point = wxPoint(*pointX,*pointY);
- int * flags = (int *) bp; bp += 4;
  if(!This) throw wxe_badarg(0);
- long Result = This->HitTest(point,*flags);
+ long Result = This->HitTest(point,flags,&pSubItem);
  rt.addInt(Result);
+ rt.addInt(flags);
+ rt.addInt(pSubItem);
+ rt.addTupleCount(3);
  break;
 }
 case wxListCtrl_InsertColumn_2: { // wxListCtrl::InsertColumn
@@ -32073,7 +32079,7 @@ case wxDCOverlay_Clear: { // wxDCOverlay::Clear
 }
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
-    error.addInt((int) Ecmd.op);
+    error.addInt((int) op);
     error.addAtom("not_supported");
     error.addTupleCount(3);
     error.send();
@@ -32083,7 +32089,7 @@ case wxDCOverlay_Clear: { // wxDCOverlay::Clear
  rt.send();
 } catch (wxe_badarg badarg) {  // try
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
-    error.addInt((int) Ecmd.op);
+    error.addInt((int) op);
     error.addAtom("badarg");
     error.addInt((int) badarg.ref);
     error.addTupleCount(2);

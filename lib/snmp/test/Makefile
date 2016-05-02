@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2014. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -150,7 +150,6 @@ ERL_COMPILE_FLAGS += -I../../snmp/src/app \
                      -I../../snmp/src/misc \
                      -I../../snmp/src/agent \
                      -I../../snmp/src/manager \
-                     -I$(ERL_TOP)/lib/test_server/include \
                      -I../../snmp/include \
                      -Dsnmp_test_data=snmp_test_data \
                      -Dversion=\"$(VSN)$(PRE_VSN)\" \

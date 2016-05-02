@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -349,7 +349,7 @@ wait_for_result(Pid, Msg) ->
 user_lookup(psk, _Identity, UserState) ->
     {ok, UserState};
 user_lookup(srp, Username, _UserState) ->
-    Salt = ssl:random_bytes(16),
+    Salt = ssl_cipher:random_bytes(16),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
     {ok, {srp_1024, Salt, UserPassHash}}.
 
@@ -905,8 +905,8 @@ anonymous_suites() ->
 	 {dh_anon, '3des_ede_cbc', sha},
 	 {dh_anon, aes_128_cbc, sha},
 	 {dh_anon, aes_256_cbc, sha},
-	 {dh_anon, aes_128_gcm, null},
-	 {dh_anon, aes_256_gcm, null},
+	 {dh_anon, aes_128_gcm, null, sha256},
+	 {dh_anon, aes_256_gcm, null, sha384},
 	 {ecdh_anon,rc4_128,sha},
 	 {ecdh_anon,'3des_ede_cbc',sha},
 	 {ecdh_anon,aes_128_cbc,sha},
@@ -933,12 +933,12 @@ psk_suites() ->
 	 {rsa_psk, aes_256_cbc, sha},
 	 {rsa_psk, aes_128_cbc, sha256},
 	 {rsa_psk, aes_256_cbc, sha384},
-	 {psk, aes_128_gcm, null},
-	 {psk, aes_256_gcm, null},
-	 {dhe_psk, aes_128_gcm, null},
-	 {dhe_psk, aes_256_gcm, null},
-	 {rsa_psk, aes_128_gcm, null},
-	 {rsa_psk, aes_256_gcm, null}],
+	 {psk, aes_128_gcm, null, sha256},
+	 {psk, aes_256_gcm, null, sha384},
+	 {dhe_psk, aes_128_gcm, null, sha256},
+	 {dhe_psk, aes_256_gcm, null, sha384},
+	 {rsa_psk, aes_128_gcm, null, sha256},
+	 {rsa_psk, aes_256_gcm, null, sha384}],
     ssl_cipher:filter_suites(Suites).
 
 psk_anon_suites() ->
@@ -979,6 +979,10 @@ srp_dss_suites() ->
 
 rc4_suites(Version) ->
     Suites = ssl_cipher:rc4_suites(Version),
+    ssl_cipher:filter_suites(Suites).
+
+des_suites(Version) ->
+    Suites = ssl_cipher:des_suites(Version),
     ssl_cipher:filter_suites(Suites).
 
 pem_to_der(File) ->

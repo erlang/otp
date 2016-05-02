@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,35 +50,8 @@
      <c>-loader_debug</c> are also experimental</p></warning>
 
   </description>
-  <datatypes>
-    <datatype>
-      <name name="host"/>
-    </datatype>
-  </datatypes>
 
   <funcs>
-    <func>
-      <name name="start" arity="3"/>
-      <fsummary>Start the Erlang low level loader</fsummary>
-      <desc>
-        <p>Starts the Erlang low level loader. This function is called
-          by the <c>init</c> process (and module). The <c>init</c>
-          process reads the command line flags <c>-id <anno>Id</anno></c>,
-          <c>-loader <anno>Loader</anno></c>, and <c>-hosts <anno>Hosts</anno></c>. These are
-          the arguments supplied to the <c>start/3</c> function.</p>
-        <p>If <c>-loader</c> is not given, the default loader is
-          <c>efile</c> which tells the system to read from the file
-          system.</p>
-        <p>If <c>-loader</c> is <c>inet</c>, the <c>-id <anno>Id</anno></c>,
-          <c>-hosts <anno>Hosts</anno></c>, and <c>-setcookie Cookie</c> flags must
-          also be supplied. <c><anno>Hosts</anno></c> identifies hosts which this
-          node can contact in order to load modules. One Erlang
-          runtime system with a <c>erl_boot_server</c> process must be
-          started on each of hosts given in <c><anno>Hosts</anno></c> in order to
-          answer the requests. See <seealso
-          marker="kernel:erl_boot_server">erl_boot_server(3)</seealso>.</p>
-      </desc>
-    </func>
     <func>
       <name name="get_file" arity="1"/>
       <fsummary>Get a file</fsummary>
@@ -87,8 +60,6 @@
           <c><anno>Filename</anno></c> is either an absolute file name or just the name
           of the file, for example <c>"lists.beam"</c>. If an internal
           path is set to the loader, this path is used to find the file.
-          If a user supplied loader is used, the path can be stripped
-          off if it is obsolete, and the loader does not use a path.
           <c><anno>FullName</anno></c> is the complete name of the fetched file.
           <c><anno>Bin</anno></c> is the contents of the file as a binary.</p>
 
@@ -189,16 +160,11 @@
         <p>Specifies which other Erlang nodes the <c>inet</c> loader
           can use. This flag is mandatory if the <c>-loader inet</c>
           flag is present. On each host, there must be on Erlang node
-          with the <c>erl_boot_server</c> which handles the load
-          requests. <c>Hosts</c> is a list of IP addresses (hostnames
+          with the <seealso
+          marker="kernel:erl_boot_server">erl_boot_server(3)</seealso>
+	  which handles the load requests.
+	  <c>Hosts</c> is a list of IP addresses (hostnames
           are not acceptable).</p>
-      </item>
-      <tag><c>-id Id</c></tag>
-      <item>
-        <p>Specifies the identity of the Erlang runtime system. If
-          the system runs as a distributed node, <c>Id</c> must be
-          identical to the name supplied with the <c>-sname</c> or
-          <c>-name</c> distribution flags.</p>
       </item>
       <tag><c>-setcookie Cookie</c></tag>
       <item>

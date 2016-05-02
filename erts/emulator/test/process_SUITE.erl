@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 %%	process_info/1,2
 %%	register/2 (partially)
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(heap_binary_size, 64).
 
@@ -41,6 +41,7 @@
 	 process_info_2_list/1, process_info_lock_reschedule/1,
 	 process_info_lock_reschedule2/1,
 	 process_info_lock_reschedule3/1,
+         process_info_garbage_collection/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
@@ -66,7 +67,9 @@
 -export([hangaround/2, processes_bif_test/0, do_processes/1,
 	 processes_term_proc_list_test/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 9}}].
 
 all() -> 
     [spawn_with_binaries, t_exit_1, {group, t_exit_2},
@@ -75,7 +78,9 @@ all() ->
      process_info_other_dist_msg, process_info_2_list,
      process_info_lock_reschedule,
      process_info_lock_reschedule2,
-     process_info_lock_reschedule3, process_status_exiting,
+     process_info_lock_reschedule3,
+     process_info_garbage_collection,
+     process_status_exiting,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
@@ -113,7 +118,7 @@ init_per_suite(Config) ->
     [{started_apps, A}|Config].
 
 end_per_suite(Config) ->
-    As = ?config(started_apps, Config),
+    As = proplists:get_value(started_apps, Config),
     lists:foreach(fun (A) -> application:stop(A) end, As),
     catch erts_debug:set_internal_state(available_internal_state, false),
     Config.
@@ -125,12 +130,10 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(10)),
-    [{watchdog, Dog},{testcase, Func}|Config].
+    [{testcase, Func}|Config].
 
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+    ok.
 
 fun_spawn(Fun) ->
     spawn_link(erlang, apply, [Fun, []]).
@@ -155,11 +158,10 @@ binary_owner(Bin) when is_binary(Bin) ->
 
 %% Tests exit/1 with a big message.
 t_exit_1(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 20}),
     start_spawner(),
-    Dog = test_server:timetrap(test_server:seconds(20)),
     process_flag(trap_exit, true),
     test_server:do_times(10, fun t_exit_1/0),
-    test_server:timetrap_cancel(Dog),
     stop_spawner(),
     ok.
 
@@ -173,11 +175,10 @@ t_exit_1() ->
 
 %% Tests exit/2 with a lot of data in the exit message.
 t_exit_2_other(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 20}),
     start_spawner(),
-    Dog = test_server:timetrap(test_server:seconds(20)),
     process_flag(trap_exit, true),
     test_server:do_times(10, fun t_exit_2_other/0),
-    test_server:timetrap_cancel(Dog),
     stop_spawner(),
     ok.
 
@@ -191,34 +192,32 @@ t_exit_2_other() ->
 
 %% Tests that exit(Pid, normal) does not kill another process.;
 t_exit_2_other_normal(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(20)),
+    ct:timetrap({seconds, 20}),
     process_flag(trap_exit, true),
     Pid = fun_spawn(fun() -> receive x -> ok end end),
     exit(Pid, normal),
     receive
 	      {'EXIT', Pid, Reason} ->
-		  test_server:fail({process_died, Reason})
+		  ct:fail({process_died, Reason})
 	  after 1000 ->
 		  ok
 	  end,
     case process_info(Pid) of
 	      undefined ->
-		  test_server:fail(process_died_on_normal);
+		  ct:fail(process_died_on_normal);
 	      List when is_list(List) ->
 		  ok
 	  end,
     exit(Pid, kill),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that we can trap an exit message sent with exit/2 from
 %% the same process.
 self_exit(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 10}),
     start_spawner(),
-    Dog = test_server:timetrap(test_server:seconds(10)),
     process_flag(trap_exit, true),
     test_server:do_times(200, fun self_exit/0),
-    test_server:timetrap_cancel(Dog),
     stop_spawner(),
     ok.
 
@@ -237,7 +236,7 @@ normal_suicide_exit(Config) when is_list(Config) ->
     Pid = fun_spawn(fun() -> exit(self(), normal) end),
     receive
 	      {'EXIT', Pid, normal} -> ok;
-	      Other -> test_server:fail({bad_message, Other})
+	      Other -> ct:fail({bad_message, Other})
 	  end.
 
 %% Tests exit(self(), Term) is equivalent to exit(Term) for a process
@@ -248,7 +247,7 @@ abnormal_suicide_exit(Config) when is_list(Config) ->
     Pid = fun_spawn(fun() -> exit(self(), Garbage) end),
     receive
 	      {'EXIT', Pid, Garbage} -> ok;
-	      Other -> test_server:fail({bad_message, Other})
+	      Other -> ct:fail({bad_message, Other})
 	  end.
 
 %% Tests that exit(self(), die) cannot be catched.
@@ -257,21 +256,20 @@ t_exit_2_catch(Config) when is_list(Config) ->
     Pid = fun_spawn(fun() -> catch exit(self(), die) end),
     receive
 	      {'EXIT', Pid, normal} ->
-		  test_server:fail(catch_worked);
+		  ct:fail(catch_worked);
 	      {'EXIT', Pid, die} ->
 		  ok;
 	      Other ->
-		  test_server:fail({bad_message, Other})
+		  ct:fail({bad_message, Other})
 	  end.
 
 %% Tests trapping of an 'EXIT' message generated by a bad argument to
 %% the abs/1 bif.  The 'EXIT' message will intentionally be very big.
 trap_exit_badarg(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 10}),
     start_spawner(),
-    Dog = test_server:timetrap(test_server:seconds(10)),
     process_flag(trap_exit, true),
     test_server:do_times(10, fun trap_exit_badarg/0),
-    test_server:timetrap_cancel(Dog),
     stop_spawner(),
     ok.
 
@@ -285,7 +283,7 @@ trap_exit_badarg() ->
 		  ok;
 	      Other ->
 		  ok = io:format("Bad EXIT message: ~P", [Other, 30]),
-		  test_server:fail(bad_exit_message)
+		  ct:fail(bad_exit_message)
 	  end.
 
 bad_guy(Arg) ->
@@ -317,10 +315,9 @@ big_binary(N, Acc) ->
 
 %% Test receiving an EXIT message when spawning a BIF with bad arguments.
 trap_exit_badarg_in_bif(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     process_flag(trap_exit, true),
     test_server:do_times(10, fun trap_exit_badarg_bif/0),
-    test_server:timetrap_cancel(Dog),
     ok.
     
 trap_exit_badarg_bif() ->
@@ -329,7 +326,7 @@ trap_exit_badarg_bif() ->
 	      {'EXIT', Pid, {badarg, _}} ->
 		  ok;
 	      Other ->
-		  test_server:fail({unexpected, Other})
+		  ct:fail({unexpected, Other})
 	  end.
 
 %% The following sequences of events have crasched Beam.
@@ -342,15 +339,13 @@ trap_exit_badarg_bif() ->
 %% 3) The process will crash the next time it executes 'receive'.
 
 exit_and_timeout(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(20)),
+    ct:timetrap({seconds, 20}),
 
     process_flag(trap_exit, true),
     Parent = self(),
     Low = fun_spawn(fun() -> eat_low(Parent) end),
     High = fun_spawn(fun() -> eat_high(Low) end),
     eat_wait_for(Low, High),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -361,7 +356,7 @@ eat_wait_for(Low, High) ->
 	{'EXIT', High, normal} ->
 	    eat_wait_for(Low, High);
 	Other ->
-	    test_server:fail({bad_message, Other})
+	    ct:fail({bad_message, Other})
     end.
 
 eat_low(_Parent) ->
@@ -394,14 +389,12 @@ loop(StopTime) ->
 %% Tries to send two different exit messages to a process.
 %% (The second one should be ignored.)
 exit_twice(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(20)),
+    ct:timetrap({seconds, 20}),
 
     process_flag(trap_exit, true),
     Low = fun_spawn(fun etwice_low/0),
     High = fun_spawn(fun() -> etwice_high(Low) end),
     etwice_wait_for(Low, High),
-
-    test_server:timetrap_cancel(Dog),
     ok.
 
 etwice_wait_for(Low, High) ->
@@ -409,11 +402,11 @@ etwice_wait_for(Low, High) ->
 	{'EXIT', Low, first} ->
 	    ok;
 	{'EXIT', Low, Other} ->
-	    test_server:fail({wrong_exit_reason, Other});
+	    ct:fail({wrong_exit_reason, Other});
 	{'EXIT', High, normal} ->
 	    etwice_wait_for(Low, High);
 	Other ->
-	    test_server:fail({bad_message, Other})
+	    ct:fail({bad_message, Other})
     end.
 
 etwice_low() ->
@@ -666,10 +659,6 @@ chk_pi_order([],[]) ->
 chk_pi_order([{Arg, _}| Values], [Arg|Args]) ->
     chk_pi_order(Values, Args).
 
-process_info_2_list(doc) ->
-    [];
-process_info_2_list(suite) ->
-    [];
 process_info_2_list(Config) when is_list(Config) ->
     Proc = spawn(fun () -> receive after infinity -> ok end end),
     register(process_SUITE_process_info_2_list1, self()),
@@ -702,10 +691,6 @@ process_info_2_list(Config) when is_list(Config) ->
     lists:foreach(fun ({backtrace, _}) -> ok end, V3),
     ok.
     
-process_info_lock_reschedule(doc) ->
-    [];
-process_info_lock_reschedule(suite) ->
-    [];
 process_info_lock_reschedule(Config) when is_list(Config) ->
     %% We need a process that is running and an item that requires
     %% process_info to take the main process lock.
@@ -738,7 +723,7 @@ process_info_lock_reschedule(Config) when is_list(Config) ->
 	    exit(Target2, bang),
 	    OkStatus;
 	{status, BadStatus} ->
-	    ?t:fail(BadStatus)
+	    ct:fail(BadStatus)
     end.
 
 pi_loop(_Name, _Pid, 0) ->
@@ -747,10 +732,6 @@ pi_loop(Name, Pid, N) ->
     {registered_name, Name} = process_info(Pid, registered_name),
     pi_loop(Name, Pid, N-1).
 
-process_info_lock_reschedule2(doc) ->
-    [];
-process_info_lock_reschedule2(suite) ->
-    [];
 process_info_lock_reschedule2(Config) when is_list(Config) ->
     Parent = self(),
     Fun = fun () ->
@@ -806,10 +787,6 @@ do_pi_msg_len(PT, AT) ->
     lists:map(fun (_) -> ok end, [a,b,c,d]),
     {message_queue_len, _} = process_info(element(2,PT), element(2,AT)).
     
-process_info_lock_reschedule3(doc) ->
-    [];
-process_info_lock_reschedule3(suite) ->
-    [];
 process_info_lock_reschedule3(Config) when is_list(Config) ->
     %% We need a process that is running and an item that requires
     %% process_info to take the main process lock.
@@ -840,7 +817,7 @@ process_info_lock_reschedule3(Config) when is_list(Config) ->
 		  exit(Target2, bang),
 		  OkStatus;
 	      {status, BadStatus} ->
-		  ?t:fail(BadStatus)
+		  ct:fail(BadStatus)
 	  end.
 
 process_status_exiting(Config) when is_list(Config) ->
@@ -932,6 +909,48 @@ start_spawner() ->
 stop_spawner() ->
     ok.
 
+%% Tests erlang:process_info(Pid, garbage_collection_info)
+process_info_garbage_collection(_Config) ->
+    Parent = self(),
+    Pid = spawn_link(
+            fun() ->
+                    receive go -> ok end,
+                    (fun F(0) ->
+                             Parent ! deep,
+                             receive ok -> ok end,
+                             [];
+                         F(N) ->
+                             timer:sleep(1),
+                             [lists:seq(1,100) | F(N-1)]
+                     end)(1000),
+                    Parent ! shallow,
+                    receive done -> ok end
+            end),
+    {garbage_collection_info, Before} =
+        erlang:process_info(Pid, garbage_collection_info),
+    Pid ! go, receive deep -> ok end,
+    {_, Deep} = erlang:process_info(Pid, garbage_collection_info),
+    Pid ! ok, receive shallow -> ok end,
+    {_, After} = erlang:process_info(Pid, garbage_collection_info),
+    Pid ! done,
+
+    %% Do some general checks to see if everything seems to be roughly correct
+    ct:log("Before: ~p",[Before]),
+    ct:log("Deep: ~p",[Deep]),
+    ct:log("After: ~p",[After]),
+
+    %% Check stack_size
+    true = proplists:get_value(stack_size, Before) < proplists:get_value(stack_size, Deep),
+    true = proplists:get_value(stack_size, After) < proplists:get_value(stack_size, Deep),
+
+    %% Check used heap size
+    true = proplists:get_value(heap_size, Before) + proplists:get_value(old_heap_size, Before)
+        < proplists:get_value(heap_size, Deep) + proplists:get_value(old_heap_size, Deep),
+    true = proplists:get_value(heap_size, Before) + proplists:get_value(old_heap_size, Before)
+        < proplists:get_value(heap_size, After) + proplists:get_value(old_heap_size, After),
+
+    ok.
+
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
     erlang:garbage_collect(),
@@ -942,10 +961,10 @@ bump_reductions(Config) when is_list(Config) ->
     case R2-R1 of
 	      Diff when Diff < 100 ->
 		  ok = io:format("R1 = ~w, R2 = ~w", [R1, R2]),
-		  test_server:fail({small_diff, Diff});
+		  ct:fail({small_diff, Diff});
 	      Diff when Diff > 110 ->
 		  ok = io:format("R1 = ~w, R2 = ~w", [R1, R2]),
-		  test_server:fail({big_diff, Diff});
+		  ct:fail({big_diff, Diff});
 	      Diff ->
 		  io:format("~p\n", [Diff]),
 		  ok
@@ -984,7 +1003,7 @@ low_prio_test(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     S = spawn_link(?MODULE, prio_server, [0, 0]),
     PCs = spawn_prio_clients(S, erlang:system_info(schedulers_online)),
-    timer:sleep(2000),
+    ct:sleep({seconds,3}),
     lists:foreach(fun (P) -> exit(P, kill) end, PCs),
     S ! exit,
     receive {'EXIT', S, {A, B}} -> check_prio(A, B) end,
@@ -1032,8 +1051,7 @@ make_unaligned_sub_binary(Bin0) ->
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
     Bin.
 
-yield(doc) ->
-    "Tests erlang:yield/1.";
+%% Tests erlang:yield/1
 yield(Config) when is_list(Config) ->
     case catch erlang:system_info(modified_timing_level) of
 	Level when is_integer(Level) ->
@@ -1074,7 +1092,7 @@ yield_test() ->
 	{Diff, _} ->
 	    ok = io:format("R1 = ~w, R2 = ~w, Schedcnt = ~w", 
 		[R1, R2, Schedcnt]),
-	    test_server:fail({measurement_error, Diff, Schedcnt})
+	    ct:fail({measurement_error, Diff, Schedcnt})
     end.
 
 call_yield() ->
@@ -1111,8 +1129,6 @@ schedcnt(stop, {Ref, Pid}) when is_reference(Ref), is_pid(Pid) ->
 	    Cnt
     end.
 
-yield2(doc) -> [];
-yield2(suite) -> [];
 yield2(Config) when is_list(Config) ->
     Me = self(),
     Go = make_ref(),
@@ -1163,7 +1179,7 @@ yield2(Config) when is_list(Config) ->
 		  io:format("Reductions = ~p~n", [Reductions]),
 		  ok;
 	      {RedDiff, Reductions} ->
-		  ?t:fail({unexpected_reduction_count, Reductions})
+		  ct:fail({unexpected_reduction_count, Reductions})
 	  end,
 
     none = next_tmsg(P),
@@ -1204,8 +1220,6 @@ fail_register(Name, Process) ->
     {'EXIT',{badarg,_}} = (catch Name ! anything_goes),
     ok.
 
-garbage_collect(doc) -> [];
-garbage_collect(suite) -> [];
 garbage_collect(Config) when is_list(Config) ->
     Prio = process_flag(priority, high),
     true = erlang:garbage_collect(),
@@ -1244,10 +1258,7 @@ garbage_collect(Config) when is_list(Config) ->
     process_flag(priority, Prio),
     ok.
 
-process_info_messages(doc) ->
-    ["This used to cause the nofrag emulator to dump core"];
-process_info_messages(suite) ->
-    [];
+%% This used to cause the nofrag emulator to dump core
 process_info_messages(Config) when is_list(Config) ->
     process_info_messages_test(),
     ok.
@@ -1305,10 +1316,6 @@ process_info_messages_test() ->
 chk_badarg(Fun) ->
     try Fun(), exit(no_badarg) catch error:badarg -> ok end.
 
-process_flag_badarg(doc) ->
-    [];
-process_flag_badarg(suite) ->
-    [];
 process_flag_badarg(Config) when is_list(Config) ->
     chk_badarg(fun () -> process_flag(gurka, banan) end),
     chk_badarg(fun () -> process_flag(trap_exit, gurka) end),
@@ -1326,8 +1333,6 @@ process_flag_badarg(Config) when is_list(Config) ->
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
-otp_6237(doc) -> [];
-otp_6237(suite) -> [];
 otp_6237(Config) when is_list(Config) ->
     Slctrs = lists:map(fun (_) ->
 		spawn_link(fun () ->
@@ -1394,10 +1399,6 @@ otp_6237_select_loop() ->
 			     conses_per_red,
 			     debug_level}).
 
-processes_large_tab(doc) ->
-    [];
-processes_large_tab(suite) ->
-    [];
 processes_large_tab(Config) when is_list(Config) ->
     sys_mem_cond_run(2048, fun () -> processes_large_tab_test(Config) end).
 
@@ -1425,7 +1426,7 @@ processes_large_tab_test(Config) ->
 		       #ptab_list_bif_info{debug_level = Lvl} when Lvl > MaxDbgLvl ->
 			   20;
 		       #ptab_list_bif_info{debug_level = Lvl} when Lvl < 0 ->
-			   ?t:fail({debug_level, Lvl});
+			   ct:fail({debug_level, Lvl});
 		       #ptab_list_bif_info{debug_level = Lvl} ->
 			   Lvl
 		   end,
@@ -1443,15 +1444,11 @@ processes_large_tab_test(Config) ->
 			[processes_bif_info]) of
 	      #ptab_list_bif_info{tab_chunks = Chunks} when is_integer(Chunks),
 							    Chunks > 1 -> ok;
-	      PBInfo -> ?t:fail(PBInfo)
+	      PBInfo -> ct:fail(PBInfo)
 	  end,
     stop_node(LargeNode),
     chk_processes_bif_test_res(Res).
 
-processes_default_tab(doc) ->
-    [];
-processes_default_tab(suite) ->
-    [];
 processes_default_tab(Config) when is_list(Config) ->
     sys_mem_cond_run(1024, fun () -> processes_default_tab_test(Config) end).
 
@@ -1461,10 +1458,6 @@ processes_default_tab_test(Config) ->
     stop_node(DefaultNode),
     chk_processes_bif_test_res(Res).
 
-processes_small_tab(doc) ->
-    [];
-processes_small_tab(suite) ->
-    [];
 processes_small_tab(Config) when is_list(Config) ->
     {ok, SmallNode} = start_node(Config, "+P 1024"),
     Res    = rpc:call(SmallNode, ?MODULE, processes_bif_test, []),
@@ -1473,10 +1466,6 @@ processes_small_tab(Config) when is_list(Config) ->
     true = PBInfo#ptab_list_bif_info.tab_chunks < 10,
     chk_processes_bif_test_res(Res).
 
-processes_this_tab(doc) ->
-    [];
-processes_this_tab(suite) ->
-    [];
 processes_this_tab(Config) when is_list(Config) ->
     Mem = case {erlang:system_info(build_type),
                 erlang:system_info(allocator)} of
@@ -1490,7 +1479,7 @@ processes_this_tab(Config) when is_list(Config) ->
 
 chk_processes_bif_test_res(ok) -> ok;
 chk_processes_bif_test_res({comment, _} = Comment) -> Comment;
-chk_processes_bif_test_res(Failure) -> ?t:fail(Failure).
+chk_processes_bif_test_res(Failure) -> ct:fail(Failure).
 
 print_processes_bif_info(#ptab_list_bif_info{min_start_reds = MinStartReds,
 					     tab_chunks = TabChunks,
@@ -1501,7 +1490,7 @@ print_processes_bif_info(#ptab_list_bif_info{min_start_reds = MinStartReds,
 					     term_procs_max_reds = TPMaxReds,
 					     conses_per_red = ConsesPerRed,
 					     debug_level = DbgLvl}) ->
-    ?t:format("processes/0 bif info on node ~p:~n"
+    io:format("processes/0 bif info on node ~p:~n"
 	      "Min start reductions = ~p~n"
 	      "Process table chunks = ~p~n"
 	      "Process table chunks size = ~p~n"
@@ -1542,7 +1531,7 @@ processes_unexpected_result(CorrectProcs, Procs) ->
 		status,
 		priority],
     MissingProcs = CorrectProcs -- Procs,
-    ?t:format("Missing processes: ~p",
+    io:format("Missing processes: ~p",
 	      [lists:map(fun (Pid) ->
 				 [{pid, Pid}
 				  | case process_info(Pid, ProcInfo) of
@@ -1552,7 +1541,7 @@ processes_unexpected_result(CorrectProcs, Procs) ->
 			 end,
 			 MissingProcs)]),
     SuperfluousProcs = Procs -- CorrectProcs,
-    ?t:format("Superfluous processes: ~p",
+    io:format("Superfluous processes: ~p",
 	      [lists:map(fun (Pid) ->
 				 [{pid, Pid}
 				  | case process_info(Pid, ProcInfo) of
@@ -1561,7 +1550,7 @@ processes_unexpected_result(CorrectProcs, Procs) ->
 				    end]
 			 end,
 			 SuperfluousProcs)]),
-    ?t:fail(unexpected_result).
+    ct:fail(unexpected_result).
 
 hangaround(Cleaner, Type) ->
     %% Type is only used to distinguish different processes from
@@ -1666,7 +1655,7 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 	DoIt = make_ref(),
 	GetGoing = make_ref(),
 	{NoTestProcs, TestProcs} = spawn_initial_hangarounds(Cleaner),
-	?t:format("Testing with ~p processes~n", [NoTestProcs]),
+	io:format("Testing with ~p processes~n", [NoTestProcs]),
 	SpawnHangAround = fun () ->
 		spawn(?MODULE, hangaround, [Cleaner, new_hangaround])
 	end,
@@ -1708,7 +1697,7 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 	Procs = lists:sort(Procs0),
 	CorrectProcs = lists:sort(CorrectProcs0),
 	LengthCorrectProcs = length(CorrectProcs),
-	?t:format("~p = length(CorrectProcs)~n", [LengthCorrectProcs]),
+	io:format("~p = length(CorrectProcs)~n", [LengthCorrectProcs]),
 	true = LengthCorrectProcs > NoTestProcs,
 	case CorrectProcs =:= Procs of
 	    true ->
@@ -1729,12 +1718,12 @@ do_processes_bif_test(WantReds, DieTest, Processes) ->
 
 
 do_processes_bif_die_test(false, _Processes) ->
-    ?t:format("Skipping test killing process executing processes/0~n",[]),
+    io:format("Skipping test killing process executing processes/0~n",[]),
     ok;
 do_processes_bif_die_test(true, Processes) ->
     do_processes_bif_die_test(5, Processes);
 do_processes_bif_die_test(N, Processes) ->
-    ?t:format("Doing test killing process executing processes/0~n",[]),
+    io:format("Doing test killing process executing processes/0~n",[]),
     try
 	Tester = self(),
 	Oooh_Nooooooo = make_ref(),
@@ -1784,8 +1773,8 @@ do_processes_bif_die_test(N, Processes) ->
 	ok
     catch
 	throw:{kill_in_trap, R} when N > 0 ->
-	    ?t:format("Failed to kill in trap: ~p~n", [R]),
-	    ?t:format("Trying again~n", []),
+	    io:format("Failed to kill in trap: ~p~n", [R]),
+	    io:format("Trying again~n", []),
 	    do_processes_bif_die_test(N-1, Processes)
     end.
 	    
@@ -1815,7 +1804,7 @@ wait_until_system_recover(Tmr) ->
 	    receive
 		{timeout, Tmr, _} ->
 		    Comment = "WARNING: Test processes still hanging around!",
-		    ?t:format("~s~n", [Comment]),
+		    io:format("~s~n", [Comment]),
 		    put(processes_bif_testcase_comment, Comment),
 		    lists:foreach(
 		      fun (P) when P == self() ->
@@ -1823,7 +1812,7 @@ wait_until_system_recover(Tmr) ->
 			  (P) ->
 			      case process_info(P, initial_call) of
 				  {initial_call,{?MODULE, _, _} = MFA} ->
-				      ?t:format("~p ~p~n", [P, MFA]);
+				      io:format("~p ~p~n", [P, MFA]);
 				  {initial_call,{_, _, _}} ->
 				      ok;
 				  undefined ->
@@ -1839,10 +1828,6 @@ wait_until_system_recover(Tmr) ->
     receive {timeout, Tmr, _} -> ok after 0 -> ok end,
     ok.
 
-processes_last_call_trap(doc) ->
-    [];
-processes_last_call_trap(suite) ->
-    [];
 processes_last_call_trap(Config) when is_list(Config) ->
     enable_internal_state(),
     Processes = fun () -> processes() end,
@@ -1865,10 +1850,6 @@ processes_last_call_trap(Config) when is_list(Config) ->
 my_processes() ->
     processes().
 
-processes_apply_trap(doc) ->
-    [];
-processes_apply_trap(suite) ->
-    [];
 processes_apply_trap(Config) when is_list(Config) ->
     enable_internal_state(),
     PBInfo = erts_debug:get_internal_state(processes_bif_info),
@@ -1883,10 +1864,6 @@ processes_apply_trap(Config) when is_list(Config) ->
 		apply(erlang, processes, [])
 	end, lists:seq(1,100)).
 
-processes_gc_trap(doc) ->
-    [];
-processes_gc_trap(suite) ->
-    [];
 processes_gc_trap(Config) when is_list(Config) ->
     Tester = self(),
     enable_internal_state(),
@@ -1925,10 +1902,6 @@ processes_gc_trap(Config) when is_list(Config) ->
     exit(Suspendee, bang),
     ok.
 
-process_flag_heap_size(doc) ->
-    [];
-process_flag_heap_size(suite) ->
-    [];
 process_flag_heap_size(Config) when is_list(Config) ->
     HSize  = 2586,   % must be gc fib+ number
     VHSize = 318187, % must be gc fib+ number
@@ -1940,10 +1913,6 @@ process_flag_heap_size(Config) when is_list(Config) ->
     VHSize = erlang:process_flag(min_bin_vheap_size, OldVHmin),
     ok.
 
-spawn_opt_heap_size(doc) ->
-    [];
-spawn_opt_heap_size(suite) ->
-    [];
 spawn_opt_heap_size(Config) when is_list(Config) ->
     HSize  = 987,   % must be gc fib+ number
     VHSize = 46422, % must be gc fib+ number
@@ -1954,10 +1923,6 @@ spawn_opt_heap_size(Config) when is_list(Config) ->
     Pid ! stop,
     ok.
 
-processes_term_proc_list(doc) ->
-    [];
-processes_term_proc_list(suite) ->
-    [];
 processes_term_proc_list(Config) when is_list(Config) ->
     Tester = self(),
     as_expected = processes_term_proc_list_test(false),
@@ -2107,24 +2072,12 @@ processes_term_proc_list_test(MustChk) ->
     as_expected.
 
 
-otp_7738_waiting(doc) ->
-    [];
-otp_7738_waiting(suite) ->
-    [];
 otp_7738_waiting(Config) when is_list(Config) ->
     otp_7738_test(waiting).
 
-otp_7738_suspended(doc) ->
-    [];
-otp_7738_suspended(suite) ->
-    [];
 otp_7738_suspended(Config) when is_list(Config) ->
     otp_7738_test(suspended).
 
-otp_7738_resume(doc) ->
-    [];
-otp_7738_resume(suite) ->
-    [];
 otp_7738_resume(Config) when is_list(Config) ->
     otp_7738_test(resume).
 
@@ -2193,8 +2146,8 @@ do_otp_7738_test(Type) ->
 		  ok
 	  after 2000 ->
 		  I = process_info(R, [status, message_queue_len]),
-		  ?t:format("~p~n", [I]),
-		  ?t:fail(no_progress)
+		  io:format("~p~n", [I]),
+		  ct:fail(no_progress)
 	  end,
     ok.
 
@@ -2281,7 +2234,7 @@ no_priority_inversion2(Config) when is_list(Config) ->
     RH = request_gc(PL, high),
     receive
 	{garbage_collect, _, _} ->
-	    ?t:fail(unexpected_gc)
+	    ct:fail(unexpected_gc)
     after 1000 ->
 	    ok
     end,
@@ -2390,7 +2343,7 @@ gc_request_when_gc_disabled(Config) when is_list(Config) ->
     async = garbage_collect(P, [{async, ReqId}]),
     receive
 	{garbage_collect, ReqId, Result} ->
-	    ?t:fail({unexpected_gc, Result});
+	    ct:fail({unexpected_gc, Result});
 	{P, gc_state, true} ->
 	    ok
     end,
@@ -2460,15 +2413,15 @@ start_node(Config, Args) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
+			      ++ atom_to_list(proplists:get_value(testcase, Config))
 			      ++ "-"
 			      ++ integer_to_list(erlang:system_time(seconds))
 			      ++ "-"
 			      ++ integer_to_list(erlang:unique_integer([positive]))),
-    ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 enable_internal_state() ->
     case catch erts_debug:get_internal_state(available_internal_state) of

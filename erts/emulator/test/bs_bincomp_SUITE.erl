@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ tracing(Config) when is_list(Config) ->
 
 random_binary() ->
     Seq = [1,2,3,4,5,6,7,8,9,10],
-    << <<($a + random:uniform($z - $a)):8>> || _ <- Seq >>.
+    << <<($a + rand:uniform($z - $a)):8>> || _ <- Seq >>.
 
 random_binaries(N) when N > 0 ->
     random_binary(),

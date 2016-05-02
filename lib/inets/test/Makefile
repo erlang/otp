@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2014. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 INCLUDES = -I. \
-	-I$(ERL_TOP)/lib/test_server/include/ \
 	-I$(ERL_TOP)/lib/inets/src/inets_app \
 	-I$(ERL_TOP)/lib/inets/src/http_lib \
 	-I$(ERL_TOP)/lib/inets/src/http_client \
@@ -238,7 +237,6 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 # running the target "targets".
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
-	-pa ../../../internal_tools/test_server/ebin \
 	$(INCLUDES) \
 	$(FTP_FLAGS) \
 	$(INETS_FLAGS)

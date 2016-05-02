@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
 	 locals = []		    :: [{label(), arity(), label()}],
 	 imports = gb_trees:empty() :: import_tab(),
 	 strings = <<>>		    :: binary(),	%String pool
-	 lambdas = [],				%[{...}]
+	 lambdas = {0,[]},				%[{...}]
 	 literals = dict:new()	    :: literal_tab(),
 	 fnames = #{}               :: fname_tab(),
 	 lines = #{}                :: line_tab(),
@@ -145,15 +145,14 @@ string(Str, Dict) when is_list(Str) ->
 -spec lambda(label(), non_neg_integer(), bdict()) ->
         {non_neg_integer(), bdict()}.
 
-lambda(Lbl, NumFree, #asm{lambdas=Lambdas0}=Dict) ->
-    OldIndex = length(Lambdas0),
+lambda(Lbl, NumFree, #asm{lambdas={OldIndex,Lambdas0}}=Dict) ->
     %% Set Index the same as OldIndex.
     Index = OldIndex,
     %% Initialize OldUniq to 0. It will be set to an unique value
     %% based on the MD5 checksum of the BEAM code for the module.
     OldUniq = 0,
     Lambdas = [{Lbl,{OldIndex,Lbl,Index,NumFree,OldUniq}}|Lambdas0],
-    {OldIndex,Dict#asm{lambdas=Lambdas}}.
+    {OldIndex,Dict#asm{lambdas={OldIndex+1,Lambdas}}}.
 
 %% Returns the index for a literal (adding it to the literal table if necessary).
 %%    literal(Literal, Dict) -> {Index,Dict'}
@@ -236,13 +235,13 @@ string_table(#asm{strings=Strings,string_offset=Size}) ->
 
 -spec lambda_table(bdict()) -> {non_neg_integer(), [<<_:192>>]}.
 
-lambda_table(#asm{locals=Loc0,lambdas=Lambdas0}) ->
+lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
     Lambdas1 = sofs:relation(Lambdas0),
     Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Loc0]),
     Lambdas2 = sofs:relative_product1(Lambdas1, Loc),
     Lambdas = [<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32>> ||
 		  {{_,Lbl,Index,NumFree,OldUniq},{F,A}} <- sofs:to_external(Lambdas2)],
-    {length(Lambdas),Lambdas}.
+    {NumLambdas,Lambdas}.
 
 %% Returns the literal table.
 %%    literal_table(Dict) -> {NumLiterals, [<<TermSize>>,TermInExternalFormat]}

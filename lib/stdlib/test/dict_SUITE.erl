@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,11 +28,13 @@
 	 init_per_testcase/2,end_per_testcase/2,
          create/1,store/1,iterate/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists, [foldl/3]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [create, store, iterate].
@@ -54,12 +56,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 create(Config) when is_list(Config) ->
@@ -108,7 +107,7 @@ iterate_1(M) ->
     M(empty, []).
 
 iterate_2(M) ->
-    random:seed(1, 2, 42),
+    rand:seed(exsplus, {1,2,42}),
     iter_tree(M, 1000).
 
 iter_tree(_M, 0) ->
@@ -117,7 +116,7 @@ iter_tree(M, N) ->
     L = [{I, I} || I <- lists:seq(1, N)],
     T = M(from_list, L),
     L = lists:reverse(iterate_tree(M, T)),
-    R = random:uniform(N),
+    R = rand:uniform(N),
     KV = lists:reverse(iterate_tree_from(M, R, T)),
     KV = [P || P={K,_} <- L, K >= R],
     iter_tree(M, N-1).
@@ -156,7 +155,7 @@ test_all(Tester) ->
 spawn_tester(M, Tester) ->
     Parent = self(),
     spawn_link(fun() ->
-		       random:seed(1, 2, 42),
+		       rand:seed(exsplus, {1,2,42}),
 		       S = Tester(M),
 		       Res = {M(size, S),lists:sort(M(to_list, S))},
 		       Parent ! {result,self(),Res}
@@ -194,12 +193,12 @@ rnd_list_1(0, Acc) ->
     Acc;
 rnd_list_1(N, Acc) ->
     Key = atomic_rnd_term(),
-    Value = random:uniform(100),
+    Value = rand:uniform(100),
     rnd_list_1(N-1, [{Key,Value}|Acc]).
 
 atomic_rnd_term() ->
-    case random:uniform(3) of
-	 1 -> list_to_atom(integer_to_list($\s+random:uniform(94))++"rnd");
-	 2 -> random:uniform();
-	 3 -> random:uniform(50)-37
+    case rand:uniform(3) of
+	 1 -> list_to_atom(integer_to_list($\s+rand:uniform(94))++"rnd");
+	 2 -> rand:uniform();
+	 3 -> rand:uniform(50)-37
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,26 +23,26 @@
 
 -export([sort_on_old_node/1, sorter/3]).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 sorter(Receiver, Ref, List) ->
     Receiver ! {Ref, lists:sort(List)}.
 
 sort_on_old_node(List) when is_list(List) ->
     OldVersion = "r10",
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {X, Y, Z} = now(),
-    ?line NodeName = list_to_atom(OldVersion 
-				  ++ "_"
-				  ++ integer_to_list(X)
-				  ++ integer_to_list(Y)
-				  ++ integer_to_list(Z)),
-    ?line {ok, Node} = ?t:start_node(NodeName,
-				     peer,
-				     [{args, " -pa " ++ Pa},
-				      {erl, [{release, OldVersion++"b_patched"}]}]),
-    ?line Ref = make_ref(),
-    ?line spawn_link(Node, ?MODULE, sorter, [self(), Ref, List]),
-    ?line SortedPids = receive {Ref, SP} -> SP end,
-    ?line true = ?t:stop_node(Node),
-    ?line SortedPids.
+    Pa = filename:dirname(code:which(?MODULE)),
+    {X, Y, Z} = now(),
+    NodeName = list_to_atom(OldVersion 
+                            ++ "_"
+                            ++ integer_to_list(X)
+                            ++ integer_to_list(Y)
+                            ++ integer_to_list(Z)),
+    {ok, Node} = test_server:start_node(NodeName,
+                                        peer,
+                                        [{args, " -pa " ++ Pa},
+                                         {erl, [{release, OldVersion++"b_patched"}]}]),
+    Ref = make_ref(),
+    spawn_link(Node, ?MODULE, sorter, [self(), Ref, List]),
+    SortedPids = receive {Ref, SP} -> SP end,
+    true = test_server:stop_node(Node),
+    SortedPids.

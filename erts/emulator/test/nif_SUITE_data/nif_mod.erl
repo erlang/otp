@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 -module(nif_mod).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([load_nif_lib/2, load_nif_lib/3, start/0, lib_version/0, call_history/0,
 	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2]).
@@ -33,7 +33,7 @@ load_nif_lib(Config, Ver) ->
     load_nif_lib(Config, Ver, []).
 
 load_nif_lib(Config, Ver, LoadInfo) ->
-    ?line Path = ?config(data_dir, Config),    
+    Path = proplists:get_value(data_dir, Config),
     erlang:load_nif(filename:join(Path,libname(Ver)), LoadInfo).
 
 libname(no_init) -> libname(3);

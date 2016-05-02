@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,12 +50,12 @@ init_per_suite(Config) ->
 	    %% Fake release, no applications
 	    {skip, "Need a real release running to create other releases"};
 	_ ->
-	    rm_rf(filename:join([?config(data_dir,Config),priv_dir])),
+	    rm_rf(filename:join([proplists:get_value(data_dir,Config),priv_dir])),
 	    Config
     end.
 
 init_per_testcase(Case,Config) ->
-    PrivDir = filename:join([?config(data_dir,Config),priv_dir,Case]),
+    PrivDir = filename:join([proplists:get_value(data_dir,Config),priv_dir,Case]),
     CreateDir = filename:join([PrivDir,create]),
     InstallDir = filename:join([PrivDir,install]),
     ok = filelib:ensure_dir(filename:join(CreateDir,"*")),
@@ -66,10 +66,10 @@ init_per_testcase(Case,Config) ->
 end_per_testcase(_Case,Config) ->
     Nodes = nodes(),
     [test_server:stop_node(Node) || Node <- Nodes],
-    case ?config(tc_status,Config) of
+    case proplists:get_value(tc_status,Config) of
 	ok ->
 	    %% Note that priv_dir here is per test case!
-	    rm_rf(?config(priv_dir,Config));
+	    rm_rf(proplists:get_value(priv_dir,Config));
 	_fail ->
 	    %% Test case data can be found under DataDir/priv_dir/Case
 	    ok
@@ -115,15 +115,15 @@ upgrade_test(FromVsn,ToVsn,Config) ->
     case OldRel of
 	false ->
 	    %% Note that priv_dir here is per test case!
-	    rm_rf(?config(priv_dir,Config)),
+	    rm_rf(proplists:get_value(priv_dir,Config)),
 	    {skip, "no previous release available"};
 	_ ->
 	    upgrade_test1(FromVsn,ToVsn,[{old_rel,OldRel}|Config])
     end.
 
 upgrade_test1(FromVsn,ToVsn,Config) ->
-    CreateDir = ?config(create_dir,Config),
-    InstallDir = ?config(install_dir,Config),
+    CreateDir = proplists:get_value(create_dir,Config),
+    InstallDir = proplists:get_value(install_dir,Config),
     FromRelName = "otp-"++FromVsn,
     ToRelName = "otp-"++ToVsn,
 
@@ -141,7 +141,7 @@ upgrade_test1(FromVsn,ToVsn,Config) ->
 %%% - chmod 'start' and 'start_erl'
 target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
     {ok,Node} = test_server:start_node(list_to_atom(RelName0),peer,
-				       [{erl,[?config(old_rel,Config)]}]),
+				       [{erl,[proplists:get_value(old_rel,Config)]}]),
 
     {RelName,Apps,ErtsVsn} = create_relfile(Node,CreateDir,RelName0,RelVsn),
  
@@ -184,7 +184,7 @@ target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
     write_file(SysConfig, "[]."),
     
     %% Insert 'start' script from data_dir - modified to add sname and heart
-    copy_file(filename:join(?config(data_dir,Config),"start.src"),
+    copy_file(filename:join(proplists:get_value(data_dir,Config),"start.src"),
 	      filename:join(ErtsBinDir,"start.src")),
     ok = file:change_mode(filename:join(ErtsBinDir,"start.src"),8#0755),
 

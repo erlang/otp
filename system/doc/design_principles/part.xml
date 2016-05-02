@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,7 @@
   <xi:include href="des_princ.xml"/>
   <xi:include href="gen_server_concepts.xml"/>
   <xi:include href="fsm.xml"/>
+  <xi:include href="statem.xml"/>
   <xi:include href="events.xml"/>
   <xi:include href="sup_princ.xml"/>
   <xi:include href="spec_proc.xml"/>

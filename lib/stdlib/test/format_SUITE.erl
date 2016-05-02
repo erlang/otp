@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,20 +25,17 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--include_lib("test_server/include/test_server.hrl").
-
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [hang_1].
@@ -59,11 +56,8 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-hang_1(doc) ->
-    ["Bad args can hang (OTP-2400)"];
-hang_1(suite) ->
-    [];
+%% OTP-2400. Bad args can hang.
 hang_1(Config) when is_list(Config) ->
-    ?line _ = (catch io:format(a, "", [])),
-    ?line _ = (catch io:format({}, "", [])),
+    _ = (catch io:format(a, "", [])),
+    _ = (catch io:format({}, "", [])),
     ok.

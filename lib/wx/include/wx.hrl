@@ -353,7 +353,7 @@
 
 %% Hardcoded Records
 -record(wxMouseState, {x :: integer(), y :: integer(),
-          leftDown :: boolean(), middleDown :: boolean, rightDown :: boolean, 
+          leftDown :: boolean(), middleDown :: boolean(), rightDown :: boolean(), 
           controlDown :: boolean(), shiftDown :: boolean(),
           altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()
         }).

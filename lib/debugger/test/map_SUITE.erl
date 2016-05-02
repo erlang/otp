@@ -191,8 +191,8 @@ t_build_and_match_literals(Config) when is_list(Config) ->
 	 id(#{ map_1=>#{ map_2=>#{value_3 => third}, value_2=> second}, value_1=>first}),
 
     %% error case
-    %V = 32,
-    %{'EXIT',{{badmatch,_},_}} = (catch (#{<<"hi all">> => 1} = id(#{<<"hi",V,"all">> => 1}))),
+    %% V = 32,
+    %%{'EXIT',{{badmatch,_},_}} = (catch (#{<<"hi all">> => 1} = id(#{<<"hi",V,"all">> => 1}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3,x:=2} = id(#{x=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=2} = id(#{x=>3}))),
     {'EXIT',{{badmatch,_},_}} = (catch (#{x:=3} = id({a,b,c}))),
@@ -201,7 +201,7 @@ t_build_and_match_literals(Config) when is_list(Config) ->
     ok.
 
 t_build_and_match_literals_large(Config) when is_list(Config) ->
-    % normal non-repeating
+    %% normal non-repeating
     M0 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
                11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
                12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02"]}=>"12",
@@ -229,7 +229,7 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
     60 = map_size(M0),
     60 = maps:size(M0),
 
-    % with repeating
+    %% with repeating
     M1 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
                11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
                12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02"]}=>"12",
@@ -265,7 +265,7 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
     60 = map_size(M1),
     60 = maps:size(M1),
 
-    % with floats
+    %% with floats
 
     M2 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
                11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
@@ -318,7 +318,7 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
     90 = map_size(M2),
     90 = maps:size(M2),
 
-    % with bignums
+    %% with bignums
     M3 = id(#{ 10=>a0,20=>b0,30=>"c0","40"=>"d0",<<"50">>=>"e0",{["00"]}=>"10",
                11=>a1,21=>b1,31=>"c1","41"=>"d1",<<"51">>=>"e1",{["01"]}=>"11",
                12=>a2,22=>b2,32=>"c2","42"=>"d2",<<"52">>=>"e2",{["02"]}=>"12",
@@ -501,7 +501,7 @@ t_build_and_match_literals_large(Config) when is_list(Config) ->
     95 = map_size(M4),
     95 = maps:size(M4),
 
-    % call for value
+    %% call for value
 
     M5 = id(#{ 10=>id(a0),20=>b0,30=>id("c0"),"40"=>"d0",<<"50">>=>id("e0"),{["00"]}=>"10",
                11=>id(a1),21=>b1,31=>id("c1"),"41"=>"d1",<<"51">>=>id("e1"),{["01"]}=>"11",
@@ -681,7 +681,7 @@ t_map_size(Config) when is_list(Config) ->
 map_is_size(M,N) when map_size(M) =:= N -> true;
 map_is_size(_,_) -> false.
 
-% test map updates without matching
+%% test map updates without matching
 t_update_literals(Config) when is_list(Config) ->
     Map = #{x=>1,y=>2,z=>3,q=>4},
     #{x:="d",q:="4"} = loop_update_literals_x_q(Map, [
@@ -751,7 +751,7 @@ loop_update_literals_x_q(Map, []) -> Map;
 loop_update_literals_x_q(Map, [{X,Q}|Vs]) ->
     loop_update_literals_x_q(Map#{q=>Q,x=>X},Vs).
 
-% test map updates with matching
+%% test map updates with matching
 t_match_and_update_literals(Config) when is_list(Config) ->
     Map = #{ x=>0,y=>"untouched",z=>"also untouched",q=>1,
              #{ "one" => small, map => key } => "small map key 1" },
@@ -1413,7 +1413,7 @@ t_guard_fun(Config) when is_list(Config) ->
 
 
 t_map_sort_literals(Config) when is_list(Config) ->
-    % test relation
+    %% test relation
 
     %% size order
     true  = #{ a => 1, b => 2} < id(#{ a => 1, b => 1, c => 1}),
@@ -1983,10 +1983,10 @@ t_ets(_Config) ->
     [] = ets:select(Tid,[{{'$1','_'},[{'==','$1',#{ b => c }}],['$_']}]),
 
     %% Test match with map of different size
-    %[{#{ a := b },_}] = ets:select(Tid,[{{#{ b => c },'_'},[],['$_']}]),
+    %%[{#{ a := b },_}] = ets:select(Tid,[{{#{ b => c },'_'},[],['$_']}]),
 
     %%% Test match with don't care value
-    %[{#{ a := b },_}] = ets:select(Tid,[{{#{ b => '_' },'_'},[],['$_']}]),
+    %%[{#{ a := b },_}] = ets:select(Tid,[{{#{ b => '_' },'_'},[],['$_']}]),
 
     %% Test is_map bif
     101 = length(ets:select(Tid,[{'$1',[{is_map,{element,1,'$1'}}],['$1']}])),
@@ -2138,13 +2138,13 @@ t_update_exact_variables(Config) when is_list(Config) ->
 
 t_nested_pattern_expressions(Config) when is_list(Config) ->
     K1 = id("hello"),
-    %K2 = id({ok}),
+    %% K2 = id({ok}),
     [_,_,#{ <<"hi">> := wat, K1 := 42 }|_] = id([k,k,#{<<"hi">> => wat, K1 => 42}]),
     [_,_,#{ -1 := wat, K1 := 42 }|_] = id([k,k,#{-1 => wat, K1 => 42}]),
     [_,_,{#{ -1 := #{ {-3,<<0:300>>} := V1 }, K1 := 42 },3}|_] = id([k,k,{#{-1 => #{{-3,<<0:300>>}=>"hi"}, K1 => 42},3}]),
     "hi" = V1,
-    %[k,#{ {-1,K1,[]} := {wat,K1}, K2 := 42 }|_] = id([k,#{{-1,K1,[]} => {wat,K1}, K2 => 42}]),
-    %[k,#{ [-1,K2,[]] := {wat,K1}, K1 := 42 }|_] = id([k,#{[-1,K2,[]] => {wat,K1}, K1 => 42}]),
+    %%[k,#{ {-1,K1,[]} := {wat,K1}, K2 := 42 }|_] = id([k,#{{-1,K1,[]} => {wat,K1}, K2 => 42}]),
+    %%[k,#{ [-1,K2,[]] := {wat,K1}, K1 := 42 }|_] = id([k,#{[-1,K2,[]] => {wat,K1}, K1 => 42}]),
     ok.
 
 t_guard_update_variables(Config) when is_list(Config) ->
@@ -2219,7 +2219,7 @@ map_guard_sequence_mixed(K1,K2,M) ->
 
 
 t_frequency_table(Config) when is_list(Config) ->
-    random:seed({13,1337,54}),  % pseudo random
+    rand:seed(exsplus, {13,1337,54}),		% pseudo random
     N = 1000,
     Ts = rand_terms(N),
     #{ n:=N, tf := Tf } = frequency_table(Ts,#{ n=>0, tf => #{}}),
@@ -2262,7 +2262,7 @@ rand_terms(0) -> [];
 rand_terms(N) -> [rand_term()|rand_terms(N-1)].
 
 rand_term() ->
-    case random:uniform(6) of
+    case rand:uniform(6) of
 	1 -> rand_binary();
 	2 -> rand_number();
 	3 -> rand_atom();
@@ -2272,21 +2272,21 @@ rand_term() ->
     end.
 
 rand_binary() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> <<>>;
 	2 -> <<"hi">>;
 	3 -> <<"message text larger than 64 bytes. yep, message text larger than 64 bytes.">>
     end.
 
 rand_number() ->
-    case random:uniform(3) of
-	1 -> random:uniform(5);
-	2 -> float(random:uniform(5));
-	3 -> 1 bsl (63 + random:uniform(3))
+    case rand:uniform(3) of
+	1 -> rand:uniform(5);
+	2 -> float(rand:uniform(5));
+	3 -> 1 bsl (63 + rand:uniform(3))
     end.
 
 rand_atom() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> hi;
 	2 -> some_atom;
 	3 -> some_other_atom
@@ -2294,21 +2294,21 @@ rand_atom() ->
 
 
 rand_tuple() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> {ok, rand_term()}; % careful
 	2 -> {1, 2, 3};
 	3 -> {<<"yep">>, 1337}
     end.
 
 rand_list() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> "hi";
 	2 -> [1,rand_term()]; % careful
 	3 -> [improper|list]
     end.
 
 rand_map() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> #{ hi => 3 };
 	2 -> #{ wat => rand_term(), other => 3 };  % careful
 	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }
@@ -2335,7 +2335,7 @@ t_build_and_match_empty_val(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} -> ok;
 	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
 	Other ->
-	    test_server:fail({no_match, Other})
+	    ct:fail({no_match, Other})
     end.
 
 t_build_and_match_val(Config) when is_list(Config) ->
@@ -2353,7 +2353,7 @@ t_build_and_match_val(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} -> ok;
 	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
 	Other ->
-	    test_server:fail({no_match, Other})
+	    ct:fail({no_match, Other})
     end.
 
 t_build_and_match_nil(Config) when is_list(Config) ->

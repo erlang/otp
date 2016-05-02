@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,2}}].
+     {timetrap,{seconds,40}}].
 
 
 all() -> 
@@ -869,7 +869,7 @@ aes_cbc256_crypto_tar(Config) ->
 		  {"d1",fn("d1",Config)}  % Dir
 		 ]),
     Key = <<"This is a 256 bit key. Boring...">>,
-    Ivec0 = crypto:rand_bytes(16),
+    Ivec0 = crypto:strong_rand_bytes(16),
     DataSize = 1024,  % data_size rem 16 = 0 for aes_cbc
 
     Cinitw = fun() -> {ok, Ivec0, DataSize} end,
@@ -914,7 +914,7 @@ aes_ctr_stream_crypto_tar(Config) ->
 		  {"d1",fn("d1",Config)}  % Dir
 		 ]),
     Key = <<"This is a 256 bit key. Boring...">>,
-    Ivec0 = crypto:rand_bytes(16),
+    Ivec0 = crypto:strong_rand_bytes(16),
 
     Cinitw = Cinitr = fun() -> {ok, crypto:stream_init(aes_ctr,Key,Ivec0)} end,
 

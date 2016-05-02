@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -226,7 +226,9 @@ free(Ch, {Alloc, Free} = Channels) ->
       <item><p><seealso marker="gen_server_concepts">gen_server</seealso></p>
       <p>For implementing the server of a client-server relation</p></item>
       <item><p><seealso marker="fsm">gen_fsm</seealso></p>
-      <p>For implementing finite-state machines</p></item>
+      <p>For implementing finite-state machines (Old)</p></item>
+      <item><p><seealso marker="statem">gen_statem</seealso></p>
+      <p>For implementing state machines (New)</p></item>
       <item><p><seealso marker="events">gen_event</seealso></p>
       <p>For implementing event handling functionality</p></item>
       <item><p><seealso marker="sup_princ">supervisor</seealso></p>

@@ -56,7 +56,7 @@ client_hello(Host, Port, ConnectionStates,
     Version = tls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
-    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version), 
+    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),     
     Extensions = ssl_handshake:client_hello_extensions(Host, Version, 
 						       AvailableCipherSuites,
 						       SslOpts, ConnectionStates, Renegotiation),
@@ -80,13 +80,13 @@ client_hello(Host, Port, ConnectionStates,
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
 	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
 				    atom(), #connection_states{}, 
-				    binary() | undefined},
+				    binary() | undefined, ssl_cipher:key_algo()},
 	    boolean()) ->
 		   {tls_record:tls_version(), session_id(), 
 		    #connection_states{}, alpn | npn, binary() | undefined}|
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
 		    #connection_states{}, binary() | undefined, 
-		    #hello_extensions{}} |
+		    #hello_extensions{}, {ssl_cipher:hash(), ssl_cipher:sign_algo()} | undefined} |
 		   #alert{}.
 %%
 %% Description: Handles a recieved hello message
@@ -149,26 +149,35 @@ get_tls_handshake(Version, Data, Buffer) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 handle_client_hello(Version, #client_hello{session_id = SugesstedId,
-				       cipher_suites = CipherSuites,
-				       compression_methods = Compressions,
-				       random = Random,
-				       extensions = #hello_extensions{elliptic_curves = Curves} = HelloExt},
-		#ssl_options{versions = Versions} = SslOpts,
-	 {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
+					   cipher_suites = CipherSuites,
+					   compression_methods = Compressions,
+					   random = Random,
+					   extensions = #hello_extensions{elliptic_curves = Curves,
+									  signature_algs = ClientHashSigns} = HelloExt},
+		    #ssl_options{versions = Versions,
+				 signature_algs = SupportedHashSigns} = SslOpts,
+		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
+	    AvailableHashSigns = available_signature_algs(ClientHashSigns, SupportedHashSigns, Cert, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
-		= ssl_handshake:select_session(SugesstedId, CipherSuites, Compressions,
+		= ssl_handshake:select_session(SugesstedId, CipherSuites, AvailableHashSigns, Compressions,
 					       Port, Session0#session{ecc = ECCCurve}, Version,
 					       SslOpts, Cache, CacheCb, Cert),
 	    case CipherSuite of 
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
 		_ ->
-		    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
-						   SslOpts, Session1, ConnectionStates0,
-						   Renegotiation)
+		    {KeyExAlg,_,_,_} = ssl_cipher:suite_definition(CipherSuite),
+		    case ssl_handshake:select_hashsign(ClientHashSigns, Cert, KeyExAlg, SupportedHashSigns, Version) of
+			#alert{} = Alert ->
+			    Alert;
+			HashSign ->
+			    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
+							   SslOpts, Session1, ConnectionStates0,
+							   Renegotiation, HashSign)
+		    end
 	    end;
 	false ->
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
@@ -245,14 +254,14 @@ enc_handshake(HandshakeMsg, Version) ->
 
 
 handle_client_hello_extensions(Version, Type, Random, CipherSuites,
-			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation) ->
+			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation, HashSign) ->
     try ssl_handshake:handle_client_hello_extensions(tls_record, Random, CipherSuites,
 						     HelloExt, Version, SslOpts,
 						     Session0, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    Alert;
 	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
-	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt}
+	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}
     catch throw:Alert ->
 	    Alert
     end.
@@ -268,4 +277,13 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	{ConnectionStates, ProtoExt, Protocol} ->
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
+
+available_signature_algs(undefined, SupportedHashSigns, _, {Major, Minor}) when (Major < 3) andalso (Minor < 3) ->
+    SupportedHashSigns;
+available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns, 
+		     _, {Major, Minor}) when (Major < 3) andalso (Minor < 3) ->
+    ordsets:intersection(ClientHashSigns, SupportedHashSigns);
+available_signature_algs(_, _, _, _) -> 
+    undefined.
+
 

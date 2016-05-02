@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -467,7 +467,7 @@ int
 efile_fdatasync(Efile_error *errInfo, /* Where to return error codes. */
 	    int fd)               /* File descriptor for file to sync data. */
 {
-#ifdef HAVE_FDATASYNC
+#if defined(HAVE_FDATASYNC) && !defined(__DARWIN__)
     return check_error(fdatasync(fd), errInfo);
 #else
     return efile_fsync(errInfo, fd);
@@ -537,9 +537,9 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     else
 	pInfo->type = FT_OTHER;
 
-    pInfo->accessTime   = statbuf.st_atime;
-    pInfo->modifyTime   = statbuf.st_mtime;
-    pInfo->cTime        = statbuf.st_ctime;
+    pInfo->accessTime   = (Sint64)statbuf.st_atime;
+    pInfo->modifyTime   = (Sint64)statbuf.st_mtime;
+    pInfo->cTime        = (Sint64)statbuf.st_ctime;
 
     pInfo->mode         = statbuf.st_mode;
     pInfo->links        = statbuf.st_nlink;
@@ -578,8 +578,8 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 	}
     }
 
-    tval.actime  = pInfo->accessTime;
-    tval.modtime = pInfo->modifyTime;
+    tval.actime  = (time_t)pInfo->accessTime;
+    tval.modtime = (time_t)pInfo->modifyTime;
 
     return check_error(utime(name, &tval), errInfo);
 }
@@ -638,12 +638,21 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 		do {
 		    w = writev(fd, &iov[cnt], b);
 		} while (w < 0 && errno == EINTR);
+		if (w < 0 && errno == EINVAL) {
+		    goto single_write;
+		}
 	    } else
+	    single_write:
 		/* Degenerated io vector - use regular write */
 #endif
 		{
 		    do {
-			w = write(fd, iov[cnt].iov_base, iov[cnt].iov_len);
+			size_t iov_len = iov[cnt].iov_len;
+			size_t limit = 1024*1024*1024; /* 1GB */
+			if (iov_len > limit) {
+			    iov_len = limit;
+			}
+			w = write(fd, iov[cnt].iov_base, iov_len);
 		    } while (w < 0 && errno == EINTR);
 		    ASSERT(w <= iov[cnt].iov_len ||
 			   (w == -1 && errno != EINTR));

@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1999-2013. All Rights Reserved.
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ my $file = "";
 my $nif = "";
 my @emu_drivers = ();
 my @static_drivers = ();
-my @nifs = ();
+my @static_nifs = ();
 my $mode = 1;
 
 while (@ARGV) {
@@ -55,9 +55,14 @@ while (@ARGV) {
 	    push(@static_drivers, $d);
 	}
 	if ($mode == 2) {
-	    push(@nifs, $d);
+	    push(@static_nifs, $d);
 	}
 	next;
+    } elsif ($mode == 2) {
+        $d = basename $d;
+        $d =~ s/_nif(\..*|)$//; # strip nif.* or just nif
+        push(@static_nifs, $d);
+        next;
     }
     $d = basename $d;
     $d =~ s/drv(\..*|)$//;	# strip drv.* or just drv
@@ -120,7 +125,7 @@ typedef struct ErtsStaticNifEntry_ {
 EOF
 
 # prototypes
-foreach (@nifs) {
+foreach (@static_nifs) {
     my $d = ${_};
     $d =~ s/\.debug//; # strip .debug
     print "void *".$d."_nif_init(void);\n";
@@ -129,7 +134,7 @@ foreach (@nifs) {
 # The array itself
 print "static ErtsStaticNifEntry static_nif_tab[] =\n{\n";
 
-foreach (@nifs) {
+foreach (@static_nifs) {
     my $d = ${_};
     $d =~ s/\.debug//; # strip .debug
     print "{\"${_}\",&".$d."_nif_init},\n";

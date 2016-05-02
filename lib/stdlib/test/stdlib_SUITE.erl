@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 %%% Purpose:Stdlib application test suite.
 %%%-----------------------------------------------------------------
 -module(stdlib_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -compile(export_all).
 
@@ -51,15 +51,12 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-%
-% Test cases starts here.
-%
-app_test(suite) ->
-    [];
-app_test(doc) ->
-    ["Application consistency test."];
+%%
+%% Test cases starts here.
+%%
+%% Application consistency test.
 app_test(Config) when is_list(Config) ->
-    ?t:app_test(stdlib),
+    test_server:app_test(stdlib),
     ok.
 
 %% Test that appup allows upgrade from/downgrade to a maximum of one
@@ -160,10 +157,8 @@ check_appup([],_,_) ->
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("stdlib/include/assert.hrl"). % test repeated inclusion
-assert_test(suite) ->
-    [];
-assert_test(doc) ->
-    ["Assert macros test."];
+
+%% Assert macros test.
 assert_test(_Config) ->
     ok = ?assert(true),
     {'EXIT',{{assert, _},_}} = (catch ?assert(false)),

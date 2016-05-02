@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 -export([main/1,mvrasn/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{protocolIEs,protocolExtensions}).
@@ -66,16 +66,16 @@ main(Erule) ->
 mvrasn(Erule) ->
     case Erule of
 	ber ->
-	    ?line ok = test(isd),
-	    ?line ok = test(isd2),
-	    ?line ok = test(dsd),
-	    ?line ok = test(ul_res),
-	    ?line ok = test(seqofseq),
-	    ?line ok = test('InsertSubscriberDataArg');
+	    ok = test(isd),
+	    ok = test(isd2),
+	    ok = test(dsd),
+	    ok = test(ul_res),
+	    ok = test(seqofseq),
+	    ok = test('InsertSubscriberDataArg');
 	_ ->
 	    ok
     end,
-    ?line ok = test(mvrasn6,'InsertSubscriberDataArg').
+    ok = test(mvrasn6,'InsertSubscriberDataArg').
 
 test(isd)->
     EncPdu = <<48,128,129,7,145,148,113,50,1,0,241,131,1,0,176,128,5,0,

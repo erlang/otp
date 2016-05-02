@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -353,10 +353,7 @@ random_unnamed_bit_string(M, C) ->
 %%     end.
 
 random(Upper) ->
-    _ = random:seed(erlang:phash2([erlang:node()]),
-		    erlang:monotonic_time(),
-		    erlang:unique_integer()),
-    random:uniform(Upper).
+    rand:uniform(Upper).
 
 size_random(C) ->
     case get_constraint(C,'SizeConstraint') of

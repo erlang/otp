@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 -export([foo/0,bar/1,baz/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -53,44 +53,44 @@ end_per_group(_GroupName, Config) ->
 -define(APPLY2(M, F, A1, A2), (fun(Res) -> Res = M:F(A1, A2) end)(apply(M, F, [A1,A2]))).
 
 mfa(Config) when is_list(Config) ->
-    ?line ok = ?APPLY0(?MODULE, foo),
-    ?line {[a,b]} = ?APPLY1(?MODULE, bar, [a,b]),
-    ?line {39,{a}} = ?APPLY2(?MODULE, baz, 39, {a}),
+    ok = ?APPLY0(?MODULE, foo),
+    {[a,b]} = ?APPLY1(?MODULE, bar, [a,b]),
+    {39,{a}} = ?APPLY2(?MODULE, baz, 39, {a}),
 
-    ?line Mod = id(?MODULE),
-    ?line ok = ?APPLY0(Mod, foo),
-    ?line {[a,b]} = ?APPLY1(Mod, bar, [a,b]),
-    ?line {39,{a}} = ?APPLY2(Mod, baz, 39, {a}),
+    Mod = id(?MODULE),
+    ok = ?APPLY0(Mod, foo),
+    {[a,b]} = ?APPLY1(Mod, bar, [a,b]),
+    {39,{a}} = ?APPLY2(Mod, baz, 39, {a}),
 
-    ?line ok = ?APPLY0(?MODULE, (id(foo))),
-    ?line {[a,b]} = ?APPLY1(?MODULE, (id(bar)), [a,b]),
-    ?line {39,{a}} = ?APPLY2(?MODULE, (id(baz)), 39, {a}),
+    ok = ?APPLY0(?MODULE, (id(foo))),
+    {[a,b]} = ?APPLY1(?MODULE, (id(bar)), [a,b]),
+    {39,{a}} = ?APPLY2(?MODULE, (id(baz)), 39, {a}),
 
-    ?line ok = ?APPLY0(Mod, (id(foo))),
-    ?line {[a,b]} = ?APPLY1(Mod, (id(bar)), [a,b]),
-    ?line {39,{a}} = ?APPLY2(Mod, (id(baz)), 39, {a}),
+    ok = ?APPLY0(Mod, (id(foo))),
+    {[a,b]} = ?APPLY1(Mod, (id(bar)), [a,b]),
+    {39,{a}} = ?APPLY2(Mod, (id(baz)), 39, {a}),
 
-    ?line {'EXIT',_} = (catch ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
-    ?line {'EXIT',_} = (catch ?APPLY2({}, baz, a, b)),
-    ?line {'EXIT',_} = (catch ?APPLY2(?MODULE, [], a, b)),
+    {'EXIT',_} = (catch ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
+    {'EXIT',_} = (catch ?APPLY2({}, baz, a, b)),
+    {'EXIT',_} = (catch ?APPLY2(?MODULE, [], a, b)),
 
-    ?line ok = apply(Mod, foo, id([])),
-    ?line {[a,b|c]} = apply(Mod, bar, id([[a,b|c]])),
-    ?line {[xx],{a}} = apply(?MODULE, baz, id([[xx],{a}])),
+    ok = apply(Mod, foo, id([])),
+    {[a,b|c]} = apply(Mod, bar, id([[a,b|c]])),
+    {[xx],{a}} = apply(?MODULE, baz, id([[xx],{a}])),
 
-    ?line Erlang = id(erlang),
-    ?line Self = self(),
-    ?line Self = ?APPLY0(Erlang, self),
-    ?line 42.0 = ?APPLY1(Erlang, abs, -42.0),
-    ?line b = ?APPLY2(Erlang, element, 2, {a,b,c}),
-    ?line true = ?APPLY1(Erlang, is_function, fun erlang:list_to_binary/1),
-    ?line true = ?APPLY1(Erlang, is_function, fun() -> ok end),
-    ?line false = ?APPLY1(Erlang, is_function, blurf),
-    ?line true = ?APPLY2(Erlang, is_function, fun erlang:list_to_binary/1, 1),
-    ?line true = ?APPLY2(Erlang, is_function, fun() -> ok end, 0),
-    ?line false = ?APPLY2(Erlang, is_function, blurf, 0),
+    Erlang = id(erlang),
+    Self = self(),
+    Self = ?APPLY0(Erlang, self),
+    42.0 = ?APPLY1(Erlang, abs, -42.0),
+    b = ?APPLY2(Erlang, element, 2, {a,b,c}),
+    true = ?APPLY1(Erlang, is_function, fun erlang:list_to_binary/1),
+    true = ?APPLY1(Erlang, is_function, fun() -> ok end),
+    false = ?APPLY1(Erlang, is_function, blurf),
+    true = ?APPLY2(Erlang, is_function, fun erlang:list_to_binary/1, 1),
+    true = ?APPLY2(Erlang, is_function, fun() -> ok end, 0),
+    false = ?APPLY2(Erlang, is_function, blurf, 0),
 
-    ?line apply(Mod, foo, []).
+    apply(Mod, foo, []).
 
 foo() ->
     ok.
@@ -106,21 +106,21 @@ baz(A, B) ->
 -define(FUNAPPLY2(F, A1, A2), (fun(Res) -> Res = F(A1, A2) end)(apply(F, [A1,A2]))).
 
 fun_apply(Config) when is_list(Config) ->
-    ?line Self = self(),
+    Self = self(),
 
-    ?line Self = ?FUNAPPLY0(fun() -> self() end),
-    ?line Self = ?FUNAPPLY0((id(fun() -> self() end))),
-    ?line ok = ?FUNAPPLY0(fun ?MODULE:foo/0),
-    ?line ok = ?FUNAPPLY0((id(fun ?MODULE:foo/0))),
+    Self = ?FUNAPPLY0(fun() -> self() end),
+    Self = ?FUNAPPLY0((id(fun() -> self() end))),
+    ok = ?FUNAPPLY0(fun ?MODULE:foo/0),
+    ok = ?FUNAPPLY0((id(fun ?MODULE:foo/0))),
 
-    ?line -42 = ?FUNAPPLY1(fun(A) -> -A end, 42),
-    ?line [x,yy] = ?FUNAPPLY1((id(fun(T) -> [x|T] end)), [yy]),
-    ?line {[a|b]} = ?FUNAPPLY1(fun ?MODULE:bar/1, [a|b]),
-    ?line {[a|b]} = ?FUNAPPLY1((id(fun ?MODULE:bar/1)), [a|b]),
+    -42 = ?FUNAPPLY1(fun(A) -> -A end, 42),
+    [x,yy] = ?FUNAPPLY1((id(fun(T) -> [x|T] end)), [yy]),
+    {[a|b]} = ?FUNAPPLY1(fun ?MODULE:bar/1, [a|b]),
+    {[a|b]} = ?FUNAPPLY1((id(fun ?MODULE:bar/1)), [a|b]),
 
-    ?line {a,b} = ?FUNAPPLY2(fun(A, B) -> {A,B} end, a, b),
-    ?line {a,[b]} = ?FUNAPPLY2((id(fun(A, B) -> {A,B} end)), a, [b]),
-    ?line {42,{a}} = ?FUNAPPLY2((id(fun ?MODULE:baz/2)), 42, {a}),
+    {a,b} = ?FUNAPPLY2(fun(A, B) -> {A,B} end, a, b),
+    {a,[b]} = ?FUNAPPLY2((id(fun(A, B) -> {A,B} end)), a, [b]),
+    {42,{a}} = ?FUNAPPLY2((id(fun ?MODULE:baz/2)), 42, {a}),
 
     ok.
 

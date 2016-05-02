@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,25 +21,24 @@
 
 -module(record_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
-	 nested_access/1,coverage/1]).
+	 nested_access/1,coverage/1,grab_bag/1]).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(2)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -49,7 +48,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [errors,record_test_2,record_test_3,
        record_access_in_guards,guard_opt,eval_once,foobar,
-       missing_test_heap,nested_access,coverage]}].
+       missing_test_heap,nested_access,coverage,grab_bag]}].
 
 
 init_per_suite(Config) ->
@@ -71,18 +70,18 @@ end_per_group(_GroupName, Config) ->
 
 errors(Config) when is_list(Config) ->
     Foo = #foo{a=1,b=2,c=3,d=4},
-    ?line #foo{a=19,b=42,c=3,d=4} = update_foo(Foo, 19, 42),
+    #foo{a=19,b=42,c=3,d=4} = update_foo(Foo, 19, 42),
 
-    ?line {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19)),
-    ?line {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35)),
-    ?line {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35, 17)),
-    ?line {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35, 17, 42)),
+    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19)),
+    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35)),
+    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35, 17)),
+    {'EXIT',{{badrecord,bar},_}} = (catch update_foo_bar(Foo, 19, 35, 17, 42)),
 
-    ?line {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19)),
-    ?line {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35)),
-    ?line {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35, 17)),
-    ?line {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35, 17, 42)),
-    ?line {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19,
+    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19)),
+    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35)),
+    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35, 17)),
+    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19, 35, 17, 42)),
+    {'EXIT',{{badrecord,barf},_}} = (catch update_foo_barf(Foo, 19,
 								 35, 17, 42, -2)),
 
     ok.
@@ -118,72 +117,72 @@ update_foo_barf(#foo{}=R, A, _B, C, D, E) ->
     R#barf{a=A,b=A,c=C,d=D,e=E}.
 
 
--define(TrueGuard(Expr), if Expr -> ok; true -> ?t:fail() end).
--define(FalseGuard(Expr), if Expr -> ?t:fail(); true -> ok end).
+-define(TrueGuard(Expr), if Expr -> ok; true -> ct:fail(failed) end).
+-define(FalseGuard(Expr), if Expr -> ct:fail(failed); true -> ok end).
 				
 record_test_2(Config) when is_list(Config) ->
-    ?line true = is_record(#foo{}, foo),
-    ?line false = is_record(#foo{}, barf),
-    ?line false = is_record({foo}, foo),
+    true = is_record(#foo{}, foo),
+    false = is_record(#foo{}, barf),
+    false = is_record({foo}, foo),
 
-    ?line true = erlang:is_record(#foo{}, foo),
-    ?line false = erlang:is_record(#foo{}, barf),
-    ?line false = erlang:is_record({foo}, foo),
+    true = erlang:is_record(#foo{}, foo),
+    false = erlang:is_record(#foo{}, barf),
+    false = erlang:is_record({foo}, foo),
 
-    ?line false = is_record([], foo),
-    ?line false = is_record(Config, foo),
+    false = is_record([], foo),
+    false = is_record(Config, foo),
 
-    ?line ?TrueGuard(is_record(#foo{}, foo)),
-    ?line ?FalseGuard(is_record(#foo{}, barf)),
-    ?line ?FalseGuard(is_record({foo}, foo)),
+    ?TrueGuard(is_record(#foo{}, foo)),
+    ?FalseGuard(is_record(#foo{}, barf)),
+    ?FalseGuard(is_record({foo}, foo)),
 
-    ?line ?TrueGuard(erlang:is_record(#foo{}, foo)),
-    ?line ?FalseGuard(erlang:is_record(#foo{}, barf)),
-    ?line ?FalseGuard(erlang:is_record({foo}, foo)),
+    ?TrueGuard(erlang:is_record(#foo{}, foo)),
+    ?FalseGuard(erlang:is_record(#foo{}, barf)),
+    ?FalseGuard(erlang:is_record({foo}, foo)),
 
-    ?line ?FalseGuard(is_record([], foo)),
-    ?line ?FalseGuard(is_record(Config, foo)),
+    ?FalseGuard(is_record([], foo)),
+    ?FalseGuard(is_record(Config, foo)),
 
     %% 'not is_record/2' to test guard optimization.
 
-    ?line ?FalseGuard(not is_record(#foo{}, foo)),
-    ?line ?TrueGuard(not is_record(#foo{}, barf)),
-    ?line ?TrueGuard(not is_record({foo}, foo)),
+    ?FalseGuard(not is_record(#foo{}, foo)),
+    ?TrueGuard(not is_record(#foo{}, barf)),
+    ?TrueGuard(not is_record({foo}, foo)),
 
-    ?line ?FalseGuard(not erlang:is_record(#foo{}, foo)),
-    ?line ?TrueGuard(not erlang:is_record(#foo{}, barf)),
-    ?line ?TrueGuard(not erlang:is_record({foo}, foo)),
+    ?FalseGuard(not erlang:is_record(#foo{}, foo)),
+    ?TrueGuard(not erlang:is_record(#foo{}, barf)),
+    ?TrueGuard(not erlang:is_record({foo}, foo)),
 
     Foo = id(#foo{}),
-    ?line ?FalseGuard(not erlang:is_record(Foo, foo)),
-    ?line ?TrueGuard(not erlang:is_record(Foo, barf)),
+    ?FalseGuard(not erlang:is_record(Foo, foo)),
+    ?TrueGuard(not erlang:is_record(Foo, barf)),
 
-    ?line ?TrueGuard(not is_record(Config, foo)),
+    ?TrueGuard(not is_record(Config, foo)),
 
-    ?line ?TrueGuard(not is_record(a, foo)),
-    ?line ?TrueGuard(not is_record([], foo)),
+    ?TrueGuard(not is_record(a, foo)),
+    ?TrueGuard(not is_record([], foo)),
 
     %% Pass non-literal first argument.
 
-    ?line true = is_record(id(#foo{}), foo),
-    ?line false = is_record(id(#foo{}), barf),
-    ?line false = is_record(id({foo}), foo),
+    true = is_record(id(#foo{}), foo),
+    false = is_record(id(#foo{}), barf),
+    false = is_record(id({foo}), foo),
 
-    ?line true = erlang:is_record(id(#foo{}), foo),
-    ?line false = erlang:is_record(id(#foo{}), barf),
-    ?line false = erlang:is_record(id({foo}), foo),
+    true = erlang:is_record(id(#foo{}), foo),
+    false = erlang:is_record(id(#foo{}), barf),
+    false = erlang:is_record(id({foo}), foo),
 
     NoRec1 = id(blurf),
     NoRec2 = id([]),
 
-    ?line ?TrueGuard(not is_record(NoRec1, foo)),
-    ?line ?TrueGuard(not is_record(NoRec2, foo)),
+    ?TrueGuard(not is_record(NoRec1, foo)),
+    ?TrueGuard(not is_record(NoRec2, foo)),
 
     %% The optimizer attempts to move expressions to guards,
     %% but it must not move an is_record/2 call that is not
     %% allowed in a guard in the first place.
 
-    ?line ok = case is_record(id({a}), id(a)) of
+    ok = case is_record(id({a}), id(a)) of
 		   true -> ok;
 		   false -> error
 	       end,
@@ -191,61 +190,61 @@ record_test_2(Config) when is_list(Config) ->
     %% Force the use of guard bifs by using the 'xor' operation.
 
     False = id(false),
-    ?line ?TrueGuard(is_record(#foo{}, foo) xor False),
-    ?line ?FalseGuard(is_record(#foo{}, barf) xor False),
-    ?line ?FalseGuard(is_record({foo}, foo) xor False ),
+    ?TrueGuard(is_record(#foo{}, foo) xor False),
+    ?FalseGuard(is_record(#foo{}, barf) xor False),
+    ?FalseGuard(is_record({foo}, foo) xor False ),
 
-    ?line ?TrueGuard(is_record(Foo, foo) xor False),
-    ?line ?FalseGuard(is_record(Foo, barf) xor False),
+    ?TrueGuard(is_record(Foo, foo) xor False),
+    ?FalseGuard(is_record(Foo, barf) xor False),
 
 
     %% Implicit guards by using a list comprehension.
 
     List = id([1,#foo{a=2},3,#bar{d=4},5,#foo{a=6},7]),
 
-    ?line [#foo{a=2},#foo{a=6}] = [X || X <- List, is_record(X, foo)],
-    ?line [#bar{d=4}] = [X || X <- List, is_record(X, bar)],
-    ?line [1,#foo{a=2},3,5,#foo{a=6},7] =
+    [#foo{a=2},#foo{a=6}] = [X || X <- List, is_record(X, foo)],
+    [#bar{d=4}] = [X || X <- List, is_record(X, bar)],
+    [1,#foo{a=2},3,5,#foo{a=6},7] =
 	[X || X <- List, not is_record(X, bar)],
-    ?line [1,3,5,7] =
+    [1,3,5,7] =
 	[X || X <- List, ((not is_record(X, bar)) and (not is_record(X, foo)))],
-    ?line [#foo{a=2},#bar{d=4},#foo{a=6}] =
+    [#foo{a=2},#bar{d=4},#foo{a=6}] =
 	[X || X <- List, ((is_record(X, bar)) or (is_record(X, foo)))],
-    ?line [1,3,#bar{d=4}] =
+    [1,3,#bar{d=4}] =
 	[X || X <- List, ((is_record(X, bar)) or (X < 5))],
 
-    ?line MyList = [#foo{a=3},x,[],{a,b}],
-    ?line [#foo{a=3}] = [X || X <- MyList, is_record(X, foo)],
-    ?line [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo)],
-    ?line [#foo{a=3}] = [X || X <- MyList, begin is_record(X, foo) end],
-    ?line [x,[],{a,b}] = [X || X <- MyList, begin not is_record(X, foo) end],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, is_record(X, foo) or
-					     not is_binary(X)],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo) or
-					     not is_binary(X)],
-    ?line [#foo{a=3}] = [X || X <- MyList, is_record(X, foo) or is_reference(X)],
-    ?line [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo) or
-				   is_reference(X)],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
-					 begin is_record(X, foo) or
-						   not is_binary(X) end],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
-					 begin not is_record(X, foo) or
-						   not is_binary(X) end],
-    ?line [#foo{a=3}] = [X || X <- MyList,
-			      begin is_record(X, foo) or is_reference(X) end],
-    ?line [x,[],{a,b}] = [X || X <- MyList,
-			       begin not is_record(X, foo) or
-					 is_reference(X) end],
+    MyList = [#foo{a=3},x,[],{a,b}],
+    [#foo{a=3}] = [X || X <- MyList, is_record(X, foo)],
+    [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo)],
+    [#foo{a=3}] = [X || X <- MyList, begin is_record(X, foo) end],
+    [x,[],{a,b}] = [X || X <- MyList, begin not is_record(X, foo) end],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, is_record(X, foo) or
+				       not is_binary(X)],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo) or
+				       not is_binary(X)],
+    [#foo{a=3}] = [X || X <- MyList, is_record(X, foo) or is_reference(X)],
+    [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo) or
+			     is_reference(X)],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
+				   begin is_record(X, foo) or
+					     not is_binary(X) end],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
+				   begin not is_record(X, foo) or
+					     not is_binary(X) end],
+    [#foo{a=3}] = [X || X <- MyList,
+			begin is_record(X, foo) or is_reference(X) end],
+    [x,[],{a,b}] = [X || X <- MyList,
+			 begin not is_record(X, foo) or
+				   is_reference(X) end],
 
     %% Call is_record/2 with illegal arguments.
-    ?line [] = [X || X <- [], is_record(t, id(X))],
-    ?line {'EXIT',{badarg,_}} = (catch [X || X <- [1], is_record(t, id(X))]),
+    [] = [X || X <- [], is_record(t, id(X))],
+    {'EXIT',{badarg,_}} = (catch [X || X <- [1], is_record(t, id(X))]),
 
     %% Update several fields with a string literal.
-    ?line #barf{} = Barf0 = id(#barf{}),
-    ?line Barf = update_barf(Barf0),
-    ?line #barf{a="abc",b=1} = id(Barf),
+    #barf{} = Barf0 = id(#barf{}),
+    Barf = update_barf(Barf0),
+    #barf{a="abc",b=1} = id(Barf),
 
     %% Test optimization of is_record/3.
     false = case id({a,b}) of
@@ -258,125 +257,125 @@ record_test_2(Config) when is_list(Config) ->
     ok.
 
 record_test_3(Config) when is_list(Config) ->
-    ?line true = is_record(#foo{}, foo, 5),
-    ?line false = is_record(#foo{}, barf, 5),
-    ?line false = is_record(#foo{}, barf, 6),
-    ?line false = is_record({foo}, foo, 5),
+    true = is_record(#foo{}, foo, 5),
+    false = is_record(#foo{}, barf, 5),
+    false = is_record(#foo{}, barf, 6),
+    false = is_record({foo}, foo, 5),
 
-    ?line true = erlang:is_record(#foo{}, foo, 5),
-    ?line false = erlang:is_record(#foo{}, barf, 5),
-    ?line false = erlang:is_record({foo}, foo, 5),
+    true = erlang:is_record(#foo{}, foo, 5),
+    false = erlang:is_record(#foo{}, barf, 5),
+    false = erlang:is_record({foo}, foo, 5),
 
-    ?line false = is_record([], foo),
-    ?line false = is_record(Config, foo),
+    false = is_record([], foo),
+    false = is_record(Config, foo),
 
-    ?line ?TrueGuard(is_record(#foo{}, foo, 5)),
-    ?line ?FalseGuard(is_record(#foo{}, barf, 5)),
-    ?line ?FalseGuard(is_record(#foo{}, barf, 6)),
-    ?line ?FalseGuard(is_record({foo}, foo, 5)),
+    ?TrueGuard(is_record(#foo{}, foo, 5)),
+    ?FalseGuard(is_record(#foo{}, barf, 5)),
+    ?FalseGuard(is_record(#foo{}, barf, 6)),
+    ?FalseGuard(is_record({foo}, foo, 5)),
 
-    ?line ?TrueGuard(erlang:is_record(#foo{}, foo, 5)),
-    ?line ?FalseGuard(erlang:is_record(#foo{}, barf, 5)),
-    ?line ?FalseGuard(erlang:is_record(#foo{}, barf, 6)),
-    ?line ?FalseGuard(erlang:is_record({foo}, foo, 5)),
+    ?TrueGuard(erlang:is_record(#foo{}, foo, 5)),
+    ?FalseGuard(erlang:is_record(#foo{}, barf, 5)),
+    ?FalseGuard(erlang:is_record(#foo{}, barf, 6)),
+    ?FalseGuard(erlang:is_record({foo}, foo, 5)),
 
-    ?line ?FalseGuard(is_record([], foo, 5)),
-    ?line ?FalseGuard(is_record(Config, foo, 5)),
+    ?FalseGuard(is_record([], foo, 5)),
+    ?FalseGuard(is_record(Config, foo, 5)),
 
     %% 'not is_record/2' to test guard optimization.
 
-    ?line ?FalseGuard(not is_record(#foo{}, foo, 5)),
-    ?line ?TrueGuard(not is_record(#foo{}, barf, 6)),
-    ?line ?TrueGuard(not is_record({foo}, foo, 5)),
+    ?FalseGuard(not is_record(#foo{}, foo, 5)),
+    ?TrueGuard(not is_record(#foo{}, barf, 6)),
+    ?TrueGuard(not is_record({foo}, foo, 5)),
 
-    ?line ?FalseGuard(not erlang:is_record(#foo{}, foo, 5)),
-    ?line ?TrueGuard(not erlang:is_record(#foo{}, barf, 5)),
-    ?line ?TrueGuard(not erlang:is_record({foo}, foo, 5)),
+    ?FalseGuard(not erlang:is_record(#foo{}, foo, 5)),
+    ?TrueGuard(not erlang:is_record(#foo{}, barf, 5)),
+    ?TrueGuard(not erlang:is_record({foo}, foo, 5)),
 
     Foo = id(#foo{}),
-    ?line ?FalseGuard(not erlang:is_record(Foo, foo, 5)),
-    ?line ?TrueGuard(not erlang:is_record(Foo, barf, 6)),
+    ?FalseGuard(not erlang:is_record(Foo, foo, 5)),
+    ?TrueGuard(not erlang:is_record(Foo, barf, 6)),
 
-    ?line ?TrueGuard(not is_record(Config, foo, 5)),
+    ?TrueGuard(not is_record(Config, foo, 5)),
 
-    ?line ?TrueGuard(not is_record(a, foo, 5)),
-    ?line ?TrueGuard(not is_record([], foo, 5)),
+    ?TrueGuard(not is_record(a, foo, 5)),
+    ?TrueGuard(not is_record([], foo, 5)),
 
     %% Pass non-literal first argument.
 
-    ?line true = is_record(id(#foo{}), foo, 5),
-    ?line false = is_record(id(#foo{}), barf, 6),
-    ?line false = is_record(id({foo}), foo, 5),
+    true = is_record(id(#foo{}), foo, 5),
+    false = is_record(id(#foo{}), barf, 6),
+    false = is_record(id({foo}), foo, 5),
 
-    ?line true = erlang:is_record(id(#foo{}), foo, 5),
-    ?line false = erlang:is_record(id(#foo{}), barf, 6),
-    ?line false = erlang:is_record(id({foo}), foo, 5),
+    true = erlang:is_record(id(#foo{}), foo, 5),
+    false = erlang:is_record(id(#foo{}), barf, 6),
+    false = erlang:is_record(id({foo}), foo, 5),
 
     NoRec1 = id(blurf),
     NoRec2 = id([]),
 
-    ?line ?TrueGuard(not is_record(NoRec1, foo, 5)),
-    ?line ?TrueGuard(not is_record(NoRec2, foo, 5)),
+    ?TrueGuard(not is_record(NoRec1, foo, 5)),
+    ?TrueGuard(not is_record(NoRec2, foo, 5)),
 
     %% Force the use of guard bifs by using the 'xor' operation.
 
     False = id(false),
-    ?line ?TrueGuard(is_record(#foo{}, foo, 5) xor False),
-    ?line ?FalseGuard(is_record(#foo{}, barf, 6) xor False),
-    ?line ?FalseGuard(is_record({foo}, foo, 5) xor False ),
+    ?TrueGuard(is_record(#foo{}, foo, 5) xor False),
+    ?FalseGuard(is_record(#foo{}, barf, 6) xor False),
+    ?FalseGuard(is_record({foo}, foo, 5) xor False ),
 
-    ?line ?TrueGuard(is_record(Foo, foo, 5) xor False),
-    ?line ?FalseGuard(is_record(Foo, barf, 6) xor False),
+    ?TrueGuard(is_record(Foo, foo, 5) xor False),
+    ?FalseGuard(is_record(Foo, barf, 6) xor False),
 
 
     %% Implicit guards by using a list comprehension.
 
     List = id([1,#foo{a=2},3,#bar{d=4},5,#foo{a=6},7]),
 
-    ?line [#foo{a=2},#foo{a=6}] = [X || X <- List, is_record(X, foo, 5)],
-    ?line [#bar{d=4}] = [X || X <- List, is_record(X, bar, 5)],
-    ?line [1,#foo{a=2},3,5,#foo{a=6},7] =
+    [#foo{a=2},#foo{a=6}] = [X || X <- List, is_record(X, foo, 5)],
+    [#bar{d=4}] = [X || X <- List, is_record(X, bar, 5)],
+    [1,#foo{a=2},3,5,#foo{a=6},7] =
 	[X || X <- List, not is_record(X, bar, 5)],
-    ?line [1,3,5,7] =
+    [1,3,5,7] =
 	[X || X <- List, ((not is_record(X, bar, 5)) and (not is_record(X, foo, 5)))],
-    ?line [#foo{a=2},#bar{d=4},#foo{a=6}] =
+    [#foo{a=2},#bar{d=4},#foo{a=6}] =
 	[X || X <- List, ((is_record(X, bar, 5)) or (is_record(X, foo, 5)))],
-    ?line [1,3,#bar{d=4}] =
+    [1,3,#bar{d=4}] =
 	[X || X <- List, ((is_record(X, bar, 5)) or (X < 5))],
 
-    ?line MyList = [#foo{a=3},x,[],{a,b}],
-    ?line [#foo{a=3}] = [X || X <- MyList, is_record(X, foo, 5)],
-    ?line [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo, 5)],
-    ?line [#foo{a=3}] = [X || X <- MyList, begin is_record(X, foo, 5) end],
-    ?line [x,[],{a,b}] = [X || X <- MyList, begin not is_record(X, foo, 5) end],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, is_record(X, foo, 5) or
-					     not is_binary(X)],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo, 5) or
-					     not is_binary(X)],
-    ?line [#foo{a=3}] = [X || X <- MyList, is_record(X, foo) or is_reference(X)],
-    ?line [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo) or
-				   is_reference(X)],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
-					 begin is_record(X, foo, 5) or
-						   not is_binary(X) end],
-    ?line [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
-					 begin not is_record(X, foo, 5) or
-						   not is_binary(X) end],
-    ?line [#foo{a=3}] = [X || X <- MyList,
-			      begin is_record(X, foo, 5) or is_reference(X) end],
-    ?line [x,[],{a,b}] = [X || X <- MyList,
-			       begin not is_record(X, foo, 5) or
-					 is_reference(X) end],
+    MyList = [#foo{a=3},x,[],{a,b}],
+    [#foo{a=3}] = [X || X <- MyList, is_record(X, foo, 5)],
+    [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo, 5)],
+    [#foo{a=3}] = [X || X <- MyList, begin is_record(X, foo, 5) end],
+    [x,[],{a,b}] = [X || X <- MyList, begin not is_record(X, foo, 5) end],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, is_record(X, foo, 5) or
+				       not is_binary(X)],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo, 5) or
+				       not is_binary(X)],
+    [#foo{a=3}] = [X || X <- MyList, is_record(X, foo) or is_reference(X)],
+    [x,[],{a,b}] = [X || X <- MyList, not is_record(X, foo) or
+			     is_reference(X)],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
+				   begin is_record(X, foo, 5) or
+					     not is_binary(X) end],
+    [#foo{a=3},x,[],{a,b}] = [X || X <- MyList,
+				   begin not is_record(X, foo, 5) or
+					     not is_binary(X) end],
+    [#foo{a=3}] = [X || X <- MyList,
+			begin is_record(X, foo, 5) or is_reference(X) end],
+    [x,[],{a,b}] = [X || X <- MyList,
+			 begin not is_record(X, foo, 5) or
+				   is_reference(X) end],
 
     %% Update several fields with a string literal.
-    ?line #barf{} = Barf0 = id(#barf{}),
-    ?line Barf = update_barf(Barf0),
-    ?line #barf{a="abc",b=1} = id(Barf),
+    #barf{} = Barf0 = id(#barf{}),
+    Barf = update_barf(Barf0),
+    #barf{a="abc",b=1} = id(Barf),
 
     %% Non-literal arguments.
-    ?line true = is_record(id(#barf{}), id(barf), id(6)),
-    ?line false = is_record(id(#barf{}), id(barf), id(42)),
-    ?line false = is_record(id(#barf{}), id(foo), id(6)),
+    true = is_record(id(#barf{}), id(barf), id(6)),
+    false = is_record(id(#barf{}), id(barf), id(42)),
+    false = is_record(id(#barf{}), id(foo), id(6)),
 
     Rec = id(#barf{}),
     Good = id(barf),
@@ -389,15 +388,15 @@ record_test_3(Config) when is_list(Config) ->
     ok.
 
 record_access_in_guards(Config) when is_list(Config) ->
-    ?line Priv = ?config(priv_dir, Config),
-    ?line file:set_cwd(test_lib:get_data_dir(Config)),
-    ?line Opts0 = [{outdir,Priv},report_errors|test_lib:opt_opts(?MODULE)],
+    Priv = proplists:get_value(priv_dir, Config),
+    file:set_cwd(test_lib:get_data_dir(Config)),
+    Opts0 = [{outdir,Priv},report_errors|test_lib:opt_opts(?MODULE)],
     M = record_access_in_guards,
  
     Opts = [strict_record_tests|Opts0],
-    ?line io:format("Options: ~p\n", [Opts]),
-    ?line {ok,M} = c:c(M, Opts),
-    ?line ok = M:t(),
+    io:format("Options: ~p\n", [Opts]),
+    {ok,M} = c:c(M, Opts),
+    ok = M:t(),
     ok.
 
 
@@ -487,19 +486,19 @@ update_barf(R) ->
     R#barf{a="abc",b=1}.
 
 eval_once(Config) when is_list(Config) ->
-    ?line once(fun(GetRec) ->
+    once(fun(GetRec) ->
 		       true = erlang:is_record(GetRec(), foo)
 	       end, #foo{}),
-    ?line once(fun(GetRec) ->
+    once(fun(GetRec) ->
 		       (GetRec())#foo{a=1}
 	       end, #foo{}),
-    ?line once(fun(GetRec) ->
+    once(fun(GetRec) ->
 		       (GetRec())#foo{a=1,b=2}
 	       end, #foo{}),
-    ?line once(fun(GetRec) ->
+    once(fun(GetRec) ->
 		       (GetRec())#foo{a=1,b=2,c=3}
 	       end, #foo{}),
-    ?line once(fun(GetRec) ->
+    once(fun(GetRec) ->
 		       (GetRec())#foo{a=1,b=2,c=3,d=4}
 	       end, #foo{}),
     ok.
@@ -515,7 +514,7 @@ once(Test, Record) ->
 	1 -> ok;
 	N ->
 	    io:format("Evaluated ~w times\n", [N]),
-	    ?t:fail()
+	    ct:fail(more_than_once)
     end,
     Result.
 
@@ -571,21 +570,21 @@ nested_access(Config) when is_list(Config) ->
     N0 = #nrec0{},
     N1 = #nrec1{},
     N2 = #nrec2{},
-    ?line <<"nested0">> = N0#nrec0.name,
-    ?line <<"nested1">> = N1#nrec1.name,
-    ?line <<"nested2">> = N2#nrec2.name,
-    ?line <<"nested0">> = N1#nrec1.nrec0#nrec0.name,
-    ?line <<"nested0">> = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
-    ?line <<"nested1">> = N2#nrec2.nrec1#nrec1.name,
-    ?line <<"nested0">> = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
+    <<"nested0">> = N0#nrec0.name,
+    <<"nested1">> = N1#nrec1.name,
+    <<"nested2">> = N2#nrec2.name,
+    <<"nested0">> = N1#nrec1.nrec0#nrec0.name,
+    <<"nested0">> = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
+    <<"nested1">> = N2#nrec2.nrec1#nrec1.name,
+    <<"nested0">> = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
 
     N1a = N2#nrec2.nrec1#nrec1{name = <<"nested1a">>},
-    ?line <<"nested1a">> = N1a#nrec1.name,
+    <<"nested1a">> = N1a#nrec1.name,
 
     N2a = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = <<"nested0a">>},
     N2b = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = <<"nested0a">>},
-    ?line <<"nested0a">> = N2a#nrec0.name,
-    ?line N2a = N2b,
+    <<"nested0a">> = N2a#nrec0.name,
+    N2a = N2b,
     ok.
 
 -record(rr, {a,b,c}).
@@ -601,5 +600,61 @@ coverage(Config) when is_list(Config) ->
     end,
     #rr{a=1,b=2,c=42} = id(R),			%Test for correctness.
     ok.
+
+
+-record(default_fun, {a = fun(X) -> X*X end}).
+
+%% compiler treats records with 1 and 2 fields differently...
+-record(gb_nil, {}).
+-record(gb_foo, {hello=1}).
+-record(gb_bar, {hello=2,there=3}).
+
+%% Taken from compilation_SUITE.
+grab_bag(_Config) ->
+    T1 = fun() ->
+		 X = #foo{},
+		 Y = #foo{},
+		 {X#foo.a == Y#foo.a,X#foo.b}
+	 end,
+    {true,undefined} = T1(),
+
+    T2 = fun(X, Y) ->
+		 first_arg(X#foo.a =/= Y#foo.a, X#foo.b =/= X#foo.b)
+	 end,
+    true = T2(#foo{a=x,b=z}, #foo{a=y,b=z}),
+
+    T3 = fun() ->
+		 #default_fun{a=Fun} = id(#default_fun{}),
+		 9 = Fun(3)
+	 end,
+    T3(),
+
+    %% Stupid code, but the compiler used to crash.
+    T4 = fun() ->
+		 F0 = fun() ->
+			      R1 = #gb_nil{},
+			      R2 = R1#gb_nil{},
+			      R1 = R2
+		      end,
+		 F1 = fun() ->
+			      R1 = #gb_foo{},
+			      R2 = R1#gb_foo{},
+			      R1 = R2
+		      end,
+
+		 F2 = fun() ->
+			      R1 = #gb_bar{},
+			      R2 = R1#gb_bar{},
+			      R1 = R2
+		      end,
+		 F0(),
+		 F1(),
+		 F2()
+	 end,
+    T4(),
+
+    ok.
+
+first_arg(First, _) -> First.
 
 id(I) -> I.

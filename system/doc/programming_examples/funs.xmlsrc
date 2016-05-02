@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2013</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -212,7 +212,7 @@ f(...) ->
              ...
         end, ...)
     ...</code>
-    <p>instead of writng the following code:</p>
+    <p>instead of writing the following code:</p>
     <code type="none">
 f(...) ->
     Y = ...

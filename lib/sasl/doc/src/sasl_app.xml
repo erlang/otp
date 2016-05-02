@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,6 @@
     <p>The <c>SASL</c> application provides the following services:</p>
     <list type="bulleted">
       <item><c>alarm_handler</c></item>
-      <item><c>overload</c> (deprecated)</item>
       <item><c>rb</c></item>
       <item><c>release_handler</c></item>
       <item><c>systools</c></item>
@@ -140,21 +139,6 @@
           this parameter is undefined, the <c>log_mf_h</c> handler is
           not installed.</p>
       </item>
-      <tag><c><![CDATA[overload_max_intensity = float() > 0 ]]></c></tag>
-      <item>
-        <p>Specifies the maximum intensity
-          for <seealso marker="overload"><c>overload</c></seealso>. Default
-          is <c>0.8</c>.</p>
-	<p>Note that the <c>overload</c> module is deprected and
-	  will be removed in a future release.</p>
-      </item>
-      <tag><c><![CDATA[overload_weight = float() > 0 ]]></c></tag>
-      <item>
-        <p>Specifies the <seealso marker="overload"><c>overload</c></seealso>
-        weight. Default is <c>0.1</c>.</p>
-	<p>Note that the <c>overload</c> module is deprected and
-	  will be removed in a future release.</p>
-      </item>
       <tag><c><![CDATA[start_prg = string() ]]></c></tag>
       <item>
         <p>Specifies the program to be used when restarting the system
@@ -205,7 +189,6 @@
     <p><seealso marker="alarm_handler"><c>alarm_handler(3)</c></seealso>,
       <seealso marker="kernel:error_logger"><c>error_logger(3)</c></seealso>,
       <seealso marker="stdlib:log_mf_h"><c>log_mf_h(3)</c></seealso>,
-      <seealso marker="overload"><c>overload(3)</c></seealso>,
       <seealso marker="rb"><c>rb(3)</c></seealso>,
       <seealso marker="release_handler"><c>release_handler(3)</c></seealso>,
       <seealso marker="systools"><c>systools(3)</c></seealso></p>

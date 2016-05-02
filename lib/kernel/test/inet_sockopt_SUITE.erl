@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(inet_sockopt_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 -define(C_GET_IPPROTO_TCP,1).
@@ -62,7 +62,9 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [simple, loop_all, simple_raw, simple_raw_getbin,
@@ -90,97 +92,91 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
-
-simple(suite) -> [];
-simple(doc) -> "Test inet:setopt/getopt simple functionality.";
-simple(Config) when is_list(Config) ->
-    ?line XOpt = case os:type() of
-		     {unix,_} -> [{reuseaddr,true}];
-		     _ -> []
-		 end,
-    ?line Opt = [{nodelay,true},
-		 {keepalive,true},{packet,4},
-		 {active,false}|XOpt],
-    ?line OptTags = [X || {X,_} <- Opt],
-    ?line {S1,S2} = create_socketpair(Opt, Opt),
-    ?line {ok,Opt} = inet:getopts(S1,OptTags),
-    ?line {ok,Opt} = inet:getopts(S2,OptTags),
-    ?line COpt = [{X,case X of nodelay -> false;_ -> Y end} || {X,Y} <- Opt],
-    ?line inet:setopts(S1,COpt),
-    ?line {ok,COpt} = inet:getopts(S1,OptTags),
-    ?line {ok,Opt} = inet:getopts(S2,OptTags),
-    ?line gen_tcp:close(S1),
-    ?line gen_tcp:close(S2),
+end_per_testcase(_Func, _Config) ->
     ok.
 
-loop_all(suite) -> [];
-loop_all(doc) -> "Loop through all socket options and check that they work";
+%% Test inet:setopt/getopt simple functionality.
+simple(Config) when is_list(Config) ->
+    XOpt = case os:type() of
+	       {unix,_} -> [{reuseaddr,true}];
+	       _ -> []
+	   end,
+    Opt = [{nodelay,true},
+	   {keepalive,true},{packet,4},
+	   {active,false}|XOpt],
+    OptTags = [X || {X,_} <- Opt],
+    {S1,S2} = create_socketpair(Opt, Opt),
+    {ok,Opt} = inet:getopts(S1,OptTags),
+    {ok,Opt} = inet:getopts(S2,OptTags),
+    COpt = [{X,case X of nodelay -> false;_ -> Y end} || {X,Y} <- Opt],
+    inet:setopts(S1,COpt),
+    {ok,COpt} = inet:getopts(S1,OptTags),
+    {ok,Opt} = inet:getopts(S2,OptTags),
+    gen_tcp:close(S1),
+    gen_tcp:close(S2),
+    ok.
+
+%% Loop through all socket options and check that they work.
 loop_all(Config) when is_list(Config) ->
-    ?line ListenFailures = 
+    ListenFailures =
 	lists:foldr(make_check_fun(listen,1),[],all_listen_options()),
-    ?line ConnectFailures = 
+    ConnectFailures =
 	lists:foldr(make_check_fun(connect,2),[],all_connect_options()),
-    ?line case ListenFailures++ConnectFailures of
-	      [] ->
-		  ?line ok;
-	      Failed ->
-		  ?line {comment,lists:flatten(
-				   io_lib:format("Non mandatory failed:~w",
-						 [Failed]))}
-	  end.
+    case ListenFailures++ConnectFailures of
+	[] ->
+	    ok;
+	Failed ->
+	    {comment,lists:flatten(
+		       io_lib:format("Non mandatory failed:~w",
+				     [Failed]))}
+    end.
 
 
 
-simple_raw(suite) -> [];
-simple_raw(doc) -> "Test simple setopt/getopt of raw options.";
+%% Test simple setopt/getopt of raw options.
 simple_raw(Config) when is_list(Config) ->
     do_simple_raw(Config,false).
-simple_raw_getbin(suite) -> [];
-simple_raw_getbin(doc) -> "Test simple setopt/getopt of raw options, "
-			      "with binaries in getopt.";
+
+%% Test simple setopt/getopt of raw options, with binaries in getopt.
 simple_raw_getbin(Config) when is_list(Config) ->
     do_simple_raw(Config,true).
 
 do_simple_raw(Config,Binary) when is_list(Config) ->
-    ?line Port = start_helper(Config),
-    ?line SolSocket = ask_helper(Port,?C_GET_SOL_SOCKET),
-    ?line SoKeepAlive = ask_helper(Port,?C_GET_SO_KEEPALIVE),
-    ?line OptionTrue = {raw,SolSocket,SoKeepAlive,<<1:32/native>>},
-    ?line OptionFalse = {raw,SolSocket,SoKeepAlive,<<0:32/native>>},
-    ?line {S1,S2} = create_socketpair([OptionTrue],[{keepalive,true}]),
-    ?line {ok,[{keepalive,true}]} = inet:getopts(S1,[keepalive]),
-    ?line {ok,[{keepalive,true}]} = inet:getopts(S2,[keepalive]),
-    ?line {ok,[{raw,SolSocket,SoKeepAlive,X1B}]} = 
+    Port = start_helper(Config),
+    SolSocket = ask_helper(Port,?C_GET_SOL_SOCKET),
+    SoKeepAlive = ask_helper(Port,?C_GET_SO_KEEPALIVE),
+    OptionTrue = {raw,SolSocket,SoKeepAlive,<<1:32/native>>},
+    OptionFalse = {raw,SolSocket,SoKeepAlive,<<0:32/native>>},
+    {S1,S2} = create_socketpair([OptionTrue],[{keepalive,true}]),
+    {ok,[{keepalive,true}]} = inet:getopts(S1,[keepalive]),
+    {ok,[{keepalive,true}]} = inet:getopts(S2,[keepalive]),
+    {ok,[{raw,SolSocket,SoKeepAlive,X1B}]} =
 	inet:getopts(S1,[{raw,SolSocket,SoKeepAlive,binarify(4,Binary)}]),
-    ?line X1 = nintbin2int(X1B),
-    ?line {ok,[{raw,SolSocket,SoKeepAlive,X2B}]} = 
+    X1 = nintbin2int(X1B),
+    {ok,[{raw,SolSocket,SoKeepAlive,X2B}]} =
 	inet:getopts(S2,[{raw,SolSocket,SoKeepAlive,binarify(4,Binary)}]),
-    ?line X2 = nintbin2int(X2B),
-    ?line true = X1 > 0,
-    ?line true = X2 > 0,
-    ?line inet:setopts(S1,[{keepalive,false}]),
-    ?line inet:setopts(S2,[OptionFalse]),
-    ?line {ok,[{keepalive,false}]} = inet:getopts(S1,[keepalive]),
-    ?line {ok,[{keepalive,false}]} = inet:getopts(S2,[keepalive]),
-    ?line {ok,[{raw,SolSocket,SoKeepAlive,Y1B}]} = 
+    X2 = nintbin2int(X2B),
+    true = X1 > 0,
+    true = X2 > 0,
+    inet:setopts(S1,[{keepalive,false}]),
+    inet:setopts(S2,[OptionFalse]),
+    {ok,[{keepalive,false}]} = inet:getopts(S1,[keepalive]),
+    {ok,[{keepalive,false}]} = inet:getopts(S2,[keepalive]),
+    {ok,[{raw,SolSocket,SoKeepAlive,Y1B}]} =
 	inet:getopts(S1,[{raw,SolSocket,SoKeepAlive,binarify(4,Binary)}]),
-    ?line Y1 = nintbin2int(Y1B),
-    ?line {ok,[{raw,SolSocket,SoKeepAlive,Y2B}]} = 
+    Y1 = nintbin2int(Y1B),
+    {ok,[{raw,SolSocket,SoKeepAlive,Y2B}]} =
 	inet:getopts(S2,[{raw,SolSocket,SoKeepAlive,binarify(4,Binary)}]),
-    ?line Y2 = nintbin2int(Y2B),
-    ?line true = Y1 == 0,
-    ?line true = Y2 == 0,
-    ?line gen_tcp:close(S1),
-    ?line gen_tcp:close(S2),
-    ?line stop_helper(Port),
+    Y2 = nintbin2int(Y2B),
+    true = Y1 == 0,
+    true = Y2 == 0,
+    gen_tcp:close(S1),
+    gen_tcp:close(S2),
+    stop_helper(Port),
     ok.
-    
+
 nintbin2int(<<Int:32/native>>) -> Int;
 nintbin2int(<<Int:24/native>>) -> Int;
 nintbin2int(<<Int:16/native>>) -> Int;
@@ -189,13 +185,12 @@ nintbin2int(<<>>) -> 0.
 
 
 
-multiple_raw(suite) -> [];
-multiple_raw(doc) -> "Test setopt/getopt of multiple raw options.";
+%% Test setopt/getopt of multiple raw options.
 multiple_raw(Config) when is_list(Config) ->
     do_multiple_raw(Config,false).
-multiple_raw_getbin(suite) -> [];
-multiple_raw_getbin(doc) -> "Test setopt/getopt of multiple raw options, "
-			      "with binaries in getopt.";
+
+%% Test setopt/getopt of multiple raw options, with binaries in
+%% getopt.
 multiple_raw_getbin(Config) when is_list(Config) ->
     do_multiple_raw(Config,true).
 
@@ -265,145 +260,143 @@ do_multiple_raw(Config, Binary) ->
 
 
 
-doc_examples_raw(suite) -> [];
-doc_examples_raw(doc) -> "Test that the example code from the documentation "
-			     "works";
+%% Test that the example code from the documentation works.
 doc_examples_raw(Config) when is_list(Config) ->
     do_doc_examples_raw(Config,false).
-doc_examples_raw_getbin(suite) -> [];
-doc_examples_raw_getbin(doc) -> "Test that the example code from the "
-				    "documentation works when getopt uses "
-				    "binaries";
+
+%% Test that the example code from the documentation works when getopt
+%% uses binaries.
 doc_examples_raw_getbin(Config) when is_list(Config) ->
     do_doc_examples_raw(Config,true).
+
 do_doc_examples_raw(Config,Binary) when is_list(Config) ->
-    ?line Port = start_helper(Config),
-    ?line Proto = ask_helper(Port,?C_GET_IPPROTO_TCP),
-    ?line TcpInfo = ask_helper(Port,?C_GET_TCP_INFO),
-    ?line TcpInfoSize = ask_helper(Port,?C_GET_TCP_INFO_SIZE),
-    ?line TcpiSackedOffset = ask_helper(Port,?C_GET_OFF_TCPI_SACKED),
-    ?line TcpiOptionsOffset = ask_helper(Port,?C_GET_OFF_TCPI_OPTIONS),
-    ?line TcpiSackedSize = ask_helper(Port,?C_GET_SIZ_TCPI_SACKED),
-    ?line TcpiOptionsSize = ask_helper(Port,?C_GET_SIZ_TCPI_OPTIONS),
-    ?line TcpLinger2 = ask_helper(Port,?C_GET_TCP_LINGER2),
-    ?line stop_helper(Port),
+    Port = start_helper(Config),
+    Proto = ask_helper(Port,?C_GET_IPPROTO_TCP),
+    TcpInfo = ask_helper(Port,?C_GET_TCP_INFO),
+    TcpInfoSize = ask_helper(Port,?C_GET_TCP_INFO_SIZE),
+    TcpiSackedOffset = ask_helper(Port,?C_GET_OFF_TCPI_SACKED),
+    TcpiOptionsOffset = ask_helper(Port,?C_GET_OFF_TCPI_OPTIONS),
+    TcpiSackedSize = ask_helper(Port,?C_GET_SIZ_TCPI_SACKED),
+    TcpiOptionsSize = ask_helper(Port,?C_GET_SIZ_TCPI_OPTIONS),
+    TcpLinger2 = ask_helper(Port,?C_GET_TCP_LINGER2),
+    stop_helper(Port),
     case all_ok([Proto,TcpInfo,TcpInfoSize,TcpiSackedOffset,
 		 TcpiOptionsOffset,TcpiSackedSize,TcpiOptionsSize,
 		 TcpLinger2]) of
 	false ->
 	    {skipped,"Does not run on this OS."};
 	true ->
-	    ?line {Sock,I} = create_socketpair([],[]),
-	    ?line {ok,[{raw,Proto,TcpLinger2,<<OrigLinger:32/native>>}]} = 
+	    {Sock,I} = create_socketpair([],[]),
+	    {ok,[{raw,Proto,TcpLinger2,<<OrigLinger:32/native>>}]} =
 		inet:getopts(Sock,[{raw,Proto,TcpLinger2,binarify(4,Binary)}]),
-	    ?line NewLinger = OrigLinger div 2,
-	    ?line ok = inet:setopts(Sock,[{raw,Proto,TcpLinger2,
-					   <<NewLinger:32/native>>}]),
-	    ?line {ok,[{raw,Proto,TcpLinger2,<<NewLinger:32/native>>}]} = 
+	    NewLinger = OrigLinger div 2,
+	    ok = inet:setopts(Sock,[{raw,Proto,TcpLinger2,
+				     <<NewLinger:32/native>>}]),
+	    {ok,[{raw,Proto,TcpLinger2,<<NewLinger:32/native>>}]} =
 		inet:getopts(Sock,[{raw,Proto,TcpLinger2,binarify(4,Binary)}]),
-	    ?line ok = inet:setopts(Sock,[{raw,Proto,TcpLinger2,
-					   <<OrigLinger:32/native>>}]),
-	    ?line {ok,[{raw,Proto,TcpLinger2,<<OrigLinger:32/native>>}]} = 
+	    ok = inet:setopts(Sock,[{raw,Proto,TcpLinger2,
+				     <<OrigLinger:32/native>>}]),
+	    {ok,[{raw,Proto,TcpLinger2,<<OrigLinger:32/native>>}]} =
 		inet:getopts(Sock,[{raw,Proto,TcpLinger2,binarify(4,Binary)}]),
-	    ?line {ok,[{raw,_,_,Info}]} = 
+	    {ok,[{raw,_,_,Info}]} =
 		inet:getopts(Sock,[{raw,Proto,TcpInfo,
 				    binarify(TcpInfoSize,Binary)}]),
-	    ?line Bit1 = TcpiSackedSize * 8,
-            ?line <<_:TcpiSackedOffset/binary,
-		   TcpiSacked:Bit1/native,_/binary>> = 
+	    Bit1 = TcpiSackedSize * 8,
+            <<_:TcpiSackedOffset/binary,
+	      TcpiSacked:Bit1/native,_/binary>> =
 		Info,
-	    ?line 0 = TcpiSacked,
-	    ?line Bit2 = TcpiOptionsSize * 8,
-            ?line <<_:TcpiOptionsOffset/binary,
-		   TcpiOptions:Bit2/native,_/binary>> = 
+	    0 = TcpiSacked,
+	    Bit2 = TcpiOptionsSize * 8,
+            <<_:TcpiOptionsOffset/binary,
+	      TcpiOptions:Bit2/native,_/binary>> =
 		Info,
-	    ?line true = TcpiOptions =/= 0,
-	    ?line gen_tcp:close(Sock),
-	    ?line gen_tcp:close(I),
-	    ok
-    end.
-	    
-large_raw(suite) -> [];
-large_raw(doc) -> "Test structs and large/too large buffers when raw";
-large_raw(Config) when is_list(Config) ->
-    do_large_raw(Config,false).
-large_raw_getbin(suite) -> [];
-large_raw_getbin(doc) -> "Test structs and large/too large buffers when raw"
-			 "using binaries to getopts";
-large_raw_getbin(Config) when is_list(Config) ->
-    do_large_raw(Config,true).
-do_large_raw(Config,Binary) when is_list(Config) ->
-    ?line Port = start_helper(Config),
-    ?line Proto = ask_helper(Port,?C_GET_SOL_SOCKET),
-    ?line Linger = ask_helper(Port,?C_GET_SO_LINGER),
-    ?line LingerSize = ask_helper(Port,?C_GET_LINGER_SIZE),
-    ?line LingerOnOffOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_ONOFF),
-    ?line LingerLingerOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_LINGER),
-    ?line LingerOnOffSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_ONOFF),
-    ?line LingerLingerSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_LINGER),
-    ?line stop_helper(Port),
-    case all_ok([Proto,Linger,LingerSize,LingerOnOffOffset,
-		 LingerLingerOffset,LingerOnOffSize,LingerLingerSize]) of
-	false ->
-	    {skipped,"Does not run on this OS."};
-	true ->
-	    ?line {Sock1,Sock2} = create_socketpair([{linger,{true,10}}],
-					       [{linger,{false,0}}]),
-	    ?line LargeSize = 1024, % Solaris can take up to 1024*9, 
-				    % linux 1024*63... 
-	    ?line TooLargeSize = 1024*64,
-	    ?line {ok,[{raw,Proto,Linger,Linger1}]} = 
-		inet:getopts(Sock1,[{raw,Proto,Linger,
-				     binarify(LargeSize,Binary)}]),
-	    ?line {ok,[{raw,Proto,Linger,Linger2}]} = 
-		inet:getopts(Sock2,[{raw,Proto,Linger,
-				     binarify(LingerSize,Binary)}]),
-	    ?line true = byte_size(Linger1) =:= LingerSize,
-	    ?line LingerLingerBits = LingerLingerSize * 8,
-	    ?line LingerOnOffBits = LingerOnOffSize * 8,
-	    ?line <<_:LingerLingerOffset/binary,
-		   Ling1:LingerLingerBits/native,_/binary>> = Linger1,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off1:LingerOnOffBits/native,_/binary>> = Linger1,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off2:LingerOnOffBits/native,_/binary>> = Linger2,
-	    ?line true = Off1 =/= 0,
-	    ?line true = Off2 == 0,
-	    ?line true = Ling1 == 10,
-	    ?line {error,einval} = 
-		inet:getopts(Sock1,[{raw,Proto,Linger,TooLargeSize}]),
-	    ?line gen_tcp:close(Sock1),
-	    ?line gen_tcp:close(Sock2),
+	    true = TcpiOptions =/= 0,
+	    gen_tcp:close(Sock),
+	    gen_tcp:close(I),
 	    ok
     end.
 
-combined(suite) -> [];
-combined(doc) -> "Test raw structs combined w/ other options ";
-combined(Config) when is_list(Config) ->
-    do_combined(Config,false).
-combined_getbin(suite) -> [];
-combined_getbin(doc) -> "Test raw structs combined w/ other options and "
-			"binarise in getopts";
-combined_getbin(Config) when is_list(Config) ->
-    do_combined(Config,true).
-do_combined(Config,Binary) when is_list(Config) ->
-    ?line Port = start_helper(Config),
-    ?line Proto = ask_helper(Port,?C_GET_SOL_SOCKET),
-    ?line Linger = ask_helper(Port,?C_GET_SO_LINGER),
-    ?line LingerSize = ask_helper(Port,?C_GET_LINGER_SIZE),
-    ?line LingerOnOffOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_ONOFF),
-    ?line LingerLingerOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_LINGER),
-    ?line LingerOnOffSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_ONOFF),
-    ?line LingerLingerSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_LINGER),
-    ?line stop_helper(Port),
+%% Test structs and large/too large buffers when raw.
+large_raw(Config) when is_list(Config) ->
+    do_large_raw(Config,false).
+
+%% Test structs and large/too large buffers when raw
+%% using binaries to getopts.
+large_raw_getbin(Config) when is_list(Config) ->
+    do_large_raw(Config,true).
+
+do_large_raw(Config,Binary) when is_list(Config) ->
+    Port = start_helper(Config),
+    Proto = ask_helper(Port,?C_GET_SOL_SOCKET),
+    Linger = ask_helper(Port,?C_GET_SO_LINGER),
+    LingerSize = ask_helper(Port,?C_GET_LINGER_SIZE),
+    LingerOnOffOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_ONOFF),
+    LingerLingerOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_LINGER),
+    LingerOnOffSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_ONOFF),
+    LingerLingerSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_LINGER),
+    stop_helper(Port),
     case all_ok([Proto,Linger,LingerSize,LingerOnOffOffset,
 		 LingerLingerOffset,LingerOnOffSize,LingerLingerSize]) of
 	false ->
 	    {skipped,"Does not run on this OS."};
 	true ->
-	    ?line LingerLingerBits = LingerLingerSize * 8,
-	    ?line LingerOnOffBits = LingerOnOffSize * 8,
-	    ?line {LingerOn,LingerOff} = 
+	    {Sock1,Sock2} = create_socketpair([{linger,{true,10}}],
+					      [{linger,{false,0}}]),
+	    LargeSize = 1024,  % Solaris can take up to 1024*9,
+						% linux 1024*63...
+	    TooLargeSize = 1024*64,
+	    {ok,[{raw,Proto,Linger,Linger1}]} =
+		inet:getopts(Sock1,[{raw,Proto,Linger,
+				     binarify(LargeSize,Binary)}]),
+	    {ok,[{raw,Proto,Linger,Linger2}]} =
+		inet:getopts(Sock2,[{raw,Proto,Linger,
+				     binarify(LingerSize,Binary)}]),
+	    true = byte_size(Linger1) =:= LingerSize,
+	    LingerLingerBits = LingerLingerSize * 8,
+	    LingerOnOffBits = LingerOnOffSize * 8,
+	    <<_:LingerLingerOffset/binary,
+	      Ling1:LingerLingerBits/native,_/binary>> = Linger1,
+	    <<_:LingerOnOffOffset/binary,
+	      Off1:LingerOnOffBits/native,_/binary>> = Linger1,
+	    <<_:LingerOnOffOffset/binary,
+	      Off2:LingerOnOffBits/native,_/binary>> = Linger2,
+	    true = Off1 =/= 0,
+	    true = Off2 == 0,
+	    true = Ling1 == 10,
+	    {error,einval} =
+		inet:getopts(Sock1,[{raw,Proto,Linger,TooLargeSize}]),
+	    gen_tcp:close(Sock1),
+	    gen_tcp:close(Sock2),
+	    ok
+    end.
+
+%% Test raw structs combined w/ other options .
+combined(Config) when is_list(Config) ->
+    do_combined(Config,false).
+
+%% Test raw structs combined w/ other options and
+%% binarise in getopts.
+combined_getbin(Config) when is_list(Config) ->
+    do_combined(Config,true).
+
+do_combined(Config,Binary) when is_list(Config) ->
+    Port = start_helper(Config),
+    Proto = ask_helper(Port,?C_GET_SOL_SOCKET),
+    Linger = ask_helper(Port,?C_GET_SO_LINGER),
+    LingerSize = ask_helper(Port,?C_GET_LINGER_SIZE),
+    LingerOnOffOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_ONOFF),
+    LingerLingerOffset = ask_helper(Port,?C_GET_OFF_LINGER_L_LINGER),
+    LingerOnOffSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_ONOFF),
+    LingerLingerSize = ask_helper(Port,?C_GET_SIZ_LINGER_L_LINGER),
+    stop_helper(Port),
+    case all_ok([Proto,Linger,LingerSize,LingerOnOffOffset,
+		 LingerLingerOffset,LingerOnOffSize,LingerLingerSize]) of
+	false ->
+	    {skipped,"Does not run on this OS."};
+	true ->
+	    LingerLingerBits = LingerLingerSize * 8,
+	    LingerOnOffBits = LingerOnOffSize * 8,
+	    {LingerOn,LingerOff} =
 		case LingerOnOffOffset <  LingerLingerOffset of
 		    true ->
 			Pad1 =
@@ -423,11 +416,11 @@ do_combined(Config,Binary) when is_list(Config) ->
 				 lists:duplicate(Pad3Siz,
 						 0)),
 			{<<Pad1/binary,1:LingerOnOffBits/native,
-			  Pad2/binary,10:LingerLingerBits/native,
-			  Pad3/binary>>,
+			   Pad2/binary,10:LingerLingerBits/native,
+			   Pad3/binary>>,
 			 <<Pad1/binary,0:LingerOnOffBits/native,
-			  Pad2/binary,0:LingerLingerBits/native,
-			  Pad3/binary>>};
+			   Pad2/binary,0:LingerLingerBits/native,
+			   Pad3/binary>>};
 		    false ->
 			Pad1 =
 			    list_to_binary(
@@ -446,177 +439,174 @@ do_combined(Config,Binary) when is_list(Config) ->
 				 lists:duplicate(Pad3Siz,
 						 0)),
 			{<<Pad1/binary,1:LingerLingerBits/native,
-			  Pad2/binary,10:LingerOnOffBits/native,
-			  Pad3/binary>>,
+			   Pad2/binary,10:LingerOnOffBits/native,
+			   Pad3/binary>>,
 			 <<Pad1/binary,0:LingerLingerBits/native,
-			  Pad2/binary,0:LingerOnOffBits/native,
-			  Pad3/binary>>}
+			   Pad2/binary,0:LingerOnOffBits/native,
+			   Pad3/binary>>}
 		end,
-	    ?line RawLingerOn = {raw,Proto,Linger,LingerOn},
-	    ?line RawLingerOff = {raw,Proto,Linger,LingerOff},
-	    ?line {Sock1,Sock2} = 
+	    RawLingerOn = {raw,Proto,Linger,LingerOn},
+	    RawLingerOff = {raw,Proto,Linger,LingerOff},
+	    {Sock1,Sock2} =
 		create_socketpair([{keepalive,true},
 				   RawLingerOn],
 				  [{keepalive,false},
 				   RawLingerOff]),
-	    ?line {ok,[{raw,Proto,Linger,Linger1},{keepalive,Keep1}]} = 
+	    {ok,[{raw,Proto,Linger,Linger1},{keepalive,Keep1}]} =
 		inet:getopts(Sock1,[{raw,Proto,Linger, 
 				     binarify(LingerSize,Binary)},keepalive]),
-	    ?line {ok,[{raw,Proto,Linger,Linger2},{keepalive,Keep2}]} = 
+	    {ok,[{raw,Proto,Linger,Linger2},{keepalive,Keep2}]} =
 		inet:getopts(Sock2,[{raw,Proto,Linger,
 				     binarify(LingerSize,Binary)},keepalive]),
-	    ?line true = byte_size(Linger1) =:= LingerSize,
-	    ?line <<_:LingerLingerOffset/binary,
-		   Ling1:LingerLingerBits/native,_/binary>> = Linger1,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off1:LingerOnOffBits/native,_/binary>> = Linger1,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off2:LingerOnOffBits/native,_/binary>> = Linger2,
-	    ?line true = Off1 =/= 0,
-	    ?line true = Off2 == 0,
-	    ?line true = Ling1 == 10,
-	    ?line true = Keep1 =:= true,
-	    ?line true = Keep2 =:= false,
-	    ?line {Sock3,Sock4} = 
+	    true = byte_size(Linger1) =:= LingerSize,
+	    <<_:LingerLingerOffset/binary,
+	      Ling1:LingerLingerBits/native,_/binary>> = Linger1,
+	    <<_:LingerOnOffOffset/binary,
+	      Off1:LingerOnOffBits/native,_/binary>> = Linger1,
+	    <<_:LingerOnOffOffset/binary,
+	      Off2:LingerOnOffBits/native,_/binary>> = Linger2,
+	    true = Off1 =/= 0,
+	    true = Off2 == 0,
+	    true = Ling1 == 10,
+	    true = Keep1 =:= true,
+	    true = Keep2 =:= false,
+	    {Sock3,Sock4} =
 		create_socketpair([RawLingerOn,{keepalive,true}],
 				  [RawLingerOff,{keepalive,false}]),
-	    ?line {ok,[{raw,Proto,Linger,Linger3},{keepalive,Keep3}]} = 
+	    {ok,[{raw,Proto,Linger,Linger3},{keepalive,Keep3}]} =
 		inet:getopts(Sock3,[{raw,Proto,Linger,
 				     binarify(LingerSize,Binary)},keepalive]),
-	    ?line {ok,[{raw,Proto,Linger,Linger4},{keepalive,Keep4}]} = 
+	    {ok,[{raw,Proto,Linger,Linger4},{keepalive,Keep4}]} =
 		inet:getopts(Sock4,[{raw,Proto,Linger,
 				     binarify(LingerSize,Binary)},keepalive]),
-	    ?line true = byte_size(Linger3) =:= LingerSize,
-	    ?line <<_:LingerLingerOffset/binary,
-		   Ling3:LingerLingerBits/native,_/binary>> = Linger3,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off3:LingerOnOffBits/native,_/binary>> = Linger3,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off4:LingerOnOffBits/native,_/binary>> = Linger4,
-	    ?line true = Off3 =/= 0,
-	    ?line true = Off4 == 0,
-	    ?line true = Ling3 == 10,
-	    ?line true = Keep3 =:= true,
-	    ?line true = Keep4 =:= false,
-	    ?line {Sock5,Sock6} = 
+	    true = byte_size(Linger3) =:= LingerSize,
+	    <<_:LingerLingerOffset/binary,
+	      Ling3:LingerLingerBits/native,_/binary>> = Linger3,
+	    <<_:LingerOnOffOffset/binary,
+	      Off3:LingerOnOffBits/native,_/binary>> = Linger3,
+	    <<_:LingerOnOffOffset/binary,
+	      Off4:LingerOnOffBits/native,_/binary>> = Linger4,
+	    true = Off3 =/= 0,
+	    true = Off4 == 0,
+	    true = Ling3 == 10,
+	    true = Keep3 =:= true,
+	    true = Keep4 =:= false,
+	    {Sock5,Sock6} =
 		create_socketpair([{packet,4},RawLingerOn,{keepalive,true}],
 				  [{packet,2},RawLingerOff,{keepalive,false}]),
-	    ?line {ok,[{packet,Pack5},{raw,Proto,Linger,Linger5},
-		       {keepalive,Keep5}]} = 
+	    {ok,[{packet,Pack5},{raw,Proto,Linger,Linger5},
+		 {keepalive,Keep5}]} =
 		inet:getopts(Sock5,[packet,{raw,Proto,Linger,
 					    binarify(LingerSize,Binary)},
 				    keepalive]),
-	    ?line {ok,[{packet,Pack6},{raw,Proto,Linger,Linger6},
-		       {keepalive,Keep6}]} = 
+	    {ok,[{packet,Pack6},{raw,Proto,Linger,Linger6},
+		 {keepalive,Keep6}]} =
 		inet:getopts(Sock6,[packet,{raw,Proto,Linger,
 					    binarify(LingerSize,Binary)},
 				    keepalive]),
-	    ?line true = byte_size(Linger5) =:= LingerSize,
-	    ?line <<_:LingerLingerOffset/binary,
-		   Ling5:LingerLingerBits/native,_/binary>> = Linger5,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off5:LingerOnOffBits/native,_/binary>> = Linger5,
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off6:LingerOnOffBits/native,_/binary>> = Linger6,
-	    ?line true = Off5 =/= 0,
-	    ?line true = Off6 == 0,
-	    ?line true = Ling5 == 10,
-	    ?line true = Keep5 =:= true,
-	    ?line true = Keep6 =:= false,
-	    ?line true = Pack5 =:= 4,
-	    ?line true = Pack6 =:= 2,
-	    ?line inet:setopts(Sock6,[{packet,4},RawLingerOn,
-				      {keepalive,true}]),
-	    ?line {ok,[{packet,Pack7},{raw,Proto,Linger,Linger7},
-		       {keepalive,Keep7}]} = 
+	    true = byte_size(Linger5) =:= LingerSize,
+	    <<_:LingerLingerOffset/binary,
+	      Ling5:LingerLingerBits/native,_/binary>> = Linger5,
+	    <<_:LingerOnOffOffset/binary,
+	      Off5:LingerOnOffBits/native,_/binary>> = Linger5,
+	    <<_:LingerOnOffOffset/binary,
+	      Off6:LingerOnOffBits/native,_/binary>> = Linger6,
+	    true = Off5 =/= 0,
+	    true = Off6 == 0,
+	    true = Ling5 == 10,
+	    true = Keep5 =:= true,
+	    true = Keep6 =:= false,
+	    true = Pack5 =:= 4,
+	    true = Pack6 =:= 2,
+	    inet:setopts(Sock6,[{packet,4},RawLingerOn,
+				{keepalive,true}]),
+	    {ok,[{packet,Pack7},{raw,Proto,Linger,Linger7},
+		 {keepalive,Keep7}]} =
 		inet:getopts(Sock6,[packet,{raw,Proto,Linger,
 					    binarify(LingerSize,Binary)},
 				    keepalive]),
-	    ?line <<_:LingerOnOffOffset/binary,
-		   Off7:LingerOnOffBits/native,_/binary>> = Linger7,
-	    ?line true = Off7 =/= 0,
-	    ?line true = Keep7 =:= true,
-	    ?line true = Pack7 =:= 4,
-	    ?line gen_tcp:close(Sock1),
-	    ?line gen_tcp:close(Sock2),
-	    ?line gen_tcp:close(Sock3),
-	    ?line gen_tcp:close(Sock4),
-	    ?line gen_tcp:close(Sock5),
-	    ?line gen_tcp:close(Sock6),
+	    <<_:LingerOnOffOffset/binary,
+	      Off7:LingerOnOffBits/native,_/binary>> = Linger7,
+	    true = Off7 =/= 0,
+	    true = Keep7 =:= true,
+	    true = Pack7 =:= 4,
+	    gen_tcp:close(Sock1),
+	    gen_tcp:close(Sock2),
+	    gen_tcp:close(Sock3),
+	    gen_tcp:close(Sock4),
+	    gen_tcp:close(Sock5),
+	    gen_tcp:close(Sock6),
 	    ok
     end.
 
 
 
-ipv6_v6only_udp(suite) -> [];
-ipv6_v6only_udp(doc) -> "Test socket option ipv6_v6only for UDP";
+%% Test socket option ipv6_v6only for UDP.
 ipv6_v6only_udp(Config) when is_list(Config) ->
     ipv6_v6only(Config, gen_udp).
 
-ipv6_v6only_tcp(suite) -> [];
-ipv6_v6only_tcp(doc) -> "Test socket option ipv6_v6only for TCP";
+%% Test socket option ipv6_v6only for TCP.
 ipv6_v6only_tcp(Config) when is_list(Config) ->
     ipv6_v6only(Config, gen_tcp).
 
-ipv6_v6only_sctp(suite) -> [];
-ipv6_v6only_sctp(doc) -> "Test socket option ipv6_v6only for SCTP";
+%% Test socket option ipv6_v6only for SCTP.
 ipv6_v6only_sctp(Config) when is_list(Config) ->
     ipv6_v6only(Config, gen_sctp).
 
 ipv6_v6only(Config, Module) when is_list(Config) ->
-    ?line case ipv6_v6only_open(Module, []) of
-	      {ok,S1} ->
-		  ?line case inet:getopts(S1, [ipv6_v6only]) of
-			    {ok,[{ipv6_v6only,Default}]}
-			      when is_boolean(Default) ->
-				?line ok =
-				    ipv6_v6only_close(Module, S1),
-				?line ipv6_v6only(Config, Module, Default);
-			    {ok,[]} ->
-				?line io:format("Not implemented.~n", []),
-				%% This list of OS:es where the option is
-				%% supposed to be not implemented is just
-				%% a guess, and may grow with time.
-				?line case {os:type(),os:version()} of
-					  {{unix,linux},{2,M,_}}
-					  when M =< 4 -> ok
-				      end,
-				%% At least this should work
-				?line {ok,S2} =
-				    ipv6_v6only_open(
-				      Module,
-				      [{ipv6_v6only,true}]),
-				?line ok =
-				    ipv6_v6only_close(Module, S2)
-			end;
-	      {error,_} ->
-		  {skipped,"Socket type not supported"}
-	  end.
+    case ipv6_v6only_open(Module, []) of
+	{ok,S1} ->
+	    case inet:getopts(S1, [ipv6_v6only]) of
+		{ok,[{ipv6_v6only,Default}]}
+		  when is_boolean(Default) ->
+		    ok =
+			ipv6_v6only_close(Module, S1),
+		    ipv6_v6only(Config, Module, Default);
+		{ok,[]} ->
+		    io:format("Not implemented.~n", []),
+		    %% This list of OS:es where the option is
+		    %% supposed to be not implemented is just
+		    %% a guess, and may grow with time.
+		    case {os:type(),os:version()} of
+			{{unix,linux},{2,M,_}}
+			  when M =< 4 -> ok
+		    end,
+		    %% At least this should work
+		    {ok,S2} =
+			ipv6_v6only_open(
+			  Module,
+			  [{ipv6_v6only,true}]),
+		    ok =
+			ipv6_v6only_close(Module, S2)
+	    end;
+	{error,_} ->
+	    {skipped,"Socket type not supported"}
+    end.
 
 ipv6_v6only(Config, Module, Default) when is_list(Config) ->
-    ?line io:format("Default ~w.~n", [Default]),
-    ?line {ok,S1} =
+    io:format("Default ~w.~n", [Default]),
+    {ok,S1} =
 	ipv6_v6only_open(Module, [{ipv6_v6only,Default}]),
-    ?line {ok,[{ipv6_v6only,Default}]} =
+    {ok,[{ipv6_v6only,Default}]} =
 	inet:getopts(S1, [ipv6_v6only]),
-    ?line ok =
+    ok =
 	ipv6_v6only_close(Module, S1),
-    ?line NotDefault = not Default,
-    ?line case ipv6_v6only_open(Module, [{ipv6_v6only,NotDefault}]) of
-	      {ok,S2} ->
-		  ?line io:format("Read-write.~n", []),
-		  ?line {ok,[{ipv6_v6only,NotDefault}]} =
-		      inet:getopts(S2, [ipv6_v6only]),
-		  ok;
-	      {error,einval} ->
-		  ?line io:format("Read-only.~n", []),
-		  %% This option is known to be read-only and true
-		  %% on Windows and OpenBSD
-		  ?line case os:type() of
-			    {unix,openbsd} when Default =:= true -> ok;
-			    {win32,_} when Default =:= true -> ok
-			end
-	  end.
+    NotDefault = not Default,
+    case ipv6_v6only_open(Module, [{ipv6_v6only,NotDefault}]) of
+	{ok,S2} ->
+	    io:format("Read-write.~n", []),
+	    {ok,[{ipv6_v6only,NotDefault}]} =
+		inet:getopts(S2, [ipv6_v6only]),
+	    ok;
+	{error,einval} ->
+	    io:format("Read-only.~n", []),
+	    %% This option is known to be read-only and true
+	    %% on Windows and OpenBSD
+	    case os:type() of
+		{unix,openbsd} when Default =:= true -> ok;
+		{win32,_} when Default =:= true -> ok
+	    end
+    end.
 
 ipv6_v6only_open(Module, Opts) ->
     Module:case Module of
@@ -628,47 +618,46 @@ ipv6_v6only_close(Module, Socket) ->
     Module:close(Socket).
 
 
-use_ipv6_v6only_udp(suite) -> [];
-use_ipv6_v6only_udp(doc) -> "Test using socket option ipv6_v6only for UDP";
+%% Test using socket option ipv6_v6only for UDP.
 use_ipv6_v6only_udp(Config) when is_list(Config) ->
-    ?line case gen_udp:open(0, [inet6,{ipv6_v6only,true}]) of
-	      {ok,S6} ->
-		  ?line case inet:getopts(S6, [ipv6_v6only]) of
-			    {ok,[{ipv6_v6only,true}]} ->
-				use_ipv6_v6only_udp(Config, S6);
-			    {ok,Other} ->
-				{skipped,{getopts,Other}}
-			end;
-	      {error,_} ->
-		  {skipped,"Socket type not supported"}
-	  end.
+    case gen_udp:open(0, [inet6,{ipv6_v6only,true}]) of
+	{ok,S6} ->
+	    case inet:getopts(S6, [ipv6_v6only]) of
+		{ok,[{ipv6_v6only,true}]} ->
+		    use_ipv6_v6only_udp(Config, S6);
+		{ok,Other} ->
+		    {skipped,{getopts,Other}}
+	    end;
+	{error,_} ->
+	    {skipped,"Socket type not supported"}
+    end.
 
 use_ipv6_v6only_udp(_Config, S6) ->
-    ?line {ok,Port} = inet:port(S6),
-    ?line {ok,S4} = gen_udp:open(Port, [inet]),
-    ?line E6 = " IPv6-echo.",
-    ?line E4 = " IPv4-echo.",
-    ?line Sender =
+    {ok,Port} = inet:port(S6),
+    {ok,S4} = gen_udp:open(Port, [inet]),
+    E6 = " IPv6-echo.",
+    E4 = " IPv4-echo.",
+    Sender =
 	spawn_link(fun () -> use_ipv6_v6only_udp_sender(Port, E6, E4) end),
-    ?line use_ipv6_v6only_udp_listener(
-	    S6, S4, E6, E4, monitor(process, Sender)).
+    use_ipv6_v6only_udp_listener(
+      S6, S4, E6, E4, monitor(process, Sender)).
 
 use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref) ->
-    ?line receive
-	      {udp,S6,IP,P,Data} ->
-		  ?line ok = gen_udp:send(S6, IP, P, [Data|E6]),
-		  ?line use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
-	      {udp,S4,IP,P,Data} ->
-		  ?line ok = gen_udp:send(S4, IP, P, [Data|E4]),
-		  ?line use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
-	      {'DOWN',Mref,_,_,normal} ->
-		  ok;
-	      {'DOWN',Mref,_,_,Result} ->
-		  %% Since we are linked we will never arrive here
-		  Result;
-	      Other ->
-		  ?line exit({failed,{listener_unexpected,Other}})
-	  end.
+    receive
+	{udp,S6,IP,P,Data} ->
+	    ok = gen_udp:send(S6, IP, P, [Data|E6]),
+	    use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
+	{udp,S4,IP,P,Data} ->
+	    ok = gen_udp:send(S4, IP, P, [Data|E4]),
+	    use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
+	{'DOWN',Mref,_,_,normal} ->
+	    ok;
+	{'DOWN',Mref,_,_,Result} ->
+	    %% Since we are linked we will never arrive here
+	    Result;
+	Other ->
+	    exit({failed,{listener_unexpected,Other}})
+    end.
 
 use_ipv6_v6only_udp_sender(Port, E6, E4) ->
     D6 = "IPv6-send.",
@@ -693,12 +682,9 @@ sndrcv(Ip, Port, Opts, Data) ->
 
 
 
-type_errors(suite) ->
-    [];
-type_errors(doc) ->
-    "Test that raw data requests are not executed for bad types";
+%% Test that raw data requests are not executed for bad types.
 type_errors(Config) when is_list(Config) ->
-    ?line BadSetOptions =
+    BadSetOptions =
 	[
 	 {raw,x,3,<<1:32>>},
 	 {raw,1,tre,<<1:32>>},
@@ -716,7 +702,7 @@ type_errors(Config) when is_list(Config) ->
 	 rav,
 	 {linger,banan}
 	],
-    ?line BadGetOptions =
+    BadGetOptions =
 	[
 	 {raw,x,3,<<1:32>>},
 	 {raw,1,tre,<<1:32>>},
@@ -735,46 +721,46 @@ type_errors(Config) when is_list(Config) ->
 	 rav,
 	 {linger,banan}
 	],
-    ?line lists:foreach(fun(Option) ->
-				?line case 
-				      catch create_socketpair([Option],[]) of
-					  {'EXIT',badarg} ->
-					      ?line ok;
-					  Unexpected1 ->
-					      ?line exit({unexpected,
-							  Unexpected1})
-				      end,
-				?line case 
-				      catch create_socketpair([],[Option]) of
-					  {'EXIT',badarg} ->
-					      ?line ok;
-					  Unexpected2 ->
-					      ?line exit({unexpected,
-							  Unexpected2})
-				      end,
-				?line {Sock1,Sock2} = create_socketpair([],[]),
-				?line case inet:setopts(Sock1, [Option]) of
-					  {error,einval} ->
-					      ?line ok;
-					  Unexpected3 ->
-					      ?line exit({unexpected,
-							  Unexpected3})
-				      end,
-				?line gen_tcp:close(Sock1),
-				?line gen_tcp:close(Sock2)
-			end,BadSetOptions),
-    ?line {Sock1,Sock2} = create_socketpair([],[]),
-    ?line lists:foreach(fun(Option) ->
-				?line case inet:getopts(Sock1, [Option]) of
-					  {error,einval} ->
-					      ?line ok;
-					  Unexpected ->
-					      ?line exit({unexpected,
-							  Unexpected})
-				      end
-			end,BadGetOptions),
-    ?line gen_tcp:close(Sock1),
-    ?line gen_tcp:close(Sock2),
+    lists:foreach(fun(Option) ->
+			  case
+			      catch create_socketpair([Option],[]) of
+			      {'EXIT',badarg} ->
+				  ok;
+			      Unexpected1 ->
+				  exit({unexpected,
+					Unexpected1})
+			  end,
+			  case
+			      catch create_socketpair([],[Option]) of
+			      {'EXIT',badarg} ->
+				  ok;
+			      Unexpected2 ->
+				  exit({unexpected,
+					Unexpected2})
+			  end,
+			  {Sock1,Sock2} = create_socketpair([],[]),
+			  case inet:setopts(Sock1, [Option]) of
+			      {error,einval} ->
+				  ok;
+			      Unexpected3 ->
+				  exit({unexpected,
+					Unexpected3})
+			  end,
+			  gen_tcp:close(Sock1),
+			  gen_tcp:close(Sock2)
+		  end,BadSetOptions),
+    {Sock1,Sock2} = create_socketpair([],[]),
+    lists:foreach(fun(Option) ->
+			  case inet:getopts(Sock1, [Option]) of
+			      {error,einval} ->
+				  ok;
+			      Unexpected ->
+				  exit({unexpected,
+					Unexpected})
+			  end
+		  end,BadGetOptions),
+    gen_tcp:close(Sock1),
+    gen_tcp:close(Sock2),
     ok.
 
 all_ok([]) ->
@@ -784,59 +770,59 @@ all_ok([H|T]) when H >= 0 ->
 all_ok(_) ->
     false.
 
-			  
+
 make_check_fun(Type,Element) ->
     fun({Name,V1,V2,Mand,Chang},Acc) ->
-	    ?line {LO1,CO1} = setelement(Element,{[],[]}, [{Name,V1}]),
-	    ?line {LO2,CO2} = setelement(Element,{[],[]}, [{Name,V2}]),
-	    ?line {X1,Y1} = create_socketpair(LO1,CO1),
-	    ?line {X2,Y2} = create_socketpair(LO2,CO2),
-	    ?line S1 = element(Element,{X1,Y1}),
-	    ?line S2 = element(Element,{X2,Y2}),
-	    ?line {ok,[{Name,R1}]} = inet:getopts(S1,[Name]),
-	    ?line {ok,[{Name,R2}]} = inet:getopts(S2,[Name]),
+	    {LO1,CO1} = setelement(Element,{[],[]}, [{Name,V1}]),
+	    {LO2,CO2} = setelement(Element,{[],[]}, [{Name,V2}]),
+	    {X1,Y1} = create_socketpair(LO1,CO1),
+	    {X2,Y2} = create_socketpair(LO2,CO2),
+	    S1 = element(Element,{X1,Y1}),
+	    S2 = element(Element,{X2,Y2}),
+	    {ok,[{Name,R1}]} = inet:getopts(S1,[Name]),
+	    {ok,[{Name,R2}]} = inet:getopts(S2,[Name]),
 	    NewAcc =
 		case R1 =/= R2 of
 		    true ->
 			case Chang of
 			    true ->
-				?line inet:setopts(S1,[{Name,V2}]),
-				?line {ok,[{Name,R3}]} = 
+				inet:setopts(S1,[{Name,V2}]),
+				{ok,[{Name,R3}]} =
 				    inet:getopts(S1,[Name]),
 				case {R3 =/= R1, R3 =:= R2} of
 				    {true,true} ->
-					?line Acc;
+					Acc;
 				    _ ->
 					case Mand of
 					    true ->
-						?line exit
-							({failed_sockopt,
-							  {change,
-							   Name}});
+						exit
+						  ({failed_sockopt,
+						    {change,
+						     Name}});
 					    false ->
-						?line [{change,Name}|Acc]
+						[{change,Name}|Acc]
 					end
 				end;
 			    false ->
-				?line Acc
+				Acc
 			end;
 		    false ->
 			case Mand of
 			    true ->
-				?line exit({failed_sockopt,
-					    {Type,Name}});
+				exit({failed_sockopt,
+				      {Type,Name}});
 			    false ->
-				?line [{Type,Name}|Acc]
+				[{Type,Name}|Acc]
 			end
 		end,
-	    ?line gen_tcp:close(X1),
-	    ?line gen_tcp:close(Y1),
-	    ?line gen_tcp:close(X2),
-	    ?line gen_tcp:close(Y2),
+	    gen_tcp:close(X1),
+	    gen_tcp:close(Y1),
+	    gen_tcp:close(X2),
+	    gen_tcp:close(Y2),
 	    NewAcc
-     end.
+    end.
 
-% {OptionName,Value1,Value2,Mandatory,Changeable}
+%% {OptionName,Value1,Value2,Mandatory,Changeable}
 all_listen_options() ->
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 
@@ -887,19 +873,19 @@ all_connect_options() ->
      {delay_send,false,true,true,true}, 
      {packet_size,0,4,true,true}
     ].
-    
+
 
 create_socketpair(ListenOptions,ConnectOptions) ->
-    ?line {ok,LS}=gen_tcp:listen(0,ListenOptions),
-    ?line {ok,Port}=inet:port(LS),
-    ?line {ok,CS}=gen_tcp:connect(localhost,Port,ConnectOptions),
-    ?line {ok,AS}=gen_tcp:accept(LS),
-    ?line gen_tcp:close(LS),
+    {ok,LS}=gen_tcp:listen(0,ListenOptions),
+    {ok,Port}=inet:port(LS),
+    {ok,CS}=gen_tcp:connect(localhost,Port,ConnectOptions),
+    {ok,AS}=gen_tcp:accept(LS),
+    gen_tcp:close(LS),
     {AS,CS}.
 
 
 start_helper(Config) ->
-    Progname = filename:join(?config(data_dir, Config), "sockopt_helper"),
+    Progname = filename:join(proplists:get_value(data_dir, Config), "sockopt_helper"),
     Port = open_port({spawn,Progname},[eof,line]),
     Port.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,60 +19,31 @@
 %%
 -module(tools_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-%% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
 -define(application, tools).
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0]).
 
 %% Test cases must be exported.
 -export([app_test/1, appup_test/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [app_test, appup_test].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
 
 %%%
 %%% Test cases starts here.
 %%%
 
-app_test(doc) ->
-    ["Test that the .app file does not contain any `basic' errors"];
-app_test(suite) ->
-    [];
+%% Test that the .app file does not contain any `basic' errors
 app_test(Config) when is_list(Config) ->
-    ?line ?t:app_test(tools, tolerant).
+    test_server:app_test(tools, tolerant).
 
 %% Test that the .appup file does not contain any `basic' errors
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(tools).
+    ok = test_server:appup_test(tools).

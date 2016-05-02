@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,3 @@
 
 /* The size of a pointer. */
 #undef SIZEOF_VOID_P
-
-/* Define if building a halfword-heap 64bit emulator (needed for NIF's) */
-#undef HALFWORD_HEAP_EMULATOR

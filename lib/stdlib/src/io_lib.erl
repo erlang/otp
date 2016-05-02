@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -112,14 +112,14 @@
 
 -type format_spec() ::
         #{
-           control_char => char(),
-           args         => [any()],
-           width        => 'none' | integer(),
-           adjust       => 'left' | 'right',
-           precision    => 'none' | integer(),
-           pad_char     => char(),
-           encoding     => 'unicode' | 'latin1',
-           strings      => boolean()
+           control_char := char(),
+           args         := [any()],
+           width        := 'none' | integer(),
+           adjust       := 'left' | 'right',
+           precision    := 'none' | integer(),
+           pad_char     := char(),
+           encoding     := 'unicode' | 'latin1',
+           strings      := boolean()
          }.
 
 %%----------------------------------------------------------------------

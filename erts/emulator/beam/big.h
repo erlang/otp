@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 
 typedef Uint     ErtsDigit;
 
-#if ((SIZEOF_VOID_P == 4) || HALFWORD_HEAP) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
+#if (SIZEOF_VOID_P == 4) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
 /* Assume 32-bit machine with long long support */
 typedef Uint64   ErtsDoubleDigit;
 typedef Uint16   ErtsHalfDigit;
@@ -53,9 +53,6 @@ typedef Uint32   ErtsHalfDigit;
 #else
 #error "can not determine machine size"
 #endif
-
-#define D_DECIMAL_EXP	9
-#define D_DECIMAL_BASE	1000000000
 
 typedef Uint  dsize_t;	 /* Vector size type */
 
@@ -90,13 +87,9 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #define BIG_UINT_HEAP_SIZE (1 + 1)	/* always, since sizeof(Uint) <= sizeof(Eterm) */
 
-#if HALFWORD_HEAP
-#define BIG_UWORD_HEAP_SIZE(UW) (((UW) >> (sizeof(Uint) * 8)) ? 3 : 2)
-#else
 #define BIG_UWORD_HEAP_SIZE(UW) BIG_UINT_HEAP_SIZE
-#endif
 
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 
 #define ERTS_UINT64_BIG_HEAP_SIZE__(X) \
   ((X) >= (((Uint64) 1) << 32) ? (1 + 2) : (1 + 1))
@@ -178,5 +171,15 @@ Eterm erts_sint64_to_big(Sint64, Eterm **);
 
 Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
 
-#endif
+/* How list_to_integer classifies the input, was it even a string? */
+typedef enum {
+    LTI_BAD_STRUCTURE = 0,
+    LTI_NO_INTEGER    = 1,
+    LTI_SOME_INTEGER  = 2,
+    LTI_ALL_INTEGER   = 3
+} LTI_result_t;
 
+LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
+                                  const Uint base,
+                                  Eterm *integer_out, Eterm *tail_out);
+#endif

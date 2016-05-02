@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 	 object_sets/1,parameterization/1,
 	 syntax/1,table_constraints/1,tags/1,values/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks, [ts_install_cth]}].
 
@@ -929,8 +929,8 @@ values(Config) ->
 
 run({Mod,Spec}, Config) ->
     Base = atom_to_list(Mod) ++ ".asn1",
-    File = filename:join(?config(priv_dir, Config), Base),
-    Include0 = filename:dirname(?config(data_dir, Config)),
+    File = filename:join(proplists:get_value(priv_dir, Config), Base),
+    Include0 = filename:dirname(proplists:get_value(data_dir, Config)),
     Include = filename:join(filename:dirname(Include0), "asn1_SUITE_data"),
     ok = file:write_file(File, Spec),
     asn1ct:compile(File, [{i, Include}]).

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -27,6 +27,36 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+
+<section><title>SSL 7.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrections to cipher suite handling using the 3 and 4
+	    tuple format in addition to commit
+	    89d7e21cf4ae988c57c8ef047bfe85127875c70c</p>
+          <p>
+	    Own Id: OTP-13511</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make values for the TLS-1.2 signature_algorithms
+	    extension configurable</p>
+          <p>
+	    Own Id: OTP-13261</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 7.3</title>
 

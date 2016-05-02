@@ -44,7 +44,7 @@
 -export([chunk_name/1,
 	 %% Only the code and code_server modules may call the entries below!
 	 load_native_code/3,
-	 post_beam_load/2,
+	 post_beam_load/1,
 	 load_module/4,
 	 load/3]).
 
@@ -105,7 +105,7 @@ load_native_code(Mod, Bin, Architecture) when is_atom(Mod), is_binary(Bin) ->
   case code:get_chunk(Bin, chunk_name(Architecture)) of
     undefined -> no_native;
     NativeCode when is_binary(NativeCode) ->
-      erlang:system_flag(multi_scheduling, block),
+      erlang:system_flag(multi_scheduling, block_normal),
       try
         OldReferencesToPatch = patch_to_emu_step1(Mod),
         case load_module(Mod, NativeCode, Bin, OldReferencesToPatch,
@@ -114,23 +114,23 @@ load_native_code(Mod, Bin, Architecture) when is_atom(Mod), is_binary(Bin) ->
           Result -> Result
         end
       after
-        erlang:system_flag(multi_scheduling, unblock)
+        erlang:system_flag(multi_scheduling, unblock_normal)
       end
   end.
 
 %%========================================================================
 
--spec post_beam_load(atom(), hipe_architecture()) -> 'ok'.
+-spec post_beam_load([module()]) -> 'ok'.
 
-%% does nothing on a hipe-disabled system
-post_beam_load(_Mod, undefined) ->
+post_beam_load([])->
   ok;
-post_beam_load(Mod, _) when is_atom(Mod) ->
-  erlang:system_flag(multi_scheduling, block),
+post_beam_load([_|_]=Mods) ->
+  erlang:system_flag(multi_scheduling, block_normal),
   try
-    patch_to_emu(Mod)
+    _ = [patch_to_emu(Mod) || Mod <- Mods],
+    ok
   after
-    erlang:system_flag(multi_scheduling, unblock)
+    erlang:system_flag(multi_scheduling, unblock_normal)
   end,
   ok.
 
@@ -151,11 +151,11 @@ version_check(Version, Mod) when is_atom(Mod) ->
                      'bad_crc' | {'module', Mod} when Mod :: atom().
 
 load_module(Mod, Bin, Beam, Architecture) ->
-  erlang:system_flag(multi_scheduling, block),
+  erlang:system_flag(multi_scheduling, block_normal),
   try
     load_module_nosmp(Mod, Bin, Beam, Architecture)
   after
-    erlang:system_flag(multi_scheduling, unblock)
+    erlang:system_flag(multi_scheduling, unblock_normal)
   end.
 
 load_module_nosmp(Mod, Bin, Beam, Architecture) ->
@@ -173,11 +173,11 @@ load_module(Mod, Bin, Beam, OldReferencesToPatch, Architecture) ->
               'bad_crc' | {'module', Mod} when Mod :: atom().
 
 load(Mod, Bin, Architecture) ->
-  erlang:system_flag(multi_scheduling, block),
+  erlang:system_flag(multi_scheduling, block_normal),
   try
     load_nosmp(Mod, Bin, Architecture)
   after
-    erlang:system_flag(multi_scheduling, unblock)
+    erlang:system_flag(multi_scheduling, unblock_normal)
   end.
 
 load_nosmp(Mod, Bin, Architecture) ->

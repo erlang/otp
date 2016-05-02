@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -170,7 +170,4 @@ init(safe) ->
     AlarmH = {alarm_handler,
 	      {alarm_handler, start_link, []},
 	      permanent, 2000, worker, dynamic},	      
-    Overload = {overload,
-		{overload, start_link, []},
-		permanent, 2000, worker, [overload]},	      
-    {ok, {SupFlags, [AlarmH, Overload]}}.
+    {ok, {SupFlags, [AlarmH]}}.

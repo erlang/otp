@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -245,13 +245,13 @@ lists:keysearch(Name, 1, List)</code>
 handle(Msg, State)
 spawn(m, init, [])</code>
     <p><em>Examples</em> where <c>ExprF</c> is a fun:</p>
-    <code type="none">
-Fun1 = fun(X) -> X+1 end
-Fun1(3)
-=> 4
-
-fun lists:append/2([1,2], [3,4])
-=> [1,2,3,4]</code>
+    <pre>
+1> <input>Fun1 = fun(X) -> X+1 end,</input>
+<input>Fun1(3).</input>
+4
+2> <input>fun lists:append/2([1,2], [3,4]).</input>
+[1,2,3,4]
+3> </pre>
 
     <p>Notice that when calling a local function, there is a difference
     between using the implicitly or fully qualified function name.
@@ -1004,7 +1004,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  </p>
 	  <list>
 		  <item><p>A <c>badmatch</c> exception.</p>
-		        <p>This is if it is used in the context of the matching operator
+		        <p>This is if it is used in the context of the match operator
 			  as in the example.</p>
 		  </item>
 		  <item><p>Or resulting in the next clause being tested in function heads and
@@ -1085,7 +1085,7 @@ Ei = Value |
     <p>Used in a bit string construction, <c>Value</c> is an expression
     that is to evaluate to an integer, float, or bit string.  If the
     expression is not a single literal or variable, it
-    is to be enclosed in parenthesis.</p>
+    is to be enclosed in parentheses.</p>
 
     <p>Used in a bit string matching, <c>Value</c> must be a variable,
     or an integer, float, or string.</p>
@@ -1319,7 +1319,7 @@ catch Expr</code>
 {'EXIT',{badarith,[...]}}</pre>
     <p>Notice that <c>catch</c> has low precedence and catch
       subexpressions often needs to be enclosed in a block
-      expression or in parenthesis:</p>
+      expression or in parentheses:</p>
     <pre>
 3> <input>A = catch 1+2.</input>
 ** 1: syntax error before: 'catch' **
@@ -1556,9 +1556,11 @@ end</pre>
     <p>Bit string comprehensions are written with
     the following syntax:</p>
     <pre>
-&lt;&lt; BitString || Qualifier1,...,QualifierN &gt;&gt;</pre>
-    <p>Here, <c>BitString</c> is a bit string expression and each
-      <c>Qualifier</c> is either a generator, a bit string generator or a filter.</p>
+&lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre>
+    <p><c>BitStringExpr</c> is an expression that evalutes to a bit
+    string. If <c>BitStringExpr</c> is a function call, it must be
+    enclosed in parentheses.  Each <c>Qualifier</c> is either a
+    generator, a bit string generator or a filter.</p>
     <list type="bulleted">
  <item>A <em>generator</em> is written as:      <br></br>
       &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>

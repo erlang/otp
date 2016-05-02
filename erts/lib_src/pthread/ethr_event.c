@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,6 +94,9 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 	tsp = NULL;
     }
     else {
+#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+	start = ethr_get_monotonic_time();
+#endif
 	tsp = &ts;
 	time = timeout;
 	if (spincount == 0) {
@@ -102,9 +105,6 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 		goto return_event_on;
 	    goto set_timeout;
 	}
-#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
-	start = ethr_get_monotonic_time();
-#endif
     }
 
     while (1) {

@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -694,11 +694,10 @@ make_crypto_key(String) ->
     {[K1,K2,K3],IVec}.
 
 random_bytes(N) ->
-    random:seed(os:timestamp()),
     random_bytes_1(N, []).
 
 random_bytes_1(0, Acc) -> Acc;
-random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
+random_bytes_1(N, Acc) -> random_bytes_1(N-1, [rand:uniform(255)|Acc]).
 
 check_callback_load(Callback) ->
     case code:is_loaded(Callback) of

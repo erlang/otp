@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -195,11 +195,13 @@ gen_funcs(Defs) ->
 
     w("void WxeApp::wxe_dispatch(wxeCommand& Ecmd)~n{~n"),
     w(" char * bp = Ecmd.buffer;~n"),
+    w(" int op = Ecmd.op;~n"),
+    w(" Ecmd.op = -1;~n"),
     w(" wxeMemEnv *memenv = getMemEnv(Ecmd.port);~n"),
 %%    w(" wxMBConvUTF32 UTFconverter;~n"),
-    w("  wxeReturn rt = wxeReturn(WXE_DRV_PORT, Ecmd.caller, true);~n"),
+    w(" wxeReturn rt = wxeReturn(WXE_DRV_PORT, Ecmd.caller, true);~n"),
     w(" try {~n"),
-    w(" switch (Ecmd.op)~n{~n"),
+    w(" switch (op)~n{~n"),
 %%     w("  case WXE_CREATE_PORT:~n", []),
 %%     w("   { newMemEnv(Ecmd.port); } break;~n", []),
 %%     w("  case WXE_REMOVE_PORT:~n", []),
@@ -209,7 +211,7 @@ gen_funcs(Defs) ->
     w("     wxeRefData *refd = getRefData(This);~n"),
     w("     if(This && refd) {~n"),
     w("       if(recurse_level > 1 && refd->type != 4) {~n"),
-    w("          delayed_delete->Append(Ecmd.Save());~n"),
+    w("          delayed_delete->Append(Ecmd.Save(op));~n"),
     w("       } else {~n"),
     w("          delete_object(This, refd);~n"),
     w("          ((WxeApp *) wxTheApp)->clearPtr(This);}~n"),
@@ -228,7 +230,7 @@ gen_funcs(Defs) ->
     w("  default: {~n"),
     w("    wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);"),
     w("    error.addAtom(\"_wxe_error_\");~n"),
-    w("    error.addInt((int) Ecmd.op);~n"),
+    w("    error.addInt((int) op);~n"),
     w("    error.addAtom(\"not_supported\");~n"),
     w("    error.addTupleCount(3);~n"),
     w("    error.send();~n"),
@@ -239,7 +241,7 @@ gen_funcs(Defs) ->
     w("} catch (wxe_badarg badarg) {  // try~n"),
     w("    wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);"),
     w("    error.addAtom(\"_wxe_error_\");~n"),
-    w("    error.addInt((int) Ecmd.op);~n"),
+    w("    error.addInt((int) op);~n"),
     w("    error.addAtom(\"badarg\");~n"),
     w("    error.addInt((int) badarg.ref);~n"),
     w("    error.addTupleCount(2);~n"),

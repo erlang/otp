@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@
 
 -export([compile/2,run/1,compile_combined/2,run_combined/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 compile(Config, Options) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     NewOptions = [{i, DataDir}, {i, CaseDir}|Options],
 
     asn1_test_lib:compile_all(["SSL-PKIX", "PKIXAttributeCertificate"],
@@ -44,16 +44,16 @@ compile(Config, Options) ->
                               Config, NewOptions).
 
 compile_combined(Config, ber=Rule) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     Options = [{i, CaseDir}, {i, DataDir}, Rule,
                der, compact_bit_string, asn1config],
     ok = remove_db_files_combined(CaseDir),
     asn1_test_lib:compile("OTP-PKIX.set.asn", Config, Options).
 
 remove_db_files(Dir) ->
-    ?line ok = remove_db_file(Dir ++ "PKIX1Explicit93.asn1db"),
-    ?line ok = remove_db_file(Dir ++ "PKIX1Implicit93.asn1db").
+    ok = remove_db_file(Dir ++ "PKIX1Explicit93.asn1db"),
+    ok = remove_db_file(Dir ++ "PKIX1Implicit93.asn1db").
 remove_db_file(File) ->
     case file:delete(File) of
 	ok ->
@@ -65,23 +65,23 @@ remove_db_file(File) ->
     end.
 
 remove_db_files_combined(Dir) ->
-    ?line ok = remove_db_file(Dir ++ "OTP-PKIX.asn1db"),
-    ?line ok = remove_db_file(Dir ++ "SSL-PKIX.asn1db"),
-    ?line ok = remove_db_file(Dir ++ "PKIXAttributeCertificate.asn1db"),
-    ?line ok = remove_db_file(Dir ++ "PKIX1Algorithms88.asn1db"),
-    ?line ok = remove_db_file(Dir ++ "PKIX1Explicit88.asn1db"),
-    ?line ok = remove_db_file(Dir ++ "PKIX1Implicit88.asn1db").
+    ok = remove_db_file(Dir ++ "OTP-PKIX.asn1db"),
+    ok = remove_db_file(Dir ++ "SSL-PKIX.asn1db"),
+    ok = remove_db_file(Dir ++ "PKIXAttributeCertificate.asn1db"),
+    ok = remove_db_file(Dir ++ "PKIX1Algorithms88.asn1db"),
+    ok = remove_db_file(Dir ++ "PKIX1Explicit88.asn1db"),
+    ok = remove_db_file(Dir ++ "PKIX1Implicit88.asn1db").
 
 run(ber) ->
     run1(1).
 
 run1(6) ->
-    ?line f1(6),
-    ?line f2(6),
-    ?line transform4(ex(7));
+    f1(6),
+    f2(6),
+    transform4(ex(7));
 run1(N) ->
-    ?line f1(N),
-    ?line f2(N),
+    f1(N),
+    f2(N),
     run1(N+1).
 
 
@@ -93,22 +93,22 @@ f2(N) ->
 
 
 transform1(ATAV) ->
-    ?line {ok, ATAVEnc} = 'PKIX1Explicit88':encode('AttributeTypeAndValue',
+    {ok, ATAVEnc} = 'PKIX1Explicit88':encode('AttributeTypeAndValue',
 ATAV),
-    ?line {ok, _ATAVDec} = 'SSL-PKIX':decode('AttributeTypeAndValue',
+    {ok, _ATAVDec} = 'SSL-PKIX':decode('AttributeTypeAndValue',
                                       ATAVEnc).
 
 transform2(ATAV) ->
-    ?line {ok, ATAVEnc} = 'PKIX1Explicit88':encode('AttributeTypeAndValue',
+    {ok, ATAVEnc} = 'PKIX1Explicit88':encode('AttributeTypeAndValue',
 ATAV),
-    ?line {ok, _ATAVDec} = 'PKIX1Explicit88':decode('AttributeTypeAndValue',
+    {ok, _ATAVDec} = 'PKIX1Explicit88':decode('AttributeTypeAndValue',
                                              ATAVEnc).
 
 
 transform4(ATAV) ->
-    ?line {ok, ATAVEnc} = 'PKIX1Explicit88':encode('Attribute',
+    {ok, ATAVEnc} = 'PKIX1Explicit88':encode('Attribute',
 ATAV),
-    ?line {ok, _ATAVDec} = 'PKIX1Explicit88':decode('Attribute',
+    {ok, _ATAVDec} = 'PKIX1Explicit88':decode('Attribute',
                                              ATAVEnc).
 
 
@@ -144,8 +144,8 @@ ex(7) ->
 
 run_combined(ber) ->
     Cert = cert(),
-    ?line {ok,{'CertificatePKIX1Explicit88',{Type,UnDec},_,_}} = 'OTP-PKIX':decode_TBSCert_exclusive(Cert),
-    ?line {ok,_} = 'OTP-PKIX':decode_part(Type,UnDec),
+    {ok,{'CertificatePKIX1Explicit88',{Type,UnDec},_,_}} = 'OTP-PKIX':decode_TBSCert_exclusive(Cert),
+    {ok,_} = 'OTP-PKIX':decode_part(Type,UnDec),
     ok.
 
 cert() ->

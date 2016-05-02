@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,18 +34,17 @@
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1]).
 	 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = test_server:timetrap(?t:minutes(10)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -78,7 +77,7 @@ end_per_group(_GroupName, Config) ->
 compiler_bug(Config) when is_list(Config) ->
     %% Check that the compiler returns an error if we try to
     %% assemble one of the bad '.S' files.
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "compiler_bug"),
     error = compile:file(File, [from_asm,report_errors,time]),
 
@@ -93,43 +92,41 @@ compiler_bug(Config) when is_list(Config) ->
 %% The following code is stupid but it should compile.
 stupid_but_valid(Config) when is_list(Config) ->
     AnAtom = nisse,
-    ?line try setelement(5, setelement(6, AnAtom, value), another_value) of
-	      Term -> ?line ?t:fail({what_happened,Term})
-	  catch
-	      error:badarg -> ok
-	  end,
+    try setelement(5, setelement(6, AnAtom, value), another_value) of
+	Term -> ct:fail({what_happened,Term})
+    catch
+	error:badarg -> ok
+    end,
     ok.
 
 xrange(Config) when is_list(Config) ->
     Errors = do_val(xrange, Config),
-    ?line
-	[{{t,sum_1,2},
-	  {{bif,'+',{f,0},[{x,-1},{x,1}],{x,0}},4,
-	   {uninitialized_reg,{x,-1}}}},
-	 {{t,sum_2,2},
-	  {{bif,'+',{f,0},[{x,0},{x,1024}],{x,0}},4,
-	   {uninitialized_reg,{x,1024}}}},
-	 {{t,sum_3,2},
-	  {{bif,'+',{f,0},[{x,0},{x,1}],{x,-1}},4,
-	   {invalid_store,{x,-1},number}}},
-	 {{t,sum_4,2},
-	  {{bif,'+',{f,0},[{x,0},{x,1}],{x,1024}},4,limit}}] = Errors,
+    [{{t,sum_1,2},
+      {{bif,'+',{f,0},[{x,-1},{x,1}],{x,0}},4,
+       {uninitialized_reg,{x,-1}}}},
+     {{t,sum_2,2},
+      {{bif,'+',{f,0},[{x,0},{x,1023}],{x,0}},4,
+       {uninitialized_reg,{x,1023}}}},
+     {{t,sum_3,2},
+      {{bif,'+',{f,0},[{x,0},{x,1}],{x,-1}},4,
+       {invalid_store,{x,-1},number}}},
+     {{t,sum_4,2},
+      {{bif,'+',{f,0},[{x,0},{x,1}],{x,1023}},4,limit}}] = Errors,
     ok.
 
 yrange(Config) when is_list(Config) ->
     Errors = do_val(yrange, Config),
-    ?line
-	[{{t,sum_1,2},
-	  {{move,{x,1},{y,-1}},5,
-	   {invalid_store,{y,-1},term}}},
-	 {{t,sum_2,2},
-	  {{bif,'+',{f,0},[{x,0},{y,1024}],{x,0}},7,
-	   {uninitialized_reg,{y,1024}}}},
-	 {{t,sum_3,2},
-	  {{move,{x,1},{y,1024}},5,limit}},
-	 {{t,sum_4,2},
-	  {{move,{x,1},{y,-1}},5,
-	   {invalid_store,{y,-1},term}}}] = Errors,
+    [{{t,sum_1,2},
+      {{move,{x,1},{y,-1}},5,
+       {invalid_store,{y,-1},term}}},
+     {{t,sum_2,2},
+      {{bif,'+',{f,0},[{x,0},{y,1024}],{x,0}},7,
+       {uninitialized_reg,{y,1024}}}},
+     {{t,sum_3,2},
+      {{move,{x,1},{y,1024}},5,limit}},
+     {{t,sum_4,2},
+      {{move,{x,1},{y,-1}},5,
+       {invalid_store,{y,-1},term}}}] = Errors,
     ok.
 
 stack(Config) when is_list(Config) ->
@@ -163,25 +160,23 @@ merge_undefined(Config) when is_list(Config) ->
 
 uninit(Config) when is_list(Config) ->
     Errors = do_val(uninit, Config),
-    ?line
-	[{{t,sum_1,2},
-	  {{move,{y,0},{x,0}},5,{uninitialized_reg,{y,0}}}},
-	 {{t,sum_2,2},
-	  {{call,1,{f,8}},5,{uninitialized_reg,{y,0}}}},
-	 {{t,sum_3,2},
-	  {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
-	   6,
-	   {unassigned,{y,0}}}}] = Errors,
+    [{{t,sum_1,2},
+      {{move,{y,0},{x,0}},5,{uninitialized_reg,{y,0}}}},
+     {{t,sum_2,2},
+      {{call,1,{f,8}},5,{uninitialized_reg,{y,0}}}},
+     {{t,sum_3,2},
+      {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
+       6,
+       {unassigned,{y,0}}}}] = Errors,
     ok.
 
 unsafe_catch(Config) when is_list(Config) ->
     Errors = do_val(unsafe_catch, Config),
-    ?line
-	[{{t,small,2},
-	  {{bs_put_integer,{f,0},{integer,16},1,
-	    {field_flags,[unsigned,big]},{y,0}},
-	   20,
-	   {unassigned,{y,0}}}}] = Errors,
+    [{{t,small,2},
+      {{bs_put_integer,{f,0},{integer,16},1,
+	{field_flags,[unsigned,big]},{y,0}},
+       20,
+       {unassigned,{y,0}}}}] = Errors,
     ok.
 
 dead_code(Config) when is_list(Config) ->
@@ -190,16 +185,14 @@ dead_code(Config) when is_list(Config) ->
 
 overwrite_catchtag(Config) when is_list(Config) ->
     Errors = do_val(overwrite_catchtag, Config),
-    ?line
-	[{{overwrite_catchtag,foo,1},
-	  {{move,{x,0},{y,0}},6,{catchtag,_}}}] = Errors,
+    [{{overwrite_catchtag,foo,1},
+      {{move,{x,0},{y,0}},6,{catchtag,_}}}] = Errors,
     ok.
 
 overwrite_trytag(Config) when is_list(Config) ->
     Errors = do_val(overwrite_trytag, Config),
-    ?line
-	[{{overwrite_trytag,foo,1},
-	  {{kill,{y,2}},8,{trytag,_}}}] = Errors,
+    [{{overwrite_trytag,foo,1},
+      {{kill,{y,2}},8,{trytag,_}}}] = Errors,
     ok.
 
 accessing_tags(Config) when is_list(Config) ->
@@ -231,82 +224,77 @@ bad_catch_try(Config) when is_list(Config) ->
 
 cons_guard(Config) when is_list(Config) ->
     Errors = do_val(cons, Config),
-    ?line
-	[{{cons,foo,1},
-	  {{get_list,{x,0},{x,1},{x,2}},
-	   5,
-	   {bad_type,{needed,cons},{actual,term}}}}] = Errors,
+    [{{cons,foo,1},
+      {{get_list,{x,0},{x,1},{x,2}},
+       5,
+       {bad_type,{needed,cons},{actual,term}}}}] = Errors,
     ok.
 
 freg_range(Config) when is_list(Config) ->
     Errors = do_val(freg_range, Config),
-    ?line 
-	[{{t,sum_1,2},
-	  {{bif,fadd,{f,0},[{fr,-1},{fr,1}],{fr,0}},
-	   5,
-	   {bad_source,{fr,-1}}}},
-	 {{t,sum_2,2},
-	  {{bif,fadd,{f,0},[{fr,0},{fr,1024}],{fr,0}},
-	   6,
-	   {uninitialized_reg,{fr,1024}}}},
-	 {{t,sum_3,2},
-	  {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,-1}},
-	   7,
-	   {bad_target,{fr,-1}}}},
-	 {{t,sum_4,2},
-	  {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,1024}},
-	   7,
-	   limit}}] = Errors,
+    [{{t,sum_1,2},
+      {{bif,fadd,{f,0},[{fr,-1},{fr,1}],{fr,0}},
+       5,
+       {bad_source,{fr,-1}}}},
+     {{t,sum_2,2},
+      {{bif,fadd,{f,0},[{fr,0},{fr,1024}],{fr,0}},
+       6,
+       {uninitialized_reg,{fr,1024}}}},
+     {{t,sum_3,2},
+      {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,-1}},
+       7,
+       {bad_target,{fr,-1}}}},
+     {{t,sum_4,2},
+      {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,1024}},
+       7,
+       limit}}] = Errors,
     ok.
 
 freg_uninit(Config) when is_list(Config) ->
     Errors = do_val(freg_uninit, Config),
-    ?line 
-	[{{t,sum_1,2},
-	  {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,0}},
-	   6,
-	   {uninitialized_reg,{fr,1}}}},
-	 {{t,sum_2,2},
-	  {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,0}},
-	   9,
-	   {uninitialized_reg,{fr,0}}}}] = Errors,
+    [{{t,sum_1,2},
+      {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,0}},
+       6,
+       {uninitialized_reg,{fr,1}}}},
+     {{t,sum_2,2},
+      {{bif,fadd,{f,0},[{fr,0},{fr,1}],{fr,0}},
+       9,
+       {uninitialized_reg,{fr,0}}}}] = Errors,
     ok.
 
 freg_state(Config) when is_list(Config) ->
     Errors = do_val(freg_state, Config),
-    ?line
-	[{{t,sum_1,2},
-	  {{bif,fmul,{f,0},[{fr,0},{fr,1}],{fr,0}},
-	   6,
-	   {bad_floating_point_state,undefined}}},
-	 {{t,sum_2,2},
-	  {{fmove,{fr,0},{x,0}},
-	   8,
-	   {bad_floating_point_state,cleared}}},
-	 {{t,sum_3,2},
-	  {{bif,'-',{f,0},[{x,1},{x,0}],{x,1}},
-	   8,
-	   {unsafe_instruction,{float_error_state,cleared}}}},
-	 {{t,sum_4,2},
-	  {{fcheckerror,{f,0}},
-	   4,
-	   {bad_floating_point_state,undefined}}},
-	 {{t,sum_5,2},
-	  {fclearerror,5,{bad_floating_point_state,cleared}}}] = Errors,
+    [{{t,sum_1,2},
+      {{bif,fmul,{f,0},[{fr,0},{fr,1}],{fr,0}},
+       6,
+       {bad_floating_point_state,undefined}}},
+     {{t,sum_2,2},
+      {{fmove,{fr,0},{x,0}},
+       8,
+       {bad_floating_point_state,cleared}}},
+     {{t,sum_3,2},
+      {{bif,'-',{f,0},[{x,1},{x,0}],{x,1}},
+       8,
+       {unsafe_instruction,{float_error_state,cleared}}}},
+     {{t,sum_4,2},
+      {{fcheckerror,{f,0}},
+       4,
+       {bad_floating_point_state,undefined}}},
+     {{t,sum_5,2},
+      {fclearerror,5,{bad_floating_point_state,cleared}}}] = Errors,
     ok.
 
 bad_bin_match(Config) when is_list(Config) ->
-	[{{t,t,1},{return,5,{match_context,{x,0}}}}] =
-		do_val(bad_bin_match, Config),
-	ok.
+    [{{t,t,1},{return,5,{match_context,{x,0}}}}] =
+	do_val(bad_bin_match, Config),
+    ok.
 
 bad_dsetel(Config) when is_list(Config) ->
     Errors = do_val(bad_dsetel, Config),
-    ?line
-	[{{t,t,1},
-	  {{set_tuple_element,{x,1},{x,0},1},
-	   17,
-	   illegal_context_for_set_tuple_element}}] = Errors,
+    [{{t,t,1},
+      {{set_tuple_element,{x,1},{x,0},1},
+       17,
+       illegal_context_for_set_tuple_element}}] = Errors,
     ok.
 
 state_after_fault_in_catch(Config) when is_list(Config) ->
@@ -324,7 +312,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{move,{x,3},{x,0}},88,{uninitialized_reg,{x,3}}}}] = Errors,
+      {{move,{x,3},{x,0}},87,{uninitialized_reg,{x,3}}}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -382,9 +370,9 @@ illegal_instruction(Config) when is_list(Config) ->
 %% (Thanks to Kiran Khaladkar.)
 %%
 failing_gc_guard_bif(Config) when is_list(Config) ->
-    ?line ok = process_request(lists:seq(1, 36)),
-    ?line error = process_request([]),
-    ?line error = process_request(not_a_list),
+    ok = process_request(lists:seq(1, 36)),
+    error = process_request([]),
+    error = process_request(not_a_list),
     ok.
 
 process_request(ConfId) ->
@@ -421,7 +409,7 @@ map_field_lists(Config) ->
 %%%-------------------------------------------------------------------------
 
 do_val(Mod, Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Base = atom_to_list(Mod),
     File = filename:join(Data, Base),
     case compile:file(File, [from_asm,no_postopt,return_errors]) of

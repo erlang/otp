@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
 %%     [{ct_hooks,[ts_install_cth]}].
 
 suite() ->
-    [{timetrap,{minutes,2}}].
+    [{timetrap,{seconds,40}}].
 
 all() ->
     [
@@ -314,11 +314,7 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
-
-interrupted_send() ->
-    [{doc, "Use a subsystem that echos n char and then sends eof to cause a channel exit partway through a large send."}].
-
-interrupted_send(Config) when is_list(Config) ->
+interrupted_send(Config) ->
     PrivDir = ?config(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),

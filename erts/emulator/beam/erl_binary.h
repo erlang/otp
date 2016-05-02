@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,6 @@ typedef struct erl_heap_bin {
  */
 
 #define binary_size(Bin) (binary_val(Bin)[1])
-#define binary_size_rel(Bin,BasePtr) (binary_val_rel(Bin,BasePtr)[1])
 
 #define binary_bitsize(Bin)			\
   ((*binary_val(Bin) == HEADER_SUB_BIN) ?	\
@@ -95,12 +94,9 @@ typedef struct erl_heap_bin {
  * Bitsize: output variable (Uint)
  */
 
-#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize) \
-     ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,NULL)
-
-#define ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,BasePtr)    \
+#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize)                \
 do {									\
-    Eterm* _real_bin = binary_val_rel(Bin,BasePtr);			\
+    Eterm* _real_bin = binary_val(Bin);		                	\
     Uint _offs = 0;							\
     Bitoffs = Bitsize = 0;						\
     if (*_real_bin == HEADER_SUB_BIN) {					\
@@ -108,7 +104,7 @@ do {									\
 	_offs = _sb->offs;						\
         Bitoffs = _sb->bitoffs;						\
         Bitsize = _sb->bitsize;						\
-	_real_bin = binary_val_rel(_sb->orig,BasePtr);			\
+	_real_bin = binary_val(_sb->orig);	        		\
     }									\
     if (*_real_bin == HEADER_PROC_BIN) {				\
 	Bytep = ((ProcBin *) _real_bin)->bytes + _offs;			\
@@ -131,11 +127,8 @@ do {									\
  */
 
 #define ERTS_GET_REAL_BIN(Bin, RealBin, ByteOffset, BitOffset, BitSize) \
-     ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, NULL)
-
-#define ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, BasePtr) \
   do {									\
-    ErlSubBin* _sb = (ErlSubBin *) binary_val_rel(Bin,BasePtr);	        \
+    ErlSubBin* _sb = (ErlSubBin *) binary_val(Bin);	                \
     if (_sb->thing_word == HEADER_SUB_BIN) {				\
       RealBin = _sb->orig;						\
       ByteOffset = _sb->offs;						\

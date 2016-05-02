@@ -21,7 +21,7 @@ recv(Packet, Fun, Chan) ->
   #{id := Can_id, data := Can_data} = P = decode(Packet),
   Fun(P).
 
--spec decode(<<_:64,_:_*8>>) -> #{id => <<_:11>>,timestamp => char()}.
+-spec decode(<<_:64,_:_*8>>) -> #{id => <<_:11>>,timestamp => char(),_ => _}.
 decode(<<_:12, Len:4, Timestamp:16, 0:3, Id:11/bitstring, 0:18,
 	 Data:Len/binary, _/binary>>) ->
   #{id => Id, data => Data, timestamp => Timestamp}.

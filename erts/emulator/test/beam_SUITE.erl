@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,17 +24,19 @@
 	 init_per_group/2,end_per_group/2, 
 	 packed_registers/1, apply_last/1, apply_last_bif/1,
 	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1,
-	 select_val/1]).
+	 select_val/1, swap_temp_apply/1]).
 
--export([applied/2]).
+-export([applied/2,swap_temp_applied/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
+-include_lib("syntax_tools/include/merl.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [packed_registers, apply_last, apply_last_bif,
-     buildo_mucho, heap_sizes, big_lists, select_val].
+     buildo_mucho, heap_sizes, big_lists, select_val,
+     swap_temp_apply].
 
 groups() -> 
     [].
@@ -61,15 +63,15 @@ apply_last(Config) when is_list(Config) ->
 	    {Pid, finished} ->
 		stack_size(Pid)
 	after 30000 ->
-		?t:fail("applied/2 timed out.")
+		ct:fail("applied/2 timed out.")
 	end,
     Pid ! die,
-    ?t:format("Size: ~p~n", [Size]),
+    io:format("Size: ~p~n", [Size]),
     if
 	Size < 700 ->
 	    ok;
 	true ->
-	    ?t:fail("10000 apply() grew stack too much.")
+	    ct:fail("10000 apply() grew stack too much.")
     end,
     ok.
 
@@ -92,48 +94,45 @@ applied(Starter, N) ->
 apply_last_bif(Config) when is_list(Config) ->
     apply(erlang, abs, [1]).
 
-%% Test three high register numbers in a put_list instruction
-%% (to test whether packing works properly).
+%% Test whether packing works properly.
 packed_registers(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    Mod = packed_regs,
-    Name = filename:join(PrivDir, atom_to_list(Mod) ++ ".erl"),
+    Mod = ?FUNCTION_NAME,
 
-    %% Generate a module which generates a list of tuples.
-    %% put_list(A) -> [{A, 600}, {A, 999}, ... {A, 0}].
-    Code = gen_packed_regs(600, ["-module("++atom_to_list(Mod)++").\n",
-				       "-export([put_list/1]).\n",
-				       "put_list(A) ->\n["]),
-    ok = file:write_file(Name, Code),
+    %% Generate scrambled sequence.
+    Seq0 = [{erlang:phash2(I),I} || I <- lists:seq(0, 260)],
+    Seq = [I || {_,I} <- lists:sort(Seq0)],
 
-    %% Compile the module.
-    io:format("Compiling: ~s\n", [Name]),
-    CompRc = compile:file(Name, [{outdir, PrivDir}, report]),
-    io:format("Result: ~p\n",[CompRc]),
-    {ok, Mod} = CompRc,
+    %% Generate a test modules that uses get_list/3 instructions
+    %% with high register numbers.
+    S0 = [begin
+	      VarName = list_to_atom("V"++integer_to_list(V)),
+	      {merl:var(VarName),V}
+	  end || V <- Seq],
+    Vars = [V || {V,_} <- S0],
+    NewVars = [begin
+		   VarName = list_to_atom("M"++integer_to_list(V)),
+		   merl:var(VarName)
+	       end || V <- Seq],
+    S = [?Q("_@Var = id(_@Value@)") || {Var,Value} <- S0],
+    Code = ?Q(["-module('@Mod@').\n"
+	       "-export([f/0]).\n"
+	       "f() ->\n"
+	       "_@S,\n"
+	       "_ = id(0),\n"
+	       "L = [_@Vars],\n"
+	       "_ = id(1),\n"
+	       "[_@NewVars] = L,\n"		%Test get_list/3.
+	       "_ = id(2),\n"
+	       "id([_@Vars,_@NewVars]).\n"
+	       "id(I) -> I.\n"]),
+    merl:compile_and_load(Code),
+    CombinedSeq = Seq ++ Seq,
+    CombinedSeq = Mod:f(),
 
-    %% Load it.
-    io:format("Loading...\n",[]),
-    LoadRc = code:load_abs(filename:join(PrivDir, atom_to_list(Mod))),
-    {module,_Module} = LoadRc,
-
-    %% Call it and verify result.
-    Term = {a, b},
-    L = Mod:put_list(Term),
-    verify_packed_regs(L, Term, 600),
+    %% Clean up.
+    true = code:delete(Mod),
+    false = code:purge(Mod),
     ok.
-
-gen_packed_regs(0, Acc) ->
-    [Acc|"{A,0}].\n"];
-gen_packed_regs(N, Acc) ->
-    gen_packed_regs(N-1, [Acc,"{A,",integer_to_list(N)|"},\n"]).
-
-verify_packed_regs([], _, -1) -> ok;
-verify_packed_regs([{Term, N}| T], Term, N) ->
-    verify_packed_regs(T, Term, N-1);
-verify_packed_regs(L, Term, N) ->
-    ok = io:format("Expected [{~p, ~p}|T]; got\n~p\n", [Term, N, L]),
-    test_server:fail().
 
 buildo_mucho(Config) when is_list(Config) ->
     buildo_mucho_1(),
@@ -319,7 +318,7 @@ fconv(Config) when is_list(Config) ->
 do_fconv(Type) ->
     try
 	do_fconv(Type, 1.0),
-	test_server:fail()
+	ct:fail(no_badarith)
     catch
 	error:badarith ->
 	    ok
@@ -347,3 +346,41 @@ do_select_val(X) ->
 	Int when is_integer(Int) ->
 	    integer
     end.
+
+swap_temp_apply(_Config) ->
+    {swap_temp_applied,42} = do_swap_temp_apply(41),
+    not_an_integer = do_swap_temp_apply(not_an_integer),
+    ok.
+
+do_swap_temp_apply(Msg) ->
+    case swap_temp_apply_function(Msg) of
+	undefined -> Msg;
+	Type ->
+	    %% The following sequence:
+	    %%   move {x,0} {x,2}
+	    %%   move {y,0} {x,0}
+	    %%   move {x,2} {y,0}
+	    %%   apply 1
+	    %%
+	    %% Would be incorrectly transformed to:
+	    %%   swap {x,0} {y,0}
+	    %%   apply 1
+	    %%
+	    %% ({x,1} is the module, {x,2} the function to be applied).
+	    %%
+	    %% If the instructions are to be transformed, the correct
+	    %% transformation is:
+	    %%
+	    %%   swap_temp {x,0} {y,0} {x,2}
+	    %%   apply 1
+	    Fields = ?MODULE:Type(Msg),
+	    {Type,Fields}
+    end.
+
+swap_temp_apply_function(Int) when is_integer(Int) ->
+    swap_temp_applied;
+swap_temp_apply_function(_) ->
+    undefined.
+
+swap_temp_applied(Int) ->
+    Int+1.

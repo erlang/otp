@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2015</year>
+      <year>2001</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -524,12 +524,32 @@ typedef struct {
           <p>Note that <c>ErlNifBinary</c> is a semi-opaque type and you are
           only allowed to read fields <c>size</c> and <c>data</c>.</p>
       </item>
+
+      <tag><marker id="ErlNifBinaryToTerm"/>ErlNifBinaryToTerm</tag>
+      <item>
+        <p>An enumeration of the options that can be given to
+        <seealso marker="#enif_binary_to_term">enif_binary_to_term</seealso>.
+	For default behavior, use the value <c>0</c>.</p>
+        <taglist>
+	  <tag><c>ERL_NIF_BIN2TERM_SAFE</c></tag>
+	  <item><p>Use this option when receiving data from untrusted sources.</p></item>
+	</taglist>
+      </item>
+
       <tag><marker id="ErlNifPid"/>ErlNifPid</tag>
        <item>
           <p><c>ErlNifPid</c> is a process identifier (pid). In contrast to
           pid terms (instances of <c>ERL_NIF_TERM</c>), <c>ErlNifPid</c>'s are self
           contained and not bound to any
           <seealso marker="#ErlNifEnv">environment</seealso>. <c>ErlNifPid</c>
+          is an opaque type.</p>
+        </item>
+      <tag><marker id="ErlNifPort"/>ErlNifPort</tag>
+       <item>
+          <p><c>ErlNifPort</c> is a port identifier. In contrast to
+          port id terms (instances of <c>ERL_NIF_TERM</c>), <c>ErlNifPort</c>'s are self
+          contained and not bound to any
+          <seealso marker="#ErlNifEnv">environment</seealso>. <c>ErlNifPort</c>
           is an opaque type.</p>
         </item>
 
@@ -546,8 +566,7 @@ typedef struct {
            <code type="none">
 typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);
 </code>
-            <p>The function prototype of a resource destructor function.
-            A destructor function is not allowed to call any term-making functions.</p>
+            <p>The function prototype of a resource destructor function.</p>
           </item>
           <tag><marker id="ErlNifCharEncoding"/>ErlNifCharEncoding</tag>
            <item>
@@ -591,6 +610,21 @@ typedef enum {
 	</taglist>
       </item>
 
+      <tag><marker id="ErlNifUniqueInteger"/>ErlNifUniqueInteger</tag>
+      <item>
+        <p>An enumeration of the properties that can be requested from
+        <seealso marker="#enif_make_unique_integer">enif_unique_integer</seealso>.
+	For default properties, use the value <c>0</c>.</p>
+        <taglist>
+	  <tag><c>ERL_NIF_UNIQUE_POSITIVE</c></tag>
+	  <item><p>Return only positive integers</p></item>
+	  <tag><c>ERL_NIF_UNIQUE_MONOTONIC</c></tag>
+	  <item><p>Return only
+	  <seealso marker="time_correction#Strictly_Monotonically_Increasing">strictly
+	  monotonically increasing</seealso> integer corresponding to creation time</p></item>
+	</taglist>
+      </item>
+
     </taglist>
   </section>
 
@@ -631,6 +665,25 @@ typedef enum {
       <desc><p>Free all terms in an environment and clear it for reuse. The environment must
       have been allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
       </p></desc>
+    </func>
+    <func><name><ret>size_t</ret><nametext>enif_binary_to_term(ErlNifEnv *env, const unsigned char* data, size_t size, ERL_NIF_TERM *term, ErlNifBinaryToTerm opts)</nametext></name>
+    <fsummary>Create a term from the external format</fsummary>
+    <desc>
+      <p>Create a term that is the result of decoding the binary data
+      at <c>data</c>, which must be encoded according to the Erlang external term format.
+      No more than <c>size</c> bytes are read from <c>data</c>. Argument <c>opts</c>
+      correspond to the second argument to <seealso marker="erlang#binary_to_term-2">
+      <c>erlang:binary_to_term/2</c></seealso>, and must be either <c>0</c> or
+      <c>ERL_NIF_BIN2TERM_SAFE</c>.</p>
+      <p>On success, store the resulting term at <c>*term</c> and return
+      the actual number of bytes read. Return zero if decoding fails or if <c>opts</c>
+      is invalid.</p>
+      <p>See also:
+        <seealso marker="#ErlNifBinaryToTerm"><c>ErlNifBinaryToTerm</c></seealso>,
+        <seealso marker="erlang#binary_to_term-2"><c>erlang:binary_to_term/2</c></seealso> and
+        <seealso marker="#enif_term_to_binary"><c>enif_term_to_binary</c></seealso>.
+      </p>
+    </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Compare two terms</fsummary>
@@ -689,7 +742,48 @@ typedef enum {
     a number of repeated NIF-calls without the need to create threads.
     See also the <seealso marker="#WARNING">warning</seealso> text at the beginning of this document.</p>
     </desc>
+
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
+      <fsummary>Convert time unit of a time value</fsummary>
+      <desc>
+	<marker id="enif_convert_time_unit"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>val</c></tag>
+	  <item>Value to convert time unit for.</item>
+	  <tag><c>from</c></tag>
+	  <item>Time unit of <c>val</c>.</item>
+	  <tag><c>to</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>Converts the <c>val</c> value of time unit <c>from</c> to
+	the corresponding value of time unit <c>to</c>. The result is
+	rounded using the floor function.</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument.</p>
+	<p>See also:
+	  <seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso> and
+	  <seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_cpu_time(ErlNifEnv *)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the CPU time in the same format as <seealso marker="erlang#timestamp-0">erlang:timestamp()</seealso>.
+        The CPU time is the time the current logical cpu has spent executing since
+        some arbitrary point in the past.
+        If the OS does not support fetching of this value <c>enif_cpu_time</c>
+        invokes <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+        </p>
+      </desc>
+    </func>
+
     <func><name><ret>int</ret><nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_equal_tids">erl_drv_equal_tids</seealso>.
@@ -744,6 +838,12 @@ typedef enum {
     pid variable <c>*pid</c> from it and return true. Otherwise return false.
     No check if the process is alive is done.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port_id)</nametext></name>
+    <fsummary>Read an local port term</fsummary>
+    <desc><p>If <c>term</c> identifies a node local port, initialize the
+    port variable <c>*port_id</c> from it and return true. Otherwise return false.
+    No check if the port is alive is done.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext></name>
       <fsummary>Get head and tail from a list</fsummary>
       <desc><p>Set <c>*head</c> and <c>*tail</c> from
@@ -753,7 +853,7 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
       <fsummary>Get the length of list <c>term</c></fsummary>
       <desc><p>Set <c>*len</c> to the length of list <c>term</c> and return true,
-      or return false if <c>term</c> is not a list.</p></desc>
+      or return false if <c>term</c> is not a proper list.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
       <fsummary>Read an long integer term</fsummary>
@@ -912,6 +1012,17 @@ typedef enum {
       <fsummary>Determine if a term is a port</fsummary>
       <desc><p>Return true if <c>term</c> is a port.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env, ErlNifPort *port_id)</nametext></name>
+      <fsummary>Determine if a local port is alive or not.</fsummary>
+      <desc><p>Return true if <c>port_id</c> is currently alive.</p>
+      <p>This function can only be used in a from a NIF-calling thread.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env, ErlNifPid *pid)</nametext></name>
+      <fsummary>Determine if a local process is alive or not.</fsummary>
+      <desc><p>Return true if <c>pid</c> is currently alive.</p>
+      <p>This function is only thread-safe when the emulator with SMP support is used.
+      It can only be used in a non-SMP emulator from a NIF-calling thread.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a reference</fsummary>
       <desc><p>Return true if <c>term</c> is a reference.</p></desc>
@@ -961,7 +1072,7 @@ typedef enum {
       <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
       not to any other NIF API function.</p>
       <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>
-      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>
+      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>.
       </p>
       <note><p>In earlier versions (older than erts-7.0, OTP 18) the return value
       from <c>enif_make_badarg</c> had to be returned from the NIF. This
@@ -1195,6 +1306,23 @@ typedef enum {
       <fsummary>Create an unsigned integer term</fsummary>
       <desc><p>Create an integer term from an unsigned 64-bit integer.</p></desc>
     </func>
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_unique_integer(ErlNifEnv *env, ErlNifUniqueInteger properties)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a unique integer with the same properties as given by <seealso marker="erlang#unique_integer-1">erlang:unique_integer/1</seealso>.</p>
+        <p><c>env</c> is the environment to create the integer in.</p>
+        <p>
+          <c>ERL_NIF_UNIQUE_POSITIVE</c> and <c>ERL_NIF_UNIQUE_MONOTONIC</c> can
+          be passed as the second argument to change the properties of the
+          integer returned. It is possible to combine them by or:ing the
+          two values together.
+        </p>
+        <p>See also:
+	<seealso marker="#ErlNifUniqueInteger"><c>ErlNifUniqueInteger</c></seealso>.
+	</p>
+      </desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
       <fsummary>Create an integer term from an unsigned long int</fsummary>
       <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
@@ -1265,6 +1393,33 @@ enif_map_iterator_destroy(env, &amp;iter);
       or false if the iterator is positioned at the head (before the first
       entry).</p></desc>
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext></name>
+      <fsummary>Get Erlang Monotonic Time</fsummary>
+      <desc>
+	<marker id="enif_monotonic_time"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>time_unit</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>
+	  Returns the current
+	  <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	  monotonic time</seealso>. Note that it is not uncommon with
+	  negative values.
+	</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument, or if called from a thread that is not a
+	scheduler thread.</p>
+	<p>See also:
+	  <seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso> and
+	  <seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
     <func><name><ret>ErlNifMutex *</ret><nametext>enif_mutex_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_create">erl_drv_mutex_create</seealso>.
@@ -1289,6 +1444,11 @@ enif_map_iterator_destroy(env, &amp;iter);
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_unlock">erl_drv_mutex_unlock</seealso>.
           </p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_now_time(ErlNifEnv *env)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Retuns an <seealso marker="erlang#now-0">erlang:now()</seealso> timestamp.
+    The enif_now_time function is <em>deprecated</em>.</p></desc>
     </func>
     <func><name><ret>ErlNifResourceType *</ret><nametext>enif_open_resource_type(ErlNifEnv* env,
                              const char* module_str, const char* name,
@@ -1317,6 +1477,35 @@ enif_map_iterator_destroy(env, &amp;iter);
        <p>Note that <c>enif_open_resource_type</c> is only allowed to be called in the three callbacks
        <seealso marker="#load">load</seealso>, <seealso marker="#reload">reload</seealso>
        and <seealso marker="#upgrade">upgrade</seealso>.</p>
+      </desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext></name>
+      <fsummary>Send a port_command to to_port</fsummary>
+      <desc>
+        <p>This function works the same as <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>
+        except that it is always completely asynchronous. This call may return false
+        if it detects that the port is already dead, otherwise it will return true.
+        </p>
+        <taglist>
+          <tag><c>env</c></tag>
+          <item>The environment of the calling process. May not be NULL.</item>
+          <tag><c>*to_port</c></tag>
+          <item>The port id of the receiving port. The port id should refer to a
+          port on the local node.</item>
+          <tag><c>msg_env</c></tag>
+          <item>The environment of the message term. Can be a process
+          independent environment allocated with
+          <seealso marker="#enif_alloc_env">enif_alloc_env</seealso> or NULL.</item>
+          <tag><c>msg</c></tag>
+          <item>The message term to send. The same limitations apply as on the
+          payload to <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>.</item>
+        </taglist>
+        <p>Using a <c>msg_env</c> of NULL is an optimization which groups together
+        calls to <c>enif_alloc_env</c>, <c>enif_make_copy</c>, <c>enif_port_command</c>
+        and <c>enif_free_env</c> into one call. This optimization is only usefull
+        when a majority of the terms are to be copied from <c>env</c> to the <c>msg_env</c>.</p>
+        <p>The call may return false if it detects that the command failed for some reason. Otherwise true is returned.</p>
+        <p>See also: <seealso marker="#enif_get_local_port"><c>enif_get_local_port</c></seealso>.</p>
       </desc>
     </func>
     <func><name><ret>void *</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
@@ -1442,7 +1631,7 @@ enif_map_iterator_destroy(env, &amp;iter);
         <tag><c>msg_env</c></tag>
               <item>The environment of the message term. Must be a process
               independent environment allocated with
-               <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.</item>
+               <seealso marker="#enif_alloc_env">enif_alloc_env</seealso> or NULL.</item>
         <tag><c>msg</c></tag>
               <item>The message term to send.</item>
       </taglist>
@@ -1451,8 +1640,12 @@ enif_map_iterator_destroy(env, &amp;iter);
       <c>msg</c>) will be invalidated by a successful call to <c>enif_send</c>. The environment
       should either be freed with <seealso marker="#enif_free_env">enif_free_env</seealso>
       of cleared for reuse with <seealso marker="#enif_clear_env">enif_clear_env</seealso>.</p>
+      <p>If <c>msg_env</c> is set to NULL the <c>msg</c> term is copied and
+      the original term and its environemt is still valid after the call.</p>
       <p>This function is only thread-safe when the emulator with SMP support is used.
       It can only be used in a non-SMP emulator from a NIF-calling thread.</p>
+      <note><p>Passing <c>msg_env</c> as <c>NULL</c> is only supported since
+      erts-8.0 (OTP 19).</p></note>
       </desc>
     </func>
     <func><name><ret>unsigned</ret><nametext>enif_sizeof_resource(void* obj)</nametext></name>
@@ -1465,6 +1658,18 @@ enif_map_iterator_destroy(env, &amp;iter);
       <fsummary>Get information about the Erlang runtime system</fsummary>
       <desc><p>Same as <seealso marker="erl_driver#driver_system_info">driver_system_info</seealso>.
             </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_term_to_binary(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin)</nametext></name>
+    <fsummary>Convert a term to the external format</fsummary>
+    <desc>
+      <p>Allocates a new binary with <seealso marker="#enif_alloc_binary">enif_alloc_binary</seealso>
+      and stores the result of encoding <c>term</c> according to the Erlang external term format.</p>
+      <p>Returns true on success or false if allocation failed.</p>
+      <p>See also:
+        <seealso marker="erlang#term_to_binary-1"><c>erlang:term_to_binary/1</c></seealso> and
+        <seealso marker="#enif_binary_to_term"><c>enif_binary_to_term</c></seealso>.
+      </p>
+    </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)</nametext></name>
     <fsummary></fsummary>
@@ -1496,6 +1701,32 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self</seealso>.
           </p></desc>
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
+      <fsummary>Get current Time Offset</fsummary>
+      <desc>
+	<marker id="enif_time_offset"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>time_unit</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>Returns the current time offset between
+	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
+	and
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	converted into the <c>time_unit</c> passed as argument.</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument, or if called from a thread that is not a
+	scheduler thread.</p>
+	<p>See also:
+	    <seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso> and
+	    <seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
     <func><name><ret>int</ret><nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_create">erl_drv_tsd_key_create</seealso>.
@@ -1516,88 +1747,6 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set</seealso>.
           </p></desc>
     </func>
-
-
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext></name>
-      <fsummary>Get Erlang Monotonic Time</fsummary>
-      <desc>
-	<marker id="enif_monotonic_time"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>time_unit</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>
-	  Returns
-	  <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
-	  monotonic time</seealso>. Note that it is not uncommon with
-	  negative values.
-	</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument, or if called from a thread that is not a
-	scheduler thread.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
-      <fsummary>Get current Time Offset</fsummary>
-      <desc>
-	<marker id="enif_time_offset"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>time_unit</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>Returns the current time offset between
-	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
-	and
-	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
-	converted into the <c>time_unit</c> passed as argument.</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument, or if called from a thread that is not a
-	scheduler thread.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
-      <fsummary>Convert time unit of a time value</fsummary>
-      <desc>
-	<marker id="enif_convert_time_unit"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>val</c></tag>
-	  <item>Value to convert time unit for.</item>
-	  <tag><c>from</c></tag>
-	  <item>Time unit of <c>val</c>.</item>
-	  <tag><c>to</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>Converts the <c>val</c> value of time unit <c>from</c> to
-	the corresponding value of time unit <c>to</c>. The result is
-	rounded using the floor function.</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
-    </func>
-
   </funcs>
   <section>
     <title>SEE ALSO</title>

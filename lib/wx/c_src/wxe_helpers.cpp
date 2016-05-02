@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ void wxeCommand::Delete()
     if(len > 64)
       driver_free(buffer);
     buffer = NULL;
-    op = -1;
   }
+  op = -1;
 }
 
 /* ****************************************************************************
@@ -226,7 +226,7 @@ unsigned int wxeFifo::Cleanup(unsigned int def)
     // Realloced we need to start from the beginning
     return 0;
   } else {
-    return def;
+    return def < cb_start? def : cb_start;
   }
 }
 

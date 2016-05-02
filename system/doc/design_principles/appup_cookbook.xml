@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2014</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,7 +50,8 @@
     <p>In a system implemented according to the OTP design principles,
       all processes, except system processes and special processes,
       reside in one of the behaviours <c>supervisor</c>,
-      <c>gen_server</c>, <c>gen_fsm</c>, or <c>gen_event</c>. These
+      <c>gen_server</c>, <c>gen_fsm</c>,
+      <c>gen_statem</c> or <c>gen_event</c>. These
       belong to the STDLIB application and upgrading/downgrading
       normally requires an emulator restart.</p>
     <p>OTP thus provides no support for changing residence modules except

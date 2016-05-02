@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,21 +29,20 @@
 	 bs_shadowed_size_var/1
 	]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = test_server:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -86,7 +85,8 @@ end_per_group(_GroupName, Config) ->
 
 
 try_it(Mod, Conf) ->
-    Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
+    Src = filename:join(proplists:get_value(data_dir, Conf),
+			atom_to_list(Mod)),
     compile_and_load(Src, []),
     compile_and_load(Src, [no_copt]).
 

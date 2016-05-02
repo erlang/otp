@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ void hipe_print_pcb(Process *p)
     U("rcount     ", rcount);
     U("id         ", common.id);
     U("reds       ", reds);
-    U("tracer_pr..", common.tracer_proc);
+    U("tracer     ", common.tracer);
     U("trace_fla..", common.trace_flags);
     U("group_lea..", group_leader);
     U("flags      ", flags);

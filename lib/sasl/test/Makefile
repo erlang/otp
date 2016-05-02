@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2011-2012. All Rights Reserved.
+# Copyright Ericsson AB 2011-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ MODULES= \
 	sasl_report_suite_supervisor \
 	systools_SUITE \
 	systools_rc_SUITE \
-	overload_SUITE \
 	rb_SUITE \
 	rh_test_lib \
 
@@ -55,8 +54,7 @@ RELSYSDIR = $(RELEASE_PATH)/sasl_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-		-I$(ERL_TOP)/lib/sasl/src
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/sasl/src
 
 EBIN = .
 

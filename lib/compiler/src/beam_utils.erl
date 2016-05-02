@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -484,6 +484,26 @@ check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
 		    Other
 	    end
     end;
+check_liveness(R, [{put_map,{f,_},_,Src,_D,Live,{list,_}}|_], St0) ->
+    case R of
+	Src ->
+	    {used,St0};
+	{x,X} when X < Live ->
+	    {used,St0};
+	{x,_} ->
+	    {killed,St0};
+	{y,_} ->
+	    {unknown,St0}
+    end;
+check_liveness(R, [{test_heap,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{allocate_zero,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{zero,N,0,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
+    I = {block,[{set,[D1,D2],[S],get_list}]},
+    check_liveness(R, [I|Is], St);
 check_liveness(_R, Is, St) when is_list(Is) ->
 %%     case Is of
 %% 	[I|_] ->
@@ -561,9 +581,9 @@ check_killed_block(R, [{set,Ds,Ss,_Op}|Is]) ->
 		false -> check_killed_block(R, Is)
 	    end
     end;
-check_killed_block(R, [{'%live',Live,_}|Is]) ->
+check_killed_block(R, [{'%live',_,Regs}|Is]) ->
     case R of
-	{x,X} when X >= Live -> killed;
+	{x,X} when (Regs bsr X) band 1 =:= 0 -> killed;
 	_ -> check_killed_block(R, Is)
     end;
 check_killed_block(_, []) -> transparent.

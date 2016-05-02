@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,9 +36,11 @@
 	 copy_writable_binary/1, dynamic/1,
 	 otp_7422/1, zero_width/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,15}}].
 
 all() -> 
     [test1, test2, test3, test4, test5, testf, not_used,
@@ -57,17 +59,14 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
-    Dog = test_server:timetrap(?t:minutes(15)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line test_lib:interpret(?MODULE),
-    ?line true = lists:member(?MODULE, int:interpreted()),
+    test_lib:interpret(?MODULE),
+    true = lists:member(?MODULE, int:interpreted()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
@@ -84,9 +83,9 @@ r(L) ->
 -define(T(B, L), {B, ??B, L}).
 -define(N(B), {B, ??B, unknown}).
 
--define(FAIL(Expr), ?line fail_check(catch Expr, ??Expr, [])).
+-define(FAIL(Expr), fail_check(catch Expr, ??Expr, [])).
 
--define(FAIL_VARS(Expr, Vars), ?line fail_check(catch Expr, ??Expr, Vars)).
+-define(FAIL_VARS(Expr, Vars), fail_check(catch Expr, ??Expr, Vars)).
 
 l(I_13, I_big1) ->
     [
@@ -162,7 +161,7 @@ l(I_13, I_big1) ->
      ?T(<<<<344:17>>/binary-unit:17>>, <<344:17>>),
      ?T(<<<<42,3,7656:16>>/binary-unit:16>>, <<42,3,7656:16>>)
 
-     ].
+    ].
 
 native_3798() ->
     case <<1:16/native>> of
@@ -205,7 +204,7 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	true ->
 	    io:format("ERROR: Compiled: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Bytes, binary_to_list(C_bin)]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end,
     if
 	E_bin == Bin ->
@@ -213,7 +212,7 @@ one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
 	true ->
 	    io:format("ERROR: Interpreted: ~p. Expected ~p. Got ~p.~n",
 		      [Str, Bytes, binary_to_list(E_bin)]),
-	    test_server:fail(comp)
+	    ct:fail(comp)
     end;
 one_test({C_bin, E_bin, Str, Result}) ->
     io:format("  ~s ~p~n", [Str, C_bin]),
@@ -234,7 +233,7 @@ one_test({C_bin, E_bin, Str, Result}) ->
 		    io:format("ERROR: Compiled not equal to interpreted:"
 			      "~n ~p, ~p.~n",
 			      [binary_to_list(C_bin), binary_to_list(E_bin)]),
-		    test_server:fail(comp);
+		    ct:fail(comp);
 		0 ->
 		    ok;
 		%% For situations where the final bits may not matter, like
@@ -269,23 +268,22 @@ fail_check({'EXIT',{badarg,_}}, Str, Vars) ->
     try	evaluate(Str, Vars) of
 	Res ->
 	    io:format("Interpreted result: ~p", [Res]),
-	    ?t:fail(did_not_fail_in_intepreted_code)
+	    ct:fail(did_not_fail_in_intepreted_code)
     catch
 	error:badarg ->
 	    ok
     end;
 fail_check(Res, _, _) ->
     io:format("Compiled result: ~p", [Res]),
-    ?t:fail(did_not_fail_in_compiled_code).
+    ct:fail(did_not_fail_in_compiled_code).
 
 %%% Simple working cases
-test1(suite) -> [];
 test1(Config) when is_list(Config) ->
-    ?line I_13 = i(13),
-    ?line I_big1 = big(1),
-    ?line Vars = [{'I_13', I_13},
-		  {'I_big1', I_big1}],
-    ?line lists:foreach(fun one_test/1, eval_list(l(I_13, I_big1), Vars)).
+    I_13 = i(13),
+    I_big1 = big(1),
+    Vars = [{'I_13', I_13},
+	    {'I_big1', I_big1}],
+    lists:foreach(fun one_test/1, eval_list(l(I_13, I_big1), Vars)).
 
 %%% Misc
 
@@ -301,10 +299,9 @@ gen(N, S, A) ->
 gen_l(N, S, A) ->
     [?T(<<A:S/little, A:(N-S)/little>>, comp(N, A, S))].
 
-test2(suite) -> [];
 test2(Config) when is_list(Config) ->
-    ?line test2(0, 8, 2#10101010101010101),
-    ?line test2(0, 8, 2#1111111111).
+    test2(0, 8, 2#10101010101010101),
+    test2(0, 8, 2#1111111111).
 
 test2(End, End, _) ->
     ok;
@@ -329,10 +326,9 @@ t3() ->
      ?N(<<>>)
     ].
 
-test3(suite) -> [];
 test3(Config) when is_list(Config) ->
-    ?line Vars = [],
-    ?line lists:foreach(fun one_test/1, eval_list(t3(), Vars)).
+    Vars = [],
+    lists:foreach(fun one_test/1, eval_list(t3(), Vars)).
 
 gen_u(N, S, A) ->
     [?N(<<A:S, A:(N-S)>>)].
@@ -340,10 +336,9 @@ gen_u(N, S, A) ->
 gen_u_l(N, S, A) ->
     [?N(<<A:S/little, A:(N-S)/little>>)].
 
-test4(suite) -> [];
 test4(Config) when is_list(Config) ->
-    ?line test4(0, 16, 2#10101010101010101),
-    ?line test4(0, 16, 2#1111111111).
+    test4(0, 16, 2#10101010101010101),
+    test4(0, 16, 2#1111111111).
 
 test4(End, End, _) ->
     ok;
@@ -361,11 +356,10 @@ gen_b(N, S, A) ->
     [?T(<<A:S/binary-unit:1, A:(N-S)/binary-unit:1>>,
 	binary_to_list(<<A:S/binary-unit:1, A:(N-S)/binary-unit:1>>))].
 
-test5(suite) -> [];
-test5(doc) -> ["OTP-3995"];
+%% OTP-3995.
 test5(Config) when is_list(Config) ->
-    ?line test5(0, 8, <<73>>),
-    ?line test5(0, 8, <<68>>).
+    test5(0, 8, <<73>>),
+    test5(0, 8, <<68>>).
 
 test5(End, End, _) ->
     ok;
@@ -379,47 +373,46 @@ test5(S, A) ->
     lists:foreach(fun one_test/1, eval_list(gen_b(N, S, A), Vars)).
 
 %%% Failure cases
-testf(suite) -> [];
 testf(Config) when is_list(Config) ->
-    ?line ?FAIL(<<3.14>>),
-    ?line ?FAIL(<<<<1,2>>>>),
+    ?FAIL(<<3.14>>),
+    ?FAIL(<<<<1,2>>>>),
 
-    ?line ?FAIL(<<2.71/binary>>),
-    ?line ?FAIL(<<24334/binary>>),
-    ?line ?FAIL(<<24334344294788947129487129487219847/binary>>),
+    ?FAIL(<<2.71/binary>>),
+    ?FAIL(<<24334/binary>>),
+    ?FAIL(<<24334344294788947129487129487219847/binary>>),
     BigInt = id(24334344294788947129487129487219847),
-    ?line ?FAIL_VARS(<<BigInt/binary>>, [{'BigInt',BigInt}]),
-    ?line ?FAIL_VARS(<<42,BigInt/binary>>, [{'BigInt',BigInt}]),
-    ?line ?FAIL_VARS(<<BigInt:2/binary>>, [{'BigInt',BigInt}]),
+    ?FAIL_VARS(<<BigInt/binary>>, [{'BigInt',BigInt}]),
+    ?FAIL_VARS(<<42,BigInt/binary>>, [{'BigInt',BigInt}]),
+    ?FAIL_VARS(<<BigInt:2/binary>>, [{'BigInt',BigInt}]),
 
     %% One negative field size, but the sum of field sizes will be 1 byte.
     %% Make sure that we reject that properly.
     I_minus_777 = id(-777),
     I_minus_2047 = id(-2047),
-    ?line ?FAIL_VARS(<<I_minus_777:2048/unit:8,57:I_minus_2047/unit:8>>,
-		     ordsets:from_list([{'I_minus_777',I_minus_777},
-					{'I_minus_2047',I_minus_2047}])),
-    ?line ?FAIL(<<<<1,2,3>>/float>>),
+    ?FAIL_VARS(<<I_minus_777:2048/unit:8,57:I_minus_2047/unit:8>>,
+	       ordsets:from_list([{'I_minus_777',I_minus_777},
+				  {'I_minus_2047',I_minus_2047}])),
+    ?FAIL(<<<<1,2,3>>/float>>),
 
     %% Negative field widths.
-    ?line testf_1(-8, <<1,2,3,4,5>>),
-    ?line ?FAIL(<<0:(-(1 bsl 100))>>),
+    testf_1(-8, <<1,2,3,4,5>>),
+    ?FAIL(<<0:(-(1 bsl 100))>>),
 
-    ?line ?FAIL(<<42:(-16)>>),
-    ?line ?FAIL(<<3.14:(-8)/float>>),
-    ?line ?FAIL(<<<<23,56,0,2>>:(-16)/binary>>),
-    ?line ?FAIL(<<<<23,56,0,2>>:(2.5)/binary>>),
-    ?line ?FAIL(<<<<23,56,0,2>>:(anka)>>),
-    ?line ?FAIL(<<<<23,56,0,2>>:(anka)>>),
+    ?FAIL(<<42:(-16)>>),
+    ?FAIL(<<3.14:(-8)/float>>),
+    ?FAIL(<<<<23,56,0,2>>:(-16)/binary>>),
+    ?FAIL(<<<<23,56,0,2>>:(2.5)/binary>>),
+    ?FAIL(<<<<23,56,0,2>>:(anka)>>),
+    ?FAIL(<<<<23,56,0,2>>:(anka)>>),
 
     %% Unit failures.
-    ?line ?FAIL(<<<<1:1>>/binary>>),
+    ?FAIL(<<<<1:1>>/binary>>),
     Sz = id(1),
-    ?line ?FAIL_VARS(<<<<1:Sz>>/binary>>, [{'Sz',Sz}]),
-    ?line {'EXIT',{badarg,_}} = (catch <<<<1:(id(1))>>/binary>>),
-    ?line ?FAIL(<<<<7,8,9>>/binary-unit:16>>),
-    ?line ?FAIL(<<<<7,8,9,3:7>>/binary-unit:16>>),
-    ?line ?FAIL(<<<<7,8,9,3:7>>/binary-unit:17>>),
+    ?FAIL_VARS(<<<<1:Sz>>/binary>>, [{'Sz',Sz}]),
+    {'EXIT',{badarg,_}} = (catch <<<<1:(id(1))>>/binary>>),
+    ?FAIL(<<<<7,8,9>>/binary-unit:16>>),
+    ?FAIL(<<<<7,8,9,3:7>>/binary-unit:16>>),
+    ?FAIL(<<<<7,8,9,3:7>>/binary-unit:17>>),
 
     ok.
 
@@ -429,14 +422,13 @@ testf_1(W, B) ->
     ?FAIL_VARS(<<3.14:W/float>>, Vars),
     ?FAIL_VARS(<<B:W/binary>>, [{'B',B}|Vars]).
 
-not_used(doc) ->
-    "Test that constructed binaries that are not used will still give an exception.";
+%% Test that constructed binaries that are not used will still give an exception.
 not_used(Config) when is_list(Config) ->
-    ?line ok = not_used1(3, <<"dum">>),
-    ?line {'EXIT',{badarg,_}} = (catch not_used1(3, "dum")),
-    ?line {'EXIT',{badarg,_}} = (catch not_used2(444, -2)),
-    ?line {'EXIT',{badarg,_}} = (catch not_used2(444, anka)),
-    ?line {'EXIT',{badarg,_}} = (catch not_used3(444)),
+    ok = not_used1(3, <<"dum">>),
+    {'EXIT',{badarg,_}} = (catch not_used1(3, "dum")),
+    {'EXIT',{badarg,_}} = (catch not_used2(444, -2)),
+    {'EXIT',{badarg,_}} = (catch not_used2(444, anka)),
+    {'EXIT',{badarg,_}} = (catch not_used3(444)),
     ok.
 
 not_used1(I, BinString) ->
@@ -452,11 +444,11 @@ not_used3(I) ->
     ok.
 
 in_guard(Config) when is_list(Config) ->
-    ?line 1 = in_guard(<<16#74ad:16>>, 16#e95, 5),
-    ?line 2 = in_guard(<<16#3A,16#F7,"hello">>, 16#3AF7, <<"hello">>),
-    ?line 3 = in_guard(<<16#FBCD:14,3.1415/float,3:2>>, 16#FBCD, 3.1415),
-    ?line 3 = in_guard(<<16#FBCD:14,3/float,3:2>>, 16#FBCD, 3),
-    ?line 3 = in_guard(<<16#FBCD:14,(2 bsl 226)/float,3:2>>, 16#FBCD, 2 bsl 226),
+    1 = in_guard(<<16#74ad:16>>, 16#e95, 5),
+    2 = in_guard(<<16#3A,16#F7,"hello">>, 16#3AF7, <<"hello">>),
+    3 = in_guard(<<16#FBCD:14,3.1415/float,3:2>>, 16#FBCD, 3.1415),
+    3 = in_guard(<<16#FBCD:14,3/float,3:2>>, 16#FBCD, 3),
+    3 = in_guard(<<16#FBCD:14,(2 bsl 226)/float,3:2>>, 16#FBCD, 2 bsl 226),
     nope = in_guard(<<1>>, 42, b),
     nope = in_guard(<<1>>, a, b),
     nope = in_guard(<<1,2>>, 1, 1),
@@ -470,16 +462,16 @@ in_guard(Bin, A, B) when <<A:14,B/float,3:2>> == Bin -> 3;
 in_guard(Bin, A, B) when {a,b,<<A:14,B/float,3:2>>} == Bin -> cant_happen;
 in_guard(_, _, _) -> nope.
 
-mem_leak(doc) -> "Make sure that construction has no memory leak";
+%% Make sure that construction has no memory leak.
 mem_leak(Config) when is_list(Config) ->
-    ?line B = make_bin(16, <<0>>),
-    ?line mem_leak(1024, B),
+    B = make_bin(16, <<0>>),
+    mem_leak(1024, B),
     ok.
 
 mem_leak(0, _) -> ok;
 mem_leak(N, B) ->
-    ?line big_bin(B, <<23>>),
-    ?line {'EXIT',{badarg,_}} = (catch big_bin(B, bad)),
+    big_bin(B, <<23>>),
+    {'EXIT',{badarg,_}} = (catch big_bin(B, bad)),
     mem_leak(N-1, B).
 
 big_bin(B1, B2) ->
@@ -493,18 +485,18 @@ make_bin(0, Acc) -> Acc;
 make_bin(N, Acc) -> make_bin(N-1, <<Acc/binary,Acc/binary>>).
 
 -define(COF(Int0),
-	?line (fun(Int) ->
-		       true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
-		       true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
-			   end)(nonliteral(Int0)),
-	?line true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
-	?line true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+	(fun(Int) ->
+		 true = <<Int:32/float>> =:= <<(float(Int)):32/float>>,
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:32/float>> =:= <<(float(Int0)):32/float>>,
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
 
 -define(COF64(Int0),
-	?line (fun(Int) ->
-		       true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
-			   end)(nonliteral(Int0)),
-	?line true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
+	(fun(Int) ->
+		 true = <<Int:64/float>> =:= <<(float(Int)):64/float>>
+	 end)(nonliteral(Int0)),
+	true = <<Int0:64/float>> =:= <<(float(Int0)):64/float>>).
 
 nonliteral(X) -> X.
 
@@ -523,7 +515,7 @@ coerce_to_float(Config) when is_list(Config) ->
     ok.
 
 bjorn(Config) when is_list(Config) ->
-    ?line error = bjorn_1(),
+    error = bjorn_1(),
     ok.
 
 bjorn_1() ->
@@ -551,30 +543,30 @@ do_something() ->
     throw(blurf).
 
 huge_float_field(Config) when is_list(Config) ->
-    ?line {'EXIT',{badarg,_}} = (catch <<0.0:9/float-unit:8>>),
-    ?line huge_float_check(catch <<0.0:67108865/float-unit:64>>),
-    ?line huge_float_check(catch <<0.0:((1 bsl 26)+1)/float-unit:64>>),
-    ?line huge_float_check(catch <<0.0:(id(67108865))/float-unit:64>>),
-%%  ?line huge_float_check(catch <<0.0:((1 bsl 60)+1)/float-unit:64>>),
-    ?line huge_float_check(catch <<3839739387439387383739387987347983:((1 bsl 26)+1)/float-unit:64>>),
-%%  ?line huge_float_check(catch <<3839739387439387383739387987347983:((1 bsl 60)+1)/float-unit:64>>),
+    {'EXIT',{badarg,_}} = (catch <<0.0:9/float-unit:8>>),
+    huge_float_check(catch <<0.0:67108865/float-unit:64>>),
+    huge_float_check(catch <<0.0:((1 bsl 26)+1)/float-unit:64>>),
+    huge_float_check(catch <<0.0:(id(67108865))/float-unit:64>>),
+    %%  huge_float_check(catch <<0.0:((1 bsl 60)+1)/float-unit:64>>),
+    huge_float_check(catch <<3839739387439387383739387987347983:((1 bsl 26)+1)/float-unit:64>>),
+    %%  huge_float_check(catch <<3839739387439387383739387987347983:((1 bsl 60)+1)/float-unit:64>>),
     ok.
 
 huge_float_check({'EXIT',{system_limit,_}}) -> ok;
 huge_float_check({'EXIT',{badarg,_}}) -> ok.
 
 huge_binary(Config) when is_list(Config) ->
-    ?line 16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
+    16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     ok.
 
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
     BitsPerWord = WordSize * 8,
-    ?line {'EXIT',{system_limit,_}} =
+    {'EXIT',{system_limit,_}} =
 	(catch <<0:(id(0)),42:(id(1 bsl BitsPerWord))>>),
-    ?line {'EXIT',{system_limit,_}} =
+    {'EXIT',{system_limit,_}} =
 	(catch <<42:(id(1 bsl BitsPerWord)),0:(id(0))>>),
-    ?line {'EXIT',{system_limit,_}} =
+    {'EXIT',{system_limit,_}} =
 	(catch <<(id(<<>>))/binary,0:(id(1 bsl 100))>>),
 
     case WordSize of
@@ -585,13 +577,13 @@ system_limit(Config) when is_list(Config) ->
     end.
 
 system_limit_32() ->
-    ?line {'EXIT',{badarg,_}} = (catch <<42:(-1)>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<42:(id(-1))>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<42:(id(-389739873536870912))/unit:8>>),
-    ?line {'EXIT',{system_limit,_}} = (catch <<42:536870912/unit:8>>),
-    ?line {'EXIT',{system_limit,_}} = (catch <<42:(id(536870912))/unit:8>>),
-    ?line {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
-    ?line {'EXIT',{system_limit,_}} =
+    {'EXIT',{badarg,_}} = (catch <<42:(-1)>>),
+    {'EXIT',{badarg,_}} = (catch <<42:(id(-1))>>),
+    {'EXIT',{badarg,_}} = (catch <<42:(id(-389739873536870912))/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<42:536870912/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<42:(id(536870912))/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
+    {'EXIT',{system_limit,_}} =
 	(catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
     ok.
 
@@ -601,34 +593,34 @@ badarg(Config) when is_list(Config) ->
     %% but the debugger will generate a system_limit exception.
     %% It does not seems worthwhile to fix the debugger.
 
-    ?line {'EXIT',{badarg,_}} =
+    {'EXIT',{badarg,_}} =
 	(catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
 
     ok.
 
 copy_writable_binary(Config) when is_list(Config) ->
-    ?line [copy_writable_binary_1(I) || I <- lists:seq(0, 256)],
+    [copy_writable_binary_1(I) || I <- lists:seq(0, 256)],
     ok.
 
 copy_writable_binary_1(_) ->
-    ?line Bin0 = <<(id(<<>>))/binary,0,1,2,3,4,5,6,7>>,
-    ?line SubBin = make_sub_bin(Bin0),
-    ?line id(<<42,34,55,Bin0/binary>>),		%Make reallocation likelier.
-    ?line Pid = spawn(fun() ->
-			      copy_writable_binary_holder(Bin0, SubBin)
-		      end),
-    ?line Tab = ets:new(holder, []),
-    ?line ets:insert(Tab, {17,Bin0}),
-    ?line ets:insert(Tab, {42,SubBin}),
-    ?line id(<<Bin0/binary,0:(64*1024*8)>>),
-    ?line Pid ! self(),
-    ?line [{17,Bin0}] = ets:lookup(Tab, 17),
-    ?line [{42,Bin0}] = ets:lookup(Tab, 42),
+    Bin0 = <<(id(<<>>))/binary,0,1,2,3,4,5,6,7>>,
+    SubBin = make_sub_bin(Bin0),
+    id(<<42,34,55,Bin0/binary>>),		%Make reallocation likelier.
+    Pid = spawn(fun() ->
+			copy_writable_binary_holder(Bin0, SubBin)
+		end),
+    Tab = ets:new(holder, []),
+    ets:insert(Tab, {17,Bin0}),
+    ets:insert(Tab, {42,SubBin}),
+    id(<<Bin0/binary,0:(64*1024*8)>>),
+    Pid ! self(),
+    [{17,Bin0}] = ets:lookup(Tab, 17),
+    [{42,Bin0}] = ets:lookup(Tab, 42),
     receive
 	{Pid,Bin0,Bin0} -> ok;
 	Other ->
 	    io:format("Unexpected message: ~p", [Other]),
-	    ?line ?t:fail()
+	    ct:fail(failed)
     end,
     ok.
 
@@ -656,7 +648,7 @@ dynamic(Config) when is_list(Config) ->
 	 {'DOWN',Ref,process,Pid,normal} ->
 	     ok;
 	 {'DOWN',Ref,process,Pid,Exit} ->
-	     ?t:fail({Pid,Exit})
+	     ct:fail({Pid,Exit})
      end || {Pid,Ref} <- Ps],
     ok.
 
@@ -743,17 +735,17 @@ otp_7422_bin(N) when N < 512 ->
 otp_7422_bin(_) -> ok.
 
 zero_width(Config) when is_list(Config) ->
-    ?line Z = id(0),
+    Z = id(0),
     Small = id(42),
     Big = id(1 bsl 128),
-    ?line <<>> = <<Small:Z>>,
-    ?line <<>> = <<Small:0>>,
-    ?line <<>> = <<Big:Z>>,
-    ?line <<>> = <<Big:0>>,
+    <<>> = <<Small:Z>>,
+    <<>> = <<Small:0>>,
+    <<>> = <<Big:Z>>,
+    <<>> = <<Big:0>>,
 
-    ?line {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):Z>>),
-    ?line {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):0>>),
+    {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
+    {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):Z>>),
+    {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):0>>),
 
     ok.
 

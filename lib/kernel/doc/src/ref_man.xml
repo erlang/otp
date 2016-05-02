@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,9 +29,7 @@
     <rev></rev>
   </header>
   <description>
-    <p>The <em>Kernel</em> application has all the code necessary to run
-      the Erlang runtime system itself: file servers and code servers
-      and so on.</p>
+
   </description>
   <xi:include href="kernel_app.xml"/>
   <xi:include href="application.xml"/>
@@ -45,9 +43,9 @@
   <xi:include href="error_handler.xml"/>
   <xi:include href="error_logger.xml"/>
   <xi:include href="file.xml"/>
+  <xi:include href="gen_sctp.xml"/>
   <xi:include href="gen_tcp.xml"/>
   <xi:include href="gen_udp.xml"/>
-  <xi:include href="gen_sctp.xml"/>
   <xi:include href="global.xml"/>
   <xi:include href="global_group.xml"/>
   <xi:include href="heart.xml"/>

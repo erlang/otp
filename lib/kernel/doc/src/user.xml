@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -27,13 +27,13 @@
     <title>user</title>
     <prepared>Robert Virding</prepared>
     <docno>1</docno>
-    <date>96-10-10</date>
+    <date>1996-10-10</date>
     <rev>A</rev>
   </header>
   <module>user</module>
-  <modulesummary>Standard I/O Server</modulesummary>
+  <modulesummary>Standard I/O server.</modulesummary>
   <description>
-    <p><c>user</c> is a server which responds to all the messages
+    <p><c>user</c> is a server that responds to all messages
       defined in the I/O interface. The code in <c>user.erl</c> can be
       used as a model for building alternative I/O servers.</p>
   </description>

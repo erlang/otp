@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -397,6 +397,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
     erts_sys_time_data__.r.o.os_monotonic_time = os_mtime_func;
     erts_sys_time_data__.r.o.os_times = os_times_func;
+    erts_sys_time_data__.r.o.sys_hrtime = sys_hrtime_func;
     init_resp->os_monotonic_time_unit = time_unit;
     init_resp->have_os_monotonic_time = 1;
     init_resp->have_corrected_os_monotonic_time = 0;

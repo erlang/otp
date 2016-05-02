@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@
 -export([module/2]).
 
 -import(lists, [reverse/1,reverse/2,foldl/3,mapfoldl/3,map/2]).
-
--define(MAXREG, 1024).
 
 -record(st,
 	{next,					%Next label number.

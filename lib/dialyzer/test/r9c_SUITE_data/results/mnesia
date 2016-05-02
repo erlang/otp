@@ -6,7 +6,7 @@ mnesia_bup.erl:111: The created fun has no local return
 mnesia_bup.erl:574: Function fallback_receiver/2 has no local return
 mnesia_bup.erl:967: Function uninstall_fallback_master/2 has no local return
 mnesia_checkpoint.erl:1014: The variable Error can never match since previous clauses completely covered the type {'ok',#checkpoint_args{nodes::[any()],retainers::[any(),...]}}
-mnesia_checkpoint.erl:894: The call sys:handle_system_msg(Msg::any(),From::any(),'no_parent','mnesia_checkpoint',[],Cp::#checkpoint_args{}) breaks the contract (Msg,From,Parent,Module,Debug,Misc) -> no_return() when is_subtype(Msg,term()), is_subtype(From,{pid(),Tag::_}), is_subtype(Parent,pid()), is_subtype(Module,module()), is_subtype(Debug,[dbg_opt()]), is_subtype(Misc,term())
+mnesia_checkpoint.erl:894: The call sys:handle_system_msg(Msg::any(),From::any(),'no_parent','mnesia_checkpoint',[],Cp::#checkpoint_args{}) breaks the contract (Msg,From,Parent,Module,Debug,Misc) -> no_return() when Msg :: term(), From :: {pid(),Tag::_}, Parent :: pid(), Module :: module(), Debug :: [dbg_opt()], Misc :: term()
 mnesia_controller.erl:1666: The variable Tab can never match since previous clauses completely covered the type [any()]
 mnesia_controller.erl:1679: The pattern {'stop', Reason, Reply, State2} can never match the type {'noreply',_} | {'reply',_,_} | {'stop','shutdown',#state{}}
 mnesia_controller.erl:1685: The pattern {'noreply', State2, _Timeout} can never match the type {'reply',_,_}
@@ -35,6 +35,6 @@ mnesia_schema.erl:1258: Guard test FromS::'disc_copies' | 'disc_only_copies' | '
 mnesia_schema.erl:1639: The pattern {'false', 'mandatory'} can never match the type {'false','optional'}
 mnesia_schema.erl:2434: The variable Reason can never match since previous clauses completely covered the type {'error',_} | {'ok',_}
 mnesia_schema.erl:451: Guard test UseDirAnyway::'false' == 'true' can never succeed
-mnesia_text.erl:180: The variable T can never match since previous clauses completely covered the type {'error',{integer(),atom() | tuple(),_}} | {'ok',_}
+mnesia_text.erl:180: The variable T can never match since previous clauses completely covered the type {'error',{non_neg_integer(),atom(),_}} | {'ok',_}
 mnesia_tm.erl:1522: Function commit_participant/5 has no local return
 mnesia_tm.erl:2169: Function system_terminate/4 has no local return

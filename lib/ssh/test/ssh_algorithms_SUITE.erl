@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 50000).
+-define(TIMEOUT, 10000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -36,7 +36,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,10}}].
+     {timetrap,{seconds,40}}].
 
 all() -> 
     %% [{group,kex},{group,cipher}... etc
@@ -191,6 +191,9 @@ simple_exec_groups_no_match_too_large(Config) ->
 
 %%--------------------------------------------------------------------
 %% Testing all default groups
+
+simple_exec_groups() -> [{timetrap,{seconds,180}}].
+
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
     lists:foreach(
@@ -217,6 +220,7 @@ interpolate(Is) ->
 
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
+
 sshc_simple_exec(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
@@ -227,12 +231,21 @@ sshc_simple_exec(Config) ->
     ct:log("~p",[Cmd]),
     SshPort = open_port({spawn, Cmd}, [binary]),
     Expect = <<"2\n">>,
+    rcv_expected(SshPort, Expect).
+
+
+rcv_expected(SshPort, Expect) ->
     receive
 	{SshPort, {data,Expect}} ->
 	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
 	    catch port_close(SshPort),
-	    ok
+	    ok;
+	Other ->
+	    ct:log("Got UNEXPECTED ~p",[Other]),
+	    rcv_expected(SshPort, Expect)
+
     after ?TIMEOUT ->
+	    catch port_close(SshPort),
 	    ct:fail("Did not receive answer")
     end.
 

@@ -7,7 +7,7 @@
 
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 1996-2014. All Rights Reserved.
+;; Copyright Ericsson AB 1996-2016. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -897,6 +897,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "get_module_info"
       "get_stacktrace"
       "hash"
+      "has_prepared_code_on_load"
       "hibernate"
       "insert_element"
       "is_builtin"
@@ -1344,7 +1345,7 @@ Lock syntax table.  The effect is that `apply' in the atom
 
 
 ;;;###autoload
-(defun erlang-mode ()
+(define-derived-mode erlang-mode prog-mode "Erlang"
   "Major mode for editing Erlang source files in Emacs.
 It knows about syntax and comment, it can indent code, it is capable
 of fontifying the source file, the TAGS commands are aware of Erlang
@@ -1403,12 +1404,9 @@ and examples of hooks.
 
 Other commands:
 \\{erlang-mode-map}"
-  (interactive)
-  (kill-all-local-variables)
-  (setq major-mode 'erlang-mode)
-  (setq mode-name "Erlang")
+  ;; Use our own syntax table function
+  :syntax-table nil
   (erlang-syntax-table-init)
-  (use-local-map erlang-mode-map)
   (erlang-electric-init)
   (erlang-menu-init)
   (erlang-mode-variables)
@@ -1418,12 +1416,8 @@ Other commands:
   (erlang-font-lock-init)
   (erlang-skel-init)
   (tempo-use-tag-list 'erlang-tempo-tags)
-  (run-hooks 'erlang-mode-hook)
   (if (zerop (buffer-size))
-      (run-hooks 'erlang-new-file-hook))
-  ;; Doesn't exist in Emacs v21.4; required by Emacs v23.
-  (if (boundp 'after-change-major-mode-hook)
-      (run-hooks 'after-change-major-mode-hook)))
+      (run-hooks 'erlang-new-file-hook)))
 
 ;;;###autoload
 (dolist (r '("\\.erl$" "\\.app\\.src$" "\\.escript"

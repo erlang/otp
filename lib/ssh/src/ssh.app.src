@@ -18,6 +18,7 @@
 	     ssh_connection_handler,
 	     ssh_connection_sup,
 	     ssh_daemon_channel,
+	     ssh_dbg,
 	     ssh_shell,
 	     sshc_sup,
 	     sshd_sup,

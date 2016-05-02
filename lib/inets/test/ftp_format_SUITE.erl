@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@
 -author('ingela@erix.ericsson.se').
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include("ftp_internal.hrl").
 
 %% Test server specific exports

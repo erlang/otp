@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,10 +26,6 @@
 	 translate_emulator_restarts/1,
 	 translate_add_delete_module/1]).
 
-%%-----------------------------------------------------------------
-%% erl -compile systools_rc_SUITE @i ../src/ @i ../../test_server/include/
-%% c(systools_rc_SUITE, [{i, "../src"}, {i, "../../test_server/include"}]).
-%%-----------------------------------------------------------------
 all() -> 
     [syntax_check, translate, translate_app, translate_emulator_restarts,
      translate_add_delete_module].

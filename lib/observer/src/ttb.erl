@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -434,7 +434,9 @@ procs(Procs) when is_list(Procs) ->
 procs(Proc) ->
     proc(Proc).
 
-proc(Procs) when Procs=:=all; Procs=:=existing; Procs=:=new ->
+proc(Procs) when Procs=:=all; Procs=:=ports; Procs=:=processes;
+                 Procs=:=existing; Procs=:=existing_ports; Procs=:=existing_processes;
+                 Procs=:=new; Procs=:=new_ports; Procs=:=new_processes ->
     [Procs];
 proc(Name) when is_atom(Name) ->
     [Name]; % can be registered on this node or other node

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@
 
 -type channel_id()           :: integer().
 
--define(DEFAULT_PACKET_SIZE, 32768).
--define(DEFAULT_WINDOW_SIZE, 2*?DEFAULT_PACKET_SIZE).
+-define(DEFAULT_PACKET_SIZE, 65536).
+-define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
+
 -define(DEFAULT_TIMEOUT, 5000).
 -define(MAX_PROTO_VERSION, 255).
 

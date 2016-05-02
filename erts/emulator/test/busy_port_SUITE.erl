@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,8 +20,7 @@
 
 -module(busy_port_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,end_per_testcase/2,
+-export([all/0, suite/0, end_per_testcase/2,
 	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
@@ -29,12 +28,14 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Internal exports.
 -export([init/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [io_to_busy, message_order, send_3, system_monitor,
@@ -42,21 +43,6 @@ all() ->
      multiple_writers, hard_busy_driver, soft_busy_driver,
      scheduling_delay_busy,scheduling_delay_busy_nosuspend,
      scheduling_busy_link].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
     case whereis(busy_drv_server) of
@@ -76,17 +62,14 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %% Tests I/O operations to a busy port, to make sure a suspended send
 %% operation is correctly restarted.  This used to crash Beam.
 
-io_to_busy(suite) -> [];
 io_to_busy(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+    ct:timetrap({seconds, 30}),
 
-    ?line start_busy_driver(Config),
-    ?line process_flag(trap_exit, true),
-    ?line Writer = fun_spawn(fun writer/0),
-    ?line Generator = fun_spawn(fun() -> generator(100, Writer) end),
-    ?line wait_for([Writer, Generator]),
-
-    ?line test_server:timetrap_cancel(Dog),
+    start_busy_driver(Config),
+    process_flag(trap_exit, true),
+    Writer = fun_spawn(fun writer/0),
+    Generator = fun_spawn(fun() -> generator(100, Writer) end),
+    wait_for([Writer, Generator]),
     ok.
 
 generator(N, Writer) ->
@@ -130,27 +113,24 @@ forget(_) ->
 %% Test the interaction of busy ports and message sending.
 %% This used to cause the wrong message to be received.
 
-message_order(suite) -> {req, dynamic_loading};
 message_order(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
 
-    ?line start_busy_driver(Config),
-    ?line Self = self(),
-    ?line Busy = fun_spawn(fun () -> send_to_busy_1(Self) end),
-    ?line receive after 1000 -> ok end,
-    ?line Busy ! first,
-    ?line Busy ! second,
-    ?line receive after 1 -> ok end,
-    ?line unlock_slave(),
-    ?line Busy ! third,
-    ?line receive
-	      {Busy, first} ->
-		  ok;
-	      Other ->
-		  test_server:fail({unexpected_message, Other})
-	  end,
-
-    ?line test_server:timetrap_cancel(Dog),
+    start_busy_driver(Config),
+    Self = self(),
+    Busy = fun_spawn(fun () -> send_to_busy_1(Self) end),
+    receive after 1000 -> ok end,
+    Busy ! first,
+    Busy ! second,
+    receive after 1 -> ok end,
+    unlock_slave(),
+    Busy ! third,
+    receive
+        {Busy, first} ->
+            ok;
+        Other ->
+            ct:fail({unexpected_message, Other})
+    end,
     ok.
 
 send_to_busy_1(Parent) ->
@@ -164,78 +144,62 @@ send_to_busy_1(Parent) ->
     end.
 
 %% Test the bif send/3
-send_3(suite) -> {req,dynamic_loading};
-send_3(doc) -> ["Test the BIF send/3"];
 send_3(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     %%
-    ?line start_busy_driver(Config),
-    ?line {Owner,Slave} = get_slave(),
-    ?line ok = erlang:send(Slave, {Owner,{command,"set busy"}}, 
-			   [nosuspend]),
+    start_busy_driver(Config),
+    {Owner,Slave} = get_slave(),
+    ok = erlang:send(Slave, {Owner,{command,"set busy"}}, [nosuspend]),
     receive after 100 -> ok end, % ensure command reached port
-    ?line nosuspend = erlang:send(Slave, {Owner,{command,"busy"}},
-				  [nosuspend]),
-    ?line unlock_slave(),
-    ?line ok = erlang:send(Slave, {Owner,{command,"not busy"}}, 
-			   [nosuspend]),
-    ?line ok = command(stop),
-    %%
-    ?line test_server:timetrap_cancel(Dog),
+    nosuspend = erlang:send(Slave, {Owner,{command,"busy"}}, [nosuspend]),
+    unlock_slave(),
+    ok = erlang:send(Slave, {Owner,{command,"not busy"}}, [nosuspend]),
+    ok = command(stop),
     ok.
 
 %% Test the erlang:system_monitor(Pid, [busy_port])
-system_monitor(suite) -> {req,dynamic_loading};
-system_monitor(doc) -> ["Test erlang:system_monitor({Pid,[busy_port]})."];
 system_monitor(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line Self = self(),
+    ct:timetrap({seconds, 10}),
+    Self = self(),
     %%
-    ?line OldMonitor = erlang:system_monitor(Self, [busy_port]),
-    ?line {Self,[busy_port]} = erlang:system_monitor(),
-    ?line Void = make_ref(),
-    ?line start_busy_driver(Config),
-    ?line {Owner,Slave} = get_slave(),
-    ?line Master = command(get_master),
-    ?line Parent = self(),
-    ?line Busy = 
-	spawn_link(
-	  fun() ->
-		  (catch port_command(Slave, "set busy")),
-		  receive {Parent,alpha} -> ok end,
-		  (catch port_command(Slave, "busy")),
-		  (catch port_command(Slave, "free")),
-		  Parent ! {self(),alpha},
-		  command(lock),
-		  receive {Parent,beta} -> ok end,
-		  command({port_command,"busy"}),
-		  command({port_command,"free"}),
-		  Parent ! {self(),beta}
-	  end),
-    ?line Void = rec(Void),
-    ?line Busy ! {self(),alpha},
-    ?line {monitor,Busy,busy_port,Slave} = rec(Void),
-    ?line unlock_slave(),
-    ?line {Busy,alpha} = rec(Void),
-    ?line Void = rec(Void),
-    ?line Busy ! {self(), beta},
-    ?line {monitor,Owner,busy_port,Slave} = rec(Void),
-    ?line port_command(Master, "u"),
-    ?line {Busy,beta} = rec(Void),
-    ?line Void = rec(Void),
-    ?line _NewMonitor = erlang:system_monitor(OldMonitor),
-    ?line OldMonitor = erlang:system_monitor(),
-    ?line OldMonitor = erlang:system_monitor(OldMonitor),
-    %%
-    ?line test_server:timetrap_cancel(Dog),
+    OldMonitor = erlang:system_monitor(Self, [busy_port]),
+    {Self,[busy_port]} = erlang:system_monitor(),
+    Void = make_ref(),
+    start_busy_driver(Config),
+    {Owner,Slave} = get_slave(),
+    Master = command(get_master),
+    Parent = self(),
+    Busy = spawn_link(
+             fun() ->
+                     (catch port_command(Slave, "set busy")),
+                     receive {Parent,alpha} -> ok end,
+                     (catch port_command(Slave, "busy")),
+                     (catch port_command(Slave, "free")),
+                     Parent ! {self(),alpha},
+                     command(lock),
+                     receive {Parent,beta} -> ok end,
+                     command({port_command,"busy"}),
+                     command({port_command,"free"}),
+                     Parent ! {self(),beta}
+             end),
+    Void = rec(Void),
+    Busy ! {self(),alpha},
+    {monitor,Busy,busy_port,Slave} = rec(Void),
+    unlock_slave(),
+    {Busy,alpha} = rec(Void),
+    Void = rec(Void),
+    Busy ! {self(), beta},
+    {monitor,Owner,busy_port,Slave} = rec(Void),
+    port_command(Master, "u"),
+    {Busy,beta} = rec(Void),
+    Void = rec(Void),
+    _NewMonitor = erlang:system_monitor(OldMonitor),
+    OldMonitor = erlang:system_monitor(),
+    OldMonitor = erlang:system_monitor(OldMonitor),
     ok.
-
-
 
 rec(Tag) ->
     receive X -> X after 1000 -> Tag end.
-
-
 
 
 %% Assuming the following scenario,
@@ -248,65 +212,59 @@ rec(Tag) ->
 %%
 %% tests that the suspended process is killed if the port is killed.
 
-no_trap_exit(suite) -> [];
 no_trap_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line process_flag(trap_exit, true),
-    ?line Pid = fun_spawn(fun no_trap_exit_process/3,
-			  [self(), linked, Config]),
-    ?line receive
-	      {Pid, port_created, Port} ->
-		  io:format("Process ~w created port ~w", [Pid, Port]),
-		  ?line exit(Port, die);
-	      Other1 ->
-		  test_server:fail({unexpected_message, Other1})
-	  end,
-    ?line receive
-	      {'EXIT', Pid, die} ->
-		  ok;
-	      Other2 ->
-		  test_server:fail({unexpected_message, Other2})
-	  end,
-
-    ?line test_server:timetrap_cancel(Dog),
+    ct:timetrap({seconds, 10}),
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun no_trap_exit_process/3, [self(), linked, Config]),
+    receive
+        {Pid, port_created, Port} ->
+            io:format("Process ~w created port ~w", [Pid, Port]),
+            exit(Port, die);
+        Other1 ->
+            ct:fail({unexpected_message, Other1})
+    end,
+    receive
+        {'EXIT', Pid, die} ->
+            ok;
+        Other2 ->
+            ct:fail({unexpected_message, Other2})
+    end,
     ok.
 
 %% The same scenario as above, but the port has been explicitly
 %% unlinked from the process.
 
-no_trap_exit_unlinked(suite) -> [];
 no_trap_exit_unlinked(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line process_flag(trap_exit, true),
-    ?line Pid = fun_spawn(fun no_trap_exit_process/3,
-			  [self(), unlink, Config]),
-    ?line receive
-	      {Pid, port_created, Port} ->
-		  io:format("Process ~w created port ~w", [Pid, Port]),
-		  ?line exit(Port, die);
-	      Other1 ->
-		  test_server:fail({unexpected_message, Other1})
-	  end,
-    ?line receive
-	      {'EXIT', Pid, normal} ->
-		  ok;
-	      Other2 ->
-		  test_server:fail({unexpected_message, Other2})
-	  end,
-    ?line test_server:timetrap_cancel(Dog),
+    ct:timetrap({seconds, 10}),
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun no_trap_exit_process/3,
+                    [self(), unlink, Config]),
+    receive
+        {Pid, port_created, Port} ->
+            io:format("Process ~w created port ~w", [Pid, Port]),
+            exit(Port, die);
+        Other1 ->
+            ct:fail({unexpected_message, Other1})
+    end,
+    receive
+        {'EXIT', Pid, normal} ->
+            ok;
+        Other2 ->
+            ct:fail({unexpected_message, Other2})
+    end,
     ok.
 
 no_trap_exit_process(ResultTo, Link, Config) ->
-    ?line load_busy_driver(Config),
-    ?line _Master = open_port({spawn, "busy_drv master"}, [eof]),
-    ?line Slave = open_port({spawn, "busy_drv slave"}, [eof]),
-    ?line case Link of
-	      linked -> ok;
-	      unlink -> unlink(Slave)
-	  end,
-    ?line (catch port_command(Slave, "lock port")),
-    ?line ResultTo ! {self(), port_created, Slave},
-    ?line (catch port_command(Slave, "suspend me")),
+    load_busy_driver(Config),
+    _Master = open_port({spawn, "busy_drv master"}, [eof]),
+    Slave = open_port({spawn, "busy_drv slave"}, [eof]),
+    case Link of
+        linked -> ok;
+        unlink -> unlink(Slave)
+    end,
+    (catch port_command(Slave, "lock port")),
+    ResultTo ! {self(), port_created, Slave},
+    (catch port_command(Slave, "suspend me")),
     ok.
 
 %% Assuming the following scenario,
@@ -320,36 +278,34 @@ no_trap_exit_process(ResultTo, Link, Config) ->
 %% tests that the suspended process is scheduled runnable and
 %% receives an 'EXIT' message if the port is killed.
 
-trap_exit(suite) -> [];
 trap_exit(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line Pid = fun_spawn(fun busy_port_exit_process/2, [self(), Config]),
-    ?line receive
+    ct:timetrap({seconds, 10}),
+    Pid = fun_spawn(fun busy_port_exit_process/2, [self(), Config]),
+    receive
 	      {Pid, port_created, Port} ->
 		  io:format("Process ~w created port ~w", [Pid, Port]),
-		  ?line unlink(Pid),
-		  ?line {status, suspended} = process_info(Pid, status),
-		  ?line exit(Port, die);
+		  unlink(Pid),
+		  {status, suspended} = process_info(Pid, status),
+		  exit(Port, die);
 	      Other1 ->
-		  test_server:fail({unexpected_message, Other1})
+		  ct:fail({unexpected_message, Other1})
 	  end,
-    ?line receive
+    receive
 	      {Pid, ok} ->
 		  ok;
 	      Other2 ->
-		  test_server:fail({unexpected_message, Other2})
+		  ct:fail({unexpected_message, Other2})
 	  end,
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 busy_port_exit_process(ResultTo, Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line load_busy_driver(Config),
-    ?line _Master = open_port({spawn, "busy_drv master"}, [eof]),
-    ?line Slave = open_port({spawn, "busy_drv slave"}, [eof]),
-    ?line (catch port_command(Slave, "lock port")),
-    ?line ResultTo ! {self(), port_created, Slave},
-    ?line (catch port_command(Slave, "suspend me")),
+    process_flag(trap_exit, true),
+    load_busy_driver(Config),
+    _Master = open_port({spawn, "busy_drv master"}, [eof]),
+    Slave = open_port({spawn, "busy_drv slave"}, [eof]),
+    (catch port_command(Slave, "lock port")),
+    ResultTo ! {self(), port_created, Slave},
+    (catch port_command(Slave, "suspend me")),
     receive
 	{'EXIT', Slave, die} ->
 	    ResultTo ! {self(), ok};
@@ -362,19 +318,18 @@ busy_port_exit_process(ResultTo, Config) ->
 %% This should work even if some of the processes have terminated
 %% in the meantime.
 
-multiple_writers(suite) -> [];
 multiple_writers(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line start_busy_driver(Config),
-    ?line process_flag(trap_exit, true),
+    ct:timetrap({seconds, 10}),
+    start_busy_driver(Config),
+    process_flag(trap_exit, true),
 
     %% Start the waiters and make sure they have blocked.
-    ?line W1 = fun_spawn(fun quick_writer/0),
-    ?line W2 = fun_spawn(fun quick_writer/0),
-    ?line W3 = fun_spawn(fun quick_writer/0),
-    ?line W4 = fun_spawn(fun quick_writer/0),
-    ?line W5 = fun_spawn(fun quick_writer/0),
-    ?line test_server:sleep(500),		% Make sure writers have blocked.
+    W1 = fun_spawn(fun quick_writer/0),
+    W2 = fun_spawn(fun quick_writer/0),
+    W3 = fun_spawn(fun quick_writer/0),
+    W4 = fun_spawn(fun quick_writer/0),
+    W5 = fun_spawn(fun quick_writer/0),
+    test_server:sleep(500),		% Make sure writers have blocked.
 
     %% Kill two of the processes.
     exit(W1, kill),
@@ -383,10 +338,8 @@ multiple_writers(Config) when is_list(Config) ->
     receive {'EXIT', W3, killed} -> ok end,
 
     %% Unlock the port.  The surviving processes should be become runnable.
-    ?line unlock_slave(),
-    ?line wait_for([W2, W4, W5]),
-    
-    ?line test_server:timetrap_cancel(Dog),
+    unlock_slave(),
+    wait_for([W2, W4, W5]),
     ok.
 
 quick_writer() ->
@@ -402,205 +355,193 @@ soft_busy_driver(Config) when is_list(Config) ->
     hs_test(Config, false).
 
 hs_test(Config, HardBusy) when is_list(Config) ->
-    ?line DrvName = case HardBusy of
-			true -> 'hard_busy_drv';
-			false -> 'soft_busy_drv'
-		    end,
-    ?line erl_ddll:start(),
-    ?line Path = ?config(data_dir, Config),
+    DrvName = case HardBusy of
+                  true -> 'hard_busy_drv';
+                  false -> 'soft_busy_drv'
+              end,
+    erl_ddll:start(),
+    Path = proplists:get_value(data_dir, Config),
     case erl_ddll:load_driver(Path, DrvName) of
-	ok -> ok;
-	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+        ok -> ok;
+        {error, Error} ->
+            ct:fail(erl_ddll:format_error(Error))
     end,
 
-    ?line Port = open_port({spawn, DrvName}, []),
-    
+    Port = open_port({spawn, DrvName}, []),
+
     NotSuspended = fun (Proc) ->
-			   chk_not_value({status,suspended},
-					 process_info(Proc, status))
-		   end,
+                           chk_not_value({status,suspended},
+                                         process_info(Proc, status))
+                   end,
     NotBusyEnd = fun (Proc, Res, Time) ->
-			 receive
-			     {Port, caller, Proc} -> ok
-			 after
-			     500 -> exit(missing_caller_message)
-			 end,
-			 chk_value({return, true}, Res),
-			 chk_range(0, Time, 100)
-		 end,    
+                         receive
+                             {Port, caller, Proc} -> ok
+                         after
+                             500 -> exit(missing_caller_message)
+                         end,
+                         chk_value({return, true}, Res),
+                         chk_range(0, Time, 100)
+                 end,    
     ForceEnd = fun (Proc, Res, Time) ->
-		       case HardBusy of
-			   false ->
-			       NotBusyEnd(Proc, Res, Time);
-			   true ->
-			       chk_value({error, notsup}, Res),
-			       chk_range(0, Time, 100),
-			       receive
-				   Msg -> exit({unexpected_msg, Msg})
-			       after
-				   500 -> ok
-			       end
-		       end
-	       end,
+                       case HardBusy of
+                           false ->
+                               NotBusyEnd(Proc, Res, Time);
+                           true ->
+                               chk_value({error, notsup}, Res),
+                               chk_range(0, Time, 100),
+                               receive
+                                   Msg -> exit({unexpected_msg, Msg})
+                               after
+                                   500 -> ok
+                               end
+                       end
+               end,
     BadArg = fun (_Proc, Res, Time) ->
-		     chk_value({error, badarg}, Res),
-		     chk_range(0, Time, 100)
-	     end,
+                     chk_value({error, badarg}, Res),
+                     chk_range(0, Time, 100)
+             end,
 
     %% Not busy
 
     %% Not busy; nosuspend option
-    ?line hs_busy_pcmd(Port, [nosuspend], NotSuspended, NotBusyEnd),
+    hs_busy_pcmd(Port, [nosuspend], NotSuspended, NotBusyEnd),
 
     %% Not busy; force option
-    ?line hs_busy_pcmd(Port, [force], NotSuspended, ForceEnd),
+    hs_busy_pcmd(Port, [force], NotSuspended, ForceEnd),
 
     %% Not busy; force and nosuspend option
-    ?line hs_busy_pcmd(Port, [force, nosuspend], NotSuspended, ForceEnd),
+    hs_busy_pcmd(Port, [force, nosuspend], NotSuspended, ForceEnd),
 
     %% Not busy; no option
-    ?line hs_busy_pcmd(Port, [], NotSuspended, NotBusyEnd),
+    hs_busy_pcmd(Port, [], NotSuspended, NotBusyEnd),
 
     %% Not busy; bad option
-    ?line hs_busy_pcmd(Port, [bad_option], NotSuspended, BadArg),
+    hs_busy_pcmd(Port, [bad_option], NotSuspended, BadArg),
 
 
     %% Make busy
-    ?line erlang:port_control(Port, $B, []),
+    erlang:port_control(Port, $B, []),
 
 
     %% Busy; nosuspend option
-    ?line hs_busy_pcmd(Port, [nosuspend], NotSuspended,
-		       fun (_Proc, Res, Time) ->
-			       chk_value({return, false}, Res),
-			       chk_range(0, Time, 100),
-			       receive
-				   Msg -> exit({unexpected_msg, Msg})
-			       after
-				   500 -> ok
-			       end
-		       end),
+    hs_busy_pcmd(Port, [nosuspend], NotSuspended,
+                 fun (_Proc, Res, Time) ->
+                         chk_value({return, false}, Res),
+                         chk_range(0, Time, 100),
+                         receive
+                             Msg -> exit({unexpected_msg, Msg})
+                         after
+                             500 -> ok
+                         end
+                 end),
 
     %% Busy; force option
-    ?line hs_busy_pcmd(Port, [force], NotSuspended, ForceEnd),
+    hs_busy_pcmd(Port, [force], NotSuspended, ForceEnd),
 
     %% Busy; force and nosuspend option
-    ?line hs_busy_pcmd(Port, [force, nosuspend], NotSuspended, ForceEnd),
+    hs_busy_pcmd(Port, [force, nosuspend], NotSuspended, ForceEnd),
 
     %% Busy; bad option
-    ?line hs_busy_pcmd(Port, [bad_option], NotSuspended, BadArg),
+    hs_busy_pcmd(Port, [bad_option], NotSuspended, BadArg),
 
     %% no option on busy port
-    ?line hs_busy_pcmd(Port, [],
-		       fun (Proc) ->
-			       receive after 1000 -> ok end,
-			       chk_value({status,suspended},
-					 process_info(Proc, status)),
+    hs_busy_pcmd(Port, [],
+                 fun (Proc) ->
+                         receive after 1000 -> ok end,
+                         chk_value({status,suspended},
+                                   process_info(Proc, status)),
 
-			       %% Make not busy
-			       erlang:port_control(Port, $N, [])
-		       end,
-		       fun (_Proc, Res, Time) ->
-			       chk_value({return, true}, Res),
-			       chk_range(1000, Time, 2000)
-		       end),
+                         %% Make not busy
+                         erlang:port_control(Port, $N, [])
+                 end,
+                 fun (_Proc, Res, Time) ->
+                         chk_value({return, true}, Res),
+                         chk_range(1000, Time, 2000)
+                 end),
 
-    ?line true = erlang:port_close(Port),
-    ?line ok = erl_ddll:unload_driver(DrvName),
-    ?line ok = erl_ddll:stop(),
-    ?line ok.
+    true = erlang:port_close(Port),
+    ok = erl_ddll:unload_driver(DrvName),
+    ok = erl_ddll:stop(),
+    ok.
 
 hs_busy_pcmd(Prt, Opts, StartFun, EndFun) ->
     Tester = self(),
     P = spawn_link(fun () ->
-			   erlang:yield(),
-			   Tester ! {self(), doing_port_command},
-			   Start = erlang:monotonic_time(micro_seconds),
-			   Res = try {return,
-				      port_command(Prt, [], Opts)}
-				 catch Exception:Error -> {Exception, Error}
-				 end,
-			   End = erlang:monotonic_time(micro_seconds),
-			   Time = round((End - Start)/1000),
-			   Tester ! {self(), port_command_result, Res, Time}
-		   end),
+                           erlang:yield(),
+                           Tester ! {self(), doing_port_command},
+                           Start = erlang:monotonic_time(micro_seconds),
+                           Res = try {return,
+                                      port_command(Prt, [], Opts)}
+                                 catch Exception:Error -> {Exception, Error}
+                                 end,
+                           End = erlang:monotonic_time(micro_seconds),
+                           Time = round((End - Start)/1000),
+                           Tester ! {self(), port_command_result, Res, Time}
+                   end),
     receive
-	{P, doing_port_command} ->
-	    ok
+        {P, doing_port_command} ->
+            ok
     end,
     StartFun(P),
     receive
-	{P, port_command_result, Res, Time} ->
-	    EndFun(P, Res, Time)
+        {P, port_command_result, Res, Time} ->
+            EndFun(P, Res, Time)
     end.
 
 scheduling_delay_busy(Config) ->
-    
-    Scenario = 
-	[{1,{spawn,[{var,drvname},undefined]}},
-	 {2,{call,[{var,1},open_port]}},
-	 {3,{spawn,[{var,2},{var,1}]}},
-	 {0,{ack,[{var,1},{busy,1,250}]}},
-	 {0,{cast,[{var,3},{command,2}]}},
-	 [{0,{cast,[{var,3},{command,I}]}} 
-	  || I <- lists:seq(3,50)],
-	 {0,{cast,[{var,3},take_control]}},
-	 {0,{cast,[{var,1},{new_owner,{var,3}}]}},
-	 {0,{cast,[{var,3},close]}},
-	 {0,{timer,sleep,[300]}},
-	 {0,{erlang,port_command,[{var,2},<<$N>>,[force]]}},
-	 [{0,{cast,[{var,1},{command,I}]}} 
-	  || I <- lists:seq(101,127)]
-	 ,{10,{call,[{var,3},get_data]}}
-	 ],
+    Scenario = [{1,{spawn,[{var,drvname},undefined]}},
+                {2,{call,[{var,1},open_port]}},
+                {3,{spawn,[{var,2},{var,1}]}},
+                {0,{ack,[{var,1},{busy,1,250}]}},
+                {0,{cast,[{var,3},{command,2}]}},
+                [{0,{cast,[{var,3},{command,I}]}} || I <- lists:seq(3,50)],
+                {0,{cast,[{var,3},take_control]}},
+                {0,{cast,[{var,1},{new_owner,{var,3}}]}},
+                {0,{cast,[{var,3},close]}},
+                {0,{timer,sleep,[300]}},
+                {0,{erlang,port_command,[{var,2},<<$N>>,[force]]}},
+                [{0,{cast,[{var,1},{command,I}]}} || I <- lists:seq(101,127)],
+                {10,{call,[{var,3},get_data]}}],
 
     Validation = [{seq,10,lists:seq(1,50)}],
 
-    port_scheduling(Scenario,Validation,?config(data_dir,Config)).
+    port_scheduling(Scenario,Validation,proplists:get_value(data_dir,Config)).
 
 scheduling_delay_busy_nosuspend(Config) ->
-
-    Scenario = 
-	[{1,{spawn,[{var,drvname},undefined]}},
-	 {2,{call,[{var,1},open_port]}},
-	 {0,{cast,[{var,1},{command,1,100}]}},
-	 {0,{cast,[{var,1},{busy,2}]}},
-	 {0,{timer,sleep,[200]}}, % ensure reached port
-	 {10,{call,[{var,1},{command,3,[nosuspend]}]}},
-	 {0,{timer,sleep,[200]}},
-	 {0,{erlang,port_command,[{var,2},<<$N>>,[force]]}},
-	 {0,{cast,[{var,1},close]}},
-	 {20,{call,[{var,1},get_data]}}
-	 ],
+    Scenario = [{1,{spawn,[{var,drvname},undefined]}},
+                {2,{call,[{var,1},open_port]}},
+                {0,{cast,[{var,1},{command,1,100}]}},
+                {0,{cast,[{var,1},{busy,2}]}},
+                {0,{timer,sleep,[200]}}, % ensure reached port
+                {10,{call,[{var,1},{command,3,[nosuspend]}]}},
+                {0,{timer,sleep,[200]}},
+                {0,{erlang,port_command,[{var,2},<<$N>>,[force]]}},
+                {0,{cast,[{var,1},close]}},
+                {20,{call,[{var,1},get_data]}}],
 
     Validation = [{eq,10,nosuspend},{seq,20,[1,2]}],
 
-    port_scheduling(Scenario,Validation,?config(data_dir,Config)).
+    port_scheduling(Scenario,Validation,proplists:get_value(data_dir,Config)).
 
 scheduling_busy_link(Config) ->
-    
-    Scenario = 
-	[{1,{spawn,[{var,drvname},undefined]}},
-	 {2,{call,[{var,1},open_port]}},
-	 {3,{spawn,[{var,2},{var,1}]}},
-	 {0,{cast,[{var,1},unlink]}},
-	 {0,{cast,[{var,1},{busy,1}]}},
-	 {0,{cast,[{var,1},{command,2}]}},
-	 {0,{cast,[{var,1},link]}},
-	 {0,{timer,sleep,[1000]}},
-	 {0,{ack,[{var,3},take_control]}},
-	 {0,{cast,[{var,1},{new_owner,{var,3}}]}},
-	 {0,{cast,[{var,3},close]}},
-	 {10,{call,[{var,3},get_data]}},
-	 {20,{call,[{var,1},get_exit]}}
-	 ],
+    Scenario = [{1,{spawn,[{var,drvname},undefined]}},
+                {2,{call,[{var,1},open_port]}},
+                {3,{spawn,[{var,2},{var,1}]}},
+                {0,{cast,[{var,1},unlink]}},
+                {0,{cast,[{var,1},{busy,1}]}},
+                {0,{cast,[{var,1},{command,2}]}},
+                {0,{cast,[{var,1},link]}},
+                {0,{timer,sleep,[1000]}},
+                {0,{ack,[{var,3},take_control]}},
+                {0,{cast,[{var,1},{new_owner,{var,3}}]}},
+                {0,{cast,[{var,3},close]}},
+                {10,{call,[{var,3},get_data]}},
+                {20,{call,[{var,1},get_exit]}}],
 
     Validation = [{seq,10,[1]},
 		  {seq,20,[{'EXIT',noproc}]}],
 
-    port_scheduling(Scenario,Validation,?config(data_dir,Config)).
+    port_scheduling(Scenario,Validation,proplists:get_value(data_dir,Config)).
 
 process_init(DrvName,Owner) ->
     process_flag(trap_exit,true),
@@ -699,11 +640,11 @@ handle_msg(close,Port,Owner,_Data)  ->
 handle_msg(get_data,Port,_Owner,{[],_Exit})  ->
     %% Wait for data if it has not arrived yet
     receive
-	{Port,{data,Data}} ->
-	    Data
+        {Port,{data,Data}} ->
+            Data
     after 2000 ->
-	    pal("~p",[erlang:process_info(self())]),
-	    exit(did_not_get_port_data)
+              pal("~p",[erlang:process_info(self())]),
+              exit(did_not_get_port_data)
     end;
 handle_msg(get_data,_Port,Owner,{Data,Exit})  ->
     pal("GetData",[]),
@@ -753,8 +694,7 @@ port_scheduling(Scenario,Validation,Path) ->
     case erl_ddll:load_driver(Path, DrvName) of
 	ok -> ok;
 	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+            ct:fail(erl_ddll:format_error(Error))
     end,
 
     Data = run_scenario(lists:flatten(Scenario),[{drvname,DrvName}]),
@@ -860,7 +800,7 @@ wait_for(Pids) ->
 	{'EXIT', Pid, normal} ->
 	    wait_for(lists:delete(Pid, Pids));
 	Other ->
-	    test_server:fail({bad_exit, Other})
+	    ct:fail({bad_exit, Other})
     end.
 
 fun_spawn(Fun) ->
@@ -896,39 +836,38 @@ fun_spawn(Fun, Args) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 load_busy_driver(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line erl_ddll:start(),
+    DataDir = proplists:get_value(data_dir, Config),
+    erl_ddll:start(),
     case erl_ddll:load_driver(DataDir, "busy_drv") of
 	ok -> ok;
 	{error, Error} ->
-	    io:format("~s\n", [erl_ddll:format_error(Error)]),
-	    ?line ?t:fail()
+            ct:fail(erl_ddll:format_error(Error))
     end.
 
 %%% Interface functions.
 
 start_busy_driver(Config) when is_list(Config) ->
-    ?line Pid = spawn_link(?MODULE, init, [Config, self()]),
-    ?line receive
+    Pid = spawn_link(?MODULE, init, [Config, self()]),
+    receive
 	      {Pid, started} ->
 		  ok;
 	      Other ->
-		  test_server:fail({unexpected_message, Other})
+		  ct:fail({unexpected_message, Other})
 	  end.
 
 unlock_slave() ->
     command(unlock).
 
 get_slave() ->
-    ?line command(get_slave).
+    command(get_slave).
 
 %% Internal functions.
 
 command(Msg) ->
-    ?line whereis(busy_drv_server) ! {self(), Msg},
-    ?line receive
-	      {busy_drv_reply, Reply} ->
-		  Reply
+    whereis(busy_drv_server) ! {self(), Msg},
+    receive
+        {busy_drv_reply, Reply} ->
+            Reply
     end.
 
 %%% Server.

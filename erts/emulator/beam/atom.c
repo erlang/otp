@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,7 +176,7 @@ atom_alloc(Atom* tmpl)
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
-     * This is used by utils.c:cmp_atoms().
+     * This is used by utils.c:erts_cmp_atoms().
      * We cannot use the full 32 bits of the first 4 bytes,
      * since we use the sign of the difference between two
      * ordinal values to represent their relative order.
@@ -435,6 +435,9 @@ init_atom_table(void)
     f.cmp  = (HCMP_FUN) atom_cmp;
     f.alloc = (HALLOC_FUN) atom_alloc;
     f.free = (HFREE_FUN) atom_free;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     atom_text_pos = NULL;
     atom_text_end = NULL;

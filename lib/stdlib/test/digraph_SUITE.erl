@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@
 %%
 -module(digraph_SUITE).
 
-%-define(STANDALONE,1).
+%%-define(STANDALONE,1).
 
 -ifdef(STANDALONE).
 -define(line, put(line, ?LINE), ).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -62,108 +62,100 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-opts(doc) -> [];
-opts(suite) -> [];
 opts(Config) when is_list(Config) ->
     %% OTP-5985: the 'public' option has been removed
-    ?line {'EXIT',{badarg,_}} = (catch digraph:new([public])),
-    ?line {P2,G2} = spawn_graph([private]),
-    ?line {'EXIT',{badarg,_}} = (catch digraph:add_vertex(G2, x)),
-    ?line kill_graph(P2),
-    ?line {P3,G3} = spawn_graph([protected]),
-    ?line {'EXIT',{badarg,_}} = (catch digraph:add_vertex(G3, x)),
-    ?line kill_graph(P3),
-    ?line Template = [{v1,[v2]}, {v2,[v3]}, {v3,[v4]}, {v4,[]}],
-    ?line G4 = build_graph([], Template),
-    ?line e = digraph:add_edge(G4, e, v4, v1, []),
-    ?line digraph:delete(G4),
-    ?line G5 = build_graph([cyclic], Template),
-    ?line e = digraph:add_edge(G5, e, v4, v1, []),
-    ?line digraph:delete(G5),
-    ?line G6 = build_graph([acyclic], Template),
-    ?line acyclic = info(G6, cyclicity),
-    ?line {error, {bad_edge,_}} = digraph:add_edge(G6, v4, v1),
-    ?line digraph:delete(G6),
+    {'EXIT',{badarg,_}} = (catch digraph:new([public])),
+    {P2,G2} = spawn_graph([private]),
+    {'EXIT',{badarg,_}} = (catch digraph:add_vertex(G2, x)),
+    kill_graph(P2),
+    {P3,G3} = spawn_graph([protected]),
+    {'EXIT',{badarg,_}} = (catch digraph:add_vertex(G3, x)),
+    kill_graph(P3),
+    Template = [{v1,[v2]}, {v2,[v3]}, {v3,[v4]}, {v4,[]}],
+    G4 = build_graph([], Template),
+    e = digraph:add_edge(G4, e, v4, v1, []),
+    digraph:delete(G4),
+    G5 = build_graph([cyclic], Template),
+    e = digraph:add_edge(G5, e, v4, v1, []),
+    digraph:delete(G5),
+    G6 = build_graph([acyclic], Template),
+    acyclic = info(G6, cyclicity),
+    {error, {bad_edge,_}} = digraph:add_edge(G6, v4, v1),
+    digraph:delete(G6),
     ok.
-    
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-degree(doc) -> [];
-degree(suite) -> [];
 degree(Config) when is_list(Config) ->
-    ?line G = build_graph([], [{x1,[]}, {x2,[x1]}, {x3,[x1,x2]},
-			       {x4,[x1,x2,x3]}, {x5,[x1,x2,x3,x4]}]),
+    G = build_graph([], [{x1,[]}, {x2,[x1]}, {x3,[x1,x2]},
+			 {x4,[x1,x2,x3]}, {x5,[x1,x2,x3,x4]}]),
     %% out degree
-    ?line 0 = digraph:out_degree(G, x1),
-    ?line 1 = digraph:out_degree(G, x2),
-    ?line 2 = digraph:out_degree(G, x3),
-    ?line 3 = digraph:out_degree(G, x4),
-    ?line 4 = digraph:out_degree(G, x5),
+    0 = digraph:out_degree(G, x1),
+    1 = digraph:out_degree(G, x2),
+    2 = digraph:out_degree(G, x3),
+    3 = digraph:out_degree(G, x4),
+    4 = digraph:out_degree(G, x5),
     %% out neighbours
-    ?line [] = check(digraph:out_neighbours(G, x1), []),
-    ?line [] = check(digraph:out_neighbours(G, x2), [x1]),
-    ?line [] = check(digraph:out_neighbours(G, x3), [x1,x2]),
-    ?line [] = check(digraph:out_neighbours(G, x4), [x1,x2,x3]),
-    ?line [] = check(digraph:out_neighbours(G, x5), [x1,x2,x3,x4]),
+    [] = check(digraph:out_neighbours(G, x1), []),
+    [] = check(digraph:out_neighbours(G, x2), [x1]),
+    [] = check(digraph:out_neighbours(G, x3), [x1,x2]),
+    [] = check(digraph:out_neighbours(G, x4), [x1,x2,x3]),
+    [] = check(digraph:out_neighbours(G, x5), [x1,x2,x3,x4]),
 
     %% in degree
-    ?line 4 = digraph:in_degree(G, x1),
-    ?line 3 = digraph:in_degree(G, x2),
-    ?line 2 = digraph:in_degree(G, x3),
-    ?line 1 = digraph:in_degree(G, x4),
-    ?line 0 = digraph:in_degree(G, x5),
+    4 = digraph:in_degree(G, x1),
+    3 = digraph:in_degree(G, x2),
+    2 = digraph:in_degree(G, x3),
+    1 = digraph:in_degree(G, x4),
+    0 = digraph:in_degree(G, x5),
     %% in neighbours
-    ?line [] = check(digraph:in_neighbours(G, x1), [x2,x3,x4,x5]),
-    ?line [] = check(digraph:in_neighbours(G, x2), [x3,x4,x5]),
-    ?line [] = check(digraph:in_neighbours(G, x3), [x4,x5]),
-    ?line [] = check(digraph:in_neighbours(G, x4), [x5]),
-    ?line [] = check(digraph:in_neighbours(G, x5), []),
+    [] = check(digraph:in_neighbours(G, x1), [x2,x3,x4,x5]),
+    [] = check(digraph:in_neighbours(G, x2), [x3,x4,x5]),
+    [] = check(digraph:in_neighbours(G, x3), [x4,x5]),
+    [] = check(digraph:in_neighbours(G, x4), [x5]),
+    [] = check(digraph:in_neighbours(G, x5), []),
     digraph:delete(G),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-path(doc) -> [];
-path(suite) -> [];
 path(Config) when is_list(Config) ->
-    ?line G = build_graph([], [{x1,[x2,x3]}, {x2,[x4]}, {x3,[x4]},
-			       {x4,[x5,x6]}, {x5,[x7]}, {x6,[x7]}]),
-    ?line Vi = case digraph:get_path(G, x1, x7) of
-		   [x1,x2,x4,x5,x7] -> digraph:del_vertex(G, x5), x6;
-		   [x1,x2,x4,x6,x7] -> digraph:del_vertex(G, x6), x5;
-		   [x1,x3,x4,x5,x7] -> digraph:del_vertex(G, x5), x6;
-		   [x1,x3,x4,x6,x7] -> digraph:del_vertex(G, x6), x5
-	       end,
-    ?line Vj = case digraph:get_path(G, x1, x7) of
-		   [x1,x2,x4,Vi,x7] -> digraph:del_vertex(G,x2), x3;
-		   [x1,x3,x4,Vi,x7] -> digraph:del_vertex(G,x3), x2
-	       end,
-    ?line [x1,Vj,x4,Vi,x7] = digraph:get_path(G, x1, x7),
-    ?line digraph:del_vertex(G, Vj),
-    ?line false = digraph:get_path(G, x1, x7),
-    ?line [] = check(digraph:vertices(G), [x1,x4,Vi,x7]),
+    G = build_graph([], [{x1,[x2,x3]}, {x2,[x4]}, {x3,[x4]},
+			 {x4,[x5,x6]}, {x5,[x7]}, {x6,[x7]}]),
+    Vi = case digraph:get_path(G, x1, x7) of
+	     [x1,x2,x4,x5,x7] -> digraph:del_vertex(G, x5), x6;
+	     [x1,x2,x4,x6,x7] -> digraph:del_vertex(G, x6), x5;
+	     [x1,x3,x4,x5,x7] -> digraph:del_vertex(G, x5), x6;
+	     [x1,x3,x4,x6,x7] -> digraph:del_vertex(G, x6), x5
+	 end,
+    Vj = case digraph:get_path(G, x1, x7) of
+	     [x1,x2,x4,Vi,x7] -> digraph:del_vertex(G,x2), x3;
+	     [x1,x3,x4,Vi,x7] -> digraph:del_vertex(G,x3), x2
+	 end,
+    [x1,Vj,x4,Vi,x7] = digraph:get_path(G, x1, x7),
+    digraph:del_vertex(G, Vj),
+    false = digraph:get_path(G, x1, x7),
+    [] = check(digraph:vertices(G), [x1,x4,Vi,x7]),
     digraph:delete(G),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-cycle(doc) -> [];
-cycle(suite) -> [];
 cycle(Config) when is_list(Config) ->
-    ?line G = build_graph([], [{x1,[x2,x3]}, {x2,[x4]}, {x3,[x4]},
-			       {x4,[x5,x6]}, {x5,[x7]}, {x6,[x7,x8]},
-			       {x8,[x3,x8]}]), 
-    ?line false = digraph:get_cycle(G, x1),
-    ?line false = digraph:get_cycle(G, x2),
-    ?line false = digraph:get_cycle(G, x5),
-    ?line false = digraph:get_cycle(G, x7),
-    ?line [x3,x4,x6,x8,x3] = digraph:get_cycle(G, x3),
-    ?line [x4,x6,x8,x3,x4] = digraph:get_cycle(G, x4),
-    ?line [x6,x8,x3,x4,x6] = digraph:get_cycle(G, x6),
-    ?line [x8,x3,x4,x6,x8] = digraph:get_cycle(G, x8),
-    ?line digraph:del_vertex(G, x4),
-    ?line [x8] = digraph:get_cycle(G, x8),
+    G = build_graph([], [{x1,[x2,x3]}, {x2,[x4]}, {x3,[x4]},
+			 {x4,[x5,x6]}, {x5,[x7]}, {x6,[x7,x8]},
+			 {x8,[x3,x8]}]),
+    false = digraph:get_cycle(G, x1),
+    false = digraph:get_cycle(G, x2),
+    false = digraph:get_cycle(G, x5),
+    false = digraph:get_cycle(G, x7),
+    [x3,x4,x6,x8,x3] = digraph:get_cycle(G, x3),
+    [x4,x6,x8,x3,x4] = digraph:get_cycle(G, x4),
+    [x6,x8,x3,x4,x6] = digraph:get_cycle(G, x6),
+    [x8,x3,x4,x6,x8] = digraph:get_cycle(G, x8),
+    digraph:del_vertex(G, x4),
+    [x8] = digraph:get_cycle(G, x8),
     digraph:delete(G),
     ok.
 
@@ -171,61 +163,55 @@ cycle(Config) when is_list(Config) ->
 
 
 
-vertices(doc) -> [];
-vertices(suite) -> [];
 vertices(Config) when is_list(Config) ->
-    ?line G = build_graph([], [{x,[]}, {y,[]}]),
-    ?line [] = check(digraph:vertices(G), [x,y]),
-    ?line digraph:del_vertices(G, [x,y]),
-    ?line [] = digraph:vertices(G),
-    ?line digraph:delete(G),
+    G = build_graph([], [{x,[]}, {y,[]}]),
+    [] = check(digraph:vertices(G), [x,y]),
+    digraph:del_vertices(G, [x,y]),
+    [] = digraph:vertices(G),
+    digraph:delete(G),
     ok.
 
-edges(doc) -> [];
-edges(suite) -> [];
 edges(Config) when is_list(Config) ->
-    ?line G = build_graph([], [{x, [{exy,y},{exx,x}]},
-			       {y, [{eyx,x}]}
-			      ]),
-    ?line [] = check(digraph:edges(G), [exy, eyx, exx]),
-    ?line [] = check(digraph:out_edges(G, x), [exy,exx]),
-    ?line [] = check(digraph:in_edges(G, x), [eyx,exx]),
-    ?line [] = check(digraph:out_edges(G, y), [eyx]),
-    ?line [] = check(digraph:in_edges(G, y), [exy]),
-    ?line true = digraph:del_edges(G, [exy, eyx, does_not_exist]),
-    ?line [exx] = digraph:edges(G),
-    ?line [] = check(digraph:out_edges(G, x), [exx]),
-    ?line [] = check(digraph:in_edges(G, x), [exx]),
-    ?line [] = check(digraph:out_edges(G, y), []),
-    ?line [] = check(digraph:in_edges(G, y), []),
-    ?line digraph:del_vertices(G, [x,y]),
-    ?line [] = digraph:edges(G),
-    ?line [] = digraph:vertices(G),
-    ?line digraph:delete(G),
+    G = build_graph([], [{x, [{exy,y},{exx,x}]},
+			 {y, [{eyx,x}]}
+			]),
+    [] = check(digraph:edges(G), [exy, eyx, exx]),
+    [] = check(digraph:out_edges(G, x), [exy,exx]),
+    [] = check(digraph:in_edges(G, x), [eyx,exx]),
+    [] = check(digraph:out_edges(G, y), [eyx]),
+    [] = check(digraph:in_edges(G, y), [exy]),
+    true = digraph:del_edges(G, [exy, eyx, does_not_exist]),
+    [exx] = digraph:edges(G),
+    [] = check(digraph:out_edges(G, x), [exx]),
+    [] = check(digraph:in_edges(G, x), [exx]),
+    [] = check(digraph:out_edges(G, y), []),
+    [] = check(digraph:in_edges(G, y), []),
+    digraph:del_vertices(G, [x,y]),
+    [] = digraph:edges(G),
+    [] = digraph:vertices(G),
+    digraph:delete(G),
     ok.
 
-data(doc) -> [];
-data(suite) -> [];
 data(Config) when is_list(Config) ->
-    ?line G = build_graph([], [{x, [{exy, y}]}, {y, []}]),
-    
-    ?line {x,[]} = digraph:vertex(G, x),
-    ?line {y,[]} = digraph:vertex(G, y),
-    ?line {exy,x,y,[]} = digraph:edge(G, exy),
+    G = build_graph([], [{x, [{exy, y}]}, {y, []}]),
 
-    ?line digraph:add_edge(G, exy, x, y, {data,x,y}),
-    ?line E = digraph:add_edge(G, x, y, {data,y,x}),
-    ?line digraph:add_vertex(G, x, {any}),
-    ?line digraph:add_vertex(G, y, '_'),
+    {x,[]} = digraph:vertex(G, x),
+    {y,[]} = digraph:vertex(G, y),
+    {exy,x,y,[]} = digraph:edge(G, exy),
 
-    ?line {x,{any}} = digraph:vertex(G, x),
-    ?line {y,'_'} = digraph:vertex(G, y),
-    ?line {exy,x,y,{data,x,y}} = digraph:edge(G, exy),
-    ?line {E,x,y,{data,y,x}} = digraph:edge(G, E),
-    ?line true = digraph:del_edge(G, E),
-    ?line false = digraph:edge(G, E),
-    ?line true = sane(G),
-    ?line digraph:delete(G),
+    digraph:add_edge(G, exy, x, y, {data,x,y}),
+    E = digraph:add_edge(G, x, y, {data,y,x}),
+    digraph:add_vertex(G, x, {any}),
+    digraph:add_vertex(G, y, '_'),
+
+    {x,{any}} = digraph:vertex(G, x),
+    {y,'_'} = digraph:vertex(G, y),
+    {exy,x,y,{data,x,y}} = digraph:edge(G, exy),
+    {E,x,y,{data,y,x}} = digraph:edge(G, E),
+    true = digraph:del_edge(G, E),
+    false = digraph:edge(G, E),
+    true = sane(G),
+    digraph:delete(G),
     ok.
 
 
@@ -233,87 +219,81 @@ data(Config) when is_list(Config) ->
 
 
 
-otp_3522(doc) -> [];
-otp_3522(suite) -> [];
 otp_3522(Config) when is_list(Config) ->
-    ?line G1 = build_graph([acyclic], [{x, []}]),
-    ?line {error, {bad_edge,_}} = digraph:add_edge(G1, x, x),
-    ?line true = digraph:delete(G1),
+    G1 = build_graph([acyclic], [{x, []}]),
+    {error, {bad_edge,_}} = digraph:add_edge(G1, x, x),
+    true = digraph:delete(G1),
 
-    ?line G = digraph:new(),
-    ?line 0 = digraph:no_vertices(G),
-    ?line 0 = digraph:no_edges(G),
-    ?line V1 = digraph:add_vertex(G),
-    ?line '$vid' = digraph:add_vertex(G, '$vid'),
-    ?line V2 = digraph:add_vertex(G),
-    ?line '$eid' = digraph:add_edge(G, '$eid', V1, V2, []),
-    ?line E = digraph:add_edge(G, V1, V2),
-    ?line 3 = digraph:no_vertices(G),
-    ?line 2 = digraph:no_edges(G),
-    ?line cyclic = info(G, cyclicity),
-    ?line protected = info(G, protection),
+    G = digraph:new(),
+    0 = digraph:no_vertices(G),
+    0 = digraph:no_edges(G),
+    V1 = digraph:add_vertex(G),
+    '$vid' = digraph:add_vertex(G, '$vid'),
+    V2 = digraph:add_vertex(G),
+    '$eid' = digraph:add_edge(G, '$eid', V1, V2, []),
+    E = digraph:add_edge(G, V1, V2),
+    3 = digraph:no_vertices(G),
+    2 = digraph:no_edges(G),
+    cyclic = info(G, cyclicity),
+    protected = info(G, protection),
 
-    ?line [] = check(digraph:in_edges(G, V2), ['$eid', E]),
-    ?line [] = check(digraph:out_edges(G, V1), ['$eid', E]),
-    ?line [] = check(digraph:vertices(G), [V1,V2,'$vid']),
-    ?line [] = check(digraph:edges(G), [E, '$eid']),
-    ?line true = sane(G),
-    ?line true = digraph:delete(G),
+    [] = check(digraph:in_edges(G, V2), ['$eid', E]),
+    [] = check(digraph:out_edges(G, V1), ['$eid', E]),
+    [] = check(digraph:vertices(G), [V1,V2,'$vid']),
+    [] = check(digraph:edges(G), [E, '$eid']),
+    true = sane(G),
+    true = digraph:delete(G),
     ok.
 
-otp_3630(doc) -> [];
-otp_3630(suite) -> [];
 otp_3630(Config) when is_list(Config) ->
-    ?line G = build_graph([], [{x, [{exy,y},{exx,x}]},
-			       {y, [{eyy,y},{eyx,x}]}
-			      ]),
-    ?line [x,y] = digraph:get_path(G, x, y),
-    ?line [y,x] = digraph:get_path(G, y, x),
+    G = build_graph([], [{x, [{exy,y},{exx,x}]},
+			 {y, [{eyy,y},{eyx,x}]}
+			]),
+    [x,y] = digraph:get_path(G, x, y),
+    [y,x] = digraph:get_path(G, y, x),
 
-    ?line [x,x] = digraph:get_short_path(G, x, x),
-    ?line [y,y] = digraph:get_short_path(G, y, y),
-    ?line true = digraph:delete(G),
+    [x,x] = digraph:get_short_path(G, x, x),
+    [y,y] = digraph:get_short_path(G, y, y),
+    true = digraph:delete(G),
 
-    ?line G1 = build_graph([], [{1, [{12,2},{13,3},{11,1}]},
-				{2, [{23,3}]},
-				{3, [{34,4},{35,5}]},
-				{4, [{45,5}]},
-				{5, [{56,6},{57,7}]},
-				{6, [{67,7}]},
-				{7, [{71,1}]}
-			       ]),
-    
-    ?line [1,3,5,7] = digraph:get_short_path(G1, 1, 7),
-    ?line [3,5,7,1,3] = digraph:get_short_cycle(G1, 3),
-    ?line [1,1] = digraph:get_short_cycle(G1, 1),
-    ?line true = digraph:delete(G1),
+    G1 = build_graph([], [{1, [{12,2},{13,3},{11,1}]},
+			  {2, [{23,3}]},
+			  {3, [{34,4},{35,5}]},
+			  {4, [{45,5}]},
+			  {5, [{56,6},{57,7}]},
+			  {6, [{67,7}]},
+			  {7, [{71,1}]}
+			 ]),
+
+    [1,3,5,7] = digraph:get_short_path(G1, 1, 7),
+    [3,5,7,1,3] = digraph:get_short_cycle(G1, 3),
+    [1,1] = digraph:get_short_cycle(G1, 1),
+    true = digraph:delete(G1),
 
     F = 0.0, I = round(F),
-    ?line G2 = digraph:new([acyclic]),
-    ?line digraph:add_vertex(G2, F),
-    ?line digraph:add_vertex(G2, I),
-    ?line E = digraph:add_edge(G2, F, I),
-    ?line true = not is_tuple(E),
-    ?line true = sane(G2),
-    ?line true = digraph:delete(G2),
+    G2 = digraph:new([acyclic]),
+    digraph:add_vertex(G2, F),
+    digraph:add_vertex(G2, I),
+    E = digraph:add_edge(G2, F, I),
+    true = not is_tuple(E),
+    true = sane(G2),
+    true = digraph:delete(G2),
 
     ok.
 
-otp_8066(doc) -> [];
-otp_8066(suite) -> [];
 otp_8066(Config) when is_list(Config) ->
     fun() ->
             D = digraph:new(),
             V1 = digraph:add_vertex(D),
             V2 = digraph:add_vertex(D),
             _ = digraph:add_edge(D, V1, V2),
-            ?line [V1, V2] = digraph:get_path(D, V1, V2),
-            ?line true = sane(D),
-            ?line true = digraph:del_path(D, V1, V2),
-            ?line true = sane(D),
-            ?line false = digraph:get_path(D, V1, V2),
-            ?line true = digraph:del_path(D, V1, V2),
-            ?line true = digraph:delete(D)
+            [V1, V2] = digraph:get_path(D, V1, V2),
+            true = sane(D),
+            true = digraph:del_path(D, V1, V2),
+            true = sane(D),
+            false = digraph:get_path(D, V1, V2),
+            true = digraph:del_path(D, V1, V2),
+            true = digraph:delete(D)
     end(),
 
     fun() ->
@@ -324,15 +304,15 @@ otp_8066(Config) when is_list(Config) ->
             _ = digraph:add_edge(D, V1, V2),
             _ = digraph:add_edge(D, V1, V1),
             _ = digraph:add_edge(D, V2, V2),
-            ?line [V1, V2] = digraph:get_path(D, V1, V2),
-            ?line true = sane(D),
-            ?line true = digraph:del_path(D, V1, V2),
-            ?line false = digraph:get_short_path(D, V2, V1),
+            [V1, V2] = digraph:get_path(D, V1, V2),
+            true = sane(D),
+            true = digraph:del_path(D, V1, V2),
+            false = digraph:get_short_path(D, V2, V1),
 
-            ?line true = sane(D),
-            ?line false = digraph:get_path(D, V1, V2),
-            ?line true = digraph:del_path(D, V1, V2),
-            ?line true = digraph:delete(D)
+            true = sane(D),
+            false = digraph:get_path(D, V1, V2),
+            true = digraph:del_path(D, V1, V2),
+            true = digraph:delete(D)
     end(),
 
     fun() ->
@@ -342,18 +322,18 @@ otp_8066(Config) when is_list(Config) ->
             W3 = digraph:add_vertex(G),
             W4 = digraph:add_vertex(G),
             _ = digraph:add_edge(G,['$e'|0], W1, W2, {}),
-            ?line {error,{bad_vertex, bv}} =
+            {error,{bad_vertex, bv}} =
                 digraph:add_edge(G, edge, bv, W1, {}),
-            ?line {error,{bad_vertex, bv}} =
+            {error,{bad_vertex, bv}} =
                 digraph:add_edge(G, edge, W1, bv, {}),
-            ?line false = digraph:get_short_cycle(G, W1),
-            ?line {error, {bad_edge,_}} =
+            false = digraph:get_short_cycle(G, W1),
+            {error, {bad_edge,_}} =
                 digraph:add_edge(G,['$e'|0], W3, W4, {}),
-            ?line true = sane(G),
-            ?line true = digraph:delete(G)
+            true = sane(G),
+            true = digraph:delete(G)
     end(),
     ok.
-    
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -422,7 +402,7 @@ sane1(G) ->
                         end
                 end, OutEs)
       end, Vs),
-    
+
     InEs = lists:flatmap(fun(V) -> digraph:in_edges(G, V) end, Vs),
     OutEs = lists:flatmap(fun(V) -> digraph:out_edges(G, V) end, Vs),
     lists:foreach(
@@ -450,7 +430,7 @@ sane1(G) ->
     end,
     Edges = [digraph:edge(G, E) || E <- Es],
     EVs = lists:usort([V || {_, V, _, _} <- Edges] ++
-                      [V || {_, _, V, _} <- Edges]),
+			  [V || {_, _, V, _} <- Edges]),
     lists:foreach(
       fun(V) ->
               case digraph:vertex(G, V) of

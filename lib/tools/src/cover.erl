@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@
 -module(cover).
 
 %%
-%% This module implements the Erlang coverage tool. The module named
-%% cover_web implements a user interface for the coverage tool to run
-%% under webtool.
+%% This module implements the Erlang coverage tool.
 %% 
 %% ARCHITECTURE
 %% The coverage tool consists of one process on each node involved in
@@ -2004,9 +2002,7 @@ munge_expr({lc,Line,Expr,Qs}, Vars) ->
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{lc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({bc,Line,Expr,Qs}, Vars) ->
-    {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]} = Expr,
-    Expr2 = {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]},
-    {MungedExpr,Vars2} = munge_expr(Expr2, Vars),
+    {MungedExpr,Vars2} = munge_expr(?BLOCK1(Expr), Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{bc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({block,Line,Body}, Vars) ->

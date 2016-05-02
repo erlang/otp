@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
          dump_monitors/1, dump_links/1, flat_size/1,
          get_internal_state/1, instructions/0, lock_counters/1,
-         map_info/1, same/2, set_internal_state/2]).
+         map_info/1, same/2, set_internal_state/2,
+         size_shared/1, copy_shared/1]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -84,6 +85,18 @@ dump_links(_) ->
       Term :: term().
 
 flat_size(_) ->
+    erlang:nif_error(undef).
+
+-spec size_shared(Term) -> non_neg_integer() when
+      Term :: term().
+
+size_shared(_) ->
+    erlang:nif_error(undef).
+
+-spec copy_shared(Term) -> term() when
+      Term :: term().
+
+copy_shared(_) ->
     erlang:nif_error(undef).
 
 -spec get_internal_state(W) -> term() when
@@ -230,7 +243,7 @@ map_size(Map,Seen0,Sum0) ->
     %% is not allowed to leak anywhere. They are only allowed in
     %% containers (cons cells and tuples, not maps), in gc and
     %% in erts_debug:same/2
-    case erts_internal:map_type(Map) of
+    case erts_internal:term_type(Map) of
         flatmap ->
             Kt = erts_internal:map_to_tuple_keys(Map),
             Vs = maps:values(Map),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,13 +28,13 @@
 
 -export([bad_guy/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 %% Filler.
-%%
-%%
 %%
 %%
 %% This is line 40.
@@ -68,17 +68,14 @@ cases() ->
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
-    Dog = test_server:timetrap(?t:minutes(1)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line test_lib:interpret(?MODULE),
-    ?line true = lists:member(?MODULE, int:interpreted()),
+    test_lib:interpret(?MODULE),
+    true = lists:member(?MODULE, int:interpreted()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
@@ -87,25 +84,25 @@ end_per_suite(Config) when is_list(Config) ->
 %% Test that deliberately bad matches are reported correctly.
 
 badmatch(Config) when is_list(Config) ->
-    ?line ?try_match(a),
-    ?line ?try_match(42),
-    ?line ?try_match({a, b, c}),
-    ?line ?try_match([]),
-    ?line ?try_match(1.0),
+    ?try_match(a),
+    ?try_match(42),
+    ?try_match({a, b, c}),
+    ?try_match([]),
+    ?try_match(1.0),
     ok.
 
 %% Test various exceptions, in the presence of a previous error suppressed
 %% in a guard.
 pending_errors(Config) when is_list(Config) ->
-    ?line pending(e_badmatch, {badmatch, b}),
-    ?line pending(x, function_clause),
-    ?line pending(e_case, {case_clause, xxx}),
-    ?line pending(e_if, if_clause),
-    ?line pending(e_badarith, badarith),
-    ?line pending(e_undef, undef),
-    ?line pending(e_timeoutval, timeout_value),
-    ?line pending(e_badarg, badarg),
-    ?line pending(e_badarg_spawn, badarg),
+    pending(e_badmatch, {badmatch, b}),
+    pending(x, function_clause),
+    pending(e_case, {case_clause, xxx}),
+    pending(e_if, if_clause),
+    pending(e_badarith, badarith),
+    pending(e_undef, undef),
+    pending(e_timeoutval, timeout_value),
+    pending(e_badarg, badarg),
+    pending(e_badarg_spawn, badarg),
     ok.
 
 bad_guy(pe_badarith, Other) when Other+1 == 0 -> % badarith (suppressed)
@@ -126,9 +123,9 @@ bad_guy(_, e_undef) ->
     non_existing_module:foo();			% undef
 bad_guy(_, e_timeoutval) ->
     receive
-	after arne ->				% timeout_value
-		ok
-	end;
+    after arne ->				% timeout_value
+	    ok
+    end;
 bad_guy(_, e_badarg) ->
     node(xxx);					% badarg
 bad_guy(_, e_badarg_spawn) ->
@@ -150,7 +147,7 @@ pending_catched(First, Second, Expected) ->
 	{'EXIT', Reason} ->
 	    pending(Reason, bad_guy, [First, Second], Expected);
 	Other ->
-	    test_server:fail({not_exit, Other})
+	    ct:fail({not_exit, Other})
     end.
 
 pending_exit_message(Args, Expected) ->
@@ -162,9 +159,9 @@ pending_exit_message(Args, Expected) ->
 	{'EXIT', Pid, Reason} ->
 	    pending(Reason, bad_guy, Args, Expected);
 	Other ->
-	    test_server:fail({unexpected_message, Other})
+	    ct:fail({unexpected_message, Other})
     after 10000 ->
-	    test_server:fail(timeout)
+	    ct:fail(timeout)
     end,
     process_flag(trap_exit, false).
 
@@ -180,67 +177,67 @@ pending({Code,[{?MODULE,Func,Arity,_}|_]}, Func, Args, Code)
   when length(Args) == Arity ->
     ok;
 pending(Reason, _Function, _Args, _Code) ->
-    test_server:fail({bad_exit_reason,Reason}).
+    ct:fail({bad_exit_reason,Reason}).
 
 %% Test that doing arithmetics on [] gives a badarith EXIT and not a crash.
 
 nil_arith(Config) when is_list(Config) ->
-    ?line ba_plus_minus_times([], []),
+    ba_plus_minus_times([], []),
 
-    ?line ba_plus_minus_times([], 0),
-    ?line ba_plus_minus_times([], 42),
-    ?line ba_plus_minus_times([], 38724978123478923784),
-    ?line ba_plus_minus_times([], 38.72),
+    ba_plus_minus_times([], 0),
+    ba_plus_minus_times([], 42),
+    ba_plus_minus_times([], 38724978123478923784),
+    ba_plus_minus_times([], 38.72),
 
-    ?line ba_plus_minus_times(0, []),
-    ?line ba_plus_minus_times(334, []),
-    ?line ba_plus_minus_times(387249797813478923784, []),
-    ?line ba_plus_minus_times(344.22, []),
+    ba_plus_minus_times(0, []),
+    ba_plus_minus_times(334, []),
+    ba_plus_minus_times(387249797813478923784, []),
+    ba_plus_minus_times(344.22, []),
 
-    ?line ba_div_rem([], []),
+    ba_div_rem([], []),
 
-    ?line ba_div_rem([], 0),
-    ?line ba_div_rem([], 1),
-    ?line ba_div_rem([], 42),
-    ?line ba_div_rem([], 38724978123478923784),
-    ?line ba_div_rem(344.22, []),
+    ba_div_rem([], 0),
+    ba_div_rem([], 1),
+    ba_div_rem([], 42),
+    ba_div_rem([], 38724978123478923784),
+    ba_div_rem(344.22, []),
 
-    ?line ba_div_rem(0, []),
-    ?line ba_div_rem(1, []),
-    ?line ba_div_rem(334, []),
-    ?line ba_div_rem(387249797813478923784, []),
-    ?line ba_div_rem(344.22, []),
+    ba_div_rem(0, []),
+    ba_div_rem(1, []),
+    ba_div_rem(334, []),
+    ba_div_rem(387249797813478923784, []),
+    ba_div_rem(344.22, []),
 
-    ?line ba_div_rem(344.22, 0.0),
-    ?line ba_div_rem(1, 0.0),
-    ?line ba_div_rem(392873498733971, 0.0),
+    ba_div_rem(344.22, 0.0),
+    ba_div_rem(1, 0.0),
+    ba_div_rem(392873498733971, 0.0),
 
-    ?line ba_bop([], []),
-    ?line ba_bop(0, []),
-    ?line ba_bop(42, []),
-    ?line ba_bop(-42342742987343, []),
-    ?line ba_bop(238.342, []),
-    ?line ba_bop([], 0),
-    ?line ba_bop([], -243),
-    ?line ba_bop([], 243),
-    ?line ba_bop([], 2438724982478933),
-    ?line ba_bop([], 3987.37),
+    ba_bop([], []),
+    ba_bop(0, []),
+    ba_bop(42, []),
+    ba_bop(-42342742987343, []),
+    ba_bop(238.342, []),
+    ba_bop([], 0),
+    ba_bop([], -243),
+    ba_bop([], 243),
+    ba_bop([], 2438724982478933),
+    ba_bop([], 3987.37),
 
-    ?line ba_bnot([]),
-    ?line ba_bnot(23.33),
+    ba_bnot([]),
+    ba_bnot(23.33),
 
-    ?line ba_shift([], []),
-    ?line ba_shift([], 0),
-    ?line ba_shift([], 4),
-    ?line ba_shift([], -4),
-    ?line ba_shift([], 2343333333333),
-    ?line ba_shift([], -333333333),
-    ?line ba_shift([], 234.00),
-    ?line ba_shift(23, []),
-    ?line ba_shift(0, []),
-    ?line ba_shift(-3433443433433323, []),
-    ?line ba_shift(433443433433323, []),
-    ?line ba_shift(343.93, []),
+    ba_shift([], []),
+    ba_shift([], 0),
+    ba_shift([], 4),
+    ba_shift([], -4),
+    ba_shift([], 2343333333333),
+    ba_shift([], -333333333),
+    ba_shift([], 234.00),
+    ba_shift(23, []),
+    ba_shift(0, []),
+    ba_shift(-3433443433433323, []),
+    ba_shift(433443433433323, []),
+    ba_shift(343.93, []),
     ok.
 
 ba_plus_minus_times(A, B) ->
@@ -279,29 +276,29 @@ ba_bnot(A) ->
 
 stacktrace(Conf) when is_list(Conf) ->
     Tag = make_ref(),
-    ?line {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
-    ?line {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
+    {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
+    {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
     V = [make_ref()|self()],
-    ?line {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
+    {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
 	stacktrace_1({'abs',V}, error, {value,V}),
-    ?line St1 = erase(stacktrace1),
-    ?line St1 = erase(stacktrace2),
-    ?line St1 = erlang:get_stacktrace(),
-    ?line {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
+    St1 = erase(stacktrace1),
+    St1 = erase(stacktrace2),
+    St1 = erlang:get_stacktrace(),
+    {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
 	stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    ?line [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
-    ?line St2 = erase(stacktrace2),
-    ?line St2 = erlang:get_stacktrace(),
-    ?line {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
+    [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
+    St2 = erase(stacktrace2),
+    St2 = erlang:get_stacktrace(),
+    {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
 	stacktrace_1({value,V}, error, {value,V}),
-    ?line St3 = erase(stacktrace1),
-    ?line St3 = erase(stacktrace2),
-    ?line St3 = erlang:get_stacktrace(),
-    ?line {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
+    St3 = erase(stacktrace1),
+    St3 = erase(stacktrace2),
+    St3 = erlang:get_stacktrace(),
+    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
 	stacktrace_1({value,V}, error, {throw,V}),
-    ?line [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
-    ?line St4 = erase(stacktrace2),
-    ?line St4 = erlang:get_stacktrace(),
+    [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
+    St4 = erase(stacktrace2),
+    St4 = erlang:get_stacktrace(),
     ok.
 
 stacktrace_1(X, C1, Y) ->
@@ -326,19 +323,19 @@ stacktrace_1(X, C1, Y) ->
 
 nested_stacktrace(Conf) when is_list(Conf) ->
     V = [{make_ref()}|[self()]],
-    ?line value1 =
+    value1 =
 	nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
 			    {void,void,void}),
-    ?line {caught1,
-	   [{?MODULE,my_add,2,_}|_],
-	   value2,
-	   [{?MODULE,my_add,2,_}|_]} =
+    {caught1,
+     [{?MODULE,my_add,2,_}|_],
+     value2,
+     [{?MODULE,my_add,2,_}|_]} =
 	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
 			    {{value,{V,x2}},void,{V,x2}}),
-    ?line {caught1,
-	   [{?MODULE,my_add,2,_}|_],
-	   {caught2,[{erlang,abs,[V],_}|_]},
-	   [{erlang,abs,[V],_}|_]} =
+    {caught1,
+     [{?MODULE,my_add,2,_}|_],
+     {caught2,[{erlang,abs,[V],_}|_]},
+     [{erlang,abs,[V],_}|_]} =
 	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
 			    {{'abs',V},error,badarg}),
     ok.
@@ -361,42 +358,42 @@ nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
 
 
 raise(Conf) when is_list(Conf) ->
-    ?line erase(raise),
-    ?line A =
+    erase(raise),
+    A =
 	try
-	    ?line try foo({'div',{1,0}})
-		  catch
-		      error:badarith ->
-			  put(raise, A0 = erlang:get_stacktrace()),
-			  ?line erlang:raise(error, badarith, A0)
-		  end
+	    try foo({'div',{1,0}})
+	    catch
+		error:badarith ->
+		    put(raise, A0 = erlang:get_stacktrace()),
+		    erlang:raise(error, badarith, A0)
+	    end
 	catch
 	    error:badarith ->
-		?line A1 = erlang:get_stacktrace(),
-		?line A1 = get(raise)
+		A1 = erlang:get_stacktrace(),
+		A1 = get(raise)
 	end,
-    ?line A = erlang:get_stacktrace(),
-    ?line A = get(raise),
-    ?line [{?MODULE,my_div,2,_}|_] = A,
+    A = erlang:get_stacktrace(),
+    A = get(raise),
+    [{?MODULE,my_div,2,_}|_] = A,
     %%
     N = 8, % Must be even
-    ?line N = erlang:system_flag(backtrace_depth, N),
-    ?line try even(N)
-	  catch error:function_clause -> ok
-	  end,
-    ?line B = odd_even(N, []),
-    ?line B = erlang:get_stacktrace(),
+    N = erlang:system_flag(backtrace_depth, N),
+    try even(N)
+    catch error:function_clause -> ok
+    end,
+    B = odd_even(N, []),
+    B = erlang:get_stacktrace(),
     %%
-    ?line C0 = odd_even(N+1, []),
-    ?line C = lists:sublist(C0, N),
-    ?line try odd(N+1)
-	  catch error:function_clause -> ok
-	  end,
-    ?line C = erlang:get_stacktrace(),
-    ?line try erlang:raise(error, function_clause, C0)
-          catch error:function_clause -> ok
-          end,
-    ?line C = erlang:get_stacktrace(),
+    C0 = odd_even(N+1, []),
+    C = lists:sublist(C0, N),
+    try odd(N+1)
+    catch error:function_clause -> ok
+    end,
+    C = erlang:get_stacktrace(),
+    try erlang:raise(error, function_clause, C0)
+    catch error:function_clause -> ok
+    end,
+    C = erlang:get_stacktrace(),
     ok.
 
 odd_even(N, R) when is_integer(N), N > 1 ->
@@ -438,8 +435,8 @@ my_add(A, B) ->
 my_abs(X) -> abs(X).
 
 gunilla(Config) when is_list(Config) ->
-    ?line {throw,kalle} = gunilla_1(),
-    ?line [] = erlang:get_stacktrace(),
+    {throw,kalle} = gunilla_1(),
+    [] = erlang:get_stacktrace(),
     ok.
 
 gunilla_1() ->
@@ -466,9 +463,9 @@ per(Config) when is_list(Config) ->
     end.
 
 t1(_,X,_) ->
-   (1 bsl X) + 1.
+    (1 bsl X) + 1.
 
 t2(_,X,_) ->
-   (X bsl 1) + 1.
+    (X bsl 1) + 1.
 
 id(I) -> I.

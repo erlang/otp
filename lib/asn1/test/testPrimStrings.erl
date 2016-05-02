@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 -export([utf8_string/1]).
 -export([fragmented/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 fragmented(Rules) ->
     Lens = fragmented_lengths(),
@@ -54,7 +54,7 @@ fragmented_strings(Len, Types) ->
     ok.
 
 make_ns_value(0) -> [];
-make_ns_value(N) -> [($0 - 1) + random:uniform(10)|make_ns_value(N-1)].
+make_ns_value(N) -> [($0 - 1) + rand:uniform(10)|make_ns_value(N-1)].
 
 fragmented_lengths() ->
     K16 = 1 bsl 14,

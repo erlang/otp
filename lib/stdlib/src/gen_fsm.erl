@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -305,63 +305,10 @@ enter_loop(Mod, Options, StateName, StateData, Timeout) ->
     enter_loop(Mod, Options, StateName, StateData, self(), Timeout).
 
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
-    Name = get_proc_name(ServerName),
-    Parent = get_parent(),
-    Debug = gen:debug_options(Options),
+    Name = gen:get_proc_name(ServerName),
+    Parent = gen:get_parent(),
+    Debug = gen:debug_options(Name, Options),
     loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug).
-
-get_proc_name(Pid) when is_pid(Pid) ->
-    Pid;
-get_proc_name({local, Name}) ->
-    case process_info(self(), registered_name) of
-	{registered_name, Name} ->
-	    Name;
-	{registered_name, _Name} ->
-	    exit(process_not_registered);
-	[] ->
-	    exit(process_not_registered)
-    end;
-get_proc_name({global, Name}) ->
-    case global:whereis_name(Name) of
-	undefined ->
-	    exit(process_not_registered_globally);
-	Pid when Pid =:= self() ->
-	    Name;
-	_Pid ->
-	    exit(process_not_registered_globally)
-    end;
-get_proc_name({via, Mod, Name}) ->
-    case Mod:whereis_name(Name) of
-	undefined ->
-	    exit({process_not_registered_via, Mod});
-	Pid when Pid =:= self() ->
-	    Name;
-	_Pid ->
-	    exit({process_not_registered_via, Mod})
-    end.
-
-get_parent() ->
-    case get('$ancestors') of
-	[Parent | _] when is_pid(Parent) ->
-	    Parent;
-	[Parent | _] when is_atom(Parent) ->
-	    name_to_pid(Parent);
-	_ ->
-	    exit(process_was_not_started_by_proc_lib)
-    end.
-
-name_to_pid(Name) ->
-    case whereis(Name) of
-	undefined ->
-	    case global:whereis_name(Name) of
-		undefined ->
-		    exit(could_not_find_registered_name);
-		Pid ->
-		    Pid
-	    end;
-	Pid ->
-	    Pid
-    end.
 
 %%% ---------------------------------------------------
 %%% Initiate the new process.
@@ -373,8 +320,8 @@ name_to_pid(Name) ->
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
-    Name = name(Name0),
-    Debug = gen:debug_options(Options),
+    Name = gen:name(Name0),
+    Debug = gen:debug_options(Name, Options),
     case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
@@ -383,15 +330,15 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug);
 	{stop, Reason} ->
-	    unregister_name(Name0),
+	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	ignore ->
-	    unregister_name(Name0),
+	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
 	{'EXIT', Reason} ->
-	    unregister_name(Name0),
+	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	Else ->
@@ -399,20 +346,6 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    proc_lib:init_ack(Starter, {error, Error}),
 	    exit(Error)
     end.
-
-name({local,Name}) -> Name;
-name({global,Name}) -> Name;
-name({via,_, Name}) -> Name;
-name(Pid) when is_pid(Pid) -> Pid.
-
-unregister_name({local,Name}) ->
-    _ = (catch unregister(Name));
-unregister_name({global,Name}) ->
-    _ = global:unregister_name(Name);
-unregister_name({via, Mod, Name}) ->
-    _ = Mod:unregister_name(Name);
-unregister_name(Pid) when is_pid(Pid) ->
-    Pid.
 
 %%-----------------------------------------------------------------
 %% The MAIN loop

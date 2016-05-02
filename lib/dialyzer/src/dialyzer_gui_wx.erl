@@ -2,7 +2,7 @@
 %%------------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,6 @@
 		    add_dir           :: wx:wx_object(),
 		    add_rec           :: wx:wx_object(),
 		    chosen_box        :: wx:wx_object(),
-		    analysis_pid      :: pid(),
 		    del_file          :: wx:wx_object(),
 		    doc_plt           :: dialyzer_plt:plt(),
 		    clear_chosen      :: wx:wx_object(),
@@ -72,11 +71,11 @@
 		    stop              :: wx:wx_object(),
 		    frame             :: wx:wx_object(),
 		    warnings_box      :: wx:wx_object(),
-		    explanation_box   :: wx:wx_object(),
+		    explanation_box   :: wx:wx_object() | 'undefined',
 		    wantedWarnings    :: list(),
 		    rawWarnings       :: list(),
-		    backend_pid       :: pid(),
-		    expl_pid          :: pid()}).
+		    backend_pid       :: pid() | 'undefined',
+		    expl_pid          :: pid() | 'undefined'}).
 	       
 %%------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,42 +20,18 @@
 
 -module(run_erl_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
-	 basic/1,heavy/1,heavier/1,defunct/1]).
+-export([all/0, suite/0]).
+-export([basic/1,heavy/1,heavier/1,defunct/1]).
 -export([ping_me_back/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 2}}].
 
 all() -> 
     [basic, heavy, heavier, defunct].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 basic(Config) when is_list(Config) ->
@@ -65,16 +41,16 @@ basic(Config) when is_list(Config) ->
     end.
 
 basic_1(Config) ->
-    ?line {Node,Pipe} = do_run_erl(Config, "basic"),
+    {Node,Pipe} = do_run_erl(Config, "basic"),
 
-    ?line ToErl = open_port({spawn,"to_erl "++Pipe}, []),
-    ?line erlang:port_command(ToErl, "halt().\r\n"),
+    ToErl = open_port({spawn,"to_erl "++Pipe}, []),
+    erlang:port_command(ToErl, "halt().\r\n"),
 
     receive
 	{nodedown,Node} ->
-	    ?line io:format("Down: ~p\n", [Node])
+	    io:format("Down: ~p\n", [Node])
     after 10000 ->
-	    ?line ?t:fail()
+	    ct:fail(timeout)
     end,
 
     ok.
@@ -86,29 +62,28 @@ heavy(Config) when is_list(Config) ->
     end.
 
 heavy_1(Config) ->
-    ?line {Node,Pipe} = do_run_erl(Config, "heavy"),
+    {Node,Pipe} = do_run_erl(Config, "heavy"),
 
-    ?line ToErl = open_port({spawn,"to_erl "++Pipe}, []),
+    ToErl = open_port({spawn,"to_erl "++Pipe}, []),
     IoFormat = "io:format(\"~s\n\", [lists:duplicate(10000, 10)]).\r\n",
-    ?line erlang:port_command(ToErl, IoFormat),
-    ?line erlang:port_command(ToErl, IoFormat),
-    ?line erlang:port_command(ToErl, IoFormat),
-    ?line erlang:port_command(ToErl, "init:stop().\r\n"),
+    erlang:port_command(ToErl, IoFormat),
+    erlang:port_command(ToErl, IoFormat),
+    erlang:port_command(ToErl, IoFormat),
+    erlang:port_command(ToErl, "init:stop().\r\n"),
     
     receive
 	{nodedown,Node} ->
-	    ?line io:format("Down: ~p\n", [Node])
+	    io:format("Down: ~p\n", [Node])
     after 10000 ->
-	    ?line ?t:fail()
+	    ct:fail(timeout)
     end,
 
-    ?line case count_new_lines(ToErl, 0) of
-	      Nls when Nls > 30000 ->
-		  ok;
-	      Nls ->
-		  ?line io:format("new_lines: ~p\n", [Nls]),
-		  ?line ?t:fail()
-	  end.
+    case count_new_lines(ToErl, 0) of
+        Nls when Nls > 30000 ->
+            ok;
+        Nls ->
+            ct:fail("new_lines: ~p\n", [Nls])
+    end.
     
 
 ping_me_back([Node]) when is_atom(Node) ->
@@ -137,18 +112,16 @@ heavier(Config) when is_list(Config) ->
     end.
 
 heavier_1(Config) ->
-    ?line {Node,Pipe} = do_run_erl(Config, "heavier"),
+    {Node,Pipe} = do_run_erl(Config, "heavier"),
 
-    ?line ToErl = open_port({spawn,"to_erl "++Pipe}, []),
+    ToErl = open_port({spawn,"to_erl "++Pipe}, []),
     io:format("ToErl = ~p\n", [ToErl]),
-    X = 1,
-    Y = 555,
-    Z = 42,
-    ?line random:seed(X, Y, Z),
-    SeedCmd = lists:flatten(io_lib:format("random:seed(~p, ~p, ~p). \r\n",
-					  [X,Y,Z])),
-    ?line io:format("~p\n", [SeedCmd]),
-    ?line erlang:port_command(ToErl, SeedCmd),
+    Seed = {1,555,42},
+    rand:seed(exsplus, Seed),
+    SeedCmd = lists:flatten(io_lib:format("rand:seed(exsplus, ~p). \r\n",
+					  [Seed])),
+    io:format("~p\n", [SeedCmd]),
+    erlang:port_command(ToErl, SeedCmd),
 
     Iter = 1000,
     MaxLen = 2048,
@@ -157,9 +130,9 @@ heavier_1(Config) ->
 	"F = fun(F,0) -> ok; "++
 	       "(F,N) -> " ++
 	           "io:format(\"\\\"~s\\\"~n\","++
-	                     "[[35|[random:uniform(25)+65 || " ++
+	                     "[[35|[rand:uniform(25)+65 || " ++
 	                     "_ <- lists:seq(1, "++
-	                                "random:uniform("++
+	                                "rand:uniform("++
                                              integer_to_list(MaxLen)++
                                         "))]]]), "++
 	           "F(F,N-1) "++
@@ -167,19 +140,19 @@ heavier_1(Config) ->
         "F(F,"++integer_to_list(Iter)++")."++" \r\n",
 
 
-    ?line io:format("~p\n", [Random]),
-    ?line erlang:port_command(ToErl, Random),
+    io:format("~p\n", [Random]),
+    erlang:port_command(ToErl, Random),
 
     %% Finish.
     
-    ?line erlang:port_command(ToErl, "init:stop().\r\n"),
-    ?line receive_all(Iter, ToErl, MaxLen),
+    erlang:port_command(ToErl, "init:stop().\r\n"),
+    receive_all(Iter, ToErl, MaxLen),
     receive
 	{nodedown,Node} ->
-	    ?line io:format("Down: ~p\n", [Node])
+	    io:format("Down: ~p\n", [Node])
     after 10000 ->
-	    ?line c:flush(),
-	    ?line ?t:fail()
+	    c:flush(),
+	    ct:fail(timeout)
     end,
 
     ok.
@@ -189,8 +162,8 @@ receive_all(Iter, ToErl, MaxLen) ->
 
 receive_all_1(0, _, _, _) -> ok;
 receive_all_1(Iter, Line, ToErl, MaxLen) ->
-    NumChars = random:uniform(MaxLen),
-    Pattern = [random:uniform(25)+65 || _ <- lists:seq(1, NumChars)],
+    NumChars = rand:uniform(MaxLen),
+    Pattern = [rand:uniform(25)+65 || _ <- lists:seq(1, NumChars)],
     receive_all_2(Iter, {NumChars,Pattern}, Line, ToErl, MaxLen).
     
 
@@ -206,9 +179,7 @@ receive_all_2(Iter, {NumChars,Pattern}, Line0, ToErl, MaxLen) ->
 		    %%io:format("Recv: ~p\n", [S]),
 		    receive_all_2(Iter, {NumChars,Pattern}, Line++S, ToErl, MaxLen)		    
 	    after 10000 ->
-		    io:format("Timeout waiting for\n~p\ngot\n~p\n",
-			      [Pattern, Line]),
-		    ?line ?t:fail()    
+		    ct:fail("Timeout waiting for\n~p\ngot\n~p\n", [Pattern, Line])
 	    end
     end.
 
@@ -243,49 +214,47 @@ defunct_1(Config) ->
     end.
 
 defunct_2(Config, Perl) ->
-    ?line Data = ?config(data_dir, Config),
-    ?line RunErlTest = filename:join(Data, "run_erl_test.pl"),
-    ?line Defuncter = filename:join(Data, "defuncter.pl"),
-    ?line Priv = ?config(priv_dir, Config),
-    ?line LogDir = filename:join(Priv, "defunct"),
-    ?line ok = file:make_dir(LogDir),
-    ?line Pipe = LogDir ++ "/",
-    ?line RunErl = os:find_executable(run_erl),
-    ?line Cmd = Perl ++ " " ++ RunErlTest ++ " \"" ++ RunErl ++ "\" " ++
+    Data = proplists:get_value(data_dir, Config),
+    RunErlTest = filename:join(Data, "run_erl_test.pl"),
+    Defuncter = filename:join(Data, "defuncter.pl"),
+    Priv = proplists:get_value(priv_dir, Config),
+    LogDir = filename:join(Priv, "defunct"),
+    ok = file:make_dir(LogDir),
+    Pipe = LogDir ++ "/",
+    RunErl = os:find_executable(run_erl),
+    Cmd = Perl ++ " " ++ RunErlTest ++ " \"" ++ RunErl ++ "\" " ++
 	Defuncter ++ " " ++ Pipe ++ " " ++ LogDir,
-    ?line io:format("~p", [Cmd]),
-    ?line Res = os:cmd(Cmd),
-    ?line io:format("~p\n", [Res]),
+    io:format("~p", [Cmd]),
+    Res = os:cmd(Cmd),
+    io:format("~p\n", [Res]),
     "OK"++_ = Res,
     ok.
 
 %%% Utilities.
 
 do_run_erl(Config, Case) ->
-    ?line Priv = ?config(priv_dir, Config),
-    ?line LogDir = filename:join(Priv, Case),
-    ?line ok = file:make_dir(LogDir),
-    ?line Pipe = LogDir ++ "/",
-    ?line NodeName = "run_erl_node_" ++ Case,
-    ?line Cmd = "run_erl "++Pipe++" "++LogDir++" \"erl -sname " ++ NodeName ++
+    Priv = proplists:get_value(priv_dir, Config),
+    LogDir = filename:join(Priv, Case),
+    ok = file:make_dir(LogDir),
+    Pipe = LogDir ++ "/",
+    NodeName = "run_erl_node_" ++ Case,
+    Cmd = "run_erl "++Pipe++" "++LogDir++" \"erl -sname " ++ NodeName ++
 	" -pa " ++ filename:dirname(code:which(?MODULE)) ++
 	" -s " ++ ?MODULE_STRING ++ " ping_me_back " ++
 	atom_to_list(node()) ++ "\"",
-    ?line io:format("~p\n", [Cmd]),
+    io:format("~p\n", [Cmd]),
     
-    ?line net_kernel:monitor_nodes(true),
-    ?line open_port({spawn,Cmd}, []),
-    ?line [_,Host] = string:tokens(atom_to_list(node()), "@"),
-    ?line Node = list_to_atom(NodeName++"@"++Host),
+    net_kernel:monitor_nodes(true),
+    open_port({spawn,Cmd}, []),
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    Node = list_to_atom(NodeName++"@"++Host),
 
     receive
 	{nodeup,Node} ->
-	    ?line io:format("Up: ~p\n", [Node]);
+	    io:format("Up: ~p\n", [Node]);
 	Other ->
-	    ?line io:format("Unexpected: ~p\n", [Other]),
-	    ?line ?t:fail()
+	    ct:fail("Unexpected: ~p\n", [Other])
     after 10000 ->
-	    ?line ?t:fail()
+	    ct:fail(timeout)
     end,
-
     {Node,Pipe}.

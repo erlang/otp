@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 #include "erl_check_io.h"
 #include "erl_thr_progress.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 
@@ -395,6 +396,7 @@ forget_removed(struct pollset_info* psi)
 	if (drv_ptr) {
 	    int was_unmasked = erts_block_fpe();
 	    DTRACE1(driver_stop_select, drv_ptr->name);
+	    LTTNG1(driver_stop_select, drv_ptr->name);
 	    (*drv_ptr->stop_select) ((ErlDrvEvent) fd, NULL);
 	    erts_unblock_fpe(was_unmasked);
 	    if (drv_ptr->handle) {
@@ -1055,6 +1057,7 @@ done_unknown:
     if (stop_select_fn) {
 	int was_unmasked = erts_block_fpe();
 	DTRACE1(driver_stop_select, name);
+	LTTNG1(driver_stop_select, "unknown");
 	(*stop_select_fn)(e, NULL);
 	erts_unblock_fpe(was_unmasked);
     }
@@ -1337,11 +1340,7 @@ print_select_op(erts_dsprintf_buf_t *dsbufp,
 {
     Port *pp = erts_drvport2port(ix);
     erts_dsprintf(dsbufp,
-#ifdef __OSE__
-		  "driver_select(%p, %d,%s%s%s%s | %d, %d) "
-#else
 		  "driver_select(%p, %d,%s%s%s%s, %d) "
-#endif
 		  "by ",
 		  ix,
 		  (int) GET_FD(fd),
@@ -1861,25 +1860,6 @@ stale_drv_select(Eterm id, ErtsDrvEventState *state, int mode)
 
 #ifndef ERTS_SYS_CONTINOUS_FD_NUMBERS
 
-#ifdef __OSE__
-static SafeHashValue drv_ev_state_hash(void *des)
-{
-    ErtsSysFdType fd = ((ErtsDrvEventState *) des)->fd;
-    /* We use hash on signo ^ id in order for steal to happen when the
-       same signo + fd is selected on by two different ports */
-    SafeHashValue val = (SafeHashValue)(fd->signo ^ fd->id);
-    return val ^ (val >> 8);
-}
-
-static int drv_ev_state_cmp(void *des1, void *des2)
-{
-    ErtsSysFdType fd1 = ((ErtsDrvEventState *) des1)->fd;
-    ErtsSysFdType fd2 = ((ErtsDrvEventState *) des2)->fd;
-    if (fd1->signo == fd2->signo && fd1->id == fd2->id)
-      return 0;
-    return 1;
-}
-#else /* !__OSE__ && !ERTS_SYS_CONTINOUS_FD_NUMBERS i.e. probably windows */
 static SafeHashValue drv_ev_state_hash(void *des)
 {
     SafeHashValue val = (SafeHashValue) ((ErtsDrvEventState *) des)->fd;
@@ -1891,7 +1871,6 @@ static int drv_ev_state_cmp(void *des1, void *des2)
     return ( ((ErtsDrvEventState *) des1)->fd == ((ErtsDrvEventState *) des2)->fd
 	    ? 0 : 1);
 }
-#endif
 
 static void *drv_ev_state_alloc(void *des_tmpl)
 {

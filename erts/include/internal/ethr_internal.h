@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,6 @@ void ethr_run_exit_handlers__(void);
 void ethr_ts_event_destructor__(void *vtsep);
 
 #if defined(ETHR_X86_RUNTIME_CONF__)
-int ethr_x86_have_cpuid__(void);
 void ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx);
 #endif
 

@@ -1,7 +1,7 @@
 ;;
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 2010-2014. All Rights Reserved.
+;; Copyright Ericsson AB 2010-2016. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@
      erlang-skel-gen-event erlang-skel-header)
     ("gen_fsm" "gen-fsm"
      erlang-skel-gen-fsm erlang-skel-header)
+    ("gen_statem" "gen-statem"
+     erlang-skel-gen-statem erlang-skel-header)
     ("wx_object" "wx-object"
      erlang-skel-wx-object erlang-skel-header)
     ("Library module" "gen-lib"
@@ -858,6 +860,122 @@ Please see the function `tempo-define-template'.")
   "*The template of a gen_fsm.
 Please see the function `tempo-define-template'.")
 
+(defvar erlang-skel-gen-statem
+  '((erlang-skel-include erlang-skel-large-header)
+    "-behaviour(gen_statem)." n n
+
+    "%% API" n
+    "-export([start_link/0])." n
+    n
+    "%% gen_statem callbacks" n
+    "-export([init/1, terminate/3, code_change/4])." n
+    "-export([state_name/3])." n
+    "-export([handle_event/4])." n
+    n
+    "-define(SERVER, ?MODULE)." n
+    n
+    "-record(data, {})." n
+    n
+    (erlang-skel-double-separator-start 3)
+    "%%% API" n
+    (erlang-skel-double-separator-end 3) n
+    (erlang-skel-separator-start 2)
+    "%% @doc" n
+    "%% Creates a gen_statem process which calls Module:init/1 to" n
+    "%% initialize. To ensure a synchronized start-up procedure, this" n
+    "%% function does not return until Module:init/1 has returned." n
+    "%%" n
+    (erlang-skel-separator-end 2)
+    "-spec start_link() ->" n>
+    "{ok, Pid :: pid()} |" n>
+    "ignore |" n>
+    "{error, Error :: term()}." n
+    "start_link() ->" n>
+    "gen_statem:start_link({local, ?SERVER}, ?MODULE, [], [])." n
+    n
+    (erlang-skel-double-separator-start 3)
+    "%%% gen_statem callbacks" n
+    (erlang-skel-double-separator-end 3) n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% Whenever a gen_statem is started using gen_statem:start/[3,4] or" n
+    "%% gen_statem:start_link/[3,4], this function is called by the new" n
+    "%% process to initialize." n
+    (erlang-skel-separator-end 2)
+    "-spec init(Args :: term()) -> " n>
+    "{gen_statem:callback_mode()," n>
+    "State :: term(), Data :: term()} |" n>
+    "{gen_statem:callback_mode()," n>
+    "State :: term(), Data :: term()," n>
+    "[gen_statem:action()] | gen_statem:action()} |" n>
+    "ignore |" n>
+    "{stop, Reason :: term()}." n
+    "init([]) ->" n>
+    "{state_functions, state_name, #data{}}." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% If the gen_statem runs with CallbackMode =:= state_functions" n
+    "%% there should be one instance of this function for each possible" n
+    "%% state name. Whenever a gen_statem receives an event," n
+    "%% the instance of this function with the same name" n
+    "%% as the current state name StateName is called to" n
+    "%% handle the event." n
+    (erlang-skel-separator-end 2)
+    "-spec state_name(" n>
+    "gen_statem:event_type(), Msg :: term()," n>
+    "Data :: term()) ->" n>
+    "gen_statem:state_function_result(). " n
+    "state_name({call,Caller}, _Msg, Data) ->" n>
+    "{next_state, state_name, Data, [{reply,Caller,ok}]}." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% If the gen_statem runs with CallbackMode =:= handle_event_function" n
+    "%% this function is called for every event a gen_statem receives." n
+    (erlang-skel-separator-end 2)
+    "-spec handle_event(" n>
+    "gen_statem:event_type(), Msg :: term()," n>
+    "State :: term(), Data :: term()) ->" n>
+    "gen_statem:handle_event_result(). " n
+    "handle_event({call,From}, _Msg, State, Data) ->" n>
+    "{next_state, State, Data, [{reply,From,ok}]}." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% This function is called by a gen_statem when it is about to" n
+    "%% terminate. It should be the opposite of Module:init/1 and do any" n
+    "%% necessary cleaning up. When it returns, the gen_statem terminates with" n
+    "%% Reason. The return value is ignored." n
+    (erlang-skel-separator-end 2)
+    "-spec terminate(Reason :: term(), State :: term(), Data :: term()) ->" n>
+    "any()." n
+    "terminate(_Reason, _State, _Data) ->" n>
+    "void." n
+    n
+    (erlang-skel-separator-start 2)
+    "%% @private" n
+    "%% @doc" n
+    "%% Convert process state when code is changed" n
+    (erlang-skel-separator-end 2)
+    "-spec code_change(" n>
+    "OldVsn :: term() | {down,term()}," n>
+    "State :: term(), Data :: term(), Extra :: term()) ->" n>
+    "{ok, NewState :: term(), NewData :: term()}." n
+    "code_change(_OldVsn, State, Data, _Extra) ->" n>
+    "{ok, State, Data}." n
+    n
+    (erlang-skel-double-separator-start 3)
+    "%%% Internal functions" n
+    (erlang-skel-double-separator-end 3)
+    )
+  "*The template of a gen_statem.
+Please see the function `tempo-define-template'.")
+
 (defvar erlang-skel-wx-object
   '((erlang-skel-include erlang-skel-large-header)
     "-behaviour(wx_object)." n n
@@ -1070,7 +1188,7 @@ Please see the function `tempo-define-template'.")
    "%% Note: This directive should only be used in test suites." n
     "-compile(export_all)." n n
 
-    "-include_lib(\"test_server/include/test_server.hrl\")." n n
+    "-include_lib(\"common_test/include/ct.hrl\")." n n
 
     (erlang-skel-separator-start 2)
     "%% TEST SERVER CALLBACK FUNCTIONS" n

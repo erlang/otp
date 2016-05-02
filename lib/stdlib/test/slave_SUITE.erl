@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(slave_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, t_start/1, t_start_link/1,
@@ -29,7 +29,9 @@
 -export([fun_init/1, test_errors/1]).
 -export([timeout_test/1, auth_test/1, rsh_test/1, start_a_slave/3]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [t_start_link, start_link_nodedown, t_start, errors].
@@ -50,30 +52,27 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-t_start_link(suite) -> [];
 t_start_link(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-
     %% Define useful variables.
 
-    ?line Host = host(),
-    ?line Slave1 = node_name(Host, slave1),
-    ?line Slave2 = node_name(Host, slave2),
+    Host = host(),
+    Slave1 = node_name(Host, slave1),
+    Slave2 = node_name(Host, slave2),
 
     %% Test slave:start_link() with one, two, and three arguments.
 
-    ?line ThisNode = node(),
-    ?line {error, {already_running, ThisNode}} = slave:start_link(Host),
-    ?line {ok, Slave1} = slave:start_link(Host, slave1),
-    ?line {ok, Slave2} = slave:start_link(Host, slave2, "-my_option 42"),
-    ?line {ok, [["42"]]} = rpc:call(Slave2, init, get_argument, [my_option]),
+    ThisNode = node(),
+    {error, {already_running, ThisNode}} = slave:start_link(Host),
+    {ok, Slave1} = slave:start_link(Host, slave1),
+    {ok, Slave2} = slave:start_link(Host, slave2, "-my_option 42"),
+    {ok, [["42"]]} = rpc:call(Slave2, init, get_argument, [my_option]),
 
     %% Kill the two slave nodes and verify that they are dead.
 
-    ?line rpc:cast(Slave1, erlang, halt, []),
-    ?line rpc:cast(Slave2, erlang, halt, []),
-    ?line is_dead(Slave1),
-    ?line is_dead(Slave2),
+    rpc:cast(Slave1, erlang, halt, []),
+    rpc:cast(Slave2, erlang, halt, []),
+    is_dead(Slave1),
+    is_dead(Slave2),
 
     %% Start two slave nodes from another process and verify that
     %% the slaves die when that process terminates.
@@ -85,41 +84,36 @@ t_start_link(Config) when is_list(Config) ->
 			    Parent ! slaves_started,
 			    receive never -> ok end
 		    end),
-    ?line receive slaves_started -> ok end,
-    ?line process_flag(trap_exit, true),
-    ?line wait_alive(Slave1),
-    ?line wait_alive(Slave2),
-    ?line exit(Pid, kill),
-    ?line receive {'EXIT', Pid, killed} -> ok end,
-    ?line test_server:sleep(250),
-    ?line is_dead(Slave1),
-    ?line is_dead(Slave2),
-		  
-    ?line test_server:timetrap_cancel(Dog),
+    receive slaves_started -> ok end,
+    process_flag(trap_exit, true),
+    wait_alive(Slave1),
+    wait_alive(Slave2),
+    exit(Pid, kill),
+    receive {'EXIT', Pid, killed} -> ok end,
+    ct:sleep(250),
+    is_dead(Slave1),
+    is_dead(Slave2),
+
     ok.
 
 %% Test that slave:start_link() works when the master exits.
 
-start_link_nodedown(suite) -> [];
 start_link_nodedown(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-
     %% Define useful variables.
 
-    ?line Host = host(),
-    ?line Master = node_name(Host, my_master),
-    ?line Slave = node_name(Host, my_slave),
+    Host = host(),
+    Master = node_name(Host, my_master),
+    Slave = node_name(Host, my_slave),
 
-    ?line Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-    ?line {ok, Master} = slave:start_link(Host, my_master, Pa),
-    ?line spawn(Master, ?MODULE, start_a_slave, [self(), Host, my_slave]),
-    ?line {reply, {ok, _Node}} = receive Any -> Any end,
-    
-    ?line rpc:call(Master, erlang, halt, []),
-    ?line receive after 200 -> ok end,
-    ?line pang = net_adm:ping(Slave),
+    Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
+    {ok, Master} = slave:start_link(Host, my_master, Pa),
+    spawn(Master, ?MODULE, start_a_slave, [self(), Host, my_slave]),
+    {reply, {ok, _Node}} = receive Any -> Any end,
 
-    ?line test_server:timetrap_cancel(Dog),
+    rpc:call(Master, erlang, halt, []),
+    receive after 200 -> ok end,
+    pang = net_adm:ping(Slave),
+
     ok.
 
 start_a_slave(ReplyTo, Host, Name) ->
@@ -128,82 +122,74 @@ start_a_slave(ReplyTo, Host, Name) ->
 
 %% Test slave:start().
 
-t_start(suite) -> [];
 t_start(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-    
     %% Define useful variables.
 
-    ?line Host = host(),
-    ?line Slave1 = node_name(Host, slave1),
-    ?line Slave2 = node_name(Host, slave2),
+    Host = host(),
+    Slave1 = node_name(Host, slave1),
+    Slave2 = node_name(Host, slave2),
 
     %% By running all tests from this master node which is linked
     %% to this test case, we ensure that all slaves are killed
     %% if this test case fails.  (If they are not, and therefore further
     %% test cases fail, there is a bug in slave.)
 
-    ?line {ok, Master} = slave:start_link(Host, master),
-    
+    {ok, Master} = slave:start_link(Host, master),
+
     %% Test slave:start() with one, two, and three arguments.
 
-    ?line ThisNode = node(),
-    ?line {error, {already_running, ThisNode}} = slave:start(Host),
-    ?line {ok, Slave1} = rpc:call(Master, slave, start, [Host, slave1]),
-    ?line {ok, Slave2} = rpc:call(Master, slave, start,
-				  [Host, slave2, "-my_option 42"]),
-    ?line {ok, [["42"]]} = rpc:call(Slave2, init, get_argument, [my_option]),
+    ThisNode = node(),
+    {error, {already_running, ThisNode}} = slave:start(Host),
+    {ok, Slave1} = rpc:call(Master, slave, start, [Host, slave1]),
+    {ok, Slave2} = rpc:call(Master, slave, start,
+			    [Host, slave2, "-my_option 42"]),
+    {ok, [["42"]]} = rpc:call(Slave2, init, get_argument, [my_option]),
 
     %% Test that a slave terminates when its master node terminates.
 
-    ?line ok = slave:stop(Slave2),
-    ?line is_dead(Slave2),
-    ?line {ok, Slave2} = rpc:call(Slave1, slave, start, [Host, slave2]),
-    ?line is_alive(Slave2),
-    ?line rpc:call(Slave1, erlang, halt, []),	% Kill master.
+    ok = slave:stop(Slave2),
+    is_dead(Slave2),
+    {ok, Slave2} = rpc:call(Slave1, slave, start, [Host, slave2]),
+    is_alive(Slave2),
+    rpc:call(Slave1, erlang, halt, []),	% Kill master.
     receive after 1000 -> ok end,		% Make sure slaves have noticed
 						% their dead master.
-    ?line is_dead(Slave1),
-    ?line is_dead(Slave2),			% Slave should be dead, too.
+    is_dead(Slave1),
+    is_dead(Slave2),			% Slave should be dead, too.
 
     %% Kill all slaves and verify that they are dead.
 
-    ?line ok = slave:stop(Slave1),
-    ?line ok = slave:stop(Slave2),
-    ?line is_dead(Slave1),
-    ?line is_dead(Slave2),
+    ok = slave:stop(Slave1),
+    ok = slave:stop(Slave2),
+    is_dead(Slave1),
+    is_dead(Slave2),
 
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test the various error conditions in parallell (since the timeout
 %% in slave is 32 seconds).
 
-errors(suite) -> [];
 errors(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(50)),
+    process_flag(trap_exit, true),
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, Master} = slave_start_link(host(), master,
+				    "-rsh no_rsh_program -pa "++Pa++
+					" -env ERL_CRASH_DUMP erl_crash_dump.master"),
+    Pids = rpc:call(Master, ?MODULE, test_errors, [self()]),
+    wait_for_result(Pids),
 
-    ?line process_flag(trap_exit, true),
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {ok, Master} = slave_start_link(host(), master,
-					  "-rsh no_rsh_program -pa "++Pa++
-					  " -env ERL_CRASH_DUMP erl_crash_dump.master"),
-    ?line Pids = rpc:call(Master, ?MODULE, test_errors, [self()]),
-    ?line wait_for_result(Pids),
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 wait_for_result([]) ->
     ok;
 wait_for_result(Pids) ->
-    ?line receive
-	      {'EXIT', Pid, normal} ->
-		  io:format("Process ~p terminated", [Pid]),
-		  wait_for_result(lists:delete(Pid, Pids));
-	      {'EXIT', _, Reason} ->
-		  exit(Reason)
-	  end.
+    receive
+	{'EXIT', Pid, normal} ->
+	    io:format("Process ~p terminated", [Pid]),
+	    wait_for_result(lists:delete(Pid, Pids));
+	{'EXIT', _, Reason} ->
+	    exit(Reason)
+    end.
 
 show_process_info(Pid) ->
     io:format("~p: ~p", [Pid, catch process_info(Pid, initial_call)]).
@@ -211,25 +197,25 @@ show_process_info(Pid) ->
 test_errors(ResultTo) ->
     %% Sigh!  We use ordinary spawn instead of fun_spawn/1 to be able
     %% identify the processes by their initial call.
-    ?line P1 = spawn(?MODULE, timeout_test, [ResultTo]),
-    ?line P2 = spawn(?MODULE, auth_test, [ResultTo]),
-    ?line P3 = spawn(?MODULE, rsh_test, [ResultTo]),
+    P1 = spawn(?MODULE, timeout_test, [ResultTo]),
+    P2 = spawn(?MODULE, auth_test, [ResultTo]),
+    P3 = spawn(?MODULE, rsh_test, [ResultTo]),
     Pids =[P1, P2, P3],
-    ?line lists:foreach(fun show_process_info/1, Pids),
+    lists:foreach(fun show_process_info/1, Pids),
     Pids.
 
 timeout_test(ResultTo) ->
     link(ResultTo),
-    ?line {error, timeout} = slave:start(host(), slave1, "-boot no_boot_script").
+    {error, timeout} = slave:start(host(), slave1, "-boot no_boot_script").
 
 auth_test(ResultTo) ->
     link(ResultTo),
-    ?line {error, timeout} = slave:start(host(), slave2,
-					 "-setcookie definitely_not_a_cookie").
+    {error, timeout} = slave:start(host(), slave2,
+				   "-setcookie definitely_not_a_cookie").
 
 rsh_test(ResultTo) ->
     link(ResultTo),
-    ?line {error, no_rsh} = slave:start(super, slave3).
+    {error, no_rsh} = slave:start(super, slave3).
 
 
 %%% Utilities.    
@@ -239,7 +225,7 @@ wait_alive(Node) ->
     wait_alive_1(10, Node).
 
 wait_alive_1(0, Node) ->
-    ?t:fail({still_not_alive,Node});
+    ct:fail({still_not_alive,Node});
 wait_alive_1(N, Node) ->
     case rpc:call(Node, init, get_status, []) of
 	{started,_} ->

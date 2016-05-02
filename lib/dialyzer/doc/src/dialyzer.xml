@@ -254,7 +254,7 @@
       analysis that finds data races performs intra-procedural data flow analysis
       and can sometimes explode in time. Enable it at your own risk.
       </item>
-i      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
+      <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
       <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
       <tag><c><![CDATA[-Wunknown]]></c>***</tag>

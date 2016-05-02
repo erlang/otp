@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@
 %%
 -module(digraph_utils_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -59,205 +59,192 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-simple(doc) -> [];
-simple(suite) -> [];
 simple(Config) when is_list(Config) ->
-    ?line G = digraph:new(),
-    ?line add_vertices(G, [a]),
-    ?line add_edges(G, [{b,c},{b,d},{e,f},{f,g},{g,e},{h,h},{i,i},{i,j}]),
-    ?line 10 = length(digraph_utils:postorder(G)),
-    ?line 10 = length(digraph_utils:preorder(G)),
-    ?line ok = evall(digraph_utils:components(G), 
-		     [[a],[b,c,d],[e,f,g],[h],[i,j]]),
-    ?line ok = evall(digraph_utils:strong_components(G), 
+    G = digraph:new(),
+    add_vertices(G, [a]),
+    add_edges(G, [{b,c},{b,d},{e,f},{f,g},{g,e},{h,h},{i,i},{i,j}]),
+    10 = length(digraph_utils:postorder(G)),
+    10 = length(digraph_utils:preorder(G)),
+    ok = evall(digraph_utils:components(G),
+	       [[a],[b,c,d],[e,f,g],[h],[i,j]]),
+    ok = evall(digraph_utils:strong_components(G),
 	       [[a],[b],[c],[d],[e,f,g],[h],[i],[j]]),
-    ?line ok = evall(digraph_utils:cyclic_strong_components(G), 
-		     [[e,f,g],[h],[i]]),
-    ?line true = path(G, e, e),
-    ?line false = path(G, e, j),
-    ?line false = path(G, a, a),
-    ?line false = digraph_utils:topsort(G),
-    ?line false = digraph_utils:is_acyclic(G),
-    ?line ok = eval(digraph_utils:loop_vertices(G), [h,i]),
-    ?line ok = eval(digraph_utils:reaching([e], G), [e,f,g]),
-    ?line ok = eval(digraph_utils:reaching_neighbours([e], G), [e,f,g]),
-    ?line ok = eval(digraph_utils:reachable([e], G), [e,f,g]),
-    ?line ok = eval(digraph_utils:reachable_neighbours([e], G), [e,f,g]),
-    ?line ok = eval(digraph_utils:reaching([b], G), [b]),
-    ?line ok = eval(digraph_utils:reaching_neighbours([b], G), []),
-    ?line ok = eval(digraph_utils:reachable([b], G), [b,c,d]),
-    ?line ok = eval(digraph_utils:reachable_neighbours([b], G), [c,d]),
-    ?line ok = eval(digraph_utils:reaching([h], G), [h]),
-    ?line ok = eval(digraph_utils:reaching_neighbours([h], G), [h]),
-    ?line ok = eval(digraph_utils:reachable([h], G), [h]),
-    ?line ok = eval(digraph_utils:reachable_neighbours([h], G), [h]),
-    ?line ok = eval(digraph_utils:reachable([e,f], G), [e,f,g]),
-    ?line ok = eval(digraph_utils:reachable_neighbours([e,f], G), [e,f,g]),
-    ?line ok = eval(digraph_utils:reachable([h,h,h], G), [h]),
-    ?line true = digraph:delete(G),
+    ok = evall(digraph_utils:cyclic_strong_components(G),
+	       [[e,f,g],[h],[i]]),
+    true = path(G, e, e),
+    false = path(G, e, j),
+    false = path(G, a, a),
+    false = digraph_utils:topsort(G),
+    false = digraph_utils:is_acyclic(G),
+    ok = eval(digraph_utils:loop_vertices(G), [h,i]),
+    ok = eval(digraph_utils:reaching([e], G), [e,f,g]),
+    ok = eval(digraph_utils:reaching_neighbours([e], G), [e,f,g]),
+    ok = eval(digraph_utils:reachable([e], G), [e,f,g]),
+    ok = eval(digraph_utils:reachable_neighbours([e], G), [e,f,g]),
+    ok = eval(digraph_utils:reaching([b], G), [b]),
+    ok = eval(digraph_utils:reaching_neighbours([b], G), []),
+    ok = eval(digraph_utils:reachable([b], G), [b,c,d]),
+    ok = eval(digraph_utils:reachable_neighbours([b], G), [c,d]),
+    ok = eval(digraph_utils:reaching([h], G), [h]),
+    ok = eval(digraph_utils:reaching_neighbours([h], G), [h]),
+    ok = eval(digraph_utils:reachable([h], G), [h]),
+    ok = eval(digraph_utils:reachable_neighbours([h], G), [h]),
+    ok = eval(digraph_utils:reachable([e,f], G), [e,f,g]),
+    ok = eval(digraph_utils:reachable_neighbours([e,f], G), [e,f,g]),
+    ok = eval(digraph_utils:reachable([h,h,h], G), [h]),
+    true = digraph:delete(G),
     ok.
 
-loop(doc) -> [];
-loop(suite) -> [];
 loop(Config) when is_list(Config) ->
-    ?line G = digraph:new(),
-    ?line add_vertices(G, [a,b]),
-    ?line add_edges(G, [{a,a},{b,b}]),
-    ?line ok = evall(digraph_utils:components(G), [[a],[b]]),
-    ?line ok = evall(digraph_utils:strong_components(G), [[a],[b]]),
-    ?line ok = evall(digraph_utils:cyclic_strong_components(G), [[a],[b]]),
-    ?line [_,_] = digraph_utils:topsort(G),
-    ?line false = digraph_utils:is_acyclic(G),	
-    ?line ok = eval(digraph_utils:loop_vertices(G), [a,b]),
-    ?line [_,_] = digraph_utils:preorder(G),
-    ?line [_,_] = digraph_utils:postorder(G),
-    ?line ok = eval(digraph_utils:reaching([b], G), [b]),
-    ?line ok = eval(digraph_utils:reaching_neighbours([b], G), [b]),
-    ?line ok = eval(digraph_utils:reachable([b], G), [b]),
-    ?line ok = eval(digraph_utils:reachable_neighbours([b], G), [b]),
-    ?line true = path(G, a, a),
-    ?line true = digraph:delete(G),
+    G = digraph:new(),
+    add_vertices(G, [a,b]),
+    add_edges(G, [{a,a},{b,b}]),
+    ok = evall(digraph_utils:components(G), [[a],[b]]),
+    ok = evall(digraph_utils:strong_components(G), [[a],[b]]),
+    ok = evall(digraph_utils:cyclic_strong_components(G), [[a],[b]]),
+    [_,_] = digraph_utils:topsort(G),
+    false = digraph_utils:is_acyclic(G),
+    ok = eval(digraph_utils:loop_vertices(G), [a,b]),
+    [_,_] = digraph_utils:preorder(G),
+    [_,_] = digraph_utils:postorder(G),
+    ok = eval(digraph_utils:reaching([b], G), [b]),
+    ok = eval(digraph_utils:reaching_neighbours([b], G), [b]),
+    ok = eval(digraph_utils:reachable([b], G), [b]),
+    ok = eval(digraph_utils:reachable_neighbours([b], G), [b]),
+    true = path(G, a, a),
+    true = digraph:delete(G),
     ok.
 
-isolated(doc) -> [];
-isolated(suite) -> [];
 isolated(Config) when is_list(Config) ->
-    ?line G = digraph:new(),
-    ?line add_vertices(G, [a,b]),
-    ?line ok = evall(digraph_utils:components(G), [[a],[b]]),
-    ?line ok = evall(digraph_utils:strong_components(G), [[a],[b]]),
-    ?line ok = evall(digraph_utils:cyclic_strong_components(G), []),
-    ?line [_,_] = digraph_utils:topsort(G),
-    ?line true = digraph_utils:is_acyclic(G),	
-    ?line ok = eval(digraph_utils:loop_vertices(G), []),
-    ?line [_,_] = digraph_utils:preorder(G),
-    ?line [_,_] = digraph_utils:postorder(G),
-    ?line ok = eval(digraph_utils:reaching([b], G), [b]),
-    ?line ok = eval(digraph_utils:reaching_neighbours([b], G), []),
-    ?line ok = eval(digraph_utils:reachable([b], G), [b]),
-    ?line ok = eval(digraph_utils:reachable_neighbours([b], G), []),
-    ?line false = path(G, a, a),
-    ?line true = digraph:delete(G),
+    G = digraph:new(),
+    add_vertices(G, [a,b]),
+    ok = evall(digraph_utils:components(G), [[a],[b]]),
+    ok = evall(digraph_utils:strong_components(G), [[a],[b]]),
+    ok = evall(digraph_utils:cyclic_strong_components(G), []),
+    [_,_] = digraph_utils:topsort(G),
+    true = digraph_utils:is_acyclic(G),
+    ok = eval(digraph_utils:loop_vertices(G), []),
+    [_,_] = digraph_utils:preorder(G),
+    [_,_] = digraph_utils:postorder(G),
+    ok = eval(digraph_utils:reaching([b], G), [b]),
+    ok = eval(digraph_utils:reaching_neighbours([b], G), []),
+    ok = eval(digraph_utils:reachable([b], G), [b]),
+    ok = eval(digraph_utils:reachable_neighbours([b], G), []),
+    false = path(G, a, a),
+    true = digraph:delete(G),
     ok.
 
-topsort(doc) -> [];
-topsort(suite) -> [];
 topsort(Config) when is_list(Config) ->
-    ?line G = digraph:new(),
-    ?line add_edges(G, [{a,b},{b,c},{c,d},{d,e},{e,f}]),
-    ?line ok = eval(digraph_utils:topsort(G), [a,b,c,d,e,f]),
-    ?line true = digraph:delete(G),
+    G = digraph:new(),
+    add_edges(G, [{a,b},{b,c},{c,d},{d,e},{e,f}]),
+    ok = eval(digraph_utils:topsort(G), [a,b,c,d,e,f]),
+    true = digraph:delete(G),
     ok.
 
-subgraph(doc) -> [];
-subgraph(suite) -> [];
 subgraph(Config) when is_list(Config) ->
-    ?line G = digraph:new([acyclic]),
-    ?line add_edges(G, [{b,c},{b,d},{e,f},{f,fg,fgl,g},{f,fg2,fgl2,g},{g,e},
-			{h,h},{i,i},{i,j}]),
-    ?line add_vertices(G, [{b,bl},{f,fl}]),
-    ?line SG = digraph_utils:subgraph(G, [u1,b,c,u2,f,g,i,u3]),
-    ?line [b,c,f,g,i] = lists:sort(digraph:vertices(SG)),
-    ?line {b,bl} = digraph:vertex(SG, b),
-    ?line {c,[]} = digraph:vertex(SG, c),
-    ?line {fg,f,g,fgl} = digraph:edge(SG, fg),
-    ?line {fg2,f,g,fgl2} = digraph:edge(SG, fg2),
-    ?line {_, {_, acyclic}} = lists:keysearch(cyclicity, 1, digraph:info(SG)),
-    ?line true = digraph:delete(SG),
+    G = digraph:new([acyclic]),
+    add_edges(G, [{b,c},{b,d},{e,f},{f,fg,fgl,g},{f,fg2,fgl2,g},{g,e},
+		  {h,h},{i,i},{i,j}]),
+    add_vertices(G, [{b,bl},{f,fl}]),
+    SG = digraph_utils:subgraph(G, [u1,b,c,u2,f,g,i,u3]),
+    [b,c,f,g,i] = lists:sort(digraph:vertices(SG)),
+    {b,bl} = digraph:vertex(SG, b),
+    {c,[]} = digraph:vertex(SG, c),
+    {fg,f,g,fgl} = digraph:edge(SG, fg),
+    {fg2,f,g,fgl2} = digraph:edge(SG, fg2),
+    {_, {_, acyclic}} = lists:keysearch(cyclicity, 1, digraph:info(SG)),
+    true = digraph:delete(SG),
 
-    ?line SG1 = digraph_utils:subgraph(G, [f, g, h], 
-				       [{type, []}, {keep_labels, false}]),
-    ?line [f,g,h] = lists:sort(digraph:vertices(SG1)),
-    ?line {f,[]} = digraph:vertex(SG1, f),
-    ?line {fg,f,g,[]} = digraph:edge(SG1, fg),
-    ?line {_, {_, cyclic}} = lists:keysearch(cyclicity, 1, digraph:info(SG1)),
-    ?line true = digraph:delete(SG1),
-    
-    ?line SG2 = digraph_utils:subgraph(G, [f, g, h], 
-				       [{type, [acyclic]}, 
-					{keep_labels, true}]),
-    ?line [f,g,h] = lists:sort(digraph:vertices(SG2)),
-    ?line {f,fl} = digraph:vertex(SG2, f),
-    ?line {fg,f,g,fgl} = digraph:edge(SG2, fg),
-    ?line {_, {_, acyclic}} = lists:keysearch(cyclicity, 1, digraph:info(SG2)),
-    ?line true = digraph:delete(SG2),
-    
-    ?line {'EXIT',{badarg,_}} =
+    SG1 = digraph_utils:subgraph(G, [f, g, h],
+				 [{type, []}, {keep_labels, false}]),
+    [f,g,h] = lists:sort(digraph:vertices(SG1)),
+    {f,[]} = digraph:vertex(SG1, f),
+    {fg,f,g,[]} = digraph:edge(SG1, fg),
+    {_, {_, cyclic}} = lists:keysearch(cyclicity, 1, digraph:info(SG1)),
+    true = digraph:delete(SG1),
+
+    SG2 = digraph_utils:subgraph(G, [f, g, h],
+				 [{type, [acyclic]},
+				  {keep_labels, true}]),
+    [f,g,h] = lists:sort(digraph:vertices(SG2)),
+    {f,fl} = digraph:vertex(SG2, f),
+    {fg,f,g,fgl} = digraph:edge(SG2, fg),
+    {_, {_, acyclic}} = lists:keysearch(cyclicity, 1, digraph:info(SG2)),
+    true = digraph:delete(SG2),
+
+    {'EXIT',{badarg,_}} =
 	(catch digraph_utils:subgraph(G, [f], [{invalid, opt}])),
-    ?line {'EXIT',{badarg,_}} =
+    {'EXIT',{badarg,_}} =
 	(catch digraph_utils:subgraph(G, [f], [{keep_labels, not_Bool}])),
-    ?line {'EXIT',{badarg,_}} =
+    {'EXIT',{badarg,_}} =
 	(catch digraph_utils:subgraph(G, [f], [{type, not_type}])),
-    ?line {'EXIT',{badarg,_}} =
+    {'EXIT',{badarg,_}} =
 	(catch digraph_utils:subgraph(G, [f], [{type, [not_type]}])),
-    ?line {'EXIT',{badarg,_}} =
+    {'EXIT',{badarg,_}} =
 	(catch digraph_utils:subgraph(G, [f], not_a_list)),
 
-    ?line true = digraph:delete(G),
+    true = digraph:delete(G),
 
     ok.
 
-condensation(doc) -> [];
-condensation(suite) -> [];
 condensation(Config) when is_list(Config) ->
-    ?line G = digraph:new([]),
-    ?line add_edges(G, [{b,c},{b,d},{e,f},{f,fg,fgl,g},{f,fg2,fgl2,g},{g,e},
-			{h,h},{j,i},{i,j}]),
-    ?line add_vertices(G, [q]),
-    ?line CG = digraph_utils:condensation(G),
-    ?line Vs = sort_2(digraph:vertices(CG)),
-    ?line [[b],[c],[d],[e,f,g],[h],[i,j],[q]] = Vs,
-    ?line Fun = fun(E) -> 
-			{_E, V1, V2, _L} = digraph:edge(CG, E), 
-			{lists:sort(V1), lists:sort(V2)} 
-		end,
-    ?line Es = lists:map(Fun, digraph:edges(CG)),
-    ?line [{[b],[c]},{[b],[d]}] = lists:sort(Es),
-    ?line true = digraph:delete(CG),
-    ?line true = digraph:delete(G),
+    G = digraph:new([]),
+    add_edges(G, [{b,c},{b,d},{e,f},{f,fg,fgl,g},{f,fg2,fgl2,g},{g,e},
+		  {h,h},{j,i},{i,j}]),
+    add_vertices(G, [q]),
+    CG = digraph_utils:condensation(G),
+    Vs = sort_2(digraph:vertices(CG)),
+    [[b],[c],[d],[e,f,g],[h],[i,j],[q]] = Vs,
+    Fun = fun(E) ->
+		  {_E, V1, V2, _L} = digraph:edge(CG, E),
+		  {lists:sort(V1), lists:sort(V2)}
+	  end,
+    Es = lists:map(Fun, digraph:edges(CG)),
+    [{[b],[c]},{[b],[d]}] = lists:sort(Es),
+    true = digraph:delete(CG),
+    true = digraph:delete(G),
     ok.
 
-tree(doc) -> ["OTP-7081"];
-tree(suite) -> [];
+%% OTP-7081
 tree(Config) when is_list(Config) ->
-    ?line false = is_tree([], []),
-    ?line true = is_tree([a], []),
-    ?line false = is_tree([a,b], []),
-    ?line true = is_tree([{a,b}]),
-    ?line false = is_tree([{a,b},{b,a}]),
-    ?line true = is_tree([{a,b},{a,c},{b,d},{b,e}]),
-    ?line false = is_tree([{a,b},{a,c},{b,d},{b,e}, {d,e}]),
-    ?line false = is_tree([{a,b},{a,c},{b,d},{b,e}, {b,e}]),
-    ?line true = is_tree([{a,c},{c,b}]),
-    ?line true = is_tree([{b,a},{c,a}]),
+    false = is_tree([], []),
+    true = is_tree([a], []),
+    false = is_tree([a,b], []),
+    true = is_tree([{a,b}]),
+    false = is_tree([{a,b},{b,a}]),
+    true = is_tree([{a,b},{a,c},{b,d},{b,e}]),
+    false = is_tree([{a,b},{a,c},{b,d},{b,e}, {d,e}]),
+    false = is_tree([{a,b},{a,c},{b,d},{b,e}, {b,e}]),
+    true = is_tree([{a,c},{c,b}]),
+    true = is_tree([{b,a},{c,a}]),
     %% Parallel edges. Acyclic and with one componets
     %% (according to the digraph module).
-    ?line false = is_tree([{a,b},{a,b}]),
+    false = is_tree([{a,b},{a,b}]),
 
-    ?line no = arborescence_root([], []),
-    ?line {yes, a} = arborescence_root([a], []),
-    ?line no = arborescence_root([a,b], []),
-    ?line {yes, a} = arborescence_root([{a,b}]),
-    ?line no = arborescence_root([{a,b},{b,a}]),
-    ?line {yes, a} = arborescence_root([{a,b},{a,c},{b,d},{b,e}]),
-    ?line no = arborescence_root([{a,b},{a,c},{b,d},{b,e}, {d,e}]),
-    ?line no = arborescence_root([{a,b},{a,c},{b,d},{b,e}, {b,e}]),
-    ?line {yes, a} = arborescence_root([{a,c},{c,b}]),
-    ?line no = arborescence_root([{b,a},{c,a}]),
+    no = arborescence_root([], []),
+    {yes, a} = arborescence_root([a], []),
+    no = arborescence_root([a,b], []),
+    {yes, a} = arborescence_root([{a,b}]),
+    no = arborescence_root([{a,b},{b,a}]),
+    {yes, a} = arborescence_root([{a,b},{a,c},{b,d},{b,e}]),
+    no = arborescence_root([{a,b},{a,c},{b,d},{b,e}, {d,e}]),
+    no = arborescence_root([{a,b},{a,c},{b,d},{b,e}, {b,e}]),
+    {yes, a} = arborescence_root([{a,c},{c,b}]),
+    no = arborescence_root([{b,a},{c,a}]),
 
-    ?line false = is_arborescence([], []),
-    ?line true = is_arborescence([a], []),
-    ?line false = is_arborescence([a,b], []),
-    ?line true = is_arborescence([{a,b}]),
-    ?line false = is_arborescence([{a,b},{b,a}]),
-    ?line true = is_arborescence([{a,b},{a,c},{b,d},{b,e}]),
-    ?line false = is_arborescence([{a,b},{a,c},{b,d},{b,e}, {d,e}]),
-    ?line false = is_arborescence([{a,b},{a,c},{b,d},{b,e}, {b,e}]),
-    ?line true = is_arborescence([{a,c},{c,b}]),
-    ?line false = is_arborescence([{b,a},{c,a}]),
+    false = is_arborescence([], []),
+    true = is_arborescence([a], []),
+    false = is_arborescence([a,b], []),
+    true = is_arborescence([{a,b}]),
+    false = is_arborescence([{a,b},{b,a}]),
+    true = is_arborescence([{a,b},{a,c},{b,d},{b,e}]),
+    false = is_arborescence([{a,b},{a,c},{b,d},{b,e}, {d,e}]),
+    false = is_arborescence([{a,b},{a,c},{b,d},{b,e}, {b,e}]),
+    true = is_arborescence([{a,c},{c,b}]),
+    false = is_arborescence([{b,a},{c,a}]),
 
     %% Parallel edges.
-    ?line false = is_arborescence([{a,b},{a,b}]),
+    false = is_arborescence([{a,b},{a,b}]),
 
     ok.
 
@@ -325,7 +312,7 @@ eval(L, E) ->
 evall(L, E) ->
     F = fun(L1) -> lists:sort(L1) end,
     Fun = fun(LL) -> F(lists:map(F, LL)) end,
-    
+
     Expected = Fun(E),
     Got = Fun(L),
     if 

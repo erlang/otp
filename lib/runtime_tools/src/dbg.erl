@@ -298,7 +298,12 @@ tracer(port, Port) when is_port(Port) ->
     start(fun() -> Port end);
 
 tracer(process, {Handler,HandlerData}) ->
-    start(fun() -> start_tracer_process(Handler, HandlerData) end).
+    start(fun() -> start_tracer_process(Handler, HandlerData) end);
+
+tracer(module, Fun) when is_function(Fun) ->
+    start(Fun);
+tracer(module, {Module, State}) ->
+    start(fun() -> {Module, State} end).
 
 
 remote_tracer(port, Fun) when is_function(Fun) ->
@@ -308,7 +313,13 @@ remote_tracer(port, Port) when is_port(Port) ->
     remote_start(fun() -> Port end);
 
 remote_tracer(process, {Handler,HandlerData}) ->
-    remote_start(fun() -> start_tracer_process(Handler, HandlerData) end).
+    remote_start(fun() -> start_tracer_process(Handler, HandlerData) end);
+
+remote_tracer(module, Fun) when is_function(Fun) ->
+    remote_start(Fun);
+remote_tracer(module, {Module, State}) ->
+    remote_start(fun() -> {Module, State} end).
+
 
 remote_start(StartTracer) ->
     case (catch StartTracer()) of
@@ -543,9 +554,8 @@ c(M, F, A, Flags) ->
 	{error,Reason} -> {error,Reason};
 	Flags1 ->
 	    tracer(),
-	    {ok, Tracer} = get_tracer(),
 	    S = self(),
-	    Pid = spawn(fun() -> c(S, M, F, A, [{tracer, Tracer} | Flags1]) end),
+	    Pid = spawn(fun() -> c(S, M, F, A, [get_tracer_flag() | Flags1]) end),
 	    Mref = erlang:monitor(process, Pid),
 	    receive
 		{'DOWN', Mref, _, _, Reason} ->
@@ -660,6 +670,9 @@ loop({C,T}=SurviveLinks, Table) ->
 			    reply(From, {error, Reason});
 			Tracer when is_pid(Tracer); is_port(Tracer) ->
 			    put(node(),{self(),Tracer}),
+			    reply(From, {ok,self()});
+                        {Module, _State} = Tracer when is_atom(Module) ->
+                            put(node(),{self(),Tracer}),
 			    reply(From, {ok,self()})
 		    end;
 		{_Relay,_Tracer} ->
@@ -709,6 +722,9 @@ loop({C,T}=SurviveLinks, Table) ->
 		    loop(SurviveLinks, Table);
 		{_LocalRelay,Tracer} when is_port(Tracer) -> 
 		    reply(From, {error, cant_trace_remote_pid_to_local_port}),
+		    loop(SurviveLinks, Table);
+		{_LocalRelay,Tracer} when is_tuple(Tracer) -> 
+		    reply(From, {error, cant_trace_remote_pid_to_local_module}),
 		    loop(SurviveLinks, Table);
 	        {_LocalRelay,Tracer} when is_pid(Tracer) ->
 		    case (catch relay(Node, Tracer)) of
@@ -879,9 +895,9 @@ trac(Proc, How, Flags) ->
 	    end
     end.
 
-trac(Node, {_Relay, Tracer}, AtomPid, How, Flags) ->
+trac(Node, {_Replay, Tracer}, AtomPid, How, Flags) ->
     case rpc:call(Node, ?MODULE, erlang_trace,
-		  [AtomPid, How, [{tracer, Tracer} | Flags]]) of
+		  [AtomPid, How, [get_tracer_flag(Tracer) | Flags]]) of
 	N when is_integer(N) ->
 	    {matched, Node, N};
 	{badrpc,Reason} ->
@@ -1114,7 +1130,7 @@ transform_flags([sos|Tail],Acc) -> transform_flags(Tail,[set_on_spawn|Acc]);
 transform_flags([sol|Tail],Acc) -> transform_flags(Tail,[set_on_link|Acc]);
 transform_flags([sofs|Tail],Acc) -> transform_flags(Tail,[set_on_first_spawn|Acc]);
 transform_flags([sofl|Tail],Acc) -> transform_flags(Tail,[set_on_first_link|Acc]);
-transform_flags([all|_],_Acc) -> all()--[silent];
+transform_flags([all|_],_Acc) -> all()--[silent,running];
 transform_flags([F|Tail]=List,Acc) when is_atom(F) ->
     case lists:member(F, all()) of
 	true -> transform_flags(Tail,[F|Acc]);
@@ -1123,9 +1139,10 @@ transform_flags([F|Tail]=List,Acc) when is_atom(F) ->
 transform_flags(Bad,_Acc) -> {error,{bad_flags,Bad}}.
 
 all() ->
-    [send,'receive',call,procs,garbage_collection,running,
+    [send,'receive',call,procs,ports,garbage_collection,running,
      set_on_spawn,set_on_first_spawn,set_on_link,set_on_first_link,
-     timestamp,arity,return_to,silent].
+     timestamp,monotonic_timestamp,strict_monotonic_timestamp,
+     arity,return_to,silent,running_procs,running_ports].
 
 display_info([Node|Nodes]) ->
     io:format("~nNode ~w:~n",[Node]),
@@ -1146,23 +1163,33 @@ display_info1([]) ->
     ok.
 
 get_info() ->
-    get_info(processes(),[]).
+    get_info(processes(),get_info(erlang:ports(),[])).
 
+get_info([Port|T], Acc) when is_port(Port) ->
+    case pinfo(Port, name) of
+        undefined ->
+            get_info(T,Acc);
+        {name, Name} ->
+            get_info(T,get_tinfo(Port, Name, Acc))
+    end;
 get_info([Pid|T],Acc) ->
     case pinfo(Pid, initial_call) of
         undefined ->
             get_info(T,Acc);
         {initial_call, Call} ->
-	    case tinfo(Pid, flags) of
-		undefined ->
-		    get_info(T,Acc);
-		{flags,[]} ->
-		    get_info(T,Acc);
-		{flags,Flags} ->
-		    get_info(T,[{Pid,Call,Flags}|Acc])
-	    end
+            get_info(T,get_tinfo(Pid, Call, Acc))
     end;
 get_info([],Acc) -> Acc.
+
+get_tinfo(P, Id, Acc) ->
+    case tinfo(P, flags) of
+        undefined ->
+            Acc;
+		{flags,[]} ->
+            Acc;
+        {flags,Flags} ->
+            [{P,Id,Flags}|Acc]
+    end.
 
 format_trace([]) -> [];
 format_trace([Item]) -> [ts(Item)];
@@ -1188,9 +1215,22 @@ to_pidspec(X) when is_pid(X) ->
 	true -> X;
 	false -> {badpid,X}
     end;
-to_pidspec(new) -> new;
-to_pidspec(all) -> all;
-to_pidspec(existing) -> existing;
+to_pidspec(X) when is_port(X) ->
+    case erlang:port_info(X) of
+        undefined -> {badport, X};
+        _ -> X
+    end;
+to_pidspec(Tag)
+  when Tag =:= all;
+       Tag =:= ports;
+       Tag =:= processes;
+       Tag =:= new;
+       Tag =:= new_ports;
+       Tag =:= new_processes;
+       Tag =:= existing;
+       Tag =:= existing_ports;
+       Tag =:= existing_processes ->
+    Tag;
 to_pidspec(X) when is_atom(X) ->
     case whereis(X) of
 	undefined -> {badpid,X};
@@ -1203,6 +1243,7 @@ to_pidspec(X) -> {badpid,X}.
 %%
 
 to_pid(X) when is_pid(X) -> X;
+to_pid(X) when is_port(X) -> X;
 to_pid(X) when is_integer(X) -> to_pid({0,X,0});
 to_pid({X,Y,Z}) ->
     to_pid(lists:concat(["<",integer_to_list(X),".",
@@ -1217,8 +1258,11 @@ to_pid(X) when is_list(X) ->
 to_pid(X) -> {badpid,X}.
 
 
+pinfo(P, X) when node(P) == node(), is_port(P) -> erlang:port_info(P, X);
 pinfo(P, X) when node(P) == node() -> erlang:process_info(P, X);
+pinfo(P, X) when is_port(P) -> check(rpc:call(node(P), erlang, port_info, [P, X]));
 pinfo(P, X) -> check(rpc:call(node(P), erlang, process_info, [P, X])).
+
 
 tinfo(P, X) when node(P) == node() -> erlang:trace_info(P, X);
 tinfo(P, X) -> check(rpc:call(node(P), erlang, trace_info, [P, X])).
@@ -1411,6 +1455,13 @@ get_tracer() ->
     req({get_tracer,node()}).
 get_tracer(Node) ->
     req({get_tracer,Node}).
+get_tracer_flag() ->
+    {ok, Tracer} = get_tracer(),
+    get_tracer_flag(Tracer).
+get_tracer_flag({Module,State}) ->
+    {tracer, Module, State};
+get_tracer_flag(Port = Pid) when is_port(Port); is_pid(Pid)->
+    {tracer, Pid = Port}.
 
 save_pattern([]) ->
     0;
