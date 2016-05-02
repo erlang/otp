@@ -82,7 +82,7 @@ erts_smp_atomic32_t erts_staging_bp_index;
 static ERTS_INLINE ErtsMonotonicTime
 get_mtime(Process *c_p)
 {
-    return erts_get_monotonic_time(ERTS_PROC_GET_SCHDATA(c_p));
+    return erts_get_monotonic_time(erts_proc_sched_data(c_p));
 }
 
 /* *************************************************************************
@@ -976,7 +976,8 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     BpDataTime *pbdt = NULL;
 
     ASSERT(c_p);
-    ASSERT(erts_smp_atomic32_read_acqb(&c_p->state) & ERTS_PSFLG_RUNNING);
+    ASSERT(erts_smp_atomic32_read_acqb(&c_p->state) & (ERTS_PSFLG_RUNNING
+						       | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
      * from the process psd  */
@@ -1053,7 +1054,8 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
     BpDataTime *pbdt = NULL;
 
     ASSERT(p);
-    ASSERT(erts_smp_atomic32_read_acqb(&p->state) & ERTS_PSFLG_RUNNING);
+    ASSERT(erts_smp_atomic32_read_acqb(&p->state) & (ERTS_PSFLG_RUNNING
+						     | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
      * from the process psd  */

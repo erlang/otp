@@ -118,7 +118,9 @@ process_killer(void)
 				 | ERTS_PSFLG_ACTIVE_SYS
 				 | ERTS_PSFLG_IN_RUNQ
 				 | ERTS_PSFLG_RUNNING
-				 | ERTS_PSFLG_RUNNING_SYS)) {
+				 | ERTS_PSFLG_RUNNING_SYS
+				 | ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
 			erts_printf("Can only kill WAITING processes this way\n");
 		    }
 		    else {
@@ -214,7 +216,8 @@ print_process_info(int to, void *to_arg, Process *p)
     if (state & ERTS_PSFLG_GC) {
         garbing = 1;
         running = 1;
-    } else if (state & ERTS_PSFLG_RUNNING)
+    } else if (state & (ERTS_PSFLG_RUNNING
+			| ERTS_PSFLG_DIRTY_RUNNING))
         running = 1;
 
     /*

@@ -304,6 +304,7 @@ typedef enum {
     ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN_IX,
     ERTS_SSI_AUX_WORK_MISC_THR_PRGR_IX,
     ERTS_SSI_AUX_WORK_MISC_IX,
+    ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX,
     ERTS_SSI_AUX_WORK_SET_TMO_IX,
     ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX,
     ERTS_SSI_AUX_WORK_REAP_PORTS_IX,
@@ -336,6 +337,8 @@ typedef enum {
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MISC_THR_PRGR_IX)
 #define ERTS_SSI_AUX_WORK_MISC \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MISC_IX)
+#define ERTS_SSI_AUX_WORK_PENDING_EXITERS \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX)
 #define ERTS_SSI_AUX_WORK_SET_TMO \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_SET_TMO_IX)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK \
@@ -645,6 +648,7 @@ struct ErtsSchedulerData_ {
     Uint no;			/* Scheduler number for normal schedulers */
 #ifdef ERTS_DIRTY_SCHEDULERS
     ErtsDirtySchedId dirty_no;  /* Scheduler number for dirty schedulers */
+    Process *dirty_shadow_process;
 #endif
     Port *current_port;
     ErtsRunQueue *run_queue;
@@ -805,14 +809,26 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_CALL_TIME_BP			3
 #define ERTS_PSD_DELAYED_GC_TASK_QS		4
 #define ERTS_PSD_NIF_TRAP_EXPORT		5
-#ifdef HIPE
 #define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	6
-#endif
+#define ERTS_PSD_DIRTY_CPU_START		7
 
-#ifdef HIPE
-#define ERTS_PSD_SIZE				7
-#else
-#define ERTS_PSD_SIZE				6
+#define ERTS_PSD_SIZE				8
+
+#if !defined(HIPE) && !defined(ERTS_DIRTY_SCHEDULERS)
+#  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
+#  undef ERTS_PSD_DIRTY_CPU_START
+#  undef ERTS_PSD_SIZE
+#  define ERTS_PSD_SIZE 6
+#elif !defined(HIPE)
+#  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
+#  undef ERTS_PSD_DIRTY_CPU_START
+#  undef ERTS_PSD_SIZE
+#  define ERTS_PSD_DIRTY_CPU_START		6
+#  define ERTS_PSD_SIZE 7
+#elif !defined(ERTS_DIRTY_SCHEDULERS)
+#  undef ERTS_PSD_DIRTY_CPU_START
+#  undef ERTS_PSD_SIZE
+#  define ERTS_PSD_SIZE 7
 #endif
 
 typedef struct {
@@ -1183,7 +1199,10 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_DIRTY_CPU_PROC	ERTS_PSFLG_BIT(20)
 #define ERTS_PSFLG_DIRTY_IO_PROC	ERTS_PSFLG_BIT(21)
 #define ERTS_PSFLG_DIRTY_ACTIVE_SYS	ERTS_PSFLG_BIT(22)
-#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 22)
+#define ERTS_PSFLG_DIRTY_RUNNING	ERTS_PSFLG_BIT(23)
+#define ERTS_PSFLG_DIRTY_RUNNING_SYS	ERTS_PSFLG_BIT(24)
+
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 24)
 
 #define ERTS_PSFLGS_DIRTY_WORK		(ERTS_PSFLG_DIRTY_CPU_PROC	\
 					 | ERTS_PSFLG_DIRTY_IO_PROC	\
@@ -1193,6 +1212,11 @@ void erts_check_for_holes(Process* p);
 					 | ERTS_PSFLG_IN_PRQ_HIGH	\
 					 | ERTS_PSFLG_IN_PRQ_NORMAL	\
 					 | ERTS_PSFLG_IN_PRQ_LOW)
+
+#define ERTS_PSFLGS_VOLATILE_HEAP	(ERTS_PSFLG_EXITING		\
+					 | ERTS_PSFLG_PENDING_EXIT	\
+					 | ERTS_PSFLG_DIRTY_RUNNING	\
+					 | ERTS_PSFLG_DIRTY_RUNNING_SYS)
 
 #define ERTS_PSFLGS_GET_ACT_PRIO(PSFLGS) \
     (((PSFLGS) >> ERTS_PSFLGS_ACT_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
@@ -1235,6 +1259,7 @@ void erts_check_for_holes(Process* p);
  * Static flags that do not change after process creation.
  */
 #define ERTS_STC_FLG_SYSTEM_PROC	(((Uint32) 1) << 0)
+#define ERTS_STC_FLG_SHADOW_PROC	(((Uint32) 1) << 1)
 
 /* The sequential tracing token is a tuple of size 5:
  *
@@ -1363,6 +1388,7 @@ extern int erts_system_profile_ts_type;
 #define F_SCHDLR_ONLN_WAITQ  (1 << 17) /* Process enqueued waiting to change schedulers online */
 #define F_HAVE_BLCKD_NMSCHED (1 << 18) /* Process has blocked normal multi-scheduling */
 #define F_HIPE_MODE          (1 << 19)
+#define F_DELAYED_DEL_PROC   (1 << 20) /* Delay delete process (dirty proc exit case) */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1783,7 +1809,8 @@ erts_aint32_t erts_set_aux_work_timeout(int, erts_aint32_t, int);
 void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
 void erts_init_process(int, int, int);
-Eterm erts_process_status(Process *, ErtsProcLocks, Process *, Eterm);
+Eterm erts_process_state2status(erts_aint32_t);
+Eterm erts_process_status(Process *, Eterm);
 Uint erts_run_queues_len(Uint *, int, int);
 void erts_add_to_runq(Process *);
 Eterm erts_bound_schedulers_term(Process *c_p);
@@ -1860,19 +1887,11 @@ int erts_debug_wait_completed(Process *c_p, int flags);
 
 Uint erts_process_memory(Process *c_p, int incl_msg_inq);
 
-#ifdef ERTS_SMP
-#  define ERTS_GET_SCHEDULER_DATA_FROM_PROC(PROC) ((PROC)->scheduler_data)
-#  define ERTS_PROC_GET_SCHDATA(PROC) ((PROC)->scheduler_data)
-#else
-#  define ERTS_GET_SCHEDULER_DATA_FROM_PROC(PROC) (erts_scheduler_data)
-#  define ERTS_PROC_GET_SCHDATA(PROC) (erts_scheduler_data)
-#endif
-
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
 #  define ERTS_VERIFY_UNUSED_TEMP_ALLOC(P)					\
 do {										\
     ErtsSchedulerData *esdp__ = ((P)						\
-				 ? ERTS_PROC_GET_SCHDATA((Process *) (P))	\
+				 ? erts_proc_sched_data((Process *) (P))	\
 				 : erts_get_scheduler_data());			\
     if (esdp__ && !ERTS_SCHEDULER_IS_DIRTY(esdp__))				\
 	esdp__->verify_unused_temp_alloc(					\
@@ -1965,12 +1984,15 @@ erts_psd_set(Process *p, int ix, void *data)
     ErtsPSD *psd;
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
     ErtsProcLocks locks = erts_proc_lc_my_proc_locks(p);
-    if (ERTS_LC_PSD_ANY_LOCK == erts_psd_required_locks[ix].set_locks)
-	ERTS_SMP_LC_ASSERT(locks || erts_thr_progress_is_blocking());
-    else {
-	locks &= erts_psd_required_locks[ix].set_locks;
-	ERTS_SMP_LC_ASSERT(erts_psd_required_locks[ix].set_locks == locks
-			   || erts_thr_progress_is_blocking());
+    erts_aint32_t state = state = erts_smp_atomic32_read_nob(&p->state);
+    if (!(state & ERTS_PSFLG_FREE)) {
+	if (ERTS_LC_PSD_ANY_LOCK == erts_psd_required_locks[ix].set_locks)
+	    ERTS_SMP_LC_ASSERT(locks || erts_thr_progress_is_blocking());
+	else {
+	    locks &= erts_psd_required_locks[ix].set_locks;
+	    ERTS_SMP_LC_ASSERT(erts_psd_required_locks[ix].set_locks == locks
+			       || erts_thr_progress_is_blocking());
+	}
     }
 #endif
     psd = (ErtsPSD *) erts_smp_atomic_read_nob(&p->psd);
@@ -2025,6 +2047,13 @@ erts_psd_set(Process *p, int ix, void *data)
   ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF))
 #define ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(P, SCB) \
   ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF, (void *) (SCB)))
+#endif
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+#define ERTS_PROC_GET_DIRTY_CPU_START(P) \
+  ((void *) erts_psd_get((P), ERTS_PSD_DIRTY_CPU_START))
+#define ERTS_PROC_SET_DIRTY_CPU_START(P, DCS) \
+  ((void *) erts_psd_set((P), ERTS_PSD_DIRTY_CPU_START, (void *) (DCS)))
 #endif
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
@@ -2169,6 +2198,7 @@ erts_check_emigration_need(ErtsRunQueue *c_rq, int prio)
 
 #endif
 
+ERTS_GLB_INLINE ErtsSchedulerData *erts_proc_sched_data(Process *c_p);
 ERTS_GLB_INLINE int erts_is_scheduler_bound(ErtsSchedulerData *esdp);
 ERTS_GLB_INLINE Process *erts_get_current_process(void);
 ERTS_GLB_INLINE Eterm erts_get_current_pid(void);
@@ -2200,6 +2230,31 @@ ERTS_GLB_INLINE void erts_shrink_message_heap(ErtsMessage **msgpp, Process *pp,
 					      Eterm *brefs, Uint brefs_size);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE
+ErtsSchedulerData *erts_proc_sched_data(Process *c_p)
+{
+    ErtsSchedulerData *esdp;
+    ASSERT(c_p);
+#if !defined(ERTS_SMP)
+    esdp = erts_get_scheduler_data();
+#else
+    esdp = c_p->scheduler_data;
+#  if defined(ERTS_DIRTY_SCHEDULERS)
+    if (esdp) {
+	ASSERT(esdp == erts_get_scheduler_data());
+	ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+    }
+    else {
+	esdp = erts_get_scheduler_data();
+	ASSERT(esdp);
+	ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
+    }
+#  endif
+#endif
+    ASSERT(esdp);
+    return esdp;
+}
 
 ERTS_GLB_INLINE
 int erts_is_scheduler_bound(ErtsSchedulerData *esdp)
@@ -2416,7 +2471,7 @@ ERTS_GLB_INLINE ErtsAtomCacheMap *
 erts_get_atom_cache_map(Process *c_p)
 {
     ErtsSchedulerData *esdp = (c_p
-			       ? ERTS_PROC_GET_SCHDATA(c_p)
+			       ? erts_proc_sched_data(c_p)
 			       : erts_get_scheduler_data());
     ASSERT(esdp);
     return &esdp->atom_cache_map;

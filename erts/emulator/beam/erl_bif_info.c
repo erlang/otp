@@ -1107,7 +1107,7 @@ process_info_aux(Process *BIF_P,
 	break;
 
     case am_status:
-	res = erts_process_status(BIF_P, ERTS_PROC_LOCK_MAIN, rp, rpid);
+	res = erts_process_status(rp, rpid);
 	ASSERT(res != am_undefined);
 	hp = HAlloc(BIF_P, 3);
 	break;
@@ -2035,12 +2035,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	Uint arity = *tp++;
 	return info_1_tuple(BIF_P, tp, arityval(arity));
     } else if (BIF_ARG_1 == am_scheduler_id) {
-#ifdef ERTS_SMP
-	    ASSERT(BIF_P->scheduler_data);
-	    BIF_RET(make_small(BIF_P->scheduler_data->no));
-#else
-	    BIF_RET(make_small(1));
-#endif
+	ErtsSchedulerData *esdp = erts_proc_sched_data(BIF_P);
+	BIF_RET(make_small(esdp->no));
     } else if (BIF_ARG_1 == am_compat_rel) {
 	ASSERT(erts_compat_rel > 0);
 	BIF_RET(make_small(erts_compat_rel));
@@ -3589,10 +3585,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		/* Used by timer process_SUITE, timer_bif_SUITE, and
 		   node_container_SUITE (emulator) */
 		if (is_internal_pid(tp[2])) {
-		    BIF_RET(erts_process_status(BIF_P,
-						ERTS_PROC_LOCK_MAIN,
-						NULL,
-						tp[2]));
+		    BIF_RET(erts_process_status(NULL, tp[2]));
 		}
 	    }
 	    else if (ERTS_IS_ATOM_STR("link_list", tp[1])) {

@@ -64,18 +64,21 @@
 #  ifdef ERTS_SMP
 #    define PROCESS_MAIN_CHK_LOCKS(P)					\
 do {									\
-    if ((P)) {								\
+    if ((P))								\
 	erts_proc_lc_chk_only_proc_main((P));				\
-    }									\
-    else								\
-	erts_lc_check_exact(NULL, 0);					\
-    	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
+    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
 } while (0)
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
-					   __FILE__, __LINE__)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)				\
+do {									\
+    if ((P))								\
+	erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,		\
+				  __FILE__, __LINE__);			\
+} while (0)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)				\
+do {									\
+    if ((P))								\
+	erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN);		\
+} while (0)
 #  else
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
 #    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
@@ -1202,12 +1205,12 @@ init_emulator(void)
     do {								\
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
 	    ASSERT(FC <= 0);						\
-	    ASSERT(ERTS_PROC_GET_SCHDATA(c_p)->virtual_reds		\
+	    ASSERT(erts_proc_sched_data(c_p)->virtual_reds		\
 		   <= 0 - (FC));					\
 	}								\
 	else {								\
 	    ASSERT(FC <= CONTEXT_REDS);					\
-	    ASSERT(ERTS_PROC_GET_SCHDATA(c_p)->virtual_reds		\
+	    ASSERT(erts_proc_sched_data(c_p)->virtual_reds		\
 		   <= CONTEXT_REDS - (FC));				\
 	}								\
 } while (0)
@@ -1321,8 +1324,8 @@ void process_main(void)
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
 	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule
-#ifdef ERTS_DIRTY_SCHEDULERS
-	    && !ERTS_SCHEDULER_IS_DIRTY(c_p->scheduler_data)
+#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
+	    && !ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p))
 #endif
 	    ) {
 	    BeamInstr *inptr = find_function_from_pc(start_time_i);
@@ -1351,8 +1354,8 @@ void process_main(void)
 	start_time_i = c_p->i;
     }
 
-    reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
-    freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
+    reg = erts_proc_sched_data(c_p)->x_reg_array;
+    freg = erts_proc_sched_data(c_p)->f_reg_array;
     ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
@@ -3524,18 +3527,27 @@ do {						\
 		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
+#ifdef ERTS_DIRTY_SCHEDULERS
+		if (!c_p->scheduler_data)
+		    live_hf_end = ERTS_INVALID_HFRAG_PTR; /* On dirty scheduler */
+		else
+#endif
+		    live_hf_end = c_p->mbuf;
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
-		live_hf_end = c_p->mbuf;
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
 		    nif_bif_result = THE_NON_VALUE;
 		erts_post_nif(&env);
-	    }
-	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
-	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 
-	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+		PROCESS_MAIN_CHK_LOCKS(c_p);
+		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+		ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+		if (env.exiting) {
+		    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+		    goto do_schedule;
+		}
+		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	    }
 
 	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    goto apply_bif_or_nif_epilogue;
@@ -4887,8 +4899,8 @@ do {						\
 #ifdef DEBUG
      pid = c_p->common.id; /* may have switched process... */
 #endif
-     reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
-     freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
+     reg = erts_proc_sched_data(c_p)->x_reg_array;
+     freg = erts_proc_sched_data(c_p)->f_reg_array;
      ERL_BITS_RELOAD_STATEP(c_p);
      /* XXX: this abuse of def_arg_reg[] is horrid! */
      neg_o_reds = -c_p->def_arg_reg[4];

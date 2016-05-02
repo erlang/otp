@@ -2512,7 +2512,7 @@ erts_port_output(Process *c_p,
 	    sigdp->flags &= ~ERTS_P2P_SIG_DATA_FLG_NOSUSPEND;
 	else if (async_nosuspend) {
 	    ErtsSchedulerData *esdp = (c_p
-				       ? ERTS_PROC_GET_SCHDATA(c_p)
+				       ? erts_proc_sched_data(c_p)
 				       : erts_get_scheduler_data());
 	    ASSERT(esdp);
 	    ns_pthp = &esdp->nosuspend_port_task_handle;
@@ -5140,7 +5140,7 @@ erts_request_io_bytes(Process *c_p)
     Uint *hp;
     Eterm ref;
     Uint32 *refn;
-    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
     ErtsIOBytesReq *req = erts_alloc(ERTS_ALC_T_IOB_REQ,
 				     sizeof(ErtsIOBytesReq));
 

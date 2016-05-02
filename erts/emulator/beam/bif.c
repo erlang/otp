@@ -1686,7 +1686,7 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 						 ERTS_PSFLG_BOUND);
        }
 
-       curr = ERTS_GET_SCHEDULER_DATA_FROM_PROC(BIF_P)->run_queue;
+       curr = erts_proc_sched_data(BIF_P)->run_queue;
        old = (ERTS_PSFLG_BOUND & state) ? curr : NULL;
 
        ASSERT(!old || old == curr);
@@ -4198,8 +4198,28 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	    else {
 		locks &= ~ERTS_PROC_LOCK_STATUS;
 		erts_smp_proc_unlock(new_member, ERTS_PROC_LOCK_STATUS);
-		new_member->group_leader = STORE_NC_IN_PROC(new_member,
-							    BIF_ARG_1);
+		if (erts_smp_atomic32_read_nob(&new_member->state)
+		    & !(ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+		    new_member->group_leader = STORE_NC_IN_PROC(new_member,
+								BIF_ARG_1);
+		}
+		else {
+		    ErlHeapFragment *bp;
+		    Eterm *hp;
+		    /*
+		     * Other process executing on a dirty scheduler,
+		     * so we are not allowed to write to its heap.
+		     * Store in heap fragment.
+		     */
+
+		    bp = new_message_buffer(NC_HEAP_SIZE(BIF_ARG_1));
+		    hp = bp->mem;
+		    new_member->group_leader = STORE_NC(&hp,
+							&new_member->off_heap,
+							BIF_ARG_1);
+		    bp->next = new_member->mbuf;
+		    new_member->mbuf = bp;
+		}
 	    }
 	}
 

@@ -3462,7 +3462,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
     fix = tb->common.fixations;
     if (fix == NULL) {
 	tb->common.time.monotonic
-	    = erts_get_monotonic_time(ERTS_PROC_GET_SCHDATA(p));
+	    = erts_get_monotonic_time(erts_proc_sched_data(p));
 	tb->common.time.offset = erts_get_time_offset();
     }
     else {

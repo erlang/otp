@@ -409,6 +409,10 @@ ErtsAlignedSchedulerData *erts_aligned_scheduler_data;
 #ifdef ERTS_DIRTY_SCHEDULERS
 ErtsAlignedSchedulerData *erts_aligned_dirty_cpu_scheduler_data;
 ErtsAlignedSchedulerData *erts_aligned_dirty_io_scheduler_data;
+typedef union {
+    Process dsp;
+    char align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(Process))];
+} ErtsAlignedDirtyShadowProcess;
 #endif
 
 typedef union {
@@ -589,6 +593,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
     valid |= ERTS_SSI_AUX_WORK_CNCLD_TMRS;
     valid |= ERTS_SSI_AUX_WORK_CNCLD_TMRS_THR_PRGR;
     valid |= ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP;
+    valid |= ERTS_SSI_AUX_WORK_PENDING_EXITERS;
 #endif
 #if HAVE_ERTS_MSEG
     valid |= ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK;
@@ -611,7 +616,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
 #endif
 
 #ifdef ERTS_SMP
-static void handle_pending_exiters(ErtsProcList *);
+static void do_handle_pending_exiters(ErtsProcList *);
 static void wake_scheduler(ErtsRunQueue *rq);
 #endif
 
@@ -679,6 +684,8 @@ erts_pre_init_process(void)
 	= "MISC_THR_PRGR";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MISC_IX]
 	= "MISC";
+    erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX]
+	= "PENDING_EXITERS";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_SET_TMO_IX]
 	= "SET_TMO";
     erts_aux_work_flag_descr[ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX]
@@ -1156,7 +1163,7 @@ reply_sched_wall_time(void *vswtrp)
 Eterm
 erts_sched_wall_time_request(Process *c_p, int set, int enable)
 {
-    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
     Eterm ref;
     ErtsSchedWallTimeReq *swtrp;
     Eterm *hp;
@@ -1234,7 +1241,7 @@ reply_system_check(void *vscrp)
 
 
 Eterm erts_system_check_request(Process *c_p) {
-    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
     Eterm ref;
     ErtsSystemCheckReq *scrp;
     Eterm *hp;
@@ -2336,6 +2343,30 @@ handle_mseg_cache_check(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiti
 
 #endif
 
+#ifdef ERTS_SMP
+
+static ERTS_INLINE erts_aint32_t
+handle_pending_exiters(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
+{
+    ErtsProcList *pnd_xtrs;
+    ErtsRunQueue *rq;
+
+    rq = awdp->esdp->run_queue;
+    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_PENDING_EXITERS);
+
+    erts_smp_runq_lock(rq);
+    pnd_xtrs = rq->procs.pending_exiters;
+    rq->procs.pending_exiters = NULL;
+    erts_smp_runq_unlock(rq);
+
+    if (erts_proclist_fetch(&pnd_xtrs, NULL))
+	do_handle_pending_exiters(pnd_xtrs);
+
+    return aux_work & ~ERTS_SSI_AUX_WORK_PENDING_EXITERS;
+}
+
+#endif
+
 static ERTS_INLINE erts_aint32_t
 handle_setup_aux_work_timer(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {
@@ -2427,6 +2458,10 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_MISC,
 		    handle_misc_aux_work);
 
+#ifdef ERTS_SMP
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_PENDING_EXITERS,
+		    handle_pending_exiters);
+#endif
 
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_SET_TMO,
 		    handle_setup_aux_work_timer);
@@ -3979,6 +4014,33 @@ schedule_bound_processes(ErtsRunQueue *rq,
     }
 }
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static ERTS_INLINE void
+clear_proc_dirty_queue_bit(Process *p, ErtsRunQueue *rq, int prio_bit)
+{
+#ifdef DEBUG
+    erts_aint32_t old;
+#endif
+    erts_aint32_t qb = prio_bit;
+    if (rq == ERTS_DIRTY_CPU_RUNQ)
+	qb <<= ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET;
+    else {
+	ASSERT(rq == ERTS_DIRTY_IO_RUNQ);
+	qb <<= ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET;
+    }
+#ifdef DEBUG
+    old = (int)
+#else
+	(void)
+#endif
+	erts_smp_atomic32_read_band_mb(&p->dirty_state, ~qb);
+    ASSERT(old & qb);
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
+
 static void
 evacuate_run_queue(ErtsRunQueue *rq,
 		   ErtsStuckBoundProcesses *sbpp)
@@ -4141,29 +4203,8 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	    }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-
-	    if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
-		erts_aint32_t dqbit = qbit;
-#ifdef DEBUG
-		erts_aint32_t old_dqbit;
-#endif
-
-		if (rq == ERTS_DIRTY_CPU_RUNQ)
-		    dqbit <<= ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET;
-		else {
-		    ASSERT(rq == ERTS_DIRTY_IO_RUNQ);
-		    dqbit <<= ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET;
-		}
-
-#ifdef DEBUG
-		old_dqbit = (int)
-#else
-		    (void)
-#endif
-		    erts_smp_atomic32_read_band_mb(&real_proc->dirty_state,
-						   ~dqbit);
-		ASSERT(old_dqbit & dqbit);
-	    }
+	    if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
+		clear_proc_dirty_queue_bit(real_proc, rq, qbit);
 #endif
 
 	    if (ERTS_PSFLG_BOUND & real_state) {
@@ -5653,7 +5694,8 @@ static void
 init_scheduler_data(ErtsSchedulerData* esdp, int num,
 		    ErtsSchedulerSleepInfo* ssi,
 		    ErtsRunQueue* runq,
-		    char** daww_ptr, size_t daww_sz)
+		    char** daww_ptr, size_t daww_sz,
+		    Process *shadow_proc)
 {
     esdp->timer_wheel = NULL;
 #ifdef ERTS_SMP
@@ -5676,6 +5718,15 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     else {
 	esdp->no = (Uint) num;
 	ERTS_DIRTY_SCHEDULER_NO(esdp) = 0;
+    }
+    esdp->dirty_shadow_process = shadow_proc;
+    if (shadow_proc) {
+	erts_init_empty_process(shadow_proc);
+	erts_smp_atomic32_init_nob(&shadow_proc->state,
+				   (ERTS_PSFLG_ACTIVE
+				    | ERTS_PSFLG_DIRTY_RUNNING
+				    | ERTS_PSFLG_PROXY));
+	shadow_proc->static_flags = ERTS_STC_FLG_SHADOW_PROC;
     }
 #else
     esdp->no = (Uint) num;
@@ -5928,30 +5979,40 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
     for (ix = 0; ix < n; ix++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
 	init_scheduler_data(esdp, ix+1, ERTS_SCHED_SLEEP_INFO_IX(ix),
-			    ERTS_RUNQ_IX(ix), &daww_ptr, daww_sz);
+			    ERTS_RUNQ_IX(ix), &daww_ptr, daww_sz,
+			    NULL);
     }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-#ifdef ERTS_SMP
-    erts_aligned_dirty_cpu_scheduler_data =
-	erts_alloc_permanent_cache_aligned(
-					   ERTS_ALC_T_SCHDLR_DATA,
-					   no_dirty_cpu_schedulers*sizeof(ErtsAlignedSchedulerData));
-    for (ix = 0; ix < no_dirty_cpu_schedulers; ix++) {
-	ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
-	init_scheduler_data(esdp, ix+1, ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(ix),
-			    ERTS_DIRTY_CPU_RUNQ, NULL, 0);
+    {
+	int dirty_scheds = no_dirty_cpu_schedulers + no_dirty_io_schedulers;
+	int adspix = 0;
+	ErtsAlignedDirtyShadowProcess *adsp =
+	    erts_alloc_permanent_cache_aligned(
+		ERTS_ALC_T_SCHDLR_DATA,
+		dirty_scheds * sizeof(ErtsAlignedDirtyShadowProcess));
+						   
+	erts_aligned_dirty_cpu_scheduler_data =
+	    erts_alloc_permanent_cache_aligned(
+		ERTS_ALC_T_SCHDLR_DATA,
+		dirty_scheds * sizeof(ErtsAlignedSchedulerData));
+
+	erts_aligned_dirty_io_scheduler_data =
+	    &erts_aligned_dirty_cpu_scheduler_data[no_dirty_cpu_schedulers];
+
+	for (ix = 0; ix < no_dirty_cpu_schedulers; ix++) {
+	    ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
+	    init_scheduler_data(esdp, ix+1, ERTS_DIRTY_CPU_SCHED_SLEEP_INFO_IX(ix),
+				ERTS_DIRTY_CPU_RUNQ, NULL, 0,
+				&adsp[adspix++].dsp);
+	}
+	for (ix = 0; ix < no_dirty_io_schedulers; ix++) {
+	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
+	    init_scheduler_data(esdp, ix+1, ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(ix),
+				ERTS_DIRTY_IO_RUNQ, NULL, 0,
+				&adsp[adspix++].dsp);
+	}
     }
-    erts_aligned_dirty_io_scheduler_data =
-	erts_alloc_permanent_cache_aligned(
-					   ERTS_ALC_T_SCHDLR_DATA,
-					   no_dirty_io_schedulers*sizeof(ErtsAlignedSchedulerData));
-    for (ix = 0; ix < no_dirty_io_schedulers; ix++) {
-	ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
-	init_scheduler_data(esdp, ix+1, ERTS_DIRTY_IO_SCHED_SLEEP_INFO_IX(ix),
-			    ERTS_DIRTY_IO_RUNQ, NULL, 0);
-    }
-#endif
 #endif
 
     init_misc_aux_work();
@@ -6167,7 +6228,7 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
     erts_aint32_t dact, max_qbit;
 
     /* Termination should be done on an ordinary scheduler */
-    if (actual & ERTS_PSFLG_EXITING) {
+    if ((*newp) & ERTS_PSFLG_EXITING) {
 	*newp &= ~ERTS_PSFLGS_DIRTY_WORK;
 	return ERTS_ENQUEUE_NORMAL_QUEUE;
     }
@@ -6176,7 +6237,7 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
      * If we have system tasks, we enqueue on ordinary run-queue
      * and take care of those system tasks first.
      */
-    if (actual & ERTS_PSFLG_ACTIVE_SYS)
+    if ((*newp) & ERTS_PSFLG_ACTIVE_SYS)
 	return ERTS_ENQUEUE_NORMAL_QUEUE;
 
     dact = erts_smp_atomic32_read_mb(&c_p->dirty_state);
@@ -6356,23 +6417,29 @@ select_enqueue_run_queue(int enqueue, int enq_prio, Process *p, erts_aint32_t st
  * schedule_out_process() return with c_rq locked.
  */
 static ERTS_INLINE int
-schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p, Process *proxy)
+schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
+		     Process *proxy, int is_normal_sched)
 {
-    erts_aint32_t a, e, n, enq_prio = -1;
+    erts_aint32_t a, e, n, enq_prio = -1, running_flgs;
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
+
+    if (is_normal_sched)
+	running_flgs = ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS;
+    else
+	running_flgs = ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS;
 
     a = state;
 
     while (1) {
 	n = e = a;
 
-	ASSERT(a & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
+	ASSERT(a & running_flgs);
 
 	enqueue = ERTS_ENQUEUE_NOT;
 
-	n &= ~(ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS);
-	if (a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS)
+	n &= ~running_flgs;
+	if ((a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
 	    || (a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE) {
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
 	}
@@ -6485,8 +6552,9 @@ change_proc_schedule_state(Process *p,
 			   ErtsProcLocks locks)
 {
     /*
-     * NOTE: ERTS_PSFLG_RUNNING, ERTS_PSFLG_RUNNING_SYS and
-     *       ERTS_PSFLG_ACTIVE_SYS are not allowed to be
+     * NOTE: ERTS_PSFLG_RUNNING, ERTS_PSFLG_RUNNING_SYS,
+     *       ERTS_PSFLG_DIRTY_RUNNING, ERTS_PSFLG_DIRTY_RUNNING_SYS
+     *       and ERTS_PSFLG_ACTIVE_SYS are not allowed to be
      *       altered by this function!
      */
     erts_aint32_t a = *statep, n;
@@ -6500,9 +6568,13 @@ change_proc_schedule_state(Process *p,
     ASSERT(!(a & ERTS_PSFLG_PROXY));
     ASSERT((clear_state_flags & (ERTS_PSFLG_RUNNING
 				 | ERTS_PSFLG_RUNNING_SYS
+				 | ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS
 				 | ERTS_PSFLG_ACTIVE_SYS)) == 0);
     ASSERT((set_state_flags & (ERTS_PSFLG_RUNNING
 			       | ERTS_PSFLG_RUNNING_SYS
+			       | ERTS_PSFLG_DIRTY_RUNNING
+			       | ERTS_PSFLG_DIRTY_RUNNING_SYS
 			       | ERTS_PSFLG_ACTIVE_SYS)) == 0);
 
     if (lock_status)
@@ -6526,8 +6598,16 @@ change_proc_schedule_state(Process *p,
 	if ((n & (ERTS_PSFLG_SUSPENDED
 		  | ERTS_PSFLG_RUNNING
 		  | ERTS_PSFLG_RUNNING_SYS
+		  | ERTS_PSFLG_DIRTY_RUNNING
+		  | ERTS_PSFLG_DIRTY_RUNNING_SYS
 		  | ERTS_PSFLG_IN_RUNQ
-		  | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE) {
+		  | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    || (n & (ERTS_PSFLG_RUNNING
+		     | ERTS_PSFLG_RUNNING_SYS
+		     | ERTS_PSFLG_EXITING)) == ERTS_PSFLG_EXITING
+#endif
+	    ) {
 	    /*
 	     * Active and seemingly need to be enqueued, but
 	     * process may be in a run queue via proxy, need
@@ -6551,7 +6631,9 @@ change_proc_schedule_state(Process *p,
 		   | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE)
 	    && (!(a & (ERTS_PSFLG_ACTIVE_SYS
 		       | ERTS_PSFLG_RUNNING
-		       | ERTS_PSFLG_RUNNING_SYS)
+		       | ERTS_PSFLG_RUNNING_SYS
+		       | ERTS_PSFLG_DIRTY_RUNNING
+		       | ERTS_PSFLG_DIRTY_RUNNING_SYS)
 		  && (!(a & ERTS_PSFLG_ACTIVE)
 		      || (a & ERTS_PSFLG_SUSPENDED))))) {
 	    /* We activated a prevously inactive process */
@@ -6693,7 +6775,10 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st)
 
 	enqueue = ERTS_ENQUEUE_NOT;
 	n |= ERTS_PSFLG_ACTIVE_SYS;
-	if (!(a & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)))
+	if (!(a & (ERTS_PSFLG_RUNNING
+		   | ERTS_PSFLG_RUNNING_SYS
+		   | ERTS_PSFLG_DIRTY_RUNNING
+		   | ERTS_PSFLG_DIRTY_RUNNING_SYS)))
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
 	a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
 	if (a == e)
@@ -6706,7 +6791,9 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st)
 
 	if (!(a & (ERTS_PSFLG_ACTIVE_SYS
 		   | ERTS_PSFLG_RUNNING
-		   | ERTS_PSFLG_RUNNING_SYS))
+		   | ERTS_PSFLG_RUNNING_SYS
+		   | ERTS_PSFLG_DIRTY_RUNNING
+		   | ERTS_PSFLG_DIRTY_RUNNING_SYS))
 	    && (!(a & ERTS_PSFLG_ACTIVE) || (a & ERTS_PSFLG_SUSPENDED))) {
 	    /* We activated a prevously inactive process */
 	    profile_runnable_proc(p, am_active);
@@ -6746,11 +6833,16 @@ suspend_process(Process *c_p, Process *p)
 	if (c_p == p) {
 	    state = erts_smp_atomic32_read_bor_relb(&p->state,
 						    ERTS_PSFLG_SUSPENDED);
-	    ASSERT(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
+	    ASSERT(state & (ERTS_PSFLG_RUNNING
+			    | ERTS_PSFLG_RUNNING_SYS
+			    | ERTS_PSFLG_DIRTY_RUNNING
+			    | ERTS_PSFLG_DIRTY_RUNNING_SYS));
 	    suspended = (state & ERTS_PSFLG_SUSPENDED) ? -1: 1;
 	}
 	else {
-	    while (!(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_EXITING))) {
+	    while (!(state & (ERTS_PSFLG_RUNNING
+			      | ERTS_PSFLG_DIRTY_RUNNING
+			      | ERTS_PSFLG_EXITING))) {
 		erts_aint32_t n, e;
 
 		n = e = state;
@@ -6776,8 +6868,11 @@ suspend_process(Process *c_p, Process *p)
 
 	    if ((state & (ERTS_PSFLG_ACTIVE
 			  | ERTS_PSFLG_ACTIVE_SYS
+			  | ERTS_PSFLG_DIRTY_ACTIVE_SYS
 			  | ERTS_PSFLG_RUNNING
 			  | ERTS_PSFLG_RUNNING_SYS
+			  | ERTS_PSFLG_DIRTY_RUNNING
+			  | ERTS_PSFLG_DIRTY_RUNNING_SYS
 			  | ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE) {
 		/* We made process inactive */
 		profile_runnable_proc(p, am_inactive);
@@ -7759,8 +7854,10 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
 	    plp = proclist_create(p);
 	    erts_proclist_store_last(&msbp->blckrs, plp);
 	    p->flags |= have_blckd_flg;
-	    ASSERT(schdlr_sspnd.active == ERTS_SCHDLR_SSPND_MAKE_NSCHEDS_VAL(1, 0, 0));
-	    ASSERT(p->scheduler_data->no == 1);
+	    ASSERT(normal
+		   ? 1 == schdlr_sspnd_get_nscheds(&schdlr_sspnd.active, ERTS_SCHED_NORMAL)
+		   : schdlr_sspnd.active == ERTS_SCHDLR_SSPND_MAKE_NSCHEDS_VAL(1, 0, 0));
+	    ASSERT(erts_proc_sched_data(p)->no == 1);
 	    if (schdlr_sspnd.msb.ongoing)
 		res = ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED;
 	    else
@@ -7780,7 +7877,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
 	    if (schdlr_sspnd.active == ERTS_SCHDLR_SSPND_MAKE_NSCHEDS_VAL(1, 0, 0)
 		|| (normal && schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
 						       ERTS_SCHED_NORMAL) == 1)) {
-		ASSERT(p->scheduler_data->no == 1);
+		ASSERT(erts_proc_sched_data(p)->no == 1);
 		plp = proclist_create(p);
 		erts_proclist_store_last(&msbp->blckrs, plp);
 		if (schdlr_sspnd.msb.ongoing)
@@ -7830,7 +7927,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
 		else
 		    res = ERTS_SCHDLR_SSPND_YIELD_DONE_NMSCHED_BLOCKED;
 	    }
-	    ASSERT(p->scheduler_data);
+	    ASSERT(erts_proc_sched_data(p));
 	}
     }
     else if (!msbp->ongoing) {
@@ -8420,8 +8517,22 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	if (!suspend_process(c_p, rp)) {
 	    /* Other process running */
 
-	    ASSERT(ERTS_PSFLG_RUNNING
+	    ASSERT((ERTS_PSFLG_RUNNING | ERTS_PSFLG_DIRTY_RUNNING)
 		   & erts_smp_atomic32_read_nob(&rp->state));
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    if (!suspend
+		&& (erts_smp_atomic32_read_nob(&rp->state)
+		    & ERTS_PSFLG_DIRTY_RUNNING)) {
+		ErtsProcLocks need_locks = pid_locks & ~ERTS_PROC_LOCK_STATUS;
+		if (need_locks && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
+		    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+		    rp = erts_pid2proc(c_p, c_p_locks|ERTS_PROC_LOCK_STATUS,
+				       pid, pid_locks|ERTS_PROC_LOCK_STATUS);
+		}
+		goto done;
+	    }
+#endif
 
 	running:
 
@@ -8447,7 +8558,7 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	else {
 	    ErtsProcLocks need_locks = pid_locks & ~ERTS_PROC_LOCK_STATUS;
 	    if (need_locks && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
-		if (ERTS_PSFLG_RUNNING_SYS
+		if ((ERTS_PSFLG_RUNNING_SYS|ERTS_PSFLG_DIRTY_RUNNING_SYS)
 		    & erts_smp_atomic32_read_nob(&rp->state)) {
 		    /* Executing system task... */
 		    resume_process(rp, ERTS_PROC_LOCK_STATUS);
@@ -8474,7 +8585,7 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	     * from being selected for normal execution regardless
 	     * of locks held or not held on it...
 	     */
-	    ASSERT(!(ERTS_PSFLG_RUNNING
+	    ASSERT(!((ERTS_PSFLG_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS)
 		     & erts_smp_atomic32_read_nob(&rp->state)));
 
 	    if (!suspend)
@@ -9015,28 +9126,43 @@ erts_run_queues_len(Uint *qlen, int atomic_queues_read, int incl_active_sched)
 }
 
 Eterm
-erts_process_status(Process *c_p, ErtsProcLocks c_p_locks,
-		    Process *rp, Eterm rpid)
+erts_process_state2status(erts_aint32_t state)
+{
+    if (state & ERTS_PSFLG_FREE)
+	return am_free;
+
+    if (state & ERTS_PSFLG_EXITING)
+	return am_exiting;
+
+    if (state & ERTS_PSFLG_GC)
+	return am_garbage_collecting;
+
+    if (state & ERTS_PSFLG_SUSPENDED)
+	return am_suspended;
+
+    if (state & (ERTS_PSFLG_RUNNING
+		 | ERTS_PSFLG_RUNNING_SYS
+		 | ERTS_PSFLG_DIRTY_RUNNING
+		 | ERTS_PSFLG_DIRTY_RUNNING_SYS))
+	return am_running;
+
+    if (state & (ERTS_PSFLG_ACTIVE
+		 | ERTS_PSFLG_ACTIVE_SYS
+		 | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+	return am_runnable;
+
+    return am_waiting;
+}
+
+Eterm
+erts_process_status(Process *rp, Eterm rpid)
 {
     Eterm res = am_undefined;
     Process *p = rp ? rp : erts_proc_lookup_raw(rpid);
 
     if (p) {
 	erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
-	if (state & ERTS_PSFLG_FREE)
-	    res = am_free;
-	else if (state & ERTS_PSFLG_EXITING)
-	    res = am_exiting;
-	else if (state & ERTS_PSFLG_GC)
-	    res = am_garbage_collecting;
-	else if (state & ERTS_PSFLG_SUSPENDED)
-	    res = am_suspended;
-	else if (state & ERTS_PSFLG_RUNNING)
-	    res = am_running;
-	else if (state & ERTS_PSFLG_ACTIVE)
-	    res = am_runnable;
-	else
-	    res = am_waiting;
+	res = erts_process_state2status(state);
     }
 #ifdef ERTS_SMP
     else {
@@ -9251,7 +9377,76 @@ scheduler_gc_proc(Process *c_p, int reds_left)
     return reds;
 }
 
+static ERTS_INLINE void
+clean_dirty_start(Process *p)
+{
+#if defined(ERTS_DIRTY_SCHEDULERS) && !defined(ARCH_64)
+    void *ptr = ERTS_PROC_SET_DIRTY_CPU_START(p, NULL);
+    if (ptr)
+	erts_free(ERTS_ALC_T_DIRTY_START, ptr);
+#endif
+}
 
+static ERTS_INLINE void
+save_dirty_start(ErtsSchedulerData *esdp, Process *c_p)
+{
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(esdp->run_queue)) {
+	ErtsMonotonicTime time = erts_get_monotonic_time(esdp);
+#ifdef ARCH_64
+	ERTS_PROC_SET_DIRTY_CPU_START(c_p, (void *) time);
+#else
+	ErtsMonotonicTime *stimep;
+
+	stimep = (ErtsMonotonicTime *) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
+	if (!stimep) {
+	    stimep = erts_alloc(ERTS_ALC_T_DIRTY_START,
+				sizeof(ErtsMonotonicTime));
+	    ERTS_PROC_SET_DIRTY_CPU_START(c_p, (void *) stimep);
+	}
+	*stimep = time;
+#endif
+    }
+#endif
+}
+
+static ERTS_INLINE int
+get_dirty_reds(ErtsSchedulerData *esdp, Process *c_p)
+{
+
+#ifndef ERTS_DIRTY_SCHEDULERS
+    return -1;
+#else
+    ErtsMonotonicTime stime, time;
+
+    if (!ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(esdp->run_queue))
+	return 1;
+
+#ifdef ARCH_64
+    stime = (ErtsMonotonicTime) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
+#else
+    {
+	ErtsMonotonicTime *stimep;
+	stimep = (ErtsMonotonicTime *) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
+	ASSERT(stimep);
+	stime = *stimep;
+    }
+#endif
+
+    time = erts_get_monotonic_time(esdp);
+
+    ASSERT(stime && stime < time);
+
+    time -= stime;
+    time = ERTS_MONOTONIC_TO_USEC(time);
+    time *= 2;
+
+    if (time > INT_MAX)
+	return INT_MAX;
+    return (int) time;
+#endif
+
+}
 
 /*
  * schedule() is called from BEAM (process_main()) or HiPE
@@ -9283,6 +9478,7 @@ Process *schedule(Process *p, int calls)
     int reds;
     Uint32 flags;
     erts_aint32_t state = 0; /* Supress warning... */
+    int is_normal_sched;
 
     ERTS_MSACC_DECLARE_CACHE();
 
@@ -9312,25 +9508,44 @@ Process *schedule(Process *p, int calls)
      */
     if (!p) {	/* NULL in the very first schedule() call */
 	esdp = erts_get_scheduler_data();
+	is_normal_sched = !ERTS_SCHEDULER_IS_DIRTY(esdp);
 	rq = erts_get_runq_current(esdp);
 	ASSERT(esdp);
 	fcalls = (int) erts_smp_atomic32_read_acqb(&function_calls);
 	actual_reds = reds = 0;
 	erts_smp_runq_lock(rq);
     } else {
-    sched_out_proc:
-
 #ifdef ERTS_SMP
-	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+#ifdef ERTS_DIRTY_SCHEDULERS
 	esdp = p->scheduler_data;
+	is_normal_sched = esdp != NULL;
+	if (is_normal_sched)
+	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+	else {
+	    esdp = erts_get_scheduler_data();
+	    ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
+	}
+#else
+	esdp = p->scheduler_data;
+	is_normal_sched = 1;
+#endif
 	ASSERT(esdp->current_process == p
 	       || esdp->free_process == p);
 #else
 	esdp = erts_scheduler_data;
 	ASSERT(esdp->current_process == p);
+	is_normal_sched = 1;
 #endif
 
-	reds = actual_reds = calls - esdp->virtual_reds;
+    sched_out_proc:
+
+	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+
+	if (is_normal_sched)
+	    reds = actual_reds = calls - esdp->virtual_reds;
+	else
+	    reds = actual_reds = get_dirty_reds(esdp, p);
+
 	ASSERT(actual_reds >= 0);
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
 	    reds = ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST;
@@ -9377,7 +9592,7 @@ Process *schedule(Process *p, int calls)
         state = erts_smp_atomic32_read_nob(&p->state);
 
 #ifdef ERTS_SMP
-	if (state & ERTS_PSFLG_PENDING_EXIT)
+	if (is_normal_sched && (state & ERTS_PSFLG_PENDING_EXIT))
 	    erts_handle_pending_exit(p, (ERTS_PROC_LOCK_MAIN
 					 | ERTS_PROC_LOCK_STATUS));
 	if (p->pending_suspenders) 
@@ -9387,7 +9602,8 @@ Process *schedule(Process *p, int calls)
 
 	esdp->reductions += reds;
 
-	schedule_out_process(rq, state, p, proxy_p); /* Returns with rq locked! */
+	/* schedule_out_process() returns with rq locked! */
+	schedule_out_process(rq, state, p, proxy_p, is_normal_sched);
 	proxy_p = NULL;
 
 	ERTS_PROC_REDUCTIONS_EXECUTED(esdp, rq,
@@ -9405,13 +9621,20 @@ Process *schedule(Process *p, int calls)
         ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
 
 	if (state & ERTS_PSFLG_FREE) {
+	    if (!is_normal_sched) {
+		ASSERT(p->flags & F_DELAYED_DEL_PROC);
+		erts_proc_dec_refc(p);
+	    }
+	    else {
 #ifdef ERTS_SMP
-	    ASSERT(esdp->free_process == p);
-	    esdp->free_process = NULL;
+		ASSERT(esdp->free_process == p);
+		esdp->free_process = NULL;
 #else
-	    erts_proc_dec_refc(p);
+		erts_proc_dec_refc(p);
 #endif
+	    }
 	}
+
 #ifdef ERTS_SMP
 	ASSERT(!esdp->free_process);
 #endif
@@ -9419,7 +9642,7 @@ Process *schedule(Process *p, int calls)
 
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	if (is_normal_sched) {
 	    if (esdp->check_time_reds >= ERTS_CHECK_TIME_REDS)
 		(void) erts_get_monotonic_time(esdp);
 
@@ -9433,23 +9656,15 @@ Process *schedule(Process *p, int calls)
 
     }
 
-    ERTS_SMP_LC_ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp)
-		       || !erts_thr_progress_is_blocking());
+    ERTS_SMP_LC_ASSERT(!is_normal_sched || !erts_thr_progress_is_blocking());
 
  check_activities_to_run: {
+	erts_aint32_t psflg_running, psflg_running_sys;
 #ifdef ERTS_SMP
 	ErtsMigrationPaths *mps;
 	ErtsMigrationPath *mp;
 
-	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-	    ErtsProcList *pnd_xtrs = rq->procs.pending_exiters;
-	    if (erts_proclist_fetch(&pnd_xtrs, NULL)) {
-		rq->procs.pending_exiters = NULL;
-		erts_smp_runq_unlock(rq);
-		handle_pending_exiters(pnd_xtrs);
-		erts_smp_runq_lock(rq);
-	    }
-
+	if (is_normal_sched) {
 	    if (rq->check_balance_reds <= 0)
 		check_balance(rq);
 
@@ -9466,32 +9681,35 @@ Process *schedule(Process *p, int calls)
     continue_check_activities_to_run:
 	flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
     continue_check_activities_to_run_known_flags:
-	ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp)
-	       || flags & ERTS_RUNQ_FLG_NONEMPTY);
+	ASSERT(!is_normal_sched || (flags & ERTS_RUNQ_FLG_NONEMPTY));
 
-	if (flags & (ERTS_RUNQ_FLG_CHK_CPU_BIND|ERTS_RUNQ_FLG_SUSPENDED)) {
-	    if (flags & ERTS_RUNQ_FLG_SUSPENDED) {
-		(void) ERTS_RUNQ_FLGS_UNSET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
+	if (!is_normal_sched) {
+	    if (erts_smp_atomic32_read_acqb(&esdp->ssi->flags)
+		& ERTS_SSI_FLG_SUSPENDED) {
 		suspend_scheduler(esdp);
-		flags = ERTS_RUNQ_FLGS_SET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
-		flags |= ERTS_RUNQ_FLG_EXEC;
-	    }
-	    if (flags & ERTS_RUNQ_FLG_CHK_CPU_BIND) {
-		flags = ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_CHK_CPU_BIND);
-		flags &= ~ ERTS_RUNQ_FLG_CHK_CPU_BIND;
-		erts_sched_check_cpu_bind(esdp);
 	    }
 	}
-#ifdef ERTS_DIRTY_SCHEDULERS
-	else if (ERTS_SCHEDULER_IS_DIRTY(esdp)
-		 && (erts_smp_atomic32_read_acqb(&esdp->ssi->flags)
-		     & ERTS_SSI_FLG_SUSPENDED))
-	    suspend_scheduler(esdp);
-#endif
-
-	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	else {
 	    erts_aint32_t aux_work;
-	    int leader_update = erts_thr_progress_update(esdp);
+	    int leader_update;
+
+	    ASSERT(is_normal_sched);
+
+	    if (flags & (ERTS_RUNQ_FLG_CHK_CPU_BIND|ERTS_RUNQ_FLG_SUSPENDED)) {
+		if (flags & ERTS_RUNQ_FLG_SUSPENDED) {
+		    (void) ERTS_RUNQ_FLGS_UNSET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
+		    suspend_scheduler(esdp);
+		    flags = ERTS_RUNQ_FLGS_SET_NOB(rq, ERTS_RUNQ_FLG_EXEC);
+		    flags |= ERTS_RUNQ_FLG_EXEC;
+		}
+		if (flags & ERTS_RUNQ_FLG_CHK_CPU_BIND) {
+		    flags = ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_CHK_CPU_BIND);
+		    flags &= ~ERTS_RUNQ_FLG_CHK_CPU_BIND;
+		    erts_sched_check_cpu_bind(esdp);
+		}
+	    }
+
+	    leader_update = erts_thr_progress_update(esdp);
 	    aux_work = erts_atomic32_read_acqb(&esdp->ssi->aux_work);
 	    if (aux_work | leader_update) {
 		erts_smp_runq_unlock(rq);
@@ -9517,19 +9735,13 @@ Process *schedule(Process *p, int calls)
 
 	flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-	if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && rq->halt_in_progress) {
-	    /*
-	     * TODO: if halt in progress, need to put the dirty scheduler
-	     * to sleep somewhere around here to prevent it from picking up
-	     * new work
-	     */
+	if (!is_normal_sched && rq->halt_in_progress) {
+	    /* Wait for emulator to terminate... */
+	    while (1)
+		erts_milli_sleep(1000*1000);
 	}
-	else
-#endif
-
-	if ((!(flags & ERTS_RUNQ_FLGS_QMASK) && !rq->misc.start)
-	    || (rq->halt_in_progress && ERTS_EMPTY_RUNQ_PORTS(rq))) {
+	else if ((!(flags & ERTS_RUNQ_FLGS_QMASK) && !rq->misc.start)
+		 || (rq->halt_in_progress && ERTS_EMPTY_RUNQ_PORTS(rq))) {
 	    /* Prepare for scheduler wait */
 #ifdef ERTS_SMP
 	    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
@@ -9543,7 +9755,7 @@ Process *schedule(Process *p, int calls)
 	    if (flags & ERTS_RUNQ_FLG_INACTIVE)
 		empty_runq(rq);
 	    else {
-		if (!ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && try_steal_task(rq))
+		if (is_normal_sched && try_steal_task(rq))
 		    goto continue_check_activities_to_run;
 
 		empty_runq(rq);
@@ -9572,9 +9784,9 @@ Process *schedule(Process *p, int calls)
 
 	    goto check_activities_to_run;
 	}
-	else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) &&
-		 (fcalls > input_reductions &&
-		  prepare_for_sys_schedule(!0))) {
+	else if (is_normal_sched
+		 && (fcalls > input_reductions
+		     && prepare_for_sys_schedule(!0))) {
 	    ErtsMonotonicTime current_time;
 	    /*
 	     * Schedule system-level activities.
@@ -9688,11 +9900,17 @@ Process *schedule(Process *p, int calls)
 
 	    ASSERT(p); /* Wrong qmask in rq->flags? */
 
-	    if (ERTS_SCHEDULER_IS_DIRTY(esdp))
-		psflg_band_mask = ~((erts_aint32_t) 0);
-	    else
+	    if (is_normal_sched) {
+		psflg_running = ERTS_PSFLG_RUNNING;
+		psflg_running_sys = ERTS_PSFLG_RUNNING_SYS;
 		psflg_band_mask = ~(((erts_aint32_t) 1) << (ERTS_PSFLGS_GET_PRQ_PRIO(state)
 							    + ERTS_PSFLGS_IN_PRQ_MASK_OFFSET));
+	    }
+	    else {
+		psflg_running = ERTS_PSFLG_DIRTY_RUNNING;
+		psflg_running_sys = ERTS_PSFLG_DIRTY_RUNNING_SYS;
+		psflg_band_mask = ~((erts_aint32_t) 0);
+	    }
 
 	    if (!(state & ERTS_PSFLG_PROXY))
 		psflg_band_mask &= ~ERTS_PSFLG_IN_RUNQ;
@@ -9707,34 +9925,53 @@ Process *schedule(Process *p, int calls)
 		state = erts_smp_atomic32_read_nob(&p->state);
 	    }
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    if (!is_normal_sched)
+		clear_proc_dirty_queue_bit(p, rq, qbit);
+#endif
+
 	    while (1) {
-		erts_aint32_t exp, new, tmp;
-		tmp = new = exp = state;
+		erts_aint32_t exp, new;
+		int run_process;
+		new = exp = state;
 		new &= psflg_band_mask;
-		if (!(state & (ERTS_PSFLG_RUNNING
-			       | ERTS_PSFLG_RUNNING_SYS))) {
-		    tmp = state & (ERTS_PSFLG_SUSPENDED
-				   | ERTS_PSFLG_PENDING_EXIT
-				   | ERTS_PSFLG_ACTIVE_SYS
-				   | ERTS_PSFLG_DIRTY_ACTIVE_SYS);
-		    if (tmp != ERTS_PSFLG_SUSPENDED) {
-			if (state & (ERTS_PSFLG_ACTIVE_SYS
-				     | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-			    new |= ERTS_PSFLG_RUNNING_SYS;
-			else
-			    new |= ERTS_PSFLG_RUNNING;
-		    }
+		/*
+		 * Run process if not already running (or free)
+		 * or exiting and not running on a normal
+		 * scheduler, and not suspended (and not in a
+		 * state where suspend should be ignored).
+		 */
+		run_process = (((!(state & (ERTS_PSFLG_RUNNING
+					    | ERTS_PSFLG_RUNNING_SYS
+					    | ERTS_PSFLG_DIRTY_RUNNING
+					    | ERTS_PSFLG_DIRTY_RUNNING_SYS
+					    | ERTS_PSFLG_FREE)))
+#ifdef ERTS_DIRTY_SCHEDULERS
+				| (((state & (ERTS_PSFLG_RUNNING
+					      | ERTS_PSFLG_FREE
+					      | ERTS_PSFLG_RUNNING_SYS
+					      | ERTS_PSFLG_EXITING))
+				    == ERTS_PSFLG_EXITING)
+				   & (!!is_normal_sched))
+#endif
+				   )
+			       & ((state & (ERTS_PSFLG_SUSPENDED
+					    | ERTS_PSFLG_EXITING
+					    | ERTS_PSFLG_FREE
+					    | ERTS_PSFLG_PENDING_EXIT
+					    | ERTS_PSFLG_ACTIVE_SYS
+					    | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+				  != ERTS_PSFLG_SUSPENDED));
+		if (run_process) {
+		    if (state & (ERTS_PSFLG_ACTIVE_SYS
+				 | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+			new |= psflg_running_sys;
+		    else
+			new |= psflg_running;
 		}
 		state = erts_smp_atomic32_cmpxchg_relb(&p->state, new, exp);
 		if (state == exp) {
-		    if ((state & (ERTS_PSFLG_RUNNING
-				  | ERTS_PSFLG_RUNNING_SYS
-				  | ERTS_PSFLG_FREE))
-			|| ((state & (ERTS_PSFLG_SUSPENDED
-				      | ERTS_PSFLG_PENDING_EXIT
-				      | ERTS_PSFLG_ACTIVE_SYS
-				      | ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-			    == ERTS_PSFLG_SUSPENDED)) {
+		    if (!run_process) {
 			if (proxy_p) {
 			    free_proxy_proc(proxy_p);
 			    proxy_p = NULL;
@@ -9761,33 +9998,12 @@ Process *schedule(Process *p, int calls)
 
 	    erts_smp_runq_unlock(rq);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-	    if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-#ifdef DEBUG
-		int old_dqbit;
-#endif
-		int dqbit = qbit;
-
-		if (rq == ERTS_DIRTY_CPU_RUNQ)
-		    dqbit <<= ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET;
-		else {
-		    ASSERT(rq == ERTS_DIRTY_IO_RUNQ);
-		    dqbit <<= ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET;
-		}
-
-#ifdef DEBUG
-		old_dqbit = (int)
-#else
-		    (void)
-#endif
-		    erts_smp_atomic32_read_band_mb(&p->dirty_state, ~dqbit);
-		ASSERT(old_dqbit & dqbit);
-	    }
-#endif /* ERTS_DIRTY_SCHEDULERS */
-
 #endif /* ERTS_SMP */
 
 	}
+
+	if (!is_normal_sched)
+	    save_dirty_start(esdp, p);
 
 #ifdef ERTS_SMP
 
@@ -9805,9 +10021,7 @@ Process *schedule(Process *p, int calls)
 	    UWord old = ERTS_PROC_SCHED_ID(p, (UWord) esdp->no);
 	    int migrated = old && old != esdp->no;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
-#endif
+	    ASSERT(is_normal_sched);
 
 	    prio = (int) ERTS_PSFLGS_GET_USR_PRIO(state);
 
@@ -9821,20 +10035,21 @@ Process *schedule(Process *p, int calls)
 	    erts_smp_spin_unlock(&erts_sched_stat.lock);
 	}
 
-	ASSERT(!p->scheduler_data);
-	p->scheduler_data = esdp;
-
 	state = erts_smp_atomic32_read_nob(&p->state);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-	    if (!!(state & ERTS_PSFLGS_DIRTY_WORK)
-		& !(state & ERTS_PSFLG_ACTIVE_SYS)) {
+	ASSERT(!p->scheduler_data);
+#ifndef ERTS_DIRTY_SCHEDULERS
+	p->scheduler_data = esdp;
+#else /* ERTS_DIRTY_SCHEDULERS */
+	if (is_normal_sched) {
+	    if ((!!(state & ERTS_PSFLGS_DIRTY_WORK))
+		& (!(state & ERTS_PSFLG_ACTIVE_SYS))) {
 		/* Migrate to dirty scheduler... */
 	    sunlock_sched_out_proc:
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 		goto sched_out_proc;
 	    }
+	    p->scheduler_data = esdp;
 	}
 	else {
 	    if (state & (ERTS_PSFLG_ACTIVE_SYS
@@ -9891,7 +10106,8 @@ Process *schedule(Process *p, int calls)
         (void)ERTS_TRACER_PROC_IS_ENABLED(p);
 #endif
 
-	if (state & ERTS_PSFLG_RUNNING_SYS) {
+	if (state & (ERTS_PSFLG_RUNNING_SYS
+		     | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
 	    /*
 	     * GC is normally never delayed when a process
 	     * is scheduled out, but might be when executing
@@ -9905,7 +10121,7 @@ Process *schedule(Process *p, int calls)
 		reds -= cost;
 		if (reds <= 0
 #ifdef ERTS_DIRTY_SCHEDULERS
-		    || ERTS_SCHEDULER_IS_DIRTY(esdp)
+		    || !is_normal_sched
 		    || (state & ERTS_PSFLGS_DIRTY_WORK)
 #endif
 		    ) {
@@ -9913,8 +10129,8 @@ Process *schedule(Process *p, int calls)
 		}
 	    }
 
-	    ASSERT(state & ERTS_PSFLG_RUNNING_SYS);
-	    ASSERT(!(state & ERTS_PSFLG_RUNNING));
+	    ASSERT(state & psflg_running_sys);
+	    ASSERT(!(state & psflg_running));
 
 	    while (1) {
 		erts_aint32_t n, e;
@@ -9926,8 +10142,8 @@ Process *schedule(Process *p, int calls)
 		}
 
 		n = e = state;
-		n &= ~ERTS_PSFLG_RUNNING_SYS;
-		n |= ERTS_PSFLG_RUNNING;
+		n &= ~psflg_running_sys;
+		n |= psflg_running;
 
 		state = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
 		if (state == e) {
@@ -9935,8 +10151,8 @@ Process *schedule(Process *p, int calls)
 		    break;
 		}
 
-		ASSERT(state & ERTS_PSFLG_RUNNING_SYS);
-		ASSERT(!(state & ERTS_PSFLG_RUNNING));
+		ASSERT(state & psflg_running_sys);
+		ASSERT(!(state & psflg_running));
 	    }
 	}
 
@@ -10525,7 +10741,10 @@ save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio)
     }
 
     state = erts_smp_atomic32_read_nob(&c_p->state);
-    ASSERT((ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS) & state);
+    ASSERT((ERTS_PSFLG_RUNNING
+	    | ERTS_PSFLG_RUNNING_SYS
+	    | ERTS_PSFLG_DIRTY_RUNNING
+	    | ERTS_PSFLG_DIRTY_RUNNING_SYS) & state);
 
     while (!(state & ERTS_PSFLG_DELAYED_SYS)
 	   || prio < ERTS_PSFLGS_GET_ACT_PRIO(state)) {
@@ -10850,6 +11069,8 @@ erts_get_exact_total_reductions(Process *c_p, Uint *redsp, Uint *diffp)
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 }
 
+static void delete_process(Process* p);
+
 void
 erts_free_proc(Process *p)
 {
@@ -10858,6 +11079,8 @@ erts_free_proc(Process *p)
 #endif
     ASSERT(erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_FREE);
     ASSERT(0 == erts_proc_read_refc(p));
+    if (p->flags & F_DELAYED_DEL_PROC)
+	delete_process(p);
     erts_free(ERTS_ALC_T_PROC, (void *) p);
 }
 
@@ -11486,17 +11709,35 @@ erts_cleanup_empty_process(Process* p)
 #endif
 }
 
-/*
- * p must be the currently executing process.
- */
 static void
 delete_process(Process* p)
 {
     Eterm *heap;
     ErtsPSD *psd;
+    struct saved_calls *scb;
+    process_breakpoint_time_t *pbt;
+    void *nif_export;
+
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
                            HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
+
+    scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+
+    if (scb) {
+	p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
+        erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
+    }
+
+    pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
+    if (pbt)
+        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+
+    nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
+    if (nif_export)
+	erts_destroy_nif_export(nif_export);
+
+    clean_dirty_start(p);
 
     /* Cleanup psd */
 
@@ -11629,7 +11870,10 @@ set_proc_self_exiting(Process *c_p)
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCKS_ALL);
 
     state = erts_smp_atomic32_read_nob(&c_p->state);
-    ASSERT(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
+    ASSERT(state & (ERTS_PSFLG_RUNNING
+		    |ERTS_PSFLG_RUNNING_SYS
+		    | ERTS_PSFLG_DIRTY_RUNNING
+		    | ERTS_PSFLG_DIRTY_RUNNING_SYS));
 
 #ifdef DEBUG
     enqueue =
@@ -11679,51 +11923,73 @@ erts_handle_pending_exit(Process *c_p, ErtsProcLocks locks)
 	erts_smp_proc_unlock(c_p, xlocks);
 }
 
+static void save_pending_exiter(Process *p, ErtsProcList *plp);
+
 static void
-handle_pending_exiters(ErtsProcList *pnd_xtrs)
+do_handle_pending_exiters(ErtsProcList *pnd_xtrs)
 {
     /* 'list' is expected to have been fetched (i.e. not a ring anymore) */
     ErtsProcList *plp = pnd_xtrs;
 
     while (plp) {
-	ErtsProcList *free_plp;
-	Process *p = erts_pid2proc(NULL, 0, plp->pid, ERTS_PROC_LOCKS_ALL);
+	ErtsProcList *next_plp = plp->next;
+	Process *p = erts_proc_lookup(plp->pid);
 	if (p) {
-	    if (erts_proclist_same(plp, p)) {
-		erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
-		if (!(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))) {
-		    ASSERT(state & ERTS_PSFLG_PENDING_EXIT);
-		    erts_handle_pending_exit(p, ERTS_PROC_LOCKS_ALL);
+	    erts_aint32_t state;
+	    /*
+	     * If the process is running on a normal scheduler, the
+	     * pending exit will soon be detected and handled by the
+	     * scheduler running the process (at schedule in/out).
+	     */
+	    if (erts_smp_proc_trylock(p, ERTS_PROC_LOCKS_ALL) != EBUSY) {
+		if (erts_proclist_same(plp, p)) {
+		    state = erts_smp_atomic32_read_acqb(&p->state);
+		    if (!(state & (ERTS_PSFLG_RUNNING
+				   | ERTS_PSFLG_RUNNING_SYS
+				   | ERTS_PSFLG_EXITING))) {
+			ASSERT(state & ERTS_PSFLG_PENDING_EXIT);
+			erts_handle_pending_exit(p, ERTS_PROC_LOCKS_ALL);
+		    }
 		}
+		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
 	    }
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
+	    else {
+		erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+		if (erts_proclist_same(plp, p)) {
+		    state = erts_smp_atomic32_read_acqb(&p->state);
+		    if (!(state & (ERTS_PSFLG_RUNNING
+				   | ERTS_PSFLG_RUNNING_SYS
+				   | ERTS_PSFLG_EXITING))) {
+			/*
+			 * Save process and try to acquire all
+			 * locks at a later time...
+			 */
+			save_pending_exiter(p, plp);
+			plp = NULL;
+		    }
+		}
+		erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+	    }
 	}
-	free_plp = plp;
-	plp = plp->next;
-	proclist_destroy(free_plp);
+	if (plp)
+	    proclist_destroy(plp);
+	plp = next_plp;
     }
 }
 
 static void
-save_pending_exiter(Process *p)
+save_pending_exiter(Process *p, ErtsProcList *plp)
 {
-    ErtsProcList *plp;
+    ErtsSchedulerSleepInfo *ssi;
     ErtsRunQueue *rq;
-    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-    if (!esdp)
-        rq = RUNQ_READ_RQ(&p->run_queue);
-    else
-        rq = esdp->run_queue;
+    rq = RUNQ_READ_RQ(&p->run_queue);
+    ASSERT(rq && !ERTS_RUNQ_IX_IS_DIRTY(rq->ix));
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-    if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
-	rq = ERTS_RUNQ_IX(0); /* Handle on ordinary scheduler */
-#endif
-
-    plp = proclist_create(p);
+    if (!plp)
+	plp = proclist_create(p);
 
     erts_smp_runq_lock(rq);
 
@@ -11731,9 +11997,11 @@ save_pending_exiter(Process *p)
 
     non_empty_runq(rq);
 
+    ssi = rq->scheduler->ssi;
+
     erts_smp_runq_unlock(rq);
 
-    wake_scheduler(rq);
+    set_aux_work_flags_wakeup_nob(ssi, ERTS_SSI_AUX_WORK_PENDING_EXITERS);
 }
 
 #endif
@@ -11933,7 +12201,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		if (need_locks
 		    && erts_smp_proc_trylock(rp, need_locks) == EBUSY) {
 		    /* ... but we havn't got all locks on it ... */
-		    save_pending_exiter(rp); 
+		    save_pending_exiter(rp, NULL); 
 		    /*
 		     * The pending exit will be discovered when next
 		     * process is scheduled in
@@ -12401,10 +12669,8 @@ erts_continue_exit_process(Process *p)
     ErtsProcLocks curr_locks = ERTS_PROC_LOCK_MAIN;
     Eterm reason = p->fvalue;
     DistEntry *dep;
-    struct saved_calls *scb;
-    process_breakpoint_time_t *pbt;
     erts_aint32_t state;
-    void *nif_export;
+    int delay_del_proc = 0;
 
 #ifdef DEBUG
     int yield_allowed = 1;
@@ -12547,7 +12813,7 @@ erts_continue_exit_process(Process *p)
     {
 	/* Do *not* use erts_get_runq_proc() */
 	ErtsRunQueue *rq;
-	rq = erts_get_runq_current(ERTS_GET_SCHEDULER_DATA_FROM_PROC(p));
+	rq = erts_get_runq_current(erts_proc_sched_data(p));
 
 	erts_smp_runq_lock(rq);
 
@@ -12593,16 +12859,24 @@ erts_continue_exit_process(Process *p)
 		break;
 	}
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+	if (a & (ERTS_PSFLG_DIRTY_RUNNING
+		 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+	    p->flags |= F_DELAYED_DEL_PROC;
+	    delay_del_proc = 1;
+	    /*
+	     * The dirty scheduler will also decrease
+	     * refc when done...
+	     */
+	    erts_proc_inc_refc(p);
+	}
+#endif
+
 	if (refc_inced && !(n & ERTS_PSFLG_IN_RUNQ))
 	    erts_proc_dec_refc(p);
     }
     
     dep = (p->flags & F_DISTRIBUTION) ? erts_this_dist_entry : NULL;
-    scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
-    if (scb)
-	p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
-    pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
-    nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
 #ifdef BM_COUNTERS
@@ -12642,22 +12916,14 @@ erts_continue_exit_process(Process *p)
 								 have none here */
     }
 
-    if (scb)
-        erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
-
-    if (pbt)
-        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
-
-    if (nif_export)
-	erts_destroy_nif_export(nif_export);
-
 #ifdef ERTS_SMP
     erts_flush_trace_messages(p, 0);
 #endif
 
     ERTS_TRACER_CLEAR(&ERTS_TRACER(p));
 
-    delete_process(p);
+    if (!delay_del_proc)
+	delete_process(p);
 
 #ifdef ERTS_SMP
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
@@ -12687,6 +12953,7 @@ erts_continue_exit_process(Process *p)
 
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(p));
 
+    BUMP_ALL_REDS(p);
 }
 
 /*
@@ -13006,11 +13273,13 @@ void erts_halt(int code)
 int
 erts_dbg_check_halloc_lock(Process *p)
 {
+    ErtsSchedulerData *esdp;
     if (ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p))
 	return 1;
     if (p->common.id == ERTS_INVALID_PID)
 	return 1;
-    if (p->scheduler_data && p == p->scheduler_data->match_pseudo_process)
+    esdp = erts_proc_sched_data(p);
+    if (esdp && p == esdp->match_pseudo_process)
 	return 1;
     if (erts_thr_progress_is_blocking())
 	return 1;

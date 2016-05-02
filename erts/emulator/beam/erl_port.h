@@ -487,6 +487,7 @@ ERTS_GLB_INLINE Port*erts_id2port(Eterm id);
 ERTS_GLB_INLINE Port *erts_id2port_sflgs(Eterm, Process *, ErtsProcLocks, Uint32);
 ERTS_GLB_INLINE void erts_port_release(Port *);
 #ifdef ERTS_SMP
+ERTS_GLB_INLINE Port *erts_thr_port_lookup(Eterm id, Uint32 invalid_sflgs);
 ERTS_GLB_INLINE Port *erts_thr_id2port_sflgs(Eterm id, Uint32 invalid_sflgs);
 ERTS_GLB_INLINE void erts_thr_port_release(Port *prt);
 #endif
@@ -626,6 +627,44 @@ erts_port_release(Port *prt)
 }
 
 #ifdef ERTS_SMP
+/*
+ * erts_thr_id2port_sflgs() and erts_port_dec_refc(prt) can
+ * be used by unmanaged threads in the SMP case.
+ */
+ERTS_GLB_INLINE Port *
+erts_thr_port_lookup(Eterm id, Uint32 invalid_sflgs)
+{
+    Port *prt;
+    ErtsThrPrgrDelayHandle dhndl;
+
+    if (is_not_internal_port(id))
+	return NULL;
+
+    dhndl = erts_thr_progress_unmanaged_delay();
+
+    prt = (Port *) erts_ptab_pix2intptr_ddrb(&erts_port,
+					     internal_port_index(id));
+
+    if (!prt || prt->common.id != id) {
+	erts_thr_progress_unmanaged_continue(dhndl);
+	return NULL;
+    }
+    else {
+	erts_aint32_t state;
+	erts_port_inc_refc(prt);
+
+	if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
+	    erts_thr_progress_unmanaged_continue(dhndl);
+
+	state = erts_atomic32_read_acqb(&prt->state);
+	if (state & invalid_sflgs) {
+	    erts_port_dec_refc(prt);
+	    return NULL;
+	}
+
+	return prt;
+    }
+}
 
 /*
  * erts_thr_id2port_sflgs() and erts_thr_port_release() can
