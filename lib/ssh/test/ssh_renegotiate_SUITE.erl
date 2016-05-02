@@ -33,7 +33,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{seconds,40}}].
 
-
 all() -> [{group,default_algs},
 	  {group,aes_gcm}
 	 ].
@@ -238,7 +237,7 @@ renegotiate2(Config) ->
 %% get_kex_init - helper function to get key_exchange_init_msg
 get_kex_init(Conn) ->
     %% First, validate the key exchange is complete (StateName == connected)
-    {connected,S} = sys:get_state(Conn),
+    {{connected,_},S} = sys:get_state(Conn),
     %% Next, walk through the elements of the #state record looking
     %% for the #ssh_msg_kexinit record. This method is robust against
     %% changes to either record. The KEXINIT message contains a cookie

@@ -36,6 +36,11 @@
 	 shell/1, shell/2, shell/3
 	]).
 
+%%% Type exports
+-export_type([connection_ref/0,
+	      channel_id/0
+	     ]).
+
 %%--------------------------------------------------------------------
 -spec start() -> ok | {error, term()}.
 -spec start(permanent | transient | temporary) -> ok | {error, term()}.
@@ -81,7 +86,7 @@ connect(Host, Port, Options, Timeout) ->
 	    ConnectionTimeout = proplists:get_value(connect_timeout, Options, infinity),
 	    try Transport:connect(Host, Port,  [ {active, false} | SocketOptions], ConnectionTimeout) of
 		{ok, Socket} ->
-		    Opts =  [{user_pid, self()}, {host, Host} | fix_idle_time(SshOptions)],
+		    Opts =  [{user_pid,self()}, {host,Host} | SshOptions],
 		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
 		{error, Reason} ->
 		    {error, Reason}
@@ -223,13 +228,6 @@ default_algorithms() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-fix_idle_time(SshOptions) ->
-    case proplists:get_value(idle_time, SshOptions) of
-	undefined ->
-	    [{idle_time, infinity}|SshOptions];
-	_ ->
-	    SshOptions
-    end.
 start_daemon(Host, Port, Options, Inet) ->
     case handle_options(Options) of
 	{error, _Reason} = Error ->

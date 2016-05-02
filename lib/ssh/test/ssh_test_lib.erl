@@ -57,12 +57,16 @@ daemon(Host, Options) ->
     daemon(Host, inet_port(), Options).
 
 daemon(Host, Port, Options) ->
+    ct:log("~p:~p Calling ssh:daemon(~p, ~p, ~p)",[?MODULE,?LINE,Host,Port,Options]),
     case ssh:daemon(Host, Port, Options) of
 	{ok, Pid} when Host == any ->
+	    ct:log("ssh:daemon ok (1)",[]),
 	    {Pid, hostname(), Port};
 	{ok, Pid} ->
+	    ct:log("ssh:daemon ok (2)",[]),
 	    {Pid, Host, Port};
 	Error ->
+	    ct:log("ssh:daemon error ~p",[Error]),
 	    Error
     end.
 

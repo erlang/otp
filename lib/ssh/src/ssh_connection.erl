@@ -232,6 +232,8 @@ exit_status(ConnectionHandler, Channel, Status) ->
     ssh_connection_handler:request(ConnectionHandler, Channel,
 				   "exit-status", false, [?uint32(Status)], 0).
 
+%% The client wants the server to make a tcp connection on behalf of
+%% the client
 direct_tcpip(ConnectionHandler, RemoteHost,
 	     RemotePort, OrigIP, OrigPort, Timeout) ->
     direct_tcpip(ConnectionHandler, RemoteHost, RemotePort, OrigIP, OrigPort,
@@ -256,6 +258,10 @@ direct_tcpip(ConnectionHandler, RemoteIP, RemotePort, OrigIP, OrigPort,
 						Timeout)
     end.
 
+%% The client wants the server to listen on BindIP:BindPort for tcp
+%% connections. When there is a tcp connect (SYN) to that pair on the
+%% server, the server sends a #ssh_msg_channel_open{"forwarded-tcpip"}
+%% back to the client for each new tcp connection
 tcpip_forward(ConnectionHandler, BindIP, BindPort) ->
     case encode_ip(BindIP) of
 	false -> 
@@ -300,22 +306,11 @@ l2b([]) ->
 
 channel_data(ChannelId, DataType, Data, Connection, From)
   when is_list(Data)->
-    channel_data(ChannelId, DataType, 
-%%		 list_to_binary(Data), Connection, From);
-		 l2b(Data), Connection, From);
-		 %% try list_to_binary(Data)
-		 %% of
-		 %%     B -> B
-		 %% catch
-		 %%     _:_ -> io:format('BAD BINARY: ~p~n',[Data]),
-		 %% 	    unicode:characters_to_binary(Data)
-		 %% end,
-		 %% Connection, From);
+    channel_data(ChannelId, DataType, l2b(Data), Connection, From);
 
 channel_data(ChannelId, DataType, Data, 
 	     #connection{channel_cache = Cache} = Connection,
 	     From) ->
-    
     case ssh_channel:cache_lookup(Cache, ChannelId) of
 	#channel{remote_id = Id, sent_close = false} = Channel0 ->
 	    {SendList, Channel} =
@@ -331,8 +326,7 @@ channel_data(ChannelId, DataType, Data,
 	    FlowCtrlMsgs = flow_control(Replies, Channel, Cache),
 	    {{replies, Replies ++ FlowCtrlMsgs}, Connection};
 	_ ->
-	    gen_fsm:reply(From, {error, closed}),
-	    {noreply, Connection}
+	    {{replies,[{channel_request_reply,From,{error,closed}}]}, Connection}
     end.
 
 handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId, 
@@ -499,7 +493,8 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 
 handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				 sender_channel = RemoteId}, 
-	   Connection, client) ->
+	   Connection,
+	   client) ->
     %% Client implementations SHOULD reject any session channel open
     %% requests to make it more difficult for a corrupt server to attack the
     %% client. See See RFC 4254 6.1.
@@ -514,10 +509,10 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip" = Type,
 				 initial_window_size = RWindowSz,
 				 maximum_packet_size = RPacketSz,
 				 data = Data}, 
-	   #connection{channel_cache = Cache,
-		       options = SSHopts} = Connection0, server) ->
+	   #connection{channel_cache = Cache, options = SSHopts} = Connection0,
+	   server) ->
     <<?UINT32(ALen), Address:ALen/binary, ?UINT32(Port),
-     ?UINT32(OLen), Orig:OLen/binary, ?UINT32(OrigPort)>> = Data,
+      ?UINT32(OLen), Orig:OLen/binary, ?UINT32(OrigPort)>> = Data,
     
     MinAcceptedPackSz = proplists:get_value(minimal_remote_max_packet_size, SSHopts, 0),
     
@@ -786,11 +781,11 @@ handle_msg(#ssh_msg_global_request{name = _Type,
 
 handle_msg(#ssh_msg_request_failure{},
 	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
-    {{replies, [{channel_requst_reply, From, {failure, <<>>}}]},
+    {{replies, [{channel_request_reply, From, {failure, <<>>}}]},
      Connection#connection{requests = Rest}};
 handle_msg(#ssh_msg_request_success{data = Data},
 	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
-    {{replies, [{channel_requst_reply, From, {success, Data}}]},
+    {{replies, [{channel_request_reply, From, {success, Data}}]},
      Connection#connection{requests = Rest}};
 
 handle_msg(#ssh_msg_disconnect{code = Code,
@@ -1059,7 +1054,7 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 		      Connection, Reply) -> 
     case lists:keysearch(ChannelId, 1, Requests) of
 	{value, {ChannelId, From}} ->
-	    {{channel_requst_reply, From, Reply}, 
+	    {{channel_request_reply, From, Reply}, 
 	     Connection#connection{requests = 
 				       lists:keydelete(ChannelId, 1, Requests)}};
 	false when (Reply == success) or (Reply == failure) ->

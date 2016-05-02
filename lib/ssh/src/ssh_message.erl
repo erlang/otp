@@ -50,13 +50,7 @@
 -define(Empint(X),       (ssh_bits:mpint(X))/binary ).
 -define(Ebinary(X),      ?STRING(X) ).
 
-%% encode(Msg) ->
-%%     try encode1(Msg)
-%%     catch
-%% 	C:E ->
-%% 	    io:format('***********************~n~p:~p  ~p~n',[C,E,Msg]),
-%% 	    error(E)
-%%     end.
+-define(unicode_list(B), unicode:characters_to_list(B)).
 
 encode(#ssh_msg_global_request{
 	  name = Name,
@@ -176,7 +170,7 @@ encode(#ssh_msg_userauth_pk_ok{
 encode(#ssh_msg_userauth_passwd_changereq{prompt = Prompt,
 					  languge = Lang
 					 })->
-    <<?Ebyte(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?Estring(Prompt), ?Estring(Lang)>>;
+    <<?Ebyte(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?Estring_utf8(Prompt), ?Estring(Lang)>>;
 
 encode(#ssh_msg_userauth_info_request{
 	  name = Name,
@@ -184,14 +178,14 @@ encode(#ssh_msg_userauth_info_request{
 	  language_tag = Lang,
 	  num_prompts = NumPromtps,
 	  data = Data}) ->
-    <<?Ebyte(?SSH_MSG_USERAUTH_INFO_REQUEST), ?Estring(Name), ?Estring(Inst), ?Estring(Lang),
+    <<?Ebyte(?SSH_MSG_USERAUTH_INFO_REQUEST), ?Estring_utf8(Name), ?Estring_utf8(Inst), ?Estring(Lang),
       ?Euint32(NumPromtps), ?'E...'(Data)>>;
 
 encode(#ssh_msg_userauth_info_response{
 	  num_responses = Num,
 	  data = Data}) ->
     lists:foldl(fun %%("", Acc) -> Acc;  % commented out since it seem wrong
-		    (Response, Acc) -> <<Acc/binary, ?Estring(Response)>>
+		    (Response, Acc) -> <<Acc/binary, ?Estring_utf8(Response)>>
 		end,
 		<<?Ebyte(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?Euint32(Num)>>,
 		Data);
@@ -201,17 +195,17 @@ encode(#ssh_msg_disconnect{
 	  description = Desc,
 	  language = Lang
 	 }) ->
-    <<?Ebyte(?SSH_MSG_DISCONNECT), ?Euint32(Code), ?Estring(Desc), ?Estring(Lang)>>;
+    <<?Ebyte(?SSH_MSG_DISCONNECT), ?Euint32(Code), ?Estring_utf8(Desc), ?Estring(Lang)>>;
 
 encode(#ssh_msg_service_request{
 	  name = Service
 	 }) ->
-    <<?Ebyte(?SSH_MSG_SERVICE_REQUEST), ?Estring(Service)>>;
+    <<?Ebyte(?SSH_MSG_SERVICE_REQUEST), ?Estring_utf8(Service)>>;
 
 encode(#ssh_msg_service_accept{
 	  name = Service
 	 }) ->
-    <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring(Service)>>;
+    <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring_utf8(Service)>>;
 
 encode(#ssh_msg_newkeys{}) ->
     <<?Ebyte(?SSH_MSG_NEWKEYS)>>;
@@ -283,7 +277,7 @@ encode(#ssh_msg_kex_ecdh_reply{public_host_key = Key, q_s = Q_s, h_sig = Sign}) 
     <<?Ebyte(?SSH_MSG_KEX_ECDH_REPLY), ?Ebinary(EncKey), ?Empint(Q_s), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_ignore{data = Data}) ->
-    <<?Ebyte(?SSH_MSG_IGNORE), ?Estring(Data)>>;
+    <<?Ebyte(?SSH_MSG_IGNORE), ?Estring_utf8(Data)>>;
 
 encode(#ssh_msg_unimplemented{sequence = Seq}) ->
     <<?Ebyte(?SSH_MSG_UNIMPLEMENTED), ?Euint32(Seq)>>;
@@ -291,7 +285,7 @@ encode(#ssh_msg_unimplemented{sequence = Seq}) ->
 encode(#ssh_msg_debug{always_display = Bool,
 		      message = Msg,
 		      language = Lang}) ->
-    <<?Ebyte(?SSH_MSG_DEBUG), ?Eboolean(Bool), ?Estring(Msg), ?Estring(Lang)>>.
+    <<?Ebyte(?SSH_MSG_DEBUG), ?Eboolean(Bool), ?Estring_utf8(Msg), ?Estring(Lang)>>.
 
 
 %% Connection Messages
@@ -330,7 +324,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_OPEN_FAILURE),  ?UINT32(Recipient), ?UINT32(Reas
     #ssh_msg_channel_open_failure{
        recipient_channel = Recipient,
        reason = Reason,
-       description = unicode:characters_to_list(Desc),
+       description = ?unicode_list(Desc),
        lang = Lang
       };
 decode(<<?BYTE(?SSH_MSG_CHANNEL_WINDOW_ADJUST), ?UINT32(Recipient), ?UINT32(Bytes)>>) ->
@@ -363,7 +357,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_REQUEST), ?UINT32(Recipient),
 	 ?DEC_BIN(RequestType,__0), ?BYTE(Bool), Data/binary>>) ->
     #ssh_msg_channel_request{
        recipient_channel = Recipient,
-       request_type = unicode:characters_to_list(RequestType),
+       request_type = ?unicode_list(RequestType),
        want_reply = erl_boolean(Bool),
        data  = Data
       };
@@ -381,9 +375,9 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_REQUEST),
 	 ?DEC_BIN(User,__0), ?DEC_BIN(Service,__1), ?DEC_BIN(Method,__2),
 	 Data/binary>>) ->
     #ssh_msg_userauth_request{
-       user = unicode:characters_to_list(User),
-       service = unicode:characters_to_list(Service),
-       method = unicode:characters_to_list(Method),
+       user =    ?unicode_list(User),
+       service = ?unicode_list(Service),
+       method =  ?unicode_list(Method),
        data = Data
       };
 
@@ -391,7 +385,7 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_FAILURE),
 	 ?DEC_BIN(Auths,__0),
 	 ?BYTE(Bool)>>) ->
     #ssh_msg_userauth_failure {
-       authentications = unicode:characters_to_list(Auths),
+       authentications = ?unicode_list(Auths),
        partial_success = erl_boolean(Bool)
       };
 
@@ -493,18 +487,18 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
 
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_request{
-       name = unicode:characters_to_list(Service)
+       name = ?unicode_list(Service)
       };
 
 decode(<<?SSH_MSG_SERVICE_ACCEPT, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_accept{
-       name = unicode:characters_to_list(Service)
+       name = ?unicode_list(Service)
       };
 
 decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0), ?DEC_BIN(Lang,__1)>>) ->
     #ssh_msg_disconnect{
        code = Code,
-       description = unicode:characters_to_list(Desc),
+       description = ?unicode_list(Desc),
        language = Lang
       };
 
@@ -512,7 +506,7 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0), ?DEC_BIN
 decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0)>>) ->
     #ssh_msg_disconnect{
        code = Code,
-       description = unicode:characters_to_list(Desc),
+       description = ?unicode_list(Desc),
        language = <<"en">>
       };
 
@@ -554,7 +548,7 @@ decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
     X = 0,
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
 decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
-    Names = string:tokens(unicode:characters_to_list(Data), ","),
+    Names = string:tokens(?unicode_list(Data), ","),
     decode_kex_init(Rest, [Names | Acc], N -1).
 
 
