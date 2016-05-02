@@ -53,6 +53,7 @@ MODULES= \
 	crypto_SUITE \
 	ddll_SUITE \
 	decode_packet_SUITE \
+	dirty_nif_SUITE \
 	distribution_SUITE \
 	driver_SUITE \
 	efile_SUITE \

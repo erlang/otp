@@ -1,8 +1,0 @@
-
-SCHEDULER_LIBS = scheduler_SUITE@dll@
-
-all: $(SCHEDULER_LIBS)
-
-@SHLIB_RULES@
-
-$(SCHEDULER_LIBS): scheduler_SUITE.c
