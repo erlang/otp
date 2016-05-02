@@ -9137,6 +9137,7 @@ timestamp() ->
     <func>
       <name name="trace_pattern" arity="3" clause_i="1"/>
       <fsummary>Sets trace pattern for message sending.</fsummary>
+      <type name="trace_match_spec"/>
       <desc>
         <p>Sets trace pattern for <em>message sending</em>.
 	  Must be combined with
@@ -9200,6 +9201,7 @@ timestamp() ->
     <func>
       <name name="trace_pattern" arity="3" clause_i="2"/>
       <fsummary>Sets trace pattern for tracing of message receiving.</fsummary>
+      <type name="trace_match_spec"/>
       <desc>
         <p></p>
         <p>Sets trace pattern for <em>message receiving</em>.
