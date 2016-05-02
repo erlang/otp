@@ -300,9 +300,9 @@ end_per_testcase(_, Config) ->
 
 end_per_testcase(Config) ->
     {Sftp, Connection} = ?config(sftp, Config),
-    ssh_sftp:stop_channel(Sftp),
+    ok = ssh_sftp:stop_channel(Sftp),
     catch ssh_sftp:stop_channel(?config(channel_pid2, Config)),
-    ssh:close(Connection).
+    ok = ssh:close(Connection).
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -364,7 +364,7 @@ write_file(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary("Hej hopp!"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
@@ -377,7 +377,7 @@ write_file_iolist(Config) when is_list(Config) ->
     Data = list_to_binary("Hej hopp!"),
     lists:foreach(
       fun(D) ->
-	      ssh_sftp:write_file(Sftp, FileName, [D]),
+	      ok = ssh_sftp:write_file(Sftp, FileName, [D]),
 	      Expected = if is_binary(D) -> D;
 			    is_list(D) -> list_to_binary(D)
 			 end,
@@ -396,7 +396,7 @@ write_big_file(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary(lists:duplicate(750000,"a")),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
@@ -408,7 +408,7 @@ sftp_read_big_file(Config) when is_list(Config) ->
 
     Data = list_to_binary(lists:duplicate(750000,"a")),
     ct:log("Data size to write is ~p bytes",[size(Data)]),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Data} = ssh_sftp:read_file(Sftp, FileName).
 
 %%--------------------------------------------------------------------
@@ -499,7 +499,7 @@ set_attributes(Config) when is_list(Config) ->
     io:put_chars(Fd,"foo"),
     ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#400}),
     {error, eacces} = file:write_file(FileName, "hello again"),
-    ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
+    ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
     ok = file:write_file(FileName, "hello again").
 
 %%--------------------------------------------------------------------
@@ -548,7 +548,7 @@ position(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary("1234567890"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
 
     {ok, 3} = ssh_sftp:position(Sftp, Handle, {bof, 3}),
@@ -576,7 +576,7 @@ pos_read(Config) when is_list(Config) ->
     FileName = ?config(testfile, Config),
     {Sftp, _} = ?config(sftp, Config),
     Data = list_to_binary("Hej hopp!"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
 
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
     {async, Ref} = ssh_sftp:apread(Sftp, Handle, {bof, 5}, 4),
@@ -606,7 +606,7 @@ pos_write(Config) when is_list(Config) ->
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [write]),
 
     Data = list_to_binary("Bye,"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
 
     NewData = list_to_binary(" see you tomorrow"),
     {async, Ref} = ssh_sftp:apwrite(Sftp, Handle, {bof, 4}, NewData),

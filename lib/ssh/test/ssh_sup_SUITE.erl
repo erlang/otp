@@ -22,13 +22,15 @@
 -module(ssh_sup_SUITE).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(WAIT_FOR_SHUTDOWN, 500).
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
+
+-define(WAIT_FOR_SHUTDOWN, 500).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -36,7 +38,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+     {timetrap,{seconds,100}}].
 
 all() -> 
     [default_tree, sshc_subtree, sshd_subtree, sshd_subtree_profile].
@@ -92,8 +94,8 @@ default_tree(Config) when is_list(Config) ->
 	lists:keysearch(sshc_sup, 1, TopSupChildren),
     {value, {sshd_sup, _,supervisor,[sshd_sup]}} = 
 	lists:keysearch(sshd_sup, 1, TopSupChildren),
-    [] = supervisor:which_children(sshc_sup),
-    [] = supervisor:which_children(sshd_sup).
+    ?wait_match([], supervisor:which_children(sshc_sup)),
+    ?wait_match([], supervisor:which_children(sshd_sup)).
 
 sshc_subtree() ->
     [{doc, "Make sure the sshc subtree is correct"}].
@@ -101,24 +103,26 @@ sshc_subtree(Config) when is_list(Config) ->
     {_Pid, Host, Port} = ?config(server, Config),
     UserDir = ?config(userdir, Config),
 
-    [] = supervisor:which_children(sshc_sup),
+    ?wait_match([], supervisor:which_children(sshc_sup)),
+
     {ok, Pid1} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
-    [{_, _,supervisor,[ssh_connection_handler]}] =
-	supervisor:which_children(sshc_sup),
+    ?wait_match([{_, _,supervisor,[ssh_connection_handler]}],
+		supervisor:which_children(sshc_sup)),
+
     {ok, Pid2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD}, {user_dir, UserDir}]),
-    [{_,_,supervisor,[ssh_connection_handler]}, 
-     {_,_,supervisor,[ssh_connection_handler]}] = 
-	supervisor:which_children(sshc_sup),
+    ?wait_match([{_,_,supervisor,[ssh_connection_handler]}, 
+		 {_,_,supervisor,[ssh_connection_handler]}],
+		supervisor:which_children(sshc_sup)),
+
     ssh:close(Pid1),
-    [{_,_,supervisor,[ssh_connection_handler]}] = 
-	supervisor:which_children(sshc_sup),
+    ?wait_match([{_,_,supervisor,[ssh_connection_handler]}],
+		supervisor:which_children(sshc_sup)),
     ssh:close(Pid2),
-    ct:sleep(?WAIT_FOR_SHUTDOWN),
-    [] = supervisor:which_children(sshc_sup).
+    ?wait_match([], supervisor:which_children(sshc_sup)).
 
 sshd_subtree() ->
     [{doc, "Make sure the sshd subtree is correct"}].
@@ -130,14 +134,16 @@ sshd_subtree(Config) when is_list(Config) ->
 			      {failfun, fun ssh_test_lib:failfun/2},
 			      {user_passwords,
 			       [{?USER, ?PASSWD}]}]),
-    [{{server,ssh_system_sup, HostIP, Port, ?DEFAULT_PROFILE},
-      Daemon, supervisor,
-      [ssh_system_sup]}] = 
-	supervisor:which_children(sshd_sup),
+
+    ?wait_match([{{server,ssh_system_sup, HostIP, Port, ?DEFAULT_PROFILE},
+		  Daemon, supervisor,
+		  [ssh_system_sup]}],
+		supervisor:which_children(sshd_sup),
+		Daemon),
     check_sshd_system_tree(Daemon, Config),
     ssh:stop_daemon(HostIP, Port),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    [] = supervisor:which_children(sshd_sup).
+    ?wait_match([], supervisor:which_children(sshd_sup)).
 
 sshd_subtree_profile() ->
     [{doc, "Make sure the sshd subtree using profile option is correct"}].	
@@ -152,14 +158,15 @@ sshd_subtree_profile(Config) when is_list(Config) ->
 				  {user_passwords,
 				   [{?USER, ?PASSWD}]},
 				  {profile, Profile}]),
-    [{{server,ssh_system_sup, HostIP,Port,Profile},
-      Daemon, supervisor,
-      [ssh_system_sup]}] = 
-	supervisor:which_children(sshd_sup),
+    ?wait_match([{{server,ssh_system_sup, HostIP,Port,Profile},
+		  Daemon, supervisor,
+		  [ssh_system_sup]}],
+		supervisor:which_children(sshd_sup),
+		Daemon),
     check_sshd_system_tree(Daemon, Config),
     ssh:stop_daemon(HostIP, Port, Profile),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    [] = supervisor:which_children(sshd_sup).
+    ?wait_match([], supervisor:which_children(sshd_sup)).
 
 
 check_sshd_system_tree(Daemon, Config) -> 
@@ -170,28 +177,31 @@ check_sshd_system_tree(Daemon, Config) ->
 						   {user_interaction, false},
 						   {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
     
-    [{_,SubSysSup, supervisor,[ssh_subsystem_sup]},
-     {{ssh_acceptor_sup,_,_,_}, AccSup, supervisor,[ssh_acceptor_sup]}] 
-	= supervisor:which_children(Daemon),
+    ?wait_match([{_,SubSysSup, supervisor,[ssh_subsystem_sup]},
+		 {{ssh_acceptor_sup,_,_,_}, AccSup, supervisor,[ssh_acceptor_sup]}],
+		supervisor:which_children(Daemon),
+	       [SubSysSup,AccSup]),
     
-    [{{server,ssh_connection_sup, _,_},
-      ConnectionSup, supervisor,
-      [ssh_connection_sup]},
-     {{server,ssh_channel_sup,_ ,_},
-      ChannelSup,supervisor,
-      [ssh_channel_sup]}] = supervisor:which_children(SubSysSup),
+    ?wait_match([{{server,ssh_connection_sup, _,_},
+		  ConnectionSup, supervisor,
+		  [ssh_connection_sup]},
+		 {{server,ssh_channel_sup,_ ,_},
+		  ChannelSup,supervisor,
+		  [ssh_channel_sup]}],
+		supervisor:which_children(SubSysSup),
+		[ConnectionSup,ChannelSup]),
     
-    [{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}] = 
-	supervisor:which_children(AccSup),
+    ?wait_match([{{ssh_acceptor_sup,_,_,_},_,worker,[ssh_acceptor]}],
+		supervisor:which_children(AccSup)),
     
-    [{_, _, worker,[ssh_connection_handler]}] =
-	supervisor:which_children(ConnectionSup),
+    ?wait_match([{_, _, worker,[ssh_connection_handler]}],
+		supervisor:which_children(ConnectionSup)),
     
-    [] = supervisor:which_children(ChannelSup),
+    ?wait_match([], supervisor:which_children(ChannelSup)),
     
     ssh_sftp:start_channel(Client),
 
-    [{_, _,worker,[ssh_channel]}] = 
-	supervisor:which_children(ChannelSup),
+    ?wait_match([{_, _,worker,[ssh_channel]}],
+		supervisor:which_children(ChannelSup)),
     ssh:close(Client).
   

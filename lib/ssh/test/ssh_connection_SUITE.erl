@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh_connect.hrl").
+-include("ssh_test_lib.hrl").
 
 -compile(export_all).
 
@@ -655,15 +656,21 @@ max_channels_option(Config) when is_list(Config) ->
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
 
+    %% Allocate a number of ChannelId:s to play with. (This operation is not
+    %% counted by the max_channel option).
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
     {ok, ChannelId2} = ssh_connection:session_channel(ConnectionRef, infinity),
     {ok, ChannelId3} = ssh_connection:session_channel(ConnectionRef, infinity),
     {ok, ChannelId4} = ssh_connection:session_channel(ConnectionRef, infinity),
     {ok, ChannelId5} = ssh_connection:session_channel(ConnectionRef, infinity),
-    {ok, _ChannelId6} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, ChannelId6} = ssh_connection:session_channel(ConnectionRef, infinity),
+    {ok, _ChannelId7} = ssh_connection:session_channel(ConnectionRef, infinity),
 
-    %%%---- shell
+    %% Now start to open the channels (this is counted my max_channels) to check that
+    %% it gives a failure at right place
+
+    %%%---- Channel 1(3): shell
     ok = ssh_connection:shell(ConnectionRef,ChannelId0),
     receive
 	{ssh_cm,ConnectionRef, {data, ChannelId0, 0, <<"Eshell",_/binary>>}} ->
@@ -672,10 +679,10 @@ max_channels_option(Config) when is_list(Config) ->
 	    ct:fail("CLI Timeout")
     end,
 
-    %%%---- subsystem "echo_n"
+    %%%---- Channel 2(3): subsystem "echo_n"
     success = ssh_connection:subsystem(ConnectionRef, ChannelId1, "echo_n", infinity),
 
-    %%%---- exec #1
+    %%%---- Channel 3(3): exec. This closes itself.
     success = ssh_connection:exec(ConnectionRef, ChannelId2, "testing1.\n", infinity),
     receive
 	{ssh_cm, ConnectionRef, {data, ChannelId2, 0, <<"testing1",_/binary>>}} ->
@@ -684,13 +691,13 @@ max_channels_option(Config) when is_list(Config) ->
 	    ct:fail("Exec #1 Timeout")
     end,
 
-    %%%---- ptty
-    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId3, []),
+    %%%---- Channel 3(3): subsystem "echo_n" (Note that ChannelId2 should be closed now)
+    ?wait_match(success, ssh_connection:subsystem(ConnectionRef, ChannelId3, "echo_n", infinity)),
 
-    %%%---- exec #2
+    %%%---- Channel 4(3) !: exec  This should fail
     failure = ssh_connection:exec(ConnectionRef, ChannelId4, "testing2.\n", infinity),
 
-    %%%---- close the shell
+    %%%---- close the shell (Frees one channel)
     ok = ssh_connection:send(ConnectionRef, ChannelId0, "exit().\n", 5000),
     
     %%%---- wait for the subsystem to terminate
@@ -703,14 +710,11 @@ max_channels_option(Config) when is_list(Config) ->
 	    ct:fail("exit Timeout",[])
     end,
 
-    %%%---- exec #3
-    success = ssh_connection:exec(ConnectionRef, ChannelId5, "testing3.\n", infinity),
-    receive
-	{ssh_cm, ConnectionRef, {data, ChannelId5, 0, <<"testing3",_/binary>>}} ->
-	    ok
-    after 5000 ->
-	    ct:fail("Exec #3 Timeout")
-    end,
+    %%---- Try that we can open one channel instead of the closed one
+    ?wait_match(success, ssh_connection:subsystem(ConnectionRef, ChannelId5, "echo_n", infinity)),
+
+    %%---- But not a fourth one...
+    failure = ssh_connection:subsystem(ConnectionRef, ChannelId6, "echo_n", infinity),
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).

@@ -192,7 +192,7 @@ simple_exec_groups_no_match_too_large(Config) ->
 %%--------------------------------------------------------------------
 %% Testing all default groups
 
-simple_exec_groups() -> [{timetrap,{seconds,180}}].
+simple_exec_groups() -> [{timetrap,{minutes,5}}].
 
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
@@ -226,28 +226,13 @@ sshc_simple_exec(Config) ->
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Host,Port} = ?config(srvr_addr, Config),
     Cmd = lists:concat(["ssh -p ",Port,
-			" -C -o UserKnownHostsFile=",KnownHosts,
+			" -C",
+			" -o UserKnownHostsFile=",KnownHosts,
+			" -o StrictHostKeyChecking=no",
 			" ",Host," 1+1."]),
     ct:log("~p",[Cmd]),
-    SshPort = open_port({spawn, Cmd}, [binary]),
-    Expect = <<"2\n">>,
-    rcv_expected(SshPort, Expect).
-
-
-rcv_expected(SshPort, Expect) ->
-    receive
-	{SshPort, {data,Expect}} ->
-	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
-	    catch port_close(SshPort),
-	    ok;
-	Other ->
-	    ct:log("Got UNEXPECTED ~p",[Other]),
-	    rcv_expected(SshPort, Expect)
-
-    after ?TIMEOUT ->
-	    catch port_close(SshPort),
-	    ct:fail("Did not receive answer")
-    end.
+    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}, [eof,exit_status]),
+    ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
@@ -366,8 +351,8 @@ start_std_daemon(Opts, Config) ->
     ct:log("started ~p:~p  ~p",[Host,Port,Opts]),
     [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
 
-start_pubkey_daemon(Opts, Config) ->
-    ct:log("starting pubkey_daemon",[]),
+start_pubkey_daemon(Opts0, Config) ->
+    Opts = [{auth_methods,"publickey"}|Opts0],
     {Pid, Host, Port} = ssh_test_lib:std_daemon1(Config, Opts),
     ct:log("started pubkey_daemon ~p:~p  ~p",[Host,Port,Opts]),
     [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
