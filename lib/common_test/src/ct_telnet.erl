@@ -43,7 +43,7 @@
 %%                    {keep_alive,Bool},
 %%                    {poll_limit,N},
 %%                    {poll_interval,Millisec},
-%%                    {tcp_nodelay,Bool]}.</pre>
+%%                    {tcp_nodelay,Bool}]}.</pre>
 %% <p><code>Millisec = integer(), N = integer()</code></p>
 %% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %% file included in the test and ct_telnet will retrieve the information
