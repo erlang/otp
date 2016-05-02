@@ -31,7 +31,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 dirty_nif/1, dirty_nif_send/1,
 	 dirty_nif_exception/1, call_dirty_nif_exception/1,
-	 dirty_scheduler_exit/1]).
+	 dirty_scheduler_exit/1, dirty_call_while_terminated/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -41,7 +41,8 @@ all() ->
     [dirty_nif,
      dirty_nif_send,
      dirty_nif_exception,
-     dirty_scheduler_exit].
+     dirty_scheduler_exit,
+     dirty_call_while_terminated].
 
 init_per_suite(Config) ->
     try erlang:system_info(dirty_cpu_schedulers) of
@@ -184,6 +185,59 @@ wait_dse([Pid|Pids]) ->
     end,
     wait_dse(Pids).
 
+dirty_call_while_terminated(Config) when is_list(Config) ->
+    Me = self(),
+    Bin = list_to_binary(lists:duplicate(4711, $r)),
+    {value, {BinAddr, 4711, 1}} = lists:keysearch(4711, 2,
+						  element(2,
+							  process_info(self(),
+								       binary))),
+    {Dirty, DM} = spawn_opt(fun () ->
+				    dirty_call_while_terminated_nif(Me),
+				    blipp:blupp(Bin)
+			    end,
+			    [monitor,link]),
+    receive {dirty_alive, Pid} -> ok end,
+    {value, {BinAddr, 4711, 2}} = lists:keysearch(4711, 2,
+						  element(2,
+							  process_info(self(),
+								       binary))),
+    Reason = die_dirty_process,
+    OT = process_flag(trap_exit, true),
+    exit(Dirty, Reason),
+    receive
+	{'DOWN', DM, process, Dirty, R0} ->
+	    R0 = Reason
+    end,
+    receive
+	{'EXIT', Dirty, R1} ->
+	    R1 = Reason
+    end,
+    undefined = process_info(Dirty),
+    undefined = process_info(Dirty, status),
+    false = erlang:is_process_alive(Dirty),
+    false = lists:member(Dirty, processes()),
+    %% Binary still refered by Dirty process not yet cleaned up
+    %% since the dirty nif has not yet returned...
+    {value, {BinAddr, 4711, 2}} = lists:keysearch(4711, 2,
+						  element(2,
+							  process_info(self(),
+								       binary))),
+    receive after 2000 -> ok end,
+    receive
+	Msg ->
+	    ct:fail({unexpected_message, Msg})
+    after
+	0 ->
+	    ok
+    end,
+    {value, {BinAddr, 4711, 1}} = lists:keysearch(4711, 2,
+						  element(2,
+							  process_info(self(),
+								       binary))),
+    process_flag(trap_exit, OT),
+    ok.
+
 %%
 %% Internal...
 %%
@@ -234,6 +288,7 @@ call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
 call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
+dirty_call_while_terminated_nif(_) -> ?nif_stub.
 dirty_sleeper() -> ?nif_stub.
 
 nif_stub_error(Line) ->

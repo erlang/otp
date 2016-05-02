@@ -156,6 +156,47 @@ dirty_sleeper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_atom(env, "ok");
 }
 
+static ERL_NIF_TERM dirty_call_while_terminated_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifPid self;
+    ERL_NIF_TERM result, self_term;
+    ErlNifPid to;
+    ErlNifEnv* menv;
+    int res;
+
+    if (!enif_get_local_pid(env, argv[0], &to))
+	return enif_make_badarg(env);
+
+    if (!enif_self(env, &self))
+	return enif_make_badarg(env);
+
+    self_term = enif_make_pid(env, &self);
+
+    result = enif_make_tuple2(env, enif_make_atom(env, "dirty_alive"), self_term);
+    menv = enif_alloc_env();
+    res = enif_send(env, &to, menv, result);
+    enif_free_env(menv);
+    if (!res)
+	return enif_make_badarg(env);
+
+    /* Wait until we have been killed */
+    while (enif_is_process_alive(env, &self))
+	;
+
+    result = enif_make_tuple2(env, enif_make_atom(env, "dirty_dead"), self_term);
+    menv = enif_alloc_env();
+    res = enif_send(env, &to, menv, result);
+    enif_free_env(menv);
+
+#ifdef __WIN32__
+    Sleep(1000);
+#else
+    sleep(1);
+#endif
+
+    return enif_make_atom(env, "ok");
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_loaded", 0, lib_loaded},
@@ -164,6 +205,7 @@ static ErlNifFunc nif_funcs[] =
     {"call_dirty_nif_exception", 1, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"call_dirty_nif_zero_args", 0, call_dirty_nif_zero_args, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_sleeper", 0, dirty_sleeper, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"dirty_call_while_terminated_nif", 1, dirty_call_while_terminated_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}
 };
 
 ERL_NIF_INIT(dirty_nif_SUITE,nif_funcs,load,NULL,NULL,NULL)
