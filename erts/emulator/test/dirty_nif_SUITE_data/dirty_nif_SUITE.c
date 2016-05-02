@@ -45,7 +45,6 @@ static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     int n;
     char s[10];
     ErlNifBinary b;
-    ERL_NIF_TERM result;
     if (have_dirty_schedulers()) {
 	assert(enif_is_on_dirty_scheduler(env));
     }
@@ -197,6 +196,18 @@ static ERL_NIF_TERM dirty_call_while_terminated_nif(ErlNifEnv* env, int argc, co
     return enif_make_atom(env, "ok");
 }
 
+static ERL_NIF_TERM dirty_heap_access_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM res = enif_make_list(env, 0);
+    int i;
+    assert(enif_is_on_dirty_scheduler(env));
+    for (i = 0; i < 1000; i++)
+	res = enif_make_list_cell(env, enif_make_copy(env, argv[0]), res);
+
+    return res;
+}
+
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_loaded", 0, lib_loaded},
@@ -205,7 +216,8 @@ static ErlNifFunc nif_funcs[] =
     {"call_dirty_nif_exception", 1, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"call_dirty_nif_zero_args", 0, call_dirty_nif_zero_args, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_sleeper", 0, dirty_sleeper, ERL_NIF_DIRTY_JOB_IO_BOUND},
-    {"dirty_call_while_terminated_nif", 1, dirty_call_while_terminated_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}
+    {"dirty_call_while_terminated_nif", 1, dirty_call_while_terminated_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"dirty_heap_access_nif", 1, dirty_heap_access_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}
 };
 
 ERL_NIF_INIT(dirty_nif_SUITE,nif_funcs,load,NULL,NULL,NULL)

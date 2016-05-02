@@ -31,7 +31,8 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 dirty_nif/1, dirty_nif_send/1,
 	 dirty_nif_exception/1, call_dirty_nif_exception/1,
-	 dirty_scheduler_exit/1, dirty_call_while_terminated/1]).
+	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
+	 dirty_heap_access/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -42,7 +43,8 @@ all() ->
      dirty_nif_send,
      dirty_nif_exception,
      dirty_scheduler_exit,
-     dirty_call_while_terminated].
+     dirty_call_while_terminated,
+     dirty_heap_access].
 
 init_per_suite(Config) ->
     try erlang:system_info(dirty_cpu_schedulers) of
@@ -133,15 +135,6 @@ nif_raise_exceptions(NifFunc) ->
                 end, ok, ExcTerms).
 
 dirty_scheduler_exit(Config) when is_list(Config) ->
-    try
-        erlang:system_info(dirty_cpu_schedulers),
-        dirty_scheduler_exit_test(Config)
-    catch
-        error:badarg ->
-            {skipped, "No dirty scheduler support"}
-    end.
-
-dirty_scheduler_exit_test(Config) ->
     {ok, Node} = start_node(Config, "+SDio 1"),
     Path = proplists:get_value(data_dir, Config),
     NifLib = filename:join(Path, atom_to_list(?MODULE)),
@@ -164,10 +157,7 @@ test_dse(0,Pids) ->
     timer:sleep(100),
     kill_dse(Pids,[]);
 test_dse(N,Pids) ->
-    Pid = spawn_link(fun () ->
-			     F = fun dirty_sleeper/0,
-			     F()
-		     end),
+    Pid = spawn_link(fun dirty_sleeper/0),
     test_dse(N-1,[Pid|Pids]).
 
 kill_dse([],Killed) ->
@@ -238,6 +228,47 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
     process_flag(trap_exit, OT),
     ok.
 
+dirty_heap_access(Config) when is_list(Config) ->
+    {ok, Node} = start_node(Config),
+    Me = self(),
+    RGL = rpc:call(Node,erlang,whereis,[init]),
+    Ref = rpc:call(Node,erlang,make_ref,[]),
+    Dirty = spawn_link(fun () ->
+			       Res = dirty_heap_access_nif(Ref),
+			       garbage_collect(),
+			       Me ! {self(), Res},
+			       receive after infinity -> ok end
+		       end),
+    {N, R} = access_dirty_heap(Dirty, RGL, 0, 0),
+    receive
+	{Pid, Res} ->
+	    1000 = length(Res),
+	    lists:foreach(fun (X) -> Ref = X end, Res)
+    end,
+    unlink(Dirty),
+    exit(Dirty, kill),
+    stop_node(Node),
+    {comment, integer_to_list(N) ++ " GL change loops; "
+     ++ integer_to_list(R) ++ " while running dirty"}.
+
+access_dirty_heap(Dirty, RGL, N, R) ->
+    case process_info(Dirty, status) of
+	{status, waiting} ->
+	    {N, R};
+	{status, Status} ->
+	    {group_leader, GL} = process_info(Dirty, group_leader),
+	    true = group_leader(RGL, Dirty),
+	    {group_leader, RGL} = process_info(Dirty, group_leader),
+	    true = group_leader(GL, Dirty),
+	    {group_leader, GL} = process_info(Dirty, group_leader),
+	    access_dirty_heap(Dirty, RGL, N+1, case Status of
+						   running ->
+						       R+1;
+						   _ ->
+						       R
+					       end)
+    end.
+
 %%
 %% Internal...
 %%
@@ -290,6 +321,7 @@ call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
 dirty_call_while_terminated_nif(_) -> ?nif_stub.
 dirty_sleeper() -> ?nif_stub.
+dirty_heap_access_nif(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
