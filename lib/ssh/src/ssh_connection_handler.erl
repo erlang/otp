@@ -49,7 +49,6 @@
 	 open_channel/6,
 	 request/6, request/7,
 	 reply_request/3, 
-	 global_request/4,
 	 send/5,
 	 send_eof/2,
 	 info/1, info/2,
@@ -215,23 +214,6 @@ request(ConnectionHandler, ChannelId, Type, false, Data, _) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 reply_request(ConnectionHandler, Status, ChannelId) ->
     cast(ConnectionHandler, {reply_request, Status, ChannelId}).
-
-%%--------------------------------------------------------------------
--spec global_request(connection_ref(),
-		     string(),
-		     boolean(),
-		     iolist()
-		    ) -> ok | error.
-%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-global_request(ConnectionHandler, Type, true = Reply, Data) ->
-    case call(ConnectionHandler, {global_request, self(), Type, Reply, Data}) of
-	{ssh_cm, ConnectionHandler, {success, _}} ->
-	    ok;
-	{ssh_cm, ConnectionHandler, {failure, _}} ->
-	    error
-    end;
-global_request(ConnectionHandler, Type, false = Reply, Data) ->
-    cast(ConnectionHandler, {global_request, self(), Type, Reply, Data}).
 
 %%--------------------------------------------------------------------
 -spec send(connection_ref(),
@@ -1078,12 +1060,6 @@ handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, {connected,
     start_channel_request_timer(ChannelId, From, Timeout),
     {keep_state, cache_request_idle_timer_check(D)};
 
-handle_event({call,From}, {global_request, Pid, _, _, _} = Request, {connected,_}, D0) ->
-    D1 = handle_global_request(Request, D0),
-    Channel = ssh_channel:cache_find(Pid, cache(D1)),
-    D = add_request(true, Channel#channel.local_id, From, D1),
-    {keep_state, D};
-
 handle_event({call,From}, {data, ChannelId, Type, Data, Timeout}, {connected,_}, D0) ->
     {{replies, Replies}, Connection} =
 	ssh_connection:channel_data(ChannelId, Type, Data, D0#data.connection_state, From),
@@ -1626,33 +1602,6 @@ handle_request(ChannelId, Type, Data, WantReply, From, D) ->
 	undefined ->
 	    D
     end.
-
-%%%----------------------------------------------------------------
-handle_global_request({global_request, ChannelPid,
-		       "tcpip-forward" = Type, WantReply,
-		       <<?UINT32(IPLen),IP:IPLen/binary, ?UINT32(Port)>> = Data
-		      },
-		      D) ->
-    ssh_channel:cache_update(cache(D),
-			     #channel{user = ChannelPid,
-				      type = "forwarded-tcpip",
-				      sys = none}),
-    Connection = ssh_connection:bind(IP, Port, ChannelPid, D#data.connection_state),
-    Msg = ssh_connection:global_request_msg(Type, WantReply, Data),
-    send_msg(Msg, D#data{connection_state = Connection});
-
-handle_global_request({global_request, _Pid, "cancel-tcpip-forward" = Type,
-		       WantReply, <<?UINT32(IPLen),
-				   IP:IPLen/binary, ?UINT32(Port)>> = Data},
-		      #data{connection_state = Connection0} = State) ->
-    Connection = ssh_connection:unbind(IP, Port, Connection0),
-    Msg = ssh_connection:global_request_msg(Type, WantReply, Data),
-    send_msg(Msg, State#data{connection_state = Connection});
-
-handle_global_request({global_request, _, "cancel-tcpip-forward" = Type,
-		       WantReply, Data}, State) ->
-    Msg = ssh_connection:global_request_msg(Type, WantReply, Data),
-    send_msg(Msg, State).
 
 %%%----------------------------------------------------------------
 handle_channel_down(ChannelPid, D) ->

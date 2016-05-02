@@ -243,7 +243,7 @@
 
 -record(channel,
 	{
-	  type,          %% "session", "x11", "forwarded-tcpip", "direct-tcpip"
+	  type,          %% "session"
 	  sys,           %% "none", "shell", "exec" "subsystem"
 	  user,          %% "user" process id (default to cm user)
 	  flow_control, 
