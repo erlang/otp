@@ -240,6 +240,222 @@ $ make </code>
     </section>
 
     <section>
+        <title>BEAM Tracepoints</title>
+        <p>All tracepoints are in the domain of <c>com_ericsson_otp</c></p>
+        <p>All Erlang types are the string equivalent in LTTng.</p>
+
+        <p><em>scheduler_poll</em></p>
+        <list type="bulleted">
+            <item><c>scheduler : integer</c> :: Scheduler ID. Ex. <c>1</c></item>
+            <item><c>runnable : integer</c> :: Runnable. Ex. <c>1</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">scheduler_poll: { cpu_id = 4 }, { scheduler = 1, runnable = 1 }</code></p>
+
+        <p><em>driver_init</em></p>
+        <list type="bulleted">
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>major : integer</c> :: Major version. Ex. <c>3</c></item>
+            <item><c>minor : integer</c> :: Minor version. Ex. <c>1</c></item>
+            <item><c>flags : integer</c> :: Flags. Ex. <c>1</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_init: { cpu_id = 2 }, { driver = "caller_drv", major = 3, minor = 3, flags = 1 }</code></p>
+
+        <p><em>driver_start</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_start: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", driver = "caller_drv", port = "#Port&lt;0.3676&gt;" }</code></p>
+
+        <p><em>driver_output</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_output: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", port = "#Port&lt;0.3677&gt;", driver = "/bin/sh -s unix:cmd", bytes = 36 }</code></p>
+
+        <p><em>driver_outputv</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_outputv: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet", bytes = 3 }</code></p>
+
+        <p><em>driver_ready_input</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_ready_input: { cpu_id = 5 }, { pid = "&lt;0.189.0&gt;", port = "#Port&lt;0.3637&gt;", driver = "inet_gethost 4 " }</code></p>
+
+        <p><em>driver_ready_output</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_ready_output: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet" }</code></p>
+
+        <p><em>driver_timeout</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_timeout: { cpu_id = 5 }, { pid = "&lt;0.196.0&gt;", port = "#Port&lt;0.3664&gt;", driver = "tcp_inet" }</code></p>
+
+        <p><em>driver_stop_select</em></p>
+        <list type="bulleted">
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_stop_select: { cpu_id = 5 }, { driver = "unknown" }</code></p>
+
+        <p><em>driver_flush</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_flush: { cpu_id = 7 }, { pid = "&lt;0.204.0&gt;", port = "#Port&lt;0.3686&gt;", driver = "tcp_inet" }</code></p>
+
+        <p><em>driver_stop</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_stop: { cpu_id = 5 }, { pid = "[]", driver = "efile", port = "#Port&lt;0.3673&gt;" }</code></p>
+
+        <p><em>driver_process_exit</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+
+        <p><em>driver_ready_async</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_ready_async: { cpu_id = 3 }, { pid = "&lt;0.181.0&gt;", port = "#Port&lt;0.3622&gt;", driver = "efile" }</code></p>
+
+        <p><em>driver_call</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>command : integer</c> :: Command integer. Ex. <c>1</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_call: { cpu_id = 2 }, { pid = "&lt;0.202.0&gt;", port = "#Port&lt;0.3676&gt;", driver = "caller_drv", command = 0, bytes = 2 }</code></p>
+
+        <p><em>driver_control</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>command : integer</c> :: Command integer. Ex. <c>1</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">driver_control: { cpu_id = 3 }, { pid = "&lt;0.32767.8191&gt;", port = "#Port&lt;0.0&gt;", driver = "forker", command = 83, bytes = 32 }</code></p>
+
+        <p><em>aio_pool_get</em></p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>length : integer</c> :: Async queue length. Ex. <c>0</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">aio_pool_get: { cpu_id = 4 }, { port = "#Port&lt;0.3614&gt;", length = 0 }</code></p>
+
+        <p><em>aio_pool_add</em></p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>length : integer</c> :: Async queue length. Ex. <c>-1</c></item>
+        </list>
+        <p>Async queue length is not defined for <c>add</c> operations.</p>
+        <p>Example:</p>
+        <p><code type="none">aio_pool_add: { cpu_id = 3 }, { port = "#Port&lt;0.3614&gt;", length = -1 }</code></p>
+
+        <p><em>carrier_create</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+            <item><c>mbc_carriers : integer</c> :: Number of multiblock carriers in instance. Ex. <c>3</c></item>
+            <item><c>mbc_carriers_size : integer</c> :: Total size of multiblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>mbc_blocks : integer</c> :: Number of multiblock blocks in instance. Ex. <c>122</c></item>
+            <item><c>mbc_blocks_size : integer</c> :: Total size of all multiblock blocks in instance. Ex. <c>285296</c></item>
+            <item><c>sbc_carriers : integer</c> :: Number of singleblock carriers in instance. Ex. <c>1</c></item>
+            <item><c>sbc_carriers_size : integer</c> :: Total size of singleblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>sbc_blocks : integer</c> :: Number of singleblocks in instance. Ex. <c>1</c></item>
+            <item><c>sbc_blocks_size : integer</c> :: Total size of all singleblock blocks in instance. Ex. <c>285296</c></item>
+
+        </list>
+        <p>Example:</p>
+        <p><code type="none">carrier_create: { cpu_id = 2 }, { type = "ets_alloc", instance = 7, size = 2097152, mbc_carriers = 4, mbc_carriers_size = 3440640, mbc_blocks = 526, mbc_blocks_size = 1278576, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code></p>
+
+        <p><em>carrier_destroy</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+            <item><c>mbc_carriers : integer</c> :: Number of multiblock carriers in instance. Ex. <c>3</c></item>
+            <item><c>mbc_carriers_size : integer</c> :: Total size of multiblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>mbc_blocks : integer</c> :: Number of multiblock blocks in instance. Ex. <c>122</c></item>
+            <item><c>mbc_blocks_size : integer</c> :: Total size of all multiblock blocks in instance. Ex. <c>285296</c></item>
+            <item><c>sbc_carriers : integer</c> :: Number of singleblock carriers in instance. Ex. <c>1</c></item>
+            <item><c>sbc_carriers_size : integer</c> :: Total size of singleblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>sbc_blocks : integer</c> :: Number of singleblocks in instance. Ex. <c>1</c></item>
+            <item><c>sbc_blocks_size : integer</c> :: Total size of all singleblock blocks in instance. Ex. <c>285296</c></item>
+
+        </list>
+        <p>Example:</p>
+        <p><code type="none">carrier_destroy: { cpu_id = 6 }, { type = "ets_alloc", instance = 7, size = 262144, mbc_carriers = 3, mbc_carriers_size = 3178496, mbc_blocks = 925, mbc_blocks_size = 2305336, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code></p>
+
+        <p><em>carrier_pool_put</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">carrier_pool_put: { cpu_id = 3 }, { type = "ets_alloc", instance = 5, size = 1048576 }</code></p>
+
+        <p><em>carrier_pool_get</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+        </list>
+        <p>Example:</p>
+        <p><code type="none">carrier_pool_get: { cpu_id = 7 }, { type = "ets_alloc", instance = 4, size = 3208 }</code></p>
+
+    </section>
+
+
+    <section>
         <title>Examples</title>
     </section>
 </chapter>
