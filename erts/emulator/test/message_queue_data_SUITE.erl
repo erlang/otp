@@ -21,7 +21,7 @@
 -module(message_queue_data_SUITE).
 
 -export([all/0, suite/0]).
--export([basic/1, process_info_messages/1]).
+-export([basic/1, process_info_messages/1, total_heap_size/1]).
 
 -export([basic_test/1]).
 
@@ -32,7 +32,7 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() -> 
-    [basic, process_info_messages].
+    [basic, process_info_messages, total_heap_size].
 
 %%
 %%
@@ -44,15 +44,15 @@ basic(Config) when is_list(Config) ->
 
     basic_test(erlang:system_info(message_queue_data)),
 
-    {ok, Node1} = start_node(Config, "+xmqd off_heap"),
+    {ok, Node1} = start_node(Config, "+hmqd off_heap"),
     ok = rpc:call(Node1, ?MODULE, basic_test, [off_heap]),
     stop_node(Node1),
 
-    {ok, Node2} = start_node(Config, "+xmqd on_heap"),
+    {ok, Node2} = start_node(Config, "+hmqd on_heap"),
     ok = rpc:call(Node2, ?MODULE, basic_test, [on_heap]),
     stop_node(Node2),
 
-    {ok, Node3} = start_node(Config, "+xmqd mixed"),
+    {ok, Node3} = start_node(Config, "+hmqd mixed"),
     ok = rpc:call(Node3, ?MODULE, basic_test, [mixed]),
     stop_node(Node3),
 
@@ -189,6 +189,28 @@ process_info_messages(Config) when is_list(Config) ->
     receive P2 -> ok end,
 
     ok.
+
+total_heap_size(_Config) ->
+
+    Fun = fun F() -> receive Pid when is_pid(Pid) -> Pid ! ok,F() end end,
+
+    %% Test that on_heap messages grow the heap even if they are not received
+    OnPid = spawn_opt(Fun, [{message_queue_data, on_heap}]),
+    {total_heap_size, OnSize} = erlang:process_info(OnPid, total_heap_size),
+    [OnPid ! lists:duplicate(N,N) || N <- lists:seq(1,100)],
+    OnPid ! self(), receive ok -> ok end,
+    {total_heap_size, OnSizeAfter} = erlang:process_info(OnPid, total_heap_size),
+    ct:log("OnSize = ~p, OnSizeAfter = ~p",[OnSize, OnSizeAfter]),
+    true = OnSize < OnSizeAfter,
+
+    %% Test that off_heap messages do not grow the heap if they are not received
+    OffPid = spawn_opt(Fun, [{message_queue_data, off_heap}]),
+    {total_heap_size, OffSize} = erlang:process_info(OffPid, total_heap_size),
+    [OffPid ! lists:duplicate(N,N) || N <- lists:seq(1,100)],
+    OffPid ! self(), receive ok -> ok end,
+    {total_heap_size, OffSizeAfter} = erlang:process_info(OffPid, total_heap_size),
+    ct:log("OffSize = ~p, OffSizeAfter = ~p",[OffSize, OffSizeAfter]),
+    true = OffSize == OffSizeAfter.
 
 %%
 %%

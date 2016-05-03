@@ -1359,9 +1359,10 @@ process_info_aux(Process *BIF_P,
 
 	total_heap_size += rp->mbuf_sz;
 
-	for (mp = rp->msg.first; mp; mp = mp->next)
-	    if (mp->data.attached)
-		total_heap_size += erts_msg_attached_data_size(mp);
+        if (rp->flags & F_ON_HEAP_MSGQ)
+            for (mp = rp->msg.first; mp; mp = mp->next)
+                if (mp->data.attached)
+                    total_heap_size += erts_msg_attached_data_size(mp);
 
 	(void) erts_bld_uint(NULL, &hsz, total_heap_size);
 	hp = HAlloc(BIF_P, hsz);
