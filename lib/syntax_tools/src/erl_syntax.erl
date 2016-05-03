@@ -253,9 +253,12 @@
          map_type/0,
          map_type/1,
          map_type_fields/1,
-         map_type_pair/2,
-         map_type_pair_key/1,
-         map_type_pair_value/1,
+         map_type_assoc/2,
+         map_type_assoc_name/1,
+         map_type_assoc_value/1,
+         map_type_exact/2,
+         map_type_exact_name/1,
+         map_type_exact_value/1,
 	 match_expr/2,
 	 match_expr_body/1,
 	 match_expr_pattern/1,
@@ -509,7 +512,8 @@
 %%   <td>map_field_exact</td>
 %%  </tr><tr>
 %%   <td>map_type</td>
-%%   <td>map_type_pair</td>
+%%   <td>map_type_assoc</td>
+%%   <td>map_type_exact</td>
 %%   <td>match_expr</td>
 %%   <td>module_qualifier</td>
 %%  </tr><tr>
@@ -596,7 +600,8 @@
 %% @see map_field_exact/2
 %% @see map_type/0
 %% @see map_type/1
-%% @see map_type_pair/2
+%% @see map_type_assoc/2
+%% @see map_type_exact/2
 %% @see match_expr/2
 %% @see module_qualifier/2
 %% @see named_fun_expr/2
@@ -697,7 +702,8 @@ type(Node) ->
         {type, _, 'fun', []} -> fun_type;
         {type, _, 'fun', [_, _]} -> function_type;
         {type, _, map, _} -> map_type;
-        {type, _, map_field_assoc, _} -> map_type_pair;
+        {type, _, map_field_assoc, _} -> map_type_assoc;
+        {type, _, map_field_exact, _} -> map_type_exact;
         {type, _, record, _} -> record_type;
         {type, _, field_type, _} -> record_type_field;
         {type, _, range, _} -> integer_range_type;
@@ -5265,69 +5271,118 @@ constraint_body(Node) ->
 
 
 %% =====================================================================
-%% @doc Creates an abstract type map assoc field. The result represents
-%% "<code><em>KeyType</em> => <em>ValueType</em></code>".
+%% @doc Creates an abstract map type assoc field. The result represents
+%% "<code><em>Name</em> => <em>Value</em></code>".
 %%
-%% @see map_type_pair_key/1
-%% @see map_type_pair_value/1
+%% @see map_type_assoc_name/1
+%% @see map_type_assoc_value/1
+%% @see map_type/1
 
--record(map_type_pair, {key :: syntaxTree(),
-                        value :: syntaxTree()}).
+-record(map_type_assoc, {name :: syntaxTree(), value :: syntaxTree()}).
 
-%% type(Node) = map_type_pair
-%% data(Node) = #map_type_pair{key :: KeyType,
-%%                             value :: ValueType}
-%%
-%%      KeyType = syntaxTree()
-%%      ValueType = syntaxTree()
-%%
 %% `erl_parse' representation:
 %%
-%% {type, Pos, map_field_assoc, [KeyType, ValueType]}
-%%
-%%      KeyType = erl_parse()
-%%      ValueType = erl_parse()
+%% {type, Pos, map_field_assoc, [Name, Value]}
 
--spec map_type_pair(syntaxTree(), syntaxTree()) -> syntaxTree().
+-spec map_type_assoc(syntaxTree(), syntaxTree()) -> syntaxTree().
 
-map_type_pair(KeyType, ValueType) ->
-    tree(map_type_pair,
-         #map_type_pair{key = KeyType, value = ValueType}).
+map_type_assoc(Name, Value) ->
+    tree(map_type_assoc, #map_type_assoc{name = Name, value = Value}).
 
-revert_map_type_pair(Node) ->
+revert_map_type_assoc(Node) ->
     Pos = get_pos(Node),
-    KeyType = map_type_pair_key(Node),
-    ValueType = map_type_pair_value(Node),
-    {type, Pos, map_field_assoc, [KeyType, ValueType]}.
+    Name = map_type_assoc_name(Node),
+    Value = map_type_assoc_value(Node),
+    {type, Pos, map_type_assoc, [Name, Value]}.
+
 
 %% =====================================================================
-%% @doc Returns the key type subtrees of a `map_type_pair' node.
+%% @doc Returns the name subtree of a `map_type_assoc' node.
 %%
-%% @see map_type_pair/2
+%% @see map_type_assoc/2
 
--spec map_type_pair_key(syntaxTree()) -> syntaxTree().
+-spec map_type_assoc_name(syntaxTree()) -> syntaxTree().
 
-map_type_pair_key(Node) ->
-    case unwrap(Node) of
-        {type, _, map_field_assoc, [KeyType, _]} ->
-            KeyType;
-        Node1 ->
-            (data(Node1))#map_type_pair.key
+map_type_assoc_name(Node) ->
+    case Node of
+        {type, _, map_field_assoc, [Name, _]} ->
+            Name;
+        _ ->
+            (data(Node))#map_type_assoc.name
     end.
 
+
 %% =====================================================================
-%% @doc Returns the value type subtrees of a `map_type_pair' node.
+%% @doc Returns the value subtree of a `map_type_assoc' node.
 %%
-%% @see map_type_pair/2
+%% @see map_type_assoc/2
 
--spec map_type_pair_value(syntaxTree()) -> syntaxTree().
+-spec map_type_assoc_value(syntaxTree()) -> syntaxTree().
 
-map_type_pair_value(Node) ->
-    case unwrap(Node) of
-        {type, _, map_field_assoc, [_, ValueType]} ->
-            ValueType;
-        Node1 ->
-            (data(Node1))#map_type_pair.value
+map_type_assoc_value(Node) ->
+    case Node of
+        {type, _, map_field_assoc, [_, Value]} ->
+            Value;
+        _ ->
+            (data(Node))#map_type_assoc.value
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract map type exact field. The result represents
+%% "<code><em>Name</em> := <em>Value</em></code>".
+%%
+%% @see map_type_exact_name/1
+%% @see map_type_exact_value/1
+%% @see map_type/1
+
+-record(map_type_exact, {name :: syntaxTree(), value :: syntaxTree()}).
+
+%% `erl_parse' representation:
+%%
+%% {type, Pos, map_field_exact, [Name, Value]}
+
+-spec map_type_exact(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+map_type_exact(Name, Value) ->
+    tree(map_type_exact, #map_type_exact{name = Name, value = Value}).
+
+revert_map_type_exact(Node) ->
+    Pos = get_pos(Node),
+    Name = map_type_exact_name(Node),
+    Value = map_type_exact_value(Node),
+    {type, Pos, map_type_exact, [Name, Value]}.
+
+
+%% =====================================================================
+%% @doc Returns the name subtree of a `map_type_exact' node.
+%%
+%% @see map_type_exact/2
+
+-spec map_type_exact_name(syntaxTree()) -> syntaxTree().
+
+map_type_exact_name(Node) ->
+    case Node of
+        {type, _, map_field_exact, [Name, _]} ->
+            Name;
+        _ ->
+            (data(Node))#map_type_exact.name
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the value subtree of a `map_type_exact' node.
+%%
+%% @see map_type_exact/2
+
+-spec map_type_exact_value(syntaxTree()) -> syntaxTree().
+
+map_type_exact_value(Node) ->
+    case Node of
+        {type, _, map_field_exact, [_, Value]} ->
+            Value;
+        _ ->
+            (data(Node))#map_type_exact.value
     end.
 
 
@@ -7428,8 +7483,10 @@ revert_root(Node) ->
             revert_map_field_exact(Node);
         map_type ->
             revert_map_type(Node);
-        map_type_pair ->
-            revert_map_type_pair(Node);
+        map_type_assoc ->
+            revert_map_type_assoc(Node);
+        map_type_exact ->
+            revert_map_type_exact(Node);
 	match_expr ->
 	    revert_match_expr(Node);
 	module_qualifier ->
@@ -7721,9 +7778,12 @@ subtrees(T) ->
                      [map_field_exact_value(T)]];
                 map_type ->
                     [map_type_fields(T)];
-                map_type_pair ->
-                    [[map_type_pair_key(T)],
-                     [map_type_pair_value(T)]];
+                map_type_assoc ->
+                    [[map_type_assoc_name(T)],
+                     [map_type_assoc_value(T)]];
+                map_type_exact ->
+                    [[map_type_exact_name(T)],
+                     [map_type_exact_value(T)]];
 		match_expr ->
 		    [[match_expr_pattern(T)],
 		     [match_expr_body(T)]];
@@ -7886,7 +7946,8 @@ make_tree(map_expr, [[E], Fs]) -> map_expr(E, Fs);
 make_tree(map_field_assoc, [[K], [V]]) -> map_field_assoc(K, V);
 make_tree(map_field_exact, [[K], [V]]) -> map_field_exact(K, V);
 make_tree(map_type, [Fs]) -> map_type(Fs);
-make_tree(map_type_pair, [[K],[V]]) -> map_type_pair(K, V);
+make_tree(map_type_assoc, [[N],[V]]) -> map_type_assoc(N, V);
+make_tree(map_type_exact, [[N],[V]]) -> map_type_exact(N, V);
 make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
