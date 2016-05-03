@@ -334,16 +334,16 @@ find_time(accept_to_hello, L) ->
 			    C#call.t_call
 		    end,
 		    ?LINE,
-		    fun(C=#call{mfa = {ssh_connection_handler,handle_event,5},
-				args = [_, {version_exchange,_}, _, {hello,_}, _]}) ->
+		    fun(C=#call{mfa = {ssh_connection_handler,handle_event,4},
+				args = [_, {version_exchange,_}, {hello,_}, _]}) ->
 			    C#call.t_call
 		    end,
 		    ?LINE
 		   ], L, []),
     {accept_to_hello, now2micro_sec(now_diff(T1,T0)), microsec};
 find_time(kex, L) ->
-    [T0,T1] = find([fun(C=#call{mfa = {ssh_connection_handler,handle_event,5},
-				args = [_, {version_exchange,_}, _, {hello,_}, _]}) ->
+    [T0,T1] = find([fun(C=#call{mfa = {ssh_connection_handler,handle_event,4},
+				args = [_, {version_exchange,_}, {hello,_}, _]}) ->
 			    C#call.t_call
 		    end,
 		    ?LINE,
@@ -466,8 +466,8 @@ erlang_trace() ->
 		{ssh_message,decode,1},
 		{public_key,dh_gex_group,4} % To find dh_gex group size
 	       ]],
-    init_trace({ssh_connection_handler,handle_event,5},
-	       [{['_', {version_exchange,'_'}, '_', {hello,'_'}, '_'],
+    init_trace({ssh_connection_handler,handle_event,4},
+	       [{['_', {version_exchange,'_'}, {hello,'_'}, '_'],
 		 [],
 		 [return_trace]}]),
     {ok, TracerPid}.
