@@ -33,7 +33,25 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.2.2</title>
+  <section><title>Inets 6.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Put back unused module inets_regexp and remove it in OTP
+	    19 instead as it is an incompatibility, although it is an
+	    undocumented module and should not affect other
+	    applications.</p>
+          <p>
+	    Own Id: OTP-13533</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>
