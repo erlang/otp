@@ -1502,7 +1502,7 @@ pattern({op,_Line,'++',{string,_Li,_S},R}, Vt, Old, Bvt, St) ->
 pattern({match,_Line,Pat1,Pat2}, Vt, Old, Bvt, St0) ->
     {Lvt,Bvt1,St1} = pattern(Pat1, Vt, Old, Bvt, St0),
     {Rvt,Bvt2,St2} = pattern(Pat2, Vt, Old, Bvt, St1),
-    St3 = reject_bin_alias(Pat1, Pat2, St2),
+    St3 = reject_invalid_alias(Pat1, Pat2, Vt, St2),
     {vtmerge_pat(Lvt, Rvt),vtmerge_pat(Bvt1,Bvt2),St3};
 %% Catch legal constant expressions, including unary +,-.
 pattern(Pat, _Vt, _Old, _Bvt, St) ->
@@ -1517,56 +1517,77 @@ pattern_list(Ps, Vt, Old, Bvt0, St) ->
                   {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt,Bvt1),St1}
           end, {[],[],St}, Ps).
 
-%% reject_bin_alias(Pat, Expr, St) -> St'
+
+
+%% reject_invalid_alias(Pat, Expr, Vt, St) -> St'
 %%  Reject aliases for binary patterns at the top level.
+%%  Reject aliases for maps patterns at the top level.
+%%  The variables table (Vt) are for maps checkking.
 
-reject_bin_alias_expr({bin,_,_}=P, {match,_,P0,E}, St0) ->
-    St = reject_bin_alias(P, P0, St0),
-    reject_bin_alias_expr(P, E, St);
-reject_bin_alias_expr({match,_,_,_}=P, {match,_,P0,E}, St0) ->
-    St = reject_bin_alias(P, P0, St0),
-    reject_bin_alias_expr(P, E, St);
-reject_bin_alias_expr(_, _, St) -> St.
+reject_invalid_alias_expr({bin,_,_}=P, {match,_,P0,E}, Vt, St0) ->
+    St = reject_invalid_alias(P, P0, Vt, St0),
+    reject_invalid_alias_expr(P, E, Vt, St);
+reject_invalid_alias_expr({map,_,_}=P, {match,_,P0,E}, Vt, St0) ->
+    St = reject_invalid_alias(P, P0, Vt, St0),
+    reject_invalid_alias_expr(P, E, Vt, St);
+reject_invalid_alias_expr({match,_,_,_}=P, {match,_,P0,E}, Vt, St0) ->
+    St = reject_invalid_alias(P, P0, Vt, St0),
+    reject_invalid_alias_expr(P, E, Vt, St);
+reject_invalid_alias_expr(_, _, _, St) -> St.
 
 
-%% reject_bin_alias(Pat1, Pat2, St) -> St'
+
+%% reject_invalid_alias(Pat1, Pat2, St) -> St'
 %%  Aliases of binary patterns, such as <<A:8>> = <<B:4,C:4>> or even
 %%  <<A:8>> = <<A:8>>, are not allowed. Traverse the patterns in parallel
 %%  and generate an error if any binary aliases are found.
 %%    We generate an error even if is obvious that the overall pattern can't
 %%  possibly match, for instance, {a,<<A:8>>,c}={x,<<A:8>>} WILL generate an
 %%  error.
+%%    Maps should reject unbound variables here.
 
-reject_bin_alias({bin,Line,_}, {bin,_,_}, St) ->
+reject_invalid_alias({bin,Line,_}, {bin,_,_}, _, St) ->
     add_error(Line, illegal_bin_pattern, St);
-reject_bin_alias({cons,_,H1,T1}, {cons,_,H2,T2}, St0) ->
-    St = reject_bin_alias(H1, H2, St0),
-    reject_bin_alias(T1, T2, St);
-reject_bin_alias({tuple,_,Es1}, {tuple,_,Es2}, St) ->
-    reject_bin_alias_list(Es1, Es2, St);
-reject_bin_alias({record,_,Name1,Pfs1}, {record,_,Name2,Pfs2},
+reject_invalid_alias({map,_Line,Ps1}, {map,_,Ps2}, Vt, St0) ->
+    Fun = fun ({map_field_exact,L,{var,_,K},_V}, Sti) ->
+                  case is_var_bound(K,Vt) of
+                      true ->
+                          Sti;
+                      false ->
+                          add_error(L, {unbound_var,K}, Sti)
+                  end;
+              ({map_field_exact,_L,_K,_V}, Sti) ->
+                  Sti
+          end,
+    foldl(Fun, foldl(Fun, St0, Ps1), Ps2);
+reject_invalid_alias({cons,_,H1,T1}, {cons,_,H2,T2}, Vt, St0) ->
+    St = reject_invalid_alias(H1, H2, Vt, St0),
+    reject_invalid_alias(T1, T2, Vt, St);
+reject_invalid_alias({tuple,_,Es1}, {tuple,_,Es2}, Vt, St) ->
+    reject_invalid_alias_list(Es1, Es2, Vt, St);
+reject_invalid_alias({record,_,Name1,Pfs1}, {record,_,Name2,Pfs2}, Vt,
                  #lint{records=Recs}=St) ->
     case {dict:find(Name1, Recs),dict:find(Name2, Recs)} of
         {{ok,{_Line1,Fields1}},{ok,{_Line2,Fields2}}} ->
-	    reject_bin_alias_rec(Pfs1, Pfs2, Fields1, Fields2, St);
+	    reject_invalid_alias_rec(Pfs1, Pfs2, Fields1, Fields2, Vt, St);
         {_,_} ->
 	    %% One or more non-existing records. (An error messages has
 	    %% already been generated, so we are done here.)
 	    St
     end;
-reject_bin_alias({match,_,P1,P2}, P, St0) ->
-    St = reject_bin_alias(P1, P, St0),
-    reject_bin_alias(P2, P, St);
-reject_bin_alias(P, {match,_,_,_}=M, St) ->
-    reject_bin_alias(M, P, St);
-reject_bin_alias(_P1, _P2, St) -> St.
+reject_invalid_alias({match,_,P1,P2}, P, Vt, St0) ->
+    St = reject_invalid_alias(P1, P, Vt, St0),
+    reject_invalid_alias(P2, P, Vt, St);
+reject_invalid_alias(P, {match,_,_,_}=M, Vt, St) ->
+    reject_invalid_alias(M, P, Vt, St);
+reject_invalid_alias(_P1, _P2, _Vt, St) -> St.
 
-reject_bin_alias_list([E1|Es1], [E2|Es2], St0) ->
-    St = reject_bin_alias(E1, E2, St0),
-    reject_bin_alias_list(Es1, Es2, St);
-reject_bin_alias_list(_, _, St) -> St.
+reject_invalid_alias_list([E1|Es1], [E2|Es2], Vt, St0) ->
+    St = reject_invalid_alias(E1, E2, Vt, St0),
+    reject_invalid_alias_list(Es1, Es2, Vt, St);
+reject_invalid_alias_list(_, _, _, St) -> St.
 
-reject_bin_alias_rec(PfsA0, PfsB0, FieldsA0, FieldsB0, St) ->
+reject_invalid_alias_rec(PfsA0, PfsB0, FieldsA0, FieldsB0, Vt, St) ->
     %% We treat records as if they have been converted to tuples.
     PfsA1 = rbia_field_vars(PfsA0),
     PfsB1 = rbia_field_vars(PfsB0),
@@ -1582,7 +1603,7 @@ reject_bin_alias_rec(PfsA0, PfsB0, FieldsA0, FieldsB0, St) ->
     D = sofs:projection({external,fun({_,_,P1,_,P2}) -> {P1,P2} end}, C),
     E = sofs:to_external(D),
     {Ps1,Ps2} = lists:unzip(E),
-    reject_bin_alias_list(Ps1, Ps2, St).
+    reject_invalid_alias_list(Ps1, Ps2, Vt, St).
 
 rbia_field_vars(Fs) ->
     [{Name,Pat} || {record_field,_,{atom,_,Name},Pat} <- Fs].
@@ -2284,7 +2305,7 @@ expr({'catch',Line,E}, Vt, St0) ->
 expr({match,_Line,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Bvt,St2} = pattern(P, vtupdate(Evt, Vt), St1),
-    St = reject_bin_alias_expr(P, E, St2),
+    St = reject_invalid_alias_expr(P, E, Vt, St2),
     {vtupdate(Bvt, vtmerge(Evt, Pvt)),St};
 %% No comparison or boolean operators yet.
 expr({op,_Line,_Op,A}, Vt, St) ->
@@ -2381,7 +2402,7 @@ is_valid_call(Call) ->
         _ -> true
     end.
 
-%% is_valid_map_key(K,St) -> true | false
+%% is_valid_map_key(K) -> true | false
 %%   variables are allowed for patterns only at the top of the tree
 
 is_valid_map_key({var,_,_}) -> true;
@@ -3412,6 +3433,14 @@ warn_unused_vars(U, Vt, St0) ->
     %% Return all variables as bound so warnings are only reported once.
     UVt = map(fun ({V,{State,_,Ls}}) -> {V,{State,used,Ls}} end, U),
     {vtmerge(Vt, UVt), St1}.
+
+
+is_var_bound(V, Vt) ->
+    case orddict:find(V, Vt) of
+        {ok,{bound,_Usage,_}} -> true;
+        _ -> false
+    end.
+
 
 %% vtupdate(UpdVarTable, VarTable) -> VarTable.
 %%  Add the variables in the updated vartable to VarTable. The variables

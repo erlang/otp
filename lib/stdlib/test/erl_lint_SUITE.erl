@@ -33,47 +33,38 @@
 -define(privdir, proplists:get_value(priv_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0]).
 
--export([ 
-	  unused_vars_warn_basic/1, 
-	  unused_vars_warn_lc/1, 
-	  unused_vars_warn_rec/1,
-	  unused_vars_warn_fun/1, 
-	  unused_vars_OTP_4858/1,
-          unused_unsafe_vars_warn/1,
-	  export_vars_warn/1,
-	  shadow_vars/1,
-	  unused_import/1,
-	  unused_function/1,
-	  unsafe_vars/1,unsafe_vars2/1,
-	  unsafe_vars_try/1,
-	  unsized_binary_in_bin_gen_pattern/1,
-	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
-	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
-	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
-          otp_11772/1, otp_11771/1, otp_11872/1,
-          export_all/1,
-	  bif_clash/1,
-	  behaviour_basic/1, behaviour_multiple/1, otp_11861/1,
-	  otp_7550/1,
-	  otp_8051/1,
-	  format_warn/1,
-	  on_load_successful/1, on_load_failing/1, 
-	  too_many_arguments/1,
-	  basic_errors/1,bin_syntax_errors/1,
-          predef/1,
-          maps/1,maps_type/1,otp_11851/1,otp_11879/1,otp_13230/1,
-	  record_errors/1
-        ]).
-
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
+-export([unused_vars_warn_basic/1,
+         unused_vars_warn_lc/1,
+         unused_vars_warn_rec/1,
+         unused_vars_warn_fun/1,
+         unused_vars_OTP_4858/1,
+         unused_unsafe_vars_warn/1,
+         export_vars_warn/1,
+         shadow_vars/1,
+         unused_import/1,
+         unused_function/1,
+         unsafe_vars/1,unsafe_vars2/1,
+         unsafe_vars_try/1,
+         unsized_binary_in_bin_gen_pattern/1,
+         guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
+         otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
+         otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
+         otp_11772/1, otp_11771/1, otp_11872/1,
+         export_all/1,
+         bif_clash/1,
+         behaviour_basic/1, behaviour_multiple/1, otp_11861/1,
+         otp_7550/1,
+         otp_8051/1,
+         format_warn/1,
+         on_load_successful/1, on_load_failing/1,
+         too_many_arguments/1,
+         basic_errors/1,bin_syntax_errors/1,
+         predef/1,
+         maps/1,maps_type/1,maps_parallel_match/1,
+         otp_11851/1,otp_11879/1,otp_13230/1,
+         record_errors/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -91,7 +82,8 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, otp_11851, otp_11879, otp_13230,
+     maps, maps_type, maps_parallel_match,
+     otp_11851, otp_11879, otp_13230,
      record_errors].
 
 groups() -> 
@@ -100,19 +92,6 @@ groups() ->
        unused_vars_warn_rec, unused_vars_warn_fun,
        unused_vars_OTP_4858, unused_unsafe_vars_warn]},
      {on_load, [], [on_load_successful, on_load_failing]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 
 %% Warnings for unused variables in some simple cases.
@@ -3583,8 +3562,6 @@ predef(Config) when is_list(Config) ->
     ok.
 
 maps(Config) ->
-    %% TODO: test key patterns, not done because map patterns are going to be
-    %% changed a lot.
     Ts = [{illegal_map_construction,
            <<"t() ->
                   #{ a := b,
@@ -3626,6 +3603,26 @@ maps(Config) ->
 	   {errors,[{1,erl_lint,illegal_map_construction},
                     {1,erl_lint,{unbound_var,'X'}}],
             []}},
+          {legal_map_pattern,
+	   <<"
+               -record(mapkey, {a=1,b=2}).
+               t(M,K1) ->
+                     #{ a := 1,
+                        $a := 1, $z := 99,
+                        #{a=>val} := 2,
+                        K1 := 1337,
+                        #mapkey{a = 10} := wat,
+                        #{{a,val}=>val} := 2,
+                        #{ \"hi\" => wazzup, hi => ho } := yep,
+                        ok := 1.0,
+                        [3+3] := nope,
+                        1.0 := yep,
+                        {3.0+3} := nope,
+                        {yep} := yep
+                      } = M.
+	   ">>,
+	   [],
+	   []},
 	  {legal_map_construction,
 	   <<"t(V) -> #{ a => 1,
 			#{a=>V} => 2,
@@ -3689,6 +3686,51 @@ maps_type(Config) when is_list(Config) ->
 	 ">>,
 	 [],
 	 {errors,[{3,erl_lint,{builtin_type,{map,0}}}],[]}}],
+    [] = run(Config, Ts),
+    ok.
+
+maps_parallel_match(Config) when is_list(Config) ->
+    Ts = [{parallel_map_patterns_unbound1,
+           <<"
+           t(#{} = M) ->
+               #{K := V} = #{k := K} = M,
+               V.
+           ">>,
+           [],
+           {errors,[{3,erl_lint,{unbound_var,'K'}}],[]}},
+          {parallel_map_patterns_unbound2,
+           <<"
+           t(#{} = M) ->
+               #{K1 := V1} =
+               #{K2 := V2} =
+               #{k1 := K1,k2 := K2} = M,
+               [V1,V2].
+           ">>,
+           [],
+           {errors,[{3,erl_lint,{unbound_var,'K1'}},
+                    {3,erl_lint,{unbound_var,'K1'}},
+                    {4,erl_lint,{unbound_var,'K2'}},
+                    {4,erl_lint,{unbound_var,'K2'}}],[]}},
+          {parallel_map_patterns_bound,
+           <<"
+           t(#{} = M,K1,K2) ->
+               #{K1 := V1} =
+               #{K2 := V2} =
+               #{k1 := K1,k2 := K2} = M,
+               [V1,V2].
+           ">>,
+           [],
+           []},
+          {parallel_map_patterns_literal,
+           <<"
+           t(#{} = M) ->
+               #{k1 := V1} =
+               #{k2 := V2} =
+               #{k1 := V1,k2 := V2} = M,
+               [V1,V2].
+           ">>,
+           [],
+           []}],
     [] = run(Config, Ts),
     ok.
 
