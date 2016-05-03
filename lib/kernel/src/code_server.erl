@@ -32,8 +32,12 @@
 
 -import(lists, [foreach/2]).
 
+-type on_load_action() ::
+	fun((term(), state()) -> {'reply',term(),state()} |
+				 {'noreply',state()}).
+
 -type on_load_item() :: {{pid(),reference()},module(),
-			 file:name_all(),[pid()]}.
+			 [{pid(),on_load_action()}]}.
 
 -record(state, {supervisor :: pid(),
 		root :: file:name_all(),
@@ -304,7 +308,7 @@ handle_call({ensure_loaded,Mod}, From, St) when is_atom(Mod) ->
 	true ->
 	    {reply,{module,Mod},St};
 	false when St#state.mode =:= interactive ->
-	    load_file(Mod, From, St);
+	    ensure_loaded(Mod, From, St);
 	false ->
 	    {reply,{error,embedded},St}
     end;
@@ -1084,13 +1088,11 @@ load_abs(File, Mod, From, St) ->
 	    {reply,{error,nofile},St}
     end.
 
-try_load_module(File, Mod, Bin, From, St0) ->
-    case pending_on_load(Mod, From, St0) of
-	no ->
-	    try_load_module_1(File, Mod, Bin, From, St0);
-	{yes,St} ->
-	    {noreply,St}
-    end.
+try_load_module(File, Mod, Bin, From, St) ->
+    Action = fun(_, S) ->
+		     try_load_module_1(File, Mod, Bin, From, S)
+	     end,
+    handle_pending_on_load(Action, Mod, From, St).
 
 try_load_module_1(File, Mod, Bin, From, #state{moddb=Db}=St) ->
     case is_sticky(Mod, Db) of
@@ -1117,19 +1119,19 @@ try_load_module_2(File, Mod, Bin, From, Architecture,
             {reply,ok,St}
     end.
 
-try_load_module_3(File, Mod, Bin, From, Architecture,
-                  #state{moddb=Db}=St) ->
-    case erlang:load_module(Mod, Bin) of
-        {module,Mod} = Module ->
-            ets:insert(Db, {Mod,File}),
-            post_beam_load([Mod], Architecture, St),
-            {reply,Module,St};
-        {error,on_load} ->
-            handle_on_load(Mod, File, From, St);
-        {error,What} = Error ->
-            error_msg("Loading of ~ts failed: ~p\n", [File, What]),
-            {reply,Error,St}
-    end.
+try_load_module_3(File, Mod, Bin, From, Architecture, St0) ->
+    Action = fun({module,_}=Module, #state{moddb=Db}=S) ->
+		     ets:insert(Db, {Mod,File}),
+		     post_beam_load([Mod], Architecture, S),
+		     {reply,Module,S};
+		({error,on_load_failure}=Error, S) ->
+		     {reply,Error,S};
+		({error,What}=Error, S) ->
+		     error_msg("Loading of ~ts failed: ~p\n", [File, What]),
+		     {reply,Error,S}
+	     end,
+    Res = erlang:load_module(Mod, Bin),
+    handle_on_load(Res, Action, Mod, From, St0).
 
 hipe_result_to_status(Result, #state{moddb=Db}) ->
     case Result of
@@ -1154,11 +1156,22 @@ int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
 int_list([])                       -> true.
 
+ensure_loaded(Mod, From, St0) ->
+    Action = fun(_, S) ->
+		     case erlang:module_loaded(Mod) of
+			 true ->
+			     {reply,{module,Mod},S};
+			 false ->
+			     load_file_1(Mod, From, S)
+		     end
+	     end,
+    handle_pending_on_load(Action, Mod, From, St0).
+
 load_file(Mod, From, St0) ->
-    case pending_on_load(Mod, From, St0) of
-	no -> load_file_1(Mod, From, St0);
-	{yes,St} -> {noreply,St}
-    end.
+    Action = fun(_, S) ->
+		     load_file_1(Mod, From, S)
+	     end,
+    handle_pending_on_load(Action, Mod, From, St0).
 
 load_file_1(Mod, From, #state{path=Path}=St) ->
     case mod_to_bin(Path, Mod) of
@@ -1308,55 +1321,56 @@ run([F|Fs], Data0) ->
 %% The on_load functionality.
 %% -------------------------------------------------------
 
-handle_on_load(Mod, File, From, #state{on_load=OnLoad0}=St0) ->
+handle_on_load({error,on_load}, Action, Mod, From, St0) ->
+    #state{on_load=OnLoad0} = St0,
     Fun = fun() ->
 		  Res = erlang:call_on_load_function(Mod),
 		  exit(Res)
 	  end,
     PidRef = spawn_monitor(Fun),
-    OnLoad = [{PidRef,Mod,File,[From]}|OnLoad0],
+    PidAction = {From,Action},
+    OnLoad = [{PidRef,Mod,[PidAction]}|OnLoad0],
     St = St0#state{on_load=OnLoad},
-    {noreply,St}.
+    {noreply,St};
+handle_on_load(Res, Action, _, _, St) ->
+    Action(Res, St).
 
-pending_on_load(_, _, #state{on_load=[]}) ->
-    no;
-pending_on_load(Mod, From, #state{on_load=OnLoad0}=St) ->
+handle_pending_on_load(Action, Mod, From, #state{on_load=OnLoad0}=St) ->
     case lists:keyfind(Mod, 2, OnLoad0) of
 	false ->
-	    no;
-	{{From,_Ref},Mod,_File,_Pids} ->
+	    Action(ok, St);
+	{{From,_Ref},Mod,_Pids} ->
 	    %% The on_load function tried to make an external
 	    %% call to its own module. That would be a deadlock.
 	    %% Fail the call. (The call is probably from error_handler,
 	    %% and it will ignore the actual error reason and cause
 	    %% an undef execption.)
-	    _ = reply(From, {error,deadlock}),
-	    {yes,St};
-	{_,_,_,_} ->
-	    OnLoad = pending_on_load_1(Mod, From, OnLoad0),
-	    {yes,St#state{on_load=OnLoad}}
+	    {reply,{error,deadlock},St};
+	{_,_,_} ->
+	    OnLoad = handle_pending_on_load_1(Mod, {From,Action}, OnLoad0),
+	    {noreply,St#state{on_load=OnLoad}}
     end.
 
-pending_on_load_1(Mod, From, [{PidRef,Mod,File,Pids}|T]) ->
-    [{PidRef,Mod,File,[From|Pids]}|T];
-pending_on_load_1(Mod, From, [H|T]) ->
-    [H|pending_on_load_1(Mod, From, T)];
-pending_on_load_1(_, _, []) -> [].
+handle_pending_on_load_1(Mod, From, [{PidRef,Mod,Pids}|T]) ->
+    [{PidRef,Mod,[From|Pids]}|T];
+handle_pending_on_load_1(Mod, From, [H|T]) ->
+    [H|handle_pending_on_load_1(Mod, From, T)];
+handle_pending_on_load_1(_, _, []) -> [].
 
-finish_on_load(PidRef, OnLoadRes, #state{on_load=OnLoad0,moddb=Db}=State) ->
+finish_on_load(PidRef, OnLoadRes, #state{on_load=OnLoad0}=St0) ->
     case lists:keyfind(PidRef, 1, OnLoad0) of
 	false ->
 	    %% Since this process in general silently ignores messages
 	    %% it doesn't understand, it should also ignore a 'DOWN'
 	    %% message with an unknown reference.
-	    State;
-	{PidRef,Mod,File,WaitingPids} ->
-	    finish_on_load_1(Mod, File, OnLoadRes, WaitingPids, Db),
-	    OnLoad = [E || {R,_,_,_}=E <- OnLoad0, R =/= PidRef],
-	    State#state{on_load=OnLoad}
+	    St0;
+	{PidRef,Mod,Waiting} ->
+	    St = finish_on_load_1(Mod, OnLoadRes, Waiting, St0),
+	    OnLoad = [E || {R,_,_}=E <- OnLoad0, R =/= PidRef],
+	    St#state{on_load=OnLoad}
     end.
 
-finish_on_load_1(Mod, File, OnLoadRes, WaitingPids, Db) ->
+finish_on_load_1(Mod, OnLoadRes, Waiting, St) ->
     Keep = OnLoadRes =:= ok,
     erlang:finish_after_on_load(Mod, Keep),
     Res = case Keep of
@@ -1365,11 +1379,20 @@ finish_on_load_1(Mod, File, OnLoadRes, WaitingPids, Db) ->
 		  _ = erts_code_purger:purge(Mod),
 		  {error,on_load_failure};
 	      true ->
-		  ets:insert(Db, {Mod,File}),
 		  {module,Mod}
 	  end,
-    _ = [reply(Pid, Res) || Pid <- WaitingPids],
-    ok.
+    finish_on_load_2(Waiting, Res, St).
+
+finish_on_load_2([{Pid,Action}|T], Res, St0) ->
+    case Action(Res, St0) of
+	{reply,Rep,St} ->
+	    _ = reply(Pid, Rep),
+	    finish_on_load_2(T, Res, St);
+	{noreply,St} ->
+	    finish_on_load_2(T, Res, St)
+    end;
+finish_on_load_2([], _, St) ->
+    St.
 
 finish_on_load_report(_Mod, Atom) when is_atom(Atom) ->
     %% No error reports for atoms.

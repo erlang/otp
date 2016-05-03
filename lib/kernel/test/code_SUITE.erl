@@ -35,7 +35,7 @@
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
-	 on_load_purge/1, on_load_self_call/1,
+	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
 	 big_boot_embedded/1,
 	 native_early_modules/1, get_mode/1,
 	 normalized_paths/1]).
@@ -65,7 +65,7 @@ all() ->
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors, on_load_update,
-     on_load_purge, on_load_self_call,
+     on_load_purge, on_load_self_call, on_load_pending,
      big_boot_embedded, native_early_modules, get_mode, normalized_paths].
 
 groups() ->
@@ -830,6 +830,12 @@ check_funs({'$M_EXPR',warning_msg,2},
 	   [{code_server,finish_on_load_report,2} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{code_server,run,2}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',2},
+	   [{code_server,handle_on_load,5}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',2},
+	   [{code_server,handle_pending_on_load,4}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',2},
+	   [{code_server,finish_on_load_2,3}|_]) -> 0;
 %% This is cheating! /raimo
 %%
 %% check_funs(This = {M,_,_}, Path) ->
@@ -1548,6 +1554,54 @@ on_load_do_load(Mod, Code) ->
     receive
 	Any -> Any
     end.
+
+on_load_pending(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    Tree1 = ?Q(["-module('@Mod@').\n",
+		"-on_load(f/0).\n",
+		"f() ->\n",
+		"  register('@Mod@', self()),\n",
+		"  receive _ -> ok end.\n"]),
+    merl:print(Tree1),
+    {ok,Mod,Code1} = merl:compile(Tree1),
+
+    Tree2 = ?Q(["-module('@Mod@').\n",
+		"-export([t/0]).\n",
+		"t() -> ok.\n"]),
+    merl:print(Tree2),
+    {ok,Mod,Code2} = merl:compile(Tree2),
+
+    Self = self(),
+    {_,Ref1} =
+	spawn_monitor(fun() ->
+			      Self ! started1,
+			      {module,Mod} = code:load_binary(Mod, "", Code1)
+		      end),
+    receive started1 -> ok end,
+    timer:sleep(10),
+    {_,Ref2} =
+	spawn_monitor(fun() ->
+			      Self ! started2,
+			      {module,Mod} = code:load_binary(Mod, "", Code2),
+			      ok = Mod:t()
+		      end),
+    receive started2 -> ok end,
+    receive
+	Unexpected ->
+	    ct:fail({unexpected,Unexpected})
+    after 100 ->
+	    ok
+    end,
+    Mod ! go,
+    receive
+	{'DOWN',Ref1,process,_,normal} -> ok
+    end,
+    receive
+	{'DOWN',Ref2,process,_,normal} -> ok
+    end,
+    ok = Mod:t(),
+    ok.
+
 
 %% Test that the native code of early loaded modules is loaded.
 native_early_modules(Config) when is_list(Config) ->
