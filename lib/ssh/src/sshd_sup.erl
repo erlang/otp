@@ -75,6 +75,8 @@ system_name(SysSup) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init([Servers]) ->
     RestartStrategy = one_for_one,
     MaxR = 10,

@@ -31,6 +31,8 @@
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init([]) ->
     SupFlags = {one_for_one, 10, 3600},
     Children = children(), 

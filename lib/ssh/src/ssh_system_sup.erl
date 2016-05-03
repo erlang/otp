@@ -125,6 +125,8 @@ restart_acceptor(Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init([ServerOpts]) ->
     RestartStrategy = one_for_one,
     MaxR = 0,
