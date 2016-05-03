@@ -8637,8 +8637,8 @@ timestamp() ->
             <p>Specifies that a tracer module should be called
             instead of sending a trace message. The tracer module
             can then ignore or change the trace message. For more details
-            on how to write a tracer module see <seealso marker="erl_tracer">
-            erl_tracer</seealso>
+            on how to write a tracer module see
+            <seealso marker="erts:erl_tracer"><c>erl_tracer</c></seealso>
           </p>
           </item>
         </taglist>
@@ -8989,7 +8989,7 @@ timestamp() ->
           <c>erlang:trace_delivered(<anno>Tracee</anno>)</c> resides on.
           The special <c><anno>Tracee</anno></c> atom <c>all</c>
           denotes all processes that currently are traced in the node.</p>
-        <p>When used together with an <seealso marker="#erl_tracer">
+        <p>When used together with an <seealso marker="erts:erl_tracer">
           Tracer Module</seealso> any message sent in the trace callback
           is guaranteed to have reached it's recipient before the
           <c>trace_delivered</c> message is sent.</p>

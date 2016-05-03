@@ -173,19 +173,7 @@ void erts_clear_time_trace_bif(BeamInstr *pc);
 
 BeamInstr *erts_find_local_func(Eterm mfa[3]);
 
-ERTS_GLB_INLINE Uint erts_bp_sched2ix(void);
-
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE Uint erts_bp_sched2ix(void)
-{
-#ifdef ERTS_SMP
-    ErtsSchedulerData *esdp;
-    esdp = erts_get_scheduler_data();
-    return esdp->no - 1;
-#else
-    return 0;
-#endif
-}
 
 extern erts_smp_atomic32_t erts_active_bp_index;
 extern erts_smp_atomic32_t erts_staging_bp_index;

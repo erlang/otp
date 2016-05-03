@@ -240,19 +240,23 @@ command(Config) ->
     Prt ! {S, {command, <<?ECHO_DRV_NOOP:8>>}},
     [{trace, Prt, 'receive', {S, {command, <<?ECHO_DRV_NOOP:8>>}}}] = flush(),
 
+    OutputMsg = <<?ECHO_DRV_NOOP:8,0:(8*512)>>,
+    Prt ! {S, {command, OutputMsg}},
+    [{trace, Prt, 'receive', {S, {command, OutputMsg}}}] = flush(),
+
     close(Prt, Flags),
 
     os:putenv("OUTPUTV","true"),
     reload_drv(Config),
 
     Prt2 = erlang:open_port({spawn, echo_drv}, [binary]),
-    Msg = [<<0:8>>,<<0:(8*512)>>,<<0:(8*256)>>,<<0:8>>],
+    OutputvMsg = [<<0:8>>,<<0:(8*512)>>,<<0:(8*256)>>,<<0:8>>],
 
-    erlang:port_command(Prt2, Msg),
-    [{trace, Prt2, 'receive', {S, {command, Msg}}}] = flush(),
+    erlang:port_command(Prt2, OutputvMsg),
+    [{trace, Prt2, 'receive', {S, {command, OutputvMsg}}}] = flush(),
 
-    Prt2 ! {S, {command, Msg}},
-    [{trace, Prt2, 'receive', {S, {command, Msg}}}] = flush(),
+    Prt2 ! {S, {command, OutputvMsg}},
+    [{trace, Prt2, 'receive', {S, {command, OutputvMsg}}}] = flush(),
 
     close(Prt2, Flags),
 
@@ -273,6 +277,12 @@ control(_Config) ->
     [0] = erlang:port_control(Prt, (1 bsl 32) - 1, <<?ECHO_DRV_NOOP:8, 0:8>>),
     [{trace, Prt, 'receive', {S, {control, {(1 bsl 32) - 1, <<?ECHO_DRV_NOOP:8, 0:8>>}}}},
      {trace, Prt, send, {Prt, {control, <<0:8>>}}, S}] = flush(),
+
+    Msg = <<?ECHO_DRV_NOOP:8, 0:(8*512)>>,
+    Pat = lists:duplicate(512, 0),
+    Pat = erlang:port_control(Prt, 1, Msg),
+    [{trace, Prt, 'receive', {S, {control, {1, Msg}}}},
+     {trace, Prt, send, {Prt, {control, <<0:(8*512)>>}}, S}] = flush(),
 
     close(Prt, Flags),
 
@@ -331,12 +341,16 @@ call(_Config) ->
     Flags = [send,'receive'],
     {Prt, S} = trace_and_open(Flags,[binary]),
 
-    Msg = {hello, world, make_ref()},
-    BinMsg = term_to_binary(Msg),
+    Test = fun(Msg) ->
+                   BinMsg = term_to_binary(Msg),
 
-    Msg = erlang:port_call(Prt, 0, Msg),
-    [{trace, Prt, 'receive', {S, {call, {0, BinMsg}}}},
-     {trace, Prt, send, {Prt, {call, BinMsg}}, S}] = flush(),
+                   Msg = erlang:port_call(Prt, 0, Msg),
+                   [{trace, Prt, 'receive', {S, {call, {0, BinMsg}}}},
+                    {trace, Prt, send, {Prt, {call, BinMsg}}, S}] = flush()
+           end,
+
+    Test({hello, world, make_ref()}),
+    Test({hello, world, lists:seq(1,1000)}),
 
     close(Prt, Flags),
 
