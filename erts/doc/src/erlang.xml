@@ -4702,7 +4702,7 @@ os_prompt% </pre>
 	       detailed information about garbage collection for this process.
 	       The content of <c><anno>GCInfo</anno></c> can be changed without
 	       prior notice.
-               See <seealso marker="#gc_start">gc_start</seealso> in
+               See <seealso marker="#gc_minor_start">gc_minor_start</seealso> in
                <seealso marker="#trace/3">erlang:trace/3</seealso> for details about
                what each item means.
             </p>
@@ -7968,7 +7968,7 @@ ok
               <c>stack_size</c>, <c>mbuf_size</c>, <c>old_heap_size</c>,
               and <c>old_heap_block_size</c>. These tuples are
               explained in the description of trace message
-              <seealso marker="#gc_start">gc_start</seealso> (see
+              <seealso marker="#gc_minor_start">gc_minor_start</seealso> (see
               <seealso marker="#trace/3">erlang:trace/3</seealso>).
               New tuples can be added, and the order of the tuples in
               the <c>Info</c> list can be changed at any time without
@@ -8558,7 +8558,7 @@ timestamp() ->
           <tag><c>garbage_collection</c></tag>
           <item>
             <p>Traces garbage collections of processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_gc_start">gc_start</seealso></c> and <c><seealso marker="#trace_3_trace_messages_gc_end">gc_end</seealso></c>.</p>
+            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_gc_minor_start">gc_minor_start</seealso></c> and <c><seealso marker="#trace_3_trace_messages_gc_minor_end">gc_minor_end</seealso></c>.</p>
           </item>
           <tag><c>timestamp</c></tag>
           <item>
@@ -8882,12 +8882,12 @@ timestamp() ->
             </p>
           </item>
           <tag>
-            <marker id="trace_3_trace_messages_gc_start"></marker>
-            <c>{trace, Pid, gc_start, Info}</c>
+            <marker id="trace_3_trace_messages_gc_minor_start"></marker>
+            <c>{trace, Pid, gc_minor_start, Info}</c>
           </tag>
           <item>
-          <marker id="gc_start"></marker>
-            <p>Sent when garbage collection is about to be started.
+          <marker id="gc_minor_start"></marker>
+            <p>Sent when a young garbage collection is about to be started.
               <c>Info</c> is a list of two-element tuples, where
               the first element is a key, and the second is the value.
               Do not depend on any order of the tuples.
@@ -8927,14 +8927,31 @@ timestamp() ->
             <p>All sizes are in words.</p>
           </item>
           <tag>
-            <marker id="trace_3_trace_messages_gc_end"></marker>
-            <c>{trace, Pid, gc_end, Info}</c>
+            <marker id="trace_3_trace_messages_gc_minor_end"></marker>
+            <c>{trace, Pid, gc_minor_end, Info}</c>
           </tag>
           <item>
-            <p>Sent when garbage collection is finished. <c>Info</c>
-              contains the same kind of list as in message <c>gc_start</c>,
+            <p>Sent when young garbage collection is finished. <c>Info</c>
+              contains the same kind of list as in message <c>gc_minor_start</c>,
               but the sizes reflect the new sizes after
               garbage collection.</p>
+          </item>
+          <tag>
+            <marker id="trace_3_trace_messages_gc_major_start"></marker>
+            <c>{trace, Pid, gc_major_start, Info}</c>
+          </tag>
+          <item>
+            <p>Sent when fullsweep garbage collection is about to be started. <c>Info</c>
+                contains the same kind of list as in message <c>gc_minor_start</c>.</p>
+          </item>
+          <tag>
+            <marker id="trace_3_trace_messages_gc_major_end"></marker>
+            <c>{trace, Pid, gc_major_end, Info}</c>
+          </tag>
+          <item>
+            <p>Sent when fullsweep garbage collection is finished. <c>Info</c>
+                contains the same kind of list as in message <c>gc_minor_start</c>
+              but the sizes reflect the new sizes after a fullsweep garbage collection.</p>
           </item>
         </taglist>
         <p>If the tracing process/port dies or the tracer module returns
