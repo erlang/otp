@@ -536,8 +536,6 @@ t(T,S) ->
             S;
         #transport{} = NS ->
             NS;
-        {stop, Reason} ->
-            x(Reason);
         stop ->
             x(T)
     end.
