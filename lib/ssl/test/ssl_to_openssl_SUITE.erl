@@ -131,6 +131,13 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
+init_per_group(basic, Config) ->
+    case ssl_test_lib:supports_ssl_tls_version(sslv2) of
+	true ->
+	    [{v2_hello_compatible, true} | Config];
+	false ->
+	    [{v2_hello_compatible, false} | Config]
+    end;
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
@@ -296,15 +303,18 @@ basic_erlang_server_openssl_client() ->
 basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    V2Compat = proplists:get_value(v2_hello_compatible, Config), 
 
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     
     Data = "From openssl to erlang",
+    ct:pal("v2_hello_compatible: ~p", [V2Compat]),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+					{options,[{v2_hello_compatible, V2Compat} | ServerOpts]}]),
+
     Port = ssl_test_lib:inet_port(Server),
     
     Exe = "openssl",
@@ -318,8 +328,8 @@ basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     %% Clean close down!   Server needs to be closed first !!
     ssl_test_lib:close(Server),
     ssl_test_lib:close_port(OpenSslPort),
-    process_flag(trap_exit, false),
-    ok.
+    process_flag(trap_exit, false).
+
 %%--------------------------------------------------------------------
 erlang_client_openssl_server() ->
     [{doc,"Test erlang client with openssl server"}].

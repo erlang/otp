@@ -732,7 +732,8 @@ handle_options(Opts0, Role) ->
 										     false, Role)),
 					     client, Role),
 		    crl_check = handle_option(crl_check, Opts, false),
-		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}})
+		    crl_cache = handle_option(crl_cache, Opts, {ssl_crl_cache, {internal, []}}),
+		    v2_hello_compatible = handle_option(v2_hello_compatible, Opts, false)
 		   },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),
@@ -747,7 +748,7 @@ handle_options(Opts0, Role) ->
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback, signature_algs, beast_mitigation],
+		  fallback, signature_algs, beast_mitigation, v2_hello_compatible],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -991,6 +992,8 @@ validate_option(beast_mitigation, Value) when Value == one_n_minus_one orelse
                                               Value == zero_n orelse
                                               Value == disabled ->
   Value;
+validate_option(v2_hello_compatible, Value) when is_boolean(Value)  ->
+    Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
