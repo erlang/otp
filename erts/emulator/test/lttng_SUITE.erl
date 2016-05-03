@@ -89,8 +89,8 @@ end_per_testcase(Case, _Config) ->
 %%   com_ericsson_otp:carrier_pool_put
 %%   com_ericsson_otp:carrier_destroy
 %%   com_ericsson_otp:carrier_create
-%%   com_ericsson_otp:aio_pool_add 
-%%   com_ericsson_otp:aio_pool_get 
+%%   com_ericsson_otp:aio_pool_put
+%%   com_ericsson_otp:aio_pool_get
 %%   com_ericsson_otp:driver_control
 %%   com_ericsson_otp:driver_call
 %%   com_ericsson_otp:driver_finish
@@ -151,7 +151,7 @@ t_memory_carrier(Config) ->
             ok
     end.
 
-%% com_ericsson_otp:aio_pool_add
+%% com_ericsson_otp:aio_pool_put
 %% com_ericsson_otp:aio_pool_get
 t_async_io_pool(Config) ->
     case have_async_threads() of
@@ -168,7 +168,7 @@ t_async_io_pool(Config) ->
             {ok, _} = file:list_dir(Path2),
 
             Res = lttng_stop_and_view(Config),
-            ok = check_tracepoint("com_ericsson_otp:aio_pool_add", Res),
+            ok = check_tracepoint("com_ericsson_otp:aio_pool_put", Res),
             ok = check_tracepoint("com_ericsson_otp:aio_pool_get", Res),
             ok
     end.
@@ -416,7 +416,7 @@ txt() ->
       "%%   com_ericsson_otp:carrier_pool_put\n"
       "%%   com_ericsson_otp:carrier_destroy\n"
       "%%   com_ericsson_otp:carrier_create\n"
-      "%%   com_ericsson_otp:aio_pool_add\n"
+      "%%   com_ericsson_otp:aio_pool_put\n"
       "%%   com_ericsson_otp:aio_pool_get\n"
       "%%   com_ericsson_otp:driver_control\n"
       "%%   com_ericsson_otp:driver_call\n"

@@ -283,10 +283,10 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 
     erts_thr_q_enqueue(&q->thr_q, a);
 #ifdef USE_LTTNG_VM_TRACEPOINTS
-    if (LTTNG_ENABLED(aio_pool_add)) {
+    if (LTTNG_ENABLED(aio_pool_put)) {
         lttng_decl_portbuf(port_str);
         lttng_portid_to_str(a->port, port_str);
-        LTTNG2(aio_pool_add, port_str, -1);
+        LTTNG2(aio_pool_put, port_str, -1);
     }
 #endif
 #ifdef USE_VM_PROBES

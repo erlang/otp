@@ -3861,7 +3861,7 @@ terminate_port(Port *prt)
             lttng_decl_procbuf(proc_str);
             lttng_pid_to_str(connected_id, proc_str);
             lttng_port_to_str(prt, port_str);
-            LTTNG3(driver_stop, proc_str, drv->name, port_str);
+            LTTNG3(driver_stop, proc_str, port_str, drv->name);
         }
 #endif
 

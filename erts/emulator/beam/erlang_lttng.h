@@ -218,13 +218,13 @@ TRACEPOINT_EVENT(
     driver_stop,
     TP_ARGS(
         char*, pid,
-        char*, driver,
-        char*, port
+        char*, port,
+        char*, driver
     ),
     TP_FIELDS(
         ctf_string(pid, pid)
-        ctf_string(driver, driver)
         ctf_string(port, port)
+        ctf_string(driver, driver)
     )
 )
 
@@ -324,7 +324,7 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_EVENT(
     com_ericsson_otp,
-    aio_pool_add,
+    aio_pool_put,
     TP_ARGS(
         char*, port,
         int, length
