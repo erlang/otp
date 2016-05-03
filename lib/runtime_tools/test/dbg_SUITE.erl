@@ -155,70 +155,111 @@ message(Config) when is_list(Config) ->
 
 send(Config) when is_list(Config) ->
     {ok, _} = start(),
+    Node = start_slave(),
+    rpc:call(Node, code, add_patha,
+             [filename:join(proplists:get_value(data_dir, Config), "..")]),
     try
-	S = self(),
-	Rcvr = spawn_link(fun F() ->
-                                  receive M ->
-                                          S ! M,
-                                          F()
-                                  end
-			      end),
+        Echo = fun F() ->
+                       receive {From, M} ->
+                               From ! M,
+                               F()
+                       end
+               end,
+	Rcvr = spawn_link(Echo),
+        RemoteRcvr = spawn_link(Node, Echo),
 
 	{ok, [{matched, _, 1}]} = dbg:p(Rcvr, send),
-        R1 = Rcvr ! make_ref(),
-        receive R1 -> ok end,
-	[{trace, Rcvr, send, R1, S}] = flush(),
 
-        {ok, [{matched, _node, 1}, {saved, 1}]} = dbg:tpe(send, [{[S,'_'],[],[]}]),
-        R2 = Rcvr ! make_ref(),
-        receive R2 -> ok end,
-	[{trace, Rcvr, send, R2, S}] = flush(),
+        send_test(Rcvr, make_ref(), true),
 
+        %% Test that the test case process is the receiving process
+        send_test(Rcvr, [{[self(),'_'],[],[]}]),
+
+        %% Test that self() is not the receiving process
         {ok, [{matched, _node, 1}, {saved, 2}]} =
             dbg:tpe(send, [{['$1','_'],[{'==','$1',{self}}],[]}]),
-        R3 = Rcvr ! make_ref(),
-        receive R3 -> ok end,
-	[] = flush(),
+        send_test(Rcvr, make_ref(), false),
 
-        {ok, [{matched, _node, 1}, {saved, 3}]} =
-            dbg:tpe(send, [{['_','_'],[{'==',Rcvr,{self}}],[]}]),
-        R4 = Rcvr ! make_ref(),
-        receive R4 -> ok end,
-	[{trace, Rcvr, send, R4, S}] = flush(),
+        %% Test that self() is the sending process
+        send_test(Rcvr, [{['_','_'],[{'==',Rcvr,{self}}],[]}]),
 
-        {ok, [{matched, _node, 1}, {saved, 4}]} =
-            dbg:tpe(send, [{['_','_'],[{'==',Rcvr,{self}}],[{message, hello}]}]),
-        R5 = Rcvr ! make_ref(),
-        receive R5 -> ok end,
-	[{trace, Rcvr, send, R5, S, hello}] = flush(),
+        %% Test attaching a message
+        send_test(Rcvr, [{['_','_'],[{'==',Rcvr,{self}}],[{message, hello}]}],
+                  make_ref(), hello),
 
-        {ok, [{matched, _node, 1}, {saved, 2}]} = dbg:tpe(send, 2),
-        R6 = Rcvr ! make_ref(),
-        receive R6 -> ok end,
-	[] = flush(),
+        %% Test using a saved trace pattern
+        send_test(Rcvr, 2, make_ref(), false),
 
+        %% Test clearing of trace pattern
         {ok, [{matched, _node, 1}]} = dbg:ctpe(send),
-        R7 = Rcvr ! make_ref(),
-        receive R7 -> ok end,
-	[{trace, Rcvr, send, R7, S, hello}] = flush(),
+        send_test(Rcvr, make_ref(), true),
 
-        R8 = make_ref(),
-        {ok, [{matched, _node, 1}, {saved, 5}]} =
-            dbg:tpe(send, [{['_','$2'],[{'==',R8,{element, 1, {element, 2, '$2'}}}],
-                           [{message, hello}]}]),
-        Msg1 = Rcvr ! {test, {R8}, <<0:(8*1024)>>},
-        receive Msg1 -> ok end,
-	[{trace, Rcvr, send, Msg1, S, hello}] = flush(),
+        %% Test complex message inspection
+        Ref = make_ref(),
+        send_test(Rcvr,
+                  [{['_','$2'],[{'==',Ref,{element,1,{element,2,'$2'}}}],[]}],
+                  {test, {Ref}, <<0:(8*1024)>>}, true),
 
-        R9 = make_ref(),
-        Msg2 = Rcvr ! {test, {R9}, <<0:(8*1024)>>},
-        receive Msg2 -> ok end,
-	[] = flush(),
+        send_test(Rcvr, {test, {make_ref()}, <<0:(8*1024)>>}, false),
+
+        %% Test send to remote process
+        remote_send_test(Rcvr, RemoteRcvr, [], make_ref(), true),
+
+        remote_send_test(Rcvr, RemoteRcvr,
+                         [{['$1','_'],[{'==',{node, '$1'},{node}}],[]}],
+                         make_ref(), false),
+
+        remote_send_test(Rcvr, RemoteRcvr,
+                         [{['$1','_'],[{'==',{node, '$1'},Node}],[]}],
+                         make_ref(), true),
+
+        %% Test that distributed dbg works
+        dbg:tracer(Node, process, {fun myhandler/2, self()}),
+        Rcvr2 = spawn_link(Echo),
+        RemoteRcvr2 = spawn_link(Node, Echo),
+        dbg:p(Rcvr2, [send]),
+        dbg:p(RemoteRcvr2, [send]),
+        dbg:tpe(send, [{['_', hej],[],[]}]),
+
+        send_test(Rcvr2, make_ref(), false),
+        send_test(RemoteRcvr2, make_ref(), false),
+        send_test(Rcvr2, hej, true),
+        send_test(RemoteRcvr2, hej, true),
 
         ok
 
     after
 	stop()
+    end.
+
+send_test(Pid, Pattern, Msg, TraceEvent) ->
+    {ok, [{matched, _, _}, _]} = dbg:tpe(send, Pattern),
+    send_test(Pid, Msg, TraceEvent).
+send_test(Pid, Pattern) ->
+    send_test(Pid, Pattern, make_ref(), true).
+send_test(Pid, Msg, TraceEvent) ->
+    S = self(),
+    Pid ! {S, Msg},
+    receive Msg -> ok end,
+    send_test_rcv(Pid, Msg, S, TraceEvent).
+
+remote_send_test(Pid, RPid, Pattern, Msg, TraceEvent) ->
+    dbg:tpe(send, Pattern),
+    TMsg = {self(), Msg},
+    Pid ! {RPid, TMsg},
+    receive Msg -> ok end,
+    send_test_rcv(Pid, TMsg, RPid, TraceEvent).
+
+send_test_rcv(Pid, Msg, S, TraceEvent) ->
+    case flush() of
+        [] when not TraceEvent ->
+            ok;
+        [{trace, Pid, send, Msg, S}] when TraceEvent ->
+            ok;
+        [{trace, Pid, send, Msg, S, Message}] when TraceEvent == Message ->
+            ok;
+        Else ->
+            ct:fail({got_unexpected_message, Else})
     end.
 
 %% Simple test of distributed tracing
@@ -927,17 +968,6 @@ flush(Acc) ->
             flush(Acc ++ [X])
     after 1000 ->
               Acc
-    end.
-
-flush_trace() ->
-    flush_trace([]).
-flush_trace(Acc) ->
-    receive
-	X when element(1,X) =:= trace;
-	       element(1,X) =:= trace_ts
-	       -> flush_trace(Acc ++ [X])
-    after 1000 ->
-	    Acc
     end.
 
 start() ->
