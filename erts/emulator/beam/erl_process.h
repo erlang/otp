@@ -925,7 +925,6 @@ struct process {
     Eterm* stop;		/* Stack top */
     Eterm* heap;		/* Heap start */
     Eterm* hend;		/* Heap end */
-    Eterm* abandoned_heap;
     Uint heap_sz;		/* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
@@ -939,6 +938,16 @@ struct process {
        to enable smaller & faster addressing modes on the x86. */
     struct hipe_process_state hipe;
 #endif
+
+    /*
+     * Moved to after "struct hipe_process_state hipe", as a temporary fix for
+     * LLVM hard-coding offsetof(struct process, hipe.nstack) (sic!)
+     * (see void X86FrameLowering::adjustForHiPEPrologue(...) in
+     * lib/Target/X86/X86FrameLowering.cpp).
+     *
+     * Used to be below "Eterm* hend".
+     */
+    Eterm* abandoned_heap;
 
     /*
      * Saved x registers.
