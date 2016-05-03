@@ -35,7 +35,7 @@
 
 %%-define(debug, true).
 
--export([open/2, open/3, open/4, open/5, close/1]).
+-export([open/2, open/3, open/4, open/5, open/6, close/1]).
 -export([send_data/2, send_data/3, get_data/1]).
 
 -define(TELNET_PORT, 23).
@@ -70,19 +70,22 @@
 -record(state,{conn_name, get_data, keep_alive=true, log_pos=1}).
 
 open(Server, ConnName) ->
-    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT, true, ConnName).
+    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT, true, false, ConnName).
 
 open(Server, Port, ConnName) ->
-    open(Server, Port, ?OPEN_TIMEOUT, true, ConnName).
+    open(Server, Port, ?OPEN_TIMEOUT, true, false, ConnName).
 
 open(Server, Port, Timeout, ConnName) ->
-    open(Server, Port, Timeout, true, ConnName).
+    open(Server, Port, Timeout, true, false, ConnName).
 
 open(Server, Port, Timeout, KeepAlive, ConnName) ->
+    open(Server, Port, Timeout, KeepAlive, false, ConnName).
+
+open(Server, Port, Timeout, KeepAlive, NoDelay, ConnName) ->
     Self = self(),
     Pid = spawn(fun() ->
 			init(Self, Server, Port, Timeout,
-			     KeepAlive, ConnName)
+			     KeepAlive, NoDelay, ConnName)
 		end),
     receive 
 	{open,Pid} ->
@@ -114,8 +117,8 @@ get_data(Pid) ->
 
 %%%-----------------------------------------------------------------
 %%% Internal functions
-init(Parent, Server, Port, Timeout, KeepAlive, ConnName) ->
-    case gen_tcp:connect(Server, Port, [list,{packet,0},{nodelay,true}], Timeout) of
+init(Parent, Server, Port, Timeout, KeepAlive, NoDelay, ConnName) ->
+    case gen_tcp:connect(Server, Port, [list,{packet,0},{nodelay,NoDelay}], Timeout) of
 	{ok,Sock} ->
 	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
 		[ConnName,Server,Port,KeepAlive]),
