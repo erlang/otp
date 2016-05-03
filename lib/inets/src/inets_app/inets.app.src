@@ -29,6 +29,7 @@
 	    inets_trace,
             inets_lib,
             inets_time_compat,
+	    inets_regexp,
 
             %% FTP
             ftp,
