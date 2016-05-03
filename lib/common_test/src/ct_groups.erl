@@ -325,7 +325,7 @@ modify_tc_list1(GrSpecTs, TSCs) ->
 		      true ->
 			  {[TC|TSCs1],lists:delete(TC,GrSpecTs2)};
 		      false ->
-			  case lists:keymember(TC, 2, GrSpecTs) of
+			  case lists:keysearch(TC, 2, GrSpecTs) of
 			      {value,Test} ->
 				  {[Test|TSCs1],
 				   lists:keydelete(TC, 2, GrSpecTs2)};

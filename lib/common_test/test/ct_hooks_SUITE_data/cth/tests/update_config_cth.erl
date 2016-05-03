@@ -25,7 +25,7 @@
 -include_lib("common_test/src/ct_util.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
--define(now, os:timestamp()).
+-define(now, ct_test_support:unique_timestamp()).
 
 %% CT Hooks
 -compile(export_all).

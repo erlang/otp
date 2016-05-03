@@ -266,6 +266,10 @@
       <tag><c><![CDATA[-verbosity <levels>]]></c></tag>
       <item><p>Sets <seealso marker="write_test_chapter#logging">verbosity levels
       for printouts</seealso>.</p></item>
+
+      <tag><c><![CDATA[-no_esc_chars]]></c></tag>
+      <item><p>Disables automatic escaping of special HTML characters.
+      See the <seealso marker="write_test_chapter#logging">Logging chapter</seealso>.</p></item>
     </taglist>
 
     <note><p>Directories passed to <c>Common Test</c> can have either relative or absolute paths.</p></note>
@@ -802,7 +806,7 @@
 	program</seealso> for an overview of available start flags
 	(as most flags have a corresponding configuration term)</item>
        <item><seealso marker="write_test_chapter#logging">Logging</seealso>
-	(for terms <c>verbosity</c>, <c>stylesheet</c> and <c>basic_html</c>)</item>
+	(for terms <c>verbosity</c>, <c>stylesheet</c>, <c>basic_html</c> and <c>esc_chars</c>)</item>
        <item><seealso marker="config_file_chapter#top">External Configuration Data</seealso>
 	(for terms <c>config</c> and <c>userconfig</c>)</item>
        <item><seealso marker="event_handler_chapter#event_handling">Event
@@ -886,6 +890,9 @@
 
  {basic_html, Bool}.
  {basic_html, NodeRefs, Bool}.
+
+ {esc_chars, Bool}.
+ {esc_chars, NodeRefs, Bool}.
 
  {release_shell, Bool}.</pre>
 	

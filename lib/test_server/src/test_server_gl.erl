@@ -131,6 +131,10 @@ set_props(GL, PropList) ->
 %%% Internal functions.
 
 init([]) ->
+    EscChars = case application:get_env(test_server, esc_chars) of
+		   {ok,ECBool} -> ECBool;
+		   _           -> true
+	       end,
     {ok,#st{tc_supervisor=none,
 	    minor=none,
 	    minor_monitor=none,
@@ -139,7 +143,7 @@ init([]) ->
 	    permit_io=gb_sets:empty(),
 	    auto_nl=true,
 	    levels={1,19,10},
-	    escape_chars=true
+	    escape_chars=EscChars
 	   }}.
 
 req(GL, Req) ->
