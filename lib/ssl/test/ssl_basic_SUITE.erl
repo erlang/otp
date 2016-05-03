@@ -88,7 +88,8 @@ basic_tests() ->
      connect_dist,
      clear_pem_cache,
      defaults,
-     fallback
+     fallback,
+     cipher_format
     ].
 
 options_tests() ->
@@ -762,6 +763,14 @@ fallback(Config) when is_list(Config) ->
 			      Client, {error,{tls_alert,"inappropriate fallback"}}).
 
 %%--------------------------------------------------------------------
+cipher_format() ->
+    [{doc, "Test that cipher conversion from tuples to binarys works"}].
+cipher_format(Config) when is_list(Config) ->
+    {ok, Socket} = ssl:listen(0, [{ciphers, ssl:cipher_suites()}]),
+    ssl:close(Socket).
+
+%%--------------------------------------------------------------------
+
 peername() ->
     [{doc,"Test API function peername/1"}].
 
