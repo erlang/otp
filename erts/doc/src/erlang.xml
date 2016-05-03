@@ -4364,7 +4364,7 @@ os_prompt% </pre>
               <p>
                 <c>size</c> is the entire heap of the process when garbage collection
                 is triggered, this includes all generational heaps, the process stack, 
-                any <seealso marker="process_flag_message_queue_data">
+                any <seealso marker="#process_flag_message_queue_data">
                 messages that are considered to be part of the heap</seealso> and any
                 extra memory that the garbage collector needs during collection.
               </p>

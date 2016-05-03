@@ -2823,7 +2823,7 @@ do {						\
             /* If we have run out of reductions, we do a context
                switch before calling the bif */
             c_p->arity = ((Export *)Arg(0))->code[2];
-            c_p->current = NULL;
+            c_p->current = ((Export *)Arg(0))->code;
             goto context_switch3;
         }
 
@@ -3538,9 +3538,7 @@ do {						\
             if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
                 /* If we have run out of reductions, we do a context
                    switch before calling the nif */
-                c_p->arity = I[-1];
-                c_p->current = NULL;
-                goto context_switch3;
+                goto context_switch;
             }
 
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
@@ -3589,9 +3587,7 @@ do {						\
             if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
                 /* If we have run out of reductions, we do a context
                    switch before calling the bif */
-                c_p->arity = I[-1];
-                c_p->current = NULL;
-                goto context_switch3;
+                goto context_switch;
             }
 
             if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
