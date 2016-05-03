@@ -27,8 +27,6 @@
 
 -module(erl_prettypr).
 
--compile(export_all).
-
 -export([format/1, format/2, best/1, best/2, layout/1, layout/2,
 	 get_ctxt_precedence/1, set_ctxt_precedence/2,
 	 get_ctxt_paperwidth/1, set_ctxt_paperwidth/2,
@@ -1133,20 +1131,25 @@ lay_2(Node, Ctxt) ->
                     text("map()");
                 Fs ->
                     {Prec, _PrecR} = type_preop_prec('#'),
-                    Es = seq(Fs,
-                             floating(text(",")), reset_prec(Ctxt),
-                             fun lay/2),
+                    Es = lay_map_fields(Fs,
+                                        floating(text(",")),
+                                        reset_prec(Ctxt)),
                     D = beside(floating(text("#{")),
                                beside(par(Es),
                                       floating(text("}")))),
                     maybe_parentheses(D, Prec, Ctxt)
             end;
 
-        map_type_pair ->
+        map_type_assoc ->
+            Name = erl_syntax:map_type_assoc_name(Node),
+            Value = erl_syntax:map_type_assoc_value(Node),
+            lay_type_assoc(Name, Value, Ctxt);
+
+        map_type_exact ->
             Ctxt1 = reset_prec(Ctxt),
-            D1 = lay(erl_syntax:map_type_pair_key(Node), Ctxt1),
-            D2 = lay(erl_syntax:map_type_pair_value(Node), Ctxt1),
-            par([D1, floating(text("=>")), D2], Ctxt1#ctxt.break_indent);
+            D1 = lay(erl_syntax:map_type_exact_name(Node), Ctxt1),
+            D2 = lay(erl_syntax:map_type_exact_value(Node), Ctxt1),
+            par([D1, floating(text(":=")), D2], Ctxt1#ctxt.break_indent);
 
         integer_range_type ->
             {PrecL, Prec, PrecR} = type_inop_prec('..'),
@@ -1396,6 +1399,42 @@ lay_error_info(T, Ctxt) ->
 
 lay_concrete(T, Ctxt) ->
     lay(erl_syntax:abstract(T), Ctxt).
+
+lay_map_fields([H | T], Separator, Ctxt) ->
+    case T of
+	[] ->
+            [case erl_syntax:type(H) of
+                 map_type_assoc ->
+                     lay_last_type_assoc(H, Ctxt);
+                 _ ->
+                     lay(H, Ctxt)
+             end];
+	_ ->
+	    [maybe_append(Separator, lay(H, Ctxt))
+	     | lay_map_fields(T, Separator, Ctxt)]
+    end;
+lay_map_fields([], _, _) ->
+    [empty()].
+
+lay_last_type_assoc(Node, Ctxt) ->
+    Name = erl_syntax:map_type_assoc_name(Node),
+    Value = erl_syntax:map_type_assoc_value(Node),
+    IsAny = fun({type,_,any,[]}) -> true;
+               %% ({var,_,'_'}) -> true;
+               (_) -> false
+            end,
+    case IsAny(Name) andalso IsAny(Value) of
+        true ->
+            text("...");
+        false ->
+            lay_type_assoc(Name, Value, Ctxt)
+    end.
+
+lay_type_assoc(Name, Value, Ctxt) ->
+    Ctxt1 = reset_prec(Ctxt),
+    D1 = lay(Name, Ctxt1),
+    D2 = lay(Value, Ctxt1),
+    par([D1, floating(text("=>")), D2], Ctxt1#ctxt.break_indent).
 
 lay_type_application(Name, Arguments, Ctxt) ->
     {PrecL, Prec} = func_prec(), %

@@ -47,8 +47,11 @@
 
 -type r0() :: #r0{} | #r{f1 :: 3} | #r{f1 :: 3, f2 :: 'sju'}.
 
--type m1() :: #{}.
--type m2() :: #{a => m1(), b => #{} | fy:m2()}.
+-type m1() :: #{} | map().
+-type m2() :: #{a := m1(), b => #{} | fy:m2()}.
+-type m3() :: #{...}.
+-type m4() :: #{_ => _, ...}.
+-type m5() :: #{any() => any(), ...}. % Currently printed as `#{..., ...}'.
 -type b1() :: B1 :: binary() | (BitString :: bitstring()).
 
 -define(PAIR(A, B), {(A), (B)}).
