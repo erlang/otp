@@ -290,11 +290,11 @@ event_type(Type) ->
       | {'via', RegMod :: module(), Name :: term()}
       | {'local', atom()}.
 -type server_ref() ::
-      {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}
+      pid()
       | (LocalName :: atom())
       | {Name :: atom(), Node :: atom()}
-      | pid().
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), ViaName :: term()}.
 -type debug_opt() ::
 	{'debug',
 	 Dbgs ::

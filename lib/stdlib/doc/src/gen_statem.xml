@@ -396,17 +396,17 @@ handle_event(_, _, State, Data) ->
 	  <tag><c>pid()</c><br />
 	  <c>LocalName</c></tag>
 	  <item>The <c>gen_statem</c> is locally registered.</item>
-	  <tag><c>Name, Node</c></tag>
+	  <tag><c>{Name,Node}</c></tag>
 	  <item>
 	    The <c>gen_statem</c> is locally registered
 	    on another node.
 	  </item>
-	  <tag><c>GlobalName</c></tag>
+	  <tag><c>{global,GlobalName}</c></tag>
 	  <item>
 	    The <c>gen_statem</c> is globally registered
 	    in <seealso marker="kernel:global"><c>global</c></seealso>.
 	  </item>
-	  <tag><c>RegMod, ViaName</c></tag>
+	  <tag><c>{via,RegMod,ViaName}</c></tag>
 	  <item>
 	    The <c>gen_statem</c> is registered through
 	    an alternative process registry.
