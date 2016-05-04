@@ -23,22 +23,19 @@
 
 
 % Timeout for test cases (rather long to work on slow machines)
--define(SHORT_TEST_TIMEOUT, ?t:seconds(30)).	% Default
--define(MEDIUM_TEST_TIMEOUT, ?t:minutes(3)).
--define(LONG_TEST_TIMEOUT, ?t:minutes(10)).
+-define(MEDIUM_TEST_TIMEOUT, {minutes,3}).
+-define(LONG_TEST_TIMEOUT, {minutes,10}).
 
 % Delay inserted into code
 -define(SHORT_PAUSE, 100).
--define(MEDIUM_PAUSE, ?t:seconds(1)).
--define(LONG_PAUSE, ?t:seconds(5)).
+-define(MEDIUM_PAUSE, 1000).
+-define(LONG_PAUSE, 5000).
 
 % Information about nodes
 -record(node_info, {port, node_type, prot, lvsn, hvsn, node_name, extra}).
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2,
-         init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([register_name/1,
          register_name_ipv6/1,
@@ -108,7 +105,9 @@
 %% all/1
 %%
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, ?MEDIUM_TEST_TIMEOUT}].
 
 all() -> 
     [register_name, register_name_ipv6,
@@ -131,32 +130,16 @@ groups() ->
     [{buffer_overrun, [],
       [buffer_overrun_1, buffer_overrun_2]}].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 %%
 %% Run before and after each test case
 %%
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(?MEDIUM_TEST_TIMEOUT),
     cleanup(),
-    [{watchdog, Dog} | Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     cleanup(),
-    Dog = ?config(watchdog, Config),
-    catch test_server:timetrap_cancel(Dog),	% We may have canceled already
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -345,16 +328,12 @@ stupid_names_req(doc) ->
 stupid_names_req(suite) ->
     [];
 stupid_names_req(Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    LongDog = test_server:timetrap(?MEDIUM_TEST_TIMEOUT),
     ok = epmdrun(),
     [FirstConn | Conn] = register_many(1, ?REG_REPEAT_LIM, "foo"),
     unregister_many([FirstConn]),
     sleep(?MEDIUM_PAUSE),
     ok = check_names(Conn),
     ok = unregister_many(Conn),
-    test_server:timetrap_cancel(LongDog),
     ok.
 
 check_names(Conn) ->
@@ -520,9 +499,7 @@ register_overflow(doc) ->
 register_overflow(suite) ->
     [];
 register_overflow(Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    LongDog = test_server:timetrap(?LONG_TEST_TIMEOUT),
+    ct:timetrap(?LONG_TEST_TIMEOUT),
     ok = epmdrun(),
     Conn = register_many(1, ?REG_REPEAT_LIM, "foo"),
     Count = length(Conn),
@@ -549,7 +526,6 @@ register_overflow(Config) when is_list(Config) ->
     ok = register_repeat(Count),
     sleep(?MEDIUM_PAUSE),
     ok = rregister_repeat(Count),
-    test_server:timetrap_cancel(LongDog),
     ok.
 
 register_repeat(Count) ->
