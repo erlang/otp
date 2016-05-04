@@ -22,6 +22,7 @@
 %% Test functions
 -export([all/0, suite/0,
          big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
+	 send/1,
          ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
          with_seq_trace/1, dead_suspend/1, local_trace/1,
@@ -39,6 +40,7 @@ suite() ->
 
 all() -> 
     [big, tiny, simple, message, distributed, port, ip_port,
+     send,
      file_port, file_port2, file_port_schedfix, ip_port_busy,
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
      local_trace, saved_patterns, tracer_exit_on_stop,
@@ -150,6 +152,74 @@ message(Config) when is_list(Config) ->
     [{trace,S,call,{dbg,ltp,[]},S},
      {trace,S,call,{dbg,ln,[]},S}] = flush(),
     ok.
+
+send(Config) when is_list(Config) ->
+    {ok, _} = start(),
+    try
+	S = self(),
+	Rcvr = spawn_link(fun F() ->
+                                  receive M ->
+                                          S ! M,
+                                          F()
+                                  end
+			      end),
+
+	{ok, [{matched, _, 1}]} = dbg:p(Rcvr, send),
+        R1 = Rcvr ! make_ref(),
+        receive R1 -> ok end,
+	[{trace, Rcvr, send, R1, S}] = flush(),
+
+        {ok, [{matched, _node, 1}, {saved, 1}]} = dbg:tpe(send, [{[S,'_'],[],[]}]),
+        R2 = Rcvr ! make_ref(),
+        receive R2 -> ok end,
+	[{trace, Rcvr, send, R2, S}] = flush(),
+
+        {ok, [{matched, _node, 1}, {saved, 2}]} =
+            dbg:tpe(send, [{['$1','_'],[{'==','$1',{self}}],[]}]),
+        R3 = Rcvr ! make_ref(),
+        receive R3 -> ok end,
+	[] = flush(),
+
+        {ok, [{matched, _node, 1}, {saved, 3}]} =
+            dbg:tpe(send, [{['_','_'],[{'==',Rcvr,{self}}],[]}]),
+        R4 = Rcvr ! make_ref(),
+        receive R4 -> ok end,
+	[{trace, Rcvr, send, R4, S}] = flush(),
+
+        {ok, [{matched, _node, 1}, {saved, 4}]} =
+            dbg:tpe(send, [{['_','_'],[{'==',Rcvr,{self}}],[{message, hello}]}]),
+        R5 = Rcvr ! make_ref(),
+        receive R5 -> ok end,
+	[{trace, Rcvr, send, R5, S, hello}] = flush(),
+
+        {ok, [{matched, _node, 1}, {saved, 2}]} = dbg:tpe(send, 2),
+        R6 = Rcvr ! make_ref(),
+        receive R6 -> ok end,
+	[] = flush(),
+
+        {ok, [{matched, _node, 1}]} = dbg:ctpe(send),
+        R7 = Rcvr ! make_ref(),
+        receive R7 -> ok end,
+	[{trace, Rcvr, send, R7, S, hello}] = flush(),
+
+        R8 = make_ref(),
+        {ok, [{matched, _node, 1}, {saved, 5}]} =
+            dbg:tpe(send, [{['_','$2'],[{'==',R8,{element, 1, {element, 2, '$2'}}}],
+                           [{message, hello}]}]),
+        Msg1 = Rcvr ! {test, {R8}, <<0:(8*1024)>>},
+        receive Msg1 -> ok end,
+	[{trace, Rcvr, send, Msg1, S, hello}] = flush(),
+
+        R9 = make_ref(),
+        Msg2 = Rcvr ! {test, {R9}, <<0:(8*1024)>>},
+        receive Msg2 -> ok end,
+	[] = flush(),
+
+        ok
+
+    after
+	stop()
+    end.
 
 %% Simple test of distributed tracing
 distributed(Config) when is_list(Config) ->
@@ -857,6 +927,17 @@ flush(Acc) ->
             flush(Acc ++ [X])
     after 1000 ->
               Acc
+    end.
+
+flush_trace() ->
+    flush_trace([]).
+flush_trace(Acc) ->
+    receive
+	X when element(1,X) =:= trace;
+	       element(1,X) =:= trace_ts
+	       -> flush_trace(Acc ++ [X])
+    after 1000 ->
+	    Acc
     end.
 
 start() ->
