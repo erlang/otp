@@ -575,6 +575,22 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   flight_buffer = []
 	  }.
 
+update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
+    SSLOption =
+	case OrigSSLOptions#ssl_options.sni_fun of
+	    undefined ->
+		proplists:get_value(SNIHostname,
+				    OrigSSLOptions#ssl_options.sni_hosts);
+	    SNIFun ->
+		SNIFun(SNIHostname)
+	end,
+    case SSLOption of
+	undefined ->
+	    undefined;
+	_ ->
+	    ssl:handle_options(SSLOption, OrigSSLOptions)
+    end.
+
 next_tls_record(Data, #state{protocol_buffers = #protocol_buffers{
 						   dtls_record_buffer = Buf0,
 						   dtls_cipher_texts = CT0} = Buffers} = State0) ->
@@ -1024,6 +1040,35 @@ close(downgrade, _,_,_,_) ->
 %% Other
 close(_, Socket, Transport, _,_) ->
     Transport:close(Socket).
+
+handle_sni_extension(#client_hello{extensions = HelloExtensions}, State0) ->
+    case HelloExtensions#hello_extensions.sni of
+	undefined ->
+	    State0;
+	#sni{hostname = Hostname} ->
+	    NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
+	    case NewOptions of
+		undefined ->
+		    State0;
+		_ ->
+		    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} =
+			ssl_config:init(NewOptions, State0#state.role),
+		    State0#state{
+		      session = State0#state.session#session{own_certificate = OwnCert},
+		      file_ref_db = FileRefHandle,
+		      cert_db_ref = Ref,
+		      cert_db = CertDbHandle,
+		      crl_db = CRLDbHandle,
+		      session_cache = CacheHandle,
+		      private_key = Key,
+		      diffie_hellman_params = DHParams,
+		      ssl_options = NewOptions,
+		      sni_hostname = Hostname
+		     }
+	    end
+    end;
+handle_sni_extension(_, State0) ->
+    State0.
 
 sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
     {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.
