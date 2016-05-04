@@ -18,6 +18,7 @@
 %%
 
 -module(diameter_tcp).
+-dialyzer({no_fail_call, throttle/2}).
 
 -behaviour(gen_server).
 
