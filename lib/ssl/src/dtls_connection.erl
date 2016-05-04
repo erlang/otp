@@ -1006,5 +1006,23 @@ invalidate_session(client, Host, Port, Session) ->
 invalidate_session(server, _, Port, Session) ->
     ssl_manager:invalidate_session(Port, Session).
 
+%% User closes or recursive call!
+close({close, Timeout}, Socket, Transport, _,_) ->
+    ssl_socket:setopts(Transport, Socket, [{active, false}]),
+    Transport:shutdown(Socket, write),
+    _ = Transport:recv(Socket, 0, Timeout),
+    ok;
+%% Peer closed socket
+close({shutdown, transport_closed}, Socket, Transport, ConnectionStates, Check) ->
+    close({close, 0}, Socket, Transport, ConnectionStates, Check);
+%% We generate fatal alert
+close({shutdown, own_alert}, Socket, Transport, ConnectionStates, Check) ->
+    close({close, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates, Check);
+close(downgrade, _,_,_,_) ->
+    ok;
+%% Other
+close(_, Socket, Transport, _,_) ->
+    Transport:close(Socket).
+
 sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
     {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.
