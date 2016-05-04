@@ -997,7 +997,7 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 #define ERTS_CPC_ALLOW_GC      (1 << 0)
 #define ERTS_CPC_COPY_LITERALS (1 << 1)
 #define ERTS_CPC_ALL           (ERTS_CPC_ALLOW_GC | ERTS_CPC_COPY_LITERALS)
-Eterm erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp);
+Eterm erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp, int fcalls);
 
 typedef struct {
     Eterm *ptr;

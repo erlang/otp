@@ -38,7 +38,7 @@
 #include "erl_thr_progress.h"
 
 static void set_default_trace_pattern(Eterm module);
-static Eterm check_process_code(Process* rp, Module* modp, Uint flags, int *redsp);
+static Eterm check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls);
 static void delete_code(Module* modp);
 static void decrement_refc(BeamCodeHeader*);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
@@ -467,7 +467,7 @@ check_old_code_1(BIF_ALIST_1)
 }
 
 Eterm
-erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp)
+erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp, int fcalls)
 {
     Module* modp;
     Eterm res;
@@ -483,7 +483,7 @@ erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp)
 	return am_false;
     erts_rlock_old_code(code_ix);
     res = (!modp->old.code_hdr ? am_false :
-           check_process_code(c_p, modp, flags, redsp));
+           check_process_code(c_p, modp, flags, redsp, fcalls));
     erts_runlock_old_code(code_ix);
 
     return res;
@@ -506,7 +506,7 @@ BIF_RETTYPE erts_internal_check_process_code_2(BIF_ALIST_2)
         goto badarg;
     }
 
-    res = erts_check_process_code(BIF_P, BIF_ARG_1, flags, &reds);
+    res = erts_check_process_code(BIF_P, BIF_ARG_1, flags, &reds, BIF_P->fcalls);
 
     ASSERT(is_value(res));
 
@@ -753,7 +753,7 @@ check_mod_funs(Process *p, ErlOffHeap *off_heap, char *area, size_t area_size)
 
 
 static Eterm
-check_process_code(Process* rp, Module* modp, Uint flags, int *redsp)
+check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls)
 {
     BeamInstr* start;
     char* literals;
@@ -955,7 +955,7 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp)
 
 	if (need_gc & ERTS_ORDINARY_GC__) {
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
-	    *redsp += erts_garbage_collect_nobump(rp, 0, rp->arg_reg, rp->arity);
+	    *redsp += erts_garbage_collect_nobump(rp, 0, rp->arg_reg, rp->arity, fcalls);
 	    done_gc |= ERTS_ORDINARY_GC__;
 	}
 	if (need_gc & ERTS_LITERAL_GC__) {

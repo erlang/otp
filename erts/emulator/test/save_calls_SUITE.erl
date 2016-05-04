@@ -60,7 +60,7 @@ dont_break_reductions(Config) when is_list(Config) ->
     RPS1 = reds_per_sched(0),
     RPS2 = reds_per_sched(20),
     Diff = abs(RPS1 - RPS2),
-    true = (Diff < (0.05 * RPS1)),
+    true = (Diff < (0.2 * RPS1)),
     ok.
 
 

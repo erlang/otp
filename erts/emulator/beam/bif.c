@@ -1569,7 +1569,32 @@ static BIF_RETTYPE process_flag_aux(Process *BIF_P,
 	   scb->n = 0;
        }
 
-       scb = ERTS_PROC_SET_SAVED_CALLS_BUF(rp, scb);
+#ifdef HIPE
+       if (rp->flags & F_HIPE_MODE) {
+	   ASSERT(!ERTS_PROC_GET_SAVED_CALLS_BUF(rp));
+	   scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(rp, scb);
+       }
+       else
+#endif
+       {
+#ifdef HIPE
+	   ASSERT(!ERTS_PROC_GET_SUSPENDED_SAVED_CALLS_BUF(rp));
+#endif
+	   scb = ERTS_PROC_SET_SAVED_CALLS_BUF(rp, scb);
+	   if (rp == BIF_P && ((scb && i == 0) || (!scb && i != 0))) {
+	       /* Adjust fcalls to match save calls setting... */
+	       if (i == 0)
+		   BIF_P->fcalls += CONTEXT_REDS; /* disabled it */
+	       else
+		   BIF_P->fcalls -= CONTEXT_REDS; /* enabled it */
+
+	       /*
+		* Make sure we reschedule immediately so the
+		* change take effect at once.
+		*/
+	       ERTS_VBUMP_ALL_REDS(BIF_P);
+	   }
+       }
 
        if (!scb)
 	   old_value = make_small(0);
@@ -1578,12 +1603,7 @@ static BIF_RETTYPE process_flag_aux(Process *BIF_P,
 	   erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
        }
 
-       /* Make sure the process in question is rescheduled
-	  immediately, if it's us, so the call saving takes effect. */
-       if (rp == BIF_P)
-	   BIF_RET2(old_value, CONTEXT_REDS);
-       else
-	   BIF_RET(old_value);
+       BIF_RET(old_value);
    }
 
  error:
@@ -1777,10 +1797,18 @@ BIF_RETTYPE process_flag_3(BIF_ALIST_3)
    Process *rp;
    Eterm res;
 
-   if ((rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
-			   BIF_ARG_1, ERTS_PROC_LOCK_MAIN)) == NULL) {
+#ifdef ERTS_SMP
+   rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
+				  BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
+   if (rp == ERTS_PROC_LOCK_BUSY)
+       ERTS_BIF_YIELD3(bif_export[BIF_process_flag_3], BIF_P,
+		       BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+#else
+   rp = erts_proc_lookup(BIF_ARG_1);
+#endif
+
+   if (!rp)
        BIF_ERROR(BIF_P, BADARG);
-   }
 
    res = process_flag_aux(BIF_P, rp, BIF_ARG_2, BIF_ARG_3);
 

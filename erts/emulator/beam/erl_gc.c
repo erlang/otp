@@ -116,7 +116,7 @@ static Eterm *full_sweep_heaps(Process *p,
 			       char *oh, Uint oh_size,
 			       Eterm *objv, int nobj);
 static int garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
-			   int need, Eterm* objv, int nobj);
+			   int need, Eterm* objv, int nobj, int fcalls);
 static int major_collection(Process* p, ErlHeapFragment *live_hf_end,
 			    int need, Eterm* objv, int nobj, Uint *recl);
 static int minor_collection(Process* p, ErlHeapFragment *live_hf_end,
@@ -392,15 +392,15 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 		regs = ERTS_PROC_GET_SCHDATA(p)->x_reg_array;
 	    }
 	  #endif
-	    cost = garbage_collect(p, live_hf_end, 0, regs, p->arity);
+	    cost = garbage_collect(p, live_hf_end, 0, regs, p->arity, p->fcalls);
 	} else {
-	    cost = garbage_collect(p, live_hf_end, 0, regs, arity);
+	    cost = garbage_collect(p, live_hf_end, 0, regs, arity, p->fcalls);
 	}
     } else {
 	Eterm val[1];
 
 	val[0] = result;
-	cost = garbage_collect(p, live_hf_end, 0, val, 1);
+	cost = garbage_collect(p, live_hf_end, 0, val, 1, p->fcalls);
 	result = val[0];
     }
     BUMP_REDS(p, cost);
@@ -431,7 +431,7 @@ static ERTS_INLINE void reset_active_writer(Process *p)
 #define ERTS_ABANDON_HEAP_COST 10
 
 static int
-delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need)
+delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int fcalls)
 {
     ErlHeapFragment *hfrag;
     Eterm *orig_heap, *orig_hend, *orig_htop, *orig_stop;
@@ -506,12 +506,16 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need)
 
     /* Make sure that we do a proper GC as soon as possible... */
     p->flags |= F_FORCE_GC;
-    reds_left = ERTS_BIF_REDS_LEFT(p);
+    reds_left = ERTS_REDS_LEFT(p, fcalls);
+    ASSERT(CONTEXT_REDS - reds_left >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+
     if (reds_left > ERTS_ABANDON_HEAP_COST) {
 	int vreds = reds_left - ERTS_ABANDON_HEAP_COST;
-	ERTS_VBUMP_REDS(p, vreds);
+	ERTS_PROC_GET_SCHDATA((p))->virtual_reds += vreds;
     }
-    return ERTS_ABANDON_HEAP_COST;
+
+    ASSERT(CONTEXT_REDS >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+    return reds_left;
 }
 
 static ERTS_FORCE_INLINE Uint
@@ -570,7 +574,7 @@ young_gen_usage(Process *p)
  */
 static int
 garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
-		int need, Eterm* objv, int nobj)
+		int need, Eterm* objv, int nobj, int fcalls)
 {
     Uint reclaimed_now = 0;
     int reds;
@@ -581,8 +585,11 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
 
+    ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls)
+	   >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+
     if (p->flags & (F_DISABLE_GC|F_DELAY_GC))
-	return delay_garbage_collection(p, live_hf_end, need);
+	return delay_garbage_collection(p, live_hf_end, need, fcalls);
 
     if (p->abandoned_heap)
 	live_hf_end = ERTS_INVALID_HFRAG_PTR;
@@ -703,16 +710,23 @@ do_major_collection:
 }
 
 int
-erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj)
+erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fcalls)
 {
-    return garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj);
+    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, fcalls);
+    int reds_left = ERTS_REDS_LEFT(p, fcalls);
+    if (reds > reds_left)
+	reds = reds_left;
+    ASSERT(CONTEXT_REDS - (reds_left - reds) >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+    return reds;
 }
 
 void
 erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 {
-    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj);
+    int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, p->fcalls);
     BUMP_REDS(p, reds);
+    ASSERT(CONTEXT_REDS - ERTS_BIF_REDS_LEFT(p)
+	   >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
 }
 
 /*

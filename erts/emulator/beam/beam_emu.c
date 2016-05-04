@@ -308,7 +308,8 @@ void** beam_ops;
      if (E - HTOP < (needed + (HeapNeed))) { \
            SWAPOUT; \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
-           FCALLS -= erts_garbage_collect_nobump(c_p, needed + (HeapNeed), reg, (M)); \
+           FCALLS -= erts_garbage_collect_nobump(c_p, needed + (HeapNeed), \
+						 reg, (M), FCALLS);	\
            ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
            SWAPIN; \
@@ -360,7 +361,7 @@ void** beam_ops;
     if ((E - HTOP < need) || (MSO(c_p).overhead + (VNh) >= BIN_VHEAP_SZ(c_p))) {\
        SWAPOUT;                                                 		\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
-       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live));  		\
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live), FCALLS);	\
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);					\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
        SWAPIN;                                                  		\
@@ -381,7 +382,7 @@ void** beam_ops;
     if (E - HTOP < need) {                                      \
        SWAPOUT;                                                 \
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
-       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live));\
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live), FCALLS); \
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);			\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
        SWAPIN;                                                  \
@@ -402,7 +403,7 @@ void** beam_ops;
        SWAPOUT;								\
        reg[Live] = Extra;						\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
-       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live)+1);	\
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, (Live)+1, FCALLS); \
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);				\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
        Extra = reg[Live];						\
@@ -1196,6 +1197,25 @@ init_emulator(void)
 #define DTRACE_NIF_RETURN(p, m, f, a)        do {} while (0)
 #endif /* USE_VM_PROBES */
 
+#ifdef DEBUG
+#define ERTS_DBG_CHK_REDS(P, FC)					\
+    do {								\
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
+	    ASSERT(FC <= 0);						\
+	    ASSERT(ERTS_PROC_GET_SCHDATA(c_p)->virtual_reds		\
+		   <= 0 - (FC));					\
+	}								\
+	else {								\
+	    ASSERT(FC <= CONTEXT_REDS);					\
+	    ASSERT(ERTS_PROC_GET_SCHDATA(c_p)->virtual_reds		\
+		   <= CONTEXT_REDS - (FC));				\
+	}								\
+} while (0)
+#else
+#define ERTS_DBG_CHK_REDS(P, FC)
+#endif
+
+
 /*
  * process_main() is called twice:
  * The first call performs some initialisation, including exporting
@@ -1290,7 +1310,12 @@ void process_main(void)
     goto do_schedule1;
 
  do_schedule:
-    reds_used = REDS_IN(c_p) - FCALLS;
+    ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
+    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	reds_used = REDS_IN(c_p) - FCALLS;
+    else
+	reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
+    ASSERT(reds_used >= 0);
  do_schedule1:
 
     if (start_time != 0) {
@@ -1310,6 +1335,7 @@ void process_main(void)
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = schedule(c_p, reds_used);
+    ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     start_time = 0;
 #ifdef DEBUG
@@ -1348,15 +1374,20 @@ void process_main(void)
 
 	SET_I(c_p->i);
 
-	reds = c_p->fcalls;
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)
-	    && (ERTS_TRACE_FLAGS(c_p) & F_SENSITIVE) == 0) {
-	    neg_o_reds = -reds;
-	    FCALLS = REDS_IN(c_p) = 0;
+	REDS_IN(c_p) = reds = c_p->fcalls;
+#ifdef DEBUG
+	c_p->debug_reds_in = reds;
+#endif
+
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
+	    neg_o_reds = -CONTEXT_REDS;
+	    FCALLS = neg_o_reds + reds;
 	} else {
 	    neg_o_reds = 0;
-	    FCALLS = REDS_IN(c_p) = reds;
+	    FCALLS = reds;
 	}
+
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 
 	next = (BeamInstr *) *I;
 	SWAPIN;
@@ -1770,7 +1801,7 @@ void process_main(void)
 	     if (E - HTOP < 3) {
 		 SWAPOUT;
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1);
+		 FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1, FCALLS);
 		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 SWAPIN;
@@ -1865,6 +1896,7 @@ void process_main(void)
      c_p->flags |= F_DELAY_GC;
 
  loop_rec__:
+
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
      msgp = PEEK_MESSAGE(c_p);
@@ -2006,6 +2038,8 @@ void process_main(void)
 	  */
 	 ERTS_VBUMP_LEAVE_REDS_INTERNAL(c_p, 5, FCALLS);
      }
+
+     ERTS_DBG_CHK_REDS(c_p, FCALLS);
 
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2535,6 +2569,7 @@ do {						\
 
 	GetArg1(2, tmp_reg[0]);
 	bf = (BifFunction) Arg(1);
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -2544,6 +2579,7 @@ do {						\
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	if (is_value(result)) {
 	    StoreBifResult(3, result);
 	}
@@ -2564,6 +2600,7 @@ do {						\
 
 	GetArg1(1, tmp_reg[0]);
 	bf = (BifFunction) Arg(0);
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -2573,6 +2610,7 @@ do {						\
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	if (is_value(result)) {
 	    StoreBifResult(2, result);
 	}
@@ -2591,6 +2629,7 @@ do {						\
 
 	GetArg1(2, x(live));
 	bf = (GcBifFunction) Arg(1);
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2602,6 +2641,7 @@ do {						\
 	SWAPIN;
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	if (is_value(result)) {
 	    StoreBifResult(4, result);
 	}
@@ -2630,6 +2670,7 @@ do {						\
 	 */
 	live++;
 	bf = (GcBifFunction) Arg(1);
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2641,6 +2682,7 @@ do {						\
 	SWAPIN;
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	if (is_value(result)) {
 	    StoreBifResult(5, result);
 	}
@@ -2671,6 +2713,7 @@ do {						\
 	 */
 	live += 2;
 	bf = (GcBifFunction) Arg(1);
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2682,6 +2725,7 @@ do {						\
 	SWAPIN;
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	if (is_value(result)) {
 	    StoreBifResult(5, result);
 	}
@@ -2708,6 +2752,7 @@ do {						\
 
 	GetArg2(2, tmp_reg[0], tmp_reg[1]);
 	bf = (BifFunction) Arg(1);
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -2717,6 +2762,7 @@ do {						\
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	if (is_value(result)) {
 	    StoreBifResult(4, result);
 	}
@@ -2775,6 +2821,7 @@ do {						\
 	bf = GET_BIF_ADDRESS(Arg(0));
 
 	PRE_BIF_SWAPOUT(c_p);
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	c_p->fcalls = FCALLS - 1;
 	if (FCALLS <= 0) {
 	   save_calls(c_p, (Export *) Arg(0));
@@ -2796,6 +2843,7 @@ do {						\
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	HTOP = HEAP_TOP(c_p);
 	FCALLS = c_p->fcalls;
+	ERTS_DBG_CHK_REDS(c_p, FCALLS);
         /* We have to update the cache if we are enabled in order
            to make sure no book keeping is done after we disabled
            msacc. We don't always do this as it is quite expensive. */
@@ -3324,8 +3372,13 @@ do {						\
       * (beacuse the code for the Dispatch() macro becomes shorter that way).
       */
 
-     reds_used = REDS_IN(c_p) - FCALLS + 1;
-     
+     ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
+    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	reds_used = REDS_IN(c_p) - FCALLS;
+    else
+	reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
+    ASSERT(reds_used >= 0);
+
      /*
       * Save the argument registers and everything else.
       */
@@ -3514,6 +3567,7 @@ do {						\
 	    DTRACE_BIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 
 	    SWAPOUT;
+	    ERTS_DBG_CHK_REDS(c_p, FCALLS - 1);
 	    c_p->fcalls = FCALLS - 1;
 	    vbf = (BifFunction) Arg(0);
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -3549,6 +3603,7 @@ do {						\
 	    }
 	    SWAPIN;  /* There might have been a garbage collection. */
 	    FCALLS = c_p->fcalls;
+	    ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	    if (is_value(nif_bif_result)) {
 		r(0) = nif_bif_result;
 		CHECK_TERM(r(0));
@@ -4611,9 +4666,9 @@ do {						\
  OpCase(i_generic_breakpoint): {
      BeamInstr real_I;
      ASSERT(I[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      real_I = erts_generic_breakpoint(c_p, I, reg);
-     SWAPIN;
+     HEAVY_SWAPIN;
      ASSERT(VALID_INSTR(real_I));
      Goto(real_I);
  }
@@ -4790,6 +4845,7 @@ do {						\
  {
 #define HIPE_MODE_SWITCH(Cmd)			\
      SWAPOUT;					\
+     ERTS_DBG_CHK_REDS(c_p, FCALLS);		\
      c_p->fcalls = FCALLS;			\
      c_p->def_arg_reg[4] = -neg_o_reds;		\
      c_p = hipe_mode_switch(c_p, Cmd, reg);     \
@@ -4828,6 +4884,9 @@ do {						\
 #undef HIPE_MODE_SWITCH
 
  L_post_hipe_mode_switch:
+#ifdef DEBUG
+     pid = c_p->common.id; /* may have switched process... */
+#endif
      reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
      freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
      ERL_BITS_RELOAD_STATEP(c_p);
@@ -4835,6 +4894,7 @@ do {						\
      neg_o_reds = -c_p->def_arg_reg[4];
      FCALLS = c_p->fcalls;
      SWAPIN;
+     ERTS_DBG_CHK_REDS(c_p, FCALLS);
      switch( c_p->def_arg_reg[3] ) {
        case HIPE_MODE_SWITCH_RES_RETURN:
 	 ASSERT(is_value(reg[0]));
@@ -6839,7 +6899,7 @@ erts_current_reductions(Process *current, Process *p)
     if (current != p) {
 	return 0;
     } else if (current->fcalls < 0 && ERTS_PROC_GET_SAVED_CALLS_BUF(current)) {
-	return -current->fcalls;
+	return current->fcalls + CONTEXT_REDS;
     } else {
 	return REDS_IN(current) - current->fcalls;
     }
