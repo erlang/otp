@@ -33,7 +33,7 @@
     <note>
       <p>
 	There is a new behaviour
-	<seealso marker="gen_statem"><c>gen_statem</c></seealso>
+	<seealso marker="statem"><c>gen_statem</c></seealso>
 	that is intended to replace <c>gen_fsm</c> for new code.
 	It has the same features and add some really useful.
 	This module will not be removed for the foreseeable future
