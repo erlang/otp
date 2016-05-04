@@ -24,9 +24,10 @@ rtl_to_native(MFA, RTL, Roots, Options) ->
   %% Extract information from object file
   %%
   ObjBin = open_object_file(ObjectFile),
+  Obj = elf_format:read(ObjBin),
   %% Get labels info (for switches and jump tables)
-  Labels = elf_format:get_rodata_relocs(ObjBin),
-  {Switches, Closures} = get_tables(ObjBin),
+  Labels = elf_format:get_rodata_relocs(Obj),
+  {Switches, Closures} = get_tables(Obj),
   %% Associate Labels with Switches and Closures with stack args
   {SwitchInfos, ExposedClosures} =
     correlate_labels(Switches ++ Closures, Labels),
@@ -37,19 +38,19 @@ rtl_to_native(MFA, RTL, Roots, Options) ->
   %% used for switch's jump tables
   LabelMap = create_labelmap(MFA, SwitchInfos, RelocsDict),
   %% Get relocation info
-  TextRelocs = elf_format:get_text_relocs(ObjBin),
+  TextRelocs = elf_format:get_text_relocs(Obj),
   %% AccRefs contains the offsets of all references to relocatable symbols in
   %% the code:
   AccRefs = fix_relocations(TextRelocs, RelocsDict, MFA),
   %% Get stack descriptors
-  SDescs = get_sdescs(ObjBin),
+  SDescs = get_sdescs(Obj),
   %% FixedSDescs are the stack descriptors after correcting calls that have
   %% arguments in the stack
   FixedSDescs =
     fix_stack_descriptors(RelocsDict, AccRefs, SDescs, ExposedClosures),
   Refs = AccRefs ++ FixedSDescs,
   %% Get binary code from object file
-  BinCode = elf_format:extract_text(ObjBin),
+  BinCode = elf_format:extract_text(Obj),
   %% Remove temp files (if needed)
   ok = remove_temp_folder(Dir, Options),
   %% Return the code together with information that will be used in the
