@@ -1047,9 +1047,15 @@
     
     <p>Common Test will escape special HTML characters (&lt;, &gt; and &amp;) in printouts
     to the log file made with <c>ct:pal/4</c> and <c>io:format/2</c>. In order to print
-    strings with HTML tags to the log, use the <c>ct:log/5</c> function. The character escaping
-    feature is per default disabled for <c>ct:log/5</c>, but can be enabled with the
-    <c>esc_chars</c> option.</p>
+    strings with HTML tags to the log, use the <c>ct:log/3,4,5</c> function. The character
+    escaping feature is per default disabled for <c>ct:log/3,4,5</c> but can be enabled with
+    the <c>esc_chars</c> option in the <c>Opts</c> list, see <seealso marker="ct#log-5">
+    <c>ct:log/3,4,5</c></seealso>.</p>
+
+    <p>If the character escaping feature needs to be disabled (typically for backwards
+    compatibility reasons), use the <c>ct_run</c> start flag <c>-no_esc_chars</c>, or the
+    <c>ct:run_test/1</c> start option <c>{esc_chars,Bool}</c> (this start option is also
+    supported in test specifications).</p>
 
     <p>For more information about log files, see section
     <seealso marker="run_test_chapter#log_files">Log Files</seealso> 

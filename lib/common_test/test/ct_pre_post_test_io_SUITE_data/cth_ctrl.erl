@@ -53,8 +53,7 @@ init(_Id, _Opts) ->
     receive
 	{?MODULE,proceed} -> ok
     after
-	10000 ->
-	    ok
+	10000 -> ok
     end,
     {ok,[],ct_last}.
 
@@ -66,8 +65,7 @@ terminate(_State) ->
     receive
 	{?MODULE,proceed} -> ok
     after
-       10000 ->
-	    ok
+       10000 -> ok
     end,
     stop_external_logger(cth_logger),
     stop_dispatcher(),
@@ -94,7 +92,7 @@ init_logger(Name) ->
 logger_loop(N) ->
     ct:log("Logger iteration: ~p", [N]),
     error_logger:error_report(N),
-    timer:sleep(250),
+    timer:sleep(100),
     logger_loop(N+1).
 
 %%%-----------------------------------------------------------------

@@ -67,6 +67,8 @@ terminate(Hooks) ->
 %% tests.
 -spec init_tc(Mod :: atom(),
 	      FuncSpec :: atom() | 
+			  {ConfigFunc :: init_per_testcase | end_per_testcase,
+			   TestCase :: atom()} |
 			  {ConfigFunc :: init_per_group | end_per_group,
 			   GroupName :: atom(),
 			   Properties :: list()},
@@ -103,7 +105,9 @@ init_tc(_Mod, TC = error_in_suite, Config) ->
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
 -spec end_tc(Mod :: atom(),
-	     FuncSpec :: atom() | 
+	     FuncSpec :: atom() |  
+			 {ConfigFunc :: init_per_testcase | end_per_testcase,
+			  TestCase :: atom()} |
 			 {ConfigFunc :: init_per_group | end_per_group,
 			  GroupName :: atom(),
 			  Properties :: list()},

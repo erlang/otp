@@ -27,7 +27,7 @@
 
 -include("ct.hrl").
 
--define(now, os:timestamp()).
+-define(now, ct_test_support:unique_timestamp()).
 
 %% Test server callback functions
 init_per_suite(Config) ->

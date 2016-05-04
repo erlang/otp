@@ -43,6 +43,8 @@
 
 -export([random_error/1]).
 
+-export([unique_timestamp/0]).
+
 -include_lib("kernel/include/file.hrl").
 
 %%%-----------------------------------------------------------------
@@ -110,7 +112,8 @@ start_slave(NodeName, Config, Level) ->
 			      undefined -> [];
 			      Ds -> Ds
 			  end,
-	    PathDirs = [PrivDir,TSDir | AddPathDirs],
+	    TestSupDir = filename:dirname(code:which(?MODULE)),
+	    PathDirs = [PrivDir,TSDir,TestSupDir | AddPathDirs],
 	    [true = rpc:call(CTNode, code, add_patha, [D]) || D <- PathDirs],
 	    test_server:format(Level, "Dirs added to code path (on ~w):~n",
 			       [CTNode]),
@@ -1430,7 +1433,21 @@ rm_files([F | Fs]) ->
     end;
 rm_files([]) ->
     ok.
-    
+
+unique_timestamp() ->
+    unique_timestamp(os:timestamp(), 100000).
+
+unique_timestamp(TS, 0) ->
+    TS;
+unique_timestamp(TS0, N) ->
+    case os:timestamp() of
+	TS0 ->
+	    timer:sleep(1),
+	    unique_timestamp(TS0, N-1);
+	TS1 ->
+	    TS1
+    end.
+
 %%%-----------------------------------------------------------------
 %%%
 slave_stop(Node) ->

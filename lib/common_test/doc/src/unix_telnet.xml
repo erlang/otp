@@ -80,7 +80,7 @@
 
   <funcs>
     <func>
-      <name>connect(ConnName, Ip, Port, Timeout, KeepAlive, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name>connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Callback for ct_telnet.erl.</fsummary>
         <type>
           <v>ConnName = target_name()</v>
@@ -88,6 +88,7 @@
           <v>Port = integer()</v>
           <v>Timeout = integer()</v>
           <v>KeepAlive = bool()</v>
+	  <v>TCPNoDelay = bool()</v>
           <v>Extra = target_name() | {Username, Password}</v>
           <v>Username = string()</v>
           <v>Password = string()</v>

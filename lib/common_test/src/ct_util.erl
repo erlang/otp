@@ -459,6 +459,7 @@ loop(Mode,TestData,StartDir) ->
 		    error:badarg -> []
 		end,
 	    ct_hooks:terminate(Callbacks),
+
 	    close_connections(ets:tab2list(?conn_table)),
 	    ets:delete(?conn_table),
 	    ets:delete(?board_table),

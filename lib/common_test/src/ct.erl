@@ -161,9 +161,9 @@ run(TestDirs) ->
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,ForceStop} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {logopts,LogOpts} | 
-%%%               {verbosity,VLevels} | {basic_html,Bool} | 
-%%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool} |
-%%%               {release_shell,Bool}
+%%%               {verbosity,VLevels} | {basic_html,Bool} |
+%%%               {esc_chars,Bool} | {ct_hooks, CTHs} |
+%%%               {enable_builtin_hooks,Bool} | {release_shell,Bool}
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | [atom()] | string() | atom()
 %%%   Cases = [atom()] | atom()

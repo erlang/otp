@@ -65,6 +65,7 @@
 	       logdir,
 	       logopts = [],
 	       basic_html,
+	       esc_chars = true,
 	       verbosity = [],
 	       config = [],
 	       event_handlers = [],
@@ -346,6 +347,15 @@ script_start1(Parent, Args) ->
 			application:set_env(common_test, basic_html, true),
 			true
 		end,
+    %% esc_chars - used by ct_logs
+    EscChars = case proplists:get_value(no_esc_chars, Args) of
+		   undefined ->
+		       application:set_env(common_test, esc_chars, true),
+		       undefined;
+		   _ ->
+		       application:set_env(common_test, esc_chars, false),
+		       false
+	       end,
     %% disable_log_cache - used by ct_logs
     case proplists:get_value(disable_log_cache, Args) of
 	undefined ->
@@ -359,6 +369,7 @@ script_start1(Parent, Args) ->
 		 cover = Cover, cover_stop = CoverStop,
 		 logdir = LogDir, logopts = LogOpts,
 		 basic_html = BasicHtml,
+		 esc_chars = EscChars,
 		 verbosity = Verbosity,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
@@ -587,6 +598,17 @@ combine_test_opts(TS, Specs, Opts) ->
 		BHBool
 	end,
 
+    EscChars =
+	case choose_val(Opts#opts.esc_chars,
+			TSOpts#opts.esc_chars) of
+	    undefined ->
+		true;
+	    ECBool ->
+		application:set_env(common_test, esc_chars,
+				    ECBool),
+		ECBool
+	end,
+
     Opts#opts{label = Label,
 	      profile = Profile,
 	      testspec_files = Specs,
@@ -595,6 +617,7 @@ combine_test_opts(TS, Specs, Opts) ->
 	      logdir = which(logdir, LogDir),
 	      logopts = AllLogOpts,
 	      basic_html = BasicHtml,
+	      esc_chars = EscChars,
 	      verbosity = AllVerbosity,
 	      silent_connections = AllSilentConns,
 	      config = TSOpts#opts.config,
@@ -795,6 +818,7 @@ script_usage() ->
 	      "\n\t [-scale_timetraps]"
 	      "\n\t [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
 	      "\n\t [-basic_html]"
+	      "\n\t [-no_esc_chars]"
 	      "\n\t [-repeat N] |"
 	      "\n\t [-duration HHMMSS [-force_stop [skip_rest]]] |"
 	      "\n\t [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]"
@@ -822,6 +846,7 @@ script_usage() ->
 	      "\n\t [-scale_timetraps]"
 	      "\n\t [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
 	      "\n\t [-basic_html]"
+	      "\n\t [-no_esc_chars]"
 	      "\n\t [-repeat N] |"
 	      "\n\t [-duration HHMMSS [-force_stop [skip_rest]]] |"
 	      "\n\t [-until [YYMoMoDD]HHMMSS [-force_stop [skip_rest]]]\n\n"),
@@ -847,7 +872,8 @@ script_usage() ->
 	      "\n\t [-multiply_timetraps N]"
 	      "\n\t [-scale_timetraps]"
 	      "\n\t [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
-	      "\n\t [-basic_html]\n\n").
+	      "\n\t [-basic_html]"
+	      "\n\t [-no_esc_chars]\n\n").
 
 %%%-----------------------------------------------------------------
 %%% @hidden
@@ -1089,7 +1115,17 @@ run_test2(StartOpts) ->
 		application:set_env(common_test, basic_html, BasicHtmlBool),
 		BasicHtmlBool		
     end,
-
+    %% esc_chars - used by ct_logs
+    EscChars =
+	case proplists:get_value(esc_chars, StartOpts) of
+	    undefined ->
+		application:set_env(common_test, esc_chars, true),
+		undefined;
+	    EscCharsBool ->
+		application:set_env(common_test, esc_chars, EscCharsBool),
+		EscCharsBool		
+    end,
+    %% disable_log_cache - used by ct_logs
     case proplists:get_value(disable_log_cache, StartOpts) of
 	undefined ->
 	    application:set_env(common_test, disable_log_cache, false);
@@ -1104,6 +1140,7 @@ run_test2(StartOpts) ->
 		 cover = Cover, cover_stop = CoverStop,
 		 step = Step, logdir = LogDir,
 		 logopts = LogOpts, basic_html = BasicHtml,
+		 esc_chars = EscChars,
 		 config = CfgFiles,
 		 verbosity = Verbosity,
 		 event_handlers = EvHandlers,
@@ -1445,6 +1482,7 @@ get_data_for_node(#testspec{label = Labels,
 			    logdir = LogDirs,
 			    logopts = LogOptsList,
 			    basic_html = BHs,
+			    esc_chars = EscChs,
 			    stylesheet = SSs,
 			    verbosity = VLvls,
 			    silent_connections = SilentConnsList,
@@ -1472,6 +1510,7 @@ get_data_for_node(#testspec{label = Labels,
 		  LOs -> LOs
 	      end,
     BasicHtml = proplists:get_value(Node, BHs),
+    EscChars = proplists:get_value(Node, EscChs),
     Stylesheet = proplists:get_value(Node, SSs),
     Verbosity = case proplists:get_value(Node, VLvls) of
 		    undefined -> [];
@@ -1498,6 +1537,7 @@ get_data_for_node(#testspec{label = Labels,
 	  logdir = LogDir,
 	  logopts = LogOpts,
 	  basic_html = BasicHtml,
+	  esc_chars = EscChars,
 	  stylesheet = Stylesheet,
 	  verbosity = Verbosity,
 	  silent_connections = SilentConns,
@@ -2182,9 +2222,17 @@ do_run_test(Tests, Skip, Opts0) ->
 	    %% test_server needs to know the include path too
 	    InclPath = case application:get_env(common_test, include) of
 			   {ok,Incls} -> Incls;
-			   _ -> []
+			   _          -> []
 		       end,
 	    application:set_env(test_server, include, InclPath),
+
+	    %% copy the escape characters setting to test_server
+	    EscChars =
+		case application:get_env(common_test, esc_chars) of
+		    {ok,ECBool} -> ECBool;
+		    _           -> true
+		end,
+	    application:set_env(test_server, esc_chars, EscChars),
 
 	    test_server_ctrl:start_link(local),
 
@@ -3068,6 +3116,10 @@ opts2args(EnvStartOpts) ->
 		     ({basic_html,true}) ->
 			  [{basic_html,[]}];
 		     ({basic_html,false}) ->
+			  [];
+		     ({esc_chars,false}) ->
+			  [{no_esc_chars,[]}];
+		     ({esc_chars,true}) ->
 			  [];
 		     ({event_handler,EH}) when is_atom(EH) ->
 			  [{event_handler,[atom_to_list(EH)]}];

@@ -33,6 +33,68 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>nodelay</c> option used to be enabled
+	    (<c>true</c>) by default for sockets opened by the Common
+	    Test telnet client. This appeared to cause communication
+	    problems with telnet servers on some systems, and
+	    therefore the option is no longer used. Its value may
+	    instead be specified in the telnet connection settings.
+	    See the man page for <c>ct_telnet</c> for details. Please
+	    note that the interface function <c>connect</c> in
+	    <c>unix_telnet</c> has been updated with an extra
+	    argument and is now <c>unix_telnet:connect/7</c>.</p>
+          <p>
+	    Own Id: OTP-13462 Aux Id: seq13077 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in cth_surefire: When a pre_init_per_suite hook
+	    fails before reaching the
+	    cth_surefire:pre_init_per_suite, cth_surefire produced
+	    incorrect XML.</p>
+          <p>
+	    Own Id: OTP-13513</p>
+        </item>
+        <item>
+          <p>
+	    The <c>ct:get_timetrap_info/0</c> function has been
+	    updated to return more information about timetrap
+	    scaling.</p>
+          <p>
+	    Own Id: OTP-13535</p>
+        </item>
+        <item>
+          <p>
+	    A problem with stylesheet HTML tags getting incorrectly
+	    escaped by Common Test has been corrected.</p>
+          <p>
+	    Own Id: OTP-13536</p>
+        </item>
+        <item>
+          <p>
+	    The <c>ct_run</c> start flag <c>-no_esc_chars</c> and
+	    <c>ct:run_test/1</c> start option <c>{esc_chars,Bool}</c>
+	    have been introduced to make it possible to disable
+	    automatic escaping of characters. Automatic escaping of
+	    special HTML characters printed with <c>io:format/1,2</c>
+	    and <c>ct:pal/1,2,3,4</c> was introduced in Common Test
+	    1.12. The new flag/option may be used to disable this
+	    feature for backwards compatibility reasons. (The option
+	    is also supported in test specifications).</p>
+          <p>
+	    Own Id: OTP-13537</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

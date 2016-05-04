@@ -28,6 +28,23 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 7.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct cipher suites conversion and gaurd expression.
+	    Caused problems with GCM cipher suites and client side
+	    option to set signature_algorithms extention values.</p>
+          <p>
+	    Own Id: OTP-13525</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

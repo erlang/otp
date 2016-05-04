@@ -64,6 +64,8 @@
         remaining string terminated) = 0</p></item>
       <item><p>Polling interval (sleep time between polls) = 1 second</p>
       </item>
+      <item><p>The TCP_NODELAY option for the telnet socket
+        is disabled (set to <c>false</c>) per default</p></item>
     </list>
 
     <p>These parameters can be modified by the user with the following
@@ -76,7 +78,8 @@
                     {reconnection_interval,Millisec},
                     {keep_alive,Bool},
                     {poll_limit,N},
-                    {poll_interval,Millisec}]}.</pre>
+                    {poll_interval,Millisec},
+                    {tcp_nodelay,Bool}]}.</pre>
 
     <p><c>Millisec = integer(), N = integer()</c></p>
 

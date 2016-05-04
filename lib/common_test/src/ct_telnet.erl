@@ -42,7 +42,8 @@
 %%                    {reconnection_interval,Millisec},
 %%                    {keep_alive,Bool},
 %%                    {poll_limit,N},
-%%                    {poll_interval,Millisec}]}.</pre>
+%%                    {poll_interval,Millisec},
+%%                    {tcp_nodelay,Bool}]}.</pre>
 %% <p><code>Millisec = integer(), N = integer()</code></p>
 %% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %% file included in the test and ct_telnet will retrieve the information
@@ -182,7 +183,8 @@
 	       conn_to=?DEFAULT_TIMEOUT, 
 	       com_to=?DEFAULT_TIMEOUT, 
 	       reconns=?RECONNS,
-	       reconn_int=?RECONN_TIMEOUT}).
+	       reconn_int=?RECONN_TIMEOUT,
+	       tcp_nodelay=false}).
 
 %%%-----------------------------------------------------------------
 %%% @spec open(Name) -> {ok,Handle} | {error,Reason}
@@ -602,8 +604,18 @@ init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
 	     Settings ->
 		 set_telnet_defaults(Settings,#state{})				    
 	 end,
-    case catch TargetMod:connect(Name,Ip,Port,S0#state.conn_to,
-				 KeepAlive,Extra) of
+    %% Handle old user versions of TargetMod
+    code:ensure_loaded(TargetMod),
+    try
+	case erlang:function_exported(TargetMod,connect,7) of
+	    true ->
+		TargetMod:connect(Name,Ip,Port,S0#state.conn_to,
+				  KeepAlive,S0#state.tcp_nodelay,Extra);
+	    false ->
+		TargetMod:connect(Name,Ip,Port,S0#state.conn_to,
+				  KeepAlive,Extra)
+	end
+    of
 	{ok,TelnPid} ->
 	    put({ct_telnet_pid2name,TelnPid},Name),
 	    S1 = S0#state{host=Ip,
@@ -625,15 +637,18 @@ init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
 		"Connection timeout: ~p\n"
 		"Keep alive: ~w\n"
 		"Poll limit: ~w\n"
-		"Poll interval: ~w",
+		"Poll interval: ~w\n"
+		"TCP nodelay: ~w",
 		[Ip,Port,S1#state.com_to,S1#state.reconns,
 		 S1#state.reconn_int,S1#state.conn_to,KeepAlive,
-		 S1#state.poll_limit,S1#state.poll_interval]),
+		 S1#state.poll_limit,S1#state.poll_interval,
+		 S1#state.tcp_nodelay]),
 	    {ok,TelnPid,S1};
-	{'EXIT',Reason} ->
-	    {error,Reason};
 	Error ->
 	    Error
+    catch
+	_:Reason ->
+	    {error,Reason}
     end.
 
 type(telnet) -> ip;
@@ -653,6 +668,8 @@ set_telnet_defaults([{poll_limit,PL}|Ss],S) ->
     set_telnet_defaults(Ss,S#state{poll_limit=PL});
 set_telnet_defaults([{poll_interval,PI}|Ss],S) ->
     set_telnet_defaults(Ss,S#state{poll_interval=PI});
+set_telnet_defaults([{tcp_nodelay,NoDelay}|Ss],S) ->
+    set_telnet_defaults(Ss,S#state{tcp_nodelay=NoDelay});
 set_telnet_defaults([Unknown|Ss],S) ->
     force_log(S,error,
 	      "Bad element in telnet_settings: ~p",[Unknown]),
@@ -794,8 +811,17 @@ reconnect(Ip,Port,N,State=#state{name=Name,
 				 keep_alive=KeepAlive,
 				 extra=Extra,
 				 conn_to=ConnTo,
-				 reconn_int=ReconnInt}) ->
-    case TargetMod:connect(Name,Ip,Port,ConnTo,KeepAlive,Extra) of
+				 reconn_int=ReconnInt,
+				 tcp_nodelay=NoDelay}) ->
+    %% Handle old user versions of TargetMod
+    ConnResult =
+	case erlang:function_exported(TargetMod,connect,7) of
+	    true ->
+		TargetMod:connect(Name,Ip,Port,ConnTo,KeepAlive,NoDelay,Extra);
+	    false ->
+		TargetMod:connect(Name,Ip,Port,ConnTo,KeepAlive,Extra)
+	end,
+    case ConnResult of
 	{ok,NewPid} ->
 	    put({ct_telnet_pid2name,NewPid},Name),
 	    {ok, NewPid, State#state{teln_pid=NewPid}};
