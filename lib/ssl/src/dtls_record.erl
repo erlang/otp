@@ -163,6 +163,15 @@ encode_plain_text_1(Type, Version, Data, #connection_state{
     CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
     {CipherText, WriteState#connection_state{sequence_number = Seq + 1}}.
 
+decode_cipher_text(#ssl_tls{epoch = Epoch},
+		   #connection_states{current_read =
+					  #connection_state{
+					     epoch = ReadEpoch
+					    }}) when Epoch /= ReadEpoch ->
+    if Epoch > ReadEpoch -> next_epoch;
+       true              -> previous_epoch
+    end;
+
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    epoch = Epoch,
 			    sequence_number = Seq,

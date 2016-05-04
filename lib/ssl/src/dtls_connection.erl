@@ -457,7 +457,17 @@ handle_common_event(internal, Record = #ssl_tls{type = ?HANDSHAKE},
 handle_common_event(internal, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
     {next_state, StateName, State, [{next_event, internal, {application_data, Data}}]};
 %%% TLS record protocol level change cipher messages
-handle_common_event(internal, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
+handle_common_event(internal, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName,
+		    #state{protocol_buffers =
+			       #protocol_buffers{dtls_fragment_state = HsState} = Buffers} = State0) ->
+    %%
+    %% TODO: this is wrong, #change_cipher_spec events need to handled together with
+    %%       handshake message, otherwise we might try to decode a handshake that is
+    %%       not from the current epoch
+    %%
+    State = State0#state{protocol_buffers =
+			     Buffers#protocol_buffers{dtls_fragment_state =
+							  dtls_handshake:dtls_handshake_new_epoch(HsState)}},
     {next_state, StateName, State, [{next_event, internal, #change_cipher_spec{type = Data}}]};
 %%% TLS record protocol level Alert messages
 handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
@@ -655,7 +665,10 @@ next_tls_record(Data, #state{protocol_buffers = #protocol_buffers{
 	    Alert
    end.
 
-next_record(#state{%%flight = #flight{state = finished}, 
+%% TODO: the next_record mechanims handles neither resend in old epochs nor reordering accross epochs
+next_record(#state{%% flight_state = finished,
+	           socket = Socket,
+		   transport_cb = Transport,
 		   protocol_buffers =
 		       #protocol_buffers{dtls_packets = [], dtls_cipher_texts = [CT | Rest]}
 		   = Buffers,
@@ -665,6 +678,10 @@ next_record(#state{%%flight = #flight{state = finished},
 	    {Plain, State#state{protocol_buffers =
 				    Buffers#protocol_buffers{dtls_cipher_texts = Rest},
 				connection_states = ConnStates}};
+	next_epoch ->
+	    ssl_socket:setopts(Transport, Socket, [{active,once}]),
+	    {no_record, State};
+
 	#alert{} = Alert ->
 	    {Alert, State}
     end;
