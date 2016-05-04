@@ -55,8 +55,8 @@
 -export([%%write_application_data/3, 
 	 read_application_data/2,
 	 %%passive_receive/2,
-	 next_record_if_active/1 %%,
-	 %%handle_common_event/4
+	 next_record_if_active/1,
+	 handle_common_event/4
 	]).
 
 %% gen_statem state functions
@@ -306,10 +306,11 @@ downgrade(Type, Event, State) ->
 
 
 %%--------------------------------------------------------------------
-%% Description: This function is called by a gen_fsm when it receives any
-%% other message than a synchronous or asynchronous event
-%% (or a system message).
+%% Event handling functions called by state functions to handle
+%% common or unexpected events for the state.
 %%--------------------------------------------------------------------
+handle_call(Event, From, StateName, State) ->
+    ssl_connection:handle_call(Event, From, StateName, State, ?MODULE).
 
 %% raw data from socket, unpack records
 handle_info({Protocol, _, Data}, StateName,
@@ -330,8 +331,87 @@ handle_info({CloseTag, Socket}, StateName,
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
 
-handle_call(Event, From, StateName, State) ->
-    ssl_connection:handle_call(Event, From, StateName, State, ?MODULE).
+handle_common_event(internal, #alert{} = Alert, StateName,
+		    #state{negotiated_version = Version} = State) ->
+    handle_own_alert(Alert, Version, StateName, State);
+
+%%% TLS record protocol level handshake messages
+handle_common_event(internal, Record = #ssl_tls{type = ?HANDSHAKE},
+		    StateName, #state{protocol_buffers =
+					  #protocol_buffers{dtls_packets = Packets0,
+							    dtls_fragment_state = HsState0} = Buffers,
+				      negotiated_version = Version} = State0) ->
+%%
+%% TODO: It might be clearer if the Handle function was elevate to gen_statem event function.
+%%       The get_dtls_handshake chould simply return a list of Events (which might be empty)
+%%       and handle_common_event would match on the request type.
+%%
+    Handle =
+	fun({#hello_request{} = Packet, _}, {connection, HState}) ->
+		%% This message should not be included in handshake
+		%% message hashes. Starts new handshake (renegotiation)
+		Hs0 = ssl_handshake:init_handshake_history(),
+		{HState#state{tls_handshake_history = Hs0,
+			      renegotiation = {true, peer}},
+		 {next_event, internal, Packet}};
+	   ({#hello_request{}, _}, {next_state, _SName, HState}) ->
+		%% This message should not be included in handshake
+		%% message hashes. Already in negotiation so it will be ignored!
+		{HState, []};
+	   ({#client_hello{} = Packet, Raw}, {connection, HState0}) ->
+		HState = handle_sni_extension(Packet, HState0),
+		Hs0 = ssl_handshake:init_handshake_history(),
+		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw, false),
+		{HState#state{tls_handshake_history = Hs1,
+			      renegotiation = {true, peer}},
+		 {next_event, internal, Packet}};
+
+	   ({Packet, Raw}, {_SName, HState0 = #state{tls_handshake_history=Hs0}}) ->
+		HState = handle_sni_extension(Packet, HState0),
+		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw, false),
+		{HState#state{tls_handshake_history=Hs1}, {next_event, internal, Packet}}
+	end,
+    try
+	{Packets1, HsState} = dtls_handshake:get_dtls_handshake(Record, HsState0),
+	Packets = Packets0 ++ Packets1,
+	State1 = State0#state{protocol_buffers =
+				  Buffers#protocol_buffers{dtls_packets = Packets,
+							   dtls_fragment_state = HsState}},
+	case Packets of
+	    [] ->
+		{NextRecord, State} = next_record(State1),
+		next_event(StateName, NextRecord, State);
+	    _ ->
+		{State, Events} = dtls_handshake_events(Handle, StateName, State1, []),
+		case StateName of
+		    connection ->
+			ssl_connection:hibernate_after(StateName, State, Events);
+		    _ ->
+			{next_state, StateName, State, Events}
+		end
+	end
+    catch throw:#alert{} = Alert ->
+	    handle_own_alert(Alert, Version, StateName, State0)
+    end;
+
+%%% TLS record protocol level application data messages
+handle_common_event(internal, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
+    {next_state, StateName, State, [{next_event, internal, {application_data, Data}}]};
+%%% TLS record protocol level change cipher messages
+handle_common_event(internal, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
+    {next_state, StateName, State, [{next_event, internal, #change_cipher_spec{type = Data}}]};
+%%% TLS record protocol level Alert messages
+handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
+		    #state{negotiated_version = Version} = State) ->
+    case decode_alerts(EncAlerts) of
+	Alerts = [_|_] ->
+	    handle_alerts(Alerts,  {next_state, StateName, State});
+	#alert{} = Alert ->
+	    handle_own_alert(Alert, Version, StateName, State)
+    end;
+%% Ignore unknown TLS record level protocol messages
+handle_common_event(internal, #ssl_tls{type = _Unknown}, StateName, State) ->
+    {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
 %% Description:This function is called by a gen_fsm when it is about
@@ -416,6 +496,25 @@ send_flight(Fragments, #state{transport_cb = Transport, socket = Socket,
     %% State#state{protocol_buffers = 
     %% 		    (PBuffers#protocol_buffers){ #flight{state = waiting}}}}.
     State.
+
+dtls_handshake_events(Handle, StateName,
+		     #state{protocol_buffers =
+				#protocol_buffers{dtls_packets = [Packet]} = Buffers} = State0, Acc) ->
+    {State, Event} = Handle(Packet, {StateName,
+				     State0#state{protocol_buffers =
+						      Buffers#protocol_buffers{dtls_packets = []}}}),
+    {State, lists:reverse([Event |Acc])};
+dtls_handshake_events(Handle, StateName,
+		     #state{protocol_buffers =
+				#protocol_buffers{dtls_packets =
+						      [Packet | Packets]} = Buffers} = State0, Acc) ->
+    {State, Event} = Handle(Packet, {StateName, State0#state{protocol_buffers =
+								 Buffers#protocol_buffers{dtls_packets =
+											      Packets}}}),
+    dtls_handshake_events(Handle, StateName, State, [Event | Acc]);
+
+dtls_handshake_events(_Handle, _, #state{}, _) ->
+     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
 
 handle_own_alert(_,_,_, State) -> %% Place holder
     {stop, {shutdown, own_alert}, State}.
