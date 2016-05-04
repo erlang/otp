@@ -696,7 +696,7 @@ handle_options(Opts0, Role) ->
 							 default_option_role(server, true, Role), 
 							 server, Role),
 		    renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
-		    hibernate_after = handle_option(hibernate_after, Opts, undefined),
+		    hibernate_after = handle_option(hibernate_after, Opts, infinity),
 		    erl_dist = handle_option(erl_dist, Opts, false),
 		    alpn_advertised_protocols =
 			handle_option(alpn_advertised_protocols, Opts, undefined),
@@ -885,10 +885,13 @@ validate_option(client_renegotiation, Value) when is_boolean(Value) ->
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
 
-validate_option(hibernate_after, undefined) ->
-    undefined;
+validate_option(hibernate_after, undefined) -> %% Backwards compatibility
+    infinity;
+validate_option(hibernate_after, infinity) ->
+    infinity;
 validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
+
 validate_option(erl_dist,Value) when is_boolean(Value) ->
     Value;
 validate_option(Opt, Value)
