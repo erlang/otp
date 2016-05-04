@@ -123,15 +123,21 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
+init_per_suite() ->
+    [{timetrap,2*?default_timeout}]. % making dsa files can be slow
 init_per_suite(Config) ->
-    case catch {crypto:start(), ssh:start()} of
-	{ok, ok} ->
+    case catch ssh:start() of
+	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+	    ct:log("ssh started",[]),
 	    {ok, _} =  netconfc_test_lib:get_id_keys(Config),
 	    netconfc_test_lib:make_dsa_files(Config),
+	    ct:log("dsa files created",[]),
 	    Server = ?NS:start(?config(data_dir,Config)),
+	    ct:log("netconf server started",[]),
 	    [{server,Server}|Config];
-	_ ->
-	    {skip, "Crypto and/or SSH could not be started!"}
+	Other ->
+	    ct:log("could not start ssh: ~p",[Other]),
+	    {skip, "SSH could not be started!"}
     end.
 
 end_per_suite(Config) ->
@@ -806,7 +812,7 @@ close_while_waiting_for_chunked_data(Config) ->
     %% Order server to expect a get - then the process above will make
     %% sure the rpc-reply is sent - but only a part of it - then close.
     ?NS:expect('get'),
-    {error,closed} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},2000),
+    {error,closed} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},4000),
     ok.
 
 connection_crash(Config) ->

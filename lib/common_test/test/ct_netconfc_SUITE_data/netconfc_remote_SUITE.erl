@@ -26,7 +26,8 @@
 -compile(export_all).
 
 suite() ->
-    [{ct_hooks, [{cth_conn_log,[{ct_netconfc,[{log_type,html}]}]}]}].
+    [{timetrap,?default_timeout},
+     {ct_hooks, [{cth_conn_log,[{ct_netconfc,[{log_type,html}]}]}]}].
 
 all() ->
     case os:find_executable("ssh") of
@@ -48,13 +49,10 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Case, Config) ->
     stop_node(Case),
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) ->
     stop_node(Case),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 stop_node(Case) ->
@@ -63,14 +61,19 @@ stop_node(Case) ->
     rpc:call(Node,erlang,halt,[]).
 
 
+init_per_suite() ->
+    [{timetrap,2*?default_timeout}]. % making dsa files can be slow
 init_per_suite(Config) ->
-    case {crypto:start(),ssh:start()} of
-	{ok,ok} ->
+    case ssh:start() of
+	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+	    ct:log("SSH started locally",[]),
 	    {ok, _} =  netconfc_test_lib:get_id_keys(Config),
 	    netconfc_test_lib:make_dsa_files(Config),
+	    ct:log("dsa files created",[]),
 	    Config;
-	_ ->
-	    {skip, "Crypto and/or SSH could not be started locally!"}
+	Other ->
+	    ct:log("could not start ssh locally: ~p",[Other]),
+	    {skip, "SSH could not be started locally!"}
     end.
 
 end_per_suite(Config) ->
@@ -87,12 +90,15 @@ remote_crash(Config) ->
     Pa = filename:dirname(code:which(?NS)),
     true = rpc:call(Node,code,add_patha,[Pa]),
     
-    case {rpc:call(Node,crypto,start,[]),rpc:call(Node,ssh,start,[])} of
-	{ok,ok} ->
+    case rpc:call(Node,ssh,start,[]) of
+	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+	    ct:log("SSH started remote",[]),
 	    Server = rpc:call(Node,?NS,start,[?config(data_dir,Config)]),
+	    ct:log("netconf server started remote",[]),
 	    remote_crash(Node,Config);
-	_ ->
-	    {skip, "Crypto and/or SSH could not be started remote!"}
+	Other ->
+	    ct:log("could not start ssh remote: ~p",[Other]),
+	    {skip, "SSH could not be started remote!"}
     end.
 
 remote_crash(Node,Config) ->
