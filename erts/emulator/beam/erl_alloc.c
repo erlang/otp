@@ -137,10 +137,12 @@ static ErtsAllocatorState_t exec_alloc_state;
 #endif
 static ErtsAllocatorState_t test_alloc_state;
 
-#define ERTS_ALC_INFO_A_ALLOC_UTIL (ERTS_ALC_A_MAX + 1)
-#define ERTS_ALC_INFO_A_MSEG_ALLOC (ERTS_ALC_A_MAX + 2)
-#define ERTS_ALC_INFO_A_ERTS_MMAP  (ERTS_ALC_A_MAX + 3)
-#define ERTS_ALC_INFO_A_MAX        ERTS_ALC_INFO_A_ERTS_MMAP
+enum {
+    ERTS_ALC_INFO_A_ALLOC_UTIL = ERTS_ALC_A_MAX + 1,
+    ERTS_ALC_INFO_A_MSEG_ALLOC,
+    ERTS_ALC_INFO_A_ERTS_MMAP,
+    ERTS_ALC_INFO_A_END
+};
 
 typedef struct {
     erts_smp_atomic32_t refc;
@@ -150,7 +152,7 @@ typedef struct {
     Process *proc;
     Eterm ref;
     Eterm ref_heap[REF_THING_SIZE];
-    int allocs[ERTS_ALC_INFO_A_MAX - ERTS_ALC_A_MIN + 1 + 1];
+    int allocs[ERTS_ALC_INFO_A_END - ERTS_ALC_A_MIN + 1];
 } ErtsAllocInfoReq;
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(aireq,
@@ -3359,7 +3361,7 @@ erts_request_alloc_info(struct process *c_p,
 			int internal)
 {
     ErtsAllocInfoReq *air = aireq_alloc();
-    Eterm req_ai[ERTS_ALC_INFO_A_MAX+1] = {0};
+    Eterm req_ai[ERTS_ALC_INFO_A_END] = {0};
     Eterm alist;
     Eterm *hp;
     int airix = 0, ai;
