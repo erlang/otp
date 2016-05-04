@@ -365,67 +365,11 @@ encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
 				     Version, ConnectionStates0),
     {Encoded, ConnectionStates, Hist}.
 
-next_record(#state{%%flight = #flight{state = finished}, 
-		   protocol_buffers =
-		       #protocol_buffers{dtls_packets = [], dtls_cipher_texts = [CT | Rest]}
-		   = Buffers,
-		   connection_states = ConnStates0} = State) ->
-    case dtls_record:decode_cipher_text(CT, ConnStates0) of
-	{Plain, ConnStates} ->		      
-	    {Plain, State#state{protocol_buffers =
-				    Buffers#protocol_buffers{dtls_cipher_texts = Rest},
-				connection_states = ConnStates}};
-	#alert{} = Alert ->
-	    {Alert, State}
-    end;
-next_record(#state{socket = Socket,
-		   transport_cb = Transport} = State) -> %% when FlightState =/= finished
-    ssl_socket:setopts(Transport, Socket, [{active,once}]),
-    {no_record, State};
-
-
-next_record(State) ->
-    {no_record, State}.
-
-
-next_event(StateName, Record, State) ->
-    next_event(StateName, Record, State, []).
-
-next_event(connection = StateName, no_record, State0, Actions) ->
-    case next_record_if_active(State0) of
-	{no_record, State} ->
-	    ssl_connection:hibernate_after(StateName, State, Actions);
-	{#ssl_tls{} = Record, State} ->
-	    {next_state, StateName, State, [{next_event, internal, {dtls_record, Record}} | Actions]};
-	{#alert{} = Alert, State} ->
-	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
-    end;
-next_event(StateName, Record, State, Actions) ->
-    case Record of
-	no_record ->
-	    {next_state, StateName, State, Actions};
-	#ssl_tls{} = Record ->
-	    {next_state, StateName, State, [{next_event, internal, {dtls_record, Record}} | Actions]};
-	#alert{} = Alert ->
-	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
-    end.
-
-send_flight(Fragments, #state{transport_cb = Transport, socket = Socket,
-			      protocol_buffers = _PBuffers} = State) ->
-    Transport:send(Socket, Fragments),
-    %% Start retransmission
-    %% State#state{protocol_buffers = 
-    %% 		    (PBuffers#protocol_buffers){ #flight{state = waiting}}}}.
-    State.
-
-handle_own_alert(_,_,_, State) -> %% Place holder
-    {stop, {shutdown, own_alert}, State}.
-
-handle_normal_shutdown(_, _, _State) -> %% Place holder
-    ok.
-
-encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) -> 
+encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
     dtls_record:encode_change_cipher_spec(Version, ConnectionStates).
+
+decode_alerts(Bin) ->
+    ssl_alert:decode(Bin).
 
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
@@ -464,21 +408,85 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   start_or_recv_from = undefined,
 	   protocol_cb = ?MODULE
 	  }.
-read_application_data(_,State) ->
-    {#ssl_tls{fragment = <<"place holder">>}, State}.
 
 next_tls_record(<<>>, _State) ->
     #alert{}; %% Place holder
 next_tls_record(_, State) ->
     {#ssl_tls{fragment = <<"place holder">>}, State}.
 
-sequence(_) -> 
-    %%TODO real imp
-    1.
-next_record_if_active(State = 
-		      #state{socket_options = 
-			     #socket_options{active = false}}) -> 
+next_record(#state{%%flight = #flight{state = finished}, 
+		   protocol_buffers =
+		       #protocol_buffers{dtls_packets = [], dtls_cipher_texts = [CT | Rest]}
+		   = Buffers,
+		   connection_states = ConnStates0} = State) ->
+    case dtls_record:decode_cipher_text(CT, ConnStates0) of
+	{Plain, ConnStates} ->		      
+	    {Plain, State#state{protocol_buffers =
+				    Buffers#protocol_buffers{dtls_cipher_texts = Rest},
+				connection_states = ConnStates}};
+	#alert{} = Alert ->
+	    {Alert, State}
+    end;
+next_record(#state{socket = Socket,
+		   transport_cb = Transport} = State) -> %% when FlightState =/= finished
+    ssl_socket:setopts(Transport, Socket, [{active,once}]),
+    {no_record, State};
+next_record(State) ->
+    {no_record, State}.
+
+next_record_if_active(State =
+		      #state{socket_options =
+			     #socket_options{active = false}}) ->
     {no_record ,State};
 
 next_record_if_active(State) ->
     next_record(State).
+
+passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
+    case Buffer of
+	<<>> ->
+	    {Record, State} = next_record(State0),
+	    next_event(StateName, Record, State);
+	_ ->
+	    case read_application_data(<<>>, State0) of
+		Stop = {stop, _} ->
+		    Stop;
+		{Record, State} ->
+		    next_event(StateName, Record, State)
+	    end
+    end.
+
+next_event(StateName, Record, State) ->
+    next_event(StateName, Record, State, []).
+
+next_event(connection = StateName, no_record, State0, Actions) ->
+    case next_record_if_active(State0) of
+	{no_record, State} ->
+	    ssl_connection:hibernate_after(StateName, State, Actions);
+	{#ssl_tls{} = Record, State} ->
+	    {next_state, StateName, State, [{next_event, internal, {dtls_record, Record}} | Actions]};
+	{#alert{} = Alert, State} ->
+	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
+    end;
+next_event(StateName, Record, State, Actions) ->
+    case Record of
+	no_record ->
+	    {next_state, StateName, State, Actions};
+	#ssl_tls{} = Record ->
+	    {next_state, StateName, State, [{next_event, internal, {dtls_record, Record}} | Actions]};
+	#alert{} = Alert ->
+	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
+    end.
+
+read_application_data(_,State) ->
+    {#ssl_tls{fragment = <<"place holder">>}, State}.
+
+handle_own_alert(_,_,_, State) -> %% Place holder
+    {stop, {shutdown, own_alert}, State}.
+
+handle_normal_shutdown(_, _, _State) -> %% Place holder
+    ok.
+
+sequence(_) ->
+    %%TODO real imp
+    1.
