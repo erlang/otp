@@ -1920,9 +1920,11 @@ prepare_connection(#state{renegotiation = Renegotiate,
 			  start_or_recv_from = RecvFrom} = State0, Connection) 
   when Renegotiate =/= {false, first}, 
        RecvFrom =/= undefined ->
-    {Record, State} = Connection:next_record(State0),
+    State1 = Connection:reset_connection_state(State0),
+    {Record, State} = Connection:next_record(State1),
     {Record, ack_connection(State)};
-prepare_connection(State, _) ->
+prepare_connection(State0, Connection) ->
+    State = Connection:reset_connection_state(State0),
     {no_record, ack_connection(State)}.
 
 ack_connection(#state{renegotiation = {true, Initiater}} = State) 

@@ -59,7 +59,8 @@
 
 %% Data handling
 -export([write_application_data/3, read_application_data/2,
-	 passive_receive/2,  next_record_if_active/1, handle_common_event/4]).
+	 passive_receive/2,  next_record_if_active/1, handle_common_event/4,
+	 reset_connection_state/1]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -526,6 +527,13 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   flight_buffer = []
 	  }.
 
+%% In state connection: clear tls_handshake,
+%% premaster_secret and public_key_info (only needed during handshake)
+%% to reduce memory foot print of a connection.
+reset_connection_state(State) ->
+    State#state{premaster_secret = undefined,
+		public_key_info = undefined,
+		tls_handshake_history = ssl_handshake:init_handshake_history()}.
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
     SSLOption = 

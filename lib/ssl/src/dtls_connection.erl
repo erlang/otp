@@ -53,7 +53,7 @@
 %% Data handling
 -export([write_application_data/3, read_application_data/2,
 	 passive_receive/2,  next_record_if_active/1, handle_common_event/4,
-	 handle_packet/3]).
+	 reset_connection_state/1, handle_packet/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -613,6 +613,17 @@ init_connection_states(server, true) ->
     ssl_record:init_connection_states(server, 1);
 init_connection_states(Role, _) ->
     ssl_record:init_connection_states(Role, 0).
+
+%% In state connection: clear tls_handshake,
+%% premaster_secret public_key_info (only needed during handshake)
+%% and dtls_fragment_state to reduce memory foot print of a connection.
+reset_connection_state(#state{protocol_buffers = Buffers} = State) ->
+    State#state{premaster_secret = undefined,
+		public_key_info = undefined,
+		tls_handshake_history = ssl_handshake:init_handshake_history(),
+		protocol_buffers =
+		    Buffers#protocol_buffers{dtls_fragment_state =
+						 dtls_handshake:dtls_handshake_new_flight(0)}}.
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
     SSLOption =
