@@ -381,6 +381,19 @@ socket_close(IpKey, SslSocketId, _From, State = #state{ip_conns = IpConns0, ssl_
 socket_shutdown(_IpKey, _Args, _From, State) ->
     {reply, ok, State}.
 
+%%
+%% TODO: timeout handling
+%%
+socket_recv(IpKey, {_Length = 0, _Timeout}, _From,
+	    State = #state{ip_conns = IpConns0}) ->
+    ct:pal("socket_recv: ~p~n", [IpKey]),
+    SslSocket = gb_trees:get(IpKey, IpConns0),
+    IpConns = gb_trees:update(IpKey,
+			      SslSocket#ssl_socket{queue = queue:new()},
+			      IpConns0),
+    Reply = binary:list_to_bin(queue:to_list(SslSocket#ssl_socket.queue)),
+    {reply, {ok, Reply}, State#state{ip_conns = IpConns}};
+
 socket_recv(IpKey, {_Length = 0, _Timeout = 0}, _From,
 	    State = #state{ip_conns = IpConns0}) ->
     SslSocket = gb_trees:get(IpKey, IpConns0),
