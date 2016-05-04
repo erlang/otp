@@ -94,7 +94,8 @@ connection_tests() ->
      client_side_start_tls_timeout,
      client_side_bind_timeout,
      client_side_add_timeout,
-     client_side_search_timeout
+     client_side_search_timeout,
+     close_after_tcp_error
     ].
 
 
@@ -309,6 +310,30 @@ tcp_connection(Config) ->
 		Other -> ct:fail("gen_tdp:accept failed: ~p",[Other])
 	    end;
 	Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+%%%----------------------------------------------------------------
+
+close_after_tcp_error(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
+    T = 1000,
+    case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
+    {ok,H} ->
+        Sl = proplists:get_value(listen_socket, Config),
+        gen_tcp:close(Sl),
+        {error,{gen_tcp_error,closed}} = eldap:simple_bind(H, anon, anon),
+        ok = eldap:close(H),
+        wait_for_close(H);
+    Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+wait_for_close(H) ->
+    case erlang:is_process_alive(H) of
+        true  -> timer:sleep(100),
+                 wait_for_close(H);
+        false -> ok
     end.
 
 %%%----------------------------------------------------------------
