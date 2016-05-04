@@ -20,6 +20,7 @@
 -module(code_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("syntax_tools/include/merl.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
@@ -33,7 +34,9 @@
 	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
-	 on_load_embedded/1, on_load_errors/1, big_boot_embedded/1,
+	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
+	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
+	 big_boot_embedded/1,
 	 native_early_modules/1, get_mode/1,
 	 normalized_paths/1]).
 
@@ -61,7 +64,8 @@ all() ->
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
-     on_load_binary, on_load_embedded, on_load_errors,
+     on_load_binary, on_load_embedded, on_load_errors, on_load_update,
+     on_load_purge, on_load_self_call, on_load_pending,
      big_boot_embedded, native_early_modules, get_mode, normalized_paths].
 
 groups() ->
@@ -826,6 +830,12 @@ check_funs({'$M_EXPR',warning_msg,2},
 	   [{code_server,finish_on_load_report,2} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{code_server,run,2}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',2},
+	   [{code_server,handle_on_load,5}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',2},
+	   [{code_server,handle_pending_on_load,4}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',2},
+	   [{code_server,finish_on_load_2,3}|_]) -> 0;
 %% This is cheating! /raimo
 %%
 %% check_funs(This = {M,_,_}, Path) ->
@@ -1184,22 +1194,17 @@ on_load_binary(_) ->
     register(Master, self()),
 
     %% Construct, compile and pretty-print.
-    Mod = on_load_binary,
+    Mod = ?FUNCTION_NAME,
     File = atom_to_list(Mod) ++ ".erl",
-    Forms = [{attribute,1,file,{File,1}},
-	     {attribute,1,module,Mod},
-	     {attribute,2,export,[{ok,0}]},
-	     {attribute,3,on_load,{init,0}},
-	     {function,5,init,0,
-	      [{clause,5,[],[],
-		[{op,6,'!',
-		  {atom,6,Master},
-		  {tuple,6,[{atom,6,Mod},{call,6,{atom,6,self},[]}]}},
-		 {'receive',7,[{clause,8,[{atom,8,go}],[],[{atom,8,ok}]}]}]}]},
-	     {function,11,ok,0,[{clause,11,[],[],[{atom,11,true}]}]}],
-    Forms1 = erl_parse:new_anno(Forms),
-    {ok,Mod,Bin} = compile:forms(Forms1, [report]),
-    [io:put_chars(erl_pp:form(F)) || F <- Forms1],
+    Tree = ?Q(["-module('@Mod@').\n",
+	       "-export([ok/0]).\n",
+	       "-on_load({init,0}).\n",
+	       "init() ->\n",
+	       "  '@Master@' ! {on_load_binary,self()},\n",
+	       "  receive go -> ok end.\n",
+	       "ok() -> true.\n"]),
+    {ok,Mod,Bin} = merl:compile(Tree),
+    merl:print(Tree),
 
     {Pid1,Ref1} = spawn_monitor(fun() ->
 					code:load_binary(Mod, File, Bin),
@@ -1440,6 +1445,163 @@ do_on_load_error(ReturnValue) ->
 	{'DOWN',Ref,process,_,Exit} ->
 	    {undef,[{on_load_error,main,[],_}|_]} = Exit
     end.
+
+on_load_update(_Config) ->
+    {Mod,Code1} = on_load_update_code(1),
+    {module,Mod} = code:load_binary(Mod, "", Code1),
+    42 = Mod:a(),
+    100 = Mod:b(99),
+    4 = erlang:trace_pattern({Mod,'_','_'}, true),
+
+    {Mod,Code2} = on_load_update_code(2),
+    {error,on_load_failure} = code:load_binary(Mod, "", Code2),
+    42 = Mod:a(),
+    100 = Mod:b(99),
+    {'EXIT',{undef,_}} = (catch Mod:never()),
+    4 = erlang:trace_pattern({Mod,'_','_'}, false),
+
+    {Mod,Code3} = on_load_update_code(3),
+    {module,Mod} = code:load_binary(Mod, "", Code3),
+    100 = Mod:c(),
+    {'EXIT',{undef,_}} = (catch Mod:a()),
+    {'EXIT',{undef,_}} = (catch Mod:b(10)),
+    {'EXIT',{undef,_}} = (catch Mod:never()),
+
+    ok.
+
+on_load_update_code(Version) ->
+    Mod = ?FUNCTION_NAME,
+    Tree = on_load_update_code_1(Version, Mod),
+    io:format("Version ~p", [Version]),
+    {ok,Mod,Code} = merl:compile(Tree),
+    merl:print(Tree),
+    io:nl(),
+    {Mod,Code}.
+
+on_load_update_code_1(1, Mod) ->
+    ?Q(["-module('@Mod@').\n",
+	"-export([a/0,b/1]).\n"
+	"-on_load(f/0).\n",
+	"f() -> ok.\n",
+	"a() -> 42.\n"
+	"b(I) -> I+1.\n"]);
+on_load_update_code_1(2, Mod) ->
+    ?Q(["-module('@Mod@').\n",
+	"-export([never/0]).\n"
+	"-on_load(f/0).\n",
+	"f() -> 42 = '@Mod@':a(), 1 = '@Mod@':b(0), fail.\n",
+	"never() -> never.\n"]);
+on_load_update_code_1(3, Mod) ->
+    ?Q(["-module('@Mod@').\n",
+	"-export([c/0]).\n"
+	"-on_load(f/0).\n",
+	"f() -> ok.\n",
+	"c() -> 100.\n"]).
+
+on_load_purge(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    register(Mod, self()),
+    Tree = ?Q(["-module('@Mod@').\n",
+	       "-on_load(f/0).\n",
+	       "loop() -> loop().\n",
+	       "f() ->\n",
+	       "'@Mod@' ! {self(),spawn(fun loop/0)},\n",
+	       "receive Ack -> Ack end.\n"]),
+    merl:print(Tree),
+    {ok,Mod,Code} = merl:compile(Tree),
+    P = spawn(fun() ->
+		      exit(code:load_binary(Mod, "", Code))
+	      end),
+    monitor(process, P),
+    receive
+	{Pid1,Pid2} ->
+	    monitor(process, Pid2),
+	    Pid1 ! ack_and_failure,
+	    receive
+		{'DOWN',_,process,P,Exit1} ->
+		    {error,on_load_failure} = Exit1
+	    end,
+	    receive
+		{'DOWN',_,process,Pid2,Exit2} ->
+		    io:format("~p\n", [Exit2])
+	    after 10000 ->
+		    ct:fail(no_down_message)
+	    end
+    end.
+
+on_load_self_call(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    register(Mod, self()),
+    Tree = ?Q(["-module('@Mod@').\n",
+	       "-export([ext/0]).\n",
+	       "-on_load(f/0).\n",
+	       "f() ->\n",
+	       "  '@Mod@' ! (catch '@Mod@':ext()),\n",
+	       "  ok.\n",
+	       "ext() -> good_work.\n"]),
+        merl:print(Tree),
+    {ok,Mod,Code} = merl:compile(Tree),
+
+    {'EXIT',{undef,_}} = on_load_do_load(Mod, Code),
+    good_work = on_load_do_load(Mod, Code),
+
+    ok.
+
+on_load_do_load(Mod, Code) ->
+    spawn(fun() ->
+		  {module,Mod} = code:load_binary(Mod, "", Code)
+	  end),
+    receive
+	Any -> Any
+    end.
+
+on_load_pending(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    Tree1 = ?Q(["-module('@Mod@').\n",
+		"-on_load(f/0).\n",
+		"f() ->\n",
+		"  register('@Mod@', self()),\n",
+		"  receive _ -> ok end.\n"]),
+    merl:print(Tree1),
+    {ok,Mod,Code1} = merl:compile(Tree1),
+
+    Tree2 = ?Q(["-module('@Mod@').\n",
+		"-export([t/0]).\n",
+		"t() -> ok.\n"]),
+    merl:print(Tree2),
+    {ok,Mod,Code2} = merl:compile(Tree2),
+
+    Self = self(),
+    {_,Ref1} =
+	spawn_monitor(fun() ->
+			      Self ! started1,
+			      {module,Mod} = code:load_binary(Mod, "", Code1)
+		      end),
+    receive started1 -> ok end,
+    timer:sleep(10),
+    {_,Ref2} =
+	spawn_monitor(fun() ->
+			      Self ! started2,
+			      {module,Mod} = code:load_binary(Mod, "", Code2),
+			      ok = Mod:t()
+		      end),
+    receive started2 -> ok end,
+    receive
+	Unexpected ->
+	    ct:fail({unexpected,Unexpected})
+    after 100 ->
+	    ok
+    end,
+    Mod ! go,
+    receive
+	{'DOWN',Ref1,process,_,normal} -> ok
+    end,
+    receive
+	{'DOWN',Ref2,process,_,normal} -> ok
+    end,
+    ok = Mod:t(),
+    ok.
+
 
 %% Test that the native code of early loaded modules is loaded.
 native_early_modules(Config) when is_list(Config) ->

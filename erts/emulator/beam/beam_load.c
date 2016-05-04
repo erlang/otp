@@ -32,6 +32,7 @@
 #include "bif.h"
 #include "external.h"
 #include "beam_load.h"
+#include "beam_bp.h"
 #include "big.h"
 #include "erl_bits.h"
 #include "beam_catches.h"
@@ -479,9 +480,9 @@ static void free_loader_state(Binary* magic);
 static ErlHeapFragment* new_literal_fragment(Uint size);
 static void free_literal_fragment(ErlHeapFragment*);
 static void loader_state_dtor(Binary* magic);
-static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-			     Eterm group_leader, Eterm module,
-			     BeamCodeHeader* code, Uint size);
+static Eterm stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
+				  Eterm group_leader, Eterm module,
+				  BeamCodeHeader* code, Uint size);
 static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
@@ -513,7 +514,7 @@ static GenOp* gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 
 static int freeze_code(LoaderState* stp);
 
-static void final_touch(LoaderState* stp);
+static void final_touch(LoaderState* stp, struct erl_module_instance* inst_p);
 static void short_file(int line, LoaderState* stp, unsigned needed);
 static void load_printf(int line, LoaderState* context, char *fmt, ...);
 static int transform_engine(LoaderState* st);
@@ -766,8 +767,11 @@ Eterm
 erts_finish_loading(Binary* magic, Process* c_p,
 		    ErtsProcLocks c_p_locks, Eterm* modp)
 {
-    Eterm retval;
+    Eterm retval = NIL;
     LoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
+    Module* mod_tab_p;
+    struct erl_module_instance* inst_p;
+    Uint size;
 
     /*
      * No other process may run since we will update the export
@@ -776,19 +780,72 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
     ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
-
     /*
      * Make current code for the module old and insert the new code
      * as current.  This will fail if there already exists old code
      * for the module.
      */
 
+    mod_tab_p = erts_put_module(stp->module);
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    retval = insert_new_code(c_p, c_p_locks, stp->group_leader, stp->module,
-			     stp->hdr, stp->loaded_size);
-    if (retval != NIL) {
-	goto load_error;
+    if (!stp->on_load) {
+	/*
+	 * Normal case -- no -on_load() function.
+	 */
+	retval = beam_make_current_old(c_p, c_p_locks, stp->module);
+	ASSERT(retval == NIL);
+    } else {
+	ErtsCodeIndex code_ix = erts_staging_code_ix();
+	Eterm module = stp->module;
+	int i;
+
+	/*
+	 * There is an -on_load() function. We will keep the current
+	 * code, but we must turn off any tracing.
+	 */
+
+	for (i = 0; i < export_list_size(code_ix); i++) {
+	    Export *ep = export_list(i, code_ix);
+	    if (ep == NULL || ep->code[0] != module) {
+		continue;
+	    }
+	    if (ep->addressv[code_ix] == ep->code+3) {
+		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+		    continue;
+		} else if (ep->code[3] ==
+			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
+		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
+		    erts_clear_export_break(mod_tab_p, ep->code+3);
+		    ep->addressv[code_ix] = (BeamInstr *) ep->code[4];
+		    ep->code[4] = 0;
+		}
+		ASSERT(ep->code[4] == 0);
+	    }
+	}
+	ASSERT(mod_tab_p->curr.num_breakpoints == 0);
+	ASSERT(mod_tab_p->curr.num_traced_exports == 0);
     }
+
+    /*
+     * Update module table.
+     */
+
+    size = stp->loaded_size;
+    erts_total_code_size += size;
+    if (stp->on_load) {
+	inst_p = &mod_tab_p->old;
+    } else {
+	inst_p = &mod_tab_p->curr;
+    }
+    inst_p->code_hdr = stp->hdr;
+    inst_p->code_length = size;
+
+    /*
+     * Update ranges (used for finding a function from a PC value).
+     */
+
+    erts_update_ranges((BeamInstr*)inst_p->code_hdr, size);
 
     /*
      * Ready for the final touch: fixing the export table entries for
@@ -796,7 +853,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
      */
     
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    final_touch(stp);
+    final_touch(stp, inst_p);
 
     /*
      * Loading succeded.
@@ -820,7 +877,6 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	retval = am_on_load;
     }
 
- load_error:
     free_loader_state(magic);
     return retval;
 }
@@ -1026,9 +1082,9 @@ loader_state_dtor(Binary* magic)
 }
 
 static Eterm
-insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-		Eterm group_leader, Eterm module, BeamCodeHeader* code_hdr,
-		Uint size)
+stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
+		     Eterm group_leader, Eterm module,
+		     BeamCodeHeader* code_hdr, Uint size)
 {
     Module* modp;
     Eterm retval;
@@ -4700,14 +4756,13 @@ freeze_code(LoaderState* stp)
 }
 
 static void
-final_touch(LoaderState* stp)
+final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 {
     int i;
     int on_load = stp->on_load;
     unsigned catches;
     Uint index;
     BeamInstr* codev = stp->codev;
-    Module* modp;
 
     /*
      * Allocate catch indices and fix up all catch_yf instructions.
@@ -4722,8 +4777,7 @@ final_touch(LoaderState* stp)
 	codev[index+2] = make_catch(catches);
 	index = next;
     }
-    modp = erts_put_module(stp->module);
-    modp->curr.catches = catches;
+    inst_p->catches = catches;
 
     /*
      * Export functions.
@@ -4743,10 +4797,10 @@ final_touch(LoaderState* stp)
 	    ep->addressv[erts_staging_code_ix()] = address;
 	} else {
 	    /*
-	     * Don't make any of the exported functions
-	     * callable yet.
+	     * on_load: Don't make any of the exported functions
+	     * callable yet. Keep any function in the current
+	     * code callable.
 	     */
-	    ep->addressv[erts_staging_code_ix()] = ep->code+3;
 	    ep->code[4] = (BeamInstr) address;
 	}
     }
@@ -6421,7 +6475,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Insert the module in the module table.
      */
 
-    rval = insert_new_code(p, 0, p->group_leader, Mod, code_hdr, code_size);
+    rval = stub_insert_new_code(p, 0, p->group_leader, Mod,
+				code_hdr, code_size);
     if (rval != NIL) {
 	goto error;
     }
