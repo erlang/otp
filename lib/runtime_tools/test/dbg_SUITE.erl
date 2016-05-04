@@ -167,8 +167,8 @@ distributed(Config) when is_list(Config) ->
         {value, {matched, Node, 1}} = lists:keysearch(Node, 2, Z),
         dbg:cn(Node),
         dbg:tp(dbg,ln,[]),
-        ok = rpc:call(Node, dbg, ltp, []),
-        ok = rpc:call(Node, dbg, ln, []),
+        ok = rpc:block_call(Node, dbg, ltp, []),
+        ok = rpc:block_call(Node, dbg, ln, []),
         ok = dbg:ln(),
         S = self(),
         {TraceSend, TraceCall} =

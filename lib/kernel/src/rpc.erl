@@ -63,7 +63,7 @@
 
 %%------------------------------------------------------------------------
 
--type state() :: gb_trees:tree(pid(), {pid(), reference()}).
+-type state() :: map().
 
 %%------------------------------------------------------------------------
 
@@ -91,7 +91,7 @@ stop(Rpc) ->
 
 init([]) ->
     process_flag(trap_exit, true),
-    {ok, gb_trees:empty()}.
+    {ok, maps:new()}.
 
 -spec handle_call(term(), term(), state()) ->
         {'noreply', state()} |
@@ -130,29 +130,15 @@ handle_cast(_, S) ->
 
 -spec handle_info(term(), state()) -> {'noreply', state()}.
 
+handle_info({'DOWN', _, process, Caller, normal}, S) ->
+    {noreply, maps:remove(Caller, S)};
 handle_info({'DOWN', _, process, Caller, Reason}, S) ->
-    case gb_trees:lookup(Caller, S) of
-	{value, To} ->
-	    receive
-		{Caller, {reply, Reply}} ->
-		    gen_server:reply(To, Reply)
-	    after 0 ->
-		    gen_server:reply(To, {badrpc, {'EXIT', Reason}})
-	    end,
-	    {noreply, gb_trees:delete(Caller, S)};
-	none ->
-	    {noreply, S}
-    end;
-handle_info({Caller, {reply, Reply}}, S) ->
-    case gb_trees:lookup(Caller, S) of
-	{value, To} ->
-	    receive
-		{'DOWN', _, process, Caller, _} -> 
-		    gen_server:reply(To, Reply),
-		    {noreply, gb_trees:delete(Caller, S)}
-	    end;
-	none ->
-	    {noreply, S}
+    case maps:get(Caller, S, undefined) of
+	undefined ->
+	    {noreply, S};
+	{_, _} = To ->
+	    gen_server:reply(To, {badrpc, {'EXIT', Reason}}),
+	    {noreply, maps:remove(Caller, S)}
     end;
 handle_info({From, {sbcast, Name, Msg}}, S) ->
     _ = case catch Name ! Msg of  %% use catch to get the printout
@@ -190,7 +176,6 @@ code_change(_, S, _) ->
 %% Auxiliary function to avoid a false dialyzer warning -- do not inline
 %%
 handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
-    RpcServer = self(),
     %% Spawn not to block the rpc server.
     {Caller,_} =
 	erlang:spawn_monitor(
@@ -205,9 +190,9 @@ handle_call_call(Mod, Fun, Args, Gleader, To, S) ->
 			  Result ->
 			      Result
 		      end,
-		  RpcServer ! {self(), {reply, Reply}}
+		  gen_server:reply(To, Reply)
 	  end),
-    {noreply, gb_trees:insert(Caller, To, S)}.
+    {noreply, maps:put(Caller, To, S)}.
 
 
 %% RPC aid functions ....
