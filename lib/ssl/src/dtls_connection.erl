@@ -445,6 +445,53 @@ encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
 				     Version, ConnectionStates0),
     {Encoded, ConnectionStates, Hist}.
 
+encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
+    dtls_record:encode_change_cipher_spec(Version, ConnectionStates).
+
+decode_alerts(Bin) ->
+    ssl_alert:decode(Bin).
+
+initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
+	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
+    ConnectionStates = ssl_record:init_connection_states(Role),
+
+    SessionCacheCb = case application:get_env(ssl, session_cb) of
+			 {ok, Cb} when is_atom(Cb) ->
+			    Cb;
+			 _  ->
+			     ssl_session_cache
+		     end,
+
+    Monitor = erlang:monitor(process, User),
+
+    #state{socket_options = SocketOptions,
+	   ssl_options = SSLOptions,
+	   session = #session{is_resumable = new},
+	   transport_cb = CbModule,
+	   data_tag = DataTag,
+	   close_tag = CloseTag,
+	   error_tag = ErrorTag,
+	   role = Role,
+	   host = Host,
+	   port = Port,
+	   socket = Socket,
+	   connection_states = ConnectionStates,
+	   protocol_buffers = #protocol_buffers{},
+	   user_application = {Monitor, User},
+	   user_data_buffer = <<>>,
+	   session_cache_cb = SessionCacheCb,
+	   renegotiation = {false, first},
+	   allow_renegotiate = SSLOptions#ssl_options.client_renegotiation,
+	   start_or_recv_from = undefined,
+	   protocol_cb = ?MODULE,
+	   tracker = Tracker,
+	   flight_state = waiting,
+	   flight_buffer = []
+	  }.
+
+next_tls_record(_, State) ->
+    {#ssl_tls{fragment = <<"place holder">>}, State}.
+
 next_record(#state{%%flight = #flight{state = finished}, 
 		   protocol_buffers =
 		       #protocol_buffers{dtls_packets = [], dtls_cipher_texts = [CT | Rest]}
@@ -462,10 +509,30 @@ next_record(#state{socket = Socket,
 		   transport_cb = Transport} = State) -> %% when FlightState =/= finished
     ssl_socket:setopts(Transport, Socket, [{active,once}]),
     {no_record, State};
-
-
 next_record(State) ->
     {no_record, State}.
+
+next_record_if_active(State =
+		      #state{socket_options =
+			     #socket_options{active = false}}) ->
+    {no_record ,State};
+
+next_record_if_active(State) ->
+    next_record(State).
+
+passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
+    case Buffer of
+	<<>> ->
+	    {Record, State} = next_record(State0),
+	    next_event(StateName, Record, State);
+	_ ->
+	    case read_application_data(<<>>, State0) of
+		Stop = {stop, _} ->
+		    Stop;
+		{Record, State} ->
+		    next_event(StateName, Record, State)
+	    end
+    end.
 
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
@@ -489,13 +556,8 @@ next_event(StateName, Record, State, Actions) ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
 
-send_flight(Fragments, #state{transport_cb = Transport, socket = Socket,
-			      protocol_buffers = _PBuffers} = State) ->
-    Transport:send(Socket, Fragments),
-    %% Start retransmission
-    %% State#state{protocol_buffers = 
-    %% 		    (PBuffers#protocol_buffers){ #flight{state = waiting}}}}.
-    State.
+read_application_data(_,State) ->
+    {#ssl_tls{fragment = <<"place holder">>}, State}.
 
 dtls_handshake_events(Handle, StateName,
 		     #state{protocol_buffers =
@@ -522,60 +584,6 @@ handle_own_alert(_,_,_, State) -> %% Place holder
 handle_normal_shutdown(_, _, _State) -> %% Place holder
     ok.
 
-encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) -> 
-    dtls_record:encode_change_cipher_spec(Version, ConnectionStates).
-
-initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
-	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
-    ConnectionStates = ssl_record:init_connection_states(Role),
-    
-    SessionCacheCb = case application:get_env(ssl, session_cb) of
-			 {ok, Cb} when is_atom(Cb) ->
-			    Cb;
-			 _  ->
-			     ssl_session_cache
-		     end,
-    
-    Monitor = erlang:monitor(process, User),
-
-    #state{socket_options = SocketOptions,
-	   %% We do not want to save the password in the state so that
-	   %% could be written in the clear into error logs.
-	   ssl_options = SSLOptions#ssl_options{password = undefined},	   
-	   session = #session{is_resumable = new},
-	   transport_cb = CbModule,
-	   data_tag = DataTag,
-	   close_tag = CloseTag,
-	   error_tag = ErrorTag,
-	   role = Role,
-	   host = Host,
-	   port = Port,
-	   socket = Socket,
-	   connection_states = ConnectionStates,
-	   protocol_buffers = #protocol_buffers{},
-	   user_application = {Monitor, User},
-	   user_data_buffer = <<>>,
-	   session_cache_cb = SessionCacheCb,
-	   renegotiation = {false, first},
-	   allow_renegotiate = SSLOptions#ssl_options.client_renegotiation,
-	   start_or_recv_from = undefined,
-	   protocol_cb = ?MODULE
-	  }.
-read_application_data(_,State) ->
-    {#ssl_tls{fragment = <<"place holder">>}, State}.
-
-next_tls_record(<<>>, _State) ->
-    #alert{}; %% Place holder
-next_tls_record(_, State) ->
-    {#ssl_tls{fragment = <<"place holder">>}, State}.
-
-sequence(_) -> 
+sequence(_) ->
     %%TODO real imp
     1.
-next_record_if_active(State = 
-		      #state{socket_options = 
-			     #socket_options{active = false}}) -> 
-    {no_record ,State};
-
-next_record_if_active(State) ->
-    next_record(State).
