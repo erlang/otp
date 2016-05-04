@@ -49,7 +49,7 @@
 -export([next_record/1, next_event/3]).
 
 %% Handshake handling
--export([renegotiate/2, send_handshake/2, send_change_cipher/2]).
+-export([renegotiate/2, send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
 
 %% Alert and close handling
 -export([send_alert/2, handle_own_alert/4, handle_close_alert/3,
@@ -59,7 +59,8 @@
 
 %% Data handling
 -export([write_application_data/3, read_application_data/2,
-	 passive_receive/2,  next_record_if_active/1, handle_common_event/4]).
+	 passive_receive/2,  next_record_if_active/1, handle_common_event/4,
+	 reset_connection_state/1]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -101,17 +102,32 @@ start_fsm(Role, Host, Port, Socket, {#ssl_options{erl_dist = true},_, Tracker} =
 	    Error
     end.
 
-send_handshake(Handshake, #state{negotiated_version = Version,
-				 socket = Socket,
-				 transport_cb = Transport,
-				 tls_handshake_history = Hist0,
-				 connection_states = ConnectionStates0} = State0) ->
+send_handshake(Handshake, State) ->
+    send_handshake_flight(queue_handshake(Handshake, State)).
+
+queue_handshake(Handshake, #state{negotiated_version = Version,
+				  tls_handshake_history = Hist0,
+				  flight_buffer = Flight0,
+				  connection_states = ConnectionStates0} = State0) ->
     {BinHandshake, ConnectionStates, Hist} =
 	encode_handshake(Handshake, Version, ConnectionStates0, Hist0),
-    Transport:send(Socket, BinHandshake),
     State0#state{connection_states = ConnectionStates,
-		tls_handshake_history = Hist
-	       }.
+		 tls_handshake_history = Hist,
+		 flight_buffer = Flight0 ++ [BinHandshake]}.
+
+send_handshake_flight(#state{socket = Socket,
+			     transport_cb = Transport,
+			     flight_buffer = Flight} = State0) ->
+    Transport:send(Socket, Flight),
+    State0#state{flight_buffer = []}.
+
+queue_change_cipher(Msg, #state{negotiated_version = Version,
+				  flight_buffer = Flight0,
+				  connection_states = ConnectionStates0} = State0) ->
+    {BinChangeCipher, ConnectionStates} =
+	encode_change_cipher(Msg, Version, ConnectionStates0),
+    State0#state{connection_states = ConnectionStates,
+		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
 send_alert(Alert, #state{negotiated_version = Version,
 			 socket = Socket,
@@ -120,15 +136,6 @@ send_alert(Alert, #state{negotiated_version = Version,
     {BinMsg, ConnectionStates} =
 	ssl_alert:encode(Alert, Version, ConnectionStates0),
     Transport:send(Socket, BinMsg),
-    State0#state{connection_states = ConnectionStates}.
-
-send_change_cipher(Msg, #state{connection_states = ConnectionStates0,
-			       socket = Socket,
-			       negotiated_version = Version,
-			       transport_cb = Transport} = State0) ->
-    {BinChangeCipher, ConnectionStates} =
-	encode_change_cipher(Msg, Version, ConnectionStates0),
-    Transport:send(Socket, BinChangeCipher),
     State0#state{connection_states = ConnectionStates}.
 
 %%====================================================================
@@ -404,14 +411,14 @@ handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data},
 		HState = handle_sni_extension(Packet, HState0),
 		Version = Packet#client_hello.client_version,
 		Hs0 = ssl_handshake:init_handshake_history(),
-		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
+		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw, true),
 		{HState#state{tls_handshake_history = Hs1,
 			      renegotiation = {true, peer}}, 
 		 {next_event, internal, Packet}};
 	   
 	   ({Packet, Raw}, {_SName, HState0 = #state{tls_handshake_history=Hs0}}) ->
 		HState = handle_sni_extension(Packet, HState0),
-		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw),
+		Hs1 = ssl_handshake:update_handshake_history(Hs0, Raw, true),
 		{HState#state{tls_handshake_history=Hs1}, {next_event, internal, Packet}}
    	end,
     try
@@ -472,7 +479,7 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
     Frag = tls_handshake:encode_handshake(Handshake, Version),
-    Hist = ssl_handshake:update_handshake_history(Hist0, Frag),
+    Hist = ssl_handshake:update_handshake_history(Hist0, Frag, true),
     {Encoded, ConnectionStates} =
         ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
     {Encoded, ConnectionStates, Hist}.
@@ -485,7 +492,7 @@ decode_alerts(Bin) ->
 
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
-    ConnectionStates = ssl_record:init_connection_states(Role),
+    ConnectionStates = ssl_record:init_connection_states(Role, 0),
     
     SessionCacheCb = case application:get_env(ssl, session_cb) of
 			 {ok, Cb} when is_atom(Cb) ->
@@ -516,9 +523,17 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   allow_renegotiate = SSLOptions#ssl_options.client_renegotiation,
 	   start_or_recv_from = undefined,
 	   protocol_cb = ?MODULE,
-	   tracker = Tracker
+	   tracker = Tracker,
+	   flight_buffer = []
 	  }.
 
+%% In state connection: clear tls_handshake,
+%% premaster_secret and public_key_info (only needed during handshake)
+%% to reduce memory foot print of a connection.
+reset_connection_state(State) ->
+    State#state{premaster_secret = undefined,
+		public_key_info = undefined,
+		tls_handshake_history = ssl_handshake:init_handshake_history()}.
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
     SSLOption = 

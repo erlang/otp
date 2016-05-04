@@ -36,11 +36,12 @@
 -export([decode_cipher_text/2]).
 
 %% Encoding
--export([encode_plain_text/4, encode_handshake/3, encode_change_cipher_spec/2]).
+-export([encode_plain_text/4, encode_tls_cipher_text/5]).
 
 %% Protocol version handling
--export([protocol_version/1, lowest_protocol_version/2, lowest_protocol_version/1,
-	 highest_protocol_version/1, supported_protocol_versions/0,
+-export([protocol_version/1, lowest_protocol_version/1, lowest_protocol_version/2,
+	 highest_protocol_version/1, highest_protocol_version/2,
+	 is_higher/2, supported_protocol_versions/0,
 	 is_acceptable_version/2]).
 
 %% DTLS Epoch handling
@@ -120,42 +121,56 @@ get_dtls_records_aux(Data, Acc) ->
 	    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
     end.
 
-encode_plain_text(Type, Version, Data,
-		  #connection_states{current_write =
-					 #connection_state{
+encode_plain_text(Type, Version, {Epoch, Data}, ConnectionStates0) ->
+    WriteState0 = connection_state_by_epoch(ConnectionStates0, Epoch, write),
+    {CipherText, WriteState} = encode_plain_text_1(Type, Version, Data, WriteState0),
+    ConnectionStates = set_connection_state_by_epoch(ConnectionStates0, WriteState, write),
+    {CipherText, ConnectionStates};
+encode_plain_text(Type, Version, Data, ConnectionStates0 =
+		      #connection_states{current_write = WriteState0}) ->
+    {CipherText, WriteState} = encode_plain_text_1(Type, Version, Data, WriteState0),
+    {CipherText, ConnectionStates0#connection_states{current_write = WriteState}}.
+
+encode_plain_text_1(Type, Version, Data, #connection_state{
 					    epoch = Epoch,
 					    sequence_number = Seq,
-					    compression_state=CompS0,
-					    security_parameters=
+					    compression_state = CompS0,
+					    security_parameters =
 						#security_parameters{
 						   cipher_type = ?AEAD,
-						   compression_algorithm=CompAlg}
-					   }= WriteState0} = ConnectionStates) ->
+						   compression_algorithm = CompAlg}
+					   } = WriteState0) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
     WriteState1 = WriteState0#connection_state{compression_state = CompS1},
     AAD = calc_aad(Type, Version, Epoch, Seq),
     {CipherFragment, WriteState} = ssl_record:cipher_aead(dtls_v1:corresponding_tls_version(Version),
 							  Comp, WriteState1, AAD),
     CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
-    {CipherText, ConnectionStates#connection_states{current_write =
-							WriteState#connection_state{sequence_number = Seq +1}}};
+    {CipherText, WriteState#connection_state{sequence_number = Seq + 1}};
 
-encode_plain_text(Type, Version, Data,
-		  #connection_states{current_write=#connection_state{
-						      epoch = Epoch,
-						      sequence_number = Seq,
-						      compression_state=CompS0,
-						      security_parameters=
-							  #security_parameters{compression_algorithm=CompAlg}
-						     }= WriteState0} = ConnectionStates) ->
+encode_plain_text_1(Type, Version, Data, #connection_state{
+					    epoch = Epoch,
+					    sequence_number = Seq,
+					    compression_state = CompS0,
+					    security_parameters =
+						#security_parameters{compression_algorithm = CompAlg}
+					   } = WriteState0) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
     WriteState1 = WriteState0#connection_state{compression_state = CompS1},
     MacHash = calc_mac_hash(WriteState1, Type, Version, Epoch, Seq, Comp),
-    {CipherFragment, WriteState} = ssl_record:cipher(dtls_v1:corresponding_tls_version(Version), 
+    {CipherFragment, WriteState} = ssl_record:cipher(dtls_v1:corresponding_tls_version(Version),
 						     Comp, WriteState1, MacHash),
     CipherText = encode_tls_cipher_text(Type, Version, Epoch, Seq, CipherFragment),
-    {CipherText, ConnectionStates#connection_states{current_write =
-							WriteState#connection_state{sequence_number = Seq +1}}}.
+    {CipherText, WriteState#connection_state{sequence_number = Seq + 1}}.
+
+decode_cipher_text(#ssl_tls{epoch = Epoch},
+		   #connection_states{current_read =
+					  #connection_state{
+					     epoch = ReadEpoch
+					    }}) when Epoch /= ReadEpoch ->
+    if Epoch > ReadEpoch -> next_epoch;
+       true              -> previous_epoch
+    end;
 
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    epoch = Epoch,
@@ -208,23 +223,6 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	false ->
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
-%%--------------------------------------------------------------------
--spec encode_handshake(iolist(), dtls_version(), #connection_states{}) ->
-			      {iolist(), #connection_states{}}.
-%%
-%% Description: Encodes a handshake message to send on the ssl-socket.
-%%--------------------------------------------------------------------
-encode_handshake(Frag, Version, ConnectionStates) ->
-    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
-
-%%--------------------------------------------------------------------
--spec encode_change_cipher_spec(dtls_version(), #connection_states{}) ->
-				       {iolist(), #connection_states{}}.
-%%
-%% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
-%%--------------------------------------------------------------------
-encode_change_cipher_spec(Version, ConnectionStates) ->
-    encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec protocol_version(dtls_atom_version() | dtls_version()) ->
@@ -271,20 +269,39 @@ lowest_protocol_version(Versions) ->
 %%
 %% Description: Highest protocol version present in a list
 %%--------------------------------------------------------------------
-highest_protocol_version([Ver | Vers]) ->
-    highest_protocol_version(Ver, Vers).
+highest_protocol_version([]) ->
+    highest_protocol_version();
+highest_protocol_version(Versions) ->
+    [Ver | Vers] = Versions,
+    highest_list_protocol_version(Ver, Vers).
 
-highest_protocol_version(Version, []) ->
+%%--------------------------------------------------------------------
+-spec highest_protocol_version(dtls_version(), dtls_version()) -> dtls_version().
+%%
+%% Description: Highest protocol version of two given versions
+%%--------------------------------------------------------------------
+highest_protocol_version(Version = {M, N}, {M, O})   when N < O ->
     Version;
-highest_protocol_version(Version = {N, M}, [{N, O} | Rest])   when M < O ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version({M, _}, [Version = {M, _} | Rest]) ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version(Version = {M,_}, [{N,_} | Rest])  when M < N ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version(_, [Version | Rest]) ->
-    highest_protocol_version(Version, Rest).
+highest_protocol_version({M, _},
+			Version = {M, _}) ->
+    Version;
+highest_protocol_version(Version = {M,_},
+			{N, _}) when M < N ->
+    Version;
+highest_protocol_version(_,Version) ->
+    Version.
 
+%%--------------------------------------------------------------------
+-spec is_higher(V1 :: dtls_version(), V2::dtls_version()) -> boolean().
+%%
+%% Description: Is V1 > V2
+%%--------------------------------------------------------------------
+is_higher({M, N}, {M, O}) when N < O ->
+    true;
+is_higher({M, _}, {N, _}) when M < N ->
+    true;
+is_higher(_, _) ->
+    false.
 
 %%--------------------------------------------------------------------
 -spec supported_protocol_versions() -> [dtls_version()].
@@ -301,27 +318,33 @@ supported_protocol_versions() ->
 	{ok, []} ->
 	    lists:map(Fun, supported_protocol_versions([]));
 	{ok, Vsns} when is_list(Vsns) ->
-	    supported_protocol_versions(Vsns);
+	    supported_protocol_versions(lists:map(Fun, Vsns));
 	{ok, Vsn} ->
-	    supported_protocol_versions([Vsn])
+	    supported_protocol_versions([Fun(Vsn)])
      end.
 
 supported_protocol_versions([]) ->
-    Vsns = supported_connection_protocol_versions([]),
+    Vsns = case sufficient_dtlsv1_2_crypto_support() of
+	       true ->
+		   ?ALL_DATAGRAM_SUPPORTED_VERSIONS;
+	       false ->
+		   ?MIN_DATAGRAM_SUPPORTED_VERSIONS
+	   end,
     application:set_env(ssl, dtls_protocol_version, Vsns),
     Vsns;
 
 supported_protocol_versions([_|_] = Vsns) ->
-    Vsns.
-
-%% highest_protocol_version() ->
-%%     highest_protocol_version(supported_protocol_versions()).
-
-lowest_protocol_version() ->
-    lowest_protocol_version(supported_protocol_versions()).
-
-supported_connection_protocol_versions([]) ->
-    ?ALL_DATAGRAM_SUPPORTED_VERSIONS.
+    case sufficient_dtlsv1_2_crypto_support() of
+	true ->
+	    Vsns;
+	false ->
+	    case Vsns -- ['dtlsv1.2'] of
+		[] ->
+		    ?MIN_SUPPORTED_VERSIONS;
+		NewVsns ->
+		    NewVsns
+	    end
+    end.
 
 %%--------------------------------------------------------------------
 -spec is_acceptable_version(dtls_version(), Supported :: [dtls_version()]) -> boolean().
@@ -372,10 +395,16 @@ current_connection_state_epoch(#connection_states{current_write = Current},
 %% Description: Returns the instance of the connection_state record
 %% that is defined by the Epoch.
 %%--------------------------------------------------------------------
+connection_state_by_epoch(#connection_states{previous_read = CS}, Epoch, read)
+  when CS#connection_state.epoch == Epoch ->
+    CS;
 connection_state_by_epoch(#connection_states{current_read = CS}, Epoch, read)
   when CS#connection_state.epoch == Epoch ->
     CS;
 connection_state_by_epoch(#connection_states{pending_read = CS}, Epoch, read)
+  when CS#connection_state.epoch == Epoch ->
+    CS;
+connection_state_by_epoch(#connection_states{previous_write = CS}, Epoch, write)
   when CS#connection_state.epoch == Epoch ->
     CS;
 connection_state_by_epoch(#connection_states{current_write = CS}, Epoch, write)
@@ -393,6 +422,12 @@ connection_state_by_epoch(#connection_states{pending_write = CS}, Epoch, write)
 %% that is defined by the Epoch.
 %%--------------------------------------------------------------------
 set_connection_state_by_epoch(ConnectionStates0 =
+				  #connection_states{previous_read = CS},
+			      NewCS = #connection_state{epoch = Epoch}, read)
+  when CS#connection_state.epoch == Epoch ->
+    ConnectionStates0#connection_states{previous_read = NewCS};
+
+set_connection_state_by_epoch(ConnectionStates0 =
 				  #connection_states{current_read = CS},
 			      NewCS = #connection_state{epoch = Epoch}, read)
   when CS#connection_state.epoch == Epoch ->
@@ -403,6 +438,12 @@ set_connection_state_by_epoch(ConnectionStates0 =
 			      NewCS = #connection_state{epoch = Epoch}, read)
   when CS#connection_state.epoch == Epoch ->
     ConnectionStates0#connection_states{pending_read = NewCS};
+
+set_connection_state_by_epoch(ConnectionStates0 =
+				  #connection_states{previous_write = CS},
+			      NewCS = #connection_state{epoch = Epoch}, write)
+  when CS#connection_state.epoch == Epoch ->
+    ConnectionStates0#connection_states{previous_write = NewCS};
 
 set_connection_state_by_epoch(ConnectionStates0 =
 				  #connection_states{current_write = CS},
@@ -419,6 +460,18 @@ set_connection_state_by_epoch(ConnectionStates0 =
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+
+lowest_list_protocol_version(Ver, []) ->
+    Ver;
+lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
+    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).
+
+highest_list_protocol_version(Ver, []) ->
+    Ver;
+highest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
+    highest_list_protocol_version(highest_protocol_version(Ver1, Ver2), Rest).
+
 encode_tls_cipher_text(Type, {MajVer, MinVer}, Epoch, Seq, Fragment) ->
     Length = erlang:iolist_size(Fragment),
     [<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Epoch),
@@ -432,6 +485,16 @@ calc_mac_hash(#connection_state{mac_secret = MacSecret,
     mac_hash(Version, MacAlg, MacSecret, NewSeq, Type,
 	     Length, Fragment).
 
+highest_protocol_version() ->
+    highest_protocol_version(supported_protocol_versions()).
+
+lowest_protocol_version() ->
+    lowest_protocol_version(supported_protocol_versions()).
+
+sufficient_dtlsv1_2_crypto_support() ->
+    CryptoSupport = crypto:supports(),
+    proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
+
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     dtls_v1:mac_hash(Version, MacAlg, MacSecret, SeqNo, Type,
 		     Length, Fragment).
@@ -439,8 +502,3 @@ mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
 calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
     NewSeq = (Epoch bsl 48) + SeqNo,
     <<NewSeq:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
-
-lowest_list_protocol_version(Ver, []) ->
-    Ver;
-lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
-    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).

@@ -26,10 +26,11 @@
 -spec suites(Minor:: 253|255) -> [ssl_cipher:cipher_suite()].
 
 suites(Minor) ->
-   tls_v1:suites(corresponding_minor_tls_version(Minor)).
+   lists:filter(fun(Cipher) -> is_acceptable_cipher(ssl_cipher:suite_definition(Cipher)) end,
+		tls_v1:suites(corresponding_minor_tls_version(Minor))).
 
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, corresponding_tls_version(Version),
+    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		    Length, Fragment).
 
 ecc_curves({_Major, Minor}) ->
@@ -42,3 +43,8 @@ corresponding_minor_tls_version(255) ->
     2;
 corresponding_minor_tls_version(253) ->
     3.
+
+is_acceptable_cipher({_,rc4_128,_,_}) ->
+    false;
+is_acceptable_cipher(_) ->
+    true.

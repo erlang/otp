@@ -30,7 +30,7 @@
 -include("ssl_alert.hrl").
 
 %% Connection state handling
--export([init_connection_states/1,
+-export([init_connection_states/2,
 	 current_connection_state/2, pending_connection_state/2,
 	 activate_pending_connection_state/2,
 	 set_security_params/3,
@@ -62,16 +62,17 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec init_connection_states(client | server) -> #connection_states{}.
+-spec init_connection_states(client | server, non_neg_integer()) -> #connection_states{}.
 %%
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
-init_connection_states(Role) ->
+init_connection_states(Role, InitialSeqNo) ->
     ConnectionEnd = record_protocol_role(Role),
-    Current = initial_connection_state(ConnectionEnd),
+    Current = initial_connection_state(ConnectionEnd, InitialSeqNo),
     Pending = empty_connection_state(ConnectionEnd),
-    #connection_states{current_read = Current,
+    #connection_states{dtls_write_msg_seq = InitialSeqNo,
+		       current_read = Current,
 		       pending_read = Pending,
 		       current_write = Current,
 		       pending_write = Pending
@@ -124,7 +125,8 @@ activate_pending_connection_state(States =
     EmptyPending = empty_connection_state(ConnectionEnd),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
-    States#connection_states{current_read = NewCurrent,
+    States#connection_states{previous_read = Current,
+                             current_read = NewCurrent,
                              pending_read = NewPending
                             };
 
@@ -139,7 +141,8 @@ activate_pending_connection_state(States =
     EmptyPending = empty_connection_state(ConnectionEnd),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
-    States#connection_states{current_write = NewCurrent,
+    States#connection_states{previous_write = Current,
+			     current_write = NewCurrent,
                              pending_write = NewPending
                             }.
 
@@ -316,14 +319,25 @@ encode_handshake(Frag, Version,
 					#connection_state{
 					   security_parameters =
 					       #security_parameters{bulk_cipher_algorithm = BCA}}} = 
-		     ConnectionStates) ->
+		     ConnectionStates)
+when is_list(Frag) ->
     case iolist_size(Frag) of
 	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
 	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA),
 	    encode_iolist(?HANDSHAKE, Data, Version, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
-    end.
+    end;
+%% TODO: this is a workarround for DTLS
+%%
+%% DTLS need to select the connection write state based on Epoch it wants to
+%% send this fragment in. That Epoch does not nessarily has to be the same
+%% as the current_write epoch.
+%% The right solution might be to pass the WriteState instead of the ConnectionStates,
+%% however, this will require substantion API changes.
+encode_handshake(Frag, Version, ConnectionStates) ->
+    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
+
 %%--------------------------------------------------------------------
 -spec encode_alert_record(#alert{}, ssl_version(), #connection_states{}) ->
 				 {iolist(), #connection_states{}}.
@@ -478,10 +492,11 @@ record_protocol_role(client) ->
 record_protocol_role(server) ->
     ?SERVER.
 
-initial_connection_state(ConnectionEnd) ->
+initial_connection_state(ConnectionEnd, InitialSeqNo) ->
     #connection_state{security_parameters =
 			  initial_security_params(ConnectionEnd),
-                      sequence_number = 0
+		      epoch = 0,
+                      sequence_number = InitialSeqNo
                      }.
 
 initial_security_params(ConnectionEnd) ->

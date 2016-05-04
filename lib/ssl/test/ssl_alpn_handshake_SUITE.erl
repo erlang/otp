@@ -90,7 +90,7 @@ init_per_group(GroupName, Config) ->
 	true ->
 	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
 		true ->
-		    ssl_test_lib:init_tls_version(GroupName),
+		    ssl_test_lib:init_tls_version(GroupName, Config),
 		    Config;
 		false ->
 		    {skip, "Missing crypto support"}
@@ -104,7 +104,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
     Config.
 

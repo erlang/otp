@@ -51,8 +51,8 @@
 
 %% Handle handshake messages
 -export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
-	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
-	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
+	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
+	 init_handshake_history/0, update_handshake_history/3, verify_server_key/5
 	]).
 
 %% Encode/Decode
@@ -65,7 +65,7 @@
 
 %% Cipher suites handling
 -export([available_suites/2, available_signature_algs/3, cipher_suites/2,
-	 select_session/11, supported_ecc/1]).
+	 select_session/11, supported_ecc/1, available_signature_algs/4]).
 
 %% Extensions handling
 -export([client_hello_extensions/6,
@@ -370,6 +370,9 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
+verify_signature(Version = {254,_}, Hash, HashAlgo, Signature, PublicKeyInfo) ->
+    verify_signature(dtls_v1:corresponding_tls_version(Version),
+		     Hash, HashAlgo, Signature, PublicKeyInfo);
 verify_signature(_Version, _Hash, {_HashAlgo, anon}, _Signature, _) ->
     true;
 verify_signature({3, Minor}, Hash, {HashAlgo, rsa}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
@@ -447,7 +450,7 @@ init_handshake_history() ->
     {[], []}.
 
 %%--------------------------------------------------------------------
--spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term()) ->
+-spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term(), CompatHello ::atom()) ->
 				      ssl_handshake:ssl_handshake_history().
 %%
 %% Description: Update the handshake history buffer with Data.
@@ -457,14 +460,14 @@ update_handshake_history(Handshake, % special-case SSL2 client hello
 			   ?UINT16(CSLength), ?UINT16(0),
 			   ?UINT16(CDLength),
 			   CipherSuites:CSLength/binary,
-			   ChallengeData:CDLength/binary>>) ->
+			   ChallengeData:CDLength/binary>>, true) ->
     update_handshake_history(Handshake,
 			     <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
 			       ?UINT16(CSLength), ?UINT16(0),
 			       ?UINT16(CDLength),
 			       CipherSuites:CSLength/binary,
-			       ChallengeData:CDLength/binary>>);
-update_handshake_history({Handshake0, _Prev}, Data) ->
+			       ChallengeData:CDLength/binary>>, false);
+update_handshake_history({Handshake0, _Prev}, Data, _) ->
     {[Data|Handshake0], Handshake0}.
 
 %% %%--------------------------------------------------------------------
@@ -569,6 +572,8 @@ server_key_exchange_hash(Hash, Value) ->
 %%
 %% Description: use the TLS PRF to generate key material
 %%--------------------------------------------------------------------
+prf(Version = {254,_}, Secret, Label, Seed, WantedLength) ->
+    prf(tls_v1:corresponding_tls_version(Version), Secret, Label, Seed, WantedLength);
 prf({3,0}, _, _, _, _) ->
     {error, undefined};
 prf({3,1}, Secret, Label, Seed, WantedLength) ->
@@ -585,6 +590,9 @@ prf({3,_N}, Secret, Label, Seed, WantedLength) ->
 %%
 %% Description: Handles signature_algorithms extension
 %%--------------------------------------------------------------------
+select_hashsign(HashSigns, Cert, KeyExAlgo, SupportedHashSigns, {254, _} = Version) ->
+    select_hashsign(HashSigns, Cert, KeyExAlgo, SupportedHashSigns,
+		    dtls_v1:corresponding_tls_version(Version));
 select_hashsign(_, undefined, _,  _, _Version) ->
     {null, anon};
 %% The signature_algorithms extension was introduced with TLS 1.2. Ignore it if we have
@@ -638,6 +646,8 @@ select_hashsign(_, Cert, _, _, Version) ->
 %%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
 
 %%--------------------------------------------------------------------
+select_hashsign_algs(HashSign, Encryption, Version = {254, _}) ->
+    select_hashsign_algs(HashSign, Encryption, dtls_v1:corresponding_tls_version(Version));
 select_hashsign_algs(HashSign, _, {Major, Minor}) when HashSign =/= undefined andalso
 						       Major >= 3 andalso Minor >= 3 ->
     HashSign;
@@ -651,19 +661,19 @@ select_hashsign_algs(undefined, ?'id-dsa', _) ->
     {sha, dsa}.
 
 %%--------------------------------------------------------------------
--spec master_secret(atom(), ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
+-spec master_secret(ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
 		   client | server) -> {binary(), #connection_states{}} | #alert{}.
 %%
 %% Description: Sets or calculates the master secret and calculate keys,
 %% updating the pending connection states. The Mastersecret and the update
 %% connection states are returned or an alert if the calculation fails.
 %%-------------------------------------------------------------------
-master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
+master_secret(Version, #session{master_secret = Mastersecret},
 	      ConnectionStates, Role) ->
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
-    try master_secret(RecordCB, Version, Mastersecret, SecParams,
+    try master_secret(Version, Mastersecret, SecParams,
 		      ConnectionStates, Role)
     catch
 	exit:Reason ->
@@ -673,14 +683,14 @@ master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
     end;
 
-master_secret(RecordCB, Version, PremasterSecret, ConnectionStates, Role) ->
+master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{prf_algorithm = PrfAlgo,
 			 client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
-    try master_secret(RecordCB, Version,
+    try master_secret(Version,
 		      calc_master_secret(Version,PrfAlgo,PremasterSecret,
 					 ClientRandom, ServerRandom),
 		      SecParams, ConnectionStates, Role)
@@ -861,6 +871,8 @@ decode_client_key(ClientKey, Type, Version) ->
 %%
 %% Description: Decode server_key data and return appropriate type
 %%--------------------------------------------------------------------
+decode_server_key(ServerKey, Type, Version = {254, _}) ->
+    decode_server_key(ServerKey, Type, dtls_v1:corresponding_tls_version(Version));
 decode_server_key(ServerKey, Type, Version) ->
     dec_server_key(ServerKey, key_exchange_alg(Type), Version).
 
@@ -1539,6 +1551,9 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE))
     end.
 
+digitally_signed(Version = {254, _}, Hash, HashAlgo, Key) ->
+    digitally_signed(dtls_v1:corresponding_tls_version(Version),
+		     Hash, HashAlgo, Key);
 digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
     public_key:sign({digest, Hash}, HashAlgo, Key);
 digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
@@ -1549,17 +1564,23 @@ digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
 digitally_signed(_Version, Hash, HashAlgo, Key) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
 
+calc_certificate_verify(Version = {254, _}, HashAlgo, MasterSecret, Handshake) ->
+    calc_certificate_verify(dtls_v1:corresponding_tls_version(Version),
+			    HashAlgo, MasterSecret, Handshake);
 calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
     ssl_v3:certificate_verify(HashAlgo, MasterSecret, lists:reverse(Handshake));
 calc_certificate_verify({3, N}, HashAlgo, _MasterSecret, Handshake) ->
     tls_v1:certificate_verify(HashAlgo, N, lists:reverse(Handshake)).
 
+calc_finished(Version = {254, _}, Role, PrfAlgo, MasterSecret, Handshake) ->
+    calc_finished(dtls_v1:corresponding_tls_version(Version),
+		  Role, PrfAlgo, MasterSecret, Handshake);
 calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
     ssl_v3:finished(Role, MasterSecret, lists:reverse(Handshake));
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
-master_secret(_RecordCB, Version, MasterSecret,
+master_secret(Version, MasterSecret,
 	      #security_parameters{
 		 bulk_cipher_algorithm = BCA,
 		 client_random = ClientRandom,
@@ -1586,6 +1607,11 @@ master_secret(_RecordCB, Version, MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
 
+setup_keys(Version = {254, _}, PrfAlgo, MasterSecret,
+	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
+    setup_keys(dtls_v1:corresponding_tls_version(Version),
+	       PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS);
+
 setup_keys({3,0}, _PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
     ssl_v3:setup_keys(MasterSecret, ServerRandom,
@@ -1600,6 +1626,9 @@ calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
     ssl_v3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
 
 calc_master_secret({3,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
+    tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom);
+
+calc_master_secret({254,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, NegotiatedCipherSuite, 
@@ -2171,3 +2200,11 @@ is_acceptable_hash_sign(_,_,_,_) ->
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
+available_signature_algs(undefined, SupportedHashSigns, _, {Major, Minor}) when
+      (Major >= 3) andalso (Minor >= 3) ->
+    SupportedHashSigns;
+available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns,
+		     _, {Major, Minor}) when (Major >= 3) andalso (Minor >= 3) ->
+    ordsets:intersection(ClientHashSigns, SupportedHashSigns);
+available_signature_algs(_, _, _, _) ->
+    undefined.

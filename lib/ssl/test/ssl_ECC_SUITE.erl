@@ -130,8 +130,8 @@ init_per_group(Group, Config) ->
 common_init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
-	    ssl_test_lib:init_tls_version(GroupName),
-	    [{tls_version, GroupName} | Config];
+	    Config0 = ssl_test_lib:init_tls_version(GroupName, Config),
+	    [{tls_version, GroupName} | Config0];
 	_ ->
 	   openssl_check(GroupName, Config)
     end.
@@ -142,7 +142,7 @@ end_per_group(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 
 init_per_testcase(TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     end_per_testcase(TestCase, Config),
     ssl:start(),	
