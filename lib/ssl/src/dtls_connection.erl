@@ -971,8 +971,40 @@ handle_own_alert(Alert, Version, StateName,
     end,
     {stop, {shutdown, own_alert}}.
 
-handle_normal_shutdown(_, _, _State) -> %% Place holder
+handle_normal_shutdown(Alert, _, #state{socket = Socket,
+					transport_cb = Transport,
+					start_or_recv_from = StartFrom,
+					tracker = Tracker,
+					role = Role, renegotiation = {false, first}}) ->
+    alert_user(Transport, Tracker,Socket, StartFrom, Alert, Role);
+
+handle_normal_shutdown(Alert, StateName, #state{socket = Socket,
+						socket_options = Opts,
+						transport_cb = Transport,
+						user_application = {_Mon, Pid},
+						tracker = Tracker,
+						start_or_recv_from = RecvFrom, role = Role}) ->
+    alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role).
+
+handle_close_alert(Data, StateName, State0) ->
+    case next_tls_record(Data, State0) of
+	{#ssl_tls{type = ?ALERT, fragment = EncAlerts}, State} ->
+	    [Alert|_] = decode_alerts(EncAlerts),
+	    handle_normal_shutdown(Alert, StateName, State);
+	_ ->
+	    ok
+    end.
+
+cancel_timer(undefined) ->
+    ok;
+cancel_timer(Timer) ->
+    erlang:cancel_timer(Timer),
     ok.
+
+invalidate_session(client, Host, Port, Session) ->
+    ssl_manager:invalidate_session(Host, Port, Session);
+invalidate_session(server, _, Port, Session) ->
+    ssl_manager:invalidate_session(Port, Session).
 
 sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
     {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.
