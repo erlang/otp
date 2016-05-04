@@ -78,7 +78,8 @@ compile_with_llvm(FunName, Arity, LLVMCode, Options, UseBuffer) ->
       false -> []
     end,
   {ok, File_llvm} = file:open(Dir ++ Filename ++ ".ll", OpenOpts),
-  hipe_llvm:pp_ins_list(File_llvm, LLVMCode),
+  Ver = hipe:get_llvm_version(), %% Should probably cache this
+  hipe_llvm:pp_ins_list(File_llvm, Ver, LLVMCode),
   %% delayed_write can cause file:close not to do a close, hence the two calls
   ok = file:close(File_llvm),
   __ = file:close(File_llvm),

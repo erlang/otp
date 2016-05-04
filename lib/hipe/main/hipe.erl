@@ -200,8 +200,9 @@
 	 compile/4,
 	 compile_core/4,
  	 file/1,
- 	 file/2,
-        llvm_support_available/0,
+	 file/2,
+	 get_llvm_version/0,
+	 llvm_support_available/0,
 	 load/1,
 	 help/0,
 	 help_hiper/0,
@@ -1538,18 +1539,27 @@ check_options(Opts) ->
 -spec llvm_support_available() -> boolean().
 
 llvm_support_available() ->
-  get_llvm_version() >= 3.4.
+  get_llvm_version() >= {3,4}.
 
+-type llvm_version() :: {Major :: integer(), Minor :: integer()}.
+
+-spec get_llvm_version() -> llvm_version() | {0, 0}.
 get_llvm_version() ->
   OptStr = os:cmd("opt -version"),
   SubStr = "LLVM version ", N = length(SubStr),
   case string:str(OptStr, SubStr) of
      0 -> % No opt available
-       0.0;
+       {0, 0};
      S ->
-       case string:to_float(string:sub_string(OptStr, S + N)) of
-         {error, _} -> 0.0; %XXX: Assumes no revision numbers in versioning
-         {Float, _} -> Float
+       case string:tokens(string:sub_string(OptStr, S + N), ".") of
+	 [MajorS, MinorS | _] ->
+	   case {string:to_integer(MajorS), string:to_integer(MinorS)} of
+	     {{Major, ""}, {Minor, _}}
+	       when is_integer(Major), is_integer(Minor) ->
+	       {Major, Minor};
+	     _ -> {0, 0}
+	   end;
+	 _ -> {0, 0} %XXX: Assumes no revision numbers in versioning
        end
   end.
 
