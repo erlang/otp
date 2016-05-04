@@ -634,7 +634,7 @@ monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
     stop_node(N4),
     true = net_kernel:disconnect(N2),
     TickTime = net_kernel:get_net_ticktime(),
-    SleepTime = TickTime + (TickTime div 4),
+    SleepTime = TickTime + (TickTime div 2),
     spawn(N3, fun () ->
 		      block_emu(SleepTime*1000),
 		      halt()
@@ -911,15 +911,14 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 
     %% Verify that '{nodeup, Node}' comes before '{NodeMsg, 1}' (the message
     %% bringing up the connection).
-    no_msgs(500),
     {nodeup, Node} = receive Msg1 -> Msg1 end,
-    {NodeMsg, 1}   = receive Msg2 -> Msg2 end,
+    {NodeMsg, N}   = receive Msg2 -> Msg2 end,
     %% msg stream has begun, kill the node
     RemotePid ! {self(), kill_it},
 
     %% Verify that '{nodedown, Node}' comes after the last '{NodeMsg, N}'
     %% message.
-    {nodedown, Node} = flush_node_msgs(NodeMsg, 2),
+    {nodedown, Node} = flush_node_msgs(NodeMsg, N+1),
     no_msgs(500),
 
     Mon = erlang:monitor(process, MN),
@@ -932,8 +931,10 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 
 flush_node_msgs(NodeMsg, No) ->
     case receive Msg -> Msg end of
-	{NodeMsg, No} -> flush_node_msgs(NodeMsg, No+1);
-	OtherMsg -> OtherMsg
+	{NodeMsg, N} when N >= No ->
+	    flush_node_msgs(NodeMsg, N+1);
+	OtherMsg ->
+	    OtherMsg
     end.
 
 node_loop_send(Pid, Msg, No) ->
