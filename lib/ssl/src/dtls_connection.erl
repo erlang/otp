@@ -209,28 +209,44 @@ error({call, From}, Msg, State) ->
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
 
-hello(internal, #client_hello{client_version = ClientVersion} = Hello,
-      #state{connection_states = ConnectionStates0,
-	     port = Port, session = #session{own_certificate = Cert} = Session0,
-	     renegotiation = {Renegotiation, _},
-	     session_cache = Cache,
-	     session_cache_cb = CacheCb,
-	     ssl_options = SslOpts} = State) ->
+%%--------------------------------------------------------------------
+-spec hello(gen_statem:event_type(),
+	    #hello_request{} | #client_hello{} | #server_hello{} | term(),
+	    #state{}) ->
+		   gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+hello(internal, #client_hello{client_version = ClientVersion,
+			      extensions = #hello_extensions{ec_point_formats = EcPointFormats,
+							     elliptic_curves = EllipticCurves}} = Hello,
+      State = #state{connection_states = ConnectionStates0,
+		     port = Port, session = #session{own_certificate = Cert} = Session0,
+		     renegotiation = {Renegotiation, _},
+		     session_cache = Cache,
+		     session_cache_cb = CacheCb,
+		     negotiated_protocol = CurrentProtocol,
+		     key_algorithm = KeyExAlg,
+		     ssl_options = SslOpts}) ->
+
     case dtls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
-					      ConnectionStates0, Cert}, Renegotiation) of
-        {Version, {Type, Session},
-	 ConnectionStates,
-	 #hello_extensions{ec_point_formats = EcPointFormats,
-			   elliptic_curves = EllipticCurves} = ServerHelloExt, HashSign} ->
-            ssl_connection:hello(internal, {common_client_hello, Type, ServerHelloExt, HashSign},
-				 State#state{connection_states  = ConnectionStates,
+					      ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
+	#alert{} = Alert ->
+	    handle_own_alert(Alert, ClientVersion, hello, State);
+	{Version, {Type, Session},
+	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
+	    Protocol = case Protocol0 of
+			   undefined -> CurrentProtocol;
+			   _ -> Protocol0
+		       end,
+
+	    ssl_connection:hello(internal, {common_client_hello, Type, ServerHelloExt},
+				 State#state{connection_states	= ConnectionStates,
 					     negotiated_version = Version,
+					     hashsign_algorithm = HashSign,
 					     session = Session,
-					     client_ecc = {EllipticCurves, EcPointFormats}}, ?MODULE);
-        #alert{} = Alert ->
-            handle_own_alert(Alert, ClientVersion, hello, State)
+					     client_ecc = {EllipticCurves, EcPointFormats},
+					     negotiated_protocol = Protocol}, ?MODULE)
     end;
-hello(internal, Hello,
+hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
 	     role = client,
