@@ -156,7 +156,7 @@ is_allowed(#hs_data{other_node = Node,
 	    send_status(HSData, not_allowed),
 	    error_msg("** Connection attempt from "
 		      "disallowed node ~w ** ~n", [Node]),
-	    ?shutdown(Node);
+	    ?shutdown2(Node, {is_allowed, not_allowed});
 	_ -> true
     end.
 
@@ -607,10 +607,10 @@ recv_challenge_reply(#hs_data{socket = Socket,
 		_ ->
 		    error_msg("** Connection attempt from "
 			      "disallowed node ~w ** ~n", [NodeB]),
-		    ?shutdown(NodeB)
+		    ?shutdown2(NodeB, {recv_challenge_reply_failed, bad_cookie})
 	    end;
-	_ ->
-	    ?shutdown(no_node)
+	Other ->
+	    ?shutdown2(no_node, {recv_challenge_reply_failed, Other})
     end.
 
 recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv, 
