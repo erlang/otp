@@ -589,13 +589,7 @@ format_error(Error) ->
 %% fallbacks on pseudo random function
 %%--------------------------------------------------------------------
 random_bytes(N) ->
-    try crypto:strong_rand_bytes(N) of
-	RandBytes ->
-	    RandBytes
-    catch
-	error:low_entropy ->
-	    crypto:rand_bytes(N)
-    end.
+    crypto:strong_rand_bytes(N).
 
 %%%--------------------------------------------------------------
 %%% Internal functions
