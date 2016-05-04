@@ -1520,7 +1520,7 @@ handle_connection_msg(Msg, StateName, State0 =
 				event_queue = Qev0}) ->
     Renegotiation = renegotiation(StateName),
     Role = role(StateName),
-    try ssh_connection:handle_msg(Msg, Connection0, Role) of
+   try ssh_connection:handle_msg(Msg, Connection0, Role) of
 	{{replies, Replies}, Connection} ->
 	    case StateName of
 		{connected,_} ->
@@ -1539,14 +1539,14 @@ handle_connection_msg(Msg, StateName, State0 =
 	    {keep_state, State0#data{connection_state = Connection}};
 
 	{disconnect, Reason0, {{replies, Replies}, Connection}} ->
-	    {Repls,State} = send_replies(Replies, State0#data{connection_state = Connection}),
-	    case {Reason0,Role} of
-		{{_, Reason}, client} when ((StateName =/= {connected,client}) and (not Renegotiation)) ->
-		    User ! {self(), not_connected, Reason};
-		_ ->
-		    ok
-	    end,
-	    {stop, {shutdown,normal}, Repls, State#data{connection_state = Connection}}
+	   {Repls,State} = send_replies(Replies, State0#data{connection_state = Connection}),
+	   case {Reason0,Role} of
+	       {{_, Reason}, client} when ((StateName =/= {connected,client}) and (not Renegotiation)) ->
+		   User ! {self(), not_connected, Reason};
+	       _ ->
+		   ok
+	   end,
+	   {stop_and_reply, {shutdown,normal}, Repls, State#data{connection_state = Connection}}
 
     catch
 	_:Error ->
@@ -1556,7 +1556,7 @@ handle_connection_msg(Msg, StateName, State0 =
 				      description = "Internal error"},
 		  Connection0, Role),
 	    {Repls,State} = send_replies(Replies, State0#data{connection_state = Connection}),
-	    {stop, {shutdown,Error}, Repls, State#data{connection_state = Connection}}
+	    {stop_and_reply, {shutdown,Error}, Repls, State#data{connection_state = Connection}}
     end.
 
 
