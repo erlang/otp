@@ -236,7 +236,7 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0, opaques/0, type_table/0, var_table/0]).
+-export_type([erl_type/0, opaques/0, type_table/0]).
 
 %%-define(DEBUG, true).
 
@@ -380,7 +380,7 @@
 -type type_table() :: dict:dict(record_key() | type_key(),
                                 record_value() | type_value()).
 
--type var_table() :: dict:dict(atom(), erl_type()).
+-type var_table() :: #{atom() => erl_type()}.
 
 %%-----------------------------------------------------------------------------
 %% Unions
@@ -3295,87 +3295,33 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
 %%-----------------------------------------------------------------------------
 %% Substitution of variables
 %%
-%% Dialyzer versions prior to R15B used a dict data structure to map variables
-%% to types. Hans Bolinder suggested the use of lists of Key-Value pairs for
-%% this data structure and measurements showed a non-trivial speedup when using
-%% them for operations within this module (e.g. in t_unify/2). However, there
-%% is code outside erl_types that still passes a dict:dict() in the 2nd argument.
-%% So, for the time being, this module provides a t_subst/2 function for these
-%% external calls and a clone of it (t_subst_kv/2) which is used from all calls
-%% from within this module. This code duplication needs to be eliminated at
-%% some point.
 
--spec t_subst(erl_type(), dict:dict(atom(), erl_type())) -> erl_type().
+-type subst_table() :: #{any() => erl_type()}.
 
-t_subst(T, Dict) ->
+-spec t_subst(erl_type(), subst_table()) -> erl_type().
+
+t_subst(T, Map) ->
   case t_has_var(T) of
-    true -> t_subst_dict(T, Dict);
+    true -> t_subst_aux(T, Map);
     false -> T
   end.
-
-t_subst_dict(?var(Id), Dict) ->
-  case dict:find(Id, Dict) of
-    error -> ?any;
-    {ok, Type} -> Type
-  end;
-t_subst_dict(?list(Contents, Termination, Size), Dict) ->
-  case t_subst_dict(Contents, Dict) of
-    ?none -> ?none;
-    NewContents ->
-      %% Be careful here to make the termination collapse if necessary.
-      case t_subst_dict(Termination, Dict) of
-	?nil -> ?list(NewContents, ?nil, Size);
-	?any -> ?list(NewContents, ?any, Size);
-	Other ->
-	  ?list(NewContents2, NewTermination, _) = t_cons(NewContents, Other),
-	  ?list(NewContents2, NewTermination, Size)
-      end
-  end;
-t_subst_dict(?function(Domain, Range), Dict) ->
-  ?function(t_subst_dict(Domain, Dict), t_subst_dict(Range, Dict));
-t_subst_dict(?product(Types), Dict) ->
-  ?product([t_subst_dict(T, Dict) || T <- Types]);
-t_subst_dict(?tuple(?any, ?any, ?any) = T, _Dict) ->
-  T;
-t_subst_dict(?tuple(Elements, _Arity, _Tag), Dict) ->
-  t_tuple([t_subst_dict(E, Dict) || E <- Elements]);
-t_subst_dict(?tuple_set(_) = TS, Dict) ->
-  t_sup([t_subst_dict(T, Dict) || T <- t_tuple_subtypes(TS)]);
-t_subst_dict(?map(Pairs, DefK, DefV), Dict) ->
-  t_map([{K, MNess, t_subst_dict(V, Dict)} || {K, MNess, V} <- Pairs],
-	t_subst_dict(DefK, Dict), t_subst_dict(DefV, Dict));
-t_subst_dict(?opaque(Es), Dict) ->
-  List = [Opaque#opaque{args = [t_subst_dict(Arg, Dict) || Arg <- Args],
-                        struct = t_subst_dict(S, Dict)} ||
-           Opaque = #opaque{args = Args, struct = S} <- set_to_list(Es)],
-  ?opaque(ordsets:from_list(List));
-t_subst_dict(?union(List), Dict) ->
-  ?union([t_subst_dict(E, Dict) || E <- List]);
-t_subst_dict(T, _Dict) ->
-  T.
 
 -spec subst_all_vars_to_any(erl_type()) -> erl_type().
 
 subst_all_vars_to_any(T) ->
-  t_subst_kv(T, []).
+  t_subst(T, #{}).
 
-t_subst_kv(T, KVMap) ->
-  case t_has_var(T) of
-    true -> t_subst_aux(T, KVMap);
-    false -> T
-  end.
-
-t_subst_aux(?var(Id), VarMap) ->
-  case lists:keyfind(Id, 1, VarMap) of
-    false -> ?any;
-    {Id, Type} -> Type
+t_subst_aux(?var(Id), Map) ->
+  case maps:find(Id, Map) of
+    error -> ?any;
+    {ok, Type} -> Type
   end;
-t_subst_aux(?list(Contents, Termination, Size), VarMap) ->
-  case t_subst_aux(Contents, VarMap) of
+t_subst_aux(?list(Contents, Termination, Size), Map) ->
+  case t_subst_aux(Contents, Map) of
     ?none -> ?none;
     NewContents ->
       %% Be careful here to make the termination collapse if necessary.
-      case t_subst_aux(Termination, VarMap) of
+      case t_subst_aux(Termination, Map) of
 	?nil -> ?list(NewContents, ?nil, Size);
 	?any -> ?list(NewContents, ?any, Size);
 	Other ->
@@ -3383,27 +3329,27 @@ t_subst_aux(?list(Contents, Termination, Size), VarMap) ->
 	  ?list(NewContents2, NewTermination, Size)
       end
   end;
-t_subst_aux(?function(Domain, Range), VarMap) ->
-  ?function(t_subst_aux(Domain, VarMap), t_subst_aux(Range, VarMap));
-t_subst_aux(?product(Types), VarMap) ->
-  ?product([t_subst_aux(T, VarMap) || T <- Types]);
-t_subst_aux(?tuple(?any, ?any, ?any) = T, _VarMap) ->
+t_subst_aux(?function(Domain, Range), Map) ->
+  ?function(t_subst_aux(Domain, Map), t_subst_aux(Range, Map));
+t_subst_aux(?product(Types), Map) ->
+  ?product([t_subst_aux(T, Map) || T <- Types]);
+t_subst_aux(?tuple(?any, ?any, ?any) = T, _Map) ->
   T;
-t_subst_aux(?tuple(Elements, _Arity, _Tag), VarMap) ->
-  t_tuple([t_subst_aux(E, VarMap) || E <- Elements]);
-t_subst_aux(?tuple_set(_) = TS, VarMap) ->
-  t_sup([t_subst_aux(T, VarMap) || T <- t_tuple_subtypes(TS)]);
-t_subst_aux(?map(Pairs, DefK, DefV), VarMap) ->
-  t_map([{K, MNess, t_subst_aux(V, VarMap)} || {K, MNess, V} <- Pairs],
-	t_subst_aux(DefK, VarMap), t_subst_aux(DefV, VarMap));
-t_subst_aux(?opaque(Es), VarMap) ->
-   List = [Opaque#opaque{args = [t_subst_aux(Arg, VarMap) || Arg <- Args],
-                         struct = t_subst_aux(S, VarMap)} ||
-            Opaque = #opaque{args = Args, struct = S} <- set_to_list(Es)],
-   ?opaque(ordsets:from_list(List));
-t_subst_aux(?union(List), VarMap) ->
-  ?union([t_subst_aux(E, VarMap) || E <- List]);
-t_subst_aux(T, _VarMap) ->
+t_subst_aux(?tuple(Elements, _Arity, _Tag), Map) ->
+  t_tuple([t_subst_aux(E, Map) || E <- Elements]);
+t_subst_aux(?tuple_set(_) = TS, Map) ->
+  t_sup([t_subst_aux(T, Map) || T <- t_tuple_subtypes(TS)]);
+t_subst_aux(?map(Pairs, DefK, DefV), Map) ->
+  t_map([{K, MNess, t_subst_aux(V, Map)} || {K, MNess, V} <- Pairs],
+	t_subst_aux(DefK, Map), t_subst_aux(DefV, Map));
+t_subst_aux(?opaque(Es), Map) ->
+  List = [Opaque#opaque{args = [t_subst_aux(Arg, Map) || Arg <- Args],
+                        struct = t_subst_aux(S, Map)} ||
+           Opaque = #opaque{args = Args, struct = S} <- set_to_list(Es)],
+  ?opaque(ordsets:from_list(List));
+t_subst_aux(?union(List), Map) ->
+  ?union([t_subst_aux(E, Map) || E <- List]);
+t_subst_aux(T, _Map) ->
   T.
 
 %%-----------------------------------------------------------------------------
@@ -3415,33 +3361,33 @@ t_subst_aux(T, _VarMap) ->
 -spec t_unify(erl_type(), erl_type()) -> t_unify_ret().
 
 t_unify(T1, T2) ->
-  {T, VarMap} = t_unify(T1, T2, []),
-  {t_subst_kv(T, VarMap), lists:keysort(1, VarMap)}.
+  {T, VarMap} = t_unify(T1, T2, #{}),
+  {t_subst(T, VarMap), lists:keysort(1, maps:to_list(VarMap))}.
 
 t_unify(?var(Id) = T, ?var(Id), VarMap) ->
   {T, VarMap};
 t_unify(?var(Id1) = T, ?var(Id2), VarMap) ->
-  case lists:keyfind(Id1, 1, VarMap) of
-    false ->
-      case lists:keyfind(Id2, 1, VarMap) of
-	false -> {T, [{Id2, T} | VarMap]};
-	{Id2, Type} -> t_unify(T, Type, VarMap)
+  case maps:find(Id1, VarMap) of
+    error ->
+      case maps:find(Id2, VarMap) of
+	error -> {T, VarMap#{Id2 => T}};
+	{ok, Type} -> t_unify(T, Type, VarMap)
       end;
-    {Id1, Type1} ->
-      case lists:keyfind(Id2, 1, VarMap) of
-	false -> {Type1, [{Id2, T} | VarMap]};
-	{Id2, Type2} -> t_unify(Type1, Type2, VarMap)
+    {ok, Type1} ->
+      case maps:find(Id2, VarMap) of
+	error -> {Type1, VarMap#{Id2 => T}};
+	{ok, Type2} -> t_unify(Type1, Type2, VarMap)
       end
   end;
 t_unify(?var(Id), Type, VarMap) ->
-  case lists:keyfind(Id, 1, VarMap) of
-    false -> {Type, [{Id, Type} | VarMap]};
-    {Id, VarType} -> t_unify(VarType, Type, VarMap)
+  case maps:find(Id, VarMap) of
+    error -> {Type, VarMap#{Id => Type}};
+    {ok, VarType} -> t_unify(VarType, Type, VarMap)
   end;
 t_unify(Type, ?var(Id), VarMap) ->
-  case lists:keyfind(Id, 1, VarMap) of
-    false -> {Type, [{Id, Type} | VarMap]};
-    {Id, VarType} -> t_unify(VarType, Type, VarMap)
+  case maps:find(Id, VarMap) of
+    error -> {Type, VarMap#{Id => Type}};
+    {ok, VarType} -> t_unify(VarType, Type, VarMap)
   end;
 t_unify(?function(Domain1, Range1), ?function(Domain2, Range2), VarMap) ->
   {Domain, VarMap1} = t_unify(Domain1, Domain2, VarMap),
@@ -4472,7 +4418,7 @@ mod_name(Mod, Name) ->
                   site(), mod_records()) -> erl_type().
 
 t_from_form(Form, ExpTypes, Site, RecDict) ->
-  t_from_form(Form, ExpTypes, Site, RecDict, dict:new()).
+  t_from_form(Form, ExpTypes, Site, RecDict, maps:new()).
 
 -spec t_from_form(parse_form(), sets:set(mfa()),
                   site(), mod_records(), var_table()) -> erl_type().
@@ -4489,7 +4435,7 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
   RecDict = dict:from_list([{Module, TypeTable}]),
   ExpTypes = replace_by_none,
-  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, dict:new()),
+  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, maps:new()),
   T.
 
 %% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
@@ -4545,7 +4491,7 @@ t_from_form(_, _TypeNames, _ET, _S, _MR, _V, D, L) when D =< 0 ; L =< 0 ->
 t_from_form({var, _L, '_'}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
   {t_any(), L};
 t_from_form({var, _L, Name}, _TypeNames, _ET, _S, _MR, V, _D, L) ->
-  case dict:find(Name, V) of
+  case maps:find(Name, V) of
     error -> {t_var(Name), L};
     {ok, Val} -> {Val, L}
   end;
@@ -4764,7 +4710,7 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
           {ArgTypes, L1} =
             list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
           List = lists:zip(ArgNames, ArgTypes),
-          TmpV = dict:from_list(List),
+          TmpV = maps:from_list(List),
           Site = TypeName,
           t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1);
         false ->
@@ -4777,7 +4723,7 @@ type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
           {ArgTypes, L1} =
             list_from_form(Args, NewTypeNames, ET, Site0, MR, V, D, L),
           List = lists:zip(ArgNames, ArgTypes),
-          TmpV = dict:from_list(List),
+          TmpV = maps:from_list(List),
           Site = TypeName,
           {Rep, L2} =
             t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1),
@@ -4819,7 +4765,7 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                       {ArgTypes, L1} = list_from_form(Args, TypeNames,
                                                       ET, S, MR, V, D, L),
                       List = lists:zip(ArgNames, ArgTypes),
-                      TmpVarDict = dict:from_list(List),
+                      TmpVarDict = maps:from_list(List),
                       Site = RemType,
                       t_from_form(Form, NewTypeNames, ET,
                                   Site, MR, TmpVarDict, D, L1);
@@ -4833,7 +4779,7 @@ remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
                       {ArgTypes, L1} = list_from_form(Args, NewTypeNames,
                                                       ET, S, MR, V, D, L),
                       List = lists:zip(ArgNames, ArgTypes),
-                      TmpVarDict = dict:from_list(List),
+                      TmpVarDict = maps:from_list(List),
                       Site = RemType,
                       {NewRep, L2} =
                         t_from_form(Form, NewTypeNames, ET, Site, MR,
@@ -4904,7 +4850,7 @@ record_from_form({atom, _, Name}, ModFields, TypeNames, ET, S, MR, V, D, L) ->
             {ok, NewFields} ->
               {NewFields1, L2} =
                 fields_from_form(NewFields, NewTypeNames, ET, S1, MR,
-                                 dict:new(), D, L1),
+                                 maps:new(), D, L1),
               Rec = t_tuple(
                       [t_atom(Name)|[Type
                                      || {_FieldName, Type} <- NewFields1]]),
@@ -5023,7 +4969,7 @@ promote_to_mand(MKs, [E={K,_,V}|T]) ->
                             mod_records()) -> ok.
 
 t_check_record_fields(Form, ExpTypes, Site, RecDict) ->
-  t_check_record_fields(Form, ExpTypes, Site, RecDict, dict:new()).
+  t_check_record_fields(Form, ExpTypes, Site, RecDict, maps:new()).
 
 -spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
                             mod_records(), var_table()) -> ok.
@@ -5192,8 +5138,9 @@ t_form_to_string({type, _L, Name, []} = T) ->
      D0 = dict:new(),
      MR = dict:from_list([{M, D0}]),
      S = {type, {M,Name,0}},
+     V = #{},
      {T1, _} =
-       t_from_form(T, [], sets:new(), S, MR, D0, _Deep=1000, _ALot=100000),
+       t_from_form(T, [], sets:new(), S, MR, V, _Deep=1000, _ALot=100000),
      t_to_string(T1)
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;

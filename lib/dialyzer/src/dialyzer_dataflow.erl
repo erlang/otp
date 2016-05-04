@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@
 
 -include("dialyzer.hrl").
 
-%%-import(helper, %% 'helper' could be any module doing sanity checks...
 -import(erl_types,
         [t_inf/2, t_inf/3, t_inf_lists/2, t_inf_lists/3,
          t_inf_lists/3, t_is_equal/2, t_is_subtype/2, t_subtract/2,
@@ -126,8 +125,8 @@
                 curr_fun             :: curr_fun()
                }).
 
--record(map, {dict = dict:new()   :: type_tab(),
-              subst = dict:new()  :: subst_tab(),
+-record(map, {map = maps:new()    :: type_tab(),
+              subst = maps:new()  :: subst_tab(),
               modified = []       :: [Key :: term()],
               modified_stack = [] :: [{[Key :: term()],reference()}],
               ref = undefined     :: reference() | undefined}).
@@ -135,10 +134,10 @@
 -type env_tab()   :: dict:dict(label(), #map{}).
 -type fun_entry() :: {Args :: [type()], RetType :: type()}.
 -type fun_tab()   :: dict:dict('top' | label(),
-                             {'not_handled', fun_entry()} | fun_entry()).
+                               {'not_handled', fun_entry()} | fun_entry()).
 -type key()       :: label() | cerl:cerl().
--type type_tab()  :: dict:dict(key(), type()).
--type subst_tab() :: dict:dict(key(), cerl:cerl()).
+-type type_tab()  :: #{key() => type()}.
+-type subst_tab() :: #{key() => cerl:cerl()}.
 
 %% Exported Types
 
@@ -1766,7 +1765,7 @@ bind_opaque_pats(GenType, Type, Pat, State) ->
 %%
 
 bind_guard(Guard, Map, State) ->
-  try bind_guard(Guard, Map, dict:new(), pos, State) of
+  try bind_guard(Guard, Map, maps:new(), pos, State) of
     {Map1, _Type} -> Map1
   catch
     throw:{fail, Warning} -> {error, Warning};
@@ -1804,7 +1803,7 @@ bind_guard(Guard, Map, Env, Eval, State) ->
 	catch throw:HE ->
 	    {{Map2, t_none()}, HE}
 	end,
-      BodyEnv = dict:store(get_label(Var), Arg, Env),
+      BodyEnv = maps:put(get_label(Var), Arg, Env),
       Wanted = case Eval of pos -> t_atom(true); neg -> t_atom(false);
 		 dont_know -> t_any() end,
       case t_is_none(t_inf(HandlerType, Wanted)) of
@@ -1850,7 +1849,7 @@ bind_guard(Guard, Map, Env, Eval, State) ->
       Arg = cerl:let_arg(Guard),
       [Var] = cerl:let_vars(Guard),
       %%?debug("Storing: ~w\n", [Var]),
-      NewEnv = dict:store(get_label(Var), Arg, Env),
+      NewEnv = maps:put(get_label(Var), Arg, Env),
       bind_guard(cerl:let_body(Guard), Map, NewEnv, Eval, State);
     values ->
       Es = cerl:values_es(Guard),
@@ -1859,7 +1858,7 @@ bind_guard(Guard, Map, Env, Eval, State) ->
       {Map, Type};
     var ->
       ?debug("Looking for var(~w)...", [cerl_trees:get_label(Guard)]),
-      case dict:find(get_label(Guard), Env) of
+      case maps:find(get_label(Guard), Env) of
 	error ->
 	  ?debug("Did not find it\n", []),
 	  Type = lookup_type(Guard, Map),
@@ -2689,10 +2688,10 @@ join_maps_end(Maps, MapOut) ->
   #map{ref = Ref, modified_stack = [{M1,R1} | S]} = MapOut,
   true = lists:all(fun(M) -> M#map.ref =:= Ref end, Maps), % sanity
   Keys0 = lists:usort(lists:append([M#map.modified || M <- Maps])),
-  #map{dict = Dict, subst = Subst} = MapOut,
+  #map{map = Map, subst = Subst} = MapOut,
   Keys = [Key ||
            Key <- Keys0,
-           dict:is_key(Key, Dict) orelse dict:is_key(Key, Subst)],
+           maps:is_key(Key, Map) orelse maps:is_key(Key, Subst)],
   Out = case Maps of
           [] -> join_maps(Maps, MapOut);
           _ -> join_maps(Keys, Maps, MapOut)
@@ -2703,8 +2702,8 @@ join_maps_end(Maps, MapOut) ->
           modified_stack = S}.
 
 join_maps(Maps, MapOut) ->
-  #map{dict = Dict, subst = Subst} = MapOut,
-  Keys = ordsets:from_list(dict:fetch_keys(Dict) ++ dict:fetch_keys(Subst)),
+  #map{map = Map, subst = Subst} = MapOut,
+  Keys = ordsets:from_list(maps:keys(Map) ++ maps:keys(Subst)),
   join_maps(Keys, Maps, MapOut).
 
 join_maps(Keys, Maps, MapOut) ->
@@ -2733,11 +2732,11 @@ join_maps_one_key([], _Key, AccType) ->
 
 -ifdef(DEBUG).
 debug_join_check(Maps, MapOut, Out) ->
-  #map{dict = Dict, subst = Subst} = Out,
-  #map{dict = Dict2, subst = Subst2} = join_maps(Maps, MapOut),
-  F = fun(D) -> lists:keysort(1, dict:to_list(D)) end,
+  #map{map = Map, subst = Subst} = Out,
+  #map{map = Map2, subst = Subst2} = join_maps(Maps, MapOut),
+  F = fun(D) -> lists:keysort(1, maps:to_list(D)) end,
   [throw({bug, join_maps}) ||
-    F(Dict) =/= F(Dict2) orelse F(Subst) =/= F(Subst2)].
+    F(Map) =/= F(Map2) orelse F(Subst) =/= F(Subst2)].
 -else.
 debug_join_check(_Maps, _MapOut, _Out) -> ok.
 -endif.
@@ -2768,15 +2767,15 @@ enter_type(Key, Val, MS) ->
 	      enter_type_lists(Keys, t_to_tlist(Val), MS)
 	  end;
 	false ->
-          #map{dict = Dict, subst = Subst} = MS,
+          #map{map = Map, subst = Subst} = MS,
 	  KeyLabel = get_label(Key),
-	  case dict:find(KeyLabel, Subst) of
+	  case maps:find(KeyLabel, Subst) of
 	    {ok, NewKey} ->
 	      ?debug("Binding ~p to ~p\n", [KeyLabel, NewKey]),
 	      enter_type(NewKey, Val, MS);
 	    error ->
 	      ?debug("Entering ~p :: ~s\n", [KeyLabel, t_to_string(Val)]),
-	      case dict:find(KeyLabel, Dict) of
+	      case maps:find(KeyLabel, Map) of
 		{ok, Value} ->
                   case erl_types:t_is_equal(Val, Value) of
                     true -> MS;
@@ -2788,10 +2787,10 @@ enter_type(Key, Val, MS) ->
       end
   end.
 
-store_map(Key, Val, #map{dict = Dict, ref = undefined} = Map) ->
-  Map#map{dict = dict:store(Key, Val, Dict)};
-store_map(Key, Val, #map{dict = Dict, modified = Mod} = Map) ->
-  Map#map{dict = dict:store(Key, Val, Dict), modified = [Key | Mod]}.
+store_map(Key, Val, #map{map = Map, ref = undefined} = MapRec) ->
+  MapRec#map{map = maps:put(Key, Val, Map)};
+store_map(Key, Val, #map{map = Map, modified = Mod} = MapRec) ->
+  MapRec#map{map = maps:put(Key, Val, Map), modified = [Key | Mod]}.
 
 enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
   KeyLabel = get_label(Key),
@@ -2804,7 +2803,7 @@ enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
 	false -> MS;
 	true ->
 	  ValLabel = get_label(Val),
-	  case dict:find(ValLabel, Subst) of
+	  case maps:find(ValLabel, Subst) of
 	    {ok, NewVal} ->
 	      enter_subst(Key, NewVal, MS);
 	    error ->
@@ -2818,22 +2817,22 @@ enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
   end.
 
 store_subst(Key, Val, #map{subst = S, ref = undefined} = Map) ->
-  Map#map{subst = dict:store(Key, Val, S)};
+  Map#map{subst = maps:put(Key, Val, S)};
 store_subst(Key, Val, #map{subst = S, modified = Mod} = Map) ->
-  Map#map{subst = dict:store(Key, Val, S), modified = [Key | Mod]}.
+  Map#map{subst = maps:put(Key, Val, S), modified = [Key | Mod]}.
 
-lookup_type(Key, #map{dict = Dict, subst = Subst}) ->
-  lookup(Key, Dict, Subst, t_none()).
+lookup_type(Key, #map{map = Map, subst = Subst}) ->
+  lookup(Key, Map, Subst, t_none()).
 
-lookup(Key, Dict, Subst, AnyNone) ->
+lookup(Key, Map, Subst, AnyNone) ->
   case cerl:is_literal(Key) of
     true -> literal_type(Key);
     false ->
       Label = get_label(Key),
-      case dict:find(Label, Subst) of
-	{ok, NewKey} -> lookup(NewKey, Dict, Subst, AnyNone);
+      case maps:find(Label, Subst) of
+	{ok, NewKey} -> lookup(NewKey, Map, Subst, AnyNone);
 	error ->
-	  case dict:find(Label, Dict) of
+	  case maps:find(Label, Map) of
 	    {ok, Val} -> Val;
 	    error -> AnyNone
 	  end
@@ -2871,12 +2870,12 @@ mark_as_fresh([], Map) ->
   Map.
 
 -ifdef(DEBUG).
-debug_pp_map(#map{dict = Dict}=Map) ->
-  Keys = dict:fetch_keys(Dict),
+debug_pp_map(#map{map = Map}=MapRec) ->
+  Keys = maps:keys(Map),
   io:format("Map:\n", []),
   lists:foreach(fun (Key) ->
 		    io:format("\t~w :: ~s\n",
-			      [Key, t_to_string(lookup_type(Key, Map))])
+			      [Key, t_to_string(lookup_type(Key, MapRec))])
 		end, Keys),
   ok.
 -else.

@@ -210,10 +210,10 @@ check_contract(Contract, SuccType) ->
 
 check_contract(#contract{contracts = Contracts}, SuccType, Opaques) ->
   try
-    Contracts1 = [{Contract, insert_constraints(Constraints, dict:new())}
+    Contracts1 = [{Contract, insert_constraints(Constraints)}
 		  || {Contract, Constraints} <- Contracts],
-    Contracts2 = [erl_types:t_subst(Contract, Dict)
-		  || {Contract, Dict} <- Contracts1],
+    Contracts2 = [erl_types:t_subst(Contract, Map)
+		  || {Contract, Map} <- Contracts1],
     GenDomains = [erl_types:t_fun_args(C) || C <- Contracts2],
     case check_domains(GenDomains) of
       error ->
@@ -344,15 +344,15 @@ process_contract({Contract, Constraints}, CallTypes0) ->
 	 [erl_types:t_to_string(ContArgsFun),
 	  erl_types:t_to_string(CallTypesFun)]),
   case solve_constraints(ContArgsFun, CallTypesFun, Constraints) of
-    {ok, VarDict} ->
-      {ok, erl_types:t_subst(erl_types:t_fun_range(Contract), VarDict)};
+    {ok, VarMap} ->
+      {ok, erl_types:t_subst(erl_types:t_fun_range(Contract), VarMap)};
     error -> error
   end.
 
 solve_constraints(Contract, Call, Constraints) ->
   %% First make sure the call follows the constraints
-  CDict = insert_constraints(Constraints, dict:new()),
-  Contract1 = erl_types:t_subst(Contract, CDict),
+  CMap = insert_constraints(Constraints),
+  Contract1 = erl_types:t_subst(Contract, CMap),
   %% Just a safe over-approximation.
   %% TODO: Find the types for type variables properly
   ContrArgs = erl_types:t_fun_args(Contract1),
@@ -360,7 +360,7 @@ solve_constraints(Contract, Call, Constraints) ->
   InfList = erl_types:t_inf_lists(ContrArgs, CallArgs),
   case erl_types:any_none_or_unit(InfList) of
     true -> error;
-    false -> {ok, CDict}
+    false -> {ok, CMap}
   end.
   %%Inf = erl_types:t_inf(Contract1, Call),
   %% Then unify with the constrained call type.
@@ -390,23 +390,26 @@ warn_spec_missing_fun({M, F, A} = MFA, Contracts) ->
   {?WARN_CONTRACT_SYNTAX, WarningInfo, {spec_missing_fun, [M, F, A]}}.
 
 %% This treats the "when" constraints. It will be extended, we hope.
-insert_constraints([{subtype, Type1, Type2}|Left], Dict) ->
+insert_constraints(Constraints) ->
+  insert_constraints(Constraints, maps:new()).
+
+insert_constraints([{subtype, Type1, Type2}|Left], Map) ->
   case erl_types:t_is_var(Type1) of
     true ->
       Name = erl_types:t_var_name(Type1),
-      Dict1 = case dict:find(Name, Dict) of
-		error ->
-		  dict:store(Name, Type2, Dict);
-		{ok, VarType} ->
-		  dict:store(Name, erl_types:t_inf(VarType, Type2), Dict)
-	      end,
-      insert_constraints(Left, Dict1);
+      Map1 = case maps:find(Name, Map) of
+               error ->
+                 maps:put(Name, Type2, Map);
+               {ok, VarType} ->
+                 maps:put(Name, erl_types:t_inf(VarType, Type2), Map)
+             end,
+      insert_constraints(Left, Map1);
     false ->
       %% A lot of things should change to add supertypes
       throw({error, io_lib:format("First argument of is_subtype constraint "
 				  "must be a type variable: ~p\n", [Type1])})
   end;
-insert_constraints([], Dict) -> Dict.
+insert_constraints([], Map) -> Map.
 
 -type types() :: erl_types:type_table().
 
@@ -476,7 +479,7 @@ initialize_constraints([], _MFA, _RecDict, _ExpTypes, _AllRecords, Acc) ->
 initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, AllRecords, Acc) ->
   case Constr of
     {type, _, constraint, [{atom, _, is_subtype}, [Type1, Type2]]} ->
-      T1 = final_form(Type1, ExpTypes, MFA, AllRecords, dict:new()),
+      T1 = final_form(Type1, ExpTypes, MFA, AllRecords, maps:new()),
       Entry = {T1, Type2},
       initialize_constraints(Rest, MFA, RecDict, ExpTypes, AllRecords, [Entry|Acc]);
     {type, _, constraint, [{atom,_,Name}, List]} ->
@@ -487,7 +490,7 @@ initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, AllRecords, Acc) -
 
 constraints_fixpoint(Constrs, MFA, RecDict, ExpTypes, AllRecords) ->
   VarDict =
-    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, dict:new()),
+    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, maps:new()),
   constraints_fixpoint(VarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords).
 
 constraints_fixpoint(OldVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords) ->
@@ -499,7 +502,7 @@ constraints_fixpoint(OldVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords) ->
 	fun(Key, Value, Acc) ->
 	    [{subtype, erl_types:t_var(Key), Value}|Acc]
 	end,
-      FinalConstrs = dict:fold(DictFold, [], NewVarDict),
+      FinalConstrs = maps:fold(DictFold, [], NewVarDict),
       {FinalConstrs, NewVarDict};
     _Other ->
       constraints_fixpoint(NewVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords)
@@ -509,7 +512,7 @@ final_form(Form, ExpTypes, MFA, AllRecords, VarDict) ->
   from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarDict).
 
 from_form_with_check(Form, ExpTypes, MFA, AllRecords) ->
-  from_form_with_check(Form, ExpTypes, MFA, AllRecords, dict:new()).
+  from_form_with_check(Form, ExpTypes, MFA, AllRecords, maps:new()).
 
 from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarDict) ->
   Site = {spec, MFA},
@@ -520,7 +523,7 @@ from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarDict) ->
 constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, VarDict) ->
   Subtypes =
     constraints_to_subs(Constrs, MFA, RecDict, ExpTypes, AllRecords, VarDict, []),
-  insert_constraints(Subtypes, dict:new()).
+  insert_constraints(Subtypes).
 
 constraints_to_subs([], _MFA, _RecDict, _ExpTypes, _AllRecords, _VarDict, Acc) ->
   Acc;
@@ -605,8 +608,8 @@ general_domain(List) ->
   general_domain(List, erl_types:t_none()).
 
 general_domain([{Sig, Constraints}|Left], AccSig) ->
-  Dict = insert_constraints(Constraints, dict:new()),
-  Sig1 = erl_types:t_subst(Sig, Dict),
+  Map = insert_constraints(Constraints),
+  Sig1 = erl_types:t_subst(Sig, Map),
   general_domain(Left, erl_types:t_sup(AccSig, Sig1));
 general_domain([], AccSig) ->
   %% Get rid of all variables in the domain.
