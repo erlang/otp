@@ -840,7 +840,7 @@ handle_call({shutdown, How0}, From, _,
 	    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
 	    {BinMsg, _} =
 		ssl_alert:encode(Alert, Version, ConnectionStates),
-	    Transport:send(Socket, BinMsg);
+	    Transport:send(Socket, iolist_to_binary(BinMsg));
 	_ ->
 	    ok
     end,
@@ -1031,7 +1031,7 @@ terminate(Reason, connection, #state{negotiated_version = Version,
 				    } = State) ->
     handle_trusted_certs_db(State),
     {BinAlert, ConnectionStates} = terminate_alert(Reason, Version, ConnectionStates0),
-    Transport:send(Socket, BinAlert),
+    Transport:send(Socket, iolist_to_binary(BinAlert)),
     Connection:close(Reason, Socket, Transport, ConnectionStates, Check);
 
 terminate(Reason, _StateName, #state{transport_cb = Transport, protocol_cb = Connection,

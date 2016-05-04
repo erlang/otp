@@ -343,6 +343,9 @@ handle_accept(IpKey = {Address, Port}, Packet,
 handle_accept(_IpKey, _Packet, State) ->
     State.
 
+send(Socket, Address, Port, Data)
+  when is_binary(Data) ->
+    gen_udp:send(Socket, Address, Port, Data);
 send(_Socket, _Address, _Port, []) ->
     ok;
 send(Socket, Address, Port, [H|T]) ->
