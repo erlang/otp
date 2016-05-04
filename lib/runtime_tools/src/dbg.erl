@@ -226,7 +226,7 @@ do_ctp({_Module, _Function, _Arity}=MFA,Flags) ->
 ctpe(Event) when Event =:= send;
 		 Event =:= 'receive' ->
     Nodes = req(get_nodes),
-    {ok,do_tp_on_nodes(Nodes,Event,false,[])}.
+    {ok,do_tp_on_nodes(Nodes,Event,true,[])}.
 
 %%
 %% ltp() -> ok
