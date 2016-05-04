@@ -52,12 +52,8 @@
 	]).
 
 %% Data handling
--export([%%write_application_data/3, 
-	 read_application_data/2,
-	 %%passive_receive/2,
-	 next_record_if_active/1,
-	 handle_common_event/4
-	]).
+-export([write_application_data/3, read_application_data/2,
+	 passive_receive/2,  next_record_if_active/1, handle_common_event/4]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -628,8 +624,139 @@ next_event(StateName, Record, State, Actions) ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
 
-read_application_data(_,State) ->
-    {#ssl_tls{fragment = <<"place holder">>}, State}.
+read_application_data(Data, #state{user_application = {_Mon, Pid},
+				   socket = Socket,
+				   transport_cb = Transport,
+				   socket_options = SOpts,
+				   bytes_to_read = BytesToRead,
+				   start_or_recv_from = RecvFrom,
+				   timer = Timer,
+				   user_data_buffer = Buffer0,
+				   tracker = Tracker} = State0) ->
+    Buffer1 = if
+		  Buffer0 =:= <<>> -> Data;
+		  Data =:= <<>> -> Buffer0;
+		  true -> <<Buffer0/binary, Data/binary>>
+	      end,
+    case get_data(SOpts, BytesToRead, Buffer1) of
+	{ok, ClientData, Buffer} -> % Send data
+	    SocketOpt = deliver_app_data(Transport, Socket, SOpts, ClientData, Pid, RecvFrom, Tracker),
+	    cancel_timer(Timer),
+	    State = State0#state{user_data_buffer = Buffer,
+				 start_or_recv_from = undefined,
+				 timer = undefined,
+				 bytes_to_read = undefined,
+				 socket_options = SocketOpt
+				},
+	    if
+		SocketOpt#socket_options.active =:= false; Buffer =:= <<>> ->
+		    %% Passive mode, wait for active once or recv
+		    %% Active and empty, get more data
+		    next_record_if_active(State);
+		true -> %% We have more data
+		    read_application_data(<<>>, State)
+	    end;
+	{more, Buffer} -> % no reply, we need more data
+	    next_record(State0#state{user_data_buffer = Buffer});
+	{passive, Buffer} ->
+	    next_record_if_active(State0#state{user_data_buffer = Buffer});
+	{error,_Reason} -> %% Invalid packet in packet mode
+	    deliver_packet_error(Transport, Socket, SOpts, Buffer1, Pid, RecvFrom, Tracker),
+	    {stop, normal, State0}
+    end.
+
+%% Picks ClientData
+get_data(_, _, <<>>) ->
+    {more, <<>>};
+%% Recv timed out save buffer data until next recv
+get_data(#socket_options{active=false}, undefined, Buffer) ->
+    {passive, Buffer};
+get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer)
+  when Raw =:= raw; Raw =:= 0 ->   %% Raw Mode
+    if
+	Active =/= false orelse BytesToRead =:= 0  ->
+	    %% Active true or once, or passive mode recv(0)
+	    {ok, Buffer, <<>>};
+	byte_size(Buffer) >= BytesToRead ->
+	    %% Passive Mode, recv(Bytes)
+	    <<Data:BytesToRead/binary, Rest/binary>> = Buffer,
+	    {ok, Data, Rest};
+	true ->
+	    %% Passive Mode not enough data
+	    {more, Buffer}
+    end;
+get_data(#socket_options{packet=Type, packet_size=Size}, _, Buffer) ->
+    PacketOpts = [{packet_size, Size}],
+    case decode_packet(Type, Buffer, PacketOpts) of
+	{more, _} ->
+	    {more, Buffer};
+	Decoded ->
+	    Decoded
+    end.
+
+decode_packet(Type, Buffer, PacketOpts) ->
+    erlang:decode_packet(Type, Buffer, PacketOpts).
+
+deliver_app_data(Transport, Socket, SOpts = #socket_options{active=Active},
+		 Data, Pid, From, Tracker) ->
+    send_or_reply(Active, Pid, From, format_reply(Transport, Socket, SOpts, Data, Tracker)),
+    case Active of
+	once ->
+	    SOpts#socket_options{active=false};
+	_ ->
+	    SOpts
+    end.
+
+format_reply(_, _,#socket_options{active = false, mode = Mode, packet = Packet,
+				  header = Header}, Data, _) ->
+    {ok, do_format_reply(Mode, Packet, Header, Data)};
+format_reply(Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
+						header = Header}, Data, Tracker) ->
+    {ssl, ssl_socket:socket(self(), Transport, Socket, ?MODULE, Tracker),
+     do_format_reply(Mode, Packet, Header, Data)}.
+
+deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Data, Pid, From, Tracker) ->
+    send_or_reply(Active, Pid, From, format_packet_error(Transport, Socket, SO, Data, Tracker)).
+
+format_packet_error(_, _,#socket_options{active = false, mode = Mode}, Data, _) ->
+    {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
+format_packet_error(Transport, Socket, #socket_options{active = _, mode = Mode}, Data, Tracker) ->
+    {ssl_error, ssl_socket:socket(self(), Transport, Socket, ?MODULE, Tracker),
+     {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
+
+do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
+    header(N, Data);
+do_format_reply(binary, _, _, Data) ->
+    Data;
+do_format_reply(list, Packet, _, Data)
+  when Packet == http; Packet == {http, headers};
+       Packet == http_bin; Packet == {http_bin, headers};
+       Packet == httph; Packet == httph_bin ->
+    Data;
+do_format_reply(list, _,_, Data) ->
+    binary_to_list(Data).
+
+header(0, <<>>) ->
+    <<>>;
+header(_, <<>>) ->
+    [];
+header(0, Binary) ->
+    Binary;
+header(N, Binary) ->
+    <<?BYTE(ByteN), NewBinary/binary>> = Binary,
+    [ByteN | header(N-1, NewBinary)].
+
+send_or_reply(false, _Pid, From, Data) when From =/= undefined ->
+    gen_statem:reply(From, Data);
+%% Can happen when handling own alert or udp error/close and there is
+%% no outstanding gen_fsm sync events
+send_or_reply(false, no_pid, _, _) ->
+    ok;
+send_or_reply(_, Pid, _From, Data) ->
+    send_user(Pid, Data).
+
+send_user(Pid, Msg) ->
+    Pid ! Msg.
 
 dtls_handshake_events(Handle, StateName,
 		     #state{protocol_buffers =
@@ -649,6 +776,41 @@ dtls_handshake_events(Handle, StateName,
 
 dtls_handshake_events(_Handle, _, #state{}, _) ->
      throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
+
+write_application_data(Data0, From,
+		       #state{socket = Socket,
+			      negotiated_version = Version,
+			      transport_cb = Transport,
+			      connection_states = ConnectionStates0,
+			      socket_options = SockOpts,
+			      ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}} = State) ->
+    Data = encode_packet(Data0, SockOpts),
+
+    case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
+	true ->
+	    renegotiate(State#state{renegotiation = {true, internal}},
+			[{next_event, {call, From}, {application_data, Data0}}]);
+	false ->
+	    {Msgs, ConnectionStates} = ssl_record:encode_data(Data, Version, ConnectionStates0),
+	    Result = Transport:send(Socket, Msgs),
+		ssl_connection:hibernate_after(connection, State#state{connection_states = ConnectionStates},
+					       [{reply, From, Result}])
+    end.
+
+encode_packet(Data, #socket_options{packet=Packet}) ->
+    case Packet of
+	1 -> encode_size_packet(Data, 8,  (1 bsl 8) - 1);
+	2 -> encode_size_packet(Data, 16, (1 bsl 16) - 1);
+	4 -> encode_size_packet(Data, 32, (1 bsl 32) - 1);
+	_ -> Data
+    end.
+
+encode_size_packet(Bin, Size, Max) ->
+    Len = erlang:byte_size(Bin),
+    case Len > Max of
+	true  -> throw({error, {badarg, {packet_to_large, Len, Max}}});
+	false -> <<Len:Size, Bin/binary>>
+    end.
 
 handle_own_alert(_,_,_, State) -> %% Place holder
     {stop, {shutdown, own_alert}, State}.
