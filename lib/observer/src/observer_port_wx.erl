@@ -220,7 +220,7 @@ handle_event(#wx{id=?ID_TRACE_NAMES}, #state{grid=Grid, ports=Ports}=State)  ->
 	Selected ->
 	    IdsOrRegs =
 		[case Port#port.name of
-		     undefined -> Port#port.id;
+		     [] -> Port#port.id;
 		     Name -> Name
 		 end || Port <- Selected],
 	    observer_trace_wx:add_ports(IdsOrRegs)

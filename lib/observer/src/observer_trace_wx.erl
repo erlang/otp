@@ -54,6 +54,7 @@
 -define(REMOVE_PORTS, 352).
 
 -define(MODULES_WIN, 360).
+-define(REMOVE_MOD_MS, 361).
 
 -define(FUNCS_WIN, 370).
 -define(EDIT_FUNCS_MS, 371).
@@ -62,6 +63,13 @@
 -define(LOG_WIN, 380).
 -define(LOG_SAVE, 381).
 -define(LOG_CLEAR, 382).
+
+-define(NO_NODES_HELP,"Right click to add nodes").
+-define(NODES_HELP,"Select nodes to see traced processes and ports").
+-define(NO_P_HELP,"Add items from Processes/Ports tab").
+-define(P_HELP,"Select nodes to see traced processes and ports").
+-define(NO_TP_HELP,"Add trace pattern with button below").
+-define(TP_HELP,"Select module to see trace patterns").
 
 -record(state,
 	{parent,
@@ -203,6 +211,10 @@ create_proc_port_view(Parent) ->
     wxListCtrl:connect(Ports, size, [{skip, true}]),
     wxListCtrl:connect(Nodes, size, [{skip, true}]),
 
+    wxListCtrl:setToolTip(Nodes, ?NO_NODES_HELP),
+    wxListCtrl:setToolTip(Procs, ?NO_P_HELP),
+    wxListCtrl:setToolTip(Ports, ?NO_P_HELP),
+
     wxPanel:setSizer(Panel, MainSz),
     wxWindow:setFocus(Procs),
     {Panel, Nodes, Procs, Ports}.
@@ -212,7 +224,8 @@ create_matchspec_view(Parent) ->
     MainSz = wxBoxSizer:new(?wxHORIZONTAL),
     Style = ?wxLC_REPORT bor ?wxLC_HRULES,
     Splitter = wxSplitterWindow:new(Panel, [{style, ?SASH_STYLE}]),
-    Modules = wxListCtrl:new(Splitter, [{winid, ?MODULES_WIN}, {style, Style}]),
+    Modules = wxListCtrl:new(Splitter, [{winid, ?MODULES_WIN},
+					{style, Style  bor ?wxLC_SINGLE_SEL}]),
     Funcs   = wxListCtrl:new(Splitter, [{winid, ?FUNCS_WIN}, {style, Style}]),
     Li = wxListItem:new(),
 
@@ -234,7 +247,9 @@ create_matchspec_view(Parent) ->
     wxListCtrl:connect(Modules, size, [{skip, true}]),
     wxListCtrl:connect(Funcs,   size, [{skip, true}]),
     wxListCtrl:connect(Modules, command_list_item_selected),
+    wxListCtrl:connect(Modules, command_list_item_right_click),
     wxListCtrl:connect(Funcs, command_list_item_right_click),
+    wxListCtrl:setToolTip(Panel, ?NO_TP_HELP),
     wxPanel:setSizer(Panel, MainSz),
     {Panel, Modules, Funcs}.
 
@@ -297,12 +312,12 @@ handle_event(#wx{id=?MODULES_WIN, event=#wxList{type=command_list_item_selected,
     {noreply, State};
 
 handle_event(#wx{id=?NODES_WIN,
-		 event=#wxList{type=command_list_item_selected, itemIndex=Row}},
+		 event=#wxList{type=command_list_item_selected}},
 	     State = #state{tpids=Tpids, tports=Tports, n_view=Nview,
-			    proc_view=ProcView, port_view=PortView}) ->
-    Node = list_to_atom(wxListCtrl:getItemText(Nview, Row)),
-    update_p_view(Tpids, ProcView, Node),
-    update_p_view(Tports, PortView, Node),
+			    proc_view=ProcView, port_view=PortView, nodes=Ns}) ->
+    Nodes = get_selected_items(Nview, Ns),
+    update_p_view(Tpids, ProcView, Nodes),
+    update_p_view(Tports, PortView, Nodes),
     {noreply, State};
 
 handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, commandInt = 1}},
@@ -407,26 +422,86 @@ handle_event(#wx{id = ?LOAD_TRACEOPTS}, #state{panel = Panel} = State) ->
     wxDialog:destroy(Dialog),
     {noreply, State2};
 
-handle_event(#wx{id=Type, event=#wxList{type=command_list_item_right_click}},
-	     State = #state{panel=Panel}) ->
-    Menus = case Type of
-		?PROC_WIN ->
-		    [{?EDIT_PROCS, "Edit process options"},
-		     {?REMOVE_PROCS, "Remove processes"}];
-		?PORT_WIN ->
-		    [{?EDIT_PORTS, "Edit port options"},
-		     {?REMOVE_PORTS, "Remove ports"}];
-		?FUNCS_WIN ->
-		    [{?EDIT_FUNCS_MS, "Edit matchspecs"},
-		     {?REMOVE_FUNCS_MS, "Remove trace patterns"}];
-		?NODES_WIN ->
-		    [{?ADD_NODES, "Trace other nodes"},
-		     {?REMOVE_NODES, "Remove nodes"}]
-	    end,
-    Menu = wxMenu:new(),
-    [wxMenu:append(Menu,Id,Str) || {Id,Str} <- Menus],
-    wxWindow:popupMenu(Panel, Menu),
-    wxMenu:destroy(Menu),
+handle_event(#wx{id=?PROC_WIN, event=#wxList{type=command_list_item_right_click}},
+	     State = #state{panel=Panel, proc_view=LCtrl, tpids=Tpids,
+			    n_view=Nview, nodes=Nodes}) ->
+    case get_visible_ps(Tpids, Nodes, Nview) of
+	[] ->
+	    ok;
+	Visible ->
+	    case get_selected_items(LCtrl, Visible) of
+		[] ->
+		    ok;
+		_ ->
+		    create_right_click_menu(
+		      Panel,
+		      [{?EDIT_PROCS, "Edit process options"},
+		       {?REMOVE_PROCS, "Remove processes"}])
+	    end
+    end,
+    {noreply, State};
+
+handle_event(#wx{id=?PORT_WIN, event=#wxList{type=command_list_item_right_click}},
+	     State = #state{panel=Panel, port_view=LCtrl, tports=Tports,
+			    n_view=Nview, nodes=Nodes}) ->
+    case get_visible_ps(Tports, Nodes, Nview) of
+	[] ->
+	    ok;
+	Visible ->
+	    case get_selected_items(LCtrl, Visible) of
+		[] ->
+		    ok;
+		_ ->
+		    create_right_click_menu(
+		      Panel,
+		      [{?EDIT_PORTS, "Edit port options"},
+		       {?REMOVE_PORTS, "Remove ports"}])
+	    end
+    end,
+    {noreply, State};
+
+handle_event(#wx{id=?MODULES_WIN,event=#wxList{type=command_list_item_right_click}},
+	     State = #state{panel=Panel, m_view=Mview, tpatterns=TPs}) ->
+    case get_selected_items(Mview, lists:sort(dict:fetch_keys(TPs))) of
+	[] ->
+	    ok;
+	_ ->
+	    create_right_click_menu(
+	      Panel,
+	      [{?REMOVE_MOD_MS, "Remove trace patterns"}])
+    end,
+    {noreply,State};
+
+handle_event(#wx{id=?FUNCS_WIN,event=#wxList{type=command_list_item_right_click}},
+	     State = #state{panel=Panel, m_view=Mview, f_view=Fview,
+			    tpatterns=TPs}) ->
+    case get_selected_items(Mview, lists:sort(dict:fetch_keys(TPs))) of
+	[] ->
+	    ok;
+	[Module] ->
+	    case get_selected_items(Fview, dict:fetch(Module, TPs)) of
+		[] ->
+		    ok;
+		_ ->
+		    create_right_click_menu(
+		      Panel,
+		      [{?EDIT_FUNCS_MS, "Edit matchspecs"},
+		       {?REMOVE_FUNCS_MS, "Remove trace patterns"}])
+	    end
+    end,
+    {noreply,State};
+
+handle_event(#wx{id=?NODES_WIN,event=#wxList{type=command_list_item_right_click}},
+	     State = #state{panel=Panel, n_view=Nview, nodes=Nodes}) ->
+    Menu =
+	case get_selected_items(Nview, Nodes) of
+	    [] ->
+		[{?ADD_NODES, "Add nodes"}];
+	    _ ->
+		[{?ADD_NODES, "Add nodes"},
+		 {?REMOVE_NODES, "Remove nodes"}]
+	end,
+    create_right_click_menu(Panel,Menu),
     {noreply, State};
 
 handle_event(#wx{id=?EDIT_PROCS}, #state{panel=Panel, tpids=Tpids, proc_view=Procs} = State) ->
@@ -439,10 +514,12 @@ handle_event(#wx{id=?EDIT_PROCS}, #state{panel=Panel, tpids=Tpids, proc_view=Pro
 	    {noreply, State}
     end;
 
-handle_event(#wx{id=?REMOVE_PROCS}, #state{tpids=Tpids, proc_view=LCtrl} = State) ->
+handle_event(#wx{id=?REMOVE_PROCS},
+	     #state{tpids=Tpids, proc_view=LCtrl,
+		    n_view=Nview, nodes=Nodes} = State) ->
     Selected = get_selected_items(LCtrl, Tpids),
     Pids = Tpids -- Selected,
-    update_p_view(Pids, LCtrl),
+    update_p_view(Pids, LCtrl, Nodes, Nview),
     {noreply, State#state{tpids=Pids}};
 
 handle_event(#wx{id=?EDIT_PORTS}, #state{panel=Panel, tports=Tports, port_view=Ports} = State) ->
@@ -455,10 +532,12 @@ handle_event(#wx{id=?EDIT_PORTS}, #state{panel=Panel, tports=Tports, port_view=P
 	    {noreply, State}
     end;
 
-handle_event(#wx{id=?REMOVE_PORTS}, #state{tports=Tports, port_view=LCtrl} = State) ->
+handle_event(#wx{id=?REMOVE_PORTS},
+	     #state{tports=Tports, port_view=LCtrl,
+		    n_view=Nview, nodes=Nodes} = State) ->
     Selected = get_selected_items(LCtrl, Tports),
     Ports = Tports -- Selected,
-    update_p_view(Ports, LCtrl),
+    update_p_view(Ports, LCtrl, Nodes, Nview),
     {noreply, State#state{tports=Ports}};
 
 handle_event(#wx{id=?DEF_PROC_OPTS}, #state{panel=Panel, def_proc_flags=PO} = State) ->
@@ -553,6 +632,16 @@ handle_event(#wx{id=?REMOVE_FUNCS_MS}, #state{tpatterns=TPs0, f_view=LCtrl, m_vi
 		      _ ->
 			  dict:store(Module, FMs, TPs0)
 		  end,
+	    {noreply, State#state{tpatterns=TPs}}
+    end;
+
+handle_event(#wx{id=?REMOVE_MOD_MS}, #state{tpatterns=TPs0, f_view=LCtrl, m_view=Mview} = State) ->
+    case get_selected_items(Mview, lists:sort(dict:fetch_keys(TPs0))) of
+	[] -> {noreply, State};
+	[Module] ->
+	    update_functions_view([], LCtrl),
+	    TPs = dict:erase(Module, TPs0),
+	    update_modules_view(lists:sort(dict:fetch_keys(TPs)), Module, Mview),
 	    {noreply, State#state{tpatterns=TPs}}
     end;
 
@@ -675,26 +764,33 @@ do_add_pid_or_port(POpts, Nview, LCtrl, OldPs, Ns0, Check) ->
 	{OldPs, [], []} ->
 	    {OldPs,Ns0};
 	{Ps, New, _Changed} ->
-	    update_p_view(Ps, LCtrl),
 	    Ns1 = lists:usort([node(Id) || #titem{id=Id} <- New, Check(Id)]),
 	    Nodes = case ordsets:subtract(Ns1, Ns0) of
 			[] -> Ns0; %% No new Nodes
-			NewNs ->
-			    %% if dynamicly updates add trace patterns for new nodes
-			    All = ordsets:union(NewNs, Ns0),
-			    update_nodes_view(All, Nview),
-			    All
+			NewNs -> ordsets:union(NewNs, Ns0)
 		    end,
+	    update_nodes_view(Nodes, Nview),
+	    update_p_view(Ps, LCtrl, Nodes, Nview),
 	    {Ps, Nodes}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-update_p_view(PidsOrPorts0, LCtrl, Node) ->
-    %% Show processes/ports belonging to the given node,
-    %% and processes/ports traced by name
-    PidsOrPorts = [P || P <- PidsOrPorts0,
-			is_atom(P#titem.id) orelse node(P#titem.id)==Node],
-    update_p_view(PidsOrPorts,LCtrl).
+get_visible_ps(PidsOrPorts, [Node], _Nview) ->
+    %% If only one node, treat this as selected
+    get_visible_ps(PidsOrPorts, [Node]);
+get_visible_ps(PidsOrPorts, Nodes, Nview) ->
+    get_visible_ps(PidsOrPorts, get_selected_items(Nview, Nodes)).
+
+get_visible_ps(PidsOrPorts, Nodes) ->
+    %% Show pids/ports belonging to the selected nodes only (+ named pids/ports)
+    [P || P <- PidsOrPorts,
+	  is_atom(P#titem.id) orelse
+	      lists:member(node(P#titem.id),Nodes)].
+
+update_p_view(PidsOrPorts, LCtrl, Nodes, Nview) ->
+    update_p_view(get_visible_ps(PidsOrPorts, Nodes, Nview), LCtrl).
+update_p_view(PidsOrPorts, LCtrl, Nodes) ->
+    update_p_view(get_visible_ps(PidsOrPorts, Nodes), LCtrl).
 
 update_p_view(PidsOrPorts, LCtrl) ->
     %% pid- or port-view
@@ -706,17 +802,37 @@ update_p_view(PidsOrPorts, LCtrl) ->
 		     wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str(Id)),
 		     wxListCtrl:setItem(LCtrl, Row, 1, observer_lib:to_str(Opts)),
 		     Row+1
-	     end, 0, PidsOrPorts).
+	     end, 0, PidsOrPorts),
+    case PidsOrPorts of
+	[] ->
+	    wxListCtrl:setToolTip(LCtrl,?NO_P_HELP);
+	_ ->
+	    wxListCtrl:setToolTip(LCtrl,?P_HELP)
+    end.
 
 update_nodes_view(Nodes, LCtrl) ->
+    Selected =
+	case Nodes of
+	    [_] -> Nodes;
+	    _ -> get_selected_items(LCtrl, Nodes)
+	end,
     wxListCtrl:deleteAllItems(LCtrl),
     wx:foldl(fun(Node, Row) ->
 		     _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
 		     ?EVEN(Row) andalso
 			 wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
 		     wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str(Node)),
+		     lists:member(Node,Selected) andalso % keep selection
+			 wxListCtrl:setItemState(LCtrl, Row, 16#FFFF,
+						 ?wxLIST_STATE_SELECTED),
 		     Row+1
-	     end, 0, Nodes).
+	     end, 0, Nodes),
+    case Nodes of
+	[] ->
+	    wxListCtrl:setToolTip(LCtrl,?NO_NODES_HELP);
+	_ ->
+	    wxListCtrl:setToolTip(LCtrl,?NODES_HELP)
+    end.
 
 update_modules_view(Mods, Module, LCtrl) ->
     wxListCtrl:deleteAllItems(LCtrl),
@@ -728,7 +844,14 @@ update_modules_view(Mods, Module, LCtrl) ->
 		     (Mod =:= Module) andalso
 			 wxListCtrl:setItemState(LCtrl, Row, 16#FFFF, ?wxLIST_STATE_SELECTED),
 		     Row+1
-	     end, 0, Mods).
+	     end, 0, Mods),
+    Parent = wxListCtrl:getParent(LCtrl),
+    case Mods of
+	[] ->
+	    wxListCtrl:setToolTip(Parent,?NO_TP_HELP);
+	_ ->
+	    wxListCtrl:setToolTip(Parent,?TP_HELP)
+    end.
 
 update_functions_view(Funcs, LCtrl) ->
     wxListCtrl:deleteAllItems(LCtrl),
@@ -1083,3 +1206,9 @@ get_indecies(Rest = [_|_], I, [_|T]) ->
     get_indecies(Rest, I+1, T);
 get_indecies(_, _, _) ->
     [].
+
+create_right_click_menu(Panel,Menus) ->
+    Menu = wxMenu:new(),
+    [wxMenu:append(Menu,Id,Str) || {Id,Str} <- Menus],
+    wxWindow:popupMenu(Panel, Menu),
+    wxMenu:destroy(Menu).
