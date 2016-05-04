@@ -45,9 +45,9 @@
 -export([renegotiate/2, send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
 
 %% Alert and close handling
--export([%%send_alert/2, handle_own_alert/4, handle_close_alert/3,
-	 handle_normal_shutdown/3 %%, close/5
-	 %%alert_user/6, alert_user/9
+-export([send_alert/2, handle_own_alert/4, handle_close_alert/3,
+	 handle_normal_shutdown/3,
+	 close/5, alert_user/6, alert_user/9
 	]).
 
 %% Data handling
@@ -843,8 +843,104 @@ renegotiate(#state{role = server,
 					       protocol_buffers = #protocol_buffers{}}),
     next_event(hello, Record, State, Actions).
 
-handle_own_alert(_,_,_, State) -> %% Place holder
-    {stop, {shutdown, own_alert}, State}.
+handle_alerts([], Result) ->
+    Result;
+handle_alerts(_, {stop,_} = Stop) ->
+    Stop;
+handle_alerts(_, {stop,_,_} = Stop) ->
+    Stop;
+handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
+     handle_alerts(Alerts, handle_alert(Alert, StateName, State));
+handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
+     handle_alerts(Alerts, handle_alert(Alert, StateName, State)).
+
+handle_alert(#alert{level = ?FATAL} = Alert, StateName,
+	     #state{socket = Socket, transport_cb = Transport,
+		    ssl_options = SslOpts, start_or_recv_from = From, host = Host,
+		    port = Port, session = Session, user_application = {_Mon, Pid},
+		    role = Role, socket_options = Opts, tracker = Tracker}) ->
+    invalidate_session(Role, Host, Port, Session),
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
+    alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role),
+    {stop, normal};
+
+handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
+	     StateName, State) ->
+    handle_normal_shutdown(Alert, StateName, State),
+    {stop, {shutdown, peer_close}};
+
+handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName,
+	     #state{ssl_options = SslOpts, renegotiation = {true, internal}} = State) ->
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
+    handle_normal_shutdown(Alert, StateName, State),
+    {stop, {shutdown, peer_close}};
+
+handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName,
+	     #state{ssl_options = SslOpts, renegotiation = {true, From}} = State0) ->
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
+    gen_statem:reply(From, {error, renegotiation_rejected}),
+    {Record, State} = next_record(State0),
+    %% Go back to connection!
+    next_event(connection, Record, State);
+
+%% Gracefully log and ignore all other warning alerts
+handle_alert(#alert{level = ?WARNING} = Alert, StateName,
+	     #state{ssl_options = SslOpts} = State0) ->
+    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
+    {Record, State} = next_record(State0),
+    next_event(StateName, Record, State).
+
+alert_user(Transport, Tracker, Socket, connection, Opts, Pid, From, Alert, Role) ->
+    alert_user(Transport, Tracker, Socket, Opts#socket_options.active, Pid, From, Alert, Role);
+alert_user(Transport, Tracker, Socket,_, _, _, From, Alert, Role) ->
+    alert_user(Transport, Tracker, Socket, From, Alert, Role).
+
+alert_user(Transport, Tracker, Socket, From, Alert, Role) ->
+    alert_user(Transport, Tracker, Socket, false, no_pid, From, Alert, Role).
+
+alert_user(_, _, _, false = Active, Pid, From, Alert, Role) ->
+    %% If there is an outstanding ssl_accept | recv
+    %% From will be defined and send_or_reply will
+    %% send the appropriate error message.
+    ReasonCode = ssl_alert:reason_code(Alert, Role),
+    send_or_reply(Active, Pid, From, {error, ReasonCode});
+alert_user(Transport, Tracker, Socket, Active, Pid, From, Alert, Role) ->
+    case ssl_alert:reason_code(Alert, Role) of
+	closed ->
+	    send_or_reply(Active, Pid, From,
+			  {ssl_closed, ssl_socket:socket(self(),
+							 Transport, Socket, ?MODULE, Tracker)});
+	ReasonCode ->
+	    send_or_reply(Active, Pid, From,
+			  {ssl_error, ssl_socket:socket(self(),
+							Transport, Socket, ?MODULE, Tracker), ReasonCode})
+    end.
+
+log_alert(true, Info, Alert) ->
+    Txt = ssl_alert:alert_txt(Alert),
+    error_logger:format("SSL: ~p: ~s\n", [Info, Txt]);
+log_alert(false, _, _) ->
+    ok.
+
+handle_own_alert(Alert, Version, StateName,
+		 #state{transport_cb = Transport,
+			socket = Socket,
+			connection_states = ConnectionStates,
+			ssl_options = SslOpts} = State) ->
+    try %% Try to tell the other side
+	{BinMsg, _} =
+	ssl_alert:encode(Alert, Version, ConnectionStates),
+	Transport:send(Socket, BinMsg)
+    catch _:_ ->  %% Can crash if we are in a uninitialized state
+	    ignore
+    end,
+    try %% Try to tell the local user
+	log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
+	handle_normal_shutdown(Alert,StateName, State)
+    catch _:_ ->
+	    ok
+    end,
+    {stop, {shutdown, own_alert}}.
 
 handle_normal_shutdown(_, _, _State) -> %% Place holder
     ok.
