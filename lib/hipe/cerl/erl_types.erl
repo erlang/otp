@@ -220,6 +220,7 @@
          is_opaque_type/2,
 	 is_erl_type/1,
 	 atom_to_string/1,
+	 var_table__new/0,
 	 map_pairwise_merge/3
 	]).
 
@@ -236,7 +237,7 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0, opaques/0, type_table/0]).
+-export_type([erl_type/0, opaques/0, type_table/0, var_table/0]).
 
 %%-define(DEBUG, true).
 
@@ -380,7 +381,7 @@
 -type type_table() :: dict:dict(record_key() | type_key(),
                                 record_value() | type_value()).
 
--type var_table() :: #{atom() => erl_type()}.
+-opaque var_table() :: #{atom() => erl_type()}.
 
 %%-----------------------------------------------------------------------------
 %% Unions
@@ -5462,6 +5463,17 @@ family(L) ->
   R = sofs:relation(L),
   F = sofs:relation_to_family(R),
   sofs:to_external(F).
+
+%%=============================================================================
+%%
+%% Interface functions for abstract data types defined in this module
+%%
+%%=============================================================================
+
+-spec var_table__new() -> var_table().
+
+var_table__new() ->
+  maps:new().
 
 %%=============================================================================
 %% Consistency-testing function(s) below
