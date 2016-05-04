@@ -258,8 +258,7 @@ register_node_v2(Addr, Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
                 {ok, [?EPMD_ALIVE2_RESP,_Res=0,_C0,_C1]} ->
                     {ok,Sock};
                 Other ->
-                    test_server:format("recv on sock ~w: ~p~n",
-                                       [Sock,Other]),
+                    io:format("recv on sock ~w: ~p~n", [Sock,Other]),
                     error
             end;
         error ->
@@ -276,8 +275,7 @@ port_please_v2(Name) ->
                 {ok, Resp} ->
                     parse_port2_resp(Resp);
                 Other ->
-                    test_server:format("recv on sock ~w: ~p~n",
-                                       [Sock,Other]),
+                    io:format("recv on sock ~w: ~p~n", [Sock,Other]),
                     error
             end;
         error ->
@@ -294,8 +292,7 @@ parse_port2_resp(Resp) ->
                             node_name=unicode:characters_to_list(NodeName),
                             extra=binary_to_list(Extra)}};
         _Other ->
-            test_server:format("invalid port2 resp: ~p~n",
-                               [Resp]),
+            io:format("invalid port2 resp: ~p~n", [Resp]),
             error
     end.
 
@@ -454,8 +451,7 @@ port_request(M) ->
             ok;
         Other ->
             close(RSock),
-            test_server:format("recv on sock ~w: ~p~n",
-                               [Sock,Other]),
+            io:format("recv on sock ~w: ~p~n", [Sock,Other]),
             throw({error,Other})
     end,
     ok.
@@ -505,8 +501,7 @@ register_overflow(Config) when is_list(Config) ->
     Count = length(Conn),
     ok = unregister_many(Conn),
     sleep(?MEDIUM_PAUSE),
-    test_server:format("Limit was ~w names, now reg/unreg all 10 times~n",
-                       [Count]),
+    io:format("Limit was ~w names, now reg/unreg all 10 times~n", [Count]),
     ok = register_repeat(Count),
     sleep(?MEDIUM_PAUSE),
     ok = rregister_repeat(Count),
@@ -551,7 +546,7 @@ rregister_repeat(Count) ->
 % Return count of successful registrations
 
 register_many(I, N, _Prefix) when I > N ->
-    test_server:format("Done with all ~n", []),
+    io:format("Done with all ~n", []),
     [];
 register_many(I, N, Prefix) ->
     Name = gen_name(Prefix, I),
