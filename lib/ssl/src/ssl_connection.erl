@@ -788,6 +788,8 @@ downgrade(Type, Event, State, Connection) ->
 %%--------------------------------------------------------------------
 handle_common_event(internal, {tls_record, TLSRecord}, StateName, State, Connection) -> 
     Connection:handle_common_event(internal, TLSRecord, StateName, State);
+handle_common_event(internal, {dtls_record, TLSRecord}, StateName, State, Connection) ->
+    Connection:handle_common_event(internal, TLSRecord, StateName, State);
 handle_common_event(internal, #hello_request{}, StateName, #state{role = client} = State0, Connection)
   when StateName =:= connection ->
     {Record, State} = Connection:next_record(State0),
