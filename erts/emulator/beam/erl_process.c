@@ -6688,10 +6688,8 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st)
 	erts_aint32_t e;
 	n = e = a;
 
-	if (a & ERTS_PSFLG_FREE) {
-	    res = 0;
+	if (a & ERTS_PSFLG_FREE)
 	    goto cleanup; /* We don't want to schedule free processes... */
-	}
 
 	enqueue = ERTS_ENQUEUE_NOT;
 	n |= ERTS_PSFLG_ACTIVE_SYS;
