@@ -28,6 +28,8 @@
 #include "erl_mmap.h"
 #include <stddef.h>
 
+#if HAVE_ERTS_MMAP
+
 /* #define ERTS_MMAP_OP_RINGBUF_SZ 100 */
 
 #if defined(DEBUG) || 0
@@ -2513,9 +2515,13 @@ Eterm erts_mmap_info_options(ErtsMemMapper* mm,
     return res;
 }
 
+#endif /* HAVE_ERTS_MMAP */
 
-Eterm erts_mmap_debug_info(ErtsMemMapper* mm, Process* p)
+Eterm erts_mmap_debug_info(Process* p)
 {
+#if HAVE_ERTS_MMAP
+    ErtsMemMapper* mm = &erts_dflt_mmapper;
+
     if (mm->supercarrier) {
         ERTS_DECL_AM(sabot);
         ERTS_DECL_AM(satop);
@@ -2553,9 +2559,8 @@ Eterm erts_mmap_debug_info(ErtsMemMapper* mm, Process* p)
         HRelease(p, hp_end, hp);
         return list;
     }
-    else {
-        return am_undefined;
-    }
+#endif
+    return am_undefined;
 }
 
 

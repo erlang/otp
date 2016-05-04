@@ -2963,10 +2963,11 @@ erts_allocator_options(void *proc)
     atoms[length] = am_atom_put("alloc_util", 10); 
     terms[length++] = erts_alcu_au_info_options(NULL, NULL, hpp, szp);
 
-
+#if HAVE_ERTS_MMAP
     atoms[length] = ERTS_MAKE_AM("erts_mmap");
     terms[length++] = erts_mmap_info_options(&erts_dflt_mmapper, NULL, NULL,
                                              NULL, hpp, szp);
+#endif
     {
 	Eterm o[3], v[3];
 	o[0] = am_atom_put("m", 1);
@@ -3093,12 +3094,14 @@ reply_alloc_info(void *vair)
     Uint sz, *szp;
     ErlOffHeap *ohp = NULL;
     ErtsMessage *mp = NULL;
+#if HAVE_ERTS_MMAP
     struct erts_mmap_info_struct mmap_info_dflt;
-#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+# if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     struct erts_mmap_info_struct mmap_info_literal;
-#endif
-#ifdef ERTS_ALC_A_EXEC
+# endif
+# ifdef ERTS_ALC_A_EXEC
     struct erts_mmap_info_struct mmap_info_exec;
+# endif
 #endif
     int i;
     Eterm (*info_func)(Allctr_t *,
@@ -3207,7 +3210,7 @@ reply_alloc_info(void *vair)
 		    break;
                 case ERTS_ALC_INFO_A_ERTS_MMAP:
                     alloc_atom = erts_bld_atom(hpp, szp, "erts_mmap");
-
+#if HAVE_ERTS_MMAP
                     ainfo = (air->only_sz ? NIL :
                              erts_mmap_info(&erts_dflt_mmapper, NULL, NULL,
                                             hpp, szp, &mmap_info_dflt));
@@ -3215,7 +3218,7 @@ reply_alloc_info(void *vair)
                                             alloc_atom,
                                             erts_bld_atom(hpp,szp,"default_mmap"),
                                             ainfo);
-#if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+#  if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
                     ai_list = erts_bld_cons(hpp, szp,
                                             ainfo, ai_list);
                     ainfo = (air->only_sz ? NIL :
@@ -3225,8 +3228,8 @@ reply_alloc_info(void *vair)
                                             alloc_atom,
                                             erts_bld_atom(hpp,szp,"literal_mmap"),
                                             ainfo);
-#endif
-#ifdef ERTS_ALC_A_EXEC
+#  endif
+#  ifdef ERTS_ALC_A_EXEC
                     ai_list = erts_bld_cons(hpp, szp,
                                             ainfo, ai_list);
                     ainfo = (air->only_sz ? NIL :
@@ -3236,6 +3239,10 @@ reply_alloc_info(void *vair)
                                             alloc_atom,
                                             erts_bld_atom(hpp,szp,"exec_mmap"),
                                             ainfo);
+#  endif
+#else  /* !HAVE_ERTS_MMAP */
+                    ainfo = erts_bld_tuple2(hpp, szp, alloc_atom,
+                                            am_false);
 #endif
                     break;
 		case ERTS_ALC_INFO_A_MSEG_ALLOC:

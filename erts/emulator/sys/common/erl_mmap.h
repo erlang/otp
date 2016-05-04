@@ -50,6 +50,13 @@
 #  define ERTS_HAVE_OS_MMAP 1
 #endif
 
+#ifdef ERTS_HAVE_GENUINE_OS_MMAP
+#  define HAVE_ERTS_MMAP 1
+#else
+#  define HAVE_ERTS_MMAP 0
+#endif
+
+
 extern UWord erts_page_inv_mask;
 
 typedef struct {
@@ -107,6 +114,10 @@ typedef struct {
 #define ERTS_PAGEALIGNED_SIZE \
     (ERTS_INV_PAGEALIGNED_MASK + 1)
 
+struct process;
+Eterm erts_mmap_debug_info(struct process*);
+
+#if HAVE_ERTS_MMAP
 
 typedef struct ErtsMemMapper_ ErtsMemMapper;
 
@@ -130,8 +141,6 @@ Eterm erts_mmap_info(ErtsMemMapper*, int *print_to_p, void *print_to_arg,
 Eterm erts_mmap_info_options(ErtsMemMapper*,
                              char *prefix, int *print_to_p, void *print_to_arg,
                              Uint **hpp, Uint *szp);
-struct process;
-Eterm erts_mmap_debug_info(ErtsMemMapper*, struct process*);
 
 
 #ifdef ERTS_WANT_MEM_MAPPERS
@@ -156,5 +165,7 @@ void hard_dbg_remove_mseg(void* seg, UWord sz);
 #  define HARD_DBG_INSERT_MSEG(SEG,SZ)
 #  define HARD_DBG_REMOVE_MSEG(SEG,SZ)
 #endif
+
+#endif /* HAVE_ERTS_MMAP */
 
 #endif /* ERL_MMAP_H__ */

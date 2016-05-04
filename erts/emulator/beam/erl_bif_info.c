@@ -3554,7 +3554,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    BIF_RET(res);
 	}
         else if (ERTS_IS_ATOM_STR("mmap", BIF_ARG_1)) {
-            BIF_RET(erts_mmap_debug_info(&erts_dflt_mmapper, BIF_P));
+            BIF_RET(erts_mmap_debug_info(BIF_P));
         }
 	else if (ERTS_IS_ATOM_STR("unique_monotonic_integer_state", BIF_ARG_1)) {
 	    BIF_RET(erts_debug_get_unique_monotonic_integer_state(BIF_P));
