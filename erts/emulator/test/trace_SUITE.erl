@@ -495,7 +495,10 @@ send_trace(Config) when is_list(Config) ->
     ok.
 
 set_trace_pattern(_, no, _) -> 0;
-set_trace_pattern(MSA, Pat, Flg) -> erlang:trace_pattern(MSA, Pat, Flg).
+set_trace_pattern(MFA, Pat, Flg) ->
+    R = erlang:trace_pattern(MFA, Pat, Flg),
+    {match_spec, Pat} = erlang:trace_info(MFA, match_spec),
+    R.
 
 %% Test trace(Pid, How, [procs]).
 procs_trace(Config) when is_list(Config) ->

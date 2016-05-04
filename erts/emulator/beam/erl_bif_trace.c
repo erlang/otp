@@ -81,6 +81,8 @@ static void new_seq_trace_token(Process* p); /* help func for seq_trace_2*/
 static Eterm trace_info_pid(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_func(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_on_load(Process* p, Eterm key);
+static Eterm trace_info_event(Process* p, Eterm event, Eterm key);
+
 
 static void reset_bif_trace(void);
 static void setup_bif_trace(void);
@@ -814,6 +816,8 @@ Eterm trace_info_2(BIF_ALIST_2)
 
     if (What == am_on_load) {
 	res = trace_info_on_load(p, Key);
+    } else if (What == am_send || What == am_receive) {
+        res = trace_info_event(p, What, Key);
     } else if (is_atom(What) || is_pid(What) || is_port(What)) {
 	res = trace_info_pid(p, What, Key);
     } else if (is_tuple(What)) {
@@ -1302,6 +1306,42 @@ trace_info_on_load(Process* p, Eterm key)
 	BIF_ERROR(p, BADARG);
     }
 }
+
+static Eterm
+trace_info_event(Process* p, Eterm event, Eterm key)
+{
+    ErtsTracingEvent* te;
+    Eterm retval;
+    Eterm* hp;
+
+    switch (event) {
+    case am_send:    te = erts_send_tracing;    break;
+    case am_receive: te = erts_receive_tracing; break;
+    default:
+        goto error;
+    }
+
+    if (key != am_match_spec)
+        goto error;
+
+    te = &te[erts_active_bp_ix()];
+
+    if (te->on) {
+        if (!te->match_spec)
+            retval = am_true;
+        else
+            retval = copy_object(MatchSetGetSource(te->match_spec), p);
+    }
+    else
+        retval = am_false;
+
+    hp = HAlloc(p, 3);
+    return TUPLE2(hp, key, retval);
+
+ error:
+    BIF_ERROR(p, BADARG);
+}
+
 
 #undef FUNC_TRACE_NOEXIST
 #undef FUNC_TRACE_UNTRACED

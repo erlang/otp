@@ -9015,16 +9015,16 @@ timestamp() ->
       <type name="trace_info_flag"/>
       <type name="trace_match_spec"/>
       <desc>
-        <p>Returns trace information about a port, process or function.</p>
-        <p>To get information about a port or process,
-         <c><anno>PidPortOrFunc</anno></c> is to
+        <p>Returns trace information about a port, process, function or event.</p>
+        <p><em>To get information about a port or process</em>,
+         <c><anno>PidPortFuncEvent</anno></c> is to
           be a process identifier (pid), port identifier or one of
           the atoms <c>new</c>, <c>new_processes</c>, <c>new_ports</c>.
           The atom <c>new</c> or <c>new_processes</c> means that the default trace
           state for processes to be created is returned. The atom <c>new_ports</c>
           means that the default trace state for ports to be created is returned.
         </p>
-        <p>The following <c>Item</c>s are valid:</p>
+        <p>The following <c>Item</c>s are valid for ports and processes:</p>
         <taglist>
           <tag><c>flags</c></tag>
           <item>
@@ -9048,12 +9048,15 @@ timestamp() ->
               value is <c>[]</c>.</p>
           </item>
         </taglist>
-        <p>To get information about a function, <c><anno>PidPortOrFunc</anno></c> is to
+        <p><em>To get information about a function</em>, <c><anno>PidPortFuncEvent</anno></c> is to
           be the three-element tuple <c>{Module, Function, Arity}</c> or
           the atom <c>on_load</c>. No wild cards are allowed. Returns
           <c>undefined</c> if the function does not exist, or
-          <c>false</c> if the function is not traced.</p>
-         <p>The following <c>Item</c>s are valid::</p>
+          <c>false</c> if the function is not traced. If <c><anno>PidPortFuncEvent</anno></c>
+	  is <c>on_load</c>, the information returned refers to
+	  the default value for code that will be loaded.</p>
+
+         <p>The following <c>Item</c>s are valid for functions:</p>
         <taglist>
           <tag><c>traced</c></tag>
           <item>
@@ -9112,13 +9115,21 @@ timestamp() ->
               is active for this function.</p>
           </item>
         </taglist>
+        <p><em>To get information about an event</em>, <c><anno>PidPortFuncEvent</anno></c> is to
+          be one of the atoms <c>send</c> or <c>'receive'</c>.</p>
+         <p>The only valid <c>Item</c> for events is:</p>
+        <taglist>
+          <tag><c>match_spec</c></tag>
+          <item>
+            <p>Returns the match specification for this event, if it
+              has one, or <c>true</c> if no match specification has been
+	      set.</p>
+          </item>
+        </taglist>
         <p>The return value is <c>{<anno>Item</anno>, Value}</c>, where
           <c>Value</c> is the requested information as described earlier.
           If a pid for a dead process was given, or the name of a
           non-existing function, <c>Value</c> is <c>undefined</c>.</p>
-        <p>If <c><anno>PidPortOrFunc</anno></c> is <c>on_load</c>, the information
-          returned refers to the default value for code that will be
-          loaded.</p>
       </desc>
     </func>
 
@@ -9237,7 +9248,7 @@ timestamp() ->
           </item>
           <tag><c>false</c></tag>
           <item>
-            <p>Disables tracing for all sent messages.
+            <p>Disables tracing for all received messages.
 	       Any match specification is removed.</p>
           </item>
         </taglist>
