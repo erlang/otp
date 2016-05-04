@@ -422,7 +422,7 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
     #wx{id=?menuID_HELP_ABOUT, obj=Frame, 
 	event=#wxCommand{type=command_menu_selected}} ->
       Message = "	       This is DIALYZER version "  ++ ?VSN ++  " \n"++
-	"DIALYZER is a DIscrepany AnaLYZer for ERlang programs.\n\n"++
+	"DIALYZER is a DIscrepancy AnaLYZer for ERlang programs.\n\n"++
 	"     Copyright (C) Tobias Lindahl <tobiasl@it.uu.se>\n"++
 	"                   Kostis Sagonas <kostis@it.uu.se>\n\n",
       output_sms(State, "About Dialyzer", Message, info),
