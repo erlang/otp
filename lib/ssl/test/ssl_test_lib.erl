@@ -1041,10 +1041,13 @@ receive_rizzo_duong_beast() ->
 	    end
     end.
 
-state([{data,[{"State", State}]} | _]) ->
+
+state([{data,[{"State", {_StateName, StateData}}]} | _]) -> %% gen_statem
+    StateData;
+state([{data,[{"State", State}]} | _]) -> %% gen_server
     State;
-state([{data,[{"StateData", State}]} | _]) ->
-    State;
+state([{data,[{"StateData", State}]} | _]) -> %% gen_fsm
+     State;
 state([_ | Rest]) ->
     state(Rest).
 
