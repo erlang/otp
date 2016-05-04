@@ -409,10 +409,19 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   protocol_cb = ?MODULE
 	  }.
 
-next_tls_record(<<>>, _State) ->
-    #alert{}; %% Place holder
-next_tls_record(_, State) ->
-    {#ssl_tls{fragment = <<"place holder">>}, State}.
+next_tls_record(Data, #state{protocol_buffers = #protocol_buffers{
+						   dtls_record_buffer = Buf0,
+						   dtls_cipher_texts = CT0} = Buffers} = State0) ->
+    case dtls_record:get_dtls_records(Data, Buf0) of
+	{Records, Buf1} ->
+	    CT1 = CT0 ++ Records,
+	    next_record(State0#state{protocol_buffers =
+					 Buffers#protocol_buffers{dtls_record_buffer = Buf1,
+								  dtls_cipher_texts = CT1}});
+
+	#alert{} = Alert ->
+	    Alert
+   end.
 
 next_record(#state{%%flight = #flight{state = finished}, 
 		   protocol_buffers =
