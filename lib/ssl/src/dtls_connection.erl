@@ -334,11 +334,24 @@ handle_info({Protocol, _, Data}, StateName,
 	    {stop, {shutdown, own_alert}}
      end;
 handle_info({CloseTag, Socket}, StateName,
-            #state{socket = Socket, close_tag = CloseTag,
-		   negotiated_version = _Version} = State) ->
+	    #state{socket = Socket, close_tag = CloseTag,
+		   negotiated_version = Version} = State) ->
+    %% Note that as of DTLS 1.2 (TLS 1.1),
+    %% failure to properly close a connection no longer requires that a
+    %% session not be resumed.	This is a change from DTLS 1.0 to conform
+    %% with widespread implementation practice.
+    case Version of
+	{254, N} when N =< 253 ->
+	    ok;
+	_ ->
+	    %% As invalidate_sessions here causes performance issues,
+	    %% we will conform to the widespread implementation
+	    %% practice and go aginst the spec
+	    %%invalidate_session(Role, Host, Port, Session)
+	    ok
+    end,
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     {stop, {shutdown, transport_closed}};
-
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
 
