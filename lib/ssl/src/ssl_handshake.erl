@@ -51,7 +51,7 @@
 
 %% Handle handshake messages
 -export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
-	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
+	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
 	 init_handshake_history/0, update_handshake_history/3, verify_server_key/5
 	]).
 
@@ -661,19 +661,19 @@ select_hashsign_algs(undefined, ?'id-dsa', _) ->
     {sha, dsa}.
 
 %%--------------------------------------------------------------------
--spec master_secret(atom(), ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
+-spec master_secret(ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
 		   client | server) -> {binary(), #connection_states{}} | #alert{}.
 %%
 %% Description: Sets or calculates the master secret and calculate keys,
 %% updating the pending connection states. The Mastersecret and the update
 %% connection states are returned or an alert if the calculation fails.
 %%-------------------------------------------------------------------
-master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
+master_secret(Version, #session{master_secret = Mastersecret},
 	      ConnectionStates, Role) ->
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
-    try master_secret(RecordCB, Version, Mastersecret, SecParams,
+    try master_secret(Version, Mastersecret, SecParams,
 		      ConnectionStates, Role)
     catch
 	exit:Reason ->
@@ -683,14 +683,14 @@ master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
     end;
 
-master_secret(RecordCB, Version, PremasterSecret, ConnectionStates, Role) ->
+master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{prf_algorithm = PrfAlgo,
 			 client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
-    try master_secret(RecordCB, Version,
+    try master_secret(Version,
 		      calc_master_secret(Version,PrfAlgo,PremasterSecret,
 					 ClientRandom, ServerRandom),
 		      SecParams, ConnectionStates, Role)
@@ -1580,7 +1580,7 @@ calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
-master_secret(_RecordCB, Version, MasterSecret,
+master_secret(Version, MasterSecret,
 	      #security_parameters{
 		 bulk_cipher_algorithm = BCA,
 		 client_random = ClientRandom,

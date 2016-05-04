@@ -582,7 +582,7 @@ certify(internal, #server_hello_done{},
 	       negotiated_version = Version,
 	       premaster_secret = undefined,
 	       role = client} = State0, Connection) ->
-    case ssl_handshake:master_secret(record_cb(Connection), Version, Session,
+    case ssl_handshake:master_secret(Version, Session,
 				     ConnectionStates0, client) of
 	{MasterSecret, ConnectionStates} ->
 	    State = State0#state{connection_states = ConnectionStates},
@@ -598,7 +598,7 @@ certify(internal, #server_hello_done{},
 	       negotiated_version = Version,
 	       premaster_secret = PremasterSecret,
 	       role = client} = State0, Connection) ->
-    case ssl_handshake:master_secret(record_cb(Connection), Version, PremasterSecret,
+    case ssl_handshake:master_secret(Version, PremasterSecret,
 				     ConnectionStates0, client) of
 	{MasterSecret, ConnectionStates} ->
 	    Session = Session0#session{master_secret = MasterSecret},
@@ -1117,7 +1117,7 @@ resumed_server_hello(#state{session = Session,
 			    connection_states = ConnectionStates0,
 			    negotiated_version = Version} = State0, Connection) ->
 
-    case ssl_handshake:master_secret(record_cb(Connection), Version, Session,
+    case ssl_handshake:master_secret(Version, Session,
 				     ConnectionStates0, server) of
 	{_, ConnectionStates1} ->
 	    State1 = State0#state{connection_states = ConnectionStates1,
@@ -1564,7 +1564,7 @@ calculate_master_secret(PremasterSecret,
 			       connection_states = ConnectionStates0,
 			       session = Session0} = State0, Connection,
 			_Current, Next) ->
-    case ssl_handshake:master_secret(record_cb(Connection), Version, PremasterSecret,
+    case ssl_handshake:master_secret(Version, PremasterSecret,
 				     ConnectionStates0, server) of
 	{MasterSecret, ConnectionStates} ->
 	    Session = Session0#session{master_secret = MasterSecret},
@@ -1671,7 +1671,7 @@ master_secret(#alert{} = Alert, _) ->
 master_secret(PremasterSecret, #state{session = Session,
 				      negotiated_version = Version, role = Role,
 				      connection_states = ConnectionStates0} = State) ->
-    case ssl_handshake:master_secret(tls_record, Version, PremasterSecret,
+    case ssl_handshake:master_secret(Version, PremasterSecret,
 				     ConnectionStates0, Role) of
 	{MasterSecret, ConnectionStates} ->
 	    State#state{
@@ -1977,7 +1977,7 @@ handle_resumed_session(SessId, #state{connection_states = ConnectionStates0,
 				      session_cache = Cache,
 				      session_cache_cb = CacheCb} = State0) ->
     Session = CacheCb:lookup(Cache, {{Host, Port}, SessId}),
-    case ssl_handshake:master_secret(tls_record, Version, Session,
+    case ssl_handshake:master_secret(Version, Session,
 				     ConnectionStates0, client) of
 	{_, ConnectionStates} ->
 	    {Record, State} =
