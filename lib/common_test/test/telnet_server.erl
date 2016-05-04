@@ -59,7 +59,7 @@ init(Opts) ->
     accept(State),
     ok = gen_tcp:close(LSock),
     dbg("telnet_server closed the listen socket ~p\n", [LSock]),
-    ct:sleep(1000),
+    timer:sleep(1000),
     ok.
 
 listen(0, _Port, _Opts) ->
@@ -68,7 +68,7 @@ listen(Retries, Port, Opts) ->
     case gen_tcp:listen(Port, Opts) of
 	{error,eaddrinuse} ->
 	    dbg("Listen port not released, trying again..."),
-	    ct:sleep(5000),
+	    timer:sleep(5000),
 	    listen(Retries-1, Port, Opts);
 	Ok = {ok,_LSock} ->
 	    Ok;
@@ -220,7 +220,7 @@ do_handle_data("echo_sep " ++ Data,State) ->
     Msgs = string:tokens(Data," "),
     lists:foreach(fun(Msg) ->
 			  send(Msg,State),
-			  ct:sleep(10)
+			  timer:sleep(10)
 		  end, Msgs),
     send("\r\n> ",State),
     {ok,State};
@@ -245,7 +245,7 @@ do_handle_data("echo_loop " ++ Data,State) ->
 do_handle_data("echo_delayed_prompt "++Data,State) ->
     [MsStr|EchoData] = string:tokens(Data, " "),
     send(string:join(EchoData,"\n"),State),
-    ct:sleep(list_to_integer(MsStr)),
+    timer:sleep(list_to_integer(MsStr)),
     send("\r\n> ",State),
     {ok,State};
 do_handle_data("disconnect_after " ++WaitStr,State) ->
@@ -298,7 +298,7 @@ send_loop(T0,T,Data,State) ->
 	    ok;
        true ->
 	    send(Data,State),
-	    ct:sleep(500),
+	    timer:sleep(500),
 	    send_loop(T0,T,Data,State)
     end.
 
