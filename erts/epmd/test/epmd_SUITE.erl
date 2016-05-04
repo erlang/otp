@@ -144,20 +144,14 @@ end_per_testcase(_Func, _Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-register_name(doc) ->
-    ["Register a name"];
-register_name(suite) ->
-    [];
+%% Register a name
 register_name(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = register_node("foobar"),
     ok = close(Sock),			% Unregister
     ok.
 
-register_name_ipv6(doc) ->
-    ["Register a name over IPv6"];
-register_name_ipv6(suite) ->
-    [];
+%% Register a name over IPv6
 register_name_ipv6(Config) when is_list(Config) ->
     % Test if the host has an IPv6 loopback address
     Res = gen_tcp:listen(0, [inet6, {ip, {0,0,0,0,0,0,0,1}}]),
@@ -172,10 +166,7 @@ register_name_ipv6(Config) when is_list(Config) ->
             {skip, "Host does not have an IPv6 loopback address"}
     end.
 
-register_names_1(doc) ->
-    ["Register and unregister two nodes"];
-register_names_1(suite) ->
-    [];
+%% Register and unregister two nodes
 register_names_1(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock1} = register_node("foobar"),
@@ -184,10 +175,7 @@ register_names_1(Config) when is_list(Config) ->
     ok = close(Sock2),			% Unregister
     ok.
 
-register_names_2(doc) ->
-    ["Register and unregister two nodes"];
-register_names_2(suite) ->
-    [];
+%% Register and unregister two nodes
 register_names_2(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock1} = register_node("foobar"),
@@ -196,10 +184,7 @@ register_names_2(Config) when is_list(Config) ->
     ok = close(Sock1),			% Unregister
     ok.
 
-register_duplicate_name(doc) ->
-    ["Two nodes with the same name"];
-register_duplicate_name(suite) ->
-    [];
+%% Two nodes with the same name
 register_duplicate_name(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = register_node("foobar"),
@@ -209,10 +194,7 @@ register_duplicate_name(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-unicode_name(doc) ->
-    ["Check that we can register and lookup a unicode name"];
-unicode_name(suite) ->
-    [];
+%% Check that we can register and lookup a unicode name
 unicode_name(Config) when is_list(Config) ->
     ok = epmdrun(),
     NodeName = [16#1f608],
@@ -224,10 +206,7 @@ unicode_name(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-long_unicode_name(doc) ->
-    ["Check that we can register and lookup a long unicode name"];
-long_unicode_name(suite) ->
-    [];
+%% Check that we can register and lookup a long unicode name
 long_unicode_name(Config) when is_list(Config) ->
     ok = epmdrun(),
     BaseChar = 16#1f600,
@@ -298,10 +277,7 @@ parse_port2_resp(Resp) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-name_with_null_inside(doc) ->
-    ["Register a name with a null char in it"];
-name_with_null_inside(suite) ->
-    [];
+%% Register a name with a null char in it
 name_with_null_inside(Config) when is_list(Config) ->
     ok = epmdrun(),
     error = register_node("foo\000bar"),
@@ -309,10 +285,7 @@ name_with_null_inside(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-name_null_terminated(doc) ->
-    ["Register a name with terminating null byte"];
-name_null_terminated(suite) ->
-    [];
+%% Register a name with terminating null byte
 name_null_terminated(Config) when is_list(Config) ->
     ok = epmdrun(),
     error = register_node("foobar\000"),
@@ -320,10 +293,7 @@ name_null_terminated(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-stupid_names_req(doc) ->
-    ["Read names from epmd in a stupid way"];
-stupid_names_req(suite) ->
-    [];
+%% Read names from epmd in a stupid way
 stupid_names_req(Config) when is_list(Config) ->
     ok = epmdrun(),
     [FirstConn | Conn] = register_many(1, ?REG_REPEAT_LIM, "foo"),
@@ -420,17 +390,11 @@ parse_name([], _Name) -> error.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-get_port_nr(doc) ->
-    ["Register a name on a port and ask about port nr"];
-get_port_nr(suite) ->
-    [];
+%% Register a name on a port and ask about port nr
 get_port_nr(Config) when is_list(Config) ->
     port_request([?EPMD_PORT_PLEASE2_REQ,"foo"]).
 
-slow_get_port_nr(doc) ->
-    ["Register with slow write and ask about port nr"];
-slow_get_port_nr(suite) ->
-    [];
+%% Register with slow write and ask about port nr
 slow_get_port_nr(Config) when is_list(Config) ->
     port_request([?EPMD_PORT_PLEASE2_REQ,d,$f,d,$o,d,$o]).
 
@@ -458,10 +422,7 @@ port_request(M) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-unregister_others_name_1(doc) ->
-    ["Unregister name of other node"];
-unregister_others_name_1(suite) ->
-    [];
+%% Unregister name of other node
 unregister_others_name_1(Config) when is_list(Config) ->
     ok = epmdrun("-relaxed_command_check"),
     {ok,RSock} = register_node("foo"),
@@ -475,10 +436,7 @@ unregister_others_name_1(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-unregister_others_name_2(doc) ->
-    ["Unregister name of other node"];
-unregister_others_name_2(suite) ->
-    [];
+%% Unregister name of other node
 unregister_others_name_2(Config) when is_list(Config) ->
     ok = epmdrun("-relaxed_command_check"),
     {ok,Sock} = connect(),
@@ -490,10 +448,7 @@ unregister_others_name_2(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-register_overflow(doc) ->
-    ["Register too many, clean and redo 10 times"];
-register_overflow(suite) ->
-    [];
+%% Register too many, clean and redo 10 times
 register_overflow(Config) when is_list(Config) ->
     ct:timetrap(?LONG_TEST_TIMEOUT),
     ok = epmdrun(),
@@ -575,10 +530,7 @@ gen_name(Str,Int) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-no_data(doc) ->
-    ["Open but send no data"];
-no_data(suite) ->
-    [];
+%% Open but send no data
 no_data(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -588,10 +540,7 @@ no_data(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-one_byte(doc) ->
-    ["Send one byte only"];
-one_byte(suite) ->
-    [];
+%% Send one byte only
 one_byte(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -602,10 +551,7 @@ one_byte(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-two_bytes(doc) ->
-    ["Send packet size only"];
-two_bytes(suite) ->
-    [];
+%% Send packet size only
 two_bytes(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -616,10 +562,7 @@ two_bytes(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-partial_packet(doc) ->
-    ["Got only part of a packet"];
-partial_packet(suite) ->
-    [];
+%% Got only part of a packet
 partial_packet(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -630,10 +573,7 @@ partial_packet(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-zero_length(doc) ->
-    ["Invalid zero packet size"];
-zero_length(suite) ->
-    [];
+%% Invalid zero packet size
 zero_length(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -644,10 +584,7 @@ zero_length(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-too_large(doc) ->
-    ["Invalid large packet"];
-too_large(suite) ->
-    [];
+%% Invalid large packet
 too_large(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -665,10 +602,7 @@ too_large(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-alive_req_too_small_1(doc) ->
-    ["Try to register but not enough data"];
-alive_req_too_small_1(suite) ->
-    [];
+%% Try to register but not enough data
 alive_req_too_small_1(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -681,10 +615,7 @@ alive_req_too_small_1(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-alive_req_too_small_2(doc) ->
-    ["Try to register but not enough data"];
-alive_req_too_small_2(suite) ->
-    [];
+%% Try to register but not enough data
 alive_req_too_small_2(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -697,10 +628,7 @@ alive_req_too_small_2(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-alive_req_too_large(doc) ->
-    ["Try to register but node name too large"];
-alive_req_too_large(suite) ->
-    [];
+%% Try to register but node name too large
 alive_req_too_large(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = connect(),
@@ -726,10 +654,7 @@ alive_req_too_large(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-returns_valid_empty_extra(doc) ->
-    ["Check that an empty extra is prefixed by a two byte length"];
-returns_valid_empty_extra(suite) ->
-    [];
+%% Check that an empty extra is prefixed by a two byte length
 returns_valid_empty_extra(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", []),
@@ -739,10 +664,7 @@ returns_valid_empty_extra(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-returns_valid_populated_extra_with_nulls(doc) ->
-    ["Check a populated extra with embedded null characters"];
-returns_valid_populated_extra_with_nulls(suite) ->
-    [];
+%% Check a populated extra with embedded null characters
 returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", "ABC\000\000"),
@@ -752,10 +674,7 @@ returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-names_stdout(doc) ->
-    ["Test that epmd -names prints registered nodes to stdout"];
-names_stdout(suite) ->
-    [];
+%% Test that epmd -names prints registered nodes to stdout
 names_stdout(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,Sock} = register_node("foobar"),
@@ -770,18 +689,13 @@ names_stdout(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-buffer_overrun_1(suite) ->
-    [];
-buffer_overrun_1(doc) ->
-    ["Test security vulnerability in fake extra lengths in alive2_req"];
+%% Test security vulnerability in fake extra lengths in alive2_req
 buffer_overrun_1(Config) when is_list(Config) ->
     ok = epmdrun(),
     true = alltrue([hostile(N) || N <- lists:seq(1,10000)]),
     ok.
-buffer_overrun_2(suite) ->
-    [];
-buffer_overrun_2(doc) ->
-    ["Test security vulnerability in fake extra lengths in alive2_req"];
+
+%% Test security vulnerability in fake extra lengths in alive2_req
 buffer_overrun_2(Config) when is_list(Config) ->
     ok = epmdrun(),
     [false | Rest] = [hostile2(N) || N <- lists:seq(255*4,10000)],
@@ -822,10 +736,8 @@ alltrue([true|T]) ->
 alltrue([_|_]) ->
     false.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-no_nonlocal_register(suite) ->
-    [];
-no_nonlocal_register(doc) ->
-    ["Ensure that we cannot register throug a nonlocal connection"];
+
+%% Ensure that we cannot register throug a nonlocal connection
 no_nonlocal_register(Config) when is_list(Config) ->
     case {os:find_executable("ssh"),ct:get_config(ssh_proxy_host)} of
         {SSH,Name} when is_list(Name), is_list(SSH) ->
@@ -866,10 +778,7 @@ do_no_nonlocal_register(Config,SSHHost) when is_list(Config) ->
     true = Res,
     ok.
 
-no_nonlocal_kill(suite) ->
-    [];
-no_nonlocal_kill(doc) ->
-    ["Ensure that we cannot kill through nonlocal connection"];
+%% Ensure that we cannot kill through nonlocal connection
 no_nonlocal_kill(Config) when is_list(Config) ->
     case {os:find_executable("ssh"),ct:get_config(ssh_proxy_host)} of
         {SSH,Name} when is_list(Name), is_list(SSH) ->
@@ -901,10 +810,8 @@ do_no_nonlocal_kill(Config,SSHHost) when is_list(Config) ->
     true = Res,
     ok.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-no_live_killing(doc) ->
-    ["Dont allow killing with live nodes or any unregistering w/o -relaxed_command_check"];
-no_live_killing(suite) ->
-    [];
+
+%% Dont allow killing with live nodes or any unregistering w/o -relaxed_command_check
 no_live_killing(Config) when is_list(Config) ->
     ok = epmdrun(),
     {ok,RSock} = register_node("foo"),
@@ -927,11 +834,8 @@ no_live_killing(Config) when is_list(Config) ->
     close(Sock3),
     ok.
 
-socket_reset_before_alive2_reply_is_written(doc) ->
-    ["Check for regression - don't make zombie from node which "
-     "sends TCP RST at wrong time"];
-socket_reset_before_alive2_reply_is_written(suite) ->
-    [];
+%% Check for regression - don't make zombie from node which
+%% sends TCP RST at wrong time
 socket_reset_before_alive2_reply_is_written(Config) when is_list(Config) ->
     %% - delay_write for easier triggering of race condition
     %% - relaxed_command_check for gracefull shutdown of epmd even if there
