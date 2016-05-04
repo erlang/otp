@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,9 @@
 %% Interface towards diameter_watchdog.
 -export([start/3,
          result_code/2]).
+
+%% Interface towards diameter.
+-export([find/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -185,6 +188,25 @@ start_link(T) ->
                                   infinity,
                                   diameter_lib:spawn_opts(server, [])).
 
+%% find/1
+%%
+%% Identify both pids of a peer_fsm/transport pair.
+
+find(Pid) ->
+    findl([{?MODULE, '_', Pid}, {?MODULE, Pid, '_'}]).
+
+findl([]) ->
+    false;
+
+findl([Pat | Rest]) ->
+    try
+        [{{_, Pid, TPid}, Pid}] = diameter_reg:match(Pat),
+        {Pid, TPid}
+    catch
+        error:_ ->
+            findl(Rest)
+    end.
+
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------
 
@@ -214,6 +236,8 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
+
+    diameter_reg:add({?MODULE, self(), TPid}),  %% lets pairs be discovered
 
     #state{state = {'Wait-Conn-Ack', Tmo},
            parent = WPid,

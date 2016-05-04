@@ -37,6 +37,7 @@
 %% Information.
 -export([services/0,
          peer_info/1,
+         peer_find/1,
          service_info/2]).
 
 %% Start/stop the application. In a "real" application this should
@@ -157,6 +158,17 @@ service_info(SvcName, Option) ->
 
 peer_info(PeerRef) ->
     diameter_service:peer_info(PeerRef).
+
+%% ---------------------------------------------------------------------------
+%% peer_find/1
+%% ---------------------------------------------------------------------------
+
+-spec peer_find(peer_ref() | pid())
+   -> {peer_ref(), pid()}
+    | false.
+
+peer_find(Pid) ->
+    diameter_peer_fsm:find(Pid).
 
 %% ---------------------------------------------------------------------------
 %% add_transport/3
