@@ -436,7 +436,7 @@ create_box(Parent, Data) ->
     Top = wxStaticBoxSizer:new(?wxVERTICAL, Parent, [{label, Title}]),
     Panel = wxPanel:new(Parent),
     Box = wxBoxSizer:new(?wxVERTICAL),
-    LeftSize = get_max_width(Panel,Info),
+    LeftSize = 30 + get_max_width(Panel,Info),
     RightProportion = [{flag, ?wxEXPAND}],
     AddRow = fun({Desc0, Value0}) ->
 		     Desc = Desc0++":",
