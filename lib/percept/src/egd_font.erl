@@ -24,6 +24,10 @@
 -module(egd_font).
 
 -export([load/1, size/1, glyph/2]).
+
+-type font() :: {Name::atom(), information}.
+-export_type([font/0]).
+
 -include("egd.hrl").
 
 %% Font represenatation in ets table

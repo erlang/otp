@@ -32,15 +32,13 @@
 %% %% @headerfile "edoc.hrl" (disabled until it can be made private)
 -include("edoc.hrl").
 
-%% @type filename() = file:filename().
-%% @type proplist() = proplists:property().
-%% @type syntaxTree() = erl_syntax:syntaxTree().
+-type filename() :: file:filename().
+-type proplist() :: proplists:property().
+-type syntaxTree() :: erl_syntax:syntaxTree().
+-type edoc_env() :: edoc_lib:edoc_env().
+-type edoc_module() :: edoc:edoc_module().
+-type comment() :: edoc:comment().
 
-%% @spec source(File::filename(), Env::edoc_env(), Options::proplist())
-%%             -> {ModuleName, edoc:edoc_module()}
-%%    ModuleName = atom()
-%%    proplist() = [term()]
-%%
 %% @doc Like {@link source/5}, but reads the syntax tree and the
 %% comments from the specified file.
 %%
@@ -48,18 +46,17 @@
 %% @see edoc:read_source/2
 %% @see source/4
 
+-spec source(File, Env, Options) -> {ModuleName, edoc_module()} when
+      File :: filename(),
+      Env :: edoc_env(),
+      Options :: [term()],
+      ModuleName :: module().
+
 source(File, Env, Opts) ->
     Forms = edoc:read_source(File, Opts),
     Comments = edoc:read_comments(File, Opts),
     source(Forms, Comments, File, Env, Opts).
 
-%% @spec source(Forms, Comments::[edoc:comment()], File::filename(),
-%%              Env::edoc_env(), Options::proplist()) ->
-%%           {ModuleName, edoc:edoc_module()}
-%%
-%%    Forms = syntaxTree() | [syntaxTree()]
-%%    ModuleName = atom()
-%%
 %% @doc Like {@link source/4}, but first inserts the given comments in
 %% the syntax trees. The syntax trees must contain valid position
 %% information. (Cf. {@link edoc:read_comments/2}.)
@@ -70,6 +67,14 @@ source(File, Env, Opts) ->
 %% @see source/4
 %% @see //syntax_tools/erl_recomment
 
+-spec source(Forms, Comments, File, Env, Options) -> {ModuleName, edoc_module()} when
+      Forms :: syntaxTree() | [syntaxTree()],
+      Comments :: [comment()],
+      File :: filename(),
+      Env :: edoc_env(),
+      Options :: proplist(),
+      ModuleName :: module().
+
 source(Forms, Comments, File, Env, Opts) when is_list(Forms) ->
     Forms1 = erl_syntax:form_list(Forms),
     source(Forms1, Comments, File, Env, Opts);
@@ -78,14 +83,6 @@ source(Forms, Comments, File, Env, Opts) ->
     TypeDocs = find_type_docs(Forms, Comments, Env, File),
     source1(Tree, File, Env, Opts, TypeDocs).
 
-%% @spec source(Forms, File::filename(), Env::edoc_env(),
-%%              Options::proplist()) ->
-%%           {ModuleName, edoc:edoc_module()}
-%%
-%%	    Forms = syntaxTree() | [syntaxTree()]
-%%	    ModuleName = atom()
-%% @type edoc_env() = edoc_lib:edoc_env()
-%%
 %% @doc Extracts EDoc documentation from commented source code syntax
 %% trees. The given `Forms' must be a single syntax tree of
 %% type `form_list', or a list of syntax trees representing
@@ -107,6 +104,13 @@ source(Forms, Comments, File, Env, Opts) ->
 
 %% INHERIT-OPTIONS: add_macro_defs/3
 %% INHERIT-OPTIONS: edoc_data:module/4
+
+-spec source(Forms, File, Env, Options) -> {ModuleName, edoc_module()} when
+      Forms :: syntaxTree() | [syntaxTree()],
+      File :: filename(),
+      Env :: edoc_env(),
+      Options :: proplist(),
+      ModuleName :: module().
 
 source(Forms, File, Env, Opts) when is_list(Forms) ->
     source(erl_syntax:form_list(Forms), File, Env, Opts);
@@ -130,11 +134,6 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
     Data = edoc_data:module(Module, Entries2, Env2, Opts),
     {Name, Data}.
 
-%% @spec header(File::filename(), Env::edoc_env(), Options::proplist())
-%%             -> {ok, Tags} | {error, Reason}
-%%   Tags = [term()]
-%%   Reason = term()
-%%
 %% @doc Similar to {@link header/5}, but reads the syntax tree and the
 %% comments from the specified file.
 %%
@@ -142,18 +141,18 @@ source1(Tree, File0, Env, Opts, TypeDocs) ->
 %% @see edoc:read_source/2
 %% @see header/4
 
+-spec header(File, Env, Options) -> {ok, Tags} | {error, Reason} when
+      File :: filename(),
+      Env :: edoc_env(),
+      Options :: proplist(),
+      Tags :: [term()],
+      Reason :: term().
+
 header(File, Env, Opts) ->
     Forms = edoc:read_source(File),
     Comments = edoc:read_comments(File),
     header(Forms, Comments, File, Env, Opts).
 
-%% @spec header(Forms, Comments::[edoc:comment()], File::filename(),
-%%              Env::edoc_env(), Options::proplist()) ->
-%%       {ok, Tags} | {error, Reason}
-%%   Forms = syntaxTree() | [syntaxTree()]
-%%   Tags = [term()]
-%%   Reason = term()
-%%
 %% @doc Similar to {@link header/4}, but first inserts the given
 %% comments in the syntax trees. The syntax trees must contain valid
 %% position information. (Cf. {@link edoc:read_comments/2}.)
@@ -162,6 +161,15 @@ header(File, Env, Opts) ->
 %% @see header/4
 %% @see //syntax_tools/erl_recomment
 
+-spec header(Forms, Comments, File, Env, Options) -> {ok, Tags} | {error, Reason} when
+      Forms :: syntaxTree() | [syntaxTree()],
+      Comments :: [comment()],
+      File :: filename(),
+      Env :: edoc_env(),
+      Options :: proplist(),
+      Tags :: [term()],
+      Reason :: term().
+
 header(Forms, Comments, File, Env, Opts) when is_list(Forms) ->
     Forms1 = erl_syntax:form_list(Forms),
     header(Forms1, Comments, File, Env, Opts);
@@ -169,13 +177,6 @@ header(Forms, Comments, File, Env, Opts) ->
     Tree = erl_recomment:quick_recomment_forms(Forms, Comments),
     header(Tree, File, Env, Opts).
 
-%% @spec header(Forms, File::filename(), Env::edoc_env(),
-%%              Options::proplist()) ->
-%%       {ok, Tags} | {error, Reason}
-%%   Forms = syntaxTree() | [syntaxTree()]
-%%   Tags = [term()]
-%%   Reason = term()
-%%
 %% @doc Extracts EDoc documentation from commented header file syntax
 %% trees. Similar to {@link source/5}, but ignores any documentation
 %% that occurs before a module declaration or a function definition.
@@ -184,6 +185,14 @@ header(Forms, Comments, File, Env, Opts) ->
 %%
 %% @see header/5
 %% @see //syntax_tools/erl_recomment
+
+-spec header(Forms, File, Env, Options) -> {ok, Tags} | {error, Reason} when
+      Forms :: syntaxTree() | [syntaxTree()],
+      File :: filename(),
+      Env :: edoc_env(),
+      Options :: proplist(),
+      Tags :: [term()],
+      Reason :: term().
 
 header(Forms, File, Env, Opts) when is_list(Forms) ->
     header(erl_syntax:form_list(Forms), File, Env, Opts);
@@ -214,12 +223,6 @@ add_macro_defs(Defs0, Opts, Env) ->
     edoc_macros:check_defs(Defs),
     Env#env{macros = Defs ++ Defs0 ++ Env#env.macros}.
 
-%% @spec file(File::filename(), Context, Env::edoc_env(),
-%%            Options::proplist()) -> {ok, Tags} | {error, Reason}
-%%   Context = overview
-%%   Tags = [term()]
-%%   Reason = term()
-%%
 %% @doc Reads a text file and returns the list of tags in the file. Any
 %% lines of text before the first tag are ignored. `Env' is an
 %% environment created by {@link edoc_lib:get_doc_env/3}. Upon error,
@@ -229,6 +232,14 @@ add_macro_defs(Defs0, Opts, Env) ->
 %% See {@link text/4} for options.
 
 %% INHERIT-OPTIONS: text/4
+
+-spec file(File, Context, Env, Options) -> {ok, Tags} | {error, Reason} when
+      File :: filename(),
+      Context :: module | footer | function | overview | single,
+      Env :: edoc_env(),
+      Options :: proplist(),
+      Tags :: [term()],
+      Reason :: term().
 
 file(File, Context, Env, Opts) ->
     case file:read_file(File) of
@@ -245,11 +256,6 @@ file(File, Context, Env, Opts) ->
     end.
 
 
-%% @spec (Text::string(), Context, Env::edoc_env(),
-%%        Options::proplist()) -> Tags
-%%     Context = overview
-%%     Tags = [term()]
-%%
 %% @doc Returns the list of tags in the text. Any lines of text before
 %% the first tag are ignored. `Env' is an environment created by {@link
 %% edoc_lib:get_doc_env/3}.
@@ -259,11 +265,18 @@ file(File, Context, Env, Opts) ->
 %% INHERIT-OPTIONS: add_macro_defs/3
 %% DEFER-OPTIONS: source/4
 
+-spec text(Text, Context, Env, Options) -> Tags when
+      Text :: string(),
+      Context :: module | footer | function | overview | single,
+      Env :: edoc_env(),
+      Options :: proplist(),
+      Tags :: [term()].
+
 text(Text, Context, Env, Opts) ->
     text(Text, Context, Env, Opts, "").
 
 text(Text, Context, Env, Opts, Where) ->
-    Env1 = add_macro_defs(file_macros(Context, Env), Opts, Env),
+    Env1 = add_macro_defs(file_macros(Env), Opts, Env),
     Cs = edoc_lib:lines(Text),
     Ts0 = edoc_tags:scan_lines(Cs, 1),
     Tags = sets:from_list(edoc_tags:tag_names()),
@@ -280,10 +293,13 @@ text(Text, Context, Env, Opts, Where) ->
     end.
 
 
-%% @spec (Forms::[syntaxTree()], File::filename()) -> module()
 %% @doc Initialises a module-info record with data about the module
 %% represented by the list of forms. Exports are guaranteed to exist in
 %% the set of defined names.
+
+-spec get_module_info(Forms, File) -> module() when
+      Forms :: [syntaxTree()],
+      File :: filename().
 
 get_module_info(Forms, File) ->
     L = case catch {ok, erl_syntax_lib:analyze_forms(Forms)} of
@@ -327,9 +343,12 @@ get_list_keyval(Key, L) ->
 	    []
     end.
 
-%% @spec (Forms::[syntaxTree()]) -> [syntaxTree()]
 %% @doc Preprocessing: copies any precomments on forms to standalone
 %% comments, and removes "invisible" forms from the list.
+
+-spec preprocess_forms(Forms) -> Preprocessed when
+      Forms :: [syntaxTree()],
+      Preprocessed :: [syntaxTree()].
 
 preprocess_forms(Tree) ->
     preprocess_forms_1(erl_syntax:form_list_elements(
@@ -432,11 +451,11 @@ comment_text([C | Cs], Ss) ->
 comment_text([], Ss) ->
     Ss.
 
-%% @spec (string()) -> string()
-%%
 %% @doc Replaces leading `%' characters by spaces. For example, `"%%%
 %% foo" -> "\s\s\s foo"', but `"% % foo" -> "\s % foo"', since the
 %% second `%' is preceded by whitespace.
+
+-spec remove_percent_chars(string()) -> string().
 
 remove_percent_chars([$% | Cs]) -> [$\s | remove_percent_chars(Cs)];
 remove_percent_chars(Cs) -> Cs.
@@ -617,7 +636,7 @@ module_macros(Env) ->
 
 %% Macros for reading auxiliary edoc-files
 
-file_macros(_Context, Env) ->
+file_macros(Env) ->
     edoc_macros:std_macros(Env).
 
 %% @doc Extracts what will be documentation of Erlang types.

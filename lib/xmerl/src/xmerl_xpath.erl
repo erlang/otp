@@ -41,15 +41,7 @@
 % xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("descendant-or-self::node()")).
 % xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
 %% </pre>
-%%
-%% @type nodeEntity() =
-%%      xmlElement()
-%%    | xmlAttribute()
-%%    | xmlText() 
-%%    | xmlPI()
-%%    | xmlComment()
-%%    | xmlNsNode()
-%%    | xmlDocument()
+
 %% @type option_list(). <p>Options allows to customize the behaviour of the
 %%     XPath scanner.
 %% </p>
@@ -62,11 +54,11 @@
 %%  <dt><code>{namespace, Nodes}</code></dt>
 %%    <dd>Set namespace nodes in xmlContext.</dd>
 %% </dl>
-
 %%  <dt><code>{bindings, Bs}</code></dt>
 %%   <dd></dd>
 %% <dt><code>{functions, Fs}</code></dt>
 %%   <dd></dd>
+
 -module(xmerl_xpath).
 
 
@@ -87,6 +79,23 @@
 -include("xmerl_internal.hrl").
 
 
+-type option_list() :: {namespace, #xmlNamespace{}} |
+                       {namespace, Nodes :: [{Prefix::atom() | string(), URI::atom() | string()}]} |
+                       {bindings, Bs :: list()} |
+                       {functions, Fs :: list()}.
+
+-type nodeEntity() :: #xmlElement{} |
+                      #xmlAttribute{} |
+                      #xmlText{} |
+                      #xmlPI{} |
+                      #xmlComment{} |
+                      #xmlNsNode{} |
+                      #xmlDocument{}.
+
+-type xPathString() :: string().
+
+-type parentList() :: [{atom(), integer()}].
+
 -record(state, {context = #xmlContext{},
 		acc = []}).
 
@@ -96,29 +105,34 @@
 
 
 
-
-%% @spec string(Str, Doc) -> [docEntity()] | Scalar
-%% @equiv string(Str,Doc, [])
+%% @equiv string(Str, Doc, [])
+-spec string(Str, Doc) -> [nodeEntity()] | Scalar when
+      Str     :: xPathString(),
+      Doc     :: nodeEntity(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc) ->
     string(Str, Doc, []).
 
-%% @spec string(Str,Doc,Options) -> 
-%%      [docEntity()] | Scalar
-%% @equiv string(Str,Doc, [],Doc,Options)
+%% @equiv string(Str, Doc, [], Doc, Options)
+-spec string(Str, Doc, Options) -> [nodeEntity()] | Scalar when
+      Str     :: xPathString(),
+      Doc     :: nodeEntity(),
+      Options :: option_list(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc, Options) ->
     string(Str, Doc, [], Doc, Options).
 
-%% @spec string(Str,Node,Parents,Doc,Options) ->
-%%      [docEntity()] | Scalar
-%%   Str     = xPathString()
-%%   Node    = nodeEntity()
-%%   Parents = parentList()
-%%   Doc     = nodeEntity()
-%%   Options = option_list()
-%%   Scalar  = xmlObj
 %% @doc Extracts the nodes from the parsed XML tree according to XPath.
 %%   xmlObj is a record with fields type and value,
 %%   where type is boolean | number | string
+%% @end
+-spec string(Str, Node, Parents, Doc, Options) -> [nodeEntity()] | Scalar when
+      Str     :: xPathString(),
+      Node    :: nodeEntity(),
+      Parents :: parentList(),
+      Doc     :: nodeEntity(),
+      Options :: option_list(),
+      Scalar  :: #xmlObj{}.
 string(Str, Node, Parents, Doc, Options) ->
 %% record with fields type and value,
 %%                where type is boolean | number | string

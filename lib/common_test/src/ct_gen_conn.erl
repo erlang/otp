@@ -19,9 +19,6 @@
 %%
 
 %%% @doc Generic connection owner process.
-%%%
-%%% @type handle() = pid(). A handle for using a connection implemented
-%%% with ct_gen_conn.erl.
 
 -module(ct_gen_conn).
 
@@ -34,7 +31,8 @@
 %%----------------------------------------------------------------------
 -export_type([server_id/0,
 	      target_name/0,
-	      key_or_name/0]).
+	      key_or_name/0,
+              handle/0]).
 
 -ifdef(debug).
 -define(dbg,true).
@@ -64,19 +62,27 @@
 %% `require' statement or a call to {@link ct:require/2} in the
 %% test suite.
 -type key_or_name() :: server_id() | target_name().
+-opaque handle() :: pid().
+%% A handle for using a connection implemented with ct_gen_conn.erl.
 
-
+-spec start(Address, InitData, CallbackMod, Options) -> {ok,Handle} | {error,Reason} when
+      Address :: term(),
+      InitData :: term(),
+      CallbackMod :: module(),
+      Options :: [Option],
+      Option :: {name,Name} | {use_existing_connection,boolean()} |
+                {reconnect,boolean()} | {forward_messages,boolean()},
+      Name :: ct:target_name(),
+      Handle :: handle(),
+      Reason :: any();
+           (Name, Address, InitData, CallbackMod) -> {ok,Handle} | {error,Reason} when
+      Name :: ct:target_name(),
+      Address :: term(),
+      InitData :: term(),
+      CallbackMod :: module(),
+      Handle :: handle(),
+      Reason :: any().
 %%%-----------------------------------------------------------------
-%%% @spec start(Address,InitData,CallbackMod,Opts) ->
-%%%                                     {ok,Handle} | {error,Reason}
-%%%      Name = term()
-%%%      CallbackMod = atom()
-%%%      InitData = term()
-%%%      Address = term()
-%%%      Opts = [Opt]
-%%%      Opt = {name,Name} | {use_existing_connection,boolean()} |
-%%%            {reconnect,boolean()} | {forward_messages,boolean()}
-%%%
 %%% @doc Open a connection and start the generic connection owner process.
 %%%
 %%% <p>The <code>CallbackMod</code> is a specific callback module for
@@ -135,58 +141,54 @@ start(Name,Address,InitData,CallbackMod) ->
     do_start(Address,InitData,CallbackMod,[{name,Name},{old,true}]).
 
 %%%-----------------------------------------------------------------
-%%% @spec stop(Handle) -> ok
-%%%      Handle = handle()
-%%%
 %%% @doc Close the connection and stop the process managing it.
+-spec stop(Handle) -> ok when
+      Handle :: handle().
 stop(Handle) ->
     call(Handle,stop,5000).
 
 %%%-----------------------------------------------------------------
-%%% @spec get_conn_pid(Handle) -> ok
-%%%      Handle = handle()
-%%%
 %%% @doc Return the connection pid associated with Handle
+-spec get_conn_pid(Handle) -> ok when
+      Handle :: handle().
 get_conn_pid(Handle) ->
     call(Handle,get_conn_pid).
 
 %%%-----------------------------------------------------------------
-%%% @spec log(Heading,Format,Args) -> ok
-%%%
 %%% @doc Log activities on the current connection (tool-internal use only).
 %%% @see ct_logs:log/3
+-spec log(Heading, Format, Args) -> ok when
+      Heading :: string(),
+      Format :: string(),
+      Args :: list().
 log(Heading,Format,Args) ->
     log(log,[Heading,Format,Args]).
 
 %%%-----------------------------------------------------------------
-%%% @spec start_log(Heading) -> ok
-%%%
 %%% @doc Log activities on the current connection (tool-internal use only).
 %%% @see ct_logs:start_log/1
+-spec start_log(Heading) -> ok when
+      Heading :: string().
 start_log(Heading) ->
     log(start_log,[Heading]).
 
 %%%-----------------------------------------------------------------
-%%% @spec cont_log(Format,Args) -> ok
-%%%
 %%% @doc Log activities on the current connection (tool-internal use only).
 %%% @see ct_logs:cont_log/2
+-spec cont_log(Format, Args) -> ok when
+      Format :: string(),
+      Args :: list().
 cont_log(Format,Args) ->
     log(cont_log,[Format,Args]).
 
 %%%-----------------------------------------------------------------
-%%% @spec end_log() -> ok
-%%%
 %%% @doc Log activities on the current connection (tool-internal use only).
 %%% @see ct_logs:end_log/0
+-spec end_log() -> ok.
 end_log() ->
     log(end_log,[]).
 
 %%%-----------------------------------------------------------------
-%%% @spec do_within_time(Fun,Timeout) -> FunResult | {error,Reason}
-%%%      Fun = function()
-%%%      Timeout = integer()
-%%%
 %%% @doc Execute a function within a limited time (tool-internal use only).
 %%%
 %%% <p>Execute the given <code>Fun</code>, but interrupt if it takes
@@ -194,6 +196,11 @@ end_log() ->
 %%%
 %%% <p>The execution is also interrupted if the connection is
 %%% closed.</p>
+-spec do_within_time(Fun, Timeout) -> FunResult | {error,Reason} when
+      Fun :: fun(() -> FunResult),
+      FunResult :: term(),
+      Timeout :: integer(),
+      Reason :: any().
 do_within_time(Fun,Timeout) ->
     Self = self(),
     Silent = get(silent),
@@ -426,7 +433,7 @@ reconnect(Opts) ->
 
 log(Func,Args) ->
     case get(silent) of
-	true when not ?dbg->
+	true when not ?dbg ->
 	    ok;
 	_ ->
 	    apply(ct_logs,Func,Args)

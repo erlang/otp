@@ -42,16 +42,11 @@
 %%
 %%==========================================================================
 
-%% @type egd_image()
-%% @type font()
-%% @type point() = {integer(), integer()}
-%% @type color()  
-%% @type render_option() = {render_engine, opaque} | {render_engine, alpha}
-
 -type egd_image() :: pid().
 -type point() :: {non_neg_integer(), non_neg_integer()}.
 -type render_option() :: {'render_engine', 'opaque'} | {'render_engine', 'alpha'}.
 -type color() :: {float(), float(), float(), float()}.
+-type font() :: egd_font:font().
 
 %%==========================================================================
 %%
@@ -59,26 +54,26 @@
 %%
 %%==========================================================================
 
-%% @spec create(integer(), integer()) -> egd_image()
 %% @doc Creates an image area and returns its reference.
 
--spec create(Width :: integer(), Height :: integer()) -> egd_image().
+-spec create(Width, Height) -> egd_image() when
+      Width :: integer(),
+      Height :: integer().
 
 create(Width,Height) ->
     spawn_link(fun() -> init(trunc(Width),trunc(Height)) end).
 
 
-%% @spec destroy(egd_image()) -> ok
 %% @doc Destroys the image.
 
--spec destroy(Image :: egd_image()) -> ok.
+-spec destroy(Image) -> ok when
+      Image :: egd_image().
 
 destroy(Image) ->
    cast(Image, destroy),
    ok.
 
 
-%% @spec render(egd_image()) -> binary()
 %% @equiv render(Image, png, [{render_engine, opaque}])
 
 -spec render(Image :: egd_image()) -> binary().
@@ -86,130 +81,182 @@ destroy(Image) ->
 render(Image) ->
     render(Image, png, [{render_engine, opaque}]).
 
-%% @spec render(egd_image(), png | raw_bitmap) -> binary() 
 %% @equiv render(Image, Type, [{render_engine, opaque}])
+
+-spec render(Image, Type) -> binary() when
+      Image :: egd_image(),
+      Type :: png | raw_bitmap.
 
 render(Image, Type) ->
     render(Image, Type, [{render_engine, opaque}]).
 
-%% @spec render(egd_image(), png | raw_bitmap, [render_option()]) -> binary() 
 %% @doc Renders a binary from the primitives specified by egd_image(). The
 %% 	binary can either be a raw bitmap with rgb tripplets or a binary in png
 %%	format.
+%% @end
 
--spec render(
-	Image :: egd_image(), 
-	Type :: 'png' | 'raw_bitmap' | 'eps',
-	Options :: [render_option()]) -> binary().
+-spec render(Image, Type, Options) -> binary() when
+      Image :: egd_image(),
+      Type :: 'png' | 'raw_bitmap' | 'eps',
+      Options :: [render_option()].
 
 render(Image, Type, Options) ->
     {render_engine, RenderType} = proplists:lookup(render_engine, Options),
     call(Image, {render, Type, RenderType}).
 
 
-%% @spec information(egd_image()) -> ok
 %% @hidden
 %% @doc Writes out information about the image. This is a debug feature
 %%	mainly.
+%% @end
+
+-spec information(Image) -> ok when
+      Image :: egd_image().
 
 information(Pid) ->
     cast(Pid, information),
     ok.
 
-%% @spec line(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a line object from P1 to P2 in the image.
 
--spec line(
-	Image :: egd_image(),
-	P1 :: point(),
-	P2 :: point(),
-	Color :: color()) -> 'ok'.
+-spec line(Image, Point1, Point2, Color) -> ok when
+      Image :: egd_image(),
+      Point1 :: point(),
+      Point2 :: point(),
+      Color :: color().
 
 line(Image, P1, P2, Color) ->
     cast(Image, {line, P1, P2, Color}),
     ok.
 
-%% @spec color( Value | Name ) -> color()
-%% where
-%%  Value = {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} 
-%%  Name  = black | silver | gray | white | maroon | red | purple | fuchia | green | lime | olive | yellow | navy | blue | teal | aqua
 %% @doc Creates a color reference.
 
--spec color(Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} | atom()) ->
-    color().
+-spec color(ValueOrName) -> color() when
+      ValueOrName :: Value | Name,
+      Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()},
+      Name :: black | silver | gray | white | maroon | red | purple | fuchia
+            | green | lime | olive | yellow | navy | blue | teal | aqua.
 
 color(Color) ->
     egd_primitives:color(Color).
 
-%% @spec color(egd_image(), {byte(), byte(), byte()}) -> color()
 %% @doc Creates a color reference.
 %% @hidden
+
+-spec color(_Image, Color) -> color() when
+      _Image :: egd_image(),
+      Color :: {byte(), byte(), byte()}.
 
 color(_Image, Color) ->
     egd_primitives:color(Color).
 
-%% @spec text(egd_image(), point(), font(), string(), color()) -> ok
 %% @doc Creates a text object.
+
+-spec text(Image, Point, Font, Text, Color) -> ok when
+      Image :: egd_image(),
+      Point :: point(),
+      Font :: font(),
+      Text :: string(),
+      Color :: color().
 
 text(Image, P, Font, Text, Color) ->
     cast(Image, {text, P, Font, Text, Color}),
     ok.
 
-%% @spec rectangle(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a rectangle object.
+
+-spec rectangle(Image, Point1, Point2, Color) -> ok when
+      Image :: egd_image(),
+      Point1 :: point(),
+      Point2 :: point(),
+      Color :: color().
 
 rectangle(Image, P1, P2, Color) ->
     cast(Image, {rectangle, P1, P2, Color}),
     ok.
 
-%% @spec filledRectangle(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a filled rectangle object.
+
+-spec filledRectangle(Image, Point1, Point2, Color) -> ok when
+      Image :: egd_image(),
+      Point1 :: point(),
+      Point2 :: point(),
+      Color :: color().
 
 filledRectangle(Image, P1, P2, Color) ->
     cast(Image, {filled_rectangle, P1, P2, Color}),
     ok.
 
-%% @spec filledEllipse(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a filled ellipse object.
+
+-spec filledEllipse(Image, Point1, Point2, Color) -> ok when
+      Image :: egd_image(),
+      Point1 :: point(),
+      Point2 :: point(),
+      Color :: color().
 
 filledEllipse(Image, P1, P2, Color) ->
     cast(Image, {filled_ellipse, P1, P2, Color}),
     ok.
 
-%% @spec filledTriangle(egd_image(), point(), point(), point(), color()) -> ok
 %% @hidden
 %% @doc Creates a filled triangle object.
+
+-spec filledTriangle(Image, Point1, Point2, Point3, Color) -> ok when
+      Image :: egd_image(),
+      Point1 :: point(),
+      Point2 :: point(),
+      Point3 :: point(),
+      Color :: color().
 
 filledTriangle(Image, P1, P2, P3, Color) ->
     cast(Image, {filled_triangle, P1, P2, P3, Color}),
     ok.
 
-%% @spec polygon(egd_image(), [point()], color()) -> ok
 %% @hidden
 %% @doc Creates a filled filled polygon object.
+
+-spec polygon(Image, Points, Color) -> ok when
+      Image :: egd_image(),
+      Points :: [point()],
+      Color :: color().
 
 polygon(Image, Pts, Color) ->
     cast(Image, {polygon, Pts, Color}),
     ok.
 
-%% @spec arc(egd_image(), point(), point(), color()) -> ok
 %% @hidden
 %% @doc Creates an arc with radius of bbx corner.
+
+-spec arc(Image, Point1, Point2, Color) -> ok when
+      Image :: egd_image(),
+      Point1 :: point(),
+      Point2 :: point(),
+      Color :: color().
 
 arc(Image, P1, P2, Color) ->
     cast(Image, {arc, P1, P2, Color}),
     ok.
 
-%% @spec arc(egd_image(), point(), point(), integer(), color()) -> ok
 %% @hidden
 %% @doc Creates an arc.
+
+-spec arc(Image, Point1, Point2, D, Color) -> ok when
+      Image :: egd_image(),
+      Point1 :: point(),
+      Point2 :: point(),
+      D :: integer(),
+      Color :: color().
 
 arc(Image, P1, P2, D, Color) ->
     cast(Image, {arc, P1, P2, D, Color}),
     ok.
 
-%% @spec save(binary(), string()) -> ok
-%% @doc Saves the binary to file. 
+%% @doc Saves the binary to file.
+
+-spec save(Binary, Filename) -> ok when
+      Binary :: binary(),
+      Filename :: file:name_all().
 
 save(Binary, Filename) when is_binary(Binary) ->
     file:write_file(Filename, Binary),
