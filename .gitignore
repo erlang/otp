@@ -3,6 +3,7 @@
 # emacs
 *~
 lib/tools/emacs/*.elc
+TAGS
 # vim
 .*.sw[a-z]
 
