@@ -35,7 +35,7 @@
 obsolete(Module, Name, Arity) ->
     case obsolete_1(Module, Name, Arity) of
 	{deprecated=Tag,{_,_,_}=Replacement} ->
-	    {Tag,Replacement,"in a future release"};
+	    {Tag,Replacement,"a future release"};
 	{_,String}=Ret when is_list(String) ->
 	    Ret;
 	{_,_,_}=Ret ->

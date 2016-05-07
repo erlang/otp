@@ -2003,7 +2003,7 @@ otp_5362(Config) when is_list(Config) ->
            {error,
             [{5,erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
 	    [{4,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
-			  "in a future release"}}]}},
+			  "a future release"}}]}},
 
           {otp_5362_5,
            <<"-compile(nowarn_deprecated_function).
@@ -2063,7 +2063,7 @@ otp_5362(Config) when is_list(Config) ->
              {nowarn_bif_clash,{spawn,1}}]}, % has no effect
            {warnings,
             [{5,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
-			  "in a future release"}}]}},
+			  "a future release"}}]}},
 
           {otp_5362_9,
            <<"-include_lib(\"stdlib/include/qlc.hrl\").
@@ -2093,7 +2093,7 @@ otp_5362(Config) when is_list(Config) ->
 	   [],
 	   {warnings,
             [{1,erl_lint,{deprecated,{erlang,hash,2},
-			  {erlang,phash2,2},"in a future release"}}]}},
+			  {erlang,phash2,2},"a future release"}}]}},
 
 	  {call_removed_function,
 	   <<"t(X) -> regexp:match(X).">>,
