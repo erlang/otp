@@ -59,8 +59,14 @@
 %%           separately.
 %%
 
--spec analyze(cerl:c_module()) ->
-        {dict:dict(), ordsets:ordset('external' | label()), dict:dict(), dict:dict()}.
+-type dep_ordset() :: ordsets:ordset(label() | 'external').
+
+-type deps()    :: dict:dict(label() | 'external' | 'top', dep_ordset()).
+-type esc()     :: dep_ordset().
+-type calls()   :: dict:dict(label(), ordsets:ordset(label())).
+-type letrecs() :: dict:dict(label(), label()).
+
+-spec analyze(cerl:c_module()) -> {deps(), esc(), calls(), letrecs()}.
 
 analyze(Tree) ->
   %% io:format("Handling ~w\n", [cerl:atom_val(cerl:module_name(Tree))]),
