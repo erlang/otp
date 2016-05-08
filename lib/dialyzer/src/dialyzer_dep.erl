@@ -79,22 +79,26 @@ traverse(Tree, Out, State, CurrentFun) ->
     apply ->
       Op = cerl:apply_op(Tree),
       Args = cerl:apply_args(Tree),
-      %% Op is always a variable and should not be marked as escaping
-      %% based on its use.
       case var =:= cerl:type(Op) of
-	false -> erlang:error({apply_op_not_a_variable, cerl:type(Op)});
-	true -> ok
-      end,
-      OpFuns = case map__lookup(cerl_trees:get_label(Op), Out) of
-		 none -> output(none);
-		 {value, OF} -> OF
-	       end,
-      {ArgFuns, State2} = traverse_list(Args, Out, State, CurrentFun),
-      State3 = state__add_esc(merge_outs(ArgFuns), State2),
-      State4 = state__add_deps(CurrentFun, OpFuns, State3),
-      State5 = state__store_callsite(cerl_trees:get_label(Tree),
-				     OpFuns, length(Args), State4),
-      {output(set__singleton(external)), State5};
+	false ->
+	  %% We have discovered an error here, but we ignore it and let
+	  %% later passes handle it; we do not modify the dependencies.
+	  %% erlang:error({apply_op_not_a_variable, cerl:type(Op)});
+	  {output(none), State};
+	true ->
+	  %% Op is a variable and should not be marked as escaping
+	  %% based on its use.
+	  OpFuns = case map__lookup(cerl_trees:get_label(Op), Out) of
+		     none -> output(none);
+		     {value, OF} -> OF
+		   end,
+	  {ArgFuns, State2} = traverse_list(Args, Out, State, CurrentFun),
+	  State3 = state__add_esc(merge_outs(ArgFuns), State2),
+	  State4 = state__add_deps(CurrentFun, OpFuns, State3),
+	  State5 = state__store_callsite(cerl_trees:get_label(Tree),
+					 OpFuns, length(Args), State4),
+	  {output(set__singleton(external)), State5}
+      end;
     binary ->
       {output(none), State};
     'case' ->
