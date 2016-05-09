@@ -24,8 +24,6 @@ rtl_to_native(MFA, RTL, Roots, Options) ->
   %% Extract information from object file
   %%
   ObjBin = open_object_file(ObjectFile),
-  %% Read and set the ELF class
-  elf_format:set_architecture_flag(ObjBin),
   %% Get labels info (for switches and jump tables)
   Labels = elf_format:get_rodata_relocs(ObjBin),
   {Switches, Closures} = get_tables(ObjBin),
@@ -278,14 +276,8 @@ get_sdescs(Elf) ->
         _LiveRootCount:(?bits(?SP_LIVEROOTCNT_SIZE))/integer-little, % Skip
         Roots/binary>> = NoteGC_bin,
       LiveRoots = get_liveroots(Roots, []),
-      %% Extract information about the safe point addresses:
-      SPOffs =
-        case elf_format:is64bit() of
-          true -> %% Find offsets in ".rela.note.gc":
-            elf_format:get_rela_addends(RelaNoteGC);
-          false -> %% Find offsets in SPAddrs (in ".note.gc"):
-            get_spoffs(SPAddrs, [])
-        end,
+      %% Extract the safe point offsets:
+      SPOffs = get_reloc_addends(SPAddrs, RelaNoteGC),
       %% Extract Exception Handler labels:
       ExnHandlers = elf_format:get_exn_handlers(Elf),
       %% Combine ExnHandlers and Safe point addresses (return addresses):
@@ -301,12 +293,14 @@ get_liveroots(<<Root:?bits(?LR_STKINDEX_SIZE)/integer-little,
                 MoreRoots/binary>>, Acc) ->
   get_liveroots(MoreRoots, [Root | Acc]).
 
-%% @doc Extracts a bunch of integers (safepoint offsets) from a binary. Returns
-%%      a tuple as need for stack descriptors.
-get_spoffs(<<>>, Acc) ->
-  lists:reverse(Acc);
-get_spoffs(<<SPOff:?bits(?SP_ADDR_SIZE)/integer-little, More/binary>>, Acc) ->
-  get_spoffs(More, [SPOff | Acc]).
+-ifdef(BIT32).
+%% ELF32 x86 uses implicit addends.
+get_reloc_addends(Table, _Relocs) ->
+  [Add || <<Add:?bits(?SP_ADDR_SIZE)/little>> <= Table].
+-else.
+%% ELF64 x64 uses explicit addends.
+get_reloc_addends(_Table, Relocs) -> elf_format:get_rela_addends(Relocs).
+-endif.
 
 combine_ras_and_exns(_, [], Acc) ->
   lists:reverse(Acc);

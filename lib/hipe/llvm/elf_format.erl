@@ -24,10 +24,7 @@
          %% Executable code
          extract_text/1,
          %% GCC Exception Table
-         get_exn_handlers/1,
-         %% Misc.
-         set_architecture_flag/1,
-         is64bit/0
+	 get_exn_handlers/1
         ]).
 
 -include("elf_format.hrl").
@@ -110,16 +107,19 @@
 -type elf_sym() :: #elf_sym{}.
 
 %% Relocations
+-ifdef(BIT32).
 -record(elf_rel, {r_offset  :: offset(),  % Address of reference
 		  r_info    :: info()      % Symbol index and type of relocation
 		 }).
--type elf_rel() :: #elf_rel{}.
+-type reloc() :: #elf_rel{}.
+-else.
 
 -record(elf_rela, {r_offset  :: offset(), % Address of reference
 		   r_info    :: info(),    % Symbol index and type of relocation
 		   r_addend  :: offset()   % Constant part of expression
 		  }).
--type elf_rela() :: #elf_rela{}.
+-type reloc() :: #elf_rela{}.
+-endif.
 
 %% %% Program header table
 %% -record(elf_phdr, {type,   % Type of segment
@@ -215,27 +215,35 @@ sym_name(#elf_sym{name = Name}) -> Name.
 %%%-------------------------
 %%% Relocations
 %%%-------------------------
--spec mk_rel(offset(), info()) -> elf_rel().
-mk_rel(Offset, Info) ->
-  #elf_rel{r_offset = Offset, r_info = Info}.
+
 
 %% The following two functions capitalize on the fact that the two kinds of
 %% relocation records (for 32- and 64-bit architectures have similar structure.
+-spec r_offset(reloc()) -> offset().
+-spec r_info(reloc()) -> info().
 
--spec r_offset(elf_rel() | elf_rela()) -> offset().
-r_offset(#elf_rel{r_offset = Offset}) -> Offset;
-r_offset(#elf_rela{r_offset = Offset}) -> Offset.
+-ifdef(BIT32).
 
--spec r_info(elf_rel() | elf_rela()) -> info().
-r_info(#elf_rel{r_info = Info}) -> Info;
-r_info(#elf_rela{r_info = Info}) -> Info.
+-spec mk_rel(offset(), info()) -> reloc().
+mk_rel(Offset, Info) ->
+  #elf_rel{r_offset = Offset, r_info = Info}.
 
--spec mk_rela(offset(), info(), offset()) -> elf_rela().
+r_offset(#elf_rel{r_offset = Offset}) -> Offset.
+r_info(#elf_rel{r_info = Info}) -> Info.
+
+-else.%%BIT32
+
+-spec mk_rela(offset(), info(), offset()) -> reloc().
 mk_rela(Offset, Info, Addend) ->
   #elf_rela{r_offset = Offset, r_info = Info, r_addend = Addend}.
 
--spec rela_addend(elf_rela()) -> offset().
+r_offset(#elf_rela{r_offset = Offset}) -> Offset.
+r_info(#elf_rela{r_info = Info}) -> Info.
+
+-spec rela_addend(reloc()) -> offset().
 rela_addend(#elf_rela{r_addend = Addend}) -> Addend.
+
+-endif.%%BIT32
 
 %% %%%-------------------------
 %% %%% GCC exception table
@@ -388,28 +396,28 @@ get_symtab_entries(<<>>, Acc) ->
   lists:reverse(Acc);
 get_symtab_entries(Symtab_bin, Acc) ->
   <<SymE_bin:?ELF_SYM_SIZE/binary, MoreSymE/binary>> = Symtab_bin,
-  case is64bit() of
-    true ->
-      <<%% Structural pattern matching on fields.
-	Name:?bits(?ST_NAME_SIZE)/integer-little,
-	Info:?bits(?ST_INFO_SIZE)/integer-little,
-	Other:?bits(?ST_OTHER_SIZE)/integer-little,
-	Shndx:?bits(?ST_SHNDX_SIZE)/integer-little,
-	Value:?bits(?ST_VALUE_SIZE)/integer-little,
-	Size:?bits(?ST_SIZE_SIZE)/integer-little
-      >> = SymE_bin;
-    false ->
-      << %% Same fields in different order:
-        Name:?bits(?ST_NAME_SIZE)/integer-little,
-        Value:?bits(?ST_VALUE_SIZE)/integer-little,
-        Size:?bits(?ST_SIZE_SIZE)/integer-little,
-        Info:?bits(?ST_INFO_SIZE)/integer-little,
-        Other:?bits(?ST_OTHER_SIZE)/integer-little,
-        Shndx:?bits(?ST_SHNDX_SIZE)/integer-little
-      >> = SymE_bin
-  end,
-  SymE = mk_sym(Name, Info, Other, Shndx, Value, Size),
+  SymE = parse_sym(SymE_bin),
   get_symtab_entries(MoreSymE, [SymE | Acc]).
+
+-ifdef(BIT32).
+parse_sym(<<%% Structural pattern matching on fields.
+	    Name:?bits(?ST_NAME_SIZE)/integer-little,
+	    Value:?bits(?ST_VALUE_SIZE)/integer-little,
+	    Size:?bits(?ST_SIZE_SIZE)/integer-little,
+	    Info:?bits(?ST_INFO_SIZE)/integer-little,
+	    Other:?bits(?ST_OTHER_SIZE)/integer-little,
+	    Shndx:?bits(?ST_SHNDX_SIZE)/integer-little>>) ->
+  mk_sym(Name, Info, Other, Shndx, Value, Size).
+-else.
+parse_sym(<<%% Same fields in different order:
+	    Name:?bits(?ST_NAME_SIZE)/integer-little,
+	    Info:?bits(?ST_INFO_SIZE)/integer-little,
+	    Other:?bits(?ST_OTHER_SIZE)/integer-little,
+	    Shndx:?bits(?ST_SHNDX_SIZE)/integer-little,
+	    Value:?bits(?ST_VALUE_SIZE)/integer-little,
+	    Size:?bits(?ST_SIZE_SIZE)/integer-little>>) ->
+  mk_sym(Name, Info, Other, Shndx, Value, Size).
+-endif.
 
 %% @doc Extracts a specific entry from the Symbol Table (as binary).
 %%      This function takes as arguments the Symbol Table (`SymTab')
@@ -447,20 +455,16 @@ get_strtab_entry(Strtab, Offset) ->
 %%      with all .rela.rodata labels (i.e. constants and literals in code)
 %%      or an empty list if no ".rela.rodata" section exists in code.
 -spec get_rodata_relocs(elf()) -> [offset()].
+-spec get_rela_addends([reloc()]) -> [offset()].
+-ifdef(BIT32).
 get_rodata_relocs(Elf) ->
-  case is64bit() of
-    true ->
-      %% Only care about the addends (== offsets):
-      get_rela_addends(extract_rela(Elf, ?RODATA));
-    false ->
-      %% Find offsets hardcoded in ".rodata" entry
-      %%XXX: Treat all 0s as padding and skip them!
-      [SkipPadding || SkipPadding <- extract_rodata(Elf), SkipPadding =/= 0]
-  end.
+  [SkipPadding || SkipPadding <- extract_rodata(Elf), SkipPadding =/= 0].
+get_rela_addends(_RelaEntries) -> error(notsup).
+-else.
+get_rodata_relocs(Elf) -> get_rela_addends(extract_rela(Elf, ?RODATA)).
+get_rela_addends(RelaEntries) -> [rela_addend(E) || E <- RelaEntries].
+-endif.
 
--spec get_rela_addends([elf_rela()]) -> [offset()].
-get_rela_addends(RelaEntries) ->
-  [rela_addend(E) || E <- RelaEntries].
 
 %% @doc Extract a list of the form `[{SymbolName, Offset}]' with all relocatable
 %%      symbols and their offsets in the code from the ".text" section.
@@ -488,37 +492,23 @@ get_text_relocs(Elf) ->
 
 %% @doc Extract the Relocations segment for section `Name' (that is passed
 %%      as second argument) from an ELF formated Object file binary.
--spec extract_rela(elf(), name()) -> [elf_rel() | elf_rela()].
-extract_rela(Elf, Name) ->
-  SegName =
-    case is64bit() of
-      true -> ?RELA(Name); % ELF-64 uses ".rela"
-      false -> ?REL(Name)  % ...while ELF-32 uses ".rel"
-    end,
-  Rela_bin = extract_segment_by_name(Elf, SegName),
-  get_rela_entries(Rela_bin, []).
+-spec extract_rela(elf(), name()) -> [reloc()].
 
-get_rela_entries(<<>>, Acc) ->
-  lists:reverse(Acc);
-get_rela_entries(Bin, Acc) ->
-  E = case is64bit() of
-	true ->
-	  <<%% Structural pattern matching on fields of a Rela Entry.
-	    Offset:?bits(?R_OFFSET_SIZE)/integer-little,
-	    Info:?bits(?R_INFO_SIZE)/integer-little,
-	    Addend:?bits(?R_ADDEND_SIZE)/integer-little,
-	    Rest/binary
-	  >> = Bin,
-	  mk_rela(Offset, Info, Addend);
-	false ->
-	  <<%% Structural pattern matching on fields of a Rel Entry.
-	    Offset:?bits(?R_OFFSET_SIZE)/integer-little,
-	    Info:?bits(?R_INFO_SIZE)/integer-little,
-	    Rest/binary
-	  >> = Bin,
-	  mk_rel(Offset, Info)
-      end,
-  get_rela_entries(Rest, [E | Acc]).
+-ifdef(BIT32).
+extract_rela(Elf, Name) ->
+  %% Structural pattern matching on fields of a Rel Entry.
+  [mk_rel(Offset, Info)
+   || <<Offset:?bits(?R_OFFSET_SIZE)/little,
+	Info:?bits(?R_INFO_SIZE)/little % ELF-32 uses ".rel"
+      >> <= extract_segment_by_name(Elf, ?REL(Name))].
+-else.
+extract_rela(Elf, Name) ->
+  [mk_rela(Offset, Info, Addend)
+   || <<Offset:?bits(?R_OFFSET_SIZE)/little,
+	Info:?bits(?R_INFO_SIZE)/little,
+	Addend:?bits(?R_ADDEND_SIZE)/little % ...while ELF-64 uses ".rela"
+      >> <= extract_segment_by_name(Elf, ?RELA(Name))].
+-endif.
 
 %% %% @doc Extract the `EntryNum' (serial number) Relocation Entry.
 %% get_rela_entry(Rela, EntryNum) ->
@@ -617,6 +607,7 @@ get_gccexntab_callsites(CSTab, Acc) ->
 %%------------------------------------------------------------------------------
 %% Functions to manipulate Read-only Data (.rodata)
 %%------------------------------------------------------------------------------
+-ifdef(BIT32).
 extract_rodata(Elf) ->
   Rodata_bin = extract_segment_by_name(Elf, ?RODATA),
   get_rodata_entries(Rodata_bin, []).
@@ -626,6 +617,7 @@ get_rodata_entries(<<>>, Acc) ->
 get_rodata_entries(Rodata_bin, Acc) ->
   <<Num:?bits(?ELF_ADDR_SIZE)/integer-little, More/binary>> = Rodata_bin,
   get_rodata_entries(More, [Num | Acc]).
+-endif.
 
 %%------------------------------------------------------------------------------
 %% Helper functions
@@ -769,22 +761,4 @@ leb128_decode(LebNum, NoOfBits, Acc) ->
       Size = NoOfBits+7,
       <<Num:Size/integer>> = <<NextBundle:7/bits, Acc/bits>>,
       {Num, MoreLebNums}
-  end.
-
-%% @doc Extract ELF Class from ELF header and export symbol to process
-%%      dictionary.
--spec set_architecture_flag(elf()) -> 'ok'.
-set_architecture_flag(Elf) ->
-  %% Extract information about ELF Class from ELF Header
-  <<16#7f, $E, $L, $F, EI_Class, _MoreHeader/binary>>
-    = get_binary_segment(Elf, 0, ?ELF_EHDR_SIZE),
-  put(elf_class, EI_Class),
-  ok.
-
-%% @doc Read from object file header if the file class is ELF32 or ELF64.
--spec is64bit() -> boolean().
-is64bit() ->
-  case get(elf_class) of
-    ?ELFCLASS64 -> true;
-    ?ELFCLASS32 -> false
   end.
