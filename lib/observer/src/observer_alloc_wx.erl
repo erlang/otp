@@ -53,25 +53,29 @@ start_link(Notebook, Parent) ->
 
 init([Notebook, Parent]) ->
     try
-	Panel = wxPanel:new(Notebook),
+	TopP  = wxPanel:new(Notebook),
 	Main  = wxBoxSizer:new(?wxVERTICAL),
+	Panel = wxPanel:new(TopP),
+	GSzr  = wxBoxSizer:new(?wxVERTICAL),
 	BorderFlags = ?wxLEFT bor ?wxRIGHT,
-	Carrier = make_win(alloc, Panel, Main, BorderFlags bor ?wxTOP),
-	Utilz = make_win(utilz, Panel, Main, BorderFlags),
+	Carrier = make_win(alloc, Panel, GSzr, BorderFlags bor ?wxTOP),
+	Utilz = make_win(utilz, Panel, GSzr, BorderFlags),
+	wxWindow:setSizer(Panel, GSzr),
+	wxSizer:add(Main, Panel, [{flag, ?wxEXPAND},{proportion,2}]),
 
-	MemWin = {MemPanel,_} = create_mem_info(Panel),
-	wxSizer:add(Main, MemPanel, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
-				     {proportion, 1}, {border, 5}]),
-	wxWindow:setSizer(Panel, Main),
+	MemWin = create_mem_info(TopP),
+	wxSizer:add(Main, MemWin, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
+				   {proportion, 1}, {border, 5}]),
+	wxWindow:setSizer(TopP, Main),
 	Windows = [Carrier, Utilz],
 	PaintInfo = setup_graph_drawing(Windows),
-	{Panel, #state{parent= Parent,
-		       panel = Panel,
-		       wins  = Windows,
-		       mem   = MemWin,
-		       paint = PaintInfo,
-		       time  = setup_time()
-		      }
+	{TopP, #state{parent= Parent,
+		      panel = Panel,
+		      wins  = Windows,
+		      mem   = MemWin,
+		      paint = PaintInfo,
+		      time  = setup_time()
+		     }
 	}
     catch _:Err ->
 	    io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
@@ -84,12 +88,14 @@ setup_time() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handle_event(#wx{id=?ID_REFRESH_INTERVAL, event=#wxCommand{type=command_menu_selected}},
-	     #state{panel=Panel, appmon=Old, wins=Wins0, time=#ti{fetch=F0} = Ti0} = State) ->
+	     #state{active=Active, panel=Panel, appmon=Old, wins=Wins0, time=#ti{fetch=F0} = Ti0} = State) ->
     case interval_dialog(Panel, Ti0) of
 	Ti0 -> {noreply, State};
 	#ti{fetch=F0} = Ti -> %% Same fetch interval force refresh
 	    Wins = [W#win{max=undefined} || W <- Wins0],
 	    {noreply, precalc(State#state{time=Ti, wins=Wins})};
+	Ti when not Active ->
+	    {noreply, State#state{time=Ti}};
 	Ti -> %% Changed fetch interval, drop all data
 	    {noreply, restart_fetcher(Old, State#state{time=Ti})}
     end;
@@ -120,7 +126,7 @@ handle_info({Key, {promise_reply, {badrpc, _}}}, #state{async=Key} = State) ->
     {noreply, State#state{active=false, appmon=undefined}};
 
 handle_info({Key, {promise_reply, SysInfo}},
-	    #state{async=Key, panel=Panel, samples=Data, active=Active, wins=Wins0,
+	    #state{async=Key, panel=_Panel, samples=Data, active=Active, wins=Wins0,
 		   time=#ti{tick=Tick, disp=Disp0}=Ti} = S0) ->
     Disp = trunc(Disp0),
     Next = max(Tick - Disp, 0),
@@ -131,7 +137,6 @@ handle_info({Key, {promise_reply, SysInfo}},
     if Active ->
 	    update_alloc(S0, Info),
 	    State = precalc(S1),
-	    catch wxWindow:refresh(Panel),
 	    {noreply, State};
        true ->
 	    {noreply, S1}
@@ -193,7 +198,8 @@ precalc(#state{samples=Data0, paint=Paint, time=Ti, wins=Wins0}=State) ->
     State#state{wins=Wins}.
 
 
-update_alloc(#state{mem={_, Grid}}, Fields) ->
+update_alloc(#state{mem=Grid}, Fields) ->
+    wxWindow:freeze(Grid),
     Max = wxListCtrl:getItemCount(Grid),
     Update = fun({Name, BS, CS}, Row) ->
 		     (Row >= Max) andalso wxListCtrl:insertItem(Grid, Row, ""),
@@ -203,6 +209,7 @@ update_alloc(#state{mem={_, Grid}}, Fields) ->
 		     Row + 1
 	     end,
     wx:foldl(Update, 0, Fields),
+    wxWindow:thaw(Grid),
     Fields.
 
 alloc_info(SysInfo) ->
@@ -249,9 +256,9 @@ sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 create_mem_info(Parent) ->
-    Panel = wxPanel:new(Parent),
     Style = ?wxLC_REPORT bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES bor ?wxLC_VRULES,
-    Grid = wxListCtrl:new(Panel, [{style, Style}]),
+    Grid = wxListCtrl:new(Parent, [{style, Style}]),
+
     Li = wxListItem:new(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
 			   wxListItem:setText(Li, Name),
@@ -266,12 +273,7 @@ create_mem_info(Parent) ->
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
 
-    Sizer = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT},
-			      {border, 5}, {proportion, 1}]),
-    wxWindow:setSizerAndFit(Panel, Sizer),
-    {Panel, Grid}.
-
+    Grid.
 
 create_menus(Parent, _) ->
     View = {"View", [#create_menu{id = ?ID_REFRESH_INTERVAL, text = "Graph Settings"}]},

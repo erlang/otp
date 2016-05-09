@@ -432,12 +432,12 @@ create_box(Panel, {scroll_boxes,Data}) ->
     {OuterBox, Boxes};
 
 create_box(Parent, Data) ->
-    {Title, Align, Info} = get_box_info(Data),
+    {Title, _Align, Info} = get_box_info(Data),
     Top = wxStaticBoxSizer:new(?wxVERTICAL, Parent, [{label, Title}]),
     Panel = wxPanel:new(Parent),
     Box = wxBoxSizer:new(?wxVERTICAL),
-    LeftSize = get_max_width(Panel,Info),
-    RightProportion = [{flag, Align bor ?wxEXPAND}],
+    LeftSize = 30 + get_max_width(Panel,Info),
+    RightProportion = [{flag, ?wxEXPAND}],
     AddRow = fun({Desc0, Value0}) ->
 		     Desc = Desc0++":",
 		     Line = wxBoxSizer:new(?wxHORIZONTAL),
