@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -416,8 +416,8 @@ transition({connection_timeout, _}, _) ->
     ok;
 
 %% Incoming message from the transport.
-transition({diameter, {recv, Pkt}}, S) ->
-    recv(Pkt, S);
+transition({diameter, {recv, MsgT}}, S) ->
+    incoming(MsgT, S);
 
 %% Timeout when still in the same state ...
 transition({timeout = T, PS}, #state{state = PS}) ->
@@ -543,6 +543,28 @@ encode(Rec, Dict) ->
     diameter_codec:encode(Dict, #diameter_packet{header = Hdr,
                                                  msg = Rec}).
 
+%% incoming/2
+
+incoming({Msg, NPid}, S) ->
+    try recv(Msg, S) of
+        T ->
+            NPid ! {diameter, discard},
+            T
+    catch
+        {?MODULE, Name, Pkt} ->
+            S#state.parent ! {recv, self(), Name, {Pkt, NPid}},
+            rcv(Name, Pkt, S)
+    end;
+
+incoming(Msg, S) ->
+    try
+        recv(Msg, S)
+    catch
+        {?MODULE, Name, Pkt} ->
+            S#state.parent ! {recv, self(), Name, Pkt},
+            rcv(Name, Pkt, S)
+    end.
+
 %% recv/2
 
 recv(#diameter_packet{header = #diameter_header{} = Hdr}
@@ -597,9 +619,8 @@ recv1('DPA' = N,
 
 %% Any other message with a header and no length errors: send to the
 %% parent.
-recv1(Name, Pkt, #state{parent = Pid} = S) ->
-    Pid ! {recv, self(), Name, Pkt},
-    rcv(Name, Pkt, S).
+recv1(Name, Pkt, #state{}) ->
+    throw({?MODULE, Name, Pkt}).
 
 %% recv/3
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -449,8 +449,14 @@ transition({'DOWN', _, process, TPid, _Reason} = D,
     end;
 
 %% Incoming message.
-transition({recv, TPid, Name, Pkt}, #watchdog{transport = TPid} = S) ->
-    recv(Name, Pkt, S);
+transition({recv, TPid, Name, PktT}, #watchdog{transport = TPid} = S) ->
+    try
+        incoming(Name, PktT, S)
+    catch
+        #watchdog{dictionary = Dict0, receive_data = T} = NS ->
+            diameter_traffic:receive_message(TPid, PktT, Dict0, T),
+            NS
+    end;
 
 %% Current watchdog has timed out.
 transition({timeout, TRef, tw}, #watchdog{tref = TRef} = S) ->
@@ -578,22 +584,32 @@ send_watchdog(#watchdog{pending = false,
 
 %% Don't count encode errors since we don't expect any on DWR/DWA.
 
+%% incoming/3
+
+incoming(Name, {Pkt, NPid}, S) ->
+    NS = recv(Name, Pkt, S),
+    NPid ! {diameter, discard},
+    NS;
+
+incoming(Name, Pkt, S) ->
+    recv(Name, Pkt, S).
+
 %% recv/3
 
 recv(Name, Pkt, S) ->
-    try rcv(Name, S) of
+    try rcv(Name, Pkt, rcv(Name, S)) of
         #watchdog{} = NS ->
-            rcv(Name, Pkt, S),
-            NS
+            throw(NS)
     catch
-        {?MODULE, throwaway, #watchdog{} = NS} ->
+        #watchdog{} = NS ->  %% throwaway
             NS
     end.
 
 %% rcv/3
 
 rcv('DWR', Pkt, #watchdog{transport = TPid,
-                          dictionary = Dict0}) ->
+                          dictionary = Dict0}
+                = S) ->
     ?LOG(recv, 'DWR'),
     DPkt = diameter_codec:decode(Dict0, Pkt),
     diameter_traffic:incr(recv, DPkt, TPid, Dict0),
@@ -610,32 +626,30 @@ rcv('DWR', Pkt, #watchdog{transport = TPid,
     send(TPid, {send, #diameter_packet{header = H,
                                        transport_data = T,
                                        bin = Bin}}),
-    ?LOG(send, 'DWA');
+    ?LOG(send, 'DWA'),
+    throw(S);
 
 rcv('DWA', Pkt, #watchdog{transport = TPid,
-                          dictionary = Dict0}) ->
+                          dictionary = Dict0}
+                = S) ->
     ?LOG(recv, 'DWA'),
     diameter_traffic:incr(recv, Pkt, TPid, Dict0),
     diameter_traffic:incr_rc(recv,
                              diameter_codec:decode(Dict0, Pkt),
                              TPid,
-                             Dict0);
+                             Dict0),
+    throw(S);
 
-rcv(N, _, _)
+rcv(N, _, S)
   when N == 'CER';
        N == 'CEA';
        N == 'DPR' ->
-    false;
+    throw(S);
 %% DPR can be sent explicitly with diameter:call/4. Only the
 %% corresponding DPAs arrive here.
 
-rcv(_, Pkt, #watchdog{transport = TPid,
-                      dictionary = Dict0,
-                      receive_data = T}) ->
-    diameter_traffic:receive_message(TPid, Pkt, Dict0, T).
-
-throwaway(S) ->
-    throw({?MODULE, throwaway, S}).
+rcv(_, _, S)->
+    S.
 
 %% rcv/2
 %%
@@ -652,20 +666,20 @@ throwaway(S) ->
 %%   INITIAL       Receive non-DWA      Throwaway()          INITIAL
 
 rcv('DWA', #watchdog{status = initial} = S) ->
-    throwaway(S#watchdog{pending = false});
+    throw(S#watchdog{pending = false});
 
 rcv(_, #watchdog{status = initial} = S) ->
-    throwaway(S);
+    throw(S);
 
 %%   DOWN          Receive DWA          Pending = FALSE
 %%                                      Throwaway()          DOWN
 %%   DOWN          Receive non-DWA      Throwaway()          DOWN
 
 rcv('DWA', #watchdog{status = down} = S) ->
-    throwaway(S#watchdog{pending = false});
+    throw(S#watchdog{pending = false});
 
 rcv(_, #watchdog{status = down} = S) ->
-    throwaway(S);
+    throw(S);
 
 %%   OKAY          Receive DWA          Pending = FALSE
 %%                                      SetWatchdog()        OKAY
@@ -721,7 +735,7 @@ rcv('DWR', #watchdog{status = reopen} = S) ->
     S;  %% ensure DWA: the RFC isn't explicit about answering
 
 rcv(_, #watchdog{status = reopen} = S) ->
-    throwaway(S).
+    throw(S).
 
 %% timeout/1
 %%
