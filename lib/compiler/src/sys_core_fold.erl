@@ -374,10 +374,21 @@ expr(#c_receive{clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
     T1 = expr(T0, value, Sub),
     A1 = body(A0, Ctxt, Sub),
     Recv#c_receive{clauses=Cs1,timeout=T1,action=A1};
-expr(#c_apply{op=Op0,args=As0}=App, _, Sub) ->
+expr(#c_apply{anno=Anno,op=Op0,args=As0}=App, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
-    App#c_apply{op=Op1,args=As1};
+    case Op1 of
+	#c_var{} ->
+	    App#c_apply{op=Op1,args=As1};
+	_ ->
+	    add_warning(App, invalid_call),
+	    Err = #c_call{anno=Anno,
+			  module=#c_literal{val=erlang},
+			  name=#c_literal{val=error},
+			  args=[#c_tuple{es=[#c_literal{val='badfun'},
+					     Op1]}]},
+	    make_effect_seq(As1++[Err], Sub)
+    end;
 expr(#c_call{module=M0,name=N0}=Call0, Ctxt, Sub) ->
     M1 = expr(M0, value, Sub),
     N1 = expr(N0, value, Sub),
@@ -3395,6 +3406,8 @@ format_error({no_effect,{erlang,F,A}}) ->
 format_error(result_ignored) ->
     "the result of the expression is ignored "
 	"(suppress the warning by assigning the expression to the _ variable)";
+format_error(invalid_call) ->
+    "invalid function call";
 format_error(useless_building) ->
     "a term is constructed, but never used";
 format_error(bin_opt_alias) ->
