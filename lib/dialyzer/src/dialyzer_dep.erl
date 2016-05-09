@@ -491,11 +491,11 @@ all_vars(Tree, AccIn) ->
 
 -type local_set() :: 'none' | #set{}.
 
--record(state, {deps    :: dict:dict(),
+-record(state, {deps    :: deps(),
 		esc     :: local_set(), 
-		call    :: dict:dict(),
-		arities :: dict:dict(),
-		letrecs :: dict:dict()}).
+		calls   :: calls(),
+		arities :: dict:dict(label() | 'top', arity()),
+		letrecs :: letrecs()}).
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),
@@ -513,7 +513,7 @@ state__new(Tree) ->
   %% init the escaping function labels to exported + called from on_load
   InitEsc = set__from_list(OnLoadLs ++ ExpLs),
   Arities = cerl_trees:fold(fun find_arities/2, dict:new(), Tree),
-  #state{deps = map__new(), esc = InitEsc, call = map__new(),
+  #state{deps = map__new(), esc = InitEsc, calls = map__new(),
 	 arities = Arities, letrecs = map__new()}.
 
 find_arities(Tree, AccMap) ->
@@ -528,7 +528,7 @@ find_arities(Tree, AccMap) ->
 
 state__add_deps(_From, #output{content = none}, State) ->
   State;
-state__add_deps(From, #output{type = single, content=To}, 
+state__add_deps(From, #output{type = single, content = To},
 		#state{deps = Map} = State) ->
   %% io:format("Adding deps from ~w to ~w\n", [From, set__to_ordsets(To)]),
   State#state{deps = map__add(From, To, Map)}.
@@ -554,16 +554,16 @@ state__esc(#state{esc = Esc}) ->
 state__store_callsite(_From, #output{content = none}, _CallArity, State) ->
   State;
 state__store_callsite(From, To, CallArity, 
-		      #state{call = Calls, arities = Arities} = State) ->
+		      #state{calls = Calls, arities = Arities} = State) ->
   Filter = fun(external) -> true;
 	      (Fun) -> CallArity =:= dict:fetch(Fun, Arities) 
 	   end,
   case filter_outs(To, Filter) of
     #output{content = none} -> State;
-    To1 -> State#state{call = map__store(From, To1, Calls)}
+    To1 -> State#state{calls = map__store(From, To1, Calls)}
   end.
 
-state__calls(#state{call = Calls}) ->
+state__calls(#state{calls = Calls}) ->
   Calls.
 
 %%------------------------------------------------------------
