@@ -32,6 +32,7 @@
 -export([subscribe/1,
          unsubscribe/1,
          services/0,
+         peer_info/1,
          info/2]).
 
 %% towards diameter_config
@@ -214,6 +215,29 @@ lookup_state(SvcName) ->
         [#state{}] = L ->
             L;
         _ ->
+            []
+    end.
+
+%% ---------------------------------------------------------------------------
+%% # peer_info/2
+%% ---------------------------------------------------------------------------
+
+%% An extended version of info_peer/1 for peer_info/1.
+peer_info(Pid) ->
+    try
+        {_, PD} = process_info(Pid, dictionary),
+        {_, T} = lists:keyfind({diameter_peer_fsm, start}, 1, PD),
+        {TPid, {{Type, Ref}, TMod, Cfg}} = T,
+        {_, TD} = process_info(TPid, dictionary),
+        {_, Data} = lists:keyfind({TMod, info}, 1, TD),
+        [{ref, Ref},
+         {type, Type},
+         {owner, TPid},
+         {module, TMod},
+         {config, Cfg}
+         | try TMod:info(Data) catch _:_ -> [] end]
+    catch
+        error:_ ->
             []
     end.
 
