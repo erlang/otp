@@ -70,10 +70,10 @@ two_way_tags() -> [cipher,mac,compression].
     
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ct:log("os:getenv(\"HOME\") = ~p~n"
-	   "init:get_argument(home) = ~p",
-	   [os:getenv("HOME"), init:get_argument(home)]),
-    ct:log("~n~n"
+    ct:log("~n"
+	   "Environment:~n============~n"
+	   "os:getenv(\"HOME\") = ~p~n"
+	   "init:get_argument(home) = ~p~n~n~n"
 	   "OS ssh:~n=======~n~p~n~n~n"
 	   "Erl ssh:~n========~n~p~n~n~n"
 	   "Installed ssh client:~n=====================~n~p~n~n~n"
@@ -82,7 +82,9 @@ init_per_suite(Config) ->
 	   " -- Default dh group exchange parameters ({min,def,max}): ~p~n"
 	   " -- dh_default_groups: ~p~n"
 	   " -- Max num algorithms: ~p~n"
-	  ,[os:cmd("ssh -V"),
+	  ,[os:getenv("HOME"),
+	    init:get_argument(home),
+	    os:cmd("ssh -V"),
 	    ssh:default_algorithms(),
 	    ssh_test_lib:default_algorithms(sshc),
 	    ssh_test_lib:default_algorithms(sshd),
