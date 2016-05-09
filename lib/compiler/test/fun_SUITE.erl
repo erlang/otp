@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
-         external/1,eep37/1,eep37_dup/1,badarity/1]).
+         external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -33,10 +33,12 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,eep37_dup,badarity].
+    [{group,p}].
 
-groups() -> 
-    [].
+groups() ->
+    [{p,[parallel],
+      [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
+       eep37_dup,badarity,badfun]}].
 
 init_per_suite(Config) ->
     Config.
@@ -220,6 +222,26 @@ dup2() ->
 badarity(Config) when is_list(Config) ->
     {'EXIT',{{badarity,{_,[]}},_}} = (catch (fun badarity/1)()),
     ok.
+
+badfun(_Config) ->
+    X = not_a_fun,
+    expect_badfun(42, catch 42()),
+    expect_badfun(42.0, catch 42.0(1)),
+    expect_badfun(X, catch X()),
+    expect_badfun(X, catch X(1)),
+    Len = length(atom_to_list(X)),
+    expect_badfun(Len, catch begin length(atom_to_list(X)) end(1)),
+
+    expect_badfun(42, catch 42(put(?FUNCTION_NAME, yes))),
+    yes = erase(?FUNCTION_NAME),
+
+    expect_badfun(X, catch X(put(?FUNCTION_NAME, of_course))),
+    of_course = erase(?FUNCTION_NAME),
+
+    ok.
+
+expect_badfun(Term, Exit) ->
+    {'EXIT',{{badfun,Term},_}} = Exit.
 
 id(I) ->
     I.
