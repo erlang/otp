@@ -53,6 +53,8 @@
 			    | {atom(),non_neg_integer()}
 			    | tokens().
 
+-type warning_info() :: {erl_anno:location(), module(), term()}.
+
 -define(DEFAULT_ENCODING, utf8).
 
 %% Epp state record.
@@ -158,11 +160,13 @@ scan_erl_form(Epp) ->
     epp_request(Epp, scan_erl_form).
 
 -spec parse_erl_form(Epp) ->
-        {'ok', AbsForm} | {'eof', Line} | {error, ErrorInfo} when
+    {'ok', AbsForm} | {error, ErrorInfo} |
+    {'warning',WarningInfo} | {'eof',Line} when
       Epp :: epp_handle(),
       AbsForm :: erl_parse:abstract_form(),
       Line :: erl_anno:line(),
-      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
+      WarningInfo :: warning_info().
 
 parse_erl_form(Epp) ->
     case epp_request(Epp, scan_erl_form) of
@@ -219,6 +223,10 @@ format_error({illegal_function_usage,Macro}) ->
     io_lib:format("?~s must not begin a form", [Macro]);
 format_error({'NYI',What}) ->
     io_lib:format("not yet implemented '~s'", [What]);
+format_error({error,Term}) ->
+    io_lib:format("-error(~p).", [Term]);
+format_error({warning,Term}) ->
+    io_lib:format("-warning(~p).", [Term]);
 format_error(E) -> file:format_error(E).
 
 -spec parse_file(FileName, IncludePath, PredefMacros) ->
@@ -263,9 +271,11 @@ parse_file(Ifile, Options) ->
 
 -spec parse_file(Epp) -> [Form] when
       Epp :: epp_handle(),
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} |
+	      {'warning',WarningInfo} | {'eof',Line},
       Line :: erl_anno:line(),
-      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
+      WarningInfo :: warning_info().
 
 parse_file(Epp) ->
     case parse_erl_form(Epp) of
@@ -273,6 +283,8 @@ parse_file(Epp) ->
             [Form|parse_file(Epp)];
 	{error,E} ->
 	    [{error,E}|parse_file(Epp)];
+	{warning,W} ->
+	    [{warning,W}|parse_file(Epp)];
 	{eof,Location} ->
 	    [{eof,erl_anno:new(Location)}]
     end.
@@ -752,6 +764,10 @@ scan_toks([{'-',_Lh},{atom,_Ld,define}=Define|Toks], From, St) ->
     scan_define(Toks, Define, From, St);
 scan_toks([{'-',_Lh},{atom,_Ld,undef}=Undef|Toks], From, St) ->
     scan_undef(Toks, Undef, From, St);
+scan_toks([{'-',_Lh},{atom,_Ld,error}=Error|Toks], From, St) ->
+    scan_err_warn(Toks, Error, From, St);
+scan_toks([{'-',_Lh},{atom,_Ld,warning}=Warn|Toks], From, St) ->
+    scan_err_warn(Toks, Warn, From, St);
 scan_toks([{'-',_Lh},{atom,_Li,include}=Inc|Toks], From, St) ->
     scan_include(Toks, Inc, From, St);
 scan_toks([{'-',_Lh},{atom,_Li,include_lib}=IncLib|Toks], From, St) ->
@@ -806,6 +822,24 @@ scan_extends([{atom,Ln,A}=ModAtom,{')',_Lr}|_Ts], Ms0) ->
     Ms = Ms0#{'BASE_MODULE':={none,[ModAtom]}},
     Ms#{'BASE_MODULE_STRING':={none,[{string,Ln,ModString}]}};
 scan_extends(_Ts, Ms) -> Ms.
+
+scan_err_warn([{'(',_}|_]=Toks0, {atom,_,Tag}=Token, From, St) ->
+    try expand_macros(Toks0, St) of
+	Toks when is_list(Toks) ->
+	    case erl_parse:parse_term(Toks) of
+		{ok,Term} ->
+		    epp_reply(From, {Tag,{loc(Token),epp,{Tag,Term}}});
+		{error,_} ->
+		    epp_reply(From, {error,{loc(Token),epp,{bad,Tag}}})
+	    end
+    catch
+	_:_ ->
+	    epp_reply(From, {error,{loc(Token),epp,{bad,Tag}}})
+    end,
+    wait_req_scan(St);
+scan_err_warn(_Toks, {atom,_,Tag}=Token, From, St) ->
+    epp_reply(From, {error,{loc(Token),epp,{bad,Tag}}}),
+    wait_req_scan(St).
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
@@ -933,9 +967,15 @@ scan_include(_Toks, Inc, From, St) ->
 %%  normal search path, if not we assume that the first directory name
 %%  is a library name, find its true directory and try with that.
 
-find_lib_dir(NewName) ->
-    [Lib | Rest] = filename:split(NewName),
-    {code:lib_dir(list_to_atom(Lib)), Rest}.
+expand_lib_dir(Name) ->
+    try
+	[App|Path] = filename:split(Name),
+	LibDir = code:lib_dir(list_to_atom(App)),
+	{ok,fname_join([LibDir|Path])}
+    catch
+	_:_ ->
+	    error
+    end.
 
 scan_include_lib([{'(',_Llp},{string,_Lf,_NewName0},{')',_Lrp},{dot,_Ld}],
                  Inc, From, St)
@@ -950,12 +990,11 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
 	{ok,NewF,Pname} ->
 	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
 	{error,_E1} ->
-	    case catch find_lib_dir(NewName) of
-		{LibDir, Rest} when is_list(LibDir) ->
-		    LibName = fname_join([LibDir | Rest]),
-		    case file:open(LibName, [read]) of
+	    case expand_lib_dir(NewName) of
+		{ok,Header} ->
+		    case file:open(Header, [read]) of
 			{ok,NewF} ->
-			    wait_req_scan(enter_file2(NewF, LibName, From,
+			    wait_req_scan(enter_file2(NewF, Header, From,
                                                       St, Loc));
 			{error,_E2} ->
 			    epp_reply(From,
@@ -963,7 +1002,7 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
                                               {include,lib,NewName}}}),
 			    wait_req_scan(St)
 		    end;
-		_Error ->
+		error ->
 		    epp_reply(From, {error,{loc(Inc),epp,
                                             {include,lib,NewName}}}),
 		    wait_req_scan(St)
