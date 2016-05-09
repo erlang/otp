@@ -9034,16 +9034,16 @@ timestamp() ->
       <type name="trace_info_flag"/>
       <type name="trace_match_spec"/>
       <desc>
-        <p>Returns trace information about a port, process or function.</p>
-        <p>To get information about a port or process,
-         <c><anno>PidPortOrFunc</anno></c> is to
+        <p>Returns trace information about a port, process, function or event.</p>
+        <p><em>To get information about a port or process</em>,
+         <c><anno>PidPortFuncEvent</anno></c> is to
           be a process identifier (pid), port identifier or one of
           the atoms <c>new</c>, <c>new_processes</c>, <c>new_ports</c>.
           The atom <c>new</c> or <c>new_processes</c> means that the default trace
           state for processes to be created is returned. The atom <c>new_ports</c>
           means that the default trace state for ports to be created is returned.
         </p>
-        <p>The following <c>Item</c>s are valid:</p>
+        <p>The following <c>Item</c>s are valid for ports and processes:</p>
         <taglist>
           <tag><c>flags</c></tag>
           <item>
@@ -9067,12 +9067,15 @@ timestamp() ->
               value is <c>[]</c>.</p>
           </item>
         </taglist>
-        <p>To get information about a function, <c><anno>PidPortOrFunc</anno></c> is to
+        <p><em>To get information about a function</em>, <c><anno>PidPortFuncEvent</anno></c> is to
           be the three-element tuple <c>{Module, Function, Arity}</c> or
           the atom <c>on_load</c>. No wild cards are allowed. Returns
           <c>undefined</c> if the function does not exist, or
-          <c>false</c> if the function is not traced.</p>
-         <p>The following <c>Item</c>s are valid::</p>
+          <c>false</c> if the function is not traced. If <c><anno>PidPortFuncEvent</anno></c>
+	  is <c>on_load</c>, the information returned refers to
+	  the default value for code that will be loaded.</p>
+
+         <p>The following <c>Item</c>s are valid for functions:</p>
         <taglist>
           <tag><c>traced</c></tag>
           <item>
@@ -9131,39 +9134,177 @@ timestamp() ->
               is active for this function.</p>
           </item>
         </taglist>
+        <p><em>To get information about an event</em>, <c><anno>PidPortFuncEvent</anno></c> is to
+          be one of the atoms <c>send</c> or <c>'receive'</c>.</p>
+         <p>The only valid <c>Item</c> for events is:</p>
+        <taglist>
+          <tag><c>match_spec</c></tag>
+          <item>
+            <p>Returns the match specification for this event, if it
+              has one, or <c>true</c> if no match specification has been
+	      set.</p>
+          </item>
+        </taglist>
         <p>The return value is <c>{<anno>Item</anno>, Value}</c>, where
           <c>Value</c> is the requested information as described earlier.
           If a pid for a dead process was given, or the name of a
           non-existing function, <c>Value</c> is <c>undefined</c>.</p>
-        <p>If <c><anno>PidPortOrFunc</anno></c> is <c>on_load</c>, the information
-          returned refers to the default value for code that will be
-          loaded.</p>
       </desc>
     </func>
 
     <func>
       <name name="trace_pattern" arity="2" clause_i="1"/>
-      <fsummary>Sets trace patterns for global call tracing.</fsummary>
+      <fsummary>Sets trace patterns for call, send or 'receive' tracing.</fsummary>
       <type name="trace_pattern_mfa"/>
       <type name="trace_match_spec"/>
       <desc>
         <p>The same as
-          <seealso marker="#trace_pattern/3">erlang:trace_pattern(MFA, MatchSpec, [])</seealso>,
+          <seealso marker="#trace_pattern/3">erlang:trace_pattern(Event, MatchSpec, [])</seealso>,
           retained for backward compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name name="trace_pattern" arity="3"/>
+      <name name="trace_pattern" arity="3" clause_i="1"/>
+      <fsummary>Sets trace pattern for message sending.</fsummary>
+      <type name="trace_match_spec"/>
+      <desc>
+        <p>Sets trace pattern for <em>message sending</em>.
+	  Must be combined with
+          <seealso marker="#trace/3">erlang:trace/3</seealso>
+          to set the <c>send</c> trace flag for one or more processes.
+	  By default all messages, sent from <c>send</c> traced processes,
+	  are traced. Use <c>erlang:trace_pattern/3</c> to limit
+	  traced send events based on the message content, the sender
+	  and/or the receiver.</p>
+        <p>Argument <c><anno>MatchSpec</anno></c> can take the
+          following forms:</p>
+        <taglist>
+          <tag><c><anno>MatchSpecList</anno></c></tag>
+          <item>
+            <p>A list of match specifications. The matching is done
+	      on the list <c>[Receiver, Msg]</c>. <c>Receiver</c>
+	      is the process or port identity of the receiver and
+	      <c>Msg</c> is the message term. The pid of the sending
+	      process can be accessed with the guard function
+	      <c>self/0</c>. An empty list is the same as <c>true</c>.
+	      See the users guide section
+	      <seealso marker="erts:match_spec">Match Specifications in Erlang</seealso>
+	      for more information.</p>
+          </item>
+          <tag><c>true</c></tag>
+          <item>
+            <p>Enables tracing for all sent messages (from <c>send</c>
+	    traced processes). Any match specification is
+	    removed. <em>This is the default</em>.</p>
+          </item>
+          <tag><c>false</c></tag>
+          <item>
+            <p>Disables tracing for all sent messages.
+	       Any match specification is removed.</p>
+          </item>
+        </taglist>
+	<p>Argument <c><anno>FlagList</anno></c> must be <c>[]</c>
+	for send tracing.</p>
+	<p>The return value is always <c>1</c>.</p>
+        <p>Example; only trace messages to a specific process <c>Pid</c>:</p>
+        <pre>
+> <input>erlang:trace_pattern(send, [{[Pid, '_'],[],[]}], []).</input>
+1</pre>
+        <p>Only trace messages matching <c>{reply, _}</c>:</p>
+        <pre>
+> <input>erlang:trace_pattern(send, [{['_', {reply,'_'}],[],[]}], []).</input>
+1</pre>
+        <p>Only trace messages sent to the sender itself:</p>
+        <pre>
+> <input>erlang:trace_pattern(send, [{['$1', '_'],[{'=:=','$1',{self}}],[]}], []).</input>
+1</pre>
+        <p>Only trace messages sent to other nodes:</p>
+        <pre>
+> <input>erlang:trace_pattern(send, [{['$1', '_'],[{'=/=',{node,'$1'},{node}}],[]}], []).</input>
+1</pre>
+        <note><p>A match specification for <c>send</c> trace can use
+	all guard and body functions except <c>caller</c>.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="trace_pattern" arity="3" clause_i="2"/>
+      <fsummary>Sets trace pattern for tracing of message receiving.</fsummary>
+      <type name="trace_match_spec"/>
+      <desc>
+        <p></p>
+        <p>Sets trace pattern for <em>message receiving</em>.
+	  Must be combined with
+          <seealso marker="#trace/3">erlang:trace/3</seealso>
+          to set the <c>'receive'</c> trace flag for one or more processes.
+	  By default all messages, received by <c>'receive'</c> traced processes,
+	  are traced. Use <c>erlang:trace_pattern/3</c> to limit
+	  traced receive events based on the message content, the sender
+	  and/or the receiver.</p>
+        <p>Argument <c><anno>MatchSpec</anno></c> can take the
+          following forms:</p>
+        <taglist>
+          <tag><c><anno>MatchSpecList</anno></c></tag>
+          <item>
+            <p>A list of match specifications. The matching is done
+	      on the list <c>[Node, Sender, Msg]</c>. <c>Node</c>
+	      is the node name of the sender. <c>Sender</c> is the
+	      process or port identity of the sender, or the atom
+	      <c>undefined</c> if the sender is not known (which may
+	      be the case for remote senders). <c>Msg</c> is the
+	      message term. The pid of the receiving process can be
+	      accessed with the guard function <c>self/0</c>. An empty
+	      list is the same as <c>true</c>. See the users guide section
+	      <seealso marker="erts:match_spec">Match Specifications in Erlang</seealso>
+	      for more information.</p>
+          </item>
+          <tag><c>true</c></tag>
+          <item>
+            <p>Enables tracing for all received messages (to <c>'receive'</c>
+	    traced processes). Any match specification is
+	    removed. <em>This is the default</em>.</p>
+          </item>
+          <tag><c>false</c></tag>
+          <item>
+            <p>Disables tracing for all received messages.
+	       Any match specification is removed.</p>
+          </item>
+        </taglist>
+	<p>Argument <c><anno>FlagList</anno></c> must be <c>[]</c>
+	for receive tracing.</p>
+	<p>The return value is always <c>1</c>.</p>
+        <p>Example; only trace messages from a specific process <c>Pid</c>:</p>
+        <pre>
+> <input>erlang:trace_pattern('receive', [{['_',Pid, '_'],[],[]}], []).</input>
+1</pre>
+        <p>Only trace messages matching <c>{reply, _}</c>:</p>
+        <pre>
+> <input>erlang:trace_pattern('receive', [{['_','_', {reply,'_'}],[],[]}], []).</input>
+1</pre>
+        <p>Only trace messages from other nodes:</p>
+        <pre>
+> <input>erlang:trace_pattern('receive', [{['$1', '_', '_'],[{'=/=','$1',{node}}],[]}], []).</input>
+1</pre>
+        <note><p>A match specification for <c>'receive'</c> trace can
+	use all guard and body functions except <c>caller,
+	is_seq_trace, get_seq_token, set_seq_token, enable_trace,
+	disable_trace, trace, silent</c> and <c>process_dump</c>.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="trace_pattern" arity="3" clause_i="3"/>
       <fsummary>Sets trace patterns for tracing of function calls.</fsummary>
       <type name="trace_pattern_mfa"/>
       <type name="trace_match_spec"/>
       <type name="trace_pattern_flag"/>
       <desc>
-        <p>Enables or disables call tracing for
-          one or more functions. Must be combined with
+        <p>Enables or disables <em>call tracing</em> for one or more functions.
+	  Must be combined with
           <seealso marker="#trace/3">erlang:trace/3</seealso>
-          to set the <c>call</c> trace flag for one or more processes.</p>
+          to set the <c>call</c> trace flag
+	  for one or more processes.</p>
         <p>Conceptually, call tracing works as follows. Inside
           the Erlang Virtual Machine, a set of processes and
           a set of functions are to be traced. If a traced process
@@ -9218,7 +9359,8 @@ timestamp() ->
           </item>
           <tag><c>true</c></tag>
           <item>
-            <p>Enables tracing for the matching functions.</p>
+            <p>Enables tracing for the matching functions.
+	       Any match specification is removed.</p>
           </item>
           <tag><c><anno>MatchSpecList</anno></c></tag>
           <item>

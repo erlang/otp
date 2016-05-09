@@ -601,7 +601,7 @@ void hipe_clear_timeout(Process *c_p)
     }
 #endif
     if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
-	trace_receive(c_p, am_timeout);
+	trace_receive(c_p, am_clock_service, am_timeout, NULL);
     }
     c_p->flags &= ~F_TIMO;
     JOIN_MESSAGE(c_p);

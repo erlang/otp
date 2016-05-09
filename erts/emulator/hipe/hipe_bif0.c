@@ -533,13 +533,13 @@ BIF_RETTYPE hipe_bifs_merge_term_1(BIF_ALIST_1)
     BIF_RET(val);
 }
 
-struct mfa {
+struct mfa_t {
     Eterm mod;
     Eterm fun;
     Uint  ari;
 };
 
-static int term_to_mfa(Eterm term, struct mfa *mfa)
+static int term_to_mfa(Eterm term, struct mfa_t *mfa)
 {
     Eterm mod, fun, a;
     Uint ari;
@@ -597,7 +597,7 @@ static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 
 Uint *hipe_bifs_find_pc_from_mfa(Eterm term)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
 
     if (!term_to_mfa(term, &mfa))
 	return NULL;
@@ -617,7 +617,7 @@ BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
     Eterm *pc;
     void *address;
     int is_closure;
-    struct mfa mfa;
+    struct mfa_t mfa;
 
     switch (BIF_ARG_3) {
       case am_false:
@@ -1225,7 +1225,7 @@ void hipe_mfa_set_trampoline(Eterm m, Eterm f, unsigned int arity, void *trampol
 
 BIF_RETTYPE hipe_bifs_set_funinfo_native_address_3(BIF_ALIST_3)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     void *address;
     int is_exported;
 
@@ -1247,7 +1247,7 @@ BIF_RETTYPE hipe_bifs_set_funinfo_native_address_3(BIF_ALIST_3)
 BIF_RETTYPE hipe_bifs_invalidate_funinfo_native_addresses_1(BIF_ALIST_1)
 {
     Eterm lst;
-    struct mfa mfa;
+    struct mfa_t mfa;
     struct hipe_mfa_info *p;
 
     hipe_mfa_info_table_rwlock();
@@ -1416,7 +1416,7 @@ BIF_RETTYPE hipe_find_na_or_make_stub(BIF_ALIST_3)
 
 BIF_RETTYPE hipe_bifs_find_na_or_make_stub_2(BIF_ALIST_2)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     void *address;
     int is_remote;
 
@@ -1518,9 +1518,9 @@ struct ref {
  */
 BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 {
-    struct mfa callee;
+    struct mfa_t callee;
     Eterm *tuple;
-    struct mfa caller;
+    struct mfa_t caller;
     void *address;
     void *trampoline;
     unsigned int flags;
@@ -1597,7 +1597,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
  */
 BIF_RETTYPE hipe_bifs_mark_referred_from_1(BIF_ALIST_1) /* get_refs_from */
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     const struct hipe_mfa_info *p;
     struct ref *ref;
 
@@ -1649,7 +1649,7 @@ static void hipe_purge_all_refs(void)
 
 BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     struct hipe_mfa_info *caller_mfa, *callee_mfa;
     struct hipe_mfa_info_list *refers_to, *tmp_refers_to;
     struct ref **prev, *ref;
@@ -1703,7 +1703,7 @@ BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
  */
 BIF_RETTYPE hipe_bifs_redirect_referred_from_1(BIF_ALIST_1)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     struct hipe_mfa_info *p;
     struct ref **prev, *ref;
     int is_remote, res;

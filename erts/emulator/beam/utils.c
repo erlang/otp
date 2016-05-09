@@ -2263,7 +2263,7 @@ static void do_send_logger_message(Eterm *hp, ErlOffHeap *ohp, ErlHeapFragment *
     {
 	ErtsMessage *mp = erts_alloc_message(0, NULL);
 	mp->data.heap_frag = bp;
-	erts_queue_message(p, NULL /* only used for smp build */, mp, message);
+	erts_queue_message(p, 0, mp, message, am_system);
     }
 #endif
 }

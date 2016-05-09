@@ -56,6 +56,15 @@
 
 struct binary;
 
+typedef struct
+{
+    int on;
+    struct binary* match_spec;
+} ErtsTracingEvent;
+
+extern ErtsTracingEvent erts_send_tracing[];
+extern ErtsTracingEvent erts_receive_tracing[];
+
 /* erl_bif_trace.c */
 Eterm erl_seq_trace_info(Process *p, Eterm arg1);
 void erts_system_monitor_clear(Process *c_p);
@@ -91,7 +100,7 @@ void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 #endif
 
 void trace_send(Process*, Eterm, Eterm);
-void trace_receive(Process *, Eterm);
+void trace_receive(Process*, Eterm, Eterm, ErtsTracingEvent*);
 Uint32 erts_call_trace(Process *p, BeamInstr mfa[], struct binary *match_spec,
                        Eterm* args, int local, ErtsTracer *tracer);
 void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval,

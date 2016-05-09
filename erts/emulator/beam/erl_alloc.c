@@ -3286,7 +3286,7 @@ reply_alloc_info(void *vair)
     if (hp != hp_end)
 	erts_shrink_message_heap(&mp, rp, hp_start, hp, hp_end, &msg, 1);
 
-    erts_queue_message(rp, &rp_locks, mp, msg);
+    erts_queue_message(rp, rp_locks, mp, msg, am_system);
 
     if (air->req_sched == sched_id)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;

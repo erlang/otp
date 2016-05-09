@@ -611,7 +611,7 @@ erts_queue_monitor_message(Process *p,
     ref_copy    = copy_struct(ref, ref_size, &hp, ohp);
 
     tup = TUPLE5(hp, am_DOWN, ref_copy, type, item_copy, reason_copy);
-    erts_queue_message(p, p_locksp, msgp, tup);
+    erts_queue_message(p, *p_locksp, msgp, tup, am_system);
 }
 
 static BIF_RETTYPE

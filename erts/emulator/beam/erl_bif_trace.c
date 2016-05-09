@@ -68,6 +68,9 @@ static struct {			/* Protected by code write permission */
 
 static Eterm
 trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist);
+static int
+erts_set_tracing_event_pattern(Eterm event, Binary*, int on);
+
 #ifdef ERTS_SMP
 static void smp_bp_finisher(void* arg);
 #endif
@@ -78,6 +81,8 @@ static void new_seq_trace_token(Process* p); /* help func for seq_trace_2*/
 static Eterm trace_info_pid(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_func(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_on_load(Process* p, Eterm key);
+static Eterm trace_info_event(Process* p, Eterm event, Eterm key);
+
 
 static void reset_bif_trace(void);
 static void setup_bif_trace(void);
@@ -85,14 +90,26 @@ static void install_exp_breakpoints(BpFunctions* f);
 static void uninstall_exp_breakpoints(BpFunctions* f);
 static void clean_export_entries(BpFunctions* f);
 
+ErtsTracingEvent erts_send_tracing[ERTS_NUM_BP_IX];
+ErtsTracingEvent erts_receive_tracing[ERTS_NUM_BP_IX];
+
 void
 erts_bif_trace_init(void)
 {
+    int i;
+
     erts_default_trace_pattern_is_on = 0;
     erts_default_match_spec = NULL;
     erts_default_meta_match_spec = NULL;
     erts_default_trace_pattern_flags = erts_trace_pattern_flags_off;
     erts_default_meta_tracer = erts_tracer_nil;
+
+    for (i=0; i<ERTS_NUM_BP_IX; i++) {
+        erts_send_tracing[i].on = 1;
+        erts_send_tracing[i].match_spec = NULL;
+	erts_receive_tracing[i].on = 1;
+	erts_receive_tracing[i].match_spec = NULL;
+    }
 }
 
 /*
@@ -137,15 +154,18 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	on = 1;
     } else if (Pattern == am_restart) {
 	match_prog_set = NULL;
-	on = erts_break_reset;
+	on = ERTS_BREAK_RESTART;
     } else if (Pattern == am_pause) {
 	match_prog_set = NULL;
-	on = erts_break_stop;
-    } else if ((match_prog_set = erts_match_set_compile(p, Pattern)) != NULL) {
-	MatchSetRef(match_prog_set);
-	on = 1;
-    } else{
-	goto error;
+	on = ERTS_BREAK_PAUSE;
+    } else {
+	match_prog_set = erts_match_set_compile(p, Pattern, MFA);
+	if (match_prog_set) {
+	    MatchSetRef(match_prog_set);
+	    on = 1;
+	} else{
+	    goto error;
+	}
     }
     
     is_global = 0;
@@ -314,6 +334,11 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	matches = erts_set_trace_pattern(p, mfa, specified,
 					 match_prog_set, match_prog_set,
 					 on, flags, meta_tracer, 0);
+    } else if (is_atom(MFA)) {
+        if (is_global || flags.breakpoint || on > ERTS_BREAK_SET) {
+            goto error;
+        }
+        matches = erts_set_tracing_event_pattern(MFA, match_prog_set, on);
     }
 
  error:
@@ -791,6 +816,8 @@ Eterm trace_info_2(BIF_ALIST_2)
 
     if (What == am_on_load) {
 	res = trace_info_on_load(p, Key);
+    } else if (What == am_send || What == am_receive) {
+        res = trace_info_event(p, What, Key);
     } else if (is_atom(What) || is_pid(What) || is_port(What)) {
 	res = trace_info_pid(p, What, Key);
     } else if (is_tuple(What)) {
@@ -1280,6 +1307,42 @@ trace_info_on_load(Process* p, Eterm key)
     }
 }
 
+static Eterm
+trace_info_event(Process* p, Eterm event, Eterm key)
+{
+    ErtsTracingEvent* te;
+    Eterm retval;
+    Eterm* hp;
+
+    switch (event) {
+    case am_send:    te = erts_send_tracing;    break;
+    case am_receive: te = erts_receive_tracing; break;
+    default:
+        goto error;
+    }
+
+    if (key != am_match_spec)
+        goto error;
+
+    te = &te[erts_active_bp_ix()];
+
+    if (te->on) {
+        if (!te->match_spec)
+            retval = am_true;
+        else
+            retval = copy_object(MatchSetGetSource(te->match_spec), p);
+    }
+    else
+        retval = am_false;
+
+    hp = HAlloc(p, 3);
+    return TUPLE2(hp, key, retval);
+
+ error:
+    BIF_ERROR(p, BADARG);
+}
+
+
 #undef FUNC_TRACE_NOEXIST
 #undef FUNC_TRACE_UNTRACED
 #undef FUNC_TRACE_GLOBAL_TRACE
@@ -1307,7 +1370,7 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 
     for (i = 0; i < n; i++) {
 	BeamInstr* pc = fp[i].pc;
-	Export* ep = (Export *)(((char *)(pc-3)) - offsetof(Export, code));
+	Export* ep = ErtsContainerStruct(pc, Export, code[3]);
 
 	if (on && !flags.breakpoint) {
 	    /* Turn on global call tracing */
@@ -1468,12 +1531,57 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 }
 
 int
+erts_set_tracing_event_pattern(Eterm event, Binary* match_spec, int on)
+{
+    ErtsBpIndex ix = erts_staging_bp_ix();
+    ErtsTracingEvent* st;
+
+    switch (event) {
+    case am_send: st = &erts_send_tracing[ix]; break;
+    case am_receive: st = &erts_receive_tracing[ix]; break;
+    default: return -1;
+    }
+
+    MatchSetUnref(st->match_spec);
+
+    st->on = on;
+    st->match_spec = match_spec;
+    MatchSetRef(match_spec);
+
+    finish_bp.current = 1;  /* prepare phase not needed for event trace */
+    finish_bp.install = on;
+    finish_bp.e.matched = 0;
+    finish_bp.e.matching = NULL;
+    finish_bp.f.matched = 0;
+    finish_bp.f.matching = NULL;
+
+#ifndef ERTS_SMP
+    while (erts_finish_breakpointing()) {
+        /* Empty loop body */
+    }
+#endif
+    return 1;
+}
+
+static void
+consolidate_event_tracing(ErtsTracingEvent te[])
+{
+    ErtsTracingEvent* src = &te[erts_active_bp_ix()];
+    ErtsTracingEvent* dst = &te[erts_staging_bp_ix()];
+
+    MatchSetUnref(dst->match_spec);
+    dst->on = src->on;
+    dst->match_spec = src->match_spec;
+    MatchSetRef(dst->match_spec);
+}
+
+int
 erts_finish_breakpointing(void)
 {
     ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
 
     /*
-     * Memory barriers will be issued for all processes *before*
+     * Memory barriers will be issued for all schedulers *before*
      * each of the stages below. (Unless the other schedulers
      * are blocked, in which case memory barriers will be issued
      * when they are awaken.)
@@ -1542,6 +1650,8 @@ erts_finish_breakpointing(void)
 	erts_consolidate_bp_data(&finish_bp.f, 1);
 	erts_bp_free_matched_functions(&finish_bp.e);
 	erts_bp_free_matched_functions(&finish_bp.f);
+        consolidate_event_tracing(erts_send_tracing);
+	consolidate_event_tracing(erts_receive_tracing);
 	return 0;
     default:
 	ASSERT(0);
@@ -1556,11 +1666,10 @@ install_exp_breakpoints(BpFunctions* f)
     BpFunction* fp = f->matching;
     Uint ne = f->matched;
     Uint i;
-    Uint offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
 
     for (i = 0; i < ne; i++) {
 	BeamInstr* pc = fp[i].pc;
-	Export* ep = (Export *) (((char *)pc)-offset);
+	Export* ep = ErtsContainerStruct(pc, Export, code[3]);
 
 	ep->addressv[code_ix] = pc;
     }
@@ -1573,11 +1682,10 @@ uninstall_exp_breakpoints(BpFunctions* f)
     BpFunction* fp = f->matching;
     Uint ne = f->matched;
     Uint i;
-    Uint offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
 
     for (i = 0; i < ne; i++) {
 	BeamInstr* pc = fp[i].pc;
-	Export* ep = (Export *) (((char *)pc)-offset);
+	Export* ep = ErtsContainerStruct(pc, Export, code[3]);
 
 	if (ep->addressv[code_ix] != pc) {
 	    continue;
@@ -1594,11 +1702,10 @@ clean_export_entries(BpFunctions* f)
     BpFunction* fp = f->matching;
     Uint ne = f->matched;
     Uint i;
-    Uint offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
 
     for (i = 0; i < ne; i++) {
 	BeamInstr* pc = fp[i].pc;
-	Export* ep = (Export *) (((char *)pc)-offset);
+	Export* ep = ErtsContainerStruct(pc, Export, code[3]);
 
 	if (ep->addressv[code_ix] == pc) {
 	    continue;
@@ -2277,7 +2384,7 @@ reply_trace_delivered_all(void *vtdarp)
 #ifdef ERTS_SMP
         erts_send_sys_msg_proc(rp->common.id, rp->common.id, msg, bp);
 #else
-        erts_queue_message(rp, &rp_locks, mp, msg);
+        erts_queue_message(rp, rp_locks, mp, msg, am_system);
 #endif
 
 	erts_free(ERTS_ALC_T_MISC_AUX_WORK, vtdarp);

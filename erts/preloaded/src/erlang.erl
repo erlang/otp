@@ -1749,16 +1749,16 @@ trace_delivered(_Tracee) ->
     erlang:nif_error(undefined).
 
 %% trace_info/2
--spec erlang:trace_info(PidPortOrFunc, Item) -> Res when
-      PidPortOrFunc :: pid() | port() | new | new_processes | new_ports
-                     | {Module, Function, Arity} | on_load,
+-spec erlang:trace_info(PidPortFuncEvent, Item) -> Res when
+      PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
+                     | {Module, Function, Arity} | on_load | send | 'receive',
       Module :: module(),
       Function :: atom(),
       Arity :: arity(),
       Item :: flags | tracer | traced | match_spec
             | meta | meta_match_spec | call_count | call_time | all,
       Res :: trace_info_return().
-trace_info(_PidPortOrFunc, _Item) ->
+trace_info(_PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
 
 %% trunc/1
@@ -2381,7 +2381,7 @@ tl(_List) ->
       [{[term()] | '_' ,[term()],[term()]}].
 
 -spec erlang:trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
-      MFA :: trace_pattern_mfa(),
+      MFA :: trace_pattern_mfa() | send | 'receive',
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()
                  | restart
@@ -2403,7 +2403,13 @@ trace_pattern(MFA, MatchSpec) ->
       call_count |
       call_time.
 
--spec erlang:trace_pattern(MFA, MatchSpec, FlagList) -> non_neg_integer() when
+-spec erlang:trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean();
+			  ('receive', MatchSpec, []) -> non_neg_integer() when
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean();
+			  (MFA, MatchSpec, FlagList) -> non_neg_integer() when
       MFA :: trace_pattern_mfa(),
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()

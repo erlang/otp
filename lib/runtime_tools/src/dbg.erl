@@ -20,6 +20,7 @@
 -module(dbg).
 -export([p/1,p/2,c/3,c/4,i/0,start/0,stop/0,stop_clear/0,tracer/0,
 	 tracer/2, tracer/3, get_tracer/0, get_tracer/1, tp/2, tp/3, tp/4, 
+	 tpe/2, ctpe/1,
 	 ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, ctpl/0, ctpl/1, 
 	 ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3, ltp/0, wtp/1, rtp/1, 
 	 dtp/0, dtp/1, n/1, cn/1, ln/0, h/0, h/1]).
@@ -128,7 +129,12 @@ tpl(Module, Pattern) when is_atom(Module) ->
     do_tp({Module, '_', '_'}, Pattern, [local]);
 tpl({_Module, _Function, _Arity} = X, Pattern) ->
     do_tp(X,Pattern,[local]).
-do_tp({_Module, _Function, _Arity} = X, Pattern, Flags)
+
+tpe(Event, Pattern) when Event =:= send;
+			 Event =:= 'receive' ->
+    do_tp(Event, Pattern, []).
+
+do_tp(X, Pattern, Flags)
   when is_integer(Pattern);
        is_atom(Pattern) ->
     case ets:lookup(get_pattern_table(), Pattern) of
@@ -137,17 +143,16 @@ do_tp({_Module, _Function, _Arity} = X, Pattern, Flags)
 	_ ->
 	    {error, unknown_pattern}
     end;
-do_tp({Module, _Function, _Arity} = X, Pattern, Flags) when is_list(Pattern) ->
+do_tp(X, Pattern, Flags) when is_list(Pattern) ->
     Nodes = req(get_nodes),
-    case Module of
-	'_' -> 
-	    ok;
-	M when is_atom(M) ->
+    case X of
+	{M,_,_} when is_atom(M) ->
 	    %% Try to load M on all nodes
 	    lists:foreach(fun(Node) ->
 				  rpc:call(Node, M, module_info, [])
 			  end,
-			  Nodes)
+			  Nodes);
+	_ -> ok
     end,
     case lint_tp(Pattern) of
 	{ok,_} ->
@@ -163,9 +168,9 @@ do_tp({Module, _Function, _Arity} = X, Pattern, Flags) when is_list(Pattern) ->
     end.
 
 %% All nodes are handled the same way - also the local node if it is traced
-do_tp_on_nodes(Nodes, MFA, P, Flags) ->
+do_tp_on_nodes(Nodes, X, P, Flags) ->
     lists:map(fun(Node) ->
-		      case rpc:call(Node,erlang,trace_pattern,[MFA,P, Flags]) of
+		      case rpc:call(Node,erlang,trace_pattern,[X,P, Flags]) of
 			  N when is_integer(N) ->
 			      {matched, Node, N};
 			  Else ->
@@ -210,12 +215,18 @@ ctpg(Module) when is_atom(Module) ->
     do_ctp({Module, '_', '_'}, [global]);
 ctpg({_Module, _Function, _Arity} = X) ->
     do_ctp(X,[global]).
+
 do_ctp({Module, Function, Arity},[]) ->
     do_ctp({Module, Function, Arity},[global]),
     do_ctp({Module, Function, Arity},[local]);
 do_ctp({_Module, _Function, _Arity}=MFA,Flags) ->
     Nodes = req(get_nodes),
     {ok,do_tp_on_nodes(Nodes,MFA,false,Flags)}.
+
+ctpe(Event) when Event =:= send;
+		 Event =:= 'receive' ->
+    Nodes = req(get_nodes),
+    {ok,do_tp_on_nodes(Nodes,Event,true,[])}.
 
 %%
 %% ltp() -> ok

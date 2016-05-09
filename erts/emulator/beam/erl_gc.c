@@ -2938,7 +2938,7 @@ reply_gc_info(void *vgcirp)
 	hpp = &hp;
     }
 
-    erts_queue_message(rp, &rp_locks, mp, msg);
+    erts_queue_message(rp, rp_locks, mp, msg, am_system);
 
     if (gcirp->req_sched == esdp->no)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
