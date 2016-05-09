@@ -84,8 +84,9 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       a server <c>Data</c> besides the state. Because of this, and as
       there is no restriction on the number of states
       (assuming that there is enough virtual machine memory)
-      or on the number of distinct input events, makes
-      a state machine implemented with this behavior Turing complete.
+      or on the number of distinct input events,
+      a state machine implemented with this behavior
+      is in fact Turing complete.
       But it feels mostly like an Event-Driven Mealy Machine.
     </p>
   </section>
@@ -101,8 +102,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <list type="bulleted">
       <item>
         <p>
-          In mode <seealso marker="stdlib:gen_statem#type-callback_mode">
-          <c>state_functions</c></seealso>,
+          In mode
+	  <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>,
           the state transition rules are written as some Erlang
           functions, which conform to the following convention:
         </p>
@@ -113,20 +114,19 @@ StateName(EventType, EventContent, Data) ->
       </item>
       <item>
         <p>
-          In mode <seealso marker="stdlib:gen_statem#type-callback_mode">
-          <c>handle_event_function</c></seealso>,
+          In mode
+	  <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>,
           only one Erlang function provides all state transition rules:
         </p>
         <pre>
 handle_event(EventType, EventContent, State, Data) ->
     .. code for actions here ...
-    {next_state, State', Data'}</pre>
+    {next_state, NewState, NewData}</pre>
       </item>
     </list>
     <p>
       Both these modes allow other return tuples; see
-      <seealso marker="stdlib:gen_statem#Module:StateName/3">
-      <c>Module:StateName/3</c></seealso>
+      <seealso marker="stdlib:gen_statem#Module:StateName/3"><c>Module:StateName/3</c></seealso>
       in the <c>gen_statem</c> manual page.
       These other return tuples can, for example, stop the machine,
       execute state transition actions on the machine engine itself,
@@ -172,8 +172,7 @@ handle_event(EventType, EventContent, State, Data) ->
 	This mode works equally well when you want to focus on
 	one event at the time or on
 	one state at the time, but function
-	<seealso marker="stdlib:gen_statem#Module:handle_event/4">
-	<c>Module:handle_event/4</c></seealso>
+	<seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
 	quickly grows too large to handle without introducing dispatching.
       </p>
       <p>
@@ -291,9 +290,7 @@ start_link(Code) ->
     ]]></code>
     <p>
       <c>start_link</c> calls function
-      <seealso marker="stdlib:gen_statem#start_link/4">
-	<c>gen_statem:start_link/4</c>
-      </seealso>,
+      <seealso marker="stdlib:gen_statem#start_link/4"><c>gen_statem:start_link/4</c></seealso>,
       which spawns and links to a new process, a <c>gen_statem</c>.
     </p>
     <list type="bulleted">
@@ -308,9 +305,7 @@ start_link(Code) ->
           Instead its pid must be used. The name can also be specified
           as <c>{global,Name}</c>, then the <c>gen_statem</c> is
           registered using
-          <seealso marker="kernel:global#register_name/2">
-            <c>global:register_name/2</c>
-          </seealso>
+          <seealso marker="kernel:global#register_name/2"><c>global:register_name/2</c></seealso>
           in <c>Kernel</c>.
         </p>
       </item>
@@ -339,9 +334,7 @@ start_link(Code) ->
         <p>
           The fourth argument, <c>[]</c>, is a list of options.
           For the available options, see
-          <seealso marker="stdlib:gen_statem#start_link/3">
-            <c>gen_statem:start_link/3</c>
-          </seealso>.
+          <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link/3</c></seealso>.
 	</p>
       </item>
     </list>
@@ -350,13 +343,9 @@ start_link(Code) ->
       calls callback function <c>code_lock:init(Code)</c>.
       This function is expected to return <c>{CallbackMode,State,Data}</c>,
       where
-      <seealso marker="#callback_modes">
-	<c>CallbackMode</c>
-      </seealso>
+      <seealso marker="#callback_modes"><c>CallbackMode</c></seealso>
       selects callback module state function mode, in this case
-      <seealso marker="stdlib:gen_statem#type-callback_mode">
-	<c>state_functions</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>
       through macro <c>?CALLBACK_MODE</c>. That is, each state
       has got its own handler function.
       <c>State</c> is the initial state of the <c>gen_statem</c>,
@@ -375,23 +364,17 @@ init(Code) ->
     {?CALLBACK_MODE,locked,Data}.
     ]]></code>
     <p>Function
-      <seealso marker="stdlib:gen_statem#start_link/3">
-	<c>gen_statem:start_link</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seealso>
       is synchronous. It does not return until the <c>gen_statem</c>
       is initialized and is ready to receive events.
     </p>
     <p>
       Function
-      <seealso marker="stdlib:gen_statem#start_link/3">
-	<c>gen_statem:start_link</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seealso>
       must be used if the <c>gen_statem</c>
       is part of a supervision tree, that is, started by a supervisor.
       Another function,
-      <seealso marker="stdlib:gen_statem#start/3">
-	<c>gen_statem:start</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#start/3"><c>gen_statem:start</c></seealso>
       can be used to start a standalone <c>gen_statem</c>, that is,
       a <c>gen_statem</c> that is not part of a supervision tree.
     </p>
@@ -403,9 +386,7 @@ init(Code) ->
     <title>Handling Events</title>
     <p>The function notifying the code lock about a button event is
       implemented using
-      <seealso marker="stdlib:gen_statem#cast/2">
-	<c>gen_statem:cast/2</c>:
-      </seealso>
+      <seealso marker="stdlib:gen_statem#cast/2"><c>gen_statem:cast/2</c></seealso>:
     </p>
     <code type="erl"><![CDATA[
 button(Digit) ->
@@ -528,9 +509,7 @@ handle_event({call,From}, code_length, #{code := Code} = Data) ->
     ]]></code>
     <p>
       This example uses
-      <seealso marker="stdlib:gen_statem#call/2">
-	<c>gen_statem:call/2</c>
-      </seealso>,
+      <seealso marker="stdlib:gen_statem#call/2"><c>gen_statem:call/2</c></seealso>,
       which waits for a reply from the server.
       The reply is sent with a <c>{reply,From,Reply}</c> tuple
       in an action list in the <c>{keep_state,...}</c> tuple
@@ -545,15 +524,13 @@ handle_event({call,From}, code_length, #{code := Code} = Data) ->
     <p>
       If mode <c>handle_event_function</c> is used,
       all events are handled in
-      <seealso marker="stdlib:gen_statem#Module:handle_event/4">
-        <c>Module:handle_event/4</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
       and we can (but do not have to) use an event-centered approach
       where we dispatch on event first and then state:
     </p>
     <code type="erl"><![CDATA[
 ...
--define(CALLBACK_MODE, state_functions).
+-define(CALLBACK_MODE, handle_event_function).
 
 ...
 -export([handle_event/4]).
@@ -604,11 +581,7 @@ handle_event(timeout, _, open, Data) ->
 	strategy must be a time-out value and the <c>gen_statem</c> must
 	in function <c>init/1</c> set itself to trap exit signals
 	by calling
-	<seealso marker="erts:erlang#process_flag/2">
-	  <c>process_flag(trap_exit, true)</c>
-	</seealso>.
-	When ordered to shut down, the <c>gen_statem</c> then calls
-	callback function <c>terminate(shutdown, State, Data)</c>:
+	<seealso marker="erts:erlang#process_flag/2"><c>process_flag(trap_exit, true)</c></seealso>:
       </p>
       <code type="erl"><![CDATA[
 init(Args) ->
@@ -616,6 +589,10 @@ init(Args) ->
     do_lock(),
     ...
       ]]></code>
+      <p>
+	When ordered to shut down, the <c>gen_statem</c> then calls
+	callback function <c>terminate(shutdown, State, Data)</c>.
+      </p>
       <p>
 	In the following example, function <c>terminate/3</c>
 	locks the door if it is open, so we do not accidentally leave the door
@@ -633,9 +610,7 @@ terminate(_Reason, State, _Data) ->
       <p>
 	If the <c>gen_statem</c> is not part of a supervision tree,
 	it can be stopped using
-	<seealso marker="stdlib:gen_statem#stop/1">
-	  <c>gen_statem:stop</c>
-	</seealso>,
+	<seealso marker="stdlib:gen_statem#stop/1"><c>gen_statem:stop</c></seealso>,
 	preferably through an API function:
       </p>
       <code type="erl"><![CDATA[
@@ -660,7 +635,7 @@ stop() ->
     <title>Actions</title>
     <p>
       In the first sections actions were mentioned as a part of
-      the general state machine model. These actions
+      the general state machine model. These general actions
       are implemented with the code that callback module
       <c>gen_statem</c> executes in an event-handling
       callback function before returning
@@ -671,17 +646,11 @@ stop() ->
       that a callback function can order the <c>gen_statem</c>
       engine to do after the callback function return.
       These are ordered by returning a list of
-      <seealso marker="stdlib:gen_statem#type-action">
-	actions
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-action">actions</seealso>
       in the
-      <seealso marker="stdlib:gen_statem#type-state_function_result">
-	return tuple
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-state_function_result">return tuple</seealso>
       from the
-      <seealso marker="stdlib:gen_statem#Module:StateName/3">
-	callback function
-      </seealso>.
+      <seealso marker="stdlib:gen_statem#Module:StateName/3">callback function</seealso>.
       These state transition actions affect the <c>gen_statem</c>
       engine itself and can do the following:
     </p>
@@ -697,9 +666,7 @@ stop() ->
       and replying to a caller.
       An example of event postponing is included later in this chapter.
       For details, see the
-      <seealso marker="stdlib:gen_statem#type-action">
-	<c>gen_statem(3)</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-action"><c>gen_statem(3)</c></seealso>
       manual page.
       You can, for example, reply to many callers
       and generate multiple next events to handle.
@@ -712,9 +679,7 @@ stop() ->
     <title>Event Types</title>
     <p>
       The previous sections mentioned a few
-      <seealso marker="stdlib:gen_statem#type-event_type">
-	event types
-      </seealso>.
+      <seealso marker="stdlib:gen_statem#type-event_type">event types</seealso>.
       Events of all types are handled in the same callback function,
       for a given state, and the function gets
       <c>EventType</c> and <c>EventContent</c> as arguments.
@@ -727,22 +692,16 @@ stop() ->
       <tag><c>cast</c></tag>
       <item>
 	Generated by
-	<seealso marker="stdlib:gen_statem#cast/2">
-	  <c>gen_statem:cast</c>.
-	</seealso>
+	<seealso marker="stdlib:gen_statem#cast/2"><c>gen_statem:cast</c></seealso>.
       </item>
       <tag><c>{call,From}</c></tag>
       <item>
 	Generated by
-	<seealso marker="stdlib:gen_statem#call/2">
-	  <c>gen_statem:call</c>
-	</seealso>,
+	<seealso marker="stdlib:gen_statem#call/2"><c>gen_statem:call</c></seealso>,
 	where <c>From</c> is the reply address to use
 	when replying either through the state transition action
 	<c>{reply,From,Msg}</c> or by calling
-	<seealso marker="stdlib:gen_statem#reply/1">
-	  <c>gen_statem:reply</c>
-	</seealso>.
+	<seealso marker="stdlib:gen_statem#reply/1"><c>gen_statem:reply</c></seealso>.
       </item>
       <tag><c>info</c></tag>
       <item>
@@ -759,7 +718,7 @@ stop() ->
       <item>
 	Generated by state transition action
 	<c>{next_event,internal,EventContent}</c>.
-	All event types above can be generated using
+	All event types above can also be generated using
 	<c>{next_event,EventType,EventContent}</c>.
       </item>
     </taglist>
@@ -780,9 +739,7 @@ stop() ->
       or you want to start a timer in one state and respond
       to the time-out in another. This can be accomplished
       with a regular Erlang timer:
-      <seealso marker="erts:erlang#start_timer/4">
-	<c>erlang:start_timer</c>.
-      </seealso>
+      <seealso marker="erts:erlang#start_timer/4"><c>erlang:start_timer</c></seealso>.
     </p>
     <p>
       For the example so far in this chapter: using the
@@ -818,9 +775,7 @@ open(cast, {button,_}, Data) ->
     ]]></code>
     <p>
       If you need to cancel a timer because of some other event, you can use
-      <seealso marker="erts:erlang#cancel_timer/2">
-	<c>erlang:cancel_timer(Tref)</c>
-      </seealso>.
+      <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>.
       Notice that a time-out message cannot arrive after this,
       unless you have postponed it (see the next section) before,
       so ensure that you do not accidentally postpone such messages.
@@ -844,9 +799,7 @@ open(cast, {button,_}, Data) ->
     </p>
     <p>
       Postponing is ordered by the state transition
-      <seealso marker="stdlib:gen_statem#type-action">
-	action
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-action">action</seealso>
       <c>postpone</c>.
     </p>
     <p>
@@ -861,7 +814,7 @@ open(cast, {button,_}, Data) ->
 ...
     ]]></code>
     <p>
-      A postponed event is only retried after a state change
+      The fact that a postponed event is only retried after a state change
       translates into a requirement on the event and state space.
       If you have a choice between storing a state data item
       in the <c>State</c> or in the <c>Data</c>:
@@ -953,9 +906,7 @@ do_unlock() ->
     </p>
     <p>
       The state transition
-      <seealso marker="stdlib:gen_statem#type-action">
-	action
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-action">action</seealso>
       <c>postpone</c> is designed to model
       selective receives. A selective receive implicitly postpones
       any not received events, but the <c>postpone</c>
@@ -977,16 +928,12 @@ do_unlock() ->
       It can sometimes be beneficial to be able to generate events
       to your own state machine.
       This can be done with the state transition
-      <seealso marker="stdlib:gen_statem#type-action">
-	action
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-action">action</seealso>
       <c>{next_event,EventType,EventContent}</c>.
     </p>
     <p>
       You can generate events of any existing
-      <seealso marker="stdlib:gen_statem#type-action">
-	type
-      </seealso>,
+      <seealso marker="stdlib:gen_statem#type-action">type</seealso>,
       but the <c>internal</c> type can only be generated through action
       <c>next_event</c>. Hence, it cannot come from an external source,
       so you can be certain that an <c>internal</c> event is an event
@@ -1150,9 +1097,9 @@ code_change(_Vsn, State, Data, _Extra) ->
       <p>
         This section describes what to change in the example
         to use one <c>handle_event/4</c> function.
-        The following clean first-dispatch-on-event approach
-        does not work that well because of the generated
-        entry actions:
+        The previously used clean first-dispatch-on-event approach
+        does not work that well here because of the generated
+        entry actions so this example dispatches on state first:
       </p>
       <code type="erl"><![CDATA[
 ...
@@ -1227,13 +1174,9 @@ handle_event({call,From}, code_length, _State, #{code := Code}) ->
     <p>
       To avoid this, you can format the internal state
       that gets in the error log and gets returned from
-      <seealso marker="stdlib:sys#get_status/1">
-	<c>sys:get_status/1,2</c>
-      </seealso>
+      <seealso marker="stdlib:sys#get_status/1"><c>sys:get_status/1,2</c></seealso>
       by implementing function
-      <seealso marker="stdlib:gen_statem#Module:format_status/2">
-	<c>Module:format_status/2</c>
-      </seealso>,
+      <seealso marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seealso>,
       for example like this:
     </p>
     <code type="erl"><![CDATA[
@@ -1259,9 +1202,7 @@ format_status(Opt, [_PDict,State,Data]) ->
     ]]></code>
     <p>
       It is not mandatory to implement a
-      <seealso marker="stdlib:gen_statem#Module:format_status/2">
-	<c>Module:format_status/2</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seealso>
       function. If you do not, a default implementation is used that
       does the same as this example function without filtering
       the <c>Data</c> term, that is, <c>StateData = {State,Data}</c>.
@@ -1274,13 +1215,9 @@ format_status(Opt, [_PDict,State,Data]) ->
     <title>Complex State</title>
     <p>
       The callback mode
-      <seealso marker="stdlib:gen_statem#type-callback_mode">
-	<c>handle_event_function</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>
       enables using a non-atom state as described in section
-      <seealso marker="#callback_modes">
-	Callback Modes
-      </seealso>,
+      <seealso marker="#callback_modes">Callback Modes</seealso>,
       for example, a complex state term like a tuple.
     </p>
     <p>
@@ -1308,8 +1245,7 @@ format_status(Opt, [_PDict,State,Data]) ->
     <p>
       So we make the <c>button/1</c> function synchronous
       by using
-      <seealso marker="stdlib:gen_statem#call/2">
-        <c>gen_statem:call</c></seealso>
+      <seealso marker="stdlib:gen_statem#call/2"><c>gen_statem:call</c></seealso>
       and still postpone its events in the <c>open</c> state.
       Then a call to <c>button/1</c> during the <c>open</c>
       state does not return until the state transits to <c>locked</c>,
@@ -1462,16 +1398,12 @@ format_status(Opt, [_PDict,State,Data]) ->
       and the amount of heap memory all these servers need
       is a problem, then the memory footprint of a server
       can be mimimized by hibernating it through
-      <seealso marker="stdlib:proc_lib#hibernate/3">
-	<c>proc_lib:hibernate/3</c>.
-      </seealso>
+      <seealso marker="stdlib:proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>.
     </p>
     <note>
       <p>
         It is rather costly to hibernate a process; see
-        <seealso marker="erts:erlang#hibernate/3">
-          <c>erlang:hibernate/3</c>
-        </seealso>.
+        <seealso marker="erts:erlang#hibernate/3"><c>erlang:hibernate/3</c></seealso>.
         It is not something you want to do after every event.
       </p>
     </note>
@@ -1495,9 +1427,7 @@ handle_event(
     ]]></code>
     <p>
       The
-      <seealso marker="stdlib:gen_statem#type-hibernate">
-	<c>[hibernate]</c>
-      </seealso>
+      <seealso marker="stdlib:gen_statem#type-hibernate"><c>[hibernate]</c></seealso>
       action list on the last line
       when entering the <c>{open,_}</c> state is the only change.
       If any event arrives in the <c>{open,_},</c> state, we
