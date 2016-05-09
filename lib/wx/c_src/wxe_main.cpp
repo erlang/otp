@@ -125,8 +125,8 @@ void *wxe_main_loop(void *vpdl)
 {
   int result;
   int  argc = 1;
-  char * temp = (char *) "Erlang";
-  char * argv[] = {temp,NULL};
+  const wxChar temp[10] = L"Erlang";
+  wxChar * argv[] = {(wxChar *)temp, NULL};
   ErlDrvPDL pdl = (ErlDrvPDL) vpdl;
 
   driver_pdl_inc_refc(pdl);

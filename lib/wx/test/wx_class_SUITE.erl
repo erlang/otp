@@ -643,8 +643,11 @@ modal(Config) ->
 				 wx:set_env(Env),
 				 modal_dialog(Frame, 1, Tester)
 			 end),
-	    receive {dialog, M1, 1} -> timer:sleep(200), ets:insert(test_state, {M1, ready}) end,
-	    receive {dialog, M2, 2} -> timer:sleep(200), ets:insert(test_state, {M2, ready}) end,
+	    %% need to sleep so we know that the window is stuck in
+	    %% the ShowModal event loop and not in an earlier event loop
+	    %% wx2.8 invokes the event loop from more calls than wx-3
+	    receive {dialog, M1, 1} -> timer:sleep(1200), ets:insert(test_state, {M1, ready}) end,
+	    receive {dialog, M2, 2} -> timer:sleep(1200), ets:insert(test_state, {M2, ready}) end,
 
 	    receive done -> ok end,
 	    receive {dialog_done, M2, 2} -> M2 end,
