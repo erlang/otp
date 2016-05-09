@@ -139,7 +139,7 @@ check_erltop ()
 	if [ "X$ERL_TOP" = "X" ]; then
 		if [ -f ./otp_build -a -f ./erts/autoconf/config.guess ]; then
 		    ERLTOP_FORCED=true
-		    ERL_TOP=`/bin/pwd`
+		    ERL_TOP=`pwd`
 		    export ERL_TOP
 		else
 		    echo "The environment variable ERL_TOP must be set." >&2
@@ -679,7 +679,7 @@ echo_env_erltop ()
     if [ X"$ERL_TOP" = X"" -o "$ERLTOP_FORCED" = "true" ]; then
 	if [ -f ./otp_build ]; then
 	    # Seems to be current directory...
-	    echo_setenv ERL_TOP `/bin/pwd` ';'
+	    echo_setenv ERL_TOP `pwd` ';'
 	else
 	    echo "You need to either set ERL_TOP first or stand in the same" \ 
 		"directory as this script resides in." >&2

@@ -62,9 +62,6 @@ if test x"${ERL_TOP}/erts" != x"$srcdir"; then
 fi
 erl_top=${ERL_TOP}
 
-# Remove old configuration information
-/bin/rm -f "$ERL_TOP/erts/CONF_INFO"
-
 # echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # echo X
 # echo "X srcdir  = $srcdir"
@@ -729,8 +726,27 @@ esac
 	
 AC_SUBST(LIBCARBON)
 
-dnl Check if we should/can build a sharing-preserving emulator
+_search_path=/bin:/usr/bin:/usr/local/bin:$PATH
 
+AC_PATH_PROG(RM, rm, false, $_search_path)
+if test "$ac_cv_path_RM" = false; then
+  AC_MSG_ERROR([No 'rm' command found])
+fi
+
+AC_PATH_PROG(MKDIR, mkdir, false, $_search_path)
+if test "$ac_cv_path_MKDIR" = false; then
+  AC_MSG_ERROR([No 'mkdir' command found])
+fi
+
+_search_path=
+
+
+# Remove old configuration information.
+# Next line should be placed after AC_PATH_PROG(RM, ...), but before
+# first output to CONN_INFO. So this is just the right place.
+$RM -f "$ERL_TOP/erts/CONF_INFO"
+
+dnl Check if we should/can build a sharing-preserving emulator
 AC_MSG_CHECKING(if we are building a sharing-preserving emulator)
 if test "$enable_sharing_preserving" = "yes"; then
         AC_DEFINE(SHCOPY, [1],
@@ -760,27 +776,13 @@ if test "$ac_cv_prog_AR" = false; then
   AC_MSG_ERROR([No 'ar' command found in PATH])
 fi
 
-_search_path=/bin:/usr/bin:/usr/local/bin:$PATH
-
-AC_PATH_PROG(RM, rm, false, $_search_path)
-if test "$ac_cv_path_RM" = false; then
-  AC_MSG_ERROR([No 'rm' command found])
-fi
-
-AC_PATH_PROG(MKDIR, mkdir, false, $_search_path)
-if test "$ac_cv_path_MKDIR" = false; then
-  AC_MSG_ERROR([No 'mkdir' command found])
-fi
-
-_search_path=
-
 #
 # Get programs needed for building the documentation 
 #
 
 ## Delete previous failed configure results
 if test -f doc/CONF_INFO; then
-   rm doc/CONF_INFO
+   $RM doc/CONF_INFO
 fi
 
 AC_CHECK_PROGS(XSLTPROC, xsltproc)
@@ -3823,7 +3825,7 @@ if test "$enable_dtrace_test" = "yes" ; then
 		    [$RM -f $DTRACE_2STEP_TEST
 		     dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d conftest.$OBJEXT 2>&AS_MESSAGE_LOG_FD
                      if test -f $DTRACE_2STEP_TEST; then
-			rm $DTRACE_2STEP_TEST
+			$RM $DTRACE_2STEP_TEST
                         DTRACE_ENABLED_2STEP=yes
 		     fi],
                     [])
@@ -4030,7 +4032,7 @@ ssl_done=yes # Default only one run
 
 # Remove all SKIP files from previous runs
 for a in ssl crypto ssh; do
-  /bin/rm -f $ERL_TOP/lib/$a/SKIP
+  $RM -f $ERL_TOP/lib/$a/SKIP
 done
 
 SSL_DYNAMIC_ONLY=$enable_dynamic_ssl
@@ -4627,7 +4629,7 @@ need_java="jinterface ic/java_src"
 
 # Remove all SKIP files from previous runs
 for a in $need_java ; do
-  /bin/rm -f $ERL_TOP/lib/$a/SKIP
+  $RM -f $ERL_TOP/lib/$a/SKIP
 done
 
 if test "X$with_javac" = "Xno"; then
@@ -4678,7 +4680,7 @@ dnl this deliberately does not believe that 'gcc' is a C++ compiler
 AC_CHECK_TOOLS(CXX, [$CCC c++ g++ CC cxx cc++ cl], false)
 
 # Remove SKIP file from previous run
-/bin/rm -f $ERL_TOP/lib/orber/SKIP
+$RM -f $ERL_TOP/lib/orber/SKIP
 
 if test "$CXX" = false; then
   echo "No C++ compiler found" > $ERL_TOP/lib/orber/SKIP
