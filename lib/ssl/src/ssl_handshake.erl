@@ -74,7 +74,7 @@
 	]).
 
 %% MISC
--export([select_version/3, prf/5, select_hashsign/5, 
+-export([select_version/3, prf/6, select_hashsign/5,
 	 select_hashsign_algs/3,
 	 premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
@@ -564,17 +564,15 @@ server_key_exchange_hash(md5sha, Value) ->
 server_key_exchange_hash(Hash, Value) ->
     crypto:hash(Hash, Value).
 %%--------------------------------------------------------------------
--spec prf(ssl_record:ssl_version(), binary(), binary(), [binary()], non_neg_integer()) ->
+-spec prf(ssl_record:ssl_version(), non_neg_integer(), binary(), binary(), [binary()], non_neg_integer()) ->
 		 {ok, binary()} | {error, undefined}.
 %%
 %% Description: use the TLS PRF to generate key material
 %%--------------------------------------------------------------------
-prf({3,0}, _, _, _, _) ->
+prf({3,0}, _, _, _, _, _) ->
     {error, undefined};
-prf({3,1}, Secret, Label, Seed, WantedLength) ->
-    {ok, tls_v1:prf(?MD5SHA, Secret, Label, Seed, WantedLength)};
-prf({3,_N}, Secret, Label, Seed, WantedLength) ->
-    {ok, tls_v1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
+prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
+    {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
 
 %%--------------------------------------------------------------------
