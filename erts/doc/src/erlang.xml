@@ -6841,11 +6841,7 @@ ok
 	       As from <c>ERTS</c> 5.6.1, the return value is a list
 	       of <c>{instance, InstanceNo, InstanceInfo}</c> tuples,
 	       where <c>InstanceInfo</c> contains information about
-	       a specific instance of the allocator. As from
-               <c>ERTS</c> 5.10.4, the returned list when calling
-	       <c>erlang:system_info({allocator, mseg_alloc})</c> also
-	       includes an <c>{erts_mmap, _}</c> tuple as one element
-	       in the list. If <c><anno>Alloc</anno></c> is not a
+	       a specific instance of the allocator. If <c><anno>Alloc</anno></c> is not a
                recognized allocator, <c>undefined</c> is returned.
                If <c><anno>Alloc</anno></c> is disabled,
               <c>false</c> is returned.</p>
@@ -6857,7 +6853,13 @@ ok
               briefly documented.</p>
             <p>The recognized allocators are listed in
               <seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>.
-              After reading the <c>erts_alloc(3)</c> documentation,
+	      Information about super carriers can be obtained from
+	      <c>ERTS</c> 8.0 with <c>{allocator, erts_mmap}</c> or from
+	      <c>ERTS</c> 5.10.4, the returned list when calling with
+	      <c>{allocator, mseg_alloc}</c> also includes an
+	      <c>{erts_mmap, _}</c> tuple as one element in the list.</p>
+
+            <p>After reading the <c>erts_alloc(3)</c> documentation,
 	      the returned information
               more or less speaks for itself, but it can be worth
               explaining some things. Call counts are presented by two

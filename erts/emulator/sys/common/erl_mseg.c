@@ -996,10 +996,7 @@ info_options(ErtsMsegAllctr_t *ma,
 	     Uint **hpp,
 	     Uint *szp)
 {
-    Eterm res;
-
-    res = erts_mmap_info_options(&erts_dflt_mmapper,
-                                 prefix, print_to_p, print_to_arg, hpp, szp);
+    Eterm res = NIL;
 
     if (print_to_p) {
 	int to = *print_to_p;
@@ -1110,7 +1107,7 @@ info_calls(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg, Uint **hpp
 
 static Eterm
 info_status(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg,
-	    int begin_new_max_period, Uint **hpp, Uint *szp)
+	    int begin_new_max_period, int only_sz, Uint **hpp, Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
     
@@ -1123,38 +1120,41 @@ info_status(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg,
 	int to = *print_to_p;
 	void *arg = print_to_arg;
 
-	erts_print(to, arg, "cached_segments: %beu\n", ma->cache_size);
-	erts_print(to, arg, "cache_hits: %beu\n", ma->cache_hits);
-	erts_print(to, arg, "segments: %beu %beu %beu\n",
-		   ma->segments.current.no, ma->segments.max.no, ma->segments.max_ever.no);
-	erts_print(to, arg, "segments_size: %beu %beu %beu\n",
+        if (!only_sz) {
+            erts_print(to, arg, "cached_segments: %beu\n", ma->cache_size);
+            erts_print(to, arg, "cache_hits: %beu\n", ma->cache_hits);
+            erts_print(to, arg, "segments: %beu %beu %beu\n",
+                       ma->segments.current.no, ma->segments.max.no, ma->segments.max_ever.no);
+            erts_print(to, arg, "segments_watermark: %beu\n",
+                       ma->segments.current.watermark);
+        }
+        erts_print(to, arg, "segments_size: %beu %beu %beu\n",
 		   ma->segments.current.sz, ma->segments.max.sz, ma->segments.max_ever.sz);
-	erts_print(to, arg, "segments_watermark: %beu\n",
-		   ma->segments.current.watermark);
     }
 
     if (hpp || szp) {
 	res = NIL;
-	add_2tup(hpp, szp, &res,
-		 am.segments_watermark,
-		 bld_unstable_uint(hpp, szp, ma->segments.current.watermark));
-	add_4tup(hpp, szp, &res,
-		 am.segments_size,
-		 bld_unstable_uint(hpp, szp, ma->segments.current.sz),
-		 bld_unstable_uint(hpp, szp, ma->segments.max.sz),
-		 bld_unstable_uint(hpp, szp, ma->segments.max_ever.sz));
-	add_4tup(hpp, szp, &res,
-		 am.segments,
-		 bld_unstable_uint(hpp, szp, ma->segments.current.no),
-		 bld_unstable_uint(hpp, szp, ma->segments.max.no),
-		 bld_unstable_uint(hpp, szp, ma->segments.max_ever.no));
-	add_2tup(hpp, szp, &res,
-		 am.cache_hits,
-		 bld_unstable_uint(hpp, szp, ma->cache_hits));
-	add_2tup(hpp, szp, &res,
-		 am.cached_segments,
-		 bld_unstable_uint(hpp, szp, ma->cache_size));
-
+        add_4tup(hpp, szp, &res,
+                 am.segments_size,
+                 bld_unstable_uint(hpp, szp, ma->segments.current.sz),
+                 bld_unstable_uint(hpp, szp, ma->segments.max.sz),
+                 bld_unstable_uint(hpp, szp, ma->segments.max_ever.sz));
+        if (!only_sz) {
+            add_2tup(hpp, szp, &res,
+                     am.segments_watermark,
+                     bld_unstable_uint(hpp, szp, ma->segments.current.watermark));
+            add_4tup(hpp, szp, &res,
+                     am.segments,
+                     bld_unstable_uint(hpp, szp, ma->segments.current.no),
+                     bld_unstable_uint(hpp, szp, ma->segments.max.no),
+                     bld_unstable_uint(hpp, szp, ma->segments.max_ever.no));
+            add_2tup(hpp, szp, &res,
+                     am.cache_hits,
+                     bld_unstable_uint(hpp, szp, ma->cache_hits));
+            add_2tup(hpp, szp, &res,
+                     am.cached_segments,
+                     bld_unstable_uint(hpp, szp, ma->cache_size));
+        }
     }
 
     if (begin_new_max_period) {
@@ -1166,26 +1166,31 @@ info_status(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg,
 }
 
 static Eterm info_memkind(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg,
-			  int begin_max_per, Uint **hpp, Uint *szp)
+			  int begin_max_per, int only_sz, Uint **hpp, Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
     Eterm atoms[3];
     Eterm values[3];
 
-    if (print_to_p) {
-	erts_print(*print_to_p, print_to_arg, "memory kind: %s\n", "all memory");
+    if (!only_sz) {
+        if (print_to_p) {
+            erts_print(*print_to_p, print_to_arg, "memory kind: %s\n", "all memory");
+        }
+        if (hpp || szp) {
+            atoms[0] = am.name;
+            atoms[1] = am.status;
+            atoms[2] = am.calls;
+            values[0] = erts_bld_string(hpp, szp, "all memory");
+        }
     }
-    if (hpp || szp) {
-	atoms[0] = am.name;
-	atoms[1] = am.status;
-	atoms[2] = am.calls;
-	values[0] = erts_bld_string(hpp, szp, "all memory");
-    }
-    values[1] = info_status(ma, print_to_p, print_to_arg, begin_max_per, hpp, szp);
-    values[2] = info_calls(ma, print_to_p, print_to_arg, hpp, szp);
+    res = info_status(ma, print_to_p, print_to_arg, begin_max_per, only_sz, hpp, szp);
+    if (!only_sz) {
+        values[1] = res;
+        values[2] = info_calls(ma, print_to_p, print_to_arg, hpp, szp);
 
-    if (hpp || szp)
-	res = bld_2tup_list(hpp, szp, 3, atoms, values);
+        if (hpp || szp)
+            res = bld_2tup_list(hpp, szp, 3, atoms, values);
+    }
 
     return res;
 }
@@ -1229,6 +1234,7 @@ erts_mseg_info(int ix,
 	       int *print_to_p,
 	       void *print_to_arg,
 	       int begin_max_per,
+               int only_sz,
 	       Uint **hpp,
 	       Uint *szp)
 {
@@ -1239,24 +1245,29 @@ erts_mseg_info(int ix,
     Uint n = 0;
 
     if (hpp || szp) {
-	
-	if (!atoms_initialized)
-	    init_atoms(ma);
-
-	atoms[0] = am.version;
-	atoms[1] = am.options;
-	atoms[2] = am.memkind;
-	atoms[3] = am.memkind;
+        if (!atoms_initialized)
+            init_atoms(ma);
     }
-    values[n++] = info_version(ma, print_to_p, print_to_arg, hpp, szp);
-    values[n++] = info_options(ma, "option ", print_to_p, print_to_arg, hpp, szp);
+    if (!only_sz) {
+        if (hpp || szp) {
+            atoms[0] = am.version;
+            atoms[1] = am.options;
+            atoms[2] = am.memkind;
+        }
+        values[n++] = info_version(ma, print_to_p, print_to_arg, hpp, szp);
+        values[n++] = info_options(ma, "option ", print_to_p, print_to_arg, hpp, szp);
+    }
 
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
 
-    values[n++] = info_memkind(ma, print_to_p, print_to_arg, begin_max_per, hpp, szp);
-    if (hpp || szp)
-	res = bld_2tup_list(hpp, szp, n, atoms, values);
+    res = info_memkind(ma, print_to_p, print_to_arg, begin_max_per, only_sz, hpp, szp);
+
+    if (!only_sz) {
+        values[n++] = res;
+        if (hpp || szp)
+            res = bld_2tup_list(hpp, szp, n, atoms, values);
+    }
 
     ERTS_MSEG_UNLOCK(ma);
 
