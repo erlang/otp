@@ -49,7 +49,8 @@
 -export([next_record/1, next_event/3]).
 
 %% Handshake handling
--export([renegotiate/2, send_handshake/2, send_change_cipher/2]).
+-export([renegotiate/2, send_handshake/2, send_change_cipher/2,
+	reinit_handshake_data/1]).
 
 %% Alert and close handling
 -export([send_alert/2, handle_own_alert/4, handle_close_alert/3,
@@ -131,6 +132,16 @@ send_change_cipher(Msg, #state{connection_states = ConnectionStates0,
     Transport:send(Socket, BinChangeCipher),
     State0#state{connection_states = ConnectionStates}.
 
+reinit_handshake_data(State) ->
+    %% premaster_secret, public_key_info and tls_handshake_info 
+    %% are only needed during the handshake phase. 
+    %% To reduce memory foot print of a connection reinitialize them.
+     State#state{
+       premaster_secret = undefined,
+       public_key_info = undefined,
+       tls_handshake_history = ssl_handshake:init_handshake_history()
+     }.
+			  
 %%====================================================================
 %% tls_connection_sup API
 %%====================================================================
