@@ -33,6 +33,6 @@
   {registered, [et_collector]},
   {applications, [stdlib, kernel]},
   {env, []},
-  {runtime_dependencies, ["wx-1.2","stdlib-2.0","runtime_tools-1.8.14",
-			  "kernel-3.0","erts-6.0"]}
+  {runtime_dependencies, ["wx-1.2","stdlib-2.0","runtime_tools-1.10",
+			  "kernel-3.0","erts-8.0"]}
  ]}.
