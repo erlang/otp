@@ -261,7 +261,7 @@ run_batch(Vars, _Spec, State) ->
     Command = State#state.command ++ " -noinput -s erlang halt",
     ts_lib:progress(Vars, 1, "Command: ~ts~n", [Command]),
     io:format(user, "Command: ~ts~n",[Command]),
-    Port = open_port({spawn, Command}, [stream, in, eof]),
+    Port = open_port({spawn, Command}, [stream, in, eof, exit_status]),
     Timeout = 30000 * case os:getenv("TS_RUN_VALGRIND") of
 			  false -> 1;
 			  _ -> 100
@@ -284,7 +284,16 @@ tricky_print_data(Port, Timeout) ->
 		    ok
 	    after 1 ->				% force context switch
 		    ok
-	    end
+	    end,
+            receive
+                {Port, {exit_status, 0}} ->
+                    ok;
+                {Port, {exit_status, N}} ->
+                    io:format(user, "Test run exited with status ~p~n", [N])
+            after 1 ->
+                    %% This shouldn't happen, but better safe then hanging
+                    ok
+            end
     after Timeout ->
 	    case erl_epmd:names() of
 		{ok,Names} ->
