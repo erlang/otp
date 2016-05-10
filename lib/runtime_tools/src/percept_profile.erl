@@ -87,7 +87,7 @@ start(Filename, Options) ->
 start(Filename, {Module, Function, Args}, Options) ->
     case whereis(percept_port) of
 	undefined ->
-	    profile_to_file(Filename, Options),
+            {ok, _} = profile_to_file(Filename, Options),
 	    erlang:apply(Module, Function, Args),
 	    stop();
 	Port ->
@@ -113,7 +113,7 @@ deliver_all_trace() ->
 -spec stop() -> 'ok' | {'error', 'not_started'}.
 
 stop() ->
-    erlang:system_profile(undefined, [runnable_ports, runnable_procs]),
+    _ = erlang:system_profile(undefined, [runnable_ports, runnable_procs]),
     erlang:trace(all, false, [procs, ports, timestamp]),
     deliver_all_trace(), 
     case whereis(percept_port) of
@@ -158,7 +158,8 @@ set_tracer(Port, Opts) ->
     {TOpts, POpts} = parse_profile_options(Opts),
     % Setup profiling and tracing
     erlang:trace(all, true, [{tracer, Port}, timestamp | TOpts]),
-    erlang:system_profile(Port, POpts).
+    _ = erlang:system_profile(Port, POpts),
+    ok.
 
 %% parse_profile_options
 
