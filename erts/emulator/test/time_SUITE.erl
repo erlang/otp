@@ -209,23 +209,17 @@ test_seconds_to_univ([]) ->
 
 
 %% Test that the the different time functions return
-%% consistent results. (See the test case for assumptions
-%% and limitations.)
-consistency(Config) when is_list(Config) ->
-    %% Test the following equations:
-    %% 		date() & time() == erlang:localtime()
-    %% 		erlang:universaltime() + timezone == erlang:localtime()
+%% consistent results.
+consistency(_Config) ->
+    %% Test that:
+    %% 	 * date() & time() gives the same time as erlang:localtime()
     %%
-    %% Assumptions:
-    %% 		Middle-European time zone, EU rules for daylight-saving time.
-    %%
-    %% Limitations:
-    %% 		Localtime and universaltime must be in the same	month.
-    %%	        Daylight-saving calculations are incorrect from the last
-    %%		Sunday of March and October to the end of the month.
+    %%   * the difference between erlang:universaltime() and
+    %%     erlang:localtime() is reasonable (with assuming any
+    %%     particular timezone)
 
     ok = compare_date_time_and_localtime(16),
-    ok = compare_local_and_universal(16).
+    compare_local_and_universal(16).
 
 compare_date_time_and_localtime(Times) when Times > 0 ->
     {Year, Mon, Day} = date(),
@@ -238,22 +232,18 @@ compare_date_time_and_localtime(0) ->
     error.
 
 compare_local_and_universal(Times) when Times > 0 ->
-    case compare(erlang:universaltime(), erlang:localtime()) of
-	true -> ok;
-	false -> compare_local_and_universal(Times-1)
-    end;
-compare_local_and_universal(0) ->
-    error.
+    Utc = erlang:universaltime(),
+    Local = erlang:localtime(),
+    io:format("local = ~p, utc = ~p", [Local,Utc]),
 
-compare(Utc0, Local) ->
-    io:format("local = ~p, utc = ~p", [Local, Utc0]),
-    Utc = linear_time(Utc0)+effective_timezone(Utc0)*3600,
-    case linear_time(Local) of
-	Utc -> true;
-	Other ->
-	    io:format("Failed: local = ~p, utc = ~p~n",
-		      [Other, Utc]),
-	    false
+    AcceptableDiff = 14*3600,
+    case linear_time(Utc) - linear_time(Local) of
+	Diff when abs(Diff) < AcceptableDiff ->
+	    ok;
+	Diff ->
+	    io:format("More than ~p seconds difference betwen "
+		      "local and universal time", [Diff]),
+	    ct:fail(huge_diff)
     end.
 
 %% This function converts a date and time to a linear time.
@@ -279,35 +269,6 @@ days_in_february(Year) ->
 	0 -> 29;
 	_ -> 28
     end.
-
-%% This functions returns either the normal timezone or the
-%% the DST timezone, depending on the given UTC time.
-%%
-%% XXX This function uses an approximation of the EU rule for
-%% daylight saving time.  This function will fail in the
-%% following intervals: After the last Sunday in March upto
-%% the end of March, and after the last Sunday in October
-%% upto the end of October.
-
-effective_timezone(Time) ->
-    case os:type() of
-	{unix,_} ->
-	    case os:cmd("date '+%Z'") of
-		"SAST"++_ ->
-		    2;
-		_ ->
-		    effective_timezone1(Time)
-	    end;
-	_ ->
-	    effective_timezone1(Time)
-    end.
-
-effective_timezone1({{_Year,Mon,_Day}, _}) when Mon < 4 ->
-    ?timezone;
-effective_timezone1({{_Year,Mon,_Day}, _}) when Mon > 10 ->
-    ?timezone;
-effective_timezone1(_) ->
-    ?dst_timezone.
 
 %% Test (the bif) os:timestamp/0, which is something quite like, but not
 %% similar to erlang:now...
