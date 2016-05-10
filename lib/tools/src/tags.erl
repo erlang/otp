@@ -101,7 +101,7 @@ files(Files, Options) ->
     case open_out(Options) of
 	{ok, Os} ->
 	    files_loop(Files, Os),
-	    close_out(Os),
+	    ok = close_out(Os),
 	    ok;
 	_ ->
 	    error
@@ -169,7 +169,7 @@ filename(Name, Os) ->
     case file:open(Name, [read]) of
 	{ok, Desc} ->
 	    Acc = module(Desc, [], [], {1, 0}),
-	    file:close(Desc),
+	    ok = file:close(Desc),
 	    genout(Os, Name, Acc),
 	    ok;
 	_ ->
