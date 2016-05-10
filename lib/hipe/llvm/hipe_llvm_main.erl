@@ -271,14 +271,14 @@ get_sdescs(Elf) ->
       T = SPCount * ?SP_ADDR_SIZE,
       %% Pattern match fields of ".note.gc":
       <<SPCount:(?bits(?SP_COUNT_SIZE))/integer-little, % Sanity check!
-        SPAddrs:T/binary, % NOTE: In 64bit they are relocs!
+	_SPAddrs:T/binary, % NOTE: In 64bit they are relocs!
         StkFrameSize:(?bits(?SP_STKFRAME_SIZE))/integer-little,
         StkArity:(?bits(?SP_STKARITY_SIZE))/integer-little,
         _LiveRootCount:(?bits(?SP_LIVEROOTCNT_SIZE))/integer-little, % Skip
         Roots/binary>> = NoteGC_bin,
       LiveRoots = get_liveroots(Roots, []),
       %% Extract the safe point offsets:
-      SPOffs = get_reloc_addends(SPAddrs, RelaNoteGC),
+      SPOffs = elf_format:get_rela_addends(RelaNoteGC),
       %% Extract Exception Handler labels:
       ExnHandlers = elf_format:get_exn_handlers(Elf),
       %% Combine ExnHandlers and Safe point addresses (return addresses):
@@ -293,15 +293,6 @@ get_liveroots(<<>>, Acc) ->
 get_liveroots(<<Root:?bits(?LR_STKINDEX_SIZE)/integer-little,
                 MoreRoots/binary>>, Acc) ->
   get_liveroots(MoreRoots, [Root | Acc]).
-
--ifdef(BIT32).
-%% ELF32 x86 uses implicit addends.
-get_reloc_addends(Table, _Relocs) ->
-  [Add || <<Add:?bits(?SP_ADDR_SIZE)/little>> <= Table].
--else.
-%% ELF64 x64 uses explicit addends.
-get_reloc_addends(_Table, Relocs) -> elf_format:get_rela_addends(Relocs).
--endif.
 
 combine_ras_and_exns(_, [], Acc) ->
   lists:reverse(Acc);
