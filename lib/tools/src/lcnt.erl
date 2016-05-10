@@ -23,67 +23,57 @@
 -author("Björn-Egil Dahlberg").
 
 %% gen_server callbacks
--export([
-	init/1,
-	handle_call/3,
-	handle_cast/2,
-	handle_info/2,
-	terminate/2,
-	code_change/3
-	]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
 %% start/stop
--export([
-	start/0,
-	stop/0
-	]).
+-export([start/0,
+         stop/0]).
 
 %% erts_debug:lock_counters api
--export([
-	rt_collect/0,
-	rt_collect/1,
-	rt_clear/0,
-	rt_clear/1,
-	rt_opt/1,
-	rt_opt/2
-    ]).
+-export([rt_collect/0,
+         rt_collect/1,
+         rt_clear/0,
+         rt_clear/1,
+         rt_opt/1,
+         rt_opt/2]).
 
 
 %% gen_server call api
--export([
-	raw/0,
-	collect/0,
-	collect/1,
-	clear/0,
-	clear/1,
-	conflicts/0,
-	conflicts/1,
-	locations/0,
-	locations/1,
-	inspect/1,
-	inspect/2,
-	histogram/1,
-	histogram/2,
-	information/0,
-	swap_pid_keys/0,
-	% set options
-	set/1,
-	set/2,
+-export([raw/0,
+         collect/0,
+         collect/1,
+         clear/0,
+         clear/1,
+         conflicts/0,
+         conflicts/1,
+         locations/0,
+         locations/1,
+         inspect/1,
+         inspect/2,
+         histogram/1,
+         histogram/2,
+         information/0,
+         swap_pid_keys/0,
+         % set options
+         set/1,
+         set/2,
 
-	load/1,
-	save/1
-	]).
+         load/1,
+         save/1]).
 
 %% convenience
--export([
-	apply/3,
-	apply/2,
-	apply/1,
-	all_conflicts/0,
-	all_conflicts/1,
-	pid/2, pid/3,
-	port/1, port/2
-    ]).
+-export([apply/3,
+         apply/2,
+         apply/1,
+         all_conflicts/0,
+         all_conflicts/1,
+         pid/2, pid/3,
+         port/1, port/2]).
 
 -define(version, "1.0").
 
@@ -135,6 +125,13 @@ start()  -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 stop()   -> gen_server:call(?MODULE, stop, infinity).
 init([]) -> {ok, #state{ locks = [], duration = 0 } }.
 
+start_internal() ->
+    case start() of
+        {ok,_} -> ok;
+        {error, {already_started,_}} -> ok;
+        Error -> Error
+    end.
+
 %% -------------------------------------------------------------------- %%
 %%
 %% API erts_debug:lock_counters
@@ -184,7 +181,7 @@ raw()                -> call(raw).
 set(Option, Value)   -> call({set, Option, Value}).
 set({Option, Value}) -> call({set, Option, Value}).
 save(Filename)       -> call({save, Filename}).
-load(Filename)       -> start(), call({load, Filename}).
+load(Filename)       -> ok = start_internal(), call({load, Filename}).
 
 call(Msg) -> gen_server:call(?MODULE, Msg, infinity).
 
@@ -195,7 +192,7 @@ call(Msg) -> gen_server:call(?MODULE, Msg, infinity).
 %% -------------------------------------------------------------------- %%
 
 apply(M,F,As) when is_atom(M), is_atom(F), is_list(As) ->
-    lcnt:start(),
+    ok = start_internal(),
     Opt = lcnt:rt_opt({copy_save, true}),
     lcnt:clear(),
     Res = erlang:apply(M,F,As),
@@ -207,7 +204,7 @@ apply(Fun) when is_function(Fun) ->
     lcnt:apply(Fun, []).
 
 apply(Fun, As) when is_function(Fun) ->
-    lcnt:start(),
+    ok = start_internal(),
     Opt = lcnt:rt_opt({copy_save, true}),
     lcnt:clear(),
     Res = erlang:apply(Fun, As),
