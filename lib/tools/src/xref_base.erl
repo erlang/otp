@@ -696,7 +696,7 @@ do_add_module({Dir, Basename}, AppName, Builtins, Verbose, Warnings, State) ->
     File = filename:join(Dir, Basename),
     {ok, M, Bad, NewState} =
 	do_add_module1(Dir, File, AppName, Builtins, Verbose, Warnings, State),
-    filter(fun({Tag,B}) -> warnings(Warnings, Tag, [[File,B]]) end, Bad),
+    _ = filter(fun({Tag,B}) -> warnings(Warnings, Tag, [[File,B]]) end, Bad),
     {ok, M, NewState}.
 
 do_add_module1(Dir, File, AppName, Builtins, Verbose, Warnings, State) ->
@@ -1727,7 +1727,7 @@ pack(T) ->
     NT = pack1(T),
     %% true = T =:= NT,
     %% io:format("erasing ~p elements...~n", [length(erase())]),
-    erase(), % wasting heap (and time)...
+    _ = erase(), % wasting heap (and time)...
     foreach(fun({K,V}) -> put(K, V) end, PD),
     NT.
 
