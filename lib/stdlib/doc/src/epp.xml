@@ -102,6 +102,7 @@
     <func>
       <name name="parse_erl_form" arity="1"/>
       <fsummary>Return the next Erlang form from the opened Erlang source file</fsummary>
+      <type name="warning_info"/>
       <desc>
         <p>Returns the next Erlang form from the opened Erlang source file.
           The tuple <c>{eof, <anno>Line</anno>}</c> is returned at end-of-file. The first
