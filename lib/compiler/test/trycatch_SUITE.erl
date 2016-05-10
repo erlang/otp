@@ -1034,6 +1034,9 @@ grab_bag(_Config) ->
 	end
     end,
 
+    %% Unnecessary catch.
+    22 = (catch 22),
+
     ok.
 
 
