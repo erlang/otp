@@ -106,8 +106,10 @@ init_per_group(not_unicode, Config) ->
      | Config];
 
 init_per_group(unicode, Config) ->
-    case file:native_name_encoding() of
-	utf8 ->
+    case (file:native_name_encoding() == utf8) 
+	andalso ("四" == [22235])
+    of
+	true ->
 	    ct:comment("Begin ~p",[grps(Config)]),
 	    DataDir = ?config(data_dir, Config),
 	    PrivDir = ?config(priv_dir, Config),
