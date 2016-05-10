@@ -583,7 +583,7 @@
     </taglist>
     <p>The following flag is special for <c>exec_alloc</c>:</p>
     <taglist>
-      <tag><marker id="MIscs"/><c><![CDATA[+MXscs <size in MB>]]></c></tag>
+      <tag><marker id="MXscs"/><c><![CDATA[+MXscs <size in MB>]]></c></tag>
       <item>
       <c>exec_alloc</c> super carrier size (in MB). The amount of
       <em>virtual</em> address space reserved for native executable code
