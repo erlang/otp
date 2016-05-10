@@ -384,6 +384,7 @@ static void trace_ip_output(ErlDrvData handle, char *buff, ErlDrvSizeT bufflen)
 	}
 	return;
     }
+    ASSERT(!IS_INVALID_SOCKET(data->fd));
     if (data->que[data->questart] != NULL) {
 	trace_ip_ready_output(handle, sock2event(data->fd));
     }
@@ -422,6 +423,7 @@ static void trace_ip_ready_input(ErlDrvData handle, ErlDrvEvent fd)
 	/*
 	** Maybe accept, we are a listen port...
 	*/
+        ASSERT(IS_INVALID_SOCKET(data->fd));
 	if (!IS_INVALID_SOCKET((client = my_accept(data->listenfd)))) {
 	    data->fd = client;
 	    set_nonblocking(client);
@@ -745,6 +747,7 @@ static void close_client(TraceIpData *data)
 {
     my_driver_select(data, data->fd, FLAG_WRITE | FLAG_READ, SELECT_CLOSE);
     data->flags |= FLAG_LISTEN_PORT;
+    data->fd = INVALID_SOCKET;
     if (!(data->flags & FLAG_FILL_ALWAYS)) {
 	clean_que(data);
     }
