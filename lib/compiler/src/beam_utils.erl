@@ -164,10 +164,10 @@ bif_to_test('=<', [A,B], Fail) -> {test,is_ge,Fail,[B,A]};
 bif_to_test('>', [A,B], Fail) -> {test,is_lt,Fail,[B,A]};
 bif_to_test('<', [_,_]=Ops, Fail) -> {test,is_lt,Fail,Ops};
 bif_to_test('>=', [_,_]=Ops, Fail) -> {test,is_ge,Fail,Ops};
-bif_to_test('==', [A,[]], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('==', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
 bif_to_test('==', [_,_]=Ops, Fail) -> {test,is_eq,Fail,Ops};
 bif_to_test('/=', [_,_]=Ops, Fail) -> {test,is_ne,Fail,Ops};
-bif_to_test('=:=', [A,[]], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('=:=', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
 bif_to_test('=:=', [_,_]=Ops, Fail) -> {test,is_eq_exact,Fail,Ops};
 bif_to_test('=/=', [_,_]=Ops, Fail) -> {test,is_ne_exact,Fail,Ops};
 bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
