@@ -13,18 +13,16 @@
 
 -module(elf_format).
 
--export([get_tab_entries/1,
-         %% Relocations
-         get_rodata_relocs/1,
-         get_text_relocs/1,
+-export([%% Relocations
          extract_rela/2,
-         get_rela_addends/1,
          %% Note
          extract_note/2,
          %% Executable code
          extract_text/1,
          %% GCC Exception Table
 	 get_exn_handlers/1,
+	 %% Symbols
+	 elf_symbols/1,
 	 %% Main interface
 	 read/1
         ]).
@@ -40,14 +38,7 @@
 -type lp()     :: non_neg_integer().  % landing pad
 -type num()    :: non_neg_integer().
 -type index()  :: non_neg_integer().
--type offset() :: non_neg_integer().
--type size()   :: non_neg_integer().
 -type start()  :: non_neg_integer().
--type reloc_type() :: atom().
-
--type valueoff() :: offset().
-
--type name()       :: string().
 
 -type tuple(X)     :: {} | {X} | {X, X} | tuple().
 
@@ -90,38 +81,6 @@
 			 nident                    % Size of e_ident[]
 			}).
 %% -type elf_ehdr_ident() :: #elf_ehdr_ident{}.
-
-%% Section header entries
--record(elf_shdr, {name       :: string(),  % Section name
-		   type,                    % Section type
-		   flags,                   % Section attributes
-		   addr,                    % Virtual address in memory
-		   offset     :: offset(),  % Offset in file
-		   size       :: size(),    % Size of section
-		   link,                    % Link to other section
-		   info,                    % Miscellaneous information
-		   addralign,               % Address align boundary
-		   entsize                  % Size of entries, if section has table
-		  }).
--type elf_shdr() :: #elf_shdr{}.
-
-%% Symbol table entries
--record(elf_sym, {name   :: string(),       % Symbol name
-		  info,                     % Type and Binding attributes
-		  other,                    % Reserved
-		  section :: undefined | abs | elf_shdr(),
-		  value  :: valueoff(),     % Symbol value
-		  size   :: size()          % Size of object
-		 }).
--type elf_sym() :: #elf_sym{}.
-
-%% Relocations
--record(elf_rel, {offset  :: offset()
-	       ,type    :: reloc_type()
-	       ,addend  :: offset() | undefined
-	       ,symbol  :: elf_sym()
-	       }).
--type elf_rel() :: #elf_rel{}.
 
 %% %% Program header table
 %% -record(elf_phdr, {type,   % Type of segment
@@ -201,13 +160,13 @@ mk_shdr(Name, Type, Flags, Addr, Offset, Size, Link, Info, AddrAlign, EntSize) -
 %%%-------------------------
 %%% Symbol Table Entries
 %%%-------------------------
-mk_sym(Name, Info, Other, Section, Value, Size) ->
-  #elf_sym{name = Name, info = Info, other = Other,
+mk_sym(Name, Bind, Type, Section, Value, Size) ->
+  #elf_sym{name = Name, bind = Bind, type = Type,
 	   section = Section, value = Value, size = Size}.
 
--spec sym_name(elf_sym()) -> string().
-sym_name(#elf_sym{name = Name}) -> Name.
-
+%% -spec sym_name(elf_sym()) -> string().
+%% sym_name(#elf_sym{name = Name}) -> Name.
+%%
 %% -spec sym_value(elf_sym()) -> valueoff().
 %% sym_value(#elf_sym{value = Value}) -> Value.
 %% 
@@ -327,23 +286,31 @@ get_shdrtab_entries(ShdrTab, ShStrTab) ->
     Entsize:?bits(?SH_ENTSIZE_SIZE)/integer-little,
     Rest/binary
   >> = ShdrTab,
-  Entry = mk_shdr(get_strtab_entry(Name, ShStrTab), Type, Flags, Addr, Offset,
-		  Size, Link, Info, Addralign, Entsize),
+  Entry = mk_shdr(get_strtab_entry(Name, ShStrTab), decode_shdr_type(Type),
+		  Flags, Addr, Offset, Size, Link, Info, Addralign, Entsize),
   [Entry | get_shdrtab_entries(Rest, ShStrTab)].
+
+decode_shdr_type(?SHT_NULL)     -> 'null';
+decode_shdr_type(?SHT_PROGBITS) -> 'progbits';
+decode_shdr_type(?SHT_SYMTAB)   -> 'symtab';
+decode_shdr_type(?SHT_STRTAB)   -> 'strtab';
+decode_shdr_type(?SHT_RELA)     -> 'rela';
+decode_shdr_type(?SHT_HASH)     -> 'hash';      %unused
+decode_shdr_type(?SHT_DYNAMIC)  -> 'dynamic';   %unused
+decode_shdr_type(?SHT_NOTE)     -> 'note';      %unused
+decode_shdr_type(?SHT_NOBITS)   -> 'nobits';
+decode_shdr_type(?SHT_REL)      -> 'rel';
+decode_shdr_type(?SHT_SHLIB)    -> 'shlib';     %unused
+decode_shdr_type(?SHT_DYNSYM)   -> 'dynsym';    %unused
+decode_shdr_type(OS) when ?SHT_LOOS =< OS, OS =< ?SHT_HIOS -> {os, OS};
+decode_shdr_type(Proc) when ?SHT_LOPROC =< Proc, Proc =< ?SHT_HIPROC ->
+  {proc, Proc}.
 
 -spec elf_section(non_neg_integer(), elf()) -> undefined | abs | elf_shdr().
 elf_section(0, #elf{}) -> undefined;
 elf_section(?SHN_ABS, #elf{}) -> abs;
 elf_section(Index, #elf{sec_idx=SecIdx}) when Index =< tuple_size(SecIdx) ->
   element(Index, SecIdx).
-
-%%------------------------------------------------------------------------------
-
--spec get_tab_entries(elf()) -> [{name(), valueoff(), size()}].
-get_tab_entries(#elf{sym_idx=SymIdx}) ->
-  [{Name, Value, Size div ?ELF_XWORD_SIZE}
-   || #elf_sym{name = Name, value = Value, size = Size}
-	<- tuple_to_list(SymIdx), Name =/= ""].
 
 %%------------------------------------------------------------------------------
 %% Functions to manipulate Symbol Table
@@ -360,29 +327,50 @@ parse_sym(<<%% Structural pattern matching on fields.
 	    Value:?bits(?ST_VALUE_SIZE)/integer-little,
 	    Size:?bits(?ST_SIZE_SIZE)/integer-little,
 	    Info:?bits(?ST_INFO_SIZE)/integer-little,
-	    Other:?bits(?ST_OTHER_SIZE)/integer-little,
+	    _Other:?bits(?ST_OTHER_SIZE)/integer-little,
 	    Shndx:?bits(?ST_SHNDX_SIZE)/integer-little>>,
 	 Elf, StrTab) ->
-  mk_sym(get_strtab_entry(Name, StrTab), Info, Other, elf_section(Shndx, Elf),
-	 Value, Size).
+  mk_sym(get_strtab_entry(Name, StrTab), decode_symbol_bind(?ELF_ST_BIND(Info)),
+	 decode_symbol_type(?ELF_ST_TYPE(Info)), elf_section(Shndx, Elf), Value,
+	 Size).
 -else.
 parse_sym(<<%% Same fields in different order:
 	    Name:?bits(?ST_NAME_SIZE)/integer-little,
 	    Info:?bits(?ST_INFO_SIZE)/integer-little,
-	    Other:?bits(?ST_OTHER_SIZE)/integer-little,
+	    _Other:?bits(?ST_OTHER_SIZE)/integer-little,
 	    Shndx:?bits(?ST_SHNDX_SIZE)/integer-little,
 	    Value:?bits(?ST_VALUE_SIZE)/integer-little,
 	    Size:?bits(?ST_SIZE_SIZE)/integer-little>>,
 	 Elf, StrTab) ->
-  mk_sym(get_strtab_entry(Name, StrTab), Info, Other, elf_section(Shndx, Elf),
-	 Value, Size).
+  mk_sym(get_strtab_entry(Name, StrTab), decode_symbol_bind(?ELF_ST_BIND(Info)),
+	 decode_symbol_type(?ELF_ST_TYPE(Info)), elf_section(Shndx, Elf), Value,
+	 Size).
 -endif.
+
+decode_symbol_bind(?STB_LOCAL)  -> 'local';
+decode_symbol_bind(?STB_GLOBAL) -> 'global';
+decode_symbol_bind(?STB_WEAK)   -> 'weak';      %unused
+decode_symbol_bind(OS) when ?STB_LOOS =< OS, OS =< ?STB_HIOS -> {os, OS};
+decode_symbol_bind(Proc) when ?STB_LOPROC =< Proc, Proc =< ?STB_HIPROC ->
+  {proc, Proc}.
+
+decode_symbol_type(?STT_NOTYPE)  -> 'notype';
+decode_symbol_type(?STT_OBJECT)  -> 'object';
+decode_symbol_type(?STT_FUNC)    -> 'func';
+decode_symbol_type(?STT_SECTION) -> 'section';
+decode_symbol_type(?STT_FILE)    -> 'file';
+decode_symbol_type(OS) when ?STT_LOOS =< OS, OS =< ?STT_HIOS -> {os, OS};
+decode_symbol_type(Proc) when ?STT_LOPROC =< Proc, Proc =< ?STT_HIPROC ->
+  {proc, Proc}.
 
 %% @doc Extracts a specific entry from the Symbol Table.
 -spec elf_symbol(0,             elf()) -> undefined;
 		(pos_integer(), elf()) -> elf_sym().
 elf_symbol(0, #elf{}) -> undefined;
 elf_symbol(Index, #elf{sym_idx=SymIdx}) -> element(Index, SymIdx).
+
+-spec elf_symbols(elf()) -> [elf_sym()].
+elf_symbols(#elf{sym_idx=SymIdx}) -> tuple_to_list(SymIdx).
 
 %%------------------------------------------------------------------------------
 %% Functions to manipulate String Table
@@ -415,22 +403,6 @@ bin_get_string(<<Char, Rest/binary>>) -> [Char|bin_get_string(Rest)].
 %% Functions to manipulate Relocations
 %%------------------------------------------------------------------------------
 
-%% @doc This function gets as argument an ELF binary file and returns a list
-%%      with all .rela.rodata labels (i.e. constants and literals in code)
-%%      or an empty list if no ".rela.rodata" section exists in code.
--spec get_rodata_relocs(elf()) -> [offset()].
-get_rodata_relocs(Elf) -> get_rela_addends(extract_rela(Elf, ?RODATA)).
-
--spec get_rela_addends([elf_rel()]) -> [offset()].
-get_rela_addends(RelaEntries) -> [A || #elf_rel{addend=A} <- RelaEntries].
-
-%% @doc Extract a list of the form `[{SymbolName, Offset}]' with all relocatable
-%%      symbols and their offsets in the code from the ".text" section.
--spec get_text_relocs(elf()) -> [{name(), offset()}].
-get_text_relocs(Elf) ->
-  [{sym_name(Symbol), Offset}
-   || #elf_rel{offset=Offset, symbol=Symbol} <- extract_rela(Elf, ?TEXT)].
-
 %% @doc Extract the Relocations segment for section `Name' (that is passed
 %%      as second argument) from an ELF formated Object file binary.
 -spec extract_rela(elf(), name()) -> [elf_rel()].
@@ -442,7 +414,7 @@ extract_rela(Elf, Name) ->
 	  type=decode_reloc_type(?ELF_R_TYPE(Info)),
 	  addend=read_implicit_addend(Offset, SecData)}
    || <<Offset:?bits(?R_OFFSET_SIZE)/little,
-	Info:?bits(?R_INFO_SIZE)/little % ELF-32 uses ".rel"
+	Info:?bits(?R_INFO_SIZE)/little % 386 uses ".rel"
       >> <= extract_segment_by_name(Elf, ?REL(Name))].
 
 %% The only types HiPE knows how to patch
@@ -451,7 +423,7 @@ decode_reloc_type(2) -> 'pc32'.
 
 read_implicit_addend(Offset, Section) ->
   %% All x86 relocation types uses 'word32' relocation fields; i.e. 32-bit LE.
-  <<_:Offset/binary, Addend:32/little, _/binary>> = Section,
+  <<_:Offset/binary, Addend:32/signed-little, _/binary>> = Section,
   Addend.
 
 -else. %% BIT32
@@ -460,7 +432,7 @@ extract_rela(Elf, Name) ->
 	  type=decode_reloc_type(?ELF_R_TYPE(Info)), addend=Addend}
    || <<Offset:?bits(?R_OFFSET_SIZE)/little,
 	Info:?bits(?R_INFO_SIZE)/little,
-	Addend:?bits(?R_ADDEND_SIZE)/little % ...while ELF-64 uses ".rela"
+	Addend:?bits(?R_ADDEND_SIZE)/signed-little % X86_64 uses ".rela"
       >> <= extract_segment_by_name(Elf, ?RELA(Name))].
 
 decode_reloc_type(1)  -> '64';

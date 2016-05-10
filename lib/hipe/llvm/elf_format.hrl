@@ -486,3 +486,55 @@
 %% Misc.
 %%------------------------------------------------------------------------------
 -define(bits(Bytes), ((Bytes) bsl 3)).
+
+%%------------------------------------------------------------------------------
+%% Exported record and type declarations for 'elf_format' module
+%%------------------------------------------------------------------------------
+
+-type offset()    :: non_neg_integer().
+-type size()      :: non_neg_integer().
+-type addend()    :: integer() | undefined.
+-type sym_bind()  :: 'local' | 'global' | 'weak' | {os, ?STB_LOOS..?STB_HIOS}
+		   | {proc, ?STB_LOPROC..?STB_HIPROC}.
+-type sym_type()  :: 'notype' | 'object' | 'func' | 'section' | 'file'
+		   | {os, ?STT_LOOS..?STT_HIOS}
+		   | {proc, ?STT_LOPROC..?STT_HIPROC}.
+-type shdr_type() :: 'null' | 'progbits' | 'symtab' | 'strtab' | 'rela'
+		   | 'hash' | 'dynamic' | 'note' | 'nobits' | 'rel' | 'shlib'
+		   | 'dynsym' | {os, ?SHT_LOOS..?SHT_HIOS}
+		   | {proc, ?SHT_LOPROC..?SHT_HIPROC}.
+
+-type valueoff() :: offset().
+-type name()     :: string().
+
+%% Section header entries
+-record(elf_shdr, {name       :: name()     % Section name
+		  ,type       :: shdr_type()% Section type
+		  ,flags                    % Section attributes
+		  ,addr                     % Virtual address in memory
+		  ,offset     :: offset()   % Offset in file
+		  ,size       :: size()     % Size of section
+		  ,link                     % Link to other section
+		  ,info                     % Miscellaneous information
+		  ,addralign                % Address align boundary
+		  ,entsize                  % Size of entries, if section has table
+		  }).
+-type elf_shdr() :: #elf_shdr{}.
+
+%% Symbol table entries
+-record(elf_sym, {name    :: name()         % Symbol name
+		 ,bind    :: sym_bind()     % Symbol binding
+		 ,type    :: sym_type()     % Symbol type
+		 ,value   :: valueoff()     % Symbol value
+		 ,size    :: size()         % Size of object
+		 ,section :: undefined | abs | elf_shdr()
+		 }).
+-type elf_sym() :: #elf_sym{}.
+
+%% Relocations
+-record(elf_rel, {offset  :: offset()
+		 ,type    :: reloc_type()
+		 ,addend  :: addend()
+		 ,symbol  :: elf_sym()
+		 }).
+-type elf_rel() :: #elf_rel{}.

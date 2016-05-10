@@ -26,11 +26,10 @@ rtl_to_native(MFA, RTL, Roots, Options) ->
   ObjBin = open_object_file(ObjectFile),
   Obj = elf_format:read(ObjBin),
   %% Get labels info (for switches and jump tables)
-  Labels = elf_format:get_rodata_relocs(Obj),
-  {Switches, Closures} = get_tables(Obj),
+  Labels = elf_format:extract_rela(Obj, ?RODATA),
+  Tables = get_tables(Obj),
   %% Associate Labels with Switches and Closures with stack args
-  {SwitchInfos, ExposedClosures} =
-    correlate_labels(Switches ++ Closures, Labels),
+  {SwitchInfos, ExposedClosures} = correlate_labels(Tables, Labels),
   %% SwitchInfos:     [{"table_50", [Labels]}]
   %% ExposedClosures: [{"table_closures", [Labels]}]
   
@@ -38,7 +37,7 @@ rtl_to_native(MFA, RTL, Roots, Options) ->
   %% used for switch's jump tables
   LabelMap = create_labelmap(MFA, SwitchInfos, RelocsDict),
   %% Get relocation info
-  TextRelocs = elf_format:get_text_relocs(Obj),
+  TextRelocs = elf_format:extract_rela(Obj, ?TEXT),
   %% AccRefs contains the offsets of all references to relocatable symbols in
   %% the code:
   AccRefs = fix_relocations(TextRelocs, RelocsDict, MFA),
@@ -158,12 +157,10 @@ trans_optlev_flag(Tool, Options) ->
 %%------------------------------------------------------------------------------
 
 %% @doc Get switch table and closure table.
+-spec get_tables(elf_format:elf()) -> [elf_sym()].
 get_tables(Elf) ->
-  %% Search Symbol Table for an entry with name prefixed with "table_":
-  Triples = elf_format:get_tab_entries(Elf),
-  Switches = [T || T={"table_" ++ _, _, _} <- Triples],
-  Closures = [T || T={"table_closures" ++ _, _, _} <- Switches],
-  {Switches, Closures}.
+  %% Search Symbol Table for entries where name is prefixed with "table_":
+  [S || S=#elf_sym{name="table_" ++ _} <- elf_format:elf_symbols(Elf)].
 
 %% @doc This function associates symbols who point to some table of labels with
 %%      the corresponding offsets of the labels in the code. These tables can
@@ -171,19 +168,28 @@ get_tables(Elf) ->
 %%      of blocks that contain closure calls with more than ?NR_ARG_REGS.
 correlate_labels([], _L) -> {[], []};
 correlate_labels(Tables, Labels) ->
-  %% Sort "Tables" based on "ValueOffsets"
-  OffsetSortedTb = lists:ukeysort(2, Tables),
-  %% Unzip offset-sorted list of "Switches"
-  {Names, _Offsets, TablesSizeList} = lists:unzip3(OffsetSortedTb),
-  %% Associate switch names with labels
-  L = split_list(Labels, TablesSizeList),
-  %% Zip back! (to [{SwitchName, Values}])
-  NamesValues = lists:zip(Names, L),
+  %% Assumes that the relocations are sorted
+  RelocTree = gb_trees:from_orddict(
+		[{Rel#elf_rel.offset, Rel#elf_rel.addend} || Rel <- Labels]),
+  %% Lookup all relocations pertaining to each symbol
+  NamesValues = [{Name, lookup_range(Value, Value+Size, RelocTree)}
+		 || #elf_sym{name=Name, value=Value, size=Size} <- Tables],
   case lists:keytake("table_closures", 1, NamesValues) of
     false ->  %% No closures in the code, no closure table
       {NamesValues, []};
     {value, ClosureTableNV, SwitchesNV} ->
       {SwitchesNV, ClosureTableNV}
+  end.
+
+%% Fetches all values with a key in [Low, Hi)
+-spec lookup_range(_::K, _::K, gb_trees:tree(K,V)) -> [_::V].
+lookup_range(Low, Hi, Tree) ->
+  lookup_range_1(Hi, gb_trees:iterator_from(Low, Tree)).
+
+lookup_range_1(Hi, Iter0) ->
+  case gb_trees:next(Iter0) of
+    {Key, Value, Iter} when Key < Hi -> [Value | lookup_range_1(Hi, Iter)];
+    _ -> []
   end.
 
 %% @doc Create a gb_tree which contains information about the labels that used
@@ -216,37 +222,53 @@ insert_to_labelmap([{Key, Value}|Rest], LabelMap) ->
 %% @doc Correlate object file relocation symbols with info from translation to
 %%      llvm code.
 fix_relocations(Relocs, RelocsDict, MFA) ->
-  fix_relocs(Relocs, RelocsDict, MFA, []).
+  lists:map(fun(Reloc) -> fix_reloc(Reloc, RelocsDict, MFA) end, Relocs).
 
-fix_relocs([], _, _, RelocAcc) -> RelocAcc;
-fix_relocs([{Name, Offset}|Rs], RelocsDict, {ModName,_,_}=MFA,  RelocAcc) ->
+%% Relocation types and expected addends for x86 and amd64
+-define(PCREL_T, 'pc32').
+-define(PCREL_A, -4). %% Hard-coded in hipe_x86.c and hipe_amd64.c
+-ifdef(BIT32).
+-define(ABS_T, '32').
+-define(ABS_A, _). %% We support any addend
+-else.
+-define(ABS_T, '64').
+-define(ABS_A, 0).
+-endif.
+
+fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=undefined, type=notype},
+		   offset=Offset, type=?PCREL_T, addend=?PCREL_A},
+	  RelocsDict, {ModName,_,_}) when Name =/= "" ->
   case dict:fetch(Name, RelocsDict) of
-    {atom, AtomName} ->
-      fix_relocs(Rs, RelocsDict, MFA,
-                 [{?LOAD_ATOM, Offset, AtomName}|RelocAcc]);
-    {constant, Label} ->
-      fix_relocs(Rs, RelocsDict, MFA,
-		 [{?LOAD_ADDRESS, Offset, {constant, Label}}|RelocAcc]);
-    {switch, _, JTabLab} -> %% Treat switch exactly as constant
-      fix_relocs(Rs, RelocsDict, MFA,
-                 [{?LOAD_ADDRESS, Offset, {constant, JTabLab}}|RelocAcc]);
-    {closure, _}=Closure ->
-      fix_relocs(Rs, RelocsDict, MFA,
-                 [{?LOAD_ADDRESS, Offset, Closure}|RelocAcc]);
-    {call, {bif, BifName, _}} ->
-      fix_relocs(Rs, RelocsDict, MFA,
-                 [{?CALL_LOCAL, Offset, BifName}|RelocAcc]);
+    {call, {bif, BifName, _}} -> {?CALL_LOCAL, Offset, BifName};
     %% MFA calls to functions in the same module are of type 3, while all
     %% other MFA calls are of type 2.
-    {call, {ModName,_F,_A}=CallMFA} ->
-      fix_relocs(Rs, RelocsDict, MFA,
-                 [{?CALL_LOCAL, Offset, CallMFA}|RelocAcc]);
-    {call, CallMFA} ->
-      fix_relocs(Rs, RelocsDict, MFA,
-                 [{?CALL_REMOTE, Offset, CallMFA}|RelocAcc]);
-    Other ->
-      exit({?MODULE, fix_relocs,
-           {"Relocation not in relocation dictionary", Other}})
+    %% XXX: Does this code break hot code loading (by transforming external
+    %% calls into local calls?)
+    {call, {ModName,_F,_A}=CallMFA} -> {?CALL_LOCAL,  Offset, CallMFA};
+    {call,                 CallMFA} -> {?CALL_REMOTE, Offset, CallMFA}
+  end;
+fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=undefined, type=notype},
+		   offset=Offset, type=?ABS_T, addend=?ABS_A},
+	  RelocsDict, _) when Name =/= "" ->
+  case dict:fetch(Name, RelocsDict) of
+    {atom, AtomName}     -> {?LOAD_ATOM,    Offset, AtomName};
+    {constant, Label}    -> {?LOAD_ADDRESS, Offset, {constant, Label}};
+    {closure, _}=Closure -> {?LOAD_ADDRESS, Offset, Closure}
+  end;
+fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?TEXT},
+				   type=func},
+		   offset=Offset, type=?PCREL_T, addend=?PCREL_A},
+	  RelocsDict, MFA) when Name =/= "" ->
+  case dict:fetch(Name, RelocsDict) of
+    {call, MFA} -> {?CALL_LOCAL, Offset, MFA}
+  end;
+fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?RODATA},
+				   type=object},
+		   offset=Offset, type=?ABS_T, addend=?ABS_A},
+	  RelocsDict, _) when Name =/= "" ->
+  case dict:fetch(Name, RelocsDict) of
+    {switch, _, JTabLab} -> %% Treat switch exactly as constant
+      {?LOAD_ADDRESS, Offset, {constant, JTabLab}}
   end.
 
 %%------------------------------------------------------------------------------
@@ -278,7 +300,7 @@ get_sdescs(Elf) ->
         Roots/binary>> = NoteGC_bin,
       LiveRoots = get_liveroots(Roots, []),
       %% Extract the safe point offsets:
-      SPOffs = elf_format:get_rela_addends(RelaNoteGC),
+      SPOffs = [A || #elf_rel{addend=A} <- RelaNoteGC],
       %% Extract Exception Handler labels:
       ExnHandlers = elf_format:get_exn_handlers(Elf),
       %% Combine ExnHandlers and Safe point addresses (return addresses):
@@ -476,18 +498,3 @@ unique_folder(FunName, Arity, Options) ->
 dir_exists(Filename) ->
   {Flag, Info} = file:read_file_info(Filename),
   (Flag =:= ok) andalso (element(3, Info) =:= directory).
-
-%% @doc Function that takes as arguments a list of integers and a list with
-%%      numbers indicating how many items should each tuple have and splits
-%%      the original list to a list of lists of integers (with the specified
-%%      number of elements), i.e. [ [...], [...] ].
--spec split_list([integer()], [integer()]) -> [ [integer()] ].
-split_list(List, ElemsPerTuple) ->
-  split_list(List, ElemsPerTuple, []).
-
--spec split_list([integer()], [integer()], [ [integer()] ]) -> [ [integer()] ].
-split_list([], [], Acc) ->
-  lists:reverse(Acc);
-split_list(List, [NumOfElems | MoreNums], Acc) ->
-  {L1, L2} = lists:split(NumOfElems, List),
-  split_list(L2, MoreNums, [ L1 | Acc]).

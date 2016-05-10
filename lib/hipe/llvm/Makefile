@@ -108,3 +108,11 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 
 release_docs_spec:
+
+$(EBIN)/elf_format.beam: elf_format.hrl elf32_format.hrl  elf64_format.hrl
+$(EBIN)/hipe_llvm_main.beam: ../../kernel/src/hipe_ext_format.hrl \
+	hipe_llvm_arch.hrl elf_format.hrl elf32_format.hrl  elf64_format.hrl
+$(EBIN)/hipe_llvm_merge.beam: ../../kernel/src/hipe_ext_format.hrl \
+	hipe_llvm_arch.hrl ../rtl/hipe_literals.hrl ../main/hipe.hrl
+$(EBIN)/hipe_rtl_to_llvm.beam: ../rtl/hipe_rtl.hrl ../rtl/hipe_literals.hrl \
+	hipe_llvm_arch.hrl
