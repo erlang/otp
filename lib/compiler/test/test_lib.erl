@@ -106,8 +106,9 @@ p_run(Test, List) ->
 		%% slightly faster than using 3. Using more than
 		%% 4 would not buy us much and could actually be
 		%% slower.
-		max(S, 4)
+		min(S, 4)
 	end,
+    io:format("p_run: ~p parallel processes\n", [N]),
     p_run_loop(Test, List, N, [], 0, 0).
 
 p_run_loop(_, [], _, [], Errors, Ws) ->
