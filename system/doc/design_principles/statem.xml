@@ -152,9 +152,10 @@ handle_event(EventType, EventContent, State, Data) ->
       </p>
       <p>
 	With <c>state_functions</c>, you are restricted to use
-	atom-only states, and the <c>gen_statem</c> engine dispatches
-	on state name for you. This encourages the callback module
-	to gather the implementation of all event actions particular
+	atom-only states, and the <c>gen_statem</c> engine
+	branches depending on state name for you.
+	This encourages the callback module to gather
+	the implementation of all event actions particular
 	to one state in the same place in the code,
 	hence to focus on one state at the time.
       </p>
@@ -173,7 +174,8 @@ handle_event(EventType, EventContent, State, Data) ->
 	one event at the time or on
 	one state at the time, but function
 	<seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
-	quickly grows too large to handle without introducing dispatching.
+	quickly grows too large to handle without branching to
+	helper functions.
       </p>
       <p>
 	The mode enables the use of non-atom states, for example,
@@ -181,8 +183,8 @@ handle_event(EventType, EventContent, State, Data) ->
 	If, for example, a state diagram is largely alike
 	for the client side and the server side of a protocol,
 	you can have a state <c>{StateName,server}</c> or
-	<c>{StateName,client}</c>. Also, as you do the dispatching
-	yourself, you make <c>StateName</c> decide where in the code
+	<c>{StateName,client}</c>,
+	and make <c>StateName</c> determine where in the code
 	to handle most events in the state.
 	The second element of the tuple is then used to select
 	whether to handle special client-side or server-side events.
@@ -526,7 +528,8 @@ handle_event({call,From}, code_length, #{code := Code} = Data) ->
       all events are handled in
       <seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
       and we can (but do not have to) use an event-centered approach
-      where we dispatch on event first and then state:
+      where we first branch depending on event
+      and then depending on state:
     </p>
     <code type="erl"><![CDATA[
 ...
@@ -1097,9 +1100,9 @@ code_change(_Vsn, State, Data, _Extra) ->
       <p>
         This section describes what to change in the example
         to use one <c>handle_event/4</c> function.
-        The previously used clean first-dispatch-on-event approach
-        does not work that well here because of the generated
-        entry actions so this example dispatches on state first:
+        The previously used approach to first branch depending on event
+	does not work that well here because of the generated
+        entry actions, so this example first branches depending on state:
       </p>
       <code type="erl"><![CDATA[
 ...
