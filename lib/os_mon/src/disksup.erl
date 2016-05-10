@@ -153,7 +153,7 @@ handle_cast(_Msg, State) ->
 handle_info(timeout, State) ->
     NewDiskData = check_disk_space(State#state.os, State#state.port,
 				   State#state.threshold),
-    timer:send_after(State#state.timeout, timeout),
+    {ok, _Tref} = timer:send_after(State#state.timeout, timeout),
     {noreply, State#state{diskdata = NewDiskData}};
 handle_info({'EXIT', _Port, Reason}, State) ->
     {stop, {port_died, Reason}, State#state{port=not_used}};

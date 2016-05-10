@@ -531,11 +531,11 @@ measurement_server_loop(State) ->
 		    measurement_server_loop(State)
 	    end;
 	{Pid, Request} ->
-	    try get_uint32_measurement(Request, State) of
-		Result -> Pid ! {data, Result}
-	    catch
-		Error -> Pid ! {error, Error}
-	    end,
+            _ = try get_uint32_measurement(Request, State) of
+                    Result -> Pid ! {data, Result}
+                catch
+                    Error -> Pid ! {error, Error}
+                end,
 	    measurement_server_loop(State);
         {'EXIT', OldPid, _n} when State#internal.port == OldPid ->
 	    {ok, NewPid} = port_server_start_link(),
