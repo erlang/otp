@@ -59,6 +59,7 @@
  * TODO: check PCB consistency at native BIF calls
  */
 int hipe_modeswitch_debug = 0;
+extern BeamInstr beam_exit[];
 
 #define HIPE_DEBUG 0
 
@@ -509,6 +510,10 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      if (scb)
 		  ERTS_PROC_SET_SAVED_CALLS_BUF(p, scb);
 
+              /* The process may have died while it was executing,
+                 if so we return out from native code to the interpreter */
+              if (erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
+                  p->i = beam_exit;
 #ifdef DEBUG
 	      ASSERT(p->debug_reds_in == reds_in);
 #endif
