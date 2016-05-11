@@ -137,10 +137,7 @@ index_label(Lbl, Is0, Acc) ->
 %%  Retrieve the code at the given label.
 
 code_at(L, Ll) ->
-    case gb_trees:lookup(L, Ll) of
-	{value,Code} -> Code;
-	none -> none
-    end.
+    gb_trees:get(L, Ll).
 
 %% bif_to_test(Bif, [Op], Fail) -> {test,Test,Fail,[Op]}
 %%  Convert a BIF to a test. Fail if not possible.
