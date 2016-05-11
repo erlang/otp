@@ -664,8 +664,6 @@ do_major_collection:
 
     ErtsGcQuickSanityCheck(p);
 
-    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
-
     /* Max heap size has been reached and the process was configured
        to be killed, so we kill it and set it in a delayed garbage
        collecting state. There should be no gc_end trace or
@@ -3176,8 +3174,8 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             if (alive)
                 erts_dsprintf(dsbufp, "on node ~p");
             erts_dsprintf(dsbufp, "~n     Context:          maximum heap size reached~n");
-            erts_dsprintf(dsbufp, "     Max heap size:    ~p~n");
-            erts_dsprintf(dsbufp, "     Total heap size:  ~p~n");
+            erts_dsprintf(dsbufp, "     Max Heap Size:    ~p~n");
+            erts_dsprintf(dsbufp, "     Total Heap Size:  ~p~n");
             erts_dsprintf(dsbufp, "     Kill:             ~p~n");
             erts_dsprintf(dsbufp, "     Error Logger:     ~p~n");
             erts_dsprintf(dsbufp, "     GC Info:          ~p~n");
