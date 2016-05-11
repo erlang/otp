@@ -59,10 +59,10 @@
     char Name[LTTNG_MFA_BUFFER_SZ]
 
 #define lttng_pid_to_str(pid, name) \
-    erts_snprintf(name, LTTNG_PROC_BUFFER_SZ, "%T", (pid))
+    enif_snprintf(name, LTTNG_PROC_BUFFER_SZ, "%T", (pid))
 
 #define lttng_portid_to_str(pid, name) \
-    erts_snprintf(name, LTTNG_PORT_BUFFER_SZ, "%T", (pid))
+    enif_snprintf(name, LTTNG_PORT_BUFFER_SZ, "%T", (pid))
 
 #define lttng_proc_to_str(p, name) \
     lttng_pid_to_str(((p) ? (p)->common.id : ERTS_INVALID_PID), name)
@@ -71,7 +71,7 @@
     lttng_portid_to_str(((p) ? (p)->common.id : ERTS_INVALID_PORT), name)
 
 #define lttng_mfa_to_str(m,f,a, Name) \
-    erts_snprintf(Name, LTTNG_MFA_BUFFER_SZ, "%T:%T/%lu", (Eterm)(m), (Eterm)(f), (Uint)(a))
+    enif_snprintf(Name, LTTNG_MFA_BUFFER_SZ, "%T:%T/%lu", (Eterm)(m), (Eterm)(f), (Uint)(a))
 
 /* Process scheduling */
 
