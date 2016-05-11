@@ -418,6 +418,8 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
     BIF_RET(make_tuple(hp));
 }
 
+#define IS_POWER_OF_TWO(Val) (((Val) > 0) && (((Val) & ((Val)-1)) == 0))
+
 /*
  * Allocate memory for arbitrary non-Erlang data.
  */
@@ -427,16 +429,18 @@ BIF_RETTYPE hipe_bifs_alloc_data_2(BIF_ALIST_2)
     void *block;
 
     if (is_not_small(BIF_ARG_1) || is_not_small(BIF_ARG_2) ||
-	(align = unsigned_val(BIF_ARG_1),
-	 align != sizeof(long) && align != sizeof(double)))
+	(align = unsigned_val(BIF_ARG_1), !IS_POWER_OF_TWO(align)))
 	BIF_ERROR(BIF_P, BADARG);
     nrbytes = unsigned_val(BIF_ARG_2);
     if (nrbytes == 0)
 	BIF_RET(make_small(0));
     block = erts_alloc(ERTS_ALC_T_HIPE, nrbytes);
-    if ((unsigned long)block & (align-1))
+    if ((unsigned long)block & (align-1)) {
 	fprintf(stderr, "%s: erts_alloc(%lu) returned %p which is not %lu-byte aligned\r\n",
 		__FUNCTION__, (unsigned long)nrbytes, block, (unsigned long)align);
+	erts_free(ERTS_ALC_T_HIPE, block);
+	BIF_ERROR(BIF_P, EXC_NOTSUP);
+    }
     BIF_RET(address_to_term(block, BIF_P));
 }
 

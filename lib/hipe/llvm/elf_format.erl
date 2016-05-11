@@ -23,6 +23,8 @@
 	 get_exn_handlers/1,
 	 %% Symbols
 	 elf_symbols/1,
+	 %% Sections
+	 section_contents/2,
 	 %% Main interface
 	 read/1
         ]).
@@ -311,6 +313,11 @@ elf_section(0, #elf{}) -> undefined;
 elf_section(?SHN_ABS, #elf{}) -> abs;
 elf_section(Index, #elf{sec_idx=SecIdx}) when Index =< tuple_size(SecIdx) ->
   element(Index, SecIdx).
+
+%% Reads the contents of a section from an object
+-spec section_contents(elf_shdr(), elf()) -> binary().
+section_contents(#elf_shdr{offset=Offset, size=Size}, #elf{file=ElfBin}) ->
+  get_binary_segment(ElfBin, Offset, Size).
 
 %%------------------------------------------------------------------------------
 %% Functions to manipulate Symbol Table

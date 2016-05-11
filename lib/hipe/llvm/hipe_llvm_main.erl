@@ -13,7 +13,7 @@
 %%      chain is invoked in order to produce an object file.
 rtl_to_native(MFA, RTL, Roots, Options) ->
   %% Compile to LLVM and get Instruction List (along with infos)
-  {LLVMCode, RelocsDict, ConstTab} =
+  {LLVMCode, RelocsDict0, ConstTab0} =
     hipe_rtl_to_llvm:translate(RTL, Roots),
   %% Fix function name to an acceptable LLVM identifier (needed for closures)
   {_Module, Fun, Arity} = hipe_rtl_to_llvm:fix_mfa_name(MFA),
@@ -32,10 +32,11 @@ rtl_to_native(MFA, RTL, Roots, Options) ->
   {SwitchInfos, ExposedClosures} = correlate_labels(Tables, Labels),
   %% SwitchInfos:     [{"table_50", [Labels]}]
   %% ExposedClosures: [{"table_closures", [Labels]}]
-  
+
   %% Labelmap contains the offsets of the labels in the code that are
   %% used for switch's jump tables
-  LabelMap = create_labelmap(MFA, SwitchInfos, RelocsDict),
+  LabelMap = create_labelmap(MFA, SwitchInfos, RelocsDict0),
+  {RelocsDict, ConstTab} = extract_constants(RelocsDict0, ConstTab0, Obj),
   %% Get relocation info
   TextRelocs = elf_format:extract_rela(Obj, ?TEXT),
   %% AccRefs contains the offsets of all references to relocatable symbols in
@@ -219,6 +220,25 @@ insert_to_labelmap([{Key, Value}|Rest], LabelMap) ->
       insert_to_labelmap(Rest, LabelMap)
   end.
 
+%% Find any LLVM-generated constants and add them to the constant table
+extract_constants(RelocsDict0, ConstTab0, Obj) ->
+  TextRelocs = elf_format:extract_rela(Obj, ?TEXT),
+  AnonConstSections =
+    lists:usort([{Sec, Offset}
+		 || #elf_rel{symbol=#elf_sym{type=section, section=Sec},
+			     addend=Offset} <- TextRelocs]),
+  lists:foldl(
+    fun({#elf_shdr{name=Name, type=progbits, addralign=Align, entsize=EntSize,
+		   size=Size} = Section, Offset}, {RelocsDict1, ConstTab1})
+	when EntSize > 0, 0 =:= Size rem EntSize, 0 =:= Offset rem EntSize ->
+	SectionBin = elf_format:section_contents(Section, Obj),
+	Constant = binary:part(SectionBin, Offset, EntSize),
+	{ConstTab, ConstLbl} =
+	  hipe_consttab:insert_binary_const(ConstTab1, Align, Constant),
+	{dict:store({anon, Name, Offset}, {constant, ConstLbl}, RelocsDict1),
+	 ConstTab}
+    end, {RelocsDict0, ConstTab0}, AnonConstSections).
+
 %% @doc Correlate object file relocation symbols with info from translation to
 %%      llvm code.
 fix_relocations(Relocs, RelocsDict, MFA) ->
@@ -269,6 +289,11 @@ fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?RODATA},
   case dict:fetch(Name, RelocsDict) of
     {switch, _, JTabLab} -> %% Treat switch exactly as constant
       {?LOAD_ADDRESS, Offset, {constant, JTabLab}}
+  end;
+fix_reloc(#elf_rel{symbol=#elf_sym{type=section, section=#elf_shdr{name=Name}},
+		   offset=Offset, type=?ABS_T, addend=Addend}, RelocsDict, _) ->
+  case dict:fetch({anon, Name, Addend}, RelocsDict) of
+    {constant, Label} -> {?LOAD_ADDRESS, Offset, {constant, Label}}
   end.
 
 %%------------------------------------------------------------------------------
