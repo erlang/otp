@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    HiPE compiler crashed, during compilation, in some cases
+	    that involved inlining of float operations on complicated
+	    control flow graphs.</p>
+          <p>
+	    Own Id: OTP-13407 Aux Id: PR-984 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

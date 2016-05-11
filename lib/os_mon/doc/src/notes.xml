@@ -31,6 +31,27 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix type specification for cpu_sup:util/1</p>
+          <p>
+	    Own Id: OTP-13526 Aux Id: PR-1029 </p>
+        </item>
+        <item>
+          <p>
+	    Fix strict compilation on SUN/SPARC</p>
+          <p>
+	    Own Id: OTP-13548 Aux Id: PR-1046 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.4</title>
 
     <section><title>Improvements and New Features</title>

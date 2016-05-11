@@ -31,6 +31,267 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a race bug affecting <c>dets:open_file/2</c>.
+	    </p>
+          <p>
+	    Own Id: OTP-13260 Aux Id: seq13002 </p>
+        </item>
+        <item>
+	    <p>Don't search for non-existing Map keys twice</p>
+	    <p>For <c>maps:get/2,3</c> and <c>maps:find/2</c>,
+	    searching for an immediate key, e.g. an atom, in a small
+	    map, the search was performed twice if the key did not
+	    exist.</p>
+          <p>
+	    Own Id: OTP-13459</p>
+        </item>
+        <item>
+          <p>
+	    Avoid stray corner-case math errors on Solaris, e.g. an
+	    error is thrown on undeflows in exp() and pow() when it
+	    shouldn't be.</p>
+          <p>
+	    Own Id: OTP-13531</p>
+        </item>
+        <item>
+	    <p>Fix linting of map key variables</p>
+	    <p>Map keys cannot be unbound and then used in parallel
+	    matching.</p>
+	    <p>Example: <c> #{ K := V } = #{ k := K } = M.</c> This
+	    is illegal if <c>'K'</c> is not bound.</p>
+          <p>
+	    Own Id: OTP-13534 Aux Id: ERL-135 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The types of The Abstract Format in the
+	    <c>erl_parse</c> module have been refined. </p>
+          <p>
+	    Own Id: OTP-10292</p>
+        </item>
+        <item>
+	    <p> Undocumented syntax for function specifications,
+	    <c>-spec F/A :: Domain -&gt; Range</c>, has been removed
+	    (without deprecation). </p> <p> Using the
+	    <c>is_subtype(V, T)</c> syntax for constraints (in
+	    function specifications) is no longer documented, and the
+	    newer syntax <c>V :: T</c> should be used instead. The
+	    Erlang Parser still recognizes the <c>is_subtype</c>
+	    syntax, and will continue to do so for some time. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11879</p>
+        </item>
+        <item>
+	    <p>The '<c>random</c>' module has been deprecated. Use
+	    the '<c>rand</c>' module instead.</p>
+          <p>
+	    Own Id: OTP-12502 Aux Id: OTP-12501 </p>
+        </item>
+        <item>
+	    <p>Background: In record fields with a type declaration
+	    but without an initializer, the Erlang parser inserted
+	    automatically the singleton type <c>'undefined'</c> to
+	    the list of declared types, if that value was not present
+	    there. That is, the record declaration:</p>
+          <p>
+	    -record(rec, {f1 :: float(), f2 = 42 :: integer(), f3 ::
+	    some_mod:some_typ()}).</p>
+	    <p>was translated by the parser to:</p>
+          <p>
+	    -record(rec, {f1 :: float() | 'undefined', f2 = 42 ::
+	    integer(), f3 :: some_mod:some_typ() | 'undefined'}).</p>
+	    <p>The rationale for this was that creation of a "dummy"
+	    <c>#rec{}</c> record should not result in a warning from
+	    dialyzer that, for example, the implicit initialization
+	    of the <c>#rec.f1</c> field violates its type
+	    declaration.</p>
+	    <p>Problems: This seemingly innocent action has some
+	    unforeseen consequences.</p>
+	    <p>For starters, there is no way for programmers to
+	    declare that e.g. only floats make sense for the
+	    <c>f1</c> field of <c>#rec{}</c> records when there is no
+	    "obvious" default initializer for this field. (This also
+	    affects tools like PropEr that use these declarations
+	    produced by the Erlang parser to generate random
+	    instances of records for testing purposes.)</p>
+	    <p>It also means that dialyzer does not warn if e.g. an
+	    <c>is_atom/1</c> test or something more exotic like an
+	    <c>atom_to_list/1</c> call is performed on the value of
+	    the <c>f1</c> field.</p>
+	    <p>Similarly, there is no way to extend dialyzer to warn
+	    if it finds record constructions where <c>f1</c> is not
+	    initialized to some float.</p>
+	    <p>Last but not least, it is semantically problematic
+	    when the type of the field is an opaque type: creating a
+	    union of an opaque and a structured type is very
+	    problematic for analysis because it fundamentally breaks
+	    the opacity of the term at that point.</p>
+	    <p>Change: To solve these problems the parser will not
+	    automatically insert the <c>'undefined'</c> value
+	    anymore; instead the user has the option to choose the
+	    places where this value makes sense (for the field) and
+	    where it does not and insert the <c>| 'undefined'</c>
+	    there manually.</p>
+	    <p>Consequences of this change: This change means that
+	    dialyzer will issue a warning for all places where
+	    records with uninitialized fields are created and those
+	    fields have a declared type that is incompatible with
+	    <c>'undefined'</c> (e.g. <c>float()</c>). This warning
+	    can be suppressed easily by adding <c>| 'undefined'</c>
+	    to the type of this field. This also adds documentation
+	    that the user really intends to create records where this
+	    field is uninitialized.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12719</p>
+        </item>
+        <item>
+	    <p> Remove deprecated functions in the modules
+	    <c>erl_scan</c> and <c>erl_parse</c>. </p>
+          <p>
+	    Own Id: OTP-12861</p>
+        </item>
+        <item>
+	    <p>The pre-processor can now expand the ?FUNCTION_NAME
+	    and ?FUNCTION_ARITY macros.</p>
+          <p>
+	    Own Id: OTP-13059</p>
+        </item>
+        <item>
+	    <p> A new behaviour <c>gen_statem</c> has been
+	    implemented. It has been thoroughly reviewed, is stable
+	    enough to be used by at least two heavy OTP applications,
+	    and is here to stay. But depending on user feedback, we
+	    do not expect but might find it necessary to make minor
+	    not backwards compatible changes into OTP-20.0, so its
+	    state can be designated as "not quite experimental"...
+	    </p> <p> The <c>gen_statem</c> behaviour is intended to
+	    replace <c>gen_fsm</c> for new code. It has the same
+	    features and add some really useful: </p> <list
+	    type="bulleted"> <item>State code is gathered</item>
+	    <item>The state can be any term</item> <item>Events can
+	    be postponed</item> <item>Events can be self
+	    generated</item> <item>A reply can be sent from a later
+	    state</item> <item>There can be multiple sys traceable
+	    replies</item> </list> <p> The callback model(s) for
+	    <c>gen_statem</c> differs from the one for
+	    <c>gen_fsm</c>, but it is still fairly easy to rewrite
+	    from <c>gen_fsm</c> to <c>gen_statem</c>. </p>
+          <p>
+	    Own Id: OTP-13065 Aux Id: PR-960 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize binary:split/2 and binary:split/3 with native
+	    BIF implementation.</p>
+          <p>
+	    Own Id: OTP-13082</p>
+        </item>
+        <item>
+	    <p>Background: The types of record fields have since R12B
+	    been put in a separate form by <c>epp:parse_file()</c>,
+	    leaving the record declaration form untyped. The separate
+	    form, however, does not follow the syntax of type
+	    declarations, and parse transforms inspecting
+	    <c>-type()</c> attributes need to know about the special
+	    syntax. Since the compiler stores the return value of
+	    <c>epp:parse_file()</c> as debug information in the
+	    abstract code chunk (<c>"Abst"</c> or
+	    <c>abstract_code</c>), tools too need to know about the
+	    special syntax, if they inspect <c>-type()</c> attributes
+	    in abstract code.</p>
+	    <p>Change: No separate type form is created by
+	    <c>epp:parse_file()</c>, but the type information is kept
+	    in the record fields. This means that all parse
+	    transforms and all tools inspecting <c>-record()</c>
+	    declarations need to recognize <c>{typed_record_field,
+	    Field, Type}</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13148</p>
+        </item>
+        <item>
+          <p>
+	    Unsized fields of the type <c>bytes</c> in binary
+	    generators are now forbidden. (The other ways of writing
+	    unsized fields, such as <c>binary</c>, are already
+	    forbidden.)</p>
+          <p>
+	    Own Id: OTP-13152</p>
+        </item>
+        <item>
+	    <p> The type <c>map()</c> is built-in, and cannot be
+	    redefined. </p>
+          <p>
+	    Own Id: OTP-13153</p>
+        </item>
+        <item>
+	    <p> Let <c>dets:open_file()</c> exit with a <c>badarg</c>
+	    message if given a raw file name (a binary). </p>
+          <p>
+	    Own Id: OTP-13229 Aux Id: ERL-55 </p>
+        </item>
+        <item>
+	    <p> Add <c>filename:basedir/2,3</c></p> <p>basedir
+	    returns suitable path(s) for 'user_cache', 'user_config',
+	    'user_data', 'user_log', 'site_config' and 'site_data'.
+	    On linux and linux like systems the paths will respect
+	    the XDG environment variables.</p>
+          <p>
+	    Own Id: OTP-13392</p>
+        </item>
+        <item>
+	    <p>There are new preprocessor directives
+	    <c>-error(Term)</c> and <c>-warning(Term)</c> to cause a
+	    compilation error or a compilation warning,
+	    respectively.</p>
+          <p>
+	    Own Id: OTP-13476</p>
+        </item>
+        <item>
+          <p>
+	    Optimize <c>'++'</c> operator and <c>lists:append/2</c>
+	    by using a single pass to build a new list while checking
+	    for properness.</p>
+          <p>
+	    Own Id: OTP-13487</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>maps:update_with/3,4</c> and <c>maps:take/2</c></p>
+          <p>
+	    Own Id: OTP-13522 Aux Id: PR-1025 </p>
+        </item>
+        <item>
+	    <p><c>lists:join/2</c> has been added. Similar to
+	    <c>string:join/2</c> but works with arbitrary lists.</p>
+          <p>
+	    Own Id: OTP-13523</p>
+        </item>
+        <item>
+	    <p>Obfuscate asserts to make Dialyzer shut up.</p>
+          <p>
+	    Own Id: OTP-13524 Aux Id: PR-1002 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

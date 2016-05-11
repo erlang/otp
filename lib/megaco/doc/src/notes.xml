@@ -37,7 +37,22 @@
   section is the version number of Megaco.</p>
   
   
-  <section><title>Megaco 3.18</title>
+  <section><title>Megaco 3.18.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18</title>
 
     <section><title>Improvements and New Features</title>
       <list>

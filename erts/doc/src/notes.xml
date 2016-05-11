@@ -32,6 +32,631 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The handling of <c>on_load</c> functions has been
+	    improved. The major improvement is that if a code upgrade
+	    fails because the <c>on_load</c> function fails, the
+	    previous version of the module will now be retained.</p>
+          <p>
+	    Own Id: OTP-12593</p>
+        </item>
+        <item>
+	    <p><c>is_builtin(erlang, apply, 3)</c> will now return
+	    <c>true</c>.</p>
+          <p>
+	    Own Id: OTP-13034</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>enif_get_list_length</c> to return false if list
+	    is improper or have length larger than <c>UINT_MAX</c>
+	    (did return true and an incorrect length value).</p>
+          <p>
+	    Own Id: OTP-13288 Aux Id: PR913 </p>
+        </item>
+        <item>
+          <p>
+	    Cleanup hipe signal handling code for x86 and make it
+	    more portable.</p>
+          <p>
+	    Own Id: OTP-13341 Aux Id: PR951 </p>
+        </item>
+        <item>
+          <p>
+	    Use fsync instead of fdatasync on Mac OSX.</p>
+          <p>
+	    Own Id: OTP-13411</p>
+        </item>
+        <item>
+          <p>
+	    Make sure to create a crash dump when running out of
+	    memory. This was accidentally removed in the erts-7.3
+	    release.</p>
+          <p>
+	    Own Id: OTP-13419</p>
+        </item>
+        <item>
+          <p>
+	    A bug has been fixed where if erlang was started +B on a
+	    unix platform it would be killed by a SIGUSR2 signal when
+	    creating a crash dump.</p>
+          <p>
+	    Own Id: OTP-13425</p>
+        </item>
+        <item>
+          <p>
+	    Fix race between <c>process_flag(trap_exit,true)</c> and
+	    a received exit signal.</p>
+          <p>
+	    A process could terminate due to exit signal even though
+	    <c>process_flag(trap_exit,true)</c> had returned. A very
+	    specific timing between call to <c>process_flag/2</c> and
+	    exit signal from another scheduler was required for this
+	    to happen.</p>
+          <p>
+	    Own Id: OTP-13452</p>
+        </item>
+        <item>
+	    <p>Don't search for non-existing Map keys twice</p>
+	    <p>For <c>maps:get/2,3</c> and <c>maps:find/2</c>,
+	    searching for an immediate key, e.g. an atom, in a small
+	    map, the search was performed twice if the key did not
+	    exist.</p>
+          <p>
+	    Own Id: OTP-13459</p>
+        </item>
+        <item>
+          <p>
+	    When a abnormally large distribution message is about to
+	    be sent, the VM has been changed to create a crash dump
+	    instead of a core dump.</p>
+          <p>
+	    Own Id: OTP-13474</p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>erlang:process_info/2</c> type specification</p>
+          <p>
+	    Own Id: OTP-13485 Aux Id: ERL-123 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>open_port/2</c> with option <c>{args,
+	    List}</c>. A vm crash could be caused by an improper
+	    <c>List</c>.</p>
+          <p>
+	    Own Id: OTP-13489 Aux Id: ERL-127 </p>
+        </item>
+        <item>
+          <p>
+	    Don't crash on terminating processes with
+	    <c>erlang:system_profile/1,2</c></p>
+          <p>
+	    Own Id: OTP-13494 Aux Id: ERL-126 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bugs where the reduction counter was not handled
+	    correct.</p>
+          <p>
+	    Own Id: OTP-13512</p>
+        </item>
+        <item>
+          <p>
+	    Fixed typo in description of the <c>EPMD_DUMP_REQ</c>
+	    response.</p>
+          <p>
+	    Own Id: OTP-13517</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug where a process flagged as sensitive would
+	    sometimes record its save_calls when it shouldn't.</p>
+          <p>
+	    Own Id: OTP-13540</p>
+        </item>
+        <item>
+          <p>
+	    Update configure scripts to not use hardcoded path for
+	    /bin/pwd and /bin/rm.</p>
+          <p>
+	    Own Id: OTP-13562</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The tracing support has been extended to allow a <seealso
+	    marker="erl_tracer">tracer module</seealso> to be the
+	    trace event handler instead of a process or port. The
+	    <seealso marker="erl_tracer">tracer module</seealso>
+	    makes it possible for trace tools to filter or manipulate
+	    trace event data without the trace event first haing to
+	    be copied from the traced process or port.</p>
+          <p>
+	    With the introduction of this feature,
+	    <c>erlang:trace(all|existing, _, _)</c> now also returns
+	    the tracer process as part of the number of processes on
+	    which tracing is enabled. The is incompatible with the
+	    previous releases.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-10267</p>
+        </item>
+        <item>
+          <p>
+	    Introduce LTTng tracing of Erlang Runtime System</p>
+          <p>
+	    For LTTng to be enabled OTP needs to be built with
+	    configure option <c>--with-dynamic-trace=lttng</c>.</p>
+          <p>
+	    This feature introduces tracepoints for schedulers,
+	    drivers, memory carriers, memory and async thread pool.</p>
+	    <p> For a list of all tracepoints, see <seealso
+	    marker="runtime_tools:LTTng">Runtime Tools User's
+	    Guide</seealso> .</p>
+          <p>
+	    Own Id: OTP-10282 Aux Id: kunagi-14 [14] </p>
+        </item>
+        <item>
+          <p>
+	    Add microstate accounting</p>
+          <p>
+	    Microstate accounting is a way to track which state the
+	    different threads within ERTS are in. The main usage area
+	    is to pin point performance bottlenecks by checking which
+	    states the threads are in and then from there figuring
+	    out why and where to optimize.</p>
+          <p>
+	    Since checking whether microstate accounting is on or off
+	    is relatively expensive only a few of the states are
+	    enabled by default and more states can be enabled through
+	    configure.</p>
+          <p>
+	    There is a convinence module called msacc that has been
+	    added to runtime_tools that can assist in gathering and
+	    interpreting the data from Microstate accounting.</p>
+          <p>
+	    For more information see <seealso
+	    marker="erts:erlang#statistics_microstate_accounting">erlang:statistics(microstate_accounting,
+	    _)</seealso> and the <seealso
+	    marker="runtime_tools:msacc">msacc</seealso> module in
+	    runtime_tools.</p>
+          <p>
+	    Own Id: OTP-12345</p>
+        </item>
+        <item>
+          <p>
+	    The port of Erlang/OTP to the realtime operating system
+	    OSE has been removed.</p>
+          <p>
+	    Own Id: OTP-12573</p>
+        </item>
+        <item>
+          <p>
+	    Sharing preserved copy for messages and exit signals</p>
+          <p>
+	    Enable sharing preserved copy with configure option
+	    <c>--enable-sharing-preserving</c>. This will preserve
+	    sharing, within the process, when communication with
+	    other processes in the Erlang node. There is a trade-off,
+	    the copy is more costly but this cost can be reclaimed if
+	    there is a lot of sharing in the message. With this
+	    feature enabled literals will not be copied in a send
+	    except during a purge phase of the module where the
+	    literals are located.</p>
+          <p>
+	    Own Id: OTP-12590 Aux Id: OTP-10251 </p>
+        </item>
+        <item>
+          <p>
+	    Halfword BEAM has been removed.</p>
+          <p>
+	    Own Id: OTP-12883</p>
+        </item>
+        <item>
+          <p>
+	    Added <seealso
+	    marker="kernel:os#perf_counter/1">os:perf_counter/1</seealso>.</p>
+          <p>
+	    The perf_counter is a very very cheap and high resolution
+	    timer that can be used to timestamp system events. It
+	    does not have monoticity guarantees, but should on most
+	    OS's expose a monotonous time.</p>
+          <p>
+	    Own Id: OTP-12908</p>
+        </item>
+        <item>
+          <p>
+	    Support for a fragmented young heap generation. That is,
+	    the young heap generation can consist of multiple non
+	    continuous memory areas. The main reason for this change
+	    is to avoid extra copying of messages that could not be
+	    allocated directly on the receivers heap.</p>
+          <p>
+	    Own Id: OTP-13047</p>
+        </item>
+        <item>
+          <p>
+	    Erlang linked-in driver can now force the call to
+	    open_port to block until a call to erl_drv_init_ack is
+	    made inside the driver. This is useful when you want to
+	    do some asynchronous initialization, for example getting
+	    configuration from a pipe, and you want the initial
+	    open_port call to fail if the configuration is incomplete
+	    or wrong. See the erl_driver documentation for more
+	    details on the API.</p>
+          <p>
+	    Own Id: OTP-13086</p>
+        </item>
+        <item>
+          <p>
+	    Erlang linked-in drivers can now set their own pid's as
+	    seen in <c>erlang:port_info/1</c> by using the
+	    <c>erl_drv_set_pid</c> function. For more details see the
+	    erl_driver documentation.</p>
+          <p>
+	    Own Id: OTP-13087</p>
+        </item>
+        <item>
+          <p>
+	    The functionality behind <c>erlang:open_port/2</c> when
+	    called with spawn or spawn_executable has been redone so
+	    that the forking of the new program is done in a separate
+	    process called erl_child_setup. This allows for a much
+	    more robust implementation that uses less memory and does
+	    not block the entire emulator if the program to be
+	    started is on an un-accessible NFS. Benchmarks have shown
+	    this approach to be about 3-5 times as fast as the old
+	    approach where the fork/vfork was done by erts. This is a
+	    pure stability and performance fix, however some error
+	    messages may have changed, which is why it is marked as a
+	    backwards incompatible change.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13088</p>
+        </item>
+        <item>
+	    <p>Improved yielding strategy in the implementation of
+	    the following native functions:</p> <list>
+	    <item><c>erlang:binary_to_list/1</c></item>
+	    <item><c>erlang:binary_to_list/3</c></item>
+	    <item><c>erlang:bitstring_to_list/1</c></item>
+	    <item><c>erlang:list_to_binary/1</c></item>
+	    <item><c>erlang:iolist_to_binary/1</c></item>
+	    <item><c>erlang:list_to_bitstring/1</c></item>
+	    <item><c>binary:list_to_bin/1</c></item> </list> <p>This
+	    in order to improve performance of these functions.</p>
+          <p>
+	    Own Id: OTP-13096</p>
+        </item>
+        <item>
+          <p>
+	    All garbage collections of processes now bump reductions.
+	    Also the amount of reductions bumped when garbage
+	    collecting has been adjusted. It now better corresponds
+	    to the amount of work performed. This in order to improve
+	    the real time characteristics of the system.</p>
+          <p>
+	    Own Id: OTP-13097</p>
+        </item>
+        <item>
+	    <p>New functions that can load multiple functions at once
+	    have been added to the '<c>code</c>' module. The
+	    functions are <c>code:atomic_load/1</c>,
+	    <c>code:prepare_loading/1</c>,
+	    <c>code:finish_loading/1</c>, and
+	    <c>code:ensure_modules_loaded/1</c>.</p>
+          <p>
+	    Own Id: OTP-13111</p>
+        </item>
+        <item>
+	    <p>The function <c>erl_prim_loader:start/3</c> has been
+	    removed. Its documentation has also been removed.</p>
+	    <p>The undocumented and unsupported function
+	    <c>erl_prim_loader:get_files/2</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-13112</p>
+        </item>
+        <item>
+          <p>
+	    Low level BIF <c>erlang:purge_module/1</c> is made more
+	    robust against incorrect use. Lingering processes that
+	    still refer the old code are now killed before the module
+	    is purged to prevent fatal VM behavior.</p>
+          <p>
+	    Own Id: OTP-13122</p>
+        </item>
+        <item>
+          <p>
+	    Improved dirty scheduler implementation. For more
+	    information see the <seealso
+	    marker="erl_nif#dirty_nifs">NIF documentation</seealso>.</p>
+          <p>
+	    Note that support for determining whether dirty NIF
+	    support exist or not at compile time using the C
+	    preprocessor macro <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c>
+	    has been removed.</p>
+          <p>
+	    Own Id: OTP-13123</p>
+        </item>
+        <item>
+          <p>
+	    Various optimizations done to process dictionary access.</p>
+          <p>
+	    Own Id: OTP-13167</p>
+        </item>
+        <item>
+          <p>
+	    Added max_heap_size process flag. See erlang:process_flag
+	    for more details.</p>
+          <p>
+	    Own Id: OTP-13174</p>
+        </item>
+        <item>
+          <p>
+	    Allow dynamic drivers and NIF libraries to be built with
+	    gcc option <c>-fvisibility=hidden</c> for faster loading
+	    and more optimized code.</p>
+          <p>
+	    Own Id: OTP-13227</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>erlang:process_info(Pid,
+	    garbage_collection_info)</c> which returns extended
+	    garbage_collection information. For more details see the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-13265</p>
+        </item>
+        <item>
+          <p>
+	    The functions <c>erlang:list_to_integer/1</c> and
+	    <c>string:to_integer/1</c> have been optimized for large
+	    inputs.</p>
+          <p>
+	    Own Id: OTP-13293</p>
+        </item>
+        <item>
+          <p>
+	    Introduction of configurable management of data referred
+	    to by the message queue of a process. Each process can be
+	    configured individually.</p>
+          <p>
+	    It is now possible to configure the message queue of a
+	    process, so that all data referred by it will be kept
+	    outside of the heap, and by this prevent this data from
+	    being part of garbage collections.</p>
+          <p>
+	    For more information see the documentation of <seealso
+	    marker="erlang#process_flag_message_queue_data"><c>process_flag(message_queue_data,
+	    MQD)</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-13366 Aux Id: OTP-13047 </p>
+        </item>
+        <item>
+          <p>
+	    Processes now yield when scanning large message queues
+	    and not finding a matching message. This in order to
+	    improve real time characteristics.</p>
+          <p>
+	    Own Id: OTP-13401</p>
+        </item>
+        <item>
+          <p>
+	    Optimized an erts internal function that is used to
+	    traverse erlang terms. The internal function was mainly
+	    used by term_to_binary and comparison of terms.
+	    Benchmarks have shown up to a 10% performance increase in
+	    those functions after the optimization.</p>
+          <p>
+	    Own Id: OTP-13440</p>
+        </item>
+        <item>
+          <p>
+	    Add the following NIF API functions:</p>
+          <p>
+	    <list> <item><seealso
+	    marker="erl_nif#enif_cpu_time"><c>enif_cpu_time</c></seealso></item>
+	    <item><seealso
+	    marker="erl_nif#enif_now_time"><c>enif_now_time</c></seealso></item>
+	    <item><seealso
+	    marker="erl_nif#enif_make_unique_integer"><c>enif_make_unique_integer</c></seealso></item>
+	    <item><seealso
+	    marker="erl_nif#enif_is_process_alive"><c>enif_is_process_alive</c></seealso></item>
+	    <item><seealso
+	    marker="erl_nif#enif_is_port_alive"><c>enif_is_port_alive</c></seealso></item>
+	    <item><seealso
+	    marker="erl_nif#enif_term_to_binary"><c>enif_term_to_binary</c></seealso></item>
+	    <item><seealso
+	    marker="erl_nif#enif_binary_to_term"><c>enif_binary_to_term</c></seealso></item>
+	    <item><seealso
+	    marker="erl_nif#enif_port_command"><c>enif_port_command</c></seealso></item>
+	    </list></p>
+          <p>
+	    for details of what each function does, see the erl_nif
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-13442</p>
+        </item>
+        <item>
+          <p>
+	    Optimize <c>'++'</c> operator and <c>lists:append/2</c>
+	    by using a single pass to build a new list while checking
+	    for properness.</p>
+          <p>
+	    Own Id: OTP-13487</p>
+        </item>
+        <item>
+          <p>
+	    Handle terms (pids,ports and refs) from nodes with a
+	    'creation' value larger than 3. This is a preparation of
+	    the distribution protocol to allow OTP 19 nodes to
+	    correctly communicate with future nodes (20 or higher).
+	    The 'creation' value differentiates different
+	    incarnations of the same node (name).</p>
+          <p>
+	    Own Id: OTP-13488</p>
+        </item>
+        <item>
+          <p>
+	    Don't send unasked for systemd notifications in epmd</p>
+          <p>
+	    Own Id: OTP-13493 Aux Id: PR-999 </p>
+        </item>
+        <item>
+          <p>
+	    The enif_send API has been extended to allow NULL to be
+	    used as the message environment. When used this way, a
+	    message environent is implicitly created and the given
+	    term is copied into that environment before sending. This
+	    can be an optimization if many small messages are being
+	    sent by the nif.</p>
+          <p>
+	    Own Id: OTP-13495</p>
+        </item>
+        <item>
+          <p>
+	    The tracing support has been extended to allow tracing on
+	    ports. Ports can be traced on using the 'ports', 'send'
+	    and 'receive' trace flags.</p>
+          <p>
+	    The first argument of <seealso
+	    marker="erts:erlang#trace/3">erlang:trace/3</seealso> has
+	    been extended so that <c>'all'</c>, <c>'existing'</c> and
+	    <c>'new'</c> now include both processes and ports. New
+	    <c>Tracee</c> variants, <c>'all_processes'</c>,
+	    <c>'all_ports'</c>, <c>'existing_processes'</c> etc have
+	    been added to specify only processes or ports.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13496</p>
+        </item>
+        <item>
+          <p>
+	    When the <c>'procs'</c> trace flag is enabled, a
+	    <c>'spawned'</c> trace event is now also generated by a
+	    newly created process. The previous event <c>'spawn'</c>
+	    remains, but as it is generated by the process that did
+	    the spawn, it is not guaranteed that it is ordered with
+	    other trace events from the newly spawned process. So
+	    when tracking the lifetime of a process this new event
+	    should be used as the creation event.</p>
+          <p>
+	    This new trace event is marked as an incompatabiliy
+	    because tools that expect certain trace events when
+	    enabling 'procs' will have to updated.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13497</p>
+        </item>
+        <item>
+          <p>
+	    Add the <seealso
+	    marker="erts:erlang#match_spec_test/3">erlang:match_spec_test/3</seealso>
+	    function. The functions allows the testing of match
+	    specifications for both tracing and ets tables. It can be
+	    used to test that a match specification does the expected
+	    filtering on specific data. It also returns more verbose
+	    error reasons for incorrectly constructed match
+	    specifications.</p>
+          <p>
+	    Own Id: OTP-13501</p>
+        </item>
+        <item>
+          <p>
+	    The erts internal tracing support has been changed to
+	    have much less overhead and be more scalable.</p>
+          <p>
+	    This rewrite does not break any backwards
+	    incompatabilities, but it does change the ordering of
+	    some trace messages when compared to previous releases.
+	    It should be noted that this only applies to trace
+	    messages sent to processes or ports, it does not apply to
+	    the new tracer module. However in future releases they
+	    may also be effected by this.</p>
+          <p>
+	    Trace messages are only guaranteed to be ordered from one
+	    traced process or port. In previous releases this was not
+	    visible as a <c>'send'</c> trace message would always
+	    arrive before the corresponding <c>'receive'</c> trace
+	    message that is no longer always the case. This also
+	    means that timestamped trace messages may seem to arrive
+	    out of order as the timestamp is taken when the event is
+	    triggered and not when it is put in the queue of the
+	    tracer.</p>
+          <p>
+	    Own Id: OTP-13503</p>
+        </item>
+        <item>
+          <p>
+	    Add possibility to filter <c>send</c> and <c>receive</c>
+	    trace with match specifications.</p>
+          <p>
+	    Own Id: OTP-13507</p>
+        </item>
+        <item>
+          <p>
+	    Add <c>maps:update_with/3,4</c> and <c>maps:take/2</c></p>
+          <p>
+	    Own Id: OTP-13522 Aux Id: PR-1025 </p>
+        </item>
+        <item>
+          <p>
+	    Introduce LTTng tracing via Erlang tracing.</p>
+          <p>
+	    For LTTng to be enabled OTP needs to be built with
+	    configure option <c>--with-dynamic-trace=lttng</c>.</p>
+	    <p>The dynamic trace module <c>dyntrace</c> is now
+	    capable to be used as a LTTng sink for Erlang tracing.
+	    For a list of all tracepoints, see <seealso
+	    marker="runtime_tools:LTTng">Runtime Tools User's
+	    Guide</seealso> .</p>
+	    <p>This feature also introduces an incompatible change in
+	    trace tags. The trace tags <c>gc_start</c> and
+	    <c>gc_end</c> has been split into <c>gc_minor_start</c>,
+	    <c>gc_minor_end</c> and <c>gc_major_start</c>,
+	    <c>gc_major_end</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13532</p>
+        </item>
+        <item>
+          <p>
+	    Print heap pointers for garbing processes during
+	    crashdump</p>
+          <p>
+	    Own Id: OTP-13541 Aux Id: PR-1026 </p>
+        </item>
+        <item>
+          <p>
+	    Changed and improved low level memory statistics returned
+	    by <c>erlang:system_info/1</c>. The info for
+	    <c>erts_mmap</c> has been moved from <c>mseg_alloc</c> to
+	    its own section returned by <c>{allocator,
+	    erts_mmap}</c>.</p>
+          <p>
+	    Own Id: OTP-13560</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

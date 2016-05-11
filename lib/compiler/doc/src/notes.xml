@@ -32,6 +32,86 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>compile:forms/1,2</c> would crash when used in a
+	    working directory thad had been deleted by another
+	    process. (Thanks to Adam Lindberg for reporting this
+	    bug.)</p>
+          <p>
+	    Own Id: OTP-13430 Aux Id: ERL-113 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimization of tuple matching has been slightly
+	    improved.</p>
+          <p>
+	    Own Id: OTP-12951</p>
+        </item>
+        <item>
+	    <p>Five deprecated and undocumented functions in the
+	    module <c>core_lib</c> have been removed. The functions
+	    are: <c>get_anno/{1,2}</c>, <c>is_literal/1</c>,
+	    <c>is_literal_list/1</c>, and <c>literal_value</c>. Use
+	    the appropriate functions in the <c>cerl</c> module
+	    instead.</p>
+          <p>
+	    Own Id: OTP-12979</p>
+        </item>
+        <item>
+	    <p>The pre-processor can now expand the ?FUNCTION_NAME
+	    and ?FUNCTION_ARITY macros.</p>
+          <p>
+	    Own Id: OTP-13059</p>
+        </item>
+        <item>
+	    <p>The function mapfold/4 has been added to the
+	    <c>cerl_trees</c> module.</p>
+          <p>
+	    Own Id: OTP-13280</p>
+        </item>
+        <item>
+	    <p>Bitstring comprehensions have been generalized to
+	    allow arbitrary expressions in the construction part.</p>
+          <p>
+	    Own Id: OTP-13289</p>
+        </item>
+        <item>
+	    <p>The compiler will now produce warnings for binary
+	    patterns that will never match (example:
+	    <c>&lt;&lt;-1/unsigned&gt;&gt; = Bin</c>). </p>
+          <p>
+	    Own Id: OTP-13374 Aux Id: ERL-44 </p>
+        </item>
+        <item>
+	    <p>The compiler will no longer put the compilation date
+	    and time into BEAM files. That means that two BEAM files
+	    compiled on the same computer from the same source code
+	    and compilation options will be identical.</p>
+	    <p>Note: If you want to find out whether a BEAM file on
+	    disk is different from the loaded code, compared the MD5
+	    value obtained from <c>Mod:module_info(md5)</c> with the
+	    MD5 value obtained from
+	    <c>beam_lib:md5(BeamFileForMod)</c></p>.
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13504</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 6.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

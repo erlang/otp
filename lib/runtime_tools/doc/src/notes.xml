@@ -32,6 +32,78 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add microstate accounting</p>
+          <p>
+	    Microstate accounting is a way to track which state the
+	    different threads within ERTS are in. The main usage area
+	    is to pin point performance bottlenecks by checking which
+	    states the threads are in and then from there figuring
+	    out why and where to optimize.</p>
+          <p>
+	    Since checking whether microstate accounting is on or off
+	    is relatively expensive only a few of the states are
+	    enabled by default and more states can be enabled through
+	    configure.</p>
+          <p>
+	    There is a convinence module called msacc that has been
+	    added to runtime_tools that can assist in gathering and
+	    interpreting the data from Microstate accounting.</p>
+          <p>
+	    For more information see <seealso
+	    marker="erts:erlang#statistics_microstate_accounting">erlang:statistics(microstate_accounting,
+	    _)</seealso> and the <seealso
+	    marker="runtime_tools:msacc">msacc</seealso> module in
+	    runtime_tools.</p>
+          <p>
+	    Own Id: OTP-12345</p>
+        </item>
+        <item>
+          <p>
+	    Update dbg and ttb to work with a tracer module as tracer
+	    and tracing on ports.</p>
+          <p>
+	    Own Id: OTP-13500</p>
+        </item>
+        <item>
+          <p>
+	    Updated dbg to accept the new trace options
+	    <c>monotonic_timestamp</c> and
+	    <c>strict_monotonic_timestamp</c>.</p>
+          <p>
+	    Own Id: OTP-13502</p>
+        </item>
+        <item>
+          <p>
+	    Introduce LTTng tracing via Erlang tracing.</p>
+          <p>
+	    For LTTng to be enabled OTP needs to be built with
+	    configure option <c>--with-dynamic-trace=lttng</c>.</p>
+	    <p>The dynamic trace module <c>dyntrace</c> is now
+	    capable to be used as a LTTng sink for Erlang tracing.
+	    For a list of all tracepoints, see <seealso
+	    marker="runtime_tools:LTTng">Runtime Tools User's
+	    Guide</seealso> .</p>
+	    <p>This feature also introduces an incompatible change in
+	    trace tags. The trace tags <c>gc_start</c> and
+	    <c>gc_end</c> has been split into <c>gc_minor_start</c>,
+	    <c>gc_minor_end</c> and <c>gc_major_start</c>,
+	    <c>gc_major_end</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13532</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.9.3</title>
 
     <section><title>Improvements and New Features</title>

@@ -31,6 +31,159 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The handling of <c>on_load</c> functions has been
+	    improved. The major improvement is that if a code upgrade
+	    fails because the <c>on_load</c> function fails, the
+	    previous version of the module will now be retained.</p>
+          <p>
+	    Own Id: OTP-12593</p>
+        </item>
+        <item>
+	    <p><c>rpc:call()</c> and <c>rpc:block_call()</c> would
+	    sometimes cause an exception (which was not mentioned in
+	    the documentation). This has been corrected so that
+	    <c>{badrpc,Reason}</c> will be returned instead.</p>
+          <p>
+	    Own Id: OTP-13409</p>
+        </item>
+        <item>
+	    <p>On Windows, for modules that were loaded early (such
+	    as the <c>lists</c> module), <c>code:which/1</c> would
+	    return the path with mixed slashes and backslashes, for
+	    example: <c>"C:\\Program
+	    Files\\erl8.0/lib/stdlib-2.7/ebin/lists.beam"</c>. This
+	    has been corrected.</p>
+          <p>
+	    Own Id: OTP-13410</p>
+        </item>
+        <item>
+          <p>
+	    Use fsync instead of fdatasync on Mac OSX.</p>
+          <p>
+	    Own Id: OTP-13411</p>
+        </item>
+        <item>
+          <p>
+	    The default chunk size for the fallback sendfile
+	    implementation, used on platforms that do not have a
+	    native sendfile, has been decreased in order to reduce
+	    connectivity issues.</p>
+          <p>
+	    Own Id: OTP-13444</p>
+        </item>
+        <item>
+          <p>
+	    Huges writes (2Gb or more) could fail on some Unix
+	    platforms (for example, OS X and FreeBSD).</p>
+          <p>
+	    Own Id: OTP-13461</p>
+        </item>
+        <item>
+          <p>
+	    A bug has been fixed where the DNS resolver inet_res did
+	    not refresh its view of the contents of for example
+	    resolv.conf immediately after start and hence then failed
+	    name resolution. Reported and fix suggested by Michal
+	    Ptaszek in GitHUB pull req #949.</p>
+          <p>
+	    Own Id: OTP-13470 Aux Id: Pull #969 </p>
+        </item>
+        <item>
+          <p>
+	    Fix process leak from global_group. Thanks to Xuming who
+	    reported and fixed this!</p>
+          <p>
+	    Own Id: OTP-13516 Aux Id: PR-1008 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added <seealso
+	    marker="kernel:os#perf_counter/1">os:perf_counter/1</seealso>.</p>
+          <p>
+	    The perf_counter is a very very cheap and high resolution
+	    timer that can be used to timestamp system events. It
+	    does not have monoticity guarantees, but should on most
+	    OS's expose a monotonous time.</p>
+          <p>
+	    Own Id: OTP-12908</p>
+        </item>
+        <item>
+          <p>
+	    The os:cmd call has been optimized on unix platforms to
+	    be more performant as the number of schedulers increase.</p>
+          <p>
+	    Own Id: OTP-13089</p>
+        </item>
+        <item>
+	    <p>New functions that can load multiple functions at once
+	    have been added to the '<c>code</c>' module. The
+	    functions are <c>code:atomic_load/1</c>,
+	    <c>code:prepare_loading/1</c>,
+	    <c>code:finish_loading/1</c>, and
+	    <c>code:ensure_modules_loaded/1</c>.</p>
+          <p>
+	    Own Id: OTP-13111</p>
+        </item>
+        <item>
+          <p>
+	    The code path cache feature turned out not to be very
+	    useful in practice and has been removed. If an attempt is
+	    made to enable the code path cache, there will be a
+	    warning report informing the user that the feature has
+	    been removed.</p>
+          <p>
+	    Own Id: OTP-13191</p>
+        </item>
+        <item>
+	    <p>When an attempt is made to start a distributed Erlang
+	    node with the same name as an existing node, the error
+	    message will be much shorter and easier to read than
+	    before. Example:</p>
+	    <p><c>Protocol 'inet_tcp': the name somename@somehost
+	    seems to be in use by another Erlang node</c></p>
+          <p>
+	    Own Id: OTP-13294</p>
+        </item>
+        <item>
+          <p>
+	    The output of the default error logger is somewhat
+	    prettier and easier to read. The default error logger is
+	    used during startup of the OTP system. If the start-up
+	    fails, the output will be easier to read.</p>
+          <p>
+	    Own Id: OTP-13325</p>
+        </item>
+        <item>
+	    <p>The functions <c>rpc:safe_multi_server_call/2,3</c>
+	    that were deprecated in R12B have been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13449</p>
+        </item>
+        <item>
+          <p>
+	    Update the error reasons in dist_util, and show them in
+	    the logs if net_kernel:verbose(1) has been called.</p>
+          <p>
+	    Own Id: OTP-13458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

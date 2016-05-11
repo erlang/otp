@@ -32,6 +32,32 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The abstract data type in <c>erl_syntax</c> is
+	    augmented with types and function specifications.</p>
+	    <p>The module <c>erl_prettypr</c> pretty prints types and
+	    function specification, and the output can be parsed.</p>
+	    <p>The types of record fields are no longer ignored. As a
+	    consequence <c>erl_syntax_lib:analyze_record_field/1</c>
+	    returns <c>{Default, Type}</c> instead of <c>Default</c>.
+	    The functions <c>analyze_record_attribute</c>,
+	    <c>analyze_attribute</c>, <c>analyze_form</c>, and
+	    <c>analyze_forms</c> in the <c>erl_syntax_lib</c> module
+	    are also affected by this incompatible change.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12863</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.7</title>
 
     <section><title>Improvements and New Features</title>

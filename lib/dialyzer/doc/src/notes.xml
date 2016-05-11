@@ -32,6 +32,63 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug in the translation of forms to types. </p>
+          <p>
+	    Own Id: OTP-13520</p>
+        </item>
+        <item>
+	    <p>Correct mispelling in Dialyzer's acronym definition.
+	    </p>
+          <p>
+	    Own Id: OTP-13544 Aux Id: PR-1007 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The evaluation of SCCs in <c>dialyzer_typesig</c> is
+	    optimized. </p> <p> Maps are used instead of Dicts to
+	    further optimize the evalutation. </p>
+          <p>
+	    Own Id: OTP-10349</p>
+        </item>
+        <item>
+	    <p> Since Erlang/OTP R14A, when support for parameterized
+	    modules was added, <c>module()</c> has included
+	    <c>tuple()</c>, but that part is removed; the type
+	    <c>module()</c> is now the same as <c>atom()</c>, as
+	    documented in the Reference Manual. </p>
+          <p>
+	    Own Id: OTP-13244</p>
+        </item>
+        <item>
+	    <p> The type specification syntax for Maps is improved:
+	    </p> <list> <item> <p> The association type <c>KeyType :=
+	    ValueType</c> denotes an association that must be
+	    present. </p> </item> <item> <p> The shorthand <c>...</c>
+	    stands for the association type <c>any() => any()</c>.
+	    </p> </item> </list> <p> An incompatible change is that
+	    <c>#{}</c> stands for the empty map. The type
+	    <c>map()</c> (a map of any size) can be written as
+	    <c>#{...}</c>. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13542 Aux Id: PR-1014 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

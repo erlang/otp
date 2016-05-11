@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle terms (pids,ports and refs) from nodes with a
+	    'creation' value larger than 3. This is a preparation of
+	    the distribution protocol to allow OTP 19 nodes to
+	    correctly communicate with future nodes (20 or higher).
+	    The 'creation' value differentiates different
+	    incarnations of the same node (name).</p>
+          <p>
+	    Own Id: OTP-13488</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
