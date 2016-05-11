@@ -411,14 +411,16 @@ point_side(_) -> on_line.
 
 %% AUX
 
-span(Points) ->
-    Xs = [TX||{TX, _} <- Points],
-    Ys = [TY||{_, TY} <- Points],
-    Xmin = lists:min(Xs),
-    Xmax = lists:max(Xs),
-    Ymin = lists:min(Ys),
-    Ymax = lists:max(Ys),
+span([{X0,Y0}|Points]) ->
+    span(Points,X0,Y0,X0,Y0).
+span([{X0,Y0}|Points],Xmin,Ymin,Xmax,Ymax) ->
+    span(Points,erlang:min(Xmin,X0),
+                erlang:min(Ymin,Y0),
+                erlang:max(Xmax,X0),
+                erlang:max(Ymax,Y0));
+span([],Xmin,Ymin,Xmax,Ymax) ->
     {Xmin,Ymin,Xmax,Ymax}.
+
 
 rgb_float2byte({R,G,B}) -> rgb_float2byte({R,G,B,1.0});
 rgb_float2byte({R,G,B,A}) -> 
