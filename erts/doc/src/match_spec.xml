@@ -528,7 +528,7 @@
   </section>
 
   <section>
-    <title>ETS Examples</title>
+    <title>Tracing Examples</title>
     <p>Match an argument list of three where the first and third arguments 
       are equal:</p>
     <code type="none"><![CDATA[
@@ -585,42 +585,6 @@
       parameter list with a single variable is a special case. In all 
       other cases the <c><![CDATA[MatchHead]]></c> has to be a <em>proper</em> list.
       </p>
-    <p>Match all objects in an ets table where the first element is 
-      the atom 'strider' and the tuple arity is 3 and return the whole
-      object.</p>
-    <code type="none"><![CDATA[
-[{{strider,'_','_'},
-  [],
-  ['$_']}]
-    ]]></code>
-    <p>Match all objects in an ets table with arity &gt; 1 and the first 
-      element is 'gandalf', return element 2.</p>
-    <code type="none"><![CDATA[
-[{'$1',
-  [{'==', gandalf, {element, 1, '$1'}},{'>=',{size, '$1'},2}],
-  [{element,2,'$1'}]}]
-    ]]></code>
-    <p>In the above example, if the first element had been the key,
-      it's much more efficient to match that key in the <c><![CDATA[MatchHead]]></c>
-      part than in the <c><![CDATA[MatchConditions]]></c> part. The search space of
-      the tables is restricted with regards to the <c><![CDATA[MatchHead]]></c> so
-      that only objects with the matching key are searched. 
-      </p>
-    <p>Match tuples of 3 elements where the second element is either
-      'merry' or 'pippin', return the whole objects.</p>
-    <code type="none"><![CDATA[
-[{{'_',merry,'_'},
-  [],
-  ['$_']},
- {{'_',pippin,'_'},
-  [],
-  ['$_']}]
-    ]]></code>
-    <p>The function <c><![CDATA[ets:test_ms/2]]></c> can be useful for testing
-      complicated ets matches.</p>
-  </section>
-  <section>
-    <title>Tracing Examples</title>
     <p>Only generate trace message if trace control word is set to 1:</p>
     <code type="none"><![CDATA[
 [{'_',
@@ -657,6 +621,43 @@
   []},
  {'_',[],[]}]
     ]]></code>
+  </section>
+
+  <section>
+    <title>ETS Examples</title>
+    <p>Match all objects in an ets table where the first element is
+      the atom 'strider' and the tuple arity is 3 and return the whole
+      object.</p>
+    <code type="none"><![CDATA[
+[{{strider,'_','_'},
+  [],
+  ['$_']}]
+    ]]></code>
+    <p>Match all objects in an ets table with arity &gt; 1 and the first
+      element is 'gandalf', return element 2.</p>
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==', gandalf, {element, 1, '$1'}},{'>=',{size, '$1'},2}],
+  [{element,2,'$1'}]}]
+    ]]></code>
+    <p>In the above example, if the first element had been the key,
+      it's much more efficient to match that key in the <c><![CDATA[MatchHead]]></c>
+      part than in the <c><![CDATA[MatchConditions]]></c> part. The search space of
+      the tables is restricted with regards to the <c><![CDATA[MatchHead]]></c> so
+      that only objects with the matching key are searched.
+      </p>
+    <p>Match tuples of 3 elements where the second element is either
+      'merry' or 'pippin', return the whole objects.</p>
+    <code type="none"><![CDATA[
+[{{'_',merry,'_'},
+  [],
+  ['$_']},
+ {{'_',pippin,'_'},
+  [],
+  ['$_']}]
+    ]]></code>
+    <p>The function <c><![CDATA[ets:test_ms/2]]></c> can be useful for testing
+      complicated ets matches.</p>
   </section>
 </chapter>
 
