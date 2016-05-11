@@ -591,8 +591,10 @@ check_killed_block(_, []) -> transparent.
 %%    killed - Reg is assigned a new value or killed by an allocation instruction
 %%    transparent - Reg is neither used nor killed
 %%    used - Reg is explicitly used by an instruction
-%%  
-%%    (Unknown instructions will cause an exception.)
+%%
+%%  '%live' annotations are not allowed.
+%%
+%%  (Unknown instructions will cause an exception.)
 
 check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St) ->
     if 
@@ -601,11 +603,6 @@ check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St) ->
     end;
 check_used_block(R, [{set,Ds,Ss,Op}|Is], St) ->
     check_used_block_1(R, Ss, Ds, Op, Is, St);
-check_used_block(R, [{'%live',Live,_}|Is], St) ->
-    case R of
-	{x,X} when X >= Live -> {killed,St};
-	_ -> check_used_block(R, Is, St)
-    end;
 check_used_block(_, [], St) -> {transparent,St}.
 
 check_used_block_1(R, Ss, Ds, Op, Is, St0) ->
