@@ -136,9 +136,9 @@ erlang:'!'            -----> Module:StateName/3
       is used as the state function name; see
       <seealso marker="#Module:StateName/3"><c>Module:StateName/3</c></seealso>.
       This gathers all code for a specific state
-      in one function and hence dispatches on state first.
-      Notice that in this mode
-      the mandatory callback function
+      in one function as the <c>gen_statem</c> engine
+      branches depending on state name.
+      Notice that in this mode the mandatory callback function
       <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
       makes the state name <c>terminate</c> unusable.
     </p>
@@ -148,7 +148,7 @@ erlang:'!'            -----> Module:StateName/3
       is <c>handle_event_function</c>, the state can be any term
       and the state function name is
       <seealso marker="#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>.
-      This makes it easy to dispatch on state or on event as you desire.
+      This makes it easy to branch depending on state or event as you desire.
       Be careful about which events you handle in which
       states so that you do not accidentally postpone an event
       forever creating an infinite busy loop.
