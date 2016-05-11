@@ -48,7 +48,7 @@ void wxeCommand::Delete()
       driver_free(buffer);
     buffer = NULL;
   }
-  op = -1;
+  op = -2;
 }
 
 /* ****************************************************************************
@@ -84,7 +84,7 @@ wxeCommand * wxeFifo::Get()
     pos = m_first++;
     m_n--;
     m_first %= m_max;
-  } while(m_q[pos].op == -1);
+  } while(m_q[pos].op < 0);
   return &m_q[pos];
 }
 
@@ -96,7 +96,7 @@ wxeCommand * wxeFifo::Peek(unsigned int *i)
       return NULL;
     pos = (m_first+*i) % m_max;
     (*i)++;
-  } while(m_q[pos].op == -1);
+  } while(m_q[pos].op < 0);
   return &m_q[pos];
 }
 
@@ -213,7 +213,7 @@ void wxeFifo::Realloc()
 // Strip end of queue if ops are already taken care of, avoids reallocs
 void wxeFifo::Strip()
 {
-  while((m_n > 0) && (m_q[(m_first + m_n - 1)%m_max].op == -1)) {
+  while((m_n > 0) && (m_q[(m_first + m_n - 1)%m_max].op < -1)) {
     m_n--;
   }
 }
