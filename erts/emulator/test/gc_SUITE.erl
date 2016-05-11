@@ -25,13 +25,13 @@
 -include_lib("common_test/include/ct.hrl").
 -export([all/0, suite/0]).
 
--export([grow_heap/1, grow_stack/1, grow_stack_heap/1]).
+-export([grow_heap/1, grow_stack/1, grow_stack_heap/1, max_heap_size/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [grow_heap, grow_stack, grow_stack_heap].
+    [grow_heap, grow_stack, grow_stack_heap, max_heap_size].
 
 
 %% Produce a growing list of elements,
@@ -163,3 +163,30 @@ show_heap(String) ->
     {stack_size, SSize}=process_info(self(), stack_size),
     io:format("Heap/Stack "++String++"~p/~p", [HSize, SSize]).
     
+%% Test that doing a remote GC that triggers the max heap size
+%% kills the process.
+max_heap_size(_Config) ->
+
+    Pid = spawn_opt(fun long_receive/0,[{max_heap_size, 1024},
+                                        {message_queue_data, on_heap}]),
+    [Pid ! lists:duplicate(I,I) || I <- lists:seq(1,100)],
+    Ref = erlang:monitor(process, Pid),
+
+    %% Force messages to be viewed as part of heap
+    erlang:process_info(Pid, messages),
+
+    %% Do the GC that triggers max heap
+    erlang:garbage_collect(Pid),
+
+    %% Verify that max heap was triggered
+    receive
+        {'DOWN', Ref, process, Pid, killed} -> ok
+    after 5000 ->
+            ct:fail({process_did_not_die, Pid, erlang:process_info(Pid)})
+    end.
+
+long_receive() ->
+    receive
+    after 10000 ->
+            ok
+    end.
