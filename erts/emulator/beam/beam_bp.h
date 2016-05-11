@@ -80,7 +80,7 @@ typedef struct generic_bp {
 #define ERTS_BP_CALL_TIME_SCHEDULE_EXITING (2)
 
 #ifdef ERTS_SMP
-#define bp_sched2ix_proc(p) ((p)->scheduler_data->no - 1)
+#define bp_sched2ix_proc(p) (erts_proc_sched_data(p)->no - 1)
 #else
 #define bp_sched2ix_proc(p) (0)
 #endif

@@ -34,6 +34,10 @@
   (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
 #endif
 
+#if defined(ERTS_DIRTY_SCHEDULERS) && !defined(ERTS_SMP)
+# error "Dirty schedulers not supported without smp support"
+#endif
+
 #ifdef ERTS_INLINE
 #  ifndef ERTS_CAN_INLINE
 #    define ERTS_CAN_INLINE 1

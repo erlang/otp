@@ -83,8 +83,8 @@ typedef struct erl_bin_match_struct{
 #ifdef ERTS_SMP
 /* the state resides in the current process' scheduler data */
 #define ERL_BITS_DECLARE_STATEP			struct erl_bits_state *EBS
-#define ERL_BITS_RELOAD_STATEP(P)		do{EBS = &(P)->scheduler_data->erl_bits_state;}while(0)
-#define ERL_BITS_DEFINE_STATEP(P)		struct erl_bits_state *EBS = &(P)->scheduler_data->erl_bits_state
+#define ERL_BITS_RELOAD_STATEP(P)		do{EBS = &erts_proc_sched_data((P))->erl_bits_state;}while(0)
+#define ERL_BITS_DEFINE_STATEP(P)		struct erl_bits_state *EBS = &erts_proc_sched_data((P))->erl_bits_state
 #else
 /* reentrant API but with a hidden single global state, for testing only */
 extern struct erl_bits_state ErlBitsState_;

@@ -57,6 +57,7 @@ struct enif_environment_t /* ErlNifEnv */
     struct enif_tmp_obj_t* tmp_obj_list;
     int exception_thrown; /* boolean */
     Process *tracee;
+    int exiting; /* boolean (dirty nifs might return in exiting state) */
 };
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);

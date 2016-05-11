@@ -257,7 +257,7 @@ static ERTS_INLINE Eterm unique_integer_bif(Process *c_p, int positive)
     Uint hsz;
     Eterm *hp;
 
-    esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    esdp = erts_proc_sched_data(c_p);
     thr_id = (Uint64) esdp->thr_id;
     unique = esdp->unique++;
     bld_unique_integer_term(NULL, &hsz, thr_id, unique, positive);
@@ -515,7 +515,7 @@ BIF_RETTYPE make_ref_0(BIF_ALIST_0)
 
     hp = HAlloc(BIF_P, REF_THING_SIZE);
 
-    res = erts_sched_make_ref_in_buffer(ERTS_PROC_GET_SCHDATA(BIF_P), hp);
+    res = erts_sched_make_ref_in_buffer(erts_proc_sched_data(BIF_P), hp);
 
     BIF_RET(res);
 }

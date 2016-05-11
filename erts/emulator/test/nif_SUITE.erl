@@ -38,8 +38,7 @@
 	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1,
 	 otp_9828/1,
-	 otp_9668/1, consume_timeslice/1, dirty_nif/1, dirty_nif_send/1,
-	 dirty_nif_exception/1, call_dirty_nif_exception/1, nif_schedule/1,
+	 otp_9668/1, consume_timeslice/1, nif_schedule/1,
 	 nif_exception/1, call_nif_exception/1,
 	 nif_nan_and_inf/1, nif_atom_too_long/1,
 	 nif_monotonic_time/1, nif_time_offset/1, nif_convert_time_unit/1,
@@ -75,8 +74,7 @@ all() ->
      make_string,reverse_list_test,
      otp_9828,
      otp_9668, consume_timeslice,
-     nif_schedule, dirty_nif, dirty_nif_send, dirty_nif_exception,
-     nif_exception, nif_nan_and_inf, nif_atom_too_long,
+     nif_schedule, nif_exception, nif_nan_and_inf, nif_atom_too_long,
      nif_monotonic_time, nif_time_offset, nif_convert_time_unit,
      nif_now_time, nif_cpu_time, nif_unique_integer,
      nif_is_process_alive, nif_is_port_alive,
@@ -1541,76 +1539,6 @@ nif_schedule(Config) when is_list(Config) ->
 	 end,
     ok.
 
-dirty_nif(Config) when is_list(Config) ->
-    try erlang:system_info(dirty_cpu_schedulers) of
-	N when is_integer(N) ->
-	    ensure_lib_loaded(Config),
-	    Val1 = 42,
-	    Val2 = "Erlang",
-	    Val3 = list_to_binary([Val2, 0]),
-	    {Val1, Val2, Val3} = call_dirty_nif(Val1, Val2, Val3),
-	    LargeArray = lists:duplicate(1000, ok),
-	    LargeArray = call_dirty_nif_zero_args(),
-	    ok
-    catch
-	error:badarg ->
-	    {skipped,"No dirty scheduler support"}
-    end.
-
-dirty_nif_send(Config) when is_list(Config) ->
-    try erlang:system_info(dirty_cpu_schedulers) of
-	N when is_integer(N) ->
-	    ensure_lib_loaded(Config),
-	    Parent = self(),
-	    Pid = spawn_link(fun() ->
-				     Self = self(),
-				     {ok, Self} = receive_any(),
-				     Parent ! {ok, Self}
-			     end),
-	    {ok, Pid} = send_from_dirty_nif(Pid),
-	    {ok, Pid} = receive_any(),
-	    ok
-    catch
-	error:badarg ->
-	    {skipped,"No dirty scheduler support"}
-    end.
-
-dirty_nif_exception(Config) when is_list(Config) ->
-    try erlang:system_info(dirty_cpu_schedulers) of
-        N when is_integer(N) ->
-            ensure_lib_loaded(Config),
-            try
-                %% this checks that the expected exception occurs when the
-                %% dirty NIF returns the result of enif_make_badarg
-                %% directly
-                call_dirty_nif_exception(1),
-                ct:fail(expected_badarg)
-            catch
-                error:badarg ->
-                    [{?MODULE,call_dirty_nif_exception,[1],_}|_] =
-                    erlang:get_stacktrace(),
-                    ok
-            end,
-            try
-                %% this checks that the expected exception occurs when the
-                %% dirty NIF calls enif_make_badarg at some point but then
-                %% returns a value that isn't an exception
-                call_dirty_nif_exception(0),
-                ct:fail(expected_badarg)
-            catch
-                error:badarg ->
-                    [{?MODULE,call_dirty_nif_exception,[0],_}|_] =
-                    erlang:get_stacktrace(),
-                    ok
-            end,
-            %% this checks that a dirty NIF can raise various terms as
-            %% exceptions
-            ok = nif_raise_exceptions(call_dirty_nif_exception)
-    catch
-        error:badarg ->
-            {skipped,"No dirty scheduler support"}
-    end.
-
 nif_exception(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
     try
@@ -2078,10 +2006,6 @@ otp_9668_nif(_) -> ?nif_stub.
 otp_9828_nif(_) -> ?nif_stub.
 consume_timeslice_nif(_,_) -> ?nif_stub.
 call_nif_schedule(_,_) -> ?nif_stub.
-call_dirty_nif(_,_,_) -> ?nif_stub.
-send_from_dirty_nif(_) -> ?nif_stub.
-call_dirty_nif_exception(_) -> ?nif_stub.
-call_dirty_nif_zero_args() -> ?nif_stub.
 call_nif_exception(_) -> ?nif_stub.
 call_nif_nan_or_inf(_) -> ?nif_stub.
 call_nif_atom_too_long(_) -> ?nif_stub.

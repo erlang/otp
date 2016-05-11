@@ -2348,7 +2348,7 @@ erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to)
 BIF_RETTYPE monotonic_time_0(BIF_ALIST_0)
 {
     ErtsMonotonicTime mtime = time_sup.r.o.get_time();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     mtime += ERTS_MONOTONIC_OFFSET_NATIVE;
     BIF_RET(make_time_val(BIF_P, mtime));
 }
@@ -2356,7 +2356,7 @@ BIF_RETTYPE monotonic_time_0(BIF_ALIST_0)
 BIF_RETTYPE monotonic_time_1(BIF_ALIST_1)
 {
     ErtsMonotonicTime mtime = time_sup.r.o.get_time();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, mtime, 1));
 }
 
@@ -2365,7 +2365,7 @@ BIF_RETTYPE system_time_0(BIF_ALIST_0)
     ErtsMonotonicTime mtime, offset;
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     BIF_RET(make_time_val(BIF_P, mtime + offset));
 }
 
@@ -2374,7 +2374,7 @@ BIF_RETTYPE system_time_1(BIF_ALIST_0)
     ErtsMonotonicTime mtime, offset;
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, mtime + offset, 0));
 }
 
@@ -2404,7 +2404,7 @@ BIF_RETTYPE timestamp_0(BIF_ALIST_0)
 
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
 
     make_timestamp_value(&mega_sec, &sec, &micro_sec, mtime, offset);
 

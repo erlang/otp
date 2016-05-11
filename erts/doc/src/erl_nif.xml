@@ -138,29 +138,6 @@ ok
      automatically unloaded when the module code that it belongs to is purged
      by the code server.</p>
 
-     <p><marker id="lengthy_work"/>
-     As mentioned in the <seealso marker="#WARNING">warning</seealso> text at
-     the beginning of this document it is of vital importance that a native function
-     return relatively quickly. It is hard to give an exact maximum amount
-     of time that a native function is allowed to work, but as a rule of thumb
-     a well-behaving native function should return to its caller before a
-     millisecond has passed. This can be achieved using different approaches.
-     If you have full control over the code to execute in the native
-     function, the best approach is to divide the work into multiple chunks of
-     work and call the native function multiple times, either directly from Erlang code
-     or by having a native function schedule a future NIF call via the
-     <seealso marker="#enif_schedule_nif"> enif_schedule_nif</seealso> function. Function
-     <seealso marker="#enif_consume_timeslice">enif_consume_timeslice</seealso> can be
-     used to help with such work division. In some cases, however, this might not
-     be possible, e.g. when calling third-party libraries. Then you typically want
-     to dispatch the work to another thread, return
-     from the native function, and wait for the result. The thread can send
-     the result back to the calling thread using message passing. Information
-     about thread primitives can be found below. If you have built your system
-     with <em>the currently experimental</em> support for dirty schedulers,
-     you may want to try out this functionality by dispatching the work to a
-     <seealso marker="#dirty_nifs">dirty NIF</seealso>,
-     which does not have the same duration restriction as a normal NIF.</p>
   </description>
   <section>
   <title>FUNCTIONALITY</title>
@@ -328,38 +305,161 @@ ok
       </list></p>
       </item>
 
-      <tag>Long-running NIFs</tag>
-      <item><p><marker id="dirty_nifs"/>Native functions
-      <seealso marker="#lengthy_work">
-      must normally run quickly</seealso>, as explained earlier in this document. They
-      generally should execute for no more than a millisecond. But not all native functions
-      can execute so quickly; for example, functions that encrypt large blocks of data or
-      perform lengthy file system operations can often run for tens of seconds or more.</p>
-      <p>If the functionality of a long-running NIF can be split so that its work can be
-      achieved through a series of shorter NIF calls, the application can either make that series
-      of NIF calls from the Erlang level, or it can call a NIF that first performs a chunk of the
-      work, then invokes the <seealso marker="#enif_schedule_nif">enif_schedule_nif</seealso>
-      function to schedule another NIF call to perform the next chunk. The final call scheduled
-      in this manner can then return the overall result. Breaking up a long-running function in
-      this manner enables the VM to regain control between calls to the NIFs, thereby avoiding
-      degraded responsiveness, scheduler load balancing problems, and other strange behaviours.</p>
-      <p>A NIF that cannot be split and cannot execute in a millisecond or less is called a "dirty NIF"
-      because it performs work that the Erlang runtime cannot handle cleanly.
-      <em>Note that the dirty NIF functionality described here is experimental</em> and that you have to
-      enable support for dirty schedulers when building OTP in order to try the functionality out.
-      Applications that make use of such functions must indicate to the runtime that the functions are
-      dirty so they can be handled specially. To schedule a dirty NIF for execution, the
-      appropriate flags value can be set for the NIF in its <seealso marker="#ErlNifFunc">ErlNifFunc</seealso>
-      entry, or the application can call <seealso marker="#enif_schedule_nif">enif_schedule_nif</seealso>,
-      passing to it a pointer to the dirty NIF to be executed and indicating with the <c>flags</c>
-      argument whether it expects the operation to be CPU-bound or I/O-bound.</p>
-      <note><p>Dirty NIF support is available only when the emulator is configured with dirty
-      schedulers enabled. This feature is currently disabled by default. To determine whether
-      the dirty NIF API is available, native code can check to see if the C preprocessor macro
-      <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined. Also, if the Erlang runtime was built
-      without threading support, dirty schedulers are disabled. To check at runtime for the presence
-      of dirty scheduler threads, code can use the <seealso marker="#enif_system_info"><c>
-      enif_system_info()</c></seealso> API function.</p></note>
+      <tag><marker id="lengthy_work"/>Long-running NIFs</tag>
+
+      <item><p>
+	As mentioned in the <seealso marker="#WARNING">warning</seealso> text at
+	the beginning of this document it is of <em>vital importance</em> that a 
+	native function return relatively quickly. It is hard to give an exact
+	maximum amount of time that a native function is allowed to work, but as a
+	rule of thumb a well-behaving native function should return to its caller
+	before a millisecond has passed. This can be achieved using different
+	approaches. If you have full control over the code to execute in the
+	native function, the best approach is to divide the work into multiple
+	chunks of work and call the native function multiple times. In some
+	cases this might however not always be possible, e.g. when calling
+	third-party libraries.</p>
+	
+	<p>The
+	<seealso marker="#enif_consume_timeslice">enif_consume_timeslice()</seealso>
+	function can be used to inform the runtime system about the lenght of the
+	NIF call. It should typically always be used unless the NIF executes very
+	quickly.</p>
+
+	<p>If the NIF call is too lenghty one needs to handle this in one of the
+	following ways in order to avoid degraded responsiveness, scheduler load
+	balancing problems, and other strange behaviours:</p>
+
+	<taglist>
+	  <tag>Yielding NIF</tag>
+	  <item>
+	    <p>
+	      If the functionality of a long-running NIF can be split so that
+	      its work can be achieved through a series of shorter NIF calls,
+	      the application can either make that series of NIF calls from the
+	      Erlang level, or it can call a NIF that first performs a chunk of
+	      the work, then invokes the
+	      <seealso marker="#enif_schedule_nif">enif_schedule_nif</seealso>
+	      function to schedule another NIF call to perform the next chunk.
+	      The final call scheduled in this manner can then return the
+	      overall result. Breaking up a long-running function in
+	      this manner enables the VM to regain control between calls to the
+	      NIFs.
+	    </p>
+	    <p>
+	      This approach is always preferred over the other alternatives
+	      described below. This both from a performance perspective and
+	      a system characteristics perspective.
+	    </p>
+	  </item>
+
+	  <tag>Threaded NIF</tag>
+	  <item>
+	    <p>
+	      This is accomplished by dispatching the work to another thread
+	      managed by the NIF library, return from the NIF, and wait for the
+	      result. The thread can send the result back to the Erlang
+	      process using <seealso marker="#enif_send">enif_send</seealso>.
+	      Information about thread primitives can be found below.
+	    </p>
+	  </item>
+
+	  <tag><marker id="dirty_nifs"/>Dirty NIF</tag>
+	  <item>
+
+	    <note>
+	      <p>
+		<em>The dirty NIF functionality described here
+		is experimental</em>. Dirty NIF support is available only when
+		the emulator is configured with dirty schedulers enabled. This
+		feature is currently disabled by default. The Erlang runtime
+		without SMP support do not support dirty schedulers even when
+		the dirty scheduler support has been enabled. To check at
+		runtime for the presence of dirty scheduler threads, code can
+		use the
+		<seealso marker="#enif_system_info"><c>enif_system_info()</c></seealso>
+		API function.
+	      </p>
+	    </note>
+
+	    <p>
+	      A NIF that cannot be split and cannot execute in a millisecond or
+	      less is called a "dirty NIF" because it performs work that the
+	      Erlang runtime cannot handle cleanly. Applications that make use
+	      of such functions must indicate to the runtime that the functions
+	      are dirty so they can be handled specially. To schedule a dirty
+	      NIF for execution, the appropriate flags value can be set for the
+	      NIF in its <seealso marker="#ErlNifFunc"><c>ErlNifFunc</c></seealso>
+	      entry, or the application can call
+	      <seealso marker="#enif_schedule_nif"><c>enif_schedule_nif</c></seealso>,
+	      passing to it a pointer to the dirty NIF to be executed and
+	      indicating with the <c>flags</c> argument whether it expects the
+	      operation to be CPU-bound or I/O-bound. A dirty NIF executing
+	      on a dirty scheduler does not have the same duration restriction
+	      as a normal NIF.
+	    </p>
+
+	    <p>
+	      While a process is executing a dirty NIF some operations that
+	      communicate with it may take a very long time to complete.
+	      Suspend, or garbage collection of a process executing a dirty
+	      NIF cannot be done until the dirty NIF has returned, so other
+	      processes waiting for such operations to complete might have to
+	      wait for a very long time. Blocking multi scheduling, i.e.,
+	      calling
+	      <seealso marker="erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
+	      block)</c></seealso>, might also take a very long time to
+	      complete. This since all ongoing dirty operations on all
+	      dirty schedulers need to complete before the the block
+	      operation can complete.
+	    </p>
+
+	    <p>
+	      A lot of operations communicating with a process executing a
+	      dirty NIF can, however, complete while it is executing the
+	      dirty NIF. For example, retreiving information about it via
+	      <c>process_info()</c>, setting its group leader,
+	      register/unregister its name, etc.
+	    </p>
+
+	    <p>
+	      Termination of a process executing a dirty NIF can only be
+	      completed up to a certain point while it is executing the
+	      dirty NIF. All Erlang resources such as registered names,
+	      ETS tables, etc will be released. All links and monitors
+	      will be triggered. The actual execution of the NIF will
+	      however <em>not</em> be stopped. The NIF can safely contiue
+	      execution, allocate heap memory, etc, but it is of course better
+	      to stop executing as soon as possible. The NIF can check
+	      whether current process is alive or not using
+	      <seealso marker="#enif_is_current_process_alive"><c>enif_is_current_process_alive</c></seealso>.
+	      Communication using
+	      <seealso marker="#enif_send"><c>enif_send</c></seealso>,
+	      and <seealso marker="#enif_port_command"><c>enif_port_command</c></seealso>
+	      will also be dropped when the sending process is not alive.
+	      Deallocation of certain internal resources such as process
+	      heap, and process control block will be delayed until the
+	      dirty NIF has completed.
+	    </p>
+
+	    <p>Currently known issues that are planned to be fixed:</p>
+	    <list>
+	      <item>
+		<p>
+		  Since purging of a module currently might need to garbage
+		  collect a process in order to determine if it has
+		  references to the module, a process executing a dirty
+		  NIF might delay purging for a very long time. Delaying
+		  a purge operatin implies delaying <em>all</em> code
+		  loding operations which might cause severe problems for
+		  the system as a whole.
+		</p>
+	      </item>
+	    </list>
+
+	  </item>
+	</taglist>
+
       </item>
     </taglist>
   </section>
@@ -508,6 +608,10 @@ typedef struct {
         CPU-bound, its <c>flags</c> field should be set to
         <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c>, or for I/O-bound jobs,
         <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c>.</p>
+	<note><p>If one of the
+	<c>ERL_NIF_DIRTY_JOB_*_BOUND</c> flags is set, and the runtime
+	system has no support for dirty schedulers, the runtime system
+	will refuse to load the NIF library.</p></note>
       </item>
     <tag><marker id="ErlNifBinary"/>ErlNifBinary</tag>
      <item>
@@ -963,6 +1067,13 @@ typedef enum {
       <fsummary>Determine if a term is a binary</fsummary>
       <desc><p>Return true if <c>term</c> is a binary</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_is_current_process_alive(ErlNifEnv* env)</nametext></name>
+      <fsummary>Determine if currently executing process is alive or not.</fsummary>
+      <desc><p>Return true if currently executing process is currently alive; otherwise
+      false.</p>
+      <p>This function can only be used from a NIF-calling thread, and with an
+      environment corresponding to currently executing processes.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an empty list</fsummary>
       <desc><p>Return true if <c>term</c> is an empty list.</p></desc>
@@ -993,15 +1104,10 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_is_on_dirty_scheduler(ErlNifEnv* env)</nametext></name>
       <fsummary>Check to see if executing on a dirty scheduler thread</fsummary>
       <desc>
-          <p>Check to see if the current NIF is executing on a dirty scheduler thread. If the
-          emulator is built with threading support, calling <c>enif_is_on_dirty_scheduler</c>
-          from within a dirty NIF returns true. It returns false when the calling NIF is a regular
-          NIF running on a normal scheduler thread, or when the emulator is built without threading
-          support.</p>
-          <note><p>This function is available only when the emulator is configured with dirty
-          schedulers enabled. This feature is currently disabled by default. To determine whether
-          the dirty NIF API is available, native code can check to see if the C preprocessor macro
-          <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined.</p></note>
+          <p>Check to see if the current NIF is executing on a dirty scheduler thread. If
+	  executing on a dirty scheduler thread true returned; otherwise false.</p>
+	  <p>This function can only be used from a NIF-calling thread, and with an
+	  environment corresponding to currently executing processes.</p>
       </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
@@ -1015,7 +1121,8 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env, ErlNifPort *port_id)</nametext></name>
       <fsummary>Determine if a local port is alive or not.</fsummary>
       <desc><p>Return true if <c>port_id</c> is currently alive.</p>
-      <p>This function can only be used in a from a NIF-calling thread.</p></desc>
+      <p>This function is only thread-safe when the emulator with SMP support is used.
+      It can only be used in a non-SMP emulator from a NIF-calling thread.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env, ErlNifPid *pid)</nametext></name>
       <fsummary>Determine if a local process is alive or not.</fsummary>
@@ -1483,9 +1590,7 @@ enif_map_iterator_destroy(env, &amp;iter);
       <fsummary>Send a port_command to to_port</fsummary>
       <desc>
         <p>This function works the same as <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>
-        except that it is always completely asynchronous. This call may return false
-        if it detects that the port is already dead, otherwise it will return true.
-        </p>
+        except that it is always completely asynchronous.</p>
         <taglist>
           <tag><c>env</c></tag>
           <item>The environment of the calling process. May not be NULL.</item>
@@ -1504,7 +1609,10 @@ enif_map_iterator_destroy(env, &amp;iter);
         calls to <c>enif_alloc_env</c>, <c>enif_make_copy</c>, <c>enif_port_command</c>
         and <c>enif_free_env</c> into one call. This optimization is only usefull
         when a majority of the terms are to be copied from <c>env</c> to the <c>msg_env</c>.</p>
-        <p>The call may return false if it detects that the command failed for some reason. Otherwise true is returned.</p>
+        <p>This function return true if the command was successfully sent; otherwise,
+	false. The call may return false if it detects that the command failed for some
+	reason. For example, <c>*to_port</c> does not refer to a local port, if currently
+	executing process, i.e. the sender, is not alive, or if <c>msg</c> is invalid.</p>
         <p>See also: <seealso marker="#enif_get_local_port"><c>enif_get_local_port</c></seealso>.</p>
       </desc>
     </func>
@@ -1635,7 +1743,9 @@ enif_map_iterator_destroy(env, &amp;iter);
         <tag><c>msg</c></tag>
               <item>The message term to send.</item>
       </taglist>
-      <p>Return true on success, or false if <c>*to_pid</c> does not refer to an alive local process.</p>
+      <p>Return true if the message was successfully sent; otherwise, false. The send
+      operation will fail if <c>*to_pid</c> does not refer to an alive local process,
+      or if currently executing process, i.e. the sender, is not alive.</p>
       <p>The message environment <c>msg_env</c> with all its terms (including
       <c>msg</c>) will be invalidated by a successful call to <c>enif_send</c>. The environment
       should either be freed with <seealso marker="#enif_free_env">enif_free_env</seealso>

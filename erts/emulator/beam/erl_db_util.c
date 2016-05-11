@@ -1801,7 +1801,7 @@ Eterm db_prog_match(Process *c_p,
     /* We need to lure the scheduler into believing in the pseudo process, 
        because of floating point exceptions. Do *after* mpsp is set!!! */
 
-    esdp = ERTS_GET_SCHEDULER_DATA_FROM_PROC(psp);
+    esdp = erts_get_scheduler_data();
     if (esdp)
         current_scheduled = esdp->current_process;
     /* SMP: psp->scheduler_data is set by get_match_pseudo_process */

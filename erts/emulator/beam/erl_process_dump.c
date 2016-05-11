@@ -568,23 +568,21 @@ dump_externally(int to, void *to_arg, Eterm term)
     }
 }
 
-void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg) {
-    if (psflg & ERTS_PSFLG_FREE)
-	erts_print(to, to_arg, "Non Existing\n"); /* Should never happen */
-    else if (psflg & ERTS_PSFLG_EXITING)
-	erts_print(to, to_arg, "Exiting\n");
-    else if (psflg & ERTS_PSFLG_GC) {
-	erts_print(to, to_arg, "Garbing\n");
+void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg)
+{
+    char *s;
+    switch (erts_process_state2status(psflg)) {
+    case am_free: s = "Non Existing"; break; /* Should never happen */
+    case am_exiting: s = "Exiting"; break;
+    case am_garbage_collecting: s = "Garbing"; break;
+    case am_suspended: s = "Suspended"; break;
+    case am_running: s = "Running"; break;
+    case am_runnable: s = "Scheduled"; break;
+    case am_waiting: s = "Waiting"; break;
+    default: s = "Undefined"; break; /* Should never happen */
     }
-    else if (psflg & ERTS_PSFLG_SUSPENDED)
-	erts_print(to, to_arg, "Suspended\n");
-    else if (psflg & ERTS_PSFLG_RUNNING) {
-	erts_print(to, to_arg, "Running\n");
-    }
-    else if (psflg & ERTS_PSFLG_ACTIVE)
-	erts_print(to, to_arg, "Scheduled\n");
-    else
-	erts_print(to, to_arg, "Waiting\n");
+
+    erts_print(to, to_arg, "%s\n", s);
 }
 
 void
@@ -668,6 +666,10 @@ erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg) {
                 erts_print(to, to_arg, "DIRTY_IO_PROC"); break;
             case ERTS_PSFLG_DIRTY_ACTIVE_SYS:
                 erts_print(to, to_arg, "DIRTY_ACTIVE_SYS"); break;
+            case ERTS_PSFLG_DIRTY_RUNNING:
+                erts_print(to, to_arg, "DIRTY_RUNNING"); break;
+            case ERTS_PSFLG_DIRTY_RUNNING_SYS:
+                erts_print(to, to_arg, "DIRTY_RUNNING_SYS"); break;
             default:
                 erts_print(to, to_arg, "UNKNOWN(%d)", chk); break;
             }

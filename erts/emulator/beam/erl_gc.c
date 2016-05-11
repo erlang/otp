@@ -391,7 +391,7 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	if (p->freason == TRAP) {
 	  #if HIPE
 	    if (regs == NULL) {
-		regs = ERTS_PROC_GET_SCHDATA(p)->x_reg_array;
+		regs = erts_proc_sched_data(p)->x_reg_array;
 	    }
 	  #endif
 	    cost = garbage_collect(p, live_hf_end, 0, regs, p->arity, p->fcalls);
@@ -406,6 +406,7 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	result = val[0];
     }
     BUMP_REDS(p, cost);
+
     return result;
 }
 
@@ -509,14 +510,14 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
     /* Make sure that we do a proper GC as soon as possible... */
     p->flags |= F_FORCE_GC;
     reds_left = ERTS_REDS_LEFT(p, fcalls);
-    ASSERT(CONTEXT_REDS - reds_left >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+    ASSERT(CONTEXT_REDS - reds_left >= erts_proc_sched_data(p)->virtual_reds);
 
     if (reds_left > ERTS_ABANDON_HEAP_COST) {
 	int vreds = reds_left - ERTS_ABANDON_HEAP_COST;
-	ERTS_PROC_GET_SCHDATA((p))->virtual_reds += vreds;
+	erts_proc_sched_data((p))->virtual_reds += vreds;
     }
 
-    ASSERT(CONTEXT_REDS >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+    ASSERT(CONTEXT_REDS >= erts_proc_sched_data(p)->virtual_reds);
     return reds_left;
 }
 
@@ -590,7 +591,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 #endif
 
     ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls)
-	   >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+	   >= erts_proc_sched_data(p)->virtual_reds);
 
     state = erts_smp_atomic32_read_nob(&p->state);
 
@@ -747,7 +748,7 @@ erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fca
     int reds_left = ERTS_REDS_LEFT(p, fcalls);
     if (reds > reds_left)
 	reds = reds_left;
-    ASSERT(CONTEXT_REDS - (reds_left - reds) >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+    ASSERT(CONTEXT_REDS - (reds_left - reds) >= erts_proc_sched_data(p)->virtual_reds);
     return reds;
 }
 
@@ -757,7 +758,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     int reds = garbage_collect(p, ERTS_INVALID_HFRAG_PTR, need, objv, nobj, p->fcalls);
     BUMP_REDS(p, reds);
     ASSERT(CONTEXT_REDS - ERTS_BIF_REDS_LEFT(p)
-	   >= ERTS_PROC_GET_SCHDATA(p)->virtual_reds);
+	   >= erts_proc_sched_data(p)->virtual_reds);
 }
 
 /*
@@ -3044,7 +3045,7 @@ reply_gc_info(void *vgcirp)
 Eterm
 erts_gc_info_request(Process *c_p)
 {
-    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
     Eterm ref;
     ErtsGCInfoReq *gcirp;
     Eterm *hp;

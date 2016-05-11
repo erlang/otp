@@ -59,12 +59,12 @@ extern Export *erts_convert_time_unit_trap;
 do {									\
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) {				\
 	if ((fcalls) > 0)						\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += (fcalls);	\
+	    erts_proc_sched_data((p))->virtual_reds += (fcalls);	\
 	(fcalls) = 0;							\
     }									\
     else {								\
 	if ((fcalls) > -CONTEXT_REDS)					\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds			\
+	    erts_proc_sched_data((p))->virtual_reds			\
 		+= ((fcalls) - (-CONTEXT_REDS));			\
 	(fcalls) = -CONTEXT_REDS;					\
     }									\
@@ -91,22 +91,22 @@ do {									\
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) {				\
 	if ((p)->fcalls >= reds) {					\
 	    (p)->fcalls -= reds;					\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += reds;		\
+	    erts_proc_sched_data((p))->virtual_reds += reds;		\
 	}								\
 	else {								\
 	    if ((p)->fcalls > 0)					\
-		ERTS_PROC_GET_SCHDATA((p))->virtual_reds += (p)->fcalls;\
+		erts_proc_sched_data((p))->virtual_reds += (p)->fcalls;	\
 	    (p)->fcalls = 0;						\
 	}								\
     }									\
     else {								\
 	if ((p)->fcalls >= reds - CONTEXT_REDS) {			\
 	    (p)->fcalls -= reds;					\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += reds;		\
+	    erts_proc_sched_data((p))->virtual_reds += reds;		\
 	}								\
 	else {								\
 	    if ((p)->fcalls > -CONTEXT_REDS)				\
-		ERTS_PROC_GET_SCHDATA((p))->virtual_reds		\
+		erts_proc_sched_data((p))->virtual_reds			\
 		    += (p)->fcalls - (-CONTEXT_REDS);			\
 	    (p)->fcalls = -CONTEXT_REDS;				\
 	}								\
@@ -118,14 +118,14 @@ do {									\
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
 	    int nreds__ = ((int)(Reds)) - CONTEXT_REDS;			\
 	    if ((FCalls) > nreds__) {					\
-		ERTS_PROC_GET_SCHDATA((P))->virtual_reds		\
+		erts_proc_sched_data((P))->virtual_reds			\
 		    += (FCalls) - nreds__;				\
 		(FCalls) = nreds__;					\
 	    }								\
 	}								\
 	else {								\
 	    if ((FCalls) > (Reds)) {					\
-		ERTS_PROC_GET_SCHDATA((P))->virtual_reds		\
+		erts_proc_sched_data((P))->virtual_reds			\
 		    += (FCalls) - (Reds);				\
 		(FCalls) = (Reds);					\
 	    }								\
@@ -165,7 +165,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED1(Proc, Reason, Bif, A0)		\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -174,7 +174,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED2(Proc, Reason, Bif, A0, A1)	\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -184,7 +184,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED3(Proc, Reason, Bif, A0, A1, A2)	\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -208,7 +208,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED1(Ret, Proc, Reason, Bif, A0) \
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -217,7 +217,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED2(Ret, Proc, Reason, Bif, A0, A1) \
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -227,7 +227,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED3(Ret, Proc, Reason, Bif, A0, A1, A2) \
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -246,7 +246,7 @@ do {						\
 
 #define ERTS_BIF_PREP_TRAP1(Ret, Trap, Proc, A0)		\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 1;						\
     reg[0] = (Eterm) (A0);					\
     (Proc)->i = (BeamInstr*) ((Trap)->addressv[erts_active_code_ix()]); \
@@ -256,7 +256,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP2(Ret, Trap, Proc, A0, A1)		\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 2;						\
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
@@ -267,7 +267,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP3(Ret, Trap, Proc, A0, A1, A2)	\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 3;						\
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
@@ -279,7 +279,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP3_NO_RET(Trap, Proc, A0, A1, A2)\
 do {							\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 3;					\
     reg[0] = (Eterm) (A0);		\
     reg[1] = (Eterm) (A1);		\
@@ -296,7 +296,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP1(Trap_, p, A0) do {				\
-      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
       (p)->arity = 1;						\
       reg[0] = (A0);						\
       (p)->i = (BeamInstr*) ((Trap_)->addressv[erts_active_code_ix()]); \
@@ -305,7 +305,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP2(Trap_, p, A0, A1) do {			\
-      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
       (p)->arity = 2;						\
       reg[0] = (A0);						\
       reg[1] = (A1);						\
@@ -315,7 +315,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP3(Trap_, p, A0, A1, A2) do {			\
-      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
       (p)->arity = 3;						\
       reg[0] = (A0);						\
       reg[1] = (A1);						\

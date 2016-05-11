@@ -278,6 +278,7 @@ type	IOB_REQ		SHORT_LIVED	SYSTEM		io_bytes_request
 type    TRACER_NIF      LONG_LIVED      SYSTEM          tracer_nif
 type    TRACE_MSG_QUEUE SHORT_LIVED     SYSTEM          trace_message_queue
 type    SCHED_ASYNC_JOB SHORT_LIVED     SYSTEM          async_calls
+type    DIRTY_START     STANDARD	PROCESSES       dirty_start
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;

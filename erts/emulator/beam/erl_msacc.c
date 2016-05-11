@@ -338,7 +338,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
 {
 #ifdef ERTS_ENABLE_MSACC
     ErtsMsAcc *msacc =  ERTS_MSACC_TSD_GET();
-    ErtsSchedulerData *esdp = ERTS_PROC_GET_SCHDATA(c_p);
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
     Eterm ref;
     ErtsMSAccReq *msaccrp;
     Eterm *hp;
