@@ -5941,7 +5941,7 @@ driver_deliver_term(Port *prt, Eterm to, ErlDrvTermData* data, int len)
     if (!rp) {
         if (!prt || !IS_TRACED_FL(prt, F_TRACE_SEND))
             goto done;
-        if (!erts_is_tracer_proc_enabled(NULL, 0, &prt->common, am_send))
+        if (!erts_is_tracer_proc_enabled_send(NULL, 0, &prt->common))
             goto done;
 
 	res = -2;

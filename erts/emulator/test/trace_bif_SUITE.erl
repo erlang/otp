@@ -232,6 +232,7 @@ do_trace_bif_return(TsType, TsFlags) ->
                                            {?MODULE, bif_process,0}},
                                           Ts11, TsType),
     check_ts(TsType, Ts12, make_ts(TsType)),
+    erlang:trace_pattern({erlang,'_','_'}, false, [local]),
     ok.
 
 

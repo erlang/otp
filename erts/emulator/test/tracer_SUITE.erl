@@ -44,6 +44,8 @@ groups() ->
                    gc_start, gc_end]}].
 
 init_per_suite(Config) ->
+    erlang:trace_pattern({'_','_','_'}, false, [local]),
+    erlang:trace_pattern({'_','_','_'}, false, []),
     purge(),
     Config.
 
@@ -119,23 +121,24 @@ unload(_Config) ->
          end,
 
     1 = erlang:trace(Pid, true, [{tracer, tracer_test,
-                                  {#{ call => trace}, self(), []}},
+                                  {#{ call => trace }, self(), []}},
                                  call]),
     1 = erlang:trace_pattern({?MODULE, all, 0}, [], []),
 
     Tc(1),
-    receive _ -> ok after 0 -> ct:fail(timeout) end,
+    receive _M -> ok after 0 -> ct:fail(timeout) end,
+    receive M0 -> ct:fail({unexpected_message0, M0}) after 0 -> ok end,
 
     code:purge(tracer_test),
     code:delete(tracer_test),
 
     Tc(1),
-    receive M1 -> ct:fail({unexpected_message, M1}) after 0 -> ok end,
+    receive M1 -> ct:fail({unexpected_message1, M1}) after 0 -> ok end,
 
     code:purge(tracer_test),
 
     Tc(1),
-    receive M2 -> ct:fail({unexpected_message, M2}) after 0 -> ok end,
+    receive M2 -> ct:fail({unexpected_message2, M2}) after 0 -> ok end,
 
     ok.
 
@@ -167,13 +170,19 @@ reload(_Config) ->
 
          false = code:purge(tracer_test),
          true = code:delete(tracer_test),
-         false = code:purge(tracer_test)
+         false = code:purge(tracer_test),
+         timer:sleep(10)
      end || _ <- lists:seq(1,15)],
 
     ok.
 
 reload_loop() ->
     ?MODULE:all(),
+    ?MODULE:all(),
+    ?MODULE:all(),
+    ?MODULE:all(),
+    ?MODULE:all(),
+    timer:sleep(1),
     reload_loop().
 
 invalid_tracers(_Config) ->
@@ -214,7 +223,7 @@ send(_Config) ->
     Expect = fun(Pid, State, EOpts) ->
                      receive
                          Msg ->
-                             {Pid, send, State, Pid, ok, Self, Opts} = Msg,
+                             {send, State, Pid, ok, Self, Opts} = Msg,
                              check_opts(EOpts, Opts)
                      end
              end,
@@ -230,7 +239,7 @@ recv(_Config) ->
     Expect = fun(Pid, State, EOpts) ->
                      receive
                          Msg ->
-                             {undefined, 'receive', State, Pid, ok, undefined, Opts} = Msg,
+                             {'receive', State, Pid, ok, undefined, Opts} = Msg,
                              check_opts(EOpts, Opts)
                      end
              end,
@@ -247,14 +256,14 @@ spawn(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, spawn, State, Pid, NewPid,
+                        {spawn, State, Pid, NewPid,
                          {lists,seq,[1,10]}, Opts} = Msg,
                         check_opts(EOpts, Opts),
                         true = is_pid(NewPid) andalso NewPid /= Pid
                 end
              end,
 
-    test(spawn, procs, Tc, Expect, true).
+    test(spawn, procs, Tc, Expect, false).
 
 exit(_Config) ->
     Tc = fun(Pid) ->
@@ -265,7 +274,7 @@ exit(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, exit, State, Pid, normal, undefined, Opts} = Msg,
+                        {exit, State, Pid, normal, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts)
                 end
              end,
@@ -286,13 +295,13 @@ link(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, link, State, Pid, NewPid, undefined, Opts} = Msg,
+                        {link, State, Pid, NewPid, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts),
                         true = is_pid(NewPid) andalso NewPid /= Pid
                 end
              end,
 
-    test(link, procs, Tc, Expect, true).
+    test(link, procs, Tc, Expect, false).
 
 unlink(_Config) ->
 
@@ -309,13 +318,13 @@ unlink(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, unlink, State, Pid, NewPid, undefined, Opts} = Msg,
+                        {unlink, State, Pid, NewPid, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts),
                         true = is_pid(NewPid) andalso NewPid /= Pid
                 end
              end,
 
-    test(unlink, procs, Tc, Expect, true).
+    test(unlink, procs, Tc, Expect, false).
 
 getting_linked(_Config) ->
 
@@ -331,7 +340,7 @@ getting_linked(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {NewPid, getting_linked, State, Pid, NewPid, undefined, Opts} = Msg,
+                        {getting_linked, State, Pid, NewPid, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts),
                         true = is_pid(NewPid) andalso NewPid /= Pid
                 end
@@ -355,7 +364,7 @@ getting_unlinked(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {NewPid, getting_unlinked, State, Pid, NewPid, undefined, Opts} = Msg,
+                        {getting_unlinked, State, Pid, NewPid, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts),
                         true = is_pid(NewPid) andalso NewPid /= Pid
                 end
@@ -377,12 +386,12 @@ register(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, register, State, Pid, ?MODULE, undefined, Opts} = Msg,
+                        {register, State, Pid, ?MODULE, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts)
                 end
              end,
 
-    test(register, procs, Tc, Expect, true).
+    test(register, procs, Tc, Expect, false).
 
 unregister(_Config) ->
 
@@ -398,18 +407,18 @@ unregister(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, unregister, State, Pid, ?MODULE, undefined, Opts} = Msg,
+                        {unregister, State, Pid, ?MODULE, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts)
                 end
              end,
 
-    test(unregister, procs, Tc, Expect, true).
+    test(unregister, procs, Tc, Expect, false).
 
 in(_Config) ->
 
     Tc = fun(Pid) ->
                  Self = self(),
-                 Pid ! fun() -> receive after 1 -> Self ! ok end end,
+                 Pid ! fun() -> receive after 10 -> Self ! ok end end,
                  receive ok -> ok end
          end,
 
@@ -418,7 +427,7 @@ in(_Config) ->
                 N = (fun F(N) ->
                              receive
                                  Msg ->
-                                     {Pid, in, State, Pid, _,
+                                     {in, State, Pid, _,
                                       undefined, Opts} = Msg,
                                      check_opts(EOpts, Opts),
                                      F(N+1)
@@ -428,7 +437,7 @@ in(_Config) ->
                 true = N > 0
              end,
 
-    test(in, running, Tc, Expect, true).
+    test(in, running, Tc, Expect, false).
 
 out(_Config) ->
     Tc = fun(Pid) ->
@@ -443,7 +452,7 @@ out(_Config) ->
                 N = (fun F(N) ->
                              receive
                                  Msg ->
-                                     {Pid, out, State, Pid, _,
+                                     {out, State, Pid, _,
                                       undefined, Opts} = Msg,
                                      check_opts(EOpts, Opts),
                                      F(N+1)
@@ -453,7 +462,7 @@ out(_Config) ->
                 true = N > 0
              end,
 
-    test(out, running, Tc, Expect, true, true).
+    test(out, running, Tc, Expect, false, true).
 
 gc_start(_Config) ->
 
@@ -468,12 +477,12 @@ gc_start(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, gc_major_start, State, Pid, _, undefined, Opts} = Msg,
+                        {gc_major_start, State, Pid, _, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts)
                 end
              end,
 
-    test(gc_major_start, garbage_collection, Tc, Expect, true).
+    test(gc_major_start, garbage_collection, Tc, Expect, false).
 
 gc_end(_Config) ->
 
@@ -488,20 +497,20 @@ gc_end(_Config) ->
         fun(Pid, State, EOpts) ->
                 receive
                     Msg ->
-                        {Pid, gc_major_end, State, Pid, _, undefined, Opts} = Msg,
+                        {gc_major_end, State, Pid, _, undefined, Opts} = Msg,
                         check_opts(EOpts, Opts)
                 end
              end,
 
-    test(gc_major_end, garbage_collection, Tc, Expect, true).
+    test(gc_major_end, garbage_collection, Tc, Expect, false).
 
 test(Event, Tc, Expect) ->
-    test(Event, Tc, Expect, true).
+    test(Event, Tc, Expect, false).
 test(Event, Tc, Expect, Removes) ->
     test(Event, Event, Tc, Expect, Removes).
 test(Event, TraceFlag, Tc, Expect, Removes) ->
     test(Event, TraceFlag, Tc, Expect, Removes, false).
-test(Event, TraceFlag, Tc, Expect, Removes, Dies) ->
+test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
 
     ComplexState = {fun() -> ok end, <<0:(128*8)>>},
     Opts = #{ timestamp => undefined,
@@ -557,25 +566,6 @@ test(Event, TraceFlag, Tc, Expect, Removes, Dies) ->
             ok
     end,
 
-    %% Test that remove works
-    Pid3 = start_tracee(),
-    State3 = {#{ Event => remove }, self(), ComplexState},
-    1 = erlang:trace(Pid3, true, [TraceFlag, {tracer, tracer_test, State3}]),
-    Tc(Pid3),
-    ok = trace_delivered(Pid3),
-    receive M3 -> ct:fail({unexpected, M3}) after 0 -> ok end,
-    if not Dies ->
-            if Removes ->
-                    {flags, []} = erlang:trace_info(Pid3, flags),
-                    {tracer, []} = erlang:trace_info(Pid3, tracer);
-               true ->
-                    {flags, [TraceFlag]} = erlang:trace_info(Pid3, flags),
-                    {tracer, {tracer_test, State3}} = erlang:trace_info(Pid3, tracer)
-            end,
-            erlang:trace(Pid3, false, [TraceFlag]);
-       true ->
-            ok
-    end,
     ok.
 
 check_opts(#{ scheduler_id := number } = E, #{ scheduler_id := N } = O)

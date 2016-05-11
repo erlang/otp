@@ -104,16 +104,10 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     enif_get_tuple(env, argv[1], &state_arity, &state_tuple);
 
-    tuple = enif_alloc(sizeof(ERL_NIF_TERM)*(argc+1));
-    memcpy(tuple+1,argv,sizeof(ERL_NIF_TERM)*argc);
+    tuple = enif_alloc(sizeof(ERL_NIF_TERM)*(argc));
+    memcpy(tuple,argv,sizeof(ERL_NIF_TERM)*argc);
 
-    if (enif_self(env, &self)) {
-        tuple[0] = enif_make_pid(env, &self);
-    } else {
-        tuple[0] = enif_make_atom(env, "undefined");
-    }
-
-    msg = enif_make_tuple_from_array(env, tuple, argc + 1);
+    msg = enif_make_tuple_from_array(env, tuple, argc);
     enif_get_local_pid(env, state_tuple[1], &to);
     enif_send(env, &to, NULL, msg);
     enif_free(tuple);

@@ -174,7 +174,8 @@ set_match_trace(Process *tracee_p, Eterm fail_term, ErtsTracer tracer,
         ERTS_PROC_LOCKS_ALL == erts_proc_lc_my_proc_locks(tracee_p)
         || erts_thr_progress_is_blocking());
 
-    if (ERTS_TRACER_IS_NIL(tracer) || erts_is_tracer_enabled(tracee_p, tracer))
+    if (ERTS_TRACER_IS_NIL(tracer)
+        || erts_is_tracer_enabled(tracer, &tracee_p->common))
         return set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
     return fail_term;
 }
