@@ -400,24 +400,23 @@ negotiated_next_protocol(Socket) ->
     end.
 
 %%--------------------------------------------------------------------
+-spec cipher_suites() -> [ssl_cipher:erl_cipher_suite()] | [string()].
+%%--------------------------------------------------------------------
+cipher_suites() ->
+    cipher_suites(erlang).
+%%--------------------------------------------------------------------
 -spec cipher_suites(erlang | openssl | all) -> [ssl_cipher:erl_cipher_suite()] |
 					       [string()].
 %% Description: Returns all supported cipher suites.
 %%--------------------------------------------------------------------
 cipher_suites(erlang) ->
-    Version = tls_record:highest_protocol_version([]),
-    ssl_cipher:filter_suites([ssl_cipher:erl_suite_definition(S)
-                              || S <- ssl_cipher:suites(Version)]);
+    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(default)];
+
 cipher_suites(openssl) ->
-    Version = tls_record:highest_protocol_version([]),
-    [ssl_cipher:openssl_suite_name(S)
-     || S <- ssl_cipher:filter_suites(ssl_cipher:suites(Version))];
+    [ssl_cipher:openssl_suite_name(Suite) || Suite <- available_suites(default)];
+
 cipher_suites(all) ->
-    Version = tls_record:highest_protocol_version([]),
-    ssl_cipher:filter_suites([ssl_cipher:erl_suite_definition(S)
-			      || S <-ssl_cipher:all_suites(Version)]).
-cipher_suites() ->
-    cipher_suites(erlang).
+    [ssl_cipher:erl_suite_definition(Suite) || Suite <- available_suites(all)].
 
 %%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
@@ -584,6 +583,16 @@ format_error(Error) ->
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
+
+%% Possible filters out suites not supported by crypto 
+available_suites(default) ->  
+    Version = tls_record:highest_protocol_version([]),			  
+    ssl_cipher:filter_suites(ssl_cipher:suites(Version));
+
+available_suites(all) ->  
+    Version = tls_record:highest_protocol_version([]),			  
+    ssl_cipher:filter_suites(ssl_cipher:all_suites(Version)).
+
 do_connect(Address, Port,
 	   #config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
 		   emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
