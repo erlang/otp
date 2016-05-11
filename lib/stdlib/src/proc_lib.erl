@@ -43,9 +43,14 @@
 %%-----------------------------------------------------------------------------
 
 -type priority_level() :: 'high' | 'low' | 'max' | 'normal'.
+-type max_heap_size()  :: non_neg_integer() |
+                          #{ size => non_neg_integer(),
+                             kill => true,
+                             error_logger => true}.
 -type spawn_option()   :: 'link'
                         | 'monitor'
                         | {'priority', priority_level()}
+                        | {'max_heap_size', max_heap_size()}
                         | {'min_heap_size', non_neg_integer()}
                         | {'min_bin_vheap_size', non_neg_integer()}
                         | {'fullsweep_after', non_neg_integer()}

@@ -135,7 +135,7 @@ typedef struct {
 #define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
 #define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
     (ERTS_PROCESS_GC_INFO_MAX_TERMS * (2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE))
-Eterm erts_process_gc_info(struct process*, Uint *, Eterm **);
+Eterm erts_process_gc_info(struct process*, Uint *, Eterm **, Uint, Uint);
 
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
@@ -155,5 +155,7 @@ void erts_offset_off_heap(struct erl_off_heap*, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
+Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
+int erts_max_heap_size(Eterm, Uint *, Uint *);
 
 #endif /* __ERL_GC_H__ */

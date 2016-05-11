@@ -44,6 +44,7 @@
 #include "erl_ptab.h"
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
+#include "erl_map.h"
 #include "erl_msacc.h"
 
 Export *erts_await_result;
@@ -880,6 +881,8 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     so.flags          = erts_default_spo_flags|SPO_USE_ARGS;
     so.min_heap_size  = H_MIN_SIZE;
     so.min_vheap_size = BIN_VH_MIN_SIZE;
+    so.max_heap_size  = H_MAX_SIZE;
+    so.max_heap_flags = H_MAX_FLAGS;
     so.priority       = PRIORITY_NORMAL;
     so.max_gen_gcs    = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
     so.scheduler      = 0;
@@ -937,6 +940,9 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		} else {
 		    so.min_heap_size = erts_next_heap_size(min_heap_size, 0);
 		}
+            } else if (arg == am_max_heap_size) {
+                if (!erts_max_heap_size(val, &so.max_heap_size, &so.max_heap_flags))
+                    goto error;
 	    } else if (arg == am_min_bin_vheap_size && is_small(val)) {
 		Sint min_vheap_size = signed_val(val);
 		if (min_vheap_size < 0) {
@@ -968,6 +974,10 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     }
     if (is_not_nil(ap)) {
 	goto error;
+    }
+
+    if (so.max_heap_size != 0 && so.max_heap_size < so.min_heap_size) {
+        goto error;
     }
 
     /*
@@ -1729,6 +1739,23 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        } else {
 	   BIF_P->min_vheap_size = erts_next_heap_size(i, 0);
        }
+       BIF_RET(old_value);
+   }
+   else if (BIF_ARG_1 == am_max_heap_size) {
+       Eterm *hp;
+       Uint sz = 0, max_heap_size, max_heap_flags;
+
+       if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
+           goto error;
+
+       if ((max_heap_size < MIN_HEAP_SIZE(BIF_P) && max_heap_size != 0))
+	   goto error;
+
+       erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), NULL, &sz);
+       hp = HAlloc(BIF_P, sz);
+       old_value = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), &hp, NULL);
+       MAX_HEAP_SIZE_SET(BIF_P, max_heap_size);
+       MAX_HEAP_SIZE_FLAGS_SET(BIF_P, max_heap_flags);
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_message_queue_data) {
@@ -4350,6 +4377,31 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(make_small(oval));
+    } else if (BIF_ARG_1 == am_max_heap_size) {
+
+        Eterm *hp, old_value;
+        Uint sz = 0, max_heap_size, max_heap_flags;
+
+        if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
+            goto error;
+
+        if (max_heap_size < H_MIN_SIZE && max_heap_size != 0)
+            goto error;
+
+        erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, NULL, &sz);
+        hp = HAlloc(BIF_P, sz);
+        old_value = erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, &hp, NULL);
+
+        erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+        erts_smp_thr_progress_block();
+
+        H_MAX_SIZE = max_heap_size;
+        H_MAX_FLAGS = max_heap_flags;
+
+        erts_smp_thr_progress_unblock();
+        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+
+        BIF_RET(old_value);
     } else if (BIF_ARG_1 == am_display_items) {
 	int oval = display_items;
 	if (!is_small(BIF_ARG_2) || (n = signed_val(BIF_ARG_2)) < 0) {

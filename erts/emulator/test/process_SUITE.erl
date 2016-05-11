@@ -46,7 +46,7 @@
 	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
 	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1,
-	 spawn_opt_heap_size/1,
+	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
@@ -60,7 +60,7 @@
 	 system_task_on_suspended/1,
 	 gc_request_when_gc_disabled/1,
 	 gc_request_blast_when_gc_disabled/1]).
--export([prio_server/2, prio_client/2]).
+-export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -84,7 +84,8 @@ all() ->
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
-     spawn_opt_heap_size, otp_6237, {group, processes_bif},
+     spawn_opt_heap_size, spawn_opt_max_heap_size, otp_6237,
+     {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task}].
 
@@ -425,6 +426,8 @@ t_process_info(Config) when is_list(Config) ->
     {status, running} = process_info(self(), status),
     {min_heap_size, 233} = process_info(self(), min_heap_size),
     {min_bin_vheap_size,46422} = process_info(self(), min_bin_vheap_size),
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
+        process_info(self(), max_heap_size),
     {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
     {current_function,{?MODULE,t_process_info,1}} =
@@ -564,6 +567,8 @@ process_info_other_msg(Config) when is_list(Config) ->
 
     {min_heap_size, 233} = process_info(Pid, min_heap_size),
     {min_bin_vheap_size, 46422} = process_info(Pid, min_bin_vheap_size),
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
+        process_info(self(), max_heap_size),
 
     Pid ! stop,
     ok.
@@ -914,10 +919,14 @@ process_info_garbage_collection(_Config) ->
     Parent = self(),
     Pid = spawn_link(
             fun() ->
+                    %% We set mqd to off_heap and send an tuple
+                    %% to process in order to force mbuf_size
+                    %% to be used
+                    process_flag(message_queue_data, off_heap),
                     receive go -> ok end,
                     (fun F(0) ->
                              Parent ! deep,
-                             receive ok -> ok end,
+                             receive {ok,_} -> ok end,
                              [];
                          F(N) ->
                              timer:sleep(1),
@@ -926,30 +935,51 @@ process_info_garbage_collection(_Config) ->
                     Parent ! shallow,
                     receive done -> ok end
             end),
-    {garbage_collection_info, Before} =
-        erlang:process_info(Pid, garbage_collection_info),
+    [{garbage_collection_info, Before},{total_heap_size, THSBefore}] =
+        erlang:process_info(Pid, [garbage_collection_info, total_heap_size]),
     Pid ! go, receive deep -> ok end,
-    {_, Deep} = erlang:process_info(Pid, garbage_collection_info),
-    Pid ! ok, receive shallow -> ok end,
-    {_, After} = erlang:process_info(Pid, garbage_collection_info),
+    [{_, Deep},{_,THSDeep}]  =
+         erlang:process_info(Pid, [garbage_collection_info, total_heap_size]),
+    Pid ! {ok, make_ref()}, receive shallow -> ok end,
+    [{_, After},{_, THSAfter}] =
+        erlang:process_info(Pid, [garbage_collection_info, total_heap_size]),
     Pid ! done,
 
     %% Do some general checks to see if everything seems to be roughly correct
     ct:log("Before: ~p",[Before]),
     ct:log("Deep: ~p",[Deep]),
     ct:log("After: ~p",[After]),
+    ct:log("Before THS: ~p",[THSBefore]),
+    ct:log("Deep THS: ~p",[THSDeep]),
+    ct:log("After THS: ~p",[THSAfter]),
 
     %% Check stack_size
-    true = proplists:get_value(stack_size, Before) < proplists:get_value(stack_size, Deep),
-    true = proplists:get_value(stack_size, After) < proplists:get_value(stack_size, Deep),
+    true = gv(stack_size, Before) < gv(stack_size, Deep),
+    true = gv(stack_size, After) < gv(stack_size, Deep),
 
     %% Check used heap size
-    true = proplists:get_value(heap_size, Before) + proplists:get_value(old_heap_size, Before)
-        < proplists:get_value(heap_size, Deep) + proplists:get_value(old_heap_size, Deep),
-    true = proplists:get_value(heap_size, Before) + proplists:get_value(old_heap_size, Before)
-        < proplists:get_value(heap_size, After) + proplists:get_value(old_heap_size, After),
+    true = gv(heap_size, Before) + gv(old_heap_size, Before)
+        < gv(heap_size, Deep) + gv(old_heap_size, Deep),
+    true = gv(heap_size, Before) + gv(old_heap_size, Before)
+        < gv(heap_size, After) + gv(old_heap_size, After),
+
+    %% Check that total_heap_size == heap_block_size + old_heap_block_size + mbuf_size
+    THSBefore = gv(heap_block_size, Before)
+        + gv(old_heap_block_size, Before)
+        + gv(mbuf_size, Before),
+
+    THSDeep = gv(heap_block_size, Deep)
+        + gv(old_heap_block_size, Deep)
+        + gv(mbuf_size, Deep),
+
+    THSAfter = gv(heap_block_size, After)
+        + gv(old_heap_block_size, After)
+        + gv(mbuf_size, After),
 
     ok.
+
+gv(Key,List) ->
+    proplists:get_value(Key,List).
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
@@ -1323,6 +1353,28 @@ process_flag_badarg(Config) when is_list(Config) ->
     chk_badarg(fun () -> process_flag(min_heap_size, gurka) end),
     chk_badarg(fun () -> process_flag(min_bin_vheap_size, gurka) end),
     chk_badarg(fun () -> process_flag(min_bin_vheap_size, -1) end),
+
+    chk_badarg(fun () -> process_flag(max_heap_size, gurka) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, -1) end),
+    chk_badarg(fun () ->
+                       {_,Min} = process_info(self(), min_heap_size),
+                       process_flag(max_heap_size, Min - 1)
+               end),
+    chk_badarg(fun () ->
+                       {_,Min} = process_info(self(), min_heap_size),
+                       process_flag(max_heap_size, #{size => Min - 1})
+               end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{}) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ kill => true }) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
+                                                        kill => gurka }) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
+                                                        error_logger => gurka }) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
+                                                        kill => true,
+                                                        error_logger => gurka }) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 1 bsl 64 }) end),
+
     chk_badarg(fun () -> process_flag(priority, 4711) end),
     chk_badarg(fun () -> process_flag(save_calls, hmmm) end),
     P= spawn_link(fun () -> receive die -> ok end end),
@@ -1922,6 +1974,110 @@ spawn_opt_heap_size(Config) when is_list(Config) ->
     {min_bin_vheap_size, VHSize} = process_info(Pid, min_bin_vheap_size),
     Pid ! stop,
     ok.
+
+spawn_opt_max_heap_size(_Config) ->
+
+    error_logger:add_report_handler(?MODULE, self()),
+
+    %% Test that numerical limit works
+    max_heap_size_test(1024, 1024, true, true),
+
+    %% Test that map limit works
+    max_heap_size_test(#{ size => 1024 }, 1024, true, true),
+
+    %% Test that no kill is sent
+    max_heap_size_test(#{ size => 1024, kill => false }, 1024, false, true),
+
+    %% Test that no error_logger report is sent
+    max_heap_size_test(#{ size => 1024, error_logger => false }, 1024, true, false),
+
+    %% Test that system_flag works
+    erlang:system_flag(max_heap_size, #{ size => 0, kill => false,
+                                         error_logger => true}),
+    max_heap_size_test(#{ size => 1024 }, 1024, false, true),
+    max_heap_size_test(#{ size => 1024, kill => true }, 1024, true, true),
+
+    erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
+                                         error_logger => false}),
+    max_heap_size_test(#{ size => 1024 }, 1024, true, false),
+    max_heap_size_test(#{ size => 1024, error_logger => true }, 1024, true, true),
+
+    erlang:system_flag(max_heap_size, #{ size => 1 bsl 20, kill => true,
+                                         error_logger => true}),
+    max_heap_size_test(#{ }, 1 bsl 20, true, true),
+
+    erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
+                                         error_logger => true}),
+
+    %% Test that ordinary case works as expected again
+    max_heap_size_test(1024, 1024, true, true),
+
+    ok.
+
+max_heap_size_test(Option, Size, Kill, ErrorLogger)
+  when map_size(Option) == 0 ->
+    max_heap_size_test([], Size, Kill, ErrorLogger);
+max_heap_size_test(Option, Size, Kill, ErrorLogger)
+  when is_map(Option); is_integer(Option) ->
+    max_heap_size_test([{max_heap_size, Option}], Size, Kill, ErrorLogger);
+max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
+    OomFun = fun F() -> timer:sleep(5),[lists:seq(1,1000)|F()] end,
+    Pid = spawn_opt(OomFun, Option),
+    {max_heap_size, MHSz} = erlang:process_info(Pid, max_heap_size),
+    ct:log("Default: ~p~nOption: ~p~nProc: ~p~n",
+           [erlang:system_info(max_heap_size), Option, MHSz]),
+
+    #{ size := Size} = MHSz,
+
+    Ref = erlang:monitor(process, Pid),
+    if Kill ->
+            receive
+                {'DOWN', Ref, process, Pid, killed} ->
+                    ok
+            end;
+       true ->
+            ok
+    end,
+    if ErrorLogger ->
+            receive
+                {error, _, {emulator, _, [Pid|_]}} ->
+                    ok
+            end;
+       true ->
+            ok
+    end,
+    if not Kill ->
+            exit(Pid, die),
+            receive
+                {'DOWN', Ref, process, Pid, die} ->
+                    ok
+            end,
+            flush();
+       true ->
+            ok
+    end,
+    receive
+        M ->
+            ct:fail({unexpected_message, M})
+    after 10 ->
+            ok
+    end.
+
+flush() ->
+    receive
+        _M ->
+            flush()
+    after 1000 ->
+            ok
+    end.
+
+%% error_logger report handler proxy
+init(Pid) ->
+    {ok, Pid}.
+
+handle_event(Event, Pid) ->
+    Pid ! Event,
+    {ok, Pid}.
 
 processes_term_proc_list(Config) when is_list(Config) ->
     Tester = self(),

@@ -4322,6 +4322,7 @@ os_prompt% </pre>
       </desc>
     </func>
 
+    <marker id="process_flag_min_heap_size"/>
     <func>
       <name name="process_flag" arity="2" clause_i="3"/>
       <fsummary>Sets process flag <c>min_heap_size</c> for the calling process.</fsummary>
@@ -4340,9 +4341,95 @@ os_prompt% </pre>
         <p>Returns the old value of the flag.</p>
       </desc>
     </func>
-    <marker id="process_flag_message_queue_data"/>
+    <marker id="process_flag_max_heap_size"/>
     <func>
       <name name="process_flag" arity="2" clause_i="5"/>
+      <type name="max_heap_size"/>
+      <fsummary>Sets process flag <c>max_heap_size</c> for the calling process.</fsummary>
+      <desc>
+        <p>
+          This flag sets the maximum heap size for the calling process.
+          If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
+          values for <c>kill</c> and <c>error_logger</c> are used.
+          <taglist>
+            <tag><c>size</c></tag>
+            <item>
+              <p>
+                The maximum size in words of the process. If set to zero, the
+                heap size limit is disabled. Badarg will be thrown if the value is
+                smaller than
+                <seealso marker="#process_flag_min_heap_size"><c>min_heap_size</c></seealso>.
+                The size check is only done when a garbage collection is triggered.
+              </p>
+              <p>
+                <c>size</c> is the entire heap of the process when garbage collection
+                is triggered, this includes all generational heaps, the process stack, 
+                any <seealso marker="#process_flag_message_queue_data">
+                messages that are considered to be part of the heap</seealso> and any
+                extra memory that the garbage collector needs during collection.
+              </p>
+              <p>
+                <c>size</c> is the same as can be retrieved using
+                <seealso marker="#process_info_total_heap_size">
+                  <c>erlang:process_info(Pid, total_heap_size)</c></seealso>,
+                  or by adding <c>heap_block_size</c>, <c>old_heap_block_size</c>
+                  and <c>mbuf_size</c> from <seealso marker="#process_info_garbage_collection_info">
+                  <c>erlang:process_info(Pid, garbage_collection_info)</c></seealso>.
+              </p>
+            </item>
+            <tag><c>kill</c></tag>
+            <item>
+              <p>
+                When set to <c>true</c> the runtime system will send an
+                untrappable exit signal with reason <c>kill</c> to the process
+                if the maximum heap size is reached. The garbage collection
+                that triggered the <c>kill</c> will not be completed, instead the
+                process will exit as soon as is possible. When set to <c>false</c>
+                no exit signal will be sent to the process, instead it will
+                continue executing.
+              </p>
+              <p>
+                If <c>kill</c> is not defined in the map
+                the system default will be used. The default system default
+                is <c>true</c>. It can be changed by either the erl
+                <seealso marker="erl#+hmaxk">+hmaxk</seealso> option,
+                or <seealso marker="#system_flag_max_heap_size"><c>
+                erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+              </p>
+            </item>
+            <tag><c>error_logger</c></tag>
+            <item>
+              <p>
+                When set to <c>true</c> the runtime system will send a
+                message to the current <seealso marker="kernel:error_logger"><c>error_logger</c></seealso>
+                containing details about the process when the maximum
+                heap size is reached. One <c>error_logger</c> report will
+                be sent each time the limit is reached.
+              </p>
+              <p>
+                If <c>error_logger</c> is not defined in the map the system
+                default will be used. The default system default is <c>true</c>.
+                It can be changed by either the erl <seealso marker="erl#+hmaxel">+hmaxel</seealso>
+                option, or <seealso marker="#system_flag_max_heap_size"><c>
+                erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+              </p>
+            </item>
+            <p>
+              The heap size of a process is quite hard to predict, especially the
+              amount of memory that is used during the garbage collection. When
+              contemplating using this option, it is recommended to first run
+              it in production with <c>kill</c> set to <c>false</c> and inspect
+              the <c>error_logger</c> reports to see what the normal peak sizes
+              of the processes in the system is and then tune the value
+              accordingly.
+            </p>
+          </taglist>
+        </p>
+      </desc>
+    </func>
+    <marker id="process_flag_message_queue_data"/>
+    <func>
+      <name name="process_flag" arity="2" clause_i="6"/>
       <fsummary>Set process flag <c>message_queue_data</c> for the calling process</fsummary>
       <type name="message_queue_data"/>
       <desc>
@@ -4392,7 +4479,7 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
-      <name name="process_flag" arity="2" clause_i="6"/>
+      <name name="process_flag" arity="2" clause_i="7"/>
       <fsummary>Sets process flag <c>priority</c> for the calling process.</fsummary>
       <type name="priority_level"/>
       <desc>
@@ -4466,7 +4553,7 @@ os_prompt% </pre>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="7"/>
+      <name name="process_flag" arity="2" clause_i="8"/>
       <fsummary>Sets process flag <c>save_calls</c> for the calling process.</fsummary>
       <desc>
         <p><c><anno>N</anno></c> must be an integer in the interval 0..10000.
@@ -4497,7 +4584,7 @@ os_prompt% </pre>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="8"/>
+      <name name="process_flag" arity="2" clause_i="9"/>
       <fsummary>Sets process flag <c>sensitive</c> for the calling process.</fsummary>
       <desc>
         <p>Sets or clears flag <c>sensitive</c> for the current process.
@@ -4551,6 +4638,7 @@ os_prompt% </pre>
       <type name="process_info_result_item"/>
       <type name="priority_level"/>
       <type name="stack_item"/>
+      <type name="max_heap_size" />
       <type name="message_queue_data" />
       <desc>
         <p>Returns a list containing <c><anno>InfoTuple</anno></c>s with
@@ -4604,6 +4692,7 @@ os_prompt% </pre>
       <type name="process_info_result_item"/>
       <type name="stack_item"/>
       <type name="priority_level"/>
+      <type name="max_heap_size" />
       <type name="message_queue_data" />
       <desc>
         <p>Returns information about the process identified by
@@ -4696,6 +4785,7 @@ os_prompt% </pre>
 	       The content of <c><anno>GCInfo</anno></c> can be changed without
 	       prior notice.</p>
           </item>
+          <marker id="process_info_garbage_collection_info"/>
           <tag><c>{garbage_collection_info, <anno>GCInfo</anno>}</c></tag>
           <item>
             <p><c><anno>GCInfo</anno></c> is a list containing miscellaneous
@@ -4875,6 +4965,7 @@ os_prompt% </pre>
             total suspend count on <c><anno>Suspendee</anno></c>,
             only the parts contributed by <c><anno>Pid</anno></c>.</p>
           </item>
+          <marker id="process_info_total_heap_size"/>
           <tag><c>{total_heap_size, <anno>Size</anno>}</c></tag>
           <item>
             <p><c><anno>Size</anno></c> is the total size, in words, of all heap
@@ -5569,6 +5660,7 @@ true</pre>
       <name name="spawn_opt" arity="2"/>
       <fsummary>Creates a new process with a fun as entry point.</fsummary>
       <type name="priority_level"/>
+      <type name="max_heap_size" />
       <type name="message_queue_data" />
       <type name="spawn_opt_option" />
       <desc>
@@ -5586,6 +5678,7 @@ true</pre>
       <name name="spawn_opt" arity="3"/>
       <fsummary>Creates a new process with a fun as entry point on a given node.</fsummary>
       <type name="priority_level"/>
+      <type name="max_heap_size" />
       <type name="message_queue_data" />
       <type name="spawn_opt_option" />
       <desc>
@@ -5602,6 +5695,7 @@ true</pre>
       <name name="spawn_opt" arity="4"/>
       <fsummary>Creates a new process with a function as entry point.</fsummary>
       <type name="priority_level"/>
+      <type name="max_heap_size" />
       <type name="message_queue_data" />
       <type name="spawn_opt_option" />
       <desc>
@@ -5705,6 +5799,16 @@ true</pre>
               fine-tuning an application and to measure the execution
               time with various <c><anno>VSize</anno></c> values.</p>
           </item>
+          <tag><c>{max_heap_size, <anno>Size</anno>}</c></tag>
+          <item>
+            <p>Sets the <c>max_heap_size</c> process flag. The default
+            <c>max_heap_size</c> is determined by the
+            <seealso marker="erl#+hmax"><c>+hmax</c></seealso> <c>erl</c>
+	    command line argument. For more information, see the
+	    documentation of
+            <seealso marker="#process_flag_max_heap_size"><c>process_flag(max_heap_size,
+	    <anno>Size</anno>)</c></seealso>.</p>
+          </item>
           <tag><c>{message_queue_data, <anno>MQD</anno>}</c></tag>
           <item>
             <p>Sets the state of the <c>message_queue_data</c> process
@@ -5725,6 +5829,7 @@ true</pre>
       <name name="spawn_opt" arity="5"/>
       <fsummary>Creates a new process with a function as entry point on a given node.</fsummary>
       <type name="priority_level"/>
+      <type name="max_heap_size" />
       <type name="message_queue_data" />
       <type name="spawn_opt_option" />
       <desc>
@@ -6506,8 +6611,25 @@ ok
       </desc>
     </func>
 
+    <marker id="system_flag_max_heap_size"></marker>
     <func>
       <name name="system_flag" arity="2" clause_i="8"/>
+      <type name="max_heap_size"/>
+      <fsummary>Sets system flag <c>max_heap_size</c></fsummary>
+      <desc>
+        <p>
+          Sets the default maximum heap size settings for processes.
+          The size is given in words. The new <c>max_heap_size</c>
+          effects only processes spawned efter the change has been made.
+          <c>max_heap_size</c> can be set for individual processes using
+          <seealso marker="#spawn_opt/4">spawn_opt/N</seealso> or
+          <seealso marker="#process_flag_message_queue_data">process_flag/2</seealso>.</p>
+        <p>Returns the old value of the flag.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_flag" arity="2" clause_i="9"/>
       <fsummary>Sets system flag <c>multi_scheduling</c>.</fsummary>
       <desc>
         <p><marker id="system_flag_multi_scheduling"></marker>
@@ -6557,7 +6679,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="9"/>
+      <name name="system_flag" arity="2" clause_i="10"/>
       <fsummary>Sets system flag <c>scheduler_bind_type</c>.</fsummary>
       <type name="scheduler_bind_type"/>
       <desc>
@@ -6675,7 +6797,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="10"/>
+      <name name="system_flag" arity="2" clause_i="11"/>
       <fsummary>Sets system flag <c>scheduler_wall_time</c>.</fsummary>
       <desc><p><marker id="system_flag_scheduler_wall_time"></marker>
       Turns on or off scheduler wall time measurements.</p>
@@ -6685,7 +6807,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="11"/>
+      <name name="system_flag" arity="2" clause_i="12"/>
       <fsummary>Sets system flag <c>schedulers_online</c>.</fsummary>
       <desc>
         <p><marker id="system_flag_schedulers_online"></marker>
@@ -6710,7 +6832,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="12"/>
+      <name name="system_flag" arity="2" clause_i="13"/>
       <fsummary>Sets system flag <c>trace_control_word</c>.</fsummary>
       <desc>
         <p>Sets the value of the node trace control word to
@@ -6724,7 +6846,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="12"/>
+      <name name="system_flag" arity="2" clause_i="14"/>
       <fsummary>Finalize the Time Offset</fsummary>
       <desc>
         <p><marker id="system_flag_time_offset"></marker>
@@ -6991,6 +7113,81 @@ ok
     </func>
 
     <func>
+      <name name="system_info" arity="1" clause_i="27"/>
+      <name name="system_info" arity="1" clause_i="28"/>
+      <name name="system_info" arity="1" clause_i="36"/>
+      <name name="system_info" arity="1" clause_i="37"/>
+      <name name="system_info" arity="1" clause_i="38"/>
+      <name name="system_info" arity="1" clause_i="39"/>
+      <type name="message_queue_data"/>
+      <type name="max_heap_size"/>
+      <fsummary>Information about the default process heap settings.</fsummary>
+      <desc>
+        <taglist>
+          <tag><c>fullsweep_after</c></tag>
+          <item>
+            <p>Returns <c>{fullsweep_after, integer() >= 0}</c>, which is
+              the <c>fullsweep_after</c> garbage collection setting used
+              by default. For more information, see
+              <c>garbage_collection</c> described in the following.</p>
+          </item>
+          <tag><c>garbage_collection</c></tag>
+          <item>
+            <p>Returns a list describing the default garbage collection
+              settings. A process spawned on the local node by a
+              <c>spawn</c> or <c>spawn_link</c> uses these
+              garbage collection settings. The default settings can be
+              changed by using
+              <seealso marker="#system_flag/2">system_flag/2</seealso>.
+              <seealso marker="#spawn_opt/4">spawn_opt/4</seealso>
+              can spawn a process that does not use the default
+              settings.</p>
+          </item>
+          <tag><c>max_heap_size</c></tag>
+          <item>
+	      <p>Returns <c>{max_heap_size, <anno>MaxHeapSize</anno>}</c>,
+              where <c><anno>MaxHeapSize</anno></c> is the current
+              system-wide max heap size settings for spawned processes.
+              This setting can be set using the <c>erl</c> command line
+              flags <seealso marker="erl#+hmax"><c>+hmax</c></seealso>,
+              <seealso marker="erl#+hmaxk"><c>+hmaxk</c></seealso> and
+              <seealso marker="erl#+hmaxel"><c>+hmaxel</c></seealso>. It can
+              also be changed at run-time using
+              <seealso marker="#system_flag_max_heap_size">
+                <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+              For more details about the <c>max_heap_size</c> process flag
+              see <seealso marker="#process_flag_max_heap_size">
+                <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+              </p>
+          </item>
+	  <tag><c>min_heap_size</c></tag>
+          <item>
+	      <p>Returns <c>{min_heap_size, <anno>MinHeapSize</anno>}</c>,
+              where <c><anno>MinHeapSize</anno></c> is the current
+              system-wide minimum heap size for spawned processes.</p>
+          </item>
+          <tag><marker id="system_info_message_queue_data"><c>message_queue_data</c></marker></tag>
+          <item>
+            <p>Returns the default value of the <c>message_queue_data</c>
+	    process flag which is either <c>off_heap</c>, <c>on_heap</c>, or <c>mixed</c>.
+	    This default is set by the <c>erl</c> command line argument
+	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso>. For more information on the
+	    <c>message_queue_data</c> process flag, see documentation of
+            <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
+	    MQD)</c></seealso>.</p>
+          </item>
+	  <tag><c>min_bin_vheap_size</c></tag>
+          <item>
+	      <p>Returns <c>{min_bin_vheap_size,
+              <anno>MinBinVHeapSize</anno>}</c>, where
+              <c><anno>MinBinVHeapSize</anno></c> is the current system-wide
+	      minimum binary virtual heap size for spawned processes.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="system_info" arity="1" clause_i="6"/>
       <name name="system_info" arity="1" clause_i="7"/>
       <name name="system_info" arity="1" clause_i="8"/>
@@ -7010,8 +7207,6 @@ ok
       <name name="system_info" arity="1" clause_i="24"/>
       <name name="system_info" arity="1" clause_i="25"/>
       <name name="system_info" arity="1" clause_i="26"/>
-      <name name="system_info" arity="1" clause_i="27"/>
-      <name name="system_info" arity="1" clause_i="28"/>
       <name name="system_info" arity="1" clause_i="29"/>
       <name name="system_info" arity="1" clause_i="30"/>
       <name name="system_info" arity="1" clause_i="31"/>
@@ -7019,10 +7214,6 @@ ok
       <name name="system_info" arity="1" clause_i="33"/>
       <name name="system_info" arity="1" clause_i="34"/>
       <name name="system_info" arity="1" clause_i="35"/>
-      <name name="system_info" arity="1" clause_i="36"/>
-      <name name="system_info" arity="1" clause_i="37"/>
-      <name name="system_info" arity="1" clause_i="38"/>
-      <name name="system_info" arity="1" clause_i="39"/>
       <name name="system_info" arity="1" clause_i="40"/>
       <name name="system_info" arity="1" clause_i="41"/>
       <name name="system_info" arity="1" clause_i="42"/>
@@ -7052,6 +7243,7 @@ ok
       <name name="system_info" arity="1" clause_i="66"/>
       <name name="system_info" arity="1" clause_i="67"/>
       <name name="system_info" arity="1" clause_i="68"/>
+      <name name="system_info" arity="1" clause_i="69"/>
       <fsummary>Information about the system.</fsummary>
       <desc>
         <p>Returns various information about the current system
@@ -7288,25 +7480,6 @@ ok
               <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang
               runtime system.</p>
           </item>
-          <tag><c>fullsweep_after</c></tag>
-          <item>
-            <p>Returns <c>{fullsweep_after, integer() >= 0}</c>, which is
-              the <c>fullsweep_after</c> garbage collection setting used
-              by default. For more information, see
-              <c>garbage_collection</c> described in the following.</p>
-          </item>
-          <tag><c>garbage_collection</c></tag>
-          <item>
-            <p>Returns a list describing the default garbage collection
-              settings. A process spawned on the local node by a
-              <c>spawn</c> or <c>spawn_link</c> uses these
-              garbage collection settings. The default settings can be
-              changed by using
-              <seealso marker="#system_flag/2">system_flag/2</seealso>.
-              <seealso marker="#spawn_opt/4">spawn_opt/4</seealso>
-              can spawn a process that does not use the default
-              settings.</p>
-          </item>
           <tag><c>heap_sizes</c></tag>
           <item>
             <p>Returns a list of integers representing valid heap sizes 
@@ -7380,29 +7553,6 @@ ok
           <tag><c>machine</c></tag>
           <item>
             <p>Returns a string containing the Erlang machine name.</p>
-          </item>
-	  <tag><c>min_heap_size</c></tag>
-          <item>
-	      <p>Returns <c>{min_heap_size, <anno>MinHeapSize</anno>}</c>,
-              where <c><anno>MinHeapSize</anno></c> is the current
-              system-wide minimum heap size for spawned processes.</p>
-          </item>
-          <tag><marker id="system_info_message_queue_data"><c>message_queue_data</c></marker></tag>
-          <item>
-            <p>Returns the default value of the <c>message_queue_data</c>
-	    process flag which is either <c>off_heap</c>, <c>on_heap</c>, or <c>mixed</c>.
-	    This default is set by the <c>erl</c> command line argument
-	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso>. For more information on the
-	    <c>message_queue_data</c> process flag, see documentation of
-            <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
-	    MQD)</c></seealso>.</p>
-          </item>
-	  <tag><c>min_bin_vheap_size</c></tag>
-          <item>
-	      <p>Returns <c>{min_bin_vheap_size,
-              <anno>MinBinVHeapSize</anno>}</c>, where
-              <c><anno>MinBinVHeapSize</anno></c> is the current system-wide
-	      minimum binary virtual heap size for spawned processes.</p>
           </item>
           <tag><c>modified_timing_level</c></tag>
           <item>
@@ -8028,12 +8178,13 @@ ok
               <c>GcPid</c> and <c>Info</c>
               are the same as for <c>long_gc</c> earlier, except that
               the tuple tagged with <c>timeout</c> is not present.</p>
-            <p>As of <c>ERTS</c> 5.6, the monitor message is sent
-              if the sum of the sizes of all memory blocks allocated
-              for all heap generations is equal to or higher than <c>Size</c>.
-              Previously the monitor message was sent if the memory block
-              allocated for the youngest generation was equal to or higher
-              than <c>Size</c>.</p>
+            <p>The monitor message is sent if the sum of the sizes of
+              all memory blocks allocated for all heap generations after
+              a garbage collection is equal to or higher than <c>Size</c>.</p>
+            <p>When a process is killed by <seealso marker="#process_flag_max_heap_size">
+              <c>max_heap_size</c></seealso>, it is killed before the
+              garbage collection is complete and thus no large heap message
+              will be sent.</p>
           </item>
           <tag><c>busy_port</c></tag>
           <item>
@@ -8560,7 +8711,9 @@ timestamp() ->
           <tag><c>garbage_collection</c></tag>
           <item>
             <p>Traces garbage collections of processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_gc_minor_start">gc_minor_start</seealso></c> and <c><seealso marker="#trace_3_trace_messages_gc_minor_end">gc_minor_end</seealso></c>.</p>
+            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_gc_minor_start">gc_minor_start</seealso></c>,
+            <c><seealso marker="#trace_3_trace_messages_gc_max_heap_size">gc_max_heap_size</seealso></c> and
+	    <c><seealso marker="#trace_3_trace_messages_gc_minor_end">gc_minor_end</seealso></c>.</p>
           </item>
           <tag><c>timestamp</c></tag>
           <item>
@@ -8927,6 +9080,19 @@ timestamp() ->
 	        old heap in the process before doing a garbage collection.</item>
             </taglist>
             <p>All sizes are in words.</p>
+          </item>
+          <tag>
+            <marker id="trace_3_trace_messages_gc_max_heap_size"></marker>
+            <c>{trace, Pid, gc_max_heap_size, Info}</c>
+          </tag>
+          <item>
+            <p>
+              Sent when the <seealso marker="#process_flag_max_heap_size"><c>max_heap_size</c></seealso>
+              is reached during garbage collection. <c>Info</c> contains the
+              same kind of list as in message <c>gc_start</c>,
+              but the sizes reflect the sizes that triggered max_heap_size to
+              be reached.
+            </p>
           </item>
           <tag>
             <marker id="trace_3_trace_messages_gc_minor_end"></marker>
