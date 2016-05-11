@@ -193,8 +193,10 @@ int erts_finish_breakpointing(void);
 
 /* Nif tracer functions */
 int erts_is_tracer_proc_enabled(Process *c_p, ErtsProcLocks c_p_locks,
-                                ErtsPTabElementCommon *t_p, Eterm type);
-int erts_is_tracer_enabled(Process *c_p, const ErtsTracer tracer);
+                                ErtsPTabElementCommon *t_p);
+int erts_is_tracer_proc_enabled_send(Process* c_p, ErtsProcLocks c_p_locks,
+                                     ErtsPTabElementCommon *t_p);
+int erts_is_tracer_enabled(const ErtsTracer tracer, ErtsPTabElementCommon *t_p);
 Eterm erts_tracer_to_term(Process *p, ErtsTracer tracer);
 ErtsTracer erts_term_to_tracer(Eterm prefix, Eterm term);
 void erts_tracer_replace(ErtsPTabElementCommon *t_p,
@@ -223,10 +225,5 @@ ERTS_DECLARE_DUMMY(erts_tracer_nil) = NIL;
 
 #define ERTS_TRACER_FROM_ETERM(termp) \
     ((ErtsTracer*)(termp))
-
-#define ERTS_TRACER_PROC_IS_ENABLED(PROC)                               \
-    (!ERTS_TRACER_IS_NIL(ERTS_TRACER(PROC))                             \
-     && erts_is_tracer_proc_enabled(PROC, ERTS_PROC_LOCK_MAIN,          \
-                                    &(PROC)->common, am_trace_status))
 
 #endif /* ERL_TRACE_H__ */

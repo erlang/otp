@@ -10085,7 +10085,10 @@ Process *schedule(Process *p, int calls)
 
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
-	if (IS_TRACED(p)) {
+        /* Clear tracer if it has been removed */
+	if (IS_TRACED(p) && erts_is_tracer_proc_enabled(
+                p, ERTS_PROC_LOCK_MAIN, &p->common)) {
+
 	    if (state & ERTS_PSFLG_EXITING) {
 		if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_EXIT))
 		    trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in_exiting);
@@ -10099,12 +10102,6 @@ Process *schedule(Process *p, int calls)
 		erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_IN);
 	    }
 	}
-
-
-#ifdef ERTS_SMP
-        /* Clears tracer if it has been removed */
-        (void)ERTS_TRACER_PROC_IS_ENABLED(p);
-#endif
 
 	if (state & (ERTS_PSFLG_RUNNING_SYS
 		     | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {

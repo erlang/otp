@@ -41,10 +41,14 @@ on_load() ->
 %%% NIF placeholders
 %%%
 
--spec enabled(Tag :: trace_tag() | seq_trace | trace_status,
+-spec enabled(Tag :: trace_status,
               TracerState :: tracer_state(),
               Tracee :: tracee()) ->
-   trace | discard | remove.
+                     trace | remove;
+             (Tag :: trace_tag() | seq_trace,
+              TracerState :: tracer_state(),
+              Tracee :: tracee()) ->
+   trace | discard.
 enabled(_, _, _) ->
     erlang:nif_error(nif_not_loaded).
 

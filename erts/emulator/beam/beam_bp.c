@@ -655,8 +655,7 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
 	erts_smp_atomic_inc_nob(&bp->count->acount);
     }
 
-    if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE
-        && ERTS_TRACER_PROC_IS_ENABLED(c_p)) {
+    if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
 	Eterm w;
 	erts_trace_time_call(c_p, I, bp->time);
 	w = (BeamInstr) *c_p->cp;
@@ -753,8 +752,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	}
     }
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE &&
-	IS_TRACED_FL(p, F_TRACE_CALLS) &&
-	ERTS_TRACER_PROC_IS_ENABLED(p)) {
+	IS_TRACED_FL(p, F_TRACE_CALLS)) {
 	BeamInstr *pc = (BeamInstr *)ep->code+3;
 	erts_trace_time_call(p, pc, bp->time);
     }

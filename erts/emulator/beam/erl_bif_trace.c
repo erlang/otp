@@ -512,8 +512,7 @@ start_trace(Process *c_p, ErtsTracer tracer,
             && !ERTS_TRACER_COMPARE(ERTS_TRACER(port), tracer)) {
             /* This tracee is already being traced, and not by the
              * tracer to be */
-            if (erts_is_tracer_proc_enabled(c_p, ERTS_PROC_LOCKS_ALL,
-                                            common, am_trace_status)) {
+            if (erts_is_tracer_enabled(tracer, common)) {
                 /* The tracer is still in use */
                 return 1;
             }
@@ -856,7 +855,7 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
             return am_undefined;
 
         if (!ERTS_TRACER_IS_NIL(ERTS_TRACER(tracee)))
-            erts_is_tracer_proc_enabled(NULL, 0, &tracee->common, am_trace_status);
+            erts_is_tracer_proc_enabled(NULL, 0, &tracee->common);
 
         tracer = erts_tracer_to_term(p, ERTS_TRACER(tracee));
         trace_flags = ERTS_TRACE_FLAGS(tracee);
@@ -864,22 +863,24 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
         erts_port_release(tracee);
 
     } else if (is_internal_pid(pid_spec)) {
-	Process *tracee;
-	tracee = erts_pid2proc(p, ERTS_PROC_LOCK_MAIN,
-			       pid_spec, ERTS_PROC_LOCK_MAIN);
+	Process *tracee = erts_pid2proc_not_running(p, ERTS_PROC_LOCK_MAIN,
+                                                    pid_spec, ERTS_PROC_LOCK_MAIN);
+
+        if (tracee == ERTS_PROC_LOCK_BUSY)
+            ERTS_BIF_YIELD2(bif_export[BIF_trace_info_2], p, pid_spec, key);
 
 	if (!tracee)
 	    return am_undefined;
 
         if (!ERTS_TRACER_IS_NIL(ERTS_TRACER(tracee)))
             erts_is_tracer_proc_enabled(tracee, ERTS_PROC_LOCK_MAIN,
-                                        &tracee->common, am_trace_status);
+                                        &tracee->common);
 
         tracer = erts_tracer_to_term(p, ERTS_TRACER(tracee));
         trace_flags = ERTS_TRACE_FLAGS(tracee);
 
-        if (tracee != p)
-            erts_smp_proc_unlock(tracee, ERTS_PROC_LOCK_MAIN);
+	if (tracee != p)
+	    erts_smp_proc_unlock(tracee, ERTS_PROC_LOCK_MAIN);
     } else if (is_external_pid(pid_spec)
 	       && external_pid_dist_entry(pid_spec) == erts_this_dist_entry) {
 	    return am_undefined;

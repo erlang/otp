@@ -90,7 +90,7 @@
           <item>If not set to <c>true</c>, the tracer has been requested to
           include the output of a match specification that was run.</item>
           <tag><c>scheduler_id</c></tag>
-          <item>Set to a number of the scheduler id is to be included by the tracer.
+          <item>Set to a number if the scheduler id is to be included by the tracer.
           Otherwise it is set to <c>undefined</c>.</item>
         </taglist>
         </p>
@@ -155,14 +155,13 @@
         overhead associated with tracing. If <c>trace</c> is returned the
         necessary trace data will be created and the trace call-back of the tracer
         will be called. If <c>discard</c> is returned, this trace call
-        will be discarded and no call to trace will be done. If
-        <c>remove</c> is returned, the VM will attempt to remove this tracer
-        from the tracee, together with any trace flags set on the tracee.
+        will be discarded and no call to trace will be done.
         </p>
         <p><c>trace_status</c> is a special type of <c>TraceTag</c> which is used
         to check if the tracer should still be active. It is called in multiple
         scenarios, but most significantly it is used when tracing is started
-        using this tracer.</p>
+        using this tracer. If <c>remove</c> is returned when the <c>trace_status</c>
+        is checked, the tracer will be removed from the tracee.</p>
         <p>This function may be called multiple times per tracepoint, so it
         is important that it is both fast and side effect free.</p>
       </desc>
@@ -617,7 +616,7 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 }
 
 /*
- * argv[0]: Trace Tag
+ * argv[0]: TraceTag
  * argv[1]: TracerState
  * argv[2]: Tracee
  */
@@ -626,8 +625,11 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifPid to_pid;
     if (enif_get_local_pid(env, argv[1], &amp;to_pid))
         if (!enif_is_process_alive(env, &amp;to_pid))
-            /* tracer is dead so we should remove this tracepoint */
-            return enif_make_atom(env, "remove");
+            if (enif_is_identical(enif_make_atom(env, "trace_status"), argv[0]))
+                /* tracer is dead so we should remove this tracepoint */
+                return enif_make_atom(env, "remove");
+            else
+                return enif_make_atom(env, "discard");
 
     /* Only generate trace for when tracer != tracee */
     if (enif_is_identical(argv[1], argv[2]))
@@ -645,7 +647,7 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 /*
- * argv[0]: Trace Tag, should only be 'send'
+ * argv[0]: TraceTag, should only be 'send'
  * argv[1]: TracerState, process to send {argv[2], argv[4]} to
  * argv[2]: Tracee
  * argv[3]: Message, ignored
