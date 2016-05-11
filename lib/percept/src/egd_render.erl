@@ -216,11 +216,11 @@ parse_objects_on_line(Y, Width, Objects) ->
     parse_objects_on_line(Y, 1, Width, Objects, []).
 parse_objects_on_line(_Y, _Z, _, [], Out) -> lists:flatten(Out);
 parse_objects_on_line(Y, Z, Width, [O|Os], Out) ->
-    case is_object_on_line(Y, O) of
+    case is_object_on_line(O, Y) of
     	false ->
 	    parse_objects_on_line(Y, Z + 1, Width, Os, Out);
 	true ->
-	    OLs  = object_line_data(Y, Z, O),
+	    OLs  = object_line_data(O,Y,Z),
 	    TOLs = trim_object_line_data(OLs, Width),
 	    parse_objects_on_line(Y, Z + 1, Width, Os, [TOLs|Out])
     end.
@@ -238,9 +238,9 @@ trim_object_line_data([{Z, Xl, Xr, C}|OLs], Width, Out) ->
 
 % object_line_data
 % In:
+%	Object :: image_object()
 %	Y :: index of height
 %	Z :: index of depth
-%	Object :: image_object()
 % Out:
 %	OLs = [{Z, Xl, Xr, Color}]
 %	Z = index of height
@@ -250,21 +250,22 @@ trim_object_line_data([{Z, Xl, Xr, C}|OLs], Width, Out) ->
 %	Calculate the length (start and finish index) of an objects horizontal
 %	line given the height index.
 
-object_line_data(Y, Z, Object) -> 
-    object_line_data(Y, Z, Object, Object#image_object.type).
-object_line_data(Y, Z, #image_object{ span = {X0, Y0, X1, Y1}, color = C}, rectangle) ->
+object_line_data(#image_object{type=rectangle,
+                               span={X0,Y0,X1,Y1}, color=C}, Y, Z) ->
     if
-	Y0 =:= Y ; Y1 =:= Y ->
-    	    [{Z, X0, X1, C}];
-	true ->
-    	    [{Z, X0, X0, C},
-	     {Z, X1, X1, C}]
+        Y0 =:= Y ; Y1 =:= Y ->
+            [{Z, X0, X1, C}];
+        true ->
+            [{Z, X0, X0, C},
+             {Z, X1, X1, C}]
     end;
 
-object_line_data(_Y, Z, #image_object{ span = {X0, _, X1, _}, color = C}, filled_rectangle) ->
+object_line_data(#image_object{type=filled_rectangle,
+                               span={X0, _, X1, _}, color=C}, _Y, Z) ->
     [{Z, X0, X1, C}];
 
-object_line_data(Y, Z, #image_object{ internals={Xr,Yr,Yr2}, span = {X0,Y0,X1,Y1}, color = C}, filled_ellipse) ->
+object_line_data(#image_object{type=filled_ellipse,
+                               internals={Xr,Yr,Yr2}, span={X0,Y0,X1,Y1}, color=C}, Y, Z) ->
     if 
     	X1 - X0 == 0; Y1 - Y0 == 0 ->
 	    [{Z, X0, X1, C}];
@@ -275,33 +276,37 @@ object_line_data(Y, Z, #image_object{ internals={Xr,Yr,Yr2}, span = {X0,Y0,X1,Y1
 	    [{Z, round(X0 - Xo + Xr), round(X0 + Xo + Xr), C}]
     end;
 
-object_line_data(Y, Z, #image_object{ intervals = Is, color = C}, filled_triangle) ->
+object_line_data(#image_object{type=filled_triangle,
+                               intervals=Is, color=C}, Y, Z) ->
     case lists:keyfind(Y, 1, Is) of
    	{Y, Xl, Xr} -> [{Z, Xl, Xr, C}];
 	false -> []
     end;    
 
-object_line_data(Y, Z, #image_object{ intervals = Is, color = C}, line) ->
+object_line_data(#image_object{type=line,
+                               intervals=Is, color=C}, Y, Z) ->
     case dict:find(Y, Is) of
 	{ok, Ls} -> [{Z, Xl, Xr, C}||{Xl,Xr} <- Ls];
 	_ -> []
     end;
 
-object_line_data(Y, Z, #image_object{ color = C, intervals = Is}, polygon) ->
+object_line_data(#image_object{type=polygon,
+                               color=C, intervals=Is}, Y, Z) ->
     [{Z, Xl, Xr, C} || {Yp, Xl, Xr} <- Is, Yp =:= Y];
 
-object_line_data(Y, Z, #image_object{ color = C, intervals = Is}, text_horizontal) ->
+object_line_data(#image_object{type=text_horizontal,
+                               color=C, intervals=Is}, Y, Z) ->
     [{Z, Xl, Xr, C} || {Yg, Xl, Xr} <- Is, Yg =:= Y];
 
-object_line_data(_, Z, #image_object{ span = {X0,_,X1,_}, color = C}, _) ->
+object_line_data(#image_object{type=pixel,
+                               span={X0,_,X1,_}, color=C}, _, Z) ->
     [{Z, X0, X1, C}].
 
-is_object_on_line(Y, #image_object{ span = Span }) ->
-    is_object_bounds_on_line(Y, Span). 
+is_object_on_line(#image_object{span={_,Y0,_,Y1}}, Y) ->
+    if Y < Y0; Y > Y1 -> false;
+       true -> true
+    end.
     
-is_object_bounds_on_line(Y, {_,Y0,_,Y1}) when Y < Y0 ; Y > Y1 -> false;
-is_object_bounds_on_line(_, _) -> true.
-
 %%% primitives to line_spans
 
 %% compile objects to linespans
