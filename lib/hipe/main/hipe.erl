@@ -1480,18 +1480,25 @@ opt_expansions(TargetArch) ->
   [{o1, o1_opts(TargetArch)},
    {o2, o2_opts(TargetArch)},
    {o3, o3_opts(TargetArch)},
-   {to_llvm, llvm_opts(o3)},
-   {{to_llvm, o0}, llvm_opts(o0)},
-   {{to_llvm, o1}, llvm_opts(o1)},
-   {{to_llvm, o2}, llvm_opts(o2)},
-   {{to_llvm, o3}, llvm_opts(o3)},
+   {to_llvm, llvm_opts(o3, TargetArch)},
+   {{to_llvm, o0}, llvm_opts(o0, TargetArch)},
+   {{to_llvm, o1}, llvm_opts(o1, TargetArch)},
+   {{to_llvm, o2}, llvm_opts(o2, TargetArch)},
+   {{to_llvm, o3}, llvm_opts(o3, TargetArch)},
    {x87, [x87, inline_fp]},
    {inline_fp, case TargetArch of  %% XXX: Temporary until x86 has sse2
 		 x86 -> [x87, inline_fp];
 		 _ -> [inline_fp] end}].
 
-llvm_opts(O) ->
-  [to_llvm, {llvm_opt, O}, {llvm_llc, O}].
+llvm_opts(O, TargetArch) ->
+  Base = [to_llvm, {llvm_opt, O}, {llvm_llc, O}],
+  case TargetArch of
+    %% A llvm bug present in 3.4 through (at least) 3.8 miscompiles x86
+    %% functions that have floats are spilled to stack by clobbering the process
+    %% pointer (ebp) trying to realign the stack pointer.
+    x86 -> [no_inline_fp | Base];
+      _ -> Base
+  end.
 
 %% This expands "basic" options, which may be tested early and cannot be
 %% in conflict with options found in the source code.
@@ -1521,7 +1528,8 @@ expand_options(Opts, TargetArch) ->
   proplists:normalize(Opts, [{negations, opt_negations()},
 			     {aliases, opt_aliases()},
 			     {expand, opt_basic_expansions()},
-			     {expand, opt_expansions(TargetArch)}]).
+			     {expand, opt_expansions(TargetArch)},
+			     {negations, opt_negations()}]).
 
 -spec check_options(comp_options()) -> 'ok'.
 
