@@ -67,8 +67,7 @@ is_killed(R, Is, D) ->
     St = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% is_killed_at(Reg, Lbl, State) -> true|false
@@ -78,8 +77,7 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
     St0 = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St0) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% is_not_used(Register, [Instruction], State) -> true|false
@@ -93,8 +91,7 @@ is_not_used(R, Is, D) ->
     St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% is_not_used(Register, [Instruction], State) -> true|false
@@ -108,8 +105,7 @@ is_not_used_at(R, Lbl, D) ->
     St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% index_labels(FunctionIs) -> State
@@ -237,13 +233,11 @@ combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
 %%%
 
 
-%% check_liveness(Reg, [Instruction], {State,BlockCheckFun}) ->
-%%                      {killed | used | unknown,UpdateState}
-%%  Finds out how Reg is used in the instruction sequence. Returns one of:
-%%    killed - Reg is assigned a new value or killed by an allocation instruction
-%%    used - Reg is used (or possibly referenced by an allocation instruction)
-%%    unknown - not possible to determine (perhaps because of an instruction
-%%              that we don't recognize)
+%% check_liveness(Reg, [Instruction], #live{}) ->
+%%                      {killed | used, #live{}}
+%%  Find out whether Reg is used or killed in instruction sequence.
+%%  'killed' means that Reg is assigned a new value or killed by an
+%%  allocation instruction. 'used' means that Reg is used in some way.
 
 check_liveness(R, [{set,_,_,_}=I|_], St) ->
     erlang:error(only_allowed_in_blocks, [R,I,St]);
@@ -458,8 +452,9 @@ check_liveness(R, [{loop_rec,{f,_},{x,0}}|_], St) ->
 	{x,_} ->
 	    {killed,St};
 	_ ->
-	    %% y register. Rarely happens. Be very conversative.
-	    {unknown,St}
+	    %% y register. Rarely happens. Be very conversative and
+	    %% assume it's used.
+	    {used,St}
     end;
 check_liveness(R, [{loop_rec_end,{f,Fail}}|_], St) ->
     check_liveness_at(R, Fail, St);
@@ -490,7 +485,8 @@ check_liveness(R, [{put_map,{f,_},_,Src,_D,Live,{list,_}}|_], St0) ->
 	{x,_} ->
 	    {killed,St0};
 	{y,_} ->
-	    {unknown,St0}
+	    %% Conservatively mark it as used.
+	    {used,St0}
     end;
 check_liveness(R, [{test_heap,N,Live}|Is], St) ->
     I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
@@ -502,12 +498,8 @@ check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
     I = {block,[{set,[D1,D2],[S],get_list}]},
     check_liveness(R, [I|Is], St);
 check_liveness(_R, Is, St) when is_list(Is) ->
-%%     case Is of
-%% 	[I|_] ->
-%% 	    io:format("~p ~p\n", [_R,I]);
-%% 	_ -> ok
-%%     end,
-    {unknown,St}.
+    %% Not implemented. Conservatively assume that the register is used.
+    {used,St}.
     
 check_liveness_everywhere(R, [{f,Lbl}|T], St0) ->
     case check_liveness_at(R, Lbl, St0) of
@@ -526,7 +518,7 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 	none ->
 	    {Res,St} = case gb_trees:lookup(Lbl, Ll) of
 			   {value,Is} -> check_liveness(R, Is, St0);
-			   none -> {unknown,St0}
+			   none -> {used,St0}
 		       end,
 	    {Res,St#live{res=gb_trees:insert(Lbl, Res, St#live.res)}}
     end.
@@ -633,8 +625,7 @@ is_reg_used_at_1(_, 0, St) ->
 is_reg_used_at_1(R, Lbl, St0) ->
     case check_liveness_at(R, Lbl, St0) of
 	{killed,St} -> {false,St};
-	{used,St} -> {true,St};
-	{unknown,St} -> {true,St}
+	{used,St} -> {true,St}
     end.
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
