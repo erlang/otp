@@ -1603,6 +1603,16 @@ int enif_fprintf(void* filep, const char* format, ...)
     return ret;
 }    
 
+int enif_snprintf(char *buffer, size_t size, const char* format, ...) 
+{ 
+    int ret;
+    va_list arglist;
+    va_start(arglist, format);
+    ret = erts_vsnprintf(buffer, size, format, arglist);
+    va_end(arglist);
+    return ret;
+}
+
 /***********************************************************
  **       Memory managed (GC'ed) "resource" objects       **
  ***********************************************************/

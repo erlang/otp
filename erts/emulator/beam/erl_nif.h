@@ -50,9 +50,10 @@
 ** 2.8: 18.0 add enif_has_pending_exception
 ** 2.9: 18.2 enif_getenv
 ** 2.10: Time API
+** 2.11: 19.0 enif_snprintf
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 10
+#define ERL_NIF_MINOR_VERSION 11
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
