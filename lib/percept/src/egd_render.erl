@@ -284,9 +284,9 @@ object_line_data(#image_object{type=filled_triangle,
     end;    
 
 object_line_data(#image_object{type=line,
-                               intervals=Is, color=C}, Y, Z) ->
-    case dict:find(Y, Is) of
-	{ok, Ls} -> [{Z, Xl, Xr, C}||{Xl,Xr} <- Ls];
+                               intervals=M, color=C}, Y, Z) ->
+    case M of
+        #{Y := Ls} -> [{Z, Xl, Xr, C}||{Xl,Xr} <- Ls];
 	_ -> []
     end;
 
@@ -316,7 +316,7 @@ precompile(#image{objects = Os}=I) ->
 
 precompile_objects([]) -> [];
 precompile_objects([#image_object{type=line, points=[P0,P1]}=O|Os]) ->
-    [O#image_object{intervals = ls_list2dict(line_ls(P0,P1))}|precompile_objects(Os)];
+    [O#image_object{intervals = linespans_to_map(line_ls(P0,P1))}|precompile_objects(Os)];
 precompile_objects([#image_object{type=filled_triangle, points=[P0,P1,P2]}=O|Os]) ->
     [O#image_object{intervals = triangle_ls(P0,P1,P2)}|precompile_objects(Os)];
 precompile_objects([#image_object{type=polygon, points=Pts}=O|Os]) ->
@@ -329,8 +329,8 @@ precompile_objects([#image_object{type=filled_ellipse, span={X0,Y0,X1,Y1}}=O|Os]
 precompile_objects([#image_object{type=arc, points=[P0,P1], internals=D}=O|Os]) ->
     Es = egd_primitives:arc_to_edges(P0, P1, D),
     Ls = lists:foldl(fun ({Ep0, Ep1}, D0) ->
-                             ls_list2dict(line_ls(Ep0, Ep1), D0)
-                     end, dict:new(), Es),
+                             linespans_to_map(line_ls(Ep0, Ep1), D0)
+                     end, #{}, Es),
     [O#image_object{type=line, intervals=Ls}|precompile_objects(Os)];
 precompile_objects([#image_object{type=text_horizontal,
                                   points=[P0], internals={Font,Text}}=O|Os]) ->
@@ -500,14 +500,18 @@ point_inside_triangle(P, P1, P2, P3) ->
     points_same_side(P, P2, P1, P3) and 
     points_same_side(P, P3, P1, P2).
    
-%% [{Y, Xl, Xr}]
-ls_list2dict(List) -> ls_list2dict(List, dict:new()).
-ls_list2dict([], D) -> D;
-ls_list2dict([{Y, Xl, Xr}|Ls], D) ->
-    case dict:is_key(Y, D) of
-        false -> ls_list2dict(Ls, dict:store(Y, [{Xl, Xr}], D));
-	true  -> ls_list2dict(Ls, dict:append(Y, {Xl, Xr}, D))
-    end.
+%% [{Y, Xl, Xr}] -> #{Y := [{Xl,Xr}]}
+%% Reorganize linspans to a map with Y as key.
+
+linespans_to_map(Ls) ->
+    linespans_to_map(Ls,#{}).
+linespans_to_map([{Y,Xl,Xr}|Ls], M) ->
+    case M of
+        #{Y := Spans} -> linespans_to_map(Ls, M#{Y := [{Xl,Xr}|Spans]});
+        _ -> linespans_to_map(Ls, M#{Y => [{Xl,Xr}]})
+    end;
+linespans_to_map([], M) ->
+    M.
 
 %% line_ls
 %% In:
