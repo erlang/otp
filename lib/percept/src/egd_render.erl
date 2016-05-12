@@ -267,13 +267,13 @@ object_line_data(#image_object{type=filled_rectangle,
 object_line_data(#image_object{type=filled_ellipse,
                                internals={Xr,Yr,Yr2}, span={X0,Y0,X1,Y1}, color=C}, Y, Z) ->
     if 
-    	X1 - X0 == 0; Y1 - Y0 == 0 ->
-	    [{Z, X0, X1, C}];
-	true ->
-	    Yo  = trunc(Y - Y0 - Yr),
-	    Yo2 = Yo*Yo,
-	    Xo  = math:sqrt((1 - Yo2/Yr2))*Xr,
-	    [{Z, round(X0 - Xo + Xr), round(X0 + Xo + Xr), C}]
+        X1 - X0 =:= 0; Y1 - Y0 =:= 0 ->
+            [{Z, X0, X1, C}];
+        true ->
+            Yo  = trunc(Y - Y0 - Yr),
+            Yo2 = Yo*Yo,
+            Xo  = math:sqrt((1 - Yo2/Yr2))*Xr,
+            [{Z, round(X0 - Xo + Xr), round(X0 + Xo + Xr), C}]
     end;
 
 object_line_data(#image_object{type=filled_triangle,
@@ -311,40 +311,32 @@ is_object_on_line(#image_object{span={_,Y0,_,Y1}}, Y) ->
 
 %% compile objects to linespans
 
-precompile(Image = #image{ objects = Os }) ->
-    Image#image{ objects = precompile_objects(Os) }.
+precompile(#image{objects = Os}=I) ->
+    I#image{objects = precompile_objects(Os)}.
 
-precompile_objects(Os) -> precompile_objects(Os, []).
-precompile_objects([], Out) -> lists:reverse(Out);
-
-precompile_objects([O = #image_object{ type = line, points = [P0,P1] }| Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = ls_list2dict(line_ls(P0,P1)) } | Out]);
-    
-precompile_objects([O = #image_object{ type = filled_triangle, points = [P0,P1,P2] } | Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = triangle_ls(P0,P1,P2) } | Out]);
-    
-precompile_objects([O = #image_object{ type = polygon, points = Pts } | Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = polygon_ls(Pts) } | Out]);
-
-precompile_objects([O = #image_object{ type = filled_ellipse, span = {X0,Y0,X1,Y1} } | Os], Out) ->
+precompile_objects([]) -> [];
+precompile_objects([#image_object{type=line, points=[P0,P1]}=O|Os]) ->
+    [O#image_object{intervals = ls_list2dict(line_ls(P0,P1))}|precompile_objects(Os)];
+precompile_objects([#image_object{type=filled_triangle, points=[P0,P1,P2]}=O|Os]) ->
+    [O#image_object{intervals = triangle_ls(P0,P1,P2)}|precompile_objects(Os)];
+precompile_objects([#image_object{type=polygon, points=Pts}=O|Os]) ->
+    [O#image_object{intervals = polygon_ls(Pts)}|precompile_objects(Os)];
+precompile_objects([#image_object{type=filled_ellipse, span={X0,Y0,X1,Y1}}=O|Os]) ->
     Xr  = (X1 - X0)/2,
     Yr  = (Y1 - Y0)/2,
     Yr2 = Yr*Yr,
-    precompile_objects(Os, [ O#image_object{ internals={Xr,Yr,Yr2} } | Out]);
-    
-precompile_objects([O = #image_object{ type = arc, points = [P0,P1], internals = D }| Os], Out) ->
+    [O#image_object{internals={Xr,Yr,Yr2}}|precompile_objects(Os)];
+precompile_objects([#image_object{type=arc, points=[P0,P1], internals=D}=O|Os]) ->
     Es = egd_primitives:arc_to_edges(P0, P1, D),
-    Ls = lists:foldl(fun
-    	({Ep0, Ep1}, D0) ->
-	    ls_list2dict(line_ls(Ep0, Ep1), D0)
-    end, dict:new(), Es),
-    precompile_objects(Os, [O#image_object{ type = line, intervals = Ls } | Out]);
-
-precompile_objects([O = #image_object{ type = text_horizontal, points = [P0], internals = {Font, Text}} | Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = text_horizontal_ls(P0, Font, Text) } | Out]);
-    
-precompile_objects([O|Os], Out) ->
-    precompile_objects(Os, [O|Out]).
+    Ls = lists:foldl(fun ({Ep0, Ep1}, D0) ->
+                             ls_list2dict(line_ls(Ep0, Ep1), D0)
+                     end, dict:new(), Es),
+    [O#image_object{type=line, intervals=Ls}|precompile_objects(Os)];
+precompile_objects([#image_object{type=text_horizontal,
+                                  points=[P0], internals={Font,Text}}=O|Os]) ->
+    [O#image_object{intervals=text_horizontal_ls(P0,Font,Text)}|precompile_objects(Os)];
+precompile_objects([O|Os]) ->
+    [O|precompile_objects(Os)].
 
 % triangle 
 
