@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 -compile({no_auto_import,[binary_part/2]}).
 -export([id/1,recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
-	 smoke_disasm/1,p_run/2,binary_part/2]).
+	 is_cloned_mod/1,smoke_disasm/1,p_run/2,binary_part/2]).
 
 id(I) -> I.
 
@@ -90,6 +90,17 @@ get_data_dir(Config) ->
     Data1 = re:replace(Data0, "_no_opt_SUITE", "_SUITE", Opts),
     Data = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
     re:replace(Data, "_inline_SUITE", "_SUITE", Opts).
+
+is_cloned_mod(Mod) ->
+    is_cloned_mod_1(atom_to_list(Mod)).
+
+%% Test whether Mod is a cloned module.
+
+is_cloned_mod_1("no_opt_SUITE") -> true;
+is_cloned_mod_1("post_opt_SUITE") -> true;
+is_cloned_mod_1("inline_SUITE") -> true;
+is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
+is_cloned_mod_1([]) -> false.
 
 %% p_run(fun(Data) -> ok|error, List) -> ok
 %%  Will fail the test case if there were any errors.
