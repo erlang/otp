@@ -128,8 +128,8 @@ display_info(Frame, Info) ->
     Add = fun(BoxInfo) ->
 		  case create_box(Panel, BoxInfo) of
 		      {Box, InfoFs} ->
-			  wxSizer:add(Sizer, Box, [{flag, ?wxEXPAND bor ?wxALL},
-						   {border, 5}]),
+			  wxSizer:add(Sizer, Box,
+				      [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
 			  wxSizer:addSpacer(Sizer, 5),
 			  InfoFs;
 		      undefined ->
@@ -453,14 +453,19 @@ create_box(Parent, Data) ->
 				 link_entry(Panel,Value);
 			     _ ->
 				 Value = to_str(Value0),
-				 TCtrl = wxStaticText:new(Panel, ?wxID_ANY,Value),
-				 length(Value) > 50 andalso
-				     wxWindow:setToolTip(TCtrl,wxToolTip:new(Value)),
-				 TCtrl
+				 case length(Value) > 100 of
+				     true ->
+					 Shown = lists:sublist(Value, 80),
+					 TCtrl = wxStaticText:new(Panel, ?wxID_ANY, [Shown,"..."]),
+					 wxWindow:setToolTip(TCtrl,wxToolTip:new(Value)),
+					 TCtrl;
+				     false ->
+					 wxStaticText:new(Panel, ?wxID_ANY, Value)
+				 end
 			 end,
 		     wxSizer:add(Line, 10, 0), % space of size 10 horisontally
 		     wxSizer:add(Line, Field, RightProportion),
-		     wxSizer:add(Box, Line, [{proportion,1},{flag,?wxEXPAND}]),
+		     wxSizer:add(Box, Line, [{proportion,1}]),
 		     Field;
 		(undefined) ->
 		     undefined
