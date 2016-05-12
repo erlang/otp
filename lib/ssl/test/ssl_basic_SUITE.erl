@@ -353,11 +353,11 @@ init_per_testcase(rizzo, Config) ->
 init_per_testcase(prf, Config) ->
     ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
     ct:timetrap({seconds, 40}),
-    case ?config(tc_group_path, Config) of
+    case proplists:get_value(tc_group_path, Config) of
         [] -> Prop = [];
         [Prop] -> Prop
     end,
-    case ?config(name, Prop) of
+    case proplists:get_value(name, Prop) of
         undefined -> TlsVersions = [sslv3, tlsv1, 'tlsv1.1', 'tlsv1.2'];
         TlsVersion when is_atom(TlsVersion) ->
             TlsVersions = [TlsVersion]
@@ -494,16 +494,16 @@ new_options_in_accept(Config) when is_list(Config) ->
 prf() ->
     [{doc,"Test that ssl:prf/5 uses the negotiated PRF."}].
 prf(Config) when is_list(Config) ->
-    TestPlan = ?config(prf_test_plan, Config),
+    TestPlan = proplists:get_value(prf_test_plan, Config),
     case TestPlan of
         [] -> ct:fail({error, empty_prf_test_plan});
         _ -> lists:foreach(fun(Suite) ->
                                    lists:foreach(
                                      fun(Test) ->
-                                             V = ?config(tls_ver, Test),
-                                             C = ?config(ciphers, Test),
-                                             E = ?config(expected, Test),
-                                             P = ?config(prf, Test),
+                                             V = proplists:get_value(tls_ver, Test),
+                                             C = proplists:get_value(ciphers, Test),
+                                             E = proplists:get_value(expected, Test),
+                                             P = proplists:get_value(prf, Test),
                                              prf_run_test(Config, V, C, E, P)
                                      end, Suite)
                            end, TestPlan)
@@ -3825,8 +3825,8 @@ prf_run_test(_, TlsVer, [], _, Prf) ->
 prf_run_test(Config, TlsVer, Ciphers, Expected, Prf) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     BaseOpts = [{active, true}, {versions, [TlsVer]}, {ciphers, Ciphers}],
-    ServerOpts = BaseOpts ++ ?config(server_opts, Config),
-    ClientOpts = BaseOpts ++ ?config(client_opts, Config),
+    ServerOpts = BaseOpts ++ proplists:get_value(server_opts, Config),
+    ClientOpts = BaseOpts ++ proplists:get_value(client_opts, Config),
     Server = ssl_test_lib:start_server(
                [{node, ServerNode}, {port, 0}, {from, self()},
                 {mfa, {?MODULE, prf_verify_value, [TlsVer, Expected, Prf]}},

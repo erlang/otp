@@ -502,7 +502,7 @@ start_ssl_node(Config) ->
 
 start_ssl_node(Config, XArgs) ->
     Name = mk_node_name(Config),
-    SSL = ?config(ssl_opts, Config),
+    SSL = proplists:get_value(ssl_opts, Config),
     SSLDistOpts = setup_dist_opts(Config),
     start_ssl_node_raw(Name, SSL ++ " " ++ SSLDistOpts ++ XArgs).
 
@@ -539,7 +539,7 @@ host_name() ->
 
 mk_node_name(Config) ->
     N = erlang:unique_integer([positive]),
-    Case = ?config(testcase, Config),
+    Case = proplists:get_value(testcase, Config),
     atom_to_list(?MODULE)
 	++ "_"
 	++ atom_to_list(Case)
@@ -792,7 +792,7 @@ do_append_files([F|Fs], RF) ->
     do_append_files(Fs, RF).
 
 setup_certs(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     NodeDir = filename:join([PrivDir, "Certs"]),
     RGenDir = filename:join([NodeDir, "rand_gen"]),
     ok = file:make_dir(NodeDir),
@@ -811,8 +811,8 @@ setup_certs(Config) ->
     append_files([CK, CC], CKC).
 
 setup_dist_opts(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Dhfile = filename:join([DataDir, "dHParam.pem"]),
     NodeDir = filename:join([PrivDir, "Certs"]),
     SDir = filename:join([NodeDir, "server"]),
@@ -874,7 +874,7 @@ add_ssl_opts_config(Config) ->
     %% just point out ssl ebin with -pa.
     %%
     try
-	Dir = ?config(priv_dir, Config),
+	Dir = proplists:get_value(priv_dir, Config),
 	LibDir = code:lib_dir(),
 	Apps = application:which_applications(),
 	{value, {stdlib, _, STDL_VSN}} = lists:keysearch(stdlib, 1, Apps),

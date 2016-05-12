@@ -117,8 +117,8 @@ init_per_suite(Config0) ->
 	    try crypto:start() of
 		ok ->
 		    ssl:start(),
-		    {ok,  _} = make_certs:all(?config(data_dir, Config0),
-					      ?config(priv_dir, Config0)),
+		    {ok,  _} = make_certs:all(proplists:get_value(data_dir, Config0),
+					      proplists:get_value(priv_dir, Config0)),
 		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 		    Config = ssl_test_lib:cert_options(Config1),
 		    ssl_test_lib:cipher_restriction(Config)
@@ -774,8 +774,8 @@ erlang_server_erlang_client_client_cert() ->
     [{doc,"Test erlang server with erlang client when client sends cert"}].
 erlang_server_erlang_client_client_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ?config(server_verification_opts, Config),  
-    ClientOpts = ?config(client_verification_opts, Config),  
+    ServerOpts = proplists:get_value(server_verification_opts, Config),  
+    ClientOpts = proplists:get_value(client_verification_opts, Config),  
     Version = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -1272,7 +1272,7 @@ send_and_hostname(SSLSocket) ->
 
 erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    ServerOptions = ?config(sni_server_opts, Config) ++ ?config(server_opts, Config),
+    ServerOptions = proplists:get_value(sni_server_opts, Config) ++ proplists:get_value(server_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
@@ -1299,9 +1299,9 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
 
 erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    [{sni_hosts, ServerSNIConf}] = ?config(sni_server_opts, Config),
+    [{sni_hosts, ServerSNIConf}] = proplists:get_value(sni_server_opts, Config),
     SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
-    ServerOptions = ?config(server_opts, Config) ++ [{sni_fun, SNIFun}],
+    ServerOptions = proplists:get_value(server_opts, Config) ++ [{sni_fun, SNIFun}],
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
@@ -1429,8 +1429,8 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
 
 start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = ?config(server_opts, Config),
-    ClientOpts0 = ?config(client_opts, Config),
+    ServerOpts = proplists:get_value(server_opts, Config),
+    ClientOpts0 = proplists:get_value(client_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"spdy/2">>]} | ClientOpts0],
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -1465,7 +1465,7 @@ start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callba
 
 start_erlang_server_and_openssl_client_for_alpn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>]} | ServerOpts0],
 
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
@@ -1494,8 +1494,8 @@ start_erlang_server_and_openssl_client_for_alpn_negotiation(Config, Data, Callba
 
 start_erlang_client_and_openssl_server_for_alpn_npn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = ?config(server_opts, Config),
-    ClientOpts0 = ?config(client_opts, Config),
+    ServerOpts = proplists:get_value(server_opts, Config),
+    ClientOpts0 = proplists:get_value(client_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"spdy/2">>]},
         {client_preferred_next_protocols, {client, [<<"spdy/3">>, <<"http/1.1">>]}} | ClientOpts0],
 
@@ -1534,7 +1534,7 @@ start_erlang_client_and_openssl_server_for_alpn_npn_negotiation(Config, Data, Ca
 
 start_erlang_server_and_openssl_client_for_alpn_npn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>]},
         {next_protocols_advertised, [<<"spdy/3">>, <<"http/1.1">>]} | ServerOpts0],
 
