@@ -360,15 +360,8 @@ JAVADOC-GENERATED
 
 # system
 
-/system/doc/pdf/*.pdf
-/system/doc/pdf/*.fo
-/system/doc/html/*.html
-/system/doc/html/*.eix
-/system/doc/html/js
-/system/doc/html/*/*.html
-/system/doc/html/*/*.gif
-/system/doc/html/*/*.jpg
-/system/doc/html/*/*.eix
+/system/doc/pdf
+/system/doc/html
 /system/doc/top/PR.template
 /system/doc/top/erlresolvelinks.js
 /system/doc/programming_examples/funs.xml
