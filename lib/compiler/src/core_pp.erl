@@ -483,6 +483,7 @@ spaces(5) -> "     ";
 spaces(6) -> "      ";
 spaces(7) -> "       ".
 
+%% Undo indentation done by nl_indent/1.
 unindent(T, Ctxt) ->
     unindent(T, Ctxt#ctxt.indent, []).
 
@@ -498,12 +499,7 @@ unindent([$\t|T], N, C) ->
 	    unindent([spaces(Tab - N)|T], 0, C)
     end;
 unindent([L|T], N, C) when is_list(L) ->
-    unindent(L, N, [T|C]);
-unindent([H|T], _, C) ->
-    [H|[T|C]];
-unindent([], N, [H|T]) ->
-    unindent(H, N, T);
-unindent([], _, []) -> [].
+    unindent(L, N, [T|C]).
 
 
 width(Txt, Ctxt) ->
