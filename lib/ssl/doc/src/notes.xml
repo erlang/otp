@@ -28,56 +28,6 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
-<section><title>SSL 8.0</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Remove default support for DES cipher suites</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-13195</p>
-        </item>
-        <item>
-          <p>
-	    Deprecate the function crypto:rand_bytes and make sure
-	    that crypto:strong_rand_bytes is used in all places that
-	    are cryptographically significant.</p>
-          <p>
-	    Own Id: OTP-13214</p>
-        </item>
-        <item>
-          <p>
-	    Better error handling of user error during TLS upgrade.
-	    ERL-69 is solved by gen_statem rewrite of ssl
-	    application.</p>
-          <p>
-	    Own Id: OTP-13255</p>
-        </item>
-        <item>
-          <p>
-	    Remove confusing error message when closing a distributed
-	    erlang node running over TLS</p>
-          <p>
-	    Own Id: OTP-13431</p>
-        </item>
-        <item>
-          <p>
-	    ssl now uses gen_statem instead of gen_fsm to implement
-	    the ssl connection process, this solves some timing
-	    issues in addtion to making the code more intuitive as
-	    the behaviour can be used cleanly instead of having a lot
-	    of workaround for shortcomings of the behaviour.</p>
-          <p>
-	    Own Id: OTP-13464</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>SSL 7.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

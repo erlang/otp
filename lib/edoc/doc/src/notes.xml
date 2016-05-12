@@ -32,20 +32,6 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
-<section><title>Edoc 0.7.19</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p> Handle typed record fields. </p>
-          <p>
-	    Own Id: OTP-13558</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Edoc 0.7.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
