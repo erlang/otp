@@ -2031,7 +2031,7 @@
   </xsl:template>
 
   <xsl:template match="seealso">
-     <xsl:call-template name="seealso"/>
+    <xsl:call-template name="seealso"/>
   </xsl:template>
 
   <xsl:template name="seealso">
@@ -2412,7 +2412,11 @@
 
   <xsl:template name="nl">
     <xsl:text>
-</xsl:text>
+    </xsl:text>
+  </xsl:template>
+
+  <xsl:template match="seealso//text()">
+    <xsl:value-of select="normalize-space(.)"/>
   </xsl:template>
 
 </xsl:stylesheet>
