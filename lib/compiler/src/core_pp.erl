@@ -518,8 +518,6 @@ add_indent(Ctxt, Dx) ->
 core_atom(A) -> io_lib:write_string(atom_to_list(A), $').
 
 
-is_simple_term(#c_values{es=Es}) ->
-    length(Es) < 3 andalso lists:all(fun is_simple_term/1, Es);
 is_simple_term(#c_tuple{es=Es}) ->
     length(Es) < 4 andalso lists:all(fun is_simple_term/1, Es);
 is_simple_term(#c_var{}) -> true;
