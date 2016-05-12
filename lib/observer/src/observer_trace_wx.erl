@@ -774,6 +774,7 @@ do_add_pid_or_port(POpts, Nview, LCtrl, OldPs, Ns0, Check) ->
 	{Ps, New, _Changed} ->
 	    Ns1 = lists:usort([node(Id) || #titem{id=Id} <- New, Check(Id)]),
 	    Nodes = case ordsets:subtract(Ns1, Ns0) of
+			[] when Ns0==[] -> [observer_wx:get_active_node()];
 			[] -> Ns0; %% No new Nodes
 			NewNs -> ordsets:union(NewNs, Ns0)
 		    end,

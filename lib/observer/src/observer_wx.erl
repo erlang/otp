@@ -21,8 +21,8 @@
 -behaviour(wx_object).
 
 -export([start/0, stop/0]).
--export([create_menus/2, get_attrib/1, get_tracer/0, set_status/1,
-	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+-export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0,
+	 set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -89,6 +89,9 @@ set_status(What) ->
 
 get_tracer() ->
     wx_object:call(observer, get_tracer).
+
+get_active_node() ->
+    wx_object:call(observer, get_active_node).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -384,6 +387,9 @@ handle_call({get_attrib, Attrib}, _From, State) ->
 
 handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
     {reply, TraceP, State};
+
+handle_call(get_active_node, _From, State=#state{node=Node}) ->
+    {reply, Node, State};
 
 handle_call(stop, _, State = #state{frame = Frame}) ->
     wxFrame:destroy(Frame),
