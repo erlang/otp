@@ -143,16 +143,24 @@ default_matchspecs(Key) ->
     [make_ms(Name,Term,FunStr) || {Name,Term,FunStr} <- Ms].
 
 get_default_matchspecs(funcs) ->
-    [{"Skeleton", [{'$1', [], [true]}], "fun(Args) -> true end"},
-     {"Return Trace", [{'_', [], [{return_trace}]}],
+    [{"Return Trace", [{'_', [], [{return_trace}]}],
       "fun(_) -> return_trace() end"},
-     {"Exception Trace", [{'_', [], [{exception_trace}]}], "fun(_) -> exception_trace() end"},
-     {"Message Caller", [{'_', [], [{message,{caller}}]}], "fun(_) -> message(caller()) end"},
-     {"Message Dump", [{'_', [], [{message,{process_dump}}]}], "fun(_) -> message(process_dump()) end"}];
+     {"Exception Trace", [{'_', [], [{exception_trace}]}],
+      "fun(_) -> exception_trace() end"},
+     {"Message Caller", [{'_', [], [{message,{caller}}]}],
+      "fun(_) -> message(caller()) end"},
+     {"Message Dump", [{'_', [], [{message,{process_dump}}]}],
+      "fun(_) -> message(process_dump()) end"}];
 get_default_matchspecs(send) ->
-    [{"Skeleton", [{['$1','$2'], [], [true]}], "fun([Pid,Msg]) -> true end"}];
+    [{"To local node", [{['$1','_'], [{'==',{node,'$1'},{node}}], []}],
+      "fun([Pid,_]) when node(Pid)==node() ->\n    true\nend"},
+     {"To remote node", [{['$1','_'], [{'=/=',{node,'$1'},{node}}], []}],
+      "fun([Pid,_]) when node(Pid)=/=node() ->\n    true\nend"}];
 get_default_matchspecs('receive') ->
-    [{"Skeleton", [{['$1','$2','$3'], [], [true]}], "fun([Node,Pid,Msg]) -> true end"}].
+    [{"From local node", [{['$1','_','_'], [{'==','$1',{node}}], []}],
+      "fun([Node,_,_]) when Node==node() ->\n    true\nend"},
+     {"From remote node", [{['$1','_','_'], [{'=/=','$1',{node}}], []}],
+      "fun([Node,_,_]) when Node=/=node() ->\n    true\nend"}].
 
 
 create_proc_port_view(Parent) ->
