@@ -4998,7 +4998,7 @@ about Erlang modules."
                                                is-regexp)))))
 
 (defun erlang-xref-find-definitions-tag (tag is-regexp)
-  "Find all defininitions of TAG and reorder them so that
+  "Find all definitions of TAG and reorder them so that
 definitions in the currently visited file comes first."
   (when (fboundp 'etags--xref-find-definitions)
     (let* ((current-file (and (buffer-file-name)
@@ -5037,7 +5037,7 @@ definitions in the currently visited file comes first."
          (nreverse xrefs))))
 
 (defun erlang-xref-find-definitions-module-tag (module tag is-regexp)
-  "Find all definitions of TAG and filter away defininitions
+  "Find all definitions of TAG and filter away definitions
 outside of MODULE."
   (when (fboundp 'etags--xref-find-definitions)
     (let ((xrefs (etags--xref-find-definitions tag is-regexp))
