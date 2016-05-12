@@ -507,9 +507,7 @@ unindent([], _, []) -> [].
 
 
 width(Txt, Ctxt) ->
-    try width(Txt, 0, Ctxt, [])
-    catch error:_ -> exit({bad_text,Txt})
-    end.
+    width(Txt, 0, Ctxt, []).
 
 width([$\t|T], A, Ctxt, C) ->
     width(T, A + ?TAB_WIDTH, Ctxt, C);
