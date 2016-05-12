@@ -693,8 +693,7 @@ core(Config) when is_list(Config) ->
     Outdir = filename:join(PrivDir, "core"),
     ok = file:make_dir(Outdir),
 
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    TestBeams = filelib:wildcard(Wc),
+    TestBeams = get_unique_beam_files(),
     Abstr = [begin {ok,{Mod,[{abstract_code,
 				    {raw_abstract_v1,Abstr}}]}} = 
 			     beam_lib:chunks(Beam, [abstract_code]),
@@ -755,8 +754,7 @@ core_roundtrip(Config) ->
     Outdir = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME)),
     ok = file:make_dir(Outdir),
 
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    TestBeams = filelib:wildcard(Wc),
+    TestBeams = get_unique_beam_files(),
     test_lib:p_run(fun(F) -> do_core_roundtrip(F, Outdir) end, TestBeams).
 
 do_core_roundtrip(Beam, Outdir) ->
@@ -870,8 +868,7 @@ asm(Config) when is_list(Config) ->
     Outdir = filename:join(PrivDir, "asm"),
     ok = file:make_dir(Outdir),
 
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    TestBeams = filelib:wildcard(Wc),
+    TestBeams = get_unique_beam_files(),
     Res = test_lib:p_run(fun(F) -> do_asm(F, Outdir) end, TestBeams),
     Res.
 
@@ -947,8 +944,7 @@ dialyzer(Config) ->
 
 %% Test that warnings contain filenames and line numbers.
 warnings(_Config) ->
-    TestDir = filename:dirname(code:which(?MODULE)),
-    Files = filelib:wildcard(filename:join(TestDir, "*.erl")),
+    Files = get_unique_files(".erl"),
     test_lib:p_run(fun do_warnings/1, Files).
 
 do_warnings(F) ->
@@ -1102,3 +1098,14 @@ compile_and_verify(Name, Target, Opts) ->
 	beam_lib:chunks(Target, [compile_info]),
     {options,BeamOpts} = lists:keyfind(options, 1, CInfo),
     Opts = BeamOpts.
+
+get_unique_beam_files() ->
+    get_unique_files(".beam").
+
+get_unique_files(Ext) ->
+    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
+    [F || F <- filelib:wildcard(Wc), not is_cloned(F, Ext)].
+
+is_cloned(File, Ext) ->
+    Mod = list_to_atom(filename:basename(File, Ext)),
+    test_lib:is_cloned_mod(Mod).
