@@ -630,9 +630,15 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 	}
     } else {
 	ReturnInfo *ri;
-	ReturnInfo defri = {RetIndex,0,{0}};
+	ReturnInfo defri;
 
 	if (restartp->ret_info == NULL) {
+            /* OpenBSD 5.8 gcc compiler for some reason creates
+               bad code if the above initialization is done
+               inline with the struct. So don't do that. */
+            defri.type = RetIndex;
+            defri.num_spec = 0;
+            defri.v[0] = 0;
 	    ri = &defri;
 	} else {
 	    ri = restartp->ret_info;
