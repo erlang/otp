@@ -36,12 +36,20 @@ process_trace(Parent, Default) ->
 
     FuncBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace function call", []),
     check_box(FuncBox, lists:member(functions, Default)),
+    ArityBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace arity instead of arguments", []),
+    check_box(ArityBox, lists:member(functions, Default)),
     SendBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace send message", []),
     check_box(SendBox, lists:member(send, Default)),
     RecBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace receive message", []),
     check_box(RecBox, lists:member('receive', Default)),
     EventBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace process events", []),
     check_box(EventBox, lists:member(events, Default)),
+    SchedBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace scheduling of processes", []),
+    check_box(SchedBox, lists:member(running_procs, Default)),
+    ExitBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace scheduling of exiting processes", []),
+    check_box(ExitBox, lists:member(exiting, Default)),
+    GCBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace garbage collections", []),
+    check_box(GCBox, lists:member(garbage_collection, Default)),
 
     {SpawnBox, SpwnAllRadio, SpwnFirstRadio} =
 	optionpage_top_right(Panel, RightSz, [{flag, ?wxBOTTOM},{border, 5}], "spawn"),
@@ -57,7 +65,7 @@ process_trace(Parent, Default) ->
 	{Radio, Opt} <- [{SpwnAllRadio, on_spawn}, {SpwnFirstRadio, on_first_spawn},
 			 {LinkAllRadio, on_link},  {LinkFirstRadio, on_first_link}]],
 
-    [wxSizer:add(LeftSz, CheckBox, []) || CheckBox <- [FuncBox,SendBox,RecBox,EventBox]],
+    [wxSizer:add(LeftSz, CheckBox, []) || CheckBox <- [FuncBox,ArityBox,SendBox,RecBox,EventBox,SchedBox,ExitBox,GCBox]],
     wxSizer:add(LeftSz, 150, -1),
 
     wxSizer:add(PanelSz, LeftSz, [{flag, ?wxEXPAND}, {proportion,1}]),
@@ -80,7 +88,9 @@ process_trace(Parent, Default) ->
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    All = [{SendBox, send}, {RecBox, 'receive'},
-		   {FuncBox, functions}, {EventBox, events},
+		   {FuncBox, functions}, {ArityBox, arity},
+		   {EventBox, events}, {SchedBox, running_procs},
+		   {ExitBox, exiting}, {GCBox, garbage_collection},
 		   {{SpawnBox, SpwnAllRadio}, on_spawn},
 		   {{SpawnBox,SpwnFirstRadio}, on_first_spawn},
 		   {{LinkBox, LinkAllRadio}, on_link},
@@ -111,8 +121,10 @@ port_trace(Parent, Default) ->
     check_box(RecBox, lists:member('receive', Default)),
     EventBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace port events", []),
     check_box(EventBox, lists:member(events, Default)),
+    SchedBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace scheduling of ports", []),
+    check_box(SchedBox, lists:member(running_ports, Default)),
 
-    [wxSizer:add(OptsSz, CheckBox, []) || CheckBox <- [SendBox,RecBox,EventBox]],
+    [wxSizer:add(OptsSz, CheckBox, []) || CheckBox <- [SendBox,RecBox,EventBox,SchedBox]],
     wxSizer:add(OptsSz, 150, -1),
 
     wxPanel:setSizer(Panel, OptsSz),
@@ -125,7 +137,7 @@ port_trace(Parent, Default) ->
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    All = [{SendBox, send}, {RecBox, 'receive'},
-		   {EventBox, events}],
+		   {EventBox, events}, {SchedBox, running_ports}],
 	    Opts = [Id || {Tick, Id} <- All, wxCheckBox:getValue(Tick)],
 	    wxDialog:destroy(Dialog),
 	    lists:reverse(Opts);

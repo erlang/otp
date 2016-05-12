@@ -1310,6 +1310,9 @@ ip_to_file(Trace, {shell_only, Fun} = State) ->
 ip_to_file(Trace,{{file,File}, ShellOutput}) ->
     Fun = dbg:trace_port(file,File), %File can be a filename or a wrap spec
     Port = Fun(),
+    %% Just in case this is on the traced node,
+    %% make sure the port is not traced.
+    p(Port,clear),
     %% Store the port so it can be properly closed
     ?MODULE ! {ip_to_file_trace_port, Port, self()},
     receive {?MODULE,ok} -> ok end,

@@ -1023,7 +1023,8 @@ dbg_flag(proc,on_link) -> sol;
 dbg_flag(proc,on_first_spawn) -> sofs;
 dbg_flag(proc,on_first_link) -> sofl;
 dbg_flag(proc,events) -> p;
-dbg_flag(port,events) -> ports.
+dbg_flag(port,events) -> ports;
+dbg_flag(_,Flag) -> Flag.
 
 textformat(Trace) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
     format_trace(Trace, tuple_size(Trace)-1, element(tuple_size(Trace),Trace));
