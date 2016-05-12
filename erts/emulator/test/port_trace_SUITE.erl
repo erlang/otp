@@ -31,7 +31,8 @@
          failure_atom/1, failure_posix/1,
          failure/1, output_term/1,
          driver_output_term/1,
-         send_term/1, driver_send_term/1]).
+         send_term/1, driver_send_term/1,
+         driver_remote_send_term/1]).
 
 -define(ECHO_DRV_NOOP, 0).
 -define(ECHO_DRV_OUTPUT, 1).
@@ -48,6 +49,7 @@
 -define(ECHO_DRV_SEND_TERM, 12).
 -define(ECHO_DRV_DRIVER_SEND_TERM, 13).
 -define(ECHO_DRV_SAVE_CALLER, 14).
+-define(ECHO_DRV_REMOTE_SEND_TERM, 15).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
             {timetrap, {seconds, 30}}].
@@ -60,7 +62,8 @@ all() ->
      failure_atom, failure_posix,
      failure, output_term,
      driver_output_term,
-     send_term, driver_send_term].
+     send_term, driver_send_term,
+     driver_remote_send_term].
 
 init_per_suite(Config) ->
     Config.
@@ -75,6 +78,13 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
+init_per_testcase(driver_remote_send_term, Config) ->
+    case erlang:system_info(smp_support) of
+        false ->
+            {skip,"Only supported on smp systems"};
+        true ->
+            init_per_testcase(driver_remote_send_term_smp, Config)
+    end;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     erlang:trace(all, false, [all]),
     os:unsetenv("OUTPUTV"),
@@ -543,6 +553,34 @@ driver_send_term(_Config) ->
 
     ok.
 
+%% Test that driver_send_term from non-scheduler thread does not
+%% generate trace messages.
+driver_remote_send_term(_Config) ->
+
+    Flags = [send],
+    {Prt, S} = trace_and_open(Flags,[binary]),
+
+    erlang:port_command(Prt, <<?ECHO_DRV_REMOTE_SEND_TERM, 123456:32>>),
+    recv({echo, Prt, <<123456:32>>}),
+    [] = flush(),
+
+    Pid = spawn_link(
+            fun() ->
+                    erlang:port_command(Prt, <<?ECHO_DRV_SAVE_CALLER>>),
+                    S ! ok,
+                    receive M -> S ! M end
+            end),
+    recv(ok),
+    erlang:trace(Pid, true, ['receive']),
+
+    erlang:port_command(Prt, <<?ECHO_DRV_REMOTE_SEND_TERM, 123456:32>>),
+    recv({echo, Prt, <<123456:32>>}),
+    [{trace, Pid, 'receive', {echo, Prt, <<123456:32>>}}] = flush(),
+
+    close(Prt, Flags),
+
+    ok.
+
 %%%%%%%%%%%%%%%%%%%
 %% Helper functions
 %%%%%%%%%%%%%%%%%%%
@@ -598,7 +636,7 @@ f(From) ->
     end.
 
 recv(Msg) ->
-    receive Msg -> ok after 100 -> ct:fail({did_not_get_data,Msg,flush()}) end.
+    receive Msg -> ok after 1000 -> ct:fail({did_not_get_data,Msg,flush()}) end.
 
 load_drv(Config) ->
     Path = proplists:get_value(data_dir, Config),

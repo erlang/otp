@@ -14,6 +14,13 @@ typedef struct _erl_drv_data {
     ErlDrvTermData caller;
 } EchoDrvData;
 
+struct remote_send_term {
+    char *buf;
+    int len;
+    ErlDrvTermData port;
+    ErlDrvTermData caller;
+};
+
 #define ECHO_DRV_NOOP                 0
 #define ECHO_DRV_OUTPUT               1
 #define ECHO_DRV_OUTPUT2              2
@@ -29,6 +36,7 @@ typedef struct _erl_drv_data {
 #define ECHO_DRV_SEND_TERM           12
 #define ECHO_DRV_DRIVER_SEND_TERM    13
 #define ECHO_DRV_SAVE_CALLER         14
+#define ECHO_DRV_REMOTE_SEND_TERM    15
 
 
 /* -------------------------------------------------------------------------
@@ -77,6 +85,8 @@ static ErlDrvEntry echo_drv_entry = {
     NULL,
     NULL
 };
+
+static void send_term_thread(void *);
 
 /* -------------------------------------------------------------------------
 ** Entry functions
@@ -200,6 +210,18 @@ static void echo_drv_output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len) {
         }
         break;
     }
+    case ECHO_DRV_REMOTE_SEND_TERM:
+    {
+        ErlDrvTid tid;
+        struct remote_send_term *t = malloc(sizeof(struct remote_send_term));
+        t->len = len-1;
+        t->buf = malloc(len-1);
+        t->port = driver_mk_port(port);
+        t->caller = data_p->caller;
+        memcpy(t->buf, buf+1, t->len);
+        erl_drv_thread_create("tmp_thread", &tid, send_term_thread, t, NULL);
+        break;
+    }
     case ECHO_DRV_SAVE_CALLER:
         data_p->caller = driver_caller(port);
         break;
@@ -238,4 +260,18 @@ static ErlDrvSSizeT echo_drv_call(ErlDrvData drv_data,
         *rbuf = driver_alloc(len - command);
     memcpy(*rbuf, buf+command, len-command);
     return len-command;
+}
+
+static void send_term_thread(void *a)
+{
+    struct remote_send_term *t = (struct remote_send_term*)a;
+    ErlDrvTermData term[] = {
+            ERL_DRV_ATOM, driver_mk_atom("echo"),
+            ERL_DRV_PORT, t->port,
+            ERL_DRV_BUF2BINARY, (ErlDrvTermData)(t->buf),
+                                (ErlDrvTermData)(t->len),
+            ERL_DRV_TUPLE, 3};
+    erl_drv_send_term(t->port, t->caller,
+                      term, sizeof(term) / sizeof(ErlDrvTermData));
+    return;
 }
