@@ -4368,6 +4368,7 @@ gen_get_map_elements(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
     int good_hash;
 #endif
 
+    ERTS_UNDEF(hx, 0);
     ASSERT(Size.type == TAG_u);
 
     NEW_GENOP(stp, op);
