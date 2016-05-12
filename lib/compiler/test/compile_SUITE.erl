@@ -779,8 +779,13 @@ do_core_roundtrip_1(Mod, Abstr, Outdir) ->
 
     %% Primarily, test that annotations are accepted for all
     %% constructs. Secondarily, smoke test cerl_trees:label/1.
-    {Core,_} = cerl_trees:label(Core0),
-    do_core_roundtrip_2(Mod, Core, Outdir).
+    {Core1,_} = cerl_trees:label(Core0),
+    do_core_roundtrip_2(Mod, Core1, Outdir),
+
+    %% Run the inliner to force generation of variables
+    %% with numeric names.
+    {ok,Mod,Core2} = compile:forms(Abstr, [inline,to_core]),
+    do_core_roundtrip_2(Mod, Core2, Outdir).
 
 do_core_roundtrip_2(M, Core0, Outdir) ->
     CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
