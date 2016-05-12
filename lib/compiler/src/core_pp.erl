@@ -350,11 +350,6 @@ format_1(#c_module{name=N,exports=Es,attrs=As,defs=Ds}, Ctxt) ->
      format_funcs(Ds, Ctxt),
      nl_indent(Ctxt)
      | "end"
-    ];
-format_1(Type, _) ->
-    ["** Unsupported type: ",
-     io_lib:write(Type)
-     | " **"
     ].
 
 format_funcs(Fs, Ctxt) ->
