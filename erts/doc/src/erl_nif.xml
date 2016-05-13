@@ -1763,6 +1763,15 @@ enif_map_iterator_destroy(env, &amp;iter);
       <desc><p>Get the byte size of a resource object <c>obj</c> obtained by
       <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.</p></desc>
     </func>
+
+    <func><name><ret>int</ret><nametext>enif_snprintf(char *str, size_t size, const char *format, ...)</nametext></name>
+      <fsummary>Format strings and Erlang terms</fsummary>
+      <desc>
+          <p>Similar to <c>snprintf</c> but this format string also accepts <c>"%T"</c> which formats Erlang terms.
+          </p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>void</ret><nametext>enif_system_info(ErlNifSysInfo *sys_info_ptr, size_t size)</nametext></name>
       <fsummary>Get information about the Erlang runtime system</fsummary>

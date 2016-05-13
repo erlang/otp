@@ -433,7 +433,7 @@ static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         char class[LTTNG_BUFFER_SZ];
 
         enif_get_tuple(env, argv[4], &arity, &tuple);
-        erts_snprintf(class, LTTNG_BUFFER_SZ, "%T", tuple[0]);
+        enif_snprintf(class, LTTNG_BUFFER_SZ, "%T", tuple[0]);
 
         if (enif_get_tuple(env, argv[3], &arity, &tuple)) {
             enif_get_uint(env, tuple[2], &len);
@@ -465,7 +465,7 @@ static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         char msg[LTTNG_BUFFER_SZ];
 
         lttng_pid_to_str(argv[4], to);
-        erts_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        enif_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
 
         LTTNG3(message_send, pid, to, msg);
     } else if (argv[0] == atom_send_to_non_existing_process) {
@@ -473,7 +473,7 @@ static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         char msg[LTTNG_BUFFER_SZ];
 
         lttng_pid_to_str(argv[4], to);
-        erts_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        enif_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
         /* mark it as non existing ? */
 
         LTTNG3(message_send, pid, to, msg);
@@ -496,7 +496,7 @@ static ERL_NIF_TERM trace_receive(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         char msg[LTTNG_BUFFER_SZ];
 
         lttng_pid_to_str(argv[2], pid);
-        erts_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        enif_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
 
         LTTNG2(message_receive, pid, msg);
     }
@@ -560,11 +560,11 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     /* register */
     } else if (argv[0] == atom_register) {
         char name[LTTNG_BUFFER_SZ];
-        erts_snprintf(name, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        enif_snprintf(name, LTTNG_BUFFER_SZ, "%T", argv[3]);
         LTTNG3(process_register, pid, name, "register");
     } else if (argv[0] == atom_unregister) {
         char name[LTTNG_BUFFER_SZ];
-        erts_snprintf(name, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        enif_snprintf(name, LTTNG_BUFFER_SZ, "%T", argv[3]);
         LTTNG3(process_register, pid, name, "unregister");
     /* link */
     } else if (argv[0] == atom_link) {
@@ -582,7 +582,7 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     /* exit */
     } else if (argv[0] == atom_exit) {
         char reason[LTTNG_BUFFER_SZ];
-        erts_snprintf(reason, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        enif_snprintf(reason, LTTNG_BUFFER_SZ, "%T", argv[3]);
         LTTNG2(process_exit, pid, reason);
     }
     return atom_ok;
@@ -622,11 +622,11 @@ static ERL_NIF_TERM trace_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         lttng_decl_procbuf(pid);
         lttng_pid_to_str(argv[3], pid);
 
-        erts_snprintf(driver, LTTNG_BUFFER_SZ, "%T", argv[4]);
+        enif_snprintf(driver, LTTNG_BUFFER_SZ, "%T", argv[4]);
         LTTNG3(port_open, pid, driver, port);
     } else if (argv[0] == atom_closed) {
         char reason[LTTNG_BUFFER_SZ];
-        erts_snprintf(reason, LTTNG_BUFFER_SZ, "%T", argv[3]);
+        enif_snprintf(reason, LTTNG_BUFFER_SZ, "%T", argv[3]);
 
         LTTNG2(port_exit, port, reason);
     /* link */
@@ -705,7 +705,7 @@ static ERL_NIF_TERM trace_running_ports(ErlNifEnv* env, int argc, const ERL_NIF_
     lttng_decl_mfabuf(where);
 
     lttng_portid_to_str(argv[2], pid);
-    erts_snprintf(where, LTTNG_BUFFER_SZ, "%T", argv[3]);
+    enif_snprintf(where, LTTNG_BUFFER_SZ, "%T", argv[3]);
 
     /* running  ports */
     if (argv[0] == atom_in) {

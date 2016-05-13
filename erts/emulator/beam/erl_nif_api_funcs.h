@@ -174,6 +174,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_term_to_binary, (ErlNifEnv *env, ERL_NIF_TERM te
 ERL_NIF_API_FUNC_DECL(size_t, enif_binary_to_term, (ErlNifEnv *env, const unsigned char* data, size_t sz, ERL_NIF_TERM *term, unsigned int opts));
 ERL_NIF_API_FUNC_DECL(int, enif_port_command, (ErlNifEnv *env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg));
 ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
+ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char *format, ...));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -330,6 +331,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_on_dirty_scheduler,(ErlNifEnv*));
 #  define enif_binary_to_term ERL_NIF_API_FUNC_MACRO(enif_binary_to_term)
 #  define enif_port_command ERL_NIF_API_FUNC_MACRO(enif_port_command)
 #  define enif_is_on_dirty_scheduler ERL_NIF_API_FUNC_MACRO(enif_is_on_dirty_scheduler)
+#  define enif_snprintf ERL_NIF_API_FUNC_MACRO(enif_snprintf)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

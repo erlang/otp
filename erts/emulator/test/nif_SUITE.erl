@@ -45,7 +45,8 @@
          nif_now_time/1, nif_cpu_time/1, nif_unique_integer/1,
          nif_is_process_alive/1, nif_is_port_alive/1,
          nif_term_to_binary/1, nif_binary_to_term/1,
-         nif_port_command/1
+         nif_port_command/1,
+         nif_snprintf/1
 	]).
 
 -export([many_args_100/100]).
@@ -79,8 +80,8 @@ all() ->
      nif_now_time, nif_cpu_time, nif_unique_integer,
      nif_is_process_alive, nif_is_port_alive,
      nif_term_to_binary, nif_binary_to_term,
-     nif_port_command
-    ].
+     nif_port_command,
+     nif_snprintf].
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -1952,8 +1953,17 @@ nif_port_command(Config) ->
     port_close(Port),
 
     {'EXIT', {badarg, _}} = (catch port_command_nif(Port, "hello\n")),
-
     ok.
+
+nif_snprintf(Config) ->
+    ensure_lib_loaded(Config),
+    <<"ok",0>> = format_term_nif(3,ok),
+    <<"o",0>>  = format_term_nif(2,ok),
+    <<"\"hello world\"",0>> = format_term_nif(14,"hello world"),
+    <<"{{hello,world,-33},3.14",_/binary>> = format_term_nif(50,{{hello,world, -33}, 3.14, self()}),
+    <<"{{hello,world,-33},",0>> = format_term_nif(20,{{hello,world, -33}, 3.14, self()}),
+    ok.
+
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -2015,6 +2025,7 @@ is_port_alive_nif(_) -> ?nif_stub.
 term_to_binary_nif(_, _) -> ?nif_stub.
 binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
+format_term_nif(_,_) -> ?nif_stub.
 
 %% maps
 is_map_nif(_) -> ?nif_stub.
