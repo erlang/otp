@@ -1180,12 +1180,6 @@
 
 
   <!-- Inline elements -->
-  <xsl:template match="b">
-    <fo:inline font-weight="bold">
-      <xsl:apply-templates/>
-    </fo:inline>
-  </xsl:template>
-
   <xsl:template match="i">
     <fo:inline font-weight="italic">
       <xsl:apply-templates/>
@@ -1204,6 +1198,12 @@
 
   <xsl:template match="em">
     <fo:inline font-style="italic">
+      <xsl:apply-templates/>
+    </fo:inline>
+  </xsl:template>
+
+  <xsl:template match="strong">
+    <fo:inline font-weight="bold">
       <xsl:apply-templates/>
     </fo:inline>
   </xsl:template>

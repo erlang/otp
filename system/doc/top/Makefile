@@ -74,6 +74,7 @@ XML_FILES = \
 
 BOOK_FILES = book.xml
 
+XMLLINT_SRCDIRS= ../installation_guide:../system_principles:../embedded:../getting_started:../reference_manual:../programming_examples:../efficiency_guide:../tutorial:../design_principles:../oam
 HTMLDIR= ../html
 PDFREFDIR= pdf
 

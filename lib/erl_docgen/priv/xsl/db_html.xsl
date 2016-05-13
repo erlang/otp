@@ -989,10 +989,6 @@
   </xsl:template>
 
   <!-- Inline elements -->
-  <xsl:template match="b">
-    <strong><xsl:apply-templates/></strong>
-  </xsl:template>
-
   <xsl:template match="i">
     <i><xsl:apply-templates/></i>
   </xsl:template>
@@ -1006,6 +1002,10 @@
   </xsl:template>
 
   <xsl:template match="em">
+    <strong><xsl:apply-templates/></strong>
+  </xsl:template>
+
+  <xsl:template match="strong">
     <strong><xsl:apply-templates/></strong>
   </xsl:template>
 
@@ -1095,11 +1095,11 @@
     <xsl:param name="chapnum"/>
     <xsl:param name="fignum"/>
 
-      <em>Figure
+      <p><em>Figure
         <xsl:value-of select="$chapnum"/>.<xsl:value-of select="$fignum"/>:
         &#160;
         <xsl:apply-templates/>
-      </em>
+      </em></p>
 
   </xsl:template>
 
