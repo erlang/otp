@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 before_and_inside_if/1,
-	 scotland/1]).
+	 scotland/1,y_registers/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -34,7 +34,8 @@ all() ->
 groups() ->
     [{p,[parallel],
       [before_and_inside_if,
-       scotland
+       scotland,
+       y_registers
       ]}].
 
 init_per_suite(Config) ->
@@ -127,3 +128,33 @@ do_scotland(Echo) ->
 	Echo = placed).
 
 found(_, _) -> million.
+
+
+%% ERL-143: beam_bool could not handle Y registers as a destination.
+y_registers(_Config) ->
+    {'EXIT',{badarith,[_|_]}} = (catch baker(valentine)),
+    {'EXIT',{badarith,[_|_]}} = (catch baker(clementine)),
+
+    {not_ok,true} = potter([]),
+    {ok,false} = potter([{encoding,any}]),
+
+    ok.
+
+%% Thanks to Quickcheck.
+baker(Baker) ->
+    (valentine == Baker) +
+	case Baker of
+	    Baker when Baker; Baker ->
+		Baker;
+	    Baker ->
+		[]
+	end.
+
+%% Thanks to Jose Valim.
+potter(Modes) ->
+    Raw = lists:keyfind(encoding, 1, Modes) == false,
+    Final = case Raw of
+		X when X == false; X == nil -> ok;
+		_ -> not_ok
+	    end,
+    {Final,Raw}.
