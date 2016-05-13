@@ -700,6 +700,7 @@ get_os_wordsize_with_uname() ->
 	"x86_64"  -> 64;
 	"sparc64" -> 64;
 	"amd64"   -> 64;
+	"ppc64"   -> 64;
 	_         -> 32
     end.
 
