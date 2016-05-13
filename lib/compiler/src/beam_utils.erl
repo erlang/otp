@@ -239,8 +239,6 @@ combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
 %%  'killed' means that Reg is assigned a new value or killed by an
 %%  allocation instruction. 'used' means that Reg is used in some way.
 
-check_liveness(R, [{set,_,_,_}=I|_], St) ->
-    erlang:error(only_allowed_in_blocks, [R,I,St]);
 check_liveness(R, [{block,Blk}|Is], #live{bl=BlockCheck}=St0) ->
     case BlockCheck(R, Blk, St0) of
 	{transparent,St} -> check_liveness(R, Is, St);
