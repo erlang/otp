@@ -24,8 +24,41 @@
 -export([module/4]).
 -export([encode/2]).
 
+-export_type([fail/0,label/0,reg/0,src/0,module_code/0,function_name/0]).
+
 -import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
 -include("beam_opcodes.hrl").
+
+%% Common types for describing operands for BEAM instructions.
+-type reg_num() :: 0..1023.
+-type reg() :: {'x',reg_num()} | {'y',reg_num()}.
+-type src() :: reg() |
+	       {'literal',term()} |
+	       {'atom',atom()} |
+	       {'integer',integer()} |
+	       'nil' |
+	       {'float',float()}.
+-type label() :: pos_integer().
+-type fail() :: {'f',label() | 0}.
+
+%% asm_instruction() describes only the instructions that
+%% are used in BEAM files (as opposed to internal instructions
+%% used only during optimization).
+
+-type asm_instruction() :: atom() | tuple().
+
+-type function_name() :: atom().
+
+-type exports() :: [{function_name(),arity()}].
+
+-type asm_function() ::
+        {'function',function_name(),arity(),label(),[asm_instruction()]}.
+
+-type module_code() ::
+        {module(),[_],[_],[asm_function()],pos_integer()}.
+
+-spec module(module_code(), exports(), [_], [compile:option()]) ->
+                    {'ok',binary()}.
 
 module(Code, Abst, SourceFile, Opts) ->
     {ok,assemble(Code, Abst, SourceFile, Opts)}.
@@ -438,6 +471,8 @@ encode_alloc_list_1([{floats,Floats}|T], Dict, Acc0) ->
     encode_alloc_list_1(T, Dict, Acc);
 encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.
+
+-spec encode(non_neg_integer(), pos_integer()) -> iodata().
 
 encode(Tag, N) when N < 0 ->
     encode1(Tag, negative_to_bytes(N));
