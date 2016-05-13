@@ -217,7 +217,7 @@ ctpg({_Module, _Function, _Arity} = X) ->
     do_ctp(X,[global]).
 
 do_ctp({Module, Function, Arity},[]) ->
-    do_ctp({Module, Function, Arity},[global]),
+    {ok,_} = do_ctp({Module, Function, Arity},[global]),
     do_ctp({Module, Function, Arity},[local]);
 do_ctp({_Module, _Function, _Arity}=MFA,Flags) ->
     Nodes = req(get_nodes),
@@ -271,8 +271,7 @@ wtp(FileName) ->
 				ok
 			end,
 			[]),
-	    file:close(File),
-	    ok
+	    ok = file:close(File)
     end.
 
 %%
@@ -600,7 +599,7 @@ stop() ->
     end.
 
 stop_clear() ->
-    ctp(),
+    {ok, _} = ctp(),
     stop().
 
 %%% Calling the server.
@@ -791,7 +790,8 @@ loop({C,T}=SurviveLinks, Table) ->
     end.
 
 reply(Pid, Reply) ->
-    Pid ! {dbg,Reply}.
+    Pid ! {dbg,Reply},
+    ok.
 
 
 %%% A process-based tracer.
@@ -944,9 +944,11 @@ do_relay(Parent,RelP) ->
     case RelP of
 	{Type,Data} -> 
 	    {ok,Tracer} = remote_tracer(Type,Data),
-	    Parent ! {started,Tracer};
+	    Parent ! {started,Tracer},
+            ok;
 	Pid when is_pid(Pid) ->
-	    Parent ! {started,self()}
+	    Parent ! {started,self()},
+            ok
     end,
     do_relay_1(RelP).
 
@@ -1366,7 +1368,7 @@ mk_reader_wrap([_Hd | Tail] = WrapFiles, File) ->
 		{ok, Term} ->
 		    [Term | mk_reader_wrap(WrapFiles, File)];
 		eof ->
-		    file:close(File),
+		    ok = file:close(File),
 		    case Tail of
 			[_|_] ->
 			    mk_reader_wrap(Tail);

@@ -31,6 +31,7 @@
 -export([report/0,
 	from_file/1,
 	to_file/1]).
+
 -export([start/0, stop/0,
          load_report/0, load_report/2,
          applications/0, applications/1,
@@ -64,6 +65,7 @@
 start() ->
     gen_server:start({local, ?SERVER}, ?MODULE, [], []).
 
+
 stop() ->
     gen_server:call(?SERVER, stop, infinity).
 
@@ -71,7 +73,7 @@ load_report() -> load_report(data, report()).
 
 load_report(file, File)   -> load_report(data, from_file(File));
 load_report(data, Report) ->
-    start(), gen_server:call(?SERVER, {load_report, Report}, infinity).
+    ok = start_internal(), gen_server:call(?SERVER, {load_report, Report}, infinity).
 
 report() -> [
 	{init_arguments,    init:get_arguments()},
@@ -218,6 +220,13 @@ code_change(_OldVsn, State, _Extra) ->
 %%===================================================================
 %% Internal functions
 %%===================================================================
+
+start_internal() ->
+    case start() of
+        {ok,_} -> ok;
+        {error, {already_started,_}} -> ok;
+        Error -> Error
+    end.
 
 %% handle report values
 
