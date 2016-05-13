@@ -2970,8 +2970,9 @@ Return nil if inside string, t if in a comment."
              (current-column)))
 	  ;; Type and Spec indentation
 	  ((eq (car stack-top) '::)
-	   (if (looking-at "}")
-	       ;; Closing record definition with types
+	   (if (looking-at "[},)]")
+	       ;; Closing function spec, record definition with types,
+               ;; or a comma at the start of the line
 	       ;; pop stack and recurse
 	       (erlang-calculate-stack-indent indent-point
 					      (cons (erlang-pop stack) (cdr state)))
