@@ -269,7 +269,7 @@ cast(Msg) ->
 %%% <p>This function is called by ct_framework:init_tc/3</p>
 init_tc(RefreshLog) ->
     call({init_tc,self(),group_leader(),RefreshLog}),
-    io:format(["$tc_html",xhtml("", "<br />")]),
+    tc_io_format(group_leader(), xhtml("", "<br />"), []),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -800,7 +800,8 @@ logger_loop(State) ->
 	    %% make sure no IO for this test case from the
 	    %% CT logger gets rejected
 	    test_server:permit_io(GL, self()),
-	    print_style(GL,GL,State#logger_state.stylesheet),
+	    IoFormat = fun tc_io_format/3,
+	    print_style(GL, IoFormat, State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
 	    if not RefreshLog ->
@@ -931,7 +932,7 @@ print_to_log(sync, FromPid, Category, TCGL, Content, EscChars, State) ->
     if FromPid /= TCGL ->
 	    IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
 	    IoList = lists:foldl(IoFun, [], Content),
-	    try io:format(TCGL,["$tc_html","~ts"], [IoList]) of
+	    try tc_io_format(TCGL, "~ts", [IoList]) of
 		ok -> ok
 	    catch
 		_:_ ->
@@ -962,7 +963,7 @@ print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
 
 			case erlang:is_process_alive(TCGL) of
 			    true ->
-				try io:format(TCGL, ["$tc_html","~ts"],
+				try tc_io_format(TCGL, "~ts",
 					      [lists:foldl(IoFun,[],Content)]) of
 				    _ -> ok
 				catch
@@ -1113,27 +1114,25 @@ open_ctlog(MiscIoName) ->
 	      "View I/O logged after the test run</a></li>\n</ul>\n",
 	      [MiscIoName,MiscIoName]),
 
-    print_style(Fd,group_leader(),undefined),
+    print_style(Fd, fun io:format/3, undefined),
     io:format(Fd, 
 	      xhtml("<br><h2>Progress Log</h2>\n<pre>\n",
 		    "<br />\n<h4>PROGRESS LOG</h4>\n<pre>\n"), []),
     Fd.
 
-print_style(Fd,GL,undefined) ->
+print_style(Fd, IoFormat, undefined) ->
     case basic_html() of
 	true ->
 	    Style = "<style>\n
 		div.ct_internal { background:lightgrey; color:black; }\n
 		div.default     { background:lightgreen; color:black; }\n
 		</style>\n",
-	    if Fd == GL -> io:format(["$tc_html",Style], []);
-	       true     -> io:format(Fd, Style, [])
-	    end;
+	    IoFormat(Fd, Style, []);
 	_ ->
 	    ok
     end;
 
-print_style(Fd,GL,StyleSheet) ->
+print_style(Fd, IoFormat, StyleSheet) ->
     case file:read_file(StyleSheet) of
 	{ok,Bin} ->
 	    Str = b2s(Bin,encoding(StyleSheet)),
@@ -1146,35 +1145,54 @@ print_style(Fd,GL,StyleSheet) ->
 		       N1 -> N1
 		   end,
 	    if (Pos0 == 0) and (Pos1 /= 0) ->
-		    print_style_error(Fd,GL,StyleSheet,missing_style_start_tag);
+		    print_style_error(Fd, IoFormat,
+				      StyleSheet, missing_style_start_tag);
 	       (Pos0 /= 0) and (Pos1 == 0) ->
-		    print_style_error(Fd,GL,StyleSheet,missing_style_end_tag);
+		    print_style_error(Fd, IoFormat,
+				      StyleSheet,missing_style_end_tag);
 	       Pos0 /= 0 ->
 		    Style = string:sub_string(Str,Pos0,Pos1+7),
-		    if Fd == GL -> io:format(Fd,["$tc_html","~ts\n"],[Style]);
-		       true     -> io:format(Fd,"~ts\n",[Style])
-		    end;
+		    IoFormat(Fd,"~ts\n",[Style]);
 	       Pos0 == 0 ->
-		    if Fd == GL -> io:format(Fd,["$tc_html","<style>\n~ts</style>\n"],[Str]);
-		       true     -> io:format(Fd,"<style>\n~ts</style>\n",[Str])
-		    end
+		    IoFormat(Fd,"<style>\n~ts</style>\n",[Str])
 	    end;
 	{error,Reason} ->
-	    print_style_error(Fd,GL,StyleSheet,Reason)  
+	    print_style_error(Fd,IoFormat,StyleSheet,Reason)
     end.
 
-print_style_error(Fd,GL,StyleSheet,Reason) ->
+print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
     IO = io_lib:format("\n<!-- Failed to load stylesheet ~ts: ~p -->\n",
 		       [StyleSheet,Reason]),
-    if Fd == GL -> io:format(Fd,["$tc_html",IO],[]);
-       true     -> io:format(Fd,IO,[])
-    end,
-    print_style(Fd,GL,undefined).    
+    IoFormat(Fd, IO, []),
+    print_style(Fd, IoFormat, undefined).
 
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
     io:format(Fd, [xhtml("<br><br>\n", "<br /><br />\n") | footer()], []),
     file:close(Fd).
+
+%%%-----------------------------------------------------------------
+%%% tc_io_format/3
+%%% Tell common_test's IO server (group leader) not to escape
+%%% HTML characters.
+
+-spec tc_io_format(io:device(), io:format(), [term()]) -> 'ok'.
+
+tc_io_format(Fd, Format0, Args) ->
+    %% We know that the specially wrapped format string is handled
+    %% by our IO server, but Dialyzer does not and would tell us
+    %% that the call to io:format/3 would fail. Therefore, we must
+    %% fool dialyzer.
+
+    Format = case cloaked_true() of
+		 true -> ["$tc_html",Format0];
+		 false -> Format0		%Never happens.
+	     end,
+    io:format(Fd, Format, Args).
+
+%% Return 'true', but let dialyzer think that a boolean is returned.
+cloaked_true() ->
+    is_process_alive(self()).
 
 
 %%%-----------------------------------------------------------------
