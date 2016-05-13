@@ -199,10 +199,9 @@
     adj_stack_register/1,
     adj_stack_type/1,
 
-    mk_branch_meta/3,
-    branch_meta_id/1,
-    branch_meta_true_weight/1,
-    branch_meta_false_weight/1
+    mk_meta/2,
+    meta_id/1,
+    meta_operands/1
   ]).
 
 -export([
@@ -343,8 +342,9 @@
 -record(llvm_adj_stack, {offset, 'register', type}).
 -type llvm_adj_stack() :: #llvm_adj_stack{}.
 
--record(llvm_branch_meta, {id, true_weight, false_weight}).
--type llvm_branch_meta() :: #llvm_branch_meta{}.
+-record(llvm_meta, {id :: string(),
+		    operands :: [string() | integer() | llvm_meta()]}).
+-type llvm_meta() :: #llvm_meta{}.
 
 %% A type for any LLVM instruction
 -type llvm_instr() :: llvm_ret() | llvm_br() | llvm_br_cond()
@@ -357,7 +357,7 @@
                     | llvm_call() | llvm_fun_def() | llvm_fun_decl()
                     | llvm_landingpad() | llvm_comment() | llvm_label()
                     | llvm_const_decl() | llvm_asm() | llvm_adj_stack()
-                    | llvm_branch_meta().
+                    | llvm_meta().
 
 %% Types
 -record(llvm_void, {}).
@@ -701,7 +701,7 @@ is_label(#llvm_comment{}) -> false;
 is_label(#llvm_const_decl{}) -> false;
 is_label(#llvm_asm{}) -> false;
 is_label(#llvm_adj_stack{}) -> false;
-is_label(#llvm_branch_meta{}) -> false.
+is_label(#llvm_meta{}) -> false.
 
 %% const_decl
 mk_const_decl(Dst, Decl_type, Type, Value) ->
@@ -722,14 +722,11 @@ adj_stack_offset(#llvm_adj_stack{offset=Offset}) -> Offset.
 adj_stack_register(#llvm_adj_stack{'register'=Register}) -> Register.
 adj_stack_type(#llvm_adj_stack{type=Type}) -> Type.
 
-%% branch meta-data
-mk_branch_meta(Id, True_weight, False_weight) ->
-  #llvm_branch_meta{id=Id, true_weight=True_weight, false_weight=False_weight}.
-branch_meta_id(#llvm_branch_meta{id=Id}) -> Id.
-branch_meta_true_weight(#llvm_branch_meta{true_weight=True_weight}) ->
-  True_weight.
-branch_meta_false_weight(#llvm_branch_meta{false_weight=False_weight}) ->
-  False_weight.
+%% meta-data
+mk_meta(Id, Operands) ->
+  #llvm_meta{id=Id, operands=Operands}.
+meta_id(#llvm_meta{id=Id}) -> Id.
+meta_operands(#llvm_meta{operands=Operands}) -> Operands.
 
 %% types
 mk_void() -> #llvm_void{}.
@@ -1013,13 +1010,22 @@ pp_ins(Dev, Ver, I) ->
           adj_stack_register(I), "\", \"r\"("]),
       pp_type(Dev, adj_stack_type(I)),
       write(Dev, [" ", adj_stack_offset(I),")\n"]);
-    #llvm_branch_meta{} ->
-      write(Dev, ["!", branch_meta_id(I), " = "]),
-      if Ver <  {3,6} -> write(Dev, "metadata !{metadata ");
-	 Ver >= {3,6} -> write(Dev, "!{ ")
+    #llvm_meta{} ->
+      write(Dev, ["!", meta_id(I), " = "]),
+      Named = case string:to_integer(meta_id(I)) of
+		{_, ""} -> false;
+		_ -> true
+	      end,
+      case Ver < {3,6} andalso not Named of
+	true -> write(Dev, "metadata !{metadata ");
+	false -> write(Dev, "!{ ")
       end,
-      write(Dev, ["!\"branch_weights\", i32 ", branch_meta_true_weight(I),
-		  ", i32 ", branch_meta_false_weight(I), "}\n"]);
+      write(Dev, string:join([if is_list(Op) -> ["!\"", Op, "\""];
+				 is_integer(Op) -> ["i32 ", integer_to_list(Op)];
+				 is_record(Op, llvm_meta) ->
+				  ["!", meta_id(Op)]
+			      end || Op <- meta_operands(I)], ", ")),
+      write(Dev, " }\n");
     Other ->
       exit({?MODULE, pp_ins, {"Unknown LLVM instruction", Other}})
   end.
@@ -1140,7 +1146,7 @@ indent(I) ->
     #llvm_fun_def{} -> false;
     #llvm_fun_decl{} -> false;
     #llvm_const_decl{} -> false;
-    #llvm_branch_meta{} -> false;
+    #llvm_meta{} -> false;
     _ -> true
   end.
 
