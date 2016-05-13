@@ -80,6 +80,7 @@ create_sys_menu(Parent) ->
 		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh interval"}]},
     observer_wx:create_menus(Parent, [View]).
 
+update_syspage(#sys_wx_state{node = undefined}) -> ignore;
 update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
     SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
     {Sys, Mem, Cpu, Stats} = info_fields(),
