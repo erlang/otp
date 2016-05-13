@@ -167,7 +167,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_TestCase, Config) ->
-    ct:timetrap({seconds, 15}),
+    ct:timetrap({seconds, 30}),
     Config.
 
 
