@@ -322,13 +322,13 @@ ok
 	
 	<p>The
 	<seealso marker="#enif_consume_timeslice">enif_consume_timeslice()</seealso>
-	function can be used to inform the runtime system about the lenght of the
+	function can be used to inform the runtime system about the length of the
 	NIF call. It should typically always be used unless the NIF executes very
 	quickly.</p>
 
-	<p>If the NIF call is too lenghty one needs to handle this in one of the
+	<p>If the NIF call is too lengthy one needs to handle this in one of the
 	following ways in order to avoid degraded responsiveness, scheduler load
-	balancing problems, and other strange behaviours:</p>
+	balancing problems, and other strange behaviors:</p>
 
 	<taglist>
 	  <tag>Yielding NIF</tag>
@@ -410,14 +410,14 @@ ok
 	      <seealso marker="erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
 	      block)</c></seealso>, might also take a very long time to
 	      complete. This since all ongoing dirty operations on all
-	      dirty schedulers need to complete before the the block
+	      dirty schedulers need to complete before the block
 	      operation can complete.
 	    </p>
 
 	    <p>
 	      A lot of operations communicating with a process executing a
 	      dirty NIF can, however, complete while it is executing the
-	      dirty NIF. For example, retreiving information about it via
+	      dirty NIF. For example, retrieving information about it via
 	      <c>process_info()</c>, setting its group leader,
 	      register/unregister its name, etc.
 	    </p>
@@ -425,10 +425,10 @@ ok
 	    <p>
 	      Termination of a process executing a dirty NIF can only be
 	      completed up to a certain point while it is executing the
-	      dirty NIF. All Erlang resources such as registered names,
-	      ETS tables, etc will be released. All links and monitors
+	      dirty NIF. All Erlang resources such as its registered name,
+	      its ETS tables, etc will be released. All links and monitors
 	      will be triggered. The actual execution of the NIF will
-	      however <em>not</em> be stopped. The NIF can safely contiue
+	      however <em>not</em> be stopped. The NIF can safely continue
 	      execution, allocate heap memory, etc, but it is of course better
 	      to stop executing as soon as possible. The NIF can check
 	      whether current process is alive or not using
@@ -450,8 +450,8 @@ ok
 		  collect a process in order to determine if it has
 		  references to the module, a process executing a dirty
 		  NIF might delay purging for a very long time. Delaying
-		  a purge operatin implies delaying <em>all</em> code
-		  loding operations which might cause severe problems for
+		  a purge operation implies delaying <em>all</em> code
+		  loading operations which might cause severe problems for
 		  the system as a whole.
 		</p>
 	      </item>
