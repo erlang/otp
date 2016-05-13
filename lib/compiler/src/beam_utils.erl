@@ -25,9 +25,8 @@
 	 is_not_used/3,is_not_used_at/3,
 	 empty_label_index/0,index_label/3,index_labels/1,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
-	 live_opt/1,delete_live_annos/1,combine_heap_needs/2]).
-
--export([join_even/2,split_even/1]).
+	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
+	 join_even/2,split_even/1]).
 
 -import(lists, [member/2,sort/1,reverse/1,splitwith/2]).
 
@@ -227,6 +226,17 @@ combine_heap_needs(Words, {alloc,Alloc}) when is_integer(Words) ->
     {alloc,combine_alloc_lists(Alloc, [{words,Words}])};
 combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
     H1+H2.
+
+%% split_even/1
+%% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
+
+split_even(Rs) -> split_even(Rs, [], []).
+
+%% join_even/1
+%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
+
+join_even([], []) -> [];
+join_even([S|Ss], [D|Ds]) -> [S,D|join_even(Ss, Ds)].
 
 %%%
 %%% Local functions.
@@ -838,14 +848,7 @@ x_live([], Regs) -> Regs.
 
 is_live(X, Regs) -> ((Regs bsr X) band 1) =:= 1.
 
-%% split_even/1
-%% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
-split_even(Rs) -> split_even(Rs,[],[]).
-split_even([],Ss,Ds) -> {reverse(Ss),reverse(Ds)};
-split_even([S,D|Rs],Ss,Ds) ->
-    split_even(Rs,[S|Ss],[D|Ds]).
-
-%% join_even/1
-%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
-join_even([],[]) -> [];
-join_even([S|Ss],[D|Ds]) -> [S,D|join_even(Ss,Ds)].
+split_even([], Ss, Ds) ->
+    {reverse(Ss),reverse(Ds)};
+split_even([S,D|Rs], Ss, Ds) ->
+    split_even(Rs, [S|Ss], [D|Ds]).
