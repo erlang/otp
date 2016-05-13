@@ -518,13 +518,15 @@ ok
       </item>
 
       <tag><marker id="reload"/>int (*reload)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</tag>
-     <note><p>The reload mechanism is <em>deprecated</em>. It was only intended
-     as a development feature. Do not use it as an upgrade method for
-     live production systems. It might be removed in future releases. Be sure
-     to pass <c>reload</c> as <c>NULL</c> to <seealso marker="#ERL_NIF_INIT">ERL_NIF_INIT</seealso>
-     to disable it when not used.</p>
-     </note>
-       <item><p><c>reload</c> is called when the NIF library is loaded
+     
+       <item>
+         <note><p>The reload mechanism is <em>deprecated</em>. It was only intended
+         as a development feature. Do not use it as an upgrade method for
+         live production systems. It might be removed in future releases. Be sure
+         to pass <c>reload</c> as <c>NULL</c> to <seealso marker="#ERL_NIF_INIT">ERL_NIF_INIT</seealso>
+         to disable it when not used.</p>
+         </note>
+        <p><c>reload</c> is called when the NIF library is loaded
         and there is already a previously loaded library for this
         module code.</p>
         <p>Works the same as <c>load</c>. The only difference is that
@@ -583,9 +585,9 @@ ok
       <p/>
       <code type="none">
 typedef struct {
-    const char* <em>name</em>;
-    unsigned <em>arity</em>;
-    ERL_NIF_TERM (*<em>fptr</em>)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    const char* name;
+    unsigned arity;
+    ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     unsigned flags;
 } ErlNifFunc;
 </code>
@@ -618,8 +620,8 @@ typedef struct {
       <p/>
       <code type="none">
 typedef struct {
-    unsigned <em>size</em>;
-    unsigned char* <em>data</em>;
+    unsigned size;
+    unsigned char* data;
 } ErlNifBinary;
 </code>
         <p><c>ErlNifBinary</c> contains transient information about an

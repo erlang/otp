@@ -643,8 +643,7 @@
         <p>Sets the default binary virtual heap size of processes to the size
           <c><![CDATA[Size]]></c>.</p>
       </item>
-      <marker id="+hmax"/>
-      <tag><c><![CDATA[+hmax Size]]></c></tag>
+      <tag><marker id="+hmax"/><c><![CDATA[+hmax Size]]></c></tag>
       <item>
         <p>Sets the default maximum heap size of processes to the size
           <c><![CDATA[Size]]></c>. If <c>+hmax</c> is not given, the default is <c>0</c>
@@ -653,8 +652,7 @@
           <seealso marker="erlang#process_flag_max_heap_size">
             <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
       </item>
-      <marker id="+hmaxel"/>
-      <tag><c><![CDATA[+hmaxel true|false]]></c></tag>
+      <tag><marker id="+hmaxel"/><c><![CDATA[+hmaxel true|false]]></c></tag>
       <item>
         <p>Sets whether to send an error logger message for processes that reach
         the maximum heap size or not. If <c>+hmaxel</c> is not given, the default is <c>true</c>.
@@ -662,8 +660,7 @@
         <seealso marker="erlang#process_flag_max_heap_size">
           <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
       </item>
-      <marker id="+hmaxk"/>
-      <tag><c><![CDATA[+hmaxk true|false]]></c></tag>
+      <tag><marker id="+hmaxk"/><c><![CDATA[+hmaxk true|false]]></c></tag>
       <item>
         <p>Sets whether to kill processes that reach the maximum heap size or not. If
         <c>+hmaxk</c> is not given, the default is <c>true</c>. For more information,
@@ -676,7 +673,7 @@
         <p>Sets the initial process dictionary size of processes to the size
           <c><![CDATA[Size]]></c>.</p>
       </item>
-      <tag><marker id="+hmqd"><c>+hmqd off_heap|on_heap</c></marker></tag>
+      <tag><marker id="+hmqd"/><c>+hmqd off_heap|on_heap</c></tag>
       <item><p>
 	Sets the default value for the process flag
 	<c>message_queue_data</c>. If <c>+hmqd</c> is not
