@@ -76,7 +76,7 @@ $ make </code>
             <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">process_spawn: { cpu_id = 3 }, { pid = "&lt;0.131.0&gt;", parent = "&lt;0.130.0&gt;", entry = "erlang:apply/2" }</code></p>
+        <code type="none">process_spawn: { cpu_id = 3 }, { pid = "&lt;0.131.0&gt;", parent = "&lt;0.130.0&gt;", entry = "erlang:apply/2" }</code>
 
         <p><em>process_link</em></p>
         <list type="bulleted">
@@ -85,7 +85,7 @@ $ make </code>
             <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">process_link: { cpu_id = 3 }, { from = "&lt;0.130.0&gt;", to = "&lt;0.131.0&gt;", type = "link" }</code></p>
+        <code type="none">process_link: { cpu_id = 3 }, { from = "&lt;0.130.0&gt;", to = "&lt;0.131.0&gt;", type = "link" }</code>
 
 
         <p><em>process_exit</em></p>
@@ -94,7 +94,7 @@ $ make </code>
             <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">process_exit: { cpu_id = 3 }, { pid = "&lt;0.130.0&gt;", reason = "normal" }</code></p>
+        <code type="none">process_exit: { cpu_id = 3 }, { pid = "&lt;0.130.0&gt;", reason = "normal" }</code>
 
         <p><em>process_register</em></p>
         <list type="bulleted">
@@ -103,7 +103,7 @@ $ make </code>
             <item><c>type : string</c> :: <c>"register" | "unregister"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">process_register: { cpu_id = 0 }, { pid = "&lt;0.128.0&gt;", name = "dyntrace_lttng_SUITE" type = "register" }</code></p>
+        <code type="none">process_register: { cpu_id = 0 }, { pid = "&lt;0.128.0&gt;", name = "dyntrace_lttng_SUITE" type = "register" }</code>
 
         <p><em>process_scheduled</em></p>
         <list type="bulleted">
@@ -113,7 +113,7 @@ $ make </code>
         </list>
 
         <p>Example:</p>
-        <p><code type="none">process_scheduled: { cpu_id = 0 }, { pid = "&lt;0.136.0&gt;", entry = "erlang:apply/2", type = "in" }</code></p>
+        <code type="none">process_scheduled: { cpu_id = 0 }, { pid = "&lt;0.136.0&gt;", entry = "erlang:apply/2", type = "in" }</code>
 
 
         <p><em>port_open</em></p>
@@ -124,7 +124,7 @@ $ make </code>
         </list>
 
         <p>Example:</p>
-        <p><code type="none">port_open: { cpu_id = 5 }, { pid = "&lt;0.131.0&gt;", driver = "'/bin/sh -s unix:cmd'", port = "#Port&lt;0.1887&gt;" }</code></p>
+        <code type="none">port_open: { cpu_id = 5 }, { pid = "&lt;0.131.0&gt;", driver = "'/bin/sh -s unix:cmd'", port = "#Port&lt;0.1887&gt;" }</code>
 
         <p><em>port_exit</em></p>
         <list type="bulleted">
@@ -132,7 +132,7 @@ $ make </code>
             <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">port_exit: { cpu_id = 5 }, { port = "#Port&lt;0.1887&gt;", reason = "normal" }</code></p>
+        <code type="none">port_exit: { cpu_id = 5 }, { port = "#Port&lt;0.1887&gt;", reason = "normal" }</code>
 
         <p><em>port_link</em></p>
         <list type="bulleted">
@@ -141,7 +141,7 @@ $ make </code>
             <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">port_link: { cpu_id = 5 }, { from = "#Port&lt;0.1887&gt;", to = "&lt;0.131.0&gt;", type = "unlink" }</code></p>
+        <code type="none">port_link: { cpu_id = 5 }, { from = "#Port&lt;0.1887&gt;", to = "&lt;0.131.0&gt;", type = "unlink" }</code>
 
         <p><em>port_scheduled</em></p>
         <list type="bulleted">
@@ -151,7 +151,7 @@ $ make </code>
         </list>
 
         <p>Example:</p>
-        <p><code type="none">port_scheduled: { cpu_id = 5 }, { pid = "#Port&lt;0.1905&gt;", entry = "close", type = "out" }</code></p>
+        <code type="none">port_scheduled: { cpu_id = 5 }, { pid = "#Port&lt;0.1905&gt;", entry = "close", type = "out" }</code>
 
         <p><em>function_call</em></p>
         <list type="bulleted">
@@ -160,7 +160,7 @@ $ make </code>
             <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">function_call: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:'-t_call/1-fun-1-'/0", depth = 0 }</code></p>
+        <code type="none">function_call: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:'-t_call/1-fun-1-'/0", depth = 0 }</code>
 
         <p><em>function_return</em></p>
         <list type="bulleted">
@@ -169,7 +169,7 @@ $ make </code>
             <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">function_return: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:waiter/0", depth = 0 }</code></p>
+        <code type="none">function_return: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:waiter/0", depth = 0 }</code>
 
         <p><em>function_exception</em></p>
         <list type="bulleted">
@@ -178,7 +178,7 @@ $ make </code>
             <item><c>class : string</c> :: Error reason. Ex. <c>"error"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">function_exception: { cpu_id = 5 }, { pid = "&lt;0.144.0&gt;", entry = "t:call_exc/1", class = "error" }</code></p>
+        <code type="none">function_exception: { cpu_id = 5 }, { pid = "&lt;0.144.0&gt;", entry = "t:call_exc/1", class = "error" }</code>
 
         <p><em>message_send</em></p>
         <list type="bulleted">
@@ -187,7 +187,7 @@ $ make </code>
             <item><c>message : string</c> :: Message sent. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">message_send: { cpu_id = 3 }, { from = "#Port&lt;0.1938&gt;", to = "&lt;0.160.0&gt;", message = "{#Port&lt;0.1938&gt;,eof}" }</code></p>
+        <code type="none">message_send: { cpu_id = 3 }, { from = "#Port&lt;0.1938&gt;", to = "&lt;0.160.0&gt;", message = "{#Port&lt;0.1938&gt;,eof}" }</code>
 
         <p><em>message_receive</em></p>
         <list type="bulleted">
@@ -195,7 +195,7 @@ $ make </code>
             <item><c>message : string</c> :: Message received. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">message_receive: { cpu_id = 7 }, { to = "&lt;0.167.0&gt;", message = "{&lt;0.165.0&gt;,ok}" }</code></p>
+        <code type="none">message_receive: { cpu_id = 7 }, { to = "&lt;0.167.0&gt;", message = "{&lt;0.165.0&gt;,ok}" }</code>
 
         <p><em>gc_minor_start</em></p>
         <list type="bulleted">
@@ -205,7 +205,7 @@ $ make </code>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">gc_minor_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 0, heap = 610, old_heap = 0 }</code></p>
+        <code type="none">gc_minor_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 0, heap = 610, old_heap = 0 }</code>
 
         <p><em>gc_minor_end</em></p>
         <list type="bulleted">
@@ -215,7 +215,7 @@ $ make </code>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">gc_minor_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 120, heap = 1598, old_heap = 1598 }</code></p>
+        <code type="none">gc_minor_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 120, heap = 1598, old_heap = 1598 }</code>
 
         <p><em>gc_major_start</em></p>
         <list type="bulleted">
@@ -225,7 +225,7 @@ $ make </code>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">gc_major_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 8, heap = 2586, old_heap = 1598 }</code></p>
+        <code type="none">gc_major_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 8, heap = 2586, old_heap = 1598 }</code>
 
         <p><em>gc_major_end</em></p>
         <list type="bulleted">
@@ -235,7 +235,7 @@ $ make </code>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">gc_major_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 240, heap = 4185, old_heap = 0 }</code></p>
+        <code type="none">gc_major_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 240, heap = 4185, old_heap = 0 }</code>
 
     </section>
 
@@ -250,7 +250,7 @@ $ make </code>
             <item><c>runnable : integer</c> :: Runnable. Ex. <c>1</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">scheduler_poll: { cpu_id = 4 }, { scheduler = 1, runnable = 1 }</code></p>
+        <code type="none">scheduler_poll: { cpu_id = 4 }, { scheduler = 1, runnable = 1 }</code>
 
         <p><em>driver_init</em></p>
         <list type="bulleted">
@@ -260,7 +260,7 @@ $ make </code>
             <item><c>flags : integer</c> :: Flags. Ex. <c>1</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_init: { cpu_id = 2 }, { driver = "caller_drv", major = 3, minor = 3, flags = 1 }</code></p>
+        <code type="none">driver_init: { cpu_id = 2 }, { driver = "caller_drv", major = 3, minor = 3, flags = 1 }</code>
 
         <p><em>driver_start</em></p>
         <list type="bulleted">
@@ -269,7 +269,7 @@ $ make </code>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_start: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", driver = "caller_drv", port = "#Port&lt;0.3676&gt;" }</code></p>
+        <code type="none">driver_start: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", driver = "caller_drv", port = "#Port&lt;0.3676&gt;" }</code>
 
         <p><em>driver_output</em></p>
         <list type="bulleted">
@@ -279,7 +279,7 @@ $ make </code>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_output: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", port = "#Port&lt;0.3677&gt;", driver = "/bin/sh -s unix:cmd", bytes = 36 }</code></p>
+        <code type="none">driver_output: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", port = "#Port&lt;0.3677&gt;", driver = "/bin/sh -s unix:cmd", bytes = 36 }</code>
 
         <p><em>driver_outputv</em></p>
         <list type="bulleted">
@@ -289,7 +289,7 @@ $ make </code>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_outputv: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet", bytes = 3 }</code></p>
+        <code type="none">driver_outputv: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet", bytes = 3 }</code>
 
         <p><em>driver_ready_input</em></p>
         <list type="bulleted">
@@ -298,7 +298,7 @@ $ make </code>
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_ready_input: { cpu_id = 5 }, { pid = "&lt;0.189.0&gt;", port = "#Port&lt;0.3637&gt;", driver = "inet_gethost 4 " }</code></p>
+        <code type="none">driver_ready_input: { cpu_id = 5 }, { pid = "&lt;0.189.0&gt;", port = "#Port&lt;0.3637&gt;", driver = "inet_gethost 4 " }</code>
 
         <p><em>driver_ready_output</em></p>
         <list type="bulleted">
@@ -307,7 +307,7 @@ $ make </code>
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_ready_output: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet" }</code></p>
+        <code type="none">driver_ready_output: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet" }</code>
 
         <p><em>driver_timeout</em></p>
         <list type="bulleted">
@@ -316,14 +316,14 @@ $ make </code>
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_timeout: { cpu_id = 5 }, { pid = "&lt;0.196.0&gt;", port = "#Port&lt;0.3664&gt;", driver = "tcp_inet" }</code></p>
+        <code type="none">driver_timeout: { cpu_id = 5 }, { pid = "&lt;0.196.0&gt;", port = "#Port&lt;0.3664&gt;", driver = "tcp_inet" }</code>
 
         <p><em>driver_stop_select</em></p>
         <list type="bulleted">
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_stop_select: { cpu_id = 5 }, { driver = "unknown" }</code></p>
+        <code type="none">driver_stop_select: { cpu_id = 5 }, { driver = "unknown" }</code>
 
         <p><em>driver_flush</em></p>
         <list type="bulleted">
@@ -332,7 +332,7 @@ $ make </code>
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_flush: { cpu_id = 7 }, { pid = "&lt;0.204.0&gt;", port = "#Port&lt;0.3686&gt;", driver = "tcp_inet" }</code></p>
+        <code type="none">driver_flush: { cpu_id = 7 }, { pid = "&lt;0.204.0&gt;", port = "#Port&lt;0.3686&gt;", driver = "tcp_inet" }</code>
 
         <p><em>driver_stop</em></p>
         <list type="bulleted">
@@ -341,7 +341,7 @@ $ make </code>
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_stop: { cpu_id = 5 }, { pid = "[]", port = "#Port&lt;0.3673&gt;", driver = "efile" }</code></p>
+        <code type="none">driver_stop: { cpu_id = 5 }, { pid = "[]", port = "#Port&lt;0.3673&gt;", driver = "efile" }</code>
 
         <p><em>driver_process_exit</em></p>
         <list type="bulleted">
@@ -357,7 +357,7 @@ $ make </code>
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_ready_async: { cpu_id = 3 }, { pid = "&lt;0.181.0&gt;", port = "#Port&lt;0.3622&gt;", driver = "efile" }</code></p>
+        <code type="none">driver_ready_async: { cpu_id = 3 }, { pid = "&lt;0.181.0&gt;", port = "#Port&lt;0.3622&gt;", driver = "efile" }</code>
 
         <p><em>driver_call</em></p>
         <list type="bulleted">
@@ -368,7 +368,7 @@ $ make </code>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_call: { cpu_id = 2 }, { pid = "&lt;0.202.0&gt;", port = "#Port&lt;0.3676&gt;", driver = "caller_drv", command = 0, bytes = 2 }</code></p>
+        <code type="none">driver_call: { cpu_id = 2 }, { pid = "&lt;0.202.0&gt;", port = "#Port&lt;0.3676&gt;", driver = "caller_drv", command = 0, bytes = 2 }</code>
 
         <p><em>driver_control</em></p>
         <list type="bulleted">
@@ -379,7 +379,7 @@ $ make </code>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">driver_control: { cpu_id = 3 }, { pid = "&lt;0.32767.8191&gt;", port = "#Port&lt;0.0&gt;", driver = "forker", command = 83, bytes = 32 }</code></p>
+        <code type="none">driver_control: { cpu_id = 3 }, { pid = "&lt;0.32767.8191&gt;", port = "#Port&lt;0.0&gt;", driver = "forker", command = 83, bytes = 32 }</code>
 
         <p><em>aio_pool_get</em></p>
         <list type="bulleted">
@@ -387,7 +387,7 @@ $ make </code>
             <item><c>length : integer</c> :: Async queue length. Ex. <c>0</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">aio_pool_get: { cpu_id = 4 }, { port = "#Port&lt;0.3614&gt;", length = 0 }</code></p>
+        <code type="none">aio_pool_get: { cpu_id = 4 }, { port = "#Port&lt;0.3614&gt;", length = 0 }</code>
 
         <p><em>aio_pool_put</em></p>
         <list type="bulleted">
@@ -396,7 +396,7 @@ $ make </code>
         </list>
         <p>Async queue length is not defined for <c>put</c> operations.</p>
         <p>Example:</p>
-        <p><code type="none">aio_pool_put: { cpu_id = 3 }, { port = "#Port&lt;0.3614&gt;", length = -1 }</code></p>
+        <code type="none">aio_pool_put: { cpu_id = 3 }, { port = "#Port&lt;0.3614&gt;", length = -1 }</code>
 
         <p><em>carrier_create</em></p>
         <list type="bulleted">
@@ -414,7 +414,7 @@ $ make </code>
 
         </list>
         <p>Example:</p>
-        <p><code type="none">carrier_create: { cpu_id = 2 }, { type = "ets_alloc", instance = 7, size = 2097152, mbc_carriers = 4, mbc_carriers_size = 3440640, mbc_blocks = 526, mbc_blocks_size = 1278576, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code></p>
+        <code type="none">carrier_create: { cpu_id = 2 }, { type = "ets_alloc", instance = 7, size = 2097152, mbc_carriers = 4, mbc_carriers_size = 3440640, mbc_blocks = 526, mbc_blocks_size = 1278576, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code>
 
         <p><em>carrier_destroy</em></p>
         <list type="bulleted">
@@ -432,7 +432,7 @@ $ make </code>
 
         </list>
         <p>Example:</p>
-        <p><code type="none">carrier_destroy: { cpu_id = 6 }, { type = "ets_alloc", instance = 7, size = 262144, mbc_carriers = 3, mbc_carriers_size = 3178496, mbc_blocks = 925, mbc_blocks_size = 2305336, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code></p>
+        <code type="none">carrier_destroy: { cpu_id = 6 }, { type = "ets_alloc", instance = 7, size = 262144, mbc_carriers = 3, mbc_carriers_size = 3178496, mbc_blocks = 925, mbc_blocks_size = 2305336, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code>
 
         <p><em>carrier_pool_put</em></p>
         <list type="bulleted">
@@ -441,7 +441,7 @@ $ make </code>
             <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">carrier_pool_put: { cpu_id = 3 }, { type = "ets_alloc", instance = 5, size = 1048576 }</code></p>
+        <code type="none">carrier_pool_put: { cpu_id = 3 }, { type = "ets_alloc", instance = 5, size = 1048576 }</code>
 
         <p><em>carrier_pool_get</em></p>
         <list type="bulleted">
@@ -450,10 +450,8 @@ $ make </code>
             <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
         </list>
         <p>Example:</p>
-        <p><code type="none">carrier_pool_get: { cpu_id = 7 }, { type = "ets_alloc", instance = 4, size = 3208 }</code></p>
-
+        <code type="none">carrier_pool_get: { cpu_id = 7 }, { type = "ets_alloc", instance = 4, size = 3208 }</code>
     </section>
-
 
     <section>
         <title>Examples</title>
