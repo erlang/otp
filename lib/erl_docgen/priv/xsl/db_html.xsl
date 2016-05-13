@@ -829,7 +829,7 @@
     </xsl:apply-templates>
   </xsl:template>
 
-  <!-- Subsections lvl 3 and ... -->
+  <!-- Subsections lvl 3 -->
   <xsl:template match="section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
@@ -837,6 +837,19 @@
       <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
       <xsl:value-of select="title"/>
     </h4>
+    <xsl:apply-templates>
+      <xsl:with-param name="chapnum" select="$chapnum"/>
+    </xsl:apply-templates>
+  </xsl:template>
+
+  <!-- Subsections lvl 4 and ... -->
+  <xsl:template match="section/section/section">
+    <xsl:param name="chapnum"/>
+    <xsl:param name="sectnum"/>
+    <h5>
+      <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
+      <xsl:value-of select="title"/>
+    </h5>
     <xsl:apply-templates>
       <xsl:with-param name="chapnum" select="$chapnum"/>
     </xsl:apply-templates>
@@ -873,7 +886,6 @@
 
 
   <!-- Lists -->
-
   <xsl:template match="list">
     <xsl:param name="chapnum"/>
     <ul>
