@@ -1003,7 +1003,7 @@ handle_req(#analyse{dest = Dest,
 			already_open ->
 			    ok;
 			ok ->
-			    file:close(DestPid)
+			    ok = file:close(DestPid)
 		    end,
 		    State
 	    end;
@@ -1364,7 +1364,7 @@ tracer_loop(Parent, Handler, State) ->
 	Trace when element(1, Trace) =:= trace_ts ->
 	    tracer_loop(Parent, Handler, Handler(Trace, State));
 	{'EXIT', Parent, Reason} ->
-	    handler(end_of_trace, State),
+	    _ = handler(end_of_trace, State),
 	    exit(Reason);
 	_ ->
 	    tracer_loop(Parent, Handler, State)
@@ -1450,12 +1450,10 @@ end_of_trace(Table, TS) ->
     Procs = get(),
     put(table, Table),
     ?dbg(2, "get() -> ~p~n", [Procs]),
-    lists:map(
-      fun ({Pid, _}) when is_pid(Pid) ->
-	      trace_exit(Table, Pid, TS)
-      end,
-      Procs),
-    erase(),
+    _ = lists:map(fun ({Pid, _}) when is_pid(Pid) ->
+                          trace_exit(Table, Pid, TS)
+                  end, Procs),
+    _ = erase(),
     ok.
 
 
@@ -2047,7 +2045,7 @@ trace_exit(Table, Pid, TS) ->
 	[] ->
 	    ok;
 	[_ | _] = Stack ->
-	    trace_return_to_int(Table, Pid, undefined, TS, Stack),
+	    _ = trace_return_to_int(Table, Pid, undefined, TS, Stack),
 	    ok
     end,
     ok.
@@ -2173,7 +2171,7 @@ trace_clock(_Table, _Pid, _T,
 	    [[{suspend, _}], [{suspend, _}] | _]=_Stack, _Clock) ->
     ?dbg(9, "trace_clock(Table, ~w, ~w, ~w, ~w)~n",
 	 [_Pid, _T, _Stack, _Clock]),
-    void;
+    ok;
 trace_clock(Table, Pid, T, 
 	    [[{garbage_collect, TS0}], [{suspend, _}]], Clock) ->
     trace_clock_1(Table, Pid, T, TS0, undefined, garbage_collect, Clock);
@@ -2188,7 +2186,7 @@ trace_clock(Table, Pid, T, [[{Func0, TS0}], [{Func1, _} | _] | _], Clock) ->
 trace_clock(Table, Pid, T, [[{Func0, TS0}]], Clock) ->
     trace_clock_1(Table, Pid, T, TS0, undefined, Func0, Clock);
 trace_clock(_, _, _, [], _) ->
-    void.
+    ok.
 
 trace_clock_1(Table, Pid, _, _, Caller, suspend, #clocks.own) ->
     clock_add(Table, {Pid, Caller, suspend}, #clocks.own, 0);
@@ -2202,7 +2200,7 @@ trace_clock_1(Table, Pid, T, TS, Caller, Func, Clock) ->
 
 clock_add(Table, Id, Clock, T) ->
     ?dbg(1, "clock_add(Table, ~w, ~w, ~w)~n", [Id, Clock, T]),
-    try ets:update_counter(Table, Id, {Clock, T})
+    try ets:update_counter(Table, Id, {Clock, T}), ok
     catch
 	error:badarg ->
 	    ets:insert(Table, #clocks{id = Id}),
@@ -2211,7 +2209,7 @@ clock_add(Table, Id, Clock, T) ->
 	       true -> ?dbg(0, "Negative counter value ~p ~p ~p ~p~n",
 			  [X, Id, Clock, T])
 	    end,
-	    X
+	    ok
     end.
 
 clocks_add(Table, #clocks{id = Id} = Clocks) ->
