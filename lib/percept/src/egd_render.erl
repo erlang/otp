@@ -27,6 +27,9 @@
 -export([eps/1]).
 -compile(inline).
 
+-export([line_to_linespans/3]).
+-export([line_ls/2]).
+
 -include("egd.hrl").
 -define('DummyC',0).
 
@@ -315,8 +318,8 @@ precompile(#image{objects = Os}=I) ->
     I#image{objects = precompile_objects(Os)}.
 
 precompile_objects([]) -> [];
-precompile_objects([#image_object{type=line, points=[P0,P1]}=O|Os]) ->
-    [O#image_object{intervals = linespans_to_map(line_ls(P0,P1))}|precompile_objects(Os)];
+precompile_objects([#image_object{type=line, internals=W, points=[P0,P1]}=O|Os]) ->
+    [O#image_object{intervals = linespans_to_map(line_to_linespans(P0,P1,W))}|precompile_objects(Os)];
 precompile_objects([#image_object{type=filled_triangle, points=[P0,P1,P2]}=O|Os]) ->
     [O#image_object{intervals = triangle_ls(P0,P1,P2)}|precompile_objects(Os)];
 precompile_objects([#image_object{type=polygon, points=Pts}=O|Os]) ->
@@ -567,6 +570,66 @@ line_ls_step(X, X1, Y, Dx, Dy, Ys, E, X0, true = Steep, LSs) when X =< X1 ->
     line_ls_step(X+1,X1,Y,Dx,Dy,Ys,E + Dy, X0, Steep, [{X,Y,Y}|LSs]);
 line_ls_step(_X,_,_Y,_Dx,_Dy,_Ys,_E,_X0,_,LSs) -> 
     LSs.
+
+
+
+%% line_to_linespans
+%%   Anti-aliased thick line
+%%   Do it CPS style
+%% In:
+%%	P1 :: point()
+%%	P2 :: point()
+%% Out:
+%%      [{Y,Xl,Xr}]
+%%
+line_to_linespans({X0,Y0},{X1,Y1},Wd) ->
+    Dx = abs(X1-X0),
+    Dy = abs(Y1-Y0),
+    Sx = if X0 < X1 -> 1; true -> -1 end,
+    Sy = if Y0 < Y1 -> 1; true -> -1 end,
+    E0 = Dx - Dy,
+    Ed = if Dx + Dy =:= 0 -> 1; true -> math:sqrt(Dx*Dx + Dy*Dy) end,
+    line_to_ls(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E0,Ed,(Wd+1)/2,[]).
+
+line_to_ls(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0) ->
+    %C = max(0, 255*(abs(E - Dx+Dy)/Ed - Wd + 1)),
+    %Ls1 = [{ls,Y0,X0,C}|Ls0],
+    Ls1 = [{Y0,X0,X0}|Ls0],
+    line_to_ls_sx(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls1,E).
+
+line_to_ls_sx(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2) when 2*E2 > -Dx ->
+    line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2+Dy,Y0);
+line_to_ls_sx(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2) ->
+    line_to_ls_sy(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2,X0).
+
+line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,E2,Y) when E2 < Ed*Wd andalso
+                                                                (Y1 =/= Y orelse Dx > Dy) ->
+    Y2 = Y + Sy,
+    %C = max(0,255*(abs(E2)/Ed-Wd+1)),
+    %Ls = [{sx,Y2,X0,C}|Ls0],
+    Ls = [{Y2,X0,X0}|Ls0],
+    line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2+Dx,Y2);
+line_to_ls_sx_do(X0,_Y0,X1,_Y1,_Dx,_Dy,_Sx,_Sy,_E,_Ed,_Wd,Ls,_E2,_Y) when X0 =:= X1 ->
+    Ls;
+line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,_E2,_Y) ->
+    line_to_ls_sy(X0+Sx,Y0,X1,Y1,Dx,Dy,Sx,Sy,E-Dy,Ed,Wd,Ls,E,X0).
+
+line_to_ls_sy(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,E2,X) when 2*E2 =< Dy ->
+    line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,Dx-E2,X);
+line_to_ls_sy(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,_E2,_X) ->
+    line_to_ls(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0).
+
+line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,E2,X) when E2 < Ed*Wd andalso
+                                                                (X1 =/= X orelse Dx < Dy) ->
+    X2 = X + Sx,
+    %C = max(0,255*(abs(E2)/Ed-Wd+1)),
+    %Ls = [{sy,Y0,X2,C}|Ls0],
+    Ls = [{Y0,X2,X2}|Ls0],
+    line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2+Dy,X2);
+line_to_ls_sy_do(_X0,Y0,_X1,Y1,_Dx,_Dy,_Sx,_Sy,_E,_Ed,_Wd,Ls,_E2,_X) when Y0 =:= Y1 ->
+    Ls;
+line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,_E2,_X) ->
+    line_to_ls(X0,Y0+Sy,X1,Y1,Dx,Dy,Sx,Sy,E+Dx,Ed,Wd,Ls).
 
 % Text
 

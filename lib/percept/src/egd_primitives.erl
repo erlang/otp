@@ -71,15 +71,11 @@ object_info(O) ->
 %% interface functions
 
 line(#image{objects=Os}=I, Sp, Ep, Color) ->
-    I#image{objects=[#image_object{
-                        type   = line,
-                        points = [Sp, Ep],
-                        span   = span([Sp, Ep]),
-                        color  = Color}|Os]}.
+    line(#image{objects=Os}=I, Sp, Ep, 1, Color).
 	
-line(#image{objects=Os}=I, Sp, Ep, Stroke, Color) ->
+line(#image{objects=Os}=I, Sp, Ep, Wd, Color) ->
     I#image{objects=[#image_object{
-                        internals = Stroke,
+                        internals = Wd,
                         type   = line,
                         points = [Sp, Ep],
                         span   = span([Sp, Ep]),
