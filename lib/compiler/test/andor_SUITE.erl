@@ -36,7 +36,7 @@ all() ->
 groups() -> 
     [{p,[parallel],
       [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,
-       combined,in_case,before_and_inside_if]}].
+       combined,in_case,before_and_inside_if,slow_compilation]}].
 
 init_per_suite(Config) ->
     Config.
