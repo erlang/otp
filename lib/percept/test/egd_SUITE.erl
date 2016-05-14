@@ -32,6 +32,7 @@
          image_primitives/1,
          image_colors/1,
          image_font/1,
+         image_fans/1,
          image_png_compliant/1]).
 
 suite() ->
@@ -41,6 +42,7 @@ suite() ->
 all() -> 
     [image_create_and_destroy, image_shape,
      image_primitives, image_colors, image_font,
+     image_fans,
      image_png_compliant].
 
 
@@ -223,6 +225,50 @@ image_png_compliant(Config) when is_list(Config) ->
     ok = egd:destroy(Im),
     erase(image_size),
     ok.
+
+image_fans(Config) when is_list(Config) ->
+    W = 1024,
+    H = 800,
+    Dir = proplists:get_value(priv_dir, Config),
+
+    Fun = fun({F,Args},Im) ->
+                  erlang:apply(egd_primitives,F,[Im|Args])
+          end,
+
+    %% fan1
+    Ops1 = gen_vertical_fan(1,{0,400},egd:color(red),1024,800,-15),
+    Ops2 = gen_horizontal_fan(1,{512,800},egd:color(green),1024,0,-15),
+
+    Im0 = egd_primitives:create(W,H),
+    Im1 = lists:foldl(Fun, Im0, Ops1 ++ Ops2),
+    Bin1 = egd_render:binary(Im1, opaque),
+    Png1 = egd_png:binary(W,H,Bin1),
+
+    File1 = filename:join(Dir,"fan1.png"),
+    egd:save(Png1,File1),
+    ct:log("<p>Image1:<img src=\"~s\" /></p>~n", [File1]),
+
+    %% fan2
+    Ops3 = gen_vertical_fan(7,{0,400},egd:color(red),1024,800,-15),
+    Ops4 = gen_horizontal_fan(7,{512,800},egd:color(green),1024,0,-15),
+
+    Im2 = lists:foldl(Fun, Im0, Ops3 ++ Ops4),
+    Bin2 = egd_render:binary(Im2, opaque),
+    Png2 = egd_png:binary(W,H,Bin2),
+
+    File2 = filename:join(Dir,"fan2.png"),
+    egd:save(Png2,File2),
+    ct:log("<p>Image2:<img src=\"~s\" /></p>~n", [File2]),
+    ok.
+
+gen_vertical_fan(Wd,Pt,C,X,Y,Step) when Y > 0 ->
+    [{line,[Pt,{X,Y},Wd,C]}|gen_vertical_fan(Wd,Pt,C,X,Y + Step,Step)];
+gen_vertical_fan(_,_,_,_,_,_) -> [].
+
+gen_horizontal_fan(Wd,Pt,C,X,Y,Step) when X > 0 ->
+    [{line,[Pt,{X,Y},Wd,C]}|gen_horizontal_fan(Wd,Pt,C,X + Step,Y,Step)];
+gen_horizontal_fan(_,_,_,_,_,_) -> [].
+
 
 %%----------------------------------------------------------------------
 %% Auxiliary tests
