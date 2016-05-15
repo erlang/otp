@@ -4,13 +4,28 @@ This is the home of [Basho's][basho] version of [Erlang/OTP][erlang], forked fro
 You can _(and should!)_ read their [README][otp_readme] file for information on the language and applications.
 
 ###Branch Information
+
+####This is not a supported branch, it is informational ONLY!
+
+Basho OTP should be built from one of the following branches or tags.
+If you're building for any use approximating production, we ***strongly*** encourage you to use a tagged production release.
+
 |Status|Base|Branch|Release Tag|Stable B/T|
 |:-----|:---|:-----|:----------|:---------|
 | Production   | R16    | [`basho-otp-16`](http://github.com/basho/otp/tree/basho-otp-16) | [`OTP_R16B02_basho10`](http://github.com/basho/otp/tree/OTP_R16B02_basho10) | [`OTP_R16B02_basho10`](http://github.com/basho/otp/tree/OTP_R16B02_basho10) |
 | Retired      | R15    | [`basho-otp-15`](http://github.com/basho/otp/tree/basho-otp-15) | [`basho_OTP_R15B01p`](http://github.com/basho/otp/tree/basho_OTP_R15B01p) | [`OTP_R15B01_basho1`](http://github.com/basho/otp/tree/OTP_R15B01_basho1) |
 | Experimental | OTP-17 | [`basho-otp-17`](http://github.com/basho/otp/tree/basho-otp-17) | _n/a_ | [`basho-otp-17`](http://github.com/basho/otp/tree/basho-otp-17) |
 | Active       | OTP-18 | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) | _n/a_ | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) |
-| Active       | OTP-19 | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) | _n/a_ | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) |
+| Experimental | OTP-19 | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) | _n/a_ | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) |
+
+####Branch Conventions
+
+All Basho branches are named with the prefix _basho_ - any other branch name is simply updated periodically, unchanged, from Ericsson's repository.
+
+For any given Basho OTP-***NN*** version, the current stable branch is `basho-otp-NN` and work-in-progress branches are `basho-otp-NN-some-descriptive-name`.
+Updates from the main Erlang repository are merged from the appropriate maintenance branch into `basho-otp-NN` periodically, usually at tagged point releases.
+
+Further information on branches can be found in README and Release Notes files on the branches themselves.
 
 ###What's Here
 
@@ -67,7 +82,7 @@ Bear in mind, however, that our releases are tailored to our needs, so if it's n
 
 Everything in Erlang/OTP, whether part of the original distribution or a contribution of ours, is subject to the terms of the license applied to it in Ericsson's repository.
 Through OTP-17, that was the [Erlang Public License][eplicense].
-Beginning with OTP-18, the sources are subject to the terms of the [Apache License, Version 2.0][license].
+Beginning with OTP-18, the [Apache License, Version 2.0][license] applies.
 
 
   [basho]:          http://www.basho.com
