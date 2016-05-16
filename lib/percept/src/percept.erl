@@ -151,11 +151,11 @@ start_webserver() ->
 	{'started', string(), pos_integer()} | {'error', any()}.
 
 start_webserver(Port) when is_integer(Port) ->
-    application:load(percept),
+    ok = ensure_loaded(percept),
     case whereis(percept_httpd) of
 	undefined ->
 	    {ok, Config} = get_webserver_config("percept", Port),
-	    inets:start(),
+	    ok = application:ensure_started(inets),
 	    case inets:start(httpd, Config) of
 		{ok, Pid} ->
 		    AssignedPort = find_service_port_from_pid(inets:services_info(), Pid),
@@ -328,3 +328,10 @@ get_webserver_config(Servername, Port) when is_list(Servername), is_integer(Port
 	{bind_address, any},
 	{port, Port}],
     {ok, Config}.
+
+ensure_loaded(App) ->
+    case application:load(App) of
+        ok -> ok;
+        {error,{already_loaded,App}} -> ok;
+        Error -> Error
+    end.

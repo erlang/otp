@@ -94,7 +94,7 @@ restart(PerceptDB)->
 -spec do_start()-> pid().
 
 do_start()->
-    Pid = spawn( fun() -> init_percept_db() end),
+    Pid = spawn(fun() -> init_percept_db() end),
     erlang:register(percept_db, Pid),
     Pid.
 
@@ -117,17 +117,17 @@ stop() ->
 %% @private
 %% @doc Stops the percept database, with a synchronous call.
 
--spec stop_sync(pid())-> true.
+-spec stop_sync(pid()) -> true.
 
-stop_sync(Pid)->
+stop_sync(Pid) ->
     MonitorRef = erlang:monitor(process, Pid),
-    stop(),
+    _ = stop(),
     receive
         {'DOWN', MonitorRef, _Type, Pid, _Info}->
             true
     after ?STOP_TIMEOUT->
-            erlang:demonitor(MonitorRef, [flush]),
-            exit(Pid, kill)
+              erlang:demonitor(MonitorRef, [flush]),
+              exit(Pid, kill)
     end.
 
 %% @spec insert(tuple()) -> ok
@@ -185,19 +185,19 @@ consolidate() ->
 
 init_percept_db() ->
     % Proc and Port information
-    ets:new(pdb_info, [named_table, private, {keypos, #information.id}, set]),
+    pdb_info = ets:new(pdb_info, [named_table, private, {keypos, #information.id}, set]),
 
     % Scheduler runnability
-    ets:new(pdb_scheduler, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
+    pdb_scheduler = ets:new(pdb_scheduler, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
     
     % Process and Port runnability
-    ets:new(pdb_activity, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
+    pdb_activity = ets:new(pdb_activity, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
     
     % System status
-    ets:new(pdb_system, [named_table, private, {keypos, 1}, set]),
+    pdb_system = ets:new(pdb_system, [named_table, private, {keypos, 1}, set]),
     
     % System warnings
-    ets:new(pdb_warnings, [named_table, private, {keypos, 1}, ordered_set]),
+    pdb_warnings = ets:new(pdb_warnings, [named_table, private, {keypos, 1}, ordered_set]),
     put(debug, 0),
     loop_percept_db().
 
