@@ -33,8 +33,7 @@
 %%	Prettyprint-formats (naively) an abstract Core Erlang syntax
 %%	tree.
 
--record(ctxt, {class = term    :: 'clause' | 'def' | 'expr' | 'term',
-	       indent = 0      :: integer(),
+-record(ctxt, {indent = 0      :: integer(),
 	       item_indent = 2 :: integer(),
 	       body_indent = 4 :: integer(),
 	       line = 0        :: integer(),
@@ -132,14 +131,11 @@ format_1(#c_literal{anno=A,val=Bitstring}, Ctxt) when is_bitstring(Bitstring) ->
     format_1(#c_binary{anno=A,segments=Segs}, Ctxt);
 format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
     Pairs = maps:to_list(M),
-    Op = case Ctxt of
-	#ctxt{ class = clause } -> exact;
-	_ -> assoc
-    end,
-    Cpairs = [#c_map_pair{op=#c_literal{val=Op},
+    Op = #c_literal{val=assoc},
+    Cpairs = [#c_map_pair{op=Op,
 			  key=#c_literal{val=K},
 			  val=#c_literal{val=V}} || {K,V} <- Pairs],
-	format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
+    format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
 format_1(#c_var{name={I,A}}, _) ->
     [core_atom(I),$/,integer_to_list(A)];
 format_1(#c_var{name=V}, _) ->
@@ -340,35 +336,30 @@ format_1(#c_module{name=N,exports=Es,attrs=As,defs=Ds}, Ctxt) ->
     [Mod," [",
      format_vseq(Es,
 		 "", ",",
-		 add_indent(set_class(Ctxt, term), width(Mod, Ctxt)+2),
+		 add_indent(Ctxt, width(Mod, Ctxt)+2),
 		 fun format/2),
      "]",
      nl_indent(Ctxt),
      "    attributes [",
      format_vseq(As,
 		 "", ",",
-		 add_indent(set_class(Ctxt, def), 16),
+		 add_indent(Ctxt, 16),
 		 fun format_def/2),
      "]",
      nl_indent(Ctxt),
      format_funcs(Ds, Ctxt),
      nl_indent(Ctxt)
      | "end"
-    ];
-format_1(Type, _) ->
-    ["** Unsupported type: ",
-     io_lib:write(Type)
-     | " **"
     ].
 
 format_funcs(Fs, Ctxt) ->
     format_vseq(Fs,
 		"", "",
-		set_class(Ctxt, def),
+		Ctxt,
 		fun format_def/2).
 
 format_def({N,V}, Ctxt0) ->
-    Ctxt1 = add_indent(set_class(Ctxt0, expr), Ctxt0#ctxt.body_indent),
+    Ctxt1 = add_indent(Ctxt0, Ctxt0#ctxt.body_indent),
     [format(N, Ctxt0),
      " =",
      nl_indent(Ctxt1)
@@ -392,8 +383,7 @@ do_format_bitstr(#c_bitstr{val=V,size=S,unit=U,type=T,flags=Fs}, Ctxt0) ->
     ["#<", Val, ">(", format_hseq(Vs,",", Ctxt2, fun format/2), $)].
 
 format_clauses(Cs, Ctxt) ->
-    format_vseq(Cs, "", "", set_class(Ctxt, clause),
-		fun format_clause/2).
+    format_vseq(Cs, "", "", Ctxt, fun format_clause/2).
 
 format_clause(Node, Ctxt) ->
     maybe_anno(Node, fun format_clause_1/2, Ctxt).
@@ -405,15 +395,13 @@ format_clause_1(#c_clause{pats=Ps,guard=G,body=B}, Ctxt) ->
      case is_trivial_guard(G) of
 	 true ->
 	     [" when ",
-	      format_guard(G, add_indent(set_class(Ctxt, expr),
-					 width(Ptxt, Ctxt) + 6))];
+	      format_guard(G, add_indent(Ctxt, width(Ptxt, Ctxt) + 6))];
 	 false ->
 	     [nl_indent(Ctxt2), "when ",
-	      format_guard(G, add_indent(set_class(Ctxt2, expr), 2))]
+	      format_guard(G, add_indent(Ctxt2, 2))]
      end++
      " ->",
-     nl_indent(Ctxt2)
-     | format(B, set_class(Ctxt2, expr))
+     nl_indent(Ctxt2) | format(B, Ctxt2)
     ].
 
 is_trivial_guard(#c_literal{val=Val}) when is_atom(Val) -> true;
@@ -467,7 +455,7 @@ format_list_tail(Tail, Ctxt) ->
 
 format_map_pair(Op, K, V, Ctxt0) ->
     Ctxt1 = add_indent(Ctxt0, 1),
-    Txt = format(K, set_class(Ctxt1, expr)),
+    Txt = format(K, Ctxt1),
     Ctxt2 = add_indent(Ctxt0, width(Txt, Ctxt1)),
     [Txt,Op,format(V, Ctxt2)].
 
@@ -490,6 +478,7 @@ spaces(5) -> "     ";
 spaces(6) -> "      ";
 spaces(7) -> "       ".
 
+%% Undo indentation done by nl_indent/1.
 unindent(T, Ctxt) ->
     unindent(T, Ctxt#ctxt.indent, []).
 
@@ -505,18 +494,11 @@ unindent([$\t|T], N, C) ->
 	    unindent([spaces(Tab - N)|T], 0, C)
     end;
 unindent([L|T], N, C) when is_list(L) ->
-    unindent(L, N, [T|C]);
-unindent([H|T], _, C) ->
-    [H|[T|C]];
-unindent([], N, [H|T]) ->
-    unindent(H, N, T);
-unindent([], _, []) -> [].
+    unindent(L, N, [T|C]).
 
 
 width(Txt, Ctxt) ->
-    try width(Txt, 0, Ctxt, [])
-    catch error:_ -> exit({bad_text,Txt})
-    end.
+    width(Txt, 0, Ctxt, []).
 
 width([$\t|T], A, Ctxt, C) ->
     width(T, A + ?TAB_WIDTH, Ctxt, C);
@@ -533,14 +515,9 @@ width([], A, _, []) -> A.
 add_indent(Ctxt, Dx) ->
     Ctxt#ctxt{indent = Ctxt#ctxt.indent + Dx}.
 
-set_class(Ctxt, Class) ->
-    Ctxt#ctxt{class = Class}.
-
 core_atom(A) -> io_lib:write_string(atom_to_list(A), $').
 
 
-is_simple_term(#c_values{es=Es}) ->
-    length(Es) < 3 andalso lists:all(fun is_simple_term/1, Es);
 is_simple_term(#c_tuple{es=Es}) ->
     length(Es) < 4 andalso lists:all(fun is_simple_term/1, Es);
 is_simple_term(#c_var{}) -> true;
