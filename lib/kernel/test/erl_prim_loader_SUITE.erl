@@ -108,13 +108,18 @@ get_file(Config) when is_list(Config) ->
     error = erl_prim_loader:get_file({dummy}),
     ok.
 
-get_modules(_Config) ->
+get_modules(Config) ->
     case test_server:is_cover() of
-	false -> do_get_modules();
+	false -> do_get_modules(Config);
 	true -> {skip,"Cover"}
     end.
 
-do_get_modules() ->
+do_get_modules(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    NotADir = atom_to_list(?FUNCTION_NAME) ++ "_not_a_dir",
+    ok = file:write_file(filename:join(PrivDir, NotADir), <<>>),
+    ok = file:set_cwd(PrivDir),
+
     MsGood = lists:sort([lists,gen_server,gb_trees,code_server]),
     Ms = [certainly_not_existing|MsGood],
     SuccExp = [begin
@@ -129,8 +134,10 @@ do_get_modules() ->
 
     Path = code:get_path(),
     Process = fun(_, F, Code) -> {ok,{F,erlang:md5(Code)}} end,
-    {ok,{Succ,FailExp}} = erl_prim_loader:get_modules(Ms, Process, Path),
-    SuccExp = lists:sort(Succ),
+    {ok,{SuccExp,FailExp}} = get_modules_sorted(Ms, Process, Path),
+
+    %% Test that an 'enotdir' error can be handled.
+    {ok,{SuccExp,FailExp}} = get_modules_sorted(Ms, Process, [NotADir|Path]),
 
     Name = inet_get_modules,
     {ok, Node, BootPid} = complete_start_node(Name),
@@ -147,6 +154,13 @@ do_get_modules() ->
 
     ok.
 
+get_modules_sorted(Ms, Process, Path) ->
+    case erl_prim_loader:get_modules(Ms, Process, Path) of
+	{ok,{Succ,FailExp}} ->
+	    {ok,{lists:sort(Succ),lists:sort(FailExp)}};
+	Other ->
+	    Other
+    end.
 
 normalize_and_backslash(Config) ->
     %% Test OTP-11170
