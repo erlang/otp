@@ -479,7 +479,8 @@ initialize_constraints([], _MFA, _RecDict, _ExpTypes, _AllRecords, Acc) ->
 initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, AllRecords, Acc) ->
   case Constr of
     {type, _, constraint, [{atom, _, is_subtype}, [Type1, Type2]]} ->
-      T1 = final_form(Type1, ExpTypes, MFA, AllRecords, maps:new()),
+      VarTable = erl_types:var_table__new(),
+      T1 = final_form(Type1, ExpTypes, MFA, AllRecords, VarTable),
       Entry = {T1, Type2},
       initialize_constraints(Rest, MFA, RecDict, ExpTypes, AllRecords, [Entry|Acc]);
     {type, _, constraint, [{atom,_,Name}, List]} ->
@@ -489,8 +490,9 @@ initialize_constraints([Constr|Rest], MFA, RecDict, ExpTypes, AllRecords, Acc) -
   end.
 
 constraints_fixpoint(Constrs, MFA, RecDict, ExpTypes, AllRecords) ->
+  VarTable = erl_types:var_table__new(),
   VarDict =
-    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, maps:new()),
+    constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, VarTable),
   constraints_fixpoint(VarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords).
 
 constraints_fixpoint(OldVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords) ->
@@ -498,11 +500,11 @@ constraints_fixpoint(OldVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords) ->
     constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, OldVarDict),
   case NewVarDict of
     OldVarDict ->
-      DictFold =
+      Fun =
 	fun(Key, Value, Acc) ->
 	    [{subtype, erl_types:t_var(Key), Value}|Acc]
 	end,
-      FinalConstrs = maps:fold(DictFold, [], NewVarDict),
+      FinalConstrs = maps:fold(Fun, [], NewVarDict),
       {FinalConstrs, NewVarDict};
     _Other ->
       constraints_fixpoint(NewVarDict, MFA, Constrs, RecDict, ExpTypes, AllRecords)
@@ -512,12 +514,12 @@ final_form(Form, ExpTypes, MFA, AllRecords, VarDict) ->
   from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarDict).
 
 from_form_with_check(Form, ExpTypes, MFA, AllRecords) ->
-  from_form_with_check(Form, ExpTypes, MFA, AllRecords, maps:new()).
+  VarTable = erl_types:var_table__new(),
+  from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarTable).
 
 from_form_with_check(Form, ExpTypes, MFA, AllRecords, VarDict) ->
   Site = {spec, MFA},
-  erl_types:t_check_record_fields(Form, ExpTypes, Site, AllRecords,
-                                  VarDict),
+  erl_types:t_check_record_fields(Form, ExpTypes, Site, AllRecords, VarDict),
   erl_types:t_from_form(Form, ExpTypes, Site, AllRecords, VarDict).
 
 constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, AllRecords, VarDict) ->
