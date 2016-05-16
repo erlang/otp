@@ -1514,39 +1514,35 @@ call(FsmPid, Event, Timeout) ->
     end.
 
 
-handle_connection_msg(Msg, StateName, State0 =
-			  #data{starter = User,
-				connection_state = Connection0,
-				event_queue = Qev0}) ->
+handle_connection_msg(Msg, StateName, D0 = #data{starter = User,
+						 connection_state = Connection0,
+						 event_queue = Qev0}) ->
     Renegotiation = renegotiation(StateName),
     Role = role(StateName),
-   try ssh_connection:handle_msg(Msg, Connection0, Role) of
+    try ssh_connection:handle_msg(Msg, Connection0, Role) of
 	{{replies, Replies}, Connection} ->
-	    case StateName of
-		{connected,_} ->
-		    {Repls, State} = send_replies(Replies,
-						  State0#data{connection_state=Connection}),
-		    {keep_state, State, Repls};
-		_ ->
-		    {ConnReplies, Replies} =
-			lists:splitwith(fun not_connected_filter/1, Replies),
-		    {Repls, State} = send_replies(Replies,
-						  State0#data{event_queue = Qev0 ++ ConnReplies}),
-		    {keep_state, State, Repls}
-	    end;
+	    {Repls, D} = 
+		case StateName of
+		    {connected,_} ->
+			send_replies(Replies, D0#data{connection_state=Connection});
+		    _ ->
+			{ConnReplies, NonConnReplies} = lists:splitwith(fun not_connected_filter/1, Replies),
+			send_replies(NonConnReplies, D0#data{event_queue = Qev0 ++ ConnReplies})
+		end,
+	    {keep_state, D, Repls};
 
 	{noreply, Connection} ->
-	    {keep_state, State0#data{connection_state = Connection}};
+	    {keep_state, D0#data{connection_state = Connection}};
 
 	{disconnect, Reason0, {{replies, Replies}, Connection}} ->
-	   {Repls,State} = send_replies(Replies, State0#data{connection_state = Connection}),
+	   {Repls, D} = send_replies(Replies, D0#data{connection_state = Connection}),
 	   case {Reason0,Role} of
 	       {{_, Reason}, client} when ((StateName =/= {connected,client}) and (not Renegotiation)) ->
 		   User ! {self(), not_connected, Reason};
 	       _ ->
 		   ok
 	   end,
-	   {stop_and_reply, {shutdown,normal}, Repls, State#data{connection_state = Connection}}
+	   {stop_and_reply, {shutdown,normal}, Repls, D#data{connection_state = Connection}}
 
     catch
 	_:Error ->
@@ -1555,8 +1551,8 @@ handle_connection_msg(Msg, StateName, State0 =
 		  #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
 				      description = "Internal error"},
 		  Connection0, Role),
-	    {Repls,State} = send_replies(Replies, State0#data{connection_state = Connection}),
-	    {stop_and_reply, {shutdown,Error}, Repls, State#data{connection_state = Connection}}
+	    {Repls, D} = send_replies(Replies, D0#data{connection_state = Connection}),
+	    {stop_and_reply, {shutdown,Error}, Repls, D#data{connection_state = Connection}}
     end.
 
 
