@@ -35,7 +35,8 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [get_map_elements
+      [get_map_elements,
+       otp_7345
       ]}].
 
 init_per_suite(Config) ->
