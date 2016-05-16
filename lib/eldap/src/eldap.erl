@@ -564,7 +564,12 @@ loop(Cpid, Data) ->
             ?MODULE:loop(Cpid, NewData);
 
 	{_From, close} ->
-	    {no_reply,_NewData} = do_unbind(Data),
+	    % Ignore tcp error if connection is already closed.
+	    try do_unbind(Data) of
+	        {no_reply,_NewData} -> ok
+	    catch
+	        throw:{gen_tcp_error, _TcpErr} -> ok
+	    end,
 	    unlink(Cpid),
 	    exit(closed);
 
