@@ -18,22 +18,18 @@
 %% %CopyrightEnd%
 
 -module(percept_html).
--export([
-	page/3, 
-	codelocation_page/3, 
-	databases_page/3, 
-	load_database_page/3, 
-	processes_page/3, 
-	concurrency_page/3,
-	process_info_page/3
-	]).
+-export([page/3,
+         codelocation_page/3,
+         databases_page/3,
+         load_database_page/3,
+         processes_page/3,
+         concurrency_page/3,
+         process_info_page/3]).
 
--export([
-	value2pid/1, 
-	pid2value/1, 
-	get_option_value/2,
-	join_strings_with/2
-	]).
+-export([value2pid/1,
+         pid2value/1,
+         get_option_value/2,
+         join_strings_with/2]).
 
 -include("percept.hrl").
 -include_lib("kernel/include/file.hrl").

@@ -24,21 +24,17 @@
 
 -module(percept_db).
 
--export([
-	start/0,
-	stop/0,
-	insert/1,
-	select/2,
-	select/1,
-	consolidate/0
-	]).
+-export([start/0,
+         stop/0,
+         insert/1,
+         select/2,
+         select/1,
+         consolidate/0]).
 
 -include("percept.hrl").
 -define(STOP_TIMEOUT, 1000).
 %%==========================================================================
-%%
-%% 		Type definitions 
-%%
+%% Type definitions
 %%==========================================================================
 
 %% @type activity_option() = 
@@ -64,9 +60,7 @@
 
 
 %%==========================================================================
-%%
-%% 		Interface functions
-%%
+%% Interface functions
 %%==========================================================================
 
 %% @spec start() -> ok | {started, Pid} | {restarted, Pid}
@@ -186,9 +180,7 @@ consolidate() ->
     ok.
 
 %%==========================================================================
-%%
-%% 		Database loop 
-%%
+%% Database loop
 %%==========================================================================
 
 init_percept_db() ->
@@ -232,9 +224,7 @@ loop_percept_db() ->
     end.
 
 %%==========================================================================
-%%
-%% 		Auxiliary functions 
-%%
+%% Auxiliary functions
 %%==========================================================================
 
 %% cleans trace messages from external pids
@@ -788,5 +778,3 @@ update_system_stop_ts(TS) ->
 	Unhandled -> 
 	    io:format("update_system_stop_ts, unhandled ~p ~n", [Unhandled])
     end.
-	    
-

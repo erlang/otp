@@ -26,27 +26,24 @@
 
 -module(percept).
 -behaviour(application).
--export([
-	profile/1, 
-	profile/2, 
-	profile/3,
-	stop_profile/0, 
-	start_webserver/0, 
-	start_webserver/1, 
-	stop_webserver/0, 
-	stop_webserver/1, 
-	analyze/1,
-	% Application behaviour
-	start/2, 
-	stop/1]).
+-export([profile/1,
+         profile/2,
+         profile/3,
+         stop_profile/0,
+         start_webserver/0,
+         start_webserver/1,
+         stop_webserver/0,
+         stop_webserver/1,
+         analyze/1,
+         % Application behaviour
+         start/2,
+         stop/1]).
 
 
 -include("percept.hrl").
 
 %%==========================================================================
-%%
-%% 		Type definitions 
-%%
+%% Type definitions
 %%==========================================================================
 
 %% @type percept_option() = procs | ports | exclusive
@@ -54,9 +51,7 @@
 -type percept_option() :: 'procs' | 'ports' | 'exclusive' | 'scheduler'.
 
 %%==========================================================================
-%%
-%% 		Application callback functions
-%%
+%% Application callback functions
 %%==========================================================================
 
 %% @spec start(Type, Args) -> {started, Hostname, Port} | {error, Reason} 
@@ -76,9 +71,7 @@ stop(_State) ->
     stop_webserver(0).
 
 %%==========================================================================
-%%
-%% 		Interface functions
-%%
+%% Interface functions
 %%==========================================================================
 
 %% @spec profile(Filename::string()) -> {ok, Port} | {already_started, Port}
@@ -217,9 +210,7 @@ stop_webserver(Port) ->
     do_stop(Port,[]).
 
 %%==========================================================================
-%%
-%% 		Auxiliary functions 
-%%
+%% Auxiliary functions
 %%==========================================================================
 
 %% parse_and_insert
