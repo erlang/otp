@@ -41,6 +41,5 @@
 -ifdef(debug).
 -define(dbg(X), io:format("DEBUG: ~p:~p~n",[?MODULE, X])).
 -else.
--define(dbg(X), void).
+-define(dbg(X), ok).
 -endif.
-

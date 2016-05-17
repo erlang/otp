@@ -662,4 +662,3 @@ eps_header(W,H) ->
 
 eps_footer() -> 
     "%%EOF\n".
-
