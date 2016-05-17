@@ -100,10 +100,16 @@ api(Config) when is_list(Config) ->
 
     %% get_os_wordsize()
     ok = case memsup:get_os_wordsize() of
-             32             -> ok;
-             64             -> ok;
-             unsupported_os -> ok;
-             _ -> error
+             32 ->
+                 32 = 8*erlang:system_info({wordsize,external}),
+                 ok;
+             64 ->
+                 % No reliable test here
+                 ok;
+             unsupported_os ->
+                 ok;
+             _ ->
+                 error
          end,
 
     %% get_check_interval()
