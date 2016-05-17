@@ -785,39 +785,36 @@
 
   <!-- Book -->
   <xsl:template match="/book">
-
-    <xsl:apply-templates name="parts"/>
-    <xsl:apply-templates name="applications"/>
-
+    <xsl:apply-templates select="parts"/>
+    <xsl:apply-templates select="applications"/>
+    <xsl:apply-templates select="releasenotes"/>
   </xsl:template>
 
   <!-- Parts -->
   <xsl:template match="parts">
-    <xsl:apply-templates name="part"/>
+    <xsl:apply-templates select="part"/>
   </xsl:template>
 
   <!-- Applications -->
   <xsl:template match="applications">
-    <xsl:apply-templates name="application"/>
+    <xsl:apply-templates select="application"/>
   </xsl:template>
-
 
  <!-- Header -->
-  <xsl:template match="header">
-  </xsl:template>
+ <xsl:template match="header"/>
+  
+ <!-- Section/Title -->
+ <xsl:template match="section/title"/>
 
-  <!-- Section/Title -->
-  <xsl:template match="section/title">
- </xsl:template>
+ <xsl:template match="pagetext"/>
 
- <xsl:template match="pagetext">
- </xsl:template>
-
-
-  <!-- Chapter/Section -->
+  <!-- Chapter/Section, subsection level 1-->
   <xsl:template match="chapter/section">
     <xsl:param name="chapnum"/>
     <h3>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <a name="{generate-id(title)}">
         <xsl:value-of select="$chapnum"/>.<xsl:number/>&#160;
         <xsl:value-of select="title"/>
@@ -829,11 +826,14 @@
     </xsl:apply-templates>
   </xsl:template>
 
-  <!-- Subsections lvl 3 -->
+  <!-- Subsections lvl 2 -->
   <xsl:template match="section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
     <h4>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
       <xsl:value-of select="title"/>
     </h4>
@@ -842,11 +842,14 @@
     </xsl:apply-templates>
   </xsl:template>
 
-  <!-- Subsections lvl 4 and ... -->
+  <!-- Subsections lvl 3 and ... -->
   <xsl:template match="section/section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
     <h5>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
       <xsl:value-of select="title"/>
     </h5>
@@ -1298,9 +1301,7 @@
       <xsl:with-param name="type">ref_man</xsl:with-param>
     </xsl:call-template-->
 
-
     <xsl:document href="{$outdir}/index.html" method="html" encoding="UTF-8" indent="yes" doctype-public="-//W3C//DTD HTML 4.01 Transitional//EN">
-
       <xsl:call-template name="pagelayout"/>
     </xsl:document>
   </xsl:template>
@@ -2097,15 +2098,26 @@
 
   </xsl:template>
 
-
   <xsl:template match="url">
     <span class="bold_code"><a href="{@href}"><xsl:apply-templates/></a></span>
   </xsl:template>
 
-
   <xsl:template match="marker">
-    <a name="{@id}"><xsl:apply-templates/></a>
+    <xsl:choose>
+      <xsl:when test="not(parent::section and following-sibling::title)">
+        <a name="{@id}"><xsl:apply-templates/></a>
+      </xsl:when>
+    </xsl:choose>
   </xsl:template>
+
+  <xsl:template name="marker-before-title">
+    <xsl:choose>
+      <xsl:when test="self::marker and parent::section and following-sibling::title">
+	 <a name="{@id}"><xsl:apply-templates/></a>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
 
   <xsl:template match="term">
     <xsl:value-of select="@id"/>
