@@ -117,7 +117,7 @@ main(N, SocketType, Host, Port, Time)
 loop(Pollers, Timeout) ->
     d("loop -> entry when"
       "~n   Timeout: ~p", [Timeout]),
-    Start = inets_time_compat:monotonic_time(),
+    Start = erlang:monotonic_time(),
 
     receive 
 	{'EXIT', Pid, {poller_stat_failure, SocketType, Host, Port, Time, Reason}} ->

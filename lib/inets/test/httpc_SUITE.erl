@@ -2077,7 +2077,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    Time = inets_time_compat:monotonic_time(),
+    Time = erlang:monotonic_time(),
 
     receive
 	{'DOWN', _MRef, process, Pid, normal} ->
@@ -2177,7 +2177,7 @@ parse_connection_type(Request) ->
     end.
 
 set_random_seed() ->
-    Unique = inets_time_compat:unique_integer(),
+    Unique = erlang:unique_integer(),
 
     A = erlang:phash2([make_ref(), self(), Unique]),
     random:seed(A, A, A).
