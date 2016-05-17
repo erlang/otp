@@ -45,7 +45,6 @@
     <datatype>
       <name>socket()</name>
       <desc>
-        <marker id="type-socket"/>
         <p>As returned by
           <seealso marker="#open/1"><c>open/1,2</c></seealso>.</p>
       </desc>
