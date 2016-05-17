@@ -53,7 +53,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [].
 
 all() -> 
     [{group, signature_verification},
