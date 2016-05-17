@@ -52,7 +52,6 @@
     <datatype>
       <name>ext_binary()</name>
       <desc>
-      <marker id="type-ext_binary"></marker>
         <p>A binary data object, structured according to
            the Erlang external term format.</p>
       </desc>
