@@ -667,6 +667,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             erts_smp_proc_trylock(rp, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 
             if (!msgq) {
+#ifdef ERTS_SMP
+                ErtsThrPrgrDelayHandle dhndl;
+#endif
 
                 msgq = erts_alloc(ERTS_ALC_T_TRACE_MSG_QUEUE,
                                   sizeof(ErlTraceMessageQueue));
@@ -681,8 +684,15 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
                 erts_smp_proc_unlock(t_p, ERTS_PROC_LOCK_TRACE);
 
+#ifdef ERTS_SMP
+                if (!scheduler)
+                    dhndl = erts_thr_progress_unmanaged_delay();
+#endif
                 erts_schedule_flush_trace_messages(t_p->common.id);
-
+#ifdef ERTS_SMP
+                if (!scheduler)
+                    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
             } else {
                 msgq->len++;
                 *msgq->last = mp;
@@ -1669,7 +1679,8 @@ int enif_is_process_alive(ErlNifEnv* env, ErlNifPid *proc)
 	return !!rp;
 #else
 	erts_exit(ERTS_ABORT_EXIT, "enif_is_process_alive: "
-		  "called from non-scheduler thread");
+		  "called from non-scheduler thread "
+                  "in non-smp emulator");
 	return 0;
 #endif
     }
@@ -1694,7 +1705,8 @@ int enif_is_port_alive(ErlNifEnv *env, ErlNifPort *port)
 	return !!prt;
 #else
 	erts_exit(ERTS_ABORT_EXIT, "enif_is_port_alive: "
-		  "called from non-scheduler thread");
+		  "called from non-scheduler thread "
+                  "in non-smp emulator");
 	return 0;
 #endif
     }
