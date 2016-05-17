@@ -412,8 +412,8 @@ getAuthenticatingDataFromHeader(Info)->
 		    case httpd_util:split(UnCodedString,":",2) of
 			{ok,[User,PassWord]}->
 			    {user,User,PassWord};
-			{error,Error}->
-			    {error,Error}
+			Other ->
+			    {error, Other}
 		    end
 	    end;
 	BadCredentials ->
