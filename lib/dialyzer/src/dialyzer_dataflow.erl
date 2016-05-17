@@ -2954,10 +2954,14 @@ is_call_to_send(Tree) ->
       Arity = cerl:call_arity(Tree),
       cerl:is_c_atom(Mod)
 	andalso cerl:is_c_atom(Name)
-	andalso (cerl:atom_val(Name) =:= '!')
+        andalso is_send(cerl:atom_val(Name))
 	andalso (cerl:atom_val(Mod) =:= erlang)
 	andalso (Arity =:= 2)
   end.
+
+is_send('!') -> true;
+is_send(send) -> true;
+is_send(_) -> false.
 
 is_lc_simple_list(Tree, TreeType, State) ->
   Opaques = State#state.opaques,
