@@ -137,10 +137,13 @@ static ErtsAllocatorState_t exec_alloc_state;
 #endif
 static ErtsAllocatorState_t test_alloc_state;
 
-#define ERTS_ALC_INFO_A_ALLOC_UTIL (ERTS_ALC_A_MAX + 1)
-#define ERTS_ALC_INFO_A_MSEG_ALLOC (ERTS_ALC_A_MAX + 2)
-#define ERTS_ALC_INFO_A_ERTS_MMAP  (ERTS_ALC_A_MAX + 3)
-#define ERTS_ALC_INFO_A_MAX        ERTS_ALC_INFO_A_ERTS_MMAP
+enum {
+    ERTS_ALC_INFO_A_ALLOC_UTIL = ERTS_ALC_A_MAX + 1,
+    ERTS_ALC_INFO_A_MSEG_ALLOC,
+    ERTS_ALC_INFO_A_ERTS_MMAP,
+    ERTS_ALC_INFO_A_DISABLED_EXEC,  /* fake a disabled "exec_alloc" */
+    ERTS_ALC_INFO_A_END
+};
 
 typedef struct {
     erts_smp_atomic32_t refc;
@@ -150,7 +153,7 @@ typedef struct {
     Process *proc;
     Eterm ref;
     Eterm ref_heap[REF_THING_SIZE];
-    int allocs[ERTS_ALC_INFO_A_MAX - ERTS_ALC_A_MIN + 1 + 1];
+    int allocs[ERTS_ALC_INFO_A_END - ERTS_ALC_A_MIN + 1];
 } ErtsAllocInfoReq;
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(aireq,
@@ -3260,6 +3263,12 @@ reply_alloc_info(void *vair)
                                             am_false);
 #endif
 		    break;
+#ifndef ERTS_ALC_A_EXEC
+		case ERTS_ALC_INFO_A_DISABLED_EXEC:
+		    alloc_atom = erts_bld_atom(hpp, szp, "exec_alloc");
+		    ainfo = erts_bld_tuple2(hpp, szp, alloc_atom, am_false);
+		    break;
+#endif
 		default:
 		    alloc_atom = erts_bld_atom(hpp, szp,
 					       (char *) ERTS_ALC_A2AD(ai));
@@ -3287,7 +3296,8 @@ reply_alloc_info(void *vair)
 	    switch (ai) {
 	    case ERTS_ALC_A_SYSTEM:
             case ERTS_ALC_INFO_A_ALLOC_UTIL:
-            case ERTS_ALC_INFO_A_ERTS_MMAP:
+	    case ERTS_ALC_INFO_A_ERTS_MMAP:
+	    case ERTS_ALC_INFO_A_DISABLED_EXEC:
 		break;
 	    case ERTS_ALC_INFO_A_MSEG_ALLOC:
 #if HAVE_ERTS_MSEG && defined(ERTS_SMP)
@@ -3359,7 +3369,7 @@ erts_request_alloc_info(struct process *c_p,
 			int internal)
 {
     ErtsAllocInfoReq *air = aireq_alloc();
-    Eterm req_ai[ERTS_ALC_INFO_A_MAX+1] = {0};
+    Eterm req_ai[ERTS_ALC_INFO_A_END] = {0};
     Eterm alist;
     Eterm *hp;
     int airix = 0, ai;
@@ -3399,6 +3409,12 @@ erts_request_alloc_info(struct process *c_p,
             ai = ERTS_ALC_INFO_A_ERTS_MMAP;
             goto save_alloc;
         }
+#ifndef ERTS_ALC_A_EXEC
+	if (erts_is_atom_str("exec_alloc", alloc, 0)) {
+	    ai = ERTS_ALC_INFO_A_DISABLED_EXEC;
+	    goto save_alloc;
+	}
+#endif
 	if (erts_is_atom_str("alloc_util", alloc, 0)) {
 	    ai = ERTS_ALC_INFO_A_ALLOC_UTIL;
 	save_alloc:
