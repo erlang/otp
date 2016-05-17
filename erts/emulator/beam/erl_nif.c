@@ -96,7 +96,7 @@ void dtrace_nifenv_str(ErlNifEnv *, char *);
 #endif
 
 #define MIN_HEAP_FRAG_SZ 200
-static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp);
+static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp);
 
 static ERTS_INLINE int
 is_scheduler(void)
@@ -135,7 +135,7 @@ execution_state(ErlNifEnv *env, Process **c_pp, int *schedp)
     }
 }
 
-static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
+static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, size_t need)
 {
     Eterm* hp = env->hp;
     env->hp += need;
@@ -145,7 +145,7 @@ static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
     return alloc_heap_heavy(env, need, hp);
 }
 
-static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
+static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp)
 {
     env->hp = hp;
     if (env->heap_frag == NULL) {
@@ -166,7 +166,7 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
 }
 
 #if SIZEOF_LONG != ERTS_SIZEOF_ETERM
-static ERTS_INLINE void ensure_heap(ErlNifEnv* env, unsigned may_need)
+static ERTS_INLINE void ensure_heap(ErlNifEnv* env, size_t may_need)
 {
     if (env->hp + may_need > env->hp_end) {
 	alloc_heap_heavy(env, may_need, env->hp);
@@ -1207,7 +1207,7 @@ Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
     Eterm orig;
     Uint offset, bit_offset, bit_size; 
 #ifdef DEBUG
-    unsigned src_size;
+    size_t src_size;
 
     ASSERT(is_binary(bin_term));
     src_size = binary_size(bin_term);
