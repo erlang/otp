@@ -70,7 +70,10 @@ msg_loop(Meta, Mref, SaveStacktrace) ->
 	%% Meta is evaluating a receive, must be done within context
 	%% of real (=this) process
 	{sys, Meta, {'receive',Msg}} ->
-	    receive Msg -> Meta ! {self(), rec_acked} end,
+	    receive Msg ->
+		Meta ! {self(), rec_acked},
+		ok
+	    end,
 	    msg_loop(Meta, Mref, SaveStacktrace);
 
 	%% Meta needs something evaluated within context of real process
