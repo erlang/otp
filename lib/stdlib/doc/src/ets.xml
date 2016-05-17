@@ -123,8 +123,9 @@
     <p>Some of the functions uses a <em>match specification</em>,
       match_spec. A brief explanation is given in
       <seealso marker="#select/2">select/2</seealso>. For a detailed
-      description, see the chapter "Match specifications in Erlang" in
-      <em>ERTS User's Guide</em>.</p>
+      description, see chapter
+      <seealso marker="erts:match_spec">Match Specifications in Erlang</seealso>
+      in <em>ERTS User's Guide</em>.</p>
   </section>
 
   <datatypes>
