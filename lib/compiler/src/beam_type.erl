@@ -759,7 +759,7 @@ checkerror_2(OrigIs) -> [{set,[],[],fcheckerror}|OrigIs].
 %%%
 %%% {tuple,Size,First} means that the corresponding register contains a
 %%% tuple with *at least* Size elements.  An tuple with unknown
-%%% size is represented as {tuple,0}. First is either [] (meaning that
+%%% size is represented as {tuple,0,[]}. First is either [] (meaning that
 %%% the tuple's first element is unknown) or [FirstElement] (the contents
 %%% of the first element).
 %%%
@@ -796,21 +796,45 @@ tdb_copy({Tag,_}=S, D, Ts) when Tag =:= x; Tag =:= y ->
 	error -> orddict:erase(D, Ts);
 	Type -> orddict:store(D, Type, Ts)
     end;
-tdb_copy(Literal, D, Ts) -> orddict:store(D, Literal, Ts).
+tdb_copy(Literal, D, Ts) ->
+    Type = case Literal of
+	       {atom,_} -> Literal;
+	       {float,_} -> float;
+	       {integer,Int} -> {integer,{Int,Int}};
+	       {literal,[_|_]} -> nonempty_list;
+	       {literal,#{}} -> map;
+	       {literal,Tuple} when tuple_size(Tuple) >= 1 ->
+		   Lit = tag_literal(element(1, Tuple)),
+		   {tuple,tuple_size(Tuple),[Lit]};
+	       _ -> term
+	   end,
+    if
+	Type =:= term ->
+	    orddict:erase(D, Ts);
+	true ->
+	    verify_type(Type),
+	    orddict:store(D, Type, Ts)
+    end.
+
+tag_literal(A) when is_atom(A) -> {atom,A};
+tag_literal(F) when is_float(F) -> {float,F};
+tag_literal(I) when is_integer(I) -> {integer,I};
+tag_literal([]) -> nil;
+tag_literal(Lit) -> {literal,Lit}.
 
 %% tdb_update([UpdateOp], Db) -> NewDb
 %%        UpdateOp = {Register,kill}|{Register,NewInfo}
 %%  Updates a type database.  If a 'kill' operation is given, the type
 %%  information for that register will be removed from the database.
 %%  A kill operation takes precedence over other operations for the same
-%%  register (i.e. [{{x,0},kill},{{x,0},{tuple,5}}] means that the
+%%  register (i.e. [{{x,0},kill},{{x,0},{tuple,5,[]}}] means that the
 %%  the existing type information, if any, will be discarded, and the
-%%  the '{tuple,5}' information ignored.
+%%  the '{tuple,5,[]}' information ignored.
 %%
 %%  If NewInfo information is given and there exists information about
 %%  the register, the old and new type information will be merged.
-%%  For instance, {tuple,5} and {tuple,10} will be merged to produce
-%%  {tuple,10}.
+%%  For instance, {tuple,5,_} and {tuple,10,_} will be merged to produce
+%%  {tuple,10,_}.
 
 tdb_update(Uis0, Ts0) ->
     Uis1 = filter(fun ({{x,_},_Op}) -> true;
@@ -821,7 +845,8 @@ tdb_update(Uis0, Ts0) ->
 
 tdb_update1([{Key,kill}|Ops], [{K,_Old}|_]=Db) when Key < K ->
     tdb_update1(remove_key(Key, Ops), Db);
-tdb_update1([{Key,_New}=New|Ops], [{K,_Old}|_]=Db) when Key < K ->
+tdb_update1([{Key,Type}=New|Ops], [{K,_Old}|_]=Db) when Key < K ->
+    verify_type(Type),
     [New|tdb_update1(Ops, Db)];
 tdb_update1([{Key,kill}|Ops], [{Key,_}|Db]) ->
     tdb_update1(remove_key(Key, Ops), Db);
@@ -831,7 +856,8 @@ tdb_update1([{_,_}|_]=Ops, [Old|Db]) ->
     [Old|tdb_update1(Ops, Db)];
 tdb_update1([{Key,kill}|Ops], []) ->
     tdb_update1(remove_key(Key, Ops), []);
-tdb_update1([{_,_}=New|Ops], []) ->
+tdb_update1([{_,Type}=New|Ops], []) ->
+    verify_type(Type),
     [New|tdb_update1(Ops, [])];
 tdb_update1([], Db) -> Db.
 
@@ -866,6 +892,7 @@ merge_type_info(NewType, _) ->
     verify_type(NewType),
     NewType.
 
+verify_type({atom,_}) -> ok;
 verify_type(boolean) -> ok;
 verify_type(integer) -> ok;
 verify_type({integer,{Min,Max}})
