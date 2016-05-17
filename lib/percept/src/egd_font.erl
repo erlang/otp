@@ -74,7 +74,8 @@ load(Filename) ->
 %% ETS handler functions
 
 initialize_table() ->
-    ets:new(egd_font_table, [named_table, ordered_set, public]).
+    egd_font_table = ets:new(egd_font_table, [named_table, ordered_set, public]),
+    ok.
 
 glyph_insert(Font, Code, Translation, LSs) ->
     Element = {{Font, Code}, Translation, LSs},
