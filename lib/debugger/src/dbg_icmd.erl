@@ -173,7 +173,7 @@ handle_cmd(Bs, Status, Ieval) ->
 
 step(Meta) ->     Meta ! {user, {cmd, step}}.
 next(Meta) ->     Meta ! {user, {cmd, next}}.
-continue(Meta) -> Meta ! {user, {cmd, continue}}.
+continue(Meta) -> Meta ! {user, {cmd, continue}}, ok.
 finish(Meta) ->   Meta ! {user, {cmd, finish}}.
 skip(Meta) ->     Meta ! {user, {cmd, skip}}.
 

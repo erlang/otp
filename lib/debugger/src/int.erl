@@ -352,10 +352,10 @@ start() -> dbg_iserver:start().
 stop() ->
     lists:foreach(
       fun(Mod) ->
-	      everywhere(distributed,
-			 fun() ->
+	      _ = everywhere(distributed,
+			     fun() ->
 				 erts_debug:breakpoint({Mod,'_','_'}, false)
-			 end)
+			     end)
       end,
       interpreted()),
     dbg_iserver:stop().
@@ -524,21 +524,21 @@ check(Mod) when is_atom(Mod) -> catch check_module(Mod);
 check(File) when is_list(File) -> catch check_file(File).
 
 load({Mod, Src, Beam, BeamBin, Exp, Abst}, Dist) ->
-    everywhere(Dist,
-	       fun() ->
+    _ = everywhere(Dist,
+		   fun() ->
 		       code:purge(Mod),
 		       erts_debug:breakpoint({Mod,'_','_'}, false),
 		       {module,Mod} = code:load_binary(Mod, Beam, BeamBin)
-	       end),
+		   end),
     case erl_prim_loader:get_file(filename:absname(Src)) of
 	{ok, SrcBin, _} ->
 	    MD5 = code:module_md5(BeamBin),
 	    Bin = term_to_binary({interpreter_module,Exp,Abst,SrcBin,MD5}),
 	    {module, Mod} = dbg_iserver:safe_call({load, Mod, Src, Bin}),
-	    everywhere(Dist,
-		       fun() ->
+	    _ = everywhere(Dist,
+			   fun() ->
 			       true = erts_debug:breakpoint({Mod,'_','_'}, true) > 0
-		       end),
+			   end),
 	    {module, Mod};
 	error ->
 	    error
@@ -738,9 +738,9 @@ del_mod(AbsMod, Dist) ->
 		  list_to_atom(filename:basename(AbsMod,".erl"))
 	  end,
     dbg_iserver:safe_cast({delete, Mod}),
-    everywhere(Dist,
-	       fun() ->
+    _ = everywhere(Dist,
+		   fun() ->
 		       erts_debug:breakpoint({Mod,'_','_'}, false),
 		       erlang:yield()
-	       end),
+		   end),
     ok.
