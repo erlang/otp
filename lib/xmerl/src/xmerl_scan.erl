@@ -605,7 +605,7 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 	     schema ->
 		 case schemaLocations(Res, S5) of
 		     {ok, Schemas} ->
-			 cleanup(S5),
+			 _ = cleanup(S5),
 			 %%?dbg("Schemas: ~p~nRes: ~p~ninhertih_options(S): ~p~n",
 			 %%          [Schemas,Res,inherit_options(S5)]),
 			 XSDRes = xmerl_xsd:process_validate(Schemas, Res,
