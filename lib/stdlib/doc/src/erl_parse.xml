@@ -45,26 +45,22 @@
   <datatypes>
     <datatype>
       <name>abstract_clause()</name>
-      <desc><p><marker id="type-abstract_clause"/>
-        Abstract form of an Erlang clause.</p>
+      <desc><p>Abstract form of an Erlang clause.</p>
       </desc>
     </datatype>
     <datatype>
       <name>abstract_expr()</name>
-      <desc><p><marker id="type-abstract_expr"/>
-        Abstract form of an Erlang expression.</p>
+      <desc><p>Abstract form of an Erlang expression.</p>
       </desc>
     </datatype>
     <datatype>
       <name>abstract_form()</name>
-      <desc><p><marker id="type-abstract_form"/>
-        Abstract form of an Erlang form.</p>
+      <desc><p>Abstract form of an Erlang form.</p>
       </desc>
     </datatype>
     <datatype>
       <name>abstract_type()</name>
-      <desc><p><marker id="type-abstract_type"/>
-        Abstract form of an Erlang type.</p>
+      <desc><p>Abstract form of an Erlang type.</p>
       </desc>
     </datatype>
     <datatype>

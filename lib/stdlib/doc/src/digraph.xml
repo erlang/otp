@@ -104,14 +104,12 @@
     </datatype>
     <datatype>
       <name>edge()</name>
-      <desc><p><marker id="type-edge"/></p></desc>
     </datatype>
     <datatype>
       <name name="label"/>
     </datatype>
     <datatype>
       <name>vertex()</name>
-      <desc><p><marker id="type-vertex"/></p></desc>
     </datatype>
   </datatypes>
   <funcs>
