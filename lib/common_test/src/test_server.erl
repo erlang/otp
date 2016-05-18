@@ -21,7 +21,7 @@
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([run_test_case_apply/1,init_target_info/0,init_purify/0]).
+-export([run_test_case_apply/1,init_target_info/0]).
 -export([cover_compile/1,cover_analyse/2]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,10 +49,6 @@
 
 -export([break/1,break/2,break/3,continue/0,continue/1]).
 
-%%% DEBUGGER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([purify_new_leaks/0, purify_format/2, purify_new_fds_inuse/0,
-	 purify_is_running/0]).
-
 %%% PRIVATE EXPORTED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([]).
 
@@ -72,10 +68,6 @@ init_target_info() ->
 		 otp_release=OTPRel,
 		 username=test_server_sup:get_username(),
 		 cookie=atom_to_list(erlang:get_cookie())}.
-
-init_purify() ->
-    purify_new_leaks().
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cover_compile(#cover{app=App,incl=Include,excl=Exclude,cross=Cross}) ->
@@ -366,9 +358,7 @@ stick_all_sticky(Node,Sticky) ->
 %% compensate timetraps for runtime delays introduced by e.g. tools like
 %% cover.
 
-run_test_case_apply({CaseNum,Mod,Func,Args,Name,
-		     RunInit,TimetrapData}) ->
-    purify_format("Test case #~w ~w:~w/1", [CaseNum, Mod, Func]),
+run_test_case_apply({Mod,Func,Args,Name,RunInit,TimetrapData}) ->
     case os:getenv("TS_RUN_VALGRIND") of
 	false ->
 	    ok;
@@ -380,7 +370,6 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,
     Result = run_test_case_apply(Mod, Func, Args, Name, RunInit,
 				 TimetrapData),
     ProcAft = erlang:system_info(process_count),
-    purify_new_leaks(),
     DetFail = get(test_server_detected_fail),
     {Result,DetFail,ProcBef,ProcAft}.
 
@@ -1829,7 +1818,6 @@ timetrap_scale_factor() ->
     timetrap_scale_factor([
 	{ 2, fun() -> has_lock_checking() end},
 	{ 3, fun() -> has_superfluous_schedulers() end},
-	{ 5, fun() -> purify_is_running() end},
 	{ 6, fun() -> is_debug() end},
 	{10, fun() -> is_cover() end}
     ]).
@@ -2728,58 +2716,6 @@ is_commercial() ->
 	Int when is_integer(Int), Int > 0 -> false;
 	_ -> true
     end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                     DEBUGGER INTERFACE                    %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_is_running() -> false|true
-%%
-%% Tests if Purify is currently running.
-
-purify_is_running() ->
-    case catch erlang:system_info({error_checker, running}) of
-	{'EXIT', _} -> false;
-	Res -> Res
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_new_leaks() -> false|BytesLeaked
-%% BytesLeaked = integer()
-%%
-%% Checks for new memory leaks if Purify is active.
-%% Returns the number of bytes leaked, or false if Purify
-%% is not running.
-purify_new_leaks() ->
-    case catch erlang:system_info({error_checker, memory}) of
-	{'EXIT', _} -> false;
-	Leaked when is_integer(Leaked) -> Leaked
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_new_fds_inuse() -> false|FdsInuse
-%% FdsInuse = integer()
-%%
-%% Checks for new file descriptors in use.
-%% Returns the number of new file descriptors in use, or false
-%% if Purify is not running.
-purify_new_fds_inuse() ->
-    case catch erlang:system_info({error_checker, fd}) of
-	{'EXIT', _} -> false;
-	Inuse when is_integer(Inuse) -> Inuse
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_format(Format, Args) -> ok
-%% Format = string()
-%% Args = lists()
-%%
-%% Outputs the formatted string to Purify's logfile,if Purify is active.
-purify_format(Format, Args) ->
-    (catch erlang:system_info({error_checker, io_lib:format(Format, Args)})),
-    ok.
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
