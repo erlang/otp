@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ info_msg(Format, Data) ->
 %%-------------------------------------------------------------------
 
 add_timestamp(Format, Data) ->
-    Time = inets_time_compat:timestamp(),
+    Time = erlang:timestamp(),
     {{_Y, _Mo, _D}, {H, Mi, S}} = calendar:now_to_universal_time(Time),
     %% {"~p-~s-~sT~s:~s:~sZ,~6.6.0w tftp: " ++ Format ++ "\n", 
     %%  [Y, t(Mo), t(D), t(H), t(Mi), t(S), MicroSecs | Data]}.

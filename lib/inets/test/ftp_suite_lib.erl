@@ -1353,7 +1353,7 @@ do_delete(Pid, Config) ->
 
 do_mkdir(Pid) ->
     NewDir = "earl_" ++
-        integer_to_list(inets_time_compat:unique_integer([positive])),
+        integer_to_list(erlang:unique_integer([positive])),
 
     ok = ftp:cd(Pid, "incoming"),
     {ok, CurrDir} = ftp:pwd(Pid),
