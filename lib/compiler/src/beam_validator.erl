@@ -1165,11 +1165,14 @@ assert_type(WantedType, Term, Vst) ->
 assert_type(Correct, Correct) -> ok;
 assert_type(float, {float,_}) -> ok;
 assert_type(tuple, {tuple,_}) -> ok;
+assert_type(tuple, {literal,Tuple}) when is_tuple(Tuple) -> ok;
 assert_type({tuple_element,I}, {tuple,[Sz]})
   when 1 =< I, I =< Sz ->
     ok;
 assert_type({tuple_element,I}, {tuple,Sz})
   when is_integer(Sz), 1 =< I, I =< Sz ->
+    ok;
+assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
     ok;
 assert_type(Needed, Actual) ->
     error({bad_type,{needed,Needed},{actual,Actual}}).
@@ -1549,8 +1552,12 @@ return_type_1(erlang, setelement, 3, Vst) ->
     Tuple = {x,1},
     TupleType =
 	case get_term_type(Tuple, Vst) of
-	    {tuple,_}=TT -> TT;
-	    _ -> {tuple,[0]}
+	    {tuple,_}=TT ->
+		TT;
+	    {literal,Lit} when is_tuple(Lit) ->
+		{tuple,tuple_size(Lit)};
+	    _ ->
+		{tuple,[0]}
 	end,
     case get_term_type({x,0}, Vst) of
 	{integer,[]} -> TupleType;
