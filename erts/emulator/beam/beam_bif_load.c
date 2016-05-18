@@ -949,10 +949,7 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
          *  - Check for literals
 	 */
 	for (msgp = rp->msg_frag; msgp; msgp = msgp->next) {
-	    if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-		hfrag = &msgp->hfrag;
-	    else
-		hfrag = msgp->data.heap_frag;
+            hfrag = erts_message_to_heap_frag(msgp);
 	    for (; hfrag; hfrag = hfrag->next) {
 		Eterm *hp, *hp_end;
 		ASSERT(!check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size));
