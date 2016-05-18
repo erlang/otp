@@ -64,12 +64,10 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
--export([
-	 validate/2,validate/3,process_validate/2,process_validate/3,
+-export([validate/2,validate/3,process_validate/2,process_validate/3,
 	 process_schema/1,process_schema/2,
 	 process_schemas/1,process_schemas/2,
-	 state2file/1,state2file/2,file2state/1,format_error/1
-	]).
+	 state2file/1,state2file/2,file2state/1,format_error/1]).
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -1178,7 +1176,7 @@ rename_redef_group(Name={LN,Scope,NS},S) ->
     NewName = {LN,['#redefine'|Scope],NS},
     case resolve({group,NewName},S) of
 	{SG=#schema_group{name=Name},_} ->
-	    save_object({group,SG#schema_group{name=NewName}},S),
+	    _ = save_object({group,SG#schema_group{name=NewName}},S),
 	    NewName;
 	_ ->
 	    failed
@@ -3436,7 +3434,7 @@ check_keys([Key=#id_constraint{selector={selector,SelectorPath},
 	    {L,S1} when length(L)==length(TargetNodeSet) -> 
 		%% Part1: 3.11.4.4.2.1
 		S2 = key_sequence_uniqueness(L,XMLEl,S1),
-		save_key(Key#id_constraint{key_sequence=L},S2),
+		_ = save_key(Key#id_constraint{key_sequence=L},S2),
 		S2;
 	    {Err,S1} ->
 		acc_errs(S1,{error_path(XMLEl,XMLEl#xmlElement.name),?MODULE,
@@ -4014,7 +4012,7 @@ merge_derived_types(XSDType,InstType,Blocks,Mode,S) ->
 	{error,S2} ->
 	    {InstType,S2};
 	{MergedType,S2} ->
-	    save_merged_type(MergedType,S2),
+	    _ = save_merged_type(MergedType,S2),
 	    {MergedType,S2}
     end.
 
@@ -4970,7 +4968,7 @@ save_schema_element(CM,S=#xsd_state{elementFormDefault = EFD,
 	      undefined -> [];
 	      _ -> TN
 	  end,
-    save_in_table({schema,TN2},Schema2,S),
+    _ = save_in_table({schema,TN2},Schema2,S),
     save_to_file(S).
 
 %% other_global_elements(S,ElementList) ->
@@ -5006,13 +5004,13 @@ save_to_file(S=#xsd_state{tab2file=TF}) ->
 	    {ok,IO}=file:open(filename:rootname(S#xsd_state.schema_name)++".tab",
 			      [write]),
 	    io:format(IO,"~p~n",[catch ets:tab2list(S#xsd_state.table)]),
-	    file:close(IO);
+	    ok = file:close(IO);
 	false ->
 	    ok;
 	IOFile ->
 	    {ok,IO}=file:open(IOFile,[write]),
 	    io:format(IO,"~p~n",[catch ets:tab2list(S#xsd_state.table)]),
-	    file:close(IO)
+	    ok = file:close(IO)
     end.
 
 save_merged_type(Type=#schema_simple_type{},S) ->
@@ -5034,25 +5032,25 @@ save_idc(unique,IDConstr,S) ->
     save_unique(IDConstr,S).
 
 save_key(Key,S) ->
-    save_object({key,Key},S),
+    _ = save_object({key,Key},S),
     S.
 
 save_keyref(KeyRef=#id_constraint{category=keyref},S) ->
     S1 = add_keyref(KeyRef,S),
-    save_object({keyref,KeyRef},S1),
+    _ = save_object({keyref,KeyRef},S1),
     S1;
 save_keyref(_,S) ->
     S.
 
 save_unique(Unique,S) ->
-    save_object({unique,Unique},S),
+    _ = save_object({unique,Unique},S),
     S.
 
 save_substitutionGroup([],S) ->
     S;
 save_substitutionGroup([{Head,Members}|SGs],S) ->
     %% save {head,[members]}
-    save_in_table({substitutionGroup,Head},Members,S),
+    _ = save_in_table({substitutionGroup,Head},Members,S),
     %% save {member,head}, an element can only be a member in one
     %% substitutionGroup
     lists:foreach(fun(X)->save_in_table({substitutionGroup_member,X},Head,S) end,Members),
