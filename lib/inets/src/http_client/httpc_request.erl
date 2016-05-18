@@ -83,14 +83,15 @@ send(SendAddr, Socket, SocketType,
     TmpHdrs = handle_user_info(UserInfo, Headers),
 
     {TmpHdrs2, Body} = post_data(Method, TmpHdrs, Content, HeadersAsIs),
+
+    Uri = Path ++ Query,
     
-    {NewHeaders, Uri} = 
+    NewHeaders =
 	case Address of
 	    SendAddr ->
-		{TmpHdrs2, Path ++ Query};
+		TmpHdrs2;
 	    _Proxy ->
-		TmpHdrs3 = handle_proxy(HttpOptions, TmpHdrs2), 
-		{TmpHdrs3, AbsUri}
+		handle_proxy(HttpOptions, TmpHdrs2)
 	end,
     
     FinalHeaders = 
