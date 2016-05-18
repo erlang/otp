@@ -90,8 +90,7 @@
     <datatype>
       <name>fd()</name>
       <desc>
-        <p><marker id="type-fd"/>
-          A file descriptor representing a file opened in
+        <p>A file descriptor representing a file opened in
 	  <seealso marker="#raw"><c>raw</c></seealso> mode.</p>
       </desc>
     </datatype>

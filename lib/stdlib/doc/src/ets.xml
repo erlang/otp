@@ -135,8 +135,7 @@
     <datatype>
       <name>continuation()</name>
       <desc>
-        <p><marker id="type-continuation"/>
-          Opaque continuation used by <seealso marker="#select/1">
+        <p>Opaque continuation used by <seealso marker="#select/1">
           <c>select/1,3</c></seealso>, <seealso marker="#select_reverse/1">
           <c>select_reverse/1,3</c></seealso>, <seealso
           marker="#match/1">

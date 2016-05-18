@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2015</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -128,7 +128,7 @@ fe80::204:acff:fe17:bf38
     <datatype>
       <name>socket()</name>
       <desc>
-        <p><marker id="type-socket"></marker>See
+        <p>See
           <seealso marker="gen_tcp#type-socket"><c>gen_tcp:type-socket</c></seealso>
           and
           <seealso marker="gen_udp#type-socket"><c>gen_udp:type-socket</c></seealso>.

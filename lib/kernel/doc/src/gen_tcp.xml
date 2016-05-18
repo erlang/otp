@@ -79,8 +79,7 @@ do_recv(Sock, Bs) ->
     </datatype>
     <datatype>
       <name>socket()</name>
-      <desc><p><marker id="type-socket"/>
-	As returned by
+      <desc><p>As returned by
         <seealso marker="#accept/1"><c>accept/1,2</c></seealso> and
         <seealso marker="#connect/3"><c>connect/3,4</c></seealso>.</p>
         <marker id="connect"></marker>
