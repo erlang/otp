@@ -513,12 +513,23 @@ update({call_ext,Ar,{extfunc,math,Math,Ar}}, Ts) ->
 	false -> tdb_kill_xregs(Ts)
     end;
 update({call_ext,3,{extfunc,erlang,setelement,3}}, Ts0) ->
-    Op = case tdb_find({x,1}, Ts0) of
-	     error -> kill;
-	     Info -> Info
-	 end,
-    Ts1 = tdb_kill_xregs(Ts0),
-    tdb_update([{{x,0},Op}], Ts1);
+    Ts = tdb_kill_xregs(Ts0),
+    case tdb_find({x,1}, Ts0) of
+	{tuple,Sz,_}=T0 ->
+	    T = case tdb_find({x,0}, Ts0) of
+		    {integer,{I,I}} when I > 1 ->
+			%% First element is not changed. The result
+			%% will have the same type.
+			T0;
+		    _ ->
+			%% Position is 1 or unknown. May change the
+			%% first element of the tuple.
+			{tuple,Sz,[]}
+		end,
+	    tdb_update([{{x,0},T}], Ts);
+	_ ->
+	    Ts
+    end;
 update({call,_Arity,_Func}, Ts) -> tdb_kill_xregs(Ts);
 update({call_ext,_Arity,_Func}, Ts) -> tdb_kill_xregs(Ts);
 update({make_fun2,_,_,_,_}, Ts) -> tdb_kill_xregs(Ts);

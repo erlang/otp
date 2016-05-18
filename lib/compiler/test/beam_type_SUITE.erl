@@ -21,7 +21,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 integers/1,coverage/1,booleans/1]).
+	 integers/1,coverage/1,booleans/1,setelement/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -33,7 +33,8 @@ groups() ->
     [{p,[parallel],
       [integers,
        coverage,
-       booleans
+       booleans,
+       setelement
       ]}].
 
 init_per_suite(Config) ->
@@ -93,6 +94,12 @@ do_booleans(B) ->
 	yes -> yes;
 	no -> no
     end.
+
+setelement(_Config) ->
+    T0 = id({a,42}),
+    {a,_} = T0,
+    {b,_} = setelement(1, T0, b),
+    ok.
 
 id(I) ->
     I.
