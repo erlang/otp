@@ -5070,10 +5070,6 @@ os_prompt% </pre>
         <p>Stops the execution of the calling process with an
           exception of given class, reason, and call stack backtrace
           (<em>stacktrace</em>).</p>
-        <warning>
-          <p>This BIF is intended for debugging. Avoid to use it in applications,
-            unless you really know what you are doing.</p>
-        </warning>
         <p><c><anno>Class</anno></c> is <c>error</c>, <c>exit</c>, or
           <c>throw</c>. So, if it were not for the stacktrace,
           <c>erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
