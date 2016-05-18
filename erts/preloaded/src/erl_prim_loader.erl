@@ -558,11 +558,9 @@ efile_gm_get_1([P|Ps], File0, Mod, {Parent,Ref}=PR, Process) ->
     Res = try prim_file:read_file(File) of
 	      {ok,Bin} ->
 		  gm_process(Mod, File, Bin, Process);
-	      {error,enoent} ->
-		  efile_gm_get_1(Ps, File0, Mod, PR, Process);
 	      Error ->
-		  check_file_result(get_modules, File, Error),
-		  Error
+		  _ = check_file_result(get_modules, File, Error),
+		  efile_gm_get_1(Ps, File0, Mod, PR, Process)
 	  catch
 	      _:Reason ->
 		  {error,{crash,Reason}}
