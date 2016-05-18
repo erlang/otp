@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,10 +45,12 @@
          add_transport/2,
          remove_transport/2,
          have_transport/2,
-         lookup/1]).
+         lookup/1,
+         subscribe/2]).
 
-%% child server start
--export([start_link/0]).
+%% server start
+-export([start_link/0,
+         start_link/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -58,8 +60,9 @@
          handle_info/2,
          code_change/3]).
 
-%% diameter_sync requests.
--export([sync/1]).
+%% callbacks
+-export([sync/1,      %% diameter_sync requests
+         remove/0]).  %% transport server termination
 
 %% debug
 -export([state/0,
@@ -76,6 +79,9 @@
 
 %% Table config is written to.
 -define(TABLE, ?MODULE).
+
+%% Key on which a transport-specific child registers itself.
+-define(TRANSPORT_KEY(Ref), {?MODULE, transport, Ref}).
 
 %% Workaround for dialyzer's lack of understanding of match specs.
 -type match(T)
@@ -225,6 +231,13 @@ pred(_) ->
     ?THROW(pred).
 
 %% --------------------------------------------------------------------------
+%% # subscribe/2
+%% --------------------------------------------------------------------------
+
+subscribe(Ref, T) ->
+    diameter_reg:subscribe(?TRANSPORT_KEY(Ref), T).
+
+%% --------------------------------------------------------------------------
 %% # have_transport/2
 %%
 %% Output: true | false
@@ -264,6 +277,9 @@ start_link() ->
     Options    = [{spawn_opt, diameter_lib:spawn_opts(server, [])}],
     gen_server:start_link(ServerName, Module, Args, Options).
 
+start_link(T) ->
+    proc_lib:start_link(?MODULE, init, [T], infinity, []).
+    
 state() ->
     call(state).
 
@@ -274,8 +290,42 @@ uptime() ->
 %%% # init/1
 %%% ----------------------------------------------------------
 
+%% ?SERVER start.
 init([]) ->
-    {ok, #state{}}.
+    {ok, #state{}};
+
+%% Child start as a consequence of add_transport.
+init({SvcName, Type, Opts}) ->
+    Res = try
+              add(SvcName, Type, Opts)
+          catch
+              ?FAILURE(Reason) -> {error, Reason}
+          end,
+    proc_lib:init_ack({ok, self(), Res}),
+    sleep(Res).
+
+%% sleep/1
+
+sleep({ok, _}) ->
+    sleep();
+
+sleep({error, _}) ->
+    ok.  %% die
+
+%% sleep/0
+
+sleep() ->
+    proc_lib:hibernate(?MODULE, remove, []).
+
+%% remove/0
+
+remove() ->
+    receive
+        {?MODULE, stop} ->
+            ok;
+        _ ->
+            sleep()
+    end.
 
 %%% ----------------------------------------------------------
 %%% # handle_call/2
@@ -404,19 +454,22 @@ sync({start_service, SvcName, Opts}) ->
 sync({stop_service, SvcName}) ->
     stop(SvcName);
 
+%% Start a child whose only purpose is to be alive for the lifetime of
+%% the transport configuration and publish itself in diameter_reg.
+%% This is to provide a way for processes to to be notified when the
+%% configuration is removed (diameter_reg:subscribe/2).
 sync({add, SvcName, Type, Opts}) ->
-    try
-        add(SvcName, Type, Opts)
-    catch
-        ?FAILURE(Reason) -> {error, Reason}
-    end;
+    {ok, _Pid, Res} = diameter_config_sup:start_child({SvcName, Type, Opts}),
+    Res;
 
 sync({remove, SvcName, Pred}) ->
-    remove(select([{#transport{service = '$1', _ = '_'},
+    Recs = select([{#transport{service = '$1', _ = '_'},
                     [{'=:=', '$1', {const, SvcName}}],
                     ['$_']}]),
-           SvcName,
-           Pred).
+    F = fun(#transport{ref = R, type = T, options = O}) ->
+                Pred(R,T,O)
+        end,
+    remove(SvcName, lists:filter(F, Recs)).
 
 %% start/3
 
@@ -503,6 +556,7 @@ add(SvcName, Type, Opts) ->
     ok = transport_opts(Opts),
 
     Ref = make_ref(),
+    true = diameter_reg:add_new(?TRANSPORT_KEY(Ref)),
     T = {Ref, Type, Opts},
     %% The call to the service returns error if the service isn't
     %% started yet, which is harmless. The transport will be started
@@ -594,24 +648,28 @@ start_transport(SvcName, T) ->
             No
     end.
 
-%% remove/3
+%% remove/2
 
-remove(L, SvcName, Pred) ->
-    rm(SvcName, lists:filter(fun(#transport{ref = R, type = T, options = O}) ->
-                                     Pred(R,T,O)
-                             end,
-                             L)).
-
-rm(_, []) ->
+remove(_, []) ->
     ok;
-rm(SvcName, L) ->
+
+remove(SvcName, L) ->
     Refs = lists:map(fun(#transport{ref = R}) -> R end, L),
     case stop_transport(SvcName, Refs) of
         ok ->
+            lists:foreach(fun stop_child/1, Refs),
             diameter_stats:flush(Refs),
             lists:foreach(fun delete_object/1, L);
         {error, _} = No ->
             No
+    end.
+
+stop_child(Ref) ->
+    case diameter_reg:match(?TRANSPORT_KEY(Ref)) of
+        [{_, Pid}] ->  %% tell the transport-specific child to die
+            Pid ! {?MODULE, stop};
+        [] ->          %% already removed/dead
+            ok
     end.
 
 stop_transport(SvcName, Refs) ->

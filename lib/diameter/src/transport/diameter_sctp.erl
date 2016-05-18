@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,10 +61,6 @@
 %% Remote addresses to accept connections from.
 -define(DEFAULT_ACCEPT, []).  %% any
 
-%% How long a listener with no associations lives before offing
-%% itself.
--define(LISTENER_TIMEOUT, 30000).
-
 %% How long to wait for a transport process to attach after
 %% association establishment.
 -define(ACCEPT_TIMEOUT, 5000).
@@ -104,7 +100,6 @@
          socket    :: gen_sctp:sctp_socket(),
          count = 0 :: uint(),  %% attached transport processes
          pending = {0, queue:new()},
-         tref      :: reference() | undefined,
          accept    :: [match()]}).
 %% Field pending implements two queues: the first of transport-to-be
 %% processes to which an association has been assigned but for which
@@ -216,14 +211,15 @@ init(T) ->
 
 %% A process owning a listening socket.
 i({listen, Ref, {Opts, Addrs}}) ->
+    [_] = diameter_config:subscribe(Ref, transport), %% assert existence
     {[Matches], Rest} = proplists:split(Opts, [accept]),
     {LAs, Sock} = AS = open(Addrs, Rest, ?DEFAULT_PORT),
     ok = gen_sctp:listen(Sock, true),
     true = diameter_reg:add_new({?MODULE, listener, {Ref, AS}}),
     proc_lib:init_ack({ok, self(), LAs}),
-    start_timer(#listener{ref = Ref,
-                          socket = Sock,
-                          accept = [[M] || {accept, M} <- Matches]});
+    #listener{ref = Ref,
+              socket = Sock,
+              accept = [[M] || {accept, M} <- Matches]};
 
 %% A connecting transport.
 i({connect, Pid, Opts, Addrs, Ref}) ->
@@ -431,13 +427,6 @@ putr(Key, Val) ->
 getr(Key) ->
     get({?MODULE, Key}).
 
-%% start_timer/1
-
-start_timer(#listener{count = 0} = S) ->
-    S#listener{tref = erlang:start_timer(?LISTENER_TIMEOUT, self(), close)};
-start_timer(S) ->
-    S.
-
 %% l/2
 %%
 %% Transition listener state.
@@ -455,12 +444,10 @@ l({sctp, Sock, _RA, _RP, Data} = T, #listener{socket = Sock,
 l({'DOWN', _MRef, process, TPid, _}, #listener{pending = {_,Q}} = S) ->
     down(queue:member(TPid, Q), TPid, S);
 
-%% Timeout after the last accepting process has died.
-l({timeout, TRef, close = T}, #listener{tref = TRef,
-                                        count = 0}) ->
-    x(T);
-l({timeout, _, close}, #listener{} = S) ->
-    S.
+%% Transport has been removed.
+l({transport, remove, _} = T, #listener{socket = Sock}) ->
+    gen_sctp:close(Sock),
+    x(T).
 
 %% down/3
 %%
@@ -472,15 +459,15 @@ down(true, TPid, #listener{pending = {N,Q},
                  = S) ->
     NQ = queue:filter(fun(P) -> P /= TPid end, Q),
     if N < 0 ->  %% awaiting an association ...
-            start_timer(S#listener{count = K-1,
-                                   pending = {N+1, NQ}});
+            S#listener{count = K-1,
+                       pending = {N+1, NQ}};
        true ->   %% ... or one has been assigned
             S#listener{pending = {N-1, NQ}}
     end;
 
 %% ... or one that's already attached.
 down(false, _TPid, #listener{count = K} = S) ->
-    start_timer(S#listener{count = K-1}).
+    S#listener{count = K-1}.
 
 %% t/2
 %%
