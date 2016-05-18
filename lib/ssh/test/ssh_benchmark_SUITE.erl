@@ -184,7 +184,7 @@ openssh_client_shell(Config, Options) ->
 	      end, Times),
 	    ssh:stop_daemon(ServerPid),
 	    ok
-    after 10000 ->
+    after 60*1000 ->
 	    ssh:stop_daemon(ServerPid),
 	    exit(SlavePid, kill),
 	    {fail, timeout}
@@ -215,6 +215,7 @@ openssh_client_sftp(Config, Options) ->
 								    {root, SftpSrcDir}])]},
 			     {failfun, fun ssh_test_lib:failfun/2} 
 			     | Options]),
+    ct:pal("ServerPid = ~p",[ServerPid]),
     ct:sleep(500),
     Cmd = lists:concat(["sftp",
 			" -b -",
@@ -231,7 +232,7 @@ openssh_client_sftp(Config, Options) ->
 		     end),
     receive
 	{SlavePid, _ClientResponse} ->
-	    ct:pal("ClientResponse = ~p",[_ClientResponse]),
+	    ct:pal("ClientResponse = ~p~nServerPid = ~p",[_ClientResponse,ServerPid]),
 	    {ok, List} = get_trace_list(TracerPid),
 %%ct:pal("List=~p",[List]),
 	    Times = find_times(List, [channel_open_close]),
@@ -260,7 +261,7 @@ openssh_client_sftp(Config, Options) ->
 	      end, Times),
 	    ssh:stop_daemon(ServerPid),
 	    ok
-    after 10000 ->
+    after 2*60*1000 ->
 	    ssh:stop_daemon(ServerPid),
 	    exit(SlavePid, kill),
 	    {fail, timeout}
@@ -445,10 +446,18 @@ increment({Alg,Sz,T},[]) ->
 %%% API for the traceing
 %%% 
 get_trace_list(TracerPid) ->
+    MonRef = monitor(process, TracerPid),
     TracerPid ! {get_trace_list,self()},
     receive
-	{trace_list,L} -> {ok, pair_events(lists:reverse(L))}
-    after 5000 -> {error,no_reply}
+	{trace_list,L} ->
+	    demonitor(MonRef),
+	    {ok, pair_events(lists:reverse(L))};
+	{'DOWN', MonRef, process, TracerPid, Info} ->
+	    {error, {tracer_down,Info}}
+			      
+    after 3*60*1000 -> 
+	    demonitor(MonRef),
+	    {error,no_reply}
     end.
 
 erlang_trace() ->
