@@ -31,9 +31,10 @@
     <rev>1.0</rev>
     <file>part.xml</file>
   </header>
-  <description>
-    <p>The Erlang standard library <em>STDLIB</em>.</p>
-  </description>
+
+  <description></description>
+
+  <xi:include href="introduction.xml"/>
   <xi:include href="io_protocol.xml"/>
   <xi:include href="unicode_usage.xml"/>
 </part>

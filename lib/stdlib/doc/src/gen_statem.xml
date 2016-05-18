@@ -400,7 +400,7 @@ handle_event(_, _, State, Data) ->
 	  <item>
             <p>
 	      The <c>gen_statem</c> is globally registered in
-	      <seealso marker="kernel:global"><c>kernel:global</c></seealso>.
+	      <seealso marker="kernel:global"><c>global</c></seealso>.
             </p>
 	  </item>
 	  <tag><c>{via,RegMod,ViaName}</c></tag>
@@ -413,7 +413,7 @@ handle_event(_, _, State, Data) ->
 	      <c>register_name/2</c>, <c>unregister_name/1</c>,
 	      <c>whereis_name/1</c>, and <c>send/2</c>,
 	      which are to behave like the corresponding functions in
-	      <seealso marker="kernel:global"><c>kernel:global</c></seealso>.
+	      <seealso marker="kernel:global"><c>global</c></seealso>.
 	      Thus, <c>{via,global,GlobalName}</c> is the same as
 	      <c>{global,GlobalName}</c>.
             </p>

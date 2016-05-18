@@ -28,131 +28,134 @@
     <date></date>
     <rev></rev>
   </header>
-  <file>assert.hrl</file>
-  <filesummary>Assert Macros</filesummary>
+  <file>assert.hrl.xml</file>
+  <filesummary>Assert macros.</filesummary>
   <description>
     <p>The include file <c>assert.hrl</c> provides macros for inserting
-    assertions in your program code.</p>
-    <p>These macros are defined in the Stdlib include file
-       <c>assert.hrl</c>. Include the following directive in the module
-       from which the function is called:</p>
-        <code type="none">
--include_lib("stdlib/include/assert.hrl").</code>
-    <p>When an assertion succeeds, the assert macro yields the atom
-    <c>ok</c>. When an assertion fails, an exception of type <c>error</c> is
-    instead generated. The associated error term will have the form
-    <c>{Macro, Info}</c>, where <c>Macro</c> is the name of the macro, for
-    example <c>assertEqual</c>, and <c>Info</c> will be a list of tagged
-    values such as <c>[{module, M}, {line, L}, ...]</c> giving more
-    information about the location and cause of the exception. All entries
-    in the <c>Info</c> list are optional, and you should not rely
-    programatically on any of them being present.</p>
+      assertions in your program code.</p>
 
-    <p>If the macro <c>NOASSERT</c> is defined when the <c>assert.hrl</c>
-    include file is read by the compiler, the macros will be defined as
-    equivalent to the atom <c>ok</c>. The test will not be performed, and
-    there will be no cost at runtime.</p>
+    <p>Include the following directive in the module from which the function is
+      called:</p>
+
+    <code type="none">
+-include_lib("stdlib/include/assert.hrl").</code>
+
+    <p>When an assertion succeeds, the assert macro yields the atom <c>ok</c>.
+      When an assertion fails, an exception of type <c>error</c> is generated.
+      The associated error term has the form <c>{Macro, Info}</c>. <c>Macro</c>
+      is the macro name, for example, <c>assertEqual</c>. <c>Info</c> is a list
+      of tagged values, such as <c>[{module, M}, {line, L}, ...]</c>, which
+      gives more information about the location and cause of the exception. All
+      entries in the <c>Info</c> list are optional; do not rely programatically
+      on any of them being present.</p>
+
+    <p>If the macro <c>NOASSERT</c> is defined when <c>assert.hrl</c> is read
+      by the compiler, the macros are defined as equivalent to the atom
+      <c>ok</c>. The test is not performed and there is no cost at runtime.</p>
 
     <p>For example, using <c>erlc</c> to compile your modules, the following
-    will disable all assertions:</p>
-        <code type="none">
-erlc -DNOASSERT=true *.erl</code>
-    <p>(The value of <c>NOASSERT</c> does not matter, only the fact that it
-    is defined.)</p>
-    <p>A few other macros also have effect on the enabling or disabling of
-    assertions:</p>
-    <list type="bulleted">
-      <item>If <c>NODEBUG</c> is defined, it implies <c>NOASSERT</c>, unless
-      <c>DEBUG</c> is also defined, which is assumed to take
-      precedence.</item>
-      <item>If <c>ASSERT</c> is defined, it overrides <c>NOASSERT</c>, that
-      is, the assertions will remain enabled.</item>
-    </list>
-    <p>If you prefer, you can thus use only <c>DEBUG</c>/<c>NODEBUG</c> as
-    the main flags to control the behaviour of the assertions (which is
-    useful if you have other compiler conditionals or debugging macros
-    controlled by those flags), or you can use <c>ASSERT</c>/<c>NOASSERT</c>
-    to control only the assert macros.</p>
+      disable all assertions:</p>
 
+    <code type="none">
+erlc -DNOASSERT=true *.erl</code>
+
+    <p>The value of <c>NOASSERT</c> does not matter, only the fact that it is
+      defined.</p>
+
+    <p>A few other macros also have effect on the enabling or disabling of
+      assertions:</p>
+
+    <list type="bulleted">
+      <item><p>If <c>NODEBUG</c> is defined, it implies <c>NOASSERT</c>, unless
+        <c>DEBUG</c> is also defined, which is assumed to take precedence.</p>
+      </item>
+      <item><p>If <c>ASSERT</c> is defined, it overrides <c>NOASSERT</c>, that
+        is, the assertions remain enabled.</p></item>
+    </list>
+
+    <p>If you prefer, you can thus use only <c>DEBUG</c>/<c>NODEBUG</c> as the
+      main flags to control the behavior of the assertions (which is useful if
+      you have other compiler conditionals or debugging macros controlled by
+      those flags), or you can use <c>ASSERT</c>/<c>NOASSERT</c> to control only
+      the assert macros.</p>
   </description>
 
   <section>
     <title>Macros</title>
     <taglist>
       <tag><c>assert(BoolExpr)</c></tag>
-      <item><p>Tests that <c>BoolExpr</c> completes normally returning
-      <c>true</c>.</p>
+      <item>
+        <p>Tests that <c>BoolExpr</c> completes normally returning
+          <c>true</c>.</p>
       </item>
-
       <tag><c>assertNot(BoolExpr)</c></tag>
-      <item><p>Tests that <c>BoolExpr</c> completes normally returning
-      <c>false</c>.</p>
+      <item>
+        <p>Tests that <c>BoolExpr</c> completes normally returning
+          <c>false</c>.</p>
       </item>
-
       <tag><c>assertMatch(GuardedPattern, Expr)</c></tag>
-      <item><p>Tests that <c>Expr</c> completes normally yielding a value
-      that matches <c>GuardedPattern</c>. For example:</p>
+      <item>
+        <p>Tests that <c>Expr</c> completes normally yielding a value that
+          matches <c>GuardedPattern</c>, for example:</p>
         <code type="none">
-    ?assertMatch({bork, _}, f())</code>
-      <p>Note that a guard <c>when ...</c> can be included:</p>
+?assertMatch({bork, _}, f())</code>
+        <p>Notice that a guard <c>when ...</c> can be included:</p>
         <code type="none">
-    ?assertMatch({bork, X} when X > 0, f())</code>
+?assertMatch({bork, X} when X > 0, f())</code>
       </item>
-
       <tag><c>assertNotMatch(GuardedPattern, Expr)</c></tag>
-      <item><p>Tests that <c>Expr</c> completes normally yielding a value
-      that does not match <c>GuardedPattern</c>.</p>
-      <p>As in <c>assertMatch</c>, <c>GuardedPattern</c> can have a
-      <c>when</c> part.</p>
+      <item>
+        <p>Tests that <c>Expr</c> completes normally yielding a value that does
+          not match <c>GuardedPattern</c>.</p>
+        <p>As in <c>assertMatch</c>, <c>GuardedPattern</c> can have a
+          <c>when</c> part.</p>
       </item>
-
       <tag><c>assertEqual(ExpectedValue, Expr)</c></tag>
-      <item><p>Tests that <c>Expr</c> completes normally yielding a value
-      that is exactly equal to <c>ExpectedValue</c>.</p>
+      <item>
+         <p>Tests that <c>Expr</c> completes normally yielding a value that is
+           exactly equal to <c>ExpectedValue</c>.</p>
       </item>
-
       <tag><c>assertNotEqual(ExpectedValue, Expr)</c></tag>
-      <item><p>Tests that <c>Expr</c> completes normally yielding a value
-      that is not exactly equal to <c>ExpectedValue</c>.</p>
+      <item>
+        <p>Tests that <c>Expr</c> completes normally yielding a value that is
+          not exactly equal to <c>ExpectedValue</c>.</p>
       </item>
-
       <tag><c>assertException(Class, Term, Expr)</c></tag>
-      <item><p>Tests that <c>Expr</c> completes abnormally with an exception
-      of type <c>Class</c> and with the associated <c>Term</c>. The
-      assertion fails if <c>Expr</c> raises a different exception or if it
-      completes normally returning any value.</p>
-      <p>Note that both <c>Class</c> and <c>Term</c> can be guarded
-      patterns, as in <c>assertMatch</c>.</p>
+      <item>
+        <p>Tests that <c>Expr</c> completes abnormally with an exception of type
+          <c>Class</c> and with the associated <c>Term</c>. The assertion fails
+          if <c>Expr</c> raises a different exception or if it completes
+          normally returning any value.</p>
+        <p>Notice that both <c>Class</c> and <c>Term</c> can be guarded
+          patterns, as in <c>assertMatch</c>.</p>
       </item>
-
       <tag><c>assertNotException(Class, Term, Expr)</c></tag>
-      <item><p>Tests that <c>Expr</c> does not evaluate abnormally with an
-      exception of type <c>Class</c> and with the associated <c>Term</c>.
-      The assertion succeeds if <c>Expr</c> raises a different exception or
-      if it completes normally returning any value.</p>
-      <p>As in <c>assertException</c>, both <c>Class</c> and <c>Term</c>
-      can be guarded patterns.</p>
+      <item>
+        <p>Tests that <c>Expr</c> does not evaluate abnormally with an
+          exception of type <c>Class</c> and with the associated <c>Term</c>.
+          The assertion succeeds if <c>Expr</c> raises a different exception or
+          if it completes normally returning any value.</p>
+        <p>As in <c>assertException</c>, both <c>Class</c> and <c>Term</c> can
+          be guarded patterns.</p>
       </item>
-
       <tag><c>assertError(Term, Expr)</c></tag>
-      <item><p>Equivalent to <c>assertException(error, Term,
-      Expr)</c></p>
+      <item>
+        <p>Equivalent to <c>assertException(error, Term, Expr)</c></p>
       </item>
-
       <tag><c>assertExit(Term, Expr)</c></tag>
-      <item><p>Equivalent to <c>assertException(exit, Term, Expr)</c></p>
+      <item>
+        <p>Equivalent to <c>assertException(exit, Term, Expr)</c></p>
       </item>
-
       <tag><c>assertThrow(Term, Expr)</c></tag>
-      <item><p>Equivalent to <c>assertException(throw, Term, Expr)</c></p>
+      <item>
+        <p>Equivalent to <c>assertException(throw, Term, Expr)</c></p>
       </item>
-
     </taglist>
   </section>
 
   <section>
-    <title>SEE ALSO</title>
-    <p><seealso marker="compiler:compile">compile(3)</seealso></p>
-    <p><seealso marker="erts:erlc">erlc(3)</seealso></p>
+    <title>See Also</title>
+    <p><seealso marker="compiler:compile"><c>compile(3)</c></seealso>,
+      <seealso marker="erts:erlc"><c>erlc(3)</c></seealso></p>
   </section>
 </fileref>

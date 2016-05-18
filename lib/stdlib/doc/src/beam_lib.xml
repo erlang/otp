@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2015</year>
+      <year>2000</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,137 +29,159 @@
     <rev>PA1</rev>
   </header>
   <module>beam_lib</module>
-  <modulesummary>An Interface To the BEAM File Format</modulesummary>
+  <modulesummary>An interface to the BEAM file format.</modulesummary>
   <description>
-    <p><c>beam_lib</c> provides an interface to files created by
-      the BEAM compiler ("BEAM files"). The format used, a variant of
+    <p>This module provides an interface to files created by
+      the BEAM Compiler ("BEAM files"). The format used, a variant of
       "EA IFF 1985" Standard for Interchange Format Files, divides data
       into chunks.</p>
+
     <p>Chunk data can be returned as binaries or as compound terms.
       Compound terms are returned when chunks are referenced by names
-      (atoms) rather than identifiers (strings).  The names recognized
-      and the corresponding identifiers are:</p>
+      (atoms) rather than identifiers (strings). The recognized names
+      and the corresponding identifiers are as follows:</p>
+
     <list type="bulleted">
       <item><c>abstract_code ("Abst")</c></item>
+      <item><c>atoms ("Atom")</c></item>
       <item><c>attributes ("Attr")</c></item>
       <item><c>compile_info ("CInf")</c></item>
       <item><c>exports ("ExpT")</c></item>
-      <item><c>labeled_exports ("ExpT")</c></item>
       <item><c>imports ("ImpT")</c></item>
       <item><c>indexed_imports ("ImpT")</c></item>
-      <item><c>locals ("LocT")</c></item>
+      <item><c>labeled_exports ("ExpT")</c></item>
       <item><c>labeled_locals ("LocT")</c></item>
-      <item><c>atoms ("Atom")</c></item>
+      <item><c>locals ("LocT")</c></item>
     </list>
   </description>
 
   <section>
     <marker id="debug_info"></marker>
     <title>Debug Information/Abstract Code</title>
-    <p>The option <c>debug_info</c> can be given to the compiler (see
-      <seealso marker="compiler:compile#debug_info">compile(3)</seealso>)
-      in order to have debug information in the form of abstract code
-      (see <seealso marker="erts:absform">The Abstract Format</seealso>
-      in ERTS User's Guide) stored in the <c>abstract_code</c> chunk.
+    <p>Option <c>debug_info</c> can be specified to the Compiler (see
+      <seealso marker="compiler:compile#debug_info"><c>compile(3)</c></seealso>)
+      to have debug information in the form of abstract code (see section
+      <seealso marker="erts:absform">The Abstract Format</seealso> in the
+      ERTS User's Guide) stored in the <c>abstract_code</c> chunk.
       Tools such as Debugger and Xref require the debug information to
       be included.</p>
+
     <warning>
       <p>Source code can be reconstructed from the debug information.
-        Use encrypted debug information (see below) to prevent this.</p>
+        To prevent this, use encrypted debug information (see below).</p>
     </warning>
+
     <p>The debug information can also be removed from BEAM files
-      using <seealso marker="#strip/1">strip/1</seealso>,
-      <seealso marker="#strip_files/1">strip_files/1</seealso> and/or
-      <seealso marker="#strip_release/1">strip_release/1</seealso>.</p>
+      using <seealso marker="#strip/1"><c>strip/1</c></seealso>,
+      <seealso marker="#strip_files/1"><c>strip_files/1</c></seealso>, and/or
+      <seealso marker="#strip_release/1"><c>strip_release/1</c></seealso>.</p>
   </section>
-    <section>
-      <title>Reconstructing source code</title>
-      <p>Here is an example of how to reconstruct source code from
-        the debug information in a BEAM file <c>Beam</c>:</p>
-      <code type="none">
-      {ok,{_,[{abstract_code,{_,AC}}]}} = beam_lib:chunks(Beam,[abstract_code]).
-      io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
+
+  <section>
+    <title>Reconstruct Source Code</title>
+    <p>The following example shows how to reconstruct source code from
+      the debug information in a BEAM file <c>Beam</c>:</p>
+
+    <code type="none">
+{ok,{_,[{abstract_code,{_,AC}}]}} = beam_lib:chunks(Beam,[abstract_code]).
+io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </section>
-    <section>
-    <title>Encrypted debug information</title>
-      <p>The debug information can be encrypted in order to keep
-        the source code secret, but still being able to use tools such as
-        Xref or Debugger. </p>
-      <p>To use encrypted debug information, a key must be provided to
-        the compiler and <c>beam_lib</c>. The key is given as a string and
-        it is recommended that it contains at least 32 characters and
-        that both upper and lower case letters as well as digits and
-        special characters are used.</p>
-      <p>The default type -- and currently the only type -- of crypto
-        algorithm is <c>des3_cbc</c>, three rounds of DES. The key string
-        will be scrambled using <c>erlang:md5/1</c> to generate
-        the actual keys used for <c>des3_cbc</c>.</p>
-      <note>
-        <p>As far as we know by the time of writing, it is
-          infeasible to break <c>des3_cbc</c> encryption without any
-          knowledge of the key. Therefore, as long as the key is kept
-          safe and is unguessable, the encrypted debug information
-          <em>should</em> be safe from intruders.</p>
-      </note>
-      <p>There are two ways to provide the key:</p>
-      <list type="ordered">
-        <item>
-          <p>Use the compiler option <c>{debug_info,Key}</c>, see
-            <seealso marker="compiler:compile#debug_info_key">compile(3)</seealso>,
-            and the function
-            <seealso marker="#crypto_key_fun/1">crypto_key_fun/1</seealso>
-            to register a fun which returns the key whenever
-            <c>beam_lib</c> needs to decrypt the debug information.</p>
-          <p>If no such fun is registered, <c>beam_lib</c> will instead
-            search for a <c>.erlang.crypt</c> file, see below.</p>
-        </item>
-        <item>
-          <p>Store the key in a text file named <c>.erlang.crypt</c>.</p>
-          <p>In this case, the compiler option <c>encrypt_debug_info</c>
-            can be used, see
-            <seealso marker="compiler:compile#encrypt_debug_info">compile(3)</seealso>.</p>
-        </item>
-      </list>
-    </section>
-    <section>
-      <title>.erlang.crypt</title>
-      <p><c>beam_lib</c> searches for <c>.erlang.crypt</c> in the current
-        directory and then the home directory for the current user. If
-        the file is found and contains a key, <c>beam_lib</c> will
-        implicitly create a crypto key fun and register it.</p>
-      <p>The <c>.erlang.crypt</c> file should contain a single list of
-        tuples:</p>
-      <code type="none">
-      {debug_info, Mode, Module, Key}</code>
-      <p><c>Mode</c> is the type of crypto algorithm; currently, the only
-        allowed value thus is <c>des3_cbc</c>. <c>Module</c> is either an
-        atom, in which case <c>Key</c> will only be used for the module
-        <c>Module</c>, or <c>[]</c>, in which case <c>Key</c> will be
-        used for all modules. <c>Key</c> is the non-empty key string.</p>
-      <p>The <c>Key</c> in the first tuple where both <c>Mode</c> and
-        <c>Module</c> matches will be used.</p>
-      <p>Here is an example of an <c>.erlang.crypt</c> file that returns
-        the same key for all modules:</p>
-      <code type="none"><![CDATA[
+
+  <section>
+    <title>Encrypted Debug Information</title>
+    <p>The debug information can be encrypted to keep
+      the source code secret, but still be able to use tools such as
+      Debugger or Xref.</p>
+
+    <p>To use encrypted debug information, a key must be provided to
+      the compiler and <c>beam_lib</c>. The key is specified as a string.
+      It is recommended that the string contains at least 32 characters and
+      that both upper and lower case letters as well as digits and
+      special characters are used.</p>
+
+    <p>The default type (and currently the only type) of crypto
+      algorithm is <c>des3_cbc</c>, three rounds of DES. The key string
+      is scrambled using
+      <seealso marker="erts:erlang#md5/1"><c>erlang:md5/1</c></seealso>
+      to generate the keys used for <c>des3_cbc</c>.</p>
+
+    <note>
+      <p>As far as we know by the time of writing, it is
+        infeasible to break <c>des3_cbc</c> encryption without any
+        knowledge of the key. Therefore, as long as the key is kept
+        safe and is unguessable, the encrypted debug information
+        <em>should</em> be safe from intruders.</p>
+    </note>
+
+    <p>The key can be provided in the following two ways:</p>
+
+    <list type="ordered">
+      <item>
+        <p>Use Compiler option <c>{debug_info,Key}</c>, see
+          <seealso marker="compiler:compile#debug_info_key"><c>compile(3)</c></seealso>
+          and function
+          <seealso marker="#crypto_key_fun/1"><c>crypto_key_fun/1</c></seealso>
+          to register a fun that returns the key whenever
+          <c>beam_lib</c> must decrypt the debug information.</p>
+        <p>If no such fun is registered, <c>beam_lib</c> instead
+          searches for an <c>.erlang.crypt</c> file, see the next section.</p>
+      </item>
+      <item>
+        <p>Store the key in a text file named <c>.erlang.crypt</c>.</p>
+        <p>In this case, Compiler option <c>encrypt_debug_info</c>
+          can be used, see
+          <seealso marker="compiler:compile#encrypt_debug_info"><c>compile(3)</c></seealso>.
+        </p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>.erlang.crypt</title>
+    <p><c>beam_lib</c> searches for <c>.erlang.crypt</c> in the current
+      directory and then the home directory for the current user. If
+      the file is found and contains a key, <c>beam_lib</c>
+      implicitly creates a crypto key fun and registers it.</p>
+
+    <p>File <c>.erlang.crypt</c> is to contain a single list of tuples:</p>
+
+    <code type="none">
+{debug_info, Mode, Module, Key}</code>
+
+    <p><c>Mode</c> is the type of crypto algorithm; currently, the only
+      allowed value is <c>des3_cbc</c>. <c>Module</c> is either an
+      atom, in which case <c>Key</c> is only used for the module
+      <c>Module</c>, or <c>[]</c>, in which case <c>Key</c> is
+      used for all modules. <c>Key</c> is the non-empty key string.</p>
+
+    <p><c>Key</c> in the first tuple where both <c>Mode</c> and
+      <c>Module</c> match is used.</p>
+
+    <p>The following is an example of an <c>.erlang.crypt</c> file that returns
+      the same key for all modules:</p>
+
+    <code type="none"><![CDATA[
 [{debug_info, des3_cbc, [], "%>7}|pc/DM6Cga*68$Mw]L#&_Gejr]G^"}].]]></code>
-      <p>And here is a slightly more complicated example of an
-        <c>.erlang.crypt</c> which provides one key for the module
-        <c>t</c>, and another key for all other modules:</p>
-      <code type="none"><![CDATA[
+
+    <p>The following is a slightly more complicated example of an
+      <c>.erlang.crypt</c> providing one key for module
+      <c>t</c> and another key for all other modules:</p>
+
+    <code type="none"><![CDATA[
 [{debug_info, des3_cbc, t, "My KEY"},
  {debug_info, des3_cbc, [], "%>7}|pc/DM6Cga*68$Mw]L#&_Gejr]G^"}].]]></code>
-      <note>
-        <p>Do not use any of the keys in these examples. Use your own
-          keys.</p>
-      </note>
-    </section>
+
+    <note>
+      <p>Do not use any of the keys in these examples. Use your own keys.</p>
+    </note>
+  </section>
 
   <datatypes>
     <datatype>
       <name name="beam"/>
       <desc>
         <p>Each of the functions described below accept either the
-          module name, the filename, or a binary containing the beam
+          module name, the filename, or a binary containing the BEAM
           module.</p>
       </desc>
     </datatype>
@@ -167,7 +189,7 @@
       <name name="chunkdata"/>
       <desc>
         <p>The list of attributes is sorted on <c>Attribute</c>
-          (in attrib_entry()), and each
+          (in <c>attrib_entry()</c>) and each
           attribute name occurs once in the list. The attribute values
           occur in the same order as in the file. The lists of functions
           are also sorted.</p>
@@ -186,8 +208,8 @@
       <name name="abst_code"/>
       <desc>
         <p>It is not checked that the forms conform to the abstract format
-          indicated by <c><anno>AbstVersion</anno></c>. <c>no_abstract_code</c> means
-          that the <c>"Abst"</c> chunk is present, but empty.</p>
+          indicated by <c><anno>AbstVersion</anno></c>. <c>no_abstract_code</c>
+          means that chunk <c>"Abst"</c> is present, but empty.</p>
       </desc>
     </datatype>
     <datatype>
@@ -230,51 +252,240 @@
         <p>Reads chunk data for all chunks.</p>
       </desc>
     </func>
-    <func>
-      <name name="chunks" arity="2"/>
-      <fsummary>Read selected chunks from a BEAM file or binary</fsummary>
-      <desc>
-        <p>Reads chunk data for selected chunks refs. The order of
-          the returned list of chunk data is determined by the order
-          of the list of chunks references.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="chunks" arity="3"/>
-      <fsummary>Read selected chunks from a BEAM file or binary</fsummary>
-      <desc>
-        <p>Reads chunk data for selected chunks refs. The order of
-          the returned list of chunk data is determined by the order
-          of the list of chunks references.</p>
-        <p>By default, if any requested chunk is missing in <c><anno>Beam</anno></c>,
-          an <c>error</c> tuple is returned.
-          However, if the option <c>allow_missing_chunks</c> has been given,
-          a result will be returned even if chunks are missing.
-          In the result list, any missing chunks will be represented as
-          <c>{<anno>ChunkRef</anno>,missing_chunk}</c>.
-          Note, however, that if the <c>"Atom"</c> chunk if missing, that is
-          considered a fatal error and the return value will be an <c>error</c>
-          tuple.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="build_module" arity="1"/>
-      <fsummary>Creates a BEAM module from a list of chunks</fsummary>
+      <fsummary>Create a BEAM module from a list of chunks.</fsummary>
       <desc>
         <p>Builds a BEAM module (as a binary) from a list of chunks.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="chunks" arity="2"/>
+      <fsummary>Read selected chunks from a BEAM file or binary.</fsummary>
+      <desc>
+        <p>Reads chunk data for selected chunks references. The order of
+          the returned list of chunk data is determined by the order
+          of the list of chunks references.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="chunks" arity="3"/>
+      <fsummary>Read selected chunks from a BEAM file or binary.</fsummary>
+      <desc>
+        <p>Reads chunk data for selected chunks references. The order of
+          the returned list of chunk data is determined by the order
+          of the list of chunks references.</p>
+        <p>By default, if any requested chunk is missing in
+          <c><anno>Beam</anno></c>, an <c>error</c> tuple is returned.
+          However, if option <c>allow_missing_chunks</c> is specified,
+          a result is returned even if chunks are missing.
+          In the result list, any missing chunks are represented as
+          <c>{<anno>ChunkRef</anno>,missing_chunk}</c>.
+          Notice however that if chunk <c>"Atom"</c> is missing, that is
+          considered a fatal error and the return value is an <c>error</c>
+          tuple.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="clear_crypto_key_fun" arity="0"/>
+      <fsummary>Unregister the current crypto key fun.</fsummary>
+      <desc>
+        <p>Unregisters the crypto key fun and terminates the process
+          holding it, started by
+          <seealso marker="#crypto_key_fun/1"><c>crypto_key_fun/1</c></seealso>.
+        </p>
+        <p>Returns either <c>{ok, undefined}</c> if no crypto key fun is
+          registered, or <c>{ok, Term}</c>, where <c>Term</c> is
+          the return value from <c>CryptoKeyFun(clear)</c>, see
+          <c>crypto_key_fun/1</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cmp" arity="2"/>
+      <fsummary>Compare two BEAM files.</fsummary>
+      <type name="cmp_rsn"/>
+      <desc>
+        <p>Compares the contents of two BEAM files. If the module names
+          are the same, and all chunks except for chunk <c>"CInf"</c>
+          (the chunk containing the compilation information that is
+          returned by <c>Module:module_info(compile)</c>)
+          have the same contents in both files,
+          <c>ok</c> is returned. Otherwise an error message is returned.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cmp_dirs" arity="2"/>
+      <fsummary>Compare the BEAM files in two directories.</fsummary>
+      <desc>
+        <p>Compares the BEAM files in
+          two directories. Only files with extension <c>".beam"</c> are
+          compared. BEAM files that exist only in directory
+          <c><anno>Dir1</anno></c> (<c><anno>Dir2</anno></c>) are returned in
+          <c><anno>Only1</anno></c> (<c><anno>Only2</anno></c>).
+          BEAM files that exist in both directories but
+          are considered different by <c>cmp/2</c> are returned as
+          pairs {<c><anno>Filename1</anno></c>, <c><anno>Filename2</anno></c>},
+          where <c><anno>Filename1</anno></c> (<c><anno>Filename2</anno></c>)
+          exists in directory <c><anno>Dir1</anno></c>
+          (<c><anno>Dir2</anno></c>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_key_fun" arity="1"/>
+      <fsummary>Register a fun that provides a crypto key.</fsummary>
+      <type name="crypto_fun"/>
+      <type name="crypto_fun_arg"/>
+      <type name="mode"/>
+      <desc>
+        <p>Registers an unary fun
+          that is called if <c>beam_lib</c> must read an
+          <c>abstract_code</c> chunk that has been encrypted. The fun
+          is held in a process that is started by the function.</p>
+        <p>If a fun is already registered when attempting to
+          register a fun, <c>{error, exists}</c> is returned.</p>
+        <p>The fun must handle the following arguments:</p>
+        <code type="none">
+CryptoKeyFun(init) -> ok | {ok, NewCryptoKeyFun} | {error, Term}</code>
+        <p>Called when the fun is registered, in the process that holds
+          the fun. Here the crypto key fun can do any necessary
+          initializations. If <c>{ok, NewCryptoKeyFun}</c> is returned,
+          <c>NewCryptoKeyFun</c> is registered instead of
+          <c>CryptoKeyFun</c>. If <c>{error, Term}</c> is returned,
+          the registration is aborted and <c>crypto_key_fun/1</c>
+          also returns <c>{error, Term}</c>.</p>
+        <code type="none">
+CryptoKeyFun({debug_info, Mode, Module, Filename}) -> Key</code>
+        <p>Called when the key is needed for module <c>Module</c>
+          in the file named <c>Filename</c>. <c>Mode</c> is the type of
+          crypto algorithm; currently, the only possible value is
+          <c>des3_cbc</c>. The call is to fail (raise an exception) if
+          no key is available.</p>
+        <code type="none">
+CryptoKeyFun(clear) -> term()</code>
+        <p>Called before the fun is unregistered. Here any cleaning up
+          can be done. The return value is not important, but is passed
+          back to the caller of <c>clear_crypto_key_fun/0</c> as part
+          of its return value.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="diff_dirs" arity="2"/>
+      <fsummary>Compare the BEAM files in two directories.</fsummary>
+      <desc>
+        <p>Compares the BEAM files in two directories as
+          <seealso marker="#cmp_dirs/2"><c>cmp_dirs/2</c></seealso>, but the
+          names of files that exist in only one directory or are different are
+          presented on standard output.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format_error" arity="1"/>
+      <fsummary>Return an English description of a BEAM read error reply.
+      </fsummary>
+      <desc>
+        <p>For a specified error returned by any function in this module,
+          this function returns a descriptive string
+          of the error in English. For file errors, function
+          <seealso marker="kernel:file#format_error/1"><c>file:format_error(Posix)</c></seealso>
+          is to be called.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="info" arity="1"/>
+      <fsummary>Information about a BEAM file.</fsummary>
+      <desc>
+        <p>Returns a list containing some information about a BEAM file
+          as tuples <c>{Item, Info}</c>:</p>
+        <taglist>
+          <tag><c>{file, <anno>Filename</anno>} | {binary,
+            <anno>Binary</anno>}</c></tag>
+          <item>
+            <p>The name (string) of the BEAM file, or the binary from
+              which the information was extracted.</p>
+          </item>
+          <tag><c>{module, <anno>Module</anno>}</c></tag>
+          <item>
+            <p>The name (atom) of the module.</p>
+          </item>
+          <tag><c>{chunks, [{<anno>ChunkId</anno>, <anno>Pos</anno>,
+            <anno>Size</anno>}]}</c></tag>
+          <item>
+            <p>For each chunk, the identifier (string) and the position
+              and size of the chunk data, in bytes.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="md5" arity="1"/>
+      <fsummary>Read the module version of the BEAM file.</fsummary>
+      <desc>
+        <p>Calculates an MD5 redundancy check for the code of the module
+          (compilation date and other attributes are not included).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="strip" arity="1"/>
+      <fsummary>Remove chunks not needed by the loader from a BEAM file.
+      </fsummary>
+      <desc>
+        <p>Removes all chunks from a BEAM
+          file except those needed by the loader. In particular,
+          the debug information (chunk <c>abstract_code</c>) is removed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="strip_files" arity="1"/>
+      <fsummary>Removes chunks not needed by the loader from BEAM files.
+      </fsummary>
+      <desc>
+        <p>Removes all chunks except
+          those needed by the loader from BEAM files. In particular,
+          the debug information (chunk <c>abstract_code</c>) is removed.
+          The returned list contains one element for each specified filename,
+          in the same order as in <c>Files</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="strip_release" arity="1"/>
+      <fsummary>Remove chunks not needed by the loader from all BEAM files of
+        a release.</fsummary>
+      <desc>
+        <p>Removes all chunks
+          except those needed by the loader from the BEAM files of a
+          release. <c><anno>Dir</anno></c> is to be the installation root
+          directory. For example, the current OTP release can be
+          stripped with the call
+          <c>beam_lib:strip_release(code:root_dir())</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="version" arity="1"/>
-      <fsummary>Read the BEAM file's module version</fsummary>
+      <fsummary>Read the module version of the BEAM file.</fsummary>
       <desc>
-        <p>Returns the module version(s). A version is defined by
-          the module attribute <c>-vsn(Vsn)</c>. If this attribute is
+        <p>Returns the module version or versions. A version is defined by
+          module attribute <c>-vsn(Vsn)</c>. If this attribute is
           not specified, the version defaults to the checksum of
-          the module. Note that if the version <c>Vsn</c> is not a list,
+          the module. Notice that if version <c>Vsn</c> is not a list,
           it is made into one, that is <c>{ok,{Module,[Vsn]}}</c> is
-          returned. If there are several <c>-vsn</c> module attributes,
-          the result is the concatenated list of versions. Examples:</p>
+          returned. If there are many <c>-vsn</c> module attributes,
+          the result is the concatenated list of versions.</p>
+        <p><em>Examples:</em></p>
         <pre>
 1> <input>beam_lib:version(a).</input> % -vsn(1).
 {ok,{a,[1]}}
@@ -284,169 +495,6 @@
 {ok,{c,[1,2]}}
 4> <input>beam_lib:version(d).</input> % no -vsn attribute
 {ok,{d,[275613208176997377698094100858909383631]}}</pre>
-      </desc>
-    </func>
-    <func>
-      <name name="md5" arity="1"/>
-      <fsummary>Read the BEAM file's module version</fsummary>
-      <desc>
-        <p>Calculates an MD5 redundancy check for the code of the module
-          (compilation date and other attributes are not included).</p>
-      </desc>
-    </func>
-    <func>
-      <name name="info" arity="1"/>
-      <fsummary>Information about a BEAM file</fsummary>
-      <desc>
-        <p>Returns a list containing some information about a BEAM file
-          as tuples <c>{Item, Info}</c>:</p>
-        <taglist>
-          <tag><c>{file, <anno>Filename</anno>} | {binary, <anno>Binary</anno>}</c></tag>
-          <item>
-            <p>The name (string) of the BEAM file, or the binary from
-              which the information was extracted.</p>
-          </item>
-          <tag><c>{module, <anno>Module</anno>}</c></tag>
-          <item>
-            <p>The name (atom) of the module.</p>
-          </item>
-          <tag><c>{chunks, [{<anno>ChunkId</anno>, <anno>Pos</anno>, <anno>Size</anno>}]}</c></tag>
-          <item>
-            <p>For each chunk, the identifier (string) and the position
-              and size of the chunk data, in bytes.</p>
-          </item>
-        </taglist>
-      </desc>
-    </func>
-    <func>
-      <name name="cmp" arity="2"/>
-      <fsummary>Compare two BEAM files</fsummary>
-      <type name="cmp_rsn"/>
-      <desc>
-        <p>Compares the contents of two BEAM files. If the module names
-          are the same, and all chunks except for the <c>"CInf"</c> chunk
-	  (the chunk containing the compilation information which is
-	  returned by <c>Module:module_info(compile)</c>)
-	  have the same contents in both files,
-          <c>ok</c> is returned. Otherwise an error message is returned.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="cmp_dirs" arity="2"/>
-      <fsummary>Compare the BEAM files in two directories</fsummary>
-      <desc>
-        <p>The <c>cmp_dirs/2</c> function compares the BEAM files in
-          two directories. Only files with extension <c>".beam"</c> are
-          compared. BEAM files that exist in directory <c><anno>Dir1</anno></c>
-          (<c><anno>Dir2</anno></c>) only are returned in <c><anno>Only1</anno></c>
-          (<c><anno>Only2</anno></c>). BEAM files that exist on both directories but
-          are considered different by <c>cmp/2</c> are returned as
-          pairs {<c><anno>Filename1</anno></c>, <c><anno>Filename2</anno></c>} where
-          <c><anno>Filename1</anno></c> (<c><anno>Filename2</anno></c>) exists in directory
-          <c><anno>Dir1</anno></c> (<c><anno>Dir2</anno></c>).</p>
-      </desc>
-    </func>
-    <func>
-      <name name="diff_dirs" arity="2"/>
-      <fsummary>Compare the BEAM files in two directories</fsummary>
-      <desc>
-        <p>The <c>diff_dirs/2</c> function compares the BEAM files in
-          two directories the way <c>cmp_dirs/2</c> does, but names of
-          files that exist in only one directory or are different are
-          presented on standard output.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="strip" arity="1"/>
-      <fsummary>Removes chunks not needed by the loader from a BEAM file</fsummary>
-      <desc>
-        <p>The <c>strip/1</c> function removes all chunks from a BEAM
-          file except those needed by the loader. In particular,
-          the debug information (<c>abstract_code</c> chunk) is removed.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="strip_files" arity="1"/>
-      <fsummary>Removes chunks not needed by the loader from BEAM files</fsummary>
-      <desc>
-        <p>The <c>strip_files/1</c> function removes all chunks except
-          those needed by the loader from BEAM files. In particular,
-          the debug information (<c>abstract_code</c> chunk) is removed.
-          The returned list contains one element for each given file
-          name, in the same order as in <c>Files</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="strip_release" arity="1"/>
-      <fsummary>Removes chunks not needed by the loader from all BEAM files of a release</fsummary>
-      <desc>
-        <p>The <c>strip_release/1</c> function removes all chunks
-          except those needed by the loader from the BEAM files of a
-          release. <c><anno>Dir</anno></c> should be the installation root
-          directory. For example, the current OTP release can be
-          stripped with the call
-          <c>beam_lib:strip_release(code:root_dir())</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="format_error" arity="1"/>
-      <fsummary>Return an English description of a BEAM read error reply</fsummary>
-      <desc>
-        <p>Given the error returned by any function in this module, 
-          the function <c>format_error</c> returns a descriptive string
-          of the error in English. For file errors, the function 
-          <c>file:format_error(Posix)</c> should be called.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="crypto_key_fun" arity="1"/>
-      <fsummary>Register a fun that provides a crypto key</fsummary>
-      <type name="crypto_fun"/>
-      <type name="crypto_fun_arg"/>
-      <type name="mode"/>
-      <desc>
-        <p>The <c>crypto_key_fun/1</c> function registers a unary fun
-          that will be called if <c>beam_lib</c> needs to read an
-          <c>abstract_code</c> chunk that has been encrypted. The fun
-          is held in a process that is started by the function.</p>
-        <p>If there already is a fun registered when attempting to
-          register a fun, <c>{error, exists}</c> is returned.</p>
-        <p>The fun must handle the following arguments:</p>
-        <code type="none">
-          CryptoKeyFun(init) -> ok | {ok, NewCryptoKeyFun} | {error, Term}</code>
-        <p>Called when the fun is registered, in the process that holds
-          the fun. Here the crypto key fun can do any necessary
-          initializations. If <c>{ok, NewCryptoKeyFun}</c> is returned
-          then <c>NewCryptoKeyFun</c> will be registered instead of
-          <c>CryptoKeyFun</c>. If <c>{error, Term}</c> is returned,
-          the registration is aborted and <c>crypto_key_fun/1</c>
-          returns <c>{error, Term}</c> as well.</p>
-        <code type="none">
-          CryptoKeyFun({debug_info, Mode, Module, Filename}) -> Key</code>
-        <p>Called when the key is needed for the module <c>Module</c>
-          in the file named <c>Filename</c>. <c>Mode</c> is the type of
-          crypto algorithm; currently, the only possible value thus is
-          <c>des3_cbc</c>. The call should fail (raise an exception) if
-          there is no key available.</p>
-        <code type="none">
-          CryptoKeyFun(clear) -> term()</code>
-        <p>Called before the fun is unregistered. Here any cleaning up
-          can be done. The return value is not important, but is passed
-          back to the caller of <c>clear_crypto_key_fun/0</c> as part
-          of its return value.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="clear_crypto_key_fun" arity="0"/>
-      <fsummary>Unregister the current crypto key fun</fsummary>
-      <desc>
-        <p>Unregisters the crypto key fun and terminates the process
-          holding it, started by <c>crypto_key_fun/1</c>.</p>
-        <p>The <c>clear_crypto_key_fun/1</c> either returns
-          <c>{ok, undefined}</c> if there was no crypto key fun
-          registered, or <c>{ok, Term}</c>, where <c>Term</c> is
-          the return value from <c>CryptoKeyFun(clear)</c>, see
-          <c>crypto_key_fun/1</c>.</p>
       </desc>
     </func>
   </funcs>
