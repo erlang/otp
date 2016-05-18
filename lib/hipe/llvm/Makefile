@@ -40,12 +40,12 @@ RELSYSDIR = $(RELEASE_PATH)/lib/hipe-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 ifdef HIPE_ENABLED
-HIPE_MODULES = hipe_rtl_to_llvm \
+HIPE_MODULES = elf_format \
 	hipe_llvm \
-	elf_format \
+	hipe_llvm_liveness \
 	hipe_llvm_main \
 	hipe_llvm_merge	\
-	hipe_llvm_liveness
+	hipe_rtl_to_llvm
 else
 HIPE_MODULES =
 endif
@@ -71,7 +71,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +inline #+warn_missing_spec
+ERL_COMPILE_FLAGS += +inline +warn_export_vars #+warn_missing_spec
 
 # if in 32 bit backend define BIT32 symbol
 ARCH = $(shell echo $(TARGET) | sed 's/^\(x86_64\)-.*/64bit/')

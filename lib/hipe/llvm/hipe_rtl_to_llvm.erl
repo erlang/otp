@@ -266,17 +266,18 @@ trans_alub_overflow(I, Sign, Relocs) ->
   T2 = mk_temp(),
   %% T1{1}: Boolean variable indicating overflow
   I6 = hipe_llvm:mk_extractvalue(T2, ReturnType, T1, "1", []),
-  case hipe_rtl:alub_cond(I) of
-    Op when Op =:= overflow orelse Op =:= ltu ->
-      True_label = mk_jump_label(hipe_rtl:alub_true_label(I)),
-      False_label = mk_jump_label(hipe_rtl:alub_false_label(I)),
-      MetaData = branch_metadata(hipe_rtl:alub_pred(I));
-    not_overflow ->
-      True_label = mk_jump_label(hipe_rtl:alub_false_label(I)),
-      False_label = mk_jump_label(hipe_rtl:alub_true_label(I)),
-      MetaData = branch_metadata(1 - hipe_rtl:alub_pred(I))
-  end,
-  I7 = hipe_llvm:mk_br_cond(T2, True_label, False_label, MetaData),
+  {TrueLabel, FalseLabel, MetaData} =
+    case hipe_rtl:alub_cond(I) of
+      Op when Op =:= overflow orelse Op =:= ltu ->
+	{mk_jump_label(hipe_rtl:alub_true_label(I)),
+	 mk_jump_label(hipe_rtl:alub_false_label(I)),
+	 branch_metadata(hipe_rtl:alub_pred(I))};
+      not_overflow ->
+	{mk_jump_label(hipe_rtl:alub_false_label(I)),
+	 mk_jump_label(hipe_rtl:alub_true_label(I)),
+	 branch_metadata(1 - hipe_rtl:alub_pred(I))}
+    end,
+  I7 = hipe_llvm:mk_br_cond(T2, TrueLabel, FalseLabel, MetaData),
   {[I7, I6, I5, I4, I3, I2, I1], NewRelocs}.
 
 trans_alub_op(I, Sign) ->

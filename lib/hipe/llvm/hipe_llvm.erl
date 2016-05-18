@@ -865,11 +865,7 @@ pp_ins(Dev, Ver, I) ->
         true -> write(Dev, "volatile ");
         false -> ok
       end,
-      case Ver >= {3,7} of false -> ok; true ->
-	  pp_type(Dev, pointer_type(load_p_type(I))),
-	  write(Dev, ", ")
-      end,
-      pp_type(Dev, load_p_type(I)),
+      pp_dereference_type(Dev, Ver, load_p_type(I)),
       write(Dev, [" ", load_pointer(I), " "]),
       case load_alignment(I) of
         [] -> ok;
@@ -905,11 +901,7 @@ pp_ins(Dev, Ver, I) ->
         true -> write(Dev, "inbounds ");
         false -> ok
       end,
-      case Ver >= {3,7} of false -> ok; true ->
-	  pp_type(Dev, pointer_type(getelementptr_p_type(I))),
-	  write(Dev, ", ")
-      end,
-      pp_type(Dev, getelementptr_p_type(I)),
+      pp_dereference_type(Dev, Ver, getelementptr_p_type(I)),
       write(Dev, [" ", getelementptr_value(I)]),
       pp_typed_idxs(Dev, getelementptr_typed_idxs(I)),
       write(Dev, "\n");
@@ -1031,6 +1023,17 @@ pp_ins(Dev, Ver, I) ->
     Other ->
       exit({?MODULE, pp_ins, {"Unknown LLVM instruction", Other}})
   end.
+
+%% @doc Print the type of a dereference in an LLVM instruction using syntax
+%% parsable by the specified LLVM version.
+pp_dereference_type(Dev, Ver, Type) ->
+  case Ver >= {3,7} of
+    false -> ok;
+    true ->
+      pp_type(Dev, pointer_type(Type)),
+      write(Dev, ", ")
+  end,
+  pp_type(Dev, Type).
 
 %% @doc Pretty-print a list of types
 pp_type_list(_Dev, []) -> ok;

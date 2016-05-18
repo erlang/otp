@@ -35,25 +35,55 @@
 %% Types
 %%------------------------------------------------------------------------------
 
--export_type([elf/0]).
+-export_type([elf/0
+	     ,addend/0
+	     ,bitflags/0
+	     ,name/0
+	     ,offset/0
+	     ,reloc_type/0
+	     ,shdr_type/0
+	     ,size/0
+	     ,sym_bind/0
+	     ,sym_type/0
+	     ,valueoff/0
+	     ]).
 
--type lp()     :: non_neg_integer().  % landing pad
--type num()    :: non_neg_integer().
--type index()  :: non_neg_integer().
--type start()  :: non_neg_integer().
+-type bitflags()  :: non_neg_integer().
+-type index()     :: non_neg_integer().
+-type lp()        :: non_neg_integer().  % landing pad
+-type num()       :: non_neg_integer().
+-type offset()    :: non_neg_integer().
+-type size()      :: non_neg_integer().
+-type start()     :: non_neg_integer().
 
--type tuple(X)     :: {} | {X} | {X, X} | tuple().
+-type addend()    :: integer() | undefined.
+-type name()      :: string().
+-type shdr_type() :: 'null' | 'progbits' | 'symtab' | 'strtab' | 'rela'
+		   | 'hash' | 'dynamic' | 'note' | 'nobits' | 'rel' | 'shlib'
+		   | 'dynsym' | {os, ?SHT_LOOS..?SHT_HIOS}
+		   | {proc, ?SHT_LOPROC..?SHT_HIPROC}.
+-type sym_bind()  :: 'local' | 'global' | 'weak' | {os, ?STB_LOOS..?STB_HIOS}
+		   | {proc, ?STB_LOPROC..?STB_HIPROC}.
+-type sym_type()  :: 'notype' | 'object' | 'func' | 'section' | 'file'
+		   | {os, ?STT_LOOS..?STT_HIOS}
+		   | {proc, ?STT_LOPROC..?STT_HIPROC}.
+-type valueoff()  :: offset().
+
+-ifdef(BIT32).  % 386
+-type reloc_type() :: '32' | 'pc32'.
+-else.          % X86_64
+-type reloc_type() :: '64' | 'pc32' | '32'.
+-endif.
 
 %%------------------------------------------------------------------------------
 %% Abstract Data Types and Accessors for ELF Structures.
 %%------------------------------------------------------------------------------
 
 -record(elf, {file            :: binary()
-	     ,sec_idx         :: tuple(elf_shdr())
+	     ,sections        :: [elf_shdr()]
 	     ,sec_nam         :: #{string() => elf_shdr()}
-	     ,sym_idx         :: undefined | tuple(elf_sym())
+	     ,symbols         :: undefined | [elf_sym()]
 	     }).
-
 -opaque elf() :: #elf{}.
 
 %% File header
@@ -211,9 +241,9 @@ read(ElfBin) ->
   [_UndefinedSec|Sections] = extract_shdrtab(ElfBin, Header),
   SecNam = maps:from_list(
 	     [{Name, Sec} || Sec = #elf_shdr{name=Name} <- Sections]),
-  Elf0 = #elf{file=ElfBin, sec_idx=list_to_tuple(Sections), sec_nam=SecNam},
+  Elf0 = #elf{file=ElfBin, sections=Sections, sec_nam=SecNam},
   [_UndefinedSym|Symbols] = extract_symtab(Elf0, extract_strtab(Elf0)),
-  Elf0#elf{sym_idx=list_to_tuple(Symbols)}.
+  Elf0#elf{symbols=Symbols}.
 
 %%------------------------------------------------------------------------------
 %% Functions to manipulate the ELF File Header
@@ -311,8 +341,8 @@ decode_shdr_type(Proc) when ?SHT_LOPROC =< Proc, Proc =< ?SHT_HIPROC ->
 -spec elf_section(non_neg_integer(), elf()) -> undefined | abs | elf_shdr().
 elf_section(0, #elf{}) -> undefined;
 elf_section(?SHN_ABS, #elf{}) -> abs;
-elf_section(Index, #elf{sec_idx=SecIdx}) when Index =< tuple_size(SecIdx) ->
-  element(Index, SecIdx).
+elf_section(Index, #elf{sections=SecIdx}) ->
+  lists:nth(Index, SecIdx).
 
 %% Reads the contents of a section from an object
 -spec section_contents(elf_shdr(), elf()) -> binary().
@@ -374,10 +404,10 @@ decode_symbol_type(Proc) when ?STT_LOPROC =< Proc, Proc =< ?STT_HIPROC ->
 -spec elf_symbol(0,             elf()) -> undefined;
 		(pos_integer(), elf()) -> elf_sym().
 elf_symbol(0, #elf{}) -> undefined;
-elf_symbol(Index, #elf{sym_idx=SymIdx}) -> element(Index, SymIdx).
+elf_symbol(Index, #elf{symbols=Symbols}) -> lists:nth(Index, Symbols).
 
 -spec elf_symbols(elf()) -> [elf_sym()].
-elf_symbols(#elf{sym_idx=SymIdx}) -> tuple_to_list(SymIdx).
+elf_symbols(#elf{symbols=Symbols}) -> Symbols.
 
 %%------------------------------------------------------------------------------
 %% Functions to manipulate String Table
@@ -418,8 +448,8 @@ bin_get_string(<<Char, Rest/binary>>) -> [Char|bin_get_string(Rest)].
 extract_rela(Elf, Name) ->
   SecData = extract_segment_by_name(Elf, Name),
   [#elf_rel{offset=Offset, symbol=elf_symbol(?ELF_R_SYM(Info), Elf),
-	  type=decode_reloc_type(?ELF_R_TYPE(Info)),
-	  addend=read_implicit_addend(Offset, SecData)}
+	    type=decode_reloc_type(?ELF_R_TYPE(Info)),
+	    addend=read_implicit_addend(Offset, SecData)}
    || <<Offset:?bits(?R_OFFSET_SIZE)/little,
 	Info:?bits(?R_INFO_SIZE)/little % 386 uses ".rel"
       >> <= extract_segment_by_name(Elf, ?REL(Name))].
@@ -436,7 +466,7 @@ read_implicit_addend(Offset, Section) ->
 -else. %% BIT32
 extract_rela(Elf, Name) ->
   [#elf_rel{offset=Offset, symbol=elf_symbol(?ELF_R_SYM(Info), Elf),
-	  type=decode_reloc_type(?ELF_R_TYPE(Info)), addend=Addend}
+	    type=decode_reloc_type(?ELF_R_TYPE(Info)), addend=Addend}
    || <<Offset:?bits(?R_OFFSET_SIZE)/little,
 	Info:?bits(?R_INFO_SIZE)/little,
 	Addend:?bits(?R_ADDEND_SIZE)/signed-little % X86_64 uses ".rela"

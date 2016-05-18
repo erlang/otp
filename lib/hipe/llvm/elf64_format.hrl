@@ -56,9 +56,3 @@
 -define(P_FILESZ_OFFSET, (?P_PVADDR_OFFSET + ?P_PVADDR_SIZE) ).
 -define(P_MEMSZ_OFFSET,  (?P_FILESZ_OFFSET + ?P_FILESZ_SIZE) ).
 -define(P_ALIGN_OFFSET,  (?P_MEMSZ_OFFSET + ?P_MEMSZ_SIZE) ).
-
-%%------------------------------------------------------------------------------
-%% Exported record and type declarations for 'elf_format' module
-%%------------------------------------------------------------------------------
-
--type reloc_type() :: '64' | 'pc32' | '32'.
