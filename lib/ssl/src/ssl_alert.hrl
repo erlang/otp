@@ -109,6 +109,7 @@
 -define(NO_APPLICATION_PROTOCOL, 120).
 
 -define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).
+-define(ALERT_REC(Level,Desc,Reason), #alert{level=Level,description=Desc,where={?FILE, ?LINE},reason=Reason}).
 
 -define(MAX_ALERTS, 10).
 
@@ -116,6 +117,7 @@
 -record(alert, {
 	  level,
 	  description,
-	  where = {?FILE, ?LINE}
+          where = {?FILE, ?LINE},
+          reason
 	 }).
 -endif. % -ifdef(ssl_alert).
