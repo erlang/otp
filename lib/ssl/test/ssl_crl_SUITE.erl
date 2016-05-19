@@ -353,6 +353,8 @@ crl_hash_dir_expired(Config) when is_list(Config) ->
     %% Add "issuing distribution point", to ensure that verification
     %% fails if there is no valid CRL.
     CertsConfig = make_certs:make_config([{issuing_distribution_point, true}]),
+    make_certs:can_generate_expired_crls(CertsConfig)
+    	orelse throw({skip, "cannot generate CRLs with expiry date in the past"}),
     make_certs:intermediateCA(PrivDir, CA, "erlangCA", CertsConfig),
     EndUser = "CRL-maybe-expired",
     make_certs:enduser(PrivDir, CA, EndUser, CertsConfig),
