@@ -328,7 +328,7 @@
 %% Auxiliary types and convenient macros
 %%
 
--type parse_form() :: erl_parse:abstract_expr().
+-type parse_form() :: erl_parse:abstract_type().
 -type rng_elem()   :: 'pos_inf' | 'neg_inf' | integer().
 
 -record(int_set, {set :: [integer()]}).
@@ -377,7 +377,9 @@
 -type record_key()   :: {'record', atom()}.
 -type type_key()     :: {'type' | 'opaque', atom(), arity()}.
 -type record_value() :: [{atom(), erl_parse:abstract_expr(), erl_type()}].
--type type_value()   :: {module(), erl_type(), atom()}.
+-type type_value()   :: {{module(), {file:name(), erl_anno:line()},
+                          erl_parse:abstr_type(), ArgNames :: [atom()]},
+                         erl_type()}.
 -type type_table() :: dict:dict(record_key() | type_key(),
                                 record_value() | type_value()).
 
@@ -4422,7 +4424,7 @@ mod_name(Mod, Name) ->
                   site(), mod_records()) -> erl_type().
 
 t_from_form(Form, ExpTypes, Site, RecDict) ->
-  t_from_form(Form, ExpTypes, Site, RecDict, maps:new()).
+  t_from_form(Form, ExpTypes, Site, RecDict, var_table__new()).
 
 -spec t_from_form(parse_form(), sets:set(mfa()),
                   site(), mod_records(), var_table()) -> erl_type().
@@ -4439,7 +4441,7 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
   RecDict = dict:from_list([{Module, TypeTable}]),
   ExpTypes = replace_by_none,
-  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, maps:new()),
+  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, var_table__new()),
   T.
 
 %% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
@@ -4854,7 +4856,7 @@ record_from_form({atom, _, Name}, ModFields, TypeNames, ET, S, MR, V, D, L) ->
             {ok, NewFields} ->
               {NewFields1, L2} =
                 fields_from_form(NewFields, NewTypeNames, ET, S1, MR,
-                                 maps:new(), D, L1),
+                                 var_table__new(), D, L1),
               Rec = t_tuple(
                       [t_atom(Name)|[Type
                                      || {_FieldName, Type} <- NewFields1]]),
@@ -4973,7 +4975,7 @@ promote_to_mand(MKs, [E={K,_,V}|T]) ->
                             mod_records()) -> ok.
 
 t_check_record_fields(Form, ExpTypes, Site, RecDict) ->
-  t_check_record_fields(Form, ExpTypes, Site, RecDict, maps:new()).
+  t_check_record_fields(Form, ExpTypes, Site, RecDict, var_table__new()).
 
 -spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
                             mod_records(), var_table()) -> ok.
@@ -5220,6 +5222,7 @@ lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
     error -> error
   end.
 
+-spec lookup_type(_, _, _) -> {'type' | 'opaque', type_value()} | 'error'.
 lookup_type(Name, Arity, RecDict) ->
   case dict:find({type, Name, Arity}, RecDict) of
     error ->
