@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 apply_fun/1,apply_mf/1,bs_init/1,bs_save/1,
 	 is_not_killed/1,is_not_used_at/1,
-	 select/1,y_catch/1,otp_8949_b/1,liveopt/1]).
+	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -43,7 +43,8 @@ groups() ->
        select,
        y_catch,
        otp_8949_b,
-       liveopt
+       liveopt,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
@@ -267,6 +268,48 @@ liveopt_fun(Peer, Cause, Origin) ->
 				       origin=Origin} ->
 	    void
     end.
+
+%% Thanks to QuickCheck.
+coverage(_Config) ->
+    42+7 = merchant([[],7,false]),
+
+    {'EXIT',{{try_clause,0},_}} = (catch resulting([0], stone)),
+    0.0 = resulting([true], stone),
+
+    {'EXIT',{if_clause,_}} = (catch clinic(false)),
+    {'EXIT',{{try_clause,"trials"},_}} = (catch clinic(true)),
+
+    {'EXIT',{function_clause,_}} = (catch town(overall, {{abc},alcohol})),
+
+    ok.
+
+%% Cover check_liveness/3.
+merchant([Merchant, Laws, Electric]) ->
+    id(42),
+    oklahoma([[] || 0 <- Merchant],
+	     if true; Electric -> Laws end) + 42.
+oklahoma([], Int) -> Int.
+
+town(overall, {{If}, Healing = alcohol})
+  when Healing#{[] => Healing}; include ->
+    [If || Healing <- awareness].
+
+%% Cover is_reg_used_at/3.
+resulting([Conservation], stone) ->
+    try 0 of
+	Conservation when Conservation -> Conservation;
+	_ when Conservation; 0 -> 0.0
+    after
+	Conservation
+    end.
+
+%% Cover is_reg_used_at_1/3.
+clinic(Damage) ->
+    if
+      Damage ->
+	  try "trials" of Damage when Damage -> Damage catch true -> [] end
+    end,
+    carefully.
 
 
 %% The identity function.
