@@ -1,6 +1,6 @@
 -module(erl_tracer).
 
--export([enabled/3, trace/6, on_load/0]).
+-export([enabled/3, trace/5, on_load/0]).
 
 -type tracee() :: port() | pid() | undefined.
 
@@ -26,9 +26,9 @@
                    | trace_tag_running_ports()
                    | trace_tag_gc().
 
--type trace_opts() :: #{ match_spec_result => true | term(),
-                         scheduler_id => undefined | non_neg_integer(),
-                         timestamp => undefined | timestamp | cpu_timestamp |
+-type trace_opts() :: #{ extra => term(), match_spec_result => term(),
+                         scheduler_id => non_neg_integer(),
+                         timestamp => timestamp | cpu_timestamp |
                                       monotonic | strict_monotonic }.
 -type tracer_state() :: term().
 
@@ -40,6 +40,9 @@ on_load() ->
 %%%
 %%% NIF placeholders
 %%%
+
+%% This suppression is needed as trace_tag gets collapsed to atom()
+-dialyzer({no_contracts, enabled/3}).
 
 -spec enabled(Tag :: trace_status,
               TracerState :: tracer_state(),
@@ -56,8 +59,7 @@ enabled(_, _, _) ->
             TracerState :: tracer_state(),
             Tracee :: tracee(),
             Msg :: term(),
-            Extra :: term(),
             Opts :: trace_opts()) -> any().
 
-trace(_, _, _, _, _, _) ->
+trace(_, _, _, _, _) ->
     erlang:nif_error(nif_not_loaded).
