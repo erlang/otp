@@ -189,9 +189,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <tag><c>all</c></tag>
           <item>All processes and ports in the system as well as all processes and ports
            created hereafter are to be traced.</item>
-          <tag><c>all_processes</c></tag>
+          <tag><c>processes</c></tag>
           <item>All processes in the system as well as all processes created hereafter are to be traced.</item>
-          <tag><c>all_ports</c></tag>
+          <tag><c>ports</c></tag>
           <item>All ports in the system as well as all ports created hereafter are to be traced.</item>
           <tag><c>new</c></tag>
           <item>All processes and ports created after the call is are to be traced.</item>
