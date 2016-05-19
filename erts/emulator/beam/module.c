@@ -79,10 +79,7 @@ void erts_module_instance_init(struct erl_module_instance* modi)
 #ifdef HIPE
     modi->first_hipe_ref = NULL;
     modi->first_hipe_sdesc = NULL;
-    modi->hipe_code_start = NULL;
-# ifdef DEBUG
-    modi->hipe_code_size = 0;
-# endif
+    modi->hipe_code = NULL;
 #endif
 }
 

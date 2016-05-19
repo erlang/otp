@@ -44,6 +44,7 @@
 #include "hipe_mode_switch.h"
 #include "hipe_native_bif.h"
 #include "hipe_bif0.h"
+#include "hipe_load.h"
 /* We need hipe_literals.h for HIPE_SYSTEM_CRC, but it redefines
    a few constants. #undef them here to avoid warnings. */
 #undef F_TIMO
@@ -375,15 +376,31 @@ BIF_RETTYPE hipe_bifs_ref_set_2(BIF_ALIST_2)
 }
 
 /*
+ * BIFs for loading code.
+ */
+
+static HipeLoaderState *get_loader_state(Eterm term)
+{
+    ProcBin *pb;
+
+    if (!ERTS_TERM_IS_MAGIC_BINARY(term)) return NULL;
+
+    pb = (ProcBin*) binary_val(term);
+    return hipe_get_loader_state(pb->val);
+}
+
+
+/*
  * Allocate memory and copy machine code to it.
  */
-BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
+BIF_RETTYPE hipe_bifs_enter_code_3(BIF_ALIST_3)
 {
     Uint nrbytes;
     void *bytes;
     void *address;
     Eterm trampolines;
     Eterm *hp;
+    HipeLoaderState *stp;
 #ifndef DEBUG
     ERTS_DECLARE_DUMMY(Uint bitoffs);
     ERTS_DECLARE_DUMMY(Uint bitsize);
@@ -392,13 +409,15 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
     Uint bitsize;
 #endif
 
-    if (is_not_binary(BIF_ARG_1))
+    if (is_not_binary(BIF_ARG_1) ||
+	(!(stp = get_loader_state(BIF_ARG_3))))
 	BIF_ERROR(BIF_P, BADARG);
     nrbytes = binary_size(BIF_ARG_1);
     ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
     ASSERT(bitoffs == 0);
     ASSERT(bitsize == 0);
     trampolines = NIL;
+    // XXX: Trampolines are not tracked and freed
     address = hipe_alloc_code(nrbytes, BIF_ARG_2, &trampolines, BIF_P);
     if (!address) {
 	Uint nrcallees;
@@ -407,11 +426,15 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
 	    nrcallees = arityval(tuple_val(BIF_ARG_2)[0]);
 	else
 	    nrcallees = 0;
+	// XXX: Is there any reason to not just BIF_ERROR, so that the runtime
+	// survives?
 	erts_exit(ERTS_ERROR_EXIT, "%s: failed to allocate %lu bytes and %lu trampolines\r\n",
 		 __func__, (unsigned long)nrbytes, (unsigned long)nrcallees);
     }
     memcpy(address, bytes, nrbytes);
     hipe_flush_icache_range(address, nrbytes);
+    stp->text_segment = address;
+    stp->text_segment_size = nrbytes;
     hp = HAlloc(BIF_P, 3);
     hp[0] = make_arityval(2);
     hp[1] = address_to_term(address, BIF_P);
@@ -424,25 +447,34 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
 /*
  * Allocate memory for arbitrary non-Erlang data.
  */
-BIF_RETTYPE hipe_bifs_alloc_data_2(BIF_ALIST_2)
+BIF_RETTYPE hipe_bifs_alloc_data_3(BIF_ALIST_3)
 {
-    Uint align, nrbytes;
-    void *block;
+    Uint align;
+    HipeLoaderState *stp;
 
     if (is_not_small(BIF_ARG_1) || is_not_small(BIF_ARG_2) ||
+	(!(stp = get_loader_state(BIF_ARG_3))) ||
 	(align = unsigned_val(BIF_ARG_1), !IS_POWER_OF_TWO(align)))
 	BIF_ERROR(BIF_P, BADARG);
-    nrbytes = unsigned_val(BIF_ARG_2);
-    if (nrbytes == 0)
+
+    if (stp->data_segment_size || stp->data_segment)
+	BIF_ERROR(BIF_P, BADARG);
+
+    stp->data_segment_size = unsigned_val(BIF_ARG_2);
+    if (stp->data_segment_size == 0)
 	BIF_RET(make_small(0));
-    block = erts_alloc(ERTS_ALC_T_HIPE, nrbytes);
-    if ((unsigned long)block & (align-1)) {
-	fprintf(stderr, "%s: erts_alloc(%lu) returned %p which is not %lu-byte aligned\r\n",
-		__FUNCTION__, (unsigned long)nrbytes, block, (unsigned long)align);
-	erts_free(ERTS_ALC_T_HIPE, block);
+    stp->data_segment = erts_alloc(ERTS_ALC_T_HIPE, stp->data_segment_size);
+    if ((unsigned long)stp->data_segment & (align-1)) {
+	fprintf(stderr, "%s: erts_alloc(%lu) returned %p which is not %lu-byte "
+		"aligned\r\n",
+		__FUNCTION__, (unsigned long)stp->data_segment_size,
+		stp->data_segment, (unsigned long)align);
+	erts_free(ERTS_ALC_T_HIPE, stp->data_segment);
+	stp->data_segment = NULL;
+	stp->data_segment_size = 0;
 	BIF_ERROR(BIF_P, EXC_NOTSUP);
     }
-    BIF_RET(address_to_term(block, BIF_P));
+    BIF_RET(address_to_term(stp->data_segment, BIF_P));
 }
 
 /*
@@ -1711,12 +1743,14 @@ void hipe_purge_module(Module* modp)
                 prevp = &p->next_in_mod;
         }
     }
-    if (modp->old.hipe_code_start) {
+    if (modp->old.hipe_code && modp->old.hipe_code->text_segment) {
 #ifdef DEBUG
-        sys_memset(modp->old.hipe_code_start, 0xfe, modp->old.hipe_code_size);
+        sys_memset(modp->old.hipe_code->text_segment, 0xfe,
+                   modp->old.hipe_code->text_segment_size);
 #endif
-        hipe_free_code(modp->old.hipe_code_start);
-        modp->old.hipe_code_start = NULL;
+        hipe_free_code(modp->old.hipe_code->text_segment);
+        modp->old.hipe_code->text_segment = NULL;
+        modp->old.hipe_code->text_segment_size = 0;
     }
 }
 
@@ -1869,4 +1903,24 @@ BIF_RETTYPE hipe_bifs_patch_call_3(BIF_ALIST_3)
     if (hipe_patch_call(callAddress, destAddress, trampAddress))
 	BIF_ERROR(BIF_P, BADARG);
     BIF_RET(NIL);
+}
+
+BIF_RETTYPE hipe_bifs_alloc_loader_state_1(BIF_ALIST_1)
+{
+    Binary *magic;
+    Eterm *hp;
+    Eterm res;
+
+    if (is_not_atom(BIF_ARG_1))
+	BIF_ERROR(BIF_P, BADARG);
+
+    magic = hipe_alloc_loader_state(BIF_ARG_1);
+
+    if (!magic)
+	BIF_ERROR(BIF_P, BADARG);
+
+    hp = HAlloc(BIF_P, PROC_BIN_SIZE);
+    res = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), magic);
+    erts_refc_dec(&magic->refc, 1);
+    BIF_RET(res);
 }

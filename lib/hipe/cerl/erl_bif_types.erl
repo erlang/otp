@@ -1004,8 +1004,8 @@ type(erlang, tuple_to_list, 1, Xs, Opaques) ->
 %%-- hipe_bifs ----------------------------------------------------------------
 type(hipe_bifs, add_ref, 2, Xs, Opaques) ->
   strict(hipe_bifs, add_ref, 2, Xs, fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, alloc_data, 2, Xs, Opaques) ->
-  strict(hipe_bifs, alloc_data, 2, Xs,
+type(hipe_bifs, alloc_data, 3, Xs, Opaques) ->
+  strict(hipe_bifs, alloc_data, 3, Xs,
 	 fun (_) -> t_integer() end, Opaques); % address
 type(hipe_bifs, array, 2, Xs, Opaques) ->
   strict(hipe_bifs, array, 2, Xs, fun (_) -> t_immarray() end, Opaques);
@@ -1052,8 +1052,8 @@ type(hipe_bifs, call_count_on, 1, Xs, Opaques) ->
 	 fun (_) -> t_sup(t_atom('true'), t_nil()) end, Opaques);
 type(hipe_bifs, check_crc, 1, Xs, Opaques) ->
   strict(hipe_bifs, check_crc, 1, Xs, fun (_) -> t_boolean() end, Opaques);
-type(hipe_bifs, enter_code, 2, Xs, Opaques) ->
-  strict(hipe_bifs, enter_code, 2, Xs,
+type(hipe_bifs, enter_code, 3, Xs, Opaques) ->
+  strict(hipe_bifs, enter_code, 3, Xs,
 	 fun (_) -> t_tuple([t_integer(),
 			     %% XXX: The tuple below contains integers and
 			     %% is of size same as the length of the MFA list
@@ -1111,6 +1111,8 @@ type(hipe_bifs, write_u32, 2, Xs, Opaques) ->
   strict(hipe_bifs, write_u32, 2, Xs, fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, write_u64, 2, Xs, Opaques) ->
   strict(hipe_bifs, write_u64, 2, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, alloc_loader_state, 1, Xs, Opaques) ->
+  strict(hipe_bifs, alloc_loader_state, 1, Xs, fun (_) -> t_binary() end, Opaques);
 %%-- lists --------------------------------------------------------------------
 type(lists, all, 2, Xs, Opaques) ->
   strict(lists, all, 2, Xs,
@@ -2458,8 +2460,8 @@ arg_types(hipe_bifs, add_ref, 2) ->
 		     t_integer(),
 		     t_sup(t_atom('call'), t_atom('load_mfa')),
 		     t_trampoline()])];
-arg_types(hipe_bifs, alloc_data, 2) ->
-  [t_integer(), t_integer()];
+arg_types(hipe_bifs, alloc_data, 3) ->
+  [t_integer(), t_integer(), t_binary()];
 arg_types(hipe_bifs, array, 2) ->
   [t_non_neg_fixnum(), t_immediate()];
 arg_types(hipe_bifs, array_length, 1) ->
@@ -2494,8 +2496,8 @@ arg_types(hipe_bifs, call_count_on, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, check_crc, 1) ->
   [t_crc32()];
-arg_types(hipe_bifs, enter_code, 2) ->
-  [t_binary(), t_sup(t_nil(), t_tuple())];
+arg_types(hipe_bifs, enter_code, 3) ->
+  [t_binary(), t_sup(t_nil(), t_tuple()), t_binary()];
 arg_types(hipe_bifs, enter_sdesc, 1) ->
   [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa()])];
 arg_types(hipe_bifs, find_na_or_make_stub, 1) ->
@@ -2540,6 +2542,9 @@ arg_types(hipe_bifs, write_u32, 2) ->
   [t_integer(), t_integer()];
 arg_types(hipe_bifs, write_u64, 2) ->
   [t_integer(), t_integer()];
+arg_types(hipe_bifs, alloc_loader_state, 1) ->
+  [t_atom()];
+
 %%------- lists ---------------------------------------------------------------
 arg_types(lists, all, 2) ->
   [t_fun([t_any()], t_boolean()), t_list()];

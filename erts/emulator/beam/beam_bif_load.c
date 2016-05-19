@@ -150,7 +150,13 @@ BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 {
     Module* modp;
-    Eterm res;
+    Eterm res, mod;
+
+    if (!ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_1) ||
+	is_not_atom(mod = erts_module_for_prepared_code
+		    (((ProcBin*)binary_val(BIF_ARG_1))->val))) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
 
     if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_code_make_stub_module_3],
@@ -160,7 +166,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
+    modp = erts_get_module(mod, erts_active_code_ix());
 
     if (modp && modp->curr.num_breakpoints > 0) {
 	ASSERT(modp->curr.code_hdr != NULL);
@@ -172,12 +178,12 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
-    if (res == BIF_ARG_1) {
+    if (res == mod) {
 	erts_end_staging_code_ix();
 	erts_commit_staging_code_ix();
 #ifdef HIPE
         if (!modp)
-	    modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
+	    modp = erts_get_module(mod, erts_active_code_ix());
         hipe_redirect_to_module(modp);
 #endif
     }
