@@ -875,48 +875,14 @@ handle_call({get_opts, OptTags}, From, _,
 			 socket_options = SockOpts}, _) ->
     OptsReply = get_socket_opts(Transport, Socket, OptTags, SockOpts, []),
     {keep_state_and_data, [{reply, From, OptsReply}]};
-handle_call({set_opts, Opts0}, From, connection = StateName0, 
+handle_call({set_opts, Opts0}, From, StateName, 
 	    #state{socket_options = Opts1, 
-			 protocol_cb = Connection,
 			 socket = Socket,
-			 transport_cb = Transport,
-			 user_data_buffer = Buffer} = State0, _) ->
+			 transport_cb = Transport} = State0, _) ->
     {Reply, Opts} = set_socket_opts(Transport, Socket, Opts0, Opts1, []),
-    State1 = State0#state{socket_options = Opts},
-    if 
-	Opts#socket_options.active =:= false ->
-	    hibernate_after(StateName0, State1, [{reply, From, Reply}]);
-	Buffer =:= <<>>, Opts1#socket_options.active =:= false ->
-            %% Need data, set active once
-	    {Record, State2} = Connection:next_record_if_active(State1),
-	    %% Note: Renogotiation may cause StateName0 =/= StateName
-	    case Connection:next_event(StateName0, Record, State2) of
-		{next_state, StateName, State} ->
-		    hibernate_after(StateName, State, [{reply, From, Reply}]);
-		{next_state, StateName, State, Actions} -> 
-		    hibernate_after(StateName, State, [{reply, From, Reply} | Actions]);
-		{stop, Reason, State} ->
-		    {stop, Reason, State}
-	    end;
-	Buffer =:= <<>> ->
-            %% Active once already set 
-	    hibernate_after(StateName0, State1, [{reply, From, Reply}]);
-	true ->
-	    case Connection:read_application_data(<<>>, State1) of
-		{stop, Reason, State} ->
-		    {stop, Reason, State};
-		{Record, State2} ->
-		    %% Note: Renogotiation may cause StateName0 =/= StateName
-		    case Connection:next_event(StateName0, Record, State2) of
-			{next_state, StateName, State} ->
-			    hibernate_after(StateName, State, [{reply, From, Reply}]);
-			{next_state, StateName, State, Actions} -> 
-			    hibernate_after(StateName, State, [{reply, From, Reply} | Actions]);
-			{stop, _, _} = Stop ->
-			    Stop
-		    end
-	    end
-    end;
+    State = State0#state{socket_options = Opts},
+    handle_active_option(Opts#socket_options.active, StateName, From, Reply, State);
+    
 handle_call(renegotiate, From, StateName, _, _) when StateName =/= connection ->
     {keep_state_and_data, [{reply, From, {error, already_renegotiating}}]};
 handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
@@ -1876,9 +1842,12 @@ start_or_recv_cancel_timer(infinity, _RecvFrom) ->
 start_or_recv_cancel_timer(Timeout, RecvFrom) ->
     erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).
 
-hibernate_after(StateName, #state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}} = State,
+hibernate_after(connection = StateName, 
+		#state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}} = State,
 		Actions) ->
-    {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]}.
+    {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
+hibernate_after(StateName, State, Actions) ->
+    {next_state, StateName, State, Actions}.
  
 terminate_alert(normal, Version, ConnectionStates)  ->
     ssl_alert:encode(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
@@ -2032,4 +2001,39 @@ ssl_options_list([ciphers = Key | Keys], [Value | Values], Acc) ->
 ssl_options_list([Key | Keys], [Value | Values], Acc) ->
    ssl_options_list(Keys, Values, [{Key, Value} | Acc]).
 
+handle_active_option(false, connection = StateName, To, Reply, State) ->
+    hibernate_after(StateName, State, [{reply, To, Reply}]);
 
+handle_active_option(_, connection = StateName0, To, Reply, #state{protocol_cb = Connection,
+							      user_data_buffer = <<>>} = State0) ->
+    %% Need data, set active once
+    {Record, State1} = Connection:next_record_if_active(State0),
+    %% Note: Renogotiation may cause StateName0 =/= StateName
+    case Connection:next_event(StateName0, Record, State1) of
+	{next_state, StateName, State} ->
+	    hibernate_after(StateName, State, [{reply, To, Reply}]);
+	{next_state, StateName, State, Actions} -> 
+	    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+	{stop, Reason, State} ->
+	    {stop, Reason, State}
+    end;
+handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = <<>>} = State) ->
+    %% Active once already set 
+    {next_state, StateName, State, [{reply, To, Reply}]};
+
+%% user_data_buffer =/= <<>>
+handle_active_option(_, StateName0, To, Reply, #state{protocol_cb = Connection} = State0) -> 
+    case Connection:read_application_data(<<>>, State0) of
+	{stop, Reason, State} ->
+	    {stop, Reason, State};
+	{Record, State1} ->
+	    %% Note: Renogotiation may cause StateName0 =/= StateName
+	    case Connection:next_event(StateName0, Record, State1) of
+		{next_state, StateName, State} ->
+		    hibernate_after(StateName, State, [{reply, To, Reply}]);
+		{next_state, StateName, State, Actions} -> 
+		    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+		{stop, _, _} = Stop ->
+		    Stop
+	    end
+    end.
