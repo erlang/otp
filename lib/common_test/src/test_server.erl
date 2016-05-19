@@ -92,7 +92,7 @@ cover_compile(CoverInfo=#cover{app=none,incl=Include,cross=Cross}) ->
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
-	    cover:start(),			% start cover server anyway
+	    {ok, _} = start_cover(),			% start cover server anyway
 	    {ok,CoverInfo#cover{mods=[]}};
 	N ->
 	    io:fwrite("Cover compiling ~w modules - "
@@ -107,7 +107,7 @@ cover_compile(CoverInfo=#cover{app=App,excl=all,incl=Include,cross=Cross}) ->
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
-	    cover:start(),			% start cover server anyway
+	    {ok, _} = start_cover(),			% start cover server anyway
 	    {ok,CoverInfo#cover{mods=[]}};
 	N ->
 	    io:fwrite("Cover compiling '~w' (~w files) - "
@@ -150,7 +150,7 @@ cover_compile(CoverInfo=#cover{app=App,excl=Exclude,
 	    case length(CompileMods) of
 		0 ->
 		    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
-		    cover:start(),		% start cover server anyway
+		    {ok, _} = start_cover(),		% start cover server anyway
 		    {ok,CoverInfo#cover{mods=[]}};
 		N ->
 		    io:fwrite("Cover compiling '~w' (~w files) - "
@@ -167,11 +167,11 @@ module_names(Beams) ->
 
 
 do_cover_compile(Modules) ->
-    cover:start(),
+    {ok, _} = start_cover(),
     Sticky = prepare_cover_compile(Modules,[]),
     R = cover:compile_beam(Modules),
-    [warn_compile(Error) || Error <- R,element(1,Error)=/=ok],
-    [code:stick_mod(M) || M <- Sticky],
+    _ = [warn_compile(Error) || Error <- R,element(1,Error)=/=ok],
+    _ = [code:stick_mod(M) || M <- Sticky],
     ok.
 
 warn_compile({error,{Reason,Module}}) ->
@@ -574,7 +574,8 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	{user_timetrap,Pid,_TrapTime,StartTime,E={user_timetrap_error,_},_} ->
 	    case update_user_timetraps(Pid, StartTime) of
 		proceed ->
-		    self() ! {abort_current_testcase,E,Pid};
+		    self() ! {abort_current_testcase,E,Pid},
+		    ok;
 		ignore ->
 		    ok
 	    end,
@@ -589,7 +590,8 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 				   true -> 
 					TrapTime
 				end,
-		    timetrap(TrapTime, TotalTime, Pid, Scale);
+		    _ = timetrap(TrapTime, TotalTime, Pid, Scale),
+		    ok;
 		ignore ->
 		    ok
 	    end,
@@ -713,7 +715,7 @@ do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal) ->
 		Supervisor = self(),
 		EndConfApply =
 		    fun() ->
-			    timetrap(TVal),
+			    _ = timetrap(TVal),
 			    %% We can't handle fails or skips here
 			    %% (neither input nor output). The error can
 			    %% be read from Conf though (tc_status).
@@ -764,7 +766,8 @@ print_end_conf_result(Mod,Func,Conf,Cause,Error) ->
 			      " ~s!\n\tReason: ~ts\n",
 			      [Mod,Func,Conf,Cause,ErrorStr])
 	end,
-    group_leader() ! {printout,12,Str2Print}.
+    group_leader() ! {printout,12,Str2Print},
+    ok.
 
 
 spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
@@ -1276,7 +1279,9 @@ user_callback({CBMod,CBFunc}, Mod, Func, InitOrEnd, Args) ->
 
 init_per_testcase(Mod, Func, Args) ->
     case code:is_loaded(Mod) of
-	false -> code:load_file(Mod);
+	false ->
+	    _ = code:load_file(Mod),
+	    ok;
 	_ -> ok
     end,
     case erlang:function_exported(Mod, init_per_testcase, 2) of
@@ -1344,7 +1349,8 @@ print_init_conf_result(Line,Cause,Reason) ->
 			      "\tLocation: ~ts\n\tReason: ~ts\n",
 			      [Cause,FormattedLoc,ReasonStr])
 	end,
-    group_leader() ! {printout,12,Str2Print}.
+    group_leader() ! {printout,12,Str2Print},
+    ok.
 
 
 end_per_testcase(Mod, Func, Conf) ->
@@ -1415,7 +1421,8 @@ print_end_tc_warning(EndFunc,Reason,Cause,Loc) ->
 			      "Reason: ~ts\nLine: ~ts\n",
 			      [EndFunc,Cause,ReasonStr,FormattedLoc])
 	end,
-    group_leader() ! {printout,12,Str2Print}.
+    group_leader() ! {printout,12,Str2Print},
+    ok.
 
 get_loc() ->
     get(test_server_loc).
@@ -2117,7 +2124,8 @@ timetrap_cancel_all(TCPid, SendToServer) ->
 	    ok;
 	Timers ->
 	    [timetrap_cancel_one(Handle, false) ||
-		{Handle,Pid,_} <- Timers, Pid == TCPid]
+		{Handle,Pid,_} <- Timers, Pid == TCPid],
+	    ok
     end,
     case get(test_server_user_timetrap) of
 	undefined ->
@@ -2127,13 +2135,15 @@ timetrap_cancel_all(TCPid, SendToServer) ->
 		{UserTTSup,_StartTime} ->
 		    remove_user_timetrap(UserTTSup),
 		    put(test_server_user_timetrap,
-			proplists:delete(TCPid, UserTTs));
+			proplists:delete(TCPid, UserTTs)),
+			ok;
 		undefined ->
 		    ok
 	    end
     end,
     if SendToServer == true ->
-	    group_leader() ! {timetrap_cancel_all,TCPid,self()};
+	    group_leader() ! {timetrap_cancel_all,TCPid,self()},
+	    ok;
        true ->
 	    ok
     end,
@@ -2548,10 +2558,11 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 -spec start_job_proxy_fun(_, _) -> fun(() -> no_return()).
 start_job_proxy_fun(Master, Fun) ->
     fun () ->
-            start_job_proxy(),
+            _ = start_job_proxy(),
             receive
                 Ref ->
-                    Master ! {Ref, Fun()}
+                    Master ! {Ref, Fun()},
+                    ok
             end,
             receive after infinity -> infinity end
     end.
@@ -2723,6 +2734,19 @@ is_commercial() ->
 %%
 do_sync_apply(Proxy, From, {M,F,A}) ->
     Result = apply(M, F, A),
-    if is_pid(Proxy) -> Proxy ! {sync_result_proxy,From,Result};
-       true -> From ! {sync_result,Result}
+    if  is_pid(Proxy) ->
+	    Proxy ! {sync_result_proxy,From,Result},
+	    ok;
+	true ->
+	    From ! {sync_result,Result},
+	    ok
     end.
+
+start_cover() ->
+    case cover:start() of
+       {error, {already_started, Pid}} ->
+           {ok, Pid};
+       Else ->
+           Else
+   end.
+
