@@ -70,13 +70,13 @@
 %%%
 
 -spec(form(Form) -> io_lib:chars() when
-      Form :: erl_parse:abstract_form()).
+      Form :: erl_parse:abstract_form() | erl_parse:form_info()).
 
 form(Thing) ->
     form(Thing, none).
 
 -spec(form(Form, Options) -> io_lib:chars() when
-      Form :: erl_parse:abstract_form(),
+      Form :: erl_parse:abstract_form() | erl_parse:form_info(),
       Options :: options()).
 
 form(Thing, Options) ->

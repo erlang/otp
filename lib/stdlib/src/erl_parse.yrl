@@ -534,7 +534,7 @@ Erlang code.
 -compile([{hipe,[{regalloc,linear_scan}]}]).
 
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
-              abstract_type/0, error_info/0]).
+              abstract_type/0, form_info/0, error_info/0]).
 
 %% Start of Abstract Format
 
@@ -546,7 +546,6 @@ Erlang code.
                        | af_export()
                        | af_import()
                        | af_export_type()
-                       | af_optional_callbacks()
                        | af_compile()
                        | af_file()
                        | af_record_decl()
@@ -572,9 +571,6 @@ Erlang code.
 -type af_export_type() :: {'attribute', anno(), 'export_type', af_ta_list()}.
 
 -type af_ta_list() :: [{type_name(), arity()}].
-
--type af_optional_callbacks() ::
-        {'attribute', anno(), 'optional_callbacks', af_fa_list()}.
 
 -type af_compile() :: {'attribute', anno(), 'compile', any()}.
 
@@ -867,15 +863,21 @@ Erlang code.
                                    | af_unary_op(af_singleton_integer_type())
                                    | af_binary_op(af_singleton_integer_type()).
 
--type af_literal() :: af_atom() | af_integer() | af_float() | af_string().
+-type af_literal() :: af_atom()
+                    | af_character()
+                    | af_float()
+                    | af_integer()
+                    | af_string().
 
 -type af_atom() :: af_lit_atom(atom()).
 
 -type af_lit_atom(A) :: {'atom', anno(), A}.
 
--type af_integer() :: {'integer', anno(), non_neg_integer()}.
+-type af_character() :: {'char', anno(), char()}.
 
 -type af_float() :: {'float', anno(), float()}.
+
+-type af_integer() :: {'integer', anno(), non_neg_integer()}.
 
 -type af_string() :: {'string', anno(), string()}.
 
@@ -943,6 +945,10 @@ Erlang code.
 -type function_name() :: atom().
 
 -type type_name() :: atom().
+
+-type form_info() :: {'eof', erl_anno:line()}
+                   | {'error', erl_scan:error_info() | error_info()}
+                   | {'warning', erl_scan:error_info() | error_info()}.
 
 %% End of Abstract Format
 
@@ -1513,14 +1519,14 @@ map_anno(F0, Abstr) ->
     {NewAbstr, []} = modify_anno1(Abstr, [], F),
     NewAbstr.
 
--spec fold_anno(Fun, Acc0, Abstr) -> NewAbstr when
+-spec fold_anno(Fun, Acc0, Abstr) -> Acc1 when
       Fun :: fun((Anno, AccIn) -> AccOut),
       Anno :: erl_anno:anno(),
       Acc0 :: term(),
+      Acc1 :: term(),
       AccIn :: term(),
       AccOut :: term(),
-      Abstr :: erl_parse_tree(),
-      NewAbstr :: erl_parse_tree().
+      Abstr :: erl_parse_tree().
 
 fold_anno(F0, Acc0, Abstr) ->
     F = fun(A, Acc) -> {A, F0(A, Acc)} end,
@@ -1545,7 +1551,9 @@ mapfold_anno(F, Acc0, Abstr) ->
       Abstr :: erl_parse_tree().
 
 new_anno(Term) ->
-    map_anno(fun erl_anno:new/1, Term).
+    F = fun(L, Acc) -> {erl_anno:new(L), Acc} end,
+    {NewAbstr, []} = modify_anno1(Term, [], F),
+    NewAbstr.
 
 -spec anno_to_term(Abstr) -> term() when
       Abstr :: erl_parse_tree().

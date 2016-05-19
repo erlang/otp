@@ -73,6 +73,14 @@
       <name name="error_info"></name>
     </datatype>
     <datatype>
+      <name name="form_info"></name>
+        <desc><p>Tuples <c>{error, error_info()}</c> and <c>{warning,
+        error_info()}</c>, denoting syntactically incorrect forms and
+        warnings, and <c>{eof, line()}</c>, denoting an end-of-stream
+        encountered before a complete form had been parsed.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="token"></name>
     </datatype>
   </datatypes>

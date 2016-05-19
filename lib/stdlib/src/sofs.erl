@@ -621,6 +621,9 @@ canonical_relation(Sets) when ?IS_SET(Sets) ->
 %%% Functions on binary relations only.
 %%%
 
+-spec(rel2fam(BinRel) -> Family when
+      Family :: family(),
+      BinRel :: binary_relation()).
 rel2fam(R) ->
     relation_to_family(R).
 
