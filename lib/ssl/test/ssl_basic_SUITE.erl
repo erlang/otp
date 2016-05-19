@@ -96,6 +96,8 @@ basic_tests() ->
     [app,
      appup,
      alerts,
+     alert_details,
+     alert_details_not_too_big,
      version_option,
      connect_twice,
      connect_dist,
@@ -456,6 +458,33 @@ alerts(Config) when is_list(Config) ->
 				ct:fail({unexpected, Other})
 			end 
 		  end, Alerts).
+%%--------------------------------------------------------------------
+alert_details() ->
+    [{doc, "Test that ssl_alert:alert_txt/1 result contains extendend error description"}].
+alert_details(Config) when is_list(Config) ->
+    Unique = make_ref(),
+    UniqueStr = lists:flatten(io_lib:format("~w", [Unique])),
+    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY, Unique),
+    case string:str(ssl_alert:alert_txt(Alert), UniqueStr) of
+        0 ->
+            ct:fail(error_details_missing);
+        _ ->
+            ok
+    end.
+
+%%--------------------------------------------------------------------
+alert_details_not_too_big() ->
+    [{doc, "Test that ssl_alert:alert_txt/1 limits printed depth of extended error description"}].
+alert_details_not_too_big(Config) when is_list(Config) ->
+    Reason = lists:duplicate(10, lists:duplicate(10, lists:duplicate(10, {some, data}))),
+    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY, Reason),
+    case length(ssl_alert:alert_txt(Alert)) < 1000 of
+        true ->
+            ok;
+        false ->
+            ct:fail(ssl_alert_text_too_big)
+    end.
+
 %%--------------------------------------------------------------------
 new_options_in_accept() ->
     [{doc,"Test that you can set ssl options in ssl_accept/3 and not only in tcp upgrade"}].

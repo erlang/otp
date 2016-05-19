@@ -167,7 +167,7 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
 					       SslOpts, Cache, CacheCb, Cert),
 	    case CipherSuite of 
 		no_suite ->
-		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
+                    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers);
 		_ ->
 		    {KeyExAlg,_,_,_} = ssl_cipher:suite_definition(CipherSuite),
 		    case ssl_handshake:select_hashsign(ClientHashSigns, Cert, KeyExAlg, SupportedHashSigns, Version) of
