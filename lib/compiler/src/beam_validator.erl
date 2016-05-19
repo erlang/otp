@@ -1174,6 +1174,8 @@ assert_type({tuple_element,I}, {tuple,Sz})
     ok;
 assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
     ok;
+assert_type(cons, {literal,[_|_]}) ->
+    ok;
 assert_type(Needed, Actual) ->
     error({bad_type,{needed,Needed},{actual,Actual}}).
 
