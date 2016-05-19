@@ -899,6 +899,48 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
+      <name name="module_status" arity="1"/>
+      <fsummary>Return the status of the module in relation to object file on disk.</fsummary>
+      <desc>
+	<p>Returns:</p>
+	<taglist>
+	<tag><c>not_loaded</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is not currently loaded.</p></item>
+        <tag><c>loaded</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded and the object file
+	exists and contains the same code.</p></item>
+	<tag><c>removed</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded but no
+	corresponding object file can be found in the code path.</p></item>
+        <tag><c>modified</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded but the object file
+	contains code with a different MD5 checksum.</p></item>
+	</taglist>
+        <p>Preloaded modules are always reported as <c>loaded</c>, without
+        inspecting the contents on disk. Cover compiled modules will always
+        be reported as <c>modified</c> if an object file exists, or as
+        <c>removed</c> otherwise. Modules whose load path is an empty string
+        (which is the convention for auto-generated code) will only be
+        reported as <c>loaded</c> or <c>not_loaded</c>.</p>
+        <p>For modules that have native code loaded (see
+        <seealso marker="#is_module_native/1"><c>is_module_native/1</c></seealso>),
+        the MD5 sum of the native code in the object file is used for the
+        comparison, if it exists; the Beam code in the file is ignored.
+        Reversely, for modules that do not currently have native code
+        loaded, any native code in the file will be ignored.</p>
+        <p>See also <seealso marker="#modified_modules/0"><c>modified_modules/0</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="modified_modules" arity="0"/>
+      <fsummary>Return a list of all modules modified on disk.</fsummary>
+      <desc>
+        <p>Returns the list of all currently loaded modules for which
+        <seealso marker="#module_status/1"><c>module_status/1</c></seealso>
+        returns <c>modified</c>. See also <seealso marker="#all_loaded/0"><c>all_loaded/0</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="is_module_native" arity="1"/>
       <fsummary>Test if a module has native code.</fsummary>
       <desc>
