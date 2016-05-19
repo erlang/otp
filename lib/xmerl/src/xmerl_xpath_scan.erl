@@ -286,13 +286,13 @@ strip_ws(T) ->
     T.
 
 
-special_token('@') -> true;
+%% special_token('@') -> true;
 special_token('::') -> true;
 special_token(',') -> true;
 special_token('(') -> true;
 special_token('[') -> true;
 special_token('/') -> true;
-special_token('//') -> true;
+%% special_token('//') -> true;
 special_token('|') -> true;
 special_token('+') -> true;
 special_token('-') -> true;
@@ -306,5 +306,4 @@ special_token('and') -> true;
 special_token('or') -> true;
 special_token('mod') -> true;
 special_token('div') -> true;
-special_token(_) ->
-    false.
+special_token(_) -> false.

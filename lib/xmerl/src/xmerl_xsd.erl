@@ -548,7 +548,7 @@ element_content({attribute,S=#xsd_state{scope=Scope}},Att,Env) ->
 	    {AttRef,add_ref(S,AttRef)};
 	Name ->
 	    {AttrType,S2} = attribute_type(Att,[Name|Env],S),
-	    S3  = check_cm(attribute,allowed_content(attribute,Env),AttrType,S2),
+	    S3 = check_cm(attribute,allowed_content(attribute,Env),AttrType,S2),
 	    {Attr,S4} = attribute_properties(Att#xmlElement.attributes,
 					#schema_attribute{type=AttrType},S3),
 	    Object = {attribute,
@@ -566,7 +566,7 @@ element_content({element,S},El,Env) ->
 	    %% 3.3.3 bullet 2.2
 	    S3 = element_forbidden_properties(El,S2),
 	    S4 = element_forbidden_content(El#xmlElement.content,S3),
-	    ElRef  =
+	    ElRef =
 		{element,
 		 {get_QName(Ref,El#xmlElement.namespace,reset_scope(S)),
 		  Occ}},
@@ -811,7 +811,6 @@ element_content({restriction,S},R,Env) ->
     %% base (resolved by base_type/1) or the type defined in content. 
     {CM,S2} = type(R#xmlElement.content,S,[restriction|Env]),
     S3 = check_cm(restriction,allowed_content(restriction,Env),CM,S2),
-
     {BaseTypeName,CM2,S4} = restriction_base_type(R,CM,S3), %% a QName
 %%    S5 = add_circularity_mark(BaseTypeName,S4),
     BaseTypeType = base_type_type(Env),
@@ -1733,20 +1732,20 @@ allowed_content(SorC,_Parents) when SorC==sequence;SorC==choice ->
 			{choice,{1,1}},{sequence,{1,1}},
 			{any,{1,1}}],
 		       occurance={0,unbounded}}]};
-allowed_content(E,_Parents) 
-  when E==any;E==selector;E==field;E==notation;E==include;E==import;
-       E==anyAttribute ->
-    {annotation,{0,1}};
-allowed_content(UKK,_Parents) when UKK==unique;UKK==key;UKK==keyref->
-    #chain{content=
-	      [{annotation,{0,1}},
-	       #chain{content=
-			 [{selector,{1,1}},{selector,{1,unbounded}}]}]};
-allowed_content(annotation,_Parents) ->
-    #alternative{content=[{appinfo,{1,1}},{documentation,{1,1}}],
-	    occurance={0,unbounded}};
-allowed_content(E,_Parents) when E==appinfo;E==documentation ->
-    {any,{0,unbounded}};
+%% allowed_content(E,_Parents)
+%%   when E==any;E==selector;E==field;E==notation;E==include;E==import;
+%%        E==anyAttribute ->
+%%     {annotation,{0,1}};
+%% allowed_content(UKK,_Parents) when UKK==unique;UKK==key;UKK==keyref->
+%%     #chain{content=
+%% 	      [{annotation,{0,1}},
+%% 	       #chain{content=
+%% 			 [{selector,{1,1}},{selector,{1,unbounded}}]}]};
+%% allowed_content(annotation,_Parents) ->
+%%     #alternative{content=[{appinfo,{1,1}},{documentation,{1,1}}],
+%% 	    occurance={0,unbounded}};
+%% allowed_content(E,_Parents) when E==appinfo;E==documentation ->
+%%     {any,{0,unbounded}};
 allowed_content(simpleType,_Parents) ->
     #chain{content=
 	      [{annotation,{0,1}},
@@ -1766,22 +1765,22 @@ allowed_content(restriction,Parents) ->
     end;
 allowed_content(LU,_Parent) when LU==list;LU==union ->
     #chain{content=[{annotation,{0,1}},{simpleType,{0,1}}]};
-allowed_content(schema,_) ->
-    #chain{content=
-	      [#alternative{content=
-		       [{include,{1,1}},{import,{1,1}},
-			{redefine,{1,1}},{annotation,{1,1}}],
-		       occurance={0,1}},
-	       #chain{content=
-			 [#alternative{content=
-				  [#alternative{content=
-					   [{simpleType,{1,1}},{complexType,{1,1}},
-					    {group,{1,1}},{attributeGroup,{1,1}}]},
-				   {element,{1,1}},
-				   {attribute,{1,1}},
-				   {notation,{1,1}}]},
-			  {annotation,{0,unbounded}}],
-			 occurance={0,unbounded}}]};
+%% allowed_content(schema,_) ->
+%%     #chain{content=
+%% 	      [#alternative{content=
+%% 		       [{include,{1,1}},{import,{1,1}},
+%% 			{redefine,{1,1}},{annotation,{1,1}}],
+%% 		       occurance={0,1}},
+%% 	       #chain{content=
+%% 			 [#alternative{content=
+%% 				  [#alternative{content=
+%% 					   [{simpleType,{1,1}},{complexType,{1,1}},
+%% 					    {group,{1,1}},{attributeGroup,{1,1}}]},
+%% 				   {element,{1,1}},
+%% 				   {attribute,{1,1}},
+%% 				   {notation,{1,1}}]},
+%% 			  {annotation,{0,unbounded}}],
+%% 			 occurance={0,unbounded}}]};
 allowed_content(redefine,_Parents) ->
     #alternative{content=
 	    [{annotation,{1,1}},
@@ -1801,31 +1800,31 @@ allowed_content(extension,Parents) ->
 	    allowed_content2(extension,simpleContent);
 	_ ->
 	    allowed_content2(extension,complexContent)
-    end;
-allowed_content(minExclusive,_Parents) ->
-    [];
-allowed_content(minInclusive,_Parents) ->
-    [];
-allowed_content(maxExclusive,_Parents) ->
-    [];
-allowed_content(maxInclusive,_Parents) ->
-    [];
-allowed_content(totalDigits,_Parents) ->
-    [];
-allowed_content(fractionDigits,_Parents) ->
-    [];
-allowed_content(length,_Parents) ->
-    [];
-allowed_content(minLength,_Parents) ->
-    [];
-allowed_content(maxLength,_Parents) ->
-    [];
-allowed_content(enumeration,_Parents) ->
-    [];
-allowed_content(whiteSpace,_Parents) ->
-    [];
-allowed_content(pattern,_Parents) ->
-    [].
+    end.
+%% allowed_content(minExclusive,_Parents) ->
+%%     [];
+%% allowed_content(minInclusive,_Parents) ->
+%%     [];
+%% allowed_content(maxExclusive,_Parents) ->
+%%     [];
+%% allowed_content(maxInclusive,_Parents) ->
+%%     [];
+%% allowed_content(totalDigits,_Parents) ->
+%%     [];
+%% allowed_content(fractionDigits,_Parents) ->
+%%     [];
+%% allowed_content(length,_Parents) ->
+%%     [];
+%% allowed_content(minLength,_Parents) ->
+%%     [];
+%% allowed_content(maxLength,_Parents) ->
+%%     [];
+%% allowed_content(enumeration,_Parents) ->
+%%     [];
+%% allowed_content(whiteSpace,_Parents) ->
+%%     [];
+%% allowed_content(pattern,_Parents) ->
+%%     [].
 	       
 
 
@@ -1903,9 +1902,9 @@ set_occurance(Ch = #chain{},Occ) ->
 set_occurance(Alt = #alternative{},Occ) ->
     Alt#alternative{occurance=Occ};
 set_occurance({Name,_},Occ) when is_atom(Name) ->
-    {Name,Occ};
-set_occurance(CM,_) ->
-    CM.
+    {Name,Occ}.
+%% set_occurance(CM,_) ->
+%%     CM.
 
 
 process_external_schema_once(E,Namespace,S) when is_record(E,xmlElement) ->
