@@ -601,16 +601,16 @@ expand_comment(C) ->
 
 -record(leaf, {min = 0           :: integer(),
 	       max = 0           :: integer(),
-	       precomments  = [] :: [erl_syntax:syntaxTree()],
-	       postcomments = [] :: [erl_syntax:syntaxTree()],
+	       precomments  = [] :: [erl_comment_scan:comment()],
+	       postcomments = [] :: [erl_comment_scan:comment()],
 	       value             :: erl_syntax:syntaxTree()}).
 
 -record(tree, {min = 0           :: integer(),
 	       max = 0           :: integer(),
 	       type              :: atom(),
 	       attrs             :: erl_syntax:syntaxTreeAttributes(),
-	       precomments  = [] :: [erl_syntax:syntaxTree()],
-	       postcomments = [] :: [erl_syntax:syntaxTree()],
+	       precomments  = [] :: [erl_comment_scan:comment()],
+	       postcomments = [] :: [erl_comment_scan:comment()],
 	       subtrees     = [] :: [extendedSyntaxTree()]}).
 
 

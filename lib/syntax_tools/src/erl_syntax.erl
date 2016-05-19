@@ -443,7 +443,14 @@
 
 -type syntaxTree() :: #tree{} | #wrapper{} | erl_parse().
 
--type erl_parse() :: erl_parse:abstract_form() | erl_parse:abstract_expr().
+-type erl_parse() :: erl_parse:abstract_clause()
+                   | erl_parse:abstract_expr()
+                   | erl_parse:abstract_form()
+                   | erl_parse:abstract_type()
+                   | erl_parse:form_info()
+                     %% To shut up Dialyzer:
+                   | {bin_element, _, _, _, _}.
+
 %% The representation built by the Erlang standard library parser
 %% `erl_parse'. This is a subset of the {@link syntaxTree()} type.
 
