@@ -138,14 +138,25 @@ end_per_group(_Alg, Config) ->
 
 
 
-init_per_testcase(sshc_simple_exec, Config) ->
+init_per_testcase(sshc_simple_exec_port, Config) ->
+    start_pubkey_daemon([?config(pref_algs,Config)], Config);
+    
+init_per_testcase(sshc_simple_exec_os_cmd, Config) ->
     start_pubkey_daemon([?config(pref_algs,Config)], Config);
     
 init_per_testcase(_TC, Config) ->
     Config.
 
 
-end_per_testcase(sshc_simple_exec, Config) ->
+end_per_testcase(sshc_simple_exec_port, Config) ->
+    case ?config(srvr_pid,Config) of
+	Pid when is_pid(Pid) ->
+	    ssh:stop_daemon(Pid),
+	    ct:log("stopped ~p",[?config(srvr_addr,Config)]);
+	_ ->
+	    ok
+    end;
+end_per_testcase(sshc_simple_exec_os_cmd, Config) ->
     case ?config(srvr_pid,Config) of
 	Pid when is_pid(Pid) ->
 	    ssh:stop_daemon(Pid),
@@ -155,7 +166,6 @@ end_per_testcase(sshc_simple_exec, Config) ->
     end;
 end_per_testcase(_TC, Config) ->
     Config.
-
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -223,7 +233,7 @@ interpolate(Is) ->
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
 
-sshc_simple_exec(Config) ->
+sshc_simple_exec_port(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Host,Port} = ?config(srvr_addr, Config),
@@ -232,9 +242,37 @@ sshc_simple_exec(Config) ->
 			" -o UserKnownHostsFile=",KnownHosts,
 			" -o StrictHostKeyChecking=no",
 			" ",Host," 1+1."]),
-    ct:log("~p",[Cmd]),
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd}, [eof,exit_status]),
     ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT).
+
+sshc_simple_exec_os_cmd(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+    {Host,Port} = ?config(srvr_addr, Config),
+    Parent = self(),
+    Client = spawn(
+	       fun() ->
+		       Cmd = lists:concat(["ssh -p ",Port,
+					   " -C"
+					   " -o UserKnownHostsFile=",KnownHosts,
+					   " -o StrictHostKeyChecking=no"
+					   " ",Host," 1+1."]),
+		       Result = os:cmd(Cmd),
+		       ct:log("~p~n  = ~p",[Cmd, Result]),
+		       Parent ! {result, self(), Result, "2\n"}
+	       end),
+    receive
+	{result, Client, Result, Expect} ->
+	    case Result of
+		Expect ->
+		    ok;
+		_ ->
+		    ct:log("Bad result: ~p~nExpected: ~p", [Result,Expect]),
+		    {fail, "Bad result"}
+	    end
+    after ?TIMEOUT ->
+	    ct:fail("Did not receive answer")
+    end.
 
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
@@ -301,7 +339,8 @@ specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos) ->
 	    true ->
 		case ssh_test_lib:ssh_type() of
 		    openSSH ->
-			[sshc_simple_exec];
+			[sshc_simple_exec_os_cmd, 
+			 sshc_simple_exec_port];
 		    _ ->
 			[]
 		end;
