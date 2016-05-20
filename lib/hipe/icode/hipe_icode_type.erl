@@ -363,6 +363,7 @@ call_always_fails(#icode_call{} = I, Info) ->
     %% These can actually be calls too.
     {erlang, halt, 0} -> false;
     {erlang, halt, 1} -> false;
+    {erlang, halt, 2} -> false;
     {erlang, exit, 1} -> false;
     {erlang, error, 1} -> false;
     {erlang, error, 2} -> false;
