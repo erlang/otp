@@ -65,7 +65,8 @@
 	 node,
 	 nodes,
 	 prev_node="",
-	 log = false
+	 log = false,
+	 reply_to=false
 	}).
 
 start() ->
@@ -229,14 +230,13 @@ handle_event(#wx{id = ?ID_CDV, event = #wxCommand{type = command_menu_selected}}
     spawn(crashdump_viewer, start, []),
     {noreply, State};
 
-handle_event(#wx{event = #wxClose{}}, #state{log=LogOn} = State) ->
-    LogOn andalso rpc:block_call(State#state.node, rb, stop, []),
-    {stop, normal, State};
+handle_event(#wx{event = #wxClose{}}, State) ->
+    stop_servers(State),
+    {noreply, State};
 
-handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}},
-	     #state{log=LogOn} = State) ->
-    LogOn andalso rpc:block_call(State#state.node, rb, stop, []),
-    {stop, normal, State};
+handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}}, State) ->
+    stop_servers(State),
+    {noreply, State};
 
 handle_event(#wx{id = ?wxID_HELP, event = #wxCommand{type = command_menu_selected}}, State) ->
     External = "http://www.erlang.org/doc/apps/observer/index.html",
@@ -379,9 +379,9 @@ handle_call({get_attrib, Attrib}, _From, State) ->
 handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
     {reply, TraceP, State};
 
-handle_call(stop, _, State = #state{frame = Frame}) ->
-    wxFrame:destroy(Frame),
-    {stop, normal, ok, State};
+handle_call(stop, From, State) ->
+    stop_servers(State),
+    {noreply, State#state{reply_to=From}};
 
 handle_call(log_status, _From, State) ->
     {reply, State#state.log, State};
@@ -426,17 +426,45 @@ handle_info({get_debug_info, From}, State = #state{notebook=Notebook, active_tab
     From ! {observer_debug, wx:get_env(), Notebook, Pid},
     {noreply, State};
 
-handle_info({'EXIT', Pid, _Reason}, State) ->
-    io:format("Child (~s) crashed exiting:  ~p ~p~n",
-	      [pid2panel(Pid, State), Pid,_Reason]),
+handle_info({'EXIT', Pid, Reason}, State) ->
+    case Reason of
+	normal ->
+	    {noreply, State};
+	_ ->
+	    io:format("Observer: Child (~s) crashed exiting:  ~p ~p~n",
+		      [pid2panel(Pid, State), Pid, Reason]),
+	    {stop, normal, State}
+    end;
+
+handle_info({stop, Me}, State) when Me =:= self() ->
     {stop, normal, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{frame = Frame}) ->
+stop_servers(#state{node=Node, log=LogOn, sys_panel=Sys, pro_panel=Procs, tv_panel=TVs,
+		    trace_panel=Trace, app_panel=Apps, perf_panel=Perfs,
+		    allc_panel=Alloc} = _State) ->
+    LogOn andalso rpc:block_call(Node, rb, stop, []),
+    Me = self(),
+    Tabs = [Sys, Procs, TVs, Trace, Apps, Perfs, Alloc],
+    Stop = fun() ->
+		   try
+		       _ = [wx_object:stop(Panel) || Panel <- Tabs],
+		       ok
+		   catch _:_ -> ok
+		   end,
+		   Me ! {stop, Me}
+	   end,
+    spawn(Stop).
+
+terminate(_Reason, #state{frame = Frame, reply_to=From}) ->
     wxFrame:destroy(Frame),
     wx:destroy(),
+    case From of
+	false -> ignore;
+	_ -> gen_server:reply(From, ok)
+    end,
     ok.
 
 code_change(_, _, State) ->

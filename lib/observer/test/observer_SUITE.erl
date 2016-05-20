@@ -38,7 +38,7 @@
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, ?t:minutes(2)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
