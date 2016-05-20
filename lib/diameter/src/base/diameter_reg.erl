@@ -134,6 +134,9 @@ match(Pat) ->
 %% It's up to the caller to ensure that the wait won't be forever.
 %% ===========================================================================
 
+-spec wait(any())
+   -> [{term(), pid()}].
+
 wait(Pat) ->
     call({wait, Pat}).
 
@@ -151,8 +154,9 @@ uptime() ->
     call(uptime).
 
 %% pids/0
-%%
-%% Return: list of {Pid, [Term, ...]}
+
+-spec pids()
+   -> [{pid(), [term()]}].
 
 pids() ->
     to_list(fun swap/1).
@@ -171,8 +175,9 @@ append({K,V}, Dict) ->
 id(T) -> T.
 
 %% terms/0
-%%
-%% Return: list of {Term, [Pid, ...]}
+
+-spec terms()
+   -> [{term(), [pid()]}].
 
 terms() ->
     to_list(fun id/1).
