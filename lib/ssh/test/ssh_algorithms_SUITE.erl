@@ -259,15 +259,17 @@ sshc_simple_exec_os_cmd(Config) ->
 					   " ",Host," 1+1."]),
 		       Result = os:cmd(Cmd),
 		       ct:log("~p~n  = ~p",[Cmd, Result]),
-		       Parent ! {result, self(), Result, "2\n"}
+		       Parent ! {result, self(), Result, "2"}
 	       end),
     receive
-	{result, Client, Result, Expect} ->
-	    case Result of
-		Expect ->
+	{result, Client, RawResult, Expect} ->
+	    Lines = string:tokens(RawResult, "\r\n"),
+	    case lists:any(fun(Line) -> Line==Expect end,
+			   Lines) of
+		true ->
 		    ok;
-		_ ->
-		    ct:log("Bad result: ~p~nExpected: ~p", [Result,Expect]),
+		false ->
+		    ct:log("Bad result: ~p~nExpected: ~p~nMangled result: ~p", [RawResult,Expect,Lines]),
 		    {fail, "Bad result"}
 	    end
     after ?TIMEOUT ->
