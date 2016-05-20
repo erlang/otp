@@ -3893,8 +3893,10 @@ void bin_write(int to, void *to_arg, byte* buf, size_t sz)
 }
 
 /* Fill buf with the contents of bytelist list 
-   return number of chars in list or -1 for error */
-
+ * return number of chars in list
+ * or -1 for type error
+ * or -2 for not enough buffer space (buffer contains truncated result)
+ */
 Sint
 intlist_to_buf(Eterm list, char *buf, Sint len)
 {
@@ -3917,7 +3919,7 @@ intlist_to_buf(Eterm list, char *buf, Sint len)
 	    return -1;
 	listptr = list_val(*(listptr + 1));
     }
-    return -1;			/* not enough space */
+    return -2;			/* not enough space */
 }
 
 /*

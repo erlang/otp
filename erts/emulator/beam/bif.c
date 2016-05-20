@@ -3838,7 +3838,7 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 
 
 #define HALT_MSG_SIZE	200
-static char halt_msg[HALT_MSG_SIZE];
+static char halt_msg[HALT_MSG_SIZE+1];
 
 /* stop the system with exit code and flags */
 BIF_RETTYPE halt_2(BIF_ALIST_2)
@@ -3892,9 +3892,12 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
     else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
 	Sint i;
 
-	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
-	    goto error;
-	}
+        if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE)) == -1) {
+            goto error;
+        }
+        if (i == -2) /* truncated string */
+            i = HALT_MSG_SIZE;
+        ASSERT(i >= 0 && i <= HALT_MSG_SIZE);
 	halt_msg[i] = '\0';
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
