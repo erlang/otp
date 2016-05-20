@@ -922,7 +922,7 @@ alert_user(Transport, Tracker, Socket,_, _, _, From, Alert, Role) ->
 alert_user(Transport, Tracker, Socket, From, Alert, Role) ->
     alert_user(Transport, Tracker, Socket, false, no_pid, From, Alert, Role).
 
-alert_user(_, _, _, false = Active, Pid, From,  Alert, Role) ->
+alert_user(_, _, _, false = Active, Pid, From,  Alert, Role) when From =/= undefined ->
     %% If there is an outstanding ssl_accept | recv
     %% From will be defined and send_or_reply will
     %% send the appropriate error message.
