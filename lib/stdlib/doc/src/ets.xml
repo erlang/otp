@@ -98,10 +98,10 @@
        All updates to single objects are guaranteed to be both <em>atomic</em>
        and <em>isolated</em>. This means that an updating operation towards
        a single object will either succeed or fail completely without any
-       effect at all (atomicy).
+       effect at all (atomicity).
        Nor can any intermediate results of the update be seen by other
        processes (isolation). Some functions that update several objects
-       state that they even guarantee atomicy and isolation for the entire
+       state that they even guarantee atomicity and isolation for the entire
        operation. In database terms the isolation level can be seen as
        "serializable", as if all isolated operations were carried out serially,
        one after the other in a strict order.</p>
