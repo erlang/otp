@@ -938,18 +938,32 @@ int erts_port_handle_xports(Port *prt)
 **        -2 on type error
 */
 
-#define SET_VEC(iov, bv, bin, ptr, len, vlen) do {	\
-   (iov)->iov_base = (ptr);				\
-   (iov)->iov_len = (len);				\
-   if (sizeof((iov)->iov_len) < sizeof(len)				\
-       /* Check if (len) overflowed (iov)->iov_len */                   \
-       && (iov)->iov_len != (len)) {		                        \
-       goto L_overflow;							\
-   }									\
-   *(bv)++ = (bin);					\
-   (iov)++;						\
-   (vlen)++;						\
-} while(0)
+#ifdef DEBUG
+#define MAX_SYSIOVEC_IOVLEN (1ull << (32 - 1))
+#else
+#define MAX_SYSIOVEC_IOVLEN (1ull << (sizeof(((SysIOVec*)0)->iov_len) * 8 - 1))
+#endif
+
+static ERTS_INLINE void
+io_list_to_vec_set_vec(SysIOVec **iov, ErlDrvBinary ***binv,
+                        ErlDrvBinary *bin, byte *ptr, Uint len,
+                        int *vlen)
+{
+    while (len > MAX_SYSIOVEC_IOVLEN) {
+        (*iov)->iov_base = ptr;
+        (*iov)->iov_len = MAX_SYSIOVEC_IOVLEN;
+        ptr += MAX_SYSIOVEC_IOVLEN;
+        len -= MAX_SYSIOVEC_IOVLEN;
+        (*iov)++;
+        (*vlen)++;
+        *(*binv)++ = bin;
+    }
+    (*iov)->iov_base = ptr;
+    (*iov)->iov_len = len;
+    *(*binv)++ = bin;
+    (*iov)++;
+    (*vlen)++;
+}
 
 static int
 io_list_to_vec(Eterm obj,	/* io-list */
@@ -960,11 +974,11 @@ io_list_to_vec(Eterm obj,	/* io-list */
 {
     DECLARE_ESTACK(s);
     Eterm* objp;
-    char *buf  = cbin->orig_bytes;
+    byte *buf  = (byte*)cbin->orig_bytes;
     Uint len = cbin->orig_size;
     Uint csize  = 0;
     int vlen   = 0;
-    char* cptr = buf;
+    byte* cptr = buf;
 
     goto L_jump_start;  /* avoid push */
 
@@ -1032,15 +1046,17 @@ io_list_to_vec(Eterm obj,	/* io-list */
 		    len -= size;
 		} else {
 		    if (csize != 0) {
-			SET_VEC(iov, binv, cbin, cptr, csize, vlen);
+                        io_list_to_vec_set_vec(&iov, &binv, cbin,
+                                               cptr, csize, &vlen);
 			cptr = buf;
 			csize = 0;
 		    }
 		    if (pb->flags) {
 			erts_emasculate_writable_binary(pb);
 		    }
-		    SET_VEC(iov, binv, Binary2ErlDrvBinary(pb->val),
-			    pb->bytes+offset, size, vlen);
+                    io_list_to_vec_set_vec(
+                        &iov, &binv, Binary2ErlDrvBinary(pb->val),
+                        pb->bytes+offset, size, &vlen);
 		}
 	    } else {
 		ErlHeapBin* hb = (ErlHeapBin *) bptr;
@@ -1060,7 +1076,7 @@ io_list_to_vec(Eterm obj,	/* io-list */
     }
 
     if (csize != 0) {
-	SET_VEC(iov, binv, cbin, cptr, csize, vlen);
+        io_list_to_vec_set_vec(&iov, &binv, cbin, cptr, csize, &vlen);
     }
 
     DESTROY_ESTACK(s);
@@ -1086,10 +1102,13 @@ do {									\
     if (_bitsize != 0) goto L_type_error;				\
     if (thing_subtag(*binary_val(_real)) == REFC_BINARY_SUBTAG &&	\
 	_bitoffs == 0) {						\
-	b_size += _size;						\
+	b_size += _size;                                                \
         if (b_size < _size) goto L_overflow_error;			\
 	in_clist = 0;							\
-	v_size++;							\
+        v_size++;                                                       \
+        /* If iov_len is smaller then Uint we split the binary into*/   \
+        /* multiple smaller (2GB) elements in the iolist.*/             \
+	v_size += _size / MAX_SYSIOVEC_IOVLEN;                          \
         if (_size >= ERL_SMALL_IO_BIN_LIMIT) {				\
             p_in_clist = 0;						\
             p_v_size++;							\
