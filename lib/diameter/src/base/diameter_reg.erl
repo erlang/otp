@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@
 
 -module(diameter_reg).
 -behaviour(gen_server).
-
--compile({no_auto_import, [monitor/2]}).
 
 -export([add/1,
          add_new/1,
@@ -51,8 +49,6 @@
 %% debug
 -export([state/0,
          uptime/0]).
-
--include("diameter_internal.hrl").
 
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
@@ -211,7 +207,7 @@ init(_) ->
 
 handle_call({add, Fun, Key, Pid}, _, S) ->
     B = Fun(?TABLE, {Key, Pid}),
-    monitor(B andalso no_monitor(Pid), Pid),
+    insert_monitor(B andalso no_monitor(Pid), Pid),
     {reply, B, pending(B, S)};
 
 handle_call({del, Key, Pid}, _, S) ->
@@ -237,16 +233,14 @@ handle_call(state, _, S) ->
 handle_call(uptime, _, #state{id = Time} = S) ->
     {reply, diameter_lib:now_diff(Time), S};
 
-handle_call(Req, From, S) ->
-    ?UNEXPECTED([Req, From]),
+handle_call(_Req, _From, S) ->
     {reply, nok, S}.
 
 %% ----------------------------------------------------------
 %% # handle_cast/2
 %% ----------------------------------------------------------
 
-handle_cast(Msg, S)->
-    ?UNEXPECTED([Msg]),
+handle_cast(_Msg, S)->
     {noreply, S}.
 
 %% ----------------------------------------------------------
@@ -258,8 +252,7 @@ handle_info({'DOWN', MRef, process, Pid, _}, S) ->
     ets:match_delete(?TABLE, ?MAPPING('_', Pid)),
     {noreply, S};
 
-handle_info(Info, S) ->
-    ?UNEXPECTED([Info]),
+handle_info(_Info, S) ->
     {noreply, S}.
 
 %% ----------------------------------------------------------
@@ -278,10 +271,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% ===========================================================================
 
-monitor(true, Pid) ->
-    ets:insert(?TABLE, ?MONITOR(Pid, erlang:monitor(process, Pid)));
-monitor(false, _) ->
-    ok.
+insert_monitor(B, Pid) ->
+    B andalso ets:insert(?TABLE, ?MONITOR(Pid, monitor(process, Pid))).
 
 %% Do we need a monitor for the specified Pid?
 no_monitor(Pid) ->
