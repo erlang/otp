@@ -321,7 +321,7 @@ gui_cmd('Kill', State) ->
     exit(State#state.pid, kill),
     State;
 gui_cmd('Messages', State) ->
-    case int:meta(State#state.meta, messages) of
+    _ = case int:meta(State#state.meta, messages) of
 	[] ->
 	    dbg_wx_trace_win:eval_output(State#state.win,"< No Messages!\n", bold);
 	Messages ->

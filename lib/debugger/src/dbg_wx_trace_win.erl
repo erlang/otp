@@ -123,7 +123,8 @@
 %%   GS = term()
 %%--------------------------------------------------------------------
 init() ->
-    dbg_wx_win:init().
+    _ = dbg_wx_win:init(),
+    ok.
 
 stop(#winInfo{window=Win}) ->
     (catch wxFrame:destroy(Win)),
@@ -230,7 +231,7 @@ get_window(WinInfo) ->
 %%--------------------------------------------------------------------
 configure(Wi=#winInfo{window=Win,m_szr={Panel,Sizer}}) ->
     wx:batch(fun() ->
-		     show_windows(Wi),
+		     _ = show_windows(Wi),
 		     wxSizer:layout(Sizer),
 		     %%wxWindow:setSizerAndFit(Panel,Sizer),
 		     wxWindow:setSizer(Panel, Sizer),
@@ -242,7 +243,7 @@ configure(Wi=#winInfo{window=Win,m_szr={Panel,Sizer}}) ->
 configure(Wi0=#winInfo{window=Win,m_szr={Panel,Sizer}}, Windows) ->
     wx:batch(fun() -> 
 		     Wi = enable_windows(Wi0, Windows),
-		     show_windows(Wi),
+		     _ = show_windows(Wi),
 		     wxSizer:layout(Sizer),
 		     wxWindow:setSizer(Panel, Sizer),
 		     _ = wxSizer:fit(Sizer, Win),
@@ -348,7 +349,7 @@ add_break(WinInfo, Menu, {{Mod,Line},[Status|_Options]}=Break) ->
     case WinInfo#winInfo.editor of
 	{Mod, Editor} ->
 	    dbg_wx_code:add_break_to_code(Editor, Line, Status);
-	_ -> ignore
+	_ -> ok
     end,
     add_break_to_menu(WinInfo, Menu, Break).
 
@@ -372,7 +373,7 @@ update_break(WinInfo, {{Mod,Line},[Status|_Options]}=Break) ->
     case WinInfo#winInfo.editor of
 	{Mod, Editor} ->
 	    dbg_wx_code:add_break_to_code(Editor, Line, Status);
-	_ -> ignore
+	_ -> ok
     end,
     update_break_in_menu(WinInfo, Break).
 

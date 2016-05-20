@@ -100,11 +100,11 @@ update_windows_menu(Win, [MonInfo|Infos]) ->
     OldItems = wxMenu:getMenuItems(Menu),
     [wxMenu:delete(Menu, Item) || Item <- OldItems],
     menuitem(Win, Menu,MonInfo, 700),
-    wxMenu:appendSeparator(Menu),
+    _ = wxMenu:appendSeparator(Menu),
     wx:foldl(fun(Info,Acc) -> menuitem(Win,Menu,Info,Acc) end, 701, Infos).
 
 menuitem(Window, Menu, {Title, Win}, Id) ->
-    wxMenu:append(Menu, Id, Title),
+    _ = wxMenu:append(Menu, Id, Title),
     wxWindow:connect(Window, command_menu_selected, 
 		     [{id,Id},{userData,{dbg_ui_winman,Win}}]),
     Id+1.
