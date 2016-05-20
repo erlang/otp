@@ -68,7 +68,7 @@ end_per_testcase(_Func,_Config) ->
 %% Description: Checks that end of document is checked properly when continuation fun is missing.
 ticket_8213(suite) -> [];
 ticket_8213(_Config) -> 
-    ?line {ok,ok,[]} = xmerl_sax_parser:stream("<elem/>", [{event_fun, fun (_E,_,_) -> ok end}]),
+    {ok,ok,[]} = xmerl_sax_parser:stream("<elem/>", [{event_fun, fun (_E,_,_) -> ok end}]),
     ok.
 
 
@@ -78,17 +78,18 @@ ticket_8213(_Config) ->
 %% Description: Checks that attributes with default namespace don't get [] in NS field.
 ticket_8214(suite) -> [];
 ticket_8214(_Config) -> 
-    ?line {ok,ok,[]} = 
-	xmerl_sax_parser:stream("<elem attr='123' x:attr='234' xmlns='http://lshift.net/d' "
-				"xmlns:x='http://lshift.net/x' />", 
-				[{event_fun, fun ({startElement,"http://lshift.net/d","elem",
-						   {[],"elem"},
-						   [{[],[],"attr","123"},{"http://lshift.net/x","x","attr","234"}]},
-						  _, _) ->ok;
-						 ({startElement, _, "elem",_,_}, _,_) -> 
-						     throw({test, "Error in startElement tuple"});
-						 (_E,_,_) -> ok
-					     end}]),
+    Event = fun ({startElement,"http://lshift.net/d","elem",
+                  {[],"elem"},
+                  [{[],[],"attr","123"},{"http://lshift.net/x","x","attr","234"}]},
+                 _, _) ->ok;
+                ({startElement, _, "elem",_,_}, _,_) ->
+                    throw({test, "Error in startElement tuple"});
+                (_E,_,_) -> ok
+            end,
+
+    {ok,ok,[]} = xmerl_sax_parser:stream("<elem attr='123' x:attr='234' xmlns='http://lshift.net/d' "
+                                         "xmlns:x='http://lshift.net/x' />",
+                                         [{event_fun, Event}]),
     ok.
 
 %%----------------------------------------------------------------------
@@ -101,19 +102,19 @@ ticket_11551(Config) ->
 <a>hej</a>
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    ?line {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream1, []),
+    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream1, []),
     Stream2= <<"<?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>
 
 
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    ?line {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream2, []),
+    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream2, []),
     Stream3= <<"<a>hej</a>
 
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    ?line {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
+    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
     ok.
 		    
 
