@@ -73,11 +73,11 @@ suite() ->
 init_per_suite(doc) ->
     ["Starts the test suite"];
 init_per_suite(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
+    file:set_cwd(datadir(Config)),
     ok=erl_tar:extract("cpd.tar.gz",[compressed]),
     ok=erl_tar:extract("misc.tar.gz",[compressed]),
     ok = change_mode(["cpd", "misc"]),
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     TestServerIncludeDir=filename:join(filename:dirname(code:priv_dir(test_server)), "include"),
     {ok, xpath_lib} = compile:file(xpath_lib, [{i, TestServerIncludeDir}]),
     {ok, xpath_text} = compile:file(xpath_text, [{i, TestServerIncludeDir}]),
@@ -89,14 +89,14 @@ init_per_suite(Config) ->
 end_per_suite(doc) ->
     ["Stops the test suite"];
 end_per_suite(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
+    file:set_cwd(datadir(Config)),
     ok = rm_files(["cpd", "misc"]),
     ok.
 
 -else.
 end_per_suite(doc) ->
     ["Stops the test suite"];
-end_per_suite(Config) ->
+end_per_suite(_Config) ->
     ok.
 -endif.
 
@@ -104,8 +104,8 @@ end_per_suite(Config) ->
 %% initialization before each testcase
 init_per_testcase(_TestCase,Config) ->
     io:format("Config:~n~p",[Config]),
-    {ok, _} = file:read_file_info(filename:join([?config(priv_dir,Config)])),
-    code:add_patha(?config(priv_dir,Config)),
+    {ok, _} = file:read_file_info(filename:join([privdir(Config)])),
+    code:add_patha(privdir(Config)),
     Config.
 
 
@@ -119,8 +119,8 @@ end_per_testcase(_Func,_Config) ->
 %%----------------------------------------------------------------------
 cpd_invalid1(suite) -> [];
 cpd_invalid1(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    case catch xmerl_scan:file(filename:join([?config(data_dir,Config), cpd,"cpd_test.xml"]),[]) of
+    file:set_cwd(datadir(Config)),
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_test.xml"]),[]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {expected_markup,_Path,28,32} -> ok;
@@ -130,8 +130,8 @@ cpd_invalid1(Config) ->
 
 cpd_invalid1_index(suite) -> [];
 cpd_invalid1_index(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    case catch xmerl_scan:file(filename:join([?config(data_dir,Config), cpd,"cpd_index.xml"]),[]) of
+    file:set_cwd(datadir(Config)),
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index.xml"]),[]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {{error,{whitespace_was_expected}},_Path,1,19} -> ok;
@@ -141,8 +141,8 @@ cpd_invalid1_index(Config) ->
 
 cpd_invalid2_index(suite) -> [];
 cpd_invalid2_index(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    case catch xmerl_scan:file(filename:join([?config(data_dir,Config), cpd,"cpd_index2.xml"]),[]) of
+    file:set_cwd(datadir(Config)),
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index2.xml"]),[]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {{invalid_target_name,_Ver},_Path,2,3} ->ok;
@@ -152,8 +152,8 @@ cpd_invalid2_index(Config) ->
 
 cpd_invalid_index3(suite) -> [];
 cpd_invalid_index3(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    case catch xmerl_scan:file(filename:join([?config(data_dir,Config), cpd,"cpd_index3.xml"]),[]) of
+    file:set_cwd(datadir(Config)),
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index3.xml"]),[]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {expected_markup,_Path,1,2} -> ok;
@@ -163,58 +163,57 @@ cpd_invalid_index3(Config) ->
 
 cpd_invalid_is_layer(suite) -> [];
 cpd_invalid_is_layer(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    case catch xmerl_scan:file(filename:join([?config(data_dir,Config), cpd,"is_layer2.xml"]),[]) of
+    file:set_cwd(datadir(Config)),
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"is_layer2.xml"]),[]) of
         {'EXIT',{fatal,_Reason}} -> ok
     end.
 
 cpd_expl_provided_DTD(suite) -> [];
 cpd_expl_provided_DTD(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    {#xmlElement{},[]} = xmerl_scan:file(filename:join([?config(data_dir,Config), cpd,"file_wo_DTD.xml"]),
+    file:set_cwd(datadir(Config)),
+    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[cpd,"file_wo_DTD.xml"]),
                                          [{validation,true},{doctype_DTD,"separate_DTD.dtd"}]).
 
 %%----------------------------------------------------------------------
 
 xpath_text1(suite) -> [];
 xpath_text1(Config) ->
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_text:one().
 
 xpath_main(suite) -> [];
 xpath_main(Config) ->
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_lib:test().
 
 xpath_abbreviated_syntax(suite) -> [];
 xpath_abbreviated_syntax(Config) ->
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:test().
 
 xpath_functions(suite) -> [];
 xpath_functions(Config) ->
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:functions().
 
 xpath_namespaces(suite) -> [];
 xpath_namespaces(Config) ->
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:namespaces().
 
 %%----------------------------------------------------------------------
 
 latin1_alias(suite) -> [];
 latin1_alias(Config) ->
-%    file:set_cwd(filename:join(?config(data_dir,Config),misc)),
-    file:set_cwd(?config(data_dir,Config)),
-    {_Elements,[]}= xmerl_scan:file(filename:join([?config(data_dir,Config),
-                                                   misc,"motorcycles.xml"]),
-                                    [{validation,true},
-                                     {encoding,'iso-8859-1'}]).
+%    file:set_cwd(filename:join(datadir(Config),misc)),
+    file:set_cwd(datadir(Config)),
+    {_Elements,[]} = xmerl_scan:file(datadir_join(Config,[misc,"motorcycles.xml"]),
+                                     [{validation,true},
+                                      {encoding,'iso-8859-1'}]).
 
 syntax_bug1(suite) -> [];
 syntax_bug1(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
+    file:set_cwd(datadir(Config)),
     {fatal,{"expected one of: ?>, standalone, encoding",
             {file,'misc/syntax_bug1.xml'},{line,1},{col,21}}
     } = case catch xmerl_scan:file('misc/syntax_bug1.xml') of
@@ -225,7 +224,7 @@ syntax_bug1(Config) ->
 
 syntax_bug2(suite) -> [];
 syntax_bug2(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
+    file:set_cwd(datadir(Config)),
     {fatal,{"expected one of: ?>, whitespace_character",
             {file,'misc/syntax_bug2.xml'},{line,1},{col,20}}
     } = case catch xmerl_scan:file('misc/syntax_bug2.xml') of
@@ -236,7 +235,7 @@ syntax_bug2(Config) ->
 
 syntax_bug3(suite) -> [];
 syntax_bug3(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
+    file:set_cwd(datadir(Config)),
     {fatal,{{endtag_does_not_match,{was,obj,should_have_been,int}},
             {file,'misc/syntax_bug3.xml'},{line,4},{col,3}}
     } = case catch xmerl_scan:file('misc/syntax_bug3.xml') of
@@ -247,21 +246,21 @@ syntax_bug3(Config) ->
 
 pe_ref1(suite) -> [];
 pe_ref1(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    {#xmlElement{},[]} = xmerl_scan:file(filename:join([?config(data_dir,Config), misc,"PE_ref1.xml"]),[{validation,true}]).
+    file:set_cwd(datadir(Config)),
+    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"PE_ref1.xml"]),[{validation,true}]).
 
 copyright(suite) -> [];
 copyright(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    {#xmlElement{},[]} = xmerl_scan:file(filename:join([?config(data_dir,Config), misc,"cprght.xml"]),[{validation,true}]).
+    file:set_cwd(datadir(Config)),
+    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"cprght.xml"]),[{validation,true}]).
 
 testXSEIF(suite) -> [];
 testXSEIF(Config) ->
-    file:set_cwd(?config(data_dir,Config)),
-    {#xmlElement{},[]} = xmerl_scan:file(filename:join([?config(data_dir,Config), misc,"ReplBoard_1_1543-CNA11313Uen.xml"]),[{validation,true}]).
+    file:set_cwd(datadir(Config)),
+    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"ReplBoard_1_1543-CNA11313Uen.xml"]),[{validation,true}]).
 
 export_simple1(suite) -> [];
-export_simple1(Config) ->
+export_simple1(_Config) ->
     Simple = simple(),
     Res = xmerl:export_simple(Simple,xmerl_xml,[{title, "Doc Title"}]),
     "<?xml version="++_ = lists:flatten(Res),
@@ -274,7 +273,7 @@ export_simple1(Config) ->
 
 export(suite) -> [];
 export(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = datadir(Config),
     Prolog = ["<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<!DOCTYPE motorcycles SYSTEM \"motorcycles.dtd\">\n"],
     TestFile = filename:join([DataDir,"misc","motorcycles.xml"]),
     {E,_} = xmerl_scan:file(TestFile),
@@ -293,8 +292,8 @@ sax_parse_and_export(Config) ->
 %%----------------------------------------------------------------------
 
 sax_parse_export_xml_big(Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
+    DataDir = datadir(Config),
+    OutDir = privdir(Config),
     io:format("DataDir: ~p~n,OutDir:~p~n",[DataDir,OutDir]),
     CMOMxml = filename:join([DataDir,"eventp","CMOM.xml"]),
     {Ex,[]} = xmerl_eventp:file_sax(CMOMxml, xmerl_xml,[],[]),
@@ -310,8 +309,8 @@ sax_parse_export_xml_big(Config) ->
     ok.
 
 sax_parse_export_xml_small(Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
+    DataDir = datadir(Config),
+    OutDir = privdir(Config),
     Wurfl_xml = filename:join([DataDir,"eventp","wurfl.xml"]),
     {Ex,[]} = xmerl_eventp:file_sax(Wurfl_xml, xmerl_xml,[],[]),
     OutFile = filename:join([OutDir,"wrfl"]),
@@ -427,10 +426,10 @@ generate_heading_col(N) ->
 %%
 ticket_5998(suite) -> [];
 ticket_5998(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = datadir(Config),
     %% First fix is tested by case syntax_bug2.
     
-    case catch xmerl_scan:file(filename:join([DataDir,misc, "ticket_5998_2.xml"])) of
+    case catch xmerl_scan:file(filename:join([DataDir,misc,"ticket_5998_2.xml"])) of
         {'EXIT',{fatal,Reason1}} ->
             case Reason1 of
                 {{endtag_does_not_match,
@@ -440,7 +439,7 @@ ticket_5998(Config) ->
             end
     end,
 
-    case catch xmerl_scan:file(filename:join([DataDir,misc, "ticket_5998_3.xml"])) of
+    case catch xmerl_scan:file(filename:join([DataDir,misc,"ticket_5998_3.xml"])) of
         {'EXIT',{fatal,Reason2}} ->
             case Reason2 of
                 {"expected one of: ?>, standalone, encoding",
@@ -458,7 +457,7 @@ ticket_5998(Config) ->
 %%
 ticket_7211(suite) -> [];
 ticket_7211(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = datadir(Config),
     {E,[]} = xmerl_scan:file(filename:join([DataDir,misc,"notes2.xml"]),
                              [{fetch_path,[filename:join([DataDir,misc,erlang_docs_dtd])]},
                               {validation,dtd}]),
@@ -491,7 +490,7 @@ ticket_7211(Config) ->
 %%
 ticket_7214(suite) -> [];
 ticket_7214(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = datadir(Config),
 
     {E,[]} = xmerl_scan:file(filename:join([DataDir,misc,'block_tags.html']),
                              [{validation,dtd},
@@ -512,7 +511,7 @@ ticket_7214(Config) ->
 %%
 ticket_7430(suite) -> [];
 ticket_7430(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = datadir(Config),
 
     {E,[]} = xmerl_scan:string("<a>\303\251&#xD;\303\251</a>",[{encoding,'utf-8'}]),
 
@@ -530,13 +529,13 @@ ticket_7430(Config) ->
 
 ticket_6873(suite) -> [];
 ticket_6873(Config) ->
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:ticket_6873(),
     ok = xpath_lib:ticket_6873().
 
 ticket_7496(suite) -> [];
 ticket_7496(Config) ->
-    file:set_cwd(filename:join(?config(data_dir,Config),xpath)),
+    file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:ticket_7496().
 
 ticket_8156(suite) -> [];
@@ -567,7 +566,7 @@ ticket_9411(suite) -> [];
 ticket_9411(doc) -> 
     ["Test that xmerl_scan handles attribute that contains for example &quot"];
 ticket_9411(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = datadir(Config),
 
     {ok, Schema} = xmerl_xsd:process_schema(filename:join([DataDir,"misc/ticket_9411.xsd"])),
     {ok, Bin} = file:read_file(filename:join([DataDir,"misc/ticket_9411.xml"])),
@@ -602,29 +601,23 @@ ticket_9664_schema(doc) ->
     ["Test that comments are handled correct whith"];
 ticket_9664_schema(Config) ->
 
-    {E, _} = xmerl_scan:file(filename:join([?config(data_dir, Config), misc,
-						  "ticket_9664_schema.xml"]),[]),
-    {ok, S} = xmerl_xsd:process_schema(filename:join([?config(data_dir, Config), misc,
-							    "motorcycles.xsd"])),
+    {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_schema.xml"]),[]),
+    {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,[misc,"motorcycles.xsd"])),
     {E1, _} = xmerl_xsd:validate(E, S),
 
-    {E1,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), misc,
-							    "motorcycles.xsd"]),E,[]),
+    {E1,_} = xmerl_xsd:process_validate(datadir_join(Config,[misc,"motorcycles.xsd"]),E,[]),
 
-    {E1,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),  misc,
-						 "ticket_9664_schema.xml"]), 
-				  [{schemaLocation, [{"mc", "motorcycles.xsd"}]},
-				   {validation, schema}]),
+    {E1,_} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_schema.xml"]),
+                             [{schemaLocation, [{"mc", "motorcycles.xsd"}]},
+                              {validation, schema}]),
     ok.
 
 ticket_9664_dtd(suite) -> [];
 ticket_9664_dtd(doc) -> 
     ["Test that comments are handled correct whith"];
 ticket_9664_dtd(Config) ->
-    {E, _} = xmerl_scan:file(filename:join([?config(data_dir, Config),  misc,
-						  "ticket_9664_dtd.xml"]),[]),
-    {E, _} = xmerl_scan:file(filename:join([?config(data_dir, Config),  misc,
-						  "ticket_9664_dtd.xml"]),[{validation, true}]),
+    {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[]),
+    {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[{validation, true}]),
     ok.
 
 
@@ -680,3 +673,11 @@ chmod(F) ->
 	_ ->
 	    ok
     end.
+
+privdir(Config) ->
+    proplists:get_value(priv_dir, Config).
+datadir(Config) ->
+    proplists:get_value(data_dir, Config).
+
+datadir_join(Config,Files) ->
+    filename:join([datadir(Config)|Files]).

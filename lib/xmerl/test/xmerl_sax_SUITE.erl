@@ -38,25 +38,11 @@
 %% Initializations
 %%----------------------------------------------------------------------
 
-init_per_suite(doc) ->
-    ["Starts the test suite"];
-init_per_suite(Config) ->
-    Config.
- 
-end_per_suite(doc) ->
-    ["Stops the test suite"];
-end_per_suite(Config) ->
-    Config.
- 
+all() ->
+    [{group, bugs}].
 
- 
-%% initialization before each testcase
-init_per_testcase(_TestCase,Config) ->
-    Config.
- 
-%% clean up after each testcase
-end_per_testcase(_Func,_Config) ->
-    ok.
+groups() ->
+    [{bugs, [], [ticket_8213, ticket_8214, ticket_11551]}].
 
 %%----------------------------------------------------------------------
 %% Tests
@@ -97,7 +83,7 @@ ticket_8214(_Config) ->
 %% ID: ticket_8214
 %% Description: Checks that attributes with default namespace don't get [] in NS field.
 ticket_11551(suite) -> [];
-ticket_11551(Config) -> 
+ticket_11551(_Config) ->
     Stream1 = <<"<?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
@@ -116,26 +102,3 @@ ticket_11551(Config) ->
 <a>hej</a>">>,
     {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
     ok.
-		    
-
-
-%%----------------------------------------------------------------------
-%% Bug test cases
-%%
-
-%%----------------------------------------------------------------------
-%% Test Suite 
-%% 
-all() -> 
-    [{group, bugs}].
-
-groups() -> 
-    [{bugs, [], [ticket_8213, ticket_8214, ticket_11551]}].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-

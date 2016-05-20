@@ -72,8 +72,8 @@ end_per_suite(Config) ->
 %% initialization before each testcase
 init_per_testcase(_TestCase,Config) ->
     io:format("Config:\n~p\n",[Config]),
-    {ok, _} = file:read_file_info(filename:join([?config(priv_dir,Config)])),
-    code:add_patha(?config(priv_dir,Config)),
+    {ok, _} = file:read_file_info(filename:join([privdir(Config)])),
+    code:add_patha(privdir(Config)),
     Config.
  
 %% clean up after each testcase
@@ -25620,6 +25620,9 @@ chmod(F) ->
 	_ ->
 	    ok
     end.
+
+privdir(Config) ->
+    proplists:get_value(priv_dir, Config).
 
 %%----------------------------------------------------------------------
 %% check_result 

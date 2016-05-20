@@ -78,8 +78,8 @@ suite() ->
     [{timetrap,{minutes,10}}].
 
 init_per_testcase(_TestCase,Config) ->
-    {ok,_} = file:read_file_info(filename:join([?config(priv_dir,Config)])),
-    code:add_patha(?config(priv_dir,Config)),
+    {ok,_} = file:read_file_info(filename:join([privdir(Config)])),
+    code:add_patha(privdir(Config)),
     Config.
 
 end_per_testcase(_Func,_Config) ->
@@ -702,9 +702,9 @@ minExclusive(_Config) ->
     {ok,"126743.233E11"} = (xmerl_xsd_type:facet_fun(float,{minExclusive,"1267.43233E12"}))("126743.233E11"),
     {ok,"34E-26"} = (xmerl_xsd_type:facet_fun(float,{minExclusive,"33E-27"}))("34E-26"),
 
-    {ok,"P1Y2M3DT10H30M"}  = (xmerl_xsd_type:facet_fun(duration,{minExclusive,"P1Y2M3D"}))("P1Y2M3DT10H30M"),
+    {ok,"P1Y2M3DT10H30M"} = (xmerl_xsd_type:facet_fun(duration,{minExclusive,"P1Y2M3D"}))("P1Y2M3DT10H30M"),
 
-    {ok,"2006-09-06T19:17:45Z"}  = (xmerl_xsd_type:facet_fun(dateTime,{minExclusive,"2006-09-06T19:17:44Z"}))("2006-09-06T19:17:45Z"),
+    {ok,"2006-09-06T19:17:45Z"} = (xmerl_xsd_type:facet_fun(dateTime,{minExclusive,"2006-09-06T19:17:44Z"}))("2006-09-06T19:17:45Z"),
     ok.
 
 minInclusive(suite) -> [];
@@ -738,18 +738,14 @@ minInclusive(_Config) ->
 
     {ok,"4"} = (xmerl_xsd_type:facet_fun(integer,{minInclusive,"-3"}))("4"),
 
-    {ok,"+1000000.00"} =
-	(xmerl_xsd_type:facet_fun(decimal,{minInclusive,"1E6"}))("+1000000.00"),
+    {ok,"+1000000.00"} = (xmerl_xsd_type:facet_fun(decimal,{minInclusive,"1E6"}))("+1000000.00"),
     %% must support 18 digits
     {ok,"12678967.5432323456"} =
 	(xmerl_xsd_type:facet_fun(decimal,{minInclusive,"12678967.54323234555"}))("12678967.5432323456"),
 
-    {ok,"3.2E-11"} =
-	(xmerl_xsd_type:facet_fun(double,{minInclusive,"2E-12"}))("3.2E-11"),
-    {ok,"10E20"} =
-	(xmerl_xsd_type:facet_fun(double,{minInclusive,"-INF"}))("10E20"),
-    {ok,"0.1279"} =
-	(xmerl_xsd_type:facet_fun(double,{minInclusive,"12.78e-2"}))("0.1279"),
+    {ok,"3.2E-11"} = (xmerl_xsd_type:facet_fun(double,{minInclusive,"2E-12"}))("3.2E-11"),
+    {ok,"10E20"} = (xmerl_xsd_type:facet_fun(double,{minInclusive,"-INF"}))("10E20"),
+    {ok,"0.1279"} = (xmerl_xsd_type:facet_fun(double,{minInclusive,"12.78e-2"}))("0.1279"),
 
     {ok,"126743.233E11"} = (xmerl_xsd_type:facet_fun(float,{minInclusive,"1267.43233E12"}))("126743.233E11"),
     {ok,"34E-26"} = (xmerl_xsd_type:facet_fun(float,{minInclusive,"33E-27"}))("34E-26"),
@@ -851,201 +847,192 @@ compare_duration(_Config) ->
 
 xml_xsd(suite) -> [];
 xml_xsd(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = datadir( Config),
     Options = [{fetch_path, [DataDir]}],
     {ok, _} = xmerl_xsd:process_schema("xml.xsd", Options).
 
 xml_lang_attr(suite) -> [];
 xml_lang_attr(Config) ->
-    DataDir = ?config(data_dir, Config),
-    {Element, _} = xmerl_scan:file(filename:join([DataDir, "book.xml"])),
+    DataDir = datadir( Config),
+    {Element, _} = xmerl_scan:file(filename:join([DataDir,"book.xml"])),
     Options = [{fetch_path, [DataDir]}],
     {ok, Schema} = xmerl_xsd:process_schema("book.xsd", Options),
     {Element, _} = xmerl_xsd:validate(Element, Schema).
 
 po(suite) -> [];
 po(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po.xml"]),[]),
-    {E,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po.xsd"]),E,[]).
+    {E,_} = xmerl_scan:file(datadir_join(Config,["po.xml"]),[]),
+    {E,_} = xmerl_xsd:process_validate(datadir_join(Config,["po.xsd"]),E,[]).
 
 po1(suite) -> [];
 po1(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po1.xml"]),[]),
-    {E2,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po1.xsd"]),E,[]),
+    {E,_} = xmerl_scan:file(datadir_join(Config,["po1.xml"]),[]),
+    {E2,_} = xmerl_xsd:process_validate(datadir_join(Config,["po1.xsd"]),E,[]),
     ok = xmerl_test_lib:cmp_element(E,E2).
 
 po2(suite) -> [];
 po2(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po2.xml"]),[]),
-    {E2,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po1.xsd"]),E,[]),
+    {E,_} = xmerl_scan:file(datadir_join(Config,["po2.xml"]),[]),
+    {E2,_} = xmerl_xsd:process_validate(datadir_join(Config,["po1.xsd"]),E,[]),
     ok = xmerl_test_lib:cmp_element(E,E2).
 
 ipo(suite) -> [];
 ipo(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "ipo.xml"]),[]),
-    {VE,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "ipo.xsd"]),E,[]),
+    {E,_} = xmerl_scan:file(datadir_join(Config,["ipo.xml"]),[]),
+    {VE,_} = xmerl_xsd:process_validate(datadir_join(Config,["ipo.xsd"]),E,[]),
     ok = xmerl_test_lib:cmp_element(E,VE).
 
 ipo_redefine(suite) -> [];
 ipo_redefine(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),
-                                           "ipo_redefine.xml"]),[]),
-    {VE,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),
-                                                       "ipo_redefine.xsd"]),E,[]),
+    {E,_} = xmerl_scan:file(datadir_join(Config,["ipo_redefine.xml"]),[]),
+    {VE,_} = xmerl_xsd:process_validate(datadir_join(Config,["ipo_redefine.xsd"]),E,[]),
     ok = xmerl_test_lib:cmp_element(E,VE).
 
 '4Q99'(suite) -> [];
 '4Q99'(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "4Q99.xml"]),[]),
+    {E,_} = xmerl_scan:file(datadir_join(Config,["4Q99.xml"]),[]),
     %% the import in report.xsd lacks schemaLocation, so the imported
     %% namespace definitions have to be loaded separately.
-    {ok,S} = xmerl_xsd:process_schema(filename:join([?config(data_dir,Config), "ipo.xsd"])),
-    {VE,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "report.xsd"]),E,[{state,S}]),
+    {ok,S} = xmerl_xsd:process_schema(datadir_join(Config,["ipo.xsd"])),
+    {VE,_} = xmerl_xsd:process_validate(datadir_join(Config,["report.xsd"]),E,[{state,S}]),
     ok = xmerl_test_lib:cmp_element(E,VE),
     
     %% report2.xsd has an import element with a schemaLocation attribute
-    {VE,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "report2.xsd"]),E,[]).
+    {VE,_} = xmerl_xsd:process_validate(datadir_join(Config,["report2.xsd"]),E,[]).
     
 small(suite) -> [];
 small(Config) ->
-    {E=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "small.xml"]),[]),
-    {VE=#xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "small.xsd"]),E,[]),
+    {E=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["small.xml"]),[]),
+    {VE=#xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,["small.xsd"]),E,[]),
     #xmlElement{attributes=Atts,content=C} = VE,
     C = E#xmlElement.content,
     %% The attribute orderStatus with default value was absent in small.xml
 
     %% Test of validation "on the fly" when parsing XML.
-    {VE,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "small.xml"]),
+    {VE,_} = xmerl_scan:file(datadir_join(Config,["small.xml"]),
                              [{validation,schema},
-                              {schemaLocation,[{"small",filename:join(?config(data_dir,Config),"small.xsd")}]}]),
-    {VE,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "small.xml"]),
+                              {schemaLocation,[{"small",filename:join(datadir(Config),"small.xsd")}]}]),
+    {VE,_} = xmerl_scan:file(datadir_join(Config,["small.xml"]),
                              [{validation,schema}]),
     true = lists:keymember(orderStatus,#xmlAttribute.name,Atts).
 
 complexType1(suite) -> [];
 complexType1(Config) ->
-    {E1=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "complexTypes1.xml"]),[]),
-    {VE1=#xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "complexTypes.xsd"]),E1,[]),
+    {E1=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["complexTypes1.xml"]),[]),
+    {VE1=#xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,[ "complexTypes.xsd"]),E1,[]),
     ok = xmerl_test_lib:cmp_element(E1,VE1),
 
-    {E2=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "complexTypes2.xml"]),[]),
-    {VE2=#xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "complexTypes.xsd"]),E2,[]),
+    {E2=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["complexTypes2.xml"]),[]),
+    {VE2=#xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,["complexTypes.xsd"]),E2,[]),
     ok = xmerl_test_lib:cmp_element(E2,VE2).
 
 model_group_all(suite) -> [];
 model_group_all(Config) ->
-    {E=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config),"po1.xml"]),[]),
-    {E,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),"po1_all.xsd"]),E,[]),
+    {E=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["po1.xml"]),[]),
+    {E,_} = xmerl_xsd:process_validate(datadir_join(Config,["po1_all.xsd"]),E,[]),
 
-    {E1=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po1_all1.xml"]),[]),
-    {E1,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po1_all.xsd"]),E1,[]),
+    {E1=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["po1_all1.xml"]),[]),
+    {E1,_} = xmerl_xsd:process_validate(datadir_join(Config,["po1_all.xsd"]),E1,[]),
 
-    {E2=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po1_all2.xml"]),[]),
-    {E2,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po1_all.xsd"]),E2,[]),
+    {E2=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["po1_all2.xml"]),[]),
+    {E2,_} = xmerl_xsd:process_validate(datadir_join(Config,["po1_all.xsd"]),E2,[]),
 
-    {E3=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po1_all_err1.xml"]),[]),
-    {error,_Reason1} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po1_all.xsd"]),E3,[]),
+    {E3=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["po1_all_err1.xml"]),[]),
+    {error,_Reason1} = xmerl_xsd:process_validate(datadir_join(Config,["po1_all.xsd"]),E3,[]),
 
     
-    {E4=#xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po1_all_err2.xml"]),[]),
-    {error,_Reason2} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po1_all.xsd"]),E4,[]).
+    {E4=#xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["po1_all_err2.xml"]),[]),
+    {error,_Reason2} = xmerl_xsd:process_validate(datadir_join(Config,["po1_all.xsd"]),E4,[]).
 
 substitutionGroup(suite) -> [];
 substitutionGroup(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "ipo_substGroup.xml"]),[]),
-    {E,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "ipo_substGroup.xsd"]),E,[]).
+    {E,_} = xmerl_scan:file(datadir_join(Config,["ipo_substGroup.xml"]),[]),
+    {E,_} = xmerl_xsd:process_validate(datadir_join(Config,["ipo_substGroup.xsd"]),E,[]).
 
 attributeGroup(suite) -> [];
 attributeGroup(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po_attrGroup.xml"]),[]),
-    {E,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "po_attrGroup.xsd"]),E,[]).
+    {E,_} = xmerl_scan:file(datadir_join(Config,["po_attrGroup.xml"]),[]),
+    {E,_} = xmerl_xsd:process_validate(datadir_join(Config,["po_attrGroup.xsd"]),E,[]).
 
 test_key1(suite) -> [];
 test_key1(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "vehicle2.xml"]),[]),
-    {E,_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "vehicle.xsd"]),E,[]),
+    {E,_} = xmerl_scan:file(datadir_join(Config,["vehicle2.xml"]),[]),
+    {E,_} = xmerl_xsd:process_validate(datadir_join(Config,["vehicle.xsd"]),E,[]),
 
-    {E2,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "vehicle.xml"]),[]),
-    {error,L2} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "vehicle.xsd"]),E2,[]),
+    {E2,_} = xmerl_scan:file(datadir_join(Config,["vehicle.xml"]),[]),
+    {error,L2} = xmerl_xsd:process_validate(datadir_join(Config,["vehicle.xsd"]),E2,[]),
     10 = erlang:length(L2),
 
-    {E3 = #xmlElement{},_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "vehicle3.xml"]),[]),
-    {E3 = #xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config), "vehicle.xsd"]),E3,[]).
+    {E3 = #xmlElement{},_} = xmerl_scan:file(datadir_join(Config,["vehicle3.xml"]),[]),
+    {E3 = #xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,["vehicle.xsd"]),E3,[]).
 
 sis1(suite) -> []; 
 sis1(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),sis,"instance.xml"]),[]),
-    {#xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),sis,"IntegratedSite.xsd"]),E,[]).
+    {E,_} = xmerl_scan:file(datadir_join(Config,[sis,"instance.xml"]),[]),
+    {#xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,[sis,"IntegratedSite.xsd"]),E,[]).
+
 sis2(suite) -> [];
 sis2(Config) ->
-    {BS_E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),sis,"bs_mim.xml"]),[]),
-    {SW_E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),sis,"swm_mim.xml"]),[]),
-    {HW_E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),sis,"hwm_mim.xml"]),[]),
+    {BS_E,_} = xmerl_scan:file(datadir_join(Config,[sis,"bs_mim.xml"]),[]),
+    {SW_E,_} = xmerl_scan:file(datadir_join(Config,[sis,"swm_mim.xml"]),[]),
+    {HW_E,_} = xmerl_scan:file(datadir_join(Config,[sis,"hwm_mim.xml"]),[]),
 
-    {#xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),sis,"mim.xsd"]),BS_E,[]),
-    {#xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),sis,"mim.xsd"]),SW_E,[]),
-    {#xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),sis,"mim.xsd"]),HW_E,[]).
+    {#xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,[sis,"mim.xsd"]),BS_E,[]),
+    {#xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,[sis,"mim.xsd"]),SW_E,[]),
+    {#xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,[sis,"mim.xsd"]),HW_E,[]).
 
 state2file_file2state(suite) -> [];
 state2file_file2state(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "po.xml"]),[]),
-    {ok,S} = xmerl_xsd:process_schema(filename:join([?config(data_dir,Config),"po.xsd"])),
+    {E,_} = xmerl_scan:file(datadir_join(Config,[ "po.xml"]),[]),
+    {ok,S} = xmerl_xsd:process_schema(datadir_join(Config,["po.xsd"])),
     {E,_} = xmerl_xsd:validate(E,S),
     ok = xmerl_xsd:state2file(S),
-    {ok,S} = xmerl_xsd:file2state(filename:join([?config(data_dir,Config),"po.xss"])),
+    {ok,S} = xmerl_xsd:file2state(datadir_join(Config,["po.xss"])),
     {E,_} = xmerl_xsd:validate(E,S),
     
-    ok = xmerl_xsd:state2file(S,filename:join([?config(data_dir,Config),"po_state"])),
-    {ok,S} = xmerl_xsd:file2state(filename:join([?config(data_dir,Config),"po_state.xss"])),
+    ok = xmerl_xsd:state2file(S,datadir_join(Config,["po_state"])),
+    {ok,S} = xmerl_xsd:file2state(datadir_join(Config,["po_state.xss"])),
 
     {E,_} = xmerl_xsd:validate(E,S).
 
 
 union(suite) -> [];
 union(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config), "instance.xml"])),
-    {_E2 = #xmlElement{},_} = xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),"measCollec.xsd"]),E).
+    {E,_} = xmerl_scan:file(datadir_join(Config,["instance.xml"])),
+    {_E2 = #xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,["measCollec.xsd"]),E).
     
-
 ticket_6910(suite) -> [];
 ticket_6910(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),
-						 sis,"dummy_action_mim.xml"])),
+    {E,_} = xmerl_scan:file(datadir_join(Config,[sis,"dummy_action_mim.xml"])),
     {_E2 = #xmlElement{},_} =
-	xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),
-						  sis,"mim2.xsd"]),E).
+	xmerl_xsd:process_validate(datadir_join(Config,[sis,"mim2.xsd"]),E).
+
 ticket_7165(suite) -> [];
 ticket_7165(Config) ->
     %% The validation option seems not to work
-    {_E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),
-                                            "ticket_7288.xml"]), 
+    {_E,_} = xmerl_scan:file(datadir_join(Config,["ticket_7288.xml"]),
                              [{validation, schema}]),
     %% The option xsdbase gave {error, enoent}.
-    {ok,_} = xmerl_xsd:process_schema("CxDataType_Rel5.xsd", [{xsdbase, ?config(data_dir,Config)}]).
+    {ok,_} = xmerl_xsd:process_schema("CxDataType_Rel5.xsd", [{xsdbase, datadir(Config)}]).
 
 
 
 ticket_7190(suite) -> [];
 ticket_7190(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),
-						 "int.xml"])),
-    {_E2 = #xmlElement{},_} =
-	xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),
-						  "simple_int.xsd"]),E).
+    {E,_} = xmerl_scan:file(datadir_join(Config,["int.xml"])),
+    {_E2 = #xmlElement{},_} = xmerl_xsd:process_validate(datadir_join(Config,["simple_int.xsd"]),E).
+
 ticket_7288(suite) -> [];
 ticket_7288(Config) ->
     %% The schema table in the state where deleted by xmerl_xsd:validate if there was an error.
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),"ticket_7288.xml"])),
-    
-    {ok,S} = xmerl_xsd:process_schema(filename:join([?config(data_dir,Config),"CxDataType_Rel5.xsd"])),
-    
+    {E,_} = xmerl_scan:file(datadir_join(Config,["ticket_7288.xml"])),
+    {ok,S} = xmerl_xsd:process_schema(datadir_join(Config,["CxDataType_Rel5.xsd"])),
     {error, EL} = xmerl_xsd:validate(E, S),
-    
     {error, EL} = xmerl_xsd:validate(E, S).
  
 ticket_7736(suite) -> [];
 ticket_7736(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = datadir(Config),
     {ok, State } = xmerl_xsd:process_schema(filename:join([DataDir,"enum_bug.xsd"])),
     
     {Entity ,_} = xmerl_scan:file(filename:join([DataDir,"enum_bug.xml"])),
@@ -1054,14 +1041,26 @@ ticket_7736(Config) ->
 
 ticket_8599(suite) -> [];
 ticket_8599(Config) ->
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),"ticket_8599.xml"])),
+    {E,_} = xmerl_scan:file(datadir_join(Config,["ticket_8599.xml"])),
     
-    {ok, S} = xmerl_xsd:process_schema(filename:join([?config(data_dir,Config),"ticket_8599.xsd"])),
+    {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,["ticket_8599.xsd"])),
     
     {{xmlElement,persons,persons,_,_,_,_,_,_,_,_,_},_GlobalState} = xmerl_xsd:validate(E, S).
 
 
 ticket_9410(suite) -> [];
 ticket_9410(Config) ->
-    file:set_cwd(filename:join([?config(data_dir,Config),".."])),
+    file:set_cwd(datadir_join(Config,[".."])),
     {ok, _S} = xmerl_xsd:process_schema("xmerl_xsd_SUITE_data/small.xsd").
+
+%%======================================================================
+%% Support Functions
+%%======================================================================
+
+privdir(Config) ->
+    proplists:get_value(priv_dir, Config).
+datadir(Config) ->
+    proplists:get_value(data_dir, Config).
+
+datadir_join(Config,Files) ->
+    filename:join([datadir(Config)|Files]).
