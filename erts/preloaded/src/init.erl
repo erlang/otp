@@ -90,7 +90,6 @@
 
 -define(ON_LOAD_HANDLER, init__boot__on_load_handler).
 
--define(MAX_HALT_STRING_SIZE, 199).
 
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
@@ -180,7 +179,7 @@ stop(Status) when is_integer(Status), Status >= 0 ->
 stop(Status) when is_list(Status) ->
     case is_bytelist(Status) of
         true ->
-            stop_1(limit_halt_string(Status));
+            stop_1(Status);
         false ->
             erlang:error(badarg)
     end;
@@ -305,12 +304,7 @@ things_to_string([]) ->
     "".
 
 halt_string(String, List) ->
-    limit_halt_string(String ++ things_to_string(List)).
-
-limit_halt_string(String) when length(String) < ?MAX_HALT_STRING_SIZE ->
-    String;
-limit_halt_string(String) ->
-    lists:sublist(String, ?MAX_HALT_STRING_SIZE-1).
+    String ++ things_to_string(List).
 
 %% String = string()
 %% List = [string() | atom() | pid() | number()]
