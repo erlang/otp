@@ -851,7 +851,8 @@ util_start() ->
 	    spawn_link(fun() ->
 			       register(?MODULE, self()),
 			       util_loop(#util_state{starter=Starter})
-		       end);
+		       end),
+	    ok;
 	_Pid ->
 	    ok
     end.
