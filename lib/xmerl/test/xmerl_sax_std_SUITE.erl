@@ -74,14 +74,10 @@ init_per_testcase(_TestCase,Config) ->
     io:format("Config:\n~p\n",[Config]),
     {ok, _} = file:read_file_info(filename:join([?config(priv_dir,Config)])),
     code:add_patha(?config(priv_dir,Config)),
-%    Dog=test_server:timetrap({minutes,10}),
-%    [{watchdog, Dog}|Config].
     Config.
  
 %% clean up after each testcase
 end_per_testcase(_Func,_Config) ->
-%    Dog=?config(watchdog, Config),
-%    test_server:timetrap_cancel(Dog),
     ok.
 
 %%----------------------------------------------------------------------

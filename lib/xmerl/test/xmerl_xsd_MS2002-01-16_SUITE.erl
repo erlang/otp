@@ -39,22 +39,14 @@ all() ->
      particlesKOSRTQUVW, stABCDE, stFGH, stIJK, stZ,
      wildABCDEF, wildGHI, wildJKLMNQOP, wildZ].
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
+suite() ->
+    [{timetrap,{minutes,3}}].
 
 %% initialization before the test suite
 init_per_suite(Config) ->
-    Dog=test_server:timetrap({minutes,10}),
+    ct:timetrap({minutes,10}),
     xmerl_xsd_lib:unpack(Config,msx),
     {ok,LogFile} = xmerl_xsd_lib:create_error_log_file(Config,msx),
-    test_server:timetrap_cancel(Dog),
     [{suite,msx},{xmerl_error_log,LogFile}|Config].
 
 end_per_suite(Config) ->
@@ -64,13 +56,10 @@ end_per_suite(Config) ->
 
 %% initialization before each testcase
 init_per_testcase(TestCase,Config) ->
-    Dog=test_server:timetrap({minutes,3}),
-    [{testcase,TestCase},{watchdog, Dog}|Config].
+    [{testcase,TestCase}|Config].
 
 %% clean up after each testcase
-end_per_testcase(_Func,Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Func,_Config) ->
     ok.
 
 %% Syntax Checking for Attribute Declaration

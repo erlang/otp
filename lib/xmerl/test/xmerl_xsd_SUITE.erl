@@ -74,30 +74,22 @@ groups() ->
      {misc_block_tests, [],
       [compare_dateTime, compare_duration]}].
 
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
+suite() ->
+    [{timetrap,{minutes,10}}].
 
 init_per_testcase(_TestCase,Config) ->
-    {ok, _} = 
-    file:read_file_info(filename:join([?config(priv_dir,Config)])),
+    {ok,_} = file:read_file_info(filename:join([?config(priv_dir,Config)])),
     code:add_patha(?config(priv_dir,Config)),
-    Dog=test_server:timetrap({minutes,10}),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func,Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Func,_Config) ->
     ok.
 
 
 string(suite) -> []; 
 string(_Config) ->
     %% #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
-    Str = [16#9,16#A,16#D,16#20,16#D7FF,16#E000,16#FFFD,16#10000,
-		 16#10FFFF],
+    Str = [16#9,16#A,16#D,16#20,16#D7FF,16#E000,16#FFFD,16#10000, 16#10FFFF],
     {ok,_} = check_simpleType(string,Str,dummy).
     
 boolean(suite) -> [];
@@ -1025,9 +1017,9 @@ ticket_6910(Config) ->
 ticket_7165(suite) -> [];
 ticket_7165(Config) ->
     %% The validation option seems not to work
-    {E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),
-						   "ticket_7288.xml"]), 
-				    [{validation, schema}]),
+    {_E,_} = xmerl_scan:file(filename:join([?config(data_dir,Config),
+                                            "ticket_7288.xml"]), 
+                             [{validation, schema}]),
     %% The option xsdbase gave {error, enoent}.
     {ok,_} = xmerl_xsd:process_schema("CxDataType_Rel5.xsd", [{xsdbase, ?config(data_dir,Config)}]).
 

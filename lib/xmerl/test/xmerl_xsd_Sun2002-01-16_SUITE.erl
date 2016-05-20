@@ -48,40 +48,28 @@ all() ->
      'Sun-xsiType-block-2', 'Sun-xsiType-block-3',
      'Sun-xsiType-block-4', 'Sun-type-and-subst-1'].
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
+suite() ->
+    [{timetrap,{minutes,3}}].
 
 %% initialization before the test suite
 init_per_suite(Config) ->
-  Dog=test_server:timetrap({minutes,10}),
-  xmerl_xsd_lib:unpack(Config,sun),
-  {ok,LogFile} = xmerl_xsd_lib:create_error_log_file(Config,sun),
-  test_server:timetrap_cancel(Dog),
-  [{suite,sun},{xmerl_error_log,LogFile}|Config].
+    ct:timetrap({minutes,10}),
+    xmerl_xsd_lib:unpack(Config,sun),
+    {ok,LogFile} = xmerl_xsd_lib:create_error_log_file(Config,sun),
+    [{suite,sun},{xmerl_error_log,LogFile}|Config].
 
 end_per_suite(Config) ->
-  xmerl_xsd_lib:rmdir(Config,sun),
-  xmerl_xsd_lib:close_error_log_file(Config),
-  ok.
+    xmerl_xsd_lib:rmdir(Config,sun),
+    xmerl_xsd_lib:close_error_log_file(Config),
+    ok.
 
 %% initialization before each testcase
 init_per_testcase(TestCase,Config) ->
-  Dog=test_server:timetrap({minutes,3}),
-  [{testcase,TestCase},{watchdog, Dog}|Config].
+    [{testcase,TestCase}|Config].
 
 %% clean up after each testcase
-end_per_testcase(_Func,Config) ->
-  Dog=?config(watchdog, Config),
-  test_server:timetrap_cancel(Dog),
-  ok.
+end_per_testcase(_Func,_Config) ->
+    ok.
 
 %% ID Constranints. Very naive test of identity constraint
 'Sun-idc001.nogen'(Config) when is_list(Config) ->

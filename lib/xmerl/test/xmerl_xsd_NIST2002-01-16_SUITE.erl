@@ -54,23 +54,14 @@ all() ->
      'NISTSchema-unsignedByte', 'NISTSchema-unsignedInt',
      'NISTSchema-unsignedLong', 'NISTSchema-unsignedShort'].
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
+suite() ->
+    [{timetrap,{minutes,3}}].
 
 %% initialization before the test suite
 init_per_suite(Config) ->
-    Dog=test_server:timetrap({minutes,10}),
+    ct:timetrap({minutes,10}),
     xmerl_xsd_lib:unpack(Config,nist),
     {ok,LogFile} = xmerl_xsd_lib:create_error_log_file(Config,nist),
-    test_server:timetrap_cancel(Dog),
     [{suite,nist},{xmerl_error_log,LogFile}|Config].
 
 end_per_suite(Config) ->
@@ -80,13 +71,10 @@ end_per_suite(Config) ->
 
 %% initialization before each testcase
 init_per_testcase(TestCase,Config) ->
-    Dog=test_server:timetrap({minutes,3}),
-    [{testcase,TestCase},{watchdog, Dog}|Config].
+    [{testcase,TestCase}|Config].
 
 %% clean up after each testcase
-end_per_testcase(_Func,Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Func,_Config) ->
     ok.
 
 %% Data type derived by restriction of anyURI by facets

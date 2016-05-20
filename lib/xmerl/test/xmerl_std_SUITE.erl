@@ -62,12 +62,8 @@ groups() ->
      {japanese_test_cases, [], 'xerox-japanese'(suite)},
      {oasis_test_cases, [], 'nist-oasis'(suite)}].
 
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
+suite() ->
+    [{timetrap,{minutes,10}}].
 
 
 'sun-valid'(suite) -> %% 28 test cases
@@ -758,35 +754,29 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(doc) ->
     ["Starts the test suite"];
 init_per_suite(Config) ->
-    Dog=test_server:timetrap({minutes,10}),
     file:set_cwd(?config(data_dir,Config)),
-    ok=erl_tar:extract("ibm.tgz",[compressed]),
-    ok=erl_tar:extract("japanese.tgz",[compressed]),
-    ok=erl_tar:extract("oasis.tgz",[compressed]),
-    ok=erl_tar:extract("sun.tgz",[compressed]),
-    ok=erl_tar:extract("xmltest.tgz",[compressed]),
+    ok = erl_tar:extract("ibm.tgz",[compressed]),
+    ok = erl_tar:extract("japanese.tgz",[compressed]),
+    ok = erl_tar:extract("oasis.tgz",[compressed]),
+    ok = erl_tar:extract("sun.tgz",[compressed]),
+    ok = erl_tar:extract("xmltest.tgz",[compressed]),
     ok = change_mode(["ibm","japanese","oasis",
-			    "sun","xmltest"]),
-    [{watchdog, Dog}|Config].
-
+                      "sun","xmltest"]),
+    Config.
 
 -ifndef(dont_rm_test_dirs).
 end_per_suite(doc) ->
     ["Stops the test suite"];
 end_per_suite(Config) ->
     file:set_cwd(?config(data_dir,Config)),
-    ok=rm_files(["ibm","japanese","oasis","sun","xmltest"]),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    lists:keydelete(watchdog,1,Config).
+    ok = rm_files(["ibm","japanese","oasis","sun","xmltest"]),
+    ok.
 
 -else.
 end_per_suite(doc) ->
     ["Stops the test suite"];
 end_per_suite(Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    lists:keydelete(watchdog,1,Config).
+    ok.
 -endif.
 
 %% initialization before each testcase
@@ -794,14 +784,11 @@ init_per_testcase(_TestCase,Config) ->
     io:format("Config:~n~p",[Config]),
     {ok, _} = file:read_file_info(filename:join([?config(priv_dir,Config)])),
     code:add_patha(?config(priv_dir,Config)),
-    Dog=test_server:timetrap({minutes,10}),
-    [{watchdog, Dog}|Config].
+    Config.
 
 
 %% clean up after each testcase
-end_per_testcase(_Func,Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Func,_Config) ->
     ok.
 
 

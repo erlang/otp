@@ -63,19 +63,16 @@ groups() ->
      {app_test, [], [{xmerl_app_test, all}]},
      {appup_test, [], [{xmerl_appup_test, all}]}].
 
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
+suite() ->
+    [{timetrap,{minutes,10}}].
 
 %%----------------------------------------------------------------------
 %% Initializations
 %%----------------------------------------------------------------------
+
 init_per_suite(doc) ->
     ["Starts the test suite"];
 init_per_suite(Config) ->
-    Dog=test_server:timetrap({minutes,10}),
     file:set_cwd(?config(data_dir,Config)),
     ok=erl_tar:extract("cpd.tar.gz",[compressed]),
     ok=erl_tar:extract("misc.tar.gz",[compressed]),
@@ -85,7 +82,7 @@ init_per_suite(Config) ->
     {ok, xpath_lib} = compile:file(xpath_lib, [{i, TestServerIncludeDir}]),
     {ok, xpath_text} = compile:file(xpath_text, [{i, TestServerIncludeDir}]),
     {ok, xpath_abbrev} = compile:file(xpath_abbrev, [{i, TestServerIncludeDir}]),
-    [{watchdog, Dog}|Config].
+    Config.
 
 
 -ifndef(dont_rm_test_dirs).
@@ -93,18 +90,14 @@ end_per_suite(doc) ->
     ["Stops the test suite"];
 end_per_suite(Config) ->
     file:set_cwd(?config(data_dir,Config)),
-    ok=rm_files(["cpd", "misc"]),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    lists:keydelete(watchdog,1,Config).
+    ok = rm_files(["cpd", "misc"]),
+    ok.
 
 -else.
 end_per_suite(doc) ->
     ["Stops the test suite"];
 end_per_suite(Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    lists:keydelete(watchdog,1,Config).
+    ok.
 -endif.
 
 
@@ -113,14 +106,11 @@ init_per_testcase(_TestCase,Config) ->
     io:format("Config:~n~p",[Config]),
     {ok, _} = file:read_file_info(filename:join([?config(priv_dir,Config)])),
     code:add_patha(?config(priv_dir,Config)),
-    Dog=test_server:timetrap({minutes,10}),
-    [{watchdog, Dog}|Config].
+    Config.
 
 
 %% clean up after each testcase
-end_per_testcase(_Func,Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Func,_Config) ->
     ok.
 
 
