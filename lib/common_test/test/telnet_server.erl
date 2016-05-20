@@ -193,6 +193,9 @@ handle_cmd([?AYT|T],State) ->
     %% Used when testing 'newline' option in ct_telnet:send and ct_telnet:cmd.
     send("yes\r\n> ",State),
     handle_data(T,State);
+handle_cmd([?NOP|T],State) ->
+    %% Used for 'keep alive'
+    handle_data(T,State);
 handle_cmd([_H|T],State) ->
     %% Not responding to this command
     handle_cmd(T,State);
