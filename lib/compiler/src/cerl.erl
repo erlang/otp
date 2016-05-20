@@ -1955,7 +1955,7 @@ is_c_var(_) ->
     false.
 
 
-%% @spec c_fname(Name::atom(), Arity::integer()) -> cerl()
+%% @spec c_fname(Name::atom(), Arity::arity()) -> cerl()
 %% @equiv c_var({Name, Arity})
 %% @see fname_id/1
 %% @see fname_arity/1
@@ -1963,18 +1963,18 @@ is_c_var(_) ->
 %% @see ann_c_fname/3
 %% @see update_c_fname/3
 
--spec c_fname(atom(), non_neg_integer()) -> c_var().
+-spec c_fname(atom(), arity()) -> c_var().
 
 c_fname(Atom, Arity) ->
     c_var({Atom, Arity}).
 
 
-%% @spec ann_c_fname(As::[term()], Name::atom(), Arity::integer()) ->
+%% @spec ann_c_fname(As::[term()], Name::atom(), Arity::arity()) ->
 %%           cerl()
 %% @equiv ann_c_var(As, {Atom, Arity})
 %% @see c_fname/2
 
--spec ann_c_fname([term()], atom(), non_neg_integer()) -> c_var().
+-spec ann_c_fname([term()], atom(), arity()) -> c_var().
 
 ann_c_fname(As, Atom, Arity) ->
     ann_c_var(As, {Atom, Arity}).
@@ -1992,13 +1992,13 @@ update_c_fname(#c_var{name = {_, Arity}, anno = As}, Atom) ->
     #c_var{name = {Atom, Arity}, anno = As}.
 
 
-%% @spec update_c_fname(Old::cerl(), Name::atom(), Arity::integer()) ->
+%% @spec update_c_fname(Old::cerl(), Name::atom(), Arity::arity()) ->
 %%           cerl()
 %% @equiv update_c_var(Old, {Atom, Arity})
 %% @see update_c_fname/2
 %% @see c_fname/2
 
--spec update_c_fname(c_var(), atom(), integer()) -> c_var().
+-spec update_c_fname(c_var(), atom(), arity()) -> c_var().
 
 update_c_fname(Node, Atom, Arity) ->
     update_c_var(Node, {Atom, Arity}).
@@ -2047,14 +2047,14 @@ fname_id(#c_var{name={A,_}}) ->
     A.
 
 
-%% @spec fname_arity(cerl()) -> byte()
+%% @spec fname_arity(cerl()) -> arity()
 %%
 %% @doc Returns the arity part of an abstract function name variable.
 %%
 %% @see fname_id/1
 %% @see c_fname/2
 
--spec fname_arity(c_var()) -> byte().
+-spec fname_arity(c_var()) -> arity().
 
 fname_arity(#c_var{name={_,N}}) ->
     N.
@@ -2500,7 +2500,7 @@ fun_body(Node) ->
     Node#c_fun.body.
 
 
-%% @spec fun_arity(Node::cerl()) -> integer()
+%% @spec fun_arity(Node::cerl()) -> arity()
 %%
 %% @doc Returns the number of parameter subtrees of an abstract
 %% fun-expression.
@@ -2511,7 +2511,7 @@ fun_body(Node) ->
 %% @see c_fun/2
 %% @see fun_vars/1
 
--spec fun_arity(c_fun()) -> non_neg_integer().
+-spec fun_arity(c_fun()) -> arity().
 
 fun_arity(Node) ->
     length(fun_vars(Node)).
@@ -3418,7 +3418,7 @@ apply_args(Node) ->
     Node#c_apply.args.
 
 
-%% @spec apply_arity(Node::cerl()) -> integer()
+%% @spec apply_arity(Node::cerl()) -> arity()
 %%
 %% @doc Returns the number of argument subtrees of an abstract
 %% function application.
@@ -3430,7 +3430,7 @@ apply_args(Node) ->
 %% @see c_apply/2
 %% @see apply_args/1
 
--spec apply_arity(c_apply()) -> non_neg_integer().
+-spec apply_arity(c_apply()) -> arity().
 
 apply_arity(Node) ->
     length(apply_args(Node)).
@@ -3536,7 +3536,7 @@ call_args(Node) ->
     Node#c_call.args.
 
 
-%% @spec call_arity(Node::cerl()) -> integer()
+%% @spec call_arity(Node::cerl()) -> arity()
 %%
 %% @doc Returns the number of argument subtrees of an abstract
 %% inter-module call.
@@ -3548,7 +3548,7 @@ call_args(Node) ->
 %% @see c_call/3
 %% @see call_args/1
 
--spec call_arity(c_call()) -> non_neg_integer().
+-spec call_arity(c_call()) -> arity().
 
 call_arity(Node) ->
     length(call_args(Node)).
@@ -3640,7 +3640,7 @@ primop_args(Node) ->
     Node#c_primop.args.
 
 
-%% @spec primop_arity(Node::cerl()) -> integer()
+%% @spec primop_arity(Node::cerl()) -> arity()
 %%
 %% @doc Returns the number of argument subtrees of an abstract
 %% primitive operation call.
@@ -3652,7 +3652,7 @@ primop_args(Node) ->
 %% @see c_primop/2
 %% @see primop_args/1
 
--spec primop_arity(c_primop()) -> non_neg_integer().
+-spec primop_arity(c_primop()) -> arity().
 
 primop_arity(Node) ->
     length(primop_args(Node)).
