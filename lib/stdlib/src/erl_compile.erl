@@ -60,6 +60,7 @@ compile_cmdline() ->
 	_ -> my_halt(2)
     end.
 
+-spec my_halt(_) -> no_return().
 my_halt(Reason) ->
     erlang:halt(Reason).
 

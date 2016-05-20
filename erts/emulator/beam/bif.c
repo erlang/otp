@@ -3836,59 +3836,11 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 
 /**********************************************************************/
 
-/* stop the system */
-/* ARGSUSED */
-BIF_RETTYPE halt_0(BIF_ALIST_0)
-{
-    VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt()\n"));
-    erts_halt(0);
-    ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
-}
-
-/**********************************************************************/
 
 #define HALT_MSG_SIZE	200
 static char halt_msg[HALT_MSG_SIZE];
 
-/* stop the system with exit code */
-/* ARGSUSED */
-BIF_RETTYPE halt_1(BIF_ALIST_1)
-{
-    Uint code;
-    
-    if (term_to_Uint_mask(BIF_ARG_1, &code)) {
-	int pos_int_code = (int) (code & INT_MAX);
-	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
-	erts_halt(pos_int_code);
-	ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
-    }
-    else if (ERTS_IS_ATOM_STR("abort", BIF_ARG_1)) {
-	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_exit(ERTS_ABORT_EXIT, "");
-    }
-    else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	Sint i;
-
-	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
-	    goto error;
-	}
-	halt_msg[i] = '\0';
-	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_exit(ERTS_DUMP_EXIT, "%s\n", halt_msg);
-    }
-    else
-	goto error;
-    return NIL;  /* Pedantic (lint does not know about erts_exit) */
- error:
-	BIF_ERROR(BIF_P, BADARG);
-}
-
-/**********************************************************************/
-
 /* stop the system with exit code and flags */
-/* ARGSUSED */
 BIF_RETTYPE halt_2(BIF_ALIST_2)
 {
     Uint code;
@@ -3924,7 +3876,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
 	    erts_halt(pos_int_code);
-	    ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
+	    ERTS_BIF_YIELD2(bif_export[BIF_halt_2], BIF_P, am_undefined, am_undefined);
 	}
 	else {
 	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);

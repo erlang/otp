@@ -72,8 +72,6 @@ bif erlang:get/1
 bif erlang:get_keys/1
 bif erlang:group_leader/0
 bif erlang:group_leader/2
-bif erlang:halt/0
-bif erlang:halt/1
 bif erlang:halt/2
 bif erlang:phash/2
 bif erlang:phash2/1

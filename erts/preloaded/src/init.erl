@@ -316,6 +316,7 @@ limit_halt_string(String) ->
 %% List = [string() | atom() | pid() | number()]
 %% Any other items in List, such as tuples, are ignored when creating
 %% the string used as argument to erlang:halt/1.
+-spec crash(_, _) -> no_return().
 crash(String, List) ->
     halt(halt_string(String, List)).
 

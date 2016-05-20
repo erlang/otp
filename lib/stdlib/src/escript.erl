@@ -906,6 +906,7 @@ anno(L) ->
 fatal(Str) ->
     throw(Str).
 
+-spec my_halt(_) -> no_return().
 my_halt(Reason) ->
     erlang:halt(Reason).
 
