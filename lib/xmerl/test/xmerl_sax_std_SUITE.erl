@@ -38,8 +38,6 @@
 %% Initializations
 %%----------------------------------------------------------------------
 
-init_per_suite(doc) ->
-    ["Starts the test suite"];
 init_per_suite(Config) ->
     file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
     ok=erl_tar:extract("ibm.tgz",[compressed]),
@@ -53,8 +51,6 @@ init_per_suite(Config) ->
 
 -ifndef(dont_rm_test_dirs).
 
-end_per_suite(doc) ->
-    ["Stops the test suite"];
 end_per_suite(Config) ->
     file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
     ok=rm_files(["ibm","japanese","oasis","sun","xmltest"]),
@@ -62,8 +58,6 @@ end_per_suite(Config) ->
 
 -else.
 
-end_per_suite(doc) ->
-    ["Stops the test suite"];
 end_per_suite(Config) ->
     Config.
 
@@ -90,7 +84,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-001
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'not-wf-sa-001'(suite) -> [];
 'not-wf-sa-001'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/001.xml"]),
@@ -103,7 +96,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-002
 %% Type: not-wf
 %% Sections: 2.3 [4]
-'not-wf-sa-002'(suite) -> [];
 'not-wf-sa-002'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/002.xml"]),
@@ -116,7 +108,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-003
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'not-wf-sa-003'(suite) -> [];
 'not-wf-sa-003'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/003.xml"]),
@@ -129,7 +120,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-004
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'not-wf-sa-004'(suite) -> [];
 'not-wf-sa-004'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/004.xml"]),
@@ -142,7 +132,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-005
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'not-wf-sa-005'(suite) -> [];
 'not-wf-sa-005'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/005.xml"]),
@@ -155,7 +144,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-006
 %% Type: not-wf
 %% Sections: 2.5 [16]
-'not-wf-sa-006'(suite) -> [];
 'not-wf-sa-006'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/006.xml"]),
@@ -168,7 +156,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-007
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-007'(suite) -> [];
 'not-wf-sa-007'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/007.xml"]),
@@ -181,7 +168,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-008
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'not-wf-sa-008'(suite) -> [];
 'not-wf-sa-008'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/008.xml"]),
@@ -194,7 +180,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-009
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'not-wf-sa-009'(suite) -> [];
 'not-wf-sa-009'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/009.xml"]),
@@ -207,7 +192,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-010
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-010'(suite) -> [];
 'not-wf-sa-010'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/010.xml"]),
@@ -220,7 +204,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-011
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'not-wf-sa-011'(suite) -> [];
 'not-wf-sa-011'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/011.xml"]),
@@ -233,7 +216,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-012
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'not-wf-sa-012'(suite) -> [];
 'not-wf-sa-012'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/012.xml"]),
@@ -246,7 +228,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-013
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'not-wf-sa-013'(suite) -> [];
 'not-wf-sa-013'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/013.xml"]),
@@ -259,7 +240,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-014
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'not-wf-sa-014'(suite) -> [];
 'not-wf-sa-014'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/014.xml"]),
@@ -272,7 +252,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-015
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'not-wf-sa-015'(suite) -> [];
 'not-wf-sa-015'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/015.xml"]),
@@ -285,7 +264,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-016
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'not-wf-sa-016'(suite) -> [];
 'not-wf-sa-016'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/016.xml"]),
@@ -298,7 +276,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-017
 %% Type: not-wf
 %% Sections: 2.7 [18]
-'not-wf-sa-017'(suite) -> [];
 'not-wf-sa-017'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/017.xml"]),
@@ -311,7 +288,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-018
 %% Type: not-wf
 %% Sections: 2.7 [19]
-'not-wf-sa-018'(suite) -> [];
 'not-wf-sa-018'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/018.xml"]),
@@ -324,7 +300,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-019
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'not-wf-sa-019'(suite) -> [];
 'not-wf-sa-019'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/019.xml"]),
@@ -337,7 +312,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-020
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'not-wf-sa-020'(suite) -> [];
 'not-wf-sa-020'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/020.xml"]),
@@ -350,7 +324,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-021
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'not-wf-sa-021'(suite) -> [];
 'not-wf-sa-021'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/021.xml"]),
@@ -363,7 +336,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-022
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'not-wf-sa-022'(suite) -> [];
 'not-wf-sa-022'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/022.xml"]),
@@ -376,7 +348,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-023
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'not-wf-sa-023'(suite) -> [];
 'not-wf-sa-023'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/023.xml"]),
@@ -389,7 +360,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-024
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'not-wf-sa-024'(suite) -> [];
 'not-wf-sa-024'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/024.xml"]),
@@ -402,7 +372,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-025
 %% Type: not-wf
 %% Sections: 2.4 [14]
-'not-wf-sa-025'(suite) -> [];
 'not-wf-sa-025'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/025.xml"]),
@@ -415,7 +384,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-026
 %% Type: not-wf
 %% Sections: 2.4 [14]
-'not-wf-sa-026'(suite) -> [];
 'not-wf-sa-026'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/026.xml"]),
@@ -428,7 +396,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-027
 %% Type: not-wf
 %% Sections: 2.5 [15]
-'not-wf-sa-027'(suite) -> [];
 'not-wf-sa-027'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/027.xml"]),
@@ -441,7 +408,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-028
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'not-wf-sa-028'(suite) -> [];
 'not-wf-sa-028'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/028.xml"]),
@@ -454,7 +420,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-029
 %% Type: not-wf
 %% Sections: 2.4 [14]
-'not-wf-sa-029'(suite) -> [];
 'not-wf-sa-029'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/029.xml"]),
@@ -467,7 +432,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-030
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-030'(suite) -> [];
 'not-wf-sa-030'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/030.xml"]),
@@ -480,7 +444,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-031
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-031'(suite) -> [];
 'not-wf-sa-031'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/031.xml"]),
@@ -493,7 +456,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-032
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-032'(suite) -> [];
 'not-wf-sa-032'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/032.xml"]),
@@ -506,7 +468,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-033
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-033'(suite) -> [];
 'not-wf-sa-033'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/033.xml"]),
@@ -519,7 +480,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-034
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-034'(suite) -> [];
 'not-wf-sa-034'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/034.xml"]),
@@ -532,7 +492,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-035
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'not-wf-sa-035'(suite) -> [];
 'not-wf-sa-035'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/035.xml"]),
@@ -545,7 +504,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-036
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-036'(suite) -> [];
 'not-wf-sa-036'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/036.xml"]),
@@ -561,7 +519,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-037
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-037'(suite) -> [];
 'not-wf-sa-037'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/037.xml"]),
@@ -577,7 +534,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-038
 %% Type: not-wf
 %% Sections: 3.1
-'not-wf-sa-038'(suite) -> [];
 'not-wf-sa-038'(Config) -> 
     file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
     Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/038.xml"]),
@@ -590,7 +546,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-039
 %% Type: not-wf
 %% Sections: 3
-'not-wf-sa-039'(suite) -> [];
 'not-wf-sa-039'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/039.xml"]),
@@ -603,7 +558,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-040
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-040'(suite) -> [];
 'not-wf-sa-040'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/040.xml"]),
@@ -619,7 +573,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-041
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-041'(suite) -> [];
 'not-wf-sa-041'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/041.xml"]),
@@ -635,7 +588,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-042
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'not-wf-sa-042'(suite) -> [];
 'not-wf-sa-042'(Config) ->  {skip, "Fix 1"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/042.xml"]),
@@ -648,7 +600,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-043
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-043'(suite) -> [];
 'not-wf-sa-043'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/043.xml"]),
@@ -664,7 +615,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-044
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-044'(suite) -> [];
 'not-wf-sa-044'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/044.xml"]),
@@ -680,7 +630,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-045
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'not-wf-sa-045'(suite) -> [];
 'not-wf-sa-045'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/045.xml"]),
@@ -693,7 +642,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-046
 %% Type: not-wf
 %% Sections: 3.1 [40]
-'not-wf-sa-046'(suite) -> [];
 'not-wf-sa-046'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/046.xml"]),
@@ -706,7 +654,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-047
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'not-wf-sa-047'(suite) -> [];
 'not-wf-sa-047'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/047.xml"]),
@@ -719,7 +666,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-048
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-048'(suite) -> [];
 'not-wf-sa-048'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/048.xml"]),
@@ -735,7 +681,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-049
 %% Type: not-wf
 %% Sections: 3.1 [40]
-'not-wf-sa-049'(suite) -> [];
 'not-wf-sa-049'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/049.xml"]),
@@ -748,7 +693,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-050
 %% Type: not-wf
 %% Sections: 2.1 [1]
-'not-wf-sa-050'(suite) -> [];
 'not-wf-sa-050'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/050.xml"]),
@@ -761,7 +705,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-051
 %% Type: not-wf
 %% Sections: 2.7 [18]
-'not-wf-sa-051'(suite) -> [];
 'not-wf-sa-051'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/051.xml"]),
@@ -774,7 +717,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-052
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'not-wf-sa-052'(suite) -> [];
 'not-wf-sa-052'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/052.xml"]),
@@ -787,7 +729,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-053
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'not-wf-sa-053'(suite) -> [];
 'not-wf-sa-053'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/053.xml"]),
@@ -800,7 +741,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-054
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'not-wf-sa-054'(suite) -> [];
 'not-wf-sa-054'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/054.xml"]),
@@ -813,7 +753,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-055
 %% Type: not-wf
 %% Sections: 2.8 [28]
-'not-wf-sa-055'(suite) -> [];
 'not-wf-sa-055'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/055.xml"]),
@@ -826,7 +765,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-056
 %% Type: not-wf
 %% Sections: 2.8 [28]
-'not-wf-sa-056'(suite) -> [];
 'not-wf-sa-056'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/056.xml"]),
@@ -839,7 +777,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-057
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'not-wf-sa-057'(suite) -> [];
 'not-wf-sa-057'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/057.xml"]),
@@ -852,7 +789,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-058
 %% Type: not-wf
 %% Sections: 3.3.1 [54]
-'not-wf-sa-058'(suite) -> [];
 'not-wf-sa-058'(_Config) -> {skip, "Attlist Notation parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/058.xml"]),
@@ -865,7 +801,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-059
 %% Type: not-wf
 %% Sections: 3.3.1 [59]
-'not-wf-sa-059'(suite) -> [];
 'not-wf-sa-059'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/059.xml"]),
@@ -878,7 +813,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-060
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'not-wf-sa-060'(suite) -> [];
 'not-wf-sa-060'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/060.xml"]),
@@ -891,7 +825,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-061
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'not-wf-sa-061'(suite) -> [];
 'not-wf-sa-061'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/061.xml"]),
@@ -904,7 +837,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-062
 %% Type: not-wf
 %% Sections: 4.2 [71]
-'not-wf-sa-062'(suite) -> [];
 'not-wf-sa-062'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/062.xml"]),
@@ -917,7 +849,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-063
 %% Type: not-wf
 %% Sections: 2.8 [29]
-'not-wf-sa-063'(suite) -> [];
 'not-wf-sa-063'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/063.xml"]),
@@ -930,7 +861,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-064
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'not-wf-sa-064'(suite) -> [];
 'not-wf-sa-064'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/064.xml"]),
@@ -943,7 +873,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-065
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'not-wf-sa-065'(suite) -> [];
 'not-wf-sa-065'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/065.xml"]),
@@ -956,7 +885,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-066
 %% Type: not-wf
 %% Sections: 3.3 [52]
-'not-wf-sa-066'(suite) -> [];
 'not-wf-sa-066'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/066.xml"]),
@@ -969,7 +897,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-067
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'not-wf-sa-067'(suite) -> [];
 'not-wf-sa-067'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/067.xml"]),
@@ -982,7 +909,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-068
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'not-wf-sa-068'(suite) -> [];
 'not-wf-sa-068'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/068.xml"]),
@@ -995,7 +921,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-069
 %% Type: not-wf
 %% Sections: 4.2.2 [76]
-'not-wf-sa-069'(suite) -> [];
 'not-wf-sa-069'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/069.xml"]),
@@ -1008,7 +933,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-070
 %% Type: not-wf
 %% Sections: 2.5 [16]
-'not-wf-sa-070'(suite) -> [];
 'not-wf-sa-070'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/070.xml"]),
@@ -1021,7 +945,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-071
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-071'(suite) -> [];
 'not-wf-sa-071'(_Config) -> {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/071.xml"]),
@@ -1034,7 +957,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-072
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-072'(suite) -> [];
 'not-wf-sa-072'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/072.xml"]),
@@ -1047,7 +969,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-073
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-073'(suite) -> [];
 'not-wf-sa-073'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/073.xml"]),
@@ -1060,7 +981,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-074
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-074'(suite) -> [];
 'not-wf-sa-074'(_Config) -> {skip, "Entity not correct tag pair NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/074.xml"]),
@@ -1073,7 +993,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-075
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-075'(suite) -> [];
 'not-wf-sa-075'(_Config) ->  {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/075.xml"]),
@@ -1086,7 +1005,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-076
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-076'(suite) -> [];
 'not-wf-sa-076'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/076.xml"]),
@@ -1099,7 +1017,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-077
 %% Type: not-wf
 %% Sections: 41. [68]
-'not-wf-sa-077'(suite) -> [];
 'not-wf-sa-077'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/077.xml"]),
@@ -1112,7 +1029,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-078
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-078'(suite) -> [];
 'not-wf-sa-078'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/078.xml"]),
@@ -1125,7 +1041,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-079
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-079'(suite) -> [];
 'not-wf-sa-079'(_Config) ->  {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/079.xml"]),
@@ -1138,7 +1053,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-080
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-080'(suite) -> [];
 'not-wf-sa-080'(_Config) ->  {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/080.xml"]),
@@ -1151,7 +1065,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-081
 %% Type: not-wf
 %% Sections: 3.1
-'not-wf-sa-081'(suite) -> [];
 'not-wf-sa-081'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/081.xml"]),
@@ -1164,7 +1077,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-082
 %% Type: not-wf
 %% Sections: 3.1
-'not-wf-sa-082'(suite) -> [];
 'not-wf-sa-082'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/082.xml"]),
@@ -1177,7 +1089,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-083
 %% Type: not-wf
 %% Sections: 4.2.2 [76]
-'not-wf-sa-083'(suite) -> [];
 'not-wf-sa-083'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/083.xml"]),
@@ -1190,7 +1101,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-084
 %% Type: not-wf
 %% Sections: 4.1
-'not-wf-sa-084'(suite) -> [];
 'not-wf-sa-084'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/084.xml"]),
@@ -1203,7 +1113,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-085
 %% Type: not-wf
 %% Sections: 2.3 [13]
-'not-wf-sa-085'(suite) -> [];
 'not-wf-sa-085'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/085.xml"]),
@@ -1216,7 +1125,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-086
 %% Type: not-wf
 %% Sections: 2.3 [13]
-'not-wf-sa-086'(suite) -> [];
 'not-wf-sa-086'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/086.xml"]),
@@ -1229,7 +1137,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-087
 %% Type: not-wf
 %% Sections: 2.3 [13]
-'not-wf-sa-087'(suite) -> [];
 'not-wf-sa-087'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/087.xml"]),
@@ -1242,7 +1149,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-088
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'not-wf-sa-088'(suite) -> [];
 'not-wf-sa-088'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/088.xml"]),
@@ -1255,7 +1161,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-089
 %% Type: not-wf
 %% Sections: 4.2 [74]
-'not-wf-sa-089'(suite) -> [];
 'not-wf-sa-089'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/089.xml"]),
@@ -1268,7 +1173,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-090
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'not-wf-sa-090'(suite) -> [];
 'not-wf-sa-090'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/090.xml"]),
@@ -1281,7 +1185,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-091
 %% Type: not-wf
 %% Sections: 4.2 [74]
-'not-wf-sa-091'(suite) -> [];
 'not-wf-sa-091'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/091.xml"]),
@@ -1294,7 +1197,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-092
 %% Type: not-wf
 %% Sections: 4.5
-'not-wf-sa-092'(suite) -> [];
 'not-wf-sa-092'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/092.xml"]),
@@ -1307,7 +1209,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-093
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'not-wf-sa-093'(suite) -> [];
 'not-wf-sa-093'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/093.xml"]),
@@ -1320,7 +1221,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-094
 %% Type: not-wf
 %% Sections: 2.8 [24]
-'not-wf-sa-094'(suite) -> [];
 'not-wf-sa-094'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/094.xml"]),
@@ -1333,7 +1233,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-095
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'not-wf-sa-095'(suite) -> [];
 'not-wf-sa-095'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/095.xml"]),
@@ -1346,7 +1245,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-096
 %% Type: not-wf
 %% Sections: 2.9 [32]
-'not-wf-sa-096'(suite) -> [];
 'not-wf-sa-096'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/096.xml"]),
@@ -1359,7 +1257,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-097
 %% Type: not-wf
 %% Sections: 2.8 [24]
-'not-wf-sa-097'(suite) -> [];
 'not-wf-sa-097'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/097.xml"]),
@@ -1372,7 +1269,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-098
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'not-wf-sa-098'(suite) -> [];
 'not-wf-sa-098'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/098.xml"]),
@@ -1385,7 +1281,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-099
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'not-wf-sa-099'(suite) -> [];
 'not-wf-sa-099'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/099.xml"]),
@@ -1398,7 +1293,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-100
 %% Type: not-wf
 %% Sections: 2.9 [32]
-'not-wf-sa-100'(suite) -> [];
 'not-wf-sa-100'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/100.xml"]),
@@ -1411,7 +1305,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-101
 %% Type: not-wf
 %% Sections: 4.3.3 [81]
-'not-wf-sa-101'(suite) -> [];
 'not-wf-sa-101'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/101.xml"]),
@@ -1424,7 +1317,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-102
 %% Type: not-wf
 %% Sections: 2.8 [26]
-'not-wf-sa-102'(suite) -> [];
 'not-wf-sa-102'(Config) ->  {skip, "Fix 2"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/102.xml"]),
@@ -1437,7 +1329,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-103
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-103'(suite) -> [];
 'not-wf-sa-103'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/103.xml"]),
@@ -1450,7 +1341,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-104
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-104'(suite) -> [];
 'not-wf-sa-104'(_Config) -> {skip, "Entity not correct tag pair NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/104.xml"]),
@@ -1463,7 +1353,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-105
 %% Type: not-wf
 %% Sections: 2.7 
-'not-wf-sa-105'(suite) -> [];
 'not-wf-sa-105'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/105.xml"]),
@@ -1476,7 +1365,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-106
 %% Type: not-wf
 %% Sections: 4.2
-'not-wf-sa-106'(suite) -> [];
 'not-wf-sa-106'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/106.xml"]),
@@ -1489,7 +1377,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-107
 %% Type: not-wf
 %% Sections: 2.8 [28]
-'not-wf-sa-107'(suite) -> [];
 'not-wf-sa-107'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/107.xml"]),
@@ -1502,7 +1389,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-108
 %% Type: not-wf
 %% Sections: 2.7 [19]
-'not-wf-sa-108'(suite) -> [];
 'not-wf-sa-108'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/108.xml"]),
@@ -1515,7 +1401,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-109
 %% Type: not-wf
 %% Sections: 4.2 [70]
-'not-wf-sa-109'(suite) -> [];
 'not-wf-sa-109'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/109.xml"]),
@@ -1528,7 +1413,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-110
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-110'(suite) -> [];
 'not-wf-sa-110'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/110.xml"]),
@@ -1544,7 +1428,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-111
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'not-wf-sa-111'(suite) -> [];
 'not-wf-sa-111'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/111.xml"]),
@@ -1557,7 +1440,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-112
 %% Type: not-wf
 %% Sections: 2.7 [19]
-'not-wf-sa-112'(suite) -> [];
 'not-wf-sa-112'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/112.xml"]),
@@ -1570,7 +1452,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-113
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'not-wf-sa-113'(suite) -> [];
 'not-wf-sa-113'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/113.xml"]),
@@ -1583,7 +1464,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-114
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'not-wf-sa-114'(suite) -> [];
 'not-wf-sa-114'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/114.xml"]),
@@ -1596,7 +1476,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-115
 %% Type: not-wf
 %% Sections: 4.5
-'not-wf-sa-115'(suite) -> [];
 'not-wf-sa-115'(_Config) -> {skip, "& expansion not correct"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/115.xml"]),
@@ -1609,7 +1488,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-116
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-116'(suite) -> [];
 'not-wf-sa-116'(_Config) -> {skip, "& expansion not correct"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/116.xml"]),
@@ -1622,7 +1500,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-117
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-117'(suite) -> [];
 'not-wf-sa-117'(_Config) -> {skip, "& expansion not correct"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/117.xml"]),
@@ -1635,7 +1512,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-118
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-118'(suite) -> [];
 'not-wf-sa-118'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/118.xml"]),
@@ -1648,7 +1524,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-119
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-119'(suite) -> [];
 'not-wf-sa-119'(_Config) -> {skip, "& expansion not correct"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/119.xml"]),
@@ -1661,7 +1536,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-120
 %% Type: not-wf
 %% Sections: 4.5
-'not-wf-sa-120'(suite) -> [];
 'not-wf-sa-120'(_Config) -> {skip, "& expansion not correct"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/120.xml"]),
@@ -1674,7 +1548,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-121
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'not-wf-sa-121'(suite) -> [];
 'not-wf-sa-121'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/121.xml"]),
@@ -1687,7 +1560,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-122
 %% Type: not-wf
 %% Sections: 3.2.1 [47]
-'not-wf-sa-122'(suite) -> [];
 'not-wf-sa-122'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/122.xml"]),
@@ -1700,7 +1572,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-123
 %% Type: not-wf
 %% Sections: 3.2.1 [48]
-'not-wf-sa-123'(suite) -> [];
 'not-wf-sa-123'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/123.xml"]),
@@ -1713,7 +1584,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-124
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'not-wf-sa-124'(suite) -> [];
 'not-wf-sa-124'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/124.xml"]),
@@ -1726,7 +1596,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-125
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'not-wf-sa-125'(suite) -> [];
 'not-wf-sa-125'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/125.xml"]),
@@ -1739,7 +1608,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-126
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'not-wf-sa-126'(suite) -> [];
 'not-wf-sa-126'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/126.xml"]),
@@ -1752,7 +1620,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-127
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'not-wf-sa-127'(suite) -> [];
 'not-wf-sa-127'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/127.xml"]),
@@ -1765,7 +1632,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-128
 %% Type: not-wf
 %% Sections: 2.7 [18]
-'not-wf-sa-128'(suite) -> [];
 'not-wf-sa-128'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/128.xml"]),
@@ -1778,7 +1644,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-129
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'not-wf-sa-129'(suite) -> [];
 'not-wf-sa-129'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/129.xml"]),
@@ -1791,7 +1656,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-130
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'not-wf-sa-130'(suite) -> [];
 'not-wf-sa-130'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/130.xml"]),
@@ -1804,7 +1668,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-131
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'not-wf-sa-131'(suite) -> [];
 'not-wf-sa-131'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/131.xml"]),
@@ -1817,7 +1680,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-132
 %% Type: not-wf
 %% Sections: 3.2.1 [50]
-'not-wf-sa-132'(suite) -> [];
 'not-wf-sa-132'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/132.xml"]),
@@ -1830,7 +1692,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-133
 %% Type: not-wf
 %% Sections: 3.2.1
-'not-wf-sa-133'(suite) -> [];
 'not-wf-sa-133'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/133.xml"]),
@@ -1843,7 +1704,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-134
 %% Type: not-wf
 %% Sections: 3.2.1
-'not-wf-sa-134'(suite) -> [];
 'not-wf-sa-134'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/134.xml"]),
@@ -1856,7 +1716,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-135
 %% Type: not-wf
 %% Sections: 3.2.1 [47]
-'not-wf-sa-135'(suite) -> [];
 'not-wf-sa-135'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/135.xml"]),
@@ -1869,7 +1728,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-136
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'not-wf-sa-136'(suite) -> [];
 'not-wf-sa-136'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/136.xml"]),
@@ -1882,7 +1740,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-137
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'not-wf-sa-137'(suite) -> [];
 'not-wf-sa-137'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/137.xml"]),
@@ -1895,7 +1752,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-138
 %% Type: not-wf
 %% Sections: 3.2.1 [48]
-'not-wf-sa-138'(suite) -> [];
 'not-wf-sa-138'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/138.xml"]),
@@ -1908,7 +1764,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-139
 %% Type: not-wf
 %% Sections: 3.2.1 [46]
-'not-wf-sa-139'(suite) -> [];
 'not-wf-sa-139'(_Config) ->  {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/139.xml"]),
@@ -1921,7 +1776,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-140
 %% Type: not-wf
 %% Sections: 2.3 [4]
-'not-wf-sa-140'(suite) -> [];
 'not-wf-sa-140'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/140.xml"]),
@@ -1934,7 +1788,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-141
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'not-wf-sa-141'(suite) -> [];
 'not-wf-sa-141'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/141.xml"]),
@@ -1947,7 +1800,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-142
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-142'(suite) -> [];
 'not-wf-sa-142'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/142.xml"]),
@@ -1960,7 +1812,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-143
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-143'(suite) -> [];
 'not-wf-sa-143'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/143.xml"]),
@@ -1973,7 +1824,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-144
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-144'(suite) -> [];
 'not-wf-sa-144'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/144.xml"]),
@@ -1986,7 +1836,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-145
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-145'(suite) -> [];
 'not-wf-sa-145'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/145.xml"]),
@@ -1999,7 +1848,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-146
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-146'(suite) -> [];
 'not-wf-sa-146'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/146.xml"]),
@@ -2012,7 +1860,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-147
 %% Type: not-wf
 %% Sections: 2.8 [22]
-'not-wf-sa-147'(suite) -> [];
 'not-wf-sa-147'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/147.xml"]),
@@ -2025,7 +1872,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-148
 %% Type: not-wf
 %% Sections: 2.8 [22]
-'not-wf-sa-148'(suite) -> [];
 'not-wf-sa-148'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/148.xml"]),
@@ -2038,7 +1884,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-149
 %% Type: not-wf
 %% Sections: 2.8 [28]
-'not-wf-sa-149'(suite) -> [];
 'not-wf-sa-149'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/149.xml"]),
@@ -2051,7 +1896,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-150
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'not-wf-sa-150'(suite) -> [];
 'not-wf-sa-150'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/150.xml"]),
@@ -2064,7 +1908,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-151
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'not-wf-sa-151'(suite) -> [];
 'not-wf-sa-151'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/151.xml"]),
@@ -2081,7 +1924,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-152
 %% Type: not-wf
 %% Sections: 2.8 [22]
-'not-wf-sa-152'(suite) -> [];
 'not-wf-sa-152'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/152.xml"]),
@@ -2094,7 +1936,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-153
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-153'(suite) -> [];
 'not-wf-sa-153'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/153.xml"]),
@@ -2107,7 +1948,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-154
 %% Type: not-wf
 %% Sections: 2.8 2.6 [23, 17]
-'not-wf-sa-154'(suite) -> [];
 'not-wf-sa-154'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/154.xml"]),
@@ -2120,7 +1960,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-155
 %% Type: not-wf
 %% Sections: 2.8 2.6 [23, 17]
-'not-wf-sa-155'(suite) -> [];
 'not-wf-sa-155'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/155.xml"]),
@@ -2133,7 +1972,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-156
 %% Type: not-wf
 %% Sections: 2.8 2.6 [23, 17]
-'not-wf-sa-156'(suite) -> [];
 'not-wf-sa-156'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/156.xml"]),
@@ -2146,7 +1984,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-157
 %% Type: not-wf
 %% Sections: 2.6 [17]
-'not-wf-sa-157'(suite) -> [];
 'not-wf-sa-157'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/157.xml"]),
@@ -2159,7 +1996,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-158
 %% Type: not-wf
 %% Sections: 3.3 [52]
-'not-wf-sa-158'(suite) -> [];
 'not-wf-sa-158'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/158.xml"]),
@@ -2172,7 +2008,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-159
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'not-wf-sa-159'(suite) -> [];
 'not-wf-sa-159'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/159.xml"]),
@@ -2185,7 +2020,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-160
 %% Type: not-wf
 %% Sections: 2.8
-'not-wf-sa-160'(suite) -> [];
 'not-wf-sa-160'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/160.xml"]),
@@ -2198,7 +2032,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-161
 %% Type: not-wf
 %% Sections: 2.8
-'not-wf-sa-161'(suite) -> [];
 'not-wf-sa-161'(_Config) -> {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/161.xml"]),
@@ -2211,7 +2044,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-162
 %% Type: not-wf
 %% Sections: 2.8
-'not-wf-sa-162'(suite) -> [];
 'not-wf-sa-162'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/162.xml"]),
@@ -2224,7 +2056,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-163
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'not-wf-sa-163'(suite) -> [];
 'not-wf-sa-163'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/163.xml"]),
@@ -2237,7 +2068,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-164
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'not-wf-sa-164'(suite) -> [];
 'not-wf-sa-164'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/164.xml"]),
@@ -2250,7 +2080,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-165
 %% Type: not-wf
 %% Sections: 4.2 [72]
-'not-wf-sa-165'(suite) -> [];
 'not-wf-sa-165'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/165.xml"]),
@@ -2263,7 +2092,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-166
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-166'(suite) -> [];
 'not-wf-sa-166'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/166.xml"]),
@@ -2276,7 +2104,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-167
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-167'(suite) -> [];
 'not-wf-sa-167'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/167.xml"]),
@@ -2289,7 +2116,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-168
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-168'(suite) -> [];
 'not-wf-sa-168'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/168.xml"]),
@@ -2302,7 +2128,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-169
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-169'(suite) -> [];
 'not-wf-sa-169'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/169.xml"]),
@@ -2315,7 +2140,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-170
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-170'(suite) -> [];
 'not-wf-sa-170'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/170.xml"]),
@@ -2328,7 +2152,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-171
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-171'(suite) -> [];
 'not-wf-sa-171'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/171.xml"]),
@@ -2341,7 +2164,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-172
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-172'(suite) -> [];
 'not-wf-sa-172'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/172.xml"]),
@@ -2354,7 +2176,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-173
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-173'(suite) -> [];
 'not-wf-sa-173'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/173.xml"]),
@@ -2367,7 +2188,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-174
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-174'(suite) -> [];
 'not-wf-sa-174'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/174.xml"]),
@@ -2380,7 +2200,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-175
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-175'(suite) -> [];
 'not-wf-sa-175'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/175.xml"]),
@@ -2393,7 +2212,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-176
 %% Type: not-wf
 %% Sections: 3 [39]
-'not-wf-sa-176'(suite) -> [];
 'not-wf-sa-176'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/176.xml"]),
@@ -2406,7 +2224,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-177
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'not-wf-sa-177'(suite) -> [];
 'not-wf-sa-177'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/177.xml"]),
@@ -2419,7 +2236,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-178
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'not-wf-sa-178'(suite) -> [];
 'not-wf-sa-178'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/178.xml"]),
@@ -2432,7 +2248,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-179
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'not-wf-sa-179'(suite) -> [];
 'not-wf-sa-179'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/179.xml"]),
@@ -2445,7 +2260,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-180
 %% Type: not-wf
 %% Sections: 4.1
-'not-wf-sa-180'(suite) -> [];
 'not-wf-sa-180'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/180.xml"]),
@@ -2458,7 +2272,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-181
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-181'(suite) -> [];
 'not-wf-sa-181'(_Config) -> {skip, "Entity not tag pair NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/181.xml"]),
@@ -2471,7 +2284,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-182
 %% Type: not-wf
 %% Sections: 4.3.2
-'not-wf-sa-182'(suite) -> [];
 'not-wf-sa-182'(_Config) -> {skip, "Entity not tag pair NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/182.xml"]),
@@ -2484,7 +2296,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-183
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'not-wf-sa-183'(suite) -> [];
 'not-wf-sa-183'(_Config) -> {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/183.xml"]),
@@ -2497,7 +2308,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-184
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'not-wf-sa-184'(suite) -> [];
 'not-wf-sa-184'(_Config) -> {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/184.xml"]),
@@ -2510,7 +2320,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-185
 %% Type: not-wf
 %% Sections: 4.1
-'not-wf-sa-185'(suite) -> [];
 'not-wf-sa-185'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/185.xml"]),
@@ -2523,7 +2332,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa-186
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'not-wf-sa-186'(suite) -> [];
 'not-wf-sa-186'(Config) ->  {skip, "Fix 2"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/sa/186.xml"]),
@@ -2536,7 +2344,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-001
 %% Type: not-wf
 %% Sections: 3.4 [62]
-'not-wf-not-sa-001'(suite) -> [];
 'not-wf-not-sa-001'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/001.xml"]),
@@ -2549,7 +2356,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-002
 %% Type: not-wf
 %% Sections: 2.6 [17]
-'not-wf-not-sa-002'(suite) -> [];
 'not-wf-not-sa-002'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/002.xml"]),
@@ -2562,7 +2368,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-003
 %% Type: not-wf
 %% Sections: 3.4 [62]
-'not-wf-not-sa-003'(suite) -> [];
 'not-wf-not-sa-003'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/003.xml"]),
@@ -2575,7 +2380,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-004
 %% Type: not-wf
 %% Sections: 3.4 [62]
-'not-wf-not-sa-004'(suite) -> [];
 'not-wf-not-sa-004'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/004.xml"]),
@@ -2588,7 +2392,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-005
 %% Type: error
 %% Sections: 4.1
-'not-wf-not-sa-005'(suite) -> [];
 'not-wf-not-sa-005'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/005.xml"]),
@@ -2601,7 +2404,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-006
 %% Type: not-wf
 %% Sections: 3.4 [62]
-'not-wf-not-sa-006'(suite) -> [];
 'not-wf-not-sa-006'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/006.xml"]),
@@ -2614,7 +2416,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-007
 %% Type: not-wf
 %% Sections: 4.3.2 [79]
-'not-wf-not-sa-007'(suite) -> [];
 'not-wf-not-sa-007'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/007.xml"]),
@@ -2627,7 +2428,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-008
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'not-wf-not-sa-008'(suite) -> [];
 'not-wf-not-sa-008'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/008.xml"]),
@@ -2640,7 +2440,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-not-sa-009
 %% Type: not-wf
 %% Sections: 2.8
-'not-wf-not-sa-009'(suite) -> [];
 'not-wf-not-sa-009'(_Config) -> {skip, "not a complete content in PE NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/not-sa/009.xml"]),
@@ -2653,7 +2452,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-ext-sa-001
 %% Type: not-wf
 %% Sections: 4.1
-'not-wf-ext-sa-001'(suite) -> [];
 'not-wf-ext-sa-001'(Config) ->  {skip, "Fix 1"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/ext-sa/001.xml"]),
@@ -2666,7 +2464,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-ext-sa-002
 %% Type: not-wf
 %% Sections: 4.3.1 4.3.2 [77, 78]
-'not-wf-ext-sa-002'(suite) -> [];
 'not-wf-ext-sa-002'(Config) -> {skip, "Fix 1"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/ext-sa/002.xml"]),
@@ -2679,7 +2476,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-ext-sa-003
 %% Type: not-wf
 %% Sections: 2.6 [17]
-'not-wf-ext-sa-003'(suite) -> [];
 'not-wf-ext-sa-003'(Config) -> {skip, "Fix 1"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","not-wf/ext-sa/003.xml"]),
@@ -2692,7 +2488,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: invalid--002
 %% Type: invalid
 %% Sections: 3.2.1
-'invalid--002'(suite) -> [];
 'invalid--002'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","invalid/002.xml"]),
@@ -2705,7 +2500,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: invalid--005
 %% Type: invalid
 %% Sections: 2.8
-'invalid--005'(suite) -> [];
 'invalid--005'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","invalid/005.xml"]),
@@ -2718,7 +2512,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: invalid--006
 %% Type: invalid
 %% Sections: 2.8
-'invalid--006'(suite) -> [];
 'invalid--006'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","invalid/006.xml"]),
@@ -2731,7 +2524,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: invalid-not-sa-022
 %% Type: invalid
 %% Sections: 3.4 [62]
-'invalid-not-sa-022'(suite) -> [];
 'invalid-not-sa-022'(_Config) -> {skip, "DTD element content parsing NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","invalid/not-sa/022.xml"]),
@@ -2744,7 +2536,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-001
 %% Type: valid
 %% Sections: 3.2.2 [51]
-'valid-sa-001'(suite) -> [];
 'valid-sa-001'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/001.xml"]),
@@ -2757,7 +2548,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-002
 %% Type: valid
 %% Sections: 3.1 [40]
-'valid-sa-002'(suite) -> [];
 'valid-sa-002'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/002.xml"]),
@@ -2770,7 +2560,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-003
 %% Type: valid
 %% Sections: 3.1 [42]
-'valid-sa-003'(suite) -> [];
 'valid-sa-003'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/003.xml"]),
@@ -2783,7 +2572,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-004
 %% Type: valid
 %% Sections: 3.1 [41]
-'valid-sa-004'(suite) -> [];
 'valid-sa-004'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/004.xml"]),
@@ -2796,7 +2584,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-005
 %% Type: valid
 %% Sections: 3.1 [40]
-'valid-sa-005'(suite) -> [];
 'valid-sa-005'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/005.xml"]),
@@ -2809,7 +2596,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-006
 %% Type: valid
 %% Sections: 3.1 [41]
-'valid-sa-006'(suite) -> [];
 'valid-sa-006'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/006.xml"]),
@@ -2822,7 +2608,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-007
 %% Type: valid
 %% Sections: 3.1 4.6 [43]
-'valid-sa-007'(suite) -> [];
 'valid-sa-007'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/007.xml"]),
@@ -2835,7 +2620,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-008
 %% Type: valid
 %% Sections: 2.4 3.1 [43]
-'valid-sa-008'(suite) -> [];
 'valid-sa-008'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/008.xml"]),
@@ -2848,7 +2632,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-009
 %% Type: valid
 %% Sections: 2.3 3.1 [43]
-'valid-sa-009'(suite) -> [];
 'valid-sa-009'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/009.xml"]),
@@ -2861,7 +2644,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-010
 %% Type: valid
 %% Sections: 3.1 [40]
-'valid-sa-010'(suite) -> [];
 'valid-sa-010'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/010.xml"]),
@@ -2874,7 +2656,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-011
 %% Type: valid
 %% Sections: 3.1 [40]
-'valid-sa-011'(suite) -> [];
 'valid-sa-011'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/011.xml"]),
@@ -2887,7 +2668,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-012
 %% Type: valid
 %% Sections: 2.3 [4]
-'valid-sa-012'(suite) -> [];
 'valid-sa-012'(Config) ->  {skip, "Fix 1"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/012.xml"]),
@@ -2900,7 +2680,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-013
 %% Type: valid
 %% Sections: 2.3 3.1 [13] [40]
-'valid-sa-013'(suite) -> [];
 'valid-sa-013'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/013.xml"]),
@@ -2913,7 +2692,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-014
 %% Type: valid
 %% Sections: 2.3 3.1 [13] [40]
-'valid-sa-014'(suite) -> [];
 'valid-sa-014'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/014.xml"]),
@@ -2926,7 +2704,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-015
 %% Type: valid
 %% Sections: 2.3 3.1 [13] [40]
-'valid-sa-015'(suite) -> [];
 'valid-sa-015'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/015.xml"]),
@@ -2939,7 +2716,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-016
 %% Type: valid
 %% Sections: 2.6 3.1 [16] [43]
-'valid-sa-016'(suite) -> [];
 'valid-sa-016'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/016.xml"]),
@@ -2952,7 +2728,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-017
 %% Type: valid
 %% Sections: 2.6 3.1 [16] [43]
-'valid-sa-017'(suite) -> [];
 'valid-sa-017'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/017.xml"]),
@@ -2965,7 +2740,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-018
 %% Type: valid
 %% Sections: 2.7 3.1 [18] [43]
-'valid-sa-018'(suite) -> [];
 'valid-sa-018'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/018.xml"]),
@@ -2978,7 +2752,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-019
 %% Type: valid
 %% Sections: 2.7 3.1 [18] [43]
-'valid-sa-019'(suite) -> [];
 'valid-sa-019'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/019.xml"]),
@@ -2991,7 +2764,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-020
 %% Type: valid
 %% Sections: 2.7 3.1 [18] [43]
-'valid-sa-020'(suite) -> [];
 'valid-sa-020'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/020.xml"]),
@@ -3004,7 +2776,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-021
 %% Type: valid
 %% Sections: 2.5 3.1 [15] [43]
-'valid-sa-021'(suite) -> [];
 'valid-sa-021'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/021.xml"]),
@@ -3017,7 +2788,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-022
 %% Type: valid
 %% Sections: 2.5 3.1 [15] [43]
-'valid-sa-022'(suite) -> [];
 'valid-sa-022'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/022.xml"]),
@@ -3030,7 +2800,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-023
 %% Type: valid
 %% Sections: 3.1 [43]
-'valid-sa-023'(suite) -> [];
 'valid-sa-023'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/023.xml"]),
@@ -3043,7 +2812,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-024
 %% Type: valid
 %% Sections: 3.1 4.1 [43] [66]
-'valid-sa-024'(suite) -> [];
 'valid-sa-024'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/024.xml"]),
@@ -3056,7 +2824,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-025
 %% Type: valid
 %% Sections: 3.2 [46]
-'valid-sa-025'(suite) -> [];
 'valid-sa-025'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/025.xml"]),
@@ -3069,7 +2836,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-026
 %% Type: valid
 %% Sections: 3.2 [46]
-'valid-sa-026'(suite) -> [];
 'valid-sa-026'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/026.xml"]),
@@ -3082,7 +2848,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-027
 %% Type: valid
 %% Sections: 3.2 [46]
-'valid-sa-027'(suite) -> [];
 'valid-sa-027'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/027.xml"]),
@@ -3095,7 +2860,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-028
 %% Type: valid
 %% Sections: 2.8 [24]
-'valid-sa-028'(suite) -> [];
 'valid-sa-028'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/028.xml"]),
@@ -3108,7 +2872,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-029
 %% Type: valid
 %% Sections: 2.8 [24]
-'valid-sa-029'(suite) -> [];
 'valid-sa-029'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/029.xml"]),
@@ -3121,7 +2884,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-030
 %% Type: valid
 %% Sections: 2.8 [25]
-'valid-sa-030'(suite) -> [];
 'valid-sa-030'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/030.xml"]),
@@ -3134,7 +2896,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-031
 %% Type: valid
 %% Sections: 4.3.3 [80]
-'valid-sa-031'(suite) -> [];
 'valid-sa-031'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/031.xml"]),
@@ -3147,7 +2908,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-032
 %% Type: valid
 %% Sections: 2.9 [32]
-'valid-sa-032'(suite) -> [];
 'valid-sa-032'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/032.xml"]),
@@ -3160,7 +2920,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-033
 %% Type: valid
 %% Sections: 2.8 [23]
-'valid-sa-033'(suite) -> [];
 'valid-sa-033'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/033.xml"]),
@@ -3173,7 +2932,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-034
 %% Type: valid
 %% Sections: 3.1 [44]
-'valid-sa-034'(suite) -> [];
 'valid-sa-034'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/034.xml"]),
@@ -3186,7 +2944,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-035
 %% Type: valid
 %% Sections: 3.1 [44]
-'valid-sa-035'(suite) -> [];
 'valid-sa-035'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/035.xml"]),
@@ -3199,7 +2956,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-036
 %% Type: valid
 %% Sections: 2.6 [16]
-'valid-sa-036'(suite) -> [];
 'valid-sa-036'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/036.xml"]),
@@ -3212,7 +2968,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-037
 %% Type: valid
 %% Sections: 2.6 [15]
-'valid-sa-037'(suite) -> [];
 'valid-sa-037'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/037.xml"]),
@@ -3225,7 +2980,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-038
 %% Type: valid
 %% Sections: 2.6 [15]
-'valid-sa-038'(suite) -> [];
 'valid-sa-038'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/038.xml"]),
@@ -3238,7 +2992,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-039
 %% Type: valid
 %% Sections: 2.6 [16]
-'valid-sa-039'(suite) -> [];
 'valid-sa-039'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/039.xml"]),
@@ -3251,7 +3004,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-040
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [54]
-'valid-sa-040'(suite) -> [];
 'valid-sa-040'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/040.xml"]),
@@ -3264,7 +3016,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-041
 %% Type: valid
 %% Sections: 3.3.1 4.1 [54] [66]
-'valid-sa-041'(suite) -> [];
 'valid-sa-041'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/041.xml"]),
@@ -3277,7 +3028,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-042
 %% Type: valid
 %% Sections: 3.3.1 4.1 [54] [66]
-'valid-sa-042'(suite) -> [];
 'valid-sa-042'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/042.xml"]),
@@ -3290,7 +3040,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-043
 %% Type: valid
 %% Sections: 3.3
-'valid-sa-043'(suite) -> [];
 'valid-sa-043'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/043.xml"]),
@@ -3303,7 +3052,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-044
 %% Type: valid
 %% Sections: 3.1 [44]
-'valid-sa-044'(suite) -> [];
 'valid-sa-044'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/044.xml"]),
@@ -3316,7 +3064,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-045
 %% Type: valid
 %% Sections: 3.3 [52]
-'valid-sa-045'(suite) -> [];
 'valid-sa-045'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/045.xml"]),
@@ -3329,7 +3076,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-046
 %% Type: valid
 %% Sections: 3.3 [52]
-'valid-sa-046'(suite) -> [];
 'valid-sa-046'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/046.xml"]),
@@ -3342,7 +3088,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-047
 %% Type: valid
 %% Sections: 3.1 [43]
-'valid-sa-047'(suite) -> [];
 'valid-sa-047'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/047.xml"]),
@@ -3355,7 +3100,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-048
 %% Type: valid
 %% Sections: 2.4 3.1 [14] [43]
-'valid-sa-048'(suite) -> [];
 'valid-sa-048'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/048.xml"]),
@@ -3368,7 +3112,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-049
 %% Type: valid
 %% Sections: 2.2 [2]
-'valid-sa-049'(suite) -> [];
 'valid-sa-049'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/049.xml"]),
@@ -3381,7 +3124,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-050
 %% Type: valid
 %% Sections: 2.2 [2]
-'valid-sa-050'(suite) -> [];
 'valid-sa-050'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/050.xml"]),
@@ -3394,7 +3136,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-051
 %% Type: valid
 %% Sections: 2.2 [2]
-'valid-sa-051'(suite) -> [];
 'valid-sa-051'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/051.xml"]),
@@ -3407,7 +3148,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-052
 %% Type: valid
 %% Sections: 2.2 [2]
-'valid-sa-052'(suite) -> [];
 'valid-sa-052'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/052.xml"]),
@@ -3420,7 +3160,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-053
 %% Type: valid
 %% Sections: 4.4.2
-'valid-sa-053'(suite) -> [];
 'valid-sa-053'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/053.xml"]),
@@ -3433,7 +3172,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-054
 %% Type: valid
 %% Sections: 3.1 [40] [42]
-'valid-sa-054'(suite) -> [];
 'valid-sa-054'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/054.xml"]),
@@ -3446,7 +3184,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-055
 %% Type: valid
 %% Sections: 2.6 2.10 [16]
-'valid-sa-055'(suite) -> [];
 'valid-sa-055'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/055.xml"]),
@@ -3459,7 +3196,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-056
 %% Type: valid
 %% Sections: 3.3.1 4.1 [54] [66]
-'valid-sa-056'(suite) -> [];
 'valid-sa-056'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/056.xml"]),
@@ -3472,7 +3208,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-057
 %% Type: valid
 %% Sections: 3.2.1 [47]
-'valid-sa-057'(suite) -> [];
 'valid-sa-057'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/057.xml"]),
@@ -3485,7 +3220,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-058
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-058'(suite) -> [];
 'valid-sa-058'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/058.xml"]),
@@ -3498,7 +3232,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-059
 %% Type: valid
 %% Sections: 3.2 3.3 [46] [53]
-'valid-sa-059'(suite) -> [];
 'valid-sa-059'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/059.xml"]),
@@ -3511,7 +3244,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-060
 %% Type: valid
 %% Sections: 4.1 [66]
-'valid-sa-060'(suite) -> [];
 'valid-sa-060'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/060.xml"]),
@@ -3524,7 +3256,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-061
 %% Type: valid
 %% Sections: 4.1 [66]
-'valid-sa-061'(suite) -> [];
 'valid-sa-061'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/061.xml"]),
@@ -3537,7 +3268,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-062
 %% Type: valid
 %% Sections: 4.1 [66]
-'valid-sa-062'(suite) -> [];
 'valid-sa-062'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/062.xml"]),
@@ -3550,7 +3280,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-063
 %% Type: valid
 %% Sections: 2.3 [5]
-'valid-sa-063'(suite) -> [];
 'valid-sa-063'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/063.xml"]),
@@ -3563,7 +3292,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-064
 %% Type: valid
 %% Sections: 4.1 [66]
-'valid-sa-064'(suite) -> [];
 'valid-sa-064'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/064.xml"]),
@@ -3576,7 +3304,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-065
 %% Type: valid
 %% Sections: 4.5
-'valid-sa-065'(suite) -> [];
 'valid-sa-065'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/065.xml"]),
@@ -3589,7 +3316,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-066
 %% Type: valid
 %% Sections: 4.1 [66]
-'valid-sa-066'(suite) -> [];
 'valid-sa-066'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/066.xml"]),
@@ -3602,7 +3328,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-067
 %% Type: valid
 %% Sections: 4.1 [66]
-'valid-sa-067'(suite) -> [];
 'valid-sa-067'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/067.xml"]),
@@ -3615,7 +3340,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-068
 %% Type: valid
 %% Sections: 2.11, 4.5
-'valid-sa-068'(suite) -> [];
 'valid-sa-068'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/068.xml"]),
@@ -3628,7 +3352,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-069
 %% Type: valid
 %% Sections: 4.7
-'valid-sa-069'(suite) -> [];
 'valid-sa-069'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/069.xml"]),
@@ -3641,7 +3364,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-070
 %% Type: valid
 %% Sections: 4.4.8
-'valid-sa-070'(suite) -> [];
 'valid-sa-070'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/070.xml"]),
@@ -3654,7 +3376,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-071
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [56]
-'valid-sa-071'(suite) -> [];
 'valid-sa-071'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/071.xml"]),
@@ -3667,7 +3388,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-072
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [56]
-'valid-sa-072'(suite) -> [];
 'valid-sa-072'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/072.xml"]),
@@ -3680,7 +3400,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-073
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [56]
-'valid-sa-073'(suite) -> [];
 'valid-sa-073'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/073.xml"]),
@@ -3693,7 +3412,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-074
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [56]
-'valid-sa-074'(suite) -> [];
 'valid-sa-074'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/074.xml"]),
@@ -3706,7 +3424,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-075
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [56]
-'valid-sa-075'(suite) -> [];
 'valid-sa-075'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/075.xml"]),
@@ -3719,7 +3436,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-076
 %% Type: valid
 %% Sections: 3.3.1
-'valid-sa-076'(suite) -> [];
 'valid-sa-076'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/076.xml"]),
@@ -3732,7 +3448,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-077
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [54]
-'valid-sa-077'(suite) -> [];
 'valid-sa-077'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/077.xml"]),
@@ -3745,7 +3460,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-078
 %% Type: valid
 %% Sections: 3.3 3.3.1 [52] [54]
-'valid-sa-078'(suite) -> [];
 'valid-sa-078'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/078.xml"]),
@@ -3758,7 +3472,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-079
 %% Type: valid
 %% Sections: 3.3 3.3.2 [52] [60]
-'valid-sa-079'(suite) -> [];
 'valid-sa-079'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/079.xml"]),
@@ -3771,7 +3484,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-080
 %% Type: valid
 %% Sections: 3.3 3.3.2 [52] [60]
-'valid-sa-080'(suite) -> [];
 'valid-sa-080'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/080.xml"]),
@@ -3784,7 +3496,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-081
 %% Type: valid
 %% Sections: 3.2.1 [50]
-'valid-sa-081'(suite) -> [];
 'valid-sa-081'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/081.xml"]),
@@ -3797,7 +3508,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-082
 %% Type: valid
 %% Sections: 4.2 [72]
-'valid-sa-082'(suite) -> [];
 'valid-sa-082'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/082.xml"]),
@@ -3810,7 +3520,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-083
 %% Type: valid
 %% Sections: 4.2 [72]
-'valid-sa-083'(suite) -> [];
 'valid-sa-083'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/083.xml"]),
@@ -3823,7 +3532,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-084
 %% Type: valid
 %% Sections: 2.10
-'valid-sa-084'(suite) -> [];
 'valid-sa-084'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/084.xml"]),
@@ -3836,7 +3544,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-085
 %% Type: valid
 %% Sections: 4
-'valid-sa-085'(suite) -> [];
 'valid-sa-085'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/085.xml"]),
@@ -3849,7 +3556,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-086
 %% Type: valid
 %% Sections: 4.2
-'valid-sa-086'(suite) -> [];
 'valid-sa-086'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/086.xml"]),
@@ -3862,7 +3568,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-087
 %% Type: valid
 %% Sections: 4.5
-'valid-sa-087'(suite) -> [];
 'valid-sa-087'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/087.xml"]),
@@ -3875,7 +3580,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-088
 %% Type: valid
 %% Sections: 4.5
-'valid-sa-088'(suite) -> [];
 'valid-sa-088'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/088.xml"]),
@@ -3888,7 +3592,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-089
 %% Type: valid
 %% Sections: 4.1 [66]
-'valid-sa-089'(suite) -> [];
 'valid-sa-089'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/089.xml"]),
@@ -3901,7 +3604,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-090
 %% Type: valid
 %% Sections: 3.3.1
-'valid-sa-090'(suite) -> [];
 'valid-sa-090'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/090.xml"]),
@@ -3914,7 +3616,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-091
 %% Type: valid
 %% Sections: 3.3.1
-'valid-sa-091'(suite) -> [];
 'valid-sa-091'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/091.xml"]),
@@ -3927,7 +3628,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-092
 %% Type: valid
 %% Sections: 2.3 2.10
-'valid-sa-092'(suite) -> [];
 'valid-sa-092'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/092.xml"]),
@@ -3940,7 +3640,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-093
 %% Type: valid
 %% Sections: 2.10
-'valid-sa-093'(suite) -> [];
 'valid-sa-093'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/093.xml"]),
@@ -3953,7 +3652,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-094
 %% Type: valid
 %% Sections: 2.8
-'valid-sa-094'(suite) -> [];
 'valid-sa-094'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/094.xml"]),
@@ -3966,7 +3664,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-095
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-095'(suite) -> [];
 'valid-sa-095'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/095.xml"]),
@@ -3979,7 +3676,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-096
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-096'(suite) -> [];
 'valid-sa-096'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/096.xml"]),
@@ -3992,7 +3688,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-097
 %% Type: valid
 %% Sections: 3.3
-'valid-sa-097'(suite) -> [];
 'valid-sa-097'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/097.xml"]),
@@ -4005,7 +3700,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-098
 %% Type: valid
 %% Sections: 2.6 2.10 [16]
-'valid-sa-098'(suite) -> [];
 'valid-sa-098'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/098.xml"]),
@@ -4018,7 +3712,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-099
 %% Type: valid
 %% Sections: 4.3.3 [81]
-'valid-sa-099'(suite) -> [];
 'valid-sa-099'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/099.xml"]),
@@ -4031,7 +3724,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-100
 %% Type: valid
 %% Sections: 2.3 [12]
-'valid-sa-100'(suite) -> [];
 'valid-sa-100'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/100.xml"]),
@@ -4044,7 +3736,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-101
 %% Type: valid
 %% Sections: 4.5
-'valid-sa-101'(suite) -> [];
 'valid-sa-101'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/101.xml"]),
@@ -4057,7 +3748,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-102
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-102'(suite) -> [];
 'valid-sa-102'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/102.xml"]),
@@ -4070,7 +3760,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-103
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-103'(suite) -> [];
 'valid-sa-103'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/103.xml"]),
@@ -4083,7 +3772,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-104
 %% Type: valid
 %% Sections: 3.1 [40]
-'valid-sa-104'(suite) -> [];
 'valid-sa-104'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/104.xml"]),
@@ -4096,7 +3784,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-105
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-105'(suite) -> [];
 'valid-sa-105'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/105.xml"]),
@@ -4109,7 +3796,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-106
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-106'(suite) -> [];
 'valid-sa-106'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/106.xml"]),
@@ -4122,7 +3808,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-107
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-107'(suite) -> [];
 'valid-sa-107'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/107.xml"]),
@@ -4135,7 +3820,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-108
 %% Type: valid
 %% Sections: 2.11, 3.3.3
-'valid-sa-108'(suite) -> [];
 'valid-sa-108'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/108.xml"]),
@@ -4148,7 +3832,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-109
 %% Type: valid
 %% Sections: 2.3 3.1 [10][40][41]
-'valid-sa-109'(suite) -> [];
 'valid-sa-109'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/109.xml"]),
@@ -4161,7 +3844,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-110
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-110'(suite) -> [];
 'valid-sa-110'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/110.xml"]),
@@ -4174,7 +3856,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-111
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-111'(suite) -> [];
 'valid-sa-111'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/111.xml"]),
@@ -4187,7 +3868,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-112
 %% Type: valid
 %% Sections: 3.2.1 [48][49]
-'valid-sa-112'(suite) -> [];
 'valid-sa-112'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/112.xml"]),
@@ -4200,7 +3880,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-113
 %% Type: valid
 %% Sections: 3.3 [52][53]
-'valid-sa-113'(suite) -> [];
 'valid-sa-113'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/113.xml"]),
@@ -4213,7 +3892,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-114
 %% Type: valid
 %% Sections: 2.7 [20]
-'valid-sa-114'(suite) -> [];
 'valid-sa-114'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/114.xml"]),
@@ -4226,7 +3904,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-115
 %% Type: valid
 %% Sections: 3.3.3
-'valid-sa-115'(suite) -> [];
 'valid-sa-115'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/115.xml"]),
@@ -4239,7 +3916,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-116
 %% Type: valid
 %% Sections: 2.11
-'valid-sa-116'(suite) -> [];
 'valid-sa-116'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/116.xml"]),
@@ -4252,7 +3928,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-117
 %% Type: valid
 %% Sections: 4.5
-'valid-sa-117'(suite) -> [];
 'valid-sa-117'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/117.xml"]),
@@ -4265,7 +3940,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-118
 %% Type: valid
 %% Sections: 4.5
-'valid-sa-118'(suite) -> [];
 'valid-sa-118'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/118.xml"]),
@@ -4278,7 +3952,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-sa-119
 %% Type: valid
 %% Sections: 2.5
-'valid-sa-119'(suite) -> [];
 'valid-sa-119'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/sa/119.xml"]),
@@ -4291,7 +3964,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-001
 %% Type: valid
 %% Sections: 4.2.2 [75]
-'valid-not-sa-001'(suite) -> [];
 'valid-not-sa-001'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/001.xml"]),
@@ -4304,7 +3976,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-002
 %% Type: valid
 %% Sections: 4.2.2 [75]
-'valid-not-sa-002'(suite) -> [];
 'valid-not-sa-002'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/002.xml"]),
@@ -4317,7 +3988,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-003
 %% Type: valid
 %% Sections: 4.1 [69]
-'valid-not-sa-003'(suite) -> [];
 'valid-not-sa-003'(_Config) -> {skip, "external entity NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/003.xml"]),
@@ -4330,7 +4000,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-004
 %% Type: valid
 %% Sections: 4.1 [69]
-'valid-not-sa-004'(suite) -> [];
 'valid-not-sa-004'(_Config) -> {skip, "external entity NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/004.xml"]),
@@ -4343,7 +4012,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-005
 %% Type: valid
 %% Sections: 4.1 [69]
-'valid-not-sa-005'(suite) -> [];
 'valid-not-sa-005'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/005.xml"]),
@@ -4356,7 +4024,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-006
 %% Type: valid
 %% Sections: 3.3 [52]
-'valid-not-sa-006'(suite) -> [];
 'valid-not-sa-006'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/006.xml"]),
@@ -4369,7 +4036,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-007
 %% Type: valid
 %% Sections: 3.3 [52]
-'valid-not-sa-007'(suite) -> [];
 'valid-not-sa-007'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/007.xml"]),
@@ -4382,7 +4048,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-008
 %% Type: valid
 %% Sections: 4.2.2 [75]
-'valid-not-sa-008'(suite) -> [];
 'valid-not-sa-008'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/008.xml"]),
@@ -4395,7 +4060,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-009
 %% Type: valid
 %% Sections: 4.2.2 [75]
-'valid-not-sa-009'(suite) -> [];
 'valid-not-sa-009'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/009.xml"]),
@@ -4408,7 +4072,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-010
 %% Type: valid
 %% Sections: 3.3 [52]
-'valid-not-sa-010'(suite) -> [];
 'valid-not-sa-010'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/010.xml"]),
@@ -4421,7 +4084,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-011
 %% Type: valid
 %% Sections: 4.2 4.2.1 [72] [75]
-'valid-not-sa-011'(suite) -> [];
 'valid-not-sa-011'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/011.xml"]),
@@ -4434,7 +4096,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-012
 %% Type: valid
 %% Sections: 4.3.1 [77]
-'valid-not-sa-012'(suite) -> [];
 'valid-not-sa-012'(Config) -> {skip, "Fix 3"}.
   %%  file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %% Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/012.xml"]),
@@ -4447,7 +4108,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-013
 %% Type: valid
 %% Sections: 3.4 [62]
-'valid-not-sa-013'(suite) -> [];
 'valid-not-sa-013'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/013.xml"]),
@@ -4460,7 +4120,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-014
 %% Type: valid
 %% Sections: 3.4 [62]
-'valid-not-sa-014'(suite) -> [];
 'valid-not-sa-014'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/014.xml"]),
@@ -4473,7 +4132,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-015
 %% Type: valid
 %% Sections: 3.4 [63]
-'valid-not-sa-015'(suite) -> [];
 'valid-not-sa-015'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/015.xml"]),
@@ -4486,7 +4144,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-016
 %% Type: valid
 %% Sections: 3.4 [62]
-'valid-not-sa-016'(suite) -> [];
 'valid-not-sa-016'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/016.xml"]),
@@ -4499,7 +4156,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-017
 %% Type: valid
 %% Sections: 4.2 [72]
-'valid-not-sa-017'(suite) -> [];
 'valid-not-sa-017'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/017.xml"]),
@@ -4512,7 +4168,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-018
 %% Type: valid
 %% Sections: 4.2.2 [75]
-'valid-not-sa-018'(suite) -> [];
 'valid-not-sa-018'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/018.xml"]),
@@ -4525,7 +4180,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-019
 %% Type: valid
 %% Sections: 4.4.8
-'valid-not-sa-019'(suite) -> [];
 'valid-not-sa-019'(_Config) -> {skip, "partly replacement of markupdecls"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/019.xml"]),
@@ -4538,7 +4192,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-020
 %% Type: valid
 %% Sections: 4.4.8
-'valid-not-sa-020'(suite) -> [];
 'valid-not-sa-020'(_Config) -> {skip, "partly replacement of markupdecls"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/020.xml"]),
@@ -4551,7 +4204,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-021
 %% Type: valid
 %% Sections: 4.2 [72]
-'valid-not-sa-021'(suite) -> [];
 'valid-not-sa-021'(_Config) -> {skip, "partly replacement of markupdecls"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/021.xml"]),
@@ -4564,7 +4216,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-023
 %% Type: valid
 %% Sections: 2.3 4.1 [10] [69]
-'valid-not-sa-023'(suite) -> [];
 'valid-not-sa-023'(_Config) -> {skip, "partly replacement of markupdecls"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/023.xml"]),
@@ -4577,7 +4228,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-024
 %% Type: valid
 %% Sections: 2.8, 4.1 [69]
-'valid-not-sa-024'(suite) -> [];
 'valid-not-sa-024'(_Config) -> {skip, "partly replacement of markupdecls"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/024.xml"]),
@@ -4590,7 +4240,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-025
 %% Type: valid
 %% Sections: 4.2
-'valid-not-sa-025'(suite) -> [];
 'valid-not-sa-025'(_Config) -> {skip, "partly replacement of markupdecls"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/025.xml"]),
@@ -4603,7 +4252,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-026
 %% Type: valid
 %% Sections: 3.3 [52]
-'valid-not-sa-026'(suite) -> [];
 'valid-not-sa-026'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/026.xml"]),
@@ -4616,7 +4264,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-027
 %% Type: valid
 %% Sections: 4.1 [69]
-'valid-not-sa-027'(suite) -> [];
 'valid-not-sa-027'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/027.xml"]),
@@ -4629,7 +4276,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-028
 %% Type: valid
 %% Sections: 3.4 [62]
-'valid-not-sa-028'(suite) -> [];
 'valid-not-sa-028'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/028.xml"]),
@@ -4642,7 +4288,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-029
 %% Type: valid
 %% Sections: 3.4 [62]
-'valid-not-sa-029'(suite) -> [];
 'valid-not-sa-029'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/029.xml"]),
@@ -4655,7 +4300,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-030
 %% Type: valid
 %% Sections: 3.4 [62]
-'valid-not-sa-030'(suite) -> [];
 'valid-not-sa-030'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/030.xml"]),
@@ -4668,7 +4312,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-not-sa-031
 %% Type: valid
 %% Sections: 2.7
-'valid-not-sa-031'(suite) -> [];
 'valid-not-sa-031'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/not-sa/031.xml"]),
@@ -4681,7 +4324,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-001
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-001'(suite) -> [];
 'valid-ext-sa-001'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/001.xml"]),
@@ -4694,7 +4336,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-002
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-002'(suite) -> [];
 'valid-ext-sa-002'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/002.xml"]),
@@ -4707,7 +4348,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-003
 %% Type: valid
 %% Sections: 3.1 4.1 [43] [68]
-'valid-ext-sa-003'(suite) -> [];
 'valid-ext-sa-003'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/003.xml"]),
@@ -4720,7 +4360,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-004
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-004'(suite) -> [];
 'valid-ext-sa-004'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/004.xml"]),
@@ -4733,7 +4372,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-005
 %% Type: valid
 %% Sections: 3.2.1 4.2.2 [48] [75]
-'valid-ext-sa-005'(suite) -> [];
 'valid-ext-sa-005'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/005.xml"]),
@@ -4746,7 +4384,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-006
 %% Type: valid
 %% Sections: 2.11 3.2.1 3.2.2 4.2.2 [48] [51] [75]
-'valid-ext-sa-006'(suite) -> [];
 'valid-ext-sa-006'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/006.xml"]),
@@ -4759,7 +4396,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-007
 %% Type: valid
 %% Sections: 4.2.2 4.4.3 [75]
-'valid-ext-sa-007'(suite) -> [];
 'valid-ext-sa-007'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/007.xml"]),
@@ -4772,7 +4408,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-008
 %% Type: valid
 %% Sections: 4.2.2 4.3.3. 4.4.3 [75] [80]
-'valid-ext-sa-008'(suite) -> [];
 'valid-ext-sa-008'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/008.xml"]),
@@ -4785,7 +4420,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-009
 %% Type: valid
 %% Sections: 2.11
-'valid-ext-sa-009'(suite) -> [];
 'valid-ext-sa-009'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/009.xml"]),
@@ -4798,7 +4432,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-011
 %% Type: valid
 %% Sections: 2.11 4.2.2 [75]
-'valid-ext-sa-011'(suite) -> [];
 'valid-ext-sa-011'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/011.xml"]),
@@ -4811,7 +4444,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-012
 %% Type: valid
 %% Sections: 4.2.1 4.2.2
-'valid-ext-sa-012'(suite) -> [];
 'valid-ext-sa-012'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/012.xml"]),
@@ -4824,7 +4456,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-013
 %% Type: valid
 %% Sections: 3.3.3
-'valid-ext-sa-013'(suite) -> [];
 'valid-ext-sa-013'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/013.xml"]),
@@ -4837,7 +4468,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: valid-ext-sa-014
 %% Type: valid
 %% Sections: 4.1 4.4.3 [68]
-'valid-ext-sa-014'(suite) -> [];
 'valid-ext-sa-014'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"xmltest","valid/ext-sa/014.xml"]),
@@ -4860,7 +4490,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pr-xml-euc-jp
 %% Type: error
 %% Sections: 4.3.3 [4,84]
-'pr-xml-euc-jp'(suite) -> [];
 'pr-xml-euc-jp'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","pr-xml-euc-jp.xml"]),
@@ -4873,7 +4502,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pr-xml-iso-2022-jp
 %% Type: error
 %% Sections: 4.3.3 [4,84]
-'pr-xml-iso-2022-jp'(suite) -> [];
 'pr-xml-iso-2022-jp'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","pr-xml-iso-2022-jp.xml"]),
@@ -4886,7 +4514,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pr-xml-little
 %% Type: valid
 %% Sections: 4.3.3 [4,84]
-'pr-xml-little'(suite) -> [];
 'pr-xml-little'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","pr-xml-little-endian.xml"]),
@@ -4899,7 +4526,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pr-xml-shift_jis
 %% Type: error
 %% Sections: 4.3.3 [4,84]
-'pr-xml-shift_jis'(suite) -> [];
 'pr-xml-shift_jis'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","pr-xml-shift_jis.xml"]),
@@ -4912,7 +4538,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pr-xml-utf-16
 %% Type: valid
 %% Sections: 4.3.3 [4,84]
-'pr-xml-utf-16'(suite) -> [];
 'pr-xml-utf-16'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","pr-xml-utf-16.xml"]),
@@ -4925,7 +4550,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pr-xml-utf-8
 %% Type: valid
 %% Sections: 4.3.3 [4,84]
-'pr-xml-utf-8'(suite) -> [];
 'pr-xml-utf-8'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","pr-xml-utf-8.xml"]),
@@ -4938,7 +4562,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: weekly-euc-jp
 %% Type: error
 %% Sections: 4.3.3 [4,84]
-'weekly-euc-jp'(suite) -> [];
 'weekly-euc-jp'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","weekly-euc-jp.xml"]),
@@ -4951,7 +4574,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: weekly-iso-2022-jp
 %% Type: error
 %% Sections: 4.3.3 [4,84]
-'weekly-iso-2022-jp'(suite) -> [];
 'weekly-iso-2022-jp'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","weekly-iso-2022-jp.xml"]),
@@ -4964,7 +4586,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: weekly-little
 %% Type: valid
 %% Sections: 4.3.3 [4,84]
-'weekly-little'(suite) -> [];
 'weekly-little'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","weekly-little-endian.xml"]),
@@ -4977,7 +4598,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: weekly-shift_jis
 %% Type: error
 %% Sections: 4.3.3 [4,84]
-'weekly-shift_jis'(suite) -> [];
 'weekly-shift_jis'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","weekly-shift_jis.xml"]),
@@ -4990,7 +4610,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: weekly-utf-16
 %% Type: valid
 %% Sections: 4.3.3 [4,84]
-'weekly-utf-16'(suite) -> [];
 'weekly-utf-16'(Config) -> {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","weekly-utf-16.xml"]),
@@ -5003,7 +4622,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: weekly-utf-8
 %% Type: valid
 %% Sections: 4.3.3 [4,84]
-'weekly-utf-8'(suite) -> [];
 'weekly-utf-8'(Config) -> {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"japanese","weekly-utf-8.xml"]),
@@ -5026,7 +4644,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pe01
 %% Type: valid
 %% Sections: 2.8
-'pe01'(suite) -> [];
 'pe01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/pe01.xml"]),
@@ -5039,7 +4656,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: dtd00
 %% Type: valid
 %% Sections: 3.2.2 [51]
-'dtd00'(suite) -> [];
 'dtd00'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/dtd00.xml"]),
@@ -5052,7 +4668,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: dtd01
 %% Type: valid
 %% Sections: 2.5 [15]
-'dtd01'(suite) -> [];
 'dtd01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/dtd01.xml"]),
@@ -5065,7 +4680,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: element
 %% Type: valid
 %% Sections: 3
-'element'(suite) -> [];
 'element'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/element.xml"]),
@@ -5078,7 +4692,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ext01
 %% Type: valid
 %% Sections: 4.3.1 4.3.2 [77] [78]
-'ext01'(suite) -> [];
 'ext01'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/ext01.xml"]),
@@ -5091,7 +4704,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ext02
 %% Type: valid
 %% Sections: 4.3.2 [78]
-'ext02'(suite) -> [];
 'ext02'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/ext02.xml"]),
@@ -5104,7 +4716,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-sa01
 %% Type: valid
 %% Sections: 2.9
-'not-sa01'(suite) -> [];
 'not-sa01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/not-sa01.xml"]),
@@ -5117,7 +4728,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-sa02
 %% Type: valid
 %% Sections: 2.9
-'not-sa02'(suite) -> [];
 'not-sa02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/not-sa02.xml"]),
@@ -5130,7 +4740,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-sa03
 %% Type: valid
 %% Sections: 2.9
-'not-sa03'(suite) -> [];
 'not-sa03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/not-sa03.xml"]),
@@ -5143,7 +4752,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-sa04
 %% Type: valid
 %% Sections: 2.9
-'not-sa04'(suite) -> [];
 'not-sa04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/not-sa04.xml"]),
@@ -5156,7 +4764,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: notation01
 %% Type: valid
 %% Sections: 4.7 [82]
-'notation01'(suite) -> [];
 'notation01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/notation01.xml"]),
@@ -5169,7 +4776,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional
 %% Type: valid
 %% Sections: 3 3.2.1 [47]
-'optional'(suite) -> [];
 'optional'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/optional.xml"]),
@@ -5182,7 +4788,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: required00
 %% Type: valid
 %% Sections: 3.3.2 [60]
-'required00'(suite) -> [];
 'required00'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/required00.xml"]),
@@ -5195,7 +4800,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sa01
 %% Type: valid
 %% Sections: 2.9 [32]
-'sa01'(suite) -> [];
 'sa01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/sa01.xml"]),
@@ -5208,7 +4812,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sa02
 %% Type: valid
 %% Sections: 2.9 [32]
-'sa02'(suite) -> [];
 'sa02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/sa02.xml"]),
@@ -5221,7 +4824,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sa03
 %% Type: valid
 %% Sections: 2.9 [32]
-'sa03'(suite) -> [];
 'sa03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/sa03.xml"]),
@@ -5234,7 +4836,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sa04
 %% Type: valid
 %% Sections: 2.9 [32]
-'sa04'(suite) -> [];
 'sa04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/sa04.xml"]),
@@ -5247,7 +4848,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sa05
 %% Type: valid
 %% Sections: 2.9 [32]
-'sa05'(suite) -> [];
 'sa05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/sa05.xml"]),
@@ -5260,7 +4860,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-sgml01
 %% Type: valid
 %% Sections: 3.3.1 [59]
-'v-sgml01'(suite) -> [];
 'v-sgml01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/sgml01.xml"]),
@@ -5273,7 +4872,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-lang01
 %% Type: valid
 %% Sections: 2.12 [35]
-'v-lang01'(suite) -> [];
 'v-lang01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/v-lang01.xml"]),
@@ -5286,7 +4884,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-lang02
 %% Type: valid
 %% Sections: 2.12 [35]
-'v-lang02'(suite) -> [];
 'v-lang02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/v-lang02.xml"]),
@@ -5299,7 +4896,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-lang03
 %% Type: valid
 %% Sections: 2.12 [36]
-'v-lang03'(suite) -> [];
 'v-lang03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/v-lang03.xml"]),
@@ -5312,7 +4908,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-lang04
 %% Type: valid
 %% Sections: 2.12 [37]
-'v-lang04'(suite) -> [];
 'v-lang04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/v-lang04.xml"]),
@@ -5325,7 +4920,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-lang05
 %% Type: valid
 %% Sections: 2.12 [35]
-'v-lang05'(suite) -> [];
 'v-lang05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/v-lang05.xml"]),
@@ -5338,7 +4932,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-lang06
 %% Type: valid
 %% Sections: 2.12 [37]
-'v-lang06'(suite) -> [];
 'v-lang06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/v-lang06.xml"]),
@@ -5351,7 +4944,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-pe00
 %% Type: valid
 %% Sections: 4.5
-'v-pe00'(suite) -> [];
 'v-pe00'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/pe00.xml"]),
@@ -5364,7 +4956,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-pe03
 %% Type: valid
 %% Sections: 4.5
-'v-pe03'(suite) -> [];
 'v-pe03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/pe03.xml"]),
@@ -5377,7 +4968,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: v-pe02
 %% Type: valid
 %% Sections: 4.5
-'v-pe02'(suite) -> [];
 'v-pe02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","valid/pe02.xml"]),
@@ -5390,7 +4980,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-dtd01
 %% Type: invalid
 %% Sections: 3.2.2
-'inv-dtd01'(suite) -> [];
 'inv-dtd01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/dtd01.xml"]),
@@ -5403,7 +4992,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-dtd02
 %% Type: invalid
 %% Sections: 4.2.2
-'inv-dtd02'(suite) -> [];
 'inv-dtd02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/dtd02.xml"]),
@@ -5416,7 +5004,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-dtd03
 %% Type: invalid
 %% Sections: 3
-'inv-dtd03'(suite) -> [];
 'inv-dtd03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/dtd03.xml"]),
@@ -5429,7 +5016,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: el01
 %% Type: invalid
 %% Sections: 3
-'el01'(suite) -> [];
 'el01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/el01.xml"]),
@@ -5442,7 +5028,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: el02
 %% Type: invalid
 %% Sections: 3
-'el02'(suite) -> [];
 'el02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/el02.xml"]),
@@ -5455,7 +5040,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: el03
 %% Type: invalid
 %% Sections: 3
-'el03'(suite) -> [];
 'el03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/el03.xml"]),
@@ -5468,7 +5052,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: el04
 %% Type: invalid
 %% Sections: 3.2
-'el04'(suite) -> [];
 'el04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/el04.xml"]),
@@ -5481,7 +5064,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: el05
 %% Type: invalid
 %% Sections: 3.2.2
-'el05'(suite) -> [];
 'el05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/el05.xml"]),
@@ -5494,7 +5076,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: el06
 %% Type: invalid
 %% Sections: 3
-'el06'(suite) -> [];
 'el06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/el06.xml"]),
@@ -5507,7 +5088,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id01
 %% Type: invalid
 %% Sections: 3.3.1
-'id01'(suite) -> [];
 'id01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id01.xml"]),
@@ -5520,7 +5100,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id02
 %% Type: invalid
 %% Sections: 3.3.1
-'id02'(suite) -> [];
 'id02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id02.xml"]),
@@ -5533,7 +5112,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id03
 %% Type: invalid
 %% Sections: 3.3.1
-'id03'(suite) -> [];
 'id03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id03.xml"]),
@@ -5546,7 +5124,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id04
 %% Type: invalid
 %% Sections: 3.3.1
-'id04'(suite) -> [];
 'id04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id04.xml"]),
@@ -5559,7 +5136,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id05
 %% Type: invalid
 %% Sections: 3.3.1
-'id05'(suite) -> [];
 'id05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id05.xml"]),
@@ -5572,7 +5148,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id06
 %% Type: invalid
 %% Sections: 3.3.1
-'id06'(suite) -> [];
 'id06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id06.xml"]),
@@ -5585,7 +5160,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id07
 %% Type: invalid
 %% Sections: 3.3.1
-'id07'(suite) -> [];
 'id07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id07.xml"]),
@@ -5598,7 +5172,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id08
 %% Type: invalid
 %% Sections: 3.3.1
-'id08'(suite) -> [];
 'id08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id08.xml"]),
@@ -5611,7 +5184,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: id09
 %% Type: invalid
 %% Sections: 3.3.1
-'id09'(suite) -> [];
 'id09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/id09.xml"]),
@@ -5624,7 +5196,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa01
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa01'(suite) -> [];
 'inv-not-sa01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa01.xml"]),
@@ -5637,7 +5208,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa02
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa02'(suite) -> [];
 'inv-not-sa02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa02.xml"]),
@@ -5650,7 +5220,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa04
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa04'(suite) -> [];
 'inv-not-sa04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa04.xml"]),
@@ -5663,7 +5232,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa05
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa05'(suite) -> [];
 'inv-not-sa05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa05.xml"]),
@@ -5676,7 +5244,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa06
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa06'(suite) -> [];
 'inv-not-sa06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa06.xml"]),
@@ -5689,7 +5256,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa07
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa07'(suite) -> [];
 'inv-not-sa07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa07.xml"]),
@@ -5702,7 +5268,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa08
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa08'(suite) -> [];
 'inv-not-sa08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa08.xml"]),
@@ -5715,7 +5280,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa09
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa09'(suite) -> [];
 'inv-not-sa09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa09.xml"]),
@@ -5728,7 +5292,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa10
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa10'(suite) -> [];
 'inv-not-sa10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa10.xml"]),
@@ -5741,7 +5304,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa11
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa11'(suite) -> [];
 'inv-not-sa11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa11.xml"]),
@@ -5754,7 +5316,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa12
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa12'(suite) -> [];
 'inv-not-sa12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa12.xml"]),
@@ -5767,7 +5328,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa13
 %% Type: invalid
 %% Sections: 2.9
-'inv-not-sa13'(suite) -> [];
 'inv-not-sa13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa13.xml"]),
@@ -5780,7 +5340,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-not-sa14
 %% Type: invalid
 %% Sections: 3
-'inv-not-sa14'(suite) -> [];
 'inv-not-sa14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/not-sa14.xml"]),
@@ -5793,7 +5352,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional01
 %% Type: invalid
 %% Sections: 3
-'optional01'(suite) -> [];
 'optional01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional01.xml"]),
@@ -5806,7 +5364,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional02
 %% Type: invalid
 %% Sections: 3
-'optional02'(suite) -> [];
 'optional02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional02.xml"]),
@@ -5819,7 +5376,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional03
 %% Type: invalid
 %% Sections: 3
-'optional03'(suite) -> [];
 'optional03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional03.xml"]),
@@ -5832,7 +5388,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional04
 %% Type: invalid
 %% Sections: 3
-'optional04'(suite) -> [];
 'optional04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional04.xml"]),
@@ -5845,7 +5400,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional05
 %% Type: invalid
 %% Sections: 3
-'optional05'(suite) -> [];
 'optional05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional05.xml"]),
@@ -5858,7 +5412,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional06
 %% Type: invalid
 %% Sections: 3
-'optional06'(suite) -> [];
 'optional06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional06.xml"]),
@@ -5871,7 +5424,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional07
 %% Type: invalid
 %% Sections: 3
-'optional07'(suite) -> [];
 'optional07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional07.xml"]),
@@ -5884,7 +5436,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional08
 %% Type: invalid
 %% Sections: 3
-'optional08'(suite) -> [];
 'optional08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional08.xml"]),
@@ -5897,7 +5448,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional09
 %% Type: invalid
 %% Sections: 3
-'optional09'(suite) -> [];
 'optional09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional09.xml"]),
@@ -5910,7 +5460,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional10
 %% Type: invalid
 %% Sections: 3
-'optional10'(suite) -> [];
 'optional10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional10.xml"]),
@@ -5923,7 +5472,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional11
 %% Type: invalid
 %% Sections: 3
-'optional11'(suite) -> [];
 'optional11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional11.xml"]),
@@ -5936,7 +5484,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional12
 %% Type: invalid
 %% Sections: 3
-'optional12'(suite) -> [];
 'optional12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional12.xml"]),
@@ -5949,7 +5496,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional13
 %% Type: invalid
 %% Sections: 3
-'optional13'(suite) -> [];
 'optional13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional13.xml"]),
@@ -5962,7 +5508,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional14
 %% Type: invalid
 %% Sections: 3
-'optional14'(suite) -> [];
 'optional14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional14.xml"]),
@@ -5975,7 +5520,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional20
 %% Type: invalid
 %% Sections: 3
-'optional20'(suite) -> [];
 'optional20'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional20.xml"]),
@@ -5988,7 +5532,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional21
 %% Type: invalid
 %% Sections: 3
-'optional21'(suite) -> [];
 'optional21'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional21.xml"]),
@@ -6001,7 +5544,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional22
 %% Type: invalid
 %% Sections: 3
-'optional22'(suite) -> [];
 'optional22'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional22.xml"]),
@@ -6014,7 +5556,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional23
 %% Type: invalid
 %% Sections: 3
-'optional23'(suite) -> [];
 'optional23'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional23.xml"]),
@@ -6027,7 +5568,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional24
 %% Type: invalid
 %% Sections: 3
-'optional24'(suite) -> [];
 'optional24'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional24.xml"]),
@@ -6040,7 +5580,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: optional25
 %% Type: invalid
 %% Sections: 3
-'optional25'(suite) -> [];
 'optional25'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/optional25.xml"]),
@@ -6053,7 +5592,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-required00
 %% Type: invalid
 %% Sections: 3.3.2
-'inv-required00'(suite) -> [];
 'inv-required00'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/required00.xml"]),
@@ -6066,7 +5604,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-required01
 %% Type: invalid
 %% Sections: 3.1 2.10
-'inv-required01'(suite) -> [];
 'inv-required01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/required01.xml"]),
@@ -6079,7 +5616,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: inv-required02
 %% Type: invalid
 %% Sections: 3.1 2.12
-'inv-required02'(suite) -> [];
 'inv-required02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/required02.xml"]),
@@ -6092,7 +5628,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: root
 %% Type: invalid
 %% Sections: 2.8
-'root'(suite) -> [];
 'root'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/root.xml"]),
@@ -6105,7 +5640,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr01
 %% Type: invalid
 %% Sections: 3.3.1
-'attr01'(suite) -> [];
 'attr01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr01.xml"]),
@@ -6118,7 +5652,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr02
 %% Type: invalid
 %% Sections: 3.3.1
-'attr02'(suite) -> [];
 'attr02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr02.xml"]),
@@ -6131,7 +5664,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr03
 %% Type: invalid
 %% Sections: 3.3.1
-'attr03'(suite) -> [];
 'attr03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr03.xml"]),
@@ -6144,7 +5676,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr04
 %% Type: invalid
 %% Sections: 3.3.1
-'attr04'(suite) -> [];
 'attr04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr04.xml"]),
@@ -6157,7 +5688,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr05
 %% Type: invalid
 %% Sections: 3.3.1
-'attr05'(suite) -> [];
 'attr05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr05.xml"]),
@@ -6170,7 +5700,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr06
 %% Type: invalid
 %% Sections: 3.3.1
-'attr06'(suite) -> [];
 'attr06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr06.xml"]),
@@ -6183,7 +5712,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr07
 %% Type: invalid
 %% Sections: 3.3.1
-'attr07'(suite) -> [];
 'attr07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr07.xml"]),
@@ -6196,7 +5724,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr08
 %% Type: invalid
 %% Sections: 3.3.2
-'attr08'(suite) -> [];
 'attr08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr08.xml"]),
@@ -6209,7 +5736,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr09
 %% Type: invalid
 %% Sections: 3.3.2
-'attr09'(suite) -> [];
 'attr09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr09.xml"]),
@@ -6222,7 +5748,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr10
 %% Type: invalid
 %% Sections: 3.3.2
-'attr10'(suite) -> [];
 'attr10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr10.xml"]),
@@ -6235,7 +5760,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr11
 %% Type: invalid
 %% Sections: 3.3.2
-'attr11'(suite) -> [];
 'attr11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr11.xml"]),
@@ -6248,7 +5772,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr12
 %% Type: invalid
 %% Sections: 3.3.2
-'attr12'(suite) -> [];
 'attr12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr12.xml"]),
@@ -6261,7 +5784,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr13
 %% Type: invalid
 %% Sections: 3.3.2
-'attr13'(suite) -> [];
 'attr13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr13.xml"]),
@@ -6274,7 +5796,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr14
 %% Type: invalid
 %% Sections: 3.3.2
-'attr14'(suite) -> [];
 'attr14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr14.xml"]),
@@ -6287,7 +5808,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr15
 %% Type: invalid
 %% Sections: 3.3.2
-'attr15'(suite) -> [];
 'attr15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr15.xml"]),
@@ -6300,7 +5820,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attr16
 %% Type: invalid
 %% Sections: 3.3.2
-'attr16'(suite) -> [];
 'attr16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/attr16.xml"]),
@@ -6313,7 +5832,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: utf16b
 %% Type: invalid
 %% Sections: 4.3.3 2.8
-'utf16b'(suite) -> [];
 'utf16b'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/utf16b.xml"]),
@@ -6326,7 +5844,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: utf16l
 %% Type: invalid
 %% Sections: 4.3.3 2.8
-'utf16l'(suite) -> [];
 'utf16l'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/utf16l.xml"]),
@@ -6339,7 +5856,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: empty
 %% Type: invalid
 %% Sections: 2.4 2.7 [18] 3
-'empty'(suite) -> [];
 'empty'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","invalid/empty.xml"]),
@@ -6352,7 +5868,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: not-wf-sa03
 %% Type: not-wf
 %% Sections: 2.9
-'not-wf-sa03'(suite) -> [];
 'not-wf-sa03'(Config) -> {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/not-sa03.xml"]),
@@ -6365,7 +5880,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist01
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist01'(suite) -> [];
 'attlist01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist01.xml"]),
@@ -6378,7 +5892,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist02
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist02'(suite) -> [];
 'attlist02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist02.xml"]),
@@ -6391,7 +5904,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist03
 %% Type: not-wf
 %% Sections: 3.3.1 [59]
-'attlist03'(suite) -> [];
 'attlist03'(_Config) ->  {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist03.xml"]),
@@ -6404,7 +5916,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist04
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist04'(suite) -> [];
 'attlist04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist04.xml"]),
@@ -6417,7 +5928,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist05
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist05'(suite) -> [];
 'attlist05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist05.xml"]),
@@ -6430,7 +5940,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist06
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist06'(suite) -> [];
 'attlist06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist06.xml"]),
@@ -6443,7 +5952,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist07
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist07'(suite) -> [];
 'attlist07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist07.xml"]),
@@ -6456,7 +5964,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist08
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist08'(suite) -> [];
 'attlist08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist08.xml"]),
@@ -6469,7 +5976,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist09
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'attlist09'(suite) -> [];
 'attlist09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist09.xml"]),
@@ -6482,7 +5988,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist10
 %% Type: not-wf
 %% Sections: 3.1 [40]
-'attlist10'(suite) -> [];
 'attlist10'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist10.xml"]),
@@ -6495,7 +6000,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: attlist11
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'attlist11'(suite) -> [];
 'attlist11'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/attlist11.xml"]),
@@ -6508,7 +6012,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: cond01
 %% Type: not-wf
 %% Sections: 3.4 [61]
-'cond01'(suite) -> [];
 'cond01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/cond01.xml"]),
@@ -6521,7 +6024,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: cond02
 %% Type: not-wf
 %% Sections: 3.4 [61]
-'cond02'(suite) -> [];
 'cond02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/cond02.xml"]),
@@ -6534,7 +6036,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: content01
 %% Type: not-wf
 %% Sections: 3.2.1 [48]
-'content01'(suite) -> [];
 'content01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/content01.xml"]),
@@ -6547,7 +6048,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: content02
 %% Type: not-wf
 %% Sections: 3.2.1 [48]
-'content02'(suite) -> [];
 'content02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/content02.xml"]),
@@ -6560,7 +6060,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: content03
 %% Type: not-wf
 %% Sections: 3.2.1 [48]
-'content03'(suite) -> [];
 'content03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/content03.xml"]),
@@ -6573,7 +6072,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: decl01
 %% Type: not-wf
 %% Sections: 4.3.1 [77]
-'decl01'(suite) -> [];
 'decl01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/decl01.xml"]),
@@ -6586,7 +6084,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: nwf-dtd00
 %% Type: not-wf
 %% Sections: 3.2.1 [55]
-'nwf-dtd00'(suite) -> [];
 'nwf-dtd00'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/dtd00.xml"]),
@@ -6599,7 +6096,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: nwf-dtd01
 %% Type: not-wf
 %% Sections: 3.2.1 [55]
-'nwf-dtd01'(suite) -> [];
 'nwf-dtd01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/dtd01.xml"]),
@@ -6612,7 +6108,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: dtd02
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'dtd02'(suite) -> [];
 'dtd02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/dtd02.xml"]),
@@ -6625,7 +6120,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: dtd03
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'dtd03'(suite) -> [];
 'dtd03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/dtd03.xml"]),
@@ -6638,7 +6132,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: dtd04
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'dtd04'(suite) -> [];
 'dtd04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/dtd04.xml"]),
@@ -6651,7 +6144,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: dtd05
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'dtd05'(suite) -> [];
 'dtd05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/dtd05.xml"]),
@@ -6664,7 +6156,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: dtd07
 %% Type: not-wf
 %% Sections: 4.3.1 [77]
-'dtd07'(suite) -> [];
 'dtd07'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/dtd07.xml"]),
@@ -6677,7 +6168,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: element00
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'element00'(suite) -> [];
 'element00'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/element00.xml"]),
@@ -6690,7 +6180,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: element01
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'element01'(suite) -> [];
 'element01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/element01.xml"]),
@@ -6703,7 +6192,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: element02
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'element02'(suite) -> [];
 'element02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/element02.xml"]),
@@ -6716,7 +6204,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: element03
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'element03'(suite) -> [];
 'element03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/element03.xml"]),
@@ -6729,7 +6216,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: element04
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'element04'(suite) -> [];
 'element04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/element04.xml"]),
@@ -6742,7 +6228,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: encoding01
 %% Type: not-wf
 %% Sections: 4.3.3 [81]
-'encoding01'(suite) -> [];
 'encoding01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/encoding01.xml"]),
@@ -6755,7 +6240,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: encoding02
 %% Type: not-wf
 %% Sections: 4.3.3 [81]
-'encoding02'(suite) -> [];
 'encoding02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/encoding02.xml"]),
@@ -6768,7 +6252,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: encoding03
 %% Type: not-wf
 %% Sections: 4.3.3 [81]
-'encoding03'(suite) -> [];
 'encoding03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/encoding03.xml"]),
@@ -6781,7 +6264,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: encoding04
 %% Type: not-wf
 %% Sections: 4.3.3 [81]
-'encoding04'(suite) -> [];
 'encoding04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/encoding04.xml"]),
@@ -6794,7 +6276,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: encoding05
 %% Type: not-wf
 %% Sections: 4.3.3 [81]
-'encoding05'(suite) -> [];
 'encoding05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/encoding05.xml"]),
@@ -6807,7 +6288,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: encoding06
 %% Type: not-wf
 %% Sections: 4.3.3 [81]
-'encoding06'(suite) -> [];
 'encoding06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/encoding06.xml"]),
@@ -6820,7 +6300,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: encoding07
 %% Type: not-wf
 %% Sections: 4.3.1 [77]
-'encoding07'(suite) -> [];
 'encoding07'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/encoding07.xml"]),
@@ -6833,7 +6312,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pi
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'pi'(suite) -> [];
 'pi'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/pi.xml"]),
@@ -6846,7 +6324,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pubid01
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'pubid01'(suite) -> [];
 'pubid01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/pubid01.xml"]),
@@ -6859,7 +6336,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pubid02
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'pubid02'(suite) -> [];
 'pubid02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/pubid02.xml"]),
@@ -6872,7 +6348,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pubid03
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'pubid03'(suite) -> [];
 'pubid03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/pubid03.xml"]),
@@ -6885,7 +6360,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pubid04
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'pubid04'(suite) -> [];
 'pubid04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/pubid04.xml"]),
@@ -6898,7 +6372,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: pubid05
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'pubid05'(suite) -> [];
 'pubid05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/pubid05.xml"]),
@@ -6911,7 +6384,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml01
 %% Type: not-wf
 %% Sections: 3 [39]
-'sgml01'(suite) -> [];
 'sgml01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml01.xml"]),
@@ -6924,7 +6396,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml02
 %% Type: not-wf
 %% Sections: 2.8 
-'sgml02'(suite) -> [];
 'sgml02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml02.xml"]),
@@ -6937,7 +6408,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml03
 %% Type: not-wf
 %% Sections: 2.5 [15]
-'sgml03'(suite) -> [];
 'sgml03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml03.xml"]),
@@ -6950,7 +6420,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml04
 %% Type: not-wf
 %% Sections: 3.3 [52]
-'sgml04'(suite) -> [];
 'sgml04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml04.xml"]),
@@ -6963,7 +6432,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml05
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'sgml05'(suite) -> [];
 'sgml05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml05.xml"]),
@@ -6976,7 +6444,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml06
 %% Type: not-wf
 %% Sections: 3.3 [52]
-'sgml06'(suite) -> [];
 'sgml06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml06.xml"]),
@@ -6989,7 +6456,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml07
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'sgml07'(suite) -> [];
 'sgml07'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml07.xml"]),
@@ -7002,7 +6468,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml08
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'sgml08'(suite) -> [];
 'sgml08'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml08.xml"]),
@@ -7015,7 +6480,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml09
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'sgml09'(suite) -> [];
 'sgml09'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml09.xml"]),
@@ -7028,7 +6492,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml10
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'sgml10'(suite) -> [];
 'sgml10'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml10.xml"]),
@@ -7041,7 +6504,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml11
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'sgml11'(suite) -> [];
 'sgml11'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml11.xml"]),
@@ -7054,7 +6516,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml12
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'sgml12'(suite) -> [];
 'sgml12'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml12.xml"]),
@@ -7067,7 +6528,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: sgml13
 %% Type: not-wf
 %% Sections: 3.2.1 [47]
-'sgml13'(suite) -> [];
 'sgml13'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/sgml13.xml"]),
@@ -7080,7 +6540,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: uri01
 %% Type: error
 %% Sections: 4.2.2 [75]
-'uri01'(suite) -> [];
 'uri01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"sun","not-wf/uri01.xml"]),
@@ -7098,7 +6557,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p01pass2
 %% Type: valid
 %% Sections: 2.2 [1]
-'o-p01pass2'(suite) -> [];
 'o-p01pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01pass2.xml"]),
@@ -7111,7 +6569,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p06pass1
 %% Type: valid
 %% Sections: 2.3 [6]
-'o-p06pass1'(suite) -> [];
 'o-p06pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p06pass1.xml"]),
@@ -7124,7 +6581,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p07pass1
 %% Type: valid
 %% Sections: 2.3 [7]
-'o-p07pass1'(suite) -> [];
 'o-p07pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p07pass1.xml"]),
@@ -7137,7 +6593,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p08pass1
 %% Type: valid
 %% Sections: 2.3 [8]
-'o-p08pass1'(suite) -> [];
 'o-p08pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p08pass1.xml"]),
@@ -7150,7 +6605,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p09pass1
 %% Type: valid
 %% Sections: 2.3 [9]
-'o-p09pass1'(suite) -> [];
 'o-p09pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p09pass1.xml"]),
@@ -7163,7 +6617,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12pass1
 %% Type: valid
 %% Sections: 2.3 [12]
-'o-p12pass1'(suite) -> [];
 'o-p12pass1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12pass1.xml"]),
@@ -7176,7 +6629,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22pass4
 %% Type: valid
 %% Sections: 2.8 [22]
-'o-p22pass4'(suite) -> [];
 'o-p22pass4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22pass4.xml"]),
@@ -7189,7 +6641,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22pass5
 %% Type: valid
 %% Sections: 2.8 [22]
-'o-p22pass5'(suite) -> [];
 'o-p22pass5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22pass5.xml"]),
@@ -7202,7 +6653,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22pass6
 %% Type: valid
 %% Sections: 2.8 [22]
-'o-p22pass6'(suite) -> [];
 'o-p22pass6'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22pass6.xml"]),
@@ -7215,7 +6665,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p28pass1
 %% Type: valid
 %% Sections: 3.1 [43] [44]
-'o-p28pass1'(suite) -> [];
 'o-p28pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p28pass1.xml"]),
@@ -7228,7 +6677,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p28pass3
 %% Type: valid
 %% Sections: 2.8 4.1 [28] [69]
-'o-p28pass3'(suite) -> [];
 'o-p28pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p28pass3.xml"]),
@@ -7241,7 +6689,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p28pass4
 %% Type: valid
 %% Sections: 2.8 4.2.2 [28] [75]
-'o-p28pass4'(suite) -> [];
 'o-p28pass4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p28pass4.xml"]),
@@ -7254,7 +6701,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p28pass5
 %% Type: valid
 %% Sections: 2.8 4.1 [28] [69]
-'o-p28pass5'(suite) -> [];
 'o-p28pass5'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p28pass5.xml"]),
@@ -7267,7 +6713,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p29pass1
 %% Type: valid
 %% Sections: 2.8 [29]
-'o-p29pass1'(suite) -> [];
 'o-p29pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p29pass1.xml"]),
@@ -7280,7 +6725,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p30pass1
 %% Type: valid
 %% Sections: 2.8 4.2.2 [30] [75]
-'o-p30pass1'(suite) -> [];
 'o-p30pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p30pass1.xml"]),
@@ -7293,7 +6737,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p30pass2
 %% Type: valid
 %% Sections: 2.8 4.2.2 4.3.1 [30] [75] [77]
-'o-p30pass2'(suite) -> [];
 'o-p30pass2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p30pass2.xml"]),
@@ -7306,7 +6749,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p31pass1
 %% Type: valid
 %% Sections: 2.8 [31]
-'o-p31pass1'(suite) -> [];
 'o-p31pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p31pass1.xml"]),
@@ -7319,7 +6761,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p31pass2
 %% Type: valid
 %% Sections: 2.8 3.4 4.2.2 [31] [62] [63] [75]
-'o-p31pass2'(suite) -> [];
 'o-p31pass2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p31pass2.xml"]),
@@ -7332,7 +6773,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p43pass1
 %% Type: valid
 %% Sections: 2.4 2.5 2.6 2.7 [15] [16] [18]
-'o-p43pass1'(suite) -> [];
 'o-p43pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p43pass1.xml"]),
@@ -7345,7 +6785,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p45pass1
 %% Type: valid
 %% Sections: 3.2 [45]
-'o-p45pass1'(suite) -> [];
 'o-p45pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p45pass1.xml"]),
@@ -7358,7 +6797,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p46pass1
 %% Type: valid
 %% Sections: 3.2 3.2.1 3.2.2 [45] [46] [47] [51]
-'o-p46pass1'(suite) -> [];
 'o-p46pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p46pass1.xml"]),
@@ -7371,7 +6809,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p47pass1
 %% Type: valid
 %% Sections: 3.2 3.2.1 [45] [46] [47] 
-'o-p47pass1'(suite) -> [];
 'o-p47pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p47pass1.xml"]),
@@ -7384,7 +6821,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p48pass1
 %% Type: valid
 %% Sections: 3.2 3.2.1 [45] [46] [47]
-'o-p48pass1'(suite) -> [];
 'o-p48pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p48pass1.xml"]),
@@ -7397,7 +6833,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p49pass1
 %% Type: valid
 %% Sections: 3.2 3.2.1 [45] [46] [47]
-'o-p49pass1'(suite) -> [];
 'o-p49pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p49pass1.xml"]),
@@ -7410,7 +6845,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p50pass1
 %% Type: valid
 %% Sections: 3.2 3.2.1 [45] [46] [47]
-'o-p50pass1'(suite) -> [];
 'o-p50pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p50pass1.xml"]),
@@ -7423,7 +6857,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51pass1
 %% Type: valid
 %% Sections: 3.2.2 [51]
-'o-p51pass1'(suite) -> [];
 'o-p51pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51pass1.xml"]),
@@ -7436,7 +6869,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p52pass1
 %% Type: valid
 %% Sections: 3.3 [52]
-'o-p52pass1'(suite) -> [];
 'o-p52pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p52pass1.xml"]),
@@ -7449,7 +6881,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p53pass1
 %% Type: valid
 %% Sections: 3.3 [53]
-'o-p53pass1'(suite) -> [];
 'o-p53pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p53pass1.xml"]),
@@ -7462,7 +6893,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p54pass1
 %% Type: valid
 %% Sections: 3.3.1 [54]
-'o-p54pass1'(suite) -> [];
 'o-p54pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p54pass1.xml"]),
@@ -7475,7 +6905,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p55pass1
 %% Type: valid
 %% Sections: 3.3.1 [55]
-'o-p55pass1'(suite) -> [];
 'o-p55pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p55pass1.xml"]),
@@ -7488,7 +6917,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p56pass1
 %% Type: valid
 %% Sections: 3.3.1 [56]
-'o-p56pass1'(suite) -> [];
 'o-p56pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p56pass1.xml"]),
@@ -7501,7 +6929,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p57pass1
 %% Type: valid
 %% Sections: 3.3.1 [57]
-'o-p57pass1'(suite) -> [];
 'o-p57pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p57pass1.xml"]),
@@ -7514,7 +6941,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58pass1
 %% Type: valid
 %% Sections: 3.3.1 [58]
-'o-p58pass1'(suite) -> [];
 'o-p58pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58pass1.xml"]),
@@ -7527,7 +6953,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p59pass1
 %% Type: valid
 %% Sections: 3.3.1 [59]
-'o-p59pass1'(suite) -> [];
 'o-p59pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p59pass1.xml"]),
@@ -7540,7 +6965,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p60pass1
 %% Type: valid
 %% Sections: 3.3.2 [60]
-'o-p60pass1'(suite) -> [];
 'o-p60pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p60pass1.xml"]),
@@ -7553,7 +6977,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p61pass1
 %% Type: valid
 %% Sections: 3.4 [61]
-'o-p61pass1'(suite) -> [];
 'o-p61pass1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p61pass1.xml"]),
@@ -7566,7 +6989,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p62pass1
 %% Type: valid
 %% Sections: 3.4 [62]
-'o-p62pass1'(suite) -> [];
 'o-p62pass1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p62pass1.xml"]),
@@ -7579,7 +7001,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p63pass1
 %% Type: valid
 %% Sections: 3.4 [63]
-'o-p63pass1'(suite) -> [];
 'o-p63pass1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p63pass1.xml"]),
@@ -7592,7 +7013,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p64pass1
 %% Type: valid
 %% Sections: 3.4 [64]
-'o-p64pass1'(suite) -> [];
 'o-p64pass1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p64pass1.xml"]),
@@ -7605,7 +7025,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p68pass1
 %% Type: valid
 %% Sections: 4.1 [68]
-'o-p68pass1'(suite) -> [];
 'o-p68pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p68pass1.xml"]),
@@ -7618,7 +7037,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p69pass1
 %% Type: valid
 %% Sections: 4.1 [69]
-'o-p69pass1'(suite) -> [];
 'o-p69pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p69pass1.xml"]),
@@ -7631,7 +7049,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p70pass1
 %% Type: valid
 %% Sections: 4.2 [70]
-'o-p70pass1'(suite) -> [];
 'o-p70pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p70pass1.xml"]),
@@ -7644,7 +7061,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p71pass1
 %% Type: valid
 %% Sections: 4.2 [71]
-'o-p71pass1'(suite) -> [];
 'o-p71pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p71pass1.xml"]),
@@ -7657,7 +7073,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p72pass1
 %% Type: valid
 %% Sections: 4.2 [72]
-'o-p72pass1'(suite) -> [];
 'o-p72pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p72pass1.xml"]),
@@ -7670,7 +7085,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p73pass1
 %% Type: valid
 %% Sections: 4.2 [73]
-'o-p73pass1'(suite) -> [];
 'o-p73pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p73pass1.xml"]),
@@ -7683,7 +7097,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p76pass1
 %% Type: valid
 %% Sections: 4.2.2 [76]
-'o-p76pass1'(suite) -> [];
 'o-p76pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p76pass1.xml"]),
@@ -7696,7 +7109,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p01pass1
 %% Type: invalid
 %% Sections: 2.1 [1]
-'o-p01pass1'(suite) -> [];
 'o-p01pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01pass1.xml"]),
@@ -7709,7 +7121,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p01pass3
 %% Type: invalid
 %% Sections: 2.1 [1]
-'o-p01pass3'(suite) -> [];
 'o-p01pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01pass3.xml"]),
@@ -7722,7 +7133,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03pass1
 %% Type: invalid
 %% Sections: 2.3 [3]
-'o-p03pass1'(suite) -> [];
 'o-p03pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03pass1.xml"]),
@@ -7735,7 +7145,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p04pass1
 %% Type: invalid
 %% Sections: 2.3 [4]
-'o-p04pass1'(suite) -> [];
 'o-p04pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p04pass1.xml"]),
@@ -7748,7 +7157,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p05pass1
 %% Type: invalid
 %% Sections: 2.3 [5]
-'o-p05pass1'(suite) -> [];
 'o-p05pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p05pass1.xml"]),
@@ -7761,7 +7169,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p06fail1
 %% Type: invalid
 %% Sections: 2.3 [6]
-'o-p06fail1'(suite) -> [];
 'o-p06fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p06fail1.xml"]),
@@ -7774,7 +7181,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p08fail1
 %% Type: invalid
 %% Sections: 2.3 [8]
-'o-p08fail1'(suite) -> [];
 'o-p08fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p08fail1.xml"]),
@@ -7787,7 +7193,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p08fail2
 %% Type: invalid
 %% Sections: 2.3 [8]
-'o-p08fail2'(suite) -> [];
 'o-p08fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p08fail2.xml"]),
@@ -7800,7 +7205,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p10pass1
 %% Type: invalid
 %% Sections: 2.3 [10]
-'o-p10pass1'(suite) -> [];
 'o-p10pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p10pass1.xml"]),
@@ -7813,7 +7217,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p14pass1
 %% Type: invalid
 %% Sections: 2.4 [14]
-'o-p14pass1'(suite) -> [];
 'o-p14pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p14pass1.xml"]),
@@ -7826,7 +7229,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p15pass1
 %% Type: invalid
 %% Sections: 2.5 [15]
-'o-p15pass1'(suite) -> [];
 'o-p15pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p15pass1.xml"]),
@@ -7839,7 +7241,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p16pass1
 %% Type: invalid
 %% Sections: 2.6 [16] [17]
-'o-p16pass1'(suite) -> [];
 'o-p16pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p16pass1.xml"]),
@@ -7852,7 +7253,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p16pass2
 %% Type: invalid
 %% Sections: 2.6 [16]
-'o-p16pass2'(suite) -> [];
 'o-p16pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p16pass2.xml"]),
@@ -7865,7 +7265,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p16pass3
 %% Type: invalid
 %% Sections: 2.6 [16]
-'o-p16pass3'(suite) -> [];
 'o-p16pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p16pass3.xml"]),
@@ -7878,7 +7277,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p18pass1
 %% Type: invalid
 %% Sections: 2.7 [18]
-'o-p18pass1'(suite) -> [];
 'o-p18pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p18pass1.xml"]),
@@ -7891,7 +7289,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22pass1
 %% Type: invalid
 %% Sections: 2.8 [22]
-'o-p22pass1'(suite) -> [];
 'o-p22pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22pass1.xml"]),
@@ -7904,7 +7301,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22pass2
 %% Type: invalid
 %% Sections: 2.8 [22]
-'o-p22pass2'(suite) -> [];
 'o-p22pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22pass2.xml"]),
@@ -7917,7 +7313,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22pass3
 %% Type: invalid
 %% Sections: 2.8 [22]
-'o-p22pass3'(suite) -> [];
 'o-p22pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22pass3.xml"]),
@@ -7930,7 +7325,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23pass1
 %% Type: invalid
 %% Sections: 2.8 [23]
-'o-p23pass1'(suite) -> [];
 'o-p23pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23pass1.xml"]),
@@ -7943,7 +7337,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23pass2
 %% Type: invalid
 %% Sections: 2.8 [23]
-'o-p23pass2'(suite) -> [];
 'o-p23pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23pass2.xml"]),
@@ -7956,7 +7349,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23pass3
 %% Type: invalid
 %% Sections: 2.8 [23]
-'o-p23pass3'(suite) -> [];
 'o-p23pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23pass3.xml"]),
@@ -7969,7 +7361,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23pass4
 %% Type: invalid
 %% Sections: 2.8 [23]
-'o-p23pass4'(suite) -> [];
 'o-p23pass4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23pass4.xml"]),
@@ -7982,7 +7373,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p24pass1
 %% Type: invalid
 %% Sections: 2.8 [24]
-'o-p24pass1'(suite) -> [];
 'o-p24pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p24pass1.xml"]),
@@ -7995,7 +7385,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p24pass2
 %% Type: invalid
 %% Sections: 2.8 [24]
-'o-p24pass2'(suite) -> [];
 'o-p24pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p24pass2.xml"]),
@@ -8008,7 +7397,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p24pass3
 %% Type: invalid
 %% Sections: 2.8 [24]
-'o-p24pass3'(suite) -> [];
 'o-p24pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p24pass3.xml"]),
@@ -8021,7 +7409,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p24pass4
 %% Type: invalid
 %% Sections: 2.8 [24]
-'o-p24pass4'(suite) -> [];
 'o-p24pass4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p24pass4.xml"]),
@@ -8034,7 +7421,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p25pass1
 %% Type: invalid
 %% Sections: 2.8 [25]
-'o-p25pass1'(suite) -> [];
 'o-p25pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p25pass1.xml"]),
@@ -8047,7 +7433,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p25pass2
 %% Type: invalid
 %% Sections: 2.8 [25]
-'o-p25pass2'(suite) -> [];
 'o-p25pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p25pass2.xml"]),
@@ -8060,7 +7445,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p26pass1
 %% Type: invalid
 %% Sections: 2.8 [26]
-'o-p26pass1'(suite) -> [];
 'o-p26pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p26pass1.xml"]),
@@ -8073,7 +7457,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p27pass1
 %% Type: invalid
 %% Sections: 2.8 [27]
-'o-p27pass1'(suite) -> [];
 'o-p27pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p27pass1.xml"]),
@@ -8086,7 +7469,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p27pass2
 %% Type: invalid
 %% Sections: 2.8 [27]
-'o-p27pass2'(suite) -> [];
 'o-p27pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p27pass2.xml"]),
@@ -8099,7 +7481,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p27pass3
 %% Type: invalid
 %% Sections: 2.8 [27]
-'o-p27pass3'(suite) -> [];
 'o-p27pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p27pass3.xml"]),
@@ -8112,7 +7493,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p27pass4
 %% Type: invalid
 %% Sections: 2.8 [27]
-'o-p27pass4'(suite) -> [];
 'o-p27pass4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p27pass4.xml"]),
@@ -8125,7 +7505,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p32pass1
 %% Type: invalid
 %% Sections: 2.9 [32]
-'o-p32pass1'(suite) -> [];
 'o-p32pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p32pass1.xml"]),
@@ -8138,7 +7517,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p32pass2
 %% Type: invalid
 %% Sections: 2.9 [32]
-'o-p32pass2'(suite) -> [];
 'o-p32pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p32pass2.xml"]),
@@ -8151,7 +7529,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p39pass1
 %% Type: invalid
 %% Sections: 3 3.1 [39] [44]
-'o-p39pass1'(suite) -> [];
 'o-p39pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p39pass1.xml"]),
@@ -8164,7 +7541,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p39pass2
 %% Type: invalid
 %% Sections: 3 3.1 [39] [43]
-'o-p39pass2'(suite) -> [];
 'o-p39pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p39pass2.xml"]),
@@ -8177,7 +7553,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40pass1
 %% Type: invalid
 %% Sections: 3.1 [40]
-'o-p40pass1'(suite) -> [];
 'o-p40pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40pass1.xml"]),
@@ -8190,7 +7565,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40pass2
 %% Type: invalid
 %% Sections: 3.1 [40]
-'o-p40pass2'(suite) -> [];
 'o-p40pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40pass2.xml"]),
@@ -8203,7 +7577,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40pass3
 %% Type: invalid
 %% Sections: 3.1 [40] [41]
-'o-p40pass3'(suite) -> [];
 'o-p40pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40pass3.xml"]),
@@ -8216,7 +7589,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40pass4
 %% Type: invalid
 %% Sections: 3.1 [40]
-'o-p40pass4'(suite) -> [];
 'o-p40pass4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40pass4.xml"]),
@@ -8229,7 +7601,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p41pass1
 %% Type: invalid
 %% Sections: 3.1 [41]
-'o-p41pass1'(suite) -> [];
 'o-p41pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p41pass1.xml"]),
@@ -8242,7 +7613,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p41pass2
 %% Type: invalid
 %% Sections: 3.1 [41]
-'o-p41pass2'(suite) -> [];
 'o-p41pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p41pass2.xml"]),
@@ -8255,7 +7625,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p42pass1
 %% Type: invalid
 %% Sections: 3.1 [42]
-'o-p42pass1'(suite) -> [];
 'o-p42pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p42pass1.xml"]),
@@ -8268,7 +7637,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p42pass2
 %% Type: invalid
 %% Sections: 3.1 [42]
-'o-p42pass2'(suite) -> [];
 'o-p42pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p42pass2.xml"]),
@@ -8281,7 +7649,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44pass1
 %% Type: invalid
 %% Sections: 3.1 [44]
-'o-p44pass1'(suite) -> [];
 'o-p44pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44pass1.xml"]),
@@ -8294,7 +7661,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44pass2
 %% Type: invalid
 %% Sections: 3.1 [44]
-'o-p44pass2'(suite) -> [];
 'o-p44pass2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44pass2.xml"]),
@@ -8307,7 +7673,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44pass3
 %% Type: invalid
 %% Sections: 3.1 [44]
-'o-p44pass3'(suite) -> [];
 'o-p44pass3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44pass3.xml"]),
@@ -8320,7 +7685,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44pass4
 %% Type: invalid
 %% Sections: 3.1 [44]
-'o-p44pass4'(suite) -> [];
 'o-p44pass4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44pass4.xml"]),
@@ -8333,7 +7697,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44pass5
 %% Type: invalid
 %% Sections: 3.1 [44]
-'o-p44pass5'(suite) -> [];
 'o-p44pass5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44pass5.xml"]),
@@ -8346,7 +7709,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p66pass1
 %% Type: invalid
 %% Sections: 4.1 [66]
-'o-p66pass1'(suite) -> [];
 'o-p66pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p66pass1.xml"]),
@@ -8359,7 +7721,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p74pass1
 %% Type: invalid
 %% Sections: 4.2 [74]
-'o-p74pass1'(suite) -> [];
 'o-p74pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p74pass1.xml"]),
@@ -8372,7 +7733,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p75pass1
 %% Type: invalid
 %% Sections: 4.2.2 [75]
-'o-p75pass1'(suite) -> [];
 'o-p75pass1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p75pass1.xml"]),
@@ -8385,7 +7745,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-e2
 %% Type: invalid
 %% Sections: 3.3.1 [58] [59] Errata [E2]
-'o-e2'(suite) -> [];
 'o-e2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","e2.xml"]),
@@ -8398,7 +7757,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p01fail1
 %% Type: not-wf
 %% Sections: 2.1 [1]
-'o-p01fail1'(suite) -> [];
 'o-p01fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01fail1.xml"]),
@@ -8411,7 +7769,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p01fail2
 %% Type: not-wf
 %% Sections: 2.1 [1]
-'o-p01fail2'(suite) -> [];
 'o-p01fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01fail2.xml"]),
@@ -8424,7 +7781,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p01fail3
 %% Type: not-wf
 %% Sections: 2.1 [1]
-'o-p01fail3'(suite) -> [];
 'o-p01fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01fail3.xml"]),
@@ -8440,7 +7796,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p01fail4
 %% Type: not-wf
 %% Sections: 2.1 [1]
-'o-p01fail4'(suite) -> [];
 'o-p01fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p01fail4.xml"]),
@@ -8453,7 +7808,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail1
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail1'(suite) -> [];
 'o-p02fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail1.xml"]),
@@ -8466,7 +7820,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail10
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail10'(suite) -> [];
 'o-p02fail10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail10.xml"]),
@@ -8479,7 +7832,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail11
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail11'(suite) -> [];
 'o-p02fail11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail11.xml"]),
@@ -8492,7 +7844,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail12
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail12'(suite) -> [];
 'o-p02fail12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail12.xml"]),
@@ -8505,7 +7856,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail13
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail13'(suite) -> [];
 'o-p02fail13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail13.xml"]),
@@ -8518,7 +7868,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail14
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail14'(suite) -> [];
 'o-p02fail14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail14.xml"]),
@@ -8531,7 +7880,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail15
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail15'(suite) -> [];
 'o-p02fail15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail15.xml"]),
@@ -8544,7 +7892,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail16
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail16'(suite) -> [];
 'o-p02fail16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail16.xml"]),
@@ -8557,7 +7904,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail17
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail17'(suite) -> [];
 'o-p02fail17'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail17.xml"]),
@@ -8570,7 +7916,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail18
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail18'(suite) -> [];
 'o-p02fail18'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail18.xml"]),
@@ -8583,7 +7928,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail19
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail19'(suite) -> [];
 'o-p02fail19'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail19.xml"]),
@@ -8596,7 +7940,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail2
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail2'(suite) -> [];
 'o-p02fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail2.xml"]),
@@ -8609,7 +7952,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail20
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail20'(suite) -> [];
 'o-p02fail20'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail20.xml"]),
@@ -8622,7 +7964,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail21
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail21'(suite) -> [];
 'o-p02fail21'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail21.xml"]),
@@ -8635,7 +7976,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail22
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail22'(suite) -> [];
 'o-p02fail22'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail22.xml"]),
@@ -8648,7 +7988,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail23
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail23'(suite) -> [];
 'o-p02fail23'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail23.xml"]),
@@ -8661,7 +8000,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail24
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail24'(suite) -> [];
 'o-p02fail24'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail24.xml"]),
@@ -8674,7 +8012,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail25
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail25'(suite) -> [];
 'o-p02fail25'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail25.xml"]),
@@ -8687,7 +8024,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail26
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail26'(suite) -> [];
 'o-p02fail26'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail26.xml"]),
@@ -8700,7 +8036,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail27
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail27'(suite) -> [];
 'o-p02fail27'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail27.xml"]),
@@ -8713,7 +8048,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail28
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail28'(suite) -> [];
 'o-p02fail28'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail28.xml"]),
@@ -8726,7 +8060,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail29
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail29'(suite) -> [];
 'o-p02fail29'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail29.xml"]),
@@ -8739,7 +8072,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail3
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail3'(suite) -> [];
 'o-p02fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail3.xml"]),
@@ -8752,7 +8084,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail30
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail30'(suite) -> [];
 'o-p02fail30'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail30.xml"]),
@@ -8765,7 +8096,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail31
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail31'(suite) -> [];
 'o-p02fail31'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail31.xml"]),
@@ -8778,7 +8108,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail4
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail4'(suite) -> [];
 'o-p02fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail4.xml"]),
@@ -8791,7 +8120,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail5
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail5'(suite) -> [];
 'o-p02fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail5.xml"]),
@@ -8804,7 +8132,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail6
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail6'(suite) -> [];
 'o-p02fail6'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail6.xml"]),
@@ -8817,7 +8144,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail7
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail7'(suite) -> [];
 'o-p02fail7'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail7.xml"]),
@@ -8830,7 +8156,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail8
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail8'(suite) -> [];
 'o-p02fail8'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail8.xml"]),
@@ -8843,7 +8168,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p02fail9
 %% Type: not-wf
 %% Sections: 2.2 [2]
-'o-p02fail9'(suite) -> [];
 'o-p02fail9'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p02fail9.xml"]),
@@ -8856,7 +8180,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail1
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail1'(suite) -> [];
 'o-p03fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail1.xml"]),
@@ -8869,7 +8192,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail10
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail10'(suite) -> [];
 'o-p03fail10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail10.xml"]),
@@ -8882,7 +8204,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail11
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail11'(suite) -> [];
 'o-p03fail11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail11.xml"]),
@@ -8895,7 +8216,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail12
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail12'(suite) -> [];
 'o-p03fail12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail12.xml"]),
@@ -8908,7 +8228,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail13
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail13'(suite) -> [];
 'o-p03fail13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail13.xml"]),
@@ -8921,7 +8240,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail14
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail14'(suite) -> [];
 'o-p03fail14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail14.xml"]),
@@ -8934,7 +8252,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail15
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail15'(suite) -> [];
 'o-p03fail15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail15.xml"]),
@@ -8947,7 +8264,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail16
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail16'(suite) -> [];
 'o-p03fail16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail16.xml"]),
@@ -8960,7 +8276,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail17
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail17'(suite) -> [];
 'o-p03fail17'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail17.xml"]),
@@ -8973,7 +8288,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail18
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail18'(suite) -> [];
 'o-p03fail18'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail18.xml"]),
@@ -8986,7 +8300,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail19
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail19'(suite) -> [];
 'o-p03fail19'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail19.xml"]),
@@ -8999,7 +8312,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail2
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail2'(suite) -> [];
 'o-p03fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail2.xml"]),
@@ -9012,7 +8324,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail20
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail20'(suite) -> [];
 'o-p03fail20'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail20.xml"]),
@@ -9025,7 +8336,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail21
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail21'(suite) -> [];
 'o-p03fail21'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail21.xml"]),
@@ -9038,7 +8348,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail22
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail22'(suite) -> [];
 'o-p03fail22'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail22.xml"]),
@@ -9051,7 +8360,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail23
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail23'(suite) -> [];
 'o-p03fail23'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail23.xml"]),
@@ -9064,7 +8372,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail24
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail24'(suite) -> [];
 'o-p03fail24'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail24.xml"]),
@@ -9077,7 +8384,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail25
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail25'(suite) -> [];
 'o-p03fail25'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail25.xml"]),
@@ -9090,7 +8396,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail26
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail26'(suite) -> [];
 'o-p03fail26'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail26.xml"]),
@@ -9103,7 +8408,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail27
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail27'(suite) -> [];
 'o-p03fail27'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail27.xml"]),
@@ -9116,7 +8420,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail28
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail28'(suite) -> [];
 'o-p03fail28'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail28.xml"]),
@@ -9129,7 +8432,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail29
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail29'(suite) -> [];
 'o-p03fail29'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail29.xml"]),
@@ -9142,7 +8444,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail3
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail3'(suite) -> [];
 'o-p03fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail3.xml"]),
@@ -9155,7 +8456,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail4
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail4'(suite) -> [];
 'o-p03fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail4.xml"]),
@@ -9168,7 +8468,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail5
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail5'(suite) -> [];
 'o-p03fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail5.xml"]),
@@ -9181,7 +8480,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail7
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail7'(suite) -> [];
 'o-p03fail7'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail7.xml"]),
@@ -9194,7 +8492,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail8
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail8'(suite) -> [];
 'o-p03fail8'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail8.xml"]),
@@ -9207,7 +8504,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p03fail9
 %% Type: not-wf
 %% Sections: 2.3 [3]
-'o-p03fail9'(suite) -> [];
 'o-p03fail9'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p03fail9.xml"]),
@@ -9220,7 +8516,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p04fail1
 %% Type: not-wf
 %% Sections: 2.3 [4]
-'o-p04fail1'(suite) -> [];
 'o-p04fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p04fail1.xml"]),
@@ -9233,7 +8528,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p04fail2
 %% Type: not-wf
 %% Sections: 2.3 [4]
-'o-p04fail2'(suite) -> [];
 'o-p04fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p04fail2.xml"]),
@@ -9246,7 +8540,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p04fail3
 %% Type: not-wf
 %% Sections: 2.3 [4]
-'o-p04fail3'(suite) -> [];
 'o-p04fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p04fail3.xml"]),
@@ -9259,7 +8552,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p05fail1
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'o-p05fail1'(suite) -> [];
 'o-p05fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p05fail1.xml"]),
@@ -9272,7 +8564,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p05fail2
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'o-p05fail2'(suite) -> [];
 'o-p05fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p05fail2.xml"]),
@@ -9285,7 +8576,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p05fail3
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'o-p05fail3'(suite) -> [];
 'o-p05fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p05fail3.xml"]),
@@ -9298,7 +8588,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p05fail4
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'o-p05fail4'(suite) -> [];
 'o-p05fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p05fail4.xml"]),
@@ -9311,7 +8600,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p05fail5
 %% Type: not-wf
 %% Sections: 2.3 [5]
-'o-p05fail5'(suite) -> [];
 'o-p05fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p05fail5.xml"]),
@@ -9324,7 +8612,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p09fail1
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'o-p09fail1'(suite) -> [];
 'o-p09fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p09fail1.xml"]),
@@ -9337,7 +8624,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p09fail2
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'o-p09fail2'(suite) -> [];
 'o-p09fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p09fail2.xml"]),
@@ -9350,7 +8636,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p09fail3
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'o-p09fail3'(suite) -> [];
 'o-p09fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p09fail3.xml"]),
@@ -9363,7 +8648,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p09fail4
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'o-p09fail4'(suite) -> [];
 'o-p09fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p09fail4.xml"]),
@@ -9376,7 +8660,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p09fail5
 %% Type: not-wf
 %% Sections: 2.3 [9]
-'o-p09fail5'(suite) -> [];
 'o-p09fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p09fail5.xml"]),
@@ -9389,7 +8672,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p10fail1
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'o-p10fail1'(suite) -> [];
 'o-p10fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p10fail1.xml"]),
@@ -9402,7 +8684,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p10fail2
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'o-p10fail2'(suite) -> [];
 'o-p10fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p10fail2.xml"]),
@@ -9415,7 +8696,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p10fail3
 %% Type: not-wf
 %% Sections: 2.3 [10]
-'o-p10fail3'(suite) -> [];
 'o-p10fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p10fail3.xml"]),
@@ -9428,7 +8708,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p11fail1
 %% Type: not-wf
 %% Sections: 2.3 [11]
-'o-p11fail1'(suite) -> [];
 'o-p11fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p11fail1.xml"]),
@@ -9441,7 +8720,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p11fail2
 %% Type: not-wf
 %% Sections: 2.3 [11]
-'o-p11fail2'(suite) -> [];
 'o-p11fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p11fail2.xml"]),
@@ -9454,7 +8732,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12fail1
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'o-p12fail1'(suite) -> [];
 'o-p12fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12fail1.xml"]),
@@ -9467,7 +8744,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12fail2
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'o-p12fail2'(suite) -> [];
 'o-p12fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12fail2.xml"]),
@@ -9480,7 +8756,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12fail3
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'o-p12fail3'(suite) -> [];
 'o-p12fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12fail3.xml"]),
@@ -9493,7 +8768,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12fail4
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'o-p12fail4'(suite) -> [];
 'o-p12fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12fail4.xml"]),
@@ -9506,7 +8780,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12fail5
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'o-p12fail5'(suite) -> [];
 'o-p12fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12fail5.xml"]),
@@ -9519,7 +8792,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12fail6
 %% Type: not-wf
 %% Sections: 2.3 [12]
-'o-p12fail6'(suite) -> [];
 'o-p12fail6'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12fail6.xml"]),
@@ -9532,7 +8804,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p12fail7
 %% Type: not-wf
 %% Sections: 2.3 [13]
-'o-p12fail7'(suite) -> [];
 'o-p12fail7'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p12fail7.xml"]),
@@ -9545,7 +8816,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p14fail1
 %% Type: not-wf
 %% Sections: 2.4 [14]
-'o-p14fail1'(suite) -> [];
 'o-p14fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p14fail1.xml"]),
@@ -9558,7 +8828,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p14fail2
 %% Type: not-wf
 %% Sections: 2.4 [14]
-'o-p14fail2'(suite) -> [];
 'o-p14fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p14fail2.xml"]),
@@ -9571,7 +8840,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p14fail3
 %% Type: not-wf
 %% Sections: 2.4 [14]
-'o-p14fail3'(suite) -> [];
 'o-p14fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p14fail3.xml"]),
@@ -9584,7 +8852,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p15fail1
 %% Type: not-wf
 %% Sections: 2.5 [15]
-'o-p15fail1'(suite) -> [];
 'o-p15fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p15fail1.xml"]),
@@ -9597,7 +8864,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p15fail2
 %% Type: not-wf
 %% Sections: 2.5 [15]
-'o-p15fail2'(suite) -> [];
 'o-p15fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p15fail2.xml"]),
@@ -9610,7 +8876,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p15fail3
 %% Type: not-wf
 %% Sections: 2.5 [15]
-'o-p15fail3'(suite) -> [];
 'o-p15fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p15fail3.xml"]),
@@ -9623,7 +8888,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p16fail1
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'o-p16fail1'(suite) -> [];
 'o-p16fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p16fail1.xml"]),
@@ -9636,7 +8900,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p16fail2
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'o-p16fail2'(suite) -> [];
 'o-p16fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p16fail2.xml"]),
@@ -9649,7 +8912,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p16fail3
 %% Type: not-wf
 %% Sections: 2.6 [16]
-'o-p16fail3'(suite) -> [];
 'o-p16fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p16fail3.xml"]),
@@ -9662,7 +8924,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p18fail1
 %% Type: not-wf
 %% Sections: 2.7 [18]
-'o-p18fail1'(suite) -> [];
 'o-p18fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p18fail1.xml"]),
@@ -9675,7 +8936,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p18fail2
 %% Type: not-wf
 %% Sections: 2.7 [18]
-'o-p18fail2'(suite) -> [];
 'o-p18fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p18fail2.xml"]),
@@ -9688,7 +8948,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p18fail3
 %% Type: not-wf
 %% Sections: 2.7 [18]
-'o-p18fail3'(suite) -> [];
 'o-p18fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p18fail3.xml"]),
@@ -9701,7 +8960,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22fail1
 %% Type: not-wf
 %% Sections: 2.8 [22]
-'o-p22fail1'(suite) -> [];
 'o-p22fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22fail1.xml"]),
@@ -9714,7 +8972,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p22fail2
 %% Type: not-wf
 %% Sections: 2.8 [22]
-'o-p22fail2'(suite) -> [];
 'o-p22fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p22fail2.xml"]),
@@ -9727,7 +8984,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23fail1
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'o-p23fail1'(suite) -> [];
 'o-p23fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23fail1.xml"]),
@@ -9740,7 +8996,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23fail2
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'o-p23fail2'(suite) -> [];
 'o-p23fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23fail2.xml"]),
@@ -9753,7 +9008,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23fail3
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'o-p23fail3'(suite) -> [];
 'o-p23fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23fail3.xml"]),
@@ -9766,7 +9020,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23fail4
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'o-p23fail4'(suite) -> [];
 'o-p23fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23fail4.xml"]),
@@ -9779,7 +9032,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p23fail5
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'o-p23fail5'(suite) -> [];
 'o-p23fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p23fail5.xml"]),
@@ -9792,7 +9044,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p24fail1
 %% Type: not-wf
 %% Sections: 2.8 [24]
-'o-p24fail1'(suite) -> [];
 'o-p24fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p24fail1.xml"]),
@@ -9805,7 +9056,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p24fail2
 %% Type: not-wf
 %% Sections: 2.8 [24]
-'o-p24fail2'(suite) -> [];
 'o-p24fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p24fail2.xml"]),
@@ -9818,7 +9068,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p25fail1
 %% Type: not-wf
 %% Sections: 2.8 [25]
-'o-p25fail1'(suite) -> [];
 'o-p25fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p25fail1.xml"]),
@@ -9831,7 +9080,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p26fail1
 %% Type: not-wf
 %% Sections: 2.8 [26]
-'o-p26fail1'(suite) -> [];
 'o-p26fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p26fail1.xml"]),
@@ -9844,7 +9092,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p26fail2
 %% Type: not-wf
 %% Sections: 2.8 [26]
-'o-p26fail2'(suite) -> [];
 'o-p26fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p26fail2.xml"]),
@@ -9857,7 +9104,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p27fail1
 %% Type: not-wf
 %% Sections: 2.8 [27]
-'o-p27fail1'(suite) -> [];
 'o-p27fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p27fail1.xml"]),
@@ -9870,7 +9116,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p28fail1
 %% Type: not-wf
 %% Sections: 2.8 [28]
-'o-p28fail1'(suite) -> [];
 'o-p28fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p28fail1.xml"]),
@@ -9883,7 +9128,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p29fail1
 %% Type: not-wf
 %% Sections: 2.8 [29]
-'o-p29fail1'(suite) -> [];
 'o-p29fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p29fail1.xml"]),
@@ -9896,7 +9140,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p30fail1
 %% Type: not-wf
 %% Sections: 2.8 [30]
-'o-p30fail1'(suite) -> [];
 'o-p30fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p30fail1.xml"]),
@@ -9909,7 +9152,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p31fail1
 %% Type: not-wf
 %% Sections: 2.8 [31]
-'o-p31fail1'(suite) -> [];
 'o-p31fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p31fail1.xml"]),
@@ -9922,7 +9164,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p32fail1
 %% Type: not-wf
 %% Sections: 2.9 [32]
-'o-p32fail1'(suite) -> [];
 'o-p32fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p32fail1.xml"]),
@@ -9935,7 +9176,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p32fail2
 %% Type: not-wf
 %% Sections: 2.9 [32]
-'o-p32fail2'(suite) -> [];
 'o-p32fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p32fail2.xml"]),
@@ -9948,7 +9188,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p32fail3
 %% Type: not-wf
 %% Sections: 2.9 [32]
-'o-p32fail3'(suite) -> [];
 'o-p32fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p32fail3.xml"]),
@@ -9961,7 +9200,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p32fail4
 %% Type: not-wf
 %% Sections: 2.9 [32]
-'o-p32fail4'(suite) -> [];
 'o-p32fail4'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p32fail4.xml"]),
@@ -9974,7 +9212,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p32fail5
 %% Type: not-wf
 %% Sections: 2.9 [32]
-'o-p32fail5'(suite) -> [];
 'o-p32fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p32fail5.xml"]),
@@ -9987,7 +9224,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p39fail1
 %% Type: not-wf
 %% Sections: 3 [39]
-'o-p39fail1'(suite) -> [];
 'o-p39fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p39fail1.xml"]),
@@ -10000,7 +9236,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p39fail2
 %% Type: not-wf
 %% Sections: 3 [39]
-'o-p39fail2'(suite) -> [];
 'o-p39fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p39fail2.xml"]),
@@ -10013,7 +9248,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p39fail3
 %% Type: not-wf
 %% Sections: 3 [39]
-'o-p39fail3'(suite) -> [];
 'o-p39fail3'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p39fail3.xml"]),
@@ -10026,7 +9260,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p39fail4
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'o-p39fail4'(suite) -> [];
 'o-p39fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p39fail4.xml"]),
@@ -10039,7 +9272,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p39fail5
 %% Type: not-wf
 %% Sections: 2.8 [23]
-'o-p39fail5'(suite) -> [];
 'o-p39fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p39fail5.xml"]),
@@ -10052,7 +9284,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40fail1
 %% Type: not-wf
 %% Sections: 3.1 [40]
-'o-p40fail1'(suite) -> [];
 'o-p40fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40fail1.xml"]),
@@ -10065,7 +9296,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40fail2
 %% Type: not-wf
 %% Sections: 3.1 [40]
-'o-p40fail2'(suite) -> [];
 'o-p40fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40fail2.xml"]),
@@ -10078,7 +9308,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40fail3
 %% Type: not-wf
 %% Sections: 3.1 [40]
-'o-p40fail3'(suite) -> [];
 'o-p40fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40fail3.xml"]),
@@ -10091,7 +9320,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p40fail4
 %% Type: not-wf
 %% Sections: 3.1 [40]
-'o-p40fail4'(suite) -> [];
 'o-p40fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p40fail4.xml"]),
@@ -10104,7 +9332,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p41fail1
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'o-p41fail1'(suite) -> [];
 'o-p41fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p41fail1.xml"]),
@@ -10117,7 +9344,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p41fail2
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'o-p41fail2'(suite) -> [];
 'o-p41fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p41fail2.xml"]),
@@ -10130,7 +9356,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p41fail3
 %% Type: not-wf
 %% Sections: 3.1 [41]
-'o-p41fail3'(suite) -> [];
 'o-p41fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p41fail3.xml"]),
@@ -10143,7 +9368,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p42fail1
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'o-p42fail1'(suite) -> [];
 'o-p42fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p42fail1.xml"]),
@@ -10156,7 +9380,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p42fail2
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'o-p42fail2'(suite) -> [];
 'o-p42fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p42fail2.xml"]),
@@ -10169,7 +9392,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p42fail3
 %% Type: not-wf
 %% Sections: 3.1 [42]
-'o-p42fail3'(suite) -> [];
 'o-p42fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p42fail3.xml"]),
@@ -10182,7 +9404,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p43fail1
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'o-p43fail1'(suite) -> [];
 'o-p43fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p43fail1.xml"]),
@@ -10195,7 +9416,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p43fail2
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'o-p43fail2'(suite) -> [];
 'o-p43fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p43fail2.xml"]),
@@ -10208,7 +9428,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p43fail3
 %% Type: not-wf
 %% Sections: 3.1 [43]
-'o-p43fail3'(suite) -> [];
 'o-p43fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p43fail3.xml"]),
@@ -10221,7 +9440,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44fail1
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'o-p44fail1'(suite) -> [];
 'o-p44fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44fail1.xml"]),
@@ -10234,7 +9452,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44fail2
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'o-p44fail2'(suite) -> [];
 'o-p44fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44fail2.xml"]),
@@ -10247,7 +9464,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44fail3
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'o-p44fail3'(suite) -> [];
 'o-p44fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44fail3.xml"]),
@@ -10260,7 +9476,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44fail4
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'o-p44fail4'(suite) -> [];
 'o-p44fail4'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44fail4.xml"]),
@@ -10273,7 +9488,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p44fail5
 %% Type: not-wf
 %% Sections: 3.1 [44]
-'o-p44fail5'(suite) -> [];
 'o-p44fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p44fail5.xml"]),
@@ -10286,7 +9500,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p45fail1
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'o-p45fail1'(suite) -> [];
 'o-p45fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p45fail1.xml"]),
@@ -10299,7 +9512,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p45fail2
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'o-p45fail2'(suite) -> [];
 'o-p45fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p45fail2.xml"]),
@@ -10312,7 +9524,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p45fail3
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'o-p45fail3'(suite) -> [];
 'o-p45fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p45fail3.xml"]),
@@ -10325,7 +9536,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p45fail4
 %% Type: not-wf
 %% Sections: 3.2 [45]
-'o-p45fail4'(suite) -> [];
 'o-p45fail4'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p45fail4.xml"]),
@@ -10338,7 +9548,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p46fail1
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'o-p46fail1'(suite) -> [];
 'o-p46fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p46fail1.xml"]),
@@ -10351,7 +9560,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p46fail2
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'o-p46fail2'(suite) -> [];
 'o-p46fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p46fail2.xml"]),
@@ -10364,7 +9572,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p46fail3
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'o-p46fail3'(suite) -> [];
 'o-p46fail3'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p46fail3.xml"]),
@@ -10377,7 +9584,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p46fail4
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'o-p46fail4'(suite) -> [];
 'o-p46fail4'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p46fail4.xml"]),
@@ -10390,7 +9596,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p46fail5
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'o-p46fail5'(suite) -> [];
 'o-p46fail5'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p46fail5.xml"]),
@@ -10403,7 +9608,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p46fail6
 %% Type: not-wf
 %% Sections: 3.2 [46]
-'o-p46fail6'(suite) -> [];
 'o-p46fail6'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p46fail6.xml"]),
@@ -10416,7 +9620,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p47fail1
 %% Type: not-wf
 %% Sections: 3.2.1 [47]
-'o-p47fail1'(suite) -> [];
 'o-p47fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p47fail1.xml"]),
@@ -10429,7 +9632,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p47fail2
 %% Type: not-wf
 %% Sections: 3.2.1 [47]
-'o-p47fail2'(suite) -> [];
 'o-p47fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p47fail2.xml"]),
@@ -10442,7 +9644,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p47fail3
 %% Type: not-wf
 %% Sections: 3.2.1 [47]
-'o-p47fail3'(suite) -> [];
 'o-p47fail3'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p47fail3.xml"]),
@@ -10455,7 +9656,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p47fail4
 %% Type: not-wf
 %% Sections: 3.2.1 [47]
-'o-p47fail4'(suite) -> [];
 'o-p47fail4'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p47fail4.xml"]),
@@ -10468,7 +9668,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p48fail1
 %% Type: not-wf
 %% Sections: 3.2.1 [48]
-'o-p48fail1'(suite) -> [];
 'o-p48fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p48fail1.xml"]),
@@ -10481,7 +9680,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p48fail2
 %% Type: not-wf
 %% Sections: 3.2.1 [48]
-'o-p48fail2'(suite) -> [];
 'o-p48fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p48fail2.xml"]),
@@ -10494,7 +9692,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p49fail1
 %% Type: not-wf
 %% Sections: 3.2.1 [49]
-'o-p49fail1'(suite) -> [];
 'o-p49fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p49fail1.xml"]),
@@ -10507,7 +9704,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p50fail1
 %% Type: not-wf
 %% Sections: 3.2.1 [50]
-'o-p50fail1'(suite) -> [];
 'o-p50fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p50fail1.xml"]),
@@ -10520,7 +9716,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51fail1
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'o-p51fail1'(suite) -> [];
 'o-p51fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51fail1.xml"]),
@@ -10533,7 +9728,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51fail2
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'o-p51fail2'(suite) -> [];
 'o-p51fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51fail2.xml"]),
@@ -10546,7 +9740,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51fail3
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'o-p51fail3'(suite) -> [];
 'o-p51fail3'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51fail3.xml"]),
@@ -10559,7 +9752,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51fail4
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'o-p51fail4'(suite) -> [];
 'o-p51fail4'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51fail4.xml"]),
@@ -10572,7 +9764,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51fail5
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'o-p51fail5'(suite) -> [];
 'o-p51fail5'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51fail5.xml"]),
@@ -10585,7 +9776,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51fail6
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'o-p51fail6'(suite) -> [];
 'o-p51fail6'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51fail6.xml"]),
@@ -10598,7 +9788,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p51fail7
 %% Type: not-wf
 %% Sections: 3.2.2 [51]
-'o-p51fail7'(suite) -> [];
 'o-p51fail7'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p51fail7.xml"]),
@@ -10611,7 +9800,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p52fail1
 %% Type: not-wf
 %% Sections: 3.3 [52]
-'o-p52fail1'(suite) -> [];
 'o-p52fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p52fail1.xml"]),
@@ -10624,7 +9812,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p52fail2
 %% Type: not-wf
 %% Sections: 3.3 [52]
-'o-p52fail2'(suite) -> [];
 'o-p52fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p52fail2.xml"]),
@@ -10637,7 +9824,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p53fail1
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'o-p53fail1'(suite) -> [];
 'o-p53fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p53fail1.xml"]),
@@ -10650,7 +9836,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p53fail2
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'o-p53fail2'(suite) -> [];
 'o-p53fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p53fail2.xml"]),
@@ -10663,7 +9848,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p53fail3
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'o-p53fail3'(suite) -> [];
 'o-p53fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p53fail3.xml"]),
@@ -10676,7 +9860,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p53fail4
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'o-p53fail4'(suite) -> [];
 'o-p53fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p53fail4.xml"]),
@@ -10689,7 +9872,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p53fail5
 %% Type: not-wf
 %% Sections: 3.3 [53]
-'o-p53fail5'(suite) -> [];
 'o-p53fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p53fail5.xml"]),
@@ -10702,7 +9884,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p54fail1
 %% Type: not-wf
 %% Sections: 3.3.1 [54]
-'o-p54fail1'(suite) -> [];
 'o-p54fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p54fail1.xml"]),
@@ -10715,7 +9896,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p55fail1
 %% Type: not-wf
 %% Sections: 3.3.1 [55]
-'o-p55fail1'(suite) -> [];
 'o-p55fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p55fail1.xml"]),
@@ -10728,7 +9908,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p56fail1
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'o-p56fail1'(suite) -> [];
 'o-p56fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p56fail1.xml"]),
@@ -10741,7 +9920,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p56fail2
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'o-p56fail2'(suite) -> [];
 'o-p56fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p56fail2.xml"]),
@@ -10754,7 +9932,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p56fail3
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'o-p56fail3'(suite) -> [];
 'o-p56fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p56fail3.xml"]),
@@ -10767,7 +9944,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p56fail4
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'o-p56fail4'(suite) -> [];
 'o-p56fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p56fail4.xml"]),
@@ -10780,7 +9956,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p56fail5
 %% Type: not-wf
 %% Sections: 3.3.1 [56]
-'o-p56fail5'(suite) -> [];
 'o-p56fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p56fail5.xml"]),
@@ -10793,7 +9968,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p57fail1
 %% Type: not-wf
 %% Sections: 3.3.1 [57]
-'o-p57fail1'(suite) -> [];
 'o-p57fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p57fail1.xml"]),
@@ -10806,7 +9980,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail1
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail1'(suite) -> [];
 'o-p58fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail1.xml"]),
@@ -10819,7 +9992,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail2
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail2'(suite) -> [];
 'o-p58fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail2.xml"]),
@@ -10832,7 +10004,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail3
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail3'(suite) -> [];
 'o-p58fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail3.xml"]),
@@ -10845,7 +10016,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail4
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail4'(suite) -> [];
 'o-p58fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail4.xml"]),
@@ -10858,7 +10028,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail5
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail5'(suite) -> [];
 'o-p58fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail5.xml"]),
@@ -10871,7 +10040,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail6
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail6'(suite) -> [];
 'o-p58fail6'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail6.xml"]),
@@ -10884,7 +10052,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail7
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail7'(suite) -> [];
 'o-p58fail7'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail7.xml"]),
@@ -10897,7 +10064,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p58fail8
 %% Type: not-wf
 %% Sections: 3.3.1 [58]
-'o-p58fail8'(suite) -> [];
 'o-p58fail8'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p58fail8.xml"]),
@@ -10910,7 +10076,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p59fail1
 %% Type: not-wf
 %% Sections: 3.3.1 [59]
-'o-p59fail1'(suite) -> [];
 'o-p59fail1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p59fail1.xml"]),
@@ -10923,7 +10088,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p59fail2
 %% Type: not-wf
 %% Sections: 3.3.1 [59]
-'o-p59fail2'(suite) -> [];
 'o-p59fail2'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p59fail2.xml"]),
@@ -10936,7 +10100,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p59fail3
 %% Type: not-wf
 %% Sections: 3.3.1 [59]
-'o-p59fail3'(suite) -> [];
 'o-p59fail3'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p59fail3.xml"]),
@@ -10949,7 +10112,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p60fail1
 %% Type: not-wf
 %% Sections: 3.3.2 [60]
-'o-p60fail1'(suite) -> [];
 'o-p60fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p60fail1.xml"]),
@@ -10962,7 +10124,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p60fail2
 %% Type: not-wf
 %% Sections: 3.3.2 [60]
-'o-p60fail2'(suite) -> [];
 'o-p60fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p60fail2.xml"]),
@@ -10975,7 +10136,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p60fail3
 %% Type: not-wf
 %% Sections: 3.3.2 [60]
-'o-p60fail3'(suite) -> [];
 'o-p60fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p60fail3.xml"]),
@@ -10988,7 +10148,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p60fail4
 %% Type: not-wf
 %% Sections: 3.3.2 [60]
-'o-p60fail4'(suite) -> [];
 'o-p60fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p60fail4.xml"]),
@@ -11001,7 +10160,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p60fail5
 %% Type: not-wf
 %% Sections: 3.3.2 [60]
-'o-p60fail5'(suite) -> [];
 'o-p60fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p60fail5.xml"]),
@@ -11014,7 +10172,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p61fail1
 %% Type: not-wf
 %% Sections: 3.4 [61]
-'o-p61fail1'(suite) -> [];
 'o-p61fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p61fail1.xml"]),
@@ -11027,7 +10184,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p62fail1
 %% Type: not-wf
 %% Sections: 3.4 [62]
-'o-p62fail1'(suite) -> [];
 'o-p62fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p62fail1.xml"]),
@@ -11040,7 +10196,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p62fail2
 %% Type: not-wf
 %% Sections: 3.4 [62]
-'o-p62fail2'(suite) -> [];
 'o-p62fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p62fail2.xml"]),
@@ -11053,7 +10208,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p63fail1
 %% Type: not-wf
 %% Sections: 3.4 [63]
-'o-p63fail1'(suite) -> [];
 'o-p63fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p63fail1.xml"]),
@@ -11066,7 +10220,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p63fail2
 %% Type: not-wf
 %% Sections: 3.4 [63]
-'o-p63fail2'(suite) -> [];
 'o-p63fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p63fail2.xml"]),
@@ -11079,7 +10232,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p64fail1
 %% Type: not-wf
 %% Sections: 3.4 [64]
-'o-p64fail1'(suite) -> [];
 'o-p64fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p64fail1.xml"]),
@@ -11092,7 +10244,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p64fail2
 %% Type: not-wf
 %% Sections: 3.4 [64]
-'o-p64fail2'(suite) -> [];
 'o-p64fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p64fail2.xml"]),
@@ -11105,7 +10256,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p66fail1
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'o-p66fail1'(suite) -> [];
 'o-p66fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p66fail1.xml"]),
@@ -11118,7 +10268,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p66fail2
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'o-p66fail2'(suite) -> [];
 'o-p66fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p66fail2.xml"]),
@@ -11131,7 +10280,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p66fail3
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'o-p66fail3'(suite) -> [];
 'o-p66fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p66fail3.xml"]),
@@ -11144,7 +10292,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p66fail4
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'o-p66fail4'(suite) -> [];
 'o-p66fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p66fail4.xml"]),
@@ -11157,7 +10304,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p66fail5
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'o-p66fail5'(suite) -> [];
 'o-p66fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p66fail5.xml"]),
@@ -11170,7 +10316,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p66fail6
 %% Type: not-wf
 %% Sections: 4.1 [66]
-'o-p66fail6'(suite) -> [];
 'o-p66fail6'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p66fail6.xml"]),
@@ -11183,7 +10328,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p68fail1
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'o-p68fail1'(suite) -> [];
 'o-p68fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p68fail1.xml"]),
@@ -11196,7 +10340,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p68fail2
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'o-p68fail2'(suite) -> [];
 'o-p68fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p68fail2.xml"]),
@@ -11209,7 +10352,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p68fail3
 %% Type: not-wf
 %% Sections: 4.1 [68]
-'o-p68fail3'(suite) -> [];
 'o-p68fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p68fail3.xml"]),
@@ -11222,7 +10364,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p69fail1
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'o-p69fail1'(suite) -> [];
 'o-p69fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p69fail1.xml"]),
@@ -11235,7 +10376,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p69fail2
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'o-p69fail2'(suite) -> [];
 'o-p69fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p69fail2.xml"]),
@@ -11248,7 +10388,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p69fail3
 %% Type: not-wf
 %% Sections: 4.1 [69]
-'o-p69fail3'(suite) -> [];
 'o-p69fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p69fail3.xml"]),
@@ -11261,7 +10400,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p70fail1
 %% Type: not-wf
 %% Sections: 4.2 [70]
-'o-p70fail1'(suite) -> [];
 'o-p70fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p70fail1.xml"]),
@@ -11274,7 +10412,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p71fail1
 %% Type: not-wf
 %% Sections: 4.2 [71]
-'o-p71fail1'(suite) -> [];
 'o-p71fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p71fail1.xml"]),
@@ -11287,7 +10424,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p71fail2
 %% Type: not-wf
 %% Sections: 4.2 [71]
-'o-p71fail2'(suite) -> [];
 'o-p71fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p71fail2.xml"]),
@@ -11300,7 +10436,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p71fail3
 %% Type: not-wf
 %% Sections: 4.2 [71]
-'o-p71fail3'(suite) -> [];
 'o-p71fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p71fail3.xml"]),
@@ -11313,7 +10448,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p71fail4
 %% Type: not-wf
 %% Sections: 4.2 [71]
-'o-p71fail4'(suite) -> [];
 'o-p71fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p71fail4.xml"]),
@@ -11326,7 +10460,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p72fail1
 %% Type: not-wf
 %% Sections: 4.2 [72]
-'o-p72fail1'(suite) -> [];
 'o-p72fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p72fail1.xml"]),
@@ -11339,7 +10472,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p72fail2
 %% Type: not-wf
 %% Sections: 4.2 [72]
-'o-p72fail2'(suite) -> [];
 'o-p72fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p72fail2.xml"]),
@@ -11352,7 +10484,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p72fail3
 %% Type: not-wf
 %% Sections: 4.2 [72]
-'o-p72fail3'(suite) -> [];
 'o-p72fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p72fail3.xml"]),
@@ -11365,7 +10496,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p72fail4
 %% Type: not-wf
 %% Sections: 4.2 [72]
-'o-p72fail4'(suite) -> [];
 'o-p72fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p72fail4.xml"]),
@@ -11378,7 +10508,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p73fail1
 %% Type: not-wf
 %% Sections: 4.2 [73]
-'o-p73fail1'(suite) -> [];
 'o-p73fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p73fail1.xml"]),
@@ -11391,7 +10520,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p73fail2
 %% Type: not-wf
 %% Sections: 4.2 [73]
-'o-p73fail2'(suite) -> [];
 'o-p73fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p73fail2.xml"]),
@@ -11404,7 +10532,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p73fail3
 %% Type: not-wf
 %% Sections: 4.2 [73]
-'o-p73fail3'(suite) -> [];
 'o-p73fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p73fail3.xml"]),
@@ -11417,7 +10544,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p73fail4
 %% Type: not-wf
 %% Sections: 4.2 [73]
-'o-p73fail4'(suite) -> [];
 'o-p73fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p73fail4.xml"]),
@@ -11430,7 +10556,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p73fail5
 %% Type: not-wf
 %% Sections: 4.2 [73]
-'o-p73fail5'(suite) -> [];
 'o-p73fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p73fail5.xml"]),
@@ -11443,7 +10568,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p74fail1
 %% Type: not-wf
 %% Sections: 4.2 [74]
-'o-p74fail1'(suite) -> [];
 'o-p74fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p74fail1.xml"]),
@@ -11456,7 +10580,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p74fail2
 %% Type: not-wf
 %% Sections: 4.2 [74]
-'o-p74fail2'(suite) -> [];
 'o-p74fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p74fail2.xml"]),
@@ -11469,7 +10592,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p74fail3
 %% Type: not-wf
 %% Sections: 4.2 [74]
-'o-p74fail3'(suite) -> [];
 'o-p74fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p74fail3.xml"]),
@@ -11482,7 +10604,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p75fail1
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'o-p75fail1'(suite) -> [];
 'o-p75fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p75fail1.xml"]),
@@ -11495,7 +10616,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p75fail2
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'o-p75fail2'(suite) -> [];
 'o-p75fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p75fail2.xml"]),
@@ -11508,7 +10628,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p75fail3
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'o-p75fail3'(suite) -> [];
 'o-p75fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p75fail3.xml"]),
@@ -11521,7 +10640,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p75fail4
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'o-p75fail4'(suite) -> [];
 'o-p75fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p75fail4.xml"]),
@@ -11534,7 +10652,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p75fail5
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'o-p75fail5'(suite) -> [];
 'o-p75fail5'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p75fail5.xml"]),
@@ -11547,7 +10664,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p75fail6
 %% Type: not-wf
 %% Sections: 4.2.2 [75]
-'o-p75fail6'(suite) -> [];
 'o-p75fail6'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p75fail6.xml"]),
@@ -11560,7 +10676,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p76fail1
 %% Type: not-wf
 %% Sections: 4.2.2 [76]
-'o-p76fail1'(suite) -> [];
 'o-p76fail1'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p76fail1.xml"]),
@@ -11573,7 +10688,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p76fail2
 %% Type: not-wf
 %% Sections: 4.2.2 [76]
-'o-p76fail2'(suite) -> [];
 'o-p76fail2'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p76fail2.xml"]),
@@ -11586,7 +10700,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p76fail3
 %% Type: not-wf
 %% Sections: 4.2.2 [76]
-'o-p76fail3'(suite) -> [];
 'o-p76fail3'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p76fail3.xml"]),
@@ -11599,7 +10712,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p76fail4
 %% Type: not-wf
 %% Sections: 4.2.2 [76]
-'o-p76fail4'(suite) -> [];
 'o-p76fail4'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p76fail4.xml"]),
@@ -11612,7 +10724,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: o-p11pass1
 %% Type: error
 %% Sections: 2.3, 4.2.2 [11]
-'o-p11pass1'(suite) -> [];
 'o-p11pass1'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"oasis","p11pass1.xml"]),
@@ -11635,7 +10746,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P28-ibm28i01.xml
 %% Type: invalid
 %% Sections: 2.8
-'ibm-invalid-P28-ibm28i01'(suite) -> [];
 'ibm-invalid-P28-ibm28i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P28/ibm28i01.xml"]),
@@ -11653,7 +10763,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P32-ibm32i01.xml
 %% Type: invalid
 %% Sections: 2.9
-'ibm-invalid-P32-ibm32i01'(suite) -> [];
 'ibm-invalid-P32-ibm32i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P32/ibm32i01.xml"]),
@@ -11666,7 +10775,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P32-ibm32i03.xml
 %% Type: invalid
 %% Sections: 2.9
-'ibm-invalid-P32-ibm32i03'(suite) -> [];
 'ibm-invalid-P32-ibm32i03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P32/ibm32i03.xml"]),
@@ -11679,7 +10787,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P32-ibm32i04.xml
 %% Type: invalid
 %% Sections: 2.9
-'ibm-invalid-P32-ibm32i04'(suite) -> [];
 'ibm-invalid-P32-ibm32i04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P32/ibm32i04.xml"]),
@@ -11697,7 +10804,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P39-ibm39i01.xml
 %% Type: invalid
 %% Sections: 3
-'ibm-invalid-P39-ibm39i01'(suite) -> [];
 'ibm-invalid-P39-ibm39i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P39/ibm39i01.xml"]),
@@ -11710,7 +10816,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P39-ibm39i02.xml
 %% Type: invalid
 %% Sections: 3
-'ibm-invalid-P39-ibm39i02'(suite) -> [];
 'ibm-invalid-P39-ibm39i02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P39/ibm39i02.xml"]),
@@ -11723,7 +10828,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P39-ibm39i03.xml
 %% Type: invalid
 %% Sections: 3
-'ibm-invalid-P39-ibm39i03'(suite) -> [];
 'ibm-invalid-P39-ibm39i03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P39/ibm39i03.xml"]),
@@ -11736,7 +10840,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P39-ibm39i04.xml
 %% Type: invalid
 %% Sections: 3
-'ibm-invalid-P39-ibm39i04'(suite) -> [];
 'ibm-invalid-P39-ibm39i04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P39/ibm39i04.xml"]),
@@ -11754,7 +10857,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P41-ibm41i01.xml
 %% Type: invalid
 %% Sections: 3.1
-'ibm-invalid-P41-ibm41i01'(suite) -> [];
 'ibm-invalid-P41-ibm41i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P41/ibm41i01.xml"]),
@@ -11767,7 +10869,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P41-ibm41i02.xml
 %% Type: invalid
 %% Sections: 3.1
-'ibm-invalid-P41-ibm41i02'(suite) -> [];
 'ibm-invalid-P41-ibm41i02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P41/ibm41i02.xml"]),
@@ -11785,7 +10886,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P45-ibm45i01.xml
 %% Type: invalid
 %% Sections: 3.2
-'ibm-invalid-P45-ibm45i01'(suite) -> [];
 'ibm-invalid-P45-ibm45i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P45/ibm45i01.xml"]),
@@ -11803,7 +10903,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P49-ibm49i01.xml
 %% Type: invalid
 %% Sections: 3.2.1
-'ibm-invalid-P49-ibm49i01'(suite) -> [];
 'ibm-invalid-P49-ibm49i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P49/ibm49i01.xml"]),
@@ -11821,7 +10920,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P50-ibm50i01.xml
 %% Type: invalid
 %% Sections: 3.2.1
-'ibm-invalid-P50-ibm50i01'(suite) -> [];
 'ibm-invalid-P50-ibm50i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P50/ibm50i01.xml"]),
@@ -11839,7 +10937,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P51-ibm51i01.xml
 %% Type: invalid
 %% Sections: 3.2.2
-'ibm-invalid-P51-ibm51i01'(suite) -> [];
 'ibm-invalid-P51-ibm51i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P51/ibm51i01.xml"]),
@@ -11852,7 +10949,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P51-ibm51i03.xml
 %% Type: invalid
 %% Sections: 3.2.2
-'ibm-invalid-P51-ibm51i03'(suite) -> [];
 'ibm-invalid-P51-ibm51i03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P51/ibm51i03.xml"]),
@@ -11870,7 +10966,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i01.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i01'(suite) -> [];
 'ibm-invalid-P56-ibm56i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i01.xml"]),
@@ -11883,7 +10978,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i02.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i02'(suite) -> [];
 'ibm-invalid-P56-ibm56i02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i02.xml"]),
@@ -11896,7 +10990,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i03.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i03'(suite) -> [];
 'ibm-invalid-P56-ibm56i03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i03.xml"]),
@@ -11909,7 +11002,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i05.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i05'(suite) -> [];
 'ibm-invalid-P56-ibm56i05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i05.xml"]),
@@ -11922,7 +11014,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i06.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i06'(suite) -> [];
 'ibm-invalid-P56-ibm56i06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i06.xml"]),
@@ -11935,7 +11026,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i07.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i07'(suite) -> [];
 'ibm-invalid-P56-ibm56i07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i07.xml"]),
@@ -11948,7 +11038,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i08.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i08'(suite) -> [];
 'ibm-invalid-P56-ibm56i08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i08.xml"]),
@@ -11961,7 +11050,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i09.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i09'(suite) -> [];
 'ibm-invalid-P56-ibm56i09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i09.xml"]),
@@ -11974,7 +11062,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i10.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i10'(suite) -> [];
 'ibm-invalid-P56-ibm56i10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i10.xml"]),
@@ -11987,7 +11074,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i11.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i11'(suite) -> [];
 'ibm-invalid-P56-ibm56i11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i11.xml"]),
@@ -12000,7 +11086,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i12.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i12'(suite) -> [];
 'ibm-invalid-P56-ibm56i12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i12.xml"]),
@@ -12013,7 +11098,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i13.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i13'(suite) -> [];
 'ibm-invalid-P56-ibm56i13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i13.xml"]),
@@ -12026,7 +11110,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i14.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i14'(suite) -> [];
 'ibm-invalid-P56-ibm56i14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i14.xml"]),
@@ -12039,7 +11122,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i15.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i15'(suite) -> [];
 'ibm-invalid-P56-ibm56i15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i15.xml"]),
@@ -12052,7 +11134,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i16.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i16'(suite) -> [];
 'ibm-invalid-P56-ibm56i16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i16.xml"]),
@@ -12065,7 +11146,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i17.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i17'(suite) -> [];
 'ibm-invalid-P56-ibm56i17'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i17.xml"]),
@@ -12078,7 +11158,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P56-ibm56i18.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P56-ibm56i18'(suite) -> [];
 'ibm-invalid-P56-ibm56i18'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P56/ibm56i18.xml"]),
@@ -12096,7 +11175,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P58-ibm58i01.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P58-ibm58i01'(suite) -> [];
 'ibm-invalid-P58-ibm58i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P58/ibm58i01.xml"]),
@@ -12109,7 +11187,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P58-ibm58i02.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P58-ibm58i02'(suite) -> [];
 'ibm-invalid-P58-ibm58i02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P58/ibm58i02.xml"]),
@@ -12127,7 +11204,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P59-ibm59i01.xml
 %% Type: invalid
 %% Sections: 3.3.1
-'ibm-invalid-P59-ibm59i01'(suite) -> [];
 'ibm-invalid-P59-ibm59i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P59/ibm59i01.xml"]),
@@ -12145,7 +11221,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P60-ibm60i01.xml
 %% Type: invalid
 %% Sections: 3.3.2
-'ibm-invalid-P60-ibm60i01'(suite) -> [];
 'ibm-invalid-P60-ibm60i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P60/ibm60i01.xml"]),
@@ -12158,7 +11233,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P60-ibm60i02.xml
 %% Type: invalid
 %% Sections: 3.3.2
-'ibm-invalid-P60-ibm60i02'(suite) -> [];
 'ibm-invalid-P60-ibm60i02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P60/ibm60i02.xml"]),
@@ -12171,7 +11245,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P60-ibm60i03.xml
 %% Type: invalid
 %% Sections: 3.3.2
-'ibm-invalid-P60-ibm60i03'(suite) -> [];
 'ibm-invalid-P60-ibm60i03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P60/ibm60i03.xml"]),
@@ -12184,7 +11257,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P60-ibm60i04.xml
 %% Type: invalid
 %% Sections: 3.3.2
-'ibm-invalid-P60-ibm60i04'(suite) -> [];
 'ibm-invalid-P60-ibm60i04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P60/ibm60i04.xml"]),
@@ -12202,7 +11274,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P68-ibm68i01.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P68-ibm68i01'(suite) -> [];
 'ibm-invalid-P68-ibm68i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P68/ibm68i01.xml"]),
@@ -12215,7 +11286,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P68-ibm68i02.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P68-ibm68i02'(suite) -> [];
 'ibm-invalid-P68-ibm68i02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P68/ibm68i02.xml"]),
@@ -12228,7 +11298,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P68-ibm68i03.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P68-ibm68i03'(suite) -> [];
 'ibm-invalid-P68-ibm68i03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P68/ibm68i03.xml"]),
@@ -12241,7 +11310,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P68-ibm68i04.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P68-ibm68i04'(suite) -> [];
 'ibm-invalid-P68-ibm68i04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P68/ibm68i04.xml"]),
@@ -12259,7 +11327,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P69-ibm69i01.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P69-ibm69i01'(suite) -> [];
 'ibm-invalid-P69-ibm69i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P69/ibm69i01.xml"]),
@@ -12272,7 +11339,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P69-ibm69i02.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P69-ibm69i02'(suite) -> [];
 'ibm-invalid-P69-ibm69i02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P69/ibm69i02.xml"]),
@@ -12285,7 +11351,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P69-ibm69i03.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P69-ibm69i03'(suite) -> [];
 'ibm-invalid-P69-ibm69i03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P69/ibm69i03.xml"]),
@@ -12298,7 +11363,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P69-ibm69i04.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-invalid-P69-ibm69i04'(suite) -> [];
 'ibm-invalid-P69-ibm69i04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P69/ibm69i04.xml"]),
@@ -12316,7 +11380,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-invalid-P76-ibm76i01.xml
 %% Type: invalid
 %% Sections: 4.2.2
-'ibm-invalid-P76-ibm76i01'(suite) -> [];
 'ibm-invalid-P76-ibm76i01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","invalid/P76/ibm76i01.xml"]),
@@ -12339,7 +11402,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P01-ibm01n01.xml
 %% Type: not-wf
 %% Sections: 2.1
-'ibm-not-wf-P01-ibm01n01'(suite) -> [];
 'ibm-not-wf-P01-ibm01n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P01/ibm01n01.xml"]),
@@ -12352,7 +11414,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P01-ibm01n02.xml
 %% Type: not-wf
 %% Sections: 2.1
-'ibm-not-wf-P01-ibm01n02'(suite) -> [];
 'ibm-not-wf-P01-ibm01n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P01/ibm01n02.xml"]),
@@ -12369,7 +11430,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P01-ibm01n03.xml
 %% Type: not-wf
 %% Sections: 2.1
-'ibm-not-wf-P01-ibm01n03'(suite) -> [];
 'ibm-not-wf-P01-ibm01n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P01/ibm01n03.xml"]),
@@ -12390,7 +11450,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n01.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n01'(suite) -> [];
 'ibm-not-wf-P02-ibm02n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n01.xml"]),
@@ -12403,7 +11462,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n02.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n02'(suite) -> [];
 'ibm-not-wf-P02-ibm02n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n02.xml"]),
@@ -12416,7 +11474,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n03.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n03'(suite) -> [];
 'ibm-not-wf-P02-ibm02n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n03.xml"]),
@@ -12429,7 +11486,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n04.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n04'(suite) -> [];
 'ibm-not-wf-P02-ibm02n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n04.xml"]),
@@ -12442,7 +11498,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n05.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n05'(suite) -> [];
 'ibm-not-wf-P02-ibm02n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n05.xml"]),
@@ -12455,7 +11510,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n06.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n06'(suite) -> [];
 'ibm-not-wf-P02-ibm02n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n06.xml"]),
@@ -12468,7 +11522,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n07.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n07'(suite) -> [];
 'ibm-not-wf-P02-ibm02n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n07.xml"]),
@@ -12481,7 +11534,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n08.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n08'(suite) -> [];
 'ibm-not-wf-P02-ibm02n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n08.xml"]),
@@ -12494,7 +11546,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n09.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n09'(suite) -> [];
 'ibm-not-wf-P02-ibm02n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n09.xml"]),
@@ -12507,7 +11558,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n10.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n10'(suite) -> [];
 'ibm-not-wf-P02-ibm02n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n10.xml"]),
@@ -12520,7 +11570,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n11.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n11'(suite) -> [];
 'ibm-not-wf-P02-ibm02n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n11.xml"]),
@@ -12533,7 +11582,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n12.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n12'(suite) -> [];
 'ibm-not-wf-P02-ibm02n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n12.xml"]),
@@ -12546,7 +11594,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n13.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n13'(suite) -> [];
 'ibm-not-wf-P02-ibm02n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n13.xml"]),
@@ -12559,7 +11606,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n14.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n14'(suite) -> [];
 'ibm-not-wf-P02-ibm02n14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n14.xml"]),
@@ -12572,7 +11618,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n15.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n15'(suite) -> [];
 'ibm-not-wf-P02-ibm02n15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n15.xml"]),
@@ -12585,7 +11630,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n16.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n16'(suite) -> [];
 'ibm-not-wf-P02-ibm02n16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n16.xml"]),
@@ -12598,7 +11642,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n17.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n17'(suite) -> [];
 'ibm-not-wf-P02-ibm02n17'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n17.xml"]),
@@ -12611,7 +11654,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n18.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n18'(suite) -> [];
 'ibm-not-wf-P02-ibm02n18'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n18.xml"]),
@@ -12624,7 +11666,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n19.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n19'(suite) -> [];
 'ibm-not-wf-P02-ibm02n19'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n19.xml"]),
@@ -12637,7 +11678,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n20.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n20'(suite) -> [];
 'ibm-not-wf-P02-ibm02n20'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n20.xml"]),
@@ -12650,7 +11690,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n21.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n21'(suite) -> [];
 'ibm-not-wf-P02-ibm02n21'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n21.xml"]),
@@ -12663,7 +11702,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n22.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n22'(suite) -> [];
 'ibm-not-wf-P02-ibm02n22'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n22.xml"]),
@@ -12676,7 +11714,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n23.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n23'(suite) -> [];
 'ibm-not-wf-P02-ibm02n23'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n23.xml"]),
@@ -12689,7 +11726,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n24.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n24'(suite) -> [];
 'ibm-not-wf-P02-ibm02n24'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n24.xml"]),
@@ -12702,7 +11738,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n25.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n25'(suite) -> [];
 'ibm-not-wf-P02-ibm02n25'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n25.xml"]),
@@ -12715,7 +11750,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n26.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n26'(suite) -> [];
 'ibm-not-wf-P02-ibm02n26'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n26.xml"]),
@@ -12728,7 +11762,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n27.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n27'(suite) -> [];
 'ibm-not-wf-P02-ibm02n27'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n27.xml"]),
@@ -12741,7 +11774,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n28.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n28'(suite) -> [];
 'ibm-not-wf-P02-ibm02n28'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n28.xml"]),
@@ -12754,7 +11786,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n29.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n29'(suite) -> [];
 'ibm-not-wf-P02-ibm02n29'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n29.xml"]),
@@ -12767,7 +11798,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n30.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n30'(suite) -> [];
 'ibm-not-wf-P02-ibm02n30'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n30.xml"]),
@@ -12780,7 +11810,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n31.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n31'(suite) -> [];
 'ibm-not-wf-P02-ibm02n31'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n31.xml"]),
@@ -12793,7 +11822,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n32.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n32'(suite) -> [];
 'ibm-not-wf-P02-ibm02n32'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n32.xml"]),
@@ -12806,7 +11834,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P02-ibm02n33.xml
 %% Type: not-wf
 %% Sections: 2.2
-'ibm-not-wf-P02-ibm02n33'(suite) -> [];
 'ibm-not-wf-P02-ibm02n33'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P02/ibm02n33.xml"]),
@@ -12824,7 +11851,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P03-ibm03n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P03-ibm03n01'(suite) -> [];
 'ibm-not-wf-P03-ibm03n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P03/ibm03n01.xml"]),
@@ -12842,7 +11868,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n01'(suite) -> [];
 'ibm-not-wf-P04-ibm04n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n01.xml"]),
@@ -12855,7 +11880,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n02.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n02'(suite) -> [];
 'ibm-not-wf-P04-ibm04n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n02.xml"]),
@@ -12868,7 +11892,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n03.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n03'(suite) -> [];
 'ibm-not-wf-P04-ibm04n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n03.xml"]),
@@ -12881,7 +11904,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n04.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n04'(suite) -> [];
 'ibm-not-wf-P04-ibm04n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n04.xml"]),
@@ -12894,7 +11916,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n05.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n05'(suite) -> [];
 'ibm-not-wf-P04-ibm04n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n05.xml"]),
@@ -12907,7 +11928,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n06.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n06'(suite) -> [];
 'ibm-not-wf-P04-ibm04n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n06.xml"]),
@@ -12920,7 +11940,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n07.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n07'(suite) -> [];
 'ibm-not-wf-P04-ibm04n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n07.xml"]),
@@ -12933,7 +11952,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n08.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n08'(suite) -> [];
 'ibm-not-wf-P04-ibm04n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n08.xml"]),
@@ -12946,7 +11964,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n09.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n09'(suite) -> [];
 'ibm-not-wf-P04-ibm04n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n09.xml"]),
@@ -12959,7 +11976,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n10.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n10'(suite) -> [];
 'ibm-not-wf-P04-ibm04n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n10.xml"]),
@@ -12972,7 +11988,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n11.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n11'(suite) -> [];
 'ibm-not-wf-P04-ibm04n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n11.xml"]),
@@ -12985,7 +12000,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n12.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n12'(suite) -> [];
 'ibm-not-wf-P04-ibm04n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n12.xml"]),
@@ -12998,7 +12012,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n13.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n13'(suite) -> [];
 'ibm-not-wf-P04-ibm04n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n13.xml"]),
@@ -13011,7 +12024,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n14.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n14'(suite) -> [];
 'ibm-not-wf-P04-ibm04n14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n14.xml"]),
@@ -13024,7 +12036,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n15.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n15'(suite) -> [];
 'ibm-not-wf-P04-ibm04n15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n15.xml"]),
@@ -13037,7 +12048,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n16.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n16'(suite) -> [];
 'ibm-not-wf-P04-ibm04n16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n16.xml"]),
@@ -13050,7 +12060,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n17.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n17'(suite) -> [];
 'ibm-not-wf-P04-ibm04n17'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n17.xml"]),
@@ -13063,7 +12072,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P04-ibm04n18.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P04-ibm04n18'(suite) -> [];
 'ibm-not-wf-P04-ibm04n18'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P04/ibm04n18.xml"]),
@@ -13081,7 +12089,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P05-ibm05n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P05-ibm05n01'(suite) -> [];
 'ibm-not-wf-P05-ibm05n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P05/ibm05n01.xml"]),
@@ -13094,7 +12101,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P05-ibm05n02.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P05-ibm05n02'(suite) -> [];
 'ibm-not-wf-P05-ibm05n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P05/ibm05n02.xml"]),
@@ -13107,7 +12113,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P05-ibm05n03.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P05-ibm05n03'(suite) -> [];
 'ibm-not-wf-P05-ibm05n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P05/ibm05n03.xml"]),
@@ -13125,7 +12130,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P09-ibm09n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P09-ibm09n01'(suite) -> [];
 'ibm-not-wf-P09-ibm09n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P09/ibm09n01.xml"]),
@@ -13138,7 +12142,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P09-ibm09n02.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P09-ibm09n02'(suite) -> [];
 'ibm-not-wf-P09-ibm09n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P09/ibm09n02.xml"]),
@@ -13151,7 +12154,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P09-ibm09n03.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P09-ibm09n03'(suite) -> [];
 'ibm-not-wf-P09-ibm09n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P09/ibm09n03.xml"]),
@@ -13164,7 +12166,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P09-ibm09n04.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P09-ibm09n04'(suite) -> [];
 'ibm-not-wf-P09-ibm09n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P09/ibm09n04.xml"]),
@@ -13182,7 +12183,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n01'(suite) -> [];
 'ibm-not-wf-P10-ibm10n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n01.xml"]),
@@ -13195,7 +12195,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n02.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n02'(suite) -> [];
 'ibm-not-wf-P10-ibm10n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n02.xml"]),
@@ -13208,7 +12207,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n03.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n03'(suite) -> [];
 'ibm-not-wf-P10-ibm10n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n03.xml"]),
@@ -13221,7 +12219,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n04.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n04'(suite) -> [];
 'ibm-not-wf-P10-ibm10n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n04.xml"]),
@@ -13234,7 +12231,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n05.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n05'(suite) -> [];
 'ibm-not-wf-P10-ibm10n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n05.xml"]),
@@ -13247,7 +12243,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n06.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n06'(suite) -> [];
 'ibm-not-wf-P10-ibm10n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n06.xml"]),
@@ -13260,7 +12255,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n07.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n07'(suite) -> [];
 'ibm-not-wf-P10-ibm10n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n07.xml"]),
@@ -13273,7 +12267,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P10-ibm10n08.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P10-ibm10n08'(suite) -> [];
 'ibm-not-wf-P10-ibm10n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P10/ibm10n08.xml"]),
@@ -13291,7 +12284,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P11-ibm11n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P11-ibm11n01'(suite) -> [];
 'ibm-not-wf-P11-ibm11n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P11/ibm11n01.xml"]),
@@ -13304,7 +12296,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P11-ibm11n02.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P11-ibm11n02'(suite) -> [];
 'ibm-not-wf-P11-ibm11n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P11/ibm11n02.xml"]),
@@ -13317,7 +12308,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P11-ibm11n03.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P11-ibm11n03'(suite) -> [];
 'ibm-not-wf-P11-ibm11n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P11/ibm11n03.xml"]),
@@ -13330,7 +12320,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P11-ibm11n04.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P11-ibm11n04'(suite) -> [];
 'ibm-not-wf-P11-ibm11n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P11/ibm11n04.xml"]),
@@ -13348,7 +12337,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P12-ibm12n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P12-ibm12n01'(suite) -> [];
 'ibm-not-wf-P12-ibm12n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P12/ibm12n01.xml"]),
@@ -13361,7 +12349,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P12-ibm12n02.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P12-ibm12n02'(suite) -> [];
 'ibm-not-wf-P12-ibm12n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P12/ibm12n02.xml"]),
@@ -13374,7 +12361,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P12-ibm12n03.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P12-ibm12n03'(suite) -> [];
 'ibm-not-wf-P12-ibm12n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P12/ibm12n03.xml"]),
@@ -13392,7 +12378,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P13-ibm13n01.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P13-ibm13n01'(suite) -> [];
 'ibm-not-wf-P13-ibm13n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P13/ibm13n01.xml"]),
@@ -13405,7 +12390,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P13-ibm13n02.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P13-ibm13n02'(suite) -> [];
 'ibm-not-wf-P13-ibm13n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P13/ibm13n02.xml"]),
@@ -13418,7 +12402,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P13-ibm13n03.xml
 %% Type: not-wf
 %% Sections: 2.3
-'ibm-not-wf-P13-ibm13n03'(suite) -> [];
 'ibm-not-wf-P13-ibm13n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P13/ibm13n03.xml"]),
@@ -13436,7 +12419,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P14-ibm14n01.xml
 %% Type: not-wf
 %% Sections: 2.4
-'ibm-not-wf-P14-ibm14n01'(suite) -> [];
 'ibm-not-wf-P14-ibm14n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P14/ibm14n01.xml"]),
@@ -13449,7 +12431,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P14-ibm14n02.xml
 %% Type: not-wf
 %% Sections: 2.4
-'ibm-not-wf-P14-ibm14n02'(suite) -> [];
 'ibm-not-wf-P14-ibm14n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P14/ibm14n02.xml"]),
@@ -13462,7 +12443,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P14-ibm14n03.xml
 %% Type: not-wf
 %% Sections: 2.4
-'ibm-not-wf-P14-ibm14n03'(suite) -> [];
 'ibm-not-wf-P14-ibm14n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P14/ibm14n03.xml"]),
@@ -13480,7 +12460,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P15-ibm15n01.xml
 %% Type: not-wf
 %% Sections: 2.5
-'ibm-not-wf-P15-ibm15n01'(suite) -> [];
 'ibm-not-wf-P15-ibm15n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P15/ibm15n01.xml"]),
@@ -13493,7 +12472,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P15-ibm15n02.xml
 %% Type: not-wf
 %% Sections: 2.5
-'ibm-not-wf-P15-ibm15n02'(suite) -> [];
 'ibm-not-wf-P15-ibm15n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P15/ibm15n02.xml"]),
@@ -13506,7 +12484,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P15-ibm15n03.xml
 %% Type: not-wf
 %% Sections: 2.5
-'ibm-not-wf-P15-ibm15n03'(suite) -> [];
 'ibm-not-wf-P15-ibm15n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P15/ibm15n03.xml"]),
@@ -13519,7 +12496,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P15-ibm15n04.xml
 %% Type: not-wf
 %% Sections: 2.5
-'ibm-not-wf-P15-ibm15n04'(suite) -> [];
 'ibm-not-wf-P15-ibm15n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P15/ibm15n04.xml"]),
@@ -13537,7 +12513,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P16-ibm16n01.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P16-ibm16n01'(suite) -> [];
 'ibm-not-wf-P16-ibm16n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P16/ibm16n01.xml"]),
@@ -13550,7 +12525,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P16-ibm16n02.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P16-ibm16n02'(suite) -> [];
 'ibm-not-wf-P16-ibm16n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P16/ibm16n02.xml"]),
@@ -13563,7 +12537,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P16-ibm16n03.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P16-ibm16n03'(suite) -> [];
 'ibm-not-wf-P16-ibm16n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P16/ibm16n03.xml"]),
@@ -13576,7 +12549,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P16-ibm16n04.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P16-ibm16n04'(suite) -> [];
 'ibm-not-wf-P16-ibm16n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P16/ibm16n04.xml"]),
@@ -13594,7 +12566,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P17-ibm17n01.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P17-ibm17n01'(suite) -> [];
 'ibm-not-wf-P17-ibm17n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P17/ibm17n01.xml"]),
@@ -13607,7 +12578,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P17-ibm17n02.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P17-ibm17n02'(suite) -> [];
 'ibm-not-wf-P17-ibm17n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P17/ibm17n02.xml"]),
@@ -13620,7 +12590,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P17-ibm17n03.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P17-ibm17n03'(suite) -> [];
 'ibm-not-wf-P17-ibm17n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P17/ibm17n03.xml"]),
@@ -13633,7 +12602,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P17-ibm17n04.xml
 %% Type: not-wf
 %% Sections: 2.6
-'ibm-not-wf-P17-ibm17n04'(suite) -> [];
 'ibm-not-wf-P17-ibm17n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P17/ibm17n04.xml"]),
@@ -13651,7 +12619,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P18-ibm18n01.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P18-ibm18n01'(suite) -> [];
 'ibm-not-wf-P18-ibm18n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P18/ibm18n01.xml"]),
@@ -13664,7 +12631,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P18-ibm18n02.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P18-ibm18n02'(suite) -> [];
 'ibm-not-wf-P18-ibm18n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P18/ibm18n02.xml"]),
@@ -13682,7 +12648,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P19-ibm19n01.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P19-ibm19n01'(suite) -> [];
 'ibm-not-wf-P19-ibm19n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P19/ibm19n01.xml"]),
@@ -13695,7 +12660,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P19-ibm19n02.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P19-ibm19n02'(suite) -> [];
 'ibm-not-wf-P19-ibm19n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P19/ibm19n02.xml"]),
@@ -13708,7 +12672,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P19-ibm19n03.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P19-ibm19n03'(suite) -> [];
 'ibm-not-wf-P19-ibm19n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P19/ibm19n03.xml"]),
@@ -13726,7 +12689,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P20-ibm20n01.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P20-ibm20n01'(suite) -> [];
 'ibm-not-wf-P20-ibm20n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P20/ibm20n01.xml"]),
@@ -13744,7 +12706,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P21-ibm21n01.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P21-ibm21n01'(suite) -> [];
 'ibm-not-wf-P21-ibm21n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P21/ibm21n01.xml"]),
@@ -13757,7 +12718,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P21-ibm21n02.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P21-ibm21n02'(suite) -> [];
 'ibm-not-wf-P21-ibm21n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P21/ibm21n02.xml"]),
@@ -13770,7 +12730,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P21-ibm21n03.xml
 %% Type: not-wf
 %% Sections: 2.7
-'ibm-not-wf-P21-ibm21n03'(suite) -> [];
 'ibm-not-wf-P21-ibm21n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P21/ibm21n03.xml"]),
@@ -13788,7 +12747,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P22-ibm22n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P22-ibm22n01'(suite) -> [];
 'ibm-not-wf-P22-ibm22n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P22/ibm22n01.xml"]),
@@ -13801,7 +12759,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P22-ibm22n02.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P22-ibm22n02'(suite) -> [];
 'ibm-not-wf-P22-ibm22n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P22/ibm22n02.xml"]),
@@ -13814,7 +12771,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P22-ibm22n03.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P22-ibm22n03'(suite) -> [];
 'ibm-not-wf-P22-ibm22n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P22/ibm22n03.xml"]),
@@ -13832,7 +12788,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P23-ibm23n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P23-ibm23n01'(suite) -> [];
 'ibm-not-wf-P23-ibm23n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P23/ibm23n01.xml"]),
@@ -13845,7 +12800,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P23-ibm23n02.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P23-ibm23n02'(suite) -> [];
 'ibm-not-wf-P23-ibm23n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P23/ibm23n02.xml"]),
@@ -13858,7 +12812,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P23-ibm23n03.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P23-ibm23n03'(suite) -> [];
 'ibm-not-wf-P23-ibm23n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P23/ibm23n03.xml"]),
@@ -13871,7 +12824,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P23-ibm23n04.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P23-ibm23n04'(suite) -> [];
 'ibm-not-wf-P23-ibm23n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P23/ibm23n04.xml"]),
@@ -13884,7 +12836,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P23-ibm23n05.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P23-ibm23n05'(suite) -> [];
 'ibm-not-wf-P23-ibm23n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P23/ibm23n05.xml"]),
@@ -13897,7 +12848,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P23-ibm23n06.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P23-ibm23n06'(suite) -> [];
 'ibm-not-wf-P23-ibm23n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P23/ibm23n06.xml"]),
@@ -13915,7 +12865,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n01'(suite) -> [];
 'ibm-not-wf-P24-ibm24n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n01.xml"]),
@@ -13928,7 +12877,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n02.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n02'(suite) -> [];
 'ibm-not-wf-P24-ibm24n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n02.xml"]),
@@ -13941,7 +12889,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n03.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n03'(suite) -> [];
 'ibm-not-wf-P24-ibm24n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n03.xml"]),
@@ -13954,7 +12901,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n04.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n04'(suite) -> [];
 'ibm-not-wf-P24-ibm24n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n04.xml"]),
@@ -13967,7 +12913,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n05.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n05'(suite) -> [];
 'ibm-not-wf-P24-ibm24n05'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n05.xml"]),
@@ -13980,7 +12925,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n06.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n06'(suite) -> [];
 'ibm-not-wf-P24-ibm24n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n06.xml"]),
@@ -13993,7 +12937,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n07.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n07'(suite) -> [];
 'ibm-not-wf-P24-ibm24n07'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n07.xml"]),
@@ -14006,7 +12949,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n08.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n08'(suite) -> [];
 'ibm-not-wf-P24-ibm24n08'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n08.xml"]),
@@ -14019,7 +12961,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P24-ibm24n09.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P24-ibm24n09'(suite) -> [];
 'ibm-not-wf-P24-ibm24n09'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P24/ibm24n09.xml"]),
@@ -14037,7 +12978,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P25-ibm25n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P25-ibm25n01'(suite) -> [];
 'ibm-not-wf-P25-ibm25n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P25/ibm25n01.xml"]),
@@ -14050,7 +12990,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P25-ibm25n02.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P25-ibm25n02'(suite) -> [];
 'ibm-not-wf-P25-ibm25n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P25/ibm25n02.xml"]),
@@ -14068,7 +13007,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P26-ibm26n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P26-ibm26n01'(suite) -> [];
 'ibm-not-wf-P26-ibm26n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P26/ibm26n01.xml"]),
@@ -14086,7 +13024,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P27-ibm27n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P27-ibm27n01'(suite) -> [];
 'ibm-not-wf-P27-ibm27n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P27/ibm27n01.xml"]),
@@ -14107,7 +13044,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n01'(suite) -> [];
 'ibm-not-wf-P28-ibm28n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n01.xml"]),
@@ -14120,7 +13056,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n02.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n02'(suite) -> [];
 'ibm-not-wf-P28-ibm28n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n02.xml"]),
@@ -14133,7 +13068,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n03.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n03'(suite) -> [];
 'ibm-not-wf-P28-ibm28n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n03.xml"]),
@@ -14146,7 +13080,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n04.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n04'(suite) -> [];
 'ibm-not-wf-P28-ibm28n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n04.xml"]),
@@ -14159,7 +13092,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n05.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n05'(suite) -> [];
 'ibm-not-wf-P28-ibm28n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n05.xml"]),
@@ -14172,7 +13104,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n06.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n06'(suite) -> [];
 'ibm-not-wf-P28-ibm28n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n06.xml"]),
@@ -14185,7 +13116,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n07.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n07'(suite) -> [];
 'ibm-not-wf-P28-ibm28n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n07.xml"]),
@@ -14198,7 +13128,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P28-ibm28n08.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P28-ibm28n08'(suite) -> [];
 'ibm-not-wf-P28-ibm28n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P28/ibm28n08.xml"]),
@@ -14216,7 +13145,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-p28a-ibm28an01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-p28a-ibm28an01'(suite) -> [];
 'ibm-not-wf-p28a-ibm28an01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/p28a/ibm28an01.xml"]),
@@ -14234,7 +13162,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P29-ibm29n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P29-ibm29n01'(suite) -> [];
 'ibm-not-wf-P29-ibm29n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P29/ibm29n01.xml"]),
@@ -14247,7 +13174,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P29-ibm29n02.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P29-ibm29n02'(suite) -> [];
 'ibm-not-wf-P29-ibm29n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P29/ibm29n02.xml"]),
@@ -14260,7 +13186,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P29-ibm29n03.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P29-ibm29n03'(suite) -> [];
 'ibm-not-wf-P29-ibm29n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P29/ibm29n03.xml"]),
@@ -14273,7 +13198,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P29-ibm29n04.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P29-ibm29n04'(suite) -> [];
 'ibm-not-wf-P29-ibm29n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P29/ibm29n04.xml"]),
@@ -14286,7 +13210,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P29-ibm29n05.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P29-ibm29n05'(suite) -> [];
 'ibm-not-wf-P29-ibm29n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P29/ibm29n05.xml"]),
@@ -14299,7 +13222,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P29-ibm29n06.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P29-ibm29n06'(suite) -> [];
 'ibm-not-wf-P29-ibm29n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P29/ibm29n06.xml"]),
@@ -14312,7 +13234,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P29-ibm29n07.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P29-ibm29n07'(suite) -> [];
 'ibm-not-wf-P29-ibm29n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P29/ibm29n07.xml"]),
@@ -14330,7 +13251,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P30-ibm30n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P30-ibm30n01'(suite) -> [];
 'ibm-not-wf-P30-ibm30n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P30/ibm30n01.xml"]),
@@ -14348,7 +13268,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P31-ibm31n01.xml
 %% Type: not-wf
 %% Sections: 2.8
-'ibm-not-wf-P31-ibm31n01'(suite) -> [];
 'ibm-not-wf-P31-ibm31n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P31/ibm31n01.xml"]),
@@ -14366,7 +13285,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n01.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n01'(suite) -> [];
 'ibm-not-wf-P32-ibm32n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n01.xml"]),
@@ -14379,7 +13297,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n02.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n02'(suite) -> [];
 'ibm-not-wf-P32-ibm32n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n02.xml"]),
@@ -14392,7 +13309,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n03.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n03'(suite) -> [];
 'ibm-not-wf-P32-ibm32n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n03.xml"]),
@@ -14405,7 +13321,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n04.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n04'(suite) -> [];
 'ibm-not-wf-P32-ibm32n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n04.xml"]),
@@ -14418,7 +13333,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n05.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n05'(suite) -> [];
 'ibm-not-wf-P32-ibm32n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n05.xml"]),
@@ -14431,7 +13345,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n06.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n06'(suite) -> [];
 'ibm-not-wf-P32-ibm32n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n06.xml"]),
@@ -14444,7 +13357,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n07.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n07'(suite) -> [];
 'ibm-not-wf-P32-ibm32n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n07.xml"]),
@@ -14457,7 +13369,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n08.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n08'(suite) -> [];
 'ibm-not-wf-P32-ibm32n08'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n08.xml"]),
@@ -14470,7 +13381,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P32-ibm32n09.xml
 %% Type: not-wf
 %% Sections: 2.9
-'ibm-not-wf-P32-ibm32n09'(suite) -> [];
 'ibm-not-wf-P32-ibm32n09'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P32/ibm32n09.xml"]),
@@ -14488,7 +13398,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P39-ibm39n01.xml
 %% Type: not-wf
 %% Sections: 3
-'ibm-not-wf-P39-ibm39n01'(suite) -> [];
 'ibm-not-wf-P39-ibm39n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P39/ibm39n01.xml"]),
@@ -14501,7 +13410,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P39-ibm39n02.xml
 %% Type: not-wf
 %% Sections: 3
-'ibm-not-wf-P39-ibm39n02'(suite) -> [];
 'ibm-not-wf-P39-ibm39n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P39/ibm39n02.xml"]),
@@ -14514,7 +13422,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P39-ibm39n03.xml
 %% Type: not-wf
 %% Sections: 3
-'ibm-not-wf-P39-ibm39n03'(suite) -> [];
 'ibm-not-wf-P39-ibm39n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P39/ibm39n03.xml"]),
@@ -14527,7 +13434,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P39-ibm39n04.xml
 %% Type: not-wf
 %% Sections: 3
-'ibm-not-wf-P39-ibm39n04'(suite) -> [];
 'ibm-not-wf-P39-ibm39n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P39/ibm39n04.xml"]),
@@ -14540,7 +13446,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P39-ibm39n05.xml
 %% Type: not-wf
 %% Sections: 3
-'ibm-not-wf-P39-ibm39n05'(suite) -> [];
 'ibm-not-wf-P39-ibm39n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P39/ibm39n05.xml"]),
@@ -14553,7 +13458,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P39-ibm39n06.xml
 %% Type: not-wf
 %% Sections: 3
-'ibm-not-wf-P39-ibm39n06'(suite) -> [];
 'ibm-not-wf-P39-ibm39n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P39/ibm39n06.xml"]),
@@ -14574,7 +13478,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P40-ibm40n01.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P40-ibm40n01'(suite) -> [];
 'ibm-not-wf-P40-ibm40n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P40/ibm40n01.xml"]),
@@ -14587,7 +13490,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P40-ibm40n02.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P40-ibm40n02'(suite) -> [];
 'ibm-not-wf-P40-ibm40n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P40/ibm40n02.xml"]),
@@ -14600,7 +13502,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P40-ibm40n03.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P40-ibm40n03'(suite) -> [];
 'ibm-not-wf-P40-ibm40n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P40/ibm40n03.xml"]),
@@ -14613,7 +13514,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P40-ibm40n04.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P40-ibm40n04'(suite) -> [];
 'ibm-not-wf-P40-ibm40n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P40/ibm40n04.xml"]),
@@ -14626,7 +13526,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P40-ibm40n05.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P40-ibm40n05'(suite) -> [];
 'ibm-not-wf-P40-ibm40n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P40/ibm40n05.xml"]),
@@ -14644,7 +13543,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n01.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n01'(suite) -> [];
 'ibm-not-wf-P41-ibm41n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n01.xml"]),
@@ -14657,7 +13555,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n02.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n02'(suite) -> [];
 'ibm-not-wf-P41-ibm41n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n02.xml"]),
@@ -14670,7 +13567,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n03.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n03'(suite) -> [];
 'ibm-not-wf-P41-ibm41n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n03.xml"]),
@@ -14683,7 +13579,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n04.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n04'(suite) -> [];
 'ibm-not-wf-P41-ibm41n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n04.xml"]),
@@ -14696,7 +13591,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n05.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n05'(suite) -> [];
 'ibm-not-wf-P41-ibm41n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n05.xml"]),
@@ -14709,7 +13603,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n06.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n06'(suite) -> [];
 'ibm-not-wf-P41-ibm41n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n06.xml"]),
@@ -14722,7 +13615,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n07.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n07'(suite) -> [];
 'ibm-not-wf-P41-ibm41n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n07.xml"]),
@@ -14735,7 +13627,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n08.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n08'(suite) -> [];
 'ibm-not-wf-P41-ibm41n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n08.xml"]),
@@ -14748,7 +13639,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n09.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n09'(suite) -> [];
 'ibm-not-wf-P41-ibm41n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n09.xml"]),
@@ -14761,7 +13651,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n10.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n10'(suite) -> [];
 'ibm-not-wf-P41-ibm41n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n10.xml"]),
@@ -14774,7 +13663,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n11.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n11'(suite) -> [];
 'ibm-not-wf-P41-ibm41n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n11.xml"]),
@@ -14787,7 +13675,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n12.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n12'(suite) -> [];
 'ibm-not-wf-P41-ibm41n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n12.xml"]),
@@ -14800,7 +13687,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n13.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n13'(suite) -> [];
 'ibm-not-wf-P41-ibm41n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n13.xml"]),
@@ -14813,7 +13699,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P41-ibm41n14.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P41-ibm41n14'(suite) -> [];
 'ibm-not-wf-P41-ibm41n14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P41/ibm41n14.xml"]),
@@ -14831,7 +13716,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P42-ibm42n01.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P42-ibm42n01'(suite) -> [];
 'ibm-not-wf-P42-ibm42n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P42/ibm42n01.xml"]),
@@ -14844,7 +13728,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P42-ibm42n02.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P42-ibm42n02'(suite) -> [];
 'ibm-not-wf-P42-ibm42n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P42/ibm42n02.xml"]),
@@ -14857,7 +13740,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P42-ibm42n03.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P42-ibm42n03'(suite) -> [];
 'ibm-not-wf-P42-ibm42n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P42/ibm42n03.xml"]),
@@ -14870,7 +13752,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P42-ibm42n04.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P42-ibm42n04'(suite) -> [];
 'ibm-not-wf-P42-ibm42n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P42/ibm42n04.xml"]),
@@ -14883,7 +13764,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P42-ibm42n05.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P42-ibm42n05'(suite) -> [];
 'ibm-not-wf-P42-ibm42n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P42/ibm42n05.xml"]),
@@ -14901,7 +13781,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P43-ibm43n01.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P43-ibm43n01'(suite) -> [];
 'ibm-not-wf-P43-ibm43n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P43/ibm43n01.xml"]),
@@ -14914,7 +13793,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P43-ibm43n02.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P43-ibm43n02'(suite) -> [];
 'ibm-not-wf-P43-ibm43n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P43/ibm43n02.xml"]),
@@ -14927,7 +13805,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P43-ibm43n04.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P43-ibm43n04'(suite) -> [];
 'ibm-not-wf-P43-ibm43n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P43/ibm43n04.xml"]),
@@ -14940,7 +13817,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P43-ibm43n05.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P43-ibm43n05'(suite) -> [];
 'ibm-not-wf-P43-ibm43n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P43/ibm43n05.xml"]),
@@ -14958,7 +13834,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P44-ibm44n01.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P44-ibm44n01'(suite) -> [];
 'ibm-not-wf-P44-ibm44n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P44/ibm44n01.xml"]),
@@ -14971,7 +13846,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P44-ibm44n02.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P44-ibm44n02'(suite) -> [];
 'ibm-not-wf-P44-ibm44n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P44/ibm44n02.xml"]),
@@ -14984,7 +13858,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P44-ibm44n03.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P44-ibm44n03'(suite) -> [];
 'ibm-not-wf-P44-ibm44n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P44/ibm44n03.xml"]),
@@ -14997,7 +13870,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P44-ibm44n04.xml
 %% Type: not-wf
 %% Sections: 3.1
-'ibm-not-wf-P44-ibm44n04'(suite) -> [];
 'ibm-not-wf-P44-ibm44n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P44/ibm44n04.xml"]),
@@ -15015,7 +13887,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n01.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n01'(suite) -> [];
 'ibm-not-wf-P45-ibm45n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n01.xml"]),
@@ -15028,7 +13899,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n02.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n02'(suite) -> [];
 'ibm-not-wf-P45-ibm45n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n02.xml"]),
@@ -15041,7 +13911,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n03.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n03'(suite) -> [];
 'ibm-not-wf-P45-ibm45n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n03.xml"]),
@@ -15054,7 +13923,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n04.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n04'(suite) -> [];
 'ibm-not-wf-P45-ibm45n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n04.xml"]),
@@ -15067,7 +13935,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n05.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n05'(suite) -> [];
 'ibm-not-wf-P45-ibm45n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n05.xml"]),
@@ -15080,7 +13947,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n06.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n06'(suite) -> [];
 'ibm-not-wf-P45-ibm45n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n06.xml"]),
@@ -15093,7 +13959,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n07.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n07'(suite) -> [];
 'ibm-not-wf-P45-ibm45n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n07.xml"]),
@@ -15106,7 +13971,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n08.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n08'(suite) -> [];
 'ibm-not-wf-P45-ibm45n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n08.xml"]),
@@ -15119,7 +13983,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P45-ibm45n09.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P45-ibm45n09'(suite) -> [];
 'ibm-not-wf-P45-ibm45n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P45/ibm45n09.xml"]),
@@ -15137,7 +14000,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P46-ibm46n01.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P46-ibm46n01'(suite) -> [];
 'ibm-not-wf-P46-ibm46n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P46/ibm46n01.xml"]),
@@ -15150,7 +14012,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P46-ibm46n02.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P46-ibm46n02'(suite) -> [];
 'ibm-not-wf-P46-ibm46n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P46/ibm46n02.xml"]),
@@ -15163,7 +14024,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P46-ibm46n03.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P46-ibm46n03'(suite) -> [];
 'ibm-not-wf-P46-ibm46n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P46/ibm46n03.xml"]),
@@ -15176,7 +14036,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P46-ibm46n04.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P46-ibm46n04'(suite) -> [];
 'ibm-not-wf-P46-ibm46n04'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P46/ibm46n04.xml"]),
@@ -15189,7 +14048,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P46-ibm46n05.xml
 %% Type: not-wf
 %% Sections: 3.2
-'ibm-not-wf-P46-ibm46n05'(suite) -> [];
 'ibm-not-wf-P46-ibm46n05'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P46/ibm46n05.xml"]),
@@ -15207,7 +14065,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P47-ibm47n01.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P47-ibm47n01'(suite) -> [];
 'ibm-not-wf-P47-ibm47n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P47/ibm47n01.xml"]),
@@ -15220,7 +14077,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P47-ibm47n02.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P47-ibm47n02'(suite) -> [];
 'ibm-not-wf-P47-ibm47n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P47/ibm47n02.xml"]),
@@ -15233,7 +14089,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P47-ibm47n03.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P47-ibm47n03'(suite) -> [];
 'ibm-not-wf-P47-ibm47n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P47/ibm47n03.xml"]),
@@ -15246,7 +14101,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P47-ibm47n04.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P47-ibm47n04'(suite) -> [];
 'ibm-not-wf-P47-ibm47n04'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P47/ibm47n04.xml"]),
@@ -15259,7 +14113,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P47-ibm47n05.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P47-ibm47n05'(suite) -> [];
 'ibm-not-wf-P47-ibm47n05'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P47/ibm47n05.xml"]),
@@ -15272,7 +14125,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P47-ibm47n06.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P47-ibm47n06'(suite) -> [];
 'ibm-not-wf-P47-ibm47n06'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P47/ibm47n06.xml"]),
@@ -15290,7 +14142,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P48-ibm48n01.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P48-ibm48n01'(suite) -> [];
 'ibm-not-wf-P48-ibm48n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P48/ibm48n01.xml"]),
@@ -15303,7 +14154,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P48-ibm48n02.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P48-ibm48n02'(suite) -> [];
 'ibm-not-wf-P48-ibm48n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P48/ibm48n02.xml"]),
@@ -15316,7 +14166,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P48-ibm48n03.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P48-ibm48n03'(suite) -> [];
 'ibm-not-wf-P48-ibm48n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P48/ibm48n03.xml"]),
@@ -15329,7 +14178,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P48-ibm48n04.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P48-ibm48n04'(suite) -> [];
 'ibm-not-wf-P48-ibm48n04'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P48/ibm48n04.xml"]),
@@ -15342,7 +14190,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P48-ibm48n05.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P48-ibm48n05'(suite) -> [];
 'ibm-not-wf-P48-ibm48n05'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P48/ibm48n05.xml"]),
@@ -15355,7 +14202,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P48-ibm48n06.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P48-ibm48n06'(suite) -> [];
 'ibm-not-wf-P48-ibm48n06'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P48/ibm48n06.xml"]),
@@ -15368,7 +14214,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P48-ibm48n07.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P48-ibm48n07'(suite) -> [];
 'ibm-not-wf-P48-ibm48n07'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P48/ibm48n07.xml"]),
@@ -15386,7 +14231,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P49-ibm49n01.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P49-ibm49n01'(suite) -> [];
 'ibm-not-wf-P49-ibm49n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P49/ibm49n01.xml"]),
@@ -15399,7 +14243,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P49-ibm49n02.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P49-ibm49n02'(suite) -> [];
 'ibm-not-wf-P49-ibm49n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P49/ibm49n02.xml"]),
@@ -15412,7 +14255,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P49-ibm49n03.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P49-ibm49n03'(suite) -> [];
 'ibm-not-wf-P49-ibm49n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P49/ibm49n03.xml"]),
@@ -15425,7 +14267,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P49-ibm49n04.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P49-ibm49n04'(suite) -> [];
 'ibm-not-wf-P49-ibm49n04'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P49/ibm49n04.xml"]),
@@ -15438,7 +14279,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P49-ibm49n05.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P49-ibm49n05'(suite) -> [];
 'ibm-not-wf-P49-ibm49n05'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P49/ibm49n05.xml"]),
@@ -15451,7 +14291,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P49-ibm49n06.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P49-ibm49n06'(suite) -> [];
 'ibm-not-wf-P49-ibm49n06'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P49/ibm49n06.xml"]),
@@ -15469,7 +14308,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P50-ibm50n01.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P50-ibm50n01'(suite) -> [];
 'ibm-not-wf-P50-ibm50n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P50/ibm50n01.xml"]),
@@ -15482,7 +14320,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P50-ibm50n02.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P50-ibm50n02'(suite) -> [];
 'ibm-not-wf-P50-ibm50n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P50/ibm50n02.xml"]),
@@ -15495,7 +14332,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P50-ibm50n03.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P50-ibm50n03'(suite) -> [];
 'ibm-not-wf-P50-ibm50n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P50/ibm50n03.xml"]),
@@ -15508,7 +14344,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P50-ibm50n04.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P50-ibm50n04'(suite) -> [];
 'ibm-not-wf-P50-ibm50n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P50/ibm50n04.xml"]),
@@ -15521,7 +14356,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P50-ibm50n05.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P50-ibm50n05'(suite) -> [];
 'ibm-not-wf-P50-ibm50n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P50/ibm50n05.xml"]),
@@ -15534,7 +14368,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P50-ibm50n06.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P50-ibm50n06'(suite) -> [];
 'ibm-not-wf-P50-ibm50n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P50/ibm50n06.xml"]),
@@ -15547,7 +14380,6 @@ end_per_testcase(_Func,_Config) ->
 %% ID: ibm-not-wf-P50-ibm50n07.xml
 %% Type: not-wf
 %% Sections: 3.2.1
-'ibm-not-wf-P50-ibm50n07'(suite) -> [];
 'ibm-not-wf-P50-ibm50n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P50/ibm50n07.xml"]),
@@ -15558,7 +14390,6 @@ end_per_testcase(_Func,_Config) ->
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 50
 
-testcases67(suite) -> [].
 %%   ['ibm-not-wf-P50-ibm50n01','ibm-not-wf-P50-ibm50n02','ibm-not-wf-P50-ibm50n03','ibm-not-wf-P50-ibm50n04','ibm-not-wf-P50-ibm50n05','ibm-not-wf-P50-ibm50n06','ibm-not-wf-P50-ibm50n07'].
 
 %%----------------------------------------------------------------------
@@ -15567,7 +14398,6 @@ testcases67(suite) -> [].
 %% ID: ibm-not-wf-P51-ibm51n01.xml
 %% Type: not-wf
 %% Sections: 3.2.2
-'ibm-not-wf-P51-ibm51n01'(suite) -> [];
 'ibm-not-wf-P51-ibm51n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P51/ibm51n01.xml"]),
@@ -15580,7 +14410,6 @@ testcases67(suite) -> [].
 %% ID: ibm-not-wf-P51-ibm51n02.xml
 %% Type: not-wf
 %% Sections: 3.2.2
-'ibm-not-wf-P51-ibm51n02'(suite) -> [];
 'ibm-not-wf-P51-ibm51n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P51/ibm51n02.xml"]),
@@ -15593,7 +14422,6 @@ testcases67(suite) -> [].
 %% ID: ibm-not-wf-P51-ibm51n03.xml
 %% Type: not-wf
 %% Sections: 3.2.2
-'ibm-not-wf-P51-ibm51n03'(suite) -> [];
 'ibm-not-wf-P51-ibm51n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P51/ibm51n03.xml"]),
@@ -15606,7 +14434,6 @@ testcases67(suite) -> [].
 %% ID: ibm-not-wf-P51-ibm51n04.xml
 %% Type: not-wf
 %% Sections: 3.2.2
-'ibm-not-wf-P51-ibm51n04'(suite) -> [];
 'ibm-not-wf-P51-ibm51n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P51/ibm51n04.xml"]),
@@ -15619,7 +14446,6 @@ testcases67(suite) -> [].
 %% ID: ibm-not-wf-P51-ibm51n05.xml
 %% Type: not-wf
 %% Sections: 3.2.2
-'ibm-not-wf-P51-ibm51n05'(suite) -> [];
 'ibm-not-wf-P51-ibm51n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P51/ibm51n05.xml"]),
@@ -15632,7 +14458,6 @@ testcases67(suite) -> [].
 %% ID: ibm-not-wf-P51-ibm51n06.xml
 %% Type: not-wf
 %% Sections: 3.2.2
-'ibm-not-wf-P51-ibm51n06'(suite) -> [];
 'ibm-not-wf-P51-ibm51n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P51/ibm51n06.xml"]),
@@ -15645,7 +14470,6 @@ testcases67(suite) -> [].
 %% ID: ibm-not-wf-P51-ibm51n07.xml
 %% Type: not-wf
 %% Sections: 3.2.2
-'ibm-not-wf-P51-ibm51n07'(suite) -> [];
 'ibm-not-wf-P51-ibm51n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P51/ibm51n07.xml"]),
@@ -15656,7 +14480,6 @@ testcases67(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 51
 
-testcases68(suite) -> [].
 %%   ['ibm-not-wf-P51-ibm51n01','ibm-not-wf-P51-ibm51n02','ibm-not-wf-P51-ibm51n03','ibm-not-wf-P51-ibm51n04','ibm-not-wf-P51-ibm51n05','ibm-not-wf-P51-ibm51n06','ibm-not-wf-P51-ibm51n07'].
 
 %%----------------------------------------------------------------------
@@ -15665,7 +14488,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P52-ibm52n01.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P52-ibm52n01'(suite) -> [];
 'ibm-not-wf-P52-ibm52n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P52/ibm52n01.xml"]),
@@ -15678,7 +14500,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P52-ibm52n02.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P52-ibm52n02'(suite) -> [];
 'ibm-not-wf-P52-ibm52n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P52/ibm52n02.xml"]),
@@ -15691,7 +14512,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P52-ibm52n03.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P52-ibm52n03'(suite) -> [];
 'ibm-not-wf-P52-ibm52n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P52/ibm52n03.xml"]),
@@ -15704,7 +14524,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P52-ibm52n04.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P52-ibm52n04'(suite) -> [];
 'ibm-not-wf-P52-ibm52n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P52/ibm52n04.xml"]),
@@ -15717,7 +14536,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P52-ibm52n05.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P52-ibm52n05'(suite) -> [];
 'ibm-not-wf-P52-ibm52n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P52/ibm52n05.xml"]),
@@ -15730,7 +14548,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P52-ibm52n06.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P52-ibm52n06'(suite) -> [];
 'ibm-not-wf-P52-ibm52n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P52/ibm52n06.xml"]),
@@ -15748,7 +14565,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n01.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n01'(suite) -> [];
 'ibm-not-wf-P53-ibm53n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n01.xml"]),
@@ -15761,7 +14577,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n02.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n02'(suite) -> [];
 'ibm-not-wf-P53-ibm53n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n02.xml"]),
@@ -15774,7 +14589,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n03.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n03'(suite) -> [];
 'ibm-not-wf-P53-ibm53n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n03.xml"]),
@@ -15787,7 +14601,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n04.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n04'(suite) -> [];
 'ibm-not-wf-P53-ibm53n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n04.xml"]),
@@ -15800,7 +14613,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n05.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n05'(suite) -> [];
 'ibm-not-wf-P53-ibm53n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n05.xml"]),
@@ -15813,7 +14625,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n06.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n06'(suite) -> [];
 'ibm-not-wf-P53-ibm53n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n06.xml"]),
@@ -15826,7 +14637,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n07.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n07'(suite) -> [];
 'ibm-not-wf-P53-ibm53n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n07.xml"]),
@@ -15839,7 +14649,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P53-ibm53n08.xml
 %% Type: not-wf
 %% Sections: 3.3
-'ibm-not-wf-P53-ibm53n08'(suite) -> [];
 'ibm-not-wf-P53-ibm53n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P53/ibm53n08.xml"]),
@@ -15857,7 +14666,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P54-ibm54n01.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P54-ibm54n01'(suite) -> [];
 'ibm-not-wf-P54-ibm54n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P54/ibm54n01.xml"]),
@@ -15870,7 +14678,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P54-ibm54n02.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P54-ibm54n02'(suite) -> [];
 'ibm-not-wf-P54-ibm54n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P54/ibm54n02.xml"]),
@@ -15888,7 +14695,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P55-ibm55n01.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P55-ibm55n01'(suite) -> [];
 'ibm-not-wf-P55-ibm55n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P55/ibm55n01.xml"]),
@@ -15901,7 +14707,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P55-ibm55n02.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P55-ibm55n02'(suite) -> [];
 'ibm-not-wf-P55-ibm55n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P55/ibm55n02.xml"]),
@@ -15914,7 +14719,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P55-ibm55n03.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P55-ibm55n03'(suite) -> [];
 'ibm-not-wf-P55-ibm55n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P55/ibm55n03.xml"]),
@@ -15932,7 +14736,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P56-ibm56n01.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P56-ibm56n01'(suite) -> [];
 'ibm-not-wf-P56-ibm56n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P56/ibm56n01.xml"]),
@@ -15945,7 +14748,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P56-ibm56n02.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P56-ibm56n02'(suite) -> [];
 'ibm-not-wf-P56-ibm56n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P56/ibm56n02.xml"]),
@@ -15958,7 +14760,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P56-ibm56n03.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P56-ibm56n03'(suite) -> [];
 'ibm-not-wf-P56-ibm56n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P56/ibm56n03.xml"]),
@@ -15971,7 +14772,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P56-ibm56n04.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P56-ibm56n04'(suite) -> [];
 'ibm-not-wf-P56-ibm56n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P56/ibm56n04.xml"]),
@@ -15984,7 +14784,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P56-ibm56n05.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P56-ibm56n05'(suite) -> [];
 'ibm-not-wf-P56-ibm56n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P56/ibm56n05.xml"]),
@@ -15997,7 +14796,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P56-ibm56n06.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P56-ibm56n06'(suite) -> [];
 'ibm-not-wf-P56-ibm56n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P56/ibm56n06.xml"]),
@@ -16010,7 +14808,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P56-ibm56n07.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P56-ibm56n07'(suite) -> [];
 'ibm-not-wf-P56-ibm56n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P56/ibm56n07.xml"]),
@@ -16028,7 +14825,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P57-ibm57n01.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P57-ibm57n01'(suite) -> [];
 'ibm-not-wf-P57-ibm57n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P57/ibm57n01.xml"]),
@@ -16046,7 +14842,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n01.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n01'(suite) -> [];
 'ibm-not-wf-P58-ibm58n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n01.xml"]),
@@ -16059,7 +14854,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n02.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n02'(suite) -> [];
 'ibm-not-wf-P58-ibm58n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n02.xml"]),
@@ -16072,7 +14866,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n03.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n03'(suite) -> [];
 'ibm-not-wf-P58-ibm58n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n03.xml"]),
@@ -16085,7 +14878,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n04.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n04'(suite) -> [];
 'ibm-not-wf-P58-ibm58n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n04.xml"]),
@@ -16098,7 +14890,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n05.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n05'(suite) -> [];
 'ibm-not-wf-P58-ibm58n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n05.xml"]),
@@ -16111,7 +14902,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n06.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n06'(suite) -> [];
 'ibm-not-wf-P58-ibm58n06'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n06.xml"]),
@@ -16124,7 +14914,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n07.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n07'(suite) -> [];
 'ibm-not-wf-P58-ibm58n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n07.xml"]),
@@ -16137,7 +14926,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P58-ibm58n08.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P58-ibm58n08'(suite) -> [];
 'ibm-not-wf-P58-ibm58n08'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P58/ibm58n08.xml"]),
@@ -16155,7 +14943,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P59-ibm59n01.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P59-ibm59n01'(suite) -> [];
 'ibm-not-wf-P59-ibm59n01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P59/ibm59n01.xml"]),
@@ -16168,7 +14955,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P59-ibm59n02.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P59-ibm59n02'(suite) -> [];
 'ibm-not-wf-P59-ibm59n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P59/ibm59n02.xml"]),
@@ -16181,7 +14967,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P59-ibm59n03.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P59-ibm59n03'(suite) -> [];
 'ibm-not-wf-P59-ibm59n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P59/ibm59n03.xml"]),
@@ -16194,7 +14979,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P59-ibm59n04.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P59-ibm59n04'(suite) -> [];
 'ibm-not-wf-P59-ibm59n04'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P59/ibm59n04.xml"]),
@@ -16207,7 +14991,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P59-ibm59n05.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P59-ibm59n05'(suite) -> [];
 'ibm-not-wf-P59-ibm59n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P59/ibm59n05.xml"]),
@@ -16220,7 +15003,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P59-ibm59n06.xml
 %% Type: not-wf
 %% Sections: 3.3.1
-'ibm-not-wf-P59-ibm59n06'(suite) -> [];
 'ibm-not-wf-P59-ibm59n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P59/ibm59n06.xml"]),
@@ -16238,7 +15020,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n01.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n01'(suite) -> [];
 'ibm-not-wf-P60-ibm60n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n01.xml"]),
@@ -16251,7 +15032,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n02.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n02'(suite) -> [];
 'ibm-not-wf-P60-ibm60n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n02.xml"]),
@@ -16264,7 +15044,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n03.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n03'(suite) -> [];
 'ibm-not-wf-P60-ibm60n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n03.xml"]),
@@ -16277,7 +15056,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n04.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n04'(suite) -> [];
 'ibm-not-wf-P60-ibm60n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n04.xml"]),
@@ -16290,7 +15068,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n05.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n05'(suite) -> [];
 'ibm-not-wf-P60-ibm60n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n05.xml"]),
@@ -16303,7 +15080,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n06.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n06'(suite) -> [];
 'ibm-not-wf-P60-ibm60n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n06.xml"]),
@@ -16316,7 +15092,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n07.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n07'(suite) -> [];
 'ibm-not-wf-P60-ibm60n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n07.xml"]),
@@ -16329,7 +15104,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P60-ibm60n08.xml
 %% Type: not-wf
 %% Sections: 3.3.2
-'ibm-not-wf-P60-ibm60n08'(suite) -> [];
 'ibm-not-wf-P60-ibm60n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P60/ibm60n08.xml"]),
@@ -16347,7 +15121,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P61-ibm61n01.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P61-ibm61n01'(suite) -> [];
 'ibm-not-wf-P61-ibm61n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P61/ibm61n01.xml"]),
@@ -16365,7 +15138,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n01.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n01'(suite) -> [];
 'ibm-not-wf-P62-ibm62n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n01.xml"]),
@@ -16378,7 +15150,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n02.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n02'(suite) -> [];
 'ibm-not-wf-P62-ibm62n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n02.xml"]),
@@ -16391,7 +15162,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n03.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n03'(suite) -> [];
 'ibm-not-wf-P62-ibm62n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n03.xml"]),
@@ -16404,7 +15174,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n04.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n04'(suite) -> [];
 'ibm-not-wf-P62-ibm62n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n04.xml"]),
@@ -16417,7 +15186,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n05.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n05'(suite) -> [];
 'ibm-not-wf-P62-ibm62n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n05.xml"]),
@@ -16430,7 +15198,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n06.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n06'(suite) -> [];
 'ibm-not-wf-P62-ibm62n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n06.xml"]),
@@ -16443,7 +15210,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n07.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n07'(suite) -> [];
 'ibm-not-wf-P62-ibm62n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n07.xml"]),
@@ -16456,7 +15222,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P62-ibm62n08.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P62-ibm62n08'(suite) -> [];
 'ibm-not-wf-P62-ibm62n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P62/ibm62n08.xml"]),
@@ -16474,7 +15239,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P63-ibm63n01.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P63-ibm63n01'(suite) -> [];
 'ibm-not-wf-P63-ibm63n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P63/ibm63n01.xml"]),
@@ -16487,7 +15251,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P63-ibm63n02.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P63-ibm63n02'(suite) -> [];
 'ibm-not-wf-P63-ibm63n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P63/ibm63n02.xml"]),
@@ -16500,7 +15263,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P63-ibm63n03.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P63-ibm63n03'(suite) -> [];
 'ibm-not-wf-P63-ibm63n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P63/ibm63n03.xml"]),
@@ -16513,7 +15275,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P63-ibm63n04.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P63-ibm63n04'(suite) -> [];
 'ibm-not-wf-P63-ibm63n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P63/ibm63n04.xml"]),
@@ -16526,7 +15287,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P63-ibm63n05.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P63-ibm63n05'(suite) -> [];
 'ibm-not-wf-P63-ibm63n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P63/ibm63n05.xml"]),
@@ -16539,7 +15299,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P63-ibm63n06.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P63-ibm63n06'(suite) -> [];
 'ibm-not-wf-P63-ibm63n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P63/ibm63n06.xml"]),
@@ -16552,7 +15311,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P63-ibm63n07.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P63-ibm63n07'(suite) -> [];
 'ibm-not-wf-P63-ibm63n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P63/ibm63n07.xml"]),
@@ -16570,7 +15328,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P64-ibm64n01.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P64-ibm64n01'(suite) -> [];
 'ibm-not-wf-P64-ibm64n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P64/ibm64n01.xml"]),
@@ -16583,7 +15340,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P64-ibm64n02.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P64-ibm64n02'(suite) -> [];
 'ibm-not-wf-P64-ibm64n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P64/ibm64n02.xml"]),
@@ -16596,7 +15352,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P64-ibm64n03.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P64-ibm64n03'(suite) -> [];
 'ibm-not-wf-P64-ibm64n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P64/ibm64n03.xml"]),
@@ -16614,7 +15369,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P65-ibm65n01.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P65-ibm65n01'(suite) -> [];
 'ibm-not-wf-P65-ibm65n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P65/ibm65n01.xml"]),
@@ -16627,7 +15381,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P65-ibm65n02.xml
 %% Type: not-wf
 %% Sections: 3.4
-'ibm-not-wf-P65-ibm65n02'(suite) -> [];
 'ibm-not-wf-P65-ibm65n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P65/ibm65n02.xml"]),
@@ -16645,7 +15398,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n01.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n01'(suite) -> [];
 'ibm-not-wf-P66-ibm66n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n01.xml"]),
@@ -16658,7 +15410,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n02.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n02'(suite) -> [];
 'ibm-not-wf-P66-ibm66n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n02.xml"]),
@@ -16671,7 +15422,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n03.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n03'(suite) -> [];
 'ibm-not-wf-P66-ibm66n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n03.xml"]),
@@ -16684,7 +15434,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n04.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n04'(suite) -> [];
 'ibm-not-wf-P66-ibm66n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n04.xml"]),
@@ -16697,7 +15446,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n05.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n05'(suite) -> [];
 'ibm-not-wf-P66-ibm66n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n05.xml"]),
@@ -16710,7 +15458,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n06.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n06'(suite) -> [];
 'ibm-not-wf-P66-ibm66n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n06.xml"]),
@@ -16723,7 +15470,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n07.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n07'(suite) -> [];
 'ibm-not-wf-P66-ibm66n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n07.xml"]),
@@ -16736,7 +15482,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n08.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n08'(suite) -> [];
 'ibm-not-wf-P66-ibm66n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n08.xml"]),
@@ -16749,7 +15494,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n09.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n09'(suite) -> [];
 'ibm-not-wf-P66-ibm66n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n09.xml"]),
@@ -16762,7 +15506,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n10.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n10'(suite) -> [];
 'ibm-not-wf-P66-ibm66n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n10.xml"]),
@@ -16775,7 +15518,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n11.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n11'(suite) -> [];
 'ibm-not-wf-P66-ibm66n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n11.xml"]),
@@ -16788,7 +15530,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n12.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n12'(suite) -> [];
 'ibm-not-wf-P66-ibm66n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n12.xml"]),
@@ -16801,7 +15542,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n13.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n13'(suite) -> [];
 'ibm-not-wf-P66-ibm66n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n13.xml"]),
@@ -16814,7 +15554,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n14.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n14'(suite) -> [];
 'ibm-not-wf-P66-ibm66n14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n14.xml"]),
@@ -16827,7 +15566,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P66-ibm66n15.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P66-ibm66n15'(suite) -> [];
 'ibm-not-wf-P66-ibm66n15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P66/ibm66n15.xml"]),
@@ -16845,7 +15583,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n01.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n01'(suite) -> [];
 'ibm-not-wf-P68-ibm68n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n01.xml"]),
@@ -16858,7 +15595,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n02.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n02'(suite) -> [];
 'ibm-not-wf-P68-ibm68n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n02.xml"]),
@@ -16871,7 +15607,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n03.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n03'(suite) -> [];
 'ibm-not-wf-P68-ibm68n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n03.xml"]),
@@ -16884,7 +15619,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n04.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n04'(suite) -> [];
 'ibm-not-wf-P68-ibm68n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n04.xml"]),
@@ -16897,7 +15631,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n05.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n05'(suite) -> [];
 'ibm-not-wf-P68-ibm68n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n05.xml"]),
@@ -16910,7 +15643,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n06.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n06'(suite) -> [];
 'ibm-not-wf-P68-ibm68n06'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n06.xml"]),
@@ -16923,7 +15655,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n07.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n07'(suite) -> [];
 'ibm-not-wf-P68-ibm68n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n07.xml"]),
@@ -16936,7 +15667,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n08.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n08'(suite) -> [];
 'ibm-not-wf-P68-ibm68n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n08.xml"]),
@@ -16949,7 +15679,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n09.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n09'(suite) -> [];
 'ibm-not-wf-P68-ibm68n09'(_Config) ->  {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n09.xml"]),
@@ -16962,7 +15691,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P68-ibm68n10.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P68-ibm68n10'(suite) -> [];
 'ibm-not-wf-P68-ibm68n10'(_Config) ->  {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P68/ibm68n10.xml"]),
@@ -16980,7 +15708,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P69-ibm69n01.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P69-ibm69n01'(suite) -> [];
 'ibm-not-wf-P69-ibm69n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P69/ibm69n01.xml"]),
@@ -16993,7 +15720,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P69-ibm69n02.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P69-ibm69n02'(suite) -> [];
 'ibm-not-wf-P69-ibm69n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P69/ibm69n02.xml"]),
@@ -17006,7 +15732,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P69-ibm69n03.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P69-ibm69n03'(suite) -> [];
 'ibm-not-wf-P69-ibm69n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P69/ibm69n03.xml"]),
@@ -17019,7 +15744,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P69-ibm69n04.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P69-ibm69n04'(suite) -> [];
 'ibm-not-wf-P69-ibm69n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P69/ibm69n04.xml"]),
@@ -17032,7 +15756,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P69-ibm69n05.xml
 %% Type: error
 %% Sections: 4.1
-'ibm-not-wf-P69-ibm69n05'(suite) -> [];
 'ibm-not-wf-P69-ibm69n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P69/ibm69n05.xml"]),
@@ -17045,7 +15768,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P69-ibm69n06.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P69-ibm69n06'(suite) -> [];
 'ibm-not-wf-P69-ibm69n06'(_Config) ->  {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P69/ibm69n06.xml"]),
@@ -17058,7 +15780,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P69-ibm69n07.xml
 %% Type: not-wf
 %% Sections: 4.1
-'ibm-not-wf-P69-ibm69n07'(suite) -> [];
 'ibm-not-wf-P69-ibm69n07'(_Config) ->  {skip, "No loop detection yet"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P69/ibm69n07.xml"]),
@@ -17076,7 +15797,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm70n01.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm70n01'(suite) -> [];
 'ibm-not-wf-P71-ibm70n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm70n01.xml"]),
@@ -17089,7 +15809,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n01.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n01'(suite) -> [];
 'ibm-not-wf-P71-ibm71n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n01.xml"]),
@@ -17102,7 +15821,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n02.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n02'(suite) -> [];
 'ibm-not-wf-P71-ibm71n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n02.xml"]),
@@ -17115,7 +15833,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n03.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n03'(suite) -> [];
 'ibm-not-wf-P71-ibm71n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n03.xml"]),
@@ -17128,7 +15845,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n04.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n04'(suite) -> [];
 'ibm-not-wf-P71-ibm71n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n04.xml"]),
@@ -17141,7 +15857,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n05.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n05'(suite) -> [];
 'ibm-not-wf-P71-ibm71n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n05.xml"]),
@@ -17154,7 +15869,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n06.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n06'(suite) -> [];
 'ibm-not-wf-P71-ibm71n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n06.xml"]),
@@ -17167,7 +15881,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n07.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n07'(suite) -> [];
 'ibm-not-wf-P71-ibm71n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n07.xml"]),
@@ -17180,7 +15893,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P71-ibm71n08.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P71-ibm71n08'(suite) -> [];
 'ibm-not-wf-P71-ibm71n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P71/ibm71n08.xml"]),
@@ -17198,7 +15910,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n01.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n01'(suite) -> [];
 'ibm-not-wf-P72-ibm72n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n01.xml"]),
@@ -17211,7 +15922,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n02.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n02'(suite) -> [];
 'ibm-not-wf-P72-ibm72n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n02.xml"]),
@@ -17224,7 +15934,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n03.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n03'(suite) -> [];
 'ibm-not-wf-P72-ibm72n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n03.xml"]),
@@ -17237,7 +15946,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n04.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n04'(suite) -> [];
 'ibm-not-wf-P72-ibm72n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n04.xml"]),
@@ -17250,7 +15958,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n05.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n05'(suite) -> [];
 'ibm-not-wf-P72-ibm72n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n05.xml"]),
@@ -17263,7 +15970,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n06.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n06'(suite) -> [];
 'ibm-not-wf-P72-ibm72n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n06.xml"]),
@@ -17276,7 +15982,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n07.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n07'(suite) -> [];
 'ibm-not-wf-P72-ibm72n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n07.xml"]),
@@ -17289,7 +15994,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n08.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n08'(suite) -> [];
 'ibm-not-wf-P72-ibm72n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n08.xml"]),
@@ -17302,7 +16006,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P72-ibm72n09.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P72-ibm72n09'(suite) -> [];
 'ibm-not-wf-P72-ibm72n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P72/ibm72n09.xml"]),
@@ -17320,7 +16023,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P73-ibm73n01.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P73-ibm73n01'(suite) -> [];
 'ibm-not-wf-P73-ibm73n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P73/ibm73n01.xml"]),
@@ -17333,7 +16035,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P73-ibm73n03.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P73-ibm73n03'(suite) -> [];
 'ibm-not-wf-P73-ibm73n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P73/ibm73n03.xml"]),
@@ -17351,7 +16052,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P74-ibm74n01.xml
 %% Type: not-wf
 %% Sections: 4.2
-'ibm-not-wf-P74-ibm74n01'(suite) -> [];
 'ibm-not-wf-P74-ibm74n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P74/ibm74n01.xml"]),
@@ -17369,7 +16069,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n01.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n01'(suite) -> [];
 'ibm-not-wf-P75-ibm75n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n01.xml"]),
@@ -17382,7 +16081,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n02.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n02'(suite) -> [];
 'ibm-not-wf-P75-ibm75n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n02.xml"]),
@@ -17395,7 +16093,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n03.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n03'(suite) -> [];
 'ibm-not-wf-P75-ibm75n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n03.xml"]),
@@ -17408,7 +16105,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n04.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n04'(suite) -> [];
 'ibm-not-wf-P75-ibm75n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n04.xml"]),
@@ -17421,7 +16117,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n05.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n05'(suite) -> [];
 'ibm-not-wf-P75-ibm75n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n05.xml"]),
@@ -17434,7 +16129,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n06.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n06'(suite) -> [];
 'ibm-not-wf-P75-ibm75n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n06.xml"]),
@@ -17447,7 +16141,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n07.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n07'(suite) -> [];
 'ibm-not-wf-P75-ibm75n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n07.xml"]),
@@ -17460,7 +16153,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n08.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n08'(suite) -> [];
 'ibm-not-wf-P75-ibm75n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n08.xml"]),
@@ -17473,7 +16165,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n09.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n09'(suite) -> [];
 'ibm-not-wf-P75-ibm75n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n09.xml"]),
@@ -17486,7 +16177,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n10.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n10'(suite) -> [];
 'ibm-not-wf-P75-ibm75n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n10.xml"]),
@@ -17499,7 +16189,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n11.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n11'(suite) -> [];
 'ibm-not-wf-P75-ibm75n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n11.xml"]),
@@ -17512,7 +16201,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n12.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n12'(suite) -> [];
 'ibm-not-wf-P75-ibm75n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n12.xml"]),
@@ -17525,7 +16213,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P75-ibm75n13.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P75-ibm75n13'(suite) -> [];
 'ibm-not-wf-P75-ibm75n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P75/ibm75n13.xml"]),
@@ -17543,7 +16230,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P76-ibm76n01.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P76-ibm76n01'(suite) -> [];
 'ibm-not-wf-P76-ibm76n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P76/ibm76n01.xml"]),
@@ -17556,7 +16242,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P76-ibm76n02.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P76-ibm76n02'(suite) -> [];
 'ibm-not-wf-P76-ibm76n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P76/ibm76n02.xml"]),
@@ -17569,7 +16254,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P76-ibm76n03.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P76-ibm76n03'(suite) -> [];
 'ibm-not-wf-P76-ibm76n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P76/ibm76n03.xml"]),
@@ -17582,7 +16266,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P76-ibm76n04.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P76-ibm76n04'(suite) -> [];
 'ibm-not-wf-P76-ibm76n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P76/ibm76n04.xml"]),
@@ -17595,7 +16278,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P76-ibm76n05.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P76-ibm76n05'(suite) -> [];
 'ibm-not-wf-P76-ibm76n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P76/ibm76n05.xml"]),
@@ -17608,7 +16290,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P76-ibm76n06.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P76-ibm76n06'(suite) -> [];
 'ibm-not-wf-P76-ibm76n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P76/ibm76n06.xml"]),
@@ -17621,7 +16302,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P76-ibm76n07.xml
 %% Type: not-wf
 %% Sections: 4.2.2
-'ibm-not-wf-P76-ibm76n07'(suite) -> [];
 'ibm-not-wf-P76-ibm76n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P76/ibm76n07.xml"]),
@@ -17639,7 +16319,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P77-ibm77n01.xml
 %% Type: not-wf
 %% Sections: 4.3.1
-'ibm-not-wf-P77-ibm77n01'(suite) -> [];
 'ibm-not-wf-P77-ibm77n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P77/ibm77n01.xml"]),
@@ -17652,7 +16331,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P77-ibm77n02.xml
 %% Type: not-wf
 %% Sections: 4.3.1
-'ibm-not-wf-P77-ibm77n02'(suite) -> [];
 'ibm-not-wf-P77-ibm77n02'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P77/ibm77n02.xml"]),
@@ -17665,7 +16343,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P77-ibm77n03.xml
 %% Type: not-wf
 %% Sections: 4.3.1
-'ibm-not-wf-P77-ibm77n03'(suite) -> [];
 'ibm-not-wf-P77-ibm77n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P77/ibm77n03.xml"]),
@@ -17678,7 +16355,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P77-ibm77n04.xml
 %% Type: not-wf
 %% Sections: 4.3.1
-'ibm-not-wf-P77-ibm77n04'(suite) -> [];
 'ibm-not-wf-P77-ibm77n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P77/ibm77n04.xml"]),
@@ -17696,7 +16372,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P78-ibm78n01.xml
 %% Type: not-wf
 %% Sections: 4.3.2
-'ibm-not-wf-P78-ibm78n01'(suite) -> [];
 'ibm-not-wf-P78-ibm78n01'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P78/ibm78n01.xml"]),
@@ -17709,7 +16384,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P78-ibm78n02.xml
 %% Type: not-wf
 %% Sections: 4.3.2
-'ibm-not-wf-P78-ibm78n02'(suite) -> [];
 'ibm-not-wf-P78-ibm78n02'(Config) ->  {skip, "Fix 3"}.
    %%file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    %%Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P78/ibm78n02.xml"]),
@@ -17727,7 +16401,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P79-ibm79n01.xml
 %% Type: not-wf
 %% Sections: 4.3.2
-'ibm-not-wf-P79-ibm79n01'(suite) -> [];
 'ibm-not-wf-P79-ibm79n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P79/ibm79n01.xml"]),
@@ -17740,7 +16413,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P79-ibm79n02.xml
 %% Type: not-wf
 %% Sections: 4.3.2
-'ibm-not-wf-P79-ibm79n02'(suite) -> [];
 'ibm-not-wf-P79-ibm79n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P79/ibm79n02.xml"]),
@@ -17758,7 +16430,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P80-ibm80n01.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P80-ibm80n01'(suite) -> [];
 'ibm-not-wf-P80-ibm80n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P80/ibm80n01.xml"]),
@@ -17771,7 +16442,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P80-ibm80n02.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P80-ibm80n02'(suite) -> [];
 'ibm-not-wf-P80-ibm80n02'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P80/ibm80n02.xml"]),
@@ -17784,7 +16454,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P80-ibm80n03.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P80-ibm80n03'(suite) -> [];
 'ibm-not-wf-P80-ibm80n03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P80/ibm80n03.xml"]),
@@ -17797,7 +16466,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P80-ibm80n04.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P80-ibm80n04'(suite) -> [];
 'ibm-not-wf-P80-ibm80n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P80/ibm80n04.xml"]),
@@ -17810,7 +16478,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P80-ibm80n05.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P80-ibm80n05'(suite) -> [];
 'ibm-not-wf-P80-ibm80n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P80/ibm80n05.xml"]),
@@ -17823,7 +16490,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P80-ibm80n06.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P80-ibm80n06'(suite) -> [];
 'ibm-not-wf-P80-ibm80n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P80/ibm80n06.xml"]),
@@ -17841,7 +16507,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n01.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n01'(suite) -> [];
 'ibm-not-wf-P81-ibm81n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n01.xml"]),
@@ -17854,7 +16519,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n02.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n02'(suite) -> [];
 'ibm-not-wf-P81-ibm81n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n02.xml"]),
@@ -17867,7 +16531,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n03.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n03'(suite) -> [];
 'ibm-not-wf-P81-ibm81n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n03.xml"]),
@@ -17880,7 +16543,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n04.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n04'(suite) -> [];
 'ibm-not-wf-P81-ibm81n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n04.xml"]),
@@ -17893,7 +16555,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n05.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n05'(suite) -> [];
 'ibm-not-wf-P81-ibm81n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n05.xml"]),
@@ -17906,7 +16567,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n06.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n06'(suite) -> [];
 'ibm-not-wf-P81-ibm81n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n06.xml"]),
@@ -17919,7 +16579,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n07.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n07'(suite) -> [];
 'ibm-not-wf-P81-ibm81n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n07.xml"]),
@@ -17932,7 +16591,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n08.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n08'(suite) -> [];
 'ibm-not-wf-P81-ibm81n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n08.xml"]),
@@ -17945,7 +16603,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P81-ibm81n09.xml
 %% Type: not-wf
 %% Sections: 4.3.3
-'ibm-not-wf-P81-ibm81n09'(suite) -> [];
 'ibm-not-wf-P81-ibm81n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P81/ibm81n09.xml"]),
@@ -17963,7 +16620,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n01.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n01'(suite) -> [];
 'ibm-not-wf-P82-ibm82n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n01.xml"]),
@@ -17976,7 +16632,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n02.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n02'(suite) -> [];
 'ibm-not-wf-P82-ibm82n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n02.xml"]),
@@ -17989,7 +16644,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n03.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n03'(suite) -> [];
 'ibm-not-wf-P82-ibm82n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n03.xml"]),
@@ -18002,7 +16656,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n04.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n04'(suite) -> [];
 'ibm-not-wf-P82-ibm82n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n04.xml"]),
@@ -18015,7 +16668,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n05.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n05'(suite) -> [];
 'ibm-not-wf-P82-ibm82n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n05.xml"]),
@@ -18028,7 +16680,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n06.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n06'(suite) -> [];
 'ibm-not-wf-P82-ibm82n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n06.xml"]),
@@ -18041,7 +16692,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n07.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n07'(suite) -> [];
 'ibm-not-wf-P82-ibm82n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n07.xml"]),
@@ -18054,7 +16704,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P82-ibm82n08.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P82-ibm82n08'(suite) -> [];
 'ibm-not-wf-P82-ibm82n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P82/ibm82n08.xml"]),
@@ -18072,7 +16721,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P83-ibm83n01.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P83-ibm83n01'(suite) -> [];
 'ibm-not-wf-P83-ibm83n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P83/ibm83n01.xml"]),
@@ -18085,7 +16733,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P83-ibm83n02.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P83-ibm83n02'(suite) -> [];
 'ibm-not-wf-P83-ibm83n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P83/ibm83n02.xml"]),
@@ -18098,7 +16745,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P83-ibm83n03.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P83-ibm83n03'(suite) -> [];
 'ibm-not-wf-P83-ibm83n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P83/ibm83n03.xml"]),
@@ -18111,7 +16757,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P83-ibm83n04.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P83-ibm83n04'(suite) -> [];
 'ibm-not-wf-P83-ibm83n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P83/ibm83n04.xml"]),
@@ -18124,7 +16769,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P83-ibm83n05.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P83-ibm83n05'(suite) -> [];
 'ibm-not-wf-P83-ibm83n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P83/ibm83n05.xml"]),
@@ -18137,7 +16781,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P83-ibm83n06.xml
 %% Type: not-wf
 %% Sections: 4.7
-'ibm-not-wf-P83-ibm83n06'(suite) -> [];
 'ibm-not-wf-P83-ibm83n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P83/ibm83n06.xml"]),
@@ -18155,7 +16798,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n01.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n01'(suite) -> [];
 'ibm-not-wf-P85-ibm85n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n01.xml"]),
@@ -18168,7 +16810,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n02.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n02'(suite) -> [];
 'ibm-not-wf-P85-ibm85n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n02.xml"]),
@@ -18181,7 +16822,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n03.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n03'(suite) -> [];
 'ibm-not-wf-P85-ibm85n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n03.xml"]),
@@ -18194,7 +16834,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n04.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n04'(suite) -> [];
 'ibm-not-wf-P85-ibm85n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n04.xml"]),
@@ -18207,7 +16846,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n05.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n05'(suite) -> [];
 'ibm-not-wf-P85-ibm85n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n05.xml"]),
@@ -18220,7 +16858,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n06.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n06'(suite) -> [];
 'ibm-not-wf-P85-ibm85n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n06.xml"]),
@@ -18233,7 +16870,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n07.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n07'(suite) -> [];
 'ibm-not-wf-P85-ibm85n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n07.xml"]),
@@ -18246,7 +16882,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n08.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n08'(suite) -> [];
 'ibm-not-wf-P85-ibm85n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n08.xml"]),
@@ -18259,7 +16894,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n09.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n09'(suite) -> [];
 'ibm-not-wf-P85-ibm85n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n09.xml"]),
@@ -18272,7 +16906,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n10.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n10'(suite) -> [];
 'ibm-not-wf-P85-ibm85n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n10.xml"]),
@@ -18285,7 +16918,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n100.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n100'(suite) -> [];
 'ibm-not-wf-P85-ibm85n100'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n100.xml"]),
@@ -18298,7 +16930,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n101.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n101'(suite) -> [];
 'ibm-not-wf-P85-ibm85n101'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n101.xml"]),
@@ -18311,7 +16942,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n102.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n102'(suite) -> [];
 'ibm-not-wf-P85-ibm85n102'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n102.xml"]),
@@ -18324,7 +16954,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n103.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n103'(suite) -> [];
 'ibm-not-wf-P85-ibm85n103'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n103.xml"]),
@@ -18337,7 +16966,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n104.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n104'(suite) -> [];
 'ibm-not-wf-P85-ibm85n104'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n104.xml"]),
@@ -18350,7 +16978,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n105.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n105'(suite) -> [];
 'ibm-not-wf-P85-ibm85n105'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n105.xml"]),
@@ -18363,7 +16990,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n106.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n106'(suite) -> [];
 'ibm-not-wf-P85-ibm85n106'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n106.xml"]),
@@ -18376,7 +17002,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n107.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n107'(suite) -> [];
 'ibm-not-wf-P85-ibm85n107'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n107.xml"]),
@@ -18389,7 +17014,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n108.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n108'(suite) -> [];
 'ibm-not-wf-P85-ibm85n108'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n108.xml"]),
@@ -18402,7 +17026,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n109.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n109'(suite) -> [];
 'ibm-not-wf-P85-ibm85n109'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n109.xml"]),
@@ -18415,7 +17038,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n11.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n11'(suite) -> [];
 'ibm-not-wf-P85-ibm85n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n11.xml"]),
@@ -18428,7 +17050,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n110.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n110'(suite) -> [];
 'ibm-not-wf-P85-ibm85n110'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n110.xml"]),
@@ -18441,7 +17062,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n111.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n111'(suite) -> [];
 'ibm-not-wf-P85-ibm85n111'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n111.xml"]),
@@ -18454,7 +17074,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n112.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n112'(suite) -> [];
 'ibm-not-wf-P85-ibm85n112'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n112.xml"]),
@@ -18467,7 +17086,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n113.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n113'(suite) -> [];
 'ibm-not-wf-P85-ibm85n113'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n113.xml"]),
@@ -18480,7 +17098,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n114.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n114'(suite) -> [];
 'ibm-not-wf-P85-ibm85n114'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n114.xml"]),
@@ -18493,7 +17110,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n115.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n115'(suite) -> [];
 'ibm-not-wf-P85-ibm85n115'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n115.xml"]),
@@ -18506,7 +17122,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n116.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n116'(suite) -> [];
 'ibm-not-wf-P85-ibm85n116'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n116.xml"]),
@@ -18519,7 +17134,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n117.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n117'(suite) -> [];
 'ibm-not-wf-P85-ibm85n117'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n117.xml"]),
@@ -18532,7 +17146,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n118.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n118'(suite) -> [];
 'ibm-not-wf-P85-ibm85n118'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n118.xml"]),
@@ -18545,7 +17158,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n119.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n119'(suite) -> [];
 'ibm-not-wf-P85-ibm85n119'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n119.xml"]),
@@ -18558,7 +17170,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n12.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n12'(suite) -> [];
 'ibm-not-wf-P85-ibm85n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n12.xml"]),
@@ -18571,7 +17182,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n120.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n120'(suite) -> [];
 'ibm-not-wf-P85-ibm85n120'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n120.xml"]),
@@ -18584,7 +17194,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n121.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n121'(suite) -> [];
 'ibm-not-wf-P85-ibm85n121'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n121.xml"]),
@@ -18597,7 +17206,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n122.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n122'(suite) -> [];
 'ibm-not-wf-P85-ibm85n122'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n122.xml"]),
@@ -18610,7 +17218,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n123.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n123'(suite) -> [];
 'ibm-not-wf-P85-ibm85n123'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n123.xml"]),
@@ -18623,7 +17230,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n124.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n124'(suite) -> [];
 'ibm-not-wf-P85-ibm85n124'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n124.xml"]),
@@ -18636,7 +17242,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n125.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n125'(suite) -> [];
 'ibm-not-wf-P85-ibm85n125'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n125.xml"]),
@@ -18649,7 +17254,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n126.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n126'(suite) -> [];
 'ibm-not-wf-P85-ibm85n126'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n126.xml"]),
@@ -18662,7 +17266,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n127.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n127'(suite) -> [];
 'ibm-not-wf-P85-ibm85n127'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n127.xml"]),
@@ -18675,7 +17278,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n128.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n128'(suite) -> [];
 'ibm-not-wf-P85-ibm85n128'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n128.xml"]),
@@ -18688,7 +17290,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n129.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n129'(suite) -> [];
 'ibm-not-wf-P85-ibm85n129'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n129.xml"]),
@@ -18701,7 +17302,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n13.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n13'(suite) -> [];
 'ibm-not-wf-P85-ibm85n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n13.xml"]),
@@ -18714,7 +17314,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n130.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n130'(suite) -> [];
 'ibm-not-wf-P85-ibm85n130'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n130.xml"]),
@@ -18727,7 +17326,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n131.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n131'(suite) -> [];
 'ibm-not-wf-P85-ibm85n131'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n131.xml"]),
@@ -18740,7 +17338,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n132.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n132'(suite) -> [];
 'ibm-not-wf-P85-ibm85n132'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n132.xml"]),
@@ -18753,7 +17350,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n133.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n133'(suite) -> [];
 'ibm-not-wf-P85-ibm85n133'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n133.xml"]),
@@ -18766,7 +17362,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n134.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n134'(suite) -> [];
 'ibm-not-wf-P85-ibm85n134'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n134.xml"]),
@@ -18779,7 +17374,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n135.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n135'(suite) -> [];
 'ibm-not-wf-P85-ibm85n135'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n135.xml"]),
@@ -18792,7 +17386,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n136.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n136'(suite) -> [];
 'ibm-not-wf-P85-ibm85n136'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n136.xml"]),
@@ -18805,7 +17398,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n137.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n137'(suite) -> [];
 'ibm-not-wf-P85-ibm85n137'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n137.xml"]),
@@ -18818,7 +17410,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n138.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n138'(suite) -> [];
 'ibm-not-wf-P85-ibm85n138'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n138.xml"]),
@@ -18831,7 +17422,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n139.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n139'(suite) -> [];
 'ibm-not-wf-P85-ibm85n139'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n139.xml"]),
@@ -18844,7 +17434,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n14.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n14'(suite) -> [];
 'ibm-not-wf-P85-ibm85n14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n14.xml"]),
@@ -18857,7 +17446,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n140.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n140'(suite) -> [];
 'ibm-not-wf-P85-ibm85n140'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n140.xml"]),
@@ -18870,7 +17458,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n141.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n141'(suite) -> [];
 'ibm-not-wf-P85-ibm85n141'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n141.xml"]),
@@ -18883,7 +17470,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n142.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n142'(suite) -> [];
 'ibm-not-wf-P85-ibm85n142'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n142.xml"]),
@@ -18896,7 +17482,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n143.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n143'(suite) -> [];
 'ibm-not-wf-P85-ibm85n143'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n143.xml"]),
@@ -18909,7 +17494,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n144.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n144'(suite) -> [];
 'ibm-not-wf-P85-ibm85n144'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n144.xml"]),
@@ -18922,7 +17506,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n145.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n145'(suite) -> [];
 'ibm-not-wf-P85-ibm85n145'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n145.xml"]),
@@ -18935,7 +17518,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n146.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n146'(suite) -> [];
 'ibm-not-wf-P85-ibm85n146'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n146.xml"]),
@@ -18948,7 +17530,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n147.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n147'(suite) -> [];
 'ibm-not-wf-P85-ibm85n147'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n147.xml"]),
@@ -18961,7 +17542,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n148.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n148'(suite) -> [];
 'ibm-not-wf-P85-ibm85n148'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n148.xml"]),
@@ -18974,7 +17554,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n149.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n149'(suite) -> [];
 'ibm-not-wf-P85-ibm85n149'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n149.xml"]),
@@ -18987,7 +17566,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n15.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n15'(suite) -> [];
 'ibm-not-wf-P85-ibm85n15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n15.xml"]),
@@ -19000,7 +17578,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n150.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n150'(suite) -> [];
 'ibm-not-wf-P85-ibm85n150'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n150.xml"]),
@@ -19013,7 +17590,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n151.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n151'(suite) -> [];
 'ibm-not-wf-P85-ibm85n151'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n151.xml"]),
@@ -19026,7 +17602,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n152.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n152'(suite) -> [];
 'ibm-not-wf-P85-ibm85n152'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n152.xml"]),
@@ -19039,7 +17614,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n153.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n153'(suite) -> [];
 'ibm-not-wf-P85-ibm85n153'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n153.xml"]),
@@ -19052,7 +17626,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n154.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n154'(suite) -> [];
 'ibm-not-wf-P85-ibm85n154'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n154.xml"]),
@@ -19065,7 +17638,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n155.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n155'(suite) -> [];
 'ibm-not-wf-P85-ibm85n155'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n155.xml"]),
@@ -19078,7 +17650,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n156.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n156'(suite) -> [];
 'ibm-not-wf-P85-ibm85n156'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n156.xml"]),
@@ -19091,7 +17662,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n157.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n157'(suite) -> [];
 'ibm-not-wf-P85-ibm85n157'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n157.xml"]),
@@ -19104,7 +17674,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n158.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n158'(suite) -> [];
 'ibm-not-wf-P85-ibm85n158'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n158.xml"]),
@@ -19117,7 +17686,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n159.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n159'(suite) -> [];
 'ibm-not-wf-P85-ibm85n159'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n159.xml"]),
@@ -19130,7 +17698,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n16.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n16'(suite) -> [];
 'ibm-not-wf-P85-ibm85n16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n16.xml"]),
@@ -19143,7 +17710,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n160.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n160'(suite) -> [];
 'ibm-not-wf-P85-ibm85n160'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n160.xml"]),
@@ -19156,7 +17722,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n161.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n161'(suite) -> [];
 'ibm-not-wf-P85-ibm85n161'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n161.xml"]),
@@ -19169,7 +17734,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n162.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n162'(suite) -> [];
 'ibm-not-wf-P85-ibm85n162'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n162.xml"]),
@@ -19182,7 +17746,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n163.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n163'(suite) -> [];
 'ibm-not-wf-P85-ibm85n163'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n163.xml"]),
@@ -19195,7 +17758,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n164.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n164'(suite) -> [];
 'ibm-not-wf-P85-ibm85n164'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n164.xml"]),
@@ -19208,7 +17770,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n165.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n165'(suite) -> [];
 'ibm-not-wf-P85-ibm85n165'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n165.xml"]),
@@ -19221,7 +17782,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n166.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n166'(suite) -> [];
 'ibm-not-wf-P85-ibm85n166'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n166.xml"]),
@@ -19234,7 +17794,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n167.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n167'(suite) -> [];
 'ibm-not-wf-P85-ibm85n167'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n167.xml"]),
@@ -19247,7 +17806,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n168.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n168'(suite) -> [];
 'ibm-not-wf-P85-ibm85n168'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n168.xml"]),
@@ -19260,7 +17818,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n169.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n169'(suite) -> [];
 'ibm-not-wf-P85-ibm85n169'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n169.xml"]),
@@ -19273,7 +17830,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n17.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n17'(suite) -> [];
 'ibm-not-wf-P85-ibm85n17'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n17.xml"]),
@@ -19286,7 +17842,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n170.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n170'(suite) -> [];
 'ibm-not-wf-P85-ibm85n170'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n170.xml"]),
@@ -19299,7 +17854,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n171.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n171'(suite) -> [];
 'ibm-not-wf-P85-ibm85n171'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n171.xml"]),
@@ -19312,7 +17866,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n172.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n172'(suite) -> [];
 'ibm-not-wf-P85-ibm85n172'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n172.xml"]),
@@ -19325,7 +17878,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n173.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n173'(suite) -> [];
 'ibm-not-wf-P85-ibm85n173'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n173.xml"]),
@@ -19338,7 +17890,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n174.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n174'(suite) -> [];
 'ibm-not-wf-P85-ibm85n174'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n174.xml"]),
@@ -19351,7 +17902,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n175.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n175'(suite) -> [];
 'ibm-not-wf-P85-ibm85n175'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n175.xml"]),
@@ -19364,7 +17914,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n176.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n176'(suite) -> [];
 'ibm-not-wf-P85-ibm85n176'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n176.xml"]),
@@ -19377,7 +17926,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n177.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n177'(suite) -> [];
 'ibm-not-wf-P85-ibm85n177'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n177.xml"]),
@@ -19390,7 +17938,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n178.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n178'(suite) -> [];
 'ibm-not-wf-P85-ibm85n178'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n178.xml"]),
@@ -19403,7 +17950,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n179.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n179'(suite) -> [];
 'ibm-not-wf-P85-ibm85n179'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n179.xml"]),
@@ -19416,7 +17962,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n18.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n18'(suite) -> [];
 'ibm-not-wf-P85-ibm85n18'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n18.xml"]),
@@ -19429,7 +17974,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n180.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n180'(suite) -> [];
 'ibm-not-wf-P85-ibm85n180'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n180.xml"]),
@@ -19442,7 +17986,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n181.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n181'(suite) -> [];
 'ibm-not-wf-P85-ibm85n181'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n181.xml"]),
@@ -19455,7 +17998,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n182.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n182'(suite) -> [];
 'ibm-not-wf-P85-ibm85n182'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n182.xml"]),
@@ -19468,7 +18010,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n183.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n183'(suite) -> [];
 'ibm-not-wf-P85-ibm85n183'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n183.xml"]),
@@ -19481,7 +18022,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n184.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n184'(suite) -> [];
 'ibm-not-wf-P85-ibm85n184'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n184.xml"]),
@@ -19494,7 +18034,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n185.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n185'(suite) -> [];
 'ibm-not-wf-P85-ibm85n185'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n185.xml"]),
@@ -19507,7 +18046,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n186.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n186'(suite) -> [];
 'ibm-not-wf-P85-ibm85n186'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n186.xml"]),
@@ -19520,7 +18058,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n187.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n187'(suite) -> [];
 'ibm-not-wf-P85-ibm85n187'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n187.xml"]),
@@ -19533,7 +18070,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n188.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n188'(suite) -> [];
 'ibm-not-wf-P85-ibm85n188'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n188.xml"]),
@@ -19546,7 +18082,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n189.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n189'(suite) -> [];
 'ibm-not-wf-P85-ibm85n189'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n189.xml"]),
@@ -19559,7 +18094,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n19.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n19'(suite) -> [];
 'ibm-not-wf-P85-ibm85n19'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n19.xml"]),
@@ -19572,7 +18106,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n190.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n190'(suite) -> [];
 'ibm-not-wf-P85-ibm85n190'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n190.xml"]),
@@ -19585,7 +18118,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n191.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n191'(suite) -> [];
 'ibm-not-wf-P85-ibm85n191'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n191.xml"]),
@@ -19598,7 +18130,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n192.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n192'(suite) -> [];
 'ibm-not-wf-P85-ibm85n192'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n192.xml"]),
@@ -19611,7 +18142,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n193.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n193'(suite) -> [];
 'ibm-not-wf-P85-ibm85n193'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n193.xml"]),
@@ -19624,7 +18154,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n194.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n194'(suite) -> [];
 'ibm-not-wf-P85-ibm85n194'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n194.xml"]),
@@ -19637,7 +18166,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n195.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n195'(suite) -> [];
 'ibm-not-wf-P85-ibm85n195'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n195.xml"]),
@@ -19650,7 +18178,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n196.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n196'(suite) -> [];
 'ibm-not-wf-P85-ibm85n196'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n196.xml"]),
@@ -19663,7 +18190,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n197.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n197'(suite) -> [];
 'ibm-not-wf-P85-ibm85n197'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n197.xml"]),
@@ -19676,7 +18202,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n198.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n198'(suite) -> [];
 'ibm-not-wf-P85-ibm85n198'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n198.xml"]),
@@ -19689,7 +18214,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n20.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n20'(suite) -> [];
 'ibm-not-wf-P85-ibm85n20'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n20.xml"]),
@@ -19702,7 +18226,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n21.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n21'(suite) -> [];
 'ibm-not-wf-P85-ibm85n21'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n21.xml"]),
@@ -19715,7 +18238,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n22.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n22'(suite) -> [];
 'ibm-not-wf-P85-ibm85n22'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n22.xml"]),
@@ -19728,7 +18250,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n23.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n23'(suite) -> [];
 'ibm-not-wf-P85-ibm85n23'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n23.xml"]),
@@ -19741,7 +18262,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n24.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n24'(suite) -> [];
 'ibm-not-wf-P85-ibm85n24'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n24.xml"]),
@@ -19754,7 +18274,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n25.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n25'(suite) -> [];
 'ibm-not-wf-P85-ibm85n25'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n25.xml"]),
@@ -19767,7 +18286,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n26.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n26'(suite) -> [];
 'ibm-not-wf-P85-ibm85n26'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n26.xml"]),
@@ -19780,7 +18298,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n27.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n27'(suite) -> [];
 'ibm-not-wf-P85-ibm85n27'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n27.xml"]),
@@ -19793,7 +18310,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n28.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n28'(suite) -> [];
 'ibm-not-wf-P85-ibm85n28'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n28.xml"]),
@@ -19806,7 +18322,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n29.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n29'(suite) -> [];
 'ibm-not-wf-P85-ibm85n29'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n29.xml"]),
@@ -19819,7 +18334,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n30.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n30'(suite) -> [];
 'ibm-not-wf-P85-ibm85n30'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n30.xml"]),
@@ -19832,7 +18346,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n31.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n31'(suite) -> [];
 'ibm-not-wf-P85-ibm85n31'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n31.xml"]),
@@ -19845,7 +18358,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n32.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n32'(suite) -> [];
 'ibm-not-wf-P85-ibm85n32'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n32.xml"]),
@@ -19858,7 +18370,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n33.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n33'(suite) -> [];
 'ibm-not-wf-P85-ibm85n33'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n33.xml"]),
@@ -19871,7 +18382,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n34.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n34'(suite) -> [];
 'ibm-not-wf-P85-ibm85n34'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n34.xml"]),
@@ -19884,7 +18394,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n35.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n35'(suite) -> [];
 'ibm-not-wf-P85-ibm85n35'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n35.xml"]),
@@ -19897,7 +18406,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n36.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n36'(suite) -> [];
 'ibm-not-wf-P85-ibm85n36'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n36.xml"]),
@@ -19910,7 +18418,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n37.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n37'(suite) -> [];
 'ibm-not-wf-P85-ibm85n37'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n37.xml"]),
@@ -19923,7 +18430,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n38.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n38'(suite) -> [];
 'ibm-not-wf-P85-ibm85n38'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n38.xml"]),
@@ -19936,7 +18442,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n39.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n39'(suite) -> [];
 'ibm-not-wf-P85-ibm85n39'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n39.xml"]),
@@ -19949,7 +18454,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n40.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n40'(suite) -> [];
 'ibm-not-wf-P85-ibm85n40'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n40.xml"]),
@@ -19962,7 +18466,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n41.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n41'(suite) -> [];
 'ibm-not-wf-P85-ibm85n41'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n41.xml"]),
@@ -19975,7 +18478,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n42.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n42'(suite) -> [];
 'ibm-not-wf-P85-ibm85n42'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n42.xml"]),
@@ -19988,7 +18490,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n43.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n43'(suite) -> [];
 'ibm-not-wf-P85-ibm85n43'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n43.xml"]),
@@ -20001,7 +18502,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n44.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n44'(suite) -> [];
 'ibm-not-wf-P85-ibm85n44'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n44.xml"]),
@@ -20014,7 +18514,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n45.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n45'(suite) -> [];
 'ibm-not-wf-P85-ibm85n45'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n45.xml"]),
@@ -20027,7 +18526,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n46.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n46'(suite) -> [];
 'ibm-not-wf-P85-ibm85n46'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n46.xml"]),
@@ -20040,7 +18538,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n47.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n47'(suite) -> [];
 'ibm-not-wf-P85-ibm85n47'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n47.xml"]),
@@ -20053,7 +18550,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n48.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n48'(suite) -> [];
 'ibm-not-wf-P85-ibm85n48'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n48.xml"]),
@@ -20066,7 +18562,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n49.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n49'(suite) -> [];
 'ibm-not-wf-P85-ibm85n49'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n49.xml"]),
@@ -20079,7 +18574,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n50.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n50'(suite) -> [];
 'ibm-not-wf-P85-ibm85n50'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n50.xml"]),
@@ -20092,7 +18586,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n51.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n51'(suite) -> [];
 'ibm-not-wf-P85-ibm85n51'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n51.xml"]),
@@ -20105,7 +18598,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n52.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n52'(suite) -> [];
 'ibm-not-wf-P85-ibm85n52'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n52.xml"]),
@@ -20118,7 +18610,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n53.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n53'(suite) -> [];
 'ibm-not-wf-P85-ibm85n53'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n53.xml"]),
@@ -20131,7 +18622,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n54.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n54'(suite) -> [];
 'ibm-not-wf-P85-ibm85n54'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n54.xml"]),
@@ -20144,7 +18634,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n55.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n55'(suite) -> [];
 'ibm-not-wf-P85-ibm85n55'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n55.xml"]),
@@ -20157,7 +18646,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n56.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n56'(suite) -> [];
 'ibm-not-wf-P85-ibm85n56'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n56.xml"]),
@@ -20170,7 +18658,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n57.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n57'(suite) -> [];
 'ibm-not-wf-P85-ibm85n57'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n57.xml"]),
@@ -20183,7 +18670,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n58.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n58'(suite) -> [];
 'ibm-not-wf-P85-ibm85n58'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n58.xml"]),
@@ -20196,7 +18682,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n59.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n59'(suite) -> [];
 'ibm-not-wf-P85-ibm85n59'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n59.xml"]),
@@ -20209,7 +18694,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n60.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n60'(suite) -> [];
 'ibm-not-wf-P85-ibm85n60'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n60.xml"]),
@@ -20222,7 +18706,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n61.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n61'(suite) -> [];
 'ibm-not-wf-P85-ibm85n61'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n61.xml"]),
@@ -20235,7 +18718,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n62.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n62'(suite) -> [];
 'ibm-not-wf-P85-ibm85n62'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n62.xml"]),
@@ -20248,7 +18730,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n63.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n63'(suite) -> [];
 'ibm-not-wf-P85-ibm85n63'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n63.xml"]),
@@ -20261,7 +18742,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n64.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n64'(suite) -> [];
 'ibm-not-wf-P85-ibm85n64'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n64.xml"]),
@@ -20274,7 +18754,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n65.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n65'(suite) -> [];
 'ibm-not-wf-P85-ibm85n65'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n65.xml"]),
@@ -20287,7 +18766,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n66.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n66'(suite) -> [];
 'ibm-not-wf-P85-ibm85n66'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n66.xml"]),
@@ -20300,7 +18778,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n67.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n67'(suite) -> [];
 'ibm-not-wf-P85-ibm85n67'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n67.xml"]),
@@ -20313,7 +18790,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n68.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n68'(suite) -> [];
 'ibm-not-wf-P85-ibm85n68'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n68.xml"]),
@@ -20326,7 +18802,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n69.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n69'(suite) -> [];
 'ibm-not-wf-P85-ibm85n69'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n69.xml"]),
@@ -20339,7 +18814,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n70.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n70'(suite) -> [];
 'ibm-not-wf-P85-ibm85n70'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n70.xml"]),
@@ -20352,7 +18826,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n71.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n71'(suite) -> [];
 'ibm-not-wf-P85-ibm85n71'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n71.xml"]),
@@ -20365,7 +18838,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n72.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n72'(suite) -> [];
 'ibm-not-wf-P85-ibm85n72'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n72.xml"]),
@@ -20378,7 +18850,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n73.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n73'(suite) -> [];
 'ibm-not-wf-P85-ibm85n73'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n73.xml"]),
@@ -20391,7 +18862,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n74.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n74'(suite) -> [];
 'ibm-not-wf-P85-ibm85n74'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n74.xml"]),
@@ -20404,7 +18874,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n75.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n75'(suite) -> [];
 'ibm-not-wf-P85-ibm85n75'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n75.xml"]),
@@ -20417,7 +18886,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n76.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n76'(suite) -> [];
 'ibm-not-wf-P85-ibm85n76'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n76.xml"]),
@@ -20430,7 +18898,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n77.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n77'(suite) -> [];
 'ibm-not-wf-P85-ibm85n77'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n77.xml"]),
@@ -20443,7 +18910,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n78.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n78'(suite) -> [];
 'ibm-not-wf-P85-ibm85n78'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n78.xml"]),
@@ -20456,7 +18922,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n79.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n79'(suite) -> [];
 'ibm-not-wf-P85-ibm85n79'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n79.xml"]),
@@ -20469,7 +18934,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n80.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n80'(suite) -> [];
 'ibm-not-wf-P85-ibm85n80'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n80.xml"]),
@@ -20482,7 +18946,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n81.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n81'(suite) -> [];
 'ibm-not-wf-P85-ibm85n81'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n81.xml"]),
@@ -20495,7 +18958,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n82.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n82'(suite) -> [];
 'ibm-not-wf-P85-ibm85n82'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n82.xml"]),
@@ -20508,7 +18970,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n83.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n83'(suite) -> [];
 'ibm-not-wf-P85-ibm85n83'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n83.xml"]),
@@ -20521,7 +18982,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n84.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n84'(suite) -> [];
 'ibm-not-wf-P85-ibm85n84'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n84.xml"]),
@@ -20534,7 +18994,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n85.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n85'(suite) -> [];
 'ibm-not-wf-P85-ibm85n85'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n85.xml"]),
@@ -20547,7 +19006,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n86.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n86'(suite) -> [];
 'ibm-not-wf-P85-ibm85n86'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n86.xml"]),
@@ -20560,7 +19018,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n87.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n87'(suite) -> [];
 'ibm-not-wf-P85-ibm85n87'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n87.xml"]),
@@ -20573,7 +19030,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n88.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n88'(suite) -> [];
 'ibm-not-wf-P85-ibm85n88'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n88.xml"]),
@@ -20586,7 +19042,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n89.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n89'(suite) -> [];
 'ibm-not-wf-P85-ibm85n89'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n89.xml"]),
@@ -20599,7 +19054,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n90.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n90'(suite) -> [];
 'ibm-not-wf-P85-ibm85n90'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n90.xml"]),
@@ -20612,7 +19066,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n91.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n91'(suite) -> [];
 'ibm-not-wf-P85-ibm85n91'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n91.xml"]),
@@ -20625,7 +19078,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n92.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n92'(suite) -> [];
 'ibm-not-wf-P85-ibm85n92'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n92.xml"]),
@@ -20638,7 +19090,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n93.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n93'(suite) -> [];
 'ibm-not-wf-P85-ibm85n93'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n93.xml"]),
@@ -20651,7 +19102,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n94.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n94'(suite) -> [];
 'ibm-not-wf-P85-ibm85n94'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n94.xml"]),
@@ -20664,7 +19114,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n95.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n95'(suite) -> [];
 'ibm-not-wf-P85-ibm85n95'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n95.xml"]),
@@ -20677,7 +19126,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n96.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n96'(suite) -> [];
 'ibm-not-wf-P85-ibm85n96'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n96.xml"]),
@@ -20690,7 +19138,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n97.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n97'(suite) -> [];
 'ibm-not-wf-P85-ibm85n97'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n97.xml"]),
@@ -20703,7 +19150,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n98.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n98'(suite) -> [];
 'ibm-not-wf-P85-ibm85n98'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n98.xml"]),
@@ -20716,7 +19162,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P85-ibm85n99.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P85-ibm85n99'(suite) -> [];
 'ibm-not-wf-P85-ibm85n99'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P85/ibm85n99.xml"]),
@@ -20734,7 +19179,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P86-ibm86n01.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P86-ibm86n01'(suite) -> [];
 'ibm-not-wf-P86-ibm86n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P86/ibm86n01.xml"]),
@@ -20747,7 +19191,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P86-ibm86n02.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P86-ibm86n02'(suite) -> [];
 'ibm-not-wf-P86-ibm86n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P86/ibm86n02.xml"]),
@@ -20760,7 +19203,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P86-ibm86n03.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P86-ibm86n03'(suite) -> [];
 'ibm-not-wf-P86-ibm86n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P86/ibm86n03.xml"]),
@@ -20773,7 +19215,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P86-ibm86n04.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P86-ibm86n04'(suite) -> [];
 'ibm-not-wf-P86-ibm86n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P86/ibm86n04.xml"]),
@@ -20791,7 +19232,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n01.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n01'(suite) -> [];
 'ibm-not-wf-P87-ibm87n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n01.xml"]),
@@ -20804,7 +19244,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n02.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n02'(suite) -> [];
 'ibm-not-wf-P87-ibm87n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n02.xml"]),
@@ -20817,7 +19256,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n03.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n03'(suite) -> [];
 'ibm-not-wf-P87-ibm87n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n03.xml"]),
@@ -20830,7 +19268,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n04.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n04'(suite) -> [];
 'ibm-not-wf-P87-ibm87n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n04.xml"]),
@@ -20843,7 +19280,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n05.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n05'(suite) -> [];
 'ibm-not-wf-P87-ibm87n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n05.xml"]),
@@ -20856,7 +19292,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n06.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n06'(suite) -> [];
 'ibm-not-wf-P87-ibm87n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n06.xml"]),
@@ -20869,7 +19304,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n07.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n07'(suite) -> [];
 'ibm-not-wf-P87-ibm87n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n07.xml"]),
@@ -20882,7 +19316,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n08.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n08'(suite) -> [];
 'ibm-not-wf-P87-ibm87n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n08.xml"]),
@@ -20895,7 +19328,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n09.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n09'(suite) -> [];
 'ibm-not-wf-P87-ibm87n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n09.xml"]),
@@ -20908,7 +19340,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n10.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n10'(suite) -> [];
 'ibm-not-wf-P87-ibm87n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n10.xml"]),
@@ -20921,7 +19352,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n11.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n11'(suite) -> [];
 'ibm-not-wf-P87-ibm87n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n11.xml"]),
@@ -20934,7 +19364,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n12.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n12'(suite) -> [];
 'ibm-not-wf-P87-ibm87n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n12.xml"]),
@@ -20947,7 +19376,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n13.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n13'(suite) -> [];
 'ibm-not-wf-P87-ibm87n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n13.xml"]),
@@ -20960,7 +19388,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n14.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n14'(suite) -> [];
 'ibm-not-wf-P87-ibm87n14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n14.xml"]),
@@ -20973,7 +19400,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n15.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n15'(suite) -> [];
 'ibm-not-wf-P87-ibm87n15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n15.xml"]),
@@ -20986,7 +19412,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n16.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n16'(suite) -> [];
 'ibm-not-wf-P87-ibm87n16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n16.xml"]),
@@ -20999,7 +19424,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n17.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n17'(suite) -> [];
 'ibm-not-wf-P87-ibm87n17'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n17.xml"]),
@@ -21012,7 +19436,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n18.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n18'(suite) -> [];
 'ibm-not-wf-P87-ibm87n18'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n18.xml"]),
@@ -21025,7 +19448,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n19.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n19'(suite) -> [];
 'ibm-not-wf-P87-ibm87n19'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n19.xml"]),
@@ -21038,7 +19460,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n20.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n20'(suite) -> [];
 'ibm-not-wf-P87-ibm87n20'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n20.xml"]),
@@ -21051,7 +19472,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n21.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n21'(suite) -> [];
 'ibm-not-wf-P87-ibm87n21'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n21.xml"]),
@@ -21064,7 +19484,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n22.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n22'(suite) -> [];
 'ibm-not-wf-P87-ibm87n22'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n22.xml"]),
@@ -21077,7 +19496,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n23.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n23'(suite) -> [];
 'ibm-not-wf-P87-ibm87n23'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n23.xml"]),
@@ -21090,7 +19508,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n24.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n24'(suite) -> [];
 'ibm-not-wf-P87-ibm87n24'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n24.xml"]),
@@ -21103,7 +19520,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n25.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n25'(suite) -> [];
 'ibm-not-wf-P87-ibm87n25'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n25.xml"]),
@@ -21116,7 +19532,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n26.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n26'(suite) -> [];
 'ibm-not-wf-P87-ibm87n26'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n26.xml"]),
@@ -21129,7 +19544,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n27.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n27'(suite) -> [];
 'ibm-not-wf-P87-ibm87n27'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n27.xml"]),
@@ -21142,7 +19556,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n28.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n28'(suite) -> [];
 'ibm-not-wf-P87-ibm87n28'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n28.xml"]),
@@ -21155,7 +19568,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n29.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n29'(suite) -> [];
 'ibm-not-wf-P87-ibm87n29'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n29.xml"]),
@@ -21168,7 +19580,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n30.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n30'(suite) -> [];
 'ibm-not-wf-P87-ibm87n30'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n30.xml"]),
@@ -21181,7 +19592,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n31.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n31'(suite) -> [];
 'ibm-not-wf-P87-ibm87n31'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n31.xml"]),
@@ -21194,7 +19604,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n32.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n32'(suite) -> [];
 'ibm-not-wf-P87-ibm87n32'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n32.xml"]),
@@ -21207,7 +19616,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n33.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n33'(suite) -> [];
 'ibm-not-wf-P87-ibm87n33'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n33.xml"]),
@@ -21220,7 +19628,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n34.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n34'(suite) -> [];
 'ibm-not-wf-P87-ibm87n34'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n34.xml"]),
@@ -21233,7 +19640,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n35.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n35'(suite) -> [];
 'ibm-not-wf-P87-ibm87n35'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n35.xml"]),
@@ -21246,7 +19652,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n36.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n36'(suite) -> [];
 'ibm-not-wf-P87-ibm87n36'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n36.xml"]),
@@ -21259,7 +19664,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n37.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n37'(suite) -> [];
 'ibm-not-wf-P87-ibm87n37'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n37.xml"]),
@@ -21272,7 +19676,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n38.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n38'(suite) -> [];
 'ibm-not-wf-P87-ibm87n38'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n38.xml"]),
@@ -21285,7 +19688,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n39.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n39'(suite) -> [];
 'ibm-not-wf-P87-ibm87n39'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n39.xml"]),
@@ -21298,7 +19700,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n40.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n40'(suite) -> [];
 'ibm-not-wf-P87-ibm87n40'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n40.xml"]),
@@ -21311,7 +19712,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n41.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n41'(suite) -> [];
 'ibm-not-wf-P87-ibm87n41'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n41.xml"]),
@@ -21324,7 +19724,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n42.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n42'(suite) -> [];
 'ibm-not-wf-P87-ibm87n42'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n42.xml"]),
@@ -21337,7 +19736,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n43.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n43'(suite) -> [];
 'ibm-not-wf-P87-ibm87n43'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n43.xml"]),
@@ -21350,7 +19748,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n44.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n44'(suite) -> [];
 'ibm-not-wf-P87-ibm87n44'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n44.xml"]),
@@ -21363,7 +19760,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n45.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n45'(suite) -> [];
 'ibm-not-wf-P87-ibm87n45'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n45.xml"]),
@@ -21376,7 +19772,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n46.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n46'(suite) -> [];
 'ibm-not-wf-P87-ibm87n46'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n46.xml"]),
@@ -21389,7 +19784,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n47.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n47'(suite) -> [];
 'ibm-not-wf-P87-ibm87n47'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n47.xml"]),
@@ -21402,7 +19796,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n48.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n48'(suite) -> [];
 'ibm-not-wf-P87-ibm87n48'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n48.xml"]),
@@ -21415,7 +19808,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n49.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n49'(suite) -> [];
 'ibm-not-wf-P87-ibm87n49'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n49.xml"]),
@@ -21428,7 +19820,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n50.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n50'(suite) -> [];
 'ibm-not-wf-P87-ibm87n50'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n50.xml"]),
@@ -21441,7 +19832,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n51.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n51'(suite) -> [];
 'ibm-not-wf-P87-ibm87n51'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n51.xml"]),
@@ -21454,7 +19844,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n52.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n52'(suite) -> [];
 'ibm-not-wf-P87-ibm87n52'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n52.xml"]),
@@ -21467,7 +19856,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n53.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n53'(suite) -> [];
 'ibm-not-wf-P87-ibm87n53'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n53.xml"]),
@@ -21480,7 +19868,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n54.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n54'(suite) -> [];
 'ibm-not-wf-P87-ibm87n54'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n54.xml"]),
@@ -21493,7 +19880,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n55.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n55'(suite) -> [];
 'ibm-not-wf-P87-ibm87n55'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n55.xml"]),
@@ -21506,7 +19892,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n56.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n56'(suite) -> [];
 'ibm-not-wf-P87-ibm87n56'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n56.xml"]),
@@ -21519,7 +19904,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n57.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n57'(suite) -> [];
 'ibm-not-wf-P87-ibm87n57'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n57.xml"]),
@@ -21532,7 +19916,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n58.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n58'(suite) -> [];
 'ibm-not-wf-P87-ibm87n58'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n58.xml"]),
@@ -21545,7 +19928,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n59.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n59'(suite) -> [];
 'ibm-not-wf-P87-ibm87n59'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n59.xml"]),
@@ -21558,7 +19940,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n60.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n60'(suite) -> [];
 'ibm-not-wf-P87-ibm87n60'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n60.xml"]),
@@ -21571,7 +19952,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n61.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n61'(suite) -> [];
 'ibm-not-wf-P87-ibm87n61'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n61.xml"]),
@@ -21584,7 +19964,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n62.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n62'(suite) -> [];
 'ibm-not-wf-P87-ibm87n62'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n62.xml"]),
@@ -21597,7 +19976,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n63.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n63'(suite) -> [];
 'ibm-not-wf-P87-ibm87n63'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n63.xml"]),
@@ -21610,7 +19988,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n64.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n64'(suite) -> [];
 'ibm-not-wf-P87-ibm87n64'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n64.xml"]),
@@ -21623,7 +20000,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n66.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n66'(suite) -> [];
 'ibm-not-wf-P87-ibm87n66'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n66.xml"]),
@@ -21636,7 +20012,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n67.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n67'(suite) -> [];
 'ibm-not-wf-P87-ibm87n67'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n67.xml"]),
@@ -21649,7 +20024,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n68.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n68'(suite) -> [];
 'ibm-not-wf-P87-ibm87n68'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n68.xml"]),
@@ -21662,7 +20036,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n69.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n69'(suite) -> [];
 'ibm-not-wf-P87-ibm87n69'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n69.xml"]),
@@ -21675,7 +20048,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n70.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n70'(suite) -> [];
 'ibm-not-wf-P87-ibm87n70'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n70.xml"]),
@@ -21688,7 +20060,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n71.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n71'(suite) -> [];
 'ibm-not-wf-P87-ibm87n71'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n71.xml"]),
@@ -21701,7 +20072,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n72.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n72'(suite) -> [];
 'ibm-not-wf-P87-ibm87n72'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n72.xml"]),
@@ -21714,7 +20084,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n73.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n73'(suite) -> [];
 'ibm-not-wf-P87-ibm87n73'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n73.xml"]),
@@ -21727,7 +20096,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n74.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n74'(suite) -> [];
 'ibm-not-wf-P87-ibm87n74'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n74.xml"]),
@@ -21740,7 +20108,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n75.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n75'(suite) -> [];
 'ibm-not-wf-P87-ibm87n75'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n75.xml"]),
@@ -21753,7 +20120,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n76.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n76'(suite) -> [];
 'ibm-not-wf-P87-ibm87n76'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n76.xml"]),
@@ -21766,7 +20132,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n77.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n77'(suite) -> [];
 'ibm-not-wf-P87-ibm87n77'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n77.xml"]),
@@ -21779,7 +20144,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n78.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n78'(suite) -> [];
 'ibm-not-wf-P87-ibm87n78'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n78.xml"]),
@@ -21792,7 +20156,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n79.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n79'(suite) -> [];
 'ibm-not-wf-P87-ibm87n79'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n79.xml"]),
@@ -21805,7 +20168,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n80.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n80'(suite) -> [];
 'ibm-not-wf-P87-ibm87n80'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n80.xml"]),
@@ -21818,7 +20180,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n81.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n81'(suite) -> [];
 'ibm-not-wf-P87-ibm87n81'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n81.xml"]),
@@ -21831,7 +20192,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n82.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n82'(suite) -> [];
 'ibm-not-wf-P87-ibm87n82'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n82.xml"]),
@@ -21844,7 +20204,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n83.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n83'(suite) -> [];
 'ibm-not-wf-P87-ibm87n83'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n83.xml"]),
@@ -21857,7 +20216,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n84.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n84'(suite) -> [];
 'ibm-not-wf-P87-ibm87n84'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n84.xml"]),
@@ -21870,7 +20228,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P87-ibm87n85.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P87-ibm87n85'(suite) -> [];
 'ibm-not-wf-P87-ibm87n85'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P87/ibm87n85.xml"]),
@@ -21888,7 +20245,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n01.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n01'(suite) -> [];
 'ibm-not-wf-P88-ibm88n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n01.xml"]),
@@ -21901,7 +20257,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n02.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n02'(suite) -> [];
 'ibm-not-wf-P88-ibm88n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n02.xml"]),
@@ -21914,7 +20269,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n03.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n03'(suite) -> [];
 'ibm-not-wf-P88-ibm88n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n03.xml"]),
@@ -21927,7 +20281,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n04.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n04'(suite) -> [];
 'ibm-not-wf-P88-ibm88n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n04.xml"]),
@@ -21940,7 +20293,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n05.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n05'(suite) -> [];
 'ibm-not-wf-P88-ibm88n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n05.xml"]),
@@ -21953,7 +20305,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n06.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n06'(suite) -> [];
 'ibm-not-wf-P88-ibm88n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n06.xml"]),
@@ -21966,7 +20317,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n08.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n08'(suite) -> [];
 'ibm-not-wf-P88-ibm88n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n08.xml"]),
@@ -21979,7 +20329,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n09.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n09'(suite) -> [];
 'ibm-not-wf-P88-ibm88n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n09.xml"]),
@@ -21992,7 +20341,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n10.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n10'(suite) -> [];
 'ibm-not-wf-P88-ibm88n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n10.xml"]),
@@ -22005,7 +20353,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n11.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n11'(suite) -> [];
 'ibm-not-wf-P88-ibm88n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n11.xml"]),
@@ -22018,7 +20365,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n12.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n12'(suite) -> [];
 'ibm-not-wf-P88-ibm88n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n12.xml"]),
@@ -22031,7 +20377,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n13.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n13'(suite) -> [];
 'ibm-not-wf-P88-ibm88n13'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n13.xml"]),
@@ -22044,7 +20389,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n14.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n14'(suite) -> [];
 'ibm-not-wf-P88-ibm88n14'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n14.xml"]),
@@ -22057,7 +20401,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n15.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n15'(suite) -> [];
 'ibm-not-wf-P88-ibm88n15'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n15.xml"]),
@@ -22070,7 +20413,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P88-ibm88n16.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P88-ibm88n16'(suite) -> [];
 'ibm-not-wf-P88-ibm88n16'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P88/ibm88n16.xml"]),
@@ -22088,7 +20430,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n01.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n01'(suite) -> [];
 'ibm-not-wf-P89-ibm89n01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n01.xml"]),
@@ -22101,7 +20442,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n02.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n02'(suite) -> [];
 'ibm-not-wf-P89-ibm89n02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n02.xml"]),
@@ -22114,7 +20454,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n03.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n03'(suite) -> [];
 'ibm-not-wf-P89-ibm89n03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n03.xml"]),
@@ -22127,7 +20466,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n04.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n04'(suite) -> [];
 'ibm-not-wf-P89-ibm89n04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n04.xml"]),
@@ -22140,7 +20478,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n05.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n05'(suite) -> [];
 'ibm-not-wf-P89-ibm89n05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n05.xml"]),
@@ -22153,7 +20490,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n06.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n06'(suite) -> [];
 'ibm-not-wf-P89-ibm89n06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n06.xml"]),
@@ -22166,7 +20502,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n07.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n07'(suite) -> [];
 'ibm-not-wf-P89-ibm89n07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n07.xml"]),
@@ -22179,7 +20514,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n08.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n08'(suite) -> [];
 'ibm-not-wf-P89-ibm89n08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n08.xml"]),
@@ -22192,7 +20526,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n09.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n09'(suite) -> [];
 'ibm-not-wf-P89-ibm89n09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n09.xml"]),
@@ -22205,7 +20538,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n10.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n10'(suite) -> [];
 'ibm-not-wf-P89-ibm89n10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n10.xml"]),
@@ -22218,7 +20550,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n11.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n11'(suite) -> [];
 'ibm-not-wf-P89-ibm89n11'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n11.xml"]),
@@ -22231,7 +20562,6 @@ testcases68(suite) -> [].
 %% ID: ibm-not-wf-P89-ibm89n12.xml
 %% Type: not-wf
 %% Sections: B.
-'ibm-not-wf-P89-ibm89n12'(suite) -> [];
 'ibm-not-wf-P89-ibm89n12'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","not-wf/P89/ibm89n12.xml"]),
@@ -22254,7 +20584,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P01-ibm01v01.xml
 %% Type: valid
 %% Sections: 2.1
-'ibm-valid-P01-ibm01v01'(suite) -> [];
 'ibm-valid-P01-ibm01v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P01/ibm01v01.xml"]),
@@ -22272,7 +20601,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P02-ibm02v01.xml
 %% Type: valid
 %% Sections: 2.2
-'ibm-valid-P02-ibm02v01'(suite) -> [];
 'ibm-valid-P02-ibm02v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P02/ibm02v01.xml"]),
@@ -22290,7 +20618,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P03-ibm03v01.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P03-ibm03v01'(suite) -> [];
 'ibm-valid-P03-ibm03v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P03/ibm03v01.xml"]),
@@ -22308,7 +20635,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P09-ibm09v01.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P09-ibm09v01'(suite) -> [];
 'ibm-valid-P09-ibm09v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P09/ibm09v01.xml"]),
@@ -22321,7 +20647,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P09-ibm09v02.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P09-ibm09v02'(suite) -> [];
 'ibm-valid-P09-ibm09v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P09/ibm09v02.xml"]),
@@ -22334,7 +20659,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P09-ibm09v03.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P09-ibm09v03'(suite) -> [];
 'ibm-valid-P09-ibm09v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P09/ibm09v03.xml"]),
@@ -22347,7 +20671,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P09-ibm09v04.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P09-ibm09v04'(suite) -> [];
 'ibm-valid-P09-ibm09v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P09/ibm09v04.xml"]),
@@ -22360,7 +20683,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P09-ibm09v05.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P09-ibm09v05'(suite) -> [];
 'ibm-valid-P09-ibm09v05'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P09/ibm09v05.xml"]),
@@ -22378,7 +20700,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v01.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v01'(suite) -> [];
 'ibm-valid-P10-ibm10v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v01.xml"]),
@@ -22391,7 +20712,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v02.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v02'(suite) -> [];
 'ibm-valid-P10-ibm10v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v02.xml"]),
@@ -22404,7 +20724,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v03.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v03'(suite) -> [];
 'ibm-valid-P10-ibm10v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v03.xml"]),
@@ -22417,7 +20736,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v04.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v04'(suite) -> [];
 'ibm-valid-P10-ibm10v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v04.xml"]),
@@ -22430,7 +20748,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v05.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v05'(suite) -> [];
 'ibm-valid-P10-ibm10v05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v05.xml"]),
@@ -22443,7 +20760,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v06.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v06'(suite) -> [];
 'ibm-valid-P10-ibm10v06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v06.xml"]),
@@ -22456,7 +20772,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v07.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v07'(suite) -> [];
 'ibm-valid-P10-ibm10v07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v07.xml"]),
@@ -22469,7 +20784,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P10-ibm10v08.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P10-ibm10v08'(suite) -> [];
 'ibm-valid-P10-ibm10v08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P10/ibm10v08.xml"]),
@@ -22487,7 +20801,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P11-ibm11v01.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P11-ibm11v01'(suite) -> [];
 'ibm-valid-P11-ibm11v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P11/ibm11v01.xml"]),
@@ -22500,7 +20813,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P11-ibm11v02.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P11-ibm11v02'(suite) -> [];
 'ibm-valid-P11-ibm11v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P11/ibm11v02.xml"]),
@@ -22513,7 +20825,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P11-ibm11v03.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P11-ibm11v03'(suite) -> [];
 'ibm-valid-P11-ibm11v03'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P11/ibm11v03.xml"]),
@@ -22526,7 +20837,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P11-ibm11v04.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P11-ibm11v04'(suite) -> [];
 'ibm-valid-P11-ibm11v04'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P11/ibm11v04.xml"]),
@@ -22544,7 +20854,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P12-ibm12v01.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P12-ibm12v01'(suite) -> [];
 'ibm-valid-P12-ibm12v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P12/ibm12v01.xml"]),
@@ -22557,7 +20866,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P12-ibm12v02.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P12-ibm12v02'(suite) -> [];
 'ibm-valid-P12-ibm12v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P12/ibm12v02.xml"]),
@@ -22570,7 +20878,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P12-ibm12v03.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P12-ibm12v03'(suite) -> [];
 'ibm-valid-P12-ibm12v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P12/ibm12v03.xml"]),
@@ -22583,7 +20890,6 @@ testcases68(suite) -> [].
 %% ID: ibm-valid-P12-ibm12v04.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P12-ibm12v04'(suite) -> [];
 'ibm-valid-P12-ibm12v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P12/ibm12v04.xml"]),
@@ -22594,7 +20900,6 @@ testcases68(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 12
 
-testcases111(suite) -> [].
 %%   ['ibm-valid-P12-ibm12v01','ibm-valid-P12-ibm12v02','ibm-valid-P12-ibm12v03','ibm-valid-P12-ibm12v04'].
 
 %%----------------------------------------------------------------------
@@ -22603,7 +20908,6 @@ testcases111(suite) -> [].
 %% ID: ibm-valid-P13-ibm13v01.xml
 %% Type: valid
 %% Sections: 2.3
-'ibm-valid-P13-ibm13v01'(suite) -> [];
 'ibm-valid-P13-ibm13v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P13/ibm13v01.xml"]),
@@ -22614,7 +20918,6 @@ testcases111(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 13
 
-testcases112(suite) -> [].
 %%   ['ibm-valid-P13-ibm13v01'].
 
 %%----------------------------------------------------------------------
@@ -22623,7 +20926,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P14-ibm14v01.xml
 %% Type: valid
 %% Sections: 2.4
-'ibm-valid-P14-ibm14v01'(suite) -> [];
 'ibm-valid-P14-ibm14v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P14/ibm14v01.xml"]),
@@ -22636,7 +20938,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P14-ibm14v02.xml
 %% Type: valid
 %% Sections: 2.4
-'ibm-valid-P14-ibm14v02'(suite) -> [];
 'ibm-valid-P14-ibm14v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P14/ibm14v02.xml"]),
@@ -22649,7 +20950,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P14-ibm14v03.xml
 %% Type: valid
 %% Sections: 2.4
-'ibm-valid-P14-ibm14v03'(suite) -> [];
 'ibm-valid-P14-ibm14v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P14/ibm14v03.xml"]),
@@ -22667,7 +20967,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P15-ibm15v01.xml
 %% Type: valid
 %% Sections: 2.5
-'ibm-valid-P15-ibm15v01'(suite) -> [];
 'ibm-valid-P15-ibm15v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P15/ibm15v01.xml"]),
@@ -22680,7 +20979,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P15-ibm15v02.xml
 %% Type: valid
 %% Sections: 2.5
-'ibm-valid-P15-ibm15v02'(suite) -> [];
 'ibm-valid-P15-ibm15v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P15/ibm15v02.xml"]),
@@ -22693,7 +20991,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P15-ibm15v03.xml
 %% Type: valid
 %% Sections: 2.5
-'ibm-valid-P15-ibm15v03'(suite) -> [];
 'ibm-valid-P15-ibm15v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P15/ibm15v03.xml"]),
@@ -22706,7 +21003,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P15-ibm15v04.xml
 %% Type: valid
 %% Sections: 2.5
-'ibm-valid-P15-ibm15v04'(suite) -> [];
 'ibm-valid-P15-ibm15v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P15/ibm15v04.xml"]),
@@ -22724,7 +21020,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P16-ibm16v01.xml
 %% Type: valid
 %% Sections: 2.6
-'ibm-valid-P16-ibm16v01'(suite) -> [];
 'ibm-valid-P16-ibm16v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P16/ibm16v01.xml"]),
@@ -22737,7 +21032,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P16-ibm16v02.xml
 %% Type: valid
 %% Sections: 2.6
-'ibm-valid-P16-ibm16v02'(suite) -> [];
 'ibm-valid-P16-ibm16v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P16/ibm16v02.xml"]),
@@ -22750,7 +21044,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P16-ibm16v03.xml
 %% Type: valid
 %% Sections: 2.6
-'ibm-valid-P16-ibm16v03'(suite) -> [];
 'ibm-valid-P16-ibm16v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P16/ibm16v03.xml"]),
@@ -22768,7 +21061,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P17-ibm17v01.xml
 %% Type: valid
 %% Sections: 2.6
-'ibm-valid-P17-ibm17v01'(suite) -> [];
 'ibm-valid-P17-ibm17v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P17/ibm17v01.xml"]),
@@ -22786,7 +21078,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P18-ibm18v01.xml
 %% Type: valid
 %% Sections: 2.7
-'ibm-valid-P18-ibm18v01'(suite) -> [];
 'ibm-valid-P18-ibm18v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P18/ibm18v01.xml"]),
@@ -22804,7 +21095,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P19-ibm19v01.xml
 %% Type: valid
 %% Sections: 2.7
-'ibm-valid-P19-ibm19v01'(suite) -> [];
 'ibm-valid-P19-ibm19v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P19/ibm19v01.xml"]),
@@ -22822,7 +21112,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P20-ibm20v01.xml
 %% Type: valid
 %% Sections: 2.7
-'ibm-valid-P20-ibm20v01'(suite) -> [];
 'ibm-valid-P20-ibm20v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P20/ibm20v01.xml"]),
@@ -22835,7 +21124,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P20-ibm20v02.xml
 %% Type: valid
 %% Sections: 2.7
-'ibm-valid-P20-ibm20v02'(suite) -> [];
 'ibm-valid-P20-ibm20v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P20/ibm20v02.xml"]),
@@ -22853,7 +21141,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P21-ibm21v01.xml
 %% Type: valid
 %% Sections: 2.7
-'ibm-valid-P21-ibm21v01'(suite) -> [];
 'ibm-valid-P21-ibm21v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P21/ibm21v01.xml"]),
@@ -22871,7 +21158,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P22-ibm22v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P22-ibm22v01'(suite) -> [];
 'ibm-valid-P22-ibm22v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P22/ibm22v01.xml"]),
@@ -22884,7 +21170,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P22-ibm22v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P22-ibm22v02'(suite) -> [];
 'ibm-valid-P22-ibm22v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P22/ibm22v02.xml"]),
@@ -22897,7 +21182,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P22-ibm22v03.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P22-ibm22v03'(suite) -> [];
 'ibm-valid-P22-ibm22v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P22/ibm22v03.xml"]),
@@ -22910,7 +21194,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P22-ibm22v04.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P22-ibm22v04'(suite) -> [];
 'ibm-valid-P22-ibm22v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P22/ibm22v04.xml"]),
@@ -22923,7 +21206,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P22-ibm22v05.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P22-ibm22v05'(suite) -> [];
 'ibm-valid-P22-ibm22v05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P22/ibm22v05.xml"]),
@@ -22936,7 +21218,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P22-ibm22v06.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P22-ibm22v06'(suite) -> [];
 'ibm-valid-P22-ibm22v06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P22/ibm22v06.xml"]),
@@ -22949,7 +21230,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P22-ibm22v07.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P22-ibm22v07'(suite) -> [];
 'ibm-valid-P22-ibm22v07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P22/ibm22v07.xml"]),
@@ -22967,7 +21247,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P23-ibm23v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P23-ibm23v01'(suite) -> [];
 'ibm-valid-P23-ibm23v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P23/ibm23v01.xml"]),
@@ -22980,7 +21259,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P23-ibm23v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P23-ibm23v02'(suite) -> [];
 'ibm-valid-P23-ibm23v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P23/ibm23v02.xml"]),
@@ -22993,7 +21271,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P23-ibm23v03.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P23-ibm23v03'(suite) -> [];
 'ibm-valid-P23-ibm23v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P23/ibm23v03.xml"]),
@@ -23006,7 +21283,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P23-ibm23v04.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P23-ibm23v04'(suite) -> [];
 'ibm-valid-P23-ibm23v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P23/ibm23v04.xml"]),
@@ -23019,7 +21295,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P23-ibm23v05.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P23-ibm23v05'(suite) -> [];
 'ibm-valid-P23-ibm23v05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P23/ibm23v05.xml"]),
@@ -23032,7 +21307,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P23-ibm23v06.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P23-ibm23v06'(suite) -> [];
 'ibm-valid-P23-ibm23v06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P23/ibm23v06.xml"]),
@@ -23050,7 +21324,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P24-ibm24v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P24-ibm24v01'(suite) -> [];
 'ibm-valid-P24-ibm24v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P24/ibm24v01.xml"]),
@@ -23063,7 +21336,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P24-ibm24v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P24-ibm24v02'(suite) -> [];
 'ibm-valid-P24-ibm24v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P24/ibm24v02.xml"]),
@@ -23081,7 +21353,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P25-ibm25v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P25-ibm25v01'(suite) -> [];
 'ibm-valid-P25-ibm25v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P25/ibm25v01.xml"]),
@@ -23094,7 +21365,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P25-ibm25v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P25-ibm25v02'(suite) -> [];
 'ibm-valid-P25-ibm25v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P25/ibm25v02.xml"]),
@@ -23107,7 +21377,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P25-ibm25v03.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P25-ibm25v03'(suite) -> [];
 'ibm-valid-P25-ibm25v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P25/ibm25v03.xml"]),
@@ -23120,7 +21389,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P25-ibm25v04.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P25-ibm25v04'(suite) -> [];
 'ibm-valid-P25-ibm25v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P25/ibm25v04.xml"]),
@@ -23138,7 +21406,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P26-ibm26v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P26-ibm26v01'(suite) -> [];
 'ibm-valid-P26-ibm26v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P26/ibm26v01.xml"]),
@@ -23156,7 +21423,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P27-ibm27v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P27-ibm27v01'(suite) -> [];
 'ibm-valid-P27-ibm27v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P27/ibm27v01.xml"]),
@@ -23169,7 +21435,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P27-ibm27v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P27-ibm27v02'(suite) -> [];
 'ibm-valid-P27-ibm27v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P27/ibm27v02.xml"]),
@@ -23182,7 +21447,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P27-ibm27v03.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P27-ibm27v03'(suite) -> [];
 'ibm-valid-P27-ibm27v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P27/ibm27v03.xml"]),
@@ -23200,7 +21464,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P28-ibm28v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P28-ibm28v01'(suite) -> [];
 'ibm-valid-P28-ibm28v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P28/ibm28v01.xml"]),
@@ -23213,7 +21476,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P28-ibm28v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P28-ibm28v02'(suite) -> [];
 'ibm-valid-P28-ibm28v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P28/ibm28v02.xml"]),
@@ -23231,7 +21493,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P29-ibm29v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P29-ibm29v01'(suite) -> [];
 'ibm-valid-P29-ibm29v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P29/ibm29v01.xml"]),
@@ -23244,7 +21505,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P29-ibm29v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P29-ibm29v02'(suite) -> [];
 'ibm-valid-P29-ibm29v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P29/ibm29v02.xml"]),
@@ -23262,7 +21522,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P30-ibm30v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P30-ibm30v01'(suite) -> [];
 'ibm-valid-P30-ibm30v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P30/ibm30v01.xml"]),
@@ -23275,7 +21534,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P30-ibm30v02.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P30-ibm30v02'(suite) -> [];
 'ibm-valid-P30-ibm30v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P30/ibm30v02.xml"]),
@@ -23293,7 +21551,6 @@ testcases112(suite) -> [].
 %% ID: ibm-valid-P31-ibm31v01.xml
 %% Type: valid
 %% Sections: 2.8
-'ibm-valid-P31-ibm31v01'(suite) -> [];
 'ibm-valid-P31-ibm31v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P31/ibm31v01.xml"]),
@@ -23304,7 +21561,6 @@ testcases112(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 31
 
-testcases130(suite) -> [].
 %%   ['ibm-valid-P31-ibm31v01'].
 
 %%----------------------------------------------------------------------
@@ -23313,7 +21569,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P32-ibm32v01.xml
 %% Type: valid
 %% Sections: 2.9
-'ibm-valid-P32-ibm32v01'(suite) -> [];
 'ibm-valid-P32-ibm32v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P32/ibm32v01.xml"]),
@@ -23326,7 +21581,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P32-ibm32v02.xml
 %% Type: valid
 %% Sections: 2.9
-'ibm-valid-P32-ibm32v02'(suite) -> [];
 'ibm-valid-P32-ibm32v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P32/ibm32v02.xml"]),
@@ -23339,7 +21593,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P32-ibm32v03.xml
 %% Type: valid
 %% Sections: 2.9
-'ibm-valid-P32-ibm32v03'(suite) -> [];
 'ibm-valid-P32-ibm32v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P32/ibm32v03.xml"]),
@@ -23352,7 +21605,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P32-ibm32v04.xml
 %% Type: valid
 %% Sections: 2.9
-'ibm-valid-P32-ibm32v04'(suite) -> [];
 'ibm-valid-P32-ibm32v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P32/ibm32v04.xml"]),
@@ -23370,7 +21622,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P33-ibm33v01.xml
 %% Type: valid
 %% Sections: 2.12
-'ibm-valid-P33-ibm33v01'(suite) -> [];
 'ibm-valid-P33-ibm33v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P33/ibm33v01.xml"]),
@@ -23388,7 +21639,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P34-ibm34v01.xml
 %% Type: valid
 %% Sections: 2.12
-'ibm-valid-P34-ibm34v01'(suite) -> [];
 'ibm-valid-P34-ibm34v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P34/ibm34v01.xml"]),
@@ -23406,7 +21656,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P35-ibm35v01.xml
 %% Type: valid
 %% Sections: 2.12
-'ibm-valid-P35-ibm35v01'(suite) -> [];
 'ibm-valid-P35-ibm35v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P35/ibm35v01.xml"]),
@@ -23424,7 +21673,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P36-ibm36v01.xml
 %% Type: valid
 %% Sections: 2.12
-'ibm-valid-P36-ibm36v01'(suite) -> [];
 'ibm-valid-P36-ibm36v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P36/ibm36v01.xml"]),
@@ -23442,7 +21690,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P37-ibm37v01.xml
 %% Type: valid
 %% Sections: 2.12
-'ibm-valid-P37-ibm37v01'(suite) -> [];
 'ibm-valid-P37-ibm37v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P37/ibm37v01.xml"]),
@@ -23460,7 +21707,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P38-ibm38v01.xml
 %% Type: valid
 %% Sections: 2.12
-'ibm-valid-P38-ibm38v01'(suite) -> [];
 'ibm-valid-P38-ibm38v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P38/ibm38v01.xml"]),
@@ -23478,7 +21724,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P39-ibm39v01.xml
 %% Type: valid
 %% Sections: 3
-'ibm-valid-P39-ibm39v01'(suite) -> [];
 'ibm-valid-P39-ibm39v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P39/ibm39v01.xml"]),
@@ -23496,7 +21741,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P40-ibm40v01.xml
 %% Type: valid
 %% Sections: 3.1
-'ibm-valid-P40-ibm40v01'(suite) -> [];
 'ibm-valid-P40-ibm40v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P40/ibm40v01.xml"]),
@@ -23514,7 +21758,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P41-ibm41v01.xml
 %% Type: valid
 %% Sections: 3.1
-'ibm-valid-P41-ibm41v01'(suite) -> [];
 'ibm-valid-P41-ibm41v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P41/ibm41v01.xml"]),
@@ -23532,7 +21775,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P42-ibm42v01.xml
 %% Type: valid
 %% Sections: 3.1
-'ibm-valid-P42-ibm42v01'(suite) -> [];
 'ibm-valid-P42-ibm42v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P42/ibm42v01.xml"]),
@@ -23550,7 +21792,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P43-ibm43v01.xml
 %% Type: valid
 %% Sections: 3.1
-'ibm-valid-P43-ibm43v01'(suite) -> [];
 'ibm-valid-P43-ibm43v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P43/ibm43v01.xml"]),
@@ -23568,7 +21809,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P44-ibm44v01.xml
 %% Type: valid
 %% Sections: 3.1
-'ibm-valid-P44-ibm44v01'(suite) -> [];
 'ibm-valid-P44-ibm44v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P44/ibm44v01.xml"]),
@@ -23586,7 +21826,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P45-ibm45v01.xml
 %% Type: valid
 %% Sections: 3.2
-'ibm-valid-P45-ibm45v01'(suite) -> [];
 'ibm-valid-P45-ibm45v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P45/ibm45v01.xml"]),
@@ -23604,7 +21843,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P47-ibm47v01.xml
 %% Type: valid
 %% Sections: 3.2.1
-'ibm-valid-P47-ibm47v01'(suite) -> [];
 'ibm-valid-P47-ibm47v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P47/ibm47v01.xml"]),
@@ -23622,7 +21860,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P49-ibm49v01.xml
 %% Type: valid
 %% Sections: 3.2.1
-'ibm-valid-P49-ibm49v01'(suite) -> [];
 'ibm-valid-P49-ibm49v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P49/ibm49v01.xml"]),
@@ -23640,7 +21877,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P50-ibm50v01.xml
 %% Type: valid
 %% Sections: 3.2.1
-'ibm-valid-P50-ibm50v01'(suite) -> [];
 'ibm-valid-P50-ibm50v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P50/ibm50v01.xml"]),
@@ -23658,7 +21894,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P51-ibm51v01.xml
 %% Type: valid
 %% Sections: 3.2.2
-'ibm-valid-P51-ibm51v01'(suite) -> [];
 'ibm-valid-P51-ibm51v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P51/ibm51v01.xml"]),
@@ -23671,7 +21906,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P51-ibm51v02.xml
 %% Type: valid
 %% Sections: 3.2.2
-'ibm-valid-P51-ibm51v02'(suite) -> [];
 'ibm-valid-P51-ibm51v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P51/ibm51v02.xml"]),
@@ -23689,7 +21923,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P52-ibm52v01.xml
 %% Type: valid
 %% Sections: 3.3
-'ibm-valid-P52-ibm52v01'(suite) -> [];
 'ibm-valid-P52-ibm52v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P52/ibm52v01.xml"]),
@@ -23707,7 +21940,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P54-ibm54v01.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P54-ibm54v01'(suite) -> [];
 'ibm-valid-P54-ibm54v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P54/ibm54v01.xml"]),
@@ -23720,7 +21952,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P54-ibm54v02.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P54-ibm54v02'(suite) -> [];
 'ibm-valid-P54-ibm54v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P54/ibm54v02.xml"]),
@@ -23733,7 +21964,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P54-ibm54v03.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P54-ibm54v03'(suite) -> [];
 'ibm-valid-P54-ibm54v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P54/ibm54v03.xml"]),
@@ -23751,7 +21981,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P55-ibm55v01.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P55-ibm55v01'(suite) -> [];
 'ibm-valid-P55-ibm55v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P55/ibm55v01.xml"]),
@@ -23769,7 +21998,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v01.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v01'(suite) -> [];
 'ibm-valid-P56-ibm56v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v01.xml"]),
@@ -23782,7 +22010,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v02.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v02'(suite) -> [];
 'ibm-valid-P56-ibm56v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v02.xml"]),
@@ -23795,7 +22022,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v03.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v03'(suite) -> [];
 'ibm-valid-P56-ibm56v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v03.xml"]),
@@ -23808,7 +22034,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v04.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v04'(suite) -> [];
 'ibm-valid-P56-ibm56v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v04.xml"]),
@@ -23821,7 +22046,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v05.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v05'(suite) -> [];
 'ibm-valid-P56-ibm56v05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v05.xml"]),
@@ -23834,7 +22058,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v06.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v06'(suite) -> [];
 'ibm-valid-P56-ibm56v06'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v06.xml"]),
@@ -23847,7 +22070,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v07.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v07'(suite) -> [];
 'ibm-valid-P56-ibm56v07'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v07.xml"]),
@@ -23860,7 +22082,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v08.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v08'(suite) -> [];
 'ibm-valid-P56-ibm56v08'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v08.xml"]),
@@ -23873,7 +22094,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v09.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v09'(suite) -> [];
 'ibm-valid-P56-ibm56v09'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v09.xml"]),
@@ -23886,7 +22106,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P56-ibm56v10.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P56-ibm56v10'(suite) -> [];
 'ibm-valid-P56-ibm56v10'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P56/ibm56v10.xml"]),
@@ -23904,7 +22123,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P57-ibm57v01.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P57-ibm57v01'(suite) -> [];
 'ibm-valid-P57-ibm57v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P57/ibm57v01.xml"]),
@@ -23922,7 +22140,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P58-ibm58v01.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P58-ibm58v01'(suite) -> [];
 'ibm-valid-P58-ibm58v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P58/ibm58v01.xml"]),
@@ -23935,7 +22152,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P58-ibm58v02.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P58-ibm58v02'(suite) -> [];
 'ibm-valid-P58-ibm58v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P58/ibm58v02.xml"]),
@@ -23953,7 +22169,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P59-ibm59v01.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P59-ibm59v01'(suite) -> [];
 'ibm-valid-P59-ibm59v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P59/ibm59v01.xml"]),
@@ -23966,7 +22181,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P59-ibm59v02.xml
 %% Type: valid
 %% Sections: 3.3.1
-'ibm-valid-P59-ibm59v02'(suite) -> [];
 'ibm-valid-P59-ibm59v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P59/ibm59v02.xml"]),
@@ -23984,7 +22198,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P60-ibm60v01.xml
 %% Type: valid
 %% Sections: 3.3.2
-'ibm-valid-P60-ibm60v01'(suite) -> [];
 'ibm-valid-P60-ibm60v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P60/ibm60v01.xml"]),
@@ -23997,7 +22210,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P60-ibm60v02.xml
 %% Type: valid
 %% Sections: 3.3.2
-'ibm-valid-P60-ibm60v02'(suite) -> [];
 'ibm-valid-P60-ibm60v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P60/ibm60v02.xml"]),
@@ -24010,7 +22222,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P60-ibm60v03.xml
 %% Type: valid
 %% Sections: 3.3.2
-'ibm-valid-P60-ibm60v03'(suite) -> [];
 'ibm-valid-P60-ibm60v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P60/ibm60v03.xml"]),
@@ -24023,7 +22234,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P60-ibm60v04.xml
 %% Type: valid
 %% Sections: 3.3.2
-'ibm-valid-P60-ibm60v04'(suite) -> [];
 'ibm-valid-P60-ibm60v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P60/ibm60v04.xml"]),
@@ -24041,7 +22251,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P61-ibm61v01.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P61-ibm61v01'(suite) -> [];
 'ibm-valid-P61-ibm61v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P61/ibm61v01.xml"]),
@@ -24054,7 +22263,6 @@ testcases130(suite) -> [].
 %% ID: ibm-valid-P61-ibm61v02.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P61-ibm61v02'(suite) -> [];
 'ibm-valid-P61-ibm61v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P61/ibm61v02.xml"]),
@@ -24065,7 +22273,6 @@ testcases130(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 61
 
-testcases157(suite) -> [].
 %%   ['ibm-valid-P61-ibm61v01','ibm-valid-P61-ibm61v02'].
 
 %%----------------------------------------------------------------------
@@ -24074,7 +22281,6 @@ testcases157(suite) -> [].
 %% ID: ibm-valid-P62-ibm62v01.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P62-ibm62v01'(suite) -> [];
 'ibm-valid-P62-ibm62v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P62/ibm62v01.xml"]),
@@ -24087,7 +22293,6 @@ testcases157(suite) -> [].
 %% ID: ibm-valid-P62-ibm62v02.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P62-ibm62v02'(suite) -> [];
 'ibm-valid-P62-ibm62v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P62/ibm62v02.xml"]),
@@ -24100,7 +22305,6 @@ testcases157(suite) -> [].
 %% ID: ibm-valid-P62-ibm62v03.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P62-ibm62v03'(suite) -> [];
 'ibm-valid-P62-ibm62v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P62/ibm62v03.xml"]),
@@ -24113,7 +22317,6 @@ testcases157(suite) -> [].
 %% ID: ibm-valid-P62-ibm62v04.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P62-ibm62v04'(suite) -> [];
 'ibm-valid-P62-ibm62v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P62/ibm62v04.xml"]),
@@ -24126,7 +22329,6 @@ testcases157(suite) -> [].
 %% ID: ibm-valid-P62-ibm62v05.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P62-ibm62v05'(suite) -> [];
 'ibm-valid-P62-ibm62v05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P62/ibm62v05.xml"]),
@@ -24137,7 +22339,6 @@ testcases157(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 62
 
-testcases158(suite) -> [].
 %%   ['ibm-valid-P62-ibm62v01','ibm-valid-P62-ibm62v02','ibm-valid-P62-ibm62v03','ibm-valid-P62-ibm62v04','ibm-valid-P62-ibm62v05'].
 
 %%----------------------------------------------------------------------
@@ -24146,7 +22347,6 @@ testcases158(suite) -> [].
 %% ID: ibm-valid-P63-ibm63v01.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P63-ibm63v01'(suite) -> [];
 'ibm-valid-P63-ibm63v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P63/ibm63v01.xml"]),
@@ -24159,7 +22359,6 @@ testcases158(suite) -> [].
 %% ID: ibm-valid-P63-ibm63v02.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P63-ibm63v02'(suite) -> [];
 'ibm-valid-P63-ibm63v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P63/ibm63v02.xml"]),
@@ -24172,7 +22371,6 @@ testcases158(suite) -> [].
 %% ID: ibm-valid-P63-ibm63v03.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P63-ibm63v03'(suite) -> [];
 'ibm-valid-P63-ibm63v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P63/ibm63v03.xml"]),
@@ -24185,7 +22383,6 @@ testcases158(suite) -> [].
 %% ID: ibm-valid-P63-ibm63v04.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P63-ibm63v04'(suite) -> [];
 'ibm-valid-P63-ibm63v04'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P63/ibm63v04.xml"]),
@@ -24198,7 +22395,6 @@ testcases158(suite) -> [].
 %% ID: ibm-valid-P63-ibm63v05.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P63-ibm63v05'(suite) -> [];
 'ibm-valid-P63-ibm63v05'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P63/ibm63v05.xml"]),
@@ -24209,7 +22405,6 @@ testcases158(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 63
 
-testcases159(suite) -> [].
 %%   ['ibm-valid-P63-ibm63v01','ibm-valid-P63-ibm63v02','ibm-valid-P63-ibm63v03','ibm-valid-P63-ibm63v04','ibm-valid-P63-ibm63v05'].
 
 %%----------------------------------------------------------------------
@@ -24218,7 +22413,6 @@ testcases159(suite) -> [].
 %% ID: ibm-valid-P64-ibm64v01.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P64-ibm64v01'(suite) -> [];
 'ibm-valid-P64-ibm64v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P64/ibm64v01.xml"]),
@@ -24231,7 +22425,6 @@ testcases159(suite) -> [].
 %% ID: ibm-valid-P64-ibm64v02.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P64-ibm64v02'(suite) -> [];
 'ibm-valid-P64-ibm64v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P64/ibm64v02.xml"]),
@@ -24244,7 +22437,6 @@ testcases159(suite) -> [].
 %% ID: ibm-valid-P64-ibm64v03.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P64-ibm64v03'(suite) -> [];
 'ibm-valid-P64-ibm64v03'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P64/ibm64v03.xml"]),
@@ -24255,7 +22447,6 @@ testcases159(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 64
 
-testcases160(suite) -> [].
 %%   ['ibm-valid-P64-ibm64v01','ibm-valid-P64-ibm64v02','ibm-valid-P64-ibm64v03'].
 
 %%----------------------------------------------------------------------
@@ -24264,7 +22455,6 @@ testcases160(suite) -> [].
 %% ID: ibm-valid-P65-ibm65v01.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P65-ibm65v01'(suite) -> [];
 'ibm-valid-P65-ibm65v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P65/ibm65v01.xml"]),
@@ -24277,7 +22467,6 @@ testcases160(suite) -> [].
 %% ID: ibm-valid-P65-ibm65v02.xml
 %% Type: valid
 %% Sections: 3.4
-'ibm-valid-P65-ibm65v02'(suite) -> [];
 'ibm-valid-P65-ibm65v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P65/ibm65v02.xml"]),
@@ -24288,7 +22477,6 @@ testcases160(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 65
 
-testcases161(suite) -> [].
 %%   ['ibm-valid-P65-ibm65v01','ibm-valid-P65-ibm65v02'].
 
 %%----------------------------------------------------------------------
@@ -24297,7 +22485,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P66-ibm66v01.xml
 %% Type: valid
 %% Sections: 4.1
-'ibm-valid-P66-ibm66v01'(suite) -> [];
 'ibm-valid-P66-ibm66v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P66/ibm66v01.xml"]),
@@ -24315,7 +22502,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P67-ibm67v01.xml
 %% Type: valid
 %% Sections: 4.1
-'ibm-valid-P67-ibm67v01'(suite) -> [];
 'ibm-valid-P67-ibm67v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P67/ibm67v01.xml"]),
@@ -24333,7 +22519,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P68-ibm68v01.xml
 %% Type: valid
 %% Sections: 4.1
-'ibm-valid-P68-ibm68v01'(suite) -> [];
 'ibm-valid-P68-ibm68v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P68/ibm68v01.xml"]),
@@ -24346,7 +22531,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P68-ibm68v02.xml
 %% Type: valid
 %% Sections: 4.1
-'ibm-valid-P68-ibm68v02'(suite) -> [];
 'ibm-valid-P68-ibm68v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P68/ibm68v02.xml"]),
@@ -24364,7 +22548,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P69-ibm69v01.xml
 %% Type: valid
 %% Sections: 4.1
-'ibm-valid-P69-ibm69v01'(suite) -> [];
 'ibm-valid-P69-ibm69v01'(_Config) -> {skip, "NYI"}.
 %%    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
 %%    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P69/ibm69v01.xml"]),
@@ -24377,7 +22560,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P69-ibm69v02.xml
 %% Type: valid
 %% Sections: 4.1
-'ibm-valid-P69-ibm69v02'(suite) -> [];
 'ibm-valid-P69-ibm69v02'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P69/ibm69v02.xml"]),
@@ -24395,7 +22577,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P70-ibm70v01.xml
 %% Type: valid
 %% Sections: 4.2
-'ibm-valid-P70-ibm70v01'(suite) -> [];
 'ibm-valid-P70-ibm70v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P70/ibm70v01.xml"]),
@@ -24413,7 +22594,6 @@ testcases161(suite) -> [].
 %% ID: ibm-valid-P78-ibm78v01.xml
 %% Type: valid
 %% Sections: 4.3.2
-'ibm-valid-P78-ibm78v01'(suite) -> [];
 'ibm-valid-P78-ibm78v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P78/ibm78v01.xml"]),
@@ -24424,7 +22604,6 @@ testcases161(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 78
 
-testcases167(suite) -> [].
 %%   ['ibm-valid-P78-ibm78v01'].
 
 %%----------------------------------------------------------------------
@@ -24433,7 +22612,6 @@ testcases167(suite) -> [].
 %% ID: ibm-valid-P79-ibm79v01.xml
 %% Type: valid
 %% Sections: 4.3.2
-'ibm-valid-P79-ibm79v01'(suite) -> [];
 'ibm-valid-P79-ibm79v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P79/ibm79v01.xml"]),
@@ -24451,7 +22629,6 @@ testcases167(suite) -> [].
 %% ID: ibm-valid-P82-ibm82v01.xml
 %% Type: valid
 %% Sections: 4.7
-'ibm-valid-P82-ibm82v01'(suite) -> [];
 'ibm-valid-P82-ibm82v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P82/ibm82v01.xml"]),
@@ -24469,7 +22646,6 @@ testcases167(suite) -> [].
 %% ID: ibm-valid-P85-ibm85v01.xml
 %% Type: valid
 %% Sections: B.
-'ibm-valid-P85-ibm85v01'(suite) -> [];
 'ibm-valid-P85-ibm85v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P85/ibm85v01.xml"]),
@@ -24480,7 +22656,6 @@ testcases167(suite) -> [].
 %% Test Cases 
 %% Profile: IBM XML Conformance Test Suite - Production 85
 
-testcases170(suite) -> [].
 %%   ['ibm-valid-P85-ibm85v01'].
 
 %%----------------------------------------------------------------------
@@ -24489,7 +22664,6 @@ testcases170(suite) -> [].
 %% ID: ibm-valid-P86-ibm86v01.xml
 %% Type: valid
 %% Sections: B.
-'ibm-valid-P86-ibm86v01'(suite) -> [];
 'ibm-valid-P86-ibm86v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P86/ibm86v01.xml"]),
@@ -24507,7 +22681,6 @@ testcases170(suite) -> [].
 %% ID: ibm-valid-P87-ibm87v01.xml
 %% Type: valid
 %% Sections: B.
-'ibm-valid-P87-ibm87v01'(suite) -> [];
 'ibm-valid-P87-ibm87v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P87/ibm87v01.xml"]),
@@ -24525,7 +22698,6 @@ testcases170(suite) -> [].
 %% ID: ibm-valid-P88-ibm88v01.xml
 %% Type: valid
 %% Sections: B.
-'ibm-valid-P88-ibm88v01'(suite) -> [];
 'ibm-valid-P88-ibm88v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P88/ibm88v01.xml"]),
@@ -24543,7 +22715,6 @@ testcases170(suite) -> [].
 %% ID: ibm-valid-P89-ibm89v01.xml
 %% Type: valid
 %% Sections: B.
-'ibm-valid-P89-ibm89v01'(suite) -> [];
 'ibm-valid-P89-ibm89v01'(Config) -> 
    file:set_cwd(xmerl_test_lib:get_data_dir(Config)),
    Path = filename:join([xmerl_test_lib:get_data_dir(Config),"ibm","valid/P89/ibm89v01.xml"]),

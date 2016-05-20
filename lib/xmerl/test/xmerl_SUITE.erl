@@ -70,8 +70,6 @@ suite() ->
 %% Initializations
 %%----------------------------------------------------------------------
 
-init_per_suite(doc) ->
-    ["Starts the test suite"];
 init_per_suite(Config) ->
     file:set_cwd(datadir(Config)),
     ok=erl_tar:extract("cpd.tar.gz",[compressed]),
@@ -86,16 +84,12 @@ init_per_suite(Config) ->
 
 
 -ifndef(dont_rm_test_dirs).
-end_per_suite(doc) ->
-    ["Stops the test suite"];
 end_per_suite(Config) ->
     file:set_cwd(datadir(Config)),
     ok = rm_files(["cpd", "misc"]),
     ok.
 
 -else.
-end_per_suite(doc) ->
-    ["Stops the test suite"];
 end_per_suite(_Config) ->
     ok.
 -endif.
@@ -117,7 +111,6 @@ end_per_testcase(_Func,_Config) ->
 %%----------------------------------------------------------------------
 %% Test cases
 %%----------------------------------------------------------------------
-cpd_invalid1(suite) -> [];
 cpd_invalid1(Config) ->
     file:set_cwd(datadir(Config)),
     case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_test.xml"]),[]) of
@@ -128,7 +121,6 @@ cpd_invalid1(Config) ->
             end
     end.
 
-cpd_invalid1_index(suite) -> [];
 cpd_invalid1_index(Config) ->
     file:set_cwd(datadir(Config)),
     case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index.xml"]),[]) of
@@ -139,7 +131,6 @@ cpd_invalid1_index(Config) ->
             end
     end.
 
-cpd_invalid2_index(suite) -> [];
 cpd_invalid2_index(Config) ->
     file:set_cwd(datadir(Config)),
     case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index2.xml"]),[]) of
@@ -150,7 +141,6 @@ cpd_invalid2_index(Config) ->
             end
     end.
 
-cpd_invalid_index3(suite) -> [];
 cpd_invalid_index3(Config) ->
     file:set_cwd(datadir(Config)),
     case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index3.xml"]),[]) of
@@ -161,14 +151,12 @@ cpd_invalid_index3(Config) ->
             end
     end.
 
-cpd_invalid_is_layer(suite) -> [];
 cpd_invalid_is_layer(Config) ->
     file:set_cwd(datadir(Config)),
     case catch xmerl_scan:file(datadir_join(Config,[cpd,"is_layer2.xml"]),[]) of
         {'EXIT',{fatal,_Reason}} -> ok
     end.
 
-cpd_expl_provided_DTD(suite) -> [];
 cpd_expl_provided_DTD(Config) ->
     file:set_cwd(datadir(Config)),
     {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[cpd,"file_wo_DTD.xml"]),
@@ -176,34 +164,28 @@ cpd_expl_provided_DTD(Config) ->
 
 %%----------------------------------------------------------------------
 
-xpath_text1(suite) -> [];
 xpath_text1(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_text:one().
 
-xpath_main(suite) -> [];
 xpath_main(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_lib:test().
 
-xpath_abbreviated_syntax(suite) -> [];
 xpath_abbreviated_syntax(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:test().
 
-xpath_functions(suite) -> [];
 xpath_functions(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:functions().
 
-xpath_namespaces(suite) -> [];
 xpath_namespaces(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:namespaces().
 
 %%----------------------------------------------------------------------
 
-latin1_alias(suite) -> [];
 latin1_alias(Config) ->
 %    file:set_cwd(filename:join(datadir(Config),misc)),
     file:set_cwd(datadir(Config)),
@@ -211,7 +193,6 @@ latin1_alias(Config) ->
                                      [{validation,true},
                                       {encoding,'iso-8859-1'}]).
 
-syntax_bug1(suite) -> [];
 syntax_bug1(Config) ->
     file:set_cwd(datadir(Config)),
     {fatal,{"expected one of: ?>, standalone, encoding",
@@ -222,7 +203,6 @@ syntax_bug1(Config) ->
             Err -> Err
         end.
 
-syntax_bug2(suite) -> [];
 syntax_bug2(Config) ->
     file:set_cwd(datadir(Config)),
     {fatal,{"expected one of: ?>, whitespace_character",
@@ -233,7 +213,6 @@ syntax_bug2(Config) ->
             Err -> Err
         end.
 
-syntax_bug3(suite) -> [];
 syntax_bug3(Config) ->
     file:set_cwd(datadir(Config)),
     {fatal,{{endtag_does_not_match,{was,obj,should_have_been,int}},
@@ -244,22 +223,18 @@ syntax_bug3(Config) ->
             Err -> Err
         end.
 
-pe_ref1(suite) -> [];
 pe_ref1(Config) ->
     file:set_cwd(datadir(Config)),
     {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"PE_ref1.xml"]),[{validation,true}]).
 
-copyright(suite) -> [];
 copyright(Config) ->
     file:set_cwd(datadir(Config)),
     {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"cprght.xml"]),[{validation,true}]).
 
-testXSEIF(suite) -> [];
 testXSEIF(Config) ->
     file:set_cwd(datadir(Config)),
     {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"ReplBoard_1_1543-CNA11313Uen.xml"]),[{validation,true}]).
 
-export_simple1(suite) -> [];
 export_simple1(_Config) ->
     Simple = simple(),
     Res = xmerl:export_simple(Simple,xmerl_xml,[{title, "Doc Title"}]),
@@ -271,7 +246,6 @@ export_simple1(_Config) ->
     true = (Res2 =:= Res),
     ok.
 
-export(suite) -> [];
 export(Config) ->
     DataDir = datadir(Config),
     Prolog = ["<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<!DOCTYPE motorcycles SYSTEM \"motorcycles.dtd\">\n"],
@@ -284,7 +258,6 @@ export(Config) ->
 
 %%----------------------------------------------------------------------
 
-sax_parse_and_export(suite) -> [];
 sax_parse_and_export(Config) ->
     ok = sax_parse_export_xml_big(Config),
     ok = sax_parse_export_xml_small(Config).
@@ -424,7 +397,6 @@ generate_heading_col(N) ->
 %% A Kleene Closure child in a sequence consumed all following
 %% childs. This problem has been fixed.
 %%
-ticket_5998(suite) -> [];
 ticket_5998(Config) ->
     DataDir = datadir(Config),
     %% First fix is tested by case syntax_bug2.
@@ -455,7 +427,6 @@ ticket_5998(Config) ->
 %% A Kleene Closure child in a sequence consumed all following
 %% childs. This problem has been fixed.
 %%
-ticket_7211(suite) -> [];
 ticket_7211(Config) ->
     DataDir = datadir(Config),
     {E,[]} = xmerl_scan:file(filename:join([DataDir,misc,"notes2.xml"]),
@@ -488,7 +459,6 @@ ticket_7211(Config) ->
 %% all content, followed by other child elements caused a
 %% failure. This is now corrected.
 %%
-ticket_7214(suite) -> [];
 ticket_7214(Config) ->
     DataDir = datadir(Config),
 
@@ -509,7 +479,6 @@ ticket_7214(Config) ->
 %% Problem with contents of numeric character references followed by 
 %% UTF-8 characters..
 %%
-ticket_7430(suite) -> [];
 ticket_7430(Config) ->
     DataDir = datadir(Config),
 
@@ -527,18 +496,15 @@ ticket_7430(Config) ->
                  E
          end.
 
-ticket_6873(suite) -> [];
 ticket_6873(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:ticket_6873(),
     ok = xpath_lib:ticket_6873().
 
-ticket_7496(suite) -> [];
 ticket_7496(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:ticket_7496().
 
-ticket_8156(suite) -> [];
 ticket_8156(Config) ->
     {ftp,{[],[]},"testmachine1",21,"/w.erl"} = xmerl_uri:parse("ftp://testmachine1/w.erl"),
     {ftp,{"user",[]},"testmachine1",21,"/w.erl"} = xmerl_uri:parse("ftp://user@testmachine1/w.erl"),
@@ -547,9 +513,7 @@ ticket_8156(Config) ->
     {ftp,{"user","hello"},"testmachine1",3000,"/w.erl"} = xmerl_uri:parse("ftp://user:hello@testmachine1:3000/w.erl"),
     ok.
 
-ticket_8697(suite) -> [];
-ticket_8697(doc) -> 
-    ["Test that xmerl_scan can decode unicode entities properly"];
+%% Test that xmerl_scan can decode unicode entities properly
 ticket_8697(Config) ->
     {UTF8Output, []} = xmerl_scan:string("<?xml version=\"1\" ?>\n<text>" ++ [229, 145, 156] ++ "</text>"),
     #xmlElement{content = [#xmlText{value = UTF8Text}]} = UTF8Output,
@@ -562,9 +526,7 @@ ticket_8697(Config) ->
     [16#545C] = HexEntityText,
     ok.
 
-ticket_9411(suite) -> [];
-ticket_9411(doc) -> 
-    ["Test that xmerl_scan handles attribute that contains for example &quot"];
+%% Test that xmerl_scan handles attribute that contains for example &quot
 ticket_9411(Config) ->
     DataDir = datadir(Config),
 
@@ -574,9 +536,7 @@ ticket_9411(Config) ->
     {E, _} = xmerl_scan:string(Xml),
     {E, _} = xmerl_xsd:validate(E, Schema).
 
-ticket_9457(suite) -> [];
-ticket_9457(doc) -> 
-    ["Test that xmerl_scan handles continuation correct when current input runs out at the end of an attribute value"];
+%% Test that xmerl_scan handles continuation correct when current input runs out at the end of an attribute value
 ticket_9457(Config) ->
     Opts = [{continuation_fun, fun ticket_9457_cont/3, start}, {space, normalize}],
     {E, _} = xmerl_scan:string([], Opts).
@@ -596,11 +556,8 @@ ticket_9457_cont(Continue, Exception, GlobalState) ->
     end.
 
 
-ticket_9664_schema(suite) -> [];
-ticket_9664_schema(doc) -> 
-    ["Test that comments are handled correct whith"];
+%% Test that comments are handled correct whith
 ticket_9664_schema(Config) ->
-
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_schema.xml"]),[]),
     {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,[misc,"motorcycles.xsd"])),
     {E1, _} = xmerl_xsd:validate(E, S),
@@ -612,9 +569,7 @@ ticket_9664_schema(Config) ->
                               {validation, schema}]),
     ok.
 
-ticket_9664_dtd(suite) -> [];
-ticket_9664_dtd(doc) -> 
-    ["Test that comments are handled correct whith"];
+%% Test that comments are handled correct whith
 ticket_9664_dtd(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[]),
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[{validation, true}]),

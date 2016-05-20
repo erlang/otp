@@ -52,7 +52,6 @@ groups() ->
 %% Test Case 
 %% ID: ticket_8213
 %% Description: Checks that end of document is checked properly when continuation fun is missing.
-ticket_8213(suite) -> [];
 ticket_8213(_Config) -> 
     {ok,ok,[]} = xmerl_sax_parser:stream("<elem/>", [{event_fun, fun (_E,_,_) -> ok end}]),
     ok.
@@ -62,7 +61,6 @@ ticket_8213(_Config) ->
 %% Test Case 
 %% ID: ticket_8214
 %% Description: Checks that attributes with default namespace don't get [] in NS field.
-ticket_8214(suite) -> [];
 ticket_8214(_Config) -> 
     Event = fun ({startElement,"http://lshift.net/d","elem",
                   {[],"elem"},
@@ -82,7 +80,6 @@ ticket_8214(_Config) ->
 %% Test Case 
 %% ID: ticket_8214
 %% Description: Checks that attributes with default namespace don't get [] in NS field.
-ticket_11551(suite) -> [];
 ticket_11551(_Config) ->
     Stream1 = <<"<?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>
