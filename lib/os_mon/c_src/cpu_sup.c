@@ -603,6 +603,35 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 #endif
 
 /* ---------------------------- *
+ *  Utils for OSX and FreeBSD 	*
+ * ---------------------------- */
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
+
+#define EXIT_WITH(msg) (rich_error(msg, __FILE__, __LINE__))
+#define RICH_BUFLEN    (213)  /* left in error(char*) */
+
+void rich_error(const char *reason, const char *file, const int line) {
+    char buf[RICH_BUFLEN];
+    snprintf(buf, RICH_BUFLEN, "%s (%s:%i)", reason, file, line);
+    error(buf);
+}
+#undef RICH_BUFLEN
+
+void getsysctl(const char *name, void *ptr, size_t len)
+{
+    size_t gotlen = len;
+    if (sysctlbyname(name, ptr, &gotlen, NULL, 0) != 0) {
+	EXIT_WITH("sysctlbyname failed");
+    }
+    if (gotlen != len) {
+	EXIT_WITH("sysctlbyname: unexpected length");
+    }
+}
+#endif
+
+
+/* ---------------------------- *
  *     FreeBSD stat functions 	*
  * ---------------------------- */
 
@@ -642,34 +671,6 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
     }
 
     *result_sz = 2 + 2*CU_BSD_VALUES * no_of_cpus;
-}
-#endif
-
-/* ---------------------------- *
- *  Utils for OSX and FreeBSD 	*
- * ---------------------------- */
-
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
-
-#define EXIT_WITH(msg) (rich_error(msg, __FILE__, __LINE__))
-#define RICH_BUFLEN    (213)  /* left in error(char*) */
-
-void rich_error(const char *reason, const char *file, const int line) {
-    char buf[RICH_BUFLEN];
-    snprintf(buf, RICH_BUFLEN, "%s (%s:%i)", reason, file, line);
-    error(buf);
-}
-#undef RICH_BUFLEN
-
-void getsysctl(const char *name, void *ptr, size_t len)
-{
-    size_t gotlen = len;
-    if (sysctlbyname(name, ptr, &gotlen, NULL, 0) != 0) {
-	EXIT_WITH("sysctlbyname failed");
-    }
-    if (gotlen != len) {
-	EXIT_WITH("sysctlbyname: unexpected length");
-    }
 }
 #endif
 
