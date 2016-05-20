@@ -2585,7 +2585,10 @@ enable_internal_state() ->
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
     end.
 
-sys_mem_cond_run(ReqSizeMB, TestFun) when is_integer(ReqSizeMB) ->
+sys_mem_cond_run(OrigReqSizeMB, TestFun) when is_integer(OrigReqSizeMB) ->
+    %% Debug normally needs more memory, so double the requirement
+    Debug = erlang:system_info(debug_compiled),
+    ReqSizeMB = if Debug -> OrigReqSizeMB * 2; true -> OrigReqSizeMB end,
     case total_memory() of
 	TotMem when is_integer(TotMem), TotMem >= ReqSizeMB ->
 	    TestFun();
