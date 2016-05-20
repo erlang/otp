@@ -120,7 +120,7 @@ t_lttng_list(_Config) ->
 %% com_ericsson_otp:carrier_pool_get
 %% com_ericsson_otp:carrier_pool_put
 t_carrier_pool(Config) ->
-    case have_carriers() of
+    case have_carriers(ets_alloc) of
         false ->
             {skip, "No Memory Carriers configured on system."};
         true ->
@@ -137,7 +137,7 @@ t_carrier_pool(Config) ->
 %% com_ericsson_otp:carrier_destroy
 %% com_ericsson_otp:carrier_create
 t_memory_carrier(Config) ->
-    case have_carriers() of
+    case have_carriers(ets_alloc) of
         false ->
             {skip, "No Memory Carriers configured on system."};
         true ->
@@ -446,11 +446,10 @@ load_driver(Dir, Driver) ->
 
 %% check
 
-have_carriers() ->
-    Cap = element(3,erlang:system_info(allocator)),
-    case Cap -- [sys_alloc,sys_aligned_alloc] of
-        [] -> false;
-        _  -> true
+have_carriers(Alloc) ->
+    case erlang:system_info({allocator,Alloc}) of
+        false -> false;
+        _ -> true
     end.
 
 have_async_threads() ->
