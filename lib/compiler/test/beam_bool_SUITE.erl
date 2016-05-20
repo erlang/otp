@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 before_and_inside_if/1,
-	 scotland/1,y_registers/1]).
+	 scotland/1,y_registers/1,protected/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -35,7 +35,8 @@ groups() ->
     [{p,[parallel],
       [before_and_inside_if,
        scotland,
-       y_registers
+       y_registers,
+       protected
       ]}].
 
 init_per_suite(Config) ->
@@ -158,3 +159,29 @@ potter(Modes) ->
 		_ -> not_ok
 	    end,
     {Final,Raw}.
+
+protected(_Config) ->
+    {'EXIT',{if_clause,_}} = (catch photographs({1, surprise, true}, opinions)),
+
+    {{true}} = welcome({perfect, true}),
+    {'EXIT',{if_clause,_}} = (catch welcome({perfect, false})),
+    ok.
+
+photographs({_Violation, surprise, Deep}, opinions) ->
+    {if
+	 0; "here", Deep ->
+	     Deep = Deep
+     end}.
+
+welcome({perfect, Profit}) ->
+    if
+	Profit, Profit, Profit; 0 ->
+	    {id({Profit})}
+    end.
+
+%%%
+%%% Common utilities.
+%%%
+
+id(I) ->
+    I.
