@@ -1,4 +1,4 @@
-%%
+%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2005-2016. All Rights Reserved.
@@ -93,15 +93,14 @@ groups() ->
 init_per_group(not_unicode, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
     DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
     [{user, "Alladin"},
      {passwd, "Sesame"},
      {data, <<"Hello world!">>},
-     {filename, filename:join(PrivDir, "sftp.txt")},
-     {testfile, filename:join(PrivDir, "test.txt")},
-     {linktest, filename:join(PrivDir, "link_test.txt")},
-     {tar_filename, filename:join(PrivDir,  "sftp_tar_test.tar")},
-     {tar_F1_txt, "f1.txt"},
+     {filename,     "sftp.txt"},
+     {testfile,     "test.txt"},
+     {linktest,     "link_test.txt"},
+     {tar_filename, "sftp_tar_test.tar"},
+     {tar_F1_txt,   "f1.txt"},
      {datadir_tar, filename:join(DataDir,"sftp_tar_test_data")}
      | Config];
 
@@ -112,18 +111,17 @@ init_per_group(unicode, Config) ->
 	true ->
 	    ct:comment("Begin ~p",[grps(Config)]),
 	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
 	    NewConfig =
 		[{user, "åke高兴"},
 		 {passwd, "ärlig日本じん"},
 		 {data, <<"foobar å 一二三四いちにさんち">>},
-		 {filename, filename:join(PrivDir, "sftp瑞点.txt")},
-		 {testfile, filename:join(PrivDir, "testハンス.txt")},
-		 {linktest, filename:join(PrivDir, "link_test語.txt")},
-		 {tar_filename, filename:join(PrivDir,  "sftp_tar_test一二三.tar")},
-		 {tar_F1_txt, "F一.txt"},
-		 {tar_F3_txt, "f3.txt"},
-		 {tar_F4_txt, "g四.txt"},
+		 {filename,     "sftp瑞点.txt"},
+		 {testfile,     "testハンス.txt"},
+		 {linktest,     "link_test語.txt"},
+		 {tar_filename, "sftp_tar_test一二三.tar"},
+		 {tar_F1_txt,   "F一.txt"},
+		 {tar_F3_txt,   "f3.txt"},
+		 {tar_F4_txt,   "g四.txt"},
 		 {datadir_tar, filename:join(DataDir,"sftp_tar_test_data_高兴")}
 		 | lists:foldl(fun(K,Cf) -> lists:keydelete(K,1,Cf) end, 
 			       Config,
@@ -230,8 +228,8 @@ init_per_testcase(sftp_nonexistent_subsystem, Config) ->
 				]),
     [{sftpd, Sftpd} | Config];
 
-init_per_testcase(version_option, Config) ->
-    prep(Config),
+init_per_testcase(version_option, Config0) ->
+    Config = prepare(Config0),
     TmpConfig0 = lists:keydelete(watchdog, 1, Config),
     TmpConfig = lists:keydelete(sftp, 1, TmpConfig0),
     Dog = ct:timetrap(?default_timeout),
@@ -248,8 +246,8 @@ init_per_testcase(version_option, Config) ->
     Sftp = {ChannelPid, Connection},
     [{sftp,Sftp}, {watchdog, Dog} | TmpConfig];
 
-init_per_testcase(Case, Config0) ->
-    prep(Config0),
+init_per_testcase(Case, Config00) ->
+    Config0 = prepare(Config00),
     Config1 = lists:keydelete(watchdog, 1, Config0),
     Config2 = lists:keydelete(sftp, 1, Config1),
     Dog = ct:timetrap(2 * ?default_timeout),
@@ -281,7 +279,7 @@ init_per_testcase(Case, Config0) ->
 		[{sftp, Sftp}, {watchdog, Dog} | Config2]
 	end,
 
-    case catch ?config(remote_tar,Config) of
+    case catch proplists:get_value(remote_tar,Config) of
 	%% The 'catch' is for the case of Config={skip,...}
 	true ->
 	    %% Provide a ChannelPid independent of the sftp-channel already opened.
@@ -331,7 +329,7 @@ open_close_file(Server, File, Mode) ->
 open_close_dir() ->
     [{doc, "Test API functions opendir/2 and close/2"}].
 open_close_dir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = ?config(sftp_priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
     FileName = ?config(filename, Config),
 
@@ -353,7 +351,7 @@ read_file(Config) when is_list(Config) ->
 read_dir() ->
     [{doc,"Test API function list_dir/2"}].
 read_dir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = ?config(sftp_priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
     ct:log("sftp list dir: ~p~n", [Files]).
@@ -417,7 +415,7 @@ sftp_read_big_file(Config) when is_list(Config) ->
 remove_file() ->
     [{doc,"Test API function delete/2"}].
 remove_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  ?config(sftp_priv_dir, Config),
     FileName = ?config(filename, Config),
     {Sftp, _} = ?config(sftp, Config),
 
@@ -431,7 +429,7 @@ remove_file(Config) when is_list(Config) ->
 rename_file() ->
     [{doc, "Test API function rename_file/2"}].
 rename_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  ?config(sftp_priv_dir, Config),
     FileName = ?config(filename, Config),
     NewFileName = ?config(testfile, Config),
 
@@ -451,7 +449,7 @@ rename_file(Config) when is_list(Config) ->
 mk_rm_dir() ->
     [{doc,"Test API functions make_dir/2, del_dir/2"}].
 mk_rm_dir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = ?config(sftp_priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
 
     DirName = filename:join(PrivDir, "test"),
@@ -947,7 +945,7 @@ aes_ctr_stream_crypto_tar(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-prep(Config) ->
+oldprep(Config) ->
     DataDir =  ?config(data_dir, Config),
     TestFile = ?config(filename, Config),
     TestFile1 = ?config(testfile, Config),
@@ -966,6 +964,36 @@ prep(Config) ->
     {ok, FileInfo} = file:read_file_info(TestFile),
     ok = file:write_file_info(TestFile,
 			      FileInfo#file_info{mode = Mode}).
+
+prepare(Config0) ->
+    PrivDir = proplists:get_value(priv_dir, Config0),
+    Dir = filename:join(PrivDir, random_chars(10)),
+    file:make_dir(Dir),
+    Keys = [filename,
+	    testfile,
+	    linktest,
+	    tar_filename],
+    Config1 = foldl_keydelete(Keys, Config0),
+    Config2 = lists:foldl(fun({Key,Name}, ConfAcc) ->
+				  [{Key, filename:join(Dir,Name)} | ConfAcc]
+			  end,
+			  Config1,
+			  lists:zip(Keys, [proplists:get_value(K,Config0) || K<-Keys])),
+
+    DataDir =  proplists:get_value(data_dir, Config2),
+    FilenameSrc = filename:join(DataDir, "sftp.txt"),
+    FilenameDst = proplists:get_value(filename, Config2),
+    {ok,_} = file:copy(FilenameSrc, FilenameDst),
+    [{sftp_priv_dir,Dir} | Config2].
+
+
+random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+
+foldl_keydelete(Keys, L) ->
+    lists:foldl(fun(K,E) -> lists:keydelete(K,1,E) end, 
+		L,
+		Keys).
+
 
 chk_tar(Items, Config) ->
     chk_tar(Items, Config, []).
