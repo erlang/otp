@@ -22,7 +22,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 before_and_inside_if/1,
-	 scotland/1,y_registers/1,protected/1]).
+	 scotland/1,y_registers/1,protected/1,
+	 maps/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -36,7 +37,8 @@ groups() ->
       [before_and_inside_if,
        scotland,
        y_registers,
-       protected
+       protected,
+       maps
       ]}].
 
 init_per_suite(Config) ->
@@ -178,6 +180,14 @@ welcome({perfect, Profit}) ->
 	Profit, Profit, Profit; 0 ->
 	    {id({Profit})}
     end.
+
+maps(_Config) ->
+    ok = evidence(#{0 => 42}).
+
+%% Cover handling of put_map in in split_block_label_used/2.
+evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
+    ok.
+
 
 %%%
 %%% Common utilities.
