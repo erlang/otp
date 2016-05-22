@@ -28,7 +28,6 @@
 -export([add/1,
          add_new/1,
          del/1,
-         repl/2,
          match/1,
          wait/1]).
 
@@ -98,19 +97,6 @@ add(T) ->
 
 add_new(T) ->
     call({add, fun insert_new/2, T, self()}).
-
-%% ===========================================================================
-%% # repl(T, NewT)
-%%
-%% Like add/1 but only replace an existing association on T, false
-%% being returned if it doesn't exist.
-%% ===========================================================================
-
--spec repl(any(), any())
-   -> boolean().
-
-repl(T, U) ->
-    call({repl, T, U, self()}).
 
 %% ===========================================================================
 %% # del(Term)
@@ -212,12 +198,6 @@ handle_call({add, Fun, Key, Pid}, _, S) ->
 
 handle_call({del, Key, Pid}, _, S) ->
     {reply, ets:delete_object(?TABLE, ?MAPPING(Key, Pid)), S};
-
-handle_call({repl, T, U, Pid}, _, S) ->
-    MatchSpec = [{?MAPPING('$1', Pid),
-                  [{'=:=', '$1', {const, T}}],
-                  ['$_']}],
-    {reply, repl(ets:select(?TABLE, MatchSpec), U, Pid), S};
 
 handle_call({wait, Pat}, From, #state{q = Q} = S) ->
     case find(Pat) of

@@ -34,7 +34,6 @@
 -export([add/1,
          add_new/1,
          del/1,
-         repl/1,
          terms/1,
          pids/1]).
 
@@ -57,7 +56,6 @@ tc() ->
     [add,
      add_new,
      del,
-     repl,
      terms,
      pids].
 
@@ -87,15 +85,6 @@ del(_) ->
     true = ?reg:add_new(Ref),
     true = ?reg:add_new({Ref}),
     true = ?reg:del({Ref}),
-    [{Ref, Pid}] = ?reg:match(Ref),
-    Pid = self().
-
-repl(_) ->
-    Ref = make_ref(),
-    true = ?reg:add_new({Ref}),
-    true = ?reg:repl({Ref}, Ref),
-    false = ?reg:add_new(Ref),
-    false = ?reg:repl({Ref}, Ref),
     [{Ref, Pid}] = ?reg:match(Ref),
     Pid = self().
 
