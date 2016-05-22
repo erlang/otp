@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -211,14 +211,14 @@ typedef struct {
   Erl_Atom_data node;
   unsigned int number;
   unsigned int serial;
-  unsigned char creation;
+  unsigned int creation;
 } Erl_Pid;
 
 typedef struct {    
   Erl_Header h;
   Erl_Atom_data node;
   unsigned int number;
-  unsigned char creation;
+  unsigned int creation;
 } Erl_Port;
 
 typedef struct {
@@ -226,7 +226,7 @@ typedef struct {
   Erl_Atom_data node;
   int len;
   unsigned int n[3];
-  unsigned char creation;
+  unsigned int creation;
 } Erl_Ref;
 
 typedef struct {

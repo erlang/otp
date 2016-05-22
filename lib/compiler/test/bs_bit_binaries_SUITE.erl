@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 	 big_binary_to_and_from_list/1,send_and_receive/1,
 	 send_and_receive_alot/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -59,9 +59,9 @@ end_per_group(_GroupName, Config) ->
 
 
 misc(Config) when is_list(Config) ->
-    ?line <<1:100>> = <<1:100>>,
-    ?line {ok,ok} = {match(7),match(9)},
-    ?line {ok,ok} = {match1(15),match1(31)},
+    <<1:100>> = <<1:100>>,
+    {ok,ok} = {match(7),match(9)},
+    {ok,ok} = {match1(15),match1(31)},
     ok.
 
 
@@ -74,75 +74,75 @@ match1(N) ->
   ok.
 
 test_bit_size(Config) when is_list(Config) ->
-    ?line 101 = erlang:bit_size(<<1:101>>),
-    ?line 1001 = erlang:bit_size(<<1:1001>>),
-    ?line 1001 = erlang:bit_size(<<-10:1001>>),
-    ?line 80 = erlang:bit_size(<<1:80>>),
-    ?line 800 = erlang:bit_size(<<1:800>>),
-    ?line Bin = <<0:16#1000000>>,
-    ?line BigBin = list_to_bitstring([Bin||_ <- lists:seq(1,16#10)]++[<<1:1>>]),
-    ?line 16#10000001 = erlang:bit_size(BigBin),
+    101 = erlang:bit_size(<<1:101>>),
+    1001 = erlang:bit_size(<<1:1001>>),
+    1001 = erlang:bit_size(<<-10:1001>>),
+    80 = erlang:bit_size(<<1:80>>),
+    800 = erlang:bit_size(<<1:800>>),
+    Bin = <<0:16#1000000>>,
+    BigBin = list_to_bitstring([Bin||_ <- lists:seq(1,16#10)]++[<<1:1>>]),
+    16#10000001 = erlang:bit_size(BigBin),
     %% Only run these on computers with lots of memory
     %% HugeBin = list_to_bitstring([BigBin||_ <- lists:seq(1,16#10)]++[<<1:1>>]),
     %% 16#100000011 = erlang:bit_size(HugeBin), 
-    ?line 0 = erlang:bit_size(<<>>),
+    0 = erlang:bit_size(<<>>),
     ok.
 
 horrid_match(Config) when is_list(Config) ->
-    ?line <<1:4,B:24/bitstring>> = <<1:4,42:24/little>>,
-    ?line <<42:24/little>> = B, 
+    <<1:4,B:24/bitstring>> = <<1:4,42:24/little>>,
+    <<42:24/little>> = B,
     ok.
 			 
 test_bitstr(Config) when is_list(Config) ->
-    ?line <<1:7,B/bitstring>> = <<1:7,<<1:1,6>>/bitstring>>,
-    ?line <<1:1,6>> = B,
-    ?line B = <<1:1,6>>,
+    <<1:7,B/bitstring>> = <<1:7,<<1:1,6>>/bitstring>>,
+    <<1:1,6>> = B,
+    B = <<1:1,6>>,
   ok.
 		      
 asymmetric_tests(Config) when is_list(Config) ->
-    ?line <<1:12>> = <<0,1:4>>,
-    ?line <<0,1:4>> = <<1:12>>,
-    ?line <<1:1,X/bitstring>> = <<128,255,0,0:2>>,
-    ?line <<1,254,0,0:1>> = X,
-    ?line X = <<1,254,0,0:1>>,
-    ?line <<1:1,X1:25/bitstring>> = <<128,255,0,0:2>>,
-    ?line <<1,254,0,0:1>> = X1,
-    ?line X1 = <<1,254,0,0:1>>,
+    <<1:12>> = <<0,1:4>>,
+    <<0,1:4>> = <<1:12>>,
+    <<1:1,X/bitstring>> = <<128,255,0,0:2>>,
+    <<1,254,0,0:1>> = X,
+    X = <<1,254,0,0:1>>,
+    <<1:1,X1:25/bitstring>> = <<128,255,0,0:2>>,
+    <<1,254,0,0:1>> = X1,
+    X1 = <<1,254,0,0:1>>,
     ok.
 
 big_asymmetric_tests(Config) when is_list(Config) ->
-    ?line <<1:875,1:12>> = <<1:875,0,1:4>>,
-    ?line <<1:875,0,1:4>> = <<1:875,1:12>>,
-    ?line <<1:1,X/bitstring>> = <<128,255,0,0:2,1:875>>,
-    ?line <<1,254,0,0:1,1:875>> = X,
-    ?line X = <<1,254,0,0:1,1:875>>,
-    ?line <<1:1,X1:900/bitstring>> = <<128,255,0,0:2,1:875>>,
-    ?line <<1,254,0,0:1,1:875>> = X1,
-    ?line X1 = <<1,254,0,0:1,1:875>>,
+    <<1:875,1:12>> = <<1:875,0,1:4>>,
+    <<1:875,0,1:4>> = <<1:875,1:12>>,
+    <<1:1,X/bitstring>> = <<128,255,0,0:2,1:875>>,
+    <<1,254,0,0:1,1:875>> = X,
+    X = <<1,254,0,0:1,1:875>>,
+    <<1:1,X1:900/bitstring>> = <<128,255,0,0:2,1:875>>,
+    <<1,254,0,0:1,1:875>> = X1,
+    X1 = <<1,254,0,0:1,1:875>>,
   ok.
 
 binary_to_and_from_list(Config) when is_list(Config) ->
-    ?line <<1,2,3,4,1:1>> = list_to_bitstring(bitstring_to_list(<<1,2,3,4,1:1>>)),
-    ?line [1,2,3,4,<<1:1>>] = bitstring_to_list(<<1,2,3,4,1:1>>),
-    ?line <<1:1,1,2,3,4>> = list_to_bitstring([<<1:1>>,1,2,3,4]),
-    ?line [128,129,1,130,<<0:1>>] = bitstring_to_list(<<1:1,1,2,3,4>>),
+    <<1,2,3,4,1:1>> = list_to_bitstring(bitstring_to_list(<<1,2,3,4,1:1>>)),
+    [1,2,3,4,<<1:1>>] = bitstring_to_list(<<1,2,3,4,1:1>>),
+    <<1:1,1,2,3,4>> = list_to_bitstring([<<1:1>>,1,2,3,4]),
+    [128,129,1,130,<<0:1>>] = bitstring_to_list(<<1:1,1,2,3,4>>),
     ok.
  
 big_binary_to_and_from_list(Config) when is_list(Config) ->
-    ?line <<1:800,2,3,4,1:1>> =
+    <<1:800,2,3,4,1:1>> =
 	list_to_bitstring(bitstring_to_list(<<1:800,2,3,4,1:1>>)),
-    ?line [1,2,3,4|_Rest1] = bitstring_to_list(<<1,2,3,4,1:800,1:1>>),
-    ?line <<1:801,1,2,3,4>> = list_to_bitstring([<<1:801>>,1,2,3,4]),
+    [1,2,3,4|_Rest1] = bitstring_to_list(<<1,2,3,4,1:800,1:1>>),
+    <<1:801,1,2,3,4>> = list_to_bitstring([<<1:801>>,1,2,3,4]),
     ok.  
 
 send_and_receive(Config) when is_list(Config) -> 
-    ?line Bin = <<1,2:7>>,
+    Bin = <<1,2:7>>,
     Pid = spawn_link(fun() -> receiver(Bin) end),
-    ?line Pid ! {self(),<<1:7,8:5,Bin/bitstring>>},
-    ?line receive
-	      ok ->
-		  ok
-	  end.
+    Pid ! {self(),<<1:7,8:5,Bin/bitstring>>},
+    receive
+	ok ->
+	    ok
+    end.
 
 receiver(Bin) ->	 
     receive

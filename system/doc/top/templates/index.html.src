@@ -2,7 +2,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2009-2014. All Rights Reserved.
+Copyright Ericsson AB 2009-2016. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -145,10 +145,10 @@ verification, comment support including paragraph filling, skeletons,
 tags support and more. See the <a href="#tools#/index.html">
 Tools</a> application for details.  
 <p>
-There is also an 
-<a href="http://erlide.org/index.html">
-Erlang plugin (ErlIDE) for Eclipse</a> if you prefer a more graphical 
-environment. ErlIDE is under active development with new features in almost every release.
+There are also Erlang plugins for
+<a href="http://erlide.org/index.html">Eclipse (ErlIDE)</a> and
+<a href="http://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>
+if you prefer a more graphical environment, which are both under active development.
 <li>When developing with Erlang/OTP you usually test your programs
 from the interactive shell (see <a href="getting_started/users_guide.html">
 Getting Started With Erlang</a>) where you can call individual

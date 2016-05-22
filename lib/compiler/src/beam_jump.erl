@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -495,7 +495,7 @@ is_label_used_in_block({set,_,_,Info}, Lbl) ->
         {alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
         {alloc,_,{put_map,_,{f,F}}} -> F =:= Lbl;
         {get_map_elements,{f,F}} -> F =:= Lbl;
-        {'catch',{f,F}} -> F =:= Lbl;
+        {try_catch,_,{f,F}} -> F =:= Lbl;
         {alloc,_,_} -> false;
         {put_tuple,_} -> false;
         {get_tuple_element,_} -> false;

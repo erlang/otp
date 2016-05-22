@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 %% %CopyrightEnd%
 %%
 -module(disksup_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -31,9 +31,6 @@
 -export([terminate/1, unavailable/1, restart/1]).
 -export([otp_5910/1]).
 -export([posix_only/1]).
-
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
 
 init_per_suite(Config) when is_list(Config) ->
     ok = application:start(os_mon),
@@ -47,19 +44,18 @@ init_per_testcase(unavailable, Config) ->
     terminate(Config),
     init_per_testcase(dummy, Config);
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog,Dog} | Config].
+    Config.
 
 end_per_testcase(TC, Config) when TC =:= unavailable;
                                   TC =:= posix_only ->
     restart(Config),
     end_per_testcase(dummy, Config);
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     Bugs = [otp_5910],
@@ -70,18 +66,7 @@ all() ->
 	_OS -> [unavailable]
     end.
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-api(suite) -> [];
-api(doc) -> ["Test of API functions"];
+%% Test of API functions
 api(Config) when is_list(Config) ->
 
     %% get_disk_data()
@@ -110,8 +95,7 @@ api(Config) when is_list(Config) ->
 
     ok.
 
-config(suite) -> [];
-config(doc) -> ["Test configuration"];
+%% Test configuration
 config(Config) when is_list(Config) ->
 
     %% Change configuration parameters and make sure change is reflected
@@ -147,8 +131,8 @@ config(Config) when is_list(Config) ->
 %% changes too much during its course, or if there are timing problems
 %% with the alarm_handler receiving the alarms too late
 %%----------------------------------------------------------------------
-alarm(suite) -> [];
-alarm(doc) -> ["Test that alarms are set and cleared"];
+
+%% Test that alarms are set and cleared
 alarm(Config) when is_list(Config) ->
 
     %% Find out how many disks exceed the threshold
@@ -162,7 +146,7 @@ alarm(Config) when is_list(Config) ->
 	    true;
 	true ->
 	    dump_info(),
-	    ?t:fail({bad_alarms, Threshold1, Data1, Alarms1})
+	    ct:fail({bad_alarms, Threshold1, Data1, Alarms1})
     end,
 
     %% Try to find a disk with space usage below Threshold1,
@@ -187,7 +171,7 @@ alarm(Config) when is_list(Config) ->
 			  true;
 		      true ->
 			  dump_info(),
-			  ?t:fail({bad_alarms, Threshold2, Data2, Alarms2})
+			  ct:fail({bad_alarms, Threshold2, Data2, Alarms2})
 		  end;
 	      false ->
 		  ignore
@@ -215,7 +199,7 @@ alarm(Config) when is_list(Config) ->
 			  ok;
 		      true ->
 			  dump_info(),
-			  ?t:fail({bad_alarms, Threshold3, Data3, Alarms3})
+			  ct:fail({bad_alarms, Threshold3, Data3, Alarms3})
 		  end;
 	      100 ->
 		  ignore
@@ -271,9 +255,7 @@ until(Fun, [H|T]) ->
     end;
 until(_Fun, []) -> false.
 
-port(suite) -> [];
-port(doc) ->
-    ["Test that disksup handles a terminating port program"];
+%% Test that disksup handles a terminating port program
 port(Config) when is_list(Config) ->
     Str = os:cmd("ps -ef | grep '[d]isksup'"),
     case io_lib:fread("~s ~s", Str) of
@@ -293,14 +275,14 @@ port(Config) when is_list(Config) ->
 			{'DOWN', MonRef, _, _, {port_died, _Reason}} ->
 			    ok;
 			{'DOWN', MonRef, _, _, Reason} ->
-			    ?t:fail({unexpected_exit_reason, Reason})
+			    ct:fail({unexpected_exit_reason, Reason})
 		    after
 			3000 ->
-			    ?t:fail({still_alive, Str})
+			    ct:fail({still_alive, Str})
 		    end,
 
 		    %% Give os_mon_sup time to restart disksup
-		    ?t:sleep(?t:seconds(3)),
+		    ct:sleep({seconds,3}),
 		    [{_Disk2,Kbyte2,_Cap2}|_] = disksup:get_disk_data(),
 		    true = Kbyte2>0,
 
@@ -314,15 +296,12 @@ port(Config) when is_list(Config) ->
 	    {skip, {os_pid_not_found, Str}}
     end.
 
-terminate(suite) -> [];
 terminate(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_disksup, false),
     ok = supervisor:terminate_child(os_mon_sup, disksup),
     ok.
 
-unavailable(suite) -> [];
-unavailable(doc) ->
-    ["Test correct behaviour when service is unavailable"];
+%% Test correct behaviour when service is unavailable
 unavailable(Config) when is_list(Config) ->
 
     %% Make sure all API functions return their dummy values
@@ -333,18 +312,16 @@ unavailable(Config) when is_list(Config) ->
     ok = disksup:set_almost_full_threshold(0.9),
     ok.
 
-restart(suite) ->
-    [];
 restart(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_disksup, true),
     ok = application:set_env(os_mon, disksup_posix_only, false),
-    {ok, _Pid} = supervisor:restart_child(os_mon_sup, disksup),
-    ok.
+    case supervisor:restart_child(os_mon_sup, disksup) of
+        {ok, _Pid} -> ok;
+        {error, running} -> ok
+    end.
 
-otp_5910(suite) -> [];
-otp_5910(doc) ->
-    ["Test that alarms are cleared if disksup crashes or "
-     "if OS_Mon is stopped"];
+%% Test that alarms are cleared if disksup crashes or
+%% if OS_Mon is stopped
 otp_5910(Config) when is_list(Config) ->
 
     %% Make sure disksup sets at least one alarm
@@ -365,12 +342,12 @@ otp_5910(Config) when is_list(Config) ->
     Alarms = get_alarms(),
     if
 	Over==0 ->
-	    ?t:fail({threshold_too_low, Data2, Threshold});
+	    ct:fail({threshold_too_low, Data2, Threshold});
 	Over==length(Alarms) ->
 	    ok;
 	true ->
 	    dump_info(),
-	    ?t:fail({bad_alarms, Threshold, Data2, Alarms})
+	    ct:fail({bad_alarms, Threshold, Data2, Alarms})
     end,
 
     %% Kill disksup
@@ -378,23 +355,23 @@ otp_5910(Config) when is_list(Config) ->
 
     %% Wait a little to make sure disksup has been restarted,
     %% then make sure the alarms are set once, but not twice
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     Data3   = disksup:get_disk_data(),
     Alarms2 = get_alarms(),
     if
 	length(Alarms2)==length(Alarms) -> ok;
 	true ->
 	    dump_info(),
-	    ?t:fail({bad_alarms,Threshold,Data3,Alarms,Alarms2})
+	    ct:fail({bad_alarms,Threshold,Data3,Alarms,Alarms2})
     end,
 
     %% Stop OS_Mon and make sure all disksup alarms are cleared
     ok = application:stop(os_mon),
-    ?t:sleep(?t:seconds(1)),
+    ct:sleep({seconds,1}),
     Alarms3 = get_alarms(),
     case get_alarms() of
 	[] -> ok;
-	_  -> ?t:fail({alarms_not_cleared, Alarms3})
+	_  -> ct:fail({alarms_not_cleared, Alarms3})
     end,
 
     %% Reset threshold and restart OS_Mon
@@ -403,8 +380,7 @@ otp_5910(Config) when is_list(Config) ->
     ok = application:start(os_mon),
     ok.
 
-posix_only(suite) -> [];
-posix_only(doc) -> ["Test disksup_posix_only option"];
+%% Test disksup_posix_only option
 posix_only(Config) when is_list(Config) ->
     %% Set option and restart disksup
     ok = application:set_env(os_mon, disksup_posix_only, true),

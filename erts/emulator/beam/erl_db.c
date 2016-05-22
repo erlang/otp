@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1773,15 +1773,9 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	 * (it looks like an continuation pointer), but that is will crash the
 	 * emulator if this BIF is call traced.
 	 */
-#if HALFWORD_HEAP
-	Eterm *hp = HAlloc(BIF_P, 3);
-	hp[0] = make_pos_bignum_header(2);
-	*((UWord *) (UWord) (hp+1)) = (UWord) tb;
-#else
 	Eterm *hp = HAlloc(BIF_P, 2);
 	hp[0] = make_pos_bignum_header(1);
 	hp[1] = (Eterm) tb;
-#endif
 	BIF_TRAP1(&ets_delete_continue_exp, BIF_P, make_big(hp));
     }
     else {
@@ -1837,7 +1831,7 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 			     tb->common.id,
 			     from_pid,
 			     BIF_ARG_3), 
-		      0);
+                      0);
     erts_smp_proc_unlock(to_proc, to_locks);
     UnUseTmpHeap(5,BIF_P);
     BIF_RET(am_true);
@@ -2839,7 +2833,8 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 	    BIF_TRAP3(bif_export[BIF_ets_match_spec_run_r_3],
 		      BIF_P,lst,BIF_ARG_2,ret);
 	}
-	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, NULL, 0,
+	res = db_prog_match(BIF_P, BIF_P,
+                            mp, CAR(list_val(lst)), NULL, 0,
 			    ERTS_PAM_COPY_RESULT, &dummy);
 	if (is_value(res)) {
 	    hp = HAlloc(BIF_P, 2);
@@ -3216,7 +3211,7 @@ retry:
 			     tb->common.id,
 			     p->common.id,
 			     heir_data), 
-		      0);
+                      0);
     erts_smp_proc_unlock(to_proc, to_locks);
     return !0;
 }
@@ -3467,7 +3462,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
     fix = tb->common.fixations;
     if (fix == NULL) {
 	tb->common.time.monotonic
-	    = erts_get_monotonic_time(ERTS_PROC_GET_SCHDATA(p));
+	    = erts_get_monotonic_time(erts_proc_sched_data(p));
 	tb->common.time.offset = erts_get_time_offset();
     }
     else {
@@ -3651,11 +3646,8 @@ static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
     Eterm* ptr = big_val(cont);
     DbTable *tb = *((DbTable **) (UWord) (ptr + 1));
 
-#if HALFWORD_HEAP
-    ASSERT(*ptr == make_pos_bignum_header(2));
-#else
     ASSERT(*ptr == make_pos_bignum_header(1));
-#endif
+
     db_lock(tb, LCK_WRITE);
     trap = free_table_cont(p, tb, 0, 1);
     db_unlock(tb, LCK_WRITE);

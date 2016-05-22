@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,21 +21,20 @@
 %%% Kernel application test suite.
 %%%-----------------------------------------------------------------
 -module(kernel_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
-% Test server specific exports
+%% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export([app_test/1, appup_test/1]).
 
-%%
-%% all/1
-%%
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [app_test, appup_test].
@@ -61,15 +60,12 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-%
-% Test cases starts here.
-%
-app_test(doc) ->
-    ["Tests the applications consistency."];
-app_test(suite) ->
-    [];
+%%
+%% Test cases starts here.
+%%
+%% Tests the applications consistency.
 app_test(Config) when is_list(Config) ->
-    ?line ok=?t:app_test(kernel),
+    ok=test_server:app_test(kernel),
     ok.
 
 

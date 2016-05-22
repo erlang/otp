@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1310,13 +1310,20 @@ compare_arg(_Attr, _Val, _A) ->
 
 %% -> {ok, Res, log(), Cnt} | Error
 do_open(A) ->
-    L = #log{name = A#arg.name,
-	     filename = A#arg.file,
-	     size = A#arg.size,
-	     head = mk_head(A#arg.head, A#arg.format),
-	     mode = A#arg.mode,
-	     version = A#arg.version},
-    do_open2(L, A).
+    #arg{type = Type, format = Format, name = Name, head = Head0,
+         file = FName, repair = Repair, size = Size, mode = Mode,
+         version = V} = A,
+    Head = mk_head(Head0, Format),
+    case do_open2(Type, Format, Name, FName, Repair, Size, Mode, Head, V) of
+        {ok, Ret, Extra, FormatType, NoItems} ->
+            L = #log{name = Name, type = Type, format = Format,
+                     filename = FName, size = Size,
+                     format_type = FormatType, head = Head, mode = Mode,
+                     version = V, extra = Extra},
+            {ok, Ret, L, NoItems};
+        Error ->
+            Error
+    end.
 
 mk_head({head, Term}, internal) -> {ok, term_to_binary(Term)};
 mk_head({head, Bytes}, external) -> {ok, check_bytes(Bytes)};
@@ -1432,57 +1439,44 @@ do_inc_wrap_file(L) ->
 %%-----------------------------------------------------------------
 %% -> {ok, Reply, log(), Cnt} | Error
 %% Note: the header is always written, even if the log size is too small.
-do_open2(L, #arg{type = halt, format = internal, name = Name, 
-		 file = FName, repair = Repair, size = Size, mode = Mode}) ->
-    case catch disk_log_1:int_open(FName, Repair, Mode, L#log.head) of
+do_open2(halt, internal, Name, FName, Repair, Size, Mode, Head, _V) ->
+    case catch disk_log_1:int_open(FName, Repair, Mode, Head) of
 	{ok, {_Alloc, FdC, {NoItems, _NoBytes}, FileSize}} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
-	    {ok, {ok, Name}, L#log{format_type = halt_int, extra = Halt}, 
-	     NoItems};
+	    {ok, {ok, Name}, Halt, halt_int, NoItems};
 	{repaired, FdC, Rec, Bad, FileSize} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
 	    {ok, {repaired, Name, {recovered, Rec}, {badbytes, Bad}},
-	     L#log{format_type = halt_int, extra = Halt},
-	     Rec};
+             Halt, halt_int, Rec};
 	Error ->
 	    Error
     end;
-do_open2(L, #arg{type = wrap, format = internal, size = {MaxB, MaxF}, 
-		 name = Name, repair = Repair, file = FName, mode = Mode,
-		 version = V}) ->
+do_open2(wrap, internal, Name, FName, Repair, Size, Mode, Head, V) ->
+    {MaxB, MaxF} = Size,
     case catch 
-      disk_log_1:mf_int_open(FName, MaxB, MaxF, Repair, Mode, L#log.head, V) of
+      disk_log_1:mf_int_open(FName, MaxB, MaxF, Repair, Mode, Head, V) of
 	{ok, Handle, Cnt} ->
-	    {ok, {ok, Name}, L#log{type = wrap,
-				   format_type = wrap_int, 
-				   extra = Handle}, Cnt};
+	    {ok, {ok, Name}, Handle, wrap_int, Cnt};
 	{repaired, Handle, Rec, Bad, Cnt} ->
 	    {ok, {repaired, Name, {recovered, Rec}, {badbytes, Bad}},
-	     L#log{type = wrap, format_type = wrap_int, extra = Handle}, Cnt};
+	     Handle, wrap_int, Cnt};
 	Error ->
 	    Error
     end;
-do_open2(L, #arg{type = halt, format = external, file = FName, name = Name,
-		 size = Size, repair = Repair, mode = Mode}) ->
-    case catch disk_log_1:ext_open(FName, Repair, Mode, L#log.head) of
+do_open2(halt, external, Name, FName, Repair, Size, Mode, Head, _V) ->
+    case catch disk_log_1:ext_open(FName, Repair, Mode, Head) of
 	{ok, {_Alloc, FdC, {NoItems, _NoBytes}, FileSize}} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
-	    {ok, {ok, Name}, 
-             L#log{format_type = halt_ext, format = external, extra = Halt}, 
-	     NoItems};
+	    {ok, {ok, Name}, Halt, halt_ext, NoItems};
 	Error ->
 	    Error
     end;
-do_open2(L, #arg{type = wrap, format = external, size = {MaxB, MaxF},
-		 name = Name, file = FName, repair = Repair, mode = Mode,
-		 version = V}) ->
+do_open2(wrap, external, Name, FName, Repair, Size, Mode, Head, V) ->
+    {MaxB, MaxF} = Size,
     case catch 
-      disk_log_1:mf_ext_open(FName, MaxB, MaxF, Repair, Mode, L#log.head, V) of
+      disk_log_1:mf_ext_open(FName, MaxB, MaxF, Repair, Mode, Head, V) of
 	{ok, Handle, Cnt} ->
-	    {ok, {ok, Name}, L#log{type = wrap,
-				   format_type = wrap_ext, 
-				   extra = Handle,
-				   format = external}, Cnt};
+	    {ok, {ok, Name}, Handle, wrap_ext, Cnt};
 	Error ->
 	    Error
     end.

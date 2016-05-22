@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -189,6 +189,10 @@ void erts_thr_q_append_finalize_dequeue_data(ErtsThrQFinDeQ_t *,
 					     ErtsThrQFinDeQ_t *);
 int erts_thr_q_finalize_dequeue(ErtsThrQFinDeQ_t *);
 void erts_thr_q_finalize_dequeue_state_init(ErtsThrQFinDeQ_t *);
+
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+int erts_thr_q_length_dirty(ErtsThrQ_t *);
+#endif
 
 #ifdef ERTS_SMP
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_q_need_thr_progress(ErtsThrQ_t *q);

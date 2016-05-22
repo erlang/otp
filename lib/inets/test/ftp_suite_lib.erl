@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@
 -module(ftp_suite_lib).
 
 
--include_lib("test_server/include/test_server.hrl").
--include_lib("test_server/include/test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
 
 %% Test server specific exports
@@ -1354,7 +1353,7 @@ do_delete(Pid, Config) ->
 
 do_mkdir(Pid) ->
     NewDir = "earl_" ++
-        integer_to_list(inets_time_compat:unique_integer([positive])),
+        integer_to_list(erlang:unique_integer([positive])),
 
     ok = ftp:cd(Pid, "incoming"),
     {ok, CurrDir} = ftp:pwd(Pid),

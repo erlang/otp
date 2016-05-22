@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 
 -include("ct.hrl").
 
--define(now, os:timestamp()).
+-define(now, ct_test_support:unique_timestamp()).
 
 %% Test server callback functions
 init_per_suite(Config) ->

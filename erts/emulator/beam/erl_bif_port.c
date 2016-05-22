@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@
 #include "external.h"
 #include "packet_parser.h"
 #include "erl_bits.h"
+#include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
@@ -50,10 +51,10 @@ static void free_args(char **);
 
 char *erts_default_arg0 = "default";
 
-BIF_RETTYPE open_port_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
 {
     Port *port;
-    Eterm port_id;
+    Eterm res;
     char *str;
     int err_type, err_num;
 
@@ -61,27 +62,63 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
     if (!port) {
 	if (err_type == -3) {
 	    ASSERT(err_num == BADARG || err_num == SYSTEM_LIMIT);
-	    BIF_ERROR(BIF_P, err_num);
+	    if (err_num == BADARG)
+                res = am_badarg;
+            else if (err_num == SYSTEM_LIMIT)
+                res = am_system_limit;
+            else
+                /* this is only here to silence gcc, it should not happen */
+                BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
 	} else if (err_type == -2) {
 	    str = erl_errno_id(err_num);
+            res = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
 	} else {
-	    str = "einval";
+	    res = am_einval;
 	}
-	BIF_P->fvalue = erts_atom_put((byte *) str, strlen(str), ERTS_ATOM_ENC_LATIN1, 1);
-	BIF_ERROR(BIF_P, EXC_ERROR);
+        BIF_RET(res);
     }
 
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
+    if (port->drv_ptr->flags & ERL_DRV_FLAG_USE_INIT_ACK) {
 
-    port_id = port->common.id;
+        /* Copied from erl_port_task.c */
+        port->async_open_port = erts_alloc(ERTS_ALC_T_PRTSD,
+                                           sizeof(*port->async_open_port));
+        erts_make_ref_in_array(port->async_open_port->ref);
+        port->async_open_port->to = BIF_P->common.id;
+
+        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
+        if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
+	    /* need to exit caller instead */
+	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
+	    KILL_CATCHES(BIF_P);
+	    BIF_P->freason = EXC_EXIT;
+            erts_port_release(port);
+            BIF_RET(am_badarg);
+	}
+
+	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(BIF_P);
+	BIF_P->msg.save = BIF_P->msg.last;
+
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE);
+
+        res = erts_proc_store_ref(BIF_P, port->async_open_port->ref);
+    } else {
+        res = port->common.id;
+        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
+    }
+
     erts_add_link(&ERTS_P_LINKS(port), LINK_PID, BIF_P->common.id);
-    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port_id);
+    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port->common.id);
+
+    if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS))
+        trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK, BIF_P,
+                   am_link, port->common.id);
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
 
     erts_port_release(port);
 
-    BIF_RET(port_id);
+    BIF_RET(res);
 }
 
 static ERTS_INLINE Port *
@@ -307,8 +344,7 @@ BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
     if (!prt)
 	BIF_RET(am_badarg);
 
-
-    switch (erts_port_exit(BIF_P, 0, prt, prt->common.id, am_normal, &ref)) {
+    switch (erts_port_exit(BIF_P, 0, prt, BIF_P->common.id, am_normal, &ref)) {
     case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
@@ -341,7 +377,7 @@ BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
     ref = NIL;
 #endif
 
-    switch (erts_port_connect(BIF_P, 0, prt, prt->common.id, BIF_ARG_2, &ref)) {
+    switch (erts_port_connect(BIF_P, 0, prt, BIF_P->common.id, BIF_ARG_2, &ref)) {
     case ERTS_PORT_OP_CALLER_EXIT:
     case ERTS_PORT_OP_BADARG:
     case ERTS_PORT_OP_DROPPED:
@@ -617,7 +653,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
 static Port *
 open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 {
-    int i;
+    Sint i;
     Eterm option;
     Uint arity;
     Eterm* tp;
@@ -879,7 +915,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     }
     
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_virtual_sched(p, am_out);
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
     }
     
 
@@ -896,20 +932,21 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
         DTRACE3(port_open, process_str, name_buf, port_str);
     }
 #endif
+
+    if (port && IS_TRACED_FL(port, F_TRACE_PORTS))
+        trace_port(port, am_getting_linked, p->common.id);
+
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+
+    if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
+    }
 
     if (!port) {
 	DEBUGF(("open_driver returned (%d:%d)\n",
 		err_typep ? *err_typep : 4711,
 		err_nump ? *err_nump : 4711));
-    	if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-            trace_virtual_sched(p, am_in);
-    	}
 	goto do_return;
-    }
-    
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
-        trace_virtual_sched(p, am_in);
     }
 
     if (linebuf && port->linebuf == NULL){
@@ -945,14 +982,16 @@ static char **convert_args(Eterm l)
 {
     char **pp;
     char *b;
-    int n;
-    int i = 0;
+    Sint n;
+    Sint i = 0;
     Eterm str;
     if (is_not_list(l) && is_not_nil(l)) {
 	return NULL;
     }
 
     n = erts_list_length(l);
+    if (n < 0)
+        return NULL;
     /* We require at least one element in argv[0] + NULL at end */
     pp = erts_alloc(ERTS_ALC_T_TMP, (n + 2) * sizeof(char **));
     pp[i++] = erts_default_arg0;
@@ -992,7 +1031,7 @@ static byte* convert_environment(Process* p, Eterm env)
     Eterm* temp_heap;
     Eterm* hp;
     Uint heap_size;
-    int n;
+    Sint n;
     Sint size;
     byte* bytes;
     int encoding = erts_get_native_filename_encoding();

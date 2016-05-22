@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright (C) 2004-2014 Richard Carlsson, Mickaël Rémond
+%% Copyright (C) 2004-2016 Richard Carlsson, Mickaël Rémond
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,19 +59,22 @@
 -define(assert(BoolExpr),ok).
 -else.
 %% The assert macro is written the way it is so as not to cause warnings
-%% for clauses that cannot match, even if the expression is a constant.
+%% for clauses that cannot match, even if the expression is a constant or
+%% is known to be boolean-only.
 -define(assert(BoolExpr),
         begin
         ((fun () ->
+            __T = is_process_alive(self()),  % cheap source of truth
             case (BoolExpr) of
-                true -> ok;
+                __T -> ok;
                 __V -> erlang:error({assert,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??BoolExpr)},
                                       {expected, true},
-                                      case __V of false -> {value, __V};
-                                          _ -> {not_boolean,__V}
+                                      case not __T of
+                                          __V -> {value, false};
+                                          _ -> {not_boolean, __V}
                                       end]})
             end
           end)())
@@ -85,15 +88,17 @@
 -define(assertNot(BoolExpr),
         begin
         ((fun () ->
+            __F = not is_process_alive(self()),
             case (BoolExpr) of
-                false -> ok;
+                __F -> ok;
                 __V -> erlang:error({assert,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??BoolExpr)},
                                       {expected, false},
-                                      case __V of true -> {value, __V};
-                                          _ -> {not_boolean,__V}
+                                      case not __F of
+                                          __V -> {value, true};
+                                          _ -> {not_boolean, __V}
                                       end]})
             end
           end)())
@@ -149,7 +154,8 @@
 -else.
 -define(assertEqual(Expect, Expr),
         begin
-        ((fun (__X) ->
+        ((fun () ->
+            __X = (Expect),
             case (Expr) of
                 __X -> ok;
                 __V -> erlang:error({assertEqual,
@@ -159,7 +165,7 @@
                                       {expected, __X},
                                       {value, __V}]})
             end
-          end)(Expect))
+          end)())
         end).
 -endif.
 
@@ -169,7 +175,8 @@
 -else.
 -define(assertNotEqual(Unexpected, Expr),
         begin
-        ((fun (__X) ->
+        ((fun () ->
+            __X = (Unexpected),
             case (Expr) of
                 __X -> erlang:error({assertNotEqual,
                                      [{module, ?MODULE},
@@ -178,7 +185,7 @@
                                       {value, __X}]});
                 _ -> ok
             end
-          end)(Unexpected))
+          end)())
         end).
 -endif.
 

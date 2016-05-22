@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1334,10 +1334,8 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
 	retval = set_driver_data(dp, hFromChild, hToChild, opts->read_write,
 				 opts->exit_status);
 	if (retval != ERL_DRV_ERROR_GENERAL && retval != ERL_DRV_ERROR_ERRNO) {
-	    Port *prt = erts_drvport2port(port_num);
-		/* We assume that this cannot generate a negative number */
-	    ASSERT(prt != ERTS_INVALID_ERL_DRV_PORT);
-	    prt->os_pid = (SWord) pid;
+            /* We assume that this cannot generate a negative number */
+            erl_drv_set_os_pid(port_num, pid);
 	}
     }
     
@@ -1528,8 +1526,8 @@ create_child_process
 	 * Parse out the program name from the command line (it can be quoted and
 	 * contain spaces).
 	 */
-	newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, 2048*sizeof(wchar_t));
 	cmdlength = parse_command(origcmd);
+	newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (MAX_PATH+wcslen(origcmd)-cmdlength)*sizeof(wchar_t));
 	thecommand = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (cmdlength+1)*sizeof(wchar_t));
 	wcsncpy(thecommand, origcmd, cmdlength);
 	thecommand[cmdlength] = L'\0';
@@ -3081,6 +3079,8 @@ erl_bin_write(buf, sz, max)
   }
 }
 
+#endif /* DEBUG */
+
 void
 erl_assert_error(const char* expr, const char* func, const char* file, int line)
 {   
@@ -3096,7 +3096,6 @@ erl_assert_error(const char* expr, const char* func, const char* file, int line)
     DebugBreak();
 }
 
-#endif /* DEBUG */
 	    
 static void
 check_supported_os_version(void)
@@ -3270,6 +3269,12 @@ void erl_sys_init(void)
     /* Suppress windows error message popups */
     SetErrorMode(SetErrorMode(0) |
 		 SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX); 
+}
+
+void
+erl_sys_late_init(void)
+{
+    /* do nothing */
 }
 
 void

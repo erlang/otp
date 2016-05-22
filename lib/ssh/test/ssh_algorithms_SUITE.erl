@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 50000).
+-define(TIMEOUT, 10000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -36,7 +36,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,10}}].
+     {timetrap,{seconds,40}}].
 
 all() -> 
     %% [{group,kex},{group,cipher}... etc
@@ -191,6 +191,9 @@ simple_exec_groups_no_match_too_large(Config) ->
 
 %%--------------------------------------------------------------------
 %% Testing all default groups
+
+simple_exec_groups() -> [{timetrap,{minutes,5}}].
+
 simple_exec_groups(Config) ->
     Sizes = interpolate( public_key:dh_gex_group_sizes() ),
     lists:foreach(
@@ -217,24 +220,19 @@ interpolate(Is) ->
 
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
+
 sshc_simple_exec(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Host,Port} = ?config(srvr_addr, Config),
     Cmd = lists:concat(["ssh -p ",Port,
-			" -C -o UserKnownHostsFile=",KnownHosts,
+			" -C",
+			" -o UserKnownHostsFile=",KnownHosts,
+			" -o StrictHostKeyChecking=no",
 			" ",Host," 1+1."]),
     ct:log("~p",[Cmd]),
-    SshPort = open_port({spawn, Cmd}, [binary]),
-    Expect = <<"2\n">>,
-    receive
-	{SshPort, {data,Expect}} ->
-	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
-	    catch port_close(SshPort),
-	    ok
-    after ?TIMEOUT ->
-	    ct:fail("Did not receive answer")
-    end.
+    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}, [eof,exit_status]),
+    ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
@@ -348,13 +346,15 @@ get_atoms(L) ->
 %%% Test case related
 %%%
 start_std_daemon(Opts, Config) ->
+    ct:log("starting std_daemon",[]),
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config, Opts),
     ct:log("started ~p:~p  ~p",[Host,Port,Opts]),
     [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
 
-start_pubkey_daemon(Opts, Config) ->
+start_pubkey_daemon(Opts0, Config) ->
+    Opts = [{auth_methods,"publickey"}|Opts0],
     {Pid, Host, Port} = ssh_test_lib:std_daemon1(Config, Opts),
-    ct:log("started1 ~p:~p  ~p",[Host,Port,Opts]),
+    ct:log("started pubkey_daemon ~p:~p  ~p",[Host,Port,Opts]),
     [{srvr_pid,Pid},{srvr_addr,{Host,Port}} | Config].
 
 

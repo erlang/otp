@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,21 +33,15 @@
     <file>match_spec.xml</file>
   </header>
   <p>A "match specification" (match_spec) is an Erlang term describing a
-    small "program" that will try to match something (either the
-    parameters to a function as used in the <c><![CDATA[erlang:trace_pattern/2]]></c>
-    BIF, or the objects in an ETS table.). 
+    small "program" that will try to match something. It can be used
+    to either control tracing with
+    <seealso marker="erlang#trace_pattern/3">erlang:trace_pattern/3</seealso>
+    or to search for objects in an ETS table with for example
+    <seealso marker="stdlib:ets#select/2">ets:select/2</seealso>.
     The match_spec in many ways works like a small function in Erlang, but is
     interpreted/compiled by the Erlang runtime system to something much more
     efficient than calling an Erlang function. The match_spec is also
     very limited compared to the expressiveness of real Erlang functions.</p>
-  <p>Match specifications are given to the BIF <c><![CDATA[erlang:trace_pattern/2]]></c> to
-    execute matching of function arguments as well as to define some actions
-    to be taken when the match succeeds (the <c><![CDATA[MatchBody]]></c> part). Match
-    specifications can also be used in ETS, to specify objects to be
-    returned from an <c><![CDATA[ets:select/2]]></c> call (or other select
-    calls). The semantics and restrictions differ slightly when using
-    match specifications for tracing and in ETS, the differences are
-    defined in a separate paragraph below.</p>
   <p>The most notable difference between a match_spec and an Erlang fun is
     of course the syntax. Match specifications are Erlang terms, not
     Erlang code.  A match_spec also has a somewhat strange concept of
@@ -287,7 +281,7 @@
         can <em>not</em> be one of the atoms <c><![CDATA[all]]></c>, <c><![CDATA[new]]></c> or 
         <c><![CDATA[existing]]></c> (unless, of course, they are registered names).
         <c><![CDATA[P2]]></c> can <em>not</em> be <c><![CDATA[cpu_timestamp]]></c> nor
-        <c><![CDATA[{tracer,_}]]></c>.
+        <c><![CDATA[tracer]]></c>.
         Returns <c><![CDATA[true]]></c> and may only be used in
         the <c><![CDATA[MatchBody]]></c> part when tracing.
         </p>
@@ -298,7 +292,7 @@
         be either a process identifier or a registered name and is given
         as the first argument to the match_spec function. 
         <c><![CDATA[P2]]></c> can <em>not</em> be <c><![CDATA[cpu_timestamp]]></c> nor
-        <c><![CDATA[{tracer,_}]]></c>. Returns
+        <c><![CDATA[tracer]]></c>. Returns
         <c><![CDATA[true]]></c> and may only be used in the <c><![CDATA[MatchBody]]></c> part
         when tracing.
         </p>
@@ -308,11 +302,14 @@
         disable list is applied first, but effectively all changes
         are applied atomically. The trace flags
         are the same as for <c><![CDATA[erlang:trace/3]]></c> not including
-        <c><![CDATA[cpu_timestamp]]></c> but including <c><![CDATA[{tracer,_}]]></c>. If a
+        <c><![CDATA[cpu_timestamp]]></c> but including <c><![CDATA[tracer]]></c>. If a
         tracer is specified in both lists, the tracer in the 
         enable list takes precedence. If no tracer is specified the
         same tracer as the process executing the match spec is 
-        used. With three parameters to this function the first is 
+        used. When using a <seealso marker="erl_tracer">tracer module</seealso>
+        the module has to be loaded before the match specification is executed.
+        If it is not loaded the match will fail.
+        With three parameters to this function the first is
         either a process identifier or the registered name of a
         process to set trace flags on, the second is the disable
         list, and the third is the enable list. Returns
@@ -379,6 +376,51 @@
       the pid() of the current process.</p>
   </section>
 
+  <marker id="match_target"></marker>
+  <section>
+    <title>Match target</title>
+    <p>Each execution of a match specification is done against
+      a match target term. The format and content of the target term
+      depends on the context in which the match is done. The match
+      target for ETS is always a full table tuple. The match target
+      for call trace is always a list of all function arguments. The
+      match target for event trace depends on the event type, see
+      table below.</p>
+      <table>
+      <row>
+        <cell align="left" valign="middle">Context</cell>
+        <cell align="left" valign="middle">Type</cell>
+        <cell align="left" valign="middle">Match target</cell>
+        <cell align="left" valign="middle">Description</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">ETS</cell>
+        <cell align="left" valign="middle"></cell>
+        <cell align="left" valign="middle">{Key, Value1, Value2, ...}</cell>
+        <cell align="left" valign="middle">A table object</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Trace</cell>
+        <cell align="left" valign="middle">call</cell>
+        <cell align="left" valign="middle">[Arg1, Arg2, ...]</cell>
+        <cell align="left" valign="middle">Function arguments</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Trace</cell>
+        <cell align="left" valign="middle">send</cell>
+        <cell align="left" valign="middle">[Receiver, Message]</cell>
+        <cell align="left" valign="middle">Receiving process/port and message term</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Trace</cell>
+        <cell align="left" valign="middle">'receive'</cell>
+        <cell align="left" valign="middle">[Node, Sender, Message]</cell>
+        <cell align="left" valign="middle">Sending node, process/port and message term</cell>
+      </row>
+      <tcaption>Match target depending on context</tcaption>
+      </table>
+  </section>
+
   <section>
     <title>Variables and literals</title>
     <p>Variables take the form <c><![CDATA['$<number>']]></c> where
@@ -393,10 +435,8 @@
       <c><![CDATA[MatchCondition]]></c> parts, only variables bound previously may
       be used. As a special case, in the
       <c><![CDATA[MatchCondition/MatchBody]]></c> parts, the variable <c><![CDATA['$_']]></c>
-      expands to the whole expression which matched the
-      <c><![CDATA[MatchHead]]></c> (i.e., the whole parameter list to the possibly
-      traced function or the whole matching object in the ets table)
-      and the variable <c><![CDATA['$$']]></c> expands to a list
+      expands to the whole <seealso marker="#match_target">match target</seealso>
+      term and the variable <c><![CDATA['$$']]></c> expands to a list
       of the values of all bound variables in order 
       (i.e. <c><![CDATA[['$1','$2', ...]]]></c>).
       </p>
@@ -477,8 +517,8 @@
     <p>For each tuple in the <c><![CDATA[MatchExpression]]></c> list and while no
       match has succeeded:</p>
     <list type="bulleted">
-      <item>Match the <c><![CDATA[MatchHead]]></c> part against the arguments to the
-       function, 
+      <item>Match the <c><![CDATA[MatchHead]]></c> part against the
+       match target term,
        binding the <c><![CDATA['$<number>']]></c> variables (much like in
       <c><![CDATA[ets:match/2]]></c>).
        If the <c><![CDATA[MatchHead]]></c> cannot match the arguments, the match fails.
@@ -519,13 +559,10 @@
       term. The <c><![CDATA[ActionTerm]]></c>'s are executed as in an imperative
       language, i.e. for their side effects. Functions with side effects
       are also allowed when tracing.</p>
-    <p>In ETS the match head is a <c><![CDATA[tuple()]]></c> (or a single match
-      variable) while it is a list (or a single match variable) when
-      tracing.</p>
   </section>
 
   <section>
-    <title>Examples</title>
+    <title>Tracing Examples</title>
     <p>Match an argument list of three where the first and third arguments 
       are equal:</p>
     <code type="none"><![CDATA[
@@ -582,7 +619,47 @@
       parameter list with a single variable is a special case. In all 
       other cases the <c><![CDATA[MatchHead]]></c> has to be a <em>proper</em> list.
       </p>
-    <p>Match all objects in an ets table where the first element is 
+    <p>Only generate trace message if trace control word is set to 1:</p>
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{get_tcw},{const, 1}}],
+  []}]
+    ]]></code>
+    <p>Only generate trace message if there is a seq trace token:</p>
+    <code type="none"><![CDATA[
+[{'_',
+  [{'==',{is_seq_trace},{const, 1}}],
+  []}]
+    ]]></code>
+    <p>Remove 'silent' trace flag when first argument is 'verbose'
+    and add it when it is 'silent':</p>
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{hd, '$1'},verbose}],
+  [{trace, [silent],[]}]},
+ {'$1',
+  [{'==',{hd, '$1'},silent}],
+  [{trace, [],[silent]}]}]
+    ]]></code>
+    <p>Add return_trace message if function is of arity 3:</p>
+    <code type="none"><![CDATA[
+[{'$1',
+  [{'==',{length, '$1'},3}],
+  [{return_trace}]},
+ {'_',[],[]}]
+    ]]></code>
+    <p>Only generate trace message if function is of arity 3 and first argument is 'trace':</p>
+    <code type="none"><![CDATA[
+[{['trace','$2','$3'],
+  [],
+  []},
+ {'_',[],[]}]
+    ]]></code>
+  </section>
+
+  <section>
+    <title>ETS Examples</title>
+    <p>Match all objects in an ets table where the first element is
       the atom 'strider' and the tuple arity is 3 and return the whole
       object.</p>
     <code type="none"><![CDATA[
@@ -590,7 +667,7 @@
   [],
   ['$_']}]
     ]]></code>
-    <p>Match all objects in an ets table with arity &gt; 1 and the first 
+    <p>Match all objects in an ets table with arity &gt; 1 and the first
       element is 'gandalf', return element 2.</p>
     <code type="none"><![CDATA[
 [{'$1',
@@ -601,7 +678,7 @@
       it's much more efficient to match that key in the <c><![CDATA[MatchHead]]></c>
       part than in the <c><![CDATA[MatchConditions]]></c> part. The search space of
       the tables is restricted with regards to the <c><![CDATA[MatchHead]]></c> so
-      that only objects with the matching key are searched. 
+      that only objects with the matching key are searched.
       </p>
     <p>Match tuples of 3 elements where the second element is either
       'merry' or 'pippin', return the whole objects.</p>

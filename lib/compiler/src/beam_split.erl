@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +47,8 @@ split_block([{set,[R],[_,_,_]=As,{bif,is_record,{f,Lbl}}}|Is], Bl, Acc) ->
     split_block(Is, [], [{bif,is_record,{f,Lbl},As,R}|make_block(Bl, Acc)]);
 split_block([{set,[R],As,{bif,N,{f,Lbl}=Fail}}|Is], Bl, Acc) when Lbl =/= 0 ->
     split_block(Is, [], [{bif,N,Fail,As,R}|make_block(Bl, Acc)]);
+split_block([{set,[R],As,{bif,raise,{f,_}=Fail}}|Is], Bl, Acc) ->
+    split_block(Is, [], [{bif,raise,Fail,As,R}|make_block(Bl, Acc)]);
 split_block([{set,[R],As,{alloc,Live,{gc_bif,N,{f,Lbl}=Fail}}}|Is], Bl, Acc)
   when Lbl =/= 0 ->
     split_block(Is, [], [{gc_bif,N,Fail,Live,As,R}|make_block(Bl, Acc)]);
@@ -57,8 +59,8 @@ split_block([{set,[D],[S|Puts],{alloc,R,{put_map,Op,{f,Lbl}=Fail}}}|Is],
 split_block([{set,Ds,[S|Ss],{get_map_elements,Fail}}|Is], Bl, Acc) ->
     Gets = beam_utils:join_even(Ss,Ds),
     split_block(Is, [], [{get_map_elements,Fail,S,{list,Gets}}|make_block(Bl, Acc)]);
-split_block([{set,[R],[],{'catch',L}}|Is], Bl, Acc) ->
-    split_block(Is, [], [{'catch',R,L}|make_block(Bl, Acc)]);
+split_block([{set,[R],[],{try_catch,Op,L}}|Is], Bl, Acc) ->
+    split_block(Is, [], [{Op,R,L}|make_block(Bl, Acc)]);
 split_block([{set,[],[],{line,_}=Line}|Is], Bl, Acc) ->
     split_block(Is, [], [Line|make_block(Bl, Acc)]);
 split_block([I|Is], Bl, Acc) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,9 @@
 %% Interface towards diameter_watchdog.
 -export([start/3,
          result_code/2]).
+
+%% Interface towards diameter.
+-export([find/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -117,7 +120,7 @@
          parent       :: pid(),     %% watchdog process
          transport    :: pid(),     %% transport process
          dictionary   :: module(),  %% common dictionary
-         service      :: #diameter_service{},
+         service      :: #diameter_service{} | undefined,
          dpr = false  :: false
                        | true  %% DPR received, DPA sent
                        | {boolean(), uint32(), uint32()},
@@ -185,6 +188,25 @@ start_link(T) ->
                                   infinity,
                                   diameter_lib:spawn_opts(server, [])).
 
+%% find/1
+%%
+%% Identify both pids of a peer_fsm/transport pair.
+
+find(Pid) ->
+    findl([{?MODULE, '_', Pid}, {?MODULE, Pid, '_'}]).
+
+findl([]) ->
+    false;
+
+findl([Pat | Rest]) ->
+    try
+        [{{_, Pid, TPid}, Pid}] = diameter_reg:match(Pat),
+        {Pid, TPid}
+    catch
+        error:_ ->
+            findl(Rest)
+    end.
+
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------
 
@@ -214,6 +236,8 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     OnLengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
+
+    diameter_reg:add({?MODULE, self(), TPid}),  %% lets pairs be discovered
 
     #state{state = {'Wait-Conn-Ack', Tmo},
            parent = WPid,
@@ -416,8 +440,8 @@ transition({connection_timeout, _}, _) ->
     ok;
 
 %% Incoming message from the transport.
-transition({diameter, {recv, Pkt}}, S) ->
-    recv(Pkt, S);
+transition({diameter, {recv, MsgT}}, S) ->
+    incoming(MsgT, S);
 
 %% Timeout when still in the same state ...
 transition({timeout = T, PS}, #state{state = PS}) ->
@@ -543,6 +567,28 @@ encode(Rec, Dict) ->
     diameter_codec:encode(Dict, #diameter_packet{header = Hdr,
                                                  msg = Rec}).
 
+%% incoming/2
+
+incoming({Msg, NPid}, S) ->
+    try recv(Msg, S) of
+        T ->
+            NPid ! {diameter, discard},
+            T
+    catch
+        {?MODULE, Name, Pkt} ->
+            S#state.parent ! {recv, self(), Name, {Pkt, NPid}},
+            rcv(Name, Pkt, S)
+    end;
+
+incoming(Msg, S) ->
+    try
+        recv(Msg, S)
+    catch
+        {?MODULE, Name, Pkt} ->
+            S#state.parent ! {recv, self(), Name, Pkt},
+            rcv(Name, Pkt, S)
+    end.
+
 %% recv/2
 
 recv(#diameter_packet{header = #diameter_header{} = Hdr}
@@ -597,9 +643,8 @@ recv1('DPA' = N,
 
 %% Any other message with a header and no length errors: send to the
 %% parent.
-recv1(Name, Pkt, #state{parent = Pid} = S) ->
-    Pid ! {recv, self(), Name, Pkt},
-    rcv(Name, Pkt, S).
+recv1(Name, Pkt, #state{}) ->
+    throw({?MODULE, Name, Pkt}).
 
 %% recv/3
 

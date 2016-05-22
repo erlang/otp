@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,8 +74,8 @@ static Module* module_alloc(Module* tmpl)
     erts_smp_atomic_add_nob(&tot_module_bytes, sizeof(Module));
 
     obj->module = tmpl->module;
-    obj->curr.code = 0;
-    obj->old.code = 0;
+    obj->curr.code_hdr = 0;
+    obj->old.code_hdr = 0;
     obj->curr.code_length = 0;
     obj->old.code_length = 0;
     obj->slot.index = -1;
@@ -103,6 +103,9 @@ void init_module_table(void)
     f.cmp  = (HCMP_FUN) module_cmp;
     f.alloc = (HALLOC_FUN) module_alloc;
     f.free = (HFREE_FUN) module_free;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
 	erts_index_init(ERTS_ALC_T_MODULE_TABLE, &module_tables[i], "module_code",

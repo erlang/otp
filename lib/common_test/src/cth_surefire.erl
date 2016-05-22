@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,7 +82,8 @@ init(Path, Opts) ->
 	    url_base = proplists:get_value(url_base,Opts),
 	    timer = ?now }.
 
-pre_init_per_suite(Suite,SkipOrFail,State) when is_tuple(SkipOrFail) ->
+pre_init_per_suite(Suite,SkipOrFail,#state{ test_cases = [] } = State)
+  when is_tuple(SkipOrFail) ->
     {SkipOrFail, init_tc(State#state{curr_suite = Suite,
 				     curr_suite_ts = ?now},
 			 SkipOrFail) };

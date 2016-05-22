@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@
 %%% CommonTest callbacks
 %%% 
 suite() ->
-    [{timetrap,{minutes,2}}].
+    [{timetrap,{seconds,180}}].
 
 all() -> 
     [
@@ -146,7 +146,8 @@ setup_server_client(#state{config=Config} = State) ->
 	
     SFTP = ssh_sftpd:subsystem_spec([{root,FtpRootDir},{cwd,FtpRootDir}]),
 
-    {Server,Host,Port} = ssh_test_lib:daemon([{system_dir,DataDir},
+    {Server,Host,Port} = ssh_test_lib:daemon(ssh_test_lib:inet_port(), % when lower rel is 18.x
+					     [{system_dir,DataDir},
 					      {user_passwords,[{"hej","hopp"}]},
 					      {subsystems,[SFTP]}]),
     

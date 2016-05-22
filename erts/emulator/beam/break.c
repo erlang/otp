@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,7 +118,9 @@ process_killer(void)
 				 | ERTS_PSFLG_ACTIVE_SYS
 				 | ERTS_PSFLG_IN_RUNQ
 				 | ERTS_PSFLG_RUNNING
-				 | ERTS_PSFLG_RUNNING_SYS)) {
+				 | ERTS_PSFLG_RUNNING_SYS
+				 | ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
 			erts_printf("Can only kill WAITING processes this way\n");
 		    }
 		    else {
@@ -214,7 +216,8 @@ print_process_info(int to, void *to_arg, Process *p)
     if (state & ERTS_PSFLG_GC) {
         garbing = 1;
         running = 1;
-    } else if (state & ERTS_PSFLG_RUNNING)
+    } else if (state & (ERTS_PSFLG_RUNNING
+			| ERTS_PSFLG_DIRTY_RUNNING))
         running = 1;
 
     /*
@@ -252,7 +255,7 @@ print_process_info(int to, void *to_arg, Process *p)
 
     /* display the message queue only if there is anything in it */
     if (!ERTS_IS_CRASH_DUMPING && p->msg.first != NULL && !garbing) {
-	ErlMessage* mp;
+	ErtsMessage* mp;
 	erts_print(to, to_arg, "Message queue: [");
 	for (mp = p->msg.first; mp; mp = mp->next)
 	    erts_print(to, to_arg, mp->next ? "%T," : "%T", ERL_MESSAGE_TERM(mp));
@@ -323,7 +326,7 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
-    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p));
+    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p, !0));
 
     if (garbing) {
 	print_garb_info(to, to_arg, p);
@@ -347,8 +350,11 @@ print_process_info(int to, void *to_arg, Process *p)
 static void
 print_garb_info(int to, void *to_arg, Process* p)
 {
+#ifdef ERTS_SMP
     /* ERTS_SMP: A scheduler is probably concurrently doing gc... */
-#ifndef ERTS_SMP
+    if (!ERTS_IS_CRASH_DUMPING)
+      return;
+#endif
     erts_print(to, to_arg, "New heap start: %bpX\n", p->heap);
     erts_print(to, to_arg, "New heap top: %bpX\n", p->htop);
     erts_print(to, to_arg, "Stack top: %bpX\n", p->stop);
@@ -356,7 +362,6 @@ print_garb_info(int to, void *to_arg, Process* p)
     erts_print(to, to_arg, "Old heap start: %bpX\n", OLD_HEAP(p));
     erts_print(to, to_arg, "Old heap top: %bpX\n", OLD_HTOP(p));
     erts_print(to, to_arg, "Old heap end: %bpX\n", OLD_HEND(p));
-#endif
 }
 
 void
@@ -381,7 +386,7 @@ loaded(int to, void *to_arg)
     int i;
     int old = 0;
     int cur = 0;
-    BeamInstr* code;
+    BeamCodeHeader* code;
     Module* modp;
     ErtsCodeIndex code_ix;
 
@@ -439,30 +444,30 @@ loaded(int to, void *to_arg)
 		erts_print(to, to_arg, "\n");
 		erts_print(to, to_arg, "Current size: %d\n",
 			   modp->curr.code_length);
-		code = modp->curr.code;
-		if (code != NULL && code[MI_ATTR_PTR]) {
+		code = modp->curr.code_hdr;
+		if (code != NULL && code->attr_ptr) {
 		    erts_print(to, to_arg, "Current attributes: ");
-		    dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
-				    code[MI_ATTR_SIZE]);
+		    dump_attributes(to, to_arg, code->attr_ptr,
+				    code->attr_size);
 		}
-		if (code != NULL && code[MI_COMPILE_PTR]) {
+		if (code != NULL && code->compile_ptr) {
 		    erts_print(to, to_arg, "Current compilation info: ");
-		    dump_attributes(to, to_arg, (byte *) code[MI_COMPILE_PTR],
-				    code[MI_COMPILE_SIZE]);
+		    dump_attributes(to, to_arg, code->compile_ptr,
+				    code->compile_size);
 		}
 
 		if (modp->old.code_length != 0) {
 		    erts_print(to, to_arg, "Old size: %d\n", modp->old.code_length);
-		    code = modp->old.code;
-		    if (code[MI_ATTR_PTR]) {
+		    code = modp->old.code_hdr;
+		    if (code->attr_ptr) {
 			erts_print(to, to_arg, "Old attributes: ");
-			dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
-					code[MI_ATTR_SIZE]);
+			dump_attributes(to, to_arg, code->attr_ptr,
+					code->attr_size);
 		    }
-		    if (code[MI_COMPILE_PTR]) {
+		    if (code->compile_ptr) {
 			erts_print(to, to_arg, "Old compilation info: ");
-			dump_attributes(to, to_arg, (byte *) code[MI_COMPILE_PTR],
-					code[MI_COMPILE_SIZE]);
+			dump_attributes(to, to_arg, code->compile_ptr,
+					code->compile_size);
 		    }
 		}
 	    }
@@ -684,7 +689,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
        crash dump. */
     erts_thr_progress_fatal_error_block(&tpd_buf);
 
-#ifdef ERTS_THR_HAVE_SIG_FUNCS
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
     /*
      * We suspend all scheduler threads so that we can dump some
      * data about the currently running processes and scheduler data.
@@ -818,7 +823,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
 #ifdef ERTS_SMP
 
-#if defined(ERTS_THR_HAVE_SIG_FUNCS)
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
 
     /* We resume all schedulers so that we are in a known safe state
        when we write the rest of the crash dump */

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2013. All Rights Reserved.
+# Copyright Ericsson AB 2004-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -465,7 +465,6 @@ RELSYSDIR = $(RELEASE_PATH)/erts-$(VSN)
 RELEASE_INCLUDES= \
 	$(ERTS_INCL)/erl_memory_trace_parser.h \
 	$(ERTS_INCL)/$(TARGET)/erl_int_sizes_config.h \
-	$(ERTS_INCL)/$(TARGET)/erl_native_features_config.h \
 	$(ERTS_INCL)/erl_fixed_size_int_types.h
 RELEASE_LIBS=$(ERTS_LIBS)
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ public class OtpErlangPort extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = 4037115468007644704L;
 
+    private final int tag;
     private final String node;
     private final int id;
     private final int creation;
@@ -42,6 +43,7 @@ public class OtpErlangPort extends OtpErlangObject {
     private OtpErlangPort(final OtpSelf self) {
         final OtpErlangPort p = self.createPort();
 
+	tag = p.tag;
         id = p.id;
         creation = p.creation;
         node = p.node;
@@ -62,6 +64,7 @@ public class OtpErlangPort extends OtpErlangObject {
             throws OtpErlangDecodeException {
         final OtpErlangPort p = buf.read_port();
 
+	tag = p.tag;
         node = p.node();
         id = p.id();
         creation = p.creation();
@@ -77,13 +80,45 @@ public class OtpErlangPort extends OtpErlangObject {
      *            an arbitrary number. Only the low order 28 bits will be used.
      *
      * @param creation
-     *            another arbitrary number. Only the low order 2 bits will be
-     *            used.
+     *            another arbitrary number. Only the low order 2 bits will be used.
      */
     public OtpErlangPort(final String node, final int id, final int creation) {
-        this.node = node;
-        this.id = id & 0xfffffff; // 28 bits
-        this.creation = creation & 0x03; // 2 bits
+        this(OtpExternal.portTag, node, id, creation);
+    }
+
+    /**
+     * Create an Erlang port from its components.
+     *
+     * @param tag
+     *            the external format to be compliant with.
+     *            OtpExternal.portTag where only a subset of the bits are used (see other constructor)
+     *            OtpExternal.newPortTag where all 32 bits of id and creation are significant.
+     *            newPortTag can only be decoded by OTP-19 and newer.
+     * @param node
+     *            the nodename.
+     *
+     * @param id
+     *            an arbitrary number. Only the low order 28 bits will be used.
+     *
+     * @param creation
+     *            another arbitrary number.
+     */
+    public OtpErlangPort(final int tag, final String node, final int id,
+			 final int creation) {
+	this.tag = tag;
+	this.node = node;
+	if (tag == OtpExternal.portTag) {
+	    this.id = id & 0xfffffff; // 28 bits
+	    this.creation = creation & 0x3; // 2 bits
+	}
+	else {
+	    this.id = id;
+	    this.creation = creation;
+	}
+    }
+
+    protected int tag() {
+        return tag;
     }
 
     /**
@@ -132,7 +167,7 @@ public class OtpErlangPort extends OtpErlangObject {
      */
     @Override
     public void encode(final OtpOutputStream buf) {
-        buf.write_port(node, id, creation);
+        buf.write_port(this);
     }
 
     /**

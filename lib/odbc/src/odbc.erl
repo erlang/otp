@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -833,7 +833,7 @@ connect(ConnectionReferense, ConnectionStr, Options) ->
 odbc_send(Socket, Msg) -> %% Note currently all allowed messages are lists
     NewMsg = Msg ++ [?STR_TERMINATOR],
     ok = gen_tcp:send(Socket, NewMsg),
-    inet:setopts(Socket, [{active, once}]).
+    ok = inet:setopts(Socket, [{active, once}]).
 
 %%--------------------------------------------------------------------------
 connection_config(Key, Options) ->

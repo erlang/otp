@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +23,9 @@
 
 -module(et_selector).
 
--export([
-         make_pattern/1, 
+-export([make_pattern/1,
          change_pattern/1,
-         parse_event/2
-        ]).
+         parse_event/2]).
 
 -compile([{nowarn_deprecated_function,[{erlang,now,0}]}]).
 
@@ -535,7 +533,7 @@ parse_event(Mod, Trace, ParsedTS, ReportedTS, From, Label, Contents) ->
 					  {from, From},
 					  {to, From},
 					  {mfa, MFA}]}}; % MFA | 0
-        gc_start ->
+        gc_minor_start ->
             DetailLevel = 80,
             [GcKeyValueList] = Contents,
             {true, #event{detail_level = DetailLevel,
@@ -549,7 +547,7 @@ parse_event(Mod, Trace, ParsedTS, ReportedTS, From, Label, Contents) ->
 					  {from, From},
 					  {to, From},
 					  {gc_items, GcKeyValueList}]}};
-        gc_end ->
+        gc_minor_end ->
             DetailLevel = 85,
             [GcKeyValueList] = Contents,
             {true, #event{detail_level = DetailLevel,
@@ -559,10 +557,38 @@ parse_event(Mod, Trace, ParsedTS, ReportedTS, From, Label, Contents) ->
                           to           = From,
                           label        = Label,
                           contents     = [{label, Label},
-					  {detail_level, DetailLevel},
-					  {from, From},
-					  {to, From},
-					  {gc_items, GcKeyValueList}]}};
+                                          {detail_level, DetailLevel},
+                                          {from, From},
+                                          {to, From},
+                                          {gc_items, GcKeyValueList}]}};
+        gc_major_start ->
+            DetailLevel = 80,
+            [GcKeyValueList] = Contents,
+            {true, #event{detail_level = DetailLevel,
+                          trace_ts     = ReportedTS,
+                          event_ts     = ParsedTS,
+                          from         = From,
+                          to           = From,
+                          label        = Label,
+                          contents     = [{label, Label},
+                                          {detail_level, DetailLevel},
+                                          {from, From},
+                                          {to, From},
+                                          {gc_items, GcKeyValueList}]}};
+        gc_major_end ->
+            DetailLevel = 85,
+            [GcKeyValueList] = Contents,
+            {true, #event{detail_level = DetailLevel,
+                          trace_ts     = ReportedTS,
+                          event_ts     = ParsedTS,
+                          from         = From,
+                          to           = From,
+                          label        = Label,
+                          contents     = [{label, Label},
+                                          {detail_level, DetailLevel},
+                                          {from, From},
+                                          {to, From},
+                                          {gc_items, GcKeyValueList}]}};
         _ ->
             error_logger:format("~p(~p): Ignoring unknown trace type -> ~p~n~n",
                                 [?MODULE, ?LINE, Trace]),

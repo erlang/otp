@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,40 +28,26 @@
 -module(erl_print_SUITE).
 -author('rickard.s.green@ericsson.com').
 
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
-%-define(line_trace, 1).
+-export([erlang_display/1, integer/1, float/1,
+         string/1, character/1, snprintf/1, quote/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(10)).
+-include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
-
--export([erlang_display/1, integer/1, float/1, 
-	 string/1, character/1, snprintf/1, quote/1]).
-
--include_lib("test_server/include/test_server.hrl").
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
 all() -> 
-    test_cases().
+    [erlang_display, integer, float, string, character,
+     snprintf, quote].
 
-groups() -> 
-    [].
+init_per_testcase(Case, Config) ->
+    [{testcase, Case}|Config].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 %%
 %%
@@ -69,112 +55,106 @@ end_per_group(_GroupName, Config) ->
 %%
 %%
 
-test_cases() -> 
-    [erlang_display, integer, float, string, character,
-     snprintf, quote].
-
-erlang_display(doc) -> [];
-erlang_display(suite) -> [];
 erlang_display(Config) when is_list(Config) ->
-    ?line put(erlang_display_test, ok),
+    put(erlang_display_test, ok),
     OAIS = erts_debug:set_internal_state(available_internal_state, true),
 
     %% atoms
-    ?line chk_display(atom, "atom"),
-    ?line chk_display(true, "true"),
-    ?line chk_display(false, "false"),
-    ?line chk_display('DOWN', "'DOWN'"),
-    ?line chk_display('EXIT', "'EXIT'"),
-    ?line chk_display('asdDofw $@{}][', "'asdDofw $@{}]['"),
+    chk_display(atom, "atom"),
+    chk_display(true, "true"),
+    chk_display(false, "false"),
+    chk_display('DOWN', "'DOWN'"),
+    chk_display('EXIT', "'EXIT'"),
+    chk_display('asdDofw $@{}][', "'asdDofw $@{}]['"),
 
     %% integers
-    ?line chk_display(0, "0"),
-    ?line chk_display(1, "1"),
-    ?line chk_display(4711, "4711"),
-    ?line chk_display(((1 bsl 27) - 1), "134217727"),
-    ?line chk_display((1 bsl 27), "134217728"),
-    ?line chk_display((1 bsl 32), "4294967296"),
-    ?line chk_display(11111111111, "11111111111"),
-    ?line chk_display((1 bsl 59) - 1, "576460752303423487"),
-    ?line chk_display(1 bsl 59, "576460752303423488"),
-    ?line chk_display(111111111111111111111, "111111111111111111111"),
-    ?line chk_display(123456789012345678901234567890,
-		      "123456789012345678901234567890"),
-    ?line chk_display(1 bsl 10000, str_1_bsl_10000()),
-    ?line chk_display(-1, "-1"),
-    ?line chk_display(-4711, "-4711"),
-    ?line chk_display(-(1 bsl 27), "-134217728"),
-    ?line chk_display(-((1 bsl 27) + 1), "-134217729"),
-    ?line chk_display(-(1 bsl 32), "-4294967296"),
-    ?line chk_display(-11111111111, "-11111111111"),
-    ?line chk_display(-(1 bsl 59), "-576460752303423488"),
-    ?line chk_display(-((1 bsl 59) + 1), "-576460752303423489"),
-    ?line chk_display(-111111111111111111111, "-111111111111111111111"),
-    ?line chk_display(-123456789012345678901234567890,
-		      "-123456789012345678901234567890"),
-    ?line chk_display(-(1 bsl 10000), [$- | str_1_bsl_10000()]),
+    chk_display(0, "0"),
+    chk_display(1, "1"),
+    chk_display(4711, "4711"),
+    chk_display(((1 bsl 27) - 1), "134217727"),
+    chk_display((1 bsl 27), "134217728"),
+    chk_display((1 bsl 32), "4294967296"),
+    chk_display(11111111111, "11111111111"),
+    chk_display((1 bsl 59) - 1, "576460752303423487"),
+    chk_display(1 bsl 59, "576460752303423488"),
+    chk_display(111111111111111111111, "111111111111111111111"),
+    chk_display(123456789012345678901234567890,
+                "123456789012345678901234567890"),
+    chk_display(1 bsl 10000, str_1_bsl_10000()),
+    chk_display(-1, "-1"),
+    chk_display(-4711, "-4711"),
+    chk_display(-(1 bsl 27), "-134217728"),
+    chk_display(-((1 bsl 27) + 1), "-134217729"),
+    chk_display(-(1 bsl 32), "-4294967296"),
+    chk_display(-11111111111, "-11111111111"),
+    chk_display(-(1 bsl 59), "-576460752303423488"),
+    chk_display(-((1 bsl 59) + 1), "-576460752303423489"),
+    chk_display(-111111111111111111111, "-111111111111111111111"),
+    chk_display(-123456789012345678901234567890,
+                "-123456789012345678901234567890"),
+    chk_display(-(1 bsl 10000), [$- | str_1_bsl_10000()]),
 
-    ?line MyCre = my_cre(),
+    MyCre = my_cre(),
 
     %% pids
-    ?line chk_display(mk_pid_xstr({node(), MyCre}, 4711, 42)),
-    ?line chk_display(mk_pid_xstr({node(), oth_cre(MyCre)}, 4711, 42)),
-    ?line chk_display(mk_pid_xstr({node(), oth_cre(oth_cre(MyCre))}, 4711, 42)),
+    chk_display(mk_pid_xstr({node(), MyCre}, 4711, 42)),
+    chk_display(mk_pid_xstr({node(), oth_cre(MyCre)}, 4711, 42)),
+    chk_display(mk_pid_xstr({node(), oth_cre(oth_cre(MyCre))}, 4711, 42)),
 
-    ?line chk_display(mk_pid_xstr({a@b, MyCre}, 4711, 42)),
-    ?line chk_display(mk_pid_xstr({a@b, oth_cre(MyCre)}, 4711, 42)),
-    ?line chk_display(mk_pid_xstr({a@b, oth_cre(oth_cre(MyCre))}, 4711, 42)),
+    chk_display(mk_pid_xstr({a@b, MyCre}, 4711, 42)),
+    chk_display(mk_pid_xstr({a@b, oth_cre(MyCre)}, 4711, 42)),
+    chk_display(mk_pid_xstr({a@b, oth_cre(oth_cre(MyCre))}, 4711, 42)),
 
     %% ports
-    ?line chk_display(mk_port_xstr({node(), MyCre}, 4711)),
-    ?line chk_display(mk_port_xstr({node(), oth_cre(MyCre)}, 4711)),
-    ?line chk_display(mk_port_xstr({node(), oth_cre(oth_cre(MyCre))}, 4711)),
+    chk_display(mk_port_xstr({node(), MyCre}, 4711)),
+    chk_display(mk_port_xstr({node(), oth_cre(MyCre)}, 4711)),
+    chk_display(mk_port_xstr({node(), oth_cre(oth_cre(MyCre))}, 4711)),
 
-    ?line chk_display(mk_port_xstr({c@d, MyCre}, 4711)),
-    ?line chk_display(mk_port_xstr({c@d, oth_cre(MyCre)}, 4711)),
-    ?line chk_display(mk_port_xstr({c@d, oth_cre(oth_cre(MyCre))}, 4711)),
+    chk_display(mk_port_xstr({c@d, MyCre}, 4711)),
+    chk_display(mk_port_xstr({c@d, oth_cre(MyCre)}, 4711)),
+    chk_display(mk_port_xstr({c@d, oth_cre(oth_cre(MyCre))}, 4711)),
 
     %% refs
-    ?line chk_display(mk_ref_xstr({node(), MyCre}, [1,2,3])),
-    ?line chk_display(mk_ref_xstr({node(), oth_cre(MyCre)}, [1,2,3])),
-    ?line chk_display(mk_ref_xstr({node(), oth_cre(oth_cre(MyCre))}, [1,2,3])),
+    chk_display(mk_ref_xstr({node(), MyCre}, [1,2,3])),
+    chk_display(mk_ref_xstr({node(), oth_cre(MyCre)}, [1,2,3])),
+    chk_display(mk_ref_xstr({node(), oth_cre(oth_cre(MyCre))}, [1,2,3])),
 
-    ?line chk_display(mk_ref_xstr({e@f, MyCre},[1,2,3] )),
-    ?line chk_display(mk_ref_xstr({e@f, oth_cre(MyCre)}, [1,2,3])),
-    ?line chk_display(mk_ref_xstr({e@f, oth_cre(oth_cre(MyCre))}, [1,2,3])),
+    chk_display(mk_ref_xstr({e@f, MyCre},[1,2,3] )),
+    chk_display(mk_ref_xstr({e@f, oth_cre(MyCre)}, [1,2,3])),
+    chk_display(mk_ref_xstr({e@f, oth_cre(oth_cre(MyCre))}, [1,2,3])),
 
     %% Compund terms
-    ?line {Pid, PidStr} = mk_pid_xstr({x@y, oth_cre(MyCre)}, 4712, 41),
-    ?line {Port, PortStr} = mk_port_xstr({x@y, oth_cre(MyCre)}, 4712),
-    ?line {Ref, RefStr} = mk_ref_xstr({e@f, oth_cre(MyCre)}, [11,12,13]),
+    {Pid, PidStr} = mk_pid_xstr({x@y, oth_cre(MyCre)}, 4712, 41),
+    {Port, PortStr} = mk_port_xstr({x@y, oth_cre(MyCre)}, 4712),
+    {Ref, RefStr} = mk_ref_xstr({e@f, oth_cre(MyCre)}, [11,12,13]),
 
-    ?line chk_display({atom,-4711,Ref,{"hej",[Pid,222222222222222222222222,Port,4711]}},
-		      "{atom,-4711,"++RefStr++",{\"hej\",["++PidStr++",222222222222222222222222,"++PortStr++",4711]}}"),
-    ?line chk_display({{{{{{{{{{{{{{{{{{{{{{{hi}}}}}}}}}}}}}}}}}}}}}}},
-		      "{{{{{{{{{{{{{{{{{{{{{{{hi}}}}}}}}}}}}}}}}}}}}}}}"),
-    ?line chk_display([[[[[[[[[[[[[[[[[[[[[[[yo]]]]]]]]]]]]]]]]]]]]]]],
-		      "[[[[[[[[[[[[[[[[[[[[[[[yo]]]]]]]]]]]]]]]]]]]]]]]"),
-    ?line chk_display({[{[{[{[{[{[{[{[{[{[{[{[ii]}]}]}]}]}]}]}]}]}]}]}]},
-		      "{[{[{[{[{[{[{[{[{[{[{[{[ii]}]}]}]}]}]}]}]}]}]}]}]}"),
-    ?line chk_display([], "[]"), % Not really a compound term :)
-    ?line chk_display([a|b], "[a|b]"),
-    ?line chk_display([a,b,c|z], "[a,b,c|z]"),
-    ?line chk_display([a,b,c], "[a,b,c]"),
-    ?line chk_display([Pid,Port,Ref],
-		      "["++PidStr++","++PortStr++","++RefStr++"]"),
-    ?line chk_display("abcdefghijklmnopqrstuvwxyz",
-		      "\"abcdefghijklmnopqrstuvwxyz\""),
-    ?line chk_display("ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-		      "\"ABCDEFGHIJKLMNOPQRSTUVWXYZ\""),
-    ?line chk_display("H E J", "\"H E J\""),
-    ?line chk_display("asdDofw $@{}][", "\"asdDofw $@{}][\""),
-    
+    chk_display({atom,-4711,Ref,{"hej",[Pid,222222222222222222222222,Port,4711]}},
+                "{atom,-4711,"++RefStr++",{\"hej\",["++PidStr++",222222222222222222222222,"++PortStr++",4711]}}"),
+    chk_display({{{{{{{{{{{{{{{{{{{{{{{hi}}}}}}}}}}}}}}}}}}}}}}},
+                "{{{{{{{{{{{{{{{{{{{{{{{hi}}}}}}}}}}}}}}}}}}}}}}}"),
+    chk_display([[[[[[[[[[[[[[[[[[[[[[[yo]]]]]]]]]]]]]]]]]]]]]]],
+                "[[[[[[[[[[[[[[[[[[[[[[[yo]]]]]]]]]]]]]]]]]]]]]]]"),
+    chk_display({[{[{[{[{[{[{[{[{[{[{[{[ii]}]}]}]}]}]}]}]}]}]}]}]},
+                "{[{[{[{[{[{[{[{[{[{[{[{[ii]}]}]}]}]}]}]}]}]}]}]}]}"),
+    chk_display([], "[]"), % Not really a compound term :)
+    chk_display([a|b], "[a|b]"),
+    chk_display([a,b,c|z], "[a,b,c|z]"),
+    chk_display([a,b,c], "[a,b,c]"),
+    chk_display([Pid,Port,Ref],
+                "["++PidStr++","++PortStr++","++RefStr++"]"),
+    chk_display("abcdefghijklmnopqrstuvwxyz",
+                "\"abcdefghijklmnopqrstuvwxyz\""),
+    chk_display("ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                "\"ABCDEFGHIJKLMNOPQRSTUVWXYZ\""),
+    chk_display("H E J", "\"H E J\""),
+    chk_display("asdDofw $@{}][", "\"asdDofw $@{}][\""),
+
     %%
     %% TODO: Check binaries, fun and floats...
     %%
 
     erts_debug:set_internal_state(available_internal_state, OAIS),
-    ?line ok = get(erlang_display_test).
+    ok = get(erlang_display_test).
 
 get_chnl_no(NodeName) when is_atom(NodeName) ->
     erts_debug:get_internal_state({channel_number, NodeName}).
@@ -182,20 +162,20 @@ get_chnl_no(NodeName) when is_atom(NodeName) ->
 chk_display(Term, Expect) when is_list(Expect) ->
     Dstr = erts_debug:display(Term),
     case Expect ++ io_lib:nl() of
-	Dstr ->
-	    ?t:format("Test of \"~p\" succeeded.~n"
-		      "  Expected and got: ~s~n",
-		      [Term, io_lib:write_string(Dstr)]);
-	DoExpect ->
-	    ?t:format("***~n"
-		      "*** Test of \"~p\" failed!~n"
-		      "***       Expected: ~s~n"
-		      "***            Got: ~s~n"
-		      "***~n",
-		      [Term,
-		       io_lib:write_string(DoExpect),
-		       io_lib:write_string(Dstr)]),
-	    put(erlang_display_test, failed)
+        Dstr ->
+            io:format("Test of \"~p\" succeeded.~n"
+                      "  Expected and got: ~s~n",
+                      [Term, io_lib:write_string(Dstr)]);
+        DoExpect ->
+            io:format("***~n"
+                      "*** Test of \"~p\" failed!~n"
+                      "***       Expected: ~s~n"
+                      "***            Got: ~s~n"
+                      "***~n",
+                      [Term,
+                       io_lib:write_string(DoExpect),
+                       io_lib:write_string(Dstr)]),
+            put(erlang_display_test, failed)
     end.
 
 chk_display({Term, Expect}) ->
@@ -204,20 +184,20 @@ chk_display({Term, Expect}) ->
 mk_pid_xstr({NodeName, Creation}, Number, Serial) ->
     Pid = mk_pid({NodeName, Creation}, Number, Serial),
     XStr = "<" ++ integer_to_list(get_chnl_no(NodeName))
-	++ "." ++ integer_to_list(Number)
-	++ "." ++ integer_to_list(Serial) ++ ">",
+    ++ "." ++ integer_to_list(Number)
+    ++ "." ++ integer_to_list(Serial) ++ ">",
     {Pid, XStr}.
 
 mk_port_xstr({NodeName, Creation}, Number) ->
     Port = mk_port({NodeName, Creation}, Number),
     XStr = "#Port<" ++ integer_to_list(get_chnl_no(NodeName))
-	++ "." ++ integer_to_list(Number) ++ ">",
+    ++ "." ++ integer_to_list(Number) ++ ">",
     {Port, XStr}.
 
 mk_ref_xstr({NodeName, Creation}, Numbers) ->
     Ref = mk_ref({NodeName, Creation}, Numbers),
     XStr = "#Ref<" ++ integer_to_list(get_chnl_no(NodeName))
-	++ ref_numbers_xstr(Numbers) ++ ">",
+    ++ ref_numbers_xstr(Numbers) ++ ">",
     {Ref, XStr}.
 
 ref_numbers_xstr([]) ->
@@ -240,18 +220,7 @@ ref_numbers_xstr([N | Ns]) ->
 %%
 %%
 
-default_testcase_impl(doc) -> [];
-default_testcase_impl(suite) -> [];
-default_testcase_impl(Config) when is_list(Config) -> ?line run_case(Config).
-
-init_per_testcase(Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{testcase, Case}, {watchdog, Dog} |Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
+default_testcase_impl(Config) when is_list(Config) -> run_case(Config).
 
 -define(TESTPROG, "erl_print_tests").
 -define(FAILED_MARKER, $E,$P,$-,$T,$E,$S,$T,$-,$F,$A,$I,$L,$U,$R,$E).
@@ -260,62 +229,62 @@ end_per_testcase(_Case, Config) ->
 -define(PID_MARKER, $E,$P,$-,$T,$E,$S,$T,$-,$P,$I,$D).
 
 port_prog_killer(EProc, OSProc) when is_pid(EProc), is_list(OSProc) ->
-    ?line process_flag(trap_exit, true),
-    ?line Ref = erlang:monitor(process, EProc),
-    ?line receive
-	      {'DOWN', Ref, _, _, Reason} when is_tuple(Reason),
-					       element(1, Reason)
-					       == timetrap_timeout ->
-		  ?line Cmd = "kill -9 " ++ OSProc,
-		  ?line ?t:format("Test case timed out. "
-				  "Trying to kill port program.~n"
-				  "  Executing: ~p~n", [Cmd]),
-		  ?line case os:cmd(Cmd) of
-			    [] ->
-				ok;
-			    OsCmdRes ->
-				?line ?t:format("             ~s", [OsCmdRes])
-			end;
-	      {'DOWN', Ref, _, _, _} ->
-		  %% OSProc is assumed to have terminated by itself
-		  ?line ok 
-	  end.
+    process_flag(trap_exit, true),
+    Ref = erlang:monitor(process, EProc),
+    receive
+        {'DOWN', Ref, _, _, Reason} when is_tuple(Reason),
+                                         element(1, Reason)
+                                         == timetrap_timeout ->
+            Cmd = "kill -9 " ++ OSProc,
+            io:format("Test case timed out. "
+                      "Trying to kill port program.~n"
+                      "  Executing: ~p~n", [Cmd]),
+            case os:cmd(Cmd) of
+                [] ->
+                    ok;
+                OsCmdRes ->
+                    io:format("             ~s", [OsCmdRes])
+            end;
+        {'DOWN', Ref, _, _, _} ->
+            %% OSProc is assumed to have terminated by itself
+            ok
+    end.
 
 get_line(_Port, eol, Data) ->
-    ?line Data;
+    Data;
 get_line(Port, noeol, Data) ->
-    ?line receive
-	      {Port, {data, {Flag, NextData}}} ->
-		  ?line get_line(Port, Flag, Data ++ NextData);
-	      {Port, eof} ->
-		  ?line ?t:fail(port_prog_unexpectedly_closed)
-	  end.
+    receive
+        {Port, {data, {Flag, NextData}}} ->
+            get_line(Port, Flag, Data ++ NextData);
+        {Port, eof} ->
+            ct:fail(port_prog_unexpectedly_closed)
+    end.
 
 read_case_data(Port, TestCase) ->
-    ?line receive
-	      {Port, {data, {eol, [?SUCCESS_MARKER]}}} ->
-		  ?line ok;
-	      {Port, {data, {Flag, [?SUCCESS_MARKER | CommentStart]}}} ->
-		  ?line {comment, get_line(Port, Flag, CommentStart)};
-	      {Port, {data, {Flag, [?SKIPPED_MARKER | CommentStart]}}} ->
-		  ?line {skipped, get_line(Port, Flag, CommentStart)};
-	      {Port, {data, {Flag, [?FAILED_MARKER | ReasonStart]}}} ->
-		  ?line ?t:fail(get_line(Port, Flag, ReasonStart));
-	      {Port, {data, {eol, [?PID_MARKER | PidStr]}}} ->
-		  ?line ?t:format("Port program pid: ~s~n", [PidStr]),
-		  ?line CaseProc = self(),
-		  ?line _ = list_to_integer(PidStr), % Sanity check
-		  spawn_opt(fun () ->
-				    port_prog_killer(CaseProc, PidStr)
-			    end,
-			    [{priority, max}, link]),
-		  read_case_data(Port, TestCase);
-	      {Port, {data, {Flag, LineStart}}} ->
-		  ?line ?t:format("~s~n", [get_line(Port, Flag, LineStart)]),
-		  read_case_data(Port, TestCase);
-	      {Port, eof} ->
-		  ?line ?t:fail(port_prog_unexpectedly_closed)
-	  end.
+    receive
+        {Port, {data, {eol, [?SUCCESS_MARKER]}}} ->
+            ok;
+        {Port, {data, {Flag, [?SUCCESS_MARKER | CommentStart]}}} ->
+            {comment, get_line(Port, Flag, CommentStart)};
+        {Port, {data, {Flag, [?SKIPPED_MARKER | CommentStart]}}} ->
+            {skipped, get_line(Port, Flag, CommentStart)};
+        {Port, {data, {Flag, [?FAILED_MARKER | ReasonStart]}}} ->
+            ct:fail(get_line(Port, Flag, ReasonStart));
+        {Port, {data, {eol, [?PID_MARKER | PidStr]}}} ->
+            io:format("Port program pid: ~s~n", [PidStr]),
+            CaseProc = self(),
+            _ = list_to_integer(PidStr), % Sanity check
+            spawn_opt(fun () ->
+                              port_prog_killer(CaseProc, PidStr)
+                      end,
+                      [{priority, max}, link]),
+            read_case_data(Port, TestCase);
+        {Port, {data, {Flag, LineStart}}} ->
+            io:format("~s~n", [get_line(Port, Flag, LineStart)]),
+            read_case_data(Port, TestCase);
+        {Port, eof} ->
+            ct:fail(port_prog_unexpectedly_closed)
+    end.
 
 run_case(Config) ->
     run_case(Config, "").
@@ -324,27 +293,27 @@ run_case(Config, TestArgs) ->
     run_case(Config, TestArgs, fun (_Port) -> ok end).
 
 run_case(Config, TestArgs, Fun) ->
-    Test = atom_to_list(?config(testcase, Config)),
-    TestProg = filename:join([?config(data_dir, Config),
-			      ?TESTPROG
-			      ++ "."
-			      ++ atom_to_list(erlang:system_info(threads))]),
+    Test = atom_to_list(proplists:get_value(testcase, Config)),
+    TestProg = filename:join([proplists:get_value(data_dir, Config),
+                              ?TESTPROG
+                              ++ "."
+                              ++ atom_to_list(erlang:system_info(threads))]),
     Cmd = TestProg ++ " " ++ Test ++ " " ++ TestArgs,
     case catch open_port({spawn, Cmd}, [stream,
-					use_stdio,
-					stderr_to_stdout,
-					eof,
-					{line, 1024}]) of
-	Port when is_port(Port) ->
-	    ?line Fun(Port),
-	    ?line CaseResult = read_case_data(Port, Test),
-	    ?line receive
-		      {Port, eof} ->
-			  ?line ok
-		  end,
-	    ?line CaseResult;
-	Error ->
-	    ?line ?t:fail({open_port_failed, Error})
+                                        use_stdio,
+                                        stderr_to_stdout,
+                                        eof,
+                                        {line, 1024}]) of
+        Port when is_port(Port) ->
+            Fun(Port),
+            CaseResult = read_case_data(Port, Test),
+            receive
+                {Port, eof} ->
+                    ok
+            end,
+            CaseResult;
+        Error ->
+            ct:fail({open_port_failed, Error})
     end.
 
 
@@ -382,80 +351,80 @@ mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
     mk_pid({atom_to_list(NodeName), Creation}, Number, Serial);
 mk_pid({NodeName, Creation}, Number, Serial) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      ?PID_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      uint32_be(Serial),
-					      uint8(Creation)])) of
-	Pid when is_pid(Pid) ->
-	    Pid;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
+                                              ?PID_EXT,
+                                              ?ATOM_EXT,
+                                              uint16_be(length(NodeName)),
+                                              NodeName,
+                                              uint32_be(Number),
+                                              uint32_be(Serial),
+                                              uint8(Creation)])) of
+        Pid when is_pid(Pid) ->
+            Pid;
+        {'EXIT', {badarg, _}} ->
+            exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
+        Other ->
+            exit({unexpected_binary_to_term_result, Other})
     end.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
     mk_port({atom_to_list(NodeName), Creation}, Number);
 mk_port({NodeName, Creation}, Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      ?PORT_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      uint8(Creation)])) of
-	Port when is_port(Port) ->
-	    Port;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_port, [{NodeName, Creation}, Number]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
+                                              ?PORT_EXT,
+                                              ?ATOM_EXT,
+                                              uint16_be(length(NodeName)),
+                                              NodeName,
+                                              uint32_be(Number),
+                                              uint8(Creation)])) of
+        Port when is_port(Port) ->
+            Port;
+        {'EXIT', {badarg, _}} ->
+            exit({badarg, mk_port, [{NodeName, Creation}, Number]});
+        Other ->
+            exit({unexpected_binary_to_term_result, Other})
     end.
 
 mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
-					   is_integer(Creation),
-					   is_list(Numbers) ->
+                                           is_integer(Creation),
+                                           is_list(Numbers) ->
     mk_ref({atom_to_list(NodeName), Creation}, Numbers);
 mk_ref({NodeName, Creation}, [Number]) when is_list(NodeName),
-					    is_integer(Creation),
-					    is_integer(Number) ->
+                                            is_integer(Creation),
+                                            is_integer(Number) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      ?REFERENCE_EXT,
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint32_be(Number),
-					      uint8(Creation)])) of
-	Ref when is_reference(Ref) ->
-	    Ref;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, [Number]]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
+                                              ?REFERENCE_EXT,
+                                              ?ATOM_EXT,
+                                              uint16_be(length(NodeName)),
+                                              NodeName,
+                                              uint32_be(Number),
+                                              uint8(Creation)])) of
+        Ref when is_reference(Ref) ->
+            Ref;
+        {'EXIT', {badarg, _}} ->
+            exit({badarg, mk_ref, [{NodeName, Creation}, [Number]]});
+        Other ->
+            exit({unexpected_binary_to_term_result, Other})
     end;
 mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
-					   is_integer(Creation),
-					   is_list(Numbers) ->
+                                           is_integer(Creation),
+                                           is_list(Numbers) ->
     case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-					      ?NEW_REFERENCE_EXT,
-					      uint16_be(length(Numbers)),
-					      ?ATOM_EXT,
-					      uint16_be(length(NodeName)),
-					      NodeName,
-					      uint8(Creation),
-					      lists:map(fun (N) ->
-								uint32_be(N)
-							end,
-							Numbers)])) of
-	Ref when is_reference(Ref) ->
-	    Ref;
-	{'EXIT', {badarg, _}} ->
-	    exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
-	Other ->
-	    exit({unexpected_binary_to_term_result, Other})
+                                              ?NEW_REFERENCE_EXT,
+                                              uint16_be(length(Numbers)),
+                                              ?ATOM_EXT,
+                                              uint16_be(length(NodeName)),
+                                              NodeName,
+                                              uint8(Creation),
+                                              lists:map(fun (N) ->
+                                                                uint32_be(N)
+                                                        end,
+                                                        Numbers)])) of
+        Ref when is_reference(Ref) ->
+            Ref;
+        {'EXIT', {badarg, _}} ->
+            exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
+        Other ->
+            exit({unexpected_binary_to_term_result, Other})
     end.
 
 my_cre() -> erlang:system_info(creation).

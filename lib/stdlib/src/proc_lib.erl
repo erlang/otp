@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,12 +43,19 @@
 %%-----------------------------------------------------------------------------
 
 -type priority_level() :: 'high' | 'low' | 'max' | 'normal'.
+-type max_heap_size()  :: non_neg_integer() |
+                          #{ size => non_neg_integer(),
+                             kill => true,
+                             error_logger => true}.
 -type spawn_option()   :: 'link'
                         | 'monitor'
                         | {'priority', priority_level()}
+                        | {'max_heap_size', max_heap_size()}
                         | {'min_heap_size', non_neg_integer()}
                         | {'min_bin_vheap_size', non_neg_integer()}
-                        | {'fullsweep_after', non_neg_integer()}.
+                        | {'fullsweep_after', non_neg_integer()}
+                        | {'message_queue_data',
+                             'off_heap' | 'on_heap' | 'mixed' }.
 
 -type dict_or_pid()    :: pid()
                         | (ProcInfo :: [_])
@@ -472,13 +479,15 @@ trans_init(gen,init_it,[gen_server,_,_,supervisor_bridge,[Module|_],_]) ->
     {supervisor_bridge,Module,1};
 trans_init(gen,init_it,[gen_server,_,_,_,supervisor_bridge,[Module|_],_]) ->
     {supervisor_bridge,Module,1};
-trans_init(gen,init_it,[gen_server,_,_,Module,_,_]) ->
+trans_init(gen,init_it,[GenMod,_,_,Module,_,_])
+  when GenMod =:= gen_server;
+       GenMod =:= gen_statem;
+       GenMod =:= gen_fsm ->
     {Module,init,1};
-trans_init(gen,init_it,[gen_server,_,_,_,Module|_]) ->
-    {Module,init,1};
-trans_init(gen,init_it,[gen_fsm,_,_,Module,_,_]) ->
-    {Module,init,1};
-trans_init(gen,init_it,[gen_fsm,_,_,_,Module|_]) ->
+trans_init(gen,init_it,[GenMod,_,_,_,Module|_])
+  when GenMod =:= gen_server;
+       GenMod =:= gen_statem;
+       GenMod =:= gen_fsm ->
     {Module,init,1};
 trans_init(gen,init_it,[gen_event|_]) ->
     {gen_event,init_it,6};

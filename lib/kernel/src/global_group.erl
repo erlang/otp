@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -273,7 +273,7 @@ init([]) ->
 	    {ok, #state{publish_type = PT, group_publish_type = PubTpGrp,
 			sync_state = synced, group_name = DefGroupName, 
 			no_contact = lists:sort(DefNodes), 
-			other_grps = DefOther}}
+			other_grps = DefOther, connect_all = Ca}}
     end.
 
 
@@ -692,7 +692,7 @@ handle_cast({registered_names, User}, S) ->
 handle_cast({registered_names_res, Result, Pid, From}, S) ->
 %    io:format(">>>>> registered_names_res Result ~p~n",[Result]),
     unlink(Pid),
-    exit(Pid, normal),
+    Pid ! kill,
     Wait = get(registered_names),
     NewWait = lists:delete({Pid, From},Wait),
     put(registered_names, NewWait),
@@ -718,7 +718,7 @@ handle_cast({send_res, Result, Name, Msg, Pid, From}, S) ->
 	    ToPid ! Msg
     end,
     unlink(Pid),
-    exit(Pid, normal),
+    Pid ! kill,
     Wait = get(send),
     NewWait = lists:delete({Pid, From, Name, Msg},Wait),
     put(send, NewWait),
@@ -748,7 +748,7 @@ handle_cast({find_name_res, Result, Pid, From}, S) ->
 %    io:format(">>>>> find_name_res Result ~p~n",[Result]),
 %    io:format(">>>>> find_name_res get() ~p~n",[get()]),
     unlink(Pid),
-    exit(Pid, normal),
+    Pid ! kill,
     Wait = get(whereis_name),
     NewWait = lists:delete({Pid, From},Wait),
     put(whereis_name, NewWait),

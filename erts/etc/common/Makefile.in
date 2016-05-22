@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2014. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,6 @@
 
 include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
-
-ifeq ($(findstring ose,$(TARGET)),ose)
-include $(ERL_TOP)/make/$(TARGET)/ose_lm.mk
-endif
 
 ERTS_LIB_TYPEMARKER=.$(TYPE)
 
@@ -85,17 +81,12 @@ EMUOSDIR  = $(ERL_TOP)/erts/emulator/@ERLANG_OSTYPE@
 SYSDIR    = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
 DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
 UXETC     = ../unix
-OSEETC	  = ../ose
 WINETC	  = ../win32
 
 ifeq ($(TARGET), win32)
 ETC       = $(WINETC)
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-ETC       = $(OSEETC)
-else
 ETC       = $(UXETC)
-endif
 endif
 
 ifeq ($(TARGET), win32)
@@ -180,25 +171,6 @@ PORT_ENTRY_POINT=erl_port_entry
 ENTRY_LDFLAGS=-entry:$(PORT_ENTRY_POINT)
 
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-ENTRY_LDFLAGS=
-ENTRY_OBJ=
-ERLSRV_OBJECTS=
-MC_OUTPUTS=
-INET_GETHOST =
-INSTALL_EMBEDDED_PROGS = $(BINDIR)/run_erl_lm
-INSTALL_EMBEDDED_DATA =
-INSTALL_TOP = Install
-INSTALL_TOP_BIN =
-INSTALL_MISC =
-INSTALL_SRC =
-ERLEXECDIR = .
-INSTALL_LIBS =
-INSTALL_OBJS =
-INSTALL_INCLUDES =
-TEXTFILES = Install erl.src
-INSTALL_PROGS = $(INSTALL_EMBEDDED_PROGS)
-else # UNIX (!win32 && !ose)
 ENTRY_LDFLAGS=
 ENTRY_OBJ=
 ERLSRV_OBJECTS= 
@@ -222,7 +194,6 @@ INSTALL_PROGS =              \
 	$(BINDIR)/heart@EXEEXT@      \
 	$(BINDIR)/$(ERLEXEC) \
 	$(INSTALL_EMBEDDED_PROGS)
-endif
 endif
 
 .PHONY: etc
@@ -269,8 +240,8 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/dyn_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o
-	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl_common.o
-	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl_common.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/typer.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/ct_run.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/vxcall.o
@@ -423,28 +394,24 @@ $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 # run_erl
-$(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(OBJDIR)/run_erl_common.o
-	$(V_LD) $(LDFLAGS) -o $@ $^ $(LIBS)
-$(OBJDIR)/run_erl.o: $(ETC)/run_erl.c ../common/run_erl_common.h $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -I ../common/ -o $@ -c $(ETC)/run_erl.c
-$(OBJDIR)/run_erl_common.o: ../common/run_erl_common.c ../common/run_erl_common.h $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c $<
+$(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
+	$(V_LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS)
+$(OBJDIR)/run_erl.o: $(ETC)/run_erl.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/run_erl.c
 
 # to_erl
-$(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o $(OBJDIR)/to_erl_common.o
-	$(V_LD) $(LDFLAGS) -o $@  $^
-$(OBJDIR)/to_erl.o: $(ETC)/to_erl.c ../common/safe_string.h $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -I ../common/ -o $@ -c $(ETC)/to_erl.c
-$(OBJDIR)/to_erl_common.o: ../common/to_erl_common.c ../common/to_erl_common.h $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c $<
+$(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
+$(OBJDIR)/to_erl.o: $(ETC)/to_erl.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/to_erl.c
 
 # dyn_erl
 $(BINDIR)/dyn_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
 $(OBJDIR)/dyn_erl.o: $(UXETC)/dyn_erl.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c $(UXETC)/dyn_erl.c
-$(OBJDIR)/safe_string.o: ../common/safe_string.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../common/safe_string.c
+$(OBJDIR)/safe_string.o: $(ETC)/safe_string.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/safe_string.c
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
@@ -499,30 +466,6 @@ erl.src: $(UXETC)/erl.src.src ../../vsn.mk $(TARGET)/Makefile
             -e 's;%VSN%;$(VSN);' \
                   $(UXETC)/erl.src.src > erl.src
 
-#---------------------------------------------------------
-# OSE specific targets
-#---------------------------------------------------------
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(OBJDIR)/ose_confd.o: $(OSE_CONFD)
-	$(V_CC) $(CFLAGS) -o $@ -c $<
-$(OBJDIR)/crt0_lm.o: $(CRT0_LM)
-	$(V_CC) $(CFLAGS) -o $@ -c $<
-OSE_LM_OBJS += $(OBJDIR)/ose_confd.o $(OBJDIR)/crt0_lm.o
-
-$(BINDIR)/run_erl_lm: $(OBJDIR)/run_erl_main.o $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(OBJDIR)/run_erl_common.o $(OBJDIR)/to_erl_common.o $(OSE_LM_OBJS)
-	$(call build-ose-load-module, $@, $^, $(LIBS), $(RUN_ERL_LMCONF))
-
-
-$(OBJDIR)/run_erl_main.o: $(OSEETC)/run_erl_main.c $(OSEETC)/run_erl.h ../common/to_erl_common.h $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -I ../common/ -o $@ -c $(OSEETC)/run_erl_main.c
-
-endif
-
-#---------------------------------------------------------
-# End of ose specific targets.
-#---------------------------------------------------------
-
-
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -537,9 +480,7 @@ endif
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifneq ($(TARGET), win32)
 ifneq ($(findstring vxworks,$(TARGET)), vxworks)
-ifneq ($(findstring ose,$(TARGET)), ose)
 	$(INSTALL_SCRIPT) erl.src "$(RELEASE_PATH)/erts-$(VSN)/bin"
-endif
 endif
 endif
 ifneq ($(INSTALL_PROGS),)

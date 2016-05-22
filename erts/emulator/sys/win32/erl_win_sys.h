@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -183,6 +183,7 @@ typedef LONGLONG ErtsSysHrTime;
 #endif
 
 typedef ErtsMonotonicTime ErtsSystemTime;
+typedef ErtsMonotonicTime ErtsSysPerfCounter;
 
 ErtsSystemTime erts_os_system_time(void);
 
@@ -213,6 +214,7 @@ ERTS_GLB_INLINE ErtsMonotonicTime erts_os_monotonic_time(void);
 ERTS_GLB_INLINE void erts_os_times(ErtsMonotonicTime *,
 				   ErtsSystemTime *);
 ERTS_GLB_INLINE ErtsSysHrTime erts_sys_hrtime(void);
+ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -232,6 +234,18 @@ ERTS_GLB_INLINE ErtsSysHrTime
 erts_sys_hrtime(void)
 {
     return (*erts_sys_time_data__.r.o.sys_hrtime)();
+}
+
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter(void)
+{
+    return (*erts_sys_time_data__.r.o.sys_hrtime)();
+}
+
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter_unit(void)
+{
+    return 1000 * 1000 * 1000;
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

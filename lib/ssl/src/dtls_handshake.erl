@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,10 @@ hello(#server_hello{server_version = Version, random = Random,
 
 hello(#client_hello{client_version = ClientVersion}, _Options, {_,_,_,_,ConnectionStates,_}, _Renegotiation) ->      
     %% Return correct typ to make dialyzer happy until we have time to make the real imp.
-    {ClientVersion, {new, #session{}}, ConnectionStates, #hello_extensions{}}.
+    HashSigns = tls_v1:default_signature_algs(dtls_v1:corresponding_tls_version(ClientVersion)),
+    {ClientVersion, {new, #session{}}, ConnectionStates, #hello_extensions{}, 
+     %% Placeholder for real hasign handling
+     hd(HashSigns)}.
 
 %% hello(Address, Port,
 %%       #ssl_tls{epoch = _Epoch, sequence_number = _Seq,

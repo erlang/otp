@@ -54,6 +54,7 @@
 	 db_erase_tab/2,
 	 db_first/1,
 	 db_first/2,
+	 db_foldl/3, db_foldl/4, db_foldl/6,
 	 db_last/1,
 	 db_last/2,
 	 db_fixtable/3,
@@ -135,6 +136,7 @@
 	 set_local_content_whereabouts/1,
 	 set_remote_where_to_read/1,
 	 set_remote_where_to_read/2,
+	 semantics/2,
 	 show/1,
 	 show/2,
 	 sort_commit/1,
@@ -144,6 +146,7 @@
 	 tab2tmp/1,
 	 tab2dcd/1,
 	 tab2dcl/1,
+	 tab2logtmp/1,
 	 to_list/1,
 	 union/2,
 	 uniq/1,
@@ -151,6 +154,8 @@
 	 unset/1,
 	 %% update_counter/2,
 	 val/1,
+	 validate_key/2,
+	 validate_record/2,
 	 vcore/0,
 	 vcore/1,
 	 verbose/2,
@@ -319,22 +324,47 @@ tab2dcd(Tab) ->  %% Disc copies data
 tab2dcl(Tab) ->  %% Disc copies log
     dir(lists:concat([Tab, ".DCL"])).
 
+tab2logtmp(Tab) ->  %% Disc copies log
+    dir(lists:concat([Tab, ".LOGTMP"])).
+
 storage_type_at_node(Node, Tab) ->
     search_key(Node, [{disc_copies, val({Tab, disc_copies})},
 		      {ram_copies, val({Tab, ram_copies})},
-		      {disc_only_copies, val({Tab, disc_only_copies})}]).
+		      {disc_only_copies, val({Tab, disc_only_copies})}|
+		      wrap_external(val({Tab, external_copies}))]).
 
 cs_to_storage_type(Node, Cs) ->
     search_key(Node, [{disc_copies, Cs#cstruct.disc_copies},
 		      {ram_copies, Cs#cstruct.ram_copies},
-		      {disc_only_copies, Cs#cstruct.disc_only_copies}]).
+		      {disc_only_copies, Cs#cstruct.disc_only_copies} |
+                      wrap_external(Cs#cstruct.external_copies)]).
+
+-define(native(T), T==ram_copies; T==disc_copies; T==disc_only_copies).
+
+semantics({ext,Alias,Mod}, Item) ->
+    Mod:semantics(Alias, Item);
+semantics({Alias,Mod}, Item) ->
+    Mod:semantics(Alias, Item);
+semantics(Type, storage) when ?native(Type) ->
+    Type;
+semantics(Type, types) when ?native(Type) ->
+    [set, ordered_set, bag];
+semantics(disc_only_copies, index_types) ->
+    [bag];
+semantics(Type, index_types) when ?native(Type) ->
+    [bag, ordered];
+semantics(_, _) ->
+    undefined.
+
+
+wrap_external(L) ->
+    [{{ext,Alias,Mod},Ns} || {{Alias,Mod},Ns} <- L].
 
 schema_cs_to_storage_type(Node, Cs) ->
     case cs_to_storage_type(Node, Cs) of
 	unknown when Cs#cstruct.name == schema -> ram_copies;
 	Other -> Other
     end.
-
 
 search_key(Key, [{Val, List} | Tail]) ->
     case lists:member(Key, List) of
@@ -343,6 +373,33 @@ search_key(Key, [{Val, List} | Tail]) ->
     end;
 search_key(_Key, []) ->
     unknown.
+
+validate_key(Tab, Key) ->
+    case ?catch_val({Tab, record_validation}) of
+	{RecName, Arity, Type} ->
+	    {RecName, Arity, Type};
+	{RecName, Arity, Type, Alias, Mod} ->
+	    %% external type
+	    Mod:validate_key(Alias, Tab, RecName, Arity, Type, Key);
+	{'EXIT', _} ->
+	    mnesia:abort({no_exists, Tab})
+    end.
+
+
+validate_record(Tab, Obj) ->
+    case ?catch_val({Tab, record_validation}) of
+	{RecName, Arity, Type}
+	  when tuple_size(Obj) == Arity, RecName == element(1, Obj) ->
+	    {RecName, Arity, Type};
+	{RecName, Arity, Type, Alias, Mod}
+	  when tuple_size(Obj) == Arity, RecName == element(1, Obj) ->
+	    %% external type
+	    Mod:validate_record(Alias, Tab, RecName, Arity, Type, Obj);
+	{'EXIT', _} ->
+	    mnesia:abort({no_exists, Tab});
+	_ ->
+	    mnesia:abort({bad_type, Obj})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ops, we've got some global variables here :-)
@@ -410,9 +467,9 @@ pr_other(Var) ->
 	    no -> {node_not_running, node()};
 	    _ -> {no_exists, Var}
 	end,
-    verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~n",
+    verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~p ~n",
 	    [self(), process_info(self(), registered_name),
-	     Var, Why]),
+	     Var, Why, erlang:get_stacktrace()]),
     mnesia:abort(Why).
 
 %% Some functions for list valued variables
@@ -549,9 +606,15 @@ read_counter(Name) ->
     ?ets_lookup_element(mnesia_stats, Name, 2).
 
 cs_to_nodes(Cs) ->
+    ext_nodes(Cs#cstruct.external_copies) ++
     Cs#cstruct.disc_only_copies ++
     Cs#cstruct.disc_copies ++
     Cs#cstruct.ram_copies.
+
+ext_nodes(Ext) ->
+    lists:flatmap(fun({_, Ns}) ->
+			  Ns
+		  end, Ext).
 
 overload_types() ->
     [mnesia_tm, mnesia_dump_log].
@@ -748,7 +811,7 @@ view(File) ->
 	true ->
 	    view(File, dat);
 	false ->
-	    case suffix([".LOG", ".BUP", ".ETS"], File) of
+	    case suffix([".LOG", ".BUP", ".ETS", ".LOGTMP"], File) of
 		true ->
 		    view(File, log);
 		false ->
@@ -922,20 +985,7 @@ random_time(Retries, _Counter0) ->
     UpperLimit = 500,
     Dup = Retries * Retries,
     MaxIntv = trunc(UpperLimit * (1-(50/((Dup)+50)))),
-    
-    case get(random_seed) of
-	undefined ->
-	    _ = random:seed(erlang:unique_integer(),
-			    erlang:monotonic_time(),
-			    erlang:unique_integer()),
-	    Time = Dup + random:uniform(MaxIntv),
-	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
-	    Time;
-	_ ->
-	    Time = Dup + random:uniform(MaxIntv),
-	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
-	    Time	    
-    end.
+    Dup + rand:uniform(MaxIntv).
 
 report_system_event(Event0) ->
     Event = {mnesia_system_event, Event0},
@@ -1057,18 +1107,24 @@ db_get(Tab, Key) ->
     db_get(val({Tab, storage_type}), Tab, Key).
 db_get(ram_copies, Tab, Key) -> ?ets_lookup(Tab, Key);
 db_get(disc_copies, Tab, Key) -> ?ets_lookup(Tab, Key);
-db_get(disc_only_copies, Tab, Key) -> dets:lookup(Tab, Key).
+db_get(disc_only_copies, Tab, Key) -> dets:lookup(Tab, Key);
+db_get({ext, Alias, Mod}, Tab, Key) ->
+    Mod:lookup(Alias, Tab, Key).
 
 db_init_chunk(Tab) ->
     db_init_chunk(val({Tab, storage_type}), Tab, 1000).
 db_init_chunk(Tab, N) ->
     db_init_chunk(val({Tab, storage_type}), Tab, N).
 
+db_init_chunk({ext, Alias, Mod}, Tab, N) ->
+    Mod:select(Alias, Tab, [{'_', [], ['$_']}], N);
 db_init_chunk(disc_only_copies, Tab, N) ->
     dets:select(Tab, [{'_', [], ['$_']}], N);
 db_init_chunk(_, Tab, N) ->
     ets:select(Tab, [{'_', [], ['$_']}], N).
 
+db_chunk({ext, _Alias, Mod}, State) ->
+    Mod:select(State);
 db_chunk(disc_only_copies, State) ->
     dets:select(State);
 db_chunk(_, State) ->
@@ -1079,7 +1135,9 @@ db_put(Tab, Val) ->
 
 db_put(ram_copies, Tab, Val) -> ?ets_insert(Tab, Val), ok;
 db_put(disc_copies, Tab, Val) -> ?ets_insert(Tab, Val), ok;
-db_put(disc_only_copies, Tab, Val) -> dets:insert(Tab, Val).
+db_put(disc_only_copies, Tab, Val) -> dets:insert(Tab, Val);
+db_put({ext, Alias, Mod}, Tab, Val) ->
+    Mod:insert(Alias, Tab, Val).
 
 db_match_object(Tab, Pat) ->
     db_match_object(val({Tab, storage_type}), Tab, Pat).
@@ -1088,11 +1146,35 @@ db_match_object(Storage, Tab, Pat) ->
     try
 	case Storage of
 	    disc_only_copies -> dets:match_object(Tab, Pat);
+	    {ext, Alias, Mod} -> Mod:select(Alias, Tab, [{Pat, [], ['$_']}]);
 	    _ -> ets:match_object(Tab, Pat)
 	end
     after
 	db_fixtable(Storage, Tab, false)
     end.
+
+db_foldl(Fun, Acc, Tab) ->
+    db_foldl(val({Tab, storage_type}), Fun, Acc, Tab).
+
+db_foldl(Storage, Fun, Acc, Tab) ->
+    Limit = mnesia_monitor:get_env(fold_chunk_size),
+    db_foldl(Storage, Fun, Acc, Tab, [{'_', [], ['$_']}], Limit).
+
+db_foldl(ram_copies, Fun, Acc, Tab, Pat, Limit) ->
+    mnesia_lib:db_fixtable(ram_copies, Tab, true),
+    try select_foldl(db_select_init(ram_copies, Tab, Pat, Limit),
+		     Fun, Acc, ram_copies)
+    after
+	mnesia_lib:db_fixtable(ram_copies, Tab, false)
+    end;
+db_foldl(Storage, Fun, Acc, Tab, Pat, Limit) ->
+    select_foldl(mnesia_lib:db_select_init(Storage, Tab, Pat, Limit), Fun, Acc, Storage).
+
+select_foldl({Objs, Cont}, Fun, Acc, Storage) ->
+    select_foldl(mnesia_lib:db_select_cont(Storage, Cont, []),
+	      Fun, lists:foldl(Fun, Acc, Objs), Storage);
+select_foldl('$end_of_table', _, Acc, _) ->
+    Acc.
 
 db_select(Tab, Pat) ->
     db_select(val({Tab, storage_type}), Tab, Pat).
@@ -1102,17 +1184,33 @@ db_select(Storage, Tab, Pat) ->
     try
 	case Storage of
 	    disc_only_copies -> dets:select(Tab, Pat);
+	    {ext, Alias, Mod} -> Mod:select(Alias, Tab, Pat);
 	    _ -> ets:select(Tab, Pat)
 	end
     after
 	db_fixtable(Storage, Tab, false)
     end.
 
+db_select_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
+    case Mod:select(Alias, Tab, Pat, Limit) of
+	{Matches, Continuation} when is_list(Matches) ->
+	    {Matches, {Alias, Continuation}};
+	R ->
+	    R
+    end;
 db_select_init(disc_only_copies, Tab, Pat, Limit) ->
     dets:select(Tab, Pat, Limit);
 db_select_init(_, Tab, Pat, Limit) ->
     ets:select(Tab, Pat, Limit).
 
+db_select_cont({ext, Alias, Mod}, Cont0, Ms) ->
+    Cont = Mod:repair_continuation(Cont0, Ms),
+    case Mod:select(Cont) of
+	{Matches, Continuation} when is_list(Matches) ->
+	    {Matches, {Alias, Continuation}};
+	R ->
+	    R
+    end;
 db_select_cont(disc_only_copies, Cont0, Ms) ->
     Cont = dets:repair_continuation(Cont0, Ms),
     dets:select(Cont);
@@ -1129,13 +1227,18 @@ db_fixtable(disc_copies, Tab, Bool) ->
 db_fixtable(dets, Tab, Bool) ->
     dets:safe_fixtable(Tab, Bool);
 db_fixtable(disc_only_copies, Tab, Bool) ->
-    dets:safe_fixtable(Tab, Bool).
+    dets:safe_fixtable(Tab, Bool);
+db_fixtable({ext, Alias, Mod}, Tab, Bool) ->
+    Mod:fixtable(Alias, Tab, Bool).
 
 db_erase(Tab, Key) ->
     db_erase(val({Tab, storage_type}), Tab, Key).
 db_erase(ram_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
 db_erase(disc_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
-db_erase(disc_only_copies, Tab, Key) -> dets:delete(Tab, Key).
+db_erase(disc_only_copies, Tab, Key) -> dets:delete(Tab, Key);
+db_erase({ext, Alias, Mod}, Tab, Key) ->
+    Mod:delete(Alias, Tab, Key),
+    ok.
 
 db_match_erase(Tab, '_') ->
     db_delete_all(val({Tab, storage_type}),Tab);
@@ -1143,7 +1246,10 @@ db_match_erase(Tab, Pat) ->
     db_match_erase(val({Tab, storage_type}), Tab, Pat).
 db_match_erase(ram_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
 db_match_erase(disc_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
-db_match_erase(disc_only_copies, Tab, Pat) -> dets:match_delete(Tab, Pat).
+db_match_erase(disc_only_copies, Tab, Pat) -> dets:match_delete(Tab, Pat);
+db_match_erase({ext, Alias, Mod}, Tab, Pat) ->
+    Mod:match_delete(Alias, Tab, Pat),
+    ok.
 
 db_delete_all(ram_copies, Tab) ->       ets:delete_all_objects(Tab);
 db_delete_all(disc_copies, Tab) ->      ets:delete_all_objects(Tab);
@@ -1153,31 +1259,41 @@ db_first(Tab) ->
     db_first(val({Tab, storage_type}), Tab).
 db_first(ram_copies, Tab) -> ?ets_first(Tab);
 db_first(disc_copies, Tab) -> ?ets_first(Tab);
-db_first(disc_only_copies, Tab) -> dets:first(Tab).
+db_first(disc_only_copies, Tab) -> dets:first(Tab);
+db_first({ext, Alias, Mod}, Tab) ->
+    Mod:first(Alias, Tab).
 
 db_next_key(Tab, Key) ->
     db_next_key(val({Tab, storage_type}), Tab, Key).
 db_next_key(ram_copies, Tab, Key) -> ?ets_next(Tab, Key);
 db_next_key(disc_copies, Tab, Key) -> ?ets_next(Tab, Key);
-db_next_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key).
+db_next_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key);
+db_next_key({ext, Alias, Mod}, Tab, Key) ->
+    Mod:next(Alias, Tab, Key).
 
 db_last(Tab) ->
     db_last(val({Tab, storage_type}), Tab).
 db_last(ram_copies, Tab) -> ?ets_last(Tab);
 db_last(disc_copies, Tab) -> ?ets_last(Tab);
-db_last(disc_only_copies, Tab) -> dets:first(Tab). %% Dets don't have order
+db_last(disc_only_copies, Tab) -> dets:first(Tab); %% Dets don't have order
+db_last({ext, Alias, Mod}, Tab) ->
+    Mod:last(Alias, Tab).
 
 db_prev_key(Tab, Key) ->
     db_prev_key(val({Tab, storage_type}), Tab, Key).
 db_prev_key(ram_copies, Tab, Key) -> ?ets_prev(Tab, Key);
 db_prev_key(disc_copies, Tab, Key) -> ?ets_prev(Tab, Key);
-db_prev_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key). %% Dets don't have order
+db_prev_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key); %% Dets don't have order
+db_prev_key({ext, Alias, Mod}, Tab, Key) ->
+    Mod:prev(Alias, Tab, Key).
 
 db_slot(Tab, Pos) ->
     db_slot(val({Tab, storage_type}), Tab, Pos).
 db_slot(ram_copies, Tab, Pos) -> ?ets_slot(Tab, Pos);
 db_slot(disc_copies, Tab, Pos) -> ?ets_slot(Tab, Pos);
-db_slot(disc_only_copies, Tab, Pos) -> dets:slot(Tab, Pos).
+db_slot(disc_only_copies, Tab, Pos) -> dets:slot(Tab, Pos);
+db_slot({ext, Alias, Mod}, Tab, Pos) ->
+    Mod:slot(Alias, Tab, Pos).
 
 db_update_counter(Tab, C, Val) ->
     db_update_counter(val({Tab, storage_type}), Tab, C, Val).
@@ -1186,13 +1302,16 @@ db_update_counter(ram_copies, Tab, C, Val) ->
 db_update_counter(disc_copies, Tab, C, Val) ->
     ?ets_update_counter(Tab, C, Val);
 db_update_counter(disc_only_copies, Tab, C, Val) ->
-    dets:update_counter(Tab, C, Val).
+    dets:update_counter(Tab, C, Val);
+db_update_counter({ext, Alias, Mod}, Tab, C, Val) ->
+    Mod:update_counter(Alias, Tab, C, Val).
 
 db_erase_tab(Tab) ->
     db_erase_tab(val({Tab, storage_type}), Tab).
 db_erase_tab(ram_copies, Tab) -> ?ets_delete_table(Tab);
 db_erase_tab(disc_copies, Tab) -> ?ets_delete_table(Tab);
-db_erase_tab(disc_only_copies, _Tab) -> ignore.
+db_erase_tab(disc_only_copies, _Tab) -> ignore;
+db_erase_tab({ext, _Alias, _Mod}, _Tab) -> ignore.
 
 %% assuming that Tab is a valid ets-table
 dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -435,5 +435,82 @@ add_node(X, Pid) ->
 
 %% Can't do io_lib:format
 
-display2(Tag,F,A) ->
-    erlang:display({error_logger,Tag,F,A}).
+display2({{_Y,_Mo,_D},{_H,_Mi,_S}} = Date, F, A) ->
+    display_date(Date),
+    display3(string_p(F), F, A).
+
+display_date({{Y,Mo,D},{H,Mi,S}}) ->
+    erlang:display_string(
+      integer_to_list(Y) ++ "-" ++
+	  two_digits(Mo) ++ "-" ++
+	  two_digits(D)  ++ " " ++
+	  two_digits(H)  ++ ":" ++
+	  two_digits(Mi) ++ ":" ++
+	  two_digits(S)  ++ " ").
+
+two_digits(N) when 0 =< N, N =< 9 ->
+    [$0, $0 + N];
+two_digits(N) ->
+    integer_to_list(N).
+
+display3(true, F, A) ->
+    %% Format string with arguments
+    erlang:display_string(F ++ "\n"),
+    [begin
+	 erlang:display_string("\t"),
+	 erlang:display(Arg)
+     end || Arg <- A],
+    ok;
+display3(false, Atom, A) when is_atom(Atom) ->
+    %% The widest atom seems to be 'supervisor_report' at 17.
+    ColumnWidth = 20,
+    AtomString = atom_to_list(Atom),
+    AtomLength = length(AtomString),
+    Padding = lists:duplicate(ColumnWidth - AtomLength, $\s),
+    erlang:display_string(AtomString ++ Padding),
+    display4(A);
+display3(_, F, A) ->
+    erlang:display({F, A}).
+
+display4([A, []]) ->
+    %% Not sure why crash reports look like this.
+    display4(A);
+display4(A = [_|_]) ->
+    case lists:all(fun({Key,_Value}) -> is_atom(Key); (_) -> false end, A) of
+	true ->
+	    erlang:display_string("\n"),
+	    lists:foreach(
+	      fun({Key, Value}) ->
+		      erlang:display_string(
+			"    " ++
+			    atom_to_list(Key) ++
+			    ": "),
+		      erlang:display(Value)
+	      end, A);
+	false ->
+	    erlang:display(A)
+    end;
+display4(A) ->
+    erlang:display(A).
+
+string_p([]) ->
+    false;
+string_p(Term) ->
+    string_p1(Term).
+
+string_p1([H|T]) when is_integer(H), H >= $\s, H < 255 ->
+    string_p1(T);
+string_p1([$\n|T]) -> string_p1(T);
+string_p1([$\r|T]) -> string_p1(T);
+string_p1([$\t|T]) -> string_p1(T);
+string_p1([$\v|T]) -> string_p1(T);
+string_p1([$\b|T]) -> string_p1(T);
+string_p1([$\f|T]) -> string_p1(T);
+string_p1([$\e|T]) -> string_p1(T);
+string_p1([H|T]) when is_list(H) ->
+    case string_p1(H) of
+	true -> string_p1(T);
+	_    -> false
+    end;
+string_p1([]) -> true;
+string_p1(_) ->  false.

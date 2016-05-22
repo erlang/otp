@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1998-2012. All Rights Reserved.
+# Copyright Ericsson AB 1998-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -209,10 +209,8 @@ ERL_LOCAL_FLAGS += -pa $(ERL_TOP)/lib/orber/ebin -pa $(ERL_TOP)/lib/ic/ebin
 
 ERL_COMPILE_FLAGS += \
 	$(ERL_LOCAL_FLAGS) \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
 	-pa $(ERL_TOP)/lib/orber/ebin \
-	-I$(ERL_TOP)/lib/orber \
-	-I$(ERL_TOP)/lib/test_server/include
+	-I$(ERL_TOP)/lib/orber
 
 # ----------------------------------------------------
 # Targets

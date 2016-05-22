@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,8 +51,8 @@
 	 ssh_connect_arg4_timeout/1, 
 	 ssh_connect_negtimeout_parallel/1, 
 	 ssh_connect_negtimeout_sequential/1, 
-	 ssh_connect_nonegtimeout_connected_parallel/1, 
-	 ssh_connect_nonegtimeout_connected_sequential/1, 
+	 ssh_connect_nonegtimeout_connected_parallel/1,
+	 ssh_connect_nonegtimeout_connected_sequential/1,
 	 ssh_connect_timeout/1, connect/4,
 	 ssh_daemon_minimal_remote_max_packet_size_option/1, 
 	 ssh_msg_debug_fun_option_client/1, 
@@ -80,7 +80,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,6}}].
+     {timetrap,{seconds,30}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
@@ -491,7 +491,7 @@ ssh_msg_debug_fun_option_client(Config) ->
 					  {user_interaction, false},
 					  {ssh_msg_debug_fun,DbgFun}]),
     %% Beware, implementation knowledge:
-    gen_fsm:send_all_state_event(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+    gen_statem:cast(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
     receive
 	{msg_dbg,X={ConnectionRef,false,<<"Hello">>,<<>>}} ->
 	    ct:log("Got expected dbg msg ~p",[X]),
@@ -604,7 +604,7 @@ ssh_msg_debug_fun_option_server(Config) ->
     receive
 	{connection_pid,Server} ->
 	    %% Beware, implementation knowledge:
-	    gen_fsm:send_all_state_event(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+	    gen_statem:cast(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
 	    receive
 		{msg_dbg,X={_,false,<<"Hello">>,<<>>}} ->
 		    ct:log("Got expected dbg msg ~p",[X]),
@@ -992,7 +992,7 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
-    NegTimeOut = 20000,				% ms
+    NegTimeOut = 2000,				% ms
     ct:log("Parallel: ~p",[Parallel]),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
@@ -1123,27 +1123,42 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		    %% This is expected
 		    %% Now stop one connection and try to open one more
 		    ok = ssh:close(hd(Connections)),
-		    receive after 250 -> ok end, % sleep so the supervisor has time to count down. Not nice...
-		    try Connect(Host,Port)
-		    of
-			_ConnectionRef1 ->
-			    %% Step 3 ok: could set up one more connection after killing one
-			    %% Thats good.
-			    ssh:stop_daemon(Pid),
-			    ok
-		    catch
-			error:{badmatch,{error,"Connection closed"}} ->
-			    %% Bad indeed. Could not set up one more connection even after killing
-			    %% one existing. Very bad.
-			    ssh:stop_daemon(Pid),
-			    {fail,"Does not decrease # active sessions"}
-		    end
+		    try_to_connect(Connect, Host, Port, Pid)
 	    end
     catch
 	error:{badmatch,{error,"Connection closed"}} ->
 	    ssh:stop_daemon(Pid),
 	    {fail,"Too few connections accepted"}
     end.
+
+
+try_to_connect(Connect, Host, Port, Pid) ->
+    {ok,Tref} = timer:send_after(3000, timeout_no_connection), % give the supervisors some time...
+    try_to_connect(Connect, Host, Port, Pid, Tref, 1). % will take max 3300 ms after 11 tries
+
+try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
+     try Connect(Host,Port)
+     of
+	 _ConnectionRef1 ->
+	     %% Step 3 ok: could set up one more connection after killing one
+	     %% Thats good.
+	     timer:cancel(Tref),
+	     ssh:stop_daemon(Pid),
+	     receive % flush. 
+		 timeout_no_connection -> ok
+	     after 0 -> ok
+	     end
+     catch
+	 error:{badmatch,{error,"Connection closed"}} ->
+	     %% Could not set up one more connection. Try again until timeout.
+	     receive
+		 timeout_no_connection ->
+		     ssh:stop_daemon(Pid),
+		     {fail,"Does not decrease # active sessions"}
+	     after N*50 -> % retry after this time
+		     try_to_connect(Connect, Host, Port, Pid, Tref, N+1)
+	     end
+     end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

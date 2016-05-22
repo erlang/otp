@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@
 -module(wx_obj_test).
 -include_lib("wx/include/wx.hrl").
 
--export([start/1, stop/1]).
+-export([start/1, stop/1, who_are_you/1]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_sync_event/3, handle_event/2, handle_cast/2]).
 
--record(state, {parent, opts, user_state}).
+-record(state, {parent, me, opts, user_state}).
 
 start(Opts) ->
     wx_object:start_link(?MODULE, [{parent, self()}| Opts], []).
@@ -33,12 +33,15 @@ start(Opts) ->
 stop(Object) ->
     wx_object:stop(Object).
 
+who_are_you(Object) ->
+    wx_object:call(Object, who_are_you).
+
 init(Opts) ->
     Parent = proplists:get_value(parent, Opts),
     put(parent_pid, Parent),
     Init = proplists:get_value(init, Opts),
     {Obj, UserState} = Init(),
-    {Obj, #state{parent=Parent, opts=Opts, user_state=UserState}}.
+    {Obj, #state{me=Obj, parent=Parent, opts=Opts, user_state=UserState}}.
 
 handle_sync_event(Event = #wx{obj=Panel, event=#wxPaint{}},
 		  WxEvent, #state{parent=Parent, user_state=US, opts=Opts}) ->
@@ -59,6 +62,8 @@ handle_event(Event, State = #state{parent=Parent}) ->
     Parent ! {event, Event},
     {noreply, State}.
 
+handle_call(who_are_you, _From, State = #state{me=Me}) ->
+    {reply, Me, State};
 handle_call(What, From, State = #state{user_state=US}) when is_function(What) ->
     Result = What(US),
     {reply, {call, Result, From}, State};

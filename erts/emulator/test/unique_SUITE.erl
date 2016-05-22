@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,37 +20,24 @@
 
 -module(unique_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 -export([unique_monotonic_integer_white_box/1,
 	 unique_integer_white_box/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %-define(P(V), V).
 -define(P(V), print_ret_val(?FILE, ?LINE, V)).
 
 -define(PRINT(V), print_ret_val(?FILE, ?LINE, V)).
 
-
-init_per_testcase(Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(2)),
-    [{watchdog, Dog}, {testcase, Case}|Config].
-
-end_per_testcase(_, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [unique_monotonic_integer_white_box,
      unique_integer_white_box].
-
-groups() -> 
-    [].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -59,12 +46,6 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 %%
 %%
@@ -80,15 +61,15 @@ unique_monotonic_integer_white_box(Config) when is_list(Config) ->
     %% the system when moving the strict monotonic counter
     %% around in a non-strict monotonic way...
     Test = spawn(Node,
-		 fun () ->
-			 unique_monotonic_integer_white_box_test(TestServer, Success)
-		 end),
+                 fun () ->
+                         unique_monotonic_integer_white_box_test(TestServer, Success)
+                 end),
     Mon = erlang:monitor(process, Test),
     receive
-	{'DOWN', Mon, process, Test, Error} ->
-	    ?t:fail(Error);
-	Success ->
-	    ok
+        {'DOWN', Mon, process, Test, Error} ->
+            ct:fail(Error);
+        Success ->
+            ok
     end,
     erlang:demonitor(Mon, [flush]),
     stop_node(Node),
@@ -96,9 +77,9 @@ unique_monotonic_integer_white_box(Config) when is_list(Config) ->
 
 set_unique_monotonic_integer_state(MinCounter, NextValue) ->
     true = erts_debug:set_internal_state(unique_monotonic_integer_state,
-					 NextValue-MinCounter-1).
-    
-    
+                                         NextValue-MinCounter-1).
+
+
 
 unique_monotonic_integer_white_box_test(TestServer, Success) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -130,10 +111,10 @@ unique_monotonic_integer_white_box_test(TestServer, Success) ->
     ?PRINT({max_counter, MaxCounter}),
 
     case WordSize of
-	4 ->
-	    MinCounter = MinSint64;
-	8 ->
-	    MinCounter = MinSmall
+        4 ->
+            MinCounter = MinSint64;
+        8 ->
+            MinCounter = MinSmall
     end,
 
     StartState = erts_debug:get_internal_state(unique_monotonic_integer_state),
@@ -141,20 +122,20 @@ unique_monotonic_integer_white_box_test(TestServer, Success) ->
     %% Verify that we get expected results over all internal limits...
 
     case MinCounter < MinSmall of
-	false ->
-	    8 = WordSize,
-	    ok;
-	true ->
-	    4 = WordSize,
-	    ?PRINT(over_min_small),
-	    set_unique_monotonic_integer_state(MinCounter, MinSmall-2),
-	    true = (?P(erlang:unique_integer([monotonic])) == MinSmall - 2),
-	    true = (?P(erlang:unique_integer([monotonic])) == MinSmall - 1),
-	    true = (?P(erlang:unique_integer([monotonic])) == MinSmall),
-	    true = (?P(erlang:unique_integer([monotonic]))  == MinSmall + 1),
-	    true = (?P(erlang:unique_integer([monotonic]))  == MinSmall + 2),
-	    garbage_collect(),
-	    ok
+        false ->
+            8 = WordSize,
+            ok;
+        true ->
+            4 = WordSize,
+            ?PRINT(over_min_small),
+            set_unique_monotonic_integer_state(MinCounter, MinSmall-2),
+            true = (?P(erlang:unique_integer([monotonic])) == MinSmall - 2),
+            true = (?P(erlang:unique_integer([monotonic])) == MinSmall - 1),
+            true = (?P(erlang:unique_integer([monotonic])) == MinSmall),
+            true = (?P(erlang:unique_integer([monotonic]))  == MinSmall + 1),
+            true = (?P(erlang:unique_integer([monotonic]))  == MinSmall + 2),
+            garbage_collect(),
+            ok
     end,
 
     ?PRINT(over_zero), %% Not really an interesting limit, but...
@@ -176,27 +157,27 @@ unique_monotonic_integer_white_box_test(TestServer, Success) ->
     garbage_collect(),
 
     case MaxCounter > MaxSint64 of
-	false ->
-	    4 = WordSize,
-	    ok;
-	true ->
-	    8 = WordSize,
-	    ?PRINT(over_max_sint64),
-	    set_unique_monotonic_integer_state(MinCounter, MaxSint64-2),
-	    true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 - 2),
-	    true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 - 1),
-	    true = (?P(erlang:unique_integer([monotonic])) == MaxSint64),
-	    true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 + 1),
-	    true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 + 2),
-	    garbage_collect()
+        false ->
+            4 = WordSize,
+            ok;
+        true ->
+            8 = WordSize,
+            ?PRINT(over_max_sint64),
+            set_unique_monotonic_integer_state(MinCounter, MaxSint64-2),
+            true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 - 2),
+            true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 - 1),
+            true = (?P(erlang:unique_integer([monotonic])) == MaxSint64),
+            true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 + 1),
+            true = (?P(erlang:unique_integer([monotonic])) == MaxSint64 + 2),
+            garbage_collect()
     end,
 
     ?PRINT(over_max_min_counter),
     set_unique_monotonic_integer_state(MinCounter, if MaxCounter == MaxSint64 ->
-							   MaxCounter-2;
-						      true ->
-							   MinCounter-3
-						   end),
+                                                          MaxCounter-2;
+                                                      true ->
+                                                          MinCounter-3
+                                                   end),
     true = (?P(erlang:unique_integer([monotonic])) == MaxCounter - 2),
     true = (?P(erlang:unique_integer([monotonic])) == MaxCounter - 1),
     true = (?P(erlang:unique_integer([monotonic])) == MaxCounter),
@@ -208,7 +189,7 @@ unique_monotonic_integer_white_box_test(TestServer, Success) ->
     %% Restore initial state and hope we didn't mess it up for the
     %% system...
     true = erts_debug:set_internal_state(unique_monotonic_integer_state,
-					 StartState),
+                                         StartState),
 
     TestServer ! Success.
 
@@ -219,16 +200,16 @@ unique_monotonic_integer_white_box_test(TestServer, Success) ->
 %%
 
 -record(uniqint_info, {min_int,
-		       max_int,
-		       max_small,
-		       schedulers,
-		       sched_bits}).
+                       max_int,
+                       max_small,
+                       schedulers,
+                       sched_bits}).
 
 unique_integer_white_box(Config) when is_list(Config) ->
     UinqintInfo = init_uniqint_info(),
     #uniqint_info{min_int = MinInt,
-		  max_int = MaxInt,
-		  max_small = MaxSmall} = UinqintInfo,
+                  max_int = MaxInt,
+                  max_small = MaxSmall} = UinqintInfo,
     io:format("****************************************************~n", []),
     io:format("*** Around MIN_UNIQ_INT ~p ***~n", [MinInt]),
     io:format("****************************************************~n", []),
@@ -258,7 +239,7 @@ unique_integer_white_box(Config) when is_list(Config) ->
     io:format("****************************************************~n", []),
     check_unique_integer_around(MaxInt, UinqintInfo),
     ok.
-	
+
 
 %%% Internal unique_integer_white_box/1 test case
 
@@ -267,10 +248,21 @@ calc_sched_bits(NoScheds, Shift) when NoScheds < 1 bsl Shift ->
 calc_sched_bits(NoScheds, Shift) ->
     calc_sched_bits(NoScheds, Shift+1).
 
+schedulers() ->
+    S = erlang:system_info(schedulers),
+    try
+        DCPUS = erlang:system_info(dirty_cpu_schedulers),
+        DIOS = erlang:system_info(dirty_io_schedulers),
+        S+DCPUS+DIOS
+    catch
+        _ : _ ->
+            S
+    end.
+
 init_uniqint_info() ->
     SmallBits = erlang:system_info({wordsize, internal})*8-4,
     io:format("SmallBits=~p~n", [SmallBits]),
-    Schedulers = erlang:system_info(schedulers),
+    Schedulers = schedulers(),
     io:format("Schedulers=~p~n", [Schedulers]),
     MinSmall = -1*(1 bsl (SmallBits-1)),
     io:format("MinSmall=~p~n", [MinSmall]),
@@ -281,33 +273,33 @@ init_uniqint_info() ->
     MaxInt = ((((1 bsl 64) - 1) bsl SchedBits) bor Schedulers) + MinSmall,
     io:format("MaxInt=~p~n", [MaxInt]),
     #uniqint_info{min_int = MinSmall,
-		  max_int = MaxInt,
-		  max_small = MaxSmall,
-		  schedulers = Schedulers,
-		  sched_bits = SchedBits}.
+                  max_int = MaxInt,
+                  max_small = MaxSmall,
+                  schedulers = Schedulers,
+                  sched_bits = SchedBits}.
 
 valid_uniqint(Int, #uniqint_info{min_int = MinInt} = UinqintInfo) when Int < MinInt ->
     valid_uniqint(MinInt, UinqintInfo);
 valid_uniqint(Int, #uniqint_info{min_int = MinInt,
-				 sched_bits = SchedBits,
-				 schedulers = Scheds}) ->
+                                 sched_bits = SchedBits,
+                                 schedulers = Scheds}) ->
     Int1 = Int - MinInt,
     {Inc, ThreadNo} = case Int1 band ((1 bsl SchedBits) - 1) of
-			  TN when TN > Scheds ->
-			      {1, Scheds};
-			  TN ->
-			      {0, TN}
-		      end,
+                          TN when TN > Scheds ->
+                              {1, Scheds};
+                          TN ->
+                              {0, TN}
+                      end,
     Counter = ((Int1 bsr SchedBits) + Inc) rem (1 bsl 64),
     ((Counter bsl SchedBits) bor ThreadNo) + MinInt.
 
 smaller_valid_uniqint(Int, UinqintInfo) ->
     Cand = Int-1,
     case valid_uniqint(Cand, UinqintInfo) of
-	RI when RI < Int ->
-	    RI;
-	_ ->
-	    smaller_valid_uniqint(Cand, UinqintInfo)
+        RI when RI < Int ->
+            RI;
+        _ ->
+            smaller_valid_uniqint(Cand, UinqintInfo)
     end.
 
 int32_to_bigendian_list(Int) ->
@@ -318,7 +310,7 @@ int32_to_bigendian_list(Int) ->
      Int band 16#ff].
 
 mk_uniqint(Int, #uniqint_info {min_int = MinInt,
-			       sched_bits = SchedBits} = _UinqintInfo) ->
+                               sched_bits = SchedBits} = _UinqintInfo) ->
     Int1 = Int - MinInt,
     ThrId = Int1 band ((1 bsl SchedBits) - 1),
     Value = (Int1 bsr SchedBits) band ((1 bsl 64) - 1),
@@ -334,36 +326,36 @@ check_uniqint(Int, UinqintInfo) ->
     UniqInt = mk_uniqint(Int, UinqintInfo),
     io:format("UniqInt=~p ", [UniqInt]),
     case UniqInt =:= Int of
-	true ->
-	    io:format("OK~n~n", []);
-	false ->
-	    io:format("result UniqInt=~p FAILED~n", [UniqInt]),
-	    exit(badres)
+        true ->
+            io:format("OK~n~n", []);
+        false ->
+            io:format("result Int=~p FAILED~n", [Int]),
+            exit(badres)
     end.
 
 check_unique_integer_around(Int, #uniqint_info{min_int = MinInt,
-					       max_int = MaxInt} = UinqintInfo) ->
+                                               max_int = MaxInt} = UinqintInfo) ->
     {Start, End} = case {Int =< MinInt+100, Int >= MaxInt-100} of
-		       {true, false} ->
-			   {MinInt, MinInt+100};
-		       {false, false} ->
-			   {smaller_valid_uniqint(Int-100, UinqintInfo),
-			    valid_uniqint(Int+100, UinqintInfo)};
-		       {false, true} ->
-			   {MaxInt-100, MaxInt}
-		   end,
+                       {true, false} ->
+                           {MinInt, MinInt+100};
+                       {false, false} ->
+                           {smaller_valid_uniqint(Int-100, UinqintInfo),
+                            valid_uniqint(Int+100, UinqintInfo)};
+                       {false, true} ->
+                           {MaxInt-100, MaxInt}
+                   end,
     lists:foldl(fun (I, OldRefInt) ->
-			RefInt = valid_uniqint(I, UinqintInfo),
-			case OldRefInt =:= RefInt of
-			    true ->
-				ok;
-			    false ->
-				check_uniqint(RefInt, UinqintInfo)
-			end,
-			RefInt
-		end,
-		none,
-		lists:seq(Start, End)).
+                        RefInt = valid_uniqint(I, UinqintInfo),
+                        case OldRefInt =:= RefInt of
+                            true ->
+                                ok;
+                            false ->
+                                check_uniqint(RefInt, UinqintInfo)
+                        end,
+                        RefInt
+                end,
+                none,
+                lists:seq(Start, End)).
 
 
 %% helpers
@@ -375,17 +367,17 @@ print_ret_val(File, Line, Value) ->
 start_node(Config) ->
     start_node(Config, []).
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line A = erlang:monotonic_time(1) + erlang:time_offset(1),
-    ?line B = erlang:unique_integer([positive]),
-    ?line Name = list_to_atom(atom_to_list(?MODULE)
-			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
-			      ++ "-"
-			      ++ integer_to_list(A)
-			      ++ "-"
-			      ++ integer_to_list(B)),
-    ?line ?t:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    Pa = filename:dirname(code:which(?MODULE)),
+    A = erlang:monotonic_time(1) + erlang:time_offset(1),
+    B = erlang:unique_integer([positive]),
+    Name = list_to_atom(atom_to_list(?MODULE)
+                        ++ "-"
+                        ++ atom_to_list(proplists:get_value(testcase, Config))
+                        ++ "-"
+                        ++ integer_to_list(A)
+                        ++ "-"
+                        ++ integer_to_list(B)),
+    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).

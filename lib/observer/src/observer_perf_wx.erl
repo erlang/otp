@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,8 +25,9 @@
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
 %% Drawing wrappers for DC and GC areas
--export([setup_graph_drawing/1, refresh_panel/6,
-	 haveGC/0,
+-export([make_win/4, setup_graph_drawing/1,
+	 refresh_panel/4, precalc/4, add_data/5, interval_dialog/2,
+	 haveGC/0, make_gc/2, destroy_gc/1,
 	 setPen/2, setFont/3, setBrush/2,
 	 strokeLine/5, strokeLines/2, drawRoundedRectangle/6,
 	 drawText/4, getTextExtent/2]).
@@ -35,13 +36,18 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
+-define(ID_REFRESH_INTERVAL, 102).
+
+-define(BW, 5).
+-define(BH, 5).
+
 -record(state,
 	{
-	  offset = 0.0,
+	  time = #ti{},
 	  active = false,
 	  parent,
-	  windows,
-	  data = {0, queue:new()},
+	  samples,        %% Orig data store
+	  wins=[],     %% per window content
 	  panel,
 	  paint,
 	  appmon
@@ -51,50 +57,50 @@
 
 -record(paint, {font, small, pen, pen2, pens, usegc = false}).
 
--define(RQ_W,  1).
--define(MEM_W, 2).
--define(IO_W,  3).
-
 start_link(Notebook, Parent) ->
     wx_object:start_link(?MODULE, [Notebook, Parent], []).
 
 init([Notebook, Parent]) ->
- try
-    Panel = wxPanel:new(Notebook),
-    Main  = wxBoxSizer:new(?wxVERTICAL),
+    try
+	Panel = wxPanel:new(Notebook),
+	Main  = wxBoxSizer:new(?wxVERTICAL),
+	MemIO = wxBoxSizer:new(?wxHORIZONTAL),
+
+	CPU = make_win(runq, Panel, Main, ?wxALL),
+	MEM = make_win(memory, Panel, MemIO, ?wxLEFT),
+	IO  = make_win(io, Panel, MemIO, ?wxLEFT bor ?wxRIGHT),
+
+	wxSizer:add(Main, MemIO, [{flag, ?wxEXPAND bor ?wxDOWN},
+				  {proportion, 1}, {border, 5}]),
+	wxWindow:setSizer(Panel, Main),
+	Windows = [CPU, MEM, IO],
+	PaintInfo = setup_graph_drawing(Windows),
+
+	process_flag(trap_exit, true),
+	State0 = #state{parent=Parent,
+			panel =Panel,
+			wins = Windows,
+			paint=PaintInfo,
+			samples=reset_data()
+		       },
+	{Panel, State0}
+    catch _:Err ->
+	    io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
+	    {stop, Err}
+    end.
+
+make_win(Name, Parent, Sizer, Border) ->
     Style = ?wxFULL_REPAINT_ON_RESIZE bor ?wxCLIP_CHILDREN,
-    CPU = wxPanel:new(Panel, [{winid, ?RQ_W}, {style,Style}]),
-    wxSizer:add(Main, CPU, [{flag, ?wxEXPAND bor ?wxALL},
-				 {proportion, 1}, {border, 5}]),
-    MemIO = wxBoxSizer:new(?wxHORIZONTAL),
-    MEM = wxPanel:new(Panel, [{winid, ?MEM_W}, {style,Style}]),
-    IO  = wxPanel:new(Panel, [{winid, ?IO_W}, {style,Style}]),
-    wxSizer:add(MemIO, MEM, [{flag, ?wxEXPAND bor ?wxLEFT},
-			     {proportion, 1}, {border, 5}]),
-    wxSizer:add(MemIO, IO,  [{flag, ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT},
-			     {proportion, 1}, {border, 5}]),
-    wxSizer:add(Main, MemIO, [{flag, ?wxEXPAND bor ?wxDOWN},
-			      {proportion, 1}, {border, 5}]),
-    wxWindow:setSizer(Panel, Main),
-
-    PaintInfo = setup_graph_drawing([CPU, MEM, IO]),
-
-    process_flag(trap_exit, true),
-    {Panel, #state{parent=Parent,
-		   panel =Panel,
-		   windows = {CPU, MEM, IO},
-		   paint=PaintInfo
-		  }}
-   catch _:Err ->
-	   io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
-	   {stop, Err}
-   end.
+    Panel = wxPanel:new(Parent, [{style,Style}]),
+    Opts = [{flag, ?wxEXPAND bor Border}, {proportion, 1}, {border, 5}],
+    wxSizer:add(Sizer, Panel, Opts),
+    #win{name=Name, panel=Panel}.
 
 setup_graph_drawing(Panels) ->
     IsWindows = element(1, os:type()) =:= win32,
     IgnoreCB = {callback, fun(_,_) -> ok end},
-    Do = fun(Panel) ->
-		 wxWindow:setBackgroundColour(Panel, ?wxWHITE),
+    Do = fun(#win{panel=Panel}) ->
+		 wxWindow:setBackgroundStyle(Panel, ?wxBG_STYLE_SYSTEM),
 		 wxPanel:connect(Panel, paint, [callback]),
 		 IsWindows andalso
 		     wxPanel:connect(Panel, erase_background, [IgnoreCB])
@@ -117,8 +123,8 @@ setup_graph_drawing(Panels) ->
 		  SF = wxFont:new(DefSize-2, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
 		  {F, SF}
 	  end,
-    BlackPen = wxPen:new({0,0,0}, [{width, 2}]),
-    Pens = [wxPen:new(Col, [{width, 3}]) || Col <- tuple_to_list(colors())],
+    BlackPen = wxPen:new({0,0,0}, [{width, 1}]),
+    Pens = [wxPen:new(Col, [{width, 1}]) || Col <- tuple_to_list(colors())],
     #paint{usegc = UseGC,
 	   font  = Font,
 	   small = SmallFont,
@@ -129,7 +135,18 @@ setup_graph_drawing(Panels) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+handle_event(#wx{id=?ID_REFRESH_INTERVAL, event=#wxCommand{type=command_menu_selected}},
+	     #state{panel=Panel, appmon=Old, wins=Wins0, time=#ti{fetch=F0} = Ti0} = State) ->
+    case interval_dialog(Panel, Ti0) of
+	Ti0 -> {noreply, State};
+	#ti{fetch=F0} = Ti -> %% Same fetch interval force refresh
+	    Wins = [W#win{max=undefined} || W <- Wins0],
+	    {noreply, precalc(State#state{time=Ti, wins=Wins})};
+	Ti when Old =:= undefined ->
+	    {noreply, State#state{time=Ti}};
+	Ti -> %% Changed fetch interval, drop all data
+	    {noreply, restart_fetcher(node(Old), State#state{time=Ti})}
+    end;
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
 	     State = #state{}) ->
     {noreply, State};
@@ -139,41 +156,21 @@ handle_event(Event, _State) ->
 
 %%%%%%%%%%
 handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
-		  #state{active=Active, offset=Offset, paint=Paint,
-			 windows=Windows, data=Data}) ->
+		  #state{active=Active, time=Ti, paint=Paint, wins=Windows}) ->
     %% Sigh workaround bug on MacOSX (Id in paint event is always 0)
     %% Panel = element(Id, Windows),
-    Id = if Panel =:= element(?RQ_W, Windows)  -> runq;
-	    Panel =:= element(?MEM_W, Windows) -> memory;
-	    Panel =:= element(?IO_W, Windows)  -> io
-	 end,
-
-    refresh_panel(Panel, Id, Offset, Data, Active, Paint),
+    Win = lists:keyfind(Panel, #win.panel, Windows),
+    refresh_panel(Active, Win, Ti, Paint),
     ok.
 
-refresh_panel(Panel, Id, Offset, Data, Active, #paint{usegc=UseGC} = Paint) ->
+refresh_panel(Active, #win{name=_Id, panel=Panel}=Win, Ti, #paint{usegc=UseGC}=Paint) ->
     %% PaintDC must be created in a callback to work on windows.
-    IsWindows = element(1, os:type()) =:= win32,
-    DC = if IsWindows ->
-		 %% Ugly hack to aviod flickering on windows, works on windows only
-		 %% But the other platforms are doublebuffered by default
-		 wx:typeCast(wxBufferedPaintDC:new(Panel), wxPaintDC);
-	    true ->
-		 wxPaintDC:new(Panel)
-	 end,
-    IsWindows andalso wxDC:clear(DC),
-    GC = if UseGC -> ?wxGC:create(DC);
-	    true -> DC
-	 end,
     %% Nothing is drawn until wxPaintDC is destroyed.
-    try
-	draw(Offset, Id, {UseGC, GC}, Panel, Paint, Data, Active)
-    catch _:Err ->
-	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
+    GC = make_gc(Panel, UseGC),
+    if Active -> draw_win(GC, Win, Ti, Paint);
+       true ->   ignore
     end,
-    UseGC andalso ?wxGC:destroy(GC),
-    wxPaintDC:destroy(DC).
-
+    destroy_gc(GC).
 
 %%%%%%%%%%
 handle_call(Event, From, _State) ->
@@ -182,41 +179,42 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 %%%%%%%%%%
-handle_info(Stats = {stats, 1, _, _, _},
-	    State = #state{panel=Panel, data=Data, active=Active}) ->
+handle_info({stats, 1, _, _, _} = Stats,
+	    #state{panel=Panel, samples=Data, active=Active, wins=Wins0,
+		   time=#ti{tick=Tick, disp=Disp0}=Ti} = State0) ->
     if Active ->
+	    Disp = trunc(Disp0),
+	    Next = max(Tick - Disp, 0),
+	    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
+	    {Wins, Samples} = add_data(Stats, Data, Wins0, Ti, Active),
+	    State = precalc(State0#state{time=Ti#ti{tick=Next}, wins=Wins, samples=Samples}),
 	    wxWindow:refresh(Panel),
-	    Freq = 6,
-	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, 1, Freq});
-       true -> ignore
-    end,
-    {noreply, State#state{offset=0.0, data = add_data(Stats, Data)}};
-
-handle_info({refresh, Seq, Freq}, State = #state{panel=Panel, offset=Prev}) ->
-    wxWindow:refresh(Panel),
-    Next = Seq+1,
-    if Seq > 1, Prev =:= 0.0 ->
-	    %% We didn't have time to handle the refresh
 	    {noreply, State};
-       Next < Freq ->
-	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, Next, Freq}),
-	    {noreply, State#state{offset=Seq/Freq}};
        true ->
-	    {noreply, State#state{offset=Seq/Freq}}
+	    {Wins1, Samples} = add_data(Stats, Data, Wins0, Ti, Active),
+	    Wins = [W#win{max=undefined} || W <- Wins1],
+	    {noreply, State0#state{samples=Samples, wins=Wins, time=Ti#ti{tick=0}}}
     end;
 
-handle_info({active, Node}, State = #state{parent=Parent, panel=Panel, appmon=Old}) ->
+handle_info({refresh, Seq}, #state{panel=Panel, time=#ti{tick=Seq, disp=DispF}=Ti} = State0)
+  when (Seq+1) < (DispF*1.5) ->
+    Next = Seq+1,
+    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
+    State = precalc(State0#state{time=Ti#ti{tick=Next}}),
+    catch wxWindow:refresh(Panel),
+    {noreply, State};
+handle_info({refresh, _}, State) ->
+    {noreply, State};
+
+handle_info({active, Node}, #state{parent=Parent, panel=Panel, appmon=Old, time=_Ti} = State) ->
     create_menus(Parent, []),
     try
 	Node = node(Old),
 	wxWindow:refresh(Panel),
+	erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, 0}),
 	{noreply, State#state{active=true}}
     catch _:_ ->
-	    catch Old ! exit,
-	    Me = self(),
-	    Pid = spawn_link(Node, observer_backend, fetch_stats, [Me, 1000]),
-	    wxWindow:refresh(Panel),
-	    {noreply, State#state{active=true, appmon=Pid, data={0, queue:new()}}}
+	    {noreply,restart_fetcher(Node, State)}
     end;
 
 handle_info(not_active, State = #state{appmon=_Pid}) ->
@@ -237,173 +235,337 @@ terminate(_Event, #state{appmon=Pid}) ->
 code_change(_, _, State) ->
     State.
 
-add_data(Stats, {N, Q}) when N > 60 ->
-    {N, queue:drop(queue:in(Stats, Q))};
-add_data(Stats, {N, Q}) ->
-    {N+1, queue:in(Stats, Q)}.
+restart_fetcher(Node, #state{appmon=Old, panel=Panel, time=#ti{fetch=Freq}=Ti}=State) ->
+    catch Old ! exit,
+    Me = self(),
+    Pid = spawn_link(Node, observer_backend, fetch_stats, [Me, round(1000/Freq)]),
+    wxWindow:refresh(Panel),
+    precalc(State#state{active=true, appmon=Pid, samples=reset_data(), time=Ti#ti{tick=0}}).
+
+reset_data() ->
+    {0, queue:new()}.
+
+add_data(Stats, {N, Q0}, Wins, #ti{fetch=Fetch, secs=Secs}, Active) when N > (Secs*Fetch+1) ->
+    {{value, Drop}, Q} = queue:out(Q0),
+    add_data_1(Wins, Stats, N, {Drop,Q}, Active);
+add_data(Stats, {N, Q}, Wins, _, Active) ->
+    add_data_1(Wins, Stats, N+1, {empty, Q}, Active).
+
+add_data_1([#win{state={_,St}}|_]=Wins0, Last, N, {Drop, Q}, Active)
+  when St /= undefined ->
+    {Wins, Stat} =
+	lists:mapfoldl(fun(Win0, Entry) ->
+			       {Win1,Stat} = add_data_2(Win0, Last, Entry),
+			       case Active of
+				   true ->
+				       Win = add_data_3(Win1, N, Drop, Stat, Q),
+				       {Win, Stat};
+				   false ->
+				       {Win1, Stat}
+			       end
+		       end, #{}, Wins0),
+    {Wins, {N,queue:in(Stat#{}, Q)}};
+add_data_1(Wins, Stats, 1, {_, Q}, _) ->
+    {[Win#win{state=init_data(Id, Stats),
+	      info = info(Id, Stats)}
+      || #win{name=Id}=Win <- Wins], {0,Q}}.
+
+add_data_2(#win{name=Id, state=S0}=Win, Stats, Map) ->
+    {V1, S1} = collect_data(Id, Stats, S0),
+    {Win#win{state=S1}, Map#{Id=>V1}}.
+
+add_data_3(#win{name=Id, max={{OldMax, OldEntry},_,_,_},
+		geom=#{scale:={WS,HS}}, state={Max,_},
+		graphs=Graphs}=Win,
+	   N, Drop0, Last, Q1)
+  when N > 3 ->
+    Drop = case Drop0 of
+	       #{Id:=D} -> D;
+	       _ -> Drop0
+	   end,
+    case {max_value(Max), Drop =:= OldEntry} of
+	{OldMax, false} ->
+	    #{Id:=V4} = Last,
+	    {{value, #{Id:=V3}},Q2} = queue:out_r(Q1),
+	    {{value, #{Id:=V2}},Q3} = queue:out_r(Q2),
+	    {{value, #{Id:=V1}},_}  = queue:out_r(Q3),
+	    Vals = [V1,V2,V3,V4],
+	    Gs = tuple_size(V1),
+	    Info = lists:zip(lists:seq(Gs, 1, -1), Graphs),
+	    Lines = [add_lines(Vals, Drop, Prev, I, WS, HS) || {I, Prev} <- Info],
+	    Win#win{graphs=Lines, no_samples=N};
+	_W -> %% Max changed Trigger complete recalc
+	    Win#win{max=undefined}
+    end;
+add_data_3(Win, _, _, _,_) ->
+    %% Trigger complete recalc
+    Win#win{max=undefined}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 create_menus(Parent, _) ->
-    MenuEntries =
-	[{"File",
-	  [
-	  ]}
-	],
-    observer_wx:create_menus(Parent, MenuEntries).
+    View = {"View", [#create_menu{id = ?ID_REFRESH_INTERVAL, text = "Graph Settings"}]},
+    observer_wx:create_menus(Parent, [{"File", []}, View]).
+
+interval_dialog(Parent0, #ti{fetch=Fetch0, secs=Secs0}=Ti) ->
+    Parent = observer_lib:get_wx_parent(Parent0),
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Load Chart Settings",
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor
+				?wxRESIZE_BORDER}]),
+    {Sl1,FetchSl} = slider(Dialog, "Sample (ms)", trunc(1000 / Fetch0), 100, 10000),
+    {Sl2, SecsSl} = slider(Dialog, "Length (min)", Secs0 div 60, 1, 10),
+    TopSizer = wxBoxSizer:new(?wxVERTICAL),
+    Flags = [{flag, ?wxEXPAND bor ?wxTOP bor ?wxLEFT bor ?wxRIGHT},
+	     {border, 5}, {proportion, 1}],
+    wxSizer:add(TopSizer, Sl1, Flags),
+    wxSizer:add(TopSizer, Sl2, Flags),
+    wxSizer:add(TopSizer, wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL), Flags),
+    wxWindow:setSizerAndFit(Dialog, TopSizer),
+    wxSizer:setSizeHints(TopSizer, Dialog),
+    Res = case wxDialog:showModal(Dialog) of
+	      ?wxID_OK ->
+		  Fetch = 1000 / wxSlider:getValue(FetchSl),
+		  Secs = wxSlider:getValue(SecsSl) * 60,
+		  Ti#ti{fetch=Fetch, secs=Secs, disp=?DISP_FREQ/Fetch};
+	      ?wxID_CANCEL ->
+		  Ti
+	  end,
+    wxDialog:destroy(Dialog),
+    Res.
+
+slider(Parent, Str, Value, Min, Max) ->
+    Sz = wxBoxSizer:new(?wxHORIZONTAL),
+    Center = [{flag, ?wxALIGN_CENTER_VERTICAL}],
+    wxSizer:add(Sz, wxStaticText:new(Parent, ?wxID_ANY, Str), [{proportion, 1}|Center]),
+    Opt = [{style, ?wxSL_HORIZONTAL bor ?wxSL_LABELS}],
+    Slider = wxSlider:new(Parent, ?wxID_ANY, Value, Min, Max, Opt),
+    wxSizer:add(Sz, Slider, [{proportion, 2}|Center]),
+    case Min > 1 of
+	false ->
+	    {Sz, Slider};
+	true ->
+	    CB = fun(#wx{event=Ev},_) -> step(Ev, Slider, Min) end,
+	    wxSlider:connect(Slider, scroll_thumbtrack, [{callback, CB}]),
+	    wxSlider:connect(Slider, scroll_changed, [{callback, CB}]),
+	    {Sz, Slider}
+    end.
+
+step(_Ev = #wxScroll{commandInt=Value}, Slider, Min) ->
+    Val = Min * round(Value / Min),
+    wxSlider:setValue(Slider, Val),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-collect_data(runq, {N, Q}) ->
-    case queue:to_list(Q) of
-	[] ->  {0, 0, [], []};
-	[_] ->  {0, 0, [], []};
-	[{stats, _Ver, Init0, _IO, _Mem}|Data0] ->
-	    Init = lists:sort(Init0),
-	    [_|Data=[First|_]] = lists:foldl(fun({stats, _, T0, _, _}, [Prev|Acc]) ->
-					   TN = lists:sort(T0),
-					   Delta = calc_delta(TN, Prev),
-					   [TN, list_to_tuple(Delta)|Acc]
-				   end, [Init], Data0),
-	    NoGraphs = tuple_size(First),
-	    {N, lmax(Data), lists:reverse([First|Data]), lists:seq(1, NoGraphs)}
-    end;
-collect_data(memory, {N, Q}) ->
-    MemT = mem_types(),
-    Data = [list_to_tuple([Value || {Type,Value} <- MemInfo,
-				    lists:member(Type, MemT)])
-	    || {stats, _Ver, _RQ, _IO, MemInfo} <- queue:to_list(Q)],
-    {N, lmax(Data), Data,  MemT};
-collect_data(io, {N, Q}) ->
-    case queue:to_list(Q) of
-	[] ->  {0, 0, [], []};
-	[_] -> {0, 0, [], []};
-	[{stats, _Ver, _RQ, {{_,In0}, {_,Out0}}, _Mem}|Data0] ->
-	    [_,_|Data=[First|_]] =
-		lists:foldl(fun({stats, _, _, {{_,In}, {_,Out}}, _}, [PIn,Pout|Acc]) ->
-				    [In,Out,{In-PIn,Out-Pout}|Acc]
-			    end, [In0,Out0], Data0),
-	    {N, lmax(Data), lists:reverse([First|Data]), [input, output]}
-    end;
-collect_data(alloc, {N, Q}) ->
-    List = queue:to_list(Q),
-    Data = [list_to_tuple([Carrier || {_Type,_Block,Carrier} <- MemInfo])
-	    || MemInfo <- List],
-    Info = case List of  %% Varies depending on erlang build config/platform
-	       [MInfo|_] -> [Type || {Type, _, _} <- MInfo];
-	       _ -> []
-	   end,
-    {N, lmax(Data), Data, Info};
 
-collect_data(utilz, {N, Q}) ->
-    List = queue:to_list(Q),
-    Data = [list_to_tuple([round(100*Block/Carrier) || {_Type,Block,Carrier} <- MemInfo])
-	    || MemInfo <- List],
-    Info = case List of  %% Varies depending on erlang build config/platform
-	       [MInfo|_] -> [Type || {Type, _, _} <- MInfo];
-	       _ -> []
-	   end,
-    {N, lmax(Data), Data, Info}.
+mk_max() -> {0, undefined}.
+max_value({Max,_}) -> Max.
+%% max_data({_,Data}) -> Data. matched in function head
 
-
-mem_types() ->
-    [total, processes, atom, binary, code, ets].
-
-lmax([]) -> 0;
-lmax(List) ->
-    Max = [lists:max(tuple_to_list(T)) || T <- List,
-					  tuple_size(T) > 0],
-    case Max of
-	[] -> 0;
-	_ -> lists:max(Max)
+lmax(MState, Tuple, Tuple) when is_tuple(Tuple) ->
+    lmax(MState, tuple_to_list(Tuple), Tuple);
+lmax(MState, Values, State) ->
+    Max = max_value(MState),
+    New = lists:max([Max|Values]),
+    case New >= Max of
+	false -> MState;
+	true -> {New, State}
     end.
+
+init_data(runq, {stats, _, T0, _, _}) -> {mk_max(),lists:sort(T0)};
+init_data(io,   {stats, _, _, {{_,In0}, {_,Out0}}, _}) -> {mk_max(), {In0,Out0}};
+init_data(memory, _) -> {mk_max(), info(memory, undefined)};
+init_data(alloc, _) -> {mk_max(), ok};
+init_data(utilz, _) -> {mk_max(), ok}.
+
+info(runq, {stats, _, T0, _, _}) -> lists:seq(1, length(T0));
+info(memory, _) -> [total, processes, atom, binary, code, ets];
+info(io, _) -> [input, output];
+info(alloc, First) -> [Type || {Type, _, _} <- First];
+info(utilz, First) -> [Type || {Type, _, _} <- First];
+info(_, []) -> [].
+
+collect_data(runq, {stats, _, T0, _, _}, {Max,S0}) ->
+    S1 = lists:sort(T0),
+    Delta = calc_delta(S1, S0),
+    Sample = list_to_tuple(Delta),
+    {Sample, {lmax(Max,Delta,Sample), S1}};
+collect_data(io, {stats, _, _, {{_,In0}, {_,Out0}}, _}, {Max,{PIn,POut}}) ->
+    In = In0-PIn,
+    Out = Out0-POut,
+    Sample = {In, Out},
+    {Sample, {lmax(Max, [In,Out], Sample), {In0, Out0}}};
+collect_data(memory, {stats, _, _, _, MemInfo}, {Max, MemTypes}) ->
+    Vs = [Value || {Type,Value} <- MemInfo, lists:member(Type, MemTypes)],
+    Sample = list_to_tuple(Vs),
+    {Sample, {lmax(Max, Vs, Sample),MemTypes}};
+collect_data(alloc, MemInfo, Max) ->
+    Vs = [Carrier || {_Type,_Block,Carrier} <- MemInfo],
+    Sample = list_to_tuple(Vs),
+    {Sample, lmax(Max, Vs, Sample)};
+collect_data(utilz, MemInfo, Max) ->
+    Vs = [round(100*Block/Carrier) || {_Type,Block,Carrier} <- MemInfo],
+    Sample = list_to_tuple(Vs),
+    {Sample, lmax(Max,Vs,Sample)}.
 
 calc_delta([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|calc_delta(Ss, Ps)];
 calc_delta([], []) -> [].
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) ->
-    %% This can be optimized a lot by collecting data once
-    %% and draw to memory and then blit memory and only draw new entries in new memory
-    %% area.  Hmm now rewritten to use ?wxGC I don't now if it is feasable.
-    {Len, Max0, Hs, Info} = collect_data(Id, Data),
-    {Max,_,_} = MaxDisp = calc_max(Id, Max0),
+precalc(#state{samples=Data0, paint=Paint, time=Ti, wins=Wins0}=State) ->
+    Wins = [precalc(Ti, Data0, Paint, Win) || Win <- Wins0],
+    State#state{wins=Wins}.
+
+precalc(Ti, {NoSamples,Q}, Paint, #win{name=Id, panel=Panel}=Win) ->
     Size = wxWindow:getClientSize(Panel),
-    {X0,Y0,WS,HS, DrawBs} = draw_borders(Id, Info, DC, Size, MaxDisp, Paint),
-    Last = 60*WS+X0-1,
-    Start = max(61-Len, 0)*WS+X0 - Offset*WS,
-    Samples = length(Hs),
-    NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
-    case Active andalso Samples > 1 andalso NoGraphs > 0 of
-	true ->
-	    Draw = fun(N) ->
-			   Lines = make_lines(Hs, Start, N, {X0,Max*HS,Last}, Y0, WS, HS),
-			   setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
-			   strokeLines(DC, Lines),
-			   N+1
-		   end,
-	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)],
-	    DrawBs();
-	false ->
-	    DrawBs(),
-	    Text = case Active andalso Samples =< 1 of
+    case Win of
+	#win{max=Max, no_samples=NoSamples, size=Size} when is_tuple(Max) ->
+	    Win;
+	_SomeThingChanged ->
+	    Hs = [Vals || #{Id:=Vals} <- queue:to_list(Q)],
+	    Max = lists:foldl(fun(Vals,Max) -> lmax(Max, Vals, Vals) end,
+			      mk_max(), Hs),
+	    MaxDisp = calc_max(Id, Max),
+	    #{scale:={WS,HS}} = Props = window_geom(Size, MaxDisp, Ti, Panel, Paint),
+	    NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
+	    Graphs = [make_lines(Hs, I, WS, HS) || I <- lists:seq(NoGraphs, 1, -1)],
+	    State = case Win#win.state of
+			undefined -> {Max, undefined};
+			{_, St} -> {Max, St}
+		    end,
+	    Win#win{geom=Props, size=Size,
+		    max=MaxDisp,
+		    graphs=Graphs,
+		    no_samples=NoSamples,
+		    state=State}
+    end.
+
+window_geom({W,H}, {_, Max, _Unit, MaxUnit},
+	    #ti{secs=Secs, fetch=FetchFreq},
+	    Panel, #paint{font=Font}) ->
+    Str1 = observer_lib:to_str(MaxUnit),
+    Str2 = observer_lib:to_str(MaxUnit div 2),
+    Str3 = observer_lib:to_str(0),
+    {TW,TH,_,_} = wxWindow:getTextExtent(Panel, Str1, [{theFont, Font}]),
+    {SpaceW, _,_,_} = wxWindow:getTextExtent(Panel, "W", [{theFont, Font}]),
+    X0 = ?BW+TW+?BW,
+    X1 = W-?BW*4,
+    MaxTextY = TH+?BH,
+    BottomTextY = H-?BH-TH,
+    Y0 = MaxTextY + (TH / 2),
+    Y1 = BottomTextY - TH - ?BH,
+
+    ScaleW = (X1-X0-1)/(Secs*FetchFreq),
+    ScaleH = (Y1-Y0-1) / Max,
+    #{p0=>{X0,Y0}, p1=>{X1,Y1}, scale=>{ScaleW, ScaleH},
+      txsz=>{TW,TH,SpaceW}, txt=>{BottomTextY, MaxTextY}, strs=>{Str1,Str2,Str3}}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+draw_win(DC, #win{no_samples=Samples, geom=#{scale:={WS,HS}}, graphs=Graphs, max={_,Max,_,_}}=Win,
+	 #ti{tick=Tick, fetch=FetchFreq, secs=Secs, disp=DispFreq}=Ti,
+	 Paint=#paint{pens=Pens}) when Samples >= 2, Graphs =/= [] ->
+    %% Draw graphs
+    {X0,Y0,DrawBs} = draw_borders(DC, Ti, Win, Paint),
+    Offset = Tick / DispFreq,
+    Full = case Samples > (1+Secs*FetchFreq) of
+	       true -> 1;
+	       false -> 2
+	   end,
+    Start = X0 + (max(Secs*FetchFreq+Full-Samples, 0) - Offset)*WS,
+    Last = Secs*FetchFreq*WS+X0,
+    Draw = fun(Lines0, N) ->
+		   setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
+		   Order = lists:reverse(Lines0),
+		   [{_,Y}|Lines] = translate(Order, {Start, Y0}, 0, WS, {X0,Max*HS,Last}, []),
+		   strokeLines(DC, [{Last,Y}|Lines]),
+		   N-1
+	   end,
+    lists:foldl(Draw, length(Graphs), Graphs),
+    DrawBs(),
+    ok;
+
+draw_win(DC, #win{no_samples=Samples} = Win,Ti, #paint{small=Small}=Paint) ->
+    %% Draw Error Msg
+    try draw_borders(DC, Ti, Win, Paint) of
+	{X0,_Y0,DrawBs} ->
+	    Text = case Samples =< 1 of
 		       true  -> "Waiting for data";
 		       false -> "Information not available"
 		   end,
 	    setFont(DC, Small, {0,0,0}),
-	    drawText(DC, Text, X0 + 100, element(2,Size) div 2)
-    end,
-    ok.
+	    {_,WW} = getSize(DC),
+	    drawText(DC, Text, X0 + 100, WW div 2),
+	    DrawBs(),
+	    ok
+    catch _:_ -> %% Early redraws fail
+	    ok
+    end.
 
-make_lines(Ds = [Data|_], PX, N, Clip, ZeroY, WS, HS) ->
+translate([{X0,Y}|Rest], {Sx,Sy}=Start, N, WS, {Cx,Cy,Cw}=Clip, Acc) ->
+    X = min((N-X0)*WS+Sx,Cw),
+    Next = if X0 > 0 -> N; true -> N+1 end,
+    case X =< Cx of
+	true ->
+	    translate(Rest, Start, Next, WS, Clip, [{Cx,Sy-min(Cy,Y)}]);
+	false ->
+	    translate(Rest, Start, Next, WS, Clip, [{X,Sy-min(Cy,Y)}|Acc])
+    end;
+translate([], _, _, _, _, Acc) ->
+    Acc.
+
+add_lines(Vals, Drop, OldLines, I, WS, HS) ->
+    Lines = strip(OldLines, Drop, 2),
+    New = make_lines(Vals, I, WS, HS),
+    New ++ Lines.
+
+strip([{X,_}|Rest], Drop, N) when X > 0.0001, N > 0 ->
+    strip(Rest, Drop, N);
+strip([_|Rest], Drop, N) when N > 0 ->
+    strip(Rest, Drop, N-1);
+strip(List, empty, _) -> List;
+strip(List, _, _) ->
+    lists:reverse(strip(lists:reverse(List), empty, 1)).
+
+make_lines(Ds = [Data|_], N, WS, HS) ->
     Y = element(N,Data),
-    make_lines(Ds, PX, N, Clip, ZeroY, WS, HS, Y, []).
+    make_lines(Ds, N, WS, HS, Y, []).
 
-make_lines([D1 | Ds = [D2|Rest]], PX, N, Clip={Cx,Cy, _}, ZeroY, WS, HS, Y0, Acc0) ->
+make_lines([D1 | Ds = [D2|Rest]], N, WS, HS, Y0, Acc0) ->
     Y1 = element(N,D1),
     Y2 = element(N,D2),
     Y3 = case Rest of
 	     [D3|_] -> element(N,D3);
 	     [] -> Y2
 	 end,
-    This = {max(Cx, PX),ZeroY-min(Cy,Y1*HS)},
+    This = {0, Y1*HS},
     Acc = if (abs(Y1-Y2) * HS) < 3.0 -> [This|Acc0];
 	     WS < 3.0 -> [This|Acc0];
-	     PX < Cx ->
-		  make_splines(Y0,Y1,Y2,Y3,PX,Clip,ZeroY,WS,HS,Acc0);
-	     true ->
-		  make_splines(Y0,Y1,Y2,Y3,PX,Clip,ZeroY,WS,HS,[This|Acc0])
+	     true -> make_splines(Y0,Y1,Y2,Y3,WS,HS,[This|Acc0])
 	  end,
-    make_lines(Ds, PX+WS, N, Clip, ZeroY, WS, HS, Y1, Acc);
-make_lines([D1],  _PX, N, {_,Cy,Last}, ZeroY, _WS, HS, _Y0, Acc) ->
-    Y1 = element(N,D1),
-    [{Last,ZeroY-min(Cy, Y1*HS)}|Acc].
+    make_lines(Ds, N, WS, HS, Y1, Acc);
+make_lines([_D1], _N, _WS, _HS, _Y0, Acc) ->
+    Acc.
 
-make_splines(Y00,Y10,Y20,Y30,PX,Clip,ZeroY,WS,HS,Acc) ->
+make_splines(Y00,Y10,Y20,Y30,WS,HS,Acc) ->
     Y1 = Y10*HS,
     Y2 = Y20*HS,
-    Steps = min(abs(Y1-Y2), WS),
+    Steps = min(abs(Y1-Y2), WS/2),
     if Steps > 2 ->
 	    Y0 = Y00*HS,
 	    Y3 = Y30*HS,
 	    Tan = spline_tan(Y0,Y1,Y2,Y3),
 	    Delta = 1/Steps,
-	    splines(Steps-1, 0.0, Delta, Tan, Y1,Y2, PX, Clip,ZeroY, Delta*WS, Acc);
+	    splines(Steps-1, 0.0, Delta, Tan, Y1,Y2, Acc);
        true ->
 	    Acc
     end.
 
-splines(N, XD, XD0, Tan, Y1,Y2, PX0, Clip={Cx,Cy,_},ZeroY, WS, Acc) when N > 0 ->
-    PX = PX0+WS,
+splines(N, XD, XD0, Tan, Y1,Y2, Acc) when N > 0 ->
     Delta = XD+XD0,
-    if PX < Cx ->
-	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, Clip,ZeroY, WS, Acc);
-       true ->
-	    Y = min(Cy, max(0,spline(Delta, Tan, Y1,Y2))),
-	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, Clip,ZeroY, WS,
-		    [{PX, ZeroY-Y}|Acc])
-    end;
-splines(_N, _XD, _XD0, _Tan, _Y1,_Y2, _PX, _Clip,_ZeroY, _WS, Acc) -> Acc.
+    Y = max(0, spline(Delta, Tan, Y1,Y2)),
+    splines(N-1, Delta, XD0, Tan, Y1, Y2, [{1.0-Delta, Y}|Acc]);
+splines(_N, _XD, _XD0, _Tan, _Y1,_Y2, Acc) ->
+    Acc.
 
 spline(T, {M1, M2}, Y1, Y2) ->
     %% Hermite Basis Funcs
@@ -423,34 +585,19 @@ spline_tan(Y0, Y1, Y2, Y3) ->
     M2 = S*C*(Y3-Y1),
     {M1,M2}.
 
--define(BW, 5).
--define(BH, 5).
-
-draw_borders(Type, Info, DC, {W,H}, {Max, Unit, MaxUnit},
+draw_borders(DC, #ti{secs=Secs, fetch=FetchFreq},
+	     #win{name=Type, geom=Geom, info=Info, max={_,_,Unit,_}},
 	     #paint{pen=Pen, pen2=Pen2, font=Font, small=Small}) ->
-    Str1 = observer_lib:to_str(MaxUnit),
-    Str2 = observer_lib:to_str(MaxUnit div 2),
-    Str3 = observer_lib:to_str(0),
+    #{p0:={GraphX0, GraphY0}, p1:={GraphX1,GraphY1}, scale:={ScaleW0,_},
+      txsz:={TW,TH,SpaceW}, txt:={BottomTextY, MaxTextY}, strs:={Str1,Str2,Str3}} = Geom,
 
-    setFont(DC, Font, {0,0,0}),
-    {TW,TH} = getTextExtent(DC, Str1),
-    {SpaceW, _} = getTextExtent(DC, "W"),
-
-    GraphX0 = ?BW+TW+?BW,
-    GraphX1 = W-?BW*4,
+    ScaleW = ScaleW0*FetchFreq,
     TopTextX = ?BW*3+TW,
-    MaxTextY = TH+?BH,
-    BottomTextY = H-?BH-TH,
     SecondsY = BottomTextY - TH,
-    GraphY0 = MaxTextY + (TH / 2),
-    GraphY1 = SecondsY - ?BH,
-    GraphW = GraphX1-GraphX0-1,
-    GraphH = GraphY1-GraphY0-1,
+
     GraphY25 = GraphY0 + (GraphY1 - GraphY0) / 4,
     GraphY50 = GraphY0 + (GraphY1 - GraphY0) / 2,
     GraphY75 = GraphY0 + 3*(GraphY1 - GraphY0) / 4,
-    ScaleW = GraphW / 60,
-    ScaleH = GraphH / Max,
 
     setFont(DC, Small, {0,0,0}),
     Align = fun(Str, Y) ->
@@ -462,14 +609,21 @@ draw_borders(Type, Info, DC, {W,H}, {Max, Unit, MaxUnit},
     Align(Str3, GraphY1 - (TH / 2) + 1),
 
     setPen(DC, Pen),
-    DrawSecs = fun(Secs, Pos) ->
-		       Str = [observer_lib:to_str(Secs)|" s"],
+    DrawSecs = fun(Sec, {Pos, Prev}) ->
+		       Str = observer_lib:to_str(Sec) ++ "s",
 		       X = GraphX0+Pos,
-		       drawText(DC, Str,  X-SpaceW, SecondsY),
 		       strokeLine(DC, X, GraphY0, X, GraphY1+5),
-		       Pos + 10*ScaleW
+		       TxtX = X-SpaceW,
+		       case TxtX > Prev of
+			   true ->
+			       drawText(DC, Str,  TxtX, SecondsY),
+			       TxtW = SpaceW*length(Str),
+			       {Pos + 10*ScaleW, TxtX+TxtW};
+			   false ->
+			       {Pos + 10*ScaleW, Prev}
+		       end
 	       end,
-    lists:foldl(DrawSecs, 0, lists:seq(60,0, -10)),
+    lists:foldl(DrawSecs, {0, 0}, lists:seq(Secs,0, -10)),
 
     strokeLine(DC, GraphX0-3, GraphY25, GraphX1, GraphY25),
     strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
@@ -526,7 +680,7 @@ draw_borders(Type, Info, DC, {W,H}, {Max, Unit, MaxUnit},
 					  {GraphX1, GraphY1+1}, {GraphX1, GraphY0-1},
 					  {GraphX0, GraphY0-1}])
 		 end,
-    {GraphX0+1, GraphY1, ScaleW, ScaleH, DrawBorder}.
+    {GraphX0+1, GraphY1, DrawBorder}.
 
 to_string(Atom) ->
     Name = atom_to_list(Atom),
@@ -543,6 +697,32 @@ uppercase([C|Rest]) ->
 calc_max(Type, Max) ->
     bytes(Type, Max).
 
+bytes(runq, Max) ->
+    Upper = calc_max1(max_value(Max)),
+    {Max, Upper, "", Upper};
+bytes(utilz, Max) ->
+    Upper = calc_max1(max_value(Max)),
+    {Max, Upper, "", Upper};
+bytes(_, Max) ->
+    B = max_value(Max),
+    KB = B div 1024,
+    MB = KB div 1024,
+    GB = MB div 1024,
+    if
+	GB > 10 ->
+	    Upper = calc_max1(GB),
+	    {Max, Upper*1024*1024*1024, "(GB)", Upper};
+	MB > 10 ->
+	    Upper = calc_max1(MB),
+	    {Max, Upper*1024*1024, "(MB)", Upper};
+	KB >  0 ->
+	    Upper = calc_max1(KB),
+	    {Max, Upper*1024, "(KB)", Upper};
+	true  ->
+	    Upper = calc_max1(B),
+	    {Max, Upper, "(B)", Upper}
+    end.
+
 calc_max1(Max) when Max < 10 ->
     10;
 calc_max1(Max) ->
@@ -557,31 +737,6 @@ calc_max1(Max) ->
 	    10*calc_max1(X)
     end.
 
-bytes(runq, Val) ->
-    Upper = calc_max1(Val),
-    {Upper, "", Upper};
-bytes(utilz, Val) ->
-    Upper = calc_max1(Val),
-    {Upper, "", Upper};
-bytes(_, B) ->
-    KB = B div 1024,
-    MB = KB div 1024,
-    GB = MB div 1024,
-    if
-	GB > 10 ->
-	    Upper = calc_max1(GB),
-	    {Upper*1024*1024*1024, "(GB)", Upper};
-	MB > 10 ->
-	    Upper = calc_max1(MB),
-	    {Upper*1024*1024, "(MB)", Upper};
-	KB >  0 ->
-	    Upper = calc_max1(KB),
-	    {Upper*1024, "(KB)", Upper};
-	true  ->
-	    Upper = calc_max1(B),
-	    {Upper, "(B)", Upper}
-    end.
-
 colors() ->
     {{240, 100, 100}, {100, 240, 100}, {100, 100, 240},
      {220, 220, 80}, {100, 240, 240}, {240, 100, 240},
@@ -592,6 +747,28 @@ colors() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% wxDC and ?wxGC wrappers
 
+make_gc(Panel,UseGC) ->
+    DC = case os:type() of
+	     {win32, _} ->
+		 %% Ugly hack to avoid flickering on windows, works on windows only
+		 %% But the other platforms are doublebuffered by default
+		 DC0 = wx:typeCast(wxBufferedPaintDC:new(Panel), wxPaintDC),
+		 wxDC:clear(DC0),
+		 DC0;
+	     _ ->
+		 wxPaintDC:new(Panel)
+	 end,
+    if UseGC -> {?wxGC:create(DC), DC};
+       true ->  {false, DC}
+    end.
+
+destroy_gc({GC, DC}) ->
+    (GC =/= false) andalso ?wxGC:destroy(GC),
+    case DC =/= false andalso wx:getObjectType(DC) of
+	false -> ok;
+	Type -> Type:destroy(DC)
+    end.
+
 haveGC() ->
     try
 	wxGraphicsRenderer:getDefaultRenderer(),
@@ -599,44 +776,48 @@ haveGC() ->
     catch _:_  -> false
     end.
 
+getSize({_, DC}) ->
+    wxDC:getSize(DC).
+
 setPen({false, DC}, Pen) ->
     wxDC:setPen(DC, Pen);
-setPen({true, GC}, Pen) ->
+setPen({GC, _}, Pen) ->
     ?wxGC:setPen(GC, Pen).
 
 setFont({false, DC}, Font, Color) ->
     wxDC:setTextForeground(DC, Color),
     wxDC:setFont(DC, Font);
-setFont({true, GC}, Font, Color) ->
+setFont({GC, _}, Font, Color) ->
     ?wxGC:setFont(GC, Font, Color).
 
 setBrush({false, DC}, Brush) ->
     wxDC:setBrush(DC, Brush);
-setBrush({true, GC}, Brush) ->
+setBrush({GC, _}, Brush) ->
     ?wxGC:setBrush(GC, Brush).
 
 strokeLine({false, DC}, X0, Y0, X1, Y1) ->
     wxDC:drawLine(DC, {round(X0), round(Y0)}, {round(X1), round(Y1)});
-strokeLine({true, GC}, X0, Y0, X1, Y1) ->
+strokeLine({GC, _}, X0, Y0, X1, Y1) ->
     ?wxGC:strokeLine(GC, X0, Y0, X1, Y1).
 
+strokeLines(_, [_]) -> ok;
 strokeLines({false, DC}, Lines) ->
     wxDC:drawLines(DC, [{round(X), round(Y)} || {X,Y} <- Lines]);
-strokeLines({true, GC}, Lines) ->
+strokeLines({GC, _}, Lines) ->
     ?wxGC:strokeLines(GC, Lines).
 
 drawRoundedRectangle({false, DC}, X0, Y0, X1, Y1, R) ->
     wxDC:drawRoundedRectangle(DC, {round(X0), round(Y0)}, {round(X1), round(Y1)}, round(R));
-drawRoundedRectangle({true, GC}, X0, Y0, X1, Y1, R) ->
+drawRoundedRectangle({GC, _}, X0, Y0, X1, Y1, R) ->
     ?wxGC:drawRoundedRectangle(GC, X0, Y0, X1, Y1, R).
 
 drawText({false, DC}, Str, X, Y) ->
     wxDC:drawText(DC, Str, {round(X),round(Y)});
-drawText({true, GC}, Str, X, Y) ->
+drawText({GC, _}, Str, X, Y) ->
     ?wxGC:drawText(GC, Str, X, Y).
 
 getTextExtent({false, DC}, Str) ->
     wxDC:getTextExtent(DC, Str);
-getTextExtent({true, GC}, Str) ->
+getTextExtent({GC, _}, Str) ->
     {W,H,_,_} = ?wxGC:getTextExtent(GC, Str),
     {W,H}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,27 +19,24 @@
 
 %% Test specific code snippets that has crashed the compiler in the past.
 -module(regressions_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--export([all/0, groups/0, init_per_testcase/2,end_per_testcase/2]).
-
+-export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,suite/0]).
 -export([maps/1]).
 
 groups() -> 
     [{p,test_lib:parallel(),
       [maps]}].
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(2)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -62,7 +59,8 @@ run(Config, Tests) ->
                 io:format("Compiling test for: ~w~n", [N]),
                 case catch run_test(Config, P) of
                     {'EXIT', Reason} -> 
-                        ?t:format("~nTest ~p failed.~nReason: ~p~n", [N, Reason]),
+                        io:format("~nTest ~p failed.~nReason: ~p~n",
+				  [N, Reason]),
                         fail();
                     _ -> ok
                 end
@@ -73,7 +71,7 @@ run(Config, Tests) ->
 run_test(Conf, Test0) ->
     Module = "regressions_"++test_lib:uniq(),
     Filename = Module ++ ".erl",
-    DataDir = ?config(priv_dir, Conf),
+    DataDir = proplists:get_value(priv_dir, Conf),
     Test = ["-module(", Module, "). ", Test0],
     File = filename:join(DataDir, Filename),
     Def = [binary,export_all,return],
@@ -94,5 +92,4 @@ run_test(Conf, Test0) ->
     ok.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

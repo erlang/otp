@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 					 Uint num_processed_bytes,
 					 Uint num_bytes_to_process, 
 					 Uint num_resulting_chars, 
-					 int state, int left,
+					 int state, Sint left,
 					 Eterm tail);
 static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3);
 static BIF_RETTYPE characters_to_list_trap_1(BIF_ALIST_3);
@@ -173,12 +173,13 @@ static ERTS_INLINE int allowed_iterations(Process *p)
     else
 	return tmp;
 }
-static ERTS_INLINE int cost_to_proc(Process *p, int cost)
+
+static ERTS_INLINE void cost_to_proc(Process *p, Sint cost)
 {
-    int x = (cost / LOOP_FACTOR);
+    Sint x = (cost / LOOP_FACTOR);
     BUMP_REDS(p,x);
-    return x;
 }
+
 static ERTS_INLINE int simple_loops_to_common(int cost)
 {
     int factor = (LOOP_FACTOR_SIMPLE / LOOP_FACTOR);
@@ -243,14 +244,15 @@ static int utf8_len(byte first)
     return -1;
 }
 
-static int copy_utf8_bin(byte *target, byte *source, Uint size, 
-			 byte *leftover, int *num_leftovers, 
-			 byte **err_pos, Uint *characters) {
-    int copied = 0;
+static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
+			  byte *leftover, int *num_leftovers,
+			  byte **err_pos, Uint *characters)
+{
+    Uint copied = 0;
     if (leftover != NULL && *num_leftovers) {
 	int need = utf8_len(leftover[0]);
 	int from_source = need - (*num_leftovers);
-	int c;
+	Uint c;
 	byte *tmp_err_pos = NULL;
 	ASSERT(need > 0);
 	ASSERT(from_source > 0);
@@ -502,8 +504,8 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 }
     
     
-static Eterm do_build_utf8(Process *p, Eterm ioterm, int *left, int latin1,
-			   byte *target, int *pos, Uint *characters, int *err, 
+static Eterm do_build_utf8(Process *p, Eterm ioterm, Sint *left, int latin1,
+			   byte *target, Uint *pos, Uint *characters, int *err,
 			   byte *leftover, int *num_leftovers)
 {
     int c;
@@ -573,7 +575,7 @@ static Eterm do_build_utf8(Process *p, Eterm ioterm, int *left, int latin1,
 	}
 
 	if (!latin1) {
-	    int num;
+	    Uint num;
 	    byte *err_pos = NULL;
 	    num = copy_utf8_bin(target + (*pos), bytes, 
 				size, leftover, num_leftovers,&err_pos,characters);
@@ -804,7 +806,7 @@ static int check_leftovers(byte *source, int size)
 	
 	 
 
-static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,int pos,
+static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 			       Eterm rest_term,int err,
 			       byte *leftover,int num_leftovers,Eterm latin1)
 {
@@ -859,8 +861,8 @@ static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
 #endif
     byte* bytes;
     Eterm rest_term;
-    int left, sleft;
-    int pos;
+    Sint left, sleft;
+    Uint pos;
     int err;
     byte leftover[4]; /* used for temp buffer too, 
 			 otherwise 3 bytes would have been enough */
@@ -874,7 +876,7 @@ static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
     real_bin = binary_val(BIF_ARG_1);
     ASSERT(*real_bin == HEADER_PROC_BIN);
 #endif
-    pos = (int) binary_size(BIF_ARG_1);
+    pos = binary_size(BIF_ARG_1);
     bytes = binary_bytes(BIF_ARG_1);
     sleft = left = allowed_iterations(BIF_P);
     err = 0;
@@ -934,9 +936,9 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
     int latin1;
     Eterm bin;
     byte *bytes;
-    int pos;
+    Uint pos;
     int err;
-    int left, sleft;
+    Sint left, sleft;
     Eterm rest_term, subject;
     byte leftover[4]; /* used for temp buffer too, o
 			 therwise 3 bytes would have been enough */
@@ -999,7 +1001,7 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
 	    byte *t = NULL;
 	    Uint sz = binary_size(bin);
 	    byte *by = erts_get_aligned_binary_bytes(bin,&t);
-	    int i;
+	    Uint i;
 	    erts_printf("<<");
 	    for (i = 0;i < sz; ++i) {
 		erts_printf((i == sz -1) ? "0x%X" : "0x%X, ", (unsigned) by[i]);
@@ -1007,7 +1009,7 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
 	    erts_printf(">>: ");
 	    erts_free_aligned_binary_bytes(t);
 	}
-	erts_printf("%d - %d = %d\n",sleft,left,sleft - left);
+	erts_printf("%ld - %ld = %ld\n", sleft, left, sleft - left);
     }
 #endif
     cost_to_proc(BIF_P, sleft - left); 
@@ -1015,10 +1017,10 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
 			     leftover,num_leftovers,BIF_ARG_2);
 }
 
-static BIF_RETTYPE build_list_return(Process *p, byte *bytes, int pos, Uint characters,
+static BIF_RETTYPE build_list_return(Process *p, byte *bytes, Uint pos, Uint characters,
 				     Eterm rest_term, int err,
 				     byte *leftover, int num_leftovers,
-				     Eterm latin1, int left)
+				     Eterm latin1, Sint left)
 {
     Eterm *hp;
     
@@ -1070,11 +1072,11 @@ static BIF_RETTYPE characters_to_list_trap_1(BIF_ALIST_3)
 {
     RestartContext *rc;
     byte* bytes;
-    int pos;
+    Uint pos;
     Uint characters;
     int err;
     Eterm rest_term;
-    int left, sleft;
+    Sint left, sleft;
 
     int latin1 = 0;
     byte leftover[4]; /* used for temp buffer too, 
@@ -1107,9 +1109,9 @@ BIF_RETTYPE unicode_characters_to_list_2(BIF_ALIST_2)
     int latin1;
     Uint characters = 0;
     byte *bytes;
-    int pos;
+    Uint pos;
     int err;
-    int left, sleft;
+    Sint left, sleft;
     Eterm rest_term;
     byte leftover[4]; /* used for temp buffer too, o
 			 therwise 3 bytes would have been enough */
@@ -1541,7 +1543,7 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 					 Uint num_processed_bytes,
 					 Uint num_bytes_to_process, 
 					 Uint num_resulting_chars, 
-					 int state, int left,
+					 int state, Sint left,
 					 Eterm tail) 
 {
     Uint num_built; /* characters */
@@ -2016,7 +2018,7 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	    ++need;
 	}
 	if (used) 
-	    *used = (Sint) need;
+	    *used = need;
 	if (need+extra > statbuf_size) {
 	    name_buf = (char *) erts_alloc(alloc_type, need+extra);
 	} else {

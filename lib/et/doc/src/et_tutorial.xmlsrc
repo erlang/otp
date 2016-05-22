@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2009</year><year>2013</year>
+      <year>2009</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -75,12 +75,10 @@
     <codeinclude file="../../examples/et_display_demo.erl" tag="%module" type="erl"></codeinclude>
     
     <p>When you run the <c>et_display_demo:test().</c> function in the
-    example above, the <c>Viewer</c> window will look like this:</p>.
-    
-    <p></p>
+    example above, the <c>Viewer</c> window will look like this:</p>
     
     <image file="coffee_order.png">
-      <icaption>Screenshot of the <c>Viewer</c> window</icaption>
+      <icaption>Screenshot of the Viewer window</icaption>
     </image>
 
  </section>
@@ -262,14 +260,11 @@
     </list>
 
     <p>When you run the <c>et_trace_demo:test()</c> function above, the
-    <c>Viewer</c> window will look like this screenshot:</p>.
+    <c>Viewer</c> window will look like this screenshot:</p>
 
-    <p></p>
-    
     <image file="coffee_order.png">
-      <icaption>Screenshot of the <c>Viewer</c> window</icaption>
+      <icaption>Screenshot of the Viewer window</icaption>
     </image>
     
   </section>
-    
 </chapter>

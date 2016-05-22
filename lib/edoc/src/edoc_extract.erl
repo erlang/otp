@@ -355,6 +355,8 @@ preprocess_forms_2(F, Fs) ->
 	    [F | preprocess_forms_1(Fs)];
   	text ->
   	    [F | preprocess_forms_1(Fs)];
+        {attribute, {record, _}} ->
+            [F | preprocess_forms_1(Fs)];
         {attribute, {N, _}} ->
             case edoc_specs:is_tag(N) of
                 true ->
@@ -373,49 +375,61 @@ preprocess_forms_2(F, Fs) ->
 %% in the list.
 
 collect(Fs, Mod) ->
-    collect(Fs, [], [], [], [], undefined, Mod).
+    collect(Fs, [], [], [], [], [], undefined, Mod).
 
-collect([F | Fs], Cs, Ss, Ts, As, Header, Mod) ->
+collect([F | Fs], Cs, Ss, Ts, Rs, As, Header, Mod) ->
     case erl_syntax_lib:analyze_form(F) of
 	comment ->
-	    collect(Fs, [F | Cs], Ss, Ts, As, Header, Mod);
+	    collect(Fs, [F | Cs], Ss, Ts, Rs, As, Header, Mod);
 	{function, Name} ->
 	    L = erl_syntax:get_pos(F),
 	    Export = ordsets:is_element(Name, Mod#module.exports),
 	    Args = parameters(erl_syntax:function_clauses(F)),
-	    collect(Fs, [], [], [],
+	    collect(Fs, [], [], [], [],
                     [#entry{name = Name, args = Args, line = L,
                             export = Export,
-                            data = {comment_text(Cs),Ss,Ts}} | As],
+                            data = {comment_text(Cs),Ss,Ts,Rs}} | As],
 		    Header, Mod);
 	{attribute, {module, _}} when Header =:= undefined ->
 	    L = erl_syntax:get_pos(F),
-	    collect(Fs, [], [], [], As,
+	    collect(Fs, [], [], [], [], As,
                     #entry{name = module, line = L,
-                           data = {comment_text(Cs),Ss,Ts}},
+                           data = {comment_text(Cs),Ss,Ts,Rs}},
 		    Mod);
+        {attribute, {record, {_Name, Fields}}} ->
+            case is_typed_record(Fields) of
+                true ->
+                    collect(Fs, Cs, Ss, Ts, [F | Rs], As, Header, Mod);
+                false ->
+                    collect(Fs, Cs, Ss, Ts, Rs, As, Header, Mod)
+            end;
         {attribute, {N, _}} ->
             case edoc_specs:tag(N) of
                 spec ->
-                    collect(Fs, Cs, [F | Ss], Ts, As, Header, Mod);
+                    collect(Fs, Cs, [F | Ss], Ts, Rs, As, Header, Mod);
                 type ->
-                    collect(Fs, Cs, Ss, [F | Ts], As, Header, Mod);
+                    collect(Fs, Cs, Ss, [F | Ts], Rs, As, Header, Mod);
                 unknown ->
                     %% Drop current seen comments.
-                    collect(Fs, [], [], [], As, Header, Mod)
+                    collect(Fs, [], [], [], Rs, As, Header, Mod)
             end;
 	_ ->
 	    %% Drop current seen comments.
-	    collect(Fs, [], [], [], As, Header, Mod)
+	    collect(Fs, [], [], [], [], As, Header, Mod)
     end;
-collect([], Cs, Ss, Ts, As, Header, _Mod) ->
-    Footer = #entry{name = footer, data = {comment_text(Cs),Ss,Ts}},
+collect([], Cs, Ss, Ts, Rs, As, Header, _Mod) ->
+    Footer = #entry{name = footer, data = {comment_text(Cs),Ss,Ts,Rs}},
     As1 = lists:reverse(As),
     if Header =:= undefined ->
-	    {#entry{name = module, data = {[],[],[]}}, Footer, As1};
+	    {#entry{name = module, data = {[],[],[],[]}}, Footer, As1};
        true ->
 	    {Header, Footer, As1}
     end.
+
+is_typed_record([]) ->
+    false;
+is_typed_record([{_, {_, Type}} | Fs]) ->
+    Type =/= none orelse is_typed_record(Fs).
 
 %% Returns a list of simplified comment information (position and text)
 %% for a list of abstract comments. The order of elements is reversed.
@@ -549,8 +563,8 @@ get_tags(Es, Env, File, TypeDocs) ->
     How = dict:from_list(edoc_tags:tag_parsers()),
     get_tags(Es, Tags, Env, How, File, TypeDocs).
 
-get_tags([#entry{name = Name, data = {Cs,Specs,Types}} = E | Es], Tags, Env,
-	 How, File, TypeDocs) ->
+get_tags([#entry{name = Name, data = {Cs,Specs,Types,Records}} = E | Es],
+         Tags, Env, How, File, TypeDocs) ->
     Where = {File, Name},
     Ts0 = scan_tags(Cs),
     {Ts1,Specs1} = select_spec(Ts0, Where, Specs),
@@ -558,7 +572,7 @@ get_tags([#entry{name = Name, data = {Cs,Specs,Types}} = E | Es], Tags, Env,
     Ts3 = edoc_macros:expand_tags(Ts2, Env, Where),
     Ts4 = edoc_tags:parse_tags(Ts3, How, Env, Where),
     Ts = selected_specs(Specs1, Ts4),
-    ETypes = [edoc_specs:type(Type, TypeDocs) || Type <- Types],
+    ETypes = [edoc_specs:type(Type, TypeDocs) || Type <- Types ++ Records],
     [E#entry{data = Ts++ETypes} | get_tags(Es, Tags, Env, How, File, TypeDocs)];
 get_tags([], _, _, _, _, _) ->
     [].

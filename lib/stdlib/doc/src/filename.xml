@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -47,7 +47,12 @@
     <p>The module supports raw file names in the way that if a binary is present, or the file name cannot be interpreted according to the return value of 
     <seealso marker="kernel:file#native_name_encoding/0">file:native_name_encoding/0</seealso>, a raw file name will also be returned. For example filename:join/1 provided with a path component being a binary (and also not being possible to interpret under the current native file name encoding) will result in a raw file name being returned (the join operation will have been performed of course). For more information about raw file names, see the <seealso marker="kernel:file">file</seealso> module.</p>
   </description>
-
+  <datatypes>
+      <datatype>
+          <name name="basedir_type"/>
+      </datatype>
+  </datatypes>
+ 
   <funcs>
     <func>
       <name name="absname" arity="1"/>
@@ -99,6 +104,155 @@
           components in <c><anno>Filename</anno></c> are matched against trailing
           directory components in <c><anno>Dir</anno></c> so they can be removed
           from the result - minimizing its length.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="basedir" arity="2"/>
+      <fsummary>Equivalent to <c>basedir(<anno>Type</anno>,<anno>Application</anno>,#{})</c>.</fsummary>
+      <desc>
+          <p>
+              Equivalent to <seealso marker="#basedir-3">
+                  basedir(<anno>Type</anno>, <anno>Application</anno>, #{})</seealso>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name name="basedir" arity="3"/>
+      <fsummary></fsummary>
+      <desc><marker id="basedir-3"/>
+          <p>
+              Returns a suitable path, or paths, for a given type.
+              If <c>os</c> is not set in <c><anno>Opts</anno></c> the function will default to
+              the native option, i.e. <c>'linux'</c>, <c>'darwin'</c> or <c>'windows'</c>, as understood
+              by <c>os:type/0</c>. Anything not recognized as <c>'darwin'</c> or <c>'windows'</c> is
+              interpreted as <c>'linux'</c>.</p>
+          <p>
+              The options <c>'author'</c> and <c>'version'</c> are only used with <c>'windows'</c> option mode.
+          </p>
+        <list type="bulleted">
+            <item><c>user_cache</c>
+                <p>The path location is intended for transient data files on a local machine.</p>
+                <p>
+                    On Linux:
+                    Respects the os environment variable <c>XDG_CACHE_HOME</c>.
+                </p>
+                <pre>
+1> <input>filename:basedir(user_cache, "my_application", #{os=>linux}).</input>
+"/home/otptest/.cache/my_application"</pre>
+                On Darwin: <pre>
+1> <input>filename:basedir(user_cache, "my_application", #{os=>darwin}).</input>
+"/home/otptest/Library/Caches/my_application"</pre>
+                On Windows: <pre>
+1> <input>filename:basedir(user_cache, "My App").</input>
+"c:/Users/otptest/AppData/Local/My App/Cache"
+2> <input>filename:basedir(user_cache, "My App").</input>
+"c:/Users/otptest/AppData/Local/My App/Cache"
+3> <input>filename:basedir(user_cache, "My App", #{author=>"Erlang"}).</input>
+"c:/Users/otptest/AppData/Local/Erlang/My App/Cache"
+4> <input>filename:basedir(user_cache, "My App", #{version=>"1.2"}).</input>
+"c:/Users/otptest/AppData/Local/My App/1.2/Cache"
+5> <input>filename:basedir(user_cache, "My App", #{author=>"Erlang",version=>"1.2"}).</input>
+"c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Cache"</pre>
+            </item>
+            <item><c>user_config</c>
+                <p>
+                    The path location is intended for persistent configuration files.
+                </p>
+                <p>
+                    On Linux:
+                    Respects the os environment variable <c>XDG_CONFIG_HOME</c>.
+                </p>
+                <pre>
+2> <input>filename:basedir(user_config, "my_application", #{os=>linux}).</input>
+"/home/otptest/.config/my_application"</pre>
+                On Darwin:<pre>
+2> <input>filename:basedir(user_config, "my_application", #{os=>darwin}).</input>
+"/home/otptest/Library/Application Support/my_application"</pre>
+                On Windows:<pre>
+1> <input>filename:basedir(user_config, "My App").</input>
+"c:/Users/otptest/AppData/Roaming/My App"
+2> <input>filename:basedir(user_config, "My App", #{author=>"Erlang", version=>"1.2"}).</input>
+"c:/Users/otptest/AppData/Roaming/Erlang/My App/1.2"</pre>
+            </item>
+            <item><c>user_data</c>
+                <p>
+                    The path location is intended for persistent data files.
+                </p>
+                <p>
+                    On Linux:
+                    Respects the os environment variable <c>XDG_DATA_HOME</c>.
+                </p>
+                <pre>
+3> <input>filename:basedir(user_data, "my_application", #{os=>linux}).</input>
+"/home/otptest/.local/my_application"</pre>
+                On Darwin:<pre>
+3> <input>filename:basedir(user_data, "my_application", #{os=>darwin}).</input>
+"/home/otptest/Library/Application Support/my_application"</pre>
+                On Windows:<pre>
+8> <input>filename:basedir(user_data, "My App").</input>
+"c:/Users/otptest/AppData/Local/My App"
+9> <input>filename:basedir(user_data, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
+"c:/Users/otptest/AppData/Local/Erlang/My App/1.2"</pre>
+            </item>
+            <item><c>user_log</c>
+                <p>The path location is intended for transient log files on a local machine.</p>
+                <p>
+                On Linux:
+                Respects the os environment variable <c>XDG_CACHE_HOME</c>.</p>
+                <pre>
+4> <input>filename:basedir(user_log, "my_application", #{os=>linux}).</input>
+"/home/otptest/.cache/my_application/log"</pre>
+                On Darwin:<pre>
+4> <input>filename:basedir(user_log, "my_application", #{os=>darwin}).</input>
+"/home/otptest/Library/Caches/my_application"</pre>
+                On Windows:<pre>
+12> <input>filename:basedir(user_log, "My App").</input>
+"c:/Users/otptest/AppData/Local/My App/Logs"
+13> <input>filename:basedir(user_log, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
+"c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Logs"</pre>
+            </item>
+            <item><c>site_config</c><p>
+                On Linux:
+                Respects the os environment variable <c>XDG_CONFIG_DIRS</c>.</p>
+<pre>
+5> <input>filename:basedir(site_data, "my_application", #{os=>linux}).</input>
+["/usr/local/share/my_application",
+ "/usr/share/my_application"]
+6> <input>os:getenv("XDG_CONFIG_DIRS").</input>
+"/etc/xdg/xdg-ubuntu:/usr/share/upstart/xdg:/etc/xdg"
+7> <input>filename:basedir(site_config, "my_application", #{os=>linux}).</input>
+["/etc/xdg/xdg-ubuntu/my_application",
+ "/usr/share/upstart/xdg/my_application",
+ "/etc/xdg/my_application"]
+8> <input>os:unsetenv("XDG_CONFIG_DIRS").</input>
+true
+9> <input>filename:basedir(site_config, "my_application", #{os=>linux}).</input>
+["/etc/xdg/my_application"]</pre>
+                On Darwin:<pre>
+5> <input>filename:basedir(site_config, "my_application", #{os=>darwin}).</input>
+["/Library/Application Support/my_application"]</pre>
+            </item>
+            <item><c>site_data</c><p>
+                    On Linux:
+                    Respects the os environment variable <c>XDG_DATA_DIRS</c>.</p>
+                <pre>
+10> <input>os:getenv("XDG_DATA_DIRS").</input>
+"/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/"
+11> <input>filename:basedir(site_data, "my_application", #{os=>linux}).</input>
+["/usr/share/ubuntu/my_application",
+ "/usr/share/gnome/my_application",
+ "/usr/local/share/my_application",
+ "/usr/share/my_application"]
+12> <input>os:unsetenv("XDG_DATA_DIRS").</input>
+true
+13> <input>filename:basedir(site_data, "my_application", #{os=>linux}).</input>
+["/usr/local/share/my_application",
+ "/usr/share/my_application"]</pre>
+                On Darwin:<pre>
+5> <input>filename:basedir(site_data, "my_application", #{os=>darwin}).</input>
+["/Library/Application Support/my_application"]</pre>
+            </item>
+        </list>
       </desc>
     </func>
     <func>

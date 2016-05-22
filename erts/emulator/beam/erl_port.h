@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -185,8 +185,13 @@ struct _erl_drv_port {
     int control_flags;		 /* Flags for port_control()  */
     ErlDrvPDL port_data_lock;
 
-    ErtsPrtSD *psd;		 /* Port specific data */
+    erts_smp_atomic_t psd;	 /* Port specific data */
     int reds; /* Only used while executing driver callbacks */
+
+    struct {
+        Eterm to;
+        Uint32 ref[ERTS_MAX_REF_NUMBERS];
+    } *async_open_port;         /* Reference used with async open port */
 };
 
 
@@ -247,22 +252,51 @@ ERTS_GLB_INLINE void *erts_prtsd_set(Port *p, int ix, void *new);
 ERTS_GLB_INLINE void *
 erts_prtsd_get(Port *prt, int ix)
 {
-    return prt->psd ? prt->psd->data[ix] : NULL;
+    ErtsPrtSD *psd = (ErtsPrtSD *) erts_smp_atomic_read_nob(&prt->psd);
+    if (!psd)
+	return NULL;
+    ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+    return psd->data[ix];
 }
 
 ERTS_GLB_INLINE void *
 erts_prtsd_set(Port *prt, int ix, void *data)
 {
-    if (prt->psd) {
-	void *old = prt->psd->data[ix];
-	prt->psd->data[ix] = data;
+    ErtsPrtSD *psd, *new_psd;
+    void *old;
+    int i;
+
+    psd = (ErtsPrtSD *) erts_smp_atomic_read_nob(&prt->psd);
+
+    if (psd) {
+#ifdef ERTS_SMP
+#ifdef ETHR_ORDERED_READ_DEPEND
+	ETHR_MEMBAR(ETHR_LoadStore|ETHR_StoreStore);
+#else
+	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore|ETHR_StoreStore);
+#endif
+#endif
+	old = psd->data[ix];
+	psd->data[ix] = data;
 	return old;
     }
-    else {
-	prt->psd = erts_alloc(ERTS_ALC_T_PRTSD, sizeof(ErtsPrtSD));
-	prt->psd->data[ix] = data;
+
+    if (!data)
 	return NULL;
-    }
+
+    new_psd = erts_alloc(ERTS_ALC_T_PRTSD, sizeof(ErtsPrtSD));
+    for (i = 0; i < ERTS_PRTSD_SIZE; i++)
+	new_psd->data[i] = NULL;
+    psd = (ErtsPrtSD *) erts_smp_atomic_cmpxchg_mb(&prt->psd,
+						   (erts_aint_t) new_psd,
+						   (erts_aint_t) NULL);
+    if (psd)
+	erts_free(ERTS_ALC_T_PRTSD, new_psd);
+    else
+	psd = new_psd;
+    old = psd->data[ix];
+    psd->data[ix] = data;
+    return old;
 }
 
 #endif
@@ -453,6 +487,7 @@ ERTS_GLB_INLINE Port*erts_id2port(Eterm id);
 ERTS_GLB_INLINE Port *erts_id2port_sflgs(Eterm, Process *, ErtsProcLocks, Uint32);
 ERTS_GLB_INLINE void erts_port_release(Port *);
 #ifdef ERTS_SMP
+ERTS_GLB_INLINE Port *erts_thr_port_lookup(Eterm id, Uint32 invalid_sflgs);
 ERTS_GLB_INLINE Port *erts_thr_id2port_sflgs(Eterm id, Uint32 invalid_sflgs);
 ERTS_GLB_INLINE void erts_thr_port_release(Port *prt);
 #endif
@@ -592,6 +627,44 @@ erts_port_release(Port *prt)
 }
 
 #ifdef ERTS_SMP
+/*
+ * erts_thr_id2port_sflgs() and erts_port_dec_refc(prt) can
+ * be used by unmanaged threads in the SMP case.
+ */
+ERTS_GLB_INLINE Port *
+erts_thr_port_lookup(Eterm id, Uint32 invalid_sflgs)
+{
+    Port *prt;
+    ErtsThrPrgrDelayHandle dhndl;
+
+    if (is_not_internal_port(id))
+	return NULL;
+
+    dhndl = erts_thr_progress_unmanaged_delay();
+
+    prt = (Port *) erts_ptab_pix2intptr_ddrb(&erts_port,
+					     internal_port_index(id));
+
+    if (!prt || prt->common.id != id) {
+	erts_thr_progress_unmanaged_continue(dhndl);
+	return NULL;
+    }
+    else {
+	erts_aint32_t state;
+	erts_port_inc_refc(prt);
+
+	if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
+	    erts_thr_progress_unmanaged_continue(dhndl);
+
+	state = erts_atomic32_read_acqb(&prt->state);
+	if (state & invalid_sflgs) {
+	    erts_port_dec_refc(prt);
+	    return NULL;
+	}
+
+	return prt;
+    }
+}
 
 /*
  * erts_thr_id2port_sflgs() and erts_thr_port_release() can
@@ -687,7 +760,7 @@ erts_drvport2port_state(ErlDrvPort drvport, erts_aint32_t *statep)
     Port *prt = ERTS_ErlDrvPort2Port(drvport);
     erts_aint32_t state;
     ASSERT(prt);
-    ERTS_LC_ASSERT(erts_lc_is_emu_thr());
+//    ERTS_LC_ASSERT(erts_lc_is_emu_thr());
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return ERTS_INVALID_ERL_DRV_PORT;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt)
@@ -910,7 +983,7 @@ erts_schedule_proc2port_signal(Process *,
 			       ErtsPortTaskHandle *,
 			       ErtsProc2PortSigCallback);
 
-int erts_deliver_port_exit(Port *, Eterm, Eterm, int);
+int erts_deliver_port_exit(Port *, Eterm, Eterm, int, int);
 
 /*
  * Port signal flags
@@ -943,5 +1016,12 @@ ErtsPortOpResult erts_port_unlink(Process *, Port *, Eterm, Eterm *);
 ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);
+
+int erts_port_output_async(Port *, Eterm, Eterm);
+
+/*
+ * Signals from ports to ports. Used by sys drivers.
+ */
+int erl_drv_port_control(Eterm, char, char*, ErlDrvSizeT);
 
 #endif

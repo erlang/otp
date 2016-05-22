@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2014</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,8 +34,8 @@
     <p>A behaviour module for implementing a supervisor, a process which
       supervises other processes called child processes. A child
       process can either be another supervisor or a worker process.
-      Worker processes are normally implemented using one of
-      the <c>gen_event</c>, <c>gen_fsm</c>, or <c>gen_server</c>
+      Worker processes are normally implemented using one of the
+      <c>gen_event</c>, <c>gen_fsm</c>, <c>gen_statem</c> or <c>gen_server</c>
       behaviours. A supervisor implemented using this module will have
       a standard set of interface functions and include functionality
       for tracing and error reporting. Supervisors are used to build a
@@ -221,7 +221,8 @@
         <p><c>modules</c> is used by the release handler during code
           replacement to determine which processes are using a certain
           module. As a rule of thumb, if the child process is a
-          <c>supervisor</c>, <c>gen_server</c>, or <c>gen_fsm</c>,
+          <c>supervisor</c>, <c>gen_server</c>,
+	  <c>gen_fsm</c> or <c>gen_statem</c>
 	  this should be a list with one element <c>[Module]</c>,
 	  where <c>Module</c> is the callback module. If the child
 	  process is an event manager (<c>gen_event</c>) with a
@@ -636,6 +637,7 @@
     <title>SEE ALSO</title>
     <p><seealso marker="gen_event">gen_event(3)</seealso>, 
       <seealso marker="gen_fsm">gen_fsm(3)</seealso>, 
+      <seealso marker="gen_statem">gen_statem(3)</seealso>,
       <seealso marker="gen_server">gen_server(3)</seealso>, 
       <seealso marker="sys">sys(3)</seealso></p>
   </section>

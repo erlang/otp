@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -312,6 +312,8 @@ void erts_check_for_holes(Process* p)
     p->last_htop = HEAP_TOP(p);
 
     for (hf = MBUF(p); hf != 0; hf = hf->next) {
+	if (hf == p->heap_hfrag)
+	    continue;
 	if (hf == p->last_mbuf) {
 	    break;
 	}
@@ -402,7 +404,7 @@ void verify_process(Process *p)
         erts_exit(ERTS_ERROR_EXIT,"Wild pointer found in " name " of %T!\n",p->common.id); }
 
 
-    ErlMessage* mp = p->msg.first;
+    ErtsMessage* mp = p->msg.first;
 
     VERBOSE(DEBUG_MEMORY,("Verify process: %T...\n",p->common.id));
 
@@ -416,7 +418,7 @@ void verify_process(Process *p)
     erts_check_heap(p);
 
     if (p->dictionary)
-        VERIFY_AREA("dictionary",p->dictionary->data, p->dictionary->used);
+        VERIFY_AREA("dictionary", ERTS_PD_START(p->dictionary), ERTS_PD_SIZE(p->dictionary));
     VERIFY_ETERM("seq trace token",p->seq_trace_token);
     VERIFY_ETERM("group leader",p->group_leader);
     VERIFY_ETERM("fvalue",p->fvalue);
@@ -531,7 +533,7 @@ static void print_process_memory(Process *p)
                 PTR_SIZE, "PCB", dashes, dashes, dashes, dashes);
 
     if (p->msg.first != NULL) {
-        ErlMessage* mp;
+        ErtsMessage* mp;
         erts_printf("  Message Queue:\n");
         mp = p->msg.first;
         while (mp != NULL) {
@@ -542,8 +544,8 @@ static void print_process_memory(Process *p)
     }
 
     if (p->dictionary != NULL) {
-        int n = p->dictionary->used;
-        Eterm *ptr = p->dictionary->data;
+        int n = ERTS_PD_SIZE(p->dictionary);
+        Eterm *ptr = ERTS_PD_START(p->dictionary);
         erts_printf("  Dictionary: ");
         while (n--) erts_printf("0x%0*lx ",PTR_SIZE,(unsigned long)ptr++);
         erts_printf("\n");
@@ -631,29 +633,4 @@ void print_memory_info(Process *p)
     }
     erts_printf("+-----------------%s-%s-%s-%s-+\n",dashes,dashes,dashes,dashes);
 }
-#if !HEAP_ON_C_STACK && defined(DEBUG)
-Eterm *erts_debug_allocate_tmp_heap(int size, Process *p)
-{
-    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
-    int offset = sd->num_tmp_heap_used;
-
-    ASSERT(offset+size <= TMP_HEAP_SIZE);
-    return (sd->tmp_heap)+offset;
-}
-void erts_debug_use_tmp_heap(int size, Process *p)
-{
-    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
-
-    sd->num_tmp_heap_used += size;
-    ASSERT(sd->num_tmp_heap_used <= TMP_HEAP_SIZE);
-}
-void erts_debug_unuse_tmp_heap(int size, Process *p)
-{
-    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
-
-    sd->num_tmp_heap_used -= size;
-    ASSERT(sd->num_tmp_heap_used >= 0);
-}
 #endif
-#endif
-

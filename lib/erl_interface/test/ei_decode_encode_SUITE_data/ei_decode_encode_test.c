@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -240,7 +240,7 @@ void decode_encode(struct Type** tv, int nobj)
 	    if (err != -1) {
 		fail("decode returned non zero but not -1");
 	    } else {
-		fail("decode returned non zero");
+		fail1("decode '%s' returned non zero", t->name);
 	    }
 	    return;
 	}
@@ -491,12 +491,11 @@ TESTCASE(test_ei_decode_encode)
     decode_encode_big(&big_type);
 
     /* Test large node containers... */
-    decode_encode_one(&pid_type);
-    decode_encode_one(&port_type);
-    decode_encode_one(&ref_type);
-    decode_encode_one(&pid_type);
-    decode_encode_one(&port_type);
-    decode_encode_one(&ref_type);
+    for (i=0; i<6; i++) {
+        decode_encode_one(&pid_type);
+        decode_encode_one(&port_type);
+        decode_encode_one(&ref_type);
+    }
 
     /* Unicode atoms */
     for (i=0; i<24; i++) {

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -344,11 +344,31 @@ binary_type(I1, I2) ->
 map_type(Fs) ->
     {first,[$#],map_pair_types(Fs)}.
 
-map_pair_types(Fs) ->
+map_pair_types(Fs0) ->
+    Fs = replace_any_map(Fs0),
     tuple_type(Fs, fun map_pair_type/2).
 
+replace_any_map([{type,Line,map_field_assoc,[KType,VType]}]=Fs) ->
+    IsAny = fun({type,_,any,[]}) -> true;
+    %%         ({var,_,'_'}) -> true;
+               (_) -> false
+            end,
+    case IsAny(KType) andalso IsAny(VType) of
+        true ->
+            [{type,Line,map_field_assoc,any}];
+        false ->
+            Fs
+    end;
+replace_any_map([F|Fs]) ->
+    [F|replace_any_map(Fs)];
+replace_any_map([]) -> [].
+
+map_pair_type({type,_Line,map_field_assoc,any}, _Prec) ->
+    leaf("...");
 map_pair_type({type,_Line,map_field_assoc,[KType,VType]}, Prec) ->
-    {list,[{cstep,[ltype(KType, Prec),leaf(" =>")],ltype(VType, Prec)}]}.
+    {list,[{cstep,[ltype(KType, Prec),leaf(" =>")],ltype(VType, Prec)}]};
+map_pair_type({type,_Line,map_field_exact,[KType,VType]}, Prec) ->
+    {list,[{cstep,[ltype(KType, Prec),leaf(" :=")],ltype(VType, Prec)}]}.
 
 record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.

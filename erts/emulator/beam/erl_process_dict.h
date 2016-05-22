@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,18 @@
 #include "sys.h"
 
 typedef struct proc_dict {
-    unsigned int size;
-    unsigned int used;
-    unsigned int homeSize;
+    unsigned int sizeMask;
+    unsigned int usedSlots;
+    unsigned int arraySize;
     unsigned int splitPosition;
     Uint numElements;
     Eterm data[1]; /* The beginning of an array of erlang terms */
 } ProcDict;
 
+#define ERTS_PD_START(PD) ((PD)->data)
+#define ERTS_PD_SIZE(PD)  ((PD)->usedSlots)
+
+int erts_pd_set_initial_size(int size);
 Uint erts_dicts_mem_size(struct process *p);
 void erts_erase_dicts(struct process *p);
 void erts_dictionary_dump(int to, void *to_arg, ProcDict *pd);
@@ -39,5 +43,6 @@ void erts_deep_dictionary_dump(int to, void *to_arg,
 Eterm erts_dictionary_copy(struct process *p, ProcDict *pd);
 
 Eterm erts_pd_hash_get(struct process *p, Eterm id);
+Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id);
 
 #endif

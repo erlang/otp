@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,9 +135,9 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 						  service = "ssh-connection"});
 	{error, no_user} ->
 	    ErrStr = "Could not determine the users name",
-	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_ILLEGAL_USER_NAME,
-				      description = ErrStr,
-				      language = "en"})
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_ILLEGAL_USER_NAME,
+				  description = ErrStr})
     end.
 
 userauth_request_msg(#ssh{userauth_preference = []} = Ssh) ->    
@@ -355,10 +355,10 @@ handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 
 handle_userauth_info_response(#ssh_msg_userauth_info_response{},
 			      _Auth) ->
-    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			      description = "Server does not support"
-			      "keyboard-interactive",
-			      language = "en"}).
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+			  description = "Server does not support keyboard-interactive"
+			 }).
 
 
 %%--------------------------------------------------------------------
@@ -420,10 +420,10 @@ check_password(User, Password, Opts, Ssh) ->
 		{false,NewState} ->
 		    {false, Ssh#ssh{pwdfun_user_state=NewState}};
 		disconnect ->
-		    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-					      description = 
-						  "Unable to connect using the available authentication methods",
-					      language = ""})
+		    ssh_connection_handler:disconnect(
+		      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+					  description = "Unable to connect using the available authentication methods"
+					 })
 	    end
     end.
 

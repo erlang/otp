@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,12 +51,14 @@
 	 timer/4,
 	 timer/5]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(MAXREF, (1 bsl 18)).
 -define(REFMARG, 30).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     [apply_after, send_after1, send_after2, send_after3,
@@ -87,222 +89,198 @@ init_per_testcase(_, Config) when is_list(Config) ->
 
 %% Testing timer interface!!
 
-apply_after(doc) -> "Test of apply_after, with sending of message.";
-apply_after(suite) -> [];
+%% Test of apply_after, with sending of message.
 apply_after(Config) when is_list(Config) ->
-    ?line timer:apply_after(500, ?MODULE, send, [self(), ok_apply]),
-    ?line ok = get_mess(1000, ok_apply).
+    timer:apply_after(500, ?MODULE, send, [self(), ok_apply]),
+    ok = get_mess(1000, ok_apply).
 
-send_after1(doc) -> "Test of send_after with time = 0.";
-send_after1(suite) -> [];
+%% Test of send_after with time = 0.
 send_after1(Config) when is_list(Config) ->
-    ?line timer:send_after(0, ok_send1),
-    ?line ok = get_mess(1000, ok_send1).
+    timer:send_after(0, ok_send1),
+    ok = get_mess(1000, ok_send1).
 
-send_after2(doc) -> "Test of send_after with time = 500.";
-send_after2(suite) -> [];
+%% Test of send_after with time = 500.
 send_after2(Config) when is_list(Config) ->
-    ?line timer:send_after(500, self(), ok_send2),
-    ?line ok = get_mess(2000, ok_send2).
+    timer:send_after(500, self(), ok_send2),
+    ok = get_mess(2000, ok_send2).
 
-send_after3(doc) -> "Test of send_after with time = 500, with receiver "
-			"a registered process. [OTP-2735]";
-send_after3(suite) -> [];
+%% Test of send_after with time = 500, with receiver a registered
+%% process. [OTP-2735]
 send_after3(Config) when is_list(Config) ->
-    ?line Name = list_to_atom(pid_to_list(self())),
-    ?line register(Name, self()),
-    ?line timer:send_after(500, Name, ok_send3),
-    ?line ok = get_mess(2000, ok_send3),
-    ?line unregister(Name).
+    Name = list_to_atom(pid_to_list(self())),
+    register(Name, self()),
+    timer:send_after(500, Name, ok_send3),
+    ok = get_mess(2000, ok_send3),
+    unregister(Name).
 
-exit_after1(doc) -> "Test of exit_after with time = 1000.";
-exit_after1(suite) -> [];
+%% Test of exit_after with time = 1000.
 exit_after1(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = spawn_link(?MODULE, forever, []),
-    ?line timer:exit_after(1000, Pid, exit_test1),
-    ?line ok = get_mess(5000, {'EXIT', Pid, exit_test1}).
+    process_flag(trap_exit, true),
+    Pid = spawn_link(?MODULE, forever, []),
+    timer:exit_after(1000, Pid, exit_test1),
+    ok = get_mess(5000, {'EXIT', Pid, exit_test1}).
 
-exit_after2(doc) -> "Test of exit_after with time = 1000. The process to "
-			"exit is the name of a registered process. "
-			"[OTP-2735]";
-exit_after2(suite) -> [];
+%% Test of exit_after with time = 1000. The process to exit is the
+%% name of a registered process.  [OTP-2735]
 exit_after2(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = spawn_link(?MODULE, forever, []),
-    ?line Name = list_to_atom(pid_to_list(Pid)),
-    ?line register(Name, Pid),
-    ?line timer:exit_after(1000, Name, exit_test2),
-    ?line ok = get_mess(2000, {'EXIT', Pid, exit_test2}).
+    process_flag(trap_exit, true),
+    Pid = spawn_link(?MODULE, forever, []),
+    Name = list_to_atom(pid_to_list(Pid)),
+    register(Name, Pid),
+    timer:exit_after(1000, Name, exit_test2),
+    ok = get_mess(2000, {'EXIT', Pid, exit_test2}).
 
-kill_after1(doc) -> "Test of kill_after with time = 1000.";
-kill_after1(suite) -> [];
+%% Test of kill_after with time = 1000.
 kill_after1(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = spawn_link(?MODULE, forever, []),
-    ?line timer:kill_after(1000, Pid),
-    ?line ok = get_mess(2000, {'EXIT', Pid, killed}).
+    process_flag(trap_exit, true),
+    Pid = spawn_link(?MODULE, forever, []),
+    timer:kill_after(1000, Pid),
+    ok = get_mess(2000, {'EXIT', Pid, killed}).
 
-kill_after2(doc) -> "Test of kill_after with time = 1000. The process to "
-			"exit is the name of a registered process. "
-			"[OTP-2735]";
-kill_after2(suite) -> [];
+%% Test of kill_after with time = 1000. The process to exit is the
+%% name of a registered process.  [OTP-2735]
 kill_after2(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = spawn_link(?MODULE, forever, []),
-    ?line Name = list_to_atom(pid_to_list(Pid)),
-    ?line register(Name, Pid),
-    ?line timer:kill_after(1000, Name),
-    ?line ok = get_mess(2000, {'EXIT', Pid, killed}).
+    process_flag(trap_exit, true),
+    Pid = spawn_link(?MODULE, forever, []),
+    Name = list_to_atom(pid_to_list(Pid)),
+    register(Name, Pid),
+    timer:kill_after(1000, Name),
+    ok = get_mess(2000, {'EXIT', Pid, killed}).
 
-apply_interval(doc) -> "Test of apply_interval by sending messages. Receive "
-                       "3 messages, cancel the timer, and check that we do "
-		       "not get any more messages.";
-apply_interval(suite) -> [];
+%% Test of apply_interval by sending messages. Receive
+%% 3 messages, cancel the timer, and check that we do
+%% not get any more messages.
 apply_interval(Config) when is_list(Config) ->
-    ?line {ok, Ref} = timer:apply_interval(1000, ?MODULE, send, 
+    {ok, Ref} = timer:apply_interval(1000, ?MODULE, send,
 				     [self(), apply_int]),
-    ?line ok = get_mess(1500, apply_int, 3),
-    ?line timer:cancel(Ref),
-    ?line nor = get_mess(1000, apply_int).
+    ok = get_mess(1500, apply_int, 3),
+    timer:cancel(Ref),
+    nor = get_mess(1000, apply_int).
 
-send_interval1(doc) -> "Test of send_interval/2. Receive 5 messages, cancel "
-		      "the timer, and check that we do not get any more "
-                      "messages.";
-send_interval1(suite) -> [];
+%% Test of send_interval/2. Receive 5 messages, cancel the timer, and
+%% check that we do not get any more messages.
 send_interval1(Config) when is_list(Config) ->
     {ok, Ref} = timer:send_interval(1000, send_int),
-    ?line ok = get_mess(1500, send_int, 5),
+    ok = get_mess(1500, send_int, 5),
     timer:cancel(Ref),
-    ?line nor = get_mess(1000, send_int). % We should receive only five
+    nor = get_mess(1000, send_int). % We should receive only five
 
-send_interval2(doc) -> "Test of send_interval/3. Receive 2 messages, cancel "
-		      "the timer, and check that we do not get any more "
-                      "messages.";
-send_interval2(suite) -> [];
+%% Test of send_interval/3. Receive 2 messages, cancel the timer, and
+%% check that we do not get any more messages.
 send_interval2(Config) when is_list(Config) ->
     {ok, Ref} = timer:send_interval(1000, self(), send_int2),
-    ?line ok = get_mess(1500, send_int2, 2),
+    ok = get_mess(1500, send_int2, 2),
     timer:cancel(Ref),
-    ?line nor = get_mess(1000, send_int2).  % We should receive only two
+    nor = get_mess(1000, send_int2).  % We should receive only two
 
-send_interval3(doc) -> "Test of send_interval/3. Receive 2 messages, cancel "
-		      "the timer, and check that we do not get any more "
-                      "messages. The receiver is the name of a registered "
-			   "process. [OTP-2735]";
-send_interval3(suite) -> [];
+%% Test of send_interval/3. Receive 2 messages, cancel the timer, and
+%% check that we do not get any more messages. The receiver is the
+%% name of a registered process. [OTP-2735]
 send_interval3(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Name = list_to_atom(pid_to_list(self())),
-    ?line register(Name, self()),
-    ?line {ok, Ref} = timer:send_interval(1000, Name, send_int3),
-    ?line ok = get_mess(1500, send_int3, 2),
+    process_flag(trap_exit, true),
+    Name = list_to_atom(pid_to_list(self())),
+    register(Name, self()),
+    {ok, Ref} = timer:send_interval(1000, Name, send_int3),
+    ok = get_mess(1500, send_int3, 2),
     timer:cancel(Ref),
-    ?line nor = get_mess(1000, send_int3),  % We should receive only two
-    ?line unregister(Name).
+    nor = get_mess(1000, send_int3),  % We should receive only two
+    unregister(Name).
 
-send_interval4(doc) -> "Test that send interval stops sending msg when the "
-			   "receiving process terminates.";
-send_interval4(suite) -> [];
+%% Test that send interval stops sending msg when the receiving
+%% process terminates.
 send_interval4(Config) when is_list(Config) ->
-    ?line timer:send_interval(500, one_time_only),
+    timer:send_interval(500, one_time_only),
     receive 
 	one_time_only -> ok
     end,
-    ?line timer_server ! {'EXIT', self(), normal}, % Should remove the timer
-    ?line timer:send_after(600, send_intv_ok),
-    ?line send_intv_ok = receive 
-			     Msg -> Msg
-			 end.
+    timer_server ! {'EXIT', self(), normal}, % Should remove the timer
+    timer:send_after(600, send_intv_ok),
+    send_intv_ok = receive
+		       Msg -> Msg
+		   end.
 
-cancel1(doc) -> "Test that we can cancel a timer.";
-cancel1(suite) -> [];
+%% Test that we can cancel a timer.
 cancel1(Config) when is_list(Config) ->
-    ?line {ok, Ref} = timer:send_after(1000, this_should_be_canceled),
-    ?line timer:cancel(Ref),
-    ?line nor = get_mess(2000, this_should_be_canceled). % We should rec 0 msgs
+    {ok, Ref} = timer:send_after(1000, this_should_be_canceled),
+    timer:cancel(Ref),
+    nor = get_mess(2000, this_should_be_canceled). % We should rec 0 msgs
 
-cancel2(doc) -> "Test cancel/1 with bad argument.";
-cancel2(suite) -> [];
+%% Test cancel/1 with bad argument.
 cancel2(Config) when is_list(Config) ->
-    ?line {error, badarg} = timer:cancel(no_reference). 
+    {error, badarg} = timer:cancel(no_reference).
 
-tc(doc) -> "Test sleep/1 and tc/3.";
-tc(suite) -> [];
+%% Test sleep/1 and tc/3.
 tc(Config) when is_list(Config) ->
     %% This should test both sleep and tc/3
-    ?line {Res1, ok} = timer:tc(timer, sleep, [500]),
-    ?line ok = 	if
+    {Res1, ok} = timer:tc(timer, sleep, [500]),
+    ok = 	if
 		    Res1 < 500*1000 -> {too_early, Res1}; % Too early
 		    Res1 > 800*1000 -> {too_late, Res1};  % Too much time
 		    true -> ok
 		end,
 
     %% tc/2
-    ?line {Res2, ok} = timer:tc(fun(T) -> timer:sleep(T) end, [500]),
-    ?line ok = 	if
+    {Res2, ok} = timer:tc(fun(T) -> timer:sleep(T) end, [500]),
+    ok = 	if
 		    Res2 < 500*1000 -> {too_early, Res2}; % Too early
 		    Res2 > 800*1000 -> {too_late, Res2};  % Too much time
 		    true -> ok
 		end,
-    
+
     %% tc/1
-    ?line {Res3, ok} = timer:tc(fun() -> timer:sleep(500) end),
-    ?line ok = 	if
+    {Res3, ok} = timer:tc(fun() -> timer:sleep(500) end),
+    ok = 	if
     		    Res3 < 500*1000 -> {too_early, Res3}; % Too early
     		    Res3 > 800*1000 -> {too_late, Res3};  % Too much time
     		    true -> ok
     		end,
 
     %% Check that timer:tc don't catch errors
-    ?line ok = try timer:tc(erlang, exit, [foo]) 
-	       catch exit:foo -> ok
-	       end,
-    
-    ?line ok = try timer:tc(fun(Reason) -> 1 = Reason end, [foo]) 
-	       catch error:{badmatch,_} -> ok
-	       end,
-    
-    ?line ok = try timer:tc(fun() -> throw(foo) end) 
-	       catch foo -> ok
-	       end,
-    
+    ok = try timer:tc(erlang, exit, [foo])
+	 catch exit:foo -> ok
+	 end,
+
+    ok = try timer:tc(fun(Reason) -> 1 = Reason end, [foo])
+	 catch error:{badmatch,_} -> ok
+	 end,
+
+    ok = try timer:tc(fun() -> throw(foo) end)
+	 catch foo -> ok
+	 end,
+
     %% Check that return values are propageted
     Self = self(),
-    ?line {_, Self} = timer:tc(erlang, self, []),
-    ?line {_, Self} = timer:tc(fun(P) -> P end, [self()]),
-    ?line {_, Self} = timer:tc(fun() -> self() end),
+    {_, Self} = timer:tc(erlang, self, []),
+    {_, Self} = timer:tc(fun(P) -> P end, [self()]),
+    {_, Self} = timer:tc(fun() -> self() end),
 
-    ?line Sec = timer:seconds(4),
-    ?line Min = timer:minutes(4),
-    ?line Hour = timer:hours(4),
-    ?line MyRes = 4*1000 + 4*60*1000 + 4*60*60*1000,
-    ?line if  MyRes == Sec + Min + Hour -> ok end,
-    ?line TimerRes = timer:hms(4,4,4),
-    ?line if MyRes == TimerRes -> ok end,
+    Sec = timer:seconds(4),
+    Min = timer:minutes(4),
+    Hour = timer:hours(4),
+    MyRes = 4*1000 + 4*60*1000 + 4*60*60*1000,
+    if  MyRes == Sec + Min + Hour -> ok end,
+    TimerRes = timer:hms(4,4,4),
+    if MyRes == TimerRes -> ok end,
     ok.
 
-unique_refs(doc) ->
-    "Tests that cancellations of one-shot timers do not accidentally "
-	"cancel interval timers [OTP-2771].";
-unique_refs(suite) ->
-    [];
+%% Test that cancellations of one-shot timers do not accidentally
+%% cancel interval timers. [OTP-2771].
 unique_refs(Config) when is_list(Config) ->
-    ?line ITimers = repeat_send_interval(10),		% 10 interval timers
-    ?line eat_refs(?MAXREF - ?REFMARG),
-    ?line set_and_cancel_one_shots(?REFMARG),
-    ?line NumLeft = num_timers(),
-    ?line io:format("~w timers left, should be 10\n", [NumLeft]),
-    ?line cancel(ITimers),
-    ?line receive_nisse(),
-    ?line 10 = NumLeft.
+    ITimers = repeat_send_interval(10),		% 10 interval timers
+    eat_refs(?MAXREF - ?REFMARG),
+    set_and_cancel_one_shots(?REFMARG),
+    NumLeft = num_timers(),
+    io:format("~w timers left, should be 10\n", [NumLeft]),
+    cancel(ITimers),
+    receive_nisse(),
+    10 = NumLeft.
 
 
 repeat_send_interval(0) ->
     [];
 repeat_send_interval(M) ->
-    ?line {ok, Ref} = timer:send_interval(6000,self(), nisse),
-    ?line [Ref| repeat_send_interval(M - 1)].
+    {ok, Ref} = timer:send_interval(6000,self(), nisse),
+    [Ref| repeat_send_interval(M - 1)].
 
 eat_refs(0) ->
     0;
@@ -320,8 +298,8 @@ set_and_cancel_one_shots(N) ->
     set_and_cancel_one_shots(N-1).
 
 cancel([T| Ts]) ->
-    ?line timer:cancel(T),
-    ?line cancel(Ts);
+    timer:cancel(T),
+    cancel(Ts);
 cancel([]) ->
     ok.
 
@@ -344,7 +322,7 @@ get_mess(Time, Mess, N) ->
     receive 
 	Mess -> get_mess(Time, Mess, N-1)
     after Time
-	  -> nor   % Not Received
+	      -> nor   % Not Received
     end.
 
 forever() ->
@@ -352,16 +330,13 @@ forever() ->
     forever().
 
 
-%
-% Testing for performance (on different implementations) of timers 
-% 
+%%
+%% Testing for performance (on different implementations) of timers
+%%
 
-timer_perf(suite) -> [];
+
 timer_perf(Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(10)),
-    Res = performance(timer),
-    ?t:timetrap_cancel(Dog),
-    Res.
+    performance(timer).
 
 performance(Mod) ->
     process_flag(trap_exit, true),    
@@ -374,7 +349,7 @@ performance(Mod) ->
 
 big_test(M) ->
     Load_Pids = start_nrev(20, M),   % Increase if more load wanted :)
- 
+
     LPids = spawn_timers(5, M, 10000, 5),
 
     apply(M, sleep, [4000]),
@@ -384,7 +359,7 @@ big_test(M) ->
     SPids = spawn_timers(15, M, 100, 3),
 
     Res = wait(SPids ++ MPids ++ LPids, [], 0, M),
-    
+
     lists:foreach(fun(Pid) -> exit(Pid, kill) end, Load_Pids),
     Res.
 
@@ -395,12 +370,12 @@ wait(Pids, ResList, N, M) ->
 	{Pid, ok, Res, T} ->
 	    wait(lists:delete(Pid, Pids), [{T, Res} | ResList], N, M);
 	{Pid, Error}->
-	    ?line test_server:fail(Error),
+	    ct:fail(Error),
 	    wait(lists:delete(Pid, Pids), ResList, N+1, M);
 	{'EXIT', Pid, normal} ->
 	    wait(lists:delete(Pid, Pids), ResList, N, M);
 	{'EXIT', Pid, Reason} ->
-    	    ?line test_server:fail({Pid,Reason})
+	    ct:fail({Pid,Reason})
     end.
 
 spawn_timers(0, _, _, _) ->
@@ -440,7 +415,6 @@ timer_irec(Start, T, {N, Max}, Res, {Pid, Mod, Ref}) ->
 	done ->
 	    Now = system_time(),
 	    Elapsed = (Now - (Start + (N*T*1000))) div 1000,
-%	    io:format("~w Now ~w Started ~w Elap ~w~n", [T,Now,Start,Elapsed]),
 	    timer_irec(Start, T,
 		       {N+1, Max},
 		       [Elapsed | Res],
@@ -476,11 +450,11 @@ nrev([]) ->
     [];
 nrev([H|T]) ->
     append(nrev(T), [H]).
-    
+
 append([H|T],Z) ->
-	[H|append(T,Z)];
+    [H|append(T,Z)];
 append([],X) ->
-	X.
+    X.
 
 system_time() ->    
     erlang:monotonic_time(micro_seconds).
@@ -488,7 +462,6 @@ system_time() ->
 %% ------------------------------------------------------- %%
 
 report_result({Res, 0}) ->
-%    io:format("DEBUG0 all ~p ~n", [Res]),
     {A_List, I_List} = split_list(Res, [], []),
     A_val = calc_a_val(A_List),
     I_val = calc_i_val(I_List),
@@ -497,7 +470,7 @@ report_result({Res, 0}) ->
 
 report_result({Head, N}) ->
     io:format("Test Failed: Number of internal tmo ~w~n", [N]),
-    ?line test_server:fail({Head, N}).
+    ct:fail({Head, N}).
 
 split_list([], AL, IL) ->
     {AL, IL};
@@ -547,11 +520,11 @@ get_ivals(List) ->
     LTot = lists:map(fun(X) -> element(2, X) end, List),
     LMin = lists:map(fun(X) -> element(4, X) end, List),
     LMax = lists:map(fun(X) -> element(5, X) end, List),
-    
+
     MaxTot  = lists:max(LTot),
     MinTot  = lists:min(LTot),
     AverTot = lists:sum(LTot) div Len,
-    
+
     IterMax = lists:max(LMax),
     IterMin = lists:min(LMin),
     IterAver= AverTot div Num,

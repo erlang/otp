@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2056,6 +2056,8 @@ erts_atomic64_read_dirty(erts_atomic64_t *var)
 
 #endif /* !USE_THREADS */
 
+#include "erl_msacc.h"
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
@@ -2414,6 +2416,7 @@ erts_cnd_wait(erts_cnd_t *cnd, erts_mtx_t *mtx)
 {
 #ifdef USE_THREADS
     int res;
+    ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_unlock(&mtx->lc);
 #endif
@@ -2432,6 +2435,7 @@ erts_cnd_wait(erts_cnd_t *cnd, erts_mtx_t *mtx)
 #endif
     if (res != 0 && res != EINTR)
 	erts_thr_fatal_error(res, "wait on condition variable");
+    ERTS_MSACC_POP_STATE();
 #endif
 }
 
@@ -3488,7 +3492,11 @@ ERTS_GLB_INLINE void erts_tse_reset(erts_tse_t *ep)
 ERTS_GLB_INLINE int erts_tse_wait(erts_tse_t *ep)
 {
 #ifdef USE_THREADS
-    return ethr_event_wait(&((ethr_ts_event *) ep)->event);
+    int res;
+    ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    res = ethr_event_wait(&((ethr_ts_event *) ep)->event);
+    ERTS_MSACC_POP_STATE();
+    return res;
 #else
     return ENOTSUP;
 #endif
@@ -3497,7 +3505,11 @@ ERTS_GLB_INLINE int erts_tse_wait(erts_tse_t *ep)
 ERTS_GLB_INLINE int erts_tse_swait(erts_tse_t *ep, int spincount)
 {
 #ifdef USE_THREADS
-    return ethr_event_swait(&((ethr_ts_event *) ep)->event, spincount);
+    int res;
+    ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    res = ethr_event_swait(&((ethr_ts_event *) ep)->event, spincount);
+    ERTS_MSACC_POP_STATE();
+    return res;
 #else
     return ENOTSUP;
 #endif
@@ -3506,8 +3518,12 @@ ERTS_GLB_INLINE int erts_tse_swait(erts_tse_t *ep, int spincount)
 ERTS_GLB_INLINE int erts_tse_twait(erts_tse_t *ep, Sint64 tmo)
 {
 #ifdef USE_THREADS
-    return ethr_event_twait(&((ethr_ts_event *) ep)->event,
-			    (ethr_sint64_t) tmo);
+    int res;
+    ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    res = ethr_event_twait(&((ethr_ts_event *) ep)->event,
+                           (ethr_sint64_t) tmo);
+    ERTS_MSACC_POP_STATE();
+    return res;
 #else
     return ENOTSUP;
 #endif
@@ -3516,9 +3532,13 @@ ERTS_GLB_INLINE int erts_tse_twait(erts_tse_t *ep, Sint64 tmo)
 ERTS_GLB_INLINE int erts_tse_stwait(erts_tse_t *ep, int spincount, Sint64 tmo)
 {
 #ifdef USE_THREADS
-    return ethr_event_stwait(&((ethr_ts_event *) ep)->event,
-			     spincount,
-			     (ethr_sint64_t) tmo);
+    int res;
+    ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_SLEEP);
+    res = ethr_event_stwait(&((ethr_ts_event *) ep)->event,
+                            spincount,
+                            (ethr_sint64_t) tmo);
+    ERTS_MSACC_POP_STATE();
+    return res;
 #else
     return ENOTSUP;
 #endif

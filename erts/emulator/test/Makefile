@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ MODULES= \
 	crypto_SUITE \
 	ddll_SUITE \
 	decode_packet_SUITE \
+	dirty_nif_SUITE \
 	distribution_SUITE \
 	driver_SUITE \
 	efile_SUITE \
@@ -70,15 +71,18 @@ MODULES= \
 	hash_SUITE \
 	hibernate_SUITE \
 	list_bif_SUITE \
+	lttng_SUITE \
 	map_SUITE \
 	match_spec_SUITE \
 	module_info_SUITE \
 	monitor_SUITE \
+	multi_load_SUITE \
 	nested_SUITE \
 	nif_SUITE \
 	node_container_SUITE \
 	nofrag_SUITE \
 	num_bif_SUITE \
+	message_queue_data_SUITE \
 	op_SUITE \
 	port_SUITE \
 	port_bif_SUITE \
@@ -107,8 +111,11 @@ MODULES= \
 	trace_meta_SUITE \
 	trace_call_count_SUITE \
 	trace_call_time_SUITE \
+	tracer_SUITE \
+	tracer_test \
 	scheduler_SUITE \
 	old_scheduler_SUITE \
+	port_trace_SUITE \
 	unique_SUITE \
 	z_SUITE \
 	old_mod \
@@ -157,7 +164,7 @@ RELSYSDIR = $(RELEASE_PATH)/emulator_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS += 
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 # ----------------------------------------------------
 # Targets

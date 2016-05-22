@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -693,9 +693,9 @@ event_module(Config) when is_list(Config) ->
 	  end,
 
     ?match({[ok, ok], []}, rpc:multicall(Nodes, mnesia, start, [Def])),
-    receive after 1000 -> ok end,
+    receive after 2000 -> ok end,
     mnesia_event ! {get_log, self()},
-    DebugLog1 = receive 
+    DebugLog1 = receive
 		    {log, L1} -> L1
 		after 10000 -> [timeout]
 		end,
@@ -706,9 +706,9 @@ event_module(Config) when is_list(Config) ->
 
     ?match({[ok], []}, rpc:multicall([N2], mnesia, start, [])),
 
-    receive after 1000 -> ok end,
+    receive after 2000 -> ok end,
     mnesia_event ! {get_log, self()},
-    DebugLog = receive 
+    DebugLog = receive
 		   {log, L} -> L
 	       after 10000 -> [timeout]
 	       end,
@@ -1100,8 +1100,8 @@ dynamic_basic(Config) when is_list(Config) ->
 
     ?match(ok, mnesia:dirty_write({tab1, 1, 1})),
     ?match(ok, mnesia:dirty_write({tab2, 1, 1})),
-   
-    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}]])),
+
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}, {schema, ?BACKEND}]])),
     ?match(ok, rpc:call(N2, mnesia, wait_for_tables, [[tab1,tab2],5000])),
     io:format("Here ~p ~n",[?LINE]), 
     check_storage(N2, N1, [N3]),
@@ -1112,7 +1112,7 @@ dynamic_basic(Config) when is_list(Config) ->
     ?match(ok, mnesia:delete_schema([N3])),
     
     io:format("T1 ~p ~n",[rpc:call(N3,?MODULE,c_nodes,[])]),
-    ?match(ok, rpc:call(N3, mnesia, start, [])),
+    ?match(ok, rpc:call(N3, mnesia, start, [[{schema, ?BACKEND}]])),
     io:format("T2 ~p ~n",[rpc:call(N3,?MODULE,c_nodes,[])]),
     timer:sleep(2000),
     io:format("T3 ~p ~n",[rpc:call(N3,?MODULE,c_nodes,[])]),
@@ -1127,7 +1127,7 @@ dynamic_basic(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:kill_mnesia([N3])),
     ?match(ok, mnesia:delete_schema([N3])),
     
-    ?match(ok, rpc:call(N3, mnesia, start, [])),
+    ?match(ok, rpc:call(N3, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match({ok, [N3]}, sort(?rpc_connect(N1, [N3]))),
     ?match(ok, rpc:call(N3, mnesia, wait_for_tables, [[tab1,tab2],5000])),
     io:format("Here ~p ~n",[?LINE]), 
@@ -1143,7 +1143,7 @@ dynamic_basic(Config) when is_list(Config) ->
     % mnesia should come up now.
     ?match({atomic, ok}, mnesia:add_table_copy(tab1, N2, ram_copies)),
 
-    ?match(ok, rpc:call(N2, mnesia, start, [])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match({ok, _}, sort(?rpc_connect(N2, [N3]))),
     
     ?match(SNs, sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
@@ -1162,7 +1162,7 @@ dynamic_basic(Config) when is_list(Config) ->
     ?match([N3,N1], sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
     ?match([N3,N1], sort(rpc:call(N3, mnesia, system_info, [running_db_nodes]))),
     
-    ?match(ok, rpc:call(N2, mnesia, start, [])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match({ok, _}, sort(?rpc_connect(N3, [N2]))),
     
     ?match(SNs, sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
@@ -1192,7 +1192,7 @@ dynamic_ext(Config) when is_list(Config) ->
     
     mnesia_test_lib:kill_mnesia([N2]),
     ?match(ok, mnesia:delete_schema([N2])),
-    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}]])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}, {schema, ?BACKEND}]])),
     
     ?match(SNs, sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
     ?match(SNs, sort(rpc:call(N2, mnesia, system_info, [running_db_nodes]))),
@@ -1213,7 +1213,7 @@ dynamic_ext(Config) when is_list(Config) ->
     ?match(ok, mnesia:dirty_write({tab3, 42, T})),
     
     ?match(stopped, rpc:call(N2, mnesia, stop, [])),
-    ?match(ok, rpc:call(N2, mnesia, start, [])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match(SNs, sort(rpc:call(N2, mnesia, system_info, [running_db_nodes]))),
     ?match(ok, mnesia:wait_for_tables([tab0,tab1,tab2,tab3], 10000)),
     ?match(ok, rpc:call(N2, mnesia, wait_for_tables, [[tab1,tab2,tab3], 100])),
@@ -1226,7 +1226,7 @@ dynamic_ext(Config) when is_list(Config) ->
 
     ?match(stopped, rpc:call(N1, mnesia, stop, [])),
 
-    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1,N2]}]])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1,N2]}, {schema, ?BACKEND}]])),
     ?match({timeout,[tab0]}, rpc:call(N2, mnesia, wait_for_tables, [[tab0], 500])),
 
     ?match(ok, rpc:call(N1, mnesia, start, [[{extra_db_nodes, [N1,N2]}]])),
@@ -1238,7 +1238,7 @@ dynamic_ext(Config) when is_list(Config) ->
     ?match(stopped, rpc:call(N1, mnesia, stop, [])),
     mnesia_test_lib:kill_mnesia([N2]),
     ?match(ok, mnesia:delete_schema([N2])),
-    ?match(ok, rpc:call(N1, mnesia, start, [[{extra_db_nodes, [N1,N2]}]])),   
+    ?match(ok, rpc:call(N1, mnesia, start, [[{extra_db_nodes, [N1,N2]}, {schema, ?BACKEND}]])),
     ?match({timeout,[tab0]}, rpc:call(N1, mnesia, wait_for_tables, [[tab0], 500])),
 
     ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1,N2]}]])),

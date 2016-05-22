@@ -38,7 +38,7 @@
   getItemData/2,getItemFont/2,getItemPosition/2,getItemRect/2,getItemRect/3,
   getItemSpacing/1,getItemState/3,getItemText/2,getItemTextColour/2,
   getNextItem/2,getNextItem/3,getSelectedItemCount/1,getTextColour/1,
-  getTopItem/1,getViewRect/1,hitTest/3,insertColumn/3,insertColumn/4,
+  getTopItem/1,getViewRect/1,hitTest/2,insertColumn/3,insertColumn/4,
   insertItem/2,insertItem/3,insertItem/4,refreshItem/2,refreshItems/3,
   scrollList/3,setBackgroundColour/2,setColumn/3,setColumnWidth/3,setImageList/3,
   setItem/2,setItem/4,setItem/5,setItemBackgroundColour/3,setItemColumnImage/4,
@@ -516,13 +516,14 @@ getViewRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlhittest">external documentation</a>.
--spec hitTest(This, Point, Flags) -> integer() when
-	This::wxListCtrl(), Point::{X::integer(), Y::integer()}, Flags::integer().
-hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY},Flags)
- when is_integer(PointX),is_integer(PointY),is_integer(Flags) ->
+-spec hitTest(This, Point) -> Result when
+	Result ::{Res ::integer(), Flags::integer(), PSubItem::integer()},
+	This::wxListCtrl(), Point::{X::integer(), Y::integer()}.
+hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
+ when is_integer(PointX),is_integer(PointY) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:call(?wxListCtrl_HitTest,
-  <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI,Flags:32/?UI>>).
+  <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistctrl.html#wxlistctrlinsertcolumn">external documentation</a>.
 %% <br /> Also:<br />

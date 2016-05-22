@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,27 +26,24 @@
 
 -module(percept).
 -behaviour(application).
--export([
-	profile/1, 
-	profile/2, 
-	profile/3,
-	stop_profile/0, 
-	start_webserver/0, 
-	start_webserver/1, 
-	stop_webserver/0, 
-	stop_webserver/1, 
-	analyze/1,
-	% Application behaviour
-	start/2, 
-	stop/1]).
+-export([profile/1,
+         profile/2,
+         profile/3,
+         stop_profile/0,
+         start_webserver/0,
+         start_webserver/1,
+         stop_webserver/0,
+         stop_webserver/1,
+         analyze/1,
+         % Application behaviour
+         start/2,
+         stop/1]).
 
 
 -include("percept.hrl").
 
 %%==========================================================================
-%%
-%% 		Type definitions 
-%%
+%% Type definitions
 %%==========================================================================
 
 %% @type percept_option() = procs | ports | exclusive
@@ -54,9 +51,7 @@
 -type percept_option() :: 'procs' | 'ports' | 'exclusive' | 'scheduler'.
 
 %%==========================================================================
-%%
-%% 		Application callback functions
-%%
+%% Application callback functions
 %%==========================================================================
 
 %% @spec start(Type, Args) -> {started, Hostname, Port} | {error, Reason} 
@@ -76,9 +71,7 @@ stop(_State) ->
     stop_webserver(0).
 
 %%==========================================================================
-%%
-%% 		Interface functions
-%%
+%% Interface functions
 %%==========================================================================
 
 %% @spec profile(Filename::string()) -> {ok, Port} | {already_started, Port}
@@ -158,11 +151,11 @@ start_webserver() ->
 	{'started', string(), pos_integer()} | {'error', any()}.
 
 start_webserver(Port) when is_integer(Port) ->
-    application:load(percept),
+    ok = ensure_loaded(percept),
     case whereis(percept_httpd) of
 	undefined ->
 	    {ok, Config} = get_webserver_config("percept", Port),
-	    inets:start(),
+	    ok = application:ensure_started(inets),
 	    case inets:start(httpd, Config) of
 		{ok, Pid} ->
 		    AssignedPort = find_service_port_from_pid(inets:services_info(), Pid),
@@ -217,16 +210,14 @@ stop_webserver(Port) ->
     do_stop(Port,[]).
 
 %%==========================================================================
-%%
-%% 		Auxiliary functions 
-%%
+%% Auxiliary functions
 %%==========================================================================
 
 %% parse_and_insert
 
 parse_and_insert(Filename, DB) ->
     io:format("Parsing: ~p ~n", [Filename]),
-    T0 = erlang:now(),
+    T0 = erlang:monotonic_time(milli_seconds),
     Pid = dbg:trace_client(file, Filename, mk_trace_parser(self())),
     Ref = erlang:monitor(process, Pid), 
     parse_and_insert_loop(Filename, Pid, Ref, DB, T0).
@@ -239,8 +230,8 @@ parse_and_insert_loop(Filename, Pid, Ref, DB, T0) ->
     	{parse_complete, {Pid, Count}} ->
 	    receive {'DOWN', Ref, process, Pid, normal} -> ok after 0 -> ok end,
 	    DB ! {action, consolidate},
-	    T1 = erlang:now(),
-	    io:format("Parsed ~p entries in ~p s.~n", [Count, ?seconds(T1, T0)]),
+            T1 = erlang:monotonic_time(milli_seconds),
+	    io:format("Parsed ~w entries in ~w ms.~n", [Count, T1 - T0]),
     	    io:format("    ~p created processes.~n", [length(percept_db:select({information, procs}))]),
      	    io:format("    ~p opened ports.~n", [length(percept_db:select({information, ports}))]),
 	    ok;
@@ -337,3 +328,10 @@ get_webserver_config(Servername, Port) when is_list(Servername), is_integer(Port
 	{bind_address, any},
 	{port, Port}],
     {ok, Config}.
+
+ensure_loaded(App) ->
+    case application:load(App) of
+        ok -> ok;
+        {error,{already_loaded,App}} -> ok;
+        Error -> Error
+    end.

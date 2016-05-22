@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,13 +55,12 @@
     <p></p>
 
     <code type="none"><![CDATA[
-         % erl -pa et/examples
-         Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
-                                    [async-threads:0] [kernel-poll:false]
+% erl -pa et/examples
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
-         Eshell V5.7.4  (abort with ^G)
-         1> {ok, Viewer} = et_viewer:start([]).
-         {ok,<0.40.0>}]]></code>
+Eshell V5.7.4  (abort with ^G)
+1> {ok, Viewer} = et_viewer:start([]).
+{ok,<0.40.0>}]]></code>
 
     <p>A <c>Viewer</c> gets trace <c>Events</c> from its
     <c>Collector</c> by polling it regularly for more <c>Events</c> to
@@ -69,39 +68,37 @@
     <c>Collector</c> with <c>et_collector:report_event/6</c>:</p>
 
     <code type="none"><![CDATA[
-         2> Collector = et_viewer:get_collector_pid(Viewer).
-         <0.39.0>
-         3> et_collector:report_event(Collector, 60, my_shell, mnesia_tm, start_outer,
-         3>                           "Start outer transaction"),
-         3> et_collector:report_event(Collector, 40, mnesia_tm, my_shell, new_tid,
-         3>                           "New transaction id is 4711"),
-         3> et_collector:report_event(Collector, 20, my_shell, mnesia_locker, try_write_lock,
-         3>                           "Acquire write lock for {my_tab, key}"),
-         3> et_collector:report_event(Collector, 10, mnesia_locker, my_shell, granted,
-         3>                           "You got the write lock for {my_tab, key}"),
-         3> et_collector:report_event(Collector, 60, my_shell, do_commit,
-         3>                           "Perform  transaction commit"),
-         3> et_collector:report_event(Collector, 40, my_shell, mnesia_locker, release_tid,
-         3>                           "Release all locks for transaction 4711"),
-         3> et_collector:report_event(Collector, 60, my_shell, mnesia_tm, delete_transaction,
-         3>                           "End of outer transaction"),
-         3> et_collector:report_event(Collector, 20, my_shell, end_outer,
-         3>                           "Transaction returned {atomic, ok}").
-         {ok,{table_handle,<0.39.0>,16402,trace_ts,
-              #Fun<et_collector.0.62831470>}}]]></code>
+2> Collector = et_viewer:get_collector_pid(Viewer).
+<0.39.0>
+3> et_collector:report_event(Collector, 60, my_shell, mnesia_tm, start_outer,
+3>                           "Start outer transaction"),
+3> et_collector:report_event(Collector, 40, mnesia_tm, my_shell, new_tid,
+3>                           "New transaction id is 4711"),
+3> et_collector:report_event(Collector, 20, my_shell, mnesia_locker, try_write_lock,
+3>                           "Acquire write lock for {my_tab, key}"),
+3> et_collector:report_event(Collector, 10, mnesia_locker, my_shell, granted,
+3>                           "You got the write lock for {my_tab, key}"),
+3> et_collector:report_event(Collector, 60, my_shell, do_commit,
+3>                           "Perform  transaction commit"),
+3> et_collector:report_event(Collector, 40, my_shell, mnesia_locker, release_tid,
+3>                           "Release all locks for transaction 4711"),
+3> et_collector:report_event(Collector, 60, my_shell, mnesia_tm, delete_transaction,
+3>                           "End of outer transaction"),
+3> et_collector:report_event(Collector, 20, my_shell, end_outer,
+3>                           "Transaction returned {atomic, ok}").
+{ok,{table_handle,<0.39.0>,16402,trace_ts,
+     #Fun<et_collector.0.62831470>}}]]></code>
 
     <p>This actually is a simulation of the process <c>Events</c>
     caused by a <c>Mnesia</c> transaction that writes a record in a local
     table:</p>
 
     <code type="none"><![CDATA[
-         mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
+mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
 
     <p>At this stage when we have a couple of <c>Events</c>, it is time to
       show how it looks like in the graphical interface of
       <c>et_viewer</c>:</p>
-
-    <p></p>
 
     <image file="sim_trans.png">
       <icaption>A simulated Mnesia transaction which writes one record</icaption>
@@ -144,11 +141,11 @@
     <p></p>
 
     <code type="none"><![CDATA[
-         filter(TraceData) -> false | true | {true, NewEvent}
+filter(TraceData) -> false | true | {true, NewEvent}
 
-         TraceData = Event | erlang_trace_data()
-         Event = #event{}
-         NewEvent = #event{}]]></code>
+TraceData = Event | erlang_trace_data()
+Event = #event{}
+NewEvent = #event{}]]></code>
 
     <p>The interface of the filter function is the same as the the
     filter functions for the good old <c>lists:filtermap/2</c>. If the filter
@@ -204,10 +201,10 @@
     <p></p>
 
     <code type="none"><![CDATA[
-         4> Fun = fun(E) -> et_demo:mgr_actors(E) end.
-         #Fun<erl_eval.6.13229925>
-         5> et_collector:dict_insert(Collector, {filter, mgr_actors}, Fun).
-         ok]]></code>
+4> Fun = fun(E) -> et_demo:mgr_actors(E) end.
+#Fun<erl_eval.6.13229925>
+5> et_collector:dict_insert(Collector, {filter, mgr_actors}, Fun).
+ok]]></code>
 
     <p>you will see that the <c>Filter</c> menu in all viewers have
     got a new entry called <c>mgr_actors</c>. Select it, and a new
@@ -228,21 +225,16 @@
     <c>Contents Viewer</c> window to pop up, showing the <c>Event</c>
     in the <c>mgr_actors</c> view:</p>
 
-    <p></p>
-
     <image file="sim_trans_contents_viewer_mgr_actors.png">
-      <icaption>The trace <c>Event</c> in the mgr_actors view</icaption>
+      <icaption>The trace Event in the mgr_actors view</icaption>
     </image>
 
     <p>Select the <c>all</c> entry in the <c>Filters</c> menu
     and a new <c>Contents Viewer window</c> will pop up showing the
     same trace <c>Event</c> in the collectors view:</p>
 
-    <p></p>
-
     <image file="sim_trans_contents_viewer_collector.png">
-      <icaption>The same trace <c>Event</c> in the collectors
-      view</icaption>
+      <icaption>The same trace Event in the collectors view</icaption>
     </image>
   </section>
 
@@ -311,7 +303,7 @@
     <c>et_collector</c> or <c>et_viewer</c> in order to activate the
     global tracing. There is no restriction on how many concurrent
     (anonymous) collectors you can have, but you can only have one
-    <b>global</b> <c>Collector</c> as its name is registered in
+    <em>global</em> <c>Collector</c> as its name is registered in
     <c>global</c>.</p>
 
     <p>In order to further simplify the tracing, you can make use of

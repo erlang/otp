@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2013. All Rights Reserved.
+# Copyright Ericsson AB 2008-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,8 +41,10 @@ PRE_LOADED_ERL_MODULES = \
 	zlib \
 	prim_zip \
 	otp_ring0 \
+	erts_code_purger \
 	erlang \
-	erts_internal
+	erts_internal \
+	erl_tracer
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval

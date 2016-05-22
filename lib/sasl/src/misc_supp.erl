@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 %%% 2) Very generic functions such as, multi_map, is_string...
 %%%
 %%% This module is a part of the BOS.  (format_pdict is called from
-%%% init, memsup, disksup, overload (but not the fileserver since it
+%%% init, memsup, disksup (but not the fileserver since it
 %%% formats its pdict its own way).)
 %%%---------------------------------------------------------------------
 

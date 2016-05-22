@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -37,7 +37,7 @@
   The module erl_prim_loader is moved to the runtime system
   application.  Please see <seealso
   marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso> in the
-  erts reference manual instead.
+  ERTS reference manual instead.
 
   </p></description>
 </erlref>

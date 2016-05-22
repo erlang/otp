@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{minutes,3}}].
+    [{timetrap,{seconds,40}}].
 
 all() -> 
     [open_close_file, 
@@ -105,7 +105,6 @@ init_per_testcase(TestCase, Config) ->
     ClientUserDir = filename:join(PrivDir, nopubkey),
     SystemDir = filename:join(?config(priv_dir, Config), system),
 
-    Port = ssh_test_lib:inet_port(node()),
     Options = [{system_dir, SystemDir},
 	       {user_dir, PrivDir},
 	       {user_passwords,[{?USER, ?PASSWD}]},
@@ -113,11 +112,13 @@ init_per_testcase(TestCase, Config) ->
     {ok, Sftpd} = case TestCase of
 		      ver6_basic ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
-			  ssh:daemon(Port, [{subsystems, SubSystems}|Options]);
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
-			  ssh:daemon(Port, [{subsystems, SubSystems}|Options])
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
 		  end,
+    {ok,Dinf} = ssh:daemon_info(Sftpd),
+    Port = proplists:get_value(port, Dinf),
     
     Cm = ssh_test_lib:connect(Port,
 			      [{user_dir, ClientUserDir},

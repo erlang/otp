@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(old_crypto_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
@@ -187,7 +187,9 @@ ldd_program() ->
 		    case os:find_executable("otool") of
 			false -> none;
 			Otool -> Otool ++ " -L"
-		    end
+		    end;
+		_ ->
+		    none
 	    end;
  	Ldd when is_list(Ldd) -> Ldd
     end.
@@ -2066,8 +2068,8 @@ exor_test(Config) when is_list(Config) ->
     B = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>,
     Z1 = zero_bin(B),
     Z1 = crypto:exor(B, B),
-    B1 = crypto:rand_bytes(100),
-    B2 = crypto:rand_bytes(100),
+    B1 = crypto:strong_rand_bytes(100),
+    B2 = crypto:strong_rand_bytes(100),
     Z2 = zero_bin(B1),
     Z2 = crypto:exor(B1, B1),
     Z2 = crypto:exor(B2, B2),

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,28 +33,28 @@
 %% 
 
 graph(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(graph(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(graph(Env, Input))).
  
 %% activity
 %% @spec activity(SessionID, Env, Input) -> term() 
 %% @doc An ESI callback implementation used by the httpd server.
 
 activity(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(activity_bar(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(activity_bar(Env, Input))).
 
 proc_lifetime(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(proc_lifetime(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(proc_lifetime(Env, Input))).
 
 percentage(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(percentage(Env,Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(percentage(Env,Input))).
 
 scheduler_graph(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(scheduler_graph(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(scheduler_graph(Env, Input))).
 
 graph(_Env, Input) ->
     Query    = httpd:parse_query(Input),

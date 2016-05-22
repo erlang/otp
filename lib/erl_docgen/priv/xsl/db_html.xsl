@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2012. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2016. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -383,9 +383,7 @@
 	</xsl:choose>
       </xsl:when>
       <xsl:otherwise> <!-- <datatype> with <name> -->
-	<span class="bold_code">
-          <xsl:apply-templates/>
-	</span>
+        <xsl:call-template name="name"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -1855,6 +1853,7 @@
     </xsl:choose>
   </xsl:template>
 
+  <!-- Used both in <datatype> and in <func>! -->
   <xsl:template name="name">
 
     <xsl:variable name="tmpstring">
@@ -1911,7 +1910,14 @@
             </xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
-        <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+	<xsl:choose>
+	  <xsl:when test="ancestor::datatype">
+            <a name="type-{$fname}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+	  </xsl:when>
+          <xsl:otherwise>
+            <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+          </xsl:otherwise>
+	</xsl:choose>
       </xsl:when>
       <xsl:otherwise>
         <span class="bold_code"><xsl:value-of select="."/></span>

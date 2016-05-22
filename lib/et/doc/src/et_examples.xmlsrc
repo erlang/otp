@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,34 +55,32 @@
     <p></p>
 
     <code type="none"><![CDATA[
-         mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
+mnesia:transaction(fun() -> mnesia:write({my_tab, key, val}) end).]]></code>
 
     <p>And the viewer window will look like:</p>
 
     <p></p>
 
     <code type="none"><![CDATA[
-         Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
-                                    [async-threads:0] [kernel-poll:false]
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
-         Eshell V5.7.4  (abort with ^G)
-         1> {ok, Viewer} = et_viewer:start([]).
-         {ok,<0.40.0>;}
-         2> et_demo:sim_trans().
-         {ok,{table_handle,<0.45.0>,24596,trace_ts,
-              #Fun<et_collector.0.62831470>}}]]></code>
+Eshell V5.7.4  (abort with ^G)
+1> {ok, Viewer} = et_viewer:start([]).
+{ok,<0.40.0>;}
+2> et_demo:sim_trans().
+{ok,{table_handle,<0.45.0>,24596,trace_ts,
+     #Fun<et_collector.0.62831470>}}]]></code>
 
     <p></p>
 
     <image file="sim_trans.png">
-      <icaption>A simulated <c>Mnesia</c> transaction which writes one
-      record</icaption>
+      <icaption>A simulated Mnesia transaction which writes one record</icaption>
     </image>
 
   </section>
 
   <section>
-    <title>Some convenient functions used in the <c>Mnesia</c> transaction
+    <title>Some convenient functions used in the Mnesia transaction
     example</title>
 
     <p>The <c>module_as_actor</c> filter converts the <c>Event
@@ -173,21 +171,19 @@
     <p></p>
 
     <code type="none"><![CDATA[
-       erl -pa ../examples
-       Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
-                                  [async-threads:0] [kernel-poll:false]
+erl -pa ../examples
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
+                           [async-threads:0] [kernel-poll:false]
 
-       Eshell V5.7.4  (abort with ^G)
-       1> et_demo:live_trans().
-       {atomic,ok}]]></code>
+Eshell V5.7.4  (abort with ^G)
+1> et_demo:live_trans().
+{atomic,ok}]]></code>
 
     <p>Please, explore the different filters in order to see how the traced
       transaction can be seen from different point of views:</p>
 
-    <p></p>
-
     <image file="live_trans.png">
-      <icaption>A real <c>Mnesia</c> transaction which writes one record</icaption>
+      <icaption>A real Mnesia transaction which writes one record</icaption>
     </image>
 
   </section>
@@ -215,20 +211,20 @@
     <p></p>
 
     <code type="none"><![CDATA[
-       -module(megaco_filter).
-       -export([start/0]).
+-module(megaco_filter).
+-export([start/0]).
 
-       start() ->
-           Options =
-               [{event_order, event_ts},
-                {scale, 3},
-                {max_actors, infinity},
-                {trace_pattern, {megaco, max}},
-                {trace_global, true},
-                {dict_insert, {filter, megaco_filter}, fun filter/1},
-                {active_filter, megaco_filter},
-                {title, "Megaco tracer - Erlang/OTP"}],
-           et_viewer:start(Options).]]></code>
+start() ->
+    Options =
+        [{event_order, event_ts},
+         {scale, 3},
+         {max_actors, infinity},
+         {trace_pattern, {megaco, max}},
+         {trace_global, true},
+         {dict_insert, {filter, megaco_filter}, fun filter/1},
+         {active_filter, megaco_filter},
+         {title, "Megaco tracer - Erlang/OTP"}],
+    et_viewer:start(Options).]]></code>
 
     <p>First we start an Erlang node with a global <c>Collector</c>
     and its <c>Viewer</c>.</p>
@@ -236,13 +232,12 @@
     <p></p>
 
     <code type="none"><![CDATA[
-          erl -sname observer
-          Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
-                                     [async-threads:0] [kernel-poll:false]
+erl -sname observer
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
-          Eshell V5.7.4  (abort with ^G)
-          (observer@falco)1> megaco_filter:start().
-          {ok,<0.48.0>}]]></code>
+Eshell V5.7.4  (abort with ^G)
+(observer@falco)1> megaco_filter:start().
+{ok,<0.48.0>}]]></code>
 
     <p>Secondly we start another Erlang node which we connect the
     observer node, before we start the application that we want to
@@ -253,28 +248,27 @@
     <p></p>
 
     <code type="none"><![CDATA[
-          erl -sname mgc -pa ../../megaco/examples/simple
-          Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
-                                     [async-threads:0] [kernel-poll:false]
+erl -sname mgc -pa ../../megaco/examples/simple
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
-          Eshell V5.7.4  (abort with ^G)
-          (mgc@falco)1> net:ping(observer@falco).
-          pong
-          (mgc@falco)2> megaco:start().
-          ok
-          (mgc@falco)3> megaco_simple_mgc:start().
-          {ok,[{ok,2944,
-                   {megaco_receive_handle,{deviceName,"controller"},
-                                          megaco_pretty_text_encoder,[],megaco_tcp,dynamic}},
-               {ok,2944,
-                   {megaco_receive_handle,{deviceName,"controller"},
-                                          megaco_pretty_text_encoder,[],megaco_udp,dynamic}},
-               {ok,2945,
-                   {megaco_receive_handle,{deviceName,"controller"},
-                                          megaco_binary_encoder,[],megaco_tcp,dynamic}},
-               {ok,2945,
-                   {megaco_receive_handle,{deviceName,"controller"},
-                                          megaco_binary_encoder,[],megaco_udp,dynamic}}]}]]></code>
+Eshell V5.7.4  (abort with ^G)
+(mgc@falco)1> net:ping(observer@falco).
+pong
+(mgc@falco)2> megaco:start().
+ok
+(mgc@falco)3> megaco_simple_mgc:start().
+{ok,[{ok,2944,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_pretty_text_encoder,[],megaco_tcp,dynamic}},
+     {ok,2944,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_pretty_text_encoder,[],megaco_udp,dynamic}},
+     {ok,2945,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_binary_encoder,[],megaco_tcp,dynamic}},
+     {ok,2945,
+         {megaco_receive_handle,{deviceName,"controller"},
+                                megaco_binary_encoder,[],megaco_udp,dynamic}}]}]]></code>
 
     <p>And finally we start an Erlang node for the Media Gateways and
     connect to the observer node. Each Media Gateway connects to the
@@ -288,94 +282,87 @@
     <p></p>
 
     <code type="none"><![CDATA[
-         Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4]
-                                    [async-threads:0] [kernel-poll:false]
+Erlang R13B03 (erts-5.7.4) [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
 
-         Eshell V5.7.4  (abort with ^G)
-         (mg@falco)1> net:ping(observer@falco).
-         pong
-         (mg@falco)2> megaco_simple_mg:start().
-         [{{deviceName,"gateway_tt"},
-           {error,{start_user,megaco_not_started}}},
-          {{deviceName,"gateway_tb"},
-           {error,{start_user,megaco_not_started}}},
-          {{deviceName,"gateway_ut"},
-           {error,{start_user,megaco_not_started}}},
-          {{deviceName,"gateway_ub"},
-           {error,{start_user,megaco_not_started}}}]
-         (mg@falco)3> megaco:start().
-         ok
-         (mg@falco)4> megaco_simple_mg:start().
-         [{{deviceName,"gateway_tt"},
-           {1,
-            {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
-                     [{serviceChangeReply,
-                          {'ServiceChangeReply',
-                              [{megaco_term_id,false,["root"]}],
-                              {serviceChangeResParms,
-                                  {'ServiceChangeResParm',
-                                      {deviceName,"controller"},
-                                      asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
-                                      asn1_NOVALUE}}}}]}]}}},
-          {{deviceName,"gateway_tb"},
-           {1,
-            {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
-                     [{serviceChangeReply,
-                          {'ServiceChangeReply',
-                              [{megaco_term_id,false,["root"]}],
-                              {serviceChangeResParms,
-                                  {'ServiceChangeResParm',
-                                      {deviceName,"controller"},
-                                      asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
-                                      asn1_NOVALUE}}}}]}]}}},
-          {{deviceName,"gateway_ut"},
-           {1,
-            {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
-                     [{serviceChangeReply,
-                          {'ServiceChangeReply',
-                              [{megaco_term_id,false,["root"]}],
-                              {serviceChangeResParms,
-                                  {'ServiceChangeResParm',
-                                      {deviceName,"controller"},
-                                      asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
-                                      asn1_NOVALUE}}}}]}]}}},
-          {{deviceName,"gateway_ub"},
-           {1,
-            {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
-                     [{serviceChangeReply,
-                          {'ServiceChangeReply',
-                              [{megaco_term_id,false,["root"]}],
-                              {serviceChangeResParms,
-                                  {'ServiceChangeResParm',
-                                      {deviceName,"controller"},
-                                      asn1_NOVALUE,asn1_NOVALUE,
-                                      asn1_NOVALUE,...}}}}]}]}}}]]]></code>
+Eshell V5.7.4  (abort with ^G)
+(mg@falco)1> net:ping(observer@falco).
+pong
+(mg@falco)2> megaco_simple_mg:start().
+[{{deviceName,"gateway_tt"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_tb"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_ut"},
+  {error,{start_user,megaco_not_started}}},
+ {{deviceName,"gateway_ub"},
+  {error,{start_user,megaco_not_started}}}]
+(mg@falco)3> megaco:start().
+ok
+(mg@falco)4> megaco_simple_mg:start().
+[{{deviceName,"gateway_tt"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_tb"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_ut"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE}}}}]}]}}},
+ {{deviceName,"gateway_ub"},
+  {1,
+   {ok,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,
+            [{serviceChangeReply,
+                 {'ServiceChangeReply',
+                     [{megaco_term_id,false,["root"]}],
+                     {serviceChangeResParms,
+                         {'ServiceChangeResParm',
+                             {deviceName,"controller"},
+                             asn1_NOVALUE,asn1_NOVALUE,
+                             asn1_NOVALUE,...}}}}]}]}}}]]]></code>
 
     <p>The <c>Megaco</c> adopted viewer looks like this, when we have clicked
-    on the <b>[gateway_tt]</b> actor name in order to only display the events
+    on the <em>[gateway_tt]</em> actor name in order to only display the events
     regarding that actor:</p>
     
-    <p></p>
-
     <image file="megaco_tracer.png">
       <icaption>The viewer adopted for Megaco</icaption>
     </image>
 
     <p>A pretty printed <c>Megaco</c> message looks like this:</p>
 
-    <p></p>
-
     <image file="megaco_filter.png">
-      <icaption>A textual <c>Megaco</c> message</icaption>
+      <icaption>A textual Megaco message</icaption>
     </image>
 
     <p>And the corresponding internal form for the same <c>Megaco</c> message
     looks like this:</p>
 
-    <p></p>
-
     <image file="megaco_collector.png">
-      <icaption>The internal form of a <c>Megaco</c> message</icaption>
+      <icaption>The internal form of a Megaco message</icaption>
     </image>
 
   </section>

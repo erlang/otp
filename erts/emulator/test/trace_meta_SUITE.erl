@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@
 -define(config(A,B),config(A,B)).
 -export([config/2]).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -endif.
  
 -ifdef(debug).
@@ -66,22 +66,21 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, return/1, on_and_off/1, stack_grow/1, 
 	 info/1, tracer/1, combo/1, nosilent/1]).
 	 
 init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(test_server:minutes(5)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, Config) ->
     shutdown(),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
-suite() -> [{ct_hooks,[ts_install_cth]}].
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 5}}].
 
 all() -> 
 case test_server:is_native(trace_meta_SUITE) of
@@ -91,74 +90,39 @@ case test_server:is_native(trace_meta_SUITE) of
        combo, nosilent]
 end.
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
-end_per_group(_GroupName, Config) ->
-	Config.
-
 
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
 
-basic(suite) ->
-    [];
-basic(doc) ->
-    ["Tests basic meta trace"];
+%% Tests basic meta trace
 basic(Config) when is_list(Config) ->
     basic_test().
 
-return(suite) ->
-    [];
-return(doc) ->
-    ["Tests return trace"];
+%% Tests return trace
 return(Config) when is_list(Config) ->
     return_test().
  
-on_and_off(suite) ->
-    [];
-on_and_off(doc) ->
-    ["Tests turning trace parameters on and off"];
+%% Tests turning trace parameters on and off
 on_and_off(Config) when is_list(Config) ->
     on_and_off_test().
  
-stack_grow(doc) ->
-    ["Tests the stack growth during return traces"];
+%% Tests the stack growth during return traces
 stack_grow(Config) when is_list(Config) ->
     stack_grow_test().
  
-info(doc) ->
-    ["Tests the trace_info BIF"];
+%% Tests the trace_info BIF
 info(Config) when is_list(Config) ->
     info_test().
  
-tracer(suite) ->
-    [];
-tracer(doc) ->
-    ["Tests stopping and changing tracer process"];
+%% Tests stopping and changing tracer process
 tracer(Config) when is_list(Config) ->
     tracer_test().
 
-combo(suite) ->
-    [];
-combo(doc) ->
-    ["Tests combining local call trace with meta trace"];
+%% Tests combining local call trace with meta trace
 combo(Config) when is_list(Config) ->
     combo_test().
 
-nosilent(suite) ->
-    [];
-nosilent(doc) ->
-    ["Tests that meta trace is not silenced by the silent process flag"];
+%% Tests that meta trace is not silenced by the silent process flag
 nosilent(Config) when is_list(Config) ->
     nosilent_test().
 
@@ -546,7 +510,7 @@ combo_test() ->
 	      {?RT(Slave,{?MODULE,receiver,1}),
 	       ?RF(Slave,{erlang,phash2,2},0)} ->
 		ok;
-	      Error1 -> ?t:fail({unexpected_message, Error1})
+	      Error1 -> ct:fail({unexpected_message, Error1})
 	end,
     case {receive_next_bytag(LocalTracer),
 		receive_next_bytag(LocalTracer)} of
@@ -556,7 +520,7 @@ combo_test() ->
 	      {?RT(Slave,{?MODULE,slave,1}),
 	       ?RF(Slave,{?MODULE,receiver,1},Ref)} ->
 		  ok;
-	      Error2 -> ?t:fail({unexpected_message, Error2})
+	      Error2 -> ct:fail({unexpected_message, Error2})
 	  end,
     shutdown(),
     ?NM,
@@ -745,13 +709,13 @@ receive_next(TO) ->
 	M ->
 	    M
     after TO ->
-	    ?t:fail(timeout)
+	    ct:fail(timeout)
     end.
 
 receive_no_next(TO) ->
     receive
 	M ->
-	    ?t:fail({unexpected_message, M})
+	    ct:fail({unexpected_message, M})
     after
 	TO ->
 	    ok

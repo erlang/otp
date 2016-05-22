@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -412,8 +412,8 @@ getAuthenticatingDataFromHeader(Info)->
 		    case httpd_util:split(UnCodedString,":",2) of
 			{ok,[User,PassWord]}->
 			    {user,User,PassWord};
-			{error,Error}->
-			    {error,Error}
+			Other ->
+			    {error, Other}
 		    end
 	    end;
 	BadCredentials ->

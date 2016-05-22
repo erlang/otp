@@ -30,55 +30,75 @@
 
 -record(state,
 	{
-	  offset = 0.0,
+	  time = #ti{},
 	  active = false,
 	  parent,
-	  windows,
-	  data = {0, queue:new()},
+	  wins,
+	  mem,
+	  samples,
 	  panel,
 	  paint,
 	  appmon,
 	  async
 	}).
 
--define(ALLOC_W,  1).
--define(UTIL_W,  2).
+-define(ID_REFRESH_INTERVAL, 102).
+
+-import(observer_perf_wx,
+	[make_win/4, setup_graph_drawing/1, refresh_panel/4, interval_dialog/2,
+	 add_data/5, precalc/4]).
 
 start_link(Notebook, Parent) ->
     wx_object:start_link(?MODULE, [Notebook, Parent], []).
 
 init([Notebook, Parent]) ->
     try
-	Panel = wxPanel:new(Notebook),
+	TopP  = wxPanel:new(Notebook),
 	Main  = wxBoxSizer:new(?wxVERTICAL),
-	Style = ?wxFULL_REPAINT_ON_RESIZE bor ?wxCLIP_CHILDREN,
-	Carrier = wxPanel:new(Panel, [{winid, ?ALLOC_W}, {style,Style}]),
-	Utilz = wxPanel:new(Panel, [{winid, ?UTIL_W}, {style,Style}]),
+	Panel = wxPanel:new(TopP),
+	GSzr  = wxBoxSizer:new(?wxVERTICAL),
 	BorderFlags = ?wxLEFT bor ?wxRIGHT,
-	wxSizer:add(Main, Carrier, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
-				    {proportion, 1}, {border, 5}]),
+	Carrier = make_win(alloc, Panel, GSzr, BorderFlags bor ?wxTOP),
+	Utilz = make_win(utilz, Panel, GSzr, BorderFlags),
+	wxWindow:setSizer(Panel, GSzr),
+	wxSizer:add(Main, Panel, [{flag, ?wxEXPAND},{proportion,2}]),
 
-	wxSizer:add(Main, Utilz, [{flag, ?wxEXPAND bor BorderFlags},
-				  {proportion, 1}, {border, 5}]),
-
-	MemWin = {MemPanel,_} = create_mem_info(Panel),
-	wxSizer:add(Main, MemPanel, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
-				     {proportion, 1}, {border, 5}]),
-	wxWindow:setSizer(Panel, Main),
-
-	PaintInfo = observer_perf_wx:setup_graph_drawing([Carrier, Utilz]),
-	{Panel, #state{parent=Parent,
-		       panel =Panel,
-		       windows = {Carrier, Utilz, MemWin},
-		       paint=PaintInfo}
+	MemWin = create_mem_info(TopP),
+	wxSizer:add(Main, MemWin, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
+				   {proportion, 1}, {border, 5}]),
+	wxWindow:setSizer(TopP, Main),
+	Windows = [Carrier, Utilz],
+	PaintInfo = setup_graph_drawing(Windows),
+	{TopP, #state{parent= Parent,
+		      panel = Panel,
+		      wins  = Windows,
+		      mem   = MemWin,
+		      paint = PaintInfo,
+		      time  = setup_time()
+		     }
 	}
     catch _:Err ->
 	    io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
 	    {stop, Err}
     end.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+setup_time() ->
+    Freq = 1,
+    #ti{fetch=Freq, disp=?DISP_FREQ/Freq}.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+handle_event(#wx{id=?ID_REFRESH_INTERVAL, event=#wxCommand{type=command_menu_selected}},
+	     #state{active=Active, panel=Panel, appmon=Old, wins=Wins0, time=#ti{fetch=F0} = Ti0} = State) ->
+    case interval_dialog(Panel, Ti0) of
+	Ti0 -> {noreply, State};
+	#ti{fetch=F0} = Ti -> %% Same fetch interval force refresh
+	    Wins = [W#win{max=undefined} || W <- Wins0],
+	    {noreply, precalc(State#state{time=Ti, wins=Wins})};
+	Ti when not Active ->
+	    {noreply, State#state{time=Ti}};
+	Ti -> %% Changed fetch interval, drop all data
+	    {noreply, restart_fetcher(Old, State#state{time=Ti})}
+    end;
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
 	     State = #state{}) ->
     {noreply, State};
@@ -88,13 +108,11 @@ handle_event(Event, _State) ->
 
 %%%%%%%%%%
 handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
-		  #state{active=Active, offset=Offset, paint=Paint,
-			 windows=Windows, data=Data}) ->
+		  #state{active=Active, time=Ti, paint=Paint,
+			 wins = Windows}) ->
     %% Sigh workaround bug on MacOSX (Id in paint event is always 0)
-    Id = if Panel =:= element(?ALLOC_W, Windows)  -> alloc;
-	    Panel =:= element(?UTIL_W, Windows)  -> utilz
-	 end,
-    observer_perf_wx:refresh_panel(Panel, Id, Offset, Data, Active, Paint),
+    Win = lists:keyfind(Panel, #win.panel, Windows),
+    refresh_panel(Active, Win, Ti, Paint),
     ok.
 %%%%%%%%%%
 handle_call(Event, From, _State) ->
@@ -107,24 +125,36 @@ handle_cast(Event, _State) ->
 handle_info({Key, {promise_reply, {badrpc, _}}}, #state{async=Key} = State) ->
     {noreply, State#state{active=false, appmon=undefined}};
 
-handle_info({Key, {promise_reply, SysInfo}}, #state{async=Key, data=Data} = State) ->
+handle_info({Key, {promise_reply, SysInfo}},
+	    #state{async=Key, panel=_Panel, samples=Data, active=Active, wins=Wins0,
+		   time=#ti{tick=Tick, disp=Disp0}=Ti} = S0) ->
+    Disp = trunc(Disp0),
+    Next = max(Tick - Disp, 0),
+    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
     Info = alloc_info(SysInfo),
-    update_alloc(State, Info),
-    {noreply, State#state{offset=0.0, data = add_data(Info, Data), async=undefined}};
-
-handle_info({refresh, Seq, Freq, Node}, #state{panel=Panel, appmon=Node, async=Key} = State) ->
-    wxWindow:refresh(Panel),
-    Next = Seq+1,
-    if
-	Next > Freq, Key =:= undefined ->
-	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, 1, Freq, Node}),
-	    Req = rpc:async_call(Node, observer_backend, sys_info, []),
-	    {noreply, State#state{offset=Seq/Freq, async=Req}};
+    {Wins, Samples} = add_data(Info, Data, Wins0, Ti, Active),
+    S1 = S0#state{time=Ti#ti{tick=Next}, wins=Wins, samples=Samples, async=undefined},
+    if Active ->
+	    update_alloc(S0, Info),
+	    State = precalc(S1),
+	    {noreply, State};
        true ->
-	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, Next, Freq, Node}),
-	    {noreply, State#state{offset=Seq/Freq}}
+	    {noreply, S1}
     end;
-handle_info({refresh, _Seq, _Freq, _Node}, State) ->
+
+handle_info({refresh, Seq},
+	    State = #state{panel=Panel, appmon=Node, time=#ti{tick=Seq, disp=DispF}=Ti})
+  when (Seq+1) < (DispF*1.5) ->
+    Next = Seq+1,
+    State#state.active andalso (catch wxWindow:refresh(Panel)),
+    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
+    if Seq =:= (trunc(DispF)-1) ->
+	    Req = rpc:async_call(Node, observer_backend, sys_info, []),
+	    {noreply, State#state{time=Ti#ti{tick=Next}, async=Req}};
+       true ->
+	    {noreply, State#state{time=Ti#ti{tick=Next}}}
+    end;
+handle_info({refresh, _S}, #state{}=State) ->
     {noreply, State};
 
 handle_info({active, Node}, State = #state{parent=Parent, panel=Panel, appmon=Old}) ->
@@ -132,15 +162,9 @@ handle_info({active, Node}, State = #state{parent=Parent, panel=Panel, appmon=Ol
     try
 	Node = Old,
 	wxWindow:refresh(Panel),
-	{noreply, State#state{active=true}}
+	{noreply, precalc(State#state{active=true})}
     catch _:_ ->
-	    SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
-	    Info = alloc_info(SysInfo),
-	    Freq = 6,
-	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, 1, Freq, Node}),
-	    wxWindow:refresh(Panel),
-	    {noreply, State#state{active=true, appmon=Node, offset=0.0,
-				  data = add_data(Info, {0, queue:new()})}}
+	    {noreply, restart_fetcher(Node, State)}
     end;
 
 handle_info(not_active, State = #state{appmon=_Pid}) ->
@@ -160,12 +184,22 @@ code_change(_, _, State) ->
 
 %%%%%%%%%%
 
-add_data(Stats, {N, Q}) when N > 60 ->
-    {N, queue:drop(queue:in(Stats, Q))};
-add_data(Stats, {N, Q}) ->
-    {N+1, queue:in(Stats, Q)}.
+restart_fetcher(Node, #state{panel=Panel, wins=Wins0, time=Ti} = State) ->
+    SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
+    Info = alloc_info(SysInfo),
+    {Wins, Samples} = add_data(Info, {0, queue:new()}, Wins0, Ti, true),
+    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, 0}),
+    wxWindow:refresh(Panel),
+    precalc(State#state{active=true, appmon=Node, time=Ti#ti{tick=0},
+			wins=Wins, samples=Samples}).
 
-update_alloc(#state{windows={_, _, {_, Grid}}}, Fields) ->
+precalc(#state{samples=Data0, paint=Paint, time=Ti, wins=Wins0}=State) ->
+    Wins = [precalc(Ti, Data0, Paint, Win) || Win <- Wins0],
+    State#state{wins=Wins}.
+
+
+update_alloc(#state{mem=Grid}, Fields) ->
+    wxWindow:freeze(Grid),
     Max = wxListCtrl:getItemCount(Grid),
     Update = fun({Name, BS, CS}, Row) ->
 		     (Row >= Max) andalso wxListCtrl:insertItem(Grid, Row, ""),
@@ -174,7 +208,8 @@ update_alloc(#state{windows={_, _, {_, Grid}}}, Fields) ->
 		     wxListCtrl:setItem(Grid, Row, 2, observer_lib:to_str(CS div 1024)),
 		     Row + 1
 	     end,
-    lists:foldl(Update, 0, Fields),
+    wx:foldl(Update, 0, Fields),
+    wxWindow:thaw(Grid),
     Fields.
 
 alloc_info(SysInfo) ->
@@ -221,10 +256,9 @@ sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 create_mem_info(Parent) ->
-    Panel = wxPanel:new(Parent),
-    wxWindow:setBackgroundColour(Panel, {255,255,255}),
     Style = ?wxLC_REPORT bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES bor ?wxLC_VRULES,
-    Grid = wxListCtrl:new(Panel, [{style, Style}]),
+    Grid = wxListCtrl:new(Parent, [{style, Style}]),
+
     Li = wxListItem:new(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
 			   wxListItem:setText(Li, Name),
@@ -239,19 +273,10 @@ create_mem_info(Parent) ->
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
 
-    Sizer = wxBoxSizer:new(?wxVERTICAL),
-    wxSizer:add(Sizer, Grid, [{flag, ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT},
-			      {border, 5}, {proportion, 1}]),
-    wxWindow:setSizerAndFit(Panel, Sizer),
-    {Panel, Grid}.
-
+    Grid.
 
 create_menus(Parent, _) ->
-    MenuEntries =
-	[{"File",
-	  [
-	  ]}
-	],
-    observer_wx:create_menus(Parent, MenuEntries).
+    View = {"View", [#create_menu{id = ?ID_REFRESH_INTERVAL, text = "Graph Settings"}]},
+    observer_wx:create_menus(Parent, [{"File", []}, View]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

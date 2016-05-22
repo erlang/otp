@@ -107,7 +107,7 @@ write_suite(Suite) ->
 write_header(#suite{suitename = SuiteName, outputfile = OutputFile,
 		    testcases = TestCases}) ->
     Exports = format_export(TestCases),
-    TimeLimit = 2,	%% with 1 it fails on some slow machines...
+    TimeLimit = 3,	%% with 1 or 2 it fails on some slow machines...
     io:format(OutputFile,
 	      "%% ATTENTION!\n"
 	      "%% This is an automatically generated file. Do not edit.\n\n"

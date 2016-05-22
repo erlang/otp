@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ id(Opts) ->
     gen_event:notify(?CT_EVMGR_REF, #event{ name = cth, node = node(),
 					    data = {?MODULE, id, [Opts]}}),
     ct:log("~w:id called", [?MODULE]),
-    os:timestamp().
+    ct_test_support:unique_timestamp().
 
 %% @doc Called before init_per_suite is called. Note that this callback is
 %% only called if the CTH is added before init_per_suite is run (eg. in a test

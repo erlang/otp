@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 #include "bif.h"
 #include "external.h"
 #include "beam_load.h"
+#include "beam_bp.h"
 #include "big.h"
 #include "erl_bits.h"
 #include "beam_catches.h"
@@ -80,7 +81,7 @@ ErlDrvBinary* erts_gzinflate_buffer(char*, int);
 
 typedef struct {
     Uint value;			/* Value of label (NULL if not known yet). */
-    Uint patches;		/* Index (into code buffer) to first location
+    Sint patches;		/* Index (into code buffer) to first location
 				 * which must be patched with the value of this label.
 				 */
 #ifdef ERTS_SMP
@@ -284,9 +285,10 @@ typedef struct LoaderState {
     int specific_op;		/* Specific opcode (-1 if not found). */
     int num_functions;		/* Number of functions in module. */
     int num_labels;		/* Number of labels. */
-    int code_buffer_size;	/* Size of code buffer in words.  */
-    BeamInstr* code;		/* Loaded code. */
-    int ci;			/* Current index into loaded code. */
+    BeamCodeHeader* hdr;	/* Loaded code header */
+    BeamInstr* codev;	        /* Loaded code buffer */
+    int        codev_size;      /* Size of code buffer in words. */
+    int ci;			/* Current index into loaded code buffer. */
     Label* labels;
     StringPatch* string_patches; /* Linked list of position into string table to patch. */
     BeamInstr catches;		/* Linked list of catch_yf instructions. */
@@ -478,9 +480,9 @@ static void free_loader_state(Binary* magic);
 static ErlHeapFragment* new_literal_fragment(Uint size);
 static void free_literal_fragment(ErlHeapFragment*);
 static void loader_state_dtor(Binary* magic);
-static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-			     Eterm group_leader, Eterm module,
-			     BeamInstr* code, Uint size);
+static Eterm stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
+				  Eterm group_leader, Eterm module,
+				  BeamCodeHeader* code, Uint size);
 static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
@@ -512,7 +514,7 @@ static GenOp* gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 
 static int freeze_code(LoaderState* stp);
 
-static void final_touch(LoaderState* stp);
+static void final_touch(LoaderState* stp, struct erl_module_instance* inst_p);
 static void short_file(int line, LoaderState* stp, unsigned needed);
 static void load_printf(int line, LoaderState* context, char *fmt, ...);
 static int transform_engine(LoaderState* st);
@@ -526,15 +528,15 @@ static void new_string_patch(LoaderState* stp, int pos);
 static Uint new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size);
 static int genopargcompare(GenOpArg* a, GenOpArg* b);
 static Eterm get_module_info(Process* p, ErtsCodeIndex code_ix,
-                             BeamInstr* code, Eterm module, Eterm what);
+                             BeamCodeHeader*, Eterm module, Eterm what);
 static Eterm exported_from_module(Process* p, ErtsCodeIndex code_ix,
                                   Eterm mod);
-static Eterm functions_in_module(Process* p, BeamInstr* code);
-static Eterm attributes_for_module(Process* p, BeamInstr* code);
-static Eterm compilation_info_for_module(Process* p, BeamInstr* code);
-static Eterm md5_of_module(Process* p, BeamInstr* code);
-static Eterm has_native(BeamInstr* code);
-static Eterm native_addresses(Process* p, BeamInstr* code);
+static Eterm functions_in_module(Process* p, BeamCodeHeader*);
+static Eterm attributes_for_module(Process* p, BeamCodeHeader*);
+static Eterm compilation_info_for_module(Process* p, BeamCodeHeader*);
+static Eterm md5_of_module(Process* p, BeamCodeHeader*);
+static Eterm has_native(BeamCodeHeader*);
+static Eterm native_addresses(Process* p, BeamCodeHeader*);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
 static int safe_mul(UWord a, UWord b, UWord* resp);
@@ -601,6 +603,7 @@ extern void check_allocated_block(Uint type, void *blk);
 #define CHKBLK(TYPE,BLK) /* nothing */
 #endif
 
+
 Eterm
 erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
 		     Eterm* modp, byte* code, Uint unloaded_size)
@@ -641,20 +644,27 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     /*
      * Initialize code area.
      */
-    stp->code_buffer_size = 2048 + stp->num_functions;
-    stp->code = (BeamInstr *) erts_alloc(ERTS_ALC_T_CODE,
-				    sizeof(BeamInstr) * stp->code_buffer_size);
+    stp->codev_size = 2048 + stp->num_functions;
+    stp->hdr = (BeamCodeHeader*) erts_alloc(ERTS_ALC_T_CODE,
+                                            (offsetof(BeamCodeHeader,functions)
+                                             + sizeof(BeamInstr) * stp->codev_size));
 
-    stp->code[MI_NUM_FUNCTIONS] = stp->num_functions;
-    stp->ci = MI_FUNCTIONS + stp->num_functions + 1;
+    stp->hdr->num_functions = stp->num_functions;
 
-    stp->code[MI_ATTR_PTR] = 0;
-    stp->code[MI_ATTR_SIZE] = 0;
-    stp->code[MI_ATTR_SIZE_ON_HEAP] = 0;
-    stp->code[MI_COMPILE_PTR] = 0;
-    stp->code[MI_COMPILE_SIZE] = 0;
-    stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
-    stp->code[MI_MD5_PTR] = 0;
+    /* Let the codev array start at functions[0] in order to index
+     * both function pointers and the loaded code itself that follows.
+     */
+    stp->codev = (BeamInstr*) &stp->hdr->functions;
+    stp->ci = stp->num_functions + 1;
+
+    stp->hdr->attr_ptr = NULL;
+    stp->hdr->attr_size = 0;
+    stp->hdr->attr_size_on_heap = 0;
+    stp->hdr->compile_ptr = NULL;
+    stp->hdr->compile_size = 0;
+    stp->hdr->compile_size_on_heap = 0;
+    stp->hdr->literals_start = NULL;
+    stp->hdr->md5_ptr = NULL;
 
     /*
      * Read the atom table.
@@ -757,8 +767,11 @@ Eterm
 erts_finish_loading(Binary* magic, Process* c_p,
 		    ErtsProcLocks c_p_locks, Eterm* modp)
 {
-    Eterm retval;
+    Eterm retval = NIL;
     LoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
+    Module* mod_tab_p;
+    struct erl_module_instance* inst_p;
+    Uint size;
 
     /*
      * No other process may run since we will update the export
@@ -767,19 +780,72 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
     ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
-
     /*
      * Make current code for the module old and insert the new code
      * as current.  This will fail if there already exists old code
      * for the module.
      */
 
+    mod_tab_p = erts_put_module(stp->module);
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    retval = insert_new_code(c_p, c_p_locks, stp->group_leader, stp->module,
-			     stp->code, stp->loaded_size);
-    if (retval != NIL) {
-	goto load_error;
+    if (!stp->on_load) {
+	/*
+	 * Normal case -- no -on_load() function.
+	 */
+	retval = beam_make_current_old(c_p, c_p_locks, stp->module);
+	ASSERT(retval == NIL);
+    } else {
+	ErtsCodeIndex code_ix = erts_staging_code_ix();
+	Eterm module = stp->module;
+	int i;
+
+	/*
+	 * There is an -on_load() function. We will keep the current
+	 * code, but we must turn off any tracing.
+	 */
+
+	for (i = 0; i < export_list_size(code_ix); i++) {
+	    Export *ep = export_list(i, code_ix);
+	    if (ep == NULL || ep->code[0] != module) {
+		continue;
+	    }
+	    if (ep->addressv[code_ix] == ep->code+3) {
+		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+		    continue;
+		} else if (ep->code[3] ==
+			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
+		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
+		    erts_clear_export_break(mod_tab_p, ep->code+3);
+		    ep->addressv[code_ix] = (BeamInstr *) ep->code[4];
+		    ep->code[4] = 0;
+		}
+		ASSERT(ep->code[4] == 0);
+	    }
+	}
+	ASSERT(mod_tab_p->curr.num_breakpoints == 0);
+	ASSERT(mod_tab_p->curr.num_traced_exports == 0);
     }
+
+    /*
+     * Update module table.
+     */
+
+    size = stp->loaded_size;
+    erts_total_code_size += size;
+    if (stp->on_load) {
+	inst_p = &mod_tab_p->old;
+    } else {
+	inst_p = &mod_tab_p->curr;
+    }
+    inst_p->code_hdr = stp->hdr;
+    inst_p->code_length = size;
+
+    /*
+     * Update ranges (used for finding a function from a PC value).
+     */
+
+    erts_update_ranges((BeamInstr*)inst_p->code_hdr, size);
 
     /*
      * Ready for the final touch: fixing the export table entries for
@@ -787,7 +853,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
      */
     
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
-    final_touch(stp);
+    final_touch(stp, inst_p);
 
     /*
      * Loading succeded.
@@ -799,7 +865,8 @@ erts_finish_loading(Binary* magic, Process* c_p,
     debug_dump_code(stp->code,stp->ci);
 #endif
 #endif
-    stp->code = NULL;		/* Prevent code from being freed. */
+    stp->hdr = NULL;		/* Prevent code from being freed. */
+    stp->codev = NULL;
     *modp = stp->module;
 
     /*
@@ -810,7 +877,6 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	retval = am_on_load;
     }
 
- load_error:
     free_loader_state(magic);
     return retval;
 }
@@ -831,7 +897,8 @@ erts_alloc_loader_state(void)
     stp->specific_op = -1;
     stp->genop = NULL;
     stp->atom = NULL;
-    stp->code = NULL;
+    stp->hdr = NULL;
+    stp->codev = NULL;
     stp->labels = NULL;
     stp->import = NULL;
     stp->export = NULL;
@@ -870,11 +937,28 @@ erts_module_for_prepared_code(Binary* magic)
 	return NIL;
     }
     stp = ERTS_MAGIC_BIN_DATA(magic);
-    if (stp->code != 0) {
+    if (stp->hdr != 0) {
 	return stp->module;
     } else {
 	return NIL;
     }
+}
+
+/*
+ * Return a non-zero value if the module has an on_load function,
+ * or 0 if it does not.
+ */
+
+Eterm
+erts_has_code_on_load(Binary* magic)
+{
+    LoaderState* stp;
+
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(magic) != loader_state_dtor) {
+	return NIL;
+    }
+    stp = ERTS_MAGIC_BIN_DATA(magic);
+    return stp->on_load ? am_true : am_false;
 }
 
 static void
@@ -891,7 +975,7 @@ static ErlHeapFragment* new_literal_fragment(Uint size)
     ErlHeapFragment* bp;
     bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(ERTS_ALC_T_PREPARED_CODE,
 					    ERTS_HEAP_FRAG_SIZE(size));
-    ERTS_INIT_HEAP_FRAG(bp, size);
+    ERTS_INIT_HEAP_FRAG(bp, size, size);
     return bp;
 }
 
@@ -920,9 +1004,13 @@ loader_state_dtor(Binary* magic)
 	driver_free_binary(stp->bin);
 	stp->bin = 0;
     }
-    if (stp->code != 0) {
-	erts_free(ERTS_ALC_T_CODE, stp->code);
-	stp->code = 0;
+    if (stp->hdr != 0) {
+        if (stp->hdr->literals_start) {
+            erts_free(ERTS_ALC_T_LITERAL, stp->hdr->literals_start);
+        }
+	erts_free(ERTS_ALC_T_CODE, stp->hdr);
+	stp->hdr = 0;
+        stp->codev = 0;
     }
     if (stp->labels != 0) {
 	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->labels);
@@ -994,9 +1082,9 @@ loader_state_dtor(Binary* magic)
 }
 
 static Eterm
-insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-		Eterm group_leader, Eterm module, BeamInstr* code,
-		Uint size)
+stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
+		     Eterm group_leader, Eterm module,
+		     BeamCodeHeader* code_hdr, Uint size)
 {
     Module* modp;
     Eterm retval;
@@ -1016,7 +1104,7 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 
     erts_total_code_size += size;
     modp = erts_put_module(module);
-    modp->curr.code = code;
+    modp->curr.code_hdr = code_hdr;
     modp->curr.code_length = size;
     modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
 
@@ -1024,7 +1112,7 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
      * Update ranges (used for finding a function from a PC value).
      */
 
-    erts_update_ranges(code, size);
+    erts_update_ranges((BeamInstr*)modp->curr.code_hdr, size);
     return NIL;
 }
 
@@ -1373,7 +1461,7 @@ read_export_table(LoaderState* stp)
 	if (value == 0) {
 	    LoadError2(stp, "export table entry %d: label %d not resolved", i, n);
 	}
-	stp->export[i].address = address = stp->code + value;
+	stp->export[i].address = address = stp->codev + value;
 
 	/*
 	 * Find out if there is a BIF with the same name.
@@ -1392,7 +1480,7 @@ read_export_table(LoaderState* stp)
 	 * any other functions that walk through all local functions.
 	 */
 
-	if (stp->labels[n].patches) {
+	if (stp->labels[n].patches >= 0) {
 	    LoadError3(stp, "there are local calls to the stub for "
 		       "the BIF %T:%T/%d",
 		       stp->module, func, arity);
@@ -1513,10 +1601,10 @@ read_literal_table(LoaderState* stp)
 	}
 
         if (heap_size > 0) {
-            erts_factory_message_init(&factory, NULL, NULL,
-                                      new_literal_fragment(heap_size));
+            erts_factory_heap_frag_init(&factory,
+					new_literal_fragment(heap_size));
 	    factory.alloc_type = ERTS_ALC_T_PREPARED_CODE;
-            val = erts_decode_ext(&factory, &p);
+            val = erts_decode_ext(&factory, &p, 0);
 
             if (is_non_value(val)) {
                 LoadError1(stp, "literal %d: bad external format", i);
@@ -1527,7 +1615,7 @@ read_literal_table(LoaderState* stp)
         }
         else {
             erts_factory_dummy_init(&factory);
-            val = erts_decode_ext(&factory, &p);
+            val = erts_decode_ext(&factory, &p, 0);
             if (is_non_value(val)) {
                 LoadError1(stp, "literal %d: bad external format", i);
             }
@@ -1735,7 +1823,7 @@ read_code_header(LoaderState* stp)
 				       stp->num_labels * sizeof(Label));
     for (i = 0; i < stp->num_labels; i++) {
 	stp->labels[i].value = 0;
-	stp->labels[i].patches = 0;
+	stp->labels[i].patches = -1;
 #ifdef ERTS_SMP
 	stp->labels[i].looprec_targeted = 0;
 #endif
@@ -1754,13 +1842,14 @@ read_code_header(LoaderState* stp)
     } else {}
 
 #define CodeNeed(w) do {						\
-    ASSERT(ci <= code_buffer_size);					\
-    if (code_buffer_size < ci+(w)) {					\
-        code_buffer_size = 2*ci+(w);					\
-	stp->code = code =						\
-	    (BeamInstr *) erts_realloc(ERTS_ALC_T_CODE,			\
-				     (void *) code,			\
-				     code_buffer_size * sizeof(BeamInstr));	\
+    ASSERT(ci <= codev_size);					        \
+    if (codev_size < ci+(w)) {					        \
+        codev_size = 2*ci+(w);	                                        \
+	stp->hdr = (BeamCodeHeader*) erts_realloc(ERTS_ALC_T_CODE,	\
+            (void *) stp->hdr,	                                        \
+            (offsetof(BeamCodeHeader,functions)                         \
+             + codev_size * sizeof(BeamInstr)));                        \
+        code = stp->codev = (BeamInstr*) &stp->hdr->functions;          \
     } 									\
 } while (0)
     
@@ -1776,7 +1865,7 @@ load_code(LoaderState* stp)
     int arg;			/* Number of current argument. */
     int num_specific;		/* Number of specific ops for current. */
     BeamInstr* code;
-    int code_buffer_size;
+    int codev_size;
     int specific;
     Uint last_label = 0;	/* Number of last label. */
     Uint function_number = 0;
@@ -1793,15 +1882,15 @@ load_code(LoaderState* stp)
 	FUNC_INFO_SZ = 5
     };
 
-    code = stp->code;
-    code_buffer_size = stp->code_buffer_size;
+    code = stp->codev;
+    codev_size = stp->codev_size;
     ci = stp->ci;
 
     for (;;) {
 	int new_op;
 	GenOp* tmp_op;
 
-	ASSERT(ci <= code_buffer_size);
+	ASSERT(ci <= codev_size);
 
     get_next_instr:
 	GetByte(stp, new_op);
@@ -1847,9 +1936,7 @@ load_code(LoaderState* stp)
 	    case TAG_o:
 		break;
 	    case TAG_x:
-		if (last_op->a[arg].val == 0) {
-		    last_op->a[arg].type = TAG_r;
-		} else if (last_op->a[arg].val >= MAX_REG) {
+		if (last_op->a[arg].val >= MAX_REG) {
 		    LoadError1(stp, "invalid x register number: %u",
 			       last_op->a[arg].val);
 		}
@@ -1894,15 +1981,14 @@ load_code(LoaderState* stp)
 			 */
 			{
 			    Eterm* hp;
-/* XXX:PaN - Halfword should use ARCH_64 variant instead */
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
 			    Uint high, low;
 # endif
 			    last_op->a[arg].val = new_literal(stp, &hp,
 							      FLOAT_SIZE_OBJECT);
 			    hp[0] = HEADER_FLONUM;
 			    last_op->a[arg].type = TAG_q;
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 			    GetInt(stp, 8, hp[1]);
 # else
 			    GetInt(stp, 4, high);
@@ -1998,40 +2084,45 @@ load_code(LoaderState* stp)
 	ASSERT(arity == last_op->arity);
 
     do_transform:
-	if (stp->genop == NULL) {
-	    last_op_next = NULL;
-	    goto get_next_instr;
-	}
-
+	ASSERT(stp->genop != NULL);
 	if (gen_opc[stp->genop->op].transform != -1) {
-	    int need;
-	    tmp_op = stp->genop;
-
-	    for (need = gen_opc[stp->genop->op].min_window-1; need > 0; need--) {
-		if (tmp_op == NULL) {
-		    goto get_next_instr;
-		}
-		tmp_op = tmp_op->next;
+	    if (stp->genop->next == NULL) {
+		/*
+		 * Simple heuristic: Most transformations requires
+		 * at least two instructions, so make sure that
+		 * there are. That will reduce the number of
+		 * TE_SHORT_WINDOWs.
+		 */
+		goto get_next_instr;
 	    }
 	    switch (transform_engine(stp)) {
 	    case TE_FAIL:
-		last_op_next = NULL;
-		last_op = NULL;
+		/*
+		 * No transformation found. stp->genop != NULL and
+		 * last_op_next is still valid. Go ahead and load
+		 * the instruction.
+		 */
 		break;
 	    case TE_OK:
+		/*
+		 * Some transformation was applied. last_op_next is
+		 * no longer valid and stp->genop may be NULL.
+		 * Try to transform again.
+		 */
+		if (stp->genop == NULL) {
+		    last_op_next = &stp->genop;
+		    goto get_next_instr;
+		}
 		last_op_next = NULL;
-		last_op = NULL;
 		goto do_transform;
 	    case TE_SHORT_WINDOW:
-		last_op_next = NULL;
-		last_op = NULL;
+		/*
+		 * No transformation applied. stp->genop != NULL and
+		 * last_op_next is still valid. Fetch a new instruction
+		 * before trying the transformation again.
+		 */
 		goto get_next_instr;
 	    }
-	}
-
-	if (stp->genop == NULL) {
-	    last_op_next = NULL;
-	    goto get_next_instr;
 	}
 
 	/*
@@ -2056,7 +2147,42 @@ load_code(LoaderState* stp)
 		if (((opc[specific].mask[0] & mask[0]) == mask[0]) &&
 		    ((opc[specific].mask[1] & mask[1]) == mask[1]) &&
 		    ((opc[specific].mask[2] & mask[2]) == mask[2])) {
-		    break;
+
+		    if (!opc[specific].involves_r) {
+			break;	/* No complications - match */
+		    }
+
+		    /*
+		     * The specific operation uses the 'r' operand,
+		     * which is shorthand for x(0). Now things
+		     * get complicated. First we must check whether
+		     * all operands that should be of type 'r' use
+		     * x(0) (as opposed to some other X register).
+		     */
+		    for (arg = 0; arg < arity; arg++) {
+			if (opc[specific].involves_r & (1 << arg) &&
+			    tmp_op->a[arg].type == TAG_x) {
+			    if (tmp_op->a[arg].val != 0) {
+				break; /* Other X register than 0 */
+			    }
+			}
+		    }
+
+		    if (arg == arity) {
+			/*
+			 * All 'r' operands use x(0) in the generic
+			 * operation. That means a match. Now we
+			 * will need to rewrite the generic instruction
+			 * to actually use 'r' instead of 'x(0)'.
+			 */
+			for (arg = 0; arg < arity; arg++) {
+			    if (opc[specific].involves_r & (1 << arg) &&
+				tmp_op->a[arg].type == TAG_x) {
+				tmp_op->a[arg].type = TAG_r;
+			    }
+			}
+			break;	/* Match */
+		    }
 		}
 		specific++;
 	    }
@@ -2167,14 +2293,11 @@ load_code(LoaderState* stp)
 		break;
 	    case 's':	/* Any source (tagged constant or register) */
 		switch (tag) {
-		case TAG_r:
-		    code[ci++] = make_rreg();
-		    break;
 		case TAG_x:
-		    code[ci++] = make_xreg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		    break;
 		case TAG_y:
-		    code[ci++] = make_yreg(tmp_op->a[arg].val);
+		    code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
 		    break;
 		case TAG_i:
 		    code[ci++] = (BeamInstr) make_small((Uint)tmp_op->a[arg].val);
@@ -2185,6 +2308,10 @@ load_code(LoaderState* stp)
 		case TAG_n:
 		    code[ci++] = NIL;
 		    break;
+		case TAG_q:
+		    new_literal_patch(stp, ci);
+		    code[ci++] = tmp_op->a[arg].val;
+		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for general source",
 			       tmp_op->a[arg].type);
@@ -2193,14 +2320,11 @@ load_code(LoaderState* stp)
 		break;
 	    case 'd':	/* Destination (x(0), x(N), y(N) */
 		switch (tag) {
-		case TAG_r:
-		    code[ci++] = make_rreg();
-		    break;
 		case TAG_x:
-		    code[ci++] = make_xreg(tmp_op->a[arg].val);
+		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
 		    break;
 		case TAG_y:
-		    code[ci++] = make_yreg(tmp_op->a[arg].val);
+		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm) + 1;
 		    break;
 		default:
 		    LoadError1(stp, "bad tag %d for destination",
@@ -2357,20 +2481,13 @@ load_code(LoaderState* stp)
 		stp->labels[tmp_op->a[arg].val].patches = ci;
 		ci++;
 		break;
-	    case TAG_r:
-		CodeNeed(1);
-		code[ci++] = (R_REG_DEF << _TAG_PRIMARY_SIZE) |
-		    TAG_PRIMARY_HEADER;
-		break;
 	    case TAG_x:
 		CodeNeed(1);
-		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
-		    (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_y:
 		CodeNeed(1);
-		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
-		    (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_n:
 		CodeNeed(1);
@@ -2393,8 +2510,7 @@ load_code(LoaderState* stp)
 	switch (stp->specific_op) {
 	case op_i_func_info_IaaI:
 	    {
-		Uint offset;
-
+		Sint offset;
 		if (function_number >= stp->num_functions) {
 		    LoadError1(stp, "too many functions in module (header said %d)",
 			       stp->num_functions); 
@@ -2436,15 +2552,15 @@ load_code(LoaderState* stp)
 		stp->arity = code[ci-1];
 
 		ASSERT(stp->labels[last_label].value == ci - FUNC_INFO_SZ);
-		offset = MI_FUNCTIONS + function_number;
-		code[offset] = stp->labels[last_label].patches;
+		stp->hdr->functions[function_number] = (BeamInstr*) stp->labels[last_label].patches;
+		offset = function_number;
 		stp->labels[last_label].patches = offset;
 		function_number++;
 		if (stp->arity > MAX_ARG) {
 		    LoadError1(stp, "too many arguments: %d", stp->arity);
 		}
 #ifdef DEBUG
-		ASSERT(stp->labels[0].patches == 0); /* Should not be referenced. */
+		ASSERT(stp->labels[0].patches < 0); /* Should not be referenced. */
 		for (i = 1; i < stp->num_labels; i++) {
 		    ASSERT(stp->labels[i].patches < ci);
 		}
@@ -2458,7 +2574,6 @@ load_code(LoaderState* stp)
 	    stp->on_load = ci;
 	    break;
 	case op_bs_put_string_II:
-	case op_i_bs_match_string_rfII:
 	case op_i_bs_match_string_xfII:
 	    new_string_patch(stp, ci-1);
 	    break;
@@ -2515,7 +2630,7 @@ load_code(LoaderState* stp)
 	     * End of code found.
 	     */
 	case op_int_code_end:
-	    stp->code_buffer_size = code_buffer_size;
+	    stp->codev_size = codev_size;
 	    stp->ci = ci;
 	    stp->function = THE_NON_VALUE;
 	    stp->genop = NULL;
@@ -2530,7 +2645,10 @@ load_code(LoaderState* stp)
 	{
 	    GenOp* next = stp->genop->next;
 	    FREE_GENOP(stp, stp->genop);
-	    stp->genop = next;
+	    if ((stp->genop = next) == NULL) {
+		last_op_next = &stp->genop;
+		goto get_next_instr;
+	    }
 	    goto do_transform;
 	}
     }
@@ -2674,12 +2792,18 @@ mixed_types(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
 }
 
 static int
-same_label(LoaderState* stp, GenOpArg Target, GenOpArg Label)
+is_killed_apply(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
 {
-    return Target.type = TAG_f && Label.type == TAG_u &&
-	Target.val == Label.val;
+    return Reg.type == TAG_x && Live.type == TAG_u &&
+	Live.val+2 <= Reg.val;
 }
 
+static int
+is_killed(LoaderState* stp, GenOpArg Reg, GenOpArg Live)
+{
+    return Reg.type == TAG_x && Live.type == TAG_u &&
+	Live.val <= Reg.val;
+}
 
 /*
  * Generate an instruction for element/2.
@@ -2696,17 +2820,17 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     op->next = NULL;
 
     if (Index.type == TAG_i && Index.val > 0 &&
-	(Tuple.type == TAG_r || Tuple.type == TAG_x || Tuple.type == TAG_y)) {
+	(Tuple.type == TAG_x || Tuple.type == TAG_y)) {
 	op->op = genop_i_fast_element_4;
-	op->a[0] = Tuple;
-	op->a[1] = Fail;
+	op->a[0] = Fail;
+	op->a[1] = Tuple;
 	op->a[2].type = TAG_u;
 	op->a[2].val = Index.val;
 	op->a[3] = Dst;
     } else {
 	op->op = genop_i_element_4;
-	op->a[0] = Tuple;
-	op->a[1] = Fail;
+	op->a[0] = Fail;
+	op->a[1] = Tuple;
 	op->a[2] = Index;
 	op->a[3] = Dst;
     }
@@ -2832,23 +2956,16 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	    goto generic;
 	}
     } else {
-	GenOp* op2;
-	NEW_GENOP(stp, op2);
-	
-	op->op = genop_i_fetch_2;
-	op->arity = 2;
-	op->a[0] = Ms;
-	op->a[1] = Size;
-	op->next = op2;
-
-	op2->op = genop_i_bs_get_integer_4;
-	op2->arity = 4;
-	op2->a[0] = Fail;
-	op2->a[1] = Live;
-	op2->a[2].type = TAG_u;
-	op2->a[2].val = (Unit.val << 3) | Flags.val;
-	op2->a[3] = Dst;
-	op2->next = NULL;
+	op->op = genop_i_bs_get_integer_6;
+	op->arity = 6;
+	op->a[0] = Fail;
+	op->a[1] = Live;
+	op->a[2].type = TAG_u;
+	op->a[2].val = (Unit.val << 3) | Flags.val;
+	op->a[3] = Ms;
+	op->a[4] = Size;
+	op->a[5] = Dst;
+	op->next = NULL;
 	return op;
     }
     op->next = NULL;
@@ -3272,14 +3389,14 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     op->a[1].type = TAG_u;
     
     if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 	(timeout >> 32) == 0
 #else
 	1
 #endif
 	) {
 	op->a[1].val = timeout;
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     } else if (Time.type == TAG_q) {
 	Eterm big;
 
@@ -3296,7 +3413,7 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	}
 #endif
     } else {
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     error:
 #endif
 	op->op = genop_i_wait_error_0;
@@ -3319,14 +3436,14 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     op->a[1].type = TAG_u;
     
     if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 	(timeout >> 32) == 0
 #else
 	1
 #endif
 	) {
 	op->a[1].val = timeout;
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     } else if (Time.type == TAG_q) {
 	Eterm big;
 
@@ -3343,7 +3460,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	}
 #endif
     } else {
-#if !defined(ARCH_64) || HALFWORD_HEAP
+#if !defined(ARCH_64)
     error:
 #endif
 	op->op = genop_i_wait_error_locked_0;
@@ -3899,9 +4016,7 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
 /*
  * Rewrite gc_bifs with one parameter (the common case). Utilized
  * in ops.tab to rewrite instructions calling bif's in guards
- * to use a garbage collecting implementation. The instructions
- * are sometimes once again rewritten to handle literals (putting the
- * parameter in the mostly unused r[0] before the instruction is executed).
+ * to use a garbage collecting implementation.
  */
 static GenOp*
 gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
@@ -3956,10 +4071,6 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 
 /*
  * This is used by the ops.tab rule that rewrites gc_bifs with two parameters.
- * The instruction returned is then again rewritten to an i_load instruction
- * followed by i_gc_bif2_jIId, to handle literals properly.
- * As opposed to the i_gc_bif1_jIsId, the instruction  i_gc_bif2_jIId is
- * always rewritten, regardless of if there actually are any literals.
  */
 static GenOp*
 gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
@@ -3986,23 +4097,19 @@ gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	op->a[2].val = stp->import[Bif.val].arity;
 	return op;
     }
-    op->op = genop_ii_gc_bif2_6;
+    op->op = genop_i_gc_bif2_6;
     op->arity = 6;
     op->a[0] = Fail;
     op->a[1].type = TAG_u;
-    op->a[2] = S1;
-    op->a[3] = S2;
-    op->a[4] = Live;
+    op->a[2] = Live;
+    op->a[3] = S1;
+    op->a[4] = S2;
     op->a[5] = Dst;
     return op;
 }
 
 /*
  * This is used by the ops.tab rule that rewrites gc_bifs with three parameters.
- * The instruction returned is then again rewritten to a move instruction that
- * uses r[0] for temp storage, followed by an i_load instruction,
- * followed by i_gc_bif3_jIsId, to handle literals properly. Rewriting
- * always occur, as with the gc_bif2 counterpart.
  */
 static GenOp*
 gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
@@ -4033,10 +4140,10 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     op->arity = 7;
     op->a[0] = Fail;
     op->a[1].type = TAG_u;
-    op->a[2] = S1;
-    op->a[3] = S2;
-    op->a[4] = S3;
-    op->a[5] = Live;
+    op->a[2] = Live;
+    op->a[3] = S1;
+    op->a[4] = S2;
+    op->a[5] = S3;
     op->a[6] = Dst;
     op->next = NULL;
     return op;
@@ -4258,6 +4365,53 @@ gen_get_map_element(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
     return op;
 }
 
+static int
+hash_internal_genop_arg(LoaderState* stp, GenOpArg Key, Uint32* hx)
+{
+    switch (Key.type) {
+    case TAG_a:
+	*hx = atom_tab(atom_val(Key.val))->slot.bucket.hvalue;
+	return 1;
+    case TAG_i:
+	*hx = Key.val;
+	return 1;
+    case TAG_n:
+	*hx = make_internal_hash(NIL);
+	return 1;
+    case TAG_q:
+	*hx = make_internal_hash(stp->literals[Key.val].term);
+	return 1;
+    default:
+	return 0;
+    }
+}
+
+
+static GenOp*
+gen_get(LoaderState* stp, GenOpArg Src, GenOpArg Dst)
+{
+    GenOp* op;
+    Uint32 hx = 0;
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    if (hash_internal_genop_arg(stp, Src, &hx)) {
+	op->arity = 3;
+	op->op = genop_i_get_hash_3;
+        op->a[0] = Src;
+	op->a[1].type = TAG_u;
+	op->a[1].val = (BeamInstr) hx;
+	op->a[2] = Dst;
+    } else {
+	op->arity = 2;
+	op->op = genop_i_get_2;
+        op->a[0] = Src;
+	op->a[1] = Dst;
+    }
+    return op;
+}
+
+
 static GenOp*
 gen_get_map_elements(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 		     GenOpArg Size, GenOpArg* Rest)
@@ -4270,6 +4424,7 @@ gen_get_map_elements(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
     int good_hash;
 #endif
 
+    ERTS_UNDEF(hx, 0);
     ASSERT(Size.type == TAG_u);
 
     NEW_GENOP(stp, op);
@@ -4323,7 +4478,7 @@ gen_has_map_fields(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
     for (i = 0; i < n; i++) {
 	op->a[3+2*i] = Rest[i];
 	op->a[3+2*i+1].type = TAG_x;
-	op->a[3+2*i+1].val = 0;	/* x(0); normally not used */
+	op->a[3+2*i+1].val = SCRATCH_X_REG; /* Ignore result */
     }
     return op;
 }
@@ -4336,8 +4491,8 @@ gen_has_map_fields(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
 static int
 freeze_code(LoaderState* stp)
 {
-    BeamInstr* code = stp->code;
-    Uint *literal_end = NULL;
+    BeamCodeHeader* code_hdr = stp->hdr;
+    BeamInstr* codev = (BeamInstr*) &stp->hdr->functions;
     int i;
     byte* str_table;
     unsigned strtab_size = stp->chunks[STR_CHUNK].size;
@@ -4362,77 +4517,76 @@ freeze_code(LoaderState* stp)
     if (stp->line_instr == 0) {
 	line_size = 0;
     } else {
-	line_size = (MI_LINE_FUNC_TAB + (stp->num_functions + 1) +
-		     (stp->current_li+1) + stp->num_fnames) *
-	    sizeof(Eterm) + (stp->current_li+1) * stp->loc_size;
+	line_size = (offsetof(BeamCodeLineTab,func_tab)
+                     + (stp->num_functions + 1) * sizeof(BeamInstr**) /* func_tab */
+                     + (stp->current_li + 1) * sizeof(BeamInstr*)     /* line items */
+                     + stp->num_fnames * sizeof(Eterm)                /* fname table */
+                     + (stp->current_li + 1) * stp->loc_size);        /* loc_tab */
     }
-    size = (stp->ci * sizeof(BeamInstr)) +
-	(stp->total_literal_size * sizeof(Eterm)) +
+    size = offsetof(BeamCodeHeader,functions) + (stp->ci * sizeof(BeamInstr)) +
 	strtab_size + attr_size + compile_size + MD5_SIZE + line_size;
 
     /*
      * Move the code to its final location.
      */
 
-    code = (BeamInstr *) erts_realloc(ERTS_ALC_T_CODE, (void *) code, size);
-    CHKBLK(ERTS_ALC_T_CODE,code);
+    code_hdr = (BeamCodeHeader*) erts_realloc(ERTS_ALC_T_CODE, (void *) code_hdr, size);
+    codev = (BeamInstr*) &code_hdr->functions;
+    CHKBLK(ERTS_ALC_T_CODE,code_hdr);
     /*
      * Place a pointer to the op_int_code_end instruction in the
      * function table in the beginning of the file.
      */
 
-    code[MI_FUNCTIONS+stp->num_functions] = (BeamInstr) (code + stp->ci - 1);
-    CHKBLK(ERTS_ALC_T_CODE,code);
+    code_hdr->functions[stp->num_functions] = (codev + stp->ci - 1);
+    CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
     /*
      * Store the pointer to the on_load function.
      */
 
     if (stp->on_load) {
-	code[MI_ON_LOAD_FUNCTION_PTR] = (BeamInstr) (code + stp->on_load);
+	code_hdr->on_load_function_ptr = codev + stp->on_load;
     } else {
-	code[MI_ON_LOAD_FUNCTION_PTR] = 0;
+	code_hdr->on_load_function_ptr = NULL;
     }
-    CHKBLK(ERTS_ALC_T_CODE,code);
+    CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
-    literal_end = (Uint *) (code+stp->ci);
     /*
-     * Place the literal heap directly after the code and fix up all
-     * instructions that refer to it.
+     * Place the literals in their own allocated heap (for fast range check)
+     * and fix up all instructions that refer to it.
      */
     {
-	Uint* ptr;
-	Uint* low;
-	Uint* high;
+	Eterm* ptr;
 	LiteralPatch* lp;
         ErlOffHeap code_off_heap;
 
         ERTS_INIT_OFF_HEAP(&code_off_heap);
 
-	low = (Uint *) (code+stp->ci);
-	high = low + stp->total_literal_size;
-	code[MI_LITERALS_START] = (BeamInstr) low;
-	code[MI_LITERALS_END] = (BeamInstr) high;
-	ptr = low;
+        ptr = (Eterm*)erts_alloc(ERTS_ALC_T_LITERAL,
+                                 stp->total_literal_size*sizeof(Eterm));
+	code_hdr->literals_start = ptr;
+	code_hdr->literals_end = ptr + stp->total_literal_size;
 	for (i = 0; i < stp->num_literals; i++) {
-            if (stp->literals[i].heap_frags) {
-                move_multi_frags(&ptr, &code_off_heap, stp->literals[i].heap_frags,
-                                 &stp->literals[i].term, 1);
+            if (is_not_immed(stp->literals[i].term)) {
+                erts_move_multi_frags(&ptr, &code_off_heap,
+				      stp->literals[i].heap_frags,
+				      &stp->literals[i].term, 1, 1);
+                ASSERT(erts_is_literal(stp->literals[i].term,
+				       ptr_val(stp->literals[i].term)));
             }
-            else ASSERT(is_immed(stp->literals[i].term));
 	}
-        code[MI_LITERALS_OFF_HEAP] = (BeamInstr) code_off_heap.first;
+	code_hdr->literals_off_heap = code_off_heap.first;
 	lp = stp->literal_patches;
 	while (lp != 0) {
 	    BeamInstr* op_ptr;
 	    Literal* lit;
 
-	    op_ptr = code + lp->pos;
+	    op_ptr = codev + lp->pos;
 	    lit = &stp->literals[op_ptr[0]];
 	    op_ptr[0] = lit->term;
 	    lp = lp->next;
 	}
-	literal_end += stp->total_literal_size;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
 
@@ -4440,52 +4594,49 @@ freeze_code(LoaderState* stp)
      * If there is line information, place it here.
      */
     if (stp->line_instr == 0) {
-	code[MI_LINE_TABLE] = (BeamInstr) 0;
-	str_table = (byte *) literal_end;
+	code_hdr->line_table = NULL;
+	str_table = (byte *) (codev + stp->ci);
     } else {
-	Eterm* line_tab = (Eterm *) literal_end;
-	Eterm* p;
-	int ftab_size = stp->num_functions;
-	int num_instrs = stp->current_li;
-	Eterm* first_line_item;
+	BeamCodeLineTab* const line_tab = (BeamCodeLineTab *) (codev+stp->ci);
+	const int ftab_size = stp->num_functions;
+        const int num_instrs = stp->current_li;
+        const BeamInstr** const line_items =
+            (const BeamInstr**) &line_tab->func_tab[ftab_size + 1];
 
-	code[MI_LINE_TABLE] = (BeamInstr) line_tab;
-	p = line_tab + MI_LINE_FUNC_TAB;
+	code_hdr->line_table = line_tab;
 
-	first_line_item = (p + ftab_size + 1);
 	for (i = 0; i < ftab_size; i++) {
-	     *p++ = (Eterm) (BeamInstr) (first_line_item + stp->func_line[i]);
+            line_tab->func_tab[i] = line_items + stp->func_line[i];
 	}
-	*p++ = (Eterm) (BeamInstr) (first_line_item + num_instrs);
-	ASSERT(p == first_line_item);
+	line_tab->func_tab[i] = line_items + num_instrs;
+
 	for (i = 0; i < num_instrs; i++) {
-		*p++ = (Eterm) (BeamInstr) (code + stp->line_instr[i].pos);
+            line_items[i] = codev + stp->line_instr[i].pos;
 	}
-	*p++ = (Eterm) (BeamInstr) (code + stp->ci - 1);
+	line_items[i] = codev + stp->ci - 1;
 
-	line_tab[MI_LINE_FNAME_PTR] = (Eterm) (BeamInstr) p;
-	memcpy(p, stp->fname, stp->num_fnames*sizeof(Eterm));
-	p += stp->num_fnames;
+	line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
+	memcpy(line_tab->fname_ptr, stp->fname, stp->num_fnames*sizeof(Eterm));
 
-	line_tab[MI_LINE_LOC_TAB] = (Eterm) (BeamInstr) p;
-	line_tab[MI_LINE_LOC_SIZE] = stp->loc_size;
+	line_tab->loc_size = stp->loc_size;
 	if (stp->loc_size == 2) {
-	    Uint16* locp = (Uint16 *) p;
-	    for (i = 0; i < num_instrs; i++) {
+            Uint16* locp = (Uint16 *) &line_tab->fname_ptr[stp->num_fnames];
+            line_tab->loc_tab.p2 = locp;
+            for (i = 0; i < num_instrs; i++) {
 		*locp++ = (Uint16) stp->line_instr[i].loc;
-	    }
-	    *locp++ = LINE_INVALID_LOCATION;
-	    str_table = (byte *) locp;
+            }
+            *locp++ = LINE_INVALID_LOCATION;
+            str_table = (byte *) locp;
 	} else {
-	    Uint32* locp = (Uint32 *) p;
-	    ASSERT(stp->loc_size == 4);
+	    Uint32* locp = (Uint32 *) &line_tab->fname_ptr[stp->num_fnames];
+            ASSERT(stp->loc_size == 4);
+            line_tab->loc_tab.p4 = locp;
 	    for (i = 0; i < num_instrs; i++) {
 		*locp++ = stp->line_instr[i].loc;
 	    }
 	    *locp++ = LINE_INVALID_LOCATION;
-	    str_table = (byte *) locp;
+            str_table = (byte *) locp;
 	}
-
 	CHKBLK(ERTS_ALC_T_CODE,code);
     }
 
@@ -4497,13 +4648,13 @@ freeze_code(LoaderState* stp)
     if (attr_size) {
 	byte* attr = str_table + strtab_size;
 	sys_memcpy(attr, stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
-	code[MI_ATTR_PTR] = (BeamInstr) attr;
-	code[MI_ATTR_SIZE] = (BeamInstr) stp->chunks[ATTR_CHUNK].size;
+	code_hdr->attr_ptr = attr;
+	code_hdr->attr_size = (BeamInstr) stp->chunks[ATTR_CHUNK].size;
 	decoded_size = erts_decode_ext_size(attr, attr_size);
 	if (decoded_size < 0) {
  	    LoadError0(stp, "bad external term representation of module attributes");
  	}
-	code[MI_ATTR_SIZE_ON_HEAP] = decoded_size;
+	code_hdr->attr_size_on_heap = decoded_size;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
     if (compile_size) {
@@ -4513,9 +4664,9 @@ freeze_code(LoaderState* stp)
 	       stp->chunks[COMPILE_CHUNK].size);
 
 	CHKBLK(ERTS_ALC_T_CODE,code);
-	code[MI_COMPILE_PTR] = (BeamInstr) compile_info;
+	code_hdr->compile_ptr = compile_info;
 	CHKBLK(ERTS_ALC_T_CODE,code);
-	code[MI_COMPILE_SIZE] = (BeamInstr) stp->chunks[COMPILE_CHUNK].size;
+	code_hdr->compile_size = (BeamInstr) stp->chunks[COMPILE_CHUNK].size;
 	CHKBLK(ERTS_ALC_T_CODE,code);
 	decoded_size = erts_decode_ext_size(compile_info, compile_size);
 	CHKBLK(ERTS_ALC_T_CODE,code);
@@ -4523,7 +4674,7 @@ freeze_code(LoaderState* stp)
  	    LoadError0(stp, "bad external term representation of compilation information");
  	}
 	CHKBLK(ERTS_ALC_T_CODE,code);
-	code[MI_COMPILE_SIZE_ON_HEAP] = decoded_size;
+	code_hdr->compile_size_on_heap = decoded_size;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
     {
@@ -4531,7 +4682,7 @@ freeze_code(LoaderState* stp)
 	CHKBLK(ERTS_ALC_T_CODE,code);
 	sys_memcpy(md5_sum, stp->mod_md5, MD5_SIZE);
 	CHKBLK(ERTS_ALC_T_CODE,code);
-	code[MI_MD5_PTR] = (BeamInstr) md5_sum;
+	code_hdr->md5_ptr = md5_sum;
 	CHKBLK(ERTS_ALC_T_CODE,code);
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
@@ -4540,7 +4691,7 @@ freeze_code(LoaderState* stp)
      * Make sure that we have not overflowed the allocated code space.
      */
     ASSERT(str_table + strtab_size + attr_size + compile_size + MD5_SIZE ==
-	   ((byte *) code) + size);
+	   ((byte *) code_hdr) + size);
 
     /*
      * Patch all instructions that refer to the string table.
@@ -4552,46 +4703,47 @@ freeze_code(LoaderState* stp)
 	    BeamInstr* op_ptr;
 	    byte* strp;
 
-	    op_ptr = code + sp->pos;
+	    op_ptr = codev + sp->pos;
 	    strp = str_table + op_ptr[0];
 	    op_ptr[0] = (BeamInstr) strp;
 	    sp = sp->next;
 	}
     }
-    CHKBLK(ERTS_ALC_T_CODE,code);
+    CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
     /*
      * Resolve all labels.
      */
 
     for (i = 0; i < stp->num_labels; i++) {
-	Uint this_patch;
-	Uint next_patch;
+	Sint this_patch;
+	Sint next_patch;
 	Uint value = stp->labels[i].value;
 	
-	if (value == 0 && stp->labels[i].patches != 0) {
+	if (value == 0 && stp->labels[i].patches >= 0) {
 	    LoadError1(stp, "label %d not resolved", i);
 	}
 	ASSERT(value < stp->ci);
 	this_patch = stp->labels[i].patches;
-	while (this_patch != 0) {
+	while (this_patch >= 0) {
 	    ASSERT(this_patch < stp->ci);
-	    next_patch = code[this_patch];
+	    next_patch = codev[this_patch];
 	    ASSERT(next_patch < stp->ci);
-	    code[this_patch] = (BeamInstr) (code + value);
+	    codev[this_patch] = (BeamInstr) (codev + value);
 	    this_patch = next_patch;
 	}
     }
-    CHKBLK(ERTS_ALC_T_CODE,code);
+    CHKBLK(ERTS_ALC_T_CODE,code_hdr);
 
     /*
      * Save the updated code pointer and code size.
      */
 
-    stp->code = code;
+    stp->hdr = code_hdr;
+    stp->codev = codev;
     stp->loaded_size = size;
 
-    CHKBLK(ERTS_ALC_T_CODE,code);
+    CHKBLK(ERTS_ALC_T_CODE,code_hdr);
     return 1;
 
  load_error:
@@ -4599,19 +4751,19 @@ freeze_code(LoaderState* stp)
      * Make sure that the caller frees the newly reallocated block, and
      * not the old one (in case it has moved).
      */
-    stp->code = code;
+    stp->hdr = code_hdr;
+    stp->codev = codev;
     return 0;
 }
 
 static void
-final_touch(LoaderState* stp)
+final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 {
     int i;
     int on_load = stp->on_load;
     unsigned catches;
     Uint index;
-    BeamInstr* code = stp->code;
-    Module* modp;
+    BeamInstr* codev = stp->codev;
 
     /*
      * Allocate catch indices and fix up all catch_yf instructions.
@@ -4620,14 +4772,13 @@ final_touch(LoaderState* stp)
     index = stp->catches;
     catches = BEAM_CATCHES_NIL;
     while (index != 0) {
-	BeamInstr next = code[index];
-	code[index] = BeamOpCode(op_catch_yf);
-	catches = beam_catches_cons((BeamInstr *)code[index+2], catches);
-	code[index+2] = make_catch(catches);
+	BeamInstr next = codev[index];
+	codev[index] = BeamOpCode(op_catch_yf);
+	catches = beam_catches_cons((BeamInstr *)codev[index+2], catches);
+	codev[index+2] = make_catch(catches);
 	index = next;
     }
-    modp = erts_put_module(stp->module);
-    modp->curr.catches = catches;
+    inst_p->catches = catches;
 
     /*
      * Export functions.
@@ -4647,10 +4798,10 @@ final_touch(LoaderState* stp)
 	    ep->addressv[erts_staging_code_ix()] = address;
 	} else {
 	    /*
-	     * Don't make any of the exported functions
-	     * callable yet.
+	     * on_load: Don't make any of the exported functions
+	     * callable yet. Keep any function in the current
+	     * code callable.
 	     */
-	    ep->addressv[erts_staging_code_ix()] = ep->code+3;
 	    ep->code[4] = (BeamInstr) address;
 	}
     }
@@ -4674,8 +4825,8 @@ final_touch(LoaderState* stp)
 	current = stp->import[i].patches;
 	while (current != 0) {
 	    ASSERT(current < stp->ci);
-	    next = stp->code[current];
-	    stp->code[current] = import;
+	    next = stp->codev[current];
+	    stp->codev[current] = import;
 	    current = next;
 	}
     }
@@ -4688,7 +4839,7 @@ final_touch(LoaderState* stp)
 	for (i = 0; i < stp->num_lambdas; i++) {
 	    unsigned entry_label = stp->lambdas[i].label;
 	    ErlFunEntry* fe = stp->lambdas[i].fe;
-	    BeamInstr* code_ptr = (BeamInstr *) (stp->code + stp->labels[entry_label].value);
+	    BeamInstr* code_ptr = stp->codev + stp->labels[entry_label].value;
 
 	    if (fe->address[0] != 0) {
 		/*
@@ -4710,31 +4861,25 @@ transform_engine(LoaderState* st)
     Uint op;
     int ap;			/* Current argument. */
     Uint* restart;		/* Where to restart if current match fails. */
-    GenOpArg def_vars[TE_MAX_VARS]; /* Default buffer for variables. */
-    GenOpArg* var = def_vars;
-    int num_vars = 0;
+    GenOpArg var[TE_MAX_VARS];	/* Buffer for variables. */
+    GenOpArg* rest_args = NULL;
+    int num_rest_args = 0;
     int i;			/* General index. */
     Uint mask;
     GenOp* instr;
+    GenOp* first = st->genop;
+    GenOp* keep = NULL;
     Uint* pc;
-    int rval;
     static Uint restart_fail[1] = {TOP_fail};
 
-    ASSERT(gen_opc[st->genop->op].transform != -1);
-    pc = op_transform + gen_opc[st->genop->op].transform;
-    restart = pc;
+    ASSERT(gen_opc[first->op].transform != -1);
+    restart = op_transform + gen_opc[first->op].transform;
 
  restart:
-    if (var != def_vars) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) var);
-	var = def_vars;
-    }
     ASSERT(restart != NULL);
     pc = restart;
     ASSERT(*pc < NUM_TOPS);	/* Valid instruction? */
-    instr = st->genop;
-
-#define RETURN(r) rval = (r); goto do_return;
+    instr = first;
 
 #ifdef DEBUG
     restart = NULL;
@@ -4752,7 +4897,7 @@ transform_engine(LoaderState* st)
 		 * We'll need at least one more instruction to decide whether
 		 * this combination matches or not.
 		 */
-		RETURN(TE_SHORT_WINDOW);
+		return TE_SHORT_WINDOW;
 	    }
 	    if (*pc++ != instr->op)
 		goto restart;
@@ -4801,7 +4946,8 @@ transform_engine(LoaderState* st)
 	    if (var[i].type != instr->a[ap].type)
 		goto restart;
 	    switch (var[i].type) {
-	    case TAG_r: case TAG_n: break;
+	    case TAG_n:
+		break;
 	    default:
 		if (var[i].val != instr->a[ap].val)
 		    goto restart;
@@ -4913,19 +5059,9 @@ transform_engine(LoaderState* st)
 #if defined(TOP_rest_args)
 	case TOP_rest_args:
 	    {
-		int n = *pc++;
 		int formal_arity = gen_opc[instr->op].arity;
-		int j = formal_arity;
-
-		num_vars = n + (instr->arity - formal_arity);
-		var = erts_alloc(ERTS_ALC_T_LOADER_TMP,
-				 num_vars * sizeof(GenOpArg));
-		for (i = 0; i < n; i++) {
-		    var[i] = def_vars[i];
-		}
-		while (i < num_vars) {
-		    var[i++] = instr->a[j++];
-		}
+		num_rest_args = instr->arity - formal_arity;
+		rest_args = instr->a + formal_arity;
 	    }
 	    break;
 #endif
@@ -4934,21 +5070,22 @@ transform_engine(LoaderState* st)
 	    break;
 	case TOP_commit:
 	    instr = instr->next; /* The next_instr was optimized away. */
-
-	    /*
-	     * The left-hand side of this transformation matched.
-	     * Delete all matched instructions.
-	     */
-	    while (st->genop != instr) {
-		GenOp* next = st->genop->next;
-		FREE_GENOP(st, st->genop);
-		st->genop = next;
-	    }
+	    keep = instr;
+	    st->genop = instr;
 #ifdef DEBUG
 	    instr = 0;
 #endif
 	    break;
-
+#if defined(TOP_keep)
+	case TOP_keep:
+	    /* Keep the current instruction unchanged. */
+	    keep = instr;
+	    st->genop = instr;
+#ifdef DEBUG
+	    instr = 0;
+#endif
+	    break;
+#endif
 #if defined(TOP_call_end)
 	case TOP_call_end:
 	    {
@@ -4973,22 +5110,19 @@ transform_engine(LoaderState* st)
 		    lastp = &((*lastp)->next);
 		}
 		 
-		instr = instr->next; /* The next_instr was optimized away. */
-
-		/*
-		 * The left-hand side of this transformation matched.
-		 * Delete all matched instructions.
-		 */
-		while (st->genop != instr) {
-		    GenOp* next = st->genop->next;
-		    FREE_GENOP(st, st->genop);
-		    st->genop = next;
-		}
-		*lastp = st->genop;
+		keep = instr->next; /* The next_instr was optimized away. */
+		*lastp = keep;
 		st->genop = new_instr;
 	    }
-	    RETURN(TE_OK);
+	    /* FALLTHROUGH */
 #endif
+	case TOP_end:
+	    while (first != keep) {
+		GenOp* next = first->next;
+		FREE_GENOP(st, first);
+		first = next;
+	    }
+	    return TE_OK;
 	case TOP_new_instr:
 	    /*
 	     * Note that the instructions are generated in reverse order.
@@ -5000,6 +5134,12 @@ transform_engine(LoaderState* st)
 	    instr->arity = gen_opc[op].arity;
 	    ap = 0;
 	    break;
+#ifdef TOP_rename
+	case TOP_rename:
+	    instr->op = op = *pc++;
+	    instr->arity = gen_opc[op].arity;
+	    return TE_OK;
+#endif
 	case TOP_store_type:
 	    i = *pc++;
 	    instr->a[ap].type = i;
@@ -5019,14 +5159,10 @@ transform_engine(LoaderState* st)
 #if defined(TOP_store_rest_args)
 	case TOP_store_rest_args:
 	    {
-		int n = *pc++;
-		int num_extra = num_vars - n;
-
-		ASSERT(n <= num_vars);
-		GENOP_ARITY(instr, instr->arity+num_extra);
+		GENOP_ARITY(instr, instr->arity+num_rest_args);
 		memcpy(instr->a, instr->def_args, ap*sizeof(GenOpArg));
-		memcpy(instr->a+ap, var+n, num_extra*sizeof(GenOpArg));
-		ap += num_extra;
+		memcpy(instr->a+ap, rest_args, num_rest_args*sizeof(GenOpArg));
+		ap += num_rest_args;
 	    }
 	    break;
 #endif
@@ -5038,21 +5174,12 @@ transform_engine(LoaderState* st)
 	case TOP_try_me_else_fail:
 	    restart = restart_fail;
 	    break;
-	case TOP_end:
-	    RETURN(TE_OK);
 	case TOP_fail:
-	    RETURN(TE_FAIL);
+	    return TE_FAIL;
 	default:
 	    ASSERT(0);
 	}
     }
-#undef RETURN
-
- do_return:
-    if (var != def_vars) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) var);
-    }
-    return rval;
 }
 
 static void
@@ -5311,7 +5438,7 @@ new_label(LoaderState* stp)
 					 (void *) stp->labels,
 					 stp->num_labels * sizeof(Label));
     stp->labels[num].value = 0;
-    stp->labels[num].patches = 0;
+    stp->labels[num].patches = -1;
     return num;
 }
 
@@ -5371,7 +5498,7 @@ erts_module_info_0(Process* p, Eterm module)
 {
     Module* modp;
     ErtsCodeIndex code_ix = erts_active_code_ix();
-    BeamInstr* code;
+    BeamCodeHeader* code_hdr;
     Eterm *hp;
     Eterm list = NIL;
     Eterm tup;
@@ -5385,13 +5512,13 @@ erts_module_info_0(Process* p, Eterm module)
 	return THE_NON_VALUE;
     }
 
-    code = modp->curr.code;
-    if (code == NULL) {
+    code_hdr = modp->curr.code_hdr;
+    if (code_hdr == NULL) {
         return THE_NON_VALUE;
     }
 
 #define BUILD_INFO(What) \
-    tup = get_module_info(p, code_ix, code, module, What); \
+    tup = get_module_info(p, code_ix, code_hdr, module, What); \
     hp = HAlloc(p, 5); \
     tup = TUPLE2(hp, What, tup); \
     hp += 3; \
@@ -5414,7 +5541,7 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
 {
     Module* modp;
     ErtsCodeIndex code_ix = erts_active_code_ix();
-    BeamInstr* code;
+    BeamCodeHeader* code_hdr;
 
     if (is_not_atom(module)) {
         return THE_NON_VALUE;
@@ -5425,34 +5552,34 @@ erts_module_info_1(Process* p, Eterm module, Eterm what)
         return THE_NON_VALUE;
     }
 
-    code = modp->curr.code;
-    if (code == NULL) {
+    code_hdr = modp->curr.code_hdr;
+    if (code_hdr == NULL) {
         return THE_NON_VALUE;
     }
 
-    return get_module_info(p, code_ix, code, module, what);
+    return get_module_info(p, code_ix, code_hdr, module, what);
 }
 
 static Eterm
-get_module_info(Process* p, ErtsCodeIndex code_ix, BeamInstr* code,
+get_module_info(Process* p, ErtsCodeIndex code_ix, BeamCodeHeader* code_hdr,
                 Eterm module, Eterm what)
 {
     if (what == am_module) {
 	return module;
     } else if (what == am_md5) {
-	return md5_of_module(p, code);
+	return md5_of_module(p, code_hdr);
     } else if (what == am_exports) {
 	return exported_from_module(p, code_ix, module);
     } else if (what == am_functions) {
-	return functions_in_module(p, code);
+	return functions_in_module(p, code_hdr);
     } else if (what == am_attributes) {
-	return attributes_for_module(p, code);
+	return attributes_for_module(p, code_hdr);
     } else if (what == am_compile) {
-	return compilation_info_for_module(p, code);
+	return compilation_info_for_module(p, code_hdr);
     } else if (what == am_native_addresses) {
-	return native_addresses(p, code);
+	return native_addresses(p, code_hdr);
     } else if (what == am_native) {
-	return has_native(code);
+	return has_native(code_hdr);
     }
     return THE_NON_VALUE;
 }
@@ -5464,7 +5591,7 @@ get_module_info(Process* p, ErtsCodeIndex code_ix, BeamInstr* code,
 
 Eterm
 functions_in_module(Process* p, /* Process whose heap to use. */
-		    BeamInstr* code)
+		    BeamCodeHeader* code_hdr)
 {
     int i;
     Uint num_functions;
@@ -5473,12 +5600,12 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     Eterm* hp_end;
     Eterm result = NIL;
 
-    num_functions = code[MI_NUM_FUNCTIONS];
+    num_functions = code_hdr->num_functions;
     need = 5*num_functions;
     hp = HAlloc(p, need);
     hp_end = hp + need;
     for (i = num_functions-1; i >= 0 ; i--) {
-	BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
+	BeamInstr* func_info = code_hdr->functions[i];
 	Eterm name = (Eterm) func_info[3];
 	int arity = (int) func_info[4];
 	Eterm tuple;
@@ -5504,11 +5631,11 @@ functions_in_module(Process* p, /* Process whose heap to use. */
  */
 
 static Eterm
-has_native(BeamInstr *code)
+has_native(BeamCodeHeader *code_hdr)
 {
     Eterm result = am_false;
 #ifdef HIPE
-    if (erts_is_module_native(code)) {
+    if (erts_is_module_native(code_hdr)) {
         result = am_true;
     }
 #endif
@@ -5516,15 +5643,15 @@ has_native(BeamInstr *code)
 }
 
 int
-erts_is_module_native(BeamInstr* code)
+erts_is_module_native(BeamCodeHeader* code_hdr)
 {
     Uint i, num_functions;
 
     /* Check NativeAdress of first real function in module */
-    if (code != NULL) {
-        num_functions = code[MI_NUM_FUNCTIONS];
+    if (code_hdr != NULL) {
+        num_functions = code_hdr->num_functions;
         for (i=0; i<num_functions; i++) {
-            BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
+            BeamInstr* func_info = (BeamInstr *) code_hdr->functions[i];
             Eterm name = (Eterm) func_info[3];
             if (is_atom(name)) {
                 return func_info[1] != 0;
@@ -5541,7 +5668,7 @@ erts_is_module_native(BeamInstr* code)
  */
 
 static Eterm
-native_addresses(Process* p, BeamInstr* code)
+native_addresses(Process* p, BeamCodeHeader* code_hdr)
 {
     int i;
     Eterm* hp;
@@ -5550,12 +5677,12 @@ native_addresses(Process* p, BeamInstr* code)
     Eterm* hp_end;
     Eterm result = NIL;
 
-    num_functions = code[MI_NUM_FUNCTIONS];
+    num_functions = code_hdr->num_functions;
     need = (6+BIG_UINT_HEAP_SIZE)*num_functions;
     hp = HAlloc(p, need);
     hp_end = hp + need;
     for (i = num_functions-1; i >= 0 ; i--) {
-	BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
+	BeamInstr* func_info = code_hdr->functions[i];
 	Eterm name = (Eterm) func_info[3];
 	int arity = (int) func_info[4];
 	Eterm tuple;
@@ -5621,16 +5748,16 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 
 Eterm
 attributes_for_module(Process* p, /* Process whose heap to use. */
-                      BeamInstr* code)
+                      BeamCodeHeader* code_hdr)
 {
     byte* ext;
     Eterm result = NIL;
 
-    ext = (byte *) code[MI_ATTR_PTR];
+    ext = code_hdr->attr_ptr;
     if (ext != NULL) {
 	ErtsHeapFactory factory;
-	erts_factory_proc_prealloc_init(&factory, p, code[MI_ATTR_SIZE_ON_HEAP]);
-	result = erts_decode_ext(&factory, &ext);
+	erts_factory_proc_prealloc_init(&factory, p, code_hdr->attr_size_on_heap);
+	result = erts_decode_ext(&factory, &ext, 0);
 	if (is_value(result)) {
 	    erts_factory_close(&factory);
 	}
@@ -5644,16 +5771,16 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
 
 Eterm
 compilation_info_for_module(Process* p, /* Process whose heap to use. */
-                            BeamInstr* code)
+                            BeamCodeHeader* code_hdr)
 {
     byte* ext;
     Eterm result = NIL;
 
-    ext = (byte *) code[MI_COMPILE_PTR];
+    ext = code_hdr->compile_ptr;
     if (ext != NULL) {
 	ErtsHeapFactory factory;
-	erts_factory_proc_prealloc_init(&factory, p, code[MI_COMPILE_SIZE_ON_HEAP]);
-	result = erts_decode_ext(&factory, &ext);
+	erts_factory_proc_prealloc_init(&factory, p, code_hdr->compile_size_on_heap);
+	result = erts_decode_ext(&factory, &ext, 0);
 	if (is_value(result)) {
 	    erts_factory_close(&factory);
 	}
@@ -5667,9 +5794,9 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
 
 Eterm
 md5_of_module(Process* p, /* Process whose heap to use. */
-              BeamInstr* code)
+              BeamCodeHeader* code_hdr)
 {
-    return new_binary(p, (byte *) code[MI_MD5_PTR], MD5_SIZE);
+    return new_binary(p, code_hdr->md5_ptr, MD5_SIZE);
 }
 
 /*
@@ -5868,7 +5995,7 @@ make_stub(BeamInstr* fp, Eterm mod, Eterm func, Uint arity, Uint native, BeamIns
     fp[4] = arity;
 #ifdef HIPE
     if (native) {
-	fp[5] = BeamOpCode(op_move_return_nr);
+	fp[5] = BeamOpCode(op_move_return_n);
 	hipe_mfa_save_orig_beam_op(mod, func, arity, fp+5);
     }
 #endif
@@ -5880,7 +6007,7 @@ static byte*
 stub_copy_info(LoaderState* stp,
 	       int chunk,	/* Chunk: ATTR_CHUNK or COMPILE_CHUNK */
 	       byte* info,	/* Where to store info. */
-	       BeamInstr* ptr_word,	/* Where to store pointer into info. */
+	       byte** ptr_word,	/* Where to store pointer into info. */
 	       BeamInstr* size_word,	/* Where to store size into info. */
 	       BeamInstr* size_on_heap_word) /* Where to store size on heap. */
 {
@@ -5888,7 +6015,7 @@ stub_copy_info(LoaderState* stp,
     Uint size = stp->chunks[chunk].size;
     if (size != 0) {
 	memcpy(info, stp->chunks[chunk].start, size);
-	*ptr_word = (BeamInstr) info;
+	*ptr_word = info;
 	decoded_size = erts_decode_ext_size(info, size);
 	if (decoded_size < 0) {
  	    return 0;
@@ -6143,15 +6270,14 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     BeamInstr Patchlist;
     Eterm MD5Bin;
     Eterm* tp;
-    BeamInstr* code = NULL;
-    BeamInstr* ptrs;
+    BeamCodeHeader* code_hdr;
+    BeamInstr* code_base;
     BeamInstr* fp;
     byte* info;
-    Uint ci;
-    int n;
+    Sint n;
     int code_size;
     int rval;
-    int i;
+    Sint i;
     byte* temp_alloc = NULL;
     byte* bytes;
     Uint size;
@@ -6225,40 +6351,40 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Allocate memory for the stub module.
      */
 
-    code_size = ((WORDS_PER_FUNCTION+1)*n + MI_FUNCTIONS + 2) * sizeof(BeamInstr);
-    code_size += stp->chunks[ATTR_CHUNK].size;
-    code_size += stp->chunks[COMPILE_CHUNK].size;
-    code_size += MD5_SIZE;
-    code = erts_alloc_fnf(ERTS_ALC_T_CODE, code_size);
-    if (!code) {
+    code_size = (offsetof(BeamCodeHeader,functions)
+                 + ((n+1) * sizeof(BeamInstr*))
+                 + (WORDS_PER_FUNCTION*n + 1) * sizeof(BeamInstr)
+                 + stp->chunks[ATTR_CHUNK].size
+                 + stp->chunks[COMPILE_CHUNK].size
+                 + MD5_SIZE);
+    code_hdr = erts_alloc_fnf(ERTS_ALC_T_CODE, code_size);
+    if (!code_hdr) {
 	goto error;
     }
 
     /*
-     * Initialize code area.
+     * Initialize code header.
      */
 
-    code[MI_NUM_FUNCTIONS] = n;
-    code[MI_ATTR_PTR] = 0;
-    code[MI_ATTR_SIZE] = 0;
-    code[MI_ATTR_SIZE_ON_HEAP] = 0;
-    code[MI_COMPILE_PTR] = 0;
-    code[MI_COMPILE_SIZE] = 0;
-    code[MI_COMPILE_SIZE_ON_HEAP] = 0;
-    code[MI_LITERALS_START] = 0;
-    code[MI_LITERALS_END] = 0;
-    code[MI_LITERALS_OFF_HEAP] = 0;
-    code[MI_ON_LOAD_FUNCTION_PTR] = 0;
-    code[MI_LINE_TABLE] = 0;
-    code[MI_MD5_PTR] = 0;
-    ci = MI_FUNCTIONS + n + 1;
+    code_hdr->num_functions = n;
+    code_hdr->attr_ptr = NULL;
+    code_hdr->attr_size = 0;
+    code_hdr->attr_size_on_heap = 0;
+    code_hdr->compile_ptr = NULL;
+    code_hdr->compile_size = 0;
+    code_hdr->compile_size_on_heap = 0;
+    code_hdr->literals_start = NULL;
+    code_hdr->literals_end = NULL;
+    code_hdr->literals_off_heap = 0;
+    code_hdr->on_load_function_ptr = NULL;
+    code_hdr->line_table = NULL;
+    code_hdr->md5_ptr = NULL;
 
     /*
      * Make stubs for all functions.
      */
 
-    ptrs = code + MI_FUNCTIONS;
-    fp = code + ci;
+    fp = code_base = (BeamInstr*) &code_hdr->functions[n+1];
     for (i = 0; i < n; i++) {
 	Eterm* listp;
 	Eterm tuple;
@@ -6301,11 +6427,11 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	 * Set the pointer and make the stub. Put a return instruction
 	 * as the body until we know what kind of trap we should put there.
 	 */
-	ptrs[i] = (BeamInstr) fp;
+	code_hdr->functions[i] = fp;
 #ifdef HIPE
 	op = (Eterm) BeamOpCode(op_hipe_trap_call); /* Might be changed later. */
 #else
-	op = (Eterm) BeamOpCode(op_move_return_nr);
+	op = (Eterm) BeamOpCode(op_move_return_n);
 #endif
 	fp = make_stub(fp, Mod, func, arity, (Uint)native_address, op);
     }
@@ -6314,7 +6440,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Insert the last pointer and the int_code_end instruction.
      */
 
-    ptrs[i] = (BeamInstr) fp;
+    code_hdr->functions[i] = fp;
     *fp++ = (BeamInstr) BeamOp(op_int_code_end);
 
     /*
@@ -6323,16 +6449,16 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
     info = (byte *) fp;
     info = stub_copy_info(stp, ATTR_CHUNK, info,
-			  code+MI_ATTR_PTR,
-			  code+MI_ATTR_SIZE,
-			  code+MI_ATTR_SIZE_ON_HEAP);
+			  &code_hdr->attr_ptr,
+			  &code_hdr->attr_size,
+			  &code_hdr->attr_size_on_heap);
     if (info == NULL) {
 	goto error;
     }
     info = stub_copy_info(stp, COMPILE_CHUNK, info,
-			  code+MI_COMPILE_PTR,
-			  code+MI_COMPILE_SIZE,
-			  code+MI_COMPILE_SIZE_ON_HEAP);
+			  &code_hdr->compile_ptr,
+			  &code_hdr->compile_size,
+			  &code_hdr->compile_size_on_heap);
     if (info == NULL) {
 	goto error;
     }
@@ -6341,7 +6467,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
       byte *md5 = NULL;
       if ((md5 = erts_get_aligned_binary_bytes(MD5Bin, &tmp)) != NULL) {
         sys_memcpy(info, md5, MD5_SIZE);
-        code[MI_MD5_PTR] = (BeamInstr) info;
+        code_hdr->md5_ptr = info;
       }
       erts_free_aligned_binary_bytes(tmp);
     }
@@ -6350,7 +6476,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Insert the module in the module table.
      */
 
-    rval = insert_new_code(p, 0, p->group_leader, Mod, code, code_size);
+    rval = stub_insert_new_code(p, 0, p->group_leader, Mod,
+				code_hdr, code_size);
     if (rval != NIL) {
 	goto error;
     }
@@ -6359,7 +6486,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Export all stub functions and insert the correct type of HiPE trap.
      */
 
-    fp = code + ci;
+    fp = code_base;
     for (i = 0; i < n; i++) {
 	stub_final_touch(stp, fp);
 	fp += WORDS_PER_FUNCTION;

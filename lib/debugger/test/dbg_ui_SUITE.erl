@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,17 +22,17 @@
 -module(dbg_ui_SUITE).
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
-% Test server specific exports
+%% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export ([dbg_ui/1]).
 
-% Manual test suites/cases exports
+%% Manual test suites/cases exports
 -export([start1/1, interpret1/1, quit1/1,
 	 start2/1, interpret2/1, break2/1, options2/1, quit2/1,
 	 interpret3/1, all_step3/1,all_next3/1,save3/1,restore3/1,finish3/1,
@@ -44,15 +44,14 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Func, Config) ->
-    Dog=test_server:timetrap(60*1000),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [dbg_ui, {group, manual_tests}].
@@ -78,22 +77,17 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-dbg_ui (doc) ->
-    ["Debugger GUI"];
-
-dbg_ui (suite) ->
-    [];
-
+%% Test Debugger GUI.
 dbg_ui (_Config) ->
     case os:getenv("DISPLAY") of
 	false ->
 	    {skipped,"No display"};
 	Other when is_list(Other) ->
-%	    ?line {ok, Pid} = debugger:start (),
-%	    ?line ok = is_pid (Pid),
-%	    ?line true = erlang:is_process_alive(Pid),
-%	    ?line ok = debugger:stop(),
-%	    ?line false = erlang:is_process_alive(Pid)
+	    %%	    {ok, Pid} = debugger:start (),
+	    %%	    ok = is_pid (Pid),
+	    %%	    true = erlang:is_process_alive(Pid),
+	    %%	    ok = debugger:stop(),
+	    %%	    false = erlang:is_process_alive(Pid)
 	    {skipped,"Gunilla: Workaround"}
     end.
 
@@ -105,11 +99,11 @@ dbg_ui (_Config) ->
 
 check(Case, Config) ->
 
-    ?line DataDir = ?config(data_dir, Config),
-    ?line ResultFileName =  filename:join([DataDir, "manual_results.erl"]),
+    DataDir = proplists:get_value(data_dir, Config),
+    ResultFileName =  filename:join([DataDir, "manual_results.erl"]),
     case file:consult(ResultFileName) of
 	{ok, Results} ->
-	    ?line io:format("Results: ~p~n",[Results]),
+	    io:format("Results: ~p~n",[Results]),
 	    case Results of
 		[] ->
 		    no_result;
@@ -136,29 +130,27 @@ check(Case, Config) ->
 
 
 -define(MAN_CASE(Name,Doc, Description),
-	Name(doc) -> [Doc];
-	Name(suite) -> [];
 	Name(Config) ->
-	       ?line io:format("Checking ~p~n",[Name]),
-	       ?line io:format("Config = ~p~n",[Config]),
+	       io:format("Checking ~p~n",[Name]),
+	       io:format("Config = ~p~n",[Config]),
 	       case check(Name, Config) of
 		   pass ->
-		       ?line ok;
+		       ok;
 		   fail ->
-		       ?line test_server:fail("Manual test failed");
+		       ct:fail("Manual test failed");
 		   unknown ->
-		       ?line {skipped, "Manual test result unknown"};
+		       {skipped, "Manual test result unknown"};
 
 		   no_result ->
-		       ?line {skipped, Description};
+		       {skipped, Description};
 
 		   {error, _Reason} ->
-%%		       Text = lists:flatten(
-%%				io_lib:format("[File problem: ~s]~s",
-%%		       [Reason,Description])),
-		       ?line {skipped, Description}
+		       %%		       Text = lists:flatten(
+		       %%				io_lib:format("[File problem: ~s]~s",
+		       %%		       [Reason,Description])),
+		       {skipped, Description}
 	       end
-		  ).
+		   ).
 
 
 %% SET 1
@@ -170,101 +162,101 @@ please start the debugger from the toolbar").
 ?MAN_CASE(interpret1, "Interpreting modules",
 	  "In this test case and all of the ones following, the source code
 files to use can be found in the test data directory for this debugger test
- suite (probably in
-/clearcase/otp/tools/debugger/test/dbg_ui_SUITE_data/manual_data/src ).
+	  suite (probably in
+		 /clearcase/otp/tools/debugger/test/dbg_ui_SUITE_data/manual_data/src ).
 Interpret one module").
 
 ?MAN_CASE(quit1, "Quit the debugger",
-"Quit the debugger using File->Exit in the main window").
+	  "Quit the debugger using File->Exit in the main window").
 
 
 %% SET 2
 ?MAN_CASE(start2, "Start the debugger from the shell",
-"Start the debugger from the shell. Use debugger:start()").
+	  "Start the debugger from the shell. Use debugger:start()").
 
 ?MAN_CASE(interpret2, "Interpret all modules",
-"Interpret all modules").
+	  "Interpret all modules").
 
 ?MAN_CASE(break2, "Set break points",
-"Set break points").
+	  "Set break points").
 
 ?MAN_CASE(options2, "Set options to attach on break",
-"Set options to attach on break").
+	  "Set options to attach on break").
 
 ?MAN_CASE(quit2, "Quit the debugger",
-"Quit the debugger using the close box in the main window title frame").
+	  "Quit the debugger using the close box in the main window title frame").
 
 
 %% SET3
 ?MAN_CASE(interpret3, "Test attach options",
-"Start the debugger and interpret the modules [test, lists1, ordsets1]. Close the Interpret dialog. Set Attach on First Call and Attach on Break.").
+	  "Start the debugger and interpret the modules [test, lists1, ordsets1]. Close the Interpret dialog. Set Attach on First Call and Attach on Break.").
 
 ?MAN_CASE(all_step3, "Click Step through all evaluation",
-"In the shell, call test:test1(). Use the Step button, the Process->Step menu item and the ctrl-s shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "In the shell, call test:test1(). Use the Step button, the Process->Step menu item and the ctrl-s shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(all_next3,"Click Next through all evaluation",
-"Again call test:test1() in the shell. This time Use the Next button,  the Process->Next menu and the ctrl-n shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "Again call test:test1() in the shell. This time Use the Next button,  the Process->Next menu and the ctrl-n shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(save3, "Save the debugger state",
-"Use File->Save Settings to save the debugger state with the name 'three.state'").
+	  "Use File->Save Settings to save the debugger state with the name 'three.state'").
 
 ?MAN_CASE(restore3,"Quit the debugger, restart and restore the state",
-"Quit the debugger. Start it again. Use File->Load Settings to restore the state saved in 'three.state'. Check that the Attach-options are the same as what you set them to in the interpret3 test case. Check that the three modules [test,lists1,ordsets1] are interpreted.").
+	  "Quit the debugger. Start it again. Use File->Load Settings to restore the state saved in 'three.state'. Check that the Attach-options are the same as what you set them to in the interpret3 test case. Check that the three modules [test,lists1,ordsets1] are interpreted.").
 
 
 ?MAN_CASE(finish3, "Finish the current function body",
-"Call the fucntion test:test1() from the shell. Press Finish to evaluate the remaining lines in the function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "Call the fucntion test:test1() from the shell. Press Finish to evaluate the remaining lines in the function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(killinit3,"Set up for killing and clearing processes",
-"Call test:test2() from the shell. Set a break point at the last line of test:test2. Click Continue. This should open three new attach windows. One for each spawn called in test:test2/0.   ").
+	  "Call test:test2() from the shell. Set a break point at the last line of test:test2. Click Continue. This should open three new attach windows. One for each spawn called in test:test2/0.   ").
 
 ?MAN_CASE(killone3, "Kill a process and clear it",
-"In one of the newly openend Attach windows: select Process->Kill. A message should appear above the Code Area in the Attach window. Use Windows->Monitor to verify that the Monitor window also shows that the process has been killed. In the Monitor window: select Edit->Clear. This should do two things: 1) close/remove the window of the killed process. 2) Remove the entry of the killed process from the monitor window.").
+	  "In one of the newly openend Attach windows: select Process->Kill. A message should appear above the Code Area in the Attach window. Use Windows->Monitor to verify that the Monitor window also shows that the process has been killed. In the Monitor window: select Edit->Clear. This should do two things: 1) close/remove the window of the killed process. 2) Remove the entry of the killed process from the monitor window.").
 
 ?MAN_CASE(killall3,"KIll all processes, and clear them",
-"In the Monitor window: Select Edit->Kill All. Verify that all processes have been killed (in their respective windows and in the monitor window). Windows will be raised as their processes die. Next select, Edit->Clear. All attach windows should now be closed. Their entris should also disappear from the monitor window. The shell should have reported: ** exited: killed **").
+	  "In the Monitor window: Select Edit->Kill All. Verify that all processes have been killed (in their respective windows and in the monitor window). Windows will be raised as their processes die. Next select, Edit->Clear. All attach windows should now be closed. Their entris should also disappear from the monitor window. The shell should have reported: ** exited: killed **").
 
 ?MAN_CASE(deleteone3,"Delete/uniterpret one module",
-"In the Monitor window: Select Module->test->Delete. This should remove the breakpoints set in the test module, and the test module should disappear from the Module menu.").
+	  "In the Monitor window: Select Module->test->Delete. This should remove the breakpoints set in the test module, and the test module should disappear from the Module menu.").
 
 ?MAN_CASE(deleteall3,"Delete/uniterpret all modules",
-"In the Monitor window: Select Module->Delete All Modules. This should remove all modules from the Module menu. ").
+	  "In the Monitor window: Select Module->Delete All Modules. This should remove all modules from the Module menu. ").
 
 %% SET 4
 
 
 
 ?MAN_CASE(viewbreak4, "Test the View window",
-"Restore the settings from the three.state file again. In the Monitor window: Use Module->test->View to view the source code of the test module. In the View window, select Break->Line Break and set a break at line 53. Check that it appears in the View window and in the Monitor Window Break-menu. Also in the View window, select Break->Function Break and set a break at function test:test4. Check that the break (at line 59) appears in the View Window and in the Monitor Window Break-menu.").
+	  "Restore the settings from the three.state file again. In the Monitor window: Use Module->test->View to view the source code of the test module. In the View window, select Break->Line Break and set a break at line 53. Check that it appears in the View window and in the Monitor Window Break-menu. Also in the View window, select Break->Function Break and set a break at function test:test4. Check that the break (at line 59) appears in the View Window and in the Monitor Window Break-menu.").
 
 ?MAN_CASE(delete4, "Remove breaks",
-"Use the Break->Delete All function in the View window to remove all breaks in the test module. Check that they are all removed. Close the View window.").
+	  "Use the Break->Delete All function in the View window to remove all breaks in the test module. Check that they are all removed. Close the View window.").
 
 %% SET 5
 
 ?MAN_CASE(attach5,"Set attach options",
-"Set the attach options to only attach on exit").
+	  "Set the attach options to only attach on exit").
 
 ?MAN_CASE(normal5, "Test normal exit",
-"Call test:test12(normal) in the shell. This should return the atom 'done', and no windows should be opened.").
+	  "Call test:test12(normal) in the shell. This should return the atom 'done', and no windows should be opened.").
 
 ?MAN_CASE(exit5, "Test abnormal exit",
-"Call test:test12(crash) in the shell. This should give the error message ** exited: crash **, and an attach window should be opened highlighting the last line in the test12-function.").
+	  "Call test:test12(crash) in the shell. This should give the error message ** exited: crash **, and an attach window should be opened highlighting the last line in the test12-function.").
 
 ?MAN_CASE(options5, "Experiment with the frames in the attach window",
-"Try all possible configurations of the [Button, Evaluator, Bindings, Trace] Frames in the attach window and see that the expected frames are shown/hidden.").
+	  "Try all possible configurations of the [Button, Evaluator, Bindings, Trace] Frames in the attach window and see that the expected frames are shown/hidden.").
 
 
 %% SET 6 (Distribution)
 
 ?MAN_CASE(distsetup6,"Set up distribution",
-"Start two erlang systems [foo,bar] (with option -sname), make them aware of eachother using net_adm:ping/1. Start the debugger on foo. Interpret the modules [test, lists1, ordsets1]. Set attach on First call.  ").
+	  "Start two erlang systems [foo,bar] (with option -sname), make them aware of eachother using net_adm:ping/1. Start the debugger on foo. Interpret the modules [test, lists1, ordsets1]. Set attach on First call.  ").
 
 
 
 
 ?MAN_CASE(all_step6, "Click Step through all evaluation",
-"In the bar shell, call test:test1().This should open an attach window. Use the Step button, the Process->Step menu item and the ctrl-s shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the bar shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "In the bar shell, call test:test1().This should open an attach window. Use the Step button, the Process->Step menu item and the ctrl-s shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the bar shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(all_next6,"Click Next through all evaluation",
-"Again, in the bar shell, call test:test1(). This time Use the Next button,  the Process->Next menu and the ctrl-n shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "Again, in the bar shell, call test:test1(). This time Use the Next button,  the Process->Next menu and the ctrl-n shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").

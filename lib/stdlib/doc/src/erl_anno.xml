@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2015</year>
-      <year>2015</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -103,7 +103,7 @@
   <datatypes>
     <datatype>
       <name>anno()</name>
-      <desc><p><marker id="type-anno"/>A collection of annotations.</p>
+      <desc><p>A collection of annotations.</p>
       </desc>
     </datatype>
     <datatype>

@@ -18,7 +18,7 @@
 %%
 -module(syntax_tools_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -61,7 +61,7 @@ appup_test(Config) when is_list(Config) ->
 smoke_test(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(12)),
     Wc = filename:join([code:lib_dir(),"*","src","*.erl"]),
-    Fs = filelib:wildcard(Wc),
+    Fs = filelib:wildcard(Wc) ++ test_files(Config),
     io:format("~p files\n", [length(Fs)]),
     case p_run(fun smoke_test_file/1, Fs) of
         0 -> ok;
@@ -93,7 +93,7 @@ print_error_markers(F, File) ->
 revert(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(12)),
     Wc = filename:join([code:lib_dir("stdlib"),"src","*.erl"]),
-    Fs = filelib:wildcard(Wc),
+    Fs = filelib:wildcard(Wc) ++ test_files(Config),
     Path = [filename:join(code:lib_dir(stdlib), "include"),
             filename:join(code:lib_dir(kernel), "include")],
     io:format("~p files\n", [length(Fs)]),
@@ -203,17 +203,24 @@ t_erl_parse_type(Config) when is_list(Config) ->
 t_epp_dodger(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
     PrivDir   = ?config(priv_dir, Config),
-    Filenames = ["syntax_tools_SUITE_test_module.erl",
-		 "syntax_tools_test.erl"],
+    Filenames = test_files(),
     ok = test_epp_dodger(Filenames,DataDir,PrivDir),
     ok.
 
 t_comment_scan(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
-    Filenames = ["syntax_tools_SUITE_test_module.erl",
-		 "syntax_tools_test.erl"],
+    Filenames = test_files(),
     ok = test_comment_scan(Filenames,DataDir),
     ok.
+
+test_files(Config) ->
+    DataDir = ?config(data_dir, Config),
+    [ filename:join(DataDir,Filename) || Filename <- test_files() ].
+
+test_files() ->
+    ["syntax_tools_SUITE_test_module.erl",
+     "syntax_tools_test.erl",
+     "type_specs.erl"].
 
 t_igor(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
@@ -222,6 +229,12 @@ t_igor(Config) when is_list(Config) ->
     FileM2  = filename:join(DataDir,"m2.erl"),
     ["m.erl",_]=R = igor:merge(m,[FileM1,FileM2],[{outdir,PrivDir}]),
     io:format("igor:merge/3 = ~p~n", [R]),
+
+    FileTypeSpecs = filename:join(DataDir,"igor_type_specs.erl"),
+    Empty = filename:join(DataDir,"empty.erl"),
+    ["n.erl",_]=R2 = igor:merge(n,[FileTypeSpecs,Empty],[{outdir,PrivDir}]),
+    io:format("igor:merge/3 = ~p~n", [R2]),
+
     ok.
 
 test_comment_scan([],_) -> ok;

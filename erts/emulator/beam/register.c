@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -151,6 +151,9 @@ void init_register_table(void)
     f.cmp  = (HCMP_FUN) reg_cmp;
     f.alloc = (HALLOC_FUN) reg_alloc;
     f.free = (HFREE_FUN) reg_free;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     hash_init(ERTS_ALC_T_REG_TABLE, &process_reg, "process_reg",
 	      PREG_HASH_SIZE, f);
@@ -223,7 +226,8 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     rp = (RegProc*) hash_put(&process_reg, (void*) &r);
     if (proc && rp->p == proc) {
 	if (IS_TRACED_FL(proc, F_TRACE_PROCS)) {
-	    trace_proc(c_p, proc, am_register, name);
+	    trace_proc(proc, ERTS_PROC_LOCK_MAIN,
+                       proc, am_register, name);
 	}
 	proc->common.u.alive.reg = rp;
     }
@@ -467,8 +471,8 @@ int erts_unregister_name(Process *c_p,
     int res = 0;
     RegProc r, *rp;
     Port *port = c_prt;
+    ErtsProcLocks current_c_p_locks = 0;
 #ifdef ERTS_SMP
-    ErtsProcLocks current_c_p_locks;
 
     /*
      * SMP note: If 'c_prt != NULL' and 'c_prt->reg->name == name',
@@ -534,8 +538,12 @@ int erts_unregister_name(Process *c_p,
 	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
 
 	    rp->pt->common.u.alive.reg = NULL;
-	    
+
 	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
+                if (current_c_p_locks) {
+                    erts_smp_proc_unlock(c_p, current_c_p_locks);
+                    current_c_p_locks = 0;
+                }
 		trace_port(port, am_unregister, r.name);
 	    }
 
@@ -552,7 +560,8 @@ int erts_unregister_name(Process *c_p,
 #endif
 	    rp->p->common.u.alive.reg = NULL;
 	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
-		trace_proc(c_p, rp->p, am_unregister, r.name);
+                trace_proc(rp->p, (c_p == rp->p) ? c_p_locks : ERTS_PROC_LOCK_MAIN,
+                           rp->p, am_unregister, r.name);
 	    }
 #ifdef ERTS_SMP
 	    if (rp->p != c_p) {

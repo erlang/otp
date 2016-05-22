@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -307,9 +307,10 @@ do_work(Key, State) ->
     {Cmd, Aux, From, _OldRef, Old, Opts} = retrieve(WorkStore, Key),
     {ok, Result} = do_work2(Cmd, Aux, From, Old, Opts),
     if
-	Result==Old -> ok;
-	true ->
-	    From ! {delivery, self(), Cmd, Aux, Result}
+        Result==Old -> ok;
+        true ->
+            From ! {delivery, self(), Cmd, Aux, Result},
+            ok
     end,
     case get_opt(timeout, Opts) of
 	at_most_once ->
@@ -393,7 +394,7 @@ del_task(Key, WorkStore) ->
 	{_Cmd, _Aux, _From, Ref, _Old, Opts} ->
 	    if
 		Ref /= nil ->
-		    timer:cancel(Ref),
+                    {ok,_} = timer:cancel(Ref),
 		    receive
 			{do_it, Key} ->
 			    Opts

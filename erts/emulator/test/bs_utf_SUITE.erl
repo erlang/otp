@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,52 +20,28 @@
 
 -module(bs_utf_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 utf8_roundtrip/1,utf16_roundtrip/1,utf32_roundtrip/1,
 	 utf8_illegal_sequences/1,utf16_illegal_sequences/1,
 	 utf32_illegal_sequences/1,
 	 bad_construction/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--define(FAIL(Expr), ?line fail_check(catch Expr, ??Expr, [])).
+-define(FAIL(Expr), fail_check(catch Expr, ??Expr, [])).
 
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(6)),
-    [{watchdog,Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 6}}].
 
 all() -> 
     [utf8_roundtrip, utf16_roundtrip, utf32_roundtrip,
      utf8_illegal_sequences, utf16_illegal_sequences,
      utf32_illegal_sequences, bad_construction].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 utf8_roundtrip(Config) when is_list(Config) ->
-    ?line utf8_roundtrip(0, 16#D7FF),
-    ?line utf8_roundtrip(16#E000, 16#10FFFF),
+    utf8_roundtrip(0, 16#D7FF),
+    utf8_roundtrip(16#E000, 16#10FFFF),
     ok.
 
 utf8_roundtrip(First, Last) when First =< Last ->
@@ -83,10 +59,9 @@ utf16_roundtrip(Config) when is_list(Config) ->
     Big = fun utf16_big_roundtrip/1,
     Little = fun utf16_little_roundtrip/1,
     PidRefs = [spawn_monitor(fun() ->
-				     do_utf16_roundtrip(Fun)
-			     end) || Fun <- [Big,Little]],
-    [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end ||
-	{Pid,Ref} <- PidRefs],
+                                     do_utf16_roundtrip(Fun)
+                             end) || Fun <- [Big,Little]],
+    [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end || {Pid,Ref} <- PidRefs],
     ok.
 
 do_utf16_roundtrip(Fun) ->
@@ -154,20 +129,20 @@ utf32_little_roundtrip(Char) ->
     ok.
 
 utf8_illegal_sequences(Config) when is_list(Config) ->
-    ?line fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
 
     %% Illegal first character.
-    ?line [fail(<<I,16#8F,16#8F,16#8F>>) || I <- lists:seq(16#80, 16#BF)],
+    [fail(<<I,16#8F,16#8F,16#8F>>) || I <- lists:seq(16#80, 16#BF)],
 
     %% Short sequences.
-    ?line short_sequences(16#80, 16#10FFFF),
+    short_sequences(16#80, 16#10FFFF),
 
     %% Overlong sequences. (Using more bytes than necessary
     %% is not allowed.)
-    ?line overlong(0, 127, 2),
-    ?line overlong(128, 16#7FF, 3),
-    ?line overlong(16#800, 16#FFFF, 4),
+    overlong(0, 127, 2),
+    overlong(128, 16#7FF, 3),
+    overlong(16#800, 16#FFFF, 4),
     ok.
 
 fail_range(Char, End) when Char =< End ->
@@ -187,9 +162,9 @@ short_sequences(Char, End) ->
 short_sequences_1(Char, Step, End) when Char =< End ->
     CharEnd = lists:min([Char+Step-1,End]),
     [spawn_monitor(fun() ->
-			   io:format("~p - ~p\n", [Char,CharEnd]),
-			   do_short_sequences(Char, CharEnd)
-		   end)|short_sequences_1(Char+Step, Step, End)];
+                           io:format("~p - ~p\n", [Char,CharEnd]),
+                           do_short_sequences(Char, CharEnd)
+                   end)|short_sequences_1(Char+Step, Step, End)];
 short_sequences_1(_, _, _) -> [].
 
 do_short_sequences(Char, End) when Char =< End ->
@@ -228,9 +203,9 @@ overlong(_, _, _) -> ok.
 overlong(Char, NumBytes) when NumBytes < 5 ->
     case int_to_utf8(Char, NumBytes) of
 	<<Char/utf8>>=Bin ->
-	    ?t:fail({illegal_encoding_accepted,Bin,Char});
+	    ct:fail({illegal_encoding_accepted,Bin,Char});
 	<<OtherChar/utf8>>=Bin ->
-	    ?t:fail({illegal_encoding_accepted,Bin,Char,OtherChar});
+	    ct:fail({illegal_encoding_accepted,Bin,Char,OtherChar});
 	_ -> ok
     end,
     overlong(Char, NumBytes+1);
@@ -241,16 +216,16 @@ fail(Bin) ->
     fail_1(make_unaligned(Bin)).
 
 fail_1(<<Char/utf8>>=Bin) ->
-    ?t:fail({illegal_encoding_accepted,Bin,Char});
+    ct:fail({illegal_encoding_accepted,Bin,Char});
 fail_1(_) -> ok.
 
 
 utf16_illegal_sequences(Config) when is_list(Config) ->
-    ?line utf16_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line utf16_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    utf16_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    utf16_fail_range(16#D800, 16#DFFF),	          %Reserved for UTF-16.
 
-    ?line lonely_hi_surrogate(16#D800, 16#DFFF),
-    ?line leading_lo_surrogate(16#DC00, 16#DFFF),
+    lonely_hi_surrogate(16#D800, 16#DFFF),
+    leading_lo_surrogate(16#DC00, 16#DFFF),
     
     ok.
 
@@ -265,9 +240,9 @@ lonely_hi_surrogate(Char, End) when Char =< End ->
     BinLittle = <<Char:16/little>>,
     case {BinBig,BinLittle} of
 	{<<Bad/big-utf16>>,_} ->
-	    ?t:fail({lonely_hi_surrogate_accepted,Bad});
+	    ct:fail({lonely_hi_surrogate_accepted,Bad});
 	{_,<<Bad/little-utf16>>} ->
-	    ?t:fail({lonely_hi_surrogate_accepted,Bad});
+	    ct:fail({lonely_hi_surrogate_accepted,Bad});
 	{_,_} ->
 	    ok
     end,
@@ -284,9 +259,9 @@ leading_lo_surrogate(HiSurr, LoSurr, End) when LoSurr =< End ->
     BinLittle = <<HiSurr:16/little,LoSurr:16/little>>,
     case {BinBig,BinLittle} of
 	{<<Bad/big-utf16,_/bits>>,_} ->
-	    ?t:fail({leading_lo_surrogate_accepted,Bad});
+	    ct:fail({leading_lo_surrogate_accepted,Bad});
 	{_,<<Bad/little-utf16,_/bits>>} ->
-	    ?t:fail({leading_lo_surrogate_accepted,Bad});
+	    ct:fail({leading_lo_surrogate_accepted,Bad});
 	{_,_} ->
 	    ok
     end,
@@ -294,20 +269,20 @@ leading_lo_surrogate(HiSurr, LoSurr, End) when LoSurr =< End ->
 leading_lo_surrogate(_, _, _) -> ok.
 
 utf32_illegal_sequences(Config) when is_list(Config) ->
-    ?line utf32_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line utf32_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
-    ?line utf32_fail_range(-100, -1),
+    utf32_fail_range(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    utf32_fail_range(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    utf32_fail_range(-100, -1),
     ok.
 
 utf32_fail_range(Char, End) when Char =< End ->
     {'EXIT',_} = (catch <<Char/big-utf32>>),
     {'EXIT',_} = (catch <<Char/little-utf32>>),
     case {<<Char:32>>,<<Char:32/little>>} of
-	{<<Unexpected/utf32>>,_} ->
-	    ?line ?t:fail(Unexpected);
-	{_,<<Unexpected/little-utf32>>} ->
-	    ?line ?t:fail(Unexpected);
-	{_,_} -> ok
+        {<<Unexpected/utf32>>,_} ->
+            ct:fail(Unexpected);
+        {_,<<Unexpected/little-utf32>>} ->
+            ct:fail(Unexpected);
+        {_,_} -> ok
     end,
     utf32_fail_range(Char+1, End);
 utf32_fail_range(_, _) -> ok.
@@ -387,14 +362,14 @@ fail_check({'EXIT',{badarg,_}}, Str, Vars) ->
     try	evaluate(Str, Vars) of
 	Res ->
 	    io:format("Interpreted result: ~p", [Res]),
-	    ?t:fail(did_not_fail_in_intepreted_code)
+	    ct:fail(did_not_fail_in_intepreted_code)
     catch
 	error:badarg ->
 	    ok
     end;
 fail_check(Res, _, _) ->
     io:format("Compiled result: ~p", [Res]),
-    ?t:fail(did_not_fail_in_compiled_code).
+    ct:fail(did_not_fail_in_compiled_code).
 
 evaluate(Str, Vars) ->
     {ok,Tokens,_} =
@@ -406,4 +381,3 @@ evaluate(Str, Vars) ->
     end.
 
 id(I) -> I.
-    

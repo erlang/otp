@@ -1,7 +1,7 @@
 %% -*-Erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,12 +47,14 @@ receive_expr timeout try_expr
 sequence catch_expr
 variable clause clause_pattern
 
-map_expr map_pairs map_pair map_pair_assoc map_pair_exact
+map_expr anno_map_expr map_pairs anno_map_pair map_pair map_pair_assoc map_pair_exact
 map_pattern map_pair_patterns map_pair_pattern
 
-annotation anno_fun anno_expression anno_expressions
+annotation anno_atom anno_fun anno_expression anno_expressions
 anno_variable anno_variables anno_pattern anno_patterns
 anno_function_name
+anno_literal
+anno_segment anno_segment_pattern
 anno_clause anno_clauses.
 
 Terminals
@@ -90,7 +92,7 @@ module_definition ->
 module_definition ->
     '(' 'module' atom module_export module_attribute module_defs 'end'
 	'-|' annotation ')' :
-	#c_module{anno='$9',name=tok_val('$3'),exports='$4',
+        #c_module{anno='$9',name=#c_literal{val=tok_val('$3')},exports='$4',
 		  attrs='$5',defs='$6'}.
 
 module_export -> '[' ']' : [].
@@ -99,7 +101,7 @@ module_export -> '[' exported_names ']' : '$2'.
 exported_names -> exported_name ',' exported_names : ['$1' | '$3'].
 exported_names -> exported_name : ['$1'].
 
-exported_name -> function_name : '$1'.
+exported_name -> anno_function_name : '$1'.
 
 module_attribute -> 'attributes' '[' ']' : [].
 module_attribute -> 'attributes' '[' attribute_list ']' : '$3'.
@@ -107,8 +109,16 @@ module_attribute -> 'attributes' '[' attribute_list ']' : '$3'.
 attribute_list -> attribute ',' attribute_list : ['$1' | '$3'].
 attribute_list -> attribute : ['$1'].
 
-attribute -> atom '=' literal :
-	{#c_literal{val=tok_val('$1')},'$3'}.
+attribute -> anno_atom '=' anno_literal :
+	{'$1','$3'}.
+
+anno_atom -> atom :
+         cerl:c_atom(tok_val('$1')).
+anno_atom -> '(' atom '-|' annotation ')' :
+         cerl:ann_c_atom('$4', tok_val('$2')).
+
+anno_literal -> literal : '$1'.
+anno_literal -> '(' literal '-|' annotation ')' : cerl:set_ann('$2', '$4').
 
 module_defs -> function_definitions : '$1'.
 
@@ -186,7 +196,9 @@ tuple_pattern -> '{' anno_patterns '}' : c_tuple('$2').
 
 map_pattern -> '~' '{' '}' '~' : c_map_pattern([]).
 map_pattern -> '~' '{' map_pair_patterns '}' '~' :
-		   c_map_pattern(lists:sort('$3')).
+		   c_map_pattern('$3').
+map_pattern -> '~' '{' map_pair_patterns '|' anno_map_expr '}' '~' :
+		   ann_c_map_pattern('$5', '$3').
 
 map_pair_patterns -> map_pair_pattern : ['$1'].
 map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
@@ -194,6 +206,9 @@ map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
 map_pair_pattern -> anno_expression ':=' anno_pattern :
 			#c_map_pair{op=#c_literal{val=exact},
 				    key='$1',val='$3'}.
+map_pair_pattern -> '(' anno_expression ':=' anno_pattern '-|' annotation ')' :
+			#c_map_pair{anno='$6',op=#c_literal{val=exact},
+				    key='$2',val='$4'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
 		    c_cons('$2', '$3').
@@ -206,8 +221,12 @@ tail_pattern -> ',' anno_pattern tail_pattern :
 binary_pattern -> '#' '{' '}' '#' : #c_binary{segments=[]}.
 binary_pattern -> '#' '{' segment_patterns '}' '#' : #c_binary{segments='$3'}.
 
-segment_patterns -> segment_pattern ',' segment_patterns : ['$1' | '$3'].
-segment_patterns -> segment_pattern : ['$1'].
+segment_patterns -> anno_segment_pattern ',' segment_patterns : ['$1' | '$3'].
+segment_patterns -> anno_segment_pattern : ['$1'].
+
+anno_segment_pattern -> segment_pattern : '$1'.
+anno_segment_pattern -> '(' segment_pattern '-|' annotation ')' :
+      cerl:set_ann('$2', '$4').
 
 segment_pattern -> '#' '<' anno_pattern '>' '(' anno_expressions ')':
 	case '$6' of
@@ -289,11 +308,17 @@ tuple -> '{' anno_expressions '}' : c_tuple('$2').
 
 map_expr -> '~' '{' '}' '~' : c_map([]).
 map_expr -> '~' '{' map_pairs '}' '~' : c_map('$3').
-map_expr -> '~' '{' map_pairs '|' variable '}' '~' : ann_c_map([], '$5', '$3').
-map_expr -> '~' '{' map_pairs '|' map_expr '}' '~' : ann_c_map([], '$5', '$3').
+map_expr -> '~' '{' map_pairs '|' anno_variable '}' '~' : ann_c_map([], '$5', '$3').
+map_expr -> '~' '{' map_pairs '|' anno_map_expr '}' '~' : ann_c_map([], '$5', '$3').
 
-map_pairs -> map_pair : ['$1'].
-map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
+anno_map_expr -> map_expr : '$1'.
+anno_map_expr -> '(' map_expr '-|' annotation ')' : cerl:set_ann('$2', '$4').
+
+map_pairs -> anno_map_pair : ['$1'].
+map_pairs -> anno_map_pair ',' map_pairs : ['$1' | '$3'].
+
+anno_map_pair -> map_pair : '$1'.
+anno_map_pair -> '(' map_pair '-|' annotation ')' : cerl:set_ann('$2', '$4').
 
 map_pair -> map_pair_assoc : '$1'.
 map_pair -> map_pair_exact : '$1'.
@@ -312,8 +337,11 @@ tail -> ',' anno_expression tail : c_cons('$2', '$3').
 binary -> '#' '{' '}' '#' : #c_literal{val = <<>>}.
 binary -> '#' '{' segments '}' '#' : make_binary('$3').
 
-segments -> segment ',' segments : ['$1' | '$3'].
-segments -> segment : ['$1'].
+segments -> anno_segment ',' segments : ['$1' | '$3'].
+segments -> anno_segment : ['$1'].
+
+anno_segment -> segment : '$1'.
+anno_segment -> '(' segment '-|' annotation ')' : cerl:set_ann('$2', '$4').
 
 segment -> '#' '<' anno_expression '>' '(' anno_expressions ')':
 	case '$6' of
@@ -413,7 +441,8 @@ Erlang code.
 
 -include("core_parse.hrl").
 
--import(cerl, [ann_c_map/3,c_cons/2,c_map/1,c_map_pattern/1,c_tuple/1]).
+-import(cerl, [ann_c_map/3,ann_c_map_pattern/2,c_cons/2,c_map/1,
+	       c_map_pattern/1,c_tuple/1]).
 
 tok_val(T) -> element(3, T).
 tok_line(T) -> element(2, T).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@
 #  if defined(ERTS_USE_POLL)
 #    undef ERTS_POLL_USE_POLL
 #    define ERTS_POLL_USE_POLL 1
-#  elif !defined(__WIN32__) && !defined(__OSE__)
+#  elif !defined(__WIN32__)
 #    undef ERTS_POLL_USE_SELECT
 #    define ERTS_POLL_USE_SELECT 1
 #  endif
@@ -104,30 +104,12 @@
 typedef Uint32 ErtsPollEvents;
 #undef ERTS_POLL_EV_E2N
 
-#if defined(__WIN32__) || defined(__OSE__)	/* --- win32 or ose -------- */
+#if defined(__WIN32__)	/* --- win32  --------------------------------------- */
 
 #define ERTS_POLL_EV_IN   1
 #define ERTS_POLL_EV_OUT  2
 #define ERTS_POLL_EV_ERR  4
 #define ERTS_POLL_EV_NVAL 8
-
-#ifdef __OSE__
-
-typedef struct ErtsPollOseMsgList_ {
-  struct ErtsPollOseMsgList_ *next;
-  union SIGNAL *data;
-} ErtsPollOseMsgList;
-
-struct erts_sys_fd_type {
-    SIGSELECT signo;
-    ErlDrvOseEventId id;
-    ErtsPollOseMsgList *msgs;
-    ErlDrvOseEventId (*resolve_signal)(union SIGNAL *sig);
-    ethr_mutex mtx;
-    void *extra;
-};
-
-#endif
 
 #elif ERTS_POLL_USE_EPOLL	/* --- epoll ------------------------------- */
 

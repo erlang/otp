@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -605,7 +605,7 @@ scan_document(Str0, S=#xmerl_scanner{event_fun = Event,
 	     schema ->
 		 case schemaLocations(Res, S5) of
 		     {ok, Schemas} ->
-			 cleanup(S5),
+			 _ = cleanup(S5),
 			 %%?dbg("Schemas: ~p~nRes: ~p~ninhertih_options(S): ~p~n",
 			 %%          [Schemas,Res,inherit_options(S5)]),
 			 XSDRes = xmerl_xsd:process_validate(Schemas, Res,

@@ -1,7 +1,7 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,12 +29,10 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
--export([
-	 parse/2,
+-export([parse/2,
 	 parse_dtd/2,
 	 is_name_char/1,
-	 is_name_start/1
-        ]).
+	 is_name_start/1]).
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -1681,7 +1679,7 @@ handle_external_entity({file, FileToOpen}, State) ->
 								     current_location=filename:dirname(FileToOpen),
 								     entity=filename:basename(FileToOpen),
 								     input_type=file}),
-	    file:close(FD),
+	    ok = file:close(FD),
 	    EntityState#xmerl_sax_parser_state.event_state
     end;
 handle_external_entity({http, Url}, State) ->
@@ -1700,8 +1698,8 @@ handle_external_entity({http, Url}, State) ->
 									 current_location=filename:dirname(Url),
 									 entity=filename:basename(Url),
 									 input_type=file}),
-		file:close(FD),
-		file:delete(TmpFile),
+		ok = file:close(FD),
+		ok = file:delete(TmpFile),
 		EntityState#xmerl_sax_parser_state.event_state
 	end
     catch
@@ -3471,17 +3469,17 @@ http_get_file(Host, Port, Key) ->
 		receive_msg(Socket, FD, true, SendTimeout)
 	    catch
 		throw:{error, Error} -> 
-		    file:close(FD),	 	
-		    file:delete(Filename),		    
+		    ok = file:close(FD),	 	
+		    ok = file:delete(Filename),		    
 		    throw({error, Error})
 	    end;
 	{error, _Reason} ->
-	    file:close(FD),	 	
-	    file:delete(Filename),
+	    ok = file:close(FD),	 	
+	    ok = file:delete(Filename),
 	    throw({error, lists:flatten(io_lib:format("Couldn't fetch http://~s:~p/~s",
 						      [Host, Port, Key]))})
     end,
-    file:close(FD),	 	
+    ok = file:close(FD),	 	
     Filename.
 
 %%----------------------------------------------------------------------
@@ -3498,11 +3496,11 @@ receive_msg(Socket, FD, WaitForHeader, Timeout) ->
 	{tcp_closed, Socket} ->
 	    ok;
 	{tcp, Socket, Response} when WaitForHeader == false  ->
-	    file:write(FD, Response),
+	    ok = file:write(FD, Response),
 	    receive_msg(Socket, FD, WaitForHeader, Timeout);
 	{tcp, Socket, Response} ->
 	    MsgBody = remove_header(Response),
-	    file:write(FD, MsgBody),
+	    ok = file:write(FD, MsgBody),
 	    receive_msg(Socket, FD, false, Timeout);
 	{tcp_error, Socket, _Reason} ->
 	    gen_tcp:close(Socket),

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@
 #include "erl_version.h"
 #include "erl_bif_unique.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 
 #ifdef ERTS_SMP
 #define DDLL_SMP 1
@@ -1619,6 +1620,7 @@ static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)
 	    if (q->finish) {
 		int fpe_was_unmasked = erts_block_fpe();
 		DTRACE1(driver_finish, q->name);
+                LTTNG1(driver_finish, q->name);
 		(*(q->finish))();
 		erts_unblock_fpe(fpe_was_unmasked);
 	    }
@@ -1707,18 +1709,19 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
     Eterm mess;
     Eterm r;
     Eterm *hp;
-    ErlHeapFragment *bp;
-    ErlOffHeap *ohp;
+    ErtsMessage *mp;
     ErtsProcLocks rp_locks = 0;
+    ErlOffHeap *ohp;
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     assert_drv_list_rwlocked();
     if (errcode != 0) {
 	int need = load_error_need(errcode);
 	Eterm e;
-	hp = erts_alloc_message_heap(6 /* tuple */ + 3 /* Error tuple */ + 
-				     REF_THING_SIZE + need, &bp, &ohp, 
-				     proc, &rp_locks);
+	mp = erts_alloc_message_heap(proc, &rp_locks,
+				     (6 /* tuple */ + 3 /* Error tuple */ + 
+				      REF_THING_SIZE + need),
+				     &hp, &ohp);
 	r = copy_ref(ref,hp);
 	hp += REF_THING_SIZE;
 	e = build_load_error_hp(hp, errcode);
@@ -1727,12 +1730,14 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
 	hp += 3;
 	mess = TUPLE5(hp,type,r,am_driver,driver_name,mess);
     } else {	
-	hp = erts_alloc_message_heap(6 /* tuple */ + REF_THING_SIZE, &bp, &ohp, proc, &rp_locks);
+	mp = erts_alloc_message_heap(proc, &rp_locks,
+				     6 /* tuple */ + REF_THING_SIZE,
+				     &hp, &ohp);
 	r = copy_ref(ref,hp);
 	hp += REF_THING_SIZE;
 	mess = TUPLE5(hp,type,r,am_driver,driver_name,tag);
     }
-    erts_queue_message(proc, &rp_locks, bp, mess, am_undefined);
+    erts_queue_message(proc, rp_locks, mp, mess, am_system);
     erts_smp_proc_unlock(proc, rp_locks);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 }

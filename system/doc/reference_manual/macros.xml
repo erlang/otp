@@ -146,6 +146,10 @@ bar(X) ->
       <item>The current line number.</item>
       <tag><c>?MACHINE</c>.</tag>
       <item>The machine name, <c>'BEAM'</c>.</item>
+      <tag><c>?FUNCTION_NAME</c></tag>
+      <item>The name of the current function.</item>
+      <tag><c>?FUNCTION_ARITY</c></tag>
+      <item>The arity (number of arguments) for the current function.</item>
     </taglist>
   </section>
 
@@ -230,6 +234,53 @@ or
   </section>
 
   <section>
+    <title>-error() and -warning() directives</title>
+
+    <p>The directive <c>-error(Term)</c> causes a compilation error.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(t).
+-export([version/0]).
+
+-ifdef(VERSION).
+version() -> ?VERSION.
+-else.
+-error("Macro VERSION must be defined.").
+version() -> "".
+-endif.</code>
+
+    <p>The error message will look like this:</p>
+
+    <pre>
+% <input>erlc t.erl</input>
+t.erl:7: -error("Macro VERSION must be defined.").</pre>
+
+    <p>The directive <c>-warning(Term)</c> causes a compilation warning.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(t).
+-export([version/0]).
+
+-ifndef(VERSION).
+-warning("Macro VERSION not defined -- using default version.").
+-define(VERSION, "0").
+-endif.
+version() -> ?VERSION.</code>
+
+    <p>The warning message will look like this:</p>
+
+    <pre>
+% <input>erlc t.erl</input>
+t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version.").</pre>
+
+  <p>The <c>-error()</c> and <c>-warning()</c> directives were added
+  in OTP 19.</p>
+
+  </section>
+
+  <section>
     <title>Stringifying Macro Arguments</title>
     <p>The construction <c>??Arg</c>, where <c>Arg</c> is a macro
       argument, is expanded to a string containing the tokens of
@@ -249,5 +300,6 @@ io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code
     <p>That is, a trace output, with both the function called and
       the resulting value.</p>
   </section>
+
 </chapter>
 

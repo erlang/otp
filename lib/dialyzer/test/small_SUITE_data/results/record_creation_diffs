@@ -1,3 +1,3 @@
 
 record_creation_diffs.erl:10: Function foo/1 has no local return
-record_creation_diffs.erl:11: Record construction #bar{some_list::{'this','is','a','tuple'}} violates the declared type of field some_list::'undefined' | [any()]
+record_creation_diffs.erl:11: Record construction #bar{some_list::{'this','is','a','tuple'}} violates the declared type of field some_list::[any()]

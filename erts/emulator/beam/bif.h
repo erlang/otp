@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,23 +52,26 @@ extern Export *erts_convert_time_unit_trap;
 	(p)->fcalls = 0; 			\
     else 					\
 	(p)->fcalls = -CONTEXT_REDS;		\
+    ASSERT(ERTS_BIF_REDS_LEFT((p)) == 0);	\
 } while(0)
 
-
-#define ERTS_VBUMP_ALL_REDS(p)						\
+#define ERTS_VBUMP_ALL_REDS_INTERNAL(p, fcalls)				\
 do {									\
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) {				\
-	if ((p)->fcalls > 0)						\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += (p)->fcalls;	\
-	(p)->fcalls = 0;						\
+	if ((fcalls) > 0)						\
+	    erts_proc_sched_data((p))->virtual_reds += (fcalls);	\
+	(fcalls) = 0;							\
     }									\
     else {								\
-	if ((p)->fcalls > -CONTEXT_REDS)				\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds			\
-		+= ((p)->fcalls - (-CONTEXT_REDS));			\
-	(p)->fcalls = -CONTEXT_REDS;					\
+	if ((fcalls) > -CONTEXT_REDS)					\
+	    erts_proc_sched_data((p))->virtual_reds			\
+		+= ((fcalls) - (-CONTEXT_REDS));			\
+	(fcalls) = -CONTEXT_REDS;					\
     }									\
 } while(0)
+
+#define ERTS_VBUMP_ALL_REDS(p) \
+    ERTS_VBUMP_ALL_REDS_INTERNAL((p), (p)->fcalls)
 
 #define BUMP_REDS(p, gc) do {			   \
      ASSERT(p);		 			   \
@@ -88,32 +91,56 @@ do {									\
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) {				\
 	if ((p)->fcalls >= reds) {					\
 	    (p)->fcalls -= reds;					\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += reds;		\
+	    erts_proc_sched_data((p))->virtual_reds += reds;		\
 	}								\
 	else {								\
 	    if ((p)->fcalls > 0)					\
-		ERTS_PROC_GET_SCHDATA((p))->virtual_reds += (p)->fcalls;\
+		erts_proc_sched_data((p))->virtual_reds += (p)->fcalls;	\
 	    (p)->fcalls = 0;						\
 	}								\
     }									\
     else {								\
 	if ((p)->fcalls >= reds - CONTEXT_REDS) {			\
 	    (p)->fcalls -= reds;					\
-	    ERTS_PROC_GET_SCHDATA((p))->virtual_reds += reds;		\
+	    erts_proc_sched_data((p))->virtual_reds += reds;		\
 	}								\
 	else {								\
 	    if ((p)->fcalls > -CONTEXT_REDS)				\
-		ERTS_PROC_GET_SCHDATA((p))->virtual_reds		\
+		erts_proc_sched_data((p))->virtual_reds			\
 		    += (p)->fcalls - (-CONTEXT_REDS);			\
 	    (p)->fcalls = -CONTEXT_REDS;				\
 	}								\
     }									\
 } while(0)
 
-#define ERTS_BIF_REDS_LEFT(p)						\
+#define ERTS_VBUMP_LEAVE_REDS_INTERNAL(P, Reds, FCalls)			\
+    do {								\
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF((P))) {			\
+	    int nreds__ = ((int)(Reds)) - CONTEXT_REDS;			\
+	    if ((FCalls) > nreds__) {					\
+		erts_proc_sched_data((P))->virtual_reds			\
+		    += (FCalls) - nreds__;				\
+		(FCalls) = nreds__;					\
+	    }								\
+	}								\
+	else {								\
+	    if ((FCalls) > (Reds)) {					\
+		erts_proc_sched_data((P))->virtual_reds			\
+		    += (FCalls) - (Reds);				\
+		(FCalls) = (Reds);					\
+	    }								\
+	}								\
+    } while (0)
+
+#define ERTS_VBUMP_LEAVE_REDS(P, Reds)					\
+    ERTS_VBUMP_LEAVE_REDS_INTERNAL(P, Reds, (P)->fcalls)
+
+#define ERTS_REDS_LEFT(p, FCalls)					\
   (ERTS_PROC_GET_SAVED_CALLS_BUF((p))					\
-   ? ((p)->fcalls > -CONTEXT_REDS ? ((p)->fcalls - (-CONTEXT_REDS)) : 0)\
-   : ((p)->fcalls > 0 ? (p)->fcalls : 0))
+   ? ((FCalls) > -CONTEXT_REDS ? ((FCalls) - (-CONTEXT_REDS)) : 0)	\
+   : ((FCalls) > 0 ? (FCalls) : 0))
+
+#define ERTS_BIF_REDS_LEFT(p) ERTS_REDS_LEFT(p, p->fcalls)
 
 #define BIF_RET2(x, gc) do {			\
     BUMP_REDS(BIF_P, (gc));			\
@@ -138,7 +165,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED1(Proc, Reason, Bif, A0)		\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -147,7 +174,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED2(Proc, Reason, Bif, A0, A1)	\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -157,7 +184,7 @@ do {								\
 
 #define ERTS_BIF_ERROR_TRAPPED3(Proc, Reason, Bif, A0, A1, A2)	\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -181,7 +208,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED1(Ret, Proc, Reason, Bif, A0) \
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -190,7 +217,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED2(Ret, Proc, Reason, Bif, A0, A1) \
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -200,7 +227,7 @@ do {								\
 
 #define ERTS_BIF_PREP_ERROR_TRAPPED3(Ret, Proc, Reason, Bif, A0, A1, A2) \
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->freason = (Reason);					\
     (Proc)->current = (Bif)->code;				\
     reg[0] = (Eterm) (A0);					\
@@ -219,7 +246,7 @@ do {						\
 
 #define ERTS_BIF_PREP_TRAP1(Ret, Trap, Proc, A0)		\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 1;						\
     reg[0] = (Eterm) (A0);					\
     (Proc)->i = (BeamInstr*) ((Trap)->addressv[erts_active_code_ix()]); \
@@ -229,7 +256,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP2(Ret, Trap, Proc, A0, A1)		\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 2;						\
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
@@ -240,7 +267,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP3(Ret, Trap, Proc, A0, A1, A2)	\
 do {								\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 3;						\
     reg[0] = (Eterm) (A0);					\
     reg[1] = (Eterm) (A1);					\
@@ -252,7 +279,7 @@ do {								\
 
 #define ERTS_BIF_PREP_TRAP3_NO_RET(Trap, Proc, A0, A1, A2)\
 do {							\
-    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;	\
+    Eterm* reg = erts_proc_sched_data((Proc))->x_reg_array;	\
     (Proc)->arity = 3;					\
     reg[0] = (Eterm) (A0);		\
     reg[1] = (Eterm) (A1);		\
@@ -269,7 +296,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP1(Trap_, p, A0) do {				\
-      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
       (p)->arity = 1;						\
       reg[0] = (A0);						\
       (p)->i = (BeamInstr*) ((Trap_)->addressv[erts_active_code_ix()]); \
@@ -278,7 +305,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP2(Trap_, p, A0, A1) do {			\
-      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
       (p)->arity = 2;						\
       reg[0] = (A0);						\
       reg[1] = (A1);						\
@@ -288,7 +315,7 @@ do {							\
  } while(0)
 
 #define BIF_TRAP3(Trap_, p, A0, A1, A2) do {			\
-      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;	\
+      Eterm* reg = erts_proc_sched_data((p))->x_reg_array;	\
       (p)->arity = 3;						\
       reg[0] = (A0);						\
       reg[1] = (A1);						\
@@ -312,37 +339,20 @@ do {							\
  } while(0)
 
 extern Export bif_return_trap_export;
-#ifdef DEBUG
-#define ERTS_BIF_PREP_YIELD_RETURN_X(RET, P, VAL, DEBUG_VAL)		\
+#define ERTS_BIF_PREP_YIELD_RETURN_X(RET, P, VAL, OP)			\
 do {									\
     ERTS_VBUMP_ALL_REDS(P);						\
-    ERTS_BIF_PREP_TRAP2(RET, &bif_return_trap_export, (P), (VAL),	\
-			(DEBUG_VAL));					\
+    ERTS_BIF_PREP_TRAP2(RET, &bif_return_trap_export, (P), (VAL), (OP));\
 } while (0)
-#else
-#define ERTS_BIF_PREP_YIELD_RETURN_X(RET, P, VAL, DEBUG_VAL)		\
-do {									\
-    ERTS_VBUMP_ALL_REDS(P);						\
-    ERTS_BIF_PREP_TRAP1(RET, &bif_return_trap_export, (P), (VAL));	\
-} while (0)
-#endif
 
 #define ERTS_BIF_PREP_YIELD_RETURN(RET, P, VAL) \
   ERTS_BIF_PREP_YIELD_RETURN_X(RET, (P), (VAL), am_undefined)
 
-#ifdef DEBUG
-#define ERTS_BIF_YIELD_RETURN_X(P, VAL, DEBUG_VAL)			\
+#define ERTS_BIF_YIELD_RETURN_X(P, VAL, OP)				\
 do {									\
     ERTS_VBUMP_ALL_REDS(P);						\
-    BIF_TRAP2(&bif_return_trap_export, (P), (VAL), (DEBUG_VAL));	\
+    BIF_TRAP2(&bif_return_trap_export, (P), (VAL), (OP));		\
 } while (0)
-#else
-#define ERTS_BIF_YIELD_RETURN_X(P, VAL, DEBUG_VAL)			\
-do {									\
-    ERTS_VBUMP_ALL_REDS(P);						\
-    BIF_TRAP1(&bif_return_trap_export, (P), (VAL));			\
-} while (0)
-#endif
 
 #define ERTS_BIF_RETURN_YIELD(P) ERTS_VBUMP_ALL_REDS((P))
 

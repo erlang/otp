@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +76,15 @@ int ei_get_type_internal(const char *buf, const int *index,
     *len = get32be(s); /* #digit_bytes */
     break;
 
+  case ERL_NEW_PID_EXT:
+      *type = ERL_PID_EXT;
+      break;
+  case ERL_NEW_PORT_EXT:
+      *type = ERL_PORT_EXT;
+      break;
+  case ERL_NEWER_REFERENCE_EXT:
+      *type = ERL_NEW_REFERENCE_EXT;
+      break;
   default:
     *len = 0;
     break;

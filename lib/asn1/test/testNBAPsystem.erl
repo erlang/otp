@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 -export([compile/2,test/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('InitiatingMessage',{
 procedureID, criticality, messageDiscriminator, transactionID, value}).
@@ -92,23 +92,23 @@ compile(Config, Options) ->
 
 
 test(_Erule,Config) ->
-    ?line ok = enc_audit_req_msg(),
-    ?line ok = cell_setup_req_msg_test(),
+    ok = enc_audit_req_msg(),
+    ok = cell_setup_req_msg_test(),
     ticket_5812(Config).
 
 ticket_5812(Config) ->
-    ?line Msg = v_5812(),
+    Msg = v_5812(),
     {ok,B2} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
     V = <<0,28,74,0,3,48,0,0,1,0,123,64,41,0,0,0,126,64,35,95,208,2,89,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,145,0,1,205,0,0,0,0,2,98,64,1,128>>,
-    ?line ok = compare(V,B2),
+    ok = compare(V,B2),
     {ok,Msg2} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B2),
-    ?line ok = check_record_names(Msg2,Config).
+    ok = check_record_names(Msg2,Config).
 
 enc_audit_req_msg() ->
     Msg = {initiatingMessage, audit_req_msg()},
     {ok,B} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
     {ok,_Msg} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B),
-    ?line {initiatingMessage,
+    {initiatingMessage,
 	   #'InitiatingMessage'{value=#'AuditRequest'{protocolIEs=[{_,114,ignore,_}],
 						      protocolExtensions = asn1_NOVALUE}}} = _Msg,
     io:format("Msg: ~n~P~n~n_Msg:~n~P~n",[Msg,15,_Msg,15]),
@@ -285,8 +285,8 @@ compare(_,_) ->
     false.
 
 check_record_names(Msg,Config) ->
-    DataDir = ?config(data_dir,Config),
-    CaseDir = ?config(case_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    CaseDir = proplists:get_value(case_dir,Config),
     {ok, test_records} = compile:file(filename:join([DataDir, "test_records"]),
                                       [{i, CaseDir}]),
     ok = test_records:'check_record_names_OTP-5812'(Msg).

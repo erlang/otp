@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 -module(crashdump_helper).
 -export([n1_proc/2,remote_proc/2]).
 -compile(r13).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->
     spawn(fun() -> n1_proc(Creator,N2,x,y,[]) end).

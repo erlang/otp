@@ -390,8 +390,7 @@ send_response_old(#mod{socket_type = Type,
 	    send_header(ModData, StatusCode, [{content_length,
 					       content_length(NewResponse)}]),
 	    httpd_socket:deliver(Type, Sock, NewResponse);
-
-	{error, _Reason} ->
+	_ ->
 	    send_status(ModData, 500, "Internal Server Error")
     end.
 

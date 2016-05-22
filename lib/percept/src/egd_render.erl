@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@
 -export([binary/1, binary/2]).
 -export([eps/1]).
 -compile(inline).
+
+-export([line_to_linespans/3]).
 
 -include("egd.hrl").
 -define('DummyC',0).
@@ -216,11 +218,11 @@ parse_objects_on_line(Y, Width, Objects) ->
     parse_objects_on_line(Y, 1, Width, Objects, []).
 parse_objects_on_line(_Y, _Z, _, [], Out) -> lists:flatten(Out);
 parse_objects_on_line(Y, Z, Width, [O|Os], Out) ->
-    case is_object_on_line(Y, O) of
+    case is_object_on_line(O, Y) of
     	false ->
 	    parse_objects_on_line(Y, Z + 1, Width, Os, Out);
 	true ->
-	    OLs  = object_line_data(Y, Z, O),
+	    OLs  = object_line_data(O,Y,Z),
 	    TOLs = trim_object_line_data(OLs, Width),
 	    parse_objects_on_line(Y, Z + 1, Width, Os, [TOLs|Out])
     end.
@@ -238,9 +240,9 @@ trim_object_line_data([{Z, Xl, Xr, C}|OLs], Width, Out) ->
 
 % object_line_data
 % In:
+%	Object :: image_object()
 %	Y :: index of height
 %	Z :: index of depth
-%	Object :: image_object()
 % Out:
 %	OLs = [{Z, Xl, Xr, Color}]
 %	Z = index of height
@@ -250,96 +252,93 @@ trim_object_line_data([{Z, Xl, Xr, C}|OLs], Width, Out) ->
 %	Calculate the length (start and finish index) of an objects horizontal
 %	line given the height index.
 
-object_line_data(Y, Z, Object) -> 
-    object_line_data(Y, Z, Object, Object#image_object.type).
-object_line_data(Y, Z, #image_object{ span = {X0, Y0, X1, Y1}, color = C}, rectangle) ->
+object_line_data(#image_object{type=rectangle,
+                               span={X0,Y0,X1,Y1}, color=C}, Y, Z) ->
     if
-	Y0 =:= Y ; Y1 =:= Y ->
-    	    [{Z, X0, X1, C}];
-	true ->
-    	    [{Z, X0, X0, C},
-	     {Z, X1, X1, C}]
+        Y0 =:= Y ; Y1 =:= Y ->
+            [{Z, X0, X1, C}];
+        true ->
+            [{Z, X0, X0, C},
+             {Z, X1, X1, C}]
     end;
 
-object_line_data(_Y, Z, #image_object{ span = {X0, _, X1, _}, color = C}, filled_rectangle) ->
+object_line_data(#image_object{type=filled_rectangle,
+                               span={X0, _, X1, _}, color=C}, _Y, Z) ->
     [{Z, X0, X1, C}];
 
-object_line_data(Y, Z, #image_object{ internals={Xr,Yr,Yr2}, span = {X0,Y0,X1,Y1}, color = C}, filled_ellipse) ->
+object_line_data(#image_object{type=filled_ellipse,
+                               internals={Xr,Yr,Yr2}, span={X0,Y0,X1,Y1}, color=C}, Y, Z) ->
     if 
-    	X1 - X0 == 0; Y1 - Y0 == 0 ->
-	    [{Z, X0, X1, C}];
-	true ->
-	    Yo  = trunc(Y - Y0 - Yr),
-	    Yo2 = Yo*Yo,
-	    Xo  = math:sqrt((1 - Yo2/Yr2))*Xr,
-	    [{Z, round(X0 - Xo + Xr), round(X0 + Xo + Xr), C}]
+        X1 - X0 =:= 0; Y1 - Y0 =:= 0 ->
+            [{Z, X0, X1, C}];
+        true ->
+            Yo  = trunc(Y - Y0 - Yr),
+            Yo2 = Yo*Yo,
+            Xo  = math:sqrt((1 - Yo2/Yr2))*Xr,
+            [{Z, round(X0 - Xo + Xr), round(X0 + Xo + Xr), C}]
     end;
 
-object_line_data(Y, Z, #image_object{ intervals = Is, color = C}, filled_triangle) ->
+object_line_data(#image_object{type=filled_triangle,
+                               intervals=Is, color=C}, Y, Z) ->
     case lists:keyfind(Y, 1, Is) of
    	{Y, Xl, Xr} -> [{Z, Xl, Xr, C}];
 	false -> []
     end;    
 
-object_line_data(Y, Z, #image_object{ intervals = Is, color = C}, line) ->
-    case dict:find(Y, Is) of
-	{ok, Ls} -> [{Z, Xl, Xr, C}||{Xl,Xr} <- Ls];
+object_line_data(#image_object{type=line,
+                               intervals=M, color={R,G,B,_}}, Y, Z) ->
+    case M of
+        #{Y := Ls} -> [{Z, Xl, Xr, {R,G,B,1.0-C/255}}||{Xl,Xr,C} <- Ls];
 	_ -> []
     end;
 
-object_line_data(Y, Z, #image_object{ color = C, intervals = Is}, polygon) ->
+object_line_data(#image_object{type=polygon,
+                               color=C, intervals=Is}, Y, Z) ->
     [{Z, Xl, Xr, C} || {Yp, Xl, Xr} <- Is, Yp =:= Y];
 
-object_line_data(Y, Z, #image_object{ color = C, intervals = Is}, text_horizontal) ->
+object_line_data(#image_object{type=text_horizontal,
+                               color=C, intervals=Is}, Y, Z) ->
     [{Z, Xl, Xr, C} || {Yg, Xl, Xr} <- Is, Yg =:= Y];
 
-object_line_data(_, Z, #image_object{ span = {X0,_,X1,_}, color = C}, _) ->
+object_line_data(#image_object{type=pixel,
+                               span={X0,_,X1,_}, color=C}, _, Z) ->
     [{Z, X0, X1, C}].
 
-is_object_on_line(Y, #image_object{ span = Span }) ->
-    is_object_bounds_on_line(Y, Span). 
+is_object_on_line(#image_object{span={_,Y0,_,Y1}}, Y) ->
+    if Y < Y0; Y > Y1 -> false;
+       true -> true
+    end.
     
-is_object_bounds_on_line(Y, {_,Y0,_,Y1}) when Y < Y0 ; Y > Y1 -> false;
-is_object_bounds_on_line(_, _) -> true.
-
 %%% primitives to line_spans
 
 %% compile objects to linespans
 
-precompile(Image = #image{ objects = Os }) ->
-    Image#image{ objects = precompile_objects(Os) }.
+precompile(#image{objects = Os}=I) ->
+    I#image{objects = precompile_objects(Os)}.
 
-precompile_objects(Os) -> precompile_objects(Os, []).
-precompile_objects([], Out) -> lists:reverse(Out);
-
-precompile_objects([O = #image_object{ type = line, points = [P0,P1] }| Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = ls_list2dict(line_ls(P0,P1)) } | Out]);
-    
-precompile_objects([O = #image_object{ type = filled_triangle, points = [P0,P1,P2] } | Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = triangle_ls(P0,P1,P2) } | Out]);
-    
-precompile_objects([O = #image_object{ type = polygon, points = Pts } | Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = polygon_ls(Pts) } | Out]);
-
-precompile_objects([O = #image_object{ type = filled_ellipse, span = {X0,Y0,X1,Y1} } | Os], Out) ->
+precompile_objects([]) -> [];
+precompile_objects([#image_object{type=line, internals=W, points=[P0,P1]}=O|Os]) ->
+    [O#image_object{intervals = linespans_to_map(line_to_linespans(P0,P1,W))}|precompile_objects(Os)];
+precompile_objects([#image_object{type=filled_triangle, points=[P0,P1,P2]}=O|Os]) ->
+    [O#image_object{intervals = triangle_ls(P0,P1,P2)}|precompile_objects(Os)];
+precompile_objects([#image_object{type=polygon, points=Pts}=O|Os]) ->
+    [O#image_object{intervals = polygon_ls(Pts)}|precompile_objects(Os)];
+precompile_objects([#image_object{type=filled_ellipse, span={X0,Y0,X1,Y1}}=O|Os]) ->
     Xr  = (X1 - X0)/2,
     Yr  = (Y1 - Y0)/2,
     Yr2 = Yr*Yr,
-    precompile_objects(Os, [ O#image_object{ internals={Xr,Yr,Yr2} } | Out]);
-    
-precompile_objects([O = #image_object{ type = arc, points = [P0,P1], internals = D }| Os], Out) ->
+    [O#image_object{internals={Xr,Yr,Yr2}}|precompile_objects(Os)];
+precompile_objects([#image_object{type=arc, points=[P0,P1], internals=D}=O|Os]) ->
     Es = egd_primitives:arc_to_edges(P0, P1, D),
-    Ls = lists:foldl(fun
-    	({Ep0, Ep1}, D0) ->
-	    ls_list2dict(line_ls(Ep0, Ep1), D0)
-    end, dict:new(), Es),
-    precompile_objects(Os, [O#image_object{ type = line, intervals = Ls } | Out]);
-
-precompile_objects([O = #image_object{ type = text_horizontal, points = [P0], internals = {Font, Text}} | Os], Out) ->
-    precompile_objects(Os, [O#image_object{ intervals = text_horizontal_ls(P0, Font, Text) } | Out]);
-    
-precompile_objects([O|Os], Out) ->
-    precompile_objects(Os, [O|Out]).
+    Ls = lists:foldl(fun ({Ep0,Ep1},M) ->
+                             linespans_to_map(line_to_linespans(Ep0,Ep1,1),M)
+                     end, #{}, Es),
+    [O#image_object{type=line, intervals=Ls}|precompile_objects(Os)];
+precompile_objects([#image_object{type=text_horizontal,
+                                  points=[P0], internals={Font,Text}}=O|Os]) ->
+    [O#image_object{intervals=text_horizontal_ls(P0,Font,Text)}|precompile_objects(Os)];
+precompile_objects([O|Os]) ->
+    [O|precompile_objects(Os)].
 
 % triangle 
 
@@ -353,7 +352,8 @@ triangle_ls(P1,P2,P3) ->
     % At an end point, a new line to the point already being drawn
     % repeat same procedure as above
     [Sp1, Sp2, Sp3] = tri_pt_ysort([P1,P2,P3]),   
-    triangle_ls_lp(tri_ls_ysort(line_ls(Sp1,Sp2)), Sp2, tri_ls_ysort(line_ls(Sp1,Sp3)), Sp3, []).
+    triangle_ls_lp(tri_ls_ysort(line_to_linespans(Sp1,Sp2,1)), Sp2,
+                   tri_ls_ysort(line_to_linespans(Sp1,Sp3,1)), Sp3, []).
 
 % There will be Y mismatches between the two lists since bresenham is not perfect.
 % I can be remedied with checking intervals this could however be costly and
@@ -362,7 +362,7 @@ triangle_ls(P1,P2,P3) ->
 
 triangle_ls_lp([],_,[],_,Out) -> Out;
 triangle_ls_lp(LSs1, P1, [], P2, Out) -> 
-    SLSs = tri_ls_ysort(line_ls(P2,P1)),
+    SLSs = tri_ls_ysort(line_to_linespans(P2,P1,1)),
     N2 = length(SLSs),
     N1 = length(LSs1),
     if 
@@ -376,7 +376,7 @@ triangle_ls_lp(LSs1, P1, [], P2, Out) ->
     	    triangle_ls_lp(LSs1, SLSs, Out)
     end;
 triangle_ls_lp([], P1, LSs2, P2, Out) ->
-    SLSs = tri_ls_ysort(line_ls(P1,P2)),
+    SLSs = tri_ls_ysort(line_to_linespans(P1,P2,1)),
     N1 = length(SLSs),
     N2 = length(LSs2),
     if 
@@ -390,21 +390,21 @@ triangle_ls_lp([], P1, LSs2, P2, Out) ->
 	    triangle_ls_lp(SLSs, LSs2, Out)
     end;
 triangle_ls_lp([LS1|LSs1],P1,[LS2|LSs2],P2, Out) ->
-    {Y, Xl1, Xr1} = LS1,
-    {_, Xl2, Xr2} = LS2,
+    {Y, Xl1, Xr1,_Ca1} = LS1,
+    {_, Xl2, Xr2,_Ca2} = LS2,
     Xr = lists:max([Xl1,Xr1,Xl2,Xr2]),
     Xl = lists:min([Xl1,Xr1,Xl2,Xr2]),
-    triangle_ls_lp(LSs1,P1, LSs2, P2, [{Y,Xl,Xr}|Out]).    
+    triangle_ls_lp(LSs1,P1,LSs2,P2,[{Y,Xl,Xr}|Out]).
 
 triangle_ls_lp([],[],Out) -> Out;
 triangle_ls_lp([],_,Out) -> Out;
 triangle_ls_lp(_,[],Out) -> Out;
 triangle_ls_lp([LS1|LSs1], [LS2|LSs2], Out) ->
-    {Y, Xl1, Xr1} = LS1,
-    {_, Xl2, Xr2} = LS2,
+    {Y, Xl1, Xr1, _Ca1} = LS1,
+    {_, Xl2, Xr2, _Ca2} = LS2,
     Xr = lists:max([Xl1,Xr1,Xl2,Xr2]),
     Xl = lists:min([Xl1,Xr1,Xl2,Xr2]),
-    triangle_ls_lp(LSs1, LSs2, [{Y,Xl,Xr}|Out]).    
+    triangle_ls_lp(LSs1,LSs2,[{Y,Xl,Xr}|Out]).
        
 tri_pt_ysort(Pts) ->
     % {X,Y}
@@ -414,9 +414,9 @@ tri_pt_ysort(Pts) ->
 	end, Pts).
 
 tri_ls_ysort(LSs) ->
-    % {Y, Xl, Xr}
+    % {Y, Xl, Xr, Ca}
     lists:sort(
-	fun ({Y1,_,_},{Y2,_,_}) ->
+	fun ({Y1,_,_,_},{Y2,_,_,_}) ->
 	   if Y1 > Y2 -> false; true -> true end
 	end, LSs).
 
@@ -503,69 +503,74 @@ point_inside_triangle(P, P1, P2, P3) ->
     points_same_side(P, P2, P1, P3) and 
     points_same_side(P, P3, P1, P2).
    
-%% [{Y, Xl, Xr}]
-ls_list2dict(List) -> ls_list2dict(List, dict:new()).
-ls_list2dict([], D) -> D;
-ls_list2dict([{Y, Xl, Xr}|Ls], D) ->
-    case dict:is_key(Y, D) of
-        false -> ls_list2dict(Ls, dict:store(Y, [{Xl, Xr}], D));
-	true  -> ls_list2dict(Ls, dict:append(Y, {Xl, Xr}, D))
-    end.
+%% [{Y, Xl, Xr}] -> #{Y := [{Xl,Xr}]}
+%% Reorganize linspans to a map with Y as key.
 
-%% line_ls
+linespans_to_map(Ls) ->
+    linespans_to_map(Ls,#{}).
+linespans_to_map([{Y,Xl,Xr,C}|Ls], M) ->
+    case M of
+        #{Y := Spans} -> linespans_to_map(Ls, M#{Y := [{Xl,Xr,C}|Spans]});
+        _ -> linespans_to_map(Ls, M#{Y => [{Xl,Xr,C}]})
+    end;
+linespans_to_map([], M) ->
+    M.
+
+
+%% line_to_linespans
+%%   Anti-aliased thick line
+%%   Do it CPS style
 %% In:
 %%	P1 :: point()
 %%	P2 :: point()
 %% Out:
-%%	{{Ymin,Ymax}, LSD :: line_step_data()}
-%% Purpose:
-%% 	Instead of points -> intervals
+%%      [{Y,Xl,Xr}]
+%%
+line_to_linespans({X0,Y0},{X1,Y1},Wd) ->
+    Dx = abs(X1-X0),
+    Dy = abs(Y1-Y0),
+    Sx = if X0 < X1 -> 1; true -> -1 end,
+    Sy = if Y0 < Y1 -> 1; true -> -1 end,
+    E0 = Dx - Dy,
+    Ed = if Dx + Dy =:= 0 -> 1; true -> math:sqrt(Dx*Dx + Dy*Dy) end,
+    line_to_ls(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E0,Ed,(Wd+1)/2,[]).
 
+line_to_ls(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0) ->
+    C = max(0, 255*(abs(E - Dx+Dy)/Ed - Wd + 1)),
+    Ls1 = [{Y0,X0,X0,C}|Ls0],
+    line_to_ls_sx(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls1,E).
 
-line_ls({Xi0, Yi0},{Xi1,Yi1}) ->
-    % swap X with Y if line is steep
-    Steep = abs(Yi1 - Yi0) > abs(Xi1 - Xi0),
+line_to_ls_sx(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2) when 2*E2 > -Dx ->
+    line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2+Dy,Y0);
+line_to_ls_sx(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2) ->
+    line_to_ls_sy(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2,X0).
 
-    {Xs0, Ys0, Xs1, Ys1} = case Steep of
-	true -> {Yi0,Xi0,Yi1,Xi1};
-	false -> {Xi0,Yi0,Xi1,Yi1}
-    end,
+line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,E2,Y) when E2 < Ed*Wd andalso
+                                                                (Y1 =/= Y orelse Dx > Dy) ->
+    Y2 = Y + Sy,
+    C = max(0,255*(abs(E2)/Ed-Wd+1)),
+    Ls = [{Y2,X0,X0,C}|Ls0],
+    line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2+Dx,Y2);
+line_to_ls_sx_do(X0,_Y0,X1,_Y1,_Dx,_Dy,_Sx,_Sy,_E,_Ed,_Wd,Ls,_E2,_Y) when X0 =:= X1 ->
+    Ls;
+line_to_ls_sx_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,_E2,_Y) ->
+    line_to_ls_sy(X0+Sx,Y0,X1,Y1,Dx,Dy,Sx,Sy,E-Dy,Ed,Wd,Ls,E,X0).
 
-    {X0,Y0,X1,Y1} = case Xs0 > Xs1 of
-	true -> {Xs1,Ys1,Xs0,Ys0};
-	false -> {Xs0,Ys0,Xs1,Ys1}
-    end,
+line_to_ls_sy(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,E2,X) when 2*E2 =< Dy ->
+    line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,Dx-E2,X);
+line_to_ls_sy(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,_E2,_X) ->
+    line_to_ls(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0).
 
-    DX = X1 - X0,
-    DY = abs(Y1 - Y0),
-
-    Error = -DX/2,
-
-    Ystep = case Y0 < Y1 of
-	true -> 1;
-	false -> -1
-    end, 
-    line_ls_step(X0, X1,Y0, DX, DY, Ystep, Error, X0, Steep, []).
-
-%% line_ls_step_(not)_steep
-%% In:
-%% Out:
-%%	[{Yi, Xl,Xr}]
-%% Purpose:
-%% 	Produce an line_interval for each Yi (Y index)	
-
-line_ls_step(X, X1, Y, Dx, Dy, Ys, E, X0, false = Steep, LSs) when X < X1, E >= 0 ->
-    line_ls_step(X+1,X1,Y+Ys,Dx,Dy,Ys, E - Dx + Dy, X+1, Steep, [{Y,X0,X}|LSs]);
-line_ls_step(X, X1, Y, Dx, Dy, Ys, E, X0, false = Steep, LSs) when X < X1 ->
-    line_ls_step(X+1,X1,Y,Dx,Dy,Ys, E + Dy, X0, Steep, LSs);
-line_ls_step(X, _X1, Y, _Dx, _Dy, _Ys, _E, X0, false, LSs) ->
-    [{Y,X0,X}|LSs];
-line_ls_step(X, X1, Y, Dx, Dy, Ys, E, _X0, true = Steep, LSs) when X =< X1, E >= 0 ->
-    line_ls_step(X+1,X1,Y+Ys,Dx,Dy,Ys, E - Dx + Dy, X, Steep, [{X,Y,Y}|LSs]);
-line_ls_step(X, X1, Y, Dx, Dy, Ys, E, X0, true = Steep, LSs) when X =< X1 ->
-    line_ls_step(X+1,X1,Y,Dx,Dy,Ys,E + Dy, X0, Steep, [{X,Y,Y}|LSs]);
-line_ls_step(_X,_,_Y,_Dx,_Dy,_Ys,_E,_X0,_,LSs) -> 
-    LSs.
+line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,E2,X) when E2 < Ed*Wd andalso
+                                                                (X1 =/= X orelse Dx < Dy) ->
+    X2 = X + Sx,
+    C = max(0,255*(abs(E2)/Ed-Wd+1)),
+    Ls = [{Y0,X2,X2,C}|Ls0],
+    line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls,E2+Dy,X2);
+line_to_ls_sy_do(_X0,Y0,_X1,Y1,_Dx,_Dy,_Sx,_Sy,_E,_Ed,_Wd,Ls,_E2,_X) when Y0 =:= Y1 ->
+    Ls;
+line_to_ls_sy_do(X0,Y0,X1,Y1,Dx,Dy,Sx,Sy,E,Ed,Wd,Ls0,_E2,_X) ->
+    line_to_ls(X0,Y0+Sy,X1,Y1,Dx,Dy,Sx,Sy,E+Dx,Ed,Wd,Ls0).
 
 % Text
 
@@ -657,4 +662,3 @@ eps_header(W,H) ->
 
 eps_footer() -> 
     "%%EOF\n".
-

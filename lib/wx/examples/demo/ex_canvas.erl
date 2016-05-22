@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -136,11 +136,14 @@ handle_event(#wx{event = #wxCommand{type = command_button_clicked}},
     {noreply, State};
 handle_event(#wx{event = #wxSize{size={W,H}}},
 	     State = #state{bitmap=Prev, canvas=Canvas}) ->
-    Bitmap = wxBitmap:new(W,H),
-    draw(Canvas, Bitmap, fun(DC) -> wxDC:clear(DC) end),
-    wxBitmap:destroy(Prev),
-    {noreply, State#state{bitmap = Bitmap}};
-
+    if W > 0 andalso H > 0 ->
+	    Bitmap = wxBitmap:new(W,H),
+	    draw(Canvas, Bitmap, fun(DC) -> wxDC:clear(DC) end),
+	    wxBitmap:destroy(Prev),
+	    {noreply, State#state{bitmap = Bitmap}};
+       true ->
+	    {noreply, State}
+    end;
 handle_event(#wx{event = #wxMouse{type=left_down, x=X, y=Y}}, State) ->
     {noreply, State#state{pos={X,Y}}};
 handle_event(#wx{event = #wxMouse{type=motion, x=X1, y=Y1}},
@@ -219,4 +222,4 @@ redraw(DC, Bitmap) ->
     wxMemoryDC:destroy(MemoryDC).
 
 get_pos(W,H) ->
-    {random:uniform(W), random:uniform(H)}.
+    {rand:uniform(W), rand:uniform(H)}.

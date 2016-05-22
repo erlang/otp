@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -269,6 +269,8 @@ int erts_port_task_schedule(Eterm,
 void erts_port_task_free_port(Port *);
 int erts_port_is_scheduled(Port *);
 ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data(void);
+ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr);
+void erts_port_task_free_p2p_sig_data(ErtsProc2PortSigData *sigdp);
 
 #ifdef ERTS_SMP
 void erts_enqueue_port(ErtsRunQueue *rq, Port *pp);

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2012. All Rights Reserved.
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -127,12 +127,7 @@ ALL_STATIC_CFLAGS = $(DED_STATIC_CFLAGS) $(INCLUDES)
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 debug opt valgrind: $(NIF_LIB) $(CALLBACK_LIB)
-else
-# Do not build dynamic files on OSE
-debug opt valgrind:
-endif
 
 static_lib: $(NIF_ARCHIVE)
 
@@ -203,13 +198,11 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
 	$(INSTALL_DATA) $(NIF_MAKEFILE) "$(RELSYSDIR)/priv/obj"
-ifneq ($(findstring ose,$(TARGET)),ose)
 	$(INSTALL_PROGRAM) $(CRYPTO_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(NIF_LIB) "$(RELSYSDIR)/priv/lib"
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 	$(INSTALL_PROGRAM) $(CALLBACK_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
-endif
 endif
 
 release_docs_spec:

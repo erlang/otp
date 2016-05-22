@@ -1,3 +1,3 @@
 
-app_call.erl:6: The call M:'foo'() requires that M is of type atom() | tuple() not 42
+app_call.erl:6: The call M:'foo'() requires that M is of type atom() not 42
 app_call.erl:9: The call 'mod':F() requires that F is of type atom() not {'gazonk',[]}

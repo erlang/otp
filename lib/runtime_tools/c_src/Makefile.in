@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2012. All Rights Reserved.
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,20 +33,17 @@ VSN=$(RUNTIME_TOOLS_VSN)
 # be set for that system only.
 # ----------------------------------------------------
 CC = $(DED_CC)
-CFLAGS = $(DED_CFLAGS)
+CFLAGS = $(DED_CFLAGS) -I./
 LD = $(DED_LD)
 SHELL = /bin/sh
 LIBS = $(DED_LIBS)
 LDFLAGS += $(DED_LDFLAGS)
 
-DTRACE_LIBNAME = dyntrace
+TRACE_LIBNAME = dyntrace trace_file_drv trace_ip_drv
 
 SYSINCLUDE = $(DED_SYS_INCLUDE)
 
 TRACE_DRV_INCLUDES = $(SYSINCLUDE)
-
-ALL_CFLAGS = $(CFLAGS) @DEFS@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES) \
-	-I$(OBJDIR) -I$(ERL_TOP)/erts/emulator/$(TARGET)
 
 ifeq ($(TYPE),debug)
 TYPEMARKER = .debug
@@ -61,6 +58,9 @@ TYPE_FLAGS = $(CFLAGS)
 endif
 endif
 
+ALL_CFLAGS = @DEFS@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES) \
+	-I$(OBJDIR) -I$(ERL_TOP)/erts/emulator/$(TARGET)
+
 ROOTDIR = $(ERL_TOP)/lib
 PRIVDIR = ../priv
 LIBDIR = $(PRIVDIR)/lib/$(TARGET)
@@ -74,42 +74,16 @@ RELSYSDIR = $(RELEASE_PATH)/lib/runtime_tools-$(VSN)
 # ----------------------------------------------------
 # Misc Macros
 # ----------------------------------------------------
-before_DTrace_OBJS = $(OBJDIR)/dyntrace$(TYPEMARKER).o
-## NIF_MAKEFILE = $(PRIVDIR)/Makefile
 
-# Higher-level makefiles says that we can only compile on UNIX flavors
-NIF_LIB = $(LIBDIR)/dyntrace$(TYPEMARKER).@DED_EXT@
+TRACE_LIBS = $(foreach LIB, $(TRACE_LIBNAME), $(LIBDIR)/$(LIB)$(TYPEMARKER).@DED_EXT@)
 
-ifeq ($(HOST_OS),)
-HOST_OS := $(shell $(ERL_TOP)/erts/autoconf/config.guess)
-endif
-
-TRACE_IP_DRV_OBJS = \
-	$(OBJDIR)/trace_ip_drv.o
-
-TRACE_FILE_DRV_OBJS = \
-	$(OBJDIR)/trace_file_drv.o
-
-ifeq ($(findstring win32,$(TARGET)), win32)
-SOLIBS = $(LIBDIR)/trace_ip_drv.dll $(LIBDIR)/trace_file_drv.dll
-LN=cp
-else
-SOLIBS = $(LIBDIR)/trace_ip_drv.so $(LIBDIR)/trace_file_drv.so
-endif
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-ifneq ($(findstring ose,$(TARGET)),ose)
-debug opt valgrind: $(SOLIBS) $(OBJDIR) $(LIBDIR) $(NIF_LIB)
-else
-# We do not build this on OSE
-debug opt valgrind:
-endif
-
-DYNTRACE_OBJS = $(before_DTrace_OBJS)
+debug opt valgrind: $(SOLIBS) $(OBJDIR) $(LIBDIR) $(TRACE_LIBS)
 
 $(OBJDIR):
 	-@mkdir -p $(OBJDIR)
@@ -117,52 +91,26 @@ $(OBJDIR):
 $(LIBDIR):
 	-@mkdir -p $(LIBDIR)
 
-$(OBJDIR)/dyntrace$(TYPEMARKER).o: dyntrace.c
-	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+$(OBJDIR)/%$(TYPEMARKER).o: %.c dyntrace_lttng.h
 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
 
-$(NIF_LIB): $(DYNTRACE_OBJS)
-	$(V_at)$(INSTALL_DIR) $(LIBDIR)
-	$(V_LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-
-$(OBJDIR)/%.o: %.c
-	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
-
-$(LIBDIR)/trace_ip_drv.so: $(TRACE_IP_DRV_OBJS)
-	$(V_LD) $(LDFLAGS) -o $@ $^ -lc $(LIBS)
-
-$(LIBDIR)/trace_file_drv.so: $(TRACE_FILE_DRV_OBJS)
-	$(V_LD) $(LDFLAGS) -o $@ $^ -lc $(LIBS)
-
-$(LIBDIR)/trace_ip_drv.dll: $(TRACE_IP_DRV_OBJS)
-	$(V_LD) $(LDFLAGS) -o $@ $^ $(LIBS)
-$(LIBDIR)/trace_file_drv.dll: $(TRACE_FILE_DRV_OBJS)
+$(LIBDIR)/%$(TYPEMARKER).@DED_EXT@: $(OBJDIR)/%$(TYPEMARKER).o
 	$(V_LD) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean:
-	rm -f $(SOLIBS) $(TRACE_IP_DRV_OBJS) $(TRACE_FILE_DRV_OBJS)
-	rm -f $(LIBDIR)/dyntrace.@DED_EXT@
-	rm -f $(LIBDIR)/dyntrace.debug.@DED_EXT@
-	rm -f $(LIBDIR)/dyntrace.valgrind.@DED_EXT@
-	rm -f $(OBJDIR)/dyntrace.o
-	rm -f $(OBJDIR)/dyntrace.debug.o
-	rm -f $(OBJDIR)/dyntrace.valgrind.o
+	rm -f $(TRACE_LIBS)
 	rm -f core *~
 
 docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
-ifneq ($(findstring ose,$(TARGET)),ose)
-	$(INSTALL_PROGRAM) $(DYNTRACE_OBJS) "$(RELSYSDIR)/priv/obj"
-	$(INSTALL_PROGRAM) $(NIF_LIB) $(SOLIBS) "$(RELSYSDIR)/priv/lib"
-endif
+	$(INSTALL_PROGRAM) $(TRACE_LIBS) "$(RELSYSDIR)/priv/lib"
 
 release_docs_spec:
 

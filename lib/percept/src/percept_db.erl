@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,21 +24,17 @@
 
 -module(percept_db).
 
--export([
-	start/0,
-	stop/0,
-	insert/1,
-	select/2,
-	select/1,
-	consolidate/0
-	]).
+-export([start/0,
+         stop/0,
+         insert/1,
+         select/2,
+         select/1,
+         consolidate/0]).
 
 -include("percept.hrl").
 -define(STOP_TIMEOUT, 1000).
 %%==========================================================================
-%%
-%% 		Type definitions 
-%%
+%% Type definitions
 %%==========================================================================
 
 %% @type activity_option() = 
@@ -64,9 +60,7 @@
 
 
 %%==========================================================================
-%%
-%% 		Interface functions
-%%
+%% Interface functions
 %%==========================================================================
 
 %% @spec start() -> ok | {started, Pid} | {restarted, Pid}
@@ -100,7 +94,7 @@ restart(PerceptDB)->
 -spec do_start()-> pid().
 
 do_start()->
-    Pid = spawn( fun() -> init_percept_db() end),
+    Pid = spawn(fun() -> init_percept_db() end),
     erlang:register(percept_db, Pid),
     Pid.
 
@@ -123,17 +117,17 @@ stop() ->
 %% @private
 %% @doc Stops the percept database, with a synchronous call.
 
--spec stop_sync(pid())-> true.
+-spec stop_sync(pid()) -> true.
 
-stop_sync(Pid)->
+stop_sync(Pid) ->
     MonitorRef = erlang:monitor(process, Pid),
-    stop(),
+    _ = stop(),
     receive
         {'DOWN', MonitorRef, _Type, Pid, _Info}->
             true
     after ?STOP_TIMEOUT->
-            erlang:demonitor(MonitorRef, [flush]),
-            exit(Pid, kill)
+              erlang:demonitor(MonitorRef, [flush]),
+              exit(Pid, kill)
     end.
 
 %% @spec insert(tuple()) -> ok
@@ -186,26 +180,24 @@ consolidate() ->
     ok.
 
 %%==========================================================================
-%%
-%% 		Database loop 
-%%
+%% Database loop
 %%==========================================================================
 
 init_percept_db() ->
     % Proc and Port information
-    ets:new(pdb_info, [named_table, private, {keypos, #information.id}, set]),
+    pdb_info = ets:new(pdb_info, [named_table, private, {keypos, #information.id}, set]),
 
     % Scheduler runnability
-    ets:new(pdb_scheduler, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
+    pdb_scheduler = ets:new(pdb_scheduler, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
     
     % Process and Port runnability
-    ets:new(pdb_activity, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
+    pdb_activity = ets:new(pdb_activity, [named_table, private, {keypos, #activity.timestamp}, ordered_set]),
     
     % System status
-    ets:new(pdb_system, [named_table, private, {keypos, 1}, set]),
+    pdb_system = ets:new(pdb_system, [named_table, private, {keypos, 1}, set]),
     
     % System warnings
-    ets:new(pdb_warnings, [named_table, private, {keypos, 1}, ordered_set]),
+    pdb_warnings = ets:new(pdb_warnings, [named_table, private, {keypos, 1}, ordered_set]),
     put(debug, 0),
     loop_percept_db().
 
@@ -232,9 +224,7 @@ loop_percept_db() ->
     end.
 
 %%==========================================================================
-%%
-%% 		Auxiliary functions 
-%%
+%% Auxiliary functions
 %%==========================================================================
 
 %% cleans trace messages from external pids
@@ -788,5 +778,3 @@ update_system_stop_ts(TS) ->
 	Unhandled -> 
 	    io:format("update_system_stop_ts, unhandled ~p ~n", [Unhandled])
     end.
-	    
-

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 #  include "config.h"
 #endif
 
-#include "erl_native_features_config.h"
 #include "erl_drv_nif.h"
 
 /* Version history:
@@ -50,9 +49,10 @@
 ** 2.8: 18.0 add enif_has_pending_exception
 ** 2.9: 18.2 enif_getenv
 ** 2.10: Time API
+** 2.11: 19.0 enif_snprintf
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 10
+#define ERL_NIF_MINOR_VERSION 11
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -77,13 +77,8 @@ typedef ErlNapiSInt64 ErlNifSInt64;
 typedef ErlNapiUInt ErlNifUInt;
 typedef ErlNapiSInt ErlNifSInt;
 
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define ERL_NIF_VM_VARIANT "beam.halfword" 
-typedef unsigned int ERL_NIF_TERM;
-#else
 #  define ERL_NIF_VM_VARIANT "beam.vanilla" 
 typedef ErlNifUInt ERL_NIF_TERM;
-#endif
 
 typedef ERL_NIF_TERM ERL_NIF_UINT;
 
@@ -92,16 +87,16 @@ typedef ErlNifSInt64 ErlNifTime;
 #define ERL_NIF_TIME_ERROR ((ErlNifSInt64) ERTS_NAPI_TIME_ERROR__)
 
 typedef enum {
-    ERL_NIF_SEC = ERTS_NAPI_SEC__,
-    ERL_NIF_MSEC = ERTS_NAPI_MSEC__,
-    ERL_NIF_USEC = ERTS_NAPI_USEC__,
-    ERL_NIF_NSEC = ERTS_NAPI_NSEC__
+    ERL_NIF_SEC    = ERTS_NAPI_SEC__,
+    ERL_NIF_MSEC   = ERTS_NAPI_MSEC__,
+    ERL_NIF_USEC   = ERTS_NAPI_USEC__,
+    ERL_NIF_NSEC   = ERTS_NAPI_NSEC__
 } ErlNifTimeUnit;
 
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;
 
-typedef struct
+typedef struct enif_func_t
 {
     const char* name;
     unsigned arity;
@@ -155,7 +150,12 @@ typedef enum
 typedef struct
 {
     ERL_NIF_TERM pid;  /* internal, may change */
-}ErlNifPid;
+} ErlNifPid;
+
+typedef struct
+{
+    ERL_NIF_TERM port_id;  /* internal, may change */
+}ErlNifPort;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 
@@ -167,13 +167,11 @@ typedef int ErlNifTSDKey;
 
 typedef ErlDrvThreadOpts ErlNifThreadOpts;
 
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
 typedef enum
 {
-    ERL_NIF_DIRTY_JOB_CPU_BOUND = ERL_DRV_DIRTY_JOB_CPU_BOUND,
-    ERL_NIF_DIRTY_JOB_IO_BOUND  = ERL_DRV_DIRTY_JOB_IO_BOUND
+    ERL_NIF_DIRTY_JOB_CPU_BOUND = ERL_DIRTY_JOB_CPU_BOUND,
+    ERL_NIF_DIRTY_JOB_IO_BOUND  = ERL_DIRTY_JOB_IO_BOUND
 }ErlNifDirtyTaskFlags;
-#endif
 
 typedef struct /* All fields all internal and may change */
 {
@@ -202,6 +200,15 @@ typedef enum {
     ERL_NIF_MAP_ITERATOR_TAIL = ERL_NIF_MAP_ITERATOR_LAST
 } ErlNifMapIteratorEntry;
 
+typedef enum {
+    ERL_NIF_UNIQUE_POSITIVE = (1 << 0),
+    ERL_NIF_UNIQUE_MONOTONIC = (1 << 1)
+} ErlNifUniqueInteger;
+
+typedef enum {
+    ERL_NIF_BIN2TERM_SAFE = 0x20000000
+} ErlNifBinaryToTerm;
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {
@@ -226,27 +233,29 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
-#  ifdef STATIC_ERLANG_NIF
-#    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* MODNAME ## _nif_init(TWinDynNifCallbacks* callbacks)
-#  else
-#    define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
-#  endif
+#  define ERL_NIF_INIT_ARGS TWinDynNifCallbacks* callbacks
 #  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
+#  define ERL_NIF_INIT_EXPORT __declspec(dllexport)
 #else 
 #  define ERL_NIF_INIT_GLOB
+#  define ERL_NIF_INIT_ARGS void
 #  define ERL_NIF_INIT_BODY
-#  ifdef STATIC_ERLANG_NIF
-#    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* MODNAME ## _nif_init(void)
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_NIF_INIT_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_NIF_INIT_EXPORT __global
 #  else
-#    define ERL_NIF_INIT_DECL(MODNAME)  ErlNifEntry* nif_init(void)
+#    define ERL_NIF_INIT_EXPORT
 #  endif
 #endif
 
-#ifdef ERL_NIF_DIRTY_SCHEDULER_SUPPORT
-#  define ERL_NIF_ENTRY_OPTIONS ERL_NIF_DIRTY_NIF_OPTION
+#ifdef STATIC_ERLANG_NIF
+#  define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* MODNAME ## _nif_init(ERL_NIF_INIT_ARGS)
 #else
-#  define ERL_NIF_ENTRY_OPTIONS 0
+#  define ERL_NIF_INIT_DECL(MODNAME) ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
+
+#define ERL_NIF_ENTRY_OPTIONS ERL_NIF_DIRTY_NIF_OPTION
 
 #ifdef __cplusplus
 }

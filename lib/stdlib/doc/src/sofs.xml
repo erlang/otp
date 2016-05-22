@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -399,8 +399,7 @@ fun(S) -> sofs:partition(1, S) end
     <datatype>
       <!-- Parameterized opaque types are NYI: -->
       <name>tuple_of(T)</name>
-      <desc><p><marker id="type-tuple_of"/>
-        A tuple where the elements are of type <c>T</c>.</p></desc>
+      <desc><p>A tuple where the elements are of type <c>T</c>.</p></desc>
     </datatype>
   </datatypes>
   <funcs>

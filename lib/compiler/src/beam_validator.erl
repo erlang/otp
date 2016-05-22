@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,15 +30,6 @@
 -include("beam_disasm.hrl").
 
 -import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
-
--define(MAXREG, 1024).
-
-%%-define(DEBUG, 1).
--ifdef(DEBUG).
--define(DBG_FORMAT(F, D), (io:format((F), (D)))).
--else.
--define(DBG_FORMAT(F, D), ok).
--endif.
 
 %% To be called by the compiler.
 module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
@@ -170,29 +161,18 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 		% in the module (those that start with bs_start_match2).
 	}).
 
--ifdef(DEBUG).
-print_st(#st{x=Xs,y=Ys,numy=NumY,h=H,ct=Ct}) ->
-    io:format("  #st{x=~p~n"
-	      "      y=~p~n"
-	      "      numy=~p,h=~p,ct=~w~n",
-	      [gb_trees:to_list(Xs),gb_trees:to_list(Ys),NumY,H,Ct]).
--endif.
-
 validate_1(Is, Name, Arity, Entry, Ft) ->
     validate_2(labels(Is), Name, Arity, Entry, Ft).
 
 validate_2({Ls1,[{func_info,{atom,Mod},{atom,Name},Arity}=_F|Is]},
 	   Name, Arity, Entry, Ft) ->
-    lists:foreach(fun (_L) -> ?DBG_FORMAT("  ~p.~n", [{label,_L}]) end, Ls1),
-    ?DBG_FORMAT("  ~p.~n", [_F]),
     validate_3(labels(Is), Name, Arity, Entry, Mod, Ls1, Ft);
 validate_2({Ls1,Is}, Name, Arity, _Entry, _Ft) ->
     error({{'_',Name,Arity},{first(Is),length(Ls1),illegal_instruction}}).
 
 validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
-    lists:foreach(fun (_L) -> ?DBG_FORMAT("  ~p.~n", [{label,_L}]) end, Ls2),
     Offset = 1 + length(Ls1) + 1 + length(Ls2),
-    EntryOK = (Entry =:= undefined) orelse lists:member(Entry, Ls2),
+    EntryOK = lists:member(Entry, Ls2),
     if
 	EntryOK ->
 	    St = init_state(Arity),
@@ -260,7 +240,6 @@ valfun([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
 	    error({MFA,Error})
     end;
 valfun([I|Is], MFA, Offset, Vst0) ->
-    ?DBG_FORMAT("    ~p.\n", [I]),
     valfun(Is, MFA, Offset+1,
 	   try
 	       Vst = val_dsetel(I, Vst0),
@@ -278,7 +257,6 @@ valfun_1({label,Lbl}, #vst{current=St0,branched=B,labels=Lbls}=Vst) ->
 valfun_1(_I, #vst{current=none}=Vst) ->
     %% Ignore instructions after erlang:error/1,2, which
     %% the original R10B compiler thought would return.
-    ?DBG_FORMAT("Ignoring ~p\n", [_I]),
     Vst;
 valfun_1({badmatch,Src}, Vst) ->
     assert_term(Src, Vst),
@@ -531,6 +509,9 @@ valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     TupleType = upgrade_tuple_type({tuple,[get_tuple_size(PosType)]}, TupleType0),
     Vst = set_type(TupleType, Tuple, Vst1),
     set_type_reg(term, Dst, Vst);
+valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
+    validate_src(Src, Vst),
+    kill_state(Vst);
 valfun_4({bif,Op,{f,Fail},Src,Dst}, Vst0) ->
     validate_src(Src, Vst0),
     Vst = branch_state(Fail, Vst0),
@@ -980,9 +961,9 @@ get_fls(#vst{current=#st{fls=Fls}}) when is_atom(Fls) -> Fls.
 
 init_fregs() -> 0.
 
-set_freg({fr,Fr}, #vst{current=#st{f=Fregs0}=St}=Vst)
+set_freg({fr,Fr}=Freg, #vst{current=#st{f=Fregs0}=St}=Vst)
   when is_integer(Fr), 0 =< Fr ->
-    limit_check(Fr),
+    check_limit(Freg),
     Bit = 1 bsl Fr,
     if
 	Fregs0 band Bit =:= 0 ->
@@ -995,9 +976,10 @@ set_freg(Fr, _) -> error({bad_target,Fr}).
 assert_freg_set({fr,Fr}=Freg, #vst{current=#st{f=Fregs}})
   when is_integer(Fr), 0 =< Fr ->
     if
-	Fregs band (1 bsl Fr) =/= 0 ->
-	    limit_check(Fr);
-	true -> error({uninitialized_reg,Freg})
+	(Fregs bsr Fr) band 1 =:= 0 ->
+	    error({uninitialized_reg,Freg});
+	true ->
+	    ok
     end;
 assert_freg_set(Fr, _) -> error({bad_source,Fr}).
 
@@ -1076,16 +1058,16 @@ set_type(Type, {x,_}=Reg, Vst) -> set_type_reg(Type, Reg, Vst);
 set_type(Type, {y,_}=Reg, Vst) -> set_type_y(Type, Reg, Vst);
 set_type(_, _, #vst{}=Vst) -> Vst.
 
-set_type_reg(Type, {x,X}, #vst{current=#st{x=Xs}=St}=Vst) 
+set_type_reg(Type, {x,X}=Reg, #vst{current=#st{x=Xs}=St}=Vst)
   when is_integer(X), 0 =< X ->
-    limit_check(X),
+    check_limit(Reg),
     Vst#vst{current=St#st{x=gb_trees:enter(X, Type, Xs)}};
 set_type_reg(Type, Reg, Vst) ->
     set_type_y(Type, Reg, Vst).
 
 set_type_y(Type, {y,Y}=Reg, #vst{current=#st{y=Ys0}=St}=Vst)
   when is_integer(Y), 0 =< Y ->
-    limit_check(Y),
+    check_limit(Reg),
     Ys = case gb_trees:lookup(Y, Ys0) of
 	     none ->
 		 error({invalid_store,Reg,Type});
@@ -1612,17 +1594,19 @@ return_type_math(pow, 2) -> {float,[]};
 return_type_math(pi, 0) -> {float,[]};
 return_type_math(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 
-limit_check(Num) when is_integer(Num), Num >= ?MAXREG ->
-    error(limit);
-limit_check(_) -> ok.
+check_limit({x,X}) when is_integer(X), X < 1023 ->
+    %% Note: x(1023) is reserved for use by the BEAM loader.
+    ok;
+check_limit({y,Y}) when is_integer(Y), Y < 1024 ->
+    ok;
+check_limit({fr,Fr}) when is_integer(Fr), Fr < 1024 ->
+    ok;
+check_limit(_) ->
+    error(limit).
 
 min(A, B) when is_integer(A), is_integer(B), A < B -> A;
 min(A, B) when is_integer(A), is_integer(B) -> B.
 
 gb_trees_from_list(L) -> gb_trees:from_orddict(lists:sort(L)).
 
--ifdef(DEBUG).
-error(Error) -> exit(Error).
--else.
 error(Error) -> throw(Error).
--endif.

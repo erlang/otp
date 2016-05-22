@@ -118,7 +118,7 @@
       <p><c> not_encrypted | cipher_info()}</c></p></item>
       
       <tag><c>cipher_info() = </c></tag>
-      <item><p><c>{"RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC", crypto:rand_bytes(8)</c></p>
+      <item><p><c>{"RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC", crypto:strong_rand_bytes(8)</c></p>
       <p><c>| {#'PBEParameter{}, digest_type()} | #'PBES2-params'{}}</c></p>
       </item>
       
@@ -141,7 +141,7 @@
       <item><p><c>#'DSAPrivateKey'{}</c></p></item>
 
       <tag><c>ec_public_key()</c></tag>
-      <item><p>= <c>{#'ECPoint'{}, #'EcpkParameters'{} | {namedCurve, oid()}}</c></p></item>
+      <item><p>= <c>{#'ECPoint'{}, #'ECParameters'{} | {namedCurve, oid()}}</c></p></item>
 
       <tag><c>ec_private_key() =</c></tag>
       <item><p><c>#'ECPrivateKey'{}</c></p></item>
@@ -418,13 +418,14 @@
       <v>Entity = term()</v>
       <d>Erlang representation of
       <c>Asn1Type</c>.  If <c>Asn1Type</c> is 'SubjectPublicKeyInfo',
-      <c>Entity</c> must be either an <c>rsa_public_key()</c> or a
-      <c>dsa_public_key()</c> and this function creates the appropriate
+      <c>Entity</c> must be either an <c>rsa_public_key()</c>, 
+      <c>dsa_public_key()</c> or an <c>ec_public_key()</c>
+      and this function creates the appropriate
       'SubjectPublicKeyInfo' entry.
       </d>
       <v>CipherInfo = cipher_info()</v>
       <v>Password = string()</v> 
-  </type> 
+    </type> 
   <desc> 
     <p>Creates a PEM entry that can be feed to <c>pem_encode/1</c>.</p>
   </desc> 

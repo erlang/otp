@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2015</year>
+      <year>2001</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -138,29 +138,6 @@ ok
      automatically unloaded when the module code that it belongs to is purged
      by the code server.</p>
 
-     <p><marker id="lengthy_work"/>
-     As mentioned in the <seealso marker="#WARNING">warning</seealso> text at
-     the beginning of this document it is of vital importance that a native function
-     return relatively quickly. It is hard to give an exact maximum amount
-     of time that a native function is allowed to work, but as a rule of thumb
-     a well-behaving native function should return to its caller before a
-     millisecond has passed. This can be achieved using different approaches.
-     If you have full control over the code to execute in the native
-     function, the best approach is to divide the work into multiple chunks of
-     work and call the native function multiple times, either directly from Erlang code
-     or by having a native function schedule a future NIF call via the
-     <seealso marker="#enif_schedule_nif"> enif_schedule_nif</seealso> function. Function
-     <seealso marker="#enif_consume_timeslice">enif_consume_timeslice</seealso> can be
-     used to help with such work division. In some cases, however, this might not
-     be possible, e.g. when calling third-party libraries. Then you typically want
-     to dispatch the work to another thread, return
-     from the native function, and wait for the result. The thread can send
-     the result back to the calling thread using message passing. Information
-     about thread primitives can be found below. If you have built your system
-     with <em>the currently experimental</em> support for dirty schedulers,
-     you may want to try out this functionality by dispatching the work to a
-     <seealso marker="#dirty_nifs">dirty NIF</seealso>,
-     which does not have the same duration restriction as a normal NIF.</p>
   </description>
   <section>
   <title>FUNCTIONALITY</title>
@@ -328,38 +305,161 @@ ok
       </list></p>
       </item>
 
-      <tag>Long-running NIFs</tag>
-      <item><p><marker id="dirty_nifs"/>Native functions
-      <seealso marker="#lengthy_work">
-      must normally run quickly</seealso>, as explained earlier in this document. They
-      generally should execute for no more than a millisecond. But not all native functions
-      can execute so quickly; for example, functions that encrypt large blocks of data or
-      perform lengthy file system operations can often run for tens of seconds or more.</p>
-      <p>If the functionality of a long-running NIF can be split so that its work can be
-      achieved through a series of shorter NIF calls, the application can either make that series
-      of NIF calls from the Erlang level, or it can call a NIF that first performs a chunk of the
-      work, then invokes the <seealso marker="#enif_schedule_nif">enif_schedule_nif</seealso>
-      function to schedule another NIF call to perform the next chunk. The final call scheduled
-      in this manner can then return the overall result. Breaking up a long-running function in
-      this manner enables the VM to regain control between calls to the NIFs, thereby avoiding
-      degraded responsiveness, scheduler load balancing problems, and other strange behaviours.</p>
-      <p>A NIF that cannot be split and cannot execute in a millisecond or less is called a "dirty NIF"
-      because it performs work that the Erlang runtime cannot handle cleanly.
-      <em>Note that the dirty NIF functionality described here is experimental</em> and that you have to
-      enable support for dirty schedulers when building OTP in order to try the functionality out.
-      Applications that make use of such functions must indicate to the runtime that the functions are
-      dirty so they can be handled specially. To schedule a dirty NIF for execution, the
-      appropriate flags value can be set for the NIF in its <seealso marker="#ErlNifFunc">ErlNifFunc</seealso>
-      entry, or the application can call <seealso marker="#enif_schedule_nif">enif_schedule_nif</seealso>,
-      passing to it a pointer to the dirty NIF to be executed and indicating with the <c>flags</c>
-      argument whether it expects the operation to be CPU-bound or I/O-bound.</p>
-      <note><p>Dirty NIF support is available only when the emulator is configured with dirty
-      schedulers enabled. This feature is currently disabled by default. To determine whether
-      the dirty NIF API is available, native code can check to see if the C preprocessor macro
-      <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined. Also, if the Erlang runtime was built
-      without threading support, dirty schedulers are disabled. To check at runtime for the presence
-      of dirty scheduler threads, code can use the <seealso marker="#enif_system_info"><c>
-      enif_system_info()</c></seealso> API function.</p></note>
+      <tag><marker id="lengthy_work"/>Long-running NIFs</tag>
+
+      <item><p>
+	As mentioned in the <seealso marker="#WARNING">warning</seealso> text at
+	the beginning of this document it is of <em>vital importance</em> that a 
+	native function return relatively quickly. It is hard to give an exact
+	maximum amount of time that a native function is allowed to work, but as a
+	rule of thumb a well-behaving native function should return to its caller
+	before a millisecond has passed. This can be achieved using different
+	approaches. If you have full control over the code to execute in the
+	native function, the best approach is to divide the work into multiple
+	chunks of work and call the native function multiple times. In some
+	cases this might however not always be possible, e.g. when calling
+	third-party libraries.</p>
+	
+	<p>The
+	<seealso marker="#enif_consume_timeslice">enif_consume_timeslice()</seealso>
+	function can be used to inform the runtime system about the lenght of the
+	NIF call. It should typically always be used unless the NIF executes very
+	quickly.</p>
+
+	<p>If the NIF call is too lenghty one needs to handle this in one of the
+	following ways in order to avoid degraded responsiveness, scheduler load
+	balancing problems, and other strange behaviours:</p>
+
+	<taglist>
+	  <tag>Yielding NIF</tag>
+	  <item>
+	    <p>
+	      If the functionality of a long-running NIF can be split so that
+	      its work can be achieved through a series of shorter NIF calls,
+	      the application can either make that series of NIF calls from the
+	      Erlang level, or it can call a NIF that first performs a chunk of
+	      the work, then invokes the
+	      <seealso marker="#enif_schedule_nif">enif_schedule_nif</seealso>
+	      function to schedule another NIF call to perform the next chunk.
+	      The final call scheduled in this manner can then return the
+	      overall result. Breaking up a long-running function in
+	      this manner enables the VM to regain control between calls to the
+	      NIFs.
+	    </p>
+	    <p>
+	      This approach is always preferred over the other alternatives
+	      described below. This both from a performance perspective and
+	      a system characteristics perspective.
+	    </p>
+	  </item>
+
+	  <tag>Threaded NIF</tag>
+	  <item>
+	    <p>
+	      This is accomplished by dispatching the work to another thread
+	      managed by the NIF library, return from the NIF, and wait for the
+	      result. The thread can send the result back to the Erlang
+	      process using <seealso marker="#enif_send">enif_send</seealso>.
+	      Information about thread primitives can be found below.
+	    </p>
+	  </item>
+
+	  <tag><marker id="dirty_nifs"/>Dirty NIF</tag>
+	  <item>
+
+	    <note>
+	      <p>
+		<em>The dirty NIF functionality described here
+		is experimental</em>. Dirty NIF support is available only when
+		the emulator is configured with dirty schedulers enabled. This
+		feature is currently disabled by default. The Erlang runtime
+		without SMP support do not support dirty schedulers even when
+		the dirty scheduler support has been enabled. To check at
+		runtime for the presence of dirty scheduler threads, code can
+		use the
+		<seealso marker="#enif_system_info"><c>enif_system_info()</c></seealso>
+		API function.
+	      </p>
+	    </note>
+
+	    <p>
+	      A NIF that cannot be split and cannot execute in a millisecond or
+	      less is called a "dirty NIF" because it performs work that the
+	      Erlang runtime cannot handle cleanly. Applications that make use
+	      of such functions must indicate to the runtime that the functions
+	      are dirty so they can be handled specially. To schedule a dirty
+	      NIF for execution, the appropriate flags value can be set for the
+	      NIF in its <seealso marker="#ErlNifFunc"><c>ErlNifFunc</c></seealso>
+	      entry, or the application can call
+	      <seealso marker="#enif_schedule_nif"><c>enif_schedule_nif</c></seealso>,
+	      passing to it a pointer to the dirty NIF to be executed and
+	      indicating with the <c>flags</c> argument whether it expects the
+	      operation to be CPU-bound or I/O-bound. A dirty NIF executing
+	      on a dirty scheduler does not have the same duration restriction
+	      as a normal NIF.
+	    </p>
+
+	    <p>
+	      While a process is executing a dirty NIF some operations that
+	      communicate with it may take a very long time to complete.
+	      Suspend, or garbage collection of a process executing a dirty
+	      NIF cannot be done until the dirty NIF has returned, so other
+	      processes waiting for such operations to complete might have to
+	      wait for a very long time. Blocking multi scheduling, i.e.,
+	      calling
+	      <seealso marker="erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
+	      block)</c></seealso>, might also take a very long time to
+	      complete. This since all ongoing dirty operations on all
+	      dirty schedulers need to complete before the the block
+	      operation can complete.
+	    </p>
+
+	    <p>
+	      A lot of operations communicating with a process executing a
+	      dirty NIF can, however, complete while it is executing the
+	      dirty NIF. For example, retreiving information about it via
+	      <c>process_info()</c>, setting its group leader,
+	      register/unregister its name, etc.
+	    </p>
+
+	    <p>
+	      Termination of a process executing a dirty NIF can only be
+	      completed up to a certain point while it is executing the
+	      dirty NIF. All Erlang resources such as registered names,
+	      ETS tables, etc will be released. All links and monitors
+	      will be triggered. The actual execution of the NIF will
+	      however <em>not</em> be stopped. The NIF can safely contiue
+	      execution, allocate heap memory, etc, but it is of course better
+	      to stop executing as soon as possible. The NIF can check
+	      whether current process is alive or not using
+	      <seealso marker="#enif_is_current_process_alive"><c>enif_is_current_process_alive</c></seealso>.
+	      Communication using
+	      <seealso marker="#enif_send"><c>enif_send</c></seealso>,
+	      and <seealso marker="#enif_port_command"><c>enif_port_command</c></seealso>
+	      will also be dropped when the sending process is not alive.
+	      Deallocation of certain internal resources such as process
+	      heap, and process control block will be delayed until the
+	      dirty NIF has completed.
+	    </p>
+
+	    <p>Currently known issues that are planned to be fixed:</p>
+	    <list>
+	      <item>
+		<p>
+		  Since purging of a module currently might need to garbage
+		  collect a process in order to determine if it has
+		  references to the module, a process executing a dirty
+		  NIF might delay purging for a very long time. Delaying
+		  a purge operatin implies delaying <em>all</em> code
+		  loding operations which might cause severe problems for
+		  the system as a whole.
+		</p>
+	      </item>
+	    </list>
+
+	  </item>
+	</taglist>
+
       </item>
     </taglist>
   </section>
@@ -508,6 +608,10 @@ typedef struct {
         CPU-bound, its <c>flags</c> field should be set to
         <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c>, or for I/O-bound jobs,
         <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c>.</p>
+	<note><p>If one of the
+	<c>ERL_NIF_DIRTY_JOB_*_BOUND</c> flags is set, and the runtime
+	system has no support for dirty schedulers, the runtime system
+	will refuse to load the NIF library.</p></note>
       </item>
     <tag><marker id="ErlNifBinary"/>ErlNifBinary</tag>
      <item>
@@ -524,12 +628,32 @@ typedef struct {
           <p>Note that <c>ErlNifBinary</c> is a semi-opaque type and you are
           only allowed to read fields <c>size</c> and <c>data</c>.</p>
       </item>
+
+      <tag><marker id="ErlNifBinaryToTerm"/>ErlNifBinaryToTerm</tag>
+      <item>
+        <p>An enumeration of the options that can be given to
+        <seealso marker="#enif_binary_to_term">enif_binary_to_term</seealso>.
+	For default behavior, use the value <c>0</c>.</p>
+        <taglist>
+	  <tag><c>ERL_NIF_BIN2TERM_SAFE</c></tag>
+	  <item><p>Use this option when receiving data from untrusted sources.</p></item>
+	</taglist>
+      </item>
+
       <tag><marker id="ErlNifPid"/>ErlNifPid</tag>
        <item>
           <p><c>ErlNifPid</c> is a process identifier (pid). In contrast to
           pid terms (instances of <c>ERL_NIF_TERM</c>), <c>ErlNifPid</c>'s are self
           contained and not bound to any
           <seealso marker="#ErlNifEnv">environment</seealso>. <c>ErlNifPid</c>
+          is an opaque type.</p>
+        </item>
+      <tag><marker id="ErlNifPort"/>ErlNifPort</tag>
+       <item>
+          <p><c>ErlNifPort</c> is a port identifier. In contrast to
+          port id terms (instances of <c>ERL_NIF_TERM</c>), <c>ErlNifPort</c>'s are self
+          contained and not bound to any
+          <seealso marker="#ErlNifEnv">environment</seealso>. <c>ErlNifPort</c>
           is an opaque type.</p>
         </item>
 
@@ -546,8 +670,7 @@ typedef struct {
            <code type="none">
 typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);
 </code>
-            <p>The function prototype of a resource destructor function.
-            A destructor function is not allowed to call any term-making functions.</p>
+            <p>The function prototype of a resource destructor function.</p>
           </item>
           <tag><marker id="ErlNifCharEncoding"/>ErlNifCharEncoding</tag>
            <item>
@@ -591,6 +714,21 @@ typedef enum {
 	</taglist>
       </item>
 
+      <tag><marker id="ErlNifUniqueInteger"/>ErlNifUniqueInteger</tag>
+      <item>
+        <p>An enumeration of the properties that can be requested from
+        <seealso marker="#enif_make_unique_integer">enif_unique_integer</seealso>.
+	For default properties, use the value <c>0</c>.</p>
+        <taglist>
+	  <tag><c>ERL_NIF_UNIQUE_POSITIVE</c></tag>
+	  <item><p>Return only positive integers</p></item>
+	  <tag><c>ERL_NIF_UNIQUE_MONOTONIC</c></tag>
+	  <item><p>Return only
+	  <seealso marker="time_correction#Strictly_Monotonically_Increasing">strictly
+	  monotonically increasing</seealso> integer corresponding to creation time</p></item>
+	</taglist>
+      </item>
+
     </taglist>
   </section>
 
@@ -631,6 +769,25 @@ typedef enum {
       <desc><p>Free all terms in an environment and clear it for reuse. The environment must
       have been allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
       </p></desc>
+    </func>
+    <func><name><ret>size_t</ret><nametext>enif_binary_to_term(ErlNifEnv *env, const unsigned char* data, size_t size, ERL_NIF_TERM *term, ErlNifBinaryToTerm opts)</nametext></name>
+    <fsummary>Create a term from the external format</fsummary>
+    <desc>
+      <p>Create a term that is the result of decoding the binary data
+      at <c>data</c>, which must be encoded according to the Erlang external term format.
+      No more than <c>size</c> bytes are read from <c>data</c>. Argument <c>opts</c>
+      correspond to the second argument to <seealso marker="erlang#binary_to_term-2">
+      <c>erlang:binary_to_term/2</c></seealso>, and must be either <c>0</c> or
+      <c>ERL_NIF_BIN2TERM_SAFE</c>.</p>
+      <p>On success, store the resulting term at <c>*term</c> and return
+      the actual number of bytes read. Return zero if decoding fails or if <c>opts</c>
+      is invalid.</p>
+      <p>See also:
+        <seealso marker="#ErlNifBinaryToTerm"><c>ErlNifBinaryToTerm</c></seealso>,
+        <seealso marker="erlang#binary_to_term-2"><c>erlang:binary_to_term/2</c></seealso> and
+        <seealso marker="#enif_term_to_binary"><c>enif_term_to_binary</c></seealso>.
+      </p>
+    </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Compare two terms</fsummary>
@@ -689,7 +846,48 @@ typedef enum {
     a number of repeated NIF-calls without the need to create threads.
     See also the <seealso marker="#WARNING">warning</seealso> text at the beginning of this document.</p>
     </desc>
+
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
+      <fsummary>Convert time unit of a time value</fsummary>
+      <desc>
+	<marker id="enif_convert_time_unit"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>val</c></tag>
+	  <item>Value to convert time unit for.</item>
+	  <tag><c>from</c></tag>
+	  <item>Time unit of <c>val</c>.</item>
+	  <tag><c>to</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>Converts the <c>val</c> value of time unit <c>from</c> to
+	the corresponding value of time unit <c>to</c>. The result is
+	rounded using the floor function.</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument.</p>
+	<p>See also:
+	  <seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso> and
+	  <seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_cpu_time(ErlNifEnv *)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns the CPU time in the same format as <seealso marker="erlang#timestamp-0">erlang:timestamp()</seealso>.
+        The CPU time is the time the current logical cpu has spent executing since
+        some arbitrary point in the past.
+        If the OS does not support fetching of this value <c>enif_cpu_time</c>
+        invokes <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
+        </p>
+      </desc>
+    </func>
+
     <func><name><ret>int</ret><nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_equal_tids">erl_drv_equal_tids</seealso>.
@@ -744,6 +942,12 @@ typedef enum {
     pid variable <c>*pid</c> from it and return true. Otherwise return false.
     No check if the process is alive is done.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port_id)</nametext></name>
+    <fsummary>Read an local port term</fsummary>
+    <desc><p>If <c>term</c> identifies a node local port, initialize the
+    port variable <c>*port_id</c> from it and return true. Otherwise return false.
+    No check if the port is alive is done.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext></name>
       <fsummary>Get head and tail from a list</fsummary>
       <desc><p>Set <c>*head</c> and <c>*tail</c> from
@@ -753,7 +957,7 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
       <fsummary>Get the length of list <c>term</c></fsummary>
       <desc><p>Set <c>*len</c> to the length of list <c>term</c> and return true,
-      or return false if <c>term</c> is not a list.</p></desc>
+      or return false if <c>term</c> is not a proper list.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
       <fsummary>Read an long integer term</fsummary>
@@ -863,6 +1067,13 @@ typedef enum {
       <fsummary>Determine if a term is a binary</fsummary>
       <desc><p>Return true if <c>term</c> is a binary</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_is_current_process_alive(ErlNifEnv* env)</nametext></name>
+      <fsummary>Determine if currently executing process is alive or not.</fsummary>
+      <desc><p>Return true if currently executing process is currently alive; otherwise
+      false.</p>
+      <p>This function can only be used from a NIF-calling thread, and with an
+      environment corresponding to currently executing processes.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an empty list</fsummary>
       <desc><p>Return true if <c>term</c> is an empty list.</p></desc>
@@ -893,15 +1104,10 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_is_on_dirty_scheduler(ErlNifEnv* env)</nametext></name>
       <fsummary>Check to see if executing on a dirty scheduler thread</fsummary>
       <desc>
-          <p>Check to see if the current NIF is executing on a dirty scheduler thread. If the
-          emulator is built with threading support, calling <c>enif_is_on_dirty_scheduler</c>
-          from within a dirty NIF returns true. It returns false when the calling NIF is a regular
-          NIF running on a normal scheduler thread, or when the emulator is built without threading
-          support.</p>
-          <note><p>This function is available only when the emulator is configured with dirty
-          schedulers enabled. This feature is currently disabled by default. To determine whether
-          the dirty NIF API is available, native code can check to see if the C preprocessor macro
-          <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> is defined.</p></note>
+          <p>Check to see if the current NIF is executing on a dirty scheduler thread. If
+	  executing on a dirty scheduler thread true returned; otherwise false.</p>
+	  <p>This function can only be used from a NIF-calling thread, and with an
+	  environment corresponding to currently executing processes.</p>
       </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
@@ -911,6 +1117,18 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a port</fsummary>
       <desc><p>Return true if <c>term</c> is a port.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env, ErlNifPort *port_id)</nametext></name>
+      <fsummary>Determine if a local port is alive or not.</fsummary>
+      <desc><p>Return true if <c>port_id</c> is currently alive.</p>
+      <p>This function is only thread-safe when the emulator with SMP support is used.
+      It can only be used in a non-SMP emulator from a NIF-calling thread.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env, ErlNifPid *pid)</nametext></name>
+      <fsummary>Determine if a local process is alive or not.</fsummary>
+      <desc><p>Return true if <c>pid</c> is currently alive.</p>
+      <p>This function is only thread-safe when the emulator with SMP support is used.
+      It can only be used in a non-SMP emulator from a NIF-calling thread.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a reference</fsummary>
@@ -961,7 +1179,7 @@ typedef enum {
       <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
       not to any other NIF API function.</p>
       <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>
-      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>
+      and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>.
       </p>
       <note><p>In earlier versions (older than erts-7.0, OTP 18) the return value
       from <c>enif_make_badarg</c> had to be returned from the NIF. This
@@ -1195,6 +1413,23 @@ typedef enum {
       <fsummary>Create an unsigned integer term</fsummary>
       <desc><p>Create an integer term from an unsigned 64-bit integer.</p></desc>
     </func>
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_unique_integer(ErlNifEnv *env, ErlNifUniqueInteger properties)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Returns a unique integer with the same properties as given by <seealso marker="erlang#unique_integer-1">erlang:unique_integer/1</seealso>.</p>
+        <p><c>env</c> is the environment to create the integer in.</p>
+        <p>
+          <c>ERL_NIF_UNIQUE_POSITIVE</c> and <c>ERL_NIF_UNIQUE_MONOTONIC</c> can
+          be passed as the second argument to change the properties of the
+          integer returned. It is possible to combine them by or:ing the
+          two values together.
+        </p>
+        <p>See also:
+	<seealso marker="#ErlNifUniqueInteger"><c>ErlNifUniqueInteger</c></seealso>.
+	</p>
+      </desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
       <fsummary>Create an integer term from an unsigned long int</fsummary>
       <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
@@ -1265,6 +1500,33 @@ enif_map_iterator_destroy(env, &amp;iter);
       or false if the iterator is positioned at the head (before the first
       entry).</p></desc>
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext></name>
+      <fsummary>Get Erlang Monotonic Time</fsummary>
+      <desc>
+	<marker id="enif_monotonic_time"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>time_unit</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>
+	  Returns the current
+	  <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	  monotonic time</seealso>. Note that it is not uncommon with
+	  negative values.
+	</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument, or if called from a thread that is not a
+	scheduler thread.</p>
+	<p>See also:
+	  <seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso> and
+	  <seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
     <func><name><ret>ErlNifMutex *</ret><nametext>enif_mutex_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_create">erl_drv_mutex_create</seealso>.
@@ -1289,6 +1551,11 @@ enif_map_iterator_destroy(env, &amp;iter);
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_unlock">erl_drv_mutex_unlock</seealso>.
           </p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_now_time(ErlNifEnv *env)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Retuns an <seealso marker="erlang#now-0">erlang:now()</seealso> timestamp.
+    The enif_now_time function is <em>deprecated</em>.</p></desc>
     </func>
     <func><name><ret>ErlNifResourceType *</ret><nametext>enif_open_resource_type(ErlNifEnv* env,
                              const char* module_str, const char* name,
@@ -1317,6 +1584,36 @@ enif_map_iterator_destroy(env, &amp;iter);
        <p>Note that <c>enif_open_resource_type</c> is only allowed to be called in the three callbacks
        <seealso marker="#load">load</seealso>, <seealso marker="#reload">reload</seealso>
        and <seealso marker="#upgrade">upgrade</seealso>.</p>
+      </desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext></name>
+      <fsummary>Send a port_command to to_port</fsummary>
+      <desc>
+        <p>This function works the same as <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>
+        except that it is always completely asynchronous.</p>
+        <taglist>
+          <tag><c>env</c></tag>
+          <item>The environment of the calling process. May not be NULL.</item>
+          <tag><c>*to_port</c></tag>
+          <item>The port id of the receiving port. The port id should refer to a
+          port on the local node.</item>
+          <tag><c>msg_env</c></tag>
+          <item>The environment of the message term. Can be a process
+          independent environment allocated with
+          <seealso marker="#enif_alloc_env">enif_alloc_env</seealso> or NULL.</item>
+          <tag><c>msg</c></tag>
+          <item>The message term to send. The same limitations apply as on the
+          payload to <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>.</item>
+        </taglist>
+        <p>Using a <c>msg_env</c> of NULL is an optimization which groups together
+        calls to <c>enif_alloc_env</c>, <c>enif_make_copy</c>, <c>enif_port_command</c>
+        and <c>enif_free_env</c> into one call. This optimization is only usefull
+        when a majority of the terms are to be copied from <c>env</c> to the <c>msg_env</c>.</p>
+        <p>This function return true if the command was successfully sent; otherwise,
+	false. The call may return false if it detects that the command failed for some
+	reason. For example, <c>*to_port</c> does not refer to a local port, if currently
+	executing process, i.e. the sender, is not alive, or if <c>msg</c> is invalid.</p>
+        <p>See also: <seealso marker="#enif_get_local_port"><c>enif_get_local_port</c></seealso>.</p>
       </desc>
     </func>
     <func><name><ret>void *</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
@@ -1442,17 +1739,23 @@ enif_map_iterator_destroy(env, &amp;iter);
         <tag><c>msg_env</c></tag>
               <item>The environment of the message term. Must be a process
               independent environment allocated with
-               <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.</item>
+               <seealso marker="#enif_alloc_env">enif_alloc_env</seealso> or NULL.</item>
         <tag><c>msg</c></tag>
               <item>The message term to send.</item>
       </taglist>
-      <p>Return true on success, or false if <c>*to_pid</c> does not refer to an alive local process.</p>
+      <p>Return true if the message was successfully sent; otherwise, false. The send
+      operation will fail if <c>*to_pid</c> does not refer to an alive local process,
+      or if currently executing process, i.e. the sender, is not alive.</p>
       <p>The message environment <c>msg_env</c> with all its terms (including
       <c>msg</c>) will be invalidated by a successful call to <c>enif_send</c>. The environment
       should either be freed with <seealso marker="#enif_free_env">enif_free_env</seealso>
       of cleared for reuse with <seealso marker="#enif_clear_env">enif_clear_env</seealso>.</p>
+      <p>If <c>msg_env</c> is set to NULL the <c>msg</c> term is copied and
+      the original term and its environemt is still valid after the call.</p>
       <p>This function is only thread-safe when the emulator with SMP support is used.
       It can only be used in a non-SMP emulator from a NIF-calling thread.</p>
+      <note><p>Passing <c>msg_env</c> as <c>NULL</c> is only supported since
+      erts-8.0 (OTP 19).</p></note>
       </desc>
     </func>
     <func><name><ret>unsigned</ret><nametext>enif_sizeof_resource(void* obj)</nametext></name>
@@ -1460,11 +1763,32 @@ enif_map_iterator_destroy(env, &amp;iter);
       <desc><p>Get the byte size of a resource object <c>obj</c> obtained by
       <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.</p></desc>
     </func>
+
+    <func><name><ret>int</ret><nametext>enif_snprintf(char *str, size_t size, const char *format, ...)</nametext></name>
+      <fsummary>Format strings and Erlang terms</fsummary>
+      <desc>
+          <p>Similar to <c>snprintf</c> but this format string also accepts <c>"%T"</c> which formats Erlang terms.
+          </p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>void</ret><nametext>enif_system_info(ErlNifSysInfo *sys_info_ptr, size_t size)</nametext></name>
       <fsummary>Get information about the Erlang runtime system</fsummary>
       <desc><p>Same as <seealso marker="erl_driver#driver_system_info">driver_system_info</seealso>.
             </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_term_to_binary(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin)</nametext></name>
+    <fsummary>Convert a term to the external format</fsummary>
+    <desc>
+      <p>Allocates a new binary with <seealso marker="#enif_alloc_binary">enif_alloc_binary</seealso>
+      and stores the result of encoding <c>term</c> according to the Erlang external term format.</p>
+      <p>Returns true on success or false if allocation failed.</p>
+      <p>See also:
+        <seealso marker="erlang#term_to_binary-1"><c>erlang:term_to_binary/1</c></seealso> and
+        <seealso marker="#enif_binary_to_term"><c>enif_binary_to_term</c></seealso>.
+      </p>
+    </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)</nametext></name>
     <fsummary></fsummary>
@@ -1496,6 +1820,32 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self</seealso>.
           </p></desc>
     </func>
+
+    <func>
+      <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
+      <fsummary>Get current Time Offset</fsummary>
+      <desc>
+	<marker id="enif_time_offset"></marker>
+	<p>Arguments:</p>
+	<taglist>
+	  <tag><c>time_unit</c></tag>
+	  <item>Time unit of returned value.</item>
+	</taglist>
+	<p>Returns the current time offset between
+	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
+	and
+	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	converted into the <c>time_unit</c> passed as argument.</p>
+	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
+	time unit argument, or if called from a thread that is not a
+	scheduler thread.</p>
+	<p>See also:
+	    <seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso> and
+	    <seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
     <func><name><ret>int</ret><nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_create">erl_drv_tsd_key_create</seealso>.
@@ -1516,88 +1866,6 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set</seealso>.
           </p></desc>
     </func>
-
-
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext></name>
-      <fsummary>Get Erlang Monotonic Time</fsummary>
-      <desc>
-	<marker id="enif_monotonic_time"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>time_unit</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>
-	  Returns
-	  <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
-	  monotonic time</seealso>. Note that it is not uncommon with
-	  negative values.
-	</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument, or if called from a thread that is not a
-	scheduler thread.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
-      <fsummary>Get current Time Offset</fsummary>
-      <desc>
-	<marker id="enif_time_offset"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>time_unit</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>Returns the current time offset between
-	<seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
-	and
-	<seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
-	converted into the <c>time_unit</c> passed as argument.</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument, or if called from a thread that is not a
-	scheduler thread.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
-      <fsummary>Convert time unit of a time value</fsummary>
-      <desc>
-	<marker id="enif_convert_time_unit"></marker>
-	<p>Arguments:</p>
-	<taglist>
-	  <tag><c>val</c></tag>
-	  <item>Value to convert time unit for.</item>
-	  <tag><c>from</c></tag>
-	  <item>Time unit of <c>val</c>.</item>
-	  <tag><c>to</c></tag>
-	  <item>Time unit of returned value.</item>
-	</taglist>
-	<p>Converts the <c>val</c> value of time unit <c>from</c> to
-	the corresponding value of time unit <c>to</c>. The result is
-	rounded using the floor function.</p>
-	<p>Returns <c>ERL_NIF_TIME_ERROR</c> if called with an invalid
-	time unit argument.</p>
-	<p>See also:</p>
-	<list>
-	  <item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
-	  <item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
-	</list>
-      </desc>
-    </func>
-
   </funcs>
   <section>
     <title>SEE ALSO</title>

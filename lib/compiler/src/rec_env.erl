@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -598,7 +598,17 @@ start_range(Env) ->
 %% (pseudo-)randomly distributed over the range.
 
 generate(_N, Range) ->
-    random:uniform(Range).    % works well
+    %% We must use the same sequence of random variables to ensure
+    %% that two compilations of the same source code generates the
+    %% same BEAM code.
+    case rand:export_seed() of
+	undefined ->
+	    _ = rand:seed(exsplus, {1,42,2053}),
+	    ok;
+	_ ->
+	    ok
+    end,
+    rand:uniform(Range).			% works well
 
 
 %% =====================================================================

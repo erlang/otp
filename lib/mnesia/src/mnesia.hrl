@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@
 		  ram_copies = [],                 % [Node]
 		  disc_copies = [],                % [Node]
 		  disc_only_copies = [],           % [Node]
+                  external_copies = [],            % [{{Alias,Mod},[Node]}]
 		  load_order = 0,                  % Integer
 		  access_mode = read_write,        % read_write | read_only
 		  majority = false,                % true | false
@@ -103,7 +104,7 @@
 		 ram_copies = [],
 		 disc_copies = [],
 		 disc_only_copies = [],
-		 snmp = [],
+		 ext = [],
 		 schema_ops = []
 		}).
 

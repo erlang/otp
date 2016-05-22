@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,6 +51,14 @@
 %%% For test suites
 -export([pack/3]).
 -export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
+
+-define(Estring(X), ?STRING((if is_binary(X) -> X;
+				is_list(X) -> list_to_binary(X);
+				X==undefined -> <<>>
+			     end))).
+-define(Empint(X),     (ssh_bits:mpint(X))/binary ).
+-define(Ebinary(X),    ?STRING(X) ).
+-define(Euint32(X),   ?UINT32(X) ).
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -257,7 +265,8 @@ new_keys_message(Ssh0) ->
     {SshPacket, Ssh} = 
 	ssh_packet(#ssh_msg_newkeys{}, Ssh0),
     {ok, SshPacket, Ssh}.
-    
+
+
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 			    #ssh{role = client} = Ssh0) ->
     {ok, Algoritms} = select_algorithm(client, Own, CounterPart),  
@@ -267,10 +276,10 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 				   Ssh0#ssh{algorithms = Algoritms});
 	_  ->
 	    %% TODO: Correct code?
-	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-				      description = "Selection of key exchange"
-				      " algorithm failed", 
-				      language = ""})
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			  description = "Selection of key exchange algorithm failed"
+			 })
     end;
 
 handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
@@ -280,10 +289,10 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 	true ->
 	    {ok, Ssh#ssh{algorithms = Algoritms}};
 	_ ->
-	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-				      description = "Selection of key exchange"
-				      " algorithm failed",
-				      language = ""})
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			  description = "Selection of key exchange algorithm failed"
+			 })
     end.
 
 
@@ -363,12 +372,12 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 				     session_id = sid(Ssh1, H)}};
 
 	true ->
-	    throw({{error,bad_e_from_peer},
-		   #ssh_msg_disconnect{
-		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		      description = "Key exchange failed, 'e' out of bounds",
-		      language = ""}
-		   })
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Key exchange failed, 'e' out of bounds"},
+	      {error,bad_e_from_peer}
+	     )
     end.
 
 handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
@@ -388,21 +397,20 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 					    exchanged_hash = H,
 					    session_id = sid(Ssh, H)}};
 		Error ->
-		    throw({Error,
-			   #ssh_msg_disconnect{
-			      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			      description = "Key exchange failed",
-			      language = "en"}
-			  })
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Key exchange failed"},
+	      Error)
 	    end;
 
 	true ->
-	    throw({{error,bad_f_from_peer},
-		   #ssh_msg_disconnect{
-		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		      description = "Key exchange failed, 'f' out of bounds",
-		      language = ""}
-		   })
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Key exchange failed, 'f' out of bounds"},
+	      bad_f_from_peer
+	     )
     end.
 
 
@@ -427,10 +435,11 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 		     keyex_info = {Min, Max, NBits}
 		    }};
 	{error,_} ->
-	    throw(#ssh_msg_disconnect{
-		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-		     description = "No possible diffie-hellman-group-exchange group found", 
-		     language = ""})
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+		 description = "No possible diffie-hellman-group-exchange group found"
+		})
     end;
 
 handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits}, 
@@ -461,19 +470,19 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
 		     keyex_info = {-1, -1, NBits} % flag for kex_h hash calc
 		    }};
 	{error,_} ->
-	    throw(#ssh_msg_disconnect{
-		     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-		     description = "No possible diffie-hellman-group-exchange group found", 
-		     language = ""})
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+		 description = "No possible diffie-hellman-group-exchange group found"
+		})
     end;
 
 handle_kex_dh_gex_request(_, _) ->
-  throw({{error,bad_ssh_msg_kex_dh_gex_request},
+    ssh_connection_handler:disconnect(
 	 #ssh_msg_disconnect{
 	    code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-	    description = "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request",
-	    language = ""}
-	}).
+	    description = "Key exchange failed, bad values in ssh_msg_kex_dh_gex_request"},
+      bad_ssh_msg_kex_dh_gex_request).
 
 
 adjust_gex_min_max(Min0, Max0, Opts) ->
@@ -487,10 +496,11 @@ adjust_gex_min_max(Min0, Max0, Opts) ->
 		Min2 =< Max2 ->
 		    {Min2, Max2};
 		Max2 < Min2 ->
-		    throw(#ssh_msg_disconnect{
-			     code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-			     description = "No possible diffie-hellman-group-exchange group possible", 
-			     language = ""})
+		    ssh_connection_handler:disconnect(
+		      #ssh_msg_disconnect{
+			 code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+			 description = "No possible diffie-hellman-group-exchange group possible"
+			})
 	    end
     end.
 		    
@@ -527,20 +537,18 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 					    session_id = sid(Ssh, H)
 					   }};
 		true ->
-		    throw({{error,bad_K},
-			   #ssh_msg_disconnect{
-			      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			      description = "Key exchange failed, 'K' out of bounds",
-			      language = ""}
-			  })
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Key exchange failed, 'K' out of bounds"},
+	      bad_K)
 	    end;
 	true ->
-	    throw({{error,bad_e_from_peer},
-		   #ssh_msg_disconnect{
-		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		      description = "Key exchange failed, 'e' out of bounds",
-		      language = ""}
-		  })
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Key exchange failed, 'e' out of bounds"},
+	      bad_e_from_peer)
     end.
 
 handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostKey, 
@@ -564,29 +572,28 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 						    exchanged_hash = H,
 						    session_id = sid(Ssh, H)}};
 			_Error ->
-			    throw(#ssh_msg_disconnect{
-				     code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-				     description = "Key exchange failed",
-				     language = ""}
-				 )
+			    ssh_connection_handler:disconnect(
+			      #ssh_msg_disconnect{
+				 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+				 description = "Key exchange failed"
+				})
 		    end;
 
 		true ->
-		    throw({{error,bad_K},
-			   #ssh_msg_disconnect{
-			      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			      description = "Key exchange failed, 'K' out of bounds",
-			      language = ""}
-			  })
+		    ssh_connection_handler:disconnect(
+		      #ssh_msg_disconnect{
+			 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			 description = "Key exchange failed, 'K' out of bounds"},
+		      bad_K)
 	    end;
 	true ->
-	    throw({{error,bad_f_from_peer},
-		   #ssh_msg_disconnect{
-		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		      description = "Key exchange failed, 'f' out of bounds",
-		      language = ""}
-		  })
-    end.	       
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Key exchange failed, 'f' out of bounds"},
+	      bad_f_from_peer
+	     )
+    end.
 
 %%%----------------------------------------------------------------
 %%%
@@ -616,12 +623,11 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 				     session_id = sid(Ssh1, H)}}
     catch
 	_:_ ->
-	    throw({{error,invalid_peer_public_key},
-		   #ssh_msg_disconnect{
-		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		      description = "Peer ECDH public key is invalid",
-		      language = ""}
-		  })
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Peer ECDH public key is invalid"},
+	      invalid_peer_public_key)
     end.
 
 handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
@@ -642,21 +648,19 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 					    exchanged_hash = H,
 					    session_id = sid(Ssh, H)}};
 		Error ->
-		    throw({Error,
-			   #ssh_msg_disconnect{
-			      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-			      description = "Key exchange failed",
-			      language = ""}
-			  })
+		    ssh_connection_handler:disconnect(
+		       #ssh_msg_disconnect{
+			  code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+			  description = "Key exchange failed"},
+		       Error)
 	    end
     catch
 	_:_ ->
-	    throw({{error,invalid_peer_public_key},
-		   #ssh_msg_disconnect{
-		      code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-		      description = "Peer ECDH public key is invalid",
-		      language = ""}
-		  })
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{
+		 code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+		 description = "Peer ECDH public key is invalid"},
+	      invalid_peer_public_key)
     end.
 
 
@@ -667,9 +671,10 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
 	    {ok, Ssh}
     catch 
 	_C:_Error -> %% TODO: Throw earlier ....
-	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-				      description = "Install alg failed", 
-				      language = "en"})
+	    ssh_connection_handler:disconnect(
+	      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+				  description = "Install alg failed"
+				 })
     end. 
 
 %% select session id
@@ -921,9 +926,9 @@ select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
     lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A));
 select_all(CL, SL) ->
     Err = lists:concat(["Received too many algorithms (",length(CL),"+",length(SL)," >= ",?MAX_NUM_ALGORITHMS,")."]),
-    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
-			      description = Err,
-			      language = ""}).
+    ssh_connection_handler:disconnect(
+      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_PROTOCOL_ERROR,
+			  description = Err}).
 
 
 select([], []) ->
@@ -1034,7 +1039,7 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded,
 		    {bad_mac, Ssh1};
 		true ->
 		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {decoded, DecompressedPayload, NextPacketBytes, Ssh}
+		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
 	    end;
 	aead ->
 	    PacketLenBin = DecryptedPfx,
@@ -1044,7 +1049,7 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, TotalNeeded,
 		{Ssh1, DecryptedSfx} ->
                     DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
 		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {decoded, DecompressedPayload, NextPacketBytes, Ssh}
+		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
 	    end
     end.
     
@@ -1084,7 +1089,7 @@ sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
 sign(SigData, Hash, Key = #'ECPrivateKey'{}) ->
     DerEncodedSign =  public_key:sign(SigData, Hash, Key),
     #'ECDSA-Sig-Value'{r=R, s=S} = public_key:der_decode('ECDSA-Sig-Value', DerEncodedSign),
-    ssh_bits:encode([R,S], [mpint,mpint]);
+    <<?Empint(R),?Empint(S)>>;
 sign(SigData, Hash, Key) ->
     public_key:sign(SigData, Hash, Key).
 
@@ -1584,21 +1589,16 @@ hash(K, H, Ki, N, HASH) ->
 
 kex_h(SSH, Key, E, F, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
-    L = ssh_bits:encode([SSH#ssh.c_version, SSH#ssh.s_version,
-			 SSH#ssh.c_keyinit, SSH#ssh.s_keyinit,
-			 KeyBin, E,F,K],
-			[string,string,binary,binary,binary,
-			 mpint,mpint,mpint]),
+    L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+	  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+	  ?Empint(E), ?Empint(F), ?Empint(K)>>,
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
-%%  crypto:hash(sha,L).
 
 kex_h(SSH, Curve, Key, Q_c, Q_s, K) ->
     KeyBin = public_key:ssh_encode(Key, ssh2_pubkey),
-    L = ssh_bits:encode([SSH#ssh.c_version, SSH#ssh.s_version,
-			 SSH#ssh.c_keyinit, SSH#ssh.s_keyinit,
-			 KeyBin, Q_c, Q_s, K],
-			[string,string,binary,binary,binary,
-			 mpint,mpint,mpint]),
+    L = <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+	  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+	  ?Empint(Q_c), ?Empint(Q_s), ?Empint(K)>>,
     crypto:hash(sha(Curve), L).
 
 kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
@@ -1607,21 +1607,14 @@ kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
 		%% flag from 'ssh_msg_kex_dh_gex_request_old'
 		%% It was like this before that message was supported,
 		%% why?
-		Ts = [string,string,binary,binary,binary,
-		      uint32,
-		      mpint,mpint,mpint,mpint,mpint],
-		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
-				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 KeyBin, NBits, Prime, Gen, E,F,K],
-				Ts);
+		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+		  ?Empint(E), ?Empint(F), ?Empint(K)>>;
 	   true ->
-		Ts = [string,string,binary,binary,binary,
-		      uint32,uint32,uint32,
-		      mpint,mpint,mpint,mpint,mpint],
-		ssh_bits:encode([SSH#ssh.c_version,SSH#ssh.s_version,
-				 SSH#ssh.c_keyinit,SSH#ssh.s_keyinit,
-				 KeyBin, Min, NBits, Max,
-				 Prime, Gen, E,F,K], Ts)
+		<<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
+		  ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit), ?Ebinary(KeyBin),
+		  ?Euint32(Min), ?Euint32(NBits), ?Euint32(Max),
+		  ?Empint(Prime), ?Empint(Gen), ?Empint(E), ?Empint(F), ?Empint(K)>>
 	end,
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
   

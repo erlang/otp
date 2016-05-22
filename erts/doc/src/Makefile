@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,12 +50,14 @@ XML_REF1_FILES = epmd.xml \
 XML_REF3_EFILES = \
 	erl_prim_loader.xml \
 	erlang.xml \
+	erl_tracer.xml \
 	init.xml \
 	zlib.xml
 
 XML_REF3_FILES = \
 	driver_entry.xml \
 	erl_nif.xml \
+	erl_tracer.xml \
 	erl_driver.xml \
 	erl_prim_loader.xml \
 	erlang.xml \
@@ -154,18 +156,9 @@ clean:
 	rm -f $(SPECDIR)/*
 	rm -f errs core *~ 
 
-$(SPECDIR)/specs_driver_entry.xml:
+$(SPECDIR)/specs_%.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
-                -o$(dir $@) -module driver_entry
-$(SPECDIR)/specs_erl_nif.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
-                -o$(dir $@) -module erl_nif
-$(SPECDIR)/specs_erl_driver.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
-                -o$(dir $@) -module erl_driver
-$(SPECDIR)/specs_erts_alloc.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
-                -o$(dir $@) -module erts_alloc
+                -o$(dir $@) -module $(patsubst $(SPECDIR)/specs_%.xml,%,$@)
 
 # ----------------------------------------------------
 # Release Target

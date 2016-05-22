@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 %%
 -module(httpd_example).
 -export([print/1]).
--export([get/2, post/2, yahoo/2, test1/2, get_bin/2]).
+-export([get/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2]).
 
 -export([newformat/3]).
 %% These are used by the inets test-suite
@@ -94,10 +94,26 @@ default(Env,Input) ->
    io_lib:format("~p",[httpd:parse_query(Input)]),"\n",
    footer()].
 
+peer(Env, Input) ->
+   Header = 
+     case proplists:get_value(peer_cert, Env) of
+       undefined ->
+   	 header("text/html", "Peer-Cert-Exist:false");
+      _ ->
+         header("text/html", "Peer-Cert-Exist:true")
+     end,
+   [Header,
+   top("Test peer_cert environment option"),
+   "<B>Peer cert:</B> ",
+   io_lib:format("~p",[proplists:get_value(peer_cert, Env)]),"\n",
+   footer()].	   	 
+
 header() ->
   header("text/html").
 header(MimeType) ->
   "Content-type: " ++ MimeType ++ "\r\n\r\n".
+header(MimeType, Other) ->
+  "Content-type: " ++ MimeType ++ "\r\n" ++ Other ++ "\r\n\r\n".			 
 
 top(Title) ->
   "<HTML>

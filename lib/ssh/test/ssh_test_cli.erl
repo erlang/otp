@@ -75,10 +75,11 @@ terminate(_Why, _S) ->
 
 run_portprog(User, cli, TmpDir) ->
     Pty_bin = os:find_executable("cat"), 
-    open_port({spawn_executable, Pty_bin},
-	      [stream, {cd, TmpDir}, {env, [{"USER", User}]},
-	       {args, []}, binary,
-	       exit_status, use_stdio, stderr_to_stdout]).
+    ssh_test_lib:open_port({spawn_executable, Pty_bin},
+			   [stream,
+			    {cd, TmpDir},
+			    {env, [{"USER", User}]},
+			    {args, []}]).
 
 get_ssh_user(Ref) ->
     [{user, User}] = ssh:connection_info(Ref, [user]),

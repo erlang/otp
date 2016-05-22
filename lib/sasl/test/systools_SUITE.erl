@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1640,25 +1640,21 @@ app_start_type_relup(Dir2,Name2,Config) ->
     %% ?t:format("Dn: ~p",[DownInstructions]),
     [{load_object_code, {mnesia, _, _}},
      {load_object_code, {runtime_tools, _, _}},
-     {load_object_code, {webtool, _, _}},
      {load_object_code, {snmp, _, _}},
      {load_object_code, {xmerl, _, _}},
      point_of_no_return
      | UpInstructionsT] = UpInstructions,
     true = lists:member({apply,{application,start,[mnesia,permanent]}}, UpInstructionsT),
     true = lists:member({apply,{application,start,[runtime_tools,transient]}}, UpInstructionsT),
-    true = lists:member({apply,{application,start,[webtool,temporary]}}, UpInstructionsT),
     true = lists:member({apply,{application,load,[snmp]}}, UpInstructionsT),
     false = lists:any(fun({apply,{application,_,[xmerl|_]}}) -> true; (_) -> false end, UpInstructionsT),
     [point_of_no_return | DownInstructionsT] = DownInstructions,
     true = lists:member({apply,{application,stop,[mnesia]}}, DownInstructionsT),
     true = lists:member({apply,{application,stop,[runtime_tools]}}, DownInstructionsT),
-    true = lists:member({apply,{application,stop,[webtool]}}, DownInstructionsT),
     true = lists:member({apply,{application,stop,[snmp]}}, DownInstructionsT),
     true = lists:member({apply,{application,stop,[xmerl]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[mnesia]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[runtime_tools]}}, DownInstructionsT),
-    true = lists:member({apply,{application,unload,[webtool]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[snmp]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[xmerl]}}, DownInstructionsT),
     ok.
@@ -2207,7 +2203,6 @@ create_script(latest_app_start_type1,Config) ->
 create_script(latest_app_start_type2,Config) ->
     OtherApps = [{mnesia,current,permanent},
 		 {runtime_tools,current,transient},
-		 {webtool,current,temporary},
 		 {snmp,current,load},
 		 {xmerl,current,none}],
     Apps = core_apps(current) ++ OtherApps,

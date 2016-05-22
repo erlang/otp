@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,11 +19,10 @@
 
 -module(et_wx_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
-	 init_per_suite/1, end_per_suite/1, 
-	 init_per_testcase/2, end_per_testcase/2]).
-
--compile(export_all).
+-export([all/0, suite/0,
+         init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1]).
+-export([start_all_windows/1]).
 
 -include("et_test_lib.hrl").
 
@@ -40,20 +39,12 @@ end_per_testcase(Func,Config) ->
     et_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-suite() -> [{ct_hooks,[ts_install_cth]}].
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start_all_windows].
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 %% The test cases
 

@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,8 +59,14 @@
 %%           separately.
 %%
 
--spec analyze(cerl:c_module()) ->
-        {dict:dict(), ordsets:ordset('external' | label()), dict:dict(), dict:dict()}.
+-type dep_ordset() :: ordsets:ordset(label() | 'external').
+
+-type deps()    :: dict:dict(label() | 'external' | 'top', dep_ordset()).
+-type esc()     :: dep_ordset().
+-type calls()   :: dict:dict(label(), ordsets:ordset(label())).
+-type letrecs() :: dict:dict(label(), label()).
+
+-spec analyze(cerl:c_module()) -> {deps(), esc(), calls(), letrecs()}.
 
 analyze(Tree) ->
   %% io:format("Handling ~w\n", [cerl:atom_val(cerl:module_name(Tree))]),
@@ -79,22 +85,26 @@ traverse(Tree, Out, State, CurrentFun) ->
     apply ->
       Op = cerl:apply_op(Tree),
       Args = cerl:apply_args(Tree),
-      %% Op is always a variable and should not be marked as escaping
-      %% based on its use.
       case var =:= cerl:type(Op) of
-	false -> erlang:error({apply_op_not_a_variable, cerl:type(Op)});
-	true -> ok
-      end,
-      OpFuns = case map__lookup(cerl_trees:get_label(Op), Out) of
-		 none -> output(none);
-		 {value, OF} -> OF
-	       end,
-      {ArgFuns, State2} = traverse_list(Args, Out, State, CurrentFun),
-      State3 = state__add_esc(merge_outs(ArgFuns), State2),
-      State4 = state__add_deps(CurrentFun, OpFuns, State3),
-      State5 = state__store_callsite(cerl_trees:get_label(Tree),
-				     OpFuns, length(Args), State4),
-      {output(set__singleton(external)), State5};
+	false ->
+	  %% We have discovered an error here, but we ignore it and let
+	  %% later passes handle it; we do not modify the dependencies.
+	  %% erlang:error({apply_op_not_a_variable, cerl:type(Op)});
+	  {output(none), State};
+	true ->
+	  %% Op is a variable and should not be marked as escaping
+	  %% based on its use.
+	  OpFuns = case map__lookup(cerl_trees:get_label(Op), Out) of
+		     none -> output(none);
+		     {value, OF} -> OF
+		   end,
+	  {ArgFuns, State2} = traverse_list(Args, Out, State, CurrentFun),
+	  State3 = state__add_esc(merge_outs(ArgFuns), State2),
+	  State4 = state__add_deps(CurrentFun, OpFuns, State3),
+	  State5 = state__store_callsite(cerl_trees:get_label(Tree),
+					 OpFuns, length(Args), State4),
+	  {output(set__singleton(external)), State5}
+      end;
     binary ->
       {output(none), State};
     'case' ->
@@ -481,11 +491,11 @@ all_vars(Tree, AccIn) ->
 
 -type local_set() :: 'none' | #set{}.
 
--record(state, {deps    :: dict:dict(),
+-record(state, {deps    :: deps(),
 		esc     :: local_set(), 
-		call    :: dict:dict(),
-		arities :: dict:dict(),
-		letrecs :: dict:dict()}).
+		calls   :: calls(),
+		arities :: dict:dict(label() | 'top', arity()),
+		letrecs :: letrecs()}).
 
 state__new(Tree) ->
   Exports = set__from_list([X || X <- cerl:module_exports(Tree)]),
@@ -503,7 +513,7 @@ state__new(Tree) ->
   %% init the escaping function labels to exported + called from on_load
   InitEsc = set__from_list(OnLoadLs ++ ExpLs),
   Arities = cerl_trees:fold(fun find_arities/2, dict:new(), Tree),
-  #state{deps = map__new(), esc = InitEsc, call = map__new(),
+  #state{deps = map__new(), esc = InitEsc, calls = map__new(),
 	 arities = Arities, letrecs = map__new()}.
 
 find_arities(Tree, AccMap) ->
@@ -518,7 +528,7 @@ find_arities(Tree, AccMap) ->
 
 state__add_deps(_From, #output{content = none}, State) ->
   State;
-state__add_deps(From, #output{type = single, content=To}, 
+state__add_deps(From, #output{type = single, content = To},
 		#state{deps = Map} = State) ->
   %% io:format("Adding deps from ~w to ~w\n", [From, set__to_ordsets(To)]),
   State#state{deps = map__add(From, To, Map)}.
@@ -544,16 +554,16 @@ state__esc(#state{esc = Esc}) ->
 state__store_callsite(_From, #output{content = none}, _CallArity, State) ->
   State;
 state__store_callsite(From, To, CallArity, 
-		      #state{call = Calls, arities = Arities} = State) ->
+		      #state{calls = Calls, arities = Arities} = State) ->
   Filter = fun(external) -> true;
 	      (Fun) -> CallArity =:= dict:fetch(Fun, Arities) 
 	   end,
   case filter_outs(To, Filter) of
     #output{content = none} -> State;
-    To1 -> State#state{call = map__store(From, To1, Calls)}
+    To1 -> State#state{calls = map__store(From, To1, Calls)}
   end.
 
-state__calls(#state{call = Calls}) ->
+state__calls(#state{calls = Calls}) ->
   Calls.
 
 %%------------------------------------------------------------

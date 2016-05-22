@@ -4,7 +4,7 @@
 ##	      Kostis Sagonas <kostis@it.uu.se>
 ##----------------------------------------------------------------------------
 
-The DIALYZER, a DIscrepany AnaLYZer for ERlang programs.
+The DIALYZER, a DIscrepancy AnaLYZer for ERlang programs.
 
 
 -----------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +22,13 @@
     {vsn,          "%VSN%"},
     {modules,      [appmon_info, dbg,observer_backend,percept_profile,
 		    runtime_tools,runtime_tools_sup,erts_alloc_config,
-		    ttb_autostart,dyntrace,system_information]},
+		    ttb_autostart,dyntrace,system_information,
+                    msacc]},
     {registered,   [runtime_tools_sup]},
     {applications, [kernel, stdlib]},
     {env,          []},
     {mod,          {runtime_tools, []}},
-    {runtime_dependencies, ["stdlib-2.0","mnesia-4.12","kernel-3.0",
-			    "erts-7.0"]}]}.
+    {runtime_dependencies, ["stdlib-3.0","mnesia-4.12","kernel-5.0",
+			    "erts-8.0"]}]}.
 
 

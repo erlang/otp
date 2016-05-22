@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "dist.h"
 #include "erl_check_io.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 #include <stdarg.h>
 
 /*
@@ -68,6 +69,18 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
     }
 #else
 #define  DTRACE_DRIVER(PROBE_NAME, PP) do {} while(0)
+#endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+#define LTTNG_DRIVER(TRACEPOINT, PP)                              \
+    if (LTTNG_ENABLED(TRACEPOINT)) {                              \
+        lttng_decl_portbuf(port_str);                             \
+        lttng_decl_procbuf(proc_str);                             \
+        lttng_pid_to_str(ERTS_PORT_GET_CONNECTED(PP), proc_str);  \
+        lttng_port_to_str((PP), port_str);                        \
+        LTTNG3(TRACEPOINT, proc_str, port_str, (PP)->name);       \
+    }
+#else
+#define LTTNG_DRIVER(TRACEPOINT, PP) do {} while(0)
 #endif
 
 #define ERTS_SMP_LC_VERIFY_RQ(RQ, PP)					\
@@ -180,10 +193,9 @@ p2p_sig_data_to_task(ErtsProc2PortSigData *sigdp)
     return ptp;
 }
 
-ErtsProc2PortSigData *
-erts_port_task_alloc_p2p_sig_data(void)
+static ERTS_INLINE ErtsProc2PortSigData *
+p2p_sig_data_init(ErtsPortTask *ptp)
 {
-    ErtsPortTask *ptp = port_task_alloc();
 
     ptp->type = ERTS_PORT_TASK_PROC_SIG;
     ptp->u.alive.flags = ERTS_PT_FLG_SIG_DEP;
@@ -192,6 +204,31 @@ erts_port_task_alloc_p2p_sig_data(void)
     ASSERT(ptp == p2p_sig_data_to_task(&ptp->u.alive.td.psig.data));
 
     return &ptp->u.alive.td.psig.data;
+}
+
+ErtsProc2PortSigData *
+erts_port_task_alloc_p2p_sig_data(void)
+{
+    ErtsPortTask *ptp = port_task_alloc();
+
+    return p2p_sig_data_init(ptp);
+}
+
+ErtsProc2PortSigData *
+erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr)
+{
+    ErtsPortTask *ptp = erts_alloc(ERTS_ALC_T_PORT_TASK,
+                                   sizeof(ErtsPortTask) + extra);
+
+    *extra_ptr = ptp+1;
+
+    return p2p_sig_data_init(ptp);
+}
+
+void
+erts_port_task_free_p2p_sig_data(ErtsProc2PortSigData *sigdp)
+{
+    schedule_port_task_free(p2p_sig_data_to_task(sigdp));
 }
 
 static ERTS_INLINE Eterm
@@ -1648,6 +1685,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     int active;
     Uint64 start_time = 0;
     ErtsSchedulerData *esdp = runq->scheduler;
+    ERTS_MSACC_PUSH_STATE_M();
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
 
@@ -1690,6 +1728,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
     state = erts_atomic32_read_nob(&pp->state);
     pp->reds = ERTS_PORT_REDS_EXECUTE;
+    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
     goto begin_handle_tasks;
 
     while (1) {
@@ -1726,6 +1765,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		reds = ERTS_PORT_REDS_TIMEOUT;
 		if (!(state & ERTS_PORT_SFLGS_DEAD)) {
 		    DTRACE_DRIVER(driver_timeout, pp);
+		    LTTNG_DRIVER(driver_timeout, pp);
+                    if (IS_TRACED_FL(pp, F_TRACE_RECEIVE))
+                        trace_port(pp, am_receive, am_timeout);
 		    (*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
 		}
 	    }
@@ -1734,7 +1776,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_INPUT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_input, pp);
-	    /* NOTE some windows/ose drivers use ->ready_input
+            LTTNG_DRIVER(driver_ready_input, pp);
+	    /* NOTE some windows drivers use ->ready_input
 	       for input and output */
 	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data,
 					ptp->u.alive.td.io.event);
@@ -1745,6 +1788,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_OUTPUT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_output, pp);
+            LTTNG_DRIVER(driver_ready_output, pp);
 	    (*pp->drv_ptr->ready_output)((ErlDrvData) pp->drv_data,
 					 ptp->u.alive.td.io.event);
 	    reset_executed_io_task_handle(ptp);
@@ -1754,6 +1798,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reds = ERTS_PORT_REDS_EVENT;
 	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_event, pp);
+            LTTNG_DRIVER(driver_event, pp);
 	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
 				  ptp->u.alive.td.io.event,
 				  ptp->u.alive.td.io.event_data);
@@ -1822,6 +1867,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     }
 
     erts_unblock_fpe(fpe_was_unmasked);
+    ERTS_MSACC_POP_STATE_M();
 
 
     if (io_tasks_executed) {

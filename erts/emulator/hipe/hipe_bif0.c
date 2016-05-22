@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -488,7 +488,7 @@ static void *const_term_alloc(void *tmpl)
     alloc_size = size + (offsetof(struct const_term, mem)/sizeof(Eterm));
     hipe_constants_size += alloc_size;
 
-    p = (struct const_term*)erts_alloc(ERTS_ALC_T_HIPE, alloc_size * sizeof(Eterm));
+    p = (struct const_term*)erts_alloc(ERTS_ALC_T_LITERAL, alloc_size * sizeof(Eterm));
 
     /* I have absolutely no idea if having a private 'off_heap'
        works or not. _Some_ off_heap object is required for
@@ -496,6 +496,8 @@ static void *const_term_alloc(void *tmpl)
        a complete mystery to me. */
     hp = &p->mem[0];
     p->val = copy_struct(obj, size, &hp, &const_term_table_off_heap);
+
+    erts_set_literal_tag(&p->val, &p->mem[0], size);
 
     return &p->bucket;
 }
@@ -507,6 +509,9 @@ static void init_const_term_table(void)
     f.cmp = (HCMP_FUN) const_term_cmp;
     f.alloc = (HALLOC_FUN) const_term_alloc;
     f.free = (HFREE_FUN) NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
     hash_init(ERTS_ALC_T_HIPE, &const_term_table, "const_term_table", 97, f);
 }
 
@@ -528,13 +533,13 @@ BIF_RETTYPE hipe_bifs_merge_term_1(BIF_ALIST_1)
     BIF_RET(val);
 }
 
-struct mfa {
+struct mfa_t {
     Eterm mod;
     Eterm fun;
     Uint  ari;
 };
 
-static int term_to_mfa(Eterm term, struct mfa *mfa)
+static int term_to_mfa(Eterm term, struct mfa_t *mfa)
 {
     Eterm mod, fun, a;
     Uint ari;
@@ -574,15 +579,15 @@ static void print_mfa(Eterm mod, Eterm fun, unsigned int ari)
 static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 {
     Module *modp;
-    Uint *code_base;
+    BeamCodeHeader* code_hdr;
     int i, n;
 
     modp = erts_get_module(mod, erts_active_code_ix());
-    if (modp == NULL || (code_base = modp->curr.code) == NULL)
+    if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL)
 	return NULL;
-    n = code_base[MI_NUM_FUNCTIONS];
+    n = code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	Uint *code_ptr = (Uint*)code_base[MI_FUNCTIONS+i];
+	Uint *code_ptr = (Uint*)code_hdr->functions[i];
 	ASSERT(code_ptr[0] == BeamOpCode(op_i_func_info_IaaI));
 	if (code_ptr[3] == name && code_ptr[4] == arity)
 	    return code_ptr+5;
@@ -592,7 +597,7 @@ static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
 
 Uint *hipe_bifs_find_pc_from_mfa(Eterm term)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
 
     if (!term_to_mfa(term, &mfa))
 	return NULL;
@@ -612,7 +617,7 @@ BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
     Eterm *pc;
     void *address;
     int is_closure;
-    struct mfa mfa;
+    struct mfa_t mfa;
 
     switch (BIF_ARG_3) {
       case am_false:
@@ -715,6 +720,9 @@ static void init_nbif_table(void)
     f.cmp = (HCMP_FUN) nbif_cmp;
     f.alloc = (HALLOC_FUN) nbif_alloc;
     f.free = NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     hash_init(ERTS_ALC_T_NBIF_TABLE, &nbif_table, "nbif_table", 500, f);
 
@@ -808,6 +816,9 @@ static void init_primop_table(void)
     f.cmp = (HCMP_FUN) primop_cmp;
     f.alloc = (HALLOC_FUN) primop_alloc;
     f.free = NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
 
     hash_init(ERTS_ALC_T_HIPE, &primop_table, "primop_table", 50, f);
 
@@ -1214,7 +1225,7 @@ void hipe_mfa_set_trampoline(Eterm m, Eterm f, unsigned int arity, void *trampol
 
 BIF_RETTYPE hipe_bifs_set_funinfo_native_address_3(BIF_ALIST_3)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     void *address;
     int is_exported;
 
@@ -1236,7 +1247,7 @@ BIF_RETTYPE hipe_bifs_set_funinfo_native_address_3(BIF_ALIST_3)
 BIF_RETTYPE hipe_bifs_invalidate_funinfo_native_addresses_1(BIF_ALIST_1)
 {
     Eterm lst;
-    struct mfa mfa;
+    struct mfa_t mfa;
     struct hipe_mfa_info *p;
 
     hipe_mfa_info_table_rwlock();
@@ -1405,7 +1416,7 @@ BIF_RETTYPE hipe_find_na_or_make_stub(BIF_ALIST_3)
 
 BIF_RETTYPE hipe_bifs_find_na_or_make_stub_2(BIF_ALIST_2)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     void *address;
     int is_remote;
 
@@ -1507,9 +1518,9 @@ struct ref {
  */
 BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
 {
-    struct mfa callee;
+    struct mfa_t callee;
     Eterm *tuple;
-    struct mfa caller;
+    struct mfa_t caller;
     void *address;
     void *trampoline;
     unsigned int flags;
@@ -1586,7 +1597,7 @@ BIF_RETTYPE hipe_bifs_add_ref_2(BIF_ALIST_2)
  */
 BIF_RETTYPE hipe_bifs_mark_referred_from_1(BIF_ALIST_1) /* get_refs_from */
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     const struct hipe_mfa_info *p;
     struct ref *ref;
 
@@ -1638,7 +1649,7 @@ static void hipe_purge_all_refs(void)
 
 BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     struct hipe_mfa_info *caller_mfa, *callee_mfa;
     struct hipe_mfa_info_list *refers_to, *tmp_refers_to;
     struct ref **prev, *ref;
@@ -1692,7 +1703,7 @@ BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
  */
 BIF_RETTYPE hipe_bifs_redirect_referred_from_1(BIF_ALIST_1)
 {
-    struct mfa mfa;
+    struct mfa_t mfa;
     struct hipe_mfa_info *p;
     struct ref **prev, *ref;
     int is_remote, res;
@@ -1826,6 +1837,9 @@ static void init_modinfo_table(void)
     f.cmp = (HCMP_FUN) modinfo_cmp;
     f.alloc = (HALLOC_FUN) modinfo_alloc;
     f.free = (HFREE_FUN) NULL;
+    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
+    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_print = (HMPRINT_FUN) erts_print;
     hash_init(ERTS_ALC_T_HIPE, &modinfo_table, "modinfo_table", 11, f);
 }
 

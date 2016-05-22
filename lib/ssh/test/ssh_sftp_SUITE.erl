@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,8 +36,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,2}}].
-
+     {timetrap,{seconds,40}}].
 
 all() -> 
     [{group, not_unicode},
@@ -301,9 +300,9 @@ end_per_testcase(_, Config) ->
 
 end_per_testcase(Config) ->
     {Sftp, Connection} = ?config(sftp, Config),
-    ssh_sftp:stop_channel(Sftp),
+    ok = ssh_sftp:stop_channel(Sftp),
     catch ssh_sftp:stop_channel(?config(channel_pid2, Config)),
-    ssh:close(Connection).
+    ok = ssh:close(Connection).
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -365,7 +364,7 @@ write_file(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary("Hej hopp!"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
@@ -378,7 +377,7 @@ write_file_iolist(Config) when is_list(Config) ->
     Data = list_to_binary("Hej hopp!"),
     lists:foreach(
       fun(D) ->
-	      ssh_sftp:write_file(Sftp, FileName, [D]),
+	      ok = ssh_sftp:write_file(Sftp, FileName, [D]),
 	      Expected = if is_binary(D) -> D;
 			    is_list(D) -> list_to_binary(D)
 			 end,
@@ -397,7 +396,7 @@ write_big_file(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary(lists:duplicate(750000,"a")),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
@@ -409,7 +408,7 @@ sftp_read_big_file(Config) when is_list(Config) ->
 
     Data = list_to_binary(lists:duplicate(750000,"a")),
     ct:log("Data size to write is ~p bytes",[size(Data)]),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Data} = ssh_sftp:read_file(Sftp, FileName).
 
 %%--------------------------------------------------------------------
@@ -425,7 +424,7 @@ remove_file(Config) when is_list(Config) ->
     ok = ssh_sftp:delete(Sftp, FileName),
     {ok, NewFiles} = ssh_sftp:list_dir(Sftp, PrivDir),
     false = lists:member(filename:basename(FileName), NewFiles),
-    {error, _} = ssh_sftp:delete(Sftp, FileName).
+    {error, no_such_file} = ssh_sftp:delete(Sftp, FileName).
 %%--------------------------------------------------------------------
 rename_file() ->
     [{doc, "Test API function rename_file/2"}].
@@ -500,7 +499,7 @@ set_attributes(Config) when is_list(Config) ->
     io:put_chars(Fd,"foo"),
     ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#400}),
     {error, eacces} = file:write_file(FileName, "hello again"),
-    ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
+    ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
     ok = file:write_file(FileName, "hello again").
 
 %%--------------------------------------------------------------------
@@ -549,7 +548,7 @@ position(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary("1234567890"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
 
     {ok, 3} = ssh_sftp:position(Sftp, Handle, {bof, 3}),
@@ -577,7 +576,7 @@ pos_read(Config) when is_list(Config) ->
     FileName = ?config(testfile, Config),
     {Sftp, _} = ?config(sftp, Config),
     Data = list_to_binary("Hej hopp!"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
 
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
     {async, Ref} = ssh_sftp:apread(Sftp, Handle, {bof, 5}, 4),
@@ -607,7 +606,7 @@ pos_write(Config) when is_list(Config) ->
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [write]),
 
     Data = list_to_binary("Bye,"),
-    ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
 
     NewData = list_to_binary(" see you tomorrow"),
     {async, Ref} = ssh_sftp:apwrite(Sftp, Handle, {bof, 4}, NewData),
@@ -869,7 +868,7 @@ aes_cbc256_crypto_tar(Config) ->
 		  {"d1",fn("d1",Config)}  % Dir
 		 ]),
     Key = <<"This is a 256 bit key. Boring...">>,
-    Ivec0 = crypto:rand_bytes(16),
+    Ivec0 = crypto:strong_rand_bytes(16),
     DataSize = 1024,  % data_size rem 16 = 0 for aes_cbc
 
     Cinitw = fun() -> {ok, Ivec0, DataSize} end,
@@ -914,7 +913,7 @@ aes_ctr_stream_crypto_tar(Config) ->
 		  {"d1",fn("d1",Config)}  % Dir
 		 ]),
     Key = <<"This is a 256 bit key. Boring...">>,
-    Ivec0 = crypto:rand_bytes(16),
+    Ivec0 = crypto:strong_rand_bytes(16),
 
     Cinitw = Cinitr = fun() -> {ok, crypto:stream_init(aes_ctr,Key,Ivec0)} end,
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,148 +30,117 @@
 
 %-define(line_trace, 1).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-%-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, init_per_testcase/2, 
-	 end_per_testcase/2]).
+-export([all/0, suite/0]).
 
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
 	 check_io_debug/1, get_check_io_info/0]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(5)).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 5}}].
 
 all() -> 
     [schedulers_alive, node_container_refc_check,
      long_timers, pollset_size, check_io_debug].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) when is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
 %%%
 %%% The test cases -------------------------------------------------------------
 %%%
 
-schedulers_alive(doc) -> ["Tests that all schedulers are actually used"];
-schedulers_alive(suite) -> [];
+%% Tests that all schedulers are actually used
 schedulers_alive(Config) when is_list(Config) ->
-    ?line Master = self(),
-    ?line NoSchedulersOnline = erlang:system_flag(
-				 schedulers_online,
-				 erlang:system_info(schedulers)),
-    ?line NoSchedulers = erlang:system_info(schedulers),
+    Master = self(),
+    NoSchedulersOnline = erlang:system_flag(
+                           schedulers_online,
+                           erlang:system_info(schedulers)),
+    NoSchedulers = erlang:system_info(schedulers),
     UsedScheds =
-	try
-	    ?line ?t:format("Number of schedulers configured: ~p~n", [NoSchedulers]),
-	    ?line case erlang:system_info(multi_scheduling) of
-		      blocked ->
-			  ?line ?t:fail(multi_scheduling_blocked);
-		      disabled ->
-			  ?line ok;
-		      enabled ->
-			  ?t:format("Testing blocking process exit~n"),
-			  BF = fun () ->
-				       blocked = erlang:system_flag(multi_scheduling,
-								    block),
-				       Master ! {self(), blocking},
-				       receive after infinity -> ok end
-			       end,
-			  ?line Blocker = spawn_link(BF),
-			  ?line Mon = erlang:monitor(process, Blocker),
-			  ?line receive {Blocker, blocking} -> ok end,
-			  ?line [Blocker]
-			      = erlang:system_info(multi_scheduling_blockers),
-			  ?line unlink(Blocker),
-			  ?line exit(Blocker, kill),
-			  ?line receive {'DOWN', Mon, _, _, _} -> ok end,
-			  ?line enabled = erlang:system_info(multi_scheduling),
-			  ?line [] = erlang:system_info(multi_scheduling_blockers),
-			  ?line ok
-		  end,
-	    ?t:format("Testing blocked~n"),
-	    ?line erlang:system_flag(multi_scheduling, block),
-	    ?line case erlang:system_info(multi_scheduling) of
-		      enabled ->
-			  ?line ?t:fail(multi_scheduling_enabled);
-		      blocked ->
-			  ?line [Master] = erlang:system_info(multi_scheduling_blockers);
-		      disabled -> ?line ok
-		  end,
-	    ?line Ps = lists:map(
-			 fun (_) ->
-				 spawn_link(fun () ->
-						    run_on_schedulers(none,
-								      [],
-								      Master)
-					    end)
-			 end,
-			 lists:seq(1,NoSchedulers)),
-	    ?line receive after 1000 -> ok end,
-	    ?line {_, 1} = verify_all_schedulers_used({[],0}, 1),
-	    ?line lists:foreach(fun (P) ->
-					unlink(P),
-					exit(P, bang)
-				end,
-				Ps),
-	    ?line case erlang:system_flag(multi_scheduling, unblock) of
-		      blocked -> ?line ?t:fail(multi_scheduling_blocked);
-		      disabled -> ?line ok;
-		      enabled -> ?line ok
-		  end,
-	    erts_debug:set_internal_state(available_internal_state, true),
-	    %% node_and_dist_references will use emulator interal thread blocking...
-	    erts_debug:get_internal_state(node_and_dist_references), 
-	    erts_debug:set_internal_state(available_internal_state, false),
-	    ?t:format("Testing not blocked~n"),
-	    ?line Ps2 = lists:map(
-			  fun (_) ->
-				  spawn_link(fun () ->
-						     run_on_schedulers(none,
-								       [],
-								       Master)
-					     end)
-			  end,
-			  lists:seq(1,NoSchedulers)),
-	    ?line receive after 1000 -> ok end,
-	    ?line {_, NoSIDs} = verify_all_schedulers_used({[],0},NoSchedulers),
-	    ?line lists:foreach(fun (P) ->
-					unlink(P),
-					exit(P, bang)
-				end,
-				Ps2),
-	    NoSIDs
-	after
-	    NoSchedulers = erlang:system_flag(schedulers_online,
-					      NoSchedulersOnline),
-	    NoSchedulersOnline = erlang:system_info(schedulers_online)
-	end,
-    ?line {comment, "Number of schedulers " ++ integer_to_list(UsedScheds)}.
+      try
+          io:format("Number of schedulers configured: ~p~n", [NoSchedulers]),
+          case erlang:system_info(multi_scheduling) of
+              blocked ->
+                  ct:fail(multi_scheduling_blocked);
+              disabled ->
+                  ok;
+              enabled ->
+                  io:format("Testing blocking process exit~n"),
+                  BF = fun () ->
+                               blocked = erlang:system_flag(multi_scheduling,
+                                                            block),
+                               Master ! {self(), blocking},
+                               receive after infinity -> ok end
+                       end,
+                  Blocker = spawn_link(BF),
+                  Mon = erlang:monitor(process, Blocker),
+                  receive {Blocker, blocking} -> ok end,
+                  [Blocker]
+                  = erlang:system_info(multi_scheduling_blockers),
+                  unlink(Blocker),
+                  exit(Blocker, kill),
+                  receive {'DOWN', Mon, _, _, _} -> ok end,
+                  enabled = erlang:system_info(multi_scheduling),
+                  [] = erlang:system_info(multi_scheduling_blockers),
+                  ok
+          end,
+          io:format("Testing blocked~n"),
+          erlang:system_flag(multi_scheduling, block),
+          case erlang:system_info(multi_scheduling) of
+              enabled ->
+                  ct:fail(multi_scheduling_enabled);
+              blocked ->
+                  [Master] = erlang:system_info(multi_scheduling_blockers);
+              disabled -> ok
+          end,
+          Ps = lists:map(
+                 fun (_) ->
+                         spawn_link(fun () ->
+                                            run_on_schedulers(none,
+                                                              [],
+                                                              Master)
+                                    end)
+                 end,
+                 lists:seq(1,NoSchedulers)),
+          receive after 1000 -> ok end,
+          {_, 1} = verify_all_schedulers_used({[],0}, 1),
+          lists:foreach(fun (P) ->
+                                unlink(P),
+                                exit(P, bang)
+                        end, Ps),
+          case erlang:system_flag(multi_scheduling, unblock) of
+              blocked -> ct:fail(multi_scheduling_blocked);
+              disabled -> ok;
+              enabled -> ok
+          end,
+          erts_debug:set_internal_state(available_internal_state, true),
+          %% node_and_dist_references will use emulator interal thread blocking...
+          erts_debug:get_internal_state(node_and_dist_references), 
+          erts_debug:set_internal_state(available_internal_state, false),
+          io:format("Testing not blocked~n"),
+          Ps2 = lists:map(
+                  fun (_) ->
+                          spawn_link(fun () ->
+                                             run_on_schedulers(none,
+                                                               [],
+                                                               Master)
+                                     end)
+                  end,
+                  lists:seq(1,NoSchedulers)),
+          receive after 1000 -> ok end,
+          {_, NoSIDs} = verify_all_schedulers_used({[],0},NoSchedulers),
+          lists:foreach(fun (P) ->
+                                unlink(P),
+                                exit(P, bang)
+                        end, Ps2),
+          NoSIDs
+      after
+          NoSchedulers = erlang:system_flag(schedulers_online,
+                                            NoSchedulersOnline),
+          NoSchedulersOnline = erlang:system_info(schedulers_online)
+      end,
+        {comment, "Number of schedulers " ++ integer_to_list(UsedScheds)}.
 
 
 run_on_schedulers(LastSID, SIDs, ReportTo) ->
@@ -198,65 +167,56 @@ wait_on_used_scheduler({SIDs, SIDsLen} = State) ->
 		true ->
 		    wait_on_used_scheduler(State);
 		false ->
-		    ?t:format("Scheduler ~p used~n", [SID]),
+		    io:format("Scheduler ~p used~n", [SID]),
 		    {[SID|SIDs], SIDsLen+1}
 	    end
     end.
 
 verify_all_schedulers_used({UsedSIDs, UsedSIDsLen} = State, NoSchedulers) ->
-    ?line case NoSchedulers of
+    case NoSchedulers of
 	      UsedSIDsLen ->
-		  ?line State;
+		  State;
 	      NoSchdlrs when NoSchdlrs < UsedSIDsLen ->
-		  ?line ?t:fail({more_schedulers_used_than_exist,
+		  ct:fail({more_schedulers_used_than_exist,
 				 {existing_schedulers, NoSchdlrs},
 				 {used_schedulers, UsedSIDsLen},
 				 {used_scheduler_ids, UsedSIDs}});
 	      _ ->
-		  ?line NewState = wait_on_used_scheduler(State),
-		  ?line verify_all_schedulers_used(NewState, NoSchedulers)
+		  NewState = wait_on_used_scheduler(State),
+		  verify_all_schedulers_used(NewState, NoSchedulers)
 	  end.
 
-node_container_refc_check(doc) -> [];
-node_container_refc_check(suite) -> [];
 node_container_refc_check(Config) when is_list(Config) ->
-    ?line node_container_SUITE:node_container_refc_check(node()),
-    ?line ok.
+    node_container_SUITE:node_container_refc_check(node()),
+    ok.
 
-long_timers(doc) ->
-    [];
-long_timers(suite) ->
-    [];
 long_timers(Config) when is_list(Config) ->
-    ?line ok = long_timers_test:check_result().
+    ok = long_timers_test:check_result().
 
-pollset_size(doc) ->
-    [];
-pollset_size(suite) ->
-    [];
 pollset_size(Config) when is_list(Config) ->
-    ?line Name = pollset_size_testcase_initial_state_holder,
-    ?line Mon = erlang:monitor(process, Name),
-    ?line (catch Name ! {get_initial_check_io_result, self()}),
-    ?line InitChkIo = receive
+    Name = pollset_size_testcase_initial_state_holder,
+    Mon = erlang:monitor(process, Name),
+    (catch Name ! {get_initial_check_io_result, self()}),
+    InitChkIo = receive
 			  {initial_check_io_result, ICIO} ->
-			      ?line erlang:demonitor(Mon, [flush]),
-			      ?line ICIO;
+			      erlang:demonitor(Mon, [flush]),
+			      ICIO;
 			  {'DOWN', Mon, _, _, Reason} ->
-			      ?line ?t:fail({non_existing, Name, Reason})
+			      ct:fail({non_existing, Name, Reason})
 		      end,
-    ?line FinChkIo = get_check_io_info(),
-    ?line io:format("Initial: ~p~nFinal: ~p~n", [InitChkIo, FinChkIo]),
-    ?line InitPollsetSize = lists:keysearch(total_poll_set_size, 1, InitChkIo),
-    ?line FinPollsetSize = lists:keysearch(total_poll_set_size, 1, FinChkIo),
-    ?line case InitPollsetSize =:= FinPollsetSize of
+    FinChkIo = get_check_io_info(),
+    io:format("Initial: ~p~nFinal: ~p~n", [InitChkIo, FinChkIo]),
+    InitPollsetSize = lists:keysearch(total_poll_set_size, 1, InitChkIo),
+    FinPollsetSize = lists:keysearch(total_poll_set_size, 1, FinChkIo),
+    HasGethost = case has_gethost() of true -> 1; _ -> 0 end,
+    case InitPollsetSize =:= FinPollsetSize of
 	      true ->
 		  case InitPollsetSize of
 		      {value, {total_poll_set_size, Size}} ->
-			  ?line {comment,
+			  {comment,
 				 "Pollset size: " ++ integer_to_list(Size)};
 		      _ ->
-			  ?line {skipped,
+			  {skipped,
 				 "Pollset size information not available"}
 		  end;
 	      false ->
@@ -265,40 +225,59 @@ pollset_size(Config) when is_list(Config) ->
 		  %% that is ok as long as there are at least 2
 		  %% descriptors (dist listen socket and
 		  %% epmd socket) in the pollset.
-		  ?line {value, {total_poll_set_size, InitSize}}
+		  {value, {total_poll_set_size, InitSize}}
 		      = InitPollsetSize,
-		  ?line {value, {total_poll_set_size, FinSize}}
+		  {value, {total_poll_set_size, FinSize}}
 		      = FinPollsetSize,
-		  ?line true = FinSize < InitSize,
-		  ?line true = 2 =< FinSize,
-		  ?line {comment,
+		  true = FinSize < (InitSize + HasGethost),
+		  true = 2 =< FinSize,
+		  {comment,
 			 "Start pollset size: "
 			 ++ integer_to_list(InitSize)
 			 ++ " End pollset size: "
 			 ++ integer_to_list(FinSize)}
 	  end.
 
-check_io_debug(doc) ->
-    [];
-check_io_debug(suite) ->
-    [];
 check_io_debug(Config) when is_list(Config) ->
-    ?line case lists:keysearch(name, 1, erlang:system_info(check_io)) of
-	      {value, {name, erts_poll}} -> ?line check_io_debug_test();
-	      _ -> ?line {skipped, "Not implemented in this emulator"}
+    case lists:keysearch(name, 1, erlang:system_info(check_io)) of
+	      {value, {name, erts_poll}} -> check_io_debug_test();
+	      _ -> {skipped, "Not implemented in this emulator"}
 	  end.
 
 check_io_debug_test() ->
-    ?line erlang:display(get_check_io_info()),
-    ?line erts_debug:set_internal_state(available_internal_state, true),
-    ?line {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs}
+    erlang:display(get_check_io_info()),
+    erts_debug:set_internal_state(available_internal_state, true),
+    {NoErrorFds, NoUsedFds, NoDrvSelStructs, NoDrvEvStructs} = CheckIoDebug
 	= erts_debug:get_internal_state(check_io_debug),
-    ?line erts_debug:set_internal_state(available_internal_state, false),
-    ?line 0 = NoErrorFds,
-    ?line NoUsedFds = NoDrvSelStructs,
-    ?line 0 = NoDrvEvStructs,
-    ?line ok.
+    erts_debug:set_internal_state(available_internal_state, false),
+    HasGetHost = has_gethost(),
+    ct:log("check_io_debug: ~p~n"
+           "HasGetHost: ~p",[CheckIoDebug, HasGetHost]),
+    0 = NoErrorFds,
+    if
+        NoUsedFds == NoDrvSelStructs ->
+            ok;
+        HasGetHost andalso (NoUsedFds == (NoDrvSelStructs - 1)) ->
+            %% If the inet_gethost port is alive, we may have
+            %% one extra used fd that is not selected on.
+            %% This happens when the initial setup of the
+            %% port returns an EAGAIN
+            ok
+    end,
+    0 = NoDrvEvStructs,
+    ok.
 
+has_gethost() ->
+    has_gethost(erlang:ports()).
+has_gethost([P|T]) ->
+    case erlang:port_info(P, name) of
+        {name,"inet_gethost"++_} ->
+            true;
+        _ ->
+            has_gethost(T)
+    end;
+has_gethost([]) ->
+    false.
 
 
 %%
@@ -332,6 +311,3 @@ get_check_io_info() ->
 	    receive after 100 -> ok end,
 	    get_check_io_info()
     end.
-
-
-

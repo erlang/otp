@@ -43,7 +43,7 @@ case 101: { // wxEvtHandler::Disconnect
   int eventType = wxeEventTypeFromAtom(bp); bp += *eventTypeLen;
   if(eventType > 0) {
     if(recurse_level > 1) {
-      delayed_delete->Append(Ecmd.Save());
+      delayed_delete->Append(Ecmd.Save(op));
     } else {
      bool Result = This->Disconnect((int) *winid,(int) *lastId,eventType,
                                     (wxObjectEventFunction)(wxEventFunction)

@@ -46,4 +46,4 @@ gather([]) -> ok;
 gather([_|Pids]) -> receive _ -> gather(Pids) end.
 
 workload(0) -> ok;
-workload(N) -> math:sin(2), workload(N - 1).
+workload(N) -> _ = math:sin(2), workload(N - 1).

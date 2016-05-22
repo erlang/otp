@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,15 +147,10 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, _, _, Options) ->
     process_flag(trap_exit, true),
-    Debug = gen:debug_options(Options),
+    Name = gen:name(Name0),
+    Debug = gen:debug_options(Name, Options),
     proc_lib:init_ack(Starter, {ok, self()}),
-    Name = name(Name0),
     loop(Parent, Name, [], Debug, false).
-
-name({local,Name}) -> Name;
-name({global,Name}) -> Name;
-name({via,_, Name}) -> Name;
-name(Pid) when is_pid(Pid) -> Pid.
 
 -spec add_handler(emgr_ref(), handler(), term()) -> term().
 add_handler(M, Handler, Args) -> rpc(M, {add_handler, Handler, Args}).

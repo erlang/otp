@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ void wxeCommand::Delete()
     if(len > 64)
       driver_free(buffer);
     buffer = NULL;
-    op = -1;
   }
+  op = -2;
 }
 
 /* ****************************************************************************
@@ -84,7 +84,7 @@ wxeCommand * wxeFifo::Get()
     pos = m_first++;
     m_n--;
     m_first %= m_max;
-  } while(m_q[pos].op == -1);
+  } while(m_q[pos].op < 0);
   return &m_q[pos];
 }
 
@@ -96,7 +96,7 @@ wxeCommand * wxeFifo::Peek(unsigned int *i)
       return NULL;
     pos = (m_first+*i) % m_max;
     (*i)++;
-  } while(m_q[pos].op == -1);
+  } while(m_q[pos].op < 0);
   return &m_q[pos];
 }
 
@@ -213,7 +213,7 @@ void wxeFifo::Realloc()
 // Strip end of queue if ops are already taken care of, avoids reallocs
 void wxeFifo::Strip()
 {
-  while((m_n > 0) && (m_q[(m_first + m_n - 1)%m_max].op == -1)) {
+  while((m_n > 0) && (m_q[(m_first + m_n - 1)%m_max].op < -1)) {
     m_n--;
   }
 }
@@ -226,7 +226,7 @@ unsigned int wxeFifo::Cleanup(unsigned int def)
     // Realloced we need to start from the beginning
     return 0;
   } else {
-    return def;
+    return def < cb_start? def : cb_start;
   }
 }
 

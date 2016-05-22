@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 
 -module(observer_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("wx/include/wx.hrl").
 -include_lib("observer/src/observer_tv.hrl").
 
@@ -38,7 +38,7 @@
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, ?t:minutes(2)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 

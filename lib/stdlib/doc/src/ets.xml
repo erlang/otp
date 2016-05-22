@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2014</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -123,8 +123,9 @@
     <p>Some of the functions uses a <em>match specification</em>,
       match_spec. A brief explanation is given in
       <seealso marker="#select/2">select/2</seealso>. For a detailed
-      description, see the chapter "Match specifications in Erlang" in
-      <em>ERTS User's Guide</em>.</p>
+      description, see chapter
+      <seealso marker="erts:match_spec">Match Specifications in Erlang</seealso>
+      in <em>ERTS User's Guide</em>.</p>
   </section>
 
   <datatypes>
@@ -134,8 +135,7 @@
     <datatype>
       <name>continuation()</name>
       <desc>
-        <p><marker id="type-continuation"/>
-          Opaque continuation used by <seealso marker="#select/1">
+        <p>Opaque continuation used by <seealso marker="#select/1">
           <c>select/1,3</c></seealso>, <seealso marker="#select_reverse/1">
           <c>select_reverse/1,3</c></seealso>, <seealso
           marker="#match/1">
@@ -1621,6 +1621,8 @@ true</pre>
           if the match_spec does not match the object <c><anno>Tuple</anno></c>.</p>
         <p>This is a useful debugging and test tool, especially when
           writing complicated <c>ets:select/2</c> calls.</p>
+        <p>See also: <seealso marker="erts:erlang#match_spec_test/3">
+          erlang:match_spec_test/3</seealso>.</p>
       </desc>
     </func>
     <func>

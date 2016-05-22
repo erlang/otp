@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,6 +141,8 @@ ERTS_GLB_INLINE Uint64
 erts_time_unit_conversion(Uint64 value,
 			  Uint32 from_time_unit,
 			  Uint32 to_time_unit);
+
+ErtsSysPerfCounter erts_perf_counter_unit(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

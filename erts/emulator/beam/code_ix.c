@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,12 +65,12 @@ void erts_code_ix_init(void)
     CIX_TRACE("init");
 }
 
-void erts_start_staging_code_ix(void)
+void erts_start_staging_code_ix(int num_new)
 {
     beam_catches_start_staging();
     export_start_staging();
     module_start_staging();
-    erts_start_staging_ranges();
+    erts_start_staging_ranges(num_new);
     CIX_TRACE("start");
 }
 
@@ -94,6 +94,7 @@ void erts_commit_staging_code_ix(void)
     ix = (ix + 1) % ERTS_NUM_CODE_IX;
     erts_smp_atomic32_set_nob(&the_staging_code_index, ix);
     export_staging_unlock();
+    erts_tracer_nif_clear();
     CIX_TRACE("activate");
 }
 

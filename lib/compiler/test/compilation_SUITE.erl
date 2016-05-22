@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +19,51 @@
 %%% Purpose : Compiles various modules with tough code
 
 -module(compilation_SUITE).
+-export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+	 beam_compiler_4/1,
+	 beam_compiler_6/1,
+	 beam_compiler_7/1,
+	 beam_compiler_8/1,
+	 beam_compiler_9/1,
+	 beam_compiler_10/1,
+	 beam_compiler_11/1,
+	 compiler_1/1,
+	 const_list_256/1,
+	 convopts/1,
+	 live_var/1,
+	 on_load/1,
+	 on_load_inline/1,
+	 opt_crash/1,
+	 otp_2330/1,
+	 otp_2380/1,
+	 otp_4790/1,
+	 otp_5151/1,
+	 otp_5235/1,
+	 otp_5404/1,
+	 otp_5436/1,
+	 otp_5481/1,
+	 otp_5553/1,
+	 otp_5632/1,
+	 otp_5714/1,
+	 otp_5872/1,
+	 otp_6121/1,
+	 otp_7202/1,
+	 otp_8949_a/1,
+	 redundant_case/1,
+	 self_compile/1,
+	 self_compile_old_inliner/1,
+	 split_cases/1,
+	 string_table/1,
+	 vsn_1/1,
+	 vsn_2/1,
+	 vsn_3/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--compile(export_all).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -35,23 +74,18 @@ groups() ->
     [{vsn,[parallel],[vsn_1,vsn_2,vsn_3]},
      {p,test_lib:parallel(),
       [compiler_1,
-       compiler_3,compiler_5,beam_compiler_1,
-       beam_compiler_2,beam_compiler_3,beam_compiler_4,
-       beam_compiler_5,beam_compiler_6,beam_compiler_7,
+       beam_compiler_4,beam_compiler_6,beam_compiler_7,
        beam_compiler_8,beam_compiler_9,beam_compiler_10,
-       beam_compiler_11,beam_compiler_12,
-       nested_tuples_in_case_expr,otp_2330,guards,
-       {group,vsn},otp_2380,otp_2141,otp_2173,otp_4790,
-       const_list_256,bin_syntax_1,bin_syntax_2,
-       bin_syntax_3,bin_syntax_4,bin_syntax_5,bin_syntax_6,
-       live_var,convopts,
-       catch_in_catch,redundant_case,long_string,otp_5076,
-       complex_guard,otp_5092,otp_5151,otp_5235,otp_5244,
-       trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
+       beam_compiler_11,
+       otp_2330,
+       {group,vsn},otp_2380,otp_4790,
+       const_list_256,live_var,convopts,
+       redundant_case,
+       otp_5151,otp_5235,
+       opt_crash,otp_5404,otp_5436,otp_5481,
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
-       otp_6121a,otp_6121b,otp_7202,otp_7345,on_load,
-       string_table,otp_8949_a,otp_8949_b,split_cases,
-       beam_utils_liveopt]}].
+       otp_7202,on_load,on_load_inline,
+       string_table,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
     Config.
@@ -68,85 +102,25 @@ end_per_group(_GroupName, Config) ->
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).
 
--define(comp_fail(N),
-	N(Config) when is_list(Config) -> failure(N, Config)).
-
 ?comp(compiler_1).
-?comp(compiler_3).
-?comp(compiler_4).
-?comp(compiler_5).
 
-?comp(beam_compiler_1).
-?comp(beam_compiler_2).
-?comp(beam_compiler_3).
 ?comp(beam_compiler_4).
-?comp(beam_compiler_5).
 ?comp(beam_compiler_6).
 ?comp(beam_compiler_8).
 ?comp(beam_compiler_9).
 ?comp(beam_compiler_10).
 ?comp(beam_compiler_11).
-?comp(beam_compiler_12).
-?comp(beam_compiler_13).
-
-?comp(nested_tuples_in_case_expr).
 
 ?comp(otp_2330).
 ?comp(otp_2380).
-?comp(otp_2141).
-?comp(otp_2173).
 ?comp(otp_4790).
 ?comp(otp_5235).
 
-?comp(otp_5244).
-
-?comp(guards).
-
-?comp(pattern_expr).
-
 ?comp(const_list_256).
 
-?comp(bin_syntax_1).
-?comp(bin_syntax_2).
-?comp(bin_syntax_3).
-?comp(bin_syntax_4).
-
-?comp(bin_syntax_6).
-
-?comp(otp_5076).
-
-?comp(complex_guard).
-
-?comp(otp_5092).
 ?comp(otp_5151).
 
-%%% By Per Gustafsson <pergu@dhcp-12-245.it.uu.se>
-
-bin_syntax_5(Config) when is_list(Config) ->
-    {<<45>>,<<>>} = split({int, 1}, <<1:16,45>>).   
-
-split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
-    {B,T}.
-
-%% This program works with the old version of the compiler
-%% but, the core erlang that it produces have the same variable appearing
-%% looks like this:
-%%
-%% split({int, N}, <<_core1:16, B:N/binary, T/binary>>) when _core1==N
-%%
-%% with my change it will look like this:
-%%
-%% split({int, N}, <<_core1:16, B:_core1/binary, T/binary>>) when _core1==N
-%%
-%% This means that everything worked fine as long as the pattern
-%% matching order was left-to-right but on core erlang any order should be possible
-
 ?comp(live_var).
-
-?comp(trycatch_4).
-
-?comp(catch_in_catch).
-
 ?comp(opt_crash).
 
 ?comp(otp_5404).
@@ -157,18 +131,14 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 ?comp(otp_5714).
 ?comp(otp_5872).
 ?comp(otp_6121).
-?comp(otp_6121a).
-?comp(otp_6121b).
 ?comp(convopts).
 ?comp(otp_7202).
 ?comp(on_load).
 ?comp(on_load_inline).
 
-beam_compiler_7(doc) ->
-    "Code snippet submitted from Ulf Wiger which fails in R3 Beam.";
-beam_compiler_7(suite) -> [];
+%% Code snippet submitted from Ulf Wiger which fails in R3 Beam.
 beam_compiler_7(Config) when is_list(Config) ->
-    ?line done = empty(2, false).
+    done = empty(2, false).
 
 empty(N, Toggle) when N > 0 ->
     %% R3 Beam copies the second argument to the first before call.
@@ -193,121 +163,63 @@ redundant_case_1(3) -> d;
 redundant_case_1(4) -> d;
 redundant_case_1(_) -> d.
 
-failure(Module, Conf) ->
-    ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Module)),
-    ?line Out = ?config(priv_dir,Conf),
-    ?line io:format("Compiling: ~ts\n", [Src]),
-    ?line CompRc = compile:file(Src, [{outdir,Out},return,time]),
-    ?line io:format("Result: ~p\n",[CompRc]),
-    ?line case CompRc of
-	      error -> ok;
-	      {error,Errors,_} -> check_errors(Errors);
-	      _ -> test_server:fail({no_error, CompRc})
-	  end,
-    ok.
-
-check_errors([{_,Eds}|T]) ->
-    check_error(Eds),
-    check_errors(T);
-check_errors([]) -> ok.
-
-check_error([{_,Mod,Error}|T]) ->
-    check_error_1(Mod:format_error(Error)),
-    check_error(T);
-check_error([{Mod,Error}|T]) ->
-    check_error_1(Mod:format_error(Error)),
-    check_error(T);
-check_error([]) -> ok.
-
-check_error_1(Str0) ->
-    Str = lists:flatten(Str0),
-    io:format("~s\n", [Str]),
-    case Str of
-	"internal"++_=Str ->
-	    ?t:fail(internal_compiler_error);
-	_ ->
-	    ok
-    end.
-
--define(TC(Body), tc(fun() -> Body end, ?LINE)).
-
 try_it(Module, Conf) ->
-    %% Change 'false' to 'true' to start a new node for every module.
-    try_it(false, Module, Conf).
-		       
-try_it(StartNode, Module, Conf) ->
-    ?line OtherOpts = [],			%Can be changed to [time] if needed
-    ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Module)),
-    ?line Out = ?config(priv_dir,Conf),
-    ?line io:format("Compiling: ~s\n", [Src]),
-    ?line CompRc0 = compile:file(Src, [clint,{outdir,Out},report,
-				       bin_opt_info|OtherOpts]),
-    ?line io:format("Result: ~p\n",[CompRc0]),
-    ?line {ok,_Mod} = CompRc0,
+    Timetrap = {minutes,10},
+    OtherOpts = [],			%Can be changed to [time] if needed
+    Src = filename:join(proplists:get_value(data_dir, Conf),
+			atom_to_list(Module)),
+    Out = proplists:get_value(priv_dir,Conf),
+    io:format("Compiling: ~s\n", [Src]),
+    CompRc0 = compile:file(Src, [clint0,clint,{outdir,Out},report,
+				 bin_opt_info|OtherOpts]),
+    io:format("Result: ~p\n",[CompRc0]),
+    {ok,_Mod} = CompRc0,
 
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
-    Node = case StartNode of
-	       false ->
-		   node();
-	       true ->
-		   ?line Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-		   ?line {ok,Node0} = start_node(compiler, Pa),
-		   Node0
-	   end,
-		   
-    ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    ?line load_and_call(Out, Module),
-    ?line test_server:timetrap_cancel(Dog),
+    load_and_call(Out, Module),
 
-    ?line NewDog = test_server:timetrap(test_server:minutes(10)),
-    ?line io:format("Compiling (without optimization): ~s\n", [Src]),
-    ?line CompRc1 = compile:file(Src,
-				 [no_copt,no_postopt,{outdir,Out},report|OtherOpts]),
+    ct:timetrap(Timetrap),
+    io:format("Compiling (without optimization): ~s\n", [Src]),
+    CompRc1 = compile:file(Src,
+			   [no_copt,no_postopt,
+			    {outdir,Out},report|OtherOpts]),
 
-    ?line io:format("Result: ~p\n",[CompRc1]),
-    ?line {ok,_Mod} = CompRc1,
-    ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    ?line test_server:timetrap_cancel(NewDog),
+    io:format("Result: ~p\n",[CompRc1]),
+    {ok,_Mod} = CompRc1,
+    load_and_call(Out, Module),
 
-    ?line LastDog = test_server:timetrap(test_server:minutes(10)),
-    ?line io:format("Compiling (with old inliner): ~s\n", [Src]),
-    ?line CompRc2 = compile:file(Src, [{outdir,Out},report,bin_opt_info,
-				       {inline,1000}|OtherOpts]),
-    ?line io:format("Result: ~p\n",[CompRc2]),
-    ?line {ok,_Mod} = CompRc2,
-    ?line ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    ?line test_server:timetrap_cancel(LastDog),
+    ct:timetrap(Timetrap),
+    io:format("Compiling (with old inliner): ~s\n", [Src]),
+    CompRc2 = compile:file(Src, [clint,
+				 {outdir,Out},report,bin_opt_info,
+				 {inline,1000}|OtherOpts]),
+    io:format("Result: ~p\n",[CompRc2]),
+    {ok,_Mod} = CompRc2,
+    load_and_call(Out, Module),
 
-    AsmDog = test_server:timetrap(test_server:minutes(10)),
+    ct:timetrap(Timetrap),
     io:format("Compiling (from assembly): ~s\n", [Src]),
     {ok,_} = compile:file(Src, [to_asm,{outdir,Out},report|OtherOpts]),
     Asm = filename:join(Out, lists:concat([Module, ".S"])),
     CompRc3 = compile:file(Asm, [from_asm,{outdir,Out},report|OtherOpts]),
     io:format("Result: ~p\n",[CompRc3]),
     {ok,_} = CompRc3,
-    ok = rpc:call(Node, ?MODULE, load_and_call, [Out, Module]),
-    test_server:timetrap_cancel(AsmDog),
+    load_and_call(Out, Module),
 
-    case StartNode of
-	false -> ok;
-	true -> ?line test_server:stop_node(Node)
-    end,
-    ?line test_server:timetrap_cancel(LastDog),
     ok.
 
 load_and_call(Out, Module) ->
-    ?line io:format("Loading...\n",[]),
-    ?line {module,Module} = code:load_abs(filename:join(Out, Module)),
+    io:format("Loading...\n",[]),
+    {module,Module} = code:load_abs(filename:join(Out, Module)),
 
-    ?line io:format("Calling...\n",[]),
+    io:format("Calling...\n",[]),
     %% Call M:M, and expect ok back, that's our interface
-    ?line CallRc = Module:Module(),
-    ?line io:format("Got value: ~p\n",[CallRc]),
+    CallRc = Module:Module(),
+    io:format("Got value: ~p\n",[CallRc]),
 
-    ?line ok = CallRc,
+    ok = CallRc,
 
     %% Smoke-test of beam disassembler.
-    ?line test_lib:smoke_disasm(Module),
+    test_lib:smoke_disasm(Module),
 
     _ = code:delete(Module),
     _ = code:purge(Module),
@@ -320,102 +232,73 @@ load_and_call(Out, Module) ->
     ok.
 
 
-tc(F, Line) ->
-    {Diff,Value} = timer:tc(erlang, apply, [F,[]]),
-    io:format("~p: ~p\n", [Line,Diff]),
-    Value.
-    
-start_node(Name, Args) ->
-    case test_server:start_node(Name, slave, [{args, Args}]) of
-	{ok, Node} ->
-	    {ok, Node};
-	Error  ->
-	    ?line test_server:fail(Error)
-    end.
-
-from(H, [H | T]) -> T;
-from(H, [_ | T]) -> from(H, T);
-from(_, []) -> [].
-
-
-vsn_1(doc) ->
-    "Test generation of 'vsn' attribute";
-vsn_1(suite) -> [];
+%% Test generation of 'vsn' attribute.
 vsn_1(Conf) when is_list(Conf) ->
-    ?line M = vsn_1,
+    M = vsn_1,
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
-    ?line Vsn1 = get_vsn(M),
-    ?line timer:sleep(1000),
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
+    Vsn1 = get_vsn(M),
+    timer:sleep(1000),
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
-    ?line Vsn2 = get_vsn(M),
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
+    Vsn2 = get_vsn(M),
 
-    ?line compile_load(M, filename:join(?config(data_dir, Conf), "other"),
-		       Conf),
-    ?line Vsn3 = get_vsn(M),
-    ?line if
-	      Vsn1 == Vsn2, Vsn2 == Vsn3 ->
-		  ok;
-	      true ->
-		  test_server:fail({vsn, Vsn1, Vsn2, Vsn3})
-	  end,
+    compile_load(M, filename:join(proplists:get_value(data_dir, Conf),
+				  "other"),
+		 Conf),
+    Vsn3 = get_vsn(M),
+    if
+	Vsn1 == Vsn2, Vsn2 == Vsn3 ->
+	    ok;
+	true ->
+	    ct:fail({vsn, Vsn1, Vsn2, Vsn3})
+    end,
     ok.
 
-vsn_2(doc) ->
-    "Test overriding of generation of 'vsn' attribute";
-vsn_2(suite) -> [];
+%% Test overriding of generation of 'vsn' attribute.
 vsn_2(Conf) when is_list(Conf) ->
-    ?line M = vsn_2,
+    M = vsn_2,
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
-    ?line Vsn = get_vsn(M),
-    ?line case Vsn of
-	      [34] ->
-		  ok;
-	      _ ->
-		  test_server:fail({vsn, Vsn})
-	  end,
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
+    Vsn = get_vsn(M),
+    case Vsn of
+	[34] ->
+	    ok;
+	_ ->
+	    ct:fail({vsn, Vsn})
+    end,
     ok.
 
-vsn_3(doc) ->
-    "Test that different code yields different generated 'vsn'";
-vsn_3(suite) -> [];
+%% Test that different code yields different generated 'vsn'.
 vsn_3(Conf) when is_list(Conf) ->
-    ?line M = vsn_3,
+    M = vsn_3,
 
-    ?line compile_load(M, ?config(data_dir, Conf), Conf),
-    ?line Vsn1 = get_vsn(M),
+    compile_load(M, proplists:get_value(data_dir, Conf), Conf),
+    Vsn1 = get_vsn(M),
 
-    ?line compile_load(M, filename:join(?config(data_dir, Conf), "other"),
-		       Conf),
-    ?line Vsn2 = get_vsn(M),
-    ?line if
-	      Vsn1 /= Vsn2 ->
-		  ok;
-	      true ->
-		  test_server:fail({vsn, Vsn1, Vsn2})
-	  end,
+    compile_load(M, filename:join(proplists:get_value(data_dir, Conf),
+				  "other"),
+		 Conf),
+    Vsn2 = get_vsn(M),
+    if
+	Vsn1 /= Vsn2 ->
+	    ok;
+	true ->
+	    ct:fail({vsn, Vsn1, Vsn2})
+    end,
     ok.
 
 get_vsn(M) ->
-    {value, {vsn, V}} = lists:keysearch(vsn, 1, M:module_info(attributes)),
+    {vsn,V} = lists:keyfind(vsn, 1, M:module_info(attributes)),
     V.
 
-long_string(Config) when is_list(Config) ->
-    %% The test must complete in one minute - it should be plenty of time.
-    ?line Dog = test_server:timetrap(test_server:minutes(1)),
-    ?line try_it(long_string, Config),
-    ?line test_server:timetrap_cancel(Dog),
-    ok.
-
 compile_load(Module, Dir, Conf) ->
-    ?line Src = filename:join(Dir, atom_to_list(Module)),
-    ?line Out = ?config(priv_dir,Conf),
-    ?line CompRc = compile:file(Src, [{outdir,Out}]),
-    ?line {ok, Module} = CompRc,
-    ?line code:purge(Module),
-    ?line {module, Module} =
+    Src = filename:join(Dir, atom_to_list(Module)),
+    Out = proplists:get_value(priv_dir,Conf),
+    CompRc = compile:file(Src, [{outdir,Out}]),
+    {ok, Module} = CompRc,
+    code:purge(Module),
+    {module, Module} =
 	code:load_abs(filename:join(Out, atom_to_list(Module))),
     ok.
 
@@ -428,9 +311,9 @@ self_compile_old_inliner(Config) when is_list(Config) ->
     self_compile_1(Config, "old", [verbose,{inline,500}]).
 
 self_compile_1(Config, Prefix, Opts) ->
-    Dog = test_server:timetrap(test_server:minutes(40)),
+    ct:timetrap({minutes,40}),
 
-    Priv = ?config(priv_dir,Config),
+    Priv = proplists:get_value(priv_dir,Config),
     Version = compiler_version(),
 
     %% Compile the compiler. (In this node to get better coverage.)
@@ -449,11 +332,10 @@ self_compile_1(Config, Prefix, Opts) ->
     %% be equal (except for beam_asm that contains the compiler version).
     compare_compilers(CompA, CompB),
 
-    test_server:timetrap_cancel(Dog),
     ok.
 
 self_compile_node(CompilerDir, OutDir, Version, Opts) ->
-    Dog = test_server:timetrap(test_server:minutes(15)),
+    ct:timetrap({minutes,15}),
     Pa = "-pa " ++ filename:dirname(code:which(?MODULE)) ++
 	" -pa " ++ CompilerDir,
     Files = compiler_src(),
@@ -462,17 +344,18 @@ self_compile_node(CompilerDir, OutDir, Version, Opts) ->
     %% because it will load the same cover-compiled code as on this
     %% node. Use a shielded node to prevent the cover server from
     %% being started.
-    ?t:run_on_shielded_node(
-       fun() ->
-	       compile_compiler(Files, OutDir, Version, Opts)
-       end, Pa),
-    test_server:timetrap_cancel(Dog),
+    test_server:run_on_shielded_node(
+      fun() ->
+	      compile_compiler(Files, OutDir, Version, Opts)
+      end, Pa),
+
     ok.
 
 compile_compiler(Files, OutDir, Version, InlineOpts) ->
     io:format("~ts", [code:which(compile)]),
     io:format("Compiling ~s into ~ts", [Version,OutDir]),
     Opts = [report,
+	    clint0,clint,
 	    bin_opt_info,
 	    {outdir,OutDir},
 	    {d,'COMPILER_VSN',"\""++Version++"\""},
@@ -487,10 +370,6 @@ compile_compiler(Files, OutDir, Version, InlineOpts) ->
 
 compiler_src() ->
     filelib:wildcard(filename:join([code:lib_dir(compiler), "src", "*.erl"])).
-
-compiler_modules(Dir) ->
-    Files = filelib:wildcard(filename:join(Dir, "*.beam")),
-    [list_to_atom(filename:rootname(filename:basename(F))) || F <- Files].
 
 make_compiler_dir(Priv, Dir0) ->
     Dir = filename:join(Priv, Dir0),
@@ -510,120 +389,14 @@ compare_compilers(ADir, BDir) ->
     ["beam_asm.beam"] = [filename:basename(A) || {A,_} <- D],
     ok.
 
-%%%
-%%% The only test of the following code is that it compiles.
-%%%
-
-%% Slightly simplifed from megaco_binary_term_id_gen.
-%%  beam_block failed to note that the {gc_bif,'-'...} instruction could
-%%  fail, and that therefore {y,0} need to be initialized.
-%%    {allocate,8,6}.
-%%                     %% {init,{y,0}} needed here.       
-%%    {get_list,{x,1},{x,6},{x,7}}.
-%%    {'catch',{y,7},{f,3}}.
-%%    {move,{x,4},{y,1}}.
-%%    {move,{x,3},{y,2}}.
-%%    {move,{x,2},{y,3}}.
-%%    {move,{x,5},{y,4}}.
-%%    {move,{x,7},{y,5}}.
-%%    {move,{x,6},{y,6}}.
-%%    {gc_bif,'-',{f,0},8,[{x,3},{x,6}],{x,0}}.
-%%    {move,{x,0},{y,0}}.
-
-encode_wildcards3([],[],_,_) -> [];
-encode_wildcards3([Level|Levels],[BitsInLevel|BitsRest],LevelNo,TotSize) ->
-    case (catch ?MODULE:encode_wildcard(Level,BitsInLevel,TotSize-BitsInLevel,
-					length(Levels))) of
-	{'EXIT',{Reason,Info}} ->
-	    exit({Reason,{LevelNo,Info}});
-
-	no_wildcard ->
-	    encode_wildcards3(Levels,BitsRest,LevelNo+1,TotSize-BitsInLevel);
-	    
-	{level,Wl} ->  
-	    [Wl|
-	     encode_wildcards3(Levels,BitsRest,LevelNo+1,TotSize-BitsInLevel)];
-
-	{recursive,Wr} ->  
-	    [Wr]
-    end.
-
-%% Slightly simplified code from hipe_rtl_ssapre.
-%%  beam_block used to do the following incorrect optimization:
-%%
-%%    {gc_bif,length,{f,0},1,[{x,0}],{x,3}}.
-%%                                   ^^^^^ Was {x,0} - changing to {x,3} is not safe.
-%%    {gc_bif,'+',{f,0},0,[{y,2},{integer,1}],{x,0}}.
-%%                     ^^^ Only one register live
-%%     . . .
-%%    {call_last,4,{f,2},4}.   %% beam_validator noted that {x,3} wasn't live.
-
-find_operands(Cfg,XsiGraph,[],_Count) ->
-    {Cfg,XsiGraph};
-find_operands(Cfg,XsiGraph,ActiveList,Count) ->
-    {NewCfg,TempActiveList}=?MODULE:find_operands_for_active_list(Cfg,XsiGraph,
-								  ActiveList,[]),
-    NewActiveList=lists:reverse(TempActiveList),
-    [Count+1, length(NewActiveList), length(digraph:vertices(XsiGraph))],
-    find_operands(NewCfg,XsiGraph,NewActiveList,Count+1).
-
-
-%% The following code
-%%
-%%    {get_list,{x,2},{x,0},{x,1}}.
-%%    {gc_bif,length,{f,0},1,[{x,0}],{x,0}}.
-%%    {move,{x,0},{x,1}}.
-%%
-%% was incorrectly optimized to
-%%
-%%    {get_list,{x,2},{x,0},{y,0}}.
-%%    {gc_bif,length,{f,0},3,[{x,0}],{x,1}}.
-%%
-%% because beam_block:is_transparent({x,1},
-%%                                  {gc_bif,length,{f,0},3,[{x,0}],{x,1}}
-%% incorrectly returned true.
-
--record(contextId,{cid,device_type,contextRef}).
--record(dpRef,{cid,tlli,ms_device_context_id}).
--record(qosProfileBssgp,{peak_bit_rate_msb,
-                              peak_bit_rate_lsb,
-                              t_a_precedence}).
--record(llUnitdataReq,{sapi,
-                            l3_pdu_length,
-                            pdu_life}).
--record(ptmsi,{value}).
-
-otp_7345(Config) when is_list(Config) ->
-    #llUnitdataReq{l3_pdu_length=3,pdu_life=4} =
-	otp_7345(#contextId{}, 0, [[1,2,3],4,5]).
-
-
-otp_7345(ObjRef, _RdEnv, Args) ->
-    Cid = ObjRef#contextId.cid,
-    _ =	#dpRef{cid = Cid,
-		     ms_device_context_id = cid_id,
-		     tlli = #ptmsi{value = 0}},
-    _ =	#qosProfileBssgp{peak_bit_rate_msb = 0,
-			 peak_bit_rate_lsb = 80,
-			 t_a_precedence = 49},
-    [Cpdu|_] = Args,
-    LlUnitdataReq =
-	#llUnitdataReq{sapi = 7,
-		       l3_pdu_length = length(Cpdu),
-		       pdu_life =
-		       id(42)
-		       div
-		       10},
-    id(LlUnitdataReq).
-
 %% Check the generation of the string table.
 
 string_table(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line File = filename:join(DataDir, "string_table.erl"),
-    ?line {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
-    ?line {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
-    ?line {"StrT", <<"stringtable">>} = StringTableChunk,
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "string_table.erl"),
+    {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
+    {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
+    {"StrT", <<"stringtable">>} = StringTableChunk,
     ok.
 
 otp_8949_a(Config) when is_list(Config) ->
@@ -648,24 +421,6 @@ do_otp_8949_a() ->
 	    end
     end.
     
-otp_8949_b(Config) when is_list(Config) ->
-    self() ! something,
-    ?line value = otp_8949_b([], false),
-    ?line {'EXIT',_} = (catch otp_8949_b([], true)),
-    ok.
-
-%% Would cause an endless loop in beam_utils.
-otp_8949_b(A, B) ->
-    Var = id(value),
-    if
-	A == [], B == false ->
-	    ok
-    end,
-    receive
-        something ->
-	    id(Var)
-    end.
-    
 split_cases(_) ->
     dummy1 = do_split_cases(x),
     {'EXIT',{{badmatch,b},_}} = (catch do_split_cases(y)),
@@ -680,22 +435,6 @@ do_split_cases(A) ->
 	    a=b
     end,
     Z.
-
--record(alarmInfo, {type,cause,origin}).
-
-beam_utils_liveopt(Config) ->
-    F = beam_utils_liveopt_fun(42, pebkac, user),
-    void = F(42, #alarmInfo{type=sctp,cause=pebkac,origin=user}),
-    ok.
-    
-beam_utils_liveopt_fun(Peer, Cause, Origin) ->
-    fun(PeerNo, AlarmInfo)
-	  when PeerNo == Peer andalso
-	       AlarmInfo == #alarmInfo{type=sctp,
-				       cause=Cause,
-				       origin=Origin} ->
-	    void
-    end.
 
 
 id(I) -> I.

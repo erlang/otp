@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2646,7 +2646,7 @@ static void *my_realloc(void *old, size_t size)
 
 BOOL create_mesq(MesQ **q) 
 {
-    MesQ *tmp = malloc(sizeof(MesQ));
+    MesQ *tmp = ALLOC(sizeof(MesQ));
     tmp->data_present = CreateEvent(NULL, TRUE, FALSE,NULL);
     if (tmp->data_present == NULL) {
 	free(tmp);

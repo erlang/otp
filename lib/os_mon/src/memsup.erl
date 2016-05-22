@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -408,18 +408,18 @@ handle_info({collected_sys, {Alloc,Total}}, State) ->
 
     %% Last, if this was a periodic check, start a timer for the next
     %% one. New timeout = interval-time spent collecting,
-    case lists:member(reg, State#state.pending) of
-	true ->
-	    Time = case State2#state.timeout - TimeSpent of
-		       MS when MS<0 ->
-			   0;
-		       MS ->
-			   MS
-		   end,
-	    erlang:send_after(Time, self(), time_to_collect);
-	false ->
-	    ignore
-    end,
+    _ = case lists:member(reg, State#state.pending) of
+            true ->
+                Time = case State2#state.timeout - TimeSpent of
+                           MS when MS<0 ->
+                               0;
+                           MS ->
+                               MS
+                       end,
+                erlang:send_after(Time, self(), time_to_collect);
+            false ->
+                ignore
+        end,
     {noreply, State2#state{wd_timer=undefined, pending=[]}};
 handle_info({'EXIT', Pid, normal}, State) when is_pid(Pid) ->
     %% Temporary pid terminating when job is done
@@ -448,17 +448,17 @@ handle_info(reg_collection_timeout, State) ->
     %% If it is a periodic check which has timed out, start a timer for
     %% the next one
     %% New timeout = interval-helper timeout
-    case lists:member(reg, State#state.pending) of
-	true ->
-	    Time =
-		case State#state.timeout-State#state.helper_timeout of
-		    MS when MS<0 -> 0;
-		    MS -> MS
-		end,
-	    erlang:send_after(Time, self(), time_to_collect);
-	false ->
-	    ignore
-    end,
+    _ = case lists:member(reg, State#state.pending) of
+            true ->
+                Time =
+                case State#state.timeout-State#state.helper_timeout of
+                    MS when MS<0 -> 0;
+                    MS -> MS
+                end,
+                erlang:send_after(Time, self(), time_to_collect);
+            false ->
+                ignore
+        end,
     {noreply, State#state{wd_timer=undefined, pending=[]}};
 handle_info({'EXIT', Pid, cancel}, State) when is_pid(Pid) ->
     %% Temporary pid terminating as ordered
@@ -469,7 +469,7 @@ handle_info({collected_ext_sys, SysMemUsage}, State) ->
 
     %% Cancel watchdog timer (and as a security mearure,
     %% also flush any ext_collection_timeout message)
-    erlang:cancel_timer(State#state.ext_wd_timer),
+    ok = erlang:cancel_timer(State#state.ext_wd_timer, [{async,true}]),
     flush(ext_collection_timeout),
 
     %% Send the reply to all waiting clients, preserving time order
@@ -535,7 +535,7 @@ code_change(Vsn, PrevState, "1.8") ->
 		undefined ->
 		    ignore;
 		TimerRef1 ->
-		    erlang:cancel_timer(TimerRef1),
+                    ok = erlang:cancel_timer(TimerRef1, [{async,true}]),
 		    SysOnly = PrevState#state.sys_only,
 		    MemUsage = dummy_reply(get_memory_data, SysOnly),
 		    SysMemUsage1 = dummy_reply(get_system_memory_data),
@@ -545,7 +545,7 @@ code_change(Vsn, PrevState, "1.8") ->
 		undefined ->
 		    ignore;
 		TimerRef2 ->
-		    erlang:cancel_timer(TimerRef2),
+                    ok = erlang:cancel_timer(TimerRef2, [{async,true}]),
 		    SysMemUsage2 = dummy_reply(get_system_memory_data),
 		    reply(PrevState#state.pending, undef, SysMemUsage2)
 	    end,
@@ -589,7 +589,7 @@ code_change(Vsn, PrevState, "1.8") ->
 		undefined ->
 		    ignore;
 		TimerRef1 ->
-		    erlang:cancel_timer(TimerRef1),
+                    ok = erlang:cancel_timer(TimerRef1, [{async,true}]),
 		    MemUsage = dummy_reply(get_memory_data, SysOnly),
 		    Pending2 = lists:map(fun(From) -> {reg,From} end,
 					 Pending),
@@ -599,7 +599,7 @@ code_change(Vsn, PrevState, "1.8") ->
 		undefined ->
 		    ignore;
 		TimerRef2 ->
-		    erlang:cancel_timer(TimerRef2),
+                    ok = erlang:cancel_timer(TimerRef2, [{async,true}]),
 		    SysMemUsage = dummy_reply(get_system_memory_data),
 		    ExtPending2 = lists:map(fun(From) -> {ext,From} end,
 					    ExtPending),
@@ -699,6 +699,8 @@ get_os_wordsize_with_uname() ->
     case String of
 	"x86_64"  -> 64;
 	"sparc64" -> 64;
+	"amd64"   -> 64;
+	"ppc64"   -> 64;
 	_         -> 32
     end.
 

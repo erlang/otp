@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 -module(core_pp).
 
--export([format/1]).
+-export([format/1,format_all/1]).
 
 -include("core_parse.hrl").
 
@@ -33,25 +33,35 @@
 %%	Prettyprint-formats (naively) an abstract Core Erlang syntax
 %%	tree.
 
--record(ctxt, {class = term    :: 'clause' | 'def' | 'expr' | 'term',
-	       indent = 0      :: integer(),
+-record(ctxt, {indent = 0      :: integer(),
 	       item_indent = 2 :: integer(),
 	       body_indent = 4 :: integer(),
-	       tab_width = 8   :: non_neg_integer(),
-	       line = 0        :: integer()}).
+	       line = 0        :: integer(),
+	       clean = true    :: boolean()}).
+
+-define(TAB_WIDTH, 8).
 
 -spec format(cerl:cerl()) -> iolist().
 
 format(Node) ->
     format(Node, #ctxt{}).
 
-maybe_anno(Node, Fun, Ctxt) ->
+-spec format_all(cerl:cerl()) -> iolist().
+
+format_all(Node) ->
+    format(Node, #ctxt{clean=false}).
+
+maybe_anno(Node, Fun, #ctxt{clean=false}=Ctxt) ->
     As = cerl:get_ann(Node),
-    case get_line(As) of
+    maybe_anno(Node, Fun, Ctxt, As);
+maybe_anno(Node, Fun, #ctxt{clean=true}=Ctxt) ->
+    As0 = cerl:get_ann(Node),
+    case get_line(As0) of
 	none ->
-	    maybe_anno(Node, Fun, Ctxt, As);
+	    maybe_anno(Node, Fun, Ctxt, As0);
   	Line ->
-	    if  Line > Ctxt#ctxt.line ->
+	    As = strip_line(As0),
+	    if Line > Ctxt#ctxt.line ->
 		    [io_lib:format("%% Line ~w",[Line]),
 		     nl_indent(Ctxt),
 		     maybe_anno(Node, Fun, Ctxt#ctxt{line = Line}, As)
@@ -61,22 +71,22 @@ maybe_anno(Node, Fun, Ctxt) ->
 	    end
     end.
 
-maybe_anno(Node, Fun, Ctxt, As) ->
-    case strip_line(As) of
-	[] ->
-	    Fun(Node, Ctxt);
-	List ->
-	    Ctxt1 = add_indent(Ctxt, 2),
-	    Ctxt2 = add_indent(Ctxt1, 3),
-	    ["( ",
-	     Fun(Node, Ctxt1),
-	     nl_indent(Ctxt1),
-	     "-| ",format_anno(List, Ctxt2)," )"
-	    ]
-    end.
+maybe_anno(Node, Fun, Ctxt, []) ->
+    Fun(Node, Ctxt);
+maybe_anno(Node, Fun, Ctxt, List) ->
+    Ctxt1 = add_indent(Ctxt, 2),
+    Ctxt2 = add_indent(Ctxt1, 3),
+    ["( ",
+     Fun(Node, Ctxt1),
+     nl_indent(Ctxt1),
+     "-| ",format_anno(List, Ctxt2)," )"
+    ].
 
 format_anno([_|_]=List, Ctxt) ->
     [$[,format_anno_list(List, Ctxt),$]];
+format_anno({file,Name}, _Ctxt) ->
+    %% Optimization: Reduces file size considerably.
+    io_lib:format("{'file',~p}", [Name]);
 format_anno(Tuple, Ctxt) when is_tuple(Tuple) ->
     [${,format_anno_list(tuple_to_list(Tuple), Ctxt),$}];
 format_anno(Val, Ctxt) when is_atom(Val) ->
@@ -121,14 +131,11 @@ format_1(#c_literal{anno=A,val=Bitstring}, Ctxt) when is_bitstring(Bitstring) ->
     format_1(#c_binary{anno=A,segments=Segs}, Ctxt);
 format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
     Pairs = maps:to_list(M),
-    Op = case Ctxt of
-	#ctxt{ class = clause } -> exact;
-	_ -> assoc
-    end,
-    Cpairs = [#c_map_pair{op=#c_literal{val=Op},
+    Op = #c_literal{val=assoc},
+    Cpairs = [#c_map_pair{op=Op,
 			  key=#c_literal{val=K},
 			  val=#c_literal{val=V}} || {K,V} <- Pairs],
-	format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
+    format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
 format_1(#c_var{name={I,A}}, _) ->
     [core_atom(I),$/,integer_to_list(A)];
 format_1(#c_var{name=V}, _) ->
@@ -172,7 +179,8 @@ format_1(#c_tuple{es=Es}, Ctxt) ->
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      $}
     ];
-format_1(#c_map{arg=#c_literal{val=M},es=Es}, Ctxt) when is_map(M),map_size(M)=:=0 ->
+format_1(#c_map{arg=#c_literal{anno=[],val=M},es=Es}, Ctxt)
+  when is_map(M), map_size(M) =:= 0 ->
     ["~{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      "}~"
@@ -195,9 +203,16 @@ format_1(#c_values{es=Es}, Ctxt) ->
 format_1(#c_alias{var=V,pat=P}, Ctxt) ->
     Txt = [format(V, Ctxt)|" = "],
     [Txt|format(P, add_indent(Ctxt, width(Txt, Ctxt)))];
-format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
-    Vs = [cerl:set_ann(V, []) || V <- Vs0],
-    case is_simple_term(A) of
+format_1(#c_let{anno=Anno0,vars=Vs0,arg=A0,body=B}, #ctxt{clean=Clean}=Ctxt) ->
+    {Vs,A,Anno} = case Clean of
+		      false ->
+			  {Vs0,A0,Anno0};
+		      true ->
+			  {[cerl:set_ann(V, []) || V <- Vs0],
+			   cerl:set_ann(A0, []),
+			   []}
+		  end,
+    case is_simple_term(A) andalso Anno =:= [] of
 	false ->
 	    Ctxt1 = add_indent(Ctxt, Ctxt#ctxt.body_indent),
 	    ["let ",
@@ -214,7 +229,7 @@ format_1(#c_let{vars=Vs0,arg=A,body=B}, Ctxt) ->
 	    ["let ",
 	     format_values(Vs, add_indent(Ctxt, 4)),
 	     " = ",
-	     format(cerl:set_ann(A, []), Ctxt1),
+	     format(A, Ctxt1),
 	     nl_indent(Ctxt),
 	     "in  "
 	     | format(B, add_indent(Ctxt, 4))
@@ -321,35 +336,30 @@ format_1(#c_module{name=N,exports=Es,attrs=As,defs=Ds}, Ctxt) ->
     [Mod," [",
      format_vseq(Es,
 		 "", ",",
-		 add_indent(set_class(Ctxt, term), width(Mod, Ctxt)+2),
+		 add_indent(Ctxt, width(Mod, Ctxt)+2),
 		 fun format/2),
      "]",
      nl_indent(Ctxt),
      "    attributes [",
      format_vseq(As,
 		 "", ",",
-		 add_indent(set_class(Ctxt, def), 16),
+		 add_indent(Ctxt, 16),
 		 fun format_def/2),
      "]",
      nl_indent(Ctxt),
      format_funcs(Ds, Ctxt),
      nl_indent(Ctxt)
      | "end"
-    ];
-format_1(Type, _) ->
-    ["** Unsupported type: ",
-     io_lib:write(Type)
-     | " **"
     ].
 
 format_funcs(Fs, Ctxt) ->
     format_vseq(Fs,
 		"", "",
-		set_class(Ctxt, def),
+		Ctxt,
 		fun format_def/2).
 
 format_def({N,V}, Ctxt0) ->
-    Ctxt1 = add_indent(set_class(Ctxt0, expr), Ctxt0#ctxt.body_indent),
+    Ctxt1 = add_indent(Ctxt0, Ctxt0#ctxt.body_indent),
     [format(N, Ctxt0),
      " =",
      nl_indent(Ctxt1)
@@ -362,7 +372,10 @@ format_values(Vs, Ctxt) ->
      format_hseq(Vs, ",", add_indent(Ctxt, 1), fun format/2),
      $>].
 
-format_bitstr(#c_bitstr{val=V,size=S,unit=U,type=T,flags=Fs}, Ctxt0) ->
+format_bitstr(Node, Ctxt) ->
+    maybe_anno(Node, fun do_format_bitstr/2, Ctxt).
+
+do_format_bitstr(#c_bitstr{val=V,size=S,unit=U,type=T,flags=Fs}, Ctxt0) ->
     Vs = [S, U, T, Fs],
     Ctxt1 = add_indent(Ctxt0, 2),
     Val = format(V, Ctxt1),
@@ -370,8 +383,7 @@ format_bitstr(#c_bitstr{val=V,size=S,unit=U,type=T,flags=Fs}, Ctxt0) ->
     ["#<", Val, ">(", format_hseq(Vs,",", Ctxt2, fun format/2), $)].
 
 format_clauses(Cs, Ctxt) ->
-    format_vseq(Cs, "", "", set_class(Ctxt, clause),
-		fun format_clause/2).
+    format_vseq(Cs, "", "", Ctxt, fun format_clause/2).
 
 format_clause(Node, Ctxt) ->
     maybe_anno(Node, fun format_clause_1/2, Ctxt).
@@ -383,15 +395,13 @@ format_clause_1(#c_clause{pats=Ps,guard=G,body=B}, Ctxt) ->
      case is_trivial_guard(G) of
 	 true ->
 	     [" when ",
-	      format_guard(G, add_indent(set_class(Ctxt, expr),
-					 width(Ptxt, Ctxt) + 6))];
+	      format_guard(G, add_indent(Ctxt, width(Ptxt, Ctxt) + 6))];
 	 false ->
 	     [nl_indent(Ctxt2), "when ",
 	      format_guard(G, add_indent(Ctxt2, 2))]
      end++
      " ->",
-     nl_indent(Ctxt2)
-     | format(B, set_class(Ctxt2, expr))
+     nl_indent(Ctxt2) | format(B, Ctxt2)
     ].
 
 is_trivial_guard(#c_literal{val=Val}) when is_atom(Val) -> true;
@@ -445,50 +455,53 @@ format_list_tail(Tail, Ctxt) ->
 
 format_map_pair(Op, K, V, Ctxt0) ->
     Ctxt1 = add_indent(Ctxt0, 1),
-    Txt = format(K, set_class(Ctxt1, expr)),
+    Txt = format(K, Ctxt1),
     Ctxt2 = add_indent(Ctxt0, width(Txt, Ctxt1)),
     [Txt,Op,format(V, Ctxt2)].
 
-indent(Ctxt) -> indent(Ctxt#ctxt.indent, Ctxt).
-
-indent(N, _) when N =< 0 -> "";
-indent(N, Ctxt) ->
-    T = Ctxt#ctxt.tab_width,
-    string:chars($\t, N div T, string:chars($\s, N rem T)).
+indent(#ctxt{indent=N}) ->
+    if
+	N =< 0 ->
+	    "";
+	true ->
+	    string:chars($\t, N div ?TAB_WIDTH, spaces(N rem ?TAB_WIDTH))
+    end.
 
 nl_indent(Ctxt) -> [$\n|indent(Ctxt)].
 
+spaces(0) -> "";
+spaces(1) -> " ";
+spaces(2) -> "  ";
+spaces(3) -> "   ";
+spaces(4) -> "    ";
+spaces(5) -> "     ";
+spaces(6) -> "      ";
+spaces(7) -> "       ".
 
+%% Undo indentation done by nl_indent/1.
 unindent(T, Ctxt) ->
-    unindent(T, Ctxt#ctxt.indent, Ctxt, []).
+    unindent(T, Ctxt#ctxt.indent, []).
 
-unindent(T, N, _, C) when N =< 0 ->
+unindent(T, N, C) when N =< 0 ->
     [T|C];
-unindent([$\s|T], N, Ctxt, C) ->
-    unindent(T, N - 1, Ctxt, C);
-unindent([$\t|T], N, Ctxt, C) ->
-    Tab = Ctxt#ctxt.tab_width,
+unindent([$\s|T], N, C) ->
+    unindent(T, N - 1, C);
+unindent([$\t|T], N, C) ->
+    Tab = ?TAB_WIDTH,
     if N >= Tab ->
-	    unindent(T, N - Tab, Ctxt, C);
+	    unindent(T, N - Tab, C);
        true ->
-	    unindent([string:chars($\s, Tab - N)|T], 0, Ctxt, C)
+	    unindent([spaces(Tab - N)|T], 0, C)
     end;
-unindent([L|T], N, Ctxt, C) when is_list(L) ->
-    unindent(L, N, Ctxt, [T|C]);
-unindent([H|T], _, _, C) ->
-    [H|[T|C]];
-unindent([], N, Ctxt, [H|T]) ->
-    unindent(H, N, Ctxt, T);
-unindent([], _, _, []) -> [].
+unindent([L|T], N, C) when is_list(L) ->
+    unindent(L, N, [T|C]).
 
 
 width(Txt, Ctxt) ->
-    try width(Txt, 0, Ctxt, [])
-    catch error:_ -> exit({bad_text,Txt})
-    end.
+    width(Txt, 0, Ctxt, []).
 
 width([$\t|T], A, Ctxt, C) ->
-    width(T, A + Ctxt#ctxt.tab_width, Ctxt, C);
+    width(T, A + ?TAB_WIDTH, Ctxt, C);
 width([$\n|T], _, Ctxt, C) ->
     width(unindent([T|C], Ctxt), Ctxt);
 width([H|T], A, Ctxt, C) when is_list(H) ->
@@ -502,14 +515,9 @@ width([], A, _, []) -> A.
 add_indent(Ctxt, Dx) ->
     Ctxt#ctxt{indent = Ctxt#ctxt.indent + Dx}.
 
-set_class(Ctxt, Class) ->
-    Ctxt#ctxt{class = Class}.
-
 core_atom(A) -> io_lib:write_string(atom_to_list(A), $').
 
 
-is_simple_term(#c_values{es=Es}) ->
-    length(Es) < 3 andalso lists:all(fun is_simple_term/1, Es);
 is_simple_term(#c_tuple{es=Es}) ->
     length(Es) < 4 andalso lists:all(fun is_simple_term/1, Es);
 is_simple_term(#c_var{}) -> true;

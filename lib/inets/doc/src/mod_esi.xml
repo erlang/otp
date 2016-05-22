@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -23,10 +23,6 @@
     </legalnotice>
 
     <title>mod_esi</title>
-    <prepared>Joakim Greben&ouml;</prepared>
-    <docno></docno>
-    <date>1997-10-14</date>
-    <rev>2.2</rev>
     <file>mod_esi.sgml</file>
   </header>
   <module>mod_esi</module>
@@ -38,6 +34,56 @@
 
     <marker id="deliver"></marker>
   </description>
+
+ <section>
+    <title>DATA TYPES</title>
+    <p>The following data types are used in the functions for mod_esi:</p>
+
+    <taglist>
+      <tag><c>env() = </c></tag>
+      <item> <p><c>{EnvKey()::atom(), Value::term()}</c></p>
+      </item>
+      
+      <p>Currently supported key value pairs</p>
+      <taglist>		
+	
+	<tag><c>{server_software, string()}</c></tag>
+	<item><p>Indicates the inets version.</p></item>
+	
+	<tag><c>{server_name, string()}</c></tag>
+	<item><p>The local hostname. </p></item>
+
+	<tag><c>{gateway_interface, string()}</c></tag>
+	<item><p>Legacy string used in CGI, just ignore.</p> </item>
+	
+	<tag><c>{server_protocol, string()}</c></tag>
+	<item><p> HTTP version, currently "HTTP/1.1"</p></item>
+	
+	<tag>{server_port, integer()}</tag>
+	<item><p>Servers port number.</p></item>
+	
+	<tag><c>{request_method, "GET | "PUT" | "DELETE | "POST" | "PATCH"}</c></tag>
+	
+	<tag><c>{remote_adress, inet:ip_address()} </c></tag>
+	<item><p>The clients ip address.</p></item>
+
+	<tag><c>{peer_cert, undefined | no_peercert | DER:binary()</c></tag>
+	<item>
+	  <p>For TLS connections where client certificates are used this will
+	  be an ASN.1 DER-encoded X509-certificate as an Erlang binary.
+	  If client certificates are not used the value will be <c>no_peercert</c>,
+	  and if TLS is not used (HTTP or connection is lost due to network failure)
+	  the value will be <c>undefined</c>.
+	</p></item>
+	
+	<tag><c>{script_name, string()}</c></tag>
+	<item><p>Request URI</p></item>
+
+	<tag><c>{http_LowerCaseHTTPHeaderName, string()}</c></tag>
+	<item><p>example: {http_content_type, "text/html"}</p></item>
+      </taglist>
+      
+    </taglist>
 
   <funcs>
     <func>
@@ -63,11 +109,11 @@
 	  overhead. Do not assume anything about the data type of 
 	  <c>SessionID</c>. <c>SessionID</c> must be the value given 
 	  as input to the ESI callback function that you implemented.</p>
-	</note>
+	  </note>
       </desc>
     </func>
   </funcs>
-
+  </section>
   <section>
     <title>ESI Callback Functions</title>
   </section>
@@ -78,9 +124,7 @@
       to the server process by calling <c>mod_esi:deliver/2</c>.</fsummary>
       <type>
         <v>SessionID = term()</v>
-        <v>Env = [EnvironmentDirectives] ++ ParsedHeader</v>
-        <v>EnvironmentDirectives = {Key,Value}</v>
-        <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name</v>
+        <v>Env = env()</v>
         <v>Input = string()</v>
       </type>
       <desc>
@@ -111,9 +155,7 @@
       <fsummary>Creates a dynamic web page and returns it as a list. 
       This function is deprecated and is only kept for backwards compatibility.</fsummary>
       <type>
-        <v>Env = [EnvironmentDirectives] ++ ParsedHeader</v>
-        <v>EnvironmentDirectives = {Key,Value}</v>
-		  <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name.</v>
+        <v>Env = env()</v>
         <v>Input = string()</v>
         <v>Response = string()</v>
       </type>

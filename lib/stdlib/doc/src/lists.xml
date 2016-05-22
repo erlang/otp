@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -259,6 +259,21 @@ flatmap(Fun, List1) ->
 3 2 1 void</pre>
         <p><c>foldl/3</c> is tail recursive and would usually be
           preferred to <c>foldr/3</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="join" arity="2"/>
+      <fsummary>Insert an element between elements in a list</fsummary>
+      <desc>
+        <p>Inserts <c><anno>Sep</anno></c> between each element in <c><anno>List1</anno></c>. Has no
+          effect on the empty list and on a singleton list. For example:</p>
+        <pre>
+> <input>lists:join(x, [a,b,c]).</input>
+[a,x,b,x,c]
+> <input>lists:join(x, [a]).</input>
+[a]
+> <input>lists:join(x, []).</input>
+[]</pre>
       </desc>
     </func>
     <func>

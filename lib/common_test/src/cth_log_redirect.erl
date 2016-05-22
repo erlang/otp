@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -130,7 +130,14 @@ handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
 						tag_event(Event)),
 	    if is_list(SReport) ->
 		    SaslHeader = format_header(State),
-		    ct_logs:LogFunc(sasl, ?STD_IMPORTANCE, SaslHeader, SReport, []);
+		    case LogFunc of
+			tc_log ->
+			    ct_logs:tc_log(sasl, ?STD_IMPORTANCE,
+					   SaslHeader, SReport, [], []);
+			tc_log_async ->
+			    ct_logs:tc_log_async(sasl, ?STD_IMPORTANCE,
+						 SaslHeader, SReport, [])
+		    end;
 	       true -> %% Report is an atom if no logging is to be done
 		    ignore
 	    end
@@ -139,7 +146,14 @@ handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
 		tag_event(Event),io_lib),
     if is_list(EReport) ->
 	    ErrHeader = format_header(State),
-	    ct_logs:LogFunc(error_logger, ?STD_IMPORTANCE, ErrHeader, EReport, []);
+	    case LogFunc of
+		tc_log ->
+		    ct_logs:tc_log(error_logger, ?STD_IMPORTANCE,
+				   ErrHeader, EReport, [], []);
+		tc_log_async ->
+		    ct_logs:tc_log_async(error_logger, ?STD_IMPORTANCE,
+					 ErrHeader, EReport, [])
+	    end;
        true -> %% Report is an atom if no logging is to be done
 	    ignore
     end,

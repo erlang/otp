@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -51,24 +51,27 @@
   </section>
   <section>
     <title>File example</title>
-      <p>Drawing examples:</p>
-      <codeinclude file="img.erl" tag="" type="none"></codeinclude>
-      <image file="test1.gif">
-      First save.
-        <icaption>test1.png</icaption>
-      </image>
-      <image file="test2.gif">
-      Second save.
-        <icaption>test2.png</icaption>
-      </image>
-      <image file="test3.gif">
-      Third save.
-        <icaption>test3.png</icaption>
-      </image>
-      <image file="test4.gif">
-      Fourth save.
-        <icaption>test4.png</icaption>
-      </image>
+    <p>Drawing examples:</p>
+    <codeinclude file="img.erl" tag="" type="none"></codeinclude>
+    <p> First save. </p>
+    <image file="test1.gif">
+      <icaption>test1.png</icaption>
+    </image>
+
+    <p> Second save. </p>
+    <image file="test2.gif">
+      <icaption>test2.png</icaption>
+    </image>
+
+    <p> Third save. </p>
+    <image file="test3.gif">
+      <icaption>test3.png</icaption>
+    </image>
+
+    <p> Fourth save. </p>
+    <image file="test4.gif">
+      <icaption>test4.png</icaption>
+    </image>
   </section>
   <section>
     <title>ESI example</title>

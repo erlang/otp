@@ -67,6 +67,7 @@ real_requests()->
      head,
      get,
      post,
+     delete,
      post_stream,
      patch,
      async,
@@ -256,6 +257,29 @@ post(Config) when is_list(Config) ->
     {ok, {{_,504,_}, [_ | _], []}} =
 	httpc:request(post, {URL, [{"expect","100-continue"}],
 			     "text/plain", "foobar"}, [], []).
+%%--------------------------------------------------------------------
+delete() ->
+    [{"Test http delete request against local server. We do in this case "
+     "only care about the client side of the the delete. The server "
+     "script will not actually use the delete data."}].
+delete(Config) when is_list(Config) ->
+    CGI = case test_server:os_type() of
+          {win32, _} ->
+          "/cgi-bin/cgi_echo.exe";
+          _ ->
+          "/cgi-bin/cgi_echo"
+      end,
+
+    URL  = url(group_name(Config), CGI, Config),
+    Body = lists:duplicate(100, "1"),
+
+    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
+    httpc:request(delete, {URL, [{"expect","100-continue"}],
+                 "text/plain", Body}, [], []),
+
+    {ok, {{_,504,_}, [_ | _], []}} =
+    httpc:request(delete, {URL, [{"expect","100-continue"}],
+                 "text/plain", "foobar"}, [], []).
 
 %%--------------------------------------------------------------------
 patch() ->
@@ -2053,7 +2077,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    Time = inets_time_compat:monotonic_time(),
+    Time = erlang:monotonic_time(),
 
     receive
 	{'DOWN', _MRef, process, Pid, normal} ->
@@ -2153,7 +2177,7 @@ parse_connection_type(Request) ->
     end.
 
 set_random_seed() ->
-    Unique = inets_time_compat:unique_integer(),
+    Unique = erlang:unique_integer(),
 
     A = erlang:phash2([make_ref(), self(), Unique]),
     random:seed(A, A, A).
