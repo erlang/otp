@@ -4661,9 +4661,25 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
     (set (make-local-variable 'find-tag-regexp-search-function)
 	 'erlang-tags-regexp-search-forward)
     (set (make-local-variable 'find-tag-tag-order)
-	 '(erlang-tag-match-module-p))
+         (mapcar #'erlang-make-order-function-aware-of-modules
+                 erlang-tags-orig-tag-order))
     (set (make-local-variable 'find-tag-regexp-tag-order)
-	 '(erlang-tag-match-module-regexp-p))))
+         (mapcar #'erlang-make-order-function-aware-of-modules
+                 erlang-tags-orig-regexp-tag-order))))
+
+(defun erlang-make-order-function-aware-of-modules (f)
+  `(lambda (tag)
+     (let (mod)
+       (when (string-match ":" tag)
+         (setq mod (substring tag 0 (match-beginning 0)))
+         (setq tag (substring tag (match-end 0) nil)))
+       (and (funcall ',f tag)
+            (or (null mod)
+                (erlang-tag-at-point-match-module-p mod))))))
+
+(defun erlang-tag-at-point-match-module-p (mod)
+  (string-equal mod (erlang-get-module-from-file-name
+                     (funcall (symbol-function 'file-of-tag)))))
 
 
 (defun erlang-tags-remove-module-check ()
@@ -4739,37 +4755,6 @@ for a tag on the form `module:tag'."
       (re-search-forward tag bound noerror count)
     (funcall erlang-tags-orig-regexp-search-function
 	     tag bound noerror count)))
-
-
-;; t if point is at a tag line that matches TAG, containing
-;; module information.  Assumes that all other order functions
-;; are stored in `erlang-tags-orig-[regex]-tag-order'.
-
-(defun erlang-tag-match-module-p (tag)
-  (erlang-tag-match-module-common-p tag erlang-tags-orig-tag-order))
-
-(defun erlang-tag-match-module-regexp-p (tag)
-  (erlang-tag-match-module-common-p tag erlang-tags-orig-regexp-tag-order))
-
-(defun erlang-tag-match-module-common-p (tag order)
-  (let ((mod nil)
-	(found nil))
-    (if (string-match ":" tag)
-	(progn
-	  (setq mod (substring tag 0 (match-beginning 0)))
-	  (setq tag (substring tag (match-end 0) nil))))
-    (while (and order (not found))
-      (setq found
-	    (and (not (memq (car order)
-			    '(erlang-tag-match-module-p
-			      erlang-tag-match-module-regexp-p)))
-		 (funcall (car order) tag)))
-      (setq order (cdr order)))
-    (and found
-	 (or (null mod)
-	     (string= mod (erlang-get-module-from-file-name
-			   (funcall (symbol-function 'file-of-tag))))))))
-
 
 ;;; Tags completion, Emacs 19 `etags' specific.
 ;;;
