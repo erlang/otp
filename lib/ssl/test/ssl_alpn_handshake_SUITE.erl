@@ -72,8 +72,8 @@ init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
 	    ssl:start(),
-	    {ok, _} = make_certs:all(?config(data_dir, Config),
-				     ?config(priv_dir, Config)),
+	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
+				     proplists:get_value(priv_dir, Config)),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -90,7 +90,7 @@ init_per_group(GroupName, Config) ->
 	true ->
 	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
 		true ->
-		    ssl_test_lib:init_tls_version(GroupName),
+		    ssl_test_lib:init_tls_version(GroupName, Config),
 		    Config;
 		false ->
 		    {skip, "Missing crypto support"}
@@ -104,7 +104,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
     Config.
 
@@ -226,9 +226,9 @@ client_alpn_and_server_alpn_npn(Config) when is_list(Config) ->
 client_renegotiate(Config) when is_list(Config) ->
     Data = "hello world",
     
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = proplists:get_value(client_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"http/1.0">>]}] ++ ClientOpts0,
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
     ExpectedProtocol = {ok, <<"http/1.0">>},
 
@@ -250,9 +250,9 @@ client_renegotiate(Config) when is_list(Config) ->
 %--------------------------------------------------------------------------------
 
 session_reused(Config) when  is_list(Config)->
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = proplists:get_value(client_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"http/1.0">>]}] ++ ClientOpts0,
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -299,7 +299,7 @@ session_reused(Config) when  is_list(Config)->
 %--------------------------------------------------------------------------------
 
 alpn_not_supported_client(Config) when is_list(Config) ->
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = proplists:get_value(client_opts, Config),
     PrefProtocols = {client_preferred_next_protocols,
 		     {client, [<<"http/1.0">>], <<"http/1.1">>}},
     ClientOpts = [PrefProtocols] ++ ClientOpts0,
@@ -315,7 +315,7 @@ alpn_not_supported_client(Config) when is_list(Config) ->
 %--------------------------------------------------------------------------------
 
 alpn_not_supported_server(Config) when is_list(Config)->
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_opts, Config),
     AdvProtocols = {next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]},
     ServerOpts = [AdvProtocols] ++  ServerOpts0,
   
@@ -326,8 +326,8 @@ alpn_not_supported_server(Config) when is_list(Config)->
 %%--------------------------------------------------------------------
 
 run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedResult) ->
-    ClientOpts = ClientExtraOpts ++ ?config(client_opts, Config),
-    ServerOpts = ServerExtraOpts ++ ?config(server_opts, Config),
+    ClientOpts = ClientExtraOpts ++ proplists:get_value(client_opts, Config),
+    ServerOpts = ServerExtraOpts ++ proplists:get_value(server_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -346,9 +346,9 @@ run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedResult) 
 run_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
     Data = "hello world",
 
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = proplists:get_value(client_opts, Config),
     ClientOpts = ClientExtraOpts ++ ClientOpts0,
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_opts, Config),
     ServerOpts = ServerExtraOpts ++  ServerOpts0,
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
