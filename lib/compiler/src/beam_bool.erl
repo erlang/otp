@@ -311,6 +311,8 @@ dst_regs([{set,[D],_,{bif,_,{f,_}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([{set,[D],_,{alloc,_,{gc_bif,_,{f,_}}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
+dst_regs([{protected,_,Bl,_}|Is], Acc) ->
+    dst_regs(Bl, dst_regs(Is, Acc));
 dst_regs([_|Is], Acc) ->
     dst_regs(Is, Acc);
 dst_regs([], Acc) -> ordsets:from_list(Acc).

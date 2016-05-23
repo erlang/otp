@@ -510,16 +510,8 @@ unforce(_, Vs) -> Vs.
 
 exprs([E0|Es0], St0) ->
     {E1,Eps,St1} = expr(E0, St0),
-    case E1 of
-	#iprimop{name=#c_literal{val=match_fail}} ->
-	    %% Must discard the rest of the body, because it
-	    %% may refer to variables that have not been bound.
-	    %% Example: {ok={error,E}} = foo(), E.
-	    {Eps ++ [E1],St1};
-	_ ->
-	    {Es1,St2} = exprs(Es0, St1),
-	    {Eps ++ [E1] ++ Es1,St2}
-    end;
+    {Es1,St2} = exprs(Es0, St1),
+    {Eps ++ [E1] ++ Es1,St2};
 exprs([], St) -> {[],St}.
 
 %% expr(Expr, State) -> {Cexpr,[PreExp],State}.
@@ -689,14 +681,36 @@ expr({match,L,P0,E0}, St0) ->
     Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
     case P2 of
 	nomatch ->
+	    %% The pattern will not match. We must take care here to
+	    %% bind all variables that the pattern would have bound
+	    %% so that subsequent expressions do not refer to unbound
+	    %% variables.
+	    %%
+	    %% As an example, this code:
+	    %%
+	    %%   [X] = {Y} = E,
+	    %%   X + Y.
+	    %%
+	    %% will be rewritten to:
+	    %%
+	    %%   error({badmatch,E}),
+	    %%   case E of
+	    %%      {[X],{Y}} ->
+	    %%        X + Y;
+	    %%      Other ->
+	    %%        error({badmatch,Other})
+	    %%   end.
+	    %%
 	    St6 = add_warning(L, nomatch, St5),
-	    {Expr,Eps3,St} = safe(E1, St6),
-	    Eps = Eps1 ++ Eps2 ++ Eps3,
+	    {Expr,Eps3,St7} = safe(E1, St6),
+	    SanPat0 = sanitize(P1),
+	    {SanPat,Eps4,St} = pattern(SanPat0, St7),
 	    Badmatch = c_tuple([#c_literal{val=badmatch},Expr]),
 	    Fail = #iprimop{anno=#a{anno=Lanno},
 			    name=#c_literal{val=match_fail},
 			    args=[Badmatch]},
-	    {Fail,Eps,St};
+	    Eps = Eps3 ++ Eps4 ++ [Fail],
+	    {#imatch{anno=#a{anno=Lanno},pat=SanPat,arg=Expr,fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
 	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps1++Eps2,St5}
     end;
@@ -737,6 +751,32 @@ expr({op,L,Op,L0,R0}, St0) ->
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
+
+
+%% sanitize(Pat) -> SanitizedPattern
+%%  Rewrite Pat so that it will be accepted by pattern/2 and will
+%%  bind the same variables as the original pattern.
+%%
+%%  Here is an example of a pattern that would cause a pattern/2
+%%  to generate a 'nomatch' exception:
+%%
+%%      #{k:=X,k:=Y} = [Z]
+%%
+%%  The sanitized pattern will look like:
+%%
+%%      {{X,Y},[Z]}
+
+sanitize({match,L,P1,P2}) ->
+    {tuple,L,[sanitize(P1),sanitize(P2)]};
+sanitize({cons,L,H,T}) ->
+    {cons,L,sanitize(H),sanitize(T)};
+sanitize({tuple,L,Ps0}) ->
+    Ps = [sanitize(P) || P <- Ps0],
+    {tuple,L,Ps};
+sanitize({map,L,Ps0}) ->
+    Ps = [sanitize(V) || {map_field_exact,_,_,V} <- Ps0],
+    {tuple,L,Ps};
+sanitize(P) -> P.
 
 make_bool_switch(L, E, V, T, F, #core{in_guard=true}) ->
     make_bool_switch_guard(L, E, V, T, F);
