@@ -135,7 +135,7 @@
       </row>
       <row>
         <cell>Erlang process</cell>
-        <cell>327 words when spawned, including a heap of 233 words.</cell>
+        <cell>338 words when spawned, including a heap of 233 words.</cell>
       </row>
       <tcaption>Memory Size of Different Data Types</tcaption>
     </table>
