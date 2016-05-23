@@ -223,20 +223,18 @@
 	end).
 -define(debugHere, (?debugMsg("<-"))).
 -define(debugFmt(S, As), (?debugMsg(io_lib:format((S), (As))))).
--define(debugVal(E),
+-define(debugVal(E, D),
 	begin
 	((fun (__V) ->
-		  ?debugFmt(<<"~ts = ~tP">>, [(??E), __V, 15]),
+		  ?debugFmt(<<"~ts = ~tP">>,
+                            [(??E), __V, D]),
 		  __V
 	  end)(E))
 	end).
--define(debugValAll(E),
-	begin
-	((fun (__V) ->
-		  ?debugFmt(<<"~ts = ~tp">>, [(??E), __V]),
-		  __V
-	  end)(E))
-	end).
+-ifndef(EUNIT_DEBUG_VAL_DEPTH).
+-define(EUNIT_DEBUG_VAL_DEPTH, 15).
+-endif.
+-define(debugVal(E), ?debugVal(E, ?EUNIT_DEBUG_VAL_DEPTH)).
 -define(debugTime(S, E),
 	begin
 	((fun () ->
