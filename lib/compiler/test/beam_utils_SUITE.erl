@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
 	 apply_fun/1,apply_mf/1,bs_init/1,bs_save/1,
 	 is_not_killed/1,is_not_used_at/1,
-	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1]).
+	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
+	 y_registers/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -44,7 +45,8 @@ groups() ->
        y_catch,
        otp_8949_b,
        liveopt,
-       coverage
+       coverage,
+       y_registers
       ]}].
 
 init_per_suite(Config) ->
@@ -310,6 +312,45 @@ clinic(Damage) ->
 	  try "trials" of Damage when Damage -> Damage catch true -> [] end
     end,
     carefully.
+
+y_registers(_Config) ->
+    {'EXIT',{{badfun,0},_}} = (catch economic(0.0, jim)),
+    {'EXIT',{{badmatch,apartments},_}} = (catch louisiana()),
+    {a,b} = (boxes(true))({a,b}),
+    {'EXIT',{{case_clause,webmaster},_}} = (catch yellow(true)),
+    ok.
+
+economic(0.0 = Serves, Existence) ->
+    case Serves of
+	Serves -> 0
+    end,
+    Existence = jim,
+    0(),
+    Serves,
+    Existence.
+
+louisiana() ->
+    {catch necessarily,
+     try
+	 [] == reg,
+	 true = apartments
+     catch [] -> barbara
+     end}.
+
+boxes(Call) ->
+    case Call of
+	Call -> approval
+    end,
+    Call,
+    fun id/1.
+
+yellow(Hill) ->
+    case webmaster of
+	station -> eyes; Hill ->
+	    "under"
+    end,
+    Hill,
+    id(42).
 
 
 %% The identity function.

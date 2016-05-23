@@ -262,7 +262,7 @@ backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
 backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
     To = shortcut_select_label(To0, Reg, Src, D),
     Jump = {jump,{f,To}},
-    case beam_utils:is_killed_at(Reg, To, D) of
+    case is_killed_at(Reg, To, D) of
 	false -> backward([Move|Is], D, [Jump|Acc]);
 	true -> backward([Jump|Is], D, Acc)
     end;
@@ -420,7 +420,7 @@ comp_op_find_shortcut(To0, Reg, Val, D) ->
 	To0 ->
 	    not_possible();
 	To ->
-	    case beam_utils:is_killed_at(Reg, To, D) of
+	    case is_killed_at(Reg, To, D) of
 		false -> not_possible();
 		true -> To
 	    end
@@ -863,3 +863,17 @@ get_literal(nil) ->
 get_literal({literal,_}=Lit) ->
     Lit;
 get_literal({_,_}) -> error.
+
+
+%%%
+%%% Removing stores to Y registers is not always safe
+%%% if there is an instruction that causes an exception
+%%% within a catch. In practice, there are few or no
+%%% opportunities for removing stores to Y registers anyway
+%%% if sys_core_fold has been run.
+%%%
+
+is_killed_at({x,_}=Reg, Lbl, D) ->
+    beam_utils:is_killed_at(Reg, Lbl, D);
+is_killed_at({y,_}, _, _) ->
+    false.
