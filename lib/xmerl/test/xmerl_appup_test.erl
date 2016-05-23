@@ -31,32 +31,6 @@
 all() -> 
     [appup].
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-init_per_suite(suite) -> [];
-init_per_suite(doc) -> [];
-init_per_suite(Config) when is_list(Config) ->
-    Config.
-
-
-end_per_suite(suite) -> [];
-end_per_suite(doc) -> [];
-end_per_suite(Config) when is_list(Config) ->
-    Config.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 %% perform a simple check of the appup file
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(xmerl).
+    ok = test_server:appup_test(xmerl).
