@@ -345,11 +345,12 @@ transport(SvcName, Ref) ->
 disconnect(Client, Ref, Server, LRef) ->
     true = diameter:subscribe(Server),
     ok = diameter:remove_transport(Client, Ref),
-    ok = receive
-             {diameter_event, Server, {down, LRef, _, _}} -> ok
-         after 10000 ->
-                 {Client, Ref, Server, LRef, process_info(self(), messages)}
-         end.
+    receive
+        {diameter_event, Server, {down, LRef, _, _}} ->
+            ok
+    after 10000 ->
+            {Client, Ref, Server, LRef, process_info(self(), messages)}
+    end.
 
 %% ---------------------------------------------------------------------------
 
