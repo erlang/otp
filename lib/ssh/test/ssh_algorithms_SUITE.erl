@@ -28,7 +28,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 10000).
+-define(TIMEOUT, 35000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
