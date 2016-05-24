@@ -250,7 +250,7 @@ subscribe(SvcName) ->
     diameter_reg:add({?MODULE, subscriber, SvcName}).
 
 unsubscribe(SvcName) ->
-    diameter_reg:del({?MODULE, subscriber, SvcName}).
+    diameter_reg:remove({?MODULE, subscriber, SvcName}).
 
 subscriptions(Pat) ->
     pmap(diameter_reg:match({?MODULE, subscriber, Pat})).

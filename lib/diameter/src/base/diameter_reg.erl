@@ -27,7 +27,7 @@
 
 -export([add/1,
          add_new/1,
-         del/1,
+         remove/1,
          match/1,
          wait/1,
          subscribe/2]).
@@ -78,7 +78,7 @@
 %% this or other assocations can be retrieved using match/1.
 %%
 %% An association is removed when the calling process dies or as a
-%% result of calling del/1. Adding the same term more than once is
+%% result of calling remove/1. Adding the same term more than once is
 %% equivalent to adding it once.
 %%
 %% Note that since match/1 takes a pattern as argument, specifying a
@@ -105,16 +105,16 @@ add_new(T) ->
     call({add, true, T}).
 
 %% ===========================================================================
-%% # del(Term)
+%% # remove(Term)
 %%
 %% Remove any existing association of Term with self().
 %% ===========================================================================
 
--spec del(key())
+-spec remove(key())
    -> true.
 
-del(T) ->
-    call({del, T}).
+remove(T) ->
+    call({remove, T}).
 
 %% ===========================================================================
 %% # match(Pat)
@@ -156,7 +156,7 @@ wait(Pat) ->
 %% # subscribe(Pat, T)
 %%
 %% Like match/1, but additionally receive messages of the form
-%% {T, add|del, {term(), pid()} when associations are added
+%% {T, add|remove, {term(), pid()} when associations are added
 %% or removed.
 %% ===========================================================================
 
@@ -258,11 +258,11 @@ handle_call({add, Uniq, Key}, {Pid, _}, S0) ->
     notify(Recvs, Rec),
     {reply, Res, S};
 
-handle_call({del, Key}, {Pid, _}, S) ->
+handle_call({remove, Key}, {Pid, _}, S) ->
     Rec = {Key, Pid},
     Recvs = delete([Rec], S),
     ets:delete_object(?TABLE, Rec),
-    notify(Recvs, del),
+    notify(Recvs, remove),
     {reply, true, S};
 
 handle_call({wait, Pat}, {Pid, _} = From, #state{receivers = RD} = S) ->
@@ -408,7 +408,7 @@ delete(false, _, _, Set) ->
 notify(false = No, _) ->
     No;
 
-notify(Recvs, del = Op) ->
+notify(Recvs, remove = Op) ->
     sets:fold(fun({P,R}, N) -> send(P, R, Op), N+1 end, 0, Recvs);
 
 notify(Recvs, {_,_} = Rec) ->
@@ -416,7 +416,7 @@ notify(Recvs, {_,_} = Rec) ->
 
 %% send/3
 
-%% No processes waiting on del, by construction: they've either
+%% No processes waiting on remove, by construction: they've either
 %% received notification at add or aren't waiting.
 send([Pid | T], Rec, Op) ->
     Pid ! {T, Op, Rec};
@@ -430,7 +430,7 @@ down(Pid, #state{monitors = MS} = S) ->
     NS = flush(Pid, S),
     Recvs = delete(match('_', Pid), NS),
     ets:match_delete(?TABLE, {'_', Pid}),
-    notify(Recvs, del),
+    notify(Recvs, remove),
     NS#state{monitors = sets:del_element(Pid, MS)}.
 
 %% flush/3
