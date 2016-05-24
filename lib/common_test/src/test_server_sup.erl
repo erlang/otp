@@ -755,7 +755,7 @@ framework_call(FW,_Func,_Args,DefaultReturn)
     DefaultReturn;
 framework_call(Callback,Func,Args,DefaultReturn) ->
     Mod = list_to_atom(Callback),
-    case code:is_loaded(Mod) of
+    _ = case code:is_loaded(Mod) of
 	false -> code:load_file(Mod);
 	_ -> ok
     end,
