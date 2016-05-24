@@ -13,6 +13,7 @@ MODULES= \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
+	beam_jump_SUITE \
 	beam_reorder_SUITE \
 	beam_type_SUITE \
 	beam_utils_SUITE \
@@ -49,6 +50,7 @@ NO_OPT= \
 	beam_block \
 	beam_bool \
 	beam_except \
+	beam_jump \
 	beam_reorder \
 	beam_type \
 	beam_utils \
