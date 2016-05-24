@@ -282,7 +282,7 @@ step(TestDir,Suite,Case,Opts) ->
 %%% <c>&gt; ct_telnet:cmd(unix_telnet, "ls .").</c><br/>
 %%% <c>{ok,["ls","file1  ...",...]}</c></p>
 start_interactive() ->
-    ct_util:start(interactive),
+    _ = ct_util:start(interactive),
     ok.
 
 %%%-----------------------------------------------------------------
