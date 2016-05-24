@@ -66,7 +66,9 @@
         t_export/1,
 
 	%% errors in 18
-        t_register_corruption/1
+        t_register_corruption/1,
+	t_bad_update/1
+
     ]).
 
 suite() -> [].
@@ -117,7 +119,8 @@ all() ->
         t_export,
 
 	%% errors in 18
-        t_register_corruption
+        t_register_corruption,
+        t_bad_update
     ].
 
 groups() -> [].
@@ -1920,6 +1923,19 @@ validate_frequency([{T,C}|Fs],Tf) ->
 	_ -> error
     end;
 validate_frequency([], _) -> ok.
+
+
+t_bad_update(_Config) ->
+    {#{0.0:=Id},#{}} = properly(#{}),
+    42 = Id(42),
+    {'EXIT',{{badmap,_},_}} = (catch increase(0)),
+    ok.
+
+properly(Item) ->
+    {Item#{0.0 => fun id/1},Item}.
+
+increase(Allows) ->
+    catch fun() -> Allows end#{[] => +Allows, "warranty" => fun id/1}.
 
 
 %% aux

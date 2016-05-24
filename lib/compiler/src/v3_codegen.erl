@@ -1089,6 +1089,23 @@ protected_cg(Ts, Rs, _Fail, I, Vdb, Bef, St0) ->
 %% test_cg(TestName, Args, Fail, I, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
 %%  Generate test instruction.  Use explicit fail label here.
 
+test_cg(is_map, [A], Fail, I, Vdb, Bef, St) ->
+    %% We must avoid creating code like this:
+    %%
+    %%   move x(0) y(0)
+    %%   is_map Fail [x(0)]
+    %%   make_fun => x(0)  %% Overwrite x(0)
+    %%   put_map_assoc y(0) ...
+    %%
+    %% The code is safe, but beam_validator does not understand that.
+    %% Extending beam_validator to handle such (rare) code as the
+    %% above would make it slower for all programs. Instead, change
+    %% the code generator to always prefer the Y register for is_map()
+    %% and put_map_assoc() instructions, ensuring that they use the
+    %% same register.
+    Arg = cg_reg_arg_prefer_y(A, Bef),
+    Aft = clear_dead(Bef, I, Vdb),
+    {[{test,is_map,{f,Fail},[Arg]}],Aft,St};
 test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),
@@ -1541,7 +1558,7 @@ set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
     Fail = {f,Bfail},
     {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
 
-    SrcReg = cg_reg_arg(Map,Int0),
+    SrcReg = cg_reg_arg_prefer_y(Map, Int0),
     Line = line(Le#l.a),
 
     List = [cg_reg_arg(K,Int0),cg_reg_arg(V,Int0)],
@@ -1568,7 +1585,7 @@ set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
 
     Fail = {f,Bfail},
     {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
-    SrcReg = cg_reg_arg(Map,Int0),
+    SrcReg = cg_reg_arg_prefer_y(Map, Int0),
     Line = line(Le#l.a),
 
     %% fetch registers for values to be put into the map
@@ -1841,6 +1858,9 @@ cg_reg_args(As, Bef) -> [cg_reg_arg(A, Bef) || A <- As].
 cg_reg_arg({var,V}, Bef) -> fetch_var(V, Bef);
 cg_reg_arg(Literal, _) -> Literal.
 
+cg_reg_arg_prefer_y({var,V}, Bef) -> fetch_var_prefer_y(V, Bef);
+cg_reg_arg_prefer_y(Literal, _) -> Literal.
+
 %% cg_setup_call([Arg], Bef, Cur, Vdb) -> {[Instr],Aft}.
 %%  Do the complete setup for a call/enter.
 
@@ -2082,6 +2102,12 @@ fetch_var(V, Sr) ->
 	error -> fetch_stack(V, Sr#sr.stk)
     end.
 
+fetch_var_prefer_y(V, #sr{reg=Reg,stk=Stk}) ->
+    case find_stack(V, Stk) of
+	{ok,R} -> R;
+	error -> fetch_reg(V, Reg)
+    end.
+
 load_vars(Vs, Regs) ->
     foldl(fun ({var,V}, Rs) -> put_reg(V, Rs) end, Regs, Vs).
 
@@ -2155,11 +2181,11 @@ fetch_stack(Var, Stk) -> fetch_stack(Var, Stk, 0).
 fetch_stack(V, [{V}|_], I) -> {yy,I};
 fetch_stack(V, [_|Stk], I) -> fetch_stack(V, Stk, I+1).
 
-% find_stack(Var, Stk) -> find_stack(Var, Stk, 0).
+find_stack(Var, Stk) -> find_stack(Var, Stk, 0).
 
-% find_stack(V, [{V}|Stk], I) -> {ok,{yy,I}};
-% find_stack(V, [O|Stk], I) -> find_stack(V, Stk, I+1);
-% find_stack(V, [], I) -> error.
+find_stack(V, [{V}|_], I) -> {ok,{yy,I}};
+find_stack(V, [_|Stk], I) -> find_stack(V, Stk, I+1);
+find_stack(_, [], _) -> error.
 
 on_stack(V, Stk) -> keymember(V, 1, Stk).
 
