@@ -1155,19 +1155,15 @@ call_cg(Func, As, Rs, Le, Vdb, Bef, St0) ->
 	    %% Inside a guard. The only allowed function call is to
 	    %% erlang:error/1,2. We will generate the following code:
 	    %%
-	    %%     jump FailureLabel
 	    %%     move {atom,ok} DestReg
-	    %%
-	    %% The 'move' instruction will never be executed, but we
-	    %% generate it anyway in case the beam_validator is run
-	    %% on unoptimized code.
+	    %%     jump FailureLabel
 	    {remote,{atom,erlang},{atom,error}} = Func,	%Assertion.
 	    [{var,DestVar}] = Rs,
 	    Int0 = clear_dead(Bef, Le#l.i, Vdb),
 	    Reg = put_reg(DestVar, Int0#sr.reg),
 	    Int = Int0#sr{reg=Reg},
 	    Dst = fetch_reg(DestVar, Reg),
-	    {[{jump,{f,Fail}},{move,{atom,ok},Dst}],
+	    {[{move,{atom,ok},Dst},{jump,{f,Fail}}],
 	     clear_dead(Int, Le#l.i, Vdb),St0};
 	#cg{} ->
 	    %% Ordinary function call in a function body.

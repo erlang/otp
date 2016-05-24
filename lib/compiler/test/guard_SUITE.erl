@@ -1835,6 +1835,8 @@ bad_guards(Config) when is_list(Config) ->
     fc(catch bad_guards_3(not_a_map, [x])),
     fc(catch bad_guards_3(42, [x])),
 
+    fc(catch bad_guards_4()),
+
     ok.
 
 %% beam_bool used to produce GC BIF instructions whose
@@ -1851,6 +1853,12 @@ bad_guards_2(M, [_]) when M#{a := 0, b => 0}, map_size(M) ->
 
 bad_guards_3(M, [_]) when is_map(M) andalso M#{a := 0, b => 0}, length(M) ->
     ok.
+
+%% v3_codegen would generate a jump to the failure label, but
+%% without initializing x(0). The code at the failure label expected
+%% x(0) to be initialized.
+
+bad_guards_4() when not (error#{}); {not 0.0} -> freedom.
 
 %% Building maps in a guard in a 'catch' would crash v3_codegen.
 
