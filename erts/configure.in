@@ -3868,7 +3868,7 @@ if test "$enable_lttng_test" = "yes" ; then
              #define TRACEPOINT_DEFINE],
             [if(tracepoint_enabled(com_ericsson_otp,dummy)) do {} while(0)])],
         [AC_MSG_RESULT([yes])],
-        [AC_MSG_ERROR([no (must be present)])])
+        [AC_MSG_ERROR([no (available in lttng-ust v2.7)])])
     if test "x$ac_cv_header_lttng_tracepoint_h" = "xyes" \
         -a "x$ac_cv_header_lttng_tracepoint_event_h" = "xyes"; then
         # No straight forward way to test for liblttng-ust when no public symbol exists,
