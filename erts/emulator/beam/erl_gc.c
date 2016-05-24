@@ -2279,10 +2279,7 @@ move_msgq_to_heap(Process *p)
 	    }
 	    else {
 
-		if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-		    bp = &mp->hfrag;
-		else
-		    bp = mp->data.heap_frag;
+                bp = erts_message_to_heap_frag(mp);
 
 		if (bp->next)
 		    erts_move_multi_frags(&factory.hp, factory.off_heap, bp,
@@ -3304,11 +3301,7 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
 
     while (mp) {
 
-	if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-	    bp = &mp->hfrag;
-	else
-	    bp = mp->data.heap_frag;
-
+        bp = erts_message_to_heap_frag(mp);
 	mp = mp->next;
 
     search_heap_frags:

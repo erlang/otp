@@ -26,7 +26,7 @@
          external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
          make_stub_many_funs/1,constant_pools/1,constant_refc_binaries/1,
          false_dependency/1,coverage/1,fun_confusion/1,
-         t_copy_literals/1]).
+         t_copy_literals/1, t_copy_literals_frags/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
@@ -38,7 +38,7 @@ all() ->
      t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
      constant_pools, constant_refc_binaries, false_dependency,
-     coverage, fun_confusion, t_copy_literals].
+     coverage, fun_confusion, t_copy_literals, t_copy_literals_frags].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -766,6 +766,134 @@ t_copy_literals(Config) when is_list(Config) ->
     ok  = flush(),
     ok.
 
+-define(mod, t_copy_literals_frags).
+t_copy_literals_frags(Config) when is_list(Config) ->
+    Bin = gen_lit(?mod,[{a,{1,2,3,4,5,6,7}},
+                        {b,"hello world"},
+                        {c, <<"hello world">>},
+                        {d, {"hello world", {1.0, 2.0, <<"some">>, "string"}}},
+                        {e, <<"off heap", 0, 1, 2, 3, 4, 5, 6, 7,
+                                          8, 9,10,11,12,13,14,15,
+                                          0, 1, 2, 3, 4, 5, 6, 7,
+                                          8, 9,10,11,12,13,14,15,
+                                          0, 1, 2, 3, 4, 5, 6, 7,
+                                          8, 9,10,11,12,13,14,15,
+                                          0, 1, 2, 3, 4, 5, 6, 7,
+                                          8, 9,10,11,12,13,14,15>>}]),
+
+    {module, ?mod} = erlang:load_module(?mod, Bin),
+    N = 6000,
+    Recv = spawn_opt(fun() -> receive
+                                  read ->
+                                      io:format("reading"),
+                                      literal_receiver()
+                              end
+                     end, [link,{min_heap_size, 10000}]),
+    Switcher = spawn_link(fun() -> literal_switcher() end),
+    Pids = [spawn_opt(fun() -> receive
+                                   {Pid, go, Recv, N} ->
+                                       io:format("sender batch (~w) start ~w~n",[N,self()]),
+                                       literal_sender(N,Recv),
+                                       Pid ! {self(), ok}
+                               end
+                      end, [link,{min_heap_size,800}]) || _ <- lists:seq(1,100)],
+    _ = [Pid ! {self(), go, Recv, N} || Pid <- Pids],
+    %% don't read immediately
+    timer:sleep(5),
+    Recv ! read,
+    Switcher ! {switch,?mod,Bin,[Recv|Pids],200},
+    _ = [receive {Pid, ok} -> ok end || Pid <- Pids],
+    Switcher ! {self(), done},
+    receive {Switcher, ok} -> ok end,
+    Recv ! {self(), done},
+    receive {Recv, ok} -> ok end,
+    ok.
+
+literal_receiver() ->
+    receive
+        {Pid, done} ->
+            io:format("reader_done~n"),
+            Pid ! {self(), ok};
+        {_Pid, msg, [A,B,C,D,E]} ->
+            A = ?mod:a(),
+            B = ?mod:b(),
+            C = ?mod:c(),
+            D = ?mod:d(),
+            E = ?mod:e(),
+            literal_receiver();
+        {Pid, sender_confirm} ->
+            io:format("sender confirm ~w~n", [Pid]),
+            Pid ! {self(), ok},
+            literal_receiver()
+    end.
+
+literal_sender(0, Recv) ->
+    Recv ! {self(), sender_confirm},
+    receive {Recv, ok} -> ok end;
+literal_sender(N, Recv) ->
+    Recv ! {self(), msg, [?mod:a(),
+                          ?mod:b(),
+                          ?mod:c(),
+                          ?mod:d(),
+                          ?mod:e()]},
+    literal_sender(N - 1, Recv).
+
+literal_switcher() ->
+    receive
+        {switch,Mod,Bin,Pids,Tmo} ->
+            literal_switcher(Mod,Bin,Pids,Tmo)
+    end.
+literal_switcher(Mod,Bin,Pids,Tmo) ->
+    receive
+        {Pid,done} ->
+            Pid ! {self(),ok}
+    after Tmo ->
+              io:format("load module ~w~n", [Mod]),
+              {module, Mod} = erlang:load_module(Mod,Bin),
+              ok = check_and_purge(Pids,Mod),
+              io:format("purge complete ~w~n", [Mod]),
+              literal_switcher(Mod,Bin,Pids,Tmo+Tmo)
+    end.
+
+check_and_purge([],Mod) ->
+    erlang:purge_module(Mod),
+    ok;
+check_and_purge(Pids,Mod) ->
+    io:format("purge ~w~n", [Mod]),
+    Tag = make_ref(),
+    _ = [begin
+             erlang:check_process_code(Pid,Mod,[{async,{Tag,Pid}}])
+         end || Pid <- Pids],
+    Retry = check_and_purge_receive(Pids,Tag,[]),
+    check_and_purge(Retry,Mod).
+
+check_and_purge_receive([Pid|Pids],Tag,Retry) ->
+    receive
+        {check_process_code, {Tag, Pid}, false} ->
+            check_and_purge_receive(Pids,Tag,Retry);
+        {check_process_code, {Tag, Pid}, true} ->
+            check_and_purge_receive(Pids,Tag,[Pid|Retry])
+    end;
+check_and_purge_receive([],_,Retry) ->
+    Retry.
+
+
+gen_lit(Module,Terms) ->
+    FunStrings = [lists:flatten(io_lib:format("~w() -> ~w.~n", [F,Term]))||{F,Term}<-Terms],
+    FunForms = function_forms(FunStrings),
+    Forms    = [{attribute,erl_anno:new(1),module,Module},
+                {attribute,erl_anno:new(2),export,[FA || {FA,_} <- FunForms]}] ++
+               [Function || {_, Function} <- FunForms],
+    {ok, Module, Bin} = compile:forms(Forms),
+    Bin.
+
+function_forms([]) -> [];
+function_forms([S|Ss]) ->
+    {ok, Ts,_} = erl_scan:string(S),
+    {ok, Form} = erl_parse:parse_form(Ts),
+    Fun   = element(3, Form),
+    Arity = element(4, Form),
+    [{{Fun,Arity}, Form}|function_forms(Ss)].
 
 chase_msg(0, Pid) ->
     chase_loop(Pid);

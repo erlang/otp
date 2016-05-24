@@ -369,6 +369,10 @@ ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErtsMessage *msg);
 
 #define ERTS_MSG_COMBINED_HFRAG ((void *) 0x1)
 
+#define erts_message_to_heap_frag(MP)                   \
+    (((MP)->data.attached == ERTS_MSG_COMBINED_HFRAG) ? \
+        &(MP)->hfrag : (MP)->data.heap_frag)
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_FORCE_INLINE ErtsMessage *erts_alloc_message(Uint sz, Eterm **hpp)
@@ -449,10 +453,7 @@ ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErtsMessage *msg)
     ASSERT(msg->data.attached);
     if (is_value(ERL_MESSAGE_TERM(msg))) {
 	ErlHeapFragment *bp;
-	if (msg->data.attached == ERTS_MSG_COMBINED_HFRAG)
-	    bp = &msg->hfrag;
-	else
-	    bp = msg->data.heap_frag;
+        bp = erts_message_to_heap_frag(msg);
 	return erts_used_frag_sz(bp);
     }
     else if (msg->data.dist_ext->heap_size < 0)
