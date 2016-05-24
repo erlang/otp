@@ -45,7 +45,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxShowEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxshowevent.html#wxshoweventsetshow">external documentation</a>.
--spec setShow(This, Show) -> ok when
+-spec setShow(This, Show) -> 'ok' when
 	This::wxShowEvent(), Show::boolean().
 setShow(#wx_ref{type=ThisT,ref=ThisRef},Show)
  when is_boolean(Show) ->

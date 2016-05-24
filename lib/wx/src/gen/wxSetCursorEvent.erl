@@ -77,7 +77,7 @@ hasCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsetcursorevent.html#wxsetcursoreventsetcursor">external documentation</a>.
--spec setCursor(This, Cursor) -> ok when
+-spec setCursor(This, Cursor) -> 'ok' when
 	This::wxSetCursorEvent(), Cursor::wxCursor:wxCursor().
 setCursor(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CursorT,ref=CursorRef}) ->
   ?CLASS(ThisT,wxSetCursorEvent),

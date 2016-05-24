@@ -96,9 +96,9 @@ new(Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbox.html#wxstaticboxwxstaticbox">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxStaticBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -122,9 +122,9 @@ create(This,Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbox.html#wxstaticboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ThisT,wxStaticBox),
@@ -139,7 +139,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,La
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStaticBox()) -> ok.
+-spec destroy(This::wxStaticBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -96,10 +96,10 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowwxsashwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxSashWindow() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -155,7 +155,7 @@ getMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizex">external documentation</a>.
--spec setMaximumSizeX(This, Max) -> ok when
+-spec setMaximumSizeX(This, Max) -> 'ok' when
 	This::wxSashWindow(), Max::integer().
 setMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Max)
  when is_integer(Max) ->
@@ -164,7 +164,7 @@ setMaximumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Max)
   <<ThisRef:32/?UI,Max:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetmaximumsizey">external documentation</a>.
--spec setMaximumSizeY(This, Max) -> ok when
+-spec setMaximumSizeY(This, Max) -> 'ok' when
 	This::wxSashWindow(), Max::integer().
 setMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Max)
  when is_integer(Max) ->
@@ -173,7 +173,7 @@ setMaximumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Max)
   <<ThisRef:32/?UI,Max:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizex">external documentation</a>.
--spec setMinimumSizeX(This, Min) -> ok when
+-spec setMinimumSizeX(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
 setMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Min)
  when is_integer(Min) ->
@@ -182,7 +182,7 @@ setMinimumSizeX(#wx_ref{type=ThisT,ref=ThisRef},Min)
   <<ThisRef:32/?UI,Min:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetminimumsizey">external documentation</a>.
--spec setMinimumSizeY(This, Min) -> ok when
+-spec setMinimumSizeY(This, Min) -> 'ok' when
 	This::wxSashWindow(), Min::integer().
 setMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Min)
  when is_integer(Min) ->
@@ -192,7 +192,7 @@ setMinimumSizeY(#wx_ref{type=ThisT,ref=ThisRef},Min)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashwindow.html#wxsashwindowsetsashvisible">external documentation</a>.
 %%<br /> Edge = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
--spec setSashVisible(This, Edge, Sash) -> ok when
+-spec setSashVisible(This, Edge, Sash) -> 'ok' when
 	This::wxSashWindow(), Edge::wx:wx_enum(), Sash::boolean().
 setSashVisible(#wx_ref{type=ThisT,ref=ThisRef},Edge,Sash)
  when is_integer(Edge),is_boolean(Sash) ->
@@ -201,7 +201,7 @@ setSashVisible(#wx_ref{type=ThisT,ref=ThisRef},Edge,Sash)
   <<ThisRef:32/?UI,Edge:32/?UI,(wxe_util:from_bool(Sash)):32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSashWindow()) -> ok.
+-spec destroy(This::wxSashWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSashWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

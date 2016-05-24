@@ -78,8 +78,8 @@ new(Bits,Width,Height)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
 -spec new(Bits, Width, Height, [Option]) -> wxCursor() when
 	Bits::binary(), Width::integer(), Height::integer(),
-	Option :: {hotSpotX, integer()}
-		 | {hotSpotY, integer()}.
+	Option :: {'hotSpotX', integer()}
+		 | {'hotSpotY', integer()}.
 new(Bits,Width,Height, Options)
  when is_binary(Bits),is_integer(Width),is_integer(Height),is_list(Options) ->
   wxe_util:send_bin(Bits),
@@ -99,7 +99,7 @@ ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCursor()) -> ok.
+-spec destroy(This::wxCursor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCursor),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

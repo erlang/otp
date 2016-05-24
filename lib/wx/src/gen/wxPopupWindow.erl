@@ -94,7 +94,7 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopupwindow.html#wxpopupwindowwxpopupwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxPopupWindow() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {flags, integer()}.
+	Option :: {'flags', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -115,7 +115,7 @@ create(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopupwindow.html#wxpopupwindowcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxPopupWindow(), Parent::wxWindow:wxWindow(),
-	Option :: {flags, integer()}.
+	Option :: {'flags', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxPopupWindow),
@@ -127,7 +127,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopupwindow.html#wxpopupwindowposition">external documentation</a>.
--spec position(This, PtOrigin, Size) -> ok when
+-spec position(This, PtOrigin, Size) -> 'ok' when
 	This::wxPopupWindow(), PtOrigin::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
 position(#wx_ref{type=ThisT,ref=ThisRef},{PtOriginX,PtOriginY},{SizeW,SizeH})
  when is_integer(PtOriginX),is_integer(PtOriginY),is_integer(SizeW),is_integer(SizeH) ->
@@ -136,7 +136,7 @@ position(#wx_ref{type=ThisT,ref=ThisRef},{PtOriginX,PtOriginY},{SizeW,SizeH})
   <<ThisRef:32/?UI,PtOriginX:32/?UI,PtOriginY:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPopupWindow()) -> ok.
+-spec destroy(This::wxPopupWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPopupWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -92,9 +92,9 @@ new(Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxwxradiobox">external documentation</a>.
 -spec new(Parent, Id, Title, Pos, Size, Choices, [Option]) -> wxRadioBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
-	Option :: {majorDim, integer()}
-		 | {style, integer()}
-		 | {val, wx:wx_object()}.
+	Option :: {'majorDim', integer()}
+		 | {'style', integer()}
+		 | {'val', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
  when is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -120,9 +120,9 @@ create(This,Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
-	Option :: {majorDim, integer()}
-		 | {style, integer()}
-		 | {val, wx:wx_object()}.
+	Option :: {'majorDim', integer()}
+		 | {'style', integer()}
+		 | {'val', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
  when is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -150,13 +150,13 @@ enable(This)
 %% <br /> Also:<br />
 %% enable(This, [Option]) -> boolean() when<br />
 %% 	This::wxRadioBox(),<br />
-%% 	Option :: {enable, boolean()}.<br />
+%% 	Option :: {'enable', boolean()}.<br />
 %% 
 -spec enable(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer();
       (This, [Option]) -> boolean() when
 	This::wxRadioBox(),
-	Option :: {enable, boolean()}.
+	Option :: {'enable', boolean()}.
 
 enable(This,N)
  when is_record(This, wx_ref),is_integer(N) ->
@@ -173,7 +173,7 @@ enable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxenable">external documentation</a>.
 -spec enable(This, N, [Option]) -> boolean() when
 	This::wxRadioBox(), N::integer(),
-	Option :: {enable, boolean()}.
+	Option :: {'enable', boolean()}.
 enable(#wx_ref{type=ThisT,ref=ThisRef},N, Options)
  when is_integer(N),is_list(Options) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -201,7 +201,7 @@ getString(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetselection">external documentation</a>.
--spec setSelection(This, N) -> ok when
+-spec setSelection(This, N) -> 'ok' when
 	This::wxRadioBox(), N::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -221,13 +221,13 @@ show(This)
 %% <br /> Also:<br />
 %% show(This, [Option]) -> boolean() when<br />
 %% 	This::wxRadioBox(),<br />
-%% 	Option :: {show, boolean()}.<br />
+%% 	Option :: {'show', boolean()}.<br />
 %% 
 -spec show(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer();
       (This, [Option]) -> boolean() when
 	This::wxRadioBox(),
-	Option :: {show, boolean()}.
+	Option :: {'show', boolean()}.
 
 show(This,N)
  when is_record(This, wx_ref),is_integer(N) ->
@@ -244,7 +244,7 @@ show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxshow">external documentation</a>.
 -spec show(This, N, [Option]) -> boolean() when
 	This::wxRadioBox(), N::integer(),
-	Option :: {show, boolean()}.
+	Option :: {'show', boolean()}.
 show(#wx_ref{type=ThisT,ref=ThisRef},N, Options)
  when is_integer(N),is_list(Options) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -316,7 +316,7 @@ isItemShown(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetitemhelptext">external documentation</a>.
--spec setItemHelpText(This, N, HelpText) -> ok when
+-spec setItemHelpText(This, N, HelpText) -> 'ok' when
 	This::wxRadioBox(), N::integer(), HelpText::unicode:chardata().
 setItemHelpText(#wx_ref{type=ThisT,ref=ThisRef},N,HelpText)
  when is_integer(N),is_list(HelpText) ->
@@ -326,7 +326,7 @@ setItemHelpText(#wx_ref{type=ThisT,ref=ThisRef},N,HelpText)
   <<ThisRef:32/?UI,N:32/?UI,(byte_size(HelpText_UC)):32/?UI,(HelpText_UC)/binary, 0:(((8- ((4+byte_size(HelpText_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxradiobox.html#wxradioboxsetitemtooltip">external documentation</a>.
--spec setItemToolTip(This, Item, Text) -> ok when
+-spec setItemToolTip(This, Item, Text) -> 'ok' when
 	This::wxRadioBox(), Item::integer(), Text::unicode:chardata().
 setItemToolTip(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
  when is_integer(Item),is_list(Text) ->
@@ -336,7 +336,7 @@ setItemToolTip(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
   <<ThisRef:32/?UI,Item:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxRadioBox()) -> ok.
+-spec destroy(This::wxRadioBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxRadioBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

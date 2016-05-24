@@ -94,10 +94,10 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelwxpanel">external documentation</a>.
 -spec new(Parent, [Option]) -> wxPanel() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {winid, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'winid', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -121,7 +121,7 @@ new(Parent,X,Y,Width,Height)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelwxpanel">external documentation</a>.
 -spec new(Parent, X, Y, Width, Height, [Option]) -> wxPanel() when
 	Parent::wxWindow:wxWindow(), X::integer(), Y::integer(), Width::integer(), Height::integer(),
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},X,Y,Width,Height, Options)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -132,7 +132,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},X,Y,Width,Height, Options)
   <<ParentRef:32/?UI,X:32/?UI,Y:32/?UI,Width:32/?UI,Height:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelinitdialog">external documentation</a>.
--spec initDialog(This) -> ok when
+-spec initDialog(This) -> 'ok' when
 	This::wxPanel().
 initDialog(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPanel),
@@ -140,7 +140,7 @@ initDialog(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpanel.html#wxpanelsetfocusignoringchildren">external documentation</a>.
--spec setFocusIgnoringChildren(This) -> ok when
+-spec setFocusIgnoringChildren(This) -> 'ok' when
 	This::wxPanel().
 setFocusIgnoringChildren(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPanel),
@@ -148,7 +148,7 @@ setFocusIgnoringChildren(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPanel()) -> ok.
+-spec destroy(This::wxPanel()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPanel),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

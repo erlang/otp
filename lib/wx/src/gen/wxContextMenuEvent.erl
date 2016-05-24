@@ -57,7 +57,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventsetposition">external documentation</a>.
--spec setPosition(This, Pos) -> ok when
+-spec setPosition(This, Pos) -> 'ok' when
 	This::wxContextMenuEvent(), Pos::{X::integer(), Y::integer()}.
 setPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->

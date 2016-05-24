@@ -86,7 +86,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrol.html#wxcontrolsetlabel">external documentation</a>.
--spec setLabel(This, Label) -> ok when
+-spec setLabel(This, Label) -> 'ok' when
 	This::wxControl(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->

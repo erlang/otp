@@ -105,9 +105,9 @@ new(Parent,Id,Title)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframewxframe">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -131,9 +131,9 @@ create(This,Parent,Id,Title)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -158,9 +158,9 @@ createStatusBar(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatestatusbar">external documentation</a>.
 -spec createStatusBar(This, [Option]) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame(),
-	Option :: {number, integer()}
-		 | {style, integer()}
-		 | {id, integer()}.
+	Option :: {'number', integer()}
+		 | {'style', integer()}
+		 | {'id', integer()}.
 createStatusBar(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -183,8 +183,8 @@ createToolBar(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatetoolbar">external documentation</a>.
 -spec createToolBar(This, [Option]) -> wxToolBar:wxToolBar() when
 	This::wxFrame(),
-	Option :: {style, integer()}
-		 | {id, integer()}.
+	Option :: {'style', integer()}
+		 | {'id', integer()}.
 createToolBar(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -245,7 +245,7 @@ processCommand(#wx_ref{type=ThisT,ref=ThisRef},Winid)
   <<ThisRef:32/?UI,Winid:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesendsizeevent">external documentation</a>.
--spec sendSizeEvent(This) -> ok when
+-spec sendSizeEvent(This) -> 'ok' when
 	This::wxFrame().
 sendSizeEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFrame),
@@ -253,7 +253,7 @@ sendSizeEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetmenubar">external documentation</a>.
--spec setMenuBar(This, Menubar) -> ok when
+-spec setMenuBar(This, Menubar) -> 'ok' when
 	This::wxFrame(), Menubar::wxMenuBar:wxMenuBar().
 setMenuBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenubarT,ref=MenubarRef}) ->
   ?CLASS(ThisT,wxFrame),
@@ -262,7 +262,7 @@ setMenuBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenubarT,ref=MenubarRef}
   <<ThisRef:32/?UI,MenubarRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbar">external documentation</a>.
--spec setStatusBar(This, Statbar) -> ok when
+-spec setStatusBar(This, Statbar) -> 'ok' when
 	This::wxFrame(), Statbar::wxStatusBar:wxStatusBar().
 setStatusBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=StatbarT,ref=StatbarRef}) ->
   ?CLASS(ThisT,wxFrame),
@@ -271,7 +271,7 @@ setStatusBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=StatbarT,ref=StatbarRe
   <<ThisRef:32/?UI,StatbarRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbarpane">external documentation</a>.
--spec setStatusBarPane(This, N) -> ok when
+-spec setStatusBarPane(This, N) -> 'ok' when
 	This::wxFrame(), N::integer().
 setStatusBarPane(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -280,7 +280,7 @@ setStatusBarPane(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @equiv setStatusText(This,Text, [])
--spec setStatusText(This, Text) -> ok when
+-spec setStatusText(This, Text) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata().
 
 setStatusText(This,Text)
@@ -288,9 +288,9 @@ setStatusText(This,Text)
   setStatusText(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatustext">external documentation</a>.
--spec setStatusText(This, Text, [Option]) -> ok when
+-spec setStatusText(This, Text, [Option]) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata(),
-	Option :: {number, integer()}.
+	Option :: {'number', integer()}.
 setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -302,7 +302,7 @@ setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatuswidths">external documentation</a>.
--spec setStatusWidths(This, Widths_field) -> ok when
+-spec setStatusWidths(This, Widths_field) -> 'ok' when
 	This::wxFrame(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
  when is_list(Widths_field) ->
@@ -312,7 +312,7 @@ setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
         (<< <<C:32/?I>> || C <- Widths_field>>)/binary, 0:(((0+length(Widths_field)) rem 2)*32)>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesettoolbar">external documentation</a>.
--spec setToolBar(This, Toolbar) -> ok when
+-spec setToolBar(This, Toolbar) -> 'ok' when
 	This::wxFrame(), Toolbar::wxToolBar:wxToolBar().
 setToolBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ToolbarT,ref=ToolbarRef}) ->
   ?CLASS(ThisT,wxFrame),
@@ -321,7 +321,7 @@ setToolBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ToolbarT,ref=ToolbarRef}
   <<ThisRef:32/?UI,ToolbarRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFrame()) -> ok.
+-spec destroy(This::wxFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

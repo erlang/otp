@@ -67,7 +67,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventsetoldselection">external documentation</a>.
--spec setOldSelection(This, NOldSel) -> ok when
+-spec setOldSelection(This, NOldSel) -> 'ok' when
 	This::wxNotebookEvent(), NOldSel::integer().
 setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},NOldSel)
  when is_integer(NOldSel) ->
@@ -76,7 +76,7 @@ setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},NOldSel)
   <<ThisRef:32/?UI,NOldSel:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebookevent.html#wxnotebookeventsetselection">external documentation</a>.
--spec setSelection(This, NSel) -> ok when
+-spec setSelection(This, NSel) -> 'ok' when
 	This::wxNotebookEvent(), NSel::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},NSel)
  when is_integer(NSel) ->

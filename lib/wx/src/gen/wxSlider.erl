@@ -98,10 +98,10 @@ new(Parent,Id,Value,MinValue,MaxValue)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
 -spec new(Parent, Id, Value, MinValue, MaxValue, [Option]) -> wxSlider() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -125,10 +125,10 @@ create(This,Parent,Id,Value,MinValue,MaxValue)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidercreate">external documentation</a>.
 -spec create(This, Parent, Id, Value, MinValue, MaxValue, [Option]) -> boolean() when
 	This::wxSlider(), Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
   ?CLASS(ThisT,wxSlider),
@@ -191,7 +191,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetlinesize">external documentation</a>.
--spec setLineSize(This, LineSize) -> ok when
+-spec setLineSize(This, LineSize) -> 'ok' when
 	This::wxSlider(), LineSize::integer().
 setLineSize(#wx_ref{type=ThisT,ref=ThisRef},LineSize)
  when is_integer(LineSize) ->
@@ -200,7 +200,7 @@ setLineSize(#wx_ref{type=ThisT,ref=ThisRef},LineSize)
   <<ThisRef:32/?UI,LineSize:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetpagesize">external documentation</a>.
--spec setPageSize(This, PageSize) -> ok when
+-spec setPageSize(This, PageSize) -> 'ok' when
 	This::wxSlider(), PageSize::integer().
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},PageSize)
  when is_integer(PageSize) ->
@@ -209,7 +209,7 @@ setPageSize(#wx_ref{type=ThisT,ref=ThisRef},PageSize)
   <<ThisRef:32/?UI,PageSize:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetrange">external documentation</a>.
--spec setRange(This, MinValue, MaxValue) -> ok when
+-spec setRange(This, MinValue, MaxValue) -> 'ok' when
 	This::wxSlider(), MinValue::integer(), MaxValue::integer().
 setRange(#wx_ref{type=ThisT,ref=ThisRef},MinValue,MaxValue)
  when is_integer(MinValue),is_integer(MaxValue) ->
@@ -218,7 +218,7 @@ setRange(#wx_ref{type=ThisT,ref=ThisRef},MinValue,MaxValue)
   <<ThisRef:32/?UI,MinValue:32/?UI,MaxValue:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetthumblength">external documentation</a>.
--spec setThumbLength(This, LenPixels) -> ok when
+-spec setThumbLength(This, LenPixels) -> 'ok' when
 	This::wxSlider(), LenPixels::integer().
 setThumbLength(#wx_ref{type=ThisT,ref=ThisRef},LenPixels)
  when is_integer(LenPixels) ->
@@ -227,7 +227,7 @@ setThumbLength(#wx_ref{type=ThisT,ref=ThisRef},LenPixels)
   <<ThisRef:32/?UI,LenPixels:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetvalue">external documentation</a>.
--spec setValue(This, Value) -> ok when
+-spec setValue(This, Value) -> 'ok' when
 	This::wxSlider(), Value::integer().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
  when is_integer(Value) ->
@@ -236,7 +236,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
   <<ThisRef:32/?UI,Value:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSlider()) -> ok.
+-spec destroy(This::wxSlider()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSlider),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

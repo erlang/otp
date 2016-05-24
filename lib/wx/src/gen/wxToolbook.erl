@@ -101,9 +101,9 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookwxtoolbook">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxToolbook() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -126,8 +126,8 @@ addPage(This,Page,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookaddpage">external documentation</a>.
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
 	This::wxToolbook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
-	Option :: {bSelect, boolean()}
-		 | {imageId, integer()}.
+	Option :: {'bSelect', boolean()}
+		 | {'imageId', integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxToolbook),
@@ -141,7 +141,7 @@ addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Op
   <<ThisRef:32/?UI,PageRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @equiv advanceSelection(This, [])
--spec advanceSelection(This) -> ok when
+-spec advanceSelection(This) -> 'ok' when
 	This::wxToolbook().
 
 advanceSelection(This)
@@ -149,9 +149,9 @@ advanceSelection(This)
   advanceSelection(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookadvanceselection">external documentation</a>.
--spec advanceSelection(This, [Option]) -> ok when
+-spec advanceSelection(This, [Option]) -> 'ok' when
 	This::wxToolbook(),
-	Option :: {forward, boolean()}.
+	Option :: {'forward', boolean()}.
 advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxToolbook),
@@ -162,7 +162,7 @@ advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookassignimagelist">external documentation</a>.
--spec assignImageList(This, ImageList) -> ok when
+-spec assignImageList(This, ImageList) -> 'ok' when
 	This::wxToolbook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxToolbook),
@@ -181,9 +181,9 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxToolbook(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxToolbook),
@@ -302,8 +302,8 @@ insertPage(This,N,Page,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbookinsertpage">external documentation</a>.
 -spec insertPage(This, N, Page, Text, [Option]) -> boolean() when
 	This::wxToolbook(), N::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
-	Option :: {bSelect, boolean()}
-		 | {imageId, integer()}.
+	Option :: {'bSelect', boolean()}
+		 | {'imageId', integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},N,#wx_ref{type=PageT,ref=PageRef},Text, Options)
  when is_integer(N),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxToolbook),
@@ -317,7 +317,7 @@ insertPage(#wx_ref{type=ThisT,ref=ThisRef},N,#wx_ref{type=PageT,ref=PageRef},Tex
   <<ThisRef:32/?UI,N:32/?UI,PageRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbooksetimagelist">external documentation</a>.
--spec setImageList(This, ImageList) -> ok when
+-spec setImageList(This, ImageList) -> 'ok' when
 	This::wxToolbook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxToolbook),
@@ -326,7 +326,7 @@ setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageLi
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtoolbook.html#wxtoolbooksetpagesize">external documentation</a>.
--spec setPageSize(This, Size) -> ok when
+-spec setPageSize(This, Size) -> 'ok' when
 	This::wxToolbook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -372,7 +372,7 @@ changeSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxToolbook()) -> ok.
+-spec destroy(This::wxToolbook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToolbook),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

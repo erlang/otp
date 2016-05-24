@@ -81,7 +81,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxListView() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewclearcolumnimage">external documentation</a>.
--spec clearColumnImage(This, Col) -> ok when
+-spec clearColumnImage(This, Col) -> 'ok' when
 	This::wxListView(), Col::integer().
 clearColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col)
  when is_integer(Col) ->
@@ -90,7 +90,7 @@ clearColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col)
   <<ThisRef:32/?UI,Col:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewfocus">external documentation</a>.
--spec focus(This, Index) -> ok when
+-spec focus(This, Index) -> 'ok' when
 	This::wxListView(), Index::integer().
 focus(#wx_ref{type=ThisT,ref=ThisRef},Index)
  when is_integer(Index) ->
@@ -133,7 +133,7 @@ isSelected(#wx_ref{type=ThisT,ref=ThisRef},Index)
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
 %% @equiv select(This,N, [])
--spec select(This, N) -> ok when
+-spec select(This, N) -> 'ok' when
 	This::wxListView(), N::integer().
 
 select(This,N)
@@ -141,9 +141,9 @@ select(This,N)
   select(This,N, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewselect">external documentation</a>.
--spec select(This, N, [Option]) -> ok when
+-spec select(This, N, [Option]) -> 'ok' when
 	This::wxListView(), N::integer(),
-	Option :: {on, boolean()}.
+	Option :: {'on', boolean()}.
 select(#wx_ref{type=ThisT,ref=ThisRef},N, Options)
  when is_integer(N),is_list(Options) ->
   ?CLASS(ThisT,wxListView),
@@ -154,7 +154,7 @@ select(#wx_ref{type=ThisT,ref=ThisRef},N, Options)
   <<ThisRef:32/?UI,N:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistview.html#wxlistviewsetcolumnimage">external documentation</a>.
--spec setColumnImage(This, Col, Image) -> ok when
+-spec setColumnImage(This, Col, Image) -> 'ok' when
 	This::wxListView(), Col::integer(), Image::integer().
 setColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col,Image)
  when is_integer(Col),is_integer(Image) ->

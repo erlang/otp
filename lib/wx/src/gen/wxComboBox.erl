@@ -105,12 +105,12 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxwxcombobox">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxComboBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {value, unicode:chardata()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {choices, [unicode:chardata()]}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'value', unicode:chardata()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'choices', [unicode:chardata()]}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -136,8 +136,8 @@ create(This,Parent,Id,Value,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Value, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()],
-	Option :: {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,{PosX,PosY},{SizeW,SizeH},Choices, Options)
  when is_integer(Id),is_list(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxComboBox),
@@ -193,7 +193,7 @@ canUndo(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcopy">external documentation</a>.
--spec copy(This) -> ok when
+-spec copy(This) -> 'ok' when
 	This::wxComboBox().
 copy(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxComboBox),
@@ -201,7 +201,7 @@ copy(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxcut">external documentation</a>.
--spec cut(This) -> ok when
+-spec cut(This) -> 'ok' when
 	This::wxComboBox().
 cut(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxComboBox),
@@ -233,7 +233,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxpaste">external documentation</a>.
--spec paste(This) -> ok when
+-spec paste(This) -> 'ok' when
 	This::wxComboBox().
 paste(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxComboBox),
@@ -241,7 +241,7 @@ paste(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxredo">external documentation</a>.
--spec redo(This) -> ok when
+-spec redo(This) -> 'ok' when
 	This::wxComboBox().
 redo(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxComboBox),
@@ -249,7 +249,7 @@ redo(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxreplace">external documentation</a>.
--spec replace(This, From, To, Value) -> ok when
+-spec replace(This, From, To, Value) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},From,To,Value)
  when is_integer(From),is_integer(To),is_list(Value) ->
@@ -259,7 +259,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},From,To,Value)
   <<ThisRef:32/?UI,From:32/?UI,To:32/?UI,(byte_size(Value_UC)):32/?UI,(Value_UC)/binary, 0:(((8- ((0+byte_size(Value_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxremove">external documentation</a>.
--spec remove(This, From, To) -> ok when
+-spec remove(This, From, To) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer().
 remove(#wx_ref{type=ThisT,ref=ThisRef},From,To)
  when is_integer(From),is_integer(To) ->
@@ -268,7 +268,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},From,To)
   <<ThisRef:32/?UI,From:32/?UI,To:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetinsertionpoint">external documentation</a>.
--spec setInsertionPoint(This, Pos) -> ok when
+-spec setInsertionPoint(This, Pos) -> 'ok' when
 	This::wxComboBox(), Pos::integer().
 setInsertionPoint(#wx_ref{type=ThisT,ref=ThisRef},Pos)
  when is_integer(Pos) ->
@@ -277,7 +277,7 @@ setInsertionPoint(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetinsertionpointend">external documentation</a>.
--spec setInsertionPointEnd(This) -> ok when
+-spec setInsertionPointEnd(This) -> 'ok' when
 	This::wxComboBox().
 setInsertionPointEnd(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxComboBox),
@@ -285,7 +285,7 @@ setInsertionPointEnd(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetselection">external documentation</a>.
--spec setSelection(This, N) -> ok when
+-spec setSelection(This, N) -> 'ok' when
 	This::wxComboBox(), N::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -294,7 +294,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetselection">external documentation</a>.
--spec setSelection(This, From, To) -> ok when
+-spec setSelection(This, From, To) -> 'ok' when
 	This::wxComboBox(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},From,To)
  when is_integer(From),is_integer(To) ->
@@ -303,7 +303,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},From,To)
   <<ThisRef:32/?UI,From:32/?UI,To:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxsetvalue">external documentation</a>.
--spec setValue(This, Value) -> ok when
+-spec setValue(This, Value) -> 'ok' when
 	This::wxComboBox(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
  when is_list(Value) ->
@@ -313,7 +313,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
   <<ThisRef:32/?UI,(byte_size(Value_UC)):32/?UI,(Value_UC)/binary, 0:(((8- ((0+byte_size(Value_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcombobox.html#wxcomboboxundo">external documentation</a>.
--spec undo(This) -> ok when
+-spec undo(This) -> 'ok' when
 	This::wxComboBox().
 undo(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxComboBox),
@@ -321,7 +321,7 @@ undo(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxComboBox()) -> ok.
+-spec destroy(This::wxComboBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxComboBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

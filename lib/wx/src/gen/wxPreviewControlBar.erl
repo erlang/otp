@@ -91,9 +91,9 @@ new(Preview,Buttons,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarwxpreviewcontrolbar">external documentation</a>.
 -spec new(Preview, Buttons, Parent, [Option]) -> wxPreviewControlBar() when
 	Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=PreviewT,ref=PreviewRef},Buttons,#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_integer(Buttons),is_list(Options) ->
   ?CLASS(PreviewT,wxPrintPreview),
@@ -107,7 +107,7 @@ new(#wx_ref{type=PreviewT,ref=PreviewRef},Buttons,#wx_ref{type=ParentT,ref=Paren
   <<PreviewRef:32/?UI,Buttons:32/?UI,ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarcreatebuttons">external documentation</a>.
--spec createButtons(This) -> ok when
+-spec createButtons(This) -> 'ok' when
 	This::wxPreviewControlBar().
 createButtons(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPreviewControlBar),
@@ -131,7 +131,7 @@ getZoomControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewcontrolbar.html#wxpreviewcontrolbarsetzoomcontrol">external documentation</a>.
--spec setZoomControl(This, Zoom) -> ok when
+-spec setZoomControl(This, Zoom) -> 'ok' when
 	This::wxPreviewControlBar(), Zoom::integer().
 setZoomControl(#wx_ref{type=ThisT,ref=ThisRef},Zoom)
  when is_integer(Zoom) ->
@@ -140,7 +140,7 @@ setZoomControl(#wx_ref{type=ThisT,ref=ThisRef},Zoom)
   <<ThisRef:32/?UI,Zoom:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPreviewControlBar()) -> ok.
+-spec destroy(This::wxPreviewControlBar()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPreviewControlBar),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

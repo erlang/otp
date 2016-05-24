@@ -102,9 +102,9 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookwxtreebook">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxTreebook() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -127,8 +127,8 @@ addPage(This,Page,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookaddpage">external documentation</a>.
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
-	Option :: {bSelect, boolean()}
-		 | {imageId, integer()}.
+	Option :: {'bSelect', boolean()}
+		 | {'imageId', integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
@@ -142,7 +142,7 @@ addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Op
   <<ThisRef:32/?UI,PageRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @equiv advanceSelection(This, [])
--spec advanceSelection(This) -> ok when
+-spec advanceSelection(This) -> 'ok' when
 	This::wxTreebook().
 
 advanceSelection(This)
@@ -150,9 +150,9 @@ advanceSelection(This)
   advanceSelection(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookadvanceselection">external documentation</a>.
--spec advanceSelection(This, [Option]) -> ok when
+-spec advanceSelection(This, [Option]) -> 'ok' when
 	This::wxTreebook(),
-	Option :: {forward, boolean()}.
+	Option :: {'forward', boolean()}.
 advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
@@ -163,7 +163,7 @@ advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookassignimagelist">external documentation</a>.
--spec assignImageList(This, ImageList) -> ok when
+-spec assignImageList(This, ImageList) -> 'ok' when
 	This::wxTreebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxTreebook),
@@ -182,9 +182,9 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxTreebook(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
@@ -293,7 +293,7 @@ expandNode(This,Pos)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookexpandnode">external documentation</a>.
 -spec expandNode(This, Pos, [Option]) -> boolean() when
 	This::wxTreebook(), Pos::integer(),
-	Option :: {expand, boolean()}.
+	Option :: {'expand', boolean()}.
 expandNode(#wx_ref{type=ThisT,ref=ThisRef},Pos, Options)
  when is_integer(Pos),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
@@ -333,8 +333,8 @@ insertPage(This,Pos,Page,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertpage">external documentation</a>.
 -spec insertPage(This, Pos, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), Pos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
-	Option :: {bSelect, boolean()}
-		 | {imageId, integer()}.
+	Option :: {'bSelect', boolean()}
+		 | {'imageId', integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=PageT,ref=PageRef},Text, Options)
  when is_integer(Pos),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
@@ -358,8 +358,8 @@ insertSubPage(This,Pos,Page,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebookinsertsubpage">external documentation</a>.
 -spec insertSubPage(This, Pos, Page, Text, [Option]) -> boolean() when
 	This::wxTreebook(), Pos::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
-	Option :: {bSelect, boolean()}
-		 | {imageId, integer()}.
+	Option :: {'bSelect', boolean()}
+		 | {'imageId', integer()}.
 insertSubPage(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=PageT,ref=PageRef},Text, Options)
  when is_integer(Pos),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreebook),
@@ -373,7 +373,7 @@ insertSubPage(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=PageT,ref=PageRef
   <<ThisRef:32/?UI,Pos:32/?UI,PageRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetimagelist">external documentation</a>.
--spec setImageList(This, ImageList) -> ok when
+-spec setImageList(This, ImageList) -> 'ok' when
 	This::wxTreebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxTreebook),
@@ -382,7 +382,7 @@ setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageLi
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreebook.html#wxtreebooksetpagesize">external documentation</a>.
--spec setPageSize(This, Size) -> ok when
+-spec setPageSize(This, Size) -> 'ok' when
 	This::wxTreebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -428,7 +428,7 @@ changeSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxTreebook()) -> ok.
+-spec destroy(This::wxTreebook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTreebook),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -104,7 +104,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
   <<ThisRef:32/?UI,(byte_size(Item_UC)):32/?UI,(Item_UC)/binary, 0:(((8- ((0+byte_size(Item_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
--spec appendStrings(This, Strings) -> ok when
+-spec appendStrings(This, Strings) -> 'ok' when
 	This::wxControlWithItems(), Strings::[unicode:chardata()].
 appendStrings(#wx_ref{type=ThisT,ref=ThisRef},Strings)
  when is_list(Strings) ->
@@ -115,7 +115,7 @@ appendStrings(#wx_ref{type=ThisT,ref=ThisRef},Strings)
   <<ThisRef:32/?UI,(length(Strings_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Strings_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Strings_UCA])) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsclear">external documentation</a>.
--spec clear(This) -> ok when
+-spec clear(This) -> 'ok' when
 	This::wxControlWithItems().
 clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -123,7 +123,7 @@ clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsdelete">external documentation</a>.
--spec delete(This, N) -> ok when
+-spec delete(This, N) -> 'ok' when
 	This::wxControlWithItems(), N::integer().
 delete(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -142,7 +142,7 @@ findString(This,S)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsfindstring">external documentation</a>.
 -spec findString(This, S, [Option]) -> integer() when
 	This::wxControlWithItems(), S::unicode:chardata(),
-	Option :: {bCase, boolean()}.
+	Option :: {'bCase', boolean()}.
 findString(#wx_ref{type=ThisT,ref=ThisRef},S, Options)
  when is_list(S),is_list(Options) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -163,7 +163,7 @@ getClientData(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemssetclientobject">external documentation</a>.
--spec setClientData(This, N, ClientData) -> ok when
+-spec setClientData(This, N, ClientData) -> 'ok' when
 	This::wxControlWithItems(), N::integer(), ClientData::term().
 setClientData(#wx_ref{type=ThisT,ref=ThisRef},N,ClientData)
  when is_integer(N) ->
@@ -235,7 +235,7 @@ isEmpty(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsselect">external documentation</a>.
--spec select(This, N) -> ok when
+-spec select(This, N) -> 'ok' when
 	This::wxControlWithItems(), N::integer().
 select(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -244,7 +244,7 @@ select(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemssetselection">external documentation</a>.
--spec setSelection(This, N) -> ok when
+-spec setSelection(This, N) -> 'ok' when
 	This::wxControlWithItems(), N::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -253,7 +253,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemssetstring">external documentation</a>.
--spec setString(This, N, S) -> ok when
+-spec setString(This, N, S) -> 'ok' when
 	This::wxControlWithItems(), N::integer(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
  when is_integer(N),is_list(S) ->

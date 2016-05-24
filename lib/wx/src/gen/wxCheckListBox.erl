@@ -105,11 +105,11 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxCheckListBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {choices, [unicode:chardata()]}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'choices', [unicode:chardata()]}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -124,7 +124,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
 %% @equiv check(This,Index, [])
--spec check(This, Index) -> ok when
+-spec check(This, Index) -> 'ok' when
 	This::wxCheckListBox(), Index::integer().
 
 check(This,Index)
@@ -132,9 +132,9 @@ check(This,Index)
   check(This,Index, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxchecklistbox.html#wxchecklistboxcheck">external documentation</a>.
--spec check(This, Index, [Option]) -> ok when
+-spec check(This, Index, [Option]) -> 'ok' when
 	This::wxCheckListBox(), Index::integer(),
-	Option :: {check, boolean()}.
+	Option :: {'check', boolean()}.
 check(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
  when is_integer(Index),is_list(Options) ->
   ?CLASS(ThisT,wxCheckListBox),
@@ -154,7 +154,7 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef},Index)
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCheckListBox()) -> ok.
+-spec destroy(This::wxCheckListBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCheckListBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -78,13 +78,13 @@ new(Window)
 %% <br /> Also:<br />
 %% new(Window, [Option]) -> wxBufferedPaintDC() when<br />
 %% 	Window::wxWindow:wxWindow(),<br />
-%% 	Option :: {style, integer()}.<br />
+%% 	Option :: {'style', integer()}.<br />
 %% 
 -spec new(Window, Buffer) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap();
       (Window, [Option]) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow(),
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 
 new(Window,Buffer)
  when is_record(Window, wx_ref),is_record(Buffer, wx_ref) ->
@@ -101,7 +101,7 @@ new(#wx_ref{type=WindowT,ref=WindowRef}, Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbufferedpaintdc.html#wxbufferedpaintdcwxbufferedpaintdc">external documentation</a>.
 -spec new(Window, Buffer, [Option]) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap(),
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 new(#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=BufferT,ref=BufferRef}, Options)
  when is_list(Options) ->
   ?CLASS(WindowT,wxWindow),
@@ -113,7 +113,7 @@ new(#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=BufferT,ref=BufferRef}, Opt
   <<WindowRef:32/?UI,BufferRef:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBufferedPaintDC()) -> ok.
+-spec destroy(This::wxBufferedPaintDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedPaintDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

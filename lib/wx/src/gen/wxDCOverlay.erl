@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ new(#wx_ref{type=OverlayT,ref=OverlayRef},#wx_ref{type=DcT,ref=DcRef},X,Y,Width,
   <<OverlayRef:32/?UI,DcRef:32/?UI,X:32/?UI,Y:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdcoverlay.html#wxdcoverlayclear">external documentation</a>.
--spec clear(This) -> ok when
+-spec clear(This) -> 'ok' when
 	This::wxDCOverlay().
 clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDCOverlay),
@@ -63,7 +63,7 @@ clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxDCOverlay()) -> ok.
+-spec destroy(This::wxDCOverlay()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDCOverlay),
   wxe_util:destroy(?wxDCOverlay_destruct,Obj),
