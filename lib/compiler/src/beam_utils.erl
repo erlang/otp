@@ -324,8 +324,11 @@ check_liveness(R, [{deallocate,_}|Is], St) ->
 	{y,_} -> {killed,St};
 	_ -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [return|_], St) ->
-    check_liveness_live_ret(R, 1, St);
+check_liveness({x,_}=R, [return|_], St) ->
+    case R of
+	{x,0} -> {used,St};
+	{x,_} -> {killed,St}
+    end;
 check_liveness(R, [{call,Live,_}|Is], St) ->
     case R of
 	{x,X} when X < Live -> {used,St};
@@ -533,14 +536,6 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 
 check_liveness_ret(R, R, St) -> {used,St};
 check_liveness_ret(_, _, St) -> {killed,St}.
-
-check_liveness_live_ret({x,R}, Live, St) ->
-    if
-	R < Live -> {used,St};
-	true -> {killed,St}
-    end;
-check_liveness_live_ret({y,_}, _, St) ->
-    {killed,St}.
 
 check_liveness_fail(_, _, _, 0, St) ->
     {killed,St};
