@@ -206,6 +206,9 @@ handle_break_cmd([$q|T],State) ->
     %% Dummy cmd allowed in break mode - quit break mode
     send("\r\n> ",State),
     handle_data(T,State#state{break=false});
+handle_break_cmd([_H|T],State) ->
+    %% Unknown command i break mode - ignore
+    handle_break_cmd(T,State);
 handle_break_cmd([],State) ->
     {ok,State}.
 
