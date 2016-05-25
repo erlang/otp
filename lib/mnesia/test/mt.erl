@@ -80,6 +80,8 @@ resolve(Suite0) when is_atom(Suite0) ->
 	{Suite, Case} ->
 	    {Suite, is_group(Suite,Case)}
     end;
+resolve({Suite0, {group, Case}}) ->
+    resolve({Suite0, Case});
 resolve({Suite0, Case}) when is_atom(Suite0), is_atom(Case) ->
     case alias(Suite0) of
 	Suite when is_atom(Suite) ->
