@@ -655,17 +655,48 @@ sshc(Tag) ->
      ).
 
 ssh_type() ->
-     case os:find_executable("ssh") of
-	 false -> not_found;
-	 _ ->
-	     case os:cmd("ssh -V") of
-		 "OpenSSH" ++ _ ->
-		     openSSH;
-		 Str -> 
-		     ct:log("ssh client ~p is unknown",[Str]),
-		     unknown
-	     end
-     end.
+    Parent = self(),
+    Pid = spawn(fun() -> 
+			Parent ! {ssh_type,self(),ssh_type1()}
+		end),
+    MonitorRef = monitor(process, Pid),
+    receive
+	{ssh_type, Pid, Result} ->
+	    demonitor(MonitorRef),
+	    Result;
+	{'DOWN', MonitorRef, process, Pid, _Info} ->
+	    ct:log("~p:~p Process DOWN",[?MODULE,?LINE]),
+	    not_found
+    after
+	10000 ->
+	    ct:log("~p:~p Timeout",[?MODULE,?LINE]),
+	    demonitor(MonitorRef),
+	    not_found
+    end.
+
+
+ssh_type1() ->
+    try 
+	case os:find_executable("ssh") of
+	    false -> 
+		ct:log("~p:~p Executable \"ssh\" not found",[?MODULE,?LINE]),
+		not_found;
+	    _ ->
+		case os:cmd("ssh -V") of
+		    "OpenSSH" ++ _ ->
+			openSSH;
+		    Str -> 
+			ct:log("ssh client ~p is unknown",[Str]),
+			unknown
+		end
+	end
+    catch
+	Class:Exception -> 
+	    ct:log("~p:~p Exception ~p:~p",[?MODULE,?LINE,Class,Exception]),
+	    not_found
+    end.
+
+		   
 
 algo_intersection([], _) -> [];
 algo_intersection(_, []) -> [];

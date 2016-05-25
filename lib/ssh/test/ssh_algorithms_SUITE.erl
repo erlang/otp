@@ -28,7 +28,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 10000).
+-define(TIMEOUT, 35000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -70,10 +70,10 @@ two_way_tags() -> [cipher,mac,compression].
     
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ct:log("os:getenv(\"HOME\") = ~p~n"
-	   "init:get_argument(home) = ~p",
-	   [os:getenv("HOME"), init:get_argument(home)]),
-    ct:log("~n~n"
+    ct:log("~n"
+	   "Environment:~n============~n"
+	   "os:getenv(\"HOME\") = ~p~n"
+	   "init:get_argument(home) = ~p~n~n~n"
 	   "OS ssh:~n=======~n~p~n~n~n"
 	   "Erl ssh:~n========~n~p~n~n~n"
 	   "Installed ssh client:~n=====================~n~p~n~n~n"
@@ -82,7 +82,9 @@ init_per_suite(Config) ->
 	   " -- Default dh group exchange parameters ({min,def,max}): ~p~n"
 	   " -- dh_default_groups: ~p~n"
 	   " -- Max num algorithms: ~p~n"
-	  ,[os:cmd("ssh -V"),
+	  ,[os:getenv("HOME"),
+	    init:get_argument(home),
+	    os:cmd("ssh -V"),
 	    ssh:default_algorithms(),
 	    ssh_test_lib:default_algorithms(sshc),
 	    ssh_test_lib:default_algorithms(sshd),
@@ -136,14 +138,14 @@ end_per_group(_Alg, Config) ->
 
 
 
-init_per_testcase(sshc_simple_exec, Config) ->
+init_per_testcase(sshc_simple_exec_os_cmd, Config) ->
     start_pubkey_daemon([?config(pref_algs,Config)], Config);
     
 init_per_testcase(_TC, Config) ->
     Config.
 
 
-end_per_testcase(sshc_simple_exec, Config) ->
+end_per_testcase(sshc_simple_exec_os_cmd, Config) ->
     case ?config(srvr_pid,Config) of
 	Pid when is_pid(Pid) ->
 	    ssh:stop_daemon(Pid),
@@ -153,7 +155,6 @@ end_per_testcase(sshc_simple_exec, Config) ->
     end;
 end_per_testcase(_TC, Config) ->
     Config.
-
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -221,18 +222,36 @@ interpolate(Is) ->
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
 
-sshc_simple_exec(Config) ->
+sshc_simple_exec_os_cmd(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Host,Port} = ?config(srvr_addr, Config),
-    Cmd = lists:concat(["ssh -p ",Port,
-			" -C",
-			" -o UserKnownHostsFile=",KnownHosts,
-			" -o StrictHostKeyChecking=no",
-			" ",Host," 1+1."]),
-    ct:log("~p",[Cmd]),
-    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}, [eof,exit_status]),
-    ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT).
+    Parent = self(),
+    Client = spawn(
+	       fun() ->
+		       Cmd = lists:concat(["ssh -p ",Port,
+					   " -C"
+					   " -o UserKnownHostsFile=",KnownHosts,
+					   " -o StrictHostKeyChecking=no"
+					   " ",Host," 1+1."]),
+		       Result = os:cmd(Cmd),
+		       ct:log("~p~n  = ~p",[Cmd, Result]),
+		       Parent ! {result, self(), Result, "2"}
+	       end),
+    receive
+	{result, Client, RawResult, Expect} ->
+	    Lines = string:tokens(RawResult, "\r\n"),
+	    case lists:any(fun(Line) -> Line==Expect end,
+			   Lines) of
+		true ->
+		    ok;
+		false ->
+		    ct:log("Bad result: ~p~nExpected: ~p~nMangled result: ~p", [RawResult,Expect,Lines]),
+		    {fail, "Bad result"}
+	    end
+    after ?TIMEOUT ->
+	    ct:fail("Did not receive answer")
+    end.
 
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
@@ -299,7 +318,7 @@ specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos) ->
 	    true ->
 		case ssh_test_lib:ssh_type() of
 		    openSSH ->
-			[sshc_simple_exec];
+			[sshc_simple_exec_os_cmd];
 		    _ ->
 			[]
 		end;
