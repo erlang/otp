@@ -242,7 +242,7 @@ gexpr_test_add(Ke, St0) ->
 expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
     %% A local in an expression.
     %% For now, these are wrapped into a fun by reverse
-    %% etha-conversion, but really, there should be exactly one
+    %% eta-conversion, but really, there should be exactly one
     %% such "lambda function" for each escaping local name,
     %% instead of one for each occurrence as done now.
     Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
