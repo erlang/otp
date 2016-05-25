@@ -996,6 +996,18 @@
     </div>
   </xsl:template>
 
+  <!-- Quote -->
+  <xsl:template match="quote">
+    <xsl:param name="chapnum"/>
+    <div class="quote">
+      <p>
+        <xsl:apply-templates>
+          <xsl:with-param name="chapnum" select="$chapnum"/>
+        </xsl:apply-templates>
+      </p>
+    </div>
+  </xsl:template>
+
  <!-- Paragraph -->
   <xsl:template match="p">
     <p>
