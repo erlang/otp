@@ -1206,16 +1206,18 @@ module_loaded(_Module) ->
     erlang:nif_error(undefined).
 
 -type registered_name() :: atom().
-
 -type registered_process_identifier() :: registered_name() | {registered_name(), node()}.
-
 -type monitor_process_identifier() :: pid() | registered_process_identifier().
+-type monitor_port_identifier() :: port() | registered_name().
 
 %% monitor/2
--spec monitor(process, monitor_process_identifier()) -> MonitorRef when
-      MonitorRef :: reference();
-	     (time_offset, clock_service) -> MonitorRef when
-      MonitorRef :: reference().
+-spec monitor
+      (process, monitor_process_identifier()) -> MonitorRef
+	  when MonitorRef :: reference();
+      (port, monitor_port_identifier()) -> MonitorRef
+	  when MonitorRef :: reference();
+	    (time_offset, clock_service) -> MonitorRef
+	  when MonitorRef :: reference().
 
 monitor(_Type, _Item) ->
     erlang:nif_error(undefined).
@@ -2160,7 +2162,7 @@ process_flag(_Flag, _Value) ->
       {max_heap_size, MaxHeapSize :: max_heap_size()} |
       {monitored_by, Pids :: [pid()]} |
       {monitors,
-       Monitors :: [{process, Pid :: pid() |
+       Monitors :: [{process | port, Pid :: pid() | port() |
                                      {RegName :: atom(), Node :: node()}}]} |
       {message_queue_data, MQD :: message_queue_data()} |
       {priority, Level :: priority_level()} |
@@ -3087,6 +3089,9 @@ port_info(Port) ->
 		      (Port, monitors) -> {monitors, Monitors} | 'undefined' when
       Port :: port() | atom(),
       Monitors :: [{process, pid()}];
+		      (Port, monitored_by) -> {monitored_by, MonitoredBy} | 'undefined' when
+      Port :: port() | atom(),
+      MonitoredBy :: [pid()];
 		      (Port, name) -> {name, Name} | 'undefined' when
       Port :: port() | atom(),
       Name :: string();

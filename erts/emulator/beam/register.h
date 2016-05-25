@@ -49,7 +49,7 @@ int erts_register_name(Process *, Eterm, Eterm);
 Eterm erts_whereis_name_to_id(Process *, Eterm);
 void erts_whereis_name(Process *, ErtsProcLocks,
 		       Eterm, Process**, ErtsProcLocks, int,
-		       Port**);
+		       Port**, int);
 Process *erts_whereis_process(Process *,
 			      ErtsProcLocks,
 			      Eterm,
