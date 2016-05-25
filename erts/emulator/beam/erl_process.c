@@ -12239,7 +12239,6 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
     ExitMonitorContext *pcontext = vpcontext;
     DistEntry *dep;
     ErtsMonitor *rmon;
-    Process *rp;
 
     switch (mon->type) {
     case MON_ORIGIN:
@@ -12268,9 +12267,10 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_deref_dist_entry(dep);
 	    }
 	} else {
-	    ASSERT(is_pid(mon->pid));
-	    if (is_internal_pid(mon->pid)) { /* local by pid or name */
-		rp = erts_pid2proc(NULL, 0, mon->pid, ERTS_PROC_LOCK_LINK);
+            ASSERT(is_pid(mon->pid) || is_port(mon->pid));
+            /* if is local by pid or name */
+            if (is_internal_pid(mon->pid)) {
+                Process *rp = erts_pid2proc(NULL, 0, mon->pid, ERTS_PROC_LOCK_LINK);
 		if (!rp) {
 		    goto done;
 		}
@@ -12280,7 +12280,17 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		    goto done;
 		}
 		erts_destroy_monitor(rmon);
-	    } else { /* remote by pid */
+            } else if (is_internal_port(mon->pid)) {
+                /* Is a local port */
+                Port *prt = erts_port_lookup_raw(mon->pid);
+                if (!prt) {
+                    goto done;
+                }
+                erts_port_demonitor(pcontext->p,
+                                    ERTS_PORT_DEMONITOR_ORIGIN_ON_DEATHBED,
+                                    prt, mon->ref, NULL);
+                return; /* let erts_port_demonitor do the deletion */
+            } else { /* remote by pid */
 		ASSERT(is_external_pid(mon->pid));
 		dep = external_pid_dist_entry(mon->pid);
 		ASSERT(dep != NULL);
@@ -12318,6 +12328,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	    erts_port_release(prt); 
 	} else if (is_internal_pid(mon->pid)) {/* local by name or pid */
 	    Eterm watched;
+            Process *rp;
 	    DeclareTmpHeapNoproc(lhp,3);
 	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_LINK
 				      | ERTS_PROC_LOCKS_MSG_SEND);

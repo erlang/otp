@@ -323,7 +323,8 @@ erts_whereis_name(Process *c_p,
 		  Process** proc,
 		  ErtsProcLocks need_locks,
 		  int flags,
-		  Port** port)
+		  Port** port,
+                  int lock_port)
 {
     RegProc* rp = NULL;
     HashValue hval;
@@ -406,31 +407,33 @@ erts_whereis_name(Process *c_p,
 	    *port = NULL;
 	else {
 #ifdef ERTS_SMP
-	    if (pending_port == rp->pt)
-		pending_port = NULL;
-	    else {
-		if (pending_port) {
-		    /* Ahh! Registered port changed while reg lock
-		       was unlocked... */
-		    erts_port_release(pending_port);
-		    pending_port = NULL;
-		}
+            if (lock_port) {
+                if (pending_port == rp->pt)
+                    pending_port = NULL;
+                else {
+                    if (pending_port) {
+                        /* Ahh! Registered port changed while reg lock
+                           was unlocked... */
+                        erts_port_release(pending_port);
+                        pending_port = NULL;
+                    }
 		    
-		if (erts_smp_port_trylock(rp->pt) == EBUSY) {
-		    Eterm id = rp->pt->common.id; /* id read only... */
-		    /* Unlock all locks, acquire port lock, and restart... */
-		    if (current_c_p_locks) {
-			erts_smp_proc_unlock(c_p, current_c_p_locks);
-			current_c_p_locks = 0;
-		    }
-		    reg_read_unlock();
-		    pending_port = erts_id2port(id);
-		    goto restart;
-		}
-	    }
+                    if (erts_smp_port_trylock(rp->pt) == EBUSY) {
+                        Eterm id = rp->pt->common.id; /* id read only... */
+                        /* Unlock all locks, acquire port lock, and restart... */
+                        if (current_c_p_locks) {
+                            erts_smp_proc_unlock(c_p, current_c_p_locks);
+                            current_c_p_locks = 0;
+                        }
+                        reg_read_unlock();
+                        pending_port = erts_id2port(id);
+                        goto restart;
+                    }
+                }
+                ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(rp->pt));
+            }
 #endif
 	    *port = rp->pt;
-	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(*port));
 	}
     }
 
@@ -452,7 +455,7 @@ erts_whereis_process(Process *c_p,
 		     int flags)
 {
     Process *proc;
-    erts_whereis_name(c_p, c_p_locks, name, &proc, need_locks, flags, NULL);
+    erts_whereis_name(c_p, c_p_locks, name, &proc, need_locks, flags, NULL, 0);
     return proc;
 }
 

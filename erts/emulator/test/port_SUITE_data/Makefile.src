@@ -4,7 +4,7 @@ CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
 CROSSLDFLAGS = @CROSSLDFLAGS@
 
 PROGS = port_test@exe@ echo_args@exe@ dead_port@exe@
-DRIVERS = echo_drv@dll@ exit_drv@dll@ failure_drv@dll@
+DRIVERS = echo_drv@dll@ exit_drv@dll@ failure_drv@dll@ sleep_failure_drv@dll@
 
 all: $(PROGS) $(DRIVERS) port_test.@EMULATOR@
 
