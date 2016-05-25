@@ -35,8 +35,7 @@
       how much memory different data types and operations require. It is
       implementation-dependent how much memory the Erlang data types and
       other items consume, but the following table shows some figures for
-      the <c>erts-5.2</c> system in R9B. There have been no significant
-      changes in R13.</p>
+      the <c>erts-8.0</c> system in OTP 19.0.</p>
 
       <p>The unit of measurement is memory words. There exists both a
       32-bit and a 64-bit implementation. A word is therefore 4 bytes or
