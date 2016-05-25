@@ -54,7 +54,7 @@ end_per_group(_GroupName, Config) ->
 
 init_per_suite(Config) ->
     Port = ssh_test_lib:inet_port(node()),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     [{userdir, UserDir},{port, Port}, {host, "localhost"}, {host_ip, any} | Config].
@@ -64,7 +64,7 @@ end_per_suite(_) ->
 
 init_per_testcase(sshc_subtree, Config) ->  
     ssh:start(),
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					      {failfun, fun ssh_test_lib:failfun/2},
 					      {user_passwords,
@@ -75,7 +75,7 @@ init_per_testcase(Case, Config) ->
     ssh:start(),
     Config.
 end_per_testcase(sshc_subtree, Config) ->
-    {Pid,_,_} = ?config(server, Config), 
+    {Pid,_,_} = proplists:get_value(server, Config), 
     ssh:stop_daemon(Pid),
     ssh:stop();
 end_per_testcase(_, _Config) ->
@@ -100,8 +100,8 @@ default_tree(Config) when is_list(Config) ->
 sshc_subtree() ->
     [{doc, "Make sure the sshc subtree is correct"}].
 sshc_subtree(Config) when is_list(Config) ->
-    {_Pid, Host, Port} = ?config(server, Config),
-    UserDir = ?config(userdir, Config),
+    {_Pid, Host, Port} = proplists:get_value(server, Config),
+    UserDir = proplists:get_value(userdir, Config),
 
     ?wait_match([], supervisor:which_children(sshc_sup)),
 
@@ -128,9 +128,9 @@ sshc_subtree(Config) when is_list(Config) ->
 sshd_subtree() ->
     [{doc, "Make sure the sshd subtree is correct"}].
 sshd_subtree(Config) when is_list(Config) ->
-    HostIP = ?config(host_ip, Config),
-    Port = ?config(port, Config),
-    SystemDir = ?config(data_dir, Config),
+    HostIP = proplists:get_value(host_ip, Config),
+    Port = proplists:get_value(port, Config),
+    SystemDir = proplists:get_value(data_dir, Config),
     ssh:daemon(HostIP, Port, [{system_dir, SystemDir},
 			      {failfun, fun ssh_test_lib:failfun/2},
 			      {user_passwords,
@@ -149,10 +149,10 @@ sshd_subtree(Config) when is_list(Config) ->
 sshd_subtree_profile() ->
     [{doc, "Make sure the sshd subtree using profile option is correct"}].	
 sshd_subtree_profile(Config) when is_list(Config) ->
-    HostIP = ?config(host_ip, Config),
-    Port = ?config(port, Config),
-    Profile = ?config(profile, Config), 
-    SystemDir = ?config(data_dir, Config),
+    HostIP = proplists:get_value(host_ip, Config),
+    Port = proplists:get_value(port, Config),
+    Profile = proplists:get_value(profile, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
 
     {ok, _} = ssh:daemon(HostIP, Port, [{system_dir, SystemDir},
 				  {failfun, fun ssh_test_lib:failfun/2},
@@ -171,9 +171,9 @@ sshd_subtree_profile(Config) when is_list(Config) ->
 
 
 check_sshd_system_tree(Daemon, Config) -> 
-    Host = ?config(host, Config),
-    Port = ?config(port, Config),
-    UserDir = ?config(userdir, Config),
+    Host = proplists:get_value(host, Config),
+    Port = proplists:get_value(port, Config),
+    UserDir = proplists:get_value(userdir, Config),
     {ok, Client} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 						   {user_interaction, false},
 						   {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
