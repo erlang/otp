@@ -295,14 +295,14 @@ ok
       </p></item>
 
       <tag><marker id="time_measurement"/>Time Measurement</tag>
-      <item><p>Support for time measurement in NIF libraries:
+      <item><p>Support for time measurement in NIF libraries:</p>
       <list>
 	<item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
 	<item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
 	<item><seealso marker="#enif_monotonic_time"><c>enif_monotonic_time()</c></seealso></item>
 	<item><seealso marker="#enif_time_offset"><c>enif_time_offset()</c></seealso></item>
 	<item><seealso marker="#enif_convert_time_unit"><c>enif_convert_time_unit()</c></seealso></item>
-      </list></p>
+      </list>
       </item>
 
       <tag><marker id="lengthy_work"/>Long-running NIFs</tag>
