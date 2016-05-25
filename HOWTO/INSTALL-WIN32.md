@@ -60,7 +60,8 @@ followed by some FAQ, and then we’ll go into more details of the setup.
 
 
 Short Version
---------------------------
+-------------
+
 In the following sections, we've described as much as we could about the 
 installation of the tools needed. Once the tools are installed, building 
 is quite easy. We have also tried to make these instructions understandable 
