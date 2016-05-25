@@ -17,6 +17,7 @@ MODULES= \
 	beam_reorder_SUITE \
 	beam_type_SUITE \
 	beam_utils_SUITE \
+	bif_SUITE \
 	bs_bincomp_SUITE \
 	bs_bit_binaries_SUITE \
 	bs_construct_SUITE \
@@ -54,6 +55,7 @@ NO_OPT= \
 	beam_reorder \
 	beam_type \
 	beam_utils \
+	bif \
 	bs_construct \
         bs_match \
 	bs_utf \

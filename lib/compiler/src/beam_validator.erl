@@ -1523,6 +1523,7 @@ is_bif_safe('>=', 2) -> true;
 is_bif_safe(is_atom, 1) -> true;
 is_bif_safe(is_boolean, 1) -> true;
 is_bif_safe(is_binary, 1) -> true;
+is_bif_safe(is_bitstring, 1) -> true;
 is_bif_safe(is_float, 1) -> true;
 is_bif_safe(is_function, 1) -> true;
 is_bif_safe(is_integer, 1) -> true;
