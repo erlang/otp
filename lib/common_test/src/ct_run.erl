@@ -1209,7 +1209,6 @@ run_all_specs([], _, _, TotResult) ->
     end;
 
 run_all_specs([{Specs,TS} | TSs], Opts, StartOpts, TotResult) ->
-    log_ts_names(Specs),
     Combined = #opts{config = TSConfig} = combine_test_opts(TS, Specs, Opts),
     AllConfig = merge_vals([Opts#opts.config, TSConfig]),
     try run_one_spec(TS, 
