@@ -660,11 +660,11 @@
         <p>Sets the initial process dictionary size of processes to the size
           <c><![CDATA[Size]]></c>.</p>
       </item>
-      <tag><marker id="+hmqd"><c>+hmqd off_heap|on_heap|mixed</c></marker></tag>
+      <tag><marker id="+hmqd"><c>+hmqd off_heap|on_heap</c></marker></tag>
       <item><p>
 	Sets the default value for the process flag
 	<c>message_queue_data</c>. If <c>+hmqd</c> is not
-	passed, <c>mixed</c> will be the default. For more information,
+	passed, <c>on_heap</c> will be the default. For more information,
 	see the documentation of
         <seealso marker="erlang#process_flag_message_queue_data"><c>process_flag(message_queue_data,
 	MQD)</c></seealso>.

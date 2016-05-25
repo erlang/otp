@@ -149,7 +149,7 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
-int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = 0;
+int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = SPO_ON_HEAP_MSGQ;
 int ERTS_WRITE_UNLIKELY(erts_eager_check_io) = 1;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
 int ERTS_WRITE_UNLIKELY(erts_sched_balance_util) = 0;
@@ -11206,6 +11206,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	flags |= F_ON_HEAP_MSGQ;
     }
 
+    ASSERT((flags & F_ON_HEAP_MSGQ) || (flags & F_OFF_HEAP_MSGQ));
+
     if (!rq)
 	rq = erts_get_runq_proc(parent);
 
@@ -11217,6 +11219,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	so->error_code = SYSTEM_LIMIT;
 	goto error;
     }
+
+    ASSERT((erts_smp_atomic32_read_nob(&p->state)
+	    & ERTS_PSFLG_ON_HEAP_MSGQ)
+	   || (erts_smp_atomic32_read_nob(&p->state)
+	       & ERTS_PSFLG_OFF_HEAP_MSGQ));
 
 #ifdef BM_COUNTERS
     processes_busy++;

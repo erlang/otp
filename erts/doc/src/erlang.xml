@@ -4449,11 +4449,6 @@ os_prompt% </pre>
 	    off heap. This is how messages always have been stored
 	    up until ERTS version 8.0.
 	  </p></item>
-          <tag><c>mixed</c></tag>
-	  <item><p>
-	    Messages may be placed either on the heap or outside
-	    of the heap.
-	  </p></item>
         </taglist>
 	<p>
 	  The default <c>message_queue_data</c> process flag is determined
@@ -4877,7 +4872,7 @@ os_prompt% </pre>
           <item>
             <p>Returns the current state of the <c>message_queue_data</c>
 	    process flag. <c><anno>MQD</anno></c> is either <c>off_heap</c>,
-	    <c>on_heap</c>, or <c>mixed</c>. For more information, see the
+	    or <c>on_heap</c>. For more information, see the
 	    documentation of
             <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
 	    MQD)</c></seealso>.</p>
@@ -5808,7 +5803,7 @@ true</pre>
           <item>
             <p>Sets the state of the <c>message_queue_data</c> process
 	    flag. <c><anno>MQD</anno></c> should be either <c>off_heap</c>,
-	    <c>on_heap</c>, or <c>mixed</c>. The default
+	    or <c>on_heap</c>. The default
 	    <c>message_queue_data</c> process flag is determined by the
 	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso> <c>erl</c>
 	    command line argument. For more information, see the
@@ -7164,7 +7159,7 @@ ok
           <tag><marker id="system_info_message_queue_data"><c>message_queue_data</c></marker></tag>
           <item>
             <p>Returns the default value of the <c>message_queue_data</c>
-	    process flag which is either <c>off_heap</c>, <c>on_heap</c>, or <c>mixed</c>.
+	    process flag which is either <c>off_heap</c>, or <c>on_heap</c>.
 	    This default is set by the <c>erl</c> command line argument
 	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso>. For more information on the
 	    <c>message_queue_data</c> process flag, see documentation of
