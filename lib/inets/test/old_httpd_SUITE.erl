@@ -286,9 +286,7 @@ init_per_suite(Config) ->
 	      "~n   Config: ~p"
 	      "~n", [Config]),
 
-    ?PRINT_SYSTEM_INFO([]),
-
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     SuiteTopDir = filename:join(PrivDir, ?MODULE),
     case file:make_dir(SuiteTopDir) of
         ok ->
@@ -314,7 +312,7 @@ init_per_suite(Config) ->
 %%--------------------------------------------------------------------
 
 end_per_suite(_Config) ->
-    %% SuiteTopDir = ?config(suite_top_dir, Config), 
+    %% SuiteTopDir = proplists:get_value(suite_top_dir, Config), 
     %% inets_test_lib:del_dirs(SuiteTopDir),
     ok.
 
@@ -346,8 +344,8 @@ init_per_testcase2(Case, Config) ->
     SslNormal   = integer_to_list(?SSL_PORT)  ++ ".conf",
     SslHtaccess = integer_to_list(?SSL_PORT) ++ "htaccess.conf",
 
-    DataDir     = ?config(data_dir, Config),
-    SuiteTopDir = ?config(suite_top_dir, Config),
+    DataDir     = proplists:get_value(data_dir, Config),
+    SuiteTopDir = proplists:get_value(suite_top_dir, Config),
 
     %% tsp("init_per_testcase2 -> "
     %% 	"~n   SuiteDir: ~p"
@@ -499,7 +497,7 @@ init_per_testcase3(Case, Config) ->
  
     Dog = test_server:timetrap(inets_test_lib:minutes(10)),
     NewConfig = lists:keydelete(watchdog, 1, Config),
-    TcTopDir = ?config(tc_top_dir, Config),
+    TcTopDir = proplists:get_value(tc_top_dir, Config),
       
     CaseRest = 
 	case atom_to_list(Case) of
@@ -581,16 +579,16 @@ init_per_testcase3(Case, Config) ->
 	    {skip, _} = Skip ->
 		Skip;
 	    "mod_auth_" ++ _ ->
-		start_mnesia(?config(node, Config)),
+		start_mnesia(proplists:get_value(node, Config)),
 		[{watchdog, Dog} | NewConfig];
 	    "mod_htaccess" ->
-		ServerRoot = ?config(server_root, Config), 
+		ServerRoot = proplists:get_value(server_root, Config), 
 		Path = filename:join([ServerRoot, "htdocs"]),
 		catch remove_htaccess(Path),
-		create_htaccess_data(Path, ?config(address, Config)),
+		create_htaccess_data(Path, proplists:get_value(address, Config)),
 		[{watchdog, Dog} | NewConfig];
 	    "range" ->
-		ServerRoot = ?config(server_root, Config), 
+		ServerRoot = proplists:get_value(server_root, Config), 
 		Path = filename:join([ServerRoot, "htdocs"]),
 		create_range_data(Path),
 		[{watchdog, Dog} | NewConfig];
@@ -613,7 +611,7 @@ init_per_testcase3(Case, Config) ->
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
 end_per_testcase(Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     end_per_testcase2(Case, lists:keydelete(watchdog, 1, Config)),
     ok.
@@ -641,7 +639,7 @@ ip_mod_alias(suite) ->
     [];
 ip_mod_alias(Config) when is_list(Config) ->
     httpd_mod:alias(ip_comm, ?IP_PORT, 
-		    ?config(host, Config), ?config(node, Config)),
+		    proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -651,7 +649,7 @@ ip_mod_actions(suite) ->
     [];
 ip_mod_actions(Config) when is_list(Config) ->
     httpd_mod:actions(ip_comm, ?IP_PORT, 
-		      ?config(host, Config), ?config(node, Config)),
+		      proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -660,9 +658,9 @@ ip_mod_security(doc) ->
 ip_mod_security(suite) -> 
     [];
 ip_mod_security(Config) when is_list(Config) ->
-    ServerRoot = ?config(server_root, Config), 
+    ServerRoot = proplists:get_value(server_root, Config), 
     httpd_mod:security(ServerRoot, ip_comm, ?IP_PORT, 
-		       ?config(host, Config), ?config(node, Config)),
+		       proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -672,7 +670,7 @@ ip_mod_auth(suite) ->
     [];
 ip_mod_auth(Config) when is_list(Config) ->
     httpd_mod:auth(ip_comm, ?IP_PORT, 
-		   ?config(host, Config), ?config(node, Config)),
+		   proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -681,9 +679,9 @@ ip_mod_auth_api(doc) ->
 ip_mod_auth_api(suite) -> 
     [];
 ip_mod_auth_api(Config) when is_list(Config) ->
-    ServerRoot = ?config(server_root, Config), 
-    Host =  ?config(host, Config),
-    Node = ?config(node, Config),
+    ServerRoot = proplists:get_value(server_root, Config), 
+    Host =  proplists:get_value(host, Config),
+    Node = proplists:get_value(node, Config),
     httpd_mod:auth_api(ServerRoot, "", ip_comm, ?IP_PORT, Host, Node),
     httpd_mod:auth_api(ServerRoot, "dets_", ip_comm, ?IP_PORT, Host, Node),
     httpd_mod:auth_api(ServerRoot, "mnesia_", ip_comm, ?IP_PORT, Host, Node),
@@ -695,7 +693,7 @@ ip_mod_auth_mnesia_api(suite) ->
     [];
 ip_mod_auth_mnesia_api(Config) when is_list(Config) ->
     httpd_mod:auth_mnesia_api(ip_comm, ?IP_PORT, 
-		   ?config(host, Config), ?config(node, Config)),
+		   proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_mod_htaccess(doc) -> 
@@ -704,7 +702,7 @@ ip_mod_htaccess(suite) ->
     [];
 ip_mod_htaccess(Config) when is_list(Config) ->
     httpd_mod:htaccess(ip_comm, ?IP_PORT, 
-		       ?config(host, Config), ?config(node, Config)),
+		       proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_mod_cgi(doc) ->
@@ -713,7 +711,7 @@ ip_mod_cgi(suite) ->
     [];
 ip_mod_cgi(Config) when is_list(Config) ->
     httpd_mod:cgi(ip_comm, ?IP_PORT, 
-	?config(host, Config), ?config(node, Config)),
+	proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_mod_esi(doc) ->
@@ -722,7 +720,7 @@ ip_mod_esi(suite) ->
     [];
 ip_mod_esi(Config) when is_list(Config) ->
     httpd_mod:esi(ip_comm, ?IP_PORT, 
-		  ?config(host, Config), ?config(node, Config)),
+		  proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -732,7 +730,7 @@ ip_mod_get(suite) ->
     [];
 ip_mod_get(Config) when is_list(Config) ->
     httpd_mod:get(ip_comm, ?IP_PORT, 
-		  ?config(host, Config), ?config(node, Config)),
+		  proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -742,7 +740,7 @@ ip_mod_head(suite) ->
     [];
 ip_mod_head(Config) when is_list(Config) ->
     httpd_mod:head(ip_comm, ?IP_PORT, 
-		   ?config(host, Config), ?config(node, Config)),
+		   proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_mod_all(doc) ->
@@ -751,7 +749,7 @@ ip_mod_all(suite) ->
     [];
 ip_mod_all(Config) when is_list(Config) ->
     httpd_mod:all(ip_comm, ?IP_PORT, 
-		  ?config(host, Config), ?config(node, Config)),
+		  proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_load_light(doc) ->
@@ -759,8 +757,8 @@ ip_load_light(doc) ->
 ip_load_light(suite) ->
     [];
 ip_load_light(Config) when is_list(Config) ->
-    httpd_load:load_test(ip_comm, ?IP_PORT, ?config(host, Config), 
-			 ?config(node, Config),
+    httpd_load:load_test(ip_comm, ?IP_PORT, proplists:get_value(host, Config), 
+			 proplists:get_value(node, Config),
 			 get_nof_clients(ip_comm, light)),
     ok.
 %%-------------------------------------------------------------------------
@@ -769,8 +767,8 @@ ip_load_medium(doc) ->
 ip_load_medium(suite) ->
     [];
 ip_load_medium(Config) when is_list(Config) ->
-      httpd_load:load_test(ip_comm, ?IP_PORT, ?config(host, Config),
-			   ?config(node, Config),
+      httpd_load:load_test(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+			   proplists:get_value(node, Config),
 			   get_nof_clients(ip_comm, medium)),
     ok.
 %%-------------------------------------------------------------------------
@@ -779,8 +777,8 @@ ip_load_heavy(doc) ->
 ip_load_heavy(suite) ->
     [];
 ip_load_heavy(Config) when is_list(Config) ->
-     httpd_load:load_test(ip_comm, ?IP_PORT, ?config(host, Config),
-			  ?config(node, Config),
+     httpd_load:load_test(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+			  proplists:get_value(node, Config),
 			  get_nof_clients(ip_comm, heavy)),
     ok.
 
@@ -791,8 +789,8 @@ ip_dos_hostname(doc) ->
 ip_dos_hostname(suite) ->
     [];
 ip_dos_hostname(Config) when is_list(Config) ->
-    dos_hostname(ip_comm, ?IP_PORT, ?config(host, Config), 
-		 ?config(node, Config), ?MAX_HEADER_SIZE),
+    dos_hostname(ip_comm, ?IP_PORT, proplists:get_value(host, Config), 
+		 proplists:get_value(node, Config), ?MAX_HEADER_SIZE),
     ok.
 
 
@@ -802,13 +800,7 @@ ip_time_test(doc) ->
 ip_time_test(suite) ->
     [];
 ip_time_test(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [win32],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-    
-    httpd_time_test:t(ip_comm, ?config(host, Config), ?IP_PORT),
+    httpd_time_test:t(ip_comm, proplists:get_value(host, Config), ?IP_PORT),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -818,8 +810,8 @@ ip_block_503(doc) ->
 ip_block_503(suite) ->
     [];
 ip_block_503(Config) when is_list(Config) ->
-    httpd_block:block_503(ip_comm, ?IP_PORT, ?config(host, Config), 
-				 ?config(node, Config)),
+    httpd_block:block_503(ip_comm, ?IP_PORT, proplists:get_value(host, Config), 
+				 proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_block_disturbing_idle(doc) ->
@@ -829,8 +821,8 @@ ip_block_disturbing_idle(suite) ->
     [];
 ip_block_disturbing_idle(Config) when is_list(Config) ->
     httpd_block:block_disturbing_idle(ip_comm, ?IP_PORT, 
-				      ?config(host, Config), 
-				      ?config(node, Config)),
+				      proplists:get_value(host, Config), 
+				      proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_block_non_disturbing_idle(doc) ->
@@ -840,8 +832,8 @@ ip_block_non_disturbing_idle(suite) ->
     [];
 ip_block_non_disturbing_idle(Config) when is_list(Config) ->
     httpd_block:block_non_disturbing_idle(ip_comm, ?IP_PORT, 
-					  ?config(host, Config), 
-					  ?config(node, Config)),
+					  proplists:get_value(host, Config), 
+					  proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_block_disturbing_active(doc) ->
@@ -851,8 +843,8 @@ ip_block_disturbing_active(suite) ->
     [];
 ip_block_disturbing_active(Config) when is_list(Config) ->
     httpd_block:block_disturbing_active(ip_comm, ?IP_PORT, 
-					?config(host, Config), 
-					?config(node, Config)),
+					proplists:get_value(host, Config), 
+					proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_block_non_disturbing_active(doc) ->
@@ -862,8 +854,8 @@ ip_block_non_disturbing_active(suite) ->
     [];
 ip_block_non_disturbing_active(Config) when is_list(Config) ->
     httpd_block:block_non_disturbing_idle(ip_comm, ?IP_PORT, 
-					  ?config(host, Config), 
-					  ?config(node, Config)),
+					  proplists:get_value(host, Config), 
+					  proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -877,9 +869,9 @@ ip_block_disturbing_active_timeout_not_released(Config)
   when is_list(Config) ->
     httpd_block:block_disturbing_active_timeout_not_released(ip_comm, 
 							     ?IP_PORT, 
-							     ?config(host,
+							     proplists:get_value(host,
 								     Config), 
-							     ?config(node, 
+							     proplists:get_value(node, 
 								     Config)),
     ok.
 %%-------------------------------------------------------------------------
@@ -893,9 +885,9 @@ ip_block_disturbing_active_timeout_released(Config)
   when is_list(Config) ->
     httpd_block:block_disturbing_active_timeout_released(ip_comm, 
 							 ?IP_PORT, 
-							 ?config(host,
+							 proplists:get_value(host,
 								 Config), 
-							 ?config(node, 
+							 proplists:get_value(node, 
 								 Config)),
     ok.
 
@@ -910,9 +902,9 @@ ip_block_non_disturbing_active_timeout_not_released(Config)
     httpd_block:
 	block_non_disturbing_active_timeout_not_released(ip_comm,
 							 ?IP_PORT, 
-							 ?config(host, 
+							 proplists:get_value(host, 
 								 Config), 
-							 ?config(node, 
+							 proplists:get_value(node, 
 								 Config)),
     ok.
 %%-------------------------------------------------------------------------
@@ -927,9 +919,9 @@ ip_block_non_disturbing_active_timeout_released(Config)
     httpd_block:
 	block_non_disturbing_active_timeout_released(ip_comm,
 						     ?IP_PORT, 
-						     ?config(host, 
+						     proplists:get_value(host, 
 							     Config), 
-						     ?config(node, 
+						     proplists:get_value(node, 
 							     Config)),
     ok.
 %%-------------------------------------------------------------------------
@@ -939,8 +931,8 @@ ip_block_disturbing_blocker_dies(suite) ->
     [];
 ip_block_disturbing_blocker_dies(Config) when is_list(Config) ->
     httpd_block:disturbing_blocker_dies(ip_comm, ?IP_PORT, 
-					?config(host, Config), 
-					?config(node, Config)),
+					proplists:get_value(host, Config), 
+					proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_block_non_disturbing_blocker_dies(doc) ->
@@ -949,8 +941,8 @@ ip_block_non_disturbing_blocker_dies(suite) ->
     [];
 ip_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
     httpd_block:non_disturbing_blocker_dies(ip_comm, ?IP_PORT, 
-					    ?config(host, Config), 
-					    ?config(node, Config)),
+					    proplists:get_value(host, Config), 
+					    proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_restart_no_block(doc) ->
@@ -958,8 +950,8 @@ ip_restart_no_block(doc) ->
 ip_restart_no_block(suite) ->
     [];
 ip_restart_no_block(Config) when is_list(Config) ->
-    httpd_block:restart_no_block(ip_comm, ?IP_PORT, ?config(host, Config), 
-				 ?config(node, Config)),
+    httpd_block:restart_no_block(ip_comm, ?IP_PORT, proplists:get_value(host, Config), 
+				 proplists:get_value(node, Config)),
     ok.
 %%-------------------------------------------------------------------------
 ip_restart_disturbing_block(doc) ->
@@ -967,33 +959,9 @@ ip_restart_disturbing_block(doc) ->
 ip_restart_disturbing_block(suite) ->
     [];
 ip_restart_disturbing_block(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Condition = 
-	fun() -> 
-		case os:type() of
-		    {unix, linux} ->
-			HW = string:strip(os:cmd("uname -m"), right, $\n),
-			case HW of
-			    "ppc" ->
-				case inet:gethostname() of
-				    {ok, "peach"} ->
-					true;
-				    _ ->
-					false
-				end;
-			    _ ->
-				false
-			end;
-		    _ ->
-			false
-		end
-	end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
     httpd_block:restart_disturbing_block(ip_comm, ?IP_PORT, 
-					 ?config(host, Config),
-					 ?config(node, Config)),
+					 proplists:get_value(host, Config),
+					 proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1002,33 +970,9 @@ ip_restart_non_disturbing_block(doc) ->
 ip_restart_non_disturbing_block(suite) ->
     [];
 ip_restart_non_disturbing_block(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Condition = 
-	fun() -> 
-		case os:type() of
-		    {unix, linux} ->
-			HW = string:strip(os:cmd("uname -m"), right, $\n),
-			case HW of
-			    "ppc" ->
-				case inet:gethostname() of
-				    {ok, "peach"} ->
-					true;
-				    _ ->
-					false
-				end;
-			    _ ->
-				false
-			end;
-		    _ ->
-			false
-		end
-	end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
     httpd_block:restart_non_disturbing_block(ip_comm, ?IP_PORT,
-					    ?config(host, Config), 
-					    ?config(node, Config)),
+					    proplists:get_value(host, Config), 
+					    proplists:get_value(node, Config)),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1043,7 +987,7 @@ essl_mod_alias(Config) when is_list(Config) ->
 
 ssl_mod_alias(Tag, Config) ->
     httpd_mod:alias(Tag, ?SSL_PORT, 
-		    ?config(host, Config), ?config(node, Config)),
+		    proplists:get_value(host, Config), proplists:get_value(node, Config)),
     ok. 
 
 
@@ -1060,8 +1004,8 @@ essl_mod_actions(Config) when is_list(Config) ->
 ssl_mod_actions(Tag, Config) ->
     httpd_mod:actions(Tag, 
 		      ?SSL_PORT, 
-		      ?config(host, Config), 
-		      ?config(node, Config)),
+		      proplists:get_value(host, Config), 
+		      proplists:get_value(node, Config)),
     ok.
 
 
@@ -1075,12 +1019,12 @@ essl_mod_security(Config) when is_list(Config) ->
     ssl_mod_security(essl, Config).
 
 ssl_mod_security(Tag, Config) ->
-    ServerRoot = ?config(server_root, Config), 
+    ServerRoot = proplists:get_value(server_root, Config), 
     httpd_mod:security(ServerRoot, 
 		       Tag, 
 		       ?SSL_PORT, 
-		       ?config(host, Config), 
-		       ?config(node, Config)),
+		       proplists:get_value(host, Config), 
+		       proplists:get_value(node, Config)),
     ok.
 
 
@@ -1096,8 +1040,8 @@ essl_mod_auth(Config) when is_list(Config) ->
 ssl_mod_auth(Tag, Config) ->
     httpd_mod:auth(Tag, 
 		   ?SSL_PORT, 
-		   ?config(host, Config), 
-		   ?config(node, Config)),
+		   proplists:get_value(host, Config), 
+		   proplists:get_value(node, Config)),
     ok.
 
 
@@ -1112,9 +1056,9 @@ essl_mod_auth_api(Config) when is_list(Config) ->
     ssl_mod_auth_api(essl, Config).
 
 ssl_mod_auth_api(Tag, Config) ->
-    ServerRoot = ?config(server_root, Config), 
-    Host       =  ?config(host, Config),
-    Node       = ?config(node, Config),
+    ServerRoot = proplists:get_value(server_root, Config), 
+    Host       =  proplists:get_value(host, Config),
+    Node       = proplists:get_value(node, Config),
     httpd_mod:auth_api(ServerRoot, "",        Tag, ?SSL_PORT, Host, Node),
     httpd_mod:auth_api(ServerRoot, "dets_",   Tag, ?SSL_PORT, Host, Node),
     httpd_mod:auth_api(ServerRoot, "mnesia_", Tag, ?SSL_PORT, Host, Node),
@@ -1134,8 +1078,8 @@ essl_mod_auth_mnesia_api(Config) when is_list(Config) ->
 ssl_mod_auth_mnesia_api(Tag, Config) ->
     httpd_mod:auth_mnesia_api(Tag, 
 			      ?SSL_PORT, 
-			      ?config(host, Config), 
-			      ?config(node, Config)),
+			      proplists:get_value(host, Config), 
+			      proplists:get_value(node, Config)),
     ok.
 
 
@@ -1151,8 +1095,8 @@ essl_mod_htaccess(Config) when is_list(Config) ->
 ssl_mod_htaccess(Tag, Config) ->
     httpd_mod:htaccess(Tag, 
 		       ?SSL_PORT, 
-		       ?config(host, Config), 
-		       ?config(node, Config)),
+		       proplists:get_value(host, Config), 
+		       proplists:get_value(node, Config)),
     ok.
 
 
@@ -1168,8 +1112,8 @@ essl_mod_cgi(Config) when is_list(Config) ->
 ssl_mod_cgi(Tag, Config) ->
     httpd_mod:cgi(Tag, 
 	?SSL_PORT, 
-	?config(host, Config), 
-	?config(node, Config)),
+	proplists:get_value(host, Config), 
+	proplists:get_value(node, Config)),
     ok.
 
 
@@ -1185,8 +1129,8 @@ essl_mod_esi(Config) when is_list(Config) ->
 ssl_mod_esi(Tag, Config) ->
     httpd_mod:esi(Tag, 
 		  ?SSL_PORT, 
-		  ?config(host, Config), 
-		  ?config(node, Config)),
+		  proplists:get_value(host, Config), 
+		  proplists:get_value(node, Config)),
     ok.
 
 
@@ -1202,8 +1146,8 @@ essl_mod_get(Config) when is_list(Config) ->
 ssl_mod_get(Tag, Config) ->
     httpd_mod:get(Tag, 
 		  ?SSL_PORT, 
-		  ?config(host, Config), 
-		  ?config(node, Config)),
+		  proplists:get_value(host, Config), 
+		  proplists:get_value(node, Config)),
     ok.
 
 
@@ -1219,8 +1163,8 @@ essl_mod_head(Config) when is_list(Config) ->
 ssl_mod_head(Tag, Config) ->
     httpd_mod:head(Tag, 
 		   ?SSL_PORT, 
-		   ?config(host, Config), 
-		   ?config(node, Config)),
+		   proplists:get_value(host, Config), 
+		   proplists:get_value(node, Config)),
     ok.
 
 
@@ -1236,8 +1180,8 @@ essl_mod_all(Config) when is_list(Config) ->
 ssl_mod_all(Tag, Config) ->
     httpd_mod:all(Tag, 
 		  ?SSL_PORT, 
-		  ?config(host, Config), 
-		  ?config(node, Config)),
+		  proplists:get_value(host, Config), 
+		  proplists:get_value(node, Config)),
     ok.
 
 
@@ -1253,8 +1197,8 @@ essl_load_light(Config) when is_list(Config) ->
 ssl_load_light(Tag, Config) ->
     httpd_load:load_test(Tag, 
 			 ?SSL_PORT, 
-			 ?config(host, Config), 
-			 ?config(node, Config),
+			 proplists:get_value(host, Config), 
+			 proplists:get_value(node, Config),
 			 get_nof_clients(ssl, light)),
     ok.
 
@@ -1269,16 +1213,10 @@ essl_load_medium(Config) when is_list(Config) ->
     ssl_load_medium(essl, Config).
 
 ssl_load_medium(Tag, Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [win32],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
     httpd_load:load_test(Tag, 
 			 ?SSL_PORT, 
-			 ?config(host, Config), 
-			 ?config(node, Config),
+			 proplists:get_value(host, Config), 
+			 proplists:get_value(node, Config),
 			 get_nof_clients(ssl, medium)),
     ok.
 
@@ -1293,16 +1231,10 @@ essl_load_heavy(Config) when is_list(Config) ->
     ssl_load_heavy(essl, Config).
 
 ssl_load_heavy(Tag, Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [win32],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
     httpd_load:load_test(Tag, 
 			 ?SSL_PORT, 
-			 ?config(host, Config), 
-			 ?config(node, Config),
+			 proplists:get_value(host, Config), 
+			 proplists:get_value(node, Config),
 			 get_nof_clients(ssl, heavy)),
     ok.
 
@@ -1320,8 +1252,8 @@ essl_dos_hostname(Config) when is_list(Config) ->
 ssl_dos_hostname(Tag, Config) ->
     dos_hostname(Tag, 
 		 ?SSL_PORT, 
-		 ?config(host, Config), 
-		 ?config(node, Config), 
+		 proplists:get_value(host, Config), 
+		 proplists:get_value(node, Config), 
 		 ?MAX_HEADER_SIZE),
     ok.
 
@@ -1337,23 +1269,8 @@ essl_time_test(Config) when is_list(Config) ->
     ssl_time_test(essl, Config).
 
 ssl_time_test(Tag, Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    FreeBSDVersionVerify = 
-	fun() ->
-		case os:version() of
-		    {7, 1, _} -> % We only have one such machine, so...
-			true;
-		    _ ->
-			false
-		end
-	end,
-    Skippable = [win32, {unix, [{freebsd, FreeBSDVersionVerify}]}],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-    
     httpd_time_test:t(Tag, 
-		      ?config(host, Config), 
+		      proplists:get_value(host, Config), 
 		      ?SSL_PORT),
     ok.
 
@@ -1372,8 +1289,8 @@ essl_block_503(Config) when is_list(Config) ->
 ssl_block_503(Tag, Config) ->
     httpd_block:block_503(Tag, 
 			  ?SSL_PORT, 
-			  ?config(host, Config), 
-			  ?config(node, Config)),
+			  proplists:get_value(host, Config), 
+			  proplists:get_value(node, Config)),
     ok.
 
 
@@ -1391,8 +1308,8 @@ essl_block_disturbing_idle(Config) when is_list(Config) ->
 ssl_block_disturbing_idle(Tag, Config) ->
     httpd_block:block_disturbing_idle(Tag, 
 				      ?SSL_PORT, 
-				      ?config(host, Config), 
-				      ?config(node, Config)),
+				      proplists:get_value(host, Config), 
+				      proplists:get_value(node, Config)),
     ok.
 
 
@@ -1410,8 +1327,8 @@ essl_block_non_disturbing_idle(Config) when is_list(Config) ->
 ssl_block_non_disturbing_idle(Tag, Config) ->
     httpd_block:block_non_disturbing_idle(Tag, 
 					  ?SSL_PORT, 
-					  ?config(host, Config), 
-					  ?config(node, Config)),
+					  proplists:get_value(host, Config), 
+					  proplists:get_value(node, Config)),
     ok.
 
 
@@ -1429,8 +1346,8 @@ essl_block_disturbing_active(Config) when is_list(Config) ->
 ssl_block_disturbing_active(Tag, Config) ->
     httpd_block:block_disturbing_active(Tag, 
 					?SSL_PORT, 
-					?config(host, Config), 
-					?config(node, Config)),
+					proplists:get_value(host, Config), 
+					proplists:get_value(node, Config)),
     ok.
 
 
@@ -1448,8 +1365,8 @@ essl_block_non_disturbing_active(Config) when is_list(Config) ->
 ssl_block_non_disturbing_active(Tag, Config) ->
     httpd_block:block_non_disturbing_idle(Tag, 
 					  ?SSL_PORT, 
-					  ?config(host, Config), 
-					  ?config(node, Config)),
+					  proplists:get_value(host, Config), 
+					  proplists:get_value(node, Config)),
     ok.
 
 
@@ -1468,8 +1385,8 @@ essl_block_disturbing_active_timeout_not_released(Config)
 
 ssl_block_disturbing_active_timeout_not_released(Tag, Config) ->
     Port = ?SSL_PORT, 
-    Host = ?config(host, Config), 
-    Node = ?config(node, Config), 
+    Host = proplists:get_value(host, Config), 
+    Node = proplists:get_value(node, Config), 
     httpd_block:block_disturbing_active_timeout_not_released(Tag, 
 							     Port, Host, Node),
     ok.
@@ -1490,8 +1407,8 @@ essl_block_disturbing_active_timeout_released(Config)
 
 ssl_block_disturbing_active_timeout_released(Tag, Config) ->
     Port = ?SSL_PORT, 
-    Host = ?config(host, Config), 
-    Node = ?config(node, Config),     
+    Host = proplists:get_value(host, Config), 
+    Node = proplists:get_value(node, Config),     
     httpd_block:block_disturbing_active_timeout_released(Tag, 
 							 Port, 
 							 Host, 
@@ -1513,8 +1430,8 @@ essl_block_non_disturbing_active_timeout_not_released(Config)
 
 ssl_block_non_disturbing_active_timeout_not_released(Tag, Config) ->
     Port = ?SSL_PORT, 
-    Host = ?config(host, Config), 
-    Node = ?config(node, Config), 
+    Host = proplists:get_value(host, Config), 
+    Node = proplists:get_value(node, Config), 
     httpd_block:block_non_disturbing_active_timeout_not_released(Tag,
 								 Port, 
 								 Host, 
@@ -1539,8 +1456,8 @@ essl_block_non_disturbing_active_timeout_released(Config)
 ssl_block_non_disturbing_active_timeout_released(Tag, Config)
   when is_list(Config) ->
     Port = ?SSL_PORT, 
-    Host = ?config(host, Config), 
-    Node = ?config(node, Config), 
+    Host = proplists:get_value(host, Config), 
+    Node = proplists:get_value(node, Config), 
     httpd_block:block_non_disturbing_active_timeout_released(Tag, 
 							     Port, 
 							     Host, 
@@ -1562,8 +1479,8 @@ essl_block_disturbing_blocker_dies(Config) when is_list(Config) ->
 ssl_block_disturbing_blocker_dies(Tag, Config) ->
     httpd_block:disturbing_blocker_dies(Tag, 
 					?SSL_PORT, 
-					?config(host, Config), 
-					?config(node, Config)),
+					proplists:get_value(host, Config), 
+					proplists:get_value(node, Config)),
     ok.
 
 
@@ -1579,8 +1496,8 @@ essl_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
 ssl_block_non_disturbing_blocker_dies(Tag, Config) ->
     httpd_block:non_disturbing_blocker_dies(Tag, 
 					    ?SSL_PORT, 
-					    ?config(host, Config), 
-					    ?config(node, Config)),
+					    proplists:get_value(host, Config), 
+					    proplists:get_value(node, Config)),
     ok.
 
 
@@ -1597,8 +1514,8 @@ essl_restart_no_block(Config) when is_list(Config) ->
 ssl_restart_no_block(Tag, Config) ->
     httpd_block:restart_no_block(Tag, 
 				 ?SSL_PORT, 
-				 ?config(host, Config), 
-				 ?config(node, Config)),
+				 proplists:get_value(host, Config), 
+				 proplists:get_value(node, Config)),
     ok.
 
 
@@ -1613,43 +1530,9 @@ essl_restart_disturbing_block(Config) when is_list(Config) ->
     ssl_restart_disturbing_block(essl, Config).
 
 ssl_restart_disturbing_block(Tag, Config) ->
-    %% <CONDITIONAL-SKIP>
-    Condition = 
-	fun() -> 
-		case os:type() of
-		    {unix, linux} ->
-			case ?OSCMD("uname -m") of
-			    "ppc" ->
-				case file:read_file_info("/etc/fedora-release") of
-				    {ok, _} ->
-					case ?OSCMD("awk '{print $2}' /etc/fedora-release") of
-					    "release" ->
-						%% Fedora 7 and later
-						case ?OSCMD("awk '{print $3}' /etc/fedora-release") of
-						    "7" ->
-							true;
-						    _ ->
-							false
-						end;
-					    _ ->
-						false
-					end;
-				    _ ->
-					false
-				end;
-			    _ ->
-				false
-			end;
-		    _ ->
-			false
-		end
-	end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
     httpd_block:restart_disturbing_block(Tag, ?SSL_PORT, 
-					 ?config(host, Config), 
-					 ?config(node, Config)),
+					 proplists:get_value(host, Config), 
+					 proplists:get_value(node, Config)),
     ok.
 
 
@@ -1664,34 +1547,10 @@ essl_restart_non_disturbing_block(Config) when is_list(Config) ->
     ssl_restart_non_disturbing_block(essl, Config).
 
 ssl_restart_non_disturbing_block(Tag, Config) ->
-    %% <CONDITIONAL-SKIP>
-    Condition = 
-	fun() -> 
-		case os:type() of
-		    {unix, linux} ->
-			HW = string:strip(os:cmd("uname -m"), right, $\n),
-			case HW of
-			    "ppc" ->
-				case inet:gethostname() of
-				    {ok, "peach"} ->
-					true;
-				    _ ->
-					false
-				end;
-			    _ ->
-				false
-			end;
-		    _ ->
-			false
-		end
-	end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
-
     httpd_block:restart_non_disturbing_block(Tag, 
 					     ?SSL_PORT, 
-					     ?config(host, Config), 
-					     ?config(node, Config)),
+					     proplists:get_value(host, Config), 
+					     proplists:get_value(node, Config)),
     ok.
 
 
@@ -1701,8 +1560,8 @@ ip_host(doc) ->
 ip_host(suite)->
     [];
 ip_host(Config) when is_list(Config) ->
-    httpd_1_1:host(ip_comm, ?IP_PORT, ?config(host, Config),
-		   ?config(node, Config)),
+    httpd_1_1:host(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+		   proplists:get_value(node, Config)),
     ok.
 %%------------------------------------------------------------------------- 
 ip_chunked(doc) ->   
@@ -1710,8 +1569,8 @@ ip_chunked(doc) ->
 ip_chunked(suite) ->
     [];
 ip_chunked(Config) when is_list(Config) ->
-    httpd_1_1:chunked(ip_comm, ?IP_PORT, ?config(host, Config),
-		      ?config(node, Config)),
+    httpd_1_1:chunked(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+		      proplists:get_value(node, Config)),
     ok.
 %%------------------------------------------------------------------------- 
 ip_expect(doc) ->   
@@ -1720,8 +1579,8 @@ ip_expect(doc) ->
 ip_expect(suite)->
     [];
 ip_expect(Config) when is_list(Config) ->
-    httpd_1_1:expect(ip_comm, ?IP_PORT, ?config(host, Config),
-		     ?config(node, Config)),
+    httpd_1_1:expect(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+		     proplists:get_value(node, Config)),
     ok.
 %%------------------------------------------------------------------------- 
 ip_range(doc) ->   
@@ -1729,8 +1588,8 @@ ip_range(doc) ->
 ip_range(suite)->
     [];
 ip_range(Config) when is_list(Config) ->
-    httpd_1_1:range(ip_comm, ?IP_PORT, ?config(host, Config),
-		    ?config(node, Config)),
+    httpd_1_1:range(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+		    proplists:get_value(node, Config)),
     ok.
 %%------------------------------------------------------------------------- 
 ip_if_test(doc) ->   
@@ -1738,10 +1597,10 @@ ip_if_test(doc) ->
 ip_if_test(suite) ->
     [];
 ip_if_test(Config) when is_list(Config) ->
-    ServerRoot = ?config(server_root, Config), 
+    ServerRoot = proplists:get_value(server_root, Config), 
     DocRoot = filename:join([ServerRoot, "htdocs"]),
-    httpd_1_1:if_test(ip_comm, ?IP_PORT, ?config(host, Config),
-		      ?config(node, Config), DocRoot),
+    httpd_1_1:if_test(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+		      proplists:get_value(node, Config), DocRoot),
     ok.
 %%------------------------------------------------------------------------- 
 ip_http_trace(doc) ->   
@@ -1749,8 +1608,8 @@ ip_http_trace(doc) ->
 ip_http_trace(suite) -> 
     [];
 ip_http_trace(Config) when is_list(Config) ->
-    httpd_1_1:http_trace(ip_comm, ?IP_PORT, ?config(host, Config),
-			 ?config(node, Config)),
+    httpd_1_1:http_trace(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+			 proplists:get_value(node, Config)),
     ok.
 %%------------------------------------------------------------------------- 
 ip_http1_1_head(doc) ->  
@@ -1758,8 +1617,8 @@ ip_http1_1_head(doc) ->
 ip_http1_1_head(suite)->
     [];
 ip_http1_1_head(Config) when is_list(Config) ->
-    httpd_1_1:head(ip_comm, ?IP_PORT, ?config(host, Config),
-			   ?config(node, Config)),
+    httpd_1_1:head(ip_comm, ?IP_PORT, proplists:get_value(host, Config),
+			   proplists:get_value(node, Config)),
     ok.
 
 %%------------------------------------------------------------------------- 
@@ -1768,8 +1627,8 @@ ip_get_0_9(doc) ->
 ip_get_0_9(suite)->
     [];
 ip_get_0_9(Config) when is_list(Config) ->
-    Host =  ?config(host, Config),
-    Node =  ?config(node, Config),
+    Host =  proplists:get_value(host, Config),
+    Node =  proplists:get_value(node, Config),
     ok = httpd_test_lib:verify_request(ip_comm, Host, ?IP_PORT, Node, 
 				       "GET / \r\n\r\n", 
 				       [{statuscode, 200},
@@ -1791,8 +1650,8 @@ ip_head_1_0(doc) ->
 ip_head_1_0(suite)->
     [];
 ip_head_1_0(Config) when is_list(Config) ->
-    Host =  ?config(host, Config),
-    Node =  ?config(node, Config),
+    Host =  proplists:get_value(host, Config),
+    Node =  proplists:get_value(node, Config),
     ok = httpd_test_lib:verify_request(ip_comm, Host, ?IP_PORT, Node, 
 			 "HEAD / HTTP/1.0\r\n\r\n", [{statuscode, 200},
 						    {version, "HTTP/1.0"}]),
@@ -1804,8 +1663,8 @@ ip_get_1_0(doc) ->
 ip_get_1_0(suite)->
     [];
 ip_get_1_0(Config) when is_list(Config) ->
-    Host =  ?config(host, Config),
-    Node =  ?config(node, Config),
+    Host =  proplists:get_value(host, Config),
+    Node =  proplists:get_value(node, Config),
     ok = httpd_test_lib:verify_request(ip_comm, Host, ?IP_PORT, Node, 
 			 "GET / HTTP/1.0\r\n\r\n", [{statuscode, 200},
 						    {version, "HTTP/1.0"}]),
@@ -1817,8 +1676,8 @@ ip_post_1_0(doc) ->
 ip_post_1_0(suite)->
     [];
 ip_post_1_0(Config) when is_list(Config) ->
-    Host =  ?config(host, Config),
-    Node =  ?config(node, Config),
+    Host =  proplists:get_value(host, Config),
+    Node =  proplists:get_value(node, Config),
     %% Test the post message formatin 1.0! Real post are testes elsewhere
     ok = httpd_test_lib:verify_request(ip_comm, Host, ?IP_PORT, Node, 
 			 "POST / HTTP/1.0\r\n\r\n "  
@@ -1832,7 +1691,7 @@ ip_mod_cgi_chunked_encoding_test(doc) ->
 ip_mod_cgi_chunked_encoding_test(suite)->
     [];
 ip_mod_cgi_chunked_encoding_test(Config) when is_list(Config) ->
-    Host = ?config(host, Config),
+    Host = proplists:get_value(host, Config),
     Script =
 	case test_server:os_type() of
 	    {win32, _} ->
@@ -1846,7 +1705,7 @@ ip_mod_cgi_chunked_encoding_test(Config) when is_list(Config) ->
 	 ++ Host ++"\r\n\r\n"],
     httpd_1_1:mod_cgi_chunked_encoding_test(ip_comm, ?IP_PORT,
 					    Host,
-					    ?config(node, Config),
+					    proplists:get_value(node, Config),
 					    Requests),
     ok.
 
@@ -1875,7 +1734,7 @@ ipv6_hostname(SocketType, Port, Config) when is_list(Config) ->
 	"~n   SocketType: ~p"
 	"~n   Port:       ~p"
 	"~n   Config:     ~p", [SocketType, Port, Config]),
-    Host = ?config(host, Config),
+    Host = proplists:get_value(host, Config),
     URI  = "GET HTTP://" ++ 
 	Host ++ ":" ++ integer_to_list(Port) ++ "/ HTTP/1.1\r\n\r\n", 
     tsp("ipv6_hostname -> Host: ~p", [Host]),
@@ -1910,7 +1769,7 @@ ipv6_address(SocketType, Port, Config) when is_list(Config) ->
 	"~n   SocketType: ~p"
 	"~n   Port:       ~p"
 	"~n   Config:     ~p", [SocketType, Port, Config]),
-    Host = ?config(host, Config),
+    Host = proplists:get_value(host, Config),
     tsp("ipv6_address -> Host: ~p", [Host]),
     URI = "GET HTTP://" ++ 
 	Host ++ ":" ++ integer_to_list(Port) ++ "/ HTTP/1.1\r\n\r\n", 
@@ -1927,8 +1786,8 @@ ticket_5775(doc) ->
 ticket_5775(suite) ->
     [];
 ticket_5775(Config) ->
-    ok=httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				     ?IP_PORT, ?config(node, Config),
+    ok=httpd_test_lib:verify_request(ip_comm, proplists:get_value(host, Config),
+				     ?IP_PORT, proplists:get_value(node, Config),
 				       "GET /cgi-bin/erl/httpd_example:get_bin "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
@@ -1939,9 +1798,9 @@ ticket_5865(doc) ->
 ticket_5865(suite) ->
     [];
 ticket_5865(Config) ->
-    ?SKIP(as_of_r15_behaviour_of_calendar_has_changed),
-    Host = ?config(host,Config),
-    ServerRoot = ?config(server_root, Config), 
+    ct:skip(as_of_r15_behaviour_of_calendar_has_changed),
+    Host = proplists:get_value(host,Config),
+    ServerRoot = proplists:get_value(server_root, Config), 
     DocRoot = filename:join([ServerRoot, "htdocs"]),
     File = filename:join([DocRoot,"last_modified.html"]),
 
@@ -1957,7 +1816,7 @@ ticket_5865(Config) ->
     case file:write_file_info(File,FI#file_info{mtime=Bad_mtime}) of
 	ok ->
 	    ok = httpd_test_lib:verify_request(ip_comm, Host,
-					       ?IP_PORT, ?config(node, Config),
+					       ?IP_PORT, proplists:get_value(node, Config),
 					       "GET /last_modified.html"
 					       " HTTP/1.1\r\nHost:"
 					       ++Host++"\r\n\r\n", 
@@ -1977,8 +1836,8 @@ ticket_5913(doc) ->
     ["Tests that a header without last-modified is handled"];
 ticket_5913(suite) -> [];
 ticket_5913(Config) ->
-    ok = httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				       ?IP_PORT, ?config(node, Config),
+    ok = httpd_test_lib:verify_request(ip_comm, proplists:get_value(host, Config),
+				       ?IP_PORT, proplists:get_value(node, Config),
 				       "GET /cgi-bin/erl/httpd_example:get_bin "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
@@ -1989,8 +1848,8 @@ ticket_6003(doc) ->
     ["Tests that a URI with a bad hexadecimal code is handled"];
 ticket_6003(suite) -> [];
 ticket_6003(Config) ->
-    ok = httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				       ?IP_PORT, ?config(node, Config),
+    ok = httpd_test_lib:verify_request(ip_comm, proplists:get_value(host, Config),
+				       ?IP_PORT, proplists:get_value(node, Config),
 				       "GET http://www.erlang.org/%skalle "
 				       "HTTP/1.0\r\n\r\n",
 				       [{statuscode, 400},
@@ -2002,8 +1861,8 @@ ticket_7304(doc) ->
 ticket_7304(suite) -> 
     [];
 ticket_7304(Config) ->
-    ok = httpd_test_lib:verify_request(ip_comm, ?config(host, Config),
-				       ?IP_PORT, ?config(node, Config),
+    ok = httpd_test_lib:verify_request(ip_comm, proplists:get_value(host, Config),
+				       ?IP_PORT, proplists:get_value(node, Config),
 				       "GET / HTTP/1.0\r\n\n",
 				       [{statuscode, 200},
 					{version, "HTTP/1.0"}]),
@@ -2030,11 +1889,11 @@ dos_hostname(Type, Port, Host, Node, Max) ->
 %%--------------------------------------------------------------------
 %% Other help functions
 create_config(Config, Access, FileName) ->
-    ServerRoot = ?config(server_root, Config),
-    TcTopDir   = ?config(tc_top_dir,  Config),
-    Port       = ?config(port,        Config),
-    Type       = ?config(sock_type,   Config),
-    Host       = ?config(host,        Config),
+    ServerRoot = proplists:get_value(server_root, Config),
+    TcTopDir   = proplists:get_value(tc_top_dir,  Config),
+    Port       = proplists:get_value(port,        Config),
+    Type       = proplists:get_value(sock_type,   Config),
+    Host       = proplists:get_value(host,        Config),
     Mods       = io_lib:format("~p", [httpd_mod]),
     Funcs      = io_lib:format("~p", [ssl_password_cb]),
     MaxHdrSz   = io_lib:format("~p", [256]),
@@ -2424,13 +2283,13 @@ create_range_data(Path) ->
 						   "12345678901234567890"])).
 
 create_ipv6_config(Config, FileName, Ipv6Address) ->
-    ServerRoot = ?config(server_root, Config),
-    TcTopDir   = ?config(tc_top_dir,  Config),
-    Port       = ?config(port,        Config),
-    SockType   = ?config(sock_type,   Config),
+    ServerRoot = proplists:get_value(server_root, Config),
+    TcTopDir   = proplists:get_value(tc_top_dir,  Config),
+    Port       = proplists:get_value(port,        Config),
+    SockType   = proplists:get_value(sock_type,   Config),
     Mods       = io_lib:format("~p",  [httpd_mod]),
     Funcs      = io_lib:format("~p",  [ssl_password_cb]),
-    Host       = ?config(ipv6_host,   Config),
+    Host       = proplists:get_value(ipv6_host,   Config),
 
     MaxHdrSz     = io_lib:format("~p", [256]),
     MaxHdrAct    = io_lib:format("~p", [close]),
