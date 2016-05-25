@@ -79,8 +79,7 @@ struct export_templ
 
 static struct export_blob* entry_to_blob(struct export_entry* ee)
 {
-    return (struct export_blob*)
-        ((char*)ee->ep - offsetof(struct export_blob,exp));
+    return ErtsContainerStruct(ee->ep, struct export_blob, exp);
 }
 
 void
