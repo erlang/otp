@@ -50,7 +50,15 @@
 -define(Empint(X),       (ssh_bits:mpint(X))/binary ).
 -define(Ebinary(X),      ?STRING(X) ).
 
--define(unicode_list(B), unicode:characters_to_list(B)).
+ucl(B) ->
+    try unicode:characters_to_list(B) of
+	L when is_list(L) -> L;
+	{error,_Matched,Rest} -> throw({error,{bad_unicode,Rest}})
+    catch
+	_:_ -> throw({error,bad_unicode})
+    end.
+
+-define(unicode_list(B), ucl(B)).
 
 encode(#ssh_msg_global_request{
 	  name = Name,
