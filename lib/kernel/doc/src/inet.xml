@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -207,6 +207,10 @@ fe80::204:acff:fe17:bf38
       <desc>
         <p>Returns a <c>hostent</c> record for the host with the specified
           hostname.</p>
+        <p>If resolver option <c>inet6</c> is <c>true</c>,
+          an IPv6 address is looked up. If that fails,
+          the IPv4 address is looked up and returned on
+          IPv6-mapped IPv4 format.</p>
       </desc>
     </func>
 
@@ -1267,4 +1271,3 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </list>
   </section>
 </erlref>
-

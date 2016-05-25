@@ -439,7 +439,12 @@ getstat(Socket,What) ->
       Hostent :: hostent().
 
 gethostbyname(Name) -> 
-    gethostbyname_tm(Name, inet, false).
+    case inet_db:res_option(inet6) of
+	true ->
+	    gethostbyname_tm(Name, inet6, false);
+	false ->
+	    gethostbyname_tm(Name, inet, false)
+    end.
 
 -spec gethostbyname(Hostname, Family) ->
                            {ok, Hostent} | {error, posix()} when
