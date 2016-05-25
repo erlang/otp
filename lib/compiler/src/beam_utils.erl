@@ -167,8 +167,7 @@ bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
 
 %% is_pure_test({test,Op,Fail,Ops}) -> true|false.
 %%  Return 'true' if the test instruction does not modify any
-%%  registers and/or bit syntax matching state, nor modifies
-%%  any bit syntax matching state.
+%%  registers and/or bit syntax matching state.
 %%
 is_pure_test({test,is_eq,_,[_,_]}) -> true;
 is_pure_test({test,is_ne,_,[_,_]}) -> true;
@@ -180,6 +179,8 @@ is_pure_test({test,is_nil,_,[_]}) -> true;
 is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
 is_pure_test({test,test_arity,_,[_,_]}) -> true;
 is_pure_test({test,has_map_fields,_,[_|_]}) -> true;
+is_pure_test({test,is_bitstr,_,[_]}) -> true;
+is_pure_test({test,is_function2,_,[_,_]}) -> true;
 is_pure_test({test,Op,_,Ops}) -> 
     erl_internal:new_type_test(Op, length(Ops)).
 
