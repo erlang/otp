@@ -27,7 +27,9 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
+-export([start/0, start/1, stop/0,
+	 connect/2, connect/3, connect/4,
+	 close/1, connection_info/2,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 daemon_info/1,
@@ -70,13 +72,46 @@ stop() ->
     application:stop(ssh).
 
 %%--------------------------------------------------------------------
--spec connect(string(), integer(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+-spec connect(port(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+
+-spec connect(port(),   proplists:proplist(), timeout()) -> {ok, pid()} |  {error, term()}
+           ; (string(), integer(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+
 -spec connect(string(), integer(), proplists:proplist(), timeout()) -> {ok, pid()} |  {error, term()}.
 %%
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------
-connect(Host, Port, Options) ->
+connect(Socket, Options) ->
+    connect(Socket, Options, infinity).
+
+connect(Socket, Options, Timeout) when is_port(Socket) ->
+    case handle_options(Options) of
+	{error, _Reason} = Error ->
+	    Error;
+	{_SocketOptions, SshOptions} ->
+	    case proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}) of
+		{tcp,_,_} ->
+		    %% Is the socket a valid tcp socket?
+		    case {{ok,[]} =/= inet:getopts(Socket, [delay_send]),
+			  {ok,[{active,false}]} == inet:getopts(Socket, [active])
+			 }
+		    of
+			{true, true} ->
+			    {ok, {Host,_Port}} = inet:sockname(Socket),
+			    Opts =  [{user_pid,self()}, {host,fmt_host(Host)} | SshOptions],
+			    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
+			{true, false} ->
+			    {error, not_passive_mode};
+			_ ->
+			    {error, not_tcp_socket}
+		    end;
+		{L4,_,_} ->
+		    {error, {unsupported,L4}}
+	    end
+    end;
+connect(Host, Port, Options) when is_integer(Port), Port>0 ->
     connect(Host, Port, Options, infinity).
+
 connect(Host, Port, Options, Timeout) ->
     case handle_options(Options) of
 	{error, _Reason} = Error ->
@@ -199,8 +234,8 @@ stop_daemon(Address, Port) ->
 stop_daemon(Address, Port, Profile) ->
     ssh_system_sup:stop_system(Address, Port, Profile).
 %%--------------------------------------------------------------------
--spec shell(string()) ->  _.
--spec shell(string(), proplists:proplist()) ->  _.
+-spec shell(port() | string()) ->  _.
+-spec shell(port() | string(), proplists:proplist()) ->  _.
 -spec shell(string(), integer(), proplists:proplist()) ->  _.
 
 %%   Host = string()
@@ -212,27 +247,34 @@ stop_daemon(Address, Port, Profile) ->
 %% and will not return until the remote shell is ended.(e.g. on
 %% exit from the shell)
 %%--------------------------------------------------------------------
+shell(Socket) when is_port(Socket) ->
+    shell(Socket, []);
 shell(Host) ->
     shell(Host, ?SSH_DEFAULT_PORT, []).
+
+shell(Socket, Options) when is_port(Socket) ->
+    start_shell( connect(Socket, Options) );
 shell(Host, Options) ->
     shell(Host, ?SSH_DEFAULT_PORT, Options).
+
 shell(Host, Port, Options) ->
-    case connect(Host, Port, Options) of
-	{ok, ConnectionRef} ->
-	    case ssh_connection:session_channel(ConnectionRef, infinity) of
-		{ok,ChannelId}  ->
-		    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
-		    Args = [{channel_cb, ssh_shell}, 
-			    {init_args,[ConnectionRef, ChannelId]},
-			    {cm, ConnectionRef}, {channel_id, ChannelId}],
-		    {ok, State} = ssh_channel:init([Args]),
-		    ssh_channel:enter_loop(State);
-		Error ->
-		    Error
-	    end;
+    start_shell( connect(Host, Port, Options) ).
+
+
+start_shell({ok, ConnectionRef}) ->
+    case ssh_connection:session_channel(ConnectionRef, infinity) of
+	{ok,ChannelId}  ->
+	    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+	    Args = [{channel_cb, ssh_shell}, 
+		    {init_args,[ConnectionRef, ChannelId]},
+		    {cm, ConnectionRef}, {channel_id, ChannelId}],
+	    {ok, State} = ssh_channel:init([Args]),
+	    ssh_channel:enter_loop(State);
 	Error ->
 	    Error
-    end.
+    end;
+start_shell(Error) ->
+    Error.
 
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -835,3 +877,8 @@ handle_user_pref_pubkey_algs([H|T], Acc) ->
 	false ->
 	    false
     end.
+
+fmt_host({A,B,C,D}) -> 
+    lists:concat([A,".",B,".",C,".",D]);
+fmt_host(T={_,_,_,_,_,_,_,_}) -> 
+    lists:flatten(string:join([io_lib:format("~.16B",[A]) || A <- tuple_to_list(T)], ":")).

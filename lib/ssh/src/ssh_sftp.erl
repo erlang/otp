@@ -95,8 +95,31 @@
 %%====================================================================
 start_channel(Cm) when is_pid(Cm) ->
     start_channel(Cm, []);
+start_channel(Socket) when is_port(Socket) ->
+    start_channel(Socket, []);
 start_channel(Host) when is_list(Host) ->
     start_channel(Host, []).					 
+
+start_channel(Socket, Options) when is_port(Socket) ->
+    Timeout =
+	%% A mixture of ssh:connect and ssh_sftp:start_channel:
+	case proplists:get_value(connect_timeout, Options, undefined) of
+	    undefined ->
+		proplists:get_value(timeout, Options, infinity);
+	    TO ->
+		TO
+	end,
+    case ssh:connect(Socket, Options, Timeout) of
+	{ok,Cm} -> 
+	    case start_channel(Cm, Options) of
+		{ok, Pid} ->
+		    {ok, Pid, Cm};
+		Error ->
+		    Error
+	    end;
+	Error ->
+	    Error
+    end;
 start_channel(Cm, Opts) when is_pid(Cm) ->
     Timeout = proplists:get_value(timeout, Opts, infinity),
     {_, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
