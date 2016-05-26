@@ -55,45 +55,60 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+
+/* Helper macro to construct a OPENSSL_VERSION_NUMBER.
+ * See openssl/opensslv.h
+ */
+#define OpenSSL_version(MAJ, MIN, FIX, P)	\
+    ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
+
+#define OpenSSL_version_plain(MAJ, MIN, FIX) \
+    OpenSSL_version(MAJ,MIN,FIX,('a'-1))
+
+
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
 #include <openssl/modes.h>
 #endif
 
 #include "crypto_callback.h"
 
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224)\
-         && !defined(OPENSSL_NO_SHA256) /* disabled like this in my sha.h (?) */
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224) \
+    && !defined(OPENSSL_NO_SHA256) /* disabled like this in my sha.h (?) */
 # define HAVE_SHA224
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
 # define HAVE_SHA256
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA384) && defined(NID_sha384)\
-         && !defined(OPENSSL_NO_SHA512) /* disabled like this in my sha.h (?) */
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA384) && defined(NID_sha384)\
+    && !defined(OPENSSL_NO_SHA512) /* disabled like this in my sha.h (?) */
 # define HAVE_SHA384
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x0090705FL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,7,'e')
 # define HAVE_DES_ede3_cfb_encrypt
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= 0x009080ffL \
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,8,'o') \
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \
 	&& !defined(OPENSSL_NO_ECDSA)
 # define HAVE_EC
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= 0x0090803fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,8,'c')
 # define HAVE_AES_IGE
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000100fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,1)
 # define HAVE_EVP_AES_CTR
 # define HAVE_GCM
-# if OPENSSL_VERSION_NUMBER < 0x1000104fL
+# if OPENSSL_VERSION_NUMBER < OpenSSL_version(1,0,1,'d')
 #  define HAVE_GCM_EVP_DECRYPT_BUG
 # endif
 #endif
@@ -102,7 +117,7 @@
 # define HAVE_CHACHA20_POLY1305
 #endif
 
-#if OPENSSL_VERSION_NUMBER <= 0x009080cfL
+#if OPENSSL_VERSION_NUMBER <= OpenSSL_version(0,9,8,'l')
 # define HAVE_ECB_IVEC_BUG
 #endif
 
@@ -485,7 +500,7 @@ static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 #define PRINTF_ERR1(FMT,A1)
 #define PRINTF_ERR2(FMT,A1,A2)
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
 /* Define resource types for OpenSSL context structures. */
 static ErlNifResourceType* evp_md_ctx_rtype;
 static void evp_md_ctx_dtor(ErlNifEnv* env, EVP_MD_CTX* ctx) {
@@ -584,7 +599,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
 	return 0;
     }
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
                                                ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
@@ -883,7 +898,7 @@ static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return ret;
 }
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
 
 static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
@@ -1259,7 +1274,7 @@ static ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context));
     obj->mtx = enif_mutex_create("crypto.hmac");
     obj->alive = 1;
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     // Check the return value of HMAC_Init: it may fail in FIPS mode
     // for disabled algorithms
     if (!HMAC_Init(&obj->ctx, key.data, key.size, digp->md.p)) {
@@ -2211,7 +2226,7 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ERL_NIF_TERM         head, tail, ret;
     int                  i;
     RSA                  *rsa;
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     EVP_PKEY             *pkey;
     EVP_PKEY_CTX         *ctx;
 #endif
@@ -2243,7 +2258,7 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	goto done;
     }
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     pkey = EVP_PKEY_new();
     EVP_PKEY_set1_RSA(pkey, rsa);
 
@@ -2370,7 +2385,7 @@ static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Digest, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C]) */
     ErlNifBinary         digest_bin, ret_bin;
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     EVP_PKEY             *pkey;
     EVP_PKEY_CTX         *ctx;
     size_t               rsa_s_len;
@@ -2403,7 +2418,7 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
     pkey = EVP_PKEY_new();
     EVP_PKEY_set1_RSA(pkey, rsa);
     rsa_s_len=(size_t)EVP_PKEY_size(pkey);
