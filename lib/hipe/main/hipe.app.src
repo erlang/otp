@@ -88,6 +88,7 @@
 	     hipe_icode2rtl,
 	     hipe_icode_bincomp,
 	     hipe_icode_callgraph,
+	     hipe_icode_call_elim,
 	     hipe_icode_cfg,
 	     hipe_icode_coordinator,
 	     hipe_icode_ebb,
