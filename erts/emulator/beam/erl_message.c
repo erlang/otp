@@ -1371,10 +1371,10 @@ erts_prep_msgq_for_inspection(Process *c_p, Process *rp,
 
 		mpp = i == 0 ? &rp->msg.first : &mip[i-1].msgp->next;
 
-		if (rp->msg.save == &bad_mp->next)
-		    rp->msg.save = mpp;
-		if (rp->msg.last == &bad_mp->next)
-		    rp->msg.last = mpp;
+		ASSERT((*mpp)->next == bad_mp);
+
+		erts_msgq_update_internal_pointers(&rp->msg, mpp, &bad_mp->next);
+
 		mp = mp->next;
 		*mpp = mp;
 		rp->msg.len--;
@@ -1411,12 +1411,7 @@ erts_prep_msgq_for_inspection(Process *c_p, Process *rp,
 		    sys_memcpy((void *) tmp->m, (void *) mp->m,
 			       sizeof(Eterm)*ERL_MESSAGE_REF_ARRAY_SZ); 
 		    mpp = i == 0 ? &rp->msg.first : &mip[i-1].msgp->next;
-		    tmp->next = mp->next;
-		    if (rp->msg.save == &mp->next)
-			rp->msg.save = &tmp->next;
-		    if (rp->msg.last == &mp->next)
-			rp->msg.last = &tmp->next;
-		    *mpp = tmp;
+		    erts_msgq_replace_msg_ref(&rp->msg, tmp, mpp);
 		    erts_save_message_in_proc(rp, mp);
 		    mp = tmp;
 		}
