@@ -693,7 +693,7 @@ static struct nbif nbifs[BIF_SIZE] = {
 #undef BIF_LIST
 };
 
-#define NBIF_HASH(m,f,a)	((m)*(f)+(a))
+#define NBIF_HASH(m,f,a)	(atom_val(m) ^ atom_val(f) ^ (a))
 static Hash nbif_table;
 
 static HashValue nbif_hash(struct nbif *x)
@@ -1059,7 +1059,7 @@ static inline void hipe_mfa_info_table_rwunlock(void)
     erts_smp_rwmtx_rwunlock(&hipe_mfa_info_table.lock);
 }
 
-#define HIPE_MFA_HASH(M,F,A)	((M) * (F) + (A))
+#define HIPE_MFA_HASH(M,F,A)	(atom_val(M) ^ atom_val(F) ^ (A))
 
 static struct hipe_mfa_info **hipe_mfa_info_table_alloc_bucket(unsigned int size)
 {
