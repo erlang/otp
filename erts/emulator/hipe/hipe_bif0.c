@@ -1140,10 +1140,13 @@ static inline struct hipe_mfa_info *hipe_mfa_info_table_get_locked(Eterm m, Eter
     h = HIPE_MFA_HASH(m, f, arity);
     i = h & hipe_mfa_info_table.mask;
     p = hipe_mfa_info_table.bucket[i];
-    for (; p; p = p->bucket.next)
-	/* XXX: do we want to compare p->bucket.hvalue as well? */
-	if (p->m == m && p->f == f && p->a == arity)
-	    return p;
+    for (; p; p = p->bucket.next) {
+        if (p->bucket.hvalue == h) {
+            if (p->m == m && p->f == f && p->a == arity)
+                return p;
+        }
+        else ASSERT(!(p->m == m && p->f == f && p->a == arity));
+    }
     return NULL;
 }
 
@@ -1167,10 +1170,13 @@ static struct hipe_mfa_info *hipe_mfa_info_table_put_rwlocked(Eterm m, Eterm f, 
     h = HIPE_MFA_HASH(m, f, arity);
     i = h & hipe_mfa_info_table.mask;
     p = hipe_mfa_info_table.bucket[i];
-    for (; p; p = p->bucket.next)
-	/* XXX: do we want to compare p->bucket.hvalue as well? */
-	if (p->m == m && p->f == f && p->a == arity)
-	    return p;
+    for (; p; p = p->bucket.next) {
+        if (p->bucket.hvalue == h) {
+            if (p->m == m && p->f == f && p->a == arity)
+                return p;
+        }
+        else ASSERT(!(p->m == m && p->f == f && p->a == arity));
+    }
     p = hipe_mfa_info_table_alloc(m, f, arity);
     p->bucket.hvalue = h;
     p->bucket.next = hipe_mfa_info_table.bucket[i];
