@@ -75,6 +75,10 @@ $ make </code>
             <item><c>parent : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">process_spawn: { cpu_id = 3 }, { pid = "&lt;0.131.0&gt;", parent = "&lt;0.130.0&gt;", entry = "erlang:apply/2" }</code>
 
@@ -84,6 +88,10 @@ $ make </code>
             <item><c>from : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">process_link: { cpu_id = 3 }, { from = "&lt;0.130.0&gt;", to = "&lt;0.131.0&gt;", type = "link" }</code>
 
@@ -93,6 +101,10 @@ $ make </code>
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">process_exit: { cpu_id = 3 }, { pid = "&lt;0.130.0&gt;", reason = "normal" }</code>
 
@@ -111,7 +123,10 @@ $ make </code>
             <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
             <item><c>type : string</c> :: <c>"in" | "out" | "in_exiting" | "out_exiting" | "out_exited"</c></item>
         </list>
-
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">process_scheduled: { cpu_id = 0 }, { pid = "&lt;0.136.0&gt;", entry = "erlang:apply/2", type = "in" }</code>
 
@@ -122,7 +137,10 @@ $ make </code>
             <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
         </list>
-
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">port_open: { cpu_id = 5 }, { pid = "&lt;0.131.0&gt;", driver = "'/bin/sh -s unix:cmd'", port = "#Port&lt;0.1887&gt;" }</code>
 
@@ -131,6 +149,10 @@ $ make </code>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
             <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">port_exit: { cpu_id = 5 }, { port = "#Port&lt;0.1887&gt;", reason = "normal" }</code>
 
@@ -140,10 +162,18 @@ $ make </code>
             <item><c>from : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">port_link: { cpu_id = 5 }, { from = "#Port&lt;0.1887&gt;", to = "&lt;0.131.0&gt;", type = "unlink" }</code>
 
         <p><em>port_scheduled</em></p>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <list type="bulleted">
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
             <item><c>entry : string</c> :: Callback. Ex. <c>"open"</c></item>
@@ -152,13 +182,20 @@ $ make </code>
 
         <p>Example:</p>
         <code type="none">port_scheduled: { cpu_id = 5 }, { pid = "#Port&lt;0.1905&gt;", entry = "close", type = "out" }</code>
-
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p><em>function_call</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
             <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">function_call: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:'-t_call/1-fun-1-'/0", depth = 0 }</code>
 
@@ -168,6 +205,10 @@ $ make </code>
             <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
             <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> or <c>return_to</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">function_return: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:waiter/0", depth = 0 }</code>
 
@@ -177,6 +218,10 @@ $ make </code>
             <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
             <item><c>class : string</c> :: Error reason. Ex. <c>"error"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">function_exception: { cpu_id = 5 }, { pid = "&lt;0.144.0&gt;", entry = "t:call_exc/1", class = "error" }</code>
 
@@ -186,6 +231,10 @@ $ make </code>
             <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>message : string</c> :: Message sent. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>send</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">message_send: { cpu_id = 3 }, { from = "#Port&lt;0.1938&gt;", to = "&lt;0.160.0&gt;", message = "{#Port&lt;0.1938&gt;,eof}" }</code>
 
@@ -194,6 +243,10 @@ $ make </code>
             <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>message : string</c> :: Message received. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>'receive'</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">message_receive: { cpu_id = 7 }, { to = "&lt;0.167.0&gt;", message = "{&lt;0.165.0&gt;,ok}" }</code>
 
@@ -204,6 +257,10 @@ $ make </code>
             <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">gc_minor_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 0, heap = 610, old_heap = 0 }</code>
 
@@ -214,6 +271,10 @@ $ make </code>
             <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">gc_minor_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 120, heap = 1598, old_heap = 1598 }</code>
 
@@ -224,6 +285,10 @@ $ make </code>
             <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">gc_major_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 8, heap = 2586, old_heap = 1598 }</code>
 
@@ -234,6 +299,10 @@ $ make </code>
             <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
             <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
         </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
         <p>Example:</p>
         <code type="none">gc_major_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 240, heap = 4185, old_heap = 0 }</code>
 
@@ -454,6 +523,73 @@ $ make </code>
     </section>
 
     <section>
-        <title>Examples</title>
+        <title>Example of process tracing</title>
+    <p>An example of process tracing of <c>os_mon</c> and friends.</p>
+
+    <p>Clean start of lttng in a bash shell.</p>
+
+    <pre>$ lttng create erlang-demo
+Spawning a session daemon
+Session erlang-demo created.
+Traces will be written in /home/egil/lttng-traces/erlang-demo-20160526-165920</pre>
+
+     <p>Start an Erlang node with lttng enabled.</p>
+
+     <pre>$ erl
+Erlang/OTP 19 [erts-8.0] [source-4d7b24d] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false] [lttng]
+
+Eshell V8.0  (abort with ^G)
+1></pre>
+
+     <p>Load the <c>dyntrace</c> module.</p>
+
+     <pre>1> <input>l(dyntrace).</input>
+{module,dyntrace}</pre>
+
+     <p>All tracepoints via dyntrace are now visibile and can be listed through <c>lttng list -u</c>.</p>
+
+     <p>Enable the process_register LTTng tracepoint for Erlang.</p>
+
+     <pre>$ lttng enable-event -u com_ericsson_dyntrace:process_register
+UST event com_ericsson_dyntrace:process_register created in channel channel0</pre>
+
+     <p>Enable process tracing for new processes and use <c>dyntrace</c> as tracer backend.</p>
+
+     <pre>2> <input>erlang:trace(new,true,[procs,{tracer,dyntrace,[]}]).</input>
+0</pre>
+
+     <p>Start LTTng tracing.</p>
+
+     <pre>$ lttng start
+Tracing started for session erlang-demo</pre>
+
+     <p>Start the <c>os_mon</c> application in Erlang.</p>
+
+     <pre>3> <input>application:ensure_all_started(os_mon).</input>
+{ok,[sasl,os_mon]}</pre>
+
+     <p>Stop LTTng tracing and view the result.</p>
+
+     <pre>$ lttng stop
+Tracing stopped for session erlang-demo
+$ lttng view
+[17:20:42.561168759] (+?.?????????) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.66.0&gt;", name = "sasl_sup", type = "register" }
+[17:20:42.561215519] (+0.000046760) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.67.0&gt;", name = "sasl_safe_sup", type = "register" }
+[17:20:42.562149024] (+0.000933505) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.68.0&gt;", name = "alarm_handler", type = "register" }
+[17:20:42.571035803] (+0.008886779) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.69.0&gt;", name = "release_handler", type = "register" }
+[17:20:42.574939868] (+0.003904065) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.74.0&gt;", name = "os_mon_sup", type = "register" }
+[17:20:42.576818712] (+0.001878844) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.75.0&gt;", name = "disksup", type = "register" }
+[17:20:42.580032013] (+0.003213301) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.76.0&gt;", name = "memsup", type = "register" }
+[17:20:42.583046339] (+0.003014326) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.78.0&gt;", name = "cpu_sup", type = "register" }
+[17:20:42.586206242] (+0.003159903) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.82.0&gt;", name = "timer_server", type = "register" }</pre>
     </section>
 </chapter>
