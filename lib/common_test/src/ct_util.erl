@@ -228,7 +228,8 @@ create_table(TableName,KeyPos) ->
     create_table(TableName,set,KeyPos).
 create_table(TableName,Type,KeyPos) ->
     catch ets:delete(TableName),
-    ets:new(TableName,[Type,named_table,public,{keypos,KeyPos}]).
+    _ = ets:new(TableName,[Type,named_table,public,{keypos,KeyPos}]),
+    ok.
 
 read_opts() ->
     case file:consult(ct_run:variables_file_name("./")) of
