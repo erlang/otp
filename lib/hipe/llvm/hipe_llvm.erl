@@ -234,7 +234,7 @@
     function_arg_type_list/1
   ]).
 
--export([pp_ins_list/2, pp_ins/2]).
+-export([pp_ins_list/3, pp_ins/3]).
 
 
 %%-----------------------------------------------------------------------------
@@ -765,13 +765,17 @@ function_arg_type_list(#llvm_fun{arg_type_list=Arg_type_list}) ->
 %% Pretty-printer Functions
 %%----------------------------------------------------------------------------
 
-%% @doc Pretty-print a list of LLVM instructions to a Device.
-pp_ins_list(_Dev, []) -> ok;
-pp_ins_list(Dev, [I|Is]) ->
-  pp_ins(Dev, I),
-  pp_ins_list(Dev, Is).
+-type llvm_version() :: {Major :: integer(), Minor :: integer()}.
 
-pp_ins(Dev, I) ->
+%% @doc Pretty-print a list of LLVM instructions to a Device, using syntax
+%% compatible with LLVM v. Major.Minor
+-spec pp_ins_list(file:io_device(), llvm_version(), [llvm_instr()]) -> ok.
+pp_ins_list(_Dev, _Ver, []) -> ok;
+pp_ins_list(Dev, Ver={_,_}, [I|Is]) ->
+  pp_ins(Dev, Ver, I),
+  pp_ins_list(Dev, Ver, Is).
+
+pp_ins(Dev, Ver, I) ->
   case indent(I) of
     true  -> write(Dev, "  ");
     false -> ok
@@ -861,7 +865,7 @@ pp_ins(Dev, I) ->
         true -> write(Dev, "volatile ");
         false -> ok
       end,
-      pp_type(Dev, load_p_type(I)),
+      pp_dereference_type(Dev, Ver, load_p_type(I)),
       write(Dev, [" ", load_pointer(I), " "]),
       case load_alignment(I) of
         [] -> ok;
@@ -897,7 +901,7 @@ pp_ins(Dev, I) ->
         true -> write(Dev, "inbounds ");
         false -> ok
       end,
-      pp_type(Dev, getelementptr_p_type(I)),
+      pp_dereference_type(Dev, Ver, getelementptr_p_type(I)),
       write(Dev, [" ", getelementptr_value(I)]),
       pp_typed_idxs(Dev, getelementptr_typed_idxs(I)),
       write(Dev, "\n");
@@ -958,12 +962,16 @@ pp_ins(Dev, I) ->
       pp_args(Dev, fun_def_arglist(I)),
       write(Dev, ") "),
       pp_options(Dev, fun_def_fn_attrs(I)),
+      case Ver >= {3,7} of false -> ok; true ->
+	  write(Dev, "personality i32 (i32, i64, i8*,i8*)* "
+		"@__gcc_personality_v0 ")
+      end,
       case fun_def_align(I) of
         [] -> ok;
         N -> write(Dev, ["align ", N])
       end,
       write(Dev, "{\n"),
-      pp_ins_list(Dev, fun_def_body(I)),
+      pp_ins_list(Dev, Ver, fun_def_body(I)),
       write(Dev, "}\n");
     #llvm_fun_decl{} ->
       write(Dev, "declare "),
@@ -992,8 +1000,12 @@ pp_ins(Dev, I) ->
       pp_type(Dev, const_decl_type(I)),
       write(Dev, [" ", const_decl_value(I), "\n"]);
     #llvm_landingpad{} ->
-      write(Dev, "landingpad { i8*, i32 } personality i32 (i32, i64, i8*,i8*)*
-            @__gcc_personality_v0 cleanup\n");
+      write(Dev, "landingpad { i8*, i32 } "),
+      case Ver < {3,7} of false -> ok; true ->
+	  write(Dev, "personality i32 (i32, i64, i8*,i8*)* "
+		"@__gcc_personality_v0 ")
+      end,
+      write(Dev, "cleanup\n");
     #llvm_asm{} ->
       write(Dev, [asm_instruction(I), "\n"]);
     #llvm_adj_stack{} ->
@@ -1002,12 +1014,26 @@ pp_ins(Dev, I) ->
       pp_type(Dev, adj_stack_type(I)),
       write(Dev, [" ", adj_stack_offset(I),")\n"]);
     #llvm_branch_meta{} ->
-      write(Dev, ["!", branch_meta_id(I), " = metadata !{metadata !\"branch_weights\",
-          i32 ", branch_meta_true_weight(I), ", i32 ",
-          branch_meta_false_weight(I), "}\n"]);
+      write(Dev, ["!", branch_meta_id(I), " = "]),
+      if Ver <  {3,6} -> write(Dev, "metadata !{metadata ");
+	 Ver >= {3,6} -> write(Dev, "!{ ")
+      end,
+      write(Dev, ["!\"branch_weights\", i32 ", branch_meta_true_weight(I),
+		  ", i32 ", branch_meta_false_weight(I), "}\n"]);
     Other ->
       exit({?MODULE, pp_ins, {"Unknown LLVM instruction", Other}})
   end.
+
+%% @doc Print the type of a dereference in an LLVM instruction using syntax
+%% parsable by the specified LLVM version.
+pp_dereference_type(Dev, Ver, Type) ->
+  case Ver >= {3,7} of
+    false -> ok;
+    true ->
+      pp_type(Dev, pointer_type(Type)),
+      write(Dev, ", ")
+  end,
+  pp_type(Dev, Type).
 
 %% @doc Pretty-print a list of types
 pp_type_list(_Dev, []) -> ok;

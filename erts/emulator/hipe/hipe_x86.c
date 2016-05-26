@@ -37,7 +37,7 @@
 void hipe_patch_load_fe(Uint32 *address, Uint32 value)
 {
     /* address points to a disp32 or imm32 operand */
-    *address = value;
+    *address += value;
 }
 
 int hipe_patch_insn(void *address, Uint32 value, Eterm type)
@@ -54,7 +54,7 @@ int hipe_patch_insn(void *address, Uint32 value, Eterm type)
       default:
 	return -1;
     }
-    *(Uint32*)address = value;
+    *(Uint32*)address += value;
     return 0;
 }
 

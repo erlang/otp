@@ -20,7 +20,7 @@
 %%
 %%-----------------------------------------------------------------------------
 
--type ct_alignment()  :: 4 | 8.
+-type ct_alignment()  :: 4 | 8 | 16 | 32.
 
 -type hipe_constlbl() :: non_neg_integer().
 -type hipe_consttab() :: {dict:dict(), [hipe_constlbl()], hipe_constlbl()}.
