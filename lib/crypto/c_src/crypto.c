@@ -1790,7 +1790,7 @@ static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_N
         || !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
         || !enif_inspect_iolist_as_binary(env, argv[2], &aad)
         || !enif_inspect_iolist_as_binary(env, argv[3], &in)
-        || !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != EVP_GCM_TLS_TAG_LEN) {
+        || !enif_inspect_iolist_as_binary(env, argv[4], &tag)) {
         return enif_make_badarg(env);
     }
 
@@ -1809,7 +1809,7 @@ static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_N
             goto out_err;
 
     /* calculate and check the tag */
-    if (CRYPTO_gcm128_finish(ctx, tag.data, EVP_GCM_TLS_TAG_LEN))
+    if (CRYPTO_gcm128_finish(ctx, tag.data, tag.size))
             goto out_err;
 
     CRYPTO_gcm128_release(ctx);
