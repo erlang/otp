@@ -77,7 +77,7 @@ DOC_FILES= $(MODULES:%=$(DOCS)/%.html)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +warn_exported_vars# +warn_missing_spec +warn_untyped_record
+ERL_COMPILE_FLAGS += -Werror +warn_export_vars #+warn_missing_spec +warn_untyped_record
 
 # ----------------------------------------------------
 # Targets

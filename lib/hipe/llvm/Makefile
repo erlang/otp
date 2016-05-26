@@ -52,8 +52,7 @@ endif
 
 MODULES = $(HIPE_MODULES)
 
-HRL_FILES= elf_format.hrl elf32_format.hrl elf64_format.hrl \
-	hipe_llvm_arch.hrl
+HRL_FILES= elf_format.hrl elf32_format.hrl elf64_format.hrl hipe_llvm_arch.hrl
 ERL_FILES= $(MODULES:%=%.erl)
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
@@ -71,7 +70,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +inline +warn_export_vars #+warn_missing_spec
+ERL_COMPILE_FLAGS += -Werror +inline +warn_export_vars #+warn_missing_spec
 
 # if in 32 bit backend define BIT32 symbol
 ARCH = $(shell echo $(TARGET) | sed 's/^\(x86_64\)-.*/64bit/')

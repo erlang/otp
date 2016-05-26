@@ -73,7 +73,7 @@ DOC_FILES= $(MODULES:%=$(DOCS)/%.html)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += -DHIPE_AMD64 +warn_exported_vars
+ERL_COMPILE_FLAGS += -DHIPE_AMD64 -Werror +warn_export_vars
 
 # ----------------------------------------------------
 # Targets
