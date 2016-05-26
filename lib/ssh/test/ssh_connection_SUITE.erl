@@ -379,9 +379,6 @@ interrupted_send(Config) ->
 						      {user_interaction, false},
 						      {user_dir, UserDir}]),
     ct:log("connected", []),
-    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    ct:log("start subsystem", []),
-    success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity),
 
     %% build 10MB binary
     Data = << <<X:32>> || X <- lists:seq(1,2500000)>>,
@@ -389,24 +386,63 @@ interrupted_send(Config) ->
     %% expect remote end to send us 4MB back
     <<ExpectedData:4000000/binary, _/binary>> = Data,
 
-    %% pre-adjust receive window so the other end doesn't block
-    ct:log("adjust window", []),
-    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(ExpectedData) + 1),
+    %% Spawn listener. Otherwise we could get a deadlock due to filled buffers
+    Parent = self(),
+    ResultPid = spawn(
+		  fun() ->
+			  ct:log("open channel",[]),
+			  {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+			  ct:log("start subsystem", []),
+			  case ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity) of
+			      success ->
+				  Parent ! {self(), channelId, ChannelId},
+				  
+				  Result = 
+				      try collect_data(ConnectionRef, ChannelId)
+				      of
+					  ExpectedData -> 
+					      ok;
+					  _ ->
+					      {fail,"unexpected result"}
+				      catch
+					  Class:Exception ->
+					      {fail, io_lib:format("Exception ~p:~p",[Class,Exception])}
+				      end,
+				  Parent ! {self(), Result};
+			      Other ->
+				  Parent ! {self(), channelId, error, Other}
+			  end
+		  end),
+    
+    receive
+	{ResultPid, channelId, ChannelId} ->
+	    %% pre-adjust receive window so the other end doesn't block
+	    ct:log("adjust window", []),
+	    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(ExpectedData) + 1),
 
-    ct:log("going to send ~p bytes", [size(Data)]),
-    case ssh_connection:send(ConnectionRef, ChannelId, Data, 10000) of
-	{error, closed} ->
-	    ct:log("{error,closed} - That's what we expect :)", []),
-	    ok;
-	Msg ->
-	    ct:log("Got ~p - that's bad, very bad indeed",[Msg]),
-	    ct:fail({expected,{error,closed}, got, Msg})
-    end,
-    ct:log("going to receive data", []),
-    receive_data(ExpectedData, ConnectionRef, ChannelId),
-    ct:log("back from receive data", []),
-    ssh:close(ConnectionRef),
-    ssh:stop_daemon(Pid).
+	    ct:log("going to send ~p bytes", [size(Data)]),
+	    case ssh_connection:send(ConnectionRef, ChannelId, Data, 10000) of
+		{error, closed} ->
+		    ct:log("{error,closed} - That's what we expect :)", []),
+		    ok;
+		Msg ->
+		    ct:log("Got ~p - that's bad, very bad indeed",[Msg]),
+		    ct:fail({expected,{error,closed}, got, Msg})
+	    end,
+	    ct:log("going to receive result", []),
+	    receive
+		{ResultPid, Result} ->
+		    ct:log("back from receive data: ~p", [Result]),
+		    ssh:close(ConnectionRef),
+		    ssh:stop_daemon(Pid),
+		    Result
+	    end;
+
+	{ResultPid, channelId, error, Other} ->
+	    ssh:close(ConnectionRef),
+	    ssh:stop_daemon(Pid),
+	    {fail, io_lib:format("ssh_connection:subsystem: ~p",[Other])}
+    end.
 
 %%--------------------------------------------------------------------
 start_shell() ->
@@ -864,26 +900,36 @@ big_cat_rx(ConnectionRef, ChannelId, Acc) ->
 	    timeout
     end.
 
-receive_data(ExpectedData, ConnectionRef, ChannelId) ->
-    ExpectedData = collect_data(ConnectionRef, ChannelId).
-
 collect_data(ConnectionRef, ChannelId) ->
-    ct:pal("Listener ~p running!",[self()]),
+    ct:log("Listener ~p running! ConnectionRef=~p, ChannelId=~p",[self(),ConnectionRef,ChannelId]),
     collect_data(ConnectionRef, ChannelId, [], 0).
 
 collect_data(ConnectionRef, ChannelId, Acc, Sum) ->
+    TO = 5000,
     receive
-	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} ->
-	    ct:pal("collect_data: received ~p bytes. total ~p bytes",[size(Data),Sum+size(Data)]),
+	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} when is_binary(Data) ->
+	    ct:log("collect_data: received ~p bytes. total ~p bytes",[size(Data),Sum+size(Data)]),
 	    collect_data(ConnectionRef, ChannelId, [Data | Acc], Sum+size(Data));
 	{ssh_cm, ConnectionRef, {eof, ChannelId}} ->
-	    ct:pal("collect_data: received eof",[]),
-	    R = iolist_to_binary(lists:reverse(Acc)),
-	    ct:pal("Got in total ~p bytes",[size(R)]),
-	    R
-    after 5000 ->
-	    ct:pal("collect_data: timeout",[]),
-	    timeout
+	    try
+		iolist_to_binary(lists:reverse(Acc))
+	    of
+		Bin ->
+		    ct:log("collect_data: received eof.~nGot in total ~p bytes",[size(Bin)]),
+		    Bin
+	    catch 
+		C:E ->
+		    ct:log("collect_data: received eof.~nAcc is strange...~nException=~p:~p~nAcc=~p",
+			   [C,E,Acc]),
+		    {error,{C,E}}
+	    end;
+	Msg ->
+	    ct:log("collect_data: ***** unexpected message *****~n~p",[Msg]),
+	    collect_data(ConnectionRef, ChannelId, Acc, Sum)
+
+    after TO ->
+	    ct:log("collect_data: ----- Nothing received for ~p seconds -----~n",[]),
+	    collect_data(ConnectionRef, ChannelId, Acc, Sum)
     end.
 
 %%%-------------------------------------------------------------------
