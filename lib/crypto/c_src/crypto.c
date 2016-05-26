@@ -93,6 +93,9 @@
 #if OPENSSL_VERSION_NUMBER >= 0x1000100fL
 # define HAVE_EVP_AES_CTR
 # define HAVE_GCM
+# if OPENSSL_VERSION_NUMBER < 0x1000104fL
+#  define HAVE_GCM_EVP_DECRYPT_BUG
+# endif
 #endif
 
 #if defined(NID_chacha20) && !defined(OPENSSL_NO_CHACHA) && !defined(OPENSSL_NO_POLY1305)
@@ -244,6 +247,9 @@ static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
 static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+#ifdef HAVE_GCM_EVP_DECRYPT_BUG
+static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+#endif
 
 static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -1710,7 +1716,9 @@ out_err:
 
 static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key,Iv,AAD,In,Tag) */
-#if defined(HAVE_GCM)
+#if defined(HAVE_GCM_EVP_DECRYPT_BUG)
+    return aes_gcm_decrypt_NO_EVP(env, argc, argv);
+#elif defined(HAVE_GCM)
     EVP_CIPHER_CTX ctx;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
@@ -1763,11 +1771,57 @@ static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 out_err:
     EVP_CIPHER_CTX_cleanup(&ctx);
     return atom_error;
-
 #else
     return enif_raise_exception(env, atom_notsup);
 #endif
 }
+
+#ifdef HAVE_GCM_EVP_DECRYPT_BUG
+static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    GCM128_CONTEXT *ctx;
+    ErlNifBinary key, iv, aad, in, tag;
+    AES_KEY aes_key;
+    unsigned char *outp;
+    ERL_NIF_TERM out;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+        || AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+        || !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+        || !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+        || !enif_inspect_iolist_as_binary(env, argv[3], &in)
+        || !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != EVP_GCM_TLS_TAG_LEN) {
+        return enif_make_badarg(env);
+    }
+
+    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
+        return atom_error;
+
+    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+
+    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
+        goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    /* decrypt */
+    if (CRYPTO_gcm128_decrypt(ctx, in.data, outp, in.size))
+            goto out_err;
+
+    /* calculate and check the tag */
+    if (CRYPTO_gcm128_finish(ctx, tag.data, EVP_GCM_TLS_TAG_LEN))
+            goto out_err;
+
+    CRYPTO_gcm128_release(ctx);
+    CONSUME_REDS(env, in);
+
+    return out;
+
+out_err:
+    CRYPTO_gcm128_release(ctx);
+    return atom_error;
+}
+#endif /* HAVE_GCM_EVP_DECRYPT_BUG */
 
 #if defined(HAVE_CHACHA20_POLY1305)
 static void
