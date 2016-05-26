@@ -21,8 +21,8 @@
 -behaviour(wx_object).
 
 -export([start/0, stop/0]).
--export([create_menus/2, get_attrib/1, get_tracer/0, set_status/1,
-	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+-export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0,
+	 set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -55,6 +55,7 @@
 	 notebook,
 	 main_panel,
 	 pro_panel,
+	 port_panel,
 	 tv_panel,
 	 sys_panel,
 	 trace_panel,
@@ -89,6 +90,9 @@ set_status(What) ->
 
 get_tracer() ->
     wx_object:call(observer, get_tracer).
+
+get_active_node() ->
+    wx_object:call(observer, get_active_node).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -165,6 +169,10 @@ setup(#state{frame = Frame} = State) ->
     ProPanel = observer_pro_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
 
+    %% Port Panel
+    PortPanel = observer_port_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
+
     %% Table Viewer Panel
     TVPanel = observer_tv_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
@@ -188,6 +196,7 @@ setup(#state{frame = Frame} = State) ->
 			   status_bar = StatusBar,
 			   sys_panel = SysPanel,
 			   pro_panel = ProPanel,
+			   port_panel = PortPanel,
 			   tv_panel  = TVPanel,
 			   trace_panel = TracePanel,
 			   app_panel = AppPanel,
@@ -379,6 +388,9 @@ handle_call({get_attrib, Attrib}, _From, State) ->
 handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
     {reply, TraceP, State};
 
+handle_call(get_active_node, _From, State=#state{node=Node}) ->
+    {reply, Node, State};
+
 handle_call(stop, From, State) ->
     stop_servers(State),
     {noreply, State#state{reply_to=From}};
@@ -406,16 +418,21 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
-handle_info({open_link, Pid0}, State = #state{pro_panel=ProcViewer, frame=Frame}) ->
-    Pid = case Pid0 of
-	      [_|_] -> try list_to_pid(Pid0) catch _:_ -> Pid0 end;
-	      _ -> Pid0
+handle_info({open_link, Id0}, State = #state{pro_panel=ProcViewer,
+					     port_panel=PortViewer,
+					     frame=Frame}) ->
+    Id = case Id0 of
+	      [_|_] -> try list_to_pid(Id0) catch _:_ -> Id0 end;
+	      _ -> Id0
 	  end,
     %% Forward to process tab
-    case is_pid(Pid) of
-	true  -> wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
-	false ->
-	    Msg = io_lib:format("Information about ~p is not available or implemented",[Pid]),
+    case Id of
+	Pid when is_pid(Pid) ->
+	    wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
+	"#Port" ++ _ = Port ->
+	    wx_object:get_pid(PortViewer) ! {portinfo_open, Port};
+	_ ->
+	    Msg = io_lib:format("Information about ~p is not available or implemented",[Id]),
 	    Info = wxMessageDialog:new(Frame, Msg),
 	    wxMessageDialog:showModal(Info),
 	    wxMessageDialog:destroy(Info)
@@ -541,10 +558,11 @@ check_page_title(Notebook) ->
 
 get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
 		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf, allc_panel=Alloc
+		      perf_panel=Perf, allc_panel=Alloc, port_panel=Port
 		     }) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
+		"Ports" -> Port;
 		"System" -> Sys;
 		"Table Viewer" -> Tv;
 		?TRACE_STR -> Trace;

@@ -1155,7 +1155,7 @@ all() ->
     [send,'receive',call,procs,ports,garbage_collection,running,
      set_on_spawn,set_on_first_spawn,set_on_link,set_on_first_link,
      timestamp,monotonic_timestamp,strict_monotonic_timestamp,
-     arity,return_to,silent,running_procs,running_ports].
+     arity,return_to,silent,running_procs,running_ports,exiting].
 
 display_info([Node|Nodes]) ->
     io:format("~nNode ~w:~n",[Node]),
@@ -1313,6 +1313,9 @@ tc_loop(Other, _Handler, _HData) ->
 gen_reader(ip, {Host, Portno}) ->
     case gen_tcp:connect(Host, Portno, [{active, false}, binary]) of
         {ok, Sock} ->    
+	    %% Just in case this is on the traced node,
+	    %% make sure the port is not traced.
+	    p(Sock,clear),
 	    mk_reader(fun ip_read/2, Sock);
 	Error ->
 	    exit(Error)
