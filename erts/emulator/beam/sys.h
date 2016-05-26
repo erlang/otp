@@ -97,7 +97,7 @@
     ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 #define ErtsContainerStruct(ptr, type, member) \
-  (type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member))
+    ((type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member)))
 
 #if defined (__WIN32__)
 #  include "erl_win_sys.h"
