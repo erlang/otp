@@ -76,6 +76,7 @@ init_per_suite(Config) ->
 	   "init:get_argument(home) = ~p~n~n~n"
 	   "OS ssh:~n=======~n~p~n~n~n"
 	   "Erl ssh:~n========~n~p~n~n~n"
+	   "crypto:info_lib():~n========~n~p~n~n~n"
 	   "Installed ssh client:~n=====================~n~p~n~n~n"
 	   "Installed ssh server:~n=====================~n~p~n~n~n"
 	   "Misc values:~n============~n"
@@ -86,6 +87,7 @@ init_per_suite(Config) ->
 	    init:get_argument(home),
 	    os:cmd("ssh -V"),
 	    ssh:default_algorithms(),
+	    crypto:info_lib(),
 	    ssh_test_lib:default_algorithms(sshc),
 	    ssh_test_lib:default_algorithms(sshd),
 	    {?DEFAULT_DH_GROUP_MIN,?DEFAULT_DH_GROUP_NBITS,?DEFAULT_DH_GROUP_MAX},
