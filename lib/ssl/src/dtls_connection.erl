@@ -416,7 +416,8 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
 
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
-    ConnectionStates = ssl_record:init_connection_states(Role),
+    #ssl_options{beast_mitigation = BeastMitigation} = SSLOptions,
+    ConnectionStates = ssl_record:init_connection_states(Role, BeastMitigation),
     
     SessionCacheCb = case application:get_env(ssl, session_cb) of
 			 {ok, Cb} when is_atom(Cb) ->

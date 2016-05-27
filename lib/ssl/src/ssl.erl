@@ -725,6 +725,7 @@ handle_options(Opts0, Role) ->
 						       server, Role),
 		    protocol = proplists:get_value(protocol, Opts, tls),
 		    padding_check =  proplists:get_value(padding_check, Opts, true),
+		    beast_mitigation = handle_option(beast_mitigation, Opts, one_n_minus_one),
 		    fallback = handle_option(fallback, Opts,
 					     proplists:get_value(fallback, Opts,    
 								 default_option_role(client, 
@@ -746,7 +747,7 @@ handle_options(Opts0, Role) ->
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback, signature_algs],
+		  fallback, signature_algs, beast_mitigation],
 
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
@@ -986,6 +987,10 @@ validate_option(crl_check, Value) when (Value == best_effort) or (Value == peer)
     Value;
 validate_option(crl_cache, {Cb, {_Handle, Options}} = Value) when is_atom(Cb) and is_list(Options) ->
     Value;
+validate_option(beast_mitigation, Value) when Value == one_n_minus_one orelse
+                                              Value == zero_n orelse
+                                              Value == disabled ->
+  Value;
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
