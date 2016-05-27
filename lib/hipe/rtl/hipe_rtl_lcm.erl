@@ -941,15 +941,16 @@ calc_insert_edge(NodeInfo, EdgeInfo, From, To) ->
 calc_delete(_, NodeInfo, []) ->
   NodeInfo;
 calc_delete(CFG, NodeInfo, [Label|Labels]) ->
-  case Label =:= hipe_rtl_cfg:start_label(CFG) of
-    true -> 
-      NewNodeInfo = set_delete(NodeInfo, Label, ?SETS:new());
-    false ->
-      UpExp = up_exp(NodeInfo, Label),
-      LaterIn = later_in(NodeInfo, Label),
-      Delete = ?SETS:subtract(UpExp, LaterIn),
-      NewNodeInfo = set_delete(NodeInfo, Label, Delete)
-  end,
+  NewNodeInfo =
+    case Label =:= hipe_rtl_cfg:start_label(CFG) of
+      true ->
+	set_delete(NodeInfo, Label, ?SETS:new());
+      false ->
+	UpExp = up_exp(NodeInfo, Label),
+	LaterIn = later_in(NodeInfo, Label),
+	Delete = ?SETS:subtract(UpExp, LaterIn),
+	set_delete(NodeInfo, Label, Delete)
+    end,
   calc_delete(CFG, NewNodeInfo, Labels).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
