@@ -698,7 +698,7 @@ chk_normal_tab_struct_size() ->
     io:format("?TAB_STRUCT_SZ=~p~n", [?TAB_STRUCT_SZ]),
     ok.
 
-adjust_xmem([T1,T2,T3,T4], {A0,B0,C0,D0} = _Mem0) ->
+adjust_xmem([_T1,_T2,_T3,_T4], {A0,B0,C0,D0} = _Mem0) ->
     %% Adjust for 64-bit, smp, and os:
     %%   Table struct size may differ.
 
@@ -2809,16 +2809,22 @@ privacy_do(Opts) ->
     privacy_check(pub,prot,priv),
 
     Owner ! {shift,1,{pub,prot,priv}},   
-    receive {Pub1,Prot1,Priv1} -> ok end,   
-    privacy_check(Pub1,Prot1,Priv1),
+    receive
+        {Pub1,Prot1,Priv1} ->
+            ok = privacy_check(Pub1,Prot1,Priv1),
+            Owner ! {shift,2,{Pub1,Prot1,Priv1}}
+    end,
 
-    Owner ! {shift,2,{Pub1,Prot1,Priv1}},   
-    receive {Pub2,Prot2,Priv2} -> ok end,   
-    privacy_check(Pub2,Prot2,Priv2),
+    receive
+        {Pub2,Prot2,Priv2} ->
+            ok = privacy_check(Pub2,Prot2,Priv2),
+            Owner ! {shift,0,{Pub2,Prot2,Priv2}}
+    end,
 
-    Owner ! {shift,0,{Pub2,Prot2,Priv2}},   
-    receive {Pub2,Prot2,Priv2} -> ok end,   
-    privacy_check(Pub2,Prot2,Priv2),
+    receive
+        {Pub3,Prot3,Priv3} ->
+            ok = privacy_check(Pub3,Prot3,Priv3)
+    end,
 
     Owner ! die,
     receive {'EXIT',Owner,_} -> ok end,
@@ -2836,7 +2842,8 @@ privacy_check(Pub,Prot,Priv) ->
     {'EXIT',{badarg,_}} = (catch ets:insert(Priv,{3,foo})),
 
     %% check that it really wasn't written, either
-    [] = ets:lookup(Prot,foo).
+    [] = ets:lookup(Prot,foo),
+    ok.
 
 privacy_owner(Boss, Opts) ->
     ets_new(pub, [public,named_table | Opts]),
@@ -3197,7 +3204,6 @@ delete_large_named_table_1(Name, Flags, Data, Fix) ->
 	    true = ets:safe_fixtable(Tab, true),
 	    lists:foreach(fun({K,_}) -> ets:delete(Tab, K) end, Data)
     end,
-    Parent = self(),
     {Pid, MRef} = my_spawn_opt(fun() ->
 				       receive
 					   ets_new ->
