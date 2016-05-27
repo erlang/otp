@@ -29,7 +29,9 @@
 -include_lib("ssh/src/ssh_userauth.hrl").
 
 
-suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
+suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]},
+	    {timetrap,{minutes,3}}
+	   ].
 %%suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> [{group, opensshc_erld} 
