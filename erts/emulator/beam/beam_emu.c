@@ -1323,11 +1323,7 @@ void process_main(void)
 
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
-	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule
-#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
-	    && !ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p))
-#endif
-	    ) {
+	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
 	    BeamInstr *inptr = find_function_from_pc(start_time_i);
 	    BeamInstr *outptr = find_function_from_pc(c_p->i);
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
@@ -1337,7 +1333,7 @@ void process_main(void)
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    c_p = schedule(c_p, reds_used);
+    c_p = erts_schedule(NULL, c_p, reds_used);
     ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     start_time = 0;
@@ -3559,7 +3555,9 @@ do {						\
 		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
+#ifdef ERTS_SMP
 		ASSERT(c_p->scheduler_data);
+#endif
 		live_hf_end = c_p->mbuf;
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
@@ -5156,18 +5154,18 @@ do {						\
 }
 
 /*
- * dirty_process_main() is what dirty schedulers execute. Since they handle
+ * erts_dirty_process_main() is what dirty schedulers execute. Since they handle
  * only NIF calls they do not need to be able to execute all BEAM
  * instructions.
  */
-void dirty_process_main(void)
+void erts_dirty_process_main(ErtsSchedulerData *esdp)
 {
+#ifdef ERTS_DIRTY_SCHEDULERS
     Process* c_p = NULL;
-    int reds_used;
+    ErtsMonotonicTime start_time;
 #ifdef DEBUG
     ERTS_DECLARE_DUMMY(Eterm pid);
 #endif
-    BeamInstr *do_call_nif = OpCode(call_nif);
 
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
@@ -5190,36 +5188,30 @@ void dirty_process_main(void)
      */
     register BeamInstr *I REG_I = NULL;
 
-    /* Number of reductions left.  This function
-     * returns to the scheduler when FCALLS reaches zero.
-     */
-    register Sint FCALLS REG_fcalls = 0;
-
-    /*
-     * X registers and floating point registers are located in
-     * scheduler specific data.
-     */
-    register FloatDef *freg = NULL;
-
-    /*
-     * For keeping the negative old value of 'reds' when call saving is active.
-     */
-    int neg_o_reds = 0;
-
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
-    ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
+    /*
+     * start_time always positive for dirty CPU schedulers,
+     * and negative for dirty I/O schedulers.
+     */
 
-    c_p = NULL;
-    reds_used = 0;
+    if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp)) {
+	start_time = erts_get_monotonic_time(NULL);
+	ASSERT(start_time >= 0);
+    }
+    else {
+	start_time = ERTS_SINT64_MIN;
+	ASSERT(start_time < 0);
+    }
 
-    goto do_dirty_schedule1;
+    goto do_dirty_schedule;
 
  context_switch:
     c_p->arity = I[-1];
     c_p->current = I-3;		/* Pointer to Mod, Func, Arity */
 
     {
+	int reds_used;
 	Eterm* argp;
 	int i;
 
@@ -5246,18 +5238,6 @@ void dirty_process_main(void)
 	}
 
 	/*
-	 * Since REDS_IN(c_p) is stored in the save area (c_p->arg_reg) we must read it
-	 * now before saving registers.
-	 */
-
-	ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
-	if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-	    reds_used = REDS_IN(c_p) - FCALLS;
-	else
-	    reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
-	ASSERT(reds_used >= 0);
-
-	/*
 	 * Save the argument registers and everything else.
 	 */
 
@@ -5267,23 +5247,46 @@ void dirty_process_main(void)
 	}
 	SWAPOUT;
 	c_p->i = I;
-	goto do_dirty_schedule1;
+
+    do_dirty_schedule:
+
+	if (start_time < 0) {
+	    /*
+	     * Dirty I/O scheduler:
+	     *   One reduction consumed regardless of
+	     *   time spent in the dirty NIF.
+	     */
+	    reds_used = esdp->virtual_reds + 1;
+	}
+	else {
+	    /*
+	     * Dirty CPU scheduler:
+	     *   Currently two reductions consumed per
+	     *   micro second spent in the dirty NIF.
+	     */
+	    ErtsMonotonicTime time;
+	    time = erts_get_monotonic_time(esdp);
+	    time -= start_time;
+	    time = ERTS_MONOTONIC_TO_USEC(time);
+	    time *= (CONTEXT_REDS-1)/1000 + 1;
+	    ASSERT(time >= 0);
+	    if (time == 0)
+		time = 1; /* At least one reduction */
+	    time += esdp->virtual_reds;
+	    reds_used = time > INT_MAX ? INT_MAX : (int) time;
+	}
+
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+	c_p = erts_schedule(esdp, c_p, reds_used);
+
+	if (start_time >= 0) {
+	    start_time = erts_get_monotonic_time(esdp);
+	    ASSERT(start_time >= 0);
+	}
     }
 
- do_dirty_schedule:
-    ASSERT(c_p->debug_reds_in == REDS_IN(c_p));
-    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-	reds_used = REDS_IN(c_p) - FCALLS;
-    else
-	reds_used = REDS_IN(c_p) - (CONTEXT_REDS + FCALLS);
-    ASSERT(reds_used >= 0);
- do_dirty_schedule1:
-
-    PROCESS_MAIN_CHK_LOCKS(c_p);
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    c_p = schedule(c_p, reds_used);
-    ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 #ifdef DEBUG
     pid = c_p->common.id; /* Save for debugging purposes */
@@ -5291,13 +5294,11 @@ void dirty_process_main(void)
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
+    ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_MSACC_UPDATE_CACHE_X();
 
-    reg = erts_proc_sched_data(c_p)->x_reg_array;
-    freg = erts_proc_sched_data(c_p)->f_reg_array;
-    ERL_BITS_RELOAD_STATEP(c_p);
+    reg = esdp->x_reg_array;
     {
-	int reds;
 	Eterm* argp;
 	int i;
 
@@ -5315,20 +5316,12 @@ void dirty_process_main(void)
 
 	I = c_p->i;
 
-	REDS_IN(c_p) = reds = c_p->fcalls;
-#ifdef DEBUG
-	c_p->debug_reds_in = reds;
-#endif
+	ASSERT(BeamOp(op_call_nif) == (BeamInstr *) *I);
 
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)) {
-	    neg_o_reds = -CONTEXT_REDS;
-	    FCALLS = neg_o_reds + reds;
-	} else {
-	    neg_o_reds = 0;
-	    FCALLS = reds;
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)
+	    && (ERTS_TRACE_FLAGS(c_p) & F_SENSITIVE) == 0) {
+	    c_p->fcalls = REDS_IN(c_p) = 0;
 	}
-
-	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 
 	SWAPIN;
 
@@ -5361,7 +5354,6 @@ void dirty_process_main(void)
 	Eterm nif_bif_result;
 	Eterm bif_nif_arity;
 
-    OpCase(call_nif):
 	{
 	    /*
 	     * call_nif is always first instruction in function:
@@ -5376,18 +5368,11 @@ void dirty_process_main(void)
 	     */
 	    BifFunction vbf;
 
-            if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
-                /* If we have run out of reductions, we do a context
-                   switch before calling the nif */
-                goto context_switch;
-            }
-
 	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
 
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    c_p->current = I-3; /* current and vbf set to please handle_error */
 	    SWAPOUT;
-	    c_p->fcalls = FCALLS - 1;
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = I[-1];
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
@@ -5398,7 +5383,7 @@ void dirty_process_main(void)
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
 		ASSERT(!c_p->scheduler_data);
-		erts_pre_dirty_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
+		erts_pre_dirty_nif(esdp, &env, c_p, (struct erl_module_nif*)I[2], NULL);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
 		    nif_bif_result = THE_NON_VALUE;
@@ -5421,8 +5406,6 @@ void dirty_process_main(void)
 							reg, bif_nif_arity);
 	    }
 	    SWAPIN;  /* There might have been a garbage collection. */
-	    FCALLS = c_p->fcalls;
-	    ERTS_DBG_CHK_REDS(c_p, FCALLS);
 	    if (is_value(nif_bif_result)) {
 		r(0) = nif_bif_result;
 		CHECK_TERM(r(0));
@@ -5431,11 +5414,8 @@ void dirty_process_main(void)
 		Goto(*I);
 	    } else if (c_p->freason == TRAP) {
 		I = c_p->i;
-		if (c_p->flags & F_HIBERNATE_SCHED) {
-		    c_p->flags &= ~F_HIBERNATE_SCHED;
-		    goto do_dirty_schedule;
-		}
-		DispatchMacro();
+		ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
+		goto context_switch;
 	    }
 	    I = handle_error(c_p, c_p->cp, reg, vbf);
 	}
@@ -5445,8 +5425,9 @@ void dirty_process_main(void)
     } else {
 	ASSERT(!is_value(r(0)));
 	SWAPIN;
-	Goto(do_call_nif);
+	goto context_switch;
     }
+#endif /* ERTS_DIRTY_SCHEDULERS */
 }
 
 static BifFunction

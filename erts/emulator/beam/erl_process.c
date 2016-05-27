@@ -8197,7 +8197,7 @@ sched_dirty_cpu_thread_func(void *vesdp)
 #endif
     erts_thread_init_float();
 
-    dirty_process_main();
+    erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty CPU scheduler thread number %beu terminated\n",
@@ -8242,7 +8242,7 @@ sched_dirty_io_thread_func(void *vesdp)
 #endif
     erts_thread_init_float();
 
-    dirty_process_main();
+    erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty I/O scheduler thread number %beu terminated\n",
@@ -9377,77 +9377,6 @@ scheduler_gc_proc(Process *c_p, int reds_left)
     return reds;
 }
 
-static ERTS_INLINE void
-clean_dirty_start(Process *p)
-{
-#if defined(ERTS_DIRTY_SCHEDULERS) && !defined(ARCH_64)
-    void *ptr = ERTS_PROC_SET_DIRTY_CPU_START(p, NULL);
-    if (ptr)
-	erts_free(ERTS_ALC_T_DIRTY_START, ptr);
-#endif
-}
-
-static ERTS_INLINE void
-save_dirty_start(ErtsSchedulerData *esdp, Process *c_p)
-{
-#ifdef ERTS_DIRTY_SCHEDULERS
-    if (ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(esdp->run_queue)) {
-	ErtsMonotonicTime time = erts_get_monotonic_time(esdp);
-#ifdef ARCH_64
-	ERTS_PROC_SET_DIRTY_CPU_START(c_p, (void *) time);
-#else
-	ErtsMonotonicTime *stimep;
-
-	stimep = (ErtsMonotonicTime *) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
-	if (!stimep) {
-	    stimep = erts_alloc(ERTS_ALC_T_DIRTY_START,
-				sizeof(ErtsMonotonicTime));
-	    ERTS_PROC_SET_DIRTY_CPU_START(c_p, (void *) stimep);
-	}
-	*stimep = time;
-#endif
-    }
-#endif
-}
-
-static ERTS_INLINE int
-get_dirty_reds(ErtsSchedulerData *esdp, Process *c_p)
-{
-
-#ifndef ERTS_DIRTY_SCHEDULERS
-    return -1;
-#else
-    ErtsMonotonicTime stime, time;
-
-    if (!ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(esdp->run_queue))
-	return 1;
-
-#ifdef ARCH_64
-    stime = (ErtsMonotonicTime) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
-#else
-    {
-	ErtsMonotonicTime *stimep;
-	stimep = (ErtsMonotonicTime *) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
-	ASSERT(stimep);
-	stime = *stimep;
-    }
-#endif
-
-    time = erts_get_monotonic_time(esdp);
-
-    ASSERT(stime && stime < time);
-
-    time -= stime;
-    time = ERTS_MONOTONIC_TO_USEC(time);
-    time *= 2;
-
-    if (time > INT_MAX)
-	return INT_MAX;
-    return (int) time;
-#endif
-
-}
-
 /*
  * schedule() is called from BEAM (process_main()) or HiPE
  * (hipe_mode_switch()) when the current process is to be
@@ -9466,11 +9395,10 @@ get_dirty_reds(ErtsSchedulerData *esdp, Process *c_p)
  * so that normal processes get to run more frequently. 
  */
 
-Process *schedule(Process *p, int calls)
+Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 {
     Process *proxy_p = NULL;
     ErtsRunQueue *rq;
-    ErtsSchedulerData *esdp;
     int context_reds;
     int fcalls;
     int input_reductions;
@@ -9507,8 +9435,19 @@ Process *schedule(Process *p, int calls)
      * Clean up after the process being scheduled out.
      */
     if (!p) {	/* NULL in the very first schedule() call */
+#ifdef ERTS_DIRTY_SCHEDULERS
+	is_normal_sched = !esdp;
+	if (is_normal_sched) {
+	    esdp = erts_get_scheduler_data();
+	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+	}
+	else {
+	    ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
+	}
+#else
 	esdp = erts_get_scheduler_data();
-	is_normal_sched = !ERTS_SCHEDULER_IS_DIRTY(esdp);
+	is_normal_sched = 1;
+#endif
 	rq = erts_get_runq_current(esdp);
 	ASSERT(esdp);
 	fcalls = (int) erts_smp_atomic32_read_acqb(&function_calls);
@@ -9517,12 +9456,12 @@ Process *schedule(Process *p, int calls)
     } else {
 #ifdef ERTS_SMP
 #ifdef ERTS_DIRTY_SCHEDULERS
-	esdp = p->scheduler_data;
-	is_normal_sched = esdp != NULL;
-	if (is_normal_sched)
+	is_normal_sched = !esdp;
+	if (is_normal_sched) {
+	    esdp = p->scheduler_data;
 	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+	}
 	else {
-	    esdp = erts_get_scheduler_data();
 	    ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
 	}
 #else
@@ -9541,10 +9480,7 @@ Process *schedule(Process *p, int calls)
 
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
-	if (is_normal_sched)
-	    reds = actual_reds = calls - esdp->virtual_reds;
-	else
-	    reds = actual_reds = get_dirty_reds(esdp, p);
+	reds = actual_reds = calls - esdp->virtual_reds;
 
 	ASSERT(actual_reds >= 0);
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
@@ -9994,16 +9930,9 @@ Process *schedule(Process *p, int calls)
 	    calls = 0;
 	    reds = context_reds;
 
-#ifdef ERTS_SMP
-
 	    erts_smp_runq_unlock(rq);
 
-#endif /* ERTS_SMP */
-
 	}
-
-	if (!is_normal_sched)
-	    save_dirty_start(esdp, p);
 
 #ifdef ERTS_SMP
 
@@ -11744,8 +11673,6 @@ delete_process(Process* p)
     nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
     if (nif_export)
 	erts_destroy_nif_export(nif_export);
-
-    clean_dirty_start(p);
 
     /* Cleanup psd */
 

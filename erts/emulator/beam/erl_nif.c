@@ -178,11 +178,6 @@ static ERTS_INLINE void ensure_heap(ErlNifEnv* env, size_t may_need)
 void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
                   Process* tracee)
 {
-#ifdef DEBUG
-#ifdef ERTS_DIRTY_SCHEDULERS
-    ErtsSchedulerData *esdp;
-#endif
-#endif
     env->mod_nif = mod_nif;
     env->proc = p;
     env->hp = HEAP_TOP(p);
@@ -195,45 +190,40 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
 
     ASSERT(p->common.id != ERTS_INVALID_PID);
 
-#ifdef DEBUG
-#ifdef ERTS_DIRTY_SCHEDULERS
-    esdp = erts_get_scheduler_data();
-    ASSERT(esdp);
+#if defined(DEBUG) && defined(ERTS_DIRTY_SCHEDULERS)
+    {
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+	ASSERT(esdp);
 
-    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-	erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
+	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	    erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
 
-	ASSERT(p->scheduler_data == esdp);
-	ASSERT((state & (ERTS_PSFLG_RUNNING
-			 | ERTS_PSFLG_RUNNING_SYS))
-	       && !(state & (ERTS_PSFLG_DIRTY_RUNNING
-			     | ERTS_PSFLG_DIRTY_RUNNING_SYS)));
+	    ASSERT(p->scheduler_data == esdp);
+	    ASSERT((state & (ERTS_PSFLG_RUNNING
+			     | ERTS_PSFLG_RUNNING_SYS))
+		   && !(state & (ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)));
+	}
     }
-#endif
 #endif
 }
 
-void erts_pre_dirty_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
+void erts_pre_dirty_nif(ErtsSchedulerData *esdp,
+			ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
 			Process* tracee)
 {
 #ifdef ERTS_DIRTY_SCHEDULERS
-#ifdef DEBUG
-    erts_aint32_t state;
-#endif
     Process *sproc;
-    ErtsSchedulerData *esdp;
-    esdp = erts_get_scheduler_data();
-    ASSERT(esdp);
-
-    erts_pre_nif(env, p, mod_nif, tracee);
-
 #ifdef DEBUG
-    state = erts_smp_atomic32_read_nob(&p->state);
+    erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
 
     ASSERT(!p->scheduler_data);
     ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING)
 	   && !(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)));
+    ASSERT(esdp);
 #endif
+
+    erts_pre_nif(env, p, mod_nif, tracee);
 
     sproc = esdp->dirty_shadow_process;
     ASSERT(sproc);
