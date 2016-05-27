@@ -1751,14 +1751,14 @@ map_def_val(?map(_,_,DefV)) ->
 -spec mapdict_store(t_map_pair(), t_map_dict()) -> t_map_dict().
 
 mapdict_store(E={K,_,_}, [{K,_,_}|T]) -> [E|T];
-mapdict_store(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2->
+mapdict_store(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
   [E2|mapdict_store(E1, T)];
 mapdict_store(E={_,_,_}, T) -> [E|T].
 
 -spec mapdict_insert(t_map_pair(), t_map_dict()) -> t_map_dict().
 
 mapdict_insert(E={K,_,_}, D=[{K,_,_}|_]) -> error(badarg, [E, D]);
-mapdict_insert(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2->
+mapdict_insert(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
   [E2|mapdict_insert(E1, T)];
 mapdict_insert(E={_,_,_}, T) -> [E|T].
 
@@ -1769,25 +1769,26 @@ mapdict_insert(E={_,_,_}, T) -> [E|T].
 			      t_map_mandatoriness(), erl_type())
 			     -> t_map_pair() | false),
 			 erl_type(), erl_type()) -> t_map_dict().
-map_pairwise_merge(F, ?map(APairs, ADefK, ADefV),
-		       ?map(BPairs, BDefK, BDefV)) ->
+map_pairwise_merge(F, ?map(APairs, ADefK, ADefV), ?map(BPairs, BDefK, BDefV)) ->
   map_pairwise_merge(F, APairs, ADefK, ADefV, BPairs, BDefK, BDefV).
 
 map_pairwise_merge(_, [], _, _, [], _, _) -> [];
 map_pairwise_merge(F, As0, ADefK, ADefV, Bs0, BDefK, BDefV) ->
-  case {As0, Bs0} of
-    {[{K,AMNess,AV}|As], [{K, BMNess,BV}|Bs]} -> ok;
-    {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)};
-    {As,                 [{K, BMNess,BV}|Bs]} ->
-      {AMNess, AV} = {?opt, mapmerge_otherv(K, ADefK, ADefV)};
-    {[{K,AMNess,AV}|As], []=Bs} ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)}
-  end,
-  MK = K, %% Rename to make clear that we are matching below
-  case F(K, AMNess, AV, BMNess, BV) of
-    false ->         map_pairwise_merge(F,As,ADefK,ADefV,Bs,BDefK,BDefV);
-    M={MK,_,_} -> [M|map_pairwise_merge(F,As,ADefK,ADefV,Bs,BDefK,BDefV)]
+  {K1, AMNess1, AV1, As1, BMNess1, BV1, Bs1} =
+    case {As0, Bs0} of
+      {[{K,AMNess,AV}|As], [{K, BMNess,BV}|Bs]} ->
+	{K, AMNess, AV, As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs};
+      {As,                 [{K, BMNess,BV}|Bs]} ->
+        {K, ?opt, mapmerge_otherv(K, ADefK, ADefV), As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], []=Bs} ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs}
+    end,
+  MK = K1, %% Rename to make clear that we are matching below
+  case F(K1, AMNess1, AV1, BMNess1, BV1) of
+    false ->         map_pairwise_merge(F,As1,ADefK,ADefV,Bs1,BDefK,BDefV);
+    {MK,_,_}=M -> [M|map_pairwise_merge(F,As1,ADefK,ADefV,Bs1,BDefK,BDefV)]
   end.
 
 %% Folds over the pairs in two maps simultaneously in reverse key order. Missing
@@ -1804,17 +1805,19 @@ map_pairwise_merge_foldr(F, AccIn, ?map(APairs, ADefK, ADefV),
 
 map_pairwise_merge_foldr(_, Acc,   [],  _,     _,     [],  _,     _) -> Acc;
 map_pairwise_merge_foldr(F, AccIn, As0, ADefK, ADefV, Bs0, BDefK, BDefV) ->
-  case {As0, Bs0} of
-    {[{K,AMNess,AV}|As], [{K, BMNess,BV}|Bs]} -> ok;
-    {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)};
-    {As,                 [{K, BMNess,BV}|Bs]} ->
-      {AMNess, AV} = {?opt, mapmerge_otherv(K, ADefK, ADefV)};
-    {[{K,AMNess,AV}|As], []=Bs} ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)}
-  end,
-  F(K, AMNess, AV, BMNess, BV,
-    map_pairwise_merge_foldr(F,AccIn,As,ADefK,ADefV,Bs,BDefK,BDefV)).
+  {K1, AMNess1, AV1, As1, BMNess1, BV1, Bs1} =
+    case {As0, Bs0} of
+      {[{K,AMNess,AV}|As], [{K,BMNess,BV}|Bs]} ->
+	{K, AMNess, AV, As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
+	{K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs};
+      {As,                 [{K,BMNess,BV}|Bs]} ->
+        {K, ?opt, mapmerge_otherv(K, ADefK, ADefV), As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], []=Bs} ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs}
+    end,
+  F(K1, AMNess1, AV1, BMNess1, BV1,
+    map_pairwise_merge_foldr(F,AccIn,As1,ADefK,ADefV,Bs1,BDefK,BDefV)).
 
 %% By observing that a missing pair in a map is equivalent to an optional pair,
 %% with ?none or DefV value, depending on whether K \in DefK, we can simplify
