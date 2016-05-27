@@ -613,36 +613,32 @@ analyse_if(If, Info, Rewrite) ->
 	 {#icode_goto{} | #icode_if{}, [{label(), info()}]}.
 
 analyse_sane_if(If, Info, [Arg1, Arg2], [Range1, Range2], Rewrite) ->
-  case normalize_name(hipe_icode:if_op(If)) of
-    '>' ->
-      {TrueRange2, TrueRange1, FalseRange2, FalseRange1} = 
-	range_inequality_propagation(Range2, Range1);
-    '<' ->
-      {TrueRange1, TrueRange2, FalseRange1, FalseRange2} =
+  {TrueRange1, TrueRange2, FalseRange1, FalseRange2} =
+    case normalize_name(hipe_icode:if_op(If)) of
+      '>' ->
+	{TR2, TR1, FR2, FR1} = range_inequality_propagation(Range2, Range1),
+	{TR1, TR2, FR1, FR2};
+      '<' ->
 	range_inequality_propagation(Range1, Range2);
-    '>=' ->
-      {FalseRange1, FalseRange2, TrueRange1, TrueRange2} =
-	range_inequality_propagation(Range1, Range2);
-    '=<' ->
-      {FalseRange2, FalseRange1, TrueRange2, TrueRange1} =
-	range_inequality_propagation(Range2, Range1);
-    '=:=' ->
-      {TrueRange1, TrueRange2, FalseRange1, FalseRange2} =
-	range_equality_propagation(Range1, Range2);
-    '=/=' ->
-      {FalseRange1, FalseRange2, TrueRange1, TrueRange2} =
-	range_equality_propagation(Range1, Range2);
-    '==' ->
-      {TempTrueRange1, TempTrueRange2, FalseRange1, FalseRange2} =
-	range_equality_propagation(Range1, Range2),
-      TrueRange1 = set_other(TempTrueRange1, other(Range1)),
-      TrueRange2 = set_other(TempTrueRange2, other(Range2));
-    '/=' -> 
-      {TempFalseRange1, TempFalseRange2, TrueRange1, TrueRange2} =
-	range_equality_propagation(Range1, Range2),
-      FalseRange1 = set_other(TempFalseRange1, other(Range1)),
-      FalseRange2 = set_other(TempFalseRange2, other(Range2))
-  end,
+      '>=' ->
+	{FR1, FR2, TR1, TR2} = range_inequality_propagation(Range1, Range2),
+	{TR1, TR2, FR1, FR2};
+      '=<' ->
+	{FR2, FR1, TR2, TR1} = range_inequality_propagation(Range2, Range1),
+	{TR1, TR2, FR1, FR2};
+      '=:=' ->
+	{TR1, TR2, FR1, FR2} = range_equality_propagation(Range1, Range2),
+	{TR1, TR2, FR1, FR2};
+      '=/=' ->
+	{FR1, FR2, TR1, TR2} = range_equality_propagation(Range1, Range2),
+	{TR1, TR2, FR1, FR2};
+      '==' ->
+	{TR1, TR2, FR1, FR2} = range_equality_propagation(Range1, Range2),
+	{set_other(TR1,other(Range1)), set_other(TR2,other(Range2)), FR1, FR2};
+      '/=' ->
+	{FR1, FR2, TR1, TR2} = range_equality_propagation(Range1, Range2),
+	{TR1, TR2, set_other(FR1,other(Range1)), set_other(FR2,other(Range2))}
+    end,
   %% io:format("TR1 = ~w\nTR2 = ~w\n", [TrueRange1, TrueRange2]),
   True =
     case lists:all(fun range__is_none/1, [TrueRange1, TrueRange2]) of
@@ -695,26 +691,24 @@ normalize_name(Name) ->
 -spec range_equality_propagation(range(), range()) ->
 	  {range(), range(), range(), range()}.
 
-range_equality_propagation(Range_1, Range_2) ->  
-  True_range = inf(Range_1, Range_2),
-  case {range(Range_1), range(Range_2)} of
-    {{N,N}, {N,N}} ->
-      False_range_1 = none_range(),
-      False_range_2 = none_range();
-    {{N1,N1}, {N2,N2}} ->
-      False_range_1 = Range_1,
-      False_range_2 = Range_2;
-    {{N,N}, _} ->
-      False_range_1 = Range_1,
-      {_,False_range_2} = compare_with_integer(N, Range_2);
-    {_, {N,N}} ->
-      False_range_2 = Range_2,
-      {_,False_range_1} = compare_with_integer(N, Range_1);
-    {_, _} ->
-      False_range_1 = Range_1,
-      False_range_2 = Range_2
-  end,
-  {True_range, True_range, False_range_1, False_range_2}.
+range_equality_propagation(Range1, Range2) ->  
+  TrueRange = inf(Range1, Range2),
+  {FalseRange1, FalseRange2} =
+    case {range(Range1), range(Range2)} of
+      {{N,N}, {N,N}} ->
+	{none_range(), none_range()};
+      {{N1,N1}, {N2,N2}} ->
+	{Range1, Range2};
+      {{N,N}, _} ->
+	{_,FR2} = compare_with_integer(N, Range2),
+	{Range1, FR2};
+      {_, {N,N}} ->
+	{_,FR1} = compare_with_integer(N, Range1),
+	{FR1, Range2};
+      {_, _} ->
+	{Range1, Range2}
+    end,
+  {TrueRange, TrueRange, FalseRange1, FalseRange2}.
 
 -spec range_inequality_propagation(range(), range()) ->
 	  {range(), range(), range(), range()}.
@@ -780,18 +774,17 @@ analyse_type(Type, Info, Rewrite) ->
   TypeTest = hipe_icode:type_test(Type),
   [Arg|_] = hipe_icode:type_args(Type),
   OldVarRange = get_range_from_arg(Arg),
-  case TypeTest of
-    {integer, N} ->
-      {TrueRange,FalseRange} = compare_with_integer(N,OldVarRange);
-    integer ->
-      TrueRange = inf(any_range(), OldVarRange),
-      FalseRange = inf(none_range(), OldVarRange);
-    number ->
-      TrueRange = FalseRange = OldVarRange;
-    _ ->
-      TrueRange = inf(none_range(), OldVarRange),
-      FalseRange = OldVarRange
-  end,
+  {TrueRange, FalseRange} =
+    case TypeTest of
+      {integer, N} ->
+	compare_with_integer(N, OldVarRange);
+      integer ->
+	{inf(any_range(), OldVarRange), inf(none_range(), OldVarRange)};
+      number ->
+	{OldVarRange, OldVarRange};
+      _ ->
+	{inf(none_range(), OldVarRange), OldVarRange}
+    end,
   TrueLabel = hipe_icode:type_true_label(Type),
   FalseLabel = hipe_icode:type_false_label(Type),
   TrueInfo = enter_define({Arg, TrueRange}, Info),
@@ -1202,14 +1195,12 @@ basic_type(#unsafe_update_element{}) -> not_analysed.
 
 analyse_bs_get_integer(Size, Flags, true) ->
   Signed = Flags band 4,
-  if Signed =:= 0 ->
-      Max = inf_add(inf_bsl(1, Size), -1),
-      Min = 0;
-     true ->
-      Max = inf_add(inf_bsl(1, Size-1), -1),
-      Min = inf_inv(inf_bsl(1, Size-1))
-  end,
-  {Min, Max};
+  case Signed =:= 0 of
+    true ->
+      {0, inf_add(inf_bsl(1, Size), -1)};	% return {Min, Max}
+    false ->
+      {inf_inv(inf_bsl(1, Size-1)), inf_add(inf_bsl(1, Size-1), -1)}
+  end;
 analyse_bs_get_integer(Size, Flags, false) when is_integer(Size),
 						is_integer(Flags) ->
   any_r().
@@ -1775,14 +1766,12 @@ join_info_in([Var|Left], Info1, Info2, Acc, Changed) ->
       NewTree = gb_trees:insert(Var, Val, Acc),
       join_info_in(Left, Info1, Info2, NewTree, Changed);
     {{value, Val1}, {value, Val2}} ->
-      NewVal = 
+      {NewChanged, NewVal} = 
 	case sup(Val1, Val2) of
 	  Val1 ->
-	    NewChanged = Changed,
-	    Val1;
+	    {Changed, Val1};
 	  Val ->
-	    NewChanged = true,
-	    Val
+	    {true, Val}
 	end,
       NewTree = gb_trees:insert(Var, NewVal, Acc),
       join_info_in(Left, Info1, Info2, NewTree, NewChanged)
