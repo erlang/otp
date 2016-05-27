@@ -89,6 +89,7 @@
 		ret_type			:: range(),
 		lookup_fun			:: call_fun(),
 		result_action			:: final_fun()}).
+-type state() :: #state{}.
 
 -define(WIDEN, 1).
 
@@ -172,7 +173,7 @@ analyse(Cfg, Data) ->
   catch throw:no_input -> ok
   end.
 
--spec safe_analyse(cfg(), data()) -> #state{}.
+-spec safe_analyse(cfg(), data()) -> state().
 
 safe_analyse(CFG, Data={MFA,_,_,_}) ->
   State = state__init(CFG, Data),
@@ -181,14 +182,14 @@ safe_analyse(CFG, Data={MFA,_,_,_}) ->
   (state__result_action(NewState))(MFA, [state__ret_type(NewState)]),
   NewState.
 
--spec rewrite_blocks(#state{}) -> #state{}.
+-spec rewrite_blocks(state()) -> state().
 
 rewrite_blocks(State) ->
   CFG = state__cfg(State),
   Start = hipe_icode_cfg:start_label(CFG),
   rewrite_blocks([Start], State, [Start]).
 
--spec rewrite_blocks([label()], #state{}, [label()]) -> #state{}.
+-spec rewrite_blocks([label()], state(), [label()]) -> state().
 
 rewrite_blocks([Next|Rest], State, Visited) ->
   Info = state__info_in(State, Next),
@@ -201,7 +202,7 @@ rewrite_blocks([Next|Rest], State, Visited) ->
 rewrite_blocks([], State, _) ->
   State.
 
--spec analyse_blocks(#state{}, work_list()) -> #state{}.
+-spec analyse_blocks(state(), work_list()) -> state().
 
 analyse_blocks(State, Work) ->
   case get_work(Work) of
@@ -218,7 +219,7 @@ analyse_blocks(State, Work) ->
       analyse_blocks(NewState, NewWork2)
   end.
 
--spec analyse_block(label(), info(), #state{}, boolean()) -> {#state{}, [label()]}.
+-spec analyse_block(label(), info(), state(), boolean()) -> {state(), [label()]}.
 
 analyse_block(Label, Info, State, Rewrite) ->
   BB = state__bb(State, Label),
@@ -1653,7 +1654,7 @@ inf_bsl(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
 
 %% State
 
--spec state__init(cfg(), data()) -> #state{}.
+-spec state__init(cfg(), data()) -> state().
 
 state__init(Cfg, {MFA, ArgsFun, CallFun, FinalFun}) ->
   Start = hipe_icode_cfg:start_label(Cfg),  
@@ -1676,19 +1677,19 @@ state__init(Cfg, {MFA, ArgsFun, CallFun, FinalFun}) ->
 	     lookup_fun=CallFun, result_action=FinalFun}
   end.
 
--spec state__cfg(#state{}) -> cfg().
+-spec state__cfg(state()) -> cfg().
 
 state__cfg(#state{cfg=Cfg}) ->
   Cfg.
 
--spec state__bb(#state{}, label()) -> bb().
+-spec state__bb(state(), label()) -> bb().
 
 state__bb(#state{cfg=Cfg}, Label) ->
   BB = hipe_icode_cfg:bb(Cfg, Label),
   true = hipe_bb:is_bb(BB), % Just an assert
   BB.
   
--spec state__bb_add(#state{}, label(), bb()) -> #state{}.
+-spec state__bb_add(state(), label(), bb()) -> state().
 
 state__bb_add(S=#state{cfg=Cfg}, Label, BB) ->
   NewCfg = hipe_icode_cfg:bb_add(Cfg, Label, BB),
