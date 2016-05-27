@@ -1039,24 +1039,23 @@ getifaddrs(Config) when is_list (Config) ->
 check_addr({addr,Addr})
   when tuple_size(Addr) =:= 8,
        element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
-    ?line ?t:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
+    io:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
     ok;
 check_addr({addr,Addr}) ->
-    ?line ?t:format("Addr: ~p.~n", [Addr]),
-    ?line Ping = "ping",
-    ?line Pong = "pong",
-    ?line {ok,L} = gen_tcp:listen(0, [{ip,Addr},{active,false}]),
-    ?line {ok,P} = inet:port(L),
-    ?line {ok,S1} = gen_tcp:connect(Addr, P, [{active,false}]),
-    ?line {ok,S2} = gen_tcp:accept(L),
-    ?line ok = gen_tcp:send(S2, Ping),
-    ?line {ok,Ping} = gen_tcp:recv(S1, length(Ping)),
-    ?line ok = gen_tcp:send(S1, Pong),
-    ?line ok = gen_tcp:close(S1),
-    ?line {ok,Pong} = gen_tcp:recv(S2, length(Pong)),
-    ?line ok = gen_tcp:close(S2),
-    ?line ok = gen_tcp:close(L),
-    ok.
+    io:format("Addr: ~p.~n", [Addr]),
+    Ping = "ping",
+    Pong = "pong",
+    {ok,L} = gen_tcp:listen(0, [{ip,Addr},{active,false}]),
+    {ok,P} = inet:port(L),
+    {ok,S1} = gen_tcp:connect(Addr, P, [{active,false}]),
+    {ok,S2} = gen_tcp:accept(L),
+    ok = gen_tcp:send(S2, Ping),
+    {ok,Ping} = gen_tcp:recv(S1, length(Ping)),
+    ok = gen_tcp:send(S1, Pong),
+    ok = gen_tcp:close(S1),
+    {ok,Pong} = gen_tcp:recv(S2, length(Pong)),
+    ok = gen_tcp:close(S2),
+    ok = gen_tcp:close(L).
 
 -record(ifopts, {name,flags,addrs=[],hwaddr}).
 
@@ -1078,7 +1077,7 @@ ifaddrs([{If,Opts}|IOs]) ->
 check_ifopts([], #ifopts{flags=F,addrs=Raddrs}=Ifopts) ->
     Addrs = lists:reverse(Raddrs),
     R = Ifopts#ifopts{addrs=Addrs},
-    ?t:format("~p.~n", [R]),
+    io:format("~p.~n", [R]),
     %% See how we did...
     {flags,Flags} = F,
     case lists:member(broadcast, Flags) of
@@ -1111,7 +1110,7 @@ check_ifopts([{flags,_}=F|Opts], #ifopts{flags=Flags}=Ifopts) ->
 	Flags ->
 	    check_ifopts(Opts, Ifopts);
 	_ ->
-	    ?t:fail({multiple_flags,F,Ifopts})
+	    ct:fail({multiple_flags,F,Ifopts})
     end;
 check_ifopts(
   [{addr,_}=A,{netmask,_}=N,{dstaddr,_}=D|Opts],
@@ -1131,7 +1130,7 @@ check_ifopts([{hwaddr,Hwaddr}=H|Opts], #ifopts{hwaddr=undefined}=Ifopts)
   when is_list(Hwaddr) ->
     check_ifopts(Opts, Ifopts#ifopts{hwaddr=H});
 check_ifopts([{hwaddr,_}=H|_], #ifopts{}=Ifopts) ->
-    ?t:fail({multiple_hwaddrs,H,Ifopts}).
+    ct:fail({multiple_hwaddrs,H,Ifopts}).
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems

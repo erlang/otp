@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2013. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -104,6 +104,8 @@ MODULES = \
 	inet_sctp \
 	kernel \
 	kernel_config \
+	local_udp \
+	local_tcp \
 	net \
 	net_adm \
 	net_kernel \
@@ -244,6 +246,8 @@ $(EBIN)/inet_tcp.beam: inet_int.hrl
 $(EBIN)/inet_udp_dist.beam: ../include/net_address.hrl ../include/dist.hrl ../include/dist_util.hrl
 $(EBIN)/inet_udp.beam: inet_int.hrl
 $(EBIN)/inet_sctp.beam: inet_int.hrl ../include/inet_sctp.hrl
+$(EBIN)/local_udp.beam: inet_int.hrl
+$(EBIN)/local_tcp.beam: inet_int.hrl
 $(EBIN)/net_kernel.beam: ../include/net_address.hrl
 $(EBIN)/os.beam: ../include/file.hrl
 $(EBIN)/ram_file.beam: ../include/file.hrl

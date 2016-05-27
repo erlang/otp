@@ -55,6 +55,8 @@
 	     inet_tcp_dist,
 	     kernel,
 	     kernel_config,
+	     local_tcp,
+	     local_udp,
 	     net,
 	     net_adm,
 	     net_kernel,

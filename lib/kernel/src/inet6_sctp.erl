@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,12 +14,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% SCTP protocol contribution by Leonid Timochouk and Serge Aleynikov.
 %% See also: $ERL_TOP/lib/kernel/AUTHORS
-%%
 %%
 -module(inet6_sctp).
 
@@ -31,6 +30,7 @@
 -include("inet_sctp.hrl").
 -include("inet_int.hrl").
 
+-define(PROTO, sctp).
 -define(FAMILY, inet6).
 -export([getserv/1,getaddr/1,getaddr/2,translate_ip/1]).
 -export([open/1,close/1,listen/2,peeloff/2,connect/5]).
@@ -39,25 +39,19 @@
 
 
 getserv(Port) when is_integer(Port) -> {ok, Port};
-getserv(Name) when is_atom(Name) ->
-    inet:getservbyname(Name, sctp);
-getserv(_) ->
-    {error,einval}.
+getserv(Name) when is_atom(Name) -> inet:getservbyname(Name, ?PROTO);
+getserv(_) -> {error,einval}.
 
-getaddr(Address) ->
-    inet:getaddr(Address, ?FAMILY).
-getaddr(Address, Timer) ->
-    inet:getaddr_tm(Address, ?FAMILY, Timer).
+getaddr(Address) -> inet:getaddr(Address, ?FAMILY).
+getaddr(Address, Timer) -> inet:getaddr_tm(Address, ?FAMILY, Timer).
 
-translate_ip(IP) ->
-    inet:translate_ip(IP, ?FAMILY).
-
+translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
 
     
 open(Opts) ->
     case inet:sctp_options(Opts, ?MODULE) of
 	{ok,#sctp_opts{fd=Fd,ifaddr=Addr,port=Port,type=Type,opts=SOs}} ->
-	    inet:open(Fd, Addr, Port, SOs, sctp, ?FAMILY, Type, ?MODULE);
+	    inet:open(Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
 	Error -> Error
     end.
 

@@ -381,7 +381,6 @@
 	  ifaddr = any,     %% bind to interface address
 	  port   = 0,       %% bind to port (default is dynamic port)
 	  fd     = -1,      %% fd >= 0 => already bound
-	  family = inet,    %% address family
 	  opts   = []       %% [{active,true}] added in inet:connect_options
 	 }).
 
@@ -391,7 +390,6 @@
 	  port   = 0,                %% bind to port (default is dynamic port)
 	  backlog = ?LISTEN_BACKLOG, %% backlog
 	  fd      = -1,              %% %% fd >= 0 => already bound
-	  family = inet,             %% address family
 	  opts   = []                %% [{active,true}] added in 
 	                             %% inet:listen_options
 	 }).
@@ -401,7 +399,6 @@
 	  ifaddr = any,
 	  port   = 0,
 	  fd     = -1,
-	  family = inet,
 	  opts   = [{active,true}]
 	 }).
 
