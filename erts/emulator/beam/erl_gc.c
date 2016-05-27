@@ -2293,18 +2293,13 @@ move_msgq_to_heap(Process *p)
 		    free_message_buffer(bp);
 		}
 		else {
-		    ErtsMessage *tmp = erts_alloc_message(0, NULL);
-		    sys_memcpy((void *) tmp->m, (void *) mp->m,
-			       sizeof(Eterm)*ERL_MESSAGE_REF_ARRAY_SZ); 
-		    tmp->next = mp->next;
-		    if (p->msg.save == &mp->next)
-			p->msg.save = &tmp->next;
-		    if (p->msg.last == &mp->next)
-			p->msg.last = &tmp->next;
-		    *mpp = tmp;
+		    ErtsMessage *new_mp = erts_alloc_message(0, NULL);
+		    sys_memcpy((void *) new_mp->m, (void *) mp->m,
+			       sizeof(Eterm)*ERL_MESSAGE_REF_ARRAY_SZ);
+		    erts_msgq_replace_msg_ref(&p->msg, new_mp, mpp);
 		    mp->next = NULL;
 		    erts_cleanup_messages(mp);
-		    mp = tmp;
+		    mp = new_mp;
 		}
 	    }
 

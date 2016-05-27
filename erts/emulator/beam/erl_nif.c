@@ -623,10 +623,28 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         }
     } else {
         Uint sz = size_object(msg);
+	ErlOffHeap *ohp;
         Eterm *hp;
-        mp = erts_alloc_message(sz, &hp);
-        msg = copy_struct(msg, sz, &hp, &mp->hfrag.off_heap);
-        ASSERT(hp == mp->hfrag.mem+mp->hfrag.used_size);
+	if (env && !env->tracee) {
+	    flush_env(env);
+	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
+	    cache_env(env);
+	}
+	else {
+	    erts_aint_t state = erts_smp_atomic32_read_nob(&rp->state);
+	    if (state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
+		mp = erts_alloc_message(sz, &hp);
+		ohp = sz == 0 ? NULL : &mp->hfrag.off_heap;
+	    }
+	    else {
+		ErlHeapFragment *bp = new_message_buffer(sz);
+		mp = erts_alloc_message(0, NULL);
+		mp->data.heap_frag = bp;
+		hp = bp->mem;
+		ohp = &bp->off_heap;
+	    }
+	}
+        msg = copy_struct(msg, sz, &hp, ohp);
     }
 
     ERL_MESSAGE_TERM(mp) = msg;
