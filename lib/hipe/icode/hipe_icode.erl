@@ -610,7 +610,9 @@
 %% Exported types
 %%
 
--export_type([icode/0]).
+-export_type([icode/0, params/0]).
+
+-type params() :: [icode_var()].
 
 %%---------------------------------------------------------------------
 %% 
@@ -618,7 +620,7 @@
 %%
 %%---------------------------------------------------------------------
 
--spec mk_icode(mfa(), [icode_var()], boolean(), boolean(), [icode_instr()],
+-spec mk_icode(mfa(), params(), boolean(), boolean(), [icode_instr()],
 	       {non_neg_integer(),non_neg_integer()}, 
 	       {icode_lbl(),icode_lbl()}) -> icode().
 mk_icode(Fun, Params, IsClosure, IsLeaf, Code, VarRange, LabelRange) ->
@@ -629,7 +631,7 @@ mk_icode(Fun, Params, IsClosure, IsLeaf, Code, VarRange, LabelRange) ->
 	 var_range=VarRange,
 	 label_range=LabelRange}.
 
--spec mk_icode(mfa(), [icode_var()], boolean(), boolean(), [icode_instr()],
+-spec mk_icode(mfa(), params(), boolean(), boolean(), [icode_instr()],
 	       hipe_consttab(), {non_neg_integer(),non_neg_integer()}, 
 	       {icode_lbl(),icode_lbl()}) -> icode().
 mk_icode(Fun, Params, IsClosure, IsLeaf, Code, Data, VarRange, LabelRange) ->
@@ -640,11 +642,11 @@ mk_icode(Fun, Params, IsClosure, IsLeaf, Code, Data, VarRange, LabelRange) ->
 -spec icode_fun(icode()) -> mfa().
 icode_fun(#icode{'fun' = MFA}) -> MFA.
 
--spec icode_params(icode()) -> [icode_var()].
+-spec icode_params(icode()) -> params().
 icode_params(#icode{params = Params}) -> Params.
 
--spec icode_params_update(icode(), [icode_var()]) -> icode().
-icode_params_update(Icode, Params) -> 
+-spec icode_params_update(icode(), params()) -> icode().
+icode_params_update(Icode, Params) ->
   Icode#icode{params = Params}.
 
 -spec icode_is_closure(icode()) -> boolean().
