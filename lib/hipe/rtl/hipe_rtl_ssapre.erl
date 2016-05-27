@@ -221,22 +221,21 @@ find_definition_for_computations_in_block(BlockLabel,[Inst|Rest],Cfg,
  	  ?pp_debug(" Inserting Xsi: ",[]),pp_xsi(Xsi),
 
           Label = Xsi#xsi.label,
-          case BlockLabel =:= Label of
-            false ->
-              %% Insert the Xsi in the appropriate block
-              Code = hipe_bb:code(?CFG:bb(Cfg,Label)),
-              {BeforeCode,AfterCode} = split_for_xsi(lists:reverse(Code),[]),
-              NewCode = BeforeCode++[XsiLink|AfterCode],
-              NewBB = hipe_bb:mk_bb(NewCode),
-              NewCfg = ?CFG:bb_add(Cfg,Label,NewBB),
-              NewVisited = [NewInst|VisitedInstructions];
-            _->
-              {BeforeCode,AfterCode} = split_for_xsi(VisitedInstructions,[]),
-              TempVisited = BeforeCode++[XsiLink|AfterCode],
-              TempVisited2 = lists:reverse(TempVisited),
-              NewVisited = [NewInst|TempVisited2],
-              NewCfg = Cfg
-          end,
+	  {NewCfg, NewVisited} =
+	    case BlockLabel =:= Label of
+	      false ->
+		%% Insert the Xsi in the appropriate block
+		Code = hipe_bb:code(?CFG:bb(Cfg,Label)),
+		{BeforeCode,AfterCode} = split_for_xsi(lists:reverse(Code),[]),
+		NewCode = BeforeCode++[XsiLink|AfterCode],
+		NewBB = hipe_bb:mk_bb(NewCode),
+		{?CFG:bb_add(Cfg,Label,NewBB), [NewInst|VisitedInstructions]};
+	      _->
+		{BeforeCode,AfterCode} = split_for_xsi(VisitedInstructions,[]),
+		TempVisited = BeforeCode++[XsiLink|AfterCode],
+		TempVisited2 = lists:reverse(TempVisited),
+		{Cfg, [NewInst|TempVisited2]}
+	    end,
           find_definition_for_computations_in_block(BlockLabel, Rest, NewCfg,
 						    NewVisited, XsiGraph)
       end;
@@ -787,14 +786,15 @@ create_cfggraph([Label|Ls],Cfg,CFGGraph,ToBeFactorizedAcc,MPAcc,LateEdges,XsiGra
       Defs = get_defs_in_non_merge_block(Code, []),
       ?pp_debug("~nAdding a vertex for ~w", [Label]),
       Succs = ?CFG:succ(Cfg, Label),
-      case Succs of
-        [] -> %% Exit point
-          ?GRAPH:add_vertex(CFGGraph, Label, #block{type = exit}),
-          NewToBeFactorizedAcc = ToBeFactorizedAcc;
-        _ -> %% Split point
-          ?GRAPH:add_vertex(CFGGraph,Label,#block{type=not_mp,attributes={P,Succs}}),
-          NewToBeFactorizedAcc = [Label|ToBeFactorizedAcc]
-      end,
+      NewToBeFactorizedAcc =
+	case Succs of
+	  [] -> %% Exit point
+	    ?GRAPH:add_vertex(CFGGraph, Label, #block{type = exit}),
+	    ToBeFactorizedAcc;
+	  _ -> %% Split point
+	    ?GRAPH:add_vertex(CFGGraph,Label,#block{type=not_mp,attributes={P,Succs}}),
+	    [Label|ToBeFactorizedAcc]
+	end,
       ?pp_debug("~nAdding an edge ~w -> ~w (~w)",[P,Label,Defs]),
       case ?GRAPH:add_edge(CFGGraph,P,Label,Defs) of
         {error,Reason} ->
@@ -862,56 +862,53 @@ add_edges_for_mp([P|Ps], Label, LateEdges) ->
 
 %% Doesn't do anything so far
 add_map_and_uses([], _Key, Maps, Uses) ->
-  {Maps,Uses};
+  {Maps, Uses};
 add_map_and_uses([XsiOp|Ops], Key, Maps, Uses) ->
-  case XsiOp#xsi_op.op of
-    #bottom{} ->
-      Set = case gb_trees:lookup(XsiOp,Maps) of
-              {value, V} ->
-                ?SETS:add_element(Key,V);
-              none ->
-                ?SETS:from_list([Key])
-            end,
-      NewMaps = gb_trees:enter(XsiOp,Set,Maps),
-      NewUses = Uses;
-    #temp{} ->
-      Set = case gb_trees:lookup(XsiOp,Maps) of
-              {value, V} ->
-                ?SETS:add_element(Key,V);
-              none ->
-                ?SETS:from_list([Key])
-            end,
-      NewMaps = gb_trees:enter(XsiOp,Set,Maps),
-      Pred = XsiOp#xsi_op.pred,
-      OOP = XsiOp#xsi_op.op,
-      SSet = case gb_trees:lookup(Pred,Uses) of
-	       {value, VV} ->
-		 ?SETS:add_element(OOP#temp.key,VV);
-	       none ->
-		 ?SETS:from_list([OOP#temp.key])
-	     end,
-      NewUses = gb_trees:enter(Pred,SSet,Uses);
-    #eop{} ->
-      Set = case gb_trees:lookup(XsiOp,Maps) of
-              {value, V} ->
-                ?SETS:add_element(Key,V);
-              none ->
-                ?SETS:from_list([Key])
-            end,
-      NewMaps = gb_trees:enter(XsiOp,Set,Maps),
-      Pred = XsiOp#xsi_op.pred,
-      Op = XsiOp#xsi_op.op,
-      SSet = case gb_trees:lookup(Pred,Uses) of
-	       {value, VV} ->
-		 ?SETS:add_element(Op#eop.stopped_by,VV);
-	       none ->
-		 ?SETS:from_list([Op#eop.stopped_by])
-	     end,
-      NewUses = gb_trees:enter(Pred,SSet,Uses);
-    _->
-      NewMaps = Maps,
-      NewUses = Uses
-  end,
+  {NewMaps, NewUses} =
+    case XsiOp#xsi_op.op of
+      #bottom{} ->
+	Set = case gb_trees:lookup(XsiOp, Maps) of
+		{value, V} ->
+		  ?SETS:add_element(Key, V);
+		none ->
+		  ?SETS:from_list([Key])
+	      end,
+	{gb_trees:enter(XsiOp, Set, Maps), Uses};
+      #temp{} ->
+	Set = case gb_trees:lookup(XsiOp, Maps) of
+		{value, V} ->
+		  ?SETS:add_element(Key, V);
+		none ->
+		  ?SETS:from_list([Key])
+	      end,
+	Pred = XsiOp#xsi_op.pred,
+	OOP = XsiOp#xsi_op.op,
+	SSet = case gb_trees:lookup(Pred, Uses) of
+		 {value, VV} ->
+		   ?SETS:add_element(OOP#temp.key, VV);
+		 none ->
+		   ?SETS:from_list([OOP#temp.key])
+	       end,
+	{gb_trees:enter(XsiOp, Set, Maps), gb_trees:enter(Pred, SSet, Uses)};
+      #eop{} ->
+	Set = case gb_trees:lookup(XsiOp, Maps) of
+		{value, V} ->
+		  ?SETS:add_element(Key, V);
+		none ->
+		  ?SETS:from_list([Key])
+	      end,
+	Pred = XsiOp#xsi_op.pred,
+	Op = XsiOp#xsi_op.op,
+	SSet = case gb_trees:lookup(Pred, Uses) of
+		 {value, VV} ->
+		   ?SETS:add_element(Op#eop.stopped_by, VV);
+		 none ->
+		   ?SETS:from_list([Op#eop.stopped_by])
+	       end,
+	{gb_trees:enter(XsiOp, Set, Maps), gb_trees:enter(Pred, SSet, Uses)};
+      _->
+	{Maps, Uses}
+    end,
   add_map_and_uses(Ops, Key, NewMaps, NewUses).
 
 post_process([], _CFGGraph) -> ok;
@@ -1162,37 +1159,38 @@ code_motion_in_block(L,[Inst|Insts],Cfg,XsiG,Visited,InsertionsAcc) ->
     #pre_candidate{} ->
       Def = Inst#pre_candidate.def,
       Alu = Inst#pre_candidate.alu,
-      case Def of
-        bottom ->
-          InstToAdd = Alu;
-        #temp{} ->
-          Key = Def#temp.key,
-          {_V,Xsi} = ?GRAPH:vertex(XsiG,Key),
-          case Xsi#xsi.wba of
-            true ->
-              %% Turn into a move
-              Dst = ?RTL:alu_dst(Alu),
-              Move = ?RTL:mk_move(Dst,Def#temp.var),
-              pp_instr(Inst#pre_candidate.alu,nil), ?pp_debug(" ==> ",[]), pp_instr(Move,nil),
-              %% Counting redundancies
-              redundancy_add(),
-              InstToAdd = Move;
-            _ ->
-              InstToAdd = Alu
-          end;
-        _ -> %% Def is a real variable
-          %% Turn into a move
-          Dst = ?RTL:alu_dst(Alu),
-          Move = ?RTL:mk_move(Dst,Def),
-          pp_instr(Alu,nil), ?pp_debug(" ==> ",[]), pp_instr(Move,nil),
-          %% Counting redundancies
-          redundancy_add(),
-          InstToAdd = Move
-      end,
+      InstToAdd =
+	case Def of
+	  bottom ->
+	    Alu;
+	  #temp{} ->
+	    Key = Def#temp.key,
+	    {_V,Xsi} = ?GRAPH:vertex(XsiG,Key),
+	    case Xsi#xsi.wba of
+	      true ->
+		%% Turn into a move
+		Dst = ?RTL:alu_dst(Alu),
+		Move = ?RTL:mk_move(Dst,Def#temp.var),
+		pp_instr(Inst#pre_candidate.alu,nil), ?pp_debug(" ==> ",[]), pp_instr(Move,nil),
+		%% Counting redundancies
+		redundancy_add(),
+		Move;
+	      _ ->
+		Alu
+	    end;
+	  _ -> %% Def is a real variable
+	    %% Turn into a move
+	    Dst = ?RTL:alu_dst(Alu),
+	    Move = ?RTL:mk_move(Dst,Def),
+	    pp_instr(Alu,nil), ?pp_debug(" ==> ",[]), pp_instr(Move,nil),
+	    %% Counting redundancies
+	    redundancy_add(),
+	    Move
+	end,
       code_motion_in_block(L,Insts,Cfg,XsiG,[InstToAdd|Visited],InsertionsAcc);
     #xsi_link{} ->
       Key = Inst#xsi_link.num,
-      {_V,Xsi} = ?GRAPH:vertex(XsiG,Key),      
+      {_V,Xsi} = ?GRAPH:vertex(XsiG,Key),
       case Xsi#xsi.wba of
         true ->
           %% Xsi is a WBA, it might trigger insertions
@@ -1235,139 +1233,133 @@ get_insertions([],OpAcc,InsertionsAcc,_Visited,_Expr,_XsiG) ->
 get_insertions([XsiOp|Ops],OpAcc,InsertionsAcc,Visited,Expr,XsiG) ->
   Pred = XsiOp#xsi_op.pred,
   Op = XsiOp#xsi_op.op,
-  case Op of
-    #bottom{} ->
-      case gb_trees:lookup(Pred,InsertionsAcc) of
-        {value,Insertion} ->
-          From = Insertion#insertion.from,
-          case lists:keyfind(Op, 1, From) of
-            false ->
-              ?pp_debug("~nThere has been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
-              Dst = Op#bottom.var,
-              Expr2 = ?RTL:alu_dst_update(Expr,Dst),
-              Inst = manufacture_computation(Pred,Expr2,Visited),
-              Code = Insertion#insertion.code,
-              NewInsertion = Insertion#insertion{from=[{Op,Dst}|From],code=[Inst|Code]},
-              NewInsertionsAcc = gb_trees:update(Pred,NewInsertion,InsertionsAcc);
-            {_, Val} ->
-              ?pp_debug("~nThere has been insertions along the edge L~w already, and for that operand too | Op=",[Pred]),pp_arg(Op),
-              Dst = Val,
-              NewInsertionsAcc = InsertionsAcc
-          end;
-        none ->
-          ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course)| Op=",[Pred]),pp_arg(Op),
-          Dst = Op#bottom.var,
-          Expr2 = ?RTL:alu_dst_update(Expr,Dst),
-          Inst = manufacture_computation(Pred,Expr2,Visited),
-          NewInsertion = #insertion{from=[{Op,Dst}],code=[Inst]},
-          NewInsertionsAcc = gb_trees:insert(Pred,NewInsertion,InsertionsAcc)
-      end;
-    #const_expr{} ->
-      case gb_trees:lookup(Pred,InsertionsAcc) of
-        {value,Insertion} ->
-          From = Insertion#insertion.from,
-          case lists:keyfind(Op, 1, From) of
-            false ->
-              ?pp_debug("~nThere have been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
-              Dst = Op#const_expr.var,
-              Val = Op#const_expr.value,
-              Inst = ?RTL:mk_move(Dst,Val),
-              Code = Insertion#insertion.code,
-              NewInsertion = Insertion#insertion{from=[{Op,Dst}|From],code=[Inst|Code]},
-              NewInsertionsAcc = gb_trees:update(Pred,NewInsertion,InsertionsAcc);
-            {_, Val} ->
-              ?pp_debug("~nThere have been insertions along the edge L~w already, and for that operand too | Op=",[Pred]),pp_arg(Op),
-              Dst = Val,
-              NewInsertionsAcc = InsertionsAcc
-          end;
-        none ->
-          ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course)| Op=",[Pred]),pp_arg(Op),
-          Dst = Op#const_expr.var,
-          Val = Op#const_expr.value,
-          Inst = ?RTL:mk_move(Dst,Val),
-          NewInsertion = #insertion{from=[{Op,Dst}],code=[Inst]},
-          NewInsertionsAcc = gb_trees:insert(Pred,NewInsertion,InsertionsAcc)
-      end;
-    #eop{} ->
-      %% We treat expressions like bottoms
-      %% The value must be recomputed, and therefore not available...
-      case gb_trees:lookup(Pred,InsertionsAcc) of
-        {value,Insertion} ->
-          From = Insertion#insertion.from,
-          case lists:keyfind(Op, 1, From) of
-            false ->
-              ?pp_debug("~nThere has been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
-              Dst = Op#eop.var,
-              Expr2 = ?RTL:alu_dst_update(Expr,Dst),
-              Inst = manufacture_computation(Pred,Expr2,Visited),
-              Code = Insertion#insertion.code,
-              NewInsertion = Insertion#insertion{from=[{Op,Dst}|From],code=[Inst|Code]},
-              NewInsertionsAcc = gb_trees:update(Pred,NewInsertion,InsertionsAcc);
-            {_, Val} ->
-              ?pp_debug("~nThere has been insertions along the edge L~w already, and for that operand too | Op=",[Pred]),pp_arg(Op),
-              Dst = Val,
-              NewInsertionsAcc = InsertionsAcc
-          end;
-        none ->
-          ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course)| Op=",[Pred]),pp_arg(Op),
-          Dst = Op#eop.var,
-          Expr2 = ?RTL:alu_dst_update(Expr,Dst),
-          Inst = manufacture_computation(Pred,Expr2,Visited),
-          NewInsertion = #insertion{from=[{Op,Dst}],code=[Inst]},
-          NewInsertionsAcc = gb_trees:insert(Pred,NewInsertion,InsertionsAcc)
-      end;
-    #temp{} ->
-      case gb_trees:lookup(Pred,InsertionsAcc) of
-        {value,Insertion} ->
-          From = Insertion#insertion.from,
-          case lists:keyfind(Op, 1, From) of
-            false ->
-              ?pp_debug("~nThere has been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
-              Key = Op#temp.key,
-              {_V,Xsi} = ?GRAPH:vertex(XsiG,Key),      
-              case Xsi#xsi.wba of
-                true ->
-                  ?pp_debug("~nBut the operand is a WBA Xsi: no need for insertion",[]),
-                  Dst = Op#temp.var,
-                  NewInsertionsAcc = InsertionsAcc;
-                _ ->
-                  ?pp_debug("~nBut the operand is a NOT WBA Xsi: we must make an insertion",[]),
-                  Dst = ?RTL:mk_new_var(),
-                  Expr2 = ?RTL:alu_dst_update(Expr,Dst),
-                  Inst = manufacture_computation(Pred,Expr2,Visited),
-                  Code = Insertion#insertion.code,
-                  NewInsertion = Insertion#insertion{from=[{Op,Dst}|From],code=[Inst|Code]},
-                  NewInsertionsAcc = gb_trees:update(Pred,NewInsertion,InsertionsAcc)
-              end;
-            {_, Val} ->
-              ?pp_debug("~nThere has been insertions along the edge L~w already, and for that operand too (Op=~w)",[Pred,Op]),
-              ?pp_debug("~nThis means, this temp is a WBA Xsi's definition",[]),
-              Dst = Val,
-              NewInsertionsAcc = InsertionsAcc
-          end;
-        none ->
-          ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course | Op=",[Pred]),pp_arg(Op),
-          Key = Op#temp.key,
-          {_V,Xsi} = ?GRAPH:vertex(XsiG,Key),
-          case Xsi#xsi.wba of
-            true ->
-              ?pp_debug("~nBut the operand is a WBA Xsi: no need for insertion",[]),
-              Dst = Op#temp.var,
-              NewInsertionsAcc = InsertionsAcc;
-            _ ->
-              ?pp_debug("~nBut the operand is a NOT WBA Xsi: we must make an insertion",[]),
-              Dst = ?RTL:mk_new_var(),
-              Expr2 = ?RTL:alu_dst_update(Expr,Dst),
-              Inst = manufacture_computation(Pred,Expr2,Visited),
-              NewInsertion = #insertion{from=[{Op,Dst}],code=[Inst]},
-              NewInsertionsAcc = gb_trees:insert(Pred,NewInsertion,InsertionsAcc)
-          end
-      end;
-    _ ->
-      ?pp_debug("~nThe operand (Op=",[]),pp_arg(Op),?pp_debug(") is a real variable, no need for insertion along L~w",[Pred]),
-      Dst = Op,
-      NewInsertionsAcc = InsertionsAcc
-  end,
+  {Dst, NewInsertionsAcc} =
+    case Op of
+      #bottom{} ->
+	case gb_trees:lookup(Pred,InsertionsAcc) of
+	  {value,Insertion} ->
+	    From = Insertion#insertion.from,
+	    case lists:keyfind(Op, 1, From) of
+	      false ->
+		?pp_debug("~nThere has been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
+		D = Op#bottom.var,
+		Expr2 = ?RTL:alu_dst_update(Expr,D),
+		Inst = manufacture_computation(Pred,Expr2,Visited),
+		Code = Insertion#insertion.code,
+		NewInsertion = Insertion#insertion{from=[{Op,D}|From],code=[Inst|Code]},
+		{D, gb_trees:update(Pred, NewInsertion, InsertionsAcc)};
+	      {_, Val} ->
+		?pp_debug("~nThere has been insertions along the edge L~w already, and for that operand too | Op=",[Pred]),pp_arg(Op),
+		{Val, InsertionsAcc}
+	    end;
+	  none ->
+	    ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course)| Op=",[Pred]),pp_arg(Op),
+	    D = Op#bottom.var,
+	    Expr2 = ?RTL:alu_dst_update(Expr, D),
+	    Inst = manufacture_computation(Pred,Expr2,Visited),
+	    NewInsertion = #insertion{from=[{Op,D}],code=[Inst]},
+	    {D, gb_trees:insert(Pred,NewInsertion, InsertionsAcc)}
+	end;
+      #const_expr{} ->
+	case gb_trees:lookup(Pred,InsertionsAcc) of
+	  {value,Insertion} ->
+	    From = Insertion#insertion.from,
+	    case lists:keyfind(Op, 1, From) of
+	      false ->
+		?pp_debug("~nThere have been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
+		D = Op#const_expr.var,
+		Val = Op#const_expr.value,
+		Inst = ?RTL:mk_move(D, Val),
+		Code = Insertion#insertion.code,
+		NewInsertion = Insertion#insertion{from=[{Op,D}|From],code=[Inst|Code]},
+		{D, gb_trees:update(Pred,NewInsertion,InsertionsAcc)};
+	      {_, Val} ->
+		?pp_debug("~nThere have been insertions along the edge L~w already, and for that operand too | Op=",[Pred]),pp_arg(Op),
+		{Val, InsertionsAcc}
+	    end;
+	  none ->
+	    ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course)| Op=",[Pred]),pp_arg(Op),
+	    D = Op#const_expr.var,
+	    Val = Op#const_expr.value,
+	    Inst = ?RTL:mk_move(D, Val),
+	    NewInsertion = #insertion{from=[{Op,D}],code=[Inst]},
+	    {D, gb_trees:insert(Pred,NewInsertion, InsertionsAcc)}
+	end;
+      #eop{} ->
+	%% We treat expressions like bottoms
+	%% The value must be recomputed, and therefore not available...
+	case gb_trees:lookup(Pred,InsertionsAcc) of
+	  {value,Insertion} ->
+	    From = Insertion#insertion.from,
+	    case lists:keyfind(Op, 1, From) of
+	      false ->
+		?pp_debug("~nThere has been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
+		D = Op#eop.var,
+		Expr2 = ?RTL:alu_dst_update(Expr, D),
+		Inst = manufacture_computation(Pred,Expr2,Visited),
+		Code = Insertion#insertion.code,
+		NewInsertion = Insertion#insertion{from=[{Op,D}|From],code=[Inst|Code]},
+		{D, gb_trees:update(Pred,NewInsertion, InsertionsAcc)};
+	      {_, Val} ->
+		?pp_debug("~nThere has been insertions along the edge L~w already, and for that operand too | Op=",[Pred]),pp_arg(Op),
+		{Val, InsertionsAcc}
+	    end;
+	  none ->
+	    ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course)| Op=",[Pred]),pp_arg(Op),
+	    D = Op#eop.var,
+	    Expr2 = ?RTL:alu_dst_update(Expr, D),
+	    Inst = manufacture_computation(Pred,Expr2,Visited),
+	    NewInsertion = #insertion{from=[{Op,D}],code=[Inst]},
+	    {D, gb_trees:insert(Pred, NewInsertion, InsertionsAcc)}
+	end;
+      #temp{} ->
+	case gb_trees:lookup(Pred,InsertionsAcc) of
+	  {value,Insertion} ->
+	    From = Insertion#insertion.from,
+	    case lists:keyfind(Op, 1, From) of
+	      false ->
+		?pp_debug("~nThere has been insertions along the edge L~w already, but not for that operand | Op=",[Pred]),pp_arg(Op),
+		Key = Op#temp.key,
+		{_V,Xsi} = ?GRAPH:vertex(XsiG,Key),
+		case Xsi#xsi.wba of
+		  true ->
+		    ?pp_debug("~nBut the operand is a WBA Xsi: no need for insertion",[]),
+		    {Op#temp.var, InsertionsAcc};
+		  _ ->
+		    ?pp_debug("~nBut the operand is a NOT WBA Xsi: we must make an insertion",[]),
+		    D = ?RTL:mk_new_var(),
+		    Expr2 = ?RTL:alu_dst_update(Expr, D),
+		    Inst = manufacture_computation(Pred,Expr2,Visited),
+		    Code = Insertion#insertion.code,
+		    NewInsertion = Insertion#insertion{from=[{Op,D}|From],code=[Inst|Code]},
+		    {D, gb_trees:update(Pred, NewInsertion, InsertionsAcc)}
+		end;
+	      {_, Val} ->
+		?pp_debug("~nThere has been insertions along the edge L~w already, and for that operand too (Op=~w)",[Pred,Op]),
+		?pp_debug("~nThis means, this temp is a WBA Xsi's definition",[]),
+		{Val, InsertionsAcc}
+	    end;
+	  none ->
+	    ?pp_debug("~nThere has been no insertion along the edge L~w, (and not for that operand, of course | Op=",[Pred]),pp_arg(Op),
+	    Key = Op#temp.key,
+	    {_V,Xsi} = ?GRAPH:vertex(XsiG,Key),
+	    case Xsi#xsi.wba of
+	      true ->
+		?pp_debug("~nBut the operand is a WBA Xsi: no need for insertion",[]),
+		{Op#temp.var, InsertionsAcc};
+	      _ ->
+		?pp_debug("~nBut the operand is a NOT WBA Xsi: we must make an insertion",[]),
+		D = ?RTL:mk_new_var(),
+		Expr2 = ?RTL:alu_dst_update(Expr, D),
+		Inst = manufacture_computation(Pred,Expr2,Visited),
+		NewInsertion = #insertion{from=[{Op,D}],code=[Inst]},
+	        {D, gb_trees:insert(Pred, NewInsertion, InsertionsAcc)}
+	    end
+	end;
+      _ ->
+	?pp_debug("~nThe operand (Op=",[]),pp_arg(Op),?pp_debug(") is a real variable, no need for insertion along L~w",[Pred]),
+	{Op, InsertionsAcc}
+    end,
   NewXsiOp = XsiOp#xsi_op{op=Dst},
   get_insertions(Ops, [NewXsiOp|OpAcc], NewInsertionsAcc, Visited, Expr, XsiG).
 
