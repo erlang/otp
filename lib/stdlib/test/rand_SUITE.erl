@@ -18,30 +18,19 @@
 %% %CopyrightEnd%
 
 -module(rand_SUITE).
--export([all/0, suite/0,groups/0,
-	 init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2, end_per_testcase/2
-	]).
+-export([all/0, suite/0,groups/0]).
 
 -export([interval_int/1, interval_float/1, seed/1,
          api_eq/1, reference/1,
 	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
 	 basic_stats_normal/1,
-	 plugin/1, measure/1
-	]).
+	 plugin/1, measure/1]).
 
 -export([test/0, gen/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 -define(LOOP, 1000000).
-
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -52,18 +41,11 @@ all() ->
      api_eq,
      reference,
      {group, basic_stats},
-     plugin, measure
-    ].
+     plugin, measure].
 
 groups() ->
     [{basic_stats, [parallel],
       [basic_stats_uniform_1, basic_stats_uniform_2, basic_stats_normal]}].
-
-init_per_suite(Config) ->  Config.
-end_per_suite(_Config) -> ok.
-
-init_per_group(_GroupName, Config) -> Config.
-end_per_group(_GroupName, Config) ->  Config.
 
 %% A simple helper to test without test_server during dev
 test() ->
@@ -285,16 +267,19 @@ gen(_, _, Acc) -> lists:reverse(Acc).
 %% Check that the algorithms generate sound values.
 
 basic_stats_uniform_1(Config) when is_list(Config) ->
+    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
     [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
      || Alg <- algs()],
     ok.
 
 basic_stats_uniform_2(Config) when is_list(Config) ->
+    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
     [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
      || Alg <- algs()],
     ok.
 
 basic_stats_normal(Config) when is_list(Config) ->
+    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
     io:format("Testing normal~n",[]),
     [basic_normal_1(?LOOP, rand:seed_s(Alg), 0, 0) || Alg <- algs()],
     ok.
@@ -395,6 +380,7 @@ crypto_uniform_n(N, State0) ->
 %% Not a test but measures the time characteristics of the different algorithms
 measure(Suite) when is_atom(Suite) -> [];
 measure(_Config) ->
+    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
     Algos = [crypto64|algs()],
     io:format("RNG uniform integer performance~n",[]),
     _ = measure_1(random, fun(State) -> {int, random:uniform_s(10000, State)} end),

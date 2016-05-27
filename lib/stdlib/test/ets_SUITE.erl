@@ -125,7 +125,7 @@ end_per_testcase(_Func, _Config) ->
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,20}}].
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [{group, new}, {group, insert}, {group, lookup},
@@ -3297,6 +3297,7 @@ exit_large_table_owner_do(Opts,{FEData,Config}) ->
     verify_rescheduling_exit(Config, FEData, Opts, false, 1, 1).
 
 exit_many_large_table_owner(Config) when is_list(Config) ->
+    ct:timetrap({minutes,30}), %% valgrind needs a lot
     %%Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
     FEData = fun(Do) -> repeat_while(fun(500000) -> {false,ok};
 					(I) -> Do({erlang:phash2(I, 16#ffffff),I}),
@@ -4270,6 +4271,7 @@ do_lookup_element(Tab, N, M) ->
 
 
 heavy_concurrent(Config) when is_list(Config) ->
+    ct:timetrap({minutes,30}), %% valgrind needs a lot of time
     repeat_for_opts(do_heavy_concurrent).
 
 do_heavy_concurrent(Opts) ->

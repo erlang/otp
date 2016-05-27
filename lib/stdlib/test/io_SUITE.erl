@@ -19,10 +19,7 @@
 %%
 -module(io_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
-
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0]).
 
 -export([error_1/1, float_g/1, otp_5403/1, otp_5813/1, otp_6230/1, 
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
@@ -51,12 +48,6 @@
 -define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
 -endif.
 
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
-
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
@@ -71,22 +62,6 @@ all() ->
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue,
      format_string, maps, coverage].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -952,7 +927,7 @@ otp_6708(Config) when is_list(Config) ->
 
 
 otp_7084() ->
-    [{timetrap,{minutes,3}}].
+    [{timetrap,{minutes,6}}]. %% valgrind needs a lot of time
 
 %% OTP-7084. Printing floating point numbers nicely.
 otp_7084(Config) when is_list(Config) ->
@@ -1830,13 +1805,14 @@ bad_printable_range(Config) when is_list(Config) ->
     Cmd = lists:concat([lib:progname()," +pcunnnnnicode -run erlang halt"]),
     P = open_port({spawn, Cmd}, [stderr_to_stdout, {line, 200}]),
     ok = receive
-	     {P, {data, {eol , "bad range of printable characters" ++ _}}} ->
-		 ok;
-	     Other ->
-		 Other
-	 after 1000 ->
-		 timeout
-	 end,
+             {P, {data, {eol , "bad range of printable characters" ++ _}}} ->
+                 ok;
+             Other ->
+                 Other
+         %% valgrind needs a lot of time
+         after 6000 ->
+                   timeout
+         end,
     catch port_close(P),
     flush_from_port(P),
     ok.

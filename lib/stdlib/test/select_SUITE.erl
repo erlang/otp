@@ -59,42 +59,20 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,select_test/1,
-	 init_per_testcase/2, end_per_testcase/2, 
-	 return_values/1]).
-
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
+-export([all/0, suite/0,
+         select_test/1, return_values/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,20}}].
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [return_values, select_test].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 %% Test select in numerous ways.
 select_test(Config) when is_list(Config) ->
+    ct:timetrap({minutes,40}), %% valgrinds needs a lot of time
     do_test(Config).
 
 %% Test return values in specific situations for select/3 and select/1.
