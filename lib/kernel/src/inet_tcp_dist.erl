@@ -73,7 +73,8 @@ gen_listen(Driver, Name) ->
 	{ok, Socket} ->
 	    TcpAddress = get_tcp_address(Driver, Socket),
 	    {_,Port} = TcpAddress#net_address.address,
-	    case erl_epmd:register_node(Name, Port) of
+	    ErlEpmd = net_kernel:epmd_module(),
+	    case ErlEpmd:register_node(Name, Port) of
 		{ok, Creation} ->
 		    {ok, {Socket, TcpAddress, Creation}};
 		Error ->
@@ -280,7 +281,8 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     case inet:getaddr(Address, AddressFamily) of
 	{ok, Ip} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    case erl_epmd:port_please(Name, Ip) of
+	    ErlEpmd = net_kernel:epmd_module(),
+	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
 		    ?trace("port_please(~p) -> version ~p~n", 
 			   [Node,Version]),

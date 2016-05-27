@@ -96,7 +96,8 @@ names() ->
       Reason :: address | file:posix().
 
 names(Hostname) ->
-    erl_epmd:names(Hostname).
+    ErlEpmd = net_kernel:epmd_module(),
+    ErlEpmd:names(Hostname).
 
 -spec dns_hostname(Host) -> {ok, Name} | {error, Host} when
       Host :: atom() | string(),

@@ -87,7 +87,8 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     case inet:getaddr(Address, Driver:family()) of
 	{ok, Ip} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    case erl_epmd:port_please(Name, Ip) of
+	    ErlEpmd = net_kernel:epmd_module(),
+	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
 		    ?trace("port_please(~p) -> version ~p~n", 
 			   [Node,Version]),

@@ -241,6 +241,11 @@
          marker="kernel:code">code(3)</seealso>.</p>
 	 
       </item>
+      <tag><c>-epmd_module Module</c></tag>
+      <item>
+        <p>Specifies the module to use for registration and lookup of
+          node names.  Defaults to <c>erl_epmd</c>.</p>
+      </item>
       <tag><c>-eval Expr</c></tag>
       <item>
         <p>Scans, parses and evaluates an arbitrary expression
