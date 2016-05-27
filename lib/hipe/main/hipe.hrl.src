@@ -162,7 +162,7 @@
 -define(get_hipe_timer_val(Timer), get(Timer)).
 -define(set_hipe_timer_val(Timer, Val), put(Timer, Val)).
 -define(option_time(Stmnt, Text, Options),
-        if true ->
+        begin
 	    ?when_option(time, Options, ?start_timer(Text)),
 	    fun(R) ->
 		    ?when_option(time, Options, ?stop_timer(Text)),
