@@ -43,6 +43,7 @@ suite() ->
 all() ->
     [
      {group, openssh},
+     small_interrupted_send,
      interrupted_send,
      start_shell,
      start_shell_exec,
@@ -361,12 +362,20 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
+small_interrupted_send(Config) -> 
+    K = 1024,
+    M = K*K,
+    do_interrupted_send(Config, 10*M, 4*K).
 interrupted_send(Config) ->
+    M = 1024*1024,
+    do_interrupted_send(Config, 10*M, 4*M).
+
+do_interrupted_send(Config, SendSize, EchoSize) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
-    EchoSS_spec = {ssh_echo_server, [4000000,[{dbg,true}]]},
+    EchoSS_spec = {ssh_echo_server, [EchoSize,[{dbg,true}]]},
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
@@ -380,11 +389,11 @@ interrupted_send(Config) ->
 						      {user_dir, UserDir}]),
     ct:log("connected", []),
 
-    %% build 10MB binary
-    Data = << <<X:32>> || X <- lists:seq(1,2500000)>>,
+    %% build big binary
+    Data = << <<X:32>> || X <- lists:seq(1,SendSize div 4)>>,
 
-    %% expect remote end to send us 4MB back
-    <<ExpectedData:4000000/binary, _/binary>> = Data,
+    %% expect remote end to send us EchoSize back
+    <<ExpectedData:EchoSize/binary, _/binary>> = Data,
 
     %% Spawn listener. Otherwise we could get a deadlock due to filled buffers
     Parent = self(),
@@ -421,7 +430,7 @@ interrupted_send(Config) ->
 	    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(ExpectedData) + 1),
 
 	    ct:log("going to send ~p bytes", [size(Data)]),
-	    case ssh_connection:send(ConnectionRef, ChannelId, Data, 10000) of
+	    case ssh_connection:send(ConnectionRef, ChannelId, Data, 30000) of
 		{error, closed} ->
 		    ct:log("{error,closed} - That's what we expect :)", []),
 		    ok;
@@ -429,10 +438,10 @@ interrupted_send(Config) ->
 		    ct:log("Got ~p - that's bad, very bad indeed",[Msg]),
 		    ct:fail({expected,{error,closed}, got, Msg})
 	    end,
-	    ct:log("going to receive result", []),
+	    ct:log("going to check the result (if it is available)", []),
 	    receive
 		{ResultPid, Result} ->
-		    ct:log("back from receive data: ~p", [Result]),
+		    ct:log("Got result: ~p", [Result]),
 		    ssh:close(ConnectionRef),
 		    ssh:stop_daemon(Pid),
 		    Result
