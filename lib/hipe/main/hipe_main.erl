@@ -296,7 +296,7 @@ icode_ssa_convert(IcodeCfg, Options) ->
 icode_ssa_const_prop(IcodeSSA, Options) ->
   case proplists:get_bool(icode_ssa_const_prop, Options) of
     true ->
-      ?option_time(Tmp=hipe_icode_ssa_const_prop:propagate(IcodeSSA),
+      Tmp = ?option_time(hipe_icode_ssa_const_prop:propagate(IcodeSSA),
 		   "Icode SSA sparse conditional constant propagation", Options),
       ?option_time(hipe_icode_ssa:remove_dead_code(Tmp),
 		   "Icode SSA dead code elimination pass 1", Options);

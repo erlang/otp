@@ -107,7 +107,7 @@ rtl_ssapre(RtlSSACfg, Options) ->
   case XsiList of
     [] ->
       %% No Xsi
-      ?option_time(?pp_debug("~n~n################ No Xsi Inserted ################~n",[]),"RTL A-SSAPRE No Xsi inserted (skip Downsafety and Will Be Available)",Options),
+      ?pp_debug("~n~n################ No Xsi Inserted ################~n",[]),
       ok;
     _ ->
       ?pp_debug("~n############ Downsafety ##########~n",[]),
@@ -126,7 +126,7 @@ rtl_ssapre(RtlSSACfg, Options) ->
   ?pp_debug("~n~n################ Xsi CFG ################~n",[]),pp_cfg(CFG2,XsiGraph),
 
   init_redundancy_count(),
-  ?option_time(FinalCFG=perform_code_motion(Labels,CFG2,XsiGraph),"RTL A-SSAPRE Code Motion",Options),
+  FinalCFG = ?option_time(perform_code_motion(Labels,CFG2,XsiGraph),"RTL A-SSAPRE Code Motion",Options),
   
   ?pp_debug("\n############ No more need for the Xsi Graph....Deleting...",[]),?GRAPH:delete(XsiGraph),
 
@@ -146,7 +146,7 @@ perform_Xsi_insertion(Cfg, Options) ->
   init_counters(), %% Init counters for Bottoms and Temps
   DigraphOpts = [cyclic, private],
   XsiGraph = digraph:new(DigraphOpts),
-  %% Be carefull, the digraph component is NOT garbage collected,
+  %% Be careful, the digraph component is NOT garbage collected,
   %% so don't create 20 millions of instances!
   %% finds the longest depth
   %% Depth-first, preorder traversal over Basic Blocks.
@@ -154,13 +154,13 @@ perform_Xsi_insertion(Cfg, Options) ->
   Labels = ?CFG:preorder(Cfg), 
 
   ?pp_debug("~n~n############# Finding definitions for computation~n~n",[]),
-  ?option_time({Cfg2,XsiGraph} = find_definition_for_computations(Labels,Cfg,XsiGraph),"RTL A-SSAPRE Xsi Insertion, searching from instructions",Options),
+  {Cfg2,XsiGraph} = ?option_time(find_definition_for_computations(Labels,Cfg,XsiGraph),"RTL A-SSAPRE Xsi Insertion, searching from instructions",Options),
 
   %% Active List creation
   GeneratorXsiList = lists:sort(?GRAPH:vertices(XsiGraph)),
   ?pp_debug("~n~n############# Inserted Xsis ~w",[GeneratorXsiList]),
   ?pp_debug("~n~n############# Finding operands~n",[]),
-  ?option_time({Cfg3,XsiGraph} = find_operands(Cfg2,XsiGraph,GeneratorXsiList,0),"RTL A-SSAPRE Xsi Insertion, finding operands",Options),
+  {Cfg3,XsiGraph} = ?option_time(find_operands(Cfg2,XsiGraph,GeneratorXsiList,0),"RTL A-SSAPRE Xsi Insertion, finding operands",Options),
 
   %% Creating the CFGGraph
   ?pp_debug("~n~n############# Creating CFG Graph",[]),
@@ -170,9 +170,9 @@ perform_Xsi_insertion(Cfg, Options) ->
   ?pp_debug("~nAdding a vertex for the start label: ~w",[StartLabel]),
   ?GRAPH:add_vertex(CFGGraph, StartLabel, #block{type = top}),
                                                 % Doing the others
-  ?option_time(MPs=create_cfggraph(Others,Cfg3,CFGGraph,[],[],[],XsiGraph),"RTL A-SSAPRE Xsi Insertion, creating intermediate 'SSAPRE Graph'",Options),
+  MPs = ?option_time(create_cfggraph(Others,Cfg3,CFGGraph,[],[],[],XsiGraph),"RTL A-SSAPRE Xsi Insertion, creating intermediate 'SSAPRE Graph'",Options),
 
-  %% Return the bloody collected information
+  %% Return the collected information
   {Cfg3,XsiGraph,CFGGraph,MPs}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

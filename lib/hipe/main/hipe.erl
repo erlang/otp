@@ -596,16 +596,16 @@ fix_beam_exports([], Exports) ->
   Exports.
 
 get_beam_icode(Mod, {BeamCode, Exports}, File, Options) ->
-  ?option_time({ok, Icode} =
-		 (catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
-	       "BEAM-to-Icode", Options),
+  {ok, Icode} =
+    ?option_time((catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
+	         "BEAM-to-Icode", Options),
   BeamBin = get_beam_code(File),
   {{Mod, Exports, Icode}, BeamBin}.
 
 get_core_icode(Mod, Core, File, Options) ->
-  ?option_time({ok, Icode} =
-		 (catch {ok, cerl_to_icode:module(Core, Options)}),
-	       "BEAM-to-Icode", Options),
+  {ok, Icode} =
+    ?option_time((catch {ok, cerl_to_icode:module(Core, Options)}),
+		 "BEAM-to-Icode", Options),
   NeedBeamCode = not proplists:get_bool(load, Options),
   BeamBin = 
     case NeedBeamCode of
