@@ -51,7 +51,7 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
      void *This = getPtr(bp,memenv);
      wxeRefData *refd = getRefData(This);
      if(This && refd) {
-       if(recurse_level > 1 && refd->type != 4) {
+       if(recurse_level > 1 && refd->type != 8) {
           delayed_delete->Append(Ecmd.Save(op));
        } else {
           delete_object(This, refd);
@@ -5889,27 +5889,27 @@ case wxMirrorDC_new: { // wxMirrorDC::wxMirrorDC
  wxDC *dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  bool * mirror = (bool *) bp; bp += 4;
  wxMirrorDC * Result = new EwxMirrorDC(*dc,*mirror);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMirrorDC");
  break;
 }
 case wxScreenDC_new: { // wxScreenDC::wxScreenDC
  wxScreenDC * Result = new EwxScreenDC();
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxScreenDC");
  break;
 }
 #if wxUSE_POSTSCRIPT
 case wxPostScriptDC_new_0: { // wxPostScriptDC::wxPostScriptDC
  wxPostScriptDC * Result = new EwxPostScriptDC();
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPostScriptDC");
  break;
 }
 case wxPostScriptDC_new_1: { // wxPostScriptDC::wxPostScriptDC
  wxPrintData *printData = (wxPrintData *) getPtr(bp,memenv); bp += 4;
  wxPostScriptDC * Result = new EwxPostScriptDC(*printData);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPostScriptDC");
  break;
 }
@@ -5931,7 +5931,7 @@ case wxPostScriptDC_GetResolution: { // wxPostScriptDC::GetResolution
 #if !wxCHECK_VERSION(2,9,0)
 case wxWindowDC_new_0: { // wxWindowDC::wxWindowDC
  wxWindowDC * Result = new EwxWindowDC();
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxWindowDC");
  break;
 }
@@ -5939,14 +5939,14 @@ case wxWindowDC_new_0: { // wxWindowDC::wxWindowDC
 case wxWindowDC_new_1: { // wxWindowDC::wxWindowDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxWindowDC * Result = new EwxWindowDC(win);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxWindowDC");
  break;
 }
 #if !wxCHECK_VERSION(2,9,0)
 case wxClientDC_new_0: { // wxClientDC::wxClientDC
  wxClientDC * Result = new EwxClientDC();
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxClientDC");
  break;
 }
@@ -5954,14 +5954,14 @@ case wxClientDC_new_0: { // wxClientDC::wxClientDC
 case wxClientDC_new_1: { // wxClientDC::wxClientDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxClientDC * Result = new EwxClientDC(win);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxClientDC");
  break;
 }
 #if !wxCHECK_VERSION(2,9,0)
 case wxPaintDC_new_0: { // wxPaintDC::wxPaintDC
  wxPaintDC * Result = new EwxPaintDC();
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPaintDC");
  break;
 }
@@ -5969,27 +5969,27 @@ case wxPaintDC_new_0: { // wxPaintDC::wxPaintDC
 case wxPaintDC_new_1: { // wxPaintDC::wxPaintDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxPaintDC * Result = new EwxPaintDC(win);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPaintDC");
  break;
 }
 case wxMemoryDC_new_1_0: { // wxMemoryDC::wxMemoryDC
  wxBitmap *bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  wxMemoryDC * Result = new EwxMemoryDC(*bitmap);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMemoryDC");
  break;
 }
 case wxMemoryDC_new_1_1: { // wxMemoryDC::wxMemoryDC
  wxDC * dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  wxMemoryDC * Result = new EwxMemoryDC(dc);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMemoryDC");
  break;
 }
 case wxMemoryDC_new_0: { // wxMemoryDC::wxMemoryDC
  wxMemoryDC * Result = new EwxMemoryDC();
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxMemoryDC");
  break;
 }
@@ -6009,7 +6009,7 @@ case wxMemoryDC_SelectObjectAsSource: { // wxMemoryDC::SelectObjectAsSource
 }
 case wxBufferedDC_new_0: { // wxBufferedDC::wxBufferedDC
  wxBufferedDC * Result = new EwxBufferedDC();
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedDC");
  break;
 }
@@ -6027,7 +6027,7 @@ buffer = (wxBitmap *) getPtr(bp,memenv); bp += 4;
   } break;
  }};
  wxBufferedDC * Result = new EwxBufferedDC(dc,*buffer,style);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedDC");
  break;
 }
@@ -6044,7 +6044,7 @@ case wxBufferedDC_new_3: { // wxBufferedDC::wxBufferedDC
   } break;
  }};
  wxBufferedDC * Result = new EwxBufferedDC(dc,area,style);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedDC");
  break;
 }
@@ -6091,7 +6091,7 @@ case wxBufferedPaintDC_new_3: { // wxBufferedPaintDC::wxBufferedPaintDC
   } break;
  }};
  wxBufferedPaintDC * Result = new EwxBufferedPaintDC(window,*buffer,style);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedPaintDC");
  break;
 }
@@ -6105,7 +6105,7 @@ case wxBufferedPaintDC_new_2: { // wxBufferedPaintDC::wxBufferedPaintDC
   } break;
  }};
  wxBufferedPaintDC * Result = new EwxBufferedPaintDC(window,style);
- newPtr((void *) Result, 4, memenv);
+ newPtr((void *) Result, 8, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBufferedPaintDC");
  break;
 }
@@ -6147,7 +6147,7 @@ case wxGraphicsContext_CreatePen: { // wxGraphicsContext::CreatePen
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  wxPen *pen = (wxPen *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPen");
  break;
 }
@@ -6155,7 +6155,7 @@ case wxGraphicsContext_CreateBrush: { // wxGraphicsContext::CreateBrush
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  wxBrush *brush = (wxBrush *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateBrush(*brush)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateBrush(*brush)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
@@ -6179,7 +6179,7 @@ case wxGraphicsContext_CreateRadialGradientBrush: { // wxGraphicsContext::Create
  int * cColorA = (int *) bp; bp += 4;
  wxColour cColor = wxColour(*cColorR,*cColorG,*cColorB,*cColorA);
  if(!This) throw wxe_badarg(0);
- wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateRadialGradientBrush(*xo,*yo,*xc,*yc,*radius,oColor,cColor)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateRadialGradientBrush(*xo,*yo,*xc,*yc,*radius,oColor,cColor)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
@@ -6203,7 +6203,7 @@ case wxGraphicsContext_CreateLinearGradientBrush: { // wxGraphicsContext::Create
  int * c2A = (int *) bp; bp += 4;
  wxColour c2 = wxColour(*c2R,*c2G,*c2B,*c2A);
  if(!This) throw wxe_badarg(0);
- wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateLinearGradientBrush(*x1,*y1,*x2,*y2,c1,c2)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateLinearGradientBrush(*x1,*y1,*x2,*y2,c1,c2)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
@@ -6223,7 +6223,7 @@ case wxGraphicsContext_CreateFont: { // wxGraphicsContext::CreateFont
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- wxGraphicsFont * Result = new wxGraphicsFont(This->CreateFont(*font,col)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsFont * Result = new wxGraphicsFont(This->CreateFont(*font,col)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsFont");
  break;
 }
@@ -6263,14 +6263,14 @@ case wxGraphicsContext_CreateMatrix: { // wxGraphicsContext::CreateMatrix
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- wxGraphicsMatrix * Result = new wxGraphicsMatrix(This->CreateMatrix(a,b,c,d,tx,ty)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsMatrix * Result = new wxGraphicsMatrix(This->CreateMatrix(a,b,c,d,tx,ty)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsMatrix");
  break;
 }
 case wxGraphicsContext_CreatePath: { // wxGraphicsContext::CreatePath
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsPath * Result = new wxGraphicsPath(This->CreatePath()); newPtr((void *) Result,3, memenv);;
+ wxGraphicsPath * Result = new wxGraphicsPath(This->CreatePath()); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPath");
  break;
 }
@@ -6514,7 +6514,7 @@ case wxGraphicsContext_Translate: { // wxGraphicsContext::Translate
 case wxGraphicsContext_GetTransform: { // wxGraphicsContext::GetTransform
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsMatrix * Result = new wxGraphicsMatrix(This->GetTransform()); newPtr((void *) Result,3, memenv);;
+ wxGraphicsMatrix * Result = new wxGraphicsMatrix(This->GetTransform()); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsMatrix");
  break;
 }
@@ -7000,7 +7000,7 @@ case wxGraphicsRenderer_CreatePen: { // wxGraphicsRenderer::CreatePen
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
  wxPen *pen = (wxPen *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsPen * Result = new wxGraphicsPen(This->CreatePen(*pen)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPen");
  break;
 }
@@ -7008,7 +7008,7 @@ case wxGraphicsRenderer_CreateBrush: { // wxGraphicsRenderer::CreateBrush
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
  wxBrush *brush = (wxBrush *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateBrush(*brush)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateBrush(*brush)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
@@ -7031,7 +7031,7 @@ case wxGraphicsRenderer_CreateLinearGradientBrush: { // wxGraphicsRenderer::Crea
  int * c2A = (int *) bp; bp += 4;
  wxColour c2 = wxColour(*c2R,*c2G,*c2B,*c2A);
  if(!This) throw wxe_badarg(0);
- wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateLinearGradientBrush(*x1,*y1,*x2,*y2,c1,c2)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateLinearGradientBrush(*x1,*y1,*x2,*y2,c1,c2)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
@@ -7056,7 +7056,7 @@ case wxGraphicsRenderer_CreateRadialGradientBrush: { // wxGraphicsRenderer::Crea
  int * cColorA = (int *) bp; bp += 4;
  wxColour cColor = wxColour(*cColorR,*cColorG,*cColorB,*cColorA);
  if(!This) throw wxe_badarg(0);
- wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateRadialGradientBrush(*xo,*yo,*xc,*yc,*radius,oColor,cColor)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsBrush * Result = new wxGraphicsBrush(This->CreateRadialGradientBrush(*xo,*yo,*xc,*yc,*radius,oColor,cColor)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
@@ -7076,7 +7076,7 @@ case wxGraphicsRenderer_CreateFont: { // wxGraphicsRenderer::CreateFont
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- wxGraphicsFont * Result = new wxGraphicsFont(This->CreateFont(*font,col)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsFont * Result = new wxGraphicsFont(This->CreateFont(*font,col)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsFont");
  break;
 }
@@ -7116,14 +7116,14 @@ case wxGraphicsRenderer_CreateMatrix: { // wxGraphicsRenderer::CreateMatrix
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- wxGraphicsMatrix * Result = new wxGraphicsMatrix(This->CreateMatrix(a,b,c,d,tx,ty)); newPtr((void *) Result,3, memenv);;
+ wxGraphicsMatrix * Result = new wxGraphicsMatrix(This->CreateMatrix(a,b,c,d,tx,ty)); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsMatrix");
  break;
 }
 case wxGraphicsRenderer_CreatePath: { // wxGraphicsRenderer::CreatePath
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
- wxGraphicsPath * Result = new wxGraphicsPath(This->CreatePath()); newPtr((void *) Result,3, memenv);;
+ wxGraphicsPath * Result = new wxGraphicsPath(This->CreatePath()); newPtr((void *) Result,4, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsPath");
  break;
 }
@@ -32071,7 +32071,20 @@ case wxDCOverlay_Clear: { // wxDCOverlay::Clear
 
 
 bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {
+ if(wxe_debug) {
+     wxString msg;
+	    const wxChar *class_info = wxT("unknown");
+	    if(refd->type < 10) {
+		wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+		    class_info = cinfo->GetClassName();
+	       }
+      msg.Printf(wxT("Deleting {wx_ref, %d, %s} at %p "), refd->ref, class_info, ptr);
+      send_msg("debug", &msg);
+ };
  switch(refd->type) {
+#if wxUSE_GRAPHICS_CONTEXT
+  case 4: delete (wxGraphicsObject *) ptr; break;
+#endif
   case 24: delete (wxGridCellBoolRenderer *) ptr; break;
   case 25: delete (wxGridCellBoolEditor *) ptr; break;
   case 26: delete (wxGridCellFloatRenderer *) ptr; break;
