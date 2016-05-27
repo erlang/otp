@@ -70,7 +70,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +nowarn_shadow_vars +warn_missing_spec +warn_untyped_record
+ERL_COMPILE_FLAGS += -Werror +nowarn_shadow_vars +warn_export_vars +warn_missing_spec +warn_untyped_record
 
 # ----------------------------------------------------
 # Targets
