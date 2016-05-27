@@ -96,14 +96,14 @@ static ErlNifFunc nif_funcs[] = {
     {"user_trace_i4s4", 9, user_trace_i4s4},
     {"user_trace_n", 10, user_trace_n},
 #ifdef HAVE_USE_LTTNG
-    {"trace_procs", 6, trace_procs},
-    {"trace_ports", 6, trace_ports},
-    {"trace_running_procs", 6, trace_running_procs},
-    {"trace_running_ports", 6, trace_running_ports},
-    {"trace_call", 6, trace_call},
-    {"trace_send", 6, trace_send},
-    {"trace_receive", 6, trace_receive},
-    {"trace_garbage_collection", 6, trace_garbage_collection},
+    {"trace_procs", 5, trace_procs},
+    {"trace_ports", 5, trace_ports},
+    {"trace_running_procs", 5, trace_running_procs},
+    {"trace_running_ports", 5, trace_running_ports},
+    {"trace_call", 5, trace_call},
+    {"trace_send", 5, trace_send},
+    {"trace_receive", 5, trace_receive},
+    {"trace_garbage_collection", 5, trace_garbage_collection},
     {"enabled_procs", 3, enabled_procs},
     {"enabled_ports", 3, enabled_ports},
     {"enabled_running_procs", 3, enabled_running_procs},
@@ -114,8 +114,7 @@ static ErlNifFunc nif_funcs[] = {
     {"enabled_garbage_collection", 3, enabled_garbage_collection},
 #endif
     {"enabled", 3, enabled},
-    {"trace", 5, trace},
-    {"trace", 6, trace}
+    {"trace", 5, trace}
 };
 
 ERL_NIF_INIT(dyntrace, nif_funcs, load, NULL, NULL, NULL)
@@ -123,6 +122,7 @@ ERL_NIF_INIT(dyntrace, nif_funcs, load, NULL, NULL, NULL)
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_error;
+static ERL_NIF_TERM atom_extra;
 static ERL_NIF_TERM atom_not_available;
 static ERL_NIF_TERM atom_badarg;
 static ERL_NIF_TERM atom_ok;
@@ -187,6 +187,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_true = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
     atom_error = enif_make_atom(env,"error");
+    atom_extra = enif_make_atom(env,"extra");
     atom_not_available = enif_make_atom(env,"not_available");
     atom_badarg = enif_make_atom(env,"badarg");
     atom_ok = enif_make_atom(env,"ok");
@@ -325,7 +326,7 @@ static ERL_NIF_TERM trace_garbage_collection(ErlNifEnv* env, int argc, const ERL
     int arity;
     unsigned long ohbsz, nhbsz, size;
 
-    ASSERT(argc == 6);
+    ASSERT(argc == 5);
 
     /* Assume gc info order does not change */
     gci = argv[3];
@@ -428,11 +429,13 @@ static ERL_NIF_TERM trace_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         }
     } else if (argv[0] == atom_exception_from) {
         const ERL_NIF_TERM* tuple;
+        ERL_NIF_TERM extra;
         int arity;
         lttng_decl_mfabuf(mfa);
         char class[LTTNG_BUFFER_SZ];
 
-        enif_get_tuple(env, argv[4], &arity, &tuple);
+        enif_get_map_value(env, argv[4], atom_extra, &extra);
+        enif_get_tuple(env, extra, &arity, &tuple);
         enif_snprintf(class, LTTNG_BUFFER_SZ, "%T", tuple[0]);
 
         if (enif_get_tuple(env, argv[3], &arity, &tuple)) {
@@ -457,14 +460,17 @@ static ERL_NIF_TERM enabled_send(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
 
 static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    ERL_NIF_TERM extra;
     lttng_decl_procbuf(pid);
     lttng_pid_to_str(argv[2], pid);
+
+    enif_get_map_value(env, argv[4], atom_extra, &extra);
 
     if (argv[0] == atom_send) {
         lttng_decl_procbuf(to);
         char msg[LTTNG_BUFFER_SZ];
 
-        lttng_pid_to_str(argv[4], to);
+        lttng_pid_to_str(extra, to);
         enif_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
 
         LTTNG3(message_send, pid, to, msg);
@@ -472,7 +478,7 @@ static ERL_NIF_TERM trace_send(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         lttng_decl_procbuf(to);
         char msg[LTTNG_BUFFER_SZ];
 
-        lttng_pid_to_str(argv[4], to);
+        lttng_pid_to_str(extra, to);
         enif_snprintf(msg, LTTNG_BUFFER_SZ, "%T", argv[3]);
         /* mark it as non existing ? */
 
@@ -537,6 +543,7 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     /* spawn */
     if (argv[0] == atom_spawn) {
+        ERL_NIF_TERM extra;
         char undef[] = "undefined";
         const ERL_NIF_TERM* tuple;
         int arity;
@@ -545,7 +552,9 @@ static ERL_NIF_TERM trace_procs(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
         lttng_pid_to_str(argv[3], to);
 
-        if (enif_get_tuple(env, argv[4], &arity, &tuple)) {
+        enif_get_map_value(env, argv[4], atom_extra, &extra);
+
+        if (enif_get_tuple(env, extra, &arity, &tuple)) {
             if (enif_is_list(env, tuple[2])) {
                 enif_get_list_length(env, tuple[2], &len);
             } else {
@@ -618,11 +627,13 @@ static ERL_NIF_TERM trace_ports(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     /* open and closed */
     if (argv[0] == atom_open) {
+        ERL_NIF_TERM extra;
         char driver[LTTNG_BUFFER_SZ];
         lttng_decl_procbuf(pid);
         lttng_pid_to_str(argv[3], pid);
+        enif_get_map_value(env, argv[4], atom_extra, &extra);
 
-        enif_snprintf(driver, LTTNG_BUFFER_SZ, "%T", argv[4]);
+        enif_snprintf(driver, LTTNG_BUFFER_SZ, "%T", extra);
         LTTNG3(port_open, pid, driver, port);
     } else if (argv[0] == atom_closed) {
         char reason[LTTNG_BUFFER_SZ];

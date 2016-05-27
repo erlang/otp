@@ -24,14 +24,14 @@
 %%% Test tracer
 %%%
 
--export([enabled/3, trace/6]).
+-export([enabled/3, trace/5]).
 -export([load/1, load/2]).
 -on_load(load/0).
 
 enabled(_, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
-trace(_, _, _, _, _, _) ->
+trace(_, _, _, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
 load() ->
