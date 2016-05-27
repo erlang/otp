@@ -247,10 +247,16 @@ t_call_silent(Config) when is_list(Config) ->
 t_receive(Config) when is_list(Config) ->
     ok = lttng_start_event("com_ericsson_dyntrace:message_receive", Config),
     _ = erlang:trace(new, true, [{tracer, dyntrace, []},'receive']),
+    timer:sleep(20),
 
-    Pid = spawn_link(fun() -> waiter() end),
-    Pid ! {self(), ok},
-    ok = receive {Pid,ok} -> ok end,
+    Pid1 = spawn_link(fun() -> waiter() end),
+    Pid1 ! {self(), ok},
+    ok = receive {Pid1,ok} -> ok end,
+
+    Pid2 = spawn_link(fun() -> waiter() end),
+    Pid2 ! {self(), ok},
+    ok = receive {Pid2,ok} -> ok end,
+
     timer:sleep(10),
     _ = erlang:trace(all, false, ['receive']),
     Res = lttng_stop_and_view(Config),
