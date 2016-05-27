@@ -1315,11 +1315,22 @@ ssl_options(Option, Config) ->
     Opts ++ ProtocolOpts.
 
 protocol_version(Config) ->
+   protocol_version(Config, atom).
+
+protocol_version(Config, tuple) ->
     case proplists:get_value(protocol, Config) of
 	dtls ->
 	    dtls_record:protocol_version(dtls_record:highest_protocol_version([]));
 	_ ->
-	    tls_record:protocol_version(tls_record:highest_protocol_version([]))
+	    tls_record:highest_protocol_version(tls_record:supported_protocol_versions())
+   end;
+
+protocol_version(Config, atom) ->
+    case proplists:get_value(protocol, Config) of
+	dtls ->
+	   dtls_record:protocol_version(protocol_version(Config, tuple));
+	_ ->							 
+           tls_record:protocol_version(protocol_version(Config, tuple))	
    end.
 
 protocol_options(Config, Options) ->

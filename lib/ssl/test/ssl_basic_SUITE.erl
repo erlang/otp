@@ -2611,7 +2611,7 @@ client_no_wrap_sequence_number(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
-    Version = ssl_test_lib:protocol_version(Config),
+    Version = ssl_test_lib:protocol_version(Config, tuple),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
