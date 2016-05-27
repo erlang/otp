@@ -52,17 +52,11 @@ basic(Config) when is_list(Config) ->
     ok = rpc:call(Node2, ?MODULE, basic_test, [on_heap]),
     stop_node(Node2),
 
-    {ok, Node3} = start_node(Config, "+hmqd mixed"),
-    ok = rpc:call(Node3, ?MODULE, basic_test, [mixed]),
-    stop_node(Node3),
-
     ok.
 
 is_valid_mqd_value(off_heap) ->
     true;
 is_valid_mqd_value(on_heap) ->
-    true;
-is_valid_mqd_value(mixed) ->
     true;
 is_valid_mqd_value(_) ->
     false.
@@ -78,9 +72,6 @@ basic_test(Default) ->
     {message_queue_data, off_heap} = process_info(self(), message_queue_data),
     off_heap = process_flag(message_queue_data, on_heap),
     {message_queue_data, on_heap} = process_info(self(), message_queue_data),
-    on_heap = process_flag(message_queue_data, mixed),
-    {message_queue_data, mixed} = process_info(self(), message_queue_data),
-    mixed = process_flag(message_queue_data, Default),
     {'EXIT', _} = (catch process_flag(message_queue_data, blupp)),
 
     P1 = spawn_opt(fun () -> receive after infinity -> ok end end,
@@ -101,12 +92,6 @@ basic_test(Default) ->
     unlink(P3),
     exit(P3, bye),
 
-    P4 = spawn_opt(fun () -> receive after infinity -> ok end end,
-		   [link, {message_queue_data, mixed}]),
-    {message_queue_data, mixed} = process_info(P4, message_queue_data),
-    unlink(P4),
-    exit(P4, bye),
-
     {'EXIT', _} = (catch spawn_opt(fun () -> receive after infinity -> ok end end,
 		   [link, {message_queue_data, blapp}])),
 
@@ -116,21 +101,18 @@ process_info_messages(Config) when is_list(Config) ->
     Tester = self(),
     P1 = spawn_opt(fun () ->
 			   receive after 500 -> ok end,
-			   mixed = process_flag(message_queue_data, off_heap),
+			   on_heap = process_flag(message_queue_data, off_heap),
 			   Tester ! first,
 			   receive after 500 -> ok end,
 			   off_heap = process_flag(message_queue_data, on_heap),
 			   Tester ! second,
 			   receive after 500 -> ok end,
-			   on_heap = process_flag(message_queue_data, mixed),
+			   on_heap = process_flag(message_queue_data, off_heap),
 			   Tester ! third,
-			   receive after 500 -> ok end,
-			   mixed = process_flag(message_queue_data, off_heap),
-			   Tester ! fourth,
 			    
 			   receive after infinity -> ok end
 		   end,
-		   [link, {message_queue_data, mixed}]),
+		   [link, {message_queue_data, on_heap}]),
     
     P1 ! "A",
     receive first -> ok end,
@@ -139,24 +121,19 @@ process_info_messages(Config) when is_list(Config) ->
     P1 ! "C",
     receive third -> ok end,
     P1 ! "D",
-    receive fourth -> ok end,
-    P1 ! "E",
 
-    {messages, ["A", "B", "C", "D", "E"]} = process_info(P1, messages),
+    {messages, ["A", "B", "C", "D"]} = process_info(P1, messages),
 
     P2 = spawn_opt(fun () ->
 			   receive after 500 -> ok end,
-			   mixed = process_flag(message_queue_data, off_heap),
+			   on_heap = process_flag(message_queue_data, off_heap),
 			   Tester ! first,
 			   receive after 500 -> ok end,
 			   off_heap = process_flag(message_queue_data, on_heap),
 			   Tester ! second,
 			   receive after 500 -> ok end,
-			   on_heap = process_flag(message_queue_data, mixed),
+			   on_heap = process_flag(message_queue_data, off_heap),
 			   Tester ! third,
-			   receive after 500 -> ok end,
-			   mixed = process_flag(message_queue_data, off_heap),
-			   Tester ! fourth,
 			   receive after 500 -> ok end,
 
 			   Tester ! process_info(self(), messages),
@@ -165,11 +142,10 @@ process_info_messages(Config) when is_list(Config) ->
 			   receive M2 -> M2 = "B" end,
 			   receive M3 -> M3 = "C" end,
 			   receive M4 -> M4 = "D" end,
-			   receive M5 -> M5 = "E" end,
 
 			   Tester ! self()
 		   end,
-		   [link, {message_queue_data, mixed}]),
+		   [link, {message_queue_data, on_heap}]),
 
     P2 ! "A",
     receive first -> ok end,
@@ -178,12 +154,10 @@ process_info_messages(Config) when is_list(Config) ->
     P2 ! "C",
     receive third -> ok end,
     P2 ! "D",
-    receive fourth -> ok end,
-    P2 ! "E",
 
     receive
 	Msg ->
-	    {messages, ["A", "B", "C", "D", "E"]} = Msg
+	    {messages, ["A", "B", "C", "D"]} = Msg
     end,
     
     receive P2 -> ok end,

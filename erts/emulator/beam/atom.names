@@ -390,7 +390,6 @@ atom min_heap_size
 atom min_bin_vheap_size
 atom minor_version
 atom Minus='-'
-atom mixed
 atom module
 atom module_info
 atom monitored_by

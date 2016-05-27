@@ -917,9 +917,6 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		    goto error;
 	    } else if (arg == am_message_queue_data) {
 		switch (val) {
-		case am_mixed:
-		    so.flags &= ~(SPO_OFF_HEAP_MSGQ|SPO_ON_HEAP_MSGQ);
-		    break;
 		case am_on_heap:
 		    so.flags &= ~SPO_OFF_HEAP_MSGQ;
 		    so.flags |= SPO_ON_HEAP_MSGQ;

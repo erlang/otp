@@ -2059,7 +2059,7 @@ open_port(PortName, PortSettings) ->
       low | normal | high | max.
 
 -type message_queue_data() ::
-	off_heap | on_heap | mixed.
+	off_heap | on_heap.
 
 -spec process_flag(trap_exit, Boolean) -> OldBoolean when
       Boolean :: boolean(),

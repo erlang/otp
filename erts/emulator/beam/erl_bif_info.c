@@ -1565,9 +1565,6 @@ process_info_aux(Process *BIF_P,
 	case F_ON_HEAP_MSGQ:
 	    res = am_on_heap;
 	    break;
-	case 0:
-	    res = am_mixed;
-	    break;
 	default:
 	    res = am_error;
 	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
@@ -2809,8 +2806,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    BIF_RET(am_off_heap);
 	case SPO_ON_HEAP_MSGQ:
 	    BIF_RET(am_on_heap);
-	case 0:
-	    BIF_RET(am_mixed);
 	default:
 	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
 	    BIF_RET(am_error);

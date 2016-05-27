@@ -1123,11 +1123,9 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	    break;
 	case am_on_heap:
 	    c_p->flags |= F_ON_HEAP_MSGQ;
+	    c_p->flags &= ~F_OFF_HEAP_MSGQ;
 	    erts_smp_atomic32_read_bor_nob(&c_p->state,
 					   ERTS_PSFLG_ON_HEAP_MSGQ);
-	    /* fall through */
-	case am_mixed:
-	    c_p->flags &= ~F_OFF_HEAP_MSGQ;
 	    /*
 	     * We are not allowed to clear ERTS_PSFLG_OFF_HEAP_MSGQ
 	     * if a off heap change is ongoing. It will be adjusted
@@ -1151,34 +1149,10 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	switch (new_state) {
 	case am_on_heap:
 	    break;
-	case am_mixed:
-	    c_p->flags &= ~F_ON_HEAP_MSGQ;
-	    erts_smp_atomic32_read_band_nob(&c_p->state,
-					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
-	    break;
 	case am_off_heap:
 	    c_p->flags &= ~F_ON_HEAP_MSGQ;
 	    erts_smp_atomic32_read_band_nob(&c_p->state,
 					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
-	    goto change_to_off_heap;
-	default:
-	    res = THE_NON_VALUE; /* badarg */
-	    break;
-	}
-	break;
-
-    case 0:
-	res = am_mixed;
-
-	switch (new_state) {
-	case am_mixed:
-	    break;
-	case am_on_heap:
-	    c_p->flags |= F_ON_HEAP_MSGQ;
-	    erts_smp_atomic32_read_bor_nob(&c_p->state,
-					   ERTS_PSFLG_ON_HEAP_MSGQ);
-	    break;
-	case am_off_heap:
 	    goto change_to_off_heap;
 	default:
 	    res = THE_NON_VALUE; /* badarg */
