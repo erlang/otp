@@ -19,7 +19,9 @@
  */
 #include "erl_nif.h"
 #include <assert.h>
-#ifndef __WIN32__
+#ifdef __WIN32__
+#include <windows.h>
+#else
 #include <unistd.h>
 #endif
 
