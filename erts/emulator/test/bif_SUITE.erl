@@ -646,6 +646,8 @@ erlang_halt(Config) when is_list(Config) ->
     {badrpc,nodedown} = rpc:call(N2, erlang, halt, [0]),
     {ok,N3} = slave:start(H, halt_node3),
     {badrpc,nodedown} = rpc:call(N3, erlang, halt, [0,[]]),
+    {ok,N4} = slave:start(H, halt_node4),
+    {badrpc,nodedown} = rpc:call(N4, erlang, halt, [lists:duplicate(300,$x)]),
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.

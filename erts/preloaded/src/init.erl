@@ -90,6 +90,7 @@
 
 -define(ON_LOAD_HANDLER, init__boot__on_load_handler).
 
+
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
 
@@ -173,7 +174,25 @@ stop() -> init ! {stop,stop}, ok.
 
 -spec stop(Status) -> 'ok' when
       Status :: non_neg_integer() | string().
-stop(Status) -> init ! {stop,{stop,Status}}, ok.
+stop(Status) when is_integer(Status), Status >= 0 ->
+    stop_1(Status);
+stop(Status) when is_list(Status) ->
+    case is_bytelist(Status) of
+        true ->
+            stop_1(Status);
+        false ->
+            erlang:error(badarg)
+    end;
+stop(_) ->
+    erlang:error(badarg).
+
+is_bytelist([B|Bs]) when is_integer(B), B >= 0, B < 256 -> is_bytelist(Bs);
+is_bytelist([]) -> true;
+is_bytelist(_) -> false.
+
+%% Note that we check the type of Status beforehand to ensure that
+%% the call to halt(Status) by the init process cannot fail
+stop_1(Status) -> init ! {stop,{stop,Status}}, ok.
 
 -spec boot(BootArgs) -> no_return() when
       BootArgs :: [binary()].
@@ -285,21 +304,13 @@ things_to_string([]) ->
     "".
 
 halt_string(String, List) ->
-    HaltString = String ++ things_to_string(List),
-    if
-	length(HaltString)<199 -> HaltString;
-	true -> first198(HaltString, 198)
-    end.
-
-first198([H|T], N) when N>0 ->
-    [H|first198(T, N-1)];
-first198(_, 0) ->
-    [].
+    String ++ things_to_string(List).
 
 %% String = string()
 %% List = [string() | atom() | pid() | number()]
 %% Any other items in List, such as tuples, are ignored when creating
 %% the string used as argument to erlang:halt/1.
+-spec crash(_, _) -> no_return().
 crash(String, List) ->
     halt(halt_string(String, List)).
 

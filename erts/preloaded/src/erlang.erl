@@ -977,17 +977,15 @@ group_leader(_GroupLeader, _Pid) ->
     erlang:nif_error(undefined).
 
 %% halt/0
-%% Shadowed by erl_bif_types: erlang:halt/0
 -spec halt() -> no_return().
 halt() ->
-    erlang:nif_error(undefined).
+    erlang:halt(0, []).
 
 %% halt/1
-%% Shadowed by erl_bif_types: erlang:halt/1
 -spec halt(Status) -> no_return() when
       Status :: non_neg_integer() | 'abort' | string().
-halt(_Status) ->
-    erlang:nif_error(undefined).
+halt(Status) ->
+    erlang:halt(Status, []).
 
 %% halt/2
 %% Shadowed by erl_bif_types: erlang:halt/2
