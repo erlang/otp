@@ -40,6 +40,7 @@
 	 ,livein/2
 	 ,uses/1
 	 ,defines/1
+	 ,defines_all_alloc/1
 	]).
 
 %% for hipe_graph_coloring_regalloc:
@@ -128,6 +129,9 @@ uses(I) ->
 defines(I) ->
   [X || X <- hipe_ppc_defuse:insn_def_gpr(I),
 	hipe_ppc:temp_is_allocatable(X)].
+
+defines_all_alloc(I) ->
+  hipe_ppc_defuse:insn_defs_all_gpr(I).
 
 is_move(Instruction) ->
   case hipe_ppc:is_pseudo_move(Instruction) of

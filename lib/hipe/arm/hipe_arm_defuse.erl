@@ -22,6 +22,7 @@
 -module(hipe_arm_defuse).
 -export([insn_def_all/1, insn_use_all/1]).
 -export([insn_def_gpr/1, insn_use_gpr/1]).
+-export([insn_defs_all_gpr/1]).
 -include("hipe_arm.hrl").
 
 %%%
@@ -53,6 +54,12 @@ insn_def_gpr(I) ->
       %% it as DstLo or DstHi.
       [DstLo, DstHi, Src1];
     _ -> []
+  end.
+
+insn_defs_all_gpr(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 call_clobbered_gpr() ->

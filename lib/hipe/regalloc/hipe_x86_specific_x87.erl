@@ -53,6 +53,7 @@
 	 liveout/2,
 	 uses/1,
 	 defines/1,
+	 defines_all_alloc/1,
 	 is_global/1,
 	 reg_nr/1,
 	 physical_name/1,
@@ -161,6 +162,8 @@ defines(I) ->
   [X || X <- ?HIPE_X86_DEFUSE:insn_def(I),
  	     hipe_x86:temp_is_allocatable(X),
  	     temp_is_double(X)].
+
+defines_all_alloc(I) -> hipe_amd64_defuse:insn_defs_all(I).
 
 temp_is_double(Temp) ->
   hipe_x86:temp_type(Temp) =:= 'double'.

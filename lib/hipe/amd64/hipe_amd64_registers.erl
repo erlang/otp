@@ -253,6 +253,9 @@ ret(N) ->
     _ -> exit({?MODULE, ret, N})
   end.
 
+%% Note: the fact that (allocatable() UNION allocatable_x87() UNION
+%% allocatable_sse2()) is a subset of call_clobbered() is hard-coded in
+%% hipe_x86_defuse:insn_defs_all/1
 call_clobbered() ->
   [{?RAX,tagged},{?RAX,untagged},	% does the RA strip the type or not?
    {?RDX,tagged},{?RDX,untagged},

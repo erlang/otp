@@ -33,7 +33,7 @@
 
 -module(hipe_temp_map).
 
--export([cols2tuple/2, is_spilled/2, to_substlist/1]).
+-export([cols2tuple/2, find/2, is_spilled/2, to_substlist/1]).
 
 -include("../main/hipe.hrl").
 
@@ -50,12 +50,10 @@
 -spec cols2tuple(hipe_map(), atom()) -> hipe_temp_map().
 
 cols2tuple(Map, Target) ->
-  ?ASSERT(check_list(Map)),
-  SortedMap = lists:keysort(1, Map), 
+  SortedMap = lists:keysort(1, Map),
   cols2tuple(0, SortedMap, [], Target). 
 
 %% sorted_cols2tuple(Map, Target) ->
-%%   ?ASSERT(check_list(Map)),
 %%   ?ASSERT(Map =:= lists:keysort(1, Map)),
 %%   cols2tuple(0, Map, [], Target). 
 
@@ -66,7 +64,7 @@ cols2tuple(_, [], Vs, _) ->
 cols2tuple(N, [{R, C}|Ms], Vs, Target) when N =:= R ->
   %% N makes sure the mapping is dense. N is he next key.
   cols2tuple(N+1, Ms, [C|Vs], Target);
-cols2tuple(N, SourceMapping, Vs, Target) ->
+cols2tuple(N, SourceMapping=[{R,_}|_], Vs, Target) when N < R ->
   %% The source was sparse, make up some placeholders...
   Val = 	      
     case Target:is_precoloured(N) of
@@ -82,7 +80,7 @@ cols2tuple(N, SourceMapping, Vs, Target) ->
 -spec is_spilled(non_neg_integer(), hipe_temp_map()) -> boolean().
 
 is_spilled(Temp, Map) ->
-  case element(Temp+1, Map) of
+  case find(Temp, Map) of
     {reg, _R} -> false;
     {fp_reg, _R}-> false;
     {spill, _N} -> true;
@@ -106,9 +104,10 @@ is_spilled(Temp, Map) ->
 %%     {spill, _N} -> false;
 %%     unknown -> false
 %%   end.
-%% 
-%% %% Returns the inf temp Temp is mapped to.
-%% find(Temp, Map) -> element(Temp+1, Map).
+
+%% Returns the inf temp Temp is mapped to.
+find(Temp, Map) when Temp < tuple_size(Map) -> element(Temp+1, Map);
+find(_,    Map) when is_tuple(Map) -> unknown. % consistency with cols2tuple/2
 
 
 %%

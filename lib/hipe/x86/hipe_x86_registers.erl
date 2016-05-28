@@ -224,6 +224,8 @@ ret(N) ->
 	    exit({?MODULE, ret, N})
     end.
 
+%% Note: the fact that (allocatable() UNION allocatable_x87()) is a subset of
+%% call_clobbered() is hard-coded in hipe_x86_defuse:insn_defs_all/1
 call_clobbered() ->
     [{?EAX,tagged},{?EAX,untagged},	% does the RA strip the type or not?
      {?EDX,tagged},{?EDX,untagged},

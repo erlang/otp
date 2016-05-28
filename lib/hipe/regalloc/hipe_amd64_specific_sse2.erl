@@ -33,6 +33,7 @@
          liveout/2,
          uses/1,
          defines/1,
+	 defines_all_alloc/1,
 	 def_use/1,
 	 is_arg/1,	%% used by hipe_ls_regalloc
 	 is_move/1,
@@ -173,6 +174,8 @@ defines(I) ->
   [X || X <- hipe_amd64_defuse:insn_def(I),
 	     hipe_x86:temp_is_allocatable(X),
 	     hipe_x86:temp_type(X) =:= 'double'].
+
+defines_all_alloc(I) -> hipe_amd64_defuse:insn_defs_all(I).
 
 is_move(Instruction) ->
   case hipe_x86:is_fmove(Instruction) of

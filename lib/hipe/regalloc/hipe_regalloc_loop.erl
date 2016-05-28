@@ -43,7 +43,8 @@ ra_common(Defun, SpillIndex, Options, RegAllocMod, TargetMod) ->
 alloc(Defun, CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
   ?inc_counter(ra_iteration_counter, 1),
   {Coloring, _NewSpillIndex, Liveness} =
-    RegAllocMod:regalloc(CFG, SpillIndex, SpillLimit,TargetMod, Options),
+    hipe_regalloc_prepass:regalloc(
+      RegAllocMod, CFG, SpillIndex, SpillLimit, TargetMod, Options),
   {NewDefun, DidSpill} = TargetMod:check_and_rewrite(Defun, Coloring),
   case DidSpill of
     false -> %% No new temps, we are done.
