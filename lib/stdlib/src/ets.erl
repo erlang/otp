@@ -63,7 +63,7 @@
 
 %%% BIFs
 
--export([all/0, delete/1, delete/2, delete_all_objects/1,
+-export([all/0, compare_insert/3, delete/1, delete/2, delete_all_objects/1,
          delete_object/2, first/1, give_away/3, info/1, info/2,
          insert/2, insert_new/2, is_compiled_ms/1, last/1, lookup/2,
          lookup_element/3, match/1, match/2, match/3, match_object/1,
@@ -79,6 +79,14 @@
       Tab :: tab().
 
 all() ->
+    erlang:nif_error(undef).
+
+-spec compare_insert(Tab, Object, Expected) -> boolean() when
+      Tab :: tab(),
+      Object :: tuple(),
+      Expected :: tuple().
+
+compare_insert(_, _, _) ->
     erlang:nif_error(undef).
 
 -spec delete(Tab) -> true when

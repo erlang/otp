@@ -180,6 +180,23 @@
       </desc>
     </func>
     <func>
+      <name name="compare_insert" arity="3"/>
+      <fsummary>Update an object if it already exists and hasn't changed</fsummary>>
+      <desc>
+        <p>This functions works similarly to <c>insert/2</c> but for a single
+          object at a time, and subject to the restriction of the existing object
+          matching <c><anno>Expected</anno></c>.
+        </p>
+        <p>The function returns <c>true</c> if the update succeeds, <c>false</c>
+          if either an object with the same key as <c><anno>Object</anno></c> wasn't
+          found or the existing object doesn't match <c><anno>Expected</anno></c>
+        </p>
+        <p>The function will fail with reason <c>badarg</c> if the table
+          is not of type <c>set</c> or <c>ordered_set</c>
+        </p>
+      </desc>
+    </func>
+    <func>
       <name name="delete" arity="1"/>
       <fsummary>Delete an entire ETS table.</fsummary>
       <desc>

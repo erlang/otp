@@ -84,6 +84,8 @@ int db_create_hash(Process *p,
 
 int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail);
 
+int db_compare_put_hash(DbTable *tbl, Eterm obj, Eterm expected_obj);
+
 int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
 
 int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret);

@@ -1237,6 +1237,54 @@ done:
 }
 
 /*
+** The put-if-unchanged BIF.
+*/
+BIF_RETTYPE ets_compare_insert_3(BIF_ALIST_3)
+{
+    DbTable* tb;
+    int cret = DB_ERROR_NONE;
+    DbTableMethod* meth;
+    db_lock_kind_t kind = LCK_WRITE_REC;
+
+    CHECK_TABLES();
+
+    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
+        goto badarg;
+    }
+    meth = tb->common.meth;
+    if (is_not_tuple(BIF_ARG_2) ||
+            (arityval(*tuple_val(BIF_ARG_2)) < tb->common.keypos)) {
+        goto badarg;
+    }
+    if (is_not_tuple(BIF_ARG_3) ||
+            (arityval(*tuple_val(BIF_ARG_3)) < tb->common.keypos)) {
+        goto badarg;
+    }
+    cret = meth->db_compare_put(tb, BIF_ARG_2, BIF_ARG_3);
+
+    db_unlock(tb, kind);
+
+    switch (cret) {
+    case DB_ERROR_NONE:
+        BIF_RET(am_true);
+    case DB_ERROR_BADKEY:
+        BIF_RET(am_false);
+    case DB_ERROR_BADITEM:
+        BIF_RET(am_false);
+    case DB_ERROR_SYSRES:
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    default:
+        BIF_ERROR(BIF_P, BADARG);
+    }
+badarg:
+    db_unlock(tb, kind);
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+/*
 ** Rename a (possibly) named table
 */
 
