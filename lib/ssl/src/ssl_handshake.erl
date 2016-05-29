@@ -1541,14 +1541,23 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, premaster_encryption_failed))
     end.
 
-digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
+digitally_signed(Version, Hashes, HashAlgo, PrivateKey) ->
+    try do_digitally_signed(Version, Hashes, HashAlgo, PrivateKey) of
+	Signature ->
+	    Signature
+    catch
+	error:badkey->
+	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
+    end.
+
+do_digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
     public_key:sign({digest, Hash}, HashAlgo, Key);
-digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
+do_digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
     public_key:sign({digest, Hash}, HashAlgo, Key);
-digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
+do_digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-digitally_signed(_Version, Hash, HashAlgo, Key) ->
+do_digitally_signed(_Version, Hash, HashAlgo, Key) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
 
 calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
@@ -2173,3 +2182,9 @@ is_acceptable_hash_sign(_,_,_,_) ->
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
 
+bad_key(#'DSAPrivateKey'{}) ->
+    unacceptable_dsa_key;
+bad_key(#'RSAPrivateKey'{}) ->
+    unacceptable_rsa_key;
+bad_key(#'ECPrivateKey'{}) ->
+    unacceptable_ecdsa_key.
