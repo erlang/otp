@@ -206,7 +206,6 @@ void run(EpmdVars *g)
   int i;
   int opt;
   unsigned short sport = g->port;
-  int bound = 0;
 
   node_init(g);
   g->conn = conn_init(g);
@@ -252,14 +251,6 @@ void run(EpmdVars *g)
       char *tmp = NULL;
       char *token = NULL;
 
-      /* Always listen on the loopback. */
-      SET_ADDR(iserv_addr[num_sockets],htonl(INADDR_LOOPBACK),sport);
-      num_sockets++;
-#if defined(EPMD6)
-      SET_ADDR6(iserv_addr[num_sockets],in6addr_loopback,sport);
-      num_sockets++;
-#endif
-
 	  if ((tmp = strdup(g->addresses)) == NULL)
 	{
 	  dbg_perror(g,"cannot allocate memory");
@@ -273,7 +264,6 @@ void run(EpmdVars *g)
 	  struct in_addr addr;
 #if defined(EPMD6)
 	  struct in6_addr addr6;
-	  struct sockaddr_storage *sa = &iserv_addr[num_sockets];
 
 	  if (inet_pton(AF_INET6,token,&addr6) == 1)
 	    {
@@ -295,15 +285,6 @@ void run(EpmdVars *g)
 	      dbg_tty_printf(g,0,"cannot parse IP address \"%s\"",token);
 	      epmd_cleanup_exit(g,1);
 	    }
-
-#if defined(EPMD6)
-	  if (sa->ss_family == AF_INET6 && IN6_IS_ADDR_LOOPBACK(&addr6))
-	      continue;
-
-	  if (sa->ss_family == AF_INET)
-#endif
-	  if (IS_ADDR_LOOPBACK(addr))
-	    continue;
 
 	  num_sockets++;
 
@@ -366,16 +347,10 @@ void run(EpmdVars *g)
 
       if ((listensock[i] = socket(sa->sa_family,SOCK_STREAM,0)) < 0)
 	{
-	  switch (errno) {
-	      case EAFNOSUPPORT:
-	      case EPROTONOSUPPORT:
-	          continue;
-	      default:
-	          dbg_perror(g,"error opening stream socket");
-	          epmd_cleanup_exit(g,1);
-	  }
+	  dbg_perror(g,"error opening stream socket");
+	  epmd_cleanup_exit(g,1);
 	}
-      g->listenfd[bound++] = listensock[i];
+      g->listenfd[i] = listensock[i];
 
 #if HAVE_DECL_IPV6_V6ONLY
       opt = 1;
@@ -440,11 +415,6 @@ void run(EpmdVars *g)
       }
       select_fd_set(g, listensock[i]);
     }
-  if (bound == 0) {
-      dbg_perror(g,"unable to bind any address");
-      epmd_cleanup_exit(g,1);
-  }
-  num_sockets = bound;
 #ifdef HAVE_SYSTEMD_DAEMON
     }
     if (g->is_systemd) {
