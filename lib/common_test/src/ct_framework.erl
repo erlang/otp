@@ -128,7 +128,7 @@ init_tc1(?MODULE,_,error_in_suite,_,[Config0]) when is_list(Config0) ->
     ct_event:notify(#event{name=tc_start,
 			   node=node(),
 			   data={?MODULE,error_in_suite}}),
-    ct_suite_init(?MODULE,error_in_suite,[],Config0),
+    _ = ct_suite_init(?MODULE,error_in_suite,[],Config0),
     case ?val(error,Config0) of
 	undefined ->
 	    {fail,"unknown_error_in_suite"};
@@ -212,7 +212,7 @@ init_tc2(Mod,Suite,Func,HookFunc,SuiteInfo,MergeResult,Config) ->
     %% timetrap must be handled before require
     MergedInfo = timetrap_first(MergeResult, [], []),
     %% tell logger to use specified style sheet
-    case lists:keysearch(stylesheet,1,MergeResult++Config) of
+    _ = case lists:keysearch(stylesheet,1,MergeResult++Config) of
 	{value,{stylesheet,SSFile}} ->
 	    ct_logs:set_stylesheet(Func,add_data_dir(SSFile,Config));
 	_ ->
@@ -632,10 +632,10 @@ try_set_default(Name,Key,Info,Where) ->
 	{_,[]} -> 
 	    no_default;
 	{'_UNDEF',_} ->
-	    [ct_config:set_default_config([CfgVal],Where) || CfgVal <- CfgElems],
+	    _ = [ct_config:set_default_config([CfgVal],Where) || CfgVal <- CfgElems],
 	    ok;
 	_ ->
-	    [ct_config:set_default_config(Name,[CfgVal],Where) || CfgVal <- CfgElems],
+	    _ = [ct_config:set_default_config(Name,[CfgVal],Where) || CfgVal <- CfgElems],
 	    ok
     end.
 	    
@@ -1315,7 +1315,7 @@ report(What,Data) ->
 	    %% top level test index page needs to be refreshed
 	    TestName = filename:basename(?val(topdir, Data), ".logs"),
 	    RunDir = ?val(rundir, Data),
-	    ct_logs:make_all_suites_index({TestName,RunDir}),
+	    _ = ct_logs:make_all_suites_index({TestName,RunDir}),
 	    ok;
 	tests_start ->
 	    ok;
