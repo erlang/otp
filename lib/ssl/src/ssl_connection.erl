@@ -1488,7 +1488,7 @@ rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
 			       {premaster_secret, PremasterSecret,
 				PublicKeyInfo});
 rsa_key_exchange(_, _, _) ->
-    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
+    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
 
 rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret, 
 		     PublicKeyInfo = {Algorithm, _, _})
@@ -1505,7 +1505,7 @@ rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret,
 			       {psk_premaster_secret, PskIdentity, PremasterSecret,
 				PublicKeyInfo});
 rsa_psk_key_exchange(_, _, _, _) ->
-    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
+    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer, 
 						      signature_algs = SupportedHashSigns},
