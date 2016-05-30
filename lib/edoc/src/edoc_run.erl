@@ -44,6 +44,8 @@
 
 -import(edoc_report, [report/2, error/1]).
 
+-type args() :: [string()].
+
 
 %% @spec application([string()]) -> none()
 %%
@@ -58,6 +60,7 @@
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-spec application(args()) -> no_return().
 application(Args) ->
     F = fun () ->
 		case parse_args(Args) of
@@ -81,6 +84,7 @@ application(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-spec files(args()) -> no_return().
 files(Args) ->
     F = fun () ->
 		case parse_args(Args) of
@@ -93,6 +97,7 @@ files(Args) ->
     run(F).
 
 %% @hidden   Not official yet
+-spec toc(args()) -> no_return().
 toc(Args) ->
     F = fun () ->
  		case parse_args(Args) of
@@ -126,6 +131,7 @@ toc(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-spec file(args()) -> no_return().
 file(Args) ->
     F = fun () ->
 		case parse_args(Args) of
@@ -137,8 +143,7 @@ file(Args) ->
 	end,
     run(F).
 
--spec invalid_args(string(), list()) -> no_return().
-
+-spec invalid_args(string(), args()) -> no_return().
 invalid_args(Where, Args) ->
     report("invalid arguments to ~ts: ~w.", [Where, Args]),
     shutdown_error().
@@ -169,10 +174,12 @@ wait_init() ->
 %% When and if a function init:stop/1 becomes generally available, we
 %% can use that instead of delay-and-pray when there is an error.
 
+-spec shutdown_ok() -> no_return().
 shutdown_ok() ->
     %% shut down emulator nicely, signalling "normal termination"
     init:stop().
 
+-spec shutdown_error() -> no_return().
 shutdown_error() ->
     %% delay 1 second to allow I/O to finish
     receive after 1000 -> ok end,
