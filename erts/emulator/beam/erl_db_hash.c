@@ -537,6 +537,7 @@ DbTableMethod db_hash =
     db_first_hash,   /* last == first  */
     db_next_hash,    /* prev == next   */
     db_put_hash,
+    db_compare_put_hash,
     db_get_hash,
     db_get_element_hash,
     db_member_hash,
@@ -874,6 +875,60 @@ Lnew:
 
 Ldone:
     WUNLOCK_HASH(lck);	
+    return ret;
+}
+
+int db_compare_put_hash(DbTable *tbl, Eterm obj, Eterm expected_obj)
+{
+    DbTableHash *tb = &tbl->hash;
+    HashValue hval;
+    int ix;
+    Eterm key;
+    HashDbTerm** bp;
+    HashDbTerm* b;
+    HashDbTerm* q;
+    erts_smp_rwmtx_t* lck;
+    int ret = DB_ERROR_BADITEM;
+
+    key = GETKEY(tb, tuple_val(obj));
+    hval = MAKE_HASH(key);
+    lck = WLOCK_HASH(tb, hval);
+    ix = hash_to_ix(tb, hval);
+    bp = &BUCKET(tb, ix);
+    b = *bp;
+
+    for (;;) {
+        if (b == NULL) {
+            ret = DB_ERROR_BADKEY;
+            goto Ldone;
+        }
+        if (has_key(tb,b,key,hval)) {
+            break;
+        }
+        bp = &b->next;
+        b = b->next;
+    }
+    /* Key found
+    */
+    if (tb->common.status & DB_SET) {
+        HashDbTerm* bnext = b->next;
+        if (b->hvalue == INVALID_HASH) {
+            erts_smp_atomic_inc_nob(&tb->common.nitems);
+        }
+        else if (!db_eq(&tb->common, expected_obj, &(b->dbterm))) {
+            ret = DB_ERROR_BADITEM;
+            goto Ldone;
+        }
+        q = replace_dbterm(tb, b, obj);
+        q->next = bnext;
+        q->hvalue = hval; /* In case of INVALID_HASH */
+        *bp = q;
+        ret = DB_ERROR_NONE;
+        goto Ldone;
+    }
+
+Ldone:
+    WUNLOCK_HASH(lck);
     return ret;
 }
 

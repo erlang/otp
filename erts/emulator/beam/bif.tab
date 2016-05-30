@@ -346,6 +346,7 @@ bif ets:next/2
 bif ets:prev/2
 bif ets:insert/2
 bif ets:insert_new/2
+bif ets:compare_insert/3
 bif ets:rename/2
 bif ets:safe_fixtable/2
 bif ets:slot/2

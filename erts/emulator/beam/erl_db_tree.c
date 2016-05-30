@@ -359,6 +359,7 @@ static int db_prev_tree(Process *p, DbTable *tbl,
 			Eterm key,
 			Eterm *ret);
 static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail);
+static int db_compare_put_tree(DbTable *tbl, Eterm obj, Eterm expected_obj);
 static int db_get_tree(Process *p, DbTable *tbl, 
 		       Eterm key,  Eterm *ret);
 static int db_member_tree(DbTable *tbl, Eterm key, Eterm *ret);
@@ -423,6 +424,7 @@ DbTableMethod db_tree =
     db_last_tree,
     db_prev_tree,
     db_put_tree,
+    db_compare_put_tree,
     db_get_tree,
     db_get_element_tree,
     db_member_tree,
@@ -699,6 +701,114 @@ static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail)
 		break;
 	    }
 	}
+    }
+    return DB_ERROR_NONE;
+}
+
+static int db_compare_put_tree(DbTable* tbl, Eterm obj, Eterm expected_obj)
+{
+    DbTableTree *tb = &tbl->tree;
+    /* Non recursive insertion in AVL tree, building our own stack */
+    TreeDbTerm **tstack[STACK_NEED];
+    int tpos = 0;
+    int dstack[STACK_NEED+1];
+    int dpos = 0;
+    int state = 0;
+    TreeDbTerm **this = &tb->root;
+    Sint c;
+    Eterm key;
+    int dir;
+    TreeDbTerm *p1, *p2, *p;
+
+    key = GETKEY(tb, tuple_val(obj));
+
+    reset_static_stack(tb);
+
+    dstack[dpos++] = DIR_END;
+    for (;;)
+        if (!*this) { /* Key missing */
+            return DB_ERROR_BADKEY;
+        } else if ((c = cmp_key(tb, key, NULL, *this)) < 0) {
+            /* go lefts */
+            dstack[dpos++] = DIR_LEFT;
+            tstack[tpos++] = this;
+            this = &((*this)->left);
+        } else if (c > 0) { /* go right */
+            dstack[dpos++] = DIR_RIGHT;
+            tstack[tpos++] = this;
+            this = &((*this)->right);
+        } else { /* Equal key and this is a set */
+            if (!db_eq(&tb->common, expected_obj, &(*this)->dbterm)) {
+                return DB_ERROR_BADITEM;
+            }
+            *this = replace_dbterm(tb, *this, obj);
+            break;
+        }
+
+    while (state && ( dir = dstack[--dpos] ) != DIR_END) {
+        this = tstack[--tpos];
+        p = *this;
+        if (dir == DIR_LEFT) {
+            switch (p->balance) {
+                case 1:
+                    p->balance = 0;
+                    state = 0;
+                    break;
+                case 0:
+                    p->balance = -1;
+                    break;
+                case -1: /* The icky case */
+                    p1 = p->left;
+                    if (p1->balance == -1) { /* Single LL rotation */
+                        p->left = p1->right;
+                        p1->right = p;
+                        p->balance = 0;
+                        (*this) = p1;
+                    } else { /* Double RR rotation */
+                        p2 = p1->right;
+                        p1->right = p2->left;
+                        p2->left = p1;
+                        p->left = p2->right;
+                        p2->right = p;
+                        p->balance = (p2->balance == -1) ? +1 : 0;
+                        p1->balance = (p2->balance == 1) ? -1 : 0;
+                        (*this) = p2;
+                    }
+                    (*this)->balance = 0;
+                    state = 0;
+                    break;
+            }
+        } else { /* dir == DIR_RIGHT */
+            switch (p->balance) {
+                case -1:
+                    p->balance = 0;
+                    state = 0;
+                    break;
+                case 0:
+                    p->balance = 1;
+                    break;
+                case 1:
+                    p1 = p->right;
+                    if (p1->balance == 1) { /* Single RR rotation */
+                        p->right = p1->left;
+                        p1->left = p;
+                        p->balance = 0;
+                        (*this) = p1;
+                    } else { /* Double RL rotation */
+                        p2 = p1->left;
+                        p1->left = p2->right;
+                        p2->right = p1;
+                        p->right = p2->left;
+                        p2->left = p;
+                        p->balance = (p2->balance == 1) ? -1 : 0;
+                        p1->balance = (p2->balance == -1) ? 1 : 0;
+                        (*this) = p2;
+                    }
+                    (*this)->balance = 0;
+                    state = 0;
+                    break;
+            }
+        }
     }
     return DB_ERROR_NONE;
 }
