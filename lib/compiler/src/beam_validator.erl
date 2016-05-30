@@ -161,9 +161,10 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 		% in the module (those that start with bs_start_match2).
 	}).
 
-%% Match state.
+%% Match context type.
 -record(ms,
-	{valid=0 :: non_neg_integer(),		%Valid slots
+	{id=make_ref() :: reference(),		%Unique ID.
+	 valid=0 :: non_neg_integer(),		%Valid slots
 	 slots=0 :: non_neg_integer()		%Number of slots
 	}).
 
@@ -834,7 +835,7 @@ kill_state_1(Vst) ->
 %%  The stackframe must be initialized.
 %%  The instruction will return to the instruction following the call.
 call(Name, Live, #vst{current=St}=Vst) ->
-    verify_live(Live, Vst),
+    verify_call_args(Name, Live, Vst),
     verify_y_init(Vst),
     case return_type(Name, Vst) of
 	Type when Type =/= exception ->
@@ -846,44 +847,74 @@ call(Name, Live, #vst{current=St}=Vst) ->
 %% Tail call.
 %%  The stackframe must have a known size and be initialized.
 %%  Does not return to the instruction following the call.
-tail_call(Name, Live, Vst) ->
+tail_call(Name, Live, Vst0) ->
+    verify_y_init(Vst0),
+    Vst = deallocate(Vst0),
     verify_call_args(Name, Live, Vst),
-    verify_y_init(Vst),
     verify_no_ct(Vst),
     kill_state(Vst).
 
 verify_call_args(_, 0, #vst{}) ->
     ok;
 verify_call_args({f,Lbl}, Live, Vst) when is_integer(Live)->
-    Verify = fun(R) ->
-		     case get_move_term_type(R, Vst) of
-			 #ms{} ->
-			     verify_call_match_context(Lbl, Vst);
-			 _ ->
-			     ok
-		     end
-	     end,
-    verify_call_args_1(Live, Verify, Vst);
+    verify_local_call(Lbl, Live, Vst);
 verify_call_args(_, Live, Vst) when is_integer(Live)->
-    Verify = fun(R) -> get_term_type(R, Vst) end,
-    verify_call_args_1(Live, Verify, Vst);
+    verify_call_args_1(Live, Vst);
 verify_call_args(_, Live, _) ->
     error({bad_number_of_live_regs,Live}).
 
-verify_call_args_1(0, _, _) -> ok;
-verify_call_args_1(N, Verify, Vst) ->
+verify_call_args_1(0, _) -> ok;
+verify_call_args_1(N, Vst) ->
     X = N - 1,
-    Verify({x,X}),
-    verify_call_args_1(X, Verify, Vst).
+    get_term_type({x,X}, Vst),
+    verify_call_args_1(X, Vst).
 
-verify_call_match_context(Lbl, #vst{ft=Ft}) ->
+verify_local_call(Lbl, Live, Vst) ->
+    case all_ms_in_x_regs(Live, Vst) of
+	[{R,Ctx}] ->
+	    %% Verify that there is a suitable bs_start_match2 instruction.
+	    verify_call_match_context(Lbl, R, Vst),
+
+	    %% Since the callee has consumed the match context,
+	    %% there must be no additional copies in Y registers.
+	    #ms{id=Id} = Ctx,
+	    case ms_in_y_regs(Id, Vst) of
+		[] ->
+		    ok;
+		[_|_]=Ys ->
+		    error({multiple_match_contexts,[R|Ys]})
+	    end;
+	[_,_|_]=Xs0 ->
+	    Xs = [R || {R,_} <- Xs0],
+	    error({multiple_match_contexts,Xs});
+	[] ->
+	    ok
+    end.
+
+all_ms_in_x_regs(0, _Vst) ->
+    [];
+all_ms_in_x_regs(Live0, Vst) ->
+    Live = Live0 - 1,
+    R = {x,Live},
+    case get_move_term_type(R, Vst) of
+	#ms{}=M ->
+	    [{R,M}|all_ms_in_x_regs(Live, Vst)];
+	_ ->
+	    all_ms_in_x_regs(Live, Vst)
+    end.
+
+ms_in_y_regs(Id, #vst{current=#st{y=Ys0}}) ->
+    Ys = gb_trees:to_list(Ys0),
+    [Y || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
+
+verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
     case gb_trees:lookup(Lbl, Ft) of
 	none ->
 	    error(no_bs_start_match2);
 	{value,[{test,bs_start_match2,_,_,[Ctx,_],Ctx}|_]} ->
 	    ok;
-	{value,[{test,bs_start_match2,_,_,[Bin,_,_],Ctx}|_]} ->
-	    error({binary_and_context_regs_different,Bin,Ctx})
+	{value,[{test,bs_start_match2,_,_,_,_}=I|_]} ->
+	    error({unsuitable_bs_start_match2,I})
     end.
 
 allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
@@ -1388,7 +1419,8 @@ merge_types(bool, {atom,A}) ->
     merge_bool(A);
 merge_types({atom,A}, bool) ->
     merge_bool(A);
-merge_types(#ms{valid=B0,slots=Slots}=M,#ms{valid=B1,slots=Slots}) ->
+merge_types(#ms{id=Id,valid=B0,slots=Slots}=M,
+	    #ms{id=Id,valid=B1,slots=Slots}) ->
     M#ms{valid=B0 bor B1,slots=Slots};
 merge_types(#ms{}=M, _) ->
     M;
