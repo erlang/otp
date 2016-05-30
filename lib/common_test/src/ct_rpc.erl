@@ -81,7 +81,7 @@ app_node(App, [], _, _) ->
 app_node(App, _Candidates = [CandidateNode | Nodes], FailOnBadRPC, Cookie) -> 
     Cookie0 = set_the_cookie(Cookie),
     Result = rpc:call(CandidateNode, application, which_applications, []),
-    set_the_cookie(Cookie0),
+    _ = set_the_cookie(Cookie0),
     case Result of
 	{badrpc,Reason} when FailOnBadRPC == true ->
 	    ct:fail({Reason,CandidateNode});
@@ -145,7 +145,7 @@ call({Fun, FunArgs}, Module, Function, Args, TimeOut, Cookie) ->
 call(Node, Module, Function, Args, TimeOut, Cookie) when is_atom(Node) ->
     Cookie0 = set_the_cookie(Cookie),
     Result = rpc:call(Node, Module, Function, Args, TimeOut),
-    set_the_cookie(Cookie0),
+    _ = set_the_cookie(Cookie0),
     Result.    
 
 %%% @spec cast(Node, Module, Function, Args) -> ok
@@ -190,7 +190,7 @@ cast({Fun, FunArgs}, Module, Function, Args, Cookie) ->
 cast(Node, Module, Function, Args, Cookie) when is_atom(Node) ->
     Cookie0 = set_the_cookie(Cookie),
     true = rpc:cast(Node, Module, Function, Args),
-    set_the_cookie(Cookie0),
+    _ = set_the_cookie(Cookie0),
     ok.
 
 
