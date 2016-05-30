@@ -325,7 +325,7 @@ do_start(Host, Node, Options) ->
 	    Functions
     end,
     MasterHost = gethostname(),
-    if
+    _ = if
 	MasterHost == Host ->
 	    spawn_local_node(Node, Options);
 	true->
@@ -359,7 +359,7 @@ do_start(Host, Node, Options) ->
         pang->
 	    {error, boot_timeout, ENode}
     end,
-    case Result of
+    _ = case Result of
 	{ok, ENode}->
 	     ok;
 	{error, Timeout, ENode}
@@ -422,7 +422,7 @@ spawn_remote_node(Host, Node, Options) ->
 	{_, _}->
 	    [{user, Username}, {password, Password}]
     end ++ [{silently_accept_hosts, true}] ++ SSHOpts,
-    application:ensure_all_started(ssh),
+    {ok, _} = application:ensure_all_started(ssh),
     {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), SSHPort, SSHOptions),
     {ok, SSHChannelId} = ssh_connection:session_channel(SSHConnRef, infinity),
     ssh_setenv(SSHConnRef, SSHChannelId, Env),
