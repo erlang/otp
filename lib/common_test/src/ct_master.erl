@@ -376,7 +376,7 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,
     end,
 
     %% start master event manager and add default handler
-    ct_master_event:start_link(),
+    {ok, _}  = start_ct_master_event(),
     ct_master_event:add_handler(),
     %% add user handlers for master event manager
     Add = fun({H,Args}) ->
@@ -397,6 +397,14 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,
 	    ok
     end,
     init_master1(Parent,NodeOptsList,InitOptions,LogDirs).
+
+start_ct_master_event() ->
+    case ct_master_event:start_link() of
+        {error, {already_started, Pid}} ->
+            {ok, Pid};
+        Else ->
+            Else
+    end.
 
 init_master1(Parent,NodeOptsList,InitOptions,LogDirs) ->
     {Inaccessible,NodeOptsList1,InitOptions1} = init_nodes(NodeOptsList,
@@ -658,7 +666,7 @@ refresh_logs([D|Dirs],Refreshed) ->
 		    {ok,Cwd} = file:get_cwd(),
 		    case catch ct_run:refresh_logs(D) of
 			{'EXIT',Reason} ->
-			    file:set_cwd(Cwd),
+			    ok = file:set_cwd(Cwd),
 			    refresh_logs(Dirs,[{D,{error,Reason}}|Refreshed]);
 			Result -> 
 			    refresh_logs(Dirs,[{D,Result}|Refreshed])
@@ -701,7 +709,7 @@ init_node_ctrl(MasterPid,Cookie,Opts) ->
     end,
     
     %% start a local event manager
-    ct_event:start_link(),
+    {ok, _} = start_ct_event(),
     ct_event:add_handler([{master,MasterPid}]),
 
     %% log("Running test with options: ~p~n", [Opts]),
@@ -719,6 +727,14 @@ init_node_ctrl(MasterPid,Cookie,Opts) ->
 	pang ->
 	    io:format("Warning! Connection to master node ~w is lost. "
 		      "Can't report result!~n~n", [MasterNode])
+    end.
+
+start_ct_event() ->
+    case ct_event:start_link() of
+        {error, {already_started, Pid}} ->
+            {ok, Pid};
+        Else ->
+            Else
     end.
 
 %%%-----------------------------------------------------------------
@@ -778,7 +794,7 @@ reply(Result,To) ->
     ok.
 
 init_nodes(NodeOptions, InitOptions)->
-    ping_nodes(NodeOptions),
+    _ = ping_nodes(NodeOptions),
     start_nodes(InitOptions),
     eval_on_nodes(InitOptions),
     {Inaccessible, NodeOptions1}=ping_nodes(NodeOptions),
