@@ -118,7 +118,7 @@ init_customized_session_cache(Type, Config) ->
 	   Config)),
     ets:new(ssl_test, [named_table, public, set]),
     ets:insert(ssl_test, {type, Type}),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap({seconds, 20}),
     Config.
 
 end_per_testcase(session_cache_process_list, Config) ->
