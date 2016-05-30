@@ -221,9 +221,17 @@ start(Config, MgrAgentConfName, SnmpAppConfName) ->
 		Config, SysName, AgentManagerIP, IP),
     setup_manager(StartManager, MgrAgentConfName, SnmpAppConfName, 
 		  Config, AgentManagerIP),
-    application:start(snmp),
+    ok = start_application(snmp),
 
     manager_register(StartManager, MgrAgentConfName).
+
+start_application(App) ->
+    case application:start(App) of
+        {error, {already_started, App}} ->
+            ok;
+        Else ->
+            Else
+    end.
  
 %%% @spec stop(Config) -> ok
 %%%      Config = [{Key, Value}]
@@ -233,8 +241,8 @@ start(Config, MgrAgentConfName, SnmpAppConfName) ->
 %%% @doc Stops the snmp manager and/or agent removes all files created.
 stop(Config) ->
     PrivDir = ?config(priv_dir, Config),
-    application:stop(snmp),
-    application:stop(mnesia),
+    ok = application:stop(snmp),
+    ok = application:stop(mnesia),
     MgrDir =  filename:join(PrivDir,"mgr"),
     ConfDir = filename:join(PrivDir, "conf"),
     DbDir = filename:join(PrivDir,"db"),
@@ -311,7 +319,7 @@ set_info(Config) ->
     SetLogFile = filename:join(PrivDir, ?CT_SNMP_LOG_FILE),
     case file:consult(SetLogFile) of
 	{ok, SetInfo} ->
-	    file:delete(SetLogFile),
+	    ok = delete_file(SetLogFile),
 	    lists:reverse(SetInfo);
 	_ ->
 	    []
@@ -513,7 +521,7 @@ unload_mibs(Mibs) ->
 prepare_snmp_env() ->
     %% To make sure application:set_env is not overwritten by any
     %% app-file settings.
-    application:load(snmp),
+    _ = application:load(snmp),
     
     %% Fix for older versions of snmp where there are some
     %% inappropriate default values for alway starting an 
@@ -533,7 +541,7 @@ setup_manager(true, MgrConfName, SnmpConfName, Config, IP) ->
     Users = [],
     Agents = [],
     Usms = [],
-    file:make_dir(MgrDir),
+    ok = make_dir(MgrDir),
    
     snmp_config:write_manager_snmp_files(MgrDir, IP, Port, MaxMsgSize, 
 					 EngineID, Users, Agents, Usms),
@@ -549,7 +557,7 @@ setup_agent(false,_, _, _, _, _, _) ->
     ok;
 setup_agent(true, AgentConfName, SnmpConfName, 
 	    Config, SysName, ManagerIP, AgentIP) ->
-    application:start(mnesia),
+    ok = start_application(mnesia),
     PrivDir = ?config(priv_dir, Config),
     Vsns = ct:get_config({AgentConfName, agent_vsns}, ?CONF_FILE_VER),
     TrapUdp = ct:get_config({AgentConfName, agent_trap_udp}, ?TRAP_UDP),
@@ -565,8 +573,8 @@ setup_agent(true, AgentConfName, SnmpConfName,
     
     ConfDir = filename:join(PrivDir, "conf"),
     DbDir = filename:join(PrivDir,"db"),
-    file:make_dir(ConfDir),
-    file:make_dir(DbDir),    
+    ok = make_dir(ConfDir),
+    ok = make_dir(DbDir),    
     snmp_config:write_agent_snmp_files(ConfDir, Vsns, ManagerIP, TrapUdp, 
 				       AgentIP, AgentUdp, SysName, 
 				       NotifType, SecType, Passwd,
@@ -684,7 +692,7 @@ log(PrivDir, Agent, {_, _, Varbinds}, NewVarsAndVals) ->
     File = filename:join(PrivDir, ?CT_SNMP_LOG_FILE),
     {ok, Fd} = file:open(File, [write, append]),
     io:format(Fd, "~p.~n", [{Agent, OldVarsAndVals, NewVarsAndVals}]),
-    file:close(Fd),
+    ok = file:close(Fd),
     ok.
 %%%---------------------------------------------------------------------------
 del_dir(Dir) ->
@@ -692,7 +700,7 @@ del_dir(Dir) ->
     FullPathFiles = lists:map(fun(File) -> filename:join(Dir, File) end,
 			      Files),
     lists:foreach(fun file:delete/1, FullPathFiles), 
-    file:del_dir(Dir),
+    ok = delete_dir(Dir),
     ok.
 %%%---------------------------------------------------------------------------
 agent_conf(Agent, MgrAgentConfName) ->
@@ -738,8 +746,8 @@ override_contexts(Config, {data_dir_file, File}) ->
 override_contexts(Config, Contexts) ->
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"context.conf"),
-    file:delete(File),
-    snmp_config:write_agent_context_config(Dir, "", Contexts).
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_context_config(Dir, "", Contexts).
 		
 %%%---------------------------------------------------------------------------
 override_sysinfo(_, undefined) ->
@@ -754,8 +762,8 @@ override_sysinfo(Config, {data_dir_file, File}) ->
 override_sysinfo(Config, SysInfo) ->   
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"standard.conf"),
-    file:delete(File),
-    snmp_config:write_agent_standard_config(Dir, "", SysInfo).
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_standard_config(Dir, "", SysInfo).
 
 %%%---------------------------------------------------------------------------
 override_target_address(_, undefined) ->
@@ -769,8 +777,8 @@ override_target_address(Config, {data_dir_file, File}) ->
 override_target_address(Config, TargetAddressConf) ->
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"target_addr.conf"),
-    file:delete(File),
-    snmp_config:write_agent_target_addr_config(Dir, "", TargetAddressConf).
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_target_addr_config(Dir, "", TargetAddressConf).
 
 
 %%%---------------------------------------------------------------------------
@@ -785,8 +793,8 @@ override_target_params(Config, {data_dir_file, File}) ->
 override_target_params(Config, TargetParamsConf) ->
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"target_params.conf"),
-    file:delete(File),
-    snmp_config:write_agent_target_params_config(Dir, "", TargetParamsConf). 
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_target_params_config(Dir, "", TargetParamsConf).
 
 %%%---------------------------------------------------------------------------
 override_notify(_, undefined) ->
@@ -800,8 +808,8 @@ override_notify(Config, {data_dir_file, File}) ->
 override_notify(Config, NotifyConf) ->
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"notify.conf"),
-    file:delete(File),
-    snmp_config:write_agent_notify_config(Dir, "", NotifyConf).
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_notify_config(Dir, "", NotifyConf).
 
 %%%---------------------------------------------------------------------------
 override_usm(_, undefined) ->
@@ -815,8 +823,8 @@ override_usm(Config, {data_dir_file, File}) ->
 override_usm(Config, UsmConf) ->
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"usm.conf"),
-    file:delete(File),
-    snmp_config:write_agent_usm_config(Dir, "", UsmConf).
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_usm_config(Dir, "", UsmConf).
 
 %%%--------------------------------------------------------------------------
 override_community(_, undefined) ->
@@ -830,8 +838,8 @@ override_community(Config, {data_dir_file, File}) ->
 override_community(Config, CommunityConf) ->
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"community.conf"),
-    file:delete(File),
-    snmp_config:write_agent_community_config(Dir, "", CommunityConf).
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_community_config(Dir, "", CommunityConf).
    
 %%%---------------------------------------------------------------------------
 
@@ -846,8 +854,8 @@ override_vacm(Config, {data_dir_file, File}) ->
 override_vacm(Config, VacmConf) ->
     Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"vacm.conf"),
-    file:delete(File),
-    snmp_config:write_agent_vacm_config(Dir, "", VacmConf).
+    ok = delete_file(File),
+    ok = snmp_config:write_agent_vacm_config(Dir, "", VacmConf).
 
 %%%---------------------------------------------------------------------------
 
@@ -861,3 +869,21 @@ while_ok(Fun,[H|T]) ->
     end;
 while_ok(_Fun,[]) ->
     ok.
+
+delete_file(FileName) ->
+    case file:delete(FileName) of
+        {error, enoent} -> ok;
+        Else -> Else
+    end.
+
+make_dir(Dir) ->
+    case file:make_dir(Dir) of
+        {error, eexist} -> ok;
+        Else -> Else
+    end.
+
+delete_dir(Dir) ->
+    case file:del_dir(Dir) of
+        {error, enoent} -> ok;
+        Else -> Else
+    end.
