@@ -4430,8 +4430,7 @@ t_from_form(Form, ExpTypes, Site, RecDict) ->
                   site(), mod_records(), var_table()) -> erl_type().
 
 t_from_form(Form, ExpTypes, Site, RecDict, VarDict) ->
-  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, VarDict),
-  T.
+  t_from_form1(Form, ExpTypes, Site, RecDict, VarDict).
 
 %% Replace external types with with none().
 -spec t_from_form_without_remote(parse_form(), site(), type_table()) ->
@@ -4441,8 +4440,7 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
   RecDict = dict:from_list([{Module, TypeTable}]),
   ExpTypes = replace_by_none,
-  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, var_table__new()),
-  T.
+  t_from_form1(Form, ExpTypes, Site, RecDict, maps:new()).
 
 %% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
 %% EXPAND_LIMIT is used for limiting the size of types by
@@ -4457,26 +4455,36 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 
 -spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
                    site(), mod_records(), var_table()) ->
-                      {erl_type(), expand_limit()}.
+                      erl_type().
 
 t_from_form1(Form, ET, Site, MR, V) ->
   TypeNames = initial_typenames(Site),
-  t_from_form1(Form, TypeNames, ET, Site, MR, V, ?EXPAND_DEPTH).
+  D0 = ?EXPAND_DEPTH,
+  {T1, L1} = t_from_form2(Form, TypeNames, ET, Site, MR, V, D0),
+  if
+    L1 =< 0 ->
+       t_from_form_loop(Form, TypeNames, ET, Site, MR, V, 1, ?EXPAND_LIMIT);
+    true -> T1
+  end.
 
 initial_typenames({type, _MTA}=Site) -> [Site];
 initial_typenames({spec, _MFA}) -> [];
 initial_typenames({record, _MRA}) -> [].
 
-t_from_form1(Form, TypeNames, ET, Site, MR, V, D) ->
-  L = ?EXPAND_LIMIT,
-  {T, L1} = t_from_form(Form, TypeNames, ET, Site, MR, V, D, L),
+t_from_form_loop(Form, TypeNames, ET, Site, MR, V, D, L0) ->
+  {T1, L1} = t_from_form2(Form, TypeNames, ET, Site, MR, V, D),
+  Delta = L0 - L1,
   if
-    L1 =< 0, D > 1 ->
-      D1 = D div 2,
-      t_from_form1(Form, TypeNames, ET, Site, MR, V, D1);
+    %% Save some time by assuming next depth will exceed the limit.
+    Delta * 8 > L0 -> T1;
     true ->
-      {T, L1}
+      D1 = D + 1,
+      t_from_form_loop(Form, TypeNames, ET, Site, MR, V, D1, L1)
   end.
+
+t_from_form2(Form, TypeNames, ET, Site, MR, V, D) ->
+  L = ?EXPAND_LIMIT,
+  t_from_form(Form, TypeNames, ET, Site, MR, V, D, L).
 
 -spec t_from_form(parse_form(), type_names(),
                   sets:set(mfa()) | 'replace_by_none',
