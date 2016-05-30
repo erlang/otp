@@ -107,9 +107,9 @@ new(Bitmap,SplashStyle,Milliseconds,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
 -spec new(Bitmap, SplashStyle, Milliseconds, Parent, Id, [Option]) -> wxSplashScreen() when
 	Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=BitmapT,ref=BitmapRef},SplashStyle,Milliseconds,#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(SplashStyle),is_integer(Milliseconds),is_integer(Id),is_list(Options) ->
   ?CLASS(BitmapT,wxBitmap),
@@ -139,7 +139,7 @@ getTimeout(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSplashScreen()) -> ok.
+-spec destroy(This::wxSplashScreen()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSplashScreen),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

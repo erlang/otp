@@ -98,10 +98,10 @@ new(Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxwxcheckbox">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxCheckBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -126,10 +126,10 @@ create(This,Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxCheckBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ThisT,wxCheckBox),
@@ -186,7 +186,7 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxsetvalue">external documentation</a>.
--spec setValue(This, State) -> ok when
+-spec setValue(This, State) -> 'ok' when
 	This::wxCheckBox(), State::boolean().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},State)
  when is_boolean(State) ->
@@ -196,7 +196,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},State)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcheckbox.html#wxcheckboxset3statevalue">external documentation</a>.
 %%<br /> State = ?wxCHK_UNCHECKED | ?wxCHK_CHECKED | ?wxCHK_UNDETERMINED
--spec set3StateValue(This, State) -> ok when
+-spec set3StateValue(This, State) -> 'ok' when
 	This::wxCheckBox(), State::wx:wx_enum().
 set3StateValue(#wx_ref{type=ThisT,ref=ThisRef},State)
  when is_integer(State) ->
@@ -205,7 +205,7 @@ set3StateValue(#wx_ref{type=ThisT,ref=ThisRef},State)
   <<ThisRef:32/?UI,State:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCheckBox()) -> ok.
+-spec destroy(This::wxCheckBox()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCheckBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -107,10 +107,10 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowwxhtmlwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxHtmlWindow() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -190,7 +190,7 @@ historyCanForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowhistoryclear">external documentation</a>.
--spec historyClear(This) -> ok when
+-spec historyClear(This) -> 'ok' when
 	This::wxHtmlWindow().
 historyClear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -226,7 +226,7 @@ loadPage(#wx_ref{type=ThisT,ref=ThisRef},Location)
   <<ThisRef:32/?UI,(byte_size(Location_UC)):32/?UI,(Location_UC)/binary, 0:(((8- ((0+byte_size(Location_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectall">external documentation</a>.
--spec selectAll(This) -> ok when
+-spec selectAll(This) -> 'ok' when
 	This::wxHtmlWindow().
 selectAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -242,7 +242,7 @@ selectionToText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectline">external documentation</a>.
--spec selectLine(This, Pos) -> ok when
+-spec selectLine(This, Pos) -> 'ok' when
 	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectLine(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->
@@ -251,7 +251,7 @@ selectLine(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowselectword">external documentation</a>.
--spec selectWord(This, Pos) -> ok when
+-spec selectWord(This, Pos) -> 'ok' when
 	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectWord(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->
@@ -260,7 +260,7 @@ selectWord(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetborders">external documentation</a>.
--spec setBorders(This, B) -> ok when
+-spec setBorders(This, B) -> 'ok' when
 	This::wxHtmlWindow(), B::integer().
 setBorders(#wx_ref{type=ThisT,ref=ThisRef},B)
  when is_integer(B) ->
@@ -269,7 +269,7 @@ setBorders(#wx_ref{type=ThisT,ref=ThisRef},B)
   <<ThisRef:32/?UI,B:32/?UI>>).
 
 %% @equiv setFonts(This,Normal_face,Fixed_face, [])
--spec setFonts(This, Normal_face, Fixed_face) -> ok when
+-spec setFonts(This, Normal_face, Fixed_face) -> 'ok' when
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
 setFonts(This,Normal_face,Fixed_face)
@@ -277,9 +277,9 @@ setFonts(This,Normal_face,Fixed_face)
   setFonts(This,Normal_face,Fixed_face, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetfonts">external documentation</a>.
--spec setFonts(This, Normal_face, Fixed_face, [Option]) -> ok when
+-spec setFonts(This, Normal_face, Fixed_face, [Option]) -> 'ok' when
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
-	Option :: {sizes, integer()}.
+	Option :: {'sizes', integer()}.
 setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
  when is_list(Normal_face),is_list(Fixed_face),is_list(Options) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -302,7 +302,7 @@ setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
   <<ThisRef:32/?UI,(byte_size(Source_UC)):32/?UI,(Source_UC)/binary, 0:(((8- ((0+byte_size(Source_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedframe">external documentation</a>.
--spec setRelatedFrame(This, Frame, Format) -> ok when
+-spec setRelatedFrame(This, Frame, Format) -> 'ok' when
 	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
 setRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef},Format)
  when is_list(Format) ->
@@ -313,7 +313,7 @@ setRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef
   <<ThisRef:32/?UI,FrameRef:32/?UI,(byte_size(Format_UC)):32/?UI,(Format_UC)/binary, 0:(((8- ((4+byte_size(Format_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedstatusbar">external documentation</a>.
--spec setRelatedStatusBar(This, Bar) -> ok when
+-spec setRelatedStatusBar(This, Bar) -> 'ok' when
 	This::wxHtmlWindow(), Bar::integer().
 setRelatedStatusBar(#wx_ref{type=ThisT,ref=ThisRef},Bar)
  when is_integer(Bar) ->
@@ -330,7 +330,7 @@ toText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxHtmlWindow()) -> ok.
+-spec destroy(This::wxHtmlWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxHtmlWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

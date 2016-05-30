@@ -97,10 +97,10 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarwxscrollbar">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxScrollBar() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -124,10 +124,10 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxScrollBar),
@@ -174,7 +174,7 @@ getThumbSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarsetthumbposition">external documentation</a>.
--spec setThumbPosition(This, ViewStart) -> ok when
+-spec setThumbPosition(This, ViewStart) -> 'ok' when
 	This::wxScrollBar(), ViewStart::integer().
 setThumbPosition(#wx_ref{type=ThisT,ref=ThisRef},ViewStart)
  when is_integer(ViewStart) ->
@@ -183,7 +183,7 @@ setThumbPosition(#wx_ref{type=ThisT,ref=ThisRef},ViewStart)
   <<ThisRef:32/?UI,ViewStart:32/?UI>>).
 
 %% @equiv setScrollbar(This,Position,ThumbSize,Range,PageSize, [])
--spec setScrollbar(This, Position, ThumbSize, Range, PageSize) -> ok when
+-spec setScrollbar(This, Position, ThumbSize, Range, PageSize) -> 'ok' when
 	This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer().
 
 setScrollbar(This,Position,ThumbSize,Range,PageSize)
@@ -191,9 +191,9 @@ setScrollbar(This,Position,ThumbSize,Range,PageSize)
   setScrollbar(This,Position,ThumbSize,Range,PageSize, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollbar.html#wxscrollbarsetscrollbar">external documentation</a>.
--spec setScrollbar(This, Position, ThumbSize, Range, PageSize, [Option]) -> ok when
+-spec setScrollbar(This, Position, ThumbSize, Range, PageSize, [Option]) -> 'ok' when
 	This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer(),
-	Option :: {refresh, boolean()}.
+	Option :: {'refresh', boolean()}.
 setScrollbar(#wx_ref{type=ThisT,ref=ThisRef},Position,ThumbSize,Range,PageSize, Options)
  when is_integer(Position),is_integer(ThumbSize),is_integer(Range),is_integer(PageSize),is_list(Options) ->
   ?CLASS(ThisT,wxScrollBar),
@@ -204,7 +204,7 @@ setScrollbar(#wx_ref{type=ThisT,ref=ThisRef},Position,ThumbSize,Range,PageSize, 
   <<ThisRef:32/?UI,Position:32/?UI,ThumbSize:32/?UI,Range:32/?UI,PageSize:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxScrollBar()) -> ok.
+-spec destroy(This::wxScrollBar()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScrollBar),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

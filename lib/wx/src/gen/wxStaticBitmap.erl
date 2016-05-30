@@ -96,9 +96,9 @@ new(Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapwxstaticbitmap">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxStaticBitmap() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=LabelT,ref=LabelRef}, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -122,9 +122,9 @@ create(This,Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticBitmap(), Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=LabelT,ref=LabelRef}, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxStaticBitmap),
@@ -147,7 +147,7 @@ getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstaticbitmap.html#wxstaticbitmapsetbitmap">external documentation</a>.
--spec setBitmap(This, Bitmap) -> ok when
+-spec setBitmap(This, Bitmap) -> 'ok' when
 	This::wxStaticBitmap(), Bitmap::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   ?CLASS(ThisT,wxStaticBitmap),
@@ -156,7 +156,7 @@ setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) -
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStaticBitmap()) -> ok.
+-spec destroy(This::wxStaticBitmap()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBitmap),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

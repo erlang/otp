@@ -96,9 +96,9 @@ new(Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxStaticText() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -122,9 +122,9 @@ create(This,Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ThisT,wxStaticText),
@@ -147,7 +147,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextsetlabel">external documentation</a>.
--spec setLabel(This, Label) -> ok when
+-spec setLabel(This, Label) -> 'ok' when
 	This::wxStaticText(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->
@@ -157,7 +157,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
   <<ThisRef:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatictext.html#wxstatictextwrap">external documentation</a>.
--spec wrap(This, Width) -> ok when
+-spec wrap(This, Width) -> 'ok' when
 	This::wxStaticText(), Width::integer().
 wrap(#wx_ref{type=ThisT,ref=ThisRef},Width)
  when is_integer(Width) ->
@@ -166,7 +166,7 @@ wrap(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStaticText()) -> ok.
+-spec destroy(This::wxStaticText()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticText),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

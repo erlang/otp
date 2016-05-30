@@ -96,7 +96,7 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiclientwindow.html#wxmdiclientwindowwxmdiclientwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxMDIClientWindow() when
 	Parent::wxMDIParentFrame:wxMDIParentFrame(),
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxMDIParentFrame),
@@ -117,7 +117,7 @@ createClient(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdiclientwindow.html#wxmdiclientwindowcreateclient">external documentation</a>.
 -spec createClient(This, Parent, [Option]) -> boolean() when
 	This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame(),
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 createClient(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMDIClientWindow),
@@ -129,7 +129,7 @@ createClient(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMDIClientWindow()) -> ok.
+-spec destroy(This::wxMDIClientWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMDIClientWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

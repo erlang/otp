@@ -99,11 +99,11 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialogwxdirdialog">external documentation</a>.
 -spec new(Parent, [Option]) -> wxDirDialog() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {title, unicode:chardata()}
-		 | {defaultPath, unicode:chardata()}
-		 | {style, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {sz, {W::integer(), H::integer()}}.
+	Option :: {'title', unicode:chardata()}
+		 | {'defaultPath', unicode:chardata()}
+		 | {'style', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'sz', {W::integer(), H::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -134,7 +134,7 @@ getMessage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialogsetmessage">external documentation</a>.
--spec setMessage(This, Message) -> ok when
+-spec setMessage(This, Message) -> 'ok' when
 	This::wxDirDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
  when is_list(Message) ->
@@ -144,7 +144,7 @@ setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
   <<ThisRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdirdialog.html#wxdirdialogsetpath">external documentation</a>.
--spec setPath(This, Path) -> ok when
+-spec setPath(This, Path) -> 'ok' when
 	This::wxDirDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
  when is_list(Path) ->
@@ -154,7 +154,7 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
   <<ThisRef:32/?UI,(byte_size(Path_UC)):32/?UI,(Path_UC)/binary, 0:(((8- ((0+byte_size(Path_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxDirDialog()) -> ok.
+-spec destroy(This::wxDirDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDirDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

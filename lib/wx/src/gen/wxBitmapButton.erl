@@ -100,10 +100,10 @@ new(Parent,Id,Bitmap)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonwxbitmapbutton">external documentation</a>.
 -spec new(Parent, Id, Bitmap, [Option]) -> wxBitmapButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -128,10 +128,10 @@ create(This,Parent,Id,Bitmap)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttoncreate">external documentation</a>.
 -spec create(This, Parent, Id, Bitmap, [Option]) -> boolean() when
 	This::wxBitmapButton(), Parent::wxWindow:wxWindow(), Id::integer(), Bitmap::wxBitmap:wxBitmap(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxBitmapButton),
@@ -179,7 +179,7 @@ getBitmapSelected(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonsetbitmapdisabled">external documentation</a>.
--spec setBitmapDisabled(This, Disabled) -> ok when
+-spec setBitmapDisabled(This, Disabled) -> 'ok' when
 	This::wxBitmapButton(), Disabled::wxBitmap:wxBitmap().
 setBitmapDisabled(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DisabledT,ref=DisabledRef}) ->
   ?CLASS(ThisT,wxBitmapButton),
@@ -188,7 +188,7 @@ setBitmapDisabled(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DisabledT,ref=Dis
   <<ThisRef:32/?UI,DisabledRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonsetbitmapfocus">external documentation</a>.
--spec setBitmapFocus(This, Focus) -> ok when
+-spec setBitmapFocus(This, Focus) -> 'ok' when
 	This::wxBitmapButton(), Focus::wxBitmap:wxBitmap().
 setBitmapFocus(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FocusT,ref=FocusRef}) ->
   ?CLASS(ThisT,wxBitmapButton),
@@ -197,7 +197,7 @@ setBitmapFocus(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FocusT,ref=FocusRef}
   <<ThisRef:32/?UI,FocusRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonsetbitmaplabel">external documentation</a>.
--spec setBitmapLabel(This, Bitmap) -> ok when
+-spec setBitmapLabel(This, Bitmap) -> 'ok' when
 	This::wxBitmapButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapLabel(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   ?CLASS(ThisT,wxBitmapButton),
@@ -206,7 +206,7 @@ setBitmapLabel(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRe
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapbutton.html#wxbitmapbuttonsetbitmapselected">external documentation</a>.
--spec setBitmapSelected(This, Sel) -> ok when
+-spec setBitmapSelected(This, Sel) -> 'ok' when
 	This::wxBitmapButton(), Sel::wxBitmap:wxBitmap().
 setBitmapSelected(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SelT,ref=SelRef}) ->
   ?CLASS(ThisT,wxBitmapButton),
@@ -215,7 +215,7 @@ setBitmapSelected(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SelT,ref=SelRef})
   <<ThisRef:32/?UI,SelRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBitmapButton()) -> ok.
+-spec destroy(This::wxBitmapButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapButton),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

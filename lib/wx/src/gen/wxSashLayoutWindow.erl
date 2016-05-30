@@ -100,10 +100,10 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowwxsashlayoutwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxSashLayoutWindow() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -127,10 +127,10 @@ create(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSashLayoutWindow(), Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
@@ -164,7 +164,7 @@ getOrientation(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetalignment">external documentation</a>.
 %%<br /> Align = ?wxLAYOUT_NONE | ?wxLAYOUT_TOP | ?wxLAYOUT_LEFT | ?wxLAYOUT_RIGHT | ?wxLAYOUT_BOTTOM
--spec setAlignment(This, Align) -> ok when
+-spec setAlignment(This, Align) -> 'ok' when
 	This::wxSashLayoutWindow(), Align::wx:wx_enum().
 setAlignment(#wx_ref{type=ThisT,ref=ThisRef},Align)
  when is_integer(Align) ->
@@ -173,7 +173,7 @@ setAlignment(#wx_ref{type=ThisT,ref=ThisRef},Align)
   <<ThisRef:32/?UI,Align:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetdefaultsize">external documentation</a>.
--spec setDefaultSize(This, Size) -> ok when
+-spec setDefaultSize(This, Size) -> 'ok' when
 	This::wxSashLayoutWindow(), Size::{W::integer(), H::integer()}.
 setDefaultSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -183,7 +183,7 @@ setDefaultSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsashlayoutwindow.html#wxsashlayoutwindowsetorientation">external documentation</a>.
 %%<br /> Orient = ?wxLAYOUT_HORIZONTAL | ?wxLAYOUT_VERTICAL
--spec setOrientation(This, Orient) -> ok when
+-spec setOrientation(This, Orient) -> 'ok' when
 	This::wxSashLayoutWindow(), Orient::wx:wx_enum().
 setOrientation(#wx_ref{type=ThisT,ref=ThisRef},Orient)
  when is_integer(Orient) ->
@@ -192,7 +192,7 @@ setOrientation(#wx_ref{type=ThisT,ref=ThisRef},Orient)
   <<ThisRef:32/?UI,Orient:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSashLayoutWindow()) -> ok.
+-spec destroy(This::wxSashLayoutWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSashLayoutWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

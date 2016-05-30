@@ -99,10 +99,10 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowwxsplitterwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxSplitterWindow() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -126,10 +126,10 @@ create(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSplitterWindow(), Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -193,7 +193,7 @@ getWindow2(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowinitialize">external documentation</a>.
--spec initialize(This, Window) -> ok when
+-spec initialize(This, Window) -> 'ok' when
 	This::wxSplitterWindow(), Window::wxWindow:wxWindow().
 initialize(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -220,7 +220,7 @@ replaceWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WinOldT,ref=WinOldRef
   <<ThisRef:32/?UI,WinOldRef:32/?UI,WinNewRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetsashgravity">external documentation</a>.
--spec setSashGravity(This, Gravity) -> ok when
+-spec setSashGravity(This, Gravity) -> 'ok' when
 	This::wxSplitterWindow(), Gravity::number().
 setSashGravity(#wx_ref{type=ThisT,ref=ThisRef},Gravity)
  when is_number(Gravity) ->
@@ -229,7 +229,7 @@ setSashGravity(#wx_ref{type=ThisT,ref=ThisRef},Gravity)
   <<ThisRef:32/?UI,0:32,Gravity:64/?F>>).
 
 %% @equiv setSashPosition(This,Position, [])
--spec setSashPosition(This, Position) -> ok when
+-spec setSashPosition(This, Position) -> 'ok' when
 	This::wxSplitterWindow(), Position::integer().
 
 setSashPosition(This,Position)
@@ -237,9 +237,9 @@ setSashPosition(This,Position)
   setSashPosition(This,Position, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetsashposition">external documentation</a>.
--spec setSashPosition(This, Position, [Option]) -> ok when
+-spec setSashPosition(This, Position, [Option]) -> 'ok' when
 	This::wxSplitterWindow(), Position::integer(),
-	Option :: {redraw, boolean()}.
+	Option :: {'redraw', boolean()}.
 setSashPosition(#wx_ref{type=ThisT,ref=ThisRef},Position, Options)
  when is_integer(Position),is_list(Options) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -250,7 +250,7 @@ setSashPosition(#wx_ref{type=ThisT,ref=ThisRef},Position, Options)
   <<ThisRef:32/?UI,Position:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetsashsize">external documentation</a>.
--spec setSashSize(This, Width) -> ok when
+-spec setSashSize(This, Width) -> 'ok' when
 	This::wxSplitterWindow(), Width::integer().
 setSashSize(#wx_ref{type=ThisT,ref=ThisRef},Width)
  when is_integer(Width) ->
@@ -259,7 +259,7 @@ setSashSize(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetminimumpanesize">external documentation</a>.
--spec setMinimumPaneSize(This, Min) -> ok when
+-spec setMinimumPaneSize(This, Min) -> 'ok' when
 	This::wxSplitterWindow(), Min::integer().
 setMinimumPaneSize(#wx_ref{type=ThisT,ref=ThisRef},Min)
  when is_integer(Min) ->
@@ -268,7 +268,7 @@ setMinimumPaneSize(#wx_ref{type=ThisT,ref=ThisRef},Min)
   <<ThisRef:32/?UI,Min:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsetsplitmode">external documentation</a>.
--spec setSplitMode(This, Mode) -> ok when
+-spec setSplitMode(This, Mode) -> 'ok' when
 	This::wxSplitterWindow(), Mode::integer().
 setSplitMode(#wx_ref{type=ThisT,ref=ThisRef},Mode)
  when is_integer(Mode) ->
@@ -287,7 +287,7 @@ splitHorizontally(This,Window1,Window2)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsplithorizontally">external documentation</a>.
 -spec splitHorizontally(This, Window1, Window2, [Option]) -> boolean() when
 	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow(),
-	Option :: {sashPosition, integer()}.
+	Option :: {'sashPosition', integer()}.
 splitHorizontally(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Window1T,ref=Window1Ref},#wx_ref{type=Window2T,ref=Window2Ref}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -310,7 +310,7 @@ splitVertically(This,Window1,Window2)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowsplitvertically">external documentation</a>.
 -spec splitVertically(This, Window1, Window2, [Option]) -> boolean() when
 	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow(),
-	Option :: {sashPosition, integer()}.
+	Option :: {'sashPosition', integer()}.
 splitVertically(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Window1T,ref=Window1Ref},#wx_ref{type=Window2T,ref=Window2Ref}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -333,7 +333,7 @@ unsplit(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowunsplit">external documentation</a>.
 -spec unsplit(This, [Option]) -> boolean() when
 	This::wxSplitterWindow(),
-	Option :: {toRemove, wxWindow:wxWindow()}.
+	Option :: {'toRemove', wxWindow:wxWindow()}.
 unsplit(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -344,7 +344,7 @@ unsplit(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterwindow.html#wxsplitterwindowupdatesize">external documentation</a>.
--spec updateSize(This) -> ok when
+-spec updateSize(This) -> 'ok' when
 	This::wxSplitterWindow().
 updateSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -352,7 +352,7 @@ updateSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSplitterWindow()) -> ok.
+-spec destroy(This::wxSplitterWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSplitterWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

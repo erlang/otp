@@ -45,7 +45,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxQueryNewPaletteEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventsetpaletterealized">external documentation</a>.
--spec setPaletteRealized(This, Realized) -> ok when
+-spec setPaletteRealized(This, Realized) -> 'ok' when
 	This::wxQueryNewPaletteEvent(), Realized::boolean().
 setPaletteRealized(#wx_ref{type=ThisT,ref=ThisRef},Realized)
  when is_boolean(Realized) ->

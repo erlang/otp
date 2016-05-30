@@ -105,7 +105,7 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdialog.html#wxcolourdialogwxcolourdialog">external documentation</a>.
 -spec new(Parent, [Option]) -> wxColourDialog() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {data, wxColourData:wxColourData()}.
+	Option :: {'data', wxColourData:wxColourData()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -126,7 +126,7 @@ create(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdialog.html#wxcolourdialogcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxColourDialog(), Parent::wxWindow:wxWindow(),
-	Option :: {data, wxColourData:wxColourData()}.
+	Option :: {'data', wxColourData:wxColourData()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxColourDialog),
@@ -146,7 +146,7 @@ getColourData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxColourDialog()) -> ok.
+-spec destroy(This::wxColourDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

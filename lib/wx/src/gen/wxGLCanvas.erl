@@ -89,25 +89,25 @@ new(Parent)
 %% <br /> Also:<br />
 %% new(Parent, [Option]) -> wxGLCanvas() when<br />
 %% 	Parent::wxWindow:wxWindow(),<br />
-%% 	Option :: {id, integer()}<br />
-%% 		 | {pos, {X::integer(), Y::integer()}}<br />
-%% 		 | {size, {W::integer(), H::integer()}}<br />
-%% 		 | {style, integer()}<br />
-%% 		 | {name, unicode:chardata()}<br />
-%% 		 | {attribList, [integer()]}<br />
-%% 		 | {palette, wxPalette:wxPalette()}.<br />
+%% 	Option :: {'id', integer()}<br />
+%% 		 | {'pos', {X::integer(), Y::integer()}}<br />
+%% 		 | {'size', {W::integer(), H::integer()}}<br />
+%% 		 | {'style', integer()}<br />
+%% 		 | {'name', unicode:chardata()}<br />
+%% 		 | {'attribList', [integer()]}<br />
+%% 		 | {'palette', wxPalette:wxPalette()}.<br />
 %% 
 -spec new(Parent, Shared) -> wxGLCanvas() when
 	Parent::wxWindow:wxWindow(), Shared::wx:wx_object() | wxGLCanvas();
       (Parent, [Option]) -> wxGLCanvas() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {name, unicode:chardata()}
-		 | {attribList, [integer()]}
-		 | {palette, wxPalette:wxPalette()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'name', unicode:chardata()}
+		 | {'attribList', [integer()]}
+		 | {'palette', wxPalette:wxPalette()}.
 
 new(Parent,Shared)
  when is_record(Parent, wx_ref),is_record(Shared, wx_ref) ->
@@ -131,13 +131,13 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcanvas.html#wxglcanvaswxglcanvas">external documentation</a>.
 -spec new(Parent, Shared, [Option]) -> wxGLCanvas() when
 	Parent::wxWindow:wxWindow(), Shared::wx:wx_object() | wxGLCanvas(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {name, unicode:chardata()}
-		 | {attribList, [integer()]}
-		 | {palette, wxPalette:wxPalette()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'name', unicode:chardata()}
+		 | {'attribList', [integer()]}
+		 | {'palette', wxPalette:wxPalette()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -169,7 +169,7 @@ getContext(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcanvas.html#wxglcanvassetcurrent">external documentation</a>.
--spec setCurrent(This) -> ok when
+-spec setCurrent(This) -> 'ok' when
 	This::wxGLCanvas().
 setCurrent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
@@ -179,7 +179,7 @@ setCurrent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   _Result.
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxglcanvas.html#wxglcanvasswapbuffers">external documentation</a>.
--spec swapBuffers(This) -> ok when
+-spec swapBuffers(This) -> 'ok' when
 	This::wxGLCanvas().
 swapBuffers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
@@ -187,7 +187,7 @@ swapBuffers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGLCanvas()) -> ok.
+-spec destroy(This::wxGLCanvas()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGLCanvas),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
