@@ -314,10 +314,7 @@ get_funs({LsR0,[{func_info,[{atom,M}=AtomM,{atom,F}=AtomF,ArityArg]}|Code0]})
   when is_atom(M), is_atom(F) ->
     Arity = resolve_arg_unsigned(ArityArg),
     {LsR,Code,RestCode} = get_fun(Code0, []),
-    Entry = case Code of
-		[{label,[{u,E}]}|_] -> E;
-		_ -> undefined
-	    end,
+    [{label,[{u,Entry}]}|_] = Code,
     [#function{name=F,
 	       arity=Arity,
 	       entry=Entry,

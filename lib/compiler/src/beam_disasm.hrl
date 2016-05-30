@@ -22,7 +22,9 @@
 %%	    the system (e.g. in the translation from Beam to Icode).
 
 %%
-%% XXX: THE FOLLOWING TYPE DECLARATION DOES NOT BELONG HERE...
+%% XXX: THE FOLLOWING TYPE DECLARATION DOES NOT BELONG HERE.
+%%      IT SHOULD BE MOVED TO A FILE THAT DEFINES (AND EXPORTS)
+%%      PROPER TYPES FOR THE SET OF BEAM INSTRUCTIONS.
 %%
 -type beam_instr() :: 'bs_init_writable' | 'fclearerror' | 'if_end'
                     | 'remove_message' | 'return' | 'send' | 'timeout'
@@ -34,7 +36,7 @@
 
 -record(function, {name      :: atom(),
 		   arity     :: byte(),
-		   entry,    %% unused ??
+		   entry     :: beam_lib:label(),    %% unnecessary ?
 		   code = [] :: [beam_instr()]}).
 
 -record(beam_file, {module               :: module(),
