@@ -862,6 +862,9 @@
   <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section">
     <xsl:param name="chapnum"/>
     <h3>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <a name="{generate-id(title)}">
         <xsl:value-of select="title"/>
       </a>
