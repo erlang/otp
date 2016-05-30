@@ -154,6 +154,8 @@ type(M, F, A, Xs) ->
               erl_types:erl_type().
 
 %%-- erlang -------------------------------------------------------------------
+type(erlang, halt, 0, _, _) -> t_none();
+type(erlang, halt, 1, _, _) -> t_none();
 type(erlang, halt, 2, _, _) -> t_none();
 type(erlang, exit, 1, _, _) -> t_none();
 type(erlang, error, 1, _, _) -> t_none();
@@ -2339,6 +2341,10 @@ arg_types(erlang, bit_size, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, byte_size, 1) ->
   [t_bitstr()];
+arg_types(erlang, halt, 0) ->
+  [];
+arg_types(erlang, halt, 1) ->
+  [t_sup([t_non_neg_fixnum(), t_atom('abort'), t_string()])];
 arg_types(erlang, halt, 2) ->
   [t_sup([t_non_neg_fixnum(), t_atom('abort'), t_string()]),
    t_list(t_tuple([t_atom('flush'), t_boolean()]))];
