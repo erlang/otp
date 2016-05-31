@@ -3939,6 +3939,7 @@ prf_verify_value(Socket, TlsVer, Expected, Algo) ->
 
 send_recv_result_timeout_client(Socket) ->
     {error, timeout} = ssl:recv(Socket, 11, 500),
+    {error, timeout} = ssl:recv(Socket, 11, 0),
     ssl:send(Socket, "Hello world"),
     receive
 	Msg ->
