@@ -323,7 +323,7 @@ load_abs(Config) when is_list(Config) ->
     {error, nofile} = code:load_abs(TestDir ++ "/duuuumy_mod"),
     {error, badfile} = code:load_abs(TestDir ++ "/code_a_test"),
     {'EXIT', _} = (catch code:load_abs({})),
-    {'EXIT', _} = (catch code:load_abs("Non-latin-имя-файла")),
+    {error, nofile} = code:load_abs("Non-latin-имя-файла"),
     {module, code_b_test} = code:load_abs(TestDir ++ "/code_b_test"),
     code:stick_dir(TestDir),
     {error, sticky_directory} = code:load_abs(TestDir ++ "/code_b_test"),

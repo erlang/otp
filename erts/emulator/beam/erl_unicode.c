@@ -1890,74 +1890,57 @@ binary_to_atom(Process* proc, Eterm bin, Eterm enc, int must_exist)
     byte* bytes;
     byte *temp_alloc = NULL;
     Uint bin_size;
+    Eterm a;
 
     if ((bytes = erts_get_aligned_binary_bytes(bin, &temp_alloc)) == 0) {
 	BIF_ERROR(proc, BADARG);
     }
     bin_size = binary_size(bin);
+
     if (enc == am_latin1) {
-	Eterm a;
-	if (bin_size > MAX_ATOM_CHARACTERS) {
-	system_limit:
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_ERROR(proc, SYSTEM_LIMIT);
-	}
 	if (!must_exist) {
-	    a = erts_atom_put((byte *) bytes,
-			      bin_size,
-			      ERTS_ATOM_ENC_LATIN1,
-			      0);
-    	    erts_free_aligned_binary_bytes(temp_alloc);
-	    if (is_non_value(a))
-		goto badarg;
-	    BIF_RET(a);
-	} else if (erts_atom_get((char *)bytes, bin_size, &a, ERTS_ATOM_ENC_LATIN1)) {
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_RET(a);
-	} else {
+	    int lix = erts_atom_put_index((byte *) bytes,
+					  bin_size,
+					  ERTS_ATOM_ENC_LATIN1,
+					  0);
+	    if (lix == ATOM_BAD_ENCODING_ERROR) {
+	    badarg:
+		erts_free_aligned_binary_bytes(temp_alloc);
+		BIF_ERROR(proc, BADARG);
+	    } else if (lix == ATOM_MAX_CHARS_ERROR) {
+	    system_limit:
+		erts_free_aligned_binary_bytes(temp_alloc);
+		BIF_ERROR(proc, SYSTEM_LIMIT);
+	    }
+
+	    a = make_atom(lix);
+	} else if (!erts_atom_get((char *)bytes, bin_size, &a, ERTS_ATOM_ENC_LATIN1)) {
 	    goto badarg;
 	}
-    } else if (enc == am_utf8 || enc == am_unicode) {
-	Eterm res;
-	Uint num_chars = 0;
-	const byte* p = bytes;
-	Uint left = bin_size;
 
-	while (left) {
-	    if (++num_chars > MAX_ATOM_CHARACTERS) {
+    } else if (enc == am_utf8 || enc == am_unicode) {
+	if (!must_exist) {
+	    int uix = erts_atom_put_index((byte *) bytes,
+					  bin_size,
+					  ERTS_ATOM_ENC_UTF8,
+					  0);
+	    if (uix == ATOM_BAD_ENCODING_ERROR) {
+		goto badarg;
+	    } else if (uix == ATOM_MAX_CHARS_ERROR) {
 		goto system_limit;
 	    }
-	    if ((p[0] & 0x80) == 0) {
-		++p;
-		--left;
-	    }
-	    else if (left >= 2
-		     && (p[0] & 0xFE) == 0xC2 /* only allow latin1 subset */
-		     && (p[1] & 0xC0) == 0x80) {
-		p += 2;
-		left -= 2;
-	    }
-	    else goto badarg;
-	}
 
-	if (!must_exist) {
-	    res = erts_atom_put((byte *) bytes,
-				bin_size,
-				ERTS_ATOM_ENC_UTF8,
-				0);
+	    a = make_atom(uix);
 	}
-	else if (!erts_atom_get((char*)bytes, bin_size, &res, ERTS_ATOM_ENC_UTF8)) {
+	else if (!erts_atom_get((char*)bytes, bin_size, &a, ERTS_ATOM_ENC_UTF8)) {
 	    goto badarg;
 	}
-	erts_free_aligned_binary_bytes(temp_alloc);
-	if (is_non_value(res))
-	    goto badarg;
-	BIF_RET(res);
     } else {
-    badarg:
-	erts_free_aligned_binary_bytes(temp_alloc);
-	BIF_ERROR(proc, BADARG);
+	goto badarg;
     }
+
+    erts_free_aligned_binary_bytes(temp_alloc);
+    BIF_RET(a);
 }
 
 BIF_RETTYPE binary_to_atom_2(BIF_ALIST_2)

@@ -226,7 +226,7 @@ effect(Config) when is_list(Config) ->
 	lc_SUITE ->
 	    _ = [{'EXIT',{badarg,_}} =
 		     (catch binary_to_atom(<<C/utf8>>, utf8)) ||
-		    C <- lists:seq(16#10000, 16#FFFFF)];
+		    C <- lists:seq(16#FF10000, 16#FFFFFFF)];
 	_ ->
 	    ok
     end,

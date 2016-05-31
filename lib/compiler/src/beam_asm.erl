@@ -21,7 +21,7 @@
 
 -module(beam_asm).
 
--export([module/4]).
+-export([module/5]).
 -export([encode/2]).
 
 -export_type([fail/0,label/0,reg/0,src/0,module_code/0,function_name/0]).
@@ -57,20 +57,20 @@
 -type module_code() ::
         {module(),[_],[_],[asm_function()],pos_integer()}.
 
--spec module(module_code(), exports(), [_], [compile:option()]) ->
+-spec module(module_code(), exports(), [_], [compile:option()], [compile:option()]) ->
                     {'ok',binary()}.
 
-module(Code, Abst, SourceFile, Opts) ->
-    {ok,assemble(Code, Abst, SourceFile, Opts)}.
+module(Code, Abst, SourceFile, Opts, CompilerOpts) ->
+    {ok,assemble(Code, Abst, SourceFile, Opts, CompilerOpts)}.
 
-assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
+assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = cerl_sets:from_list(Exp0),
     {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts).
+    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -113,7 +113,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
+build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
@@ -125,9 +125,9 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 		      Code),
 
     %% Create the atom table chunk.
-
-    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict),
-    AtomChunk = chunk(<<"Atom">>, <<NumAtoms:32>>, AtomTab),
+    AtomEncoding = atom_encoding(CompilerOpts),
+    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict, AtomEncoding),
+    AtomChunk = chunk(atom_chunk_name(AtomEncoding), <<NumAtoms:32>>, AtomTab),
 
     %% Create the import table chunk.
 
@@ -202,6 +202,15 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 		      CompileChunk,AbstChunk,LineChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
+
+atom_encoding(Opts) ->
+    case proplists:get_bool(no_utf8_atoms, Opts) of
+	false -> utf8;
+	true -> latin1
+    end.
+
+atom_chunk_name(utf8) -> <<"AtU8">>;
+atom_chunk_name(latin1) -> <<"Atom">>.
 
 %% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
 %%  Update the 'old_uniq' field in the entry for each fun in the

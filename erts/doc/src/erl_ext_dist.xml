@@ -119,16 +119,11 @@
     <tcaption>Compressed Data Format when Expanded</tcaption></table>
     <marker id="utf8_atoms"/>
     <note>
-      <p>As from ERTS 5.10 (OTP R16) support
-        for UTF-8 encoded atoms has been introduced in the external format.
-        However, only characters that can be encoded using Latin-1 (ISO-8859-1)
-        are currently supported in atoms. The support for UTF-8 encoded atoms
-        in the external format has been implemented to be able to support
-        all Unicode characters in atoms in <em>some future release</em>.
-        Until full Unicode support for atoms has been introduced,
-        it is an <em>error</em> to pass atoms containing
-        characters that cannot be encoded in Latin-1, and <em>the behavior is
-        undefined</em>.</p>
+      <p>As from ERTS 9.0 (OTP 20), UTF-8 encoded atoms may contain any Unicode
+        character. Although the support for UTF-8 encoded atoms in the external
+        format is available since ERTS 5.10 (OTP R16), passing atoms that cannot
+        be encoded in Latin-1 is an <em>error</em> in versions earlier than
+        Erlang/OTP 20, and <em>the behavior is undefined</em>.</p>
       <p>When distribution flag <seealso marker="erl_dist_protocol#dflags">
         <c>DFLAG_UTF8_ATOMS</c></seealso> has been exchanged between both nodes
         in the <seealso marker="erl_dist_protocol#distribution_handshake">
