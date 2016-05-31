@@ -46,7 +46,7 @@ new() ->
 	N::integer(), Entries::[wxAcceleratorEntry:wxAcceleratorEntry()].
 new(N,Entries)
  when is_integer(N),is_list(Entries) ->
-  [?CLASS(EntriesT,wxAcceleratorEntry) || #wx_ref{type=EntriesT} <- Entries],
+ _ = [?CLASS(EntriesT,wxAcceleratorEntry) || #wx_ref{type=EntriesT} <- Entries],
   wxe_util:construct(?wxAcceleratorTable_new_2,
   <<N:32/?UI,(length(Entries)):32/?UI,
      (<< <<(C#wx_ref.ref):32/?UI>> || C <- Entries>>)/binary, 0:(((0+length(Entries)) rem 2)*32)>>).

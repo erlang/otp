@@ -482,7 +482,7 @@ arg_type_test(#param{name=Name0,in=In,type=#type{base={class,T},single=true},def
 arg_type_test(#param{name=Name0,in=In,type=#type{base={class,T}}, def=none},EOS,Acc)
   when In =/= false ->
     Name = erl_arg_name(Name0),
-    w("  [?CLASS(~sT,~s) || #wx_ref{type=~sT} <- ~s],~s", [Name,T,Name,Name,EOS]),
+    w(" _ = [?CLASS(~sT,~s) || #wx_ref{type=~sT} <- ~s],~s", [Name,T,Name,Name,EOS]),
     Acc;
 arg_type_test(#param{name=Name0,def=none,in=In,
 		     type={merged,
