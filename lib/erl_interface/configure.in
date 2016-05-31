@@ -100,7 +100,9 @@ AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(void *)
 AC_CHECK_SIZEOF(long long)
 
-if test $ac_cv_sizeof_void_p = 8; then
+dnl We set EI_64BIT mode when long is 8 bytes, this makes things
+dnl work on windows and unix correctly
+if test $ac_cv_sizeof_long = 8; then
   CFLAGS="$CFLAGS -DEI_64BIT"
 fi
 
