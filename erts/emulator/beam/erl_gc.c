@@ -1183,22 +1183,14 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 		adjust_size = p->htop - p->heap;
             }
 
-	    goto done;
         }
+        else if (need_after > HEAP_SIZE(p)) {
+            grow_new_heap(p, next_heap_size(p, need_after, 0), objv, nobj);
+            adjust_size = p->htop - p->heap;
+        }
+	/*else: The heap size turned out to be just right. We are done. */
 
-        if (HEAP_SIZE(p) >= need_after) {
-	    /*
-	     * The heap size turned out to be just right. We are done.
-	     */
-	    goto done;
-	}
-
-        grow_new_heap(p, next_heap_size(p, need_after, 0), objv, nobj);
-	adjust_size = p->htop - p->heap;
-
-    done:
 	ASSERT(HEAP_SIZE(p) == next_heap_size(p, HEAP_SIZE(p), 0));
-	ASSERT(MBUF(p) == NULL);
 
         /* The heap usage during GC should be larger than what we end up
            after a GC, even if we grow it. If this assertion is not true
@@ -1591,6 +1583,9 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     HIGH_WATER(p) = HEAP_TOP(p);
 
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(p);
+#endif
     remove_message_buffers(p);
 
     if (p->flags & F_ON_HEAP_MSGQ)
@@ -1603,9 +1598,6 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     adjusted = adjust_after_fullsweep(p, need, objv, nobj);
 
-#ifdef HARDDEBUG
-    disallow_heap_frag_ref_in_heap(p);
-#endif
     ErtsGcQuickSanityCheck(p);
 
     return gc_cost(size_after, adjusted ? size_after : 0);
