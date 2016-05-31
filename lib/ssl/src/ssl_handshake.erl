@@ -664,10 +664,7 @@ master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
     try master_secret(RecordCB, Version, Mastersecret, SecParams,
 		      ConnectionStates, Role)
     catch
-	exit:Reason ->
-	    Report = io_lib:format("Key calculation failed due to ~p",
-				   [Reason]),
-	    error_logger:error_report(Report),
+	exit:_ ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, key_calculation_failure)
     end;
 
@@ -683,10 +680,7 @@ master_secret(RecordCB, Version, PremasterSecret, ConnectionStates, Role) ->
 					 ClientRandom, ServerRandom),
 		      SecParams, ConnectionStates, Role)
     catch
-	exit:Reason ->
-	    Report = io_lib:format("Master secret calculation failed"
-				   " due to ~p", [Reason]),
-	    error_logger:error_report(Report),
+	exit:_ ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, master_secret_calculation_failure)
     end.
 
