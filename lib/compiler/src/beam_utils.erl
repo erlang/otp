@@ -167,8 +167,7 @@ bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
 
 %% is_pure_test({test,Op,Fail,Ops}) -> true|false.
 %%  Return 'true' if the test instruction does not modify any
-%%  registers and/or bit syntax matching state, nor modifies
-%%  any bit syntax matching state.
+%%  registers and/or bit syntax matching state.
 %%
 is_pure_test({test,is_eq,_,[_,_]}) -> true;
 is_pure_test({test,is_ne,_,[_,_]}) -> true;
@@ -180,6 +179,8 @@ is_pure_test({test,is_nil,_,[_]}) -> true;
 is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
 is_pure_test({test,test_arity,_,[_,_]}) -> true;
 is_pure_test({test,has_map_fields,_,[_|_]}) -> true;
+is_pure_test({test,is_bitstr,_,[_]}) -> true;
+is_pure_test({test,is_function2,_,[_,_]}) -> true;
 is_pure_test({test,Op,_,Ops}) -> 
     erl_internal:new_type_test(Op, length(Ops)).
 
@@ -324,8 +325,11 @@ check_liveness(R, [{deallocate,_}|Is], St) ->
 	{y,_} -> {killed,St};
 	_ -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [return|_], St) ->
-    check_liveness_live_ret(R, 1, St);
+check_liveness({x,_}=R, [return|_], St) ->
+    case R of
+	{x,0} -> {used,St};
+	{x,_} -> {killed,St}
+    end;
 check_liveness(R, [{call,Live,_}|Is], St) ->
     case R of
 	{x,X} when X < Live -> {used,St};
@@ -533,14 +537,6 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 
 check_liveness_ret(R, R, St) -> {used,St};
 check_liveness_ret(_, _, St) -> {killed,St}.
-
-check_liveness_live_ret({x,R}, Live, St) ->
-    if
-	R < Live -> {used,St};
-	true -> {killed,St}
-    end;
-check_liveness_live_ret({y,_}, _, St) ->
-    {killed,St}.
 
 check_liveness_fail(_, _, _, 0, St) ->
     {killed,St};

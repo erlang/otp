@@ -118,7 +118,13 @@ coverage(Config) when is_list(Config) ->
     59 = tuple_to_values(infinity, x),
     61 = tuple_to_values(999999, x),
     0 = tuple_to_values(1, x),
+
+    {'EXIT',{{badmap,[]},_}} = (catch monitor_plus_badmap(self())),
+
     ok.
+
+monitor_plus_badmap(Pid) ->
+    monitor(process, Pid) + []#{}.
 
 receive_all() ->
     receive

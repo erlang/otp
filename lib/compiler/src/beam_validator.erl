@@ -1510,7 +1510,6 @@ bif_type(node, [_], _) -> {atom,[]};
 bif_type(hd, [_], _) -> term;
 bif_type(tl, [_], _) -> term;
 bif_type(get, [_], _) -> term;
-bif_type(raise, [_,_], _) -> exception;
 bif_type(Bif, _, _) when is_atom(Bif) -> term.
 
 is_bif_safe('/=', 2) -> true;
@@ -1524,6 +1523,7 @@ is_bif_safe('>=', 2) -> true;
 is_bif_safe(is_atom, 1) -> true;
 is_bif_safe(is_boolean, 1) -> true;
 is_bif_safe(is_binary, 1) -> true;
+is_bif_safe(is_bitstring, 1) -> true;
 is_bif_safe(is_float, 1) -> true;
 is_bif_safe(is_function, 1) -> true;
 is_bif_safe(is_integer, 1) -> true;
