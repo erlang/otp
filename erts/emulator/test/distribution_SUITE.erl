@@ -1037,10 +1037,13 @@ atom_roundtrip_r15b(Config) when is_list(Config) ->
             ct:timetrap({minutes, 6}),
             AtomData = atom_data(),
             verify_atom_data(AtomData),
-            {ok, Node} = start_node(Config, [], "r15b"),
-            do_atom_roundtrip(Node, AtomData),
-            stop_node(Node),
-            ok;
+            case start_node(Config, [], "r15b") of
+                {ok, Node} ->
+                    do_atom_roundtrip(Node, AtomData),
+                    stop_node(Node);
+                {error, timeout} ->
+                    {skip,"Unable to start OTP R15B release"}
+            end;
         false ->
             {skip,"No OTP R15B available"}
     end.
