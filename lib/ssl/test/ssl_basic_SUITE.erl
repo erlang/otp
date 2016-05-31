@@ -2631,7 +2631,7 @@ client_no_wrap_sequence_number(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     ErlData = "From erlang to erlang",
-    N = 10,
+    N = 12,
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -2668,7 +2668,7 @@ server_no_wrap_sequence_number(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Data = "From erlang to erlang",
-    N = 10,
+    N = 12,
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
