@@ -1167,6 +1167,9 @@ void erts_check_for_holes(Process* p);
  * USR_PRIO -> User prio. i.e., prio the user has set.
  * PRQ_PRIO -> Prio queue prio, i.e., prio queue currently
  *             enqueued in. 
+ *
+ * Update etp-proc-state-int in $ERL_TOP/erts/etc/unix/etp-commands.in
+ * when changing ERTS_PSFLG_*.
  */
 #define ERTS_PSFLGS_ACT_PRIO_MASK \
     (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_ACT_PRIO_OFFSET)

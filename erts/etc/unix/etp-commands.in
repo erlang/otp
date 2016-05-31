@@ -1657,8 +1657,29 @@ end
 define etp-proc-state-int
 # Args: int
 #
-  if ($arg0 & 0xff000000)
-    printf "GARBAGE | "
+  if ($arg0 & 0x80000000)
+    printf "GARBAGE<0x80000000> | "
+  end
+  if ($arg0 & 0x40000000)
+    printf "dirty-running-sys | "
+  end
+  if ($arg0 & 0x20000000)
+    printf "dirty-running | "
+  end
+  if ($arg0 & 0x10000000)
+    printf "dirty-active-sys | "
+  end
+  if ($arg0 & 0x8000000)
+    printf "dirty-io-proc | "
+  end
+  if ($arg0 & 0x4000000)
+    printf "dirty-cpu-proc | "
+  end
+  if ($arg0 & 0x2000000)
+    printf "on-heap-msgq | "
+  end
+  if ($arg0 & 0x1000000)
+    printf "off-heap-msgq | "
   end
   if ($arg0 & 0x800000)
     printf "delayed-sys | "
