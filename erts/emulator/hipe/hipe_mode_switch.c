@@ -547,7 +547,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p->flags &= ~F_HIPE_MODE;
 
 	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
-	      p = schedule(p, reds_in - p->fcalls);
+	      p = erts_schedule(NULL, p, reds_in - p->fcalls);
 	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
 	      ASSERT(!(p->flags & F_HIPE_MODE));
 #ifdef ERTS_SMP
