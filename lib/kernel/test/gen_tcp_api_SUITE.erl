@@ -135,8 +135,8 @@ t_recv_delim(Config) when is_list(Config) ->
     {ok, Client} = gen_tcp:connect(localhost, Port, Opts),
     {ok, A} = gen_tcp:accept(L),
     ok = gen_tcp:send(A, "abcXefgX"),
-    {ok, "abcX"} = gen_tcp:recv(Client, 0, 0),
-    {ok, "efgX"} = gen_tcp:recv(Client, 0, 0),
+    {ok, "abcX"} = gen_tcp:recv(Client, 0, 200),
+    {ok, "efgX"} = gen_tcp:recv(Client, 0, 200),
     ok = gen_tcp:close(Client),
     ok = gen_tcp:close(A),
     ok.
