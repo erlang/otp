@@ -424,7 +424,7 @@ static ERTS_INLINE int
 wakeup_cause(ErtsPollSet ps)
 {
     int res;
-    erts_aint32_t wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
+    erts_aint32_t wakeup_state = erts_atomic32_read_acqb(&ps->wakeup_state);
     switch (wakeup_state) {
     case ERTS_POLL_WOKEN_IO_READY:
 	res = 0;
@@ -487,9 +487,8 @@ wake_poller(ErtsPollSet ps, int io_ready)
 {
     erts_aint32_t wakeup_state;
     if (io_ready) {
-	/* We may set the event multiple times. This is, however, harmless. */
-	wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
-	erts_atomic32_set_relb(&ps->wakeup_state, ERTS_POLL_WOKEN_IO_READY);
+        wakeup_state = erts_atomic32_xchg_relb(&ps->wakeup_state,
+                                               ERTS_POLL_WOKEN_IO_READY);
     }
     else {
 	ERTS_THR_MEMORY_BARRIER;
