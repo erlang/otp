@@ -527,7 +527,7 @@ huge_float_check({'EXIT',{system_limit,_}}) -> ok;
 huge_float_check({'EXIT',{badarg,_}}) -> ok.
 
 huge_binary(Config) when is_list(Config) ->
-    ct:timetrap({seconds, 30}),
+    ct:timetrap({seconds, 60}),
     16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     garbage_collect(),
     {Shift,Return} = case free_mem() of
@@ -561,30 +561,13 @@ huge_binary(Config) when is_list(Config) ->
     end.
 
 free_mem() ->
-    Cmd = "uname; free",
-    Output = string:tokens(os:cmd(Cmd), "\n"),
-    io:format("Output from command ~p\n~p\n",[Cmd,Output]),
-    case Output of
-	[OS, ColumnNames, Values | _] ->
-	    case string:str(OS,"Linux") of
-		0 -> 
-		    io:format("Unknown OS\n",[]),
-		    undefined;
-		_ ->
-		    case {string:tokens(ColumnNames, " \t"),
-			  string:tokens(Values, " \t")} of
-			{[_,_,"free"|_],["Mem:",_,_,FreeKb|_]} ->
-			    list_to_integer(FreeKb) div 1024;
-			_ ->
-			    io:format("Failed to parse output from 'free':\n",[]),
-			    undefined
-		    end
-	    end;
-	_ ->
-	    io:format("Too few lines in output\n",[]),
-	    undefined
+    {ok,Apps} = application:ensure_all_started(os_mon),
+    Mem = memsup:get_system_memory_data(),
+    [ok = application:stop(App)||App <- Apps],
+    case proplists:get_value(free_memory,Mem) of
+        undefined -> undefined;
+        Val -> Val div 1024
     end.
-    
 
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
@@ -614,8 +597,7 @@ system_limit_32() ->
     {'EXIT',{system_limit,_}} = (catch <<42:536870912/unit:8>>),
     {'EXIT',{system_limit,_}} = (catch <<42:(id(536870912))/unit:8>>),
     {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
-    {'EXIT',{system_limit,_}} =
-	(catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
 
     %% The size would be silently truncated, resulting in a crash.
     {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 35)>>),
@@ -627,16 +609,10 @@ system_limit_32() ->
     ok.
 
 badarg(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} =
-	(catch <<0:(id(1 bsl 100)),0:(id(-1))>>),
-    {'EXIT',{badarg,_}} =
-	(catch <<0:(id(1 bsl 100)),0:(id(-(1 bsl 70)))>>),
-    {'EXIT',{badarg,_}} =
-	(catch <<0:(id(-(1 bsl 70))),0:(id(1 bsl 100))>>),
-
-    {'EXIT',{badarg,_}} =
-	(catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
-
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-1))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-(1 bsl 70)))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1 bsl 100))>>),
+    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
     ok.
 
 copy_writable_binary(Config) when is_list(Config) ->

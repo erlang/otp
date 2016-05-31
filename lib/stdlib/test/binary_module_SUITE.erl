@@ -19,9 +19,7 @@
 %%
 -module(binary_module_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_testcase/2, end_per_testcase/2,
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
@@ -30,36 +28,15 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
-
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,30}}].
+     {timetrap,{minutes,10}}].
 
 all() -> 
     [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
@@ -961,6 +938,7 @@ random_parts(X,N) ->
 
 %% Test pseudorandomly generated cases against reference implementation.
 random_ref_comp(Config) when is_list(Config) ->
+    ct:timetrap({minutes,30}), %% valgrind needs a lot of time
     put(success_counter,0),
     rand:seed(exsplus, {1271,769940,559934}),
     Nr = {1,40},
@@ -991,6 +969,7 @@ random_ref_comp(Config) when is_list(Config) ->
 %% Test pseudorandomly generated cases against reference implementation
 %% of split and replace.
 random_ref_sr_comp(Config) when is_list(Config) ->
+    ct:timetrap({minutes,30}), %% valgrind needs a lot
     put(success_counter,0),
     rand:seed(exsplus, {1271,769940,559934}),
     Nr = {1,40},
