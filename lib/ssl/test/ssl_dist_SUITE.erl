@@ -426,8 +426,10 @@ verify_fun_fail() ->
     [{doc,"Test specifying verify_fun with a function that always fails"}].
 verify_fun_fail(Config) when is_list(Config) ->
     DistOpts = "-ssl_dist_opt "
-        "server_verify verify_peer server_verify_fun {ssl_dist_SUITE,verify_fail_always,{}} "
-        "client_verify verify_peer client_verify_fun {ssl_dist_SUITE,verify_fail_always,{}} ",
+        "server_verify verify_peer server_verify_fun "
+	"\"{ssl_dist_SUITE,verify_fail_always,{}}\" "
+        "client_verify verify_peer client_verify_fun "
+	"\"{ssl_dist_SUITE,verify_fail_always,{}}\" ",
 
     NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
     NH2 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
@@ -469,9 +471,11 @@ verify_fun_pass() ->
     [{doc,"Test specifying verify_fun with a function that always succeeds"}].
 verify_fun_pass(Config) when is_list(Config) ->
     DistOpts = "-ssl_dist_opt "
-        "server_verify verify_peer server_verify_fun {ssl_dist_SUITE,verify_pass_always,{}} "
+        "server_verify verify_peer server_verify_fun "
+	"\"{ssl_dist_SUITE,verify_pass_always,{}}\" "
         "server_fail_if_no_peer_cert true "
-        "client_verify verify_peer client_verify_fun {ssl_dist_SUITE,verify_pass_always,{}} ",
+        "client_verify verify_peer client_verify_fun "
+	"\"{ssl_dist_SUITE,verify_pass_always,{}}\" ",
 
     NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
     Node1 = NH1#node_handle.nodename,
@@ -597,7 +601,8 @@ crl_cache_check_pass(Config) when is_list(Config) ->
     NodeDir = filename:join([PrivDir, "Certs"]),
     DistOpts = "-ssl_dist_opt "
         "client_crl_check true "
-        "client_crl_cache {ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}",
+        "client_crl_cache "
+	"\"{ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}\"",
     NewConfig =
         [{many_verify_opts, true}, {additional_dist_opts, DistOpts}] ++ Config,
 
@@ -623,7 +628,8 @@ crl_cache_check_fail(Config) when is_list(Config) ->
     NodeDir = filename:join([PrivDir, "Certs"]),
     DistOpts = "-ssl_dist_opt "
         "client_crl_check true "
-        "client_crl_cache {ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}",
+        "client_crl_cache "
+	"\"{ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}\"",
     NewConfig =
         [{many_verify_opts, true},
          %% The server uses a revoked certificate.
