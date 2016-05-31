@@ -332,11 +332,12 @@ platform(Vars) ->
     LC = lock_checking(),
     MT = modified_timing(),
     AsyncThreads = async_threads(),
+    OffHeapMsgQ = off_heap_msgq(),
     Debug = debug(),
     CpuBits = word_size(),
     Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,LinuxDist,
 			   Schedulers,BindType,KP,IOTHR,LC,MT,AsyncThreads,
-			   Debug,ExtraLabel]),
+			   OffHeapMsgQ,Debug,ExtraLabel]),
     PlatformId = lists:concat([ErlType, " ", Version, Common]),
     PlatformLabel = ErlType ++ Common,
     PlatformFilename = platform_as_filename(PlatformId),
@@ -397,6 +398,12 @@ hostname() ->
 async_threads() ->
     case catch erlang:system_info(threads) of
 	true -> "/A"++integer_to_list(erlang:system_info(thread_pool_size));
+	_ -> ""
+    end.
+
+off_heap_msgq() ->
+    case catch erlang:system_info(message_queue_data) of
+	off_heap -> "/OffHeapMsgQ";
 	_ -> ""
     end.
 
