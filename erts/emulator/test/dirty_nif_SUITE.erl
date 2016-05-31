@@ -32,19 +32,23 @@
 	 dirty_nif/1, dirty_nif_send/1,
 	 dirty_nif_exception/1, call_dirty_nif_exception/1,
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
-	 dirty_heap_access/1]).
+	 dirty_heap_access/1, dirty_process_info/1,
+	 dirty_process_register/1, dirty_process_trace/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [dirty_nif,
      dirty_nif_send,
      dirty_nif_exception,
      dirty_scheduler_exit,
      dirty_call_while_terminated,
-     dirty_heap_access].
+     dirty_heap_access,
+     dirty_process_info,
+     dirty_process_register,
+     dirty_process_trace].
 
 init_per_suite(Config) ->
     try erlang:system_info(dirty_cpu_schedulers) of
@@ -187,7 +191,7 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
 				    blipp:blupp(Bin)
 			    end,
 			    [monitor,link]),
-    receive {dirty_alive, Pid} -> ok end,
+    receive {dirty_alive, _Pid} -> ok end,
     {value, {BinAddr, 4711, 2}} = lists:keysearch(4711, 2,
 						  element(2,
 							  process_info(self(),
@@ -241,7 +245,7 @@ dirty_heap_access(Config) when is_list(Config) ->
 		       end),
     {N, R} = access_dirty_heap(Dirty, RGL, 0, 0),
     receive
-	{Pid, Res} ->
+	{_Pid, Res} ->
 	    1000 = length(Res),
 	    lists:foreach(fun (X) -> Ref = X end, Res)
     end,
@@ -269,12 +273,123 @@ access_dirty_heap(Dirty, RGL, N, R) ->
 					       end)
     end.
 
+%% These tests verify that processes that access a process executing a
+%% dirty NIF where the main lock is needed for that access do not get
+%% blocked. Each test passes its pid to dirty_sleeper, which sends a
+%% 'ready' message when it's running on a dirty scheduler and just before
+%% it starts a 6 second sleep. When it receives the message, it verifies
+%% that access to the dirty process is as it expects.  After the dirty
+%% process finishes its 6 second sleep but before it returns from the dirty
+%% scheduler, it sends a 'done' message. If the tester already received
+%% that message, the test fails because it means attempting to access the
+%% dirty process waited for that process to return to a regular scheduler,
+%% so verify that we haven't received that message, and also verify that
+%% the dirty process is still alive immediately after accessing it.
+dirty_process_info(Config) when is_list(Config) ->
+    access_dirty_process(
+      Config,
+      fun() -> ok end,
+      fun(NifPid) ->
+	      PI = process_info(NifPid),
+	      {current_function,{?MODULE,dirty_sleeper,1}} =
+		  lists:keyfind(current_function, 1, PI),
+	      ok
+      end,
+      fun(_) -> ok end).
+
+dirty_process_register(Config) when is_list(Config) ->
+    access_dirty_process(
+      Config,
+      fun() -> ok end,
+      fun(NifPid) ->
+	      register(test_dirty_process_register, NifPid),
+	      NifPid = whereis(test_dirty_process_register),
+	      unregister(test_dirty_process_register),
+	      false = lists:member(test_dirty_process_register,
+				   registered()),
+	      ok
+      end,
+      fun(_) -> ok end).
+
+dirty_process_trace(Config) when is_list(Config) ->
+    access_dirty_process(
+      Config,
+      fun() ->
+	      erlang:trace_pattern({?MODULE,dirty_sleeper,1},
+				   [{'_',[],[{return_trace}]}],
+				   [local,meta]),
+	      ok
+      end,
+      fun(NifPid) ->
+	      erlang:trace(NifPid, true, [call,timestamp]),
+	      ok
+      end,
+      fun(NifPid) ->
+	      receive
+		  done ->
+		      receive
+			  {trace_ts,NifPid,call,{?MODULE,dirty_sleeper,_},_} ->
+			      ok
+		      after
+			  0 ->
+			      error(missing_trace_call_message)
+		      end,
+		      receive
+			  {trace_ts,NifPid,return_from,{?MODULE,dirty_sleeper,1},
+			   ok,_} ->
+			      ok
+		      after
+			  100 ->
+			      error(missing_trace_return_message)
+		      end
+	      after
+		  6500 ->
+		      error(missing_done_message)
+	      end,
+	      ok
+      end).
+
 %%
 %% Internal...
 %%
 
+access_dirty_process(Config, Start, Test, Finish) ->
+    {ok, Node} = start_node(Config, ""),
+    [ok] = mcall(Node,
+		 [fun() ->
+                          Path = ?config(data_dir, Config),
+                          Lib = atom_to_list(?MODULE),
+                          ok = erlang:load_nif(filename:join(Path,Lib), []),
+			  ok = test_dirty_process_access(Start, Test, Finish)
+		  end]),
+    stop_node(Node),
+    ok.
+
+test_dirty_process_access(Start, Test, Finish) ->
+    ok = Start(),
+    Self = self(),
+    NifPid = spawn_link(fun() ->
+				ok = dirty_sleeper(Self)
+			end),
+    ok = receive
+	     ready ->
+		 ok = Test(NifPid),
+		 receive
+		     done ->
+			 error(dirty_process_info_blocked)
+		 after
+		     0 ->
+			 true = erlang:is_process_alive(NifPid),
+			 ok
+		 end
+	 after
+	     3000 ->
+		 error(timeout)
+	 end,
+    ok = Finish(NifPid).
+
 receive_any() ->
-    receive M -> M end.	     
+    receive M -> M end.
 
 start_node(Config) ->
     start_node(Config, "").
@@ -314,13 +429,13 @@ mcall(Node, Funs) ->
 
 %% The NIFs:
 lib_loaded() -> false.
-call_nif_schedule(_,_) -> ?nif_stub.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
 call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
 dirty_call_while_terminated_nif(_) -> ?nif_stub.
 dirty_sleeper() -> ?nif_stub.
+dirty_sleeper(_) -> ?nif_stub.
 dirty_heap_access_nif(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
