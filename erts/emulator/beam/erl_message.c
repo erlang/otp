@@ -1345,7 +1345,7 @@ erts_prep_msgq_for_inspection(Process *c_p, Process *rp,
 
 		mpp = i == 0 ? &rp->msg.first : &mip[i-1].msgp->next;
 
-		ASSERT((*mpp)->next == bad_mp);
+		ASSERT(*mpp == bad_mp);
 
 		erts_msgq_update_internal_pointers(&rp->msg, mpp, &bad_mp->next);
 
