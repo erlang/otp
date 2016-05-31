@@ -449,16 +449,16 @@ compile(Name, File, Opts0) when is_atom(Name) ->
     true ->
       case filename:find_src(filename:rootname(File, ".beam")) of
 	{error, _} ->
-	  ?error_msg("Cannot find source code for ~p.",[File]),
+	  ?error_msg("Cannot find source code for ~p.", [File]),
 	  ?EXIT({cant_find_source_code});
 	{Source, CompOpts} ->
 	  CoreOpts = [X || X = {core_transform, _} <- Opts],
-	  %%io:format("Using: ~w\n", [CoreOpts]),
+	  %% io:format("Using: ~w\n", [CoreOpts]),
 	  case compile:file(Source, CoreOpts ++ [to_core, binary|CompOpts]) of
 	    {ok, _, Core} ->
 	      compile_core(Name, Core, File, Opts);
 	    Error ->
-	      ?error_msg("Error compiling ~p:\n~p.",[File, Error]),
+	      ?error_msg("Error compiling ~p:\n~p.", [File, Error]),
 	      ?EXIT({cant_compile_source_code})
 	  end
       end;
@@ -470,7 +470,7 @@ compile(Name, File, Opts0) when is_atom(Name) ->
 	{ok, _, Core} ->
 	  compile_core(Name, Core, File, Opts);
 	Error ->
-	  ?error_msg("Error compiling ~p:\n~p\n",[Source, Error]),
+	  ?error_msg("Error compiling ~p:\n~p\n", [Source, Error]),
 	  ?EXIT({cant_compile_source_code, Error})
       end;
     Other when Other =:= false; Other =:= undefined ->
@@ -573,8 +573,7 @@ file(File, Options) when is_atom(File) ->
 disasm(File) ->
   case beam_disasm:file(File) of
     #beam_file{labeled_exports = LabeledExports,
-	       compile_info = CompInfo,
-	       code = BeamCode} ->
+	       compile_info = CompInfo, code = BeamCode} ->
       CompOpts = proplists:get_value(options, CompInfo, []),
       HCompOpts = case lists:keyfind(hipe, 1, CompOpts) of
 		    {hipe, L} when is_list(L) -> L;
@@ -597,16 +596,16 @@ fix_beam_exports([], Exports) ->
   Exports.
 
 get_beam_icode(Mod, {BeamCode, Exports}, File, Options) ->
-  ?option_time({ok, Icode} =
-	       (catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
-	       "BEAM-to-Icode", Options),
+  {ok, Icode} =
+    ?option_time((catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
+	         "BEAM-to-Icode", Options),
   BeamBin = get_beam_code(File),
   {{Mod, Exports, Icode}, BeamBin}.
 
 get_core_icode(Mod, Core, File, Options) ->
-  ?option_time({ok, Icode} =
-	       (catch {ok, cerl_to_icode:module(Core, Options)}),
-	       "BEAM-to-Icode", Options),
+  {ok, Icode} =
+    ?option_time((catch {ok, cerl_to_icode:module(Core, Options)}),
+		 "BEAM-to-Icode", Options),
   NeedBeamCode = not proplists:get_bool(load, Options),
   BeamBin = 
     case NeedBeamCode of
@@ -619,7 +618,7 @@ get_core_icode(Mod, Core, File, Options) ->
 get_beam_code(Bin) when is_binary(Bin) -> Bin;
 get_beam_code(FileName) ->
   case erl_prim_loader:get_file(FileName) of
-    {ok,Bin,_} ->
+    {ok, Bin, _} ->
       Bin;
     error ->
       ?EXIT(no_beam_file)

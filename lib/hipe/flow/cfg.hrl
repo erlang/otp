@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@
                    is_closure    :: boolean(),
                    closure_arity = none :: 'none' | arity(),
                    is_leaf       :: boolean(),
-                   params,     % :: list()
-                   info = []}).  %% this field seems not needed; take out??
+                   params        :: list(),    %% XXX: refine
+                   info = []     :: list()}).  %% seems not needed; take out??
 -type cfg_info() :: #cfg_info{}.
 
 %%

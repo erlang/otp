@@ -59,7 +59,7 @@
 -record(domTree, {root                     :: cfg_lbl(),
 		  size  = 0		   :: non_neg_integer(),
 		  nodes = gb_trees:empty() :: gb_trees:tree()}).
--type domTree() :: #domTree{}.
+-opaque domTree() :: #domTree{}.
 
 %%>----------------------------------------------------------------------<
 %% Procedure : domTree_create/1

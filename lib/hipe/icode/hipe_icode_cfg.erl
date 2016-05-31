@@ -55,6 +55,9 @@
 -spec postorder(cfg()) -> [icode_lbl()].
 -spec reverse_postorder(cfg()) -> [icode_lbl()].
 
+-spec params(cfg()) -> hipe_icode:params().
+-spec params_update(cfg(), hipe_icode:params()) -> cfg().
+
 -spec is_visited(icode_lbl(), gb_sets:set()) -> boolean().
 -spec visit(icode_lbl(), gb_sets:set()) -> gb_sets:set().
 
