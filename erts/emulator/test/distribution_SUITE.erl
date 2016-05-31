@@ -182,8 +182,13 @@ bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
     {ok, NodeSend} = start_node(bulk_sender, "+zdbbl " ++ integer_to_list(BusyBufSize)),
     _Send = spawn(NodeSend, erlang, apply, [fun sendersender/4, [self(), Recv, Bin, Terms]]),
     {Elapsed, {_TermsN, SizeN}, MonitorCount} =
-    receive {sendersender, BigRes} ->
-                BigRes
+    receive
+        %% On some platforms (windows), the time taken is 0 so we
+        %% simulate that some little time has passed.
+        {sendersender, {0.0,T,MC}} ->
+            {0.0015, T, MC};
+        {sendersender, BigRes} ->
+            BigRes
     end,
     stop_node(NodeRecv),
     stop_node(NodeSend),
