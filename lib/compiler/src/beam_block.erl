@@ -262,12 +262,17 @@ opt_move_1(R, [{set,[D],[R],move}|Is0], Acc) ->
 	{yes,Is} -> opt_move_rev(D, Acc, Is);
 	no -> not_possible
     end;
-opt_move_1({x,_}, [{set,_,_,{alloc,_,_}}|_], _) ->
-    %% The optimization is not possible. If the X register is not
-    %% killed by allocation, the optimization would not be safe.
-    %% If the X register is killed, it means that there cannot
-    %% follow a 'move' instruction with this X register as the
-    %% source.
+opt_move_1(_R, [{set,_,_,{alloc,_,_}}|_], _) ->
+    %% The optimization is either not possible or not safe.
+    %%
+    %% If R is an X register killed by allocation, the optimization is
+    %% not safe. On the other hand, if the X register is killed, there
+    %% will not follow a 'move' instruction with this X register as
+    %% the source.
+    %%
+    %% If R is a Y register, the optimization is still not safe
+    %% because the new target register is an X register that cannot
+    %% safely pass the alloc instruction.
     not_possible;
 opt_move_1(R, [{set,_,_,_}=I|Is], Acc) ->
     %% If the source register is either killed or used by this
