@@ -1725,7 +1725,7 @@ void erts_factory_trim_and_close(ErtsHeapFactory* factory,
     case FACTORY_MESSAGE: {
 	ErtsMessage *mp = factory->message;
 	if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
-	    if (!mp->hfrag.next) {
+	    if (!factory->heap_frags) {
 		Uint sz = factory->hp - factory->hp_start;
 		mp = erts_shrink_message(mp, sz, brefs, brefs_size);
 		factory->message = mp;
