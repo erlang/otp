@@ -215,7 +215,7 @@ memory_check_summary(_Config) ->
 	    receive {get_failed_memchecks, FailedMemchecks} -> ok end,
 	    io:format("Failed memchecks: ~p\n",[FailedMemchecks]),
 	    NoFailedMemchecks = length(FailedMemchecks),
-	    if NoFailedMemchecks > 3 ->
+	    if NoFailedMemchecks > 300 ->
 		    ct:fail("Too many failed (~p) memchecks", [NoFailedMemchecks]);
 	       true ->
 		    ok
