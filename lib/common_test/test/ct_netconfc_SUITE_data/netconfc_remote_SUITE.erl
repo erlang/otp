@@ -62,14 +62,15 @@ stop_node(Case) ->
 
 
 init_per_suite(Config) ->
-    case ssh:start() of
-	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+    (catch code:load_file(crypto)),
+    case {ssh:start(),code:is_loaded(crypto)} of
+	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("SSH started locally",[]),
 	    SshDir = filename:join(filename:dirname(code:which(?MODULE)),
 				   "ssh_dir"),
 	    [{ssh_dir,SshDir}|Config];
 	Other ->
-	    ct:log("could not start ssh locally: ~p",[Other]),
+	    ct:log("could not start ssh or load crypto locally: ~p",[Other]),
 	    {skip, "SSH could not be started locally!"}
     end.
 
@@ -85,15 +86,15 @@ remote_crash(Config) ->
     {ok,Node} = ct_slave:start(nc_remote_crash),
     Pa = filename:dirname(code:which(?NS)),
     true = rpc:call(Node,code,add_patha,[Pa]),
-    
-    case rpc:call(Node,ssh,start,[]) of
-	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+    rpc:call(Node,code,load_file,[crypto]),
+    case {rpc:call(Node,ssh,start,[]),rpc:call(Node,code,is_loaded,[crypto])} of
+	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("SSH started remote",[]),
 	    ns(Node,start,[?config(ssh_dir,Config)]),
 	    ct:log("netconf server started remote",[]),
 	    remote_crash(Node,Config);
 	Other ->
-	    ct:log("could not start ssh remote: ~p",[Other]),
+	    ct:log("could not start ssh or load crypto remote: ~p",[Other]),
 	    {skip, "SSH could not be started remote!"}
     end.
 
