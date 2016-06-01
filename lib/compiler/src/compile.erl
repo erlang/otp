@@ -706,14 +706,16 @@ core_passes() ->
       [{unless,no_copt,
        [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/2},
 	{iff,doldinline,{listing,"oldinline"}},
-	{pass,sys_core_fold},
+	{unless,no_fold,{pass,sys_core_fold}},
 	{iff,dcorefold,{listing,"corefold"}},
 	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/2},
 	{iff,dinline,{listing,"inline"}},
         {core_fold_after_inlining,fun test_any_inliner/1,
          fun core_fold_module_after_inlining/2},
+        {iff,dcopt,{listing,"copt"}},
+        {unless,no_alias,{pass,sys_core_alias}},
+        {iff,dalias,{listing,"core_alias"}},
 	?pass(core_transforms)]},
-       {iff,dcopt,{listing,"copt"}},
        {iff,'to_core',{done,"core"}}]}
      | kernel_passes()].
 
@@ -1921,6 +1923,7 @@ pre_load() ->
 	 erl_lint,
 	 erl_parse,
 	 erl_scan,
+	 sys_core_alias,
 	 sys_core_bsm,
 	 sys_core_dsetel,
 	 sys_core_fold,
