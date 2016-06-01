@@ -124,10 +124,10 @@
     </func>
     
     <func>
-      <name>connect(TcpSocket, Options) -> </name>
-      <name>connect(TcpSocket, Options, Timeout) -> </name>
       <name>connect(Host, Port, Options) -> </name>
-      <name>connect(Host, Port, Options, Timeout) -> 
+      <name>connect(Host, Port, Options, Timeout) -> </name>
+      <name>connect(TcpSocket, Options) -> </name>
+      <name>connect(TcpSocket, Options, Timeout) -> 
       {ok, ssh_connection_ref()} | {error, Reason}</name>
       <fsummary>Connects to an SSH server.</fsummary>
       <type>
@@ -140,7 +140,7 @@
 	<d>Negotiation time-out in milli-seconds. The default value is <c>infinity</c>.
 	For connection time-out, use option <c>{connect_timeout, timeout()}</c>.</d>
 	<v>TcpSocket = port()</v>
-	<d>The socket is supposed to be from <c>gen_tcp:connect</c> with option <c>{active,false}</c></d>
+	<d>The socket is supposed to be from <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso> or <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso> with option <c>{active,false}</c></d>
       </type>
       <desc>
 	<p>Connects to an SSH server. No channel is started. This is done
@@ -722,12 +722,15 @@
     <func>
       <name>shell(Host) -> </name>
       <name>shell(Host, Option) -> </name>
-      <name>shell(Host, Port, Option) -> _</name>
+      <name>shell(Host, Port, Option) -> </name>
+      <name>shell(TcpSocket) -> _</name>
       <fsummary>Starts an interactive shell over an SSH server.</fsummary>
       <type>
         <v>Host = string()</v>
 	<v>Port = integer()</v>
 	<v>Options - see ssh:connect/3</v>
+	<v>TcpSocket = port()</v>
+	<d>The socket is supposed to be from <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso> or <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso> with option <c>{active,false}</c></d>
       </type>
       <desc>
         <p>Starts an interactive shell over an SSH server on the
