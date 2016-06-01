@@ -86,29 +86,19 @@ connect(Socket, Options) ->
 
 connect(Socket, Options, Timeout) when is_port(Socket) ->
     case handle_options(Options) of
-	{error, _Reason} = Error ->
-	    Error;
+	{error, Error} ->
+	    {error, Error};
 	{_SocketOptions, SshOptions} ->
-	    case proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}) of
-		{tcp,_,_} ->
-		    %% Is the socket a valid tcp socket?
-		    case {{ok,[]} =/= inet:getopts(Socket, [delay_send]),
-			  {ok,[{active,false}]} == inet:getopts(Socket, [active])
-			 }
-		    of
-			{true, true} ->
-			    {ok, {Host,_Port}} = inet:sockname(Socket),
-			    Opts =  [{user_pid,self()}, {host,fmt_host(Host)} | SshOptions],
-			    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
-			{true, false} ->
-			    {error, not_passive_mode};
-			_ ->
-			    {error, not_tcp_socket}
-		    end;
-		{L4,_,_} ->
-		    {error, {unsupported,L4}}
+	    case valid_socket_to_use(Socket, Options) of
+		ok -> 
+		    {ok, {Host,_Port}} = inet:sockname(Socket),
+		    Opts =  [{user_pid,self()}, {host,fmt_host(Host)} | SshOptions],
+		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
+		{error,SockError} ->
+		    {error,SockError}
 	    end
     end;
+
 connect(Host, Port, Options) when is_integer(Port), Port>0 ->
     connect(Host, Port, Options, infinity).
 
@@ -272,6 +262,29 @@ default_algorithms() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+valid_socket_to_use(Socket, Options) ->
+    case proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}) of
+	{tcp,_,_} ->
+	    %% Is this tcp-socket a valid socket?
+	    case {is_tcp_socket(Socket),
+		  {ok,[{active,false}]} == inet:getopts(Socket, [active])
+		 }
+	    of
+		{true, true} ->
+		    ok;
+		{true, false} ->
+		    {error, not_passive_mode};
+		_ ->
+		    {error, not_tcp_socket}
+	    end;
+	{L4,_,_} ->
+	    {error, {unsupported,L4}}
+    end.
+
+is_tcp_socket(Socket) -> {ok,[]} =/= inet:getopts(Socket, [delay_send]).
+
+
+
 daemon_shell_opt(Options) ->
      case proplists:get_value(shell, Options) of
 	 undefined ->
@@ -296,14 +309,19 @@ daemon_host_inet_opt(HostAddr, Options1) ->
 
 start_daemon(Socket, Options) ->
     case handle_options(Options) of
-	{error, _Reason} = Error ->
-	    Error;
-	{SocketOptions, SshOptions}->
-	    try 
-		do_start_daemon(Socket, [{role,server}|SshOptions], SocketOptions)
-	    catch
-		throw:bad_fd -> {error,bad_fd};
-		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
+	{error, Error} ->
+	    {error, Error};
+	{SocketOptions, SshOptions} ->
+	    case valid_socket_to_use(Socket, Options) of
+		ok -> 
+		    try 
+			do_start_daemon(Socket, [{role,server}|SshOptions], SocketOptions)
+		    catch
+			throw:bad_fd -> {error,bad_fd};
+			_C:_E -> {error,{cannot_start_daemon,_C,_E}}
+		    end;
+		{error,SockError} ->
+		    {error,SockError}
 	    end
     end.
 
