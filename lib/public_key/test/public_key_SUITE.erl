@@ -44,7 +44,7 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl].
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, ec_pem, encrypted_pem,
@@ -644,11 +644,10 @@ pkix(Config) when is_list(Config) ->
 		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString," erlang  ca "}}]]},
     VerifyStr = {rdnSequence, 
 		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlangca"}}],
-		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}]]},
-    VerifyStr = public_key:pkix_normalize_name(TestStr),
-
-    ok.
-
+		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}]]},   
+    VerifyStr = public_key:pkix_normalize_name(TestStr).
+    
+  
 %%--------------------------------------------------------------------
 pkix_countryname() ->
     [{doc, "Test workaround for certs that code x509countryname as utf8"}].
@@ -805,6 +804,18 @@ pkix_crl(Config) when is_list(Config) ->
 			 reasons = asn1_NOVALUE,
 			 distributionPoint =  Point} = public_key:pkix_dist_point(OTPIDPCert).
 
+general_name() ->
+    [{doc, "Test that decoding of general name filed may have other values"
+      " than {rdnSequence,  Seq}"}].
+
+general_name(Config) when is_list(Config) ->
+    DummyRfc822Name = "CN=CNDummy, OU=OUDummy, O=ODummy, C=SE",
+    {ok, {1,  DummyRfc822Name}} = 
+	pubkey_cert:cert_auth_key_id(
+	  #'AuthorityKeyIdentifier'{authorityCertIssuer = 
+					[{rfc822Name, DummyRfc822Name}],
+				    authorityCertSerialNumber = 
+					1}).
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
