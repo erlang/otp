@@ -122,6 +122,11 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
   font-size: 90%;
   padding: 5px 10px;
 }
+
+.quote {
+    font-style: italic
+}
+
 .example {
   background-color:#eeeeff;
   padding: 0px 10px;

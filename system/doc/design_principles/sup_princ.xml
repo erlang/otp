@@ -80,8 +80,8 @@ init(_Args) ->
     </section>
 
   <section>
-    <title>Supervisor Flags</title>
     <marker id="flags"/>
+    <title>Supervisor Flags</title>
     <p>This is the type definition for the supervisor flags:</p>
     <code type="none"><![CDATA[
 sup_flags() = #{strategy => strategy(),         % optional
@@ -106,9 +106,8 @@ sup_flags() = #{strategy => strategy(),         % optional
   </section>
 
   <section>
-    <marker id="strategy"></marker>
+    <marker id="strategy"/>
     <title>Restart Strategy</title>
-
     <p> The restart strategy is specified by
       the <c>strategy</c> key in the supervisor flags map returned by
       the callback function <c>init</c>:</p>
