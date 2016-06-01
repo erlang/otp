@@ -262,10 +262,8 @@ cast(Supervisor, Req) ->
       Pid :: pid(),
       Module :: atom().
 get_callback_module(Pid) ->
-    {status, _Pid, {module, _Mod},
-     [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(Pid),
-    [_Header, _Data, {data, [{"State", State}]}] = Misc,
-    State#state.module.
+    {supervisor, Module, _Args} = proc_lib:initial_call(Pid),
+    Module.
 
 %%% ---------------------------------------------------
 %%% 
