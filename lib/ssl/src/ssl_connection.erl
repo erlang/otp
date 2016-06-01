@@ -786,12 +786,24 @@ downgrade(Type, Event, State, Connection) ->
 %% Event handling functions called by state functions to handle
 %% common or unexpected events for the state.
 %%--------------------------------------------------------------------
+handle_common_event(internal, {handshake, {#hello_request{} = Handshake, _}}, connection = StateName,  
+		    #state{role = client} = State, _) ->
+    %% Should not be included in handshake history
+    {next_state, StateName, State#state{renegotiation = {true, peer}}, [{next_event, internal, Handshake}]};
+handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName, #state{role = client}, _) 
+  when StateName =/= connection ->
+    {keep_state_and_data};
+handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName, 
+		    #state{tls_handshake_history = Hs0} = State0, Connection) ->
+    %% This function handles client SNI hello extension when Handshake is
+    %% a client_hello, which needs to be determined by the connection callback.
+    %% In other cases this is a noop
+    State = Connection:handle_sni_extension(Handshake, State0),
+    HsHist = ssl_handshake:update_handshake_history(Hs0, Raw),
+    {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
+     [{next_event, internal, Handshake}]};
 handle_common_event(internal, {tls_record, TLSRecord}, StateName, State, Connection) -> 
     Connection:handle_common_event(internal, TLSRecord, StateName, State);
-handle_common_event(internal, #hello_request{}, StateName, #state{role = client} = State0, Connection)
-  when StateName =:= connection ->
-    {Record, State} = Connection:next_record(State0),
-    Connection:next_event(StateName, Record, State);
 handle_common_event(timeout, hibernate, _, _, _) ->
     {keep_state_and_data, [hibernate]};
 handle_common_event(internal, {application_data, Data}, StateName, State0, Connection) ->
