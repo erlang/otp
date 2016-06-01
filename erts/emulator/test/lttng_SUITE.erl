@@ -44,6 +44,7 @@ suite() ->
 
 all() -> 
     [t_lttng_list,
+     t_memory_carrier,
      t_carrier_pool,
      t_async_io_pool,
      t_driver_start_stop,
@@ -52,8 +53,7 @@ all() ->
      t_driver_timeout,
      t_driver_caller,
      t_driver_flush,
-     t_scheduler_poll,
-     t_memory_carrier].
+     t_scheduler_poll].
 
 
 init_per_suite(Config) ->
@@ -178,11 +178,13 @@ t_async_io_pool(Config) ->
 %% com_ericsson_otp:driver_stop
 t_driver_start_stop(Config) ->
     ok = lttng_start_event("com_ericsson_otp:driver_*", Config),
+    timer:sleep(500),
     Path = proplists:get_value(priv_dir, Config),
     Name = filename:join(Path, "sometext.txt"),
     Bin  = txt(),
     ok = file:write_file(Name, Bin),
     {ok, Bin} = file:read_file(Name),
+    timer:sleep(500),
     Res = lttng_stop_and_view(Config),
     ok = check_tracepoint("com_ericsson_otp:driver_start", Res),
     ok = check_tracepoint("com_ericsson_otp:driver_stop", Res),
@@ -213,6 +215,7 @@ t_driver_control_ready_async(Config) ->
 %% com_ericsson_otp:driver_ready_output
 t_driver_ready_input_output(Config) ->
     ok = lttng_start_event("com_ericsson_otp:driver_ready_*", Config),
+    timer:sleep(500),
     Me = self(),
     Pid = spawn_link(fun() -> tcp_server(Me, active) end),
     receive {Pid, accept} -> ok end,
@@ -225,6 +228,7 @@ t_driver_ready_input_output(Config) ->
     ok = gen_tcp:close(Sock),
     receive {Pid, done} -> ok end,
 
+    timer:sleep(500),
     Res = lttng_stop_and_view(Config),
     ok = check_tracepoint("com_ericsson_otp:driver_ready_input", Res),
     ok = check_tracepoint("com_ericsson_otp:driver_ready_output", Res),
