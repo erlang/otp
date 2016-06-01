@@ -360,7 +360,7 @@ get(Config) ->
 get_a_lot(Config) ->
     SshDir = ?config(ssh_dir,Config),
     {ok,Client} = open_success(SshDir),
-    Descr = lists:append(lists:duplicate(1000,"Description of myserver! ")),
+    Descr = lists:append(lists:duplicate(100,"Description of myserver! ")),
     Server = {server,[{xmlns,"myns"}],[{name,[],["myserver"]},
 				       {description,[],[Descr]}]},
     Data = lists:duplicate(100,Server),
