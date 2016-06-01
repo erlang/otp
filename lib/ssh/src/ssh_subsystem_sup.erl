@@ -51,6 +51,8 @@ channel_supervisor(SupPid) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init([Opts]) ->
     RestartStrategy = one_for_all,
     MaxR = 0,

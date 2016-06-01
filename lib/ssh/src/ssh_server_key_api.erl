@@ -23,9 +23,16 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh.hrl").
 
--callback host_key(Algorithm :: 'ssh-rsa'| 'ssh-dss'| atom(), DaemonOptions :: proplists:proplist()) ->
-    {ok, PrivateKey :: #'RSAPrivateKey'{}| #'DSAPrivateKey'{} |  term()} | {error, string()}.
+-export_type([algorithm/0]).
 
--callback is_auth_key(PublicKey :: #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term(),
-		      User :: string(), DaemonOptions :: proplists:proplist()) ->
+-type algorithm()  :: ssh_client_key_api:algorithm().
+
+
+-callback host_key(Algorithm :: algorithm(),
+		   DaemonOptions :: proplists:proplist()) ->
+    {ok, PrivateKey :: public_key:private_key()} | {error, term()}.
+
+-callback is_auth_key(PublicKey :: public_key:public_key(),
+		      User :: string(),
+		      DaemonOptions :: proplists:proplist()) ->
     boolean().

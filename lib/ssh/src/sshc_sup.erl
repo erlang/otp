@@ -51,6 +51,8 @@ stop_child(Client) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init(Args) ->
     RestartStrategy = simple_one_for_one,
     MaxR = 0,
