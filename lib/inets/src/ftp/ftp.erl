@@ -1773,7 +1773,7 @@ handle_ctrl_result({Status, Lines},
 		   #state{mode   = active, 
 			  caller = {setup_data_connection, {LSock, _}}} 
 		   = State) ->
-    close_connection(LSock),
+    close_connection({tcp,LSock}),
     ctrl_result_response(Status, State, {error, Lines});
 
 %% Data connection setup passive mode 
