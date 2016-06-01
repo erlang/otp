@@ -47,6 +47,7 @@ all() ->
      start_shell,
      start_shell_exec,
      start_shell_exec_fun,
+     start_shell_sock_exec_fun,
      gracefull_invalid_version,
      gracefull_invalid_start,
      gracefull_invalid_long_start,
@@ -60,6 +61,9 @@ groups() ->
 
 payload() ->
     [simple_exec,
+     simple_exec_sock,
+     connect_sock_not_tcp,
+     connect_sock_not_passive,
      small_cat,
      big_cat,
      send_after_exit].
@@ -111,6 +115,18 @@ simple_exec() ->
 simple_exec(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
+    do_simple_exec(ConnectionRef).
+
+
+simple_exec_sock(Config) ->
+    {ok, Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
+    {ok, ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
+					     {user_interaction, false}]),
+    do_simple_exec(ConnectionRef).
+    
+
+
+do_simple_exec(ConnectionRef) ->
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
@@ -141,6 +157,18 @@ simple_exec(Config) when is_list(Config) ->
     after 
 	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
+
+%%--------------------------------------------------------------------
+connect_sock_not_tcp(Config) ->
+    {ok,Sock} = gen_udp:open(0, []), 
+    {error, not_tcp_socket} = ssh:connect(Sock, []),
+    gen_udp:close(Sock).
+
+%%--------------------------------------------------------------------
+connect_sock_not_passive(Config) ->
+    {ok,Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []), 
+    {error, not_passive_mode} = ssh:connect(Sock, []),
+    gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
 small_cat() ->
@@ -439,6 +467,42 @@ start_shell_exec_fun(Config) when is_list(Config) ->
 						      {password, "morot"},
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
+
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+    success = ssh_connection:exec(ConnectionRef, ChannelId0,
+				  "testing", infinity),
+
+    receive
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"testing\r\n">>}} ->
+	    ok
+    after 5000 ->
+	    ct:fail("Exec Timeout")
+    end,
+
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+start_shell_sock_exec_fun() ->
+    [{doc, "start shell on tcp-socket to exec command"}].
+
+start_shell_sock_exec_fun(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {exec, fun ssh_exec/1}]),
+
+    {ok, Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
+					    {user, "foo"},
+					    {password, "morot"},
+					    {user_interaction, true},
+					    {user_dir, UserDir}]),
 
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
 

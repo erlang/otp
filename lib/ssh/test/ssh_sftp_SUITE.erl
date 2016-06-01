@@ -86,7 +86,8 @@ groups() ->
 			     write_file, write_file_iolist, write_big_file, sftp_read_big_file,
 			     rename_file, mk_rm_dir, remove_file, links,
 			     retrieve_attributes, set_attributes, async_read,
-			     async_write, position, pos_read, pos_write
+			     async_write, position, pos_read, pos_write,
+			     start_channel_sock
 			    ]}
     ].
 
@@ -623,6 +624,58 @@ pos_write(Config) when is_list(Config) ->
 
     NewData1 = list_to_binary("Bye, see you tomorrow!"),
     {ok, NewData1} = ssh_sftp:read_file(Sftp, FileName).
+
+%%--------------------------------------------------------------------
+start_channel_sock(Config) ->
+    LoginOpts =
+	case proplists:get_value(group,Config) of
+	    erlang_server -> 
+		[{user,     proplists:get_value(user, Config)},
+		 {password, proplists:get_value(passwd, Config)}];
+	    openssh_server ->
+		[] % Use public key
+	end,
+
+    Opts = [{user_interaction, false},
+	    {silently_accept_hosts, true}
+	    | LoginOpts],
+
+    {Host,Port} = proplists:get_value(peer, Config),
+
+    %% Get a tcp socket
+    {ok, Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
+
+    %% and open one channel on one new Connection
+    {ok, ChPid1, Conn} = ssh_sftp:start_channel(Sock, Opts),
+    
+    %% Test that the channel is usable
+    FileName = proplists:get_value(filename, Config),
+    ok = open_close_file(ChPid1, FileName, [read]),
+    ok = open_close_file(ChPid1, FileName, [write]),
+
+    %% Try to open a second channel on the Connection
+    {ok, ChPid2} = ssh_sftp:start_channel(Conn, Opts),
+    ok = open_close_file(ChPid1, FileName, [read]),
+    ok = open_close_file(ChPid2, FileName, [read]),
+
+    %% Test that the second channel still works after closing the first one
+    ok = ssh_sftp:stop_channel(ChPid1),
+    ok = open_close_file(ChPid2, FileName, [write]),
+    
+    %% Test the Connection survives that all channels are closed
+    ok = ssh_sftp:stop_channel(ChPid2),
+    {ok, ChPid3} = ssh_sftp:start_channel(Conn, Opts),
+    ok = open_close_file(ChPid3, FileName, [write]),
+    
+    %% Test that a closed channel really is closed
+    {error, closed} = ssh_sftp:open(ChPid2, FileName, [write]),
+    ok = ssh_sftp:stop_channel(ChPid3),
+
+    %% Test that the socket is closed when the Connection closes
+    ok = ssh:close(Conn),
+    {error,einval} = inet:getopts(Sock, [active]),
+
+    ok.
 
 %%--------------------------------------------------------------------
 sftp_nonexistent_subsystem() ->
