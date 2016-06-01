@@ -1040,7 +1040,8 @@ return({To,Ref},Result) ->
     ok.
 
 cast(Msg) ->
-    ct_util_server ! {Msg, {ct_util_server, make_ref()}}.
+    ct_util_server ! {Msg, {ct_util_server, make_ref()}},
+    ok.
 
 seconds(T) ->
     test_server:seconds(T).
