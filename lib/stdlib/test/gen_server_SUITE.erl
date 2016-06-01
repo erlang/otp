@@ -185,7 +185,7 @@ start(Config) when is_list(Config) ->
 	gen_server:start({global, my_test_name},
 			 gen_server_SUITE, [], []),
     ok = gen_server:call({global, my_test_name}, stop),
-    ct:sleep(1),
+    busy_wait_for_process(Pid4,600),
     {'EXIT', {noproc,_}} = (catch gen_server:call(Pid4, started_p, 10)),
 
     %% global register linked
@@ -214,7 +214,7 @@ start(Config) when is_list(Config) ->
 	gen_server:start({via, dummy_via, my_test_name},
 			 gen_server_SUITE, [], []),
     ok = gen_server:call({via, dummy_via, my_test_name}, stop),
-    ct:sleep(1),
+    busy_wait_for_process(Pid6,600),
     {'EXIT', {noproc,_}} = (catch gen_server:call(Pid6, started_p, 10)),
 
     %% via register linked

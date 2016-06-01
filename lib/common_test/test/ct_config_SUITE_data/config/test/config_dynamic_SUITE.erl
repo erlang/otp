@@ -74,7 +74,7 @@ test_get_known_variable(_)->
 test_localtime_update(_)->
     Seconds = 5,
     LT1 = ct:get_config(localtime),
-    ct:sleep(Seconds*1000),
+    timer:sleep(Seconds*1000), % don't want scaling of this timer
     LT2 = ct:reload_config(localtime),
     case is_diff_ok(LT1, LT2, Seconds) of
 	{false, Actual, Exp}->

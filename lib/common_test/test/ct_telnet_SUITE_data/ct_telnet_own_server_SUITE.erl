@@ -308,8 +308,19 @@ large_string(_) ->
     VerifyStr = [C || C <- lists:flatten(Data1), C/=$ , C/=$\r, C/=$\n, C/=$>],
 
     ok = ct_telnet:send(Handle, "echo_sep "++BigString),
-    ct:sleep(50),
-    {ok,Data2} = ct_telnet:get_data(Handle),
+    %% On some slow machines, 50 ms might not be enough to get the
+    %% first packet of data. We will therefore keep trying for a
+    %% second before we give up this...
+    F = fun RepeatUntilData(N) ->
+		ct:sleep(50),
+		case ct_telnet:get_data(Handle) of
+		    {ok,[]} when N>1 ->
+			RepeatUntilData(N-1);
+		    Other ->
+			Other
+		end
+	end,
+    {ok,Data2} = F(20),
     ct:log("[GET DATA #2] Received ~w chars: ~s", [length(lists:flatten(Data2)),Data2]),
     VerifyStr = [C || C <- lists:flatten(Data2), C/=$ , C/=$\r, C/=$\n, C/=$>],
 
