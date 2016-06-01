@@ -351,8 +351,9 @@
     <func>
       <name>daemon(Port) -> </name>
       <name>daemon(Port, Options) -> </name>
-      <name>daemon(HostAddress, Port, Options) -> {ok,
-      ssh_daemon_ref()} | {error, atom()}</name>
+      <name>daemon(HostAddress, Port, Options) -> </name>
+      <name>daemon(TcpSocket) -> </name>
+      <name>daemon(TcpSocket, Options) -> {ok, ssh_daemon_ref()} | {error, atom()}</name>
       <fsummary>Starts a server listening for SSH connections 
       on the given port.</fsummary>
       <type>
@@ -361,6 +362,8 @@
 	<v>Options = [{Option, Value}]</v>
         <v>Option = atom()</v>
 	<v>Value = term()</v>
+	<v>TcpSocket = port()</v>
+	<d>The socket is supposed to be from <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso> or <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso> with option <c>{active,false}</c></d>
       </type>
       <desc>
         <p>Starts a server listening for SSH connections on the given

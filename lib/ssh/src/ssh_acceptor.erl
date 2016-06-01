@@ -27,7 +27,8 @@
 %% Internal application API
 -export([start_link/5,
 	 number_of_connections/1,
-	 callback_listen/3]).
+	 callback_listen/3,
+	 handle_connection/5]).
 
 %% spawn export  
 -export([acceptor_init/6, acceptor_loop/6]).

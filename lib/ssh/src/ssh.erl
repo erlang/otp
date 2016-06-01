@@ -160,7 +160,7 @@ channel_info(ConnectionRef, ChannelId, Options) ->
 
 %%--------------------------------------------------------------------
 -spec daemon(integer()) -> {ok, pid()} | {error, term()}.
--spec daemon(integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
+-spec daemon(integer()|port(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
 -spec daemon(any | inet:ip_address(), integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
 
 %% Description: Starts a server listening for SSH connections 
@@ -169,28 +169,16 @@ channel_info(ConnectionRef, ChannelId, Options) ->
 daemon(Port) ->
     daemon(Port, []).
 
-daemon(Port, Options) ->
-    daemon(any, Port, Options).
+daemon(Port, Options) when is_integer(Port) ->
+    daemon(any, Port, Options);
+
+daemon(Socket, Options0) when is_port(Socket) ->
+    Options = daemon_shell_opt(Options0),
+    start_daemon(Socket, Options).
 
 daemon(HostAddr, Port, Options0) ->
-    Options1 = case proplists:get_value(shell, Options0) of
-		   undefined ->
-		       [{shell, {shell, start, []}}  | Options0];
-		   _ ->
-		       Options0
-	       end,
-
-    {Host, Inet, Options} = case HostAddr of
-				any ->
-				    {ok, Host0} = inet:gethostname(), 
-				    {Host0,  proplists:get_value(inet, Options1, inet), Options1};
-				{_,_,_,_} ->
-				    {HostAddr, inet, 
-				     [{ip, HostAddr} | Options1]};
-				{_,_,_,_,_,_,_,_} ->
-				    {HostAddr, inet6, 
-				     [{ip, HostAddr} | Options1]}
-			    end,
+    Options1 = daemon_shell_opt(Options0),
+    {Host, Inet, Options} = daemon_host_inet_opt(HostAddr, Options1),
     start_daemon(Host, Port, Options, Inet).
 
 %%--------------------------------------------------------------------
@@ -284,19 +272,100 @@ default_algorithms() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+daemon_shell_opt(Options) ->
+     case proplists:get_value(shell, Options) of
+	 undefined ->
+	     [{shell, {shell, start, []}}  | Options];
+	 _ ->
+	     Options
+     end.
+
+daemon_host_inet_opt(HostAddr, Options1) ->
+    case HostAddr of
+	any ->
+	    {ok, Host0} = inet:gethostname(), 
+	    {Host0,  proplists:get_value(inet, Options1, inet), Options1};
+	{_,_,_,_} ->
+	    {HostAddr, inet, 
+	     [{ip, HostAddr} | Options1]};
+	{_,_,_,_,_,_,_,_} ->
+	    {HostAddr, inet6, 
+	     [{ip, HostAddr} | Options1]}
+    end.
+
+
+start_daemon(Socket, Options) ->
+    case handle_options(Options) of
+	{error, _Reason} = Error ->
+	    Error;
+	{SocketOptions, SshOptions}->
+	    try 
+		do_start_daemon(Socket, [{role,server}|SshOptions], SocketOptions)
+	    catch
+		throw:bad_fd -> {error,bad_fd};
+		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
+	    end
+    end.
+
 start_daemon(Host, Port, Options, Inet) ->
     case handle_options(Options) of
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions}->
 	    try 
-		do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+		do_start_daemon(Host, Port, [{role,server}|SshOptions] , [Inet|SocketOptions])
 	    catch
 		throw:bad_fd -> {error,bad_fd};
 		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
 	    end
     end.
     
+do_start_daemon(Socket, SshOptions, SocketOptions) ->
+    {ok, {IP,Port}} = 
+	try {ok,_} = inet:sockname(Socket)
+	catch
+	    _:_ -> throw(bad_socket)
+	end,
+    Host = fmt_host(IP),
+    Profile = proplists:get_value(profile, SshOptions, ?DEFAULT_PROFILE),
+    Opts = [{asocket, Socket},
+	    {asock_owner,self()},
+	    {address, Host},
+	    {port, Port},
+	    {role, server},
+	    {socket_opts, SocketOptions}, 
+	    {ssh_opts, SshOptions}],
+    {_, Callback, _} = proplists:get_value(transport, SshOptions, {tcp, gen_tcp, tcp_closed}),
+    case ssh_system_sup:system_supervisor(Host, Port, Profile) of
+	undefined ->
+	    %% It would proably make more sense to call the
+	    %% address option host but that is a too big change at the
+	    %% monent. The name is a legacy name!
+	    try sshd_sup:start_child(Opts) of
+		{error, {already_started, _}} ->
+		    {error, eaddrinuse};
+		Result = {ok,_} ->
+		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
+		    Result;
+		Result = {error, _} ->
+		    Result
+	    catch
+		exit:{noproc, _} ->
+		    {error, ssh_not_started}
+	    end;
+	Sup  ->
+	    AccPid = ssh_system_sup:acceptor_supervisor(Sup),
+	    case ssh_acceptor_sup:start_child(AccPid, Opts) of
+		{error, {already_started, _}} ->
+		    {error, eaddrinuse};
+		{ok, _} ->
+		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
+		    {ok, Sup};
+		Other ->
+		    Other
+	    end
+    end.
+
 do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
     {Host,Port1} = 
 	try
@@ -312,7 +381,7 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 	    _:_ -> throw(bad_fd)
 	end,
     Profile = proplists:get_value(profile, SshOptions, ?DEFAULT_PROFILE),
-    {Port, WaitRequestControl, Opts} =
+    {Port, WaitRequestControl, Opts0} =
 	case Port1 of
 	    0 -> %% Allocate the socket here to get the port number...
 		{_, Callback, _} =  
@@ -326,17 +395,17 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 	    _ ->
 		{Port1, false, []}
 	end,
+    Opts = [{address, Host}, 
+	    {port, Port},
+	    {role, server},
+	    {socket_opts, SocketOptions}, 
+	    {ssh_opts, SshOptions} | Opts0],
     case ssh_system_sup:system_supervisor(Host, Port, Profile) of
 	undefined ->
 	    %% It would proably make more sense to call the
 	    %% address option host but that is a too big change at the
 	    %% monent. The name is a legacy name!
-	    try sshd_sup:start_child([{address, Host}, 
-				      {port, Port},
-				      {role, server},
-				      {socket_opts, SocketOptions}, 
-				      {ssh_opts, SshOptions}
-				      | Opts]) of
+	    try sshd_sup:start_child(Opts) of
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		Result = {ok,_} ->
@@ -350,12 +419,7 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 	    end;
 	Sup  ->
 	    AccPid = ssh_system_sup:acceptor_supervisor(Sup),
-	    case ssh_acceptor_sup:start_child(AccPid, [{address, Host},
-						       {port, Port},
-						       {role, server},
-						       {socket_opts, SocketOptions},
-						       {ssh_opts, SshOptions}
-						       | Opts]) of
+	    case ssh_acceptor_sup:start_child(AccPid, Opts) of
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		{ok, _} ->
