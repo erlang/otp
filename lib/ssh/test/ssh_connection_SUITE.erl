@@ -344,10 +344,10 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 interrupted_send(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
@@ -387,10 +387,10 @@ start_shell() ->
     [{doc, "Start a shell"}].
 
 start_shell(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
@@ -419,10 +419,10 @@ start_shell_exec() ->
     [{doc, "start shell to exec command"}].
 
 start_shell_exec(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
@@ -453,10 +453,10 @@ start_shell_exec_fun() ->
     [{doc, "start shell to exec command"}].
 
 start_shell_exec_fun(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
@@ -522,10 +522,10 @@ start_shell_sock_exec_fun(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 gracefull_invalid_version(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
@@ -545,10 +545,10 @@ gracefull_invalid_version(Config) when is_list(Config) ->
     end.
 
 gracefull_invalid_start(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"}]),
@@ -567,10 +567,10 @@ gracefull_invalid_start(Config) when is_list(Config) ->
     end.
 
 gracefull_invalid_long_start(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"}]),
@@ -590,10 +590,10 @@ gracefull_invalid_long_start(Config) when is_list(Config) ->
 
 
 gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"}]),
@@ -615,10 +615,10 @@ stop_listener() ->
     [{doc, "start ssh daemon, setup connections, stop listener, restart listner"}].
 
 stop_listener(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     {Pid0, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					      {user_dir, UserDir},
@@ -674,10 +674,10 @@ stop_listener(Config) when is_list(Config) ->
     end.
 
 start_subsystem_on_closed_channel(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
@@ -703,10 +703,10 @@ max_channels_option() ->
     [{doc, "Test max_channels option"}].
 
 max_channels_option(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},

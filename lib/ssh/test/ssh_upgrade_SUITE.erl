@@ -59,7 +59,7 @@ init_per_suite(Config0) ->
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
     ssh:stop(),
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_rsa(UserDir).
 
 init_per_testcase(_TestCase, Config) ->
@@ -138,8 +138,8 @@ test_soft(State0, FileName) ->
 
 
 setup_server_client(#state{config=Config} = State) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 	    
     FtpRootDir = filename:join(PrivDir, "ftp_root"),
     catch file:make_dir(FtpRootDir),

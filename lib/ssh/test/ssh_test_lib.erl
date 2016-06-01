@@ -71,7 +71,7 @@ daemon_port(Port, _) -> Port.
 
 
 std_daemon(Config, ExtraOpts) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     std_daemon1(Config, 
@@ -80,13 +80,13 @@ std_daemon(Config, ExtraOpts) ->
 		     {user_passwords, [{"usr1","pwd1"}]}]).
 
 std_daemon1(Config, ExtraOpts) ->
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = proplists:get_value(data_dir, Config),
     {_Server, _Host, _Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 						   {failfun, fun ssh_test_lib:failfun/2}
 						   | ExtraOpts]).
 
 std_connect(Config, Host, Port, ExtraOpts) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     _ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
@@ -99,7 +99,7 @@ std_simple_sftp(Host, Port, Config) ->
     std_simple_sftp(Host, Port, Config, []).
 
 std_simple_sftp(Host, Port, Config, Opts) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "test.data"),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
     {ok, ChannelRef} = ssh_sftp:start_channel(ConnectionRef),
