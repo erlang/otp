@@ -48,6 +48,9 @@ all() ->
      start_shell_exec,
      start_shell_exec_fun,
      start_shell_sock_exec_fun,
+     start_shell_sock_daemon_exec,
+     connect_sock_not_tcp,
+     daemon_sock_not_tcp,
      gracefull_invalid_version,
      gracefull_invalid_start,
      gracefull_invalid_long_start,
@@ -57,13 +60,11 @@ all() ->
      max_channels_option
     ].
 groups() ->
-    [{openssh, [], payload() ++ ptty()}].
+    [{openssh, [], payload() ++ ptty() ++ sock()}].
 
 payload() ->
     [simple_exec,
      simple_exec_sock,
-     connect_sock_not_tcp,
-     connect_sock_not_passive,
      small_cat,
      big_cat,
      send_after_exit].
@@ -72,6 +73,11 @@ ptty() ->
     [ptty_alloc_default,
      ptty_alloc,
      ptty_alloc_pixel].
+
+sock() ->
+    [connect_sock_not_passive,
+     daemon_sock_not_passive
+    ].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -159,15 +165,27 @@ do_simple_exec(ConnectionRef) ->
     end.
 
 %%--------------------------------------------------------------------
-connect_sock_not_tcp(Config) ->
+connect_sock_not_tcp(_Config) ->
     {ok,Sock} = gen_udp:open(0, []), 
     {error, not_tcp_socket} = ssh:connect(Sock, []),
     gen_udp:close(Sock).
 
 %%--------------------------------------------------------------------
-connect_sock_not_passive(Config) ->
+daemon_sock_not_tcp(_Config) ->
+    {ok,Sock} = gen_udp:open(0, []), 
+    {error, not_tcp_socket} = ssh:daemon(Sock),
+    gen_udp:close(Sock).
+
+%%--------------------------------------------------------------------
+connect_sock_not_passive(_Config) ->
     {ok,Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []), 
     {error, not_passive_mode} = ssh:connect(Sock, []),
+    gen_tcp:close(Sock).
+
+%%--------------------------------------------------------------------
+daemon_sock_not_passive(_Config) ->
+    {ok,Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []), 
+    {error, not_passive_mode} = ssh:daemon(Sock),
     gen_tcp:close(Sock).
 
 %%--------------------------------------------------------------------
@@ -520,7 +538,44 @@ start_shell_sock_exec_fun(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
+start_shell_sock_daemon_exec(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
 
+    {ok,Sl} = gen_tcp:listen(0, [{active,false}]),
+    {ok,{IP,Port}} = inet:sockname(Sl),
+    
+    spawn_link(fun() ->
+		       {ok,Ss} = gen_tcp:connect(IP,Port, [{active,false}]),
+		       {ok, Pid} = ssh:daemon(Ss, [{system_dir, SysDir},
+						   {user_dir, UserDir},
+						   {password, "morot"},
+						   {exec, fun ssh_exec/1}])
+	       end),
+    {ok,Sc} = gen_tcp:accept(Sl),
+    {ok,ConnectionRef} = ssh:connect(Sc, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_interaction, true},
+					  {user_dir, UserDir}]),
+    
+    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+    success = ssh_connection:exec(ConnectionRef, ChannelId0,
+				  "testing", infinity),
+
+    receive
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"testing\r\n">>}} ->
+	    ok
+    after 5000 ->
+	    ct:fail("Exec Timeout")
+    end,
+
+    ssh:close(ConnectionRef).
+    
+%%--------------------------------------------------------------------
 gracefull_invalid_version(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
