@@ -95,7 +95,8 @@
 /* 
  * The following symbols can be manipulated to "tune" the linear hash array 
  */
-#define CHAIN_LEN 6                 /* Medium bucket chain len      */
+#define GROW_LIMIT(NACTIVE) ((NACTIVE)*2)
+#define SHRINK_LIMIT(NACTIVE) ((NACTIVE) / 2)
 
 /* Number of slots per segment */
 #define SEGSZ_EXP  8
@@ -463,7 +464,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
     int nactive = NACTIVE(tb);
-    if (nactive > SEGSZ && NITEMS(tb) < (nactive * CHAIN_LEN)
+    if (nactive > SEGSZ && NITEMS(tb) < SHRINK_LIMIT(nactive)
 	&& !IS_FIXED(tb)) {
 	shrink(tb, nactive);
     }
@@ -862,7 +863,7 @@ Lnew:
     WUNLOCK_HASH(lck);
     {
 	int nactive = NACTIVE(tb);       
-	if (nitems > nactive * (CHAIN_LEN+1) && !IS_FIXED(tb)) {
+	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
 	    grow(tb, nactive);
 	}
     }
@@ -2250,12 +2251,12 @@ static int db_free_table_continue_hash(DbTable *tbl)
 
     done /= 2;
     while(tb->nslots != 0) {
-	free_seg(tb, 1);
+	done += 1 + SEGSZ/64 + free_seg(tb, 1);
 
 	/*
 	 * If we have done enough work, get out here.
 	 */
-	if (++done >= (DELETE_RECORD_LIMIT / CHAIN_LEN / SEGSZ)) {
+	if (done >= DELETE_RECORD_LIMIT) {
 	    return 0;	/* Not done */
 	}
     }
@@ -2871,7 +2872,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                 int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
                 int nactive = NACTIVE(tb);
 
-                if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
+                if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
                     grow(tb, nactive);
                 }
             }
