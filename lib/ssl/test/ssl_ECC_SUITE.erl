@@ -343,6 +343,12 @@ new_ca(FileName, CA, OwnCa) ->
     E1 = public_key:pem_decode(P1),
     {ok, P2} = file:read_file(OwnCa),
     E2 = public_key:pem_decode(P2),
-    Pem = public_key:pem_encode(E2 ++E1),
-    file:write_file(FileName,  Pem),
+    case os:cmd("openssl version") of 
+	"OpenSSL 1.0.1p-freebsd" ++ _ ->
+	    Pem = public_key:pem_encode(E1 ++E2),
+	    file:write_file(FileName,  Pem);
+	_ ->
+	    Pem = public_key:pem_encode(E2 ++E1),
+	    file:write_file(FileName,  Pem)
+    end,  
     FileName.
