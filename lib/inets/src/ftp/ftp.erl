@@ -106,8 +106,8 @@
 -type common_reason() ::  'econn' | 'eclosed' | term().
 -type file_write_error_reason() :: term(). % See file:write for more info
 
--define(DBG(F,A), 'n/a').
-%%-define(DBG(F,A), io:format(F,A)).
+%%-define(DBG(F,A), 'n/a').
+-define(DBG(F,A), io:format(F,A)).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -1383,11 +1383,17 @@ handle_call({_, {transfer_chunk, Bin}}, _, #state{chunk = true} = State) ->
     send_data_message(State, Bin),
     {reply, ok, State};
 
+handle_call({_, {transfer_chunk, _}}, _, #state{chunk = false} = State) ->
+    {reply, {error, echunk}, State};
+
 handle_call({_, chunk_end}, From, #state{chunk = true} = State) ->
     close_data_connection(State),
     activate_ctrl_connection(State),
     {noreply, State#state{client = From, dsock = undefined, 
 			  caller = end_chunk_transfer, chunk = false}};
+
+handle_call({_, chunk_end}, _, #state{chunk = false} = State) ->
+    {reply, {error, echunk}, State};
 
 handle_call({_, {quote, Cmd}}, From, #state{chunk = false} = State) ->
     send_ctrl_message(State, mk_cmd(Cmd, [])),
@@ -1769,12 +1775,12 @@ handle_ctrl_result({pos_compl, _Lines},
 				    {LSock, Caller}}} = State) ->
     handle_caller(State#state{caller = Caller, dsock = {lsock, LSock}});
 
-handle_ctrl_result({Status, Lines}, 
+handle_ctrl_result({Status, _Lines}, 
 		   #state{mode   = active, 
 			  caller = {setup_data_connection, {LSock, _}}} 
 		   = State) ->
     close_connection({tcp,LSock}),
-    ctrl_result_response(Status, State, {error, Lines});
+    ctrl_result_response(Status, State, {error, Status});
 
 %% Data connection setup passive mode 
 handle_ctrl_result({pos_compl, Lines}, 
@@ -1965,7 +1971,7 @@ handle_ctrl_result(_, #state{caller = {handle_dir_data_third_phase, DirData},
     {noreply, State#state{client = undefined, caller = undefined}};
 
 handle_ctrl_result({Status, _}, #state{caller = cd} = State) ->
-    ctrl_result_response(Status, State, {error, epath});
+    ctrl_result_response(Status, State, {error, Status});
 
 handle_ctrl_result(Status={epath, _}, #state{caller = {dir,_}} = State) ->
      ctrl_result_response(Status, State, {error, epath});
@@ -1980,11 +1986,11 @@ handle_ctrl_result({pos_interm, _}, #state{caller = {rename, NewFile}}
 
 handle_ctrl_result({Status, _}, 
 		   #state{caller = {rename, _}} = State) ->
-    ctrl_result_response(Status, State, {error, epath});
+    ctrl_result_response(Status, State, {error, Status});
 
 handle_ctrl_result({Status, _},
 		   #state{caller = rename_second_phase} = State) ->
-    ctrl_result_response(Status, State, {error, epath});
+    ctrl_result_response(Status, State, {error, Status});
 
 %%--------------------------------------------------------------------------
 %% File handling - recv_bin
@@ -2095,7 +2101,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
 %% Default
 handle_ctrl_result({Status, Lines}, #state{client = From} = State) 
   when From =/= undefined ->
-    ctrl_result_response(Status, State, {error, Lines}).
+    ctrl_result_response(Status, State, {error, Status}).
 
 %%--------------------------------------------------------------------------
 %% Help functions to handle_ctrl_result
@@ -2113,7 +2119,6 @@ ctrl_result_response(Status, #state{client = From} = State, _)
        (Status =:= epnospc)  orelse 
        (Status =:= efnamena) orelse 
        (Status =:= econn) ->
-%Status == etnospc; Status == epnospc; Status == econn ->
     gen_server:reply(From, {error, Status}),
 %%    {stop, normal, {error, Status}, State#state{client = undefined}};
     {stop, normal, State#state{client = undefined}};
@@ -2378,6 +2383,7 @@ close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
 close_data_connection(#state{dsock = undefined}) -> ok;
 close_data_connection(#state{dsock = Socket}) -> close_connection(Socket).
 
+close_connection({lsock,Socket}) ->  gen_tcp:close(Socket);
 close_connection({tcp, Socket}) -> gen_tcp:close(Socket);
 close_connection({ssl, Socket}) -> ssl:close(Socket).
 

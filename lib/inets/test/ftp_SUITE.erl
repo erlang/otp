@@ -50,12 +50,16 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
+suite() ->
+    [{timetrap,{seconds,10}}].
+
 all() ->
     [
      {group, ftp_passive},
      {group, ftp_active},
      {group, ftps_passive},
-     {group, ftps_active}
+     {group, ftps_active},
+     error_ehost
     ].
 
 groups() ->
@@ -92,7 +96,7 @@ ftp_tests()->
      recv_chunk, 
      type, 
      quote, 
-     ip_v6_disabled,
+     error_elogin,
      progress_report_send,
      progress_report_recv,
      not_owner,
@@ -214,11 +218,14 @@ common_init_per_testcase(Case, Config0) ->
 	    ftp_active   -> ftp__open(Config0,       ACTIVE  ++ExtraOpts);
 	    ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ExtraOpts);
 	    ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ExtraOpts);
-	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ExtraOpts)
+	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ExtraOpts);
+	    undefined    -> Config0
 	end,
     case Case of
-	user -> Config;
-	bad_user -> Config;
+	user         -> Config;
+	bad_user     -> Config;
+	error_elogin -> Config;
+	error_ehost  -> Config;
 	_ ->
 	    Pid = proplists:get_value(ftp,Config),
 	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS(atom_to_list(Group)++"-"++atom_to_list(Case)) ),
@@ -229,6 +236,8 @@ common_init_per_testcase(Case, Config0) ->
     
 end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
+end_per_testcase(error_elogin, _Config) -> ok;
+end_per_testcase(error_ehost, _Config) -> ok;
 end_per_testcase(_Case, Config) -> 
     case proplists:get_value(tc_status,Config) of
 	ok -> ok;
@@ -286,7 +295,8 @@ cd(Config0) ->
     {ok, PWD} = ftp:pwd(Pid),
     ExpectedPWD = id2ftp_result(Dir, Config),
     PWD = ExpectedPWD,
-    {error, epath} = ftp:cd(Pid, ?BAD_DIR).
+    {error, epath} = ftp:cd(Pid, ?BAD_DIR),
+    ok.
 
 %%-------------------------------------------------------------------------
 lcd() ->
@@ -359,8 +369,11 @@ rename(Config0) ->
 		    id2ftp(NewFile,Config)),
 
     true = (chk_file(NewFile,Contents,Config) 
-	    and chk_no_file([OldFile],Config)).
-
+	    and chk_no_file([OldFile],Config)),
+    {error,epath} = ftp:rename(Pid,
+			       id2ftp("non_existing_file",Config),
+			       id2ftp(NewFile,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 send() -> 
@@ -372,14 +385,16 @@ send(Config0) ->
     Config = set_state([reset,{mkfile,[SrcDir,File],Contents}], Config0),
     Pid = proplists:get_value(ftp, Config),
 
-chk_no_file([File],Config),
-chk_file([SrcDir,File],Contents,Config),
+    chk_no_file([File],Config),
+    chk_file([SrcDir,File],Contents,Config),
 
     ok = ftp:lcd(Pid, id2ftp(SrcDir,Config)),
     ok = ftp:cd(Pid, id2ftp("",Config)),
     ok = ftp:send(Pid, File),
+    chk_file(File, Contents, Config),
 
-    chk_file(File, Contents, Config).
+    {error,epath} = ftp:send(Pid, "non_existing_file"),
+    ok.
 
 %%-------------------------------------------------------------------------
 send_3() -> 
@@ -395,8 +410,10 @@ send_3(Config0) ->
     ok = ftp:cd(Pid, id2ftp(Dir,Config)),
     ok = ftp:lcd(Pid, id2ftp("",Config)),
     ok = ftp:send(Pid, File, RemoteFile),
+    chk_file([Dir,RemoteFile], Contents, Config),
 
-    chk_file([Dir,RemoteFile], Contents, Config).
+    {error,epath} = ftp:send(Pid, "non_existing_file", RemoteFile),
+    ok.
 
 %%------------------------------------------------------------------------- 
 send_bin() -> 
@@ -408,24 +425,33 @@ send_bin(Config0) ->
     Pid = proplists:get_value(ftp, Config),
     {error, enotbinary} = ftp:send_bin(Pid, "some string", id2ftp(File,Config)),
     ok = ftp:send_bin(Pid, BinContents, id2ftp(File,Config)),
-    chk_file(File, BinContents, Config).
+    chk_file(File, BinContents, Config),
+    {error, efnamena} = ftp:send_bin(Pid, BinContents, "/nothere"),
+    ok.
 
 %%-------------------------------------------------------------------------    
 send_chunk() -> 
     [{doc, "Send a binary using chunks."}].
 send_chunk(Config0) ->
-    Contents = <<"ftp_SUITE test ...">>,
+    Contents1 = <<"1: ftp_SUITE test ...">>,
+    Contents2 = <<"2: ftp_SUITE test ...">>,
     File = "file.txt",
     Config = set_state([reset,{mkdir,"incoming"}], Config0),
     Pid = proplists:get_value(ftp, Config),
 
     ok = ftp:send_chunk_start(Pid, id2ftp(File,Config)),
+    {error, echunk} = ftp:send_chunk_start(Pid, id2ftp(File,Config)),
     {error, echunk} = ftp:cd(Pid, "incoming"),
     {error, enotbinary} = ftp:send_chunk(Pid, "some string"),
-    ok = ftp:send_chunk(Pid, Contents),
-    ok = ftp:send_chunk(Pid, Contents),
+    ok = ftp:send_chunk(Pid, Contents1),
+    ok = ftp:send_chunk(Pid, Contents2),
     ok = ftp:send_chunk_end(Pid),
-    chk_file(File, <<Contents/binary,Contents/binary>>, Config).
+    chk_file(File, <<Contents1/binary,Contents2/binary>>, Config),
+
+    {error, echunk} = ftp:send_chunk(Pid, Contents1),
+    {error, echunk} = ftp:send_chunk_end(Pid),
+    {error, efnamena} = ftp:send_chunk_start(Pid, "/"),
+    ok.
 
 %%-------------------------------------------------------------------------
 delete() -> 
@@ -436,7 +462,9 @@ delete(Config0) ->
     Config = set_state([reset,{mkfile,File,Contents}], Config0),
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:delete(Pid, id2ftp(File,Config)),
-    chk_no_file([File], Config).
+    chk_no_file([File], Config),
+    {error,epath} = ftp:delete(Pid, id2ftp(File,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 mkdir() ->
@@ -446,7 +474,9 @@ mkdir(Config0) ->
     Config = set_state([reset], Config0),
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:mkdir(Pid, id2ftp(NewDir,Config)),
-    chk_dir([NewDir], Config).
+    chk_dir([NewDir], Config),
+    {error,epath} = ftp:mkdir(Pid, id2ftp(NewDir,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 rmdir() -> 
@@ -456,7 +486,9 @@ rmdir(Config0) ->
     Config = set_state([reset,{mkdir,Dir}], Config0),
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:rmdir(Pid, id2ftp(Dir,Config)),
-    chk_no_dir([Dir], Config).
+    chk_no_dir([Dir], Config),
+    {error,epath} = ftp:rmdir(Pid, id2ftp(Dir,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 append() -> 
@@ -469,7 +501,9 @@ append(Config0) ->
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:append(Pid, id2ftp(SrcFile,Config), id2ftp(DstFile,Config)),
     ok = ftp:append(Pid, id2ftp(SrcFile,Config), id2ftp(DstFile,Config)),
-    chk_file(DstFile, <<Contents/binary,Contents/binary>>, Config).
+    chk_file(DstFile, <<Contents/binary,Contents/binary>>, Config),
+    {error,epath} = ftp:append(Pid, id2ftp("non_existing_file",Config), id2ftp(DstFile,Config)),
+    ok.
 		
 %%-------------------------------------------------------------------------
 append_bin() -> 
@@ -511,7 +545,9 @@ recv(Config0) ->
     ok = ftp:cd(Pid, id2ftp(SrcDir,Config)),
     ok = ftp:lcd(Pid, id2ftp("",Config)),
     ok = ftp:recv(Pid, File),
-    chk_file(File, Contents, Config).
+    chk_file(File, Contents, Config),
+    {error,epath} = ftp:recv(Pid, "non_existing_file"),
+    ok.
 
 %%-------------------------------------------------------------------------
 recv_3() -> 
@@ -535,7 +571,9 @@ recv_bin(Config0) ->
     Config = set_state([reset, {mkfile,File,Contents}], Config0),
     Pid = proplists:get_value(ftp, Config),
     {ok,Received} = ftp:recv_bin(Pid, id2ftp(File,Config)),
-    find_diff(Received, Contents).
+    find_diff(Received, Contents),
+    {error,epath} = ftp:recv_bin(Pid, id2ftp("non_existing_file",Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 recv_chunk() -> 
@@ -704,8 +742,14 @@ not_owner() ->
     "to use it"}].
 not_owner(Config) when is_list(Config) ->
     Pid = proplists:get_value(ftp, Config),
-    OtherPid = spawn_link(?MODULE, not_owner, [Pid, self()]),
-    
+
+    Parent = self(),
+    OtherPid = spawn_link(
+		 fun() ->
+			 {error, not_connection_owner} = ftp:pwd(Pid),
+			 ftp:close(Pid),
+			 Parent ! {self(), ok}
+		 end),
     receive
 	{OtherPid, ok} ->
 	    {ok, _} = ftp:pwd(Pid)
@@ -776,6 +820,35 @@ clean_shutdown(Config) ->
 	    {skip, "No available FTP servers"}
     end.
 
+%%%----------------------------------------------------------------
+%%% Error codes not tested elsewhere
+
+error_elogin(Config0) ->
+    Dir = "test",
+    OldFile = "old.txt",
+    NewFile = "new.txt",
+    SrcDir = "data",
+    File = "file.txt",
+    Config = set_state([reset,
+			{mkdir,Dir},
+			{mkfile,OldFile,<<"Contents..">>},
+			{mkfile,[SrcDir,File],<<"Contents..">>}], Config0),
+
+    Pid = proplists:get_value(ftp, Config),
+    ok = ftp:lcd(Pid, id2ftp(SrcDir,Config)),
+    {error,elogin} = ftp:send(Pid, File),
+    ok = ftp:lcd(Pid, id2ftp("",Config)),
+    {error,elogin} = ftp:pwd(Pid),
+    {error,elogin} = ftp:cd(Pid, id2ftp(Dir,Config)),
+    {error,elogin} = ftp:rename(Pid, 
+				id2ftp(OldFile,Config),
+				id2ftp(NewFile,Config)),
+    ok.
+
+error_ehost(Config) ->
+    {error, ehost} = ftp:open("nohost.nodomain"),
+    ok.
+    
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
@@ -892,12 +965,6 @@ rm(F, Pfx) ->
 	{error,enoent} ->
 	    ok
     end.
-
-not_owner(FtpPid, Pid) ->
-    {error, not_connection_owner} = ftp:pwd(FtpPid),
-    ftp:close(FtpPid),
-    ct:sleep(100),
-    Pid ! {self(), ok}.
 
 id2abs(Id, Conf) -> filename:join(proplists:get_value(priv_dir,Conf),ids(Id)).
 id2ftp(Id, Conf) -> (proplists:get_value(id2ftp,Conf))(ids(Id)).

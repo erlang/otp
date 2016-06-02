@@ -253,7 +253,7 @@ ftp_other_status_codes(Config) when is_list(Config) ->
     {perm_neg_compl, _ }  = ftp_response:interpret("501 Foobar\r\n"),
     {perm_neg_compl, _ }  = ftp_response:interpret("503 Foobar\r\n"),
     {perm_neg_compl, _ }  = ftp_response:interpret("504 Foobar\r\n"),
-    {perm_neg_compl, _ }  = ftp_response:interpret("530 Foobar\r\n"),
+    {elogin, _ } = ftp_response:interpret("530 Foobar\r\n"),
     {perm_neg_compl, _ }  = ftp_response:interpret("532 Foobar\r\n"),
     {epath, _ }  = ftp_response:interpret("550 Foobar\r\n"),
     {epnospc, _ }  = ftp_response:interpret("552 Foobar\r\n"),
