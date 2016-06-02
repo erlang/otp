@@ -51,7 +51,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap,{seconds,10}}].
+    [{timetrap,{seconds,40}}].
 
 all() ->
     [
@@ -619,99 +619,6 @@ quote(Config) ->
     %% = ftp:quote(Pid, "list"), 
     ok.
 
-%%--------------------------------------------------------------------
-%% Internal functions  -----------------------------------------------
-%%--------------------------------------------------------------------
-
-make_cert_files(Alg1, Alg2, Prefix, Dir) ->
-    CaInfo = {CaCert,_} = erl_make_certs:make_cert([{key,Alg1}]),
-    {Cert,CertKey} = erl_make_certs:make_cert([{key,Alg2},{issuer,CaInfo}]),
-    CaCertFile = filename:join(Dir, Prefix++"cacerts.pem"),
-    CertFile = filename:join(Dir, Prefix++"cert.pem"),
-    KeyFile = filename:join(Dir, Prefix++"key.pem"),
-    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
-    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
-    der_to_pem(KeyFile, [CertKey]),
-    ok.
-
-der_to_pem(File, Entries) ->
-    PemBin = public_key:pem_encode(Entries),
-    file:write_file(File, PemBin).
-
-%%--------------------------------------------------------------------
-chk_file(Path=[C|_], ExpectedContents, Config) when 0<C,C=<255 ->
-    chk_file([Path], ExpectedContents, Config);
-
-chk_file(PathList, ExpectedContents, Config) ->
-    Path = filename:join(PathList),
-    AbsPath = id2abs(Path,Config),
-    case file:read_file(AbsPath) of
-	{ok,ExpectedContents} -> 
-	    true;
-	{ok,ReadContents} -> 
-	    {error,{diff,Pos,RC,LC}} = find_diff(ReadContents, ExpectedContents, 1),
-	    ct:log("Bad contents of ~p.~nGot:~n~p~nExpected:~n~p~nDiff at pos ~p ~nRead: ~p~nExp : ~p",
-		   [AbsPath,ReadContents,ExpectedContents,Pos,RC,LC]),
-	    ct:fail("Bad contents of ~p", [Path]);
-	{error,Error} ->
-	    try begin
-		    {ok,CWD} = file:get_cwd(),
-		    ct:log("file:get_cwd()=~p~nfiles:~n~p",[CWD,file:list_dir(CWD)])
-		end
-	    of _ -> ok
-	    catch _:_ ->ok
-	    end,
-	    ct:fail("Error reading ~p: ~p",[Path,Error])
-    end.
-
-
-chk_no_file(Path=[C|_], Config) when 0<C,C=<255 ->
-    chk_no_file([Path], Config);
-
-chk_no_file(PathList, Config) ->
-    Path = filename:join(PathList),
-    AbsPath = id2abs(Path,Config),
-    case file:read_file(AbsPath) of
-	{error,enoent} -> 
-	    true;
-	{ok,Contents} -> 
-	    ct:log("File ~p exists although it shouldn't. Contents:~n~p",
-		   [AbsPath,Contents]),
-	    ct:fail("File exists: ~p", [Path]);
-	{error,Error} ->
-	    ct:fail("Unexpected error reading ~p: ~p",[Path,Error])
-    end.
-
-
-chk_dir(Path=[C|_], Config) when 0<C,C=<255 ->
-    chk_dir([Path], Config);
-
-chk_dir(PathList, Config) ->
-    Path = filename:join(PathList),
-    AbsPath = id2abs(Path,Config),
-    case file:read_file_info(AbsPath) of
-	{ok, #file_info{type=directory}} ->
-	    true;
-	{ok, #file_info{type=Type}} ->
-	    ct:fail("Expected dir ~p is a ~p",[Path,Type]);
-	{error,Error} ->
-	    ct:fail("Expected dir ~p: ~p",[Path,Error])
-    end.
-
-chk_no_dir(PathList, Config) ->
-    Path = filename:join(PathList),
-    AbsPath = id2abs(Path,Config),
-    case file:read_file_info(AbsPath) of
-	{error,enoent} ->
-	    true;
-	{ok, #file_info{type=directory}} ->
-	    ct:fail("Dir ~p erroneously exists",[Path]);
-	{ok, #file_info{type=Type}} ->
-	    ct:fail("~p ~p erroneously exists",[Type,Path]);
-	{error,Error} ->
-	    ct:fail("Unexpected error for ~p: ~p",[Path,Error])
-    end.
-
 %%-------------------------------------------------------------------------
 progress_report_send() ->
     [{doc, "Test the option progress for ftp:send/[2,3]"}].
@@ -850,9 +757,99 @@ error_ehost(Config) ->
     ok.
     
 %%--------------------------------------------------------------------
-%% Internal functions
+%% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
 
+make_cert_files(Alg1, Alg2, Prefix, Dir) ->
+    CaInfo = {CaCert,_} = erl_make_certs:make_cert([{key,Alg1}]),
+    {Cert,CertKey} = erl_make_certs:make_cert([{key,Alg2},{issuer,CaInfo}]),
+    CaCertFile = filename:join(Dir, Prefix++"cacerts.pem"),
+    CertFile = filename:join(Dir, Prefix++"cert.pem"),
+    KeyFile = filename:join(Dir, Prefix++"key.pem"),
+    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
+    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
+    der_to_pem(KeyFile, [CertKey]),
+    ok.
+
+der_to_pem(File, Entries) ->
+    PemBin = public_key:pem_encode(Entries),
+    file:write_file(File, PemBin).
+
+%%--------------------------------------------------------------------
+chk_file(Path=[C|_], ExpectedContents, Config) when 0<C,C=<255 ->
+    chk_file([Path], ExpectedContents, Config);
+
+chk_file(PathList, ExpectedContents, Config) ->
+    Path = filename:join(PathList),
+    AbsPath = id2abs(Path,Config),
+    case file:read_file(AbsPath) of
+	{ok,ExpectedContents} -> 
+	    true;
+	{ok,ReadContents} -> 
+	    {error,{diff,Pos,RC,LC}} = find_diff(ReadContents, ExpectedContents, 1),
+	    ct:log("Bad contents of ~p.~nGot:~n~p~nExpected:~n~p~nDiff at pos ~p ~nRead: ~p~nExp : ~p",
+		   [AbsPath,ReadContents,ExpectedContents,Pos,RC,LC]),
+	    ct:fail("Bad contents of ~p", [Path]);
+	{error,Error} ->
+	    try begin
+		    {ok,CWD} = file:get_cwd(),
+		    ct:log("file:get_cwd()=~p~nfiles:~n~p",[CWD,file:list_dir(CWD)])
+		end
+	    of _ -> ok
+	    catch _:_ ->ok
+	    end,
+	    ct:fail("Error reading ~p: ~p",[Path,Error])
+    end.
+
+
+chk_no_file(Path=[C|_], Config) when 0<C,C=<255 ->
+    chk_no_file([Path], Config);
+
+chk_no_file(PathList, Config) ->
+    Path = filename:join(PathList),
+    AbsPath = id2abs(Path,Config),
+    case file:read_file(AbsPath) of
+	{error,enoent} -> 
+	    true;
+	{ok,Contents} -> 
+	    ct:log("File ~p exists although it shouldn't. Contents:~n~p",
+		   [AbsPath,Contents]),
+	    ct:fail("File exists: ~p", [Path]);
+	{error,Error} ->
+	    ct:fail("Unexpected error reading ~p: ~p",[Path,Error])
+    end.
+
+
+chk_dir(Path=[C|_], Config) when 0<C,C=<255 ->
+    chk_dir([Path], Config);
+
+chk_dir(PathList, Config) ->
+    Path = filename:join(PathList),
+    AbsPath = id2abs(Path,Config),
+    case file:read_file_info(AbsPath) of
+	{ok, #file_info{type=directory}} ->
+	    true;
+	{ok, #file_info{type=Type}} ->
+	    ct:fail("Expected dir ~p is a ~p",[Path,Type]);
+	{error,Error} ->
+	    ct:fail("Expected dir ~p: ~p",[Path,Error])
+    end.
+
+chk_no_dir(PathList, Config) ->
+    Path = filename:join(PathList),
+    AbsPath = id2abs(Path,Config),
+    case file:read_file_info(AbsPath) of
+	{error,enoent} ->
+	    true;
+	{ok, #file_info{type=directory}} ->
+	    ct:fail("Dir ~p erroneously exists",[Path]);
+	{ok, #file_info{type=Type}} ->
+	    ct:fail("~p ~p erroneously exists",[Type,Path]);
+	{error,Error} ->
+	    ct:fail("Unexpected error for ~p: ~p",[Path,Error])
+    end.
+
+%%--------------------------------------------------------------------
 find_executable(Config) ->
     FTPservers = case proplists:get_value(ftpservers,Config) of
 		     undefined -> ?default_ftp_servers;
