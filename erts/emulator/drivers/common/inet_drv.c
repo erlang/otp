@@ -3410,7 +3410,7 @@ static int tcp_error_message(tcp_descriptor* desc, int err)
 **    {sctp, S, IP, Port, {[AncilData],  Event_or_Data}}
 ** where
 ** 	  [H1,...,HSz] are msg headers (without IP/Port, UDP only),
-**    [AddrLen, H2,...,HSz] are msg headers for UDP AF_LOCAL only
+**    [AddrLen, H2,...,HSz] are msg headers for UDP AF_UNIX only
 **	  Data  : List() | Binary()
 */
 static int packet_binary_message
@@ -3988,7 +3988,7 @@ static char* inet_set_address(int family, inet_address* dst,
     }
 #endif
 #ifdef HAVE_SYS_UN_H
-    else if ((family == AF_LOCAL) && (*len >= 1)) {
+    else if ((family == AF_UNIX) && (*len >= 1)) {
 	int n = *((unsigned char*)src);
 	if ((*len < 1+n) || (sizeof(dst->sal.sun_path) < n+1))
 	  return NULL;
@@ -4027,7 +4027,7 @@ static char *inet_set_faddress(int family, inet_address* dst,
 #   endif
 #   ifdef HAVE_SYS_UN_H
     case INET_AF_LOCAL: {
-        family = AF_LOCAL;
+        family = AF_UNIX;
         break;
     }
 #   endif
@@ -4128,7 +4128,7 @@ static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
     }
 #endif
 #ifdef HAVE_SYS_UN_H
-    else if (family == AF_LOCAL) {
+    else if (family == AF_UNIX) {
         size_t n, m;
         if (*len < offsetof(struct sockaddr_un, sun_path)) return -1;
         n = *len - offsetof(struct sockaddr_un, sun_path);
@@ -4189,7 +4189,7 @@ inet_address_to_erlang(char *dst, inet_address **src, SOCKLEN_T sz) {
 	return 1 + 2 + 16;
 #endif
 #ifdef HAVE_SYS_UN_H
-    case AF_LOCAL: {
+    case AF_UNIX: {
         size_t n, m;
 	if (sz < offsetof(struct sockaddr_un, sun_path)) return -1;
 	n = sz - offsetof(struct sockaddr_un, sun_path);
@@ -4232,8 +4232,8 @@ static ErlDrvSizeT reply_inet_addrs
      * of addrs[0] from e.g getsockname() and then n == 1
      * so we will loop over 1 element below.  Otherwise sz
      * would be expected to differ between addresses but that
-     * can only happen for AF_LOCAL and we will only be called with
-     * n > 1 for SCTP and that will never (?) happen with AF_LOCAL
+     * can only happen for AF_UNIX and we will only be called with
+     * n > 1 for SCTP and that will never (?) happen with AF_UNIX
      */
 
     /* Calculate result length */
@@ -4363,7 +4363,7 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 #endif
     protocol = desc->sprotocol;
 #ifdef HAVE_SYS_UN_H
-    if (domain == AF_LOCAL) protocol = 0;
+    if (domain == AF_UNIX) protocol = 0;
 #endif
     if ((desc->s = sock_open(domain, type, protocol)) == INVALID_SOCKET)
 	save_errno = sock_errno();
@@ -8396,7 +8396,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	}
 #endif
 #ifdef HAVE_SYS_UN_H
-	else if (desc->sfamily == AF_LOCAL) {
+	else if (desc->sfamily == AF_UNIX) {
 	    put_int32(INET_AF_LOCAL, &tbuf[0]);
 	}
 #endif
@@ -9080,7 +9080,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 #endif
 #ifdef HAVE_SYS_UN_H
 	case INET_AF_LOCAL:
-	    domain = AF_LOCAL;
+	    domain = AF_UNIX;
 	    break;
 #endif
 	default:
@@ -9111,7 +9111,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 #endif
 #ifdef HAVE_SYS_UN_H
 	case INET_AF_LOCAL:
-	    domain = AF_LOCAL;
+	    domain = AF_UNIX;
 	    break;
 #endif
 	default:
@@ -10954,7 +10954,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    break;
 #endif
 #ifdef HAVE_SYS_UN_H
-	case INET_AF_LOCAL: af = AF_LOCAL; break;
+	case INET_AF_LOCAL: af = AF_UNIX; break;
 #endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
@@ -11007,7 +11007,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    break;
 #endif
 #ifdef HAVE_SYS_UN_H
-	case INET_AF_LOCAL: af = AF_LOCAL; break;
+	case INET_AF_LOCAL: af = AF_UNIX; break;
 #endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
