@@ -5318,10 +5318,14 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 
 	ASSERT(BeamOp(op_call_nif) == (BeamInstr *) *I);
 
-	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)
-	    && (ERTS_TRACE_FLAGS(c_p) & F_SENSITIVE) == 0) {
-	    c_p->fcalls = REDS_IN(c_p) = 0;
-	}
+	/*
+	 * Set fcalls even though we ignore it, so we don't
+	 * confuse code accessing it...
+	 */
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	    c_p->fcalls = 0;
+	else
+	    c_p->fcalls = CONTEXT_REDS;
 
 	SWAPIN;
 
@@ -5341,7 +5345,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
                                       NULL, fun_buf);
                 } else {
                     erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
-                                  "<unknown/%p>", next);
+                                  "<unknown/%p>", *I);
                 }
             }
 
@@ -5351,8 +5355,10 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     }
 
     {
-	Eterm nif_bif_result;
-	Eterm bif_nif_arity;
+#ifdef DEBUG
+	Eterm result;
+#endif
+	Eterm arity;
 
 	{
 	    /*
@@ -5374,7 +5380,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	    c_p->current = I-3; /* current and vbf set to please handle_error */
 	    SWAPOUT;
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
-	    bif_nif_arity = I[-1];
+	    arity = I[-1];
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -5383,49 +5389,38 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
 		ASSERT(!c_p->scheduler_data);
-		erts_pre_dirty_nif(esdp, &env, c_p, (struct erl_module_nif*)I[2], NULL);
-		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
-		if (env.exception_thrown)
-		    nif_bif_result = THE_NON_VALUE;
+
+		erts_pre_dirty_nif(esdp, &env, c_p,
+				   (struct erl_module_nif*)I[2], NULL);
+
+#ifdef DEBUG
+		result =
+#else
+		(void)
+#endif
+		    (*fp)(&env, arity, reg);
+
 		erts_post_nif(&env);
+
+		ASSERT(!is_value(result));
+		ASSERT(c_p->freason == TRAP);
+		ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
+
 		PROCESS_MAIN_CHK_LOCKS(c_p);
+		ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-		if (env.exiting) {
-		    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+		if (env.exiting)
 		    goto do_dirty_schedule;
-		}
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    }
+
 	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
-	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_HOLE_CHECK(c_p);
-	    if (ERTS_IS_GC_DESIRED(c_p)) {
-		nif_bif_result = erts_gc_after_bif_call(c_p,
-							nif_bif_result,
-							reg, bif_nif_arity);
-	    }
-	    SWAPIN;  /* There might have been a garbage collection. */
-	    if (is_value(nif_bif_result)) {
-		r(0) = nif_bif_result;
-		CHECK_TERM(r(0));
-		I = c_p->cp;
-		c_p->cp = 0;
-		Goto(*I);
-	    } else if (c_p->freason == TRAP) {
-		I = c_p->i;
-		ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
-		goto context_switch;
-	    }
-	    I = handle_error(c_p, c_p->cp, reg, vbf);
+	    SWAPIN;
+	    I = c_p->i;
+	    goto context_switch;
 	}
-    }
-    if (I == 0) {
-	goto do_dirty_schedule;
-    } else {
-	ASSERT(!is_value(r(0)));
-	SWAPIN;
-	goto context_switch;
     }
 #endif /* ERTS_DIRTY_SCHEDULERS */
 }
