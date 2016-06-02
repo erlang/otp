@@ -30,6 +30,70 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Some time optimization mainly in message encoding.</p>
+          <p>
+	    Own Id: OTP-13131</p>
+        </item>
+        <item>
+          <p>
+	    Optimized the sftp client time by setting new packet and
+	    window sizes.</p>
+          <p>
+	    Own Id: OTP-13175</p>
+        </item>
+        <item>
+          <p>
+	    The <c>ssh_connection_handler</c> module in SSH is
+	    changed and now uses the new behaviour <c>gen_statem</c>. </p>
+          <p>
+	    The module can be used as an example of a
+	    <c>gen_statem</c> callback module but with a warning:
+	    This commit of ssh is just a straightforward port from
+	    gen_fsm to gen_statem with some code cleaning. Since the
+	    state machine and the state callbacks are almost
+	    unchanged the ssh module does not demonstrate the full
+	    potential of the new behaviour.</p>
+          <p>
+	    The "new" state machine uses compund states. The ssh
+	    server and client state machines are quite similar but
+	    differences exist. With <c>gen_fsm</c> there were flags
+	    in the user data which in fact implemented "substates".
+	    Now with <c>gen_statem</c> those are made explicit in the
+	    state names, eg the state <c>userauth</c> and the binary
+	    <c>role</c>-flag becomes the two state names
+	    <c>{userauth, server}</c> and <c>{userauth, client}</c>.</p>
+          <p>
+	    Own Id: OTP-13267</p>
+        </item>
+        <item>
+          <p>
+	    The <c>{error, Reason}</c> tuples returned from
+	    <c>ssh_sftp</c> api functions are described.</p>
+          <p>
+	    Own Id: OTP-13347 Aux Id: ERL-86 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to call <c>ssh:daemon/{1,2,3}</c> with
+	    <c>Port=0</c>. This makes the daemon select a free
+	    listening tcp port before opening it. To find this port
+	    number after the call, use the new function
+	    <c>ssh:daemon_info/1</c>. See the reference manual for
+	    details.</p>
+          <p>
+	    Own Id: OTP-13527</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

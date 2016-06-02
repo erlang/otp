@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    HiPE compiler crashed, during compilation, in some cases
+	    that involved inlining of float operations on complicated
+	    control flow graphs.</p>
+          <p>
+	    Own Id: OTP-13407 Aux Id: PR-984 </p>
+        </item>
+        <item>
+          <p>
+	    Various fixes and improvements to the HiPE LLVM backend.
+	    <list> <item>Add support for LLVM 3.7 and 3.8 in the
+	    HiPE/LLVM x86_64 backend</item> <item>Reinstate support
+	    for the LLVM backend on x86 (works OK for LLVM 3.5 to 3.7
+	    -- LLVM 3.8 has a bug that prevents it from generating
+	    correct native code on x86)</item> </list></p>
+          <p>
+	    Own Id: OTP-13626</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Elimination of maps:is_key/2 calls to HiPE</p>
+          <p>
+	    Own Id: OTP-13625 Aux Id: PR-1069 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -33,6 +33,21 @@
   </header>
   <p>This document describes the changes made to the Percept application.</p>
 
+<section><title>Percept 0.8.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Remove deprecated <c>erlang:now/0</c> calls</p>
+          <p>
+	    Own Id: OTP-13422</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Percept 0.8.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

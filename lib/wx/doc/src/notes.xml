@@ -32,6 +32,43 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bugs which could cause called functions to be
+	    invoked twice or not at all when callbacks where invoked
+	    at the same time.</p>
+          <p>
+	    Own Id: OTP-13491</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changed atom 'boolean' fields in #wxMouseState{} to
+	    'boolean()'.</p>
+          <p>
+	    Moved out arguments in wxListCtrl:hitTest to result.</p>
+          <p>
+	    Removed no-op functions in wxGauge that have been removed
+	    from wxWidgets-3.1.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13553</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

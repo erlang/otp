@@ -31,6 +31,39 @@
   </header>
   <p>This document describes the changes made to the Eldap application.</p>
 
+<section><title>Eldap 1.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the underlying tcp connection is closed and an LDAP
+	    operation returned tcp_error, the client applications
+	    tend to close the ldap handle with eldap:close. This will
+	    cause a <c>{nocatch, {gen_tcp_error, ...}}</c> exception.</p>
+          <p>
+	    Such errors are now ignored during close, because the
+	    socket will be closed anyway.</p>
+          <p>
+	    Own Id: OTP-13590 Aux Id: PR-1048 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

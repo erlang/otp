@@ -32,6 +32,36 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update dbg and ttb to work with a tracer module as tracer
+	    and tracing on ports.</p>
+          <p>
+	    Own Id: OTP-13500</p>
+        </item>
+        <item>
+          <p>
+	    Added possibility to change update frequency and length
+	    of the graph windows.</p>
+          <p>
+	    Own Id: OTP-13555</p>
+        </item>
+        <item>
+          <p>
+	    Improved background coloring to work with dark themes and
+	    other visual improvements.</p>
+          <p>
+	    Own Id: OTP-13556</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.1.2</title>
 
     <section><title>Improvements and New Features</title>

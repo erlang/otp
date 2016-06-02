@@ -37,6 +37,22 @@
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
 
+<section><title>ET 1.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update selector to utilize new garbage collection trace
+	    tags.</p>
+          <p>
+	    Own Id: OTP-13545</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>ET 1.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

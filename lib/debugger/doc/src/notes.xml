@@ -33,6 +33,22 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>When the debugger searches for source files, it will
+	    also use the location of the source in the compilation
+	    information part of the BEAM file.</p>
+          <p>
+	    Own Id: OTP-13375</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 4.1.2</title>
 
     <section><title>Improvements and New Features</title>

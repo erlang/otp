@@ -43,6 +43,25 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 1.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add diameter:peer_info/1.</p>
+          <p>
+	    That retrieves information in the style of
+	    diameter:service_info/2, but for a single peer
+	    connection.</p>
+          <p>
+	    Own Id: OTP-13508</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 1.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
