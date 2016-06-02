@@ -350,15 +350,13 @@ connection(#hs_data{other_node = Node,
 	    mark_nodeup(HSData,Address),
 	    case FPostNodeup(Socket) of
 		ok ->
-		    con_loop(HSData#hs_data.kernel_pid, 
-			     Node, 
-			     Socket, 
-			     Address,
-			     HSData#hs_data.this_node, 
-			     PType,
-			     #tick{},
-			     HSData#hs_data.mf_tick,
-			     HSData#hs_data.mf_getstat);
+		    con_loop({HSData#hs_data.kernel_pid,
+			      Node,
+			      Socket,
+			      PType,
+			      HSData#hs_data.mf_tick,
+			      HSData#hs_data.mf_getstat},
+			     #tick{});
 		_ ->
 		    ?shutdown2(Node, connection_setup_failed)
 	    end;
@@ -454,8 +452,8 @@ mark_nodeup(#hs_data{kernel_pid = Kernel,
 	    ?shutdown(Node)
     end.
 
-con_loop(Kernel, Node, Socket, TcpAddress,
-	 MyNode, Type, Tick, MFTick, MFGetstat) ->
+con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat}=ConData,
+	 Tick) ->
     receive
 	{tcp_closed, Socket} ->
 	    ?shutdown2(Node, connection_closed);
@@ -468,15 +466,12 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 		_ ->
 		    ignore_it
 	    end,
-	    con_loop(Kernel, Node, Socket, TcpAddress, MyNode, Type,
-		     Tick, MFTick, MFGetstat);
+	    con_loop(ConData, Tick);
 	{Kernel, tick} ->
 	    case send_tick(Socket, Tick, Type, 
 			   MFTick, MFGetstat) of
 		{ok, NewTick} ->
-		    con_loop(Kernel, Node, Socket, TcpAddress,
-			     MyNode, Type, NewTick, MFTick,  
-			     MFGetstat);
+		    con_loop(ConData, NewTick);
 		{error, not_responding} ->
  		    error_msg("** Node ~p not responding **~n"
  			      "** Removing (timedout) connection **~n",
@@ -489,10 +484,7 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 	    case MFGetstat(Socket) of
 		{ok, Read, Write, _} ->
 		    From ! {self(), get_status, {ok, Read, Write}},
-		    con_loop(Kernel, Node, Socket, TcpAddress, 
-			     MyNode, 
-			     Type, Tick, 
-			     MFTick, MFGetstat);
+		    con_loop(ConData, Tick);
 		_ ->
 		    ?shutdown2(Node, get_status_failed)
 	    end
