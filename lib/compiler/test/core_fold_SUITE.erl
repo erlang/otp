@@ -25,7 +25,8 @@
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
 	 unused_multiple_values_error/1,unused_multiple_values/1,
 	 multiple_aliases/1,redundant_boolean_clauses/1,
-	 mixed_matching_clauses/1,unnecessary_building/1]).
+	 mixed_matching_clauses/1,unnecessary_building/1,
+	 no_no_file/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -43,7 +44,8 @@ groups() ->
        eq,nested_call_in_case,guard_try_catch,coverage,
        unused_multiple_values_error,unused_multiple_values,
        multiple_aliases,redundant_boolean_clauses,
-       mixed_matching_clauses,unnecessary_building]}].
+       mixed_matching_clauses,unnecessary_building,
+       no_no_file]}].
 
 
 init_per_suite(Config) ->
@@ -453,5 +455,48 @@ do_unnecessary_building_2({a,_,_}=T) ->
     {b,
      [_,_] = [T,none],
      x}.
+
+%% This test tests that v3_core has provided annotations and that
+%% sys_core_fold retains them, so that warnings produced by
+%% sys_core_fold will have proper filenames and line numbers. Thus, no
+%% "no_file" warnings.
+no_no_file(_Config) ->
+    {'EXIT',{{case_clause,0},_}} = (catch source(true, any)),
+    surgery = (tim(#{reduction => any}))(),
+
+    false = soul(#{[] => true}),
+    {'EXIT',{{case_clause,true},_}} = (catch soul(#{[] => false})),
+
+    ok = experiment(),
+    ok.
+
+source(true, Activities) ->
+    case 0 of
+	Activities when [] ->
+	    Activities
+    end.
+
+tim(#{reduction := Emergency}) ->
+    try
+	fun() -> surgery end
+    catch
+	_ when [] ->
+	    planet
+    end.
+
+soul(#{[] := Properly}) ->
+    not case true of
+	    Properly -> true;
+	    Properly -> 0
+	end.
+
+experiment() ->
+    case kingdom of
+	_ ->
+	    +case "map" of
+		 _ -> 0.0
+	     end
+    end,
+    ok.
 
 id(I) -> I.
