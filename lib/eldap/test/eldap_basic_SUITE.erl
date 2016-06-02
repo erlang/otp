@@ -32,7 +32,7 @@
 -define(manageDsaIT, {control,"2.16.840.1.113730.3.4.2",false,asn1_NOVALUE}).
 
 suite() ->
-    [{timetrap,{seconds,40}}].
+    [{timetrap,{seconds,360}}].
 
 all() ->
     [app,
