@@ -3694,6 +3694,26 @@ document etp-address-to-beam-opcode
 %---------------------------------------------------------------------------
 end
 
+define etp-compile-debug
+  shell (cd $ERL_TOP && make emulator FLAVOR=smp TYPE=debug)
+end
+
+document etp-compile-debug
+%---------------------------------------------------------------------------
+% Re-compile the debug erlang emulator
+%---------------------------------------------------------------------------
+end
+
+define etp-compile
+  shell (cd $ERL_TOP && make emulator)
+end
+
+document etp-compile
+%---------------------------------------------------------------------------
+% Re-compile the erlang emulator
+%---------------------------------------------------------------------------
+end
+
 
 ############################################################################
 # Toolbox parameter handling
