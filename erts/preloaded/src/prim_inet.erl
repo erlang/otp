@@ -1756,7 +1756,7 @@ enc_value_2(addr, {local,Addr}) ->
 		unicode:characters_to_binary(
 		  Addr, file:native_name_encoding())
 	end,
-    [?INET_AF_LOCAL,byte_size(Bin)|Bin];
+    [?INET_AF_LOCAL,byte_size(Bin),Bin];
 %%
 enc_value_2(ether, [_,_,_,_,_,_]=Xs) -> Xs;
 enc_value_2(sockaddr, any) ->
