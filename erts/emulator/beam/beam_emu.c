@@ -5300,6 +5300,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     reg = esdp->x_reg_array;
     {
 	Eterm* argp;
+	BeamInstr *next;
 	int i;
 
 	argp = c_p->arg_reg;
@@ -5316,7 +5317,8 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 
 	I = c_p->i;
 
-	ASSERT(BeamOp(op_call_nif) == (BeamInstr *) *I);
+	next = (BeamInstr *) *I;
+	ASSERT(BeamOp(op_call_nif) == next);
 
 	/*
 	 * Set fcalls even though we ignore it, so we don't
