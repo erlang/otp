@@ -545,10 +545,10 @@ start_shell_sock_daemon_exec(Config) ->
     SysDir = proplists:get_value(data_dir, Config),
 
     {ok,Sl} = gen_tcp:listen(0, [{active,false}]),
-    {ok,{IP,Port}} = inet:sockname(Sl),
+    {ok,{_IP,Port}} = inet:sockname(Sl),	% _IP is likely to be {0,0,0,0}. Win don't like...
     
     spawn_link(fun() ->
-		       {ok,Ss} = gen_tcp:connect(IP,Port, [{active,false}]),
+		       {ok,Ss} = gen_tcp:connect("localhost", Port, [{active,false}]),
 		       {ok, Pid} = ssh:daemon(Ss, [{system_dir, SysDir},
 						   {user_dir, UserDir},
 						   {password, "morot"},
