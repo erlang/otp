@@ -192,7 +192,9 @@ wx_api(Config) ->
     ?m(ok,wxButton:setLabel(Temp, "Testing")),
     ?m(ok,wxButton:destroy(Temp)),
     ?m({'EXIT',_},wxButton:getLabel(Temp)),
-    
+    ?m(ok,wxButton:setLabel(Temp, "Testing")), %% Should generate an error report
+    ?m({'EXIT',_},wxButton:getLabel(Temp)),
+
     case wx_test_lib:user_available(Config) of
 	true -> 	    
 	    %% Hmm popup doesn't return until mouse is pressed.
