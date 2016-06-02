@@ -172,6 +172,14 @@ do_recv(Sock, Bs) ->
           <item><p>Sets up the socket for IPv4.</p></item>
           <tag><c>inet6</c></tag>
           <item><p>Sets up the socket for IPv6.</p></item>
+	  <tag><c>local</c></tag>
+	  <item>
+            <p>
+	      Sets up the socket for local address family. This option is only
+              valid together with <c>{fd, integer()}</c> when the file descriptor
+              is of local address family (e.g. a Unix Domain Socket)
+	    </p>
+          </item>
           <tag><c>{port, Port}</c></tag>
           <item><p>Specifies which local port number to use.</p></item>
           <tag><c>{tcp_module, module()}</c></tag>

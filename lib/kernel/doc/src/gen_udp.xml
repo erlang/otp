@@ -104,6 +104,14 @@
           <item><p>Sets up the socket for IPv6.</p></item>
           <tag><c>inet</c></tag>
           <item><p>Sets up the socket for IPv4.</p></item>
+	  <tag><c>local</c></tag>
+	  <item>
+            <p>
+	      Sets up the socket for local address family. This option is only
+              valid together with <c>{fd, integer()}</c> when the file descriptor
+              is of local address family (e.g. a Unix Domain Socket)
+	    </p>
+          </item>
           <tag><c>{udp_module, module()}</c></tag>
           <item><p>Overrides which callback module is used. Defaults to
             <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.</p></item>

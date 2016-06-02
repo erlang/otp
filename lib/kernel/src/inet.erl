@@ -37,6 +37,7 @@
 	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1, ntoa/1]).
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
+-export([udp_module/1, tcp_module/1, tcp_module/2, sctp_module/1]).
 
 -export([i/0, i/1, i/2]).
 
@@ -133,9 +134,11 @@
 		 'running' | 'multicast' | 'loopback']} |
       {'hwaddr', ether_address()}.
 
--type address_family() :: 'inet' | 'inet6'.
+-type address_family() :: 'inet' | 'inet6' | 'local'.
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
+-type socket_address() ::
+	ip_address() | {address_family(), any()} | 'any' | 'loopback'.
 -type stat_option() :: 
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
@@ -681,7 +684,7 @@ connect_options() ->
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
      show_econnreset].
     
-connect_options(Opts, Family) ->
+connect_options(Opts, Mod) ->
     BaseOpts = 
 	case application:get_env(kernel, inet_default_connect_options) of
 	    {ok,List} when is_list(List) ->
@@ -698,7 +701,7 @@ connect_options(Opts, Family) ->
 	{ok, R} ->
 	    {ok, R#connect_opts {
 		   opts = lists:reverse(R#connect_opts.opts),
-		   ifaddr = translate_ip(R#connect_opts.ifaddr, Family)
+		   ifaddr = Mod:translate_ip(R#connect_opts.ifaddr)
 		  }};
 	Error -> Error	    
     end.
@@ -713,9 +716,6 @@ con_opt([Opt | Opts], #connect_opts{} = R, As) ->
 	{fd,Fd}     -> con_opt(Opts, R#connect_opts { fd = Fd }, As);
 	binary      -> con_add(mode, binary, R, Opts, As);
 	list        -> con_add(mode, list, R, Opts, As);
-	{tcp_module,_}  -> con_opt(Opts, R, As);
-	inet        -> con_opt(Opts, R, As);
-	inet6       -> con_opt(Opts, R, As);
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -752,7 +752,7 @@ listen_options() ->
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
      packet_size, raw, show_econnreset].
 
-listen_options(Opts, Family) ->
+listen_options(Opts, Mod) ->
     BaseOpts = 
 	case application:get_env(kernel, inet_default_listen_options) of
 	    {ok,List} when is_list(List) ->
@@ -769,7 +769,7 @@ listen_options(Opts, Family) ->
 	{ok, R} ->
 	    {ok, R#listen_opts {
 		   opts = lists:reverse(R#listen_opts.opts),
-		   ifaddr = translate_ip(R#listen_opts.ifaddr, Family)
+		   ifaddr = Mod:translate_ip(R#listen_opts.ifaddr)
 		  }};
 	Error -> Error
     end.
@@ -785,9 +785,6 @@ list_opt([Opt | Opts], #listen_opts{} = R, As) ->
 	{backlog,BL} ->  list_opt(Opts, R#listen_opts { backlog = BL }, As);
 	binary       ->  list_add(mode, binary, R, Opts, As);
 	list         ->  list_add(mode, list, R, Opts, As);
-	{tcp_module,_}  -> list_opt(Opts, R, As);
-	inet         -> list_opt(Opts, R, As);
-	inet6        -> list_opt(Opts, R, As);
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -812,6 +809,19 @@ list_add(Name, Val, #listen_opts{} = R, Opts, As) ->
 	Error -> Error
     end.
 
+tcp_module(Opts) ->
+    tcp_module_1(Opts, undefined).
+
+tcp_module(Opts, Addr) ->
+    Address = {undefined,Addr},
+    %% Address has to be a 2-tuple but the first element is ignored
+    tcp_module_1(Opts, Address).
+
+tcp_module_1(Opts, Address) ->
+    mod(
+      Opts, tcp_module, Address,
+      #{inet => inet_tcp, inet6 => inet6_tcp, local => local_tcp}).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Available options for udp:open
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -823,12 +833,12 @@ udp_options() ->
      high_msgq_watermark, low_msgq_watermark].
 
 
-udp_options(Opts, Family) ->
+udp_options(Opts, Mod) ->
     case udp_opt(Opts, #udp_opts { }, udp_options()) of
 	{ok, R} ->
 	    {ok, R#udp_opts {
 		   opts = lists:reverse(R#udp_opts.opts),
-		   ifaddr = translate_ip(R#udp_opts.ifaddr, Family)
+		   ifaddr = Mod:translate_ip(R#udp_opts.ifaddr)
 		  }};
 	Error -> Error
     end.
@@ -843,9 +853,6 @@ udp_opt([Opt | Opts], #udp_opts{} = R, As) ->
 	{fd,Fd}     ->  udp_opt(Opts, R#udp_opts { fd = Fd }, As);
 	binary      ->  udp_add(mode, binary, R, Opts, As);
 	list        ->  udp_add(mode, list, R, Opts, As);
-	{udp_module,_} -> udp_opt(Opts, R, As);
-	inet        -> udp_opt(Opts, R, As);
-	inet6       -> udp_opt(Opts, R, As);
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -869,6 +876,11 @@ udp_add(Name, Val, #udp_opts{} = R, Opts, As) ->
 	    udp_opt(Opts, R#udp_opts { opts = SOpts }, As);
 	Error -> Error
     end.
+
+udp_module(Opts) ->
+    mod(
+      Opts, udp_module, undefined,
+      #{inet => inet_udp, inet6 => inet6_udp, local => local_udp}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Available options for sctp:open
@@ -926,9 +938,6 @@ sctp_opt([Opt|Opts], Mod, #sctp_opts{} = R, As) ->
 	    sctp_opt(Opts, Mod, R#sctp_opts{type=Type}, As);
 	binary		-> sctp_opt (Opts, Mod, R, As, mode, binary);
 	list		-> sctp_opt (Opts, Mod, R, As, mode, list);
-	{sctp_module,_}	-> sctp_opt (Opts, Mod, R, As); % Done with
-	inet		-> sctp_opt (Opts, Mod, R, As); % Done with
-	inet6		-> sctp_opt (Opts, Mod, R, As); % Done with
 	{netns,NS} ->
 	    BinNS = filename2binary(NS),
 	    case prim_inet:is_sockopt_val(netns, BinNS) of
@@ -969,6 +978,11 @@ sctp_opt_ifaddr(Opts, Mod, #sctp_opts{ifaddr=IfAddr}=R, As, Addr) ->
 			  _ when is_list(IfAddr) -> [IP|IfAddr];
 			  _                      -> [IP,IfAddr]
 		      end}, As).
+
+sctp_module(Opts) ->
+    mod(
+      Opts, sctp_module, undefined,
+      #{inet => inet_sctp, inet6 => inet6_sctp}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Util to check and insert option in option list
@@ -1027,6 +1041,53 @@ translate_ip(loopback, inet) -> {127,0,0,1};
 translate_ip(any,      inet6) -> {0,0,0,0,0,0,0,0};
 translate_ip(loopback, inet6) -> {0,0,0,0,0,0,0,1};
 translate_ip(IP, _) -> IP.
+
+mod(Opts, Tag, Address, Map) ->
+    mod(Opts, Tag, Address, Map, undefined, []).
+%%
+mod([{Tag, M}|Opts], Tag, Address, Map, Mod, Acc) ->
+    mod(Opts, Tag, Address, Map, Mod, Acc, M);
+mod([{T, _} = Opt|Opts], Tag, _Address, Map, Mod, Acc)
+  when T =:= ip; T =:= ifaddr->
+    mod(Opts, Tag, Opt, Map, Mod, [Opt|Acc]);
+mod([Family|Opts], Tag, Address, Map, Mod, Acc) when is_atom(Family) ->
+    case Map of
+	#{Family := M} ->
+	    mod(Opts, Tag, Address, Map, Mod, Acc, M);
+	#{} ->
+	    mod(Opts, Tag, Address, Map, Mod, [Family|Acc])
+    end;
+mod([Opt|Opts], Tag, Address, Map, Mod, Acc) ->
+    mod(Opts, Tag, Address, Map, Mod, [Opt|Acc]);
+mod([], Tag, Address, Map, undefined, Acc) ->
+    {case Address of
+	 {_, {local, _}} ->
+	     case Map of
+		 #{local := Mod} ->
+		     Mod;
+		 #{} ->
+		     inet_db:Tag()
+	     end;
+	 {_, IP} when tuple_size(IP) =:= 8 ->
+	     #{inet := IPv4Mod} = Map,
+	     %% Get the mod, but IPv6 address overrides default IPv4
+	     case inet_db:Tag() of
+		 IPv4Mod ->
+		     #{inet6 := IPv6Mod} = Map,
+		     IPv6Mod;
+		 Mod ->
+		     Mod
+	     end;
+	 _ ->
+	     inet_db:Tag()
+     end, lists:reverse(Acc)};
+mod([], _Tag, _Address, _Map, Mod, Acc) ->
+    {Mod, lists:reverse(Acc)}.
+%%
+mod(Opts, Tag, Address, Map, undefined, Acc, M) ->
+    mod(Opts, Tag, Address, Map, M, Acc);
+mod(Opts, Tag, Address, Map, Mod, Acc, _M) ->
+    mod(Opts, Tag, Address, Map, Mod, Acc).
 
 
 getaddrs_tm({A,B,C,D} = IP, Fam, _)  ->
@@ -1235,7 +1296,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
     end.
 
 -spec open(Fd_or_OpenOpts :: integer() | list(),
-	   Addr :: ip_address(),
+	   Addr :: socket_address(),
 	   Port :: port_number(),
 	   Opts :: [socket_setopt()],
 	   Protocol :: socket_protocol(),

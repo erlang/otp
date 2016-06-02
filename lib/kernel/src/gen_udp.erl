@@ -101,9 +101,9 @@ open(Port) ->
       Socket :: socket(),
       Reason :: inet:posix().
 
-open(Port, Opts) ->
-    Mod = mod(Opts, undefined),
-    {ok,UP} = Mod:getserv(Port),
+open(Port, Opts0) ->
+    {Mod, Opts} = inet:udp_module(Opts0),
+    {ok, UP} = Mod:getserv(Port),
     Mod:open(UP, Opts).
 
 -spec close(Socket) -> ok when
@@ -203,32 +203,6 @@ controlling_process(S, NewOwner) ->
 %%
 %% Create a port/socket from a file descriptor 
 %%
-fdopen(Fd, Opts) ->
-    Mod = mod(Opts, undefined),
+fdopen(Fd, Opts0) ->
+    {Mod,Opts} = inet:udp_module(Opts0),
     Mod:fdopen(Fd, Opts).
-
-
-%% Get the udp_module, but IPv6 address overrides default IPv4
-mod(Address) ->
-    case inet_db:udp_module() of
-	inet_udp when tuple_size(Address) =:= 8 ->
-	    inet6_udp;
-	Mod ->
-	    Mod
-    end.
-
-%% Get the udp_module, but option udp_module|inet|inet6 overrides
-mod([{udp_module,Mod}|_], _Address) ->
-    Mod;
-mod([inet|_], _Address) ->
-    inet_udp;
-mod([inet6|_], _Address) ->
-    inet6_udp;
-mod([{ip, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([{ifaddr, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([_|Opts], Address) ->
-    mod(Opts, Address);
-mod([], Address) ->
-    mod(Address).

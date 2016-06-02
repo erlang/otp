@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,10 +14,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
--module(inet6_tcp).
+-module(local_tcp).
+
+%% Socket server for TCP/IP
 
 -export([connect/3, connect/4, listen/2, accept/1, accept/2, close/1]).
 -export([send/2, send/3, recv/2, recv/3, unrecv/2]).
@@ -25,48 +27,28 @@
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
--export([family/0, mask/2, parse_address/1]). % inet_tcp_dist
 -export([getserv/1, getaddr/1, getaddr/2, getaddrs/1, getaddrs/2]).
 -export([translate_ip/1]).
 
 -include("inet_int.hrl").
 
--define(FAMILY, inet6).
+-define(FAMILY, local).
 -define(PROTO, tcp).
 -define(TYPE, stream).
 
-%% my address family
-family() -> ?FAMILY.
+%% port lookup
+getserv(0) -> {ok, 0}.
 
-%% Apply netmask on address
-mask({M1,M2,M3,M4,M5,M6,M7,M8}, {IP1,IP2,IP3,IP4,IP5,IP6,IP7,IP8}) ->
-    {M1 band IP1,
-     M2 band IP2,
-     M3 band IP3,
-     M4 band IP4,
-     M5 band IP5,
-     M6 band IP6,
-     M7 band IP7,
-     M8 band IP8 }.
+%% no address lookup
+getaddr({?FAMILY, _} = Address) -> {ok, Address}.
+getaddr({?FAMILY, _} = Address, _Timer) -> {ok, Address}.
 
-%% Parse address string
-parse_address(Host) ->
-    inet_parse:ipv6strict_address(Host).
+%% no address lookup
+getaddrs({?FAMILY, _} = Address) -> {ok, [Address]}.
+getaddrs({?FAMILY, _} = Address, _Timer) -> {ok, [Address]}.
 
-%% inet_tcp port lookup
-getserv(Port) when is_integer(Port) -> {ok, Port};
-getserv(Name) when is_atom(Name) -> inet:getservbyname(Name, ?PROTO).
-
-%% inet_tcp address lookup
-getaddr(Address) -> inet:getaddr(Address, ?FAMILY).
-getaddr(Address, Timer) -> inet:getaddr_tm(Address, ?FAMILY, Timer).
-
-%% inet_tcp address lookup
-getaddrs(Address) -> inet:getaddrs(Address, ?FAMILY).
-getaddrs(Address, Timer) -> inet:getaddrs_tm(Address, ?FAMILY, Timer).
-
-%% inet_udp special this side addresses
-translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
+%% special this side addresses
+translate_ip(IP) -> IP.
 
 %%
 %% Send data on a socket
@@ -106,29 +88,29 @@ controlling_process(Socket, NewOwner) ->
 %%
 connect(Address, Port, Opts) ->
     do_connect(Address, Port, Opts, infinity).
-
+%%
 connect(Address, Port, Opts, infinity) ->
     do_connect(Address, Port, Opts, infinity);
 connect(Address, Port, Opts, Timeout)
   when is_integer(Timeout), Timeout >= 0 ->
     do_connect(Address, Port, Opts, Timeout).
 
-do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
-  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
+do_connect(Addr = {?FAMILY, _}, 0, Opts, Time) ->
     case inet:connect_options(Opts, ?MODULE) of
 	{error, Reason} -> exit(Reason);
 	{ok,
 	 #connect_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb},
-	    port = BPort,
+	    ifaddr = BAddr,
+	    port = 0,
 	    opts = SockOpts}}
-	when ?ip6(Ab,Bb,Cb,Db,Eb,Fb,Gb,Hb), ?port(BPort) ->
+	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
+	     BAddr =:= any ->
 	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
+		   Fd, BAddr, 0, SockOpts,
 		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
-		    case prim_inet:connect(S, Addr, Port, Time) of
+		    case prim_inet:connect(S, Addr, 0, Time) of
 			ok -> {ok,S};
 			Error -> prim_inet:close(S), Error
 		    end;
@@ -137,21 +119,22 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
 	{ok, _} -> exit(badarg)
     end.
 
-%% 
+%%
 %% Listen
 %%
-listen(Port, Opts) ->
-    case inet:listen_options([{port,Port} | Opts], ?MODULE) of
+listen(0, Opts) ->
+    case inet:listen_options([{port,0} | Opts], ?MODULE) of
 	{error, Reason} -> exit(Reason);
 	{ok,
 	 #listen_opts{
 	    fd = Fd,
-	    ifaddr = BAddr = {A,B,C,D,E,F,G,H},
-	    port = BPort,
+	    ifaddr = BAddr,
+	    port = 0,
 	    opts = SockOpts} = R}
-	when ?ip6(A,B,C,D,E,F,G,H), ?port(BPort) ->
+	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
+	     BAddr =:= any ->
 	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
+		   Fd, BAddr, 0, SockOpts,
 		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
@@ -166,14 +149,14 @@ listen(Port, Opts) ->
 %%
 %% Accept
 %%
-accept(L) -> 
+accept(L) ->
     case prim_inet:accept(L) of
 	{ok, S} ->
 	    inet_db:register_socket(S, ?MODULE),
 	    {ok,S};
 	Error -> Error
     end.
-
+%%
 accept(L, Timeout) ->
     case prim_inet:accept(L, Timeout) of
 	{ok, S} ->
@@ -183,7 +166,7 @@ accept(L, Timeout) ->
     end.
 
 %%
-%% Create a port/socket from a file descriptor 
+%% Create a port/socket from a file descriptor
 %%
 fdopen(Fd, Opts) ->
     inet:fdopen(Fd, Opts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE).

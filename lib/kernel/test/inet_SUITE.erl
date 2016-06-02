@@ -1002,12 +1002,12 @@ getifaddrs(Config) when is_list (Config) ->
     [check_addr(Addr) || Addr <- Addrs],
     ok.
 
-check_addr(Addr)
+check_addr({addr,Addr})
   when tuple_size(Addr) =:= 8,
        element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
     io:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
     ok;
-check_addr(Addr) ->
+check_addr({addr,Addr}) ->
     io:format("Addr: ~p.~n", [Addr]),
     Ping = "ping",
     Pong = "pong",
@@ -1021,74 +1021,82 @@ check_addr(Addr) ->
     ok = gen_tcp:close(S1),
     {ok,Pong} = gen_tcp:recv(S2, length(Pong)),
     ok = gen_tcp:close(S2),
-    ok = gen_tcp:close(L),
-    ok.
+    ok = gen_tcp:close(L).
 
 -record(ifopts, {name,flags,addrs=[],hwaddr}).
 
 ifaddrs([]) -> [];
 ifaddrs([{If,Opts}|IOs]) ->
-    #ifopts{flags=Flags} = Ifopts =
-	check_ifopts(Opts, #ifopts{name=If}),
-    case Flags =/= undefined andalso lists:member(up, Flags) of
-	true  ->
-	    Ifopts#ifopts.addrs;
-	false ->
-	    []
-    end++ifaddrs(IOs).
+    #ifopts{flags=F} = Ifopts = check_ifopts(Opts, #ifopts{name=If}),
+    case F of
+	{flags,Flags} ->
+	    case lists:member(up, Flags) of
+		true ->
+		  Ifopts#ifopts.addrs;
+		false ->
+		    []
+	    end ++ ifaddrs(IOs);
+	undefined ->
+	    ifaddrs(IOs)
+    end.
 
-check_ifopts([], #ifopts{name=If,flags=Flags,addrs=Raddrs}=Ifopts) ->
+check_ifopts([], #ifopts{flags=F,addrs=Raddrs}=Ifopts) ->
     Addrs = lists:reverse(Raddrs),
     R = Ifopts#ifopts{addrs=Addrs},
     io:format("~p.~n", [R]),
     %% See how we did...
-    if  is_list(Flags) -> ok;
-	true ->
-	    ct:fail({flags_undefined,If})
-    end,
+    {flags,Flags} = F,
     case lists:member(broadcast, Flags) of
 	true ->
 	    [case A of
-		 {_,_,_} -> A;
-		 {T,_} when tuple_size(T) =:= 8 -> A;
-		 _ ->
-		     ct:fail({broaddr_missing,If,A})
+		 {{addr,_},{netmask,_},{broadaddr,_}} ->
+		     A;
+		 {{addr,T},{netmask,_}} when tuple_size(T) =:= 8 ->
+		     A
 	     end || A <- Addrs];
 	false ->
-	    [case A of {_,_} -> A;
-		 _ ->
-		     ct:fail({should_have_netmask,If,A})
-	     end || A <- Addrs]
+	    case lists:member(pointtopoint, Flags) of
+		true ->
+		    [case A of
+			 {{addr,_},{netmask,_},{dstaddr,_}} ->
+			     A
+		     end || A <- Addrs];
+		false ->
+		    [case A of
+			 {{addr,_},{netmask,_}} ->
+			     A
+		     end || A <- Addrs]
+	    end
     end,
     R;
-check_ifopts([{flags,Flags}|Opts], #ifopts{flags=undefined}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{flags=Flags});
-check_ifopts([{flags,Fs}|Opts], #ifopts{flags=Flags}=Ifopts) ->
-    case Fs of
+check_ifopts([{flags,_}=F|Opts], #ifopts{flags=undefined}=Ifopts) ->
+    check_ifopts(Opts, Ifopts#ifopts{flags=F});
+check_ifopts([{flags,_}=F|Opts], #ifopts{flags=Flags}=Ifopts) ->
+    case F of
 	Flags ->
-	    check_ifopts(Opts, Ifopts#ifopts{});
+	    check_ifopts(Opts, Ifopts);
 	_ ->
-	    ct:fail({multiple_flags,Fs,Ifopts})
+	    ct:fail({multiple_flags,F,Ifopts})
     end;
 check_ifopts(
-  [{addr,Addr},{netmask,Netmask},{broadaddr,Broadaddr}|Opts],
+  [{addr,_}=A,{netmask,_}=N,{dstaddr,_}=D|Opts],
   #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask,Broadaddr}|Addrs]});
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N,D}|Addrs]});
 check_ifopts(
-  [{addr,Addr},{netmask,Netmask},{dstaddr,_}|Opts],
+  [{addr,_}=A,{netmask,_}=N,{broadaddr,_}=B|Opts],
   #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask}|Addrs]});
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N,B}|Addrs]});
 check_ifopts(
-  [{addr,Addr},{netmask,Netmask}|Opts],
+  [{addr,_}=A,{netmask,_}=N|Opts],
   #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask}|Addrs]});
-check_ifopts([{addr,Addr}|Opts], #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr}|Addrs]});
-check_ifopts([{hwaddr,Hwaddr}|Opts], #ifopts{hwaddr=undefined}=Ifopts)
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N}|Addrs]});
+check_ifopts([{addr,_}=A|Opts], #ifopts{addrs=Addrs}=Ifopts) ->
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A}|Addrs]});
+check_ifopts([{hwaddr,Hwaddr}=H|Opts], #ifopts{hwaddr=undefined}=Ifopts)
   when is_list(Hwaddr) ->
-    check_ifopts(Opts, Ifopts#ifopts{hwaddr=Hwaddr});
-check_ifopts([{hwaddr,HwAddr}|_], #ifopts{}=Ifopts) ->
-    ct:fail({multiple_hwaddrs,HwAddr,Ifopts}).
+    check_ifopts(Opts, Ifopts#ifopts{hwaddr=H});
+check_ifopts([{hwaddr,_}=H|_], #ifopts{}=Ifopts) ->
+    ct:fail({multiple_hwaddrs,H,Ifopts}).
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems

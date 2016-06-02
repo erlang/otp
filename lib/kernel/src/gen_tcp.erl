@@ -151,8 +151,8 @@ connect(Address, Port, Opts, Time) ->
 	Error -> Error
     end.
 
-connect1(Address,Port,Opts,Timer) ->
-    Mod = mod(Opts, Address),
+connect1(Address, Port, Opts0, Timer) ->
+    {Mod, Opts} = inet:tcp_module(Opts0, Address),
     case Mod:getaddrs(Address,Timer) of
 	{ok,IPs} ->
 	    case Mod:getserv(Port) of
@@ -185,8 +185,8 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
       ListenSocket :: socket(),
       Reason :: system_limit | inet:posix().
 
-listen(Port, Opts) ->
-    Mod = mod(Opts, undefined),
+listen(Port, Opts0) ->
+    {Mod, Opts} = inet:tcp_module(Opts0),
     case Mod:getserv(Port) of
 	{ok,TP} ->
 	    Mod:listen(TP, Opts);
@@ -335,32 +335,6 @@ controlling_process(S, NewOwner) ->
 %%
 %% Create a port/socket from a file descriptor 
 %%
-fdopen(Fd, Opts) ->
-    Mod = mod(Opts, undefined),
+fdopen(Fd, Opts0) ->
+    {Mod, Opts} = inet:tcp_module(Opts0),
     Mod:fdopen(Fd, Opts).
-
-%% Get the tcp_module, but IPv6 address overrides default IPv4
-mod(Address) ->
-    case inet_db:tcp_module() of
-	inet_tcp when tuple_size(Address) =:= 8 ->
-	    inet6_tcp;
-	Mod ->
-	    Mod
-    end.
-
-%% Get the tcp_module, but option tcp_module|inet|inet6 overrides
-mod([{tcp_module,Mod}|_], _Address) ->
-    Mod;
-mod([inet|_], _Address) ->
-    inet_tcp;
-mod([inet6|_], _Address) ->
-    inet6_tcp;
-mod([{ip, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([{ifaddr, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([_|Opts], Address) ->
-    mod(Opts, Address);
-mod([], Address) ->
-    mod(Address).
-

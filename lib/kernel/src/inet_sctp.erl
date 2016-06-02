@@ -30,6 +30,7 @@
 -include("inet_sctp.hrl").
 -include("inet_int.hrl").
 
+-define(PROTO, sctp).
 -define(FAMILY, inet).
 -export([getserv/1,getaddr/1,getaddr/2,translate_ip/1]).
 -export([open/1,close/1,listen/2,peeloff/2,connect/5]).
@@ -38,25 +39,19 @@
 
 
 getserv(Port) when is_integer(Port) -> {ok, Port};
-getserv(Name) when is_atom(Name) ->
-    inet:getservbyname(Name, sctp);
-getserv(_) ->
-    {error,einval}.
+getserv(Name) when is_atom(Name) -> inet:getservbyname(Name, ?PROTO);
+getserv(_) -> {error,einval}.
 
-getaddr(Address) ->
-    inet:getaddr(Address, ?FAMILY).
-getaddr(Address, Timer) ->
-    inet:getaddr_tm(Address, ?FAMILY, Timer).
+getaddr(Address) -> inet:getaddr(Address, ?FAMILY).
+getaddr(Address, Timer) -> inet:getaddr_tm(Address, ?FAMILY, Timer).
 
-translate_ip(IP) ->
-    inet:translate_ip(IP, ?FAMILY).
-
+translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
 
     
 open(Opts) ->
     case inet:sctp_options(Opts, ?MODULE) of
 	{ok,#sctp_opts{fd=Fd,ifaddr=Addr,port=Port,type=Type,opts=SOs}} ->
-	    inet:open(Fd, Addr, Port, SOs, sctp, ?FAMILY, Type, ?MODULE);
+	    inet:open(Fd, Addr, Port, SOs, ?PROTO, ?FAMILY, Type, ?MODULE);
 	Error -> Error
     end.
 
