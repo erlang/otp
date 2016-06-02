@@ -1551,12 +1551,10 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef, #cg{bfail=Bfail}=St) ->
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
-% Map single variable key
-set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
-       #cg{bfail=Bfail}=St) ->
 
-    Fail = {f,Bfail},
-    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
+%% Map: single variable key.
+set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef, St0) ->
+    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St0),
 
     SrcReg = cg_reg_arg_prefer_y(Map, Int0),
     Line = line(Le#l.a),
@@ -1570,21 +1568,16 @@ set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
     Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
     Target = fetch_reg(R, Aft#sr.reg),
 
-    I = case Op of
-	assoc -> put_map_assoc;
-	exact -> put_map_exact
-    end,
-    {Sis++[Line]++[{I,Fail,SrcReg,Target,Live,{list,List}}],Aft,St};
+    {Is,St1} = set_cg_map(Line, Op, SrcReg, Target, Live, List, St0),
+    {Sis++Is,Aft,St1};
 
-% Map (possibly) multiple literal keys
-set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
-       #cg{bfail=Bfail}=St) ->
+%% Map: (possibly) multiple literal keys.
+set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef, St0) ->
 
     %% assert key literals
     [] = [Var||{map_pair,{var,_}=Var,_} <- Es],
 
-    Fail = {f,Bfail},
-    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
+    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St0),
     SrcReg = cg_reg_arg_prefer_y(Map, Int0),
     Line = line(Le#l.a),
 
@@ -1599,11 +1592,10 @@ set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
     Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
     Target = fetch_reg(R, Aft#sr.reg),
 
-    I = case Op of
-	assoc -> put_map_assoc;
-	exact -> put_map_exact
-    end,
-    {Sis++[Line]++[{I,Fail,SrcReg,Target,Live,{list,List}}],Aft,St};
+    {Is,St1} = set_cg_map(Line, Op, SrcReg, Target, Live, List, St0),
+    {Sis++Is,Aft,St1};
+
+%% Everything else.
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     %% Find a place for the return register first.
     Int = Bef#sr{reg=put_reg(R, Bef#sr.reg)},
@@ -1615,6 +1607,34 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
+
+
+set_cg_map(Line, Op0, SrcReg, Target, Live, List, St0) ->
+    Bfail = St0#cg.bfail,
+    Fail = {f,St0#cg.bfail},
+    Op = case Op0 of
+	     assoc -> put_map_assoc;
+	     exact -> put_map_exact
+	 end,
+    {OkLbl,St1} = new_label(St0),
+    {BadLbl,St2} = new_label(St1),
+    Is = if
+	     Bfail =:= 0 orelse Op =:= put_map_assoc ->
+		 [Line,{Op,{f,0},SrcReg,Target,Live,{list,List}}];
+	     true ->
+		 %% Ensure that Target is always set, even if
+		 %% the map update operation fails. That is necessary
+		 %% because Target may be included in a test_heap
+		 %% instruction.
+		 [Line,
+		  {Op,{f,BadLbl},SrcReg,Target,Live,{list,List}},
+		  {jump,{f,OkLbl}},
+		  {label,BadLbl},
+		  {move,{atom,ok},Target},
+		  {jump,Fail},
+		  {label,OkLbl}]
+	 end,
+    {Is,St2}.
 
 %%%
 %%% Code generation for constructing binaries.
