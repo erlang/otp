@@ -288,6 +288,9 @@ static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
 #endif
 }
 
+#ifndef MIN
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#endif
 
 /*
  * Some special binary flags
@@ -403,6 +406,9 @@ static int db_select_count_hash(Process *p, DbTable *tbl,  Eterm tid,
 static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid,
 				 Eterm pattern, Eterm *ret);
 
+static int db_select_replace_hash(Process *p, DbTable *tbl,
+                                  Eterm pattern, Eterm *ret);
+
 static int db_select_continue_hash(Process *p, DbTable *tbl, 
 				   Eterm continuation, Eterm *ret);
 
@@ -411,6 +417,10 @@ static int db_select_count_continue_hash(Process *p, DbTable *tbl,
 
 static int db_select_delete_continue_hash(Process *p, DbTable *tbl,
 					  Eterm continuation, Eterm *ret);
+
+static int db_select_replace_continue_hash(Process *p, DbTable *tbl,
+                                           Eterm continuation, Eterm *ret);
+
 static int db_take_hash(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_hash(fmtfn_t to,
 			  void *to_arg,
@@ -523,6 +533,8 @@ DbTableMethod db_hash =
     db_select_delete_continue_hash,
     db_select_count_hash,
     db_select_count_continue_hash,
+    db_select_replace_hash,
+    db_select_replace_continue_hash,
     db_take_hash,
     db_delete_all_objects_hash,
     db_free_table_hash,
@@ -1987,6 +1999,312 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
         try_shrink(tb);
     }
     return DB_ERROR_NONE;
+}
+
+static int db_select_replace_hash(Process *p,
+                                  DbTable *tbl,
+                                  Eterm pattern,
+                                  Eterm *ret)
+{
+    DbTableHash *tb = &tbl->hash;
+    struct mp_info mpi;
+    Uint slot_ix = 0;
+    HashDbTerm **current = NULL, **initial = NULL, **iter = NULL;
+    HashDbTerm *new = NULL, *next = NULL;
+    HashValue hval = INVALID_HASH;
+    unsigned current_list_pos = 0;
+    Eterm key;
+    Eterm match_res;
+    Eterm *hp;
+    int num_left = 1000;
+    Uint got = 0;
+    Eterm continuation;
+    int errcode;
+    Eterm mpb;
+    Eterm egot;
+    erts_smp_rwmtx_t* lck;
+
+#define RET_TO_BIF(Term,RetVal) do {		\
+	if (mpi.mp != NULL) {			\
+	    erts_bin_free(mpi.mp);		\
+	}					\
+	if (mpi.lists != mpi.dlists) {		\
+	    erts_free(ERTS_ALC_T_DB_SEL_LIST,	\
+		      (void *) mpi.lists);	\
+	}					\
+	*ret = (Term);				\
+	return RetVal;				\
+    } while(0)
+
+
+    if ((errcode = analyze_pattern(tb, pattern, &mpi)) != DB_ERROR_NONE) {
+        RET_TO_BIF(NIL,errcode);
+    }
+
+    if (!mpi.something_can_match) {
+        RET_TO_BIF(make_small(0), DB_ERROR_NONE);
+        /* can't possibly match anything */
+    }
+
+    if (!mpi.key_given) {
+        /* Run this code if pattern is variable or GETKEY(pattern)  */
+        /* is a variable                                            */
+        lck = WLOCK_HASH(tb,slot_ix);
+        current = &BUCKET(tb,slot_ix);
+    } else {
+        /* We have at least one */
+        slot_ix = mpi.lists[current_list_pos].ix;
+        lck = WLOCK_HASH(tb, slot_ix);
+        current = mpi.lists[current_list_pos++].bucket;
+        ASSERT(*current == BUCKET(tb,slot_ix));
+    }
+
+
+    initial = current;
+    for(;;) {
+        if ((*current) == NULL) {
+            if (mpi.key_given) {  /* Key is bound */
+                WUNLOCK_HASH(lck);
+                if (current_list_pos == mpi.num_lists) {
+                    goto done;
+                } else {
+                    slot_ix = mpi.lists[current_list_pos].ix;
+                    lck = WLOCK_HASH(tb, slot_ix);
+                    current = mpi.lists[current_list_pos].bucket;
+                    ASSERT(mpi.lists[current_list_pos].bucket == &BUCKET(tb,slot_ix));
+                    ++current_list_pos;
+                }
+            } else {
+                if ((slot_ix=next_slot_w(tb,slot_ix,&lck)) == 0) {
+                    goto done;
+                }
+                if (num_left <= 0) {
+                    WUNLOCK_HASH(lck);
+                    goto trap;
+                }
+                current = &BUCKET(tb,slot_ix);
+            }
+            initial = current;
+        }
+        else if ((*current)->hvalue == INVALID_HASH) {
+            current = &((*current)->next);
+        }
+        else if (tb->common.status & DB_BAG) {
+            match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
+                                        &(*current)->dbterm, NULL, 0);
+            if (is_value(match_res) &&
+                is_value(key = db_getkey(tb->common.keypos, match_res)) &&
+                eq(key, GETKEY(tb, (*current)->dbterm.tpl)))
+            {
+                // we need to make sure we don't end up with duplicate objects;
+                // it's quite inefficient
+                int object_exists = 0;
+                for (iter = initial; *iter != NULL; iter = &((*iter)->next))
+                    if (((*iter)->hvalue != INVALID_HASH)
+                            && (*iter != *current)
+                            && db_eq(&tb->common, match_res, &(*iter)->dbterm))
+                    {
+                        object_exists = 1;
+                        break;
+                    }
+
+                if (!object_exists) {
+                    next = (*current)->next;
+                    hval = (*current)->hvalue;
+                    new = replace_dbterm(tb, *current, match_res);
+                    new->next = next;
+                    new->hvalue = hval;
+                    *current = new;
+                    ++got;
+                }
+            }
+            --num_left;
+            current = &((*current)->next);
+        }
+        else {
+            match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
+                                        &(*current)->dbterm, NULL, 0);
+            if (is_value(match_res) &&
+                is_value(key = db_getkey(tb->common.keypos, match_res)) &&
+                eq(key, GETKEY(tb, (*current)->dbterm.tpl)))
+            {
+                next = (*current)->next;
+                hval = (*current)->hvalue;
+                new = replace_dbterm(tb, *current, match_res);
+                new->next = next;
+                new->hvalue = hval;
+                *current = new;
+                ++got;
+            }
+            --num_left;
+            current = &((*current)->next);
+        }
+    }
+done:
+    // the more objects we've replaced, the more reductions we've consumed
+    BUMP_REDS(p, MIN(2000, (1000 - num_left) + (int)got));
+    RET_TO_BIF(erts_make_integer(got,p),DB_ERROR_NONE);
+trap:
+    BUMP_ALL_REDS(p);
+    if (IS_USMALL(0, got)) {
+        hp = HAlloc(p,  PROC_BIN_SIZE + 5);
+        egot = make_small(got);
+    }
+    else {
+        hp = HAlloc(p, BIG_UINT_HEAP_SIZE + PROC_BIN_SIZE + 5);
+        egot = uint_to_big(got, hp);
+        hp += BIG_UINT_HEAP_SIZE;
+    }
+    mpb = db_make_mp_binary(p,mpi.mp,&hp);
+    continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix),
+            mpb,
+            egot);
+    mpi.mp = NULL; /*otherwise the return macro will destroy it */
+    RET_TO_BIF(bif_trap1(&ets_select_replace_continue_exp, p,
+                continuation),
+            DB_ERROR_NONE);
+
+#undef RET_TO_BIF
+
+}
+
+/*
+** This is called when select_replace traps
+*/
+static int db_select_replace_continue_hash(Process *p,
+					   DbTable *tbl,
+					   Eterm continuation,
+					   Eterm *ret)
+{
+    DbTableHash *tb = &tbl->hash;
+    Uint slot_ix;
+    HashDbTerm **current = NULL, **initial = NULL, **iter = NULL;
+    HashDbTerm *new = NULL, *next = NULL;
+    HashValue hval = INVALID_HASH;
+    Eterm key;
+    Eterm match_res;
+    Eterm *hp;
+    int num_left = 1000;
+    Uint got, prev_got;
+    Eterm *tptr;
+    Binary *mp;
+    Eterm egot;
+    erts_smp_rwmtx_t* lck;
+
+#define RET_TO_BIF(Term,RetVal) do {		\
+	*ret = (Term);				\
+	return RetVal;				\
+    } while(0)
+
+
+    tptr = tuple_val(continuation);
+    slot_ix = unsigned_val(tptr[2]);
+    mp = ((ProcBin *) binary_val(tptr[3]))->val;
+    if (is_big(tptr[4])) {
+        got = big_to_uint32(tptr[4]);
+    } else {
+        got = unsigned_val(tptr[4]);
+    }
+    prev_got = got;
+
+    lck = WLOCK_HASH(tb,slot_ix);
+    if (slot_ix >= NACTIVE(tb)) {
+        WUNLOCK_HASH(lck);
+        goto done;
+    }
+    current = &BUCKET(tb,slot_ix);
+    initial = current;
+
+    for(;;) {
+        if ((*current) == NULL) {
+            if ((slot_ix=next_slot_w(tb,slot_ix,&lck)) == 0) {
+                goto done;
+            }
+            if (num_left <= 0) {
+                WUNLOCK_HASH(lck);
+                goto trap;
+            }
+            current = &BUCKET(tb,slot_ix);
+            initial = current;
+        }
+        else if ((*current)->hvalue == INVALID_HASH) {
+            current = &((*current)->next);
+        }
+        else if (tb->common.status & DB_BAG) {
+            match_res = db_match_dbterm(&tb->common, p, mp, 0,
+                                        &(*current)->dbterm, NULL, 0);
+            if (is_value(match_res) &&
+                is_value(key = db_getkey(tb->common.keypos, match_res)) &&
+                eq(key, GETKEY(tb, (*current)->dbterm.tpl)))
+            {
+                // we need to make sure we don't end up with duplicate objects;
+                // it's quite inefficient
+                int object_exists = 0;
+                for (iter = initial; *iter != NULL; iter = &((*iter)->next))
+                    if (((*iter)->hvalue != INVALID_HASH)
+                            && (*iter != *current)
+                            && db_eq(&tb->common, match_res, &(*iter)->dbterm))
+                    {
+                        object_exists = 1;
+                        break;
+                    }
+
+                if (!object_exists) {
+                    next = (*current)->next;
+                    hval = (*current)->hvalue;
+                    new = replace_dbterm(tb, *current, match_res);
+                    new->next = next;
+                    new->hvalue = hval;
+                    *current = new;
+                    ++got;
+                }
+            }
+            --num_left;
+            current = &((*current)->next);
+        }
+        else {
+            match_res = db_match_dbterm(&tb->common, p, mp, 0,
+                                        &(*current)->dbterm, NULL, 0);
+            if (is_value(match_res) &&
+                is_value(key = db_getkey(tb->common.keypos, match_res)) &&
+                eq(key, GETKEY(tb, (*current)->dbterm.tpl)))
+            {
+                next = (*current)->next;
+                hval = (*current)->hvalue;
+                new = replace_dbterm(tb, *current, match_res);
+                new->next = next;
+                new->hvalue = hval;
+                *current = new;
+                ++got;
+            }
+            --num_left;
+            current = &((*current)->next);
+        }
+    }
+done:
+    // the more objects we've replaced, the more reductions we've consumed
+    BUMP_REDS(p, MIN(2000, (1000 - num_left) + (int)(got - prev_got)));
+    RET_TO_BIF(erts_make_integer(got,p),DB_ERROR_NONE);
+trap:
+    BUMP_ALL_REDS(p);
+    if (IS_USMALL(0, got)) {
+        hp = HAlloc(p,  5);
+        egot = make_small(got);
+    }
+    else {
+        hp = HAlloc(p, BIG_UINT_HEAP_SIZE + 5);
+        egot = uint_to_big(got, hp);
+        hp += BIG_UINT_HEAP_SIZE;
+    }
+    continuation = TUPLE4(hp, tb->common.id, make_small(slot_ix),
+            tptr[3],
+            egot);
+    RET_TO_BIF(bif_trap1(&ets_select_replace_continue_exp, p,
+                continuation),
+            DB_ERROR_NONE);
+
+#undef RET_TO_BIF
+
 }
 
 /*

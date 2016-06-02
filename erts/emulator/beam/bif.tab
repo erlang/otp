@@ -361,6 +361,7 @@ bif ets:select_reverse/1
 bif ets:select_reverse/2
 bif ets:select_reverse/3
 bif ets:select_delete/2
+bif ets:select_replace/2
 bif ets:match_spec_compile/1
 bif ets:match_spec_run_r/3
 
