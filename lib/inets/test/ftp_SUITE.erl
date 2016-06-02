@@ -51,7 +51,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap,{seconds,40}}].
+    [{timetrap,{seconds,20}}].
 
 all() ->
     [
@@ -59,7 +59,8 @@ all() ->
      {group, ftp_active},
      {group, ftps_passive},
      {group, ftps_active},
-     error_ehost
+     error_ehost,
+     clean_shutdown
     ].
 
 groups() ->
@@ -102,8 +103,7 @@ ftp_tests()->
      not_owner,
      unexpected_call,
      unexpected_cast,
-     unexpected_bang,
-     clean_shutdown
+     unexpected_bang
     ].
 
 %%--------------------------------------------------------------------
@@ -194,38 +194,31 @@ init_per_group(_Group, Config) -> Config.
 end_per_group(_Group, Config) -> Config.
 
 %%--------------------------------------------------------------------
-
-init_per_testcase(Case, Config)  when (Case =:= progress_report_send) orelse 
-				      (Case =:= progress_report_recv) ->
-    common_init_per_testcase(Case, [{progress, {?MODULE, progress, #progress{}}} | Config]);
-
-init_per_testcase(Case, Config) ->
-    common_init_per_testcase(Case, Config).
-
-common_init_per_testcase(Case, Config0) ->
-    Group = proplists:get_value(name,proplists:get_value(tc_group_properties,Config0)),
-    try ?MODULE:Case(doc) of
-	Msg -> ct:comment(Msg)
-    catch
-	_:_-> ok
-    end,
+init_per_testcase(Case, Config0) ->
+    Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config0)),
     TLS = [{tls,[{reuse_sessions,true}]}],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
-    ExtraOpts = [verbose],
+    CaseOpts = case Case of
+		   progress_report_send -> [{progress, {?MODULE,progress,#progress{}}}];
+		   progress_report_recv -> [{progress, {?MODULE,progress,#progress{}}}];
+		   _ -> []
+	       end,
+    ExtraOpts = [verbose | CaseOpts],
     Config =
 	case Group of
-	    ftp_active   -> ftp__open(Config0,       ACTIVE  ++ExtraOpts);
-	    ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ExtraOpts);
-	    ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ExtraOpts);
-	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ExtraOpts);
+	    ftp_active   -> ftp__open(Config0,       ACTIVE  ++ ExtraOpts);
+	    ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ ExtraOpts);
+	    ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ ExtraOpts);
+	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ ExtraOpts);
 	    undefined    -> Config0
 	end,
     case Case of
-	user         -> Config;
-	bad_user     -> Config;
-	error_elogin -> Config;
-	error_ehost  -> Config;
+	user           -> Config;
+	bad_user       -> Config;
+	error_elogin   -> Config;
+	error_ehost    -> Config;
+	clean_shutdown -> Config;
 	_ ->
 	    Pid = proplists:get_value(ftp,Config),
 	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS(atom_to_list(Group)++"-"++atom_to_list(Case)) ),
@@ -238,6 +231,7 @@ end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
 end_per_testcase(error_elogin, _Config) -> ok;
 end_per_testcase(error_ehost, _Config) -> ok;
+end_per_testcase(clean_shutdown, _Config) -> ok;
 end_per_testcase(_Case, Config) -> 
     case proplists:get_value(tc_status,Config) of
 	ok -> ok;
@@ -630,6 +624,7 @@ progress_report_send(Config) when is_list(Config) ->
 	{ReportPid, ok} ->
 	    ok
     end.
+
 %%-------------------------------------------------------------------------
 progress_report_recv() ->
     [{doc, "Test the option progress for ftp:recv/[2,3]"}].
@@ -714,17 +709,27 @@ clean_shutdown() ->
      "'shutdown' does not cause an error message. OTP 6035"}].
 
 clean_shutdown(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    LogFile = filename:join([PrivDir,"ticket_6035.log"]),
-    Host = proplists:get_value(ftpd_host,Config),
-    try
-	Pid  = spawn(?MODULE, open_wait_6035, [Host, self()]),
-	    error_logger:logfile({open, LogFile}),
-	    true = kill_ftp_proc_6035(Pid, LogFile),
-	    error_logger:logfile(close)
-    catch 
-	throw:{error, not_found} ->
-	    {skip, "No available FTP servers"}
+    Parent = self(),
+    HelperPid = spawn(
+		  fun() ->
+			  ftp__open(Config, [verbose]),
+			  Parent ! ok,
+			  receive
+			      nothing -> ok
+			  end
+		  end),
+    receive
+	ok ->
+	    PrivDir = proplists:get_value(priv_dir, Config),
+	    LogFile = filename:join([PrivDir,"ticket_6035.log"]),
+ 	    error_logger:logfile({open, LogFile}),
+	    exit(HelperPid, shutdown),
+	    timer:sleep(2000),
+	    error_logger:logfile(close),
+	    case is_error_report_6035(LogFile) of
+		true ->  ok;
+		false -> {fail, "Bad logfile"}
+	    end
     end.
 
 %%%----------------------------------------------------------------
@@ -752,7 +757,7 @@ error_elogin(Config0) ->
 				id2ftp(NewFile,Config)),
     ok.
 
-error_ehost(Config) ->
+error_ehost(_Config) ->
     {error, ehost} = ftp:open("nohost.nodomain"),
     ok.
     
@@ -976,96 +981,75 @@ is_expected_ftpInName(Id, File, Conf) -> File = (proplists:get_value(id2ftp,Conf
 is_expected_ftpOutName(Id, File, Conf) -> File = (proplists:get_value(id2ftp_result,Conf))(Id).
 
 
-progress(#progress{} = Progress , _File, {file_size, Total}) ->
+%%%----------------------------------------------------------------
+%%% Help functions for the option '{progress,Progress}'
+%%%
+
+%%%----------------
+%%% Callback:
+
+progress(#progress{} = P, _File, {file_size, Total} = M) ->
+    ct:pal("Progress: ~p",[M]),
     progress_report_receiver ! start,
-    Progress#progress{total = Total};
+    P#progress{total = Total};
 
-progress(#progress{total = Total, current = Current} 
-	 = Progress, _File, {transfer_size, 0}) ->
+progress(#progress{current = Current} = P, _File, {transfer_size, 0} = M) ->
+    ct:pal("Progress: ~p",[M]),
     progress_report_receiver ! finish,
-    case Total of
-	unknown ->
-	    ok;
-	Current ->
-	    ok;
-	_  ->
-	    ct:fail({error, {progress, {total, Total},
-				      {current, Current}}})
-    end,
-    Progress;
-progress(#progress{current = Current} = Progress, _File, 
-	 {transfer_size, Size}) ->
+    case P#progress.total of
+	unknown -> P;
+	Current -> P;
+	Total   -> ct:fail({error, {progress, {total,Total}, {current,Current}}}),
+		   P
+    end;
+
+progress(#progress{current = Current} = P, _File, {transfer_size, Size} = M) ->
+    ct:pal("Progress: ~p",[M]),
     progress_report_receiver ! update,
-    Progress#progress{current = Current + Size}.
+    P#progress{current = Current + Size};
 
-progress_report_receiver_init(Pid, N) ->
+progress(P, _File, M) ->
+    ct:pal("Progress **** Strange: ~p",[M]),
+    P.
+
+
+%%%----------------
+%%% Help process that counts the files transferred:
+
+progress_report_receiver_init(Parent, N) ->
     register(progress_report_receiver, self()),
+    progress_report_receiver_expect_N_files(Parent, N).
+
+progress_report_receiver_expect_N_files(_Parent, 0) ->
+    ct:pal("progress_report got all files!", []);
+progress_report_receiver_expect_N_files(Parent, N) ->
+    ct:pal("progress_report expects ~p more files",[N]),
     receive
-	start ->
-	    ok
+	start -> ok
     end,
-    progress_report_receiver_loop(Pid, N-1).
+    progress_report_receiver_loop(Parent, N-1).
 
-progress_report_receiver_loop(Pid, N) ->
-      receive
-	  update ->
-	    progress_report_receiver_loop(Pid, N);
-	  finish when N =:= 0 ->
-	      Pid ! {self(), ok};
-	  finish  ->
-	      Pid ! {self(), ok},
-	      receive
-		  start ->
-		      ok
-	      end,
-	      progress_report_receiver_loop(Pid, N-1)
-      end.
 
-kill_ftp_proc_6035(Pid, LogFile) ->
+progress_report_receiver_loop(Parent, N) ->
+    ct:pal("progress_report expect update | finish. N = ~p",[N]),
     receive
-	open ->
-	    exit(Pid, shutdown),
-	    kill_ftp_proc_6035(Pid, LogFile);
-	{open_failed, Reason} ->
-	    exit({skip, {failed_openening_server_connection, Reason}})
-    after
-	5000 ->
-	    is_error_report_6035(LogFile)
+	update ->  
+	    ct:pal("progress_report got update",[]),
+	    progress_report_receiver_loop(Parent, N);
+	finish  -> 
+	    ct:pal("progress_report got finish, send ~p to ~p",[{self(),ok}, Parent]),
+	    Parent ! {self(), ok},
+	    progress_report_receiver_expect_N_files(Parent, N)
     end.
 
-open_wait_6035({_Tag, FtpServer}, From) ->
-    case ftp:open(FtpServer, [{timeout, timer:seconds(15)}]) of
-	{ok, Pid} ->
-	    _LoginResult = ftp:user(Pid,"anonymous","kldjf"),
-	    From ! open,
-	    receive
-		dummy -> 
-		    ok
-	    after
-		10000 ->
-		    ok
-	    end,
-	    ok;
-	{error, Reason} ->
-	    From ! {open_failed, {Reason, FtpServer}},
-	    ok
-    end.
+%%%----------------------------------------------------------------
+%%% Help functions for bug OTP-6035
 
 is_error_report_6035(LogFile) ->
-    Res =
-	case file:read_file(LogFile) of
-	    {ok, Bin} ->
-		Txt = binary_to_list(Bin), 
-		read_log_6035(Txt);
-	    _ ->
-		false
-	end,
-    %% file:delete(LogFile),
-    Res.
+    case file:read_file(LogFile) of
+	{ok, Bin} -> 
+	    nomatch =/= binary:match(Bin, <<"=ERROR REPORT====">>);
+	_ -> 
+	    false
+    end.
 
-read_log_6035("=ERROR REPORT===="++_Rest) ->
-    true;
-read_log_6035([_|T]) ->
-    read_log_6035(T);
-read_log_6035([]) ->
-    false.
