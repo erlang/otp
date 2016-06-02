@@ -33,21 +33,6 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
-<section><title>Eunit 2.3</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p>There is a new <c>debugVal/2</c> that gives control
-	    over the truncation depth.</p>
-          <p>
-	    Own Id: OTP-13612</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Eunit 2.2.13</title>
 
     <section><title>Improvements and New Features</title>
