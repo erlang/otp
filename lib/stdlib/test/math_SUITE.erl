@@ -61,8 +61,8 @@ floor_ceil(Config) when is_list(Config) ->
     10  = Mod:floor(10.0),
     -10 = Mod:floor(-10.0),
     -11 = Mod:floor(-10.1),
-    10.0  = Mod:floorf(10.1),
-    -11.0 = Mod:floorf(-10.1),
+    10.0  = Mod:ffloor(10.1),
+    -11.0 = Mod:ffloor(-10.1),
 
     1  = Mod:ceil(1),
     -1 = Mod:ceil(-1),
@@ -75,6 +75,6 @@ floor_ceil(Config) when is_list(Config) ->
     -10 = Mod:ceil(-10.0),
     11  = Mod:ceil(10.1),
     -10 = Mod:ceil(-10.1),
-    11.0  = Mod:ceilf(10.1),
-    -10.0 = Mod:ceilf(-10.1),
+    11.0  = Mod:fceil(10.1),
+    -10.0 = Mod:fceil(-10.1),
     ok.

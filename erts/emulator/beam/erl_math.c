@@ -247,12 +247,12 @@ BIF_RETTYPE math_pow_2(BIF_ALIST_2)
     return math_call_2(BIF_P, pow, BIF_ARG_1, BIF_ARG_2);
 }
 
-BIF_RETTYPE math_ceilf_1(BIF_ALIST_1)
+BIF_RETTYPE math_fceil_1(BIF_ALIST_1)
 {
     return math_call_1(BIF_P, ceil, BIF_ARG_1);
 }
 
-BIF_RETTYPE math_floorf_1(BIF_ALIST_1)
+BIF_RETTYPE math_ffloor_1(BIF_ALIST_1)
 {
     return math_call_1(BIF_P, floor, BIF_ARG_1);
 }
