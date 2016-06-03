@@ -465,6 +465,14 @@ certify(internal, #certificate{asn1_certificates = []},
 	Connection:next_record(State0#state{client_certificate_requested = false}),
     Connection:next_event(certify, Record, State);
 
+certify(internal, #certificate{},
+	#state{role = server,
+	       negotiated_version = Version,
+	       ssl_options = #ssl_options{verify = verify_none}} =
+	    State, Connection) ->
+    Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
+    Connection:handle_own_alert(Alert, Version, certify, State);
+
 certify(internal, #certificate{} = Cert,
         #state{negotiated_version = Version,
 	       role = Role,
