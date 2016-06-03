@@ -40,6 +40,8 @@
 #       include <time.h>
 #    endif
 #  endif
+#else
+#  include <time.h>
 #endif
 
 #include "eiext.h"
