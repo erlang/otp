@@ -1103,6 +1103,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
+    rpc:call(Node,erlang,garbage_collect,[]),
     rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
@@ -1129,6 +1130,7 @@ otp_9395_update_many_mods(Conf) when is_list(Conf) ->
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
     rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
+    rpc:call(Node,erlang,garbage_collect,[]),
     rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
@@ -1200,6 +1202,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
     %% First, install release directly and check how much time it takes
+    rpc:call(Node,erlang,garbage_collect,[]),
     rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst0,{ok, _, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
@@ -1226,6 +1229,7 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
     %% Finally install release after check and purge, and check that
     %% this install was faster than the first.
     rpc:call(Node,erlang,system_flag,[scheduler_wall_time,false]),
+    rpc:call(Node,erlang,garbage_collect,[]),
     rpc:call(Node,erlang,system_flag,[scheduler_wall_time,true]),
     {TInst2,{ok, _RelVsn1, []}} =
 	timer:tc(rpc,call,[Node, release_handler, install_release, [RelVsn2]]),
