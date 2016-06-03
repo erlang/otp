@@ -139,11 +139,13 @@ t_gethostbyaddr(Config) when is_list(Config) ->
             ok;
         _ ->
             io:format("alias list: ~p", [HEnt#hostent.h_aliases]),
-            io:format("check alias list: ~p", [[Aliases,[Rname]]]),
+            io:format(
+	      "check alias list: ~p", [[Aliases,tl(Aliases),[Rname]]]),
             io:format("name: ~p", [HEnt#hostent.h_name]),
             io:format("check name: ~p", [[Name,FullName]]),
-            check_elems([{HEnt#hostent.h_name,[Name,FullName]},
-                         {HEnt#hostent.h_aliases,[[],Aliases,[Rname]]}])
+            check_elems(
+	      [{HEnt#hostent.h_name,[Name,FullName]},
+	       {HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases),[Rname]]}])
     end,
 
     {_DName, _DFullName, DIPStr, DIP, _, _, _} = ct:get_config(test_dummy_host),
@@ -171,8 +173,9 @@ t_gethostbyaddr_v6(Config) when is_list(Config) ->
 				   h_length = 16,
 				   h_addr_list = [IP6]},
 	    HEnt6_ = HEnt6,
-	    check_elems([{HEnt6#hostent.h_name,[Name6,FullName6]},
-			 {HEnt6#hostent.h_aliases,[[],Aliases6]}]),
+	    check_elems(
+	      [{HEnt6#hostent.h_name,[Name6,FullName6]},
+	       {HEnt6#hostent.h_aliases,[[],Aliases6,tl(Aliases6)]}]),
 
 	    {_DName6, _DFullName6, DIPStr6, DIP6, _} =
 		ct:get_config(test_dummy_ipv6_host),
@@ -195,14 +198,14 @@ t_gethostbyname(Config) when is_list(Config) ->
 
     HEnt_ = HEnt,
     check_elems([{HEnt#hostent.h_name,[Name,FullName]},
-		 {HEnt#hostent.h_aliases,[[],Aliases]}]),
+		 {HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases)]}]),
     {ok,HEntF} = inet:gethostbyname(FullName),
     HEntF_ = HEntF#hostent{h_name = FullName,
 			   h_addrtype = inet,
 			   h_length = 4,
 			   h_addr_list = [IP]},
     HEntF_ = HEntF,
-    check_elems([{HEnt#hostent.h_aliases,[[],Aliases]}]),
+    check_elems([{HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases)]}]),
     %%
     FullNameU = toupper(FullName),
     {ok,HEntU} = inet:gethostbyname(FullNameU),
@@ -237,7 +240,7 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
 			     h_length = 16} = HEnt,
 		    check_elems(
 		      [{HEnt#hostent.h_name,[Name,FullName]},
-		       {HEnt#hostent.h_aliases,[[],Aliases]}]);
+		       {HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases)]}]);
 		[IP46] -> % IPv4 compatible address
 		    {ok,HEnt4} = inet:gethostbyname(Name, inet),
 		    #hostent{h_addrtype = inet,
@@ -257,7 +260,7 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
 			     h_addrtype = inet6,
 			     h_length = 16} = HEntF,
 		    check_elems(
-		      [{HEnt#hostent.h_aliases,[[],Aliases]}]);
+		      [{HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases)]}]);
 		[IP46F] -> % IPv4 compatible address
 		    {ok,HEnt4F} = inet:gethostbyname(FullName, inet),
 		    #hostent{h_addrtype = inet,
@@ -363,7 +366,7 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 				 h_addr_list = [IP_46]},
 	    HEnt_ = HEnt,
 	    check_elems([{HEnt#hostent.h_name,[IP_46_Str,IPStr]},
-			 {HEnt#hostent.h_aliases,[[],Aliases]}]);
+			 {HEnt#hostent.h_aliases,[[],Aliases,tl(Aliases)]}]);
 	{_,IP4to6Res} -> ok
     end,
     ok.
