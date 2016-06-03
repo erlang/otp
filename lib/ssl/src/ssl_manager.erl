@@ -67,6 +67,7 @@
 -define(CLEAN_SESSION_DB, 60000).
 -define(CLEAN_CERT_DB, 500).
 -define(DEFAULT_MAX_SESSION_CACHE, 1000).
+-define(LOAD_MITIGATION, 10).
 
 %%====================================================================
 %% API
@@ -196,10 +197,12 @@ register_session(Port, Session) ->
 %%--------------------------------------------------------------------
 -spec invalidate_session(host(), inet:port_number(), #session{}) -> ok.
 invalidate_session(Host, Port, Session) ->
+    load_mitigation(),
     cast({invalidate_session, Host, Port, Session}).
 
 -spec invalidate_session(inet:port_number(), #session{}) -> ok.
 invalidate_session(Port, Session) ->
+    load_mitigation(),
     cast({invalidate_session, Port, Session}).
 
 -spec invalidate_pem(File::binary()) -> ok.
@@ -719,3 +722,11 @@ invalidate_session_cache(undefined, CacheCb, Cache) ->
     start_session_validator(Cache, CacheCb, {invalidate_before, erlang:monotonic_time()}, undefined);
 invalidate_session_cache(Pid, _CacheCb, _Cache) ->
     Pid.
+
+load_mitigation() ->
+    MSec = rand:uniform(?LOAD_MITIGATION),
+    receive 
+    after 
+	MSec ->
+	    continue
+    end.
