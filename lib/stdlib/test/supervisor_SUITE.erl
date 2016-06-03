@@ -66,7 +66,7 @@
 
 %% Misc tests
 -export([child_unlink/1, tree/1, count_children/1,
-	 count_restarting_children/1,
+	 count_restarting_children/1, get_callback_module/1,
 	 do_not_save_start_parameters_for_temporary_children/1,
 	 do_not_save_child_specs_for_temporary_children/1,
 	 simple_one_for_one_scale_many_temporary_children/1,
@@ -91,7 +91,7 @@ all() ->
      {group, normal_termination},
      {group, shutdown_termination},
      {group, abnormal_termination}, child_unlink, tree,
-     count_children, count_restarting_children,
+     count_children, count_restarting_children, get_callback_module,
      do_not_save_start_parameters_for_temporary_children,
      do_not_save_child_specs_for_temporary_children,
      simple_one_for_one_scale_many_temporary_children, temporary_bystander,
@@ -1505,6 +1505,14 @@ count_restarting_children(Config) when is_list(Config) ->
     [1,1,0,1] = get_child_counts(SupPid),
     ok = supervisor:terminate_child(SupPid, Ch3_2),
     [1,0,0,0] = get_child_counts(SupPid).
+
+%%-------------------------------------------------------------------------
+%% Test get_callback_module
+get_callback_module(Config) when is_list(Config) ->
+    Child = {child, {supervisor_1, start_child, []}, temporary, 1000,
+	     worker, []},
+    {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    supervisor_SUITE = supervisor:get_callback_module(SupPid).
 
 %%-------------------------------------------------------------------------
 %% Temporary children shall not be restarted so they should not save
