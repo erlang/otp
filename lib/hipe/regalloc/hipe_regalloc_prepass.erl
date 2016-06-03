@@ -31,20 +31,37 @@
 %%  * Spills trivially unallocatable temps
 %%    This relies on the fact that calls intentionally clobber all registers.
 %%    Since this is the case, any temp that is alive over a call can't possibly
-%%    be allocated to a
+%%    be allocated to anything but a spill slot.
 %%
-%% TODO: Partition the IG (without constructing it) into connected components
-%% and call the actual register allocator on them individually.
-
+%%  * Partitions the program at points where no pseudos that were not spiled are
+%%    live, and then do register allocation on these partitions independently.
+%%    These program points are commonly, but not exclusively, the call
+%%    instructions.
+%%
+%% TODO
+%%  * This module seems very successful at finding every single spill; register
+%%    allocation performance should be improved if we short-circuit the first
+%%    hipe_regalloc_loop iteration, skipping directly to rewrite without ever
+%%    calling RegAllocMod.
 -module(hipe_regalloc_prepass).
 -export([regalloc/6]).
 
-%% -ifndef(DEBUG).
-%% -compile(inline).
-%% -endif.
+-ifndef(DEBUG).
+-compile(inline).
+-endif.
 
 %%-define(DO_ASSERT, 1).
 -include("../main/hipe.hrl").
+
+%%% TUNABLES
+
+%% Partitions with fewer than ?TUNE_TOO_FEW_BBS basic block halves are merged
+%% together before register allocation.
+-define(TUNE_TOO_FEW_BBS, 256).
+
+%% Ignore the ra_partitioned option (and do whole function RA instead) when
+%% there are fewer than ?TUNE_MIN_SPLIT_PSEUDOS non-spilled used pseudos.
+-define(TUNE_MIN_SPLIT_PSEUDOS, 1024).
 
 %% We present a "pseudo-target" to the register allocator we wrap.
 %% Note: all arities are +1 as we're currently using the parameterised module
@@ -54,7 +71,6 @@
 	 allocatable/1,
 	 args/2,
 	 bb/3,
-	 breadthorder/2,
 	 def_use/2,
 	 defines/2,
 	 is_fixed/2,	% used by hipe_graph_coloring_regalloc
@@ -86,28 +102,35 @@
 	}).
 
 -record(cfg,
-	{cfg     :: target_cfg()
-	,bbs     :: #{label() => hipe_bb:bb(instr())}
-	,max_reg :: temp()    % Exclusive upper bound on temp numbers
-	,live    :: target_liveness()
+	{cfg        :: target_cfg()
+	,bbs        :: transformed_bbs()
+	,max_reg    :: temp()    % Exclusive upper bound on temp numbers
+	,rpostorder :: undefined % Only precomputed with partitioned cfg
+		     | [label()]
 	}).
 
+-type bb()      :: hipe_bb:bb(). % containing instr()
+-type liveset() :: ordsets:ordset(temp()).
+-record(transformed_bb,
+	{bb      :: bb()
+	,livein  :: liveset()
+	,liveout :: liveset()
+	}).
+-type transformed_bb() :: #transformed_bb{}.
+-type transformed_bbs() :: #{label() => transformed_bb()}.
+
 -record(instr,
-	{tgt_instr :: target_instr() % Not used, for debugging
-	,defuse    :: {[temp()], [temp()]}
+	{defuse    :: {[temp()], [temp()]}
 	,is_move   :: boolean()
 	}).
-%% -record(label,
-%% 	{no :: label()
-%% 	}).
--type instr() :: #instr{} %% | #label{}
-		 .
+-type instr() :: #instr{}.
 
 -type target_cfg() :: any().
 -type target_instr() :: any().
 -type target_temp() :: any().
 -type target_reg() :: non_neg_integer().
 -type target_liveness() :: any().
+-type target_liveset() :: ordsets:ordset(target_reg()).
 -type spillno() :: non_neg_integer().
 -type temp() :: non_neg_integer().
 -type label() :: non_neg_integer().
@@ -117,47 +140,127 @@
 	      -> {hipe_map(), spillno(), target_liveness()}.
 regalloc(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options) ->
   Liveness = Target:analyze(CFG),
-  {BBs0, LivePseudos, _Unused, SpilledPseudos, SpillIndex} =
+  {ScanBBs, Seen, SpillMap, SpillIndex1} =
     scan_cfg(CFG, Liveness, SpillIndex0, Target),
 
-  {SubMap, InvMap, MaxPhys, MaxR, SubSpillLimit} =
-    number_and_map(Target:all_precoloured(), LivePseudos, SpillLimit),
-  BBs = transform_cfg(BBs0, SubMap),
-  SubMod = #cfg{cfg=CFG, bbs=BBs, max_reg=MaxR, live=Liveness},
-  SubTarget = #?MODULE{target=Target, max_phys=MaxPhys, inv=InvMap, sub=SubMap},
-  case
-    RegAllocMod:regalloc(SubMod, SpillIndex, SubSpillLimit, SubTarget, Options)
-  of
-    {SubColoring, NewSpillIndex} -> ok;
-    {SubColoring, NewSpillIndex, _SubLiveness} -> ok
-  end,
-  ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)), % blame the RA ;)
-  SpillColors = [{T, {spill, S}} || {T, S} <- maps:to_list(SpilledPseudos)],
-  Coloring = translate_coloring(SubColoring, InvMap) ++ SpillColors,
+  AllPrecoloured = Target:all_precoloured(),
+
+  {PartColoring, SpillIndex} =
+    case proplists:get_bool(ra_partitioned, Options) of
+      true when map_size(Seen) - map_size(SpillMap) - length(AllPrecoloured)
+		> ?TUNE_MIN_SPLIT_PSEUDOS ->
+	regalloc_partitioned(SpillMap, SpillIndex1, SpillLimit, ScanBBs,
+			     CFG, Target, RegAllocMod, Options);
+      _ ->
+	regalloc_whole(Seen, SpillMap, SpillIndex1, SpillLimit, ScanBBs,
+		       CFG, Target, RegAllocMod, Options)
+    end,
+
+  SpillColors = [{T, {spill, S}} || {T, S} <- maps:to_list(SpillMap)],
+  Coloring = SpillColors ++ PartColoring,
+
+  ?ASSERT(begin
+	    MaxPhys = lists:max(AllPrecoloured) + 1,
+	    Unused = unused(live_pseudos(Seen, SpillMap, MaxPhys),
+			    SpillMap, CFG, Target),
+	    unused_unused(Unused, CFG, Target)
+	  end),
   ?ASSERT(check_coloring(Coloring, CFG, Target)), % Sanity-check
   ?ASSERT(just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target,
-			  Options, Coloring, _Unused)),
-  {Coloring, NewSpillIndex, Liveness}.
+			  Options, Coloring, Unused)),
+  {Coloring, SpillIndex, Liveness}.
 
+regalloc_whole(Seen, SpillMap, SpillIndex0, SpillLimit, ScanBBs,
+	       CFG, Target, RegAllocMod, Options) ->
+  AllPrecoloured = Target:all_precoloured(),
+  MaxPhys = lists:max(AllPrecoloured) + 1,
+  LivePseudos = live_pseudos(Seen, SpillMap, MaxPhys),
+  {SubMap, InvMap, MaxPhys, MaxR, SubSpillLimit} =
+    number_and_map(AllPrecoloured, LivePseudos, SpillLimit),
+  BBs = transform_whole_cfg(ScanBBs, SubMap),
+  SubMod = #cfg{cfg=CFG, bbs=BBs, max_reg=MaxR},
+  SubTarget = #?MODULE{target=Target, max_phys=MaxPhys, inv=InvMap, sub=SubMap},
+  {SubColoring, SpillIndex, _} =
+    RegAllocMod:regalloc(SubMod, SpillIndex0, SubSpillLimit, SubTarget,
+			 Options),
+  ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
+  {translate_coloring(SubColoring, InvMap), SpillIndex}.
+
+regalloc_partitioned(SpillMap, SpillIndex0, SpillLimit, ScanBBs,
+		     CFG, Target, RegAllocMod, Options) ->
+  AllPrecoloured = Target:all_precoloured(),
+  MaxPhys = lists:max(AllPrecoloured) + 1,
+
+  DSets0 = initial_dsets(CFG, Target),
+  PartBBList = part_cfg(ScanBBs, SpillMap, MaxPhys),
+  DSets1 = join_whole_blocks(PartBBList, DSets0),
+  {PartBBsRLList, DSets2} = merge_small_parts(DSets1),
+  {PartBBs, DSets3} = merge_pointless_splits(PartBBList, ScanBBs, DSets2),
+  SeenMap = collect_seenmap(PartBBsRLList, PartBBs),
+  {RPostMap, _DSets4} = part_order(Target:reverse_postorder(CFG), DSets3),
+
+  {Allocations, SpillIndex} =
+    lists:mapfoldl(
+      fun({Root, Elems}, SpillIndex1) ->
+	  #{Root := Seen} = SeenMap,
+	  #{Root := RPost} = RPostMap,
+	  LivePseudos = live_pseudos(Seen, SpillMap, MaxPhys),
+	  {SubMap, InvMap, MaxPhys, MaxR, SubSpillLimit} =
+	    number_and_map(AllPrecoloured, LivePseudos, SpillLimit),
+	  BBs = transform_cfg(Elems, PartBBs, SubMap),
+	  SubMod = #cfg{cfg=CFG, bbs=BBs, max_reg=MaxR, rpostorder=RPost},
+	  SubTarget = #?MODULE{target=Target, max_phys=MaxPhys, inv=InvMap,
+			       sub=SubMap},
+	  {SubColoring, SpillIndex2, _} =
+	    RegAllocMod:regalloc(SubMod, SpillIndex1, SubSpillLimit, SubTarget,
+				 Options),
+	  ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
+	  {translate_coloring(SubColoring, InvMap), SpillIndex2}
+      end, SpillIndex0, PartBBsRLList),
+  {combine_allocations(Allocations, MaxPhys), SpillIndex}.
+
+-spec number_and_map([target_reg()], target_liveset(), target_reg())
+		    -> {sub_map(), inv_map(), temp(), temp(), temp()}.
 number_and_map(Phys, Pseud, SpillLimit) ->
   MaxPhys = lists:max(Phys) + 1,
-  case Pseud of [] -> ok; _ ->
-      case lists:min(Pseud) of % Assertion
-	FirstPseudo when FirstPseudo >= MaxPhys -> ok
-      end end,
+  ?ASSERT(Pseud =:= [] orelse lists:min(Pseud) >= MaxPhys),
   NrPseuds = length(Pseud),
   MaxR = MaxPhys+NrPseuds,
   PseudNrs = lists:zip(Pseud, lists:seq(MaxPhys, MaxR-1)),
   MapList = lists:zip(Phys, Phys) % Physicals are identity-mapped
     ++ PseudNrs,
-  SubMap = maps:from_list(MapList),
-  InvMap = maps:from_list([{Fake, Real} || {Real, Fake} <- MapList]),
-  LastPseudo = case Pseud of [] -> MaxPhys-1; _ -> lists:max(Pseud) end,
-  SubSpillLimit = if SpillLimit > LastPseudo -> MaxR;
-		     true -> map_get(SpillLimit, SubMap)
-		  end,
+  ?ASSERT(MapList =:= lists:ukeysort(1, MapList)),
+  SubMap = {s,maps:from_list(MapList)},
+  InvMap = {i,maps:from_list([{Fake, Real} || {Real, Fake} <- MapList])},
+  SubSpillLimit = translate_spill_limit(MapList, SpillLimit),
   {SubMap, InvMap, MaxPhys, MaxR, SubSpillLimit}.
 
+-spec translate_spill_limit([{target_reg(), temp()}], target_reg()) -> temp().
+translate_spill_limit([{Real,Fake}], SpillLimit) when Real < SpillLimit ->
+  Fake + 1;
+translate_spill_limit([{Real,_}|Ps], SpillLimit) when Real < SpillLimit ->
+  translate_spill_limit(Ps, SpillLimit);
+translate_spill_limit([{Real,Fake}|_], SpillLimit) when Real >= SpillLimit ->
+  Fake.
+
+-spec live_pseudos(seen(), spill_map(), target_reg()) -> target_liveset().
+live_pseudos(Seen, SpillMap, MaxPhys) ->
+  %% When SpillMap is much larger than Seen (which is typical in the partitioned
+  %% case), it is much more efficient doing it like this than making an ordset
+  %% of the spills and subtracting.
+  ordsets:from_list(
+    lists:filter(fun(R) -> R >= MaxPhys andalso not maps:is_key(R, SpillMap)
+		 end, maps:keys(Seen))).
+
+-spec translate_coloring(hipe_map(), inv_map()) -> hipe_map().
+translate_coloring(SubColoring, InvMap) ->
+  lists:map(fun({T, P}) -> {imap_get(T, InvMap), P} end, SubColoring).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% First pass
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Spill trivially unallocatable temps, create internal target-independent
+%% program representation, and collect a set of all used temps.
 -record(spill_state,
 	{map :: spill_map()
 	,ix  :: spillno()
@@ -166,9 +269,8 @@ number_and_map(Phys, Pseud, SpillLimit) ->
 -type spill_map()   :: #{target_reg() => spillno()}.
 
 -spec scan_cfg(target_cfg(), target_liveness(), spillno(), module())
-	      -> {#{label() => [instr()]}
-		 ,ordsets:set(target_reg())
-		 ,ordsets:set(target_reg())
+	      -> {scan_bbs()
+		 ,seen()
 		 ,spill_map()
 		 ,spillno()
 		 }.
@@ -176,28 +278,53 @@ scan_cfg(CFG, Liveness, SpillIndex0, Target) ->
   State0 = #spill_state{map=#{}, ix=SpillIndex0},
   {BBs, Seen, #spill_state{map=Spill, ix=SpillIndex}} =
     scan_bbs(Target:labels(CFG), CFG, Liveness, #{}, State0, #{}, Target),
-  SeenOSet = ordsets:from_list(maps:keys(Seen)),
-  SpillOSet = ordsets:from_list(maps:keys(Spill)),
-  PhysOSet = ordsets:from_list(Target:all_precoloured()),
-  Dead = ordsets:union(SpillOSet, PhysOSet),
-  LivePseudos = ordsets:subtract(SeenOSet, Dead),
-  {_TMin, _TMax} = Target:var_range(CFG),
-  _Unused = ordsets:subtract(lists:seq(_TMin, _TMax),
-			     ordsets:union(SeenOSet, PhysOSet)),
-  {BBs, LivePseudos, _Unused, Spill, SpillIndex}.
+  {BBs, Seen, Spill, SpillIndex}.
 
 -type seen() :: #{target_reg() => []}. % set
+-type scan_bb() :: {[instr()], target_liveset(), target_liveset()}.
+-type scan_bbs() :: #{label() => scan_bb()}.
 
 -spec scan_bbs([label()], target_cfg(), target_liveness(), seen(),
-	       spill_state(), #{label() => [instr()]}, module())
-	      -> {#{label() => [instr()]}, seen(), spill_state()}.
-scan_bbs([], _CFG, _Liveness, Seen, State, BBs, _Target) -> {BBs, Seen, State};
+	       spill_state(), scan_bbs(), module())
+	      -> {scan_bbs(), seen(), spill_state()}.
+scan_bbs([], _CFG, _Liveness, Seen, State, BBs, _Target) ->
+  {BBs, Seen, State};
 scan_bbs([L|Ls], CFG, Liveness, Seen0, State0, BBs, Target) ->
-    {Code, _, Seen, State} = scan_bb(hipe_bb:code(Target:bb(CFG, L)),
-				     t_liveout(Liveness, L, Target),
-				     Seen0, State0, Target),
-    scan_bbs(Ls, CFG, Liveness, Seen, State, BBs#{L=>Code}, Target).
+  Liveout = t_liveout(Liveness, L, Target),
+  {Code, Livein, Seen, State} =
+    scan_bb(lists:reverse(hipe_bb:code(Target:bb(CFG, L))), Liveout, Seen0,
+	    State0, [], Target),
+  BB = {Code, Livein, Liveout},
+  scan_bbs(Ls, CFG, Liveness, Seen, State, BBs#{L=>BB}, Target).
 
+-spec scan_bb([target_instr()], target_liveset(), seen(), spill_state(),
+	      [instr()], module())
+	     -> {[instr()]
+		,target_liveset()
+		,seen()
+		,spill_state()
+		}.
+scan_bb([], Live, Seen, State, IAcc, _Target) ->
+  {IAcc, Live, Seen, State};
+scan_bb([I|Is], Live0, Seen0, State0, IAcc0, Target) ->
+  {TDef, TUse} = Target:def_use(I),
+  ?ASSERT(TDef =:= Target:defines(I)),
+  ?ASSERT(TUse =:= Target:uses(I)),
+  Def = ordsets:from_list(reg_names(TDef, Target)),
+  Use = ordsets:from_list(reg_names(TUse, Target)),
+  Live = ordsets:union(Use, ToSpill = ordsets:subtract(Live0, Def)),
+  Seen = add_seen(Def, add_seen(Use, Seen0)),
+  NewI = #instr{defuse={Def, Use}, is_move=Target:is_move(I)},
+  IAcc = [NewI|IAcc0],
+  State =
+    case Target:defines_all_alloc(I) of
+      false -> State0;
+      true -> spill_all(ToSpill, Target, State0)
+    end,
+  %% We can drop "no-ops" here; where (if anywhere) is it worth it?
+  scan_bb(Is, Live, Seen, State, IAcc, Target).
+
+-spec t_liveout(target_liveness(), label(), module()) -> target_liveset().
 t_liveout(Liveness, L, Target) ->
   %% FIXME: unnecessary sort; liveout is sorted, reg_names(...) should be sorted
   %% or consist of a few sorted subsequences (per type)
@@ -207,27 +334,11 @@ t_liveout(Liveness, L, Target) ->
 reg_names(Regs, Target) ->
   [Target:reg_nr(X) || X <- Regs].
 
-scan_bb([], Live, Seen, State, _Target) -> {[], Live, Seen, State};
-scan_bb([I|Is0], Live0, Seen0, State0, Target) ->
-  %% We could pass Target in the return tuple to make the stack frames
-  %% smaller, but without multireturn opt, it's probably not worth it.
-  {Is1, Live1, Seen1, State1} = scan_bb(Is0, Live0, Seen0, State0, Target),
-  {TDef, TUse} = Target:def_use(I),
-  Def = ordsets:from_list(reg_names(TDef, Target)),
-  Use = ordsets:from_list(reg_names(TUse, Target)),
-  Live = ordsets:union(Use, ToSpill = ordsets:subtract(Live1, Def)),
-  Seen = add_seen(Def, add_seen(Use, Seen1)),
-  State =
-    case Target:defines_all_alloc(I) of
-      false -> State1;
-      true -> spill_all(ToSpill, Target, State1)
-    end,
-  NewI = #instr{tgt_instr=I, defuse={Def, Use}, is_move=Target:is_move(I)},
-  {[NewI|Is1], Live, Seen, State}.
-
+-spec add_seen([target_reg()], seen()) -> seen().
 add_seen([], Seen) -> Seen;
 add_seen([R|Rs], Seen) -> add_seen(Rs, Seen#{R=>[]}).
 
+-spec spill_all([target_reg()], module(), spill_state()) -> spill_state().
 spill_all([], _Target, State) -> State;
 spill_all([R|Rs], Target, State=#spill_state{map=Map, ix=Ix}) ->
   case Target:is_precoloured(R) or maps:is_key(R, Map) of
@@ -235,17 +346,165 @@ spill_all([R|Rs], Target, State=#spill_state{map=Map, ix=Ix}) ->
     false -> spill_all(Rs, Target, State#spill_state{map=Map#{R=>Ix}, ix=Ix+1})
   end.
 
-transform_cfg(BBs0, SubMap) ->
-  maps:map(fun(_, BB) -> transform_bb(BB, SubMap) end, BBs0).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Second pass (without split)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Rewrite CFG to the new temp names.
+-spec transform_whole_cfg(scan_bbs(), sub_map()) -> transformed_bbs().
+transform_whole_cfg(BBs0, SubMap) ->
+  maps:map(fun(_, BB) -> transform_whole_bb(BB, SubMap) end, BBs0).
 
-transform_bb(BB, SubMap) ->
-  hipe_bb:mk_bb([I#instr{defuse={map_get_all_partial(Def, SubMap),
-				 map_get_all_partial(Use, SubMap)}}
-		 || I = #instr{defuse={Def,Use}} <- BB]).
+-spec transform_whole_bb(scan_bb(), sub_map()) -> transformed_bb().
+transform_whole_bb({Code, Livein, Liveout}, SubMap) ->
+  #transformed_bb{
+     bb=hipe_bb:mk_bb([I#instr{defuse={smap_get_all_partial(Def, SubMap),
+				       smap_get_all_partial(Use, SubMap)}}
+		       || I = #instr{defuse={Def,Use}} <- Code])
+     %% Assume mapping preserves monotonicity
+    ,livein=smap_get_all_partial(Livein, SubMap)
+    ,liveout=smap_get_all_partial(Liveout, SubMap)
+    }.
 
--spec translate_coloring(hipe_map(), _) -> hipe_map().
-translate_coloring(SubColoring, InvMap) ->
-  lists:map(fun({T, P}) -> {map_get(T, InvMap), P} end, SubColoring).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Second pass (with split)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Discover program partitioning
+%% Regretfully, this needs to be a separate pass, as having the global live set
+%% is crucial to get a useful partitioning.
+
+%% Single-block parts are merged if there are multiple in a single block, as it
+%% is judged to not be beneficial to make them too small.
+
+-type part_bb_part() :: {[instr()], target_liveset(), target_liveset()}.
+-type part_bb()  :: {single, part_bb_part()}
+		  | {split, part_bb_part(), part_bb_part()}.
+-type part_bb_list() :: [{label(), part_bb()}].
+-type part_bbs() :: #{label() => part_bb()}.
+-type part_bb_sofar() :: single
+		       | {split, [instr()], target_liveset()}. % , target_liveset()
+
+-spec part_cfg(scan_bbs(), spill_map(), target_reg()) -> part_bb_list().
+part_cfg(ScanBBs, SpillMap, MaxPhys) ->
+  Liveset = mk_part_liveset(SpillMap, MaxPhys),
+  lists:map(fun(BB) -> part_bb(BB, Liveset) end, maps:to_list(ScanBBs)).
+
+-spec part_bb({label(), scan_bb()}, part_liveset()) -> {label(), part_bb()}.
+part_bb({L, BB0={Code0, Livein, Liveout}}, Liveset) ->
+  {Sofar, NewCode} = part_bb_1(lists:reverse(Code0), Liveset, Liveout, []),
+  BB = case Sofar of
+	 single ->
+	   ?ASSERT(Code0 =:= NewCode),
+	   {single, BB0};
+	 {split, ExitCode, ExitLivein = EntryLiveout} ->
+	   {split, {NewCode, Livein, EntryLiveout},
+	    {ExitCode, ExitLivein, Liveout}}
+       end,
+  {L, BB}.
+
+-spec part_bb_1([instr()], part_liveset(), target_liveset(), [instr()])
+	     -> {part_bb_sofar(), [instr()]}.
+part_bb_1([], _Liveset, _Livein, IAcc) -> {single, IAcc};
+part_bb_1([I=#instr{defuse={Def,Use}}|Is], Liveset, Live0, IAcc0) ->
+  Live = ordsets:union(Use, ordsets:subtract(Live0, Def)),
+  IAcc = [I|IAcc0],
+  case part_none_live(Live, Liveset) of
+    false -> part_bb_1(Is, Liveset, Live, IAcc);
+    %% One split point will suffice
+    true -> {{split, IAcc, Live}, lists:reverse(Is)}
+  end.
+
+-spec part_none_live(target_liveset(), part_liveset()) -> boolean().
+part_none_live(Live, Liveset) ->
+  not lists:any(fun(R) -> part_liveset_is_live(R, Liveset) end, Live).
+
+-type part_liveset() :: {spill_map(), target_reg()}.
+
+-spec mk_part_liveset(spill_map(), target_reg()) -> part_liveset().
+mk_part_liveset(SpillMap, MaxPhys) -> {SpillMap, MaxPhys}.
+
+-spec part_liveset_is_live(target_reg(), part_liveset()) -> boolean().
+part_liveset_is_live(R, {SpillMap, MaxPhys}) when is_integer(R) ->
+  R >= MaxPhys andalso not maps:is_key(R, SpillMap).
+
+%% @doc Merges split blocks where entry and exit belong to the same DSet.
+%% Does not change DSets
+-spec merge_pointless_splits(part_bb_list(), scan_bbs(), bb_dsets())
+			   -> {part_bbs(), bb_dsets()}.
+merge_pointless_splits(PartBBList0, ScanBBs, DSets0) ->
+  {PartBBList, DSets} =
+    merge_pointless_splits_1(PartBBList0, ScanBBs, DSets0, []),
+  {maps:from_list(PartBBList), DSets}.
+
+-spec merge_pointless_splits_1(
+	part_bb_list(), scan_bbs(), bb_dsets(), part_bb_list())
+			      -> {part_bb_list(), bb_dsets()}.
+merge_pointless_splits_1([], _ScanBBs, DSets, Acc) -> {Acc, DSets};
+merge_pointless_splits_1([P={_,{single,_}}|Ps], ScanBBs, DSets, Acc) ->
+  merge_pointless_splits_1(Ps, ScanBBs, DSets, [P|Acc]);
+merge_pointless_splits_1([P0={L,{split,_,_}}|Ps], ScanBBs, DSets0, Acc) ->
+  {EntryRoot, DSets1} = dsets_find({entry,L}, DSets0),
+  {ExitRoot,  DSets}  = dsets_find({exit,L},  DSets1),
+  case EntryRoot =:= ExitRoot of
+    false -> merge_pointless_splits_1(Ps, ScanBBs, DSets, [P0|Acc]);
+    true ->
+      %% Reuse the code list from ScanBBs rather than concatenating the split
+      %% parts
+      #{L := BB} = ScanBBs,
+      ?ASSERT(begin
+		{L,{split,{_EntryCode,_,_},{_ExitCode,_,_}}}=P0, % [_|
+		{_Code,_,_}=BB,
+		_Code =:= (_EntryCode ++ _ExitCode)
+	      end),
+      merge_pointless_splits_1(Ps, ScanBBs, DSets, [{L,{single, BB}}|Acc])
+  end.
+
+-spec merge_small_parts(bb_dsets()) -> {bb_dsets_rllist(), bb_dsets()}.
+merge_small_parts(DSets0) ->
+  {RLList, DSets1} = dsets_to_rllist(DSets0),
+  RLLList = [{R, length(Elems), Elems} || {R, Elems} <- RLList],
+  merge_small_parts_1(RLLList, DSets1, []).
+
+-spec merge_small_parts_1(
+	[{bb_dset_key(), non_neg_integer(), [bb_dset_key()]}],
+	bb_dsets(), bb_dsets_rllist()
+       ) -> {bb_dsets_rllist(), bb_dsets()}.
+merge_small_parts_1([], DSets, Acc) -> {Acc, DSets};
+merge_small_parts_1([{R, _, Es}], DSets, Acc) -> {[{R, Es}|Acc], DSets};
+merge_small_parts_1([{R, L, Es}|Ps], DSets, Acc) when L >= ?TUNE_TOO_FEW_BBS ->
+  merge_small_parts_1(Ps, DSets, [{R,Es}|Acc]);
+merge_small_parts_1([Fst,{R, L, Es}|Ps], DSets, Acc)
+  when L >= ?TUNE_TOO_FEW_BBS ->
+  merge_small_parts_1([Fst|Ps], DSets, [{R,Es}|Acc]);
+merge_small_parts_1([{R1,L1,Es1},{R2,L2,Es2}|Ps], DSets0, Acc) ->
+  ?ASSERT(L1 < ?TUNE_TOO_FEW_BBS andalso L2 < ?TUNE_TOO_FEW_BBS),
+  DSets1 = dsets_union(R1, R2, DSets0),
+  {R, DSets} = dsets_find(R1, DSets1),
+  merge_small_parts_1([{R,L2+L1,Es2++Es1}|Ps], DSets, Acc).
+
+%% @doc Partition an ordering over BBs into subsequences for the dsets that
+%% contain them.
+%% Does not change dsets.
+-spec part_order([label()], bb_dsets())
+		-> {#{bb_dset_key() => [label()]}, bb_dsets()}.
+part_order(Lbs, DSets) -> part_order(Lbs, DSets, #{}).
+
+part_order([], DSets, Acc) -> {Acc, DSets};
+part_order([L|Ls], DSets0, Acc0) ->
+  {EntryRoot, DSets1} = dsets_find({entry,L}, DSets0),
+  {ExitRoot,  DSets2} = dsets_find({exit,L},  DSets1),
+  Acc1 = map_append(EntryRoot, L, Acc0),
+  %% Only include the label once if both entry and exit is in same partition
+  Acc2 = case EntryRoot =:= ExitRoot of
+	   true -> Acc1;
+	   false -> map_append(ExitRoot, L, Acc1)
+	 end,
+  part_order(Ls, DSets2, Acc2).
+
+map_append(Key, Elem, Map) ->
+  case Map of
+    #{Key := List} -> Map#{Key := [Elem|List]};
+    #{} -> Map#{Key => [Elem]}
+  end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Interference graph partitioning
@@ -257,22 +516,163 @@ translate_coloring(SubColoring, InvMap) ->
 %% to at most two non-local components; one from the beginning to the first
 %% split point, and one from the end to the last split point.
 
+-type bb_dset_key() :: {entry | exit, label()}.
+-type bb_dsets() :: dsets(bb_dset_key()).
+-type bb_dsets_rllist() :: [{bb_dset_key(), [bb_dset_key()]}].
+
+-spec initial_dsets(target_cfg(), module()) -> bb_dsets().
+initial_dsets(CFG, Target) ->
+  Labels = Target:labels(CFG),
+  DSets0 = dsets_new(lists:append([[{entry,L},{exit,L}] || L <- Labels])),
+  Edges = lists:append([[{L, S} || S <- hipe_gen_cfg:succ(CFG, L)]
+			|| L <- Labels]),
+  lists:foldl(fun({X, Y}, DS) -> dsets_union({exit,X}, {entry,Y}, DS) end,
+	      DSets0, Edges).
+
+-spec join_whole_blocks(part_bb_list(), bb_dsets()) -> bb_dsets().
+join_whole_blocks(PartBBList, DSets0) ->
+  lists:foldl(fun({L, {single, _}}, DS) -> dsets_union({entry,L}, {exit,L}, DS);
+		 ({_, {split, _, _}}, DS) -> DS
+	      end, DSets0, PartBBList).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% The disjoint set forests data structure, for elements of arbitrary types.
+%% Note that the find operation mutates the set.
+%%
+%% We could do this more efficiently if we restricted the elements to integers,
+%% and used the (mutable) hipe arrays. For arbitrary terms ETS could be used,
+%% for a persistent interface (which isn't that nice when even accessors return
+%% modified copies), the array module could be used.
+-type dsets(X) :: #{X => {node, X} | {root, non_neg_integer()}}.
+
+-spec dsets_new([E]) -> dsets(E).
+dsets_new(Elems) -> maps:from_list([{E,{root,0}} || E <- Elems]).
+
+-spec dsets_find(E, dsets(E)) -> {E, dsets(E)}.
+dsets_find(E, DS0) ->
+  case DS0 of
+    #{E := {root,_}} -> {E, DS0};
+    #{E := {node,N}} ->
+      case dsets_find(N, DS0) of
+	{N, _}=T -> T;
+	{R, DS1} -> {R, DS1#{E := {node,R}}}
+      end
+   ;_ -> error(badarg, [E, DS0])
+  end.
+
+-spec dsets_union(E, E, dsets(E)) -> dsets(E).
+dsets_union(X, Y, DS0) ->
+  {XRoot, DS1} = dsets_find(X, DS0),
+  case dsets_find(Y, DS1) of
+    {XRoot, DS2} -> DS2;
+    {YRoot, DS2} ->
+      #{XRoot := {root,XRR}, YRoot := {root,YRR}} = DS2,
+      if XRR < YRR -> DS2#{XRoot := {node,YRoot}};
+	 XRR > YRR -> DS2#{YRoot := {node,XRoot}};
+	 true -> DS2#{YRoot := {node,XRoot}, XRoot := {root,XRR+1}}
+      end
+  end.
+
+-spec dsets_to_rllist(dsets(E)) -> {[{Root::E, Elems::[E]}], dsets(E)}.
+dsets_to_rllist(DS0) ->
+  {Lists, DS} = dsets_to_rllist(maps:keys(DS0), #{}, DS0),
+  {maps:to_list(Lists), DS}.
+
+dsets_to_rllist([], Acc, DS) -> {Acc, DS};
+dsets_to_rllist([E|Es], Acc, DS0) ->
+  {ERoot, DS} = dsets_find(E, DS0),
+  dsets_to_rllist(Es, map_append(ERoot, E, Acc), DS).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Third pass
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Collect all referenced temps in each partition.
+
+%% Note: The temps could be collected during the partition pass for each
+%% half-bb, and then combined here. Would that be beneficial?
+
+collect_seenmap(PartBBsRLList, PartBBs) ->
+  collect_seenmap(PartBBsRLList, #{}, PartBBs).
+
+collect_seenmap([], Acc, _PartBBs) -> Acc;
+collect_seenmap([{R,Elems}|Ps], Acc, PartBBs) ->
+  Seen = collect_seen_part(Elems, #{}, PartBBs),
+  collect_seenmap(Ps, Acc#{R => Seen}, PartBBs).
+
+collect_seen_part([], Acc, _PartBBs) -> Acc;
+collect_seen_part([{Half,L}|Es], Acc0, PartBBs) ->
+  BB = maps:get(L, PartBBs),
+  Code = case {Half, BB} of
+	   {entry, {single, {C,_,_}}} -> C;
+	   {entry, {split, {C,_,_}, _}} -> C;
+	   {exit,  {split, _, {C,_,_}}} -> C;
+	   {exit,  {single, _}} -> [] % Ignore; was collected by its entry half
+	 end,
+  Acc = collect_seen_code(Code, Acc0),
+  collect_seen_part(Es, Acc, PartBBs).
+
+collect_seen_code([], Acc) -> Acc;
+collect_seen_code([#instr{defuse={Def,Use}}|Is], Acc) ->
+  collect_seen_code(Is, add_seen(Def, add_seen(Use, Acc))).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Fourth pass
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Rewrite CFG to the new temp names.
+-spec transform_cfg([bb_dset_key()], part_bbs(), sub_map()) -> transformed_bbs().
+
+transform_cfg(Elems, PartBBs, SubMap) ->
+  transform_cfg(Elems, PartBBs, SubMap, #{}).
+
+transform_cfg([], _PartBBs, _SubMap, Acc) -> Acc;
+transform_cfg([{Half,L}|Es], PartBBs, SubMap, Acc0) ->
+  #{L := PBB} = PartBBs,
+  Acc = case {Half, PBB} of
+	  {entry, {single,BB}}  -> Acc0#{L=>transform_bb(BB, SubMap)};
+	  {entry, {split,BB,_}} -> Acc0#{L=>transform_bb(BB, SubMap)};
+	  {exit,  {split,_,BB}} -> Acc0#{L=>transform_bb(BB, SubMap)};
+	  {exit,  {single, _}}  -> Acc0 % Was included by the entry half
+	end,
+  transform_cfg(Es, PartBBs, SubMap, Acc).
+
+-spec transform_bb(part_bb_part(), sub_map()) -> transformed_bb().
+transform_bb(BB, SubMap) ->
+  %% For now, part_bb_part() and split_bb() share representation
+  transform_whole_bb(BB, SubMap).
+
+%%
+combine_allocations([A|As], MaxPhys) ->
+  {Phys, Pseuds} = lists:partition(fun({R,_}) -> R < MaxPhys end, A),
+  combine_allocations_1(As, MaxPhys, Phys, Pseuds).
+
+combine_allocations_1([], _MaxPhys, Phys, Pseuds) -> Phys ++ Pseuds;
+combine_allocations_1([A|As], MaxPhys, Phys, Acc) ->
+  {Phys, Pseuds} = lists:partition(fun({R,_}) -> R < MaxPhys end, A),
+  combine_allocations_1(As, MaxPhys, Phys, Pseuds ++ Acc).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Temp map ADT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--type sub_map() :: #{target_temp() => temp()}.
--type inv_map() :: #{temp() => target_temp()}.
-map_get(Temp, Map) when is_integer(Temp) -> maps:get(Temp, Map).
+-type sub_map() :: {s,#{target_reg() => temp()}}.
+-type inv_map() :: {i,#{temp() => target_reg()}}.
 
-%% map_get_all(Ts, Map) -> [map_get(T, Map) || T <- Ts].
+-spec smap_get(target_reg(), sub_map()) -> temp().
+smap_get(Temp, {s,Map}) when is_integer(Temp) -> maps:get(Temp, Map).
 
-map_get_all_partial([], _) -> [];
-map_get_all_partial([T|Ts], Map) when is_integer(T) ->
+-spec imap_get(temp(), inv_map()) -> target_reg().
+imap_get(Temp, {i,Map}) when is_integer(Temp) -> maps:get(Temp, Map).
+
+-spec smap_get_all_partial([target_reg()], sub_map()) -> [temp()].
+smap_get_all_partial([], _) -> [];
+smap_get_all_partial([T|Ts], SMap={s,Map}) when is_integer(T) ->
   case Map of
-    #{T := R} -> [R|map_get_all_partial(Ts, Map)];
-    #{} -> map_get_all_partial(Ts, Map)
+    #{T := R} -> [R|smap_get_all_partial(Ts, SMap)];
+    #{} -> smap_get_all_partial(Ts, SMap)
   end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Validation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -ifdef(DO_ASSERT).
 %%%%%%%%%%%%%%%%%%%%
 %% Check that the coloring is correct (if the IG is correct):
@@ -286,7 +686,7 @@ map_get_all_partial([T|Ts], Map) when is_integer(T) ->
 
 check_coloring(Coloring, CFG, Target) ->
   ?report0("checking coloring ~p~n",[Coloring]),
-  IG = hipe_ig:build(CFG, Target),
+  IG = hipe_ig:build(CFG, Target:analyze(CFG), Target),
   check_cols(hipe_vectors:list(hipe_ig:adj_list(IG)),
 	     init_coloring(Coloring, Target)).
 
@@ -294,13 +694,8 @@ init_coloring(Xs, Target) ->
   hipe_temp_map:cols2tuple(Xs, Target).
 
 check_color_of(X, Cols) ->
-%%    if
-%%	is_precoloured(X) ->
-%%	    phys_reg_color(X,Cols);
-%%	true ->
   case hipe_temp_map:find(X, Cols) of
     unknown ->
-      ?WARNING_MSG("node ~p: color not found~n", [X]),
       uncolored;
     C ->
       C
@@ -330,71 +725,100 @@ valid_coloring(X, C, [{Y,C}|Ys]) ->
 valid_coloring(X, C, [_|Ys]) ->
   valid_coloring(X, C, Ys).
 
+unused_unused(Unused, CFG, Target) ->
+  IG = hipe_ig:build(CFG, Target:analyze(CFG), Target),
+  lists:all(fun(R) -> case hipe_ig:get_node_degree(R, IG) of
+			0 -> true;
+			Deg ->
+			  ?msg("Temp ~w is in unused but has degree ~w~n",
+			       [R, Deg]),
+			  false
+		      end end, Unused).
+
 %%%%%%%%%%%%%%%%%%%%
-%% Check that no register allocation opportinities were missed due to ?MODULE
+%% Check that no register allocation opportunities were missed due to ?MODULE
 %%
 just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options,
 		Coloring, Unused) ->
-  {CheckColoring, _} = RegAllocMod:regalloc(CFG, SpillIndex0, SpillLimit,
-					    Target, Options),
-  Now   = lists:sort([vt(C) || C <- Coloring]),
-  Check = lists:sort([vt(C) || C={R,_} <- CheckColoring,
-			       not ordsets:is_element(R, Unused)]),
-  case Now of
-    Check -> true;
-    _ ->
-      io:fwrite(standard_error, "Colorings differ (~w, sub: ~w, full: ~w)!~n"
-		%% "Sub:~w~n"
+  {CheckColoring, _, _} = RegAllocMod:regalloc(CFG, SpillIndex0, SpillLimit,
+					       Target, Options),
+  Now   = lists:sort([{R,Kind} || {R,{Kind,_}} <- Coloring,
+				  not ordsets:is_element(R, Unused)]),
+  Check = lists:sort([{R,Kind} || {R,{Kind,_}} <- CheckColoring,
+				  not ordsets:is_element(R, Unused)]),
+  CheckMap = maps:from_list(Check),
+  case lists:all(fun({R, spill}) -> maps:get(R, CheckMap) =:= spill;
+		    ({_,reg}) -> true
+		 end, Now)
+  of
+    true -> true;
+    false ->
+      {NowRegs, _} = _NowCount = count(Now),
+      {CheckRegs, _} = _CheckCount = count(Check),
+      io:fwrite(standard_error, "Colorings differ (~w, ~w)!~n"
 		"Unused: ~w~n"
 		"Now:~w~nCorrect:~w~n",
-		[Target, count(Coloring), count(CheckColoring),
-		 %% SubColoring,
+		[Target, RegAllocMod,
 		 Unused,
 		 Now -- Check, Check -- Now]),
-	false
+	NowRegs >= CheckRegs
   end.
 
-count(C) -> {length([[] || {_, {reg, _}} <- C]),
-	     length([[] || {_, {spill, _}} <- C])}.
+count(C) -> {length([[] || {_, reg} <- C]),
+	     length([[] || {_, spill} <- C])}.
 
-vt({R, {reg, _}}) -> {R, reg};
-vt({R, {spill, _}}) -> {R, spill}.
--endif.
+unused(LivePseudos, SpillMap, CFG, Target) ->
+  {TMin, TMax} = Target:var_range(CFG),
+  SpillOSet = ordsets:from_list(maps:keys(SpillMap)),
+  PhysOSet = ordsets:from_list(Target:all_precoloured()),
+  Used = ordsets:union(LivePseudos, ordsets:union(PhysOSet, SpillOSet)),
+  ordsets:subtract(lists:seq(TMin, TMax), Used).
+-endif. % DO_ASSERT
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Pseudo-target interface
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 analyze(Cfg, _ModRec) -> Cfg.
-bb(#cfg{bbs=BBs}, Ix, _ModRec) -> maps:get(Ix, BBs).
+bb(Cfg=#cfg{bbs=BBs}, Ix, _ModRec) ->
+  case BBs of
+    #{Ix := #transformed_bb{bb=BB}} -> BB;
+    _ -> error(badarg, [Cfg, Ix])
+  end.
 args(Arity, #?MODULE{target=Target, sub=SubM}) ->
-    map_get(Target:args(Arity), SubM).
-labels(#cfg{cfg=CFG}, #?MODULE{target=Target}) -> Target:labels(CFG).
-livein(#cfg{live=Live}, Lb, #?MODULE{target=Target, sub=SubM}) ->
-  map_get_all_partial(reg_names(Target:livein(Live, Lb), Target), SubM). % Should we precompute?
-liveout(#cfg{live=Live}, Lb, #?MODULE{target=Target, sub=SubM}) ->
-  map_get_all_partial(reg_names(Target:liveout(Live, Lb), Target), SubM). % dito
+  smap_get(Target:args(Arity), SubM).
+labels(#cfg{bbs=BBs}, _ModRec) -> maps:keys(BBs).
+livein(#cfg{bbs=BBs}, Lb, _SubMod) ->
+  #{Lb := #transformed_bb{livein=Livein}} = BBs,
+  Livein.
+liveout(#cfg{bbs=BBs}, Lb, _SubMod) ->
+  #{Lb := #transformed_bb{liveout=Liveout}} = BBs,
+  Liveout.
 uses(I, MR) -> element(2, def_use(I, MR)).
 defines(I, MR) -> element(1, def_use(I, MR)).
 def_use(#instr{defuse=DefUse}, _ModRec) -> DefUse.
 is_move(#instr{is_move=IM}, _ModRec) -> IM.
 is_fixed(Reg, #?MODULE{target=Target,inv=InvM}) ->
-  Target:is_fixed(map_get(Reg, InvM)). % XXX: Is this hot?
+  Target:is_fixed(imap_get(Reg, InvM)). % XXX: Is this hot?
 is_global(Reg, #?MODULE{target=Target,max_phys=MaxPhys}) when Reg < MaxPhys ->
   Target:is_global(Reg). % assume id-map
 is_precoloured(Reg, #?MODULE{max_phys=MaxPhys}) -> Reg < MaxPhys.
 reg_nr(Reg, _ModRec) -> Reg. % After mapping (naturally)
 non_alloc(#cfg{cfg=CFG}, #?MODULE{target=Target,sub=SubM}) ->
-  map_get_all_partial(reg_names(Target:non_alloc(CFG), Target), SubM).
+  smap_get_all_partial(reg_names(Target:non_alloc(CFG), Target), SubM).
 number_of_temporaries(#cfg{max_reg=MaxR}, _ModRec) -> MaxR.
 allocatable(#?MODULE{target=Target}) -> Target:allocatable(). % assume id-map
-physical_name(Reg, _ModRec) -> Reg. % XXX: is this correct?
+physical_name(Reg, _ModRec) -> Reg.
 all_precoloured(#?MODULE{target=Target}) -> Target:all_precoloured(). % dito
-var_range(#cfg{cfg=CFG, max_reg=MaxReg}, #?MODULE{target=Target}) ->
-  {0, _} = Target:var_range(CFG),
-  {0, MaxReg-1}. % What is the correct answer?
+var_range(#cfg{cfg=_CFG, max_reg=MaxReg}, #?MODULE{target=_Target}) ->
+  ?ASSERT(begin {TgtMin, _} = _Target:var_range(_CFG), TgtMin =:= 0 end),
+  {0, MaxReg-1}.
 
-breadthorder(#cfg{cfg=CFG}, #?MODULE{target=Target}) ->
-  Target:breadthorder(CFG).
-postorder(#cfg{cfg=CFG}, #?MODULE{target=Target}) -> Target:postorder(CFG).
-reverse_postorder(#cfg{cfg=CFG}, #?MODULE{target=Target}) ->
-  Target:reverse_postorder(CFG).
+postorder(#cfg{cfg=CFG,rpostorder=undefined}, #?MODULE{target=Target}) ->
+  Target:postorder(CFG);
+postorder(#cfg{rpostorder=Labels}, _ModRec) when is_list(Labels) ->
+  lists:reverse(Labels).
+
+reverse_postorder(#cfg{cfg=CFG,rpostorder=undefined}, #?MODULE{target=Target}) ->
+  Target:reverse_postorder(CFG);
+reverse_postorder(#cfg{rpostorder=Labels}, _ModRec) when is_list(Labels) ->
+  Labels.
