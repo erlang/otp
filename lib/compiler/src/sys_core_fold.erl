@@ -786,7 +786,7 @@ fold_lit_args(Call, Module, Name, Args0) ->
 	Val ->
 	    case cerl:is_literal_term(Val) of
 		true ->
-		    cerl:abstract(Val);
+		    cerl:ann_abstract(cerl:get_ann(Call), Val);
 		false ->
 		    %% Successful evaluation, but it was not possible
 		    %% to express the computed value as a literal.
@@ -2176,24 +2176,22 @@ opt_not_in_let_1(V, Call, Body) ->
 	#c_call{module=#c_literal{val=erlang},
 		name=#c_literal{val='not'},
 		args=[#c_var{name=V}]} ->
-	    opt_not_in_let_2(Body);
+	    opt_not_in_let_2(Body, Call);
 	_ ->
 	    no
     end.
 
-opt_not_in_let_2(#c_case{clauses=Cs0}=Case) ->
+opt_not_in_let_2(#c_case{clauses=Cs0}=Case, NotCall) ->
     Vars = make_vars([], 1),
-    Body = #c_call{module=#c_literal{val=erlang},
-		   name=#c_literal{val='not'},
-		   args=Vars},
+    Body = NotCall#c_call{args=Vars},
     Cs = [begin
 	      Let = #c_let{vars=Vars,arg=B,body=Body},
 	      C#c_clause{body=opt_not_in_let(Let)}
 	  end || #c_clause{body=B}=C <- Cs0],
     {yes,Case#c_case{clauses=Cs}};
-opt_not_in_let_2(#c_call{}=Call0) ->
+opt_not_in_let_2(#c_call{}=Call0, _NotCall) ->
     invert_call(Call0);
-opt_not_in_let_2(_) -> no.
+opt_not_in_let_2(_, _) -> no.
 
 invert_call(#c_call{module=#c_literal{val=erlang},
 		    name=#c_literal{val=Name0},

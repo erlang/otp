@@ -868,12 +868,16 @@ try_exception(Ecs0, St0) ->
     {Evs,St1} = new_vars(3, St0), % Tag, Value, Info
     {Ecs1,Ceps,St2} = clauses(Ecs0, St1),
     [_,Value,Info] = Evs,
-    Ec = #iclause{anno=#a{anno=[compiler_generated]},
+    LA = case Ecs1 of
+	     [] -> [];
+	     [C|_] -> get_lineno_anno(C)
+	 end,
+    Ec = #iclause{anno=#a{anno=[compiler_generated|LA]},
 		  pats=[c_tuple(Evs)],guard=[#c_literal{val=true}],
 		  body=[#iprimop{anno=#a{},       %Must have an #a{}
 				 name=#c_literal{val=raise},
 				 args=[Info,Value]}]},
-    Hs = [#icase{anno=#a{},args=[c_tuple(Evs)],clauses=Ecs1,fc=Ec}],
+    Hs = [#icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs1,fc=Ec}],
     {Evs,Ceps++Hs,St2}.
 
 try_after(As, St0) ->
@@ -2098,7 +2102,8 @@ upattern(#c_var{name=V}=Var, Ks, St0) ->
 	true ->
 	    {N,St1} = new_var_name(St0),
 	    New = #c_var{name=N},
-	    Test = #icall{anno=#a{us=add_element(N, [V])},
+	    LA = get_lineno_anno(Var),
+	    Test = #icall{anno=#a{anno=LA,us=add_element(N, [V])},
 			  module=#c_literal{val=erlang},
 			  name=#c_literal{val='=:='},
 			  args=[New,Var]},

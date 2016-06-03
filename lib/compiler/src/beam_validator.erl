@@ -658,8 +658,10 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
     case Src of
 	{Tag,_} when Tag =:= x; Tag =:= y ->
 	    set_type_reg(map, Src, Vst);
+	{literal,Map} when is_map(Map) ->
+	    Vst;
 	_ ->
-	    Vst
+	    kill_state(Vst)
     end;
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),

@@ -1287,6 +1287,7 @@ t_guard_update(Config) when is_list(Config) ->
     first  = map_guard_update(#{}, #{x=>first}),
     second = map_guard_update(#{y=>old}, #{x=>second,y=>old}),
     third  = map_guard_update(#{x=>old,y=>old}, #{x=>third,y=>old}),
+    bad_map_guard_update(),
     ok.
 
 t_guard_update_large(Config) when is_list(Config) ->
@@ -1352,6 +1353,29 @@ map_guard_update(M1, M2) when M1#{x=>first}  =:= M2 -> first;
 map_guard_update(M1, M2) when M1#{x=>second} =:= M2 -> second;
 map_guard_update(M1, M2) when M1#{x:=third}  =:= M2 -> third;
 map_guard_update(_, _) -> error.
+
+bad_map_guard_update() ->
+    do_bad_map_guard_update(fun burns/1),
+    do_bad_map_guard_update(fun turns/1),
+    ok.
+
+do_bad_map_guard_update(Fun) ->
+    do_bad_map_guard_update_1(Fun, #{}),
+    do_bad_map_guard_update_1(Fun, #{true=>1}),
+    ok.
+
+do_bad_map_guard_update_1(Fun, Value) ->
+    %% Note: The business with the seemingly redundant fun
+    %% disables inlining, which would otherwise change the
+    %% EXIT reason.
+    {'EXIT',{function_clause,_}} = (catch Fun(Value)),
+    ok.
+
+burns(Richmond) when not (Richmond#{true := 0}); [Richmond] ->
+    specification.
+
+turns(Richmond) when not (Richmond#{true => 0}); [Richmond] ->
+    specification.
 
 t_guard_receive(Config) when is_list(Config) ->
     M0  = #{ id => 0 },
