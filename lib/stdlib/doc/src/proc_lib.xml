@@ -66,6 +66,12 @@
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
       in the SASL User's Guide.</p>
 
+    <p>Unlike in "plain Erlang", <c>proc_lib</c> processes will not generate
+      <em>error reports</em>, which are written to the terminal by the
+      emulator and do not require SASL to be started. All exceptions are
+      converted to <em>exits</em> which are ignored by the default
+      <c>error_logger</c> handler.</p>
+
     <p>The crash report contains the previously stored information, such
       as ancestors and initial function, the termination reason, and
       information about other processes that terminate as a result
