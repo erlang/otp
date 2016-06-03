@@ -42,6 +42,21 @@
 
 -define(RUN_NAMED, "run-named").
 
+%% This test suite use a script ?RUN_NAMED that tries to start
+%% a temporary local nameserver BIND 8 or 9 that must be installed
+%% on your machine.
+%%
+%% For example, on Ubuntu 14.04, as root:
+%%     apt-get install bind9
+%% Now, that is not enough since Apparmor will not allow
+%% the nameserver daemon /usr/sbin/named to read from the test directory.
+%% Assuming that you run tests in /ldisk/daily_build, and still on
+%% Ubuntu 14.04, make /usr/apparmor.d/local/usr.sbin.named contain:
+%%     /ldisk/daily_build/** r,
+%% And yes; the trailing comma must be there...
+
+
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
