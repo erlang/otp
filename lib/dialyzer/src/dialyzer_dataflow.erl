@@ -1287,10 +1287,12 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
     {error, ErrorType, NewPats, Type, OpaqueTerm} ->
       ?debug("Failed binding pattern: ~s\nto ~s\n",
 	     [cerl_prettypr:format(C), format_type(ArgType0, State1)]),
-      case state__warning_mode(State1) of
-        false ->
-          {State1, Map, t_none(), ArgType0};
+      SkipWarnings = (state__warning_mode(State1) =:= false) orelse
+		      lists:all(fun(Pat) -> is_compiler_generated(cerl:get_ann(Pat)) end, NewPats),
+      case SkipWarnings of
 	true ->
+          {State1, Map, t_none(), ArgType0};
+	false ->
 	  {Msg, Force} =
 	    case t_is_none(ArgType0) of
 	      true ->
