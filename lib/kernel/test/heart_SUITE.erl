@@ -650,7 +650,7 @@ suicide_by_heart() ->
     end.
 
 non_suicide_by_heart() ->
-    P = open_port({spawn,"heart -ht 11 -pid "++os:getpid()},[exit_status, {env, {"HEART_NO_KILL", "1"}}, {packet,2}]),
+    P = open_port({spawn,"heart -ht 11 -pid "++os:getpid()},[exit_status, {env, {"HEART_NO_KILL", "TRUE"}}, {packet,2}]),
     receive X -> X end,
     %% Just hang and wait for heart to timeout
     receive

@@ -526,8 +526,10 @@ static void
 kill_old_erlang(void){
     HANDLE erlh;
     DWORD exit_code;
+    char* envvar = NULL;
 
-    if (is_env_set(HEART_NO_KILL))
+    envvar = get_env(HEART_NO_KILL);
+    if (!envvar || strcmp(envvar, "TRUE") == 0)
       return;
 
     if(heart_beat_kill_pid != 0){
@@ -561,13 +563,14 @@ kill_old_erlang(void){
     pid_t pid;
     int i, res;
     int sig = SIGKILL;
-    char *sigenv = NULL;
+    char *envvar = NULL;
 
-    if (is_env_set(HEART_NO_KILL))
+    envvar = get_env(HEART_NO_KILL);
+    if (!envvar || strcmp(envvar, "TRUE") == 0)
       return;
 
-    sigenv = get_env(HEART_KILL_SIGNAL);
-    if (sigenv && strcmp(sigenv, "SIGABRT") == 0) {
+    envvar = get_env(HEART_KILL_SIGNAL);
+    if (envvar && strcmp(envvar, "SIGABRT") == 0) {
         print_error("kill signal SIGABRT requested");
         sig = SIGABRT;
     }
