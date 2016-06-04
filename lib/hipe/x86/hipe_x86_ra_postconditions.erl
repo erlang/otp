@@ -173,14 +173,22 @@ do_jmp_switch(I, TempMap, Strategy) ->
 %%% Fix a lea op.
 
 do_lea(I, TempMap, Strategy) ->
-  #lea{temp=Temp} = I,
-  case is_spilled(Temp, TempMap) of
-    false ->
-      {[I], false};
-    true ->
-      NewTmp = spill_temp('untagged', Strategy),
-      {[I#lea{temp=NewTmp}, hipe_x86:mk_move(NewTmp, Temp)],
-       true}
+  #lea{mem=Mem0,temp=Temp0} = I,
+  {FixMem, Mem, DidSpill1} = fix_mem_operand(Mem0, TempMap, temp1(Strategy)),
+  case Mem of
+    #x86_mem{base=Base, off=#x86_imm{value=0}} ->
+      %% We've decayed into a move due to both operands being memory (there's an
+      %% 'add' in FixMem).
+      {FixMem ++ [hipe_x86:mk_move(Base, Temp0)], DidSpill1};
+    #x86_mem{} ->
+      {StoreTemp, Temp, DidSpill2} =
+	case is_mem_opnd(Temp0, TempMap) of
+	  false -> {[], Temp0, false};
+	  true ->
+	    Temp1 = clone2(Temp0, temp0(Strategy)),
+	    {[hipe_x86:mk_move(Temp1, Temp0)], Temp1, true}
+	end,
+      {FixMem ++ [I#lea{mem=Mem,temp=Temp} | StoreTemp], DidSpill1 or DidSpill2}
   end.
 
 %%% Fix a move op.

@@ -85,7 +85,7 @@ conv_insn(I, Map, Data) ->
 	  true ->
 	    conv_shift(Dst, Src1, BinOp, Src2);
 	  false ->
-	    conv_alu(Dst, Src1, BinOp, Src2, [])
+	    conv_alu_nocc(Dst, Src1, BinOp, Src2, [])
 	end,
       {FixSrc1++FixSrc2++I2, Map2, Data};
     #alub{} ->
@@ -249,6 +249,22 @@ conv_insn(I, Map, Data) ->
 
 %%% Finalise the conversion of a 3-address ALU operation, taking
 %%% care to not introduce more temps and moves than necessary.
+
+conv_alu_nocc(Dst, Src1, 'add', Src2, Tail) ->
+  case (not same_opnd(Dst, Src1)) andalso (not same_opnd(Dst, Src2))
+    andalso (hipe_x86:is_temp(Src1) orelse hipe_x86:is_temp(Src2))
+  of
+    false -> conv_alu(Dst, Src1, 'add', Src2, Tail);
+    true -> % Use LEA
+      Type = typeof_dst(Dst),
+      Mem = case hipe_x86:is_temp(Src1) of
+	      true  -> hipe_x86:mk_mem(Src1, Src2, Type);
+	      false -> hipe_x86:mk_mem(Src2, Src1, Type)
+	    end,
+      [hipe_x86:mk_lea(Mem, Dst) | Tail]
+  end;
+conv_alu_nocc(Dst, Src1, BinOp, Src2, Tail) ->
+  conv_alu(Dst, Src1, BinOp, Src2, Tail).
 
 conv_alu(Dst, Src1, 'imul', Src2, Tail) ->
   mk_imul(Src1, Src2, Dst, Tail);
