@@ -3935,16 +3935,16 @@ db_check_table_nhash(DbTable *tbl)
                 nk = 0;
                 do {
                     if (!is_tuple(make_tuple(tp->dbterm.tpl)))
-                        erl_exit(1, "Bad term in slot %d of ets table", j);
+                        erts_exit(ERTS_ERROR_EXIT, "Bad term in slot %d of ets table", j);
                     ++nk;
                     tp = tp->next;
                 } while (tp != NULL);
                 if (rp2->dt.tail.nkitems != nk)
-                    erl_exit(1, "Invalid nkitems in slot %d of ets table", j);
+                    erts_exit(ERTS_ERROR_EXIT, "Invalid nkitems in slot %d of ets table", j);
                 if (rp2->hvalue == INVALID_HASH) {
                     if (nk != 1)
-                        erl_exit(1, "Invalid number of terms in pseudo-deleted"
-                                 " RootDbTerm in slot %d of ets table", j);
+                        erts_exit(ERTS_ERROR_EXIT, "Invalid number of terms in pseudo-deleted"
+                                  " RootDbTerm in slot %d of ets table", j);
                     nk = 0;
                 } else {
                     ++nkeys;
@@ -3961,12 +3961,12 @@ db_check_table_nhash(DbTable *tbl)
                         }
                     }
                     if (nk2 != nk)
-                        erl_exit(1, "Invalid number of terms in nested table"
-                                 " of slot %d of ets table", j);
+                        erts_exit(ERTS_ERROR_EXIT, "Invalid number of terms in nested table"
+                                  " of slot %d of ets table", j);
                 }
             } else {
                 if (!is_tuple(make_tuple(rp2->dt.dbterm.tpl)))
-                    erl_exit(1, "Bad term in slot %d of ets table", j);
+                    erts_exit(ERTS_ERROR_EXIT, "Bad term in slot %d of ets table", j);
                 if (rp2->hvalue != INVALID_HASH) {
                     if (!has_key(tb, rp1, key, hval)) {
                         hval = rp2->hvalue;
@@ -3981,9 +3981,9 @@ db_check_table_nhash(DbTable *tbl)
         }
     }
     if (erts_smp_atomic_read_nob(&tb->common.nitems) != nitems)
-        erl_exit(1, "Invalid number of items in ets table");
+        erts_exit(ERTS_ERROR_EXIT, "Invalid number of items in ets table");
     if (erts_smp_atomic_read_nob(&tb->nkeys) != nkeys)
-        erl_exit(1, "Invalid number of keys in ets table");
+        erts_exit(ERTS_ERROR_EXIT, "Invalid number of keys in ets table");
 }
 #endif
 
