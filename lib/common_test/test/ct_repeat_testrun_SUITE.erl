@@ -70,7 +70,7 @@ init_per_suite(Config0) ->
     ct:pal("Timetrap info = ~w", [TTInfo]),
     if ScaleVal > 1 ->
 	    {skip,"Skip on systems running e.g. cover or debug!"};
-       ScaleVal =< 1 ->	    
+       ScaleVal =< 1 ->
 	    Config = ct_test_support:init_per_suite(Config0),
 	    DataDir = ?config(data_dir, Config),
 	    Suite1 = filename:join([DataDir,"a_test","r1_SUITE"]),
@@ -83,14 +83,27 @@ init_per_suite(Config0) ->
 	    {1,0,{0,0}} = ct_test_support:run(ct,run_test,[Opts1],Config),
 	    {1,0,{0,0}} = ct_test_support:run(ct,run_test,[Opts2],Config),
 	    
-	    %% Time the shortest testcase to use for offset
-	    {_T0,{1,0,{0,0}}} = timer:tc(ct_test_support,run,
-					 [ct,run_test,[Opts1],Config]),
-	    
-	    %% -2 is to ensure we hit inside the target test case and not after
-						%    T = round(T0/1000000)-2,
-	    T=0,
-	    [{offset,T}|Config]
+	    %% Check if file i/o is too slow for correct measurements
+	    Opts3 = Opts0 ++ [{suite,Suite1},{testcase,tc1},{label,timing3}],
+	    {T,{1,0,{0,0}}} = 
+		timer:tc(fun() ->
+				 ct_test_support:run(ct,run_test,
+						     [Opts3],Config),
+				 ct_test_support:run(ct,run_test,
+						     [Opts3],Config)
+			 end),
+	    %% The time to compare with here must match the timeout value
+	    %% in the test suite. Accept 30% logging overhead (26 sec total).
+	    if T > 26000000 ->
+		    ct:pal("Timing test took ~w sec (< 27 sec expected). "
+			   "Skipping the suite!",
+			   [trunc(T/1000000)]),
+		    {skip,"File I/O too slow for this suite"};
+	       true ->
+		    ct:pal("Timing test took ~w sec. Proceeding...",
+			   [trunc(T/1000000)]),
+		    [{offset,0}|Config]
+	    end
     end.
 
 end_per_suite(Config) ->
