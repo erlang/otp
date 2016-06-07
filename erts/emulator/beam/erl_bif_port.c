@@ -1411,7 +1411,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
                     trunc_len = val;
                     goto next_option;
                 case am_line_delimiter:
-                    if (type == TCP_PB_LINE_LF && val >= 0 && val <= 255) {
+                    if (type == TCP_PB_LINE_LF && val <= 255) {
                         delimiter = (char)val;
                         goto next_option;
                     }
