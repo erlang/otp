@@ -21,6 +21,12 @@
  */
 #ifndef _EI_PORTIO_H
 #define _EI_PORTIO_H
+#if !defined(__WIN32__) || !defined(VXWORKS)
+#ifdef HAVE_WRITEV
+/* Declaration of struct iovec *iov should be visible in this scope. */
+#include <sys/uio.h>
+#endif
+#endif
 
 int ei_accept_t(int fd, void   *addr,   void  *addrlen, unsigned ms);
 int ei_connect_t(int fd, void *sinp, int sin_siz, unsigned ms);
@@ -29,8 +35,7 @@ int ei_write_fill(int fd, const char *buf, int len);
 int ei_read_fill_t(int fd, char* buf, int len, unsigned ms);
 int ei_write_fill_t(int fd, const char *buf, int len, unsigned ms);
 #ifdef HAVE_WRITEV
-int ei_writev_fill_t(int fd,  const  struct  iovec  *iov,  int iovcnt,
-		      unsigned ms);
+int ei_writev_fill_t(int fd,  const  struct  iovec  *iov,  int iovcnt, unsigned ms);
 #endif
 
 #endif /* _EI_PORTIO_H */
