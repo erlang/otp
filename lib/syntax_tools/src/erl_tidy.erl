@@ -414,7 +414,7 @@ write_module(Tree, Name, Opts) ->
 
 print_module(Tree, Opts) ->
 	Printer = proplists:get_value(printer, Opts),
-	io:put_chars([Printer(Tree, Opts)]).
+	io:put_chars(Printer(Tree, Opts)).
 
 output(FD, Printer, Tree, Opts) ->
     io:put_chars(FD, Printer(Tree, Opts)),
