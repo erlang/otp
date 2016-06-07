@@ -399,9 +399,10 @@ handle_common_event(internal, #alert{} = Alert, StateName,
 handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
 		    StateName, #state{protocol_buffers =
 					  #protocol_buffers{tls_handshake_buffer = Buf0} = Buffers,
-				      negotiated_version = Version} = State0) ->
-        try
-	{Packets, Buf} = tls_handshake:get_tls_handshake(Version,Data,Buf0),
+				      negotiated_version = Version,
+				      ssl_options = Options} = State0) ->
+    try
+	{Packets, Buf} = tls_handshake:get_tls_handshake(Version,Data,Buf0, Options),
 	State =
 	    State0#state{protocol_buffers =
 			     Buffers#protocol_buffers{tls_handshake_buffer = Buf}},
