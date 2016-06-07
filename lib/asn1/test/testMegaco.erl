@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 -export([compile/3,main/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 compile(Config, Erule, Options) ->
     asn1_test_lib:compile("MEDIA-GATEWAY-CONTROL.asn", Config, [Erule|Options]),
@@ -32,13 +32,13 @@ compile(Config, Erule, Options) ->
 
 main(no_module,_) -> ok;
 main('OLD-MEDIA-GATEWAY-CONTROL',Config) ->
-    CaseDir = ?config(case_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     {ok,Msg} = asn1ct:value('OLD-MEDIA-GATEWAY-CONTROL','MegacoMessage',
                             [{i, CaseDir}]),
     asn1_test_lib:roundtrip('OLD-MEDIA-GATEWAY-CONTROL', 'MegacoMessage', Msg),
     ok;
 main('MEDIA-GATEWAY-CONTROL'=Mod, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Files = filelib:wildcard(filename:join([DataDir,megacomessages,"*.val"])),
     lists:foreach(fun(File) ->
 			  {ok,Bin} = file:read_file(File),

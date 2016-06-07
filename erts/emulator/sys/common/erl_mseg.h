@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,16 +42,6 @@
 
 #if ERTS_HAVE_MSEG_SUPER_ALIGNED
 #  define MSEG_ALIGN_BITS ERTS_MMAP_SUPERALIGNED_BITS
-#else
-/* If we don't use super aligned multiblock carriers
- * we will mmap with page size alignment (and thus use corresponding
- * align bits).
- *
- * Current implementation needs this to be a constant and
- * only uses this for user dev testing so setting page size
- * to 4096 (12 bits) is fine.
- */
-#  define MSEG_ALIGN_BITS       (12)
 #endif
 
 #if HAVE_ERTS_MSEG
@@ -69,7 +59,9 @@ typedef struct {
     Uint rmcbf;
     Uint mcs;
     Uint nos;
-    ErtsMMapInit mmap;
+    ErtsMMapInit dflt_mmap;
+    ErtsMMapInit literal_mmap;
+    ErtsMMapInit exec_mmap;
 } ErtsMsegInit_t;
 
 #define ERTS_MSEG_INIT_DEFAULT_INITIALIZER				\
@@ -78,7 +70,9 @@ typedef struct {
     20,			/* rmcbf: Relative max cache bad fit	*/	\
     10,			/* mcs:   Max cache size		*/	\
     1000,		/* cci:   Cache check interval		*/	\
-    ERTS_MMAP_INIT_DEFAULT_INITER					\
+    ERTS_MMAP_INIT_DEFAULT_INITER,					\
+    ERTS_MMAP_INIT_LITERAL_INITER,                                      \
+    ERTS_MMAP_INIT_HIPE_EXEC_INITER                                     \
 }
 
 typedef struct {
@@ -87,9 +81,6 @@ typedef struct {
     UWord abs_shrink_th;
     UWord rel_shrink_th;
     int sched_spec;
-#if HALFWORD_HEAP
-    int low_mem;
-#endif
 } ErtsMsegOpt_t;
 
 extern const ErtsMsegOpt_t erts_mseg_default_opt;
@@ -108,7 +99,7 @@ void  erts_mseg_init(ErtsMsegInit_t *init);
 void  erts_mseg_late_init(void); /* Have to be called after all allocators,
 				   threads and timers have been initialized. */
 Eterm erts_mseg_info_options(int, int *, void*, Uint **, Uint *);
-Eterm erts_mseg_info(int, int *, void*, int, Uint **, Uint *);
+Eterm erts_mseg_info(int, int *, void*, int, int, Uint **, Uint *);
 
 #endif /* #if HAVE_ERTS_MSEG */
 

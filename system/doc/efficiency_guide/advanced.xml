@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2013</year>
+      <year>2001</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,8 +35,7 @@
       how much memory different data types and operations require. It is
       implementation-dependent how much memory the Erlang data types and
       other items consume, but the following table shows some figures for
-      the <c>erts-5.2</c> system in R9B. There have been no significant
-      changes in R13.</p>
+      the <c>erts-8.0</c> system in OTP 19.0.</p>
 
       <p>The unit of measurement is memory words. There exists both a
       32-bit and a 64-bit implementation. A word is therefore 4 bytes or
@@ -87,6 +86,19 @@
         <cell>2 words + the size of each element.</cell>
       </row>
       <row>
+        <cell>Small Map</cell>
+        <cell>4 words + 2 words per entry (key and value) + the size of each key and value pair.</cell>
+      </row>
+      <row>
+        <cell>Large Map</cell>
+        <cell>
+            At least, 2 words + 2 x <c>N</c> words + 2 x log16(<c>N</c>) words +
+            the size of each key and value pair, where <c>N</c> is the number of pairs in the Map.
+            A large Map is represented as a tree internally where each node in the tree is a
+            "sparse tuple" of arity 16.
+        </cell>
+      </row>
+      <row>
         <cell>Pid</cell>
         <cell>1 word for a process identifier from the current local node
 	+ 5 words for a process identifier from another node.<br></br>
@@ -122,7 +134,7 @@
       </row>
       <row>
         <cell>Erlang process</cell>
-        <cell>327 words when spawned, including a heap of 233 words.</cell>
+        <cell>338 words when spawned, including a heap of 233 words.</cell>
       </row>
       <tcaption>Memory Size of Different Data Types</tcaption>
     </table>

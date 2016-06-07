@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ struct AOFF_Carrier_t_ {
     AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
     AOFF_RBTree_t* root;        /* Root of my block tree */
 };
-#define RBT_NODE_TO_MBC(PTR) ((AOFF_Carrier_t*)((char*)(PTR) - offsetof(AOFF_Carrier_t, rbt_node)))
+#define RBT_NODE_TO_MBC(PTR) ErtsContainerStruct((PTR), AOFF_Carrier_t, rbt_node)
 
 /* 
    To support carrier migration we keep two kinds of rb-trees:

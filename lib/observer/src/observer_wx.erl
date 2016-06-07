@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@
 -behaviour(wx_object).
 
 -export([start/0, stop/0]).
--export([create_menus/2, get_attrib/1, get_tracer/0, set_status/1,
-	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+-export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0,
+	 set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -55,6 +55,7 @@
 	 notebook,
 	 main_panel,
 	 pro_panel,
+	 port_panel,
 	 tv_panel,
 	 sys_panel,
 	 trace_panel,
@@ -65,7 +66,8 @@
 	 node,
 	 nodes,
 	 prev_node="",
-	 log = false
+	 log = false,
+	 reply_to=false
 	}).
 
 start() ->
@@ -88,6 +90,9 @@ set_status(What) ->
 
 get_tracer() ->
     wx_object:call(observer, get_tracer).
+
+get_active_node() ->
+    wx_object:call(observer, get_active_node).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -164,6 +169,10 @@ setup(#state{frame = Frame} = State) ->
     ProPanel = observer_pro_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
 
+    %% Port Panel
+    PortPanel = observer_port_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
+
     %% Table Viewer Panel
     TVPanel = observer_tv_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
@@ -187,6 +196,7 @@ setup(#state{frame = Frame} = State) ->
 			   status_bar = StatusBar,
 			   sys_panel = SysPanel,
 			   pro_panel = ProPanel,
+			   port_panel = PortPanel,
 			   tv_panel  = TVPanel,
 			   trace_panel = TracePanel,
 			   app_panel = AppPanel,
@@ -229,14 +239,13 @@ handle_event(#wx{id = ?ID_CDV, event = #wxCommand{type = command_menu_selected}}
     spawn(crashdump_viewer, start, []),
     {noreply, State};
 
-handle_event(#wx{event = #wxClose{}}, #state{log=LogOn} = State) ->
-    LogOn andalso rpc:block_call(State#state.node, rb, stop, []),
-    {stop, normal, State};
+handle_event(#wx{event = #wxClose{}}, State) ->
+    stop_servers(State),
+    {noreply, State};
 
-handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}},
-	     #state{log=LogOn} = State) ->
-    LogOn andalso rpc:block_call(State#state.node, rb, stop, []),
-    {stop, normal, State};
+handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}}, State) ->
+    stop_servers(State),
+    {noreply, State};
 
 handle_event(#wx{id = ?wxID_HELP, event = #wxCommand{type = command_menu_selected}}, State) ->
     External = "http://www.erlang.org/doc/apps/observer/index.html",
@@ -379,9 +388,12 @@ handle_call({get_attrib, Attrib}, _From, State) ->
 handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
     {reply, TraceP, State};
 
-handle_call(stop, _, State = #state{frame = Frame}) ->
-    wxFrame:destroy(Frame),
-    {stop, normal, ok, State};
+handle_call(get_active_node, _From, State=#state{node=Node}) ->
+    {reply, Node, State};
+
+handle_call(stop, From, State) ->
+    stop_servers(State),
+    {noreply, State#state{reply_to=From}};
 
 handle_call(log_status, _From, State) ->
     {reply, State#state.log, State};
@@ -406,16 +418,21 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
-handle_info({open_link, Pid0}, State = #state{pro_panel=ProcViewer, frame=Frame}) ->
-    Pid = case Pid0 of
-	      [_|_] -> try list_to_pid(Pid0) catch _:_ -> Pid0 end;
-	      _ -> Pid0
+handle_info({open_link, Id0}, State = #state{pro_panel=ProcViewer,
+					     port_panel=PortViewer,
+					     frame=Frame}) ->
+    Id = case Id0 of
+	      [_|_] -> try list_to_pid(Id0) catch _:_ -> Id0 end;
+	      _ -> Id0
 	  end,
     %% Forward to process tab
-    case is_pid(Pid) of
-	true  -> wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
-	false ->
-	    Msg = io_lib:format("Information about ~p is not available or implemented",[Pid]),
+    case Id of
+	Pid when is_pid(Pid) ->
+	    wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
+	"#Port" ++ _ = Port ->
+	    wx_object:get_pid(PortViewer) ! {portinfo_open, Port};
+	_ ->
+	    Msg = io_lib:format("Information about ~p is not available or implemented",[Id]),
 	    Info = wxMessageDialog:new(Frame, Msg),
 	    wxMessageDialog:showModal(Info),
 	    wxMessageDialog:destroy(Info)
@@ -426,17 +443,45 @@ handle_info({get_debug_info, From}, State = #state{notebook=Notebook, active_tab
     From ! {observer_debug, wx:get_env(), Notebook, Pid},
     {noreply, State};
 
-handle_info({'EXIT', Pid, _Reason}, State) ->
-    io:format("Child (~s) crashed exiting:  ~p ~p~n",
-	      [pid2panel(Pid, State), Pid,_Reason]),
+handle_info({'EXIT', Pid, Reason}, State) ->
+    case Reason of
+	normal ->
+	    {noreply, State};
+	_ ->
+	    io:format("Observer: Child (~s) crashed exiting:  ~p ~p~n",
+		      [pid2panel(Pid, State), Pid, Reason]),
+	    {stop, normal, State}
+    end;
+
+handle_info({stop, Me}, State) when Me =:= self() ->
     {stop, normal, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{frame = Frame}) ->
+stop_servers(#state{node=Node, log=LogOn, sys_panel=Sys, pro_panel=Procs, tv_panel=TVs,
+		    trace_panel=Trace, app_panel=Apps, perf_panel=Perfs,
+		    allc_panel=Alloc} = _State) ->
+    LogOn andalso rpc:block_call(Node, rb, stop, []),
+    Me = self(),
+    Tabs = [Sys, Procs, TVs, Trace, Apps, Perfs, Alloc],
+    Stop = fun() ->
+		   try
+		       _ = [wx_object:stop(Panel) || Panel <- Tabs],
+		       ok
+		   catch _:_ -> ok
+		   end,
+		   Me ! {stop, Me}
+	   end,
+    spawn(Stop).
+
+terminate(_Reason, #state{frame = Frame, reply_to=From}) ->
     wxFrame:destroy(Frame),
     wx:destroy(),
+    case From of
+	false -> ignore;
+	_ -> gen_server:reply(From, ok)
+    end,
     ok.
 
 code_change(_, _, State) ->
@@ -513,10 +558,11 @@ check_page_title(Notebook) ->
 
 get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
 		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf, allc_panel=Alloc
+		      perf_panel=Perf, allc_panel=Alloc, port_panel=Port
 		     }) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
+		"Ports" -> Port;
 		"System" -> Sys;
 		"Table Viewer" -> Tv;
 		?TRACE_STR -> Trace;

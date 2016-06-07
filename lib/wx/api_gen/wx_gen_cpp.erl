@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -195,11 +195,13 @@ gen_funcs(Defs) ->
 
     w("void WxeApp::wxe_dispatch(wxeCommand& Ecmd)~n{~n"),
     w(" char * bp = Ecmd.buffer;~n"),
+    w(" int op = Ecmd.op;~n"),
+    w(" Ecmd.op = -1;~n"),
     w(" wxeMemEnv *memenv = getMemEnv(Ecmd.port);~n"),
 %%    w(" wxMBConvUTF32 UTFconverter;~n"),
-    w("  wxeReturn rt = wxeReturn(WXE_DRV_PORT, Ecmd.caller, true);~n"),
+    w(" wxeReturn rt = wxeReturn(WXE_DRV_PORT, Ecmd.caller, true);~n"),
     w(" try {~n"),
-    w(" switch (Ecmd.op)~n{~n"),
+    w(" switch (op)~n{~n"),
 %%     w("  case WXE_CREATE_PORT:~n", []),
 %%     w("   { newMemEnv(Ecmd.port); } break;~n", []),
 %%     w("  case WXE_REMOVE_PORT:~n", []),
@@ -208,8 +210,8 @@ gen_funcs(Defs) ->
     w("     void *This = getPtr(bp,memenv);~n"),
     w("     wxeRefData *refd = getRefData(This);~n"),
     w("     if(This && refd) {~n"),
-    w("       if(recurse_level > 1 && refd->type != 4) {~n"),
-    w("          delayed_delete->Append(Ecmd.Save());~n"),
+    w("       if(recurse_level > 1 && refd->type != 8) {~n"),
+    w("          delayed_delete->Append(Ecmd.Save(op));~n"),
     w("       } else {~n"),
     w("          delete_object(This, refd);~n"),
     w("          ((WxeApp *) wxTheApp)->clearPtr(This);}~n"),
@@ -228,7 +230,7 @@ gen_funcs(Defs) ->
     w("  default: {~n"),
     w("    wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);"),
     w("    error.addAtom(\"_wxe_error_\");~n"),
-    w("    error.addInt((int) Ecmd.op);~n"),
+    w("    error.addInt((int) op);~n"),
     w("    error.addAtom(\"not_supported\");~n"),
     w("    error.addTupleCount(3);~n"),
     w("    error.send();~n"),
@@ -239,7 +241,7 @@ gen_funcs(Defs) ->
     w("} catch (wxe_badarg badarg) {  // try~n"),
     w("    wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);"),
     w("    error.addAtom(\"_wxe_error_\");~n"),
-    w("    error.addInt((int) Ecmd.op);~n"),
+    w("    error.addInt((int) op);~n"),
     w("    error.addAtom(\"badarg\");~n"),
     w("    error.addInt((int) badarg.ref);~n"),
     w("    error.addTupleCount(2);~n"),
@@ -253,7 +255,21 @@ gen_funcs(Defs) ->
 		   ],
 
     w("bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {~n", []),
+    w(" if(wxe_debug) {\n"
+      "     wxString msg;\n"
+      "	    const wxChar *class_info = wxT(\"unknown\");\n"
+      "	    if(refd->type < 10) {\n"
+      "		wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();\n"
+      "		    class_info = cinfo->GetClassName();\n"
+      "	       }\n"
+      "      msg.Printf(wxT(\"Deleting {wx_ref, %d, %s} at %p \"), refd->ref, class_info, ptr);\n"
+      "      send_msg(\"debug\", &msg);\n"
+      " };\n"),
+
     w(" switch(refd->type) {~n", []),
+    w("#if wxUSE_GRAPHICS_CONTEXT~n", []),
+    w("  case 4: delete (wxGraphicsObject *) ptr; break;~n", []),
+    w("#endif~n", []),
     Case = fun(C=#class{name=Class, id=Id, abstract=IsAbs, parent=P}) when P /= "static" ->
 		   UglyWorkaround = lists:member(Class, UglySkipList),
 		   HaveVirtual = virtual_dest(C),
@@ -759,7 +775,7 @@ call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) ->
 		    end;
 		false ->
 		    case is_dc(RClass) of
-			true -> 4;
+			true -> 8;
 			false ->
 			    case hd(reverse(wx_gen_erl:parents(RClass))) of
 				root -> Id;
@@ -817,19 +833,19 @@ return_res1(#type{name=Type,base={class,_},single=list,ref=reference}) ->
 return_res1(#type{name=Type,base={comp,_,_},single=array,by_val=true}) ->
     {Type ++ " Result = ", ""};
 return_res1(#type{name=Type,single=true,by_val=true, base={class, _}}) ->
-    %% Temporary memory leak !!!!!!
-    case {need_copy_constr(Type),Type} of
-	{true, _}  ->  ok;
-	{_, "wxGraphics" ++ _} -> ok;
-	_ ->
-	    io:format("~s::~s Building return value of temp ~s~n",
-		      [get(current_class),get(current_func),Type])
-    end,
-    case need_copy_constr(Type) of
-	true ->
+    case {need_copy_constr(Type), Type} of
+	{true, _} ->
 	    {Type ++ " * Result = new E" ++ Type ++ "(", "); newPtr((void *) Result,"
 	     ++ "3, memenv);"};
-	false ->
+	{false, "wxGraphics" ++ _} ->
+	    %% {"wxGraphicsObject * Result = new wxGraphicsObject(", "); newPtr((void *) Result,"
+	    %%  ++ "3, memenv);"};
+	    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result,"
+	     ++ "4, memenv);"};
+	{false, _} ->
+	    %% Temporary memory leak !!!!!!
+	    io:format("~s::~s Building return value of temp ~s~n",
+		      [get(current_class),get(current_func),Type]),
 	    {Type ++ " * Result = new " ++ Type ++ "(", "); newPtr((void *) Result,"
 	     ++ "3, memenv);"}
     end;

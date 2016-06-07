@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
 -ifdef(STANDALONE).
 -define(line, noop, ).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -endif.
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -115,7 +115,7 @@ crash(Config) when is_list(Config) ->
 
     %% Spawn function with neighbour.
     Pid4 = proc_lib:spawn(?MODULE, sp2, []),
-    test_server:sleep(100),
+    ct:sleep(100),
     {?MODULE,sp2,[]} = proc_lib:initial_call(Pid4),
     {?MODULE,sp2,0} = proc_lib:translate_initial_call(Pid4),
     Pid4 ! die,
@@ -152,9 +152,9 @@ analyse_crash(Pid, Expected0, ExpLinks) ->
 	    analyse_links(ExpLinks, Links);
 	Unexpected ->
 	    io:format("~p\n", [Unexpected]),
-	    test_server:fail(unexpected_message)
+	    ct:fail(unexpected_message)
     after 5000 ->
-	    test_server:fail(no_crash_report)
+	    ct:fail(no_crash_report)
     end.
 
 analyse_links([H|Es], [{neighbour,N}|Links]) ->
@@ -170,7 +170,7 @@ analyse_crash_1([{Key,Pattern}|T], Report) ->
     case lists:keyfind(Key, 1, Report) of
 	false ->
 	    io:format("~p", [Report]),
-	    test_server:fail({missing_key,Key});
+	    ct:fail({missing_key,Key});
 	{Key,Info} ->
 	    try
 		match_info(Pattern, Info)
@@ -179,7 +179,7 @@ analyse_crash_1([{Key,Pattern}|T], Report) ->
 		    io:format("key: ~p", [Key]),
 		    io:format("pattern: ~p", [Pattern]),
 		    io:format("actual: ~p", [Report]),
-		    test_server:fail(no_match)
+		    ct:fail(no_match)
 	    end,
 	    analyse_crash_1(T, Report)
     end;
@@ -203,7 +203,7 @@ sync_start_nolink(Config) when is_list(Config) ->
     receive
 	{sync_started, F} -> 
 	    exit(F, kill),
-	    test_server:fail(async_start)
+	    ct:fail(async_start)
     after 1000 -> ok
     end,
     receive
@@ -214,14 +214,14 @@ sync_start_nolink(Config) when is_list(Config) ->
 	{sync_started, _} -> ok
     after 1000 ->
 	    exit(Pid2, kill),
-	    test_server:fail(no_sync_start)
+	    ct:fail(no_sync_start)
     end,
     ok.
-    
+
 sync_start_link(Config) when is_list(Config) ->
     _Pid = spawn_link(?MODULE, sp3, [self()]),
     receive
-	{sync_started, _} -> test_server:fail(async_start)
+	{sync_started, _} -> ct:fail(async_start)
     after 1000 -> ok
     end,
     receive
@@ -230,24 +230,24 @@ sync_start_link(Config) when is_list(Config) ->
     end,
     receive
 	{sync_started, _} -> ok
-    after 1000 -> test_server:fail(no_sync_start)
+    after 1000 -> ct:fail(no_sync_start)
     end,
     ok.
-    
+
 spawn_opt(Config) when is_list(Config) ->
     F = fun sp1/0,
     {name,Fname} = erlang:fun_info(F, name),
     FunMFArgs = {?MODULE,Fname,[]},
     FunMFArity = {?MODULE,Fname,0},
-    ?line Pid1 = proc_lib:spawn_opt(node(), F, [{priority,low}]),
-    ?line Pid = proc_lib:spawn_opt(F, [{priority,low}]),
-    ?line test_server:sleep(100),
-    ?line FunMFArgs = proc_lib:initial_call(Pid),
-    ?line FunMFArity = proc_lib:translate_initial_call(Pid),
-    ?line Pid ! die,
-    ?line FunMFArgs = proc_lib:initial_call(Pid1),
-    ?line FunMFArity = proc_lib:translate_initial_call(Pid1),
-    ?line Pid1 ! die,
+    Pid1 = proc_lib:spawn_opt(node(), F, [{priority,low}]),
+    Pid = proc_lib:spawn_opt(F, [{priority,low}]),
+    ct:sleep(100),
+    FunMFArgs = proc_lib:initial_call(Pid),
+    FunMFArity = proc_lib:translate_initial_call(Pid),
+    Pid ! die,
+    FunMFArgs = proc_lib:initial_call(Pid1),
+    FunMFArity = proc_lib:translate_initial_call(Pid1),
+    Pid1 ! die,
     ok.
 
 
@@ -283,57 +283,57 @@ hibernate(Config) when is_list(Config) ->
     Ref = make_ref(),
     Self = self(),
     LoopData = {Ref,Self},
-    ?line Pid = proc_lib:spawn_link(?MODULE, hib_loop, [LoopData]),
+    Pid = proc_lib:spawn_link(?MODULE, hib_loop, [LoopData]),
 
     %% Just check that the child process can process and answer messages.
-    ?line Pid ! {Self,loop_data},
+    Pid ! {Self,loop_data},
     receive
 	{loop_data,LoopData} -> ok;
 	Unexpected0 ->
-	    ?line io:format("Unexpected: ~p\n", [Unexpected0]),
-	    ?line ?t:fail()
+	    io:format("Unexpected: ~p\n", [Unexpected0]),
+	    ct:fail(failed)
     after 1000 ->
-	    ?line io:format("Timeout"),
-	    ?line ?t:fail()
+	    io:format("Timeout"),
+	    ct:fail(failed)
     end,
 
     %% Hibernate the process.
-    ?line Pid ! hibernate,
+    Pid ! hibernate,
     erlang:yield(),
     io:format("~p\n", [process_info(Pid, heap_size)]),
 
 
     %% Send a message to the process...
 
-    ?line Pid ! {Self,loop_data},
+    Pid ! {Self,loop_data},
 
     %% ... expect first a wake up message from the process...
     receive
 	{awaken,LoopData} -> ok;
 	Unexpected1 ->
-	    ?line io:format("Unexpected: ~p\n", [Unexpected1]),
-	    ?line ?t:fail()
+	    io:format("Unexpected: ~p\n", [Unexpected1]),
+	    ct:fail(failed)
     after 1000 ->
-	    ?line io:format("Timeout"),
-	    ?line ?t:fail()
+	    io:format("Timeout"),
+	    ct:fail(failed)
     end,
 
     %% ... followed by the answer to the actual request.
     receive
 	{loop_data,LoopData} -> ok;
 	Unexpected2 ->
-	    ?line io:format("Unexpected: ~p\n", [Unexpected2]),
-	    ?line ?t:fail()
+	    io:format("Unexpected: ~p\n", [Unexpected2]),
+	    ct:fail(failed)
     after 1000 ->
-	    ?line io:format("Timeout"),
-	    ?line ?t:fail()
+	    io:format("Timeout"),
+	    ct:fail(failed)
     end,
 
     %% Test that errors are handled correctly after wake up from hibernation...
 
-    ?line process_flag(trap_exit, true),
-    ?line error_logger:add_report_handler(?MODULE, self()),
-    ?line Pid ! crash,
+    process_flag(trap_exit, true),
+    error_logger:add_report_handler(?MODULE, self()),
+    Pid ! crash,
 
     %% We should receive two messages. Especially in the SMP emulator,
     %% we can't be sure of the message order, so sort the messages before
@@ -341,10 +341,10 @@ hibernate(Config) when is_list(Config) ->
 
     Messages = lists:sort(hib_receive_messages(2)),
     io:format("~p", [Messages]),
-    ?line [{'EXIT',Pid,i_crashed},{crash_report,Pid,[Report,[]]}] = Messages,
+    [{'EXIT',Pid,i_crashed},{crash_report,Pid,[Report,[]]}] = Messages,
 
     %% Check that the initial_call has the expected format.
-    ?line {value,{initial_call,{?MODULE,hib_loop,[_]}}} =
+    {value,{initial_call,{?MODULE,hib_loop,[_]}}} =
 	lists:keysearch(initial_call, 1, Report),
 
     error_logger:delete_report_handler(?MODULE),
@@ -371,10 +371,7 @@ hib_receive_messages(N) ->
 	Any -> [Any|hib_receive_messages(N-1)]
     end.
 
-otp_6345(suite) ->
-    [];
-otp_6345(doc) ->
-    ["'monitor' spawn_opt option"];
+%% 'monitor' spawn_opt option.
 otp_6345(Config) when is_list(Config) ->
     Opts = [link,monitor],
     {'EXIT', {badarg,[{proc_lib,check_for_monitor,_,_}|_Stack]}} =
@@ -392,11 +389,8 @@ otp_6345_loop() ->
 	    otp_6345_loop()
     end.
 
-%% OTP-9803
-init_dont_hang(suite) ->
-    [];
-init_dont_hang(doc) ->
-    ["Check that proc_lib:start don't hang if spawned process crashes before proc_lib:init_ack/2"];
+%% OTP-9803. Check that proc_lib:start() doesn't hang if spawned process
+%% crashes before proc_lib:init_ack/2.
 init_dont_hang(Config) when is_list(Config) ->
     %% Start should behave as start_link
     process_flag(trap_exit, true),
@@ -489,7 +483,7 @@ stop(_Config) ->
     {'EXIT',noproc} = (catch proc_lib:stop({to_stop,Node})),
 
     true = test_server:stop_node(Node),
-    
+
     %% Remote registered name, but non-existing node
     {'EXIT',{{nodedown,Node},_}} = (catch proc_lib:stop({to_stop,Node})),
     ok.
@@ -522,7 +516,7 @@ t_format() ->
 
     if
 	Tsz >= Usz ->
-	    ?t:fail();
+	    ct:fail(failed);
 	true ->
 	    ok
     end,
@@ -549,7 +543,7 @@ t_format_looper() ->
 %%-----------------------------------------------------------------
 init(Tester) ->
     {ok, Tester}.
-    
+
 handle_event({error_report, _GL, {Pid, crash_report, Report}}, Tester) ->
     io:format("~s\n", [proc_lib:format(Report)]),
     Tester ! {crash_report, Pid, Report},

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ erts_smp_atomic32_t erts_staging_bp_index;
 static ERTS_INLINE ErtsMonotonicTime
 get_mtime(Process *c_p)
 {
-    return erts_get_monotonic_time(ERTS_PROC_GET_SCHDATA(c_p));
+    return erts_get_monotonic_time(erts_proc_sched_data(c_p));
 }
 
 /* *************************************************************************
@@ -92,15 +92,15 @@ get_mtime(Process *c_p)
 /*
 ** Helpers
 */
-static Eterm do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
-			   int local, Binary* ms, Eterm tracer_pid);
+static ErtsTracer do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
+                                int local, Binary* ms, ErtsTracer tracer);
 static void set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
-		      enum erts_break_op count_op, Eterm tracer_pid);
+		      enum erts_break_op count_op, ErtsTracer tracer);
 static void set_function_break(BeamInstr *pc,
 			       Binary *match_spec,
 			       Uint break_flags,
 			       enum erts_break_op count_op,
-			       Eterm tracer_pid);
+			       ErtsTracer tracer);
 
 static void clear_break(BpFunctions* f, Uint break_flags);
 static int clear_function_break(BeamInstr *pc, Uint break_flags);
@@ -108,7 +108,7 @@ static int clear_function_break(BeamInstr *pc, Uint break_flags);
 static BpDataTime* get_time_break(BeamInstr *pc);
 static GenericBpData* check_break(BeamInstr *pc, Uint break_flags);
 
-static void bp_meta_unref(BpMetaPid* bmp);
+static void bp_meta_unref(BpMetaTracer* bmt);
 static void bp_count_unref(BpCount* bcp);
 static void bp_time_unref(BpDataTime* bdt);
 static void consolidate_bp_data(Module* modp, BeamInstr* pc, int local);
@@ -154,8 +154,8 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
     num_modules = 0;
     for (current = 0; current < max_modules; current++) {
 	modp = module_code(current, code_ix);
-	if (modp->curr.code) {
-	    max_funcs += modp->curr.code[MI_NUM_FUNCTIONS];
+	if (modp->curr.code_hdr) {
+	    max_funcs += modp->curr.code_hdr->num_functions;
 	    module[num_modules++] = modp;
 	}
     }
@@ -163,9 +163,9 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
     f->matching = (BpFunction *) Alloc(max_funcs*sizeof(BpFunction));
     i = 0;
     for (current = 0; current < num_modules; current++) {
-	BeamInstr** code_base = (BeamInstr **) module[current]->curr.code;
+	BeamCodeHeader* code_hdr = module[current]->curr.code_hdr;
 	BeamInstr* code;
-	Uint num_functions = (Uint)(UWord) code_base[MI_NUM_FUNCTIONS];
+	Uint num_functions = (Uint)(UWord) code_hdr->num_functions;
 	Uint fi;
 
 	if (specified > 0) {
@@ -179,7 +179,7 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
 	    BeamInstr* pc;
 	    int wi;
 
-	    code = code_base[MI_FUNCTIONS+fi];
+	    code = code_hdr->functions[fi];
 	    ASSERT(code[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 	    pc = code+5;
 	    if (erts_is_native_break(pc)) {
@@ -248,7 +248,10 @@ erts_bp_match_export(BpFunctions* f, Eterm mfa[3], int specified)
 void
 erts_bp_free_matched_functions(BpFunctions* f)
 {
-    Free(f->matching);
+    if (f->matching) {
+	Free(f->matching);
+    }
+    else ASSERT(f->matched == 0);
 }
 
 void
@@ -302,7 +305,7 @@ consolidate_bp_data(Module* modp, BeamInstr* pc, int local)
 	MatchSetUnref(dst->local_ms);
     }
     if (flags & ERTS_BPF_META_TRACE) {
-	bp_meta_unref(dst->meta_pid);
+	bp_meta_unref(dst->meta_tracer);
 	MatchSetUnref(dst->meta_ms);
     }
     if (flags & ERTS_BPF_COUNT) {
@@ -343,8 +346,8 @@ consolidate_bp_data(Module* modp, BeamInstr* pc, int local)
 	MatchSetRef(dst->local_ms);
     }
     if (flags & ERTS_BPF_META_TRACE) {
-	dst->meta_pid = src->meta_pid;
-	erts_refc_inc(&dst->meta_pid->refc, 1);
+	dst->meta_tracer = src->meta_tracer;
+	erts_refc_inc(&dst->meta_tracer->refc, 1);
 	dst->meta_ms = src->meta_ms;
 	MatchSetRef(dst->meta_ms);
     }
@@ -436,13 +439,13 @@ uninstall_breakpoint(BeamInstr* pc)
 void
 erts_set_trace_break(BpFunctions* f, Binary *match_spec)
 {
-    set_break(f, match_spec, ERTS_BPF_LOCAL_TRACE, 0, am_true);
+    set_break(f, match_spec, ERTS_BPF_LOCAL_TRACE, 0, erts_tracer_true);
 }
 
 void
-erts_set_mtrace_break(BpFunctions* f, Binary *match_spec, Eterm tracer_pid)
+erts_set_mtrace_break(BpFunctions* f, Binary *match_spec, ErtsTracer tracer)
 {
-    set_break(f, match_spec, ERTS_BPF_META_TRACE, 0, tracer_pid);
+    set_break(f, match_spec, ERTS_BPF_META_TRACE, 0, tracer);
 }
 
 void
@@ -450,13 +453,13 @@ erts_set_call_trace_bif(BeamInstr *pc, Binary *match_spec, int local)
 {
     Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
 
-    set_function_break(pc, match_spec, flags, 0, NIL);
+    set_function_break(pc, match_spec, flags, 0, erts_tracer_nil);
 }
 
 void
-erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec, Eterm tracer_pid)
+erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec, ErtsTracer tracer)
 {
-    set_function_break(pc, match_spec, ERTS_BPF_META_TRACE, 0, tracer_pid);
+    set_function_break(pc, match_spec, ERTS_BPF_META_TRACE, 0, tracer);
 }
 
 void
@@ -464,7 +467,7 @@ erts_set_time_trace_bif(BeamInstr *pc, enum erts_break_op count_op)
 {
     set_function_break(pc, NULL,
 		       ERTS_BPF_TIME_TRACE|ERTS_BPF_TIME_TRACE_ACTIVE,
-		       count_op, NIL);
+		       count_op, erts_tracer_nil);
 }
 
 void
@@ -474,21 +477,21 @@ erts_clear_time_trace_bif(BeamInstr *pc) {
 
 void
 erts_set_debug_break(BpFunctions* f) {
-    set_break(f, NULL, ERTS_BPF_DEBUG, 0, NIL);
+    set_break(f, NULL, ERTS_BPF_DEBUG, 0, erts_tracer_nil);
 }
 
 void
 erts_set_count_break(BpFunctions* f, enum erts_break_op count_op)
 {
     set_break(f, 0, ERTS_BPF_COUNT|ERTS_BPF_COUNT_ACTIVE,
-	      count_op, NIL);
+	      count_op, erts_tracer_nil);
 }
 
 void
 erts_set_time_break(BpFunctions* f, enum erts_break_op count_op)
 {
     set_break(f, 0, ERTS_BPF_TIME_TRACE|ERTS_BPF_TIME_TRACE_ACTIVE,
-	      count_op, NIL);
+	      count_op, erts_tracer_nil);
 }
 
 void
@@ -549,21 +552,21 @@ erts_clear_all_breaks(BpFunctions* f)
 
 int 
 erts_clear_module_break(Module *modp) {
-    BeamInstr** code_base;
+    BeamCodeHeader* code_hdr;
     Uint n;
     Uint i;
 
     ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
     ASSERT(modp);
-    code_base = (BeamInstr **) modp->curr.code;
-    if (code_base == NULL) {
+    code_hdr = modp->curr.code_hdr;
+    if (!code_hdr) {
 	return 0;
     }
-    n = (Uint)(UWord) code_base[MI_NUM_FUNCTIONS];
+    n = (Uint)(UWord) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
 	BeamInstr* pc;
 
-	pc = code_base[MI_FUNCTIONS+i] + 5;
+	pc = code_hdr->functions[i] + 5;
 	if (erts_is_native_break(pc)) {
 	    continue;
 	}
@@ -575,7 +578,7 @@ erts_clear_module_break(Module *modp) {
     for (i = 0; i < n; ++i) {
 	BeamInstr* pc;
 
-	pc = code_base[MI_FUNCTIONS+i] + 5;
+	pc = code_hdr->functions[i] + 5;
 	if (erts_is_native_break(pc)) {
 	    continue;
 	}
@@ -625,19 +628,26 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
 
     if (bp_flags & ERTS_BPF_LOCAL_TRACE) {
 	ASSERT((bp_flags & ERTS_BPF_GLOBAL_TRACE) == 0);
-	(void) do_call_trace(c_p, I, reg, 1, bp->local_ms, am_true);
+	(void) do_call_trace(c_p, I, reg, 1, bp->local_ms, erts_tracer_true);
     } else if (bp_flags & ERTS_BPF_GLOBAL_TRACE) {
-	(void) do_call_trace(c_p, I, reg, 0, bp->local_ms, am_true);
+	(void) do_call_trace(c_p, I, reg, 0, bp->local_ms, erts_tracer_true);
     }
 
     if (bp_flags & ERTS_BPF_META_TRACE) {
-	Eterm old_pid;
-	Eterm new_pid;
+	ErtsTracer old_tracer, new_tracer;
 
-	old_pid = (Eterm) erts_smp_atomic_read_nob(&bp->meta_pid->pid);
-	new_pid = do_call_trace(c_p, I, reg, 1, bp->meta_ms, old_pid);
-	if (new_pid != old_pid) {
-	    erts_smp_atomic_set_nob(&bp->meta_pid->pid, new_pid);
+	old_tracer = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+
+	new_tracer = do_call_trace(c_p, I, reg, 1, bp->meta_ms, old_tracer);
+	if (!ERTS_TRACER_COMPARE(new_tracer, old_tracer)) {
+            if (old_tracer == erts_smp_atomic_cmpxchg_acqb(
+                    &bp->meta_tracer->tracer,
+                    (erts_aint_t)new_tracer,
+                    (erts_aint_t)old_tracer)) {
+                ERTS_TRACER_CLEAR(&old_tracer);
+            } else {
+                ERTS_TRACER_CLEAR(&new_tracer);
+            }
 	}
     }
 
@@ -645,7 +655,7 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
 	erts_smp_atomic_inc_nob(&bp->count->acount);
     }
 
-    if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE && erts_is_tracer_proc_valid(c_p)) {
+    if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
 	Eterm w;
 	erts_trace_time_call(c_p, I, bp->time);
 	w = (BeamInstr) *c_p->cp;
@@ -690,7 +700,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     Eterm (*func)(Process*, Eterm*, BeamInstr*);
     Export* ep = bif_export[bif_index];
     Uint32 flags = 0, flags_meta = 0;
-    Eterm meta_tracer_pid = NIL;
+    ErtsTracer meta_tracer = erts_tracer_nil;
     int applying = (I == &(ep->code[3])); /* Yup, the apply code for a bif
 					   * is actually in the
 					   * export entry */
@@ -718,23 +728,31 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	IS_TRACED_FL(p, F_TRACE_CALLS)) {
 	int local = !!(bp_flags & ERTS_BPF_LOCAL_TRACE);
 	flags = erts_call_trace(p, ep->code, bp->local_ms, args,
-				local, &ERTS_TRACER_PROC(p));
+				local, &ERTS_TRACER(p));
     }
     if (bp_flags & ERTS_BPF_META_TRACE) {
-	Eterm tpid1, tpid2;
+	ErtsTracer old_tracer;
 
-	tpid1 = tpid2 =
-	    (Eterm) erts_smp_atomic_read_nob(&bp->meta_pid->pid);
+        meta_tracer = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+        old_tracer = meta_tracer;
 	flags_meta = erts_call_trace(p, ep->code, bp->meta_ms, args,
-				     0, &tpid2);
-	meta_tracer_pid = tpid2;
-	if (tpid1 != tpid2) {
-	    erts_smp_atomic_set_nob(&bp->meta_pid->pid, tpid2);
+				     0, &meta_tracer);
+
+	if (!ERTS_TRACER_COMPARE(old_tracer, meta_tracer)) {
+            ErtsTracer new_tracer = erts_tracer_nil;
+            erts_tracer_update(&new_tracer, meta_tracer);
+	    if (old_tracer == erts_smp_atomic_cmpxchg_acqb(
+                    &bp->meta_tracer->tracer,
+                    (erts_aint_t)new_tracer,
+                    (erts_aint_t)old_tracer)) {
+                ERTS_TRACER_CLEAR(&old_tracer);
+            } else {
+                ERTS_TRACER_CLEAR(&new_tracer);
+            }
 	}
     }
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE &&
-	IS_TRACED_FL(p, F_TRACE_CALLS) &&
-	erts_is_tracer_proc_valid(p)) {
+	IS_TRACED_FL(p, F_TRACE_CALLS)) {
 	BeamInstr *pc = (BeamInstr *)ep->code+3;
 	erts_trace_time_call(p, pc, bp->time);
     }
@@ -778,8 +796,6 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	if (reason != TRAP) {
 	    Eterm class;
 	    Eterm value = p->fvalue;
-	    DeclareTmpHeapNoproc(nocatch,3);
-	    UseTmpHeapNoproc(3);
 	    /* Expand error value like in handle_error() */
 	    if (reason & EXF_ARGLIST) {
 		Eterm *tp;
@@ -788,7 +804,8 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 		value = tp[1];
 	    }
 	    if ((reason & EXF_THROWN) && (p->catches <= 0)) {
-		value = TUPLE2(nocatch, am_nocatch, value);
+                Eterm *hp = HAlloc(p, 3);
+		value = TUPLE2(hp, am_nocatch, value);
 		reason = EXC_ERROR;
 	    }
 	    /* Note: expand_error_value() could theoretically
@@ -801,11 +818,11 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 
 	    if (flags_meta & MATCH_SET_EXCEPTION_TRACE) {
 		erts_trace_exception(p, ep->code, class, value,
-				     &meta_tracer_pid);
+				     &meta_tracer);
 	    }
 	    if (flags & MATCH_SET_EXCEPTION_TRACE) {
 		erts_trace_exception(p, ep->code, class, value,
-				     &ERTS_TRACER_PROC(p));
+				     &ERTS_TRACER(p));
 	    }
 	    if ((flags & MATCH_SET_RETURN_TO_TRACE) && p->catches > 0) {
 		/* can only happen if(local)*/
@@ -827,7 +844,6 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 		    }
 		}
 	    }
-	    UnUseTmpHeapNoproc(3);
 	    if ((flags_meta|flags) & MATCH_SET_EXCEPTION_TRACE) {
 		erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 		ERTS_TRACE_FLAGS(p) |= F_EXCEPTION_TRACE;
@@ -836,11 +852,11 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	}
     } else {
 	if (flags_meta & MATCH_SET_RX_TRACE) {
-	    erts_trace_return(p, ep->code, result, &meta_tracer_pid);
+	    erts_trace_return(p, ep->code, result, &meta_tracer);
 	}
 	/* MATCH_SET_RETURN_TO_TRACE cannot occur if(meta) */
 	if (flags & MATCH_SET_RX_TRACE) {
-	    erts_trace_return(p, ep->code, result, &ERTS_TRACER_PROC(p));
+	    erts_trace_return(p, ep->code, result, &ERTS_TRACER(p));
 	}
 	if (flags & MATCH_SET_RETURN_TO_TRACE) {
 	    /* can only happen if(local)*/
@@ -857,14 +873,14 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     return result;
 }
 
-static Eterm
+static ErtsTracer
 do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
-	      int local, Binary* ms, Eterm tracer_pid)
+	      int local, Binary* ms, ErtsTracer tracer)
 {
     Eterm* cpp;
     int return_to_trace = 0;
     BeamInstr w;
-    BeamInstr *cp_save;
+    BeamInstr *cp_save = c_p->cp;
     Uint32 flags;
     Uint need = 0;
     Eterm* E = c_p->stop;
@@ -899,7 +915,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	ASSERT(is_CP(*cpp));
     }
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-    flags = erts_call_trace(c_p, I-3, ms, reg, local, &tracer_pid);
+    flags = erts_call_trace(c_p, I-3, ms, reg, local, &tracer);
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     if (cpp) {
 	c_p->cp = cp_save;
@@ -910,7 +926,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	need += 1;
     }
     if (flags & MATCH_SET_RX_TRACE) {
-	need += 3;
+	need += 3 + size_object(tracer);
     }
     if (need) {
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
@@ -926,14 +942,15 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	E[0] = make_cp(c_p->cp);
 	c_p->cp = beam_return_to_trace;
     }
-    if (flags & MATCH_SET_RX_TRACE) {
+    if (flags & MATCH_SET_RX_TRACE)
+    {
 	E -= 3;
+        c_p->stop = E;
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
 	ASSERT(is_CP((Eterm) (UWord) (I - 3)));
-	ASSERT(am_true == tracer_pid ||
-	       is_internal_pid(tracer_pid) || is_internal_port(tracer_pid));
+	ASSERT(IS_TRACER_VALID(tracer));
 	E[2] = make_cp(c_p->cp);
-	E[1] = tracer_pid;
+        E[1] = copy_object(tracer, c_p);
 	E[0] = make_cp(I - 3); /* We ARE at the beginning of an
 				  instruction,
 				  the funcinfo is above i. */
@@ -942,9 +959,9 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-    }
-    c_p->stop = E;
-    return tracer_pid;
+    } else
+        c_p->stop = E;
+    return tracer;
 }
 
 void
@@ -957,7 +974,8 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     BpDataTime *pbdt = NULL;
 
     ASSERT(c_p);
-    ASSERT(erts_smp_atomic32_read_acqb(&c_p->state) & ERTS_PSFLG_RUNNING);
+    ASSERT(erts_smp_atomic32_read_acqb(&c_p->state) & (ERTS_PSFLG_RUNNING
+						       | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
      * from the process psd  */
@@ -974,7 +992,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
     if (pbt == 0) {
 	/* First call of process to instrumented function */
 	pbt = Alloc(sizeof(process_breakpoint_time_t));
-	(void) ERTS_PROC_SET_CALL_TIME(c_p, ERTS_PROC_LOCK_MAIN, pbt);
+	(void) ERTS_PROC_SET_CALL_TIME(c_p, pbt);
     } else {
 	ASSERT(pbt->pc);
 	/* add time to previous code */
@@ -1034,7 +1052,8 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
     BpDataTime *pbdt = NULL;
 
     ASSERT(p);
-    ASSERT(erts_smp_atomic32_read_acqb(&p->state) & ERTS_PSFLG_RUNNING);
+    ASSERT(erts_smp_atomic32_read_acqb(&p->state) & (ERTS_PSFLG_RUNNING
+						     | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
      * from the process psd  */
@@ -1098,9 +1117,9 @@ erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret, int local)
     return 0;
 }
 
-int 
+int
 erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret,
-		     Eterm *tracer_pid_ret)
+		     ErtsTracer *tracer_ret)
 {
     GenericBpData* bp = check_break(pc, ERTS_BPF_META_TRACE);
     
@@ -1108,9 +1127,8 @@ erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret,
 	if (match_spec_ret) {
 	    *match_spec_ret = bp->meta_ms;
 	}
-	if (tracer_pid_ret) {
-	    *tracer_pid_ret =
-		(Eterm) erts_smp_atomic_read_nob(&bp->meta_pid->pid);
+	if (tracer_ret) {
+            *tracer_ret = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
 	}
 	return 1;
     }
@@ -1205,17 +1223,17 @@ int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
 BeamInstr *
 erts_find_local_func(Eterm mfa[3]) {
     Module *modp;
-    BeamInstr** code_base;
+    BeamCodeHeader* code_hdr;
     BeamInstr* code_ptr;
     Uint i,n;
 
     if ((modp = erts_get_module(mfa[0], erts_active_code_ix())) == NULL)
 	return NULL;
-    if ((code_base = (BeamInstr **) modp->curr.code) == NULL)
+    if ((code_hdr = modp->curr.code_hdr) == NULL)
 	return NULL;
-    n = (BeamInstr) code_base[MI_NUM_FUNCTIONS];
+    n = (BeamInstr) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	code_ptr = code_base[MI_FUNCTIONS+i];
+	code_ptr = code_hdr->functions[i];
 	ASSERT(((BeamInstr) BeamOp(op_i_func_info_IaaI)) == code_ptr[0]);
 	ASSERT(mfa[0] == ((Eterm) code_ptr[2]) ||
 	       is_nil((Eterm) code_ptr[2]));
@@ -1391,7 +1409,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 
 static void
 set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
-	  enum erts_break_op count_op, Eterm tracer_pid)
+	  enum erts_break_op count_op, ErtsTracer tracer)
 {
     Uint i;
     Uint n;
@@ -1400,13 +1418,13 @@ set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
     for (i = 0; i < n; i++) {
 	BeamInstr* pc = f->matching[i].pc;
 	set_function_break(pc, match_spec, break_flags,
-			   count_op, tracer_pid);
+			   count_op, tracer);
     }
 }
 
 static void
 set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
-		   enum erts_break_op count_op, Eterm tracer_pid)
+		   enum erts_break_op count_op, ErtsTracer tracer)
 {
     GenericBp* g;
     GenericBpData* bp;
@@ -1417,7 +1435,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
     g = (GenericBp *) pc[-4];
     if (g == 0) {
 	int i;
-	if (count_op == erts_break_reset || count_op == erts_break_stop) {
+	if (count_op == ERTS_BREAK_RESTART || count_op == ERTS_BREAK_PAUSE) {
 	    /* Do not insert a new breakpoint */
 	    return;
 	}
@@ -1439,9 +1457,9 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	MatchSetUnref(bp->local_ms);
     } else if (common & ERTS_BPF_META_TRACE) {
 	MatchSetUnref(bp->meta_ms);
-	bp_meta_unref(bp->meta_pid);
+	bp_meta_unref(bp->meta_tracer);
     } else if (common & ERTS_BPF_COUNT) {
-	if (count_op == erts_break_stop) {
+	if (count_op == ERTS_BREAK_PAUSE) {
 	    bp->flags &= ~ERTS_BPF_COUNT_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_COUNT_ACTIVE;
@@ -1453,7 +1471,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	BpDataTime* bdt = bp->time;
 	Uint i = 0;
 
-	if (count_op == erts_break_stop) {
+	if (count_op == ERTS_BREAK_PAUSE) {
 	    bp->flags &= ~ERTS_BPF_TIME_TRACE_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_TIME_TRACE_ACTIVE;
@@ -1474,13 +1492,15 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	MatchSetRef(match_spec);
 	bp->local_ms = match_spec;
     } else if (break_flags & ERTS_BPF_META_TRACE) {
-	BpMetaPid* bmp;
+	BpMetaTracer* bmt;
+        ErtsTracer meta_tracer = erts_tracer_nil;
 	MatchSetRef(match_spec);
 	bp->meta_ms = match_spec;
-	bmp = Alloc(sizeof(BpMetaPid));
-	erts_refc_init(&bmp->refc, 1);
-	erts_smp_atomic_init_nob(&bmp->pid, tracer_pid);
-	bp->meta_pid = bmp;
+	bmt = Alloc(sizeof(BpMetaTracer));
+	erts_refc_init(&bmt->refc, 1);
+        erts_tracer_update(&meta_tracer, tracer); /* copy tracer */
+	erts_smp_atomic_init_nob(&bmt->tracer, (erts_aint_t)meta_tracer);
+	bp->meta_tracer = bmt;
     } else if (break_flags & ERTS_BPF_COUNT) {
 	BpCount* bcp;
 
@@ -1544,7 +1564,7 @@ clear_function_break(BeamInstr *pc, Uint break_flags)
     }
     if (common & ERTS_BPF_META_TRACE) {
 	MatchSetUnref(bp->meta_ms);
-	bp_meta_unref(bp->meta_pid);
+	bp_meta_unref(bp->meta_tracer);
     }
     if (common & ERTS_BPF_COUNT) {
 	ASSERT((bp->flags & ERTS_BPF_COUNT_ACTIVE) == 0);
@@ -1560,10 +1580,12 @@ clear_function_break(BeamInstr *pc, Uint break_flags)
 }
 
 static void
-bp_meta_unref(BpMetaPid* bmp)
+bp_meta_unref(BpMetaTracer* bmt)
 {
-    if (erts_refc_dectest(&bmp->refc, 0) <= 0) {
-	Free(bmp);
+    if (erts_refc_dectest(&bmt->refc, 0) <= 0) {
+        ErtsTracer trc = erts_smp_atomic_read_nob(&bmt->tracer);
+        ERTS_TRACER_CLEAR(&trc);
+	Free(bmt);
     }
 }
 
@@ -1598,9 +1620,7 @@ bp_time_unref(BpDataTime* bdt)
 			h_p = erts_pid2proc(NULL, 0, item->pid,
 					    ERTS_PROC_LOCK_MAIN);
 			if (h_p) {
-			    pbt = ERTS_PROC_SET_CALL_TIME(h_p,
-							  ERTS_PROC_LOCK_MAIN,
-							  NULL);
+			    pbt = ERTS_PROC_SET_CALL_TIME(h_p, NULL);
 			    if (pbt) {
 				Free(pbt);
 			    }

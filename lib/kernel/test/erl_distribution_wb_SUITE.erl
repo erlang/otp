@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(erl_distribution_wb_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -71,7 +71,7 @@
 
 -define(i16(X1,X0),
         (?u16(X1,X0) - 
-         (if (X1) > 127 -> 16#10000; true -> 0 end))).
+	     (if (X1) > 127 -> 16#10000; true -> 0 end))).
 
 -define(u16(X1,X0),
         (((X1) bsl 8) bor (X0))).
@@ -79,7 +79,9 @@
 -define(u32(X3,X2,X1,X0),
         (((X3) bsl 24) bor ((X2) bsl 16) bor ((X1) bsl 8) bor (X0))).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [whitebox, switch_options, missing_compulsory_dflags].
@@ -101,39 +103,33 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(1)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
-switch_options(doc) ->
-    ["Tests switching of options for the tcp port, as this is done"
-     " when the distribution port is to be shortcut into the emulator."
-     " Maybe this should be in the inet test suite, but only the distribution"
-     " does such horrible things..."];
+%% Tests switching of options for the tcp port, as this is done
+%% when the distribution port is to be shortcut into the emulator.
+%% Maybe this should be in the inet test suite, but only the distribution
+%% does such horrible things...
 switch_options(Config) when is_list(Config) ->
     ok = test_switch_active(),
     ok = test_switch_active_partial() ,
     ok = test_switch_active_and_packet(),    
     ok.
-    
 
-whitebox(doc) ->
-    ["Whitebox testing of distribution handshakes. Tests both BC with R5 and "
-     "the md5 version. Note that after R6B, this should be revised to "
-     "remove BC code."];
+
+%% Whitebox testing of distribution handshakes.
 whitebox(Config) when is_list(Config) ->
-    ?line {ok, Node} = start_node(?MODULE,""),
-    ?line Cookie = erlang:get_cookie(),
-    ?line {_,Host} = split(node()),
-    ?line ok = pending_up_md5(Node, join(ccc,Host), Cookie),
-    ?line ok = simultaneous_md5(Node, join('A',Host), Cookie),
-    ?line ok = simultaneous_md5(Node, join(zzzzzzzzzzzzzz,Host), Cookie),
-    ?line stop_node(Node),
+    {ok, Node} = start_node(?MODULE,""),
+    Cookie = erlang:get_cookie(),
+    {_,Host} = split(node()),
+    ok = pending_up_md5(Node, join(ccc,Host), Cookie),
+    ok = simultaneous_md5(Node, join('A',Host), Cookie),
+    ok = simultaneous_md5(Node, join(zzzzzzzzzzzzzz,Host), Cookie),
+    stop_node(Node),
     ok.
-    
+
 %%
 %% The actual tests
 %%
@@ -143,56 +139,56 @@ whitebox(Config) when is_list(Config) ->
 %%
 
 test_switch_active() ->
-    ?line {Client, Server} = socket_pair(0, 4),
-    ?line ok = write_packets_32(Client, 1, 5),
+    {Client, Server} = socket_pair(0, 4),
+    ok = write_packets_32(Client, 1, 5),
     receive after 2000 -> ok end,
-    ?line ok = read_packets(Server, 1, 1),
+    ok = read_packets(Server, 1, 1),
     receive after 2000 -> ok end,
-    ?line ok = read_packets(Server, 2, 2),
-    ?line inet:setopts(Server, [{active, true}]),
-    ?line ok = receive_packets(Server, 3, 5),
+    ok = read_packets(Server, 2, 2),
+    inet:setopts(Server, [{active, true}]),
+    ok = receive_packets(Server, 3, 5),
     close_pair({Client, Server}),
     ok.
-    
+
 test_switch_active_partial() ->
-    ?line {Client, Server} = socket_pair(0, 4),
-    ?line ok = write_packets_32(Client, 1, 2),
-    ?line ok = gen_tcp:send(Client,[?int32(4), [0,0,0]]),
+    {Client, Server} = socket_pair(0, 4),
+    ok = write_packets_32(Client, 1, 2),
+    ok = gen_tcp:send(Client,[?int32(4), [0,0,0]]),
     receive after 2000 -> ok end,
-    ?line ok = read_packets(Server, 1, 1),
+    ok = read_packets(Server, 1, 1),
     receive after 2000 -> ok end,
-    ?line ok = read_packets(Server, 2, 2),
-    ?line inet:setopts(Server, [{active, true}]),
-    ?line ok = gen_tcp:send(Client,[3]),
-    ?line ok = write_packets_32(Client, 4, 5),
-    ?line ok = receive_packets(Server, 3, 5),
+    ok = read_packets(Server, 2, 2),
+    inet:setopts(Server, [{active, true}]),
+    ok = gen_tcp:send(Client,[3]),
+    ok = write_packets_32(Client, 4, 5),
+    ok = receive_packets(Server, 3, 5),
     close_pair({Client, Server}),
     ok.
-    
+
 do_test_switch_active_and_packet(SendBefore, SendAfter) ->
-    ?line {Client, Server} = socket_pair(0, 2),
-    ?line ok = write_packets_16(Client, 1, 2),
-    ?line ok = gen_tcp:send(Client,SendBefore),
+    {Client, Server} = socket_pair(0, 2),
+    ok = write_packets_16(Client, 1, 2),
+    ok = gen_tcp:send(Client,SendBefore),
     receive after 2000 -> ok end,
-    ?line ok = read_packets(Server, 1, 1),
+    ok = read_packets(Server, 1, 1),
     receive after 2000 -> ok end,
-    ?line ok = read_packets(Server, 2, 2),
-    ?line inet:setopts(Server, [{packet,4}, {active, true}]),
-    ?line ok = gen_tcp:send(Client,SendAfter),
-    ?line ok = write_packets_32(Client, 4, 5),
-    ?line ok = receive_packets(Server, 3, 5),
+    ok = read_packets(Server, 2, 2),
+    inet:setopts(Server, [{packet,4}, {active, true}]),
+    ok = gen_tcp:send(Client,SendAfter),
+    ok = write_packets_32(Client, 4, 5),
+    ok = receive_packets(Server, 3, 5),
     close_pair({Client, Server}),
     ok.
 
 test_switch_active_and_packet() ->
-    ?line ok = do_test_switch_active_and_packet([0],[0,0,4,0,0,0,3]),
-    ?line ok = do_test_switch_active_and_packet([0,0],[0,4,0,0,0,3]),
-    ?line ok = do_test_switch_active_and_packet([0,0,0],[4,0,0,0,3]),
-    ?line ok = do_test_switch_active_and_packet([0,0,0,4],[0,0,0,3]),
-    ?line ok = do_test_switch_active_and_packet([0,0,0,4,0],[0,0,3]),
-    ?line ok = do_test_switch_active_and_packet([0,0,0,4,0,0],[0,3]),
-    ?line ok = do_test_switch_active_and_packet([0,0,0,4,0,0,0],[3]),
-    ?line ok = do_test_switch_active_and_packet([0,0,0,4,0,0,0,3],[]),
+    ok = do_test_switch_active_and_packet([0],[0,0,4,0,0,0,3]),
+    ok = do_test_switch_active_and_packet([0,0],[0,4,0,0,0,3]),
+    ok = do_test_switch_active_and_packet([0,0,0],[4,0,0,0,3]),
+    ok = do_test_switch_active_and_packet([0,0,0,4],[0,0,0,3]),
+    ok = do_test_switch_active_and_packet([0,0,0,4,0],[0,0,3]),
+    ok = do_test_switch_active_and_packet([0,0,0,4,0,0],[0,3]),
+    ok = do_test_switch_active_and_packet([0,0,0,4,0,0,0],[3]),
+    ok = do_test_switch_active_and_packet([0,0,0,4,0,0,0,3],[]),
     ok.
 
 
@@ -200,181 +196,180 @@ test_switch_active_and_packet() ->
 %% Handshake tests
 %%
 pending_up_md5(Node,OurName,Cookie) ->
-    ?line {NA,NB} = split(Node),
-    ?line {port,PortNo,_} = erl_epmd:port_please(NA,NB),
-    ?line {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
-					  [{active,false},
-					   {packet,2}]),
-    ?line send_name(SocketA,OurName,5),
-    ?line ok = recv_status(SocketA),
-    ?line {hidden,Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
-    ?line OurChallengeA = gen_challenge(),
-    ?line OurDigestA = gen_digest(HisChallengeA, Cookie),
-    ?line send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
-    ?line ok = recv_challenge_ack(SocketA, OurChallengeA, Cookie),
-    %%%
-    %%% OK, one connection is up, now lets be nasty and try another up:
-    %%%
-    %%% But wait for a while, the other node might not have done setnode 
-    %%% just yet...
-    ?line receive after 1000 -> ok end,
-    ?line {ok, SocketB} = gen_tcp:connect(atom_to_list(NB),PortNo,
-					  [{active,false},
-					   {packet,2}]),
-    ?line send_name(SocketB,OurName,5),
-    ?line alive = recv_status(SocketB),
-    ?line send_status(SocketB, true),
-    ?line gen_tcp:close(SocketA),
-    ?line {hidden,Node,5,HisChallengeB} = recv_challenge(SocketB), % See 1)
-    ?line OurChallengeB = gen_challenge(),
-    ?line OurDigestB = gen_digest(HisChallengeB, Cookie),
-    ?line send_challenge_reply(SocketB, OurChallengeB, OurDigestB),
-    ?line ok = recv_challenge_ack(SocketB, OurChallengeB, Cookie),
-    %%%
-    %%% Well, are we happy?
-    %%%
-    
-    ?line inet:setopts(SocketB, [{active, false},
-				 {packet, 4}]),    
-    ?line gen_tcp:send(SocketB,build_rex_message('',OurName)),
-    ?line {Header, Message} = recv_message(SocketB),
-    ?line io:format("Received header ~p, data ~p.~n",
+    {NA,NB} = split(Node),
+    {port,PortNo,_} = erl_epmd:port_please(NA,NB),
+    {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
+				    [{active,false},
+				     {packet,2}]),
+    send_name(SocketA,OurName,5),
+    ok = recv_status(SocketA),
+    {hidden,Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    OurChallengeA = gen_challenge(),
+    OurDigestA = gen_digest(HisChallengeA, Cookie),
+    send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
+    ok = recv_challenge_ack(SocketA, OurChallengeA, Cookie),
+%%%
+%%% OK, one connection is up, now lets be nasty and try another up:
+%%%
+%%% But wait for a while, the other node might not have done setnode
+%%% just yet...
+    receive after 1000 -> ok end,
+    {ok, SocketB} = gen_tcp:connect(atom_to_list(NB),PortNo,
+				    [{active,false},
+				     {packet,2}]),
+    send_name(SocketB,OurName,5),
+    alive = recv_status(SocketB),
+    send_status(SocketB, true),
+    gen_tcp:close(SocketA),
+    {hidden,Node,5,HisChallengeB} = recv_challenge(SocketB), % See 1)
+    OurChallengeB = gen_challenge(),
+    OurDigestB = gen_digest(HisChallengeB, Cookie),
+    send_challenge_reply(SocketB, OurChallengeB, OurDigestB),
+    ok = recv_challenge_ack(SocketB, OurChallengeB, Cookie),
+%%%
+%%% Well, are we happy?
+%%%
+
+    inet:setopts(SocketB, [{active, false},
+			   {packet, 4}]),
+    gen_tcp:send(SocketB,build_rex_message('',OurName)),
+    {Header, Message} = recv_message(SocketB),
+    io:format("Received header ~p, data ~p.~n",
 	      [Header, Message]),
-    ?line gen_tcp:close(SocketB),
+    gen_tcp:close(SocketB),
     ok.
 
 simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
-    ?line pong = net_adm:ping(Node),
-    ?line LSocket = case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
+    pong = net_adm:ping(Node),
+    LSocket = case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
 		  {ok, Socket} ->
 		      Socket;
 		  Else ->
 		      exit(Else)
 	      end,
-    ?line EpmdSocket = register(OurName, LSocket, 1, 5),
-    ?line {NA, NB} = split(Node),
-    ?line rpc:cast(Node, net_adm, ping, [OurName]),
-    ?line receive after 1000 -> ok end,
-    ?line {port, PortNo, _} = erl_epmd:port_please(NA,NB),
-    ?line {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
-					  [{active,false},
-					   {packet,2}]),
-    ?line send_name(SocketA,OurName,5),
+    EpmdSocket = register(OurName, LSocket, 1, 5),
+    {NA, NB} = split(Node),
+    rpc:cast(Node, net_adm, ping, [OurName]),
+    receive after 1000 -> ok end,
+    {port, PortNo, _} = erl_epmd:port_please(NA,NB),
+    {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
+				    [{active,false},
+				     {packet,2}]),
+    send_name(SocketA,OurName,5),
     %% We are still not marked up on the other side, as our first message 
     %% is not sent.
-    ?line SocketB = case gen_tcp:accept(LSocket) of
+    SocketB = case gen_tcp:accept(LSocket) of
 		  {ok, Socket1} ->
-		      ?line Socket1;
+		      Socket1;
 		  Else2 ->
-		      ?line exit(Else2)
+		      exit(Else2)
 	      end,
-    ?line nok = recv_status(SocketA),
-    % Now we are expected to close A
-    ?line gen_tcp:close(SocketA),
-    % But still Socket B will continue
-    ?line {normal,Node,5} = recv_name(SocketB),  % See 1)
-    ?line send_status(SocketB, ok_simultaneous),
-    ?line MyChallengeB = gen_challenge(),
-    ?line send_challenge(SocketB, OurName, MyChallengeB,5),
-    ?line HisChallengeB = recv_challenge_reply(SocketB, MyChallengeB, Cookie),
-    ?line DigestB = gen_digest(HisChallengeB,Cookie),
-    ?line send_challenge_ack(SocketB, DigestB),
-    ?line inet:setopts(SocketB, [{active, false},
-			  {packet, 4}]),    
-    % This should be the ping message.
-    ?line {Header, Message} = recv_message(SocketB),
-    ?line io:format("Received header ~p, data ~p.~n",
+    nok = recv_status(SocketA),
+    %% Now we are expected to close A
+    gen_tcp:close(SocketA),
+    %% But still Socket B will continue
+    {normal,Node,5} = recv_name(SocketB),  % See 1)
+    send_status(SocketB, ok_simultaneous),
+    MyChallengeB = gen_challenge(),
+    send_challenge(SocketB, OurName, MyChallengeB,5),
+    HisChallengeB = recv_challenge_reply(SocketB, MyChallengeB, Cookie),
+    DigestB = gen_digest(HisChallengeB,Cookie),
+    send_challenge_ack(SocketB, DigestB),
+    inet:setopts(SocketB, [{active, false},
+			   {packet, 4}]),
+    %% This should be the ping message.
+    {Header, Message} = recv_message(SocketB),
+    io:format("Received header ~p, data ~p.~n",
 	      [Header, Message]),
-    ?line gen_tcp:close(SocketB),
-    ?line gen_tcp:close(LSocket),
-    ?line gen_tcp:close(EpmdSocket),
+    gen_tcp:close(SocketB),
+    gen_tcp:close(LSocket),
+    gen_tcp:close(EpmdSocket),
     ok;
-    
+
 simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
-    ?line pong = net_adm:ping(Node),
-    ?line LSocket = case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
-			{ok, Socket} ->
-			    ?line Socket;
-			Else ->
-			    ?line exit(Else)
-		    end,
-    ?line EpmdSocket = register(OurName, LSocket, 1, 5),
-    ?line {NA, NB} = split(Node),
-    ?line rpc:cast(Node, net_adm, ping, [OurName]),
-    ?line receive after 1000 -> ok end,
-    ?line {port, PortNo, _} = erl_epmd:port_please(NA,NB),
-    ?line {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
-					  [{active,false},
-					   {packet,2}]),
-    ?line SocketB = case gen_tcp:accept(LSocket) of
-		  {ok, Socket1} ->
-		      ?line Socket1;
-		  Else2 ->
-		      ?line exit(Else2)
+    pong = net_adm:ping(Node),
+    LSocket = case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
+		  {ok, Socket} ->
+		      Socket;
+		  Else ->
+		      exit(Else)
 	      end,
-    ?line send_name(SocketA,OurName,5),
-    ?line ok_simultaneous = recv_status(SocketA),
+    EpmdSocket = register(OurName, LSocket, 1, 5),
+    {NA, NB} = split(Node),
+    rpc:cast(Node, net_adm, ping, [OurName]),
+    receive after 1000 -> ok end,
+    {port, PortNo, _} = erl_epmd:port_please(NA,NB),
+    {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
+				    [{active,false},
+				     {packet,2}]),
+    SocketB = case gen_tcp:accept(LSocket) of
+		  {ok, Socket1} ->
+		      Socket1;
+		  Else2 ->
+		      exit(Else2)
+	      end,
+    send_name(SocketA,OurName,5),
+    ok_simultaneous = recv_status(SocketA),
     %% Socket B should die during this
-    ?line case catch begin
-			 ?line {normal,Node,5} = recv_name(SocketB),  % See 1)
-			 ?line send_status(SocketB, ok_simultaneous),
-			 ?line MyChallengeB = gen_challenge(),
-			 ?line send_challenge(SocketB, OurName, MyChallengeB,
-					      5),
-			 ?line HisChallengeB = recv_challenge_reply(
-						 SocketB, 
-						 MyChallengeB, 
-						 Cookie),
-			 ?line DigestB = gen_digest(HisChallengeB,Cookie),
-			 ?line send_challenge_ack(SocketB, DigestB),
-			 ?line inet:setopts(SocketB, [{active, false},
-						      {packet, 4}]),    
-			 ?line {HeaderB, MessageB} = recv_message(SocketB),
-			 ?line io:format("Received header ~p, data ~p.~n",
-					 [HeaderB, MessageB])
-		     end of
-	      {'EXIT', Exitcode} ->
-		  ?line io:format("Expected exitsignal caught: ~p.~n",
-				  [Exitcode]);
-	      Success ->
-		  ?line io:format("Unexpected success: ~p~n",
-				  [Success]),
-		  ?line exit(unexpected_success)
-	  end,
-    ?line gen_tcp:close(SocketB),
+    case catch begin
+		   {normal,Node,5} = recv_name(SocketB),  % See 1)
+		   send_status(SocketB, ok_simultaneous),
+		   MyChallengeB = gen_challenge(),
+		   send_challenge(SocketB, OurName, MyChallengeB,
+				  5),
+		   HisChallengeB = recv_challenge_reply(
+				     SocketB,
+				     MyChallengeB,
+				     Cookie),
+		   DigestB = gen_digest(HisChallengeB,Cookie),
+		   send_challenge_ack(SocketB, DigestB),
+		   inet:setopts(SocketB, [{active, false},
+					  {packet, 4}]),
+		   {HeaderB, MessageB} = recv_message(SocketB),
+		   io:format("Received header ~p, data ~p.~n",
+			     [HeaderB, MessageB])
+	       end of
+	{'EXIT', Exitcode} ->
+	    io:format("Expected exitsignal caught: ~p.~n",
+		      [Exitcode]);
+	Success ->
+	    io:format("Unexpected success: ~p~n",
+		      [Success]),
+	    exit(unexpected_success)
+    end,
+    gen_tcp:close(SocketB),
     %% But still Socket A will continue
-    ?line {hidden,Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
-    ?line OurChallengeA = gen_challenge(),
-    ?line OurDigestA = gen_digest(HisChallengeA, Cookie),
-    ?line send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
-    ?line ok = recv_challenge_ack(SocketA, OurChallengeA, Cookie),
-    
-    ?line inet:setopts(SocketA, [{active, false},
-				 {packet, 4}]),    
-    ?line gen_tcp:send(SocketA,build_rex_message('',OurName)),
-    ?line {Header, Message} = recv_message(SocketA),
-    ?line io:format("Received header ~p, data ~p.~n",
+    {hidden,Node,5,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    OurChallengeA = gen_challenge(),
+    OurDigestA = gen_digest(HisChallengeA, Cookie),
+    send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
+    ok = recv_challenge_ack(SocketA, OurChallengeA, Cookie),
+
+    inet:setopts(SocketA, [{active, false},
+			   {packet, 4}]),
+    gen_tcp:send(SocketA,build_rex_message('',OurName)),
+    {Header, Message} = recv_message(SocketA),
+    io:format("Received header ~p, data ~p.~n",
 	      [Header, Message]),
-    ?line gen_tcp:close(SocketA),
-    ?line gen_tcp:close(LSocket),
-    ?line gen_tcp:close(EpmdSocket),
+    gen_tcp:close(SocketA),
+    gen_tcp:close(LSocket),
+    gen_tcp:close(EpmdSocket),
     ok.
 
-missing_compulsory_dflags(doc) -> [];
 missing_compulsory_dflags(Config) when is_list(Config) ->
-    ?line [Name1, Name2] = get_nodenames(2, missing_compulsory_dflags),
-    ?line {ok, Node} = start_node(Name1,""),
-    ?line {NA,NB} = split(Node),
-    ?line {port,PortNo,_} = erl_epmd:port_please(NA,NB),
-    ?line {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
-					  [{active,false},
-					   {packet,2}]),
-    ?line BadNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
-    ?line send_name(SocketA,BadNode,5,0),
-    ?line not_allowed = recv_status(SocketA),
-    ?line gen_tcp:close(SocketA),
-    ?line stop_node(Node),
-    ?line ok.
+    [Name1, Name2] = get_nodenames(2, missing_compulsory_dflags),
+    {ok, Node} = start_node(Name1,""),
+    {NA,NB} = split(Node),
+    {port,PortNo,_} = erl_epmd:port_please(NA,NB),
+    {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
+				    [{active,false},
+				     {packet,2}]),
+    BadNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
+    send_name(SocketA,BadNode,5,0),
+    not_allowed = recv_status(SocketA),
+    gen_tcp:close(SocketA),
+    stop_node(Node),
+    ok.
 
 %%
 %% Here comes the utilities
@@ -437,7 +432,7 @@ socket_pair(ClientPack, ServerPack) ->
     {ok, Server} = gen_tcp:accept(Listen),
     gen_tcp:close(Listen),
     {Client, Server}.
-    
+
 close_pair({Client, Server}) ->
     gen_tcp:close(Client),
     gen_tcp:close(Server),
@@ -454,7 +449,7 @@ close_pair({Client, Server}) ->
 
 gen_challenge() ->
     rand:uniform(1000000).
-    
+
 %% Generate a message digest from Challenge number and Cookie	
 gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
     C0 = erlang:md5_init(),
@@ -595,15 +590,15 @@ do_register_node(NodeName, TcpPort, VLow, VHigh) ->
 	    Elen = length(Extra),
 	    Len = 1+2+1+1+2+2+2+length(Name)+2+Elen,
 	    gen_tcp:send(Socket, [?int16(Len), $x,
-				   ?int16(TcpPort),
-				   $M,
-				   0,
-				   ?int16(VHigh),
-				   ?int16(VLow),
-				   ?int16(length(Name)),
-				   Name,
-				   ?int16(Elen),
-				   Extra]),
+				  ?int16(TcpPort),
+				  $M,
+				  0,
+				  ?int16(VHigh),
+				  ?int16(VLow),
+				  ?int16(length(Name)),
+				  Name,
+				  ?int16(Elen),
+				  Extra]),
 	    case wait_for_reg_reply(Socket, []) of
 		{error, epmd_close} ->
 		    exit(epmd_broken);
@@ -666,11 +661,11 @@ split(Atom) ->
 build_rex_message(Cookie,OurName) ->
     [$?,term_to_binary({6,self(),Cookie,rex}),
      term_to_binary({'$gen_cast',
-		    {cast,
-		     rpc,
-		     cast,
-		     [OurName, hello, world, []],
-		     self()} })].
+		     {cast,
+		      rpc,
+		      cast,
+		      [OurName, hello, world, []],
+		      self()} })].
 
 %% Receive a distribution message    
 recv_message(Socket) ->
@@ -698,10 +693,10 @@ join(Name,Host) ->
 
 %% start/stop slave.
 start_node(Name, Param) ->
-    ?t:start_node(Name, slave, [{args, Param}]).
+    test_server:start_node(Name, slave, [{args, Param}]).
 
 stop_node(Node) ->
-    ?t:stop_node(Node).
+    test_server:stop_node(Node).
 
 
 get_nodenames(N, T) ->

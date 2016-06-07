@@ -16,7 +16,8 @@
 %%
 -module(et_SUITE).
 
--compile([export_all]).
+-export([suite/0, all/0]).
+-export([app/1, appup/1]).
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
@@ -25,27 +26,10 @@ suite() ->
 all() ->
     [app, appup].
 
-groups() ->
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-     ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-app() ->
-    [{doc, "Test that the et app file is ok"}].
+%% Test that the et app file is ok
 app(Config) when is_list(Config) ->
     ok = ?t:app_test(et).
 
-appup() ->
-    [{doc, "Test that the et appup file is ok"}].
+%% Test that the et appup file is ok
 appup(Config) when is_list(Config) ->
     ok = ?t:appup_test(et).

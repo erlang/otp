@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2013. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ atom false true
 atom Underscore='_'
 atom Noname='nonode@nohost'
 atom EOT='$end_of_table'
-atom Cookie=''
+atom Empty=''
 
 #
 # Used in the Beam emulator loop. (Smaller literals usually means tighter code.)
@@ -102,6 +102,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom await_microstate_accounting_modifications
 atom await_port_send_result
 atom await_proc_exit
 atom await_result
@@ -118,14 +119,15 @@ atom bif_timer_server
 atom binary
 atom binary_bin_to_list_trap
 atom binary_copy_trap
+atom binary_find_trap
 atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
-atom binary_match_trap
-atom binary_matches_trap
 atom binary_to_list_continue
 atom binary_to_term_trap
 atom block
+atom block_normal
 atom blocked
+atom blocked_normal
 atom bm
 atom bnot
 atom bor
@@ -159,6 +161,7 @@ atom close
 atom closed
 atom code
 atom command
+atom commandv
 atom compact
 atom compat_rel
 atom compile
@@ -173,6 +176,7 @@ atom const
 atom context_switches
 atom control
 atom copy
+atom counters
 atom cpu
 atom cpu_timestamp
 atom cr
@@ -189,9 +193,12 @@ atom dexit
 atom depth
 atom dgroup_leader
 atom dictionary
+atom dirty_cpu
 atom dirty_cpu_schedulers_online
+atom dirty_io
 atom disable_trace
 atom disabled
+atom discard
 atom display_items
 atom dist
 atom dist_cmd
@@ -210,7 +217,9 @@ atom dsend
 atom dsend_continue_trap
 atom dunlink
 atom duplicate_bag
+atom duplicated
 atom dupnames
+atom einval
 atom elib_malloc
 atom emulator
 atom enable_trace
@@ -219,11 +228,9 @@ atom endian
 atom env
 atom eof
 atom eol
-atom exception_from
-atom exception_trace
-atom extended
 atom Eq='=:='
 atom Eqeq='=='
+atom erl_tracer
 atom erlang
 atom ERROR='ERROR'
 atom error_handler
@@ -233,12 +240,19 @@ atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
 atom event
 atom exact_reductions
+atom exception_from
+atom exception_trace
 atom exclusive
 atom exit_status
 atom existing
+atom existing_processes
+atom existing_ports
+atom existing
 atom exiting
 atom exports
+atom extended
 atom external
+atom extra
 atom false
 atom fcgi
 atom fd
@@ -258,7 +272,13 @@ atom functions
 atom function_clause
 atom garbage_collecting
 atom garbage_collection
+atom garbage_collection_info
 atom gc_end
+atom gc_major_end
+atom gc_major_start
+atom gc_max_heap_size
+atom gc_minor_end
+atom gc_minor_start
 atom gc_start
 atom Ge='>='
 atom generational
@@ -268,6 +288,7 @@ atom get_tcw
 atom getenv
 atom gather_gc_info_result
 atom gather_io_bytes
+atom gather_microstate_accounting_result
 atom gather_sched_wall_time_result
 atom gather_system_check_result
 atom getting_linked
@@ -300,6 +321,7 @@ atom index
 atom infinity
 atom info
 atom info_msg
+atom init
 atom initial_call
 atom input
 atom internal
@@ -343,8 +365,10 @@ atom match
 atom match_limit
 atom match_limit_recursion
 atom match_spec
+atom match_spec_result
 atom max
 atom maximum
+atom max_heap_size
 atom max_tables max_processes
 atom mbuf_size
 atom md5
@@ -353,12 +377,14 @@ atom memory_internal
 atom memory_types
 atom message
 atom message_binary
+atom message_queue_data
 atom message_queue_len
 atom messages
 atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds
+atom microstate_accounting
 atom milli_seconds
 atom min_heap_size
 atom min_bin_vheap_size
@@ -388,6 +414,8 @@ atom net_kernel_terminated
 atom never_utf
 atom new
 atom new_index
+atom new_processes
+atom new_ports
 atom new_uniq
 atom newline
 atom next
@@ -427,10 +455,12 @@ atom notify
 atom notsup
 atom nouse_stdio
 atom objects
+atom off_heap
 atom offset
 atom ok
 atom old_heap_block_size
 atom old_heap_size
+atom on_heap
 atom on_load
 atom open
 atom open_error
@@ -441,13 +471,6 @@ atom orelse
 atom os_pid
 atom os_type
 atom os_version
-atom ose_bg_proc
-atom ose_int_proc
-atom ose_phantom
-atom ose_pri_proc
-atom ose_process_prio
-atom ose_process_type
-atom ose_ti_proc
 atom out
 atom out_exited
 atom out_exiting
@@ -532,6 +555,7 @@ atom scheme
 atom scientific
 atom scope
 atom seconds
+atom send_to_non_existing_process
 atom sensitive
 atom sequential_tracer
 atom sequential_trace_token
@@ -553,6 +577,7 @@ atom size
 atom sl_alloc
 atom spawn_executable
 atom spawn_driver
+atom spawned
 atom ssl_tls
 atom stack_size
 atom start
@@ -561,6 +586,7 @@ atom static
 atom stderr_to_stdout
 atom stop
 atom stream
+atom strict_monotonic
 atom strict_monotonic_timestamp
 atom sunrm
 atom suspend
@@ -588,10 +614,13 @@ atom total_active_tasks
 atom total_heap_size
 atom total_run_queue_lengths
 atom tpkt
-atom trace trace_ts traced 
+atom trace trace_ts traced
 atom trace_control_word
+atom trace_status
 atom tracer
 atom trap_exit
+atom trim
+atom trim_all
 atom try_clause
 atom true
 atom tuple
@@ -607,6 +636,7 @@ atom use_stdio
 atom used
 atom utf8
 atom unblock
+atom unblock_normal
 atom uniq
 atom unless_suspending
 atom unloaded

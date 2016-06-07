@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ init_per_suite(Config) ->
 	{{unix,sunos}, {5,8,_}} ->
 	    {skip, "Solaris 8 not supported for now"};
 	_ ->
-	    Priv = ?config(priv_dir, Config),
+	    Priv = proplists:get_value(priv_dir, Config),
 	    SFilename = filename:join(Priv, "sendfile_small.html"),
 	    {ok, DS} = file:open(SFilename,[write,raw]),
 	    file:write(DS,"yo baby yo"),

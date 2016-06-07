@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,8 +191,9 @@ parse_define([#xmlElement{name=initializer,content=Contents}|_R],Def,_Os) ->
     try
 	case Val0 of
 	    "0x" ++ Val1 ->
-		_ = list_to_integer(Val1, 16),
-		Def#def{val=Val1, type=hex};
+		Val2 = strip_type_cast(Val1),
+		_ = list_to_integer(Val2, 16),
+		Def#def{val=Val2, type=hex};
 	    _ ->
 		Val = list_to_integer(Val0),
 		Def#def{val=Val, type=int}
@@ -213,6 +214,15 @@ extract_def2([#xmlText{value=Val}|R]) ->
 extract_def2([#xmlElement{content=Cs}|R]) ->
     extract_def2(Cs) ++ extract_def2(R);
 extract_def2([]) -> [].
+
+strip_type_cast(Int) ->
+    lists:reverse(strip_type_cast2(lists:reverse(Int))).
+
+strip_type_cast2("u"++Rest) -> Rest; %% unsigned
+strip_type_cast2("lu"++Rest) -> Rest; %% unsigned  long
+strip_type_cast2("llu"++Rest) -> Rest; %% unsigned long long
+strip_type_cast2(Rest) -> Rest.
+
 
 strip_comment("/*" ++ Rest) ->
     strip_comment_until_end(Rest);

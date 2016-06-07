@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@ make_config(FileName) when is_list(FileName) ->
     case file:open(FileName, [write]) of
 	{ok, IODev} ->
 	    Res = req({make_config, IODev}),
-	    file:close(IODev),
+	    ok = file:close(IODev),
 	    Res;
 	Error ->
 	    Error
@@ -200,9 +200,11 @@ server_loop(State) ->
 			       Conf = #conf{segments = ?MBC_MSEG_LIMIT,
 					    format_to = IODev},
 			       Res = mk_config(Conf, State#state.alloc),
-			       From ! {response, Ref, Res};
+			       From ! {response, Ref, Res},
+                               ok;
 			   _ ->
-			       From ! {response, Ref, no_scenario_saved}
+			       From ! {response, Ref, no_scenario_saved},
+                               ok
 		       end,
 		       State;
 		   {request, From, Ref, stop} ->

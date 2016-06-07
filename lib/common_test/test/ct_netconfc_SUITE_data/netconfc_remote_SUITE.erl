@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 -compile(export_all).
 
 suite() ->
-    [{ct_hooks, [{cth_conn_log,[{ct_netconfc,[{log_type,html}]}]}]}].
+    [{timetrap,?default_timeout},
+     {ct_hooks, [{cth_conn_log,[{ct_netconfc,[{log_type,html}]}]}]}].
 
 all() ->
     case os:find_executable("ssh") of
@@ -48,13 +49,10 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Case, Config) ->
     stop_node(Case),
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(Case, Config) ->
+end_per_testcase(Case, _Config) ->
     stop_node(Case),
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 stop_node(Case) ->
@@ -64,19 +62,20 @@ stop_node(Case) ->
 
 
 init_per_suite(Config) ->
-    case {crypto:start(),ssh:start()} of
-	{ok,ok} ->
-	    {ok, _} =  netconfc_test_lib:get_id_keys(Config),
-	    netconfc_test_lib:make_dsa_files(Config),
-	    Config;
-	_ ->
-	    {skip, "Crypto and/or SSH could not be started locally!"}
+    case ssh:start() of
+	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+	    ct:log("SSH started locally",[]),
+	    SshDir = filename:join(filename:dirname(code:which(?MODULE)),
+				   "ssh_dir"),
+	    [{ssh_dir,SshDir}|Config];
+	Other ->
+	    ct:log("could not start ssh locally: ~p",[Other]),
+	    {skip, "SSH could not be started locally!"}
     end.
 
 end_per_suite(Config) ->
     ssh:stop(),
     crypto:stop(),
-    netconfc_test_lib:remove_id_keys(Config),
     Config.
 
 %% This test case is related to seq12645
@@ -87,17 +86,19 @@ remote_crash(Config) ->
     Pa = filename:dirname(code:which(?NS)),
     true = rpc:call(Node,code,add_patha,[Pa]),
     
-    case {rpc:call(Node,crypto,start,[]),rpc:call(Node,ssh,start,[])} of
-	{ok,ok} ->
-	    Server = rpc:call(Node,?NS,start,[?config(data_dir,Config)]),
+    case rpc:call(Node,ssh,start,[]) of
+	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+	    ct:log("SSH started remote",[]),
+	    ns(Node,start,[?config(ssh_dir,Config)]),
+	    ct:log("netconf server started remote",[]),
 	    remote_crash(Node,Config);
-	_ ->
-	    {skip, "Crypto and/or SSH could not be started remote!"}
+	Other ->
+	    ct:log("could not start ssh remote: ~p",[Other]),
+	    {skip, "SSH could not be started remote!"}
     end.
 
 remote_crash(Node,Config) ->
-    DataDir = ?config(data_dir,Config),
-    {ok,Client} = open_success(Node,DataDir),
+    {ok,Client} = open_success(Node,?config(ssh_dir,Config)),
 
     ns(Node,expect_reply,[{'create-subscription',[stream]},ok]),
     ?ok = ct_netconfc:create_subscription(Client),

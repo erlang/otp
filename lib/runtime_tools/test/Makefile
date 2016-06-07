@@ -4,10 +4,12 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES =  \
 	dyntrace_SUITE \
+	dyntrace_lttng_SUITE \
 	runtime_tools_SUITE \
 	system_information_SUITE \
 	dbg_SUITE \
-	erts_alloc_config_SUITE
+	erts_alloc_config_SUITE \
+	msacc_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -26,7 +28,7 @@ RELSYSDIR = $(RELEASE_PATH)/runtime_tools_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 EBIN = .
 

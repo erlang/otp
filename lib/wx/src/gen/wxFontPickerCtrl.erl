@@ -103,11 +103,11 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlwxfontpickerctrl">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxFontPickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {initial, wxFont:wxFont()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'initial', wxFont:wxFont()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -132,11 +132,11 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxFontPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {initial, wxFont:wxFont()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'initial', wxFont:wxFont()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxFontPickerCtrl),
@@ -160,7 +160,7 @@ getSelectedFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlsetselectedfont">external documentation</a>.
--spec setSelectedFont(This, F) -> ok when
+-spec setSelectedFont(This, F) -> 'ok' when
 	This::wxFontPickerCtrl(), F::wxFont:wxFont().
 setSelectedFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FT,ref=FRef}) ->
   ?CLASS(ThisT,wxFontPickerCtrl),
@@ -177,7 +177,7 @@ getMaxPointSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfontpickerctrl.html#wxfontpickerctrlsetmaxpointsize">external documentation</a>.
--spec setMaxPointSize(This, Max) -> ok when
+-spec setMaxPointSize(This, Max) -> 'ok' when
 	This::wxFontPickerCtrl(), Max::integer().
 setMaxPointSize(#wx_ref{type=ThisT,ref=ThisRef},Max)
  when is_integer(Max) ->
@@ -186,7 +186,7 @@ setMaxPointSize(#wx_ref{type=ThisT,ref=ThisRef},Max)
   <<ThisRef:32/?UI,Max:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFontPickerCtrl()) -> ok.
+-spec destroy(This::wxFontPickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFontPickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

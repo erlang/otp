@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,8 +31,7 @@
 %%--------------------------------------------------------------------
 
 suite() -> [{ct_hooks,[ts_install_cth]},
-	    {timetrap,{minutes,12}}].
-
+	    {timetrap,{seconds,40}}].
 
 all() -> [{group,default_algs},
 	  {group,aes_gcm}
@@ -83,7 +82,8 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 
 %%% Idle timeout test
-
+rekey() -> [{timetrap,{seconds,90}}].
+    
 rekey(Config) ->
     {Pid, Host, Port} = 
 	ssh_test_lib:std_daemon(Config,
@@ -105,11 +105,13 @@ rekey(Config) ->
 
 %%% Test rekeying by data volume
 
+rekey_limit() -> [{timetrap,{seconds,400}}].
+
 rekey_limit(Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "rekey.data"),
 
-    Algs = ?config(preferred_algorithms, Config),
+    Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							{preferred_algorithms,Algs}]),
 
@@ -152,10 +154,10 @@ rekey_limit(Config) ->
 %%% Test rekeying with simulataneous send request
 
 renegotiate1(Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate1.data"),
 
-    Algs = ?config(preferred_algorithms, Config),
+    Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							 {preferred_algorithms,Algs}]),
 
@@ -192,10 +194,10 @@ renegotiate1(Config) ->
 %%% Test rekeying with inflight messages from peer
 
 renegotiate2(Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate2.data"),
 
-    Algs = ?config(preferred_algorithms, Config),
+    Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							 {preferred_algorithms,Algs}]),
 
@@ -235,7 +237,7 @@ renegotiate2(Config) ->
 %% get_kex_init - helper function to get key_exchange_init_msg
 get_kex_init(Conn) ->
     %% First, validate the key exchange is complete (StateName == connected)
-    {connected,S} = sys:get_state(Conn),
+    {{connected,_},S} = sys:get_state(Conn),
     %% Next, walk through the elements of the #state record looking
     %% for the #ssh_msg_kexinit record. This method is robust against
     %% changes to either record. The KEXINIT message contains a cookie

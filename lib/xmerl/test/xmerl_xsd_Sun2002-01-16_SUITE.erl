@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("xmerl/include/xmerl_xsd.hrl").
 
@@ -48,53 +48,41 @@ all() ->
      'Sun-xsiType-block-2', 'Sun-xsiType-block-3',
      'Sun-xsiType-block-4', 'Sun-type-and-subst-1'].
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
+suite() ->
+    [{timetrap,{minutes,3}}].
 
 %% initialization before the test suite
 init_per_suite(Config) ->
-  Dog=test_server:timetrap({minutes,10}),
-  xmerl_xsd_lib:unpack(Config,sun),
-  {ok,LogFile} = xmerl_xsd_lib:create_error_log_file(Config,sun),
-  test_server:timetrap_cancel(Dog),
-  [{suite,sun},{xmerl_error_log,LogFile}|Config].
+    ct:timetrap({minutes,10}),
+    xmerl_xsd_lib:unpack(Config,sun),
+    {ok,LogFile} = xmerl_xsd_lib:create_error_log_file(Config,sun),
+    [{suite,sun},{xmerl_error_log,LogFile}|Config].
 
 end_per_suite(Config) ->
-  xmerl_xsd_lib:rmdir(Config,sun),
-  xmerl_xsd_lib:close_error_log_file(Config),
-  ok.
+    xmerl_xsd_lib:rmdir(Config,sun),
+    xmerl_xsd_lib:close_error_log_file(Config),
+    ok.
 
 %% initialization before each testcase
 init_per_testcase(TestCase,Config) ->
-  Dog=test_server:timetrap({minutes,3}),
-  [{testcase,TestCase},{watchdog, Dog}|Config].
+    [{testcase,TestCase}|Config].
 
 %% clean up after each testcase
-end_per_testcase(_Func,Config) ->
-  Dog=?config(watchdog, Config),
-  test_server:timetrap_cancel(Dog),
-  ok.
+end_per_testcase(_Func,_Config) ->
+    ok.
 
 %% ID Constranints. Very naive test of identity constraint
 'Sun-idc001.nogen'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc001.nogen.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc001.nogen.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc001.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc001.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc001.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc001.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc001.nogen.v01.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc001.nogen.v01.xml','./suntest/SunTestsAll',valid,S0),
   ITResList3 = [ITRes2|ITResList2],
 
 
@@ -104,7 +92,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-idc002.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc002.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc002.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -114,7 +102,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-idc002b.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc002b.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc002b.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -124,7 +112,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-idc003.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc003.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc003.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -134,18 +122,18 @@ end_per_testcase(_Func,Config) ->
 'Sun-idc004.nogen'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc004.nogen.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc004.nogen.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n03.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.n03.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc004.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList5 = [ITRes4|ITResList4],
 
 
@@ -155,7 +143,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-idc004a.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc004a.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc004a.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -165,14 +153,14 @@ end_per_testcase(_Func,Config) ->
 'Sun-idc005.nogen'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc005.nogen.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc005.nogen.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc005.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc005.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc005.nogen.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc005.nogen.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc005.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc005.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList3 = [ITRes2|ITResList2],
 
 
@@ -182,14 +170,14 @@ end_per_testcase(_Func,Config) ->
 'Sun-idc006.nogen'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc006.nogen.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/idc006.nogen.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc006.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc006.nogen.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc006.nogen.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc006.nogen.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc006.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/idc006.nogen.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList3 = [ITRes2|ITResList2],
 
 
@@ -199,32 +187,32 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd001'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd001.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd001.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n03.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n03.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n04.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n04.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
-  ?line ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n05.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n05.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList6 = [ITRes5|ITResList5],
-  ?line ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n06.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n06.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList7 = [ITRes6|ITResList6],
-  ?line ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n07.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.n07.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList8 = [ITRes7|ITResList7],
-  ?line ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList9 = [ITRes8|ITResList8],
-  ?line ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v01.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v01.xml','./suntest/SunTestsAll',valid,S0),
   ITResList10 = [ITRes9|ITResList9],
-  ?line ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v02.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v02.xml','./suntest/SunTestsAll',valid,S0),
   ITResList11 = [ITRes10|ITResList10],
-  ?line ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v03.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd001.v03.xml','./suntest/SunTestsAll',valid,S0),
   ITResList12 = [ITRes11|ITResList11],
 
 
@@ -234,18 +222,18 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd002'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd002.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd002.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.v01.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd002.v01.xml','./suntest/SunTestsAll',valid,S0),
   ITResList5 = [ITRes4|ITResList4],
 
 
@@ -255,7 +243,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd003-1.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003-1.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003-1.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -265,7 +253,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd003-2.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003-2.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003-2.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -275,10 +263,10 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd003a'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003a.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003a.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003a.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003a.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList1 = [ITRes0|ITResList0],
 
 
@@ -288,16 +276,16 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd003b'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003b.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd003b.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.v01.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd003b.v01.xml','./suntest/SunTestsAll',valid,S0),
   ITResList4 = [ITRes3|ITResList3],
 
 
@@ -307,36 +295,36 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd004'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd004.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd004.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n03.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n03.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n04.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n04.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
-  ?line ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n05.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n05.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList6 = [ITRes5|ITResList5],
-  ?line ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n06.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n06.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList7 = [ITRes6|ITResList6],
-  ?line ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n07.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n07.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList8 = [ITRes7|ITResList7],
-  ?line ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n08.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n08.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList9 = [ITRes8|ITResList8],
-  ?line ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n09.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n09.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList10 = [ITRes9|ITResList9],
-  ?line ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n10.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n10.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList11 = [ITRes10|ITResList10],
-  ?line ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n11.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n11.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList12 = [ITRes11|ITResList11],
-  ?line ITRes12 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n12.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes12 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.n12.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList13 = [ITRes12|ITResList12],
-  ?line ITRes13 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes13 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd004.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList14 = [ITRes13|ITResList13],
 
 
@@ -346,24 +334,24 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd005'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd005.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd005.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n03.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n03.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n04.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n04.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
-  ?line ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n05.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n05.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList6 = [ITRes5|ITResList5],
-  ?line ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n06.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.n06.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList7 = [ITRes6|ITResList6],
-  ?line ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd005.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList8 = [ITRes7|ITResList7],
 
 
@@ -373,32 +361,32 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd006'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd006.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd006.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n03.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n03.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n04.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n04.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
-  ?line ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n05.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n05.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList6 = [ITRes5|ITResList5],
-  ?line ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n06.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n06.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList7 = [ITRes6|ITResList6],
-  ?line ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n07.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n07.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList8 = [ITRes7|ITResList7],
-  ?line ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n08.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n08.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList9 = [ITRes8|ITResList8],
-  ?line ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n09.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n09.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList10 = [ITRes9|ITResList9],
-  ?line ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n10.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.n10.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList11 = [ITRes10|ITResList10],
-  ?line ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.v00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd006.v00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList12 = [ITRes11|ITResList11],
 
 
@@ -408,16 +396,16 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd008'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd008.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd008.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd008.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList4 = [ITRes3|ITResList3],
 
 
@@ -427,20 +415,20 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd011'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd011.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd011.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n03.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n03.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n04.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.n04.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
-  ?line ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.v00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd011.v00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList6 = [ITRes5|ITResList5],
 
 
@@ -450,12 +438,12 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd012'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd012.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd012.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd012.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd012.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd012.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd012.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList2 = [ITRes1|ITResList1],
 
 
@@ -465,7 +453,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd013.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd013.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd013.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -475,7 +463,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd014.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd014.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd014.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -485,7 +473,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd015.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd015.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd015.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -495,7 +483,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd016.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd016.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd016.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -505,7 +493,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd017.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd017.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd017.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -515,7 +503,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd018.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd018.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd018.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -525,7 +513,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd019.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd019.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd019.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -535,7 +523,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd020.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -545,7 +533,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd020-2.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020-2.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020-2.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -555,7 +543,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd020-3.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020-3.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020-3.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -565,7 +553,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd020-4.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020-4.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd020-4.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -575,34 +563,34 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd021'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd021.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd021.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n01.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n01.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n02.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n02.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n03.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n03.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n04.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n04.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
-  ?line ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n05.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n05.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList6 = [ITRes5|ITResList5],
-  ?line ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n06.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n06.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList7 = [ITRes6|ITResList6],
-  ?line ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n07.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n07.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList8 = [ITRes7|ITResList7],
-  ?line ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n08.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n08.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList9 = [ITRes8|ITResList8],
-  ?line ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n09.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n09.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList10 = [ITRes9|ITResList9],
-  ?line ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n10.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n10.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList11 = [ITRes10|ITResList10],
-  ?line ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n11.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.n11.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList12 = [ITRes11|ITResList11],
-  ?line ITRes12 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes12 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd021.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList13 = [ITRes12|ITResList12],
 
 
@@ -612,12 +600,12 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd022'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd022.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd022.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd022.n00.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd022.n00.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd022.v00.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsd022.v00.xml','./suntest/SunTestsAll',valid,S0),
   ITResList2 = [ITRes1|ITResList1],
 
 
@@ -627,7 +615,7 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsd023.e'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd023.e.xsd','./suntest/SunTestsAll',invalid),
+  {STRes0,_} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsd023.e.xsd','./suntest/SunTestsAll',invalid),
   STResList1 = [STRes0|STResList0],
 
 
@@ -637,12 +625,12 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsiType1'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType1.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType1.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType1.v1.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType1.v1.xml','./suntest/SunTestsAll',valid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType1.n1.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType1.n1.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
 
 
@@ -652,18 +640,18 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsiType-block-1'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-1.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-1.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.v1.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.v1.xml','./suntest/SunTestsAll',valid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n1.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n1.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n2.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n2.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n3.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n3.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n4.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-1.n4.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
 
 
@@ -673,18 +661,18 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsiType-block-2'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-2.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-2.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.v1.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.v1.xml','./suntest/SunTestsAll',valid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n1.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n1.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n2.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n2.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n3.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n3.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n4.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-2.n4.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
 
 
@@ -694,18 +682,18 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsiType-block-3'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-3.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-3.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.v1.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.v1.xml','./suntest/SunTestsAll',valid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n1.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n1.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n2.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n2.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n3.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n3.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n4.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-3.n4.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
 
 
@@ -715,18 +703,18 @@ end_per_testcase(_Func,Config) ->
 'Sun-xsiType-block-4'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-4.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/xsiType-block-4.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.v1.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.v1.xml','./suntest/SunTestsAll',valid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n1.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n1.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n2.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n2.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n3.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n3.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n4.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/xsiType-block-4.n4.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
 
 
@@ -736,78 +724,76 @@ end_per_testcase(_Func,Config) ->
 'Sun-type-and-subst-1'(Config) when is_list(Config) ->
   STResList0 = [],
 
-  ?line {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/type-and-subst-1.xsd','./suntest/SunTestsAll',valid),
+  {STRes0,S0} = xmerl_xsd_lib:schema_test(Config,'./suntest/SunTestsAll/type-and-subst-1.xsd','./suntest/SunTestsAll',valid),
   STResList1 = [STRes0|STResList0],
   ITResList0 = [],
-  ?line ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.v1.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes0 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.v1.xml','./suntest/SunTestsAll',valid,S0),
   ITResList1 = [ITRes0|ITResList0],
-  ?line ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.v2.xml','./suntest/SunTestsAll',valid,S0),
+  ITRes1 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.v2.xml','./suntest/SunTestsAll',valid,S0),
   ITResList2 = [ITRes1|ITResList1],
-  ?line ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n1.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes2 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n1.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList3 = [ITRes2|ITResList2],
-  ?line ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n2.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes3 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n2.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList4 = [ITRes3|ITResList3],
-  ?line ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n3.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes4 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n3.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList5 = [ITRes4|ITResList4],
-  ?line ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n4.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes5 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n4.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList6 = [ITRes5|ITResList5],
-  ?line ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n5.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes6 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n5.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList7 = [ITRes6|ITResList6],
-  ?line ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n6.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes7 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n6.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList8 = [ITRes7|ITResList7],
-  ?line ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n7.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes8 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n7.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList9 = [ITRes8|ITResList8],
-  ?line ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n8.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes9 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n8.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList10 = [ITRes9|ITResList9],
-  ?line ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n9.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes10 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n9.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList11 = [ITRes10|ITResList10],
-  ?line ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n10.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes11 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n10.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList12 = [ITRes11|ITResList11],
-  ?line ITRes12 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n11.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes12 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n11.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList13 = [ITRes12|ITResList12],
-  ?line ITRes13 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n12.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes13 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n12.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList14 = [ITRes13|ITResList13],
-  ?line ITRes14 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n13.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes14 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n13.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList15 = [ITRes14|ITResList14],
-  ?line ITRes15 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n14.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes15 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n14.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList16 = [ITRes15|ITResList15],
-  ?line ITRes16 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n15.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes16 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n15.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList17 = [ITRes16|ITResList16],
-  ?line ITRes17 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n16.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes17 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n16.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList18 = [ITRes17|ITResList17],
-  ?line ITRes18 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n17.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes18 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n17.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList19 = [ITRes18|ITResList18],
-  ?line ITRes19 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n18.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes19 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n18.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList20 = [ITRes19|ITResList19],
-  ?line ITRes20 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n19.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes20 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n19.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList21 = [ITRes20|ITResList20],
-  ?line ITRes21 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n20.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes21 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n20.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList22 = [ITRes21|ITResList21],
-  ?line ITRes22 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n21.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes22 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n21.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList23 = [ITRes22|ITResList22],
-  ?line ITRes23 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n22.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes23 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n22.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList24 = [ITRes23|ITResList23],
-  ?line ITRes24 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n23.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes24 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n23.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList25 = [ITRes24|ITResList24],
-  ?line ITRes25 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n24.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes25 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n24.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList26 = [ITRes25|ITResList25],
-  ?line ITRes26 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n25.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes26 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n25.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList27 = [ITRes26|ITResList26],
-  ?line ITRes27 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n26.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes27 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n26.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList28 = [ITRes27|ITResList27],
-  ?line ITRes28 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n27.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes28 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n27.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList29 = [ITRes28|ITResList28],
-  ?line ITRes29 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n28.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes29 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n28.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList30 = [ITRes29|ITResList29],
-  ?line ITRes30 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n29.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes30 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n29.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList31 = [ITRes30|ITResList30],
-  ?line ITRes31 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n30.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes31 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n30.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList32 = [ITRes31|ITResList31],
-  ?line ITRes32 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n31.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes32 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n31.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList33 = [ITRes32|ITResList32],
-  ?line ITRes33 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n32.xml','./suntest/SunTestsAll',invalid,S0),
+  ITRes33 = xmerl_xsd_lib:instance_test(Config,'./suntest/SunTestsAll/type-and-subst-1.n32.xml','./suntest/SunTestsAll',invalid,S0),
   ITResList34 = [ITRes33|ITResList33],
 
-
   xmerl_xsd_lib:compare_test_results(Config,STResList1,ITResList34).
-

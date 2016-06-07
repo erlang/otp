@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ compile_cmdline() ->
 	_ -> my_halt(2)
     end.
 
+-spec my_halt(_) -> no_return().
 my_halt(Reason) ->
     erlang:halt(Reason).
 

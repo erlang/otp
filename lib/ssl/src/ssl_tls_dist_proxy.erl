@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,7 +116,8 @@ handle_call({listen, Driver, Name}, _From, State) ->
 	    {ok, TcpAddress} = get_tcp_address(Socket),
 	    {ok, WorldTcpAddress} = get_tcp_address(World),
 	    {_,Port} = WorldTcpAddress#net_address.address,
-	    case erl_epmd:register_node(Name, Port) of
+	    ErlEpmd = net_kernel:epmd_module(),
+	    case ErlEpmd:register_node(Name, Port) of
 		{ok, Creation} ->
 		    {reply, {ok, {Socket, TcpAddress, Creation}},
 		     State#state{listen={Socket, World}}};
@@ -195,6 +196,11 @@ accept_loop(Proxy, erts = Type, Listen, Extra) ->
 		{_Kernel, unsupported_protocol} ->
 		    exit(unsupported_protocol)
 	    end;
+	{error, closed} ->
+	    %% The listening socket is closed: the proxy process is
+	    %% shutting down.  Exit normally, to avoid generating a
+	    %% spurious error report.
+	    exit(normal);
 	Error ->
 	    exit(Error)
     end,
@@ -396,6 +402,18 @@ ssl_options(server, ["server_verify", Value|T]) ->
     [{verify, atomize(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_verify", Value|T]) ->
     [{verify, atomize(Value)} | ssl_options(client,T)];
+ssl_options(server, ["server_verify_fun", Value|T]) ->
+    [{verify_fun, verify_fun(Value)} | ssl_options(server,T)];
+ssl_options(client, ["client_verify_fun", Value|T]) ->
+    [{verify_fun, verify_fun(Value)} | ssl_options(client,T)];
+ssl_options(server, ["server_crl_check", Value|T]) ->
+    [{crl_check, atomize(Value)} | ssl_options(server,T)];
+ssl_options(client, ["client_crl_check", Value|T]) ->
+    [{crl_check, atomize(Value)} | ssl_options(client,T)];
+ssl_options(server, ["server_crl_cache", Value|T]) ->
+    [{crl_cache, termify(Value)} | ssl_options(server,T)];
+ssl_options(client, ["client_crl_cache", Value|T]) ->
+    [{crl_cache, termify(Value)} | ssl_options(client,T)];
 ssl_options(server, ["server_reuse_sessions", Value|T]) ->
     [{reuse_sessions, atomize(Value)} | ssl_options(server,T)];
 ssl_options(client, ["client_reuse_sessions", Value|T]) ->
@@ -420,13 +438,27 @@ ssl_options(server, ["server_dhfile", Value|T]) ->
     [{dhfile, Value} | ssl_options(server,T)];
 ssl_options(server, ["server_fail_if_no_peer_cert", Value|T]) ->
     [{fail_if_no_peer_cert, atomize(Value)} | ssl_options(server,T)];
-ssl_options(_,_) ->
-    exit(malformed_ssl_dist_opt).
+ssl_options(Type, Opts) ->
+    error(malformed_ssl_dist_opt, [Type, Opts]).
 
 atomize(List) when is_list(List) ->
     list_to_atom(List);
 atomize(Atom) when is_atom(Atom) ->
     Atom.
+
+termify(String) when is_list(String) ->
+    {ok, Tokens, _} = erl_scan:string(String ++ "."),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    Term.
+
+verify_fun(Value) ->
+    case termify(Value) of
+	{Mod, Func, State} when is_atom(Mod), is_atom(Func) ->
+	    Fun = fun Mod:Func/3,
+	    {Fun, State};
+	_ ->
+	    error(malformed_ssl_dist_opt, [Value])
+    end.
 
 flush_old_controller(Pid, Socket) ->
     receive

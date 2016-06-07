@@ -97,8 +97,8 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarwxstatusbar">external documentation</a>.
 -spec new(Parent, [Option]) -> wxStatusBar() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {winid, integer()}
-		 | {style, integer()}.
+	Option :: {'winid', integer()}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -120,8 +120,8 @@ create(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxStatusBar(), Parent::wxWindow:wxWindow(),
-	Option :: {winid, integer()}
-		 | {style, integer()}.
+	Option :: {'winid', integer()}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -162,7 +162,7 @@ getStatusText(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbargetstatustext">external documentation</a>.
 -spec getStatusText(This, [Option]) -> unicode:charlist() when
 	This::wxStatusBar(),
-	Option :: {number, integer()}.
+	Option :: {'number', integer()}.
 getStatusText(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -173,7 +173,7 @@ getStatusText(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @equiv popStatusText(This, [])
--spec popStatusText(This) -> ok when
+-spec popStatusText(This) -> 'ok' when
 	This::wxStatusBar().
 
 popStatusText(This)
@@ -181,9 +181,9 @@ popStatusText(This)
   popStatusText(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarpopstatustext">external documentation</a>.
--spec popStatusText(This, [Option]) -> ok when
+-spec popStatusText(This, [Option]) -> 'ok' when
 	This::wxStatusBar(),
-	Option :: {number, integer()}.
+	Option :: {'number', integer()}.
 popStatusText(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -194,7 +194,7 @@ popStatusText(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @equiv pushStatusText(This,Text, [])
--spec pushStatusText(This, Text) -> ok when
+-spec pushStatusText(This, Text) -> 'ok' when
 	This::wxStatusBar(), Text::unicode:chardata().
 
 pushStatusText(This,Text)
@@ -202,9 +202,9 @@ pushStatusText(This,Text)
   pushStatusText(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarpushstatustext">external documentation</a>.
--spec pushStatusText(This, Text, [Option]) -> ok when
+-spec pushStatusText(This, Text, [Option]) -> 'ok' when
 	This::wxStatusBar(), Text::unicode:chardata(),
-	Option :: {number, integer()}.
+	Option :: {'number', integer()}.
 pushStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -216,7 +216,7 @@ pushStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @equiv setFieldsCount(This,Number, [])
--spec setFieldsCount(This, Number) -> ok when
+-spec setFieldsCount(This, Number) -> 'ok' when
 	This::wxStatusBar(), Number::integer().
 
 setFieldsCount(This,Number)
@@ -224,9 +224,9 @@ setFieldsCount(This,Number)
   setFieldsCount(This,Number, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetfieldscount">external documentation</a>.
--spec setFieldsCount(This, Number, [Option]) -> ok when
+-spec setFieldsCount(This, Number, [Option]) -> 'ok' when
 	This::wxStatusBar(), Number::integer(),
-	Option :: {widths, [integer()]}.
+	Option :: {'widths', [integer()]}.
 setFieldsCount(#wx_ref{type=ThisT,ref=ThisRef},Number, Options)
  when is_integer(Number),is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -238,7 +238,7 @@ setFieldsCount(#wx_ref{type=ThisT,ref=ThisRef},Number, Options)
   <<ThisRef:32/?UI,Number:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetminheight">external documentation</a>.
--spec setMinHeight(This, Height) -> ok when
+-spec setMinHeight(This, Height) -> 'ok' when
 	This::wxStatusBar(), Height::integer().
 setMinHeight(#wx_ref{type=ThisT,ref=ThisRef},Height)
  when is_integer(Height) ->
@@ -247,7 +247,7 @@ setMinHeight(#wx_ref{type=ThisT,ref=ThisRef},Height)
   <<ThisRef:32/?UI,Height:32/?UI>>).
 
 %% @equiv setStatusText(This,Text, [])
--spec setStatusText(This, Text) -> ok when
+-spec setStatusText(This, Text) -> 'ok' when
 	This::wxStatusBar(), Text::unicode:chardata().
 
 setStatusText(This,Text)
@@ -255,9 +255,9 @@ setStatusText(This,Text)
   setStatusText(This,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatustext">external documentation</a>.
--spec setStatusText(This, Text, [Option]) -> ok when
+-spec setStatusText(This, Text, [Option]) -> 'ok' when
 	This::wxStatusBar(), Text::unicode:chardata(),
-	Option :: {number, integer()}.
+	Option :: {'number', integer()}.
 setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -269,7 +269,7 @@ setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatuswidths">external documentation</a>.
--spec setStatusWidths(This, Widths_field) -> ok when
+-spec setStatusWidths(This, Widths_field) -> 'ok' when
 	This::wxStatusBar(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
  when is_list(Widths_field) ->
@@ -279,7 +279,7 @@ setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
         (<< <<C:32/?I>> || C <- Widths_field>>)/binary, 0:(((0+length(Widths_field)) rem 2)*32)>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstatusbar.html#wxstatusbarsetstatusstyles">external documentation</a>.
--spec setStatusStyles(This, Styles) -> ok when
+-spec setStatusStyles(This, Styles) -> 'ok' when
 	This::wxStatusBar(), Styles::[integer()].
 setStatusStyles(#wx_ref{type=ThisT,ref=ThisRef},Styles)
  when is_list(Styles) ->
@@ -289,7 +289,7 @@ setStatusStyles(#wx_ref{type=ThisT,ref=ThisRef},Styles)
         (<< <<C:32/?I>> || C <- Styles>>)/binary, 0:(((0+length(Styles)) rem 2)*32)>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStatusBar()) -> ok.
+-spec destroy(This::wxStatusBar()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStatusBar),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

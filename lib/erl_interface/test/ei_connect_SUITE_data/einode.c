@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #endif
 
 #include "ei.h"
+#include "erl_interface.h"
 
 #ifdef VXWORKS
 #define MAIN cnode
@@ -114,6 +115,8 @@ MAIN(int argc, char *argv[])
 
     if (argc < 3)
 	exit(1);
+
+    erl_init(NULL, 0);
 
     cookie = argv[1];
     n = atoi(argv[2]);

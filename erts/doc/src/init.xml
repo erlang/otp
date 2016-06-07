@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -178,14 +178,8 @@
       <name name="stop" arity="0"/>
       <fsummary>Take down an Erlang node smoothly</fsummary>
       <desc>
-        <p>All applications are taken down smoothly, all code is
-          unloaded, and all ports are closed before the system
-          terminates. If the <c>-heart</c> command line flag was given, 
-          the <c>heart</c> program is terminated before the Erlang node
-          terminates. Refer to <c>heart(3)</c> for more information.</p>
-        <p>To limit the shutdown time, the time <c>init</c> is allowed
-          to spend taking down applications, the <c>-shutdown_time</c>
-          command line flag should be used.</p>
+        <p>The same as
+	<seealso marker="#stop/1"><c>stop(0)</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -241,16 +235,18 @@
          marker="kernel:code">code(3)</seealso>.</p>
 	 
       </item>
+      <tag><c>-epmd_module Module</c></tag>
+      <item>
+        <p>Specifies the module to use for registration and lookup of
+          node names.  Defaults to <c>erl_epmd</c>.</p>
+      </item>
       <tag><c>-eval Expr</c></tag>
       <item>
         <p>Scans, parses and evaluates an arbitrary expression
           <c>Expr</c> during system initialization. If any of these
           steps fail (syntax error, parse error or exception during
           evaluation), Erlang stops with an error message. Here is an
-          example that seeds the random number generator:</p>
-        <pre>
-% <input>erl -eval '{X,Y,Z} = now(), random:seed(X,Y,Z).'</input></pre>
-        <p>This example uses Erlang as a hexadecimal calculator:</p>
+          example that uses Erlang as a hexadecimal calculator:</p>
         <pre>
 % <input>erl -noshell -eval 'R = 16#1F+16#A0, io:format("~.16B~n", [R])' \\</input>
 <input>-s erlang halt</input>

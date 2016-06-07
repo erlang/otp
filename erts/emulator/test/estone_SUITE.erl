@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@
 
 -module(estone_SUITE).
 %% Test functions
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,estone/1,estone_bench/1]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0,
+	 estone/1, estone_bench/1]).
 
 %% Internal exports for EStone tests
 -export([lists/1,
@@ -46,11 +45,8 @@
 	 run_micro/3,p1/1,ppp/3,macro/2,micros/0]).
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
-
-%% Test suite defines
--define(default_timeout, ?t:minutes(10)).
 
 %% EStone defines
 -define(TOTAL, (3000 * 1000 * 100)).   %% 300 secs
@@ -66,17 +62,9 @@
 	 str}).    %% Header string
 
 
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [estone].
@@ -84,34 +72,18 @@ all() ->
 groups() -> 
     [{estone_bench, [{repeat,50}],[estone_bench]}].
 
-init_per_suite(Config) ->
-    Config.
 
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-estone(suite) ->
-    [];
-estone(doc) ->
-    ["EStone Test"];
+%% EStone Test
 estone(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line Mhz=get_cpu_speed(os:type(),DataDir),
-    ?line L = ?MODULE:macro(?MODULE:micros(),DataDir),
-    ?line {Total, Stones} = sum_micros(L, 0, 0),
-    ?line pp(Mhz,Total,Stones,L),
-    ?line {comment,Mhz ++ " MHz, " ++ 
-	   integer_to_list(Stones) ++ " ESTONES"}.
+    DataDir = proplists:get_value(data_dir,Config),
+    Mhz=get_cpu_speed(os:type(),DataDir),
+    L = ?MODULE:macro(?MODULE:micros(),DataDir),
+    {Total, Stones} = sum_micros(L, 0, 0),
+    pp(Mhz,Total,Stones,L),
+    {comment,Mhz ++ " MHz, " ++ integer_to_list(Stones) ++ " ESTONES"}.
 
 estone_bench(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     L = ?MODULE:macro(?MODULE:micros(),DataDir),
     [ct_event:notify(
        #event{name = benchmark_data, 
@@ -1136,4 +1108,3 @@ wait_for_pids([P|Tail]) ->
 
 send_procs([P|Tail], Msg) -> P ! Msg, send_procs(Tail, Msg);
 send_procs([], _) -> ok.
-			     

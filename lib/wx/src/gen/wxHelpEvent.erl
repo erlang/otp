@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhelpevent.html#wxhelpeventsetorigin">external documentation</a>.
 %%<br /> Origin = ?wxHelpEvent_Origin_Unknown | ?wxHelpEvent_Origin_Keyboard | ?wxHelpEvent_Origin_HelpButton
--spec setOrigin(This, Origin) -> ok when
+-spec setOrigin(This, Origin) -> 'ok' when
 	This::wxHelpEvent(), Origin::wx:wx_enum().
 setOrigin(#wx_ref{type=ThisT,ref=ThisRef},Origin)
  when is_integer(Origin) ->
@@ -72,7 +72,7 @@ setOrigin(#wx_ref{type=ThisT,ref=ThisRef},Origin)
   <<ThisRef:32/?UI,Origin:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhelpevent.html#wxhelpeventsetposition">external documentation</a>.
--spec setPosition(This, Pos) -> ok when
+-spec setPosition(This, Pos) -> 'ok' when
 	This::wxHelpEvent(), Pos::{X::integer(), Y::integer()}.
 setPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->

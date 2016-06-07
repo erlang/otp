@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ getLoggingOff(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventsetcanveto">external documentation</a>.
--spec setCanVeto(This, CanVeto) -> ok when
+-spec setCanVeto(This, CanVeto) -> 'ok' when
 	This::wxCloseEvent(), CanVeto::boolean().
 setCanVeto(#wx_ref{type=ThisT,ref=ThisRef},CanVeto)
  when is_boolean(CanVeto) ->
@@ -70,7 +70,7 @@ setCanVeto(#wx_ref{type=ThisT,ref=ThisRef},CanVeto)
   <<ThisRef:32/?UI,(wxe_util:from_bool(CanVeto)):32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventsetloggingoff">external documentation</a>.
--spec setLoggingOff(This, LogOff) -> ok when
+-spec setLoggingOff(This, LogOff) -> 'ok' when
 	This::wxCloseEvent(), LogOff::boolean().
 setLoggingOff(#wx_ref{type=ThisT,ref=ThisRef},LogOff)
  when is_boolean(LogOff) ->
@@ -79,7 +79,7 @@ setLoggingOff(#wx_ref{type=ThisT,ref=ThisRef},LogOff)
   <<ThisRef:32/?UI,(wxe_util:from_bool(LogOff)):32/?UI>>).
 
 %% @equiv veto(This, [])
--spec veto(This) -> ok when
+-spec veto(This) -> 'ok' when
 	This::wxCloseEvent().
 
 veto(This)
@@ -87,9 +87,9 @@ veto(This)
   veto(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventveto">external documentation</a>.
--spec veto(This, [Option]) -> ok when
+-spec veto(This, [Option]) -> 'ok' when
 	This::wxCloseEvent(),
-	Option :: {veto, boolean()}.
+	Option :: {'veto', boolean()}.
 veto(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxCloseEvent),

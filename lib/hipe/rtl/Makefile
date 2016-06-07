@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2013. All Rights Reserved.
+# Copyright Ericsson AB 2001-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += -Werror +inline +warn_unused_import +warn_exported_vars
+ERL_COMPILE_FLAGS += -Werror +inline +warn_unused_import +warn_export_vars
 
 # ----------------------------------------------------
 # Targets

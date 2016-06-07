@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2014</year>
+      <year>2014</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -57,11 +57,11 @@
       <p>In an OTP source code tree, the OTP version can be read from
       the text file <c>&lt;OTP source root&gt;/OTP_VERSION</c>. The
       absolute path to the file can be constructed by calling
-      <c>filename:join([<seealso marker="kernel:code#root_dir/0">code:root_dir()</seealso>, "OTP_VERSION"])</c>.</p>
+      <c>filename:join([</c><seealso marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seealso><c>, "OTP_VERSION"])</c>.</p>
       <p>In an installed OTP development system, the OTP version can be read
       from the text file <c>&lt;OTP installation root&gt;/releases/&lt;OTP release number&gt;/OTP_VERSION</c>.
       The absolute path to the file can by constructed by calling
-      <c>filename:join([<seealso marker="kernel:code#root_dir/0">code:root_dir()</seealso>, "releases", <seealso marker="erts:erlang#system_info_otp_release"> erlang:system_info(otp_release)</seealso>, "OTP_VERSION"]).</c></p>
+      <c>filename:join([</c><seealso marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seealso><c>, "releases", </c><seealso marker="erts:erlang#system_info_otp_release"><c>erlang:system_info(otp_release)</c></seealso><c>, "OTP_VERSION"]).</c></p>
       <p>If the version read from the <c>OTP_VERSION</c> file in a
       development system has a <c>**</c> suffix, the system has been
       patched using the

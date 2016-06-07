@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,49 +19,34 @@
 %%
 
 -module(code_parallel_load_SUITE).
--export([
-	all/0,
-	suite/0,
-	init_per_suite/1,
-	end_per_suite/1,
-	init_per_testcase/2,
-	end_per_testcase/2
-    ]).
+-export([all/0,
+         suite/0,
+         init_per_testcase/2,
+         end_per_testcase/2]).
 
--export([
-	multiple_load_check_purge_repeat/1,
-	many_load_distributed_only_once/1
-    ]).
+-export([multiple_load_check_purge_repeat/1,
+         many_load_distributed_only_once/1]).
 
 -define(model,       code_parallel_load_SUITE_model).
 -define(interval,    50).
 -define(number_of_processes, 160).
 -define(passes, 4).
 
+-include_lib("common_test/include/ct.hrl").
 
--include_lib("test_server/include/test_server.hrl").
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() ->
-    [
-	multiple_load_check_purge_repeat,
-	many_load_distributed_only_once
-    ].
-
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
+    [ multiple_load_check_purge_repeat,
+      many_load_distributed_only_once ].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Func, Config) ->
-    SConf = ?config(save_config, Config),
+    SConf = proplists:get_value(save_config, Config),
     Pids  = proplists:get_value(purge_pids, SConf),
 
     case check_old_code(?model) of
@@ -72,9 +57,7 @@ end_per_testcase(_Func, Config) ->
 	true -> check_and_purge_processes_code(Pids, ?model);
 	_ ->    ok
     end,
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
+    ok.
 
 multiple_load_check_purge_repeat(_Conf) ->
     Ts    = [v1,v2,v3,v4,v5,v6],

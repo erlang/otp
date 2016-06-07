@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -349,48 +349,48 @@ wait_for_result(Pid, Msg) ->
 user_lookup(psk, _Identity, UserState) ->
     {ok, UserState};
 user_lookup(srp, Username, _UserState) ->
-    Salt = ssl:random_bytes(16),
+    Salt = ssl_cipher:random_bytes(16),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
     {ok, {srp_1024, Salt, UserPassHash}}.
 
 cert_options(Config) ->
-    ClientCaCertFile = filename:join([?config(priv_dir, Config), 
+    ClientCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				      "client", "cacerts.pem"]),
-    ClientCertFile = filename:join([?config(priv_dir, Config), 
+    ClientCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				    "client", "cert.pem"]),
-    ClientCertFileDigitalSignatureOnly = filename:join([?config(priv_dir, Config),
+    ClientCertFileDigitalSignatureOnly = filename:join([proplists:get_value(priv_dir, Config),
 				    "client", "digital_signature_only_cert.pem"]),
-    ServerCaCertFile = filename:join([?config(priv_dir, Config), 
+    ServerCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				      "server", "cacerts.pem"]),
-    ServerCertFile = filename:join([?config(priv_dir, Config), 
+    ServerCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				    "server", "cert.pem"]),
-    ServerKeyFile = filename:join([?config(priv_dir, Config), 
+    ServerKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
 			     "server", "key.pem"]),
-    ClientKeyFile = filename:join([?config(priv_dir, Config), 
+    ClientKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
 			     "client", "key.pem"]),
-    ServerKeyCertFile = filename:join([?config(priv_dir, Config), 
+    ServerKeyCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				       "server", "keycert.pem"]),
-    ClientKeyCertFile = filename:join([?config(priv_dir, Config), 
+    ClientKeyCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				       "client", "keycert.pem"]),
 
-    BadCaCertFile = filename:join([?config(priv_dir, Config), 
+    BadCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				   "badcacert.pem"]),
-    BadCertFile = filename:join([?config(priv_dir, Config), 
+    BadCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				   "badcert.pem"]),
-    BadKeyFile = filename:join([?config(priv_dir, Config), 
+    BadKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
 			      "badkey.pem"]),
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
 
-    SNIServerACertFile = filename:join([?config(priv_dir, Config), "a.server", "cert.pem"]),
-    SNIServerAKeyFile = filename:join([?config(priv_dir, Config), "a.server", "key.pem"]),
-    SNIServerBCertFile = filename:join([?config(priv_dir, Config), "b.server", "cert.pem"]),
-    SNIServerBKeyFile = filename:join([?config(priv_dir, Config), "b.server", "key.pem"]),
+    SNIServerACertFile = filename:join([proplists:get_value(priv_dir, Config), "a.server", "cert.pem"]),
+    SNIServerAKeyFile = filename:join([proplists:get_value(priv_dir, Config), "a.server", "key.pem"]),
+    SNIServerBCertFile = filename:join([proplists:get_value(priv_dir, Config), "b.server", "cert.pem"]),
+    SNIServerBKeyFile = filename:join([proplists:get_value(priv_dir, Config), "b.server", "key.pem"]),
     [{client_opts, []}, 
-     {client_verification_opts, [{cacertfile, ClientCaCertFile}, 
+     {client_verification_opts, [{cacertfile, ServerCaCertFile}, 
 				{certfile, ClientCertFile},  
 				{keyfile, ClientKeyFile},
 				{ssl_imp, new}]}, 
-     {client_verification_opts_digital_signature_only, [{cacertfile, ClientCaCertFile},
+     {client_verification_opts_digital_signature_only, [{cacertfile, ServerCaCertFile},
 				{certfile, ClientCertFileDigitalSignatureOnly},
 				{keyfile, ClientKeyFile},
 				{ssl_imp, new}]},
@@ -426,7 +426,7 @@ cert_options(Config) ->
 			{user_lookup_fun, {fun user_lookup/3, undefined}},
 			{ciphers, srp_anon_suites()}]},
      {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
-		    {cacertfile, ServerCaCertFile},
+		    {cacertfile, ClientCaCertFile},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {client_kc_opts, [{certfile, ClientKeyCertFile},  {ssl_imp, new}]}, 
      {server_kc_opts, [{ssl_imp, new},{reuseaddr, true}, 
@@ -552,11 +552,11 @@ make_cert_files(RoleStr, Config, Alg1, Alg2, Prefix) ->
     Alg2Str = atom_to_list(Alg2),
     CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, Alg1}]),
     {Cert, CertKey} = erl_make_certs:make_cert([{key, Alg2}, {issuer, CaInfo}]),
-    CaCertFile = filename:join([?config(priv_dir, Config), 
+    CaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
 				RoleStr, Prefix ++ Alg1Str ++ "_cacerts.pem"]),
-    CertFile = filename:join([?config(priv_dir, Config), 
+    CertFile = filename:join([proplists:get_value(priv_dir, Config), 
 			      RoleStr, Prefix ++ Alg2Str ++ "_cert.pem"]),
-    KeyFile = filename:join([?config(priv_dir, Config), 
+    KeyFile = filename:join([proplists:get_value(priv_dir, Config), 
 				   RoleStr, Prefix ++ Alg2Str ++ "_key.pem"]),
     
     der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
@@ -905,8 +905,8 @@ anonymous_suites() ->
 	 {dh_anon, '3des_ede_cbc', sha},
 	 {dh_anon, aes_128_cbc, sha},
 	 {dh_anon, aes_256_cbc, sha},
-	 {dh_anon, aes_128_gcm, null},
-	 {dh_anon, aes_256_gcm, null},
+	 {dh_anon, aes_128_gcm, null, sha256},
+	 {dh_anon, aes_256_gcm, null, sha384},
 	 {ecdh_anon,rc4_128,sha},
 	 {ecdh_anon,'3des_ede_cbc',sha},
 	 {ecdh_anon,aes_128_cbc,sha},
@@ -933,12 +933,12 @@ psk_suites() ->
 	 {rsa_psk, aes_256_cbc, sha},
 	 {rsa_psk, aes_128_cbc, sha256},
 	 {rsa_psk, aes_256_cbc, sha384},
-	 {psk, aes_128_gcm, null},
-	 {psk, aes_256_gcm, null},
-	 {dhe_psk, aes_128_gcm, null},
-	 {dhe_psk, aes_256_gcm, null},
-	 {rsa_psk, aes_128_gcm, null},
-	 {rsa_psk, aes_256_gcm, null}],
+	 {psk, aes_128_gcm, null, sha256},
+	 {psk, aes_256_gcm, null, sha384},
+	 {dhe_psk, aes_128_gcm, null, sha256},
+	 {dhe_psk, aes_256_gcm, null, sha384},
+	 {rsa_psk, aes_128_gcm, null, sha256},
+	 {rsa_psk, aes_256_gcm, null, sha384}],
     ssl_cipher:filter_suites(Suites).
 
 psk_anon_suites() ->
@@ -979,6 +979,10 @@ srp_dss_suites() ->
 
 rc4_suites(Version) ->
     Suites = ssl_cipher:rc4_suites(Version),
+    ssl_cipher:filter_suites(Suites).
+
+des_suites(Version) ->
+    Suites = ssl_cipher:des_suites(Version),
     ssl_cipher:filter_suites(Suites).
 
 pem_to_der(File) ->
@@ -1037,13 +1041,20 @@ receive_rizzo_duong_beast() ->
 	    end
     end.
 
-state([{data,[{"State", State}]} | _]) ->
+
+state([{data,[{"State", {_StateName, StateData}}]} | _]) -> %% gen_statem
+    StateData;
+state([{data,[{"State", State}]} | _]) -> %% gen_server
     State;
-state([{data,[{"StateData", State}]} | _]) ->
-    State;
+state([{data,[{"StateData", State}]} | _]) -> %% gen_fsm
+     State;
 state([_ | Rest]) ->
     state(Rest).
 
+is_tls_version('dtlsv1.2') ->
+    true;
+is_tls_version('dtlsv1') ->
+    true;
 is_tls_version('tlsv1.2') ->
     true;
 is_tls_version('tlsv1.1') ->
@@ -1055,13 +1066,23 @@ is_tls_version('sslv3') ->
 is_tls_version(_) ->
     false.
 
-init_tls_version(Version) ->
+init_tls_version(Version, Config)
+  when Version == 'dtlsv1.2'; Version == 'dtlsv1' ->
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, dtls_protocol_version, Version),
+    ssl:start(),
+    [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]}|Config];
+
+init_tls_version(Version, Config) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, protocol_version, Version),
-    ssl:start().
+    ssl:start(),
+    [{protocol, tls}|Config].
 
-sufficient_crypto_support('tlsv1.2') ->
+sufficient_crypto_support(Version)
+  when Version == 'tlsv1.2'; Version == 'dtlsv1.2' ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport));
 sufficient_crypto_support(Group) when Group == ciphers_ec;     %% From ssl_basic_SUITE
@@ -1286,4 +1307,41 @@ do_supports_ssl_tls_version(Port) ->
 	    end
     after 500 ->
 	    true
+    end.
+
+ssl_options(Option, Config) ->
+    ProtocolOpts = proplists:get_value(protocol_opts, Config, []),
+    Opts = proplists:get_value(Option, Config, []),
+    Opts ++ ProtocolOpts.
+
+protocol_version(Config) ->
+   protocol_version(Config, atom).
+
+protocol_version(Config, tuple) ->
+    case proplists:get_value(protocol, Config) of
+	dtls ->
+	    dtls_record:protocol_version(dtls_record:highest_protocol_version([]));
+	_ ->
+	    tls_record:highest_protocol_version(tls_record:supported_protocol_versions())
+   end;
+
+protocol_version(Config, atom) ->
+    case proplists:get_value(protocol, Config) of
+	dtls ->
+	   dtls_record:protocol_version(protocol_version(Config, tuple));
+	_ ->							 
+           tls_record:protocol_version(protocol_version(Config, tuple))	
+   end.
+
+protocol_options(Config, Options) ->
+    Protocol = proplists:get_value(protocol, Config, tls),
+    {Protocol, Opts} = lists:keyfind(Protocol, 1, Options),
+    Opts.
+
+ct_log_supported_protocol_versions(Config) ->
+    case proplists:get_value(protocol, Config) of
+	dtls ->
+	    ct:log("DTLS version ~p~n ", [dtls_record:supported_protocol_versions()]);
+	_ ->
+	    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()])
     end.

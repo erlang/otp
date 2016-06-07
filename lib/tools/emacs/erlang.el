@@ -7,7 +7,7 @@
 
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 1996-2014. All Rights Reserved.
+;; Copyright Ericsson AB 1996-2016. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -70,8 +70,8 @@
 ;; `debug-on-error' to `t'.  Repeat the error and enclose the debug
 ;; information in your bug-report.
 ;;
-;; To set the variable you can use the following command:
-;;     M-x set-variable RET debug-on-error RET t RET
+;; To toggle the variable you can use the following command:
+;;     M-x toggle-debug-on-error RET
 ;;; Code:
 
 (eval-when-compile (require 'cl))
@@ -897,6 +897,7 @@ resulting regexp is surrounded by \\_< and \\_>."
       "get_module_info"
       "get_stacktrace"
       "hash"
+      "has_prepared_code_on_load"
       "hibernate"
       "insert_element"
       "is_builtin"
@@ -1067,8 +1068,14 @@ behaviour.")
   "Font lock keyword highlighting a function header.")
 
 (defface erlang-font-lock-exported-function-name-face
-  '((default (:inherit font-lock-function-name-face)))
-  "Face used for highlighting exported functions.")
+  (if (featurep 'xemacs)
+      (progn
+        (require 'font-lock)
+        `((t (:foreground ,(face-foreground 'font-lock-function-name-face))
+             (:background ,(face-background 'font-lock-function-name-face)))))
+    '((default (:inherit font-lock-function-name-face))))
+  "Face used for highlighting exported functions."
+  :group 'erlang)
 
 (defvar erlang-font-lock-exported-function-name-face
   'erlang-font-lock-exported-function-name-face)
@@ -1337,14 +1344,18 @@ Lock syntax table.  The effect is that `apply' in the atom
 (defun erlang-version ()
   "Return the current version of Erlang mode."
   (interactive)
-  (if (interactive-p)
+  (if (erlang-interactive-p)
       (message "Erlang mode version %s, written by Anders Lindgren"
 	       erlang-version))
   erlang-version)
 
+(defun erlang-interactive-p ()
+  (if (fboundp 'called-interactively-p)
+      (called-interactively-p 'interactive)
+    (funcall (symbol-function 'interactive-p))))
 
 ;;;###autoload
-(defun erlang-mode ()
+(define-derived-mode erlang-mode prog-mode "Erlang"
   "Major mode for editing Erlang source files in Emacs.
 It knows about syntax and comment, it can indent code, it is capable
 of fontifying the source file, the TAGS commands are aware of Erlang
@@ -1403,12 +1414,9 @@ and examples of hooks.
 
 Other commands:
 \\{erlang-mode-map}"
-  (interactive)
-  (kill-all-local-variables)
-  (setq major-mode 'erlang-mode)
-  (setq mode-name "Erlang")
+  ;; Use our own syntax table function
+  :syntax-table nil
   (erlang-syntax-table-init)
-  (use-local-map erlang-mode-map)
   (erlang-electric-init)
   (erlang-menu-init)
   (erlang-mode-variables)
@@ -1417,13 +1425,13 @@ Other commands:
   (erlang-tags-init)
   (erlang-font-lock-init)
   (erlang-skel-init)
-  (tempo-use-tag-list 'erlang-tempo-tags)
+  (when (fboundp 'tempo-use-tag-list)
+    (tempo-use-tag-list 'erlang-tempo-tags))
+  (when (boundp 'xref-backend-functions)
+    (add-hook 'xref-backend-functions #'erlang-etags--xref-backend nil t))
   (run-hooks 'erlang-mode-hook)
   (if (zerop (buffer-size))
-      (run-hooks 'erlang-new-file-hook))
-  ;; Doesn't exist in Emacs v21.4; required by Emacs v23.
-  (if (boundp 'after-change-major-mode-hook)
-      (run-hooks 'after-change-major-mode-hook)))
+      (run-hooks 'erlang-new-file-hook)))
 
 ;;;###autoload
 (dolist (r '("\\.erl$" "\\.app\\.src$" "\\.escript"
@@ -1542,7 +1550,9 @@ Other commands:
 	      table)))
   (set (make-local-variable 'font-lock-syntax-table)
        erlang-font-lock-syntax-table)
-  (set (make-local-variable 'font-lock-beginning-of-syntax-function)
+  (set (make-local-variable (if (boundp 'syntax-begin-function)
+                                'syntax-begin-function
+                              'font-lock-beginning-of-syntax-function))
        'erlang-beginning-of-clause)
   (make-local-variable 'font-lock-keywords)
   (let ((level (cond ((boundp 'font-lock-maximum-decoration)
@@ -2250,6 +2260,7 @@ mode with the command `M-x erlang-mode RET'.")))
 ;; This code is based on the package `tempo' which is part of modern
 ;; Emacsen.  (GNU Emacs 19.25 (?) and XEmacs 19.14.)
 
+(defvar erlang-skel)
 (defun erlang-skel-init ()
   "Generate the skeleton functions and menu items.
 The variable `erlang-skel' contains the name and descriptions of
@@ -2976,8 +2987,9 @@ Return nil if inside string, t if in a comment."
              (current-column)))
 	  ;; Type and Spec indentation
 	  ((eq (car stack-top) '::)
-	   (if (looking-at "}")
-	       ;; Closing record definition with types
+	   (if (looking-at "[},)]")
+	       ;; Closing function spec, record definition with types,
+               ;; or a comma at the start of the line
 	       ;; pop stack and recurse
 	       (erlang-calculate-stack-indent indent-point
 					      (cons (erlang-pop stack) (cdr state)))
@@ -3748,6 +3760,12 @@ In the future the list may contain more elements."
 		 (if (assoc fk (cdr (car imports)))
 		     (setq mod (car (car imports)))
 		   (setq imports (cdr imports))))
+	       (cond ((eq (preceding-char) ?#)
+		      (setq fk (concat "-record(" fk)))
+		     ((eq (preceding-char) ??)
+		      (setq fk (concat "-define(" fk)))
+		     ((and (null mod) (not (member fk erlang-int-bifs)))
+		      (setq mod (erlang-get-module))))
 	       (setq res (list mod fk)))))
       (store-match-data md)
       res)))
@@ -3818,20 +3836,19 @@ exported function."
 (defun erlang-check-module-name-init ()
   "Initialize the functionality to compare file and module names.
 
-Unless we have `before-save-hook', we redefine the function
+Unless we have `before-save-hook', we advice the function
 `set-visited-file-name' since it clears the variable
-`local-write-file-hooks'.  The original function definition is
-stored in `erlang-orig-set-visited-file-name'."
+`local-write-file-hooks'."
   (if (boundp 'before-save-hook)
-      ;; If we have that, `make-local-hook' is obsolete.
       (add-hook 'before-save-hook 'erlang-check-module-name nil t)
     (require 'advice)
-    (unless (ad-advised-definition-p 'set-visited-file-name)
-      (defadvice set-visited-file-name (after erlang-set-visited-file-name
-					      activate)
-	(if (eq major-mode 'erlang-mode)
-	    (add-hook 'local-write-file-hooks 'erlang-check-module-name))))
-    (add-hook 'local-write-file-hooks 'erlang-check-module-name)))
+    (when (fboundp 'ad-advised-definition-p)
+      (unless (ad-advised-definition-p 'set-visited-file-name)
+        (defadvice set-visited-file-name (after erlang-set-visited-file-name
+                                                activate)
+          (if (eq major-mode 'erlang-mode)
+              (add-hook 'local-write-file-hooks 'erlang-check-module-name))))
+      (add-hook 'local-write-file-hooks 'erlang-check-module-name))))
 
 
 (defun erlang-check-module-name ()
@@ -3908,7 +3925,7 @@ non-whitespace characters following the point on the current line."
     (newline)
     (if (condition-case nil
 	    (progn (erlang-indent-line) t)
-	  (error (if (bolp) (delete-backward-char 1))))
+	  (error (if (bolp) (delete-char -1))))
 	(if (not (bolp))
 	    (save-excursion
 	      (insert " ->"))
@@ -3920,7 +3937,7 @@ non-whitespace characters following the point on the current line."
 		      (beginning-of-line)
 		      (newline
 		       erlang-electric-semicolon-insert-blank-lines))))
-	    (error (if (bolp) (delete-backward-char 1))))))))
+	    (error (if (bolp) (delete-char -1))))))))
 
 
 (defun erlang-electric-comma (&optional arg)
@@ -3950,7 +3967,7 @@ non-whitespace characters following the point on the current line."
     (newline)
     (condition-case nil
 	(erlang-indent-line)
-      (error (if (bolp) (delete-backward-char 1))))))
+      (error (if (bolp) (delete-char -1))))))
 
 (defun erlang-electric-lt (&optional arg)
   "Insert a less-than sign, and optionally mark it as an open paren."
@@ -4036,7 +4053,7 @@ non-whitespace characters following the point on the current line."
       (newline)
       (condition-case nil
 	  (erlang-indent-line)
-	(error (if (bolp) (delete-backward-char 1))))))
+	(error (if (bolp) (delete-char -1))))))
 
    ;; Then it's just a plain greater-than.
    (t
@@ -4076,7 +4093,7 @@ After being split/merged into `erlang-after-arrow' and
       (newline)
       (condition-case nil
 	  (erlang-indent-line)
-	(error (if (bolp) (delete-backward-char 1)))))))
+	(error (if (bolp) (delete-char -1)))))))
 
 
 (defun erlang-electric-newline (&optional arg)
@@ -4552,6 +4569,11 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
     (current-buffer)))			; Return the new buffer.
 
 
+
+    
+
+
+
 ;; Process interactive arguments for erlang-find-tag-*.
 ;;
 ;; Negative arguments work only for `etags', not `tags'.  This is not
@@ -4645,9 +4667,25 @@ Tags can be given on the forms `tag', `module:', `module:tag'."
     (set (make-local-variable 'find-tag-regexp-search-function)
 	 'erlang-tags-regexp-search-forward)
     (set (make-local-variable 'find-tag-tag-order)
-	 '(erlang-tag-match-module-p))
+         (mapcar #'erlang-make-order-function-aware-of-modules
+                 erlang-tags-orig-tag-order))
     (set (make-local-variable 'find-tag-regexp-tag-order)
-	 '(erlang-tag-match-module-regexp-p))))
+         (mapcar #'erlang-make-order-function-aware-of-modules
+                 erlang-tags-orig-regexp-tag-order))))
+
+(defun erlang-make-order-function-aware-of-modules (f)
+  `(lambda (tag)
+     (let (mod)
+       (when (string-match ":" tag)
+         (setq mod (substring tag 0 (match-beginning 0)))
+         (setq tag (substring tag (match-end 0) nil)))
+       (and (funcall ',f tag)
+            (or (null mod)
+                (erlang-tag-at-point-match-module-p mod))))))
+
+(defun erlang-tag-at-point-match-module-p (mod)
+  (string-equal mod (erlang-get-module-from-file-name
+                     (funcall (symbol-function 'file-of-tag)))))
 
 
 (defun erlang-tags-remove-module-check ()
@@ -4724,37 +4762,6 @@ for a tag on the form `module:tag'."
     (funcall erlang-tags-orig-regexp-search-function
 	     tag bound noerror count)))
 
-
-;; t if point is at a tag line that matches TAG, containing
-;; module information.  Assumes that all other order functions
-;; are stored in `erlang-tags-orig-[regex]-tag-order'.
-
-(defun erlang-tag-match-module-p (tag)
-  (erlang-tag-match-module-common-p tag erlang-tags-orig-tag-order))
-
-(defun erlang-tag-match-module-regexp-p (tag)
-  (erlang-tag-match-module-common-p tag erlang-tags-orig-regexp-tag-order))
-
-(defun erlang-tag-match-module-common-p (tag order)
-  (let ((mod nil)
-	(found nil))
-    (if (string-match ":" tag)
-	(progn
-	  (setq mod (substring tag 0 (match-beginning 0)))
-	  (setq tag (substring tag (match-end 0) nil))))
-    (while (and order (not found))
-      (setq found
-	    (and (not (memq (car order)
-			    '(erlang-tag-match-module-p
-			      erlang-tag-match-module-regexp-p)))
-		 (funcall (car order) tag)))
-      (setq order (cdr order)))
-    (and found
-	 (or (null mod)
-	     (string= mod (erlang-get-module-from-file-name
-			   (file-of-tag)))))))
-
-
 ;;; Tags completion, Emacs 19 `etags' specific.
 ;;;
 ;;; The basic idea is to create a second completion table `erlang-tags-
@@ -4792,10 +4799,10 @@ about Erlang modules."
   (cond ((and erlang-tags-installed
               (fboundp 'etags-tags-completion-table)
               (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
-         ;; This depends on the advice called erlang-replace-tags-table
-         ;; above.  It is not enough to let-bind
-         ;; tags-completion-table-function since that will not override
-         ;; the buffer-local value in the TAGS buffer.
+         ;; This depends on the advice called
+         ;; erlang-replace-tags-table above.  It is not enough to
+         ;; let-bind tags-completion-table-function since that may be
+         ;; overwritten in etags-recognize-tags-table.
          (let ((find-tag-default-function 'erlang-find-tag-for-completion))
            (complete-tag)))
         ((and erlang-tags-installed
@@ -4916,6 +4923,132 @@ about Erlang modules."
           (when progress-reporter
             (progress-reporter-update progress-reporter (point))))))
     table))
+
+
+;;; Xref backend erlang-etags
+
+;; In GNU Emacs 25 xref was introduced.  It is a framework for cross
+;; referencing commands, in particular commands for finding
+;; definitions.  It does not replace etags.  It rather resides on top
+;; of it and provides user-friendly commands.  The idea is that the
+;; user commands should be the same regardless of what backend does
+;; the actual finding of definitions.
+
+;; The backend below is a wrapper around the built-in etags backend.
+;; It adds awareness of the module:tag syntax in a similar way that is
+;; done above for the old etags commands.
+
+
+(defun erlang-etags--xref-backend () 'erlang-etags)
+
+(defun erlang-soft-require (feature)
+  (when (locate-library (symbol-name feature))
+    (require feature)))
+
+(and (erlang-soft-require 'xref)
+     (erlang-soft-require 'cl-generic)
+     ;; The purpose of using eval here is to avoid compilation
+     ;; warnings in emacsen without cl-defmethod.
+     (eval
+      '(progn
+         (cl-defmethod xref-backend-identifier-at-point
+             ((_backend (eql erlang-etags)))
+           (erlang-find-tag-default))
+
+         (cl-defmethod xref-backend-definitions
+             ((_backend (eql erlang-etags)) identifier)
+           (erlang-xref-find-definitions identifier))
+
+         (cl-defmethod xref-backend-apropos
+             ((_backend (eql erlang-etags)) identifier)
+           (erlang-xref-find-definitions identifier t))
+
+         ;; PENDING - This remains to be properly implemented.
+         (cl-defmethod xref-backend-identifier-completion-table
+             ((_backend (eql erlang-etags)))
+           (tags-lazy-completion-table)))))
+
+
+(defun erlang-xref-find-definitions (identifier &optional is-regexp)
+  (let ((id-list (split-string identifier ":")))
+    (cond
+     ;; Handle "tag"
+     ((null (cdr id-list))
+      (erlang-xref-find-definitions-tag identifier is-regexp))
+     ;; Handle "module:"
+     ((string-equal (cadr id-list) "")
+      (erlang-xref-find-definitions-module (car id-list)))
+     ;; Handle "module:tag"
+     (t
+      (erlang-xref-find-definitions-module-tag (car id-list)
+                                               (cadr id-list)
+                                               is-regexp)))))
+
+(defun erlang-xref-find-definitions-tag (tag is-regexp)
+  "Find all definitions of TAG and reorder them so that
+definitions in the currently visited file comes first."
+  (when (fboundp 'etags--xref-find-definitions)
+    (let* ((current-file (and (buffer-file-name)
+                              (file-truename (buffer-file-name))))
+           (xrefs (etags--xref-find-definitions tag is-regexp))
+           local-xrefs non-local-xrefs)
+      (while xrefs
+        (if (string-equal (erlang-xref-truename-file (car xrefs))
+                          current-file)
+            (push (car xrefs) local-xrefs)
+          (push (car xrefs) non-local-xrefs))
+        (setq xrefs (cdr xrefs)))
+      (append (reverse local-xrefs)
+              (reverse non-local-xrefs)))))
+
+(defun erlang-xref-find-definitions-module (module)
+  (and (fboundp 'xref-make)
+       (fboundp 'xref-make-file-location)
+       (let* ((first-time t)
+              xrefs matching-files)
+         (save-excursion
+           (while (visit-tags-table-buffer (not first-time))
+             (setq first-time nil)
+             (let ((files (tags-table-files)))
+               (while files
+                 (let* ((file (car files))
+                        (m (erlang-get-module-from-file-name file)))
+                   (when (and m (string-equal m module))
+                     (unless (member file matching-files)
+                       (push file
+                             matching-files)
+                       (push (xref-make file
+                                        (xref-make-file-location file 1 0))
+                             xrefs))))
+                 (setq files (cdr files))))))
+         (nreverse xrefs))))
+
+(defun erlang-xref-find-definitions-module-tag (module tag is-regexp)
+  "Find all definitions of TAG and filter away definitions
+outside of MODULE."
+  (when (fboundp 'etags--xref-find-definitions)
+    (let ((xrefs (etags--xref-find-definitions tag is-regexp))
+          xrefs-in-module)
+      (while xrefs
+        (when (string-equal module (erlang-xref-module (car xrefs)))
+          (push (car xrefs) xrefs-in-module))
+        (setq xrefs (cdr xrefs)))
+      xrefs-in-module)))
+
+(defun erlang-xref-module (xref)
+  (erlang-get-module-from-file-name (erlang-xref-file xref)))
+
+(defun erlang-xref-truename-file (xref)
+  (let ((file (erlang-xref-file xref)))
+    (and file
+         (file-truename file))))
+
+(defun erlang-xref-file (xref)
+  (and (fboundp 'xref-location-group)
+       (fboundp 'xref-item-location)
+       (xref-location-group (xref-item-location xref))))
+
+
 
 ;;;
 ;;; Prepare for other methods to run an Erlang slave process.
@@ -5315,8 +5448,7 @@ frame will become deselected before the next command."
       ()
     (or (inferior-erlang-running-p)
 	(error "No inferior Erlang shell is running"))
-    (save-excursion
-      (set-buffer inferior-erlang-buffer)
+    (with-current-buffer inferior-erlang-buffer
       (let ((msg nil))
 	(while (save-excursion
 		 (goto-char (process-mark inferior-erlang-process))
@@ -5336,8 +5468,7 @@ frame will become deselected before the next command."
 The empty command resembles hitting RET. This is useful in some
 situations, for instance if a crash or error report from sasl
 has been printed after the last prompt."
-  (save-excursion
-    (set-buffer inferior-erlang-buffer)
+  (with-current-buffer inferior-erlang-buffer
     (if (> (point-max) 1)
 	;; make sure we get a prompt if buffer contains data
 	(if (save-excursion
@@ -5403,7 +5534,7 @@ Return the position after the newly inserted command."
 	   (boundp 'comint-last-output-start))
       (save-excursion
 	(goto-char
-	 (if (interactive-p)
+	 (if (erlang-interactive-p)
 	     (symbol-value 'comint-last-input-end)
 	   (symbol-value 'comint-last-output-start)))
 	(while (progn (skip-chars-forward "^\C-h")
@@ -5422,7 +5553,7 @@ Return the position after the newly inserted command."
       (let ((pmark (process-mark (get-buffer-process (current-buffer)))))
 	(save-excursion
 	  (goto-char
-	   (if (interactive-p)
+	   (if (erlang-interactive-p)
 	       (symbol-value 'comint-last-input-end)
 	     (symbol-value 'comint-last-output-start)))
 	  (while (re-search-forward "\r+$" pmark t)
@@ -5449,23 +5580,21 @@ There exists two workarounds for this bug:
   (save-some-buffers)
   (inferior-erlang-prepare-for-input)
   (let* ((dir (inferior-erlang-compile-outdir))
-;;; (file (file-name-nondirectory (buffer-file-name)))
 	 (noext (substring (erlang-local-buffer-file-name) 0 -4))
 	 (opts (append (list (cons 'outdir dir))
 		       (if current-prefix-arg
 			   (list 'debug_info 'export_all))
 		       erlang-compile-extra-opts))
 	 end)
-    (save-excursion
-      (set-buffer inferior-erlang-buffer)
-      (compilation-forget-errors))
+    (with-current-buffer inferior-erlang-buffer
+      (when (fboundp 'compilation-forget-errors)
+        (compilation-forget-errors)))
     (setq end (inferior-erlang-send-command
 	       (inferior-erlang-compute-compile-command noext opts)
 	       nil))
     (sit-for 0)
     (inferior-erlang-wait-prompt)
-    (save-excursion
-      (set-buffer inferior-erlang-buffer)
+    (with-current-buffer inferior-erlang-buffer
       (setq compilation-error-list nil)
       (set-marker compilation-parsing-end end))
     (setq compilation-last-buffer inferior-erlang-buffer)))
@@ -5505,7 +5634,8 @@ unless the optional NO-DISPLAY is non-nil."
   (let ((ccfn erlang-compile-command-function-alist)
 	(res (inferior-erlang-compute-erl-compile-command module-name opts))
 	ccfn-entry
-	done)
+	done
+        result)
     (if (not (null (erlang-local-buffer-file-name)))
 	(while (and (not done) (not (null ccfn)))
 	  (setq ccfn-entry (car ccfn))
@@ -5635,12 +5765,14 @@ unless the optional NO-DISPLAY is non-nil."
        (tramp-tramp-file-p (buffer-file-name))))
 
 (defun erlang-tramp-get-localname ()
-  (let ((tramp-info (tramp-dissect-file-name (buffer-file-name))))
-    (if (fboundp 'tramp-file-name-localname)
-	(tramp-file-name-localname tramp-info)
-      ;; In old versions of tramp, it was `tramp-file-name-path'
-      ;; instead of the newer `tramp-file-name-localname'
-      (tramp-file-name-path tramp-info))))
+  (when (fboundp 'tramp-dissect-file-name)
+    (let ((tramp-info (tramp-dissect-file-name (buffer-file-name))))
+      (if (fboundp 'tramp-file-name-localname)
+          (tramp-file-name-localname tramp-info)
+        ;; In old versions of tramp, it was `tramp-file-name-path'
+        ;; instead of the newer `tramp-file-name-localname'
+        (when (fboundp 'tramp-file-name-path)
+          (tramp-file-name-path tramp-info))))))
 
 ;; `next-error' only accepts buffers with major mode `compilation-mode'
 ;; or with the minor mode `compilation-minor-mode' activated.
@@ -5657,16 +5789,14 @@ Capable of finding error messages in an inferior Erlang buffer."
 		 (and (boundp 'compilation-last-buffer)
 		      compilation-last-buffer))))
     (if (and (bufferp buf)
-	     (save-excursion
-	       (set-buffer buf)
+	     (with-current-buffer buf
 	       (and (eq major-mode 'erlang-shell-mode)
 		    (setq major-mode 'compilation-mode))))
 	(unwind-protect
 	    (progn
 	      (setq done t)
 	      (next-error argp))
-	  (save-excursion
-	    (set-buffer buf)
+	  (with-current-buffer buf
 	    (setq major-mode 'erlang-shell-mode))))
     (or done
 	(next-error argp))))
@@ -5769,7 +5899,7 @@ Simplified version of a combination `defalias' and `make-obsolete',
 it assumes that NEWDEF is loaded."
   (defalias sym (symbol-function newdef))
   (if (fboundp 'make-obsolete)
-      (make-obsolete sym newdef)))
+      (make-obsolete sym newdef "long ago")))
 
 
 (erlang-obsolete 'calculate-erlang-indent 'erlang-calculate-indent)
@@ -5787,11 +5917,8 @@ it assumes that NEWDEF is loaded."
 (erlang-obsolete 'name-of-erlang-function 'erlang-name-of-function)
 
 
-;; Fixme: shouldn't redefine `set-visited-file-name' anyhow -- see above.
 (defconst erlang-unload-hook
   (list (lambda ()
-	  (defalias 'set-visited-file-name
-	    'erlang-orig-set-visited-file-name)
 	  (when (featurep 'advice)
 	    (ad-unadvise 'Man-notify-when-ready)
 	    (ad-unadvise 'set-visited-file-name)))))

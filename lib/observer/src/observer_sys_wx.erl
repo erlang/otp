@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,40 +48,51 @@ start_link(Notebook, Parent) ->
 
 init([Notebook, Parent]) ->
     SysInfo = observer_backend:sys_info(),
-    {Info, Stat} = info_fields(),
+    {Sys, Mem, Cpu, Stats} = info_fields(),
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
-    TopSizer = wxBoxSizer:new(?wxHORIZONTAL),
-    {FPanel0, _FSizer0, Fields0} =
-	observer_lib:display_info(Panel, observer_lib:fill_info(Info, SysInfo)),
-    {FPanel1, _FSizer1, Fields1} =
-	observer_lib:display_info(Panel, observer_lib:fill_info(Stat, SysInfo)),
-    wxSizer:add(TopSizer, FPanel0, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxSizer:add(TopSizer, FPanel1, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    HSizer0 = wxBoxSizer:new(?wxHORIZONTAL),
+    {FPanel0, _FSizer0, Fields0} = observer_lib:display_info(Panel, observer_lib:fill_info(Sys, SysInfo)),
+    {FPanel1, _FSizer1, Fields1} = observer_lib:display_info(Panel, observer_lib:fill_info(Mem, SysInfo)),
+    wxSizer:add(HSizer0, FPanel0, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    wxSizer:add(HSizer0, FPanel1, [{flag, ?wxEXPAND}, {proportion, 1}]),
+
+    HSizer1 = wxBoxSizer:new(?wxHORIZONTAL),
+    {FPanel2, _FSizer2, Fields2} = observer_lib:display_info(Panel, observer_lib:fill_info(Cpu, SysInfo)),
+    {FPanel3, _FSizer3, Fields3} = observer_lib:display_info(Panel, observer_lib:fill_info(Stats, SysInfo)),
+    wxSizer:add(HSizer1, FPanel2, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    wxSizer:add(HSizer1, FPanel3, [{flag, ?wxEXPAND}, {proportion, 1}]),
+
     BorderFlags = ?wxLEFT bor ?wxRIGHT,
-    wxSizer:add(Sizer, TopSizer, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
-				  {proportion, 0}, {border, 5}]),
+    wxSizer:add(Sizer, HSizer0, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
+				 {proportion, 0}, {border, 5}]),
+    wxSizer:add(Sizer, HSizer1, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
+				 {proportion, 0}, {border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
     Timer = observer_lib:start_timer(10),
     {Panel, #sys_wx_state{parent=Parent,
 			  parent_notebook=Notebook,
 			  panel=Panel, sizer=Sizer,
-			  timer=Timer, fields=Fields0 ++ Fields1}}.
+			  timer=Timer, fields=Fields0 ++ Fields1++Fields2++Fields3}}.
 
 create_sys_menu(Parent) ->
     View = {"View", [#create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
 		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh interval"}]},
     observer_wx:create_menus(Parent, [View]).
 
+update_syspage(#sys_wx_state{node = undefined}) -> ignore;
 update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
     SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
-    {Info, Stat} = info_fields(),
-    observer_lib:update_info(Fields, observer_lib:fill_info(Info, SysInfo) ++
-				 observer_lib:fill_info(Stat, SysInfo)),
+    {Sys, Mem, Cpu, Stats} = info_fields(),
+    observer_lib:update_info(Fields,
+			     observer_lib:fill_info(Sys, SysInfo) ++
+				 observer_lib:fill_info(Mem, SysInfo) ++
+				 observer_lib:fill_info(Cpu, SysInfo) ++
+				 observer_lib:fill_info(Stats, SysInfo)),
     wxSizer:layout(Sizer).
 
 info_fields() ->
-    Info = [{"System and Architecture",
+    Sys = [{"System and Architecture",
 	     [{"System Version", otp_release},
 	      {"ERTS Version", version},
 	      {"Compiled for", system_architecture},
@@ -90,34 +101,35 @@ info_fields() ->
 	      {"SMP Support",  smp_support},
 	      {"Thread Support",  threads},
 	      {"Async thread pool size",  thread_pool_size}
-	     ]},
-	    {"CPU's and Threads",
-	     [{"Logical CPU's", logical_processors},
-	      {"Online Logical CPU's", logical_processors_online},
-	      {"Available Logical CPU's", logical_processors_available},
-	      {"Schedulers", schedulers},
-	      {"Online schedulers", schedulers_online},
-	      {"Available schedulers", schedulers_available}
-	     ]}
-	   ],
-    Stat = [{"Memory Usage", right,
-	     [{"Total", {bytes, total}},
-	      {"Processes", {bytes, processes}},
-	      {"Atoms", {bytes, atom}},
-	      {"Binaries", {bytes, binary}},
-	      {"Code", {bytes, code}},
-	      {"ETS", {bytes, ets}}
-	     ]},
-	    {"Statistics", right,
-	     [{"Up time", {time_ms, uptime}},
-	      {"Max Processes", process_limit},
-	      {"Processes", process_count},
-	      {"Run Queue", run_queue},
-	      {"IO Input",  {bytes, io_input}},
-	      {"IO Output", {bytes, io_output}}
-	     ]}
-	   ],
-    {Info, Stat}.
+	     ]}],
+
+    Cpu = [{"CPU's and Threads",
+	    [{"Logical CPU's", logical_processors},
+	     {"Online Logical CPU's", logical_processors_online},
+	     {"Available Logical CPU's", logical_processors_available},
+	     {"Schedulers", schedulers},
+	     {"Online schedulers", schedulers_online},
+	     {"Available schedulers", schedulers_available}
+	    ]}
+	  ],
+    Mem = [{"Memory Usage", right,
+	    [{"Total", {bytes, total}},
+	     {"Processes", {bytes, processes}},
+	     {"Atoms", {bytes, atom}},
+	     {"Binaries", {bytes, binary}},
+	     {"Code", {bytes, code}},
+	     {"ETS", {bytes, ets}}
+	    ]}],
+    Stats = [{"Statistics", right,
+	      [{"Up time", {time_ms, uptime}},
+	       {"Max Processes", process_limit},
+	       {"Processes", process_count},
+	       {"Run Queue", run_queue},
+	       {"IO Input",  {bytes, io_input}},
+	       {"IO Output", {bytes, io_output}}
+	      ]}
+	    ],
+    {Sys, Mem, Cpu, Stats}.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

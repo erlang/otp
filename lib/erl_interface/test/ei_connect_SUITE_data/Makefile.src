@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2009. All Rights Reserved.
+# Copyright Ericsson AB 2001-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,10 @@ include @erl_interface_mk_include@
 CC0 = @CC@
 CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
 LD = @LD@
+LIBERL = @erl_interface_lib@
 LIBEI = @erl_interface_eilib@
 LIBFLAGS = ../all_SUITE_data/ei_runner@obj@ \
-	$(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
+	$(LIBERL) $(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@
 CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
 EI_CONNECT_OBJS = ei_connect_test@obj@ ei_connect_test_decl@obj@

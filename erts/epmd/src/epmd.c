@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -397,7 +397,7 @@ static void run_daemon(EpmdVars *g)
 }
 #endif
 
-#if defined(VXWORKS) || defined(__OSE__)
+#if defined(VXWORKS)
 static void run_daemon(EpmdVars *g)
 {
     run(g);
@@ -592,8 +592,10 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
       free(g->argv);
   }
 #ifdef HAVE_SYSTEMD_DAEMON
-  sd_notifyf(0, "STATUS=Exited.\n"
-                "ERRNO=%i", exitval);
+  if (g->is_systemd){
+    sd_notifyf(0, "STATUS=Exited.\n"
+               "ERRNO=%i", exitval);
+  }
 #endif /* HAVE_SYSTEMD_DAEMON */
   exit(exitval);
 }

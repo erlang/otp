@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxGridCellAttr() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsettextcolour">external documentation</a>.
--spec setTextColour(This, ColText) -> ok when
+-spec setTextColour(This, ColText) -> 'ok' when
 	This::wxGridCellAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
@@ -49,7 +49,7 @@ setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetbackgroundcolour">external documentation</a>.
--spec setBackgroundColour(This, ColBack) -> ok when
+-spec setBackgroundColour(This, ColBack) -> 'ok' when
 	This::wxGridCellAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
  when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
@@ -58,7 +58,7 @@ setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetfont">external documentation</a>.
--spec setFont(This, Font) -> ok when
+-spec setFont(This, Font) -> 'ok' when
 	This::wxGridCellAttr(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -67,7 +67,7 @@ setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   <<ThisRef:32/?UI,FontRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetalignment">external documentation</a>.
--spec setAlignment(This, HAlign, VAlign) -> ok when
+-spec setAlignment(This, HAlign, VAlign) -> 'ok' when
 	This::wxGridCellAttr(), HAlign::integer(), VAlign::integer().
 setAlignment(#wx_ref{type=ThisT,ref=ThisRef},HAlign,VAlign)
  when is_integer(HAlign),is_integer(VAlign) ->
@@ -76,7 +76,7 @@ setAlignment(#wx_ref{type=ThisT,ref=ThisRef},HAlign,VAlign)
   <<ThisRef:32/?UI,HAlign:32/?UI,VAlign:32/?UI>>).
 
 %% @equiv setReadOnly(This, [])
--spec setReadOnly(This) -> ok when
+-spec setReadOnly(This) -> 'ok' when
 	This::wxGridCellAttr().
 
 setReadOnly(This)
@@ -84,9 +84,9 @@ setReadOnly(This)
   setReadOnly(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetreadonly">external documentation</a>.
--spec setReadOnly(This, [Option]) -> ok when
+-spec setReadOnly(This, [Option]) -> 'ok' when
 	This::wxGridCellAttr(),
-	Option :: {isReadOnly, boolean()}.
+	Option :: {'isReadOnly', boolean()}.
 setReadOnly(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -97,7 +97,7 @@ setReadOnly(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetrenderer">external documentation</a>.
--spec setRenderer(This, Renderer) -> ok when
+-spec setRenderer(This, Renderer) -> 'ok' when
 	This::wxGridCellAttr(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
 setRenderer(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RendererT,ref=RendererRef}) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -106,7 +106,7 @@ setRenderer(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RendererT,ref=RendererR
   <<ThisRef:32/?UI,RendererRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrseteditor">external documentation</a>.
--spec setEditor(This, Editor) -> ok when
+-spec setEditor(This, Editor) -> 'ok' when
 	This::wxGridCellAttr(), Editor::wxGridCellEditor:wxGridCellEditor().
 setEditor(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=EditorT,ref=EditorRef}) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -223,7 +223,7 @@ isReadOnly(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellattr.html#wxgridcellattrsetdefattr">external documentation</a>.
--spec setDefAttr(This, DefAttr) -> ok when
+-spec setDefAttr(This, DefAttr) -> 'ok' when
 	This::wxGridCellAttr(), DefAttr::wxGridCellAttr().
 setDefAttr(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DefAttrT,ref=DefAttrRef}) ->
   ?CLASS(ThisT,wxGridCellAttr),

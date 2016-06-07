@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,13 +117,12 @@ do {									\
 /* return 0 if list is not a non-empty flat list of printable characters */
 
 static int
-is_printable_string(Eterm list, Eterm* base)
-{
+is_printable_string(Eterm list) {
     int len = 0;
     int c;
 
     while(is_list(list)) {
-	Eterm* consp = list_val_rel(list, base);
+	Eterm* consp = list_val(list);
 	Eterm hd = CAR(consp);
 
 	if (!is_byte(hd))
@@ -260,9 +259,7 @@ static char *format_binary(Uint16 x, char *b) {
 #endif
 
 static int
-print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
-	   Eterm* obj_base) /* ignored if !HALFWORD_HEAP */
-{
+print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
     DECLARE_WSTACK(s);
     int res;
     int i;
@@ -308,7 +305,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		obj = (Eterm) popped.word;
 	    L_print_one_cons:
 		{
-		    Eterm* cons = list_val_rel(obj, obj_base);
+		    Eterm* cons = list_val(obj);
 		    Eterm tl;
 		    
 		    obj = CAR(cons);
@@ -344,11 +341,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    PRINT_CHAR(res, fn, arg, '>');
 	    goto L_done;
 	}
-#if HALFWORD_HEAP
-	wobj = is_immed(obj) ? (Wterm)obj : rterm2wterm(obj, obj_base);
-#else
 	wobj = (Wterm)obj;
-#endif
 	switch (tag_val_def(wobj)) {
 	case NIL_DEF:
 	    PRINT_STRING(res, fn, arg, "[]");
@@ -424,10 +417,10 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	    PRINT_CHAR(res, fn, arg, '>');
 	    break;
 	case LIST_DEF:
-	    if (is_printable_string(obj, obj_base)) {
+	    if (is_printable_string(obj)) {
 		int c;
 		PRINT_CHAR(res, fn, arg, '"');
-		nobj = list_val_rel(obj, obj_base);
+		nobj = list_val(obj);
 		while (1) {
 		    if ((*dcount)-- <= 0)
 			goto L_done;
@@ -441,7 +434,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 		    }
 		    if (is_not_list(*nobj))
 			break;
-		    nobj = list_val_rel(*nobj, obj_base);
+		    nobj = list_val(*nobj);
 		}
 		PRINT_CHAR(res, fn, arg, '"');
 	    } else {
@@ -469,11 +462,11 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	case BINARY_DEF:
 	    {
 		byte* bytep;
-		Uint bytesize = binary_size_rel(obj,obj_base);
+		Uint bytesize = binary_size(obj);
 		Uint bitoffs;
 		Uint bitsize;
 		byte octet;
-		ERTS_GET_BINARY_BYTES_REL(obj, bytep, bitoffs, bitsize, obj_base);
+		ERTS_GET_BINARY_BYTES(obj, bytep, bitoffs, bitsize);
 
 		if (bitsize || !bytesize
 		    || !is_printable_ascii(bytep, bytesize, bitoffs)) {
@@ -648,13 +641,11 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 
 
 int
-erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision,
-		 ErlPfEterm* term_base)
-{
+erts_printf_term(fmtfn_t fn, void* arg, ErlPfEterm term, long precision) {
     int res;
     ERTS_CT_ASSERT(sizeof(ErlPfEterm) == sizeof(Eterm));
 
-    res = print_term(fn, arg, (Eterm)term, &precision, (Eterm*)term_base);
+    res = print_term(fn, arg, (Eterm)term, &precision);
     if (res < 0)
 	return res;
     if (precision <= 0)

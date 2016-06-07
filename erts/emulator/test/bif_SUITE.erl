@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,21 +20,22 @@
 
 -module(bif_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 display/1, display_huge/0,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
-	 atom_to_binary/1,min_max/1, erlang_halt/1]).
+	 atom_to_binary/1,min_max/1, erlang_halt/1,
+	 is_builtin/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
@@ -42,37 +43,9 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
-     min_max, erlang_halt].
+     min_max, erlang_halt, is_builtin].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(1)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
-
-display(suite) ->
-    [];
-display(doc) ->
-    ["Uses erlang:display to test that erts_printf does not do deep recursion"];
+%% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, Node} = test_server:start_node(display_huge_term,peer,
@@ -117,7 +90,7 @@ erl_bif_types_2(List) ->
 	[_|_] ->
 	    io:put_chars("Bifs with bad arity\n"),
 	    io:format("~p\n", [BadArity]),
-	    ?line ?t:fail({length(BadArity),bad_arity})
+	    ct:fail({length(BadArity),bad_arity})
     end.
 
 erl_bif_types_3(List) ->
@@ -141,7 +114,7 @@ erl_bif_types_3(List) ->
 	    io:put_chars("Bifs with failing calls to erlang_bif_types:type/3 "
 			 "(or with bogus return values):\n"),
 	    io:format("~p\n", [BadSmokeTest]),
-	    ?line ?t:fail({length(BadSmokeTest),bad_smoke_test})
+	    ct:fail({length(BadSmokeTest),bad_smoke_test})
     end.
 
 guard_bifs_in_erl_bif_types(_Config) ->
@@ -162,15 +135,17 @@ guard_bifs_in_erl_bif_types(_Config) ->
 	       "The following guard BIFs have no type information "
 	       "in erl_bif_types:\n\n",
 	       [io_lib:format("  ~p/~p\n", [F,A]) || {F,A} <- Not]]),
-	    ?t:fail()
+	    ct:fail(erl_bif_types)
     end.
 
 shadow_comments(_Config) ->
     ensure_erl_bif_types_compiled(),
 
+    ErlangList = [{erlang,F,A} || {F,A} <- erlang:module_info(exports),
+				  not is_operator(F,A)],
     List0 = erlang:system_info(snifs),
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
-    List = [MFA || MFA <- List1, not is_operator(MFA)],
+    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs, M =/= erlang],
+    List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
 		       erl_bif_types:is_known(M, F, A)],
     Path = get_code_path(),
@@ -202,7 +177,7 @@ shadow_comments(_Config) ->
 	       "obvious.\n\nThe following comments are missing:\n\n",
 	       [io_lib:format("%% Shadowed by erl_bif_types: ~p:~p/~p\n",
 			      [M,F,A]) || {M,F,A} <- NoComments]]),
-	    ?t:fail()
+	    ct:fail(bif_stub)
     end,
 
     case NoBifSpecs of
@@ -216,7 +191,7 @@ shadow_comments(_Config) ->
 	       "Therefore, the following comments should be removed:\n\n",
 	       [io_lib:format("%% Shadowed by erl_bif_types: ~p:~p/~p\n",
 			      [M,F,A]) || {M,F,A} <- NoBifSpecs]]),
-	    ?t:fail()
+	    ct:fail(erl_bif_types)
     end.
 
 extract_comments(Mod, Path) ->
@@ -238,7 +213,7 @@ ensure_erl_bif_types_compiled() ->
     case erlang:function_exported(erl_bif_types, module_info, 0) of
 	false ->
 	    %% Fail cleanly.
-	    ?t:fail("erl_bif_types not compiled");
+	    ct:fail("erl_bif_types not compiled");
 	true ->
 	    ok
     end.
@@ -276,16 +251,19 @@ specs(_) ->
 	[_|_] ->
 	    io:put_chars("The following BIFs don't have specs:\n"),
 	    [print_mfa(MFA) || MFA <- NoSpecs],
-	    ?t:fail()
+	    ct:fail(no_spec)
     end.
 
 is_operator({erlang,F,A}) ->
+    is_operator(F,A);
+is_operator(_) -> false.
+
+is_operator(F,A) ->
     erl_internal:arith_op(F, A) orelse
 	erl_internal:bool_op(F, A) orelse
 	erl_internal:comp_op(F, A) orelse
 	erl_internal:list_op(F, A) orelse
-	erl_internal:send_op(F, A);
-is_operator(_) -> false.
+	erl_internal:send_op(F, A).
     
 extract_specs(M, Abstr) ->
     [{make_mfa(M, Name),Spec} || {attribute,_,spec,{Name,Spec}} <- Abstr].
@@ -336,7 +314,7 @@ auto_imports([{erlang,F,A}|T], Errors) ->
 auto_imports([], 0) ->
     ok;
 auto_imports([], Errors) ->
-    ?t:fail({Errors,inconsistencies}).
+    ct:fail({Errors,inconsistencies}).
 
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
@@ -355,40 +333,36 @@ check_stub({_,F,A}, B) ->
 	    io:put_chars(erl_pp:function(Func)),
 	    io:nl(),
 	    io:put_chars("The body should be: erlang:nif_error(undef)"),
-	    ?t:fail()
+	    ct:fail(invalid_body)
     end.
 
 t_list_to_existing_atom(Config) when is_list(Config) ->
-    ?line all = list_to_existing_atom("all"),
-    ?line ?MODULE = list_to_existing_atom(?MODULE_STRING),
-    ?line UnlikelyStr = "dsfj923874390867er869fds9864y97jhg3973qerueoru",
+    all = list_to_existing_atom("all"),
+    ?MODULE = list_to_existing_atom(?MODULE_STRING),
+    UnlikelyStr = "dsfj923874390867er869fds9864y97jhg3973qerueoru",
     try
-	?line list_to_existing_atom(UnlikelyStr),
-	?line ?t:fail()
+	list_to_existing_atom(UnlikelyStr),
+	ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
 
     %% The compiler has become smarter! We need the call to id/1 in
     %% the next line.
-    ?line UnlikelyAtom = list_to_atom(id(UnlikelyStr)),
-    ?line UnlikelyAtom = list_to_existing_atom(UnlikelyStr),
+    UnlikelyAtom = list_to_atom(id(UnlikelyStr)),
+    UnlikelyAtom = list_to_existing_atom(UnlikelyStr),
     ok.
 
-os_env(doc) ->
-    [];
-os_env(suite) ->
-    [];
 os_env(Config) when is_list(Config) ->
-    ?line EnvVar1 = "MjhgvFDrresdCghN mnjkUYg vfrD",
-    ?line false = os:getenv(EnvVar1),
-    ?line true = os:putenv(EnvVar1, "mors"),
-    ?line "mors" = os:getenv(EnvVar1),
-    ?line true = os:putenv(EnvVar1, ""),
-    ?line case os:getenv(EnvVar1) of
-	      "" -> ?line ok;
-	      false -> ?line ok;
-	      BadVal -> ?line ?t:fail(BadVal)
+    EnvVar1 = "MjhgvFDrresdCghN mnjkUYg vfrD",
+    false = os:getenv(EnvVar1),
+    true = os:putenv(EnvVar1, "mors"),
+    "mors" = os:getenv(EnvVar1),
+    true = os:putenv(EnvVar1, ""),
+    case os:getenv(EnvVar1) of
+	      "" -> ok;
+	      false -> ok;
+	      BadVal -> ct:fail(BadVal)
 	  end,
     true = os:putenv(EnvVar1, "mors"),
     true = os:unsetenv(EnvVar1),
@@ -396,19 +370,18 @@ os_env(Config) when is_list(Config) ->
     true = os:unsetenv(EnvVar1), % unset unset variable
     %% os:putenv, os:getenv and os:unsetenv currently use a temp
     %% buffer of size 1024 for storing key+value
-    ?line os_env_long(1010, 1030, "hej hopp").
+    os_env_long(1010, 1030, "hej hopp").
     
 os_env_long(Min, Max, _Value) when Min > Max ->
-    ?line ok;
+    ok;
 os_env_long(Min, Max, Value) ->
-    ?line EnvVar = lists:duplicate(Min, $X),
-    ?line true = os:putenv(EnvVar, Value),
-    ?line Value = os:getenv(EnvVar),
+    EnvVar = lists:duplicate(Min, $X),
+    true = os:putenv(EnvVar, Value),
+    Value = os:getenv(EnvVar),
     true = os:unsetenv(EnvVar),
-    ?line os_env_long(Min+1, Max, Value).
+    os_env_long(Min+1, Max, Value).
 
-otp_7526(doc) ->    
-    ["Test that string:to_integer does not Halloc in wrong order."];
+%% Test that string:to_integer does not Halloc in wrong order.
 otp_7526(Config) when is_list(Config) ->
     ok = test_7526(256).
 
@@ -423,15 +396,15 @@ do_test_7526(N,M) ->
     {Self, Ref} = {self(), make_ref()},
     T = erlang:make_tuple(M,0),
     spawn_opt(fun()->
-		      L = iterate_7526(N, []),
-		      BadList = [X || X <- L, X =/= 9223372036854775808],
-		      BadLen = length(BadList),
-		      M = length(tuple_to_list(T)),
-		      %%io:format("~b bad conversions: ~p~n", [BadLen, BadList]),
-		      Self ! {done, Ref, BadLen}
-	      end,
-	      [link,{fullsweep_after,0}]),
-	receive {done, Ref, Len} -> Len end.
+                      L = iterate_7526(N, []),
+                      BadList = [X || X <- L, X =/= 9223372036854775808],
+                      BadLen = length(BadList),
+                      M = length(tuple_to_list(T)),
+                      %%io:format("~b bad conversions: ~p~n", [BadLen, BadList]),
+                      Self ! {done, Ref, BadLen}
+              end,
+              [link,{fullsweep_after,0}]),
+    receive {done, Ref, Len} -> Len end.
 
 
 test_7526(0) ->
@@ -455,57 +428,53 @@ binary_to_atom(Config) when is_list(Config) ->
     LongBin = list_to_binary(Long),
 
     %% latin1
-    ?line '' = test_binary_to_atom(<<>>, latin1),
-    ?line '\377' = test_binary_to_atom(<<255>>, latin1),
-    ?line HalfLongAtom = test_binary_to_atom(HalfLongBin, latin1),
-    ?line LongAtom = test_binary_to_atom(LongBin, latin1),
+    '' = test_binary_to_atom(<<>>, latin1),
+    '\377' = test_binary_to_atom(<<255>>, latin1),
+    HalfLongAtom = test_binary_to_atom(HalfLongBin, latin1),
+    LongAtom = test_binary_to_atom(LongBin, latin1),
 
     %% utf8
-    ?line '' = test_binary_to_atom(<<>>, utf8),
-    ?line HalfLongAtom = test_binary_to_atom(HalfLongBin, utf8),
-    ?line HalfLongAtom = test_binary_to_atom(HalfLongBin, unicode),
-    ?line [] = [C || C <- lists:seq(128, 255),
+    '' = test_binary_to_atom(<<>>, utf8),
+    HalfLongAtom = test_binary_to_atom(HalfLongBin, utf8),
+    HalfLongAtom = test_binary_to_atom(HalfLongBin, unicode),
+    [] = [C || C <- lists:seq(128, 255),
 		     begin
 			 list_to_atom([C]) =/=
 			     test_binary_to_atom(<<C/utf8>>, utf8)
 		     end],
 
     %% badarg failures.
-    ?line fail_binary_to_atom(atom),
-    ?line fail_binary_to_atom(42),
-    ?line fail_binary_to_atom({a,b,c}),
-    ?line fail_binary_to_atom([1,2,3]),
-    ?line fail_binary_to_atom([]),
-    ?line fail_binary_to_atom(42.0),
-    ?line fail_binary_to_atom(self()),
-    ?line fail_binary_to_atom(make_ref()),
-    ?line fail_binary_to_atom(<<0:7>>),
-    ?line fail_binary_to_atom(<<42:13>>),
-    ?line ?BADARG(binary_to_atom(id(<<>>), blurf)),
-    ?line ?BADARG(binary_to_atom(id(<<>>), [])),
+    fail_binary_to_atom(atom),
+    fail_binary_to_atom(42),
+    fail_binary_to_atom({a,b,c}),
+    fail_binary_to_atom([1,2,3]),
+    fail_binary_to_atom([]),
+    fail_binary_to_atom(42.0),
+    fail_binary_to_atom(self()),
+    fail_binary_to_atom(make_ref()),
+    fail_binary_to_atom(<<0:7>>),
+    fail_binary_to_atom(<<42:13>>),
+    ?BADARG(binary_to_atom(id(<<>>), blurf)),
+    ?BADARG(binary_to_atom(id(<<>>), [])),
 
     %% Bad UTF8 sequences.
-    ?line ?BADARG(binary_to_atom(id(<<255>>), utf8)),
-    ?line ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
-    ?line ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(256, 16#D7FF)],
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(16#E000, 16#FFFD)],
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(16#10000, 16#8FFFF)],
-    ?line [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) ||
-	      C <- lists:seq(16#90000, 16#10FFFF)],
+    ?BADARG(binary_to_atom(id(<<255>>), utf8)),
+    ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
+    ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(256, 16#D7FF)],
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#E000, 16#FFFD)],
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#10000, 16#8FFFF)],
+    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#90000, 16#10FFFF)],
 
     %% system_limit failures.
-    ?line ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, latin1)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, latin1)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, latin1)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, utf8)),
-    ?line ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, utf8)),
+    ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
+    ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255,0>>), utf8)),
+    ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, latin1)),
+    ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, latin1)),
+    ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, latin1)),
+    ?SYS_LIMIT(binary_to_atom(<<0:256/unit:8>>, utf8)),
+    ?SYS_LIMIT(binary_to_atom(<<0:257/unit:8>>, utf8)),
+    ?SYS_LIMIT(binary_to_atom(<<0:512/unit:8>>, utf8)),
     ok.
 
 test_binary_to_atom(Bin0, Encoding) ->
@@ -518,49 +487,49 @@ test_binary_to_atom(Bin0, Encoding) ->
 
 fail_binary_to_atom(Bin) ->
     try
-	binary_to_atom(Bin, latin1)
+        binary_to_atom(Bin, latin1)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	binary_to_atom(Bin, utf8)
+        binary_to_atom(Bin, utf8)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	binary_to_existing_atom(Bin, latin1)
+        binary_to_existing_atom(Bin, latin1)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	binary_to_existing_atom(Bin, utf8)
+        binary_to_existing_atom(Bin, utf8)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end.
 	
 
 binary_to_existing_atom(Config) when is_list(Config) ->
-    ?line UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,
+    UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,
     try
-	?line binary_to_existing_atom(UnlikelyBin, latin1),
-	?line ?t:fail()
+	binary_to_existing_atom(UnlikelyBin, latin1),
+	ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
 
     try
-	?line binary_to_existing_atom(UnlikelyBin, utf8),
-	?line ?t:fail()
+	binary_to_existing_atom(UnlikelyBin, utf8),
+	ct:fail(atom_exists)
     catch
 	error:badarg -> ok
     end,
 
-    ?line UnlikelyAtom = binary_to_atom(id(UnlikelyBin), latin1),
-    ?line UnlikelyAtom = binary_to_existing_atom(UnlikelyBin, latin1),
+    UnlikelyAtom = binary_to_atom(id(UnlikelyBin), latin1),
+    UnlikelyAtom = binary_to_existing_atom(UnlikelyBin, latin1),
     ok.
 
 
@@ -573,32 +542,32 @@ atom_to_binary(Config) when is_list(Config) ->
     LongBin = list_to_binary(Long),
 
     %% latin1
-    ?line <<>> = atom_to_binary('', latin1),
-    ?line <<"abc">> = atom_to_binary(abc, latin1),
-    ?line <<127>> = atom_to_binary('\177', latin1),
-    ?line HalfLongBin = atom_to_binary(HalfLongAtom, latin1),
-    ?line LongBin = atom_to_binary(LongAtom, latin1),
+    <<>> = atom_to_binary('', latin1),
+    <<"abc">> = atom_to_binary(abc, latin1),
+    <<127>> = atom_to_binary('\177', latin1),
+    HalfLongBin = atom_to_binary(HalfLongAtom, latin1),
+    LongBin = atom_to_binary(LongAtom, latin1),
 
     %% utf8.
-    ?line <<>> = atom_to_binary('', utf8),
-    ?line <<>> = atom_to_binary('', unicode),
-    ?line <<127>> = atom_to_binary('\177', utf8),
-    ?line <<"abcdef">> = atom_to_binary(abcdef, utf8),
-    ?line HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
-    ?line LongAtomBin = atom_to_binary(LongAtom, utf8),
-    ?line verify_long_atom_bin(LongAtomBin, 0),
+    <<>> = atom_to_binary('', utf8),
+    <<>> = atom_to_binary('', unicode),
+    <<127>> = atom_to_binary('\177', utf8),
+    <<"abcdef">> = atom_to_binary(abcdef, utf8),
+    HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
+    LongAtomBin = atom_to_binary(LongAtom, utf8),
+    verify_long_atom_bin(LongAtomBin, 0),
 
     %% Failing cases.
-    ?line fail_atom_to_binary(<<1>>),
-    ?line fail_atom_to_binary(42),
-    ?line fail_atom_to_binary({a,b,c}),
-    ?line fail_atom_to_binary([1,2,3]),
-    ?line fail_atom_to_binary([]),
-    ?line fail_atom_to_binary(42.0),
-    ?line fail_atom_to_binary(self()),
-    ?line fail_atom_to_binary(make_ref()),
-    ?line ?BADARG(atom_to_binary(id(a), blurf)),
-    ?line ?BADARG(atom_to_binary(id(b), [])),
+    fail_atom_to_binary(<<1>>),
+    fail_atom_to_binary(42),
+    fail_atom_to_binary({a,b,c}),
+    fail_atom_to_binary([1,2,3]),
+    fail_atom_to_binary([]),
+    fail_atom_to_binary(42.0),
+    fail_atom_to_binary(self()),
+    fail_atom_to_binary(make_ref()),
+    ?BADARG(atom_to_binary(id(a), blurf)),
+    ?BADARG(atom_to_binary(id(b), [])),
     ok.
 
 verify_long_atom_bin(<<I/utf8,T/binary>>, I) ->
@@ -607,74 +576,73 @@ verify_long_atom_bin(<<>>, 255) -> ok.
 
 fail_atom_to_binary(Term) ->
     try
-	atom_to_binary(Term, latin1)
+        atom_to_binary(Term, latin1)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end,
     try
-	atom_to_binary(Term, utf8)
+        atom_to_binary(Term, utf8)
     catch
-	error:badarg ->
-	    ok
+        error:badarg ->
+            ok
     end.
 
 min_max(Config) when is_list(Config) ->	
-    ?line a = erlang:min(id(a), a),
-    ?line a = erlang:min(id(a), b),
-    ?line a = erlang:min(id(b), a),
-    ?line b = erlang:min(id(b), b),
-    ?line a = erlang:max(id(a), a),
-    ?line b = erlang:max(id(a), b),
-    ?line b = erlang:max(id(b), a),
-    ?line b = erlang:max(id(b), b),
+    a = erlang:min(id(a), a),
+    a = erlang:min(id(a), b),
+    a = erlang:min(id(b), a),
+    b = erlang:min(id(b), b),
+    a = erlang:max(id(a), a),
+    b = erlang:max(id(a), b),
+    b = erlang:max(id(b), a),
+    b = erlang:max(id(b), b),
 
-    ?line 42.0 = erlang:min(42.0, 42),
-    ?line 42.0 = erlang:max(42.0, 42),
+    42.0 = erlang:min(42.0, 42),
+    42.0 = erlang:max(42.0, 42),
     %% And now (R14) they are also autoimported!
-    ?line a = min(id(a), a),
-    ?line a = min(id(a), b),
-    ?line a = min(id(b), a),
-    ?line b = min(id(b), b),
-    ?line a = max(id(a), a),
-    ?line b = max(id(a), b),
-    ?line b = max(id(b), a),
-    ?line b = max(id(b), b),
+    a = min(id(a), a),
+    a = min(id(a), b),
+    a = min(id(b), a),
+    b = min(id(b), b),
+    a = max(id(a), a),
+    b = max(id(a), b),
+    b = max(id(b), a),
+    b = max(id(b), b),
 
-    ?line 42.0 = min(42.0, 42),
-    ?line 42.0 = max(42.0, 42),
-
+    42.0 = min(42.0, 42),
+    42.0 = max(42.0, 42),
     ok.
 
 
 
 erlang_halt(Config) when is_list(Config) ->
     try erlang:halt(undefined) of
-	_-> ?t:fail({erlang,halt,{undefined}})
+	_-> ct:fail({erlang,halt,{undefined}})
     catch error:badarg -> ok end,
     try halt(undefined) of
-	_-> ?t:fail({halt,{undefined}})
+	_-> ct:fail({halt,{undefined}})
     catch error:badarg -> ok end,
     try erlang:halt(undefined, []) of
-	_-> ?t:fail({erlang,halt,{undefined,[]}})
+	_-> ct:fail({erlang,halt,{undefined,[]}})
     catch error:badarg -> ok end,
     try halt(undefined, []) of
-	_-> ?t:fail({halt,{undefined,[]}})
+	_-> ct:fail({halt,{undefined,[]}})
     catch error:badarg -> ok end,
     try halt(0, undefined) of
-	_-> ?t:fail({halt,{0,undefined}})
+	_-> ct:fail({halt,{0,undefined}})
     catch error:badarg -> ok end,
     try halt(0, [undefined]) of
-	_-> ?t:fail({halt,{0,[undefined]}})
+	_-> ct:fail({halt,{0,[undefined]}})
     catch error:badarg -> ok end,
     try halt(0, [{undefined,true}]) of
-	_-> ?t:fail({halt,{0,[{undefined,true}]}})
+	_-> ct:fail({halt,{0,[{undefined,true}]}})
     catch error:badarg -> ok end,
     try halt(0, [{flush,undefined}]) of
-	_-> ?t:fail({halt,{0,[{flush,undefined}]}})
+	_-> ct:fail({halt,{0,[{flush,undefined}]}})
     catch error:badarg -> ok end,
     try halt(0, [{flush,true,undefined}]) of
-	_-> ?t:fail({halt,{0,[{flush,true,undefined}]}})
+	_-> ct:fail({halt,{0,[{flush,true,undefined}]}})
     catch error:badarg -> ok end,
     H = hostname(),
     {ok,N1} = slave:start(H, halt_node1),
@@ -683,6 +651,8 @@ erlang_halt(Config) when is_list(Config) ->
     {badrpc,nodedown} = rpc:call(N2, erlang, halt, [0]),
     {ok,N3} = slave:start(H, halt_node3),
     {badrpc,nodedown} = rpc:call(N3, erlang, halt, [0,[]]),
+    {ok,N4} = slave:start(H, halt_node4),
+    {badrpc,nodedown} = rpc:call(N4, erlang, halt, [lists:duplicate(300,$x)]),
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.
@@ -715,6 +685,22 @@ wait_until_stable_size(File,PrevSz) ->
         {ok,#file_info{size = NewSz }} ->
             wait_until_stable_size(File,NewSz)
     end.
+
+is_builtin(_Config) ->
+    Exp0 = [{M,F,A} || {M,_} <- code:all_loaded(),
+		       {F,A} <- M:module_info(exports)],
+    Exp = ordsets:from_list(Exp0),
+
+    %% erlang:apply/3 is considered to be built-in, but is not
+    %% implemented as other BIFs.
+
+    Builtins0 = [{erlang,apply,3}|erlang:system_info(snifs)],
+    Builtins = ordsets:from_list(Builtins0),
+    NotBuiltin = ordsets:subtract(Exp, Builtins),
+    _ = [true = erlang:is_builtin(M, F, A) || {M,F,A} <- Builtins],
+    _ = [false = erlang:is_builtin(M, F, A) || {M,F,A} <- NotBuiltin],
+
+    ok.
 
 
 %% Helpers

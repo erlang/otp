@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2005-2014. All Rights Reserved.
+dnl Copyright Ericsson AB 2005-2016. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -73,6 +73,16 @@ AC_CHECK_TOOL(LD, ld, '$(CC)')
 
 AC_SUBST(LD)
 
+_search_path=/bin:/usr/bin:/usr/local/bin:$PATH
+
+AC_PATH_PROG(RM, rm, false, $_search_path)
+if test "$ac_cv_path_RM" = false; then
+  AC_MSG_ERROR([No 'rm' command found])
+fi
+
+_search_path=
+
+
 # Sockets
 #--------------------------------------------------------------------
 #	Check for the existence of the -lsocket and -lnsl libraries.
@@ -128,7 +138,7 @@ dnl Checks for library functions.
 AC_CHECK_FUNCS([memset socket])
 	
 # ODBC 
-/bin/rm -f "$ERL_TOP/lib/odbc/SKIP"
+$RM -f "$ERL_TOP/lib/odbc/SKIP"
 
 LM_CHECK_THR_LIB
 AC_SUBST(THR_DEFS)

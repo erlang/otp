@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,29 +24,44 @@
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
--export([getserv/1, getaddr/1, getaddr/2]).
+-export([getserv/1, getaddr/1, getaddr/2, translate_ip/1]).
 
 -include("inet_int.hrl").
 
+-define(FAMILY, inet6).
+-define(PROTO, udp).
+-define(TYPE, dgram).
+
+
 %% inet_udp port lookup
 getserv(Port) when is_integer(Port) -> {ok, Port};
-getserv(Name) when is_atom(Name)    -> inet:getservbyname(Name,udp).
+getserv(Name) when is_atom(Name) -> inet:getservbyname(Name, ?PROTO).
 
 %% inet_udp address lookup
-getaddr(Address) -> inet:getaddr(Address, inet6).
-getaddr(Address,Timer) -> inet:getaddr(Address, inet6, Timer).
+getaddr(Address) -> inet:getaddr(Address, ?FAMILY).
+getaddr(Address, Timer) -> inet:getaddr(Address, ?FAMILY, Timer).
 
+%% inet_udp special this side addresses
+translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
+
+-spec open(_) -> {ok, inet:socket()} | {error, atom()}.
 open(Port) -> open(Port, []).
 
+-spec open(_, _) -> {ok, inet:socket()} | {error, atom()}.
 open(Port, Opts) ->
-    case inet:udp_options([{port,Port} | Opts], inet6) of
+    case inet:udp_options(
+	   [{port,Port} | Opts],
+	   ?MODULE) of
 	{error, Reason} -> exit(Reason);
-	{ok, #udp_opts{fd=Fd,
-		       ifaddr=BAddr={A,B,C,D,E,F,G,H},
-		       port=BPort,
-		       opts=SockOpts}}
+	{ok,
+	 #udp_opts{
+	    fd = Fd,
+	    ifaddr = BAddr = {A,B,C,D,E,F,G,H},
+	    port = BPort,
+	    opts = SockOpts}}
 	when ?ip6(A,B,C,D,E,F,G,H), ?port(BPort) ->
-	    inet:open(Fd,BAddr,BPort,SockOpts,udp,inet6,dgram,?MODULE);
+	    inet:open(
+	      Fd, BAddr, BPort, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)
     end.
 
@@ -61,12 +76,13 @@ connect(S, Addr = {A,B,C,D,E,F,G,H}, P)
   when ?ip6(A,B,C,D,E,F,G,H), ?port(P) ->
     prim_inet:connect(S, Addr, P).
 
-recv(S,Len) ->
+recv(S, Len) ->
     prim_inet:recvfrom(S, Len).
 
-recv(S,Len,Time) ->
+recv(S, Len, Time) ->
     prim_inet:recvfrom(S, Len, Time).
 
+-spec close(inet:socket()) -> ok.
 close(S) ->
     inet:udp_close(S).
 
@@ -85,4 +101,4 @@ controlling_process(Socket, NewOwner) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
-    inet:fdopen(Fd, Opts, udp, inet6, dgram, ?MODULE).
+    inet:fdopen(Fd, Opts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE).

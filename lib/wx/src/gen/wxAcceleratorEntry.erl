@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,10 +47,10 @@ new() ->
 %% 	Entry::wxAcceleratorEntry().<br />
 %% 
 -spec new([Option]) -> wxAcceleratorEntry() when
-	Option :: {flags, integer()}
-		 | {keyCode, integer()}
-		 | {cmd, integer()}
-		 | {item, wxMenuItem:wxMenuItem()};
+	Option :: {'flags', integer()}
+		 | {'keyCode', integer()}
+		 | {'cmd', integer()}
+		 | {'item', wxMenuItem:wxMenuItem()};
       (Entry) -> wxAcceleratorEntry() when
 	Entry::wxAcceleratorEntry().
 new(Options)
@@ -93,7 +93,7 @@ getKeyCode(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @equiv set(This,Flags,KeyCode,Cmd, [])
--spec set(This, Flags, KeyCode, Cmd) -> ok when
+-spec set(This, Flags, KeyCode, Cmd) -> 'ok' when
 	This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer().
 
 set(This,Flags,KeyCode,Cmd)
@@ -101,9 +101,9 @@ set(This,Flags,KeyCode,Cmd)
   set(This,Flags,KeyCode,Cmd, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxacceleratorentry.html#wxacceleratorentryset">external documentation</a>.
--spec set(This, Flags, KeyCode, Cmd, [Option]) -> ok when
+-spec set(This, Flags, KeyCode, Cmd, [Option]) -> 'ok' when
 	This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer(),
-	Option :: {item, wxMenuItem:wxMenuItem()}.
+	Option :: {'item', wxMenuItem:wxMenuItem()}.
 set(#wx_ref{type=ThisT,ref=ThisRef},Flags,KeyCode,Cmd, Options)
  when is_integer(Flags),is_integer(KeyCode),is_integer(Cmd),is_list(Options) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
@@ -114,7 +114,7 @@ set(#wx_ref{type=ThisT,ref=ThisRef},Flags,KeyCode,Cmd, Options)
   <<ThisRef:32/?UI,Flags:32/?UI,KeyCode:32/?UI,Cmd:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAcceleratorEntry()) -> ok.
+-spec destroy(This::wxAcceleratorEntry()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAcceleratorEntry),
   wxe_util:destroy(?wxAcceleratorEntry_destroy,Obj),

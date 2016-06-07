@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2015</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,7 +48,7 @@
       <item><p><c>true | false</c></p></item>
 
       <tag><c>option() =</c></tag>
-      <item><p><c>socketoption() | ssloption() | transportoption()</c></p>
+      <item><p><c>socketoption() | ssl_option() | transport_option()</c></p>
       </item>
 
       <tag><c>socketoption() =</c></tag>
@@ -60,7 +60,7 @@
       <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> manual pages
       in Kernel.</p></item>
 
-      <tag><marker id="type-ssloption"/><c>ssloption() =</c></tag>
+      <tag><marker id="type-ssloption"/><c>ssl_option() =</c></tag>
       <item>
 	<p><c>{verify, verify_type()}</c></p>
 	<p><c>| {verify_fun, {fun(), term()}}</c></p>
@@ -85,11 +85,11 @@
 	[binary()]} | {client | server, [binary()], binary()}}</c></p>
 	<p><c>| {log_alert, boolean()}</c></p>
 	<p><c>| {server_name_indication, hostname() | disable}</c></p>
-	<p><c>| {sni_hosts, [{hostname(), ssloptions()}]}</c></p>
+	<p><c>| {sni_hosts, [{hostname(), [ssl_option()]}]}</c></p>
 	<p><c>| {sni_fun, SNIfun::fun()}</c></p>
       </item>
       
-      <tag><c>transportoption() =</c></tag>
+      <tag><c>transport_option() =</c></tag>
       <item><p><c>{cb_info, {CallbackModule::atom(), DataTag::atom(),
 
       ClosedTag::atom(), ErrTag:atom()}}</c></p>
@@ -168,7 +168,7 @@
       | srp_4096 | srp_6144 | srp_8192</c></p></item>
 
       <tag><c>SNIfun::fun()</c></tag>
-      <item><p><c>= fun(ServerName :: string()) -> ssloptions()</c></p></item>
+      <item><p><c>= fun(ServerName :: string()) -> [ssl_option()]</c></p></item>
 
     </taglist>
   </section>
@@ -417,10 +417,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
       If set to <c>false</c>, it disables the block cipher padding check
       to be able to interoperate with legacy software.</p></item>
 
-    </taglist>
-
         <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
 	vulnerable to the Poodle attack.</p></warning>
+
+      <tag><c>{beast_mitigation, one_n_minus_one | zero_n | disabled}</c></tag>
+      <item><p>Affects SSL-3.0 and TLS-1.0 connections only. Used to change the BEAST
+       mitigation strategy to interoperate with legacy software.
+       Defaults to <c>one_n_minus_one</c>.</p>
+
+      <p><c>one_n_minus_one</c> - Perform 1/n-1 BEAST mitigation.</p>
+
+      <p><c>zero_n</c> - Perform 0/n BEAST mitigation.</p>
+
+      <p><c>disabled</c> - Disable BEAST mitigation.</p></item>
+
+        <warning><p>Using <c>{beast_mitigation, disabled}</c> makes SSL or TLS
+        vulnerable to the BEAST attack.</p></warning>
+    </taglist>
 
   </section>
   
@@ -522,9 +535,43 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	 be supported by the server for the prevention to work.
 	</p></warning>
       </item>
-    </taglist>
+      <tag><marker id="client_signature_algs"/><c>{signature_algs, [{hash(), ecdsa | rsa | dsa}]}</c></tag>
+	<item>
+	<p>In addition to the algorithms negotiated by the cipher
+	suite used for key exchange, payload encryption, message
+	authentication and pseudo random calculation, the TLS signature
+	algorithm extension <url
+	href="http://www.ietf.org/rfc/rfc5246.txt">Section 7.4.1.4.1 in RFC 5246</url> may be
+	used, from TLS 1.2, to negotiate which signature algorithm to use during the
+	TLS handshake. If no lower TLS versions than 1.2 are supported,
+	the client will send a TLS signature algorithm extension
+	with the algorithms specified by this option.
+	Defaults to
+	
+	<code>[
+%% SHA2
+{sha512, ecdsa},
+{sha512, rsa},
+{sha384, ecdsa},
+{sha384, rsa},
+{sha256, ecdsa},
+{sha256, rsa},
+{sha224, ecdsa},
+{sha224, rsa},
+%% SHA
+{sha, ecdsa},
+{sha, rsa},
+{sha, dsa},
+]</code>
+	
+	The algorithms should be in the preferred order.
+	Selected signature algorithm can restrict which hash functions
+	that may be selected. Default support for {md5, rsa} removed in ssl-8.0
+	</p>
+	</item>
+      </taglist>
    </section>
-
+   
   <section>
     <title>SSL OPTION DESCRIPTIONS - SERVER SIDE</title>
 
@@ -617,7 +664,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       selection. If set to <c>false</c> (the default), use the client
       preference.</p></item>
 
-      <tag><c>{sni_hosts, [{hostname(), ssloptions()}]}</c></tag>
+      <tag><c>{sni_hosts, [{hostname(), [ssl_option()]}]}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client
       matching a host listed in the <c>sni_hosts</c> option, the specific options for
       that host will override previously specified options.
@@ -626,11 +673,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <tag><c>{sni_fun, SNIfun::fun()}</c></tag>
       <item><p>If the server receives a SNI (Server Name Indication) from the client,
-      the given function will be called to retrieve <c>ssloptions()</c> for the indicated server.
-      These options will be merged into predefined <c>ssloptions()</c>.
+      the given function will be called to retrieve <c>[ssl_option()]</c> for the indicated server.
+      These options will be merged into predefined <c>[ssl_option()]</c>.
 
       The function should be defined as:
-        <c>fun(ServerName :: string()) -> ssloptions()</c>
+        <c>fun(ServerName :: string()) -> [ssl_option()]</c>
       and can be specified as a fun or as named <c>fun module:function/1</c>
 
       The option <c>sni_fun</c>, and <c>sni_hosts</c> are mutually exclusive.</p></item>
@@ -651,6 +698,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <item>If true, use the server's preference for cipher selection. If false
       (the default), use the client's preference.
       </item>
+      
+      <tag><c>{signature_algs, [{hash(), ecdsa | rsa | dsa}]}</c></tag>
+      <item><p> The algorithms specified by
+      this option will be the ones accepted by the server in a signature algorithm
+      negotiation, introduced in TLS-1.2. The algorithms will also be offered to the client if a
+      client certificate is requested. For more details see the <seealso marker="#client_signature_algs">corresponding client option</seealso>.
+      </p> </item>
+
     </taglist>
   </section>
   
@@ -710,7 +765,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	equivalent, connected socket to an SSL socket.</fsummary>
       <type>
 	<v>Socket = socket()</v>
-	<v>SslOptions = [ssloption()]</v>
+	<v>SslOptions = [ssl_option()]</v>
 	<v>Timeout = integer() | infinity</v>
 	<v>SslSocket = sslsocket()</v>
 	<v>Reason = term()</v>
@@ -1023,7 +1078,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
       <type>
         <v>Socket = socket() | sslsocket() </v>
-	<v>SslOptions = ssloptions()</v>
+	<v>SslOptions = [ssl_option()]</v>
         <v>Timeout = integer()</v>
         <v>Reason = term()</v>
       </type>

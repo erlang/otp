@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef},Colou
   <<ThisRef:32/?UI,BitmapRef:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMask()) -> ok.
+-spec destroy(This::wxMask()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMask),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

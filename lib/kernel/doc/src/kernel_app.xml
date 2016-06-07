@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1996</year><year>2015</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,66 +29,59 @@
     <rev></rev>
   </header>
   <app>kernel</app>
-  <appsummary>The Kernel Application</appsummary>
+  <appsummary>The Kernel application.</appsummary>
   <description>
-    <p>The Kernel application is the first application started. It is
+    <p>The <c>Kernel</c> application has all the code necessary to run
+      the Erlang runtime system: file servers, code servers,
+      and so on.</p>
+    <p>The <c>Kernel</c> application is the first application started. It is
       mandatory in the sense that the minimal system based on
-      Erlang/OTP consists of Kernel and STDLIB. The Kernel application
-      contains the following services:</p>
+      Erlang/OTP consists of <c>Kernel</c> and <c>STDLIB</c>. <c>Kernel</c>
+      contains the following functional areas:</p>
     <list type="bulleted">
-      <item>application controller, see <seealso marker="application">application(3)</seealso></item>
-      <item><c>code</c></item>
-      <item><c>disk_log</c></item>
-      <item><c>dist_ac</c>, distributed application controller</item>
-      <item><c>erl_boot_server</c></item>
-      <item><c>erl_ddll</c></item>
-      <item><c>error_logger</c></item>
-      <item><c>error_logger_format_depth</c></item>
-      <item><c>file</c></item>
-      <item><c>global</c></item>
-      <item><c>global_group</c></item>
-      <item><c>heart</c></item>
-      <item><c>inet</c></item>
-      <item><c>net_kernel</c></item>
-      <item><c>os</c></item>
-      <item><c>pg2</c></item>
-      <item><c>rpc</c></item>
-      <item><c>seq_trace</c></item>
-      <item><c>user</c></item>
+      <item>Start, stop, supervision, configuration, and distribution of applications</item>
+      <item>Code loading</item>
+      <item>Logging</item>
+      <item>Error logging</item>
+      <item>Global name service</item>
+      <item>Supervision of Erlang/OTP</item>
+      <item>Communication with sockets</item>
+      <item>Operating system interface</item>
     </list>
   </description>
 
   <section>
     <title>Error Logger Event Handlers</title>
     <p>Two standard error logger event handlers are defined in
-      the Kernel application. These are described in
-      <seealso marker="error_logger">error_logger(3)</seealso>.</p>
+      the <c>Kernel</c> application. These are described in
+      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>.</p>
   </section>
 
   <section>
     <title>Configuration</title>
-    <p>The following configuration parameters are defined for the Kernel
-      application. See <seealso marker="app">app(4)</seealso> for more
-      information about configuration parameters.</p>
+    <p>The following configuration parameters are defined for the <c>Kernel</c>
+      application. For more information about configuration parameters,
+    see file <seealso marker="app"><c>app(4)</c></seealso>.</p>
     <taglist>
       <tag><c>browser_cmd = string() | {M,F,A}</c></tag>
       <item>
-        <p>When pressing the Help button in a tool such as Debugger or
-          TV, the help text (an HTML file <c>File</c>) is by default
-          displayed in a Netscape browser which is required to be up and
-          running. This parameter can be used to change the command for
+        <p>When pressing the <em>Help</em> button in a tool such as Debugger,
+          the help text (an HTML file <c>File</c>) is by default
+          displayed in a Netscape browser, which is required to be
+          operational. This parameter can be used to change the command for
           how to display the help text if another browser than Netscape
-          is preferred, or another platform than Unix or Windows is
+          is preferred, or if another platform than Unix or Windows is
           used.</p>
         <p>If set to a string <c>Command</c>, the command
-          <c>"Command File"</c> will be evaluated using <c>os:cmd/1</c>.</p>
-        <p>If set to a module-function-args tuple <c>{M,F,A}</c>,
-          the call <c>apply(M,F,[File|A])</c> will be evaluated.</p>
+          <c>"Command File"</c> is evaluated using
+	<seealso marker="os#cmd/1"><c>os:cmd/1</c></seealso>.</p>
+        <p>If set to a module-function-args tuple, <c>{M,F,A}</c>,
+          the call <c>apply(M,F,[File|A])</c> is evaluated.</p>
       </item>
       <tag><c>distributed = [Distrib]</c></tag>
       <item>
-        <p>Specifies which applications are distributed and on which
-          nodes they may execute. In this parameter:</p>
+        <p>Specifies which applications that are distributed and on which
+          nodes they are allowed to execute. In this parameter:</p>
         <list type="bulleted">
           <item><c>Distrib = {App,Nodes} | {App,Time,Nodes}</c></item>
           <item><c>App = atom()</c></item>
@@ -96,25 +89,24 @@
           <item><c>Nodes = [node() | {node(),...,node()}]</c></item>
         </list>
         <p>The parameter is described in
-	  <seealso marker="application">application(3)</seealso>, function
-          <c>load/2</c>.</p>
+	  <seealso marker="application#load/2"><c>application:load/2</c></seealso>.</p>
       </item>
       <tag><c>dist_auto_connect = Value</c></tag>
       <item>
-        <p>Specifies when nodes will be automatically connected. If
+        <p>Specifies when nodes are automatically connected. If
           this parameter is not specified, a node is always
-          automatically connected, e.g when a message is to be sent to
+          automatically connected, for example, when a message is to be sent to
           that node. <c>Value</c> is one of:</p>
         <taglist>
           <tag><c>never</c></tag>
-          <item>Connections are never automatically established, they
+          <item><p>Connections are never automatically established, they
            must be explicitly connected. See
-	   <seealso marker="net_kernel">net_kernel(3)</seealso>.</item>
+	   <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>.</p></item>
           <tag><c>once</c></tag>
-          <item>Connections will be established automatically, but only
+          <item><p>Connections are established automatically, but only
            once per node. If a node goes down, it must thereafter be
            explicitly connected. See
-	   <seealso marker="net_kernel">net_kernel(3)</seealso>.</item>
+	   <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>.</p></item>
         </taglist>
       </item>
       <tag><c>permissions = [Perm]</c></tag>
@@ -127,25 +119,24 @@
           <item><c>Bool = boolean()</c></item>
         </list>
         <p>Permissions are described in
-	  <seealso marker="application">application(3)</seealso>, function
-          <c>permit/2</c>.</p>
+	  <seealso marker="application#permit/2"><c>application:permit/2</c></seealso>.</p>
       </item>
       <tag><c>error_logger = Value</c></tag>
       <item>
         <p><c>Value</c> is one of:</p>
         <taglist>
           <tag><c>tty</c></tag>
-          <item>Installs the standard event handler which prints error
-           reports to <c>stdio</c>. This is the default option.</item>
+          <item><p>Installs the standard event handler, which prints error
+           reports to <c>stdio</c>. This is the default option.</p></item>
           <tag><c>{file, FileName}</c></tag>
-          <item>Installs the standard event handler which prints error
-           reports to the file <c>FileName</c>, where <c>FileName</c>
-           is a string.</item>
+          <item><p>Installs the standard event handler, which prints error
+           reports to file <c>FileName</c>, where <c>FileName</c>
+           is a string.</p></item>
           <tag><c>false</c></tag>
           <item>
             <p>No standard event handler is installed, but
               the initial, primitive event handler is kept, printing
-              raw event messages to tty.</p>
+              raw event messages to <c>tty</c>.</p>
           </item>
           <tag><c>silent</c></tag>
           <item>
@@ -156,111 +147,110 @@
       <tag><c>error_logger_format_depth = Depth</c></tag>
       <item>
         <marker id="error_logger_format_depth"></marker>
-	<p>This parameter can be used to limit the size of the
+	<p>Can be used to limit the size of the
 	formatted output from the error logger event handlers.</p>
 
-	<note><p>This configuration parameter was introduced in OTP 18.1.
-	It is currently experimental. Based on user feedback it
-	may be changed or improved in future releases, for example
+	<note><p>This configuration parameter was introduced in OTP 18.1
+	and is experimental. Based on user feedback, it
+	can be changed or improved in future releases, for example,
 	to gain better control over how to limit the size of the
-	formatted output. We have no plans to entirely remove this
-	new feature, unless it turns out to be completely
-	useless. In OTP 19, the default may be changed to limit the
-	formatted output.</p></note>
+	formatted output. We have no plans to remove this
+	new feature entirely, unless it turns out to be
+	useless.</p></note>
 
-        <p><c>Depth</c> is a positive integer that is the maximum
+        <p><c>Depth</c> is a positive integer representing the maximum
         depth to which terms are printed by the error logger event
-        handlers included in OTP. Specifically, the two event handlers
+        handlers included in OTP. This
+        configuration parameter is used by the two event handlers
         defined by the <c>Kernel</c> application and the two event
-        handlers in the <c>SASL</c> application will use this
-        configuration parameter. (If you have implemented you own
-        error handlers, this configuration parameter will have no
-        effect on them.)</p>
+        handlers in the <c>SASL</c> application.
+	(If you have implemented your own error handlers, this configuration
+	parameter has no effect on them.)</p>
 
-	<p>The way <c>Depth</c> is used, is that format strings
-	string passed to the event handlers will be rewritten.
-	The "~p" and "~w" format controls will be replaced with
-	"~P" and "~W", respectively, and <c>Depth</c> will be
-	used as the depth parameter. See
-	<seealso marker="stdlib:io#format/2">io:format/2</seealso>.</p>
+	<p><c>Depth</c> is used as follows: Format strings
+	passed to the event handlers are rewritten.
+	The format controls <c>~p</c> and <c>~w</c> are replaced with
+	<c>~P</c> and <c>~W</c>, respectively, and <c>Depth</c> is
+	used as the depth parameter. For details, see
+	<seealso marker="stdlib:io#format/2"><c>io:format/2</c></seealso>
+	in <c>STDLIB</c>.</p>
 
 	<note><p>A reasonable starting value for <c>Depth</c> is
-	<c>30</c>.  You should test crashing various processes in your
-	application and examine the logs from the crashes, and then
-	either increase or decrease the value.</p></note>
+	<c>30</c>. We recommend to test crashing various processes in your
+	application, examine the logs from the crashes, and then
+	increase or decrease the value.</p></note>
      </item>
       <tag><c>global_groups = [GroupTuple]</c></tag>
       <item>
+        <marker id="global_groups"></marker>
         <p>Defines global groups, see
-	  <seealso marker="global_group">global_group(3)</seealso>.</p>
+	  <seealso marker="global_group"><c>global_group(3)</c></seealso>.
+	In this parameter:</p>
         <list type="bulleted">
-          <item><c>GroupTuple = {GroupName, [Node]} | {GroupName, PublishType, [Node]}</c></item>
-          <item><c>GroupName = atom()</c></item>
-          <item><c>PublishType = normal | hidden</c></item>
-          <item><c>Node = node()</c></item>
+          <item><p><c>GroupTuple = {GroupName, [Node]} | {GroupName, PublishType, [Node]}</c></p></item>
+          <item><p><c>GroupName = atom()</c></p></item>
+          <item><p><c>PublishType = normal | hidden</c></p></item>
+          <item><p><c>Node = node()</c></p></item>
         </list>
       </item>
       <tag><c>inet_default_connect_options = [{Opt, Val}]</c></tag>
       <item>
         <p>Specifies default options for <c>connect</c> sockets,
-          see <seealso marker="inet">inet(3)</seealso>.</p>
+          see <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
       </item>
       <tag><c>inet_default_listen_options = [{Opt, Val}]</c></tag>
       <item>
         <p>Specifies default options for <c>listen</c> (and
-          <c>accept</c>) sockets, see <seealso marker="inet">inet(3)</seealso>.</p>
+          <c>accept</c>) sockets, see <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
       </item>
       <tag><c>{inet_dist_use_interface, ip_address()}</c></tag>
       <item>
-        <p>If the host of an Erlang node has several network interfaces,
-          this parameter specifies which one to listen on. See
-          <seealso marker="inet">inet(3)</seealso> for the type definition
-	  of <c>ip_address()</c>.</p>
+        <p>If the host of an Erlang node has many network interfaces,
+          this parameter specifies which one to listen on. For the type definition
+	  of <c>ip_address()</c>,
+	  see <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
       </item>
-      <tag><c>{inet_dist_listen_min, First}</c></tag>
+      <tag><c>{inet_dist_listen_min, First}</c> and <c>{inet_dist_listen_max, Last}</c></tag>
       <item>
-        <p>See below.</p>
-      </item>
-      <tag><c>{inet_dist_listen_max, Last}</c></tag>
-      <item>
-        <p>Define the <c>First..Last</c> port range for the listener
+        <p>Defines the <c>First..Last</c> port range for the listener
           socket of a distributed Erlang node.</p>
       </item>
       <tag><c>{inet_dist_listen_options, Opts}</c></tag>
       <item>
-        <p>Define a list of extra socket options to be used when opening the
+        <p>Defines a list of extra socket options to be used when opening the
 	  listening socket for a distributed Erlang node.
-	  See <seealso marker="gen_tcp#listen/2">gen_tcp:listen/2</seealso></p>
+	  See <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>.</p>
       </item>
       <tag><c>{inet_dist_connect_options, Opts}</c></tag>
       <item>
-        <p>Define a list of extra socket options to be used when connecting to
+        <p>Defines a list of extra socket options to be used when connecting to
 	  other distributed Erlang nodes.
-	  See <seealso marker="gen_tcp#connect/4">gen_tcp:connect/4</seealso></p>
+	  See <seealso marker="gen_tcp#connect/4"><c>gen_tcp:connect/4</c></seealso>.</p>
       </item>
       <tag><c>inet_parse_error_log = silent</c></tag>
       <item>
-        <p>If this configuration parameter is set, no
+        <p>If set, no
           <c>error_logger</c> messages are generated when erroneous
           lines are found and skipped in the various Inet configuration
           files.</p>
       </item>
       <tag><c>inetrc = Filename</c></tag>
       <item>
-        <p>The name (string) of an Inet user configuration file. See
-          ERTS User's Guide, Inet configuration.</p>
+        <p>The name (string) of an Inet user configuration file. For details,
+	see section
+	<seealso marker="erts:inet_cfg"><c>Inet Configuration</c></seealso>
+	in the <c>ERTS</c> User's Guide.</p>
       </item>
       <tag><c>net_setuptime = SetupTime</c></tag>
       <item>
         <marker id="net_setuptime"></marker>
         <p><c>SetupTime</c> must be a positive integer or floating point
-          number, and will be interpreted as the maximally allowed time
+          number, and is interpreted as the maximum allowed time
           for each network operation during connection setup to another
-          Erlang node. The maximum allowed value is 120; if higher values
-          are given, 120 will be used. The default value if the variable
-          is not given, or if the value is incorrect (e.g. not a number),
-          is 7 seconds.</p>
-        <p>Note that this value does not limit the total connection
+          Erlang node. The maximum allowed value is <c>120</c>. If higher values
+          are specified, <c>120</c> is used. Default is 7 seconds if the variable
+          is not specified, or if the value is incorrect (for example, not a number).</p>
+        <p>Notice that this value does not limit the total connection
           setup time, but rather each individual network operation during
           the connection setup and handshake.</p>
       </item>
@@ -268,45 +258,44 @@
       <item>
         <marker id="net_ticktime"></marker>
         <p>Specifies the <c>net_kernel</c> tick time. <c>TickTime</c>
-          is given in seconds. Once every <c>TickTime/4</c> second, all
-          connected nodes are ticked (if anything else has been written
-          to a node) and if nothing has been received from another node
-          within the last four (4) tick times that node is considered
-          to be down. This ensures that nodes which are not responding,
+          is specified in seconds. Once every <c>TickTime/4</c> second, all
+          connected nodes are ticked (if anything else is written
+          to a node). If nothing is received from another node
+          within the last four tick times, that node is considered
+          to be down. This ensures that nodes that are not responding,
           for reasons such as hardware errors, are considered to be
           down.</p>
         <p>The time <c>T</c>, in which a node that is not responding is
-          detected, is calculated as: <c><![CDATA[MinT < T < MaxT]]></c> where:</p>
+          detected, is calculated as <c><![CDATA[MinT < T < MaxT]]></c>, where:</p>
         <code type="none">
 MinT = TickTime - TickTime / 4
 MaxT = TickTime + TickTime / 4</code>
-        <p><c>TickTime</c> is by default 60 (seconds). Thus,
+        <p><c>TickTime</c> defaults to <c>60</c> (seconds). Thus,
           <c><![CDATA[45 < T < 75]]></c> seconds.</p>
-        <p><em>Note:</em> All communicating nodes should have the same 
+        <p>Notice that <em>all</em> communicating nodes are to have the <em>same</em>
           <c>TickTime</c> value specified.</p>
-        <p><em>Note:</em> Normally, a terminating node is detected
-          immediately.</p>
+        <p>Normally, a terminating node is detected immediately.</p>
       </item>
       <tag><c>shutdown_timeout = integer() | infinity</c></tag>
       <item>
-        <p>Specifies the time <c>application_controller</c> will wait
+        <p>Specifies the time <c>application_controller</c> waits
           for an application to terminate during node shutdown. If the
-          timer expires, <c>application_controller</c> will brutally
-          kill <c>application_master</c> of the hanging
+          timer expires, <c>application_controller</c> brutally
+          kills <c>application_master</c> of the hanging
           application. If this parameter is undefined, it defaults
           to <c>infinity</c>.</p>
       </item>
       <tag><c>sync_nodes_mandatory = [NodeName]</c></tag>
       <item>
-        <p>Specifies which other nodes <em>must</em> be alive in order
+        <p>Specifies which other nodes that <em>must</em> be alive
           for this node to start properly. If some node in the list
-          does not start within the specified time, this node will not
+          does not start within the specified time, this node does not
           start either. If this parameter is undefined, it defaults to
-          [].</p>
+          <c>[]</c>.</p>
       </item>
       <tag><c>sync_nodes_optional = [NodeName]</c></tag>
       <item>
-        <p>Specifies which other nodes <em>can</em> be alive in order
+        <p>Specifies which other nodes that <em>can</em> be alive
           for this node to start properly. If some node in this list
           does not start within the specified time, this node starts
           anyway. If this parameter is undefined, it defaults to
@@ -314,66 +303,65 @@ MaxT = TickTime + TickTime / 4</code>
       </item>
       <tag><c>sync_nodes_timeout = integer() | infinity</c></tag>
       <item>
-        <p>Specifies the amount of time (in milliseconds) this node
-          will wait for the mandatory and optional nodes to start. If
+        <p>Specifies the time (in milliseconds) that this node
+          waits for the mandatory and optional nodes to start. If
           this parameter is undefined, no node synchronization is
-          performed. This option also makes sure that <c>global</c> is
+          performed. This option ensures that <c>global</c> is
           synchronized.</p>
       </item>
       <tag><c>start_dist_ac = true | false</c></tag>
       <item>
         <p>Starts the <c>dist_ac</c> server if the parameter is
-          <c>true</c>. This parameter should be set to <c>true</c> for
-          systems that use distributed applications.</p>
-        <p>The default value is <c>false</c>.  If this parameter is
-          undefined, the server is started if the parameter
+          <c>true</c>. This parameter is to be set to <c>true</c> for
+          systems using distributed applications.</p>
+        <p>Defaults to <c>false</c>.  If this parameter is
+          undefined, the server is started if parameter
           <c>distributed</c> is set.</p>
       </item>
       <tag><c>start_boot_server = true | false</c></tag>
       <item>
         <p>Starts the <c>boot_server</c> if the parameter is <c>true</c>
-          (see <seealso marker="erl_boot_server">erl_boot_server(3)</seealso>).
-	  This parameter should be
-          set to <c>true</c> in an embedded system which uses this
-          service.</p>
-        <p>The default value is <c>false</c>.</p>
+          (see <seealso marker="erl_boot_server"><c>erl_boot_server(3)</c></seealso>).
+	  This parameter is to be set to <c>true</c> in an embedded system
+	  using this service.</p>
+        <p>Defaults to <c>false</c>.</p>
       </item>
       <tag><c>boot_server_slaves = [SlaveIP]</c></tag>
       <item>
-        <p>If the <c>start_boot_server</c> configuration parameter is
+        <p>If configuration parameter <c>start_boot_server</c> is
           <c>true</c>, this parameter can be used to initialize
-          <c>boot_server</c> with a list of slave IP addresses.
-          <c>SlaveIP = string() | atom | {integer(),integer(),integer(),integer()}</c></p>
+          <c>boot_server</c> with a list of slave IP addresses:</p>
+	<p>
+          <c>SlaveIP = string() | atom | {integer(),integer(),integer(),integer()}</c>,</p>
         <p>where <c><![CDATA[0 <= integer() <=255]]></c>.</p>
-        <p>Examples of <c>SlaveIP</c> in atom, string and tuple form
-          are:          <br></br>
-<c>'150.236.16.70', "150,236,16,70", {150,236,16,70}</c>.</p>
-        <p>The default value is <c>[]</c>.</p>
+        <p>Examples of <c>SlaveIP</c> in atom, string, and tuple form:</p>
+	<p><c>'150.236.16.70', "150,236,16,70", {150,236,16,70}</c>.</p>
+        <p>Defaults to <c>[]</c>.</p>
       </item>
       <tag><c>start_disk_log = true | false</c></tag>
       <item>
         <p>Starts the <c>disk_log_server</c> if the parameter is
-          <c>true</c> (see <seealso marker="disk_log">disk_log(3)</seealso>).
-	  This parameter should be
-          set to true in an embedded system which uses this service.</p>
-        <p>The default value is <c>false</c>.</p>
+          <c>true</c> (see <seealso marker="disk_log"><c>disk_log(3)</c></seealso>).
+	  This parameter is to be set to <c>true</c> in an embedded system
+	  using this service.</p>
+        <p>Defaults to <c>false</c>.</p>
       </item>
       <tag><c>start_pg2 = true | false</c></tag>
       <item>
+        <marker id="start_pg2"></marker>
         <p>Starts the <c>pg2</c> server (see
-	  <seealso marker="pg2">pg2(3)</seealso>) if
-          the parameter is <c>true</c>. This parameter should be set to
-          <c>true</c> in an embedded system which uses this service.</p>
-        <p>The default value is <c>false</c>.</p>
+	  <seealso marker="pg2"><c>pg2(3)</c></seealso>) if
+          the parameter is <c>true</c>. This parameter is to be set to
+          <c>true</c> in an embedded system that uses this service.</p>
+        <p>Defaults to <c>false</c>.</p>
       </item>
       <tag><c>start_timer = true | false</c></tag>
       <item>
         <p>Starts the <c>timer_server</c> if the parameter is
-          <c>true</c> (see <seealso marker="stdlib:timer">timer(3)</seealso>).
-	  This parameter should be
-          set to <c>true</c> in an embedded system which uses this
-          service.</p>
-        <p>The default value is <c>false</c>.</p>
+          <c>true</c> (see <seealso marker="stdlib:timer"><c>stdlib:timer(3)</c></seealso>).
+	  This parameter is to be set to <c>true</c> in an embedded system
+	  using this service.</p>
+        <p>Defaults to <c>false</c>.</p>
       </item>
       <tag><c>shutdown_func = {Mod, Func}</c></tag>
       <item>
@@ -383,7 +371,7 @@ MaxT = TickTime + TickTime / 4</code>
           <item><c>Func = atom()</c></item>
         </list>
         <p>Sets a function that <c>application_controller</c> calls
-          when it starts to terminate. The function is called as:
+          when it starts to terminate. The function is called as
           <c>Mod:Func(Reason)</c>, where <c>Reason</c> is the terminate
           reason for <c>application_controller</c>, and it must
           return as soon as possible for <c>application_controller</c>
@@ -394,25 +382,25 @@ MaxT = TickTime + TickTime / 4</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="app">app(4)</seealso>,
-      <seealso marker="application">application(3)</seealso>, 
-      <seealso marker="code">code(3)</seealso>, 
-      <seealso marker="disk_log">disk_log(3)</seealso>, 
-      <seealso marker="erl_boot_server">erl_boot_server(3)</seealso>,
-      <seealso marker="erl_ddll">erl_ddll(3)</seealso>, 
-      <seealso marker="error_logger">error_logger(3)</seealso>, 
-      <seealso marker="file">file(3)</seealso>, 
-      <seealso marker="global">global(3)</seealso>, 
-      <seealso marker="global_group">global_group(3)</seealso>, 
-      <seealso marker="heart">heart(3)</seealso>, 
-      <seealso marker="inet">inet(3)</seealso>, 
-      <seealso marker="net_kernel">net_kernel(3)</seealso>, 
-      <seealso marker="os">os(3)</seealso>, 
-      <seealso marker="pg2">pg2(3)</seealso>, 
-      <seealso marker="rpc">rpc(3)</seealso>, 
-      <seealso marker="seq_trace">seq_trace(3)</seealso>, 
-      <seealso marker="stdlib:timer">timer(3)</seealso>,
-      <seealso marker="user">user(3)</seealso></p>
+    <p><seealso marker="app"><c>app(4)</c></seealso>,
+      <seealso marker="application"><c>application(3)</c></seealso>,
+      <seealso marker="code"><c>code(3)</c></seealso>,
+      <seealso marker="disk_log"><c>disk_log(3)</c></seealso>,
+      <seealso marker="erl_boot_server"><c>erl_boot_server(3)</c></seealso>,
+      <seealso marker="erl_ddll"><c>erl_ddll(3)</c></seealso>,
+      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
+      <seealso marker="file"><c>file(3)</c></seealso>,
+      <seealso marker="global"><c>global(3)</c></seealso>,
+      <seealso marker="global_group"><c>global_group(3)</c></seealso>,
+      <seealso marker="heart"><c>heart(3)</c></seealso>,
+      <seealso marker="inet"><c>inet(3)</c></seealso>,
+      <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>,
+      <seealso marker="os"><c>os(3)</c></seealso>,
+      <seealso marker="pg2"><c>pg2(3)</c></seealso>,
+      <seealso marker="rpc"><c>rpc(3)</c></seealso>,
+      <seealso marker="seq_trace"><c>seq_trace(3)</c></seealso>,
+      <seealso marker="user"><c>user(3)</c></seealso>,
+      <seealso marker="stdlib:timer"><c>timer(3)</c></seealso></p>
   </section>
 </appref>
 

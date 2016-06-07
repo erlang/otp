@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{minutes,1}}].
+    [{timetrap,{seconds,20}}].
 
 all() -> 
     case os:find_executable("ssh") of
@@ -50,13 +50,15 @@ groups() ->
     [{erlang_client, [], [erlang_shell_client_openssh_server,
 			  erlang_client_openssh_server_exec_compressed,
 			  erlang_client_openssh_server_setenv,
-			  erlang_client_openssh_server_publickey_rsa,
 			  erlang_client_openssh_server_publickey_dsa,
+			  erlang_client_openssh_server_publickey_rsa,
 			  erlang_client_openssh_server_password,
 			  erlang_client_openssh_server_kexs,
 			  erlang_client_openssh_server_nonexistent_subsystem
 			 ]},
-     {erlang_server, [], [erlang_server_openssh_client_public_key_dsa]}
+     {erlang_server, [], [erlang_server_openssh_client_public_key_dsa,
+			  erlang_server_openssh_client_public_key_rsa
+			 ]}
     ].
 
 init_per_suite(Config) ->
@@ -71,9 +73,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(erlang_server, Config) ->
-    DataDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
+    ssh_test_lib:setup_rsa_known_host(DataDir, UserDir),
     Config;
 init_per_group(erlang_client, Config) ->
     CommonAlgs = ssh_test_lib:algo_intersection(
@@ -84,8 +87,9 @@ init_per_group(_, Config) ->
     Config.
 
 end_per_group(erlang_server, Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(UserDir),
+    ssh_test_lib:clean_rsa(UserDir),
     Config;
 end_per_group(_, Config) ->
     Config.
@@ -93,6 +97,8 @@ end_per_group(_, Config) ->
 
 init_per_testcase(erlang_server_openssh_client_public_key_dsa, Config) ->
     chk_key(sshc, 'ssh-dss', ".ssh/id_dsa", Config);
+init_per_testcase(erlang_server_openssh_client_public_key_rsa, Config) ->
+    chk_key(sshc, 'ssh-rsa', ".ssh/id_rsa", Config);
 init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
     chk_key(sshd, 'ssh-dss', ".ssh/id_dsa", Config);
 init_per_testcase(_TestCase, Config) ->
@@ -216,7 +222,7 @@ erlang_client_openssh_server_kexs() ->
     [{doc, "Test that we can connect with different KEXs."}].
 
 erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
-    KexAlgos = try proplists:get_value(kex, ?config(common_algs,Config))
+    KexAlgos = try proplists:get_value(kex, proplists:get_value(common_algs,Config))
 	       catch _:_ -> []
 	       end,
     comment(KexAlgos),
@@ -347,14 +353,24 @@ erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_public_key_dsa() ->
-    [{doc, "Validate using dsa publickey."}].
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
+     {doc, "Validate using dsa publickey."}].
 erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
+    erlang_server_openssh_client_public_key_X(Config, ssh_dsa).
 
+erlang_server_openssh_client_public_key_rsa() ->
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
+     {doc, "Validate using rsa publickey."}].
+erlang_server_openssh_client_public_key_rsa(Config) when is_list(Config) ->
+    erlang_server_openssh_client_public_key_X(Config, ssh_rsa).
+
+
+erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {public_key_alg, ssh_dsa},
+					     {public_key_alg, PubKeyAlg},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     ct:sleep(500),
@@ -362,18 +378,8 @@ erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
 	" -o UserKnownHostsFile=" ++ KnownHosts ++
 	" " ++ Host ++ " 1+1.",
-    SshPort = open_port({spawn, Cmd}, [binary, stderr_to_stdout]),
-
-    receive
-	{SshPort,{data, <<"2\n">>}} ->
-	    ok
-    after ?TIMEOUT ->
-	    receive
-		X -> ct:fail("Received: ~p",[X])
-	    after 0 ->
-		    ct:fail("Did not receive answer")
-	    end
-    end,
+    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}),
+    ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -381,7 +387,7 @@ erlang_client_openssh_server_password() ->
     [{doc, "Test client password option"}].
 erlang_client_openssh_server_password(Config) when is_list(Config) ->
     %% to make sure we don't public-key-auth
-    UserDir = ?config(data_dir, Config),
+    UserDir = proplists:get_value(data_dir, Config),
     {error, Reason0} =
 	ssh:connect(any, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 					     {user, "foo"},

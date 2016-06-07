@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{minutes,3}}].
+    [{timetrap,{seconds,40}}].
 
 all() -> 
     [open_close_file, 
@@ -72,19 +72,19 @@ groups() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    DataDir = ?config(data_dir, Config),	    
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),	    
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     %% to make sure we don't use public-key-auth
     %% this should be tested by other test suites
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey), 
+    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey), 
     file:make_dir(UserDir),  
     Config.
 
 end_per_suite(Config) ->
-    SysDir = ?config(priv_dir, Config),
+    SysDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(SysDir),
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     ssh:stop().
 
@@ -101,11 +101,10 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
     prep(Config),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ClientUserDir = filename:join(PrivDir, nopubkey),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
 
-    Port = ssh_test_lib:inet_port(node()),
     Options = [{system_dir, SystemDir},
 	       {user_dir, PrivDir},
 	       {user_passwords,[{?USER, ?PASSWD}]},
@@ -113,11 +112,13 @@ init_per_testcase(TestCase, Config) ->
     {ok, Sftpd} = case TestCase of
 		      ver6_basic ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
-			  ssh:daemon(Port, [{subsystems, SubSystems}|Options]);
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
-			  ssh:daemon(Port, [{subsystems, SubSystems}|Options])
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
 		  end,
+    {ok,Dinf} = ssh:daemon_info(Sftpd),
+    Port = proplists:get_value(port, Dinf),
     
     Cm = ssh_test_lib:connect(Port,
 			      [{user_dir, ClientUserDir},
@@ -153,8 +154,8 @@ init_per_testcase(TestCase, Config) ->
     [{sftp, {Cm, Channel}}, {sftpd, Sftpd }| Config].
 
 end_per_testcase(_TestCase, Config) ->
-    ssh_sftpd:stop(?config(sftpd, Config)),
-    {Cm, Channel} = ?config(sftp, Config),
+    ssh_sftpd:stop(proplists:get_value(sftpd, Config)),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
     ssh_connection:close(Cm, Channel),
     ssh:close(Cm),
     ssh:stop().
@@ -165,9 +166,9 @@ end_per_testcase(_TestCase, Config) ->
 open_close_file() ->
     [{doc, "Test SSH_FXP_OPEN and SSH_FXP_CLOSE commands"}].
 open_close_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
     ReqId = 0,
 
     {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
@@ -195,9 +196,9 @@ open_close_file(Config) when is_list(Config) ->
 ver3_open_flags() ->
     [{doc, "Test open flags"}].
 ver3_open_flags(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "not_exist.txt"),
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
     ReqId = 0,
     
     {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
@@ -229,8 +230,8 @@ ver3_open_flags(Config) when is_list(Config) ->
 open_close_dir() ->
     [{doc,"Test SSH_FXP_OPENDIR and SSH_FXP_CLOSE commands"}].
 open_close_dir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    {Cm, Channel} = ?config(sftp, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     ReqId = 0,
 
@@ -256,11 +257,11 @@ open_close_dir(Config) when is_list(Config) ->
 read_file() ->
     [{doc, "Test SSH_FXP_READ command"}].
 read_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
 
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
 	open_file(FileName, Cm, Channel, ReqId,
@@ -279,8 +280,8 @@ read_file(Config) when is_list(Config) ->
 read_dir() ->
     [{doc,"Test SSH_FXP_READDIR command"}].
 read_dir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    {Cm, Channel} = ?config(sftp, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
     ReqId = 0,
     {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
 	open_dir(PrivDir, Cm, Channel, ReqId),
@@ -290,11 +291,11 @@ read_dir(Config) when is_list(Config) ->
 write_file() ->
     [{doc, "Test SSH_FXP_WRITE command"}].
 write_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
 
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
 	open_file(FileName, Cm, Channel, ReqId,
@@ -314,10 +315,10 @@ write_file(Config) when is_list(Config) ->
 remove_file() ->
     [{doc, "Test SSH_FXP_REMOVE command"}].
 remove_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
 	   ?UINT32(?SSH_FX_OK), _/binary>>, _} =
@@ -335,11 +336,11 @@ remove_file(Config) when is_list(Config) ->
 rename_file() ->
     [{doc, "Test SSH_FXP_RENAME command"}].
 rename_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     NewFileName = filename:join(PrivDir, "test1.txt"),
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
 	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
@@ -372,8 +373,8 @@ rename_file(Config) when is_list(Config) ->
 mk_rm_dir() ->
     [{doc, "Test SSH_FXP_MKDIR and SSH_FXP_RMDIR command"}].
 mk_rm_dir(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    {Cm, Channel} = ?config(sftp, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
     DirName = filename:join(PrivDir, "test"),
     ReqId = 0,
     {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(?SSH_FX_OK),
@@ -400,8 +401,8 @@ real_path(Config) when is_list(Config) ->
 	    {skip,  "Not a relevant test on windows"};
 	_ ->
 	    ReqId = 0,
-	    {Cm, Channel} = ?config(sftp, Config),
-	    PrivDir = ?config(priv_dir, Config),
+	    {Cm, Channel} = proplists:get_value(sftp, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
 	    TestDir = filename:join(PrivDir, "ssh_test"),
 	    ok = file:make_dir(TestDir),
 
@@ -426,8 +427,8 @@ links(Config) when is_list(Config) ->
 	    {skip, "Links are not fully supported by windows"};
 	_ ->
 	    ReqId = 0,
-	    {Cm, Channel} = ?config(sftp, Config),
-	    PrivDir =  ?config(priv_dir, Config),
+	    {Cm, Channel} = proplists:get_value(sftp, Config),
+	    PrivDir =  proplists:get_value(priv_dir, Config),
 	    FileName = filename:join(PrivDir, "test.txt"),
 	    LinkFileName = filename:join(PrivDir, "link_test.txt"),
 
@@ -450,10 +451,10 @@ links(Config) when is_list(Config) ->
 retrieve_attributes() ->
     [{"Test SSH_FXP_STAT, SSH_FXP_LSTAT AND SSH_FXP_FSTAT commands"}].
 retrieve_attributes(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     {ok, FileInfo} = file:read_file_info(FileName),
 
@@ -519,10 +520,10 @@ set_attributes(Config) when is_list(Config) ->
 	{win32, _} ->
 	    {skip,  "Known error bug in erts file:read_file_info"};
 	_ ->
-	    PrivDir =  ?config(priv_dir, Config),
+	    PrivDir =  proplists:get_value(priv_dir, Config),
 	    FileName = filename:join(PrivDir, "test.txt"),
 	    ReqId = 0,
-	    {Cm, Channel} = ?config(sftp, Config),
+	    {Cm, Channel} = proplists:get_value(sftp, Config),
 
 	    {ok, FileInfo} = file:read_file_info(FileName),
 
@@ -573,11 +574,11 @@ set_attributes(Config) when is_list(Config) ->
 ver3_rename() ->
     [{doc, "Test that ver3 rename message is handled OTP 6352"}].
 ver3_rename(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     NewFileName = filename:join(PrivDir, "test1.txt"),
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
 	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
@@ -588,7 +589,7 @@ relpath() ->
     [{doc, "Check that realpath works ok seq10670"}].
 relpath(Config) when is_list(Config) ->
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     case os:type() of
 	{win32, _} ->
@@ -610,11 +611,11 @@ relpath(Config) when is_list(Config) ->
 sshd_read_file() ->
     [{doc,"Test SSH_FXP_READ command, using sshd-server"}].
 sshd_read_file(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
 
     ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
 
     {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
 	open_file(FileName, Cm, Channel, ReqId,
@@ -632,9 +633,9 @@ sshd_read_file(Config) when is_list(Config) ->
 ver6_basic() ->
     [{doc, "Test SFTP Version 6"}].
 ver6_basic(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     %FileName = filename:join(PrivDir, "test.txt"),
-    {Cm, Channel} = ?config(sftp, Config),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
     ReqId = 0,
     {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),  % Ver 6 we have 5
 	   ?UINT32(?SSH_FX_FILE_IS_A_DIRECTORY), _/binary>>, _} =
@@ -645,7 +646,7 @@ ver6_basic(Config) when is_list(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 prep(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     TestFile = filename:join(PrivDir, "test.txt"),
     TestFile1 = filename:join(PrivDir, "test1.txt"),
 
@@ -653,7 +654,7 @@ prep(Config) ->
     file:delete(TestFile1),
 
     %% Initial config
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
     file:copy(FileName, TestFile),
     Mode = 8#00400 bor 8#00200 bor 8#00040, % read & write owner, read group

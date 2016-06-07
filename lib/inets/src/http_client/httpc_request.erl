@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -186,16 +186,19 @@ is_client_closing(Headers) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
-post_data(Method, Headers, {ContentType, Body}, HeadersAsIs) 
-  when (Method =:= post) orelse (Method =:= put)
-       orelse (Method =:= patch) ->
+post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
+    when (Method =:= post)
+    orelse (Method =:= put)
+    orelse (Method =:= patch)
+    orelse (Method =:= delete) ->
+
     NewBody = case Headers#http_request_h.expect of
-		  "100-continue" ->
-		      "";
-		  _ ->
-		      Body
-	      end,
-    
+          "100-continue" ->
+              "";
+          _ ->
+              Body
+          end,
+
     NewHeaders = case HeadersAsIs of
         [] ->
             Headers#http_request_h{
@@ -213,7 +216,7 @@ post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
         _ ->
             HeadersAsIs
     end,
-    
+
     {NewHeaders, NewBody};
 
 post_data(_, Headers, _, []) ->

@@ -286,6 +286,7 @@ document for information on how to build the documentation.
 
 Testing the cross compiled system
 ---------------------------------
+
 Some of the tests that come with erlang use native code to test. This means
 that when cross compiling erlang you also have to cross compile test suites
 in order to run tests on the target host. To do this you first have to release
@@ -519,29 +520,6 @@ When a variable has been set, no warning will be issued.
     system call exists; otherwise `no`. If `yes`, the target system must have a
     `posix_memalign` implementation that accepts larger than page size
     alignment.
-
-*   `erl_xcomp_ose_ldflags_pass1` - Linker flags for the OSE module (pass 1)
-
-*   `erl_xcomp_ose_ldflags_pass2` - Linker flags for the OSE module (pass 2)
-
-*   `erl_xcomp_ose_OSEROOT` - OSE installation root directory
-
-*   `erl_xcomp_ose_STRIP` - Strip utility shipped with the OSE distribution
-
-*   `erl_xcomp_ose_LM_POST_LINK` - OSE postlink tool
-
-*   `erl_xcomp_ose_LM_SET_CONF` - Sets the configuration for an OSE load module
-
-*   `erl_xcomp_ose_LM_ELF_SIZE` - Prints the section size information for an
-	OSE load module
-
-*   `erl_xcomp_ose_LM_LCF` - OSE load module linker configuration file
-
-*   `erl_xcomp_ose_BEAM_LM_CONF` - Beam OSE load module configuration file
-
-*   `erl_xcomp_ose_EPMD_LM_CONF` - EPMD OSE load module configuration file
-
-*   `erl_xcomp_ose_RUN_ERL_LM_CONF` - run_erl_lm OSE load module configuration file
 
 Copyright and License
 ---------------------

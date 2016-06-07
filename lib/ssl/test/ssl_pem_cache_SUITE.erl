@@ -45,8 +45,8 @@ init_per_suite(Config0) ->
 	ok ->
 	    ssl:start(),
 	    %% make rsa certs using oppenssl
-	    {ok, _} =  make_certs:all(?config(data_dir, Config0),
-				      ?config(priv_dir, Config0)),
+	    {ok, _} =  make_certs:all(proplists:get_value(data_dir, Config0),
+				      proplists:get_value(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config1)
     catch _:_ ->
@@ -81,8 +81,8 @@ pem_cleanup() ->
     [{doc, "Test pem cache invalidate mechanism"}].
 pem_cleanup(Config)when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = proplists:get_value(client_opts, Config),
+    ServerOpts = proplists:get_value(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =

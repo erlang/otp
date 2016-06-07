@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -379,7 +379,7 @@ gen_dest(#class{name=CName,abstract=Abs}, Ms) ->
 
 gen_dest2(Class, Id) ->
     w("%% @doc Destroys this object, do not use object again~n", []),
-    w("-spec destroy(This::~s()) -> ok.~n", [Class]),
+    w("-spec destroy(This::~s()) -> 'ok'.~n", [Class]),
     w("destroy(Obj=#wx_ref{type=Type}) ->~n", []),
     w("  ?CLASS(Type,~s),~n",[Class]),
     case Id of
@@ -482,7 +482,7 @@ arg_type_test(#param{name=Name0,in=In,type=#type{base={class,T},single=true},def
 arg_type_test(#param{name=Name0,in=In,type=#type{base={class,T}}, def=none},EOS,Acc)
   when In =/= false ->
     Name = erl_arg_name(Name0),
-    w("  [?CLASS(~sT,~s) || #wx_ref{type=~sT} <- ~s],~s", [Name,T,Name,Name,EOS]),
+    w(" _ = [?CLASS(~sT,~s) || #wx_ref{type=~sT} <- ~s],~s", [Name,T,Name,Name,EOS]),
     Acc;
 arg_type_test(#param{name=Name0,def=none,in=In,
 		     type={merged,
@@ -770,7 +770,7 @@ write_spec(Args, Optional, {complex, Res}, Eol) ->
 optional_type(Opts, Eol) ->
     "Option :: " ++ args(fun optional_type2/1, Eol++"\t\t | ", Opts).
 optional_type2(#param{name=Name, def=_Def, type=T}) ->
-    "{" ++ erl_option_name(Name) ++ ", " ++ doc_arg_type2(T) ++ "}". %%   %% Default: " ++ Def.
+    "{'" ++ erl_option_name(Name) ++ "', " ++ doc_arg_type2(T) ++ "}". %%   %% Default: " ++ Def.
 
 doc_link("utils", Func) ->
     w("%% @doc See <a href=\"http://www.wxwidgets.org/manuals/2.8.12/wx_miscellany.html#~s\">"
@@ -861,7 +861,7 @@ doc_arg_type3(T, _) -> ?error({unknown_type,T}).
 
 doc_return_types(T, Ps) ->
     doc_return_types2(T, [P || P=#param{in=In} <- Ps,In =/= true]).
-doc_return_types2(void, []) ->    {simple, "ok"};
+doc_return_types2(void, []) ->    {simple, "'ok'"};
 doc_return_types2(void, [#param{type=T}]) ->     {simple, doc_arg_type2(T, out)};
 doc_return_types2(T, []) ->                      {simple, doc_arg_type2(T, out)};
 doc_return_types2(void, Ps) when length(Ps) < 4 ->
@@ -1089,7 +1089,7 @@ gen_enums_ints() ->
     %% open_write("../include/wx.hrl"), opened in gen_event_recs
     w("~n%% Hardcoded Records~n", []),
     w("-record(wxMouseState, {x :: integer(), y :: integer(),~n"
-      "          leftDown :: boolean(), middleDown :: boolean, rightDown :: boolean, ~n"
+      "          leftDown :: boolean(), middleDown :: boolean(), rightDown :: boolean(), ~n"
       "          controlDown :: boolean(), shiftDown :: boolean(),~n"
       "          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()~n"
       "        }).~n", []),
@@ -1220,7 +1220,7 @@ gen_event_recs() ->
 
 build_event_rec(Class=#class{name=Name, event=Evs}) ->
     EvTypes = [event_type_name(Ev) || Ev <- Evs],
-    Str  = args(fun(Ev) -> Ev end, " | ", EvTypes),
+    Str  = args(fun(Ev) -> "'" ++ Ev ++ "'" end, " | ", EvTypes),
     Attr = filter_attrs(Class),
     Rec = event_rec_name(Name),
     %%GetName = fun(#param{name=N}) ->event_attr_name(N) end,

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2014</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -374,10 +374,10 @@ os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.1</input></pre>
     </p>
     <pre>
 2> <input>release_handler:install_release(Vsn).</input>
-<output>{continue_after_restart,"FIRST",[]}
+{continue_after_restart,"FIRST",[]}
 heart: Tue Apr  1 12:15:10 2014: Erlang has closed.
 heart: Tue Apr  1 12:15:11 2014: Executed "/usr/local/erl-target/bin/start /usr/local/erl-target/releases/new_start_erl.data" -> 0. Terminating.
-[End]</output></pre>
+[End]</pre>
     <p>
       The above return value and output after the call to
       <c>release_handler:install_release/1</c> means that the
@@ -398,12 +398,12 @@ os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2</input></pre>
     </p>
     <pre>
 1> <input>release_handler:which_releases().</input>
-<output>[{"MYSYSTEM","SECOND",
+[{"MYSYSTEM","SECOND",
   ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],
   current},
  {"MYSYSTEM","FIRST",
   ["kernel-2.16.4","stdlib-1.19.4","sasl-2.3.4","pea-1.0"],
-  permanent}]</output></pre>
+  permanent}]</pre>
     <p>
       Our new release, "SECOND", is now the current release, but we
       can also see that our "FIRST" release is still permanent. This
@@ -420,12 +420,12 @@ os> <input>/usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2</input></pre>
     </p>
     <pre>
 3> <input>release_handler:which_releases().</input>
-<output>[{"MYSYSTEM","SECOND",
+[{"MYSYSTEM","SECOND",
   ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],
   permanent},
  {"MYSYSTEM","FIRST",
   ["kernel-2.16.4","stdlib-1.19.4","sasl-2.3.4","pea-1.0"],
-  old}]</output></pre>
+  old}]</pre>
   <p>
     We see that the new release version is <c>permanent</c>, so
     it would be safe to restart the node.</p>

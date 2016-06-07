@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,8 +54,8 @@ new(Width,Height)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
 -spec new(Width, Height, [Option]) -> wxImageList() when
 	Width::integer(), Height::integer(),
-	Option :: {mask, boolean()}
-		 | {initialCount, integer()}.
+	Option :: {'mask', boolean()}
+		 | {'initialCount', integer()}.
 new(Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   MOpts = fun({mask, Mask}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(Mask)):32/?UI>>|Acc];
@@ -107,8 +107,8 @@ create(This,Width,Height)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistcreate">external documentation</a>.
 -spec create(This, Width, Height, [Option]) -> boolean() when
 	This::wxImageList(), Width::integer(), Height::integer(),
-	Option :: {mask, boolean()}
-		 | {initialCount, integer()}.
+	Option :: {'mask', boolean()}
+		 | {'initialCount', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxImageList),
@@ -130,8 +130,8 @@ draw(This,Index,Dc,X,Y)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistdraw">external documentation</a>.
 -spec draw(This, Index, Dc, X, Y, [Option]) -> boolean() when
 	This::wxImageList(), Index::integer(), Dc::wxDC:wxDC(), X::integer(), Y::integer(),
-	Option :: {flags, integer()}
-		 | {solidBackground, boolean()}.
+	Option :: {'flags', integer()}
+		 | {'solidBackground', boolean()}.
 draw(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=DcT,ref=DcRef},X,Y, Options)
  when is_integer(Index),is_integer(X),is_integer(Y),is_list(Options) ->
   ?CLASS(ThisT,wxImageList),
@@ -218,7 +218,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=BitmapT,ref=BitmapRef
   <<ThisRef:32/?UI,Index:32/?UI,BitmapRef:32/?UI,MaskRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxImageList()) -> ok.
+-spec destroy(This::wxImageList()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxImageList),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,6 +42,8 @@
 -export([ct_test_halt/1, ct_rpc/2]).
 
 -export([random_error/1]).
+
+-export([unique_timestamp/0]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -110,7 +112,8 @@ start_slave(NodeName, Config, Level) ->
 			      undefined -> [];
 			      Ds -> Ds
 			  end,
-	    PathDirs = [PrivDir,TSDir | AddPathDirs],
+	    TestSupDir = filename:dirname(code:which(?MODULE)),
+	    PathDirs = [PrivDir,TSDir,TestSupDir | AddPathDirs],
 	    [true = rpc:call(CTNode, code, add_patha, [D]) || D <- PathDirs],
 	    test_server:format(Level, "Dirs added to code path (on ~w):~n",
 			       [CTNode]),
@@ -414,14 +417,14 @@ ct_rpc({M,F,A}, Config) ->
 %%%-----------------------------------------------------------------
 %%% random_error/1
 random_error(Config) when is_list(Config) ->
-    random:seed(os:timestamp()),
+    rand:seed(exsplus),
     Gen = fun(0,_) -> ok; (N,Fun) -> Fun(N-1, Fun) end,
-    Gen(random:uniform(100), Gen),
+    Gen(rand:uniform(100), Gen),
 
     ErrorTypes = ['BADMATCH','BADARG','CASE_CLAUSE','FUNCTION_CLAUSE',
 		  'EXIT','THROW','UNDEF'],
-    Type = lists:nth(random:uniform(length(ErrorTypes)), ErrorTypes),
-    Where = case random:uniform(2) of
+    Type = lists:nth(rand:uniform(length(ErrorTypes)), ErrorTypes),
+    Where = case rand:uniform(2) of
 		1 ->
 		    io:format("ct_test_support *returning* error of type ~w",
 			      [Type]),
@@ -1430,7 +1433,21 @@ rm_files([F | Fs]) ->
     end;
 rm_files([]) ->
     ok.
-    
+
+unique_timestamp() ->
+    unique_timestamp(os:timestamp(), 100000).
+
+unique_timestamp(TS, 0) ->
+    TS;
+unique_timestamp(TS0, N) ->
+    case os:timestamp() of
+	TS0 ->
+	    timer:sleep(1),
+	    unique_timestamp(TS0, N-1);
+	TS1 ->
+	    TS1
+    end.
+
 %%%-----------------------------------------------------------------
 %%%
 slave_stop(Node) ->

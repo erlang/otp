@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -327,10 +327,10 @@ make_cert(Dir, Keyfile, Certfile) ->
                "-subj /C=SE/ST=./L=Stockholm/CN=www.erlang.org"]),
 
     %% Hope for the best and only check that files are written.
-    [{_, _, {ok,_}},{_, _, {ok,_}}]
-        = [{P,O,T} || {P,C} <- [{KP,KC}, {CP,CC}],
-                      O <- [os:cmd(C)],
-                      T <- [file:read_file_info(P)]],
+    KR = os:cmd(KC),
+    {_, {ok, _}} = {KR, file:read_file_info(KP)},
+    CR = os:cmd(CC),
+    {_, {ok, _}} = {CR, file:read_file_info(CP)},
 
     {KP,CP}.
 

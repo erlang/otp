@@ -229,27 +229,33 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>p(Procs,Flags) -> Return</name>
-      <fsummary>Set the specified trace flags on the specified processes.</fsummary>
+      <name>p(Item,Flags) -> Return</name>
+      <fsummary>Set the specified trace flags on the specified processes or ports.</fsummary>
       <type>
-        <v>Return = {ok,[{Procs,MatchDesc}]}</v>
-        <v>Procs   = Process | [Process] | all | new | existing</v>
-        <v>Process = pid() | atom() | {global,atom()}</v>
+        <v>Return  = {ok,[{Item,MatchDesc}]}</v>
+        <v>Items   = Item | [Item]</v>
+	<v>Item    = pid() | port() | RegName | {global,GlobalRegName} |
+	  all | processes | ports |
+	  existing | existing_processes | existing_ports |
+	  new | new_processes | new_ports</v>
+        <v>RegName = atom()</v>
+	<v>GlobalRegName = term()</v>
         <v>Flags   = Flag | [Flag]</v>
       </type>
       <desc>
-        <p>Sets the specified trace flags on the specified
-          processes. Flag <c>timestamp</c> is always turned on.
+        <p>Sets the specified trace flags on the specified processes
+          or ports. Flag <c>timestamp</c> is always turned on.
           </p>
         <p>See the Reference Manual for module 
 	<seealso marker="runtime_tools:dbg"><c>dbg</c></seealso>
-          and the possible trace flags. Parameter
+          for the possible trace flags. Parameter
           <c>MatchDesc</c> is the same as returned from 
 	<c>dbg:p/2</c>.</p>
         <p>Processes can be specified as registered names, globally
-          registered names, or process identifiers. If a registered name
-          is specified, the flags are set on processes with this name on all
-          active nodes.</p>
+          registered names, or process identifiers. Ports can be
+          specified as registered names or port identifiers. If a
+          registered name is specified, the flags are set on
+          processes/ports with this name on all active nodes.</p>
         <p>Issuing this command starts the timer for this trace if option
           <c>timer</c> is specified with <c>tracer/2</c>.
         </p>
@@ -257,17 +263,23 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tp, tpl, ctp, ctpl, ctpg</name>
+      <name>tp, tpl, tpe, ctp, ctpl, ctpg, ctpe</name>
       <fsummary>Set and clear trace patterns.</fsummary>
       <desc>
-        <p>These functions are to be used with
-          trace flag <c>call</c> for setting and clearing trace
-          patterns. When trace flag <c>call</c> is set on a process,
+        <p>These functions are to be used with trace
+          flag <c>call</c>, <c>send</c>, and <c>'receive'</c> for
+          setting and clearing trace patterns.</p>
+	<p>When trace flag <c>call</c> is set on a process,
           function calls are traced on that process if a trace
-          pattern is set for the called function. Trace patterns
-          specify how to trace a function by using match
-          specifications. Match specifications are described in the
-          <seealso marker="erts:users_guide"><c>ERTS User's Guide</c></seealso>.
+          pattern is set for the called function.</p>
+	<p>The <c>send</c> and <c>'receive'</c> flags enable tracing
+	  of all messages sent and received by the process/port. Trace
+	  patterns set with <c>tpe</c> may limit traced messages based
+	  on the message content, the sender, and/or the receiver.</p>
+	<p>Trace patterns specify how to trace a function or a message
+          by using match specifications. Match specifications are
+          described in the
+          <seealso marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>.
           </p>
         <p>These functions are equivalent to the corresponding
           functions in module
@@ -284,6 +296,8 @@ ttb:p(all, call).</input></pre>
           <item><p>Sets trace patterns on global function calls.</p></item>
           <tag><c>tpl</c></tag>
           <item><p>Sets trace patterns on local and global function calls.</p></item>
+          <tag><c>tpe</c></tag>
+          <item><p>Sets trace patterns on messages.</p></item>
           <tag><c>ctp</c></tag>
           <item><p>Clears trace patterns on local and global function
            calls.</p></item>
@@ -291,13 +305,15 @@ ttb:p(all, call).</input></pre>
           <item><p>Clears trace patterns on local function calls.</p></item>
           <tag><c>ctpg</c></tag>
           <item><p>Clears trace patterns on global function calls.</p></item>
+          <tag><c>ctpe</c></tag>
+          <item><p>Clears trace patterns on messages.</p></item>
         </taglist>
         <p>With <c>tp</c> and <c>tpl</c>, one of the match specification shortcuts
           can be used (for example, <c>ttb:tp(foo_module, caller)</c>).</p>
 	  <p>The shortcuts are as follows:</p>
           <list type="bulleted">
             <item><c>return</c> - for <c>[{'_',[],[{return_trace}]}]</c>
-              (report the return value)</item>
+              (report the return value from a traced function)</item>
             <item><c>caller</c> - for <c>[{'_',[],[{message,{caller}}]}]</c>
               (report the calling function)</item>
             <item><c>{codestr, Str}</c> - for <c>dbg:fun2ms/1</c> arguments

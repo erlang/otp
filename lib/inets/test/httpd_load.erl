@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@
 
 -module(httpd_load).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% General testcases bodies called from httpd_SUITE
 -export([load_test/5]).
@@ -64,7 +63,7 @@ load_test(Fun, URIs, Type, Host, Port, Node,  0, List) ->
 	{'EXIT', Pid, Reason} ->
 	    Str = lists:flatten(io_lib:format("client ~p exited: ~p", 
 					      [Pid,Reason])),
-	    test_server:fail(Str);
+	    ct:fail(Str);
 	_ ->
 	    load_test(Fun, URIs, Type, Host, Port, Node,  0, List)
     end;
@@ -87,12 +86,11 @@ load_test_client(Fun, [URI|URIs], Type, Host, Port, Node,  Boss, Timeout) ->
 	    {'EXIT', {suite_failed, connection_closed, _, _}} ->
 		%% Some platforms seems to handle heavy load badly.
 		%% So, back off and see if this helps
-		%%?LOG("load_test_client->requestfailed:connection_closed"[]),
 		2 * Timeout;
 	    _ ->
 		Timeout
 	end,
-    test_server:sleep(Timeout1),
+    ct:sleep(Timeout1),
     load_test_client(Fun, URIs, Type, Host, Port, Node, Boss, Timeout1).
 
 load_test_client_done(Boss) ->

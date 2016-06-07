@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,16 @@
     <file>fsm.xml</file>
   </header>
   <marker id="gen_fsm behaviour"></marker>
+    <note>
+      <p>
+	There is a new behaviour
+	<seealso marker="statem"><c>gen_statem</c></seealso>
+	that is intended to replace <c>gen_fsm</c> for new code.
+	It has the same features and add some really useful.
+	This module will not be removed for the foreseeable future
+	to keep old state machine implementations running.
+      </p>
+    </note>
   <p>This section is to be read with the <c>gen_fsm(3)</c> manual page
     in STDLIB, where all interface functions and callback
     functions are described in detail.</p>

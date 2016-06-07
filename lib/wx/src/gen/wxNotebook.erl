@@ -101,9 +101,9 @@ new(Parent,Winid)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookwxnotebook">external documentation</a>.
 -spec new(Parent, Winid, [Option]) -> wxNotebook() when
 	Parent::wxWindow:wxWindow(), Winid::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Winid, Options)
  when is_integer(Winid),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -126,8 +126,8 @@ addPage(This,Page,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookaddpage">external documentation</a>.
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
 	This::wxNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
-	Option :: {bSelect, boolean()}
-		 | {imageId, integer()}.
+	Option :: {'bSelect', boolean()}
+		 | {'imageId', integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxNotebook),
@@ -141,7 +141,7 @@ addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Op
   <<ThisRef:32/?UI,PageRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @equiv advanceSelection(This, [])
--spec advanceSelection(This) -> ok when
+-spec advanceSelection(This) -> 'ok' when
 	This::wxNotebook().
 
 advanceSelection(This)
@@ -149,9 +149,9 @@ advanceSelection(This)
   advanceSelection(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookadvanceselection">external documentation</a>.
--spec advanceSelection(This, [Option]) -> ok when
+-spec advanceSelection(This, [Option]) -> 'ok' when
 	This::wxNotebook(),
-	Option :: {forward, boolean()}.
+	Option :: {'forward', boolean()}.
 advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxNotebook),
@@ -162,7 +162,7 @@ advanceSelection(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookassignimagelist">external documentation</a>.
--spec assignImageList(This, ImageList) -> ok when
+-spec assignImageList(This, ImageList) -> 'ok' when
 	This::wxNotebook(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxNotebook),
@@ -181,9 +181,9 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxNotebook(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxNotebook),
@@ -318,8 +318,8 @@ insertPage(This,Position,Win,StrText)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebookinsertpage">external documentation</a>.
 -spec insertPage(This, Position, Win, StrText, [Option]) -> boolean() when
 	This::wxNotebook(), Position::integer(), Win::wxWindow:wxWindow(), StrText::unicode:chardata(),
-	Option :: {bSelect, boolean()}
-		 | {imageId, integer()}.
+	Option :: {'bSelect', boolean()}
+		 | {'imageId', integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Position,#wx_ref{type=WinT,ref=WinRef},StrText, Options)
  when is_integer(Position),is_list(StrText),is_list(Options) ->
   ?CLASS(ThisT,wxNotebook),
@@ -333,7 +333,7 @@ insertPage(#wx_ref{type=ThisT,ref=ThisRef},Position,#wx_ref{type=WinT,ref=WinRef
   <<ThisRef:32/?UI,Position:32/?UI,WinRef:32/?UI,(byte_size(StrText_UC)):32/?UI,(StrText_UC)/binary, 0:(((8- ((0+byte_size(StrText_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetimagelist">external documentation</a>.
--spec setImageList(This, ImageList) -> ok when
+-spec setImageList(This, ImageList) -> 'ok' when
 	This::wxNotebook(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxNotebook),
@@ -342,7 +342,7 @@ setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageLi
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpadding">external documentation</a>.
--spec setPadding(This, Padding) -> ok when
+-spec setPadding(This, Padding) -> 'ok' when
 	This::wxNotebook(), Padding::{W::integer(), H::integer()}.
 setPadding(#wx_ref{type=ThisT,ref=ThisRef},{PaddingW,PaddingH})
  when is_integer(PaddingW),is_integer(PaddingH) ->
@@ -351,7 +351,7 @@ setPadding(#wx_ref{type=ThisT,ref=ThisRef},{PaddingW,PaddingH})
   <<ThisRef:32/?UI,PaddingW:32/?UI,PaddingH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotebook.html#wxnotebooksetpagesize">external documentation</a>.
--spec setPageSize(This, Size) -> ok when
+-spec setPageSize(This, Size) -> 'ok' when
 	This::wxNotebook(), Size::{W::integer(), H::integer()}.
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -397,7 +397,7 @@ changeSelection(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxNotebook()) -> ok.
+-spec destroy(This::wxNotebook()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxNotebook),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

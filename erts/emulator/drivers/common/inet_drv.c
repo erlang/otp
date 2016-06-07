@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2015. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <ctype.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -57,6 +58,9 @@
 #endif
 #ifdef HAVE_NETPACKET_PACKET_H
 #include <netpacket/packet.h>
+#endif
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
 #endif
 
 /* All platforms fail on malloc errors. */
@@ -92,10 +96,6 @@ typedef unsigned long long llu_t;
 #endif
 #ifndef INT16_MAX
 #define INT16_MAX (32767)
-#endif
-
-#ifdef __OSE__
-#include "inet.h"
 #endif
 
 #ifdef __WIN32__
@@ -298,139 +298,7 @@ static unsigned long one_value = 1;
 #define TCP_SHUT_RD    SD_RECEIVE
 #define TCP_SHUT_RDWR  SD_BOTH
 
-#elif defined (__OSE__)
-
-/*
- * Some notes about how inet (currently only tcp) works on OSE.
- * The driver uses OSE signals to communicate with the one_inet
- * process. Because of the difference in how signals and file descriptors
- * work the whole select/deselect mechanic is very different.
- * In ose when a sock_select is done a function is called. That function
- * notes the changes that the driver want to do, but does not act on it.
- * later when the function returns the new desired state is compared
- * to the previous state and the apprioriate actions are taken. The action
- * is usually to either request more data from the stack or stop requesting
- * data.
- *
- * One thing to note is that the driver never does select/deselect. It always
- * listens for the signals. Flow of data is regulated by sending or not sending
- * signals to the ose inet process.
- *
- * The interesting functions to look at are:
- *  * inet_driver_select : called when sock_select is called
- *  * tcp_inet_ose_dispatch_signal : checks state changes and sends new signals
- *  * tcp_inet_drv_output_ose : ready output callback, reads signals and calls
- *                              dispatch_signal
- *  * tcp_inet_drv_input_ose : ready input callback.
- */
-
-#include "efs.h"
-#include "sys/socket.h"
-#include "sys/uio.h"
-#include "sfk/sys/sfk_uio.h"
-#include "netinet/in.h"
-#include "netinet/tcp.h"
-#include "netdb.h"
-#include "ose_spi/socket.sig"
-
-
-static ssize_t writev_fallback(int fd, const struct iovec *iov, int iovcnt, int max_sz);
-
-#define INVALID_SOCKET -1
-#define INVALID_EVENT  -1
-#define SOCKET_ERROR   -1
-
-#define SOCKET int
-#define HANDLE int
-#define FD_READ         ERL_DRV_READ
-#define FD_WRITE        ERL_DRV_WRITE
-#define FD_CLOSE        0
-#define FD_CONNECT      (1<<4)
-#define FD_ACCEPT       (1<<5)
-#define SOCK_FD_ERROR   (1<<6)
-
-#define sock_connect(s, addr, len)  connect((s), (addr), (len))
-#define sock_listen(s, b)           listen((s), (b))
-#define sock_bind(s, addr, len)     bind((s), (addr), (len))
-#define sock_getopt(s,t,n,v,l)      getsockopt((s),(t),(n),(v),(l))
-#define sock_setopt(s,t,n,v,l)      setsockopt((s),(t),(n),(v),(l))
-#define sock_name(s, addr, len)     getsockname((s), (addr), (len))
-#define sock_peer(s, addr, len)     getpeername((s), (addr), (len))
-#define sock_ntohs(x)               ntohs((x))
-#define sock_ntohl(x)               ntohl((x))
-#define sock_htons(x)               htons((x))
-#define sock_htonl(x)               htonl((x))
-
-#define sock_accept(s, addr, len)   accept((s), (addr), (len))
-#define sock_send(s,buf,len,flag)   inet_send((s),(buf),(len),(flag))
-#define sock_sendto(s,buf,blen,flag,addr,alen) \
-	    sendto((s),(buf),(blen),(flag),(addr),(alen))
-#define sock_sendv(s, vec, size, np, flag) \
-	    (*(np) = writev_fallback((s), (struct iovec*)(vec), (size), (*(np))))
-#define sock_sendmsg(s,msghdr,flag) sendmsg((s),(msghdr),(flag))
-
-#define sock_open(af, type, proto)  socket((af), (type), (proto))
-#define sock_close(s)               close((s))
-#define sock_dup(s)                 dup((s))
-#define sock_shutdown(s, how)       shutdown((s), (how))
-
-#define sock_hostname(buf, len)     gethostname((buf), (len))
-#define sock_getservbyname(name,proto) getservbyname((name), (proto))
-#define sock_getservbyport(port,proto) getservbyport((port), (proto))
-
-#define sock_recv(s,buf,len,flag)   recv((s),(buf),(len),(flag))
-#define sock_recvfrom(s,buf,blen,flag,addr,alen) \
-                recvfrom((s),(buf),(blen),(flag),(addr),(alen))
-#define sock_recvmsg(s,msghdr,flag) recvmsg((s),(msghdr),(flag))
-
-#define sock_errno()                errno
-#define sock_create_event(d)        ((d)->s) /* return file descriptor */
-#define sock_close_event(e)                  /* do nothing */
-
-#ifndef WANT_NONBLOCKING
-#define WANT_NONBLOCKING
-#endif
-#include "sys.h"
-
-typedef unsigned long  u_long;
-#define  IN_CLASSA(a)      ((((in_addr_t)(a)) & 0x80000000) == 0)
-#define  IN_CLASSA_NET     0xff000000
-#define  IN_CLASSA_NSHIFT  24
-#define  IN_CLASSA_HOST    (0xffffffff & ~IN_CLASSA_NET)
-#define  IN_CLASSA_MAX     128
-
-#define  IN_CLASSB(a)      ((((in_addr_t)(a)) & 0xc0000000) == 0x80000000)
-#define  IN_CLASSB_NET     0xffff0000
-#define  IN_CLASSB_NSHIFT  16
-#define  IN_CLASSB_HOST    (0xffffffff & ~IN_CLASSB_NET)
-#define  IN_CLASSB_MAX     65536
-
-#define  IN_CLASSC(a)      ((((in_addr_t)(a)) & 0xe0000000) == 0xc0000000)
-#define  IN_CLASSC_NET     0xffffff00
-#define  IN_CLASSC_NSHIFT  8
-#define  IN_CLASSC_HOST    (0xffffffff & ~IN_CLASSC_NET)
-
-#define  IN_CLASSD(a)      ((((in_addr_t)(a)) & 0xf0000000) == 0xe0000000)
-#define  IN_MULTICAST(a)      IN_CLASSD(a)
-
-#define  IN_EXPERIMENTAL(a)   ((((in_addr_t)(a)) & 0xe0000000) == 0xe0000000)
-#define  IN_BADCLASS(a)    ((((in_addr_t)(a)) & 0xf0000000) == 0xf0000000)
-
-#define sock_select(d, flags, onoff) do { \
-        ASSERT(!(d)->is_ignored); \
-        (d)->event_mask = (onoff) ? \
-                 ((d)->event_mask | (flags)) : \
-                 ((d)->event_mask & ~(flags)); \
-        DEBUGF(("(%s / %d) sock_select(%ld): flags=%02X, onoff=%d, event_mask=%02lX, s=%d\r\n", \
-		__FILE__, __LINE__, (long) (d)->port, (flags), (onoff), (unsigned long) (d)->event_mask, (d)->s)); \
-        inet_driver_select((d), (flags), (onoff)); \
-   } while(0)
-
-#define TCP_SHUT_WR    SHUT_WR
-#define TCP_SHUT_RD    SHUT_RD
-#define TCP_SHUT_RDWR  SHUT_RDWR
-
-#else /* !__OSE__ && !__WIN32__ */
+#else /* !__WIN32__ */
 
 #include <sys/time.h>
 #ifdef NETDB_H_NEEDS_IN_H
@@ -704,12 +572,12 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define TCP_SHUT_RD    SHUT_RD
 #define TCP_SHUT_RDWR  SHUT_RDWR
 
-#endif /* !__WIN32__ && !__OSE__ */
+#endif /* !__WIN32__ */
 
 #ifdef HAVE_SOCKLEN_T
 #  define SOCKLEN_T socklen_t
 #else
-#  define SOCKLEN_T int
+#  define SOCKLEN_T size_t
 #endif
 
 #include "packet_parser.h"
@@ -723,6 +591,22 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 			     (((unsigned char*) (s))[1] << 8) | \
 			     (((unsigned char*) (s))[0]))
 
+/* strnlen doesn't exist everywhere */
+static size_t my_strnlen(const char *s, size_t maxlen)
+{
+    size_t i = 0;
+    while (i < maxlen && s[i] != '\0')
+        i++;
+    return i;
+}
+
+/* Check that some character in the buffer != '\0' */
+static int is_nonzero(const char *s, size_t n)
+{
+    size_t i;
+    for (i = 0;  i < n;  i++) if (s[i] != '\0') return !0;
+    return 0;
+}
 
 #ifdef VALGRIND
 #  include <valgrind/memcheck.h>   
@@ -747,6 +631,8 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_AF_INET6       2
 #define INET_AF_ANY         3 /* INADDR_ANY or IN6ADDR_ANY_INIT */
 #define INET_AF_LOOPBACK    4 /* INADDR_LOOPBACK or IN6ADDR_LOOPBACK_INIT */
+#define INET_AF_LOCAL       5
+#define INET_AF_UNDEFINED   6 /* Unknown */
 
 /* open and INET_REQ_GETTYPE enumeration */
 #define INET_TYPE_STREAM    1
@@ -1032,19 +918,35 @@ typedef union {
 #ifdef HAVE_IN6
     struct sockaddr_in6 sai6;
 #endif
+#ifdef HAVE_SYS_UN_H
+    struct sockaddr_un sal;
+#endif
 } inet_address;
 
 
-/* for AF_INET & AF_INET6 */
-#define inet_address_port(x) ((x)->sai.sin_port)
+#define inet_address_port(x)			\
+  ((((x)->sai.sin_family == AF_INET) ||		\
+    ((x)->sai.sin_family == AF_INET6)) ?	\
+   ((x)->sai.sin_port) : -1)
+
+#ifdef HAVE_SYS_UN_H
+#define localaddrlen(data)				\
+  ((((unsigned char*)(data))[0] == INET_AF_LOCAL) ?	\
+   (1 + 1 + ((unsigned char*)(data))[1]) : 1)
+#else
+#define localaddrlen(data) (1)
+#endif
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
-#define addrlen(family) \
-   ((family == AF_INET) ? sizeof(struct in_addr) : \
-    ((family == AF_INET6) ? sizeof(struct in6_addr) : 0))
+#define addrlen(data)					\
+    ((((unsigned char*)(data))[0] == INET_AF_INET) ?	\
+     (1 + 2 + 4) :					\
+     ((((unsigned char*)(data))[0] == INET_AF_INET6) ?	\
+      (1 + 2 + 16) : localaddrlen(data)))
 #else
-#define addrlen(family) \
-   ((family == AF_INET) ? sizeof(struct in_addr) : 0)
+#define addrlen(data)					\
+    ((((unsigned char*)(data))[0] == INET_AF_INET) ?	\
+     (1 + 2 + 4) : localaddrlen(data))
 #endif
 
 typedef struct _multi_timer_data {
@@ -1135,8 +1037,10 @@ typedef struct {
     inet_address peer_addr;     /* fake peer address */
     inet_address name_addr;     /* fake local address */
 
-    inet_address* peer_ptr;    /* fake peername or NULL */
-    inet_address* name_ptr;    /* fake sockname or NULL */
+    inet_address* peer_ptr;     /* fake peername or NULL */
+    inet_address* name_ptr;     /* fake sockname or NULL */
+    SOCKLEN_T peer_addr_len;    /* fake peername size */
+    SOCKLEN_T name_addr_len;    /* fake sockname size */
 
     int   bufsz;                /* minimum buffer constraint */
     unsigned int hsz;           /* the list header size, -1 is large !!! */
@@ -1168,13 +1072,6 @@ typedef struct {
     char *netns;                /* Socket network namespace name
 				   as full file path */
 #endif
-#ifdef __OSE__
-    int select_state;           /* state to keep track of whether we
-				   should trigger another read/write
-				   request at end of ready_input/output */
-    ErlDrvEvent events[6];
-#endif
-
 } inet_descriptor;
 
 
@@ -1190,10 +1087,8 @@ static void tcp_inet_stop(ErlDrvData);
 static void tcp_inet_command(ErlDrvData, char*, ErlDrvSizeT);
 static void tcp_inet_commandv(ErlDrvData, ErlIOVec*);
 static void tcp_inet_flush(ErlDrvData drv_data);
-#ifndef __OSE__
 static void tcp_inet_drv_input(ErlDrvData, ErlDrvEvent);
 static void tcp_inet_drv_output(ErlDrvData data, ErlDrvEvent event);
-#endif
 static ErlDrvData tcp_inet_start(ErlDrvPort, char* command);
 static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData, unsigned int,
 				 char*, ErlDrvSizeT, char**, ErlDrvSizeT);
@@ -1206,71 +1101,6 @@ static void tcp_inet_event(ErlDrvData, ErlDrvEvent);
 static void find_dynamic_functions(void);
 #endif
 
-#ifdef __OSE__
-/* The structure of the signal used for requesting asynchronous 
- * notification from the stack. Under normal circumstances the network stack 
- * shouldn't overwrite the value set in the fd field by the sender 
- * of the request */
-struct OseAsyncSig {
-    struct FmEvent event;
-    int fd;
-};
-
-union SIGNAL {
-    SIGSELECT signo;
-    struct OseAsyncSig async;
-};
-
-static ErlDrvSSizeT tcp_inet_ctl_ose(ErlDrvData e, unsigned int cmd,
-				     char* buf, ErlDrvSizeT len,
-				     char** rbuf, ErlDrvSizeT rsize);
-static void tcp_inet_commandv_ose(ErlDrvData e, ErlIOVec* ev);
-static void tcp_inet_drv_output_ose(ErlDrvData data, ErlDrvEvent event);
-static void tcp_inet_drv_input_ose(ErlDrvData data, ErlDrvEvent event);
-static ErlDrvOseEventId inet_resolve_signal(union SIGNAL *sig);
-
-#ifdef INET_DRV_DEBUG
-
-static char *read_req = "SO_EVENT_READ_REQUEST";
-static char *read_rep = "SO_EVENT_READ_REPLY";
-static char *write_req = "SO_EVENT_WRITE_REQUEST";
-static char *write_rep = "SO_EVENT_WRITE_REPLY";
-static char *eof_req = "SO_EVENT_EOF_REQUEST";
-static char *eof_rep = "SO_EVENT_EOF_REPLY";
-static char *accept_req = "SO_EVENT_ACCEPT_REQUEST";
-static char *accept_rep = "SO_EVENT_ACCEPT_REPLY";
-static char *connect_req = "SO_EVENT_CONNECT_REQUEST";
-static char *connect_rep = "SO_EVENT_CONNECT_REPLY";
-static char *error_req = "SO_EVENT_ERROR_REQUEST";
-static char *error_rep = "SO_EVENT_ERROR_REPLY";
-static char signo_tmp[32];
-
-static char *signo_to_string(SIGSELECT signo) {
-  switch (signo) {
-  case SO_EVENT_READ_REQUEST: { return read_req; }
-  case SO_EVENT_READ_REPLY: { return read_rep; }
-  case SO_EVENT_WRITE_REQUEST: { return write_req; }
-  case SO_EVENT_WRITE_REPLY: { return write_rep; }
-  case SO_EVENT_EOF_REQUEST: { return eof_req; }
-  case SO_EVENT_EOF_REPLY: { return eof_rep; }
-  case SO_EVENT_ACCEPT_REQUEST: { return accept_req; }
-  case SO_EVENT_ACCEPT_REPLY: { return accept_rep; }
-  case SO_EVENT_CONNECT_REQUEST: { return connect_req; }
-  case SO_EVENT_CONNECT_REPLY: { return connect_rep; }
-  case SO_EVENT_ERROR_REQUEST: { return error_req; }
-  case SO_EVENT_ERROR_REPLY: { return error_rep; }
-  }
-
-  snprintf(signo_tmp,32,"0x%x",signo);
-
-  return signo_tmp;
-}
-
-#endif
-
-#endif /* __OSE__ */
-
-
 static struct erl_drv_entry tcp_inet_driver_entry =
 {
     tcp_inet_init,  /* inet_init will add this driver !! */
@@ -1280,9 +1110,6 @@ static struct erl_drv_entry tcp_inet_driver_entry =
 #ifdef __WIN32__
     tcp_inet_event,
     NULL,
-#elif defined(__OSE__)
-    tcp_inet_drv_input_ose, /*ready_input*/
-    tcp_inet_drv_output_ose, /*ready_output*/
 #else
     tcp_inet_drv_input,
     tcp_inet_drv_output,
@@ -1290,17 +1117,9 @@ static struct erl_drv_entry tcp_inet_driver_entry =
     "tcp_inet",
     NULL,
     NULL,
-#ifdef __OSE__
-    tcp_inet_ctl_ose,
-#else
     tcp_inet_ctl,
-#endif
     tcp_inet_timeout,
-#ifdef __OSE__
-    tcp_inet_commandv_ose,
-#else
     tcp_inet_commandv,
-#endif
     NULL,
     tcp_inet_flush,
     NULL,
@@ -1452,14 +1271,6 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event);
 /* convert descriptor pointer to inet_descriptor pointer */
 #define INETP(d) (&(d)->inet)
 
-#ifdef __OSE__
-static void inet_driver_select(inet_descriptor* desc,
-			       int flags, int onoff);
-static void tcp_inet_ose_dispatch_signals(tcp_descriptor *desc,
-					  int prev_select_state,
-					  union SIGNAL *sig);
-#endif
-
 static int async_ref = 0;          /* async reference id generator */
 #define NEW_ASYNC_ID() ((async_ref++) & 0xffff)
 
@@ -1475,6 +1286,7 @@ static int async_ref = 0;          /* async reference id generator */
     } while (0)
 
 static ErlDrvTermData am_ok;
+static ErlDrvTermData am_undefined;
 static ErlDrvTermData am_tcp;
 static ErlDrvTermData am_error;
 static ErlDrvTermData am_einval;
@@ -1491,6 +1303,7 @@ static ErlDrvTermData am_ssl_tls;
 static ErlDrvTermData am_udp;
 static ErlDrvTermData am_udp_passive;
 static ErlDrvTermData am_udp_error;
+static ErlDrvTermData am_local;
 #endif
 #ifdef HAVE_SCTP
 static ErlDrvTermData am_sctp;
@@ -1700,40 +1513,59 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
 #endif
 
 #ifdef HAVE_UDP
-static int load_ip_port(ErlDrvTermData* spec, int i, char* buf)
-{
-    spec[i++] = ERL_DRV_INT;
-    spec[i++] = (ErlDrvTermData) get_int16(buf);
-    return i;
-}
-
-static int load_ip_address(ErlDrvTermData* spec, int i, int family, char* buf)
+static int load_address(ErlDrvTermData* spec, int i, char* buf)
 {
     int n;
-    if (family == AF_INET) {
-	for (n = 0;  n < 4;  n++) {
+    switch (*buf++) { /* Family */
+    case INET_AF_INET: {
+        for (n = 2;  n < 2+4;  n++) {
 	    spec[i++] = ERL_DRV_INT;
 	    spec[i++] = (ErlDrvTermData) ((unsigned char)buf[n]);
 	}
 	spec[i++] = ERL_DRV_TUPLE;
 	spec[i++] = 4;
+	spec[i++] = ERL_DRV_INT;
+	spec[i++] = (ErlDrvTermData) get_int16(buf);
+	break;
     }
 #if defined(HAVE_IN6) && defined(AF_INET6)
-    else if (family == AF_INET6) {
-	for (n = 0;  n < 16;  n += 2) {
+    case INET_AF_INET6: {
+	for (n = 2;  n < 2+16;  n += 2) {
 	    spec[i++] = ERL_DRV_INT;
 	    spec[i++] = (ErlDrvTermData) get_int16(buf+n);
 	}
 	spec[i++] = ERL_DRV_TUPLE;
 	spec[i++] = 8;
+	spec[i++] = ERL_DRV_INT;
+	spec[i++] = (ErlDrvTermData) get_int16(buf);
+	break;
     }
 #endif
-    else {
+#ifdef HAVE_SYS_UN_H
+    case INET_AF_LOCAL: {
+	int len = *(unsigned char*)buf++;
+	i = LOAD_ATOM(spec, i, am_local);
+	i = LOAD_BUF2BINARY(spec, i, buf, len);
 	spec[i++] = ERL_DRV_TUPLE;
+	spec[i++] = 2;
+	spec[i++] = ERL_DRV_INT;
 	spec[i++] = 0;
+	break;
+    }
+#endif
+    default: { /* INET_AF_UNDEFINED */
+        i = LOAD_ATOM(spec, i, am_undefined);
+	spec[i++] = ERL_DRV_INT;
+	spec[i++] = 0;
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i++] = 2;
+	spec[i++] = ERL_DRV_INT;
+	spec[i++] = 0;
+	break;
+    }
     }
     return i;
-}
+ }
 #endif
 
 
@@ -1741,10 +1573,13 @@ static int load_ip_address(ErlDrvTermData* spec, int i, int family, char* buf)
 /* For SCTP, we often need to return {IP, Port} tuples: */
 static int inet_get_address(char* dst, inet_address* src, unsigned int* len);
 
-#define LOAD_IP_AND_PORT_CNT                                              \
+/* Max of {{int()*8},int()} | {{int()*4},int()} |
+ *        {{'local',binary()},int()}
+ */
+#define LOAD_INET_GET_ADDRESS_CNT					\
         (8*LOAD_INT_CNT + LOAD_TUPLE_CNT + LOAD_INT_CNT + LOAD_TUPLE_CNT)
                            
-static int load_ip_and_port
+static int load_inet_get_address
            (ErlDrvTermData* spec,    int i, inet_descriptor* desc,
 	    struct sockaddr_storage* addr)
 {
@@ -1762,8 +1597,7 @@ static int load_ip_and_port
     /* NB: the following functions are safe to use, as they create tuples
        of copied Ints on the "spec", and do not install any String pts --
        a ptr to "abuf" would be dangling upon exiting this function:   */
-    i = load_ip_address(spec, i, desc->sfamily, abuf+3);
-    i = load_ip_port   (spec, i, abuf+1);
+    i = load_address(spec, i, abuf);  /* IP,Port | Family,Addr */
     i = LOAD_TUPLE     (spec, i, 2);
     return i;
 }
@@ -2455,7 +2289,6 @@ static ErlDrvTermData am_http_error;
 static ErlDrvTermData am_abs_path;
 static ErlDrvTermData am_absoluteURI;
 static ErlDrvTermData am_star;
-static ErlDrvTermData am_undefined;
 static ErlDrvTermData am_http;
 static ErlDrvTermData am_https;
 static ErlDrvTermData am_scheme;
@@ -3146,7 +2979,7 @@ static int sctp_parse_async_event
 	    ASSERT(sptr->spc_length <= sz);  /* No buffer overrun */
 
 	    i = LOAD_ATOM	(spec, i, am_sctp_paddr_change);
-	    i = load_ip_and_port(spec, i, desc, &sptr->spc_aaddr);
+	    i = load_inet_get_address(spec, i, desc, &sptr->spc_aaddr);
 
 	    switch (sptr->spc_state)
 	    {
@@ -3573,10 +3406,11 @@ static int tcp_error_message(tcp_descriptor* desc, int err)
 #ifdef HAVE_UDP
 /* 
 ** active mode message:
-**        {udp,  S, IP, Port, [H1,...Hsz | Data]} or
-**	  {sctp, S, IP, Port, {[AncilData],  Event_or_Data}}
+**    {udp,  S, IP, Port, [H1,...Hsz | Data]} or
+**    {sctp, S, IP, Port, {[AncilData],  Event_or_Data}}
 ** where
 ** 	  [H1,...,HSz] are msg headers (without IP/Port, UDP only),
+**    [AddrLen, H2,...,HSz] are msg headers for UDP AF_UNIX only
 **	  Data  : List() | Binary()
 */
 static int packet_binary_message
@@ -3586,6 +3420,7 @@ static int packet_binary_message
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     int i = 0;
     int alen;
+    char* data = bin->orig_bytes+offs;
 
     DEBUGF(("packet_binary_message(%ld): len = %d\r\n",
 	   (long)desc->port, len));
@@ -3595,13 +3430,12 @@ static int packet_binary_message
     i = LOAD_ATOM(spec, i, am_udp );			      /* UDP only */
 #   endif
     i = LOAD_PORT(spec, i, desc->dport);   		      /* S	  */
-    
-    alen = addrlen(desc->sfamily);
-    i = load_ip_address(spec, i, desc->sfamily, bin->orig_bytes+offs+3);
-    i = load_ip_port(spec, i, bin->orig_bytes+offs+1);	      /* IP, Port */
-    
-    offs += (alen + 3);
-    len  -= (alen + 3);
+
+    alen = addrlen(data);
+    i = load_address(spec, i, data);     /* IP,Port | Family,Addr */
+
+    offs += alen;
+    len  -= alen;
 
 #   ifdef HAVE_SCTP
     if (!IS_SCTP(desc))
@@ -3988,6 +3822,7 @@ static int inet_init()
 #   endif
 
     INIT_ATOM(ok);
+    INIT_ATOM(undefined);
     INIT_ATOM(tcp);
 #ifdef HAVE_UDP
     INIT_ATOM(udp);
@@ -4004,6 +3839,7 @@ static int inet_init()
 #ifdef HAVE_UDP
     INIT_ATOM(udp_passive);
     INIT_ATOM(udp_error);
+    INIT_ATOM(local);
 #endif
     INIT_ATOM(empty_out_q);
     INIT_ATOM(ssl_tls);
@@ -4016,7 +3852,6 @@ static int inet_init()
     INIT_ATOM(abs_path);
     INIT_ATOM(absoluteURI);
     am_star = driver_mk_atom("*");
-    INIT_ATOM(undefined);
     INIT_ATOM(http);
     INIT_ATOM(https);
     INIT_ATOM(scheme);
@@ -4112,7 +3947,7 @@ static int inet_init()
 
 
 /*
-** Set a inaddr structure:
+** Set an inaddr structure:
 **  src = [P1,P0,X1,X2,.....]
 **  dst points to a structure large enugh to keep any kind
 **  of inaddr.
@@ -4152,6 +3987,18 @@ static char* inet_set_address(int family, inet_address* dst,
 	return src + 2+16;
     }
 #endif
+#ifdef HAVE_SYS_UN_H
+    else if ((family == AF_UNIX) && (*len >= 1)) {
+	int n = *((unsigned char*)src);
+	if ((*len < 1+n) || (sizeof(dst->sal.sun_path) < n+1))
+	  return NULL;
+	sys_memzero((char*)dst, sizeof(struct sockaddr_un));
+	dst->sal.sun_family = family;
+	sys_memcpy(dst->sal.sun_path, src+1, n);
+	*len = offsetof(struct sockaddr_un, sun_path) + n;
+	return src + 1 + n;
+    }
+#endif
     return NULL;
 }
 
@@ -4160,7 +4007,7 @@ static char* inet_set_address(int family, inet_address* dst,
 ** or from argument if source data specifies constant address.
 ** 
 ** src = [TAG,P1,P0]           when TAG = INET_AF_ANY  | INET_AF_LOOPBACK
-** src = [TAG,P1,P0,X1,X2,...] when TAG = INET_AF_INET | INET_AF_INET6
+** src = [TAG,P1,P0,X1,X2,...] when TAG = INET_AF_INET | INET_AF_INET6 | INET_AF_LOCAL
 */
 static char *inet_set_faddress(int family, inet_address* dst,
 			       char *src, ErlDrvSizeT* len) {
@@ -4177,6 +4024,12 @@ static char *inet_set_faddress(int family, inet_address* dst,
     case INET_AF_INET6:
 	family = AF_INET6;
 	break;
+#   endif
+#   ifdef HAVE_SYS_UN_H
+    case INET_AF_LOCAL: {
+        family = AF_UNIX;
+        break;
+    }
 #   endif
     case INET_AF_ANY:
     case INET_AF_LOOPBACK: {
@@ -4241,7 +4094,6 @@ static char *inet_set_faddress(int family, inet_address* dst,
     return inet_set_address(family, dst, src, len);
 }
 
-
 /* Get a inaddr structure
 ** src = inaddr structure
 ** *len is the lenght of structure
@@ -4252,6 +4104,7 @@ static char *inet_set_faddress(int family, inet_address* dst,
 */
 static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
 {
+    /* Compare the code with inet_address_to_erlang() */
     int family;
     short port;
 
@@ -4274,6 +4127,32 @@ static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
 	return 0;
     }
 #endif
+#ifdef HAVE_SYS_UN_H
+    else if (family == AF_UNIX) {
+        size_t n, m;
+        if (*len < offsetof(struct sockaddr_un, sun_path)) return -1;
+        n = *len - offsetof(struct sockaddr_un, sun_path);
+        if (255 < n) return -1;
+	/* Portability fix: Assume that the address is a zero terminated
+	 * string, except when the first byte is \0 i.e the
+	 * string length is 0.  Then use the reported length instead.
+	 * This fix handles Linux's abstract socket address
+	 * nonportable extension.
+	 */
+        m = my_strnlen(src->sal.sun_path, n);
+	if ((m == 0) && is_nonzero(src->sal.sun_path, n))
+	    m = n;
+        dst[0] = INET_AF_LOCAL;
+        dst[1] = (char) ((unsigned char) m);
+        sys_memcpy(dst+2, src->sal.sun_path, m);
+        *len = 1 + 1 + m;
+        return 0;
+      }
+#endif
+    else {
+        dst[0] = INET_AF_UNDEFINED;
+	*len = 1;
+    }
     return -1;
 }
 
@@ -4282,7 +4161,9 @@ static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
 ** according to the size of the current,
 ** and return the resulting encoded size
 */
-static int inet_address_to_erlang(char *dst, inet_address **src) {
+static int
+inet_address_to_erlang(char *dst, inet_address **src, SOCKLEN_T sz) {
+    /* Compare the code with inet_get_address() */
     short port;
 
     switch ((*src)->sa.sa_family) {
@@ -4307,6 +4188,30 @@ static int inet_address_to_erlang(char *dst, inet_address **src) {
 	(*src) = (inet_address *) (&(*src)->sai6 + 1);
 	return 1 + 2 + 16;
 #endif
+#ifdef HAVE_SYS_UN_H
+    case AF_UNIX: {
+        size_t n, m;
+	if (sz < offsetof(struct sockaddr_un, sun_path)) return -1;
+	n = sz - offsetof(struct sockaddr_un, sun_path);
+	if (255 < n) return -1;
+	/* Portability fix: Assume that the address is a zero terminated
+	 * string, except when the first byte is \0 i.e the
+	 * string length is 0.  Then use the reported length instead.
+	 * This fix handles Linux's abstract socket address
+	 * nonportable extension.
+	 */
+        m = my_strnlen((*src)->sal.sun_path, n);
+	if ((m == 0) && is_nonzero((*src)->sal.sun_path, n))
+	    m = n;
+	if (dst) {
+	    dst[0] = INET_AF_LOCAL;
+	    dst[1] = (char) ((unsigned char) m);
+            sys_memcpy(dst+2, (*src)->sal.sun_path, m);
+	}
+	(*src) = (inet_address *) (&(*src)->sal + 1);
+	return 1 + 1 + m;
+    }
+#endif
     default:
 	return -1;
     }
@@ -4315,7 +4220,7 @@ static int inet_address_to_erlang(char *dst, inet_address **src) {
 /* Encode n encoded addresses from addrs in the result buffer
 */
 static ErlDrvSizeT reply_inet_addrs
-(int n, inet_address *addrs, char **rbuf, ErlDrvSizeT rsize) {
+(int n, inet_address *addrs, char **rbuf, ErlDrvSizeT rsize, SOCKLEN_T sz) {
     inet_address *ia;
     int i, s;
     ErlDrvSizeT rlen;
@@ -4323,11 +4228,19 @@ static ErlDrvSizeT reply_inet_addrs
     if (IS_SOCKET_ERROR(n)) return ctl_error(sock_errno(), rbuf, rsize);
     if (n == 0) return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 
+    /* The sz argument is only used when we have got an actual size
+     * of addrs[0] from e.g getsockname() and then n == 1
+     * so we will loop over 1 element below.  Otherwise sz
+     * would be expected to differ between addresses but that
+     * can only happen for AF_UNIX and we will only be called with
+     * n > 1 for SCTP and that will never (?) happen with AF_UNIX
+     */
+
     /* Calculate result length */
     rlen = 1;
     ia = addrs;
     for (i = 0;  i < n;  i++) {
-	s = inet_address_to_erlang(NULL, &ia);
+        s = inet_address_to_erlang(NULL, &ia, sz);
 	if (s < 0) break;
 	rlen += s;
     }
@@ -4338,7 +4251,7 @@ static ErlDrvSizeT reply_inet_addrs
     rlen = 1;
     ia = addrs;
     for (i = 0;  i < n;  i++) {
-	s = inet_address_to_erlang((*rbuf)+rlen, &ia);
+        s = inet_address_to_erlang((*rbuf)+rlen, &ia, sz);
 	if (s < 0) break;
 	rlen += s;
     }
@@ -4355,16 +4268,6 @@ static void desc_close(inet_descriptor* desc)
 	desc->forced_events = 0;
 	desc->send_would_block = 0;
 #endif
-#ifdef __OSE__
-	if (desc->events[0]) {
-	  driver_select(desc->port,desc->events[0],FD_READ|FD_WRITE|ERL_DRV_USE,0);
-	  driver_select(desc->port,desc->events[1],FD_READ|FD_WRITE|ERL_DRV_USE,0);
-	  driver_select(desc->port,desc->events[2],FD_READ|FD_WRITE|ERL_DRV_USE,0);
-	  driver_select(desc->port,desc->events[3],FD_READ|FD_WRITE|ERL_DRV_USE,0);
-	  driver_select(desc->port,desc->events[4],FD_READ|FD_WRITE|ERL_DRV_USE,0);
-	  driver_select(desc->port,desc->events[5],FD_READ|FD_WRITE|ERL_DRV_USE,0);
-	}
-#else
 	/*
 	 * We should close the fd here, but the other driver might still
 	 * be selecting on it.
@@ -4374,7 +4277,6 @@ static void desc_close(inet_descriptor* desc)
 			  ERL_DRV_USE, 0);
 	else
 	  inet_stop_select((ErlDrvEvent)(long)desc->event,NULL);
-#endif
 	desc->event = INVALID_EVENT; /* closed by stop_select callback */
 	desc->s = INVALID_SOCKET;
 	desc->event_mask = 0;
@@ -4416,69 +4318,11 @@ static int erl_inet_close(inet_descriptor* desc)
     return 0;
 }
 
-#ifdef __OSE__
-static void inet_select_init(inet_descriptor* desc)
-{
-    desc->events[0] =
-        erl_drv_ose_event_alloc(SO_EVENT_READ_REPLY,
-                desc->s,
-                inet_resolve_signal,
-                NULL);
-    driver_select(desc->port, desc->events[0],
-            ERL_DRV_READ|ERL_DRV_USE, 1);
-
-    desc->events[1] =
-        erl_drv_ose_event_alloc(SO_EVENT_EOF_REPLY,
-                desc->s,
-                inet_resolve_signal,
-                NULL);
-    driver_select(desc->port, desc->events[1],
-            ERL_DRV_READ|ERL_DRV_USE, 1);
-
-    desc->events[2] =
-        erl_drv_ose_event_alloc(SO_EVENT_ACCEPT_REPLY,
-                desc->s,
-                inet_resolve_signal,
-                NULL);
-    driver_select(desc->port, desc->events[2],
-            ERL_DRV_READ|ERL_DRV_USE, 1);
-
-    /* trigger tcp_inet_input */
-    desc->events[3] =
-        erl_drv_ose_event_alloc(SO_EVENT_WRITE_REPLY,
-                desc->s,
-                inet_resolve_signal,
-                NULL);
-    driver_select(desc->port, desc->events[3],
-            ERL_DRV_WRITE|ERL_DRV_USE, 1);
-
-    desc->events[4] =
-        erl_drv_ose_event_alloc(SO_EVENT_CONNECT_REPLY,
-                desc->s,
-                inet_resolve_signal,
-                NULL);
-    driver_select(desc->port, desc->events[4],
-            ERL_DRV_WRITE|ERL_DRV_USE, 1);
-
-    desc->events[5] =
-        erl_drv_ose_event_alloc(SO_EVENT_ERROR_REPLY,
-                desc->s,
-                inet_resolve_signal,
-                NULL);
-    driver_select(desc->port, desc->events[5],
-            ERL_DRV_WRITE|ERL_DRV_USE, 1);
-
-    /* Issue a select on error event before any other select to be sure we are
-       prepared to receive error notifications from the stack, even in the
-       situations when select isn't issued */
-    sock_select(desc, SOCK_FD_ERROR, 1);
-}
-#endif
-
 static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 				  char** rbuf, ErlDrvSizeT rsize)
 {
     int save_errno;
+    int protocol;
 #ifdef HAVE_SETNS
     int current_ns, new_ns;
     current_ns = new_ns = 0;
@@ -4517,7 +4361,11 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 	}
     }
 #endif
-    if ((desc->s = sock_open(domain, type, desc->sprotocol)) == INVALID_SOCKET)
+    protocol = desc->sprotocol;
+#ifdef HAVE_SYS_UN_H
+    if (domain == AF_UNIX) protocol = 0;
+#endif
+    if ((desc->s = sock_open(domain, type, protocol)) == INVALID_SOCKET)
 	save_errno = sock_errno();
 #ifdef HAVE_SETNS
     if (desc->netns != NULL) {
@@ -4557,9 +4405,6 @@ static ErlDrvSSizeT inet_ctl_open(inet_descriptor* desc, int domain, int type,
 #ifdef __WIN32__
     driver_select(desc->port, desc->event, ERL_DRV_READ, 1);
 #endif
-#ifdef __OSE__
-    inet_select_init(desc);
-#endif
 
     desc->state = INET_STATE_OPEN;
     desc->stype = type;
@@ -4583,13 +4428,7 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
         if (name.sa.sa_family != domain)
             return ctl_error(EINVAL, rbuf, rsize);
     }
-#ifdef __OSE__        
-    /* for fdopen duplicating the sd will allow to uniquely identify
-       the signal from OSE with erlang port */
-    desc->s = sock_dup(s);    
-#else
     desc->s = s;
-#endif
 
     if ((desc->event = sock_create_event(desc)) == INVALID_EVENT)
 	return ctl_error(sock_errno(), rbuf, rsize);
@@ -4607,12 +4446,6 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
 	sz = sizeof(name);
 	if (!IS_SOCKET_ERROR(sock_peer(s, (struct sockaddr*) &name, &sz))) {
 	    desc->state = INET_STATE_CONNECTED;
-#ifdef __OSE__
-            /* since we are dealing with different descriptors (i.e. inet and
-               socket) the select part should be initialized with the right
-               values */
-            inet_select_init(desc);
-#endif
         }
     }
 
@@ -7433,14 +7266,14 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 
 #ifdef HAVE_SCTP
 #define LOAD_PADDRINFO_CNT                                            \
-        (2*LOAD_ATOM_CNT + LOAD_ASSOC_ID_CNT + LOAD_IP_AND_PORT_CNT + \
+        (2*LOAD_ATOM_CNT + LOAD_ASSOC_ID_CNT + LOAD_INET_GET_ADDRESS_CNT + \
 	 4*LOAD_INT_CNT + LOAD_TUPLE_CNT)
 static int load_paddrinfo (ErlDrvTermData * spec, int i,
 			   inet_descriptor* desc, struct sctp_paddrinfo* pai)
 {
     i = LOAD_ATOM	(spec, i, am_sctp_paddrinfo);
     i = LOAD_ASSOC_ID	(spec, i, pai->spinfo_assoc_id);
-    i = load_ip_and_port(spec, i, desc, &pai->spinfo_address);
+    i = load_inet_get_address(spec, i, desc, &pai->spinfo_address);
     switch(pai->spinfo_state)
     {
     case SCTP_ACTIVE:
@@ -7856,7 +7689,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
 		      2*LOAD_ATOM_CNT + LOAD_ASSOC_ID_CNT + 
-		      LOAD_IP_AND_PORT_CNT + 2*LOAD_TUPLE_CNT);
+		      LOAD_INET_GET_ADDRESS_CNT + 2*LOAD_TUPLE_CNT);
 	    switch (eopt) {
 	    case SCTP_OPT_PRIMARY_ADDR:
 		i = LOAD_ATOM(spec, i, am_sctp_primary_addr);
@@ -7870,7 +7703,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		ASSERT(0);
 	    }
 	    i = LOAD_ASSOC_ID	(spec, i, sp.sspp_assoc_id);
-	    i = load_ip_and_port(spec, i, desc, &sp.sspp_addr);
+	    i = load_inet_get_address(spec, i, desc, &sp.sspp_addr);
 	    i = LOAD_TUPLE	(spec, i, 3);
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
@@ -7917,11 +7750,11 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    /* Fill in the response: */
 	    PLACE_FOR(spec, i, 
 		      2*LOAD_ATOM_CNT + LOAD_ASSOC_ID_CNT + 
-		      LOAD_IP_AND_PORT_CNT + 4*LOAD_INT_CNT);
+		      LOAD_INET_GET_ADDRESS_CNT + 4*LOAD_INT_CNT);
 	    i = LOAD_ATOM	(spec, i, am_sctp_peer_addr_params);
 	    i = LOAD_ATOM	(spec, i, am_sctp_paddrparams);
 	    i = LOAD_ASSOC_ID	(spec, i, ap.spp_assoc_id);
-	    i = load_ip_and_port(spec, i, desc, &ap.spp_address);
+	    i = load_inet_get_address(spec, i, desc, &ap.spp_address);
 	    i = LOAD_INT	(spec, i, ap.spp_hbinterval);
 	    i = LOAD_INT	(spec, i, ap.spp_pathmaxrxt);
 	    
@@ -8414,15 +8247,6 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
 #ifdef HAVE_SETNS
     desc->netns = NULL;
 #endif
-#ifdef __OSE__
-    desc->select_state = 0;
-    desc->events[0] = NULL;
-    desc->events[1] = NULL;
-    desc->events[2] = NULL;
-    desc->events[3] = NULL;
-    desc->events[4] = NULL;
-    desc->events[5] = NULL;
-#endif
 
     return (ErlDrvData)desc;
 }
@@ -8571,6 +8395,11 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    put_int32(INET_AF_INET6, &tbuf[0]);
 	}
 #endif
+#ifdef HAVE_SYS_UN_H
+	else if (desc->sfamily == AF_UNIX) {
+	    put_int32(INET_AF_LOCAL, &tbuf[0]);
+	}
+#endif
 	else
 	    return ctl_error(EINVAL, rbuf, rsize);
 
@@ -8630,19 +8459,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
 	    assoc_id = get_int32(buf);
 	    n = p_sctp_getpaddrs(desc->s, assoc_id, &sa);
-	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize);
+	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize, 0);
 	    if (n > 0) p_sctp_freepaddrs(sa);
 	    return rlen;
 	}
 #endif
 	{ /* Fallback to sock_peer */
 	    inet_address addr;
-	    unsigned int sz;
+	    SOCKLEN_T sz;
 	    int i;
 
 	    sz = sizeof(addr);
 	    i = sock_peer(desc->s, (struct sockaddr *) &addr, &sz);
-	    return reply_inet_addrs(i >= 0 ? 1 : i, &addr, rbuf, rsize);
+	    return reply_inet_addrs(i >= 0 ? 1 : i, &addr, rbuf, rsize, sz);
 	}
     }
 
@@ -8650,15 +8479,21 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	char tbuf[sizeof(inet_address)];
 	inet_address peer;
 	inet_address* ptr;
-	unsigned int sz = sizeof(peer);
+	unsigned int sz;
 
 	DEBUGF(("inet_ctl(%ld): PEER\r\n", (long)desc->port)); 
 
 	if (!(desc->state & INET_F_ACTIVE))
 	    return ctl_error(ENOTCONN, rbuf, rsize);
-	if ((ptr = desc->peer_ptr) == NULL) {
+	if ((ptr = desc->peer_ptr) != NULL) {
+	    sz = desc->peer_addr_len;
+	}
+	else {
 	    ptr = &peer;
-	    if (IS_SOCKET_ERROR(sock_peer(desc->s, (struct sockaddr*)ptr,&sz)))
+            sz = sizeof(peer);
+	    if (IS_SOCKET_ERROR
+		(sock_peer
+		 (desc->s, (struct sockaddr*)ptr, &sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
 	if (inet_get_address(tbuf, ptr, &sz) < 0)
@@ -8673,11 +8508,12 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	}
 	else if (len < 2)
 	    return ctl_error(EINVAL, rbuf, rsize);	    
-	else if (inet_set_address(desc->sfamily, &desc->peer_addr,
-				  buf, &len) == NULL)
+	else if (inet_set_faddress
+		 (desc->sfamily, &desc->peer_addr, buf, &len) == NULL)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	else {
 	    desc->peer_ptr = &desc->peer_addr;
+	    desc->peer_addr_len = (SOCKLEN_T) len;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);	    
 	}
     }
@@ -8699,19 +8535,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
 	    assoc_id = get_int32(buf);
 	    n = p_sctp_getladdrs(desc->s, assoc_id, &sa);
-	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize);
+	    rlen = reply_inet_addrs(n, (inet_address *) sa, rbuf, rsize, 0);
 	    if (n > 0) p_sctp_freeladdrs(sa);
 	    return rlen;
 	}
 #endif
 	{ /* Fallback to sock_name */
 	    inet_address addr;
-	    unsigned int sz;
+	    SOCKLEN_T sz;
 	    int i;
 
 	    sz = sizeof(addr);
 	    i = sock_name(desc->s, (struct sockaddr *) &addr, &sz);
-	    return reply_inet_addrs(i >= 0 ? 1 : i, &addr, rbuf, rsize);
+	    return reply_inet_addrs(i >= 0 ? 1 : i, &addr, rbuf, rsize, sz);
 	}
     }
 
@@ -8719,16 +8555,21 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	char tbuf[sizeof(inet_address)];
 	inet_address name;
 	inet_address* ptr;
-	unsigned int sz = sizeof(name);
+	unsigned int sz;
 
 	DEBUGF(("inet_ctl(%ld): NAME\r\n", (long)desc->port)); 
 
 	if (!IS_BOUND(desc))
 	    return ctl_error(EINVAL, rbuf, rsize); /* address is not valid */
 
-	if ((ptr = desc->name_ptr) == NULL) {
+	if ((ptr = desc->name_ptr) != NULL) {
+	    sz = desc->name_addr_len;
+	}
+	else {
 	    ptr = &name;
-	    if (IS_SOCKET_ERROR(sock_name(desc->s, (struct sockaddr*)ptr, &sz)))
+	    sz = sizeof(name);
+	    if (IS_SOCKET_ERROR
+		(sock_name(desc->s, (struct sockaddr*)ptr, &sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
 	if (inet_get_address(tbuf, ptr, &sz) < 0)
@@ -8736,18 +8577,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	return ctl_reply(INET_REP_OK, tbuf, sz, rbuf, rsize);
     }
 
-    case INET_REQ_SETNAME: { /* set fake peername Port Address */
+    case INET_REQ_SETNAME: { /* set fake sockname Port Address */
 	if (len == 0) {
 	    desc->name_ptr = NULL;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
 	else if (len < 2)
 	    return ctl_error(EINVAL, rbuf, rsize);	    
-	else if (inet_set_address(desc->sfamily, &desc->name_addr,
-				  buf, &len) == NULL)
+	else if (inet_set_faddress
+		 (desc->sfamily, &desc->name_addr, buf, &len) == NULL)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	else {
 	    desc->name_ptr = &desc->name_addr;
+	    desc->name_addr_len = (SOCKLEN_T) len;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);	    
 	}
     }
@@ -8755,7 +8597,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
     case INET_REQ_BIND:  {      /* bind socket */
 	char tbuf[2];
 	inet_address local;
-	short port;
+	int port;
 
 	DEBUGF(("inet_ctl(%ld): BIND\r\n", (long)desc->port)); 
 
@@ -8772,13 +8614,14 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
 	desc->state = INET_STATE_BOUND;
 
-	if ((port = inet_address_port(&local)) == 0) {
+	port = inet_address_port(&local);
+	if (port == 0) {
 	    SOCKLEN_T adrlen = sizeof(local);
 	    sock_name(desc->s, &local.sa, &adrlen);
 	    port = inet_address_port(&local);
 	}
-	port = sock_ntohs(port);
-	put_int16(port, tbuf);
+        else if (port == -1) port = 0;
+	put_int16(sock_ntohs((Uint16) port), tbuf);
 	return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
     }
 
@@ -9149,10 +8992,6 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     copy_desc->inet.port = port;
     copy_desc->inet.dport = driver_mk_port(port);
 
-#ifdef __OSE__
-    inet_select_init(&copy_desc->inet);
-#endif
-
     *err = 0;
     return copy_desc;
 }
@@ -9214,23 +9053,6 @@ static void tcp_inet_stop(ErlDrvData e)
     inet_stop(INETP(desc));
 }
 
-#ifdef __OSE__
-
-static ErlDrvSSizeT tcp_inet_ctl_ose(ErlDrvData e, unsigned int cmd,
-				     char* buf, ErlDrvSizeT len,
-				     char** rbuf, ErlDrvSizeT rsize) {
-
-  tcp_descriptor* desc = (tcp_descriptor*)e;
-  int prev_select_state = INETP(desc)->select_state;
-
-  ErlDrvSSizeT res = tcp_inet_ctl(e,cmd,buf,len,rbuf,rsize);
-
-  tcp_inet_ose_dispatch_signals((tcp_descriptor*)e,prev_select_state,NULL);
-
-  return res;
-}
-#endif
-
 /* TCP requests from Erlang */
 static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 				 char* buf, ErlDrvSizeT len,
@@ -9254,6 +9076,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 #else
 	case INET_AF_INET6:
 	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
+#endif
+#ifdef HAVE_SYS_UN_H
+	case INET_AF_LOCAL:
+	    domain = AF_UNIX;
 	    break;
 #endif
 	default:
@@ -9280,6 +9107,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 #else
 	case INET_AF_INET6:
 	    return ctl_xerror("eafnosupport", rbuf, rsize);
+	    break;
+#endif
+#ifdef HAVE_SYS_UN_H
+	case INET_AF_LOCAL:
+	    domain = AF_UNIX;
 	    break;
 #endif
 	default:
@@ -9337,8 +9169,8 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	timeout = get_int32(buf);
 	buf += 4;
 	len -= 4;
-	if (inet_set_address(desc->inet.sfamily, &desc->inet.remote,
-			     buf, &len) == NULL)
+	if (inet_set_faddress
+	    (desc->inet.sfamily, &desc->inet.remote, buf, &len) == NULL)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	
 	code = sock_connect(desc->inet.s, 
@@ -9672,17 +9504,6 @@ static void tcp_inet_command(ErlDrvData e, char *buf, ErlDrvSizeT len)
     DEBUGF(("tcp_inet_command(%ld) }\r\n", (long)desc->inet.port)); 
 }
 
-#ifdef __OSE__
-
-static void tcp_inet_commandv_ose(ErlDrvData e, ErlIOVec* ev) {
-  int prev_select_state = INETP((tcp_descriptor*)e)->select_state;
-  tcp_inet_commandv(e, ev);
-  tcp_inet_ose_dispatch_signals((tcp_descriptor*)e,prev_select_state,NULL);
-}
-
-#endif
-
-
 static void tcp_inet_commandv(ErlDrvData e, ErlIOVec* ev)
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
@@ -9755,22 +9576,6 @@ static void inet_stop_select(ErlDrvEvent event, void* _)
 {
 #ifdef __WIN32__
     WSACloseEvent((HANDLE)event);
-#elif defined(__OSE__)
-    ErlDrvOseEventId id;
-    union SIGNAL *sig;
-    erl_drv_ose_event_fetch(event, NULL, &id,NULL);
-    DEBUGF(("inet_stop_select(?#?) {s=%d\n",id));
-    sock_close((int)id);
-    /* On socket close all the signals waiting to be processed as part of the
-       select should be deallocated */
-    while((sig = erl_drv_ose_get_signal(event))) {
-      DEBUGF(("inet_stop_select(?#?): Freeing signal %s\n",
-	      signo_to_string(sig->signo)));
-      free_buf(&sig);
-    }
-    erl_drv_ose_event_free(event);
-    DEBUGF(("inet_stop_select(?#?) }\n"));
-      
 #else
     sock_close((SOCKET)(long)event);
 #endif
@@ -10319,146 +10124,7 @@ static void tcp_inet_event(ErlDrvData e, ErlDrvEvent event)
     return;
 }
 
-#elif defined(__OSE__) /* !__WIN32__ */
-/* The specific resolve signal function. It will return the socket descriptor
-   for which the select was issued */
-static ErlDrvOseEventId inet_resolve_signal(union SIGNAL *sig) {
-  DEBUGF(("%s(?#?): s=%d got signal %s, status = %d, extra = %d, sender = 0x%x\n",
-	  __FUNCTION__,sig->async.fd,signo_to_string(sig->signo),
-	  sig->async.event.status,
-	  sig->async.event.extra,sender(&sig)));
-  if (sig->signo == SO_EVENT_READ_REPLY ||
-      sig->signo == SO_EVENT_ACCEPT_REPLY ||
-      sig->signo == SO_EVENT_EOF_REPLY ||
-      sig->signo == SO_EVENT_WRITE_REPLY ||
-      sig->signo == SO_EVENT_ERROR_REPLY ||
-      sig->signo == SO_EVENT_CONNECT_REPLY ) {
-    return sig->async.fd;
-  }
-
-  return -1;
-}
-
-static void inet_driver_select(inet_descriptor* desc,
-			       int flags, int onoff) {
-    ASSERT(!desc->is_ignored);
-
-    if(onoff) {
-      desc->select_state |= flags;
-    } else {
-      desc->select_state &= ~flags;
-    }
-}
-
-static ssize_t writev_fallback(int fd, const struct iovec *iov, int iovcnt, int max_sz)
-{
-    size_t data_len = 0;
-    size_t sent = 0;
-    ssize_t n;
-    int i;
-
-    for(i = 0; i < iovcnt; i++)
-    {
-        data_len = iov[i].iov_len;
-tryagain:        
-        n = sock_send(fd, iov[i].iov_base, data_len, 0);
-        if (IS_SOCKET_ERROR(n)) {
-            /* If buffer length is greater than the amount stack is able to
-             * send out then try to send at least max_sz (this comes with
-             * SO_EVENT_WRITE_REPLY signal*/
-            if ((errno == EMSGSIZE) && (max_sz > 0) && (data_len > max_sz)) {
-                data_len = max_sz;
-                goto tryagain;
-            }
-            break;
-        }
-        sent += n;
-    }
-    return sent;
-}
-
-#define OSE_EVENT_REQ(TCP_DESC,EVENT) do {				\
-    union SIGNAL *sig = alloc(sizeof(struct OseAsyncSig), EVENT);	\
-    sig->async.fd = INETP(TCP_DESC)->s;					\
-    ose_request_event(INETP(TCP_DESC)->s, &sig, 1);			\
-    DEBUGF(("%s(%ld): s=%d sent %s\r\n",__FUNCTION__,			\
-      INETP(TCP_DESC)->port,INETP(TCP_DESC)->s,signo_to_string(EVENT))); \
-  } while(0)
-
-static void tcp_inet_ose_dispatch_signals(tcp_descriptor *desc,
-					  int prev_select_state,
-					  union SIGNAL *sig) {
-  if (sig) {
-    DEBUGF(("tcp_inet_ose_dispatch_signals(%ld) {s=%d resend\r\n",
-	    (long)INETP(desc)->port,INETP(desc)->s));
-    /* We are reacting to a signal, which means that if
-       the select_state for that signal is still activated
-       we should send a new signal */
-    switch (sig->signo) {
-    case SO_EVENT_READ_REPLY: {
-      if (INETP(desc)->select_state & FD_READ)
-	OSE_EVENT_REQ(desc,SO_EVENT_READ_REQUEST);
-      break;
-    }
-    case SO_EVENT_WRITE_REPLY: {
-      if (INETP(desc)->select_state & FD_WRITE)
-	OSE_EVENT_REQ(desc,SO_EVENT_WRITE_REQUEST);
-      break;
-    }
-    case SO_EVENT_CONNECT_REPLY: {
-      if (INETP(desc)->select_state & FD_CONNECT)
-	OSE_EVENT_REQ(desc,SO_EVENT_CONNECT_REQUEST);
-      break;
-    }
-    case SO_EVENT_ACCEPT_REPLY: {
-      if (INETP(desc)->select_state & FD_ACCEPT)
-	OSE_EVENT_REQ(desc,SO_EVENT_ACCEPT_REQUEST);
-      break;
-    }
-    case SO_EVENT_ERROR_REPLY: {
-      if (INETP(desc)->select_state & SOCK_FD_ERROR)
-	OSE_EVENT_REQ(desc,SO_EVENT_ERROR_REQUEST);
-      break;
-    }
-
-    }
-    DEBUGF(("tcp_inet_ose_dispatch_signals(%ld) }\r\n",
-	    (long)INETP(desc)->port));
-  }
-
-  if (INETP(desc)->select_state != prev_select_state) {
-    /* If the select state has changed we have to issue signals for
-       the state parts that have changed. */
-    int xor_select_state = INETP(desc)->select_state ^ prev_select_state;
-    DEBUGF(("tcp_inet_ose_dispatch_signals(%ld) {s=%d select change\r\n",
-	    (long)INETP(desc)->port,INETP(desc)->s));
-    if ((xor_select_state & FD_READ) &&
-	(INETP(desc)->select_state & FD_READ)) {
-      OSE_EVENT_REQ(desc,SO_EVENT_READ_REQUEST);
-    }
-    if ((xor_select_state & FD_WRITE) &&
-	(INETP(desc)->select_state & FD_WRITE)) {
-      OSE_EVENT_REQ(desc,SO_EVENT_WRITE_REQUEST);
-    }
-    if ((xor_select_state & FD_CONNECT) &&
-	(INETP(desc)->select_state & FD_CONNECT)) {
-      OSE_EVENT_REQ(desc,SO_EVENT_CONNECT_REQUEST);
-    }
-    if ((xor_select_state & FD_ACCEPT) &&
-	(INETP(desc)->select_state & FD_ACCEPT)) {
-      OSE_EVENT_REQ(desc,SO_EVENT_ACCEPT_REQUEST);
-    }
-    if ((xor_select_state & SOCK_FD_ERROR) &&
-	(INETP(desc)->select_state & SOCK_FD_ERROR)) {
-      OSE_EVENT_REQ(desc,SO_EVENT_ERROR_REQUEST);
-    }
-
-    DEBUGF(("tcp_inet_ose_dispatch_signals(%ld) }\r\n",
-	    (long)INETP(desc)->port));
-  }
-}
-
-#endif /* __OSE__ */
+#endif /* __WIN32__ */
 
 
 /* socket has input:
@@ -10945,49 +10611,6 @@ static void tcp_shutdown_async(tcp_descriptor* desc)
 	desc->tcp_add_flags |= TCP_ADDF_SHUTDOWN_WR_DONE;
 }
 
-#ifdef __OSE__
-
-static void tcp_inet_drv_output_ose(ErlDrvData data, ErlDrvEvent event)
-{
-  union SIGNAL *event_sig = erl_drv_ose_get_signal(event);
-
-  while (event_sig) {
-      int prev_select_state = INETP((tcp_descriptor*)data)->select_state;
-      int res = tcp_inet_output((tcp_descriptor*)data, (HANDLE)event_sig);
-      if (res != -1) {
-	tcp_inet_ose_dispatch_signals((tcp_descriptor*)data,
-				      prev_select_state,event_sig);
-	free_buf(&event_sig);
-	event_sig = erl_drv_ose_get_signal(event);
-      } else {
-	/* NOTE: here the event object could have been deallocated!!!!
-	   inet_stop_select is called when doing driver_select(ERL_DRV_USE,0)
-	 */
-	free_buf(&event_sig);
-	return;
-      }
-  }
-}
-
-static void tcp_inet_drv_input_ose(ErlDrvData data, ErlDrvEvent event)
-{
-  union SIGNAL *event_sig = erl_drv_ose_get_signal(event);
-
-  while (event_sig) {
-    int prev_select_state = INETP((tcp_descriptor*)data)->select_state;
-    int res = tcp_inet_input((tcp_descriptor*)data, (HANDLE)event);
-    if (res != -1) {
-      tcp_inet_ose_dispatch_signals((tcp_descriptor*)data, prev_select_state,
-				    event_sig);
-      free_buf(&event_sig);
-      event_sig = erl_drv_ose_get_signal(event);
-    } else {
-      free_buf(&event_sig);
-      return;
-    }
-  }
-}
-#else
 static void tcp_inet_drv_output(ErlDrvData data, ErlDrvEvent event)
 {
     (void)tcp_inet_output((tcp_descriptor*)data, (HANDLE)event);
@@ -10997,7 +10620,6 @@ static void tcp_inet_drv_input(ErlDrvData data, ErlDrvEvent event)
 {
     (void)tcp_inet_input((tcp_descriptor*)data, (HANDLE)event);
 }
-#endif
 
 /* socket ready for ouput:
 ** 1. INET_STATE_CONNECTING => non block connect ?
@@ -11063,13 +10685,6 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    ssize_t n;
 	    SysIOVec* iov;
 
-#ifdef __OSE__
-            /* For large size buffers case the amount of data that the stack is
-               able to send out (received in the .extra field) should be passed
-               down to writev_fallback */
-            n = event ? ((union SIGNAL*)event)->async.event.extra : 0;
-#endif
-
 	    if ((iov = driver_peekq(ix, &vsize)) == NULL) {
 		sock_select(INETP(desc), FD_WRITE, 0);
 		send_empty_out_q_msgs(INETP(desc));
@@ -11097,12 +10712,6 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 				    sizes > (max 32 bit signed int) */
 	      size_t howmuch = 0x7FFFFFFF; /* max signed 32 bit */
 	      int x;
-#ifdef __OSE__
-              /* For EWOULDBLOCK sock_sendv returns 0 so we have to be sure it
-                 wasn't the case */
-              if(sock_errno() == ERRNO_BLOCK) 
-                    goto done;
-#endif
 	      for(x = 0; x < vsize && iov[x].iov_len == 0; ++x)
 		;
 	      if (x < vsize) {
@@ -11344,6 +10953,9 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    return ctl_xerror("eafnosupport", rbuf, rsize);
 	    break;
 #endif
+#ifdef HAVE_SYS_UN_H
+	case INET_AF_LOCAL: af = AF_UNIX; break;
+#endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
 	}
@@ -11393,6 +11005,9 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	case INET_AF_INET6:
 	    return ctl_xerror("eafnosupport", rbuf, rsize);
 	    break;
+#endif
+#ifdef HAVE_SYS_UN_H
+	case INET_AF_LOCAL: af = AF_UNIX; break;
 #endif
 	default:
 	    return ctl_error(EINVAL, rbuf, rsize);
@@ -11476,7 +11091,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
 	    /* For SCTP, we do not set the peer's addr in desc->remote, as
 	       multiple peers are possible: */
-	    if (inet_set_address(desc->sfamily, &remote, buf, &len) == NULL)
+	    if (inet_set_faddress(desc->sfamily, &remote, buf, &len) == NULL)
 		return ctl_error(EINVAL, rbuf, rsize);
 	
 	    sock_select(desc, FD_CONNECT, 1);
@@ -11516,8 +11131,8 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    /* Ignore timeout */
 	    buf += 4;
 	    len -= 4;
-	    if (inet_set_address(desc->sfamily, 
-				 &desc->remote, buf, &len) == NULL)
+	    if (inet_set_faddress
+		(desc->sfamily, &desc->remote, buf, &len) == NULL)
 		return ctl_error(EINVAL, rbuf, rsize);
 	    
 	    code = sock_connect(desc->s,
@@ -11697,12 +11312,12 @@ static void packet_inet_timeout(ErlDrvData e)
 
 
 /* THIS IS A "send*" REQUEST; on the Erlang side: "port_command".
-** input should be: P1 P0 Address buffer .
+** input should be: Family Address buffer .
 ** For UDP,  buffer (after Address) is just data to be sent.
 ** For SCTP, buffer contains a list representing 2 items:
 **   (1) 6 parms for sctp_sndrcvinfo, as in sctp_get_sendparams();
 **   (2) 0+ real data bytes.
-** There is no destination address -- SCTYP send is performed over
+** There is no destination address -- SCTP send is performed over
 ** an existing association, using "sctp_sndrcvinfo" specified.
 */
 static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
@@ -11777,7 +11392,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     /* UDP socket. Even if it is connected, there is an address prefix
        here -- ignored for connected sockets: */
     sz = len;
-    qtr = inet_set_address(desc->sfamily, &other, ptr, &sz);
+    qtr = inet_set_faddress(desc->sfamily, &other, ptr, &sz);
     if (qtr == NULL) {
 	inet_reply_error(desc, EINVAL);
 	return;
@@ -12376,9 +11991,8 @@ int erts_sock_connect(erts_sock_t socket, byte *ip_addr, int len, Uint16 port)
     if (!inet_set_address(AF_INET, &addr, buf, &blen))
 	return 0;
 
-    if (IS_SOCKET_ERROR(sock_connect(s,
-				     (struct sockaddr *) &addr,
-				     sizeof(struct sockaddr_in))))
+    if (IS_SOCKET_ERROR
+	(sock_connect(s, (struct sockaddr *) &addr, blen)))
 	return 0;
     return 1;
 }

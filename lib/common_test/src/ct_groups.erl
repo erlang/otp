@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -325,7 +325,7 @@ modify_tc_list1(GrSpecTs, TSCs) ->
 		      true ->
 			  {[TC|TSCs1],lists:delete(TC,GrSpecTs2)};
 		      false ->
-			  case lists:keymember(TC, 2, GrSpecTs) of
+			  case lists:keysearch(TC, 2, GrSpecTs) of
 			      {value,Test} ->
 				  {[Test|TSCs1],
 				   lists:keydelete(TC, 2, GrSpecTs2)};

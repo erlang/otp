@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2013. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 # %CopyrightEnd%
 # 
 
-VSN = 7.3
+VSN = 8.0
 
 # Port number 4365 in 4.2
 # Port number 4366 in 4.3

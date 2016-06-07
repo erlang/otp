@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@
 
 -module(httpd_mod).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% General testcases bodies called from httpd_SUITE
 -export([alias/4, actions/4, security/5, auth/4, auth_api/6,
@@ -87,240 +86,116 @@ actions(Type, Port, Host, Node) ->
 security(ServerRoot, Type, Port, Host, Node) ->
    
     global:register_name(mod_security_test, self()),   % Receive events
-
-    tsp("security -> "
-	"sleep"), 
-    test_server:sleep(5000),
+   
+    ct:sleep(5000),
 
     OpenDir = filename:join([ServerRoot, "htdocs", "open"]),
 
     %% Test blocking / unblocking of users.
 
     %% /open, require user one Aladdin
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"remove all existing users"), 
+ 
     remove_users(Node, ServerRoot, Host, Port, "open"),
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request for nonex user 'one' - expect 401"), 
     auth_request(Type, Host, Port, Node, "/open/", "one", "onePassword", 
 		 [{statuscode, 401}]),
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "onePassword"}]},
 			   Node, Port),
     
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request for nonex user 'two' - expect 401"), 
     auth_request(Type,Host,Port,Node,"/open/", "two", "twoPassword",
 		 [{statuscode, 401}]),
     
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "two"}, {password, "twoPassword"}]},
 			   Node, Port),
-
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request for nonex user 'Alladin' - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "Aladdin", 
 		 "AladdinPassword", [{statuscode, 401}]),
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "Aladdin"},
 			     {password, "AladdinPassword"}]},
 			   Node, Port),
-
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"add user 'one'"), 
     add_user(Node, ServerRoot, Port, "open", "one", "onePassword", []),
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"add user 'two'"), 
     add_user(Node, ServerRoot, Port, "open", "two", "twoPassword", []),
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request 1 for user 'one' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
-
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "WrongPassword"}]},
 			   Node, Port),
- 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request 2 for user 'one' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "WrongPassword"}]},
 			   Node, Port),
-    
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"await block security event (two failed attempts)"), 
-    receive_security_event({event, user_block, Port, OpenDir,
+        receive_security_event({event, user_block, Port, OpenDir,
 			    [{user, "one"}]}, Node, Port),
     
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"unregister - no more security events"), 
     global:unregister_name(mod_security_test),   % No more events.
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request for user 'one' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request for user 'one' with correct password - expect 403"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "onePassword",
 		 [{statuscode, 403}]),
 
     %% User "one" should be blocked now..
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"list blocked users - 'one' should be the only one"), 
     case list_blocked_users(Node, Port) of
 	[{"one",_, Port, OpenDir,_}] ->
 	    ok;
 	Blocked ->
-	    tsp(" *** unexpected blocked users ***"
-	      "~n     Blocked: ~p", [Blocked]),
 	    exit({unexpected_blocked, Blocked})
     end,
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"list users blocked for dir '~p' - "
-	"user 'one' should be the only one", [OpenDir]),
     [{"one",_, Port, OpenDir,_}] = list_blocked_users(Node, Port, OpenDir),
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"unblock user 'one' for dir '~p'", [OpenDir]), 
     true = unblock_user(Node, "one", Port, OpenDir),
     %% User "one" should not be blocked any more.
 
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"ensure user 'one' is no longer blocked"), 
     [] = list_blocked_users(Node, Port),
 
-
-    tsp("security -> "
-	"blocking and unblocking of users - "
-	"auth request for user 'one' with correct password - expect 200"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "onePassword", 
 		 [{statuscode, 200}]),
 
 
 
     %% Test list_auth_users & auth_timeout
-
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"list auth users - expect user 'one'"), 
     ["one"] = list_auth_users(Node, Port),
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"auth request for user 'two' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "onePassword", 
 		 [{statuscode, 401}]),
-
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"list auth users - expect user 'one'"),
     ["one"] = list_auth_users(Node, Port),
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"list auth users for dir '~p' - expect user 'one'", [OpenDir]), 
     ["one"] = list_auth_users(Node, Port, OpenDir),
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"auth request for user 'two' with correct password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "twoPassword", 
 		 [{statuscode, 401}]),
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"list auth users - expect user 'one'"), 
     ["one"] = list_auth_users(Node, Port),
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"list auth users for dir '~p' - expect user 'one'", [OpenDir]), 
     ["one"] = list_auth_users(Node, Port, OpenDir),
 
     %% Wait for successful auth to timeout.
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"wait for successful auth to timeout"), 
-    test_server:sleep(?AUTH_TIMEOUT*1001),  
+    ct:sleep(?AUTH_TIMEOUT*1001),  
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"list auth users - expect none"), 
     [] = list_auth_users(Node, Port),
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"list auth users for dir '~p'~n - expect none", [OpenDir]), 
+
     [] = list_auth_users(Node, Port, OpenDir),
 
     %% "two" is blocked.
 
-    tsp("security -> "
-	"list-auth-users and auth-timeout - "
-	"unblock user 'two' for dir '~p'", [OpenDir]), 
     true = unblock_user(Node, "two", Port, OpenDir),
-
-
     %% Test explicit blocking. Block user 'two'.
 
-    tsp("security -> "
-	"explicit blocking - list blocked users - should be none"), 
     [] = list_blocked_users(Node,Port,OpenDir),
 
-    tsp("security -> "
-	"explicit blocking - "
-	"block user 'two' for dir '~p'", [OpenDir]), 
     true = block_user(Node, "two", Port, OpenDir, 10),
-
-    tsp("security -> "
-	"explicit blocking - "
-	"auth request for user 'two' with correct password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "twoPassword", 
-		 [{statuscode, 401}]),
-    tsp("security -> "
-	"done").
-
+		 [{statuscode, 401}]).
 
 %%-------------------------------------------------------------------------
 auth(Type, Port, Host, Node) ->
@@ -744,7 +619,6 @@ cgi(Type, Port, Host, Node) ->
 	end,
 
     %% The length (> 100) is intentional
-%%     tsp("cgi -> request 01 with length > 100"),
     ok = httpd_test_lib:
 	verify_request(Type, Host, Port, Node, 
 		       "POST /cgi-bin/" ++ Script3 ++
@@ -772,55 +646,51 @@ cgi(Type, Port, Host, Node) ->
 			{version, "HTTP/1.0"},
 			{header, "content-type", "text/plain"}]),
     
-%%     tsp("cgi -> request 02"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /cgi-bin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
 				       {version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 03"),
+
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /cgi-bin/not_there "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 404},{statuscode, 500},
 				       {version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 04"),
+
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /cgi-bin/"++ Script ++
 				       "?Nisse:kkk?sss/lll HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200}, 
 					{version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 04"),
+
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /cgi-bin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
 					{version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 05"),
+
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /htbin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 200},
 				       {version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 06"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /htbin/not_there "
 				       "HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 404},{statuscode, 500},
 				        {version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 07"),
+
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET /htbin/"++ Script ++
 				       "?Nisse:kkk?sss/lll HTTP/1.0\r\n\r\n", 
 				       [{statuscode, 200},
 					{version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 08"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /htbin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 200},
 				       {version, "HTTP/1.0"}]),
-%%     tsp("cgi -> request 09"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /htbin/"++ Script ++
 				       " HTTP/1.0\r\n\r\n",
@@ -828,21 +698,17 @@ cgi(Type, Port, Host, Node) ->
 				       {version, "HTTP/1.0"}]),
     
     %% Execute an existing, but bad CGI script..
-%%     tsp("cgi -> request 10 - bad script"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /htbin/"++ Script2 ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 404},
 					{version, "HTTP/1.0"}]),
     
-%%     tsp("cgi -> request 11 - bad script"),
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "POST /cgi-bin/"++ Script2 ++
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 404},
 				       {version, "HTTP/1.0"}]),
-
-%%     tsp("cgi -> done"),
 
     %% Check "ScriptNoCache" directive (default: false)
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
@@ -850,9 +716,7 @@ cgi(Type, Port, Host, Node) ->
 				       " HTTP/1.0\r\n\r\n",
 				       [{statuscode, 200},
 					{no_header, "cache-control"},
-					{version, "HTTP/1.0"}]),
-    ok.
-
+					{version, "HTTP/1.0"}]).
 
 %%--------------------------------------------------------------------
 esi(Type, Port, Host, Node) ->
@@ -1019,18 +883,15 @@ list_users(Node, Root, _Host, Port, Dir) ->
 
 
 receive_security_event(Event, Node, Port) ->
-    tsp("receive_security_event -> await ~w event", [element(2, Event)]),
     receive 
 	Event ->
-	    tsp("receive_security_event -> "
-		"received expected ~w event", [element(2, Event)]),
 	    ok;
 	{'EXIT', _, _} ->
 	    receive_security_event(Event, Node, Port)
     after 5000 ->
 	    %% Flush the message queue, to see if we got something...
 	    Msgs = inets_test_lib:flush(),
-	    tsf({expected_event_not_received, Msgs})
+	    ct:fail({expected_event_not_received, Msgs})
 				     
     end.
 
@@ -1046,10 +907,10 @@ receive_security_event(Event, Node, Port) ->
 %% 	{'EXIT', _, _} ->
 %% 	    receive_security_event(Event, Node, Port);	
 %% 	Other ->
-%% 	    test_server:fail({unexpected_event, 
+%% 	    ct:fail({unexpected_event, 
 %% 			      {expected, Event}, {received, Other}})
 %%     after 5000 ->
-%% 	    test_server:fail(no_event_recived)
+%% 	    ct:fail(no_event_recived)
 				     
 %%     end.
 
@@ -1131,17 +992,4 @@ check_lists_members1(L1,L2) ->
     {error,{lists_not_equal,L1,L2}}.
 
 
-%% p(F) ->
-%%     p(F, []).
 
-%% p(F, A) ->
-%%     io:format(user, "~w:" ++ F ++ "~n", [?MODULE|A]).
-
-tsp(F) ->
-    inets_test_lib:tsp(F).
-tsp(F, A) ->
-    inets_test_lib:tsp(F, A).
-
-
-tsf(Reason) ->
-    test_server:fail(Reason).

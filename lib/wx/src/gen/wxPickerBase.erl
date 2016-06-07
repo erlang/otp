@@ -83,7 +83,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxPickerBase() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesetinternalmargin">external documentation</a>.
--spec setInternalMargin(This, Newmargin) -> ok when
+-spec setInternalMargin(This, Newmargin) -> 'ok' when
 	This::wxPickerBase(), Newmargin::integer().
 setInternalMargin(#wx_ref{type=ThisT,ref=ThisRef},Newmargin)
  when is_integer(Newmargin) ->
@@ -100,7 +100,7 @@ getInternalMargin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesettextctrlproportion">external documentation</a>.
--spec setTextCtrlProportion(This, Prop) -> ok when
+-spec setTextCtrlProportion(This, Prop) -> 'ok' when
 	This::wxPickerBase(), Prop::integer().
 setTextCtrlProportion(#wx_ref{type=ThisT,ref=ThisRef},Prop)
  when is_integer(Prop) ->
@@ -109,7 +109,7 @@ setTextCtrlProportion(#wx_ref{type=ThisT,ref=ThisRef},Prop)
   <<ThisRef:32/?UI,Prop:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesetpickerctrlproportion">external documentation</a>.
--spec setPickerCtrlProportion(This, Prop) -> ok when
+-spec setPickerCtrlProportion(This, Prop) -> 'ok' when
 	This::wxPickerBase(), Prop::integer().
 setPickerCtrlProportion(#wx_ref{type=ThisT,ref=ThisRef},Prop)
  when is_integer(Prop) ->
@@ -158,7 +158,7 @@ isTextCtrlGrowable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @equiv setPickerCtrlGrowable(This, [])
--spec setPickerCtrlGrowable(This) -> ok when
+-spec setPickerCtrlGrowable(This) -> 'ok' when
 	This::wxPickerBase().
 
 setPickerCtrlGrowable(This)
@@ -166,9 +166,9 @@ setPickerCtrlGrowable(This)
   setPickerCtrlGrowable(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesetpickerctrlgrowable">external documentation</a>.
--spec setPickerCtrlGrowable(This, [Option]) -> ok when
+-spec setPickerCtrlGrowable(This, [Option]) -> 'ok' when
 	This::wxPickerBase(),
-	Option :: {grow, boolean()}.
+	Option :: {'grow', boolean()}.
 setPickerCtrlGrowable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxPickerBase),
@@ -179,7 +179,7 @@ setPickerCtrlGrowable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @equiv setTextCtrlGrowable(This, [])
--spec setTextCtrlGrowable(This) -> ok when
+-spec setTextCtrlGrowable(This) -> 'ok' when
 	This::wxPickerBase().
 
 setTextCtrlGrowable(This)
@@ -187,9 +187,9 @@ setTextCtrlGrowable(This)
   setTextCtrlGrowable(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpickerbase.html#wxpickerbasesettextctrlgrowable">external documentation</a>.
--spec setTextCtrlGrowable(This, [Option]) -> ok when
+-spec setTextCtrlGrowable(This, [Option]) -> 'ok' when
 	This::wxPickerBase(),
-	Option :: {grow, boolean()}.
+	Option :: {'grow', boolean()}.
 setTextCtrlGrowable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxPickerBase),

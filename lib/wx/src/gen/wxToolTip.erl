@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxToolTip() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipenable">external documentation</a>.
--spec enable(Flag) -> ok when
+-spec enable(Flag) -> 'ok' when
 	Flag::boolean().
 enable(Flag)
  when is_boolean(Flag) ->
@@ -44,7 +44,7 @@ enable(Flag)
   <<(wxe_util:from_bool(Flag)):32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipsetdelay">external documentation</a>.
--spec setDelay(Msecs) -> ok when
+-spec setDelay(Msecs) -> 'ok' when
 	Msecs::integer().
 setDelay(Msecs)
  when is_integer(Msecs) ->
@@ -61,7 +61,7 @@ new(Tip)
   <<(byte_size(Tip_UC)):32/?UI,(Tip_UC)/binary, 0:(((8- ((4+byte_size(Tip_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtooltip.html#wxtooltipsettip">external documentation</a>.
--spec setTip(This, Tip) -> ok when
+-spec setTip(This, Tip) -> 'ok' when
 	This::wxToolTip(), Tip::unicode:chardata().
 setTip(#wx_ref{type=ThisT,ref=ThisRef},Tip)
  when is_list(Tip) ->
@@ -87,7 +87,7 @@ getWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxToolTip()) -> ok.
+-spec destroy(This::wxToolTip()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToolTip),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

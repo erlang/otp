@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 
 -module(observer_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("wx/include/wx.hrl").
 -include_lib("observer/src/observer_tv.hrl").
 
@@ -38,7 +38,7 @@
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, ?t:minutes(2)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -171,6 +171,7 @@ test_page("Applications" ++ _, _Window) ->
 test_page("Processes" ++ _, _Window) ->
     timer:sleep(500),  %% Give it time to refresh
     Active = get_active(),
+    Active ! refresh_interval,
     ChangeSort = fun(N) ->
 			 FakeEv = #wx{event=#wxList{type=command_list_col_click, col=N}},
 			 Active ! FakeEv,
@@ -184,7 +185,23 @@ test_page("Processes" ++ _, _Window) ->
     timer:sleep(1000),  %% Give it time to refresh
     ok;
 
-test_page(_Title = "Table" ++ _, _Window) ->
+test_page("Ports" ++ _, _Window) ->
+    timer:sleep(500),  %% Give it time to refresh
+    Active = get_active(),
+    Active ! refresh_interval,
+    ChangeSort = fun(N) ->
+			 FakeEv = #wx{event=#wxList{type=command_list_col_click, col=N}},
+			 Active ! FakeEv,
+			 timer:sleep(200)
+		 end,
+    [ChangeSort(N) || N <- lists:seq(1,4) ++ [0]],
+    Activate = #wx{event=#wxList{type=command_list_item_activated,
+				 itemIndex=2}},
+    Active ! Activate,
+    timer:sleep(1000),  %% Give it time to refresh
+    ok;
+
+test_page("Table" ++ _, _Window) ->
     Tables = [ets:new(list_to_atom("Test-" ++ [C]), [public]) || C <- lists:seq($A, $Z)],
     Table = lists:nth(3, Tables),
     ets:insert(Table, [{N,100-N} || N <- lists:seq(1,100)]),
@@ -206,6 +223,13 @@ test_page(_Title = "Table" ++ _, _Window) ->
     Info = 407, %% whitebox...
     Active ! #wx{id=Info},
     timer:sleep(1000),
+    ok;
+
+test_page("Trace Overview" ++ _, _Window) ->
+    timer:sleep(500),  %% Give it time to refresh
+    Active = get_active(),
+    Active ! refresh_interval,
+    timer:sleep(1000),  %% Give it time to refresh
     ok;
 
 test_page(Title, Window) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,57 +18,30 @@
 %% %CopyrightEnd%
 %%
 -module(runtime_tools_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0]).
 
 %% Test cases
 -export([app_file/1, appup_file/1, start_stop_app/1]).
 
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
-
-init_per_testcase(_Case, Config) ->
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [app_file,
      appup_file,
      start_stop_app].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 app_file(_Config) ->
-    ?line ok = ?t:app_test(runtime_tools),
+    ok = test_server:app_test(runtime_tools),
     ok.
 
 appup_file(_Config) ->
-    ok = ?t:appup_test(runtime_tools).
+    ok = test_server:appup_test(runtime_tools).
 
 start_stop_app(_Config) ->
     ok = application:start(runtime_tools),

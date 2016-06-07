@@ -208,10 +208,6 @@ AS_HELP_STRING([--disable-threads], [disable async thread support]))
 AC_ARG_ENABLE(dirty-schedulers,
 AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
 
-AC_ARG_ENABLE(halfword-emulator,
-AS_HELP_STRING([--enable-halfword-emulator],
-               [enable halfword emulator (only for 64bit builds). Note: Halfword emulator is marked as deprecated and scheduled for removal in future major release.]))
-
 AC_ARG_ENABLE(smp-support,
 AS_HELP_STRING([--enable-smp-support], [enable smp support])
 AS_HELP_STRING([--disable-smp-support], [disable smp support]))
@@ -238,8 +234,8 @@ AS_HELP_STRING([--enable-native-libs],
                [compile Erlang libraries to native code]))
 
 AC_ARG_WITH(dynamic-trace,
-AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
-	       [specify use of dynamic trace framework, dtrace or systemtap])
+AS_HELP_STRING([--with-dynamic-trace={dtrace|lttng|systemtap}],
+	       [specify use of dynamic trace framework, dtrace, lttng or systemtap])
 AS_HELP_STRING([--without-dynamic-trace], 
                [don't enable any dynamic tracing (default)]))
 AC_ARG_ENABLE(vm-probes,
@@ -282,6 +278,10 @@ AC_ARG_ENABLE(builtin-zlib,
 AS_HELP_STRING([--enable-builtin-zlib],
                [force use of our own built-in zlib]))
 
+AC_ARG_ENABLE(sharing-preserving,
+AS_HELP_STRING([--enable-sharing-preserving],
+               [enable copying of terms without destroying sharing]))
+
 dnl This functionality has been lost along the way... :(
 dnl It could perhaps be nice to reintroduce some day; therefore,
 dnl it is not removed just commented out.
@@ -297,24 +297,6 @@ dnl     *)  erl_mandir='$(erlang_libdir)/man' ;;
 dnl   esac ], erl_mandir='$(erlang_libdir)/man')
 dnl AC_SUBST(erl_mandir)
 
-AC_ARG_ENABLE(darwin-universal,
-AS_HELP_STRING([--enable-darwin-universal],
-               [build universal binaries on darwin i386]),
-[ case "$enableval" in
-    no) enable_darwin_universal=no ;;
-    *)  enable_darwin_univeral=yes ;;
-  esac
-],enable_darwin_universal=no)
-
-
-AC_ARG_ENABLE(darwin-64bit,
-AS_HELP_STRING([--enable-darwin-64bit], [build 64bit binaries on darwin]),
-[ case "$enableval" in
-    no) enable_darwin_64bit=no ;;
-    *)  enable_darwin_64bit=yes ;;
-  esac
-],enable_darwin_64bit=no)
-
 AC_ARG_ENABLE(m64-build,
 AS_HELP_STRING([--enable-m64-build],
                [build 64bit binaries using the -m64 flag to (g)cc]),
@@ -329,54 +311,13 @@ AS_HELP_STRING([--enable-m32-build],
                [build 32bit binaries using the -m32 flag to (g)cc]),
 [ case "$enableval" in
     no) enable_m32_build=no ;;
-    *)
-	if test X${enable_darwin_64bit} = Xyes -o  X${enable_m64_build} = Xyes;
-	then
-		AC_MSG_ERROR([(--enable-darwin-64bit or --enable-m64-build) and --enable-m32-build are mutually exclusive]) ;
-	fi ;
-	enable_m32_build=yes ;;
+    *)	enable_m32_build=yes ;;
   esac
 ],enable_m32_build=no)
 
 AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
 			   [specify and prefer usage of libatomic_ops in the ethread library]))
-
-dnl OK, we might have darwin switches off different kinds, lets 
-dnl check it all before continuing.
-TMPSYS=`uname -s`-`uname -m`
-if test X${enable_darwin_universal} = Xyes; then
-	if test X${enable_darwin_64bit} = Xyes; then
-		AC_MSG_ERROR([--enable-darwin-universal and --enable-darwin-64bit mutually exclusive])
-	fi
-	enable_hipe=no
-	CFLAGS="-arch i386 -arch ppc $CFLAGS"
-	export CFLAGS
-	LDFLAGS="-arch i386 -arch ppc $LDFLAGS"
-	export LDFLAGS
-fi
-if test X${enable_darwin_64bit} = Xyes; then
-	case "$TMPSYS" in
-	    Darwin-i386|Darwin-x86_64)
-		;;
-	    Darwin*)
-		AC_MSG_ERROR([--enable-darwin-64bit only supported on x86 hosts])
-		;;
-	    *)
-		AC_MSG_ERROR([--enable-darwin-64bit only supported on Darwin])
-		;;
-	esac
-	enable_hipe=no
-	CFLAGS="-m64 $CFLAGS"
-	export CFLAGS
-	LDFLAGS="-m64 $LDFLAGS"
-	export LDFLAGS
-elif test X"$TMPSYS" '=' X"Darwin-i386"; then
-	CFLAGS="-m32 $CFLAGS"
-	export CFLAGS
-	LDFLAGS="-m32 $LDFLAGS"
-	export LDFLAGS
-fi
 
 m4_define(DEFAULT_SANITIZERS, [address,undefined])
 AC_ARG_ENABLE(sanitizers,

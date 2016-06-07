@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,6 @@
 
 #ifndef INADDR_NONE
 #  define INADDR_NONE 0xffffffff
-#endif
-
-#if defined(__OSE__)
-#  include "sys/ioctl.h"
-#  define sleep(x) delay(x*1000)
 #endif
 
 /*
@@ -335,7 +330,7 @@ void run(EpmdVars *g)
     }
 #endif /* HAVE_SYSTEMD_DAEMON */
 
-#if !defined(__WIN32__) && !defined(__OSE__)
+#if !defined(__WIN32__)
   /* We ignore the SIGPIPE signal that is raised when we call write
      twice on a socket closed by the other end. */
   signal(SIGPIPE, SIG_IGN);
@@ -452,9 +447,11 @@ void run(EpmdVars *g)
   num_sockets = bound;
 #ifdef HAVE_SYSTEMD_DAEMON
     }
-    sd_notifyf(0, "READY=1\n"
-                  "STATUS=Processing port mapping requests...\n"
-                  "MAINPID=%lu", (unsigned long) getpid());
+    if (g->is_systemd) {
+      sd_notifyf(0, "READY=1\n"
+                    "STATUS=Processing port mapping requests...\n"
+                    "MAINPID=%lu", (unsigned long) getpid());
+    }
 #endif /* HAVE_SYSTEMD_DAEMON */
 
   dbg_tty_printf(g,2,"entering the main select() loop");

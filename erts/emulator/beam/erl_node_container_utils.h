@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -255,7 +255,7 @@ extern ErtsPTab erts_port;
  * Refs                                                                    *
 \*                                                                         */
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
 #define internal_ref_no_of_numbers(x)					\
   (internal_ref_data((x))[0])
@@ -328,8 +328,6 @@ extern ErtsPTab erts_port;
 					 : external_ref_channel_no((x)))
 #define is_ref(x)			(is_internal_ref((x))		\
 					 || is_external_ref((x)))
-#define is_ref_rel(x,Base)		(is_internal_ref_rel((x),Base)	\
-					 || is_external_ref_rel((x),Base))
 #define is_not_ref(x)			(!is_ref(x))
 
 #endif

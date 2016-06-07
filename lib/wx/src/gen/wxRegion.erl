@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ new(X,Y,W,H)
   <<X:32/?UI,Y:32/?UI,W:32/?UI,H:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxregion.html#wxregionclear">external documentation</a>.
--spec clear(This) -> ok when
+-spec clear(This) -> 'ok' when
 	This::wxRegion().
 clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxRegion),
@@ -263,7 +263,7 @@ union(This,Bmp,Transp)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxregion.html#wxregionunion">external documentation</a>.
 -spec union(This, Bmp, Transp, [Option]) -> boolean() when
 	This::wxRegion(), Bmp::wxBitmap:wxBitmap(), Transp::wx:wx_colour(),
-	Option :: {tolerance, integer()}.
+	Option :: {'tolerance', integer()}.
 union(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef},Transp, Options)
  when tuple_size(Transp) =:= 3; tuple_size(Transp) =:= 4,is_list(Options) ->
   ?CLASS(ThisT,wxRegion),
@@ -313,7 +313,7 @@ union(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,W:32/?UI,H:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxRegion()) -> ok.
+-spec destroy(This::wxRegion()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxRegion),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -500,9 +500,7 @@ gen_decode_sof(Erules,TypeName,_InnerTypeName,D) when is_record(D,type) ->
 		   Atom when is_atom(Atom) -> Atom;
 		   _ -> TypeNameSuffix
 	       end,
-    ObjFun = false,
-    gen_dec_line(Erules,TypeName,ContName,[],Cont,mandatory,ObjFun),
-    %%    gen_dec_line_sof(Erules,Typename,ContName,Cont,ObjFun),
+    gen_dec_line(Erules,TypeName,ContName,[],Cont,mandatory),
     emit([" || ",{curr,v}," <- ",{curr,tlv},"].",nl,nl,nl]).
     
 
@@ -869,7 +867,7 @@ gen_dec_choice_cases(Erules,TopType, [H|T]) ->
 			    (?ASN1CT_GEN_BER:decode_class(T1class) bsl 10) +
 			    T1number,",_} -> ",nl]),
 		      emit([indent(8),"{",{asis,Cname},", "]),
-		      gen_dec_line(Erules,TopType,Cname,[],Type,Prop,false),
+		      gen_dec_line(Erules,TopType,Cname,[],Type,Prop),
 		      emit(["};",nl,nl]),
 		      Fun(Tail,Fun);
 		 ([],_) ->
@@ -896,7 +894,7 @@ gen_dec_choice_cases(Erules,TopType, [H|T]) ->
 		  (?ASN1CT_GEN_BER:decode_class(FirstT#tag.class) bsl 10) +
 		  FirstT#tag.number,", ",{curr,v},"} -> ",nl]),
 	    emit([indent(8),"{",{asis,Cname},", "]),
-	    gen_dec_line(Erules,TopType,Cname,[],Type#type{tag=RestT},Prop,false),
+	    gen_dec_line(Erules,TopType,Cname,[],Type#type{tag=RestT},Prop),
 	    emit(["};",nl,nl])
     end,
     gen_dec_choice_cases(Erules,TopType, T).
@@ -1060,8 +1058,14 @@ gen_optormand_case({'DEFAULT',DefaultValue}, Erules, _TopType,
 	    end,
 	    emit([indent(9),"_ ->",nl,indent(12)])
     end.
-    
 
+%% Use for SEQUENCE OF and CHOICE.
+gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand) ->
+    %% The matching on the next line is an assertion.
+    {[],[]} = gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,false),
+    ok.
+
+%% Use for SEQUENCE.
 gen_dec_line(Erules,TopType,Cname,CTags,Type,OptOrMand,DecObjInf)  ->
     BytesVar = asn1ct_gen:mk_var(asn1ct_name:curr(v)),
     Tag = 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,7 +72,9 @@ groups() ->
      {record_name_dirty_access, [],
       [record_name_dirty_access_ram,
        record_name_dirty_access_disc,
-       record_name_dirty_access_disc_only]}].
+       record_name_dirty_access_disc_only,
+       record_name_dirty_access_xets
+      ]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -112,6 +114,7 @@ system_info(Config) when is_list(Config) ->
     ?match(I when is_integer(I), mnesia:system_info(transaction_log_writes)),
     ?match(I when is_integer(I), mnesia:system_info(send_compressed)),
     ?match(L when is_list(L), mnesia:system_info(all)),
+    ?match(L when is_list(L), mnesia:system_info(backend_types)),
     ?match({'EXIT', {aborted, Reason }} when element(1, Reason) == badarg
            , mnesia:system_info(ali_baba)),
     ?verify_mnesia(Nodes, []).
@@ -132,11 +135,11 @@ table_info(Config) when is_list(Config) ->
     Schema = 
 	case mnesia_test_lib:diskless(Config) of
 	    true -> [{type, Type}, {attributes, Attrs}, {index, [ValPos]},
-		     {ram_copies, Nodes}];
+		     {ram_copies, [Node1, Node2]}, {ext_ets, [Node3]}];
 	    false ->		
 		[{type, Type}, {attributes, Attrs}, {index, [ValPos]},
-		 {disc_only_copies, [Node1]}, {ram_copies, [Node2]}, 
-		 {disc_copies, [Node3]}]
+		 {disc_only_copies, [Node1]}, {ram_copies, [Node2]},
+		 {ext_ets, [Node3]}]
 	end,
     ?match({atomic, ok}, mnesia:create_table(Tab, Schema)),
 
@@ -144,28 +147,22 @@ table_info(Config) when is_list(Config) ->
     Keys = lists:seq(1, Size),
     Records = [{Tab, A, 7} || A <- Keys],
     lists:foreach(fun(Rec) -> ?match(ok, mnesia:dirty_write(Rec)) end, Records),
-    ?match(Mem when is_integer(Mem), mnesia:table_info(Tab, memory)),
-    ?match(Size, mnesia:table_info(Tab, size)),
-    ?match(Type, mnesia:table_info(Tab, type)),
 
     case mnesia_test_lib:diskless(Config) of
 	true -> 
 	    ?match(Nodes, mnesia:table_info(Tab, ram_copies));
 	false ->              
-	    ?match([Node3], mnesia:table_info(Tab, mnesia_test_lib:storage_type(disc_copies, Config))),
+	    ?match([Node3], mnesia:table_info(Tab, ext_ets)),
 	    ?match([Node2], mnesia:table_info(Tab, ram_copies)),
 	    ?match([Node1], mnesia:table_info(Tab, mnesia_test_lib:storage_type(disc_only_copies, Config)))
     end,
     Read = [Node1, Node2, Node3],
-    ?match(true, lists:member(mnesia:table_info(Tab, where_to_read), Read)),
     Write = ?sort([Node1, Node2, Node3]),
-    ?match(Write, ?sort(mnesia:table_info(Tab, where_to_write))),
-    ?match([ValPos], mnesia:table_info(Tab, index)),
-    ?match(Arity, mnesia:table_info(Tab, arity)),
-    ?match(Attrs, mnesia:table_info(Tab, attributes)),
-    ?match({Tab, '_', '_'}, mnesia:table_info(Tab, wild_pattern)),
-    ?match({atomic, Attrs}, mnesia:transaction(fun() ->
-						       mnesia:table_info(Tab, attributes) end)),
+
+    {[ok,ok,ok], []} = rpc:multicall(Nodes, ?MODULE, info_check,
+				     [Tab, Read, Write, Size, Type, ValPos, Arity, Attrs]),
+
+    ?match({atomic, Attrs}, mnesia:transaction(fun() -> mnesia:table_info(Tab, attributes) end)),
 
     ?match(L when is_list(L), mnesia:table_info(Tab, all)),
 
@@ -179,6 +176,17 @@ table_info(Config) when is_list(Config) ->
     ?match(0, mnesia:table_info(tab_info, size)),
     ?verify_mnesia([Node1, Node3], [Node2]).
 
+info_check(Tab, Read, Write, Size, Type, ValPos, Arity, Attrs) ->
+    ?match(true, lists:member(mnesia:table_info(Tab, where_to_read), Read)),
+    ?match(Write, ?sort(mnesia:table_info(Tab, where_to_write))),
+    ?match(Mem when is_integer(Mem), mnesia:table_info(Tab, memory)),
+    ?match(Size, mnesia:table_info(Tab, size)),
+    ?match(Type, mnesia:table_info(Tab, type)),
+    ?match([ValPos], mnesia:table_info(Tab, index)),
+    ?match(Arity, mnesia:table_info(Tab, arity)),
+    ?match(Attrs, mnesia:table_info(Tab, attributes)),
+    ?match({Tab, '_', '_'}, mnesia:table_info(Tab, wild_pattern)),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Check the error descriptions
@@ -216,11 +224,12 @@ db_node_lifecycle(Config) when is_list(Config) ->
     [Node1, Node2, Node3] = AllNodes = ?acquire_nodes(3, Config),
     Tab = db_node_lifecycle,
 
-    Who = fun(T) -> 
+    Who = fun(T) ->
 		  L1 = mnesia:table_info(T, ram_copies),
 		  L2 = mnesia:table_info(T, disc_copies),
 		  L3 = mnesia:table_info(T, disc_only_copies),
-		  L1 ++ L2 ++ L3
+		  L4 = mnesia:table_info(T, ext_ets),
+		  L1 ++ L2 ++ L3 ++ L4
 	  end,
 
     SNs = ?sort(AllNodes),
@@ -235,6 +244,7 @@ db_node_lifecycle(Config) when is_list(Config) ->
     ?match({error, _}, mnesia:create_schema([foo@bar])),
     ?match(ok, mnesia:start()),
     ?match(false, mnesia:system_info(use_dir)),
+    ?match([ram_copies, disc_copies, disc_only_copies], mnesia:system_info(backend_types)),
     ?match({atomic, ok}, mnesia:create_table(Tab, [])),
     ?match({aborted, {has_no_disc, Node1}}, mnesia:dump_tables([Tab])),
     ?match({aborted, {has_no_disc, Node1}}, mnesia:change_table_copy_type(Tab, node(), disc_copies)),
@@ -242,7 +252,7 @@ db_node_lifecycle(Config) when is_list(Config) ->
 
     ?match(stopped, mnesia:stop()),
 
-    ?match(ok, mnesia:create_schema(AllNodes)),
+    ?match(ok, mnesia:create_schema(AllNodes, ?BACKEND)),
     ?match([], mnesia_test_lib:start_mnesia(AllNodes)),
 
     ?match([SNs, SNs, SNs], 
@@ -271,12 +281,15 @@ db_node_lifecycle(Config) when is_list(Config) ->
     Tab3 = not_local,
     Tab4 = local,
     Tab5 = remote,
+    Tab6 = ext1,
 
     Tabs = [Schema,
 	    [{name, Tab2},  {disc_copies, AllNodes}],
 	    [{name, Tab3},  {ram_copies, [Node2, Node3]}],
 	    [{name, Tab4},  {disc_only_copies, [Node1]}],
-	    [{name, Tab5},  {disc_only_copies, [Node2]}]],    
+	    [{name, Tab5},  {disc_only_copies, [Node2]}],
+	    [{name, Tab6},  {ext_ets, [Node1, Node2]}]
+	   ],
 
     [?match({atomic, ok}, mnesia:create_table(T)) || T <- Tabs ],
 
@@ -287,31 +300,28 @@ db_node_lifecycle(Config) when is_list(Config) ->
     ?match({aborted, {node_not_running, Node1}}, 
 	   mnesia:del_table_copy(schema, Node2)),
 
-    ?match([], mnesia_test_lib:start_mnesia([Node1],[Tab2,Tab4])),
+    ?match([], mnesia_test_lib:start_mnesia([Node1],[Tab2,Tab4,Tab6])),
     ?match([], mnesia_test_lib:stop_mnesia([Node2])),
-    ?match({atomic, ok}, 
-	   mnesia:del_table_copy(schema, Node2)),
+    ?match({atomic, ok}, mnesia:del_table_copy(schema, Node2)),
 
-    %% Check     
+    %% Check
     RemNodes = AllNodes -- [Node2],
 
-    ?match(RemNodes, mnesia:system_info(db_nodes)),     
+    ?match(RemNodes, mnesia:system_info(db_nodes)),
     ?match([Node1], Who(Tab)),
     ?match(RemNodes, Who(Tab2)),
     ?match([Node3], Who(Tab3)),
     ?match([Node1], Who(Tab4)),
     ?match({'EXIT', {aborted, {no_exists, _, _}}}, Who(Tab5)),
+    ?match([Node1], Who(Tab6)),
 
-    ?match({atomic, ok},
-           mnesia:change_table_copy_type(Tab2, Node3, ram_copies)),
+    ?match({atomic, ok}, mnesia:change_table_copy_type(Tab2, Node3, ram_copies)),
 
-    ?match({atomic, ok},
-           mnesia:change_table_copy_type(schema, Node3, ram_copies)),
+    ?match({atomic, ok}, mnesia:change_table_copy_type(schema, Node3, ram_copies)),
 
     ?match([], mnesia_test_lib:stop_mnesia([Node3])),
-    ?match({atomic, ok}, 
-	   mnesia:del_table_copy(schema, Node3)),
-    ?match([Node1], mnesia:system_info(db_nodes)),     
+    ?match({atomic, ok}, mnesia:del_table_copy(schema, Node3)),
+    ?match([Node1], mnesia:system_info(db_nodes)),
     ?match([Node1], Who(Tab)),
     ?match([Node1], Who(Tab2)),
     ?match({'EXIT', {aborted, {no_exists, _, _}}}, Who(Tab3)),
@@ -363,7 +373,8 @@ start_and_stop(Config) when is_list(Config) ->
 checkpoint(suite) -> [];
 checkpoint(Config) when is_list(Config) ->
     checkpoint(2, Config),
-    checkpoint(3, Config).
+    checkpoint(3, Config),
+    ok.
 
 checkpoint(NodeConfig, Config) ->
     [Node1 | _] = TabNodes = ?acquire_nodes(NodeConfig, Config),
@@ -381,7 +392,7 @@ checkpoint(NodeConfig, Config) ->
                           CreateTab(Type, 3, [lists:last(TabNodes)])] ++
                              Acc
                  end,
-    Types = [ram_copies, disc_copies, disc_only_copies],
+    Types = [ram_copies, disc_copies, disc_only_copies, ext_ets],
     Tabs = lists:foldl(CreateTabs, [], Types),
     Recs = ?sort([{T, N, N} || T <- Tabs, N <- lists:seq(1, 10)]),
     lists:foreach(fun(R) -> ?match(ok, mnesia:dirty_write(R)) end, Recs),
@@ -430,25 +441,29 @@ checkpoint(NodeConfig, Config) ->
 replica_location(suite) -> [];
 replica_location(Config) when is_list(Config) ->
     [Node1, Node2, Node3] = Nodes = ?acquire_nodes(3, Config),
-    Tab = replica_location,
 
     %% Create three replicas
-    Schema = [{name, Tab}, {disc_only_copies, [Node1]},
-              {ram_copies, [Node2]}, {disc_copies, [Node3]}],
-    ?match({atomic, ok}, mnesia:create_table(Schema)),
-    ?match([], ?vrl(Tab, [Node1], [Node2], [Node3], Nodes)),
+    Check = fun(Tab, Schema) ->
+		    ?match({atomic, ok}, mnesia:create_table([{name, Tab}|Schema])),
+		    ?match([], ?vrl(Tab, [Node1], [Node2], [Node3], Nodes)),
 
-    %% Delete one replica
-    ?match({atomic, ok}, mnesia:del_table_copy(Tab, Node2)),
-    ?match([], ?vrl(Tab, [Node1], [], [Node3], Nodes)),
+		    %% Delete one replica
+		    ?match({atomic, ok}, mnesia:del_table_copy(Tab, Node2)),
+		    ?match([], ?vrl(Tab, [Node1], [], [Node3], Nodes)),
 
-    %% Move one replica
-    ?match({atomic, ok}, mnesia:move_table_copy(Tab, Node1, Node2)),
-    ?match([], ?vrl(Tab, [Node2], [], [Node3], Nodes)),
+		    %% Move one replica
+		    ?match({atomic, ok}, mnesia:move_table_copy(Tab, Node1, Node2)),
+		    ?match([], ?vrl(Tab, [Node2], [], [Node3], Nodes)),
 
-    %% Change replica type
-    ?match({atomic, ok}, mnesia:change_table_copy_type(Tab, Node2, ram_copies)),
-    ?match([], ?vrl(Tab, [], [Node2], [Node3], Nodes)),
+		    %% Change replica type
+		    ?match({atomic, ok}, mnesia:change_table_copy_type(Tab, Node2, ram_copies)),
+		    ?match([], ?vrl(Tab, [], [Node2], [Node3], Nodes))
+	    end,
+    Check(replica_location, [{disc_only_copies, [Node1]},
+			     {ram_copies, [Node2]}, {disc_copies, [Node3]}]),
+
+    Check(ext_location, [{disc_only_copies, [Node1]},
+			 {ext_ets, [Node2]}, {disc_copies, [Node3]}]),
 
     ?verify_mnesia(Nodes, []).
 
@@ -720,7 +735,7 @@ replica_management(Config) when is_list(Config) ->
     %%
     ?match({atomic, ok},
            mnesia:create_table([{name, Tab}, {attributes, Attrs},
-                                {ram_copies, [Node1, Node3]}])),
+                                {ram_copies, [Node1]}, {ext_ets, [Node3]}])),
     [?match(ok, mnesia:dirty_write({Tab, K, K + 2})) || K <-lists:seq(1, 10)],
     ?match([], ?vrl(Tab, [], [Node1, Node3], [], Nodes)),
     %% R - -
@@ -757,7 +772,7 @@ replica_management(Config) when is_list(Config) ->
     ?match([], ?vrl(Tab, [Node2], [], [Node1], Nodes)),
     ?match([0,10,10], ?SS(rpc:multicall(Nodes, mnesia, table_info, [Tab, size]))),
     %% D DO -
-    ?match({atomic, ok}, mnesia:add_table_copy(Tab, Node3, ram_copies)),
+    ?match({atomic, ok}, mnesia:add_table_copy(Tab, Node3, ext_ets)),
     ?match([], ?vrl(Tab, [Node2], [Node3], [Node1], Nodes)),
     ?match([10,10,10], ?SS(rpc:multicall(Nodes, mnesia, table_info, [Tab, size]))),
     %% D DO R
@@ -784,7 +799,7 @@ replica_management(Config) when is_list(Config) ->
     ?match([10,10,10], ?SS(rpc:multicall(Nodes, mnesia, table_info, [Tab, size]))),
 
     %% D DO D0
-    ?match({atomic, ok}, mnesia:change_table_copy_type(Tab, Node3, ram_copies)),
+    ?match({atomic, ok}, mnesia:change_table_copy_type(Tab, Node3, ext_ets)),
     ?match([], ?vrl(Tab, [Node2], [Node3], [Node1], Nodes)),
     ?match([10,10,10], ?SS(rpc:multicall(Nodes, mnesia, table_info, [Tab, size]))),
     %% D DO R
@@ -841,18 +856,31 @@ replica_management(Config) when is_list(Config) ->
     ?match([], ?vrl(Tab, [Node3], [], [Node2], Nodes)),
     ?match([0,10,10], ?SS(rpc:multicall(Nodes, mnesia, table_info, [Tab, size]))),
     %% - D DO
+    ?match({atomic, ok}, mnesia:change_table_copy_type(Tab, Node3, ext_ets)),
+    ?match([], ?vrl(Tab, [], [Node3], [Node2], Nodes)),
+    ?match([0,10,10], ?SS(rpc:multicall(Nodes, mnesia, table_info, [Tab, size]))),
+    %% - D ER
+    ?match({atomic, ok}, mnesia:move_table_copy(Tab, Node3, Node1)),
+    ?match([], ?vrl(Tab, [], [Node1], [Node2], Nodes)),
+    ?match([0,10,10], ?SS(rpc:multicall(Nodes, mnesia, table_info, [Tab, size]))),
+    %% ER D -
+
     ?match({aborted, _}, mnesia:move_table_copy(Tab, Node1, Node2)),
+    ?match({aborted, _}, mnesia:move_table_copy(Tab, Node3, Node2)),
+    ?match({atomic, ok}, mnesia:move_table_copy(Tab, Node1, Node3)),
+    %% - D ER
     ?match([], mnesia_test_lib:stop_mnesia([Node3])),
     ?match({atomic,ok}, mnesia:transaction(fun() -> mnesia:write({Tab, 43, sync_me}) end)),
-    ?match([], ?vrl(Tab, [Node3], [], [Node2],Nodes -- [Node3])),
-    %% - D DO
+    ?match([], ?vrl(Tab, [], [Node3], [Node2],Nodes -- [Node3])),
+    %% - D ER
     ?match({aborted,Reason56} when element(1, Reason56) == not_active,
 	   mnesia:move_table_copy(Tab, Node3, Node1)),
-    ?match([], ?vrl(Tab, [Node3], [], [Node2],Nodes -- [Node3])),
-    %% DO D -
+    ?match([], ?vrl(Tab, [], [Node3], [Node2],Nodes -- [Node3])),
+    %% - D ER
     ?match([], mnesia_test_lib:start_mnesia([Node3])),
-    ?match([], ?vrl(Tab, [Node3], [], [Node2], Nodes)),
-    %% DO D -
+    ?match([], ?vrl(Tab, [], [Node3], [Node2], Nodes)),
+    %% - D ER
+    ?match([{Tab,43,sync_me}], mnesia:dirty_read({Tab,43})),
     
     %%
     %% Transformer
@@ -990,7 +1018,7 @@ local_content(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:stop_mnesia([Node3])),
 
     %% Added for OTP-44306
-    ?match(ok, rpc:call(Node3, mnesia, start, [])),
+    ?match(ok, rpc:call(Node3, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match({ok, _}, mnesia:change_config(extra_db_nodes, [Node3])),
 
     mnesia_test_lib:sync_tables([Node3], [Tab1]),
@@ -1427,7 +1455,7 @@ unsupp_user_props(Config) when is_list(Config) ->
 				       table_info, [silly1, user_properties])),
     ?match([{prop,propval2}], rpc:call(Node1, mnesia,
 				       table_info, [silly2, user_properties])),
-    ?match([{prop,propval3}], rpc:call(Node1, mnesia,
+    ?match([_,{prop,propval3}], rpc:call(Node1, mnesia,
 				       table_info, [schema, user_properties])),
 
     F2 = fun() ->
@@ -2261,6 +2289,10 @@ record_name_dirty_access_disc_only(suite) ->
     [];
 record_name_dirty_access_disc_only(Config) when is_list(Config) ->
     record_name_dirty_access(disc_only_copies, Config).
+
+record_name_dirty_access_xets(Config) when is_list(Config) ->
+    record_name_dirty_access(ext_ets, Config).
+
 
 record_name_dirty_access(Storage, Config) ->
     [Node1, _Node2] = Nodes = ?acquire_nodes(2, Config),

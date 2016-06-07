@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,8 +60,8 @@ typedef struct db_table_hash {
     /* List of slots where elements have been deleted while table was fixed */
     erts_smp_atomic_t fixdel;  /* (FixedDeletion*) */	
     erts_smp_atomic_t nactive; /* Number of "active" slots */
-    erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
 #ifdef ERTS_SMP
+    erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
     DbTableHashFineLocks* locks;
 #endif
 #ifdef VALGRIND

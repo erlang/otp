@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,8 +48,9 @@ class wxeRefData {
    int type;
    // 0 = wxWindow subclasses, 1 = wxObject subclasses
    // 2 = wxDialog subclasses, 3 = allocated wxObjects but not returned from new
-   // 4 = wxObjects that should always be deleted directly (wxDC derivates)
-   // > 4 classes which lack virtual destr, or are supposed to be allocated on
+   // 4 = wxGraphicsObjects or it's subclasses that can no be overloaded
+   // 8 = wxObjects that should always be deleted directly (wxDC derivates)
+   // > 10 classes which lack virtual destr, or are supposed to be allocated on
    //     the stack
    bool alloc_in_erl;
    wxeMemEnv *memenv;

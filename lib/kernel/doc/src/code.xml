@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,262 +29,240 @@
     <rev></rev>
   </header>
   <module>code</module>
-  <modulesummary>Erlang Code Server</modulesummary>
+  <modulesummary>Erlang code server.</modulesummary>
   <description>
     <p>This module contains the interface to the Erlang
       <em>code server</em>, which deals with the loading of compiled
       code into a running Erlang runtime system.</p>
-    <p>The runtime system can be started in either <em>embedded</em> or
-      <em>interactive</em> mode. Which one is decided by the command
-      line flag <c>-mode</c>.</p>
+    <p>The runtime system can be started in <em>embedded</em> or
+      <em>interactive</em> mode. Which one is decided by command-line
+      flag <c>-mode</c>:</p>
     <pre>
 % <input>erl -mode interactive</input></pre>
-    <p>Default mode is <c>interactive</c>.</p>
+    <p>The modes are as follows:</p>
     <list type="bulleted">
       <item>
-        <p>In embedded mode, all code is loaded during system start-up
+        <p>In embedded mode, all code is loaded during system startup
           according to the boot script. (Code can also be loaded later
           by explicitly ordering the code server to do so).</p>
       </item>
       <item>
-        <p>In interactive mode, only some code is loaded during system
-          startup-up, basically the modules needed by the runtime
-          system itself. Other code is dynamically loaded when first
+        <p>In interactive mode, which is default, only some code is loaded
+	  during system startup, basically the modules needed by the runtime
+          system. Other code is dynamically loaded when first
           referenced. When a call to a function in a certain module is
           made, and the module is not loaded, the code server searches
           for and tries to load the module.</p>
       </item>
     </list>
-    <p>To prevent accidentally reloading modules affecting the Erlang
-      runtime system itself, the <c>kernel</c>, <c>stdlib</c> and
-      <c>compiler</c> directories are considered <em>sticky</em>. This
+    <p>To prevent accidentally reloading of modules affecting the Erlang
+      runtime system, directories <c>kernel</c>, <c>stdlib</c>,
+      and <c>compiler</c> are considered <em>sticky</em>. This
       means that the system issues a warning and rejects the request if
       a user tries to reload a module residing in any of them.
-      The feature can be disabled by using the command line flag
+      The feature can be disabled by using command-line flag
       <c>-nostick</c>.</p>
   </description>
 
   <section>
     <title>Code Path</title>
-    <p>In interactive mode, the code server maintains a search path --
-      usually called the <em>code path</em> -- consisting of a list of
+    <p>In interactive mode, the code server maintains a search path,
+      usually called the <em>code path</em>, consisting of a list of
       directories, which it searches sequentially when trying to load a
       module.</p>
     <p>Initially, the code path consists of the current working
-      directory and all Erlang object code directories under the library
+      directory and all Erlang object code directories under library
       directory <c>$OTPROOT/lib</c>, where <c>$OTPROOT</c> is
       the installation directory of Erlang/OTP, <c>code:root_dir()</c>.
       Directories can be named <c>Name[-Vsn]</c> and the code server,
       by default, chooses the directory with the highest version number
-      among those which have the same <c>Name</c>. The <c>-Vsn</c>
-      suffix is optional. If an <c>ebin</c> directory exists under
-      <c>Name[-Vsn]</c>, it is this directory which is added to
-      the code path.</p>
-    <p>The environment variable <c>ERL_LIBS</c> (defined in the operating
-      system) can be used to define additional library directories that
-      will be handled in the same way as the standard OTP library
-      directory described above, except that directories that do not
-      have an <c>ebin</c> directory will be ignored.</p>
+      among those having the same <c>Name</c>. Suffix <c>-Vsn</c>
+      is optional. If an <c>ebin</c> directory exists under
+      <c>Name[-Vsn]</c>, this directory is added to the code path.</p>
+    <p>Environment variable <c>ERL_LIBS</c> (defined in the operating
+      system) can be used to define more library directories to
+      be handled in the same way as the standard OTP library
+      directory described above, except that directories without
+      an <c>ebin</c> directory are ignored.</p>
     <p>All application directories found in the additional directories
-      will appear before the standard OTP applications, except for the
-      Kernel and STDLIB applications, which will be placed before any
-      additional applications. In other words, modules found in any
-      of the additional library directories will override modules with
-      the same name in OTP, except for modules in Kernel and
-      STDLIB.</p>
-    <p>The environment variable <c>ERL_LIBS</c> (if defined) should contain
+      appears before the standard OTP applications, except for the
+      <c>Kernel</c> and <c>STDLIB</c> applications, which are placed before
+      any additional applications. In other words, modules found in any
+      of the additional library directories override modules with
+      the same name in OTP, except for modules in <c>Kernel</c> and
+      <c>STDLIB</c>.</p>
+    <p>Environment variable <c>ERL_LIBS</c> (if defined) is to contain
       a colon-separated (for Unix-like systems) or semicolon-separated
       (for Windows) list of additional libraries.</p>
-    <p>Example: On an Unix-like system, <c>ERL_LIBS</c> could be set to
-      <c>/usr/local/jungerl:/home/some_user/my_erlang_lib</c>. (On Windows,
-      use semi-colon as separator.)</p>
-  </section>
-
-  <section>
-    <title>Code Path Cache</title>
-    <p>The code server incorporates a code path cache. The cache
-      functionality is disabled by default. To activate it, start
-      the emulator with the command line flag <c>-code_path_cache</c>
-      or call <c>code:rehash()</c>. When the cache is created (or
-      updated), the code server searches for modules in the code path
-      directories. This may take some time if the the code path is long.
-      After the cache creation, the time for loading modules in a large
-      system (one with a large directory structure) is significantly
-      reduced compared to having the cache disabled. The code server
-      is able to look up the location of a module from the cache in
-      constant time instead of having to search through the code path
-      directories.</p>
-    <p>Application resource files (<c>.app</c> files) are also stored
-      in the code path cache. This feature is used by the application
-      controller (see
-      <seealso marker="application">application(3)</seealso>) to load
-      applications efficiently in large systems.</p>
-    <p>Note that when the code path cache is created (or updated), any
-      relative directory names in the code path are converted to
-      absolute.</p>
+      <p><em>Example:</em></p>
+    <p>On a Unix-like system, <c>ERL_LIBS</c> can be set to the following</p>
+      <code>
+/usr/local/jungerl:/home/some_user/my_erlang_lib</code>
+    <p>On Windows, use semi-colon as separator.</p>
   </section>
 
   <section>
     <title>Loading of Code From Archive Files</title>
 
-    <warning><p>The support for loading of code from archive files is
-     experimental. The sole purpose of releasing it before it is ready
+    <warning><p>The support for loading code from archive files is
+     experimental. The purpose of releasing it before it is ready
      is to obtain early feedback. The file format, semantics,
-     interfaces etc. may be changed in a future release. The function
-     <c>lib_dir/2</c> and the flag <c>-code_path_choice</c> are also
+     interfaces, and so on, can be changed in a future release. The function
+     <seealso marker="#lib_dir/2"><c>lib_dir/2</c></seealso>
+     and  flag <c>-code_path_choice</c> are also
      experimental.</p></warning>
 
-    <p>In the current implementation, Erlang archives are <c>ZIP</c>
-     files with <c>.ez</c> extension. Erlang archives may also be
+    <p>The Erlang archives are <c>ZIP</c>
+     files with extension <c>.ez</c>. Erlang archives can also be
      enclosed in <c>escript</c> files whose file extension is arbitrary.</p>
 
-    <p>Erlang archive files may contain entire Erlang applications or
+    <p>Erlang archive files can contain entire Erlang applications or
      parts of applications. The structure in an archive file is the
-     same as the directory structure for an application. If you for
-     example would create an archive of <c>mnesia-4.4.7</c>, the
+     same as the directory structure for an application. If you, for
+     example, create an archive of <c>mnesia-4.4.7</c>, the
      archive file must be named <c>mnesia-4.4.7.ez</c> and it must
-     contain a top directory with the name <c>mnesia-4.4.7</c>. If the
+     contain a top directory named <c>mnesia-4.4.7</c>. If the
      version part of the name is omitted, it must also be omitted in
      the archive. That is, a <c>mnesia.ez</c> archive must contain a
      <c>mnesia</c> top directory.</p>
 
-    <p>An archive file for an application may for example be
+    <p>An archive file for an application can, for example, be
      created like this:</p>
 
 <pre>
-   zip:create("mnesia-4.4.7.ez", 
-              ["mnesia-4.4.7"], 
-              [{cwd, code:lib_dir()},
-               {compress, all},
-               {uncompress,[".beam",".app"]}]).</pre>
+zip:create("mnesia-4.4.7.ez",
+	["mnesia-4.4.7"],
+	[{cwd, code:lib_dir()},
+	 {compress, all},
+	 {uncompress,[".beam",".app"]}]).</pre>
 
-    <p>Any file in the archive may be compressed, but in order to
-     speed up the access of frequently read files, it may be a good
+    <p>Any file in the archive can be compressed, but to
+     speed up the access of frequently read files, it can be a good
      idea to store <c>beam</c> and <c>app</c> files uncompressed in
      the archive.</p>
 
-    <p>Normally the top directory of an application is located either
-     in the library directory <c>$OTPROOT/lib</c> or in a directory
-     referred to by the environment variable <c>ERL_LIBS</c>. At
-     startup when the initial code path is computed, the code server
-     will also look for archive files in these directories and
-     possibly add <c>ebin</c> directories in archives to the code path. The
-     code path will then contain paths to directories that looks like
+    <p>Normally the top directory of an application is located
+     in library directory <c>$OTPROOT/lib</c> or in a directory
+     referred to by environment variable <c>ERL_LIBS</c>. At
+     startup, when the initial code path is computed, the code server
+     also looks for archive files in these directories and
+     possibly adds <c>ebin</c> directories in archives to the code path. The
+     code path then contains paths to directories that look like
      <c>$OTPROOT/lib/mnesia.ez/mnesia/ebin</c> or
      <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
 
-    <p>The code server uses the module <c>erl_prim_loader</c>
-     (possibly via the <c>erl_boot_server</c>) to read code files from
-     archives. But the functions in <c>erl_prim_loader</c> may also be
+    <p>The code server uses module <c>erl_prim_loader</c> in <c>ERTS</c>
+     (possibly through <c>erl_boot_server</c>) to read code files from
+     archives. However, the functions in <c>erl_prim_loader</c> can also be
      used by other applications to read files from archives. For
      example, the call
      <c>erl_prim_loader:list_dir( "/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"</c>
      would list the contents of a directory inside an archive.
-     See <seealso marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso>.</p>
+     See <seealso marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>.</p>
 
     <p>An application archive file and a regular application directory
-     may coexist. This may be useful when there is a need of having
+     can coexist. This can be useful when it is needed to have
      parts of the application as regular files. A typical case is the
-     <c>priv</c> directory which must reside as a regular directory in
-     order to be able to dynamically link in drivers and start port
-     programs. For other applications that do not have this need, the
-     <c>priv</c> directory may reside in the archive and the files
-     under the <c>priv</c> directory may be read via the
+     <c>priv</c> directory, which must reside as a regular directory
+     to link in drivers dynamically and start port programs.
+     For other applications that do not need this, directory
+     <c>priv</c> can reside in the archive and the files
+     under the directory <c>priv</c> can be read through
      <c>erl_prim_loader</c>.</p>
 
-    <p>At the time point when a directory is added to the code path as
-     well as when the entire code path is (re)set, the code server
-     will decide which subdirectories in an application that shall be
-     read from the archive and which that shall be read as regular
+    <p>When a directory is added to the code path and
+     when the entire code path is (re)set, the code server
+     decides which subdirectories in an application that are to be
+     read from the archive and which that are to be read as regular
      files. If directories are added or removed afterwards, the file
-     access may fail if the code path is not updated (possibly to the
-     same path as before in order to trigger the directory resolution
-     update). For each directory on the second level (ebin, priv, src
-     etc.) in the application archive, the code server will firstly
-     choose the regular directory if it exists and secondly from the
-     archive. The function
-     <c>code:lib_dir/2</c> returns the path to the subdirectory. For
-     example <c>code:lib_dir(megaco,ebin)</c> may return
+     access can fail if the code path is not updated (possibly to the
+     same path as before, to trigger the directory resolution
+     update).</p>
+
+     <p>For each directory on the second level in the application archive
+     (<c>ebin</c>, <c>priv</c>, <c>src</c>, and so on), the code server first
+     chooses the regular directory if it exists and second from the
+     archive. Function <c>code:lib_dir/2</c> returns the path to the
+     subdirectory. For example, <c>code:lib_dir(megaco,ebin)</c> can return
      <c>/otp/root/lib/megaco-3.9.1.1.ez/megaco-3.9.1.1/ebin</c> while
-     <c>code:lib_dir(megaco,priv)</c> may return
+     <c>code:lib_dir(megaco,priv)</c> can return
      <c>/otp/root/lib/megaco-3.9.1.1/priv</c>.</p>
 
     <p>When an <c>escript</c> file contains an archive, there are
-     neither restrictions on the name of the <c>escript</c> nor on how
-     many applications that may be stored in the embedded
-     archive. Single <c>beam</c> files may also reside on the top
-     level in the archive. At startup, both the top directory in the
-     embedded archive as well as all (second level) <c>ebin</c>
+     no restrictions on the name of the <c>escript</c> and no restrictions
+     on how many applications that can be stored in the embedded
+     archive. Single Beam files can also reside on the top
+     level in the archive. At startup, the top directory in the
+     embedded archive and all (second level) <c>ebin</c>
      directories in the embedded archive are added to the code path.
-     See <seealso marker="erts:escript">escript(1)</seealso></p>
+     See <seealso marker="erts:escript"><c>erts:escript(1)</c></seealso>.</p>
 
     <p>When the choice of directories in the code path is
-     <c>strict</c>, the directory that ends up in the code path will
-     be exactly the stated one. This means that if for example the
+     <c>strict</c>, the directory that ends up in the code path is
+     exactly the stated one. This means that if, for example, the
      directory <c>$OTPROOT/lib/mnesia-4.4.7/ebin</c> is explicitly
-     added to the code path, the code server will not load files from
-     <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c> and vice
-     versa. </p>
+     added to the code path, the code server does not load files from
+     <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
 
-    <p>This behavior can be controlled via the command line flag
+    <p>This behavior can be controlled through command-line flag
      <c>-code_path_choice Choice</c>. If the flag is set to <c>relaxed</c>,
-     the code server will instead choose a suitable directory
-     depending on the actual file structure. If there exists a regular
-     application ebin directory, it will be chosen. But if it does
-     not exist, the ebin directory in the archive is chosen if it
-     exists. If neither of them exists the original directory will be
+     the code server instead chooses a suitable directory
+     depending on the actual file structure. If a regular
+     application <c>ebin</c> directory exists, it is chosen. Otherwise,
+     the directory <c>ebin</c> in the archive is chosen if it
+     exists. If neither of them exists, the original directory is
      chosen.</p>
 
-    <p>The command line flag <c>-code_path_choice Choice</c> does also
-     affect how <c>init</c> interprets the <c>boot script</c>. The
-     interpretation of the explicit code paths in the <c>boot
-     script</c> may be <c>strict</c> or <c>relaxed</c>. It is
-     particular useful to set the flag to <c>relaxed</c> when you want
-     to elaborate with code loading from archives without editing the
+    <p>Command-line flag <c>-code_path_choice Choice</c> also
+     affects how module <c>init</c> interprets the <c>boot script</c>.
+     The interpretation of the explicit code paths in the <c>boot
+     script</c> can be <c>strict</c> or <c>relaxed</c>. It is
+     particularly useful to set the flag to <c>relaxed</c> when
+     elaborating with code loading from archives without editing the
      <c>boot script</c>. The default is <c>relaxed</c>. See <seealso
-     marker="erts:init">init(3)</seealso></p></section>
+     marker="erts:init"><c>erts:init(3)</c></seealso>.</p></section>
 
   <section>
 
     <title>Current and Old Code</title>
-    <p>The code of a module can exists in two variants in a system:
+    <p>The code for a module can exist in two variants in a system:
       <em>current code</em> and <em>old code</em>. When a module is
-      loaded into the system for the first time, the code of the module
+      loaded into the system for the first time, the module code
       becomes 'current' and the global <em>export table</em> is updated
       with references to all functions exported from the module.</p>
-    <p>If then a new instance of the module is loaded (perhaps because
-      of the correction of an error), then the code of the previous
+    <p>If then a new instance of the module is loaded (for example, because of
+      error correction), the code of the previous
       instance becomes 'old', and all export entries referring to
-      the previous instance are removed. After that the new instance is
-      loaded as if it was loaded for the first time, as described above,
-      and becomes 'current'.</p>
-    <p>Both old and current code for a module are valid, and may even be
+      the previous instance are removed. After that, the new instance is
+      loaded as for the first time, and becomes 'current'.</p>
+    <p>Both old and current code for a module are valid, and can even be
       evaluated concurrently. The difference is that exported functions
-      in old code are unavailable. Hence there is no way to make a
-      global call to an exported function in old code, but old code may
+      in old code are unavailable. Hence, a global call cannot be made
+      to an exported function in old code, but old code can
       still be evaluated because of processes lingering in it.</p>
-    <p>If a third instance of the module is loaded, the code server will
-      remove (purge) the old code and any processes lingering in it will
-      be terminated. Then the third instance becomes 'current' and
+    <p>If a third instance of the module is loaded, the code server
+      removes (purges) the old code and any processes lingering in it
+      are terminated. Then the third instance becomes 'current' and
       the previously current code becomes 'old'.</p>
     <p>For more information about old and current code, and how to
-      make a process switch from old to current code, refer to
+      make a process switch from old to current code, see section
+      Compilation and Code Loading in the
       <seealso marker="doc/reference_manual:code_loading">Erlang Reference Manual</seealso>.</p>
   </section>
 
   <section>
     <title>Argument Types and Invalid Arguments</title>
 
-    <p>Generally, module and application names are atoms, while file and directory
+    <p>Module and application names are atoms, while file and directory
     names are strings. For backward compatibility reasons, some functions accept
     both strings and atoms, but a future release will probably only allow
     the arguments that are documented.</p>
 
-    <p>From the R12B release, functions in this module will generally fail with an
-    exception if they are passed an incorrect type (for instance, an integer or a tuple
-    where an atom was expected). An error tuple will be returned if the type of the argument
-    was correct, but there was some other error (for instance, a non-existing directory
-    was given to <c>set_path/1</c>).</p>
+    <p>As from Erlang/OTP R12B, functions in this module generally fail with an
+    exception if they are passed an incorrect type (for example, an integer or a tuple
+    where an atom is expected). An error tuple is returned if the argument type
+    is correct, but there are some other errors (for example, a non-existing directory
+    is specified to <c>set_path/1</c>).</p>
   </section>
 
   <section>
@@ -334,31 +312,38 @@
     <datatype>
       <name name="load_error_rsn"/>
     </datatype>
+    <datatype>
+      <name name="prepared_code"/>
+      <desc><p>An opaque term holding prepared code.</p></desc>
+    </datatype>
   </datatypes>
 
   <funcs>
     <func>
       <name name="set_path" arity="1"/>
-      <fsummary>Set the code server search path</fsummary>
+      <fsummary>Set the code server search path.</fsummary>
       <desc>
         <p>Sets the code path to the list of directories <c><anno>Path</anno></c>.</p>
-        <p>Returns <c>true</c> if successful, or
-          <c>{error, bad_directory}</c> if any <c><anno>Dir</anno></c> is not
-          the name of a directory, or <c>{error, bad_path}</c> if
-          the argument is invalid.</p>
+        <p>Returns:</p>
+	<taglist>
+	<tag><c>true</c></tag>
+	<item><p>If successful</p></item>
+        <tag><c>{error, bad_directory}</c></tag>
+	<item><p>If any <c><anno>Dir</anno></c> is not a directory name</p></item>
+	</taglist>
       </desc>
     </func>
     <func>
       <name name="get_path" arity="0"/>
-      <fsummary>Return the code server search path</fsummary>
+      <fsummary>Return the code server search path.</fsummary>
       <desc>
-        <p>Returns the code path</p>
+        <p>Returns the code path.</p>
       </desc>
     </func>
     <func>
       <name name="add_path" arity="1"/>
       <name name="add_pathz" arity="1"/>
-      <fsummary>Add a directory to the end of the code path</fsummary>
+      <fsummary>Add a directory to the end of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
         <p>Adds <c><anno>Dir</anno></c> to the code path. The directory is added as
@@ -371,11 +356,11 @@
     </func>
     <func>
       <name name="add_patha" arity="1"/>
-      <fsummary>Add a directory to the beginning of the code path</fsummary>
+      <fsummary>Add a directory to the beginning of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
         <p>Adds <c><anno>Dir</anno></c> to the beginning of the code path. If
-          <c><anno>Dir</anno></c> already exists, it is removed from the old
+          <c><anno>Dir</anno></c> exists, it is removed from the old
           position in the code path.</p>
         <p>Returns <c>true</c> if successful, or
           <c>{error, bad_directory}</c> if <c><anno>Dir</anno></c> is not the name
@@ -385,69 +370,81 @@
     <func>
       <name name="add_paths" arity="1"/>
       <name name="add_pathsz" arity="1"/>
-      <fsummary>Add directories to the end of the code path</fsummary>
+      <fsummary>Add directories to the end of the code path.</fsummary>
       <desc>
         <p>Adds the directories in <c><anno>Dirs</anno></c> to the end of the code
-          path. If a <c><anno>Dir</anno></c> already exists, it is not added. This
-          function always returns <c>ok</c>, regardless of the validity
+          path. If a <c><anno>Dir</anno></c> exists, it is not added.</p>
+	<p>Always returns <c>ok</c>, regardless of the validity
           of each individual <c><anno>Dir</anno></c>.</p>
       </desc>
     </func>
     <func>
       <name name="add_pathsa" arity="1"/>
-      <fsummary>Add directories to the beginning of the code path</fsummary>
+      <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
         <p>Adds the directories in <c><anno>Dirs</anno></c> to the beginning of
-          the code path. If a <c><anno>Dir</anno></c> already exists, it is removed
-          from the old position in the code path. This function always
-          returns <c>ok</c>, regardless of the validity of each
+          the code path. If a <c><anno>Dir</anno></c> exists, it is removed
+          from the old position in the code path.</p>
+	<p>Always returns <c>ok</c>, regardless of the validity of each
           individual <c><anno>Dir</anno></c>.</p>
       </desc>
     </func>
     <func>
       <name name="del_path" arity="1"/>
-      <fsummary>Delete a directory from the code path</fsummary>
+      <fsummary>Delete a directory from the code path.</fsummary>
       <desc>
         <p>Deletes a directory from the code path. The argument can be
           an atom <c><anno>Name</anno></c>, in which case the directory with
           the name <c>.../<anno>Name</anno>[-Vsn][/ebin]</c> is deleted from the code
-          path. It is also possible to give the complete directory name
-          <c><anno>Dir</anno></c> as argument.</p>
-        <p>Returns <c>true</c> if successful, or <c>false</c> if
-          the directory is not found, or <c>{error, bad_name}</c> if
-          the argument is invalid.</p>
+          path. Also, the complete directory name <c><anno>Dir</anno></c> can be
+	  specified as argument.</p>
+        <p>Returns:</p>
+	<taglist>
+	<tag><c>true</c></tag>
+	<item><p>If successful</p></item>
+	<tag><c>false</c></tag>
+	<item><p>If the directory is not found</p></item>
+	<tag><c>{error, bad_name}</c></tag>
+	<item><p>If the argument is invalid</p></item>
+	</taglist>
       </desc>
     </func>
     <func>
       <name name="replace_path" arity="2"/>
-      <fsummary>Replace a directory with another in the code path</fsummary>
+      <fsummary>Replace a directory with another in the code path.</fsummary>
       <desc>
-        <p>This function replaces an old occurrence of a directory
-          named <c>.../<anno>Name</anno>[-Vsn][/ebin]</c>, in the code path, with
-          <c><anno>Dir</anno></c>. If <c><anno>Name</anno></c> does not exist, it adds the new
-          directory <c><anno>Dir</anno></c> last in the code path. The new directory
-          must also be named <c>.../<anno>Name</anno>[-Vsn][/ebin]</c>. This function
-          should be used if a new version of the directory (library) is
+        <p>Replaces an old occurrence of a directory
+          named <c>.../<anno>Name</anno>[-Vsn][/ebin]</c> in the code path, with
+          <c><anno>Dir</anno></c>. If <c><anno>Name</anno></c> does not exist, it adds
+	  the new directory <c><anno>Dir</anno></c> last in the code path. The new
+	  directory must also be named <c>.../<anno>Name</anno>[-Vsn][/ebin]</c>.
+	  This function is to be used if a new version of the directory (library) is
           added to a running system.</p>
-        <p>Returns <c>true</c> if successful, or
-          <c>{error, bad_name}</c> if <c><anno>Name</anno></c> is not found, or
-          <c>{error, bad_directory}</c> if <c><anno>Dir</anno></c> does not exist, or
-          <c>{error, {badarg, [<anno>Name</anno>, <anno>Dir</anno>]}}</c> if <c><anno>Name</anno></c> or
-          <c><anno>Dir</anno></c> is invalid.</p>
+        <p>Returns:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+	  <item><p>If successful</p></item>
+          <tag><c>{error, bad_name}</c></tag>
+	  <item><p>If <c><anno>Name</anno></c> is not found</p></item>
+          <tag><c>{error, bad_directory}</c></tag>
+	  <item><p>If <c><anno>Dir</anno></c> does not exist</p></item>
+          <tag><c>{error, {badarg, [<anno>Name</anno>, <anno>Dir</anno>]}}</c></tag>
+	  <item><p>If <c><anno>Name</anno></c> or <c><anno>Dir</anno></c> is invalid</p></item>
+	</taglist>
       </desc>
     </func>
     <func>
       <name name="load_file" arity="1"/>
-      <fsummary>Load a module</fsummary>
+      <fsummary>Load a module.</fsummary>
       <type name="load_ret"/>
       <desc>
         <p>Tries to load the Erlang module <c><anno>Module</anno></c>, using
           the code path. It looks for the object code file with an
-          extension that corresponds to the Erlang machine used, for
-          example <c><anno>Module</anno>.beam</c>. The loading fails if the module
+          extension corresponding to the Erlang machine used, for
+          example, <c><anno>Module</anno>.beam</c>. The loading fails if the module
           name found in the object code differs from the name
           <c><anno>Module</anno></c>.
-          <seealso marker="#load_binary/3">load_binary/3</seealso> must
+          <seealso marker="#load_binary/3"><c>load_binary/3</c></seealso> must
           be used to load object code with a module name that is
           different from the file name.</p>
         <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
@@ -457,45 +454,45 @@
     </func>
     <func>
       <name name="load_abs" arity="1"/>
-      <fsummary>Load a module, residing in a given file</fsummary>
+      <fsummary>Load a module, residing in a specified file.</fsummary>
       <type name="load_ret"/>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
       <desc>
-        <p>Does the same as <c>load_file(<anno>Module</anno>)</c>, but
-          <c><anno>Filename</anno></c> is either an absolute file name, or a
-           relative file name. The code path is not searched. It returns
+        <p>Same as <c>load_file(<anno>Module</anno>)</c>, but
+          <c><anno>Filename</anno></c> is an absolute or
+          relative filename. The code path is not searched. It returns
           a value in the same way as
-          <seealso marker="#load_file/1">load_file/1</seealso>. Note
-          that <c><anno>Filename</anno></c> should not contain the extension (for
-          example <c>".beam"</c>); <c>load_abs/1</c> adds the correct
-          extension itself.</p>
+          <seealso marker="#load_file/1"><c>load_file/1</c></seealso>. Notice
+          that <c><anno>Filename</anno></c> must not contain the extension (for
+          example, <c>.beam</c>) because <c>load_abs/1</c> adds the correct
+          extension.</p>
       </desc>
     </func>
     <func>
       <name name="ensure_loaded" arity="1"/>
-      <fsummary>Ensure that a module is loaded</fsummary>
+      <fsummary>Ensure that a module is loaded.</fsummary>
       <desc>
-        <p>Tries to to load a module in the same way as
-          <seealso marker="#load_file/1">load_file/1</seealso>,
+        <p>Tries to load a module in the same way as
+          <seealso marker="#load_file/1"><c>load_file/1</c></seealso>,
 	  unless the module is already loaded.
-          In embedded mode, however, it does not load a module which is not
+          However, in embedded mode it does not load a module that is not
           already loaded, but returns <c>{error, embedded}</c> instead.
 	  See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of other possible error reasons.</p>
       </desc>
     </func>
     <func>
       <name name="load_binary" arity="3"/>
-      <fsummary>Load object code for a module</fsummary>
+      <fsummary>Load object code for a module.</fsummary>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
       <desc>
         <p>This function can be used to load object code on remote
-          Erlang nodes. The argument <c><anno>Binary</anno></c> must contain
+          Erlang nodes. Argument <c><anno>Binary</anno></c> must contain
 	  object code for <c><anno>Module</anno></c>.
           <c><anno>Filename</anno></c> is only used by the code server to keep a
           record of from which file the object code for <c><anno>Module</anno></c>
-          comes. Accordingly, <c><anno>Filename</anno></c> is not opened and read by
+          comes. Thus, <c><anno>Filename</anno></c> is not opened and read by
           the code server.</p>
         <p>Returns <c>{module, <anno>Module</anno>}</c> if successful, or
 	<c>{error, Reason}</c> if loading fails.
@@ -503,93 +500,227 @@
       </desc>
     </func>
     <func>
+      <name name="atomic_load" arity="1"/>
+      <fsummary>Load a list of modules atomically</fsummary>
+      <desc>
+        <p>Tries to load all of the modules in the list
+        <c><anno>Modules</anno></c> atomically.  That means that
+        either all modules are loaded at the same time, or
+        none of the modules are loaded if there is a problem with any
+	of the modules.</p>
+	<p>Loading can fail for one the following reasons:</p>
+	<taglist>
+	  <tag><c>badfile</c></tag>
+	  <item>
+	    <p>The object code has an incorrect format or the module
+	    name in the object code is not the expected module name.</p>
+	  </item>
+	  <tag><c>nofile</c></tag>
+	  <item>
+	    <p>No file with object code exists.</p>
+	  </item>
+	  <tag><c>on_load_not_allowed</c></tag>
+	  <item>
+	    <p>A module contains an
+	    <seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>.</p>
+	  </item>
+	  <tag><c>duplicated</c></tag>
+	  <item>
+	    <p>A module is included more than once in
+	    <c><anno>Modules</anno></c>.</p>
+	  </item>
+	  <tag><c>not_purged</c></tag>
+	  <item>
+	    <p>The object code can not be loaded because an old version
+	    of the code already exists.</p>
+	  </item>
+	  <tag><c>sticky_directory</c></tag>
+	  <item>
+	    <p>The object code resides in a sticky directory.</p>
+	  </item>
+	  <tag><c>pending_on_load</c></tag>
+	  <item>
+	    <p>A previously loaded module contains an
+	    <c>-on_load</c> function that never finished.</p>
+	  </item>
+	</taglist>
+	<p>If it is important to minimize the time that an application
+	is inactive while changing code, use
+	<seealso marker="#prepare_loading/1">prepare_loading/1</seealso>
+	and
+	<seealso marker="#finish_loading/1">finish_loading/1</seealso>
+	instead of <c>atomic_load/1</c>. Here is an example:</p>
+<pre>
+{ok,Prepared} = code:prepare_loading(Modules),
+%% Put the application into an inactive state or do any
+%% other preparation needed before changing the code.
+ok = code:finish_loading(Prepared),
+%% Resume the application.</pre>
+      </desc>
+    </func>
+    <func>
+      <name name="prepare_loading" arity="1"/>
+      <fsummary>Prepare a list of modules atomically</fsummary>
+      <desc>
+        <p>Prepares to load the modules in the list
+        <c><anno>Modules</anno></c>.
+	Finish the loading by calling
+	<seealso marker="#finish_loading/1">finish_loading(Prepared)</seealso>.</p>
+	<p>This function can fail with one of the following error reasons:</p>
+	<taglist>
+	  <tag><c>badfile</c></tag>
+	  <item>
+	    <p>The object code has an incorrect format or the module
+	    name in the object code is not the expected module name.</p>
+	  </item>
+	  <tag><c>nofile</c></tag>
+	  <item>
+	    <p>No file with object code exists.</p>
+	  </item>
+	  <tag><c>on_load_not_allowed</c></tag>
+	  <item>
+	    <p>A module contains an
+	    <seealso marker="doc/reference_manual:code_loading#on_load">-on_load function</seealso>.</p>
+	  </item>
+	  <tag><c>duplicated</c></tag>
+	  <item>
+	    <p>A module is included more than once in
+	    <c><anno>Modules</anno></c>.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="finish_loading" arity="1"/>
+      <fsummary>Finish loading a list of prepared modules atomically</fsummary>
+      <desc>
+        <p>Tries to load code for all modules that have been previously
+	prepared by
+	<seealso marker="#prepare_loading/1">prepare_loading/1</seealso>.
+	The loading occurs atomically, meaning that
+        either all modules are loaded at the same time, or
+        none of the modules are loaded.</p>
+	<p>This function can fail with one of the following error reasons:</p>
+	<taglist>
+	  <tag><c>not_purged</c></tag>
+	  <item>
+	    <p>The object code can not be loaded because an old version
+	    of the code already exists.</p>
+	  </item>
+	  <tag><c>sticky_directory</c></tag>
+	  <item>
+	    <p>The object code resides in a sticky directory.</p>
+	  </item>
+	  <tag><c>pending_on_load</c></tag>
+	  <item>
+	    <p>A previously loaded module contains an
+	    <c>-on_load</c> function that never finished.</p>
+	  </item>
+	</taglist>
+      </desc>
+    </func>
+    <func>
+      <name name="ensure_modules_loaded" arity="1"/>
+      <fsummary>Ensure that a list of modules is loaded</fsummary>
+      <desc>
+        <p>Tries to load any modules not already loaded in the list
+	<c><anno>Modules</anno></c> in the same way as
+          <seealso marker="#load_file/1">load_file/1</seealso>.</p>
+	  <p>Returns <c>ok</c> if successful, or
+	  <c>{error,[{Module,Reason}]}</c> if loading of some modules fails.
+	  See <seealso marker="#error_reasons">Error Reasons for Code-Loading Functions</seealso> for a description of other possible error reasons.</p>
+      </desc>
+    </func>
+    <func>
       <name name="delete" arity="1"/>
-      <fsummary>Removes current code for a module</fsummary>
+      <fsummary>Remove current code for a module.</fsummary>
       <desc>
         <p>Removes the current code for <c><anno>Module</anno></c>, that is,
           the current code for <c><anno>Module</anno></c> is made old. This means
           that processes can continue to execute the code in the module,
-          but that no external function calls can be made to it.</p>
+          but no external function calls can be made to it.</p>
         <p>Returns <c>true</c> if successful, or <c>false</c> if there
-          is old code for <c><anno>Module</anno></c> which must be purged first, or
+          is old code for <c><anno>Module</anno></c> that must be purged first, or
           if <c><anno>Module</anno></c> is not a (loaded) module.</p>
       </desc>
     </func>
     <func>
       <name name="purge" arity="1"/>
-      <fsummary>Removes old code for a module</fsummary>
+      <fsummary>Remove old code for a module.</fsummary>
       <desc>
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old. If some processes still linger in the old code,
           these processes are killed before the code is removed.</p>
-        <p>Returns <c>true</c> if successful and any process needed to
+        <p>Returns <c>true</c> if successful and any process is needed to
           be killed, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
       <name name="soft_purge" arity="1"/>
-      <fsummary>Removes old code for a module, unless no process uses it</fsummary>
+      <fsummary>Remove old code for a module, unless no process uses it.</fsummary>
       <desc>
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old, but only if no processes linger in it.</p>
-        <p>Returns <c>false</c> if the module could not be purged due
-          to processes lingering in old code, otherwise <c>true</c>.</p>
+        <p>Returns <c>false</c> if the module cannot be purged because
+          of processes lingering in old code, otherwise <c>true</c>.</p>
       </desc>
     </func>
     <func>
       <name name="is_loaded" arity="1"/>
-      <fsummary>Check if a module is loaded</fsummary>
+      <fsummary>Check if a module is loaded.</fsummary>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
-      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute filename</type_desc>
+      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute
+      filename.</type_desc>
       <desc>
         <p>Checks if <c><anno>Module</anno></c> is loaded. If it is,
           <c>{file, <anno>Loaded</anno>}</c> is returned, otherwise <c>false</c>.</p>
-        <p>Normally, <c><anno>Loaded</anno></c> is the absolute file name
-          <c>Filename</c> from which the code was obtained. If the module
+        <p>Normally, <c><anno>Loaded</anno></c> is the absolute filename
+          <c>Filename</c> from which the code is obtained. If the module
           is preloaded (see
-          <seealso marker="sasl:script">script(4)</seealso>),
-          <c>Loaded==preloaded</c>. If the module is Cover compiled (see
-          <seealso marker="tools:cover">cover(3)</seealso>),
+          <seealso marker="sasl:script"><c>sasl:script(4)</c></seealso>),
+          <c>Loaded==preloaded</c>. If the module is Cover-compiled (see
+          <seealso marker="tools:cover"><c>tools:cover(3)</c></seealso>),
           <c>Loaded==cover_compiled</c>.</p>
       </desc>
     </func>
     <func>
       <name name="all_loaded" arity="0"/>
-      <fsummary>Get all loaded modules</fsummary>
+      <fsummary>Get all loaded modules.</fsummary>
       <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
-      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute filename</type_desc>
+      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute
+      filename.</type_desc>
       <desc>
         <p>Returns a list of tuples <c>{<anno>Module</anno>, <anno>Loaded</anno>}</c> for all
-          loaded modules. <c><anno>Loaded</anno></c> is normally the absolute file
-          name, as described for
-          <seealso marker="#is_loaded/1">is_loaded/1</seealso>.</p>
+          loaded modules. <c><anno>Loaded</anno></c> is normally the absolute filename,
+          as described for
+          <seealso marker="#is_loaded/1"><c>is_loaded/1</c></seealso>.</p>
       </desc>
     </func>
     <func>
       <name name="which" arity="1"/>
-      <fsummary>The object code file of a module</fsummary>
+      <fsummary>The object code file of a module.</fsummary>
       <type name="loaded_ret_atoms"/>
       <desc>
         <p>If the module is not loaded, this function searches the code
-          path for the first file which contains object code for
-          <c><anno>Module</anno></c> and returns the absolute file name. If
-          the module is loaded, it returns the name of the file which
-          contained the loaded object code. If the module is pre-loaded,
-          <c>preloaded</c> is returned. If the module is Cover compiled,
-          <c>cover_compiled</c> is returned. <c>non_existing</c> is
-          returned if the module cannot be found.</p>
+          path for the first file containing object code for
+          <c><anno>Module</anno></c> and returns the absolute filename.</p>
+	  <p>If the module is loaded, it returns the name of the file
+          containing the loaded object code.</p>
+	  <p>If the module is preloaded, <c>preloaded</c> is returned.</p>
+	  <p>If the module is Cover-compiled, <c>cover_compiled</c> is returned.</p>
+	  <p>If the module cannot be found, <c>non_existing</c> is returned.</p>
       </desc>
     </func>
     <func>
       <name name="get_object_code" arity="1"/>
-      <fsummary>Get the object code for a module</fsummary>
+      <fsummary>Gets the object code for a module.</fsummary>
       <desc>
-        <p>Searches the code path for the object code of the module
-          <c><anno>Module</anno></c>. It returns <c>{<anno>Module</anno>, <anno>Binary</anno>, <anno>Filename</anno>}</c>
-          if successful, and <c>error</c> if not. <c><anno>Binary</anno></c> is a
-          binary data object which contains the object code for
+        <p>Searches the code path for the object code of module
+          <c><anno>Module</anno></c>. Returns <c>{<anno>Module</anno>, <anno>Binary</anno>, <anno>Filename</anno>}</c>
+          if successful, otherwise <c>error</c>. <c><anno>Binary</anno></c> is a
+          binary data object, which contains the object code for
           the module. This can be useful if code is to be loaded on a
           remote node in a distributed system. For example, loading
           module <c><anno>Module</anno></c> on a node <c>Node</c> is done as
@@ -603,10 +734,11 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
     <func>
       <name name="root_dir" arity="0"/>
-      <fsummary>Root directory of Erlang/OTP</fsummary>
+      <fsummary>Root directory of Erlang/OTP.</fsummary>
       <desc>
         <p>Returns the root directory of Erlang/OTP, which is
           the directory where it is installed.</p>
+	<p><em>Example:</em></p>
         <pre>
 > <input>code:root_dir().</input>
 "/usr/local/otp"</pre>
@@ -614,10 +746,11 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
     <func>
       <name name="lib_dir" arity="0"/>
-      <fsummary>Library directory of Erlang/OTP</fsummary>
+      <fsummary>Library directory of Erlang/OTP.</fsummary>
       <desc>
         <p>Returns the library directory, <c>$OTPROOT/lib</c>, where
           <c>$OTPROOT</c> is the root directory of Erlang/OTP.</p>
+	<p><em>Example:</em></p>
         <pre>
 > <input>code:lib_dir().</input>
 "/usr/local/otp/lib"</pre>
@@ -625,50 +758,49 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
     <func>
       <name name="lib_dir" arity="1"/>
-      <fsummary>Library directory for an application</fsummary>
+      <fsummary>Library directory for an application.</fsummary>
       <desc>
-        <p>This function is mainly intended for finding out the path
+        <p>Returns the path
           for the "library directory", the top directory, for an
           application <c><anno>Name</anno></c> located under <c>$OTPROOT/lib</c> or
-          on a directory referred to via the <c>ERL_LIBS</c>
-          environment variable.</p>
-        <p>If there is a regular directory called <c><anno>Name</anno></c> or
-          <c><anno>Name</anno>-Vsn</c> in the code path with an <c>ebin</c>
+          on a directory referred to with environment variable <c>ERL_LIBS</c>.</p>
+        <p>If a regular directory called <c><anno>Name</anno></c> or
+          <c><anno>Name</anno>-Vsn</c> exists in the code path with an <c>ebin</c>
           subdirectory, the path to this directory is returned (not
-          the <c>ebin</c> directory). If the directory refers to a
-          directory in an archive, the archive name is stripped away
-          before the path is returned.  For example, if the directory
+          the <c>ebin</c> directory).</p>
+	<p>If the directory refers to a directory in an archive, the
+	  archive name is stripped away before the path is returned.
+	  For example, if directory
           <c>/usr/local/otp/lib/mnesia-4.2.2.ez/mnesia-4.2.2/ebin</c>
           is in the path, <c>/usr/local/otp/lib/mnesia-4.2.2/ebin</c>
-          will be returned. This means that the library directory for
-          an application is the same, regardless of whether the
+          is returned. This means that the library directory for
+          an application is the same, regardless if the
           application resides in an archive or not.</p>
-
+	<p><em>Example:</em></p>
         <pre>
 > <input>code:lib_dir(mnesia).</input>
 "/usr/local/otp/lib/mnesia-4.2.2"</pre>
         <p>Returns <c>{error, bad_name}</c> if <c><anno>Name</anno></c>
 	 is not the name of an application under <c>$OTPROOT/lib</c> or
-	 on a directory referred to via the <c>ERL_LIBS</c>
-         environment variable. Fails with an exception if <c>Name</c>
-         has the wrong type.</p>
+	 on a directory referred to through environment variable <c>ERL_LIBS</c>.
+	 Fails with an exception if <c>Name</c> has the wrong type.</p>
 
-	<warning><p>For backward compatibility, <c><anno>Name</anno></c> is also allowed to
-	be a string. That will probably change in a future release.</p></warning>
+	<warning><p>For backward compatibility, <c><anno>Name</anno></c> is also
+	allowed to be a string. That will probably change in a future release.</p></warning>
       </desc>
     </func>
     <func>
       <name name="lib_dir" arity="2"/>
-      <fsummary>subdirectory for an application</fsummary>
+      <fsummary>Subdirectory for an application.</fsummary>
       <desc>
         <p>Returns the path to a subdirectory directly under the top
          directory of an application. Normally the subdirectories
-         resides under the top directory for the application, but when
-         applications at least partly resides in an archive the
-         situation is different. Some of the subdirectories may reside
-         as regular directories while other resides in an archive
-         file. It is not checked if this directory really exists.</p>
-
+         reside under the top directory for the application, but when
+         applications at least partly resides in an archive, the
+         situation is different. Some of the subdirectories can reside
+         as regular directories while other reside in an archive
+         file. It is not checked whether this directory exists.</p>
+	 <p><em>Example:</em></p>
         <pre>
 > <input>code:lib_dir(megaco, priv).</input>
 "/usr/local/otp/lib/megaco-3.9.1.1/priv"</pre>
@@ -679,7 +811,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
     <func>
       <name name="compiler_dir" arity="0"/>
-      <fsummary>Library directory for the compiler</fsummary>
+      <fsummary>Library directory for the compiler.</fsummary>
       <desc>
         <p>Returns the compiler library directory. Equivalent to
           <c>code:lib_dir(compiler)</c>.</p>
@@ -687,10 +819,10 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
     <func>
       <name name="priv_dir" arity="1"/>
-      <fsummary>Priv directory for an application</fsummary>
+      <fsummary>Priv directory for an application.</fsummary>
       <desc>
         <p>Returns the path to the <c>priv</c> directory in an
-         application. Equivalent to <c>code:lib_dir(<anno>Name</anno>, priv).</c>.</p>
+         application. Equivalent to <c>code:lib_dir(<anno>Name</anno>, priv)</c>.</p>
 
 	<warning><p>For backward compatibility, <c><anno>Name</anno></c> is also allowed to
 	be a string. That will probably change in a future release.</p></warning>
@@ -698,91 +830,88 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
     <func>
       <name name="objfile_extension" arity="0"/>
-      <fsummary>Object code file extension</fsummary>
+      <fsummary>Object code file extension.</fsummary>
       <desc>
-        <p>Returns the object code file extension that corresponds to
-          the Erlang machine used, namely <c>".beam"</c>.</p>
+        <p>Returns the object code file extension corresponding to
+          the Erlang machine used, namely <c>.beam</c>.</p>
       </desc>
     </func>
     <func>
       <name name="stick_dir" arity="1"/>
-      <fsummary>Mark a directory as sticky</fsummary>
+      <fsummary>Mark a directory as sticky.</fsummary>
       <desc>
-        <p>This function marks <c><anno>Dir</anno></c> as sticky.</p>
-        <p>Returns <c>ok</c> if successful or <c>error</c> if not.</p>
+        <p>Marks <c><anno>Dir</anno></c> as sticky.</p>
+        <p>Returns <c>ok</c> if successful, otherwise <c>error</c>.</p>
       </desc>
     </func>
     <func>
       <name name="unstick_dir" arity="1"/>
-      <fsummary>Remove a sticky directory mark</fsummary>
+      <fsummary>Remove a sticky directory mark.</fsummary>
       <desc>
-        <p>This function unsticks a directory which has been marked as
+        <p>Unsticks a directory that is marked as
           sticky.</p>
-        <p>Returns <c>ok</c> if successful or <c>error</c> if not.</p>
+        <p>Returns <c>ok</c> if successful, otherwise <c>error</c>.</p>
       </desc>
     </func>
     <func>
       <name name="is_sticky" arity="1"/>
-      <fsummary>Test whether a module is sticky</fsummary>
+      <fsummary>Test if a module is sticky.</fsummary>
       <desc>
-        <p>This function returns <c>true</c> if <c><anno>Module</anno></c> is the
+        <p>Returns <c>true</c> if <c><anno>Module</anno></c> is the
 	name of a module that has been loaded from a sticky directory
-	(or in other words: an attempt to reload the module will fail),
+	(in other words: an attempt to reload the module will fail),
 	or <c>false</c> if <c><anno>Module</anno></c> is not a loaded module or is
 	not sticky.</p>
       </desc>
     </func>
     <func>
-      <name name="rehash" arity="0"/>
-      <fsummary>Rehash or create code path cache</fsummary>
-      <desc>
-        <p>This function creates or rehashes the code path cache.</p>
-      </desc>
-    </func>
-    <func>
       <name name="where_is_file" arity="1"/>
-      <fsummary>Full name of a file located in the code path</fsummary>
+      <fsummary>Full name of a file located in the code path.</fsummary>
       <desc>
         <p>Searches the code path for <c><anno>Filename</anno></c>, a file of
           arbitrary type. If found, the full name is returned.
           <c>non_existing</c> is returned if the file cannot be found.
           The function can be useful, for example, to locate
-          application resource files. If the code path cache is used,
-          the code server will efficiently read the full name from
-          the cache, provided that <c><anno>Filename</anno></c> is an object code
-          file or an <c>.app</c> file.</p>
+          application resource files.</p>
       </desc>
     </func>
     <func>
       <name name="clash" arity="0"/>
       <fsummary>Search for modules with identical names.</fsummary>
       <desc>
-        <p>Searches the entire code space for module names with
+        <p>Searches all directories in the code path for module names with
           identical names and writes a report to <c>stdout</c>.</p>
       </desc>
     </func>
     <func>
       <name name="is_module_native" arity="1"/>
-      <fsummary>Test whether a module has native code</fsummary>
+      <fsummary>Test if a module has native code.</fsummary>
       <desc>
-        <p>This function returns <c>true</c> if <c><anno>Module</anno></c> is
-	name of a loaded module that has native code loaded, and 
-	<c>false</c> if <c><anno>Module</anno></c> is loaded but does not have
-	native. If <c><anno>Module</anno></c> is not loaded, this function returns
-	<c>undefined</c>.</p>
+	<p>Returns:</p>
+	<taglist>
+	<tag><c>true</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is the
+	name of a loaded module that has native code loaded</p></item>
+        <tag><c>false</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded but does not have
+	native code</p></item>
+	<tag><c>undefined</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is not loaded</p></item>
+	</taglist>
       </desc>
     </func>
 
     <func>
       <name name="get_mode" arity="0"/>
-      <fsummary>The code_server's mode.</fsummary>
+      <fsummary>The mode of the code server.</fsummary>
       <desc>
-        <p>This function returns an atom describing the code_server's mode:
-        <c>interactive</c> or <c>embedded</c>. </p>
+        <p>Returns an atom describing the mode of the code server:
+        <c>interactive</c> or <c>embedded</c>.</p>
         <p>This information is useful when an external entity (for example,
-        an IDE) provides additional code for a running node. If in interactive
-        mode, it only needs to add to the code path. If in embedded mode,
-        the code has to be loaded with <c>load_binary/3</c></p>
+        an IDE) provides additional code for a running node. If the code server is
+	in interactive mode, it only has to add the path to the code. If the code server
+	is in embedded mode, the code must be loaded with
+	<seealso marker="#load_binary/3"><c>load_binary/3</c></seealso>.</p>
       </desc>
     </func>
   </funcs>

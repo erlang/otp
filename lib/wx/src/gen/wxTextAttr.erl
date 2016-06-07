@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,9 +58,9 @@ new(ColText)
 %%<br /> Alignment = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
 -spec new(ColText, [Option]) -> wxTextAttr() when
 	ColText::wx:wx_colour(),
-	Option :: {colBack, wx:wx_colour()}
-		 | {font, wxFont:wxFont()}
-		 | {alignment, wx:wx_enum()}.
+	Option :: {'colBack', wx:wx_colour()}
+		 | {'font', wxFont:wxFont()}
+		 | {'alignment', wx:wx_enum()}.
 new(ColText, Options)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4,is_list(Options) ->
   MOpts = fun({colBack, ColBack}, Acc) -> [<<1:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary,0:32>>|Acc];
@@ -178,7 +178,7 @@ isDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsetalignment">external documentation</a>.
 %%<br /> Alignment = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
--spec setAlignment(This, Alignment) -> ok when
+-spec setAlignment(This, Alignment) -> 'ok' when
 	This::wxTextAttr(), Alignment::wx:wx_enum().
 setAlignment(#wx_ref{type=ThisT,ref=ThisRef},Alignment)
  when is_integer(Alignment) ->
@@ -187,7 +187,7 @@ setAlignment(#wx_ref{type=ThisT,ref=ThisRef},Alignment)
   <<ThisRef:32/?UI,Alignment:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsetbackgroundcolour">external documentation</a>.
--spec setBackgroundColour(This, ColBack) -> ok when
+-spec setBackgroundColour(This, ColBack) -> 'ok' when
 	This::wxTextAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
  when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
@@ -196,7 +196,7 @@ setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsetflags">external documentation</a>.
--spec setFlags(This, Flags) -> ok when
+-spec setFlags(This, Flags) -> 'ok' when
 	This::wxTextAttr(), Flags::integer().
 setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
  when is_integer(Flags) ->
@@ -205,7 +205,7 @@ setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
   <<ThisRef:32/?UI,Flags:32/?UI>>).
 
 %% @equiv setFont(This,Font, [])
--spec setFont(This, Font) -> ok when
+-spec setFont(This, Font) -> 'ok' when
 	This::wxTextAttr(), Font::wxFont:wxFont().
 
 setFont(This,Font)
@@ -213,9 +213,9 @@ setFont(This,Font)
   setFont(This,Font, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsetfont">external documentation</a>.
--spec setFont(This, Font, [Option]) -> ok when
+-spec setFont(This, Font, [Option]) -> 'ok' when
 	This::wxTextAttr(), Font::wxFont:wxFont(),
-	Option :: {flags, integer()}.
+	Option :: {'flags', integer()}.
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -227,7 +227,7 @@ setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}, Options
   <<ThisRef:32/?UI,FontRef:32/?UI, BinOpt/binary>>).
 
 %% @equiv setLeftIndent(This,Indent, [])
--spec setLeftIndent(This, Indent) -> ok when
+-spec setLeftIndent(This, Indent) -> 'ok' when
 	This::wxTextAttr(), Indent::integer().
 
 setLeftIndent(This,Indent)
@@ -235,9 +235,9 @@ setLeftIndent(This,Indent)
   setLeftIndent(This,Indent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsetleftindent">external documentation</a>.
--spec setLeftIndent(This, Indent, [Option]) -> ok when
+-spec setLeftIndent(This, Indent, [Option]) -> 'ok' when
 	This::wxTextAttr(), Indent::integer(),
-	Option :: {subIndent, integer()}.
+	Option :: {'subIndent', integer()}.
 setLeftIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent, Options)
  when is_integer(Indent),is_list(Options) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -248,7 +248,7 @@ setLeftIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent, Options)
   <<ThisRef:32/?UI,Indent:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsetrightindent">external documentation</a>.
--spec setRightIndent(This, Indent) -> ok when
+-spec setRightIndent(This, Indent) -> 'ok' when
 	This::wxTextAttr(), Indent::integer().
 setRightIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent)
  when is_integer(Indent) ->
@@ -257,7 +257,7 @@ setRightIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent)
   <<ThisRef:32/?UI,Indent:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsettabs">external documentation</a>.
--spec setTabs(This, Tabs) -> ok when
+-spec setTabs(This, Tabs) -> 'ok' when
 	This::wxTextAttr(), Tabs::[integer()].
 setTabs(#wx_ref{type=ThisT,ref=ThisRef},Tabs)
  when is_list(Tabs) ->
@@ -267,7 +267,7 @@ setTabs(#wx_ref{type=ThisT,ref=ThisRef},Tabs)
         (<< <<C:32/?I>> || C <- Tabs>>)/binary, 0:(((0+length(Tabs)) rem 2)*32)>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextattr.html#wxtextattrsettextcolour">external documentation</a>.
--spec setTextColour(This, ColText) -> ok when
+-spec setTextColour(This, ColText) -> 'ok' when
 	This::wxTextAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
@@ -276,7 +276,7 @@ setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxTextAttr()) -> ok.
+-spec destroy(This::wxTextAttr()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextAttr),
   wxe_util:destroy(?wxTextAttr_destroy,Obj),

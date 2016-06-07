@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2014</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -80,8 +80,8 @@ init(_Args) ->
     </section>
 
   <section>
-    <title>Supervisor Flags</title>
     <marker id="flags"/>
+    <title>Supervisor Flags</title>
     <p>This is the type definition for the supervisor flags:</p>
     <code type="none"><![CDATA[
 sup_flags() = #{strategy => strategy(),         % optional
@@ -106,9 +106,8 @@ sup_flags() = #{strategy => strategy(),         % optional
   </section>
 
   <section>
-    <marker id="strategy"></marker>
+    <marker id="strategy"/>
     <title>Restart Strategy</title>
-
     <p> The restart strategy is specified by
       the <c>strategy</c> key in the supervisor flags map returned by
       the callback function <c>init</c>:</p>
@@ -213,6 +212,7 @@ child_spec() = #{id => child_id(),       % mandatory
 	  <item><c>supervisor:start_link</c></item>
 	  <item><c>gen_server:start_link</c></item>
 	  <item><c>gen_fsm:start_link</c></item>
+	  <item><c>gen_statem:start_link</c></item>
 	  <item><c>gen_event:start_link</c></item>
 	  <item>A function compliant with these functions. For details,
 	  see the <c>supervisor(3)</c> manual page.</item>
@@ -229,7 +229,7 @@ child_spec() = #{id => child_id(),       % mandatory
           is <c>rest_for_one</c> or <c>one_for_all</c> and a sibling
           death causes the temporary process to be terminated).</item>
           <item>A <c>transient</c> child process is restarted only if it
-	  terminates abnormally, that is, with another exit reason than
+	  terminates abnormally, that is, with an exit reason other than
           <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.</item>
         </list>
 	<p>The <c>restart</c> key is optional. If it is not given, the
@@ -276,7 +276,8 @@ child_spec() = #{id => child_id(),       % mandatory
         <p><c>modules</c> are to be a list with one element
           <c>[Module]</c>, where <c>Module</c> is the name of
           the callback module, if the child process is a supervisor,
-          gen_server or gen_fsm. If the child process is a gen_event,
+          gen_server, gen_fsm or gen_statem.
+	  If the child process is a gen_event,
           the value shall be <c>dynamic</c>.</p>
         <p>This information is used by the release handler during
           upgrades and downgrades, see
@@ -400,8 +401,8 @@ supervisor:delete_child(Sup, Id)</code>
       restarts.</p>
   </section>
 
-  <marker id="simple"/>
   <section>
+    <marker id="simple"/>
     <title>Simplified one_for_one Supervisors</title>
     <p>A supervisor with restart strategy <c>simple_one_for_one</c> is
       a simplified <c>one_for_one</c> supervisor, where all child

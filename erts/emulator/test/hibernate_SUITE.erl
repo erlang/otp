@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,46 +20,24 @@
 
 -module(hibernate_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
-	 init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,
 	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
-	 messages_in_queue/1,undefined_mfa/1,no_heap/1,wake_up_and_bif_trap/1]).
+	 messages_in_queue/1,undefined_mfa/1,no_heap/1,
+         wake_up_and_bif_trap/1]).
 
 %% Used by test cases.
--export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2, no_heap_loop/0,characters_to_list_trap/1]).
+-export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2,
+         no_heap_loop/0,characters_to_list_trap/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 3}}].
 
 all() -> 
     [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
      undefined_mfa, no_heap, wake_up_and_bif_trap].
-
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog = ?t:timetrap(?t:minutes(3)),
-    [{watchdog,Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
 
 %%%
 %%% Testing the basic functionality of erlang:hibernate/3.
@@ -69,9 +47,9 @@ basic(Config) when is_list(Config) ->
     Ref = make_ref(),
     Info = {self(),Ref},
     ExpectedHeapSz = erts_debug:size([Info]),
-    ?line Child = spawn_link(fun() -> basic_hibernator(Info) end),
-    ?line hibernate_wake_up(100, ExpectedHeapSz, Child),
-    ?line Child ! please_quit_now,
+    Child = spawn_link(fun() -> basic_hibernator(Info) end),
+    hibernate_wake_up(100, ExpectedHeapSz, Child),
+    Child ! please_quit_now,
     ok.
 
 hibernate_wake_up(0, _, _) -> ok;
@@ -85,35 +63,35 @@ hibernate_wake_up(N, ExpectedHeapSz, Child) ->
 	    end;
 	1 -> ok
     end,
-    ?line Child ! {hibernate,self()},
-    ?line wait_until(fun () ->
+    Child ! {hibernate,self()},
+    wait_until(fun () ->
 			     {current_function,{erlang,hibernate,3}} ==
 				 process_info(Child, current_function)
 		     end),
-    ?line {message_queue_len,0} = process_info(Child, message_queue_len),
-    ?line {status,waiting} = process_info(Child, status),
-    ?line {heap_size,ExpectedHeapSz} = process_info(Child, heap_size),
+    {message_queue_len,0} = process_info(Child, message_queue_len),
+    {status,waiting} = process_info(Child, status),
+    {heap_size,ExpectedHeapSz} = process_info(Child, heap_size),
     io:format("Before hibernation: ~p  After hibernation: ~p\n",
 	      [Before,ExpectedHeapSz]),
-    ?line Child ! {whats_up,self()},
-    ?line receive
-	      {all_fine,X,Child,_Ref} ->
-		  if
-		      N =:= 1 -> io:format("~p\n", [X]);
-		      true -> ok
-		  end,
-		  {backtrace,Bin} = process_info(Child, backtrace),
-		  if
-		      size(Bin) > 1000 ->
-			  io:format("~s\n", [binary_to_list(Bin)]),
-			  ?line ?t:fail(stack_is_growing);
-		      true ->
-			  hibernate_wake_up(N-1, ExpectedHeapSz, Child)
-		  end;
-	      Other ->
-		  ?line io:format("~p\n", [Other]),
-		  ?line ?t:fail(unexpected_message)
-	  end.
+    Child ! {whats_up,self()},
+    receive
+        {all_fine,X,Child,_Ref} ->
+            if
+                N =:= 1 -> io:format("~p\n", [X]);
+                true -> ok
+            end,
+            {backtrace,Bin} = process_info(Child, backtrace),
+            if
+                size(Bin) > 1000 ->
+                    io:format("~s\n", [binary_to_list(Bin)]),
+                    ct:fail(stack_is_growing);
+                true ->
+                    hibernate_wake_up(N-1, ExpectedHeapSz, Child)
+            end;
+        Other ->
+            io:format("~p\n", [Other]),
+            ct:fail(unexpected_message)
+    end.
 
 basic_hibernator(Info) ->
     {catchlevel,0} = process_info(self(), catchlevel),
@@ -165,9 +143,9 @@ dynamic_call(Config) when is_list(Config) ->
     Ref = make_ref(),
     Info = {self(),Ref},
     ExpectedHeapSz = erts_debug:size([Info]),
-    ?line Child = spawn_link(fun() -> ?MODULE:dynamic_call_hibernator(Info, hibernate) end),
-    ?line hibernate_wake_up(100, ExpectedHeapSz, Child),
-    ?line Child ! please_quit_now,
+    Child = spawn_link(fun() -> ?MODULE:dynamic_call_hibernator(Info, hibernate) end),
+    hibernate_wake_up(100, ExpectedHeapSz, Child),
+    Child ! please_quit_now,
     ok.
 
 dynamic_call_hibernator(Info, Function) ->
@@ -195,34 +173,32 @@ min_heap_size(Config) when is_list(Config) ->
     end.
 
 min_heap_size_1(Config) when is_list(Config) ->
-    ?line erlang:trace(new, true, [call]),
+    erlang:trace(new, true, [call]),
     MFA = {?MODULE,min_hibernator,1},
-    ?line 1 = erlang:trace_pattern(MFA, true, [local]),
+    1 = erlang:trace_pattern(MFA, true, [local]),
     Ref = make_ref(),
     Info = {self(),Ref},
-    ?line Child = spawn_opt(fun() -> min_hibernator(Info) end,
+    Child = spawn_opt(fun() -> min_hibernator(Info) end,
 			    [{min_heap_size,15000},link]),
     receive
-	{trace,Child,call,{?MODULE,min_hibernator,_}} ->
-	    ?line 1 = erlang:trace_pattern(MFA, false, [local]),
-	    ?line erlang:trace(new, false, [call])
+        {trace,Child,call,{?MODULE,min_hibernator,_}} ->
+            1 = erlang:trace_pattern(MFA, false, [local]),
+            erlang:trace(new, false, [call])
     end,
     {heap_size,HeapSz} = process_info(Child, heap_size),
     io:format("Heap size: ~p\n", [HeapSz]),
-    ?line if
-	      HeapSz < 20 -> ok
-	  end,
-    ?line Child ! wake_up,
+    if
+        HeapSz < 20 -> ok
+    end,
+    Child ! wake_up,
     receive
 	{heap_size,AfterSize} ->
 	    io:format("Heap size after wakeup: ~p\n", [AfterSize]),
-	    ?line
-		if
-		    AfterSize >= 15000 -> ok
-		end;
+            if
+                AfterSize >= 15000 -> ok
+            end;
 	Other ->
-	    io:format("Unexpected: ~p\n", [Other]),
-	    ?line ?t:fail()
+	    ct:fail("Unexpected: ~p\n", [Other])
     end.
 
 min_hibernator({Parent,_Ref}) ->
@@ -239,23 +215,23 @@ min_hibernator_recv(Parent) ->
 %%%
 
 bad_args(Config) when is_list(Config) ->
-    ?line bad_args(?MODULE, {name,glurf}, [0]),
-    ?line {'EXIT',{system_limit,_}} = 
+    bad_args(?MODULE, {name,glurf}, [0]),
+    {'EXIT',{system_limit,_}} = 
 	(catch erlang:hibernate(x, y, lists:duplicate(5122, xxx))),
-    ?line bad_args(42, name, [0]),
-    ?line bad_args(xx, 42, [1]),
-    ?line bad_args(xx, 42, glurf),
-    ?line bad_args(xx, 42, {}),
-    ?line bad_args({}, name, [2]),
-    ?line bad_args({1}, name,  [3]),
-    ?line bad_args({1,2,3}, name, [4]),
-    ?line bad_args({1,2,3}, name, [5]),
-    ?line bad_args({1,2,3,4}, name, [6]),
-    ?line bad_args({1,2,3,4,5,6}, name,[7]),
-    ?line bad_args({1,2,3,4,5}, name, [8]),
-    ?line bad_args({1,2}, name, [9]),
-    ?line bad_args([1,2], name, [9]),
-    ?line bad_args(55.0, name, [9]),
+    bad_args(42, name, [0]),
+    bad_args(xx, 42, [1]),
+    bad_args(xx, 42, glurf),
+    bad_args(xx, 42, {}),
+    bad_args({}, name, [2]),
+    bad_args({1}, name,  [3]),
+    bad_args({1,2,3}, name, [4]),
+    bad_args({1,2,3}, name, [5]),
+    bad_args({1,2,3,4}, name, [6]),
+    bad_args({1,2,3,4,5,6}, name,[7]),
+    bad_args({1,2,3,4,5}, name, [8]),
+    bad_args({1,2}, name, [9]),
+    bad_args([1,2], name, [9]),
+    bad_args(55.0, name, [9]),
     ok.
 
 bad_args(Mod, Name, Args) ->
@@ -266,7 +242,7 @@ bad_args(Mod, Name, Args) ->
 	    io:format("erlang:hibernate(~p, ~p, ~p) -> ~p\n", [Mod,Name,Args,Res]);
 	Other ->
 	    io:format("erlang:hibernate(~p, ~p, ~p) -> ~p\n", [Mod,Name,Args,Res]),
-	    ?t:fail({bad_result,Other})
+	    ct:fail({bad_result,Other})
     end.
 
 
@@ -283,8 +259,8 @@ messages_in_queue(Config) when is_list(Config) ->
     receive
 	done -> ok;
 	Other ->
-	    ?line io:format("~p\n", [Other]),
-	    ?line ?t:fail(unexpected_message)
+	    io:format("~p\n", [Other]),
+	    ct:fail(unexpected_message)
     end.
 
 messages_in_queue_1(Parent, ExpectedMsg) ->
@@ -296,13 +272,13 @@ messages_in_queue_1(Parent, ExpectedMsg) ->
 		     [Parent,ExpectedMsg]).
 
 messages_in_queue_restart(Parent, ExpectedMessage) ->
-    ?line receive
-	      ExpectedMessage ->
-		  Parent ! done;
-	      Other ->
-		  io:format("~p\n", [Other]),
-		  ?t:fail(unexpected_message)
-	  end,
+    receive
+        ExpectedMessage ->
+            Parent ! done;
+        Other ->
+            io:format("~p\n", [Other]),
+            ct:fail(unexpected_message)
+    end,
     ok.
 
 
@@ -312,36 +288,36 @@ messages_in_queue_restart(Parent, ExpectedMessage) ->
 %%%
 
 undefined_mfa(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = spawn_link(fun() ->
+    process_flag(trap_exit, true),
+    Pid = spawn_link(fun() ->
 				   %% Will be a call_only instruction.
 				   erlang:hibernate(?MODULE, blarf, []) end),
-    ?line Pid ! {a,message},
-    ?line receive
-	      {'EXIT',Pid,{undef,Undef}} ->
-		  io:format("~p\n", [Undef]),
-		  ok;
-	      Other ->
-		  ?line io:format("~p\n", [Other]),
-		  ?line ?t:fail(unexpected_message)
-	  end,
+    Pid ! {a,message},
+    receive
+        {'EXIT',Pid,{undef,Undef}} ->
+            io:format("~p\n", [Undef]),
+            ok;
+        Other ->
+            io:format("~p\n", [Other]),
+            ct:fail(unexpected_message)
+    end,
     undefined_mfa_1().
 
 undefined_mfa_1() ->
-    ?line Pid = spawn_link(fun() ->
+    Pid = spawn_link(fun() ->
 				   %% Force a call_last instruction by calling bar()
 				   %% (if that is not obvious).
 				   bar(),
 				   erlang:hibernate(?MODULE, blarf, [])
 			   end),
-    ?line Pid ! {another,message},
-    ?line receive
+    Pid ! {another,message},
+    receive
 	      {'EXIT',Pid,{undef,Undef}} ->
 		  io:format("~p\n", [Undef]),
 		  ok;
 	      Other ->
-		  ?line io:format("~p\n", [Other]),
-		  ?line ?t:fail(unexpected_message)
+		  io:format("~p\n", [Other]),
+		  ct:fail(unexpected_message)
 	  end,
     ok.
 
@@ -352,23 +328,17 @@ bar() ->
 %% No heap
 %%
 
-no_heap(doc) -> [];
-no_heap(suite) -> [];
 no_heap(Config) when is_list(Config) ->
-    ?line H = spawn_link(fun () -> clean_dict(), no_heap_loop() end),
-    ?line lists:foreach(fun (_) ->
-				wait_until(fun () -> is_hibernated(H) end),
-				?line [{heap_size,1},
-				       {total_heap_size,1}]
-				    = process_info(H,
-						   [heap_size,
-						    total_heap_size]),
-				receive after 10 -> ok end,
-				H ! again
-			end,
-			lists:seq(1, 100)),
-    ?line unlink(H),
-    ?line exit(H, bye).
+    H = spawn_link(fun () -> clean_dict(), no_heap_loop() end),
+    lists:foreach(fun (_) ->
+                          wait_until(fun () -> is_hibernated(H) end),
+                          [{heap_size,1}, {total_heap_size,1}]
+                              = process_info(H, [heap_size, total_heap_size]),
+                          receive after 10 -> ok end,
+                          H ! again
+                  end, lists:seq(1, 100)),
+    unlink(H),
+    exit(H, bye).
 
 no_heap_loop() ->
     flush(),
@@ -382,19 +352,17 @@ clean_dict() ->
 %% Wake up and then immediatly bif trap with a lengthy computation.
 %%
 
-wake_up_and_bif_trap(doc) -> [];
-wake_up_and_bif_trap(suite) -> [];
 wake_up_and_bif_trap(Config) when is_list(Config) ->
-    ?line Self = self(),
-    ?line Pid = spawn_link(fun() -> erlang:hibernate(?MODULE, characters_to_list_trap, [Self]) end),
-    ?line Pid ! wakeup,
-    ?line receive
+    Self = self(),
+    Pid = spawn_link(fun() -> erlang:hibernate(?MODULE, characters_to_list_trap, [Self]) end),
+    Pid ! wakeup,
+    receive
         {ok, Pid0} when Pid0 =:= Pid -> ok
     after 5000 ->
-        ?line ?t:fail(process_blocked)
+        ct:fail(process_blocked)
     end,
-    ?line unlink(Pid),
-    ?line exit(Pid, bye).
+    unlink(Pid),
+    exit(Pid, bye).
 
 %% Lengthy computation that traps (in characters_to_list_trap_3).
 characters_to_list_trap(Parent) ->

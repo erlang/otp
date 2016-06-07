@@ -2,7 +2,7 @@
 %%------------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,6 @@
 		    add_dir           :: wx:wx_object(),
 		    add_rec           :: wx:wx_object(),
 		    chosen_box        :: wx:wx_object(),
-		    analysis_pid      :: pid(),
 		    del_file          :: wx:wx_object(),
 		    doc_plt           :: dialyzer_plt:plt(),
 		    clear_chosen      :: wx:wx_object(),
@@ -72,11 +71,11 @@
 		    stop              :: wx:wx_object(),
 		    frame             :: wx:wx_object(),
 		    warnings_box      :: wx:wx_object(),
-		    explanation_box   :: wx:wx_object(),
+		    explanation_box   :: wx:wx_object() | 'undefined',
 		    wantedWarnings    :: list(),
 		    rawWarnings       :: list(),
-		    backend_pid       :: pid(),
-		    expl_pid          :: pid()}).
+		    backend_pid       :: pid() | 'undefined',
+		    expl_pid          :: pid() | 'undefined'}).
 	       
 %%------------------------------------------------------------------------
 
@@ -423,7 +422,7 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
     #wx{id=?menuID_HELP_ABOUT, obj=Frame, 
 	event=#wxCommand{type=command_menu_selected}} ->
       Message = "	       This is DIALYZER version "  ++ ?VSN ++  " \n"++
-	"DIALYZER is a DIscrepany AnaLYZer for ERlang programs.\n\n"++
+	"DIALYZER is a DIscrepancy AnaLYZer for ERlang programs.\n\n"++
 	"     Copyright (C) Tobias Lindahl <tobiasl@it.uu.se>\n"++
 	"                   Kostis Sagonas <kostis@it.uu.se>\n\n",
       output_sms(State, "About Dialyzer", Message, info),

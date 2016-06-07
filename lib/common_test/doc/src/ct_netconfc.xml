@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2012</year>
+      <year>2010</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -201,7 +201,8 @@
           information, see module <seealso marker="ct"><c>ct</c></seealso>.</p>
       </item>
 
-      <tag><c>host() = <seealso marker="kernel:inet#type-hostname"><c>inet:hostname()</c></seealso> | <seealso marker="kernel:inet#type-ip_address"><c>inet:ip_address()</c></seealso></c></tag>
+      <tag><c>host() = </c><seealso marker="kernel:inet#type-hostname"><c>inet:hostname()</c></seealso>
+          <c> | </c><seealso marker="kernel:inet#type-ip_address"><c>inet:ip_address()</c></seealso></tag>
       <item><marker id="type-host"/></item>
 
       <tag><c>key_or_name() = server_id() | target_name()</c></tag>
@@ -218,7 +219,9 @@
       <tag><c>notification_content() = [event_time() | simple_xml()]</c></tag> 
       <item><marker id="type-notification_content"/> </item>
 
-      <tag><c>option() = {ssh, host()} | {port, <seealso marker="kernel:inet#type-port_number"><c>inet:port_number()</c></seealso>} | {timeout, timeout()} | SshConnectOption</c></tag>
+      <tag><c>option() = {ssh, host()} | {port, </c>
+          <seealso marker="kernel:inet#type-port_number"><c>inet:port_number()</c></seealso>
+          <c>} | {timeout, timeout()} | SshConnectOption</c></tag>
       <item><marker id="type-option"/>
 
         <p><c>SshConnectOption</c> is any valid option to

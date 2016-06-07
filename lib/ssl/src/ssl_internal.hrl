@@ -93,16 +93,16 @@
 	  validate_extensions_fun, 
 	  depth                :: integer(),
 	  certfile             :: binary(),
-	  cert                 :: public_key:der_encoded() | secret_printout(),
+	  cert                 :: public_key:der_encoded() | secret_printout() | 'undefined',
 	  keyfile              :: binary(),
-	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', public_key:der_encoded()} | secret_printout(),
-	  password	       :: string() | secret_printout(),
-	  cacerts              :: [public_key:der_encoded()] | secret_printout(),
+	  key	               :: {'RSAPrivateKey' | 'DSAPrivateKey' | 'ECPrivateKey' | 'PrivateKeyInfo', public_key:der_encoded()} | secret_printout() | 'undefined',
+	  password	       :: string() | secret_printout() | 'undefined',
+	  cacerts              :: [public_key:der_encoded()] | secret_printout() | 'undefined',
 	  cacertfile           :: binary(),
 	  dh                   :: public_key:der_encoded() | secret_printout(),
-	  dhfile               :: binary() | secret_printout(),
+	  dhfile               :: binary() | secret_printout() | 'undefined',
 	  user_lookup_fun,  % server option, fun to lookup the user
-	  psk_identity         :: binary() | secret_printout() ,
+	  psk_identity         :: binary() | secret_printout() | 'undefined',
 	  srp_identity,  % client option {User, Password}
 	  ciphers,    % 
 	  %% Local policy for the server if it want's to reuse the session
@@ -118,7 +118,7 @@
 	  %% undefined if not hibernating, or number of ms of
 	  %% inactivity after which ssl_connection will go into
 	  %% hibernation
-	  hibernate_after      :: boolean(),
+	  hibernate_after      :: timeout(),
 	  %% This option should only be set to true by inet_tls_dist
 	  erl_dist = false     :: boolean(),
           alpn_advertised_protocols = undefined :: [binary()] | undefined ,
@@ -133,9 +133,13 @@
 	  %% the client?
 	  honor_cipher_order = false :: boolean(),
 	  padding_check = true       :: boolean(),
+	  %%Should we use 1/n-1 or 0/n splitting to mitigate BEAST, or disable
+	  %%mitigation entirely?
+	  beast_mitigation = one_n_minus_one :: one_n_minus_one | zero_n | disabled,
 	  fallback = false           :: boolean(),
 	  crl_check                  :: boolean() | peer | best_effort, 
-	  crl_cache
+	  crl_cache,
+	  signature_algs
 	  }).
 
 -record(socket_options,

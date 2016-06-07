@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@
 %% a local file or distributed from another erlang node.
 %% 
 %% Flags:
-%%        -id Identity   : identity of the system.
 %%        -boot File     : Absolute file name of the boot script.
 %%        -boot_var Var Value
 %%                       : $Var in the boot script is expanded to
@@ -42,6 +41,7 @@
 %%        -s             : Start own processes.
 %% 
 %% Experimental flags:
+%%        -profile_boot    : Use an 'eprof light' to profile boot sequence
 %%        -init_debug      : Activate debug printouts in init
 %%        -loader_debug    : Activate debug printouts in erl_prim_loader
 %%        -code_path_choice : strict | relaxed
@@ -75,7 +75,21 @@
 		subscribed = []}).
 -type state() :: #state{}.
 
+%% Data for eval_script/2.
+-record(es,
+	{init,
+	 debug,
+	 path,
+	 pa,
+	 pz,
+	 path_choice,
+	 prim_load,
+	 load_mode,
+	 vars
+	}).
+
 -define(ON_LOAD_HANDLER, init__boot__on_load_handler).
+
 
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
@@ -117,7 +131,7 @@ bs2ss(L) ->
 get_status() ->
     request(get_status).
 
--spec fetch_loaded() -> [atom()].
+-spec fetch_loaded() -> [{module(),file:filename()}].
 fetch_loaded() ->
     request(fetch_loaded).
 
@@ -160,17 +174,43 @@ stop() -> init ! {stop,stop}, ok.
 
 -spec stop(Status) -> 'ok' when
       Status :: non_neg_integer() | string().
-stop(Status) -> init ! {stop,{stop,Status}}, ok.
+stop(Status) when is_integer(Status), Status >= 0 ->
+    stop_1(Status);
+stop(Status) when is_list(Status) ->
+    case is_bytelist(Status) of
+        true ->
+            stop_1(Status);
+        false ->
+            erlang:error(badarg)
+    end;
+stop(_) ->
+    erlang:error(badarg).
+
+is_bytelist([B|Bs]) when is_integer(B), B >= 0, B < 256 -> is_bytelist(Bs);
+is_bytelist([]) -> true;
+is_bytelist(_) -> false.
+
+%% Note that we check the type of Status beforehand to ensure that
+%% the call to halt(Status) by the init process cannot fail
+stop_1(Status) -> init ! {stop,{stop,Status}}, ok.
 
 -spec boot(BootArgs) -> no_return() when
       BootArgs :: [binary()].
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
+
+    %% Load the tracer nif
+    erl_tracer:on_load(),
+
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
+    %% We don't get to profile parsing of BootArgs
+    case get_flag(profile_boot, Flags, false) of
+        false -> ok;
+        true  -> debug_profile_start()
+    end,
     Start = map(fun prepare_run_args/1, Start0),
-    Flags0 = flags_to_atoms_again(Flags),
-    boot(Start,Flags0,Args).
+    boot(Start, Flags, Args).
 
 prepare_run_args({eval, [Expr]}) ->
     {eval,Expr};
@@ -201,16 +241,6 @@ map(_F, []) ->
     [];
 map(F, [X|Rest]) ->
     [F(X) | map(F, Rest)].
-
-flags_to_atoms_again([]) ->
-    [];
-flags_to_atoms_again([{F0,L0}|Rest]) ->
-    L = L0,
-    F = b2a(F0),
-    [{F,L}|flags_to_atoms_again(Rest)];
-flags_to_atoms_again([{F0}|Rest]) ->
-    F = b2a(F0),
-    [{F}|flags_to_atoms_again(Rest)].
 
 -spec code_path_choice() -> 'relaxed' | 'strict'.
 code_path_choice() ->
@@ -274,21 +304,13 @@ things_to_string([]) ->
     "".
 
 halt_string(String, List) ->
-    HaltString = String ++ things_to_string(List),
-    if
-	length(HaltString)<199 -> HaltString;
-	true -> first198(HaltString, 198)
-    end.
-
-first198([H|T], N) when N>0 ->
-    [H|first198(T, N-1)];
-first198(_, 0) ->
-    [].
+    String ++ things_to_string(List).
 
 %% String = string()
 %% List = [string() | atom() | pid() | number()]
 %% Any other items in List, such as tuples, are ignored when creating
 %% the string used as argument to erlang:halt/1.
+-spec crash(_, _) -> no_return().
 crash(String, List) ->
     halt(halt_string(String, List)).
 
@@ -296,9 +318,9 @@ crash(String, List) ->
 -spec boot_loop(pid(), state()) -> no_return().
 boot_loop(BootPid, State) ->
     receive
-	{BootPid,loaded,ModLoaded} ->
-	    Loaded = State#state.loaded,
-	    boot_loop(BootPid,State#state{loaded = [ModLoaded|Loaded]});
+	{BootPid,loaded,NewlyLoaded} ->
+	    Loaded = NewlyLoaded ++ State#state.loaded,
+	    boot_loop(BootPid, State#state{loaded = Loaded});
 	{BootPid,started,KernelPid} ->
 	    boot_loop(BootPid, new_kernelpid(KernelPid, BootPid, State));
 	{BootPid,progress,started} ->
@@ -337,12 +359,25 @@ boot_loop(BootPid, State) ->
     end.
 
 ensure_loaded(Module, Loaded) ->
-    File = concat([Module,objfile_extension()]),
-    case catch load_mod(Module,File) of
-	{ok, FullName} ->
-	    {{module, Module}, [{Module, FullName}|Loaded]};
-	Res ->
-	    {Res, Loaded}
+    case erlang:module_loaded(Module) of
+	true ->
+	    {{module, Module}, Loaded};
+	false ->
+	    do_ensure_loaded(Module, Loaded)
+    end.
+
+do_ensure_loaded(Module, Loaded) ->
+    File = atom_to_list(Module) ++ objfile_extension(),
+    case erl_prim_loader:get_file(File) of
+	{ok,BinCode,FullName} ->
+	    case do_load_module(Module, BinCode) of
+		ok ->
+		    {{module, Module}, [{Module, FullName}|Loaded]};
+		error ->
+		    {error, [{Module, FullName}|Loaded]}
+	    end;
+	Error ->
+	    {Error, Loaded}
     end.
 
 %% Tell subscribed processes the system has started.
@@ -451,9 +486,9 @@ do_handle_msg(Msg,State) ->
 %%% -------------------------------------------------
 
 make_permanent(Boot,Config,Flags0,State) ->
-    case set_flag('-boot',Boot,Flags0) of
+    case set_flag(boot, Boot, Flags0) of
 	{ok,Flags1} ->
-	    case set_flag('-config',Config,Flags1) of
+	    case set_flag(config, Config, Flags1) of
 		{ok,Flags} ->
 		    {ok,State#state{flags = Flags}};
 		Error ->
@@ -635,9 +670,9 @@ unload(_) ->
     do_unload(sub([heart|erlang:pre_loaded()],erlang:loaded())).
 
 do_unload([M|Mods]) ->
-    catch erlang:purge_module(M),
+    catch erts_internal:purge_module(M),
     catch erlang:delete_module(M),
-    catch erlang:purge_module(M),
+    catch erts_internal:purge_module(M),
     do_unload(Mods);
 do_unload([]) ->
     purge_all_hipe_refs(),
@@ -691,17 +726,15 @@ sleep(T) -> receive after T -> ok end.
 %%% The loader shall run for ever!
 %%% -------------------------------------------------
 
-start_prim_loader(Init,Id,Pgm,Nodes,Path,{Pa,Pz}) ->
-    case erl_prim_loader:start(Id,Pgm,Nodes) of
-	{ok,Pid} when Path =:= false ->
-	    InitPath = append(Pa,["."|Pz]),
-	    erl_prim_loader:set_path(InitPath),
-	    add_to_kernel(Init,Pid),
-	    Pid;
+start_prim_loader(Init, Path0, {Pa,Pz}) ->
+    Path = case Path0 of
+	       false -> Pa ++ ["."|Pz];
+	       _ -> Path0
+	   end,
+    case erl_prim_loader:start() of
 	{ok,Pid} ->
 	    erl_prim_loader:set_path(Path),
-	    add_to_kernel(Init,Pid),
-	    Pid;
+	    add_to_kernel(Init, Pid);
 	{error,Reason} ->
 	    erlang:display({"cannot start loader",Reason}),
 	    exit(Reason)
@@ -715,13 +748,6 @@ add_to_kernel(Init,Pid) ->
 	    ok
     end.
 
-prim_load_flags(Flags) ->
-    PortPgm = get_flag('-loader',Flags,<<"efile">>),
-    Hosts = get_flag_list('-hosts', Flags, []),
-    Id = get_flag('-id',Flags,none),
-    Path = get_flag_list('-path',Flags,false),
-    {PortPgm, Hosts, Id, Path}.
-
 %%% -------------------------------------------------
 %%% The boot process fetches a boot script and loads
 %%% all modules specified and starts spec. processes.
@@ -734,46 +760,74 @@ do_boot(Flags,Start) ->
 
 do_boot(Init,Flags,Start) ->
     process_flag(trap_exit,true),
-    {Pgm0,Nodes,Id,Path} = prim_load_flags(Flags),
-    Root = b2s(get_flag('-root',Flags)),
-    PathFls = path_flags(Flags),
-    Pgm = b2s(Pgm0),
-    _Pid = start_prim_loader(Init,b2a(Id),Pgm,bs2as(Nodes),
-			     bs2ss(Path),PathFls),
+    Root = get_root(Flags),
+    Path = get_flag_list(path, Flags, false),
+    {Pa,Pz} = PathFls = path_flags(Flags),
+    start_prim_loader(Init, bs2ss(Path), PathFls),
     BootFile = bootfile(Flags,Root),
     BootList = get_boot(BootFile,Root),
-    LoadMode = b2a(get_flag('-mode',Flags,false)),
-    Deb = b2a(get_flag('-init_debug',Flags,false)),
+    LoadMode = b2a(get_flag(mode, Flags, false)),
+    Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
-    BootVars = get_flag_args('-boot_var',Flags),
-    ParallelLoad = 
-	(Pgm =:= "efile") and (erlang:system_info(thread_pool_size) > 0),
+    BootVars = get_boot_vars(Root, Flags),
 
     PathChoice = code_path_choice(),
-    eval_script(BootList,Init,PathFls,{Root,BootVars},Path,
-		{true,LoadMode,ParallelLoad},Deb,PathChoice),
+    Es = #es{init=Init,debug=Deb,path=Path,pa=Pa,pz=Pz,
+	     path_choice=PathChoice,
+	     prim_load=true,load_mode=LoadMode,
+	     vars=BootVars},
+    eval_script(BootList, Es),
 
     %% To help identifying Purify windows that pop up,
     %% print the node name into the Purify log.
     (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
 
-    start_em(Start).
+    start_em(Start),
+    case get_flag(profile_boot,Flags,false) of
+        false -> ok;
+        true  ->
+            debug_profile_format_mfas(debug_profile_mfas()),
+            debug_profile_stop()
+    end,
+    ok.
+
+get_root(Flags) ->
+    case get_argument(root, Flags) of
+	{ok,[[Root]]} ->
+	    Root;
+	_ ->
+	    exit(no_or_multiple_root_variables)
+    end.
+
+get_boot_vars(Root, Flags) ->
+    BootVars = get_boot_vars_1(#{}, Flags),
+    RootKey = <<"ROOT">>,
+    BootVars#{RootKey=>Root}.
+
+get_boot_vars_1(Vars, [{boot_var,[Key,Value]}|T]) ->
+    get_boot_vars_1(Vars#{Key=>Value}, T);
+get_boot_vars_1(_, [{boot_var,_}|_]) ->
+    exit(invalid_boot_var_argument);
+get_boot_vars_1(Vars, [_|T]) ->
+    get_boot_vars_1(Vars, T);
+get_boot_vars_1(Vars, []) ->
+    Vars.
 
 bootfile(Flags,Root) ->
-    b2s(get_flag('-boot',Flags,concat([Root,"/bin/start"]))).
+    b2s(get_flag(boot, Flags, Root++"/bin/start")).
 
 path_flags(Flags) ->
-    Pa = append(reverse(get_flag_args('-pa',Flags))),
-    Pz = append(get_flag_args('-pz',Flags)),
+    Pa = append(reverse(get_flag_args(pa, Flags))),
+    Pz = append(get_flag_args(pz, Flags)),
     {bs2ss(Pa),bs2ss(Pz)}.
 
 get_boot(BootFile0,Root) ->
-    BootFile = concat([BootFile0,".boot"]),
+    BootFile = BootFile0 ++ ".boot",
     case get_boot(BootFile) of
 	{ok, CmdList} ->
 	    CmdList;
 	not_found -> %% Check for default.
-	    BootF = concat([Root,"/bin/",BootFile]),
+	    BootF = Root ++ "/bin/" ++ BootFile,
 	    case get_boot(BootF)  of
 		{ok, CmdList} ->
 		    CmdList;
@@ -807,91 +861,88 @@ get_boot(BootFile) ->
 %% boot process hangs (we want to ensure syncronicity).
 %%
 
-eval_script([{progress,Info}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    debug(Deb,{progress,Info}),
+eval_script([{progress,Info}=Progress|T], #es{debug=Deb}=Es) ->
+    debug(Deb, Progress),
     init ! {self(),progress,Info},
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{preLoaded,_}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{path,Path}|CfgL],Init,{Pa,Pz},Vars,false,Ph,Deb,PathChoice) ->
+    eval_script(T, Es);
+eval_script([{preLoaded,_}|T], #es{}=Es) ->
+    eval_script(T, Es);
+eval_script([{path,Path}|T], #es{path=false,pa=Pa,pz=Pz,
+				 path_choice=PathChoice,
+				 vars=Vars}=Es) ->
     RealPath0 = make_path(Pa, Pz, Path, Vars),
     RealPath = patch_path(RealPath0, PathChoice),
     erl_prim_loader:set_path(RealPath),
-    eval_script(CfgL,Init,{Pa,Pz},Vars,false,Ph,Deb,PathChoice);
-eval_script([{path,_}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
+    eval_script(T, Es);
+eval_script([{path,_}|T], #es{}=Es) ->
     %% Ignore, use the command line -path flag.
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{kernel_load_completed}|CfgL],Init,PathFs,Vars,P,{_,embedded,Par},Deb,PathChoice) ->
-    eval_script(CfgL,Init,PathFs,Vars,P,{true,embedded,Par},Deb,PathChoice);
-eval_script([{kernel_load_completed}|CfgL],Init,PathFs,Vars,P,{_,E,Par},Deb,PathChoice) ->
-    eval_script(CfgL,Init,PathFs,Vars,P,{false,E,Par},Deb,PathChoice);
-eval_script([{primLoad,Mods}|CfgL],Init,PathFs,Vars,P,{true,E,Par},Deb,PathChoice)
+    eval_script(T, Es);
+eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es0) ->
+    Es = case Mode of
+	     embedded -> Es0;
+	     _ -> Es0#es{prim_load=false}
+	 end,
+    eval_script(T, Es);
+eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad}=Es)
   when is_list(Mods) ->
-    if 
-	Par =:= true ->
-	    par_load_modules(Mods,Init);
+    case PrimLoad of
 	true ->
-	    load_modules(Mods)
+	    load_modules(Mods, Init);
+	false ->
+	    %% Do not load now, code_server does that dynamically!
+	    ok
     end,
-    eval_script(CfgL,Init,PathFs,Vars,P,{true,E,Par},Deb,PathChoice);
-eval_script([{primLoad,_Mods}|CfgL],Init,PathFs,Vars,P,{false,E,Par},Deb,PathChoice) ->
-    %% Do not load now, code_server does that dynamically!
-    eval_script(CfgL,Init,PathFs,Vars,P,{false,E,Par},Deb,PathChoice);
-eval_script([{kernelProcess,Server,{Mod,Fun,Args}}|CfgL],Init,
-	    PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    debug(Deb,{start,Server}),
-    start_in_kernel(Server,Mod,Fun,Args,Init),
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([{apply,{Mod,Fun,Args}}|CfgL],Init,PathFs,Vars,P,Ph,Deb,PathChoice) ->
-    debug(Deb,{apply,{Mod,Fun,Args}}),
-    apply(Mod,Fun,Args),
-    eval_script(CfgL,Init,PathFs,Vars,P,Ph,Deb,PathChoice);
-eval_script([],_,_,_,_,_,_,_) ->
+    eval_script(T, Es);
+eval_script([{kernelProcess,Server,{Mod,Fun,Args}}|T],
+	    #es{init=Init,debug=Deb}=Es) ->
+    debug(Deb, {start,Server}),
+    start_in_kernel(Server, Mod, Fun, Args, Init),
+    eval_script(T, Es);
+eval_script([{apply,{Mod,Fun,Args}}=Apply|T], #es{debug=Deb}=Es) ->
+    debug(Deb, Apply),
+    apply(Mod, Fun, Args),
+    eval_script(T, Es);
+eval_script([], #es{}) ->
     ok;
-eval_script(What,_,_,_,_,_,_,_) ->
+eval_script(What, #es{}) ->
     exit({'unexpected command in bootfile',What}).
 
-load_modules([Mod|Mods]) ->
-    File = concat([Mod,objfile_extension()]),
-    {ok,Full} = load_mod(Mod,File),
-    init ! {self(),loaded,{Mod,Full}},  %% Tell init about loaded module
-    load_modules(Mods);
-load_modules([]) ->
+load_modules(Mods0, Init) ->
+    Mods = [M || M <- Mods0, not erlang:module_loaded(M)],
+    F = prepare_loading_fun(),
+    case erl_prim_loader:get_modules(Mods, F) of
+	{ok,{Prep0,[]}} ->
+	    Prep = [Code || {_,{prepared,Code,_}} <- Prep0],
+	    ok = erlang:finish_loading(Prep),
+	    Loaded = [{Mod,Full} || {Mod,{_,_,Full}} <- Prep0],
+	    Init ! {self(),loaded,Loaded},
+	    Beams = [{M,Beam,Full} || {M,{on_load,Beam,Full}} <- Prep0],
+	    load_rest(Beams, Init);
+	{ok,{_,[_|_]=Errors}} ->
+	    Ms = [M || {M,_} <- Errors],
+	    exit({load_failed,Ms})
+    end.
+
+load_rest([{Mod,Beam,Full}|T], Init) ->
+    do_load_module(Mod, Beam),
+    Init ! {self(),loaded,[{Mod,Full}]},
+    load_rest(T, Init);
+load_rest([], _) ->
     ok.
 
-%%% An optimization: erl_prim_loader gets the chance of loading many
-%%% files in parallel, using threads. This will reduce the seek times,
-%%% and loaded code can be processed while other threads are waiting
-%%% for the disk. The optimization is not tried unless the loader is
-%%% "efile" and there is a non-empty pool of threads.
-%%%
-%%% Many threads are needed to get a good result, so it would be
-%%% beneficial to load several applications in parallel. However,
-%%% measurements show that the file system handles one directory at a
-%%% time, regardless if parallel threads are created for files on
-%%% several directories (a guess: writing the meta information when
-%%% the file was last read ('mtime'), forces the file system to sync
-%%% between directories).
-
-par_load_modules(Mods,Init) ->
-    Ext = objfile_extension(),
-    ModFiles = [{Mod,concat([Mod,Ext])} || Mod <- Mods,
-					   not erlang:module_loaded(Mod)],
-    Self = self(),
-    Fun = fun(Mod, BinCode, FullName) ->
-		  case catch load_mod_code(Mod, BinCode, FullName) of
-		      {ok, _} ->
-			  Init ! {Self,loaded,{Mod,FullName}},
-			  ok;
-		      _EXIT ->
-			  {error, Mod}
-		  end
-	  end,
-    case erl_prim_loader:get_files(ModFiles, Fun) of
-	ok ->
-	    ok;
-	{error,Mod} ->
-	    exit({'cannot load',Mod,get_files})
+prepare_loading_fun() ->
+    fun(Mod, FullName, Beam) ->
+	    case erlang:prepare_loading(Mod, Beam) of
+		Prepared when is_binary(Prepared) ->
+		    case erlang:has_prepared_code_on_load(Prepared) of
+			true ->
+			    {ok,{on_load,Beam,FullName}};
+			false ->
+			    {ok,{prepared,Prepared,FullName}}
+		    end;
+		{error,_}=Error ->
+		    Error
+	    end
     end.
 
 make_path(Pa, Pz, Path, Vars) ->
@@ -908,33 +959,24 @@ fix_path([Path|Ps], Vars) ->
 fix_path(_, _) ->
     [].
 
-add_var("$ROOT/" ++ Path, {Root,_}) ->
-    concat([Root, "/", Path]);
-add_var([$$|Path0], {_,VarList}) ->
-    {Var,Path} = extract_var(Path0,[]),
-    Value = b2s(get_var_value(list_to_binary(Var),VarList)),
-    concat([Value, "/", Path]);
-add_var(Path, _)   ->
+add_var("$"++Path0, Vars) ->
+    {Var,Path} = extract_var(Path0, []),
+    Key = list_to_binary(Var),
+    case Vars of
+	#{Key:=Value0} ->
+	    Value = b2s(Value0),
+	    Value ++ "/" ++ Path;
+	_ ->
+	    Error0 = "cannot expand $" ++ Var ++ " in bootfile",
+	    Error = list_to_atom(Error0),
+	    exit(Error)
+    end;
+add_var(Path, _) ->
     Path.
 
 extract_var([$/|Path],Var) -> {reverse(Var),Path};
 extract_var([H|T],Var)     -> extract_var(T,[H|Var]);
 extract_var([],Var)        -> {reverse(Var),[]}.
-
-%% get_var_value(Var, [Vars]) where Vars == [atom()]
-get_var_value(Var,[Vars|VarList]) ->
-    case get_var_val(Var,Vars) of
-	{ok, Value} ->
-	    Value;
-	_ ->
-	    get_var_value(Var,VarList)
-    end;
-get_var_value(Var,[]) ->
-    exit(list_to_atom(concat(["cannot expand \$", Var, " in bootfile"]))).
-
-get_var_val(Var,[Var,Value|_]) -> {ok, Value};
-get_var_val(Var,[_,_|Vars])    -> get_var_val(Var,Vars);
-get_var_val(_,_)               -> false.
 
 patch_path(Dirs, strict) ->
     Dirs;
@@ -1049,49 +1091,23 @@ start_it({eval,Bin}) ->
     {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
     ok;
 start_it([_|_]=MFA) ->
-    Ref = make_ref(),
-    case catch {Ref,case MFA of
-			[M]        -> M:start();
-			[M,F]      -> M:F();
-			[M,F|Args] -> M:F(Args)	% Args is a list
-		    end} of
-	{Ref,R} ->
-	    R;
-	{'EXIT',Reason} ->
-	    exit(Reason);
-	Other ->
-	    throw(Other)
+    case MFA of
+	[M]        -> M:start();
+	[M,F]      -> M:F();
+	[M,F|Args] -> M:F(Args)	% Args is a list
     end.
 
-%%
-%% Fetch a module and load it into the system.
-%%
-load_mod(Mod, File) ->
-    case erlang:module_loaded(Mod) of
-	false ->
-	    case erl_prim_loader:get_file(File) of
-		{ok,BinCode,FullName} ->
-		    load_mod_code(Mod, BinCode, FullName);
-		_ ->
-		    exit({'cannot load',Mod,get_file})
-	    end;
-	_ -> % Already loaded.
-	    {ok,File}
-    end.
+%% Load a module.
 
-load_mod_code(Mod, BinCode, FullName) ->
-    case erlang:module_loaded(Mod) of
-	false ->
-	    case erlang:load_module(Mod, BinCode) of
-		{module,Mod} -> {ok,FullName};
-		{error,on_load} ->
-		    ?ON_LOAD_HANDLER ! {loaded,Mod},
-		    {ok,FullName};
-		Other ->
-		    exit({'cannot load',Mod,Other})
-	    end;
-	_ -> % Already loaded.
-	    {ok,FullName}
+do_load_module(Mod, BinCode) ->
+    case erlang:load_module(Mod, BinCode) of
+	{module,Mod} ->
+	    ok;
+	{error,on_load} ->
+	    ?ON_LOAD_HANDLER ! {loaded,Mod},
+	    ok;
+	_ ->
+	    error
     end.
 
 %% --------------------------------------------------------
@@ -1102,7 +1118,7 @@ load_mod_code(Mod, BinCode, FullName) ->
 %% --------------------------------------------------------
 
 shutdown_timer(Flags) ->
-    case get_flag('-shutdown_time',Flags,infinity) of
+    case get_flag(shutdown_time, Flags, infinity) of
 	infinity ->
 	    self();
 	Time ->
@@ -1152,14 +1168,10 @@ parse_boot_args([B|Bs], Ss, Fs, As) ->
 	eval_arg ->
 	    {Expr,Rest} = get_args(Bs, []),
 	    parse_boot_args(Rest, [{eval, Expr}|Ss], Fs, As);
-	flag ->
+	{flag,A} ->
 	    {F,Rest} = get_args(Bs, []),
-	    Fl = case F of
-		     []   -> [B];
-		     FF   -> [B,FF]
-		 end,
-	    parse_boot_args(Rest, Ss,  
-			    [list_to_tuple(Fl)|Fs], As);
+	    Fl = {A,F},
+	    parse_boot_args(Rest, Ss, [Fl|Fs], As);
 	arg ->
 	    parse_boot_args(Bs, Ss, Fs, [B|As]);
 	end_args ->
@@ -1173,12 +1185,8 @@ check(<<"-s">>) -> start_arg;
 check(<<"-run">>) -> start_arg2;
 check(<<"-eval">>) -> eval_arg;
 check(<<"--">>) -> end_args;
-check(X) when is_binary(X) ->
-    case binary_to_list(X) of
-	[$-|_Rest] -> flag;
-	_Chars     -> arg			%Even empty atoms
-    end;
-check(_X) -> arg.				%This should never occur
+check(<<"-",Flag/binary>>) -> {flag,b2a(Flag)};
+check(_) -> arg.
 
 get_args([B|Bs], As) ->
     case check(B) of
@@ -1187,7 +1195,7 @@ get_args([B|Bs], As) ->
 	start_arg2 -> {reverse(As), [B|Bs]};
 	eval_arg -> {reverse(As), [B|Bs]};
 	end_args -> {reverse(As), Bs};
-	flag -> {reverse(As), [B|Bs]};
+	{flag,_} -> {reverse(As), [B|Bs]};
 	arg ->
 	    get_args(Bs, [B|As])
     end;
@@ -1199,44 +1207,28 @@ get_args([], As) -> {reverse(As),[]}.
 %%         atom() if a single arg was given.
 %%         list(atom()) if several args were given.
 %%
-get_flag(F,Flags,Default) ->
-    case catch get_flag(F,Flags) of
-	{'EXIT',_} ->
-	    Default;
-	Value ->
-	    Value
-    end.
-
-get_flag(F,Flags) ->
-    case search(F,Flags) of
-	{value,{F,[V]}} ->
-	    V;
-	{value,{F,V}} ->
-	    V;
-	{value,{F}} -> % Flag given!
+get_flag(F, Flags, Default) ->
+    case lists:keyfind(F, 1, Flags) of
+	{F,[]} ->
 	    true;
+	{F,[V]} ->
+	    V;
+	{F,V} ->
+	    V;
 	_ ->
-	    exit(list_to_atom(concat(["no ",F," flag"])))
+	    Default
     end.
 
 %%
 %% Internal get_flag function, with default value.
 %% Return: list(atom()) 
 %%
-get_flag_list(F,Flags,Default) ->
-    case catch get_flag_list(F,Flags) of
-	{'EXIT',_} ->
-	    Default;
-	Value ->
-	    Value
-    end.
-
-get_flag_list(F,Flags) ->
-    case search(F,Flags) of
-	{value,{F,V}} ->
+get_flag_list(F, Flags, Default) ->
+    case lists:keyfind(F, 1, Flags) of
+	{F,[_|_]=V} ->
 	    V;
 	_ ->
-	    exit(list_to_atom(concat(["no ",F," flag"])))
+	    Default
     end.
 
 %%
@@ -1246,21 +1238,15 @@ get_flag_list(F,Flags) ->
 %%
 get_flag_args(F,Flags) -> get_flag_args(F,Flags,[]).
 
-get_flag_args(F,[{F,V}|Flags],Acc) when is_list(V) ->
-    get_flag_args(F,Flags,[V|Acc]);
 get_flag_args(F,[{F,V}|Flags],Acc) ->
-    get_flag_args(F,Flags,[[V]|Acc]);
+    get_flag_args(F,Flags,[V|Acc]);
 get_flag_args(F,[_|Flags],Acc) ->
     get_flag_args(F,Flags,Acc);
 get_flag_args(_,[],Acc) ->
     reverse(Acc).
 
 get_arguments([{F,V}|Flags]) ->
-    [$-|Fl] = atom_to_list(F),
-    [{list_to_atom(Fl),to_strings(V)}|get_arguments(Flags)];
-get_arguments([{F}|Flags]) ->
-    [$-|Fl] = atom_to_list(F),
-    [{list_to_atom(Fl),[]}|get_arguments(Flags)];
+    [{F,to_strings(V)}|get_arguments(Flags)];
 get_arguments([]) ->
     [].
 
@@ -1268,43 +1254,25 @@ to_strings([H|T]) when is_atom(H) -> [atom_to_list(H)|to_strings(T)];
 to_strings([H|T]) when is_binary(H) -> [b2s(H)|to_strings(T)];
 to_strings([])    -> [].
 
-get_argument(Arg,Flags) ->
-    Args = get_arguments(Flags),
-    case get_argument1(Arg,Args) of
-	[] ->
-	    error;
-	Value ->
-	    {ok,Value}
+get_argument(Arg, Flags) ->
+    case get_argument1(Arg, Flags) of
+	[] -> error;
+	Value -> {ok,Value}
     end.
 
-get_argument1(Arg,[{Arg,V}|Args]) ->
-    [V|get_argument1(Arg,Args)];
-get_argument1(Arg,[_|Args]) ->
-    get_argument1(Arg,Args);
-get_argument1(_,[]) ->
+get_argument1(Arg, [{Arg,V}|Args]) ->
+    [to_strings(V)|get_argument1(Arg, Args)];
+get_argument1(Arg, [_|Args]) ->
+    get_argument1(Arg, Args);
+get_argument1(_, []) ->
     [].
 
 set_argument([{Flag,_}|Flags],Flag,Value) ->
-    [{Flag,[Value]}|Flags];
-set_argument([{Flag}|Flags],Flag,Value) ->
     [{Flag,[Value]}|Flags];
 set_argument([Item|Flags],Flag,Value) ->
     [Item|set_argument(Flags,Flag,Value)];
 set_argument([],Flag,Value) ->
     [{Flag,[Value]}].
-
-concat([A|T]) when is_atom(A) ->
-    atom_to_list(A) ++ concat(T);
-concat([C|T]) when is_integer(C), 0 =< C, C =< 255 ->
-    [C|concat(T)];
-concat([Bin|T]) when is_binary(Bin) ->
-    binary_to_list(Bin) ++ concat(T);
-concat([S|T]) ->
-    S ++ concat(T);
-concat([]) ->
-    [].
-
-append(L, Z) -> L ++ Z.
 
 append([E]) -> E;
 append([H|T]) ->
@@ -1320,13 +1288,6 @@ reverse([A, B]) ->
 reverse([A, B | L]) ->
     lists:reverse(L, [B, A]). % BIF
 			
-search(Key, [H|_T]) when is_tuple(H), element(1, H) =:= Key ->
-    {value, H};
-search(Key, [_|T]) ->
-    search(Key, T);
-search(_Key, []) ->
-    false.
-
 -spec objfile_extension() -> nonempty_string().
 objfile_extension() ->
     ".beam".
@@ -1402,3 +1363,64 @@ run_on_load_handlers([M|Ms], Debug) ->
 	    end
     end;
 run_on_load_handlers([], _) -> ok.
+
+
+%% debug profile (light variant of eprof)
+debug_profile_start() ->
+    _ = erlang:trace_pattern({'_','_','_'},true,[call_time]),
+    _ = erlang:trace_pattern(on_load,true,[call_time]),
+    _ = erlang:trace(all,true,[call]),
+    ok.
+
+debug_profile_stop() ->
+    _ = erlang:trace_pattern({'_','_','_'},false,[call_time]),
+    _ = erlang:trace_pattern(on_load,false,[call_time]),
+    _ = erlang:trace(all,false,[call]),
+    ok.
+
+debug_profile_mfas() ->
+    _ = erlang:trace_pattern({'_','_','_'},pause,[call_time]),
+    _ = erlang:trace_pattern(on_load,pause,[call_time]),
+    MFAs = collect_loaded_mfas() ++ erlang:system_info(snifs),
+    collect_mfas(MFAs,[]).
+
+%% debug_profile_format_mfas should be called at the end of the boot phase
+%% so all pertinent modules should be loaded at that point.
+debug_profile_format_mfas(MFAs0) ->
+    MFAs = lists:sort(MFAs0),
+    lists:foreach(fun({{Us,C},{M,F,A}}) ->
+                          Str = io_lib:format("~w:~w/~w", [M,F,A]),
+                          io:format(standard_error,"~55s - ~6w : ~w us~n", [Str,C,Us])
+                  end, MFAs),
+    ok.
+
+collect_loaded_mfas() ->
+    Ms = [M || M <- [element(1, Mi) || Mi <- code:all_loaded()]],
+    collect_loaded_mfas(Ms,[]).
+
+collect_loaded_mfas([],MFAs) -> MFAs;
+collect_loaded_mfas([M|Ms],MFAs0) ->
+    MFAs = [{M,F,A} || {F,A} <- M:module_info(functions)],
+    collect_loaded_mfas(Ms,MFAs ++ MFAs0).
+
+
+collect_mfas([], Info) -> Info;
+collect_mfas([MFA|MFAs],Info) ->
+    case erlang:trace_info(MFA,call_time) of
+        {call_time, []} ->
+            collect_mfas(MFAs,Info);
+        {call_time, false} ->
+            collect_mfas(MFAs,Info);
+        {call_time, Data} ->
+            case collect_mfa(MFA,Data,0,0) of
+                {{0,_},_} ->
+                    %% ignore mfas with zero time
+                    collect_mfas(MFAs,Info);
+                MfaData ->
+                    collect_mfas(MFAs,[MfaData|Info])
+            end
+    end.
+
+collect_mfa(Mfa,[],Count,Time) -> {{Time,Count},Mfa};
+collect_mfa(Mfa,[{_Pid,C,S,Us}|Data],Count,Time) ->
+    collect_mfa(Mfa,Data,Count + C,Time + S * 1000000 + Us).

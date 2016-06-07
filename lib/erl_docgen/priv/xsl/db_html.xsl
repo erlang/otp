@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2012. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2016. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -383,9 +383,7 @@
 	</xsl:choose>
       </xsl:when>
       <xsl:otherwise> <!-- <datatype> with <name> -->
-	<span class="bold_code">
-          <xsl:apply-templates/>
-	</span>
+        <xsl:call-template name="name"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -787,39 +785,36 @@
 
   <!-- Book -->
   <xsl:template match="/book">
-
-    <xsl:apply-templates name="parts"/>
-    <xsl:apply-templates name="applications"/>
-
+    <xsl:apply-templates select="parts"/>
+    <xsl:apply-templates select="applications"/>
+    <xsl:apply-templates select="releasenotes"/>
   </xsl:template>
 
   <!-- Parts -->
   <xsl:template match="parts">
-    <xsl:apply-templates name="part"/>
+    <xsl:apply-templates select="part"/>
   </xsl:template>
 
   <!-- Applications -->
   <xsl:template match="applications">
-    <xsl:apply-templates name="application"/>
+    <xsl:apply-templates select="application"/>
   </xsl:template>
-
 
  <!-- Header -->
-  <xsl:template match="header">
-  </xsl:template>
+ <xsl:template match="header"/>
+  
+ <!-- Section/Title -->
+ <xsl:template match="section/title"/>
 
-  <!-- Section/Title -->
-  <xsl:template match="section/title">
- </xsl:template>
+ <xsl:template match="pagetext"/>
 
- <xsl:template match="pagetext">
- </xsl:template>
-
-
-  <!-- Chapter/Section -->
+  <!-- Chapter/Section, subsection level 1-->
   <xsl:template match="chapter/section">
     <xsl:param name="chapnum"/>
     <h3>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <a name="{generate-id(title)}">
         <xsl:value-of select="$chapnum"/>.<xsl:number/>&#160;
         <xsl:value-of select="title"/>
@@ -831,14 +826,33 @@
     </xsl:apply-templates>
   </xsl:template>
 
-  <!-- Subsections lvl 3 and ... -->
+  <!-- Subsections lvl 2 -->
   <xsl:template match="section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
     <h4>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
       <xsl:value-of select="title"/>
     </h4>
+    <xsl:apply-templates>
+      <xsl:with-param name="chapnum" select="$chapnum"/>
+    </xsl:apply-templates>
+  </xsl:template>
+
+  <!-- Subsections lvl 3 and ... -->
+  <xsl:template match="section/section/section">
+    <xsl:param name="chapnum"/>
+    <xsl:param name="sectnum"/>
+    <h5>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
+      <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
+      <xsl:value-of select="title"/>
+    </h5>
     <xsl:apply-templates>
       <xsl:with-param name="chapnum" select="$chapnum"/>
     </xsl:apply-templates>
@@ -848,6 +862,9 @@
   <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section">
     <xsl:param name="chapnum"/>
     <h3>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <a name="{generate-id(title)}">
         <xsl:value-of select="title"/>
       </a>
@@ -875,7 +892,6 @@
 
 
   <!-- Lists -->
-
   <xsl:template match="list">
     <xsl:param name="chapnum"/>
     <ul>
@@ -983,6 +999,18 @@
     </div>
   </xsl:template>
 
+  <!-- Quote -->
+  <xsl:template match="quote">
+    <xsl:param name="chapnum"/>
+    <div class="quote">
+      <p>
+        <xsl:apply-templates>
+          <xsl:with-param name="chapnum" select="$chapnum"/>
+        </xsl:apply-templates>
+      </p>
+    </div>
+  </xsl:template>
+
  <!-- Paragraph -->
   <xsl:template match="p">
     <p>
@@ -991,10 +1019,6 @@
   </xsl:template>
 
   <!-- Inline elements -->
-  <xsl:template match="b">
-    <strong><xsl:apply-templates/></strong>
-  </xsl:template>
-
   <xsl:template match="i">
     <i><xsl:apply-templates/></i>
   </xsl:template>
@@ -1008,6 +1032,10 @@
   </xsl:template>
 
   <xsl:template match="em">
+    <strong><xsl:apply-templates/></strong>
+  </xsl:template>
+
+  <xsl:template match="strong">
     <strong><xsl:apply-templates/></strong>
   </xsl:template>
 
@@ -1097,11 +1125,11 @@
     <xsl:param name="chapnum"/>
     <xsl:param name="fignum"/>
 
-      <em>Figure
+      <p><em>Figure
         <xsl:value-of select="$chapnum"/>.<xsl:value-of select="$fignum"/>:
         &#160;
         <xsl:apply-templates/>
-      </em>
+      </em></p>
 
   </xsl:template>
 
@@ -1288,9 +1316,7 @@
       <xsl:with-param name="type">ref_man</xsl:with-param>
     </xsl:call-template-->
 
-
     <xsl:document href="{$outdir}/index.html" method="html" encoding="UTF-8" indent="yes" doctype-public="-//W3C//DTD HTML 4.01 Transitional//EN">
-
       <xsl:call-template name="pagelayout"/>
     </xsl:document>
   </xsl:template>
@@ -1855,6 +1881,7 @@
     </xsl:choose>
   </xsl:template>
 
+  <!-- Used both in <datatype> and in <func>! -->
   <xsl:template name="name">
 
     <xsl:variable name="tmpstring">
@@ -1911,7 +1938,14 @@
             </xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
-        <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+	<xsl:choose>
+	  <xsl:when test="ancestor::datatype">
+            <a name="type-{$fname}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+	  </xsl:when>
+          <xsl:otherwise>
+            <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+          </xsl:otherwise>
+	</xsl:choose>
       </xsl:when>
       <xsl:otherwise>
         <span class="bold_code"><xsl:value-of select="."/></span>
@@ -1997,7 +2031,7 @@
   </xsl:template>
 
   <xsl:template match="seealso">
-     <xsl:call-template name="seealso"/>
+    <xsl:call-template name="seealso"/>
   </xsl:template>
 
   <xsl:template name="seealso">
@@ -2079,15 +2113,26 @@
 
   </xsl:template>
 
-
   <xsl:template match="url">
     <span class="bold_code"><a href="{@href}"><xsl:apply-templates/></a></span>
   </xsl:template>
 
-
   <xsl:template match="marker">
-    <a name="{@id}"><xsl:apply-templates/></a>
+    <xsl:choose>
+      <xsl:when test="not(parent::section and following-sibling::title)">
+        <a name="{@id}"><xsl:apply-templates/></a>
+      </xsl:when>
+    </xsl:choose>
   </xsl:template>
+
+  <xsl:template name="marker-before-title">
+    <xsl:choose>
+      <xsl:when test="self::marker and parent::section and following-sibling::title">
+	 <a name="{@id}"><xsl:apply-templates/></a>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
 
   <xsl:template match="term">
     <xsl:value-of select="@id"/>
@@ -2367,7 +2412,11 @@
 
   <xsl:template name="nl">
     <xsl:text>
-</xsl:text>
+    </xsl:text>
+  </xsl:template>
+
+  <xsl:template match="seealso//text()">
+    <xsl:value-of select="normalize-space(.)"/>
   </xsl:template>
 
 </xsl:stylesheet>

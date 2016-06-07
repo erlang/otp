@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(log_mf_h_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -53,17 +53,17 @@ end_per_group(_GroupName, Config) ->
 %%-----------------------------------------------------------------
 
 test(Config) when is_list(Config) ->
-    ?line {ok, Pid} = gen_event:start_link(),
-    ?line PrivDir = ?config(priv_dir, Config),
+    {ok, Pid} = gen_event:start_link(),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Log1 = PrivDir ++ "/log1",
-    ?line ok = file:make_dir(Log1),
+    ok = file:make_dir(Log1),
     Args1 = log_mf_h:init(Log1, 500, 3),
     gen_event:add_handler(Pid, log_mf_h, Args1),
     generate(Pid, 200),
     {ok, Files} = file:list_dir(Log1),
-    ?line true = lists:member("1", Files),
-    ?line true = lists:member("index", Files),
-    ?line false = lists:member("2", Files),
+    true = lists:member("1", Files),
+    true = lists:member("index", Files),
+    false = lists:member("2", Files),
     generate(Pid, 2500),
     %% The documentation doesn't guarantee that syncing one request
     %% causes all previous ones to be finished too, but that seems to
@@ -71,26 +71,26 @@ test(Config) when is_list(Config) ->
     %% look for them with 'list_dir'.
     gen_event:sync_notify(Pid, "end"),
     {ok, Files2} = file:list_dir(Log1),
-    ?line true = lists:member("1", Files2),
-    ?line true = lists:member("2", Files2),
-    ?line true = lists:member("3", Files2),
-    ?line false = lists:member("4", Files2),
-    ?line true = lists:member("index", Files2),
-    ?line {ok, #file_info{size=Size1,type=regular}} = file:read_file_info(Log1 ++ "/1"),
-    ?line if Size1 > 500 -> test_server:fail({too_big, Size1});
-	     true -> ok end,
-    ?line {ok, #file_info{size=Size2,type=regular}} = file:read_file_info(Log1 ++ "/2"),
-    ?line if Size2 > 500 -> test_server:fail({too_big, Size2});
-	     true -> ok end,
-    ?line {ok, #file_info{size=Size3,type=regular}} = file:read_file_info(Log1 ++ "/3"),
-    ?line if Size3 > 500 -> test_server:fail({too_big, Size3});
-	     true -> ok end,
+    true = lists:member("1", Files2),
+    true = lists:member("2", Files2),
+    true = lists:member("3", Files2),
+    false = lists:member("4", Files2),
+    true = lists:member("index", Files2),
+    {ok, #file_info{size=Size1,type=regular}} = file:read_file_info(Log1 ++ "/1"),
+    if Size1 > 500 -> ct:fail({too_big, Size1});
+       true -> ok end,
+    {ok, #file_info{size=Size2,type=regular}} = file:read_file_info(Log1 ++ "/2"),
+    if Size2 > 500 -> ct:fail({too_big, Size2});
+       true -> ok end,
+    {ok, #file_info{size=Size3,type=regular}} = file:read_file_info(Log1 ++ "/3"),
+    if Size3 > 500 -> ct:fail({too_big, Size3});
+       true -> ok end,
     gen_event:delete_handler(Pid, log_mf_h, []),
-    ?line {ok, Index} = read_index_file(Log1),
+    {ok, Index} = read_index_file(Log1),
     gen_event:add_handler(Pid, log_mf_h, Args1),    
     X = if Index == 3 -> 1; true -> Index + 1 end,
-    ?line {ok, X} = read_index_file(Log1).
-    
+    {ok, X} = read_index_file(Log1).
+
 
 generate(Pid, Bytes) when Bytes > 32 ->
     gen_event:notify(Pid, make_list(32, [])),
@@ -110,4 +110,3 @@ read_index_file(Dir) ->
 	    end;
 	_ -> error
     end.
-

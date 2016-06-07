@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@
 %%
 -module(erl_anno_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), io:format(S, A)).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(format(S, A), ok).
 -endif.
 
@@ -34,7 +34,7 @@
          init_per_testcase/2, end_per_testcase/2]).
 
 -export([new/1, is_anno/1, generated/1, end_location/1, file/1,
-         line/1, location/1, record/1, text/1, bad/1, neg_line/1]).
+         line/1, location/1, record/1, text/1, bad/1]).
 
 -export([parse_abstract/1, mapfold_anno/1]).
 
@@ -43,10 +43,12 @@ all() ->
 
 groups() ->
     [{anno, [], [new, is_anno, generated, end_location, file,
-                 line, location, record, text, bad, neg_line]},
+                 line, location, record, text, bad]},
      {parse, [], [parse_abstract, mapfold_anno]}].
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 init_per_suite(Config) ->
     Config.
@@ -61,26 +63,21 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_Case, Config) ->
-    Dog=?t:timetrap(?t:minutes(1)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Case, _Config) ->
-    Dog=?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
 -define(INFO(T, V), {T, V}).
 
 -dialyzer({no_fail_call, new/1}).
-new(doc) ->
-    ["Test erl_anno:new/1"];
+%% Test erl_anno:new/1.
 new(_Config) ->
     {'EXIT', {badarg, _}} =
         (catch erl_anno:new([{location,1},{text, "text"}])), % badarg
     ok.
 
-is_anno(doc) ->
-    ["Test erl_anno:is_anno/1"];
+%% Test erl_anno:is_anno/1.
 is_anno(_Config) ->
     false = erl_anno:is_anno(a),
     false = erl_anno:is_anno({a}),
@@ -106,8 +103,7 @@ is_anno(_Config) ->
     true = erl_anno:is_anno(A5),
     ok.
 
-generated(doc) ->
-    ["Test 'generated'"];
+%% Test 'generated'.
 generated(_Config) ->
     test(1, [{generated, true}, {generated, false}]),
     test(1, [{generated, false}, {generated, true}, {generated, false}]),
@@ -127,8 +123,7 @@ generated(_Config) ->
              {generated, false}]),
     ok.
 
-end_location(doc) ->
-    ["Test 'end_location'"];
+%% Test 'end_location'.
 end_location(_Config) ->
     test({1, 17}, [{text, "TEXT", [{end_location, {1, 21}}, {length, 4}]},
                    {text, "TEXT\n", [{end_location, {2, 1}}, {length, 5}]},
@@ -138,23 +133,20 @@ end_location(_Config) ->
              {text, "TEXT\ntxt", [{end_location, 2}, {length, 8}]}]),
     ok.
 
-file(doc) ->
-    ["Test 'file'"];
+%% Test 'file'.
 file(_Config) ->
     test(1, [{file, "name"}, {file, ""}]),
     test({1, 17}, [{file, "name"}, {file, ""}]),
     ok.
 
-line(doc) ->
-    ["Test 'line'"];
+%% Test 'line'.
 line(_Config) ->
     test(1, [{line, 17, [{location, 17}]},
              {location, {9, 8}, [{line, 9}, {column, 8}]},
              {line, 14, [{location, {14, 8}}]}]),
     ok.
 
-location(doc) ->
-    ["Test 'location'"];
+%% Test 'location'.
 location(_Config) ->
     test(1, [{location, 2, [{line,2}]},
              {location, {1, 17}, [{line, 1}, {column, 17}]},
@@ -172,8 +164,7 @@ location(_Config) ->
              {location, 9, [{column, undefined}]}]),
     ok.
 
-record(doc) ->
-    ["Test 'record'"];
+%% Test 'record'.
 record(_Config) ->
     test({1, 17}, [{record, true}, {record, false}]),
     test(1, [{record, true}, {record, false}]),
@@ -193,8 +184,7 @@ record(_Config) ->
              {generated, false}]),
     ok.
 
-text(doc) ->
-    ["Test 'text'"];
+%% Test 'text'.
 text(_Config) ->
     test(1, [{text, "text", [{end_location, 1}, {length, 4}]},
              {text, "", [{end_location, 1}, {length, 0}]}]),
@@ -203,8 +193,7 @@ text(_Config) ->
     ok.
 
 -dialyzer({[no_opaque, no_fail_call], bad/1}).
-bad(doc) ->
-    ["Test bad annotations"];
+%% Test bad annotations.
 bad(_Config) ->
     Line = erl_anno:new(1),
     LineColumn = erl_anno:new({1, 17}),
@@ -229,77 +218,8 @@ bad(_Config) ->
         (catch erl_anno:record(bad)), % 1st arg not opaque
     ok.
 
-neg_line(doc) ->
-    ["Test negative line numbers (OTP 18)"];
-neg_line(_Config) ->
-    neg_line1(false),
-    neg_line1(true),
-    ok.
-
-neg_line1(TextToo) ->
-    Minus8_0 = erl_anno:new(-8),
-    Plus8_0 = erl_anno:new(8),
-    Minus8C_0 = erl_anno:new({-8, 17}),
-    Plus8C_0 = erl_anno:new({8, 17}),
-
-    [Minus8, Plus8, Minus8C, Plus8C] =
-        [case TextToo of
-             true ->
-                 erl_anno:set_text("foo", A);
-             false ->
-                 A
-         end || A <- [Minus8_0, Plus8_0, Minus8C_0, Plus8C_0]],
-
-    tst(-3, erl_anno:set_location(3, Minus8)),
-    tst(-3, erl_anno:set_location(-3, Plus8)),
-    tst(-3, erl_anno:set_location(-3, Minus8)),
-    tst({-3,9}, erl_anno:set_location({3, 9}, Minus8)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Plus8)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Minus8)),
-    tst(-3, erl_anno:set_location(3, Minus8C)),
-    tst(-3, erl_anno:set_location(-3, Plus8C)),
-    tst(-3, erl_anno:set_location(-3, Minus8C)),
-    tst({-3,9}, erl_anno:set_location({3, 9}, Minus8C)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Plus8C)),
-    tst({-3,9}, erl_anno:set_location({-3, 9}, Minus8C)),
-
-    tst(-8, erl_anno:set_generated(true, Plus8)),
-    tst(-8, erl_anno:set_generated(true, Minus8)),
-    tst({-8,17}, erl_anno:set_generated(true, Plus8C)),
-    tst({-8,17}, erl_anno:set_generated(true, Minus8C)),
-    tst(8, erl_anno:set_generated(false, Plus8)),
-    tst(8, erl_anno:set_generated(false, Minus8)),
-    tst({8,17}, erl_anno:set_generated(false, Plus8C)),
-    tst({8,17}, erl_anno:set_generated(false, Minus8C)),
-
-    tst(-3, erl_anno:set_line(3, Minus8)),
-    tst(-3, erl_anno:set_line(-3, Plus8)),
-    tst(-3, erl_anno:set_line(-3, Minus8)),
-    tst({-3,17}, erl_anno:set_line(3, Minus8C)),
-    tst({-3,17}, erl_anno:set_line(-3, Plus8C)),
-    tst({-3,17}, erl_anno:set_line(-3, Minus8C)),
-    ok.
-
-tst(Term, Anno) ->
-    ?format("Term: ~p\n", [Term]),
-    ?format("Anno: ~p\n", [Anno]),
-    case anno_to_term(Anno) of
-        Term ->
-            ok;
-        Else ->
-            case lists:keyfind(location, 1, Else) of
-                {location, Term} ->
-                    ok;
-                _Else2 ->
-                    ?format("Else2 ~p\n", [_Else2]),
-                    io:format("expected ~p\n got     ~p\n", [Term, Else]),
-                    exit({Term, Else})
-            end
-    end.
-
-parse_abstract(doc) ->
-    ["Test erl_parse:new_anno/1, erl_parse:anno_to_term/1"
-     ", and erl_parse:anno_from_term/1"];
+%% Test erl_parse:new_anno/1, erl_parse:anno_to_term/1,
+%% and erl_parse:anno_from_term/1.
 parse_abstract(_Config) ->
     T = sample_term(),
     A = erl_parse:abstract(T, [{line,17}]),
@@ -310,8 +230,7 @@ parse_abstract(_Config) ->
     T = erl_parse:normalise(Abstr2),
     ok.
 
-mapfold_anno(doc) ->
-    ["Test erl_parse:{map_anno/2,fold_anno/3, and mapfold_anno/3}"];
+%% Test erl_parse:{map_anno/2,fold_anno/3, and mapfold_anno/3}.
 mapfold_anno(_Config) ->
     T = sample_term(),
     Abstr = erl_parse:abstract(T),

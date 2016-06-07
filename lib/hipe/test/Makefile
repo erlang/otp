@@ -6,7 +6,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
-	hipe_SUITE
+	hipe_SUITE \
+	opt_verify_SUITE
 
 # .erl files for these modules are automatically generated
 GEN_MODULES= \
@@ -36,7 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/hipe_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 EBIN = .
 
@@ -79,4 +80,4 @@ release_tests_spec: make_emakefile
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	cd "$(RELSYSDIR)";\
 	erlc hipe_testsuite_driver.erl;\
-	erl -noshell -run hipe_testsuite_driver create_all_suites -s erlang halt
+	erl -noshell -run hipe_testsuite_driver create_all_suites $(GEN_MODULES) -s erlang halt

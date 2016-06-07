@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 
 -define(URL_START, "http://localhost:").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]},
+	    {timetrap, {seconds, 30}}].
 
 all() -> 
     [uri_too_long_414, 
@@ -66,8 +67,8 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config) ->
     inets_test_lib:stop_apps([inets]),
     inets_test_lib:start_apps([inets]),
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config), 
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config), 
     
     Dummy = 
 	"<HTML>
@@ -152,7 +153,7 @@ end_per_testcase(_Case, Config) ->
 uri_too_long_414() ->
     [{doc, "Test that too long uri's get 414 HTTP code"}].
 uri_too_long_414(Config) when is_list(Config) ->
-    HttpdConf =   ?config(httpd_conf, Config),    
+    HttpdConf =   proplists:get_value(httpd_conf, Config),    
     {ok, Pid} = inets:start(httpd, [{max_uri_size, 10} 
 				    | HttpdConf]),
     Info = httpd:info(Pid),
@@ -173,7 +174,7 @@ uri_too_long_414(Config) when is_list(Config) ->
 header_too_long_413() ->
     [{doc,"Test that too long headers's get 413 HTTP code"}].
 header_too_long_413(Config) when is_list(Config) ->
-    HttpdConf = ?config(httpd_conf, Config), 
+    HttpdConf = proplists:get_value(httpd_conf, Config), 
     {ok, Pid} = inets:start(httpd, [{max_header_size, 10}
 				    | HttpdConf]),
     Info = httpd:info(Pid),
@@ -192,7 +193,7 @@ header_too_long_413(Config) when is_list(Config) ->
 entity_too_long() ->
     [{doc, "Test that too long versions and method strings are rejected"}].
 entity_too_long(Config) when is_list(Config) ->
-    HttpdConf =   ?config(httpd_conf, Config),    
+    HttpdConf =   proplists:get_value(httpd_conf, Config),    
     {ok, Pid} = inets:start(httpd, HttpdConf),
     Info = httpd:info(Pid),
     Port = proplists:get_value(port, Info),
@@ -259,7 +260,7 @@ erl_script_nocache_opt(doc) ->
 erl_script_nocache_opt(suite) ->
     [];
 erl_script_nocache_opt(Config) when is_list(Config) ->
-    HttpdConf   = ?config(httpd_conf, Config),
+    HttpdConf   = proplists:get_value(httpd_conf, Config),
     {ok, Pid}   = inets:start(httpd, [{port, 0}, {erl_script_nocache, true} | HttpdConf]),
     Info        = httpd:info(Pid),
     Port        = proplists:get_value(port,         Info),
@@ -282,7 +283,7 @@ erl_script_nocache_opt(Config) when is_list(Config) ->
 escaped_url_in_error_body() ->
     [{doc, "Test Url-encoding see OTP-8940"}].
 escaped_url_in_error_body(Config) when is_list(Config) -> 
-    HttpdConf   = ?config(httpd_conf, Config),
+    HttpdConf   = proplists:get_value(httpd_conf, Config),
     {ok, Pid}   = inets:start(httpd, [{port, 0} | HttpdConf]),
     Info        = httpd:info(Pid),
     Port        = proplists:get_value(port,         Info),
@@ -324,7 +325,7 @@ keep_alive_timeout(doc) ->
 keep_alive_timeout(suite) ->
     [];
 keep_alive_timeout(Config) when is_list(Config) ->
-    HttpdConf   = ?config(httpd_conf, Config),
+    HttpdConf   = proplists:get_value(httpd_conf, Config),
     {ok, Pid}   = inets:start(httpd, [{port, 0}, {keep_alive, true}, {keep_alive_timeout, 2} | HttpdConf]),
     Info        = httpd:info(Pid),
     Port        = proplists:get_value(port,         Info),
@@ -348,9 +349,9 @@ script_timeout(Config) when is_list(Config) ->
     ok.
 
 verify_script_timeout(Config, ScriptTimeout, StatusCode) ->
-    HttpdConf = ?config(httpd_conf, Config),
-    CgiScript = ?config(cgi_sleep, Config),
-    CgiDir = ?config(cgi_dir, Config),
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    CgiScript = proplists:get_value(cgi_sleep, Config),
+    CgiDir = proplists:get_value(cgi_dir, Config),
     {ok, Pid} = inets:start(httpd, [{port, 0},
 				    {script_alias,
 				     {"/cgi-bin/", CgiDir ++ "/"}},
@@ -371,7 +372,7 @@ verify_script_timeout(Config, ScriptTimeout, StatusCode) ->
 slowdose() ->
     [{doc, "Testing minimum bytes per second option"}].
 slowdose(Config) when is_list(Config) ->
-    HttpdConf =   ?config(httpd_conf, Config),
+    HttpdConf =   proplists:get_value(httpd_conf, Config),
     {ok, Pid} = inets:start(httpd, [{port, 0}, {minimum_bytes_per_second, 200}|HttpdConf]),
     Info = httpd:info(Pid),
     Port = proplists:get_value(port, Info),
@@ -386,9 +387,9 @@ slowdose(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 verify_script_nocache(Config, CgiNoCache, EsiNoCache, CgiOption, EsiOption) ->
-    HttpdConf = ?config(httpd_conf, Config),
-    CgiScript = ?config(cgi_printenv, Config),
-    CgiDir = ?config(cgi_dir, Config),
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    CgiScript = proplists:get_value(cgi_printenv, Config),
+    CgiDir = proplists:get_value(cgi_dir, Config),
     {ok, Pid} = inets:start(httpd, [{port, 0},
 				    {script_alias,
 				     {"/cgi-bin/", CgiDir ++ "/"}},

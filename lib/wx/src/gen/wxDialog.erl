@@ -103,9 +103,9 @@ new(Parent,Id,Title)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxDialog() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -129,9 +129,9 @@ create(This,Parent,Id,Title)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogcreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ThisT,wxDialog),
@@ -164,7 +164,7 @@ createStdDialogButtonSizer(#wx_ref{type=ThisT,ref=ThisRef},Flags)
   <<ThisRef:32/?UI,Flags:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogendmodal">external documentation</a>.
--spec endModal(This, RetCode) -> ok when
+-spec endModal(This, RetCode) -> 'ok' when
 	This::wxDialog(), RetCode::integer().
 endModal(#wx_ref{type=ThisT,ref=ThisRef},RetCode)
  when is_integer(RetCode) ->
@@ -197,7 +197,7 @@ isModal(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogsetaffirmativeid">external documentation</a>.
--spec setAffirmativeId(This, AffirmativeId) -> ok when
+-spec setAffirmativeId(This, AffirmativeId) -> 'ok' when
 	This::wxDialog(), AffirmativeId::integer().
 setAffirmativeId(#wx_ref{type=ThisT,ref=ThisRef},AffirmativeId)
  when is_integer(AffirmativeId) ->
@@ -206,7 +206,7 @@ setAffirmativeId(#wx_ref{type=ThisT,ref=ThisRef},AffirmativeId)
   <<ThisRef:32/?UI,AffirmativeId:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogsetreturncode">external documentation</a>.
--spec setReturnCode(This, ReturnCode) -> ok when
+-spec setReturnCode(This, ReturnCode) -> 'ok' when
 	This::wxDialog(), ReturnCode::integer().
 setReturnCode(#wx_ref{type=ThisT,ref=ThisRef},ReturnCode)
  when is_integer(ReturnCode) ->
@@ -225,7 +225,7 @@ show(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdialog.html#wxdialogshow">external documentation</a>.
 -spec show(This, [Option]) -> boolean() when
 	This::wxDialog(),
-	Option :: {show, boolean()}.
+	Option :: {'show', boolean()}.
 show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxDialog),
@@ -244,7 +244,7 @@ showModal(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxDialog()) -> ok.
+-spec destroy(This::wxDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

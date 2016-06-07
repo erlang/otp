@@ -26,6 +26,7 @@
 -export([forms/1,forms/2,noenv_forms/2]).
 -export([output_generated/1,noenv_output_generated/1]).
 -export([options/0]).
+-export([env_compiler_options/0]).
 
 %% Erlc interface.
 -export([compile/3,compile_beam/3,compile_asm/3,compile_core/3]).
@@ -40,6 +41,8 @@
 
 %%----------------------------------------------------------------------
 
+-type abstract_code() :: [erl_parse:abstract_form()].
+
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
 -type err_info() :: {erl_anno:line() | 'none',
@@ -48,6 +51,9 @@
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}
                   | {'ok', module(), cerl:c_module()} %% with option 'to_core'
+                  | {'ok',                            %% with option 'to_pp'
+                     module() | [],                   %% module() if 'to_exp'
+                     abstract_code()}
                   | {'ok', module(), warnings()}.
 -type bin_ret()  :: {'ok', module(), binary()}
                   | {'ok', module(), binary(), warnings()}.
@@ -78,7 +84,11 @@ file(File, Opts) when is_list(Opts) ->
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
-forms(File) -> forms(File, ?DEFAULT_OPTIONS).
+-spec forms(abstract_code()) -> comp_ret().
+
+forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
+
+-spec forms(abstract_code(), [option()] | option()) -> comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts++env_default_opts()]);
@@ -106,6 +116,8 @@ noenv_file(File, Opts) when is_list(Opts) ->
 noenv_file(File, Opt) ->
     noenv_file(File, [Opt|?DEFAULT_OPTIONS]).
 
+-spec noenv_forms(abstract_code(), [option()] | option()) -> comp_ret().
+
 noenv_forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts]);
 noenv_forms(Forms, Opt) when is_atom(Opt) ->
@@ -118,6 +130,14 @@ noenv_output_generated(Opts) ->
     any(fun ({save_binary,_T,_F}) -> true;
 	    (_Other) -> false
 	end, Passes).
+
+%%
+%% Retrieve ERL_COMPILER_OPTIONS as a list of terms
+%%
+
+-spec env_compiler_options() -> [term()].
+
+env_compiler_options() -> env_default_opts().
 
 %%
 %%  Local functions
@@ -671,11 +691,16 @@ asm_passes() ->
     %% Assembly level optimisations.
     [{delay,
       [{pass,beam_a},
+       {iff,da,{listing,"a"}},
        {unless,no_postopt,
-	[{pass,beam_block},
+	[{unless,no_reorder,{pass,beam_reorder}},
+	 {iff,dre,{listing,"reorder"}},
+	 {pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_except,{pass,beam_except}},
 	 {iff,dexcept,{listing,"except"}},
+	 {unless,no_bs_opt,{pass,beam_bs}},
+	 {iff,dbs,{listing,"bs"}},
 	 {unless,no_bopt,{pass,beam_bool}},
 	 {iff,dbool,{listing,"bool"}},
 	 {unless,no_topt,{pass,beam_type}},
@@ -703,6 +728,7 @@ asm_passes() ->
        {iff,no_postopt,[{pass,beam_clean}]},
 
        {pass,beam_z},
+       {iff,dz,{listing,"z"}},
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
@@ -1300,33 +1326,34 @@ generate_key(String) when is_list(String) ->
 encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
     Bin1 = case byte_size(Bin0) rem BlockSize of
 	       0 -> Bin0;
-	       N -> list_to_binary([Bin0,random_bytes(BlockSize-N)])
+	       N -> list_to_binary([Bin0,crypto:strong_rand_bytes(BlockSize-N)])
 	   end,
     Bin = crypto:block_encrypt(Type, Key, IVec, Bin1),
     TypeString = atom_to_list(Type),
     list_to_binary([0,length(TypeString),TypeString,Bin]).
-
-random_bytes(N) ->
-    _ = random:seed(erlang:time_offset(),
-		    erlang:monotonic_time(),
-		    erlang:unique_integer()),
-    random_bytes_1(N, []).
-
-random_bytes_1(0, Acc) -> Acc;
-random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 
 save_core_code(St) ->
     {ok,St#compile{core_code=cerl:from_records(St#compile.code)}}.
 
 beam_asm(#compile{ifile=File,code=Code0,
 		  abstract_code=Abst,mod_options=Opts0}=St) ->
-    Source = filename:absname(File),
+    Source = paranoid_absname(File),
     Opts1 = lists:map(fun({debug_info_key,_}) -> {debug_info_key,'********'};
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
     case beam_asm:module(Code0, Abst, Source, Opts2) of
 	{ok,Code} -> {ok,St#compile{code=Code,abstract_code=[]}}
+    end.
+
+paranoid_absname(""=File) ->
+    File;
+paranoid_absname(File) ->
+    case file:get_cwd() of
+	{ok,Cwd} ->
+	    filename:absname(File, Cwd);
+	_ ->
+	    File
     end.
 
 test_native(#compile{options=Opts}) ->
@@ -1612,11 +1639,8 @@ output_encoding(F, #compile{encoding = Encoding}) ->
     ok = io:setopts(F, [{encoding, Encoding}]),
     ok = io:fwrite(F, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
-restore_expanded_types("P", Fs) ->
-    epp:restore_typed_record_fields(Fs);
 restore_expanded_types("E", {M,I,Fs0}) ->
-    Fs1 = restore_expand_module(Fs0),
-    Fs = epp:restore_typed_record_fields(Fs1),
+    Fs = restore_expand_module(Fs0),
     {M,I,Fs};
 restore_expanded_types(_Ext, Code) -> Code.
 
@@ -1628,6 +1652,8 @@ restore_expand_module([{attribute,Line,spec,[Arg]}|Fs]) ->
     [{attribute,Line,spec,Arg}|restore_expand_module(Fs)];
 restore_expand_module([{attribute,Line,callback,[Arg]}|Fs]) ->
     [{attribute,Line,callback,Arg}|restore_expand_module(Fs)];
+restore_expand_module([{attribute,Line,record,[R]}|Fs]) ->
+    [{attribute,Line,record,R}|restore_expand_module(Fs)];
 restore_expand_module([F|Fs]) ->
     [F|restore_expand_module(Fs)];
 restore_expand_module([]) -> [].
@@ -1674,6 +1700,7 @@ help(_) ->
 %%   Compile entry point for erl_compile.
 
 compile(File0, _OutFile, Options) ->
+    pre_load(),
     File = shorten_filename(File0),
     case file(File, make_erl_options(Options)) of
 	{ok,_Mod} -> ok;
@@ -1738,3 +1765,47 @@ make_erl_options(Opts) ->
 	end,
     Options ++ [report_errors, {cwd, Cwd}, {outdir, Outdir}|
 	        [{i, Dir} || Dir <- Includes]] ++ Specific.
+
+pre_load() ->
+    L = [beam_a,
+	 beam_asm,
+	 beam_block,
+	 beam_bool,
+	 beam_bs,
+	 beam_bsm,
+	 beam_clean,
+	 beam_dead,
+	 beam_dict,
+	 beam_except,
+	 beam_flatten,
+	 beam_jump,
+	 beam_opcodes,
+	 beam_peep,
+	 beam_receive,
+	 beam_reorder,
+	 beam_split,
+	 beam_trim,
+	 beam_type,
+	 beam_utils,
+	 beam_validator,
+	 beam_z,
+	 cerl,
+	 cerl_clauses,
+	 cerl_sets,
+	 cerl_trees,
+	 core_lib,
+	 epp,
+	 erl_bifs,
+	 erl_expand_records,
+	 erl_lint,
+	 erl_parse,
+	 erl_scan,
+	 sys_core_dsetel,
+	 sys_core_fold,
+	 sys_pre_expand,
+	 v3_codegen,
+	 v3_core,
+	 v3_kernel,
+	 v3_life],
+    _ = code:ensure_modules_loaded(L),
+    ok.

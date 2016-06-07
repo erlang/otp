@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -239,15 +239,30 @@ backward([{test,is_eq_exact,Fail,[Dst,{integer,Arity}]}=I|
 backward([{label,Lbl}=L|Is], D, Acc) ->
     backward(Is, beam_utils:index_label(Lbl, Acc, D), [L|Acc]);
 backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
-    List = shortcut_select_list(List0, Reg, D, []),
+    List1 = shortcut_select_list(List0, Reg, D, []),
     Fail1 = shortcut_label(Fail0, D),
     Fail = shortcut_bs_test(Fail1, Is, D),
-    Sel = {select,select_val,Reg,{f,Fail},List},
-    backward(Is, D, [Sel|Acc]);
+    List = prune_redundant(List1, Fail),
+    case List of
+	[] ->
+	    Jump = {jump,{f,Fail}},
+	    backward([Jump|Is], D, Acc);
+	[V,F] ->
+	    Test = {test,is_eq_exact,{f,Fail},[Reg,V]},
+	    Jump = {jump,F},
+	    backward([Jump,Test|Is], D, Acc);
+	[{atom,B1},F,{atom,B2},F] when B1 =:= not B2 ->
+	    Test = {test,is_boolean,{f,Fail},[Reg]},
+	    Jump = {jump,F},
+	    backward([Jump,Test|Is], D, Acc);
+	[_|_] ->
+	    Sel = {select,select_val,Reg,{f,Fail},List},
+	    backward(Is, D, [Sel|Acc])
+    end;
 backward([{jump,{f,To0}},{move,Src,Reg}=Move|Is], D, Acc) ->
     To = shortcut_select_label(To0, Reg, Src, D),
     Jump = {jump,{f,To}},
-    case beam_utils:is_killed_at(Reg, To, D) of
+    case is_killed_at(Reg, To, D) of
 	false -> backward([Move|Is], D, [Jump|Acc]);
 	true -> backward([Jump|Is], D, Acc)
     end;
@@ -257,14 +272,17 @@ backward([{jump,{f,To}}=J|[{bif,Op,_,Ops,Reg}|Is]=Is0], D, Acc) ->
     catch
 	throw:not_possible -> backward(Is0, D, [J|Acc])
     end;
-backward([{test,bs_start_match2,F,_,[R,_],Ctxt}=I|Is], D,
+backward([{test,bs_start_match2,F,Live,[R,_]=Args,Ctxt}|Is], D,
 	 [{test,bs_match_string,F,[Ctxt,Bs]},
 	  {test,bs_test_tail2,F,[Ctxt,0]}|Acc0]=Acc) ->
+    {f,To0} = F,
+    To = shortcut_bs_start_match(To0, R, D),
     case beam_utils:is_killed(Ctxt, Acc0, D) of
 	true ->
-	    Eq = {test,is_eq_exact,F,[R,{literal,Bs}]},
+	    Eq = {test,is_eq_exact,{f,To},[R,{literal,Bs}]},
 	    backward(Is, D, [Eq|Acc0]);
 	false ->
+	    I = {test,bs_start_match2,{f,To},Live,Args,Ctxt},
 	    backward(Is, D, [I|Acc])
     end;
 backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
@@ -295,7 +313,28 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
 	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
 	    _ -> {test,Op,{f,To},Ops0}
 	end,
-    backward(Is, D, [I|Acc]);
+    case {I,Acc} of
+	{{test,is_atom,Fail,Ops0},[{test,is_boolean,Fail,Ops0}|_]} ->
+	    %% An is_atom test before an is_boolean test (with the
+	    %% same failure label) is redundant.
+	    backward(Is, D, Acc);
+	{{test,is_atom,Fail,[R]},
+	 [{test,is_eq_exact,Fail,[R,{atom,_}]}|_]} ->
+	    %% An is_atom test before a comparison with an atom (with
+	    %% the same failure label) is redundant.
+	    backward(Is, D, Acc);
+	{{test,is_integer,Fail,[R]},
+	 [{test,is_eq_exact,Fail,[R,{integer,_}]}|_]} ->
+	    %% An is_integer test before a comparison with an integer
+	    %% (with the same failure label) is redundant.
+	    backward(Is, D, Acc);
+	{{test,_,_,_},_} ->
+	    %% Still a test instruction. Done.
+	    backward(Is, D, [I|Acc]);
+	{_,_} ->
+	    %% Rewritten to a select_val. Rescan.
+	    backward([I|Is], D, Acc)
+    end;
 backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To2 = shortcut_label(To1, D),
@@ -348,6 +387,12 @@ shortcut_label(To0, D) ->
 shortcut_select_label(To, Reg, Lit, D) ->
     shortcut_rel_op(To, is_ne_exact, [Reg,Lit], D).
 
+prune_redundant([_,{f,Fail}|T], Fail) ->
+    prune_redundant(T, Fail);
+prune_redundant([V,F|T], Fail) ->
+    [V,F|prune_redundant(T, Fail)];
+prune_redundant([], _) -> [].
+
 %% Replace a comparison operator with a test instruction and a jump.
 %% For example, if we have this code:
 %%
@@ -375,7 +420,7 @@ comp_op_find_shortcut(To0, Reg, Val, D) ->
 	To0 ->
 	    not_possible();
 	To ->
-	    case beam_utils:is_killed_at(Reg, To, D) of
+	    case is_killed_at(Reg, To, D) of
 		false -> not_possible();
 		true -> To
 	    end
@@ -818,3 +863,17 @@ get_literal(nil) ->
 get_literal({literal,_}=Lit) ->
     Lit;
 get_literal({_,_}) -> error.
+
+
+%%%
+%%% Removing stores to Y registers is not always safe
+%%% if there is an instruction that causes an exception
+%%% within a catch. In practice, there are few or no
+%%% opportunities for removing stores to Y registers anyway
+%%% if sys_core_fold has been run.
+%%%
+
+is_killed_at({x,_}=Reg, Lbl, D) ->
+    beam_utils:is_killed_at(Reg, Lbl, D);
+is_killed_at({y,_}, _, _) ->
+    false.

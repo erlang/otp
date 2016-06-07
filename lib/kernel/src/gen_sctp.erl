@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -124,8 +124,8 @@ open() ->
 	      SockType :: seqpacket | stream,
               Socket :: sctp_socket().
 
-open(Opts) when is_list(Opts) ->
-    Mod = mod(Opts, undefined),
+open(Opts0) when is_list(Opts0) ->
+    {Mod, Opts} = inet:sctp_module(Opts0),
     case Mod:open(Opts) of
 	{error,badarg} ->
 	    erlang:error(badarg, [Opts]);
@@ -445,32 +445,3 @@ controlling_process(S, Pid) when is_port(S), is_pid(Pid) ->
     inet:udp_controlling_process(S, Pid);
 controlling_process(S, Pid) ->
     erlang:error(badarg, [S,Pid]).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Utilites
-%%
-
-%% Get the SCTP module, but IPv6 address overrides default IPv4
-mod(Address) ->
-    case inet_db:sctp_module() of
-	inet_sctp when tuple_size(Address) =:= 8 ->
-	    inet6_sctp;
-	Mod ->
-	    Mod
-    end.
-
-%% Get the SCTP module, but option sctp_module|inet|inet6 overrides
-mod([{sctp_module,Mod}|_], _Address) ->
-    Mod;
-mod([inet|_], _Address) ->
-    inet_sctp;
-mod([inet6|_], _Address) ->
-    inet6_sctp;
-mod([{ip, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([{ifaddr, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([_|Opts], Address) ->
-    mod(Opts, Address);
-mod([], Address) ->
-    mod(Address).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("xmerl.hrl").
 -include("xmerl_xsd.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -43,10 +43,8 @@ compare_test_results(Config, ST, IT) ->
     ResIT=compare_instance_test_results(IT),
     io:format("compare_test_results:~n  ST = ~p~n  IT = ~p~n  ResST = ~p~n  ResIT = ~p~n",[ST, IT, ResST, ResIT]),
     case process_reference_results(Config, ResST, ResIT) of
-	error ->
-	    error;
-	Diff ->
-	    return_results(Diff, ResST, ResIT, length(ST)+length(IT))
+	error -> error;
+	Diff -> return_results(Diff, ResST, ResIT, length(ST)+length(IT))
     end.
 
 compare_schema_test_results(ST) ->
@@ -58,7 +56,7 @@ return_results({SkippedN, Diff},{STErrs, _},{ITErrs, _}, TotN) ->
     NumErrs = length(STErrs ++ ITErrs),
     case NumErrs == TotN of
 	true when TotN > 0 ->
-	    ?line exit(all_tests_cases_failed);
+	    exit(all_tests_cases_failed);
 	_ ->
 	    return_results2(Diff, TotN - NumErrs, SkippedN, TotN)
     end.
@@ -76,29 +74,26 @@ return_results2({[], [], [], []}, NumSucc, SkippedN, TotN) ->
     {comment,io_lib:format("~p successful tests, ~p skipped tests of totally ~p test cases.~n",
 			   [NumSucc, SkippedN, TotN])};
 return_results2({NewFail, NewSuccess, NewMal, NewNotMal}, NumSucc, SkippedN, TotN) ->
-    NFComm =
-	case NewFail of
-	    [] -> "";
-	    _ -> io_lib:format("These ~p tests are new failures: ~p~n",
-			       [length(NewFail), NewFail])
-	end,
-    NSComm =
-	case NewSuccess of
-	    [] -> "";
-	    _ -> io_lib:format("These ~p skipped tests are new succeeding cases: ~p~n",
-			       [length(NewSuccess), NewSuccess])
-	end,
-    NMComm =
-	case NewMal of
-	    [] -> "";
-	    _ -> io_lib:format("These ~p tests are now malicious: ~p~n",
-			       [length(NewMal), NewMal])
-	end,
-    NNMComm =
-	case NewNotMal of
-	    [] -> "";
-	    _ -> io_lib:format("These ~p  skipped tests were malicious, but succeeds now: ~p~n", [length(NewNotMal), NewNotMal])
-	end,
+    NFComm = case NewFail of
+                 [] -> "";
+                 _ -> io_lib:format("These ~p tests are new failures: ~p~n",
+                                    [length(NewFail), NewFail])
+             end,
+    NSComm = case NewSuccess of
+                 [] -> "";
+                 _ -> io_lib:format("These ~p skipped tests are new succeeding cases: ~p~n",
+                                    [length(NewSuccess), NewSuccess])
+             end,
+    NMComm = case NewMal of
+                 [] -> "";
+                 _ -> io_lib:format("These ~p tests are now malicious: ~p~n",
+                                    [length(NewMal), NewMal])
+             end,
+    NNMComm = case NewNotMal of
+                  [] -> "";
+                  _ -> io_lib:format("These ~p  skipped tests were malicious, but succeeds now: ~p~n",
+                                     [length(NewNotMal), NewNotMal])
+              end,
     ct:comment(io_lib:format("~p successful tests, ~p skipped tests of totally ~p test cases. ~n" ++
 			     NFComm ++ NSComm ++ NMComm ++ NNMComm, [NumSucc, SkippedN, TotN])),
     [] = NewFail.
@@ -109,7 +104,7 @@ return_results2({NewFail, NewSuccess, NewMal, NewNotMal}, NumSucc, SkippedN, Tot
 
 process_reference_results(Config, {ErrsST, MalST}, {ErrsIT, MalIT}) ->
     {RefFailed, RefMalicious} = xsd_reference_log(Config),
-io:format("A: ~p : ~p\n\n",[RefFailed, RefMalicious]),
+    io:format("A: ~p : ~p\n\n",[RefFailed, RefMalicious]),
     AllErrs = ErrsST ++ ErrsIT,
     AllMals = MalST ++ MalIT,
     %% test cases failed now but succeeded in reference results.
@@ -121,44 +116,45 @@ io:format("A: ~p : ~p\n\n",[RefFailed, RefMalicious]),
     %% test cases succeeded now but malicious in reference results.
     NewNotMal = [X||X<-RefMalicious, lists:member(X, AllMals) == false],
     write_in_log(Config, AllErrs, AllMals),
-%    io:format("process_reference_results:~n  AllErrs = ~p~n  NewFailures = ~p~n",[AllErrs,NewFailures]),
+    % io:format("process_reference_results:~n  AllErrs = ~p~n  NewFailures = ~p~n",[AllErrs,NewFailures]),
     {length(RefFailed) + length(RefMalicious), {NewFailures, NewSucceeds, NewMalicious, NewNotMal}}.
 
 xsd_reference_log(Config) ->
-    DataDir = ?config(data_dir, Config),
-    Suite = ?config(suite, Config),
+    DataDir = datadir(Config),
+    Suite = proplists:get_value(suite, Config),
     SuiteReferenceLog = 
-	filename:join([DataDir, lists:concat([Suite, "_failed_cases.log"])]),
-io:format("B: ~p\n\n",[SuiteReferenceLog]),
+    filename:join([DataDir,lists:concat([Suite,"_failed_cases.log"])]),
+    io:format("B: ~p\n\n",[SuiteReferenceLog]),
     case file:consult(SuiteReferenceLog) of
-	{ok,List} when is_list(List) ->
-io:format("C: ~p\n\n",[List]),
-	    case lists:keysearch(?config(testcase, Config), 1, List) of
-		{value,{_, TCRefFails}} ->
-io:format("D: ~p\n\n",[TCRefFails]),
-		    TCRefFails;
-		_ ->
-io:format("D: ~no result\n\n",[]),
-		    {[], []}
-	    end;
-	_ -> 
-	    {[], []}
+        {ok,List} when is_list(List) ->
+            io:format("C: ~p\n\n",[List]),
+            case lists:keysearch(proplists:get_value(testcase, Config), 1, List) of
+                {value,{_, TCRefFails}} ->
+                    io:format("D: ~p\n\n",[TCRefFails]),
+                    TCRefFails;
+                _ ->
+                    io:format("D: ~no result\n\n",[]),
+                    {[], []}
+            end;
+        _ ->
+            {[], []}
     end.
 
 write_in_log(_Config, [], []) ->
     ok;
 write_in_log(Config, AllErrs, AllMals) ->
-    ?line LogFileName = ?config(xmerl_error_log, Config),
+    LogFileName = proplists:get_value(xmerl_error_log, Config),
     {ok,IO}=file:open(LogFileName, [append]),
-    ?line TestCase = ?config(testcase, Config),
+    TestCase = proplists:get_value(testcase, Config),
     io:format(IO,"{~p,{~p,~p}}.~n", [TestCase, AllErrs, AllMals]),
     file:close(IO),
     ok.
 
 schema_test(Config,FileName,XsdBase,Validity) ->
     ModuleName = filename:basename(FileName),
-    DataDir = ?config(data_dir, Config),
-    case xmerl_xsd:process_schema(filename:join([DataDir, FileName]), [{xsdbase,filename:join([DataDir, XsdBase])}]) of
+    DataDir = datadir(Config),
+    case xmerl_xsd:process_schema(filename:join([DataDir, FileName]),
+                                  [{xsdbase,filename:join([DataDir, XsdBase])}]) of
 	{error, enoent} ->
 	    {{ModuleName, enoent},#xsd_state{}};
 	{Ok, S} ->
@@ -181,49 +177,49 @@ schema_test(Config,FileName,XsdBase,Validity) ->
     end.
 schema_test(Config, FileName, XsdBase, Validity, AccState) ->
     ModuleName = filename:basename(FileName),
-    DataDir = ?config(data_dir, Config),
+    DataDir = datadir(Config),
     case xmerl_xsd:process_schema(filename:join([DataDir, FileName]),
-			       [{xsdbase, filename:join([DataDir, XsdBase])}, AccState]) of
-	{error, enoent} ->
-	    {{ModuleName, enoent}, AccState};
-	{Ok, S} ->
-	    case Validity of
-		valid when Ok == ok ->
-		    {{ModuleName, S#xsd_state.errors == []}, S};
-		invalid when Ok == error ->
-		    {{ModuleName, no_internal_error(S)}, AccState};
-		notKnown ->
-		    {{ModuleName, true}, AccState};
-		valid ->
-		    {{ModuleName, false}, AccState};
-		_ -> 
-		    {{ModuleName, false}, S}
-	    end
+                                  [{xsdbase,filename:join([DataDir, XsdBase])}, AccState]) of
+        {error, enoent} ->
+            {{ModuleName, enoent}, AccState};
+        {Ok, S} ->
+            case Validity of
+                valid when Ok == ok ->
+                    {{ModuleName, S#xsd_state.errors == []}, S};
+                invalid when Ok == error ->
+                    {{ModuleName, no_internal_error(S)}, AccState};
+                notKnown ->
+                    {{ModuleName, true}, AccState};
+                valid ->
+                    {{ModuleName, false}, AccState};
+                _ ->
+                    {{ModuleName, false}, S}
+            end
     end.
 instance_test(Config, FileName, XMLBase, Validity, State) ->
     ModuleName = filename:basename(FileName),
-    DataDir = ?config(data_dir, Config),
+    DataDir = datadir(Config),
     case xmerl_scan:file(filename:join([DataDir, FileName]),
-			 [{xmlbase, filename:join([DataDir, XMLBase])}]) of
-	{error, enoent} ->
-	    {ModuleName, enoent};
-	{E, _} ->
-	    {VE, S2} = xmerl_xsd:validate(E, State),
-	    case Validity of
-		valid when is_record(VE, xmlElement) ->
-		    case S2#xsd_state.errors of
-			[] -> ok;
-			_ -> io:format("test case ~p failed.~nValidity: ~p~nValidation result:~p~n", [FileName, Validity, VE])
-		    end,
-		    {ModuleName, S2#xsd_state.errors == []};
-		invalid when VE == error ->
-		    {ModuleName, no_internal_error(S2)};
-		notKnown ->
-		    {ModuleName, true};
-		_ ->
-		    io:format("test case ~p failed.~nValidity: ~p~nValidation result:~p~n", [FileName, Validity, VE]),
-		    {ModuleName,false}
-	    end
+                         [{xmlbase,filename:join([DataDir, XMLBase])}]) of
+        {error, enoent} ->
+            {ModuleName, enoent};
+        {E, _} ->
+            {VE, S2} = xmerl_xsd:validate(E, State),
+            case Validity of
+                valid when is_record(VE, xmlElement) ->
+                    case S2#xsd_state.errors of
+                        [] -> ok;
+                        _ -> io:format("test case ~p failed.~nValidity: ~p~nValidation result:~p~n", [FileName, Validity, VE])
+                    end,
+                    {ModuleName, S2#xsd_state.errors == []};
+                invalid when VE == error ->
+                    {ModuleName, no_internal_error(S2)};
+                notKnown ->
+                    {ModuleName, true};
+                _ ->
+                    io:format("test case ~p failed.~nValidity: ~p~nValidation result:~p~n", [FileName, Validity, VE]),
+                    {ModuleName,false}
+            end
     end.
 
 no_internal_error(R) ->
@@ -236,8 +232,8 @@ no_internal_error(R) ->
 
 unpack(Config, Suite) ->
     TarFile = suite_tar(Suite),
-    ?line file:set_cwd(?config(data_dir, Config)),
-    ?line ok=erl_tar:extract(TarFile, [compressed]),
+    file:set_cwd(datadir(Config)),
+    ok=erl_tar:extract(TarFile, [compressed]),
     change_mode(filename:rootname(TarFile, ".tar.gz")).
     
 suite_tar(sun) ->
@@ -250,45 +246,45 @@ suite_tar(nist) ->
 change_mode(Files) ->
     change_mode3(Files).
 change_mode2(Dir)->
-    ?line {ok, CWD} = file:get_cwd(),
-    ?line {ok, FileList} = file:list_dir(Dir),
-    ?line file:set_cwd(filename:join([CWD, Dir])),
+    {ok, CWD} = file:get_cwd(),
+    {ok, FileList} = file:list_dir(Dir),
+    file:set_cwd(filename:join([CWD, Dir])),
     change_mode3(FileList),
-    ?line file:set_cwd(CWD).
+    file:set_cwd(CWD).
 change_mode3([]) ->
     ok;
 change_mode3([F |Fs]) ->
     case filelib:is_dir(F) of
-	true ->
-	    chmod(F),
-	    change_mode2(F);
-	_ ->
-	    chmod(F)
+        true ->
+            chmod(F),
+            change_mode2(F);
+        _ ->
+            chmod(F)
     end,
     change_mode3(Fs).
     
 chmod(F) ->
     case file:read_file_info(F) of
-	{ok, FileInfo} ->
-	    Mode= FileInfo#file_info.mode,
-	    file:write_file_info(F, FileInfo#file_info{mode=8#00777 bor Mode});
-	_ ->
-	    ok
+        {ok, FileInfo} ->
+            Mode= FileInfo#file_info.mode,
+            file:write_file_info(F, FileInfo#file_info{mode=8#00777 bor Mode});
+        _ ->
+            ok
     end.
 
 rmdir(Config, Suite) ->
-    ?line file:set_cwd(?config(data_dir, Config)),
+    file:set_cwd(datadir(Config)),
     SuiteDir = filename:rootname(suite_tar(Suite), ".tar.gz"),
-    ?line ok=rm_f_(SuiteDir).
+    ok=rm_f_(SuiteDir).
 
 %% Dir is a directory
 rm_f_(Dir) ->
-    ?line {ok, CWD} = file:get_cwd(),
-    ?line {ok, FileList} = file:list_dir(Dir),
-    ?line file:set_cwd(filename:join([CWD, Dir])),
+    {ok, CWD} = file:get_cwd(),
+    {ok, FileList} = file:list_dir(Dir),
+    file:set_cwd(filename:join([CWD, Dir])),
     rm_files(FileList),
-    ?line file:set_cwd(CWD),
-    ? line ok = file:del_dir(Dir).
+    file:set_cwd(CWD),
+    ok = file:del_dir(Dir).
 
 rm_files([])->
     ok;
@@ -298,25 +294,30 @@ rm_files([F |Fs]) ->
 	    rm_f_(F);
 	_ ->
 	    io:format("rm_files: ~p~n", [F]),
-	    ?line ok = file:delete(F)
+	    ok = file:delete(F)
     end,
     rm_files(Fs).
 
 create_error_log_file(Config, Suite) ->
-    ?line {{Y, M, D}, {H, Min, S}} = calendar:local_time(),
+    {{Y, M, D}, {H, Min, S}} = calendar:local_time(),
     DTString=lists:concat([Y, "-", M,"-", D, "_", H, ".", Min, ".", S]),
     FileName = lists:concat([Suite, "_", DTString, ".errorlog"]),
-%%    ?line {ok,_IO} = file:open(filename:join([?config(priv_dir,Config),
+%%    {ok,_IO} = file:open(filename:join([privdir(Config),
 %% 					      FileName]),[append]).
 
-%%    ?line {ok,_IO} = file:open(FileName,[append]).
-    io:format("error log file: ~p~n", [filename:join([?config(priv_dir,Config), FileName])]),
-    {ok, filename:join([?config(priv_dir,Config), FileName])}.
+%%    {ok,_IO} = file:open(FileName,[append]).
+    io:format("error log file: ~p~n", [filename:join([privdir(Config), FileName])]),
+    {ok, filename:join([privdir(Config), FileName])}.
 
 close_error_log_file(Config) ->
     case lists:keysearch(xmerl_error_log, 1, Config) of
- 	{value,{_, IO}} ->
- 	    file:close(IO);
- 	_ ->
- 	    ok
+        {value,{_, IO}} ->
+            file:close(IO);
+        _ ->
+            ok
     end.
+
+privdir(Config) ->
+    proplists:get_value(priv_dir, Config).
+datadir(Config) ->
+    proplists:get_value(data_dir, Config).

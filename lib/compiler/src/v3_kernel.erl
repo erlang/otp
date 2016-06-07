@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ copy_anno(Kdst, Ksrc) ->
 	       fcount=0,			%Fun counter
                ds=cerl_sets:new() :: cerl_sets:set(), %Defined variables
 	       funs=[],				%Fun functions
-	       free=[],				%Free variables
+	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
 	       guard_refc=0}).			%> 0 means in guard
 
@@ -143,8 +143,11 @@ attributes([]) -> [].
 
 include_attribute(type) -> false;
 include_attribute(spec) -> false;
+include_attribute(callback) -> false;
 include_attribute(opaque) -> false;
 include_attribute(export_type) -> false;
+include_attribute(record) -> false;
+include_attribute(optional_callbacks) -> false;
 include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
@@ -239,7 +242,7 @@ gexpr_test_add(Ke, St0) ->
 expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
     %% A local in an expression.
     %% For now, these are wrapped into a fun by reverse
-    %% etha-conversion, but really, there should be exactly one
+    %% eta-conversion, but really, there should be exactly one
     %% such "lambda function" for each escaping local name,
     %% instead of one for each occurrence as done now.
     Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
@@ -399,7 +402,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
 			   name=#c_literal{val=apply},
-			   args=[M0,F0,make_list(Cargs)]},
+			   args=[M0,F0,cerl:make_list(Cargs)]},
 	    expr(Call, Sub, St1);
 	_ ->
 	    {[M1,F1|Kargs],Ap,St} = atomic_list([M0,F0|Cargs], Sub, St1),
@@ -494,7 +497,7 @@ translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
     end.
 
 translate_fc(Args) ->
-    [#c_literal{val=function_clause},make_list(Args)].
+    [#c_literal{val=function_clause},cerl:make_list(Args)].
 
 expr_map(A,Var0,Ces,Sub,St0) ->
     {Var,Mps,St1} = expr(Var0, Sub, St0),
@@ -1837,14 +1840,17 @@ handle_reuse_anno_1(V, _St) -> V.
 %% get_free(Name, Arity, State) -> [Free].
 %% store_free(Name, Arity, [Free], State) -> State.
 
-get_free(F, A, St) ->
-    case orddict:find({F,A}, St#kern.free) of
-	{ok,Val} -> Val;
-	error -> []
+get_free(F, A, #kern{free=FreeMap}) ->
+    Key = {F,A},
+    case FreeMap of
+	#{Key:=Val} -> Val;
+	_ -> []
     end.
 
-store_free(F, A, Free, St) ->
-    St#kern{free=orddict:store({F,A}, Free, St#kern.free)}.
+store_free(F, A, Free, #kern{free=FreeMap0}=St) ->
+    Key = {F,A},
+    FreeMap = FreeMap0#{Key=>Free},
+    St#kern{free=FreeMap}.
 
 break_rets({break,Rs}) -> Rs;
 break_rets(return) -> [].
@@ -1982,11 +1988,6 @@ pat_list_vars(Ps) ->
 		  {Used,New} = pat_vars(P),
 		  {union(Used0, Used),union(New0, New)} end,
 	  {[],[]}, Ps).
-
-make_list(Es) ->
-    foldr(fun(E, Acc) ->
- 		  #c_cons{hd=E,tl=Acc}
- 	  end, #c_literal{val=[]}, Es).
 
 %% List of integers in interval [N,M]. Empty list if N > M.
 

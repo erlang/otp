@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,8 +46,8 @@ getBitmap(Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxartprovider.html#wxartprovidergetbitmap">external documentation</a>.
 -spec getBitmap(Id, [Option]) -> wxBitmap:wxBitmap() when
 	Id::unicode:chardata(),
-	Option :: {client, unicode:chardata()}
-		 | {size, {W::integer(), H::integer()}}.
+	Option :: {'client', unicode:chardata()}
+		 | {'size', {W::integer(), H::integer()}}.
 getBitmap(Id, Options)
  when is_list(Id),is_list(Options) ->
   Id_UC = unicode:characters_to_binary([Id,0]),
@@ -69,8 +69,8 @@ getIcon(Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxartprovider.html#wxartprovidergeticon">external documentation</a>.
 -spec getIcon(Id, [Option]) -> wxIcon:wxIcon() when
 	Id::unicode:chardata(),
-	Option :: {client, unicode:chardata()}
-		 | {size, {W::integer(), H::integer()}}.
+	Option :: {'client', unicode:chardata()}
+		 | {'size', {W::integer(), H::integer()}}.
 getIcon(Id, Options)
  when is_list(Id),is_list(Options) ->
   Id_UC = unicode:characters_to_binary([Id,0]),

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,15 +101,9 @@
 #  include "config.h"
 #endif
 
-#ifndef __OSE__
 #include <ctype.h>
 #include <sys/types.h>
 #include <stdlib.h>
-#else
-#include "ctype.h"
-#include "sys/types.h"
-#include "stdlib.h"
-#endif
 
 /* Need (NON)BLOCKING macros for sendfile */
 #ifndef WANT_NONBLOCKING
@@ -882,7 +876,7 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     TRACE_C('N');
 
     response[0] = FILE_RESP_NUMERR;
-#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
+#if SIZEOF_VOID_P == 4
     put_int32(0, response+1);
 #else
     put_int32(num>>32, response+1);
@@ -951,7 +945,7 @@ static int reply_Uint(file_descriptor *desc, Uint result) {
     TRACE_C('R');
 
     tmp[0] = FILE_RESP_NUMBER;
-#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
+#if SIZEOF_VOID_P == 4
     put_int32(0, tmp+1);
 #else
     put_int32(result>>32, tmp+1);
@@ -2906,12 +2900,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
 			      + FILENAME_BYTELEN(buf + 9*4) + FILENAME_CHARSIZE);
 	    
-	    d->info.mode       = get_int32(buf +  0 * 4);
-	    d->info.uid        = get_int32(buf +  1 * 4);
-	    d->info.gid        = get_int32(buf +  2 * 4);
-	    d->info.accessTime = (time_t)((Sint64)get_int64(buf +  3 * 4));
-	    d->info.modifyTime = (time_t)((Sint64)get_int64(buf +  5 * 4));
-	    d->info.cTime      = (time_t)((Sint64)get_int64(buf +  7 * 4));
+	    d->info.mode       = get_int32(buf + 0 * 4);
+	    d->info.uid        = get_int32(buf + 1 * 4);
+	    d->info.gid        = get_int32(buf + 2 * 4);
+	    d->info.accessTime = get_int64(buf + 3 * 4);
+	    d->info.modifyTime = get_int64(buf + 5 * 4);
+	    d->info.cTime      = get_int64(buf + 7 * 4);
 
 	    FILENAME_COPY(d->b, buf + 9*4);
 #ifdef USE_VM_PROBES

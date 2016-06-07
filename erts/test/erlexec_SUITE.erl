@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,71 +27,46 @@
 %%%-------------------------------------------------------------------
 -module(erlexec_SUITE).
 
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
-%-define(line_trace, 1).
+-export([args_file/1, evil_args_file/1, env/1, args_file_env/1,
+         otp_7461/1, otp_7461_remote/1, otp_8209/1,
+         zdbbl_dist_buf_busy_limit/1]).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(1)).
-
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
-
--export([args_file/1, evil_args_file/1, env/1, args_file_env/1, otp_7461/1, otp_7461_remote/1, otp_8209/1, zdbbl_dist_buf_busy_limit/1]).
-
--include_lib("test_server/include/test_server.hrl").
-    
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     SavedEnv = save_env(),
-    [{testcase, Case}, {watchdog, Dog}, {erl_flags_env, SavedEnv} |Config].
+    [{testcase, Case},{erl_flags_env, SavedEnv}|Config].
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    SavedEnv = ?config(erl_flags_env, Config),
+    SavedEnv = proplists:get_value(erl_flags_env, Config),
     restore_env(SavedEnv),
     cleanup_nodes(),
-    ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [args_file, evil_args_file, env, args_file_env,
      otp_7461, otp_8209, zdbbl_dist_buf_busy_limit].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-otp_8209(doc) ->
-    ["Test that plain first argument does not "
-     "destroy -home switch [OTP-8209]"];
-otp_8209(suite) ->
-    [];
+%% Test that plain first argument does not
+%% destroy -home switch [OTP-8209]
 otp_8209(Config) when is_list(Config) ->
-    ?line {ok,[[PName]]} = init:get_argument(progname),
-    ?line SNameS = "erlexec_test_01",
-    ?line SName = list_to_atom(SNameS++"@"++
+    {ok,[[PName]]} = init:get_argument(progname),
+    SNameS = "erlexec_test_01",
+    SName = list_to_atom(SNameS++"@"++
 			 hd(tl(string:tokens(atom_to_list(node()),"@")))),
-    ?line Cmd = PName ++ " dummy_param -sname "++SNameS++" -setcookie "++
+    Cmd = PName ++ " dummy_param -sname "++SNameS++" -setcookie "++
 	atom_to_list(erlang:get_cookie()),
-    ?line open_port({spawn,Cmd},[]),
-    ?line pong = loop_ping(SName,40),
-    ?line {ok,[[_]]} = rpc:call(SName,init,get_argument,[home]),
-    ?line ["dummy_param"] = rpc:call(SName,init,get_plain_arguments,[]),
-    ?line ok = cleanup_nodes(),
+    open_port({spawn,Cmd},[]),
+    pong = loop_ping(SName,40),
+    {ok,[[_]]} = rpc:call(SName,init,get_argument,[home]),
+    ["dummy_param"] = rpc:call(SName,init,get_plain_arguments,[]),
+    ok = cleanup_nodes(),
     ok.
 
 cleanup_nodes() ->
@@ -123,17 +98,14 @@ loop_ping(Node,N) ->
 	    pong
     end.
 
-args_file(doc) -> [];
-args_file(suite) -> [];
 args_file(Config) when is_list(Config) ->
-    ?line AFN1 = privfile("1", Config),
-    ?line AFN2 = privfile("2", Config),
-    ?line AFN3 = privfile("3", Config),
-    ?line AFN4 = privfile("4", Config),
-    ?line AFN5 = privfile("5", Config),
-    ?line AFN6 = privfile("6", Config),
-    ?line write_file(AFN1,
-		     "-MiscArg2~n"
+    AFN1 = privfile("1", Config),
+    AFN2 = privfile("2", Config),
+    AFN3 = privfile("3", Config),
+    AFN4 = privfile("4", Config),
+    AFN5 = privfile("5", Config),
+    AFN6 = privfile("6", Config),
+    write_file(AFN1, "-MiscArg2~n"
 		     "# a comment +\\#1000~n"
 		     "+\\#200 # another comment~n"
 		     "~n"
@@ -145,7 +117,7 @@ args_file(Config) when is_list(Config) ->
 		     "+\\#700~n"
 		     "-extra +XtraArg6~n",
 	       [AFN2]),
-    ?line write_file(AFN2,
+    write_file(AFN2,
 		     "-MiscArg3~n"
 		     "+\\#300~n"
 		     "-args_file ~s~n"
@@ -156,61 +128,59 @@ args_file(Config) when is_list(Config) ->
 		     "-args_file ~s~n"
 		     "-extra +XtraArg5~n",
 		     [AFN3, AFN4, AFN5, AFN6]),
-    ?line write_file(AFN3,
+    write_file(AFN3,
 		     "# comment again~n"
 		     " -MiscArg4 +\\#400 -extra +XtraArg1"),
-    ?line write_file(AFN4,
+    write_file(AFN4,
 		     " -MiscArg6 +\\#600 -extra +XtraArg2~n"
 		     "+XtraArg3~n"
 		     "+XtraArg4~n"
 		     "# comment again~n"),
-    ?line write_file(AFN5, ""),
-    ?line write_file(AFN6, "-extra # +XtraArg10~n"),
-    ?line CmdLine = "+#100 -MiscArg1 "
+    write_file(AFN5, ""),
+    write_file(AFN6, "-extra # +XtraArg10~n"),
+    CmdLine = "+#100 -MiscArg1 "
 	++ "-args_file " ++ AFN1
 	++ " +#800 -MiscArg8 -extra +XtraArg7 +XtraArg8",
-    ?line {Emu, Misc, Extra} = emu_args(CmdLine),
-    ?line verify_args(["-#100", "-#200", "-#300", "-#400",
+    {Emu, Misc, Extra} = emu_args(CmdLine),
+    verify_args(["-#100", "-#200", "-#300", "-#400",
 		       "-#500", "-#600", "-#700", "-#800"], Emu),
-    ?line verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
+    verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
 		       "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8"],
 		      Misc),
-    ?line verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
+    verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 		       "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 		      Extra),
-    ?line verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
+    verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
 			   "-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
 			   "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8",
 			   "+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 			   "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 			  Emu),
-    ?line verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
+    verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
 			   "-#100", "-#200", "-#300", "-#400",
 			   "-#500", "-#600", "-#700", "-#800",
 			   "+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 			   "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 			  Misc),
-    ?line verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
+    verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
 			   "-#100", "-#200", "-#300", "-#400",
 			   "-#500", "-#600", "-#700", "-#800",
 			   "-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
 			   "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8"],
 			  Extra),
-    ?line ok.
+    ok.
 
-evil_args_file(doc) -> [];
-evil_args_file(suite) -> [];
 evil_args_file(Config) when is_list(Config) ->
-    ?line Lim = 300,
-    ?line FNums = lists:seq(1, Lim),
+    Lim = 300,
+    FNums = lists:seq(1, Lim),
     lists:foreach(fun (End) when End == Lim ->
-			  ?line AFN = privfile(integer_to_list(End), Config),
-			  ?line write_file(AFN,
+			  AFN = privfile(integer_to_list(End), Config),
+			  write_file(AFN,
 					   "-MiscArg~p ",
 					   [End]);
 		      (I) ->
-			  ?line AFNX = privfile(integer_to_list(I), Config),
-			  ?line AFNY = privfile(integer_to_list(I+1), Config),
+			  AFNX = privfile(integer_to_list(I), Config),
+			  AFNY = privfile(integer_to_list(I+1), Config),
 			  {Frmt, Args} =
 			      case I rem 2 of
 				  0 ->
@@ -220,65 +190,59 @@ evil_args_file(Config) when is_list(Config) ->
 				      {"-MiscArg~p -args_file ~s",
 				       [I, AFNY]}
 			      end,
-			  ?line write_file(AFNX, Frmt, Args)
+			  write_file(AFNX, Frmt, Args)
 		  end,
 		  FNums),
-    ?line {_Emu, Misc, _Extra} = emu_args("-args_file "
+    {_Emu, Misc, _Extra} = emu_args("-args_file "
 					  ++ privfile("1", Config)),
-    ?line ANums = FNums
+    ANums = FNums
 	++ lists:reverse(lists:filter(fun (I) when I == Lim -> false;
 					  (I) when I rem 2 == 0 -> true;
 					  (_) -> false
 				      end, FNums)),
-    ?line verify_args(lists:map(fun (I) -> "-MiscArg"++integer_to_list(I) end,
+    verify_args(lists:map(fun (I) -> "-MiscArg"++integer_to_list(I) end,
 				ANums),
 		      Misc),
-    ?line ok.
+    ok.
 		      
 			  
 
-env(doc) -> [];
-env(suite) -> [];
 env(Config) when is_list(Config) ->
-    ?line os:putenv("ERL_AFLAGS", "-MiscArg1 +#100 -extra +XtraArg1 +XtraArg2"),
-    ?line CmdLine = "+#200 -MiscArg2 -extra +XtraArg3 +XtraArg4",
-    ?line os:putenv("ERL_FLAGS", "-MiscArg3 +#300 -extra +XtraArg5"),
-    ?line os:putenv("ERL_ZFLAGS", "-MiscArg4 +#400 -extra +XtraArg6"),
-    ?line {Emu, Misc, Extra} = emu_args(CmdLine),
-    ?line verify_args(["-#100", "-#200", "-#300", "-#400"], Emu),
-    ?line verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4"],
+    os:putenv("ERL_AFLAGS", "-MiscArg1 +#100 -extra +XtraArg1 +XtraArg2"),
+    CmdLine = "+#200 -MiscArg2 -extra +XtraArg3 +XtraArg4",
+    os:putenv("ERL_FLAGS", "-MiscArg3 +#300 -extra +XtraArg5"),
+    os:putenv("ERL_ZFLAGS", "-MiscArg4 +#400 -extra +XtraArg6"),
+    {Emu, Misc, Extra} = emu_args(CmdLine),
+    verify_args(["-#100", "-#200", "-#300", "-#400"], Emu),
+    verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4"],
 		      Misc),
-    ?line verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
+    verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 		       "+XtraArg5", "+XtraArg6"],
 		      Extra),
-    ?line ok.
+    ok.
 
-args_file_env(doc) -> [];
-args_file_env(suite) -> [];
 args_file_env(Config) when is_list(Config) ->
-    ?line AFN1 = privfile("1", Config),
-    ?line AFN2 = privfile("2", Config),
-    ?line write_file(AFN1, "-MiscArg2 +\\#200 -extra +XtraArg1"),
-    ?line write_file(AFN2, "-MiscArg3 +\\#400 -extra +XtraArg3"),
-    ?line os:putenv("ERL_AFLAGS",
+    AFN1 = privfile("1", Config),
+    AFN2 = privfile("2", Config),
+    write_file(AFN1, "-MiscArg2 +\\#200 -extra +XtraArg1"),
+    write_file(AFN2, "-MiscArg3 +\\#400 -extra +XtraArg3"),
+    os:putenv("ERL_AFLAGS",
 		    "-MiscArg1 +#100 -args_file "++AFN1++ " -extra +XtraArg2"),
-    ?line CmdLine = "+#300 -args_file "++AFN2++" -MiscArg4 -extra +XtraArg4",
-    ?line os:putenv("ERL_FLAGS", "-MiscArg5 +#500 -extra +XtraArg5"),
-    ?line os:putenv("ERL_ZFLAGS", "-MiscArg6 +#600 -extra +XtraArg6"),
-    ?line {Emu, Misc, Extra} = emu_args(CmdLine),
-    ?line verify_args(["-#100", "-#200", "-#300", "-#400",
+    CmdLine = "+#300 -args_file "++AFN2++" -MiscArg4 -extra +XtraArg4",
+    os:putenv("ERL_FLAGS", "-MiscArg5 +#500 -extra +XtraArg5"),
+    os:putenv("ERL_ZFLAGS", "-MiscArg6 +#600 -extra +XtraArg6"),
+    {Emu, Misc, Extra} = emu_args(CmdLine),
+    verify_args(["-#100", "-#200", "-#300", "-#400",
 		       "-#500", "-#600"], Emu),
-    ?line verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
+    verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
 		       "-MiscArg5", "-MiscArg6"],
 		      Misc),
-    ?line verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
+    verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 		       "+XtraArg5", "+XtraArg6"],
 		      Extra),
-    ?line ok.
+    ok.
 
 %% Make sure "erl -detached" survives when parent process group gets killed
-otp_7461(doc) -> [];
-otp_7461(suite) -> [];
 otp_7461(Config) when is_list(Config) ->   
     case os:type() of
     	{unix,_} ->
@@ -302,9 +266,9 @@ otp_7461(Config) when is_list(Config) ->
 	
 otp_7461_do(Config) ->
     io:format("alive=~p node=~p\n",[is_alive(), node()]),
-    TestProg = filename:join([?config(data_dir, Config), "erlexec_tests"]),
+    TestProg = filename:join([proplists:get_value(data_dir, Config), "erlexec_tests"]),
     {ok, [[ErlProg]]} = init:get_argument(progname),
-    ?line Cmd = TestProg ++ " " ++ ErlProg ++
+    Cmd = TestProg ++ " " ++ ErlProg ++
 	" -detached -sname " ++ get_nodename(otp_7461) ++
 	" -setcookie " ++ atom_to_list(erlang:get_cookie()) ++
 	" -pa " ++ filename:dirname(code:which(?MODULE)) ++
@@ -314,29 +278,31 @@ otp_7461_do(Config) ->
     %%          open_port                 fork+exec
     
     io:format("spawn port prog ~p\n",[Cmd]),
-    ?line Port = open_port({spawn, Cmd}, [eof]),
+    Port = open_port({spawn, Cmd}, [eof]),
     
     io:format("Wait for node to connect...\n",[]),    
-    ?line {nodeup, Slave} = receive Msg -> Msg
+    {nodeup, Slave} = receive Msg -> Msg
 			    after 20*1000 -> timeout end,
     io:format("Node alive: ~p\n", [Slave]),
     
-    ?line pong = net_adm:ping(Slave),
+    pong = net_adm:ping(Slave),
     io:format("Ping ok towards ~p\n", [Slave]),
     
-    ?line Port ! { self(), {command, "K"}}, % Kill child process group
-    ?line {Port, {data, "K"}} = receive Msg2 -> Msg2 end,
-    ?line port_close(Port),
+    Port ! { self(), {command, "K"}}, % Kill child process group
+    {Port, {data, "K"}} = receive Msg2 -> Msg2 end,
+    port_close(Port),
     
     %% Now the actual test. Detached node should still be alive.
-    ?line pong = net_adm:ping(Slave),
+    pong = net_adm:ping(Slave),
     io:format("Ping still ok towards ~p\n", [Slave]),
     
     %% Halt node
-    ?line rpc:cast(Slave, ?MODULE, otp_7461_remote, [[halt, self()]]),
+    rpc:cast(Slave, ?MODULE, otp_7461_remote, [[halt, self()]]),
     
-    ?line {nodedown, Slave} = receive Msg3 -> Msg3 
-			      after 20*1000 -> timeout end,
+    {nodedown, Slave} = receive
+                            Msg3 -> Msg3
+                        after 20*1000 -> timeout
+                        end,
     io:format("Node dead: ~p\n", [Slave]),
     ok.
 
@@ -349,24 +315,21 @@ otp_7461_remote([halt, Pid]) ->
     io:format("halt order from ~p to node ~p\n",[Pid,node()]),
     halt().
 
-zdbbl_dist_buf_busy_limit(doc) ->    
-    ["Check +zdbbl flag"];
-zdbbl_dist_buf_busy_limit(suite) ->
-    [];
+%% Check +zdbbl flag
 zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
     LimKB = 1122233,
     LimB = LimKB*1024,
-    ?line {ok,[[PName]]} = init:get_argument(progname),
-    ?line SNameS = "erlexec_test_02",
-    ?line SName = list_to_atom(SNameS++"@"++
+    {ok,[[PName]]} = init:get_argument(progname),
+    SNameS = "erlexec_test_02",
+    SName = list_to_atom(SNameS++"@"++
                          hd(tl(string:tokens(atom_to_list(node()),"@")))),
-    ?line Cmd = PName ++ " -sname "++SNameS++" -setcookie "++
+    Cmd = PName ++ " -sname "++SNameS++" -setcookie "++
         atom_to_list(erlang:get_cookie()) ++
 	" +zdbbl " ++ integer_to_list(LimKB),
-    ?line open_port({spawn,Cmd},[]),
-    ?line pong = loop_ping(SName,40),
-    ?line LimB = rpc:call(SName,erlang,system_info,[dist_buf_busy_limit]),
-    ?line ok = cleanup_node(SNameS, 10),
+    open_port({spawn,Cmd},[]),
+    pong = loop_ping(SName,40),
+    LimB = rpc:call(SName,erlang,system_info,[dist_buf_busy_limit]),
+    ok = cleanup_node(SNameS, 10),
     ok.
     
 
@@ -404,8 +367,8 @@ restore_env({erl_flags, AFlgs, Flgs, RFlgs, ZFlgs}) ->
     ok.
 
 privfile(Name, Config) ->
-    filename:join([?config(priv_dir, Config),
-		   atom_to_list(?config(testcase, Config)) ++ "." ++ Name]).
+    filename:join([proplists:get_value(priv_dir, Config),
+		   atom_to_list(proplists:get_value(testcase, Config)) ++ "." ++ Name]).
 
 write_file(FileName, Frmt) ->
     write_file(FileName, Frmt, []).
@@ -430,8 +393,7 @@ verify_not_args(Xs, Ys) ->
 			      true -> exit({arg_present, X});
 			      false -> ok
 			  end
-		  end,
-		  Xs).
+		  end, Xs).
 
 emu_args(CmdLineArgs) ->
     io:format("CmdLineArgs = ~ts~n", [CmdLineArgs]),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ getMode() ->
   <<>>).
 
 %% @equiv requestMore(This, [])
--spec requestMore(This) -> ok when
+-spec requestMore(This) -> 'ok' when
 	This::wxIdleEvent().
 
 requestMore(This)
@@ -70,9 +70,9 @@ requestMore(This)
   requestMore(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventrequestmore">external documentation</a>.
--spec requestMore(This, [Option]) -> ok when
+-spec requestMore(This, [Option]) -> 'ok' when
 	This::wxIdleEvent(),
-	Option :: {needMore, boolean()}.
+	Option :: {'needMore', boolean()}.
 requestMore(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxIdleEvent),
@@ -92,7 +92,7 @@ moreRequested(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxidleevent.html#wxidleeventsetmode">external documentation</a>.
 %%<br /> Mode = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
--spec setMode(Mode) -> ok when
+-spec setMode(Mode) -> 'ok' when
 	Mode::wx:wx_enum().
 setMode(Mode)
  when is_integer(Mode) ->

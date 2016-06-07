@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -827,21 +827,24 @@ select_extract_bin([{var,Hd},{var,Tl}], Size0, Unit, Type, Flags, Vf,
 		  {bs_save2,CtxReg,{Ctx,Tl}}],Int1}
 	end,
     {Es,clear_dead(Aft, I, Vdb),St};
-select_extract_bin([{var,Hd}], Size0, Unit, binary, Flags, Vf,
+select_extract_bin([{var,Hd}], Size, Unit, binary, Flags, Vf,
 		   I, Vdb, Bef, Ctx, Body, St) ->
-    SizeReg = get_bin_size_reg(Size0, Bef),
+    %% Match the last segment of a binary. We KNOW that the size
+    %% must be 'all'.
+    Size = {atom,all},				%Assertion.
     {Es,Aft} =
 	case vdb_find(Hd, Vdb) of
 	    {_,_,Lhd} when Lhd =< I ->
+		%% The result will not be used. Furthermore, since we
+		%% we are at the end of the binary, the position will
+		%% not be used again; thus, it is safe to do a cheaper
+		%% test of the unit.
 		CtxReg = fetch_var(Ctx, Bef),
-		{case SizeReg =:= {atom,all} andalso is_context_unused(Body) of
-		     true when Unit =:= 1 ->
+		{case Unit of
+		     1 ->
 			 [];
-		     true ->
-			 [{test,bs_test_unit,{f,Vf},[CtxReg,Unit]}];
-		     false ->
-			 [{test,bs_skip_bits2,{f,Vf},
-			   [CtxReg,SizeReg,Unit,{field_flags,Flags}]}]
+		     _ ->
+			 [{test,bs_test_unit,{f,Vf},[CtxReg,Unit]}]
 		 end,Bef};
 	    {_,_,_} ->
 		case is_context_unused(Body) of
@@ -853,7 +856,7 @@ select_extract_bin([{var,Hd}], Size0, Unit, binary, Flags, Vf,
 			Name = bs_get_binary2,
 			Live = max_reg(Bef#sr.reg),
 			{[{test,Name,{f,Vf},Live,
-			   [CtxReg,SizeReg,Unit,{field_flags,Flags}],Rhd}],
+			   [CtxReg,Size,Unit,{field_flags,Flags}],Rhd}],
 			 Int1};
 		    true ->
 			%% Since the matching context will not be used again,
@@ -868,7 +871,7 @@ select_extract_bin([{var,Hd}], Size0, Unit, binary, Flags, Vf,
 			Name = bs_get_binary2,
 			Live = max_reg(Int1#sr.reg),
 			{[{test,Name,{f,Vf},Live,
-			   [CtxReg,SizeReg,Unit,{field_flags,Flags}],CtxReg}],
+			   [CtxReg,Size,Unit,{field_flags,Flags}],CtxReg}],
 			 Int1}
 		end
 	end,
@@ -1086,6 +1089,23 @@ protected_cg(Ts, Rs, _Fail, I, Vdb, Bef, St0) ->
 %% test_cg(TestName, Args, Fail, I, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
 %%  Generate test instruction.  Use explicit fail label here.
 
+test_cg(is_map, [A], Fail, I, Vdb, Bef, St) ->
+    %% We must avoid creating code like this:
+    %%
+    %%   move x(0) y(0)
+    %%   is_map Fail [x(0)]
+    %%   make_fun => x(0)  %% Overwrite x(0)
+    %%   put_map_assoc y(0) ...
+    %%
+    %% The code is safe, but beam_validator does not understand that.
+    %% Extending beam_validator to handle such (rare) code as the
+    %% above would make it slower for all programs. Instead, change
+    %% the code generator to always prefer the Y register for is_map()
+    %% and put_map_assoc() instructions, ensuring that they use the
+    %% same register.
+    Arg = cg_reg_arg_prefer_y(A, Bef),
+    Aft = clear_dead(Bef, I, Vdb),
+    {[{test,is_map,{f,Fail},[Arg]}],Aft,St};
 test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),
@@ -1152,19 +1172,15 @@ call_cg(Func, As, Rs, Le, Vdb, Bef, St0) ->
 	    %% Inside a guard. The only allowed function call is to
 	    %% erlang:error/1,2. We will generate the following code:
 	    %%
-	    %%     jump FailureLabel
 	    %%     move {atom,ok} DestReg
-	    %%
-	    %% The 'move' instruction will never be executed, but we
-	    %% generate it anyway in case the beam_validator is run
-	    %% on unoptimized code.
+	    %%     jump FailureLabel
 	    {remote,{atom,erlang},{atom,error}} = Func,	%Assertion.
 	    [{var,DestVar}] = Rs,
 	    Int0 = clear_dead(Bef, Le#l.i, Vdb),
 	    Reg = put_reg(DestVar, Int0#sr.reg),
 	    Int = Int0#sr{reg=Reg},
 	    Dst = fetch_reg(DestVar, Reg),
-	    {[{jump,{f,Fail}},{move,{atom,ok},Dst}],
+	    {[{move,{atom,ok},Dst},{jump,{f,Fail}}],
 	     clear_dead(Int, Le#l.i, Vdb),St0};
 	#cg{} ->
 	    %% Ordinary function call in a function body.
@@ -1535,14 +1551,12 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef, #cg{bfail=Bfail}=St) ->
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
-% Map single variable key
-set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
-       #cg{bfail=Bfail}=St) ->
 
-    Fail = {f,Bfail},
-    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
+%% Map: single variable key.
+set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef, St0) ->
+    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St0),
 
-    SrcReg = cg_reg_arg(Map,Int0),
+    SrcReg = cg_reg_arg_prefer_y(Map, Int0),
     Line = line(Le#l.a),
 
     List = [cg_reg_arg(K,Int0),cg_reg_arg(V,Int0)],
@@ -1554,22 +1568,17 @@ set_cg([{var,R}], {map,Op,Map,[{map_pair,{var,_}=K,V}]}, Le, Vdb, Bef,
     Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
     Target = fetch_reg(R, Aft#sr.reg),
 
-    I = case Op of
-	assoc -> put_map_assoc;
-	exact -> put_map_exact
-    end,
-    {Sis++[Line]++[{I,Fail,SrcReg,Target,Live,{list,List}}],Aft,St};
+    {Is,St1} = set_cg_map(Line, Op, SrcReg, Target, Live, List, St0),
+    {Sis++Is,Aft,St1};
 
-% Map (possibly) multiple literal keys
-set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
-       #cg{bfail=Bfail}=St) ->
+%% Map: (possibly) multiple literal keys.
+set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef, St0) ->
 
     %% assert key literals
     [] = [Var||{map_pair,{var,_}=Var,_} <- Es],
 
-    Fail = {f,Bfail},
-    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St),
-    SrcReg = cg_reg_arg(Map,Int0),
+    {Sis,Int0} = maybe_adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb, St0),
+    SrcReg = cg_reg_arg_prefer_y(Map, Int0),
     Line = line(Le#l.a),
 
     %% fetch registers for values to be put into the map
@@ -1583,11 +1592,10 @@ set_cg([{var,R}], {map,Op,Map,Es}, Le, Vdb, Bef,
     Aft = Aft0#sr{reg=put_reg(R, Aft0#sr.reg)},
     Target = fetch_reg(R, Aft#sr.reg),
 
-    I = case Op of
-	assoc -> put_map_assoc;
-	exact -> put_map_exact
-    end,
-    {Sis++[Line]++[{I,Fail,SrcReg,Target,Live,{list,List}}],Aft,St};
+    {Is,St1} = set_cg_map(Line, Op, SrcReg, Target, Live, List, St0),
+    {Sis++Is,Aft,St1};
+
+%% Everything else.
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     %% Find a place for the return register first.
     Int = Bef#sr{reg=put_reg(R, Bef#sr.reg)},
@@ -1599,6 +1607,34 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
+
+
+set_cg_map(Line, Op0, SrcReg, Target, Live, List, St0) ->
+    Bfail = St0#cg.bfail,
+    Fail = {f,St0#cg.bfail},
+    Op = case Op0 of
+	     assoc -> put_map_assoc;
+	     exact -> put_map_exact
+	 end,
+    {OkLbl,St1} = new_label(St0),
+    {BadLbl,St2} = new_label(St1),
+    Is = if
+	     Bfail =:= 0 orelse Op =:= put_map_assoc ->
+		 [Line,{Op,{f,0},SrcReg,Target,Live,{list,List}}];
+	     true ->
+		 %% Ensure that Target is always set, even if
+		 %% the map update operation fails. That is necessary
+		 %% because Target may be included in a test_heap
+		 %% instruction.
+		 [Line,
+		  {Op,{f,BadLbl},SrcReg,Target,Live,{list,List}},
+		  {jump,{f,OkLbl}},
+		  {label,BadLbl},
+		  {move,{atom,ok},Target},
+		  {jump,Fail},
+		  {label,OkLbl}]
+	 end,
+    {Is,St2}.
 
 %%%
 %%% Code generation for constructing binaries.
@@ -1842,6 +1878,9 @@ cg_reg_args(As, Bef) -> [cg_reg_arg(A, Bef) || A <- As].
 cg_reg_arg({var,V}, Bef) -> fetch_var(V, Bef);
 cg_reg_arg(Literal, _) -> Literal.
 
+cg_reg_arg_prefer_y({var,V}, Bef) -> fetch_var_prefer_y(V, Bef);
+cg_reg_arg_prefer_y(Literal, _) -> Literal.
+
 %% cg_setup_call([Arg], Bef, Cur, Vdb) -> {[Instr],Aft}.
 %%  Do the complete setup for a call/enter.
 
@@ -2083,6 +2122,12 @@ fetch_var(V, Sr) ->
 	error -> fetch_stack(V, Sr#sr.stk)
     end.
 
+fetch_var_prefer_y(V, #sr{reg=Reg,stk=Stk}) ->
+    case find_stack(V, Stk) of
+	{ok,R} -> R;
+	error -> fetch_reg(V, Reg)
+    end.
+
 load_vars(Vs, Regs) ->
     foldl(fun ({var,V}, Rs) -> put_reg(V, Rs) end, Regs, Vs).
 
@@ -2156,11 +2201,11 @@ fetch_stack(Var, Stk) -> fetch_stack(Var, Stk, 0).
 fetch_stack(V, [{V}|_], I) -> {yy,I};
 fetch_stack(V, [_|Stk], I) -> fetch_stack(V, Stk, I+1).
 
-% find_stack(Var, Stk) -> find_stack(Var, Stk, 0).
+find_stack(Var, Stk) -> find_stack(Var, Stk, 0).
 
-% find_stack(V, [{V}|Stk], I) -> {ok,{yy,I}};
-% find_stack(V, [O|Stk], I) -> find_stack(V, Stk, I+1);
-% find_stack(V, [], I) -> error.
+find_stack(V, [{V}|_], I) -> {ok,{yy,I}};
+find_stack(V, [_|Stk], I) -> find_stack(V, Stk, I+1);
+find_stack(_, [], _) -> error.
 
 on_stack(V, Stk) -> keymember(V, 1, Stk).
 

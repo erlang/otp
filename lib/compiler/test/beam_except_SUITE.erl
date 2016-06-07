@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,15 +21,18 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 coverage/1]).
+	 multiple_allocs/1,coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [coverage].
+    test_lib:recompile(?MODULE),
+    [{group,p}].
 
 groups() ->
-    [].
+    [{p,[parallel],
+      [multiple_allocs,
+       coverage]}].
 
 init_per_suite(Config) ->
     Config.
@@ -42,6 +45,23 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+multiple_allocs(_Config) ->
+    {'EXIT',{{badmatch,#{true:=[p]}},_}} =
+	 (catch could(pda, 0.0, {false,true}, {p})),
+    {'EXIT',{function_clause,_}} = (catch place(lee)),
+    {'EXIT',{{badmatch,wanted},_}} = (catch conditions()),
+
+    ok.
+
+could(Coupons = pda, Favorite = _pleasure = 0.0, {_, true}, {Presents}) ->
+  (0 = true) = #{true => [Presents]}.
+
+place(lee) ->
+    (pregnancy = presentations) = [hours | [purchase || _ <- 0]] + wine.
+
+conditions() ->
+    (talking = going) = storage + [large = wanted].
 
 coverage(_) ->
     File = {file,"fake.erl"},

@@ -38,8 +38,7 @@
 
 %% Potential API currently unsupported and not tested
 -export([window_change/4, window_change/6,
-	 direct_tcpip/6, direct_tcpip/8, tcpip_forward/3,
-	 cancel_tcpip_forward/3, signal/3, exit_status/3]).
+	 signal/3, exit_status/3]).
 
 %% Internal application API
 -export([channel_data/5, handle_msg/3, channel_eof_msg/1,
@@ -48,7 +47,7 @@
 	 channel_adjust_window_msg/2, channel_data_msg/3,
 	 channel_open_msg/5, channel_open_confirmation_msg/4,
 	 channel_open_failure_msg/4, channel_request_msg/4,
-	 global_request_msg/3, request_failure_msg/0, 
+	 request_failure_msg/0, 
 	 request_success_msg/1, bind/4, unbind/3, unbind_channel/2, 
 	 bound_channel/3, encode_ip/1]).
 
@@ -232,52 +231,6 @@ exit_status(ConnectionHandler, Channel, Status) ->
     ssh_connection_handler:request(ConnectionHandler, Channel,
 				   "exit-status", false, [?uint32(Status)], 0).
 
-direct_tcpip(ConnectionHandler, RemoteHost,
-	     RemotePort, OrigIP, OrigPort, Timeout) ->
-    direct_tcpip(ConnectionHandler, RemoteHost, RemotePort, OrigIP, OrigPort,
-		 ?DEFAULT_WINDOW_SIZE, ?DEFAULT_PACKET_SIZE, Timeout).
-
-direct_tcpip(ConnectionHandler, RemoteIP, RemotePort, OrigIP, OrigPort,
-	     InitialWindowSize, MaxPacketSize, Timeout) ->
-    case {encode_ip(RemoteIP), encode_ip(OrigIP)} of
-	{false, _} -> 
-	    {error, einval};
-	{_, false} -> 
-	    {error, einval};
-	{RIP, OIP} ->
-	    ssh_connection_handler:open_channel(ConnectionHandler,
-						"direct-tcpip",
-						[?string(RIP), 
-						 ?uint32(RemotePort),
-						 ?string(OIP),
-						 ?uint32(OrigPort)],
-						InitialWindowSize, 
-						MaxPacketSize,
-						Timeout)
-    end.
-
-tcpip_forward(ConnectionHandler, BindIP, BindPort) ->
-    case encode_ip(BindIP) of
-	false -> 
-	    {error, einval};
-	IPStr ->
-	    ssh_connection_handler:global_request(ConnectionHandler,
-						  "tcpip-forward", true,
-						  [?string(IPStr),
-						   ?uint32(BindPort)])
-    end.
-
-cancel_tcpip_forward(ConnectionHandler, BindIP, Port) ->
-    case encode_ip(BindIP) of
-	false -> 
-	    {error, einval};
-	IPStr ->
-	    ssh_connection_handler:global_request(ConnectionHandler,
-						  "cancel-tcpip-forward", true,
-						  [?string(IPStr),
-						   ?uint32(Port)])
-    end.
-
 %%--------------------------------------------------------------------
 %%% Internal API
 %%--------------------------------------------------------------------
@@ -300,22 +253,11 @@ l2b([]) ->
 
 channel_data(ChannelId, DataType, Data, Connection, From)
   when is_list(Data)->
-    channel_data(ChannelId, DataType, 
-%%		 list_to_binary(Data), Connection, From);
-		 l2b(Data), Connection, From);
-		 %% try list_to_binary(Data)
-		 %% of
-		 %%     B -> B
-		 %% catch
-		 %%     _:_ -> io:format('BAD BINARY: ~p~n',[Data]),
-		 %% 	    unicode:characters_to_binary(Data)
-		 %% end,
-		 %% Connection, From);
+    channel_data(ChannelId, DataType, l2b(Data), Connection, From);
 
 channel_data(ChannelId, DataType, Data, 
 	     #connection{channel_cache = Cache} = Connection,
 	     From) ->
-    
     case ssh_channel:cache_lookup(Cache, ChannelId) of
 	#channel{remote_id = Id, sent_close = false} = Channel0 ->
 	    {SendList, Channel} =
@@ -331,8 +273,7 @@ channel_data(ChannelId, DataType, Data,
 	    FlowCtrlMsgs = flow_control(Replies, Channel, Cache),
 	    {{replies, Replies ++ FlowCtrlMsgs}, Connection};
 	_ ->
-	    gen_fsm:reply(From, {error, closed}),
-	    {noreply, Connection}
+	    {{replies,[{channel_request_reply,From,{error,closed}}]}, Connection}
     end.
 
 handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId, 
@@ -499,7 +440,8 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 
 handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				 sender_channel = RemoteId}, 
-	   Connection, client) ->
+	   Connection,
+	   client) ->
     %% Client implementations SHOULD reject any session channel open
     %% requests to make it more difficult for a corrupt server to attack the
     %% client. See See RFC 4254 6.1.
@@ -508,73 +450,6 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				       "Connection refused", "en"),
     {{replies, [{connection_reply, FailMsg}]},
      Connection};
-
-handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip" = Type,
-				 sender_channel = RemoteId,
-				 initial_window_size = RWindowSz,
-				 maximum_packet_size = RPacketSz,
-				 data = Data}, 
-	   #connection{channel_cache = Cache,
-		       options = SSHopts} = Connection0, server) ->
-    <<?UINT32(ALen), Address:ALen/binary, ?UINT32(Port),
-     ?UINT32(OLen), Orig:OLen/binary, ?UINT32(OrigPort)>> = Data,
-    
-    MinAcceptedPackSz = proplists:get_value(minimal_remote_max_packet_size, SSHopts, 0),
-    
-    if 
-	MinAcceptedPackSz =< RPacketSz ->
-	    case bound_channel(Address, Port, Connection0) of
-		undefined ->
-		    FailMsg = channel_open_failure_msg(RemoteId, 
-						       ?SSH_OPEN_CONNECT_FAILED,
-						       "Connection refused", "en"),
-		    {{replies, 
-		      [{connection_reply, FailMsg}]}, Connection0};
-		ChannelPid ->
-		    {ChannelId, Connection1} = new_channel_id(Connection0),
-		    LWindowSz = ?DEFAULT_WINDOW_SIZE,
-		    LPacketSz = ?DEFAULT_PACKET_SIZE,
-		    Channel = #channel{type = Type,
-				       sys = "none",
-				       user = ChannelPid,
-				       local_id = ChannelId,
-				       recv_window_size = LWindowSz,
-				       recv_packet_size = LPacketSz,
-				       send_window_size = RWindowSz,
-				       send_packet_size = RPacketSz,
-				       send_buf = queue:new()
-				      },
-		    ssh_channel:cache_update(Cache, Channel),
-		    OpenConfMsg = channel_open_confirmation_msg(RemoteId, ChannelId,
-								LWindowSz, LPacketSz),
-		    {OpenMsg, Connection} = 
-			reply_msg(Channel, Connection1, 
-				  {open,  Channel, {forwarded_tcpip,
-						    decode_ip(Address), Port,
-						    decode_ip(Orig), OrigPort}}),
-		    {{replies, [{connection_reply, OpenConfMsg},
-				OpenMsg]}, Connection}
-	    end;
-
-	MinAcceptedPackSz > RPacketSz ->
-	    FailMsg = channel_open_failure_msg(RemoteId, 
-					       ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
-					       lists:concat(["Maximum packet size below ",MinAcceptedPackSz,
-							     " not supported"]), "en"),
-	    {{replies, [{connection_reply, FailMsg}]}, Connection0}
-    end;
-
-
-handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
-				 sender_channel = RemoteId}, 
-	   Connection, client) ->
-    %% Client implementations SHOULD reject direct TCP/IP open requests for
-    %% security reasons. See RFC 4254 7.2.
-    FailMsg = channel_open_failure_msg(RemoteId, 
-				       ?SSH_OPEN_CONNECT_FAILED,
-				       "Connection refused", "en"),
-    {{replies, [{connection_reply, FailMsg}]}, Connection};
-
 
 handle_msg(#ssh_msg_channel_open{sender_channel = RemoteId}, Connection, _) ->
     FailMsg = channel_open_failure_msg(RemoteId, 
@@ -786,11 +661,11 @@ handle_msg(#ssh_msg_global_request{name = _Type,
 
 handle_msg(#ssh_msg_request_failure{},
 	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
-    {{replies, [{channel_requst_reply, From, {failure, <<>>}}]},
+    {{replies, [{channel_request_reply, From, {failure, <<>>}}]},
      Connection#connection{requests = Rest}};
 handle_msg(#ssh_msg_request_success{data = Data},
 	   #connection{requests = [{_, From} | Rest]} = Connection, _) ->
-    {{replies, [{channel_requst_reply, From, {success, Data}}]},
+    {{replies, [{channel_request_reply, From, {success, Data}}]},
      Connection#connection{requests = Rest}};
 
 handle_msg(#ssh_msg_disconnect{code = Code,
@@ -886,10 +761,6 @@ channel_request_msg(ChannelId, Type, WantReply, Data) ->
 			     want_reply = WantReply,
 			     data = Data}.
 
-global_request_msg(Type, WantReply, Data) ->
-    #ssh_msg_global_request{name = Type,
-			    want_reply = WantReply,
-			    data = Data}.
 request_failure_msg() ->
     #ssh_msg_request_failure{}.
 
@@ -1059,7 +930,7 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 		      Connection, Reply) -> 
     case lists:keysearch(ChannelId, 1, Requests) of
 	{value, {ChannelId, From}} ->
-	    {{channel_requst_reply, From, Reply}, 
+	    {{channel_request_reply, From, Reply}, 
 	     Connection#connection{requests = 
 				       lists:keydelete(ChannelId, 1, Requests)}};
 	false when (Reply == success) or (Reply == failure) ->
@@ -1351,11 +1222,6 @@ decode_pty_opts2(<<Code, ?UINT32(Value), Tail/binary>>) ->
 	 end,    
     [{Op, Value} | decode_pty_opts2(Tail)].
 
-decode_ip(Addr) when is_binary(Addr) ->
-    case inet_parse:address(binary_to_list(Addr)) of
-	{error,_} -> Addr;
-	{ok,A}    -> A
-    end.
 
 backwards_compatible([], Acc) ->
     Acc;

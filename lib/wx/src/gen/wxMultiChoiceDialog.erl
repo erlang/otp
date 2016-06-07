@@ -105,8 +105,8 @@ new(Parent,Message,Caption,Choices)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmultichoicedialog.html#wxmultichoicedialogwxmultichoicedialog">external documentation</a>.
 -spec new(Parent, Message, Caption, Choices, [Option]) -> wxMultiChoiceDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()],
-	Option :: {style, integer()}
-		 | {pos, {X::integer(), Y::integer()}}.
+	Option :: {'style', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message,Caption,Choices, Options)
  when is_list(Message),is_list(Caption),is_list(Choices),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -130,7 +130,7 @@ getSelections(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmultichoicedialog.html#wxmultichoicedialogsetselections">external documentation</a>.
--spec setSelections(This, Selections) -> ok when
+-spec setSelections(This, Selections) -> 'ok' when
 	This::wxMultiChoiceDialog(), Selections::[integer()].
 setSelections(#wx_ref{type=ThisT,ref=ThisRef},Selections)
  when is_list(Selections) ->
@@ -140,7 +140,7 @@ setSelections(#wx_ref{type=ThisT,ref=ThisRef},Selections)
         (<< <<C:32/?I>> || C <- Selections>>)/binary, 0:(((0+length(Selections)) rem 2)*32)>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMultiChoiceDialog()) -> ok.
+-spec destroy(This::wxMultiChoiceDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMultiChoiceDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

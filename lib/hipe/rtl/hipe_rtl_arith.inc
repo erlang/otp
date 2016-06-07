@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,73 +47,80 @@ eval_alu(Op, Arg1, Arg2)
       Res = (Arg1 - Arg2) band ?WORDMASK,
       N = sign_bit(Res),
       Z = zero(Res),
-      V = (Sign1 and (not Sign2) and (not N)) 
+      V = (Sign1 andalso (not Sign2) andalso (not N)) 
 	or
-          ((not Sign1) and Sign2 and N),
-      C = ((not Sign1) and Sign2) 
+          ((not Sign1) andalso Sign2 andalso N),
+      C = ((not Sign1) andalso Sign2) 
 	or 
-	  (N and ((not Sign1) or Sign2));
+	  (N andalso ((not Sign1) orelse Sign2)),
+     {Res, N, Z, V, C};
     'add' ->
       Res = (Arg1 + Arg2) band ?WORDMASK,
       N = sign_bit(Res),
       Z = zero(Res),
-      V = (Sign1 and Sign2 and (not N)) 
+      V = (Sign1 andalso Sign2 andalso (not N)) 
 	or
-          ((not Sign1) and (not Sign2) and N),
-      C = (Sign1 and Sign2)
+          ((not Sign1) andalso (not Sign2) andalso N),
+      C = (Sign1 andalso Sign2)
 	or 
-	  ((not N) and (Sign1 or Sign2));
+	  ((not N) andalso (Sign1 orelse Sign2)),
+     {Res, N, Z, V, C};
     'mul' ->
       FullRes = Arg1 * Arg2,
       Res = FullRes band ?WORDMASK,
       ResHi = FullRes bsr ?BITS,
       N = sign_bit(Res),
       Z = zero(Res),
-      V = (N and (ResHi =/= -1)) or ((not N) and (ResHi =/= 0)),
-      C = V;
+      V = (N andalso (ResHi =/= -1)) orelse ((not N) andalso (ResHi =/= 0)),
+      C = V,
+     {Res, N, Z, V, C};
     'sra' ->
       Res = (Arg1 bsr Arg2) band ?WORDMASK,
       N = sign_bit(Res),
       Z = zero(Res),    
       V = 0,
-      C = 0;
+      C = 0,
+     {Res, N, Z, V, C};
     'srl' ->
       Res = (Arg1 bsr Arg2) band shiftmask(Arg2),
       N = sign_bit(Res),
       Z = zero(Res),     
       V = 0,
-      C = 0;
+      C = 0,
+     {Res, N, Z, V, C};
     'sll' ->
       Res = (Arg1 bsl Arg2) band ?WORDMASK, 
       N = sign_bit(Res),
       Z = zero(Res),     
       V = 0,
-      C = 0;
+      C = 0,
+     {Res, N, Z, V, C};
     'or' ->
       Res = (Arg1 bor Arg2) band ?WORDMASK,
       N = sign_bit(Res),
       Z = zero(Res),     
       V = 0,
-      C = 0;
+      C = 0,
+     {Res, N, Z, V, C};
     'and' ->
       Res = (Arg1 band Arg2) band ?WORDMASK,
       N = sign_bit(Res),
       Z = zero(Res),     
       V = 0,
-      C = 0;
+      C = 0,
+     {Res, N, Z, V, C};
     'xor' ->
       Res = (Arg1 bxor Arg2) band ?WORDMASK,
       N = sign_bit(Res),
       Z = zero(Res),     
       V = 0,
-      C = 0;
+      C = 0,
+     {Res, N, Z, V, C};
     Op ->
-      Res = N = Z = V = C = 0,
       ?EXIT({"unknown alu op", Op})
-  end,
-  {Res, N, Z, V, C};
+  end;
 eval_alu(Op, Arg1, Arg2) ->
-  ?EXIT({argument_overflow,Op,Arg1,Arg2}).
+  ?EXIT({argument_overflow, Op, Arg1, Arg2}).
 
 %% Björn & Bjarni:
 %% We need to be able to do evaluations based only on the bits, since
@@ -130,9 +137,9 @@ eval_cond_bits(Cond, N, Z, V, C) ->
     'ne' -> 
       not Z;
     'gt' ->
-      not (Z or (N xor V));
+      not (Z orelse (N xor V));
     'gtu' -> 
-      not (C or Z);
+      not (C orelse Z);
     'ge' -> 
       not (N xor V);
     'geu'-> 
@@ -142,9 +149,9 @@ eval_cond_bits(Cond, N, Z, V, C) ->
     'ltu'->
       C;
     'le' ->
-      Z or (N xor V);
+      Z orelse (N xor V);
     'leu'->
-      C or Z;
+      C orelse Z;
     'overflow' ->
       V;
     'not_overflow' ->

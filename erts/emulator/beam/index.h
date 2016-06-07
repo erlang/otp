@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,10 @@
 
 #ifndef __HASH_H__
 #include "hash.h"
+#endif
+
+#ifndef ERL_ALLOC_H__
+#include "erl_alloc.h"
 #endif
 
 typedef struct index_slot 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,8 +42,6 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_per_suite(suite) -> [];
-init_per_suite(doc) -> [];
 init_per_suite(Config) when is_list(Config) ->
     case is_app(asn1) of
 	{ok, AppFile} ->
@@ -64,18 +62,13 @@ is_app(App) ->
     end.
 
 
-end_per_suite(suite) -> [];
-end_per_suite(doc) -> [];
 end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fields(suite) ->
-    [];
-fields(doc) ->
-    [];
+%% .
 fields(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
     Fields = [vsn, description, modules, registered, applications],
@@ -103,10 +96,7 @@ check_field(Name, AppFile, Missing) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-modules(suite) ->
-    [];
-modules(doc) ->
-    [];
+%% .
 modules(Config) when is_list(Config) ->
     AppFile  = key1search(app_file, Config),
     Mods     = key1search(modules, AppFile),
@@ -176,10 +166,7 @@ extra_modules(Mods, [Mod|Ebins], Extra) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-exportall(suite) ->
-    [];
-exportall(doc) ->
-    [];
+%% .
 exportall(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
     Mods    = key1search(modules, AppFile),
@@ -209,10 +196,7 @@ check_export_all([Mod|Mods]) ->
 	    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-app_depend(suite) ->
-    [];
-app_depend(doc) ->
-    [];
+%% .
 app_depend(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
     Apps    = key1search(applications, AppFile),

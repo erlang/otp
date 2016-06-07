@@ -40,20 +40,19 @@ all() ->
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
-    try {crypto:start(), erlang:system_info({wordsize, internal}) == erlang:system_info({wordsize, external})} of
-	{ok, true} ->
-	    case ct_release_test:init(Config0) of
-		{skip, Reason} ->
-		    {skip, Reason};
-		Config ->
-		    {ok, _} = make_certs:all(?config(data_dir, Config),
-					      ?config(priv_dir, Config)),
-		    ssl_test_lib:cert_options(Config)
-	    end;
-	{ok, false} ->
-	    {skip, "Test server will not handle halfwordemulator correctly. Skip as halfwordemulator is deprecated"} 
+    try crypto:start() of
+        ok ->
+            case ct_release_test:init(Config0) of
+                {skip, Reason} ->
+                    {skip, Reason};
+                Config ->
+                    Result =
+                    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
+                                             proplists:get_value(priv_dir, Config)),
+                    ssl_test_lib:cert_options(Config)
+            end
     catch _:_ ->
-	    {skip, "Crypto did not start"}
+              {skip, "Crypto did not start"}
     end.
 
 end_per_suite(Config) ->
@@ -61,7 +60,7 @@ end_per_suite(Config) ->
     crypto:stop().
 
 init_per_testcase(_TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({minutes, 1}),
     Config.
 
@@ -140,8 +139,8 @@ use_connection(Socket) ->
     end.
 
 soft_start_connection(Config, ResulProxy) ->
-    ClientOpts = ?config(client_verification_opts, Config),
-    ServerOpts = ?config(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_verification_opts, Config),
+    ServerOpts = proplists:get_value(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
 			   {from, ResulProxy},
@@ -157,8 +156,8 @@ soft_start_connection(Config, ResulProxy) ->
     {Server, Client}.
 
 restart_start_connection(Config, ResulProxy) ->
-    ClientOpts = ?config(client_verification_opts, Config),
-    ServerOpts = ?config(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_verification_opts, Config),
+    ServerOpts = proplists:get_value(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
 					{from, ResulProxy},

@@ -28,10 +28,13 @@
 
 -define(NUM_DEFAULT_SERVICES, 1).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> 
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,5}}
+    ].
 
 all() -> 
-    [{group, app_test}, {group, appup_test},
+    [{group, app_test}, 
      {group, services_test}, httpd_reload].
 
 groups() -> 
@@ -42,8 +45,7 @@ groups() ->
        start_ftpc,
        start_tftpd
       ]},
-     {app_test, [], [{inets_app_test, all}]},
-     {appup_test, [], [{inets_appup_test, all}]}].
+     {app_test, [], [app, appup]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -84,6 +86,10 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+init_per_testcase(httpd_reload, Config) ->
+    inets:stop(),
+    ct:timetrap({seconds, 40}),
+    Config;
 init_per_testcase(_Case, Config) ->
     inets:stop(),
     Config.
@@ -102,6 +108,15 @@ end_per_testcase(_, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
+app() ->
+    [{doc, "Test that the inets app file is ok"}].
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(inets).
+%%--------------------------------------------------------------------
+appup() ->
+    [{doc, "Test that the inets appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(inets).
 
 start_inets() ->
     [{doc, "Test inets API functions"}].
@@ -134,7 +149,7 @@ start_httpc() ->
     [{doc, "Start/stop of httpc service"}].
 start_httpc(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
     ok = inets:start(),
     {ok, Pid0} = inets:start(httpc, [{profile, foo}]),
@@ -145,7 +160,7 @@ start_httpc(Config) when is_list(Config) ->
 
     inets:stop(httpc, Pid0),
 
-    test_server:sleep(100),
+    ct:sleep(100),
 
     Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
     false = lists:member(Pid0, Pids1),        
@@ -188,7 +203,7 @@ start_httpd() ->
     [{doc, "Start/stop of httpd service"}].
 start_httpd(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     HttpdConf = [{server_name, "httpd_test"}, {server_root, PrivDir},
 		 {document_root, PrivDir}, {bind_address, any}],
     
@@ -199,7 +214,7 @@ start_httpd(Config) when is_list(Config) ->
     [_|_] = inets:services_info(),	
 
     inets:stop(httpd, Pid0),
-    test_server:sleep(500),
+    ct:sleep(500),
     Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
     false = lists:member(Pid0, Pids1),        
     {ok, Pid1} = 
@@ -212,7 +227,7 @@ start_httpd(Config) when is_list(Config) ->
 	{'EXIT', Pid1, shutdown} ->
 	    ok
     after 100 ->
-	    test_server:fail(stand_alone_not_shutdown)
+	    ct:fail(stand_alone_not_shutdown)
     end,
     ok = inets:stop(),
     File0 = filename:join(PrivDir, "httpd.conf"),
@@ -279,44 +294,38 @@ start_httpd(Config) when is_list(Config) ->
 
 start_ftpc(doc) ->
     [{doc, "Start/stop of ftpc service"}];
-start_ftpc(Config) when is_list(Config) ->
+start_ftpc(Config0) when is_list(Config0) ->
     process_flag(trap_exit, true),
     ok = inets:start(),
-    try
-	begin
-	    {_Tag, FtpdHost} = ftp_suite_lib:dirty_select_ftpd_host(Config),
-	    case inets:start(ftpc, [{host, FtpdHost}]) of
-		{ok, Pid0} ->
-		    Pids0 = [ServicePid || {_, ServicePid} <- 
-					       inets:services()],  
-		    true = lists:member(Pid0, Pids0),
-		    [_|_] = inets:services_info(),	
-		    inets:stop(ftpc, Pid0),
-		    test_server:sleep(100),
-		    Pids1 =  [ServicePid || {_, ServicePid} <- 
-						inets:services()], 
-		    false = lists:member(Pid0, Pids1),        
-		    {ok, Pid1} = 
-			inets:start(ftpc, [{host, FtpdHost}], stand_alone),
-		    Pids2 =  [ServicePid || {_, ServicePid} <- 
-						inets:services()], 
-		    false = lists:member(Pid1, Pids2),   
-		    ok = inets:stop(stand_alone, Pid1),
-		    receive 
-			{'EXIT', Pid1, shutdown} ->
-			    ok
-		    after 100 ->
-			    ct:fail(stand_alone_not_shutdown)
-		    end,
-		    ok = inets:stop(),
-		    ok;
-		_ ->
-		    {skip, "Unable to reach selected FTP server " ++ FtpdHost}
-	    end
-	end
-    catch
-	throw:{error, not_found} ->
-	    {skip, "No available FTP servers"}
+    case ftp_SUITE:init_per_suite(Config0) of
+	{skip, _} = Skip ->
+	    Skip;
+	Config ->
+	    FtpdHost = proplists:get_value(ftpd_host,Config),
+	    {ok, Pid0} = inets:start(ftpc, [{host, FtpdHost}]),
+	    Pids0 = [ServicePid || {_, ServicePid} <- 
+				       inets:services()],  
+	    true = lists:member(Pid0, Pids0),
+	    [_|_] = inets:services_info(),	
+	    inets:stop(ftpc, Pid0),
+	    ct:sleep(100),
+	    Pids1 =  [ServicePid || {_, ServicePid} <- 
+					inets:services()], 
+	    false = lists:member(Pid0, Pids1),        
+	    {ok, Pid1} = 
+		inets:start(ftpc, [{host, FtpdHost}], stand_alone),
+		Pids2 =  [ServicePid || {_, ServicePid} <- 
+					    inets:services()], 
+	    false = lists:member(Pid1, Pids2),   
+	    ok = inets:stop(stand_alone, Pid1),
+		receive 
+		    {'EXIT', Pid1, shutdown} ->
+			ok
+		after 100 ->
+			ct:fail(stand_alone_not_shutdown)
+		end,
+	    ok = inets:stop(),
+	    catch ftp_SUITE:end_per_SUITE(Config)  
     end.
 
 %%-------------------------------------------------------------------------
@@ -331,7 +340,7 @@ start_tftpd(Config) when is_list(Config) ->
     true = lists:member(Pid0, Pids0),
     [_|_] = inets:services_info(),	
     inets:stop(tftpd, Pid0),
-    test_server:sleep(100),
+    ct:sleep(100),
     Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
     false = lists:member(Pid0, Pids1),        
     {ok, Pid1} = 
@@ -343,7 +352,7 @@ start_tftpd(Config) when is_list(Config) ->
 	{'EXIT', Pid1, shutdown} ->
 	    ok
     after 100 ->
-	    test_server:fail(stand_alone_not_shutdown)
+	    ct:fail(stand_alone_not_shutdown)
     end,
     ok = inets:stop(),
     application:load(inets),
@@ -360,34 +369,34 @@ httpd_reload() ->
     [{doc, "Reload httpd configuration without restarting service"}].
 httpd_reload(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    PrivDir = ?config(priv_dir, Config),
-    DataDir =  ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir =  proplists:get_value(data_dir, Config),
     HttpdConf = [{server_name,   "httpd_test"}, 
 		 {server_root,   PrivDir},
 		 {document_root, PrivDir}, 
 		 {bind_address,  "localhost"}],
 
     ok = inets:start(),
-    test_server:sleep(5000),
+    ct:sleep(5000),
 
     {ok, Pid0} = inets:start(httpd, [{port, 0}, 
 				     {ipfamily, inet} | HttpdConf]),
-    test_server:sleep(5000),
+    ct:sleep(5000),
 
     [{port, Port0}] = httpd:info(Pid0, [port]),         
-    test_server:sleep(5000),
+    ct:sleep(5000),
 
     [{document_root, PrivDir}] =  httpd:info(Pid0, [document_root]),
-    test_server:sleep(5000),
+    ct:sleep(5000),
 
     ok = httpd:reload_config([{port, Port0}, {ipfamily, inet},
 			      {server_name, "httpd_test"}, 
 			      {server_root, PrivDir},
 			      {document_root, DataDir}, 
 			      {bind_address, "localhost"}], non_disturbing),
-    test_server:sleep(5000),    
+    ct:sleep(5000),    
     [{document_root, DataDir}] =  httpd:info(Pid0, [document_root]),
-    test_server:sleep(5000),    
+    ct:sleep(5000),    
 
     ok = httpd:reload_config([{port, Port0}, {ipfamily, inet},
 			      {server_name, "httpd_test"}, 

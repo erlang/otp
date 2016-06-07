@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 	 integer/1,signed_integer/1,dynamic/1,more_dynamic/1,mml/1,
 	 match_huge_int/1,bignum/1,unaligned_32_bit/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists, [seq/2]).
 
@@ -51,22 +51,22 @@ end_per_group(_GroupName, Config) ->
 
 
 integer(Config) when is_list(Config) ->
-    ?line 0 = get_int(mkbin([])),
-    ?line 0 = get_int(mkbin([0])),
-    ?line 42 = get_int(mkbin([42])),
-    ?line 255 = get_int(mkbin([255])),
-    ?line 256 = get_int(mkbin([1,0])),
-    ?line 257 = get_int(mkbin([1,1])),
-    ?line 258 = get_int(mkbin([1,2])),
-    ?line 258 = get_int(mkbin([1,2])),
-    ?line 65534 = get_int(mkbin([255,254])),
-    ?line 16776455 = get_int(mkbin([255,253,7])),
-    ?line 4245492555 = get_int(mkbin([253,13,19,75])),
-    ?line 4294967294 = get_int(mkbin([255,255,255,254])),
-    ?line 4294967295 = get_int(mkbin([255,255,255,255])),
-    ?line Eight = [200,1,19,128,222,42,97,111],
-    ?line cmp128(Eight, uint(Eight)),
-    ?line fun_clause(catch get_int(mkbin(seq(1,5)))),
+    0 = get_int(mkbin([])),
+    0 = get_int(mkbin([0])),
+    42 = get_int(mkbin([42])),
+    255 = get_int(mkbin([255])),
+    256 = get_int(mkbin([1,0])),
+    257 = get_int(mkbin([1,1])),
+    258 = get_int(mkbin([1,2])),
+    258 = get_int(mkbin([1,2])),
+    65534 = get_int(mkbin([255,254])),
+    16776455 = get_int(mkbin([255,253,7])),
+    4245492555 = get_int(mkbin([253,13,19,75])),
+    4294967294 = get_int(mkbin([255,255,255,254])),
+    4294967295 = get_int(mkbin([255,255,255,255])),
+    Eight = [200,1,19,128,222,42,97,111],
+    cmp128(Eight, uint(Eight)),
+    fun_clause(catch get_int(mkbin(seq(1,5)))),
     ok.
 
 get_int(Bin) ->
@@ -89,13 +89,13 @@ cmp128(<<I:128>>, I) -> equal;
 cmp128(_, _) -> not_equal.
     
 signed_integer(Config) when is_list(Config) ->
-    ?line {no_match,_} = sint(mkbin([])),
-    ?line {no_match,_} = sint(mkbin([1,2,3])),
-    ?line 127 = sint(mkbin([127])),
-    ?line -1 = sint(mkbin([255])),
-    ?line -128 = sint(mkbin([128])),
-    ?line 42 = sint(mkbin([42,255])),
-    ?line 127 = sint(mkbin([127,255])).
+    {no_match,_} = sint(mkbin([])),
+    {no_match,_} = sint(mkbin([1,2,3])),
+    127 = sint(mkbin([127])),
+    -1 = sint(mkbin([255])),
+    -128 = sint(mkbin([128])),
+    42 = sint(mkbin([42,255])),
+    127 = sint(mkbin([127,255])).
 
 sint(Bin) ->
     case Bin of
@@ -130,7 +130,7 @@ dynamic(Bin, S1, S2, A, B) ->
 	_Other -> erlang:error(badmatch, [Bin,S1,S2,A,B])
     end.
 
-more_dynamic(doc) -> "Extract integers at different alignments and of different sizes.";
+%% Extract integers at different alignments and of different sizes.
 more_dynamic(Config) when is_list(Config) ->
 
     % Unsigned big-endian numbers.
@@ -139,7 +139,7 @@ more_dynamic(Config) when is_list(Config) ->
 			<<_:SkipBef,Int:N,_:SkipAft>> = Bin,
 			Int = make_int(List, N, 0)
 		end,
-    ?line more_dynamic1(Unsigned, erlang:md5(mkbin([42]))),
+    more_dynamic1(Unsigned, erlang:md5(mkbin([42]))),
 
     %% Signed big-endian numbers.
     Signed  = fun(Bin, List, SkipBef, N) ->
@@ -151,10 +151,10 @@ more_dynamic(Config) when is_list(Config) ->
 			      io:format("Bin = ~p,", [Bin]),
 			      io:format("SkipBef = ~p, N = ~p", [SkipBef,N]),
 			      io:format("Expected ~p, got ~p", [Int,Other]),
-			      ?t:fail()
+			      ct:fail(signed_big_endian_fail)
 		      end
 	      end,
-    ?line more_dynamic1(Signed, erlang:md5(mkbin([43]))),
+    more_dynamic1(Signed, erlang:md5(mkbin([43]))),
 
     %% Unsigned little-endian numbers.
     UnsLittle  = fun(Bin, List, SkipBef, N) ->
@@ -162,7 +162,7 @@ more_dynamic(Config) when is_list(Config) ->
 			 <<_:SkipBef,Int:N/little,_:SkipAft>> = Bin,
 			 Int = make_int(big_to_little(List, N), N, 0)
 		 end,
-    ?line more_dynamic1(UnsLittle, erlang:md5(mkbin([44]))),
+    more_dynamic1(UnsLittle, erlang:md5(mkbin([44]))),
 
     %% Signed little-endian numbers.
     SignLittle  = fun(Bin, List, SkipBef, N) ->
@@ -171,7 +171,7 @@ more_dynamic(Config) when is_list(Config) ->
 			  Little = big_to_little(List, N),
 			  Int = make_signed_int(Little, N)
 		  end,
-    ?line more_dynamic1(SignLittle, erlang:md5(mkbin([45]))),
+    more_dynamic1(SignLittle, erlang:md5(mkbin([45]))),
 
     ok.
 
@@ -227,23 +227,23 @@ mkbin(L) when is_list(L) -> list_to_binary(L).
     
 
 mml(Config) when is_list(Config) ->
-    ?line single_byte_binary = mml_choose(<<42>>),
-    ?line multi_byte_binary = mml_choose(<<42,43>>).
+    single_byte_binary = mml_choose(<<42>>),
+    multi_byte_binary = mml_choose(<<42,43>>).
 
 mml_choose(<<_A:8>>) -> single_byte_binary;
 mml_choose(<<_A:8,_T/binary>>) -> multi_byte_binary.
 
 match_huge_int(Config) when is_list(Config) ->
     Sz = 1 bsl 27,
-    ?line Bin = <<0:Sz,13:8>>,
-    ?line skip_huge_int_1(Sz, Bin),
-    ?line 0 = match_huge_int_1(Sz, Bin),
+    Bin = <<0:Sz,13:8>>,
+    skip_huge_int_1(Sz, Bin),
+    0 = match_huge_int_1(Sz, Bin),
 
     %% Test overflowing the size of an integer field.
-    ?line nomatch = overflow_huge_int_skip_32(Bin),
+    nomatch = overflow_huge_int_skip_32(Bin),
     case erlang:system_info(wordsize) of
 	4 ->
-	    ?line nomatch = overflow_huge_int_32(Bin);
+	    nomatch = overflow_huge_int_32(Bin);
 	8 ->
 	    %% An attempt will be made to allocate heap space for
 	    %% the bignum (which will probably fail); only if the
@@ -251,15 +251,15 @@ match_huge_int(Config) when is_list(Config) ->
 	    %% the binary is too small.
 	    ok
     end,
-    ?line nomatch = overflow_huge_int_skip_64(Bin),
-    ?line nomatch = overflow_huge_int_64(Bin),
+    nomatch = overflow_huge_int_skip_64(Bin),
+    nomatch = overflow_huge_int_64(Bin),
 
     %% Test overflowing the size of an integer field using variables as sizes.
-    ?line Sizes = case erlang:system_info(wordsize) of
+    Sizes = case erlang:system_info(wordsize) of
 		      4 -> lists:seq(25, 32);
 		      8 -> []
 		  end ++ lists:seq(50, 64),
-    ?line ok = overflow_huge_int_unit128(Bin, Sizes),
+    ok = overflow_huge_int_unit128(Bin, Sizes),
 
     ok.
 
@@ -326,19 +326,19 @@ overflow_huge_int_64(<<Int:9223372036854775808/unit:128,0,_/binary>>) -> {8,Int}
 overflow_huge_int_64(_) -> nomatch.
 
 bignum(Config) when is_list(Config) ->
-    ?line Bin = id(<<42,0:1024/unit:8,43>>),
-    ?line <<42:1025/little-integer-unit:8,_:8>> = Bin,
-    ?line <<_:8,43:1025/integer-unit:8>> = Bin,
+    Bin = id(<<42,0:1024/unit:8,43>>),
+    <<42:1025/little-integer-unit:8,_:8>> = Bin,
+    <<_:8,43:1025/integer-unit:8>> = Bin,
 
-    ?line BignumBin = id(<<0:512/unit:8,258254417031933722623:9/unit:8>>),
-    ?line <<258254417031933722623:(512+9)/unit:8>> = BignumBin,
+    BignumBin = id(<<0:512/unit:8,258254417031933722623:9/unit:8>>),
+    <<258254417031933722623:(512+9)/unit:8>> = BignumBin,
     erlang:garbage_collect(),			%Search for holes in debug-build.
     ok.
 
 unaligned_32_bit(Config) when is_list(Config) ->
     %% There used to be a risk for heap overflow (fixed in R11B-5).
-    ?line L = unaligned_32_bit_1(<<-1:(64*1024)>>),
-    ?line unaligned_32_bit_verify(L, 1638).
+    L = unaligned_32_bit_1(<<-1:(64*1024)>>),
+    unaligned_32_bit_verify(L, 1638).
 
 unaligned_32_bit_1(<<1:1,U:32,_:7,T/binary>>) ->
     [U|unaligned_32_bit_1(T)];

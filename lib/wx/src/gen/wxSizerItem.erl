@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ calcMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemdeletewindows">external documentation</a>.
--spec deleteWindows(This) -> ok when
+-spec deleteWindows(This) -> 'ok' when
 	This::wxSizerItem().
 deleteWindows(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -113,7 +113,7 @@ deleteWindows(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemdetachsizer">external documentation</a>.
--spec detachSizer(This) -> ok when
+-spec detachSizer(This) -> 'ok' when
 	This::wxSizerItem().
 detachSizer(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -249,7 +249,7 @@ isWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetborder">external documentation</a>.
--spec setBorder(This, Border) -> ok when
+-spec setBorder(This, Border) -> 'ok' when
 	This::wxSizerItem(), Border::integer().
 setBorder(#wx_ref{type=ThisT,ref=ThisRef},Border)
  when is_integer(Border) ->
@@ -258,7 +258,7 @@ setBorder(#wx_ref{type=ThisT,ref=ThisRef},Border)
   <<ThisRef:32/?UI,Border:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetdimension">external documentation</a>.
--spec setDimension(This, Pos, Size) -> ok when
+-spec setDimension(This, Pos, Size) -> 'ok' when
 	This::wxSizerItem(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
 setDimension(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY},{SizeW,SizeH})
  when is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH) ->
@@ -267,7 +267,7 @@ setDimension(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY},{SizeW,SizeH})
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetflag">external documentation</a>.
--spec setFlag(This, Flag) -> ok when
+-spec setFlag(This, Flag) -> 'ok' when
 	This::wxSizerItem(), Flag::integer().
 setFlag(#wx_ref{type=ThisT,ref=ThisRef},Flag)
  when is_integer(Flag) ->
@@ -276,7 +276,7 @@ setFlag(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   <<ThisRef:32/?UI,Flag:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetinitsize">external documentation</a>.
--spec setInitSize(This, X, Y) -> ok when
+-spec setInitSize(This, X, Y) -> 'ok' when
 	This::wxSizerItem(), X::integer(), Y::integer().
 setInitSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
@@ -285,7 +285,7 @@ setInitSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetminsize">external documentation</a>.
--spec setMinSize(This, Size) -> ok when
+-spec setMinSize(This, Size) -> 'ok' when
 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 setMinSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -294,7 +294,7 @@ setMinSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetminsize">external documentation</a>.
--spec setMinSize(This, X, Y) -> ok when
+-spec setMinSize(This, X, Y) -> 'ok' when
 	This::wxSizerItem(), X::integer(), Y::integer().
 setMinSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
@@ -303,7 +303,7 @@ setMinSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetproportion">external documentation</a>.
--spec setProportion(This, Proportion) -> ok when
+-spec setProportion(This, Proportion) -> 'ok' when
 	This::wxSizerItem(), Proportion::integer().
 setProportion(#wx_ref{type=ThisT,ref=ThisRef},Proportion)
  when is_integer(Proportion) ->
@@ -313,12 +313,12 @@ setProportion(#wx_ref{type=ThisT,ref=ThisRef},Proportion)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetratio">external documentation</a>.
 %% <br /> Also:<br />
-%% setRatio(This, Size) -> ok when<br />
+%% setRatio(This, Size) -> 'ok' when<br />
 %% 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.<br />
 %% 
--spec setRatio(This, Ratio) -> ok when
+-spec setRatio(This, Ratio) -> 'ok' when
 	This::wxSizerItem(), Ratio::number();
-      (This, Size) -> ok when
+      (This, Size) -> 'ok' when
 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 setRatio(#wx_ref{type=ThisT,ref=ThisRef},Ratio)
  when is_number(Ratio) ->
@@ -332,7 +332,7 @@ setRatio(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetratio">external documentation</a>.
--spec setRatio(This, Width, Height) -> ok when
+-spec setRatio(This, Width, Height) -> 'ok' when
 	This::wxSizerItem(), Width::integer(), Height::integer().
 setRatio(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
  when is_integer(Width),is_integer(Height) ->
@@ -341,7 +341,7 @@ setRatio(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetsizer">external documentation</a>.
--spec setSizer(This, Sizer) -> ok when
+-spec setSizer(This, Sizer) -> 'ok' when
 	This::wxSizerItem(), Sizer::wxSizer:wxSizer().
 setSizer(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SizerT,ref=SizerRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -350,7 +350,7 @@ setSizer(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SizerT,ref=SizerRef}) ->
   <<ThisRef:32/?UI,SizerRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetspacer">external documentation</a>.
--spec setSpacer(This, Size) -> ok when
+-spec setSpacer(This, Size) -> 'ok' when
 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 setSpacer(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -359,7 +359,7 @@ setSpacer(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetspacer">external documentation</a>.
--spec setSpacer(This, Width, Height) -> ok when
+-spec setSpacer(This, Width, Height) -> 'ok' when
 	This::wxSizerItem(), Width::integer(), Height::integer().
 setSpacer(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
  when is_integer(Width),is_integer(Height) ->
@@ -368,7 +368,7 @@ setSpacer(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemsetwindow">external documentation</a>.
--spec setWindow(This, Window) -> ok when
+-spec setWindow(This, Window) -> 'ok' when
 	This::wxSizerItem(), Window::wxWindow:wxWindow().
 setWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -377,7 +377,7 @@ setWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) -
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizeritem.html#wxsizeritemshow">external documentation</a>.
--spec show(This, Show) -> ok when
+-spec show(This, Show) -> 'ok' when
 	This::wxSizerItem(), Show::boolean().
 show(#wx_ref{type=ThisT,ref=ThisRef},Show)
  when is_boolean(Show) ->
@@ -386,7 +386,7 @@ show(#wx_ref{type=ThisT,ref=ThisRef},Show)
   <<ThisRef:32/?UI,(wxe_util:from_bool(Show)):32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSizerItem()) -> ok.
+-spec destroy(This::wxSizerItem()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSizerItem),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,10 +133,12 @@ translate_exception(_, _, _, _) -> no.
 fix_block(Is, 0) ->
     reverse(Is);
 fix_block(Is, Words) ->
-    fix_block_1(reverse(Is), Words).
+    reverse(fix_block_1(Is, Words)).
 
-fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is], Words) ->
-    [{set,[],[],{alloc,Live,{F1,F2,Needed-Words,F3}}}|Is];
+fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed0,F3}}}|Is], Words) ->
+    Needed = Needed0 - Words,
+    true = Needed >= 0,				%Assertion.
+    [{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is];
 fix_block_1([I|Is], Words) ->
     [I|fix_block_1(Is, Words)].
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxAuiNotebookEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventsetselection">external documentation</a>.
--spec setSelection(This, S) -> ok when
+-spec setSelection(This, S) -> 'ok' when
 	This::wxAuiNotebookEvent(), S::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
  when is_integer(S) ->
@@ -69,7 +69,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventsetoldselection">external documentation</a>.
--spec setOldSelection(This, S) -> ok when
+-spec setOldSelection(This, S) -> 'ok' when
 	This::wxAuiNotebookEvent(), S::integer().
 setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
  when is_integer(S) ->
@@ -86,7 +86,7 @@ getOldSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauinotebookevent.html#wxauinotebookeventsetdragsource">external documentation</a>.
--spec setDragSource(This, S) -> ok when
+-spec setDragSource(This, S) -> 'ok' when
 	This::wxAuiNotebookEvent(), S::wxAuiNotebook:wxAuiNotebook().
 setDragSource(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ST,ref=SRef}) ->
   ?CLASS(ThisT,wxAuiNotebookEvent),

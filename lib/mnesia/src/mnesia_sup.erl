@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,9 +60,10 @@ init() ->
     Flags = {one_for_all, 0, 3600}, % Should be rest_for_one policy
 
     Event = event_procs(),
+    Ext = ext_procs(),
     Kernel = kernel_procs(),
 
-    {ok, {Flags, Event ++ Kernel}}.
+    {ok, {Flags, Event ++ Ext ++ Kernel}}.
 
 event_procs() ->
     KillAfter = timer:seconds(30),
@@ -72,6 +73,11 @@ event_procs() ->
 
 kernel_procs() ->
     K = mnesia_kernel_sup,
+    KA = infinity,
+    [{K, {K, start, []}, permanent, KA, supervisor, [K, supervisor]}].
+
+ext_procs() ->
+    K = mnesia_ext_sup,
     KA = infinity,
     [{K, {K, start, []}, permanent, KA, supervisor, [K, supervisor]}].
 

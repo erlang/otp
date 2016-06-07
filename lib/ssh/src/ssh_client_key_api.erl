@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,14 +23,26 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh.hrl").
 
--callback is_host_key(PublicKey :: #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term() , Host :: string(),
-		      Algorithm :: 'ssh-rsa'| 'ssh-dss'| atom(), ConnectOptions :: proplists:proplist()) ->
+-export_type([algorithm/0]).
+
+-type algorithm()  :: 'ssh-rsa'
+		    | 'ssh-dss'
+		    | 'ecdsa-sha2-nistp256'
+		    | 'ecdsa-sha2-nistp384'
+		    | 'ecdsa-sha2-nistp521'
+		    .
+
+-callback is_host_key(PublicKey      :: public_key:public_key(),
+		      Host           :: string(),
+		      Algorithm      :: algorithm(),
+		      ConnectOptions :: proplists:proplist()) ->
     boolean().
 
--callback user_key(Algorithm ::  'ssh-rsa'| 'ssh-dss'| atom(), ConnectOptions :: proplists:proplist()) ->
-    {ok,  PrivateKey :: #'RSAPrivateKey'{}| #'DSAPrivateKey'{} |  term()} | {error, string()}.
+-callback user_key(Algorithm      :: algorithm(),
+		   ConnectOptions :: proplists:proplist()) ->
+    {ok,  PrivateKey::public_key:private_key()} | {error, term()}.
 
 
--callback add_host_key(Host :: string(), PublicKey ::  #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term(),
-		       Options :: list()) ->
+-callback add_host_key(Host :: string(), PublicKey :: public_key:public_key(),
+		       Options :: proplists:proplist()) ->
     ok | {error, Error::term()}.

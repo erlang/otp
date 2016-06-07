@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -728,12 +728,36 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      */
     public void write_pid(final String node, final int id, final int serial,
             final int creation) {
-        write1(OtpExternal.pidTag);
-        write_atom(node);
-        write4BE(id & 0x7fff); // 15 bits
-        write4BE(serial & 0x1fff); // 13 bits
-        write1(creation & 0x3); // 2 bits
+	write1(OtpExternal.pidTag);
+	write_atom(node);
+	write4BE(id & 0x7fff); // 15 bits
+	write4BE(serial & 0x1fff); // 13 bits
+	write1(creation & 0x3); // 2 bits
     }
+
+    /**
+     * Write an Erlang PID to the stream.
+     *
+     * @param pid
+     *            the pid
+     */
+    public void write_pid(OtpErlangPid pid) {
+	write1(pid.tag());
+	write_atom(pid.node());
+	write4BE(pid.id());
+	write4BE(pid.serial());
+	switch (pid.tag()) {
+	case OtpExternal.pidTag:
+	    write1(pid.creation());
+	    break;
+	case OtpExternal.newPidTag:
+	    write4BE(pid.creation());
+	    break;
+	default:
+	    throw new AssertionError("Invalid pid tag " + pid.tag());
+	}
+    }
+
 
     /**
      * Write an Erlang port to the stream.
@@ -745,15 +769,36 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            an arbitrary number. Only the low order 28 bits will be used.
      *
      * @param creation
-     *            another arbitrary number. Only the low order 2 bits will be
-     *            used.
-     *
+     *            another arbitrary number. Only the low order 2 bits will
+     *            be used.
      */
     public void write_port(final String node, final int id, final int creation) {
-        write1(OtpExternal.portTag);
-        write_atom(node);
-        write4BE(id & 0xfffffff); // 28 bits
-        write1(creation & 0x3); // 2 bits
+	write1(OtpExternal.portTag);
+	write_atom(node);
+	write4BE(id & 0xfffffff); // 28 bits
+	write1(creation & 0x3); // 2 bits
+    }
+
+    /**
+     * Write an Erlang port to the stream.
+     *
+     * @param port
+     *            the port.
+     */
+    public void write_port(OtpErlangPort port) {
+	write1(port.tag());
+	write_atom(port.node());
+	write4BE(port.id());
+	switch (port.tag()) {
+	case OtpExternal.portTag:	    
+	    write1(port.creation());
+	    break;
+	case OtpExternal.newPortTag:
+	    write4BE(port.creation());
+	    break;
+	default:
+	    throw new AssertionError("Invalid port tag " + port.tag());
+	}
     }
 
     /**
@@ -766,32 +811,31 @@ public class OtpOutputStream extends ByteArrayOutputStream {
      *            an arbitrary number. Only the low order 18 bits will be used.
      *
      * @param creation
-     *            another arbitrary number. Only the low order 2 bits will be
-     *            used.
+     *            another arbitrary number.
      *
      */
     public void write_ref(final String node, final int id, final int creation) {
-        write1(OtpExternal.refTag);
-        write_atom(node);
-        write4BE(id & 0x3ffff); // 18 bits
-        write1(creation & 0x3); // 2 bits
+	/* Always encode as an extended reference; all
+	   participating parties are now expected to be
+	   able to decode extended references. */
+	int ids[] = new int[1];
+	ids[0] = id;
+	write_ref(node, ids, creation);
     }
 
     /**
-     * Write a new style (R6 and later) Erlang ref to the stream.
+     * Write an Erlang ref to the stream.
      *
      * @param node
      *            the nodename.
      *
      * @param ids
      *            an array of arbitrary numbers. Only the low order 18 bits of
-     *            the first number will be used. If the array contains only one
-     *            number, an old style ref will be written instead. At most
-     *            three numbers will be read from the array.
+     *            the first number will be used. At most three numbers
+     *            will be read from the array.
      *
      * @param creation
-     *            another arbitrary number. Only the low order 2 bits will be
-     *            used.
+     *            another arbitrary number. Only the low order 2 bits will be used.
      *
      */
     public void write_ref(final String node, final int[] ids, final int creation) {
@@ -800,29 +844,54 @@ public class OtpOutputStream extends ByteArrayOutputStream {
             arity = 3; // max 3 words in ref
         }
 
-        if (arity == 1) {
-            // use old method
-            this.write_ref(node, ids[0], creation);
-        } else {
-            // r6 ref
-            write1(OtpExternal.newRefTag);
+	write1(OtpExternal.newRefTag);
 
-            // how many id values
-            write2BE(arity);
+	// how many id values
+	write2BE(arity);
 
-            write_atom(node);
+	write_atom(node);
 
-            // note: creation BEFORE id in r6 ref
-            write1(creation & 0x3); // 2 bits
+	write1(creation & 0x3); // 2 bits
 
-            // first int gets truncated to 18 bits
-            write4BE(ids[0] & 0x3ffff);
+	// first int gets truncated to 18 bits
+	write4BE(ids[0] & 0x3ffff);
 
-            // remaining ones are left as is
-            for (int i = 1; i < arity; i++) {
-                write4BE(ids[i]);
-            }
-        }
+	// remaining ones are left as is
+	for (int i = 1; i < arity; i++) {
+	    write4BE(ids[i]);
+	}
+    }
+
+    /**
+     * Write an Erlang ref to the stream.
+     *
+     * @param ref
+     *            the reference
+     */
+    public void write_ref(OtpErlangRef ref) {
+	int[] ids = ref.ids();
+        int arity = ids.length;
+
+	write1(ref.tag());
+	write2BE(arity);
+	write_atom(ref.node());
+
+	switch (ref.tag()) {
+	case OtpExternal.newRefTag:
+	    write1(ref.creation());
+	    write4BE(ids[0] & 0x3ffff); // first word gets truncated to 18 bits
+	    break;
+	case OtpExternal.newerRefTag:
+	    write4BE(ref.creation());
+	    write4BE(ids[0]); // full first word
+	    break;
+	default:
+	    throw new AssertionError("Invalid ref tag " + ref.tag());
+	}
+
+	for (int i = 1; i < arity; i++) {
+	    write4BE(ids[i]);
+	}
     }
 
     /**

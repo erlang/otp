@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 	 t_make_tuple_2/1, t_make_upper_boundry_tuple_2/1, t_make_tuple_3/1,
 	 t_append_element/1, t_append_element_upper_boundry/1,
 	 build_and_match/1, tuple_with_case/1, tuple_in_guard/1]).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
 %%
@@ -64,7 +64,7 @@ init_per_suite(Config) ->
     [{started_apps, A}|Config].
 
 end_per_suite(Config) ->
-    As = ?config(started_apps, Config),
+    As = proplists:get_value(started_apps, Config),
     lists:foreach(fun (A) -> application:stop(A) end, As),
     Config.
 
@@ -259,7 +259,7 @@ t_make_tuple(Size, Element) ->
     lists:foreach(fun(El) when El =:= Element ->
 			  ok;
 		     (Other) ->
-			  test_server:fail({got, Other, expected, Element})
+			  ct:fail({got, Other, expected, Element})
 		  end, tuple_to_list(Tuple)).
 
 %% Tests the erlang:make_tuple/3 BIF.
@@ -385,14 +385,14 @@ tuple_in_guard(Config) when is_list(Config) ->
 	Tuple1 == {element(1, Tuple2),element(2, Tuple2)} ->
 	    ok;
 	true ->
-	    test_server:fail()
+	    ct:fail("failed")
     end,
     if
 	Tuple2 == {element(1, Tuple2),element(2, Tuple2),
 	    element(3, Tuple2)} ->
 	    ok;
 	true ->
-	    test_server:fail()
+	    ct:fail("failed")
     end,
     ok.
 

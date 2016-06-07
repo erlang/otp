@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2014</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -522,9 +522,36 @@ init(Parent, Name, Module) ->
 -module(db).
 -behaviour(simple_server).
 
--export([init/0, handle_req/2, terminate/0]).
+-export([init/1, handle_req/2, terminate/0]).
 
 ...</code>
+
+    <p>The contracts specified with <c>-callback</c> attributes in
+    behaviour modules can be further refined by adding <c>-spec</c>
+    attributes in callback modules. This can be useful as
+    <c>-callback</c> contracts are usually generic. The same callback
+    module with contracts for the callbacks:</p>
+    
+    <code type="none">
+-module(db).
+-behaviour(simple_server).
+
+-export([init/1, handle_req/2, terminate/0]).
+
+-record(state, {field1 :: [atom()], field2 :: integer()}).
+
+-type state()   :: #state{}.
+-type request() :: {'store', term(), term()};
+                   {'lookup', term()}.
+
+...
+
+-spec handle_req(request(), state()) -> {'ok', term()}.
+
+...</code>
+
+    <p>Each <c>-spec</c> contract is to be a subtype of the respective
+    <c>-callback</c> contract.</p>
+    
   </section>
 </chapter>
-

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,17 +69,18 @@ do {                                                                    \
     while (nelts--) *HTOP++ = *PTR++;                                   \
 } while(0)
 
-#define in_area(ptr,start,nbytes) \
- ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
-
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 int within(Eterm *ptr, Process *p);
 #endif
 
-ERTS_GLB_INLINE Eterm follow_moved(Eterm term);
+#define ErtsInYoungGen(TPtr, Ptr, OldHeap, OldHeapSz)			\
+    (!erts_is_literal((TPtr), (Ptr))					\
+     & !ErtsInArea((Ptr), (OldHeap), (OldHeapSz)))
+
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
+ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag)
 {
     Eterm* ptr;
     switch (primary_tag(term)) {
@@ -87,17 +88,18 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
 	break;
     case TAG_PRIMARY_BOXED:
 	ptr = boxed_val(term);
-	if (IS_MOVED_BOXED(*ptr)) term = *ptr;
+	if (IS_MOVED_BOXED(*ptr)) term = (*ptr) | xptr_tag;
 	break;
     case TAG_PRIMARY_LIST:
 	ptr = list_val(term);
-	if (IS_MOVED_CONS(ptr[0])) term = ptr[1];
+	if (IS_MOVED_CONS(ptr[0])) term = (ptr[1]) | xptr_tag;
 	break;
     default:
 	ASSERT(!"strange tag in follow_moved");
     }
     return term;
 }
+
 #endif
 
 #endif /* ERL_GC_C__ || HIPE_GC_C__ */
@@ -106,6 +108,23 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term)
  * Global exported
  */
 
+#define ERTS_IS_GC_DESIRED_INTERNAL(Proc, HTop, STop)			\
+    ((((STop) - (HTop) < (Proc)->mbuf_sz))				\
+     | ((Proc)->off_heap.overhead > (Proc)->bin_vheap_sz)		\
+     | !!((Proc)->flags & F_FORCE_GC))
+
+#define ERTS_IS_GC_DESIRED(Proc)					\
+    ERTS_IS_GC_DESIRED_INTERNAL((Proc), (Proc)->htop, (Proc)->stop)
+
+#define ERTS_FORCE_GC_INTERNAL(Proc, FCalls)				\
+    do {								\
+	(Proc)->flags |= F_FORCE_GC;					\
+	ERTS_VBUMP_ALL_REDS_INTERNAL((Proc), (FCalls));			\
+    } while (0)
+
+#define ERTS_FORCE_GC(Proc)						\
+    ERTS_FORCE_GC_INTERNAL((Proc), (Proc)->fcalls)
+
 extern Uint erts_test_long_gc_sleep;
 
 typedef struct {
@@ -113,10 +132,18 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
+#define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
+#define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
+    (ERTS_PROCESS_GC_INFO_MAX_TERMS * (2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE))
+Eterm erts_process_gc_info(struct process*, Uint *, Eterm **, Uint, Uint);
+
 void erts_gc_info(ErtsGCInfo *gcip);
 void erts_init_gc(void);
-int erts_garbage_collect(struct process*, int, Eterm*, int);
+int erts_garbage_collect_nobump(struct process*, int, Eterm*, int, int);
+void erts_garbage_collect(struct process*, int, Eterm*, int);
 void erts_garbage_collect_hibernate(struct process* p);
+Eterm erts_gc_after_bif_call_lhf(struct process* p, ErlHeapFragment *live_hf_end,
+				 Eterm result, Eterm* regs, Uint arity);
 Eterm erts_gc_after_bif_call(struct process* p, Eterm result, Eterm* regs, Uint arity);
 void erts_garbage_collect_literals(struct process* p, Eterm* literals,
 				   Uint lit_size,
@@ -128,5 +155,7 @@ void erts_offset_off_heap(struct erl_off_heap*, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
+Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
+int erts_max_heap_size(Eterm, Uint *, Uint *);
 
 #endif /* __ERL_GC_H__ */

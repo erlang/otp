@@ -20,6 +20,7 @@
 -module(dbg).
 -export([p/1,p/2,c/3,c/4,i/0,start/0,stop/0,stop_clear/0,tracer/0,
 	 tracer/2, tracer/3, get_tracer/0, get_tracer/1, tp/2, tp/3, tp/4, 
+	 tpe/2, ctpe/1,
 	 ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, ctpl/0, ctpl/1, 
 	 ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3, ltp/0, wtp/1, rtp/1, 
 	 dtp/0, dtp/1, n/1, cn/1, ln/0, h/0, h/1]).
@@ -128,7 +129,12 @@ tpl(Module, Pattern) when is_atom(Module) ->
     do_tp({Module, '_', '_'}, Pattern, [local]);
 tpl({_Module, _Function, _Arity} = X, Pattern) ->
     do_tp(X,Pattern,[local]).
-do_tp({_Module, _Function, _Arity} = X, Pattern, Flags)
+
+tpe(Event, Pattern) when Event =:= send;
+			 Event =:= 'receive' ->
+    do_tp(Event, Pattern, []).
+
+do_tp(X, Pattern, Flags)
   when is_integer(Pattern);
        is_atom(Pattern) ->
     case ets:lookup(get_pattern_table(), Pattern) of
@@ -137,17 +143,16 @@ do_tp({_Module, _Function, _Arity} = X, Pattern, Flags)
 	_ ->
 	    {error, unknown_pattern}
     end;
-do_tp({Module, _Function, _Arity} = X, Pattern, Flags) when is_list(Pattern) ->
+do_tp(X, Pattern, Flags) when is_list(Pattern) ->
     Nodes = req(get_nodes),
-    case Module of
-	'_' -> 
-	    ok;
-	M when is_atom(M) ->
+    case X of
+	{M,_,_} when is_atom(M) ->
 	    %% Try to load M on all nodes
 	    lists:foreach(fun(Node) ->
 				  rpc:call(Node, M, module_info, [])
 			  end,
-			  Nodes)
+			  Nodes);
+	_ -> ok
     end,
     case lint_tp(Pattern) of
 	{ok,_} ->
@@ -163,9 +168,9 @@ do_tp({Module, _Function, _Arity} = X, Pattern, Flags) when is_list(Pattern) ->
     end.
 
 %% All nodes are handled the same way - also the local node if it is traced
-do_tp_on_nodes(Nodes, MFA, P, Flags) ->
+do_tp_on_nodes(Nodes, X, P, Flags) ->
     lists:map(fun(Node) ->
-		      case rpc:call(Node,erlang,trace_pattern,[MFA,P, Flags]) of
+		      case rpc:call(Node,erlang,trace_pattern,[X,P, Flags]) of
 			  N when is_integer(N) ->
 			      {matched, Node, N};
 			  Else ->
@@ -210,12 +215,18 @@ ctpg(Module) when is_atom(Module) ->
     do_ctp({Module, '_', '_'}, [global]);
 ctpg({_Module, _Function, _Arity} = X) ->
     do_ctp(X,[global]).
+
 do_ctp({Module, Function, Arity},[]) ->
-    do_ctp({Module, Function, Arity},[global]),
+    {ok,_} = do_ctp({Module, Function, Arity},[global]),
     do_ctp({Module, Function, Arity},[local]);
 do_ctp({_Module, _Function, _Arity}=MFA,Flags) ->
     Nodes = req(get_nodes),
     {ok,do_tp_on_nodes(Nodes,MFA,false,Flags)}.
+
+ctpe(Event) when Event =:= send;
+		 Event =:= 'receive' ->
+    Nodes = req(get_nodes),
+    {ok,do_tp_on_nodes(Nodes,Event,true,[])}.
 
 %%
 %% ltp() -> ok
@@ -260,8 +271,7 @@ wtp(FileName) ->
 				ok
 			end,
 			[]),
-	    file:close(File),
-	    ok
+	    ok = file:close(File)
     end.
 
 %%
@@ -298,7 +308,12 @@ tracer(port, Port) when is_port(Port) ->
     start(fun() -> Port end);
 
 tracer(process, {Handler,HandlerData}) ->
-    start(fun() -> start_tracer_process(Handler, HandlerData) end).
+    start(fun() -> start_tracer_process(Handler, HandlerData) end);
+
+tracer(module, Fun) when is_function(Fun) ->
+    start(Fun);
+tracer(module, {Module, State}) ->
+    start(fun() -> {Module, State} end).
 
 
 remote_tracer(port, Fun) when is_function(Fun) ->
@@ -308,7 +323,13 @@ remote_tracer(port, Port) when is_port(Port) ->
     remote_start(fun() -> Port end);
 
 remote_tracer(process, {Handler,HandlerData}) ->
-    remote_start(fun() -> start_tracer_process(Handler, HandlerData) end).
+    remote_start(fun() -> start_tracer_process(Handler, HandlerData) end);
+
+remote_tracer(module, Fun) when is_function(Fun) ->
+    remote_start(Fun);
+remote_tracer(module, {Module, State}) ->
+    remote_start(fun() -> {Module, State} end).
+
 
 remote_start(StartTracer) ->
     case (catch StartTracer()) of
@@ -543,9 +564,8 @@ c(M, F, A, Flags) ->
 	{error,Reason} -> {error,Reason};
 	Flags1 ->
 	    tracer(),
-	    {ok, Tracer} = get_tracer(),
 	    S = self(),
-	    Pid = spawn(fun() -> c(S, M, F, A, [{tracer, Tracer} | Flags1]) end),
+	    Pid = spawn(fun() -> c(S, M, F, A, [get_tracer_flag() | Flags1]) end),
 	    Mref = erlang:monitor(process, Pid),
 	    receive
 		{'DOWN', Mref, _, _, Reason} ->
@@ -579,7 +599,7 @@ stop() ->
     end.
 
 stop_clear() ->
-    ctp(),
+    {ok, _} = ctp(),
     stop().
 
 %%% Calling the server.
@@ -660,6 +680,9 @@ loop({C,T}=SurviveLinks, Table) ->
 			    reply(From, {error, Reason});
 			Tracer when is_pid(Tracer); is_port(Tracer) ->
 			    put(node(),{self(),Tracer}),
+			    reply(From, {ok,self()});
+                        {Module, _State} = Tracer when is_atom(Module) ->
+                            put(node(),{self(),Tracer}),
 			    reply(From, {ok,self()})
 		    end;
 		{_Relay,_Tracer} ->
@@ -709,6 +732,9 @@ loop({C,T}=SurviveLinks, Table) ->
 		    loop(SurviveLinks, Table);
 		{_LocalRelay,Tracer} when is_port(Tracer) -> 
 		    reply(From, {error, cant_trace_remote_pid_to_local_port}),
+		    loop(SurviveLinks, Table);
+		{_LocalRelay,Tracer} when is_tuple(Tracer) -> 
+		    reply(From, {error, cant_trace_remote_pid_to_local_module}),
 		    loop(SurviveLinks, Table);
 	        {_LocalRelay,Tracer} when is_pid(Tracer) ->
 		    case (catch relay(Node, Tracer)) of
@@ -764,7 +790,8 @@ loop({C,T}=SurviveLinks, Table) ->
     end.
 
 reply(Pid, Reply) ->
-    Pid ! {dbg,Reply}.
+    Pid ! {dbg,Reply},
+    ok.
 
 
 %%% A process-based tracer.
@@ -879,9 +906,9 @@ trac(Proc, How, Flags) ->
 	    end
     end.
 
-trac(Node, {_Relay, Tracer}, AtomPid, How, Flags) ->
+trac(Node, {_Replay, Tracer}, AtomPid, How, Flags) ->
     case rpc:call(Node, ?MODULE, erlang_trace,
-		  [AtomPid, How, [{tracer, Tracer} | Flags]]) of
+		  [AtomPid, How, [get_tracer_flag(Tracer) | Flags]]) of
 	N when is_integer(N) ->
 	    {matched, Node, N};
 	{badrpc,Reason} ->
@@ -917,9 +944,11 @@ do_relay(Parent,RelP) ->
     case RelP of
 	{Type,Data} -> 
 	    {ok,Tracer} = remote_tracer(Type,Data),
-	    Parent ! {started,Tracer};
+	    Parent ! {started,Tracer},
+            ok;
 	Pid when is_pid(Pid) ->
-	    Parent ! {started,self()}
+	    Parent ! {started,self()},
+            ok
     end,
     do_relay_1(RelP).
 
@@ -1114,7 +1143,7 @@ transform_flags([sos|Tail],Acc) -> transform_flags(Tail,[set_on_spawn|Acc]);
 transform_flags([sol|Tail],Acc) -> transform_flags(Tail,[set_on_link|Acc]);
 transform_flags([sofs|Tail],Acc) -> transform_flags(Tail,[set_on_first_spawn|Acc]);
 transform_flags([sofl|Tail],Acc) -> transform_flags(Tail,[set_on_first_link|Acc]);
-transform_flags([all|_],_Acc) -> all()--[silent];
+transform_flags([all|_],_Acc) -> all()--[silent,running];
 transform_flags([F|Tail]=List,Acc) when is_atom(F) ->
     case lists:member(F, all()) of
 	true -> transform_flags(Tail,[F|Acc]);
@@ -1123,9 +1152,10 @@ transform_flags([F|Tail]=List,Acc) when is_atom(F) ->
 transform_flags(Bad,_Acc) -> {error,{bad_flags,Bad}}.
 
 all() ->
-    [send,'receive',call,procs,garbage_collection,running,
+    [send,'receive',call,procs,ports,garbage_collection,running,
      set_on_spawn,set_on_first_spawn,set_on_link,set_on_first_link,
-     timestamp,arity,return_to,silent].
+     timestamp,monotonic_timestamp,strict_monotonic_timestamp,
+     arity,return_to,silent,running_procs,running_ports,exiting].
 
 display_info([Node|Nodes]) ->
     io:format("~nNode ~w:~n",[Node]),
@@ -1146,23 +1176,33 @@ display_info1([]) ->
     ok.
 
 get_info() ->
-    get_info(processes(),[]).
+    get_info(processes(),get_info(erlang:ports(),[])).
 
+get_info([Port|T], Acc) when is_port(Port) ->
+    case pinfo(Port, name) of
+        undefined ->
+            get_info(T,Acc);
+        {name, Name} ->
+            get_info(T,get_tinfo(Port, Name, Acc))
+    end;
 get_info([Pid|T],Acc) ->
     case pinfo(Pid, initial_call) of
         undefined ->
             get_info(T,Acc);
         {initial_call, Call} ->
-	    case tinfo(Pid, flags) of
-		undefined ->
-		    get_info(T,Acc);
-		{flags,[]} ->
-		    get_info(T,Acc);
-		{flags,Flags} ->
-		    get_info(T,[{Pid,Call,Flags}|Acc])
-	    end
+            get_info(T,get_tinfo(Pid, Call, Acc))
     end;
 get_info([],Acc) -> Acc.
+
+get_tinfo(P, Id, Acc) ->
+    case tinfo(P, flags) of
+        undefined ->
+            Acc;
+		{flags,[]} ->
+            Acc;
+        {flags,Flags} ->
+            [{P,Id,Flags}|Acc]
+    end.
 
 format_trace([]) -> [];
 format_trace([Item]) -> [ts(Item)];
@@ -1188,9 +1228,22 @@ to_pidspec(X) when is_pid(X) ->
 	true -> X;
 	false -> {badpid,X}
     end;
-to_pidspec(new) -> new;
-to_pidspec(all) -> all;
-to_pidspec(existing) -> existing;
+to_pidspec(X) when is_port(X) ->
+    case erlang:port_info(X) of
+        undefined -> {badport, X};
+        _ -> X
+    end;
+to_pidspec(Tag)
+  when Tag =:= all;
+       Tag =:= ports;
+       Tag =:= processes;
+       Tag =:= new;
+       Tag =:= new_ports;
+       Tag =:= new_processes;
+       Tag =:= existing;
+       Tag =:= existing_ports;
+       Tag =:= existing_processes ->
+    Tag;
 to_pidspec(X) when is_atom(X) ->
     case whereis(X) of
 	undefined -> {badpid,X};
@@ -1203,6 +1256,7 @@ to_pidspec(X) -> {badpid,X}.
 %%
 
 to_pid(X) when is_pid(X) -> X;
+to_pid(X) when is_port(X) -> X;
 to_pid(X) when is_integer(X) -> to_pid({0,X,0});
 to_pid({X,Y,Z}) ->
     to_pid(lists:concat(["<",integer_to_list(X),".",
@@ -1217,8 +1271,11 @@ to_pid(X) when is_list(X) ->
 to_pid(X) -> {badpid,X}.
 
 
+pinfo(P, X) when node(P) == node(), is_port(P) -> erlang:port_info(P, X);
 pinfo(P, X) when node(P) == node() -> erlang:process_info(P, X);
+pinfo(P, X) when is_port(P) -> check(rpc:call(node(P), erlang, port_info, [P, X]));
 pinfo(P, X) -> check(rpc:call(node(P), erlang, process_info, [P, X])).
+
 
 tinfo(P, X) when node(P) == node() -> erlang:trace_info(P, X);
 tinfo(P, X) -> check(rpc:call(node(P), erlang, trace_info, [P, X])).
@@ -1256,6 +1313,9 @@ tc_loop(Other, _Handler, _HData) ->
 gen_reader(ip, {Host, Portno}) ->
     case gen_tcp:connect(Host, Portno, [{active, false}, binary]) of
         {ok, Sock} ->    
+	    %% Just in case this is on the traced node,
+	    %% make sure the port is not traced.
+	    p(Sock,clear),
 	    mk_reader(fun ip_read/2, Sock);
 	Error ->
 	    exit(Error)
@@ -1311,7 +1371,7 @@ mk_reader_wrap([_Hd | Tail] = WrapFiles, File) ->
 		{ok, Term} ->
 		    [Term | mk_reader_wrap(WrapFiles, File)];
 		eof ->
-		    file:close(File),
+		    ok = file:close(File),
 		    case Tail of
 			[_|_] ->
 			    mk_reader_wrap(Tail);
@@ -1411,6 +1471,13 @@ get_tracer() ->
     req({get_tracer,node()}).
 get_tracer(Node) ->
     req({get_tracer,Node}).
+get_tracer_flag() ->
+    {ok, Tracer} = get_tracer(),
+    get_tracer_flag(Tracer).
+get_tracer_flag({Module,State}) ->
+    {tracer, Module, State};
+get_tracer_flag(Port = Pid) when is_port(Port); is_pid(Pid)->
+    {tracer, Pid = Port}.
 
 save_pattern([]) ->
     0;

@@ -27,7 +27,7 @@
 %% Help function, elapsed milliseconds since T0
 millisec_passed({_,_,_} = T0 ) ->
     %% OTP 17 and earlier
-    timer:now_diff(inets_time_compat:timestamp(), T0) div 1000;
+    timer:now_diff(erlang:timestamp(), T0) div 1000;
 
 millisec_passed(T0) ->
     %% OTP 18

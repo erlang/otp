@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@
 	 process_record_remote_types/1,
          sets_filter/2,
 	 src_compiler_opts/0,
+	 refold_pattern/1,
 	 parallelism/0,
          family/1
 	]).
@@ -83,7 +84,7 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 
 %% ----------------------------------------------------------------------------
 
--type abstract_code() :: [tuple()]. %% XXX: import from somewhere
+-type abstract_code() :: [erl_parse:abstract_form()].
 -type comp_options()  :: [compile:option()].
 -type mod_or_fname()  :: module() | file:filename().
 -type fa()            :: {atom(), arity()}.
@@ -297,8 +298,8 @@ get_record_fields([], _RecDict, Acc) ->
 %% The field types are cached. Used during analysis when handling records.
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
-  TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
-  TempRecords1 = process_opaque_types0(TempRecords, TempExpTypes),
+  ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
+  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
   ModuleFun =
     fun(Module, Record) ->
         RecordFun =
@@ -310,7 +311,7 @@ process_record_remote_types(CServer) ->
                         Site = {record, {Module, Name, Arity}},
                         [{FieldName, Field,
                           erl_types:t_from_form(Field,
-                                                TempExpTypes,
+                                                ExpTypes,
                                                 Site,
                                                 TempRecords1)}
                          || {FieldName, Field, _} <- Fields]
@@ -323,9 +324,8 @@ process_record_remote_types(CServer) ->
 	dict:map(RecordFun, Record)
     end,
   NewRecords = dict:map(ModuleFun, TempRecords1),
-  ok = check_record_fields(NewRecords, TempExpTypes),
-  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
-  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
+  ok = check_record_fields(NewRecords, ExpTypes),
+  dialyzer_codeserver:finalize_records(NewRecords, CServer).
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,
@@ -753,6 +753,13 @@ pp_hook(Node, Ctxt, Cont) ->
       pp_binary(Node, Ctxt, Cont);
     bitstr ->
       pp_segment(Node, Ctxt, Cont);
+    map ->
+      pp_map(Node, Ctxt, Cont);
+    literal ->
+      case is_map(cerl:concrete(Node)) of
+	true -> pp_map(Node, Ctxt, Cont);
+	false -> Cont(Node, Ctxt)
+      end;
     _ ->
       Cont(Node, Ctxt)
   end.
@@ -832,6 +839,87 @@ pp_unit(Unit, Ctxt, Cont) ->
 pp_atom(Atom) ->
   String = atom_to_list(cerl:atom_val(Atom)),
   prettypr:text(String).
+
+pp_map(Node, Ctxt, Cont) ->
+  Arg = cerl:map_arg(Node),
+  Before = case cerl:is_c_map_empty(Arg) of
+	     true -> prettypr:floating(prettypr:text("#{"));
+	     false ->
+	       prettypr:beside(Cont(Arg,Ctxt),
+			       prettypr:floating(prettypr:text("#{")))
+	   end,
+  prettypr:beside(
+    Before, prettypr:beside(
+	      prettypr:par(seq(cerl:map_es(Node),
+			       prettypr:floating(prettypr:text(",")),
+			       Ctxt, Cont)),
+	      prettypr:floating(prettypr:text("}")))).
+
+seq([H | T], Separator, Ctxt, Fun) ->
+  case T of
+    [] -> [Fun(H, Ctxt)];
+    _  -> [prettypr:beside(Fun(H, Ctxt), Separator)
+	   | seq(T, Separator, Ctxt, Fun)]
+  end;
+seq([], _, _, _) ->
+  [prettypr:empty()].
+
+%%------------------------------------------------------------------------------
+
+-spec refold_pattern(cerl:cerl()) -> cerl:cerl().
+
+refold_pattern(Pat) ->
+  %% Avoid the churn of unfolding and refolding
+  case cerl:is_literal(Pat) andalso find_map(cerl:concrete(Pat)) of
+    true ->
+      Tree = refold_concrete_pat(cerl:concrete(Pat)),
+      PatAnn = cerl:get_ann(Pat),
+      case proplists:is_defined(label, PatAnn) of
+	%% Literals are not normally annotated with a label, but can be if, for
+	%% example, they were created by cerl:fold_literal/1.
+	true -> cerl:set_ann(Tree, PatAnn);
+	false ->
+	  [{label, Label}] = cerl:get_ann(Tree),
+	  cerl:set_ann(Tree, [{label, Label}|PatAnn])
+      end;
+    false -> Pat
+  end.
+
+find_map(#{}) -> true;
+find_map(Tuple) when is_tuple(Tuple) -> find_map(tuple_to_list(Tuple));
+find_map([H|T]) -> find_map(H) orelse find_map(T);
+find_map(_) -> false.
+
+refold_concrete_pat(Val) ->
+  case Val of
+    _ when is_tuple(Val) ->
+      Els = lists:map(fun refold_concrete_pat/1, tuple_to_list(Val)),
+      case lists:all(fun cerl:is_literal/1, Els) of
+	true -> cerl:abstract(Val);
+	false -> label(cerl:c_tuple_skel(Els))
+      end;
+    [H|T] ->
+      case  cerl:is_literal(HP=refold_concrete_pat(H))
+	and cerl:is_literal(TP=refold_concrete_pat(T))
+      of
+	true -> cerl:abstract(Val);
+	false -> label(cerl:c_cons_skel(HP, TP))
+      end;
+    M when is_map(M) ->
+      %% Map patterns are not generated by the parser(!), but they have a
+      %% property we want, namely that they are never folded into literals.
+      %% N.B.: The key in a map pattern is an expression, *not* a pattern.
+      label(cerl:c_map_pattern([cerl:c_map_pair_exact(cerl:abstract(K),
+						      refold_concrete_pat(V))
+				|| {K, V} <- maps:to_list(M)]));
+    _ ->
+      cerl:abstract(Val)
+  end.
+
+label(Tree) ->
+      %% Sigh
+      Label = -erlang:unique_integer([positive]),
+      cerl:set_ann(Tree, [{label, Label}]).
 
 %%------------------------------------------------------------------------------
 

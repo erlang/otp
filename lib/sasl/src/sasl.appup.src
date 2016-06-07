@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 %% %CopyrightEnd%
 {"%VSN%",
  %% Up from - max one major revision back
- [{<<"2\\.[5-7](\\.[0-9]+)*">>,[restart_new_emulator]}, % OTP-18.*
-  {<<"2\\.4(\\.[0-9]+)*">>,[restart_new_emulator]}],    % OTP-17
+ [{<<"3\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},      % OTP-19.*
+  {<<"2\\.[5-7](\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-18.*
  %% Down to - max one major revision back
- [{<<"2\\.[5-7](\\.[0-9]+)*">>,[restart_new_emulator]}, % OTP-18.*
-  {<<"2\\.4(\\.[0-9]+)*">>,[restart_new_emulator]}]     % OTP-17
+ [{<<"3\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},     % OTP-19.*
+  {<<"2\\.[5-7](\\.[0-9]+)*">>,[restart_new_emulator]}] % OTP-18.*
 }.

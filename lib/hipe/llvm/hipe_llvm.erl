@@ -199,10 +199,9 @@
     adj_stack_register/1,
     adj_stack_type/1,
 
-    mk_branch_meta/3,
-    branch_meta_id/1,
-    branch_meta_true_weight/1,
-    branch_meta_false_weight/1
+    mk_meta/2,
+    meta_id/1,
+    meta_operands/1
   ]).
 
 -export([
@@ -234,7 +233,7 @@
     function_arg_type_list/1
   ]).
 
--export([pp_ins_list/2, pp_ins/2]).
+-export([pp_ins_list/3, pp_ins/3]).
 
 
 %%-----------------------------------------------------------------------------
@@ -343,8 +342,9 @@
 -record(llvm_adj_stack, {offset, 'register', type}).
 -type llvm_adj_stack() :: #llvm_adj_stack{}.
 
--record(llvm_branch_meta, {id, true_weight, false_weight}).
--type llvm_branch_meta() :: #llvm_branch_meta{}.
+-record(llvm_meta, {id :: string(),
+		    operands :: [string() | integer() | llvm_meta()]}).
+-type llvm_meta() :: #llvm_meta{}.
 
 %% A type for any LLVM instruction
 -type llvm_instr() :: llvm_ret() | llvm_br() | llvm_br_cond()
@@ -357,7 +357,7 @@
                     | llvm_call() | llvm_fun_def() | llvm_fun_decl()
                     | llvm_landingpad() | llvm_comment() | llvm_label()
                     | llvm_const_decl() | llvm_asm() | llvm_adj_stack()
-                    | llvm_branch_meta().
+                    | llvm_meta().
 
 %% Types
 -record(llvm_void, {}).
@@ -701,7 +701,7 @@ is_label(#llvm_comment{}) -> false;
 is_label(#llvm_const_decl{}) -> false;
 is_label(#llvm_asm{}) -> false;
 is_label(#llvm_adj_stack{}) -> false;
-is_label(#llvm_branch_meta{}) -> false.
+is_label(#llvm_meta{}) -> false.
 
 %% const_decl
 mk_const_decl(Dst, Decl_type, Type, Value) ->
@@ -722,14 +722,11 @@ adj_stack_offset(#llvm_adj_stack{offset=Offset}) -> Offset.
 adj_stack_register(#llvm_adj_stack{'register'=Register}) -> Register.
 adj_stack_type(#llvm_adj_stack{type=Type}) -> Type.
 
-%% branch meta-data
-mk_branch_meta(Id, True_weight, False_weight) ->
-  #llvm_branch_meta{id=Id, true_weight=True_weight, false_weight=False_weight}.
-branch_meta_id(#llvm_branch_meta{id=Id}) -> Id.
-branch_meta_true_weight(#llvm_branch_meta{true_weight=True_weight}) ->
-  True_weight.
-branch_meta_false_weight(#llvm_branch_meta{false_weight=False_weight}) ->
-  False_weight.
+%% meta-data
+mk_meta(Id, Operands) ->
+  #llvm_meta{id=Id, operands=Operands}.
+meta_id(#llvm_meta{id=Id}) -> Id.
+meta_operands(#llvm_meta{operands=Operands}) -> Operands.
 
 %% types
 mk_void() -> #llvm_void{}.
@@ -765,13 +762,17 @@ function_arg_type_list(#llvm_fun{arg_type_list=Arg_type_list}) ->
 %% Pretty-printer Functions
 %%----------------------------------------------------------------------------
 
-%% @doc Pretty-print a list of LLVM instructions to a Device.
-pp_ins_list(_Dev, []) -> ok;
-pp_ins_list(Dev, [I|Is]) ->
-  pp_ins(Dev, I),
-  pp_ins_list(Dev, Is).
+-type llvm_version() :: {Major :: integer(), Minor :: integer()}.
 
-pp_ins(Dev, I) ->
+%% @doc Pretty-print a list of LLVM instructions to a Device, using syntax
+%% compatible with LLVM v. Major.Minor
+-spec pp_ins_list(file:io_device(), llvm_version(), [llvm_instr()]) -> ok.
+pp_ins_list(_Dev, _Ver, []) -> ok;
+pp_ins_list(Dev, Ver={_,_}, [I|Is]) ->
+  pp_ins(Dev, Ver, I),
+  pp_ins_list(Dev, Ver, Is).
+
+pp_ins(Dev, Ver, I) ->
   case indent(I) of
     true  -> write(Dev, "  ");
     false -> ok
@@ -861,7 +862,7 @@ pp_ins(Dev, I) ->
         true -> write(Dev, "volatile ");
         false -> ok
       end,
-      pp_type(Dev, load_p_type(I)),
+      pp_dereference_type(Dev, Ver, load_p_type(I)),
       write(Dev, [" ", load_pointer(I), " "]),
       case load_alignment(I) of
         [] -> ok;
@@ -897,7 +898,7 @@ pp_ins(Dev, I) ->
         true -> write(Dev, "inbounds ");
         false -> ok
       end,
-      pp_type(Dev, getelementptr_p_type(I)),
+      pp_dereference_type(Dev, Ver, getelementptr_p_type(I)),
       write(Dev, [" ", getelementptr_value(I)]),
       pp_typed_idxs(Dev, getelementptr_typed_idxs(I)),
       write(Dev, "\n");
@@ -958,12 +959,16 @@ pp_ins(Dev, I) ->
       pp_args(Dev, fun_def_arglist(I)),
       write(Dev, ") "),
       pp_options(Dev, fun_def_fn_attrs(I)),
+      case Ver >= {3,7} of false -> ok; true ->
+	  write(Dev, "personality i32 (i32, i64, i8*,i8*)* "
+		"@__gcc_personality_v0 ")
+      end,
       case fun_def_align(I) of
         [] -> ok;
         N -> write(Dev, ["align ", N])
       end,
       write(Dev, "{\n"),
-      pp_ins_list(Dev, fun_def_body(I)),
+      pp_ins_list(Dev, Ver, fun_def_body(I)),
       write(Dev, "}\n");
     #llvm_fun_decl{} ->
       write(Dev, "declare "),
@@ -992,8 +997,12 @@ pp_ins(Dev, I) ->
       pp_type(Dev, const_decl_type(I)),
       write(Dev, [" ", const_decl_value(I), "\n"]);
     #llvm_landingpad{} ->
-      write(Dev, "landingpad { i8*, i32 } personality i32 (i32, i64, i8*,i8*)*
-            @__gcc_personality_v0 cleanup\n");
+      write(Dev, "landingpad { i8*, i32 } "),
+      case Ver < {3,7} of false -> ok; true ->
+	  write(Dev, "personality i32 (i32, i64, i8*,i8*)* "
+		"@__gcc_personality_v0 ")
+      end,
+      write(Dev, "cleanup\n");
     #llvm_asm{} ->
       write(Dev, [asm_instruction(I), "\n"]);
     #llvm_adj_stack{} ->
@@ -1001,13 +1010,36 @@ pp_ins(Dev, I) ->
           adj_stack_register(I), "\", \"r\"("]),
       pp_type(Dev, adj_stack_type(I)),
       write(Dev, [" ", adj_stack_offset(I),")\n"]);
-    #llvm_branch_meta{} ->
-      write(Dev, ["!", branch_meta_id(I), " = metadata !{metadata !\"branch_weights\",
-          i32 ", branch_meta_true_weight(I), ", i32 ",
-          branch_meta_false_weight(I), "}\n"]);
+    #llvm_meta{} ->
+      write(Dev, ["!", meta_id(I), " = "]),
+      Named = case string:to_integer(meta_id(I)) of
+		{_, ""} -> false;
+		_ -> true
+	      end,
+      case Ver < {3,6} andalso not Named of
+	true -> write(Dev, "metadata !{metadata ");
+	false -> write(Dev, "!{ ")
+      end,
+      write(Dev, string:join([if is_list(Op) -> ["!\"", Op, "\""];
+				 is_integer(Op) -> ["i32 ", integer_to_list(Op)];
+				 is_record(Op, llvm_meta) ->
+				  ["!", meta_id(Op)]
+			      end || Op <- meta_operands(I)], ", ")),
+      write(Dev, " }\n");
     Other ->
       exit({?MODULE, pp_ins, {"Unknown LLVM instruction", Other}})
   end.
+
+%% @doc Print the type of a dereference in an LLVM instruction using syntax
+%% parsable by the specified LLVM version.
+pp_dereference_type(Dev, Ver, Type) ->
+  case Ver >= {3,7} of
+    false -> ok;
+    true ->
+      pp_type(Dev, pointer_type(Type)),
+      write(Dev, ", ")
+  end,
+  pp_type(Dev, Type).
 
 %% @doc Pretty-print a list of types
 pp_type_list(_Dev, []) -> ok;
@@ -1114,7 +1146,7 @@ indent(I) ->
     #llvm_fun_def{} -> false;
     #llvm_fun_decl{} -> false;
     #llvm_const_decl{} -> false;
-    #llvm_branch_meta{} -> false;
+    #llvm_meta{} -> false;
     _ -> true
   end.
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 #include "erl_alloc.h"
 #include "erl_poll.h"
 #include "erl_time.h"
+#include "erl_msacc.h"
 
 /*
  * Some debug macros 
@@ -423,7 +424,7 @@ static ERTS_INLINE int
 wakeup_cause(ErtsPollSet ps)
 {
     int res;
-    erts_aint32_t wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
+    erts_aint32_t wakeup_state = erts_atomic32_read_acqb(&ps->wakeup_state);
     switch (wakeup_state) {
     case ERTS_POLL_WOKEN_IO_READY:
 	res = 0;
@@ -486,9 +487,8 @@ wake_poller(ErtsPollSet ps, int io_ready)
 {
     erts_aint32_t wakeup_state;
     if (io_ready) {
-	/* We may set the event multiple times. This is, however, harmless. */
-	wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
-	erts_atomic32_set_relb(&ps->wakeup_state, ERTS_POLL_WOKEN_IO_READY);
+        wakeup_state = erts_atomic32_xchg_relb(&ps->wakeup_state,
+                                               ERTS_POLL_WOKEN_IO_READY);
     }
     else {
 	ERTS_THR_MEMORY_BARRIER;
@@ -1188,16 +1188,19 @@ int erts_poll_wait(ErtsPollSet ps,
     if (timeout > 0 && !erts_atomic32_read_nob(&break_waiter_state)) {
 	HANDLE harr[2] = {ps->event_io_ready, break_happened_event};
 	int num_h = 2;
+        ERTS_MSACC_PUSH_STATE_M();
 
 	HARDDEBUGF(("Start waiting %d [%d]",num_h, (int) timeout));
 	ERTS_POLLSET_UNLOCK(ps);
 #ifdef ERTS_SMP
 	erts_thr_progress_prepare_wait(NULL);
 #endif
+        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
 	WaitForMultipleObjects(num_h, harr, FALSE, timeout);
 #ifdef ERTS_SMP
 	erts_thr_progress_finalize_wait(NULL);
 #endif
+        ERTS_MSACC_POP_STATE_M();
 	ERTS_POLLSET_LOCK(ps);
 	HARDDEBUGF(("Stop waiting %d [%d]",num_h, (int) timeout));
 	woke_up(ps);

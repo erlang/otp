@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,21 +67,21 @@ new(ColText)
 %% <br /> Also:<br />
 %% new(ColText, [Option]) -> wxCalendarDateAttr() when<br />
 %% 	ColText::wx:wx_colour(),<br />
-%% 	Option :: {colBack, wx:wx_colour()}<br />
-%% 		 | {colBorder, wx:wx_colour()}<br />
-%% 		 | {font, wxFont:wxFont()}<br />
-%% 		 | {border, wx:wx_enum()}.<br />
+%% 	Option :: {'colBack', wx:wx_colour()}<br />
+%% 		 | {'colBorder', wx:wx_colour()}<br />
+%% 		 | {'font', wxFont:wxFont()}<br />
+%% 		 | {'border', wx:wx_enum()}.<br />
 %% 
 %%<br /> Border = ?wxCAL_BORDER_NONE | ?wxCAL_BORDER_SQUARE | ?wxCAL_BORDER_ROUND
 -spec new(Border, [Option]) -> wxCalendarDateAttr() when
 	Border::wx:wx_enum(),
-	Option :: {colBorder, wx:wx_colour()};
+	Option :: {'colBorder', wx:wx_colour()};
       (ColText, [Option]) -> wxCalendarDateAttr() when
 	ColText::wx:wx_colour(),
-	Option :: {colBack, wx:wx_colour()}
-		 | {colBorder, wx:wx_colour()}
-		 | {font, wxFont:wxFont()}
-		 | {border, wx:wx_enum()}.
+	Option :: {'colBack', wx:wx_colour()}
+		 | {'colBorder', wx:wx_colour()}
+		 | {'font', wxFont:wxFont()}
+		 | {'border', wx:wx_enum()}.
 new(Border, Options)
  when is_integer(Border),is_list(Options) ->
   MOpts = fun({colBorder, ColBorder}, Acc) -> [<<1:32/?UI,(wxe_util:colour_bin(ColBorder)):16/binary,0:32>>|Acc];
@@ -101,7 +101,7 @@ new(ColText, Options)
   <<(wxe_util:colour_bin(ColText)):16/binary, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendardateattr.html#wxcalendardateattrsettextcolour">external documentation</a>.
--spec setTextColour(This, ColText) -> ok when
+-spec setTextColour(This, ColText) -> 'ok' when
 	This::wxCalendarDateAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
@@ -110,7 +110,7 @@ setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendardateattr.html#wxcalendardateattrsetbackgroundcolour">external documentation</a>.
--spec setBackgroundColour(This, ColBack) -> ok when
+-spec setBackgroundColour(This, ColBack) -> 'ok' when
 	This::wxCalendarDateAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
  when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
@@ -119,7 +119,7 @@ setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendardateattr.html#wxcalendardateattrsetbordercolour">external documentation</a>.
--spec setBorderColour(This, Col) -> ok when
+-spec setBorderColour(This, Col) -> 'ok' when
 	This::wxCalendarDateAttr(), Col::wx:wx_colour().
 setBorderColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
  when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
@@ -128,7 +128,7 @@ setBorderColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendardateattr.html#wxcalendardateattrsetfont">external documentation</a>.
--spec setFont(This, Font) -> ok when
+-spec setFont(This, Font) -> 'ok' when
 	This::wxCalendarDateAttr(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -138,7 +138,7 @@ setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendardateattr.html#wxcalendardateattrsetborder">external documentation</a>.
 %%<br /> Border = ?wxCAL_BORDER_NONE | ?wxCAL_BORDER_SQUARE | ?wxCAL_BORDER_ROUND
--spec setBorder(This, Border) -> ok when
+-spec setBorder(This, Border) -> 'ok' when
 	This::wxCalendarDateAttr(), Border::wx:wx_enum().
 setBorder(#wx_ref{type=ThisT,ref=ThisRef},Border)
  when is_integer(Border) ->
@@ -147,7 +147,7 @@ setBorder(#wx_ref{type=ThisT,ref=ThisRef},Border)
   <<ThisRef:32/?UI,Border:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcalendardateattr.html#wxcalendardateattrsetholiday">external documentation</a>.
--spec setHoliday(This, Holiday) -> ok when
+-spec setHoliday(This, Holiday) -> 'ok' when
 	This::wxCalendarDateAttr(), Holiday::boolean().
 setHoliday(#wx_ref{type=ThisT,ref=ThisRef},Holiday)
  when is_boolean(Holiday) ->
@@ -245,7 +245,7 @@ getBorder(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCalendarDateAttr()) -> ok.
+-spec destroy(This::wxCalendarDateAttr()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCalendarDateAttr),
   wxe_util:destroy(?wxCalendarDateAttr_destroy,Obj),

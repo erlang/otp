@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,16 +32,46 @@
 
 -export([encode/1, decode/1, decode_keyboard_interactive_prompts/2]).
 
+-define('2bin'(X), (if is_binary(X) -> X;
+		       is_list(X) -> list_to_binary(X);
+		       X==undefined -> <<>>
+		    end) ).
+
+-define('E...'(X),    ?'2bin'(X)/binary ).
+-define(Eboolean(X),  ?BOOLEAN(case X of
+				   true -> ?TRUE;
+				   false -> ?FALSE
+			       end) ).
+-define(Ebyte(X),        ?BYTE(X) ).
+-define(Euint32(X),      ?UINT32(X) ).
+-define(Estring(X),      ?STRING(?'2bin'(X)) ).
+-define(Estring_utf8(X), ?string_utf8(X)/binary ).
+-define(Ename_list(X),   ?STRING(ssh_bits:name_list(X)) ).
+-define(Empint(X),       (ssh_bits:mpint(X))/binary ).
+-define(Ebinary(X),      ?STRING(X) ).
+
+ucl(B) ->
+    try unicode:characters_to_list(B) of
+	L when is_list(L) -> L;
+	{error,_Matched,Rest} -> throw({error,{bad_unicode,Rest}})
+    catch
+	_:_ -> throw({error,bad_unicode})
+    end.
+
+-define(unicode_list(B), ucl(B)).
+
 encode(#ssh_msg_global_request{
 	  name = Name,
 	  want_reply = Bool,
 	  data = Data}) ->
-    ssh_bits:encode([?SSH_MSG_GLOBAL_REQUEST,
-		     Name, Bool, Data], [byte, string, boolean, '...']);
+    <<?Ebyte(?SSH_MSG_GLOBAL_REQUEST), ?Estring(Name), ?Eboolean(Bool), ?'E...'(Data)>>;
+
 encode(#ssh_msg_request_success{data = Data}) ->
-    <<?BYTE(?SSH_MSG_REQUEST_SUCCESS), Data/binary>>;
+    <<?Ebyte(?SSH_MSG_REQUEST_SUCCESS), Data/binary>>;
+
 encode(#ssh_msg_request_failure{}) ->
-    <<?BYTE(?SSH_MSG_REQUEST_FAILURE)>>;
+    <<?Ebyte(?SSH_MSG_REQUEST_FAILURE)>>;
+
 encode(#ssh_msg_channel_open{
 	  channel_type = Type,
 	  sender_channel = Sender,
@@ -49,9 +79,8 @@ encode(#ssh_msg_channel_open{
 	  maximum_packet_size = Max,
 	  data = Data
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_CHANNEL_OPEN,
-		     Type, Sender, Window, Max, Data], [byte, string, uint32,
-							uint32, uint32, '...']);
+    <<?Ebyte(?SSH_MSG_CHANNEL_OPEN), ?Estring(Type), ?Euint32(Sender), ?Euint32(Window), ?Euint32(Max), ?'E...'(Data)>>;
+
 encode(#ssh_msg_channel_open_confirmation{
 	  recipient_channel = Recipient,
 	  sender_channel = Sender,
@@ -59,60 +88,63 @@ encode(#ssh_msg_channel_open_confirmation{
 	  maximum_packet_size = MaxPacketSize,
 	  data = Data
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_CHANNEL_OPEN_CONFIRMATION, Recipient,
-		     Sender, InitWindowSize, MaxPacketSize, Data],
-		    [byte, uint32, uint32, uint32, uint32, '...']);
+    <<?Ebyte(?SSH_MSG_CHANNEL_OPEN_CONFIRMATION),
+      ?Euint32(Recipient), ?Euint32(Sender), ?Euint32(InitWindowSize), ?Euint32(MaxPacketSize),
+      ?'E...'(Data)>>;
+
 encode(#ssh_msg_channel_open_failure{
 	  recipient_channel = Recipient,
 	  reason = Reason,
 	  description = Desc,
 	  lang = Lang
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_CHANNEL_OPEN_FAILURE, Recipient,
-		     Reason, Desc, Lang], [byte, uint32, uint32, string, string]);
+    <<?Ebyte(?SSH_MSG_CHANNEL_OPEN_FAILURE), ?Euint32(Recipient),?Euint32(Reason), ?Estring(Desc), ?Estring(Lang)>>;
+
 encode(#ssh_msg_channel_window_adjust{
 	  recipient_channel = Recipient,
 	  bytes_to_add = Bytes
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_CHANNEL_WINDOW_ADJUST, Recipient, Bytes],
-		    [byte, uint32, uint32]);
+    <<?Ebyte(?SSH_MSG_CHANNEL_WINDOW_ADJUST), ?Euint32(Recipient), ?Euint32(Bytes)>>;
+
 encode(#ssh_msg_channel_data{
 	  recipient_channel = Recipient,
 	  data = Data
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_CHANNEL_DATA, Recipient, Data], [byte, uint32, binary]);
+   <<?Ebyte(?SSH_MSG_CHANNEL_DATA), ?Euint32(Recipient), ?Ebinary(Data)>>;
 
 encode(#ssh_msg_channel_extended_data{
 	  recipient_channel = Recipient,
 	  data_type_code = DataType,
 	  data = Data
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_CHANNEL_EXTENDED_DATA, Recipient,
-		     DataType, Data], [byte, uint32, uint32, binary]);
+    <<?Ebyte(?SSH_MSG_CHANNEL_EXTENDED_DATA), ?Euint32(Recipient), ?Euint32(DataType), ?Ebinary(Data)>>;
 
 encode(#ssh_msg_channel_eof{recipient_channel = Recipient
 			   }) ->
-    <<?BYTE(?SSH_MSG_CHANNEL_EOF), ?UINT32(Recipient)>>;
+    <<?Ebyte(?SSH_MSG_CHANNEL_EOF), ?Euint32(Recipient)>>;
+
 encode(#ssh_msg_channel_close{
 	   recipient_channel = Recipient
 	  }) ->
-    <<?BYTE(?SSH_MSG_CHANNEL_CLOSE),  ?UINT32(Recipient)>>;
+    <<?Ebyte(?SSH_MSG_CHANNEL_CLOSE), ?Euint32(Recipient)>>;
+
 encode(#ssh_msg_channel_request{
 	  recipient_channel = Recipient,
 	  request_type = Type,
 	  want_reply = Bool,
 	  data  = Data
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_CHANNEL_REQUEST, Recipient, Type, Bool, Data],
-		    [byte, uint32, string, boolean, '...']);
+    <<?Ebyte(?SSH_MSG_CHANNEL_REQUEST), ?Euint32(Recipient), ?Estring(Type), ?Eboolean(Bool), ?'E...'(Data)>>;
+
 encode(#ssh_msg_channel_success{
 	  recipient_channel = Recipient
 	 }) ->
-    <<?BYTE(?SSH_MSG_CHANNEL_SUCCESS), ?UINT32(Recipient)>>;
+    <<?Ebyte(?SSH_MSG_CHANNEL_SUCCESS), ?Euint32(Recipient)>>;
+
 encode(#ssh_msg_channel_failure{
 	  recipient_channel = Recipient
 	 }) ->
-    <<?BYTE(?SSH_MSG_CHANNEL_FAILURE), ?UINT32(Recipient)>>;
+    <<?Ebyte(?SSH_MSG_CHANNEL_FAILURE), ?Euint32(Recipient)>>;
 
 encode(#ssh_msg_userauth_request{
 	  user = User,
@@ -120,36 +152,33 @@ encode(#ssh_msg_userauth_request{
 	  method = Method,
 	  data = Data
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_USERAUTH_REQUEST, User, Service, Method, Data],
-		    [byte, string_utf8, string, string, '...']);
+    <<?Ebyte(?SSH_MSG_USERAUTH_REQUEST), ?Estring_utf8(User), ?Estring(Service), ?Estring(Method), ?'E...'(Data)>>;
+
 encode(#ssh_msg_userauth_failure{
 	  authentications = Auths,
 	  partial_success = Bool
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_USERAUTH_FAILURE, Auths, Bool],
-		    [byte, string, boolean]);
+    <<?Ebyte(?SSH_MSG_USERAUTH_FAILURE), ?Estring(Auths), ?Eboolean(Bool)>>;
+
 encode(#ssh_msg_userauth_success{}) ->
-    <<?BYTE(?SSH_MSG_USERAUTH_SUCCESS)>>;
+    <<?Ebyte(?SSH_MSG_USERAUTH_SUCCESS)>>;
 
 encode(#ssh_msg_userauth_banner{
        message = Banner,
        language = Lang
       }) ->
-    ssh_bits:encode([?SSH_MSG_USERAUTH_BANNER, Banner, Lang],
-		    [byte, string_utf8, string]);
+    <<?Ebyte(?SSH_MSG_USERAUTH_BANNER), ?Estring_utf8(Banner), ?Estring(Lang)>>;
 
 encode(#ssh_msg_userauth_pk_ok{
 	  algorithm_name = Alg,
 	  key_blob = KeyBlob
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_USERAUTH_PK_OK, Alg, KeyBlob],
-		    [byte, string, binary]);
+    <<?Ebyte(?SSH_MSG_USERAUTH_PK_OK), ?Estring(Alg), ?Ebinary(KeyBlob)>>;
 
 encode(#ssh_msg_userauth_passwd_changereq{prompt = Prompt,
 					  languge = Lang
 					 })->
-    ssh_bits:encode([?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ, Prompt, Lang],
-		    [byte, string, string]);
+    <<?Ebyte(?SSH_MSG_USERAUTH_PASSWD_CHANGEREQ), ?Estring_utf8(Prompt), ?Estring(Lang)>>;
 
 encode(#ssh_msg_userauth_info_request{
 	  name = Name,
@@ -157,41 +186,37 @@ encode(#ssh_msg_userauth_info_request{
 	  language_tag = Lang,
 	  num_prompts = NumPromtps,
 	  data = Data}) ->
-    ssh_bits:encode([?SSH_MSG_USERAUTH_INFO_REQUEST, Name, Inst, Lang, NumPromtps, Data],
-		    [byte, string, string, string, uint32, '...']);
+    <<?Ebyte(?SSH_MSG_USERAUTH_INFO_REQUEST), ?Estring_utf8(Name), ?Estring_utf8(Inst), ?Estring(Lang),
+      ?Euint32(NumPromtps), ?'E...'(Data)>>;
 
 encode(#ssh_msg_userauth_info_response{
 	  num_responses = Num,
 	  data = Data}) ->
-    Responses = lists:map(fun("") ->
-				  <<>>;
-			     (Response) ->
-				  ssh_bits:encode([Response], [string])
-			  end, Data),
-    Start = ssh_bits:encode([?SSH_MSG_USERAUTH_INFO_RESPONSE, Num],
-			    [byte, uint32]),
-    iolist_to_binary([Start, Responses]);
+    lists:foldl(fun %%("", Acc) -> Acc;  % commented out since it seem wrong
+		    (Response, Acc) -> <<Acc/binary, ?Estring_utf8(Response)>>
+		end,
+		<<?Ebyte(?SSH_MSG_USERAUTH_INFO_RESPONSE), ?Euint32(Num)>>,
+		Data);
 
 encode(#ssh_msg_disconnect{
 	  code = Code,
 	  description = Desc,
 	  language = Lang
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_DISCONNECT, Code, Desc, Lang],
-		    [byte, uint32, string, string]);
+    <<?Ebyte(?SSH_MSG_DISCONNECT), ?Euint32(Code), ?Estring_utf8(Desc), ?Estring(Lang)>>;
 
 encode(#ssh_msg_service_request{
 	  name = Service
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_SERVICE_REQUEST, Service], [byte, string]);
+    <<?Ebyte(?SSH_MSG_SERVICE_REQUEST), ?Estring_utf8(Service)>>;
 
 encode(#ssh_msg_service_accept{
 	  name = Service
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_SERVICE_ACCEPT, Service], [byte, string]);
+    <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring_utf8(Service)>>;
 
 encode(#ssh_msg_newkeys{}) ->
-    <<?BYTE(?SSH_MSG_NEWKEYS)>>;
+    <<?Ebyte(?SSH_MSG_NEWKEYS)>>;
 
 encode(#ssh_msg_kexinit{
 	  cookie = Cookie,
@@ -208,19 +233,13 @@ encode(#ssh_msg_kexinit{
 	  first_kex_packet_follows = Bool,
 	  reserved = Reserved
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_KEXINIT, Cookie, KeyAlgs, HostKeyAlgs, EncAlgC2S, EncAlgS2C,
-		     MacAlgC2S, MacAlgS2C, CompAlgS2C, CompAlgC2S, LangC2S, LangS2C, Bool,
-		     Reserved],
-		    [byte, cookie,
-		     name_list, name_list,
-		     name_list, name_list,
-		     name_list, name_list,
-		     name_list, name_list,
-		     name_list, name_list,
-		     boolean, uint32]);
+    <<?Ebyte(?SSH_MSG_KEXINIT), Cookie/binary,
+      ?Ename_list(KeyAlgs), ?Ename_list(HostKeyAlgs), ?Ename_list(EncAlgC2S), ?Ename_list(EncAlgS2C), ?Ename_list(MacAlgC2S),
+      ?Ename_list(MacAlgS2C), ?Ename_list(CompAlgS2C), ?Ename_list(CompAlgC2S), ?Ename_list(LangC2S), ?Ename_list(LangS2C),
+      ?Eboolean(Bool), ?Euint32(Reserved)>>;
 
 encode(#ssh_msg_kexdh_init{e = E}) ->
-    ssh_bits:encode([?SSH_MSG_KEXDH_INIT, E], [byte, mpint]);
+    <<?Ebyte(?SSH_MSG_KEXDH_INIT), ?Empint(E)>>;
 
 encode(#ssh_msg_kexdh_reply{
 	  public_host_key = Key,
@@ -229,25 +248,23 @@ encode(#ssh_msg_kexdh_reply{
 	 }) ->
     EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
     EncSign = encode_signature(Key, Signature),
-    ssh_bits:encode([?SSH_MSG_KEXDH_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
+    <<?Ebyte(?SSH_MSG_KEXDH_REPLY), ?Ebinary(EncKey), ?Empint(F), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_kex_dh_gex_request{
 	  min = Min,
 	  n = N,
 	  max = Max
 	 }) ->
-    ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REQUEST, Min, N, Max],
-		    [byte, uint32, uint32, uint32]);
+    <<?Ebyte(?SSH_MSG_KEX_DH_GEX_REQUEST), ?Euint32(Min), ?Euint32(N), ?Euint32(Max)>>;
+
 encode(#ssh_msg_kex_dh_gex_request_old{n = N}) ->
-    ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REQUEST_OLD, N],
-		    [byte, uint32]);
+    <<?Ebyte(?SSH_MSG_KEX_DH_GEX_REQUEST_OLD), ?Euint32(N)>>;
 
 encode(#ssh_msg_kex_dh_gex_group{p = Prime, g = Generator}) ->
-    ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_GROUP, Prime, Generator],
-		    [byte, mpint, mpint]);
+    <<?Ebyte(?SSH_MSG_KEX_DH_GEX_GROUP), ?Empint(Prime), ?Empint(Generator)>>;
 
 encode(#ssh_msg_kex_dh_gex_init{e = Public}) ->
-    ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_INIT, Public], [byte, mpint]);
+    <<?Ebyte(?SSH_MSG_KEX_DH_GEX_INIT), ?Empint(Public)>>;
 
 encode(#ssh_msg_kex_dh_gex_reply{
 	  %% Will be private key encode_host_key extracts only the public part!
@@ -257,26 +274,26 @@ encode(#ssh_msg_kex_dh_gex_reply{
 	 }) ->
     EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
     EncSign = encode_signature(Key, Signature),
-    ssh_bits:encode([?SSH_MSG_KEX_DH_GEX_REPLY, EncKey, F, EncSign], [byte, binary, mpint, binary]);
+    <<?Ebyte(?SSH_MSG_KEX_DH_GEX_REPLY), ?Ebinary(EncKey), ?Empint(F), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
-    ssh_bits:encode([?SSH_MSG_KEX_ECDH_INIT, Q_c], [byte, mpint]);
+    <<?Ebyte(?SSH_MSG_KEX_ECDH_INIT), ?Empint(Q_c)>>;
 
 encode(#ssh_msg_kex_ecdh_reply{public_host_key = Key, q_s = Q_s, h_sig = Sign}) ->
     EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
     EncSign = encode_signature(Key, Sign),
-    ssh_bits:encode([?SSH_MSG_KEX_ECDH_REPLY, EncKey, Q_s, EncSign], [byte, binary, mpint, binary]);
+    <<?Ebyte(?SSH_MSG_KEX_ECDH_REPLY), ?Ebinary(EncKey), ?Empint(Q_s), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_ignore{data = Data}) ->
-    ssh_bits:encode([?SSH_MSG_IGNORE, Data], [byte, string]);
+    <<?Ebyte(?SSH_MSG_IGNORE), ?Estring_utf8(Data)>>;
 
 encode(#ssh_msg_unimplemented{sequence = Seq}) ->
-    ssh_bits:encode([?SSH_MSG_UNIMPLEMENTED, Seq], [byte, uint32]);
+    <<?Ebyte(?SSH_MSG_UNIMPLEMENTED), ?Euint32(Seq)>>;
 
 encode(#ssh_msg_debug{always_display = Bool,
 		      message = Msg,
 		      language = Lang}) ->
-    ssh_bits:encode([?SSH_MSG_DEBUG, Bool, Msg, Lang], [byte, boolean, string, string]).
+    <<?Ebyte(?SSH_MSG_DEBUG), ?Eboolean(Bool), ?Estring_utf8(Msg), ?Estring(Lang)>>.
 
 
 %% Connection Messages
@@ -315,7 +332,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_OPEN_FAILURE),  ?UINT32(Recipient), ?UINT32(Reas
     #ssh_msg_channel_open_failure{
        recipient_channel = Recipient,
        reason = Reason,
-       description = unicode:characters_to_list(Desc),
+       description = ?unicode_list(Desc),
        lang = Lang
       };
 decode(<<?BYTE(?SSH_MSG_CHANNEL_WINDOW_ADJUST), ?UINT32(Recipient), ?UINT32(Bytes)>>) ->
@@ -348,7 +365,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_REQUEST), ?UINT32(Recipient),
 	 ?DEC_BIN(RequestType,__0), ?BYTE(Bool), Data/binary>>) ->
     #ssh_msg_channel_request{
        recipient_channel = Recipient,
-       request_type = unicode:characters_to_list(RequestType),
+       request_type = ?unicode_list(RequestType),
        want_reply = erl_boolean(Bool),
        data  = Data
       };
@@ -366,9 +383,9 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_REQUEST),
 	 ?DEC_BIN(User,__0), ?DEC_BIN(Service,__1), ?DEC_BIN(Method,__2),
 	 Data/binary>>) ->
     #ssh_msg_userauth_request{
-       user = unicode:characters_to_list(User),
-       service = unicode:characters_to_list(Service),
-       method = unicode:characters_to_list(Method),
+       user =    ?unicode_list(User),
+       service = ?unicode_list(Service),
+       method =  ?unicode_list(Method),
        data = Data
       };
 
@@ -376,7 +393,7 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_FAILURE),
 	 ?DEC_BIN(Auths,__0),
 	 ?BYTE(Bool)>>) ->
     #ssh_msg_userauth_failure {
-       authentications = unicode:characters_to_list(Auths),
+       authentications = ?unicode_list(Auths),
        partial_success = erl_boolean(Bool)
       };
 
@@ -478,18 +495,18 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
 
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_request{
-       name = unicode:characters_to_list(Service)
+       name = ?unicode_list(Service)
       };
 
 decode(<<?SSH_MSG_SERVICE_ACCEPT, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_accept{
-       name = unicode:characters_to_list(Service)
+       name = ?unicode_list(Service)
       };
 
 decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0), ?DEC_BIN(Lang,__1)>>) ->
     #ssh_msg_disconnect{
        code = Code,
-       description = unicode:characters_to_list(Desc),
+       description = ?unicode_list(Desc),
        language = Lang
       };
 
@@ -497,7 +514,7 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0), ?DEC_BIN
 decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0)>>) ->
     #ssh_msg_disconnect{
        code = Code,
-       description = unicode:characters_to_list(Desc),
+       description = ?unicode_list(Desc),
        language = <<"en">>
       };
 
@@ -539,7 +556,7 @@ decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
     X = 0,
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
 decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
-    Names = string:tokens(unicode:characters_to_list(Data), ","),
+    Names = string:tokens(?unicode_list(Data), ","),
     decode_kex_init(Rest, [Names | Acc], N -1).
 
 
@@ -553,10 +570,10 @@ decode_signature(<<?DEC_BIN(_Alg,__0), ?UINT32(_), Signature/binary>>) ->
 
 
 encode_signature(#'RSAPublicKey'{}, Signature) ->
-    ssh_bits:encode(["ssh-rsa", Signature],[string, binary]);
+    <<?Ebinary(<<"ssh-rsa">>), ?Ebinary(Signature)>>;
 encode_signature({_, #'Dss-Parms'{}}, Signature) ->
-    ssh_bits:encode(["ssh-dss", Signature],[string, binary]);
+    <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
 encode_signature({#'ECPoint'{}, {namedCurve,OID}}, Signature) ->
     CurveName = public_key:oid2ssh_curvename(OID),
-    ssh_bits:encode([<<"ecdsa-sha2-",CurveName/binary>>, Signature], [binary,binary]).
+    <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
 

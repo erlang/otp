@@ -38,7 +38,7 @@
 -record(state, {file         :: file:filename(),
                 module       :: module(),
                 forms_or_bin,
-                source       :: source(),
+                source       :: source() | 'undefined',
                 n_errors     :: non_neg_integer(),
                 mode         :: mode(),
                 exports_main :: boolean(),
@@ -49,9 +49,9 @@
 -type emu_args() :: string().
 
 -record(sections, {type,
-		   shebang  :: shebang(),
-		   comment  :: comment(),
-		   emu_args :: emu_args(),
+		   shebang  :: shebang() | 'undefined',
+		   comment  :: comment() | 'undefined',
+		   emu_args :: emu_args() | 'undefined',
 		   body}).
 
 -record(extract_options, {compile_source}).
@@ -906,6 +906,7 @@ anno(L) ->
 fatal(Str) ->
     throw(Str).
 
+-spec my_halt(_) -> no_return().
 my_halt(Reason) ->
     erlang:halt(Reason).
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,10 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> 
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds, 10}}
+    ].
 
 all() -> 
     [default_tree, ftpc_worker, tftpd_worker, 
@@ -50,9 +53,7 @@ end_per_suite(_) ->
     ok.
 
 init_per_testcase(httpd_subtree, Config) ->
-    Dog = test_server:timetrap(?t:minutes(1)),
-    NewConfig = lists:keydelete(watchdog, 1, Config),
-    PrivDir = ?config(priv_dir, Config), 			   
+    PrivDir = proplists:get_value(priv_dir, Config), 			   
     Dir = filename:join(PrivDir, "root"),
     ok = file:make_dir(Dir),
 
@@ -67,7 +68,7 @@ init_per_testcase(httpd_subtree, Config) ->
 	inets:stop(),
 	inets:start(),
 	inets:start(httpd, SimpleConfig),
-	[{watchdog, Dog} | NewConfig]
+	Config
     catch
 	_:Reason ->
 	    inets:stop(),
@@ -75,9 +76,7 @@ init_per_testcase(httpd_subtree, Config) ->
     end;
 
 init_per_testcase(httpd_subtree_profile, Config) ->
-    Dog = test_server:timetrap(?t:minutes(1)),
-    NewConfig = lists:keydelete(watchdog, 1, Config),
-    PrivDir = ?config(priv_dir, Config), 			   
+    PrivDir = proplists:get_value(priv_dir, Config), 			   
     Dir = filename:join(PrivDir, "root"),
     ok = file:make_dir(Dir),
 
@@ -93,7 +92,7 @@ init_per_testcase(httpd_subtree_profile, Config) ->
 	inets:stop(),
 	inets:start(),
 	{ok, _} = inets:start(httpd, SimpleConfig),
-	[{watchdog, Dog} | NewConfig]
+	Config
     catch
 	_:Reason ->
 	    inets:stop(),
@@ -102,24 +101,18 @@ init_per_testcase(httpd_subtree_profile, Config) ->
      
 
 init_per_testcase(_Case, Config) ->
-    Dog = test_server:timetrap(?t:minutes(5)),
-    NewConfig = lists:keydelete(watchdog, 1, Config),
     inets:stop(),
     ok = inets:start(),
-    [{watchdog, Dog} | NewConfig].
+    Config.
 
 end_per_testcase(Case, Config) when Case == httpd_subtree;
 				    Case == httpd_subtree_profile ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    PrivDir = ?config(priv_dir, Config), 	
+    PrivDir = proplists:get_value(priv_dir, Config), 	
     Dir = filename:join(PrivDir, "root"),
     inets_test_lib:del_dirs(Dir),
     ok;
 
-end_per_testcase(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_, _) ->
     inets:stop(),
     ok.
 
@@ -164,29 +157,25 @@ default_tree(Config) when is_list(Config) ->
 ftpc_worker() ->
     [{doc, "Makes sure the ftp worker processes are added and removed "
       "appropriatly to/from the supervison tree."}].
-ftpc_worker(Config) when is_list(Config) ->
+ftpc_worker(Config0) when is_list(Config0) ->
     [] = supervisor:which_children(ftp_sup),
-    try
-	begin
-	    {_Tag, FtpdHost} = ftp_suite_lib:dirty_select_ftpd_host(Config),
-	    case inets:start(ftpc, [{host, FtpdHost}]) of
-		{ok, Pid} ->
-		    case supervisor:which_children(ftp_sup) of
-			[{_,_, worker, [ftp]}] ->
-			    inets:stop(ftpc, Pid), 
-			    test_server:sleep(5000),
-			    [] = supervisor:which_children(ftp_sup),
-			    ok;
-			Children ->
-			    exit({unexpected_children, Children})
-		    end;
-		_ ->
-		    {skip, "Unable to reach test FTP server"}
+    case ftp_SUITE:init_per_suite(Config0) of
+	{skip, _} = Skip ->
+	    Skip;
+	Config ->
+	    FtpdHost = proplists:get_value(ftpd_host,Config),
+	    {ok, Pid} = inets:start(ftpc, [{host, FtpdHost}]),
+	    case supervisor:which_children(ftp_sup) of
+		[{_,_, worker, [ftp]}] ->
+		    inets:stop(ftpc, Pid), 
+		    ct:sleep(5000),
+		    [] = supervisor:which_children(ftp_sup),
+		    catch ftp_SUITE:end_per_SUITE(Config),  
+		    ok;
+		Children ->
+		    catch ftp_SUITE:end_per_SUITE(Config),  
+		    exit({unexpected_children, Children})
 	    end
-	end
-    catch
-	throw:{error, not_found} ->
-	    {skip, "No available FTP servers"}
     end.
 
 tftpd_worker() ->
@@ -200,7 +189,7 @@ tftpd_worker(Config) when is_list(Config) ->
     
     [{_,Pid0, worker, _}] = supervisor:which_children(tftp_sup),
     inets:stop(tftpd, Pid0),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     [] = supervisor:which_children(tftp_sup),
     ok.
 

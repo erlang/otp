@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ new(#wx_ref{type=ItemT,ref=ItemRef}) ->
   <<ItemRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemclear">external documentation</a>.
--spec clear(This) -> ok when
+-spec clear(This) -> 'ok' when
 	This::wxListItem().
 clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
@@ -152,7 +152,7 @@ getWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetalign">external documentation</a>.
 %%<br /> Align = ?wxLIST_FORMAT_LEFT | ?wxLIST_FORMAT_RIGHT | ?wxLIST_FORMAT_CENTRE | ?wxLIST_FORMAT_CENTER
--spec setAlign(This, Align) -> ok when
+-spec setAlign(This, Align) -> 'ok' when
 	This::wxListItem(), Align::wx:wx_enum().
 setAlign(#wx_ref{type=ThisT,ref=ThisRef},Align)
  when is_integer(Align) ->
@@ -161,7 +161,7 @@ setAlign(#wx_ref{type=ThisT,ref=ThisRef},Align)
   <<ThisRef:32/?UI,Align:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetbackgroundcolour">external documentation</a>.
--spec setBackgroundColour(This, ColBack) -> ok when
+-spec setBackgroundColour(This, ColBack) -> 'ok' when
 	This::wxListItem(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
  when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
@@ -170,7 +170,7 @@ setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetcolumn">external documentation</a>.
--spec setColumn(This, Col) -> ok when
+-spec setColumn(This, Col) -> 'ok' when
 	This::wxListItem(), Col::integer().
 setColumn(#wx_ref{type=ThisT,ref=ThisRef},Col)
  when is_integer(Col) ->
@@ -179,7 +179,7 @@ setColumn(#wx_ref{type=ThisT,ref=ThisRef},Col)
   <<ThisRef:32/?UI,Col:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetfont">external documentation</a>.
--spec setFont(This, Font) -> ok when
+-spec setFont(This, Font) -> 'ok' when
 	This::wxListItem(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   ?CLASS(ThisT,wxListItem),
@@ -188,7 +188,7 @@ setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   <<ThisRef:32/?UI,FontRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetid">external documentation</a>.
--spec setId(This, Id) -> ok when
+-spec setId(This, Id) -> 'ok' when
 	This::wxListItem(), Id::integer().
 setId(#wx_ref{type=ThisT,ref=ThisRef},Id)
  when is_integer(Id) ->
@@ -197,7 +197,7 @@ setId(#wx_ref{type=ThisT,ref=ThisRef},Id)
   <<ThisRef:32/?UI,Id:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetimage">external documentation</a>.
--spec setImage(This, Image) -> ok when
+-spec setImage(This, Image) -> 'ok' when
 	This::wxListItem(), Image::integer().
 setImage(#wx_ref{type=ThisT,ref=ThisRef},Image)
  when is_integer(Image) ->
@@ -206,7 +206,7 @@ setImage(#wx_ref{type=ThisT,ref=ThisRef},Image)
   <<ThisRef:32/?UI,Image:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetmask">external documentation</a>.
--spec setMask(This, Mask) -> ok when
+-spec setMask(This, Mask) -> 'ok' when
 	This::wxListItem(), Mask::integer().
 setMask(#wx_ref{type=ThisT,ref=ThisRef},Mask)
  when is_integer(Mask) ->
@@ -215,7 +215,7 @@ setMask(#wx_ref{type=ThisT,ref=ThisRef},Mask)
   <<ThisRef:32/?UI,Mask:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetstate">external documentation</a>.
--spec setState(This, State) -> ok when
+-spec setState(This, State) -> 'ok' when
 	This::wxListItem(), State::integer().
 setState(#wx_ref{type=ThisT,ref=ThisRef},State)
  when is_integer(State) ->
@@ -224,7 +224,7 @@ setState(#wx_ref{type=ThisT,ref=ThisRef},State)
   <<ThisRef:32/?UI,State:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetstatemask">external documentation</a>.
--spec setStateMask(This, StateMask) -> ok when
+-spec setStateMask(This, StateMask) -> 'ok' when
 	This::wxListItem(), StateMask::integer().
 setStateMask(#wx_ref{type=ThisT,ref=ThisRef},StateMask)
  when is_integer(StateMask) ->
@@ -233,7 +233,7 @@ setStateMask(#wx_ref{type=ThisT,ref=ThisRef},StateMask)
   <<ThisRef:32/?UI,StateMask:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsettext">external documentation</a>.
--spec setText(This, Text) -> ok when
+-spec setText(This, Text) -> 'ok' when
 	This::wxListItem(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
@@ -243,7 +243,7 @@ setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsettextcolour">external documentation</a>.
--spec setTextColour(This, ColText) -> ok when
+-spec setTextColour(This, ColText) -> 'ok' when
 	This::wxListItem(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
@@ -252,7 +252,7 @@ setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlistitem.html#wxlistitemsetwidth">external documentation</a>.
--spec setWidth(This, Width) -> ok when
+-spec setWidth(This, Width) -> 'ok' when
 	This::wxListItem(), Width::integer().
 setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
  when is_integer(Width) ->
@@ -261,7 +261,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxListItem()) -> ok.
+-spec destroy(This::wxListItem()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListItem),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

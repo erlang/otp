@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,9 +25,8 @@
 	 is_not_used/3,is_not_used_at/3,
 	 empty_label_index/0,index_label/3,index_labels/1,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
-	 live_opt/1,delete_live_annos/1,combine_heap_needs/2]).
-
--export([join_even/2,split_even/1]).
+	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
+	 join_even/2,split_even/1]).
 
 -import(lists, [member/2,sort/1,reverse/1,splitwith/2]).
 
@@ -67,8 +66,7 @@ is_killed(R, Is, D) ->
     St = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% is_killed_at(Reg, Lbl, State) -> true|false
@@ -78,8 +76,7 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
     St0 = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St0) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% is_not_used(Register, [Instruction], State) -> true|false
@@ -93,8 +90,7 @@ is_not_used(R, Is, D) ->
     St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% is_not_used(Register, [Instruction], State) -> true|false
@@ -108,8 +104,7 @@ is_not_used_at(R, Lbl, D) ->
     St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St) of
 	{killed,_} -> true;
-	{used,_} -> false;
-	{unknown,_} -> false
+	{used,_} -> false
     end.
 
 %% index_labels(FunctionIs) -> State
@@ -137,10 +132,7 @@ index_label(Lbl, Is0, Acc) ->
 %%  Retrieve the code at the given label.
 
 code_at(L, Ll) ->
-    case gb_trees:lookup(L, Ll) of
-	{value,Code} -> Code;
-	none -> none
-    end.
+    gb_trees:get(L, Ll).
 
 %% bif_to_test(Bif, [Op], Fail) -> {test,Test,Fail,[Op]}
 %%  Convert a BIF to a test. Fail if not possible.
@@ -164,10 +156,10 @@ bif_to_test('=<', [A,B], Fail) -> {test,is_ge,Fail,[B,A]};
 bif_to_test('>', [A,B], Fail) -> {test,is_lt,Fail,[B,A]};
 bif_to_test('<', [_,_]=Ops, Fail) -> {test,is_lt,Fail,Ops};
 bif_to_test('>=', [_,_]=Ops, Fail) -> {test,is_ge,Fail,Ops};
-bif_to_test('==', [A,[]], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('==', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
 bif_to_test('==', [_,_]=Ops, Fail) -> {test,is_eq,Fail,Ops};
 bif_to_test('/=', [_,_]=Ops, Fail) -> {test,is_ne,Fail,Ops};
-bif_to_test('=:=', [A,[]], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('=:=', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
 bif_to_test('=:=', [_,_]=Ops, Fail) -> {test,is_eq_exact,Fail,Ops};
 bif_to_test('=/=', [_,_]=Ops, Fail) -> {test,is_ne_exact,Fail,Ops};
 bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
@@ -175,8 +167,7 @@ bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
 
 %% is_pure_test({test,Op,Fail,Ops}) -> true|false.
 %%  Return 'true' if the test instruction does not modify any
-%%  registers and/or bit syntax matching state, nor modifies
-%%  any bit syntax matching state.
+%%  registers and/or bit syntax matching state.
 %%
 is_pure_test({test,is_eq,_,[_,_]}) -> true;
 is_pure_test({test,is_ne,_,[_,_]}) -> true;
@@ -188,6 +179,8 @@ is_pure_test({test,is_nil,_,[_]}) -> true;
 is_pure_test({test,is_nonempty_list,_,[_]}) -> true;
 is_pure_test({test,test_arity,_,[_,_]}) -> true;
 is_pure_test({test,has_map_fields,_,[_|_]}) -> true;
+is_pure_test({test,is_bitstr,_,[_]}) -> true;
+is_pure_test({test,is_function2,_,[_,_]}) -> true;
 is_pure_test({test,Op,_,Ops}) -> 
     erl_internal:new_type_test(Op, length(Ops)).
 
@@ -235,21 +228,28 @@ combine_heap_needs(Words, {alloc,Alloc}) when is_integer(Words) ->
 combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
     H1+H2.
 
+%% split_even/1
+%% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
+
+split_even(Rs) -> split_even(Rs, [], []).
+
+%% join_even/1
+%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
+
+join_even([], []) -> [];
+join_even([S|Ss], [D|Ds]) -> [S,D|join_even(Ss, Ds)].
+
 %%%
 %%% Local functions.
 %%%
 
 
-%% check_liveness(Reg, [Instruction], {State,BlockCheckFun}) ->
-%%                      {killed | used | unknown,UpdateState}
-%%  Finds out how Reg is used in the instruction sequence. Returns one of:
-%%    killed - Reg is assigned a new value or killed by an allocation instruction
-%%    used - Reg is used (or possibly referenced by an allocation instruction)
-%%    unknown - not possible to determine (perhaps because of an instruction
-%%              that we don't recognize)
+%% check_liveness(Reg, [Instruction], #live{}) ->
+%%                      {killed | used, #live{}}
+%%  Find out whether Reg is used or killed in instruction sequence.
+%%  'killed' means that Reg is assigned a new value or killed by an
+%%  allocation instruction. 'used' means that Reg is used in some way.
 
-check_liveness(R, [{set,_,_,_}=I|_], St) ->
-    erlang:error(only_allowed_in_blocks, [R,I,St]);
 check_liveness(R, [{block,Blk}|Is], #live{bl=BlockCheck}=St0) ->
     case BlockCheck(R, Blk, St0) of
 	{transparent,St} -> check_liveness(R, Is, St);
@@ -325,8 +325,11 @@ check_liveness(R, [{deallocate,_}|Is], St) ->
 	{y,_} -> {killed,St};
 	_ -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [return|_], St) ->
-    check_liveness_live_ret(R, 1, St);
+check_liveness({x,_}=R, [return|_], St) ->
+    case R of
+	{x,0} -> {used,St};
+	{x,_} -> {killed,St}
+    end;
 check_liveness(R, [{call,Live,_}|Is], St) ->
     case R of
 	{x,X} when X < Live -> {used,St};
@@ -461,8 +464,9 @@ check_liveness(R, [{loop_rec,{f,_},{x,0}}|_], St) ->
 	{x,_} ->
 	    {killed,St};
 	_ ->
-	    %% y register. Rarely happens. Be very conversative.
-	    {unknown,St}
+	    %% y register. Rarely happens. Be very conversative and
+	    %% assume it's used.
+	    {used,St}
     end;
 check_liveness(R, [{loop_rec_end,{f,Fail}}|_], St) ->
     check_liveness_at(R, Fail, St);
@@ -484,13 +488,30 @@ check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
 		    Other
 	    end
     end;
+check_liveness(R, [{put_map,{f,_},_,Src,_D,Live,{list,_}}|_], St0) ->
+    case R of
+	Src ->
+	    {used,St0};
+	{x,X} when X < Live ->
+	    {used,St0};
+	{x,_} ->
+	    {killed,St0};
+	{y,_} ->
+	    %% Conservatively mark it as used.
+	    {used,St0}
+    end;
+check_liveness(R, [{test_heap,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{allocate_zero,N,Live}|Is], St) ->
+    I = {block,[{set,[],[],{alloc,Live,{zero,N,0,[]}}}]},
+    check_liveness(R, [I|Is], St);
+check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
+    I = {block,[{set,[D1,D2],[S],get_list}]},
+    check_liveness(R, [I|Is], St);
 check_liveness(_R, Is, St) when is_list(Is) ->
-%%     case Is of
-%% 	[I|_] ->
-%% 	    io:format("~p ~p\n", [_R,I]);
-%% 	_ -> ok
-%%     end,
-    {unknown,St}.
+    %% Not implemented. Conservatively assume that the register is used.
+    {used,St}.
     
 check_liveness_everywhere(R, [{f,Lbl}|T], St0) ->
     case check_liveness_at(R, Lbl, St0) of
@@ -509,21 +530,13 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 	none ->
 	    {Res,St} = case gb_trees:lookup(Lbl, Ll) of
 			   {value,Is} -> check_liveness(R, Is, St0);
-			   none -> {unknown,St0}
+			   none -> {used,St0}
 		       end,
 	    {Res,St#live{res=gb_trees:insert(Lbl, Res, St#live.res)}}
     end.
 
 check_liveness_ret(R, R, St) -> {used,St};
 check_liveness_ret(_, _, St) -> {killed,St}.
-
-check_liveness_live_ret({x,R}, Live, St) ->
-    if
-	R < Live -> {used,St};
-	true -> {killed,St}
-    end;
-check_liveness_live_ret({y,_}, _, St) ->
-    {killed,St}.
 
 check_liveness_fail(_, _, _, 0, St) ->
     {killed,St};
@@ -561,9 +574,9 @@ check_killed_block(R, [{set,Ds,Ss,_Op}|Is]) ->
 		false -> check_killed_block(R, Is)
 	    end
     end;
-check_killed_block(R, [{'%live',Live,_}|Is]) ->
+check_killed_block(R, [{'%live',_,Regs}|Is]) ->
     case R of
-	{x,X} when X >= Live -> killed;
+	{x,X} when (Regs bsr X) band 1 =:= 0 -> killed;
 	_ -> check_killed_block(R, Is)
     end;
 check_killed_block(_, []) -> transparent.
@@ -574,8 +587,10 @@ check_killed_block(_, []) -> transparent.
 %%    killed - Reg is assigned a new value or killed by an allocation instruction
 %%    transparent - Reg is neither used nor killed
 %%    used - Reg is explicitly used by an instruction
-%%  
-%%    (Unknown instructions will cause an exception.)
+%%
+%%  '%live' annotations are not allowed.
+%%
+%%  (Unknown instructions will cause an exception.)
 
 check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St) ->
     if 
@@ -584,11 +599,6 @@ check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St) ->
     end;
 check_used_block(R, [{set,Ds,Ss,Op}|Is], St) ->
     check_used_block_1(R, Ss, Ds, Op, Is, St);
-check_used_block(R, [{'%live',Live,_}|Is], St) ->
-    case R of
-	{x,X} when X >= Live -> {killed,St};
-	_ -> check_used_block(R, Is, St)
-    end;
 check_used_block(_, [], St) -> {transparent,St}.
 
 check_used_block_1(R, Ss, Ds, Op, Is, St0) ->
@@ -619,8 +629,7 @@ is_reg_used_at_1(_, 0, St) ->
 is_reg_used_at_1(R, Lbl, St0) ->
     case check_liveness_at(R, Lbl, St0) of
 	{killed,St} -> {false,St};
-	{used,St} -> {true,St};
-	{unknown,St} -> {true,St}
+	{used,St} -> {true,St}
     end.
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
@@ -736,11 +745,6 @@ live_opt([{select,_,Src,Fail,List}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src], Regs0),
     Regs = live_join_labels([Fail|List], D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{'try',_,_}=I|Is], Regs, D, Acc) ->
-    %% If an exeption happens, all x registers will be killed.
-    %% Therefore, we should only base liveness of the code inside
-    %% the try.
-    live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{try_case,_}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(1), D, [I|Acc]);
 live_opt([{loop_rec,_Fail,_Dst}=I|Is], _, D, Acc) ->
@@ -840,14 +844,7 @@ x_live([], Regs) -> Regs.
 
 is_live(X, Regs) -> ((Regs bsr X) band 1) =:= 1.
 
-%% split_even/1
-%% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
-split_even(Rs) -> split_even(Rs,[],[]).
-split_even([],Ss,Ds) -> {reverse(Ss),reverse(Ds)};
-split_even([S,D|Rs],Ss,Ds) ->
-    split_even(Rs,[S|Ss],[D|Ds]).
-
-%% join_even/1
-%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
-join_even([],[]) -> [];
-join_even([S|Ss],[D|Ds]) -> [S,D|join_even(Ss,Ds)].
+split_even([], Ss, Ds) ->
+    {reverse(Ss),reverse(Ds)};
+split_even([S,D|Rs], Ss, Ds) ->
+    split_even(Rs, [S|Ss], [D|Ds]).

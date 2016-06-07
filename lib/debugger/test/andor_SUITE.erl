@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,9 +27,11 @@
 	 t_andalso/1,t_orelse/1,inside/1,overlap/1,
 	 combined/1,in_case/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     cases().
@@ -46,17 +48,14 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
-    ?line Dog = test_server:timetrap(?t:minutes(1)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line test_lib:interpret(?MODULE),
-    ?line true = lists:member(?MODULE, int:interpreted()),
+    test_lib:interpret(?MODULE),
+    true = lists:member(?MODULE, int:interpreted()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
@@ -71,23 +70,23 @@ t_andalso(Config) when is_list(Config) ->
     Ps = [{X,Y} || X <- Bs, Y <- Bs],
     lists:foreach(fun (P) -> t_andalso_1(P) end, Ps),
 
-    ?line true = true andalso true,
-    ?line false = true andalso false,
-    ?line false = false andalso true,
-    ?line false = false andalso false,
+    true = true andalso true,
+    false = true andalso false,
+    false = false andalso true,
+    false = false andalso false,
 
-    ?line false = false andalso glurf,
-    ?line false = false andalso exit(exit_now),
+    false = false andalso glurf,
+    false = false andalso exit(exit_now),
 
-    ?line true = not id(false) andalso not id(false),
-    ?line false = not id(false) andalso not id(true),
-    ?line false = not id(true) andalso not id(false),
-    ?line false = not id(true) andalso not id(true),
+    true = not id(false) andalso not id(false),
+    false = not id(false) andalso not id(true),
+    false = not id(true) andalso not id(false),
+    false = not id(true) andalso not id(true),
 
-    ?line {'EXIT',{badarg,_}} = (catch not id(glurf) andalso id(true)),
-    ?line {'EXIT',{badarg,_}} = (catch not id(false) andalso not id(glurf)),
-    ?line false = id(false) andalso not id(glurf),
-    ?line false = false andalso not id(glurf),
+    {'EXIT',{badarg,_}} = (catch not id(glurf) andalso id(true)),
+    {'EXIT',{badarg,_}} = (catch not id(false) andalso not id(glurf)),
+    false = id(false) andalso not id(glurf),
+    false = false andalso not id(glurf),
 
     ok.
 
@@ -96,23 +95,23 @@ t_orelse(Config) when is_list(Config) ->
     Ps = [{X,Y} || X <- Bs, Y <- Bs],
     lists:foreach(fun (P) -> t_orelse_1(P) end, Ps),
 
-    ?line true = true orelse true,
-    ?line true = true orelse false,
-    ?line true = false orelse true,
-    ?line false = false orelse false,
+    true = true orelse true,
+    true = true orelse false,
+    true = false orelse true,
+    false = false orelse false,
 
-    ?line true = true orelse glurf,
-    ?line true = true orelse exit(exit_now),
+    true = true orelse glurf,
+    true = true orelse exit(exit_now),
 
-    ?line true = not id(false) orelse not id(false),
-    ?line true = not id(false) orelse not id(true),
-    ?line true = not id(true) orelse not id(false),
-    ?line false = not id(true) orelse not id(true),
+    true = not id(false) orelse not id(false),
+    true = not id(false) orelse not id(true),
+    true = not id(true) orelse not id(false),
+    false = not id(true) orelse not id(true),
 
-    ?line {'EXIT',{badarg,_}} = (catch not id(glurf) orelse id(true)),
-    ?line {'EXIT',{badarg,_}} = (catch not id(true) orelse not id(glurf)),
-    ?line true = id(true) orelse not id(glurf),
-    ?line true = true orelse not id(glurf),
+    {'EXIT',{badarg,_}} = (catch not id(glurf) orelse id(true)),
+    {'EXIT',{badarg,_}} = (catch not id(true) orelse not id(glurf)),
+    true = id(true) orelse not id(glurf),
+    true = true orelse not id(glurf),
 
     ok.
 
@@ -135,16 +134,16 @@ t_orelse_1({X,Y}) ->
     check(V1, X or Y).
 
 inside(Config) when is_list(Config) ->
-    ?line true = inside(-8, 1),
-    ?line false = inside(-53.5, -879798),
-    ?line false = inside(1.0, -879),
-    ?line false = inside(59, -879),
-    ?line false = inside(-11, 1.0),
-    ?line false = inside(100, 0.2),
-    ?line false = inside(100, 1.2),
-    ?line false = inside(-53.5, 4),
-    ?line false = inside(1.0, 5.3),
-    ?line false = inside(59, 879),
+    true = inside(-8, 1),
+    false = inside(-53.5, -879798),
+    false = inside(1.0, -879),
+    false = inside(59, -879),
+    false = inside(-11, 1.0),
+    false = inside(100, 0.2),
+    false = inside(100, 1.2),
+    false = inside(-53.5, 4),
+    false = inside(1.0, 5.3),
+    false = inside(59, 879),
     ok.
 
 inside(Xm, Ym) ->
@@ -179,15 +178,15 @@ inside_guard(Xm, Ym, X, Y, W, H) ->
     {false,Xm,Ym,X,Y,W,H}.
 
 overlap(Config) when is_list(Config) ->
-    ?line true = overlap(7.0, 2.0, 8.0, 0.5),
-    ?line true = overlap(7.0, 2.0, 8.0, 2.5),
-    ?line true = overlap(7.0, 2.0, 5.3, 2),
-    ?line true = overlap(7.0, 2.0, 0.0, 100.0),
+    true = overlap(7.0, 2.0, 8.0, 0.5),
+    true = overlap(7.0, 2.0, 8.0, 2.5),
+    true = overlap(7.0, 2.0, 5.3, 2),
+    true = overlap(7.0, 2.0, 0.0, 100.0),
 
-    ?line false = overlap(-1, 2, -35, 0.5),
-    ?line false = overlap(-1, 2, 777, 0.5),
-    ?line false = overlap(-1, 2, 2, 10),
-    ?line false = overlap(2, 10, 12, 55.3),
+    false = overlap(-1, 2, -35, 0.5),
+    false = overlap(-1, 2, 777, 0.5),
+    false = overlap(-1, 2, 2, 10),
+    false = overlap(2, 10, 12, 55.3),
     ok.
 
 overlap(Pos1, Len1, Pos2, Len2) ->
@@ -211,33 +210,33 @@ overlap(Pos1, Len1, Pos2, Len2) ->
 -define(COMB(A,B,C), (A andalso B orelse C)).
 
 combined(Config) when is_list(Config) ->
-    ?line false = comb(false, false, false),
-    ?line true = comb(false, false, true),
-    ?line false = comb(false, true, false),
-    ?line true = comb(false, true, true),
+    false = comb(false, false, false),
+    true = comb(false, false, true),
+    false = comb(false, true, false),
+    true = comb(false, true, true),
 
-    ?line false = comb(true, false, false),
-    ?line true = comb(true, true, false),
-    ?line true = comb(true, false, true),
-    ?line true = comb(true, true, true),
+    false = comb(true, false, false),
+    true = comb(true, true, false),
+    true = comb(true, false, true),
+    true = comb(true, true, true),
 
-    ?line false = comb(false, blurf, false),
-    ?line true = comb(false, blurf, true),
-    ?line true = comb(true, true, blurf),
+    false = comb(false, blurf, false),
+    true = comb(false, blurf, true),
+    true = comb(true, true, blurf),
 
-    ?line false = ?COMB(false, false, false),
-    ?line true = ?COMB(false, false, true),
-    ?line false = ?COMB(false, true, false),
-    ?line true = ?COMB(false, true, true),
+    false = ?COMB(false, false, false),
+    true = ?COMB(false, false, true),
+    false = ?COMB(false, true, false),
+    true = ?COMB(false, true, true),
 
-    ?line false = ?COMB(true, false, false),
-    ?line true = ?COMB(true, true, false),
-    ?line true = ?COMB(true, false, true),
-    ?line true = ?COMB(true, true, true),
+    false = ?COMB(true, false, false),
+    true = ?COMB(true, true, false),
+    true = ?COMB(true, false, true),
+    true = ?COMB(true, true, true),
 
-    ?line false = ?COMB(false, blurf, false),
-    ?line true = ?COMB(false, blurf, true),
-    ?line true = ?COMB(true, true, blurf),
+    false = ?COMB(false, blurf, false),
+    true = ?COMB(false, blurf, true),
+    true = ?COMB(true, true, blurf),
 
     ok.
 -undef(COMB).
@@ -268,13 +267,13 @@ comb(A, B, C) ->
 %% Test that a boolean expression in a case expression is properly
 %% optimized (in particular, that the error behaviour is correct).
 in_case(Config) when is_list(Config) ->
-    ?line edge_rings = in_case_1(1, 1, 1, 1, 1),
-    ?line not_loop = in_case_1(0.5, 1, 1, 1, 1),
-    ?line loop = in_case_1(0.5, 0.9, 1.1, 1, 4),
-    ?line {'EXIT',{badarith,_}} = (catch in_case_1(1, 1, 1, 1, 0)),
-    ?line {'EXIT',{badarith,_}} = (catch in_case_1(1, 1, 1, 1, nan)),
-    ?line {'EXIT',{badarg,_}} = (catch in_case_1(1, 1, 1, blurf, 1)),
-    ?line {'EXIT',{badarith,_}} = (catch in_case_1([nan], 1, 1, 1, 1)),
+    edge_rings = in_case_1(1, 1, 1, 1, 1),
+    not_loop = in_case_1(0.5, 1, 1, 1, 1),
+    loop = in_case_1(0.5, 0.9, 1.1, 1, 4),
+    {'EXIT',{badarith,_}} = (catch in_case_1(1, 1, 1, 1, 0)),
+    {'EXIT',{badarith,_}} = (catch in_case_1(1, 1, 1, 1, nan)),
+    {'EXIT',{badarg,_}} = (catch in_case_1(1, 1, 1, blurf, 1)),
+    {'EXIT',{badarith,_}} = (catch in_case_1([nan], 1, 1, 1, 1)),
     ok.
 
 in_case_1(LenUp, LenDw, LenN, Rotation, Count) ->
@@ -302,14 +301,14 @@ in_case_1_guard(LenUp, LenDw, LenN, Rotation, Count) ->
 	(abs(Rotation) > 0.707) of
 	true -> edge_rings;
 	false when LenUp >= 1 orelse LenDw >= 1 orelse
-	LenN =< 1 orelse Count < 4 -> not_loop;
+		   LenN =< 1 orelse Count < 4 -> not_loop;
 	false -> loop
     end.
 
 check(V1, V0) ->
     if V1 /= V0 ->
 	    io:fwrite("error: ~w.\n", [V1]),
-	    ?t:fail();
+	    ct:fail(failed);
        true ->
 	    io:fwrite("ok: ~w.\n", [V1])
     end.

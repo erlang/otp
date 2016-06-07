@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,8 +49,8 @@ new(Printout)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintpreview.html#wxprintpreviewwxprintpreview">external documentation</a>.
 -spec new(Printout, [Option]) -> wxPrintPreview() when
 	Printout::wxPrintout:wxPrintout(),
-	Option :: {printoutForPrinting, wxPrintout:wxPrintout()}
-		 | {data, wxPrintDialogData:wxPrintDialogData()}.
+	Option :: {'printoutForPrinting', wxPrintout:wxPrintout()}
+		 | {'data', wxPrintDialogData:wxPrintDialogData()}.
 new(#wx_ref{type=PrintoutT,ref=PrintoutRef}, Options)
  when is_list(Options) ->
   ?CLASS(PrintoutT,wxPrintout),
@@ -164,7 +164,7 @@ renderPage(#wx_ref{type=ThisT,ref=ThisRef},PageNum)
   <<ThisRef:32/?UI,PageNum:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintpreview.html#wxprintpreviewsetcanvas">external documentation</a>.
--spec setCanvas(This, Canvas) -> ok when
+-spec setCanvas(This, Canvas) -> 'ok' when
 	This::wxPrintPreview(), Canvas::wxPreviewCanvas:wxPreviewCanvas().
 setCanvas(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CanvasT,ref=CanvasRef}) ->
   ?CLASS(ThisT,wxPrintPreview),
@@ -182,7 +182,7 @@ setCurrentPage(#wx_ref{type=ThisT,ref=ThisRef},PageNum)
   <<ThisRef:32/?UI,PageNum:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintpreview.html#wxprintpreviewsetframe">external documentation</a>.
--spec setFrame(This, Frame) -> ok when
+-spec setFrame(This, Frame) -> 'ok' when
 	This::wxPrintPreview(), Frame::wxFrame:wxFrame().
 setFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}) ->
   ?CLASS(ThisT,wxPrintPreview),
@@ -191,7 +191,7 @@ setFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}) ->
   <<ThisRef:32/?UI,FrameRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintpreview.html#wxprintpreviewsetprintout">external documentation</a>.
--spec setPrintout(This, Printout) -> ok when
+-spec setPrintout(This, Printout) -> 'ok' when
 	This::wxPrintPreview(), Printout::wxPrintout:wxPrintout().
 setPrintout(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PrintoutT,ref=PrintoutRef}) ->
   ?CLASS(ThisT,wxPrintPreview),
@@ -200,7 +200,7 @@ setPrintout(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PrintoutT,ref=PrintoutR
   <<ThisRef:32/?UI,PrintoutRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprintpreview.html#wxprintpreviewsetzoom">external documentation</a>.
--spec setZoom(This, Percent) -> ok when
+-spec setZoom(This, Percent) -> 'ok' when
 	This::wxPrintPreview(), Percent::integer().
 setZoom(#wx_ref{type=ThisT,ref=ThisRef},Percent)
  when is_integer(Percent) ->
@@ -209,7 +209,7 @@ setZoom(#wx_ref{type=ThisT,ref=ThisRef},Percent)
   <<ThisRef:32/?UI,Percent:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrintPreview()) -> ok.
+-spec destroy(This::wxPrintPreview()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintPreview),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

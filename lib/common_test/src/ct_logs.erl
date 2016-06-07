@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -269,7 +269,7 @@ cast(Msg) ->
 %%% <p>This function is called by ct_framework:init_tc/3</p>
 init_tc(RefreshLog) ->
     call({init_tc,self(),group_leader(),RefreshLog}),
-    io:format(["$tc_html",xhtml("", "<br />")]),
+    tc_io_format(group_leader(), xhtml("", "<br />"), []),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -609,7 +609,8 @@ log_timestamp({MS,S,US}) ->
 		      ct_log_fd,
 		      tc_groupleaders,
 		      stylesheet,
-		      async_print_jobs}).
+		      async_print_jobs,
+		      tc_esc_chars}).
 
 logger(Parent, Mode, Verbosity) ->
     register(?MODULE,self()),
@@ -728,14 +729,18 @@ logger(Parent, Mode, Verbosity) ->
 	   end
      end || {Cat,VLvl} <- Verbosity],
     io:nl(CtLogFd),
-
+    TcEscChars = case application:get_env(common_test, esc_chars) of
+		   {ok,ECBool} -> ECBool;
+		   _           -> true
+	       end,
     logger_loop(#logger_state{parent=Parent,
 			      log_dir=AbsDir,
 			      start_time=Time,
 			      orig_GL=group_leader(),
 			      ct_log_fd=CtLogFd,
 			      tc_groupleaders=[],
-			      async_print_jobs=[]}).
+			      async_print_jobs=[],
+			      tc_esc_chars=TcEscChars}).
 
 copy_priv_files([SrcF | SrcFs], [DestF | DestFs]) ->
     case file:copy(SrcF, DestF) of
@@ -761,20 +766,21 @@ logger_loop(State) ->
 		end,
 	    if Importance >= (100-VLvl) ->
 		    CtLogFd = State#logger_state.ct_log_fd,
+		    DoEscChars = State#logger_state.tc_esc_chars and EscChars,
 		    case get_groupleader(Pid, GL, State) of
 			{tc_log,TCGL,TCGLs} ->
 			    case erlang:is_process_alive(TCGL) of
 				true ->
 				    State1 = print_to_log(SyncOrAsync, Pid,
 							  Category, TCGL, Content,
-							  EscChars, State),
+							  DoEscChars, State),
 				    logger_loop(State1#logger_state{
 						  tc_groupleaders = TCGLs});
 				false ->
 				    %% Group leader is dead, so write to the
 				    %% CtLog or unexpected_io log instead
 				    unexpected_io(Pid, Category, Importance,
-						  Content, CtLogFd, EscChars),
+						  Content, CtLogFd, DoEscChars),
 
 				    logger_loop(State)			    
 			    end;
@@ -783,7 +789,7 @@ logger_loop(State) ->
 			    %% to ct_log, else write to unexpected_io
 			    %% log
 			    unexpected_io(Pid, Category, Importance, Content,
-					  CtLogFd, EscChars),
+					  CtLogFd, DoEscChars),
 			    logger_loop(State#logger_state{
 					  tc_groupleaders = TCGLs})
 		    end;
@@ -794,7 +800,8 @@ logger_loop(State) ->
 	    %% make sure no IO for this test case from the
 	    %% CT logger gets rejected
 	    test_server:permit_io(GL, self()),
-	    print_style(GL, State#logger_state.stylesheet),
+	    IoFormat = fun tc_io_format/3,
+	    print_style(GL, IoFormat, State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
 	    if not RefreshLog ->
@@ -882,7 +889,7 @@ create_io_fun(FromPid, CtLogFd, EscChars) ->
 		    {_HdOrFt,S,A} -> {false,S,A};
 		    {S,A}         -> {true,S,A}
 		end,
-	    try io_lib:format(Str,Args) of
+	    try io_lib:format(Str, Args) of
 		IoStr when Escapable, EscChars, IoList == [] ->
 		    escape_chars(IoStr);
 		IoStr when Escapable, EscChars ->
@@ -925,7 +932,12 @@ print_to_log(sync, FromPid, Category, TCGL, Content, EscChars, State) ->
     if FromPid /= TCGL ->
 	    IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
 	    IoList = lists:foldl(IoFun, [], Content),
-	    io:format(TCGL,["$tc_html","~ts"], [IoList]);
+	    try tc_io_format(TCGL, "~ts", [IoList]) of
+		ok -> ok
+	    catch
+		_:_ ->
+		    io:format(TCGL,"~ts", [IoList])
+	    end;
        true ->
 	    unexpected_io(FromPid, Category, ?MAX_IMPORTANCE, Content,
 			  CtLogFd, EscChars)
@@ -951,14 +963,17 @@ print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
 
 			case erlang:is_process_alive(TCGL) of
 			    true ->
-				try io:format(TCGL, ["$tc_html","~ts"],
+				try tc_io_format(TCGL, "~ts",
 					      [lists:foldl(IoFun,[],Content)]) of
 				    _ -> ok
 				catch
 				    _:terminated ->
 					unexpected_io(FromPid, Category,
 						      ?MAX_IMPORTANCE,
-						      Content, CtLogFd, EscChars)
+						      Content, CtLogFd, EscChars);
+				    _:_ ->
+					io:format(TCGL, "~ts",
+						  [lists:foldl(IoFun,[],Content)])
 				end;
 			    false ->
 				unexpected_io(FromPid, Category,
@@ -1099,26 +1114,25 @@ open_ctlog(MiscIoName) ->
 	      "View I/O logged after the test run</a></li>\n</ul>\n",
 	      [MiscIoName,MiscIoName]),
 
-    print_style(Fd,undefined),
+    print_style(Fd, fun io:format/3, undefined),
     io:format(Fd, 
 	      xhtml("<br><h2>Progress Log</h2>\n<pre>\n",
 		    "<br />\n<h4>PROGRESS LOG</h4>\n<pre>\n"), []),
     Fd.
 
-print_style(Fd,undefined) ->
+print_style(Fd, IoFormat, undefined) ->
     case basic_html() of
 	true ->
-	    io:format(Fd,
-		      "<style>\n"
-		      "div.ct_internal { background:lightgrey; color:black; }\n"
-		      "div.default     { background:lightgreen; color:black; }\n"
-		      "</style>\n",
-		      []);
+	    Style = "<style>\n
+		div.ct_internal { background:lightgrey; color:black; }\n
+		div.default     { background:lightgreen; color:black; }\n
+		</style>\n",
+	    IoFormat(Fd, Style, []);
 	_ ->
 	    ok
     end;
 
-print_style(Fd,StyleSheet) ->
+print_style(Fd, IoFormat, StyleSheet) ->
     case file:read_file(StyleSheet) of
 	{ok,Bin} ->
 	    Str = b2s(Bin,encoding(StyleSheet)),
@@ -1131,28 +1145,54 @@ print_style(Fd,StyleSheet) ->
 		       N1 -> N1
 		   end,
 	    if (Pos0 == 0) and (Pos1 /= 0) ->
-		    print_style_error(Fd,StyleSheet,missing_style_start_tag);
+		    print_style_error(Fd, IoFormat,
+				      StyleSheet, missing_style_start_tag);
 	       (Pos0 /= 0) and (Pos1 == 0) ->
-		    print_style_error(Fd,StyleSheet,missing_style_end_tag);
+		    print_style_error(Fd, IoFormat,
+				      StyleSheet,missing_style_end_tag);
 	       Pos0 /= 0 ->
 		    Style = string:sub_string(Str,Pos0,Pos1+7),
-		    io:format(Fd,"~ts\n",[Style]);
+		    IoFormat(Fd,"~ts\n",[Style]);
 	       Pos0 == 0 ->
-		    io:format(Fd,"<style>~ts</style>\n",[Str])
+		    IoFormat(Fd,"<style>\n~ts</style>\n",[Str])
 	    end;
 	{error,Reason} ->
-	    print_style_error(Fd,StyleSheet,Reason)  
+	    print_style_error(Fd,IoFormat,StyleSheet,Reason)
     end.
 
-print_style_error(Fd,StyleSheet,Reason) ->
-    io:format(Fd,"\n<!-- Failed to load stylesheet ~ts: ~p -->\n",
-	      [StyleSheet,Reason]),
-    print_style(Fd,undefined).    
+print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
+    IO = io_lib:format("\n<!-- Failed to load stylesheet ~ts: ~p -->\n",
+		       [StyleSheet,Reason]),
+    IoFormat(Fd, IO, []),
+    print_style(Fd, IoFormat, undefined).
 
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
     io:format(Fd, [xhtml("<br><br>\n", "<br /><br />\n") | footer()], []),
     file:close(Fd).
+
+%%%-----------------------------------------------------------------
+%%% tc_io_format/3
+%%% Tell common_test's IO server (group leader) not to escape
+%%% HTML characters.
+
+-spec tc_io_format(io:device(), io:format(), [term()]) -> 'ok'.
+
+tc_io_format(Fd, Format0, Args) ->
+    %% We know that the specially wrapped format string is handled
+    %% by our IO server, but Dialyzer does not and would tell us
+    %% that the call to io:format/3 would fail. Therefore, we must
+    %% fool dialyzer.
+
+    Format = case cloaked_true() of
+		 true -> ["$tc_html",Format0];
+		 false -> Format0		%Never happens.
+	     end,
+    io:format(Fd, Format, Args).
+
+%% Return 'true', but let dialyzer think that a boolean is returned.
+cloaked_true() ->
+    is_process_alive(self()).
 
 
 %%%-----------------------------------------------------------------
@@ -1833,7 +1873,7 @@ make_all_runs_index(When) ->
     AbsName = ?abs(?all_runs_name),
     notify_and_lock_file(AbsName),
     if When == start -> ok;
-       true -> io:put_chars("Updating " ++ AbsName ++ "... ")
+       true -> io:put_chars("Updating " ++ AbsName ++ " ... ")
     end,
 
     %% check if log cache should be used, and if it exists
@@ -2572,7 +2612,7 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
 make_all_suites_index1(When, AbsIndexName, AllTestLogDirs) ->
     IndexName = ?index_name,
     if When == start -> ok;
-       true -> io:put_chars("Updating " ++ AbsIndexName ++ "... ")
+       true -> io:put_chars("Updating " ++ AbsIndexName ++ " ... ")
     end,
     case catch make_all_suites_index2(IndexName, AllTestLogDirs) of
 	{'EXIT', Reason} ->

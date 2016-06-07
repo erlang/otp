@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2013. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2016. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -1171,6 +1171,16 @@
     </fo:block>
   </xsl:template>
 
+  <!-- Quote -->
+  <xsl:template match="quote">
+    <xsl:param name="chapnum"/>
+    <fo:block font-style="italic">
+      <xsl:apply-templates>
+        <xsl:with-param name="chapnum" select="$chapnum"/>
+      </xsl:apply-templates>
+    </fo:block>
+  </xsl:template>
+
  <!-- Paragraph -->
   <xsl:template match="p">
     <fo:block xsl:use-attribute-sets="p">
@@ -1180,14 +1190,8 @@
 
 
   <!-- Inline elements -->
-  <xsl:template match="b">
-    <fo:inline font-weight="bold">
-      <xsl:apply-templates/>
-    </fo:inline>
-  </xsl:template>
-
   <xsl:template match="i">
-    <fo:inline font-weight="italic">
+    <fo:inline font-style="italic">
       <xsl:apply-templates/>
     </fo:inline>
   </xsl:template>
@@ -1203,7 +1207,13 @@
   </xsl:template>
 
   <xsl:template match="em">
-    <fo:inline font-style="italic">
+    <fo:inline font-weight="bold">
+      <xsl:apply-templates/>
+    </fo:inline>
+  </xsl:template>
+
+  <xsl:template match="strong">
+    <fo:inline font-weight="bold">
       <xsl:apply-templates/>
     </fo:inline>
   </xsl:template>

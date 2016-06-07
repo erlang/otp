@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,7 +118,8 @@ make_this_flags(RequestType, OtherNode) ->
 	 ?DFLAG_DIST_HDR_ATOM_CACHE bor
 	 ?DFLAG_SMALL_ATOM_TAGS bor
 	 ?DFLAG_UTF8_ATOMS bor
-	 ?DFLAG_MAP_TAG).
+	 ?DFLAG_MAP_TAG bor
+	 ?DFLAG_BIG_CREATION).
 
 handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
     {PreOtherFlags,Node,Version} = recv_name(HSData0),
@@ -155,7 +156,7 @@ is_allowed(#hs_data{other_node = Node,
 	    send_status(HSData, not_allowed),
 	    error_msg("** Connection attempt from "
 		      "disallowed node ~w ** ~n", [Node]),
-	    ?shutdown(Node);
+	    ?shutdown2(Node, {is_allowed, not_allowed});
 	_ -> true
     end.
 
@@ -196,7 +197,7 @@ check_dflag_xnc(#hs_data{other_node = Node,
 	    error_msg("** ~w: Connection attempt ~s node ~w ~s "
 		      "since it cannot handle extended ~s. "
 		      "**~n", [node(), Dir, Node, How, What]),
-	    ?shutdown(Node)
+	    ?shutdown2(Node, {check_dflag_xnc_failed, What})
     end.
 
 
@@ -576,13 +577,13 @@ recv_challenge(#hs_data{socket=Socket,other_node=Node,
 			   [Node, Challenge,Version]),
 		    {Flags,Challenge};
 		_ ->
-		    ?shutdown(no_node)
+		    ?shutdown2(no_node, {recv_challenge_failed, no_node, Ns})
 	    catch
 		error:badarg ->
-		    ?shutdown(no_node)
+		    ?shutdown2(no_node, {recv_challenge_failed, no_node, Ns})
 	    end;
-	_ ->
-	    ?shutdown(no_node)	    
+	Other ->
+	    ?shutdown2(no_node, {recv_challenge_failed, Other})
     end.
 
 
@@ -606,10 +607,10 @@ recv_challenge_reply(#hs_data{socket = Socket,
 		_ ->
 		    error_msg("** Connection attempt from "
 			      "disallowed node ~w ** ~n", [NodeB]),
-		    ?shutdown(NodeB)
+		    ?shutdown2(NodeB, {recv_challenge_reply_failed, bad_cookie})
 	    end;
-	_ ->
-	    ?shutdown(no_node)
+	Other ->
+	    ?shutdown2(no_node, {recv_challenge_reply_failed, Other})
     end.
 
 recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv, 
@@ -626,10 +627,10 @@ recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv,
 		_ ->
 		    error_msg("** Connection attempt to "
 			      "disallowed node ~w ** ~n", [NodeB]),
-		    ?shutdown(NodeB)
+		    ?shutdown2(NodeB, {recv_challenge_ack_failed, bad_cookie})
 	    end;
-	_ ->
-	    ?shutdown(NodeB)
+	Other ->
+	    ?shutdown2(NodeB, {recv_challenge_ack_failed, Other})
     end.
 
 recv_status(#hs_data{kernel_pid = Kernel, socket = Socket, 
@@ -639,7 +640,7 @@ recv_status(#hs_data{kernel_pid = Kernel, socket = Socket,
 	    Stat = list_to_atom(StrStat),
 	    ?debug({dist_util,self(),recv_status, Node, Stat}),
 	    case Stat of
-		not_allowed -> ?shutdown(Node);
+		not_allowed -> ?shutdown2(Node, {recv_status_failed, not_allowed});
 		nok  -> 
 		    %% wait to be killed by net_kernel
 		    receive
@@ -656,10 +657,10 @@ recv_status(#hs_data{kernel_pid = Kernel, socket = Socket,
 		    end;
 		_ -> Stat
 	    end;
-	_Error ->
+	Error ->
 	    ?debug({dist_util,self(),recv_status_error, 
-		Node, _Error}),
-	    ?shutdown(Node)
+		Node, Error}),
+	    ?shutdown2(Node, {recv_status_failed, Error})
     end.
 
 
@@ -758,7 +759,7 @@ setup_timer(Pid, Timeout) ->
 	    setup_timer(Pid, Timeout)
     after Timeout ->
 	    ?trace("Timer expires ~p, ~p~n",[Pid, Timeout]),
-	    ?shutdown(timer)
+	    ?shutdown2(timer, setup_timer_timeout)
     end.
 
 reset_timer(Timer) ->

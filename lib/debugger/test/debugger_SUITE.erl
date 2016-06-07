@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 %% Test break points.
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -31,7 +31,9 @@
 	 app_test/1,appup_test/1,erts_debug/1,encrypted_debug_info/1,
 	 no_abstract_code/1]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [app_test, appup_test, erts_debug, no_abstract_code,
@@ -54,39 +56,37 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(?t:minutes(0.5)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
 app_test(Config) when is_list(Config) ->
-    ?line ?t:app_test(debugger),
+    test_server:app_test(debugger),
     ok.
 
 appup_test(Config) when is_list(Config) ->
-    ok = ?t:appup_test(debugger).
+    ok = test_server:appup_test(debugger).
 
 erts_debug(Config) when is_list(Config) ->
     c:l(erts_debug),
     ok.
 
 no_abstract_code(Config) when is_list(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Simple = filename:join(PrivDir, "simple"),
-    ?line Source = Simple ++ ".erl",
-    ?line BeamFile = Simple ++ ".beam",
-    ?line simple_file(Source),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source),
 
     %% Compile module without abstract code.
     CompileFlags = [{outdir,PrivDir}],
-    ?line {ok,_} = compile:file(Source, CompileFlags),
-    ?line error = int:i(Simple),
+    {ok,_} = compile:file(Source, CompileFlags),
+    error = int:i(Simple),
 
     %% Cleanup.
-    ?line ok = file:delete(Source),
-    ?line ok = file:delete(BeamFile),
+    ok = file:delete(Source),
+    ok = file:delete(BeamFile),
 
     ok.
 
@@ -100,28 +100,28 @@ encrypted_debug_info(Config) when is_list(Config) ->
     end.
 
 encrypted_debug_info_1(Config) ->
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line Simple = filename:join(PrivDir, "simple"),
-    ?line Source = Simple ++ ".erl",
-    ?line BeamFile = Simple ++ ".beam",
-    ?line simple_file(Source),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source),
 
     %% Compile module.
     Key = "_This a Crypto Key_",
     CompileFlags = [{outdir,PrivDir},debug_info,{debug_info_key,Key}],
-    ?line {ok,_} = compile:file(Source, CompileFlags),
+    {ok,_} = compile:file(Source, CompileFlags),
 
     %% Interpret module
-    ?line ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
-    ?line {module,simple} = int:i(Simple),
+    ok = beam_lib:crypto_key_fun(simple_crypto_fun(Key)),
+    {module,simple} = int:i(Simple),
 
     %% Remove key.
-    ?line {ok,_} = beam_lib:clear_crypto_key_fun(),
-    ?line error = int:i(Simple),
+    {ok,_} = beam_lib:clear_crypto_key_fun(),
+    error = int:i(Simple),
 
     %% Cleanup.
-    ?line ok = file:delete(Source),
-    ?line ok = file:delete(BeamFile),
+    ok = file:delete(Source),
+    ok = file:delete(BeamFile),
 
     ok.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumbereditor.html#wxgridcellnumbereditorwxgridcellnumbereditor">external documentation</a>.
 -spec new([Option]) -> wxGridCellNumberEditor() when
-	Option :: {min, integer()}
-		 | {max, integer()}.
+	Option :: {'min', integer()}
+		 | {'max', integer()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({min, Min}, Acc) -> [<<1:32/?UI,Min:32/?UI>>|Acc];
@@ -72,7 +72,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumbereditor.html#wxgridcellnumbereditorsetparameters">external documentation</a>.
--spec setParameters(This, Params) -> ok when
+-spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellNumberEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
@@ -82,7 +82,7 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
   <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellNumberEditor()) -> ok.
+-spec destroy(This::wxGridCellNumberEditor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellNumberEditor),
   wxe_util:destroy(?wxGridCellNumberEditor_destroy,Obj),

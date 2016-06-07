@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 %% Internal exports.
 -export([init/1,handle_event/2,handle_info/2,handle_call/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(EXPECT(Pattern),
 	(fun() ->
@@ -42,11 +42,10 @@
 		 end
 	 end)()).
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [basic, warnings_info, warnings_errors, rb_basic,
@@ -70,69 +69,58 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+
+end_per_testcase(_Case, _Config) ->
     ok.
 
-basic(doc) ->
-    ["Tests basic error logger functionality"];
+%% Tests basic error logger functionality.
 basic(Config) when is_list(Config) ->
     put(elw_config,Config),
     basic().
 
-warnings_info(doc) ->
-    ["Tests mapping warnings to info functionality"];
+%% Tests mapping warnings to info functionality.
 warnings_info(Config) when is_list(Config) ->
     put(elw_config,Config),
     warnings_info().
 
-warnings_errors(doc) ->
-    ["Tests mapping warnings to errors functionality"];
+%% Tests mapping warnings to errors functionality.
 warnings_errors(Config) when is_list(Config) ->
     put(elw_config,Config),
     warnings_errors().
 
-rb_basic(doc) ->
-    ["Tests basic rb functionality"];
+%% Tests basic rb functionality.
 rb_basic(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_basic().
 
-rb_warnings_info(doc) ->
-    ["Tests warnings as info rb functionality"];
+%% Tests warnings as info rb functionality.
 rb_warnings_info(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_warnings_info().
 
-rb_warnings_errors(doc) ->
-    ["Tests warnings as errors rb functionality"];
+%% Tests warnings as errors rb functionality.
 rb_warnings_errors(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_warnings_errors().
 
-rb_trunc(doc) ->
-    ["Tests rb functionality on truncated data"];
+%% Tests rb functionality on truncated data.
 rb_trunc(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_trunc().
 
-rb_utc(doc) ->
-    ["Tests UTC mapping in rb (-sasl utc_log true)"];
+%% Tests UTC mapping in rb (-sasl utc_log true).
 rb_utc(Config) when is_list(Config) ->
     put(elw_config,Config),
     rb_utc().
 
-file_utc(doc) ->
-    ["Tests UTC mapping in file logger (-stdlib utc_log true)"];
+%% Tests UTC mapping in file logger (-stdlib utc_log true).
 file_utc(Config) when is_list(Config) ->
     put(elw_config,Config),
     file_utc().
 
 
-% a small gen_event
+%% a small gen_event
 
 init([Pid]) ->
     {ok, Pid}.
@@ -236,7 +224,7 @@ warnings_errors() ->
     stop_node(Node),
     ok.
 
-% RB...
+%% RB...
 
 quote(String) ->
     case os:type() of
@@ -283,7 +271,7 @@ findstrc(String,File) ->
             0
     end.
 
-% Doesn't count empty lines
+%% Doesn't count empty lines
 lines(File) ->
     length(
       string:tokens(
@@ -291,17 +279,17 @@ lines(File) ->
 	  element(2,file:read_file(File))),
 	"\n")).
 
-%directories anf filenames
+%% Directories and filenames
 ld() ->
     Config = get(elw_config),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     filename:absname(PrivDir).
 
 lf() ->
     filename:join([ld(),"logfile.txt"]).
 rd() ->
     Config = get(elw_config),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir,"log"),
     file:make_dir(LogDir),
     filename:absname(LogDir).
@@ -315,7 +303,7 @@ nice_stop_node(Name) ->
 	{nodedown,Name} -> ok
     end.
 
-%clean out rd() before each report test in order to get only one file...
+%% Clean out rd() before each report test in order to get only one file...
 clean_rd() ->
     {ok,L} = file:list_dir(rd()),
     lists:foreach(fun(F) ->
@@ -352,10 +340,10 @@ one_rb_findstr(Param,String) ->
     rb:stop_log(),
     findstr(String,lf()).
 
-% Tests
+%% Tests
 rb_basic() ->
     clean_rd(),
-    % Behold, the magic parameters to activate rb logging...
+    %% Behold, the magic parameters to activate rb logging...
     Node = start_node(nn(),"-boot start_sasl -sasl error_logger_mf_dir "++
                       quote(rd())++" error_logger_mf_maxbytes 5000 "
                       "error_logger_mf_maxfiles 5"),
@@ -378,7 +366,7 @@ rb_basic() ->
     0 = one_rb_findstr([info_msg],pid_to_list(Self)),
     0 = one_rb_findstr([info_report],pid_to_list(Self)),
     2 = one_rb_findstr([],pid_to_list(Self)),
-    true = (one_rb_findstr([progress],"===") > 4),
+    true = (one_rb_findstr([progress],"===") > 3),
     rb:stop(),
     application:stop(sasl),
     stop_node(Node),
@@ -408,7 +396,7 @@ rb_warnings_info() ->
     1 = one_rb_findstr([info_msg],pid_to_list(Self)),
     1 = one_rb_findstr([info_report],pid_to_list(Self)),
     2 = one_rb_findstr([],pid_to_list(Self)),
-    true = (one_rb_findstr([progress],"===") > 4),
+    true = (one_rb_findstr([progress],"===") > 3),
     rb:stop(),
     application:stop(sasl),
     stop_node(Node),
@@ -438,7 +426,7 @@ rb_warnings_errors() ->
     0 = one_rb_findstr([info_msg],pid_to_list(Self)),
     0 = one_rb_findstr([info_report],pid_to_list(Self)),
     2 = one_rb_findstr([],pid_to_list(Self)),
-    true = (one_rb_findstr([progress],"===") > 4),
+    true = (one_rb_findstr([progress],"===") > 3),
     rb:stop(),
     application:stop(sasl),
     stop_node(Node),
@@ -471,7 +459,7 @@ rb_trunc() ->
     0 = one_rb_findstr([info_msg],pid_to_list(Self)),
     0 = one_rb_findstr([info_report],pid_to_list(Self)),
     1 = one_rb_findstr([],pid_to_list(Self)),
-    true = (one_rb_findstr([progress],"===") > 4),
+    true = (one_rb_findstr([progress],"===") > 3),
     rb:stop(),
     application:stop(sasl),
     stop_node(Node),
@@ -513,9 +501,7 @@ rb_utc() ->
 file_utc() ->
     file:delete(lf()),
     SS="-stdlib utc_log true -kernel error_logger "++ oquote("{file,"++iquote(lf())++"}"),
-    %erlang:display(SS),
     Node = start_node(nn(),SS),
-    %erlang:display(rpc:call(Node,application,get_env,[kernel,error_logger])),
     Self = self(),
     GL = group_leader(),
     fake_gl(Node,error_msg,"~p~n",[Self]),

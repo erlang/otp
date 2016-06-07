@@ -96,7 +96,7 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopuptransientwindow.html#wxpopuptransientwindowwxpopuptransientwindow">external documentation</a>.
 -spec new(Parent, [Option]) -> wxPopupTransientWindow() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -107,7 +107,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @equiv popup(This, [])
--spec popup(This) -> ok when
+-spec popup(This) -> 'ok' when
 	This::wxPopupTransientWindow().
 
 popup(This)
@@ -115,9 +115,9 @@ popup(This)
   popup(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopuptransientwindow.html#wxpopuptransientwindowpopup">external documentation</a>.
--spec popup(This, [Option]) -> ok when
+-spec popup(This, [Option]) -> 'ok' when
 	This::wxPopupTransientWindow(),
-	Option :: {focus, wxWindow:wxWindow()}.
+	Option :: {'focus', wxWindow:wxWindow()}.
 popup(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxPopupTransientWindow),
@@ -128,7 +128,7 @@ popup(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpopuptransientwindow.html#wxpopuptransientwindowdismiss">external documentation</a>.
--spec dismiss(This) -> ok when
+-spec dismiss(This) -> 'ok' when
 	This::wxPopupTransientWindow().
 dismiss(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPopupTransientWindow),
@@ -136,7 +136,7 @@ dismiss(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPopupTransientWindow()) -> ok.
+-spec destroy(This::wxPopupTransientWindow()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPopupTransientWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ end_per_testcase(Func,Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,5}}].
 
 all() -> 
     [fields, modules, exportall, app_depend, undef_funcs, appup].
@@ -221,12 +221,10 @@ check_apps([App|Apps]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-undef_funcs(suite) ->
-    [];
-undef_funcs(doc) ->
-    [];
+undef_funcs() ->
+    [{timetrap,{minutes,10}}].
+
 undef_funcs(Config) when is_list(Config) ->
-    catch test_server:timetrap(timer:minutes(10)),
     App            = wx,
     AppFile        = key1search(app_file, Config),
     Mods           = key1search(modules, AppFile),

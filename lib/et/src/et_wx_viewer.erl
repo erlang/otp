@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -320,8 +320,8 @@ init([S]) when is_record(S, state) ->
 	undefined -> ok;
 	ParentPid -> link(ParentPid)
     end,
-    wx:new(),
-    wx:debug(S#state.wx_debug),
+    _ = wx:new(),
+    _ = wx:debug(S#state.wx_debug),
     et_collector:dict_insert(S#state.collector_pid,
                              {subscriber, self()},
                              ?MODULE),
@@ -532,26 +532,25 @@ handle_info(#wx{id=Id, event = #wxCommand{type = command_menu_selected}}, S=#sta
 	load_all ->
 	    Style = ?wxFD_OPEN bor ?wxFD_OVERWRITE_PROMPT,
 	    Msg = "Select a file to load events from",
-	    S2 = 
-		case select_file(S#state.frame, Msg, S#state.event_file, Style) of
-		    {ok, NewFile} ->
-			et_collector:start_trace_client(CollectorPid, event_file, NewFile),
-			S#state{event_file = NewFile};
-		    cancel ->
-			S
-		end,
+            S2 = case select_file(S#state.frame, Msg, S#state.event_file, Style) of
+                     {ok, NewFile} ->
+                         _ = et_collector:start_trace_client(CollectorPid, event_file, NewFile),
+                         S#state{event_file = NewFile};
+                     cancel ->
+                         S
+                 end,
 	    noreply(S2);
 	save_all ->
 	    Style = ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT,
 	    Msg = "Select a file to save events to",
-	    S2 = 
-		case select_file(S#state.frame, Msg, S#state.event_file, Style) of
-		    {ok, NewFile} ->
-			et_collector:save_event_file(CollectorPid, NewFile, [existing, write, keep]),
-			S#state{event_file = NewFile};
-		    cancel ->
-			S
-		end,
+            S2 = case select_file(S#state.frame, Msg, S#state.event_file, Style) of
+                     {ok, NewFile} ->
+                         ok = et_collector:save_event_file(CollectorPid, NewFile,
+                                                           [existing, write, keep]),
+                         S#state{event_file = NewFile};
+                     cancel ->
+                         S
+                 end,
 	    noreply(S2);
 	print_setup ->
 	    S2 = print_setup(S),
@@ -787,7 +786,7 @@ handle_info(#wx{event = #wxKey{keyCode = KeyCode, shiftDown = SD}}, S) ->
 	    noreply(S)
     end;
 handle_info(#wx{event = #wxScroll{type = scroll_changed}} = Wx, S) ->
-    get_latest_scroll(Wx),
+    _ = get_latest_scroll(Wx),
     Pos = wxScrollBar:getThumbPosition(S#state.scroll_bar),
     {_, LineTopY, LineBotY} = calc_y(S),
     Range = LineBotY - LineTopY,
@@ -1107,7 +1106,7 @@ pick_n([Head | Tail], N, Acc) when N > 0 ->
     pick_n(Tail, N - 1, [Head | Acc]).
 
 close_all(S) ->
-    close_all_others(S),
+    _ = close_all_others(S),
     wxFrame:destroy(S#state.frame),
     opt_unlink(S#state.parent_pid),
     {stop, shutdown, S}.
@@ -1115,12 +1114,12 @@ close_all(S) ->
 close_all_others(S) ->
     Fun =
 	fun({{subscriber, Pid}, _}) ->
-		if
-		    Pid =:= self() ->
-			ignore;
+		if Pid =:= self() ->
+			ok;
 		    true ->
 			unlink(Pid),
-			Pid ! {et, close}
+			Pid ! {et, close},
+                        ok
 		end
 	end,
     All = et_collector:dict_match(S#state.collector_pid,
@@ -1208,9 +1207,9 @@ create_main_window(S) ->
     CheckBoxData = [{wxCheckBox:getId(HideActions), hide_actions},
 		    {wxCheckBox:getId(HideActors), hide_actors}],
     wxPanel:connect(Panel, command_checkbox_clicked),
-    wxSizer:add(CheckSizer, HideActions),
-    wxSizer:add(CheckSizer,HideActors),
-    wxSizer:add(OptSizer, CheckSizer, [{border, 10}, {flag, ?wxALL}]),
+    _ = wxSizer:add(CheckSizer, HideActions),
+    _ = wxSizer:add(CheckSizer,HideActors),
+    _ = wxSizer:add(OptSizer, CheckSizer, [{border, 10}, {flag, ?wxALL}]),
     DetailLevelBox = wxStaticBoxSizer:new(?wxHORIZONTAL, 
 					  Panel,
 					  [{label, "Detail level"}]),
@@ -1222,22 +1221,21 @@ create_main_window(S) ->
 				{size, {200,-1}}]),
     wxStatusBar:setStatusText(StatusBar, where_text(S)),
     wxFrame:connect(Frame, command_slider_updated),
-    wxSizer:add(DetailLevelBox, DetailLevel),
-    wxSizer:add(OptSizer, DetailLevelBox, [{border, 10}, {flag, ?wxALL}]),
-    wxSizer:addStretchSpacer(OptSizer),
-    wxSizer:add(MainSizer, OptSizer),
-    wxSizer:add(MainSizer,
-		wxStaticLine:new(Panel, [{style, ?wxLI_HORIZONTAL}]),
-		[{flag, ?wxEXPAND}]),
+    _ = wxSizer:add(DetailLevelBox, DetailLevel),
+    _ = wxSizer:add(OptSizer, DetailLevelBox, [{border, 10}, {flag, ?wxALL}]),
+    _ = wxSizer:addStretchSpacer(OptSizer),
+    _ = wxSizer:add(MainSizer, OptSizer),
+    _ = wxSizer:add(MainSizer, wxStaticLine:new(Panel, [{style, ?wxLI_HORIZONTAL}]),
+                    [{flag, ?wxEXPAND}]),
 
     CanvasSizer = wxBoxSizer:new(?wxHORIZONTAL),
     Canvas = wxPanel:new(Panel, [{style, ?wxFULL_REPAINT_ON_RESIZE}]),
     {CanvasW,CanvasH} = wxPanel:getSize(Canvas),
     ScrollBar = wxScrollBar:new(Panel, ?wxID_ANY, [{style, ?wxSB_VERTICAL}]),
 
-    wxSizer:add(CanvasSizer, Canvas, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxSizer:add(CanvasSizer, ScrollBar, [{flag, ?wxEXPAND}]),
-    wxSizer:add(MainSizer, CanvasSizer, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    _ = wxSizer:add(CanvasSizer, Canvas, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    _ = wxSizer:add(CanvasSizer, ScrollBar, [{flag, ?wxEXPAND}]),
+    _ = wxSizer:add(MainSizer, CanvasSizer, [{flag, ?wxEXPAND}, {proportion, 1}]),
     wxPanel:connect(Canvas, left_down),
     wxPanel:connect(Canvas, left_up),
     wxPanel:connect(Canvas, right_up),
@@ -1337,8 +1335,7 @@ menuitem(Menu, Id, Text, UserData) ->
 
 create_file_menu(Bar) ->
     Menu = wxMenu:new([]),
-    Data = [
-	    menuitem(Menu, ?wxID_ANY, "Clear all events in the Collector", clear_all),
+    Data = [menuitem(Menu, ?wxID_ANY, "Clear all events in the Collector", clear_all),
 	    menuitem(Menu, ?wxID_ANY, "Load events to the Collector from file", load_all),
 	    menuitem(Menu, ?wxID_ANY, "Save all events in the Collector to file", save_all),
 
@@ -1348,51 +1345,44 @@ create_file_menu(Bar) ->
 
 	    menuitem(Menu, ?wxID_ANY, "Close this Viewer", close),
 	    menuitem(Menu, ?wxID_ANY, "Close all other Viewers, but this (c)", close_all_others),
-	    menuitem(Menu, ?wxID_ANY, "Close all Viewers and the Collector)   (C) ", close_all)
-	   ],
-    wxMenu:insertSeparator(Menu, 3),
-    wxMenu:insertSeparator(Menu, 7),
+	    menuitem(Menu, ?wxID_ANY, "Close all Viewers and the Collector)   (C) ", close_all)],
+    _ = wxMenu:insertSeparator(Menu, 3),
+    _ = wxMenu:insertSeparator(Menu, 7),
     wxMenuBar:append(Bar, Menu, "File"),
     Data.
 
 create_viewer_menu(Bar) ->
     Menu   = wxMenu:new([]),
-    wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Scroll this Viewer"),
-		      [{enable, false}]),
-    wxMenu:appendSeparator(Menu),
-    D1 = [
-	  menuitem(Menu, ?wxID_ANY, "First    (f)", first),
+    _ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Scroll this Viewer"),
+                          [{enable, false}]),
+    _ = wxMenu:appendSeparator(Menu),
+    D1 = [menuitem(Menu, ?wxID_ANY, "First    (f)", first),
 	  menuitem(Menu, ?wxID_ANY, "Last     (l)", last),
 	  menuitem(Menu, ?wxID_ANY, "Prev     (p)", prev),
 	  menuitem(Menu, ?wxID_ANY, "Next     (n)", next),
-	  menuitem(Menu, ?wxID_ANY, "Refresh  (r)", refresh)
-	 ],
-    wxMenu:appendSeparator(Menu),
-    D2 = [
-	  menuitem(Menu, ?wxID_ANY, "Up   5   (Up)", up),
-	  menuitem(Menu, ?wxID_ANY, "Down 5   (Down)", down)
-	 ],
-    wxMenu:appendSeparator(Menu),
-    wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Actor visibility in this Viewer"),
-		      [{enable, false}]),
-    wxMenu:appendSeparator(Menu),
+	  menuitem(Menu, ?wxID_ANY, "Refresh  (r)", refresh)],
+    _ = wxMenu:appendSeparator(Menu),
+    D2 = [menuitem(Menu, ?wxID_ANY, "Up   5   (Up)", up),
+	  menuitem(Menu, ?wxID_ANY, "Down 5   (Down)", down)],
+    _ = wxMenu:appendSeparator(Menu),
+    _ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Actor visibility in this Viewer"),
+                          [{enable, false}]),
+    _ = wxMenu:appendSeparator(Menu),
     D3 = [menuitem(Menu, ?wxID_ANY, "Display all actors (a)", display_all)],
-    wxMenuBar:append(Bar, Menu, "Viewer"),
+    _ = wxMenuBar:append(Bar, Menu, "Viewer"),
     [D1,D2,D3].
 
 create_collector_menu(Bar) ->
     Menu = wxMenu:new([]),
-    wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Scroll all Viewers"),
-		      [{enable, false}]),
-    wxMenu:appendSeparator(Menu),
-    Data = [
-	    menuitem(Menu, ?wxID_ANY, "First   (F)", first_all),
+    _ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Scroll all Viewers"),
+                          [{enable, false}]),
+    _ = wxMenu:appendSeparator(Menu),
+    Data = [menuitem(Menu, ?wxID_ANY, "First   (F)", first_all),
 	    menuitem(Menu, ?wxID_ANY, "Last    (L)", last_all),
 	    menuitem(Menu, ?wxID_ANY, "Prev    (P)", prev_all),
 	    menuitem(Menu, ?wxID_ANY, "Next    (N)", next_all),
-	    menuitem(Menu, ?wxID_ANY, "Refresh (R)", refresh_all)
-	   ],
-    wxMenuBar:append(Bar, Menu, "Collector"),
+	    menuitem(Menu, ?wxID_ANY, "Refresh (R)", refresh_all)],
+    _ = wxMenuBar:append(Bar, Menu, "Collector"),
     Data.
 
 create_filter_menu(S=#state{filter_menu = {Menu,Data}}, ActiveFilterName, Filters) ->
@@ -1421,21 +1411,19 @@ create_filter_menu(S=#state{filter_menu = {Menu,Data}}, ActiveFilterName, Filter
      Same    = lists:concat([pad_string(ActiveFilterName, 20), "(=) same    scale"]),
      Larger  = lists:concat([pad_string(ActiveFilterName, 20), "(+) bigger  scale"]),
      Smaller = lists:concat([pad_string(ActiveFilterName, 20), "(-) smaller scale"]),
-     D2 = [
-	   menuitem(Menu, ?wxID_ANY, Same, {data, Filter, 0}),
+     D2 = [menuitem(Menu, ?wxID_ANY, Same, {data, Filter, 0}),
 	   menuitem(Menu, ?wxID_ANY, Smaller, {data, Filter, -1}),
 	   menuitem(Menu, ?wxID_ANY, Larger, {data, Filter, 1}),
 	   wxMenu:appendSeparator(Menu),
 	   I2 = wxMenu:append(Menu, ?wxID_ANY, "New Filter Same Scale"),
-	   wxMenu:appendSeparator(Menu)
-	  ],
-     wxMenuItem:enable(I2, [{enable,false}]),
+	   wxMenu:appendSeparator(Menu)],
+     _ = wxMenuItem:enable(I2, [{enable,false}]),
      {_,D3} = lists:foldl(Item, {1,[]}, Filters),
      S#state{filter_menu = {Menu, lists:flatten([D1,D2,D3])}}.
 
 create_help_menu(Bar) ->
     Menu = wxMenu:new([]),
-    menuitem(Menu, ?wxID_HELP, "Info", help),
+    _ = menuitem(Menu, ?wxID_HELP, "Info", help),
     wxMenuBar:append(Bar, Menu, "Help").
 
 clear_canvas(S) ->

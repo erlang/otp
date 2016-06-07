@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ start_link(Options) ->
 		    S#state.parent_pid =/= self() ->
 			unlink(Pid);
 		    true ->
-			ignore
+			ok
 		end,
 		{ok, Pid}
 	    catch
@@ -242,11 +242,12 @@ handle_event(#wx{id = Id,
 	     S) ->
     case proplists:get_value(Id, S#state.menu_data) of
 	undefined ->
-	    ignore;
+	    ok;
         Data when is_record(Data, filter) ->
             F = Data,
-            ChildState= S#state{active_filter = F#filter.name},
-            wx_object:start_link(?MODULE, [ChildState], []);
+            ChildState = S#state{active_filter = F#filter.name},
+            _ = wx_object:start_link(?MODULE, [ChildState], []),
+            ok;
         {hide, Actors} ->
             send_viewer_event(S, {delete_actors, Actors});
         {show, Actors} ->
@@ -267,7 +268,7 @@ handle_event(#wx{id = Id,
             TimeStamp = 
                 case S#state.event_order of
                     trace_ts -> Event#event.trace_ts;
-                    event_ts   -> Event#event.event_ts
+                    event_ts -> Event#event.event_ts
                 end,
             FileName = lists:flatten(["et_contents_viewer_", now_to_string(TimeStamp), ".txt"]),
 	    Style = ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT,
@@ -275,7 +276,7 @@ handle_event(#wx{id = Id,
 	    case select_file(S#state.frame, Msg, filename:absname(FileName), Style) of
 		{ok, FileName2} ->
 		    Bin = list_to_binary(event_to_string(Event, S#state.event_order)),
-		    file:write_file(FileName2, Bin);
+		    ok = file:write_file(FileName2, Bin);
 		cancel ->
 		    ok
 	    end,
@@ -351,19 +352,21 @@ handle_event(#wx{event = #wxKey{rawCode = KeyCode}}, S) ->
         $0 ->
             case lists:keysearch(?DEFAULT_FILTER_NAME, #filter.name, S#state.filters) of
                 {value, F} when is_record(F, filter) ->
-                    ChildState= S#state{active_filter = F#filter.name},
-                    wx_object:start_link(?MODULE, [ChildState], []);
+                    ChildState = S#state{active_filter = F#filter.name},
+                    _ = wx_object:start_link(?MODULE, [ChildState], []),
+                    ok;
                 false ->
-                    ignore
+                    ok
             end,
             {noreply, S};
         Int when is_integer(Int), Int > $0, Int =< $9 ->
             case catch lists:nth(Int-$0, S#state.filters) of
                 F when is_record(F, filter) ->
-                    ChildState= S#state{active_filter = F#filter.name},
-                    wx_object:start_link(?MODULE, [ChildState], []);
+                    ChildState = S#state{active_filter = F#filter.name},
+                    _ = wx_object:start_link(?MODULE, [ChildState], []),
+                    ok;
                 {'EXIT', _} ->
-                    ignore
+                    ok
             end,
             {noreply, S};
 
@@ -443,11 +446,11 @@ create_window(S) ->
     Title = lists:concat([?MODULE, " (filter: ", Name, ")"]),
     WinOpt = [{size, {W,H}}],
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, Title, WinOpt),
-    wxFrame:createStatusBar(Frame),
+    _ = wxFrame:createStatusBar(Frame),
 
     Panel = wxPanel:new(Frame, []),
     Bar = wxMenuBar:new(),
-    wxFrame:setMenuBar(Frame,Bar),
+    _ = wxFrame:setMenuBar(Frame,Bar),
     create_file_menu(Bar),
     Editor = wxTextCtrl:new(Panel, ?wxID_ANY, [{style, 0
 						bor ?wxDEFAULT
@@ -457,21 +460,21 @@ create_window(S) ->
 						bor ?wxTE_DONTWRAP}]),
     Font = wxFont:new(10, ?wxFONTFAMILY_TELETYPE, ?wxNORMAL, ?wxNORMAL,[]),
     TextAttr = wxTextAttr:new(?wxBLACK, [{font, Font}]),
-    wxTextCtrl:setDefaultStyle(Editor, TextAttr),
+    _ = wxTextCtrl:setDefaultStyle(Editor, TextAttr),
     Sizer = wxBoxSizer:new(?wxHORIZONTAL),
-    wxSizer:add(Sizer, Editor, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    _ = wxSizer:add(Sizer, Editor, [{flag, ?wxEXPAND}, {proportion, 1}]),
     FilteredEvent = config_editor(Editor, S),
     S2 = S#state{win = Frame, panel = Panel, filtered_event = FilteredEvent},
     HideData = create_hide_menu(Bar, S2),
     SearchData = create_search_menu(Bar, S2),
     FilterData = create_filter_menu(Bar, S#state.filters),
-    wxFrame:connect(Frame, command_menu_selected, []),
-    wxFrame:connect(Frame, key_up),
-    wxFrame:connect(Frame, close_window, [{skip,true}]),
-    wxFrame:setFocus(Frame),
-    wxPanel:setSizer(Panel, Sizer),
-    wxSizer:fit(Sizer, Panel),
-    wxFrame:show(Frame),
+    _ = wxFrame:connect(Frame, command_menu_selected, []),
+    _ = wxFrame:connect(Frame, key_up),
+    _ = wxFrame:connect(Frame, close_window, [{skip,true}]),
+    _ = wxFrame:setFocus(Frame),
+    _ = wxPanel:setSizer(Panel, Sizer),
+    _ = wxSizer:fit(Sizer, Panel),
+    _ = wxFrame:show(Frame),
     S2#state{menu_data = HideData++SearchData++FilterData, editor = Editor, frame = Frame}.
 
 menuitem(Menu, Id, Text, UserData) ->
@@ -480,16 +483,17 @@ menuitem(Menu, Id, Text, UserData) ->
 
 create_file_menu(Bar) ->
     Menu = wxMenu:new([]),
-    wxMenu:append(Menu, ?wxID_SAVE, "Save"),
-    wxMenu:append(Menu, ?wxID_PRINT,"Print"),
-    wxMenu:appendSeparator(Menu),
-    wxMenu:append(Menu, ?wxID_EXIT, "Close"),
-    wxMenuBar:append(Bar, Menu, "File").
+    _ = wxMenu:append(Menu, ?wxID_SAVE, "Save"),
+    _ = wxMenu:append(Menu, ?wxID_PRINT,"Print"),
+    _ = wxMenu:appendSeparator(Menu),
+    _ = wxMenu:append(Menu, ?wxID_EXIT, "Close"),
+    _ = wxMenuBar:append(Bar, Menu, "File"),
+    ok.
 
 create_filter_menu(Bar, Filters) ->
     Menu  = wxMenu:new([]),
-    wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Select Filter"), [{enable, false}]),
-    wxMenu:appendSeparator(Menu),
+    _ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Select Filter"), [{enable, false}]),
+    _ = wxMenu:appendSeparator(Menu),
     Item = fun(F, {N,Acc}) when F#filter.name =:= ?DEFAULT_FILTER_NAME->
                    Label = lists:concat([pad_string(F#filter.name, 20, $\ , right), "(0)"]),
                    MenuItem = menuitem(Menu, ?wxID_ANY, Label, F),
@@ -502,7 +506,7 @@ create_filter_menu(Bar, Filters) ->
            end,
     Filters2 = lists:keysort(#filter.name, Filters),
     {_,MenuData} = lists:foldl(Item, {1, []}, Filters2),
-    wxMenuBar:append(Bar, Menu, "Filters"),
+    _ = wxMenuBar:append(Bar, Menu, "Filters"),
     MenuData.
 
 create_hide_menu(Bar, S) ->
@@ -515,33 +519,33 @@ create_hide_menu(Bar, S) ->
 	    S#state.viewer_pid =:= undefined ->
 		ignore;
 	    From =:= To ->
-		wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Hide actor in Viewer "),
-				  [{enable, false}]),
-		wxMenu:appendSeparator(Menu),
+		_ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Hide actor in Viewer "),
+                                      [{enable, false}]),
+		_ = wxMenu:appendSeparator(Menu),
 		Hide = menuitem(Menu, ?wxID_ANY, "From=To (f|t|b)", {hide, [From]}),
-		wxMenu:appendSeparator(Menu),
-		wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Show actor in Viewer "),
-				  [{enable, false}]),
-		wxMenu:appendSeparator(Menu),
+		_ = wxMenu:appendSeparator(Menu),
+		_ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Show actor in Viewer "),
+                                      [{enable, false}]),
+		_ = wxMenu:appendSeparator(Menu),
 		Show = menuitem(Menu, ?wxID_ANY, "From=To (F|T|B)", {show, [From]}),
 		[Show,Hide];
 	    true ->
-		wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Hide actor in Viewer "),
-				   [{enable, false}]),
-		 wxMenu:appendSeparator(Menu),
+		_ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Hide actor in Viewer "),
+                                      [{enable, false}]),
+                _ = wxMenu:appendSeparator(Menu),
 		Hide = [menuitem(Menu, ?wxID_ANY, "From (f)", {hide, [From]}),
 			menuitem(Menu, ?wxID_ANY, "To   (t)", {hide, [To]}),
 			menuitem(Menu, ?wxID_ANY, "Both (b)", {hide, [From, To]})],
-		wxMenu:appendSeparator(Menu),
-		wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Show actor in Viewer "),
-				  [{enable, false}]),
-		wxMenu:appendSeparator(Menu),
+		_ = wxMenu:appendSeparator(Menu),
+		_ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Show actor in Viewer "),
+                                      [{enable, false}]),
+		_ = wxMenu:appendSeparator(Menu),
 		Show = [menuitem(Menu, ?wxID_ANY, "From (F)", {show, [From]}),
 			menuitem(Menu, ?wxID_ANY, "To   (T)", {show, [To]}),
 			menuitem(Menu, ?wxID_ANY, "Both (B)", {show, [From, To]})],
 		Show++Hide
 	end,
-    wxMenuBar:append(Bar, Menu, "Hide"),
+    _ = wxMenuBar:append(Bar, Menu, "Hide"),
     MenuData.
 
 create_search_menu(Bar, S) ->
@@ -549,9 +553,9 @@ create_search_menu(Bar, S) ->
     E      = S#state.filtered_event,
     From   = E#event.from,
     To     = E#event.to,
-    wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Search in Viewer "),
-		      [{enable, false}]),
-    wxMenu:appendSeparator(Menu),
+    _ = wxMenuItem:enable(wxMenu:append(Menu, ?wxID_ANY, "Search in Viewer "),
+                          [{enable, false}]),
+    _ = wxMenu:appendSeparator(Menu),
     MenuData =
 	if
 	    S#state.viewer_pid =:= undefined ->
@@ -571,7 +575,7 @@ create_search_menu(Bar, S) ->
 		 menuitem(Menu, ?wxID_ANY, "Reverse from this event   (r)", {mode, ModeR}),
 		 menuitem(Menu, ?wxID_ANY, "Abort search. Display all (a)", {mode, all})]
 	end,
-    wxMenuBar:append(Bar, Menu, "Search"),
+    _ = wxMenuBar:append(Bar, Menu, "Search"),
     MenuData.
 
 config_editor(Editor, S) ->
@@ -668,9 +672,10 @@ pad_string(String, MinLen, Char, Dir) when is_integer(MinLen), MinLen >= 0 ->
 send_viewer_event(S, Event)  ->
     case S#state.viewer_pid of
         ViewerPid when is_pid(ViewerPid) ->
-            ViewerPid ! {et, Event};
+            ViewerPid ! {et, Event},
+            ok;
         undefined  ->
-            ignore
+            ok
     end.
 
 select_file(Frame, Message, DefaultFile, Style) ->

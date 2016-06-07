@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,12 @@ GIF_FILES = \
 	sup5.gif \
 	sup6.gif
 
+PNG_FILES = \
+	code_lock.png \
+	code_lock_2.png
+
+IMAGE_FILES = $(GIF_FILES) $(PNG_FILES)
+
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) 
@@ -85,13 +91,16 @@ _create_dirs := $(shell mkdir -p $(HTMLDIR))
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
+$(HTMLDIR)/%.png: %.png
+	$(INSTALL_DATA) $< $@
+
 docs: html
 
 local_docs: PDFDIR=../../pdf
 
-html: $(HTML_UG_FILE) gifs
+html: $(HTML_UG_FILE) images
 
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
+images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 
 debug opt: 
 
@@ -109,7 +118,7 @@ release_docs_spec: docs
 #	$(INSTALL_DIR) "$(RELEASE_PATH)/pdf"
 #	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELEASE_PATH)/pdf"
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html \
+	$(INSTALL_DATA) $(IMAGE_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)
 
 

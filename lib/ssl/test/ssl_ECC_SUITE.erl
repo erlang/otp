@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,8 +74,8 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    %% make rsa certs using oppenssl
-	    {ok, _} = make_certs:all(?config(data_dir, Config0),
-				     ?config(priv_dir, Config0)),
+	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
+				     proplists:get_value(priv_dir, Config0)),
 	    Config1 = ssl_test_lib:make_ecdsa_cert(Config0),
 	    Config2 = ssl_test_lib:make_ecdh_rsa_cert(Config1),
 	    ssl_test_lib:cert_options(Config2)
@@ -130,8 +130,8 @@ init_per_group(Group, Config) ->
 common_init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
-	    ssl_test_lib:init_tls_version(GroupName),
-	    [{tls_version, GroupName} | Config];
+	    Config0 = ssl_test_lib:init_tls_version(GroupName, Config),
+	    [{tls_version, GroupName} | Config0];
 	_ ->
 	   openssl_check(GroupName, Config)
     end.
@@ -142,7 +142,7 @@ end_per_group(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 
 init_per_testcase(TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     end_per_testcase(TestCase, Config),
     ssl:start(),	
@@ -158,43 +158,43 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 
 client_ecdh_server_ecdh(Config) when is_list(Config) ->
-    COpts =  ?config(client_ecdh_rsa_opts, Config),
-    SOpts = ?config(server_ecdh_rsa_verify_opts, Config),
+    COpts =  proplists:get_value(client_ecdh_rsa_opts, Config),
+    SOpts = proplists:get_value(server_ecdh_rsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
     
 client_ecdh_server_rsa(Config)  when is_list(Config) ->
-    COpts =  ?config(client_ecdh_rsa_opts, Config),
-    SOpts = ?config(server_ecdh_rsa_verify_opts, Config),
+    COpts =  proplists:get_value(client_ecdh_rsa_opts, Config),
+    SOpts = proplists:get_value(server_ecdh_rsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
   
 client_rsa_server_ecdh(Config)  when is_list(Config) ->
-    COpts =  ?config(client_ecdh_rsa_opts, Config),
-    SOpts = ?config(server_ecdh_rsa_verify_opts, Config),
+    COpts =  proplists:get_value(client_ecdh_rsa_opts, Config),
+    SOpts = proplists:get_value(server_ecdh_rsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
    
 client_rsa_server_rsa(Config)  when is_list(Config) ->
-    COpts =  ?config(client_verification_opts, Config),
-    SOpts = ?config(server_verification_opts, Config),
+    COpts =  proplists:get_value(client_verification_opts, Config),
+    SOpts = proplists:get_value(server_verification_opts, Config),
     basic_test(COpts, SOpts, Config).
    
 client_ecdsa_server_ecdsa(Config)  when is_list(Config) ->
-    COpts =  ?config(client_ecdsa_opts, Config),
-    SOpts = ?config(server_ecdsa_verify_opts, Config),
+    COpts =  proplists:get_value(client_ecdsa_opts, Config),
+    SOpts = proplists:get_value(server_ecdsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
 
 client_ecdsa_server_rsa(Config)  when is_list(Config) ->
-    COpts =  ?config(client_ecdsa_opts, Config),
-    SOpts = ?config(server_ecdsa_verify_opts, Config),
+    COpts =  proplists:get_value(client_ecdsa_opts, Config),
+    SOpts = proplists:get_value(server_ecdsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
 
 client_rsa_server_ecdsa(Config)  when is_list(Config) ->
-    COpts =  ?config(client_ecdsa_opts, Config),
-    SOpts = ?config(server_ecdsa_verify_opts, Config),
+    COpts =  proplists:get_value(client_ecdsa_opts, Config),
+    SOpts = proplists:get_value(server_ecdsa_verify_opts, Config),
     basic_test(COpts, SOpts, Config).
 
 client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
-    COpts =  ?config(client_ecdsa_opts, Config),
-    SOpts = ?config(server_ecdsa_verify_opts, Config),
+    COpts =  proplists:get_value(client_ecdsa_opts, Config),
+    SOpts = proplists:get_value(server_ecdsa_verify_opts, Config),
     ServerCert = proplists:get_value(certfile, SOpts),
     ServerKeyFile = proplists:get_value(keyfile, SOpts),
     {ok, PemBin} = file:read_file(ServerKeyFile),
@@ -205,8 +205,8 @@ client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
     ClientCert = proplists:get_value(certfile, COpts),
     ClientKey = proplists:get_value(keyfile, COpts),
     ClientCA = proplists:get_value(cacertfile, COpts),
-    SType = ?config(server_type, Config),
-    CType = ?config(client_type, Config),
+    SType = proplists:get_value(server_type, Config),
+    CType = proplists:get_value(client_type, Config),
     {Server, Port} = start_server_with_raw_key(SType,
 				  ClientCA, ServerCA,
 				  ServerCert,
@@ -231,8 +231,8 @@ basic_test(COpts, SOpts, Config) ->
 	       Config).
     
 basic_test(ClientCert, ClientKey, ClientCA, ServerCert, ServerKey, ServerCA, Config) ->
-    SType = ?config(server_type, Config),
-    CType = ?config(client_type, Config),
+    SType = proplists:get_value(server_type, Config),
+    CType = proplists:get_value(client_type, Config),
     {Server, Port} = start_server(SType,
 				  ClientCA, ServerCA,
 				  ServerCert,
@@ -245,7 +245,7 @@ basic_test(ClientCert, ClientKey, ClientCA, ServerCert, ServerKey, ServerCA, Con
     close(Server, Client).    
 
 start_client(openssl, Port, CA, OwnCa, Cert, Key, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     NewCA = new_ca(filename:join(PrivDir, "new_ca.pem"), CA, OwnCa),
     Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
     Exe = "openssl",
@@ -268,7 +268,7 @@ start_client(erlang, Port, CA, _, Cert, Key, Config) ->
 					  {certfile, Cert}, {keyfile, Key}]}]).
 
 start_server(openssl, CA, OwnCa, Cert, Key, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     NewCA = new_ca(filename:join(PrivDir, "new_ca.pem"), CA, OwnCa),
 
     Port = ssl_test_lib:inet_port(node()),
@@ -315,7 +315,7 @@ check_result(_,openssl, _, openssl) ->
 openssl_check(erlang, Config) ->
     Config;
 openssl_check(_, Config) ->
-    TLSVersion = ?config(tls_version, Config),
+    TLSVersion = proplists:get_value(tls_version, Config),
     case ssl_test_lib:check_sane_openssl_version(TLSVersion) of
 	true ->
 	    Config;
@@ -343,6 +343,12 @@ new_ca(FileName, CA, OwnCa) ->
     E1 = public_key:pem_decode(P1),
     {ok, P2} = file:read_file(OwnCa),
     E2 = public_key:pem_decode(P2),
-    Pem = public_key:pem_encode(E2 ++E1),
-    file:write_file(FileName,  Pem),
+    case os:cmd("openssl version") of 
+	"OpenSSL 1.0.1p-freebsd" ++ _ ->
+	    Pem = public_key:pem_encode(E1 ++E2),
+	    file:write_file(FileName,  Pem);
+	_ ->
+	    Pem = public_key:pem_encode(E2 ++E1),
+	    file:write_file(FileName,  Pem)
+    end,  
     FileName.

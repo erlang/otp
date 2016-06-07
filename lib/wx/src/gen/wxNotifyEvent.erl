@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxNotifyEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotifyevent.html#wxnotifyeventallow">external documentation</a>.
--spec allow(This) -> ok when
+-spec allow(This) -> 'ok' when
 	This::wxNotifyEvent().
 allow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotifyEvent),
@@ -61,7 +61,7 @@ isAllowed(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnotifyevent.html#wxnotifyeventveto">external documentation</a>.
--spec veto(This) -> ok when
+-spec veto(This) -> 'ok' when
 	This::wxNotifyEvent().
 veto(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotifyEvent),

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -139,6 +139,38 @@ x86_init(void)
 #endif
     /* bit 26 of edx is set if we have sse2 */
     ethr_runtime__.conf.have_sse2 = (edx & (1 << 26));
+
+    /* check if we have extended feature set */
+    eax = 0x80000000;
+    ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+
+    if (eax < 0x80000001)
+        return;
+
+    if (eax >= 0x80000007) {
+        /* Advanced Power Management Information */
+        eax = 0x80000007;
+	ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+
+        /* I got the values below from:
+           http://lxr.free-electrons.com/source/arch/x86/include/asm/cpufeature.h
+           They can be gotten from the intel/amd manual as well.
+        */
+
+        ethr_runtime__.conf.have_constant_tsc  = (edx & (1 <<  8));
+        ethr_runtime__.conf.have_tsc_reliable   = (edx & (1 << 23));
+        ethr_runtime__.conf.have_nonstop_tsc    = (edx & (1 << 24));
+        ethr_runtime__.conf.have_nonstop_tsc_s3 = (edx & (1 << 30));
+
+    }
+
+    /* Extended Processor Info and Feature Bits */
+    eax = 0x80000001;
+    ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+
+    /* bit 27 of edx is set if we have rdtscp */
+    ethr_runtime__.conf.have_rdtscp = (edx & (1 << 27));
+
 }
 
 #endif /* ETHR_X86_RUNTIME_CONF__ */
@@ -207,18 +239,7 @@ ethr_init_common__(ethr_init_data *id)
 
     ethr_min_stack_size__ = ETHR_B2KW(ethr_min_stack_size__);
 
-#ifdef __OSE__
-    /* For supervisor processes, OSE adds a number of bytes to the requested stack. With this
-     * addition, the resulting size must not exceed the largest available stack size. The number
-     * of bytes that will be added  is configured in the monolith and can therefore not be
-     * specified here. We simply assume that it is less than 0x1000. The available stack sizes
-     * are configured in the .lmconf file and the largest one is usually 65536 bytes.
-     * Consequently, the requested stack size is limited to 0xF000.
-     */
-    ethr_max_stack_size__ = 0xF000;
-#else
     ethr_max_stack_size__ = 32*1024*1024;
-#endif
 #if SIZEOF_VOID_P == 8
     ethr_max_stack_size__ *= 2;
 #endif
@@ -664,10 +685,6 @@ ETHR_IMPL_NORETURN__ ethr_fatal_error__(const char *file,
 int ethr_assert_failed(const char *file, int line, const char *func, char *a)
 {
     fprintf(stderr, "%s:%d: %s(): Assertion failed: %s\n", file, line, func, a);
-#ifdef __OSE__
-    ramlog_printf("%d: %s:%d: %s(): Assertion failed: %s\n",
-		  current_process(),file, line, func, a);
-#endif
     ethr_abort__();
     return 0;
 }

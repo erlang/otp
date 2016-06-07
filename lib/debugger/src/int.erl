@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -547,7 +547,7 @@ load({Mod, Src, Beam, BeamBin, Exp, Abst}, Dist) ->
 check_module(Mod) ->
     case code:which(Mod) of
 	Beam when is_list(Beam) ->
-	    case find_src(Beam) of
+	    case find_src(Mod, Beam) of
 		Src when is_list(Src) ->
 		    check_application(Src),
 		    case check_beam(Beam) of
@@ -608,7 +608,7 @@ check_application2("gs-"++_) -> throw({error,{app,gs}});
 check_application2("debugger-"++_) -> throw({error,{app,debugger}});
 check_application2(_) -> ok.
 
-find_src(Beam) ->
+find_src(Mod, Beam) ->
     Src0 = filename:rootname(Beam) ++ ".erl",
     case is_file(Src0) of
 	true -> Src0;
@@ -618,8 +618,20 @@ find_src(Beam) ->
 				 filename:basename(Src0)]),
 	    case is_file(Src) of
 		true -> Src;
-		false -> error
+		false -> find_src_from_module(Mod)
 	    end
+    end.
+
+find_src_from_module(Mod) ->
+    Compile = Mod:module_info(compile),
+    case lists:keyfind(source, 1, Compile) of
+	{source, Src} ->
+	    case is_file(Src) of
+		true -> Src;
+		false -> error
+	    end;
+	false ->
+	    error
     end.
 
 find_beam(Mod, Src) ->

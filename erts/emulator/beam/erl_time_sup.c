@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2015. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1749,7 +1749,7 @@ erts_get_monotonic_time(ErtsSchedulerData *esdp)
 {
     ErtsMonotonicTime mtime = time_sup.r.o.get_time();
     update_last_mtime(esdp, mtime);
-    return mtime;    
+    return mtime;
 }
 
 ErtsMonotonicTime
@@ -1957,15 +1957,16 @@ send_time_offset_changed_notifications(void *new_offsetp)
 		ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK;
 		erts_smp_proc_lock(rp, ERTS_PROC_LOCK_LINK);
 		if (erts_lookup_monitor(ERTS_P_MONITORS(rp), ref)) {
-		    ErlHeapFragment *bp;
+		    ErtsMessage *mp;
 		    ErlOffHeap *ohp;
 		    Eterm message;
 
-		    hp = erts_alloc_message_heap(hsz, &bp, &ohp, rp, &rp_locks);
+		    mp = erts_alloc_message_heap(rp, &rp_locks,
+						 hsz, &hp, &ohp);
 		    *patch_refp = ref;
 		    ASSERT(hsz == size_object(message_template));
 		    message = copy_struct(message_template, hsz, &hp, ohp);
-		    erts_queue_message(rp, &rp_locks, bp, message, NIL);
+		    erts_queue_message(rp, rp_locks, mp, message, am_clock_service);
 		}
 		erts_smp_proc_unlock(rp, rp_locks);
 	    }
@@ -2347,7 +2348,7 @@ erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to)
 BIF_RETTYPE monotonic_time_0(BIF_ALIST_0)
 {
     ErtsMonotonicTime mtime = time_sup.r.o.get_time();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     mtime += ERTS_MONOTONIC_OFFSET_NATIVE;
     BIF_RET(make_time_val(BIF_P, mtime));
 }
@@ -2355,7 +2356,7 @@ BIF_RETTYPE monotonic_time_0(BIF_ALIST_0)
 BIF_RETTYPE monotonic_time_1(BIF_ALIST_1)
 {
     ErtsMonotonicTime mtime = time_sup.r.o.get_time();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, mtime, 1));
 }
 
@@ -2364,7 +2365,7 @@ BIF_RETTYPE system_time_0(BIF_ALIST_0)
     ErtsMonotonicTime mtime, offset;
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     BIF_RET(make_time_val(BIF_P, mtime + offset));
 }
 
@@ -2373,7 +2374,7 @@ BIF_RETTYPE system_time_1(BIF_ALIST_0)
     ErtsMonotonicTime mtime, offset;
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, mtime + offset, 0));
 }
 
@@ -2403,7 +2404,7 @@ BIF_RETTYPE timestamp_0(BIF_ALIST_0)
 
     mtime = time_sup.r.o.get_time();
     offset = get_time_offset();
-    update_last_mtime(ERTS_PROC_GET_SCHDATA(BIF_P), mtime);
+    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
 
     make_timestamp_value(&mega_sec, &sec, &micro_sec, mtime, offset);
 
@@ -2434,9 +2435,19 @@ BIF_RETTYPE os_system_time_0(BIF_ALIST_0)
     BIF_RET(make_time_val(BIF_P, stime));
 }
 
-BIF_RETTYPE os_system_time_1(BIF_ALIST_0)
+BIF_RETTYPE os_system_time_1(BIF_ALIST_1)
 {
     ErtsSystemTime stime = erts_os_system_time();
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, stime, 0));
 }
 
+BIF_RETTYPE
+os_perf_counter_0(BIF_ALIST_0)
+{
+    BIF_RET(make_time_val(BIF_P, erts_sys_perf_counter()));
+}
+
+BIF_RETTYPE erts_internal_perf_counter_unit_0(BIF_ALIST_0)
+{
+    BIF_RET(make_time_val(BIF_P, erts_sys_perf_counter_unit()));
+}

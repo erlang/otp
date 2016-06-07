@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,6 +55,8 @@
 	     inet_tcp_dist,
 	     kernel,
 	     kernel_config,
+	     local_tcp,
+	     local_udp,
 	     net,
 	     net_adm,
 	     net_kernel,
@@ -116,6 +118,6 @@
   {applications, []},
   {env, [{error_logger, tty}]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-7.3", "stdlib-2.6", "sasl-2.6"]}
+  {runtime_dependencies, ["erts-8.0", "stdlib-3.0", "sasl-3.0"]}
  ]
 }.

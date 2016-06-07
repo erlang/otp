@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2014. All Rights Reserved.
+# Copyright Ericsson AB 2003-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,10 +86,9 @@ allocator	LONG_LIVED	true		ll_alloc
 allocator	EHEAP		true		eheap_alloc
 allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
-
-+if halfword
-allocator	LONG_LIVED_LOW	true		ll_low_alloc
-allocator	STANDARD_LOW	true		std_low_alloc
+allocator	LITERAL 	true		literal_alloc
++if exec_alloc
+allocator	EXEC     	true	        exec_alloc
 +endif
 
 +else # Non smp build
@@ -101,10 +100,9 @@ allocator	LONG_LIVED	false		ll_alloc
 allocator	EHEAP		false		eheap_alloc
 allocator	ETS		false		ets_alloc
 allocator	FIXED_SIZE	false		fix_alloc
-
-+if halfword
-allocator	LONG_LIVED_LOW	false		ll_low_alloc
-allocator	STANDARD_LOW	false		std_low_alloc
+allocator	LITERAL 	false		literal_alloc
++if exec_alloc
+allocator	EXEC     	false	        exec_alloc
 +endif
 
 +endif
@@ -160,6 +158,8 @@ type	OLD_HEAP	EHEAP		PROCESSES	old_heap
 type	HEAP_FRAG	EHEAP		PROCESSES	heap_frag
 type	TMP_HEAP	TEMPORARY	PROCESSES	tmp_heap
 type	MSG_REF		FIXED_SIZE	PROCESSES	msg_ref
+type	MSG		EHEAP		PROCESSES	message
+type	MSGQ_CHNG	SHORT_LIVED	PROCESSES	messages_queue_change
 type	MSG_ROOTS	TEMPORARY	PROCESSES	msg_roots
 type	ROOTSET		TEMPORARY	PROCESSES	root_set
 type	LOADER_TMP	TEMPORARY	CODE		loader_tmp
@@ -264,7 +264,6 @@ type	PRTSD		STANDARD	SYSTEM		port_specific_data
 type	CPUDATA		LONG_LIVED	SYSTEM		cpu_data
 type	TMP_CPU_IDS	SHORT_LIVED	SYSTEM		tmp_cpu_ids
 type	EXT_TERM_DATA	SHORT_LIVED	PROCESSES	external_term_data
-type	ZLIB		STANDARD	SYSTEM		zlib
 type	CPU_GRPS_MAP	LONG_LIVED	SYSTEM		cpu_groups_map
 type	AUX_WORK_TMO	LONG_LIVED	SYSTEM		aux_work_timeouts
 type	MISC_AUX_WORK_Q	LONG_LIVED	SYSTEM		misc_aux_work_q
@@ -276,6 +275,10 @@ type	PROC_SYS_TSK	SHORT_LIVED	PROCESSES	proc_sys_task
 type	PROC_SYS_TSK_QS	SHORT_LIVED	PROCESSES	proc_sys_task_queues
 type    NEW_TIME_OFFSET	SHORT_LIVED	SYSTEM		new_time_offset
 type	IOB_REQ		SHORT_LIVED	SYSTEM		io_bytes_request
+type    TRACER_NIF      LONG_LIVED      SYSTEM          tracer_nif
+type    TRACE_MSG_QUEUE SHORT_LIVED     SYSTEM          trace_message_queue
+type    SCHED_ASYNC_JOB SHORT_LIVED     SYSTEM          async_calls
+type    DIRTY_START     STANDARD	PROCESSES       dirty_start
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;
@@ -294,8 +297,10 @@ type	THR_Q_LL	LONG_LIVED	SYSTEM		long_lived_thr_queue
 
 +if smp
 type	ASYNC		SHORT_LIVED	SYSTEM		async
+type	ZLIB		STANDARD	SYSTEM		zlib
 +else
-# sl_alloc is not thread safe in non smp build; therefore, we use driver_alloc
+# sl/std_alloc is not thread safe in non smp build; therefore, we use driver_alloc
+type	ZLIB		DRIVER   	SYSTEM		zlib
 type	ASYNC		DRIVER		SYSTEM		async
 +endif
 
@@ -341,7 +346,13 @@ type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 # Currently most hipe code use this type.
 type	HIPE		SYSTEM		SYSTEM		hipe_data
 
++if exec_alloc
+type	HIPE_EXEC	EXEC            CODE		hipe_code
 +endif
+
++endif
+
+
 
 +if heap_frag_elim_test
 
@@ -349,34 +360,13 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 
 +endif
 
-
-+if halfword
-
-type	DDLL_PROCESS	STANDARD_LOW	SYSTEM		ddll_processes
-type	MONITOR_LH	STANDARD_LOW	PROCESSES	monitor_lh
-type	NLINK_LH	STANDARD_LOW	PROCESSES	nlink_lh
-type	CODE		LONG_LIVED_LOW	CODE		code
-type	DB_HEIR_DATA	STANDARD_LOW	ETS		db_heir_data
-type	DB_MS_PSDO_PROC	LONG_LIVED_LOW	ETS		db_match_pseudo_proc
-type	SCHDLR_DATA	LONG_LIVED_LOW	SYSTEM		scheduler_data
-type  	LL_TEMP_TERM 	LONG_LIVED_LOW	SYSTEM		ll_temp_term
-
-type	NIF_TRAP_EXPORT	STANDARD_LOW	CODE		nif_trap_export_entry
-type	EXPORT		LONG_LIVED_LOW	CODE		export_entry
-type	MONITOR_SH	STANDARD_LOW	PROCESSES	monitor_sh
-type	NLINK_SH	STANDARD_LOW	PROCESSES	nlink_sh
-type	AINFO_REQ	STANDARD_LOW	SYSTEM		alloc_info_request
-type	SCHED_WTIME_REQ	STANDARD_LOW	SYSTEM		sched_wall_time_request
-type	GC_INFO_REQ	STANDARD_LOW	SYSTEM		gc_info_request
-type	PORT_DATA_HEAP	STANDARD_LOW	SYSTEM		port_data_heap
-type	SYS_CHECK_REQ	STANDARD_LOW	SYSTEM		system_check_request
-
-+else # "fullword"
+type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
 
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
 type	MONITOR_LH	STANDARD	PROCESSES	monitor_lh
 type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
 type	CODE		LONG_LIVED	CODE		code
+type	LITERAL		LITERAL 	CODE		literal
 type	DB_HEIR_DATA	STANDARD	ETS		db_heir_data
 type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
@@ -390,10 +380,8 @@ type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
+type    MSACC           DRIVER          SYSTEM          microstate_accounting
 type	SYS_CHECK_REQ	SHORT_LIVED	SYSTEM		system_check_request
-
-+endif
-
 
 #
 # Types used by system specific code
@@ -431,21 +419,6 @@ type	SYS_WRITE_BUF	BINARY		SYSTEM		sys_write_buf
 +endif
 
 +endif
-
-+if ose
-
-type	SYS_READ_BUF	TEMPORARY	SYSTEM		sys_read_buf
-type	FD_TAB		LONG_LIVED	SYSTEM		fd_tab
-type	FD_ENTRY_BUF	STANDARD	SYSTEM		fd_entry_buf
-type	FD_SIG_LIST	SHORT_LIVED	SYSTEM		fd_sig_list
-type    DRV_EV		STANDARD	SYSTEM		driver_event
-type	CS_PROG_PATH	LONG_LIVED	SYSTEM		cs_prog_path
-type	ENVIRONMENT	TEMPORARY	SYSTEM		environment
-type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
-type	PRT_REP_EXIT	STANDARD	SYSTEM		port_report_exit
-
-+endif
-
 
 +if win32
 

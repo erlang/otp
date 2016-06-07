@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,50 +23,68 @@
 
 -module(maps_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(1)).
+-export([all/0, suite/0]).
 
-% Test server specific exports
--export([all/0]).
--export([suite/0]).
--export([init_per_suite/1]).
--export([end_per_suite/1]).
--export([init_per_testcase/2]).
--export([end_per_testcase/2]).
-
--export([t_get_3/1, t_filter_2/1,
+-export([t_update_with_3/1, t_update_with_4/1,
+         t_get_3/1, t_filter_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
          t_with_2/1,t_without_2/1]).
 
-%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
-%-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
-% silly broken hipe
+%%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
+%%-define(badarg(F,Args), {'EXIT', {badarg, [{maps,F,Args,_}|_]}}).
+%% silly broken hipe
 -define(badmap(V,F,_Args), {'EXIT', {{badmap,V}, [{maps,F,_,_}|_]}}).
+-define(badkey(K,F,_Args), {'EXIT', {{badkey,K}, [{maps,F,_,_}|_]}}).
 -define(badarg(F,_Args), {'EXIT', {badarg, [{maps,F,_,_}|_]}}).
 
 suite() ->
-    [{ct_hooks, [ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() ->
-    [t_get_3,t_filter_2,
+    [t_update_with_3,t_update_with_4,
+     t_get_3,t_filter_2,
      t_fold_3,t_map_2,t_size_1,
      t_with_2,t_without_2].
 
-init_per_suite(Config) ->
-    Config.
+t_update_with_3(Config) when is_list(Config) ->
+    V1 = value1,
+    V2 = <<"value2">>,
+    V3 = "value3",
+    Map = #{ key1 => V1, key2 => V2, "key3" => V3 },
+    Fun = fun(V) -> [V,V,{V,V}] end,
 
-end_per_suite(_Config) ->
+    #{ key1 := [V1,V1,{V1,V1}] } = maps:update_with(key1,Fun,Map),
+    #{ key2 := [V2,V2,{V2,V2}] } = maps:update_with(key2,Fun,Map),
+    #{ "key3" := [V3,V3,{V3,V3}] } = maps:update_with("key3",Fun,Map),
+
+    %% error case
+    ?badmap(b,update_with,[[a,b],a,b]) = (catch maps:update_with([a,b],id(a),b)),
+    ?badarg(update_with,[[a,b],a,#{}]) = (catch maps:update_with([a,b],id(a),#{})),
+    ?badkey([a,b],update_with,[[a,b],Fun,#{}]) = (catch maps:update_with([a,b],Fun,#{})),
     ok.
 
-init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
+t_update_with_4(Config) when is_list(Config) ->
+    V1 = value1,
+    V2 = <<"value2">>,
+    V3 = "value3",
+    Map = #{ key1 => V1, key2 => V2, "key3" => V3 },
+    Fun = fun(V) -> [V,V,{V,V}] end,
+    Init = 3,
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    #{ key1 := [V1,V1,{V1,V1}] } = maps:update_with(key1,Fun,Init,Map),
+    #{ key2 := [V2,V2,{V2,V2}] } = maps:update_with(key2,Fun,Init,Map),
+    #{ "key3" := [V3,V3,{V3,V3}] } = maps:update_with("key3",Fun,Init,Map),
+
+    #{ key3 := Init } = maps:update_with(key3,Fun,Init,Map),
+
+    %% error case
+    ?badmap(b,update_with,[[a,b],a,b]) = (catch maps:update_with([a,b],id(a),b)),
+    ?badarg(update_with,[[a,b],a,#{}]) = (catch maps:update_with([a,b],id(a),#{})),
     ok.
+
 
 t_get_3(Config) when is_list(Config) ->
     Map = #{ key1 => value1, key2 => value2 },

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@
 -record(domTree, {root                     :: cfg_lbl(),
 		  size  = 0		   :: non_neg_integer(),
 		  nodes = gb_trees:empty() :: gb_trees:tree()}).
--type domTree() :: #domTree{}.
+-opaque domTree() :: #domTree{}.
 
 %%>----------------------------------------------------------------------<
 %% Procedure : domTree_create/1

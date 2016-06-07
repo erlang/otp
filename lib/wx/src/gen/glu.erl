@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -356,7 +356,7 @@ checkExtension(ExtName,ExtString) ->
 %% at the +`y' axis. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluCylinder.xml">external</a> documentation.
--spec cylinder(Quad, Base, Top, Height, Slices, Stacks) -> ok when Quad :: integer(),Base :: float(),Top :: float(),Height :: float(),Slices :: integer(),Stacks :: integer().
+-spec cylinder(Quad, Base, Top, Height, Slices, Stacks) -> 'ok' when Quad :: integer(),Base :: float(),Top :: float(),Height :: float(),Slices :: integer(),Stacks :: integer().
 cylinder(Quad,Base,Top,Height,Slices,Stacks) ->
   cast(5017, <<Quad:?GLUquadric,Base:?GLdouble,Top:?GLdouble,Height:?GLdouble,Slices:?GLint,Stacks:?GLint>>).
 
@@ -367,7 +367,7 @@ cylinder(Quad,Base,Top,Height,Slices,Stacks) ->
 %% cannot be used again. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluDeleteQuadric.xml">external</a> documentation.
--spec deleteQuadric(Quad) -> ok when Quad :: integer().
+-spec deleteQuadric(Quad) -> 'ok' when Quad :: integer().
 deleteQuadric(Quad) ->
   cast(5018, <<Quad:?GLUquadric>>).
 
@@ -390,7 +390,7 @@ deleteQuadric(Quad) ->
 %% (0, -`r', 0) it is (0.5, 0). 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluDisk.xml">external</a> documentation.
--spec disk(Quad, Inner, Outer, Slices, Loops) -> ok when Quad :: integer(),Inner :: float(),Outer :: float(),Slices :: integer(),Loops :: integer().
+-spec disk(Quad, Inner, Outer, Slices, Loops) -> 'ok' when Quad :: integer(),Inner :: float(),Outer :: float(),Slices :: integer(),Loops :: integer().
 disk(Quad,Inner,Outer,Slices,Loops) ->
   cast(5019, <<Quad:?GLUquadric,Inner:?GLdouble,Outer:?GLdouble,Slices:?GLint,Loops:?GLint>>).
 
@@ -468,7 +468,7 @@ getString(Name) ->
 %% -eyez); 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluLookAt.xml">external</a> documentation.
--spec lookAt(EyeX, EyeY, EyeZ, CenterX, CenterY, CenterZ, UpX, UpY, UpZ) -> ok when EyeX :: float(),EyeY :: float(),EyeZ :: float(),CenterX :: float(),CenterY :: float(),CenterZ :: float(),UpX :: float(),UpY :: float(),UpZ :: float().
+-spec lookAt(EyeX, EyeY, EyeZ, CenterX, CenterY, CenterZ, UpX, UpY, UpZ) -> 'ok' when EyeX :: float(),EyeY :: float(),EyeZ :: float(),CenterX :: float(),CenterY :: float(),CenterZ :: float(),UpX :: float(),UpY :: float(),UpZ :: float().
 lookAt(EyeX,EyeY,EyeZ,CenterX,CenterY,CenterZ,UpX,UpY,UpZ) ->
   cast(5022, <<EyeX:?GLdouble,EyeY:?GLdouble,EyeZ:?GLdouble,CenterX:?GLdouble,CenterY:?GLdouble,CenterZ:?GLdouble,UpX:?GLdouble,UpY:?GLdouble,UpZ:?GLdouble>>).
 
@@ -489,7 +489,7 @@ newQuadric() ->
 %% to calling  {@link gl:ortho/6}  with   near=-1 and   far=1. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluOrtho2D.xml">external</a> documentation.
--spec ortho2D(Left, Right, Bottom, Top) -> ok when Left :: float(),Right :: float(),Bottom :: float(),Top :: float().
+-spec ortho2D(Left, Right, Bottom, Top) -> 'ok' when Left :: float(),Right :: float(),Bottom :: float(),Top :: float().
 ortho2D(Left,Right,Bottom,Top) ->
   cast(5024, <<Left:?GLdouble,Right:?GLdouble,Bottom:?GLdouble,Top:?GLdouble>>).
 
@@ -518,7 +518,7 @@ ortho2D(Left,Right,Bottom,Top) ->
 %%  at (0, -`r', 0) it is (0.5, 0.0). 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluPartialDisk.xml">external</a> documentation.
--spec partialDisk(Quad, Inner, Outer, Slices, Loops, Start, Sweep) -> ok when Quad :: integer(),Inner :: float(),Outer :: float(),Slices :: integer(),Loops :: integer(),Start :: float(),Sweep :: float().
+-spec partialDisk(Quad, Inner, Outer, Slices, Loops, Start, Sweep) -> 'ok' when Quad :: integer(),Inner :: float(),Outer :: float(),Slices :: integer(),Loops :: integer(),Start :: float(),Sweep :: float().
 partialDisk(Quad,Inner,Outer,Slices,Loops,Start,Sweep) ->
   cast(5025, <<Quad:?GLUquadric,Inner:?GLdouble,Outer:?GLdouble,Slices:?GLint,Loops:?GLint,Start:?GLdouble,Sweep:?GLdouble>>).
 
@@ -542,7 +542,7 @@ partialDisk(Quad,Inner,Outer,Slices,Loops,Start,Sweep) ->
 %% (f/aspect 0 0 0 0 f 0 0 0 0(zFar+zNear)/(zNear-zFar)(2×zFar×zNear)/(zNear-zFar) 0 0 -1 0)
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluPerspective.xml">external</a> documentation.
--spec perspective(Fovy, Aspect, ZNear, ZFar) -> ok when Fovy :: float(),Aspect :: float(),ZNear :: float(),ZFar :: float().
+-spec perspective(Fovy, Aspect, ZNear, ZFar) -> 'ok' when Fovy :: float(),Aspect :: float(),ZNear :: float(),ZFar :: float().
 perspective(Fovy,Aspect,ZNear,ZFar) ->
   cast(5026, <<Fovy:?GLdouble,Aspect:?GLdouble,ZNear:?GLdouble,ZFar:?GLdouble>>).
 
@@ -568,7 +568,7 @@ perspective(Fovy,Aspect,ZNear,ZFar) ->
 %% it was subdivided without the pick matrix. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluPickMatrix.xml">external</a> documentation.
--spec pickMatrix(X, Y, DelX, DelY, Viewport) -> ok when X :: float(),Y :: float(),DelX :: float(),DelY :: float(),Viewport :: {integer(),integer(),integer(),integer()}.
+-spec pickMatrix(X, Y, DelX, DelY, Viewport) -> 'ok' when X :: float(),Y :: float(),DelX :: float(),DelY :: float(),Viewport :: {integer(),integer(),integer(),integer()}.
 pickMatrix(X,Y,DelX,DelY,{V1,V2,V3,V4}) ->
   cast(5027, <<X:?GLdouble,Y:?GLdouble,DelX:?GLdouble,DelY:?GLdouble,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
@@ -621,7 +621,7 @@ project(ObjX,ObjY,ObjZ,{M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12},{P1,P2,P3,P4,P5,
 %% `?GLU_POINT':  Quadrics are rendered as a set of points. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluQuadricDrawStyle.xml">external</a> documentation.
--spec quadricDrawStyle(Quad, Draw) -> ok when Quad :: integer(),Draw :: enum().
+-spec quadricDrawStyle(Quad, Draw) -> 'ok' when Quad :: integer(),Draw :: enum().
 quadricDrawStyle(Quad,Draw) ->
   cast(5029, <<Quad:?GLUquadric,Draw:?GLenum>>).
 
@@ -638,7 +638,7 @@ quadricDrawStyle(Quad,Draw) ->
 %% initial value. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluQuadricNormals.xml">external</a> documentation.
--spec quadricNormals(Quad, Normal) -> ok when Quad :: integer(),Normal :: enum().
+-spec quadricNormals(Quad, Normal) -> 'ok' when Quad :: integer(),Normal :: enum().
 quadricNormals(Quad,Normal) ->
   cast(5030, <<Quad:?GLUquadric,Normal:?GLenum>>).
 
@@ -656,7 +656,7 @@ quadricNormals(Quad,Normal) ->
 %% being drawn. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluQuadricOrientation.xml">external</a> documentation.
--spec quadricOrientation(Quad, Orientation) -> ok when Quad :: integer(),Orientation :: enum().
+-spec quadricOrientation(Quad, Orientation) -> 'ok' when Quad :: integer(),Orientation :: enum().
 quadricOrientation(Quad,Orientation) ->
   cast(5031, <<Quad:?GLUquadric,Orientation:?GLenum>>).
 
@@ -671,7 +671,7 @@ quadricOrientation(Quad,Orientation) ->
 %% rendered. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluQuadricTexture.xml">external</a> documentation.
--spec quadricTexture(Quad, Texture) -> ok when Quad :: integer(),Texture :: 0|1.
+-spec quadricTexture(Quad, Texture) -> 'ok' when Quad :: integer(),Texture :: 0|1.
 quadricTexture(Quad,Texture) ->
   cast(5032, <<Quad:?GLUquadric,Texture:?GLboolean>>).
 
@@ -714,7 +714,7 @@ scaleImage(Format,WIn,HIn,TypeIn,DataIn,WOut,HOut,TypeOut,DataOut) ->
 %%  axis, and back to 1.0  at the +`y' axis. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluSphere.xml">external</a> documentation.
--spec sphere(Quad, Radius, Slices, Stacks) -> ok when Quad :: integer(),Radius :: float(),Slices :: integer(),Stacks :: integer().
+-spec sphere(Quad, Radius, Slices, Stacks) -> 'ok' when Quad :: integer(),Radius :: float(),Slices :: integer(),Stacks :: integer().
 sphere(Quad,Radius,Slices,Stacks) ->
   cast(5034, <<Quad:?GLUquadric,Radius:?GLdouble,Slices:?GLint,Stacks:?GLint>>).
 

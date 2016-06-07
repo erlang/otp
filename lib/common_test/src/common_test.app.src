@@ -1,7 +1,7 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 	     ct_framework,
 	     ct_ftp,
 	     ct_gen_conn,
+	     ct_groups,
              ct_hooks,
              ct_hooks_lock,
 	     ct_logs,
@@ -36,6 +37,8 @@
 	     ct_master_status,
 	     ct_netconfc,
 	     ct_conn_log_h,
+	     ct_property_test,
+	     ct_release_test,
 	     ct_repeat,
 	     ct_rpc,
 	     ct_run,
@@ -45,6 +48,8 @@
 	     ct_telnet,
 	     ct_testspec,
 	     ct_util,
+	     ct_webtool,
+	     ct_webtool_sup,
 	     unix_telnet,
 	     vts,
 	     ct_config,
@@ -53,7 +58,14 @@
 	     ct_slave,
              cth_log_redirect,
 	     cth_conn_log,
-             cth_surefire
+             cth_surefire,
+	     erl2html2,
+	     test_server_ctrl,
+	     test_server,
+	     test_server_gl,
+	     test_server_io,
+	     test_server_node,
+	     test_server_sup
 	    ]},
   {registered, [ct_logs,
 		ct_util_server,
@@ -61,13 +73,27 @@
 		ct_make_ref,
 		vts,
 		ct_master,
-		ct_master_logs]},
+		ct_master_logs,
+		test_server_ctrl,
+		test_server,
+		test_server_break_process]},
   {applications, [kernel,stdlib]},
   {env, []},
-  {runtime_dependencies,["xmerl-1.3.8","tools-2.8",
-			 "test_server-3.9","stdlib-2.5","ssh-4.0",
-			 "snmp-5.1.2","sasl-2.4.2","runtime_tools-1.8.16",
-			 "kernel-4.0","inets-6.0","erts-7.0",
-			 "debugger-4.1","crypto-3.6","compiler-6.0",
-			 "observer-2.1"]}]}.
+  {runtime_dependencies,
+   ["compiler-6.0",
+    "crypto-3.6",
+    "debugger-4.1",
+    "erts-7.0",
+    "inets-6.0",
+    "kernel-4.0",
+    "observer-2.1",
+    "runtime_tools-1.8.16",
+    "sasl-2.4.2",
+    "snmp-5.1.2",
+    "ssh-4.0",
+    "stdlib-2.5",
+    "syntax_tools-1.7",
+    "tools-2.8",
+    "xmerl-1.3.8"
+   ]}]}.
 

@@ -224,17 +224,12 @@ sappend(Log, Term) ->
     ok = disk_log:log(Log, Term).
 
 %% Write commit records to the latest_log
-log(C) when  C#commit.disc_copies == [],
-             C#commit.disc_only_copies  == [],
-             C#commit.schema_ops == [] ->
-    ignore;
 log(C) ->
-    case mnesia_monitor:use_dir() of
+    case need_log(C) andalso mnesia_monitor:use_dir() of
         true ->
 	    if
 		is_record(C, commit) ->
-		    C2 =  C#commit{ram_copies = [], snmp = []},
-		    append(latest_log, C2);
+		    append(latest_log, strip_snmp(C));
 		true ->
 		    %% Either a commit record as binary
 		    %% or some decision related info
@@ -247,17 +242,12 @@ log(C) ->
 
 %% Synced
 
-slog(C) when  C#commit.disc_copies == [],
-             C#commit.disc_only_copies  == [],
-             C#commit.schema_ops == [] ->
-    ignore;
 slog(C) ->
-    case mnesia_monitor:use_dir() of
+    case need_log(C) andalso mnesia_monitor:use_dir() of
         true ->
 	    if
 		is_record(C, commit) ->
-		    C2 =  C#commit{ram_copies = [], snmp = []},
-		    sappend(latest_log, C2);
+		    sappend(latest_log, strip_snmp(C));
 		true ->
 		    %% Either a commit record as binary
 		    %% or some decision related info
@@ -268,6 +258,13 @@ slog(C) ->
 	    ignore
     end.
 
+need_log(#commit{disc_copies=[], disc_only_copies=[], schema_ops=[], ext=Ext}) ->
+    lists:keymember(ext_copies, 1, Ext);
+need_log(_) -> true.
+
+strip_snmp(#commit{ext=[]}=CR) -> CR;
+strip_snmp(#commit{ext=Ext}=CR) ->
+    CR#commit{ext=lists:keydelete(snmp, 1, Ext)}.
 
 %% Stuff related to the file LOG
 

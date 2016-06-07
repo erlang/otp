@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -200,8 +200,8 @@ char *read_packet(int *len)
  * -----		----------------------------
  * [$b|Bytes]		{bytes, Bytes}
  * [$e]			eot
- * [$f]			test_server:fail()
- * [$f|Reason]		test_server:fail(Reason)
+ * [$f]			ct:fail()
+ * [$f|Reason]		ct:fail(Reason)
  * [$t|EncodedTerm]	{term, Term}
  * [$N]			'NULL'
  * [$m|Message]		io:format("~s", [Message])   (otherwise ignored)
@@ -213,7 +213,7 @@ char *read_packet(int *len)
  * you implement a test case entirely in C code.
  *
  * If the ok argument is zero, a [$f] reply will be sent to the
- * Erlang side (causing test_server:fail() to be called); otherwise,
+ * Erlang side (causing ct:fail() to be called); otherwise,
  * the atom 'eot' will be sent to Erlang.
  *
  * If you need to provide more details on a failure, use the fail() function.
@@ -253,7 +253,7 @@ do_report(file, line, ok)
 
 
 /*
- * This function causes a call to test_server:fail(Reason) on the
+ * This function causes a call to ct:fail(Reason) on the
  * Erlang side.
  */
 

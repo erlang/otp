@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@
 %%% CommonTest callbacks
 %%% 
 suite() ->
-    [{timetrap,{minutes,2}}].
+    [{timetrap,{seconds,180}}].
 
 all() -> 
     [
@@ -59,7 +59,7 @@ init_per_suite(Config0) ->
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
     ssh:stop(),
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_rsa(UserDir).
 
 init_per_testcase(_TestCase, Config) ->
@@ -138,15 +138,16 @@ test_soft(State0, FileName) ->
 
 
 setup_server_client(#state{config=Config} = State) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 	    
     FtpRootDir = filename:join(PrivDir, "ftp_root"),
     catch file:make_dir(FtpRootDir),
 	
     SFTP = ssh_sftpd:subsystem_spec([{root,FtpRootDir},{cwd,FtpRootDir}]),
 
-    {Server,Host,Port} = ssh_test_lib:daemon([{system_dir,DataDir},
+    {Server,Host,Port} = ssh_test_lib:daemon(ssh_test_lib:inet_port(), % when lower rel is 18.x
+					     [{system_dir,DataDir},
 					      {user_passwords,[{"hej","hopp"}]},
 					      {subsystems,[SFTP]}]),
     

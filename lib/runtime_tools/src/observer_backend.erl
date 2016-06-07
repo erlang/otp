@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_table/3, get_table_list/2, fetch_stats/2]).
+-export([sys_info/0, get_port_list/0,
+	 get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
 -export([etop_collect/1]).
@@ -138,6 +139,15 @@ get_mnesia_loop(Parent, '$end_of_table') ->
 get_mnesia_loop(Parent, {Match, Cont}) ->
     Parent ! {self(), Match},
     get_mnesia_loop(Parent, mnesia:select(Cont)).
+
+get_port_list() ->
+    [begin
+	 [{port_id,P}|erlang:port_info(P)] ++
+	     case erlang:port_info(P,monitors) of
+		 undefined -> [];
+		 Monitors -> [Monitors]
+	     end
+     end || P <- erlang:ports()].
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
@@ -259,7 +269,8 @@ etop_collect(Collector) ->
 
     case SchedulerWallTime of
 	undefined ->
-	    spawn(fun() -> flag_holder_proc(Collector) end);
+	    spawn(fun() -> flag_holder_proc(Collector) end),
+            ok;
 	_ ->
 	    ok
     end,
@@ -334,8 +345,8 @@ ttb_init_node(MetaFile_0,PI,Traci) ->
     MetaPid ! {metadata,Traci},
     case PI of
 	true ->
-	    Proci = pnames(),
-	    MetaPid ! {metadata,Proci};
+	    MetaPid ! {metadata,pnames()},
+            ok;
 	false ->
 	    ok
     end,
@@ -354,7 +365,8 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
 	    erlang:trace_pattern({erlang,spawn_link,3},ReturnMS,[meta]),
 	    erlang:trace_pattern({erlang,spawn_opt,1},ReturnMS,[meta]),
 	    erlang:trace_pattern({erlang,register,2},[],[meta]),
-	    erlang:trace_pattern({global,register_name,2},[],[meta]);
+	    erlang:trace_pattern({global,register_name,2},[],[meta]),
+            ok;
 	false ->
 	    ok
     end,
@@ -362,7 +374,8 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
     case proplists:get_value(overload_check, SessionData) of
         {Ms, M, F} ->
             catch M:F(init),
-            erlang:send_after(Ms, self(), overload_check);
+            erlang:send_after(Ms, self(), overload_check),
+            ok;
         _ ->
             ok
     end,
@@ -371,10 +384,10 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
 ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
     receive
 	{trace_ts,_,call,{erlang,register,[Name,Pid]},_} ->
-	    ttb_store_meta({pid,{Pid,Name}},MetaFile),
+	    ok = ttb_store_meta({pid,{Pid,Name}},MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 	{trace_ts,_,call,{global,register_name,[Name,Pid]},_} ->
-	    ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
+	    ok = ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 	{trace_ts,CallingPid,call,{erlang,spawn_opt,[{M,F,Args,_}]},_} ->
 	    MFA = {M,F,length(Args)},
@@ -390,7 +403,7 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 	    NewAcc = 
 		dict:update(CallingPid,
 			    fun([H|T]) -> 
-				    ttb_store_meta({pid,{NewPid,H}},MetaFile),
+				    ok = ttb_store_meta({pid,{NewPid,H}},MetaFile),
 				    T 
 			    end,
 			    Acc),
@@ -408,22 +421,22 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 	    NewAcc = 
 		dict:update(CallingPid,
 			    fun([H|T]) -> 
-				    ttb_store_meta({pid,{NewPid,H}},MetaFile),
+				    ok = ttb_store_meta({pid,{NewPid,H}},MetaFile),
 				    T
 			    end,
 			    Acc),
 	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 
 	{metadata,Data} when is_list(Data) ->
-	    ttb_store_meta(Data,MetaFile),
+	    ok = ttb_store_meta(Data,MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 
 	{metadata,Key,Fun} when is_function(Fun) ->
-	    ttb_store_meta([{Key,Fun()}],MetaFile),
+	    ok = ttb_store_meta([{Key,Fun()}],MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 
 	{metadata,Key,What} ->
-	    ttb_store_meta([{Key,What}],MetaFile),
+	    ok = ttb_store_meta([{Key,What}],MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
         overload_check ->
             {Ms, M, F} = proplists:get_value(overload_check, State),
@@ -439,7 +452,7 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
                     ttb_meta_tracer_loop(MetaFile,PI,Acc, State)
             end;
      {'DOWN', _, _, _, _} ->
-            stop_seq_trace(),
+            _ = stop_seq_trace(),
             self() ! stop,
             ttb_meta_tracer_loop(MetaFile,PI,Acc, State);
      stop when PI=:=true ->
@@ -528,7 +541,7 @@ ttb_store_meta(Data,MetaFile) ->
     ttb_store_meta([Data],MetaFile).
 
 ttb_write_binary(Fd,[H|T]) ->
-    file:write(Fd,ttb_make_binary(H)),
+    ok = file:write(Fd,ttb_make_binary(H)),
     ttb_write_binary(Fd,T);
 ttb_write_binary(_Fd,[]) ->
     ok.
@@ -585,9 +598,9 @@ ttb_fetch(MetaFile,{Port,Host}) ->
 
 send_files({Sock,Host},[File|Files]) ->
     {ok,Fd} = file:open(File,[raw,read,binary]),
-    gen_tcp:send(Sock,<<1,(list_to_binary(filename:basename(File)))/binary>>),
+    ok = gen_tcp:send(Sock,<<1,(list_to_binary(filename:basename(File)))/binary>>),
     send_chunks(Sock,Fd),
-    file:delete(File),
+    ok = file:delete(File),
     send_files({Sock,Host},Files);
 send_files({_Sock,_Host},[]) ->
     done.

@@ -66,7 +66,9 @@
         t_export/1,
 
 	%% errors in 18
-        t_register_corruption/1
+        t_register_corruption/1,
+	t_bad_update/1
+
     ]).
 
 suite() -> [].
@@ -117,7 +119,8 @@ all() ->
         t_export,
 
 	%% errors in 18
-        t_register_corruption
+        t_register_corruption,
+        t_bad_update
     ].
 
 groups() -> [].
@@ -1284,6 +1287,7 @@ t_guard_update(Config) when is_list(Config) ->
     first  = map_guard_update(#{}, #{x=>first}),
     second = map_guard_update(#{y=>old}, #{x=>second,y=>old}),
     third  = map_guard_update(#{x=>old,y=>old}, #{x=>third,y=>old}),
+    bad_map_guard_update(),
     ok.
 
 t_guard_update_large(Config) when is_list(Config) ->
@@ -1349,6 +1353,29 @@ map_guard_update(M1, M2) when M1#{x=>first}  =:= M2 -> first;
 map_guard_update(M1, M2) when M1#{x=>second} =:= M2 -> second;
 map_guard_update(M1, M2) when M1#{x:=third}  =:= M2 -> third;
 map_guard_update(_, _) -> error.
+
+bad_map_guard_update() ->
+    do_bad_map_guard_update(fun burns/1),
+    do_bad_map_guard_update(fun turns/1),
+    ok.
+
+do_bad_map_guard_update(Fun) ->
+    do_bad_map_guard_update_1(Fun, #{}),
+    do_bad_map_guard_update_1(Fun, #{true=>1}),
+    ok.
+
+do_bad_map_guard_update_1(Fun, Value) ->
+    %% Note: The business with the seemingly redundant fun
+    %% disables inlining, which would otherwise change the
+    %% EXIT reason.
+    {'EXIT',{function_clause,_}} = (catch Fun(Value)),
+    ok.
+
+burns(Richmond) when not (Richmond#{true := 0}); [Richmond] ->
+    specification.
+
+turns(Richmond) when not (Richmond#{true => 0}); [Richmond] ->
+    specification.
 
 t_guard_receive(Config) when is_list(Config) ->
     M0  = #{ id => 0 },
@@ -1479,7 +1506,7 @@ t_guard_fun(Config) when is_list(Config) ->
 	{'EXIT', {function_clause,[{?MODULE,_,[#{s:=none,v:=none}],_}|_]}} -> ok;
 	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
 	Other ->
-	    test_server:fail({no_match, Other})
+	    ct:fail({no_match, Other})
     end.
 
 
@@ -1565,7 +1592,7 @@ t_build_and_match_empty_val(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} -> ok;
 	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
 	Other ->
-	    test_server:fail({no_match, Other})
+	    ct:fail({no_match, Other})
     end.
 
 t_build_and_match_val(Config) when is_list(Config) ->
@@ -1583,7 +1610,7 @@ t_build_and_match_val(Config) when is_list(Config) ->
 	{'EXIT',{function_clause,_}} -> ok;
 	{'EXIT', {{case_clause,_},_}} -> {comment,inlined};
 	Other ->
-	    test_server:fail({no_match, Other})
+	    ct:fail({no_match, Other})
     end.
 
 t_build_and_match_nil(Config) when is_list(Config) ->
@@ -1885,7 +1912,7 @@ register_corruption_dummy_call(A,B,C) -> {A,B,C}.
 
 
 t_frequency_table(Config) when is_list(Config) ->
-    random:seed({13,1337,54}),  % pseudo random
+    rand:seed(exsplus, {13,1337,54}),		% pseudo random
     N = 100000,
     Ts = rand_terms(N),
     #{ n:=N, tf := Tf } = frequency_table(Ts,#{ n=>0, tf => #{}}),
@@ -1922,13 +1949,26 @@ validate_frequency([{T,C}|Fs],Tf) ->
 validate_frequency([], _) -> ok.
 
 
+t_bad_update(_Config) ->
+    {#{0.0:=Id},#{}} = properly(#{}),
+    42 = Id(42),
+    {'EXIT',{{badmap,_},_}} = (catch increase(0)),
+    ok.
+
+properly(Item) ->
+    {Item#{0.0 => fun id/1},Item}.
+
+increase(Allows) ->
+    catch fun() -> Allows end#{[] => +Allows, "warranty" => fun id/1}.
+
+
 %% aux
 
 rand_terms(0) -> [];
 rand_terms(N) -> [rand_term()|rand_terms(N-1)].
 
 rand_term() ->
-    case random:uniform(6) of
+    case rand:uniform(6) of
 	1 -> rand_binary();
 	2 -> rand_number();
 	3 -> rand_atom();
@@ -1938,21 +1978,21 @@ rand_term() ->
     end.
 
 rand_binary() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> <<>>;
 	2 -> <<"hi">>;
 	3 -> <<"message text larger than 64 bytes. yep, message text larger than 64 bytes.">>
     end.
 
 rand_number() ->
-    case random:uniform(3) of
-	1 -> random:uniform(5);
-	2 -> float(random:uniform(5));
-	3 -> 1 bsl (63 + random:uniform(3))
+    case rand:uniform(3) of
+	1 -> rand:uniform(5);
+	2 -> float(rand:uniform(5));
+	3 -> 1 bsl (63 + rand:uniform(3))
     end.
 
 rand_atom() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> hi;
 	2 -> some_atom;
 	3 -> some_other_atom
@@ -1960,21 +2000,21 @@ rand_atom() ->
 
 
 rand_tuple() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> {ok, rand_term()}; % careful
 	2 -> {1, 2, 3};
 	3 -> {<<"yep">>, 1337}
     end.
 
 rand_list() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> "hi";
 	2 -> [1,rand_term()]; % careful
 	3 -> [improper|list]
     end.
 
 rand_map() ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 -> #{ hi => 3 };
 	2 -> #{ wat => rand_term(), other => 3 };  % careful
 	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2000-2012. All Rights Reserved.
+# Copyright Ericsson AB 2000-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,7 +85,6 @@ ERL_COMPILE_FLAGS +=  \
 	$(ERL_IDL_FLAGS) \
 	-pa $(ERL_TOP)/lib/orber/include \
 	-pa $(ERL_TOP)/lib/cosProperty/include \
-	-pa $(ERL_TOP)/internal_tools/test_server/ebin \
 	-pa $(ERL_TOP)/lib/cosFileTransfer/ebin \
 	-pa $(ERL_TOP)/lib/cosFileTransfer/include \
 	-pa $(ERL_TOP)/lib/cosFileTransfer/test/idl_output \
@@ -94,8 +93,7 @@ ERL_COMPILE_FLAGS +=  \
 	-I$(ERL_TOP)/lib/cosFileTransfer/src \
 	-I$(ERL_TOP)/lib/cosFileTransfer/include \
 	-I$(ERL_TOP)/lib/cosFileTransfer \
-	-I$(ERL_TOP)/lib/cosFileTransfer/test/$(IDLOUTDIR) \
-	-I$(ERL_TOP)/lib/test_server/include
+	-I$(ERL_TOP)/lib/cosFileTransfer/test/$(IDLOUTDIR)
 
 # ----------------------------------------------------
 # Targets

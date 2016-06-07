@@ -54,7 +54,7 @@ unix_cases() ->
 	    end,
     [target_system, target_system_unicode] ++ RunErlCases ++ cases().
 
-win32_cases() -> 
+win32_cases() ->
     [{group,release} | cases()].
 
 %% Cases that can be run on all platforms
@@ -89,11 +89,16 @@ groups() ->
 %% {group,release}
 %% Top group for all cases using run_erl
 init_per_group(release, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    P1gInstall = filename:join(priv_dir(Config),p1g_install),
-    ok = create_p1g(Config,P1gInstall),
-    ok = create_p1h(Config),
-    ?t:timetrap_cancel(Dog);
+    case {os:type(), os:version()} of
+	{{win32, nt}, Vsn} when Vsn > {6,1,999999} ->
+	    {skip, "Requires admin privileges on Win 8 and later"};
+	_ ->
+	    Dog = ?t:timetrap(?default_timeout),
+	    P1gInstall = filename:join(priv_dir(Config),p1g_install),
+	    ok = create_p1g(Config,P1gInstall),
+	    ok = create_p1h(Config),
+	    ?t:timetrap_cancel(Dog)
+    end;
 
 %% {group,release_single}
 %% Subgroup of {group,release}, contains all cases that are not

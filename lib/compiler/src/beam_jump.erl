@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -266,17 +266,17 @@ extract_seq_1(_, _) -> no.
 %%% (3) (4) (5) (6) Jump and unreachable code optimizations.
 %%%
 
--record(st, {fc,				%Label for function class errors.
-	     entry,				%Entry label (must not be moved).
-	     mlbl,				%Moved labels.
-             labels :: cerl_sets:set()          %Set of referenced labels.
-	    }).
+-record(st,
+	{
+	  entry,		     %Entry label (must not be moved).
+	  mlbl,			     %Moved labels.
+	  labels :: cerl_sets:set()  %Set of referenced labels.
+	}).
 
-opt([{label,Fc}|_]=Is0, CLabel) ->
-    Lbls = initial_labels(Is0),
+opt(Is0, CLabel) ->
     find_fixpoint(fun(Is) ->
-			  St = #st{fc=Fc,entry=CLabel,mlbl=#{},
-				   labels=Lbls},
+			  Lbls = initial_labels(Is),
+			  St = #st{entry=CLabel,mlbl=#{},labels=Lbls},
 			  opt(Is, [], St)
 		  end, Is0).
 
@@ -327,7 +327,8 @@ opt([{label,Lbl}=I|Is], Acc, #st{mlbl=Mlbl}=St0) ->
 	    %% since we will rescan the inserted labels.  We MUST rescan.
 	    St = St0#st{mlbl=maps:remove(Lbl, Mlbl)},
 	    insert_labels([Lbl|Lbls], Is, Acc, St);
-	error -> opt(Is, [I|Acc], St0)
+	error ->
+	    opt(Is, [I|Acc], St0)
     end;
 opt([{jump,{f,_}=X}|[{label,_},{jump,X}|_]=Is], Acc, St) ->
     opt(Is, Acc, St);
@@ -362,28 +363,25 @@ opt([I|Is], Acc, #st{labels=Used0}=St0) ->
 	true  -> skip_unreachable(Is, [I|Acc], St);
 	false -> opt(Is, [I|Acc], St)
     end;
-opt([], Acc, #st{fc=Fc,mlbl=Mlbl}) ->
+opt([], Acc, #st{mlbl=Mlbl}) ->
     Code = reverse(Acc),
-    case maps:find(Fc, Mlbl) of
- 	{ok,Lbls} -> insert_fc_labels(Lbls, Mlbl, Code);
- 	error -> Code
-    end.
+    insert_fc_labels(Code, Mlbl).
+
+insert_fc_labels([{label,L}=I|Is0], Mlbl) ->
+    case maps:find(L, Mlbl) of
+	error ->
+	    [I|insert_fc_labels(Is0, Mlbl)];
+	{ok,Lbls} ->
+	    Is = [{label,Lb} || Lb <- Lbls] ++ Is0,
+	    [I|insert_fc_labels(Is, maps:remove(L, Mlbl))]
+    end;
+insert_fc_labels([_|_]=Is, _) -> Is.
 
 maps_append_list(K,Vs,M) ->
     case M of
         #{K:=Vs0} -> M#{K:=Vs0++Vs}; % same order as dict
         _ -> M#{K => Vs}
     end.
-
-insert_fc_labels([L|Ls], Mlbl, Acc0) ->
-    Acc = [{label,L}|Acc0],
-    case maps:find(L, Mlbl) of
-	error ->
-	    insert_fc_labels(Ls, Mlbl, Acc);
-	{ok,Lbls} ->
-	    insert_fc_labels(Lbls++Ls, Mlbl, Acc)
-    end;
-insert_fc_labels([], _, Acc) -> Acc.
 
 collect_labels(Is, #st{entry=Entry}) ->
     collect_labels_1(Is, Entry, []).
@@ -495,7 +493,7 @@ is_label_used_in_block({set,_,_,Info}, Lbl) ->
         {alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
         {alloc,_,{put_map,_,{f,F}}} -> F =:= Lbl;
         {get_map_elements,{f,F}} -> F =:= Lbl;
-        {'catch',{f,F}} -> F =:= Lbl;
+        {try_catch,_,{f,F}} -> F =:= Lbl;
         {alloc,_,_} -> false;
         {put_tuple,_} -> false;
         {get_tuple_element,_} -> false;

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -69,7 +69,7 @@
     <p>
       For integers and atoms, it is allowed for singleton types; for example,
       the integers
-      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>).
+      <c>-1</c> and <c>42</c>, or the atoms <c>'foo'</c> and <c>'bar'</c>.
 
       All other types are built using unions of either predefined
       types or singleton types. In a type union between a type and one
@@ -132,15 +132,18 @@
         | nonempty_list(Type)                  %% Proper non-empty list
 
   Map :: map()                                 %% stands for a map of any size
-       | #{}                                   %% stands for a map of any size
+       | #{}                                   %% stands for the empty map
        | #{PairList}
 
   Tuple :: tuple()                             %% stands for a tuple of any size
          | {}
          | {TList}
 
-  PairList :: Type => Type
-            | Type => Type, PairList
+  PairList :: Pair
+            | Pair, PairList
+
+  Pair :: Type := Type                         %% notes a pair that must be present
+        | Type => Type
 
   TList :: Type
          | Type, TList
@@ -148,9 +151,9 @@
   Union :: Type1 | Type2
 ]]></pre>
   <p>
-    The general form of bitstrings is <c>&lt;&lt;_:M, _:_*N&gt;&gt;</c>,
+    The general form of bit strings is <c>&lt;&lt;_:M, _:_*N&gt;&gt;</c>,
     where <c>M</c> and <c>N</c> are positive integers. It denotes a
-    bitstring that is <c>M + (k*N)</c> bits long (that is, a bitstring that
+    bit string that is <c>M + (k*N)</c> bits long (that is, a bit string that
     starts with <c>M</c> bits and continues with <c>k</c> segments of
     <c>N</c> bits each, where <c>k</c> is also a positive integer).
     The notations <c>&lt;&lt;_:_*N&gt;&gt;</c>, <c>&lt;&lt;_:M&gt;&gt;</c>,
@@ -168,6 +171,23 @@
     Notice that the shorthand for <c>list()</c>, that is, the list of
     elements of unknown type, is <c>[_]</c> (or <c>[any()]</c>), not <c>[]</c>. 
     The notation <c>[]</c> specifies the singleton type for the empty list.
+  </p>
+  <p>
+    The general form of maps is <c>#{PairList}</c>. The key types in
+    <c>PairList</c> are allowed to overlap, and if they do, the leftmost pair
+    takes precedence. A map value does not belong to this type if contains a key
+    that is not in <c>PairList</c>.
+  </p>
+  <p>
+    Because it is common to end a map type with <c>any() =&gt; any()</c> to denote
+    that keys that do not belong to any other pair in <c>PairList</c> are
+    allowed, and may map to any value, the shorthand notation <c>...</c> is
+    allowed as the last pair of a map type.
+  </p>
+  <p>
+    Notice that the syntactic representation of <c>map()</c> is <c>#{...}</c>
+    (or <c>#{_ =&gt; _}</c>, or <c>#{any() =&gt; any()}</c>), not <c>#{}</c>.
+    The notation <c>#{}</c> specifies the singleton type for the empty map.
   </p>
   <p>
     For convenience, the following types are also built-in. 
@@ -302,12 +322,6 @@
     This is described in <seealso marker="#typeinrecords">
     Type Information in Record Declarations</seealso>.
   </p>
-  <note>
-    <p>Map types, both <c>map()</c> and <c>#{...}</c>,
-      are considered experimental during OTP 17.</p>
-    <p>No type information of maps pairs, only the containing map types,
-      are used by Dialyzer in OTP 17.</p>
-  </note>
   </section>
 
   <section>
@@ -495,7 +509,8 @@
     </p>
     <pre>  -spec id(X) -> X when X :: tuple().</pre>
     <p>
-      Currently, the <c>::</c> constraint (read as <c>is_subtype</c>) is
+      Currently, the <c>::</c> constraint
+      (read as &laquo;is a subtype of&raquo;) is
       the only guard constraint that can be used in the <c>'when'</c>
       part of a <c>'-spec'</c> attribute.
     </p>
@@ -513,7 +528,7 @@
 	<em>the same</em> tuple.
       </p>
       <p>
-	However, it is up to the tools that process the specificationss
+	However, it is up to the tools that process the specifications
         to choose whether to take this extra information into account
         or not.
       </p>
@@ -529,16 +544,6 @@
     <pre>
   -spec foo({X, integer()}) -> X when X :: atom()
          ; ([Y]) -> Y when Y :: number().</pre>
-    <note>
-      <p>
-      For backwards compatibility the following form is also allowed:
-      </p>
-      <pre>  -spec id(X) -> X when is_subtype(X, tuple()).</pre>
-      <p>
-	but its use is discouraged. It will be removed in a future
-	Erlang/OTP release.
-      </p>
-    </note>
     <p>
       Some functions in Erlang are not meant to return; 
       either because they define servers or because they are used to 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -469,7 +469,8 @@ unforce_tree([#iset{var=#c_var{name=V},arg=Arg0}|Es], D0) ->
     unforce_tree(Es, D);
 unforce_tree([#icall{}=Call], D) ->
     unforce_tree_subst(Call, D);
-unforce_tree([Top], _) -> Top.
+unforce_tree([#c_var{name=V}], D) ->
+    gb_trees:get(V, D).
 
 unforce_tree_subst(#icall{module=#c_literal{val=erlang},
 			  name=#c_literal{val='=:='},
@@ -680,9 +681,36 @@ expr({match,L,P0,E0}, St0) ->
     Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
     case P2 of
 	nomatch ->
-	    St = add_warning(L, nomatch, St5),
-	    {#icase{anno=#a{anno=Lanno},
-		    args=[E2],clauses=[],fc=Fc},Eps1++Eps2,St};
+	    %% The pattern will not match. We must take care here to
+	    %% bind all variables that the pattern would have bound
+	    %% so that subsequent expressions do not refer to unbound
+	    %% variables.
+	    %%
+	    %% As an example, this code:
+	    %%
+	    %%   [X] = {Y} = E,
+	    %%   X + Y.
+	    %%
+	    %% will be rewritten to:
+	    %%
+	    %%   error({badmatch,E}),
+	    %%   case E of
+	    %%      {[X],{Y}} ->
+	    %%        X + Y;
+	    %%      Other ->
+	    %%        error({badmatch,Other})
+	    %%   end.
+	    %%
+	    St6 = add_warning(L, nomatch, St5),
+	    {Expr,Eps3,St7} = safe(E1, St6),
+	    SanPat0 = sanitize(P1),
+	    {SanPat,Eps4,St} = pattern(SanPat0, St7),
+	    Badmatch = c_tuple([#c_literal{val=badmatch},Expr]),
+	    Fail = #iprimop{anno=#a{anno=Lanno},
+			    name=#c_literal{val=match_fail},
+			    args=[Badmatch]},
+	    Eps = Eps3 ++ Eps4 ++ [Fail],
+	    {#imatch{anno=#a{anno=Lanno},pat=SanPat,arg=Expr,fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
 	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps1++Eps2,St5}
     end;
@@ -723,6 +751,32 @@ expr({op,L,Op,L0,R0}, St0) ->
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
+
+
+%% sanitize(Pat) -> SanitizedPattern
+%%  Rewrite Pat so that it will be accepted by pattern/2 and will
+%%  bind the same variables as the original pattern.
+%%
+%%  Here is an example of a pattern that would cause a pattern/2
+%%  to generate a 'nomatch' exception:
+%%
+%%      #{k:=X,k:=Y} = [Z]
+%%
+%%  The sanitized pattern will look like:
+%%
+%%      {{X,Y},[Z]}
+
+sanitize({match,L,P1,P2}) ->
+    {tuple,L,[sanitize(P1),sanitize(P2)]};
+sanitize({cons,L,H,T}) ->
+    {cons,L,sanitize(H),sanitize(T)};
+sanitize({tuple,L,Ps0}) ->
+    Ps = [sanitize(P) || P <- Ps0],
+    {tuple,L,Ps};
+sanitize({map,L,Ps0}) ->
+    Ps = [sanitize(V) || {map_field_exact,_,_,V} <- Ps0],
+    {tuple,L,Ps};
+sanitize(P) -> P.
 
 make_bool_switch(L, E, V, T, F, #core{in_guard=true}) ->
     make_bool_switch_guard(L, E, V, T, F);
@@ -783,7 +837,7 @@ badmap_term(_Map, #core{in_guard=true}) ->
     %% since it is not user-visible.
     #c_literal{val=badmap};
 badmap_term(Map, #core{in_guard=false}) ->
-    #c_tuple{es=[#c_literal{val=badmap},Map]}.
+    c_tuple([#c_literal{val=badmap},Map]).
 
 map_build_pairs(Map, Es0, Ann, St0) ->
     {Es,Pre,St1} = map_build_pairs_1(Es0, St0),
@@ -814,12 +868,16 @@ try_exception(Ecs0, St0) ->
     {Evs,St1} = new_vars(3, St0), % Tag, Value, Info
     {Ecs1,Ceps,St2} = clauses(Ecs0, St1),
     [_,Value,Info] = Evs,
-    Ec = #iclause{anno=#a{anno=[compiler_generated]},
+    LA = case Ecs1 of
+	     [] -> [];
+	     [C|_] -> get_lineno_anno(C)
+	 end,
+    Ec = #iclause{anno=#a{anno=[compiler_generated|LA]},
 		  pats=[c_tuple(Evs)],guard=[#c_literal{val=true}],
 		  body=[#iprimop{anno=#a{},       %Must have an #a{}
 				 name=#c_literal{val=raise},
 				 args=[Info,Value]}]},
-    Hs = [#icase{anno=#a{},args=[c_tuple(Evs)],clauses=Ecs1,fc=Ec}],
+    Hs = [#icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs1,fc=Ec}],
     {Evs,Ceps++Hs,St2}.
 
 try_after(As, St0) ->
@@ -1079,13 +1137,39 @@ bc_tq1(Line, E, [#igen{anno=GAnno,ceps=Ceps,
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
-    {E,Pre,St} = expr({bin,Bl,[{bin_element,Bl,
-				{var,Bl,AccVar#c_var.name},
-				{atom,Bl,all},
-				[binary,{unit,1}]}|Elements]}, St0),
+    bc_tq_build(Bl, [], AccVar, Elements, St0);
+bc_tq1(Line, E0, [], AccVar, St0) ->
+    BsFlags = [binary,{unit,1}],
+    BsSize = {atom,Line,all},
+    {E1,Pre0,St1} = safe(E0, St0),
+    case E1 of
+	#c_var{name=VarName} ->
+	    Var = {var,Line,VarName},
+	    Els = [{bin_element,Line,Var,BsSize,BsFlags}],
+	    bc_tq_build(Line, Pre0, AccVar, Els, St1);
+	#c_literal{val=Val} when is_bitstring(Val) ->
+	    Bits = bit_size(Val),
+	    <<Int0:Bits>> = Val,
+	    Int = {integer,Line,Int0},
+	    Sz = {integer,Line,Bits},
+	    Els = [{bin_element,Line,Int,Sz,[integer,{unit,1},big]}],
+	    bc_tq_build(Line, Pre0, AccVar, Els, St1);
+	_ ->
+	    %% Any other safe (cons, tuple, literal) is not a
+	    %% bitstring. Force the evaluation to fail (and
+	    %% generate a warning).
+	    Els = [{bin_element,Line,{atom,Line,bad_value},BsSize,BsFlags}],
+	    bc_tq_build(Line, Pre0, AccVar, Els, St1)
+    end.
+
+bc_tq_build(Line, Pre0, #c_var{name=AccVar}, Elements0, St0) ->
+    Elements = [{bin_element,Line,{var,Line,AccVar},{atom,Line,all},
+		 [binary,{unit,1}]}|Elements0],
+    {E,Pre,St} = expr({bin,Line,Elements}, St0),
     #a{anno=A} = Anno0 = get_anno(E),
     Anno = Anno0#a{anno=[compiler_generated,single_use|A]},
-    {set_anno(E, Anno),Pre,St}.
+    {set_anno(E, Anno),Pre0++Pre,St}.
+
 
 %% filter_tq(Line, Expr, Filter, Mc, State, [Qualifier], TqFun) ->
 %%     {Case,[PreExpr],State}.
@@ -1306,7 +1390,9 @@ bc_elem_size({bin,_,El}, St0) ->
 	    Vs = [V || {_,#c_var{name=V}} <- Vars0],
 	    {E,Pre,St} = bc_mul_pairs(F, #c_literal{val=Bits}, [], St0),
 	    {E,Pre,Vs,St}
-    end.
+    end;
+bc_elem_size(_, _) ->
+    throw(impossible).
 
 bc_elem_size_1([{bin_element,_,_,{integer,_,N},Flags}|Es], Bits, Vars) ->
     {unit,U} = keyfind(unit, 1, Flags),
@@ -1652,10 +1738,12 @@ pat_alias_map_pairs_1([]) -> [].
 
 pat_bin(Ps, St) -> [pat_segment(P, St) || P <- Ps].
 
-pat_segment({bin_element,_,Val,Size,[Type,{unit,Unit}|Flags]}, St) ->
+pat_segment({bin_element,L,Val,Size,[Type,{unit,Unit}|Flags]}, St) ->
+    Anno = lineno_anno(L, St),
     {Pval,[],St1} = pattern(Val,St),
     {Psize,[],_St2} = pattern(Size,St1),
-    #c_bitstr{val=Pval,size=Psize,
+    #c_bitstr{anno=Anno,
+	      val=Pval,size=Psize,
 	      unit=#c_literal{val=Unit},
 	      type=#c_literal{val=Type},
 	      flags=#c_literal{val=Flags}}.
@@ -1852,33 +1940,37 @@ uguard(Pg, Gs0, Ks, St0) ->
 %% uexprs([Kexpr], [KnownVar], State) -> {[Kexpr],State}.
 
 uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
-    %% Optimise for simple set of unbound variable.
-    case upattern(P0, Ks, St0) of
-	{#c_var{},[],_Pvs,_Pus,_} ->
-	    %% Throw our work away and just set to iset.
+    case upat_is_new_var(P0, Ks) of
+	true ->
+	    %% Assignment to a new variable.
 	    uexprs([#iset{var=P0,arg=Arg}|Les], Ks, St0);
-	_Other ->
-	    %% Throw our work away and set to icase.
-	    if
-		Les =:= [] ->
-		    %% Need to explicitly return match "value", make
-		    %% safe for efficiency.
-		    {La0,Lps,St1} = force_safe(Arg, St0),
-		    La = mark_compiler_generated(La0),
-		    Mc = #iclause{anno=A,pats=[P0],guard=[],body=[La]},
-		    uexprs(Lps ++ [#icase{anno=A,
-					  args=[La0],clauses=[Mc],fc=Fc}], Ks, St1);
-		true ->
-		    Mc = #iclause{anno=A,pats=[P0],guard=[],body=Les},
-		    uexprs([#icase{anno=A,args=[Arg],
-				   clauses=[Mc],fc=Fc}], Ks, St0)
-	    end
+	false when Les =:= [] ->
+	    %% Need to explicitly return match "value", make
+	    %% safe for efficiency.
+	    {La0,Lps,St1} = force_safe(Arg, St0),
+	    La = mark_compiler_generated(La0),
+	    Mc = #iclause{anno=A,pats=[P0],guard=[],body=[La]},
+	    uexprs(Lps ++ [#icase{anno=A,
+				  args=[La0],clauses=[Mc],fc=Fc}], Ks, St1);
+	false ->
+	    Mc = #iclause{anno=A,pats=[P0],guard=[],body=Les},
+	    uexprs([#icase{anno=A,args=[Arg],
+			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
 uexprs([Le0|Les0], Ks, St0) ->
     {Le1,St1} = uexpr(Le0, Ks, St0),
     {Les1,St2} = uexprs(Les0, union((get_anno(Le1))#a.ns, Ks), St1),
     {[Le1|Les1],St2};
 uexprs([], _, St) -> {[],St}.
+
+%% upat_is_new_var(Pattern, [KnownVar]) -> true|false.
+%%  Test whether the pattern is a single, previously unknown
+%%  variable.
+
+upat_is_new_var(#c_var{name=V}, Ks) ->
+    not is_element(V, Ks);
+upat_is_new_var(_, _) ->
+    false.
 
 %% Mark a "safe" as compiler-generated.
 mark_compiler_generated(#c_cons{anno=A,hd=H,tl=T}) ->
@@ -2010,7 +2102,8 @@ upattern(#c_var{name=V}=Var, Ks, St0) ->
 	true ->
 	    {N,St1} = new_var_name(St0),
 	    New = #c_var{name=N},
-	    Test = #icall{anno=#a{us=add_element(N, [V])},
+	    LA = get_lineno_anno(Var),
+	    Test = #icall{anno=#a{anno=LA,us=add_element(N, [V])},
 			  module=#c_literal{val=erlang},
 			  name=#c_literal{val='=:='},
 			  args=[New,Var]},

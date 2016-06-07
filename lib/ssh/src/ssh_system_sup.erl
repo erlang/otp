@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,6 +125,8 @@ restart_acceptor(Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init([ServerOpts]) ->
     RestartStrategy = one_for_one,
     MaxR = 0,
@@ -192,6 +194,9 @@ stop_acceptor(Sup) ->
     [{Name, AcceptorSup}] =
 	[{SupName, ASup} || {SupName, ASup, _, [ssh_acceptor_sup]} <- 
 			  supervisor:which_children(Sup)],
-    supervisor:terminate_child(AcceptorSup, Name).
-
-
+    case supervisor:terminate_child(AcceptorSup, Name) of
+        ok ->
+            supervisor:delete_child(AcceptorSup, Name);
+        Error ->
+            Error
+    end.

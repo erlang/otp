@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ new(#wx_ref{type=DcT,ref=DcRef}) ->
   <<DcRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmemorydc.html#wxmemorydcselectobject">external documentation</a>.
--spec selectObject(This, Bmp) -> ok when
+-spec selectObject(This, Bmp) -> 'ok' when
 	This::wxMemoryDC(), Bmp::wxBitmap:wxBitmap().
 selectObject(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
   ?CLASS(ThisT,wxMemoryDC),
@@ -90,7 +90,7 @@ selectObject(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
   <<ThisRef:32/?UI,BmpRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmemorydc.html#wxmemorydcselectobjectassource">external documentation</a>.
--spec selectObjectAsSource(This, Bmp) -> ok when
+-spec selectObjectAsSource(This, Bmp) -> 'ok' when
 	This::wxMemoryDC(), Bmp::wxBitmap:wxBitmap().
 selectObjectAsSource(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
   ?CLASS(ThisT,wxMemoryDC),
@@ -99,7 +99,7 @@ selectObjectAsSource(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRe
   <<ThisRef:32/?UI,BmpRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMemoryDC()) -> ok.
+-spec destroy(This::wxMemoryDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMemoryDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

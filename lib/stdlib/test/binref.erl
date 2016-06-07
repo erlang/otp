@@ -89,7 +89,7 @@ mloop(_Haystack,_Needles,N,M) when N >= M ->
 mloop(Haystack,Needles,N,M) ->
     case mloop2(Haystack,Needles,N,nomatch) of
 	nomatch ->
-	    % Not found
+	    %% Not found
 	    <<_:8,NewStack/binary>> = Haystack,
 	    mloop(NewStack,Needles,N+1,M);
 	{N,Len} ->
@@ -104,7 +104,7 @@ msloop(_Haystack,_Needles,N,M) when N >= M ->
 msloop(Haystack,Needles,N,M) ->
     case mloop2(Haystack,Needles,N,nomatch) of
 	nomatch ->
-	    % Not found
+	    %% Not found
 	    <<_:8,NewStack/binary>> = Haystack,
 	    msloop(NewStack,Needles,N+1,M);
 	{N,Len} ->
@@ -325,7 +325,7 @@ at(Subject,X) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% bin_to_list
+%% bin_to_list
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 bin_to_list(Subject) ->
     try
@@ -358,7 +358,7 @@ bin_to_list(Subject,A,B) ->
 	    erlang:error(badarg)
     end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% list_to_bin
+%% list_to_bin
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 list_to_bin(List) ->
     try

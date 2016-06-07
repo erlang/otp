@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,7 +133,7 @@ block_disturbing_active_timeout_released(Type, Port, Host, Node) ->
 block_non_disturbing_active_timeout_not_released(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 60000),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     ok = block_nd_server(Node, Host, Port, 40000),
     await_normal_process_exit(Poller, "poller", 60000),
     blocked = get_admin_state(Node, Host, Port),

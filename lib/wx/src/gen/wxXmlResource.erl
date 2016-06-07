@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,8 +48,8 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html#wxxmlresourcewxxmlresource">external documentation</a>.
 -spec new([Option]) -> wxXmlResource() when
-	Option :: {flags, integer()}
-		 | {domain, unicode:chardata()}.
+	Option :: {'flags', integer()}
+		 | {'domain', unicode:chardata()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({flags, Flags}, Acc) -> [<<1:32/?UI,Flags:32/?UI>>|Acc];
@@ -62,8 +62,8 @@ new(Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html#wxxmlresourcewxxmlresource">external documentation</a>.
 -spec new(Filemask, [Option]) -> wxXmlResource() when
 	Filemask::unicode:chardata(),
-	Option :: {flags, integer()}
-		 | {domain, unicode:chardata()}.
+	Option :: {'flags', integer()}
+		 | {'domain', unicode:chardata()}.
 new(Filemask, Options)
  when is_list(Filemask),is_list(Options) ->
   Filemask_UC = unicode:characters_to_binary([Filemask,0]),
@@ -85,7 +85,7 @@ attachUnknownControl(This,Name,Control)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html#wxxmlresourceattachunknowncontrol">external documentation</a>.
 -spec attachUnknownControl(This, Name, Control, [Option]) -> boolean() when
 	This::wxXmlResource(), Name::unicode:chardata(), Control::wxWindow:wxWindow(),
-	Option :: {parent, wxWindow:wxWindow()}.
+	Option :: {'parent', wxWindow:wxWindow()}.
 attachUnknownControl(#wx_ref{type=ThisT,ref=ThisRef},Name,#wx_ref{type=ControlT,ref=ControlRef}, Options)
  when is_list(Name),is_list(Options) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -98,7 +98,7 @@ attachUnknownControl(#wx_ref{type=ThisT,ref=ThisRef},Name,#wx_ref{type=ControlT,
   <<ThisRef:32/?UI,(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((0+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8,ControlRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html#wxxmlresourceclearhandlers">external documentation</a>.
--spec clearHandlers(This) -> ok when
+-spec clearHandlers(This) -> 'ok' when
 	This::wxXmlResource().
 clearHandlers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -147,7 +147,7 @@ getXRCID(Str_id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html#wxxmlresourcegetxrcid">external documentation</a>.
 -spec getXRCID(Str_id, [Option]) -> integer() when
 	Str_id::[unicode:chardata()],
-	Option :: {value_if_not_found, integer()}.
+	Option :: {'value_if_not_found', integer()}.
 getXRCID(Str_id, Options)
  when is_list(Str_id),is_list(Options) ->
   Str_id_UC = unicode:characters_to_binary([Str_id,0]),
@@ -158,7 +158,7 @@ getXRCID(Str_id, Options)
   <<(byte_size(Str_id_UC)):32/?UI,(Str_id_UC)/binary, 0:(((8- ((4+byte_size(Str_id_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html#wxxmlresourceinitallhandlers">external documentation</a>.
--spec initAllHandlers(This) -> ok when
+-spec initAllHandlers(This) -> 'ok' when
 	This::wxXmlResource().
 initAllHandlers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -315,7 +315,7 @@ set(#wx_ref{type=ResT,ref=ResRef}) ->
   <<ResRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxxmlresource.html#wxxmlresourcesetflags">external documentation</a>.
--spec setFlags(This, Flags) -> ok when
+-spec setFlags(This, Flags) -> 'ok' when
 	This::wxXmlResource(), Flags::integer().
 setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
  when is_integer(Flags) ->
@@ -353,7 +353,7 @@ xrcctrl(Window = #wx_ref{}, Name, Type) when is_list(Name), is_atom(Type) ->
     wx:typeCast(Res, Type).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxXmlResource()) -> ok.
+-spec destroy(This::wxXmlResource()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxXmlResource),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

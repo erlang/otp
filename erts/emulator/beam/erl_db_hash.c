@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,8 @@
 /* 
  * The following symbols can be manipulated to "tune" the linear hash array 
  */
-#define CHAIN_LEN 6                 /* Medium bucket chain len      */
+#define GROW_LIMIT(NACTIVE) ((NACTIVE)*2)
+#define SHRINK_LIMIT(NACTIVE) ((NACTIVE) / 2)
 
 /* Number of slots per segment */
 #define SEGSZ_EXP  8
@@ -463,14 +464,11 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
     int nactive = NACTIVE(tb);
-    if (nactive > SEGSZ && NITEMS(tb) < (nactive * CHAIN_LEN)
+    if (nactive > SEGSZ && NITEMS(tb) < SHRINK_LIMIT(nactive)
 	&& !IS_FIXED(tb)) {
 	shrink(tb, nactive);
     }
 }	
-
-#define EQ_REL(x,y,y_base) \
-    (is_same(x,NULL,y,y_base) || (is_not_both_immed((x),(y)) && eq_rel((x),NULL,(y),y_base)))
 
 /* Is this a live object (not pseodo-deleted) with the specified key? 
 */
@@ -481,7 +479,7 @@ static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
-	return EQ_REL(key, itemKey, b->dbterm.tpl);
+	return EQ(key, itemKey);
     }
 }
 
@@ -494,7 +492,7 @@ static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
-	return EQ_REL(key, itemKey, b->dbterm.tpl);
+	return EQ(key, itemKey);
     }
 }
 
@@ -673,8 +671,8 @@ int db_create_hash(Process *p, DbTable *tbl)
     tb->nsegs = NSEG_1;
     tb->nslots = SEGSZ;
 
-    erts_smp_atomic_init_nob(&tb->is_resizing, 0);
 #ifdef ERTS_SMP
+    erts_smp_atomic_init_nob(&tb->is_resizing, 0);
     if (tb->common.type & DB_FINE_LOCKED) {
 	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
 	int i;
@@ -865,7 +863,7 @@ Lnew:
     WUNLOCK_HASH(lck);
     {
 	int nactive = NACTIVE(tb);       
-	if (nitems > nactive * (CHAIN_LEN+1) && !IS_FIXED(tb)) {
+	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
 	    grow(tb, nactive);
 	}
     }
@@ -2204,11 +2202,11 @@ static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
 		    erts_print(to, to_arg, "*");
 		if (tb->common.compress) {
 		    Eterm key = GETKEY(tb, list->dbterm.tpl);
-		    erts_print(to, to_arg, "key=%R", key, list->dbterm.tpl);
+		    erts_print(to, to_arg, "key=%T", key);
 		}
 		else {
-		    Eterm obj = make_tuple_rel(list->dbterm.tpl,list->dbterm.tpl);
-		    erts_print(to, to_arg, "%R", obj, list->dbterm.tpl);
+		    Eterm obj = make_tuple(list->dbterm.tpl);
+		    erts_print(to, to_arg, "%T", obj);
 		}
 		if (list->next != 0)
 		    erts_print(to, to_arg, ",");
@@ -2253,12 +2251,12 @@ static int db_free_table_continue_hash(DbTable *tbl)
 
     done /= 2;
     while(tb->nslots != 0) {
-	free_seg(tb, 1);
+	done += 1 + SEGSZ/64 + free_seg(tb, 1);
 
 	/*
 	 * If we have done enough work, get out here.
 	 */
-	if (++done >= (DELETE_RECORD_LIMIT / CHAIN_LEN / SEGSZ)) {
+	if (done >= DELETE_RECORD_LIMIT) {
 	    return 0;	/* Not done */
 	}
     }
@@ -2607,23 +2605,22 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 static ERTS_INLINE int
 begin_resizing(DbTableHash* tb)
 {
+#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
-	return !erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1);
-    else {
-	if (erts_smp_atomic_read_nob(&tb->is_resizing))
-	    return 0;
-	erts_smp_atomic_set_nob(&tb->is_resizing, 1);
-	return 1;
-    }
+	return !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
+    else
+        ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
+#endif
+    return 1;
 }
 
 static ERTS_INLINE void
 done_resizing(DbTableHash* tb)
 {
+#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
-	erts_smp_atomic_set_relb(&tb->is_resizing, 0);
-    else
-	erts_smp_atomic_set_nob(&tb->is_resizing, 0);
+	erts_atomic_set_relb(&tb->is_resizing, 0);
+#endif
 }
 
 /* Grow table with one new bucket.
@@ -2874,7 +2871,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                 int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
                 int nactive = NACTIVE(tb);
 
-                if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
+                if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
                     grow(tb, nactive);
                 }
             }
@@ -2899,9 +2896,6 @@ Ldone:
     handle->dbterm = &b->dbterm;
     handle->flags = flags;
     handle->new_size = b->dbterm.size;
-#if HALFWORD_HEAP
-    handle->abs_vec = NULL;
-#endif
     handle->lck = lck;
     return 1;
 }

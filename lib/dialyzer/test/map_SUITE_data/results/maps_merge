@@ -1,0 +1,11 @@
+
+maps_merge.erl:10: The pattern #{_:=_} can never match the type #{'a':=1, 3:='ok', 'q'=>none(), 7=>none(), atom() | integer()=>_}
+maps_merge.erl:12: Function t3/0 has no local return
+maps_merge.erl:14: The pattern #{7:='q'} can never match the type #{'a':=1, 3:='ok', 'q'=>none(), 7=>none(), atom() | integer()=>_}
+maps_merge.erl:16: Function t4/0 has no local return
+maps_merge.erl:18: The pattern #{7:='q'} can never match the type #{'a':=1, 3:='ok', 'q'=>none(), 7=>none(), atom() | integer()=>_}
+maps_merge.erl:20: Function t5/0 has no local return
+maps_merge.erl:21: The pattern #{'a':=2} can never match the type #{'a':=1, 'q'=>none(), 11=>_, atom()=>_}
+maps_merge.erl:5: Function t1/0 has no local return
+maps_merge.erl:6: The pattern #{'a':=1} can never match the type #{}
+maps_merge.erl:8: Function t2/0 has no local return

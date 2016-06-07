@@ -105,8 +105,8 @@ new(Parent,Message,Caption,Choices)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsinglechoicedialog.html#wxsinglechoicedialogwxsinglechoicedialog">external documentation</a>.
 -spec new(Parent, Message, Caption, Choices, [Option]) -> wxSingleChoiceDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()],
-	Option :: {style, integer()}
-		 | {pos, {X::integer(), Y::integer()}}.
+	Option :: {'style', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message,Caption,Choices, Options)
  when is_list(Message),is_list(Caption),is_list(Choices),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -138,7 +138,7 @@ getStringSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsinglechoicedialog.html#wxsinglechoicedialogsetselection">external documentation</a>.
--spec setSelection(This, Sel) -> ok when
+-spec setSelection(This, Sel) -> 'ok' when
 	This::wxSingleChoiceDialog(), Sel::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},Sel)
  when is_integer(Sel) ->
@@ -147,7 +147,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},Sel)
   <<ThisRef:32/?UI,Sel:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSingleChoiceDialog()) -> ok.
+-spec destroy(This::wxSingleChoiceDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSingleChoiceDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

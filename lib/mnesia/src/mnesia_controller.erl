@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -385,6 +385,8 @@ force_load_table(Tab) when is_atom(Tab), Tab /= schema ->
 	    do_force_load_table(Tab);
 	disc_only_copies ->
 	    do_force_load_table(Tab);
+        {ext, _, _} ->
+            do_force_load_table(Tab);
 	unknown ->
 	    set({Tab, load_by_force}, true),
 	    cast({force_load_updated, Tab}),
@@ -1533,8 +1535,8 @@ update_whereabouts(Tab, Node, State) ->
 	Storage == unknown ->
 	    %% No own copy, continue to read remotely
 	    add_active_replica(Tab, Node),
-	    NodeST = mnesia_lib:storage_type_at_node(Node, Tab),
-	    ReadST = mnesia_lib:storage_type_at_node(Read, Tab),
+	    NodeST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Node, Tab), storage),
+	    ReadST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Read, Tab), storage),
 	    if   %% Avoid reading from disc_only_copies
 		NodeST == disc_only_copies ->
 		    ignore;
@@ -1588,6 +1590,7 @@ last_consistent_replica(Tab, Downs) ->
     Ram = Cs#cstruct.ram_copies,
     Disc = Cs#cstruct.disc_copies,
     DiscOnly = Cs#cstruct.disc_only_copies,
+    Ext = Cs#cstruct.external_copies,
     BetterCopies0 = mnesia_lib:remote_copy_holders(Cs) -- Downs,
     BetterCopies = BetterCopies0 -- Ram,
     AccessMode = Cs#cstruct.access_mode,
@@ -1620,7 +1623,7 @@ last_consistent_replica(Tab, Downs) ->
 	    false;
 	Storage == ram_copies ->
 	    if
-		Disc == [], DiscOnly == [] ->
+		Disc == [], DiscOnly == [], Ext == [] ->
 		    %% Nobody has copy on disc
 		    {true, {Tab, ram_only}};
 		true ->
@@ -1865,6 +1868,11 @@ info([Tab | Tail]) ->
 			dets:info(Tab, size),
 			dets:info(Tab, file_size),
 			"bytes on disc");
+        {ext, Alias, Mod} ->
+            info_format(Tab,
+                        Mod:info(Alias, Tab, size),
+                        Mod:info(Alias, Tab, memory),
+                        "words of mem");
 	_ ->
 	    info_format(Tab,
 			?ets_info(Tab, size),

@@ -1,7 +1,7 @@
 /* 
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,9 +56,9 @@ typedef struct _heapmark {
 } Erl_HeapMark;
 
 
-void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned char creation);
-void erl_mk_pid_helper(ETERM*, unsigned,unsigned, unsigned char);
-ETERM * __erl_mk_reference(ETERM*, const char *, size_t, unsigned int n[], unsigned char);
+void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned int creation);
+void erl_mk_pid_helper(ETERM*, unsigned,unsigned, unsigned int);
+ETERM * __erl_mk_reference(ETERM*, const char *, size_t, unsigned int n[], unsigned int);
 int erl_current_fix_desc(void);
 
 #endif /* _ERL_ETERM_H */

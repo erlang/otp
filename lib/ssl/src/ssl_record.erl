@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 -include("ssl_alert.hrl").
 
 %% Connection state handling
--export([init_connection_states/1,
+-export([init_connection_states/2,
 	 current_connection_state/2, pending_connection_state/2,
 	 activate_pending_connection_state/2,
 	 set_security_params/3,
@@ -62,15 +62,16 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec init_connection_states(client | server) -> #connection_states{}.
+-spec init_connection_states(client | server, one_n_minus_one | zero_n | disabled ) ->
+				      #connection_states{}.
 %%
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
-init_connection_states(Role) ->
+init_connection_states(Role, BeastMitigation) ->
     ConnectionEnd = record_protocol_role(Role),
-    Current = initial_connection_state(ConnectionEnd),
-    Pending = empty_connection_state(ConnectionEnd),
+    Current = initial_connection_state(ConnectionEnd, BeastMitigation),
+    Pending = empty_connection_state(ConnectionEnd, BeastMitigation),
     #connection_states{current_read = Current,
 		       pending_read = Pending,
 		       current_write = Current,
@@ -119,9 +120,10 @@ activate_pending_connection_state(States =
                                   read) ->
     NewCurrent = Pending#connection_state{epoch = dtls_next_epoch(Current),
 					  sequence_number = 0},
+    BeastMitigation = Pending#connection_state.beast_mitigation,
     SecParams = Pending#connection_state.security_parameters,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = empty_connection_state(ConnectionEnd),
+    EmptyPending = empty_connection_state(ConnectionEnd, BeastMitigation),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
     States#connection_states{current_read = NewCurrent,
@@ -134,9 +136,10 @@ activate_pending_connection_state(States =
                                   write) ->
     NewCurrent = Pending#connection_state{epoch = dtls_next_epoch(Current),
 					  sequence_number = 0},
+    BeastMitigation = Pending#connection_state.beast_mitigation,
     SecParams = Pending#connection_state.security_parameters,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = empty_connection_state(ConnectionEnd),
+    EmptyPending = empty_connection_state(ConnectionEnd, BeastMitigation),
     SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
     NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
     States#connection_states{current_write = NewCurrent,
@@ -314,12 +317,13 @@ set_pending_cipher_state(#connection_states{pending_read = Read,
 encode_handshake(Frag, Version, 
 		 #connection_states{current_write = 
 					#connection_state{
+					   beast_mitigation = BeastMitigation,
 					   security_parameters =
 					       #security_parameters{bulk_cipher_algorithm = BCA}}} = 
 		     ConnectionStates) ->
     case iolist_size(Frag) of
 	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
-	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA),
+	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
 	    encode_iolist(?HANDSHAKE, Data, Version, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
@@ -352,10 +356,11 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
 %%--------------------------------------------------------------------
 encode_data(Frag, Version,
 	    #connection_states{current_write = #connection_state{
+				 beast_mitigation = BeastMitigation,
 				 security_parameters =
 				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
 		ConnectionStates) ->
-    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version, BCA),
+    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
     encode_iolist(?APPLICATION_DATA, Data, Version, ConnectionStates).
 
 uncompress(?NULL, Data, CS) ->
@@ -447,9 +452,10 @@ decipher_aead(Version, CipherFragment,
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-empty_connection_state(ConnectionEnd) ->
+empty_connection_state(ConnectionEnd, BeastMitigation) ->
     SecParams = empty_security_params(ConnectionEnd),
-    #connection_state{security_parameters = SecParams}.
+    #connection_state{security_parameters = SecParams,
+                      beast_mitigation = BeastMitigation}.
 
 empty_security_params(ConnectionEnd = ?CLIENT) ->
     #security_parameters{connection_end = ConnectionEnd,
@@ -460,7 +466,7 @@ empty_security_params(ConnectionEnd = ?SERVER) ->
 random() ->
     Secs_since_1970 = calendar:datetime_to_gregorian_seconds(
 			calendar:universal_time()) - 62167219200,
-    Random_28_bytes = crypto:rand_bytes(28),
+    Random_28_bytes = ssl_cipher:random_bytes(28),
     <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
 dtls_next_epoch(#connection_state{epoch = undefined}) -> %% SSL/TLS
@@ -478,10 +484,11 @@ record_protocol_role(client) ->
 record_protocol_role(server) ->
     ?SERVER.
 
-initial_connection_state(ConnectionEnd) ->
+initial_connection_state(ConnectionEnd, BeastMitigation) ->
     #connection_state{security_parameters =
 			  initial_security_params(ConnectionEnd),
-                      sequence_number = 0
+                      sequence_number = 0,
+                      beast_mitigation = BeastMitigation
                      }.
 
 initial_security_params(ConnectionEnd) ->
@@ -506,11 +513,17 @@ encode_iolist(Type, Data, Version, ConnectionStates0) ->
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
 %% not vulnerable to this attack.
-split_bin(<<FirstByte:8, Rest/binary>>, ChunkSize, Version, BCA) when
+split_bin(<<FirstByte:8, Rest/binary>>, ChunkSize, Version, BCA, one_n_minus_one) when
       BCA =/= ?RC4 andalso ({3, 1} == Version orelse
 			    {3, 0} == Version) ->
     do_split_bin(Rest, ChunkSize, [[FirstByte]]);
-split_bin(Bin, ChunkSize, _, _) ->
+%% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
+%% splitting.
+split_bin(Bin, ChunkSize, Version, BCA, zero_n) when
+      BCA =/= ?RC4 andalso ({3, 1} == Version orelse
+			    {3, 0} == Version) ->
+    do_split_bin(Bin, ChunkSize, [[<<>>]]);
+split_bin(Bin, ChunkSize, _, _, _) ->
     do_split_bin(Bin, ChunkSize, []).
 
 do_split_bin(<<>>, _, Acc) ->

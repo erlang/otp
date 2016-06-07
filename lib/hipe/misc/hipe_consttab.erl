@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,7 +87,8 @@
 	                           % {NewTab, Lbl}
 	 insert_sorted_block/4,
 	 insert_block/3,
-	 %% insert_global_word/2,     
+	 insert_binary_const/3,
+	 %% insert_global_word/2,
 	 %% insert_global_block/4,
 	 %% update_word/3,  % update_word(ConstTab, Value) -> {NewTab, Lbl}
 	 %% update_block/5,
@@ -195,6 +196,16 @@ insert_block({ConstTab, RefToLabels, NextLabel}, ElementType, InitList) ->
 			     block, word_size(), false,
 			     {ElementType,InitList}),
   {insert_backrefs(NewTa, Id, ReferredLabels), Id}.
+
+%% @doc Inserts a binary constant literal into the const table.
+-spec insert_binary_const(hipe_consttab(), ct_alignment(), binary()) ->
+	{hipe_consttab(), hipe_constlbl()}.
+insert_binary_const(ConstTab, Alignment, Binary)
+  when (Alignment =:= 4 orelse Alignment =:= 8 orelse Alignment =:= 16
+	orelse Alignment =:= 32), is_binary(Binary),
+       size(Binary) rem Alignment =:= 0 ->
+  insert_const(ConstTab, block, Alignment, false,
+	       {byte, binary_to_list(Binary)}).
 
 
 %% @spec (ConstTab::hipe_consttab(), ElementType::element_type(),

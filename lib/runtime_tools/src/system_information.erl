@@ -28,31 +28,26 @@
 -behaviour(gen_server).
 
 %% API
--export([
-	report/0,
+-export([report/0,
 	from_file/1,
-	to_file/1
-    ]).
--export([
-	start/0, stop/0,
-	load_report/0, load_report/2,
-	applications/0, applications/1,
-	application/1, application/2,
-	environment/0, environment/1,
-	module/1, module/2,
-	modules/1,
-	sanity_check/0
-    ]).
+	to_file/1]).
+
+-export([start/0, stop/0,
+         load_report/0, load_report/2,
+         applications/0, applications/1,
+         application/1, application/2,
+         environment/0, environment/1,
+         module/1, module/2,
+         modules/1,
+         sanity_check/0]).
 
 %% gen_server callbacks
--export([
-	init/1,
-	handle_call/3,
-	handle_cast/2,
-	handle_info/2,
-	terminate/2,
-	code_change/3
-    ]).
+-export([init/1,
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -70,14 +65,15 @@
 start() ->
     gen_server:start({local, ?SERVER}, ?MODULE, [], []).
 
+
 stop() ->
-    gen_server:call(?SERVER, stop).
+    gen_server:call(?SERVER, stop, infinity).
 
 load_report() -> load_report(data, report()).
 
 load_report(file, File)   -> load_report(data, from_file(File));
 load_report(data, Report) ->
-    start(), gen_server:call(?SERVER, {load_report, Report}).
+    ok = start_internal(), gen_server:call(?SERVER, {load_report, Report}, infinity).
 
 report() -> [
 	{init_arguments,    init:get_arguments()},
@@ -120,22 +116,22 @@ from_file(File) ->
 
 applications() -> applications([]).
 applications(Opts) when is_list(Opts) ->
-    gen_server:call(?SERVER, {applications, Opts}).
+    gen_server:call(?SERVER, {applications, Opts}, infinity).
 
 application(App) when is_atom(App) -> application(App, []).
 application(App, Opts) when is_atom(App), is_list(Opts) ->
-    gen_server:call(?SERVER, {application, App, Opts}).
+    gen_server:call(?SERVER, {application, App, Opts}, infinity).
 
 environment() -> environment([]).
 environment(Opts) when is_list(Opts) ->
-    gen_server:call(?SERVER, {environment, Opts}).
+    gen_server:call(?SERVER, {environment, Opts}, infinity).
 
 module(M) when is_atom(M) -> module(M, []).
 module(M, Opts) when is_atom(M), is_list(Opts) ->
-    gen_server:call(?SERVER, {module, M, Opts}).
+    gen_server:call(?SERVER, {module, M, Opts}, infinity).
 
 modules(Opt) when is_atom(Opt) ->
-    gen_server:call(?SERVER, {modules, Opt}).
+    gen_server:call(?SERVER, {modules, Opt}, infinity).
 
 
 -spec sanity_check() -> ok | {failed, Failures} when
@@ -224,6 +220,13 @@ code_change(_OldVsn, State, _Extra) ->
 %%===================================================================
 %% Internal functions
 %%===================================================================
+
+start_internal() ->
+    case start() of
+        {ok,_} -> ok;
+        {error, {already_started,_}} -> ok;
+        Error -> Error
+    end.
 
 %% handle report values
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ isCommandEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventresumepropagation">external documentation</a>.
--spec resumePropagation(This, PropagationLevel) -> ok when
+-spec resumePropagation(This, PropagationLevel) -> 'ok' when
 	This::wxEvent(), PropagationLevel::integer().
 resumePropagation(#wx_ref{type=ThisT,ref=ThisRef},PropagationLevel)
  when is_integer(PropagationLevel) ->
@@ -86,7 +86,7 @@ shouldPropagate(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @equiv skip(This, [])
--spec skip(This) -> ok when
+-spec skip(This) -> 'ok' when
 	This::wxEvent().
 
 skip(This)
@@ -94,9 +94,9 @@ skip(This)
   skip(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxevent.html#wxeventskip">external documentation</a>.
--spec skip(This, [Option]) -> ok when
+-spec skip(This, [Option]) -> 'ok' when
 	This::wxEvent(),
-	Option :: {skip, boolean()}.
+	Option :: {'skip', boolean()}.
 skip(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxEvent),

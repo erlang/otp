@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,53 +19,18 @@
 %%
 -module(binary_module_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
+-include_lib("common_test/include/ct.hrl").
 
-
-%%-define(STANDALONE,1).
-
--ifdef(STANDALONE).
-
--define(line,erlang:display({?MODULE,?LINE}),).
-
--else.
-
--include_lib("test_server/include/test_server.hrl").
--export([init_per_testcase/2, end_per_testcase/2]).
-% Default timetrap timeout (set in init_per_testcase).
-% Some of these testcases are really heavy...
--define(default_timeout, ?t:minutes(30)).
-
--endif.
-
-
-
--ifdef(STANDALONE).
--export([run/0]).
-
-run() ->
-    [ apply(?MODULE,X,[[]]) || X <- all(suite) ].
-
--else.
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
-
-end_per_testcase(_Case, Config) ->
-    ?line Dog = ?config(watchdog, Config),
-    ?line test_server:timetrap_cancel(Dog),
-    ok.
--endif.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,10}}].
 
 all() -> 
     [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
@@ -73,319 +38,301 @@ all() ->
      referenced, guard, encode_decode, badargs,
      longest_common_trap].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
 
-badargs(doc) ->
-    ["Tests various badarg exceptions in the module"];
+%% Test various badarg exceptions in the module.
 badargs(Config) when is_list(Config) ->
-    ?line badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3:3>>])),
-    ?line badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3>>|<<1,2>>])),
-    ?line badarg = ?MASK_ERROR(binary:compile_pattern(<<1,2,3:3>>)),
-    ?line badarg = ?MASK_ERROR(binary:compile_pattern(<<>>)),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3:3>>,<<1>>)),
-    ?line badarg = ?MASK_ERROR(binary:matches(<<1,2,3:3>>,<<1>>)),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
-					    [{scope,{0,1},1}])),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
-					    [{scape,{0,1}}])),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
-					    [{scope,{0,1,1}}])),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,0,1}])),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,[0,1]}])),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
-					    [{scope,{0.1,1}}])),
-    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
-					    [{scope,{1,1.1}}])),
-    ?line badarg =
+    badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3:3>>])),
+    badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3>>|<<1,2>>])),
+    badarg = ?MASK_ERROR(binary:compile_pattern(<<1,2,3:3>>)),
+    badarg = ?MASK_ERROR(binary:compile_pattern(<<>>)),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3:3>>,<<1>>)),
+    badarg = ?MASK_ERROR(binary:matches(<<1,2,3:3>>,<<1>>)),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+				      [{scope,{0,1},1}])),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+				      [{scape,{0,1}}])),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+				      [{scope,{0,1,1}}])),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,0,1}])),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,[0,1]}])),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+				      [{scope,{0.1,1}}])),
+    badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+				      [{scope,{1,1.1}}])),
+    badarg =
 	?MASK_ERROR(
 	   binary:match(<<1,2,3>>,<<1>>,
 			[{scope,{16#FF,
 				 16#FFFFFFFFFFFFFFFF}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:match(<<1,2,3>>,<<1>>,
 			[{scope,{16#FFFFFFFFFFFFFFFF,
 				 -16#7FFFFFFFFFFFFFFF-1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:match(<<1,2,3>>,<<1>>,
 			[{scope,{16#FFFFFFFFFFFFFFFF,
 				 16#7FFFFFFFFFFFFFFF}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:part(<<1,2,3>>,{16#FF,
-				 16#FFFFFFFFFFFFFFFF})),
-    ?line badarg =
+				  16#FFFFFFFFFFFFFFFF})),
+    badarg =
 	?MASK_ERROR(
 	   binary:part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
-				 -16#7FFFFFFFFFFFFFFF-1})),
-    ?line badarg =
+				  -16#7FFFFFFFFFFFFFFF-1})),
+    badarg =
 	?MASK_ERROR(
 	   binary:part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
-				 16#7FFFFFFFFFFFFFFF})),
-    ?line badarg =
+				  16#7FFFFFFFFFFFFFFF})),
+    badarg =
 	?MASK_ERROR(
 	   binary:part(make_unaligned(<<1,2,3>>),{1,1,1})),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{1,1,1})),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FFFFFFFFFFFFFFFF,
-				 -16#7FFFFFFFFFFFFFFF-1})),
-    ?line badarg =
+						  -16#7FFFFFFFFFFFFFFF-1})),
+    badarg =
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FF,
-				 16#FFFFFFFFFFFFFFFF})),
-    ?line badarg =
+						  16#FFFFFFFFFFFFFFFF})),
+    badarg =
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FFFFFFFFFFFFFFFF,
-				 16#7FFFFFFFFFFFFFFF})),
-    ?line badarg =
+						  16#7FFFFFFFFFFFFFFF})),
+    badarg =
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FFFFFFFFFFFFFFFFFF,
-				 -16#7FFF})),
-    ?line badarg =
+						  -16#7FFF})),
+    badarg =
 	?MASK_ERROR(
 	   binary_part(make_unaligned(<<1,2,3>>),{16#FF,
-				 -16#7FFF})),
-    ?line badarg =
+						  -16#7FFF})),
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{16#FF,
-				 16#FFFFFFFFFFFFFFFF})),
-    ?line badarg =
+					 16#FFFFFFFFFFFFFFFF})),
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
-				 -16#7FFFFFFFFFFFFFFF-1})),
-    ?line badarg =
+					 -16#7FFFFFFFFFFFFFFF-1})),
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
-				 16#7FFFFFFFFFFFFFFF})),
-    ?line [1,2,3] =
+					 16#7FFFFFFFFFFFFFFF})),
+    [1,2,3] =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,[])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{1,2,3})),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{1.0,1})),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{1,1.0})),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3:3>>,{1,1})),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3:3>>)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:bin_to_list([1,2,3])),
 
-    ?line nomatch =
+    nomatch =
 	?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,{0,0}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:match(<<1,2,3>>,{bm,<<>>},[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:match(<<1,2,3>>,[],[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:match(<<1,2,3>>,{ac,<<>>},[{scope,{0,1}}])),
-    ?line {bm,BMMagic} = binary:compile_pattern([<<1,2,3>>]),
-    ?line {ac,ACMagic} = binary:compile_pattern([<<1,2,3>>,<<4,5>>]),
-    ?line badarg =
+    {bm,BMMagic} = binary:compile_pattern([<<1,2,3>>]),
+    {ac,ACMagic} = binary:compile_pattern([<<1,2,3>>,<<4,5>>]),
+    badarg =
 	?MASK_ERROR(binary:match(<<1,2,3>>,{bm,ACMagic},[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:match(<<1,2,3>>,{ac,BMMagic},[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:match(<<1,2,3>>,
 			{bm,ets:match_spec_compile([{'_',[],['$_']}])},
 			[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:match(<<1,2,3>>,
 			{ac,ets:match_spec_compile([{'_',[],['$_']}])},
 			[{scope,{0,1}}])),
-     ?line [] =
+    [] =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,<<1>>,[{scope,{0,0}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,{bm,<<>>},[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,[],[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,{ac,<<>>},[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,{bm,ACMagic},[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,{ac,BMMagic},[{scope,{0,1}}])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:matches(<<1,2,3>>,
-			{bm,ets:match_spec_compile([{'_',[],['$_']}])},
-			[{scope,{0,1}}])),
-    ?line badarg =
+			  {bm,ets:match_spec_compile([{'_',[],['$_']}])},
+			  [{scope,{0,1}}])),
+    badarg =
 	?MASK_ERROR(
 	   binary:matches(<<1,2,3>>,
-			{ac,ets:match_spec_compile([{'_',[],['$_']}])},
-			[{scope,{0,1}}])),
+			  {ac,ets:match_spec_compile([{'_',[],['$_']}])},
+			  [{scope,{0,1}}])),
     %% OTP-11350
     badarg = ?MASK_ERROR(
 		binary:matches(<<"foo">>, 
 			       [<<>>, <<"f">>])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:longest_common_prefix(
 		      [<<0:10000,1,2,4,1:3>>,
 		       <<0:10000,1,2,3>>])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:longest_common_suffix(
 		      [<<0:10000,1,2,4,1:3>>,
 		       <<0:10000,1,2,3>>])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(binary:encode_unsigned(-1)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:encode_unsigned(-16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:first(<<1,2,4,1:3>>)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:first([1,2,4])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:last(<<1,2,4,1:3>>)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:last([1,2,4])),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:at(<<1,2,4,1:3>>,2)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:at(<<>>,2)),
-    ?line badarg =
+    badarg =
 	?MASK_ERROR(
 	   binary:at([1,2,4],2)),
     ok.
 
-longest_common_trap(doc) ->
-    ["Whitebox test to force special trap conditions in longest_common_{prefix,suffix}"];
+%% Whitebox test to force special trap conditions in
+%% longest_common_{prefix,suffix}.
 longest_common_trap(Config) when is_list(Config) ->
-    ?line erts_debug:set_internal_state(available_internal_state,true),
-    ?line io:format("oldlimit: ~p~n",
-		    [erts_debug:set_internal_state(binary_loop_limit,10)]),
+    erts_debug:set_internal_state(available_internal_state,true),
+    io:format("oldlimit: ~p~n",
+	      [erts_debug:set_internal_state(binary_loop_limit,10)]),
     erlang:bump_reductions(10000000),
-    ?line _ = binary:longest_common_prefix(
-		[<<0:10000,1,2,4>>,
-		 <<0:10000,1,2,3>>,
-		 <<0:10000,1,3,3>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,3>>,
-		 <<0:10000,1,3,3>>,
-		 <<0:10000,1,2,3>>,
-		 <<0:10000,1,3,3>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,3>>,
-		 <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0:10000,1,3,3>>,
-		 <<0:10000,1,2,4>>]),
-    ?line _ = binary:longest_common_prefix(
-		[<<0:10000,1,2,4>>,
-		 <<0:10000,1,2,3>>,
-		 <<0:10000,1,3,3>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,3>>,
-		 <<0:10000,1,3,3>>,
-		 <<0:10000,1,2,3>>,
-		 <<0:10000,1,3,3>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,4>>,
-		 <<0:10000,1,2,3>>,
-		 <<0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
-		 <<0:10000,1,2,4>>]),
+    _ = binary:longest_common_prefix(
+	  [<<0:10000,1,2,4>>,
+	   <<0:10000,1,2,3>>,
+	   <<0:10000,1,3,3>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,3>>,
+	   <<0:10000,1,3,3>>,
+	   <<0:10000,1,2,3>>,
+	   <<0:10000,1,3,3>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,3>>,
+	   <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0:10000,1,3,3>>,
+	   <<0:10000,1,2,4>>]),
+    _ = binary:longest_common_prefix(
+	  [<<0:10000,1,2,4>>,
+	   <<0:10000,1,2,3>>,
+	   <<0:10000,1,3,3>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,3>>,
+	   <<0:10000,1,3,3>>,
+	   <<0:10000,1,2,3>>,
+	   <<0:10000,1,3,3>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,4>>,
+	   <<0:10000,1,2,3>>,
+	   <<0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
+	   <<0:10000,1,2,4>>]),
     erlang:bump_reductions(10000000),
-    ?line _ = binary:longest_common_suffix(
-		[<<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,3,3,0:10000,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
-		 <<1,2,4,0:10000>>]),
-    ?line _ = binary:longest_common_suffix(
-		[<<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<1,2,4,0:10000>>,
-		 <<0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
-		 <<1,2,4,0:10000>>]),
+    _ = binary:longest_common_suffix(
+	  [<<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,3,3,0:10000,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
+	   <<1,2,4,0:10000>>]),
+    _ = binary:longest_common_suffix(
+	  [<<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<1,2,4,0:10000>>,
+	   <<0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
+	   <<1,2,4,0:10000>>]),
     Subj = subj(),
     Len = byte_size(Subj),
-    ?line Len = binary:longest_common_suffix(
-		  [Subj,Subj,Subj]),
-    ?line io:format("limit was: ~p~n",
-		    [erts_debug:set_internal_state(binary_loop_limit,
-						   default)]),
-    ?line erts_debug:set_internal_state(available_internal_state,false),
+    Len = binary:longest_common_suffix(
+	    [Subj,Subj,Subj]),
+    io:format("limit was: ~p~n",
+	      [erts_debug:set_internal_state(binary_loop_limit,
+					     default)]),
+    erts_debug:set_internal_state(available_internal_state,false),
     ok.
 
 subj() ->
-  Me = self(),
-  spawn(fun() ->
-    X0 = iolist_to_binary([
-      "1234567890",
-      %lists:seq(16#21, 16#7e),
-      lists:duplicate(100, $x)
-    ]),
-    Me ! X0,
-    receive X -> X end
-  end),
-  X0 = receive A -> A end,
-  <<X1:32/binary,_/binary>> = X0,
-  Subject= <<X1/binary>>,
-  Subject.
+    Me = self(),
+    spawn(fun() ->
+		  X0 = iolist_to_binary([
+					 "1234567890",
+					 lists:duplicate(100, $x)
+					]),
+		  Me ! X0,
+		  receive X -> X end
+	  end),
+    X0 = receive A -> A end,
+    <<X1:32/binary,_/binary>> = X0,
+    Subject= <<X1/binary>>,
+    Subject.
 
 
-scope_return(doc) ->
-    ["Test correct return values for scopes (OTP-9701)."];
+%% Test correct return values for scopes (OTP-9701).
 scope_return(Config) when is_list(Config) ->
     N=10000,
     Bin=binary:copy(<<"a">>,N),
@@ -394,358 +341,362 @@ scope_return(Config) when is_list(Config) ->
 scope_loop(_,N,N) ->
     ok;
 scope_loop(Bin,N,M) ->
-    ?line {N,1} = binary:match(Bin,<<"a">>,[{scope,{N,1}}]),
-    ?line {N,1} = binary:match(Bin,[<<"a">>,<<"b">>],[{scope,{N,1}}]),
+    {N,1} = binary:match(Bin,<<"a">>,[{scope,{N,1}}]),
+    {N,1} = binary:match(Bin,[<<"a">>,<<"b">>],[{scope,{N,1}}]),
     scope_loop(Bin,N+1,M).
 
-interesting(doc) ->
-    ["Try some interesting patterns"];
+%% Try some interesting patterns.
 interesting(Config) when is_list(Config) ->
     X = do_interesting(binary),
     X = do_interesting(binref).
 
 do_interesting(Module) ->
-    ?line {0,4} = Module:match(<<"123456">>,
+    {0,4} = Module:match(<<"123456">>,
 			 Module:compile_pattern([<<"12">>,<<"1234">>,
 						 <<"23">>,<<"3">>,
 						 <<"34">>,<<"456">>,
 						 <<"45">>,<<"6">>])),
-    ?line [{0,4},{5,1}] = Module:matches(<<"123456">>,
+    [{0,4},{5,1}] = Module:matches(<<"123456">>,
 				   Module:compile_pattern([<<"12">>,<<"1234">>,
 							   <<"23">>,<<"3">>,
 							   <<"34">>,<<"456">>,
 							   <<"45">>,<<"6">>])),
-    ?line [{0,4}] = Module:matches(<<"123456">>,
+    [{0,4}] = Module:matches(<<"123456">>,
 			     Module:compile_pattern([<<"12">>,<<"1234">>,
 						     <<"23">>,<<"3">>,
 						     <<"34">>,<<"456">>,
 						     <<"45">>])),
-    ?line [{0,2},{2,2}] = Module:matches(<<"123456">>,
-			     Module:compile_pattern([<<"12">>,
-						     <<"23">>,<<"3">>,
-						     <<"34">>,<<"456">>,
-						     <<"45">>])),
-    ?line {1,4} = Module:match(<<"123456">>,
+    [{0,2},{2,2}] = Module:matches(<<"123456">>,
+				   Module:compile_pattern([<<"12">>,
+							   <<"23">>,<<"3">>,
+							   <<"34">>,<<"456">>,
+							   <<"45">>])),
+    {1,4} = Module:match(<<"123456">>,
 			 Module:compile_pattern([<<"34">>,<<"34">>,
 						 <<"12347">>,<<"2345">>])),
-    ?line [{1,4}] = Module:matches(<<"123456">>,
+    [{1,4}] = Module:matches(<<"123456">>,
 			     Module:compile_pattern([<<"34">>,<<"34">>,
 						     <<"12347">>,<<"2345">>])),
-    ?line [{2,2}] = Module:matches(<<"123456">>,
+    [{2,2}] = Module:matches(<<"123456">>,
 			     Module:compile_pattern([<<"34">>,<<"34">>,
 						     <<"12347">>,<<"2346">>])),
 
-    ?line {0,4} = Module:match(<<"123456">>,
+    {0,4} = Module:match(<<"123456">>,
 			 [<<"12">>,<<"1234">>,
 			  <<"23">>,<<"3">>,
 			  <<"34">>,<<"456">>,
 			  <<"45">>,<<"6">>]),
-    ?line [{0,4},{5,1}] = Module:matches(<<"123456">>,
+    [{0,4},{5,1}] = Module:matches(<<"123456">>,
 				   [<<"12">>,<<"1234">>,
 				    <<"23">>,<<"3">>,
 				    <<"34">>,<<"456">>,
 				    <<"45">>,<<"6">>]),
-    ?line [{0,4}] = Module:matches(<<"123456">>,
+    [{0,4}] = Module:matches(<<"123456">>,
 			     [<<"12">>,<<"1234">>,
 			      <<"23">>,<<"3">>,
 			      <<"34">>,<<"456">>,
 			      <<"45">>]),
-    ?line [{0,2},{2,2}] = Module:matches(<<"123456">>,
-					 [<<"12">>,
-					  <<"23">>,<<"3">>,
-					  <<"34">>,<<"456">>,
-					  <<"45">>]),
-    ?line {1,4} = Module:match(<<"123456">>,
-			       [<<"34">>,<<"34">>,
-				<<"12347">>,<<"2345">>]),
-    ?line [{1,4}] = Module:matches(<<"123456">>,
-				   [<<"34">>,<<"34">>,
-				    <<"12347">>,<<"2345">>]),
-    ?line [{2,2}] = Module:matches(<<"123456">>,
-				   [<<"34">>,<<"34">>,
-				    <<"12347">>,<<"2346">>]),
-    ?line nomatch = Module:match(<<1,2,3,4>>,<<2>>,[{scope,{0,1}}]),
-    ?line {1,1} = Module:match(<<1,2,3,4>>,<<2>>,[{scope,{0,2}}]),
-    ?line nomatch = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,2}}]),
-    ?line {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,3}}]),
-    ?line {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,4}}]),
-    ?line badarg = ?MASK_ERROR(Module:match(<<1,2,3,4>>,<<2,3>>,
-					    [{scope,{0,5}}])),
-    ?line {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{4,-4}}]),
-    ?line {0,3} = Module:match(<<1,2,3,4>>,<<1,2,3>>,[{scope,{4,-4}}]),
-    ?line {0,4} = Module:match(<<1,2,3,4>>,<<1,2,3,4>>,[{scope,{4,-4}}]),
-    ?line badarg = ?MASK_ERROR(Module:match(<<1,2,3,4>>,<<1,2,3,4>>,
-					    [{scope,{3,-4}}])),
-    ?line [] = Module:matches(<<1,2,3,4>>,<<2>>,[{scope,{0,1}}]),
-    ?line [{1,1}] = Module:matches(<<1,2,3,4>>,[<<2>>,<<3>>],[{scope,{0,2}}]),
-    ?line [] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,2}}]),
-    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,3}}]),
-    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,4}}]),
-    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
-				   [{scope,{0,3}}]),
-    ?line [{1,2},{3,1}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
-					 [{scope,{0,4}}]),
-    ?line badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,<<2,3>>,
-					      [{scope,{0,5}}])),
-    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{4,-4}}]),
-    ?line [{1,2},{3,1}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
-					 [{scope,{4,-4}}]),
-    ?line [{0,3}] = Module:matches(<<1,2,3,4>>,<<1,2,3>>,[{scope,{4,-4}}]),
-    ?line [{0,4}] = Module:matches(<<1,2,3,4>>,<<1,2,3,4>>,[{scope,{4,-4}}]),
-    ?line badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,<<1,2,3,4>>,
-					      [{scope,{3,-4}}])),
-    ?line badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,[<<1,2,3,4>>],
-					      [{scope,{3,-4}}])),
-    ?line [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,<<4,5>>),
-    ?line [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					       [<<4,5>>,<<7>>]),
-    ?line [<<1,2,3>>,<<6>>,<<8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-						 [<<4,5>>,<<7>>],[global]),
-    ?line [<<1,2,3>>,<<6>>,<<>>,<<>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-						     [<<4,5>>,<<7>>,<<8>>],
-						     [global]),
-    ?line [<<1,2,3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<4,5>>,<<7>>,<<8>>],
-					   [global,trim]),
-    ?line [<<1,2,3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<4,5>>,<<7>>,<<8>>],
-					   [global,trim_all]),
-    ?line [<<1,2,3,4,5,6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+    [{0,2},{2,2}] = Module:matches(<<"123456">>,
+				   [<<"12">>,
+				    <<"23">>,<<"3">>,
+				    <<"34">>,<<"456">>,
+				    <<"45">>]),
+    {1,4} = Module:match(<<"123456">>,
+			 [<<"34">>,<<"34">>,
+			  <<"12347">>,<<"2345">>]),
+    [{1,4}] = Module:matches(<<"123456">>,
+			     [<<"34">>,<<"34">>,
+			      <<"12347">>,<<"2345">>]),
+    [{2,2}] = Module:matches(<<"123456">>,
+			     [<<"34">>,<<"34">>,
+			      <<"12347">>,<<"2346">>]),
+    nomatch = Module:match(<<1,2,3,4>>,<<2>>,[{scope,{0,1}}]),
+    {1,1} = Module:match(<<1,2,3,4>>,<<2>>,[{scope,{0,2}}]),
+    nomatch = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,2}}]),
+    {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,3}}]),
+    {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,4}}]),
+    badarg = ?MASK_ERROR(Module:match(<<1,2,3,4>>,<<2,3>>,
+				      [{scope,{0,5}}])),
+    {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{4,-4}}]),
+    {0,3} = Module:match(<<1,2,3,4>>,<<1,2,3>>,[{scope,{4,-4}}]),
+    {0,4} = Module:match(<<1,2,3,4>>,<<1,2,3,4>>,[{scope,{4,-4}}]),
+    badarg = ?MASK_ERROR(Module:match(<<1,2,3,4>>,<<1,2,3,4>>,
+				      [{scope,{3,-4}}])),
+    [] = Module:matches(<<1,2,3,4>>,<<2>>,[{scope,{0,1}}]),
+    [{1,1}] = Module:matches(<<1,2,3,4>>,[<<2>>,<<3>>],[{scope,{0,2}}]),
+    [] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,2}}]),
+    [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,3}}]),
+    [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,4}}]),
+    [{1,2}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
+			     [{scope,{0,3}}]),
+    [{1,2},{3,1}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
+				   [{scope,{0,4}}]),
+    badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,<<2,3>>,
+					[{scope,{0,5}}])),
+    [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{4,-4}}]),
+    [{1,2},{3,1}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
+				   [{scope,{4,-4}}]),
+    [{0,3}] = Module:matches(<<1,2,3,4>>,<<1,2,3>>,[{scope,{4,-4}}]),
+    [{0,4}] = Module:matches(<<1,2,3,4>>,<<1,2,3,4>>,[{scope,{4,-4}}]),
+    badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,<<1,2,3,4>>,
+					[{scope,{3,-4}}])),
+    badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,[<<1,2,3,4>>],
+					[{scope,{3,-4}}])),
+    [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,<<4,5>>),
+    [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					 [<<4,5>>,<<7>>]),
+    [<<1,2,3>>,<<6>>,<<8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<4,5>>,<<7>>],[global]),
+    [<<1,2,3>>,<<6>>,<<>>,<<>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
 					       [<<4,5>>,<<7>>,<<8>>],
-					       [global,trim,{scope,{0,4}}]),
-    ?line [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					       [<<4,5>>,<<7>>,<<8>>],
-					       [global,trim,{scope,{0,5}}]),
+					       [global]),
+    [<<1,2,3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+				     [<<4,5>>,<<7>>,<<8>>],
+				     [global,trim]),
+    [<<1,2,3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+				     [<<4,5>>,<<7>>,<<8>>],
+				     [global,trim_all]),
+    [<<1,2,3,4,5,6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					 [<<4,5>>,<<7>>,<<8>>],
+					 [global,trim,{scope,{0,4}}]),
+    [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					 [<<4,5>>,<<7>>,<<8>>],
+					 [global,trim,{scope,{0,5}}]),
 
-    ?line [<<>>,<<>>,<<3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<1>>,<<2>>,<<4,5>>],
-					   [global,trim]),
-    ?line [<<3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<1>>,<<2>>,<<4,5>>],
-					   [global,trim_all]),
+    [<<>>,<<>>,<<3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					       [<<1>>,<<2>>,<<4,5>>],
+					       [global,trim]),
+    [<<3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+				     [<<1>>,<<2>>,<<4,5>>],
+				     [global,trim_all]),
 
-    ?line [<<1,2,3>>,<<>>,<<7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<4,5>>,<<6>>],
-					   [global,trim]),
-    ?line [<<1,2,3>>,<<7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<4,5>>,<<6>>],
-					   [global,trim_all]),
-    ?line [<<>>,<<>>,<<3>>,<<>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
-					   [global,trim]),
-    ?line [<<3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
-					   [<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
-					   [global,trim_all]),
-    ?line badarg = ?MASK_ERROR(
-		      Module:replace(<<1,2,3,4,5,6,7,8>>,
-				     [<<4,5>>,<<7>>,<<8>>],<<99>>,
-				     [global,trim,{scope,{0,5}}])),
-    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-					      [<<4,5>>,<<7>>,<<8>>],<<99>>,[]),
-    ?line <<1,2,3,99,6,99,99>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-						[<<4,5>>,<<7>>,<<8>>],<<99>>,
-						[global]),
-    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
-					      [global,{scope,{0,5}}]),
-    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
-					      [global,{scope,{0,5}}]),
-    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
-					      [global,{scope,{0,5}}]),
-    ?line badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
-					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
-					      [global,{scope,{0,5}},
-					       {insert,1}])),
-    ?line <<1,2,3,99,4,5,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-						  [<<4,5>>,<<7>>,<<8>>],<<99>>,
-						  [global,{scope,{0,5}},
-						   {insert_replaced,1}]),
-    ?line <<1,2,3,9,4,5,9,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
-						   [<<4,5>>,<<7>>,<<8>>],
-						   <<9,9>>,
-						   [global,{scope,{0,5}},
-						    {insert_replaced,1}]),
-    ?line badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
-					      [<<4,5>>,<<7>>,<<8>>],<<>>,
-					      [global,{scope,{0,5}},
-					       {insert_replaced,1}])),
-    ?line 2 = Module:longest_common_prefix([<<1,2,4>>,<<1,2,3>>]),
-    ?line 2 = Module:longest_common_prefix([<<1,2,4>>,<<1,2>>]),
-    ?line 1 = Module:longest_common_prefix([<<1,2,4>>,<<1>>]),
-    ?line 0 = Module:longest_common_prefix([<<1,2,4>>,<<>>]),
-    ?line 1 = Module:longest_common_prefix([<<1,2,4>>,<<1,2,3>>,<<1,3,3>>]),
-    ?line 1 = Module:longest_common_prefix([<<1,2,4>>,<<1,2,3>>,<<1,3,3>>,<<1,2,4>>]),
-    ?line 1251 = Module:longest_common_prefix([<<0:10000,1,2,4>>,
-					       <<0:10000,1,2,3>>,
-					       <<0:10000,1,3,3>>,
-					       <<0:10000,1,2,4>>]),
-    ?line 12501 = Module:longest_common_prefix([<<0:100000,1,2,4>>,
-						<<0:100000,1,2,3>>,
-						<<0:100000,1,3,3>>,
-						<<0:100000,1,2,4>>]),
-    ?line 1251 = Module:longest_common_prefix(
-		   [make_unaligned(<<0:10000,1,2,4>>),
-		    <<0:10000,1,2,3>>,
-		    make_unaligned(<<0:10000,1,3,3>>),
-		    <<0:10000,1,2,4>>]),
-    ?line 12501 = Module:longest_common_prefix(
-		    [<<0:100000,1,2,4>>,
-		     make_unaligned(<<0:100000,1,2,3>>),
-		     <<0:100000,1,3,3>>,
-		     make_unaligned(<<0:100000,1,2,4>>)]),
-    ?line 1250001 = Module:longest_common_prefix([<<0:10000000,1,2,4>>,
-						  <<0:10000000,1,2,3>>,
-						  <<0:10000000,1,3,3>>,
-						  <<0:10000000,1,2,4>>]),
+    [<<1,2,3>>,<<>>,<<7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					    [<<4,5>>,<<6>>],
+					    [global,trim]),
+    [<<1,2,3>>,<<7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+				       [<<4,5>>,<<6>>],
+				       [global,trim_all]),
+    [<<>>,<<>>,<<3>>,<<>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+						[<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
+						[global,trim]),
+    [<<3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+				 [<<1>>,<<2>>,<<4>>,<<5>>,<<7>>,<<8>>],
+				 [global,trim_all]),
+    [<<>>] = binary:split(<<>>, <<",">>, []),
+    [] = binary:split(<<>>, <<",">>, [trim]),
+    [] = binary:split(<<>>, <<",">>, [trim_all]),
+    [] = binary:split(<<>>, <<",">>, [global,trim]),
+    [] = binary:split(<<>>, <<",">>, [global,trim_all]),
+
+    badarg = ?MASK_ERROR(
+		Module:replace(<<1,2,3,4,5,6,7,8>>,
+			       [<<4,5>>,<<7>>,<<8>>],<<99>>,
+			       [global,trim,{scope,{0,5}}])),
+    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<99>>,[]),
+    <<1,2,3,99,6,99,99>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					  [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					  [global]),
+    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}}]),
+    <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}}]),
+    badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<99>>,
+					[global,{scope,{0,5}},
+					 {insert,1}])),
+    <<1,2,3,99,4,5,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					    [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					    [global,{scope,{0,5}},
+					     {insert_replaced,1}]),
+    <<1,2,3,9,4,5,9,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					     [<<4,5>>,<<7>>,<<8>>],
+					     <<9,9>>,
+					     [global,{scope,{0,5}},
+					      {insert_replaced,1}]),
+    badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
+					[<<4,5>>,<<7>>,<<8>>],<<>>,
+					[global,{scope,{0,5}},
+					 {insert_replaced,1}])),
+    2 = Module:longest_common_prefix([<<1,2,4>>,<<1,2,3>>]),
+    2 = Module:longest_common_prefix([<<1,2,4>>,<<1,2>>]),
+    1 = Module:longest_common_prefix([<<1,2,4>>,<<1>>]),
+    0 = Module:longest_common_prefix([<<1,2,4>>,<<>>]),
+    1 = Module:longest_common_prefix([<<1,2,4>>,<<1,2,3>>,<<1,3,3>>]),
+    1 = Module:longest_common_prefix([<<1,2,4>>,<<1,2,3>>,<<1,3,3>>,<<1,2,4>>]),
+    1251 = Module:longest_common_prefix([<<0:10000,1,2,4>>,
+					 <<0:10000,1,2,3>>,
+					 <<0:10000,1,3,3>>,
+					 <<0:10000,1,2,4>>]),
+    12501 = Module:longest_common_prefix([<<0:100000,1,2,4>>,
+					  <<0:100000,1,2,3>>,
+					  <<0:100000,1,3,3>>,
+					  <<0:100000,1,2,4>>]),
+    1251 = Module:longest_common_prefix(
+	     [make_unaligned(<<0:10000,1,2,4>>),
+	      <<0:10000,1,2,3>>,
+	      make_unaligned(<<0:10000,1,3,3>>),
+	      <<0:10000,1,2,4>>]),
+    12501 = Module:longest_common_prefix(
+	      [<<0:100000,1,2,4>>,
+	       make_unaligned(<<0:100000,1,2,3>>),
+	       <<0:100000,1,3,3>>,
+	       make_unaligned(<<0:100000,1,2,4>>)]),
+    1250001 = Module:longest_common_prefix([<<0:10000000,1,2,4>>,
+					    <<0:10000000,1,2,3>>,
+					    <<0:10000000,1,3,3>>,
+					    <<0:10000000,1,2,4>>]),
     if % Too cruel for the reference implementation
 	Module =:= binary ->
-	    ?line erts_debug:set_internal_state(available_internal_state,true),
-	    ?line io:format("oldlimit: ~p~n",
-			    [erts_debug:set_internal_state(
-			       binary_loop_limit,100)]),
-	    ?line 1250001 = Module:longest_common_prefix(
-				[<<0:10000000,1,2,4>>,
-				 <<0:10000000,1,2,3>>,
-				 <<0:10000000,1,3,3>>,
-				 <<0:10000000,1,2,4>>]),
-	    ?line io:format("limit was: ~p~n",
-			    [erts_debug:set_internal_state(binary_loop_limit,
-							   default)]),
-	    ?line erts_debug:set_internal_state(available_internal_state,
-						false);
+	    erts_debug:set_internal_state(available_internal_state,true),
+	    io:format("oldlimit: ~p~n",
+		      [erts_debug:set_internal_state(
+			 binary_loop_limit,100)]),
+	    1250001 = Module:longest_common_prefix(
+			[<<0:10000000,1,2,4>>,
+			 <<0:10000000,1,2,3>>,
+			 <<0:10000000,1,3,3>>,
+			 <<0:10000000,1,2,4>>]),
+	    io:format("limit was: ~p~n",
+		      [erts_debug:set_internal_state(binary_loop_limit,
+						     default)]),
+	    erts_debug:set_internal_state(available_internal_state,
+					  false);
 	true ->
 	    ok
     end,
-    ?line 1 = Module:longest_common_suffix([<<0:100000000,1,2,4,5>>,
-					    <<0:100000000,1,2,3,5>>,
-					    <<0:100000000,1,3,3,5>>,
-					    <<0:100000000,1,2,4,5>>]),
-    ?line 1 = Module:longest_common_suffix([<<1,2,4,5>>,
-					    <<0:100000000,1,2,3,5>>,
-					    <<0:100000000,1,3,3,5>>,
-					    <<0:100000000,1,2,4,5>>]),
-    ?line 1 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
-					    <<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4,5>>]),
-    ?line 0 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
-					    <<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4>>]),
-    ?line 2 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
-					    <<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4,5,5>>]),
-    ?line 1 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5>>,
-					    <<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4,5,5>>]),
-    ?line 0 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<>>,
-					    <<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4,5,5>>]),
-    ?line 0 = Module:longest_common_suffix([<<>>,<<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4,5,5>>]),
-    ?line 0 = Module:longest_common_suffix([<<>>,<<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4,5,5>>]),
-    ?line 2 = Module:longest_common_suffix([<<5,5>>,<<0:100000000,1,3,3,5,5>>,
-					    <<0:100000000,1,2,4,5,5>>]),
-    ?line 2 = Module:longest_common_suffix([<<5,5>>,<<5,5>>,<<4,5,5>>]),
-    ?line 2 = Module:longest_common_suffix([<<5,5>>,<<5,5>>,<<5,5>>]),
-    ?line 3 = Module:longest_common_suffix([<<4,5,5>>,<<4,5,5>>,<<4,5,5>>]),
-    ?line 0 = Module:longest_common_suffix([<<>>]),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_suffix([])),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_suffix([apa])),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_suffix([[<<>>]])),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_suffix([[<<0>>,
-							      <<1:9>>]])),
-    ?line 0 = Module:longest_common_prefix([<<>>]),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_prefix([])),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_prefix([apa])),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_prefix([[<<>>]])),
-    ?line badarg = ?MASK_ERROR(Module:longest_common_prefix([[<<0>>,
-							      <<1:9>>]])),
+    1 = Module:longest_common_suffix([<<0:100000000,1,2,4,5>>,
+				      <<0:100000000,1,2,3,5>>,
+				      <<0:100000000,1,3,3,5>>,
+				      <<0:100000000,1,2,4,5>>]),
+    1 = Module:longest_common_suffix([<<1,2,4,5>>,
+				      <<0:100000000,1,2,3,5>>,
+				      <<0:100000000,1,3,3,5>>,
+				      <<0:100000000,1,2,4,5>>]),
+    1 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
+				      <<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4,5>>]),
+    0 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
+				      <<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4>>]),
+    2 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
+				      <<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4,5,5>>]),
+    1 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5>>,
+				      <<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4,5,5>>]),
+    0 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<>>,
+				      <<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4,5,5>>]),
+    0 = Module:longest_common_suffix([<<>>,<<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4,5,5>>]),
+    0 = Module:longest_common_suffix([<<>>,<<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4,5,5>>]),
+    2 = Module:longest_common_suffix([<<5,5>>,<<0:100000000,1,3,3,5,5>>,
+				      <<0:100000000,1,2,4,5,5>>]),
+    2 = Module:longest_common_suffix([<<5,5>>,<<5,5>>,<<4,5,5>>]),
+    2 = Module:longest_common_suffix([<<5,5>>,<<5,5>>,<<5,5>>]),
+    3 = Module:longest_common_suffix([<<4,5,5>>,<<4,5,5>>,<<4,5,5>>]),
+    0 = Module:longest_common_suffix([<<>>]),
+    badarg = ?MASK_ERROR(Module:longest_common_suffix([])),
+    badarg = ?MASK_ERROR(Module:longest_common_suffix([apa])),
+    badarg = ?MASK_ERROR(Module:longest_common_suffix([[<<>>]])),
+    badarg = ?MASK_ERROR(Module:longest_common_suffix([[<<0>>,
+							<<1:9>>]])),
+    0 = Module:longest_common_prefix([<<>>]),
+    badarg = ?MASK_ERROR(Module:longest_common_prefix([])),
+    badarg = ?MASK_ERROR(Module:longest_common_prefix([apa])),
+    badarg = ?MASK_ERROR(Module:longest_common_prefix([[<<>>]])),
+    badarg = ?MASK_ERROR(Module:longest_common_prefix([[<<0>>,
+							<<1:9>>]])),
 
-    ?line <<1:6,Bin:3/binary,_:2>> = <<1:6,1,2,3,1:2>>,
-    ?line <<1,2,3>> = Bin,
-    ?line 1 = Module:first(Bin),
-    ?line 1 = Module:first(<<1>>),
-    ?line 1 = Module:first(<<1,2,3>>),
-    ?line badarg = ?MASK_ERROR(Module:first(<<>>)),
-    ?line badarg = ?MASK_ERROR(Module:first(apa)),
-    ?line 3 = Module:last(Bin),
-    ?line 1 = Module:last(<<1>>),
-    ?line 3 = Module:last(<<1,2,3>>),
-    ?line badarg = ?MASK_ERROR(Module:last(<<>>)),
-    ?line badarg = ?MASK_ERROR(Module:last(apa)),
-    ?line 1 = Module:at(Bin,0),
-    ?line 1 = Module:at(<<1>>,0),
-    ?line 1 = Module:at(<<1,2,3>>,0),
-    ?line 2 = Module:at(<<1,2,3>>,1),
-    ?line 3 = Module:at(<<1,2,3>>,2),
-    ?line badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,3)),
-    ?line badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,-1)),
-    ?line badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,apa)),
-    ?line "hejsan" = [ Module:at(<<"hejsan">>,I) || I <- lists:seq(0,5) ],
+    <<1:6,Bin:3/binary,_:2>> = <<1:6,1,2,3,1:2>>,
+    <<1,2,3>> = Bin,
+    1 = Module:first(Bin),
+    1 = Module:first(<<1>>),
+    1 = Module:first(<<1,2,3>>),
+    badarg = ?MASK_ERROR(Module:first(<<>>)),
+    badarg = ?MASK_ERROR(Module:first(apa)),
+    3 = Module:last(Bin),
+    1 = Module:last(<<1>>),
+    3 = Module:last(<<1,2,3>>),
+    badarg = ?MASK_ERROR(Module:last(<<>>)),
+    badarg = ?MASK_ERROR(Module:last(apa)),
+    1 = Module:at(Bin,0),
+    1 = Module:at(<<1>>,0),
+    1 = Module:at(<<1,2,3>>,0),
+    2 = Module:at(<<1,2,3>>,1),
+    3 = Module:at(<<1,2,3>>,2),
+    badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,3)),
+    badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,-1)),
+    badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,apa)),
+    "hejsan" = [ Module:at(<<"hejsan">>,I) || I <- lists:seq(0,5) ],
 
-    ?line badarg = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-4)),
-    ?line [1,2,3] = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-3)),
+    badarg = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-4)),
+    [1,2,3] = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-3)),
 
-    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(<<1,2,1:2>>,big)),
-    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(<<1,2,1:2>>,little)),
-    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(apa)),
-    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(125,little)),
-    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<>>,little)),
-    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<>>,big)),
-    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<0>>,little)),
-    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<0>>,big)),
-    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(make_unaligned(<<0>>),
-						 little)),
-    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(make_unaligned(<<0>>),big)),
-    ?line badarg = ?MASK_ERROR(Module:encode_unsigned(apa)),
-    ?line badarg = ?MASK_ERROR(Module:encode_unsigned(125.3,little)),
-    ?line badarg = ?MASK_ERROR(Module:encode_unsigned({1},little)),
-    ?line badarg = ?MASK_ERROR(Module:encode_unsigned([1],little)),
-    ?line <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,little)),
-    ?line <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,big)),
+    badarg = ?MASK_ERROR(Module:decode_unsigned(<<1,2,1:2>>,big)),
+    badarg = ?MASK_ERROR(Module:decode_unsigned(<<1,2,1:2>>,little)),
+    badarg = ?MASK_ERROR(Module:decode_unsigned(apa)),
+    badarg = ?MASK_ERROR(Module:decode_unsigned(125,little)),
+    0 = ?MASK_ERROR(Module:decode_unsigned(<<>>,little)),
+    0 = ?MASK_ERROR(Module:decode_unsigned(<<>>,big)),
+    0 = ?MASK_ERROR(Module:decode_unsigned(<<0>>,little)),
+    0 = ?MASK_ERROR(Module:decode_unsigned(<<0>>,big)),
+    0 = ?MASK_ERROR(Module:decode_unsigned(make_unaligned(<<0>>),
+					   little)),
+    0 = ?MASK_ERROR(Module:decode_unsigned(make_unaligned(<<0>>),big)),
+    badarg = ?MASK_ERROR(Module:encode_unsigned(apa)),
+    badarg = ?MASK_ERROR(Module:encode_unsigned(125.3,little)),
+    badarg = ?MASK_ERROR(Module:encode_unsigned({1},little)),
+    badarg = ?MASK_ERROR(Module:encode_unsigned([1],little)),
+    <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,little)),
+    <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,big)),
     ok.
 
-encode_decode(doc) ->
-    ["test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2"];
+%% Test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2.
 encode_decode(Config) when is_list(Config) ->
-    ?line random:seed({1271,769940,559934}),
-    ?line ok = encode_decode_loop({1,200},1000), % Need to be long enough
-						 % to create offheap binaries
+    rand:seed(exsplus, {1271,769940,559934}),
+    ok = encode_decode_loop({1,200},1000), % Need to be long enough
+						% to create offheap binaries
     ok.
 
 encode_decode_loop(_Range,0) ->
     ok;
 encode_decode_loop(Range, X) ->
-    ?line N = random_number(Range),
-    ?line A = binary:encode_unsigned(N),
-    ?line B = binary:encode_unsigned(N,big),
-    ?line C = binref:encode_unsigned(N),
-    ?line D = binref:encode_unsigned(N,big),
-    ?line E = binary:encode_unsigned(N,little),
-    ?line F = binref:encode_unsigned(N,little),
-    ?line G = binary:decode_unsigned(A),
-    ?line H = binary:decode_unsigned(A,big),
-    ?line I = binref:decode_unsigned(A),
-    ?line J = binary:decode_unsigned(E,little),
-    ?line K = binref:decode_unsigned(E,little),
-    ?line L = binary:decode_unsigned(make_unaligned(A)),
-    ?line M = binary:decode_unsigned(make_unaligned(E),little),
-    ?line PaddedBig = <<0:48,A/binary>>,
-    ?line PaddedLittle = <<E/binary,0:48>>,
-    ?line O = binary:decode_unsigned(PaddedBig),
-    ?line P = binary:decode_unsigned(make_unaligned(PaddedBig)),
-    ?line Q = binary:decode_unsigned(PaddedLittle,little),
-    ?line R = binary:decode_unsigned(make_unaligned(PaddedLittle),little),
-    ?line S = binref:decode_unsigned(PaddedLittle,little),
-    ?line T = binref:decode_unsigned(PaddedBig),
+    N = random_number(Range),
+    A = binary:encode_unsigned(N),
+    B = binary:encode_unsigned(N,big),
+    C = binref:encode_unsigned(N),
+    D = binref:encode_unsigned(N,big),
+    E = binary:encode_unsigned(N,little),
+    F = binref:encode_unsigned(N,little),
+    G = binary:decode_unsigned(A),
+    H = binary:decode_unsigned(A,big),
+    I = binref:decode_unsigned(A),
+    J = binary:decode_unsigned(E,little),
+    K = binref:decode_unsigned(E,little),
+    L = binary:decode_unsigned(make_unaligned(A)),
+    M = binary:decode_unsigned(make_unaligned(E),little),
+    PaddedBig = <<0:48,A/binary>>,
+    PaddedLittle = <<E/binary,0:48>>,
+    O = binary:decode_unsigned(PaddedBig),
+    P = binary:decode_unsigned(make_unaligned(PaddedBig)),
+    Q = binary:decode_unsigned(PaddedLittle,little),
+    R = binary:decode_unsigned(make_unaligned(PaddedLittle),little),
+    S = binref:decode_unsigned(PaddedLittle,little),
+    T = binref:decode_unsigned(PaddedBig),
     case (((A =:= B) and (B =:= C) and (C =:= D)) and
-	  ((E =:= F)) and
-	  ((N =:= G) and (G =:= H) and (H =:= I) and
-	   (I =:= J) and (J =:= K) and (K =:= L) and (L =:= M)) and
-	  ((M =:= O) and (O =:= P) and (P =:= Q) and (Q =:= R) and
-	   (R =:= S) and (S =:= T)))of
+						    ((E =:= F)) and
+								  ((N =:= G) and (G =:= H) and (H =:= I) and
+													   (I =:= J) and (J =:= K) and (K =:= L) and (L =:= M)) and
+																				  ((M =:= O) and (O =:= P) and (P =:= Q) and (Q =:= R) and
+																											 (R =:= S) and (S =:= T)))of
 	true ->
 	    encode_decode_loop(Range,X-1);
 	_ ->
@@ -754,90 +705,86 @@ encode_decode_loop(Range, X) ->
 	    exit(mismatch)
     end.
 
-guard(doc) ->
-    ["Smoke test of the guard BIFs binary_part/2,3"];
+%% Smoke test of the guard BIFs binary_part/2,3.
 guard(Config) when is_list(Config) ->
     {comment, "Guard tests are run in emulator test suite"}.
 
-referenced(doc) ->
-    ["Test refernced_byte_size/1 bif."];
+%% Test referenced_byte_size/1 bif.
 referenced(Config) when is_list(Config) ->
-    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size([])),
-    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size(apa)),
-    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size({})),
-    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size(1)),
-    ?line A = <<1,2,3>>,
-    ?line B = binary:copy(A,1000),
-    ?line 3 = binary:referenced_byte_size(A),
-    ?line 3000 = binary:referenced_byte_size(B),
-    ?line <<_:8,C:2/binary>> = A,
-    ?line 3 = binary:referenced_byte_size(C),
-    ?line 2 = binary:referenced_byte_size(binary:copy(C)),
-    ?line <<_:7,D:2/binary,_:1>> = A,
-    ?line 2 = binary:referenced_byte_size(binary:copy(D)),
-    ?line 3 = binary:referenced_byte_size(D),
-    ?line <<_:8,E:2/binary,_/binary>> = B,
-    ?line 3000 = binary:referenced_byte_size(E),
-    ?line 2 = binary:referenced_byte_size(binary:copy(E)),
-    ?line <<_:7,F:2/binary,_:1,_/binary>> = B,
-    ?line 2 = binary:referenced_byte_size(binary:copy(F)),
-    ?line 3000 = binary:referenced_byte_size(F),
+    badarg = ?MASK_ERROR(binary:referenced_byte_size([])),
+    badarg = ?MASK_ERROR(binary:referenced_byte_size(apa)),
+    badarg = ?MASK_ERROR(binary:referenced_byte_size({})),
+    badarg = ?MASK_ERROR(binary:referenced_byte_size(1)),
+    A = <<1,2,3>>,
+    B = binary:copy(A,1000),
+    3 = binary:referenced_byte_size(A),
+    3000 = binary:referenced_byte_size(B),
+    <<_:8,C:2/binary>> = A,
+    3 = binary:referenced_byte_size(C),
+    2 = binary:referenced_byte_size(binary:copy(C)),
+    <<_:7,D:2/binary,_:1>> = A,
+    2 = binary:referenced_byte_size(binary:copy(D)),
+    3 = binary:referenced_byte_size(D),
+    <<_:8,E:2/binary,_/binary>> = B,
+    3000 = binary:referenced_byte_size(E),
+    2 = binary:referenced_byte_size(binary:copy(E)),
+    <<_:7,F:2/binary,_:1,_/binary>> = B,
+    2 = binary:referenced_byte_size(binary:copy(F)),
+    3000 = binary:referenced_byte_size(F),
     ok.
 
 
 
-list_to_bin(doc) ->
-    ["Test list_to_bin/1 bif"];
+%% Test list_to_bin/1 BIF.
 list_to_bin(Config) when is_list(Config) ->
     %% Just some smoke_tests first, then go nuts with random cases
-    ?line badarg = ?MASK_ERROR(binary:list_to_bin({})),
-    ?line badarg = ?MASK_ERROR(binary:list_to_bin(apa)),
-    ?line badarg = ?MASK_ERROR(binary:list_to_bin(<<"apa">>)),
+    badarg = ?MASK_ERROR(binary:list_to_bin({})),
+    badarg = ?MASK_ERROR(binary:list_to_bin(apa)),
+    badarg = ?MASK_ERROR(binary:list_to_bin(<<"apa">>)),
     F1 = fun(L) ->
 		 ?MASK_ERROR(binref:list_to_bin(L))
 	 end,
     F2 = fun(L) ->
 		 ?MASK_ERROR(binary:list_to_bin(L))
 	 end,
-    ?line random_iolist:run(1000,F1,F2),
+    random_iolist:run(1000,F1,F2),
     ok.
 
-copy(doc) ->
-    ["Test copy/1,2 bif's"];
+%% Test copy/1,2 BIFs.
 copy(Config) when is_list(Config) ->
-    ?line <<1,2,3>> = binary:copy(<<1,2,3>>),
-    ?line RS = random_string({1,10000}),
-    ?line RS = RS2 = binary:copy(RS),
-    ?line false = erts_debug:same(RS,RS2),
-    ?line <<>> = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
-    ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,2)),
-    ?line badarg = ?MASK_ERROR(binary:copy([],0)),
-    ?line <<>> = ?MASK_ERROR(binary:copy(<<>>,0)),
-    ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,1.0)),
-    ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,
-					   16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
-    ?line <<>> = binary:copy(<<>>,10000),
-    ?line random:seed({1271,769940,559934}),
-    ?line ok = random_copy(3000),
-    ?line erts_debug:set_internal_state(available_internal_state,true),
-    ?line io:format("oldlimit: ~p~n",
-		    [erts_debug:set_internal_state(binary_loop_limit,10)]),
-    ?line Subj = subj(),
-    ?line XX = binary:copy(Subj,1000),
-    ?line XX = binref:copy(Subj,1000),
-    ?line ok = random_copy(1000),
-    ?line kill_copy_loop(1000),
-    ?line io:format("limit was: ~p~n",
-		    [erts_debug:set_internal_state(binary_loop_limit,
-						   default)]),
-    ?line erts_debug:set_internal_state(available_internal_state,false),
+    <<1,2,3>> = binary:copy(<<1,2,3>>),
+    RS = random_string({1,10000}),
+    RS = RS2 = binary:copy(RS),
+    false = erts_debug:same(RS,RS2),
+    <<>> = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,2)),
+    badarg = ?MASK_ERROR(binary:copy([],0)),
+    <<>> = ?MASK_ERROR(binary:copy(<<>>,0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,1.0)),
+    badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,
+				     16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
+    <<>> = binary:copy(<<>>,10000),
+    rand:seed(exsplus, {1271,769940,559934}),
+    ok = random_copy(3000),
+    erts_debug:set_internal_state(available_internal_state,true),
+    io:format("oldlimit: ~p~n",
+	      [erts_debug:set_internal_state(binary_loop_limit,10)]),
+    Subj = subj(),
+    XX = binary:copy(Subj,1000),
+    XX = binref:copy(Subj,1000),
+    ok = random_copy(1000),
+    kill_copy_loop(1000),
+    io:format("limit was: ~p~n",
+	      [erts_debug:set_internal_state(binary_loop_limit,
+					     default)]),
+    erts_debug:set_internal_state(available_internal_state,false),
     ok.
 
 kill_copy_loop(0) ->
     ok;
 kill_copy_loop(N) ->
     {Pid,Ref} = spawn_monitor(fun() ->
-				    ok = random_copy(1000)
+				      ok = random_copy(1000)
 			      end),
     receive
     after 10 ->
@@ -855,7 +802,7 @@ random_copy(0) ->
     ok;
 random_copy(N) ->
     Str = random_string({0,N}),
-    Num = random:uniform(N div 10+1),
+    Num = rand:uniform(N div 10+1),
     A = ?MASK_ERROR(binary:copy(Str,Num)),
     B = ?MASK_ERROR(binref:copy(Str,Num)),
     C = ?MASK_ERROR(binary:copy(make_unaligned(Str),Num)),
@@ -870,34 +817,33 @@ random_copy(N) ->
 	    exit(mismatch)
     end.
 
-bin_to_list(doc) ->
-    ["Test bin_to_list/1,2,3 bif's"];
+%% Test bin_to_list/1,2,3 BIFs.
 bin_to_list(Config) when is_list(Config) ->
     %% Just some smoke_tests first, then go nuts with random cases
-    ?line X = <<1,2,3,4,0:1000000,5>>,
-    ?line Y = make_unaligned(X),
-    ?line LX = binary:bin_to_list(X),
-    ?line LX = binary:bin_to_list(X,0,byte_size(X)),
-    ?line LX = binary:bin_to_list(X,byte_size(X),-byte_size(X)),
-    ?line LX = binary:bin_to_list(X,{0,byte_size(X)}),
-    ?line LX = binary:bin_to_list(X,{byte_size(X),-byte_size(X)}),
-    ?line LY = binary:bin_to_list(Y),
-    ?line LY = binary:bin_to_list(Y,0,byte_size(Y)),
-    ?line LY = binary:bin_to_list(Y,byte_size(Y),-byte_size(Y)),
-    ?line LY = binary:bin_to_list(Y,{0,byte_size(Y)}),
-    ?line LY = binary:bin_to_list(Y,{byte_size(Y),-byte_size(Y)}),
-    ?line 1 = hd(LX),
-    ?line 5 = lists:last(LX),
-    ?line 1 = hd(LY),
-    ?line 5 = lists:last(LY),
-    ?line X = list_to_binary(LY),
-    ?line Y = list_to_binary(LY),
-    ?line X = list_to_binary(LY),
-    ?line [5] = lists:nthtail(byte_size(X)-1,LX),
-    ?line [0,5] = lists:nthtail(byte_size(X)-2,LX),
-    ?line [0,5] = lists:nthtail(byte_size(Y)-2,LY),
-    ?line random:seed({1271,769940,559934}),
-    ?line ok = random_bin_to_list(5000),
+    X = <<1,2,3,4,0:1000000,5>>,
+    Y = make_unaligned(X),
+    LX = binary:bin_to_list(X),
+    LX = binary:bin_to_list(X,0,byte_size(X)),
+    LX = binary:bin_to_list(X,byte_size(X),-byte_size(X)),
+    LX = binary:bin_to_list(X,{0,byte_size(X)}),
+    LX = binary:bin_to_list(X,{byte_size(X),-byte_size(X)}),
+    LY = binary:bin_to_list(Y),
+    LY = binary:bin_to_list(Y,0,byte_size(Y)),
+    LY = binary:bin_to_list(Y,byte_size(Y),-byte_size(Y)),
+    LY = binary:bin_to_list(Y,{0,byte_size(Y)}),
+    LY = binary:bin_to_list(Y,{byte_size(Y),-byte_size(Y)}),
+    1 = hd(LX),
+    5 = lists:last(LX),
+    1 = hd(LY),
+    5 = lists:last(LY),
+    X = list_to_binary(LY),
+    Y = list_to_binary(LY),
+    X = list_to_binary(LY),
+    [5] = lists:nthtail(byte_size(X)-1,LX),
+    [0,5] = lists:nthtail(byte_size(X)-2,LX),
+    [0,5] = lists:nthtail(byte_size(Y)-2,LY),
+    rand:seed(exsplus, {1271,769940,559934}),
+    ok = random_bin_to_list(5000),
     ok.
 
 random_bin_to_list(0) ->
@@ -908,10 +854,10 @@ random_bin_to_list(N) ->
     Parts1 = Parts0 ++ [ {X+Y,-Y} || {X,Y} <- Parts0 ],
     [ begin
 	  try
-	  true = ?MASK_ERROR(binary:bin_to_list(Str,Z)) =:=
-	      ?MASK_ERROR(binref:bin_to_list(Str,Z)),
-	  true = ?MASK_ERROR(binary:bin_to_list(Str,Z)) =:=
-	      ?MASK_ERROR(binary:bin_to_list(make_unaligned(Str),Z))
+	      true = ?MASK_ERROR(binary:bin_to_list(Str,Z)) =:=
+		  ?MASK_ERROR(binref:bin_to_list(Str,Z)),
+	      true = ?MASK_ERROR(binary:bin_to_list(Str,Z)) =:=
+		  ?MASK_ERROR(binary:bin_to_list(make_unaligned(Str),Z))
 	  catch
 	      _:_ ->
 		  io:format("Error, Str = <<\"~s\">>.~nZ = ~p.~n",
@@ -921,10 +867,10 @@ random_bin_to_list(N) ->
       end || Z <- Parts1 ],
     [ begin
 	  try
-	  true = ?MASK_ERROR(binary:bin_to_list(Str,A,B)) =:=
-	      ?MASK_ERROR(binref:bin_to_list(Str,A,B)),
-	  true = ?MASK_ERROR(binary:bin_to_list(Str,A,B)) =:=
-	      ?MASK_ERROR(binary:bin_to_list(make_unaligned(Str),A,B))
+	      true = ?MASK_ERROR(binary:bin_to_list(Str,A,B)) =:=
+		  ?MASK_ERROR(binref:bin_to_list(Str,A,B)),
+	      true = ?MASK_ERROR(binary:bin_to_list(Str,A,B)) =:=
+		  ?MASK_ERROR(binary:bin_to_list(make_unaligned(Str),A,B))
 	  catch
 	      _:_ ->
 		  io:format("Error, Str = <<\"~s\">>.~nA = ~p.~nB = ~p.~n",
@@ -934,37 +880,36 @@ random_bin_to_list(N) ->
       end || {A,B} <- Parts1 ],
     random_bin_to_list(N-1).
 
-parts(doc) ->
-    ["Test the part/2,3 bif's"];
+%% Test the part/2,3 BIFs.
 parts(Config) when is_list(Config) ->
     %% Some simple smoke tests to begin with
-    ?line Simple = <<1,2,3,4,5,6,7,8>>,
-    ?line <<1,2>> = binary:part(Simple,0,2),
-    ?line <<1,2>> = binary:part(Simple,{0,2}),
-    ?line Simple = binary:part(Simple,0,8),
-    ?line Simple = binary:part(Simple,{0,8}),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,0,9)),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{0,9})),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,1,8)),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{1,8})),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{3,-4})),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{3.0,1})),
-    ?line badarg = ?MASK_ERROR(
-		      binary:part(Simple,{16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-					  ,1})),
-    ?line <<2,3,4,5,6,7,8>> = binary:part(Simple,{1,7}),
-    ?line <<2,3,4,5,6,7,8>> = binary:part(Simple,{8,-7}),
-    ?line Simple = binary:part(Simple,{8,-8}),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{1,-8})),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{8,-9})),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{0,-1})),
-    ?line <<>> = binary:part(Simple,{8,0}),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{9,0})),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{-1,0})),
-    ?line badarg = ?MASK_ERROR(binary:part(Simple,{7,2})),
-    ?line <<8>> = binary:part(Simple,{7,1}),
-    ?line random:seed({1271,769940,559934}),
-    ?line random_parts(5000),
+    Simple = <<1,2,3,4,5,6,7,8>>,
+    <<1,2>> = binary:part(Simple,0,2),
+    <<1,2>> = binary:part(Simple,{0,2}),
+    Simple = binary:part(Simple,0,8),
+    Simple = binary:part(Simple,{0,8}),
+    badarg = ?MASK_ERROR(binary:part(Simple,0,9)),
+    badarg = ?MASK_ERROR(binary:part(Simple,{0,9})),
+    badarg = ?MASK_ERROR(binary:part(Simple,1,8)),
+    badarg = ?MASK_ERROR(binary:part(Simple,{1,8})),
+    badarg = ?MASK_ERROR(binary:part(Simple,{3,-4})),
+    badarg = ?MASK_ERROR(binary:part(Simple,{3.0,1})),
+    badarg = ?MASK_ERROR(
+		binary:part(Simple,{16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+				    ,1})),
+    <<2,3,4,5,6,7,8>> = binary:part(Simple,{1,7}),
+    <<2,3,4,5,6,7,8>> = binary:part(Simple,{8,-7}),
+    Simple = binary:part(Simple,{8,-8}),
+    badarg = ?MASK_ERROR(binary:part(Simple,{1,-8})),
+    badarg = ?MASK_ERROR(binary:part(Simple,{8,-9})),
+    badarg = ?MASK_ERROR(binary:part(Simple,{0,-1})),
+    <<>> = binary:part(Simple,{8,0}),
+    badarg = ?MASK_ERROR(binary:part(Simple,{9,0})),
+    badarg = ?MASK_ERROR(binary:part(Simple,{-1,0})),
+    badarg = ?MASK_ERROR(binary:part(Simple,{7,2})),
+    <<8>> = binary:part(Simple,{7,1}),
+    rand:seed(exsplus, {1271,769940,559934}),
+    random_parts(5000),
     ok.
 
 
@@ -987,15 +932,15 @@ random_parts(N) ->
 random_parts(0,_) ->
     [];
 random_parts(X,N) ->
-    Pos = random:uniform(N),
-    Len = random:uniform((Pos * 12) div 10),
+    Pos = rand:uniform(N),
+    Len = rand:uniform((Pos * 12) div 10),
     [{Pos,Len} | random_parts(X-1,N)].
 
-random_ref_comp(doc) ->
-    ["Test pseudorandomly generated cases against reference imlementation"];
+%% Test pseudorandomly generated cases against reference implementation.
 random_ref_comp(Config) when is_list(Config) ->
+    ct:timetrap({minutes,30}), %% valgrind needs a lot of time
     put(success_counter,0),
-    random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     Nr = {1,40},
     Hr = {30,1000},
     I1 = 1500,
@@ -1021,11 +966,12 @@ random_ref_comp(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state,false),
     ok.
 
-random_ref_sr_comp(doc) ->
-    ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
+%% Test pseudorandomly generated cases against reference implementation
+%% of split and replace.
 random_ref_sr_comp(Config) when is_list(Config) ->
+    ct:timetrap({minutes,30}), %% valgrind needs a lot
     put(success_counter,0),
-    random:seed({1271,769940,559934}),
+    rand:seed(exsplus, {1271,769940,559934}),
     Nr = {1,40},
     Hr = {30,1000},
     I1 = 1500,
@@ -1039,14 +985,14 @@ random_ref_sr_comp(Config) when is_list(Config) ->
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
 
-random_ref_fla_comp(doc) ->
-    ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
+%% Test pseudorandomly generated cases against reference implementation
+%% of split and replace.
 random_ref_fla_comp(Config) when is_list(Config) ->
-    ?line put(success_counter,0),
-    ?line random:seed({1271,769940,559934}),
-    ?line do_random_first_comp(5000,{1,1000}),
-    ?line do_random_last_comp(5000,{1,1000}),
-    ?line do_random_at_comp(5000,{1,1000}),
+    put(success_counter,0),
+    rand:seed(exsplus, {1271,769940,559934}),
+    do_random_first_comp(5000,{1,1000}),
+    do_random_last_comp(5000,{1,1000}),
+    do_random_at_comp(5000,{1,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
 
@@ -1326,7 +1272,7 @@ do_random_replace_comp(N,NeedleRange,HaystackRange) ->
     true = do_replace_comp(Needle,Haystack,Repl,[]),
     true = do_replace_comp(Needle,Haystack,Repl,[global]),
     true = do_replace_comp(Needle,Haystack,Repl,
-			 [global,{insert_replaced,Insertat}]),
+			   [global,{insert_replaced,Insertat}]),
     do_random_replace_comp(N-1,NeedleRange,HaystackRange).
 do_random_replace_comp2(0,_,_) ->
     ok;
@@ -1340,7 +1286,7 @@ do_random_replace_comp2(N,NeedleRange,HaystackRange) ->
     true = do_replace_comp(Needles,Haystack,Repl,[]),
     true = do_replace_comp(Needles,Haystack,Repl,[global]),
     true = do_replace_comp(Needles,Haystack,Repl,
-			 [global,{insert_replaced,Insertat}]),
+			   [global,{insert_replaced,Insertat}]),
     do_random_replace_comp2(N-1,NeedleRange,HaystackRange).
 
 do_replace_comp(N,H,R,Opts) ->
@@ -1376,25 +1322,25 @@ one_random(N) ->
 	       $Ä,$Ö,$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
 
 random_number({Min,Max}) -> % Min and Max are *length* of number in
-                            % decimal positions
-    X = random:uniform(Max - Min + 1) + Min - 1,
-    list_to_integer([one_random_number(random:uniform(10)) || _ <- lists:seq(1,X)]).
+						% decimal positions
+    X = rand:uniform(Max - Min + 1) + Min - 1,
+    list_to_integer([one_random_number(rand:uniform(10)) || _ <- lists:seq(1,X)]).
 
 
 random_length({Min,Max}) ->
-    random:uniform(Max - Min + 1) + Min - 1.
+    rand:uniform(Max - Min + 1) + Min - 1.
 random_string({Min,Max}) ->
-    X = random:uniform(Max - Min + 1) + Min - 1,
-    list_to_binary([one_random(random:uniform(68)) || _ <- lists:seq(1,X)]).
+    X = rand:uniform(Max - Min + 1) + Min - 1,
+    list_to_binary([one_random(rand:uniform(68)) || _ <- lists:seq(1,X)]).
 random_substring({Min,Max},Hay) ->
-    X = random:uniform(Max - Min + 1) + Min - 1,
+    X = rand:uniform(Max - Min + 1) + Min - 1,
     Y = byte_size(Hay),
     Z = if
 	    X > Y -> Y;
 	    true -> X
 	end,
     PMax = Y - Z,
-    Pos = random:uniform(PMax + 1) - 1,
+    Pos = rand:uniform(PMax + 1) - 1,
     <<_:Pos/binary,Res:Z/binary,_/binary>> = Hay,
     Res.
 

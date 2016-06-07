@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@
 
 %% Information.
 -export([services/0,
+         peer_info/1,
+         peer_find/1,
          service_info/2]).
 
 %% Start/stop the application. In a "real" application this should
@@ -53,6 +55,7 @@
               service_name/0,
               capability/0,
               peer_filter/0,
+              peer_ref/0,
               service_opt/0,
               application_opt/0,
               app_module/0,
@@ -145,6 +148,27 @@ services() ->
 
 service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
+
+%% ---------------------------------------------------------------------------
+%% peer_info/2
+%% ---------------------------------------------------------------------------
+
+-spec peer_info(peer_ref())
+   -> [tuple()].
+
+peer_info(PeerRef) ->
+    diameter_service:peer_info(PeerRef).
+
+%% ---------------------------------------------------------------------------
+%% peer_find/1
+%% ---------------------------------------------------------------------------
+
+-spec peer_find(peer_ref() | pid())
+   -> {peer_ref(), pid()}
+    | false.
+
+peer_find(Pid) ->
+    diameter_peer_fsm:find(Pid).
 
 %% ---------------------------------------------------------------------------
 %% add_transport/3
@@ -279,6 +303,9 @@ call(SvcName, App, Message) ->
     | {neg, peer_filter()}
     | {all, [peer_filter()]}
     | {any, [peer_filter()]}.
+
+-opaque peer_ref()
+   :: pid().
 
 -type evaluable()
    :: {module(), atom(), list()}

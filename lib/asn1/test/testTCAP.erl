@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 -export([compile/2,test/2,compile_asn1config/2,test_asn1config/0]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 compile(Config, Options) ->
     Files = ["Remote-Operations-Information-Objects",
@@ -39,7 +39,6 @@ compile_asn1config(Config, Options) ->
     asn1_test_lib:compile_erlang("TCAPPackage_msg", Config, []).
 
 test(Erule,_Config) ->
-%    ?line OutDir = ?config(priv_dir,Config),
     %% testing OTP-4798, open type encoded with indefinite length
     {ok,_Res} = 'TCAPMessages-simple':decode('MessageType',
 					     val_OTP_4798(Erule)),
@@ -49,20 +48,17 @@ test(Erule,_Config) ->
 					      val_OTP_4799(Erule)),
 
     %% testing vance shipley's problems. Parameterized object sets.
-    ?line Val3 = 'TCAPPackage_msg':val('PackageType',unidirectional),
+    Val3 = 'TCAPPackage_msg':val('PackageType',unidirectional),
     Res3 = enc_dec('PackageType', Val3),
-    ?line ok = 'TCAPPackage_msg':check_result('PackageType',unidirectional,Res3),
-%%    ?line io:format("Res3:~n~p~n~n",[Res3]),
+    ok = 'TCAPPackage_msg':check_result('PackageType',unidirectional,Res3),
     
-    ?line Val4 = 'TCAPPackage_msg':val('PackageType',abort),
+    Val4 = 'TCAPPackage_msg':val('PackageType',abort),
     Res4 = enc_dec('PackageType', Val4),
-    ?line ok = 'TCAPPackage_msg':check_result('PackageType',abort,Res4),
-%%    ?line io:format("Res4:~n~p~n~n",[Res4]),
+    ok = 'TCAPPackage_msg':check_result('PackageType',abort,Res4),
 
-    ?line Val5 = 'TCAPPackage_msg':val('PackageType',response),
+    Val5 = 'TCAPPackage_msg':val('PackageType',response),
     Res5 = enc_dec('PackageType', Val5),
-    ?line ok = 'TCAPPackage_msg':check_result('PackageType',response,Res5).
-%%    ?line io:format("Res5:~n~p~n~n",[Res5]).
+    ok = 'TCAPPackage_msg':check_result('PackageType',response,Res5).
 
 val_OTP_4798(ber) ->
     [100,129,176,73,4,57,3,17,80,107,42,40,40,6,7,0,17,134,5,1,1,1,160,29,97,27,128,2,7,128,161,9,6,7,4,0,0,1,0,14,2,162,3,2,1,0,163,5,161,3,2,1,0,108,128,162,120,2,1,0,48,115,2,1,56,48,128,48,34,4,16,203,87,215,196,217,93,235,90,64,131,106,145,39,26,25,236,4,4,197,241,81,112,4,8,78,225,34,196,215,212,200,0,48,34,4,16,145,125,27,67,42,144,6,161,207,112,55,75,200,191,191,28,4,4,226,219,242,123,4,8,72,46,130,28,206,178,168,0,48,34,4,16,1,8,20,29,70,160,218,160,125,188,244,174,113,115,253,245,4,4,26,5,90,160,4,8,252,75,149,98,153,224,140,0,0,0,0,0];

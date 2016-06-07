@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ new() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizeraddbutton">external documentation</a>.
--spec addButton(This, Button) -> ok when
+-spec addButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 addButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
@@ -66,7 +66,7 @@ addButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) -
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizerrealize">external documentation</a>.
--spec realize(This) -> ok when
+-spec realize(This) -> 'ok' when
 	This::wxStdDialogButtonSizer().
 realize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
@@ -74,7 +74,7 @@ realize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetaffirmativebutton">external documentation</a>.
--spec setAffirmativeButton(This, Button) -> ok when
+-spec setAffirmativeButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setAffirmativeButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
@@ -83,7 +83,7 @@ setAffirmativeButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=Bu
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetcancelbutton">external documentation</a>.
--spec setCancelButton(This, Button) -> ok when
+-spec setCancelButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setCancelButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
@@ -92,7 +92,7 @@ setCancelButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonR
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetnegativebutton">external documentation</a>.
--spec setNegativeButton(This, Button) -> ok when
+-spec setNegativeButton(This, Button) -> 'ok' when
 	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setNegativeButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
@@ -101,7 +101,7 @@ setNegativeButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=Butto
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStdDialogButtonSizer()) -> ok.
+-spec destroy(This::wxStdDialogButtonSizer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStdDialogButtonSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

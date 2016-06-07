@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ layoutFrame(This,Frame)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlayoutalgorithm.html#wxlayoutalgorithmlayoutframe">external documentation</a>.
 -spec layoutFrame(This, Frame, [Option]) -> boolean() when
 	This::wxLayoutAlgorithm(), Frame::wxFrame:wxFrame(),
-	Option :: {mainWindow, wxWindow:wxWindow()}.
+	Option :: {'mainWindow', wxWindow:wxWindow()}.
 layoutFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxLayoutAlgorithm),
@@ -75,7 +75,7 @@ layoutMDIFrame(This,Frame)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlayoutalgorithm.html#wxlayoutalgorithmlayoutmdiframe">external documentation</a>.
 -spec layoutMDIFrame(This, Frame, [Option]) -> boolean() when
 	This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame(),
-	Option :: {rect, {X::integer(), Y::integer(), W::integer(), H::integer()}}.
+	Option :: {'rect', {X::integer(), Y::integer(), W::integer(), H::integer()}}.
 layoutMDIFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxLayoutAlgorithm),
@@ -97,7 +97,7 @@ layoutWindow(This,Frame)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlayoutalgorithm.html#wxlayoutalgorithmlayoutwindow">external documentation</a>.
 -spec layoutWindow(This, Frame, [Option]) -> boolean() when
 	This::wxLayoutAlgorithm(), Frame::wxWindow:wxWindow(),
-	Option :: {mainWindow, wxWindow:wxWindow()}.
+	Option :: {'mainWindow', wxWindow:wxWindow()}.
 layoutWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxLayoutAlgorithm),
@@ -109,7 +109,7 @@ layoutWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, 
   <<ThisRef:32/?UI,FrameRef:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxLayoutAlgorithm()) -> ok.
+-spec destroy(This::wxLayoutAlgorithm()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxLayoutAlgorithm),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

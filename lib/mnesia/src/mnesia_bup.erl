@@ -28,6 +28,7 @@
          fallback_exists/0,
          tm_fallback_start/1,
          create_schema/1,
+	 create_schema/2,
          install_fallback/1,
          install_fallback/2,
          uninstall_fallback/0,
@@ -46,7 +47,7 @@
          uninstall_fallback_master/2,
          local_uninstall_fallback/2,
          do_traverse_backup/7,
-         trav_apply/4
+         trav_apply/5
         ]).
 
 -include("mnesia.hrl").
@@ -81,7 +82,8 @@ iterate(Mod, Fun, Opaque, Acc) ->
     R = #restore{bup_module = Mod, bup_data = Opaque},
     try read_schema_section(R) of
 	{R2, {Header, Schema, Rest}} ->
-	    try iter(R2, Header, Schema, Fun, Acc, Rest) of
+            Ext = get_ext_types(Schema),
+	    try iter(R2, Header, Schema, Ext, Fun, Acc, Rest) of
 		{ok, R3, Res} ->
 		    close_read(R3),
 		    {ok, Res}
@@ -96,17 +98,32 @@ iterate(Mod, Fun, Opaque, Acc) ->
 	    Err
     end.
 
-iter(R, Header, Schema, Fun, Acc, []) ->
+get_ext_types(Schema) ->
+    try
+        List = lookup_schema(schema, Schema),
+        case lists:keyfind(user_properties, 1, List) of
+            {_, Props} ->
+                proplists:get_value(
+                  mnesia_backend_types, Props, []);
+            false ->
+                []
+        end
+    catch
+        throw:{error, {"Cannot lookup",_}} ->
+            []
+    end.
+
+iter(R, Header, Schema, Ext, Fun, Acc, []) ->
     case safe_apply(R, read, [R#restore.bup_data]) of
         {R2, []} ->
-            Res = Fun([], Header, Schema, Acc),
+            Res = Fun([], Header, Schema, Ext, Acc),
             {ok, R2, Res};
         {R2, BupItems} ->
-            iter(R2, Header, Schema, Fun, Acc, BupItems)
+            iter(R2, Header, Schema, Ext, Fun, Acc, BupItems)
     end;
-iter(R, Header, Schema, Fun, Acc, BupItems) ->
-    Acc2 = Fun(BupItems, Header, Schema, Acc),
-    iter(R, Header, Schema, Fun, Acc2, []).
+iter(R, Header, Schema, Ext, Fun, Acc, BupItems) ->
+    Acc2 = Fun(BupItems, Header, Schema, Ext, Acc),
+    iter(R, Header, Schema, Ext, Fun, Acc2, []).
 
 -spec safe_apply(#restore{}, atom(), list()) -> tuple().
 safe_apply(R, write, [_, Items]) when Items =:= [] ->
@@ -262,7 +279,7 @@ convert_0_1(Schema) ->
             Cs = mnesia_schema:list2cs(List),
             convert_0_1(Schema2, [], Cs);
         false ->
-            List = mnesia_schema:get_initial_schema(disc_copies, [node()]),
+            List = mnesia_schema:get_initial_schema(disc_copies, [node()], []),
             Cs = mnesia_schema:list2cs(List),
             convert_0_1(Schema, [], Cs)
     end.
@@ -310,16 +327,19 @@ schema2bup({schema, Tab, TableDef}) ->
 %% Create schema on the given nodes
 %% Requires that old schemas has been deleted
 %% Returns ok | {error, Reason}
-create_schema([]) ->
-    create_schema([node()]);
-create_schema(Ns) when is_list(Ns) ->
+create_schema(Nodes) ->
+    create_schema(Nodes, []).
+
+create_schema([], Props) ->
+    create_schema([node()], Props);
+create_schema(Ns, Props) when is_list(Ns), is_list(Props) ->
     case is_set(Ns) of
         true ->
-            create_schema(Ns, mnesia_schema:ensure_no_schema(Ns));
+            create_schema(Ns, mnesia_schema:ensure_no_schema(Ns), Props);
         false ->
             {error, {combine_error, Ns}}
     end;
-create_schema(Ns) ->
+create_schema(Ns, _Props) ->
     {error, {badarg, Ns}}.
 
 is_set(List) when is_list(List) ->
@@ -327,7 +347,7 @@ is_set(List) when is_list(List) ->
 is_set(_) ->
     false.
 
-create_schema(Ns, ok) ->
+create_schema(Ns, ok, Props) ->
     %% Ensure that we access the intended Mnesia
     %% directory. This function may not be called
     %% during startup since it will cause the
@@ -346,7 +366,7 @@ create_schema(Ns, ok) ->
                             Str = mk_str(),
                             File = mnesia_lib:dir(Str),
                             file:delete(File),
-                            try make_initial_backup(Ns, File, Mod) of
+                            try make_initial_backup(Ns, File, Mod, Props) of
                                 {ok, _Res} ->
                                     case do_install_fallback(File, Mod) of
                                         ok ->
@@ -363,9 +383,9 @@ create_schema(Ns, ok) ->
         {error, Reason} ->
             {error, Reason}
     end;
-create_schema(_Ns, {error, Reason}) ->
+create_schema(_Ns, {error, Reason}, _) ->
     {error, Reason};
-create_schema(_Ns, Reason) ->
+create_schema(_Ns, Reason, _) ->
     {error, Reason}.
 
 mk_str() ->
@@ -373,7 +393,10 @@ mk_str() ->
     lists:concat([node()] ++ Now ++ ".TMP").
 
 make_initial_backup(Ns, Opaque, Mod) ->
-    Orig = mnesia_schema:get_initial_schema(disc_copies, Ns),
+    make_initial_backup(Ns, Opaque, Mod, []).
+
+make_initial_backup(Ns, Opaque, Mod, Props) ->
+    Orig = mnesia_schema:get_initial_schema(disc_copies, Ns, Props),
     Modded = proplists:delete(storage_properties, proplists:delete(majority, Orig)),
     Schema = [{schema, schema, Modded}],
     O2 = do_apply(Mod, open_write, [Opaque], Opaque),
@@ -486,15 +509,15 @@ install_fallback_master(ClientPid, FA) ->
     State = {start, FA},
     Opaque = FA#fallback_args.opaque,
     Mod = FA#fallback_args.module,
-    Res = iterate(Mod, fun restore_recs/4, Opaque, State),
+    Res = iterate(Mod, fun restore_recs/5, Opaque, State),
     unlink(ClientPid),
     ClientPid ! {self(), Res},
     exit(shutdown).
 
-restore_recs(_, _, _, stop) ->
+restore_recs(_, _, _, _, stop) ->
     throw({error, "restore_recs already stopped"});
 
-restore_recs(Recs, Header, Schema, {start, FA}) ->
+restore_recs(Recs, Header, Schema, Ext, {start, FA}) ->
     %% No records in backup
     Schema2 = convert_schema(Header#log_header.log_version, Schema),
     CreateList = lookup_schema(schema, Schema2),
@@ -505,19 +528,19 @@ restore_recs(Recs, Header, Schema, {start, FA}) ->
             Args = [self(), FA],
             Pids = [spawn_link(N, ?MODULE, fallback_receiver, Args) || N <- Ns],
             send_fallback(Pids, {start, Header, Schema2}),
-            Res = restore_recs(Recs, Header, Schema2, Pids),
+            Res = restore_recs(Recs, Header, Schema2, Ext, Pids),
             global:del_lock({{mnesia_table_lock, schema}, self()}, Ns),
             Res
     catch _:Reason ->
             throw({error, {"Bad schema in restore_recs", Reason}})
     end;
 
-restore_recs([], _Header, _Schema, Pids) ->
+restore_recs([], _Header, _Schema, _Ext, Pids) ->
     send_fallback(Pids, swap),
     send_fallback(Pids, stop),
     stop;
 
-restore_recs(Recs, _, _, Pids) ->
+restore_recs(Recs, _, _, _, Pids) ->
     send_fallback(Pids, {records, Recs}),
     Pids.
 
@@ -716,7 +739,7 @@ do_fallback_start(true, false) ->
     BupFile = fallback_bup(),
     Mod = mnesia_backup,
     LocalTabs = ?ets_new_table(mnesia_local_tables, [set, public, {keypos, 2}]),
-    case iterate(Mod, fun restore_tables/4, BupFile, {start, LocalTabs}) of
+    case iterate(Mod, fun restore_tables/5, BupFile, {start, LocalTabs}) of
         {ok, _Res} ->
             ?SAFE(dets:close(schema)),
             TmpSchema = mnesia_lib:tab2tmp(schema),
@@ -737,23 +760,24 @@ do_fallback_start(true, false) ->
             {error, {"Cannot start from fallback", Reason}}
     end.
 
-restore_tables(All=[Rec | Recs], Header, Schema, State={local, LocalTabs, LT}) ->
+restore_tables(All=[Rec | Recs], Header, Schema, Ext,
+               State={local, LocalTabs, LT}) ->
     Tab = element(1, Rec),
     if
         Tab =:= LT#local_tab.name ->
             Key = element(2, Rec),
             (LT#local_tab.add)(Tab, Key, Rec, LT),
-            restore_tables(Recs, Header, Schema, State);
+            restore_tables(Recs, Header, Schema, Ext, State);
         true ->
             NewState = {new, LocalTabs},
-            restore_tables(All, Header, Schema, NewState)
+            restore_tables(All, Header, Schema, Ext, NewState)
     end;
-restore_tables(All=[Rec | Recs], Header, Schema, {new, LocalTabs}) ->
+restore_tables(All=[Rec | Recs], Header, Schema, Ext, {new, LocalTabs}) ->
     Tab = element(1, Rec),
     case ?ets_lookup(LocalTabs, Tab) of
         [] ->
             State = {not_local, LocalTabs, Tab},
-            restore_tables(Recs, Header, Schema, State);
+            restore_tables(Recs, Header, Schema, Ext, State);
         [LT] when is_record(LT, local_tab) ->
 	    State = {local, LocalTabs, LT},
 	    case LT#local_tab.opened of
@@ -762,38 +786,39 @@ restore_tables(All=[Rec | Recs], Header, Schema, {new, LocalTabs}) ->
 		    (LT#local_tab.open)(Tab, LT),
 		    ?ets_insert(LocalTabs,LT#local_tab{opened=true})
 	    end,
-            restore_tables(All, Header, Schema, State)
+            restore_tables(All, Header, Schema, Ext, State)
     end;
-restore_tables(All=[Rec | Recs], Header, Schema, S = {not_local, LocalTabs, PrevTab}) ->
+restore_tables(All=[Rec | Recs], Header, Schema, Ext,
+               S = {not_local, LocalTabs, PrevTab}) ->
     Tab = element(1, Rec),
     if
         Tab =:= PrevTab ->
-            restore_tables(Recs, Header, Schema, S);
+            restore_tables(Recs, Header, Schema, Ext, S);
         true ->
             State = {new, LocalTabs},
-            restore_tables(All, Header, Schema, State)
+            restore_tables(All, Header, Schema, Ext, State)
     end;
-restore_tables(Recs, Header, Schema, {start, LocalTabs}) ->
+restore_tables(Recs, Header, Schema, Ext, {start, LocalTabs}) ->
     Dir = mnesia_lib:dir(),
     OldDir = filename:join([Dir, "OLD_DIR"]),
     mnesia_schema:purge_dir(OldDir, []),
     mnesia_schema:purge_dir(Dir, [fallback_name()]),
-    init_dat_files(Schema, LocalTabs),
+    init_dat_files(Schema, Ext, LocalTabs),
     State = {new, LocalTabs},
-    restore_tables(Recs, Header, Schema, State);
-restore_tables([], _Header, _Schema, State) ->
+    restore_tables(Recs, Header, Schema, Ext, State);
+restore_tables([], _Header, _Schema, _Ext, State) ->
     State.
 
 %% Creates all neccessary dat files and inserts
 %% the table definitions in the schema table
 %%
 %% Returns a list of local_tab tuples for all local tables
-init_dat_files(Schema, LocalTabs) ->
+init_dat_files(Schema, Ext, LocalTabs) ->
     TmpFile = mnesia_lib:tab2tmp(schema),
     Args = [{file, TmpFile}, {keypos, 2}, {type, set}],
     case dets:open_file(schema, Args) of % Assume schema lock
         {ok, _} ->
-            create_dat_files(Schema, LocalTabs),
+            create_dat_files(Schema, Ext, LocalTabs),
             ok = dets:close(schema),
             LocalTab = #local_tab{name         = schema,
                                   storage_type = disc_copies,
@@ -808,10 +833,10 @@ init_dat_files(Schema, LocalTabs) ->
             throw({error, {"Cannot open file", schema, Args, Reason}})
     end.
 
-create_dat_files([{schema, schema, TabDef} | Tail], LocalTabs) ->
+create_dat_files([{schema, schema, TabDef} | Tail], Ext, LocalTabs) ->
     ok = dets:insert(schema, {schema, schema, TabDef}),
-    create_dat_files(Tail, LocalTabs);
-create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
+    create_dat_files(Tail, Ext, LocalTabs);
+create_dat_files([{schema, Tab, TabDef} | Tail], Ext, LocalTabs) ->
     TmpFile = mnesia_lib:tab2tmp(Tab),
     DatFile = mnesia_lib:tab2dat(Tab),
     DclFile = mnesia_lib:tab2dcl(Tab),
@@ -824,56 +849,21 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
 
     mnesia_lib:dets_sync_close(Tab),
     file:delete(TmpFile),
-    Cs = mnesia_schema:list2cs(TabDef),
+    Cs = mnesia_schema:list2cs(TabDef, Ext),
     ok = dets:insert(schema, {schema, Tab, TabDef}),
     RecName = Cs#cstruct.record_name,
     Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
+    delete_ext(Storage, Tab),
+    Semantics = mnesia_lib:semantics(Storage, storage),
     if
-	Storage =:= unknown ->
+	Semantics =:= undefined ->
             ok = dets:delete(schema, {schema, Tab}),
-            create_dat_files(Tail, LocalTabs);
-        Storage =:= disc_only_copies ->
-            Args = [{file, TmpFile}, {keypos, 2},
-                    {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)}],
-            Open = fun(T, LT) when T =:= LT#local_tab.name ->
-                           case mnesia_lib:dets_sync_open(T, Args) of
-                               {ok, _} ->
-                                   ok;
-                               {error, Reason} ->
-                                   throw({error, {"Cannot open file", T, Args, Reason}})
-                           end
-                   end,
-            Add = fun(T, Key, Rec, LT) when T =:= LT#local_tab.name ->
-                          case Rec of
-                              {_T, Key} ->
-                                  ok = dets:delete(T, Key);
-                              (Rec) when T =:= RecName ->
-                                  ok = dets:insert(Tab, Rec);
-                              (Rec) ->
-                                  Rec2 = setelement(1, Rec, RecName),
-                                  ok = dets:insert(T, Rec2)
-                          end
-                  end,
-            Close = fun(T, LT) when T =:= LT#local_tab.name ->
-                            mnesia_lib:dets_sync_close(T)
-                    end,
-	    Swap = fun(T, LT) when T =:= LT#local_tab.name ->
-			   Expunge(),
-			   case LT#local_tab.opened of
-			       true ->
-				   Close(T,LT);
-			       false ->
-				   Open(T,LT),
-				   Close(T,LT)
-			   end,
-			   case file:rename(TmpFile, DatFile) of
-			       ok ->
-				   ok;
-			       {error, Reason} ->
-				   mnesia_lib:fatal("Cannot rename file ~p -> ~p: ~p~n",
-						    [TmpFile, DatFile, Reason])
-			   end
-		   end,
+            create_dat_files(Tail, Ext, LocalTabs);
+        Semantics =:= disc_only_copies ->
+	    Open = disc_only_open_fun(Storage, Cs),
+	    Add = disc_only_add_fun(Storage, Cs),
+	    Close = disc_only_close_fun(Storage),
+	    Swap = disc_only_swap_fun(Storage, Expunge, Open, Close),
             LocalTab = #local_tab{name         = Tab,
                                   storage_type = Storage,
                                   open         = Open,
@@ -883,8 +873,8 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
                                   record_name  = RecName,
                                   opened       = false},
             ?ets_insert(LocalTabs, LocalTab),
-	    create_dat_files(Tail, LocalTabs);
-        Storage =:= ram_copies; Storage =:= disc_copies ->
+	    create_dat_files(Tail, Ext, LocalTabs);
+        Semantics =:= ram_copies; Storage =:= disc_copies ->
 	    Open = fun(T, LT) when T =:= LT#local_tab.name ->
 			   mnesia_log:open_log({?MODULE, T},
 					       mnesia_log:dcl_log_header(),
@@ -945,17 +935,96 @@ create_dat_files([{schema, Tab, TabDef} | Tail], LocalTabs) ->
 				  opened       = false
 				 },
             ?ets_insert(LocalTabs, LocalTab),
-            create_dat_files(Tail, LocalTabs)
+            create_dat_files(Tail, Ext, LocalTabs);
+	true ->
+	    error({unknown_semantics, [{semantics, Semantics},
+				       {tabdef, TabDef},
+				       {ext, Ext}]})
     end;
-create_dat_files([{schema, Tab} | Tail], LocalTabs) ->
+create_dat_files([{schema, Tab} | Tail], Ext, LocalTabs) ->
     ?ets_delete(LocalTabs, Tab),
     ok = dets:delete(schema, {schema, Tab}),
     TmpFile = mnesia_lib:tab2tmp(Tab),
     mnesia_lib:dets_sync_close(Tab),
     file:delete(TmpFile),
-    create_dat_files(Tail, LocalTabs);
-create_dat_files([], _LocalTabs) ->
+    create_dat_files(Tail, Ext, LocalTabs);
+create_dat_files([], _Ext, _LocalTabs) ->
     ok.
+
+delete_ext({ext, Alias, Mod}, Tab) ->
+    Mod:close_table(Alias, Tab),
+    Mod:delete_table(Alias, Tab),
+    ok;
+delete_ext(_, _) ->
+    ok.
+
+
+disc_only_open_fun(disc_only_copies, #cstruct{name = Tab} =Cs) ->
+    TmpFile = mnesia_lib:tab2tmp(Tab),
+    Args = [{file, TmpFile}, {keypos, 2},
+	    {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)}],
+    fun(T, LT) when T =:= LT#local_tab.name ->
+	    case mnesia_lib:dets_sync_open(T, Args) of
+		{ok, _} ->
+		    ok;
+		{error, Reason} ->
+		    throw({error, {"Cannot open file", T, Args, Reason}})
+	    end
+    end;
+disc_only_open_fun({ext,Alias,Mod}, Cs) ->
+    fun(T, LT) when T =:= LT#local_tab.name ->
+	    ok = Mod:load_table(Alias, T, restore, mnesia_schema:cs2list(Cs))
+    end.
+
+disc_only_add_fun(Storage, #cstruct{name = Tab,
+				    record_name = RecName}) ->
+    fun(T, Key, Rec, #local_tab{name = T}) when T =:= Tab->
+	    case Rec of
+		{_T, Key} ->
+		    ok = mnesia_lib:db_erase(Storage, T, Key);
+		(Rec) when T =:= RecName ->
+		    ok = mnesia_lib:db_put(Storage, T, Rec);
+		(Rec) ->
+		    ok = mnesia_lib:db_put(Storage, T,
+					   setelement(1, Rec, RecName))
+	    end
+    end.
+
+disc_only_close_fun(disc_only_copies) ->
+    fun(T, LT) when T =:= LT#local_tab.name ->
+	    mnesia_lib:dets_sync_close(T)
+    end;
+disc_only_close_fun({ext, Alias, Mod}) ->
+    fun(T, _LT) ->
+	    Mod:sync_close_table(Alias, T)
+    end.
+
+
+disc_only_swap_fun(disc_only_copies, Expunge, Open, Close) ->
+    fun(T, LT) when T =:= LT#local_tab.name ->
+            TmpFile = mnesia_lib:tab2tmp(T),
+            DatFile = mnesia_lib:tab2dat(T),
+	    Expunge(),
+	    case LT#local_tab.opened of
+		true ->
+		    Close(T,LT);
+		false ->
+		    Open(T,LT),
+		    Close(T,LT)
+	    end,
+	    case file:rename(TmpFile, DatFile) of
+		ok ->
+		    ok;
+		{error, Reason} ->
+		    mnesia_lib:fatal("Cannot rename file ~p -> ~p: ~p~n",
+				     [TmpFile, DatFile, Reason])
+	    end
+    end;
+disc_only_swap_fun({ext, _Alias, _Mod}, _Expunge, _Open, Close) ->
+    fun(T, #local_tab{name = T} = LT) ->
+	    Close(T, LT)
+    end.
+
 
 uninstall_fallback() ->
     uninstall_fallback([{scope, global}]).
@@ -1133,7 +1202,7 @@ do_traverse_backup(ClientPid, Source, SourceMod, Target, TargetMod, Fun, Acc) ->
         end,
     A = {start, Fun, Acc, TargetMod, Iter},
     Res =
-        case iterate(SourceMod, fun trav_apply/4, Source, A) of
+        case iterate(SourceMod, fun trav_apply/5, Source, A) of
             {ok, {iter, _, Acc2, _, Iter2}} when TargetMod =/= read_only ->
                 try
 		    do_apply(TargetMod, commit_write, [Iter2], Iter2),
@@ -1152,7 +1221,7 @@ do_traverse_backup(ClientPid, Source, SourceMod, Target, TargetMod, Fun, Acc) ->
     unlink(ClientPid),
     ClientPid ! {iter_done, self(), Res}.
 
-trav_apply(Recs, _Header, _Schema, {iter, Fun, Acc, Mod, Iter}) ->
+trav_apply(Recs, _Header, _Schema, _Ext, {iter, Fun, Acc, Mod, Iter}) ->
     {NewRecs, Acc2} = filter_foldl(Fun, Acc, Recs),
     if
         Mod =/= read_only, NewRecs =/= [] ->
@@ -1161,7 +1230,7 @@ trav_apply(Recs, _Header, _Schema, {iter, Fun, Acc, Mod, Iter}) ->
         true ->
             {iter, Fun, Acc2, Mod, Iter}
     end;
-trav_apply(Recs, Header, Schema, {start, Fun, Acc, Mod, Iter}) ->
+trav_apply(Recs, Header, Schema, Ext, {start, Fun, Acc, Mod, Iter}) ->
     Iter2 =
         if
             Mod =/= read_only ->
@@ -1169,8 +1238,9 @@ trav_apply(Recs, Header, Schema, {start, Fun, Acc, Mod, Iter}) ->
             true ->
                 Iter
         end,
-    TravAcc = trav_apply(Schema, Header, Schema, {iter, Fun, Acc, Mod, Iter2}),
-    trav_apply(Recs, Header, Schema, TravAcc).
+    TravAcc = trav_apply(Schema, Header, Schema, Ext,
+                         {iter, Fun, Acc, Mod, Iter2}),
+    trav_apply(Recs, Header, Schema, Ext, TravAcc).
 
 filter_foldl(Fun, Acc, [Head|Tail]) ->
     case Fun(Head, Acc) of

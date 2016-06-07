@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@
 	 terminate/2,code_change/3]).
 -export([make_crypto_key/2, get_crypto_key/1]).	%Utilities used by compiler
 
--export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0]).
+-export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0, label/0]).
 
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
 		member/2, reverse/1, sort/1, splitwith/2]).
@@ -872,7 +872,7 @@ mandatory_chunks() ->
 %%% can use it.
 %%% ====================================================================
 
--record(state, {crypto_key_f :: crypto_fun()}).
+-record(state, {crypto_key_f :: crypto_fun() | 'undefined'}).
 
 -define(CRYPTO_KEY_SERVER, beam_lib__crypto_key_server).
 
@@ -904,7 +904,11 @@ anno_from_term({Tag, Forms}) when Tag =:= abstract_v1; Tag =:= abstract_v2 ->
 anno_from_term(T) ->
     T.
 
-anno_from_forms(Forms) ->
+anno_from_forms(Forms0) ->
+    %% Forms with record field types created before OTP 19.0 are
+    %% replaced by well-formed record forms holding the type
+    %% information.
+    Forms = epp:restore_typed_record_fields(Forms0),
     [erl_parse:anno_from_term(Form) || Form <- Forms].
 
 start_crypto() ->
@@ -975,9 +979,7 @@ handle_call({get_crypto_key, What}, From, #state{crypto_key_f=F}=S) ->
 handle_call({crypto_key_fun, F}, {_,_} = From, S) ->
     case S#state.crypto_key_f of
 	undefined ->
-	    %% Don't allow tuple funs here. (They weren't allowed before,
-	    %% so there is no reason to allow them now.)
-	    if is_function(F), is_function(F, 1) ->
+	    if is_function(F, 1) ->
 		    {Result, Fun, Reply} = 
 			case catch F(init) of
 			    ok ->

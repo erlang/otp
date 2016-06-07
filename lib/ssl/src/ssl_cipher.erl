@@ -1,7 +1,7 @@
-%%
+%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,17 +38,20 @@
 	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
 	 suite/1, suites/1, all_suites/1, 
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
-	 rc4_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
-	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1]).
+	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
+	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
+	 random_bytes/1]).
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
-	      key_algo/0]).
+	      hash/0, key_algo/0, sign_algo/0]).
 
 -type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
 -type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
+-type sign_algo()         :: rsa | dsa | ecdsa.
+-type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | 
+			     psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()} % Pre TLS 1.2 
 			     %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
 			   | {key_algo(), cipher(), hash(), hash() | default_prf}. 
@@ -101,7 +104,7 @@ cipher_init(?RC4, IV, Key) ->
     State = crypto:stream_init(rc4, Key),
     #cipher_state{iv = IV, key = Key, state = State};
 cipher_init(?AES_GCM, IV, Key) ->
-    <<Nonce:64>> = ssl:random_bytes(8),
+    <<Nonce:64>> = random_bytes(8),
     #cipher_state{iv = IV, key = Key, nonce = Nonce};
 cipher_init(_BCA, IV, Key) ->
     #cipher_state{iv = IV, key = Key}.
@@ -211,7 +214,7 @@ decipher(?RC4, HashSz, CipherState = #cipher_state{state = State0}, Fragment, _,
 	    %% alerts may permit certain attacks against CBC mode as used in
 	    %% TLS [CBCATT].  It is preferable to uniformly use the
 	    %% bad_record_mac alert to hide the specific type of the error."
-	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end;
 
 decipher(?DES, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
@@ -269,7 +272,7 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 	    %% alerts may permit certain attacks against CBC mode as used in
 	    %% TLS [CBCATT].  It is preferable to uniformly use the
 	    %% bad_record_mac alert to hide the specific type of the error."
-	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 
 aead_ciphertext_to_state(chacha20_poly1305, SeqNo, _IV, AAD0, Fragment, _Version) ->
@@ -293,11 +296,11 @@ aead_decipher(Type, #cipher_state{key = Key, iv = IV} = CipherState,
 	    Content when is_binary(Content) ->
 		{Content, CipherState};
 	    _ ->
-		?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+                ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
 	end
     catch
 	_:_ ->
-	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 
 %%--------------------------------------------------------------------
@@ -315,7 +318,8 @@ all_suites(Version) ->
 	++ anonymous_suites(Version)
 	++ psk_suites(Version)
 	++ srp_suites()
-        ++ rc4_suites(Version).
+        ++ rc4_suites(Version)
+        ++ des_suites(Version).
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
 %%
@@ -419,6 +423,16 @@ rc4_suites({3, N}) when N =< 3 ->
      ?TLS_RSA_WITH_RC4_128_MD5,
      ?TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
      ?TLS_ECDH_RSA_WITH_RC4_128_SHA].
+%%--------------------------------------------------------------------
+-spec des_suites(Version::ssl_record:ssl_version()) -> [cipher_suite()].
+%%
+%% Description: Returns a list of the cipher suites
+%% with DES cipher, only supported if explicitly set by user. 
+%% Are not considered secure any more. 
+%%--------------------------------------------------------------------
+des_suites(_)->
+    [?TLS_DHE_RSA_WITH_DES_CBC_SHA,
+     ?TLS_RSA_WITH_DES_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> erl_cipher_suite().
@@ -841,17 +855,17 @@ suite({rsa_psk, aes_256_cbc,sha}) ->
 
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
 
-suite({psk, aes_128_gcm, null}) ->
+suite({psk, aes_128_gcm, null, sha256}) ->
     ?TLS_PSK_WITH_AES_128_GCM_SHA256;
-suite({psk, aes_256_gcm, null}) ->
+suite({psk, aes_256_gcm, null, sha384}) ->
     ?TLS_PSK_WITH_AES_256_GCM_SHA384;
-suite({dhe_psk, aes_128_gcm, null}) ->
+suite({dhe_psk, aes_128_gcm, null, sha256}) ->
     ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256;
-suite({dhe_psk, aes_256_gcm, null}) ->
+suite({dhe_psk, aes_256_gcm, null, sha384}) ->
     ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384;
-suite({rsa_psk, aes_128_gcm, null}) ->
+suite({rsa_psk, aes_128_gcm, null, sha256}) ->
     ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256;
-suite({rsa_psk, aes_256_gcm, null}) ->
+suite({rsa_psk, aes_256_gcm, null, sha384}) ->
     ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384;
 
 suite({psk, aes_128_cbc, sha256}) ->
@@ -958,74 +972,74 @@ suite({ecdh_anon, aes_256_cbc, sha}) ->
     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA;
 
 %%% RFC 5289 EC TLS suites
-suite({ecdhe_ecdsa, aes_128_cbc, sha256}) ->
+suite({ecdhe_ecdsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256;
-suite({ecdhe_ecdsa, aes_256_cbc, sha384}) ->
+suite({ecdhe_ecdsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384;
-suite({ecdh_ecdsa, aes_128_cbc, sha256}) ->
+suite({ecdh_ecdsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256;
-suite({ecdh_ecdsa, aes_256_cbc, sha384}) ->
+suite({ecdh_ecdsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384;
-suite({ecdhe_rsa, aes_128_cbc, sha256}) ->
+suite({ecdhe_rsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256;
-suite({ecdhe_rsa, aes_256_cbc, sha384}) ->
+suite({ecdhe_rsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384;
-suite({ecdh_rsa, aes_128_cbc, sha256}) ->
+suite({ecdh_rsa, aes_128_cbc, sha256, sha256}) ->
     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256;
-suite({ecdh_rsa, aes_256_cbc, sha384}) ->
+suite({ecdh_rsa, aes_256_cbc, sha384, sha384}) ->
     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384;
 
 %% RFC 5288 AES-GCM Cipher Suites
-suite({rsa, aes_128_gcm, null}) ->
+suite({rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_RSA_WITH_AES_128_GCM_SHA256;
-suite({rsa, aes_256_gcm, null}) ->
+suite({rsa, aes_256_gcm, null, sha384}) ->
     ?TLS_RSA_WITH_AES_256_GCM_SHA384;
-suite({dhe_rsa, aes_128_gcm, null}) ->
+suite({dhe_rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256;
-suite({dhe_rsa, aes_256_gcm, null}) ->
+suite({dhe_rsa, aes_256_gcm, null, sha384}) ->
     ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384;
-suite({dh_rsa, aes_128_gcm, null}) ->
+suite({dh_rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_DH_RSA_WITH_AES_128_GCM_SHA256;
-suite({dh_rsa, aes_256_gcm, null}) ->
+suite({dh_rsa, aes_256_gcm, null, sha384}) ->
     ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384;
-suite({dhe_dss, aes_128_gcm, null}) ->
+suite({dhe_dss, aes_128_gcm, null, sha256}) ->
     ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256;
-suite({dhe_dss, aes_256_gcm, null}) ->
+suite({dhe_dss, aes_256_gcm, null, sha384}) ->
     ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384;
-suite({dh_dss, aes_128_gcm, null}) ->
+suite({dh_dss, aes_128_gcm, null, sha256}) ->
     ?TLS_DH_DSS_WITH_AES_128_GCM_SHA256;
-suite({dh_dss, aes_256_gcm, null}) ->
+suite({dh_dss, aes_256_gcm, null, sha384}) ->
     ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384;
-suite({dh_anon, aes_128_gcm, null}) ->
+suite({dh_anon, aes_128_gcm, null, sha256}) ->
     ?TLS_DH_anon_WITH_AES_128_GCM_SHA256;
-suite({dh_anon, aes_256_gcm, null}) ->
+suite({dh_anon, aes_256_gcm, null, sha384}) ->
     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384;
 
 %% RFC 5289 ECC AES-GCM Cipher Suites
-suite({ecdhe_ecdsa, aes_128_gcm, null}) ->
+suite({ecdhe_ecdsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-suite({ecdhe_ecdsa, aes_256_gcm, null}) ->
+suite({ecdhe_ecdsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;
-suite({ecdh_ecdsa, aes_128_gcm, null}) ->
+suite({ecdh_ecdsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256;
-suite({ecdh_ecdsa, aes_256_gcm, null}) ->
+suite({ecdh_ecdsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384;
-suite({ecdhe_rsa, aes_128_gcm, null}) ->
+suite({ecdhe_rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
-suite({ecdhe_rsa, aes_256_gcm, null}) ->
+suite({ecdhe_rsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
-suite({ecdh_rsa, aes_128_gcm, null}) ->
+suite({ecdh_rsa, aes_128_gcm, null, sha256}) ->
     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256;
-suite({ecdh_rsa, aes_256_gcm, null}) ->
+suite({ecdh_rsa, aes_256_gcm, null, sha384}) ->
     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384;
 
 
 %% draft-agl-tls-chacha20poly1305-04 Chacha20/Poly1305 Suites
-suite({ecdhe_rsa, chacha20_poly1305, null}) ->
+suite({ecdhe_rsa, chacha20_poly1305, null, sha256}) ->
     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256;
-suite({ecdhe_ecdsa, chacha20_poly1305, null}) ->
+suite({ecdhe_ecdsa, chacha20_poly1305, null, sha256}) ->
     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256;
-suite({dhe_rsa, chacha20_poly1305, null}) ->
+suite({dhe_rsa, chacha20_poly1305, null, sha256}) ->
     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256.
 
 %%--------------------------------------------------------------------
@@ -1460,6 +1474,16 @@ is_acceptable_prf(Prf, Algos) ->
 is_fallback(CipherSuites)->
     lists:member(?TLS_FALLBACK_SCSV, CipherSuites).
 
+
+%%--------------------------------------------------------------------
+-spec random_bytes(integer()) -> binary().
+
+%%
+%% Description: Generates cryptographically secure random sequence 
+%%--------------------------------------------------------------------
+random_bytes(N) ->
+    crypto:strong_rand_bytes(N).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1700,7 +1724,7 @@ get_padding_aux(BlockSize, PadLength) ->
 
 random_iv(IV) ->
     IVSz = byte_size(IV),
-    ssl:random_bytes(IVSz).
+    random_bytes(IVSz).
 
 next_iv(Bin, IV) ->
     BinSz = byte_size(Bin),
@@ -1728,7 +1752,8 @@ dhe_rsa_suites() ->
      ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
      ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
-     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256].
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    ].
 
 psk_rsa_suites() ->
     [?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,8 +70,6 @@
 
 -record(ssh,
 	{
-	  %%state,        %% what it's waiting for
-
 	  role,         %% client | server
 	  peer,         %% string version of peer address 
 
@@ -135,8 +133,8 @@
 	  user,
 	  service,
 	  userauth_quiet_mode,              %  boolean()
-	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
 	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
+	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
 	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
 	  userauth_preference,
 	  available_host_keys,

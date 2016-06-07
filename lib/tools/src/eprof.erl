@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,6 @@
 start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 stop()  -> gen_server:call(?MODULE, stop, infinity).
 
-
 analyze() ->
     analyze(procs).
 
@@ -112,7 +111,7 @@ profile(Rootset, M, F, A, Pattern) when is_list(Rootset), is_atom(M), is_atom(F)
 
 %% Returns when M:F/A has terminated
 profile(Rootset, M, F, A, Pattern, Options) ->
-    start(),
+    ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, {M,F,A}, Options}, infinity).
 
 dump() -> 
@@ -127,7 +126,7 @@ start_profiling(Rootset) ->
 start_profiling(Rootset, Pattern) ->
     start_profiling(Rootset, Pattern, ?default_options).
 start_profiling(Rootset, Pattern, Options) ->
-    start(),
+    ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, undefined, Options}, infinity).
 
 stop_profiling() ->
@@ -251,9 +250,9 @@ handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
 	{ok, Fd} ->
 	    case OldFd of
 		undefined -> ok;
-		OldFd -> file:close(OldFd)
+		OldFd -> ok = file:close(OldFd)
 	    end,
-	    {reply, ok, S#state{ fd = Fd}};
+	    {reply, ok, S#state{fd = Fd}};
 	Error ->
 	    {reply, Error, S}
     end;
@@ -521,3 +520,10 @@ format(Fd, Format, Strings) ->
 
 divide(_,0) -> 0.0;
 divide(T,N) -> T/N.
+
+start_internal() ->
+    case start() of
+        {ok, _} -> ok;
+        {error, {already_started,_}} -> ok;
+        Error -> Error
+    end.

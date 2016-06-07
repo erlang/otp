@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,8 +50,8 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloatrenderer.html#wxgridcellfloatrendererwxgridcellfloatrenderer">external documentation</a>.
 -spec new([Option]) -> wxGridCellFloatRenderer() when
-	Option :: {width, integer()}
-		 | {precision, integer()}.
+	Option :: {'width', integer()}
+		 | {'precision', integer()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({width, Width}, Acc) -> [<<1:32/?UI,Width:32/?UI>>|Acc];
@@ -78,7 +78,7 @@ getWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloatrenderer.html#wxgridcellfloatrenderersetparameters">external documentation</a>.
--spec setParameters(This, Params) -> ok when
+-spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellFloatRenderer(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
@@ -88,7 +88,7 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
   <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloatrenderer.html#wxgridcellfloatrenderersetprecision">external documentation</a>.
--spec setPrecision(This, Precision) -> ok when
+-spec setPrecision(This, Precision) -> 'ok' when
 	This::wxGridCellFloatRenderer(), Precision::integer().
 setPrecision(#wx_ref{type=ThisT,ref=ThisRef},Precision)
  when is_integer(Precision) ->
@@ -97,7 +97,7 @@ setPrecision(#wx_ref{type=ThisT,ref=ThisRef},Precision)
   <<ThisRef:32/?UI,Precision:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellfloatrenderer.html#wxgridcellfloatrenderersetwidth">external documentation</a>.
--spec setWidth(This, Width) -> ok when
+-spec setWidth(This, Width) -> 'ok' when
 	This::wxGridCellFloatRenderer(), Width::integer().
 setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
  when is_integer(Width) ->
@@ -106,7 +106,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellFloatRenderer()) -> ok.
+-spec destroy(This::wxGridCellFloatRenderer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellFloatRenderer),
   wxe_util:destroy(?wxGridCellFloatRenderer_destroy,Obj),

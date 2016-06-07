@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ end_per_testcase(_Case, Config) ->
 %% internal functions
 
 apps(_Case, Config) ->
-    case ?config(protocol, Config) of
+    case proplists:get_value(protocol, Config) of
 	https ->
 	    [ssl];
 	_ ->
@@ -438,7 +438,7 @@ header_value(Name, [{HeaderName,HeaderValue}|Headers]) ->
 https_connect_error(doc) ->
     ["Error from CONNECT tunnel should be returned"];
 https_connect_error(Config) when is_list(Config) ->
-    {HttpServer,HttpPort} = ?config(http, Config),
+    {HttpServer,HttpPort} = proplists:get_value(http, Config),
     Method = get,
     %% using HTTPS scheme with HTTP port to trigger connection error
     URL = "https://" ++ HttpServer ++ ":" ++
@@ -477,7 +477,7 @@ app_start(App, Config) ->
 	    inets ->
 		application:stop(App),
 		ok = application:start(App),
-		case ?config(proxy, Config) of
+		case proplists:get_value(proxy, Config) of
 		    undefined -> ok;
 		    {_,ProxySpec} ->
 			ok = httpc:set_options([{proxy,ProxySpec}])
@@ -495,7 +495,7 @@ app_stop(App) ->
     application:stop(App).
 
 make_cert_files(Alg, Prefix, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     CaInfo = {CaCert,_} = erl_make_certs:make_cert([{key,Alg}]),
     {Cert,CertKey} = erl_make_certs:make_cert([{key,Alg},{issuer,CaInfo}]),
     CaCertFile = filename:join(PrivDir, Prefix++"cacerts.pem"),
@@ -513,8 +513,8 @@ der_to_pem(File, Entries) ->
 
 
 url(AbsPath, Config) ->
-    Protocol = ?config(protocol, Config),
-    {ServerName,ServerPort} = ?config(Protocol, Config),
+    Protocol = proplists:get_value(protocol, Config),
+    {ServerName,ServerPort} = proplists:get_value(Protocol, Config),
     atom_to_list(Protocol) ++ "://" ++
 	ServerName ++ ":" ++ integer_to_list(ServerPort) ++
 	AbsPath.
@@ -548,8 +548,8 @@ init_local_proxy_string(String, Config) ->
      |Config].
 
 rcmd_local_proxy(Args, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Script = filename:join(DataDir, ?LOCAL_PROXY_SCRIPT),
     rcmd(Script, Args, [{cd,PrivDir}]).
 

@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2012. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2016. All Rights Reserved.
      #
      # Licensed under the Apache License, Version 2.0 (the "License");
      # you may not use this file except in compliance with the License.
@@ -589,12 +589,6 @@
   </xsl:template>
 
   <!-- Inline elements -->
-  <xsl:template match="b">
-    <xsl:text>\fB</xsl:text>
-    <xsl:apply-templates/>
-    <xsl:text>\fR\&amp; </xsl:text>
-  </xsl:template>
-
   <xsl:template match="i">
     <xsl:text>\fI</xsl:text>
     <xsl:apply-templates/>
@@ -620,6 +614,12 @@
 
   <xsl:template match="em">
     <xsl:text>\fI</xsl:text> <xsl:apply-templates/><xsl:text>\fR\&amp;</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="strong">
+    <xsl:text>\fB</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>\fR\&amp; </xsl:text>
   </xsl:template>
 
   <xsl:template match="seealso">

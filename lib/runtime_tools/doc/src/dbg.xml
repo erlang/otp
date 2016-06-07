@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,14 +36,30 @@
   <modulesummary>The Text Based Trace Facility</modulesummary>
   <description>
     <p>This module implements a text based interface to the
-      <c>trace/3</c> and the <c>trace_pattern/2</c> BIFs.  It makes it
-      possible to trace functions, processes and messages on text based
-      terminals. It can be used instead of, or as complement to, the
-      <c>pman</c> module.
-      </p>
-    <p>For some examples of how to use <c>dbg</c> from the Erlang
+      <seealso marker="erts:erlang#trace-3"><c>trace/3</c></seealso> and the
+      <seealso marker="erts:erlang#trace_pattern-2"><c>trace_pattern/2</c></seealso> BIFs.  It makes it
+      possible to trace functions, processes, ports and messages.
+    </p>
+    <p>
+      To quickly get started on tracing function calls you can use the following
+      code in the Erlang shell:
+    </p>
+    <pre>
+1> dbg:tracer(). %% Start the default trace message receiver
+{ok,&lt;0.36.0>}
+2> dbg:p(all, c). %% Setup call (c) tracing on all processes
+{ok,[{matched,nonode@nohost,26}]}
+3> dbg:tp(lists, seq, x). %% Setup an exception return trace (x) on lists:seq
+{ok,[{matched,nonode@nohost,2},{saved,x}]}
+4> lists:seq(1,10).
+(&lt;0.34.0>) call lists:seq(1,10)
+(&lt;0.34.0>) returned from lists:seq/2 -> [1,2,3,4,5,6,7,8,9,10]
+[1,2,3,4,5,6,7,8,9,10]
+    </pre>
+    <p>
+      For more examples of how to use <c>dbg</c> from the Erlang
       shell, see the <seealso marker="#simple_example">simple example</seealso> section.
-      </p>
+    </p>
     <p>The utilities are also suitable to use in system testing on
       large systems, where other tools have too much impact on the
       system performance.  Some primitive support for sequential tracing
@@ -164,53 +180,67 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <desc>
         <p>Traces <c>Item</c> in accordance to the value specified
           by <c>Flags</c>. The variation of <c>Item</c> is listed below:</p>
-        <list type="bulleted">
-          <item>If the <c>Item</c> is a <c>pid()</c>, the corresponding
-           process is traced.  The process may be a remote process
-           (on another Erlang node). The node must be in the list of
-           traced nodes (see <seealso marker="#n"><c>n/1</c></seealso> and
-           <c>tracer/0/2/3</c>).</item>
-          <item>If the <c>Item</c> is the atom <c>all</c>, all processes in the
-           system as well as all processes created hereafter are
-           to be traced. This also affects all nodes added with the
-          <c>n/1</c> or <c>tracer/0/2/3</c> function.</item>
-          <item>If the <c>Item</c> is the atom <c>new</c>, no currently existing
-           processes are affected, but every process created after the
-           call is.This also affects all nodes added with the
-          <c>n/1</c> or <c>tracer/0/2/3</c> function.</item>
-          <item>If the <c>Item</c> is the atom <c>existing</c>, all
-           existing processes are traced, but new processes will not
-           be affected.This also affects all nodes added with the
-          <c>n/1</c> or <c>tracer/0/2/3</c> function.</item>
-          <item>If the <c>Item</c> is an atom other than <c>all</c>,
-          <c>new</c> or <c>existing</c>, the process with the
-           corresponding registered name is traced.The process may be a 
-           remote process (on another Erlang node). The node must be added 
-           with the <c>n/1</c> or <c>tracer/0/2/3</c> function.</item>
-          <item>If the <c>Item</c> is an integer, the process <c><![CDATA[<0.Item.0>]]></c> is
-           traced.</item>
-          <item>If the <c>Item</c> is a tuple <c>{X, Y, Z}</c>, the
-           process <c><![CDATA[<X.Y.Z>]]></c> is
-           traced. </item>
-	  <item>If the <c>Item</c> is a string <![CDATA["<X.Y.Z>"]]>
-	    as returned from <c>pid_to_list/1</c>, the process
-	   <c><![CDATA[<X.Y.Z>]]></c> is traced. </item>
-        </list>
+        <taglist>
+          <tag><c>pid()</c> or <c>port()</c></tag>
+          <item>The corresponding process or port is traced. The process or port may
+           be a remote process or port (on another Erlang node). The node must
+           be in the list of traced nodes (see <seealso marker="#n-1"><c>n/1</c></seealso>
+           and <seealso marker="#tracer-3"><c>tracer/3</c></seealso>).</item>
+          <tag><c>all</c></tag>
+          <item>All processes and ports in the system as well as all processes and ports
+           created hereafter are to be traced.</item>
+          <tag><c>processes</c></tag>
+          <item>All processes in the system as well as all processes created hereafter are to be traced.</item>
+          <tag><c>ports</c></tag>
+          <item>All ports in the system as well as all ports created hereafter are to be traced.</item>
+          <tag><c>new</c></tag>
+          <item>All processes and ports created after the call is are to be traced.</item>
+          <tag><c>new_processes</c></tag>
+          <item>All processes created after the call is are to be traced.</item>
+          <tag><c>new_ports</c></tag>
+          <item>All ports created after the call is are to be traced.</item>
+          <tag><c>existing</c></tag>
+          <item>All existing processes and ports are traced.</item>
+          <tag><c>existing_processes</c></tag>
+          <item>All existing processes are traced.</item>
+          <tag><c>existing_ports</c></tag>
+          <item>All existing ports are traced.</item>
+          <tag><c>atom()</c></tag>
+          <item>The process or port with the corresponding registered name is traced. The process or
+           port may be a remote process (on another Erlang node). The node must be
+           added with the <seealso marker="#n-1"><c>n/1</c></seealso> or
+           <seealso marker="#tracer-3"><c>tracer/3</c></seealso> function.</item>
+          <tag><c>integer()</c></tag>
+          <item>The process <c><![CDATA[<0.Item.0>]]></c> is traced.</item>
+          <tag><c>{X, Y, Z}</c></tag>
+          <item>The process <c><![CDATA[<X.Y.Z>]]></c> is traced. </item>
+              <tag><c>string()</c></tag>
+              <item>If the <c>Item</c> is a string <![CDATA["<X.Y.Z>"]]>
+                      as returned from <seealso marker="erts:erlang#pid_to_list-1"><c>pid_to_list/1</c></seealso>,
+                      the process <c><![CDATA[<X.Y.Z>]]></c> is traced.
+              </item>
+          </taglist>
+
+        <p>When enabling an <c>Item</c> that represents a group of processes,
+        the <c>Item</c> is enabled on all nodes added with the
+        <seealso marker="#n-1"><c>n/1</c></seealso> or
+        <seealso marker="#tracer-3"><c>tracer/3</c></seealso> function.</p>
+
         <p><c>Flags</c> can be a single atom,
           or a list of flags. The available flags are:
           </p>
         <taglist>
           <tag><c>s (send)</c></tag>
           <item>
-            <p>Traces the messages the process sends.</p>
+            <p>Traces the messages the process or port sends.</p>
           </item>
           <tag><c>r (receive)</c></tag>
           <item>
-            <p>Traces the messages the process receives.</p>
+            <p>Traces the messages the process or port receives.</p>
           </item>
           <tag><c>m (messages)</c></tag>
           <item>
-            <p>Traces the messages the process receives and sends.</p>
+            <p>Traces the messages the process or port receives and sends.</p>
           </item>
           <tag><c>c (call)</c></tag>
           <item>
@@ -220,6 +250,10 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <tag><c>p (procs)</c></tag>
           <item>
             <p>Traces process related events to the process.</p>
+          </item>
+          <tag><c>ports</c></tag>
+          <item>
+            <p>Traces port related events to the port.</p>
           </item>
           <tag><c>sos (set on spawn)</c></tag>
           <item>
@@ -241,8 +275,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <tag><c>sofl (set on first link)</c></tag>
           <item>
             <p>This is the same as <c>sol</c>, but only for
-              the first call to 
-              <c>link/1</c> by the traced process.</p>
+              the first call to
+              <seealso marker="erts:erlang#link-1"><c>link/1</c></seealso> by the traced process.</p>
           </item>
           <tag><c>all</c></tag>
           <item>
@@ -255,10 +289,10 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           </item>
         </taglist>
         <p>The list can also include any of the flags allowed in 
-          <c>erlang:trace/3</c></p>
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso></p>
         <p>The function returns either an error tuple or a tuple
           <c>{ok, List}</c>. The <c>List</c> consists of
-          specifications of how many processes that matched (in the
+          specifications of how many processes and ports that matched (in the
           case of a pure pid() exactly 1). The specification of
           matched processes is <c>{matched, Node, N}</c>. If the
           remote processor call,<c>rpc</c>, to a remote node fails,
@@ -286,9 +320,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
     </func>
     <func>
       <name>i() -> ok</name>
-      <fsummary>Display information about all traced processes.</fsummary>
+      <fsummary>Display information about all traced processes and ports.</fsummary>
       <desc>
-        <p>Displays information about all traced processes.</p>
+        <p>Displays information about all traced processes and ports.</p>
       </desc>
     </func>
     <func>
@@ -327,35 +361,41 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </type>
       <desc>
         <p>This function enables call trace for one or more
-          functions. All exported functions matching the <c>{Module, Function, Arity}</c> argument will be concerned, but the
+          functions. All exported functions matching the <c>{Module, Function, Arity}</c>
+          argument will be concerned, but the
           <c>match_spec()</c> may further narrow down the set of function
           calls generating trace messages.</p>
         <p>For a description of the <c>match_spec()</c> syntax,
           please turn to the
           <em>User's guide</em> part of the online
           documentation for the runtime system (<em>erts</em>). The
-          chapter <em>Match Specification in Erlang</em> explains the 
-          general match specification "language".</p>
+          chapter <seealso marker="erts:match_spec"><em>Match Specifications in Erlang</em></seealso>
+          explains the general match specification "language".
+          The most common generic match specifications used can be
+          found as <c>Built-inAlias</c>', see
+          <seealso marker="#ltp-0"><c>ltp/0</c></seealso> below for details.
+          </p>
         <p>The Module, Function and/or Arity parts of the tuple may
           be specified as the atom <c>'_'</c> which is a "wild-card"
           matching all modules/functions/arities. Note, if the
           Module is specified as <c>'_'</c>, the Function and Arity
           parts have to be specified as '_' too. The same holds for the
           Functions relation to the Arity.</p>
-        <p>All nodes added with <c>n/1</c> or <c>tracer/0/2/3</c> will
+        <p>All nodes added with <seealso marker="#n-1"><c>n/1</c></seealso> or
+            <seealso marker="#tracer-3"><c>tracer/3</c></seealso> will
           be affected by this call, and if Module is not <c>'_'</c>
           the module will be loaded on all nodes.</p>
         <p>The function returns either an error tuple or a tuple
           <c>{ok, List}</c>. The <c>List</c> consists of specifications of how
-          many functions that matched, in the same way as the processes
-          are presented in the return value of <c>p/2</c>. </p>
+          many functions that matched, in the same way as the processes and ports
+          are presented in the return value of <seealso marker="#p-2"><c>p/2</c></seealso>. </p>
         <p>There may be a tuple <c>{saved, N}</c> in the return value,
           if the MatchSpec is other
           than []. The integer <c>N</c> may then be used in
           subsequent calls to this function and will stand as an
           "alias" for the given expression. There are also a couple of
-	  built-in aliases for common expressions, see <c>ltp/0</c> below 
-	  for details.</p>
+          built-in aliases for common expressions, see
+          <seealso marker="#ltp-0"><c>ltp/0</c></seealso> below for details.</p>
         <p>If an error is returned, it can be due to errors in
           compilation of the match specification. Such errors are
           presented as a list of tuples <c>{error, string()}</c> where
@@ -394,9 +434,53 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name>tpl({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Set pattern for traced local (as well as global) function calls</fsummary>
       <desc>
-        <p>This function works as <c>tp/2</c>, but enables
+          <p>This function works as <seealso marker="#tp-2"><c>tp/2</c></seealso>, but enables
           tracing for local calls (and local functions) as well as for
           global calls (and functions).</p>
+      </desc>
+    </func>
+
+
+    <func>
+      <name>tpe(Event, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
+      <fsummary>Set pattern for traced event</fsummary>
+      <type>
+	<v>Event = send | 'receive'</v>
+        <v>MatchSpec = integer() | Built-inAlias | [] | match_spec()</v>
+	<v>Built-inAlias = x | c | cx</v>
+        <v>MatchDesc = [MatchInfo]</v>
+        <v>MatchInfo = {saved, integer()} | MatchNum</v>
+        <v>MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</v>
+      </type>
+      <desc>
+        <p>This function associates a match specification with trace event
+	  <c>send</c> or <c>'receive'</c>. By default all executed <c>send</c>
+	  and <c>'receive'</c> events are traced if enabled for a process.
+	  A match specification can be used to filter traced events
+	  based on sender, receiver and/or message content.</p>
+        <p>For a description of the <c>match_spec()</c> syntax,
+          please turn to the <em>User's guide</em> part of the online
+          documentation for the runtime system (<em>erts</em>). The
+          chapter <seealso marker="erts:match_spec"><em>Match Specifications in Erlang</em></seealso>
+          explains the general match specification "language".</p>
+	<p>For <c>send</c>, the matching is done on the list <c>[Receiver, Msg]</c>.
+	  <c>Receiver</c> is the process or port identity of the receiver and
+	  <c>Msg</c> is the message term. The pid of the sending process can be
+	  accessed with the guard function <c>self/0</c>.</p>
+	<p>For <c>'receive'</c>, the matching is done on the list <c>[Node, Sender, Msg]</c>.
+	  <c>Node</c> is the node name of the sender. <c>Sender</c> is the
+	  process or port identity of the sender, or the atom
+	  <c>undefined</c> if the sender is not known (which may
+	  be the case for remote senders). <c>Msg</c> is the
+	  message term. The pid of the receiving process can be
+	  accessed with the guard function <c>self/0</c>.</p>
+        <p>All nodes added with <seealso marker="#n-1"><c>n/1</c></seealso> or
+          <seealso marker="#tracer-3"><c>tracer/3</c></seealso> will
+          be affected by this call.</p>
+        <p>The return value is the same as for
+	  <seealso marker="#tp-2"><c>tp/2</c></seealso>. The number of matched
+	  events are never larger than 1 as <c>tpe/2</c> does not
+	  accept any form of wildcards for argument <c>Event</c>.</p>
       </desc>
     </func>
     <func>
@@ -441,10 +525,10 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <p>This function disables call tracing on the specified
           functions. The semantics of the parameter is the same
           as for the corresponding function specification in
-          <c>tp/2</c> or <c>tpl/2</c>. Both local and global call trace
+          <seealso marker="#tp-2"><c>tp/2</c></seealso> or <seealso marker="#tpl-2"><c>tpl/2</c></seealso>. Both local and global call trace
           is disabled. </p>
         <p>The return value reflects how many functions that matched,
-          and is constructed as described in <c>tp/2</c>. No tuple
+            and is constructed as described in <seealso marker="#tp-2"><c>tp/2</c></seealso>. No tuple
           <c>{saved, N}</c> is however ever returned (for obvious reasons).</p>
       </desc>
     </func>
@@ -480,8 +564,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name>ctpl({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
-        <p>This function works as <c>ctp/1</c>, but only disables
-          tracing set up with <c>tpl/2</c> (not with <c>tp/2</c>).</p>
+          <p>This function works as <seealso marker="#ctp-1"><c>ctp/1</c></seealso>, but only disables
+              tracing set up with <seealso marker="#tpl-2"><c>tpl/2</c></seealso>
+              (not with <seealso marker="#tp-2"><c>tp/2</c></seealso>).</p>
       </desc>
     </func>
     <func>
@@ -516,8 +601,25 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <name>ctpg({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
       <desc>
-        <p>This function works as <c>ctp/1</c>, but only disables
-          tracing set up with <c>tp/2</c> (not with <c>tpl/2</c>).</p>
+          <p>This function works as <seealso marker="#ctp-1"><c>ctp/1</c></seealso>, but only disables
+              tracing set up with <seealso marker="#tp-2"><c>tp/2</c></seealso>
+              (not with <seealso marker="#tpl-2"><c>tpl/2</c></seealso>).</p>
+      </desc>
+    </func>
+    <func>
+      <name>ctpe(Event) -> {ok, MatchDesc} | {error, term()}</name>
+      <fsummary>Clear trace pattern for the specified event</fsummary>
+      <type>
+        <v>Event = send | 'receive'</v>
+        <v>MatchDesc = [MatchNum]</v>
+        <v>MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</v>
+      </type>
+      <desc>
+        <p>This function clears match specifications for the specified
+	  trace event (<c>send</c> or <c>'receive'</c>). It will revert back
+	  to the default behavior of tracing all triggered events.</p>
+        <p>The return value follow the same style as for
+	  <seealso marker="#ctp-1"><c>ctp/1</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -526,13 +628,14 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <desc>
         <p>Use this function to recall all match specifications previously
           used in the session (i. e. previously saved during calls
-          to <c>tp/2</c>, and built-in match specifications.
+          to <seealso marker="#tp-2"><c>tp/2</c></seealso>, and built-in match specifications.
           This is very useful, as a complicated
           match_spec can be quite awkward to write. Note that the
-          match specifications are lost if <c>stop/0</c> is called.</p>
+          match specifications are lost if <seealso marker="#stop-0"><c>stop/0</c></seealso> is called.</p>
         <p>Match specifications used can be saved in a file (if a
           read-write file system is present) for use in later
-          debugging sessions, see <c>wtp/1</c> and <c>rtp/1</c></p>
+          debugging sessions, see <seealso marker="#wtp-1"><c>wtp/1</c></seealso>
+          and <seealso marker="#rtp-1"><c>rtp/1</c></seealso></p>
 	<p>There are three built-in trace patterns:
 	  <c>exception_trace</c>, <c>caller_trace</c> 
 	  and <c>caller_exception_trace</c> (or <c>x</c>, <c>c</c> and 
@@ -555,10 +658,10 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <fsummary>Delete all saved match specifications.</fsummary>
       <desc>
         <p>Use this function to "forget" all match specifications
-          saved during calls to <c>tp/2</c>.
-          This is useful when one wants to restore other match
-          specifications from a file with <c>rtp/1</c>. Use
-          <c>dtp/1</c> to delete specific saved match specifications. </p>
+            saved during calls to <seealso marker="#tp-2"><c>tp/2</c></seealso>.
+            This is useful when one wants to restore other match
+            specifications from a file with <seealso marker="#rtp-1"><c>rtp/1</c></seealso>. Use
+            <seealso marker="#dtp-1"><c>dtp/1</c></seealso> to delete specific saved match specifications.</p>
       </desc>
     </func>
     <func>
@@ -569,7 +672,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </type>
       <desc>
         <p>Use this function to "forget" a specific match specification
-          saved during calls to <c>tp/2</c>.</p>
+            saved during calls to <seealso marker="#tp-2"><c>tp/2</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -581,12 +684,12 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </type>
       <desc>
         <p>This function will save all match specifications saved
-          during the session (during calls to <c>tp/2</c>)
+            during the session (during calls to <seealso marker="#tp-2"><c>tp/2</c></seealso>)
           and built-in match specifications in a text
           file with the name designated by <c>Name</c>. The format
           of the file is textual, why it can be edited with an
           ordinary text editor, and then restored with
-          <c>rtp/1</c>. </p>
+          <seealso marker="#rtp-1"><c>rtp/1</c></seealso>. </p>
         <p>Each match spec in the file ends with a full stop
           (<c>.</c>) and new (syntactically correct) match
           specifications can be added to the file manually.</p>
@@ -604,7 +707,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </type>
       <desc>
         <p>This function reads match specifications from a file
-          (possibly) generated by the <c>wtp/1</c> function. It checks
+           (possibly) generated by the <seealso marker="#wtp-1"><c>wtp/1</c></seealso>
+           function. It checks
           the syntax of all match specifications and verifies that
           they are correct. The error handling principle is "all or
           nothing", i. e. if some of the match specifications are
@@ -612,14 +716,15 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           saved match specifications for the running system. </p>
         <p>The match specifications in the file are <em>merged</em>
           with the current match specifications, so that no duplicates
-          are generated. Use <c>ltp/0</c> to see what numbers were
+          are generated. Use <seealso marker="#ltp-0"><c>ltp/0</c></seealso>
+          to see what numbers were
           assigned to the specifications from the file.</p>
         <p>The function will return an error, either due to I/O
           problems (like a non existing or non readable file) or due
           to file format problems. The errors from a bad format file
           are in a more or less textual format, which will give a hint
-          to what's causing the problem.          <marker id="n"></marker>
-</p>
+          to what's causing the problem.
+        </p>
       </desc>
     </func>
     <func>
@@ -631,12 +736,12 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </type>
       <desc>
         <p>The <c>dbg</c> server keeps a list of nodes where tracing
-          should be performed. Whenever a <c>tp/2</c> call or a
-          <c>p/2</c> call is made, it is executed for all nodes in this
-          list including the local node (except for <c>p/2</c> with a
-          specific <c>pid()</c> as first argument, in which case the
+            should be performed. Whenever a <seealso marker="#tp-2"><c>tp/2</c></seealso> call or a
+            <seealso marker="#p-2"><c>p/2</c></seealso> call is made, it is executed for all nodes in this
+            list including the local node (except for <seealso marker="#p-2"><c>p/2</c></seealso> with a
+          specific <c>pid()</c> or <c>port()</c> as first argument, in which case the
           command is executed only on the node where the designated
-          process resides).
+          process or port resides).
           </p>
         <p>This function adds a remote node (<c>Nodename</c>) to the
           list of nodes where tracing is performed. It starts a tracer
@@ -645,17 +750,17 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           distribution). If no tracer process is running on the local
           node, the error reason <c>no_local_tracer</c> is returned. The
           tracer process on the local node must be started with the
-          <c>tracer/0/2</c> function.
+          <seealso marker="#tracer-2"><c>tracer/0/2</c></seealso> function.
           </p>
         <p>If <c>Nodename</c> is the local node, the error reason
           <c>cant_add_local_node</c> is returned.
           </p>
-        <p>If a trace port (see <seealso marker="#trace_port"><c>trace_port/2</c></seealso>) is
+        <p>If a trace port (see <seealso marker="#trace_port-2"><c>trace_port/2</c></seealso>) is
           running on the local node, remote nodes can not be traced with
           a tracer process. The error reason
           <c>cant_trace_remote_pid_to_local_port</c> is returned. A
           trace port can however be started on the remote node with the
-          <c>tracer/3</c> function.
+          <seealso marker="#tracer-3"><c>tracer/3</c></seealso> function.
           </p>
         <p>The function will also return an error if the node
           <c>Nodename</c> is not reachable.</p>
@@ -669,9 +774,10 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </type>
       <desc>
         <p>Clears a node from the list of traced nodes. Subsequent
-          calls to <c>tp/2</c> and <c>p/2</c> will not consider that
-          node, but tracing already activated on the node will continue
-          to be in effect.</p>
+            calls to <seealso marker="#tp-2"><c>tp/2</c></seealso> and
+            <seealso marker="#p-2"><c>p/2</c></seealso> will not consider that
+            node, but tracing already activated on the node will continue
+            to be in effect.</p>
         <p>Returns <c>ok</c>, cannot fail.</p>
       </desc>
     </func>
@@ -688,37 +794,42 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <desc>
         <p>This function starts a server on the local node that will
           be the recipient of all trace messages. All subsequent calls
-          to <c>p/2</c> will result in messages sent to the newly
+          to <seealso marker="#p-2"><c>p/2</c></seealso> will result in messages sent to the newly
           started trace server.</p>
         <p>A trace server started in this way will simply display the
           trace messages in a formatted way in the Erlang shell
-          (i. e. use io:format). See <c>tracer/2</c> for a description
-          of how the trace message handler can be customized.          <marker id="tracer2"></marker>
-</p>
-        <p>To start a similar tracer on a remote node, use <c>n/1</c>.</p>
+          (i. e. use io:format). See <seealso marker="#tracer-2"><c>tracer/2</c></seealso>
+          for a description of how the trace message handler can be customized.
+        </p>
+        <p>To start a similar tracer on a remote node, use <seealso marker="#n-1"><c>n/1</c></seealso>.</p>
       </desc>
     </func>
     <func>
       <name>tracer(Type, Data) -> {ok, pid()} | {error, Error}</name>
       <fsummary>Start a tracer server with additional parameters</fsummary>
       <type>
-        <v>Type = port | process</v>
-        <v>Data = PortGenerator | HandlerSpec</v>
-        <v>HandlerSpec = {HandlerFun, InitialData}</v>
-        <v>HandlerFun = fun() (two arguments)</v>
-        <v>InitialData = term()</v>
+        <v>Type = port | process | module</v>
+        <v>Data = PortGenerator | HandlerSpec | ModuleSpec</v>
         <v>PortGenerator = fun() (no arguments)</v>
         <v>Error = term()</v>
+        <v>HandlerSpec = {HandlerFun, InitialData}</v>
+        <v>HandlerFun = fun() (two arguments)</v>
+        <v>ModuleSpec = fun() (no arguments) | {TracerModule, TracerState}</v>
+        <v>ModuleModule = atom()</v>
+        <v>InitialData = TracerState = term()</v>
       </type>
       <desc>
         <p>This function starts a tracer server with additional
           parameters on the local node. The first parameter, the
           <c>Type</c>, indicates if trace messages should be handled
-          by a receiving process (<c>process</c>) or by a tracer port
-          (<c>port</c>). For a description about tracer ports see
-          <c>trace_port/2</c>.
+          by a receiving process (<c>process</c>), by a tracer port
+          (<c>port</c>) or by a tracer module
+          (<c>module</c>). For a description about tracer ports see
+          <seealso marker="#trace_port-2"><c>trace_port/2</c></seealso>
+          and for a tracer modules see
+          <seealso marker="erts:erl_tracer"><c>erl_tracer</c></seealso>.
           </p>
-        <p>If <c>Type</c> is a process, a message handler function can
+        <p>If <c>Type</c> is <c>process</c>, a message handler function can
           be specified (<c>HandlerSpec</c>). The handler function, which
           should be a <c>fun</c> taking two arguments, will be called
           for each trace message, with the first argument containing the
@@ -729,18 +840,22 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           choose any appropriate action to take when invoked, and can
           save a state for the next invocation by returning it.
           </p>
-        <p>If <c>Type</c> is a port, then the second parameter should
+        <p>If <c>Type</c> is <c>port</c>, then the second parameter should
           be a <em>fun</em> which takes no arguments and returns a
           newly opened trace port when called. Such a <em>fun</em> is
-          preferably generated by calling <c>trace_port/2</c>.
+          preferably generated by calling <seealso marker="#trace_port-2"><c>trace_port/2</c></seealso>.
           </p>
+        <p>if <c>Type</c> is <c>module</c>, then the second parameter should
+            be either a tuple describing the <seealso marker="erts:erl_tracer"><c>erl_tracer</c></seealso>
+          module to be used for tracing and the state to be used for
+          that tracer module or a fun returning the same tuple.</p>
         <p>If an error is returned, it can either be due to a tracer
           server already running (<c>{error,already_started}</c>) or
           due to the <c>HandlerFun</c> throwing an exception.
           </p>
         <p>To start a similar tracer on a remote node, use
-          <c>tracer/3</c>.          <marker id="trace_port"></marker>
-</p>
+            <seealso marker="#tracer-3"><c>tracer/3</c></seealso>.
+        </p>
       </desc>
     </func>
     <func>
@@ -750,20 +865,19 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>Nodename = atom()</v>
       </type>
       <desc>
-        <p>This function is equivalent to <c>tracer/2</c>, but acts on
+          <p>This function is equivalent to <seealso marker="#tracer-2"><c>tracer/2</c></seealso>, but acts on
           the given node. A tracer is started on the node
-          (<c>Nodename</c>) and the node is added to the list of traced
-          nodes.
+          (<c>Nodename</c>) and the node is added to the list of traced nodes.
           </p>
         <note>
-          <p>This function is not equivalent to <c>n/1</c>. While
-            <c>n/1</c> starts a process tracer which redirects all trace
+            <p>This function is not equivalent to <seealso marker="#n-1"><c>n/1</c></seealso>. While
+                <seealso marker="#n-1"><c>n/1</c></seealso> starts a process tracer which redirects all trace
             information to a process tracer on the local node (i.e. the
-            trace control node), <c>tracer/3</c> starts a tracer of any
+            trace control node), <seealso marker="#tracer-3"><c>tracer/3</c></seealso> starts a tracer of any
             type which is independent of the tracer on the trace control
             node.</p>
         </note>
-        <p>For details, see <seealso marker="#tracer2"><c>tracer/2</c></seealso>.</p>
+        <p>For details, see <seealso marker="#tracer-2"><c>tracer/2</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -795,9 +909,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <c>file</c> and the <c>ip</c> trace drivers. The file driver
           sends all trace messages into one or several binary files, 
           from where they later can be fetched and processed with the
-          <c>trace_client/2</c> function. The ip driver opens a TCP/IP
+          <seealso marker="#trace_client-2"><c>trace_client/2</c></seealso> function. The ip driver opens a TCP/IP
           port where it listens for connections. When a client
-          (preferably started by calling <c>trace_client/2</c> on
+          (preferably started by calling <seealso marker="#trace_client-2"><c>trace_client/2</c></seealso> on
           another Erlang node) connects, all trace messages are sent
           over the IP network for further processing by the remote
           client. </p>
@@ -836,7 +950,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           as fast as they are produced by the runtime system, a special
           message is sent, which indicates how many messages that are
           dropped. That message will arrive at the handler function
-          specified in <c>trace_client/3</c> as the tuple <c>{drop, N}</c> where <c>N</c> is the number of consecutive messages
+          specified in <seealso marker="#trace_client-3"><c>trace_client/3</c></seealso>
+          as the tuple <c>{drop, N}</c> where <c>N</c> is the number of consecutive messages
           dropped. In case of heavy tracing, drop's are likely to occur,
           and they surely occur if no client is reading the trace
           messages.</p>
@@ -890,7 +1005,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           </item>
           <tag><c>get_listen_port</c></tag>
           <item>
-            <p>Returns <c>{ok, IpPort}</c> where <c>IpPort</c>is
+            <p>Returns <c>{ok, IpPort}</c> where <c>IpPort</c> is
               the IP port number used by the driver listen socket.
               Only the ip trace driver supports this operation.</p>
           </item>
@@ -913,8 +1028,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       <desc>
         <p>This function starts a trace client that reads the output
           created by a trace port driver and handles it in mostly the
-          same way as a tracer process created by the <c>tracer/0</c>
-          function.</p>
+          same way as a tracer process created by the
+          <seealso marker="#tracer-0"><c>tracer/0</c></seealso> function.</p>
         <p>If <c>Type</c> is <c>file</c>, the client reads all trace
           messages stored in the file named <c>Filename</c> or 
           specified by <c>WrapFilesSpec</c> (must be the same as used
@@ -925,7 +1040,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <p>If <c>Type</c> is <c>follow_file</c>, the client behaves as
           in the <c>file</c> case, but keeps trying to read (and
           process) more data
-          from the file until stopped by <c>stop_trace_client/1</c>.
+          from the file until stopped by <seealso marker="#stop_trace_client-1"><c>stop_trace_client/1</c></seealso>.
           <c>WrapFilesSpec</c> is not allowed as second argument 
           for this <c>Type</c>.</p>
         <p>If <c>Type</c> is <c>ip</c>, the client connects to the
@@ -981,10 +1096,10 @@ hello</pre>
         <v>InitialData = term()</v>
       </type>
       <desc>
-        <p>This function works exactly as <c>trace_client/2</c>, but
-          allows you to write your own handler function. The handler
+          <p>This function works exactly as <seealso marker="#trace_client-2"><c>trace_client/2</c></seealso>,
+          but allows you to write your own handler function. The handler
           function works mostly as the one described in
-          <c>tracer/2</c>, but will also have to be prepared to handle
+          <seealso marker="#tracer-2"><c>tracer/2</c></seealso>, but will also have to be prepared to handle
           trace messages of the form <c>{drop, N}</c>, where <c>N</c> is
           the number of dropped messages. This pseudo trace message will
           only occur if the ip trace driver is used.</p>
@@ -1003,7 +1118,8 @@ hello</pre>
       <desc>
         <p>This function shuts down a previously started trace
           client. The <c>Pid</c> argument is the process id returned
-          from the <c>trace_client/2</c> or <c>trace_client/3</c> call.</p>
+          from the <seealso marker="#trace_client-2"><c>trace_client/2</c></seealso>
+          or <seealso marker="#trace_client-3"><c>trace_client/3</c></seealso> call.</p>
       </desc>
     </func>
     <func>
@@ -1018,11 +1134,11 @@ hello</pre>
       <fsummary>Return the process or port to which all trace messages are sent.</fsummary>
       <type>
         <v>Nodename = atom()</v>
-        <v>Tracer = port() | pid()</v>
+        <v>Tracer = port() | pid() | {module(), term()}</v>
       </type>
       <desc>
-        <p>Returns the process or port to which all trace
-          messages are sent. </p>
+        <p>Returns the process, port or tracer module to which all trace
+          messages are sent.</p>
       </desc>
     </func>
     <func>
@@ -1156,8 +1272,9 @@ SeqTrace [0]: (&lt;0.30.0>) &lt;0.25.0> ! {dbg,{ok,&lt;0.31.0>}} [Serial: {4,5}]
       of causing a deadlock. This will happen if a group leader process generates a trace 
       message and the tracer process, by calling the trace handler function, sends an IO 
       request to the same group leader. The problem can only occur if the trace handler 
-      prints to tty using an <c>io</c> function such as <c>format/2</c>. Note that when
-      <c>dbg:p(all,call)</c> is called, IO processes are also traced.  
+      prints to tty using an <c>io</c> function such as <seealso marker="stdlib:io#format-2"><c>format/2</c></seealso>.
+      Note that when
+      <c>dbg:p(all,call)</c> is called, IO processes are also traced.
       Here's an example:</p>
     <pre>
 %% Using a default line editing shell

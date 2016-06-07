@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ test_get_known_variable(_)->
 test_localtime_update(_)->
     Seconds = 5,
     LT1 = ct:get_config(localtime),
-    ct:sleep(Seconds*1000),
+    timer:sleep(Seconds*1000), % don't want scaling of this timer
     LT2 = ct:reload_config(localtime),
     case is_diff_ok(LT1, LT2, Seconds) of
 	{false, Actual, Exp}->

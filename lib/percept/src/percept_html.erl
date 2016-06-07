@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,22 +18,18 @@
 %% %CopyrightEnd%
 
 -module(percept_html).
--export([
-	page/3, 
-	codelocation_page/3, 
-	databases_page/3, 
-	load_database_page/3, 
-	processes_page/3, 
-	concurrency_page/3,
-	process_info_page/3
-	]).
+-export([page/3,
+         codelocation_page/3,
+         databases_page/3,
+         load_database_page/3,
+         processes_page/3,
+         concurrency_page/3,
+         process_info_page/3]).
 
--export([
-	value2pid/1, 
-	pid2value/1, 
-	get_option_value/2,
-	join_strings_with/2
-	]).
+-export([value2pid/1,
+         pid2value/1,
+         get_option_value/2,
+         join_strings_with/2]).
 
 -include("percept.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -42,47 +38,47 @@
 %% API
 
 page(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, menu()), 
-    mod_esi:deliver(SessionID, overview_content(Env, Input)),
-    mod_esi:deliver(SessionID, footer()).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, menu()),
+    ok = mod_esi:deliver(SessionID, overview_content(Env, Input)),
+    ok = mod_esi:deliver(SessionID, footer()).
 
 processes_page(SessionID, _, _) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, menu()), 
-    mod_esi:deliver(SessionID, processes_content()),
-    mod_esi:deliver(SessionID, footer()).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, menu()),
+    ok = mod_esi:deliver(SessionID, processes_content()),
+    ok = mod_esi:deliver(SessionID, footer()).
 
 concurrency_page(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, menu()), 
-    mod_esi:deliver(SessionID, concurrency_content(Env, Input)),
-    mod_esi:deliver(SessionID, footer()).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, menu()),
+    ok = mod_esi:deliver(SessionID, concurrency_content(Env, Input)),
+    ok = mod_esi:deliver(SessionID, footer()).
 
 databases_page(SessionID, _, _) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, menu()), 
-    mod_esi:deliver(SessionID, databases_content()),
-    mod_esi:deliver(SessionID, footer()).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, menu()),
+    ok = mod_esi:deliver(SessionID, databases_content()),
+    ok = mod_esi:deliver(SessionID, footer()).
     
 codelocation_page(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, menu()), 
-    mod_esi:deliver(SessionID, codelocation_content(Env, Input)),
-    mod_esi:deliver(SessionID, footer()).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, menu()),
+    ok = mod_esi:deliver(SessionID, codelocation_content(Env, Input)),
+    ok = mod_esi:deliver(SessionID, footer()).
 
 process_info_page(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, menu()), 
-    mod_esi:deliver(SessionID, process_info_content(Env, Input)),
-    mod_esi:deliver(SessionID, footer()).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, menu()),
+    ok = mod_esi:deliver(SessionID, process_info_content(Env, Input)),
+    ok = mod_esi:deliver(SessionID, footer()).
 
 load_database_page(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, header()),
 
     % Very dynamic page, handled differently
     load_database_content(SessionID, Env, Input),
-    mod_esi:deliver(SessionID, footer()).
+    ok = mod_esi:deliver(SessionID, footer()).
 
 
 %%% --------------------------- %%%
@@ -446,24 +442,24 @@ load_database_content(SessionId, _Env, Input) ->
     Filename = filename:join(Path, File),
     % Check path/file/filename
     
-    mod_esi:deliver(SessionId, "<div id=\"content\">"), 
+    ok = mod_esi:deliver(SessionId, "<div id=\"content\">"),
     case file:read_file_info(Filename) of
 	{ok, _} ->
     	    Content = "<center>
     	    Parsing: " ++ Filename ++ "<br>
     	    </center>",
-	    mod_esi:deliver(SessionId, Content),
-	    case percept:analyze(Filename) of
-		{error, Reason} ->
-	    	    mod_esi:deliver(SessionId, error_msg("Analyze" ++ term2html(Reason)));
-		_ ->
-		    Complete = "<center><a href=\"/cgi-bin/percept_html/page\">View</a></center>",
-	    	   mod_esi:deliver(SessionId, Complete)
-	    end;
+	    ok = mod_esi:deliver(SessionId, Content),
+            case percept:analyze(Filename) of
+                {error, Reason} ->
+                    ok = mod_esi:deliver(SessionId, error_msg("Analyze" ++ term2html(Reason)));
+                _ ->
+                    Complete = "<center><a href=\"/cgi-bin/percept_html/page\">View</a></center>",
+                    ok = mod_esi:deliver(SessionId, Complete)
+            end;
 	{error, Reason} ->
-	    mod_esi:deliver(SessionId, error_msg("File" ++ term2html(Reason)))
+	    ok = mod_esi:deliver(SessionId, error_msg("File" ++ term2html(Reason)))
     end,
-    mod_esi:deliver(SessionId, "</div>"). 
+    ok = mod_esi:deliver(SessionId, "</div>").
 
 codelocation_content(_Env, Input) ->
     Query   = httpd:parse_query(Input),

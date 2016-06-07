@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ handle_event(delete_event, _Parent) ->
     remove_handler;
 handle_event(do_crash, _State) ->
     erlang:error({badmatch,4});
-%Inverse of dummy_h
+%%Inverse of dummy_h
 handle_event(hibernate, Parent) ->
     {ok,Parent};
 handle_event(wakeup, Parent) ->

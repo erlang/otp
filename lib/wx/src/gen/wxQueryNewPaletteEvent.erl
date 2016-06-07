@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxQueryNewPaletteEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventsetpaletterealized">external documentation</a>.
--spec setPaletteRealized(This, Realized) -> ok when
+-spec setPaletteRealized(This, Realized) -> 'ok' when
 	This::wxQueryNewPaletteEvent(), Realized::boolean().
 setPaletteRealized(#wx_ref{type=ThisT,ref=ThisRef},Realized)
  when is_boolean(Realized) ->

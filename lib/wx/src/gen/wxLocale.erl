@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ new(Language)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocalewxlocale">external documentation</a>.
 -spec new(Language, [Option]) -> wxLocale() when
 	Language::integer(),
-	Option :: {flags, integer()}.
+	Option :: {'flags', integer()}.
 new(Language, Options)
  when is_integer(Language),is_list(Options) ->
   MOpts = fun({flags, Flags}, Acc) -> [<<1:32/?UI,Flags:32/?UI>>|Acc];
@@ -76,8 +76,8 @@ init(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocaleinit">external documentation</a>.
 -spec init(This, [Option]) -> boolean() when
 	This::wxLocale(),
-	Option :: {language, integer()}
-		 | {flags, integer()}.
+	Option :: {'language', integer()}
+		 | {'flags', integer()}.
 init(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxLocale),
@@ -111,7 +111,7 @@ addCatalog(#wx_ref{type=ThisT,ref=ThisRef},SzDomain,MsgIdLanguage,MsgIdCharset)
   <<ThisRef:32/?UI,(byte_size(SzDomain_UC)):32/?UI,(SzDomain_UC)/binary, 0:(((8- ((0+byte_size(SzDomain_UC)) band 16#7)) band 16#7))/unit:8,MsgIdLanguage:32/?UI,(byte_size(MsgIdCharset_UC)):32/?UI,(MsgIdCharset_UC)/binary, 0:(((8- ((0+byte_size(MsgIdCharset_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocaleaddcataloglookuppathprefix">external documentation</a>.
--spec addCatalogLookupPathPrefix(Prefix) -> ok when
+-spec addCatalogLookupPathPrefix(Prefix) -> 'ok' when
 	Prefix::unicode:chardata().
 addCatalogLookupPathPrefix(Prefix)
  when is_list(Prefix) ->
@@ -170,7 +170,7 @@ getString(This,SzOrigString)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocalegetstring">external documentation</a>.
 -spec getString(This, SzOrigString, [Option]) -> unicode:charlist() when
 	This::wxLocale(), SzOrigString::unicode:chardata(),
-	Option :: {szDomain, unicode:chardata()}.
+	Option :: {'szDomain', unicode:chardata()}.
 getString(#wx_ref{type=ThisT,ref=ThisRef},SzOrigString, Options)
  when is_list(SzOrigString),is_list(Options) ->
   ?CLASS(ThisT,wxLocale),
@@ -192,7 +192,7 @@ getString(This,SzOrigString,SzOrigString2,N)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocalegetstring">external documentation</a>.
 -spec getString(This, SzOrigString, SzOrigString2, N, [Option]) -> unicode:charlist() when
 	This::wxLocale(), SzOrigString::unicode:chardata(), SzOrigString2::unicode:chardata(), N::integer(),
-	Option :: {szDomain, unicode:chardata()}.
+	Option :: {'szDomain', unicode:chardata()}.
 getString(#wx_ref{type=ThisT,ref=ThisRef},SzOrigString,SzOrigString2,N, Options)
  when is_list(SzOrigString),is_list(SzOrigString2),is_integer(N),is_list(Options) ->
   ?CLASS(ThisT,wxLocale),
@@ -215,7 +215,7 @@ getHeaderValue(This,SzHeader)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocalegetheadervalue">external documentation</a>.
 -spec getHeaderValue(This, SzHeader, [Option]) -> unicode:charlist() when
 	This::wxLocale(), SzHeader::unicode:chardata(),
-	Option :: {szDomain, unicode:chardata()}.
+	Option :: {'szDomain', unicode:chardata()}.
 getHeaderValue(#wx_ref{type=ThisT,ref=ThisRef},SzHeader, Options)
  when is_list(SzHeader),is_list(Options) ->
   ?CLASS(ThisT,wxLocale),
@@ -272,7 +272,7 @@ isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxLocale()) -> ok.
+-spec destroy(This::wxLocale()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxLocale),
   wxe_util:destroy(?wxLocale_destruct,Obj),

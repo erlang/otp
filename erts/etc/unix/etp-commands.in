@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2005-2014. All Rights Reserved.
+# Copyright Ericsson AB 2005-2016. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -774,9 +774,9 @@ define etp-pid-1
 #
   set $etp_pid_1 = (Eterm)($arg0)
   if ($etp_pid_1 & 0xF) == 0x3
-    if (etp_arch_bits == 64 && etp_halfword == 0)
+    if (etp_arch_bits == 64)
       if (etp_big_endian)
-      	set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 36) & 0x0fffffff)
+      	set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 35) & 0x0fffffff)
       else
         set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 4) & 0x0fffffff)
       end
@@ -834,7 +834,7 @@ define etp-port-1
 #
   set $etp_port_1 = (Eterm)($arg0)
   if ($etp_port_1 & 0xF) == 0x7
-    if (etp_arch_bits == 64 && etp_halfword == 0)
+    if (etp_arch_bits == 64)
       if (etp_big_endian)
       	set $etp_port_data = (unsigned) ((((Uint64) $etp_port_1) >> 36) & 0x0fffffff)
       else
@@ -1577,7 +1577,7 @@ define etp-term-dump-pid
 #
   set $etp_pid_1 = (Eterm)($arg0)
   if ($etp_pid_1 & 0xF) == 0x3
-    if (etp_arch_bits == 64 && etp_halfword == 0)
+    if (etp_arch_bits == 64)
       if (etp_big_endian)
         set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 36) & 0x0fffffff)
       else
@@ -1622,7 +1622,7 @@ end
 define etp-pid2pix-1
 # Args: Eterm
 #
-   if (etp_arch_bits == 64 && etp_halfword == 0)
+   if (etp_arch_bits == 64)
       if (etp_big_endian)
       	 set $etp_pix = (int) (((Uint64) $arg0) & 0x0fffffff)
       else
@@ -1657,8 +1657,29 @@ end
 define etp-proc-state-int
 # Args: int
 #
-  if ($arg0 & 0xff000000)
-    printf "GARBAGE | "
+  if ($arg0 & 0x80000000)
+    printf "GARBAGE<0x80000000> | "
+  end
+  if ($arg0 & 0x40000000)
+    printf "dirty-running-sys | "
+  end
+  if ($arg0 & 0x20000000)
+    printf "dirty-running | "
+  end
+  if ($arg0 & 0x10000000)
+    printf "dirty-active-sys | "
+  end
+  if ($arg0 & 0x8000000)
+    printf "dirty-io-proc | "
+  end
+  if ($arg0 & 0x4000000)
+    printf "dirty-cpu-proc | "
+  end
+  if ($arg0 & 0x2000000)
+    printf "on-heap-msgq | "
+  end
+  if ($arg0 & 0x1000000)
+    printf "off-heap-msgq | "
   end
   if ($arg0 & 0x800000)
     printf "delayed-sys | "
@@ -1965,7 +1986,7 @@ end
 define etp-port-id2pix-1
 # Args: Eterm
 #
-   if (etp_arch_bits == 64 && etp_halfword == 0)
+   if (etp_arch_bits == 64)
       if (etp_big_endian)
       	 set $etp_pix = (int) (((Uint64) $arg0) & 0x0fffffff)
       elser
@@ -2493,12 +2514,6 @@ define etp-system-info
     printf "Little\n"
   end
   printf "Word size: %d-bit\n", etp_arch_bits
-  printf "Halfword: "
-  if (etp_halfword)
-    printf "yes\n"
-  else
-    printf "no\n"
-  end
   printf "HiPE support: "
   if (etp_hipe)
     printf "yes\n"

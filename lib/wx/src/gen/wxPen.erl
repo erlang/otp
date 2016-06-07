@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,8 +54,8 @@ new(Colour)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpenwxpen">external documentation</a>.
 -spec new(Colour, [Option]) -> wxPen() when
 	Colour::wx:wx_colour(),
-	Option :: {width, integer()}
-		 | {style, integer()}.
+	Option :: {'width', integer()}
+		 | {'style', integer()}.
 new(Colour, Options)
  when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4,is_list(Options) ->
   MOpts = fun({width, Width}, Acc) -> [<<1:32/?UI,Width:32/?UI>>|Acc];
@@ -115,7 +115,7 @@ isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetcap">external documentation</a>.
 %%<br /> CapStyle = integer
--spec setCap(This, CapStyle) -> ok when
+-spec setCap(This, CapStyle) -> 'ok' when
 	This::wxPen(), CapStyle::wx:wx_enum().
 setCap(#wx_ref{type=ThisT,ref=ThisRef},CapStyle)
  when is_integer(CapStyle) ->
@@ -124,7 +124,7 @@ setCap(#wx_ref{type=ThisT,ref=ThisRef},CapStyle)
   <<ThisRef:32/?UI,CapStyle:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetcolour">external documentation</a>.
--spec setColour(This, Colour) -> ok when
+-spec setColour(This, Colour) -> 'ok' when
 	This::wxPen(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
  when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
@@ -133,7 +133,7 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetcolour">external documentation</a>.
--spec setColour(This, Red, Green, Blue) -> ok when
+-spec setColour(This, Red, Green, Blue) -> 'ok' when
 	This::wxPen(), Red::integer(), Green::integer(), Blue::integer().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
  when is_integer(Red),is_integer(Green),is_integer(Blue) ->
@@ -143,7 +143,7 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Red,Green,Blue)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetjoin">external documentation</a>.
 %%<br /> JoinStyle = integer
--spec setJoin(This, JoinStyle) -> ok when
+-spec setJoin(This, JoinStyle) -> 'ok' when
 	This::wxPen(), JoinStyle::wx:wx_enum().
 setJoin(#wx_ref{type=ThisT,ref=ThisRef},JoinStyle)
  when is_integer(JoinStyle) ->
@@ -152,7 +152,7 @@ setJoin(#wx_ref{type=ThisT,ref=ThisRef},JoinStyle)
   <<ThisRef:32/?UI,JoinStyle:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetstyle">external documentation</a>.
--spec setStyle(This, Style) -> ok when
+-spec setStyle(This, Style) -> 'ok' when
 	This::wxPen(), Style::integer().
 setStyle(#wx_ref{type=ThisT,ref=ThisRef},Style)
  when is_integer(Style) ->
@@ -161,7 +161,7 @@ setStyle(#wx_ref{type=ThisT,ref=ThisRef},Style)
   <<ThisRef:32/?UI,Style:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpen.html#wxpensetwidth">external documentation</a>.
--spec setWidth(This, Width) -> ok when
+-spec setWidth(This, Width) -> 'ok' when
 	This::wxPen(), Width::integer().
 setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
  when is_integer(Width) ->
@@ -170,7 +170,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPen()) -> ok.
+-spec destroy(This::wxPen()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPen),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

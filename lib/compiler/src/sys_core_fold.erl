@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -277,7 +277,7 @@ expr(#c_fun{}=Fun, effect, _) ->
     add_warning(Fun, useless_building),
     void();
 expr(#c_fun{vars=Vs0,body=B0}=Fun, Ctxt0, Sub0) ->
-    {Vs1,Sub1} = pattern_list(Vs0, Sub0),
+    {Vs1,Sub1} = var_list(Vs0, Sub0),
     Ctxt = case Ctxt0 of
 	       {letrec,Ctxt1} -> Ctxt1;
 	       value -> value
@@ -374,10 +374,21 @@ expr(#c_receive{clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
     T1 = expr(T0, value, Sub),
     A1 = body(A0, Ctxt, Sub),
     Recv#c_receive{clauses=Cs1,timeout=T1,action=A1};
-expr(#c_apply{op=Op0,args=As0}=App, _, Sub) ->
+expr(#c_apply{anno=Anno,op=Op0,args=As0}=App, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
-    App#c_apply{op=Op1,args=As1};
+    case Op1 of
+	#c_var{} ->
+	    App#c_apply{op=Op1,args=As1};
+	_ ->
+	    add_warning(App, invalid_call),
+	    Err = #c_call{anno=Anno,
+			  module=#c_literal{val=erlang},
+			  name=#c_literal{val=error},
+			  args=[#c_tuple{es=[#c_literal{val='badfun'},
+					     Op1]}]},
+	    make_effect_seq(As1++[Err], Sub)
+    end;
 expr(#c_call{module=M0,name=N0}=Call0, Ctxt, Sub) ->
     M1 = expr(M0, value, Sub),
     N1 = expr(N0, value, Sub),
@@ -420,13 +431,13 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
     %% Here is the general try/catch construct outside of guards.
     %% We can remove try if the value is simple and replace it with a let.
     E1 = body(E0, value, Sub0),
-    {Vs1,Sub1} = pattern_list(Vs0, Sub0),
+    {Vs1,Sub1} = var_list(Vs0, Sub0),
     B1 = body(B0, value, Sub1),
     case is_safe_simple(E1, Sub0) of
 	true ->
 	    expr(#c_let{anno=A,vars=Vs1,arg=E1,body=B1}, value, Sub0);
 	false ->
-	    {Evs1,Sub2} = pattern_list(Evs0, Sub0),
+	    {Evs1,Sub2} = var_list(Evs0, Sub0),
 	    H1 = body(H0, value, Sub2),
 	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H1}
     end.
@@ -775,7 +786,7 @@ fold_lit_args(Call, Module, Name, Args0) ->
 	Val ->
 	    case cerl:is_literal_term(Val) of
 		true ->
-		    cerl:abstract(Val);
+		    cerl:ann_abstract(cerl:get_ann(Call), Val);
 		false ->
 		    %% Successful evaluation, but it was not possible
 		    %% to express the computed value as a literal.
@@ -1078,15 +1089,28 @@ is_atom_or_var(_) -> false.
 
 %% clause(Clause, Cepxr, Context, Sub) -> Clause.
 
-clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
-    {Ps1,Sub1} = pattern_list(Ps0, Sub0),
+clause(#c_clause{pats=Ps0}=Cl, Cexpr, Ctxt, Sub0) ->
+    try pattern_list(Ps0, Sub0) of
+	{Ps1,Sub1} ->
+	    clause_1(Cl, Ps1, Cexpr, Ctxt, Sub1)
+    catch
+	nomatch ->
+	    Cl#c_clause{anno=[compiler_generated],
+			guard=#c_literal{val=false}}
+    end.
+
+clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
     Sub2 = update_types(Cexpr, Ps1, Sub1),
-    GSub = case {Cexpr,Ps1} of
-	       {#c_var{name='_'},_} ->
+    GSub = case {Cexpr,Ps1,G0} of
+	       {_,_,#c_literal{}} ->
+		   %% No need for substitution tricks when the guard
+		   %% does not contain any variables.
+		   Sub2;
+	       {#c_var{name='_'},_,_} ->
 		   %% In a 'receive', Cexpr is the variable '_', which represents the
 		   %% message being matched. We must NOT do any extra substiutions.
 		   Sub2;
-	       {#c_var{},[#c_var{}=Var]} ->
+	       {#c_var{},[#c_var{}=Var],_} ->
 		   %% The idea here is to optimize expressions such as
 		   %%
 		   %%   case A of A -> ...
@@ -1120,7 +1144,7 @@ clause(#c_clause{pats=Ps0,guard=G0,body=B0}=Cl, Cexpr, Ctxt, Sub0) ->
 %%  the unsubstituted variables and values.
 
 let_substs(Vs0, As0, Sub0) ->
-    {Vs1,Sub1} = pattern_list(Vs0, Sub0),
+    {Vs1,Sub1} = var_list(Vs0, Sub0),
     {Vs2,As1,Ss} = let_substs_1(Vs1, As0, Sub1),
     Sub2 = sub_add_scope([V || #c_var{name=V} <- Vs2], Sub1),
     {Vs2,As1,
@@ -1206,19 +1230,131 @@ bin_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,{_,Osub}} = mapfoldl(fun bin_pattern/2, {Isub,Osub0}, Ps0),
     {Ps,Osub}.
 
-bin_pattern(#c_bitstr{val=E0,size=Size0}=Pat, {Isub0,Osub0}) ->
+bin_pattern(#c_bitstr{val=E0,size=Size0}=Pat0, {Isub0,Osub0}) ->
     Size1 = expr(Size0, Isub0),
     {E1,Osub} = pattern(E0, Isub0, Osub0),
     Isub = case E0 of
 	       #c_var{} -> sub_set_var(E0, E1, Isub0);
 	       _ -> Isub0
 	   end,
-    {Pat#c_bitstr{val=E1,size=Size1},{Isub,Osub}}.
+    Pat = Pat0#c_bitstr{val=E1,size=Size1},
+    bin_pat_warn(Pat),
+    {Pat,{Isub,Osub}}.
 
 pattern_list(Ps, Sub) -> pattern_list(Ps, Sub, Sub).
 
 pattern_list(Ps0, Isub, Osub0) ->
     mapfoldl(fun (P, Osub) -> pattern(P, Isub, Osub) end, Osub0, Ps0).
+
+%% var_list([Var], InSub) -> {Pattern,OutSub}.
+%%  Works like pattern_list/2 but only accept variables and is
+%%  guaranteed not to throw an exception.
+
+var_list(Vs, Sub0) ->
+    mapfoldl(fun (#c_var{}=V, Sub) ->
+		     pattern(V, Sub, Sub)
+	     end, Sub0, Vs).
+
+
+%%%
+%%% Generate warnings for binary patterns that will not match.
+%%%
+
+bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
+		       val=Val0,
+		       size=#c_literal{val=Sz},
+		       unit=#c_literal{val=Unit},
+		       flags=Fl}=Pat) ->
+    case {Type,Sz} of
+	{_,_} when is_integer(Sz), Sz >= 0 -> ok;
+	{binary,all} -> ok;
+	{utf8,undefined} -> ok;
+	{utf16,undefined} -> ok;
+	{utf32,undefined} -> ok;
+	{_,_} ->
+	    add_warning(Pat, {nomatch_bit_syntax_size,Sz}),
+	    throw(nomatch)
+    end,
+    case {Type,Val0} of
+	{integer,#c_literal{val=Val}} when is_integer(Val) ->
+	    Signedness = signedness(Fl),
+	    TotalSz = Sz * Unit,
+	    bit_pat_warn_int(Val, TotalSz, Signedness, Pat);
+	{float,#c_literal{val=Val}} when is_float(Val) ->
+	    ok;
+	{utf8,#c_literal{val=Val}} when is_integer(Val) ->
+	    bit_pat_warn_unicode(Val, Pat);
+	{utf16,#c_literal{val=Val}} when is_integer(Val) ->
+	    bit_pat_warn_unicode(Val, Pat);
+	{utf32,#c_literal{val=Val}} when is_integer(Val) ->
+	    bit_pat_warn_unicode(Val, Pat);
+	{_,#c_literal{val=Val}} ->
+	    add_warning(Pat, {nomatch_bit_syntax_type,Val,Type}),
+	    throw(nomatch);
+	{_,_} ->
+	    ok
+    end;
+bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},val=Val0,flags=Fl}=Pat) ->
+    %% Size is variable. Not much that we can check.
+    case {Type,Val0} of
+	{integer,#c_literal{val=Val}} when is_integer(Val) ->
+	    case signedness(Fl) of
+		unsigned when Val < 0 ->
+		    add_warning(Pat, {nomatch_bit_syntax_unsigned,Val}),
+		    throw(nomatch);
+		_ ->
+		    ok
+	    end;
+	{float,#c_literal{val=Val}} when is_float(Val) ->
+	    ok;
+	{_,#c_literal{val=Val}} ->
+	    add_warning(Pat, {nomatch_bit_syntax_type,Val,Type}),
+	    throw(nomatch);
+	{_,_} ->
+	    ok
+    end.
+
+bit_pat_warn_int(Val, 0, signed, Pat) ->
+    if
+	Val =:= 0 ->
+	    ok;
+	true ->
+	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,0}),
+	    throw(nomatch)
+    end;
+bit_pat_warn_int(Val, Sz, signed, Pat) ->
+    if
+	Val < 0, Val bsr (Sz - 1) =/= -1 ->
+	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,Sz}),
+	    throw(nomatch);
+	Val > 0, Val bsr (Sz - 1) =/= 0 ->
+	    add_warning(Pat, {nomatch_bit_syntax_truncated,signed,Val,Sz}),
+	    throw(nomatch);
+	true ->
+	    ok
+    end;
+bit_pat_warn_int(Val, _Sz, unsigned, Pat) when Val < 0 ->
+    add_warning(Pat, {nomatch_bit_syntax_unsigned,Val}),
+    throw(nomatch);
+bit_pat_warn_int(Val, Sz, unsigned, Pat) ->
+    if
+	Val bsr Sz =:= 0 ->
+	    ok;
+	true ->
+	    add_warning(Pat, {nomatch_bit_syntax_truncated,unsigned,Val,Sz}),
+	    throw(nomatch)
+    end.
+
+bit_pat_warn_unicode(U, _Pat) when 0 =< U, U =< 16#10FFFF ->
+    ok;
+bit_pat_warn_unicode(U, Pat) ->
+    add_warning(Pat, {nomatch_bit_syntax_unicode,U}),
+    throw(nomatch).
+
+signedness(#c_literal{val=Flags}) ->
+    [S] = [F || F <- Flags, F =:= signed orelse F =:= unsigned],
+    S.
+
 
 %% is_subst(Expr) -> true | false.
 %%  Test whether an expression is a suitable substitution.
@@ -2040,24 +2176,22 @@ opt_not_in_let_1(V, Call, Body) ->
 	#c_call{module=#c_literal{val=erlang},
 		name=#c_literal{val='not'},
 		args=[#c_var{name=V}]} ->
-	    opt_not_in_let_2(Body);
+	    opt_not_in_let_2(Body, Call);
 	_ ->
 	    no
     end.
 
-opt_not_in_let_2(#c_case{clauses=Cs0}=Case) ->
+opt_not_in_let_2(#c_case{clauses=Cs0}=Case, NotCall) ->
     Vars = make_vars([], 1),
-    Body = #c_call{module=#c_literal{val=erlang},
-		   name=#c_literal{val='not'},
-		   args=Vars},
+    Body = NotCall#c_call{args=Vars},
     Cs = [begin
 	      Let = #c_let{vars=Vars,arg=B,body=Body},
 	      C#c_clause{body=opt_not_in_let(Let)}
 	  end || #c_clause{body=B}=C <- Cs0],
     {yes,Case#c_case{clauses=Cs}};
-opt_not_in_let_2(#c_call{}=Call0) ->
+opt_not_in_let_2(#c_call{}=Call0, _NotCall) ->
     invert_call(Call0);
-opt_not_in_let_2(_) -> no.
+opt_not_in_let_2(_, _) -> no.
 
 invert_call(#c_call{module=#c_literal{val=erlang},
 		    name=#c_literal{val=Name0},
@@ -2251,11 +2385,11 @@ move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
     %%
     Arg = body(Arg0, Sub0),
     ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
-    {OuterVs,ScopeSub} = pattern_list(OuterVs0, ScopeSub0),
+    {OuterVs,ScopeSub} = var_list(OuterVs0, ScopeSub0),
 
     OuterBody = body(OuterBody0, ScopeSub),
 
-    {InnerVs,Sub} = pattern_list(InnerVs0, Sub0),
+    {InnerVs,Sub} = var_list(InnerVs0, Sub0),
     InnerBody = body(InnerBody0, Sub),
     Outer#c_let{vars=OuterVs,arg=Arg,
 		body=Inner#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody}};
@@ -2271,39 +2405,49 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
     case {TwoClauses,is_failing_clause(Ca0),is_failing_clause(Cb0)} of
 	{true,false,true} ->
 	    %% let <Lvars> = case <Case-expr> of
-	    %%                  <Cvars> -> <Clause-body>;
-	    %%                  <OtherCvars> -> erlang:error(...)
+	    %%                  <Cpats> -> <Clause-body>;
+	    %%                  <OtherCpats> -> erlang:error(...)
 	    %%               end
 	    %% in <Let-body>
 	    %%
 	    %%     ==>
 	    %%
 	    %% case <Case-expr> of
-	    %%   <Cvars> ->
+	    %%   <Cpats> ->
 	    %%       let <Lvars> = <Clause-body>
 	    %%       in <Let-body>;
-	    %%   <OtherCvars> -> erlang:error(...)
+	    %%   <OtherCpats> -> erlang:error(...)
 	    %% end
 
 	    Cexpr = body(Cexpr0, Sub0),
-	    CaVars0 = Ca0#c_clause.pats,
+	    CaPats0 = Ca0#c_clause.pats,
 	    G0 = Ca0#c_clause.guard,
 	    B0 = Ca0#c_clause.body,
 	    ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
-	    {CaVars,ScopeSub} = pattern_list(CaVars0, ScopeSub0),
-	    G = guard(G0, ScopeSub),
+	    try pattern_list(CaPats0, ScopeSub0) of
+		{CaPats,ScopeSub} ->
+		    G = guard(G0, ScopeSub),
 
-	    B1 = body(B0, ScopeSub),
+		    B1 = body(B0, ScopeSub),
 
-	    {Lvs,B2,Sub1} = let_substs(Lvs0, B1, Sub0),
-	    Sub2 = Sub1#sub{s=cerl_sets:union(ScopeSub#sub.s,
-                                              Sub1#sub.s)},
-	    Lbody = body(Lbody0, Sub2),
-	    B = Let#c_let{vars=Lvs,arg=core_lib:make_values(B2),body=Lbody},
+		    {Lvs,B2,Sub1} = let_substs(Lvs0, B1, Sub0),
+		    Sub2 = Sub1#sub{s=cerl_sets:union(ScopeSub#sub.s,
+						      Sub1#sub.s)},
+		    Lbody = body(Lbody0, Sub2),
+		    B = Let#c_let{vars=Lvs,
+				  arg=core_lib:make_values(B2),
+				  body=Lbody},
 
-	    Ca = Ca0#c_clause{pats=CaVars,guard=G,body=B},
-	    Cb = clause(Cb0, Cexpr, value, Sub0),
-	    Case#c_case{arg=Cexpr,clauses=[Ca,Cb]};
+		    Ca = Ca0#c_clause{pats=CaPats,guard=G,body=B},
+		    Cb = clause(Cb0, Cexpr, value, Sub0),
+		    Case#c_case{arg=Cexpr,clauses=[Ca,Cb]}
+	    catch
+		nomatch ->
+		    %% This is not a defeat. The code will eventually
+		    %% be optimized to erlang:error(...) by the other
+		    %% optimizations done in this module.
+		    impossible
+	    end;
 	{_,_,_} -> impossible
     end;
 move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
@@ -2595,7 +2739,7 @@ move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
     %% in case <InnerArg> of <InnerClauses> end
     %%
     ScopeSub0 = sub_subst_scope(Sub#sub{t=#{}}),
-    {OuterVars,ScopeSub} = pattern_list(OuterVars0, ScopeSub0),
+    {OuterVars,ScopeSub} = var_list(OuterVars0, ScopeSub0),
     InnerArg = body(InnerArg0, ScopeSub),
     Outer#c_let{vars=OuterVars,arg=OuterArg,
                 body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
@@ -2624,14 +2768,18 @@ move_case_into_arg(#c_case{arg=#c_case{arg=OuterArg,
             %% end
             %%
             ScopeSub0 = sub_subst_scope(Sub#sub{t=#{}}),
-            {OuterPats,ScopeSub} = pattern_list(OuterPats0, ScopeSub0),
-            OuterGuard = guard(OuterGuard0, ScopeSub),
-            InnerArg = body(InnerArg0, ScopeSub),
-            Inner = Inner0#c_case{arg=InnerArg,clauses=InnerClauses},
-            OuterCa = OuterCa0#c_clause{pats=OuterPats,guard=OuterGuard,
-                                        body=Inner},
-            Outer#c_case{arg=OuterArg,
-                         clauses=[OuterCa,OuterCb]};
+
+	    %% We KNOW that pattern_list/2 has already been called for OuterPats0;
+	    %% therefore, it cannot throw an exception.
+	    {OuterPats,ScopeSub} = pattern_list(OuterPats0, ScopeSub0),
+	    OuterGuard = guard(OuterGuard0, ScopeSub),
+	    InnerArg = body(InnerArg0, ScopeSub),
+	    Inner = Inner0#c_case{arg=InnerArg,clauses=InnerClauses},
+	    OuterCa = OuterCa0#c_clause{pats=OuterPats,
+					guard=OuterGuard,
+					body=Inner},
+	    Outer#c_case{arg=OuterArg,
+			 clauses=[OuterCa,OuterCb]};
         false ->
             impossible
     end;
@@ -2793,12 +2941,18 @@ extract_type_1(Expr, Sub) ->
 	true -> bool
     end.
 
+returns_integer('band', [_,_]) -> true;
+returns_integer('bnot', [_]) -> true;
+returns_integer('bor', [_,_]) -> true;
+returns_integer('bxor', [_,_]) -> true;
 returns_integer(bit_size, [_]) -> true;
 returns_integer('bsl', [_,_]) -> true;
 returns_integer('bsr', [_,_]) -> true;
 returns_integer(byte_size, [_]) -> true;
+returns_integer('div', [_,_]) -> true;
 returns_integer(length, [_]) -> true;
 returns_integer('rem', [_,_]) -> true;
+returns_integer('round', [_]) -> true;
 returns_integer(size, [_]) -> true;
 returns_integer(tuple_size, [_]) -> true;
 returns_integer(trunc, [_]) -> true;
@@ -3207,6 +3361,29 @@ format_error(nomatch_shadow) ->
     "this clause cannot match because a previous clause always matches";
 format_error(nomatch_guard) ->
     "the guard for this clause evaluates to 'false'";
+format_error({nomatch_bit_syntax_truncated,Signess,Val,Sz}) ->
+    S = case Signess of
+	    signed -> "a 'signed'";
+	    unsigned -> "an 'unsigned'"
+	end,
+    F = "this clause cannot match because the value ~P"
+	" will not fit in ~s binary segment of size ~p",
+    flatten(io_lib:format(F, [Val,10,S,Sz]));
+format_error({nomatch_bit_syntax_unsigned,Val}) ->
+    F = "this clause cannot match because the negative value ~P"
+	" will never match the value of an 'unsigned' binary segment",
+    flatten(io_lib:format(F, [Val,10]));
+format_error({nomatch_bit_syntax_size,Sz}) ->
+    F = "this clause cannot match because '~P' is not a valid size for a binary segment",
+    flatten(io_lib:format(F, [Sz,10]));
+format_error({nomatch_bit_syntax_type,Val,Type}) ->
+    F = "this clause cannot match because '~P' is not of the"
+	" expected type '~p'",
+    flatten(io_lib:format(F, [Val,10,Type]));
+format_error({nomatch_bit_syntax_unicode,Val}) ->
+    F = "this clause cannot match because the value ~p"
+	" is not a valid Unicode code point",
+    flatten(io_lib:format(F, [Val]));
 format_error(no_clause_match) ->
     "no clause will ever match";
 format_error(nomatch_clause_type) ->
@@ -3227,6 +3404,8 @@ format_error({no_effect,{erlang,F,A}}) ->
 format_error(result_ignored) ->
     "the result of the expression is ignored "
 	"(suppress the warning by assigning the expression to the _ variable)";
+format_error(invalid_call) ->
+    "invalid function call";
 format_error(useless_building) ->
     "a term is constructed, but never used";
 format_error(bin_opt_alias) ->

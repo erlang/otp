@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2013</year>
+      <year>2000</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -120,13 +120,6 @@
       considering all edges undirected.</p>
   </description>
 
-  <datatypes>
-    <datatype>
-      <name>digraph()</name>
-      <desc><p><marker id="type-digraph"/>
-        A digraph as returned by <c>digraph:new/0,1</c>.</p></desc>
-    </datatype>
-  </datatypes>
   <funcs>
     <func>
       <name name="arborescence_root" arity="1"/>

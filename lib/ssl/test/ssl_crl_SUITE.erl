@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,8 +97,8 @@ init_per_group(Group, Config0) ->
 	true ->
 	    [{idp_crl, true} | Config0];
 	false ->
-	    DataDir = ?config(data_dir, Config0), 
-	    CertDir = filename:join(?config(priv_dir, Config0), Group),
+	    DataDir = proplists:get_value(data_dir, Config0), 
+	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), Group),
 	    {CertOpts, Config} = init_certs(CertDir, Group, Config0),
 	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
 	    [{cert_dir, CertDir}, {idp_crl, false} | Config]
@@ -109,23 +109,23 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Case, Config0) ->
-    case ?config(idp_crl, Config0) of
+    case proplists:get_value(idp_crl, Config0) of
 	true ->
 	    end_per_testcase(Case, Config0),
 	    inets:start(),
 	    ssl:start(),
-	    ServerRoot = make_dir_path([?config(priv_dir, Config0), idp_crl, tmp]),
+	    ServerRoot = make_dir_path([proplists:get_value(priv_dir, Config0), idp_crl, tmp]),
 	    %% start a HTTP server to serve the CRLs
-	    {ok, Httpd} = inets:start(httpd, [{ipfamily, ?config(ipfamily, Config0)},
+	    {ok, Httpd} = inets:start(httpd, [{ipfamily, proplists:get_value(ipfamily, Config0)},
 					      {server_name, "localhost"}, {port, 0},
 					      {server_root, ServerRoot},
 					      {document_root, 
-					       filename:join(?config(priv_dir, Config0), idp_crl)}
+					       filename:join(proplists:get_value(priv_dir, Config0), idp_crl)}
 					     ]),
 	    [{port,Port}] = httpd:info(Httpd, [port]),
 	    Config = [{httpd_port, Port} | Config0],
-	    DataDir = ?config(data_dir, Config), 
-	    CertDir = filename:join(?config(priv_dir, Config0), idp_crl),
+	    DataDir = proplists:get_value(data_dir, Config), 
+	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), idp_crl),
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
 	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
 	    ct:timetrap({seconds, 6}),
@@ -137,7 +137,7 @@ init_per_testcase(Case, Config0) ->
     end.
 
 end_per_testcase(_, Config) ->
-    case ?config(idp_crl, Config) of
+    case proplists:get_value(idp_crl, Config) of
 	true ->
 	    ssl:stop(),
 	    inets:stop();
@@ -152,12 +152,12 @@ end_per_testcase(_, Config) ->
 crl_verify_valid() ->
     [{doc,"Verify a simple valid CRL chain"}].
 crl_verify_valid(Config) when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
       		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
-    ClientOpts =  case ?config(idp_crl, Config) of 
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
 			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
 			   {crl_check, Check},
@@ -178,8 +178,8 @@ crl_verify_valid(Config) when is_list(Config) ->
 crl_verify_revoked() ->
     [{doc,"Verify a simple CRL chain when peer cert is reveoked"}].
 crl_verify_revoked(Config)  when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
     ServerOpts = [{keyfile, filename:join([PrivDir, "revoked", "key.pem"])},
       		  {certfile, filename:join([PrivDir, "revoked", "cert.pem"])},
       		  {cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])}],
@@ -189,7 +189,7 @@ crl_verify_revoked(Config)  when is_list(Config) ->
     ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
     
-    ClientOpts =  case ?config(idp_crl, Config) of 
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
 			  [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
 			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
@@ -207,12 +207,12 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 crl_verify_no_crl() ->
     [{doc,"Verify a simple CRL chain when the CRL is missing"}].
 crl_verify_no_crl(Config) when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
       		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
-    ClientOpts =  case ?config(idp_crl, Config) of 
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
 			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
 			   {crl_check, Check},
@@ -297,7 +297,7 @@ is_idp(_) ->
 init_certs(_,v1_crl, Config)  -> 
     {[{v2_crls, false}], Config};
 init_certs(_, idp_crl, Config) -> 
-    Port = ?config(httpd_port, Config),
+    Port = proplists:get_value(httpd_port, Config),
     {[{crl_port,Port},
       {issuing_distribution_point, true}], Config
     };

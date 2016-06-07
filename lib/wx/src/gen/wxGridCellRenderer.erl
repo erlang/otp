@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxGridCellRenderer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellrenderer.html#wxgridcellrendererdraw">external documentation</a>.
--spec draw(This, Grid, Attr, Dc, Rect, Row, Col, IsSelected) -> ok when
+-spec draw(This, Grid, Attr, Dc, Rect, Row, Col, IsSelected) -> 'ok' when
 	This::wxGridCellRenderer(), Grid::wxGrid:wxGrid(), Attr::wxGridCellAttr:wxGridCellAttr(), Dc::wxDC:wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Row::integer(), Col::integer(), IsSelected::boolean().
 draw(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=GridT,ref=GridRef},#wx_ref{type=AttrT,ref=AttrRef},#wx_ref{type=DcT,ref=DcRef},{RectX,RectY,RectW,RectH},Row,Col,IsSelected)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_integer(Row),is_integer(Col),is_boolean(IsSelected) ->

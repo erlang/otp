@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,13 +27,18 @@
 -export([controlling_process/2]).
 -export([fdopen/2]).
 
--export([family/0, mask/2, parse_address/1]).
+-export([family/0, mask/2, parse_address/1]). % inet_tcp_dist
 -export([getserv/1, getaddr/1, getaddr/2, getaddrs/1, getaddrs/2]).
+-export([translate_ip/1]).
 
 -include("inet_int.hrl").
 
+-define(FAMILY, inet).
+-define(PROTO, tcp).
+-define(TYPE, stream).
+
 %% my address family
-family() -> inet.
+family() -> ?FAMILY.
 
 %% Apply netmask on address
 mask({M1,M2,M3,M4}, {IP1,IP2,IP3,IP4}) ->
@@ -48,16 +53,19 @@ parse_address(Host) ->
 
 %% inet_tcp port lookup
 getserv(Port) when is_integer(Port) -> {ok, Port};
-getserv(Name) when is_atom(Name)    -> inet:getservbyname(Name,tcp).
+getserv(Name) when is_atom(Name) -> inet:getservbyname(Name, ?PROTO).
 
 %% inet_tcp address lookup
-getaddr(Address) -> inet:getaddr(Address, inet).
-getaddr(Address,Timer) -> inet:getaddr_tm(Address, inet, Timer).
+getaddr(Address) -> inet:getaddr(Address, ?FAMILY).
+getaddr(Address, Timer) -> inet:getaddr_tm(Address, ?FAMILY, Timer).
 
 %% inet_tcp address lookup
-getaddrs(Address) -> inet:getaddrs(Address, inet).
-getaddrs(Address,Timer) -> inet:getaddrs_tm(Address,inet,Timer).
-    
+getaddrs(Address) -> inet:getaddrs(Address, ?FAMILY).
+getaddrs(Address, Timer) -> inet:getaddrs_tm(Address, ?FAMILY, Timer).
+
+%% inet_udp special this side addresses
+translate_ip(IP) -> inet:translate_ip(IP, ?FAMILY).
+
 %%
 %% Send data on a socket
 %%
@@ -77,7 +85,7 @@ unrecv(Socket, Data) -> prim_inet:unrecv(Socket, Data).
 %%
 shutdown(Socket, How) ->
     prim_inet:shutdown(Socket, How).
-    
+
 %%
 %% Close a socket (async)
 %%
@@ -88,7 +96,7 @@ close(Socket) ->
 %% Set controlling process
 %%
 controlling_process(Socket, NewOwner) ->
-    inet:tcp_controlling_process(Socket, NewOwner). 
+    inet:tcp_controlling_process(Socket, NewOwner).
 
 %%
 %% Connect
@@ -98,23 +106,28 @@ connect(Address, Port, Opts) ->
 
 connect(Address, Port, Opts, infinity) ->
     do_connect(Address, Port, Opts, infinity);
-connect(Address, Port, Opts, Timeout) when is_integer(Timeout), 
-                                           Timeout >= 0 ->
+connect(Address, Port, Opts, Timeout)
+  when is_integer(Timeout), Timeout >= 0 ->
     do_connect(Address, Port, Opts, Timeout).
 
-do_connect({A,B,C,D}, Port, Opts, Time) when ?ip(A,B,C,D), ?port(Port) ->
-    case inet:connect_options(Opts, inet) of
+do_connect(Addr = {A,B,C,D}, Port, Opts, Time)
+  when ?ip(A,B,C,D), ?port(Port) ->
+    case inet:connect_options(Opts, ?MODULE) of
 	{error, Reason} -> exit(Reason);
-	{ok, #connect_opts{fd=Fd,
-			   ifaddr=BAddr={Ab,Bb,Cb,Db},
-			   port=BPort,
-			   opts=SockOpts}}
+	{ok,
+	 #connect_opts{
+	    fd = Fd,
+	    ifaddr = BAddr = {Ab,Bb,Cb,Db},
+	    port = BPort,
+	    opts = SockOpts}}
 	when ?ip(Ab,Bb,Cb,Db), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,stream,?MODULE) of
+	    case inet:open(
+		   Fd, BAddr, BPort, SockOpts,
+		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
-		    case prim_inet:connect(S, {A,B,C,D}, Port, Time) of
-			ok    -> {ok,S};
-			Error ->  prim_inet:close(S), Error
+		    case prim_inet:connect(S, Addr, Port, Time) of
+			ok -> {ok,S};
+			Error -> prim_inet:close(S), Error
 		    end;
 		Error -> Error
 	    end;
@@ -125,14 +138,18 @@ do_connect({A,B,C,D}, Port, Opts, Time) when ?ip(A,B,C,D), ?port(Port) ->
 %% Listen
 %%
 listen(Port, Opts) ->
-    case inet:listen_options([{port,Port} | Opts], inet) of
-	{error,Reason} -> exit(Reason);
-	{ok, #listen_opts{fd=Fd,
-			  ifaddr=BAddr={A,B,C,D},
-			  port=BPort,
-			  opts=SockOpts}=R}
+    case inet:listen_options([{port,Port} | Opts], ?MODULE) of
+	{error, Reason} -> exit(Reason);
+	{ok,
+	 #listen_opts{
+	    fd = Fd,
+	    ifaddr = BAddr = {A,B,C,D},
+	    port = BPort,
+	    opts = SockOpts} = R}
 	when ?ip(A,B,C,D), ?port(BPort) ->
-	    case inet:open(Fd,BAddr,BPort,SockOpts,tcp,inet,stream,?MODULE) of
+	    case inet:open(
+		   Fd, BAddr, BPort, SockOpts,
+		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of
 			ok -> {ok, S};
@@ -146,23 +163,24 @@ listen(Port, Opts) ->
 %%
 %% Accept
 %%
-accept(L)         -> 
+accept(L) ->
     case prim_inet:accept(L) of
 	{ok, S} ->
 	    inet_db:register_socket(S, ?MODULE),
 	    {ok,S};
 	Error -> Error
     end.
-	    
-accept(L,Timeout) -> 
-    case prim_inet:accept(L,Timeout) of
+
+accept(L, Timeout) ->
+    case prim_inet:accept(L, Timeout) of
 	{ok, S} ->
 	    inet_db:register_socket(S, ?MODULE),
 	    {ok,S};
 	Error -> Error
     end.
+
 %%
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts) ->
-    inet:fdopen(Fd, Opts, tcp, inet, stream, ?MODULE).
+    inet:fdopen(Fd, Opts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE).

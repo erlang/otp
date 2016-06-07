@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,18 +27,17 @@
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
 	 wait/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(2)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -64,21 +63,21 @@ end_per_group(_GroupName, Config) ->
 -record(state, {ena = true}).
 
 recv(Config) when is_list(Config) ->
-    ?line Pid = spawn_link(fun() -> loop(#state{}) end),
+    Pid = spawn_link(fun() -> loop(#state{}) end),
     Self = self(),
-    ?line Pid ! {Self,test},
+    Pid ! {Self,test},
     receive
 	{ok,test} -> ok;
 	{error,Other} ->
 	    io:format("Got unpexected ~p", [Other]),
-	    ?line ?t:fail()
+	    ct:fail(unexpected)
     after 10000 ->
-	    ?line ?t:fail(no_answer)
+	    ct:fail(no_answer)
     end,
     receive
 	X ->
 	    io:format("Unexpected extra message: ~p", [X]),
-	    ?line ?t:fail()
+	    ct:fail(unexpected)
     after 10 ->
 	    ok
     end,
@@ -116,10 +115,16 @@ coverage(Config) when is_list(Config) ->
 
     self() ! 17,
     self() ! 19,
-    ?line 59 = tuple_to_values(infinity, x),
-    ?line 61 = tuple_to_values(999999, x),
-    ?line 0 = tuple_to_values(1, x),
+    59 = tuple_to_values(infinity, x),
+    61 = tuple_to_values(999999, x),
+    0 = tuple_to_values(1, x),
+
+    {'EXIT',{{badmap,[]},_}} = (catch monitor_plus_badmap(self())),
+
     ok.
+
+monitor_plus_badmap(Pid) ->
+    monitor(process, Pid) + []#{}.
 
 receive_all() ->
     receive
@@ -188,8 +193,8 @@ ref_opt(Config) when is_list(Config) ->
     end.
 
 ref_opt_1(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Sources = filelib:wildcard(filename:join([DataDir,"ref_opt","*.{erl,S}"])),
     test_lib:p_run(fun(Src) ->
 			   do_ref_opt(Src, PrivDir)
@@ -257,9 +262,9 @@ cover_recv_instructions() ->
 
 export(Config) when is_list(Config) ->
     Ref = make_ref(),
-    ?line self() ! {result,Ref,42},
-    ?line 42 = export_1(Ref),
-    ?line {error,timeout} = export_1(Ref),
+    self() ! {result,Ref,42},
+    42 = export_1(Ref),
+    {error,timeout} = export_1(Ref),
     ok.
 
 export_1(Reference) ->

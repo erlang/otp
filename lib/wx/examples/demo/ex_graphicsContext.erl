@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,6 +135,8 @@ draw(Win, Pen, Brush, Font) ->
 		    wxGraphicsContext:drawPath(Canvas, Path)
 	    end,
 	wx:foreach(F, lists:seq(1,10)),
+	wxGraphicsObject:destroy(Path),
+	wxGraphicsObject:destroy(Canvas),
 	ok
     catch _:{not_supported, _} ->
 	    Err = "wxGraphicsContext not available in this build of wxwidgets",

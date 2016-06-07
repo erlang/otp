@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ new() ->
 %% 	Bitmap::wxBitmap:wxBitmap().<br />
 %% 
 -spec new([Option]) -> wxBitmapDataObject() when
-	Option :: {bitmap, wxBitmap:wxBitmap()};
+	Option :: {'bitmap', wxBitmap:wxBitmap()};
       (Bitmap) -> wxBitmapDataObject() when
 	Bitmap::wxBitmap:wxBitmap().
 new(Options)
@@ -75,7 +75,7 @@ getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectsetbitmap">external documentation</a>.
--spec setBitmap(This, Bitmap) -> ok when
+-spec setBitmap(This, Bitmap) -> 'ok' when
 	This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   ?CLASS(ThisT,wxBitmapDataObject),
@@ -84,7 +84,7 @@ setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) -
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBitmapDataObject()) -> ok.
+-spec destroy(This::wxBitmapDataObject()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapDataObject),
   wxe_util:destroy(?wxBitmapDataObject_destroy,Obj),

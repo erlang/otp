@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,43 +40,40 @@ all() ->
 
 groups() -> 
     [{dirty_write, [],
-      [dirty_write_ram, dirty_write_disc,
-       dirty_write_disc_only]},
+      [dirty_write_ram, dirty_write_disc, dirty_write_disc_only,
+       dirty_write_xets]},
      {dirty_read, [],
-      [dirty_read_ram, dirty_read_disc,
-       dirty_read_disc_only]},
+      [dirty_read_ram, dirty_read_disc, dirty_read_disc_only, dirty_read_xets]},
      {dirty_update_counter, [],
       [dirty_update_counter_ram, dirty_update_counter_disc,
-       dirty_update_counter_disc_only]},
+       dirty_update_counter_disc_only, dirty_update_counter_xets]},
      {dirty_delete, [],
       [dirty_delete_ram, dirty_delete_disc,
-       dirty_delete_disc_only]},
+       dirty_delete_disc_only, dirty_delete_xets]},
      {dirty_delete_object, [],
       [dirty_delete_object_ram, dirty_delete_object_disc,
-       dirty_delete_object_disc_only]},
+       dirty_delete_object_disc_only, dirty_delete_object_xets]},
      {dirty_match_object, [],
       [dirty_match_object_ram, dirty_match_object_disc,
-       dirty_match_object_disc_only]},
+       dirty_match_object_disc_only, dirty_match_object_xets]},
      {dirty_index, [],
       [{group, dirty_index_match_object},
        {group, dirty_index_read},
        {group, dirty_index_update}]},
      {dirty_index_match_object, [],
-      [dirty_index_match_object_ram,
-       dirty_index_match_object_disc,
-       dirty_index_match_object_disc_only]},
+      [dirty_index_match_object_ram, dirty_index_match_object_disc,
+       dirty_index_match_object_disc_only, dirty_index_match_object_xets]},
      {dirty_index_read, [],
       [dirty_index_read_ram, dirty_index_read_disc,
-       dirty_index_read_disc_only]},
+       dirty_index_read_disc_only, dirty_index_read_xets]},
      {dirty_index_update, [],
-      [dirty_index_update_set_ram,
-       dirty_index_update_set_disc,
-       dirty_index_update_set_disc_only,
+      [dirty_index_update_set_ram,  dirty_index_update_set_disc,
+       dirty_index_update_set_disc_only,  dirty_index_update_set_xets,
        dirty_index_update_bag_ram, dirty_index_update_bag_disc,
-       dirty_index_update_bag_disc_only]},
+       dirty_index_update_bag_disc_only, dirty_index_update_bag_xets]},
      {dirty_iter, [],
-      [dirty_iter_ram, dirty_iter_disc,
-       dirty_iter_disc_only]},
+      [dirty_iter_ram, dirty_iter_disc, dirty_iter_disc_only,
+       dirty_iter_xets]},
      {admin_tests, [],
       [del_table_copy_1, del_table_copy_2, del_table_copy_3,
        add_table_copy_1, add_table_copy_2, add_table_copy_3,
@@ -105,6 +102,9 @@ dirty_write_disc(Config) when is_list(Config) ->
 dirty_write_disc_only(suite) -> [];
 dirty_write_disc_only(Config) when is_list(Config) ->
     dirty_write(Config, disc_only_copies).
+
+dirty_write_xets(Config) when is_list(Config) ->
+    dirty_write(Config, ext_ets).
 
 dirty_write(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -136,6 +136,9 @@ dirty_read_disc(Config) when is_list(Config) ->
 dirty_read_disc_only(suite) -> [];
 dirty_read_disc_only(Config) when is_list(Config) ->
     dirty_read(Config, disc_only_copies).
+
+dirty_read_xets(Config) when is_list(Config) ->
+    dirty_read(Config, ext_ets).
 
 dirty_read(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -180,6 +183,9 @@ dirty_update_counter_disc_only(suite) -> [];
 dirty_update_counter_disc_only(Config) when is_list(Config) ->
     dirty_update_counter(Config, disc_only_copies).
 
+dirty_update_counter_xets(Config) when is_list(Config) ->
+    dirty_update_counter(Config, ext_ets).
+
 dirty_update_counter(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
     Tab = dirty_update_counter, 
@@ -222,6 +228,9 @@ dirty_delete_disc_only(suite) -> [];
 dirty_delete_disc_only(Config) when is_list(Config) ->
     dirty_delete(Config, disc_only_copies).
 
+dirty_delete_xets(Config) when is_list(Config) ->
+    dirty_delete(Config, ext_ets).
+
 dirty_delete(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
     Tab = dirty_delete, 
@@ -258,6 +267,9 @@ dirty_delete_object_disc(Config) when is_list(Config) ->
 dirty_delete_object_disc_only(suite) -> [];
 dirty_delete_object_disc_only(Config) when is_list(Config) ->
     dirty_delete_object(Config, disc_only_copies).
+
+dirty_delete_object_xets(Config) when is_list(Config) ->
+    dirty_delete_object(Config, ext_ets).
 
 dirty_delete_object(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -302,6 +314,9 @@ dirty_match_object_disc_only(suite) -> [];
 dirty_match_object_disc_only(Config) when is_list(Config) ->
     dirty_match_object(Config, disc_only_copies).
 
+dirty_match_object_xets(Config) when is_list(Config) ->
+    dirty_match_object(Config, ext_ets).
+
 dirty_match_object(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
     Tab = dirty_match, 
@@ -326,7 +341,6 @@ dirty_match_object(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dirty read matching records by using an index
 
-
 dirty_index_match_object_ram(suite) -> [];
 dirty_index_match_object_ram(Config) when is_list(Config) ->
     dirty_index_match_object(Config, ram_copies).
@@ -338,6 +352,9 @@ dirty_index_match_object_disc(Config) when is_list(Config) ->
 dirty_index_match_object_disc_only(suite) -> [];
 dirty_index_match_object_disc_only(Config) when is_list(Config) ->
     dirty_index_match_object(Config, disc_only_copies).
+
+dirty_index_match_object_xets(Config) when is_list(Config) ->
+    dirty_index_match_object(Config, ext_ets).
 
 dirty_index_match_object(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -375,6 +392,9 @@ dirty_index_read_disc(Config) when is_list(Config) ->
 dirty_index_read_disc_only(suite) -> [];
 dirty_index_read_disc_only(Config) when is_list(Config) ->
     dirty_index_read(Config, disc_only_copies).
+
+dirty_index_read_xets(Config) when is_list(Config) ->
+    dirty_index_read(Config, ext_ets).
 
 dirty_index_read(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -437,78 +457,85 @@ dirty_index_update_set_disc_only(suite) -> [];
 dirty_index_update_set_disc_only(Config) when is_list(Config) ->
     dirty_index_update_set(Config, disc_only_copies).
 
+dirty_index_update_set_xets(Config) when is_list(Config) ->
+    dirty_index_update_set(Config, ext_ets).
+
 dirty_index_update_set(Config, Storage) ->
-    [Node1] = Nodes = ?acquire_nodes(1, Config), 
-    Tab = index_test, 
-    ValPos = v1, 
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    Tab = index_test,
+    ValPos = v1,
     ValPos2 = v3,
     Def = [{attributes, [k, v1, v2, v3]},
 	   {Storage, [Node1]},
-	   {index, [ValPos]}], 
-    ?match({atomic, ok}, mnesia:create_table(Tab, Def)), 
-    
+	   {index, [ValPos]}],
+    ?match({atomic, ok}, mnesia:create_table(Tab, Def)),
+
     Pat1 = {Tab, '$1',  2,   '$2', '$3'},
-    Pat2 = {Tab, '$1', '$2', '$3', '$4'}, 
-    
-    Rec1 = {Tab, 1, 2, 3, 4}, 
+    Pat2 = {Tab, '$1', '$2', '$3', '$4'},
+    Pat3 = {Tab, '_', '_', '_', {4, 14}},
+
+    Rec1 = {Tab, 1, 2, 3, {4, 14}},
     Rec2 = {Tab, 2, 2, 13, 14},
-    Rec3 = {Tab, 1, 12, 13, 14}, 
-    Rec4 = {Tab, 4, 2, 13, 14}, 
-    
+    Rec3 = {Tab, 1, 12, 13, 14},
+    Rec4 = {Tab, 4, 2, 13, 14},
+
     ?match([], mnesia:dirty_index_read(Tab, 2, ValPos)),
     ?match(ok, mnesia:dirty_write(Rec1)),
     ?match([Rec1], mnesia:dirty_index_read(Tab, 2, ValPos)),
-    
+
     ?match(ok, mnesia:dirty_write(Rec2)),
     R1 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1, Rec2], lists:sort(R1)),
-    
+
     ?match(ok, mnesia:dirty_write(Rec3)),
     R2 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec2], lists:sort(R2)),
     ?match([Rec2], mnesia:dirty_index_match_object(Pat1, ValPos)),
-    
-    {atomic, R3} = mnesia:transaction(fun() -> mnesia:match_object(Pat2) end), 
+
+    {atomic, R3} = mnesia:transaction(fun() -> mnesia:match_object(Pat2) end),
     ?match([Rec3, Rec2], lists:sort(R3)),
-    
+
     ?match(ok, mnesia:dirty_write(Rec4)),
     R4 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec2, Rec4], lists:sort(R4)),
-    
+
     ?match(ok, mnesia:dirty_delete({Tab, 4})),
     ?match([Rec2], mnesia:dirty_index_read(Tab, 2, ValPos)),
-    
+
     ?match({atomic, ok}, mnesia:del_table_index(Tab, ValPos)),
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write(Rec4) end)),
     ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos)),
     ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos2)),
-    
+
     R5 = mnesia:dirty_match_object(Pat2),
     ?match([Rec3, Rec2, Rec4], lists:sort(R5)),
-    
+
     R6 = mnesia:dirty_index_read(Tab, 2, ValPos),
-    ?match([Rec2, Rec4], lists:sort(R6)),    
-    ?match([], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec2, Rec4], lists:sort(R6)),
+    ?match([], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
     R7 = mnesia:dirty_index_read(Tab, 14, ValPos2),
     ?match([Rec3, Rec2, Rec4], lists:sort(R7)),
 
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write(Rec1) end)),
     R8 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1, Rec2, Rec4], lists:sort(R8)),
-    ?match([Rec1], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec1], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
+    ?match([Rec1], mnesia:dirty_match_object(Pat3)),
+    ?match([Rec1], mnesia:dirty_index_match_object(Pat3, ValPos2)),
+
     R9 = mnesia:dirty_index_read(Tab, 14, ValPos2),
     ?match([Rec2, Rec4], lists:sort(R9)),
 
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:delete_object(Rec2) end)),
     R10 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1, Rec4], lists:sort(R10)),
-    ?match([Rec1], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec1], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
     ?match([Rec4], mnesia:dirty_index_read(Tab, 14, ValPos2)),
 
     ?match(ok, mnesia:dirty_delete({Tab, 4})),
     R11 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1], lists:sort(R11)),
-    ?match([Rec1], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec1], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
     ?match([], mnesia:dirty_index_read(Tab, 14, ValPos2)),
     
     ?verify_mnesia(Nodes, []).
@@ -524,6 +551,9 @@ dirty_index_update_bag_disc(Config)when is_list(Config) ->
 dirty_index_update_bag_disc_only(suite) -> [];
 dirty_index_update_bag_disc_only(Config)when is_list(Config) ->
     dirty_index_update_bag(Config, disc_only_copies).
+
+dirty_index_update_bag_xets(Config) when is_list(Config) ->
+    dirty_index_update_bag(Config, ext_ets).
 
 dirty_index_update_bag(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -631,7 +661,6 @@ dirty_index_update_bag(Config, Storage) ->
 %% Dirty iteration
 %% dirty_slot,  dirty_first,  dirty_next
 
-
 dirty_iter_ram(suite) -> [];
 dirty_iter_ram(Config) when is_list(Config) ->
     dirty_iter(Config, ram_copies).
@@ -643,6 +672,9 @@ dirty_iter_disc(Config) when is_list(Config) ->
 dirty_iter_disc_only(suite) -> [];
 dirty_iter_disc_only(Config) when is_list(Config) ->
     dirty_iter(Config, disc_only_copies).
+
+dirty_iter_xets(Config) when is_list(Config) ->
+    dirty_iter(Config, ext_ets).
 
 dirty_iter(Config, Storage) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 

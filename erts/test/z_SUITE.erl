@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@
 %% This suite expects to be run as the last suite of all suites.
 %%
 
-%-define(line_trace, 1).
-
 -include_lib("kernel/include/file.hrl").
 	    
 -record(core_search_conf, {search_dir,
@@ -34,52 +32,19 @@
 			   file,
 			   run_by_ts}).
 
--define(DEFAULT_TIMEOUT, ?t:minutes(5)).
-
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0]).
 
 -export([search_for_core_files/1, core_files/1]).
 
 -include_lib("common_test/include/ct.hrl").
     
-
-init_per_testcase(Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{testcase, Case}, {watchdog, Dog} |Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 5}}].
 
 all() -> 
     [core_files].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-
-core_files(doc) ->
-    [];
-core_files(suite) ->
-    [];
 core_files(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
@@ -354,7 +319,7 @@ core_file_search(#core_search_conf{search_dir = Base,
 	    case {RunByTS, ICores, FCores} of
 		{true, [], []} -> ok;
 		{true, _, []} -> {comment, Res};
-		{true, _, _} -> ?t:fail(Res);
+		{true, _, _} -> ct:fail(Res);
 		_ -> Res
 	    end
     end.

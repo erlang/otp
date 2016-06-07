@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -314,10 +314,7 @@ get_funs({LsR0,[{func_info,[{atom,M}=AtomM,{atom,F}=AtomF,ArityArg]}|Code0]})
   when is_atom(M), is_atom(F) ->
     Arity = resolve_arg_unsigned(ArityArg),
     {LsR,Code,RestCode} = get_fun(Code0, []),
-    Entry = case Code of
-		[{label,[{u,E}]}|_] -> E;
-		_ -> undefined
-	    end,
+    [{label,[{u,Entry}]}|_] = Code,
     [#function{name=F,
 	       arity=Arity,
 	       entry=Entry,

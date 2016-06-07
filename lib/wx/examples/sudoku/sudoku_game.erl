@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -151,8 +151,7 @@ test() ->  %% Known to solvable
      {{9,2},4}, {{9,4},5}, {{9,6},8}, {{9,8},7}].
 
 new_game(S) ->
-    {X,Y,Z} = erlang:now(),
-    random:seed(Y,X,Z),
+    rand:seed(exsplus),
     case new_game(1,1,gb_sets:empty(),empty_table(S#s{}),[], 0) of
 	stop -> new_game(S); 
 	Game -> Game
@@ -171,7 +170,7 @@ new_game(R,C,BT,St,Acc,Cnt) when R < 10, C < 10 ->
 	    [{{BR,BC},BVal,BBT,BST}|BAcc] = Acc,
 	    new_game(BR,BC,gb_sets:add(BVal,BBT),BST,BAcc,Cnt+1);
 	Size -> 
-	    Ind = random:uniform(Size),
+	    Ind = rand:uniform(Size),
 	    V = lists:nth(Ind,gb_sets:to_list(S)),
 	    new_game(R,C+1,gb_sets:empty(),
 		     add({R,C,M},V,St),		    
@@ -207,7 +206,7 @@ pick_shown(Given,Left,S0,Level,Gfx) ->
 	    io:format("Below level ~p ~p~n", [GivenSz,Level]),
             S0;
        true ->
-	    Ran = random:uniform(LeftSz),
+	    Ran = rand:uniform(LeftSz),
 	    V   = lists:nth(Ran,gb_sets:to_list(Left)),
 	    S1  = rebuild_all(rcm(V),S0#s{v=setelement(V,S0#s.v,0)}),
 	    case solve(S1, true) of

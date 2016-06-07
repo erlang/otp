@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -229,11 +229,13 @@ check_float(Value) ->
 %%     {Mantissa,Exponent}=lists:splitwith(Pred,Value),
 %%     SkipEe = fun([]) -> [];(L) -> tl(L) end,
     case string:tokens(Value,"eE") of
-	[Mantissa,Exponent] ->
-	    {ok,_} = check_decimal(Mantissa),
-	    {ok,_} = check_integer(Exponent);
-	[Mantissa] ->
-	    check_decimal(Mantissa)
+        [Mantissa,Exponent] ->
+            {ok,_} = check_decimal(Mantissa),
+            {ok,_} = check_integer(Exponent),
+            ok;
+        [Mantissa] ->
+            {ok,_} = check_decimal(Mantissa),
+            ok
     end,
     {ok,Value}.
 %%     case {check_decimal(Mantissa),
@@ -367,7 +369,7 @@ check_dateTime("+"++_DateTime) ->
 check_dateTime(DateTime) ->
     [Date,Time] = string:tokens(DateTime,"T"),
     [Y,M,D] = string:tokens(Date,"-"),
-    check_year(Y),
+    {ok,_} = check_year(Y),
     {ok,_} = check_positive_integer(M),
     {ok,_} = check_positive_integer(D),
     check_time(Time).

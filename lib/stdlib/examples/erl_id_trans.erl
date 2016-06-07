@@ -18,11 +18,11 @@
 %%
 -module(erl_id_trans).
 
-%% A identity transformer of Erlang abstract syntax.
+%% An identity transformer of Erlang abstract syntax.
 
 %% This module only traverses legal Erlang code. This is most noticeable
 %% in guards where only a limited number of expressions are allowed.
-%% N.B. if this module is to be used as a basis for tranforms then
+%% N.B. if this module is to be used as a basis for transforms then
 %% all the error cases must be handled otherwise this module just crashes!
 
 -export([parse_transform/2]).
@@ -53,6 +53,17 @@ form({attribute,Line,export,Es0}) ->
 form({attribute,Line,import,{Mod,Is0}}) ->
     Is1 = farity_list(Is0),
     {attribute,Line,import,{Mod,Is1}};
+form({attribute,Line,export_type,Es0}) ->
+    Es1 = farity_list(Es0),
+    {attribute,Line,export_type,Es1};
+form({attribute,Line,optional_callbacks,Es0}) ->
+    try farity_list(Es0) of
+        Es1 ->
+            {attribute,Line,optional_callbacks,Es1}
+    catch
+        _:_ ->
+            {attribute,Line,optional_callbacks,Es0}
+    end;
 form({attribute,Line,compile,C}) ->
     {attribute,Line,compile,C};
 form({attribute,Line,record,{Name,Defs0}}) ->
@@ -60,14 +71,28 @@ form({attribute,Line,record,{Name,Defs0}}) ->
     {attribute,Line,record,{Name,Defs1}};
 form({attribute,Line,asm,{function,N,A,Code}}) ->
     {attribute,Line,asm,{function,N,A,Code}};
+form({attribute,Line,type,{N,T,Vs}}) ->
+    T1 = type(T),
+    Vs1 = variable_list(Vs),
+    {attribute,Line,type,{N,T1,Vs1}};
+form({attribute,Line,opaque,{N,T,Vs}}) ->
+    T1 = type(T),
+    Vs1 = variable_list(Vs),
+    {attribute,Line,opaque,{N,T1,Vs1}};
+form({attribute,Line,spec,{{N,A},FTs}}) ->
+    FTs1 = function_type_list(FTs),
+    {attribute,Line,spec,{{N,A},FTs1}};
+form({attribute,Line,spec,{{M,N,A},FTs}}) ->
+    FTs1 = function_type_list(FTs),
+    {attribute,Line,spec,{{M,N,A},FTs1}};
+form({attribute,Line,callback,{{N,A},FTs}}) ->
+    FTs1 = function_type_list(FTs),
+    {attribute,Line,callback,{{N,A},FTs1}};
 form({attribute,Line,Attr,Val}) ->		%The general attribute.
     {attribute,Line,Attr,Val};
 form({function,Line,Name0,Arity0,Clauses0}) ->
     {Name,Arity,Clauses} = function(Name0, Arity0, Clauses0),
     {function,Line,Name,Arity,Clauses};
-% Mnemosyne, ignore...
-form({rule,Line,Name,Arity,Body}) ->
-    {rule,Line,Name,Arity,Body}; % Dont dig into this
 %% Extra forms from the parser.
 form({error,E}) -> {error,E};
 form({warning,W}) -> {warning,W};
@@ -79,6 +104,12 @@ farity_list([{Name,Arity}|Fas]) ->
     [{Name,Arity}|farity_list(Fas)];
 farity_list([]) -> [].
 
+%% -type variable_list([Var]) -> [Var]
+
+variable_list([{var,Line,Var}|Vs]) ->
+    [{var,Line,Var}|variable_list(Vs)];
+variable_list([]) -> [].
+
 %% -type record_defs([RecDef]) -> [RecDef].
 %%  N.B. Field names are full expressions here but only atoms are allowed
 %%  by the *parser*!
@@ -88,6 +119,16 @@ record_defs([{record_field,Line,{atom,La,A},Val0}|Is]) ->
     [{record_field,Line,{atom,La,A},Val1}|record_defs(Is)];
 record_defs([{record_field,Line,{atom,La,A}}|Is]) ->
     [{record_field,Line,{atom,La,A}}|record_defs(Is)];
+record_defs([{typed_record_field,{record_field,Line,{atom,La,A},Val0},Type}|
+             Is]) ->
+    Val1 = expr(Val0),
+    Type1 = type(Type),
+    [{typed_record_field,{record_field,Line,{atom,La,A},Val1},Type1}|
+     record_defs(Is)];
+record_defs([{typed_record_field,{record_field,Line,{atom,La,A}},Type}|Is]) ->
+    Type1 = type(Type),
+    [{typed_record_field,{record_field,Line,{atom,La,A}},Type1}|
+     record_defs(Is)];
 record_defs([]) -> [].
 
 %% -type function(atom(), integer(), [Clause]) -> {atom(),integer(),[Clause]}.
@@ -196,9 +237,9 @@ pattern_grp([]) ->
 
 bit_types([]) ->
     [];
-bit_types([Atom | Rest]) when atom(Atom) ->
+bit_types([Atom | Rest]) when is_atom(Atom) ->
     [Atom | bit_types(Rest)];
-bit_types([{Atom, Integer} | Rest]) when atom(Atom), integer(Integer) ->
+bit_types([{Atom, Integer} | Rest]) when is_atom(Atom), is_integer(Integer) ->
     [{Atom, Integer} | bit_types(Rest)].
 
 
@@ -226,7 +267,7 @@ pattern_fields([]) -> [].
 
 %% -type guard([GuardTest]) -> [GuardTest].
 
-guard([G0|Gs]) when list(G0) ->
+guard([G0|Gs]) when is_list(G0) ->
     [guard0(G0) | guard(Gs)];
 guard(L) ->
     guard0(L).
@@ -547,3 +588,101 @@ fun_clauses([C0|Cs]) ->
     C1 = clause(C0),
     [C1|fun_clauses(Cs)];
 fun_clauses([]) -> [].
+
+function_type_list([{type,Line,bounded_fun,[Ft,Fc]}|Fts]) ->
+    Ft1 = function_type(Ft),
+    Fc1 = function_constraint(Fc),
+    [{type,Line,bounded_fun,[Ft1,Fc1]}|function_type_list(Fts)];
+function_type_list([Ft|Fts]) ->
+    [function_type(Ft)|function_type_list(Fts)];
+function_type_list([]) -> [].
+
+function_type({type,Line,'fun',[{type,Lt,product,As},B]}) ->
+    As1 = type_list(As),
+    B1 = type(B),
+    {type,Line,'fun',[{type,Lt,product,As1},B1]}.
+
+function_constraint([C|Cs]) ->
+    C1 = constraint(C),
+    [C1|function_constraint(Cs)];
+function_constraint([]) -> [].
+
+constraint({type,Line,constraint,[{atom,L,A},[V,T]]}) ->
+    V1 = type(V),
+    T1 = type(T),
+    {type,Line,constraint,[{atom,L,A},[V1,T1]]}.
+
+type({ann_type,Line,[{var,Lv,V},T]}) ->
+    T1 = type(T),
+    {ann_type,Line,[{var,Lv,V},T1]};
+type({atom,Line,A}) ->
+    {atom,Line,A};
+type({integer,Line,I}) ->
+    {integer,Line,I};
+type({op,Line,Op,T}) ->
+    T1 = type(T),
+    {op,Line,Op,T1};
+type({op,Line,Op,L,R}) ->
+    L1 = type(L),
+    R1 = type(R),
+    {op,Line,Op,L1,R1};
+type({type,Line,binary,[M,N]}) ->
+    M1 = type(M),
+    N1 = type(N),
+    {type,Line,binary,[M1,N1]};
+type({type,Line,'fun',[]}) ->
+    {type,Line,'fun',[]};
+type({type,Line,'fun',[{type,Lt,any},B]}) ->
+    B1 = type(B),
+    {type,Line,'fun',[{type,Lt,any},B1]};
+type({type,Line,range,[L,H]}) ->
+    L1 = type(L),
+    H1 = type(H),
+    {type,Line,range,[L1,H1]};
+type({type,Line,map,any}) ->
+    {type,Line,map,any};
+type({type,Line,map,Ps}) ->
+    Ps1 = map_pair_types(Ps),
+    {type,Line,map,Ps1};
+type({type,Line,record,[{atom,La,N}|Fs]}) ->
+    Fs1 = field_types(Fs),
+    {type,Line,record,[{atom,La,N}|Fs1]};
+type({remote_type,Line,[{atom,Lm,M},{atom,Ln,N},As]}) ->
+    As1 = type_list(As),
+    {remote_type,Line,[{atom,Lm,M},{atom,Ln,N},As1]};
+type({type,Line,tuple,any}) ->
+    {type,Line,tuple,any};
+type({type,Line,tuple,Ts}) ->
+    Ts1 = type_list(Ts),
+    {type,Line,tuple,Ts1};
+type({type,Line,union,Ts}) ->
+    Ts1 = type_list(Ts),
+    {type,Line,union,Ts1};
+type({var,Line,V}) ->
+    {var,Line,V};
+type({user_type,Line,N,As}) ->
+    As1 = type_list(As),
+    {user_type,Line,N,As1};
+type({type,Line,N,As}) ->
+    As1 = type_list(As),
+    {type,Line,N,As1}.
+
+map_pair_types([{type,Line,map_field_assoc,[K,V]}|Ps]) ->
+    K1 = type(K),
+    V1 = type(V),
+    [{type,Line,map_field_assoc,[K1,V1]}|map_pair_types(Ps)];
+map_pair_types([{type,Line,map_field_exact,[K,V]}|Ps]) ->
+    K1 = type(K),
+    V1 = type(V),
+    [{type,Line,map_field_exact,[K1,V1]}|map_pair_types(Ps)];
+map_pair_types([]) -> [].
+
+field_types([{type,Line,field_type,[{atom,La,A},T]}|Fs]) ->
+    T1 = type(T),
+    [{type,Line,field_type,[{atom,La,A},T1]}|field_types(Fs)];
+field_types([]) -> [].
+
+type_list([T|Ts]) ->
+    T1 = type(T),
+    [T1|type_list(Ts)];
+type_list([]) -> [].

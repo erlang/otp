@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013
+%% Copyright Ericsson AB 1996-2016
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -675,6 +675,16 @@ tab2retainer({Tab, Name}) ->
     FlatName = lists:flatten(io_lib:write(Name)),
     mnesia_lib:dir(lists:concat([?MODULE, "_", Tab, "_", FlatName, ".RET"])).
 
+retainer_create(_Cp, R, Tab, Name, Ext = {ext, Alias, Mod}) ->
+    T = {Tab, retainer, Name},
+    P = mnesia_schema:cs2list(val({Tab, cstruct})),
+    Mod:delete_table(Alias, T),
+    ok = Mod:create_table(Alias, T, P),
+    Cs = val({Tab, cstruct}),
+    Mod:load_table(Alias, T, {retainer, create_table},
+		   mnesia_schema:cs2list(Cs)),
+    dbg_out("Checkpoint retainer created ~p ~p~n", [Name, Tab]),
+    R#retainer{store = {Ext, T}, really_retain = true};
 retainer_create(_Cp, R, Tab, Name, disc_only_copies) ->
     Fname = tab2retainer({Tab, Name}),
     file:delete(Fname),
@@ -734,15 +744,23 @@ traverse_dcd({Cont, Recs}, Log, Fun) ->     %% trashed data??
 traverse_dcd(eof, _Log, _Fun) ->
     ok.
 
+retainer_get({{ext, Alias, Mod}, Store}, Key) ->
+    Mod:lookup(Alias, Store, Key);
 retainer_get({ets, Store}, Key) -> ?ets_lookup(Store, Key);
 retainer_get({dets, Store}, Key) -> dets:lookup(Store, Key).
 
+retainer_put({{ext, Alias, Mod}, Store}, Val) ->
+    Mod:insert(Alias, Store, Val);
 retainer_put({ets, Store}, Val) -> ?ets_insert(Store, Val);
 retainer_put({dets, Store}, Val) -> dets:insert(Store, Val).
 
+retainer_first({{ext, Alias, Mod}, Store}) ->
+    Mod:first(Alias, Store);
 retainer_first({ets, Store}) -> ?ets_first(Store);
 retainer_first({dets, Store}) -> dets:first(Store).
  
+retainer_next({{ext, Alias, Mod}, Store}, Key) ->
+    Mod:next(Alias, Store, Key);
 retainer_next({ets, Store}, Key) -> ?ets_next(Store, Key);
 retainer_next({dets, Store}, Key) -> dets:next(Store, Key).
 
@@ -761,11 +779,16 @@ retainer_next({dets, Store}, Key) -> dets:next(Store, Key).
 
 retainer_fixtable(Tab, Bool) when is_atom(Tab) ->
     mnesia_lib:db_fixtable(val({Tab, storage_type}), Tab, Bool);
+retainer_fixtable({Ext = {ext, _, _}, Tab}, Bool) ->
+    mnesia_lib:db_fixtable(Ext, Tab, Bool);
 retainer_fixtable({ets, Tab}, Bool) ->
     mnesia_lib:db_fixtable(ram_copies, Tab, Bool);
 retainer_fixtable({dets, Tab}, Bool) ->
     mnesia_lib:db_fixtable(disc_only_copies, Tab, Bool).
 
+retainer_delete({{ext, Alias, Mod}, Store}) ->
+    Mod:close_table(Alias, Store),
+    Mod:delete_table(Alias, Store);
 retainer_delete({ets, Store}) ->
     ?ets_delete_table(Store);
 retainer_delete({dets, Store}) ->

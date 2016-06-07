@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -194,7 +194,6 @@
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>
 	    <list> <item> If <c>incl_cond</c> was set to
 	    <c>derived</c> on module level, then reltool_server would
 	    crash with a <c>case_clause</c>. This has been corrected.
@@ -225,7 +224,7 @@
 	    implemented in reltool. </item> <item> Instead of only
 	    looking at the directory name, reltool now first looks
 	    for a <c>.app</c> file in order to figure out the name of
-	    an application. </item> </list></p>
+	    an application. </item> </list>
           <p>
 	    Own Id: OTP-10012 Aux Id: kunagi-171 [82] </p>
         </item>
@@ -272,7 +271,6 @@
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>
 	    Miscellaneous corrections: <list> <item> Start of reltool
 	    GUI would sometimes crash with a badmatch in
 	    reltool_sys_win:do_init. This has been corrected. </item>
@@ -311,7 +309,7 @@
 	    and when generating target system. </item> <item> Title
 	    of dependecies column in app and mod window is changed
 	    from "Modules used by others" to "Modules using this".
-	    </item> </list></p>
+	    </item> </list>
           <p>
 	    Own Id: OTP-9792</p>
         </item>
@@ -338,7 +336,7 @@
         </item>
         <item>
           <p>
-	    Some bug fixes related to the handling of escripts:
+	    Some bug fixes related to the handling of escripts:</p>
 	    <list> <item> Reltool could not handle escripts with
 	    inlined applications. This has been corrected. Inlined
 	    applications will be visible in the GUI, but not possible
@@ -357,7 +355,7 @@
 	    another escript, for which the name sorts before the
 	    existing one, would cause reltool to fail saying
 	    "Application name clash". This has been corrected.
-	    </item> </list></p>
+	    </item> </list>
           <p>
 	    Own Id: OTP-9968</p>
         </item>

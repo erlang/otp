@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,6 +51,8 @@ stop_child(Client) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init(Args) ->
     RestartStrategy = simple_one_for_one,
     MaxR = 0,
@@ -64,7 +66,7 @@ child_spec(_) ->
     Name = undefined, % As simple_one_for_one is used.
     StartFunc = {ssh_connection_handler, start_link, []},
     Restart = temporary,
-    Shutdown = infinity,
+    Shutdown = 4000,
     Modules = [ssh_connection_handler],
-    Type = supervisor,
+    Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

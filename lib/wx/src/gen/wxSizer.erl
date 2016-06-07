@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,10 +54,10 @@ add(This,Window)
 %% <br /> Also:<br />
 %% add(This, Window, [Option]) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
-%% 	Option :: {proportion, integer()}<br />
-%% 		 | {flag, integer()}<br />
-%% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx_object()};<br />
+%% 	Option :: {'proportion', integer()}<br />
+%% 		 | {'flag', integer()}<br />
+%% 		 | {'border', integer()}<br />
+%% 		 | {'userData', wx:wx_object()};<br />
 %%       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
 %% 
@@ -65,10 +65,10 @@ add(This,Window)
 	This::wxSizer(), Width::integer(), Height::integer();
       (This, Window, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),
-	Option :: {proportion, integer()}
-		 | {flag, integer()}
-		 | {border, integer()}
-		 | {userData, wx:wx_object()};
+	Option :: {'proportion', integer()}
+		 | {'flag', integer()}
+		 | {'border', integer()}
+		 | {'userData', wx:wx_object()};
       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().
 
@@ -108,10 +108,10 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizeradd">external documentation</a>.
 -spec add(This, Width, Height, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Width::integer(), Height::integer(),
-	Option :: {proportion, integer()}
-		 | {flag, integer()}
-		 | {border, integer()}
-		 | {userData, wx:wx_object()}.
+	Option :: {'proportion', integer()}
+		 | {'flag', integer()}
+		 | {'border', integer()}
+		 | {'userData', wx:wx_object()}.
 add(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -144,7 +144,7 @@ addStretchSpacer(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizeraddstretchspacer">external documentation</a>.
 -spec addStretchSpacer(This, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(),
-	Option :: {prop, integer()}.
+	Option :: {'prop', integer()}.
 addStretchSpacer(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -163,7 +163,7 @@ calcMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @equiv clear(This, [])
--spec clear(This) -> ok when
+-spec clear(This) -> 'ok' when
 	This::wxSizer().
 
 clear(This)
@@ -171,9 +171,9 @@ clear(This)
   clear(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerclear">external documentation</a>.
--spec clear(This, [Option]) -> ok when
+-spec clear(This, [Option]) -> 'ok' when
 	This::wxSizer(),
-	Option :: {delete_windows, boolean()}.
+	Option :: {'delete_windows', boolean()}.
 clear(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -218,7 +218,7 @@ fit(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerfitinside">external documentation</a>.
--spec fitInside(This, Window) -> ok when
+-spec fitInside(This, Window) -> 'ok' when
 	This::wxSizer(), Window::wxWindow:wxWindow().
 fitInside(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -256,7 +256,7 @@ getItem(#wx_ref{type=ThisT,ref=ThisRef},Index)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizergetitem">external documentation</a>.
 -spec getItem(This, Window, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),
-	Option :: {recursive, boolean()}.
+	Option :: {'recursive', boolean()}.
 getItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -318,7 +318,7 @@ hide(#wx_ref{type=ThisT,ref=ThisRef},Index)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerhide">external documentation</a>.
 -spec hide(This, Window, [Option]) -> boolean() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),
-	Option :: {recursive, boolean()}.
+	Option :: {'recursive', boolean()}.
 hide(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -348,10 +348,10 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=ItemT,ref=ItemRef})
 %% <br /> Also:<br />
 %% insert(This, Index, Window, [Option]) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
-%% 	Option :: {proportion, integer()}<br />
-%% 		 | {flag, integer()}<br />
-%% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx_object()};<br />
+%% 	Option :: {'proportion', integer()}<br />
+%% 		 | {'flag', integer()}<br />
+%% 		 | {'border', integer()}<br />
+%% 		 | {'userData', wx:wx_object()};<br />
 %%       (This, Index, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
 %% 
@@ -359,10 +359,10 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=ItemT,ref=ItemRef})
 	This::wxSizer(), Index::integer(), Width::integer(), Height::integer();
       (This, Index, Window, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(),
-	Option :: {proportion, integer()}
-		 | {flag, integer()}
-		 | {border, integer()}
-		 | {userData, wx:wx_object()};
+	Option :: {'proportion', integer()}
+		 | {'flag', integer()}
+		 | {'border', integer()}
+		 | {'userData', wx:wx_object()};
       (This, Index, Window, Flags) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().
 
@@ -403,10 +403,10 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=WindowT,ref=WindowRef}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerinsert">external documentation</a>.
 -spec insert(This, Index, Width, Height, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Index::integer(), Width::integer(), Height::integer(),
-	Option :: {proportion, integer()}
-		 | {flag, integer()}
-		 | {border, integer()}
-		 | {userData, wx:wx_object()}.
+	Option :: {'proportion', integer()}
+		 | {'flag', integer()}
+		 | {'border', integer()}
+		 | {'userData', wx:wx_object()}.
 insert(#wx_ref{type=ThisT,ref=ThisRef},Index,Width,Height, Options)
  when is_integer(Index),is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -439,7 +439,7 @@ insertStretchSpacer(This,Index)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerinsertstretchspacer">external documentation</a>.
 -spec insertStretchSpacer(This, Index, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Index::integer(),
-	Option :: {prop, integer()}.
+	Option :: {'prop', integer()}.
 insertStretchSpacer(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
  when is_integer(Index),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -475,7 +475,7 @@ isShown(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerlayout">external documentation</a>.
--spec layout(This) -> ok when
+-spec layout(This) -> 'ok' when
 	This::wxSizer().
 layout(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -495,10 +495,10 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 %% <br /> Also:<br />
 %% prepend(This, Window, [Option]) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
-%% 	Option :: {proportion, integer()}<br />
-%% 		 | {flag, integer()}<br />
-%% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx_object()};<br />
+%% 	Option :: {'proportion', integer()}<br />
+%% 		 | {'flag', integer()}<br />
+%% 		 | {'border', integer()}<br />
+%% 		 | {'userData', wx:wx_object()};<br />
 %%       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
 %% 
@@ -506,10 +506,10 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 	This::wxSizer(), Width::integer(), Height::integer();
       (This, Window, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),
-	Option :: {proportion, integer()}
-		 | {flag, integer()}
-		 | {border, integer()}
-		 | {userData, wx:wx_object()};
+	Option :: {'proportion', integer()}
+		 | {'flag', integer()}
+		 | {'border', integer()}
+		 | {'userData', wx:wx_object()};
       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().
 
@@ -549,10 +549,10 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#wx_
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerprepend">external documentation</a>.
 -spec prepend(This, Width, Height, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Width::integer(), Height::integer(),
-	Option :: {proportion, integer()}
-		 | {flag, integer()}
-		 | {border, integer()}
-		 | {userData, wx:wx_object()}.
+	Option :: {'proportion', integer()}
+		 | {'flag', integer()}
+		 | {'border', integer()}
+		 | {'userData', wx:wx_object()}.
 prepend(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -585,7 +585,7 @@ prependStretchSpacer(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerprependstretchspacer">external documentation</a>.
 -spec prependStretchSpacer(This, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(),
-	Option :: {prop, integer()}.
+	Option :: {'prop', integer()}.
 prependStretchSpacer(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -596,7 +596,7 @@ prependStretchSpacer(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerrecalcsizes">external documentation</a>.
--spec recalcSizes(This) -> ok when
+-spec recalcSizes(This) -> 'ok' when
 	This::wxSizer().
 recalcSizes(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -646,7 +646,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=NewitemT,ref=NewitemR
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizerreplace">external documentation</a>.
 -spec replace(This, Oldwin, Newwin, [Option]) -> boolean() when
 	This::wxSizer(), Oldwin::wxWindow:wxWindow() | wxSizer(), Newwin::wxWindow:wxWindow() | wxSizer(),
-	Option :: {recursive, boolean()}.
+	Option :: {'recursive', boolean()}.
 replace(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=OldwinT,ref=OldwinRef},#wx_ref{type=NewwinT,ref=NewwinRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -665,7 +665,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=OldwinT,ref=OldwinRef},#wx_
   <<ThisRef:32/?UI,OldwinRef:32/?UI,NewwinRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizersetdimension">external documentation</a>.
--spec setDimension(This, X, Y, Width, Height) -> ok when
+-spec setDimension(This, X, Y, Width, Height) -> 'ok' when
 	This::wxSizer(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 setDimension(#wx_ref{type=ThisT,ref=ThisRef},X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
@@ -674,7 +674,7 @@ setDimension(#wx_ref{type=ThisT,ref=ThisRef},X,Y,Width,Height)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizersetminsize">external documentation</a>.
--spec setMinSize(This, Size) -> ok when
+-spec setMinSize(This, Size) -> 'ok' when
 	This::wxSizer(), Size::{W::integer(), H::integer()}.
 setMinSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
@@ -683,7 +683,7 @@ setMinSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizersetminsize">external documentation</a>.
--spec setMinSize(This, Width, Height) -> ok when
+-spec setMinSize(This, Width, Height) -> 'ok' when
 	This::wxSizer(), Width::integer(), Height::integer().
 setMinSize(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
  when is_integer(Width),is_integer(Height) ->
@@ -744,7 +744,7 @@ setItemMinSize(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRe
   <<ThisRef:32/?UI,WindowRef:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizersetsizehints">external documentation</a>.
--spec setSizeHints(This, Window) -> ok when
+-spec setSizeHints(This, Window) -> 'ok' when
 	This::wxSizer(), Window::wxWindow:wxWindow().
 setSizeHints(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -753,7 +753,7 @@ setSizeHints(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizer.html#wxsizersetvirtualsizehints">external documentation</a>.
--spec setVirtualSizeHints(This, Window) -> ok when
+-spec setVirtualSizeHints(This, Window) -> 'ok' when
 	This::wxSizer(), Window::wxWindow:wxWindow().
 setVirtualSizeHints(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   ?CLASS(ThisT,wxSizer),
@@ -765,14 +765,14 @@ setVirtualSizeHints(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=Win
 %% <br /> Also:<br />
 %% show(This, Window) -> boolean() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer();<br />
-%%       (This, Show) -> ok when<br />
+%%       (This, Show) -> 'ok' when<br />
 %% 	This::wxSizer(), Show::boolean().<br />
 %% 
 -spec show(This, Index) -> boolean() when
 	This::wxSizer(), Index::integer();
       (This, Window) -> boolean() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer();
-      (This, Show) -> ok when
+      (This, Show) -> 'ok' when
 	This::wxSizer(), Show::boolean().
 
 show(This,Index)
@@ -792,16 +792,16 @@ show(#wx_ref{type=ThisT,ref=ThisRef},Show)
 %% <br /> Also:<br />
 %% show(This, Window, [Option]) -> boolean() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
-%% 	Option :: {show, boolean()}<br />
-%% 		 | {recursive, boolean()}.<br />
+%% 	Option :: {'show', boolean()}<br />
+%% 		 | {'recursive', boolean()}.<br />
 %% 
 -spec show(This, Index, [Option]) -> boolean() when
 	This::wxSizer(), Index::integer(),
-	Option :: {show, boolean()};
+	Option :: {'show', boolean()};
       (This, Window, [Option]) -> boolean() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),
-	Option :: {show, boolean()}
-		 | {recursive, boolean()}.
+	Option :: {'show', boolean()}
+		 | {'recursive', boolean()}.
 show(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
  when is_integer(Index),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),

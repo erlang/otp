@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@
 %% @doc Abstract environments, supporting self-referential bindings and
 %% automatic new-key generation.
 
-%% The current implementation is based on Erlang standard library
-%% dictionaries.
+%% The current implementation is based on Erlang standard library maps.
 
 %%% -define(DEBUG, true).
 
@@ -62,7 +61,7 @@ test_0(Type, N) ->
     io:fwrite("\ncalls: ~w.\n", [get(new_key_calls)]),
     io:fwrite("\nretries: ~w.\n", [get(new_key_retries)]),
     io:fwrite("\nmax: ~w.\n", [get(new_key_max)]),
-    dict:to_list(element(1,Env)).
+    maps:to_list(element(1,Env)).
 
 test_1(integer = Type, N, Env) when is_integer(N), N > 0 ->
     Key = new_key(Env),
@@ -80,14 +79,13 @@ test_1(_,0, Env) ->
 %%
 %%	environment() = [Mapping]
 %%
-%%      Mapping = {map, Dict} | {rec, Dict, Dict}
-%%	Dict = dict:dictionary()
+%%      Mapping = {map, map()} | {rec, map(), map()}
 %%
-%% An empty environment is a list containing a single `{map, Dict}'
+%% An empty environment is a list containing a single `{map, map()}'
 %% element - empty lists are not valid environments. To find a key in an
 %% environment, it is searched for in each mapping in the list, in
 %% order, until it the key is found in some mapping, or the end of the
-%% list is reached. In a 'rec' mapping, we keep the original dictionary
+%% list is reached. In a 'rec' mapping, we keep the original map
 %% together with a version where entries may have been deleted - this
 %% makes it possible to garbage collect the entire 'rec' mapping when
 %% all its entries are unused (for example, by being shadowed by later
@@ -97,7 +95,7 @@ test_1(_,0, Env) ->
 %% =====================================================================
 %% @type environment(). An abstract environment.
 
--type mapping()     :: {'map', dict:dict()} | {'rec', dict:dict(), dict:dict()}.
+-type mapping()     :: {'map', map()} | {'rec', map(), map()}.
 -type environment() :: [mapping(),...].
 
 %% =====================================================================
@@ -108,7 +106,7 @@ test_1(_,0, Env) ->
 -spec empty() -> environment().
 
 empty() ->
-    [{map, dict:new()}].
+    [{map, #{}}].
 
 
 %% =====================================================================
@@ -119,14 +117,14 @@ empty() ->
 
 -spec is_empty(environment()) -> boolean().
 
-is_empty([{map, Dict} | Es]) ->
-    N = dict:size(Dict),
+is_empty([{map, Map} | Es]) ->
+    N = map_size(Map),
     if N =/= 0 -> false;
        Es =:= [] -> true;
        true -> is_empty(Es)
     end;
-is_empty([{rec, Dict, _} | Es]) ->
-    N = dict:size(Dict),
+is_empty([{rec, Map, _} | Es]) ->
+    N = map_size(Map),
     if N =/= 0 -> false;
        Es =:= [] -> true;
        true -> is_empty(Es)
@@ -146,12 +144,12 @@ is_empty([{rec, Dict, _} | Es]) ->
 size(Env) ->
     env_size(Env).
 
-env_size([{map, Dict}]) ->
-    dict:size(Dict);
-env_size([{map, Dict} | Env]) ->
-    dict:size(Dict) + env_size(Env);
-env_size([{rec, Dict, _Dict0} | Env]) ->
-    dict:size(Dict) + env_size(Env).
+env_size([{map, Map}]) ->
+    map_size(Map);
+env_size([{map, Map} | Env]) ->
+    map_size(Map) + env_size(Env);
+env_size([{rec, Map, _Map0} | Env]) ->
+    map_size(Map) + env_size(Env).
 
 
 %% =====================================================================
@@ -165,8 +163,8 @@ env_size([{rec, Dict, _Dict0} | Env]) ->
 
 -spec is_defined(term(), environment()) -> boolean().
 
-is_defined(Key, [{map, Dict} | Env]) ->
-    case dict:is_key(Key, Dict) of
+is_defined(Key, [{map, Map} | Env]) ->
+    case maps:is_key(Key, Map) of
 	true ->
 	    true;
 	false when Env =:= [] ->
@@ -174,8 +172,8 @@ is_defined(Key, [{map, Dict} | Env]) ->
 	false ->
 	    is_defined(Key, Env)
     end;
-is_defined(Key, [{rec, Dict, _Dict0} | Env]) ->
-    dict:is_key(Key, Dict) orelse is_defined(Key, Env).
+is_defined(Key, [{rec, Map, _Map0} | Env]) ->
+    maps:is_key(Key, Map) orelse is_defined(Key, Env).
 
 
 %% =====================================================================
@@ -188,12 +186,12 @@ is_defined(Key, [{rec, Dict, _Dict0} | Env]) ->
 keys(Env) ->
     lists:sort(keys(Env, [])).
 
-keys([{map, Dict}], S) ->
-    dict:fetch_keys(Dict) ++ S;
-keys([{map, Dict} | Env], S) ->
-    keys(Env, dict:fetch_keys(Dict) ++ S);
-keys([{rec, Dict, _Dict0} | Env], S) ->
-    keys(Env, dict:fetch_keys(Dict) ++ S).
+keys([{map, Map}], S) ->
+    maps:keys(Map) ++ S;
+keys([{map, Map} | Env], S) ->
+    keys(Env, maps:keys(Map) ++ S);
+keys([{rec, Map, _Map0} | Env], S) ->
+    keys(Env, maps:keys(Map) ++ S).
 
 
 %% =====================================================================
@@ -212,12 +210,12 @@ keys([{rec, Dict, _Dict0} | Env], S) ->
 to_list(Env) ->
     lists:sort(to_list(Env, [])).
 
-to_list([{map, Dict}], S) ->
-    dict:to_list(Dict) ++ S;
-to_list([{map, Dict} | Env], S) ->
-    to_list(Env, dict:to_list(Dict) ++ S);
-to_list([{rec, Dict, _Dict0} | Env], S) ->
-    to_list(Env, dict:to_list(Dict) ++ S).
+to_list([{map, Map}], S) ->
+    maps:to_list(Map) ++ S;
+to_list([{map, Map} | Env], S) ->
+    to_list(Env, maps:to_list(Map) ++ S);
+to_list([{rec, Map, _Map0} | Env], S) ->
+    to_list(Env, maps:to_list(Map) ++ S).
 
 
 %% =====================================================================
@@ -236,12 +234,12 @@ to_list([{rec, Dict, _Dict0} | Env], S) ->
 
 -spec bind(term(), term(), environment()) -> environment().
 
-bind(Key, Value, [{map, Dict}]) ->
-    [{map, dict:store(Key, Value, Dict)}];
-bind(Key, Value, [{map, Dict} | Env]) ->
-    [{map, dict:store(Key, Value, Dict)} | delete_any(Key, Env)];
+bind(Key, Value, [{map, Map}]) ->
+    [{map, maps:put(Key, Value, Map)}];
+bind(Key, Value, [{map, Map} | Env]) ->
+    [{map, maps:put(Key, Value, Map)} | delete_any(Key, Env)];
 bind(Key, Value, Env) ->
-    [{map, dict:store(Key, Value, dict:new())} | delete_any(Key, Env)].
+    [{map, maps:put(Key, Value, #{})} | delete_any(Key, Env)].
 
 
 %% =====================================================================
@@ -259,17 +257,17 @@ bind(Key, Value, Env) ->
 
 -spec bind_list([term()], [term()], environment()) -> environment().
 
-bind_list(Ks, Vs, [{map, Dict}]) ->
-    [{map, store_list(Ks, Vs, Dict)}];
-bind_list(Ks, Vs, [{map, Dict} | Env]) ->
-    [{map, store_list(Ks, Vs, Dict)} | delete_list(Ks, Env)];
+bind_list(Ks, Vs, [{map, Map}]) ->
+    [{map, store_list(Ks, Vs, Map)}];
+bind_list(Ks, Vs, [{map, Map} | Env]) ->
+    [{map, store_list(Ks, Vs, Map)} | delete_list(Ks, Env)];
 bind_list(Ks, Vs, Env) ->
-    [{map, store_list(Ks, Vs, dict:new())} | delete_list(Ks, Env)].
+    [{map, store_list(Ks, Vs, #{})} | delete_list(Ks, Env)].
 
-store_list([K | Ks], [V | Vs], Dict) ->
-    store_list(Ks, Vs, dict:store(K, V, Dict));
-store_list([], _, Dict) ->
-    Dict.
+store_list([K | Ks], [V | Vs], Map) ->
+    store_list(Ks, Vs, maps:put(K, V, Map));
+store_list([], _, Map) ->
+    Map.
 
 delete_list([K | Ks], Env) ->
     delete_list(Ks, delete_any(K, Env));
@@ -298,48 +296,40 @@ delete_any(Key, Env) ->
 
 -spec delete(term(), environment()) -> environment().
 
-delete(Key, [{map, Dict} = E | Env]) ->
-    case dict:is_key(Key, Dict) of
-	true ->
-	    [{map, dict:erase(Key, Dict)} | Env];
-	false ->
+delete(Key, [{map, Map} = E | Env]) ->
+    case maps:take(Key, Map) of
+	{_, Map1} ->
+	    [{map, Map1} | Env];
+	error ->
 	    delete_1(Key, Env, E)
     end;
-delete(Key, [{rec, Dict, Dict0} = E | Env]) ->
-    case dict:is_key(Key, Dict) of
-	true ->
-	    %% The Dict0 component must be preserved as it is until all
-	    %% keys in Dict have been deleted.
-	    Dict1 = dict:erase(Key, Dict),
-	    case dict:size(Dict1) of
-		0 ->
-		    Env;    % the whole {rec,...} is now garbage
-		_ ->
-		    [{rec, Dict1, Dict0} | Env]
-	    end;
-	false ->
+delete(Key, [{rec, Map, Map0} = E | Env]) ->
+    case maps:take(Key, Map) of
+	{_, Map1} when map_size(Map1) =:= 0 ->
+	    Env; % the whole {rec,...} is now garbage
+	%% The Map0 component must be preserved as it is until all
+	%% keys in Map have been deleted.
+	{_, Map1} ->
+	    [{rec, Map1, Map0} | Env];
+	error ->
 	    [E | delete(Key, Env)]
     end.
 
 %% This is just like above, except we pass on the preceding 'map'
 %% mapping in the list to enable merging when removing 'rec' mappings.
 
-delete_1(Key, [{rec, Dict, Dict0} = E | Env], E1) ->
-    case dict:is_key(Key, Dict) of
-	true ->
-	    Dict1 = dict:erase(Key, Dict),
-	    case dict:size(Dict1) of
-		0 ->
-		    concat(E1, Env);
-		_ ->
-		    [E1, {rec, Dict1, Dict0} | Env]
-	    end;
-	false ->
+delete_1(Key, [{rec, Map, Map0} = E | Env], E1) ->
+    case maps:take(Key, Map) of
+	{_, Map1} when map_size(Map1) =:= 0 ->
+	    concat(E1, Env);
+	{_, Map1} ->
+	    [E1, {rec, Map1, Map0} | Env];
+	error ->
 	    [E1, E | delete(Key, Env)]
     end.
 
-concat({map, D1}, [{map, D2} | Env]) ->
-    [dict:merge(fun (_K, V1, _V2) -> V1 end, D1, D2) | Env];
+concat({map, M1}, [{map, M2} | Env]) ->
+    [maps:merge(M2, M1) | Env];
 concat(E1, Env) ->
     [E1 | Env].
 
@@ -392,15 +382,15 @@ bind_recursive([], [], _, Env) ->
     Env;
 bind_recursive(Ks, Vs, F, Env) ->
     F1 = fun (V) ->
-		 fun (Dict) -> F(V, [{rec, Dict, Dict} | Env]) end
+		 fun (Map) -> F(V, [{rec, Map, Map} | Env]) end
 	 end,
-    Dict = bind_recursive_1(Ks, Vs, F1, dict:new()),
-    [{rec, Dict, Dict} | Env].
+    Map = bind_recursive_1(Ks, Vs, F1, #{}),
+    [{rec, Map, Map} | Env].
 
-bind_recursive_1([K | Ks], [V | Vs], F, Dict) ->
-    bind_recursive_1(Ks, Vs, F, dict:store(K, F(V), Dict));
-bind_recursive_1([], [], _, Dict) ->
-    Dict.
+bind_recursive_1([K | Ks], [V | Vs], F, Map) ->
+    bind_recursive_1(Ks, Vs, F, maps:put(K, F(V), Map));
+bind_recursive_1([], [], _, Map) ->
+    Map.
 
 
 %% =====================================================================
@@ -416,8 +406,8 @@ bind_recursive_1([], [], _, Dict) ->
 
 -spec lookup(term(), environment()) -> 'error' | {'ok', term()}.
 
-lookup(Key, [{map, Dict} | Env]) ->
-    case dict:find(Key, Dict) of
+lookup(Key, [{map, Map} | Env]) ->
+    case maps:find(Key, Map) of
 	{ok, _}=Value ->
 	    Value;
 	error when Env =:= [] ->
@@ -425,10 +415,10 @@ lookup(Key, [{map, Dict} | Env]) ->
 	error ->
 	    lookup(Key, Env)
     end;
-lookup(Key, [{rec, Dict, Dict0} | Env]) ->
-    case dict:find(Key, Dict) of
+lookup(Key, [{rec, Map, Map0} | Env]) ->
+    case maps:find(Key, Map) of
 	{ok, F} ->
-	    {ok, F(Dict0)};
+	    {ok, F(Map0)};
 	error ->
 	    lookup(Key, Env)
     end.
@@ -598,7 +588,17 @@ start_range(Env) ->
 %% (pseudo-)randomly distributed over the range.
 
 generate(_N, Range) ->
-    random:uniform(Range).    % works well
+    %% We must use the same sequence of random variables to ensure
+    %% that two compilations of the same source code generates the
+    %% same BEAM code.
+    case rand:export_seed() of
+	undefined ->
+	    _ = rand:seed(exsplus, {1,42,2053}),
+	    ok;
+	_ ->
+	    ok
+    end,
+    rand:uniform(Range).			% works well
 
 
 %% =====================================================================

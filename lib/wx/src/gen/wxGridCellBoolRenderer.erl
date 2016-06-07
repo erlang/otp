@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ new() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellBoolRenderer()) -> ok.
+-spec destroy(This::wxGridCellBoolRenderer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellBoolRenderer),
   wxe_util:destroy(?wxGridCellBoolRenderer_destroy,Obj),

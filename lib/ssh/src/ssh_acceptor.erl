@@ -26,7 +26,8 @@
 
 %% Internal application API
 -export([start_link/5,
-	 number_of_connections/1]).
+	 number_of_connections/1,
+	 callback_listen/3]).
 
 %% spawn export  
 -export([acceptor_init/6, acceptor_loop/6]).
@@ -46,15 +47,39 @@ start_link(Port, Address, SockOpts, Opts, AcceptTimeout) ->
 acceptor_init(Parent, Port, Address, SockOpts, Opts, AcceptTimeout) ->
     {_, Callback, _} =  
 	proplists:get_value(transport, Opts, {tcp, gen_tcp, tcp_closed}),
-    case (catch do_socket_listen(Callback, Port, [{active, false} | SockOpts])) of
-	{ok, ListenSocket} ->
+
+    SockOwner = proplists:get_value(lsock_owner, Opts),
+    LSock = proplists:get_value(lsocket, Opts),
+    UseExistingSocket =
+	case catch inet:sockname(LSock) of
+	    {ok,{_,Port}} -> is_pid(SockOwner);
+	    _ -> false
+	end,
+
+    case UseExistingSocket of
+	true ->
 	    proc_lib:init_ack(Parent, {ok, self()}),
-	    acceptor_loop(Callback, 
-			  Port, Address, Opts, ListenSocket, AcceptTimeout);
-	Error ->
-	    proc_lib:init_ack(Parent, Error),
-	    error
+	    request_ownership(LSock, SockOwner),
+	    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
+
+	false -> 
+	    case (catch do_socket_listen(Callback, Port, SockOpts)) of
+		{ok, ListenSocket} ->
+		    proc_lib:init_ack(Parent, {ok, self()}),
+		    acceptor_loop(Callback, 
+				  Port, Address, Opts, ListenSocket, AcceptTimeout);
+		Error ->
+		    proc_lib:init_ack(Parent, Error),
+		    error
+	    end
     end.
+
+request_ownership(LSock, SockOwner) ->
+    SockOwner ! {request_control,LSock,self()},
+    receive
+	{its_yours,LSock} -> ok
+    end.
+    
    
 do_socket_listen(Callback, Port0, Opts) ->
     Port =
@@ -62,6 +87,10 @@ do_socket_listen(Callback, Port0, Opts) ->
 	    undefined -> Port0;
 	    _ -> 0
 	end,
+    callback_listen(Callback, Port, Opts).
+
+callback_listen(Callback, Port, Opts0) ->
+    Opts = [{active, false}, {reuseaddr,true} | Opts0],
     case Callback:listen(Port, Opts) of
 	{error, nxdomain} ->
 	    Callback:listen(Port, lists:delete(inet6, Opts));

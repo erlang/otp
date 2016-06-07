@@ -294,12 +294,11 @@ instantiate(X, _S) ->
 %%%================================================================
 %%%
 init_ssh(Role, Socket, Options0) ->
-    Options = [{user_interaction,false}
+    Options = [{user_interaction, false},
+	       {vsn, {2,0}},
+	       {id_string, "ErlangTestLib"}
 	       | Options0],
-    ssh_connection_handler:init_ssh(Role,
-				    {2,0},
-				    lists:concat(["SSH-2.0-ErlangTestLib ",Role]),
-				    Options, Socket).
+    ssh_connection_handler:init_ssh_record(Role, Socket, Options).
 
 mangle_opts(Options) ->
     SysOpts = [{reuseaddr, true},

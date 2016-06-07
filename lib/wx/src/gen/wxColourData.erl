@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ getCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I)
   <<ThisRef:32/?UI,I:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatasetchoosefull">external documentation</a>.
--spec setChooseFull(This, Flag) -> ok when
+-spec setChooseFull(This, Flag) -> 'ok' when
 	This::wxColourData(), Flag::boolean().
 setChooseFull(#wx_ref{type=ThisT,ref=ThisRef},Flag)
  when is_boolean(Flag) ->
@@ -85,7 +85,7 @@ setChooseFull(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatasetcolour">external documentation</a>.
--spec setColour(This, Colour) -> ok when
+-spec setColour(This, Colour) -> 'ok' when
 	This::wxColourData(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
  when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
@@ -94,7 +94,7 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatasetcustomcolour">external documentation</a>.
--spec setCustomColour(This, I, Colour) -> ok when
+-spec setCustomColour(This, I, Colour) -> 'ok' when
 	This::wxColourData(), I::integer(), Colour::wx:wx_colour().
 setCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I,Colour)
  when is_integer(I),tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
@@ -103,7 +103,7 @@ setCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I,Colour)
   <<ThisRef:32/?UI,I:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxColourData()) -> ok.
+-spec destroy(This::wxColourData()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

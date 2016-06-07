@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 	 put_list/1, fconv/1, literal_case_expression/1,
 	 increment/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -55,7 +55,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-putting(doc) -> "Test creating lists and tuples containing big number literals.";
+%% Test creating lists and tuples containing big number literals.
 putting(Config) when is_list(Config) ->
     -773973888575883407313908 = chksum(putting1(8987697898797)).
 
@@ -64,23 +64,22 @@ putting1(X) ->
      [X|349873987387373],
      [329878349873|-387394729872], -773973937933873929749873}.
 
-matching_bigs(doc) -> "Test matching of a few big number literals (in Beam,"
-		      "select_val/3 will NOT be used).";
+%% Test matching of a few big number literals (in Beam select_val/3 will NOT be used).
 matching_bigs(Config) when is_list(Config) ->
     a = matching1(3972907842873739),
     b = matching1(-389789298378939783333333333333333333784),
     other = matching1(3141699999999999999999999999999999999),
     other = matching1(42).
 
-matching_smalls(doc) -> "Test matching small numbers (both positive and negative).";
+%% Test matching small numbers (both positive and negative).
 matching_smalls(Config) when is_list(Config) ->
-    ?line a = m_small(-42),
-    ?line b = m_small(0),
-    ?line c = m_small(105),
-    ?line d = m_small(-13),
-    ?line e = m_small(337848),
-    ?line other = m_small(324),
-    ?line other = m_small(-7),
+    a = m_small(-42),
+    b = m_small(0),
+    c = m_small(105),
+    d = m_small(-13),
+    e = m_small(337848),
+    other = m_small(324),
+    other = m_small(-7),
     ok.
 
 m_small(-42) -> a;
@@ -90,17 +89,16 @@ m_small(-13) -> d;
 m_small(337848) -> e;
 m_small(_) -> other.
 
-matching_smalls_jt(doc) ->
-    "Test matching small numbers (both positive and negative). "
-	"Make sure that a jump table is used.";
+%% Test matching small numbers (both positive and negative).
+%% Make sure that a jump table is used.
 matching_smalls_jt(Config) when is_list(Config) ->
-    ?line a = m_small_jt(-2),
-    ?line b = m_small_jt(-1),
-    ?line c = m_small_jt(0),
-    ?line d = m_small_jt(2),
-    ?line e = m_small_jt(3),
-    ?line other = m_small(324),
-    ?line other = m_small(-7),
+    a = m_small_jt(-2),
+    b = m_small_jt(-1),
+    c = m_small_jt(0),
+    d = m_small_jt(2),
+    e = m_small_jt(3),
+    other = m_small(324),
+    other = m_small(-7),
     ok.
 
 m_small_jt(-2) -> a;
@@ -117,8 +115,7 @@ matching1(-389789298378939783333333333333333333784) -> b;
 matching1(_) -> other.
 
 
-matching_more_bigs(doc) -> "Test matching of a big number literals (in Beam,"
-		      "a select_val/3 instruction will be used).";
+%% Test matching of a big number literals (in Beam, a select_val/3 instruction will be used)
 matching_more_bigs(Config) when is_list(Config) ->
     a = matching2(-999766349740978337),
     b = matching2(9734097866575478),
@@ -137,8 +134,7 @@ matching2(13987294872948990) -> d;
 matching2(777723896192459245) -> e;
 matching2(_) -> other.
 
-matching_bigs_and_smalls(doc) -> "Test matching of a mix of big numbers and literals.";
-matching_bigs_and_smalls(suite) -> [];
+%% Test matching of a mix of big numbers and literals.
 matching_bigs_and_smalls(Config) when is_list(Config) ->
     a = matching3(38472928723987239873873),
     b = matching3(0),
@@ -159,30 +155,30 @@ matching3(42) -> e;
 matching3(-4533) -> f;
 matching3(_) -> other.
 
-badmatch(doc) -> "Test literal badmatches with big number and floats.";
+%% Test literal badmatches with big number and floats.
 badmatch(Config) when is_list(Config) ->
     %% We are satisfied if we can load this module and run it.
     Big = id(32984798729847892498297824872982972978239874),
     Float = id(3.1415927),
-    ?line catch a = Big,
-    ?line catch b = Float,
-    ?line {'EXIT',{{badmatch,3879373498378993387},_}} =
+    catch a = Big,
+    catch b = Float,
+    {'EXIT',{{badmatch,3879373498378993387},_}} =
 	   (catch c = 3879373498378993387),
-    ?line {'EXIT',{{badmatch,7.0},_}} = (catch d = 7.0),
-    ?line case Big of
-	      Big -> ok
-	  end,
-    ?line case Float of
-	      Float -> ok
-	  end,
+    {'EXIT',{{badmatch,7.0},_}} = (catch d = 7.0),
+    case Big of
+        Big -> ok
+    end,
+    case Float of
+        Float -> ok
+    end,
     ok.
 
 case_clause(Config) when is_list(Config) ->
-    ?line {'EXIT',{{case_clause,337.0},_}} = (catch case_clause_float()),
-    ?line {'EXIT',{{try_clause,42.0},_}} = (catch try_case_clause_float()),
-    ?line {'EXIT',{{case_clause,37932749837839747383847398743789348734987},_}} =
+    {'EXIT',{{case_clause,337.0},_}} = (catch case_clause_float()),
+    {'EXIT',{{try_clause,42.0},_}} = (catch try_case_clause_float()),
+    {'EXIT',{{case_clause,37932749837839747383847398743789348734987},_}} =
 	(catch case_clause_big()),
-    ?line {'EXIT',{{try_clause,977387349872349870423364354398566348},_}} =
+    {'EXIT',{{try_clause,977387349872349870423364354398566348},_}} =
 	(catch try_case_clause_big()),
     ok.
 
@@ -210,8 +206,7 @@ try_case_clause_big() ->
 	    error
     end.
 
-receiving(doc) -> "Test receive with a big number literal (more than 27 bits, "
-		      "less than 32 bits).";
+%% Test receive with a big number literal (more than 27 bits, less than 32 bits).
 receiving(Config) when is_list(Config) ->
     Self = self(),
     spawn(fun() -> Self ! here_is_a_message end),
@@ -222,11 +217,11 @@ receiving(Config) when is_list(Config) ->
 		 timeout
 	 end.
 
-literal_type_tests(doc) -> "Test type tests on literal values.";
+%% Test type tests on literal values.
 literal_type_tests(Config) when is_list(Config) ->
     %% Generate an Erlang module with all different type of type tests.
-    ?line Tests = make_test([{T, L} || T <- type_tests(), L <- literals()]),
-    ?line Mod = literal_test,
+    Tests = make_test([{T, L} || T <- type_tests(), L <- literals()]),
+    Mod = literal_test,
     Anno = erl_anno:new(0),
     Func = {function, Anno, test, 0, [{clause,Anno,[],[],Tests}]},
     Form = [{attribute,Anno,module,Mod},
@@ -234,22 +229,22 @@ literal_type_tests(Config) when is_list(Config) ->
             Func, {eof,Anno}],
 
     %% Print generated code for inspection.
-    ?line lists:foreach(fun (F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Form),
+    lists:foreach(fun (F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Form),
 
     %% Test compile:form/1.  This implies full optimization (default).
-    ?line {ok,Mod,Code1} = compile:forms(Form),
-    ?line {module,Mod} = code:load_binary(Mod, Mod, Code1),
-    ?line Mod:test(),
-    ?line true = code:delete(Mod),
-    ?line code:purge(Mod),
+    {ok,Mod,Code1} = compile:forms(Form),
+    {module,Mod} = code:load_binary(Mod, Mod, Code1),
+    Mod:test(),
+    true = code:delete(Mod),
+    code:purge(Mod),
 			       
     %% Test compile:form/2.  Turn off all optimizations.
-    ?line {ok,Mod,Code2} = compile:forms(Form, [binary,report,time,
+    {ok,Mod,Code2} = compile:forms(Form, [binary,report,time,
 						no_copt,no_postopt]),
-    ?line {module,Mod} = code:load_binary(Mod, Mod, Code2),
-    ?line Mod:test(),
-    ?line true = code:delete(Mod),
-    ?line code:purge(Mod),
+    {module,Mod} = code:load_binary(Mod, Mod, Code2),
+    Mod:test(),
+    true = code:delete(Mod),
+    code:purge(Mod),
     ok.
 
 make_test([{is_function=T,L}|Ts]) ->
@@ -299,34 +294,34 @@ type_tests() ->
 
 put_list(Config) when is_list(Config) ->
     %% put_list x0 Literal Reg
-    ?line [Config|8739757395764] = put_list_rqr(Config),
-    ?line {[Config|7779757395764],Config} = put_list_rqx(Config),
-    ?line [Config|98765432100000] = put_list_rqy(Config),
+    [Config|8739757395764] = put_list_rqr(Config),
+    {[Config|7779757395764],Config} = put_list_rqx(Config),
+    [Config|98765432100000] = put_list_rqy(Config),
 
     %% put_list x Literal Reg
-    ?line [Config|16#FFFFF77777137483769] = put_list_xqr(ignore, Config),
-    ?line {[Config|16#AAAAAFFFFF77777],{a,b},Config} =  put_list_xqx({a,b}, Config),
-    ?line [Config|12777765432979879] = put_list_xqy(ignore, Config),
+    [Config|16#FFFFF77777137483769] = put_list_xqr(ignore, Config),
+    {[Config|16#AAAAAFFFFF77777],{a,b},Config} =  put_list_xqx({a,b}, Config),
+    [Config|12777765432979879] = put_list_xqy(ignore, Config),
 
     %% put_list y Literal Reg
-    ?line [Config|17424134793676869867] = put_list_yqr(Config),
-    ?line {[Config|77424134793676869867],Config} = put_list_yqx(Config),
-    ?line {Config,[Config|16#BCDEFF4241676869867]} = put_list_yqy(Config),
+    [Config|17424134793676869867] = put_list_yqr(Config),
+    {[Config|77424134793676869867],Config} = put_list_yqx(Config),
+    {Config,[Config|16#BCDEFF4241676869867]} = put_list_yqy(Config),
 
     %% put_list Literal x0 Reg
-    ?line [42.0|Config] = put_list_qrr(Config),
-    ?line [Config,42.0|Config] = put_list_qrx(Config),
-    ?line [100.0|Config] = put_list_qry(Config),
+    [42.0|Config] = put_list_qrr(Config),
+    [Config,42.0|Config] = put_list_qrx(Config),
+    [100.0|Config] = put_list_qry(Config),
 
     %% put_list Literal x1 Reg
-    ?line [127.0|Config] = put_list_qxr({ignore,me}, Config),
-    ?line [Config,130.0|Config] = put_list_qxx(ignore, Config),
-    ?line [99.0|Config] = put_list_qxy(Config),
+    [127.0|Config] = put_list_qxr({ignore,me}, Config),
+    [Config,130.0|Config] = put_list_qxx(ignore, Config),
+    [99.0|Config] = put_list_qxy(Config),
 
     %% put_list Literal y0 Reg
-    ?line [200.0|Config] = put_list_qyr(Config),
-    ?line [Config,210.0|Config] = put_list_qyx(Config),
-    ?line [[300.0|Config]|Config] = put_list_qyy(Config),
+    [200.0|Config] = put_list_qyr(Config),
+    [Config,210.0|Config] = put_list_qyx(Config),
+    [[300.0|Config]|Config] = put_list_qyy(Config),
 
     ok.
     
@@ -417,8 +412,8 @@ put_list_qyy(Config) ->
     [Res|Config].
 
 fconv(Config) when is_list(Config) ->
-    ?line 5.0 = fconv_1(-34444444450.0),
-    ?line 13.0 = fconv_2(7.0),
+    5.0 = fconv_1(-34444444450.0),
+    13.0 = fconv_2(7.0),
     ok.
 
 fconv_1(F) when is_float(F) ->
@@ -428,19 +423,18 @@ fconv_2(F) when is_float(F) ->
     6.0 + F.
 
 literal_case_expression(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line Src = filename:join(DataDir, "literal_case_expression"),
-    ?line {ok,literal_case_expression=Mod,Code} =
-	compile:file(Src, [from_asm,binary]),
-    ?line {module,Mod} = code:load_binary(Mod, Src, Code),
-    ?line ok = Mod:x(),
-    ?line ok = Mod:y(),
-    ?line ok = Mod:zi1(),
-    ?line ok = Mod:zi2(),
-    ?line ok = Mod:za1(),
-    ?line ok = Mod:za2(),
-    ?line true = code:delete(Mod),
-    ?line code:purge(Mod),
+    DataDir = proplists:get_value(data_dir, Config),
+    Src = filename:join(DataDir, "literal_case_expression"),
+    {ok,literal_case_expression=Mod,Code} = compile:file(Src, [from_asm,binary]),
+    {module,Mod} = code:load_binary(Mod, Src, Code),
+    ok = Mod:x(),
+    ok = Mod:y(),
+    ok = Mod:zi1(),
+    ok = Mod:zi2(),
+    ok = Mod:za1(),
+    ok = Mod:za2(),
+    true = code:delete(Mod),
+    code:purge(Mod),
     ok.
 
 %% Test the i_increment instruction.
@@ -452,27 +446,27 @@ increment(Config) when is_list(Config) ->
     Neg32 = -(1 bsl 27),
     Big32 = id(1 bsl 32),
     Result32 = (1 bsl 32) + (1 bsl 27),
-    ?line Result32 = Big32 + (1 bsl 27),
-    ?line Result32 = Big32 - Neg32,
+    Result32 = Big32 + (1 bsl 27),
+    Result32 = Big32 - Neg32,
 
     %% Same thing, but for the 64-bit emulator.
     Neg64 = -(1 bsl 59),
     Big64 = id(1 bsl 64),
     Result64 = (1 bsl 64) + (1 bsl 59),
-    ?line Result64 = Big64 + (1 bsl 59),
-    ?line Result64 = Big64 - Neg64,
+    Result64 = Big64 + (1 bsl 59),
+    Result64 = Big64 - Neg64,
 
     %% Test error handling for the i_increment instruction.
     Bad = id(bad),
-    ?line {'EXIT',{badarith,_}} = (catch Bad + 42),
+    {'EXIT',{badarith,_}} = (catch Bad + 42),
 
     %% Small operands, but a big result.
     Res32 = 1 bsl 27,
     Small32 = id(Res32-1),
-    ?line Res32 = Small32 + 1,
+    Res32 = Small32 + 1,
     Res64 = 1 bsl 59,
     Small64 = id(Res64-1),
-    ?line Res64 = Small64 + 1,
+    Res64 = Small64 + 1,
     ok.
 
 %% Help functions.

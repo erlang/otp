@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,6 +83,7 @@
 		timer,
 		procinfo_menu_pids=[],
 		sel={[], []},
+		right_clicked_pid,
 		holder}).
 
 start_link(Notebook, Parent) ->
@@ -303,13 +304,14 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Panel, Timer0, 1, 5*60),
     {noreply, State#state{timer=Timer}};
 
-handle_event(#wx{id=?ID_KILL}, #state{sel={[_|Ids], [ToKill|Pids]}}=State) ->
-    exit(ToKill, kill),
-    {noreply, State#state{sel={Ids,Pids}}};
+handle_event(#wx{id=?ID_KILL}, #state{right_clicked_pid=Pid, sel=Sel0}=State) ->
+    exit(Pid, kill),
+    Sel = rm_selected(Pid,Sel0),
+    {noreply, State#state{sel=Sel}};
 
 
 handle_event(#wx{id=?ID_PROC},
-	     #state{panel=Panel, sel={_, [Pid|_]},procinfo_menu_pids=Opened}=State) ->
+	     #state{panel=Panel, right_clicked_pid=Pid, procinfo_menu_pids=Opened}=State) ->
     Opened2 = start_procinfo(Pid, Panel, Opened),
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
@@ -319,7 +321,7 @@ handle_event(#wx{id=?ID_TRACE_PIDS}, #state{sel={_, Pids}, panel=Panel}=State)  
 	    observer_wx:create_txt_dialog(Panel, "No selected processes", "Tracer", ?wxICON_EXCLAMATION),
 	    {noreply, State};
 	Pids ->
-	    observer_trace_wx:add_processes(observer_wx:get_tracer(), Pids),
+	    observer_trace_wx:add_processes(Pids),
 	    {noreply,  State}
     end;
 
@@ -330,12 +332,12 @@ handle_event(#wx{id=?ID_TRACE_NAMES}, #state{sel={SelIds,_Pids}, holder=Holder, 
 	    {noreply, State};
 	_ ->
 	    PidsOrReg = call(Holder, {get_name_or_pid, self(), SelIds}),
-	    observer_trace_wx:add_processes(observer_wx:get_tracer(), PidsOrReg),
+	    observer_trace_wx:add_processes(PidsOrReg),
 	    {noreply,  State}
     end;
 
 handle_event(#wx{id=?ID_TRACE_NEW, event=#wxCommand{type=command_menu_selected}}, State) ->
-    observer_trace_wx:add_processes(observer_wx:get_tracer(), [new]),
+    observer_trace_wx:add_processes([new_processes]),
     {noreply,  State};
 
 handle_event(#wx{event=#wxSize{size={W,_}}},
@@ -347,20 +349,26 @@ handle_event(#wx{event=#wxList{type=command_list_item_right_click,
 			       itemIndex=Row}},
 	     #state{panel=Panel, holder=Holder}=State) ->
 
-    case call(Holder, {get_row, self(), Row, pid}) of
-	{error, undefined} ->
-	    undefined;
-	{ok, _} ->
-	    Menu = wxMenu:new(),
-	    wxMenu:append(Menu, ?ID_PROC, "Process info"),
-	    wxMenu:append(Menu, ?ID_TRACE_PIDS, "Trace processes", [{help, ?TRACE_PIDS_STR}]),
-	    wxMenu:append(Menu, ?ID_TRACE_NAMES, "Trace named processes (all nodes)",
-			  [{help, ?TRACE_NAMES_STR}]),
-	    wxMenu:append(Menu, ?ID_KILL, "Kill Process"),
-	    wxWindow:popupMenu(Panel, Menu),
-	    wxMenu:destroy(Menu)
-    end,
-    {noreply, State};
+    Pid =
+	case call(Holder, {get_row, self(), Row, pid}) of
+	    {error, undefined} ->
+		undefined;
+	    {ok, P} ->
+		Menu = wxMenu:new(),
+		wxMenu:append(Menu, ?ID_PROC,
+			      "Process info for " ++ pid_to_list(P)),
+		wxMenu:append(Menu, ?ID_TRACE_PIDS,
+			      "Trace selected processes",
+			      [{help, ?TRACE_PIDS_STR}]),
+		wxMenu:append(Menu, ?ID_TRACE_NAMES,
+			      "Trace selected processes by name (all nodes)",
+			      [{help, ?TRACE_NAMES_STR}]),
+		wxMenu:append(Menu, ?ID_KILL, "Kill process " ++ pid_to_list(P)),
+		wxWindow:popupMenu(Panel, Menu),
+		wxMenu:destroy(Menu),
+		P
+	end,
+    {noreply, State#state{right_clicked_pid=Pid}};
 
 handle_event(#wx{event=#wxList{type=command_list_item_focused,
 			       itemIndex=Row}},
@@ -431,6 +439,17 @@ set_focus([Old|_], [], Grid) ->
 set_focus([Old|_], [New|_], Grid) ->
     wxListCtrl:setItemState(Grid, Old, 0, ?wxLIST_STATE_FOCUSED),
     wxListCtrl:setItemState(Grid, New, 16#FFFF, ?wxLIST_STATE_FOCUSED).
+
+rm_selected(Pid, {Ids, Pids}) ->
+    rm_selected(Pid, Ids, Pids, [], []).
+
+rm_selected(Pid, [_Id|Ids], [Pid|Pids], AccIds, AccPids) ->
+    {lists:reverse(AccIds)++Ids,lists:reverse(AccPids)++Pids};
+rm_selected(Pid, [Id|Ids], [OtherPid|Pids], AccIds, AccPids) ->
+    rm_selected(Pid, Ids, Pids, [Id|AccIds], [OtherPid|AccPids]);
+rm_selected(_, [], [], AccIds, AccPids) ->
+    {lists:reverse(AccIds), lists:reverse(AccPids)}.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%TABLE HOLDER%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

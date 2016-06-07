@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,20 +67,20 @@ new(Image)
 %% <br /> Also:<br />
 %% new(Filename, [Option]) -> wxBitmap() when<br />
 %% 	Filename::unicode:chardata(),<br />
-%% 	Option :: {type, wx:wx_enum()};<br />
+%% 	Option :: {'type', wx:wx_enum()};<br />
 %%       (Image, [Option]) -> wxBitmap() when<br />
 %% 	Image::wxImage:wxImage(),<br />
-%% 	Option :: {depth, integer()}.<br />
+%% 	Option :: {'depth', integer()}.<br />
 %% 
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(Width, Height) -> wxBitmap() when
 	Width::integer(), Height::integer();
       (Filename, [Option]) -> wxBitmap() when
 	Filename::unicode:chardata(),
-	Option :: {type, wx:wx_enum()};
+	Option :: {'type', wx:wx_enum()};
       (Image, [Option]) -> wxBitmap() when
 	Image::wxImage:wxImage(),
-	Option :: {depth, integer()}.
+	Option :: {'depth', integer()}.
 
 new(Width,Height)
  when is_integer(Width),is_integer(Height) ->
@@ -106,13 +106,13 @@ new(#wx_ref{type=ImageT,ref=ImageRef}, Options)
 %% <br /> Also:<br />
 %% new(Width, Height, [Option]) -> wxBitmap() when<br />
 %% 	Width::integer(), Height::integer(),<br />
-%% 	Option :: {depth, integer()}.<br />
+%% 	Option :: {'depth', integer()}.<br />
 %% 
 -spec new(Bits, Width, Height) -> wxBitmap() when
 	Bits::binary(), Width::integer(), Height::integer();
       (Width, Height, [Option]) -> wxBitmap() when
 	Width::integer(), Height::integer(),
-	Option :: {depth, integer()}.
+	Option :: {'depth', integer()}.
 
 new(Bits,Width,Height)
  when is_binary(Bits),is_integer(Width),is_integer(Height) ->
@@ -128,7 +128,7 @@ new(Width,Height, Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapwxbitmap">external documentation</a>.
 -spec new(Bits, Width, Height, [Option]) -> wxBitmap() when
 	Bits::binary(), Width::integer(), Height::integer(),
-	Option :: {depth, integer()}.
+	Option :: {'depth', integer()}.
 new(Bits,Width,Height, Options)
  when is_binary(Bits),is_integer(Width),is_integer(Height),is_list(Options) ->
   wxe_util:send_bin(Bits),
@@ -166,7 +166,7 @@ create(This,Width,Height)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapcreate">external documentation</a>.
 -spec create(This, Width, Height, [Option]) -> boolean() when
 	This::wxBitmap(), Width::integer(), Height::integer(),
-	Option :: {depth, integer()}.
+	Option :: {'depth', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxBitmap),
@@ -237,7 +237,7 @@ loadFile(This,Name)
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec loadFile(This, Name, [Option]) -> boolean() when
 	This::wxBitmap(), Name::unicode:chardata(),
-	Option :: {type, wx:wx_enum()}.
+	Option :: {'type', wx:wx_enum()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name, Options)
  when is_list(Name),is_list(Options) ->
   ?CLASS(ThisT,wxBitmap),
@@ -268,7 +268,7 @@ saveFile(This,Name,Type)
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec saveFile(This, Name, Type, [Option]) -> boolean() when
 	This::wxBitmap(), Name::unicode:chardata(), Type::wx:wx_enum(),
-	Option :: {palette, wxPalette:wxPalette()}.
+	Option :: {'palette', wxPalette:wxPalette()}.
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Type, Options)
  when is_list(Name),is_integer(Type),is_list(Options) ->
   ?CLASS(ThisT,wxBitmap),
@@ -280,7 +280,7 @@ saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Type, Options)
   <<ThisRef:32/?UI,(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((0+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8,Type:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapsetdepth">external documentation</a>.
--spec setDepth(This, Depth) -> ok when
+-spec setDepth(This, Depth) -> 'ok' when
 	This::wxBitmap(), Depth::integer().
 setDepth(#wx_ref{type=ThisT,ref=ThisRef},Depth)
  when is_integer(Depth) ->
@@ -289,7 +289,7 @@ setDepth(#wx_ref{type=ThisT,ref=ThisRef},Depth)
   <<ThisRef:32/?UI,Depth:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapsetheight">external documentation</a>.
--spec setHeight(This, Height) -> ok when
+-spec setHeight(This, Height) -> 'ok' when
 	This::wxBitmap(), Height::integer().
 setHeight(#wx_ref{type=ThisT,ref=ThisRef},Height)
  when is_integer(Height) ->
@@ -298,7 +298,7 @@ setHeight(#wx_ref{type=ThisT,ref=ThisRef},Height)
   <<ThisRef:32/?UI,Height:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapsetmask">external documentation</a>.
--spec setMask(This, Mask) -> ok when
+-spec setMask(This, Mask) -> 'ok' when
 	This::wxBitmap(), Mask::wxMask:wxMask().
 setMask(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MaskT,ref=MaskRef}) ->
   ?CLASS(ThisT,wxBitmap),
@@ -307,7 +307,7 @@ setMask(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MaskT,ref=MaskRef}) ->
   <<ThisRef:32/?UI,MaskRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapsetpalette">external documentation</a>.
--spec setPalette(This, Palette) -> ok when
+-spec setPalette(This, Palette) -> 'ok' when
 	This::wxBitmap(), Palette::wxPalette:wxPalette().
 setPalette(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PaletteT,ref=PaletteRef}) ->
   ?CLASS(ThisT,wxBitmap),
@@ -316,7 +316,7 @@ setPalette(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PaletteT,ref=PaletteRef}
   <<ThisRef:32/?UI,PaletteRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmap.html#wxbitmapsetwidth">external documentation</a>.
--spec setWidth(This, Width) -> ok when
+-spec setWidth(This, Width) -> 'ok' when
 	This::wxBitmap(), Width::integer().
 setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
  when is_integer(Width) ->
@@ -325,7 +325,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBitmap()) -> ok.
+-spec destroy(This::wxBitmap()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmap),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

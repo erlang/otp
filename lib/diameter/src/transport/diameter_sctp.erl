@@ -84,16 +84,18 @@
 
 %% Accepting/connecting transport process state.
 -record(transport,
-        {parent  :: pid(),
+        {parent  :: pid() | undefined,
          mode :: {accept, pid()}
                | accept
                | {connect, {[inet:ip_address()], uint(), list()}}
                         %% {RAs, RP, Errors}
                | connect,
-         socket   :: gen_sctp:sctp_socket(),
+         socket   :: gen_sctp:sctp_socket() | undefined,
          assoc_id :: gen_sctp:assoc_id(),  %% association identifier
-         peer     :: {[inet:ip_address()], uint()}, %% {RAs, RP}
-         streams  :: {uint(), uint()},     %% {InStream, OutStream} counts
+         peer     :: {[inet:ip_address()], uint()} %% {RAs, RP}
+                   | undefined,
+         streams  :: {uint(), uint()}      %% {InStream, OutStream} counts
+                   | undefined,
          os = 0   :: uint()}).             %% next output stream
 
 %% Listener process state.
@@ -102,7 +104,7 @@
          socket    :: gen_sctp:sctp_socket(),
          count = 0 :: uint(),  %% attached transport processes
          pending = {0, queue:new()},
-         tref      :: reference(),
+         tref      :: reference() | undefined,
          accept    :: [match()]}).
 %% Field pending implements two queues: the first of transport-to-be
 %% processes to which an association has been assigned but for which

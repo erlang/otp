@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,92 +22,66 @@
 
 %% Tests receive after.
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,
 	 t_after/1, receive_after/1, receive_after_big/1,
 	 receive_after_errors/1, receive_var_zero/1, receive_zero/1,
 	 multi_timeout/1, receive_after_32bit/1,
 	 receive_after_blast/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 %% Internal exports.
 
 -export([timeout_g/0]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [t_after, receive_after, receive_after_big,
      receive_after_errors, receive_var_zero, receive_zero,
      multi_timeout, receive_after_32bit, receive_after_blast].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
 %% Tests for an old round-off error in 'receive after'."
 t_after(Config) when is_list(Config) ->
-    ?line spawn(fun frequent_process/0),
-    ?line Period = test_server:minutes(1),
-    ?line Before = erlang:monotonic_time(),
+    spawn(fun frequent_process/0),
+    Period = test_server:minutes(1),
+    Before = erlang:monotonic_time(),
     receive
-	after Period ->
-		?line After = erlang:monotonic_time(),
-		?line report(Period, Before, After)
-	end.
+    after Period ->
+                After = erlang:monotonic_time(),
+                report(Period, Before, After)
+    end.
 
 report(Period, Before, After) ->
     case erlang:convert_time_unit(After - Before, native, 100*1000) / Period of
-	Percent when Percent > 100.10 ->
-	    test_server:fail({too_inaccurate, Percent});
-	Percent when Percent < 100.0 ->
-	    test_server:fail({too_early, Percent});
-	Percent ->
-	    Comment = io_lib:format("Elapsed/expected: ~.2f %", [Percent]),
-	    {comment, lists:flatten(Comment)}
+        Percent when Percent > 100.10 ->
+            ct:fail({too_inaccurate, Percent});
+        Percent when Percent < 100.0 ->
+            ct:fail({too_early, Percent});
+        Percent ->
+            Comment = io_lib:format("Elapsed/expected: ~.2f %", [Percent]),
+            {comment, lists:flatten(Comment)}
     end.
 
 frequent_process() ->
     receive
-	after 100 ->
-		?line frequent_process()
-	end.
+    after 100 ->
+              frequent_process()
+    end.
 
-receive_after(doc) ->
-    "Test that 'receive after' works (doesn't hang). "
-    "The test takes 10 seconds to complete.";
+%%  Test that 'receive after' works (doesn't hang).
+%%  The test takes 10 seconds to complete.
 receive_after(Config) when is_list(Config) ->
-    ?line receive_after1(5000).
+    receive_after1(5000).
 
 receive_after1(1) ->
-    ?line io:format("Testing: receive after ~p~n", [1]), 
-    ?line receive after 1 -> ok end;
+    io:format("Testing: receive after ~p~n", [1]), 
+    receive after 1 -> ok end;
 receive_after1(N) -> 
-    ?line io:format("Testing: receive after ~p~n", [N]), 
-    ?line receive after N -> receive_after1(N div 2) end.
+    io:format("Testing: receive after ~p~n", [N]), 
+    receive after N -> receive_after1(N div 2) end.
 
 receive_after_big(Config) when is_list(Config) ->
     %% Test that 'receive after' with a 32 bit number works.
@@ -119,14 +93,14 @@ receive_after_big1(Timeout) ->
     erlang:yield(),
     spawn(fun() -> Self ! here_is_a_message end),
     ok = receive
-	     here_is_a_message ->
-		 ok
-	 after Timeout ->
-		 %% We test that the timeout can be set,
-		 %% not that an timeout occurs after the appropriate delay
-		 %% (48 days, 56 minutes, 48 seconds)!
-		 timeout
-	 end.
+             here_is_a_message ->
+                 ok
+         after Timeout ->
+                   %% We test that the timeout can be set,
+                   %% not that an timeout occurs after the appropriate delay
+                   %% (48 days, 56 minutes, 48 seconds)!
+                   timeout
+         end.
 
 receive_after_big2() ->
     Self = self(),
@@ -147,38 +121,38 @@ receive_after_big2() ->
 
 %% Test error cases for 'receive after'.
 receive_after_errors(Config) when is_list(Config) ->
-    ?line ?TryAfter(-1),
-    ?line ?TryAfter(0.0),
-    ?line ?TryAfter(3.14),
-    ?line ?TryAfter(16#100000000),
-    ?line ?TryAfter(392347129847294724972398472984729847129874),
-    ?line ?TryAfter(16#3fffffffffffffff),
-    ?line ?TryAfter(16#ffffffffffffffff),
-    ?line ?TryAfter(-16#100000000),
-    ?line ?TryAfter(-3891278094774921784123987129848),
-    ?line ?TryAfter(xxx),
+    ?TryAfter(-1),
+    ?TryAfter(0.0),
+    ?TryAfter(3.14),
+    ?TryAfter(16#100000000),
+    ?TryAfter(392347129847294724972398472984729847129874),
+    ?TryAfter(16#3fffffffffffffff),
+    ?TryAfter(16#ffffffffffffffff),
+    ?TryAfter(-16#100000000),
+    ?TryAfter(-3891278094774921784123987129848),
+    ?TryAfter(xxx),
     ok.
 
 try_after(Timeout) ->
     {'EXIT',{timeout_value,_}} = (catch receive after Timeout -> ok end).
 
-receive_var_zero(doc) -> "Test 'after Z', when Z == 0.";
+%% Test 'after Z', when Z == 0.
 receive_var_zero(Config) when is_list(Config) ->
     self() ! x,
     self() ! y,
     Z = zero(),
     timeout = receive
-		  z -> ok
-	      after Z -> timeout
-	      end,
+                  z -> ok
+              after Z -> timeout
+              end,
     timeout = receive
-	      after Z -> timeout
-	      end,
+              after Z -> timeout
+              end,
     self() ! w,
     receive
 	x -> ok;
 	Other ->
-	    ?line ?t:fail({bad_message,Other})
+	    ct:fail({bad_message,Other})
     end.
 
 zero() -> 0.
@@ -188,44 +162,43 @@ receive_zero(Config) when is_list(Config) ->
     self() ! x,
     self() ! y,
     timeout = receive
-		  z -> ok
-	      after 0 ->
-		      timeout
-	      end,
+                  z -> ok
+              after 0 ->
+                        timeout
+              end,
     self() ! w,
     timeout = receive
               after 0 -> timeout
               end,
     receive
-	x -> ok;
-	Other ->
-	    ?line ?t:fail({bad_message,Other})
+        x -> ok;
+        Other ->
+            ct:fail({bad_message,Other})
     end.
 
-multi_timeout(doc) ->
-    "Test for catching invalid assertion in erl_message.c (in queue_message)."
-    "This failed (dumped core) with debug-compiled emulator.";
+%% Test for catching invalid assertion in erl_message.c (in queue_message)
+%% This failed (dumped core) with debug-compiled emulator.
 multi_timeout(Config) when is_list(Config) ->
-    ?line P = spawn(?MODULE, timeout_g, []),
-    ?line P ! a,
-    ?line P ! b,
-    ?line receive
-	  after 1000 -> ok
-	  end,
-    ?line P ! c,
-    ?line receive
-	  after 1000 -> ok
-	  end,
-    ?line P ! d,
+    P = spawn(?MODULE, timeout_g, []),
+    P ! a,
+    P ! b,
+    receive
+    after 1000 -> ok
+    end,
+    P ! c,
+    receive
+    after 1000 -> ok
+    end,
+    P ! d,
     ok.
 
 timeout_g() ->
-    ?line receive
-	a -> ok
+    receive
+        a -> ok
     end,
-    ?line receive
-	  after 100000 -> ok
-	  end,
+    receive
+    after 100000 -> ok
+    end,
     ok.
 
 %% OTP-7493: Timeout for 32 bit numbers (such as 16#ffffFFFF) could
@@ -264,8 +237,8 @@ receive_after_blast(Config) when is_list(Config) ->
     TimeoutTime = erlang:monotonic_time(milli_seconds) + 5000,
     lists:foreach(fun ({P, _}) -> P ! {go, TimeoutTime} end, PMs),
     lists:foreach(fun ({P, M}) ->
-			  receive
-			      {'DOWN', M, process, P, normal} ->
-				  ok
-			  end
-		  end, PMs).
+                          receive
+                              {'DOWN', M, process, P, normal} ->
+                                  ok
+                          end
+                  end, PMs).

@@ -68,7 +68,7 @@ also find the utilities needed for building the documentation.
     Required for building the application `crypto`.
     Further, `ssl` and `ssh` require a working crypto application and
     will also be skipped if OpenSSL is missing. The `public_key`
-    application will available without `crypto`, but the functionality
+    application is available without `crypto`, but the functionality
     will be very limited.
 
     The development package of OpenSSL including the header files are needed as well
@@ -356,8 +356,6 @@ Some of the available `configure` options are:
     depending on operating system and hardware platform. Note that by
     enabling this you might get a seemingly working system that sometimes
     fail on floating point operations.
-*   `--enable-darwin-universal` - Build universal binaries on darwin i386.
-*   `--enable-darwin-64bit` - Build 64-bit binaries on darwin
 *   `--enable-m64-build` - Build 64-bit binaries using the `-m64` flag to
     `(g)cc`
 *   `--enable-m32-build` - Build 32-bit binaries using the `-m32` flag to
@@ -826,6 +824,7 @@ Known platform issues
 
 Daily Build and Test
 --------------------
+
 At Ericsson we have a "Daily Build and Test" that runs on:
 
 *   Solaris 8, 9

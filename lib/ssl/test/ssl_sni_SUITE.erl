@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@ init_per_suite(Config0) ->
     try crypto:start() of
         ok ->
             ssl:start(),
-	    {ok, _} = make_certs:all(?config(data_dir, Config0),
-				     ?config(priv_dir, Config0)),
+	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
+				     proplists:get_value(priv_dir, Config0)),
             ssl_test_lib:cert_options(Config0)
     catch _:_  ->
             {skip, "Crypto did not start"}
@@ -54,7 +54,7 @@ end_per_suite(_) ->
     application:stop(crypto).
 
 init_per_testcase(_TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     ct:timetrap({seconds, 5}),
     Config.
@@ -139,15 +139,15 @@ run_sni_fun_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, "
 	   "ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
 	   [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    [{sni_hosts, ServerSNIConf}] = ?config(sni_server_opts, Config),
+    [{sni_hosts, ServerSNIConf}] = proplists:get_value(sni_server_opts, Config),
     SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
-    ServerOptions = ?config(server_opts, Config) ++ [{sni_fun, SNIFun}],
+    ServerOptions = proplists:get_value(server_opts, Config) ++ [{sni_fun, SNIFun}],
     ClientOptions = 
     case SNIHostname of
         undefined ->
-            ?config(client_opts, Config);
+            proplists:get_value(client_opts, Config);
         _ ->
-            [{server_name_indication, SNIHostname}] ++ ?config(client_opts, Config)
+            [{server_name_indication, SNIHostname}] ++ proplists:get_value(client_opts, Config)
     end,
     ct:log("Options: ~p", [[ServerOptions, ClientOptions]]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -167,13 +167,13 @@ run_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, "
 	   "ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
 	   [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    ServerOptions = ?config(sni_server_opts, Config) ++ ?config(server_opts, Config),
+    ServerOptions = proplists:get_value(sni_server_opts, Config) ++ proplists:get_value(server_opts, Config),
     ClientOptions = 
     case SNIHostname of
         undefined ->
-            ?config(client_opts, Config);
+            proplists:get_value(client_opts, Config);
         _ ->
-            [{server_name_indication, SNIHostname}] ++ ?config(client_opts, Config)
+            [{server_name_indication, SNIHostname}] ++ proplists:get_value(client_opts, Config)
     end,
     ct:log("Options: ~p", [[ServerOptions, ClientOptions]]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),

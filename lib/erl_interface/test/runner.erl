@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 	 start/1, send_term/2, finish/1, send_eot/1, recv_eot/1,
 	 get_term/1, get_term/2]).
 
--define(default_timeout, test_server:seconds(5)).
+-define(default_timeout, 5000).
 
 %% Executes a test case in a C program.
 %%
@@ -45,7 +45,7 @@ test(Tc, Timeout) ->
 	    io:format("In this test case, a success/failure result was"),
 	    io:format("expected from the C program.\n"),
 	    io:format("Received: ~p", [Other]),
-	    test_server:fail()
+	    ct:fail(badresult)
     end.
 
 %% Executes a test case in a C program.  Returns the port.
@@ -80,7 +80,7 @@ send_eot(Port) when is_port(Port) ->
     Port ! {self(), {command, [$e]}}.
 
 %% Waits for an 'eot' indication from the C program.
-%% Either returns 'ok' or invokes test_server:fail().
+%% Either returns 'ok' or invokes ct:fail(badresult).
 
 recv_eot(Port) when is_port(Port) ->    
     case get_term(Port) of
@@ -90,12 +90,12 @@ recv_eot(Port) when is_port(Port) ->
 	    io:format("Error finishing test case.  Expected eof from"),
 	    io:format("C program, but got:"),
 	    io:format("~p", [Other]),
-	    test_server:fail()
+	    ct:fail(badresult)
     end.
 
 %% Reads a term from the C program.
 %%
-%% Returns: {term, Term}|eot|'NULL' or calls test_server:fail/1,2.
+%% Returns: {term, Term}|eot|'NULL' or calls ct:fail/1,2.
 
 get_term(Port) ->
     get_term(Port, ?default_timeout).
@@ -105,9 +105,9 @@ get_term(Port, Timeout) ->
 	[$b|Bytes] ->
 	    {bytes, Bytes};
 	[$f] ->
-	    test_server:fail();
+	    ct:fail(failure);
 	[$f|Reason] ->
-	    test_server:fail(Reason);
+	    ct:fail(Reason);
 	[$t|Term] ->
 	    {term, binary_to_term(list_to_binary(Term))};
 	[$N] ->
@@ -119,7 +119,7 @@ get_term(Port, Timeout) ->
 	    get_term(Port, Timeout);
 	Other ->
 	    io:format("Garbage received from C program: ~p", [Other]),
-	    test_server:fail("Illegal response from C program")
+	    ct:fail("Illegal response from C program")
     end.
 
 get_reply(Port, Timeout) when is_port(Port) ->
@@ -127,5 +127,5 @@ get_reply(Port, Timeout) when is_port(Port) ->
 	{Port, {data, Reply}} ->
 	    Reply
     after Timeout ->
-	    test_server:fail("No response from C program")
+	    ct:fail("No response from C program")
     end.

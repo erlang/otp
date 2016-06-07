@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ createFont(This,Font)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatefont">external documentation</a>.
 -spec createFont(This, Font, [Option]) -> wxGraphicsFont:wxGraphicsFont() when
 	This::wxGraphicsRenderer(), Font::wxFont:wxFont(),
-	Option :: {col, wx:wx_colour()}.
+	Option :: {'col', wx:wx_colour()}.
 createFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
@@ -128,12 +128,12 @@ createMatrix(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatematrix">external documentation</a>.
 -spec createMatrix(This, [Option]) -> wxGraphicsMatrix:wxGraphicsMatrix() when
 	This::wxGraphicsRenderer(),
-	Option :: {a, number()}
-		 | {b, number()}
-		 | {c, number()}
-		 | {d, number()}
-		 | {tx, number()}
-		 | {ty, number()}.
+	Option :: {'a', number()}
+		 | {'b', number()}
+		 | {'c', number()}
+		 | {'d', number()}
+		 | {'tx', number()}
+		 | {'ty', number()}.
 createMatrix(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsRenderer),

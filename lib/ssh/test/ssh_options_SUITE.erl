@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,8 +51,8 @@
 	 ssh_connect_arg4_timeout/1, 
 	 ssh_connect_negtimeout_parallel/1, 
 	 ssh_connect_negtimeout_sequential/1, 
-	 ssh_connect_nonegtimeout_connected_parallel/1, 
-	 ssh_connect_nonegtimeout_connected_sequential/1, 
+	 ssh_connect_nonegtimeout_connected_parallel/1,
+	 ssh_connect_nonegtimeout_connected_sequential/1,
 	 ssh_connect_timeout/1, connect/4,
 	 ssh_daemon_minimal_remote_max_packet_size_option/1, 
 	 ssh_msg_debug_fun_option_client/1, 
@@ -80,7 +80,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,6}}].
+     {timetrap,{seconds,30}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
@@ -133,12 +133,12 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(hardening_tests, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     Config;
 init_per_group(dir_options, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     %% Make unreadable dir:
     Dir_unreadable = filename:join(PrivDir, "unread"),
     ok = file:make_dir(Dir_unreadable),
@@ -193,7 +193,7 @@ end_per_testcase(TestCase, Config) when TestCase == server_password_option;
 					TestCase == server_userpassword_option;
 					TestCase == server_pwdfun_option;
 					TestCase == server_pwdfun_4_option ->
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     ssh_test_lib:del_dirs(UserDir),
     end_per_testcase(Config);
 end_per_testcase(_TestCase, Config) ->
@@ -210,10 +210,10 @@ end_per_testcase(_Config) ->
 
 %%% validate to server that uses the 'password' option
 server_password_option(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"}]),
@@ -243,10 +243,10 @@ server_password_option(Config) when is_list(Config) ->
 
 %%% validate to server that uses the 'password' option
 server_userpassword_option(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),	  
+    SysDir = proplists:get_value(data_dir, Config),	  
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, PrivDir},
 					     {user_passwords, [{"vego", "morot"}]}]),
@@ -278,10 +278,10 @@ server_userpassword_option(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% validate to server that uses the 'pwdfun' option
 server_pwdfun_option(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),	  
+    SysDir = proplists:get_value(data_dir, Config),	  
     CHKPWD = fun("foo",Pwd) -> Pwd=="bar";
 		(_,_) -> false
 	     end,
@@ -316,10 +316,10 @@ server_pwdfun_option(Config) ->
 %%--------------------------------------------------------------------
 %%% validate to server that uses the 'pwdfun/4' option
 server_pwdfun_4_option(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),	  
+    SysDir = proplists:get_value(data_dir, Config),	  
     PWDFUN = fun("foo",Pwd,{_,_},undefined) -> Pwd=="bar";
 		("fie",Pwd,{_,_},undefined) -> {Pwd=="bar",new_state};
 		("bandit",_,_,_) -> disconnect;
@@ -376,10 +376,10 @@ server_pwdfun_4_option(Config) ->
     
 %%--------------------------------------------------------------------
 server_pwdfun_4_option_repeat(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),	  
+    SysDir = proplists:get_value(data_dir, Config),	  
     %% Test that the state works
     Parent = self(),
     PWDFUN = fun("foo",P="bar",_,S) -> Parent!{P,S},true; 
@@ -471,10 +471,10 @@ user_dir_option(Config) ->
 %%--------------------------------------------------------------------
 %%% validate client that uses the 'ssh_msg_debug_fun' option
 ssh_msg_debug_fun_option_client(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
@@ -491,7 +491,7 @@ ssh_msg_debug_fun_option_client(Config) ->
 					  {user_interaction, false},
 					  {ssh_msg_debug_fun,DbgFun}]),
     %% Beware, implementation knowledge:
-    gen_fsm:send_all_state_event(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+    gen_statem:cast(ConnectionRef,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
     receive
 	{msg_dbg,X={ConnectionRef,false,<<"Hello">>,<<>>}} ->
 	    ct:log("Got expected dbg msg ~p",[X]),
@@ -511,10 +511,10 @@ ssh_msg_debug_fun_option_client(Config) ->
 
 %%--------------------------------------------------------------------
 connectfun_disconnectfun_server(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     Ref = make_ref(),
@@ -549,10 +549,10 @@ connectfun_disconnectfun_server(Config) ->
 
 %%--------------------------------------------------------------------
 connectfun_disconnectfun_client(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     Ref = make_ref(),
@@ -580,10 +580,10 @@ connectfun_disconnectfun_client(Config) ->
 %%--------------------------------------------------------------------
 %%% validate client that uses the 'ssh_msg_debug_fun' option
 ssh_msg_debug_fun_option_server(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     DbgFun = fun(ConnRef,Displ,Msg,Lang) -> Parent ! {msg_dbg,{ConnRef,Displ,Msg,Lang}} end,
@@ -604,7 +604,7 @@ ssh_msg_debug_fun_option_server(Config) ->
     receive
 	{connection_pid,Server} ->
 	    %% Beware, implementation knowledge:
-	    gen_fsm:send_all_state_event(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
+	    gen_statem:cast(Server,{ssh_msg_debug,false,<<"Hello">>,<<>>}),
 	    receive
 		{msg_dbg,X={_,false,<<"Hello">>,<<>>}} ->
 		    ct:log("Got expected dbg msg ~p",[X]),
@@ -624,10 +624,10 @@ ssh_msg_debug_fun_option_server(Config) ->
 
 %%--------------------------------------------------------------------
 disconnectfun_option_server(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     DisConnFun = fun(Reason) -> Parent ! {disconnect,Reason} end,
@@ -659,10 +659,10 @@ disconnectfun_option_server(Config) ->
 
 %%--------------------------------------------------------------------
 disconnectfun_option_client(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     DisConnFun = fun(Reason) -> Parent ! {disconnect,Reason} end,
@@ -693,10 +693,10 @@ disconnectfun_option_client(Config) ->
 
 %%--------------------------------------------------------------------
 unexpectedfun_option_server(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     ConnFun = fun(_,_,_) -> Parent ! {connection_pid,self()} end,
@@ -736,10 +736,10 @@ unexpectedfun_option_server(Config) ->
 
 %%--------------------------------------------------------------------
 unexpectedfun_option_client(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     UnexpFun = fun(Msg,Peer) -> 
@@ -859,8 +859,8 @@ ms_passed(T0) ->
 
 %%--------------------------------------------------------------------
 ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     
@@ -957,8 +957,8 @@ ssh_connect_negtimeout_sequential(Config) -> ssh_connect_negtimeout(Config,false
     
 ssh_connect_negtimeout(Config, Parallel) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     NegTimeOut = 2000,				% ms
     ct:log("Parallel: ~p",[Parallel]),
 
@@ -990,9 +990,9 @@ ssh_connect_nonegtimeout_connected_sequential(Config) ->
 
 ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
-    NegTimeOut = 20000,				% ms
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    NegTimeOut = 2000,				% ms
     ct:log("Parallel: ~p",[Parallel]),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
@@ -1067,7 +1067,7 @@ connect_fun(ssh__connect, Config) ->
     fun(Host,Port) ->
 	    ssh_test_lib:connect(Host, Port, 
 				 [{silently_accept_hosts, true},
-				  {user_dir, ?config(priv_dir,Config)},
+				  {user_dir, proplists:get_value(priv_dir,Config)},
 				  {user_interaction, false},
 				  {user, "carni"},
 				  {password, "meat"}
@@ -1092,8 +1092,8 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		      ct:log("Connect(~p,~p) -> ~p",[Host,Port,R]),
 		      R
 	      end,
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     MaxSessions = 5,
     {Pid, Host, Port} = ssh_test_lib:daemon([
 					     {system_dir, SystemDir},
@@ -1123,27 +1123,42 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 		    %% This is expected
 		    %% Now stop one connection and try to open one more
 		    ok = ssh:close(hd(Connections)),
-		    receive after 250 -> ok end, % sleep so the supervisor has time to count down. Not nice...
-		    try Connect(Host,Port)
-		    of
-			_ConnectionRef1 ->
-			    %% Step 3 ok: could set up one more connection after killing one
-			    %% Thats good.
-			    ssh:stop_daemon(Pid),
-			    ok
-		    catch
-			error:{badmatch,{error,"Connection closed"}} ->
-			    %% Bad indeed. Could not set up one more connection even after killing
-			    %% one existing. Very bad.
-			    ssh:stop_daemon(Pid),
-			    {fail,"Does not decrease # active sessions"}
-		    end
+		    try_to_connect(Connect, Host, Port, Pid)
 	    end
     catch
 	error:{badmatch,{error,"Connection closed"}} ->
 	    ssh:stop_daemon(Pid),
 	    {fail,"Too few connections accepted"}
     end.
+
+
+try_to_connect(Connect, Host, Port, Pid) ->
+    {ok,Tref} = timer:send_after(3000, timeout_no_connection), % give the supervisors some time...
+    try_to_connect(Connect, Host, Port, Pid, Tref, 1). % will take max 3300 ms after 11 tries
+
+try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
+     try Connect(Host,Port)
+     of
+	 _ConnectionRef1 ->
+	     %% Step 3 ok: could set up one more connection after killing one
+	     %% Thats good.
+	     timer:cancel(Tref),
+	     ssh:stop_daemon(Pid),
+	     receive % flush. 
+		 timeout_no_connection -> ok
+	     after 0 -> ok
+	     end
+     catch
+	 error:{badmatch,{error,"Connection closed"}} ->
+	     %% Could not set up one more connection. Try again until timeout.
+	     receive
+		 timeout_no_connection ->
+		     ssh:stop_daemon(Pid),
+		     {fail,"Does not decrease # active sessions"}
+	     after N*50 -> % retry after this time
+		     try_to_connect(Connect, Host, Port, Pid, Tref, N+1)
+	     end
+     end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

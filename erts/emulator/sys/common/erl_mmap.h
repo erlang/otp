@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2013. All Rights Reserved.
+ * Copyright Ericsson AB 2013-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,13 +26,37 @@
 #define ERTS_MMAP_SUPERALIGNED_BITS (18)
 /* Affects hard limits for sbct and lmbcs documented in erts_alloc.xml */
 
-#define ERTS_MMAPFLG_OS_ONLY			(((Uint32) 1) << 0)
-#define ERTS_MMAPFLG_SUPERCARRIER_ONLY		(((Uint32) 1) << 1)
-#define ERTS_MMAPFLG_SUPERALIGNED		(((Uint32) 1) << 2)
+#ifndef HAVE_MMAP
+#  define HAVE_MMAP 0
+#endif
+#ifndef HAVE_MREMAP
+#  define HAVE_MREMAP 0
+#endif
+#if HAVE_MMAP
+#  define ERTS_HAVE_OS_MMAP 1
+#  define ERTS_HAVE_GENUINE_OS_MMAP 1
+#  if HAVE_MREMAP
+#    define ERTS_HAVE_OS_MREMAP 1
+#  endif
+#  if defined(MAP_FIXED) && defined(MAP_NORESERVE)
+#    define ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION 1
+#  endif
+#endif
 
-#define ERTS_HAVE_ERTS_OS_MMAP			(1 << 0)
-#define ERTS_HAVE_ERTS_SUPERCARRIER_MMAP	(1 << 1)
-extern int erts_have_erts_mmap;
+#ifndef HAVE_VIRTUALALLOC
+#  define HAVE_VIRTUALALLOC 0
+#endif
+#if HAVE_VIRTUALALLOC
+#  define ERTS_HAVE_OS_MMAP 1
+#endif
+
+#ifdef ERTS_HAVE_GENUINE_OS_MMAP
+#  define HAVE_ERTS_MMAP 1
+#else
+#  define HAVE_ERTS_MMAP 0
+#endif
+
+
 extern UWord erts_page_inv_mask;
 
 typedef struct {
@@ -53,23 +77,16 @@ typedef struct {
 #define ERTS_MMAP_INIT_DEFAULT_INITER \
     {{NULL, NULL}, {NULL, NULL}, 0, 1, (1 << 16), 1}
 
-void *erts_mmap(Uint32 flags, UWord *sizep);
-void erts_munmap(Uint32 flags, void *ptr, UWord size);
-void *erts_mremap(Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
-int erts_mmap_in_supercarrier(void *ptr);
-void erts_mmap_init(ErtsMMapInit*);
-struct erts_mmap_info_struct
-{
-    UWord sizes[6];
-    UWord segs[6];
-    UWord os_used;
-};
-Eterm erts_mmap_info(int *print_to_p, void *print_to_arg,
-                     Eterm** hpp, Uint* szp, struct erts_mmap_info_struct*);
-Eterm erts_mmap_info_options(char *prefix, int *print_to_p, void *print_to_arg,
-                             Uint **hpp, Uint *szp);
-struct process;
-Eterm erts_mmap_debug_info(struct process*);
+#define ERTS_LITERAL_VIRTUAL_AREA_SIZE (UWORD_CONSTANT(1)*1024*1024*1024)
+
+#define ERTS_MMAP_INIT_LITERAL_INITER \
+    {{NULL, NULL}, {NULL, NULL}, ERTS_LITERAL_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0}
+
+#define ERTS_HIPE_EXEC_VIRTUAL_AREA_SIZE (UWORD_CONSTANT(512)*1024*1024)
+
+#define ERTS_MMAP_INIT_HIPE_EXEC_INITER \
+    {{NULL, NULL}, {NULL, NULL}, ERTS_HIPE_EXEC_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0}
+
 
 #define ERTS_SUPERALIGNED_SIZE \
     (1 << ERTS_MMAP_SUPERALIGNED_BITS)
@@ -97,29 +114,46 @@ Eterm erts_mmap_debug_info(struct process*);
 #define ERTS_PAGEALIGNED_SIZE \
     (ERTS_INV_PAGEALIGNED_MASK + 1)
 
-#ifndef HAVE_MMAP
-#  define HAVE_MMAP 0
-#endif
-#ifndef HAVE_MREMAP
-#  define HAVE_MREMAP 0
-#endif
-#if HAVE_MMAP
-#  define ERTS_HAVE_OS_MMAP 1
-#  define ERTS_HAVE_GENUINE_OS_MMAP 1
-#  if HAVE_MREMAP
-#    define ERTS_HAVE_OS_MREMAP 1
-#  endif
-#  if defined(MAP_FIXED) && defined(MAP_NORESERVE)
-#    define ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION 1
-#  endif
-#endif
+struct process;
+Eterm erts_mmap_debug_info(struct process*);
 
-#ifndef HAVE_VIRTUALALLOC
-#  define HAVE_VIRTUALALLOC 0
-#endif
-#if HAVE_VIRTUALALLOC
-#  define ERTS_HAVE_OS_MMAP 1
-#endif
+#if HAVE_ERTS_MMAP
+
+typedef struct ErtsMemMapper_ ErtsMemMapper;
+
+#define ERTS_MMAPFLG_OS_ONLY			(((Uint32) 1) << 0)
+#define ERTS_MMAPFLG_SUPERCARRIER_ONLY		(((Uint32) 1) << 1)
+#define ERTS_MMAPFLG_SUPERALIGNED		(((Uint32) 1) << 2)
+
+void *erts_mmap(ErtsMemMapper*, Uint32 flags, UWord *sizep);
+void erts_munmap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord size);
+void *erts_mremap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
+int erts_mmap_in_supercarrier(ErtsMemMapper*, void *ptr);
+void erts_mmap_init(ErtsMemMapper*, ErtsMMapInit*, int executable);
+struct erts_mmap_info_struct
+{
+    UWord sizes[6];
+    UWord segs[6];
+    UWord os_used;
+};
+Eterm erts_mmap_info(ErtsMemMapper*, int *print_to_p, void *print_to_arg,
+                     Eterm** hpp, Uint* szp, struct erts_mmap_info_struct*);
+Eterm erts_mmap_info_options(ErtsMemMapper*,
+                             char *prefix, int *print_to_p, void *print_to_arg,
+                             Uint **hpp, Uint *szp);
+
+
+#ifdef ERTS_WANT_MEM_MAPPERS
+#  include "erl_alloc_types.h"
+
+extern ErtsMemMapper erts_dflt_mmapper;
+#  if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+extern ErtsMemMapper erts_literal_mmapper;
+#  endif
+#  ifdef ERTS_ALC_A_EXEC
+extern ErtsMemMapper erts_exec_mmapper;
+#  endif
+#endif /* ERTS_WANT_MEM_MAPPERS */
 
 /*#define HARD_DEBUG_MSEG*/
 #ifdef HARD_DEBUG_MSEG
@@ -131,5 +165,7 @@ void hard_dbg_remove_mseg(void* seg, UWord sz);
 #  define HARD_DBG_INSERT_MSEG(SEG,SZ)
 #  define HARD_DBG_REMOVE_MSEG(SEG,SZ)
 #endif
+
+#endif /* HAVE_ERTS_MMAP */
 
 #endif /* ERL_MMAP_H__ */

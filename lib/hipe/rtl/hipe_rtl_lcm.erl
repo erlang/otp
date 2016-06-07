@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,10 +63,10 @@ rtl_lcm(CFG, Options) ->
   
   pp_debug("-------------------------------------------------~n",[]),
   %% pp_debug( "~w~n", [MFA]),
-  
+
   %% A check if we should pretty print the result.
   case proplists:get_bool(pp_rtl_lcm, Options) of
-    true->
+    true ->
       pp_debug("-------------------------------------------------~n",[]),
       %% pp_debug("AllExpr:  ~w~n", [AllExpr]),
       pp_debug("AllExpr:~n", []),
@@ -76,21 +76,21 @@ rtl_lcm(CFG, Options) ->
     _ ->
       ok
   end,
-  
+
   pp_debug("-------------------------------------------------~n",[]),
-  ?option_time({CFG1, MoveSet} = perform_lcm(CFG, NodeInfo, EdgeInfo, ExprMap, 
-					     IdMap, AllExpr, mk_edge_bb_map(), 
+  {CFG1, MoveSet} = ?option_time(perform_lcm(CFG, NodeInfo, EdgeInfo, ExprMap,
+					     IdMap, AllExpr, mk_edge_bb_map(),
 					     ?SETS:new(), Labels),
-	       "RTL LCM perform_lcm", Options),
+				 "RTL LCM perform_lcm", Options),
 
   %% Scan through list of moved expressions and replace their 
   %% assignments with the new temporary created for that expression
   MoveList = ?SETS:to_list(MoveSet),
-  ?option_time(CFG2 = moved_expr_replace_assignments(CFG1, ExprMap, IdMap, 
+  CFG2 = ?option_time(moved_expr_replace_assignments(CFG1, ExprMap, IdMap,
 						     MoveList),
-	       "RTL LCM moved_expr_replace_assignments", Options),
+		      "RTL LCM moved_expr_replace_assignments", Options),
   pp_debug("-------------------------------------------------~n~n",[]),
-  
+
   CFG2.
 
 %%=============================================================================
@@ -466,10 +466,10 @@ expr_clear_dst(I) ->
 %% easy access later.
 lcm_precalc(CFG, Options) ->
   %% Calculate use map and expression map.
-  ?option_time({ExprMap, IdMap} = mk_expr_map(CFG), 
-	       "RTL LCM mk_expr_map", Options),
-  ?option_time(UseMap = mk_use_map(CFG, ExprMap), 
-	       "RTL LCM mk_use_map", Options),
+  {ExprMap, IdMap} = ?option_time(mk_expr_map(CFG),
+				  "RTL LCM mk_expr_map", Options),
+  UseMap = ?option_time(mk_use_map(CFG, ExprMap),
+			"RTL LCM mk_use_map", Options),
   %% Labels = hipe_rtl_cfg:reverse_postorder(CFG),
   Labels = hipe_rtl_cfg:labels(CFG),
   %% StartLabel = hipe_rtl_cfg:start_label(CFG),
@@ -477,28 +477,28 @@ lcm_precalc(CFG, Options) ->
   AllExpr = ?SETS:from_list(gb_trees:keys(IdMap)),
 
   %% Calculate the data sets.
-  ?option_time(NodeInfo0 = mk_node_info(Labels), "RTL LCM mk_node_info", 
-	       Options),
+  NodeInfo0 = ?option_time(mk_node_info(Labels),
+			   "RTL LCM mk_node_info", Options),
   %% ?option_time(EdgeInfo0 = mk_edge_info(), "RTL LCM mk_edge_info", 
   %%  	          Options),
   EdgeInfo0 = mk_edge_info(),
-  ?option_time(NodeInfo1 = calc_up_exp(CFG, ExprMap, NodeInfo0, Labels), 
-	       "RTL LCM calc_up_exp", Options),
-  ?option_time(NodeInfo2 = calc_down_exp(CFG, ExprMap, NodeInfo1, Labels), 
-	       "RTL LCM calc_down_exp", Options),
-  ?option_time(NodeInfo3 = calc_killed_expr(CFG, NodeInfo2, UseMap, AllExpr, 
+  NodeInfo1 = ?option_time(calc_up_exp(CFG, ExprMap, NodeInfo0, Labels),
+			   "RTL LCM calc_up_exp", Options),
+  NodeInfo2 = ?option_time(calc_down_exp(CFG, ExprMap, NodeInfo1, Labels),
+			   "RTL LCM calc_down_exp", Options),
+  NodeInfo3 = ?option_time(calc_killed_expr(CFG, NodeInfo2, UseMap, AllExpr,
 					    IdMap, Labels), 
-	       "RTL LCM calc_killed_exp", Options),
-  ?option_time(NodeInfo4 = calc_avail(CFG, NodeInfo3), 
-	       "RTL LCM calc_avail", Options),
-  ?option_time(NodeInfo5 = calc_antic(CFG, NodeInfo4, AllExpr), 
-	       "RTL LCM calc_antic", Options),
-  ?option_time(EdgeInfo1 = calc_earliest(CFG, NodeInfo5, EdgeInfo0, Labels), 
-  	       "RTL LCM calc_earliest", Options),
-  ?option_time({NodeInfo6, EdgeInfo2} = calc_later(CFG, NodeInfo5, EdgeInfo1),
-	       "RTL LCM calc_later", Options),
-  ?option_time(NodeInfo7 = calc_delete(CFG, NodeInfo6, Labels), 
-	       "RTL LCM calc_delete", Options),
+			   "RTL LCM calc_killed_exp", Options),
+  NodeInfo4 = ?option_time(calc_avail(CFG, NodeInfo3),
+			   "RTL LCM calc_avail", Options),
+  NodeInfo5 = ?option_time(calc_antic(CFG, NodeInfo4, AllExpr),
+			   "RTL LCM calc_antic", Options),
+  EdgeInfo1 = ?option_time(calc_earliest(CFG, NodeInfo5, EdgeInfo0, Labels),
+			   "RTL LCM calc_earliest", Options),
+  {NodeInfo6, EdgeInfo2} = ?option_time(calc_later(CFG, NodeInfo5, EdgeInfo1),
+					"RTL LCM calc_later", Options),
+  NodeInfo7 = ?option_time(calc_delete(CFG, NodeInfo6, Labels),
+			   "RTL LCM calc_delete", Options),
   {NodeInfo7, EdgeInfo2, AllExpr, ExprMap, IdMap, Labels}.
 
 %%%%%%%%%%%%%%%%%%% AVAILABLE IN/OUT FLOW ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -941,15 +941,16 @@ calc_insert_edge(NodeInfo, EdgeInfo, From, To) ->
 calc_delete(_, NodeInfo, []) ->
   NodeInfo;
 calc_delete(CFG, NodeInfo, [Label|Labels]) ->
-  case Label =:= hipe_rtl_cfg:start_label(CFG) of
-    true -> 
-      NewNodeInfo = set_delete(NodeInfo, Label, ?SETS:new());
-    false ->
-      UpExp = up_exp(NodeInfo, Label),
-      LaterIn = later_in(NodeInfo, Label),
-      Delete = ?SETS:subtract(UpExp, LaterIn),
-      NewNodeInfo = set_delete(NodeInfo, Label, Delete)
-  end,
+  NewNodeInfo =
+    case Label =:= hipe_rtl_cfg:start_label(CFG) of
+      true ->
+	set_delete(NodeInfo, Label, ?SETS:new());
+      false ->
+	UpExp = up_exp(NodeInfo, Label),
+	LaterIn = later_in(NodeInfo, Label),
+	Delete = ?SETS:subtract(UpExp, LaterIn),
+	set_delete(NodeInfo, Label, Delete)
+    end,
   calc_delete(CFG, NewNodeInfo, Labels).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

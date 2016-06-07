@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 %% Event handler exports.
 -export([init/1,handle_event/2,terminate/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -48,7 +48,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 logfile(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "logfile.log"),
     ok = filelib:ensure_dir(Log),
@@ -65,11 +65,18 @@ logfile(Config) ->
     error_logger:logfile(close),
     analyse_events(Log, Ev, [AtNode], unlimited),
 
-    [] = [{X, file:pid2name(X)} || X <- processes(), Data <- [process_info(X, [current_function])],
-				   Data =/= undefined,
-				   element(1, element(2, lists:keyfind(current_function, 1, Data)))
-				       =:= file_io_server,
-				   file:pid2name(X) =:= {ok, Log}],
+    %% Make sure that the file_io_server process has been stopped
+    [] = lists:filtermap(
+           fun(X) ->
+                   case {process_info(X, [current_function]),
+                         file:pid2name(X)} of
+                       {[{current_function, {file_io_server, _, _}}],
+                        {ok,P2N = Log}} ->
+                           {true, {X, P2N}};
+                       _ ->
+                           false
+                   end
+           end, processes()),
 
     test_server:stop_node(Node),
 
@@ -77,7 +84,7 @@ logfile(Config) ->
     ok.
 
 logfile_truncated(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "logfile_truncated.log"),
     ok = filelib:ensure_dir(Log),
@@ -102,7 +109,7 @@ do_one_logfile(Log, Ev, Depth) ->
     analyse_events(Log, Ev, [], Depth).
 
 tty(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "tty.log"),
     ok = filelib:ensure_dir(Log),
@@ -112,7 +119,7 @@ tty(Config) ->
     do_one_tty(Log, Ev, unlimited),
 
     Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
-    {ok,Node} = start_node(logfile, Pa),
+    {ok,Node} = start_node(tty, Pa),
     tty_log_open(Log),
     ok = rpc:call(Node, erlang, apply, [fun gen_events/1,[Ev]]),
     tty_log_close(),
@@ -125,7 +132,7 @@ tty(Config) ->
     ok.
 
 tty_truncated(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     Log = filename:join(LogDir, "tty_truncated.log"),
     ok = filelib:ensure_dir(Log),
@@ -335,7 +342,7 @@ start_node(Name, Args) ->
 	{ok,Node} ->
 	    {ok,Node};
 	Error  ->
-	    test_server:fail(Error)
+	    ct:fail(Error)
     end.
 
 cleanup(File) ->

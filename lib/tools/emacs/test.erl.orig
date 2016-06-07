@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,6 +70,9 @@ foo() ->
      234,
  d}).
 
+-record(record5, { a = 1 :: integer()
+, b = foobar :: atom()
+}).
 
 -define(MACRO_1, macro).
 -define(MACRO_2(_), macro).
@@ -144,6 +147,12 @@ nonempty_maybe_improper_list('integer', any())|
 -type t25() :: #rec3{f123 :: [t24() | 
 1|2|3|4|a|b|c|d| 
 nonempty_maybe_improper_list(integer, any())]}. 
+-type t26() :: #rec4{ a :: integer()
+, b :: any()
+}.
+-type t27() :: { integer()
+, atom()
+}.
 -type t99() ::
 {t2(),t4(),t5(),t6(),t7(),t8(),t10(),t14(),
 t15(),t20(),t21(), t22(),t25()}. 
@@ -178,6 +187,10 @@ t15(),t20(),t21(), t22(),t25()}.
        Return :: pid()
  | {'error', {'no_process', term()}
    | {'no_such_group', term()}}.
+
+-spec add( X :: integer()
+, Y :: integer()
+) -> integer().
 
 -opaque attributes_data() :: 
 [{'column', column()} | {'line', info_line()} |

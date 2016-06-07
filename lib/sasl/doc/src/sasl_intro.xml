@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,6 @@
     <list type="bulleted">
       <item>Error logging</item>
       <item>Alarm handling</item>
-      <item>Overload regulation</item>
       <item>Release handling</item>
       <item>Report browsing</item>
     </list>

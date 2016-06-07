@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@
 -export([tracer/0,tracer/1,tracer/2,p/2,stop/0,stop/1,start_trace/4]).
 -export([get_et_handler/0]).
 -export([tp/2, tp/3, tp/4, ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, 
-	 ctpl/0, ctpl/1, ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3]).
+	 ctpl/0, ctpl/1, ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3,
+	 tpe/2, ctpe/1]).
 -export([seq_trigger_ms/0,seq_trigger_ms/1]).
 -export([write_trace_info/2]).
 -export([write_config/2,write_config/3,run_config/1,run_config/2,list_config/1]).
@@ -397,16 +398,16 @@ arg_list([A1|A],Acc) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Set trace flags on processes
-p(Procs0,Flags0) ->
+p(ProcsPorts0,Flags0) ->
     ensure_no_overloaded_nodes(),
-    store(p,[Procs0,Flags0]),
-    no_store_p(Procs0,Flags0).
-no_store_p(Procs0,Flags0) ->
+    store(p,[ProcsPorts0,Flags0]),
+    no_store_p(ProcsPorts0,Flags0).
+no_store_p(ProcsPorts0,Flags0) ->
     case transform_flags(to_list(Flags0)) of
 	{error,Reason} -> 
 	    {error,Reason};
 	Flags ->
-	    Procs = procs(Procs0),
+	    ProcsPorts = procs_ports(ProcsPorts0),
 	    case lists:foldl(fun(P,{PMatched,Ps}) -> case dbg:p(P,Flags) of
 					     {ok,Matched} -> 
 						 {[{P,Matched}|PMatched],[P|Ps]};
@@ -414,7 +415,7 @@ no_store_p(Procs0,Flags0) ->
 						 display_warning(P,Reason),
 						 {PMatched,Ps}
 						     end
-			     end,{[],[]},Procs) of
+			     end,{[],[]},ProcsPorts) of
 		{[],[]} -> {error, no_match};
 		{SuccMatched,Succ} ->
 		    no_store_write_trace_info(flags,{Succ,Flags}),
@@ -429,18 +430,22 @@ transform_flags(Flags) ->
     dbg:transform_flags([timestamp | Flags]).
 
 
-procs(Procs) when is_list(Procs) ->
-    lists:foldl(fun(P,Acc) -> proc(P)++Acc end,[],Procs);
-procs(Proc) ->
-    proc(Proc).
+procs_ports(Procs) when is_list(Procs) ->
+    lists:foldl(fun(P,Acc) -> proc_port(P)++Acc end,[],Procs);
+procs_ports(Proc) ->
+    proc_port(Proc).
 
-proc(Procs) when Procs=:=all; Procs=:=existing; Procs=:=new ->
-    [Procs];
-proc(Name) when is_atom(Name) ->
+proc_port(P) when P=:=all; P=:=ports; P=:=processes;
+                 P=:=existing; P=:=existing_ports; P=:=existing_processes;
+                 P=:=new; P=:=new_ports; P=:=new_processes ->
+    [P];
+proc_port(Name) when is_atom(Name) ->
     [Name]; % can be registered on this node or other node
-proc(Pid) when is_pid(Pid) ->
+proc_port(Pid) when is_pid(Pid) ->
     [Pid];
-proc({global,Name}) ->
+proc_port(Port) when is_port(Port) ->
+    [Port];
+proc_port({global,Name}) ->
     case global:whereis_name(Name) of
 	Pid when is_pid(Pid) ->
 	    [Pid];
@@ -476,6 +481,11 @@ tpl(A,B,C,D) ->
     ensure_no_overloaded_nodes(),
     store(tpl,[A,B,C,ms(D)]),
     dbg:tpl(A,B,C,ms(D)).
+
+tpe(A,B) ->
+    ensure_no_overloaded_nodes(),
+    store(tpe,[A,ms(B)]),
+    dbg:tpe(A,ms(B)).
 
 ctp() ->
     store(ctp,[]),
@@ -515,6 +525,10 @@ ctpg(A,B) ->
 ctpg(A,B,C) ->
     store(ctpg,[A,B,C]),
     dbg:ctpg(A,B,C).
+
+ctpe(A) ->
+    store(ctpe,[A]),
+    dbg:ctpe(A).
 
 ms(return) ->
     [{'_',[],[{return_trace}]}];
@@ -1296,6 +1310,9 @@ ip_to_file(Trace, {shell_only, Fun} = State) ->
 ip_to_file(Trace,{{file,File}, ShellOutput}) ->
     Fun = dbg:trace_port(file,File), %File can be a filename or a wrap spec
     Port = Fun(),
+    %% Just in case this is on the traced node,
+    %% make sure the port is not traced.
+    p(Port,clear),
     %% Store the port so it can be properly closed
     ?MODULE ! {ip_to_file_trace_port, Port, self()},
     receive {?MODULE,ok} -> ok end,

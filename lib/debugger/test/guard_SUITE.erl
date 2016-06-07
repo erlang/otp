@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,12 +39,14 @@
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init/4]).
 -import(lists, [member/2]).
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     cases().
@@ -72,29 +74,25 @@ cases() ->
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
-    ?line Dog = test_server:timetrap(?t:minutes(1)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line test_lib:interpret(?MODULE),
-    ?line true = lists:member(?MODULE, int:interpreted()),
+    test_lib:interpret(?MODULE),
+    true = lists:member(?MODULE, int:interpreted()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
     ok.
 
-bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";
-bad_arith(suite) -> [];
+%% Test that a bad arithmetic operation in a guard works correctly.
 bad_arith(Config) when list(Config) ->
-    ?line 5 = bad_arith1(2, 3),
-    ?line 10 = bad_arith1(1, infinity),
-    ?line 10 = bad_arith1(infinity, 1),
-    ?line 42 = bad_div(24, 0),
+    5 = bad_arith1(2, 3),
+    10 = bad_arith1(1, infinity),
+    10 = bad_arith1(infinity, 1),
+    42 = bad_div(24, 0),
     ok.
 
 bad_arith1(T1, T2) when T1+T2 < 10 ->
@@ -109,37 +107,35 @@ bad_div(A, B) when A div B > 0 ->
 bad_div(_A, _B) ->
     42.
 
-bad_tuple(doc) -> "Test that bad arguments to element/2 are handled correctly.";
-bad_tuple(suite) -> [];
+%% Test that bad arguments to element/2 are handled correctly.
 bad_tuple(Config) when list(Config) ->
-    ?line error = bad_tuple1(a),
-    ?line error = bad_tuple1({a, b}),
-    ?line x = bad_tuple1({x, b}),
-    ?line y = bad_tuple1({a, b, y}),
+    error = bad_tuple1(a),
+    error = bad_tuple1({a, b}),
+    x = bad_tuple1({x, b}),
+    y = bad_tuple1({a, b, y}),
     ok.
 
 bad_tuple1(T) when element(1, T) == x -> x;
 bad_tuple1(T) when element(3, T) == y -> y;
 bad_tuple1(_) -> error.
 
-test_heap_guards(doc) -> "";
-test_heap_guards(suite) -> [];
+%% .
 test_heap_guards(Config) when list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Tuple = {a, tuple, is, built, here, xxx},
-    ?line List = [a, list, is, built, here],
+    process_flag(trap_exit, true),
+    Tuple = {a, tuple, is, built, here, xxx},
+    List = [a, list, is, built, here],
 
-    ?line try_fun(fun a_case/1, [Tuple], [Tuple]),
-    ?line try_fun(fun a_case/1, [List], [List, List]),
-    ?line try_fun(fun a_case/1, [a], [a]),
+    try_fun(fun a_case/1, [Tuple], [Tuple]),
+    try_fun(fun a_case/1, [List], [List, List]),
+    try_fun(fun a_case/1, [a], [a]),
 
-    ?line try_fun(fun an_if/1, [Tuple], [Tuple]),
-    ?line try_fun(fun an_if/1, [List], [List, List]),
-    ?line try_fun(fun an_if/1, [a], [a]),
+    try_fun(fun an_if/1, [Tuple], [Tuple]),
+    try_fun(fun an_if/1, [List], [List, List]),
+    try_fun(fun an_if/1, [a], [a]),
 
-    ?line try_fun(fun receive_test/1, [Tuple], [Tuple]),
-    ?line try_fun(fun receive_test/1, [List], [List, List]),
-    ?line try_fun(fun receive_test/1, [a], [a]),
+    try_fun(fun receive_test/1, [Tuple], [Tuple]),
+    try_fun(fun receive_test/1, [List], [List, List]),
+    try_fun(fun receive_test/1, [a], [a]),
     ok.
 
 a_case(V) ->
@@ -185,12 +181,12 @@ try_fun(Iter, Fun, Args, Result, Filler) ->
     Pid = spawn_link(?MODULE, init, [self(),Fun,Args,list_to_tuple(Filler)]),
     receive
 	{'EXIT',Pid,{result,Result}} ->
-	    ?line try_fun(Iter-1, Fun, Args, Result, [0|Filler]);
+	    try_fun(Iter-1, Fun, Args, Result, [0|Filler]);
 	{'EXIT',Pid,{result,Other}} ->
-	    ?line io:format("Expected ~p; got ~p~n", [Result,Other]),
-	    ?line test_server:fail();
+	    io:format("Expected ~p; got ~p~n", [Result,Other]),
+	    ct:fail(failed);
 	Other ->
-	    ?line test_server:fail({unexpected_message,Other})
+	    ct:fail({unexpected_message,Other})
     end.
 
 init(_ReplyTo, Fun, Args, Filler) ->
@@ -202,87 +198,86 @@ init(_ReplyTo, Fun, Args, Filler) ->
 dummy(_) ->
     ok.
 
-guard_bifs(doc) -> "Test all guard bifs with nasty (but legal arguments).";
-guard_bifs(suite) -> [];
+%% Test all guard bifs with nasty (but legal arguments).
 guard_bifs(Config) when list(Config) ->
-    ?line Big = -237849247829874297658726487367328971246284736473821617265433,
-    ?line Float = 387924.874,
+    Big = -237849247829874297658726487367328971246284736473821617265433,
+    Float = 387924.874,
 
     %% Succeding use of guard bifs.
 
-    ?line try_gbif('abs/1', Big, -Big),
-    ?line try_gbif('float/1', Big, float(Big)),
-    ?line try_gbif('trunc/1', Float, 387924.0),
-    ?line try_gbif('round/1', Float, 387925.0),
-    ?line try_gbif('length/1', [], 0),
+    try_gbif('abs/1', Big, -Big),
+    try_gbif('float/1', Big, float(Big)),
+    try_gbif('trunc/1', Float, 387924.0),
+    try_gbif('round/1', Float, 387925.0),
+    try_gbif('length/1', [], 0),
 
-    ?line try_gbif('length/1', [a], 1),
-    ?line try_gbif('length/1', [a, b], 2),
-    ?line try_gbif('length/1', lists:seq(0, 31), 32),
+    try_gbif('length/1', [a], 1),
+    try_gbif('length/1', [a, b], 2),
+    try_gbif('length/1', lists:seq(0, 31), 32),
 
-    ?line try_gbif('hd/1', [a], a),
-    ?line try_gbif('hd/1', [a, b], a),
+    try_gbif('hd/1', [a], a),
+    try_gbif('hd/1', [a, b], a),
 
-    ?line try_gbif('tl/1', [a], []),
-    ?line try_gbif('tl/1', [a, b], [b]),
-    ?line try_gbif('tl/1', [a, b, c], [b, c]),
+    try_gbif('tl/1', [a], []),
+    try_gbif('tl/1', [a, b], [b]),
+    try_gbif('tl/1', [a, b, c], [b, c]),
 
-    ?line try_gbif('size/1', {}, 0),
-    ?line try_gbif('size/1', {a}, 1),
-    ?line try_gbif('size/1', {a, b}, 2),
-    ?line try_gbif('size/1', {a, b, c}, 3),
-    ?line try_gbif('size/1', list_to_binary([]), 0),
-    ?line try_gbif('size/1', list_to_binary([1]), 1),
-    ?line try_gbif('size/1', list_to_binary([1, 2]), 2),
-    ?line try_gbif('size/1', list_to_binary([1, 2, 3]), 3),
+    try_gbif('size/1', {}, 0),
+    try_gbif('size/1', {a}, 1),
+    try_gbif('size/1', {a, b}, 2),
+    try_gbif('size/1', {a, b, c}, 3),
+    try_gbif('size/1', list_to_binary([]), 0),
+    try_gbif('size/1', list_to_binary([1]), 1),
+    try_gbif('size/1', list_to_binary([1, 2]), 2),
+    try_gbif('size/1', list_to_binary([1, 2, 3]), 3),
 
-    ?line try_gbif('element/2', {x}, {1, x}),
-    ?line try_gbif('element/2', {x, y}, {1, x}),
-    ?line try_gbif('element/2', {x, y}, {2, y}),
+    try_gbif('element/2', {x}, {1, x}),
+    try_gbif('element/2', {x, y}, {1, x}),
+    try_gbif('element/2', {x, y}, {2, y}),
 
-    ?line try_gbif('self/0', 0, self()),
-    ?line try_gbif('node/0', 0, node()),
-    ?line try_gbif('node/1', self(), node()),
+    try_gbif('self/0', 0, self()),
+    try_gbif('node/0', 0, node()),
+    try_gbif('node/1', self(), node()),
 
     %% Failing use of guard bifs.
 
-    ?line try_fail_gbif('abs/1', Big, 1),
-    ?line try_fail_gbif('abs/1', [], 1),
+    try_fail_gbif('abs/1', Big, 1),
+    try_fail_gbif('abs/1', [], 1),
 
-    ?line try_fail_gbif('float/1', Big, 42),
-    ?line try_fail_gbif('float/1', [], 42),
+    try_fail_gbif('float/1', Big, 42),
+    try_fail_gbif('float/1', [], 42),
 
-    ?line try_fail_gbif('trunc/1', Float, 0.0),
-    ?line try_fail_gbif('trunc/1', [], 0.0),
+    try_fail_gbif('trunc/1', Float, 0.0),
+    try_fail_gbif('trunc/1', [], 0.0),
 
-    ?line try_fail_gbif('round/1', Float, 1.0),
-    ?line try_fail_gbif('round/1', [], a),
+    try_fail_gbif('round/1', Float, 1.0),
+    try_fail_gbif('round/1', [], a),
 
-    ?line try_fail_gbif('length/1', [], 1),
-    ?line try_fail_gbif('length/1', [a], 0),
-    ?line try_fail_gbif('length/1', a, 0),
-    ?line try_fail_gbif('length/1', {a}, 0),
+    try_fail_gbif('length/1', [], 1),
+    try_fail_gbif('length/1', [a], 0),
+    try_fail_gbif('length/1', a, 0),
+    try_fail_gbif('length/1', {a}, 0),
 
-    ?line try_fail_gbif('hd/1', [], 0),
-    ?line try_fail_gbif('hd/1', [a], x),
-    ?line try_fail_gbif('hd/1', x, x),
+    try_fail_gbif('hd/1', [], 0),
+    try_fail_gbif('hd/1', [a], x),
+    try_fail_gbif('hd/1', x, x),
 
-    ?line try_fail_gbif('tl/1', [], 0),
-    ?line try_fail_gbif('tl/1', [a], x),
-    ?line try_fail_gbif('tl/1', x, x),
+    try_fail_gbif('tl/1', [], 0),
+    try_fail_gbif('tl/1', [a], x),
+    try_fail_gbif('tl/1', x, x),
 
-    ?line try_fail_gbif('size/1', {}, 1),
-    ?line try_fail_gbif('size/1', [], 0),
-    ?line try_fail_gbif('size/1', [a], 1),
+    try_fail_gbif('size/1', {}, 1),
+    try_fail_gbif('size/1', [], 0),
+    try_fail_gbif('size/1', [a], 1),
 
-    ?line try_fail_gbif('element/2', {}, {1, x}),
-    ?line try_fail_gbif('element/2', {x}, {1, y}),
-    ?line try_fail_gbif('element/2', [], {1, z}),
+    try_fail_gbif('element/2', {}, {1, x}),
+    try_fail_gbif('element/2', {x}, {1, y}),
+    try_fail_gbif('element/2', [], {1, z}),
 
-    ?line try_fail_gbif('self/0', 0, list_to_pid("<0.0.0>")),
-    ?line try_fail_gbif('node/0', 0, xxxx),
-    ?line try_fail_gbif('node/1', self(), xxx),
-    ?line try_fail_gbif('node/1', yyy, xxx),
+    try_fail_gbif('self/0', 0, list_to_pid("<0.0.0>")),
+    try_fail_gbif('node/0', 0, xxxx),
+    try_fail_gbif('node/1', self(), xxx),
+    try_fail_gbif('node/1', yyy, xxx),
     ok.
 
 try_gbif(Id, X, Y) ->
@@ -290,9 +285,9 @@ try_gbif(Id, X, Y) ->
 	{Id, X, Y} ->
 	    io:format("guard_bif(~p, ~p, ~p) -- ok", [Id, X, Y]);
 	Other ->
-	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
-				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+	    ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
+			   [Id, X, Y, Other]),
+	    ct:fail(failed)
     end.
 
 try_fail_gbif(Id, X, Y) ->
@@ -300,9 +295,9 @@ try_fail_gbif(Id, X, Y) ->
 	{'EXIT', {function_clause,[{?MODULE,guard_bif,[Id,X,Y],_}|_]}} ->
 	    io:format("guard_bif(~p, ~p, ~p) -- ok", [Id,X,Y]);
 	Other ->
-	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
-				 [Id, X, Y, Other]),
-	    ?line test_server:fail()
+	    ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
+			   [Id, X, Y, Other]),
+	    ct:fail(failed)
     end.
 
 guard_bif('abs/1', X, Y) when abs(X) == Y ->
@@ -330,24 +325,23 @@ guard_bif('node/0', X, Y) when node() == Y ->
 guard_bif('node/1', X, Y) when node(X) == Y ->
     {'node/1', X, Y}.
 
-type_tests(doc) -> "Test the type tests.";
-type_tests(suite) -> [];
+%% Test the type tests.
 type_tests(Config) when list(Config) ->
-    ?line Types = all_types(),
-    ?line Tests = type_test_desc(),
-    ?line put(errors, 0),
-    ?line put(violations, 0),
-    ?line type_tests(Tests, Types),
-    ?line case {get(errors), get(violations)} of
-	      {0, 0} ->
-		  ok;
-	      {0, N} ->
-		  {comment, integer_to_list(N) ++ " standard violation(s)"};
-	      {Errors, Violations} ->
-		  io:format("~p sub test(s) failed, ~p violation(s)",
-			    [Errors, Violations]),
-		  ?line test_server:fail()
-	  end.
+    Types = all_types(),
+    Tests = type_test_desc(),
+    put(errors, 0),
+    put(violations, 0),
+    type_tests(Tests, Types),
+    case {get(errors), get(violations)} of
+	{0, 0} ->
+	    ok;
+	{0, N} ->
+	    {comment, integer_to_list(N) ++ " standard violation(s)"};
+	{Errors, Violations} ->
+	    io:format("~p sub test(s) failed, ~p violation(s)",
+		      [Errors, Violations]),
+	    ct:fail(failed)
+    end.
 
 type_tests([{Test, AllowedTypes}| T], AllTypes) ->
     type_tests(Test, AllTypes, AllowedTypes),
@@ -372,7 +366,7 @@ type_tests(Test, [Type|T], Allowed) ->
 			 [{?MODULE,type_test,[Test,Value],_}|_]}} ->
 		    ok;
 		{'EXIT',Other} ->
-		    ?line test_server:fail({unexpected_error_reason,Other});
+		    ct:fail({unexpected_error_reason,Other});
 		tuple when function(Value) ->
 		    io:format("Standard violation: Test ~p(~p) should fail",
 			      [Test, Value]),
@@ -442,18 +436,18 @@ type_test(function, X) when function(X) ->
     function.
 
 const_guard(Config) when is_list(Config) ->
-    ?line if
-	      (0 == 0) and ((0 == 0) or (0 == 0)) ->
-		  ok
-	  end.
+    if
+	(0 == 0) and ((0 == 0) or (0 == 0)) ->
+	    ok
+    end.
 
 
 const_cond(Config) when is_list(Config) ->
-    ?line ok = const_cond({}, 0),
-    ?line ok = const_cond({a}, 1),
-    ?line error = const_cond({a,b}, 3),
-    ?line error = const_cond({a}, 0),
-    ?line error = const_cond({a,b}, 1),
+    ok = const_cond({}, 0),
+    ok = const_cond({a}, 1),
+    error = const_cond({a,b}, 3),
+    error = const_cond({a}, 0),
+    error = const_cond({a,b}, 1),
     ok.
 
 const_cond(T, Sz) ->
@@ -474,59 +468,59 @@ basic_not(Config) when is_list(Config) ->
     D = id(5),
     ATuple = {False,True,Glurf},
 
-    ?line check(fun() -> if not false -> ok; true -> error end end, ok),
-    ?line check(fun() -> if not true -> ok; true -> error end end, error),
-    ?line check(fun() -> if not False -> ok; true -> error end end, ok),
-    ?line check(fun() -> if not True -> ok; true -> error end end, error),
+    check(fun() -> if not false -> ok; true -> error end end, ok),
+    check(fun() -> if not true -> ok; true -> error end end, error),
+    check(fun() -> if not False -> ok; true -> error end end, ok),
+    check(fun() -> if not True -> ok; true -> error end end, error),
 
-    ?line check(fun() -> if A > B -> gt; A < B -> lt; A == B -> eq end end, lt),
-    ?line check(fun() -> if A > C -> gt; A < C -> lt; A == C -> eq end end, gt),
-    ?line check(fun() -> if A > D -> gt; A < D -> lt; A == D -> eq end end, eq),
+    check(fun() -> if A > B -> gt; A < B -> lt; A == B -> eq end end, lt),
+    check(fun() -> if A > C -> gt; A < C -> lt; A == C -> eq end end, gt),
+    check(fun() -> if A > D -> gt; A < D -> lt; A == D -> eq end end, eq),
 
-    ?line check(fun() -> if not (7 > 453) -> le; not (7 < 453) -> ge;
-			    not (7 == 453) -> ne; true -> eq end end, le),
-    ?line check(fun() -> if not (7 > -8) -> le; not (7 < -8) -> ge;
-			    not (7 == -8) -> ne; true -> eq end end, ge),
-    ?line check(fun() -> if not (7 > 7) -> le; not (7 < 7) -> ge;
-			    not (7 == 7) -> ne; true -> eq end end, le),
+    check(fun() -> if not (7 > 453) -> le; not (7 < 453) -> ge;
+		      not (7 == 453) -> ne; true -> eq end end, le),
+    check(fun() -> if not (7 > -8) -> le; not (7 < -8) -> ge;
+		      not (7 == -8) -> ne; true -> eq end end, ge),
+    check(fun() -> if not (7 > 7) -> le; not (7 < 7) -> ge;
+		      not (7 == 7) -> ne; true -> eq end end, le),
 
-    ?line check(fun() -> if not (A > B) -> le; not (A < B) -> ge;
-			    not (A == B) -> ne; true -> eq end end, le),
-    ?line check(fun() -> if not (A > C) -> le; not (A < C) -> ge;
-			    not (A == C) -> ne; true -> eq end end, ge),
-    ?line check(fun() -> if not (A > D) -> le; not (A < D) -> ge;
-			    not (A == D) -> ne; true -> eq end end, le),
+    check(fun() -> if not (A > B) -> le; not (A < B) -> ge;
+		      not (A == B) -> ne; true -> eq end end, le),
+    check(fun() -> if not (A > C) -> le; not (A < C) -> ge;
+		      not (A == C) -> ne; true -> eq end end, ge),
+    check(fun() -> if not (A > D) -> le; not (A < D) -> ge;
+		      not (A == D) -> ne; true -> eq end end, le),
 
-    ?line check(fun() -> if not element(1, ATuple) -> ok; true -> error end end, ok),
-    ?line check(fun() -> if not element(2, ATuple) -> ok; true -> error end end, error),
-    ?line check(fun() -> if not element(3, ATuple) -> ok; true -> error end end, error),
+    check(fun() -> if not element(1, ATuple) -> ok; true -> error end end, ok),
+    check(fun() -> if not element(2, ATuple) -> ok; true -> error end end, error),
+    check(fun() -> if not element(3, ATuple) -> ok; true -> error end end, error),
 
-    ?line check(fun() -> if not glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if not Glurf -> ok; true -> error end end, error),
+    check(fun() -> if not glurf -> ok; true -> error end end, error),
+    check(fun() -> if not Glurf -> ok; true -> error end end, error),
 
     ok.
 
 complex_not(Config) when is_list(Config) ->
     ATuple = id({false,true,gurka}),
-    ?line check(fun() -> if not(element(1, ATuple)) -> ok; true -> error end end, ok),
-    ?line check(fun() -> if not(element(2, ATuple)) -> ok; true -> error end end, error),
+    check(fun() -> if not(element(1, ATuple)) -> ok; true -> error end end, ok),
+    check(fun() -> if not(element(2, ATuple)) -> ok; true -> error end end, error),
 
-    ?line check(fun() -> if not(element(3, ATuple) == gurka) -> ok;
-			    true -> error end end, error),
-    ?line check(fun() -> if not(element(3, ATuple) =/= gurka) -> ok;
-			    true -> error end end, ok),
+    check(fun() -> if not(element(3, ATuple) == gurka) -> ok;
+		      true -> error end end, error),
+    check(fun() -> if not(element(3, ATuple) =/= gurka) -> ok;
+		      true -> error end end, ok),
 
-    ?line check(fun() -> if {a,not(element(2, ATuple))} == {a,false} -> ok;
-			    true -> error end end, ok),
-    ?line check(fun() -> if {a,not(element(1, ATuple))} == {a,false} -> ok;
-			    true -> error end end, error),
+    check(fun() -> if {a,not(element(2, ATuple))} == {a,false} -> ok;
+		      true -> error end end, ok),
+    check(fun() -> if {a,not(element(1, ATuple))} == {a,false} -> ok;
+		      true -> error end end, error),
 
-    ?line check(fun() -> if not(element(1, ATuple) or element(3, ATuple)) -> ok;
-			    true -> error end end, error),
+    check(fun() -> if not(element(1, ATuple) or element(3, ATuple)) -> ok;
+		      true -> error end end, error),
 
     %% orelse
-    ?line check(fun() -> if not(element(1, ATuple) orelse element(3, ATuple)) -> ok;
-			    true -> error end end, error),
+    check(fun() -> if not(element(1, ATuple) orelse element(3, ATuple)) -> ok;
+		      true -> error end end, error),
 
     ok.
 
@@ -534,100 +528,100 @@ semicolon(Config) when is_list(Config) ->
 
     %% True/false combined using ';' (literal atoms).
 
-    ?line check(fun() -> if true; false -> ok end end, ok),
-    ?line check(fun() -> if false; true -> ok end end, ok),
-    ?line check(fun() -> if true; true -> ok end end, ok),
-    ?line check(fun() -> if false; false -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if false; false -> ok end),
-			exit
-		end, exit),
+    check(fun() -> if true; false -> ok end end, ok),
+    check(fun() -> if false; true -> ok end end, ok),
+    check(fun() -> if true; true -> ok end end, ok),
+    check(fun() -> if false; false -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if false; false -> ok end),
+		  exit
+	  end, exit),
 
     %% True/false combined used ';'.
 
     True = id(true),
     False = id(false),
 
-    ?line check(fun() -> if True; False -> ok end end, ok),
-    ?line check(fun() -> if False; True -> ok end end, ok),
-    ?line check(fun() -> if True; True -> ok end end, ok),
-    ?line check(fun() -> if False; False -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if False; False -> ok end),
-			exit
-		end, exit),
+    check(fun() -> if True; False -> ok end end, ok),
+    check(fun() -> if False; True -> ok end end, ok),
+    check(fun() -> if True; True -> ok end end, ok),
+    check(fun() -> if False; False -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if False; False -> ok end),
+		  exit
+	  end, exit),
 
     %% Combine true/false with a non-boolean value.
     Glurf = id(glurf),
 
 
-    ?line check(fun() -> if True; Glurf -> ok end end, ok),
-    ?line check(fun() -> if Glurf; True -> ok end end, ok),
-    ?line check(fun() -> if Glurf; Glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if False; Glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if Glurf; False -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if Glurf; Glurf -> ok end),
-			exit
-		end, exit),
+    check(fun() -> if True; Glurf -> ok end end, ok),
+    check(fun() -> if Glurf; True -> ok end end, ok),
+    check(fun() -> if Glurf; Glurf -> ok; true -> error end end, error),
+    check(fun() -> if False; Glurf -> ok; true -> error end end, error),
+    check(fun() -> if Glurf; False -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if Glurf; Glurf -> ok end),
+		  exit
+	  end, exit),
 
     %% Combine true/false with errors.
 
     ATuple = id({false,true,gurka}),
 
-    ?line check(fun() -> if True; element(42, ATuple) -> ok end end, ok),
-    ?line check(fun() -> if element(42, ATuple); True -> ok end end, ok),
-    ?line check(fun() -> if element(42, ATuple); element(42, ATuple) -> ok;
-			    true -> error end end, error),
-    ?line check(fun() -> if False; element(42, ATuple) -> ok;
-			    true -> error end end, error),
-    ?line check(fun() -> if element(42, ATuple);
-			    False -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if element(42, ATuple);
-				      element(42, ATuple) -> ok end),
-			exit
-		end, exit),
+    check(fun() -> if True; element(42, ATuple) -> ok end end, ok),
+    check(fun() -> if element(42, ATuple); True -> ok end end, ok),
+    check(fun() -> if element(42, ATuple); element(42, ATuple) -> ok;
+		      true -> error end end, error),
+    check(fun() -> if False; element(42, ATuple) -> ok;
+		      true -> error end end, error),
+    check(fun() -> if element(42, ATuple);
+		      False -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if element(42, ATuple);
+				element(42, ATuple) -> ok end),
+		  exit
+	  end, exit),
 
     ok.
 
 complex_semicolon(Config) when is_list(Config) ->
-    ?line ok = csemi1(int, {blurf}),
-    ?line ok = csemi1(string, {blurf}),
-    ?line ok = csemi1(float, [a]),
-    ?line error = csemi1(35, 42),
+    ok = csemi1(int, {blurf}),
+    ok = csemi1(string, {blurf}),
+    ok = csemi1(float, [a]),
+    error = csemi1(35, 42),
 
     %% 2
-    ?line ok = csemi2({}, {a,b,c}),
-    ?line ok = csemi2({1,3.5}, {a,b,c}),
-    ?line ok = csemi2(dum, {a,b,c}),
+    ok = csemi2({}, {a,b,c}),
+    ok = csemi2({1,3.5}, {a,b,c}),
+    ok = csemi2(dum, {a,b,c}),
 
-    ?line ok = csemi2({45,-19.3}, {}),
-    ?line ok = csemi2({45,-19.3}, {dum}),
-    ?line ok = csemi2({45,-19.3}, {dum,dum}),
+    ok = csemi2({45,-19.3}, {}),
+    ok = csemi2({45,-19.3}, {dum}),
+    ok = csemi2({45,-19.3}, {dum,dum}),
 
-    ?line error = csemi2({45}, {dum}),
-    ?line error = csemi2([], {dum}),
-    ?line error = csemi2({dum}, []),
-    ?line error = csemi2([], []),
+    error = csemi2({45}, {dum}),
+    error = csemi2([], {dum}),
+    error = csemi2({dum}, []),
+    error = csemi2([], []),
 
     %% 3
-    ?line csemi3(fun csemi3a/4),
-    ?line csemi3(fun csemi3b/4),
-    ?line csemi3(fun csemi3c/4),
+    csemi3(fun csemi3a/4),
+    csemi3(fun csemi3b/4),
+    csemi3(fun csemi3c/4),
 
     %% 4
-    ?line csemi4(fun csemi4a/4),
-    ?line csemi4(fun csemi4b/4),
-    ?line csemi4(fun csemi4c/4),
-    ?line csemi4(fun csemi4d/4),
+    csemi4(fun csemi4a/4),
+    csemi4(fun csemi4b/4),
+    csemi4(fun csemi4c/4),
+    csemi4(fun csemi4d/4),
 
     %% 4, 'orelse' instead of 'or'
-    ?line csemi4_orelse(fun csemi4_orelse_a/4),
-    ?line csemi4_orelse(fun csemi4_orelse_b/4),
-    ?line csemi4_orelse(fun csemi4_orelse_c/4),
-    ?line csemi4_orelse(fun csemi4_orelse_d/4),
+    csemi4_orelse(fun csemi4_orelse_a/4),
+    csemi4_orelse(fun csemi4_orelse_b/4),
+    csemi4_orelse(fun csemi4_orelse_c/4),
+    csemi4_orelse(fun csemi4_orelse_d/4),
 
     ok.
 
@@ -713,24 +707,24 @@ csemi4_orelse(Test) ->
     ok = Test({}, 2, blurf, 0),
     ok = Test({}, 2, {1}, 2),
 
-    ?line error = Test([], 1, {}, 0),
+    error = Test([], 1, {}, 0),
 
     ok.
 
 csemi4_orelse_a(A, X, B, Y) when (size(A) > 1) orelse (X > 1);
-			 (size(B) > 1) orelse (Y > 1) -> ok;
+				 (size(B) > 1) orelse (Y > 1) -> ok;
 csemi4_orelse_a(_, _, _, _) -> error.
 
 csemi4_orelse_b(A, X, B, Y) when (X > 1) orelse (size(A) > 1);
-			 (size(B) > 1) orelse (Y > 1) -> ok;
+				 (size(B) > 1) orelse (Y > 1) -> ok;
 csemi4_orelse_b(_, _, _, _) -> error.
 
 csemi4_orelse_c(A, X, B, Y) when (size(A) > 1) orelse (X > 1);
-                           (Y > 1) orelse (size(B) > 1) -> ok;
+				 (Y > 1) orelse (size(B) > 1) -> ok;
 csemi4_orelse_c(_, _, _, _) -> error.
 
 csemi4_orelse_d(A, X, B, Y) when (X > 1) or (size(A) > 1);
-			 (Y > 1) or (size(B) > 1) -> ok;
+				 (Y > 1) or (size(B) > 1) -> ok;
 csemi4_orelse_d(_, _, _, _) -> error.
 
 
@@ -738,72 +732,72 @@ comma(Config) when is_list(Config) ->
 
     %% ',' combinations of literal true/false.
 
-    ?line check(fun() -> if true, false -> ok; true -> error end end, error),
-    ?line check(fun() -> if false, true -> ok; true -> error end end, error),
-    ?line check(fun() -> if true, true -> ok end end, ok),
-    ?line check(fun() -> if false, false -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if true, false -> ok;
-				      false, true -> ok;
-				      false, false -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() -> if true, false -> ok; true -> error end end, error),
+    check(fun() -> if false, true -> ok; true -> error end end, error),
+    check(fun() -> if true, true -> ok end end, ok),
+    check(fun() -> if false, false -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if true, false -> ok;
+				false, true -> ok;
+				false, false -> ok
+			     end),
+		  exit
+	  end, exit),
 
     %% ',' combinations of true/false in variables.
 
     True = id(true),
     False = id(false),
 
-    ?line check(fun() -> if True, False -> ok; true -> error end end, error),
-    ?line check(fun() -> if False, True -> ok; true -> error end end, error),
-    ?line check(fun() -> if True, True -> ok end end, ok),
-    ?line check(fun() -> if False, False -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if True, False -> ok;
-				      False, True -> ok;
-				      False, False -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() -> if True, False -> ok; true -> error end end, error),
+    check(fun() -> if False, True -> ok; true -> error end end, error),
+    check(fun() -> if True, True -> ok end end, ok),
+    check(fun() -> if False, False -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if True, False -> ok;
+				False, True -> ok;
+				False, False -> ok
+			     end),
+		  exit
+	  end, exit),
 
     %% ',' combinations of true/false, and non-boolean in variables.
 
     Glurf = id(glurf),
 
-    ?line check(fun() -> if True, Glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if Glurf, True -> ok; true -> error end end, error),
-    ?line check(fun() -> if True, True -> ok end end, ok),
-    ?line check(fun() -> if Glurf, Glurf -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if True, Glurf -> ok;
-				      Glurf, True -> ok;
-				      Glurf, Glurf -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() -> if True, Glurf -> ok; true -> error end end, error),
+    check(fun() -> if Glurf, True -> ok; true -> error end end, error),
+    check(fun() -> if True, True -> ok end end, ok),
+    check(fun() -> if Glurf, Glurf -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if True, Glurf -> ok;
+				Glurf, True -> ok;
+				Glurf, Glurf -> ok
+			     end),
+		  exit
+	  end, exit),
 
     %% ',' combinations of true/false with errors.
     ATuple = id({a,b,c}),
 
-    ?line check(fun() -> if True, element(42, ATuple) -> ok;
-			    true -> error end end, error),
-    ?line check(fun() -> if element(42, ATuple), True -> ok;
-			    true -> error end end, error),
-    ?line check(fun() -> if True, True -> ok end end, ok),
-    ?line check(fun() -> if element(42, ATuple), element(42, ATuple) -> ok;
-			    true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if True, element(42, ATuple) -> ok;
-				      element(42, ATuple), True -> ok;
-				      element(42, ATuple), element(42, ATuple) -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() -> if True, element(42, ATuple) -> ok;
+		      true -> error end end, error),
+    check(fun() -> if element(42, ATuple), True -> ok;
+		      true -> error end end, error),
+    check(fun() -> if True, True -> ok end end, ok),
+    check(fun() -> if element(42, ATuple), element(42, ATuple) -> ok;
+		      true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if True, element(42, ATuple) -> ok;
+				element(42, ATuple), True -> ok;
+				element(42, ATuple), element(42, ATuple) -> ok
+			     end),
+		  exit
+	  end, exit),
 
     ok.
 
@@ -813,35 +807,35 @@ or_guard(Config) when is_list(Config) ->
     Glurf = id(glurf),
 
     %% 'or' combinations of literal true/false.
-    ?line check(fun() -> if true or false -> ok end end, ok),
-    ?line check(fun() -> if false or true -> ok end end, ok),
-    ?line check(fun() -> if true or true -> ok end end, ok),
-    ?line check(fun() -> if false or false -> ok; true -> error end end, error),
+    check(fun() -> if true or false -> ok end end, ok),
+    check(fun() -> if false or true -> ok end end, ok),
+    check(fun() -> if true or true -> ok end end, ok),
+    check(fun() -> if false or false -> ok; true -> error end end, error),
 
-    ?line check(fun() -> if glurf or true -> ok; true -> error end end, error),
-    ?line check(fun() -> if true or glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if glurf or glurf -> ok; true -> error end end, error),
+    check(fun() -> if glurf or true -> ok; true -> error end end, error),
+    check(fun() -> if true or glurf -> ok; true -> error end end, error),
+    check(fun() -> if glurf or glurf -> ok; true -> error end end, error),
 
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if false or false -> ok end),
-			exit
-		end, exit),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if false or false -> ok end),
+		  exit
+	  end, exit),
 
 
     %% 'or' combinations using variables containing true/false.
-    ?line check(fun() -> if True or False -> ok end end, ok),
-    ?line check(fun() -> if False or True -> ok end end, ok),
-    ?line check(fun() -> if True or True -> ok end end, ok),
-    ?line check(fun() -> if False or False -> ok; true -> error end end, error),
+    check(fun() -> if True or False -> ok end end, ok),
+    check(fun() -> if False or True -> ok end end, ok),
+    check(fun() -> if True or True -> ok end end, ok),
+    check(fun() -> if False or False -> ok; true -> error end end, error),
 
-    ?line check(fun() -> if True or Glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if Glurf or True -> ok; true -> error end end, error),
-    ?line check(fun() -> if Glurf or Glurf -> ok; true -> error end end, error),
+    check(fun() -> if True or Glurf -> ok; true -> error end end, error),
+    check(fun() -> if Glurf or True -> ok; true -> error end end, error),
+    check(fun() -> if Glurf or Glurf -> ok; true -> error end end, error),
 
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if False or False -> ok end),
-			exit
-		end, exit),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if False or False -> ok end),
+		  exit
+	  end, exit),
 
     ok.
 
@@ -850,142 +844,142 @@ more_or_guards(Config) when is_list(Config) ->
     False = id(false),
     ATuple = id({false,true,gurka}),
 
-    ?line check(fun() ->
-			if element(42, ATuple) or False -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(42, ATuple) or False -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if False or element(42, ATuple) -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if False or element(42, ATuple) -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if element(18, ATuple) or element(42, ATuple) -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(18, ATuple) or element(42, ATuple) -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if True or element(42, ATuple) -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if True or element(42, ATuple) -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if element(42, ATuple) or True -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(42, ATuple) or True -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if element(1, ATuple) or element(42, ATuple) or True -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(1, ATuple) or element(42, ATuple) or True -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if element(1, ATuple) or True or element(42, ATuple) -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(1, ATuple) or True or element(42, ATuple) -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if
-			    (<<False:8>> == <<0>>) or element(2, ATuple) -> ok;
-			    true -> error end
-		end, error),
+    check(fun() ->
+		  if
+		      (<<False:8>> == <<0>>) or element(2, ATuple) -> ok;
+		      true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if
-			    element(2, ATuple) or (<<True:8>> == <<1>>) -> ok;
-			    true -> error end
-		end, error),
+    check(fun() ->
+		  if
+		      element(2, ATuple) or (<<True:8>> == <<1>>) -> ok;
+		      true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if element(2, ATuple) or element(42, ATuple) -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(2, ATuple) or element(42, ATuple) -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if
-			    element(1, ATuple) or
-			    element(2, ATuple) or
-			    element(19, ATuple) -> ok;
-			    true -> error end
-		end, error),
+    check(fun() ->
+		  if
+		      element(1, ATuple) or
+		      element(2, ATuple) or
+		      element(19, ATuple) -> ok;
+		      true -> error end
+	  end, error),
     ok.
 
 complex_or_guards(Config) when is_list(Config) ->
     %% complex_or_1/2
-    ?line ok = complex_or_1({a,b,c,d}, {1,2,3}),
-    ?line ok = complex_or_1({a,b,c,d}, {1}),
-    ?line ok = complex_or_1({a}, {1,2,3}),
-    ?line error = complex_or_1({a}, {1}),
+    ok = complex_or_1({a,b,c,d}, {1,2,3}),
+    ok = complex_or_1({a,b,c,d}, {1}),
+    ok = complex_or_1({a}, {1,2,3}),
+    error = complex_or_1({a}, {1}),
 
-    ?line error = complex_or_1(1, 2),
-    ?line error = complex_or_1([], {a,b,c,d}),
-    ?line error = complex_or_1({a,b,c,d}, []),
+    error = complex_or_1(1, 2),
+    error = complex_or_1([], {a,b,c,d}),
+    error = complex_or_1({a,b,c,d}, []),
 
 
     %% complex_or_2/1
-    ?line ok = complex_or_2({true,{}}),
-    ?line ok = complex_or_2({false,{a}}),
-    ?line ok = complex_or_2({false,{a,b,c}}),
-    ?line ok = complex_or_2({true,{a,b,c,d}}),
+    ok = complex_or_2({true,{}}),
+    ok = complex_or_2({false,{a}}),
+    ok = complex_or_2({false,{a,b,c}}),
+    ok = complex_or_2({true,{a,b,c,d}}),
 
-    ?line error = complex_or_2({blurf,{a,b,c}}),
+    error = complex_or_2({blurf,{a,b,c}}),
 
-    ?line error = complex_or_2({true}),
-    ?line error = complex_or_2({true,no_tuple}),
-    ?line error = complex_or_2({true,[]}),
+    error = complex_or_2({true}),
+    error = complex_or_2({true,no_tuple}),
+    error = complex_or_2({true,[]}),
 
     %% complex_or_3/2
-    ?line ok = complex_or_3({true}, {}),
-    ?line ok = complex_or_3({false}, {a}),
-    ?line ok = complex_or_3({false}, {a,b,c}),
-    ?line ok = complex_or_3({true}, {a,b,c,d}),
-    ?line ok = complex_or_3({false}, <<1,2,3>>),
-    ?line ok = complex_or_3({true}, <<1,2,3,4>>),
+    ok = complex_or_3({true}, {}),
+    ok = complex_or_3({false}, {a}),
+    ok = complex_or_3({false}, {a,b,c}),
+    ok = complex_or_3({true}, {a,b,c,d}),
+    ok = complex_or_3({false}, <<1,2,3>>),
+    ok = complex_or_3({true}, <<1,2,3,4>>),
 
-    ?line error = complex_or_3(blurf, {a,b,c}),
+    error = complex_or_3(blurf, {a,b,c}),
 
-    ?line error = complex_or_3({false}, <<1,2,3,4>>),
-    ?line error = complex_or_3([], <<1,2>>),
-    ?line error = complex_or_3({true}, 45),
-    ?line error = complex_or_3(<<>>, <<>>),
+    error = complex_or_3({false}, <<1,2,3,4>>),
+    error = complex_or_3([], <<1,2>>),
+    error = complex_or_3({true}, 45),
+    error = complex_or_3(<<>>, <<>>),
 
     %% complex_or_4/2
-    ?line ok = complex_or_4(<<1,2,3>>, {true}),
-    ?line ok = complex_or_4(<<1,2,3>>, {false}),
-    ?line ok = complex_or_4(<<1,2,3>>, {true}),
-    ?line ok = complex_or_4({1,2,3}, {true}),
-    ?line error = complex_or_4({1,2,3,4}, {false}),
+    ok = complex_or_4(<<1,2,3>>, {true}),
+    ok = complex_or_4(<<1,2,3>>, {false}),
+    ok = complex_or_4(<<1,2,3>>, {true}),
+    ok = complex_or_4({1,2,3}, {true}),
+    error = complex_or_4({1,2,3,4}, {false}),
 
-    ?line error = complex_or_4(<<1,2,3,4>>, []),
-    ?line error = complex_or_4([], {true}),
+    error = complex_or_4(<<1,2,3,4>>, []),
+    error = complex_or_4([], {true}),
 
     %% complex_or_5/2
-    ?line ok = complex_or_5(<<1>>, {false}),
-    ?line ok = complex_or_5(<<1,2,3>>, {true}),
-    ?line ok = complex_or_5(<<1,2,3,4>>, {false}),
-    ?line ok = complex_or_5({1,2,3}, {false}),
-    ?line ok = complex_or_5({1,2,3,4}, {false}),
+    ok = complex_or_5(<<1>>, {false}),
+    ok = complex_or_5(<<1,2,3>>, {true}),
+    ok = complex_or_5(<<1,2,3,4>>, {false}),
+    ok = complex_or_5({1,2,3}, {false}),
+    ok = complex_or_5({1,2,3,4}, {false}),
 
-    ?line error = complex_or_5(blurf, {false}),
-    ?line error = complex_or_5(<<1>>, klarf),
-    ?line error = complex_or_5(blurf, klarf),
+    error = complex_or_5(blurf, {false}),
+    error = complex_or_5(<<1>>, klarf),
+    error = complex_or_5(blurf, klarf),
 
     %% complex_or_6/2
-    ?line ok = complex_or_6({true,true}, {1,2,3,4}),
-    ?line ok = complex_or_6({true,true}, <<1,2,3,4>>),
-    ?line ok = complex_or_6({false,false}, <<1,2,3,4>>),
-    ?line ok = complex_or_6({false,true}, <<1>>),
-    ?line ok = complex_or_6({true,false}, {1}),
-    ?line ok = complex_or_6({true,true}, {1}),
+    ok = complex_or_6({true,true}, {1,2,3,4}),
+    ok = complex_or_6({true,true}, <<1,2,3,4>>),
+    ok = complex_or_6({false,false}, <<1,2,3,4>>),
+    ok = complex_or_6({false,true}, <<1>>),
+    ok = complex_or_6({true,false}, {1}),
+    ok = complex_or_6({true,true}, {1}),
 
-    ?line error = complex_or_6({false,false}, {1}),
+    error = complex_or_6({false,false}, {1}),
 
-    ?line error = complex_or_6({true}, {1,2,3,4}),
-    ?line error = complex_or_6({}, {1,2,3,4}),
-    ?line error = complex_or_6([], {1,2,3,4}),
-    ?line error = complex_or_6([], {1,2,3,4}),
-    ?line error = complex_or_6({true,false}, klurf),
+    error = complex_or_6({true}, {1,2,3,4}),
+    error = complex_or_6({}, {1,2,3,4}),
+    error = complex_or_6([], {1,2,3,4}),
+    error = complex_or_6([], {1,2,3,4}),
+    error = complex_or_6({true,false}, klurf),
 
     ok.
 
@@ -1031,79 +1025,79 @@ and_guard(Config) when is_list(Config) ->
 
     %% 'and' combinations of literal true/false.
 
-    ?line check(fun() -> if true and false -> ok; true -> error end end, error),
-    ?line check(fun() -> if false and true -> ok; true -> error end end, error),
-    ?line check(fun() -> if true and true -> ok end end, ok),
-    ?line check(fun() -> if false and false -> ok; true -> error end end, error),
+    check(fun() -> if true and false -> ok; true -> error end end, error),
+    check(fun() -> if false and true -> ok; true -> error end end, error),
+    check(fun() -> if true and true -> ok end end, ok),
+    check(fun() -> if false and false -> ok; true -> error end end, error),
 
-    ?line check(fun() -> if glurf and true -> ok; true -> error end end, error),
-    ?line check(fun() -> if true and glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if glurf and glurf -> ok; true -> error end end, error),
+    check(fun() -> if glurf and true -> ok; true -> error end end, error),
+    check(fun() -> if true and glurf -> ok; true -> error end end, error),
+    check(fun() -> if glurf and glurf -> ok; true -> error end end, error),
 
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if true and false -> ok;
-				      false and true -> ok;
-				      false and false -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if true and false -> ok;
+				false and true -> ok;
+				false and false -> ok
+			     end),
+		  exit
+	  end, exit),
 
     %% 'and' combinations of true/false in variables.
 
     True = id(true),
     False = id(false),
 
-    ?line check(fun() -> if True and False -> ok; true -> error end end, error),
-    ?line check(fun() -> if False and True -> ok; true -> error end end, error),
-    ?line check(fun() -> if True and True -> ok end end, ok),
-    ?line check(fun() -> if False and False -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if True and False -> ok;
-				      False and True -> ok;
-				      False and False -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() -> if True and False -> ok; true -> error end end, error),
+    check(fun() -> if False and True -> ok; true -> error end end, error),
+    check(fun() -> if True and True -> ok end end, ok),
+    check(fun() -> if False and False -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if True and False -> ok;
+				False and True -> ok;
+				False and False -> ok
+			     end),
+		  exit
+	  end, exit),
 
     %% 'and' combinations of true/false and a non-boolean in variables.
 
     Glurf = id(glurf),
 
-    ?line check(fun() -> if True and Glurf -> ok; true -> error end end, error),
-    ?line check(fun() -> if Glurf and True -> ok; true -> error end end, error),
-    ?line check(fun() -> if True and True -> ok end end, ok),
-    ?line check(fun() -> if Glurf and Glurf -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if True and Glurf -> ok;
-				      Glurf and True -> ok;
-				      Glurf and Glurf -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() -> if True and Glurf -> ok; true -> error end end, error),
+    check(fun() -> if Glurf and True -> ok; true -> error end end, error),
+    check(fun() -> if True and True -> ok end end, ok),
+    check(fun() -> if Glurf and Glurf -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if True and Glurf -> ok;
+				Glurf and True -> ok;
+				Glurf and Glurf -> ok
+			     end),
+		  exit
+	  end, exit),
 
     %% 'and' combinations of true/false with errors.
     ATuple = id({a,b,c}),
 
-    ?line check(fun() -> if True and element(42, ATuple) -> ok;
-			    true -> error end end, error),
-    ?line check(fun() -> if element(42, ATuple) and True -> ok;
-			    true -> error end end, error),
-    ?line check(fun() -> if True and True -> ok end end, ok),
-    ?line check(fun() -> if element(42, ATuple) and element(42, ATuple) -> ok;
-			    true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} =
-			    (catch if True and element(42, ATuple) -> ok;
-				      element(42, ATuple) and True -> ok;
-				      element(42, ATuple) and element(42, ATuple) -> ok
-				   end),
-			exit
-		end, exit),
+    check(fun() -> if True and element(42, ATuple) -> ok;
+		      true -> error end end, error),
+    check(fun() -> if element(42, ATuple) and True -> ok;
+		      true -> error end end, error),
+    check(fun() -> if True and True -> ok end end, ok),
+    check(fun() -> if element(42, ATuple) and element(42, ATuple) -> ok;
+		      true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} =
+		      (catch if True and element(42, ATuple) -> ok;
+				element(42, ATuple) and True -> ok;
+				element(42, ATuple) and element(42, ATuple) -> ok
+			     end),
+		  exit
+	  end, exit),
 
-    ?line ok = relprod({'Set',a,b}, {'Set',a,b}),
+    ok = relprod({'Set',a,b}, {'Set',a,b}),
 
     ok.
 
@@ -1114,18 +1108,18 @@ relprod(R1, R2) when (erlang:size(R1) =:= 3) and (erlang:element(1,R1) =:= 'Set'
 xor_guard(Config) when is_list(Config) ->
 
     %% 'xor' combinations of literal true/false.
-    ?line check(fun() -> if true xor false -> ok end end, ok),
-    ?line check(fun() -> if false xor true -> ok end end, ok),
-    ?line check(fun() -> if true xor true -> ok; true -> error end end, error),
-    ?line check(fun() -> if false xor false -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if false xor false -> ok end),
-			exit
-		end, exit),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if true xor true -> ok end),
-			exit
-		end, exit),
+    check(fun() -> if true xor false -> ok end end, ok),
+    check(fun() -> if false xor true -> ok end end, ok),
+    check(fun() -> if true xor true -> ok; true -> error end end, error),
+    check(fun() -> if false xor false -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if false xor false -> ok end),
+		  exit
+	  end, exit),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if true xor true -> ok end),
+		  exit
+	  end, exit),
 
 
     %% 'xor' combinations using variables containing true/false.
@@ -1133,18 +1127,18 @@ xor_guard(Config) when is_list(Config) ->
     True = id(true),
     False = id(false),
 
-    ?line check(fun() -> if True xor False -> ok end end, ok),
-    ?line check(fun() -> if False xor True -> ok end end, ok),
-    ?line check(fun() -> if True xor True -> ok; true -> error end end, error),
-    ?line check(fun() -> if False xor False -> ok; true -> error end end, error),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if False xor False -> ok end),
-			exit
-		end, exit),
-    ?line check(fun() ->
-			{'EXIT',{if_clause,_}} = (catch if True xor True -> ok end),
-			exit
-		end, exit),
+    check(fun() -> if True xor False -> ok end end, ok),
+    check(fun() -> if False xor True -> ok end end, ok),
+    check(fun() -> if True xor True -> ok; true -> error end end, error),
+    check(fun() -> if False xor False -> ok; true -> error end end, error),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if False xor False -> ok end),
+		  exit
+	  end, exit),
+    check(fun() ->
+		  {'EXIT',{if_clause,_}} = (catch if True xor True -> ok end),
+		  exit
+	  end, exit),
 
     ok.
 
@@ -1153,53 +1147,53 @@ more_xor_guards(Config) when is_list(Config) ->
     False = id(false),
     ATuple = id({false,true,gurka}),
 
-    ?line check(fun() ->
-			if element(42, ATuple) xor False -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(42, ATuple) xor False -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if False xor element(42, ATuple) xor False -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if False xor element(42, ATuple) xor False -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if element(18, ATuple) xor element(42, ATuple) -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(18, ATuple) xor element(42, ATuple) -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if True xor element(42, ATuple) -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if True xor element(42, ATuple) -> ok;
+		     true -> error end
+	  end, error),
 
-    ?line check(fun() ->
-			if element(42, ATuple) xor True -> ok;
-			   true -> error end
-		end, error),
+    check(fun() ->
+		  if element(42, ATuple) xor True -> ok;
+		     true -> error end
+	  end, error),
     ok.
 
 build_in_guard(Config) when is_list(Config) ->
     SubBin = <<5.0/float>>,
-    ?line B = <<1,SubBin/binary,3.5/float>>,
-    ?line if
-	      B =:= <<1,SubBin/binary,3.5/float>> -> ok
-	  end.
+    B = <<1,SubBin/binary,3.5/float>>,
+    if
+	B =:= <<1,SubBin/binary,3.5/float>> -> ok
+    end.
 
 old_guard_tests(Config) when list(Config) ->
     %% Check that all the old guard tests are still recognized.
-    ?line list = og(Config),
-    ?line atom = og(an_atom),
-    ?line binary = og(<<1,2>>),
-    ?line float = og(3.14),
-    ?line integer = og(43),
-    ?line a_function = og(fun() -> ok end),
-    ?line pid = og(self()),
-    ?line reference = og(make_ref()),
-    ?line tuple = og({}),
+    list = og(Config),
+    atom = og(an_atom),
+    binary = og(<<1,2>>),
+    float = og(3.14),
+    integer = og(43),
+    a_function = og(fun() -> ok end),
+    pid = og(self()),
+    reference = og(make_ref()),
+    tuple = og({}),
 
-    ?line number = on(45.333),
-    ?line number = on(-19),
+    number = on(45.333),
+    number = on(-19),
     ok.
 
 og(V) when atom(V) -> atom;
@@ -1218,8 +1212,8 @@ on(V) when number(V) -> number;
 on(_) -> not_number.
 
 gbif(Config) when is_list(Config) ->
-    ?line error = gbif_1(1, {false,true}),
-    ?line ok = gbif_1(2, {false,true}),
+    error = gbif_1(1, {false,true}),
+    ok = gbif_1(2, {false,true}),
     ok.
 
 gbif_1(P, T) when element(P, T) -> ok;
@@ -1227,49 +1221,49 @@ gbif_1(_, _) -> error.
 
 
 t_is_boolean(Config) when is_list(Config) ->
-    ?line true = is_boolean(true),
-    ?line true = is_boolean(false),
-    ?line true = is_boolean(id(true)),
-    ?line true = is_boolean(id(false)),
+    true = is_boolean(true),
+    true = is_boolean(false),
+    true = is_boolean(id(true)),
+    true = is_boolean(id(false)),
 
-    ?line false = is_boolean(glurf),
-    ?line false = is_boolean(id(glurf)),
+    false = is_boolean(glurf),
+    false = is_boolean(id(glurf)),
 
-    ?line false = is_boolean([]),
-    ?line false = is_boolean(id([])),
-    ?line false = is_boolean(42),
-    ?line false = is_boolean(id(-42)),
+    false = is_boolean([]),
+    false = is_boolean(id([])),
+    false = is_boolean(42),
+    false = is_boolean(id(-42)),
 
-    ?line false = is_boolean(math:pi()),
-    ?line false = is_boolean(384793478934378924978439789873478934897),
+    false = is_boolean(math:pi()),
+    false = is_boolean(384793478934378924978439789873478934897),
 
-    ?line false = is_boolean(id(self())),
-    ?line false = is_boolean(id({x,y,z})),
-    ?line false = is_boolean(id([a,b,c])),
-    ?line false = is_boolean(id(make_ref())),
-    ?line false = is_boolean(id(<<1,2,3>>)),
+    false = is_boolean(id(self())),
+    false = is_boolean(id({x,y,z})),
+    false = is_boolean(id([a,b,c])),
+    false = is_boolean(id(make_ref())),
+    false = is_boolean(id(<<1,2,3>>)),
 
-    ?line ok = bool(true),
-    ?line ok = bool(false),
-    ?line ok = bool(id(true)),
-    ?line ok = bool(id(false)),
+    ok = bool(true),
+    ok = bool(false),
+    ok = bool(id(true)),
+    ok = bool(id(false)),
 
-    ?line error = bool(glurf),
-    ?line error = bool(id(glurf)),
+    error = bool(glurf),
+    error = bool(id(glurf)),
 
-    ?line error = bool([]),
-    ?line error = bool(id([])),
-    ?line error = bool(42),
-    ?line error = bool(id(-42)),
+    error = bool([]),
+    error = bool(id([])),
+    error = bool(42),
+    error = bool(id(-42)),
 
-    ?line error = bool(math:pi()),
-    ?line error = bool(384793478934378924978439789873478934897),
+    error = bool(math:pi()),
+    error = bool(384793478934378924978439789873478934897),
 
-    ?line error = bool(id(self())),
-    ?line error = bool(id({x,y,z})),
-    ?line error = bool(id([a,b,c])),
-    ?line error = bool(id(make_ref())),
-    ?line error = bool(id(<<1,2,3>>)),
+    error = bool(id(self())),
+    error = bool(id({x,y,z})),
+    error = bool(id([a,b,c])),
+    error = bool(id(make_ref())),
+    error = bool(id(<<1,2,3>>)),
 
     ok.
 
@@ -1289,14 +1283,14 @@ is_function_2(Config) when is_list(Config) ->
     end.
 
 tricky(Config) when is_list(Config) ->
-    ?line not_ok = tricky_1(1, 2),
-    ?line not_ok = tricky_1(1, blurf),
-    ?line not_ok = tricky_1(foo, 2),
-    ?line not_ok = tricky_1(a, b),
+    not_ok = tricky_1(1, 2),
+    not_ok = tricky_1(1, blurf),
+    not_ok = tricky_1(foo, 2),
+    not_ok = tricky_1(a, b),
 
-    ?line false = rb(100000, [1], 42),
-    ?line true = rb(100000, [], 42),
-    ?line true = rb(555, [a,b,c], 19),
+    false = rb(100000, [1], 42),
+    true = rb(100000, [], 42),
+    true = rb(555, [a,b,c], 19),
     ok.
 
 tricky_1(X, Y) when abs((X == 1) or (Y == 2)) -> ok;
@@ -1331,66 +1325,66 @@ rb(_, _, _) -> false.
 
 
 rel_ops(Config) when is_list(Config) ->
-    ?line ?T(=/=, 1, 1.0),
-    ?line ?F(=/=, 2, 2),
-    ?line ?F(=/=, {a}, {a}),
+    ?T(=/=, 1, 1.0),
+    ?F(=/=, 2, 2),
+    ?F(=/=, {a}, {a}),
 
-    ?line ?F(/=, a, a),
-    ?line ?F(/=, 0, 0.0),
-    ?line ?T(/=, 0, 1),
-    ?line ?F(/=, {a}, {a}),
+    ?F(/=, a, a),
+    ?F(/=, 0, 0.0),
+    ?T(/=, 0, 1),
+    ?F(/=, {a}, {a}),
 
-    ?line ?T(==, 1, 1.0),
-    ?line ?F(==, a, {}),
+    ?T(==, 1, 1.0),
+    ?F(==, a, {}),
 
-    ?line ?F(=:=, 1, 1.0),
-    ?line ?T(=:=, 42.0, 42.0),
+    ?F(=:=, 1, 1.0),
+    ?T(=:=, 42.0, 42.0),
 
-    ?line ?F(>, a, b),
-    ?line ?T(>, 42, 1.0),
-    ?line ?F(>, 42, 42.0),
+    ?F(>, a, b),
+    ?T(>, 42, 1.0),
+    ?F(>, 42, 42.0),
 
-    ?line ?T(<, a, b),
-    ?line ?F(<, 42, 1.0),
-    ?line ?F(<, 42, 42.0),
+    ?T(<, a, b),
+    ?F(<, 42, 1.0),
+    ?F(<, 42, 42.0),
 
-    ?line ?T(=<, 1.5, 5),
-    ?line ?F(=<, -9, -100.344),
-    ?line ?T(=<, 42, 42.0),
+    ?T(=<, 1.5, 5),
+    ?F(=<, -9, -100.344),
+    ?T(=<, 42, 42.0),
 
-    ?line ?T(>=, 42, 42.0),
-    ?line ?F(>=, a, b),
-    ?line ?T(>=, 1.0, 0),
+    ?T(>=, 42, 42.0),
+    ?F(>=, a, b),
+    ?T(>=, 1.0, 0),
 
     ok.
 
 -undef(TestOp).
 
 basic_andalso_orelse(Config) when is_list(Config) ->
-    ?line T = id({type,integers,23,42}),
-    ?line 65 = if
-		   ((element(1, T) =:= type) andalso (size(T) =:= 4) andalso
-		    element(2, T) == integers) ->
-		       element(3, T) + element(4, T);
-		   true -> error
-	       end,
-    ?line 65 = case [] of
-		   [] when ((element(1, T) =:= type) andalso (size(T) =:= 4) andalso
-			    element(2, T) == integers) ->
-		       element(3, T) + element(4, T)
-	       end,
+    T = id({type,integers,23,42}),
+    65 = if
+	     ((element(1, T) =:= type) andalso (size(T) =:= 4) andalso
+	      element(2, T) == integers) ->
+		 element(3, T) + element(4, T);
+	     true -> error
+	 end,
+    65 = case [] of
+	     [] when ((element(1, T) =:= type) andalso (size(T) =:= 4) andalso
+		      element(2, T) == integers) ->
+		 element(3, T) + element(4, T)
+	 end,
 
-    ?line 42 = basic_rt({type,integers,40,2}),
-    ?line 5.0 = basic_rt({vector,{3.0,4.0}}),
-    ?line 20 = basic_rt(['+',3,7]),
-    ?line {'Set',a,b} = basic_rt({{'Set',a,b},{'Set',a,b}}),
-    ?line 12 = basic_rt({klurf,4}),
+    42 = basic_rt({type,integers,40,2}),
+    5.0 = basic_rt({vector,{3.0,4.0}}),
+    20 = basic_rt(['+',3,7]),
+    {'Set',a,b} = basic_rt({{'Set',a,b},{'Set',a,b}}),
+    12 = basic_rt({klurf,4}),
 
-    ?line error = basic_rt({type,integers,40,2,3}),
-    ?line error = basic_rt({kalle,integers,40,2}),
-    ?line error = basic_rt({kalle,integers,40,2}),
-    ?line error = basic_rt({1,2}),
-    ?line error = basic_rt([]),
+    error = basic_rt({type,integers,40,2,3}),
+    error = basic_rt({kalle,integers,40,2}),
+    error = basic_rt({kalle,integers,40,2}),
+    error = basic_rt({1,2}),
+    error = basic_rt([]),
 
     RelProdBody =
 	fun(R1, R2) ->
@@ -1401,7 +1395,7 @@ basic_andalso_orelse(Config) when is_list(Config) ->
 		end
 	end,
 
-    ?line ok = RelProdBody({'Set',a,b}, {'Set',a,b}),
+    ok = RelProdBody({'Set',a,b}, {'Set',a,b}),
     ok.
 
 basic_rt(T) when is_tuple(T) andalso size(T) =:= 4 andalso element(1, T) =:= type andalso
@@ -1445,9 +1439,9 @@ traverse_dcd(Config) when is_list(Config) ->
 
 traverse_dcd({Cont,[LogH|Rest]},Log,Fun)
   when is_tuple(LogH) andalso size(LogH) =:= 6 andalso element(1, LogH) =:= log_header
-andalso erlang:element(2,LogH) == dcd_log,
-is_tuple(LogH) andalso size(LogH) =:= 6 andalso element(1, LogH) =:= log_header
-andalso erlang:element(3,LogH) >= "1.0" ->
+       andalso erlang:element(2,LogH) == dcd_log,
+       is_tuple(LogH) andalso size(LogH) =:= 6 andalso element(1, LogH) =:= log_header
+       andalso erlang:element(3,LogH) >= "1.0" ->
     traverse_dcd({Cont,Rest},Log,Fun);
 traverse_dcd({Cont,Recs},Log,Fun) ->
     {Cont,Recs,Log,Fun}.
@@ -1455,14 +1449,14 @@ traverse_dcd({Cont,Recs},Log,Fun) ->
 
 check_qlc_hrl(Config) when is_list(Config) ->
     St = {r1,false,dum},
-    ?line foo = cqlc(qlc, q, [{lc,1,2,3}], St),
-    ?line foo = cqlc(qlc, q, [{lc,1,2,3},b], St),
-    ?line St = cqlc(qlc, q, [], St),
-    ?line St = cqlc(qlc, blurf, [{lc,1,2,3},b], St),
-    ?line St = cqlc(q, q, [{lc,1,2,3},b], St),
-    ?line St = cqlc(qlc, q, [{lc,1,2,3},b,c], St),
-    ?line St = cqlc(qlc, q, [a,b], St),
-    ?line {r1,true,kalle} = cqlc(qlc, q, [{lc,1,2,3},b], {r1,true,kalle}),
+    foo = cqlc(qlc, q, [{lc,1,2,3}], St),
+    foo = cqlc(qlc, q, [{lc,1,2,3},b], St),
+    St = cqlc(qlc, q, [], St),
+    St = cqlc(qlc, blurf, [{lc,1,2,3},b], St),
+    St = cqlc(q, q, [{lc,1,2,3},b], St),
+    St = cqlc(qlc, q, [{lc,1,2,3},b,c], St),
+    St = cqlc(qlc, q, [a,b], St),
+    {r1,true,kalle} = cqlc(qlc, q, [{lc,1,2,3},b], {r1,true,kalle}),
     ok.
 
 %% From erl_lint.erl; original name was check_qlc_hrl/4.
@@ -1479,29 +1473,29 @@ cqlc(M, F, As, St) ->
 
 %% OTP-7679: Thanks to Hunter Morris.
 andalso_semi(Config) when is_list(Config) ->
-    ?line ok = andalso_semi_foo(0),
-    ?line ok = andalso_semi_foo(1),
-    ?line fc(catch andalso_semi_foo(2)),
+    ok = andalso_semi_foo(0),
+    ok = andalso_semi_foo(1),
+    fc(catch andalso_semi_foo(2)),
 
-    ?line ok = andalso_semi_bar([a,b,c]),
-    ?line ok = andalso_semi_bar(1),
-    ?line fc(catch andalso_semi_bar([a,b])),
+    ok = andalso_semi_bar([a,b,c]),
+    ok = andalso_semi_bar(1),
+    fc(catch andalso_semi_bar([a,b])),
     ok.
 
 andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
-   ok.
+    ok.
 
 andalso_semi_bar(Bar) when is_list(Bar) andalso length(Bar) =:= 3; Bar =:= 1 ->
-   ok.
+    ok.
 
 
 t_tuple_size(Config) when is_list(Config) ->
-    ?line 10 = do_tuple_size({1,2,3,4}),
-    ?line fc(catch do_tuple_size({1,2,3})),
-    ?line fc(catch do_tuple_size(42)),
+    10 = do_tuple_size({1,2,3,4}),
+    fc(catch do_tuple_size({1,2,3})),
+    fc(catch do_tuple_size(42)),
 
-    ?line error = ludicrous_tuple_size({a,b,c}),
-    ?line error = ludicrous_tuple_size([a,b,c]),
+    error = ludicrous_tuple_size({a,b,c}),
+    error = ludicrous_tuple_size([a,b,c]),
 
     ok.
 
@@ -1528,77 +1522,76 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-binary_part(doc) ->
-    ["Tests the binary_part/2,3 guard (GC) bif's"];
+%% Tests the binary_part/2,3 guard (GC) bif's.
 binary_part(Config) when is_list(Config) ->
     %% This is more or less a copy of what the guard_SUITE in emulator
     %% does to cover the guard bif's
-    ?line 1 = bptest(<<1,2,3>>),
-    ?line 2 = bptest(<<2,1,3>>),
-    ?line error = bptest(<<1>>),
-    ?line error = bptest(<<>>),
-    ?line error = bptest(apa),
-    ?line 3 = bptest(<<2,3,3>>),
-    % With one variable (pos)
-    ?line 1 = bptest(<<1,2,3>>,1),
-    ?line 2 = bptest(<<2,1,3>>,1),
-    ?line error = bptest(<<1>>,1),
-    ?line error = bptest(<<>>,1),
-    ?line error = bptest(apa,1),
-    ?line 3 = bptest(<<2,3,3>>,1),
-    % With one variable (length)
-    ?line 1 = bptesty(<<1,2,3>>,1),
-    ?line 2 = bptesty(<<2,1,3>>,1),
-    ?line error = bptesty(<<1>>,1),
-    ?line error = bptesty(<<>>,1),
-    ?line error = bptesty(apa,1),
-    ?line 3 = bptesty(<<2,3,3>>,2),
-    % With one variable (whole tuple)
-    ?line 1 = bptestx(<<1,2,3>>,{1,1}),
-    ?line 2 = bptestx(<<2,1,3>>,{1,1}),
-    ?line error = bptestx(<<1>>,{1,1}),
-    ?line error = bptestx(<<>>,{1,1}),
-    ?line error = bptestx(apa,{1,1}),
-    ?line 3 = bptestx(<<2,3,3>>,{1,2}),
-    % With two variables
-    ?line 1 = bptest(<<1,2,3>>,1,1),
-    ?line 2 = bptest(<<2,1,3>>,1,1),
-    ?line error = bptest(<<1>>,1,1),
-    ?line error = bptest(<<>>,1,1),
-    ?line error = bptest(apa,1,1),
-    ?line 3 = bptest(<<2,3,3>>,1,2),
-    % Direct (autoimported) call, these will be evaluated by the compiler...
-    ?line <<2>> = binary_part(<<1,2,3>>,1,1),
-    ?line <<1>> = binary_part(<<2,1,3>>,1,1),
-    % Compiler warnings due to constant evaluation expected (3)
-    ?line badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
-    ?line badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
-    ?line badarg = ?MASK_ERROR(binary_part(apa,1,1)),
-    ?line <<3,3>> = binary_part(<<2,3,3>>,1,2),
-    % Direct call through apply
-    ?line <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
-    ?line <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
-    % Compiler warnings due to constant evaluation expected (3)
-    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
-    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
-    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
-    ?line <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
-    % Constant propagation
-    ?line  Bin = <<1,2,3>>,
-    ?line  ok = if
-		    binary_part(Bin,1,1) =:= <<2>> ->
-			ok;
-		    %% Compiler warning, clause cannot match (expected)
-		    true ->
-			error
-		end,
-    ?line  ok = if
-		    binary_part(Bin,{1,1}) =:= <<2>> ->
-			ok;
-		    %% Compiler warning, clause cannot match (expected)
-		    true ->
-			error
-		end,
+    1 = bptest(<<1,2,3>>),
+    2 = bptest(<<2,1,3>>),
+    error = bptest(<<1>>),
+    error = bptest(<<>>),
+    error = bptest(apa),
+    3 = bptest(<<2,3,3>>),
+    %% With one variable (pos)
+    1 = bptest(<<1,2,3>>,1),
+    2 = bptest(<<2,1,3>>,1),
+    error = bptest(<<1>>,1),
+    error = bptest(<<>>,1),
+    error = bptest(apa,1),
+    3 = bptest(<<2,3,3>>,1),
+    %% With one variable (length)
+    1 = bptesty(<<1,2,3>>,1),
+    2 = bptesty(<<2,1,3>>,1),
+    error = bptesty(<<1>>,1),
+    error = bptesty(<<>>,1),
+    error = bptesty(apa,1),
+    3 = bptesty(<<2,3,3>>,2),
+    %% With one variable (whole tuple)
+    1 = bptestx(<<1,2,3>>,{1,1}),
+    2 = bptestx(<<2,1,3>>,{1,1}),
+    error = bptestx(<<1>>,{1,1}),
+    error = bptestx(<<>>,{1,1}),
+    error = bptestx(apa,{1,1}),
+    3 = bptestx(<<2,3,3>>,{1,2}),
+    %% With two variables
+    1 = bptest(<<1,2,3>>,1,1),
+    2 = bptest(<<2,1,3>>,1,1),
+    error = bptest(<<1>>,1,1),
+    error = bptest(<<>>,1,1),
+    error = bptest(apa,1,1),
+    3 = bptest(<<2,3,3>>,1,2),
+    %% Direct (autoimported) call, these will be evaluated by the compiler...
+    <<2>> = binary_part(<<1,2,3>>,1,1),
+    <<1>> = binary_part(<<2,1,3>>,1,1),
+    %% Compiler warnings due to constant evaluation expected (3)
+    badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
+    badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
+    badarg = ?MASK_ERROR(binary_part(apa,1,1)),
+    <<3,3>> = binary_part(<<2,3,3>>,1,2),
+    %% Direct call through apply
+    <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
+    <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
+    %% Compiler warnings due to constant evaluation expected (3)
+    badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
+    badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
+    badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
+    <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
+    %% Constant propagation
+    Bin = <<1,2,3>>,
+    ok = if
+	     binary_part(Bin,1,1) =:= <<2>> ->
+		 ok;
+	     %% Compiler warning, clause cannot match (expected)
+	     true ->
+		 error
+	 end,
+    ok = if
+	     binary_part(Bin,{1,1}) =:= <<2>> ->
+		 ok;
+	     %% Compiler warning, clause cannot match (expected)
+	     true ->
+		 error
+	 end,
     ok.
 
 
@@ -1659,24 +1652,24 @@ bptest(_,_,_) ->
 
 -define(FAILING(C),
 	if
-	    C -> ?t:fail(should_fail);
+	    C -> ct:fail(should_fail);
 	    true -> ok
 	end,
 	if
-	    true, C -> ?t:fail(should_fail);
+	    true, C -> ct:fail(should_fail);
 	    true -> ok
 	end).
 
 bad_constants(Config) when is_list(Config) ->
-    ?line ?FAILING(false),
-    ?line ?FAILING([]),
-    ?line ?FAILING([a]),
-    ?line ?FAILING([Config]),
-    ?line ?FAILING({a,b}),
-    ?line ?FAILING({a,Config}),
-    ?line ?FAILING(<<1>>),
-    ?line ?FAILING(42),
-    ?line ?FAILING(3.14),
+    ?FAILING(false),
+    ?FAILING([]),
+    ?FAILING([a]),
+    ?FAILING([Config]),
+    ?FAILING({a,b}),
+    ?FAILING({a,Config}),
+    ?FAILING(<<1>>),
+    ?FAILING(42),
+    ?FAILING(3.14),
     ok.
 
 %% Call this function to turn off constant propagation.
@@ -1688,7 +1681,7 @@ check(F, Result) ->
 	Other ->
 	    io:format("Expected: ~p\n", [Result]),
 	    io:format("     Got: ~p\n", [Other]),
-	    test_server:fail()
+	    ct:fail(failed)
     end.
 
 fc({'EXIT',{function_clause,_}}) -> ok.

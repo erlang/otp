@@ -307,14 +307,17 @@ cleanup_filename({Old,OldRec,OldWarnings}) ->
 
 add_record_definition({Name,FieldList}) ->
     {KeyList,_} = lists:foldl(
-		    fun({record_field,_,{atom,Line0,FieldName}},{L,C}) ->
-			    {[{FieldName,C,{atom,Line0,undefined}}|L],C+1};
-		       ({record_field,_,{atom,_,FieldName},Def},{L,C}) ->
-			    {[{FieldName,C,Def}|L],C+1}
-		    end,
+                    fun(F, {L,C}) -> {[record_field(F, C)|L],C+1} end,
 		    {[],2},
 		    FieldList),
     put_records([{Name,KeyList}|get_records()]).
+
+record_field({record_field,_,{atom,Line0,FieldName}}, C) ->
+    {FieldName,C,{atom,Line0,undefined}};
+record_field({record_field,_,{atom,_,FieldName},Def}, C) ->
+    {FieldName,C,Def};
+record_field({typed_record_field,Field,_Type}, C) ->
+    record_field(Field, C).
 
 forms([F0|Fs0]) ->
     F1 = form(F0),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1453,23 +1453,46 @@ behave([H|T]) ->
 behave([]) ->
     [].
 
-%%______________________________________________________________________
-%% mandatory modules; this modules must be loaded before processes
-%% can be started. These are a collection of modules from the kernel
-%% and stdlib applications.
-%% Nowadays, error_handler dynamically loads almost every module.
-%% The error_handler self must still be there though.
-
 mandatory_modules() ->
-    %% Sorted
-    [error_handler].
+    [error_handler,				%Truly mandatory.
+
+     %% Modules that are almost always needed. Listing them here
+     %% helps the init module to load them faster. Modules not
+     %% listed here will be loaded by the error_handler module.
+     %%
+     %% Keep this list sorted.
+     application,
+     application_controller,
+     application_master,
+     code,
+     code_server,
+     erl_eval,
+     erl_lint,
+     erl_parse,
+     error_logger,
+     ets,
+     file,
+     filename,
+     file_server,
+     file_io_server,
+     gen,
+     gen_event,
+     gen_server,
+     heart,
+     kernel,
+     lists,
+     proc_lib,
+     supervisor
+    ].
 
 %%______________________________________________________________________
 %% This is the modules that are preloaded into the Erlang system.
 
 preloaded() ->
     %% Sorted
-    [erl_prim_loader,erlang,erts_internal,init,otp_ring0,prim_eval,prim_file,
+    [erl_prim_loader,erl_tracer,erlang,
+     erts_code_purger,
+     erts_internal,init,otp_ring0,prim_eval,prim_file,
      prim_inet,prim_zip,zlib].
 
 %%______________________________________________________________________

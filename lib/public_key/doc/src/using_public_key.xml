@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2013</year>
+      <year>2011</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -124,7 +124,7 @@
                   ...&gt;&gt;,
                 not_encrypted},
  {'Certificate',&lt;&lt;48,130,3,200,48,130,3,49,160,3,2,1,2,2,1,
-                  1,48,13,6,9,42,134,72,134,247,...&gt;&gt;>,
+                  1,48,13,6,9,42,134,72,134,247,...&gt;&gt;,
                 not_encrypted}]</code>
       
       <p>Certificates can be decoded as usual:</p>

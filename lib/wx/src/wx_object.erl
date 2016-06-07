@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,40 +107,41 @@
 	 call/2, call/3,
 	 cast/2,
 	 reply/2,
-	 get_pid/1
+	 get_pid/1,
+	 set_pid/2
 	]).
 
 %% -export([behaviour_info/1]).
 -callback init(Args :: term()) ->
-    {#wx_ref{}, State :: term()} | {#wx_ref{}, State :: term(), timeout() | hibernate} |
-    {stop, Reason :: term()} | ignore.
+    {#wx_ref{}, State :: term()} | {#wx_ref{}, State :: term(), timeout() | 'hibernate'} |
+    {'stop', Reason :: term()} | 'ignore'.
 -callback handle_event(Request :: #wx{}, State :: term()) ->
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: term()}.
+    {'noreply', NewState :: term()} |
+    {'noreply', NewState :: term(), timeout() | 'hibernate'} |
+    {'stop', Reason :: term(), NewState :: term()}.
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                       State :: term()) ->
-    {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
-    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
-    {stop, Reason :: term(), NewState :: term()}.
+    {'reply', Reply :: term(), NewState :: term()} |
+    {'reply', Reply :: term(), NewState :: term(), timeout() | 'hibernate'} |
+    {'noreply', NewState :: term()} |
+    {'noreply', NewState :: term(), timeout() | 'hibernate'} |
+    {'stop', Reason :: term(), Reply :: term(), NewState :: term()} |
+    {'stop', Reason :: term(), NewState :: term()}.
 -callback handle_cast(Request :: term(), State :: term()) ->
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: term()}.
+    {'noreply', NewState :: term()} |
+    {'noreply', NewState :: term(), timeout() | 'hibernate'} |
+    {'stop', Reason :: term(), NewState :: term()}.
 -callback handle_info(Info :: timeout() | term(), State :: term()) ->
-    {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: term()}.
--callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
+    {'noreply', NewState :: term()} |
+    {'noreply', NewState :: term(), timeout() | 'hibernate'} |
+    {'stop', Reason :: term(), NewState :: term()}.
+-callback terminate(Reason :: ('normal' | 'shutdown' | {'shutdown', term()} |
                                term()),
                     State :: term()) ->
     term().
--callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
+-callback code_change(OldVsn :: (term() | {'down', term()}), State :: term(),
                       Extra :: term()) ->
-    {ok, NewState :: term()} | {error, Reason :: term()}.
+    {'ok', NewState :: term()} | {'error', Reason :: term()}.
 
 
 %% System exports
@@ -305,6 +306,11 @@ cast(Name, Request) when is_atom(Name) orelse is_pid(Name) ->
 %% @doc Get the pid of the object handle.
 get_pid(#wx_ref{state=Pid}) when is_pid(Pid) ->
     Pid.
+
+%% @spec (Ref::wxObject(), pid()) -> wxObject()
+%% @doc Sets the controlling process of the object handle.
+set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
+    R#wx_ref{state=Pid}.
 
 %% -----------------------------------------------------------------
 %% Send a reply to the client.

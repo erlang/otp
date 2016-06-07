@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,7 +96,8 @@ names() ->
       Reason :: address | file:posix().
 
 names(Hostname) ->
-    erl_epmd:names(Hostname).
+    ErlEpmd = net_kernel:epmd_module(),
+    ErlEpmd:names(Hostname).
 
 -spec dns_hostname(Host) -> {ok, Name} | {error, Host} when
       Host :: atom() | string(),

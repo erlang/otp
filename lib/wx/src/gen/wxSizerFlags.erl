@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizerflags.html#wxsizerflagswxsizerflags">external documentation</a>.
 -spec new([Option]) -> wxSizerFlags() when
-	Option :: {proportion, integer()}.
+	Option :: {'proportion', integer()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({proportion, Proportion}, Acc) -> [<<1:32/?UI,Proportion:32/?UI>>|Acc];
@@ -73,7 +73,7 @@ border(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsizerflags.html#wxsizerflagsborder">external documentation</a>.
 -spec border(This, [Option]) -> wxSizerFlags() when
 	This::wxSizerFlags(),
-	Option :: {direction, integer()}.
+	Option :: {'direction', integer()}.
 border(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizerFlags),
@@ -142,7 +142,7 @@ right(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSizerFlags()) -> ok.
+-spec destroy(This::wxSizerFlags()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSizerFlags),
   wxe_util:destroy(?wxSizerFlags_destroy,Obj),

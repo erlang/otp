@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +19,9 @@
 %%
 -module(unicode_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,	 
-	 init_per_testcase/2,
-	 end_per_testcase/2,
+-export([all/0, suite/0,groups/0,
 	 utf8_illegal_sequences_bif/1,
 	 utf16_illegal_sequences_bif/1,
 	 random_lists/1,
@@ -37,16 +34,10 @@
 	 ex_binaries_errors_utf16_big/1,
 	 ex_binaries_errors_utf32_little/1,
 	 ex_binaries_errors_utf32_big/1]).
-	 
-init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(20)),
-    [{watchdog, Dog}|Config].
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,20}}].
 
 all() -> 
     [utf8_illegal_sequences_bif,
@@ -63,24 +54,12 @@ groups() ->
        ex_binaries_errors_utf32_little,
        ex_binaries_errors_utf32_big]}].
 
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 binaries_errors_limit(Config) when is_list(Config) ->
     setlimit(10),
     ex_binaries_errors_utf8(Config),
     setlimit(default),
     ok.
-    
+
 ex_binaries_errors_utf8(Config) when is_list(Config) ->
     %% Original smoke test, we should not forget the original offset...
     <<_:8,_:8,RR2/binary>> = <<$a,$b,164,165,$c>>,
@@ -151,10 +130,10 @@ utf16_inner_loop([_|List], BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian) ->
     utf16_inner_loop(List, BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian);
 utf16_inner_loop([], _, _, _, _, _) ->
     ok.
-    
+
 ex_binaries_errors_utf32_big(Config) when is_list(Config) ->
     ex_binaries_errors_utf32(big).
-    
+
 ex_binaries_errors_utf32_little(Config) when is_list(Config) ->
     ex_binaries_errors_utf32(little).
 
@@ -180,7 +159,7 @@ ex_binaries_errors_utf32(Endian) ->
 			   PartlyBroken, PBSz, Endian)
       end || N <- lists:seq(1, 16, 3) ],
     ok.
-    
+
 utf32_inner_loop([_|List], BrokenPart, BrokenSz, PartlyBroken, PBSz, Endian) ->
     Sz = length(List)*4 + BrokenSz,
     Chomped = binary:part(PartlyBroken, PBSz - Sz, Sz),
@@ -199,115 +178,115 @@ exceptions(Config) when is_list(Config) ->
     ex_exceptions(Config).
 
 ex_exceptions(Config) when is_list(Config) ->
-    ?line L = lists:seq(0,255),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,unicode)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},unicode)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,unicode)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,unicode)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',unicode)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],unicode)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],unicode)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,latin1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},latin1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,latin1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,latin1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',latin1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],latin1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],latin1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,gnarfl)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,L)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,{latin1})),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,[latin1])),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1.0)),
+    L = lists:seq(0,255),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,unicode)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},unicode)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,unicode)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,unicode)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',unicode)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],unicode)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],unicode)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,latin1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},latin1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,latin1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,latin1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',latin1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],latin1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],latin1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,gnarfl)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,L)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,{latin1})),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,[latin1])),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1.0)),
     Encodings = [unicode, utf8,utf16,utf32,{utf16,big},
 		 {utf16,little},{utf32,big},{utf32,little}],
     [ begin
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,unicode,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},unicode,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,unicode,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,unicode,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',unicode,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],unicode,
-									  Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],unicode,
-									  Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,latin1,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},latin1,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,latin1,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,latin1,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',latin1,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],latin1,
-									  Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],latin1,
-									  Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,gnarfl,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,L,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,{latin1},Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,[latin1],Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1.0,Enc))
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,unicode,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},unicode,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,unicode,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,unicode,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',unicode,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],unicode,
+								    Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],unicode,
+								    Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L++255,latin1,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary({1,2,3},latin1,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1,latin1,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(1.0,latin1,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary('1',latin1,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,apa],latin1,
+								    Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary([1,2,3,4.0],latin1,
+								    Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,gnarfl,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,L,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,{latin1},Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,[latin1],Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_binary(L,1.0,Enc))
       end || Enc <- Encodings ],
 
 
     Encodings2 = [latin1, unicode, utf8,utf16,utf32,{utf16,big},
-		 {utf16,little},{utf32,big},{utf32,little}],
+		  {utf16,little},{utf32,big},{utf32,little}],
     [ begin
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L++255,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list({1,2,3},Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(1,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(1.0,Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list('1',Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list([1,2,3,apa],Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list([1,2,3,4.0],Enc)),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,{Enc})),
-	  ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,[Enc]))
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L++255,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list({1,2,3},Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(1,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(1.0,Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list('1',Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list([1,2,3,apa],Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list([1,2,3,4.0],Enc)),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,{Enc})),
+	  {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,[Enc]))
       end || Enc <- Encodings2 ],
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,gnarfl)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,L)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,1)),
-    ?line {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,1.0)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,gnarfl)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,L)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,1)),
+    {'EXIT',{badarg,_}} = (catch unicode:characters_to_list(L,1.0)),
     [ begin
-	  ?line Bx = unicode:characters_to_binary(L,latin1, Enc),
-	  ?line L = unicode:characters_to_list(Bx,Enc)
+	  Bx = unicode:characters_to_binary(L,latin1, Enc),
+	  L = unicode:characters_to_list(Bx,Enc)
       end || Enc <- Encodings ],
-    ?line B = unicode:characters_to_binary(L,latin1),
-    ?line L = unicode:characters_to_list(B,unicode),
-    ?line L = unicode:characters_to_list(list_to_binary(L),latin1),
-    ?line More = <<B/binary,0,1,2>>,
-    ?line B2 = list_to_binary([254,255]),
-    ?line B3 = list_to_binary([0,1,2,254,255]),
-    ?line {error,B,Rest1} = unicode:characters_to_binary([L,B2],unicode),
-    ?line B2 = iolist_to_binary(Rest1),
-    ?line {error,More,Rest2} = unicode:characters_to_binary([L,B3],unicode),
-    [ begin ?line {error,_,_} = unicode:characters_to_binary([L,B2],unicode,Enc) end
+    B = unicode:characters_to_binary(L,latin1),
+    L = unicode:characters_to_list(B,unicode),
+    L = unicode:characters_to_list(list_to_binary(L),latin1),
+    More = <<B/binary,0,1,2>>,
+    B2 = list_to_binary([254,255]),
+    B3 = list_to_binary([0,1,2,254,255]),
+    {error,B,Rest1} = unicode:characters_to_binary([L,B2],unicode),
+    B2 = iolist_to_binary(Rest1),
+    {error,More,Rest2} = unicode:characters_to_binary([L,B3],unicode),
+    [ begin {error,_,_} = unicode:characters_to_binary([L,B2],unicode,Enc) end
       || Enc <- Encodings ],
-    ?line Valid0 = unicode:characters_to_binary([L,254,255],unicode),
-    ?line Valid1 = unicode:characters_to_binary([L,254,255],latin1),
-    ?line Valid2 = unicode:characters_to_binary([L,254,255,256,257],unicode),
-    ?line Valid3 = unicode:characters_to_binary([L,B2],latin1),
-    ?line true = is_binary(Valid0),
-    ?line true = is_binary(Valid1),
-    ?line true = is_binary(Valid2),
-    ?line true = is_binary(Valid3),
-    ?line Valid4 = unicode:characters_to_binary([L,B3],latin1),
-    ?line true = is_binary(Valid4),
-    ?line B2 = iolist_to_binary(Rest2),
-    ?line true = (L ++ [254,255] =:=  unicode:characters_to_list(Valid0,unicode)),
-    ?line true = (L ++ [254,255,256,257] =:=  unicode:characters_to_list(Valid2,unicode)),
+    Valid0 = unicode:characters_to_binary([L,254,255],unicode),
+    Valid1 = unicode:characters_to_binary([L,254,255],latin1),
+    Valid2 = unicode:characters_to_binary([L,254,255,256,257],unicode),
+    Valid3 = unicode:characters_to_binary([L,B2],latin1),
+    true = is_binary(Valid0),
+    true = is_binary(Valid1),
+    true = is_binary(Valid2),
+    true = is_binary(Valid3),
+    Valid4 = unicode:characters_to_binary([L,B3],latin1),
+    true = is_binary(Valid4),
+    B2 = iolist_to_binary(Rest2),
+    true = (L ++ [254,255] =:=  unicode:characters_to_list(Valid0,unicode)),
+    true = (L ++ [254,255,256,257] =:=  unicode:characters_to_list(Valid2,unicode)),
     lists:foreach(fun(Enco) ->
-			  ?line Valid0x = unicode:characters_to_binary([L,254,255],unicode,Enco),
-			  ?line Valid1x = unicode:characters_to_binary([L,254,255],latin1,Enco),
-			  ?line Valid2x = unicode:characters_to_binary([L,254,255,256,257],unicode,Enco),
-			  ?line Valid3x = unicode:characters_to_binary([L,B2],latin1,Enco),
-			  ?line true = is_binary(Valid0x),
-			  ?line true = is_binary(Valid1x),
-			  ?line true = is_binary(Valid2x),
-			  ?line true = is_binary(Valid3x)
+			  Valid0x = unicode:characters_to_binary([L,254,255],unicode,Enco),
+			  Valid1x = unicode:characters_to_binary([L,254,255],latin1,Enco),
+			  Valid2x = unicode:characters_to_binary([L,254,255,256,257],unicode,Enco),
+			  Valid3x = unicode:characters_to_binary([L,B2],latin1,Enco),
+			  true = is_binary(Valid0x),
+			  true = is_binary(Valid1x),
+			  true = is_binary(Valid2x),
+			  true = is_binary(Valid3x)
 
 		  end, Encodings),
     ok.
-    
+
 
 latin1(Config) when is_list(Config) ->
     setlimit(10),
@@ -316,132 +295,132 @@ latin1(Config) when is_list(Config) ->
     ex_latin1(Config).
 
 ex_latin1(Config) when is_list(Config) ->
-    ?line All = lists:seq(0,255),
-    ?line AllBin = list_to_binary(All),
-    ?line AllUtf8 = unicode:characters_to_binary(All,latin1),
-    ?line AllUtf8 = unicode:characters_to_binary(AllBin,latin1),
-    ?line AllUtf8 = unicode:characters_to_binary([AllBin],latin1),
-    ?line AllUtf8 = unicode:characters_to_binary(make_unaligned(AllBin),latin1),
-    ?line AllUtf8 = unicode:characters_to_binary([make_unaligned(AllBin)],latin1),
-    ?line AllUtf8 = list_to_utf8_bsyntax([AllBin],latin1),
-    ?line AllUtf8 = list_to_utf8_bsyntax([make_unaligned(AllBin)],latin1),
-    ?line AllUtf8 = unicode_mixed_to_utf8_1(All),
+    All = lists:seq(0,255),
+    AllBin = list_to_binary(All),
+    AllUtf8 = unicode:characters_to_binary(All,latin1),
+    AllUtf8 = unicode:characters_to_binary(AllBin,latin1),
+    AllUtf8 = unicode:characters_to_binary([AllBin],latin1),
+    AllUtf8 = unicode:characters_to_binary(make_unaligned(AllBin),latin1),
+    AllUtf8 = unicode:characters_to_binary([make_unaligned(AllBin)],latin1),
+    AllUtf8 = list_to_utf8_bsyntax([AllBin],latin1),
+    AllUtf8 = list_to_utf8_bsyntax([make_unaligned(AllBin)],latin1),
+    AllUtf8 = unicode_mixed_to_utf8_1(All),
 
-    ?line AllUtf16_Big = unicode:characters_to_binary(All,latin1,utf16),
-    ?line AllUtf16_Big = unicode:characters_to_binary(AllBin,latin1,utf16),
-    ?line AllUtf16_Big = unicode:characters_to_binary([AllBin],latin1,utf16),
-    ?line AllUtf16_Big = unicode:characters_to_binary(make_unaligned(AllBin),latin1,utf16),
-    ?line AllUtf16_Big = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,utf16),
-    ?line AllUtf16_Big = list_to_utf16_big_bsyntax([AllBin],latin1),
-    ?line AllUtf16_Big = list_to_utf16_big_bsyntax([make_unaligned(AllBin)],latin1),
+    AllUtf16_Big = unicode:characters_to_binary(All,latin1,utf16),
+    AllUtf16_Big = unicode:characters_to_binary(AllBin,latin1,utf16),
+    AllUtf16_Big = unicode:characters_to_binary([AllBin],latin1,utf16),
+    AllUtf16_Big = unicode:characters_to_binary(make_unaligned(AllBin),latin1,utf16),
+    AllUtf16_Big = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,utf16),
+    AllUtf16_Big = list_to_utf16_big_bsyntax([AllBin],latin1),
+    AllUtf16_Big = list_to_utf16_big_bsyntax([make_unaligned(AllBin)],latin1),
 
-    ?line AllUtf16_Little = unicode:characters_to_binary(All,latin1,{utf16,little}),
-    ?line AllUtf16_Little = unicode:characters_to_binary(AllBin,latin1,{utf16,little}),
-    ?line AllUtf16_Little = unicode:characters_to_binary([AllBin],latin1,{utf16,little}),
-    ?line AllUtf16_Little = unicode:characters_to_binary(make_unaligned(AllBin),latin1,
-							 {utf16,little}),
-    ?line AllUtf16_Little = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,
-							 {utf16,little}),
-    ?line AllUtf16_Little = list_to_utf16_little_bsyntax([AllBin],latin1),
-    ?line AllUtf16_Little = list_to_utf16_little_bsyntax([make_unaligned(AllBin)],latin1),
+    AllUtf16_Little = unicode:characters_to_binary(All,latin1,{utf16,little}),
+    AllUtf16_Little = unicode:characters_to_binary(AllBin,latin1,{utf16,little}),
+    AllUtf16_Little = unicode:characters_to_binary([AllBin],latin1,{utf16,little}),
+    AllUtf16_Little = unicode:characters_to_binary(make_unaligned(AllBin),latin1,
+						   {utf16,little}),
+    AllUtf16_Little = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,
+						   {utf16,little}),
+    AllUtf16_Little = list_to_utf16_little_bsyntax([AllBin],latin1),
+    AllUtf16_Little = list_to_utf16_little_bsyntax([make_unaligned(AllBin)],latin1),
 
-    ?line AllUtf32_Big = unicode:characters_to_binary(All,latin1,utf32),
-    ?line AllUtf32_Big = unicode:characters_to_binary(AllBin,latin1,utf32),
-    ?line AllUtf32_Big = unicode:characters_to_binary([AllBin],latin1,utf32),
-    ?line AllUtf32_Big = unicode:characters_to_binary(make_unaligned(AllBin),latin1,utf32),
-    ?line AllUtf32_Big = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,utf32),
-    ?line AllUtf32_Big = list_to_utf32_big_bsyntax([AllBin],latin1),
-    ?line AllUtf32_Big = list_to_utf32_big_bsyntax([make_unaligned(AllBin)],latin1),
+    AllUtf32_Big = unicode:characters_to_binary(All,latin1,utf32),
+    AllUtf32_Big = unicode:characters_to_binary(AllBin,latin1,utf32),
+    AllUtf32_Big = unicode:characters_to_binary([AllBin],latin1,utf32),
+    AllUtf32_Big = unicode:characters_to_binary(make_unaligned(AllBin),latin1,utf32),
+    AllUtf32_Big = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,utf32),
+    AllUtf32_Big = list_to_utf32_big_bsyntax([AllBin],latin1),
+    AllUtf32_Big = list_to_utf32_big_bsyntax([make_unaligned(AllBin)],latin1),
 
-    ?line AllUtf32_Little = unicode:characters_to_binary(All,latin1,{utf32,little}),
-    ?line AllUtf32_Little = unicode:characters_to_binary(AllBin,latin1,{utf32,little}),
-    ?line AllUtf32_Little = unicode:characters_to_binary([AllBin],latin1,{utf32,little}),
-    ?line AllUtf32_Little = unicode:characters_to_binary(make_unaligned(AllBin),latin1,
-							 {utf32,little}),
-    ?line AllUtf32_Little = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,
-							 {utf32,little}),
-    ?line AllUtf32_Little = list_to_utf32_little_bsyntax([AllBin],latin1),
-    ?line AllUtf32_Little = list_to_utf32_little_bsyntax([make_unaligned(AllBin)],latin1),
+    AllUtf32_Little = unicode:characters_to_binary(All,latin1,{utf32,little}),
+    AllUtf32_Little = unicode:characters_to_binary(AllBin,latin1,{utf32,little}),
+    AllUtf32_Little = unicode:characters_to_binary([AllBin],latin1,{utf32,little}),
+    AllUtf32_Little = unicode:characters_to_binary(make_unaligned(AllBin),latin1,
+						   {utf32,little}),
+    AllUtf32_Little = unicode:characters_to_binary([make_unaligned(AllBin)],latin1,
+						   {utf32,little}),
+    AllUtf32_Little = list_to_utf32_little_bsyntax([AllBin],latin1),
+    AllUtf32_Little = list_to_utf32_little_bsyntax([make_unaligned(AllBin)],latin1),
 
-    ?line DoubleUtf8 = <<AllUtf8/binary,AllUtf8/binary>>,
-    ?line DoubleUtf8 = unicode:characters_to_binary([All,AllBin],latin1),
-    ?line DoubleUtf8 = 
+    DoubleUtf8 = <<AllUtf8/binary,AllUtf8/binary>>,
+    DoubleUtf8 = unicode:characters_to_binary([All,AllBin],latin1),
+    DoubleUtf8 =
 	unicode:characters_to_binary([All,make_unaligned(AllBin)],latin1),
-    ?line DoubleUtf8 = unicode:characters_to_binary([All|AllBin],latin1),
-    ?line DoubleUtf8 = 
+    DoubleUtf8 = unicode:characters_to_binary([All|AllBin],latin1),
+    DoubleUtf8 =
 	unicode:characters_to_binary([All|make_unaligned(AllBin)],latin1),
-    ?line DoubleUtf8 = unicode:characters_to_binary([AllBin,All],latin1),
-    ?line DoubleUtf8 = unicode:characters_to_binary([AllBin|All],latin1),
-    ?line DoubleUtf8 = list_to_utf8_bsyntax([AllBin|All],latin1), 
+    DoubleUtf8 = unicode:characters_to_binary([AllBin,All],latin1),
+    DoubleUtf8 = unicode:characters_to_binary([AllBin|All],latin1),
+    DoubleUtf8 = list_to_utf8_bsyntax([AllBin|All],latin1),
 
-    ?line DoubleUtf16 = <<AllUtf16_Big/binary,AllUtf16_Big/binary>>,
-    ?line DoubleUtf16 = unicode:characters_to_binary([All,AllBin],latin1,{utf16,big}),
-    ?line DoubleUtf16 = 
+    DoubleUtf16 = <<AllUtf16_Big/binary,AllUtf16_Big/binary>>,
+    DoubleUtf16 = unicode:characters_to_binary([All,AllBin],latin1,{utf16,big}),
+    DoubleUtf16 =
 	unicode:characters_to_binary([All,make_unaligned(AllBin)],latin1,{utf16,big}),
-    ?line DoubleUtf16 = unicode:characters_to_binary([All|AllBin],latin1,{utf16,big}),
-    ?line DoubleUtf16 = 
+    DoubleUtf16 = unicode:characters_to_binary([All|AllBin],latin1,{utf16,big}),
+    DoubleUtf16 =
 	unicode:characters_to_binary([All|make_unaligned(AllBin)],latin1,{utf16,big}),
-    ?line DoubleUtf16 = unicode:characters_to_binary([AllBin,All],latin1,{utf16,big}),
-    ?line DoubleUtf16 = unicode:characters_to_binary([AllBin|All],latin1,{utf16,big}),
-    ?line DoubleUtf16 = list_to_utf16_big_bsyntax([AllBin|All],latin1), 
+    DoubleUtf16 = unicode:characters_to_binary([AllBin,All],latin1,{utf16,big}),
+    DoubleUtf16 = unicode:characters_to_binary([AllBin|All],latin1,{utf16,big}),
+    DoubleUtf16 = list_to_utf16_big_bsyntax([AllBin|All],latin1),
 
-    ?line All = unicode:characters_to_list(AllUtf8,unicode),
-    ?line All = unicode:characters_to_list(make_unaligned(AllUtf8),unicode),
-    ?line All = utf8_to_list_bsyntax(AllUtf8),
-    ?line AllAll = All ++ All,
-    ?line AllAll = unicode:characters_to_list(DoubleUtf8,unicode),
-    ?line AllAll = unicode:characters_to_list(make_unaligned(DoubleUtf8),unicode),
-    ?line AllAll = utf8_to_list_bsyntax(DoubleUtf8),
-    ?line {error,AllUtf8,Rest1} =  unicode:characters_to_binary(All++[16#FFF],latin1),
-    ?line [16#FFF] = lists:flatten(Rest1),
-    ?line {error,DoubleUtf8,Rest2} = 
+    All = unicode:characters_to_list(AllUtf8,unicode),
+    All = unicode:characters_to_list(make_unaligned(AllUtf8),unicode),
+    All = utf8_to_list_bsyntax(AllUtf8),
+    AllAll = All ++ All,
+    AllAll = unicode:characters_to_list(DoubleUtf8,unicode),
+    AllAll = unicode:characters_to_list(make_unaligned(DoubleUtf8),unicode),
+    AllAll = utf8_to_list_bsyntax(DoubleUtf8),
+    {error,AllUtf8,Rest1} =  unicode:characters_to_binary(All++[16#FFF],latin1),
+    [16#FFF] = lists:flatten(Rest1),
+    {error,DoubleUtf8,Rest2} =
 	unicode:characters_to_binary([All,AllBin,16#FFF],latin1),
-    ?line {error,DoubleUtf16,Rest2x} = 
+    {error,DoubleUtf16,Rest2x} =
 	unicode:characters_to_binary([All,AllBin,16#FFF],latin1,utf16),
-    ?line [16#FFF] = lists:flatten(Rest2),
-    ?line [16#FFF] = lists:flatten(Rest2x),
-    ?line {error,AllUtf8,Rest3} = 
+    [16#FFF] = lists:flatten(Rest2),
+    [16#FFF] = lists:flatten(Rest2x),
+    {error,AllUtf8,Rest3} =
 	unicode:characters_to_binary([All,16#FFF,AllBin,16#FFF],
-			    latin1),
-    ?line {error,AllUtf8,Rest3} = 
+				     latin1),
+    {error,AllUtf8,Rest3} =
 	unicode:characters_to_binary([All,16#FFF,make_unaligned(AllBin),16#FFF],
-			    latin1),
-    ?line {error,AllUtf16_Big,Rest3x} = 
+				     latin1),
+    {error,AllUtf16_Big,Rest3x} =
 	unicode:characters_to_binary([All,16#FFF,AllBin,16#FFF],
-			    latin1,{utf16,big}),
-    ?line {error,AllUtf16_Big,Rest3x} = 
+				     latin1,{utf16,big}),
+    {error,AllUtf16_Big,Rest3x} =
 	unicode:characters_to_binary([All,16#FFF,make_unaligned(AllBin),16#FFF],
-			    latin1,{utf16,big}),
-    ?line [16#FFF,AllBin,16#FFF] = lists:flatten(Rest3),
-    ?line [16#FFF,AllBin,16#FFF] = lists:flatten(Rest3x),
-    ?line DoubleSize = byte_size(DoubleUtf8),
-    ?line AllBut1 = DoubleSize - 1,
-    ?line AllBut2 = DoubleSize - 2,
-    ?line <<MissingLastByte:AllBut1/binary,_>> = DoubleUtf8,
-    ?line <<_:AllBut2/binary,MissingStart:1/binary,_>> = DoubleUtf8,
-    ?line {ChompedList,_} = lists:split(length(AllAll) - 1,AllAll),
-    ?line {incomplete,ChompedList,MissingStart} = 
+				     latin1,{utf16,big}),
+    [16#FFF,AllBin,16#FFF] = lists:flatten(Rest3),
+    [16#FFF,AllBin,16#FFF] = lists:flatten(Rest3x),
+    DoubleSize = byte_size(DoubleUtf8),
+    AllBut1 = DoubleSize - 1,
+    AllBut2 = DoubleSize - 2,
+    <<MissingLastByte:AllBut1/binary,_>> = DoubleUtf8,
+    <<_:AllBut2/binary,MissingStart:1/binary,_>> = DoubleUtf8,
+    {ChompedList,_} = lists:split(length(AllAll) - 1,AllAll),
+    {incomplete,ChompedList,MissingStart} =
 	unicode:characters_to_list(MissingLastByte,unicode),
-    ?line {incomplete,ChompedList,MissingStart} = 
+    {incomplete,ChompedList,MissingStart} =
 	unicode:characters_to_list(make_unaligned(MissingLastByte),unicode),
 
-    ?line DoubleSize16 = byte_size(DoubleUtf16),
-    ?line DoubleUtf16_2 = list_to_binary([DoubleUtf16,<<16#FFFFF/utf16-big>>]),
-    ?line DoubleSize16_2 = byte_size(DoubleUtf16_2),
-    ?line AllBut1_16 = DoubleSize16 - 1,
-    ?line AllBut2_16_2 = DoubleSize16_2 - 2,
-    ?line <<MissingLastBytes16:AllBut2_16_2/binary,_,_>> = DoubleUtf16_2,
-    ?line <<MissingLastByte16:AllBut1_16/binary,_>> = DoubleUtf16,
-    ?line {incomplete,AllAll,_} = 
+    DoubleSize16 = byte_size(DoubleUtf16),
+    DoubleUtf16_2 = list_to_binary([DoubleUtf16,<<16#FFFFF/utf16-big>>]),
+    DoubleSize16_2 = byte_size(DoubleUtf16_2),
+    AllBut1_16 = DoubleSize16 - 1,
+    AllBut2_16_2 = DoubleSize16_2 - 2,
+    <<MissingLastBytes16:AllBut2_16_2/binary,_,_>> = DoubleUtf16_2,
+    <<MissingLastByte16:AllBut1_16/binary,_>> = DoubleUtf16,
+    {incomplete,AllAll,_} =
 	unicode:characters_to_list(MissingLastBytes16,utf16),
-    ?line {incomplete,AllAll,_} = 
+    {incomplete,AllAll,_} =
 	unicode:characters_to_list(make_unaligned(MissingLastBytes16),utf16),
-    ?line {incomplete,ChompedList,_} = 
+    {incomplete,ChompedList,_} =
 	unicode:characters_to_list(MissingLastByte16,utf16),
-    ?line {incomplete,ChompedList,_} = 
+    {incomplete,ChompedList,_} =
 	unicode:characters_to_list(make_unaligned(MissingLastByte16),utf16),
     ok.
-    
+
 roundtrips(Config) when is_list(Config) ->
     setlimit(10),
     ex_roundtrips(Config),
@@ -449,23 +428,21 @@ roundtrips(Config) when is_list(Config) ->
     ex_roundtrips(Config).
 
 ex_roundtrips(Config) when is_list(Config) ->
-    ?line L1 = ranges(0, 16#D800 - 1, 
-		      erlang:system_info(context_reductions) * 11),
-    ?line L2 = ranges(16#DFFF + 1, 16#10000 - 1,
-		      erlang:system_info(context_reductions) * 11),
-    %?line L3 = ranges(16#FFFF + 1, 16#10FFFF, 
-    %		      erlang:system_info(context_reductions) * 11),
-    ?line L3 = ranges(16#FFFFF, 16#10FFFF, 
-		      erlang:system_info(context_reductions) * 11),
-    ?line L = L1 ++ L2 ++ L3,
-    ?line LLen = length(L),
-    ?line Parts = erlang:system_info(schedulers),
-    ?line Lists = splitup(L,LLen,Parts),
-    ?line PidRefs = [spawn_monitor(fun() ->
-					   do_roundtrips(MyPart)
-				   end) || MyPart <- Lists],
-    ?line [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end ||
-	      {Pid,Ref} <- PidRefs],
+    L1 = ranges(0, 16#D800 - 1,
+		erlang:system_info(context_reductions) * 11),
+    L2 = ranges(16#DFFF + 1, 16#10000 - 1,
+		erlang:system_info(context_reductions) * 11),
+    L3 = ranges(16#FFFFF, 16#10FFFF,
+		erlang:system_info(context_reductions) * 11),
+    L = L1 ++ L2 ++ L3,
+    LLen = length(L),
+    Parts = erlang:system_info(schedulers),
+    Lists = splitup(L,LLen,Parts),
+    PidRefs = [spawn_monitor(fun() ->
+				     do_roundtrips(MyPart)
+			     end) || MyPart <- Lists],
+    [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end ||
+	{Pid,Ref} <- PidRefs],
     ok.
 
 do_roundtrips([]) ->
@@ -529,10 +506,10 @@ ex_random_lists(Config) when is_list(Config) ->
     PlainFlatten4 = fun(L) ->
 			    iolist_to_binary([int_to_utf8(X) || X <- unicode:characters_to_list(flatb(L),latin1)])
 		    end,
-    ?line random_iolist:run(150, PlainFlatten1, PlainFlatten3),
-    ?line random_iolist:run(150, PlainFlatten2, PlainFlatten3),
-    ?line random_iolist:run(150, PlainFlatten1, PlainFlatten2),
-    ?line random_iolist:run(150, PlainFlatten1, PlainFlatten4),
+    random_iolist:run(150, PlainFlatten1, PlainFlatten3),
+    random_iolist:run(150, PlainFlatten2, PlainFlatten3),
+    random_iolist:run(150, PlainFlatten1, PlainFlatten2),
+    random_iolist:run(150, PlainFlatten1, PlainFlatten4),
     SelfMade = fun(L) ->
 		       iolist_to_binary(lists:map(fun(X) ->
 							  int_to_utf8(X)
@@ -548,52 +525,52 @@ ex_random_lists(Config) when is_list(Config) ->
 				Other
 			end
 		end,
-    ?line random_iolist:run(150, PlainFlatten1, SelfMade),
-    ?line random_iolist:run(150, PlainFlatten2, SelfMadeA),
+    random_iolist:run(150, PlainFlatten1, SelfMade),
+    random_iolist:run(150, PlainFlatten2, SelfMadeA),
 
     RoundTrip11 = fun(L) ->
-			 unicode:characters_to_list(unicode:characters_to_binary(L,latin1),unicode)
-		 end,
+			  unicode:characters_to_list(unicode:characters_to_binary(L,latin1),unicode)
+		  end,
     RoundTrip21 = fun(L) ->
-			 utf8_to_list_bsyntax(unicode:characters_to_binary(L,latin1))
-		 end,
+			  utf8_to_list_bsyntax(unicode:characters_to_binary(L,latin1))
+		  end,
     RoundTrip31 = fun(L) ->
-			 unicode:characters_to_list(list_to_utf8_bsyntax(L,latin1),unicode)
-		 end,
+			  unicode:characters_to_list(list_to_utf8_bsyntax(L,latin1),unicode)
+		  end,
     RoundTrip41 = fun(L) ->
-			 utf8_to_list_bsyntax(list_to_utf8_bsyntax(L,latin1))
-		 end,
+			  utf8_to_list_bsyntax(list_to_utf8_bsyntax(L,latin1))
+		  end,
     RoundTrip51 = fun(L) ->
-			 unicode:characters_to_list(L,latin1)
-		 end,
-    ?line random_iolist:run(150, RoundTrip11,RoundTrip21),
-    ?line random_iolist:run(150, RoundTrip21,RoundTrip31),
-    ?line random_iolist:run(150, RoundTrip31,RoundTrip41),
-    ?line random_iolist:run(150, RoundTrip11,RoundTrip41),
-    ?line random_iolist:run(150, RoundTrip21,RoundTrip41),
-    ?line random_iolist:run(150, RoundTrip11,RoundTrip31),
-    ?line random_iolist:run(150, RoundTrip11,RoundTrip51),
+			  unicode:characters_to_list(L,latin1)
+		  end,
+    random_iolist:run(150, RoundTrip11,RoundTrip21),
+    random_iolist:run(150, RoundTrip21,RoundTrip31),
+    random_iolist:run(150, RoundTrip31,RoundTrip41),
+    random_iolist:run(150, RoundTrip11,RoundTrip41),
+    random_iolist:run(150, RoundTrip21,RoundTrip41),
+    random_iolist:run(150, RoundTrip11,RoundTrip31),
+    random_iolist:run(150, RoundTrip11,RoundTrip51),
 
 
     UniFlatten1 = fun(L) ->
 			  unicode:characters_to_binary(flat(L),unicode)
 		  end,
     UniFlatten2 = fun(L) ->
-			    unicode:characters_to_binary(L,unicode)
+			  unicode:characters_to_binary(L,unicode)
 		  end,
     UniFlatten3 = fun(L) ->
-			    unicode:characters_to_binary(flatx(L),unicode)
+			  unicode:characters_to_binary(flatx(L),unicode)
 		  end,
     UniFlatten4 = fun(L) ->
-			    unicode:characters_to_binary(unicode:characters_to_list(L,unicode),unicode)
+			  unicode:characters_to_binary(unicode:characters_to_list(L,unicode),unicode)
 		  end,
-    ?line random_unicode_list:run(150, UniFlatten1,UniFlatten2),
-    ?line random_unicode_list:run(150, UniFlatten1,UniFlatten3),
-    ?line random_unicode_list:run(150, UniFlatten2,UniFlatten4),
-    ?line random_unicode_list:run(150, UniFlatten2,UniFlatten3),
+    random_unicode_list:run(150, UniFlatten1,UniFlatten2),
+    random_unicode_list:run(150, UniFlatten1,UniFlatten3),
+    random_unicode_list:run(150, UniFlatten2,UniFlatten4),
+    random_unicode_list:run(150, UniFlatten2,UniFlatten3),
 
-    ?line Encodings = [utf8,{utf16,big},
-		       {utf16,little},{utf32,big},{utf32,little}],
+    Encodings = [utf8,{utf16,big},
+		 {utf16,little},{utf32,big},{utf32,little}],
     lists:foreach(fun(OutEnc1) ->
 			  lists:foreach(fun(InEnc1) -> 
 						Uni16BigFlatten1 = fun(L) ->
@@ -608,11 +585,10 @@ ex_random_lists(Config) when is_list(Config) ->
 						Uni16BigFlatten4 = fun(L) ->
 									   unicode:characters_to_binary(unicode:characters_to_list(L,InEnc1),InEnc1,OutEnc1)
 								   end,
-						%erlang:display({InEnc1,OutEnc1}),
-						?line random_unicode_list:run(150, Uni16BigFlatten1,Uni16BigFlatten2,InEnc1),
-						?line random_unicode_list:run(150, Uni16BigFlatten1,Uni16BigFlatten3,InEnc1),
-						?line random_unicode_list:run(150, Uni16BigFlatten2,Uni16BigFlatten4,InEnc1),
-						?line random_unicode_list:run(150, Uni16BigFlatten2,Uni16BigFlatten3,InEnc1)
+						random_unicode_list:run(150, Uni16BigFlatten1,Uni16BigFlatten2,InEnc1),
+						random_unicode_list:run(150, Uni16BigFlatten1,Uni16BigFlatten3,InEnc1),
+						random_unicode_list:run(150, Uni16BigFlatten2,Uni16BigFlatten4,InEnc1),
+						random_unicode_list:run(150, Uni16BigFlatten2,Uni16BigFlatten3,InEnc1)
 					end, Encodings)
 		  end, Encodings),
     SelfMade1 = fun(L) ->
@@ -624,10 +600,10 @@ ex_random_lists(Config) when is_list(Config) ->
     SelfMade3 = fun(L) ->
 			list_to_utf8_bsyntax(L,unicode)
 		end,
-    ?line random_unicode_list:run(150, SelfMade1,SelfMade2),
-    ?line random_unicode_list:run(150, UniFlatten2, SelfMade1),
-    ?line random_unicode_list:run(150, UniFlatten2, SelfMade2),
-    ?line random_unicode_list:run(150, UniFlatten2, SelfMade3),
+    random_unicode_list:run(150, SelfMade1,SelfMade2),
+    random_unicode_list:run(150, UniFlatten2, SelfMade1),
+    random_unicode_list:run(150, UniFlatten2, SelfMade2),
+    random_unicode_list:run(150, UniFlatten2, SelfMade3),
     RoundTrip1 = fun(L) ->
 			 unicode:characters_to_list(unicode:characters_to_binary(L,unicode),unicode)
 		 end,
@@ -640,12 +616,12 @@ ex_random_lists(Config) when is_list(Config) ->
     RoundTrip4 = fun(L) ->
 			 utf8_to_list_bsyntax(list_to_utf8_bsyntax(L,unicode))
 		 end,
-    ?line random_unicode_list:run(150, RoundTrip1,RoundTrip2),
-    ?line random_unicode_list:run(150, RoundTrip2,RoundTrip3),
-    ?line random_unicode_list:run(150, RoundTrip3,RoundTrip4),
-    ?line random_unicode_list:run(150, RoundTrip1,RoundTrip4),
-    ?line random_unicode_list:run(150, RoundTrip2,RoundTrip4),
-    ?line random_unicode_list:run(150, RoundTrip1,RoundTrip3),
+    random_unicode_list:run(150, RoundTrip1,RoundTrip2),
+    random_unicode_list:run(150, RoundTrip2,RoundTrip3),
+    random_unicode_list:run(150, RoundTrip3,RoundTrip4),
+    random_unicode_list:run(150, RoundTrip1,RoundTrip4),
+    random_unicode_list:run(150, RoundTrip2,RoundTrip4),
+    random_unicode_list:run(150, RoundTrip1,RoundTrip3),
     lists:foreach(fun(OutEnc2) ->
 			  lists:foreach(fun(InEnc2) ->
 						RoundTripUtf16_Big_1 = fun(L) ->
@@ -660,12 +636,12 @@ ex_random_lists(Config) when is_list(Config) ->
 						RoundTripUtf16_Big_4 = fun(L) ->
 									       x_to_list_bsyntax(InEnc2,list_to_x_bsyntax(InEnc2,L,InEnc2))
 								       end,
-						?line random_unicode_list:run(150, RoundTripUtf16_Big_1,RoundTripUtf16_Big_2,InEnc2),
-						?line random_unicode_list:run(150, RoundTripUtf16_Big_2,RoundTripUtf16_Big_3,InEnc2),
-						?line random_unicode_list:run(150, RoundTripUtf16_Big_3,RoundTripUtf16_Big_4,InEnc2),
-						?line random_unicode_list:run(150, RoundTripUtf16_Big_1,RoundTripUtf16_Big_4,InEnc2),
-						?line random_unicode_list:run(150, RoundTripUtf16_Big_2,RoundTripUtf16_Big_4,InEnc2),
-						?line random_unicode_list:run(150, RoundTripUtf16_Big_1,RoundTripUtf16_Big_3,InEnc2)
+						random_unicode_list:run(150, RoundTripUtf16_Big_1,RoundTripUtf16_Big_2,InEnc2),
+						random_unicode_list:run(150, RoundTripUtf16_Big_2,RoundTripUtf16_Big_3,InEnc2),
+						random_unicode_list:run(150, RoundTripUtf16_Big_3,RoundTripUtf16_Big_4,InEnc2),
+						random_unicode_list:run(150, RoundTripUtf16_Big_1,RoundTripUtf16_Big_4,InEnc2),
+						random_unicode_list:run(150, RoundTripUtf16_Big_2,RoundTripUtf16_Big_4,InEnc2),
+						random_unicode_list:run(150, RoundTripUtf16_Big_1,RoundTripUtf16_Big_3,InEnc2)
 					end, Encodings)
 		  end, Encodings),
     ToList1 = fun(L) ->
@@ -680,12 +656,12 @@ ex_random_lists(Config) when is_list(Config) ->
     ToList4 = fun(L) ->
 		      utf8_to_list(unicode_mixed_to_utf8_2(L))
 	      end,
-    ?line random_unicode_list:run(150, ToList1,ToList2),
-    ?line random_unicode_list:run(150, ToList2,ToList3),
-    ?line random_unicode_list:run(150, ToList3,ToList4),
-    ?line random_unicode_list:run(150, ToList1,ToList4),
-    ?line random_unicode_list:run(150, ToList2,ToList4),
-    ?line random_unicode_list:run(150, ToList1,ToList3),
+    random_unicode_list:run(150, ToList1,ToList2),
+    random_unicode_list:run(150, ToList2,ToList3),
+    random_unicode_list:run(150, ToList3,ToList4),
+    random_unicode_list:run(150, ToList1,ToList4),
+    random_unicode_list:run(150, ToList2,ToList4),
+    random_unicode_list:run(150, ToList1,ToList3),
 
     ok.
 
@@ -696,13 +672,13 @@ utf16_illegal_sequences_bif(Config) when is_list(Config) ->
     ex_utf16_illegal_sequences_bif(Config).
 
 ex_utf16_illegal_sequences_bif(Config) when is_list(Config) ->
-    ?line utf16_fail_range_bif_simple(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line utf16_fail_range_bif(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    utf16_fail_range_bif_simple(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    utf16_fail_range_bif(16#D800, 16#DFFF),		%Reserved for UTF-16.
 
-    ?line lonely_hi_surrogate_bif(16#D800, 16#DBFF,incomplete),
-    ?line lonely_hi_surrogate_bif(16#DC00, 16#DFFF,error),
-    ?line leading_lo_surrogate_bif(16#DC00, 16#DFFF),
-    
+    lonely_hi_surrogate_bif(16#D800, 16#DBFF,incomplete),
+    lonely_hi_surrogate_bif(16#DC00, 16#DFFF,error),
+    leading_lo_surrogate_bif(16#DC00, 16#DFFF),
+
     ok.
 
 utf16_fail_range_bif(Char, End) when Char =< End ->
@@ -764,26 +740,27 @@ leading_lo_surrogate_bif(HiSurr, LoSurr, End) when LoSurr =< End ->
 leading_lo_surrogate_bif(_, _, _) -> ok.
 
 utf8_illegal_sequences_bif(Config) when is_list(Config) ->
+    ct:timetrap({minutes,40}), %% valgrind needs a lot
     setlimit(10),
     ex_utf8_illegal_sequences_bif(Config),
     setlimit(default),
     ex_utf8_illegal_sequences_bif(Config).
 
 ex_utf8_illegal_sequences_bif(Config) when is_list(Config) ->
-    ?line fail_range_bif(16#10FFFF+1, 16#10FFFF+512), %Too large.
-    ?line fail_range_bif(16#D800, 16#DFFF),		%Reserved for UTF-16.
+    fail_range_bif(16#10FFFF+1, 16#10FFFF+512), %Too large.
+    fail_range_bif(16#D800, 16#DFFF),		%Reserved for UTF-16.
 
     %% Illegal first character.
-    ?line [fail_bif(<<I,16#8F,16#8F,16#8F>>,unicode) || I <- lists:seq(16#80, 16#BF)],
+    [fail_bif(<<I,16#8F,16#8F,16#8F>>,unicode) || I <- lists:seq(16#80, 16#BF)],
 
     %% Short sequences.
-    ?line short_sequences_bif(16#80, 16#10FFFF),
+    short_sequences_bif(16#80, 16#10FFFF),
 
     %% Overlong sequences. (Using more bytes than necessary
     %% is not allowed.)
-    ?line overlong_bif(0, 127, 2),
-    ?line overlong_bif(128, 16#7FF, 3),
-    ?line overlong_bif(16#800, 16#FFFF, 4),
+    overlong_bif(0, 127, 2),
+    overlong_bif(128, 16#7FF, 3),
+    overlong_bif(16#800, 16#FFFF, 4),
     ok.
 
 fail_range_bif(Char, End) when Char =< End ->
@@ -797,7 +774,6 @@ fail_range_bif(_, _) -> ok.
 
 short_sequences_bif(Char, End) ->
     Step = (End - Char) div erlang:system_info(schedulers) + 1,
-%    Step = (End - Char) + 1,
     PidRefs = short_sequences_bif_1(Char, Step, End),
     [receive {'DOWN',Ref,process,Pid,Reason} -> normal=Reason end ||
 	{Pid,Ref} <- PidRefs],
@@ -918,8 +894,8 @@ only_fail_bif_1(Bin,Coding) ->
 	Other ->
 	    exit({faulty_encoding_accepted,[Bin],Coding,Other})
     end.
-    
-	    
+
+
 
 
 fail_bif(Bin,Coding) ->
@@ -1021,9 +997,9 @@ unicode_mixed_to_utf8_2(L) ->
 			int_to_utf8(E)
 		end || E <- Flist ],
     iolist_to_binary([ExpList]).
-    
-    
-    
+
+
+
 
 utf8_to_list_bsyntax(<<>>) ->
     [];
@@ -1042,8 +1018,8 @@ list_to_utf8_bsyntax(List,latin1) ->
     FList = flatb(List),
     list_to_binary([ <<E/utf8>> || E <- FList ]).
 
-    
-    
+
+
 
 
 %%
@@ -1066,7 +1042,7 @@ int_to_utf16_little(U) when U >= 16#10000, U =< 16#10FFFF ->
     LO = (16#DC00 bor (UPrim band 16#3FF)),
     <<HI:16/little,LO:16/little>>.
 
-    
+
 %% This function intentionally allows construction of
 %% UTF-8 sequence in illegal ranges.
 int_to_utf8(I) when I =< 16#7F ->
@@ -1093,7 +1069,7 @@ int_to_utf8(I) when I =< 16#3FFFFFF ->
     B2 = (I bsr 18),
     B1 = (I bsr 24),
     <<1:1,1:1,1:1,1:1,1:1,0:1,B1:2,1:1,0:1,B2:6,1:1,0:1,B3:6,1:1,0:1,B4:6,
-     1:1,0:1,B5:6>>.
+      1:1,0:1,B5:6>>.
 
 utf16_big_to_list_bsyntax(<<>>) ->
     [];
@@ -1131,7 +1107,7 @@ list_to_utf16_little_bsyntax(List,latin1) ->
     list_to_binary([ <<E/utf16-little>> || E <- FList ]).
 
 
-    
+
 utf32_big_to_list_bsyntax(<<>>) ->
     [];
 utf32_big_to_list_bsyntax(<<C/utf32-big,R/binary>>) ->
@@ -1162,12 +1138,12 @@ list_to_utf32_little_bsyntax(List,{utf32,little}) ->
 			     E;
 			 true ->
 			     <<E/utf32-little>>
-		      end || E <- FList ]);
+		     end || E <- FList ]);
 list_to_utf32_little_bsyntax(List,latin1) ->
     FList = flatb(List),
     list_to_binary([ <<E/utf32-little>> || E <- FList ]).
 
-    
+
 
 %% int_to_utf8(I, NumberOfBytes) -> Binary.
 %%  This function can be used to construct overlong sequences.
@@ -1211,7 +1187,7 @@ utf8_to_int(<<1:1,1:1,0:1,B1:5,1:1,0:1,B2:6>>) ->
 utf8_to_int(<<1:1,1:1,1:1,0:1,B1:4,1:1,0:1,B2:6,1:1,0:1,B3:6>>) ->
     (B1 bsl 12) bor (B2 bsl 6) bor B3; 
 utf8_to_int(<<1:1,1:1,1:1,1:1,0:1,B1:3,1:1,0:1,
-	     B2:6,1:1,0:1,B3:6,1:1,0:1,B4:6>>) ->
+	      B2:6,1:1,0:1,B3:6,1:1,0:1,B4:6>>) ->
     Res = (B1 bsl 18) bor (B2 bsl 12) bor (B3 bsl 6) bor B4,
     case Res of
 	X when X > 16#10FFFF ->
@@ -1295,10 +1271,9 @@ list_to_x_bsyntax({utf32,big},L,Enc) ->
     list_to_utf32_big_bsyntax(L,Enc);
 list_to_x_bsyntax({utf32,little},L,Enc) ->
     list_to_utf32_little_bsyntax(L,Enc).
-    
+
 
 make_unaligned(Bin0) when is_binary(Bin0) ->
-%    put(c_count,get(c_count)+1),    
     Bin1 = <<0:3,Bin0/binary,31:5>>,
     Sz = byte_size(Bin0),
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
@@ -1310,80 +1285,3 @@ setlimit(X) ->
     erts_debug:set_internal_state(available_internal_state,true),
     io:format("Setting loop limit, old: ~p, now set to ~p~n",
 	      [erts_debug:set_internal_state(unicode_loop_limit,X),X]).
-
-
-%%
-%% Tracing utility
-%%
-
-%% tr_dump() ->
-%%     erlang:display(lists:sort(ets:tab2list(values))).
-
-%% tr_off(Pid) ->
-%%     receive after 10000 -> ok end,
-%%     tr_dump(),
-%%     Ref = erlang:monitor(process,Pid),
-%%     exit(Pid,kill),
-%%     receive
-%% 	{'DOWN',Ref,_,_,_} -> ok
-%%     end,
-%%     ok.
-
-%% tr_on() ->   
-%%     catch ets:delete(values),
-%%     ets:new(values,[named_table,public]),
-%%     ets:insert(values,{traps,0}),
-%%     catch ets:delete(state),
-%%     ets:new(state,[named_table,public]),
-%%     Pid = spawn(?MODULE,trace_recv,[values,state]),
-%%     erlang:trace(new,true,[garbage_collection,{tracer,Pid},timestamp,call]),
-%%     erlang:trace_pattern({erlang,list_to_utf8,2},[{'_',[],[{return_trace}]}],[global]),
-%%     Pid.
-
-%% ts_to_int({Mega,Sec,Micro}) ->
-%%     ((Mega * 1000000) + Sec) * 1000000 + Micro.
-
-%% trace_recv(Values,State) ->
-%%     receive
-%% 	{trace_ts,Pid,call,_,TS} ->
-%% 	    case ets:lookup(State,{call,Pid}) of
-%% 		[{{call,Pid},_}] ->
-%% 		    ets:update_counter(values,traps,1);
-%% 		_ ->
-%% 		    ok
-%% 	    end,
-%% 	    ets:insert(State,{{call,Pid},ts_to_int(TS)});
-%% 	{trace_ts,Pid,return_from,_,_,TS} ->
-%% 	    case ets:lookup(State,{call,Pid}) of
-%% 		[{{call,Pid},TS2}] ->
-%% 		    ets:delete(State,{call,Pid}),
-%% 		    Elapsed = ts_to_int(TS) - TS2,
-%% 		    case ets:lookup(Values,Pid) of
-%% 			[{Pid,GCNum,CallNum,GCTime,CallTime}] ->
-%% 			    ets:insert(Values,{Pid,GCNum,CallNum+1,GCTime,CallTime+Elapsed});
-%% 			[] ->
-%% 			     ets:insert(Values,{Pid,0,1,0,Elapsed})
-%% 		    end;
-%% 		_Other ->
-%% 		    erlang:display({what2,Pid})
-%% 	    end;
-%% 	{trace_ts,Pid,gc_start,_,TS} ->
-%% 	    ets:insert(State,{{gc,Pid},ts_to_int(TS)});
-%% 	{trace_ts,Pid,gc_end,_,TS} ->
-%% 	    case ets:lookup(State,{gc,Pid}) of
-%% 		[{{gc,Pid},TS2}] ->
-%% 		    ets:delete(State,{gc,Pid}),
-%% 		    Elapsed = ts_to_int(TS) - TS2,
-%% 		    case ets:lookup(Values,Pid) of
-%% 			[{Pid,Num,CNum,Time,CTime}] ->
-%% 			    ets:insert(Values,{Pid,Num+1,CNum,Time+Elapsed,CTime});
-%% 			[] ->
-%% 			     ets:insert(Values,{Pid,1,0,Elapsed,0})
-%% 		    end;
-%% 		_Other ->
-%% 		    erlang:display({what,Pid})
-%% 	    end;
-%% 	X ->
-%% 	    erlang:display({trace_recv,X})
-%%     end,
-%%     trace_recv(Values,State).

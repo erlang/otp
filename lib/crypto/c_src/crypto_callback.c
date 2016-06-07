@@ -1,7 +1,7 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,10 @@
 
 #ifdef __WIN32__
 #  define DLLEXPORT __declspec(dllexport)
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#  define DLLEXPORT __attribute__ ((visibility("default")))
+#elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#  define DLLEXPORT __global
 #else
 #  define DLLEXPORT
 #endif
@@ -50,8 +54,6 @@
 /* to be dlsym'ed */
 DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks);
 
-
-static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 
 static void nomem(size_t size, const char* op)
 {
@@ -83,6 +85,8 @@ static void crypto_free(void* ptr)
 
 
 #ifdef OPENSSL_THREADS /* vvvvvvvvvvvvvvv OPENSSL_THREADS vvvvvvvvvvvvvvvv */
+
+static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 
 #include <openssl/crypto.h>
 

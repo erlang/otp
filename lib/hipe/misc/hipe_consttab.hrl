@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 %%
 %%-----------------------------------------------------------------------------
 
--type ct_alignment()  :: 4 | 8.
+-type ct_alignment()  :: 4 | 8 | 16 | 32.
 
 -type hipe_constlbl() :: non_neg_integer().
 -type hipe_consttab() :: {dict:dict(), [hipe_constlbl()], hipe_constlbl()}.

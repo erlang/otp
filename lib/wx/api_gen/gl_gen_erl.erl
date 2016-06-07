@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -463,7 +463,7 @@ doc_return_types(T, Ps0) ->
     Ps = [P || P=#arg{in=In, where=Where} <- Ps0,In =/= true, Where =/= c],
     doc_return_types2(T, Ps).
 
-doc_return_types2(void, []) ->    "ok";
+doc_return_types2(void, []) ->    "'ok'";
 doc_return_types2(void, [#arg{type=T}]) ->  doc_arg_type2(T);
 doc_return_types2(T, []) ->              doc_arg_type2(T);
 doc_return_types2(void, Ps) ->

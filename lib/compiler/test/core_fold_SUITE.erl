@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,11 +25,12 @@
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
 	 unused_multiple_values_error/1,unused_multiple_values/1,
 	 multiple_aliases/1,redundant_boolean_clauses/1,
-	 mixed_matching_clauses/1,unnecessary_building/1]).
+	 mixed_matching_clauses/1,unnecessary_building/1,
+	 no_no_file/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -43,7 +44,8 @@ groups() ->
        eq,nested_call_in_case,guard_try_catch,coverage,
        unused_multiple_values_error,unused_multiple_values,
        multiple_aliases,redundant_boolean_clauses,
-       mixed_matching_clauses,unnecessary_building]}].
+       mixed_matching_clauses,unnecessary_building,
+       no_no_file]}].
 
 
 init_per_suite(Config) ->
@@ -61,8 +63,8 @@ end_per_group(_GroupName, Config) ->
 
 t_element(Config) when is_list(Config) ->
     X = make_ref(),
-    ?line X = id(element(1, {X,y,z})),
-    ?line b = id(element(2, {a,b,c,d})),
+    X = id(element(1, {X,y,z})),
+    b = id(element(2, {a,b,c,d})),
     (fun() ->
 	    case {a,#{k=>X}} of
 		{a,#{k:=X}}=Tuple ->
@@ -73,21 +75,21 @@ t_element(Config) when is_list(Config) ->
     %% No optimization, but should work.
     Tuple = id({x,y,z}),
     Pos = id(3),
-    ?line x = id(element(1, Tuple)),
-    ?line c = id(element(Pos, {a,b,c,d})),
-    ?line X = id(element(Pos, {a,b,X,d})),
-    ?line z = id(element(Pos, Tuple)),
+    x = id(element(1, Tuple)),
+    c = id(element(Pos, {a,b,c,d})),
+    X = id(element(Pos, {a,b,X,d})),
+    z = id(element(Pos, Tuple)),
 
     %% Calls that will fail.
-    ?line {'EXIT',{badarg,_}} = (catch element(5, {a,b,c,d})),
-    ?line {'EXIT',{badarg,_}} = (catch element(5, {a,b,X,d})),
-    ?line {'EXIT',{badarg,_}} = (catch element(5.0, {a,b,X,d})),
+    {'EXIT',{badarg,_}} = (catch element(5, {a,b,c,d})),
+    {'EXIT',{badarg,_}} = (catch element(5, {a,b,X,d})),
+    {'EXIT',{badarg,_}} = (catch element(5.0, {a,b,X,d})),
     {'EXIT',{badarg,_}} = (catch element(2, not_a_tuple)),
     {'EXIT',{badarg,_}} = (catch element(2, [])),
     {'EXIT',{badarg,_}} = (catch element(2, Tuple == 3)),
     case id({a,b,c}) of
 	{_,_,_}=Tup ->
-	    ?line {'EXIT',{badarg,_}} = (catch element(4, Tup))
+	    {'EXIT',{badarg,_}} = (catch element(4, Tup))
     end,
     {'EXIT',{badarg,_}} = (catch element(1, tuple_size(Tuple))),
 
@@ -96,16 +98,16 @@ t_element(Config) when is_list(Config) ->
 setelement(Config) when is_list(Config) ->
     X = id(b),
     New = id([1,2,3]),
-    ?line {y,b,c} = id(setelement(1, {a,b,c}, y)),
-    ?line {y,b,c} = id(setelement(1, {a,X,c}, y)),
-    ?line {a,y,c} = id(setelement(2, {a,X,c}, y)),
-    ?line {a,[1,2,3],c} = id(setelement(2, {a,b,c}, New)),
-    ?line {a,[1,2,3],c} = id(setelement(2, {a,X,c}, New)),
-    ?line {a,b,[1,2,3]} = id(setelement(3, {a,b,c}, New)),
-    ?line {a,b,[1,2,3]} = id(setelement(3, {a,X,c}, New)),
+    {y,b,c} = id(setelement(1, {a,b,c}, y)),
+    {y,b,c} = id(setelement(1, {a,X,c}, y)),
+    {a,y,c} = id(setelement(2, {a,X,c}, y)),
+    {a,[1,2,3],c} = id(setelement(2, {a,b,c}, New)),
+    {a,[1,2,3],c} = id(setelement(2, {a,X,c}, New)),
+    {a,b,[1,2,3]} = id(setelement(3, {a,b,c}, New)),
+    {a,b,[1,2,3]} = id(setelement(3, {a,X,c}, New)),
 
-    ?line {'EXIT',{badarg,_}} = (catch setelement_crash({a,b,c,d,e,f})),
-    ?line error = setelement_crash_2({a,b,c,d,e,f}, <<42>>),
+    {'EXIT',{badarg,_}} = (catch setelement_crash({a,b,c,d,e,f})),
+    error = setelement_crash_2({a,b,c,d,e,f}, <<42>>),
 
     {'EXIT',{badarg,_}} = (catch setelement(1, not_a_tuple, New)),
     {'EXIT',{badarg,_}} = (catch setelement(3, {a,b}, New)),
@@ -132,19 +134,19 @@ setelement_crash_2(Tuple, Bin) ->
 t_length(Config) when is_list(Config) ->
     Blurf = id({blurf,a,b}),
     Tail = id([42,43,44,45]),
-    ?line 0 = id(length([])),
-    ?line 1 = id(length([x])),
-    ?line 2 = id(length([x,Blurf])),
-    ?line 4 = id(length([x,Blurf,a,b])),
+    0 = id(length([])),
+    1 = id(length([x])),
+    2 = id(length([x,Blurf])),
+    4 = id(length([x,Blurf,a,b])),
 
     %% No or partial optimization.
-    ?line 4 = length(Tail),
-    ?line 5 = id(length([x|Tail])),
+    4 = length(Tail),
+    5 = id(length([x|Tail])),
 
     %% Will fail.
-    ?line {'EXIT',{badarg,_}} = (catch id(length([a,b|c]))),
-    ?line {'EXIT',{badarg,_}} = (catch id(length([a,Blurf|c]))),
-    ?line {'EXIT',{badarg,_}} = (catch id(length(atom))),
+    {'EXIT',{badarg,_}} = (catch id(length([a,b|c]))),
+    {'EXIT',{badarg,_}} = (catch id(length([a,Blurf|c]))),
+    {'EXIT',{badarg,_}} = (catch id(length(atom))),
 
     ok.
 
@@ -156,34 +158,34 @@ t_length(Config) when is_list(Config) ->
 
 append(Config) when is_list(Config) ->
     A = id(0),
-    ?line [a,b,c,d,e,f,g,h,i,j,k] = id(?APPEND([a,b,c,d,e,f],[g,h,i,j,k])),
-    ?line [a,b,c,d,e] = id(?APPEND([a,b,c],id([d,e]))),
-    ?line [0,1,2,3,4,5,6] = id(?APPEND([A,1,2,3],[4,5,6])),
-    ?line {'EXIT',{badarg,_}} = (catch id(?APPEND([A|blurf],[4,5,6]))),
+    [a,b,c,d,e,f,g,h,i,j,k] = id(?APPEND([a,b,c,d,e,f],[g,h,i,j,k])),
+    [a,b,c,d,e] = id(?APPEND([a,b,c],id([d,e]))),
+    [0,1,2,3,4,5,6] = id(?APPEND([A,1,2,3],[4,5,6])),
+    {'EXIT',{badarg,_}} = (catch id(?APPEND([A|blurf],[4,5,6]))),
     ok.
 
 t_apply(Config) when is_list(Config) ->
-    ?line ok = apply(?MODULE, foo, []),
-    ?line 4 = apply(?MODULE, foo, [3]),
-    ?line 7 = apply(?MODULE, foo, [3,4]),
-    ?line 12 = apply(?MODULE, foo, [id(8),4]),
-    ?line 21 = apply(?MODULE, foo, [8,id(9),4]),
-    ?line 20 = apply(?MODULE, foo, [8,8,id(4)]),
-    ?line 24 = apply(?MODULE, foo, [id(10),10,4]),
+    ok = apply(?MODULE, foo, []),
+    4 = apply(?MODULE, foo, [3]),
+    7 = apply(?MODULE, foo, [3,4]),
+    12 = apply(?MODULE, foo, [id(8),4]),
+    21 = apply(?MODULE, foo, [8,id(9),4]),
+    20 = apply(?MODULE, foo, [8,8,id(4)]),
+    24 = apply(?MODULE, foo, [id(10),10,4]),
 
     M = id(?MODULE),
-    ?line ok = apply(M, foo, []),
-    ?line 4 = apply(M, foo, [3]),
-    ?line 16.0 = apply(M, foo, [12.0,4]),
+    ok = apply(M, foo, []),
+    4 = apply(M, foo, [3]),
+    16.0 = apply(M, foo, [12.0,4]),
 
     %% Will fail.
-    ?line {'EXIT',{badarg,_}} = (catch apply([a,b,c], foo, [])),
-    ?line {'EXIT',{badarg,_}} = (catch apply(42, foo, [])),
-    ?line {'EXIT',{badarg,_}} = (catch apply(?MODULE, 45, [xx])),
-    ?line {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, {a,b})),
-    ?line {'EXIT',{badarg,_}} = (catch apply(M, M, [1009|10010])),
-    ?line {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, [10000|9999])),
-    ?line {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, a)),
+    {'EXIT',{badarg,_}} = (catch apply([a,b,c], foo, [])),
+    {'EXIT',{badarg,_}} = (catch apply(42, foo, [])),
+    {'EXIT',{badarg,_}} = (catch apply(?MODULE, 45, [xx])),
+    {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, {a,b})),
+    {'EXIT',{badarg,_}} = (catch apply(M, M, [1009|10010])),
+    {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, [10000|9999])),
+    {'EXIT',{badarg,_}} = (catch apply(?MODULE, foo, a)),
 
     ok.
 
@@ -210,13 +212,13 @@ bifs(Config) when is_list(Config) ->
 -define(CMP_DIFF(A0, B), (fun(A) -> false = A == B, true = A /= B end)(id(A0))).
 	       
 eq(Config) when is_list(Config) ->
-    ?line ?CMP_SAME([a,b,c], [a,b,c]),
-    ?line ?CMP_SAME([42.0], [42.0]),
-    ?line ?CMP_SAME([42], [42]),
-    ?line ?CMP_SAME([42.0], [42]),
+    ?CMP_SAME([a,b,c], [a,b,c]),
+    ?CMP_SAME([42.0], [42.0]),
+    ?CMP_SAME([42], [42]),
+    ?CMP_SAME([42.0], [42]),
 
-    ?line ?CMP_DIFF(a, [a]),
-    ?line ?CMP_DIFF(a, {1,2,3}),
+    ?CMP_DIFF(a, [a]),
+    ?CMP_DIFF(a, {1,2,3}),
 
     ?CMP_SAME(#{a=>1.0,b=>2}, #{b=>2.0,a=>1}),
     ?CMP_SAME(#{a=>[1.0],b=>[2]}, #{b=>[2.0],a=>[1]}),
@@ -232,7 +234,7 @@ eq(Config) when is_list(Config) ->
 
 %% OTP-7117.
 nested_call_in_case(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = test_lib:get_data_dir(Config),
     Core = filename:join(Dir, "nested_call_in_case"),
     Opts = [from_core,{outdir,PrivDir}|test_lib:opt_opts(?MODULE)],
@@ -265,12 +267,12 @@ do_guard_try_catch(K, V) ->
 -record(cover_opt_guard_try, {list=[]}).
 
 coverage(Config) when is_list(Config) ->
-    ?line {'EXIT',{{case_clause,{a,b,c}},_}} =
+    {'EXIT',{{case_clause,{a,b,c}},_}} =
 	(catch cover_will_match_list_type({a,b,c})),
-    ?line {'EXIT',{{case_clause,{a,b,c,d}},_}} =
+    {'EXIT',{{case_clause,{a,b,c,d}},_}} =
 	(catch cover_will_match_list_type({a,b,c,d})),
-    ?line a = cover_remove_non_vars_alias({a,b,c}),
-    ?line error = cover_will_match_lit_list(),
+    a = cover_remove_non_vars_alias({a,b,c}),
+    error = cover_will_match_lit_list(),
     {ok,[a]} = cover_is_safe_bool_expr(a),
 
     ok = cover_opt_guard_try(#cover_opt_guard_try{list=[a]}),
@@ -347,7 +349,7 @@ bsm_an_inlined(<<_:8>>, _) -> ok;
 bsm_an_inlined(_, _) -> error.
 
 unused_multiple_values_error(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     Dir = test_lib:get_data_dir(Config),
     Core = filename:join(Dir, "unused_multiple_values_error"),
     Opts = [no_copt,clint,return,from_core,{outdir,PrivDir}
@@ -453,5 +455,48 @@ do_unnecessary_building_2({a,_,_}=T) ->
     {b,
      [_,_] = [T,none],
      x}.
+
+%% This test tests that v3_core has provided annotations and that
+%% sys_core_fold retains them, so that warnings produced by
+%% sys_core_fold will have proper filenames and line numbers. Thus, no
+%% "no_file" warnings.
+no_no_file(_Config) ->
+    {'EXIT',{{case_clause,0},_}} = (catch source(true, any)),
+    surgery = (tim(#{reduction => any}))(),
+
+    false = soul(#{[] => true}),
+    {'EXIT',{{case_clause,true},_}} = (catch soul(#{[] => false})),
+
+    ok = experiment(),
+    ok.
+
+source(true, Activities) ->
+    case 0 of
+	Activities when [] ->
+	    Activities
+    end.
+
+tim(#{reduction := Emergency}) ->
+    try
+	fun() -> surgery end
+    catch
+	_ when [] ->
+	    planet
+    end.
+
+soul(#{[] := Properly}) ->
+    not case true of
+	    Properly -> true;
+	    Properly -> 0
+	end.
+
+experiment() ->
+    case kingdom of
+	_ ->
+	    +case "map" of
+		 _ -> 0.0
+	     end
+    end,
+    ok.
 
 id(I) -> I.

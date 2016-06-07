@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -199,7 +199,7 @@ cont2(F, Exception, Sofar, Fd, Fname, T, S) ->
 	    find_good_split(list_to_binary([Sofar,Bin]),
 			    F,Exception,Fd,Fname,T,S);
 	eof ->
-	    file:close(Fd),
+	    ok = file:close(Fd),
 	    NewS = xmerl_scan:cont_state([{Fname, eof}|T], S),
 	    F(binary_to_list(Sofar), NewS);
 	Error ->
@@ -319,7 +319,7 @@ close(S) ->
 	[{_Fname, eof}|T] ->
 	    xmerl_scan:cont_state(T, S);
 	[{_Sofar, _Fname, Fd}|T] ->
-	    file:close(Fd),
+	    ok = file:close(Fd),
 	    xmerl_scan:cont_state(T, S)
     end.
 

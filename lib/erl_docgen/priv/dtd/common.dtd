@@ -12,7 +12,7 @@
  limitations under the License.
  
  The Initial Developer of the Original Code is Ericsson AB.
- Portions created by Ericsson are Copyright 1999-2007, Ericsson AB.
+ Portions created by Ericsson are Copyright 1999-2016, Ericsson AB.
  All Rights Reserved.''
  
      $Id$
@@ -24,7 +24,7 @@
 
 <!ENTITY % block              "p|pre|code|list|taglist|codeinclude|
                                erleval" >
-<!ENTITY % inline             "#PCDATA|c|i|em|term|cite|br|path|seealso|
+<!ENTITY % inline             "#PCDATA|c|i|em|strong|term|cite|br|path|seealso|
                                url|marker|anno" >
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
@@ -40,6 +40,7 @@
 <!ELEMENT c                   (#PCDATA|anno)* >
 <!ELEMENT i                   (#PCDATA|c|anno)* >
 <!ELEMENT em                  (#PCDATA|c|anno)* >
+<!ELEMENT strong              (#PCDATA|c|anno)* >
 <!ELEMENT anno                (#PCDATA) >
 
 <!-- XXX -->
@@ -68,7 +69,7 @@
 <!ATTLIST list                 type (ordered|bulleted) "bulleted" >
 <!ELEMENT taglist             (tag,item+)+ >
 <!ELEMENT tag                 (#PCDATA|c|i|em|br|seealso|url|marker|anno)* >
-<!ELEMENT item                (%inline;|%block;|warning|note|dont|do)* >
+<!ELEMENT item                (%inline;|%block;|warning|note|dont|do|quote)* >
 
 <!-- References -->
 

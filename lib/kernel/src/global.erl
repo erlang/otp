@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2014. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -459,17 +459,17 @@ init([]) ->
                  no_trace
          end,
 
+    Ca = case init:get_argument(connect_all) of
+             {ok, [["false"]]} ->
+                 false;
+             _ ->
+                 true
+         end,
     S = #state{the_locker = start_the_locker(DoTrace),
                trace = T0,
-               the_registrar = start_the_registrar()},
-    S1 = trace_message(S, {init, node()}, []),
-
-    case init:get_argument(connect_all) of
-	{ok, [["false"]]} ->
-	    {ok, S1#state{connect_all = false}};
-	_ ->
-	    {ok, S1#state{connect_all = true}}
-    end.
+               the_registrar = start_the_registrar(),
+               connect_all = Ca},
+    {ok, trace_message(S, {init, node()}, [])}.
 
 %%-----------------------------------------------------------------
 %% Connection algorithm
@@ -2068,23 +2068,17 @@ get_known() ->
     gen_server:call(global_name_server, get_known, infinity).
 
 random_sleep(Times) ->
-    case (Times rem 10) of
-	0 -> erase(random_seed);
-	_ -> ok
-    end,
-    case get(random_seed) of
-	undefined ->
-	    _ = random:seed(erlang:phash2([erlang:node()]),
-			    erlang:monotonic_time(),
-			    erlang:unique_integer()),
-	    ok;
-	_ -> ok
-    end,
+    _ = case Times rem 10 of
+	    0 ->
+		_ = rand:seed(exsplus);
+	    _ ->
+		ok
+	end,
     %% First time 1/4 seconds, then doubling each time up to 8 seconds max.
     Tmax = if Times > 5 -> 8000;
 	      true -> ((1 bsl Times) * 1000) div 8
 	   end,
-    T = random:uniform(Tmax),
+    T = rand:uniform(Tmax),
     ?trace({random_sleep, {me,self()}, {times,Times}, {t,T}, {tmax,Tmax}}),
     receive after T -> ok end.
 

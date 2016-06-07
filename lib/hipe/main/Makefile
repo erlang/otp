@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2012. All Rights Reserved.
+# Copyright Ericsson AB 2001-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +nowarn_shadow_vars +warn_missing_spec +warn_untyped_record
+ERL_COMPILE_FLAGS += -Werror +nowarn_shadow_vars +warn_export_vars +warn_missing_spec +warn_untyped_record
 
 # ----------------------------------------------------
 # Targets

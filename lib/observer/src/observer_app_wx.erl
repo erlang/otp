@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 -include("observer_defs.hrl").
 
 %% Import drawing wrappers
--import(observer_perf_wx, [haveGC/0,
+-import(observer_perf_wx, [haveGC/0, make_gc/2, destroy_gc/1,
 			   setPen/2, setFont/3, setBrush/2,
 			   strokeLine/5, strokeLines/2, drawRoundedRectangle/6,
 			   drawText/4, getTextExtent/2]).
@@ -221,21 +221,21 @@ handle_event(#wx{id=?ID_PROC_KILL, event=#wxCommand{type=command_menu_selected}}
 %%% Trace api
 handle_event(#wx{id=?ID_TRACE_PID, event=#wxCommand{type=command_menu_selected}},
 	     State = #state{sel={Box,_}}) ->
-    observer_trace_wx:add_processes(observer_wx:get_tracer(), [box_to_pid(Box)]),
+    observer_trace_wx:add_processes([box_to_pid(Box)]),
     {noreply, State};
 handle_event(#wx{id=?ID_TRACE_NAME, event=#wxCommand{type=command_menu_selected}},
 	     State = #state{sel={Box,_}}) ->
-    observer_trace_wx:add_processes(observer_wx:get_tracer(), [box_to_reg(Box)]),
+    observer_trace_wx:add_processes([box_to_reg(Box)]),
     {noreply, State};
 handle_event(#wx{id=?ID_TRACE_TREE_PIDS, event=#wxCommand{type=command_menu_selected}},
 	     State = #state{sel=Sel}) ->
     Get = fun(Box) -> box_to_pid(Box) end,
-    observer_trace_wx:add_processes(observer_wx:get_tracer(), tree_map(Sel, Get)),
+    observer_trace_wx:add_processes(tree_map(Sel, Get)),
     {noreply, State};
 handle_event(#wx{id=?ID_TRACE_TREE_NAMES, event=#wxCommand{type=command_menu_selected}},
 	     State = #state{sel=Sel}) ->
     Get = fun(Box) -> box_to_reg(Box) end,
-    observer_trace_wx:add_processes(observer_wx:get_tracer(), tree_map(Sel, Get)),
+    observer_trace_wx:add_processes(tree_map(Sel, Get)),
     {noreply, State};
 
 handle_event(Event, _State) ->
@@ -244,28 +244,18 @@ handle_event(Event, _State) ->
 %%%%%%%%%%
 handle_sync_event(#wx{event = #wxPaint{}},_,
 		  #state{app_w=DA, app=App, sel=Sel, paint=Paint, usegc=UseGC}) ->
-    %% PaintDC must be created in a callback to work on windows.
-    IsWindows = element(1, os:type()) =:= win32,
-    %% Avoid Windows flickering hack
-    DC = if IsWindows -> wx:typeCast(wxBufferedPaintDC:new(DA), wxPaintDC); 
-	    true -> wxPaintDC:new(DA)
-	 end,
-    IsWindows andalso wxDC:clear(DC),
-    GC = case UseGC of
-	     true  ->
-		 GC0 = ?wxGC:create(DC),
-		 %% Argh must handle scrolling when using ?wxGC
-		 {Sx,Sy} = wxScrolledWindow:calcScrolledPosition(DA, {0,0}),
-		 ?wxGC:translate(GC0, Sx,Sy),
-		 GC0;
-	     false ->
-		 wxScrolledWindow:doPrepareDC(DA,DC),
-		 DC
-	 end,
+    GC = {GC0, DC} = make_gc(DA, UseGC),
+    case UseGC of
+	false ->
+	    wxScrolledWindow:doPrepareDC(DA,DC);
+	true ->
+	    %% Argh must handle scrolling when using ?wxGC
+	    {Sx,Sy} = wxScrolledWindow:calcScrolledPosition(DA, {0,0}),
+	    ?wxGC:translate(GC0, Sx,Sy)
+    end,
     %% Nothing is drawn until wxPaintDC is destroyed.
-    draw({UseGC, GC}, App, Sel, Paint),
-    UseGC andalso ?wxGC:destroy(GC),
-    wxPaintDC:destroy(DC),
+    draw(GC, App, Sel, Paint),
+    destroy_gc(GC),
     ok.
 %%%%%%%%%%
 handle_call(Event, From, _State) ->
@@ -312,15 +302,12 @@ handle_info({delivery, _Pid, app, _Curr, {[], [], [], []}},
 handle_info({delivery, Pid, app, Curr, AppData},
 	    State = #state{panel=Panel, appmon=Pid, current=Curr, usegc=UseGC,
 			   app_w=AppWin, paint=#paint{font=Font}}) ->
-    GC = if UseGC -> ?wxGC:create(AppWin);
-	    true -> wxWindowDC:new(AppWin)
+    GC = if UseGC -> {?wxGC:create(AppWin), false};
+	    true ->  {false, wxWindowDC:new(AppWin)}
 	 end,
-    FontW = {UseGC, GC},
-    setFont(FontW, Font, {0,0,0}),
-    App = build_tree(AppData, FontW),
-    if UseGC -> ?wxGC:destroy(GC);
-       true -> wxWindowDC:destroy(GC)
-    end,
+    setFont(GC, Font, {0,0,0}),
+    App = build_tree(AppData, GC),
+    destroy_gc(GC),
     setup_scrollbar(AppWin, App),
     wxWindow:refresh(Panel),
     wxWindow:layout(Panel),

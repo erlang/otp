@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -152,7 +152,7 @@
 	STMNT,
 	?untagged_msg(Msg ++ "~.2f s\n",[hipe_timing:stop_timer(Timer)/1000])).
 -else.
--define(TIME_STMNT(STMNT,Msg,Timer),STMNT).
+-define(TIME_STMNT(STMNT,Msg,Timer), STMNT).
 -endif.
 
 -define(start_timer(Text), hipe_timing:start(Text, ?MODULE)).
@@ -162,22 +162,24 @@
 -define(get_hipe_timer_val(Timer), get(Timer)).
 -define(set_hipe_timer_val(Timer, Val), put(Timer, Val)).
 -define(option_time(Stmnt, Text, Options),
-        if true -> ?when_option(time, Options, ?start_timer(Text)),
-                   fun(R) ->
-                           ?when_option(time, Options, ?stop_timer(Text)),
-                           R
-                   end(Stmnt)end).
+        begin
+	    ?when_option(time, Options, ?start_timer(Text)),
+	    fun(R) ->
+		    ?when_option(time, Options, ?stop_timer(Text)),
+		    R
+	    end(Stmnt)
+	end).
 
--define(option_start_time(Text,Options),
+-define(option_start_time(Text, Options),
 	?when_option(time, Options, ?start_timer(Text))).
 
--define(option_stop_time(Text,Options),
+-define(option_stop_time(Text, Options),
 	?when_option(time, Options, ?stop_timer(Text))).
 
 -define(opt_start_timer(Text),
-	hipe_timing:start_optional_timer(Text,?MODULE)).
+	hipe_timing:start_optional_timer(Text, ?MODULE)).
 -define(opt_stop_timer(Text),
-	hipe_timing:stop_optional_timer(Text,?MODULE)).
+	hipe_timing:stop_optional_timer(Text, ?MODULE)).
      
 %%
 %% Turn on instrumentation of the compiler.
@@ -187,15 +189,15 @@
 -define(count_pre_ra_instructions(Options, NoInstrs),
 	?when_option(count_instrs, Options,
 		     put(pre_ra_instrs,
-			 get(pre_ra_instrs)+ NoInstrs))).
+			 get(pre_ra_instrs) + NoInstrs))).
 -define(count_post_ra_instructions(Options, NoInstrs),
 	?when_option(count_instrs, Options,
 		     put(post_ra_instrs,
-			 get(post_ra_instrs)+ NoInstrs))).
+			 get(post_ra_instrs) + NoInstrs))).
 
 -define(start_time_regalloc(Options),
 	?when_option(timeregalloc, Options, 
-		     put(regalloctime1,erlang:statistics(runtime)))).
+		     put(regalloctime1, erlang:statistics(runtime)))).
 -define(stop_time_regalloc(Options),
 	?when_option(timeregalloc, Options, 
 		     put(regalloctime,
@@ -215,11 +217,11 @@
 -define(count_pre_ra_temps(Options, NoTemps),
 	?when_option(count_temps, Options,
 		     put(pre_ra_temps,
-			 get(pre_ra_temps)+ NoTemps))).
+			 get(pre_ra_temps) + NoTemps))).
 -define(count_post_ra_temps(Options, NoTemps),
 	?when_option(count_temps, Options,
 		     put(post_ra_temps,
-			 get(post_ra_temps)+ NoTemps))).
+			 get(post_ra_temps) + NoTemps))).
 
 -define(inc_counter(Counter, Val),
 	case get(Counter) of
@@ -255,7 +257,7 @@
 	  ?count_post_ra_instructions(Options, NoInstrs),
 	  ?cons_counter(counter_mem_temps, get(counter_mfa_mem_temps)),
 	  ?cons_counter(ra_all_iterations_counter, get(ra_iteration_counter)),
-	  put(ra_iteration_counter,0),
+	  put(ra_iteration_counter, 0),
 	  ?count_post_ra_temps(Options, NoTemps)
 	end).
 
@@ -264,12 +266,12 @@
 		     put(spilledtemps, get(spilledtemps) + NoSpills))).
 
 -define(optional_start_timer(Timer, Options),
-	case lists:member(Timer, proplists:get_value(timers,Options++[{timers,[]}])) of
+	case lists:member(Timer, proplists:get_value(timers, Options++[{timers,[]}])) of
 	  true -> ?start_hipe_timer(Timer);
 	  false -> true
 	end).
 -define(optional_stop_timer(Timer, Options),
-	case lists:member(Timer, proplists:get_value(timers,Options++[{timers,[]}])) of
+	case lists:member(Timer, proplists:get_value(timers, Options++[{timers,[]}])) of
 	  true -> ?stop_hipe_timer(Timer);
 	  false -> true
 	end).
@@ -299,7 +301,8 @@
 %% Records defined in the hipe module used in other parts of the compiler
 %%----------------------------------------------------------------------------
 
--record(comp_servers, {pp_server :: pid(), range :: pid(), type :: pid()}).
+-type mpid() :: 'none' | pid().
+-record(comp_servers, {pp_server :: mpid(), range :: mpid(), type :: mpid()}).
 
 %%----------------------------------------------------------------------------
 %% Basic types of the 'hipe' application used in other parts of the system
@@ -315,4 +318,4 @@
 	                    'unknown' | {'reg' | 'fp_reg' | 'spill',
 	                                 non_neg_integer()}}].
 -type hipe_temp_map()  :: tuple().
--type hipe_spill_map() :: [{non_neg_integer(), {'spill',non_neg_integer()}}].
+-type hipe_spill_map() :: [{non_neg_integer(), {'spill', non_neg_integer()}}].

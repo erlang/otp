@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,12 +47,12 @@ new() ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemwxmenuitem">external documentation</a>.
 %%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec new([Option]) -> wxMenuItem() when
-	Option :: {parentMenu, wxMenu:wxMenu()}
-		 | {id, integer()}
-		 | {text, unicode:chardata()}
-		 | {help, unicode:chardata()}
-		 | {kind, wx:wx_enum()}
-		 | {subMenu, wxMenu:wxMenu()}.
+	Option :: {'parentMenu', wxMenu:wxMenu()}
+		 | {'id', integer()}
+		 | {'text', unicode:chardata()}
+		 | {'help', unicode:chardata()}
+		 | {'kind', wx:wx_enum()}
+		 | {'subMenu', wxMenu:wxMenu()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({parentMenu, #wx_ref{type=ParentMenuT,ref=ParentMenuRef}}, Acc) ->   ?CLASS(ParentMenuT,wxMenu),[<<1:32/?UI,ParentMenuRef:32/?UI>>|Acc];
@@ -67,7 +67,7 @@ new(Options)
   <<BinOpt/binary>>).
 
 %% @equiv check(This, [])
--spec check(This) -> ok when
+-spec check(This) -> 'ok' when
 	This::wxMenuItem().
 
 check(This)
@@ -75,9 +75,9 @@ check(This)
   check(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemcheck">external documentation</a>.
--spec check(This, [Option]) -> ok when
+-spec check(This, [Option]) -> 'ok' when
 	This::wxMenuItem(),
-	Option :: {check, boolean()}.
+	Option :: {'check', boolean()}.
 check(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -88,7 +88,7 @@ check(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @equiv enable(This, [])
--spec enable(This) -> ok when
+-spec enable(This) -> 'ok' when
 	This::wxMenuItem().
 
 enable(This)
@@ -96,9 +96,9 @@ enable(This)
   enable(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemenable">external documentation</a>.
--spec enable(This, [Option]) -> ok when
+-spec enable(This, [Option]) -> 'ok' when
 	This::wxMenuItem(),
-	Option :: {enable, boolean()}.
+	Option :: {'enable', boolean()}.
 enable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -223,7 +223,7 @@ isSubMenu(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemsetbitmap">external documentation</a>.
--spec setBitmap(This, Bitmap) -> ok when
+-spec setBitmap(This, Bitmap) -> 'ok' when
 	This::wxMenuItem(), Bitmap::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -232,7 +232,7 @@ setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) -
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemsethelp">external documentation</a>.
--spec setHelp(This, Str) -> ok when
+-spec setHelp(This, Str) -> 'ok' when
 	This::wxMenuItem(), Str::unicode:chardata().
 setHelp(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
@@ -242,7 +242,7 @@ setHelp(#wx_ref{type=ThisT,ref=ThisRef},Str)
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemsetmenu">external documentation</a>.
--spec setMenu(This, Menu) -> ok when
+-spec setMenu(This, Menu) -> 'ok' when
 	This::wxMenuItem(), Menu::wxMenu:wxMenu().
 setMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -251,7 +251,7 @@ setMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
   <<ThisRef:32/?UI,MenuRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemsetsubmenu">external documentation</a>.
--spec setSubMenu(This, Menu) -> ok when
+-spec setSubMenu(This, Menu) -> 'ok' when
 	This::wxMenuItem(), Menu::wxMenu:wxMenu().
 setSubMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -260,7 +260,7 @@ setSubMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
   <<ThisRef:32/?UI,MenuRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenuitem.html#wxmenuitemsettext">external documentation</a>.
--spec setText(This, Str) -> ok when
+-spec setText(This, Str) -> 'ok' when
 	This::wxMenuItem(), Str::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
@@ -270,7 +270,7 @@ setText(#wx_ref{type=ThisT,ref=ThisRef},Str)
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMenuItem()) -> ok.
+-spec destroy(This::wxMenuItem()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMenuItem),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

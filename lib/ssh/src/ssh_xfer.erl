@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 -module(ssh_xfer).
 
--export([attach/2, connect/3, connect/4]).
+-export([attach/2, attach/3, connect/3, connect/4, connect/5]).
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,
 	 stat/4, fstat/4, lstat/4, setstat/4,
@@ -47,28 +47,38 @@
 -define(is_set(F, Bits),
 	((F) band (Bits)) == (F)).
 
--define(XFER_PACKET_SIZE, 32768).
--define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
+-define(XFER_PACKET_SIZE, 65536).
+-define(XFER_WINDOW_SIZE, 20*?XFER_PACKET_SIZE).
 
 attach(CM, Opts) ->
-    open_xfer(CM, Opts).
+    open_xfer(CM, Opts, []).
+
+attach(CM, Opts, ChanOpts) ->
+    open_xfer(CM, Opts, ChanOpts).
+
 
 connect(Host, Port, Opts) ->
     case ssh:connect(Host, Port, Opts) of
-	{ok, CM} -> open_xfer(CM, Opts);
+	{ok, CM} -> open_xfer(CM, Opts, []);
 	Error -> Error
     end.
 
 connect(Host, Port, Opts, Timeout) ->
+    connect(Host, Port, Opts, [], Timeout).
+
+connect(Host, Port, Opts, ChanOpts, Timeout) ->
     case ssh:connect(Host, Port, Opts, Timeout) of
-	{ok, CM} -> open_xfer(CM, [{timeout, Timeout}|Opts]);
+	{ok, CM} -> open_xfer(CM, [{timeout, Timeout}|Opts], ChanOpts);
 	{error, Timeout} -> {error, timeout};
 	Error -> Error
     end.
 
-open_xfer(CM, Opts) ->
+
+open_xfer(CM, Opts, ChanOpts) ->
     TMO = proplists:get_value(timeout, Opts, infinity),
-    case ssh_connection:session_channel(CM, ?XFER_WINDOW_SIZE, ?XFER_PACKET_SIZE, TMO) of
+    WindowSize = proplists:get_value(window_size, ChanOpts,  ?XFER_WINDOW_SIZE),
+    PacketSize = proplists:get_value(packet_size, ChanOpts,  ?XFER_PACKET_SIZE),
+    case ssh_connection:session_channel(CM, WindowSize, PacketSize, TMO) of
 	{ok, ChannelId} ->
 	    {ok, ChannelId, CM};
 	Error -> 

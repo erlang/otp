@@ -690,9 +690,12 @@ it like `debugMsg'. The result is always `ok'.</dd>
 <dt>`debugVal(Expr)'</dt>
 <dd>Prints both the source code for `Expr' and its current value. E.g.,
 `?debugVal(f(X))' might be displayed as "`f(X) = 42'". (Large terms are
-shown truncated.) The result is always the value of `Expr', so this
-macro can be wrapped around any expression to display its value when
-the code is compiled with debugging enabled.</dd>
+truncated to the depth given by the macro `EUNIT_DEBUG_VAL_DEPTH', which
+defaults to 15 but can be overridden by the user.) The result is always the
+value of `Expr', so this macro can be wrapped around any expression to
+display its value when the code is compiled with debugging enabled.</dd>
+<dt>`debugVal(Expr, Depth)'</dt>
+<dd>Like `debugVal(Expr)', but prints terms truncated to the given depth.</dd>
 <dt>`debugTime(Text,Expr)'</dt>
 <dd>Prints `Text' and the wall clock time for evaluation of `Expr'. The
 result is always the value of `Expr', so this macro can be wrapped

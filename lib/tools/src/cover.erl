@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@
 -module(cover).
 
 %%
-%% This module implements the Erlang coverage tool. The module named
-%% cover_web implements a user interface for the coverage tool to run
-%% under webtool.
+%% This module implements the Erlang coverage tool.
 %% 
 %% ARCHITECTURE
 %% The coverage tool consists of one process on each node involved in
@@ -575,7 +573,7 @@ call(Request) ->
     Ref = erlang:monitor(process,?SERVER),
     receive {'DOWN', Ref, _Type, _Object, noproc} -> 
 	    erlang:demonitor(Ref),
-	    start(),
+            {ok,_} = start(),
 	    call(Request)
     after 0 ->
 	    ?SERVER ! {self(),Request},
@@ -591,7 +589,9 @@ call(Request) ->
     end.
 
 reply(From, Reply) ->
-    From ! {?SERVER,Reply}.
+    From ! {?SERVER,Reply},
+    ok.
+
 is_from(From) ->
     is_pid(From).
 
@@ -617,9 +617,11 @@ remote_call(Node,Request) ->
     end.
     
 remote_reply(Proc,Reply) when is_pid(Proc) ->
-    Proc ! {?SERVER,Reply};
+    Proc ! {?SERVER,Reply},
+    ok;
 remote_reply(MainNode,Reply) ->
-    {?SERVER,MainNode} ! {?SERVER,Reply}.
+    {?SERVER,MainNode} ! {?SERVER,Reply},
+    ok.
 
 %%%----------------------------------------------------------------------
 %%% cover_server on main node
@@ -629,14 +631,16 @@ init_main(Starter) ->
     register(?SERVER,self()),
     %% Having write concurrancy here gives a 40% performance boost
     %% when collect/1 is called. 
-    ets:new(?COVER_TABLE, [set, public, named_table
-			   ,{write_concurrency, true}
-			  ]),
-    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
-    ets:new(?BINARY_TABLE, [set, public, named_table]),
-    ets:new(?COLLECTION_TABLE, [set, public, named_table]),
-    ets:new(?COLLECTION_CLAUSE_TABLE, [set, public, named_table]),
-    net_kernel:monitor_nodes(true),
+    ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table,
+                                          {write_concurrency, true}]),
+    ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
+                                                        named_table]),
+    ?BINARY_TABLE = ets:new(?BINARY_TABLE, [set, public, named_table]),
+    ?COLLECTION_TABLE = ets:new(?COLLECTION_TABLE, [set, public,
+                                                    named_table]),
+    ?COLLECTION_CLAUSE_TABLE = ets:new(?COLLECTION_CLAUSE_TABLE, [set, public,
+                                                                  named_table]),
+    ok = net_kernel:monitor_nodes(true),
     Starter ! {?SERVER,started},
     main_process_loop(#main_state{}).
 
@@ -674,7 +678,7 @@ main_process_loop(State) ->
 		    Imported = do_import_to_table(Fd,File,
 						  State#main_state.imported),
 		    reply(From, ok),
-		    file:close(Fd),
+		    ok = file:close(Fd),
 		    main_process_loop(State#main_state{imported=Imported});
 		{error,Reason} ->
 		    reply(From, {error, {cant_open_file,File,Reason}}),
@@ -872,11 +876,12 @@ main_process_loop(State) ->
 
 init_remote(Starter,MainNode) ->
     register(?SERVER,self()),
-    ets:new(?COVER_TABLE, [set, public, named_table
-			   %% write_concurrency here makes otp_8270 break :(
-			   %,{write_concurrency, true}
-			  ]),
-    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
+    %% write_concurrency here makes otp_8270 break :(
+    ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table
+                                          %,{write_concurrency, true}
+                                         ]),
+    ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
+                                                        named_table]),
     Starter ! {self(),started},
     remote_process_loop(#remote_state{main_node=MainNode}).
 
@@ -909,11 +914,11 @@ remote_process_loop(State) ->
 			  '_' -> [M || {M,_} <- State#remote_state.compiled];
 			  _ -> Modules0
 		      end,
-	   spawn(fun() ->
-			 ?SPAWN_DBG(remote_collect, 
-				    {Modules, CollectorPid, From}),
-			 do_collect(Modules, CollectorPid, From)
-		 end),
+            spawn(fun() ->
+                          ?SPAWN_DBG(remote_collect, 
+                                     {Modules, CollectorPid, From}),
+                          do_collect(Modules, CollectorPid, From)
+                  end),
 	    remote_process_loop(State);
 
 	{remote,stop} ->
@@ -954,13 +959,13 @@ remote_process_loop(State) ->
     end.
 
 do_collect(Modules, CollectorPid, From) ->
-    pmap(
-      fun(Module) ->
-	      Pattern = {#bump{module=Module, _='_'}, '$1'},
-	      MatchSpec = [{Pattern,[{'=/=','$1',0}],['$_']}],
-	      Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
-	      send_chunks(Match, CollectorPid, [])
-      end,Modules),
+    _ = pmap(
+          fun(Module) ->
+                  Pattern = {#bump{module=Module, _='_'}, '$1'},
+                  MatchSpec = [{Pattern,[{'=/=','$1',0}],['$_']}],
+                  Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
+                  send_chunks(Match, CollectorPid, [])
+          end,Modules),
     CollectorPid ! done,
     remote_reply(From, ok).
 
@@ -996,20 +1001,20 @@ get_downs(Mons) ->
     end.
 
 reload_originals(Compiled) ->
-    Modules = [M || {M,_} <- Compiled],
-    pmap(fun do_reload_original/1, Modules).
+    _ = pmap(fun do_reload_original/1, [M || {M,_} <- Compiled]),
+    ok.
 
 do_reload_original(Module) ->
     case code:which(Module) of
 	?TAG ->
-	    code:purge(Module),     % remove code marked as 'old'
-	    code:delete(Module),    % mark cover compiled code as 'old'
+	    _ = code:purge(Module),     % remove code marked as 'old'
+	    _ = code:delete(Module),    % mark cover compiled code as 'old'
 	    %% Note: original beam code must be loaded before the cover
 	    %% compiled code is purged, in order to for references to
 	    %% 'fun M:F/A' and %% 'fun F/A' funs to be correct (they
 	    %% refer to (M:)F/A in the *latest* version  of the module)
-	    code:load_file(Module), % load original code
-	    code:purge(Module);     % remove cover compiled code
+            _ = code:load_file(Module), % load original code
+	    _ = code:purge(Module);     % remove cover compiled code
 	_ ->
 	    ignore
     end.
@@ -1221,12 +1226,13 @@ remote_reset(Module,Nodes) ->
 
 %% Collect data from remote nodes - used for analyse or stop(Node)
 remote_collect(Modules,Nodes,Stop) ->
-    pmap(fun(Node) -> 
-		 ?SPAWN_DBG(remote_collect, 
-			    {Modules, Nodes, Stop}),
-		 do_collection(Node, Modules, Stop)
-	 end,
-	 Nodes).
+    _ = pmap(
+          fun(Node) -> 
+                  ?SPAWN_DBG(remote_collect, 
+                             {Modules, Nodes, Stop}),
+                  do_collection(Node, Modules, Stop)
+          end, Nodes),
+    ok.
 
 do_collection(Node, Module, Stop) ->
     CollectorPid = spawn(fun collector_proc/0),
@@ -1262,8 +1268,8 @@ insert_in_collection_table([]) ->
 insert_in_collection_table(Key,Val) ->
     case ets:member(?COLLECTION_TABLE,Key) of
 	true ->
-	    ets:update_counter(?COLLECTION_TABLE,
-			       Key,Val);
+	    _ = ets:update_counter(?COLLECTION_TABLE, Key,Val),
+            ok;
 	false ->
 	    %% Make sure that there are no race conditions from ets:member
 	    case ets:insert_new(?COLLECTION_TABLE,{Key,Val}) of
@@ -2004,9 +2010,7 @@ munge_expr({lc,Line,Expr,Qs}, Vars) ->
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{lc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({bc,Line,Expr,Qs}, Vars) ->
-    {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]} = Expr,
-    Expr2 = {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]},
-    {MungedExpr,Vars2} = munge_expr(Expr2, Vars),
+    {MungedExpr,Vars2} = munge_expr(?BLOCK1(Expr), Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{bc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({block,Line,Body}, Vars) ->
@@ -2425,7 +2429,7 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                 "<body style='background-color: white;"
                                 " color: black'>\n"
                                 "<pre>\n"],
-                           file:write(OutFd,Header);
+                           ok = file:write(OutFd,Header);
 		       true -> ok
 		    end,
 		    
@@ -2439,7 +2443,7 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                                       string:right(integer_to_list(H),  2, $0),
                                       string:right(integer_to_list(Mi), 2, $0),
                                       string:right(integer_to_list(S),  2, $0)]),
-                    file:write(OutFd,
+                    ok = file:write(OutFd,
                                ["File generated from ",ErlFile," by COVER ",
                                 Timestamp,"\n\n"
                                 "**************************************"
@@ -2451,14 +2455,13 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
-		    if
-			HTML ->
-			    file:write(OutFd, "</pre>\n</body>\n</html>\n");
+		    if HTML ->
+                           ok = file:write(OutFd, "</pre>\n</body>\n</html>\n");
 		       true -> ok
 		    end,
 
-		    file:close(OutFd),
-		    file:close(InFd),
+		    ok = file:close(OutFd),
+		    ok = file:close(InFd),
 
 		    {ok, OutFile};
 
@@ -2476,34 +2479,33 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
 	eof ->
 	    ignore;
 	{ok,"%"++_=Line} ->		 %Comment line - not executed.
-	    file:write(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
+	    ok = file:write(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
 	    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML);
 	{ok,RawLine} ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    case CovLines of
 	       [{L,N}|CovLines1] ->
 		    %% N = lists:foldl(fun([Ni], Nacc) -> Nacc+Ni end, 0, Ns),
-		    if
-			N=:=0, HTML=:=true ->
-			    LineNoNL = Line -- "\n",
-			    Str = "     0",
-			    %%Str = string:right("0", 6, 32),
-			    RedLine = ["<font color=red>",Str,fill1(),
-				       LineNoNL,"</font>\n"],
-			    file:write(OutFd, RedLine);
-			N<1000000 ->
-			    Str = string:right(integer_to_list(N), 6, 32),
-			    file:write(OutFd, [Str,fill1(),Line]);
-			N<10000000 ->
-			    Str = integer_to_list(N),
-			    file:write(OutFd, [Str,fill2(),Line]);
-			true ->
-			    Str = integer_to_list(N),
-			    file:write(OutFd, [Str,fill3(),Line])
-		    end,
+                    if N=:=0, HTML=:=true ->
+                           LineNoNL = Line -- "\n",
+                           Str = "     0",
+                           %%Str = string:right("0", 6, 32),
+                           RedLine = ["<font color=red>",Str,fill1(),
+                                      LineNoNL,"</font>\n"],
+                           ok = file:write(OutFd, RedLine);
+                       N < 1000000 ->
+                           Str = string:right(integer_to_list(N), 6, 32),
+                           ok = file:write(OutFd, [Str,fill1(),Line]);
+                       N < 10000000 ->
+                           Str = integer_to_list(N),
+                           ok = file:write(OutFd, [Str,fill2(),Line]);
+                       true ->
+                           Str = integer_to_list(N),
+                           ok = file:write(OutFd, [Str,fill3(),Line])
+                    end,
 		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
 		_ ->
-		    file:write(OutFd, [tab(),Line]),
+		    ok = file:write(OutFd, [tab(),Line]),
 		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
 	    end
     end.
@@ -2543,7 +2545,7 @@ do_export(Module, OutFile, From, State) ->
 				{error,{not_cover_compiled,Module}}
 			end
 		end,
-	    file:close(Fd),
+	    ok = file:close(Fd),
 	    reply(From, Reply);
 	{error,Reason} ->
 	    reply(From, {error, {cant_open_file,OutFile,Reason}})
@@ -2585,10 +2587,9 @@ write(Element,Fd) ->
     case byte_size(Bin) of
 	Size when Size > 255 ->
 	    SizeBin = term_to_binary({'$size',Size}),
-	    file:write(Fd,
-                       <<(byte_size(SizeBin)):8,SizeBin/binary,Bin/binary>>);
+	    ok = file:write(Fd, <<(byte_size(SizeBin)):8,SizeBin/binary,Bin/binary>>);
 	Size ->
-	    file:write(Fd,<<Size:8,Bin/binary>>)
+	    ok = file:write(Fd,<<Size:8,Bin/binary>>)
     end,
     ok.    
 

@@ -21,7 +21,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2015</year>
+<year>2016</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -1764,11 +1764,13 @@ An example return value with for a client service with Origin-Host
                       {send_pend,0}]}]},
   {statistics,[{{{0,258,0},recv},3},
                {{{0,258,1},send},3},
+               {{{0,258,0},recv,{'Result-Code',2001}},3},
                {{{0,257,0},recv},1},
                {{{0,257,1},send},1},
-               {{{0,258,0},recv,{'Result-Code',2001}},3},
+               {{{0,257,0},recv,{'Result-Code',2001}},1},
                {{{0,280,1},recv},2},
-               {{{0,280,0},send},2}]}]]
+               {{{0,280,0},send},2},
+               {{{0,280,0},send,{'Result-Code',2001}},2}]}]]
 </pre>
 
 <p>
@@ -1844,13 +1846,16 @@ connection might look as follows.</p>
            [{watchdog,{&lt;0.72.0>,{1346,171491,998404},initial}}]]},
   {statistics,[{{{0,280,0},recv},7},
                {{{0,280,1},send},7},
-               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,280,0},recv,{'Result-Code',2001}},7},
                {{{0,258,1},recv},3},
                {{{0,258,0},send},3},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
                {{{0,280,1},recv},5},
                {{{0,280,0},send},5},
+               {{{0,280,0},send,{'Result-Code',2001}},5},
                {{{0,257,1},recv},1},
-               {{{0,257,0},send},1}]}]]
+               {{{0,257,0},send},1},
+               {{{0,257,0},send,{'Result-Code',2001}},1}]}]]
 </pre>
 
 <p>
@@ -1918,13 +1923,16 @@ A return value for the server above might look as follows.</p>
                       {send_pend,0}]}]},
   {statistics,[{{{0,280,0},recv},62},
                {{{0,280,1},send},62},
-               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,280,0},recv,{'Result-Code',2001}},62},
                {{{0,258,1},recv},3},
                {{{0,258,0},send},3},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
                {{{0,280,1},recv},66},
                {{{0,280,0},send},66},
+               {{{0,280,0},send,{'Result-Code',2001}},66},
                {{{0,257,1},recv},1},
-               {{{0,257,0},send},1}]}]]
+               {{{0,257,0},send},1},
+               {{{0,257,0},send,{'Result-Code',2001}},1}]}]]
 </pre>
 
 <p>

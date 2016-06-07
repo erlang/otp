@@ -1,6 +1,6 @@
 -module(hipe_testsuite_driver).
 
--export([create_all_suites/0, run/3]).
+-export([create_all_suites/1, run/3]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -16,25 +16,17 @@
 		outputfile :: file:io_device(),
 		testcases  :: [testcase()]}).
 
--spec create_all_suites() -> 'ok'.
+-spec create_all_suites([string()]) -> 'ok'.
 
-create_all_suites() ->
-    {ok, Cwd} = file:get_cwd(),
-    Suites = get_suites(Cwd),
+create_all_suites(SuitesWithSuiteSuffix) ->
+    Suites = get_suites(SuitesWithSuiteSuffix),
     lists:foreach(fun create_suite/1, Suites).
 
--spec get_suites(file:filename()) -> [string()].
+-spec get_suites([string()]) -> [string()].
 
-get_suites(Dir) ->
-    case file:list_dir(Dir) of
-	{error, _} -> [];
-	{ok, Filenames} ->
-	    FullFilenames = [filename:join(Dir, F) || F <- Filenames],
-	    Dirs = [suffix(filename:basename(F), ?suite_data) ||
-		       F <- FullFilenames,
-		       file_type(F) =:= {ok, 'directory'}],
-	    [S || {yes, S} <- Dirs]
-    end.
+get_suites(SuitesWithSuiteSuffix) ->
+    Prefixes = [suffix(F, ?suite_suffix) || F <- SuitesWithSuiteSuffix],
+    [S || {yes, S} <- Prefixes].
 
 suffix(String, Suffix) ->
     case string:rstr(String, Suffix) of
@@ -107,7 +99,7 @@ write_suite(Suite) ->
 write_header(#suite{suitename = SuiteName, outputfile = OutputFile,
 		    testcases = TestCases}) ->
     Exports = format_export(TestCases),
-    TimeLimit = 2,	%% with 1 it fails on some slow machines...
+    TimeLimit = 3,	%% with 1 or 2 it fails on some slow machines...
     io:format(OutputFile,
 	      "%% ATTENTION!\n"
 	      "%% This is an automatically generated file. Do not edit.\n\n"

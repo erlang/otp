@@ -36,6 +36,8 @@ Here are the [instructions for submitting patches] [2].
 
 In short:
 
+*   Go to the JIRA issue tracker at [bugs.erlang.org] [7] to see reported issues which you can contribute to. Search for issues with the status *Contribution Needed*.
+
 *   We prefer to receive proposed updates via email on the
     [`erlang-patches`] [3] mailing list or through a pull request.
 
@@ -58,8 +60,6 @@ In short:
     may suggest improvements that are needed before the change can be accepted
     and merged.
 
-*   Once or twice a week, a status email called ["What's cooking in Erlang/OTP"] [4]
-    will be sent to the [`erlang-patches`] [3] mailing list.
 
 Bug Reports
 --------------------------
@@ -91,8 +91,9 @@ Copyright and License
 
 
    [1]: http://www.erlang.org
-   [2]: http://wiki.github.com/erlang/otp/submitting-patches
+   [2]: http://wiki.github.com/erlang/otp/contribution-guidelines
    [3]: http://www.erlang.org/static/doc/mailinglist.html
    [4]: http://erlang.github.com/otp/
    [5]: HOWTO/INSTALL.md
    [6]: https://github.com/erlang/otp/wiki/Bug-reports
+   [7]: http://bugs.erlang.org

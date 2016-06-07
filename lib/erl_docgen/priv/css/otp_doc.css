@@ -37,7 +37,7 @@ a:visited      { color: blue; text-decoration: none }
   top: 0;
   bottom: 0;
   left: 0;
-  width: 200px;
+  width: 300px;
   overflow:auto;
   margin: 0;
   padding: 1px;
@@ -45,7 +45,7 @@ a:visited      { color: blue; text-decoration: none }
 }
 
 #content {
-  margin-left: 240px; /* set left value to WidthOfFrameDiv */
+  margin-left: 340px; /* set left value to WidthOfFrameDiv */
 }
 
 .frontpage 
@@ -122,6 +122,11 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
   font-size: 90%;
   padding: 5px 10px;
 }
+
+.quote {
+    font-style: italic
+}
+
 .example {
   background-color:#eeeeff;
   padding: 0px 10px;

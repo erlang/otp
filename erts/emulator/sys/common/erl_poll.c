@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,6 +74,7 @@
 #include "erl_thr_progress.h"
 #include "erl_driver.h"
 #include "erl_alloc.h"
+#include "erl_msacc.h"
 
 #if !defined(ERTS_POLL_USE_EPOLL) \
     && !defined(ERTS_POLL_USE_DEVPOLL)  \
@@ -2238,6 +2239,7 @@ static ERTS_INLINE int
 check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 {
     int res;
+    ERTS_MSACC_PUSH_STATE_M();
     if (erts_smp_atomic_read_nob(&ps->no_of_user_fds) == 0
 	&& timeout_time == ERTS_POLL_NO_TIMEOUT) {
 	/* Nothing to poll and zero timeout; done... */
@@ -2259,6 +2261,7 @@ check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 #ifdef ERTS_SMP
                     erts_thr_progress_prepare_wait(NULL);
 #endif
+                    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
                     timerfd_set(ps, &its);
                     res = epoll_wait(ps->kp_fd, ps->res_events, max_res, -1);
                     res = timerfd_clear(ps, res, max_res);
@@ -2268,10 +2271,12 @@ check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
             }
 #else /* !ERTS_POLL_USE_TIMERFD */
 	    timeout = (int) get_timeout(ps, 1000, timeout_time);
+            if (timeout) {
 #ifdef ERTS_SMP
-	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
+                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+            }
 	    res = epoll_wait(ps->kp_fd, ps->res_events, max_res, timeout);
 #endif /* !ERTS_POLL_USE_TIMERFD */
 #elif ERTS_POLL_USE_KQUEUE	/* --- kqueue ------------------------------ */
@@ -2279,10 +2284,12 @@ check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 	    if (max_res > ps->res_events_len)
 		grow_res_events(ps, max_res);
 	    timeout = get_timeout_timespec(ps, &ts, timeout_time);
+            if (timeout) {
 #ifdef ERTS_SMP
-	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
+		ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+            }
 	    res = kevent(ps->kp_fd, NULL, 0, ps->res_events, max_res, &ts);
 #endif				/* ----------------------------------------- */
 	}
@@ -2306,26 +2313,33 @@ check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 	    if (poll_res.dp_nfds > ps->res_events_len)
 		grow_res_events(ps, poll_res.dp_nfds);
 	    poll_res.dp_fds = ps->res_events;
+	    if (timeout) {
 #ifdef ERTS_SMP
-	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
+                ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+            }
 	    poll_res.dp_timeout = timeout;
 	    res = ioctl(ps->kp_fd, DP_POLL, &poll_res);
 #elif ERTS_POLL_USE_POLL && defined(HAVE_PPOLL)	/* --- ppoll ---------------- */
             struct timespec ts;
 	    timeout = get_timeout_timespec(ps, &ts, timeout_time);
+            if (timeout) {
 #ifdef ERTS_SMP
-	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
+		ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+            }
             res = ppoll(ps->poll_fds, ps->no_poll_fds, &ts, NULL);
 #elif ERTS_POLL_USE_POLL        /* --- poll --------------------------------- */
 	    timeout = (int) get_timeout(ps, 1000, timeout_time);
+
+	    if (timeout) {
 #ifdef ERTS_SMP
-	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
+		ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+            }
 	    res = poll(ps->poll_fds, ps->no_poll_fds, timeout);
 #elif ERTS_POLL_USE_SELECT	/* --- select ------------------------------ */
 	    SysTimeval to;
@@ -2334,18 +2348,22 @@ check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 	    ERTS_FD_COPY(&ps->input_fds, &ps->res_input_fds);
 	    ERTS_FD_COPY(&ps->output_fds, &ps->res_output_fds);
 
+	    if (timeout) {
 #ifdef ERTS_SMP
-	    if (timeout)
 		erts_thr_progress_prepare_wait(NULL);
 #endif
+		ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
+	    }
 	    res = ERTS_SELECT(ps->max_fd + 1,
 			      &ps->res_input_fds,
 			      &ps->res_output_fds,
 			      NULL,
 			      &to);
 #ifdef ERTS_SMP
-	    if (timeout)
+	    if (timeout) {
 		erts_thr_progress_finalize_wait(NULL);
+		ERTS_MSACC_POP_STATE_M();
+	    }
 	    if (res < 0
 		&& errno == EBADF
 		&& ERTS_POLLSET_HAVE_UPDATE_REQUESTS(ps)) {
@@ -2380,10 +2398,12 @@ check_fd_events(ErtsPollSet ps, ErtsMonotonicTime timeout_time, int max_res)
 	    return res;
 #endif				/* ----------------------------------------- */
 	}
+	if (timeout) {
 #ifdef ERTS_SMP
-	if (timeout)
 	    erts_thr_progress_finalize_wait(NULL);
 #endif
+	    ERTS_MSACC_POP_STATE_M();
+	}
 	return res;
     }
 }

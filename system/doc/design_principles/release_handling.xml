@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2014</year>
+      <year>2003</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -249,7 +249,7 @@
       <p>If <c>Modules=dynamic</c>, which is the case for event
         managers, the event manager process informs the release handler
         about the list of currently installed event handlers
-	(<c>gen_fsm</c>), and it is checked if the module name is in
+	(<c>gen_event</c>), and it is checked if the module name is in
         this list instead.</p>
       <p>The release handler suspends, asks for code change, and
         resumes processes by calling the functions

@@ -108,9 +108,9 @@ new(Parent,Id,Title)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxMDIChildFrame() when
 	Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ParentT,wxMDIParentFrame),
@@ -124,7 +124,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
   <<ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframeactivate">external documentation</a>.
--spec activate(This) -> ok when
+-spec activate(This) -> 'ok' when
 	This::wxMDIChildFrame().
 activate(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMDIChildFrame),
@@ -142,9 +142,9 @@ create(This,Parent,Id,Title)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframecreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ThisT,wxMDIChildFrame),
@@ -159,7 +159,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Ti
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @equiv maximize(This, [])
--spec maximize(This) -> ok when
+-spec maximize(This) -> 'ok' when
 	This::wxMDIChildFrame().
 
 maximize(This)
@@ -167,9 +167,9 @@ maximize(This)
   maximize(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframemaximize">external documentation</a>.
--spec maximize(This, [Option]) -> ok when
+-spec maximize(This, [Option]) -> 'ok' when
 	This::wxMDIChildFrame(),
-	Option :: {maximize, boolean()}.
+	Option :: {'maximize', boolean()}.
 maximize(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMDIChildFrame),
@@ -180,7 +180,7 @@ maximize(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmdichildframe.html#wxmdichildframerestore">external documentation</a>.
--spec restore(This) -> ok when
+-spec restore(This) -> 'ok' when
 	This::wxMDIChildFrame().
 restore(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMDIChildFrame),
@@ -188,7 +188,7 @@ restore(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMDIChildFrame()) -> ok.
+-spec destroy(This::wxMDIChildFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMDIChildFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

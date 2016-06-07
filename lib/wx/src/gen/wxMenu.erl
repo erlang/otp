@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
 -spec new([Option]) -> wxMenu() when
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({style, Style}, Acc) -> [<<1:32/?UI,Style:32/?UI>>|Acc];
@@ -67,7 +67,7 @@ new(Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuwxmenu">external documentation</a>.
 -spec new(Title, [Option]) -> wxMenu() when
 	Title::unicode:chardata(),
-	Option :: {style, integer()}.
+	Option :: {'style', integer()}.
 new(Title, Options)
  when is_list(Title),is_list(Options) ->
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -98,16 +98,16 @@ append(This,Itemid,Text)
 %% <br /> Also:<br />
 %% append(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),<br />
-%% 	Option :: {help, unicode:chardata()}<br />
-%% 		 | {kind, wx:wx_enum()}.<br />
+%% 	Option :: {'help', unicode:chardata()}<br />
+%% 		 | {'kind', wx:wx_enum()}.<br />
 %% 
 %%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec append(This, Itemid, Text, Submenu) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu();
       (This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
-	Option :: {help, unicode:chardata()}
-		 | {kind, wx:wx_enum()}.
+	Option :: {'help', unicode:chardata()}
+		 | {'kind', wx:wx_enum()}.
 
 append(This,Itemid,Text,Submenu)
  when is_record(This, wx_ref),is_integer(Itemid),is_list(Text),is_record(Submenu, wx_ref) ->
@@ -127,13 +127,13 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
 %% <br /> Also:<br />
 %% append(This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
-%% 	Option :: {help, unicode:chardata()}.<br />
+%% 	Option :: {'help', unicode:chardata()}.<br />
 %% 
--spec append(This, Itemid, Text, Help, IsCheckable) -> ok when
+-spec append(This, Itemid, Text, Help, IsCheckable) -> 'ok' when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Help::unicode:chardata(), IsCheckable::boolean();
       (This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 append(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text,Help,IsCheckable)
  when is_integer(Itemid),is_list(Text),is_list(Help),is_boolean(IsCheckable) ->
   ?CLASS(ThisT,wxMenu),
@@ -163,7 +163,7 @@ appendCheckItem(This,Itemid,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendcheckitem">external documentation</a>.
 -spec appendCheckItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 appendCheckItem(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
  when is_integer(Itemid),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -185,7 +185,7 @@ appendRadioItem(This,Itemid,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuappendradioitem">external documentation</a>.
 -spec appendRadioItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 appendRadioItem(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
  when is_integer(Itemid),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -205,7 +205,7 @@ appendSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenubreak">external documentation</a>.
--spec break(This) -> ok when
+-spec break(This) -> 'ok' when
 	This::wxMenu().
 break(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMenu),
@@ -213,7 +213,7 @@ break(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenucheck">external documentation</a>.
--spec check(This, Itemid, Check) -> ok when
+-spec check(This, Itemid, Check) -> 'ok' when
 	This::wxMenu(), Itemid::integer(), Check::boolean().
 check(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Check)
  when is_integer(Itemid),is_boolean(Check) ->
@@ -262,7 +262,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuenable">external documentation</a>.
--spec enable(This, Itemid, Enable) -> ok when
+-spec enable(This, Itemid, Enable) -> 'ok' when
 	This::wxMenu(), Itemid::integer(), Enable::boolean().
 enable(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Enable)
  when is_integer(Itemid),is_boolean(Enable) ->
@@ -367,9 +367,9 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Pos,#wx_ref{type=ItemT,ref=ItemRef})
 %%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec insert(This, Pos, Itemid, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer(),
-	Option :: {text, unicode:chardata()}
-		 | {help, unicode:chardata()}
-		 | {kind, wx:wx_enum()}.
+	Option :: {'text', unicode:chardata()}
+		 | {'help', unicode:chardata()}
+		 | {'kind', wx:wx_enum()}.
 insert(#wx_ref{type=ThisT,ref=ThisRef},Pos,Itemid, Options)
  when is_integer(Pos),is_integer(Itemid),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -393,13 +393,13 @@ insert(This,Pos,Itemid,Text,Submenu)
 %% <br /> Also:<br />
 %% insert(This, Pos, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
-%% 	Option :: {help, unicode:chardata()}.<br />
+%% 	Option :: {'help', unicode:chardata()}.<br />
 %% 
--spec insert(This, Pos, Itemid, Text, Help, IsCheckable) -> ok when
+-spec insert(This, Pos, Itemid, Text, Help, IsCheckable) -> 'ok' when
 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(), Help::unicode:chardata(), IsCheckable::boolean();
       (This, Pos, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 insert(#wx_ref{type=ThisT,ref=ThisRef},Pos,Itemid,Text,Help,IsCheckable)
  when is_integer(Pos),is_integer(Itemid),is_list(Text),is_list(Help),is_boolean(IsCheckable) ->
   ?CLASS(ThisT,wxMenu),
@@ -429,7 +429,7 @@ insertCheckItem(This,Pos,Itemid,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertcheckitem">external documentation</a>.
 -spec insertCheckItem(This, Pos, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 insertCheckItem(#wx_ref{type=ThisT,ref=ThisRef},Pos,Itemid,Text, Options)
  when is_integer(Pos),is_integer(Itemid),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -451,7 +451,7 @@ insertRadioItem(This,Pos,Itemid,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuinsertradioitem">external documentation</a>.
 -spec insertRadioItem(This, Pos, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 insertRadioItem(#wx_ref{type=ThisT,ref=ThisRef},Pos,Itemid,Text, Options)
  when is_integer(Pos),is_integer(Itemid),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -513,9 +513,9 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 %%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec prepend(This, Itemid, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(),
-	Option :: {text, unicode:chardata()}
-		 | {help, unicode:chardata()}
-		 | {kind, wx:wx_enum()}.
+	Option :: {'text', unicode:chardata()}
+		 | {'help', unicode:chardata()}
+		 | {'kind', wx:wx_enum()}.
 prepend(#wx_ref{type=ThisT,ref=ThisRef},Itemid, Options)
  when is_integer(Itemid),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -539,13 +539,13 @@ prepend(This,Itemid,Text,Submenu)
 %% <br /> Also:<br />
 %% prepend(This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
 %% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
-%% 	Option :: {help, unicode:chardata()}.<br />
+%% 	Option :: {'help', unicode:chardata()}.<br />
 %% 
--spec prepend(This, Itemid, Text, Help, IsCheckable) -> ok when
+-spec prepend(This, Itemid, Text, Help, IsCheckable) -> 'ok' when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Help::unicode:chardata(), IsCheckable::boolean();
       (This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 prepend(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text,Help,IsCheckable)
  when is_integer(Itemid),is_list(Text),is_list(Help),is_boolean(IsCheckable) ->
   ?CLASS(ThisT,wxMenu),
@@ -575,7 +575,7 @@ prependCheckItem(This,Itemid,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependcheckitem">external documentation</a>.
 -spec prependCheckItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 prependCheckItem(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
  when is_integer(Itemid),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -597,7 +597,7 @@ prependRadioItem(This,Itemid,Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenuprependradioitem">external documentation</a>.
 -spec prependRadioItem(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),
-	Option :: {help, unicode:chardata()}.
+	Option :: {'help', unicode:chardata()}.
 prependRadioItem(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
  when is_integer(Itemid),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxMenu),
@@ -637,7 +637,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusethelpstring">external documentation</a>.
--spec setHelpString(This, Itemid, HelpString) -> ok when
+-spec setHelpString(This, Itemid, HelpString) -> 'ok' when
 	This::wxMenu(), Itemid::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
  when is_integer(Itemid),is_list(HelpString) ->
@@ -647,7 +647,7 @@ setHelpString(#wx_ref{type=ThisT,ref=ThisRef},Itemid,HelpString)
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(HelpString_UC)):32/?UI,(HelpString_UC)/binary, 0:(((8- ((4+byte_size(HelpString_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusetlabel">external documentation</a>.
--spec setLabel(This, Itemid, Label) -> ok when
+-spec setLabel(This, Itemid, Label) -> 'ok' when
 	This::wxMenu(), Itemid::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
  when is_integer(Itemid),is_list(Label) ->
@@ -657,7 +657,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Label)
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((4+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenu.html#wxmenusettitle">external documentation</a>.
--spec setTitle(This, Title) -> ok when
+-spec setTitle(This, Title) -> 'ok' when
 	This::wxMenu(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT,ref=ThisRef},Title)
  when is_list(Title) ->
@@ -667,7 +667,7 @@ setTitle(#wx_ref{type=ThisT,ref=ThisRef},Title)
   <<ThisRef:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMenu()) -> ok.
+-spec destroy(This::wxMenu()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMenu),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

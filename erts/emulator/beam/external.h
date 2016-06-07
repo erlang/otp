@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2014. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
  *
  * %CopyrightEnd%
  */
-
-/* Same order as the ordering of terms in erlang */
 
 /* Since there are 255 different External tag values to choose from
    There is no reason to not be extravagant.
@@ -37,9 +35,12 @@
 #define SMALL_ATOM_EXT    's'
 #define REFERENCE_EXT     'e'
 #define NEW_REFERENCE_EXT 'r'
+#define NEWER_REFERENCE_EXT 'Z'
 #define PORT_EXT          'f'
+#define NEW_PORT_EXT      'Y'
 #define NEW_FLOAT_EXT     'F'
 #define PID_EXT           'g'
+#define NEW_PID_EXT       'X'
 #define SMALL_TUPLE_EXT   'h'
 #define LARGE_TUPLE_EXT   'i'
 #define NIL_EXT           'j'
@@ -191,7 +192,7 @@ Eterm erts_decode_dist_ext(ErtsHeapFactory* factory, ErtsDistExternal *);
 
 Sint erts_decode_ext_size(byte*, Uint);
 Sint erts_decode_ext_size_ets(byte*, Uint);
-Eterm erts_decode_ext(ErtsHeapFactory*, byte**);
+Eterm erts_decode_ext(ErtsHeapFactory*, byte**, Uint32 flags);
 Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
 
 Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);

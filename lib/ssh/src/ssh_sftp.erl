@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,12 +95,35 @@
 %%====================================================================
 start_channel(Cm) when is_pid(Cm) ->
     start_channel(Cm, []);
+start_channel(Socket) when is_port(Socket) ->
+    start_channel(Socket, []);
 start_channel(Host) when is_list(Host) ->
     start_channel(Host, []).					 
+
+start_channel(Socket, Options) when is_port(Socket) ->
+    Timeout =
+	%% A mixture of ssh:connect and ssh_sftp:start_channel:
+	case proplists:get_value(connect_timeout, Options, undefined) of
+	    undefined ->
+		proplists:get_value(timeout, Options, infinity);
+	    TO ->
+		TO
+	end,
+    case ssh:connect(Socket, Options, Timeout) of
+	{ok,Cm} -> 
+	    case start_channel(Cm, Options) of
+		{ok, Pid} ->
+		    {ok, Pid, Cm};
+		Error ->
+		    Error
+	    end;
+	Error ->
+	    Error
+    end;
 start_channel(Cm, Opts) when is_pid(Cm) ->
     Timeout = proplists:get_value(timeout, Opts, infinity),
-    {_, SftpOpts} = handle_options(Opts, [], []),
-    case ssh_xfer:attach(Cm, []) of
+    {_, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
+    case ssh_xfer:attach(Cm, [], ChanOpts) of
 	{ok, ChannelId, Cm} -> 
 	    case ssh_channel:start(Cm, ChannelId, 
 				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
@@ -123,9 +146,9 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 start_channel(Host, Opts) ->
     start_channel(Host, 22, Opts).
 start_channel(Host, Port, Opts) ->
-    {SshOpts, SftpOpts} = handle_options(Opts, [], []),
+    {SshOpts, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
     Timeout = proplists:get_value(timeout, SftpOpts, infinity),
-    case ssh_xfer:connect(Host, Port, SshOpts, Timeout) of
+    case ssh_xfer:connect(Host, Port, SshOpts, ChanOpts, Timeout) of
 	{ok, ChannelId, Cm} ->
 	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, 
 							    ChannelId, SftpOpts]) of
@@ -842,14 +865,18 @@ terminate(_Reason, State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-handle_options([], Sftp, Ssh) ->
-    {Ssh, Sftp};
-handle_options([{timeout, _} = Opt | Rest], Sftp, Ssh) ->
-    handle_options(Rest, [Opt | Sftp], Ssh);
-handle_options([{sftp_vsn, _} = Opt| Rest], Sftp, Ssh) ->
-    handle_options(Rest, [Opt | Sftp], Ssh);
-handle_options([Opt | Rest], Sftp, Ssh) ->
-    handle_options(Rest, Sftp, [Opt | Ssh]).
+handle_options([], Sftp, Chan, Ssh) ->
+    {Ssh, Chan, Sftp};
+handle_options([{timeout, _} = Opt | Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, [Opt|Sftp], Chan, Ssh);
+handle_options([{sftp_vsn, _} = Opt| Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, [Opt|Sftp], Chan, Ssh);
+handle_options([{window_size, _} = Opt| Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, Sftp, [Opt|Chan], Ssh);
+handle_options([{packet_size, _} = Opt| Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, Sftp, [Opt|Chan], Ssh);
+handle_options([Opt|Rest], Sftp, Chan, Ssh) ->
+    handle_options(Rest, Sftp, Chan, [Opt|Ssh]).
 
 call(Pid, Msg, TimeOut) ->
     ssh_channel:call(Pid, {{timeout, TimeOut}, Msg}, infinity).

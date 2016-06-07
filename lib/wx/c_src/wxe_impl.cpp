@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2014. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -238,9 +238,10 @@ void WxeApp::dispatch_cmds()
   if(wxe_status != WXE_INITIATED)
     return;
   recurse_level++;
-  // fprintf(stderr, "\r\ndispatch_normal %d\r\n", level);fflush(stderr);
+  // fprintf(stderr, "\r\ndispatch_normal %d\r\n", recurse_level);fflush(stderr);
+  wxe_queue->cb_start = 0;
   dispatch(wxe_queue);
-  // fprintf(stderr, "\r\ndispatch_done \r\n");fflush(stderr);
+  // fprintf(stderr, "\r\ndispatch_done %d\r\n", recurse_level);fflush(stderr);
   recurse_level--;
 
   // Cleanup old memenv's and deleted objects
@@ -489,7 +490,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
       if(it != ptr2ref.end()) {
 	wxeRefData *refd = it->second;
 	if(refd->alloc_in_erl) {
-	  if((refd->type == 4) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
+	  if((refd->type == 8) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
 	    ((wxBufferedDC *)ptr)->m_dc = NULL; // Workaround
 	  }
 	  wxString msg;
@@ -499,7 +500,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
 	    msg.Printf(wxT("Memory leak: {wx_ref, %d, %s}"),
 		       refd->ref, cinfo->GetClassName());
 	    send_msg("error", &msg);
-	  } else {
+	  } else if(refd->type != 4) {
 	    cleanup_ref = delete_object(ptr, refd);
 	  }
 	  if(cleanup_ref) {
@@ -561,7 +562,12 @@ int WxeApp::newPtr(void * ptr, int type, wxeMemEnv *memenv) {
 
   if(wxe_debug) {
     wxString msg;
-    msg.Printf(wxT("Creating {wx_ref, %d, unknown} at %p "), ref, ptr);
+    const wxChar *class_info = wxT("unknown");
+    if(type < 10) {
+      wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+      class_info = cinfo->GetClassName();
+    }
+    msg.Printf(wxT("Creating {wx_ref, %d, %s} at %p "), ref, class_info, ptr);
     send_msg("debug", &msg);
   }
 
@@ -612,12 +618,6 @@ void WxeApp::clearPtr(void * ptr) {
     int ref = refd->ref;
     refd->memenv->ref2ptr[ref] = NULL;
     free.Append(ref);
-
-    if(wxe_debug) {
-      wxString msg;
-      msg.Printf(wxT("Deleting {wx_ref, %d, unknown} at %p "), ref, ptr);
-      send_msg("debug", &msg);
-    }
 
     if(((int) refd->pid) != -1) {
       // Send terminate pid to owner

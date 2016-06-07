@@ -102,13 +102,13 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxFilePickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {path, unicode:chardata()}
-		 | {message, unicode:chardata()}
-		 | {wildcard, unicode:chardata()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'path', unicode:chardata()}
+		 | {'message', unicode:chardata()}
+		 | {'wildcard', unicode:chardata()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -135,13 +135,13 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {path, unicode:chardata()}
-		 | {message, unicode:chardata()}
-		 | {wildcard, unicode:chardata()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'path', unicode:chardata()}
+		 | {'message', unicode:chardata()}
+		 | {'wildcard', unicode:chardata()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
@@ -167,7 +167,7 @@ getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfilepickerctrl.html#wxfilepickerctrlsetpath">external documentation</a>.
--spec setPath(This, Str) -> ok when
+-spec setPath(This, Str) -> 'ok' when
 	This::wxFilePickerCtrl(), Str::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
@@ -177,7 +177,7 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFilePickerCtrl()) -> ok.
+-spec destroy(This::wxFilePickerCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFilePickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

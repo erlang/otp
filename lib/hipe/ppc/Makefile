@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2012. All Rights Reserved.
+# Copyright Ericsson AB 2004-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ DOC_FILES= $(MODULES:%=$(DOCS)/%.html)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +warn_exported_vars
+ERL_COMPILE_FLAGS += -Werror +warn_export_vars
 
 # ----------------------------------------------------
 # Targets

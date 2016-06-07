@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,28 @@
 -define(PERM_644, 8#644).
 
 
-%% API
+%%% API
+
+%%% client
+-spec add_host_key(string(),
+		   public_key:public_key(),
+		   proplists:proplist()) -> ok | {error,term()}.
+
+-spec is_host_key(public_key:public_key(),
+		  string(),
+		  ssh_client_key_api:algorithm(),
+		  proplists:proplist()) -> boolean().
+
+-spec user_key(ssh_client_key_api:algorithm(),
+	       proplists:proplist()) -> {ok, public_key:private_key()} | {error,term()}.
+
+%%% server
+-spec host_key(ssh_server_key_api:algorithm(),
+	       proplists:proplist()) ->  {ok, public_key:private_key()} | {error,term()}.
+
+-spec is_auth_key(public_key:public_key(),
+		  string(), proplists:proplist()) -> boolean().
+
 
 %% Used by server
 host_key(Algorithm, Opts) ->
