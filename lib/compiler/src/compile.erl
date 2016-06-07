@@ -26,6 +26,7 @@
 -export([forms/1,forms/2,noenv_forms/2]).
 -export([output_generated/1,noenv_output_generated/1]).
 -export([options/0]).
+-export([env_compiler_options/0]).
 
 %% Erlc interface.
 -export([compile/3,compile_beam/3,compile_asm/3,compile_core/3]).
@@ -129,6 +130,14 @@ noenv_output_generated(Opts) ->
     any(fun ({save_binary,_T,_F}) -> true;
 	    (_Other) -> false
 	end, Passes).
+
+%%
+%% Retrieve ERL_COMPILER_OPTIONS as a list of terms
+%%
+
+-spec env_compiler_options() -> [term()].
+
+env_compiler_options() -> env_default_opts().
 
 %%
 %%  Local functions

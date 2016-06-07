@@ -34,7 +34,7 @@
 	 cover/1, env/1, core/1,
 	 core_roundtrip/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
-	 warnings/1, pre_load_check/1
+	 warnings/1, pre_load_check/1, env_compiler_options/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -50,7 +50,8 @@ all() ->
      other_output, encrypted_abstr,
      strict_record,
      cover, env, core, core_roundtrip, asm,
-     sys_pre_attributes, dialyzer, warnings, pre_load_check].
+     sys_pre_attributes, dialyzer, warnings, pre_load_check,
+     env_compiler_options].
 
 groups() -> 
     [].
@@ -1091,6 +1092,23 @@ compiler_modules() ->
     Ms = filelib:wildcard(Wc),
     FN = filename,
     [list_to_atom(FN:rootname(FN:basename(M), ".beam")) || M <- Ms].
+
+%% Test that ERL_COMPILER_OPTIONS are correctly retrieved
+%% by env_compiler_options/0
+
+env_compiler_options(_Config) ->
+    Cases = [
+        {"bin_opt_info", [bin_opt_info]},
+        {"'S'", ['S']},
+        {"{source, \"test.erl\"}", [{source, "test.erl"}]},
+        {"[{d,macro_one,1},{d,macro_two}]", [{d, macro_one, 1}, {d, macro_two}]},
+        {"[warn_export_all, warn_export_vars]", [warn_export_all, warn_export_vars]}
+    ],
+    F = fun({Env, Expected}) ->
+        true = os:putenv("ERL_COMPILER_OPTIONS", Env),
+        Expected = compile:env_compiler_options()
+    end,
+    lists:foreach(F, Cases).
 
 %%%
 %%% Utilities.
