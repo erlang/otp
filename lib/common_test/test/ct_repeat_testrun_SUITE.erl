@@ -85,19 +85,21 @@ init_per_suite(Config0) ->
 	    
 	    %% Check if file i/o is too slow for correct measurements
 	    Opts3 = Opts0 ++ [{suite,Suite1},{testcase,tc1},{label,timing3}],
-	    {T,{1,0,{0,0}}} = 
-		timer:tc(fun() ->
-				 ct_test_support:run(ct,run_test,
-						     [Opts3],Config),
-				 ct_test_support:run(ct,run_test,
-						     [Opts3],Config)
-			 end),
+	    {T,_} = 
+		timer:tc(
+		  fun() ->
+			  {1,0,{0,0}} = ct_test_support:run(ct,run_test,
+							    [Opts3],Config),
+			  {1,0,{0,0}} = ct_test_support:run(ct,run_test,
+							    [Opts3],Config)
+		  end),
 	    %% The time to compare with here must match the timeout value
 	    %% in the test suite. Accept 30% logging overhead (26 sec total).
 	    if T > 26000000 ->
 		    ct:pal("Timing test took ~w sec (< 27 sec expected). "
 			   "Skipping the suite!",
 			   [trunc(T/1000000)]),
+		    ct_test_support:end_per_suite(Config),
 		    {skip,"File I/O too slow for this suite"};
 	       true ->
 		    ct:pal("Timing test took ~w sec. Proceeding...",
