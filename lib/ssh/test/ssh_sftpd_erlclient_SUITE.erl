@@ -26,6 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include("ssh_test_lib.hrl").
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
@@ -53,17 +54,20 @@ groups() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    catch ssh:stop(),
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
-    c:c(FileAlt),
-    FileName = filename:join(DataDir, "test.txt"),
-    {ok, FileInfo} = file:read_file_info(FileName),
-    ok = file:write_file_info(FileName,
-			      FileInfo#file_info{mode = 8#400}),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    Config.
+    ?CHECK_CRYPTO(
+       begin
+	   catch ssh:stop(),
+	   DataDir = proplists:get_value(data_dir, Config),
+	   PrivDir = proplists:get_value(priv_dir, Config),
+	   FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
+	   c:c(FileAlt),
+	   FileName = filename:join(DataDir, "test.txt"),
+	   {ok, FileInfo} = file:read_file_info(FileName),
+	   ok = file:write_file_info(FileName,
+				     FileInfo#file_info{mode = 8#400}),
+	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
+	   Config
+       end).
 
 end_per_suite(Config) -> 
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),

@@ -28,6 +28,7 @@
 -include_lib("kernel/include/file.hrl").
 -include("ssh_xfer.hrl").
 -include("ssh.hrl").
+-include("ssh_test_lib.hrl").
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
@@ -72,14 +73,17 @@ groups() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),	    
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    %% to make sure we don't use public-key-auth
-    %% this should be tested by other test suites
-    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey), 
-    file:make_dir(UserDir),  
-    Config.
+    ?CHECK_CRYPTO(
+       begin
+	   DataDir = proplists:get_value(data_dir, Config),	    
+	   PrivDir = proplists:get_value(priv_dir, Config),
+	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
+	   %% to make sure we don't use public-key-auth
+	   %% this should be tested by other test suites
+	   UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey), 
+	   file:make_dir(UserDir),  
+	   Config
+       end).
 
 end_per_suite(Config) ->
     SysDir = proplists:get_value(priv_dir, Config),

@@ -53,11 +53,14 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_suite(Config) ->
-    Port = ssh_test_lib:inet_port(node()),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
-    file:make_dir(UserDir),
-    [{userdir, UserDir},{port, Port}, {host, "localhost"}, {host_ip, any} | Config].
+    ?CHECK_CRYPTO(
+       begin
+	   Port = ssh_test_lib:inet_port(node()),
+	   PrivDir = proplists:get_value(priv_dir, Config),
+	   UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+	   file:make_dir(UserDir),
+	   [{userdir, UserDir},{port, Port}, {host, "localhost"}, {host_ip, any} | Config]
+       end).
 
 end_per_suite(_) ->
     ok.

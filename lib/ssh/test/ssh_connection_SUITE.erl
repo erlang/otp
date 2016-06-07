@@ -82,7 +82,7 @@ sock() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config.
+    ?CHECK_CRYPTO(Config).
 
 end_per_suite(Config) ->
     Config.

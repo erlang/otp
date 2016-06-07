@@ -22,6 +22,7 @@
 -module(ssh_to_openssh_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -62,12 +63,14 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    case gen_tcp:connect("localhost", 22, []) of
-	{error,econnrefused} ->
-	    {skip,"No openssh deamon"};
-	_ ->
-	    ssh_test_lib:openssh_sanity_check(Config)
-    end.
+    ?CHECK_CRYPTO(
+       case gen_tcp:connect("localhost", 22, []) of
+	   {error,econnrefused} ->
+	       {skip,"No openssh deamon"};
+	   _ ->
+	       ssh_test_lib:openssh_sanity_check(Config)
+       end
+      ).
 
 end_per_suite(_Config) ->
     ok.

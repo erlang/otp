@@ -21,6 +21,7 @@
 -module(ssh_renegotiate_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -45,7 +46,7 @@ tests() -> [rekey, rekey_limit, renegotiate1, renegotiate2].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config.
+    ?CHECK_CRYPTO(Config).
 
 end_per_suite(_Config) ->
     ssh:stop().

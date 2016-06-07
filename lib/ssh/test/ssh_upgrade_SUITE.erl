@@ -23,6 +23,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
 
 -record(state, {
 	  config,
@@ -48,13 +49,15 @@ all() ->
     ].
 
 init_per_suite(Config0) ->
-    case ct_release_test:init(Config0) of
-	{skip, Reason} ->
-	    {skip, Reason};
-	Config ->
-	    ssh:start(),
-	    Config
-    end.
+    ?CHECK_CRYPTO(
+       case ct_release_test:init(Config0) of
+	   {skip, Reason} ->
+	       {skip, Reason};
+	   Config ->
+	       ssh:start(),
+	       Config
+       end
+      ).
 
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),

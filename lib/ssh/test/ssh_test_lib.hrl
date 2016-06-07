@@ -1,4 +1,14 @@
 %%-------------------------------------------------------------------------
+%% Check for usable crypt 
+%%-------------------------------------------------------------------------
+-define(CHECK_CRYPTO(Available),
+	try crypto:start() 
+	of _ -> Available
+	catch _:_ -> {skip, "Can't start crypto"}
+	end
+       ).
+
+%%-------------------------------------------------------------------------
 %% Help macro
 %%-------------------------------------------------------------------------
 -define(wait_match(Pattern, FunctionCall, Bind, Timeout, Ntries),

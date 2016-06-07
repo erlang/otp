@@ -25,6 +25,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/include/file.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 %%-compile(export_all).
@@ -130,7 +131,7 @@ basic_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config.
+    ?CHECK_CRYPTO(Config).
 
 end_per_suite(_Config) ->
     ssh:stop().
