@@ -114,6 +114,7 @@ ftp_tests()->
 %%% ftpservers		list of servers to check if they are available
 %%%			The element is:
 %%%			  {Name,         % string(). The os command name
+%%%                        Path,         % string(). The os PATH syntax, e.g "/bin:/usr/bin"
 %%%			   StartCommand, % fun()->{ok,start_result()} | {error,string()}.
 %%%			                 % The command to start the daemon with.
 %%%			   ChkUp,        % fun(start_result()) -> string(). Os command to check
@@ -129,12 +130,13 @@ ftp_tests()->
 
 -define(default_ftp_servers,
 	[{"vsftpd",
-	  fun(__CONF__) -> 
+	  "/sbin:/usr/sbin:/usr/local/sbin",
+	  fun(__CONF__, AbsName) -> 
 		  DataDir = proplists:get_value(data_dir,__CONF__),
 		  ConfFile = filename:join(DataDir, "vsftpd.conf"),
 		  PrivDir = proplists:get_value(priv_dir,__CONF__),
 		  AnonRoot = PrivDir,
-		  Cmd = ["vsftpd "++filename:join(DataDir,"vsftpd.conf"),
+		  Cmd = [AbsName ++" "++filename:join(DataDir,"vsftpd.conf"),
 			 " -oftpd_banner=erlang_otp_testing",
 			 " -oanon_root=\"",AnonRoot,"\"",
 			 " -orsa_cert_file=\"",filename:join(DataDir,"server-cert.pem"),"\"",
@@ -856,28 +858,37 @@ chk_no_dir(PathList, Config) ->
 
 %%--------------------------------------------------------------------
 find_executable(Config) ->
-    FTPservers = case proplists:get_value(ftpservers,Config) of
-		     undefined -> ?default_ftp_servers;
-		     L -> L
-		 end,
-    case lists:dropwhile(fun not_available/1, FTPservers) of
-	[] -> false;
-	[FTPD_data|_] -> {ok, FTPD_data}
+    search_executable(proplists:get_value(ftpservers, Config, ?default_ftp_servers)).
+
+
+search_executable([{Name,Paths,_StartCmd,_ChkUp,_StopCommand,_ConfigUpd,_Host,_Port}|Srvrs]) ->
+    case os_find(Name,Paths) of
+	false ->
+	    search_executable(Srvrs);
+	AbsName -> 
+	    ct:comment("Found ~p",[AbsName]),
+	    {ok, {AbsName,_StartCmd,_ChkUp,_StopCommand,_ConfigUpd,_Host,_Port}}
+    end;
+search_executable([]) ->
+    false.
+
+
+os_find(Name, Paths) ->
+    case os:find_executable(Name, Paths) of
+	false -> os:find_executable(Name);
+	AbsName -> AbsName
     end.
 
-not_available({Name,_StartCmd,_ChkUp,_StopCommand,_ConfigUpd,_Host,_Port}) ->
-    os:find_executable(Name) == false.
-
-
+%%%----------------------------------------------------------------
 start_ftpd(Config) ->
-    {Name,StartCmd,_ChkUp,_StopCommand,ConfigRewrite,Host,Port} = proplists:get_value(ftpd_data, Config),
-    case StartCmd(Config) of
+    {AbsName,StartCmd,_ChkUp,_StopCommand,ConfigRewrite,Host,Port} = proplists:get_value(ftpd_data, Config),
+    case StartCmd(Config, AbsName) of
 	{ok,StartResult} ->
 	    [{ftpd_host,Host},
 	     {ftpd_port,Port},
 	     {ftpd_start_result,StartResult} | ConfigRewrite(Config)];
 	{error,Msg} ->
-	    {skip, [Name," not started: ",Msg]}
+	    {skip, [AbsName," not started: ",Msg]}
     end.
 
 stop_ftpd(Config) ->
