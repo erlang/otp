@@ -198,9 +198,9 @@ trc_loop(Sock,Patterns,Type) ->
 	    gen_tcp:close(Sock)
     end.
 add_nodes(Nodes,Patterns,_Type) ->
-    ttb:tracer(Nodes,[{file,{local, test_server}},
-		      {handler, {{?MODULE,handle_debug},initial}}]),
-    ttb:p(all,[call,timestamp]),
+    {ok, _} = ttb:tracer(Nodes,[{file,{local, test_server}},
+			        {handler, {{?MODULE,handle_debug},initial}}]),
+    {ok, _} = ttb:p(all,[call,timestamp]),
     lists:foreach(fun({TP,M,F,A,Pat}) -> ttb:TP(M,F,A,Pat);
 		     ({CTP,M,F,A}) -> ttb:CTP(M,F,A) 
 		  end,
@@ -360,8 +360,8 @@ start_node_peer(SlaveName, OptList, From, TI) ->
 -spec wait_for_node_started_fun(_, _, _, _, _) -> fun(() -> no_return()).
 wait_for_node_started_fun(LSock, Tmo, Cleanup, TI, Self) ->
     fun() ->
-            wait_for_node_started(LSock,Tmo,undefined,
-                                  Cleanup,TI,Self),
+            {{ok, _}, _} = wait_for_node_started(LSock,Tmo,undefined,
+                                                 Cleanup,TI,Self),
             receive after infinity -> ok end
     end.
 
@@ -432,7 +432,7 @@ wait_for_node_started(LSock,Timeout,Client,Cleanup,TI,CtrlPid) ->
 								     client=Client});
 				false -> ok
 			    end,
-			    gen_tcp:controlling_process(Sock,CtrlPid),
+			    ok = gen_tcp:controlling_process(Sock,CtrlPid),
 			    test_server_ctrl:node_started(Nodename),
 			    {{ok,Nodename},W}
 		    end;
