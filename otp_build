@@ -1393,9 +1393,6 @@ case "$1" in
 		    TYPE=opt
 		fi;
 		FLAVOR=$1
-		if [ $FLAVOR = opt ]; then
-		    FLAVOR=plain
-		fi
 		do_boot;;
 	update_primary)
 		case $version_controller in
