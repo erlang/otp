@@ -1004,7 +1004,8 @@ read_config_file(Stream, SoFar) ->
 	    %% Ignore commented lines for efficiency later ..
 	    read_config_file(Stream, SoFar);
 	Line ->
-	    NewLine = re:replace(clean(Line),"[\t\r\f ]"," ", [{return,list}]),
+	    NewLine = re:replace(white_space_clean(Line),
+				 "[\t\r\f ]"," ", [{return,list}, global]),
 	    case NewLine of
 		[] ->
 		    %% Also ignore empty lines ..
@@ -1020,7 +1021,7 @@ parse_mime_types(Stream,MimeTypesList) ->
 	    eof ->
 		eof;
 	    String ->
-		white_space_clean(String)
+		re:replace(white_space_clean(String), "[\t\r\f ]"," ", [{return,list}, global])	
 	end,
     parse_mime_types(Stream, MimeTypesList, Line).
 parse_mime_types(Stream, MimeTypesList, eof) ->
@@ -1042,6 +1043,8 @@ parse_mime_types(Stream, MimeTypesList, Line) ->
 
 suffixes(_MimeType,[]) ->
     [];
+suffixes(MimeType,[""|Rest]) ->
+    suffixes(MimeType, Rest);
 suffixes(MimeType,[Suffix|Rest]) ->
     [{Suffix,MimeType}|suffixes(MimeType,Rest)].
 
