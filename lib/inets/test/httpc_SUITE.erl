@@ -2080,7 +2080,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 			      end
 		      end),
 	      MRef = erlang:monitor(process, Pid),
-	      timer:sleep(10 + random:uniform(1334)),
+	      timer:sleep(10 + rand:uniform(1334)),
 	      {Id, Pid, MRef}
       end,
       lists:seq(1, NumClients)).
@@ -2169,7 +2169,7 @@ slowly_send_response(CSock, Answer) ->
 					    [length(Answer), Answer])),
     lists:foreach(
       fun(Char) ->
-	      timer:sleep(random:uniform(500)),
+	      timer:sleep(rand:uniform(500)),
 	      gen_tcp:send(CSock, <<Char>>)
       end,
       Response).
@@ -2189,9 +2189,8 @@ parse_connection_type(Request) ->
 
 set_random_seed() ->
     Unique = erlang:unique_integer(),
-
     A = erlang:phash2([make_ref(), self(), Unique]),
-    random:seed(A, A, A).
+    rand:seed(exsplus, {A, A, A}).
 
 
 otp_8739(doc) ->
