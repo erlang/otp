@@ -50,12 +50,17 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
+suite() ->
+    [{timetrap,{seconds,20}}].
+
 all() ->
     [
      {group, ftp_passive},
      {group, ftp_active},
      {group, ftps_passive},
-     {group, ftps_active}
+     {group, ftps_active},
+     error_ehost,
+     clean_shutdown
     ].
 
 groups() ->
@@ -92,14 +97,13 @@ ftp_tests()->
      recv_chunk, 
      type, 
      quote, 
-     ip_v6_disabled,
+     error_elogin,
      progress_report_send,
      progress_report_recv,
      not_owner,
      unexpected_call,
      unexpected_cast,
-     unexpected_bang,
-     clean_shutdown
+     unexpected_bang
     ].
 
 %%--------------------------------------------------------------------
@@ -190,35 +194,31 @@ init_per_group(_Group, Config) -> Config.
 end_per_group(_Group, Config) -> Config.
 
 %%--------------------------------------------------------------------
-
-init_per_testcase(Case, Config)  when (Case =:= progress_report_send) orelse 
-				      (Case =:= progress_report_recv) ->
-    common_init_per_testcase(Case, [{progress, {?MODULE, progress, #progress{}}} | Config]);
-
-init_per_testcase(Case, Config) ->
-    common_init_per_testcase(Case, Config).
-
-common_init_per_testcase(Case, Config0) ->
-    Group = proplists:get_value(name,proplists:get_value(tc_group_properties,Config0)),
-    try ?MODULE:Case(doc) of
-	Msg -> ct:comment(Msg)
-    catch
-	_:_-> ok
-    end,
+init_per_testcase(Case, Config0) ->
+    Group = proplists:get_value(name, proplists:get_value(tc_group_properties,Config0)),
     TLS = [{tls,[{reuse_sessions,true}]}],
     ACTIVE = [{mode,active}],
     PASSIVE = [{mode,passive}],
-    ExtraOpts = [verbose],
+    CaseOpts = case Case of
+		   progress_report_send -> [{progress, {?MODULE,progress,#progress{}}}];
+		   progress_report_recv -> [{progress, {?MODULE,progress,#progress{}}}];
+		   _ -> []
+	       end,
+    ExtraOpts = [verbose | CaseOpts],
     Config =
 	case Group of
-	    ftp_active   -> ftp__open(Config0,       ACTIVE  ++ExtraOpts);
-	    ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ExtraOpts);
-	    ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ExtraOpts);
-	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ExtraOpts)
+	    ftp_active   -> ftp__open(Config0,       ACTIVE  ++ ExtraOpts);
+	    ftps_active  -> ftp__open(Config0, TLS++ ACTIVE  ++ ExtraOpts);
+	    ftp_passive  -> ftp__open(Config0,      PASSIVE  ++ ExtraOpts);
+	    ftps_passive -> ftp__open(Config0, TLS++PASSIVE  ++ ExtraOpts);
+	    undefined    -> Config0
 	end,
     case Case of
-	user -> Config;
-	bad_user -> Config;
+	user           -> Config;
+	bad_user       -> Config;
+	error_elogin   -> Config;
+	error_ehost    -> Config;
+	clean_shutdown -> Config;
 	_ ->
 	    Pid = proplists:get_value(ftp,Config),
 	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS(atom_to_list(Group)++"-"++atom_to_list(Case)) ),
@@ -229,6 +229,9 @@ common_init_per_testcase(Case, Config0) ->
     
 end_per_testcase(user, _Config) -> ok;
 end_per_testcase(bad_user, _Config) -> ok;
+end_per_testcase(error_elogin, _Config) -> ok;
+end_per_testcase(error_ehost, _Config) -> ok;
+end_per_testcase(clean_shutdown, _Config) -> ok;
 end_per_testcase(_Case, Config) -> 
     case proplists:get_value(tc_status,Config) of
 	ok -> ok;
@@ -286,7 +289,8 @@ cd(Config0) ->
     {ok, PWD} = ftp:pwd(Pid),
     ExpectedPWD = id2ftp_result(Dir, Config),
     PWD = ExpectedPWD,
-    {error, epath} = ftp:cd(Pid, ?BAD_DIR).
+    {error, epath} = ftp:cd(Pid, ?BAD_DIR),
+    ok.
 
 %%-------------------------------------------------------------------------
 lcd() ->
@@ -359,8 +363,11 @@ rename(Config0) ->
 		    id2ftp(NewFile,Config)),
 
     true = (chk_file(NewFile,Contents,Config) 
-	    and chk_no_file([OldFile],Config)).
-
+	    and chk_no_file([OldFile],Config)),
+    {error,epath} = ftp:rename(Pid,
+			       id2ftp("non_existing_file",Config),
+			       id2ftp(NewFile,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 send() -> 
@@ -372,14 +379,16 @@ send(Config0) ->
     Config = set_state([reset,{mkfile,[SrcDir,File],Contents}], Config0),
     Pid = proplists:get_value(ftp, Config),
 
-chk_no_file([File],Config),
-chk_file([SrcDir,File],Contents,Config),
+    chk_no_file([File],Config),
+    chk_file([SrcDir,File],Contents,Config),
 
     ok = ftp:lcd(Pid, id2ftp(SrcDir,Config)),
     ok = ftp:cd(Pid, id2ftp("",Config)),
     ok = ftp:send(Pid, File),
+    chk_file(File, Contents, Config),
 
-    chk_file(File, Contents, Config).
+    {error,epath} = ftp:send(Pid, "non_existing_file"),
+    ok.
 
 %%-------------------------------------------------------------------------
 send_3() -> 
@@ -395,8 +404,10 @@ send_3(Config0) ->
     ok = ftp:cd(Pid, id2ftp(Dir,Config)),
     ok = ftp:lcd(Pid, id2ftp("",Config)),
     ok = ftp:send(Pid, File, RemoteFile),
+    chk_file([Dir,RemoteFile], Contents, Config),
 
-    chk_file([Dir,RemoteFile], Contents, Config).
+    {error,epath} = ftp:send(Pid, "non_existing_file", RemoteFile),
+    ok.
 
 %%------------------------------------------------------------------------- 
 send_bin() -> 
@@ -408,24 +419,33 @@ send_bin(Config0) ->
     Pid = proplists:get_value(ftp, Config),
     {error, enotbinary} = ftp:send_bin(Pid, "some string", id2ftp(File,Config)),
     ok = ftp:send_bin(Pid, BinContents, id2ftp(File,Config)),
-    chk_file(File, BinContents, Config).
+    chk_file(File, BinContents, Config),
+    {error, efnamena} = ftp:send_bin(Pid, BinContents, "/nothere"),
+    ok.
 
 %%-------------------------------------------------------------------------    
 send_chunk() -> 
     [{doc, "Send a binary using chunks."}].
 send_chunk(Config0) ->
-    Contents = <<"ftp_SUITE test ...">>,
+    Contents1 = <<"1: ftp_SUITE test ...">>,
+    Contents2 = <<"2: ftp_SUITE test ...">>,
     File = "file.txt",
     Config = set_state([reset,{mkdir,"incoming"}], Config0),
     Pid = proplists:get_value(ftp, Config),
 
     ok = ftp:send_chunk_start(Pid, id2ftp(File,Config)),
+    {error, echunk} = ftp:send_chunk_start(Pid, id2ftp(File,Config)),
     {error, echunk} = ftp:cd(Pid, "incoming"),
     {error, enotbinary} = ftp:send_chunk(Pid, "some string"),
-    ok = ftp:send_chunk(Pid, Contents),
-    ok = ftp:send_chunk(Pid, Contents),
+    ok = ftp:send_chunk(Pid, Contents1),
+    ok = ftp:send_chunk(Pid, Contents2),
     ok = ftp:send_chunk_end(Pid),
-    chk_file(File, <<Contents/binary,Contents/binary>>, Config).
+    chk_file(File, <<Contents1/binary,Contents2/binary>>, Config),
+
+    {error, echunk} = ftp:send_chunk(Pid, Contents1),
+    {error, echunk} = ftp:send_chunk_end(Pid),
+    {error, efnamena} = ftp:send_chunk_start(Pid, "/"),
+    ok.
 
 %%-------------------------------------------------------------------------
 delete() -> 
@@ -436,7 +456,9 @@ delete(Config0) ->
     Config = set_state([reset,{mkfile,File,Contents}], Config0),
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:delete(Pid, id2ftp(File,Config)),
-    chk_no_file([File], Config).
+    chk_no_file([File], Config),
+    {error,epath} = ftp:delete(Pid, id2ftp(File,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 mkdir() ->
@@ -446,7 +468,9 @@ mkdir(Config0) ->
     Config = set_state([reset], Config0),
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:mkdir(Pid, id2ftp(NewDir,Config)),
-    chk_dir([NewDir], Config).
+    chk_dir([NewDir], Config),
+    {error,epath} = ftp:mkdir(Pid, id2ftp(NewDir,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 rmdir() -> 
@@ -456,7 +480,9 @@ rmdir(Config0) ->
     Config = set_state([reset,{mkdir,Dir}], Config0),
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:rmdir(Pid, id2ftp(Dir,Config)),
-    chk_no_dir([Dir], Config).
+    chk_no_dir([Dir], Config),
+    {error,epath} = ftp:rmdir(Pid, id2ftp(Dir,Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 append() -> 
@@ -469,7 +495,9 @@ append(Config0) ->
     Pid = proplists:get_value(ftp, Config),
     ok = ftp:append(Pid, id2ftp(SrcFile,Config), id2ftp(DstFile,Config)),
     ok = ftp:append(Pid, id2ftp(SrcFile,Config), id2ftp(DstFile,Config)),
-    chk_file(DstFile, <<Contents/binary,Contents/binary>>, Config).
+    chk_file(DstFile, <<Contents/binary,Contents/binary>>, Config),
+    {error,epath} = ftp:append(Pid, id2ftp("non_existing_file",Config), id2ftp(DstFile,Config)),
+    ok.
 		
 %%-------------------------------------------------------------------------
 append_bin() -> 
@@ -511,7 +539,9 @@ recv(Config0) ->
     ok = ftp:cd(Pid, id2ftp(SrcDir,Config)),
     ok = ftp:lcd(Pid, id2ftp("",Config)),
     ok = ftp:recv(Pid, File),
-    chk_file(File, Contents, Config).
+    chk_file(File, Contents, Config),
+    {error,epath} = ftp:recv(Pid, "non_existing_file"),
+    ok.
 
 %%-------------------------------------------------------------------------
 recv_3() -> 
@@ -535,7 +565,9 @@ recv_bin(Config0) ->
     Config = set_state([reset, {mkfile,File,Contents}], Config0),
     Pid = proplists:get_value(ftp, Config),
     {ok,Received} = ftp:recv_bin(Pid, id2ftp(File,Config)),
-    find_diff(Received, Contents).
+    find_diff(Received, Contents),
+    {error,epath} = ftp:recv_bin(Pid, id2ftp("non_existing_file",Config)),
+    ok.
 
 %%-------------------------------------------------------------------------
 recv_chunk() -> 
@@ -581,6 +613,154 @@ quote(Config) ->
     %% = ftp:quote(Pid, "list"), 
     ok.
 
+%%-------------------------------------------------------------------------
+progress_report_send() ->
+    [{doc, "Test the option progress for ftp:send/[2,3]"}].
+progress_report_send(Config) when is_list(Config) ->
+    ReportPid = 
+	spawn_link(?MODULE, progress_report_receiver_init, [self(), 1]),
+    send(Config),
+    receive
+	{ReportPid, ok} ->
+	    ok
+    end.
+
+%%-------------------------------------------------------------------------
+progress_report_recv() ->
+    [{doc, "Test the option progress for ftp:recv/[2,3]"}].
+progress_report_recv(Config) when is_list(Config) ->
+    ReportPid = 
+ 	spawn_link(?MODULE, progress_report_receiver_init, [self(), 3]),
+    recv(Config),
+    receive
+ 	{ReportPid, ok} ->
+ 	    ok
+    end.
+
+%%-------------------------------------------------------------------------
+
+not_owner() ->
+    [{doc, "Test what happens if a process that not owns the connection tries "
+    "to use it"}].
+not_owner(Config) when is_list(Config) ->
+    Pid = proplists:get_value(ftp, Config),
+
+    Parent = self(),
+    OtherPid = spawn_link(
+		 fun() ->
+			 {error, not_connection_owner} = ftp:pwd(Pid),
+			 ftp:close(Pid),
+			 Parent ! {self(), ok}
+		 end),
+    receive
+	{OtherPid, ok} ->
+	    {ok, _} = ftp:pwd(Pid)
+    end.
+
+
+%%-------------------------------------------------------------------------
+
+
+unexpected_call()->
+    [{doc, "Test that behaviour of the ftp process if the api is abused"}].
+unexpected_call(Config) when is_list(Config) ->
+    Flag =  process_flag(trap_exit, true),
+    Pid = proplists:get_value(ftp, Config),
+    
+    %% Serious programming fault, connetion will be shut down 
+    case (catch gen_server:call(Pid, {self(), foobar, 10}, infinity)) of
+	{error, {connection_terminated, 'API_violation'}} ->
+	    ok;
+	Unexpected1 ->
+	    exit({unexpected_result, Unexpected1})
+    end,
+    ct:sleep(500),
+    undefined = process_info(Pid, status),
+    process_flag(trap_exit, Flag).
+%%-------------------------------------------------------------------------
+
+unexpected_cast()->
+    [{doc, "Test that behaviour of the ftp process if the api is abused"}].
+unexpected_cast(Config) when is_list(Config) ->
+    Flag = process_flag(trap_exit, true),
+    Pid = proplists:get_value(ftp, Config),
+    %% Serious programming fault, connetion will be shut down 
+    gen_server:cast(Pid, {self(), foobar, 10}),
+    ct:sleep(500),
+    undefined = process_info(Pid, status),
+    process_flag(trap_exit, Flag).
+%%-------------------------------------------------------------------------
+ 
+unexpected_bang()->
+    [{doc, "Test that connection ignores unexpected bang"}].
+unexpected_bang(Config) when is_list(Config) ->
+    Flag = process_flag(trap_exit, true),
+    Pid = proplists:get_value(ftp, Config),
+    %% Could be an innocent misstake the connection lives. 
+    Pid ! foobar, 
+    ct:sleep(500),
+    {status, _} = process_info(Pid, status),
+    process_flag(trap_exit, Flag).
+    
+%%-------------------------------------------------------------------------
+
+clean_shutdown() -> 
+    [{doc, "Test that owning process that exits with reason "
+     "'shutdown' does not cause an error message. OTP 6035"}].
+
+clean_shutdown(Config) ->
+    Parent = self(),
+    HelperPid = spawn(
+		  fun() ->
+			  ftp__open(Config, [verbose]),
+			  Parent ! ok,
+			  receive
+			      nothing -> ok
+			  end
+		  end),
+    receive
+	ok ->
+	    PrivDir = proplists:get_value(priv_dir, Config),
+	    LogFile = filename:join([PrivDir,"ticket_6035.log"]),
+ 	    error_logger:logfile({open, LogFile}),
+	    exit(HelperPid, shutdown),
+	    timer:sleep(2000),
+	    error_logger:logfile(close),
+	    case is_error_report_6035(LogFile) of
+		true ->  ok;
+		false -> {fail, "Bad logfile"}
+	    end
+    end.
+
+%%%----------------------------------------------------------------
+%%% Error codes not tested elsewhere
+
+error_elogin(Config0) ->
+    Dir = "test",
+    OldFile = "old.txt",
+    NewFile = "new.txt",
+    SrcDir = "data",
+    File = "file.txt",
+    Config = set_state([reset,
+			{mkdir,Dir},
+			{mkfile,OldFile,<<"Contents..">>},
+			{mkfile,[SrcDir,File],<<"Contents..">>}], Config0),
+
+    Pid = proplists:get_value(ftp, Config),
+    ok = ftp:lcd(Pid, id2ftp(SrcDir,Config)),
+    {error,elogin} = ftp:send(Pid, File),
+    ok = ftp:lcd(Pid, id2ftp("",Config)),
+    {error,elogin} = ftp:pwd(Pid),
+    {error,elogin} = ftp:cd(Pid, id2ftp(Dir,Config)),
+    {error,elogin} = ftp:rename(Pid, 
+				id2ftp(OldFile,Config),
+				id2ftp(NewFile,Config)),
+    ok.
+
+error_ehost(_Config) ->
+    {error, ehost} = ftp:open("nohost.nodomain"),
+    ok.
+    
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
@@ -674,112 +854,7 @@ chk_no_dir(PathList, Config) ->
 	    ct:fail("Unexpected error for ~p: ~p",[Path,Error])
     end.
 
-%%-------------------------------------------------------------------------
-progress_report_send() ->
-    [{doc, "Test the option progress for ftp:send/[2,3]"}].
-progress_report_send(Config) when is_list(Config) ->
-    ReportPid = 
-	spawn_link(?MODULE, progress_report_receiver_init, [self(), 1]),
-    send(Config),
-    receive
-	{ReportPid, ok} ->
-	    ok
-    end.
-%%-------------------------------------------------------------------------
-progress_report_recv() ->
-    [{doc, "Test the option progress for ftp:recv/[2,3]"}].
-progress_report_recv(Config) when is_list(Config) ->
-    ReportPid = 
- 	spawn_link(?MODULE, progress_report_receiver_init, [self(), 3]),
-    recv(Config),
-    receive
- 	{ReportPid, ok} ->
- 	    ok
-    end.
-
-%%-------------------------------------------------------------------------
-
-not_owner() ->
-    [{doc, "Test what happens if a process that not owns the connection tries "
-    "to use it"}].
-not_owner(Config) when is_list(Config) ->
-    Pid = proplists:get_value(ftp, Config),
-    OtherPid = spawn_link(?MODULE, not_owner, [Pid, self()]),
-    
-    receive
-	{OtherPid, ok} ->
-	    {ok, _} = ftp:pwd(Pid)
-    end.
-
-
-%%-------------------------------------------------------------------------
-
-
-unexpected_call()->
-    [{doc, "Test that behaviour of the ftp process if the api is abused"}].
-unexpected_call(Config) when is_list(Config) ->
-    Flag =  process_flag(trap_exit, true),
-    Pid = proplists:get_value(ftp, Config),
-    
-    %% Serious programming fault, connetion will be shut down 
-    case (catch gen_server:call(Pid, {self(), foobar, 10}, infinity)) of
-	{error, {connection_terminated, 'API_violation'}} ->
-	    ok;
-	Unexpected1 ->
-	    exit({unexpected_result, Unexpected1})
-    end,
-    ct:sleep(500),
-    undefined = process_info(Pid, status),
-    process_flag(trap_exit, Flag).
-%%-------------------------------------------------------------------------
-
-unexpected_cast()->
-    [{doc, "Test that behaviour of the ftp process if the api is abused"}].
-unexpected_cast(Config) when is_list(Config) ->
-    Flag = process_flag(trap_exit, true),
-    Pid = proplists:get_value(ftp, Config),
-    %% Serious programming fault, connetion will be shut down 
-    gen_server:cast(Pid, {self(), foobar, 10}),
-    ct:sleep(500),
-    undefined = process_info(Pid, status),
-    process_flag(trap_exit, Flag).
-%%-------------------------------------------------------------------------
- 
-unexpected_bang()->
-    [{doc, "Test that connection ignores unexpected bang"}].
-unexpected_bang(Config) when is_list(Config) ->
-    Flag = process_flag(trap_exit, true),
-    Pid = proplists:get_value(ftp, Config),
-    %% Could be an innocent misstake the connection lives. 
-    Pid ! foobar, 
-    ct:sleep(500),
-    {status, _} = process_info(Pid, status),
-    process_flag(trap_exit, Flag).
-    
-%%-------------------------------------------------------------------------
-
-clean_shutdown() -> 
-    [{doc, "Test that owning process that exits with reason "
-     "'shutdown' does not cause an error message. OTP 6035"}].
-
-clean_shutdown(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    LogFile = filename:join([PrivDir,"ticket_6035.log"]),
-    Host = proplists:get_value(ftpd_host,Config),
-    try
-	Pid  = spawn(?MODULE, open_wait_6035, [Host, self()]),
-	    error_logger:logfile({open, LogFile}),
-	    true = kill_ftp_proc_6035(Pid, LogFile),
-	    error_logger:logfile(close)
-    catch 
-	throw:{error, not_found} ->
-	    {skip, "No available FTP servers"}
-    end.
-
 %%--------------------------------------------------------------------
-%% Internal functions
-%%--------------------------------------------------------------------
-
 find_executable(Config) ->
     FTPservers = case proplists:get_value(ftpservers,Config) of
 		     undefined -> ?default_ftp_servers;
@@ -893,12 +968,6 @@ rm(F, Pfx) ->
 	    ok
     end.
 
-not_owner(FtpPid, Pid) ->
-    {error, not_connection_owner} = ftp:pwd(FtpPid),
-    ftp:close(FtpPid),
-    ct:sleep(100),
-    Pid ! {self(), ok}.
-
 id2abs(Id, Conf) -> filename:join(proplists:get_value(priv_dir,Conf),ids(Id)).
 id2ftp(Id, Conf) -> (proplists:get_value(id2ftp,Conf))(ids(Id)).
 id2ftp_result(Id, Conf) -> (proplists:get_value(id2ftp_result,Conf))(ids(Id)).
@@ -912,96 +981,75 @@ is_expected_ftpInName(Id, File, Conf) -> File = (proplists:get_value(id2ftp,Conf
 is_expected_ftpOutName(Id, File, Conf) -> File = (proplists:get_value(id2ftp_result,Conf))(Id).
 
 
-progress(#progress{} = Progress , _File, {file_size, Total}) ->
+%%%----------------------------------------------------------------
+%%% Help functions for the option '{progress,Progress}'
+%%%
+
+%%%----------------
+%%% Callback:
+
+progress(#progress{} = P, _File, {file_size, Total} = M) ->
+    ct:pal("Progress: ~p",[M]),
     progress_report_receiver ! start,
-    Progress#progress{total = Total};
+    P#progress{total = Total};
 
-progress(#progress{total = Total, current = Current} 
-	 = Progress, _File, {transfer_size, 0}) ->
+progress(#progress{current = Current} = P, _File, {transfer_size, 0} = M) ->
+    ct:pal("Progress: ~p",[M]),
     progress_report_receiver ! finish,
-    case Total of
-	unknown ->
-	    ok;
-	Current ->
-	    ok;
-	_  ->
-	    ct:fail({error, {progress, {total, Total},
-				      {current, Current}}})
-    end,
-    Progress;
-progress(#progress{current = Current} = Progress, _File, 
-	 {transfer_size, Size}) ->
+    case P#progress.total of
+	unknown -> P;
+	Current -> P;
+	Total   -> ct:fail({error, {progress, {total,Total}, {current,Current}}}),
+		   P
+    end;
+
+progress(#progress{current = Current} = P, _File, {transfer_size, Size} = M) ->
+    ct:pal("Progress: ~p",[M]),
     progress_report_receiver ! update,
-    Progress#progress{current = Current + Size}.
+    P#progress{current = Current + Size};
 
-progress_report_receiver_init(Pid, N) ->
+progress(P, _File, M) ->
+    ct:pal("Progress **** Strange: ~p",[M]),
+    P.
+
+
+%%%----------------
+%%% Help process that counts the files transferred:
+
+progress_report_receiver_init(Parent, N) ->
     register(progress_report_receiver, self()),
+    progress_report_receiver_expect_N_files(Parent, N).
+
+progress_report_receiver_expect_N_files(_Parent, 0) ->
+    ct:pal("progress_report got all files!", []);
+progress_report_receiver_expect_N_files(Parent, N) ->
+    ct:pal("progress_report expects ~p more files",[N]),
     receive
-	start ->
-	    ok
+	start -> ok
     end,
-    progress_report_receiver_loop(Pid, N-1).
+    progress_report_receiver_loop(Parent, N-1).
 
-progress_report_receiver_loop(Pid, N) ->
-      receive
-	  update ->
-	    progress_report_receiver_loop(Pid, N);
-	  finish when N =:= 0 ->
-	      Pid ! {self(), ok};
-	  finish  ->
-	      Pid ! {self(), ok},
-	      receive
-		  start ->
-		      ok
-	      end,
-	      progress_report_receiver_loop(Pid, N-1)
-      end.
 
-kill_ftp_proc_6035(Pid, LogFile) ->
+progress_report_receiver_loop(Parent, N) ->
+    ct:pal("progress_report expect update | finish. N = ~p",[N]),
     receive
-	open ->
-	    exit(Pid, shutdown),
-	    kill_ftp_proc_6035(Pid, LogFile);
-	{open_failed, Reason} ->
-	    exit({skip, {failed_openening_server_connection, Reason}})
-    after
-	5000 ->
-	    is_error_report_6035(LogFile)
+	update ->  
+	    ct:pal("progress_report got update",[]),
+	    progress_report_receiver_loop(Parent, N);
+	finish  -> 
+	    ct:pal("progress_report got finish, send ~p to ~p",[{self(),ok}, Parent]),
+	    Parent ! {self(), ok},
+	    progress_report_receiver_expect_N_files(Parent, N)
     end.
 
-open_wait_6035({_Tag, FtpServer}, From) ->
-    case ftp:open(FtpServer, [{timeout, timer:seconds(15)}]) of
-	{ok, Pid} ->
-	    _LoginResult = ftp:user(Pid,"anonymous","kldjf"),
-	    From ! open,
-	    receive
-		dummy -> 
-		    ok
-	    after
-		10000 ->
-		    ok
-	    end,
-	    ok;
-	{error, Reason} ->
-	    From ! {open_failed, {Reason, FtpServer}},
-	    ok
-    end.
+%%%----------------------------------------------------------------
+%%% Help functions for bug OTP-6035
 
 is_error_report_6035(LogFile) ->
-    Res =
-	case file:read_file(LogFile) of
-	    {ok, Bin} ->
-		Txt = binary_to_list(Bin), 
-		read_log_6035(Txt);
-	    _ ->
-		false
-	end,
-    %% file:delete(LogFile),
-    Res.
+    case file:read_file(LogFile) of
+	{ok, Bin} -> 
+	    nomatch =/= binary:match(Bin, <<"=ERROR REPORT====">>);
+	_ -> 
+	    false
+    end.
 
-read_log_6035("=ERROR REPORT===="++_Rest) ->
-    true;
-read_log_6035([_|T]) ->
-    read_log_6035(T);
-read_log_6035([]) ->
-    false.
