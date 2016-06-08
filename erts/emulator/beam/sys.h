@@ -154,8 +154,9 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_WRITE_UNLIKELY(X) X
 #endif
 
+/* clang may have too low __GNUC__ versions but can handle it */
 #ifdef __GNUC__
-#  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 5)
+#  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 5) || defined(__clang__)
 #    define ERTS_DECLARE_DUMMY(X) X __attribute__ ((unused))
 #  else
 #    define ERTS_DECLARE_DUMMY(X) X
