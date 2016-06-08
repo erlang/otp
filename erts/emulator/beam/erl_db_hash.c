@@ -671,8 +671,8 @@ int db_create_hash(Process *p, DbTable *tbl)
     tb->nsegs = NSEG_1;
     tb->nslots = SEGSZ;
 
-#ifdef ERTS_SMP
     erts_smp_atomic_init_nob(&tb->is_resizing, 0);
+#ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
 	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
 	int i;
@@ -2605,22 +2605,23 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 static ERTS_INLINE int
 begin_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
-	return !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
-    else
-        ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
-#endif
-    return 1;
+	return !erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1);
+    else {
+	if (erts_smp_atomic_read_nob(&tb->is_resizing))
+	    return 0;
+	erts_smp_atomic_set_nob(&tb->is_resizing, 1);
+	return 1;
+    }
 }
 
 static ERTS_INLINE void
 done_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
-	erts_atomic_set_relb(&tb->is_resizing, 0);
-#endif
+	erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    else
+	erts_smp_atomic_set_nob(&tb->is_resizing, 0);
 }
 
 /* Grow table with one new bucket.
