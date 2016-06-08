@@ -73,8 +73,9 @@
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
 
 -export_type([address_family/0, hostent/0, hostname/0, ip4_address/0,
-              ip6_address/0, ip_address/0, posix/0, socket/0,
-              port_number/0]).
+              ip6_address/0, ip_address/0, port_number/0,
+	      local_address/0, socket_address/0, returned_non_ip_address/0,
+	      posix/0, socket/0]).
 
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
@@ -98,6 +99,11 @@
 			0..65535,0..65535,0..65535,0..65535}.
 -type ip_address() :: ip4_address() | ip6_address().
 -type port_number() :: 0..65535.
+-type local_address() :: {local, File :: binary() | string()}.
+-type returned_non_ip_address() ::
+	{local, binary()} |
+	{unspec, <<>>} |
+	{undefined, any()}.
 -type posix() :: exbadport | exbadseq | file:posix().
 -type socket() :: port().
 
@@ -138,7 +144,7 @@
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
 -type socket_address() ::
-	ip_address() | {address_family(), any()} | 'any' | 'loopback'.
+	ip_address() | 'any' | 'loopback' | local_address().
 -type stat_option() :: 
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
@@ -163,26 +169,33 @@ close(Socket) ->
     end.
 
 
--spec peername(Socket) ->  {ok, {Address, Port}} | {error, posix()} when
-      Socket :: socket(),
-      Address :: ip_address(),
-      Port :: non_neg_integer().
+-spec peername(Socket :: socket()) ->
+		      {ok,
+		       {ip_address(), port_number()} |
+		       returned_non_ip_address()} |
+		      {error, posix()}.
 
 peername(Socket) -> 
     prim_inet:peername(Socket).
 
--spec setpeername(Socket :: socket(), Address :: {ip_address(), port_number()}) ->
-	'ok' | {'error', any()}.
+-spec setpeername(
+	Socket :: socket(),
+	Address ::
+	  {ip_address() | 'any' | 'loopback',
+	   port_number()} |
+	  socket_address()) ->
+			 'ok' | {'error', any()}.
 
 setpeername(Socket, {IP,Port}) ->
     prim_inet:setpeername(Socket, {IP,Port});
 setpeername(Socket, undefined) ->
     prim_inet:setpeername(Socket, undefined).
 
--spec peernames(Socket) -> {ok, [{Address, Port}]} | {error, posix()} when
-      Socket :: socket(),
-      Address :: ip_address(),
-      Port :: non_neg_integer().
+-spec peernames(Socket :: socket()) ->
+		       {ok,
+			[{ip_address(), port_number()} |
+			 returned_non_ip_address()]} |
+		       {error, posix()}.
 
 peernames(Socket) ->
     prim_inet:peernames(Socket).
@@ -198,15 +211,21 @@ peernames(Socket, Assoc) ->
     prim_inet:peernames(Socket, Assoc).
 
 
--spec sockname(Socket) -> {ok, {Address, Port}} | {error, posix()} when
-      Socket :: socket(),
-      Address :: ip_address(),
-      Port :: non_neg_integer().
+-spec sockname(Socket :: socket()) ->
+		      {ok,
+		       {ip_address(), port_number()} |
+		       returned_non_ip_address()} |
+		      {error, posix()}.
 
 sockname(Socket) -> 
     prim_inet:sockname(Socket).
 
--spec setsockname(Socket :: socket(), Address :: {ip_address(), port_number()}) ->
+-spec setsockname(
+	Socket :: socket(),
+	Address ::
+	  {ip_address() | 'any' | 'loopback',
+	   port_number()} |
+	  socket_address()) ->
 	'ok' | {'error', any()}.
 
 setsockname(Socket, {IP,Port}) -> 
@@ -214,10 +233,11 @@ setsockname(Socket, {IP,Port}) ->
 setsockname(Socket, undefined) ->
     prim_inet:setsockname(Socket, undefined).
 
--spec socknames(Socket) -> {ok, [{Address, Port}]} | {error, posix()} when
-      Socket :: socket(),
-      Address :: ip_address(),
-      Port :: non_neg_integer().
+-spec socknames(Socket :: socket()) ->
+		       {ok,
+			[{ip_address(), port_number()} |
+			 returned_non_ip_address()]} |
+		       {error, posix()}.
 
 socknames(Socket) ->
     prim_inet:socknames(Socket).
@@ -1296,7 +1316,17 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
     end.
 
 -spec open(Fd_or_OpenOpts :: integer() | list(),
-	   Addr :: socket_address() | undefined,
+	   Addr ::
+	     socket_address() |
+	     {ip_address() | 'any' | 'loopback', % Unofficial
+	      port_number()} |
+	     {inet, % Unofficial
+	      {ip4_address() | 'any' | 'loopback',
+	       port_number()}} |
+	     {inet6, % Unofficial
+	      {ip6_address() | 'any' | 'loopback',
+	       port_number()}} |
+	     undefined, % Internal - no bind()
 	   Port :: port_number(),
 	   Opts :: [socket_setopt()],
 	   Protocol :: socket_protocol(),

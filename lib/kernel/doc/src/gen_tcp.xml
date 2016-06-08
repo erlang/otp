@@ -153,17 +153,17 @@ do_recv(Sock, Bs) ->
           <c><anno>Address</anno></c> can be a hostname or an IP address.</p>
         <p>The following options are available:</p>
         <taglist>
-          <tag><c>{ip, ip_address()}</c></tag>
+          <tag><c>{ip, Address}</c></tag>
           <item><p>If the host has many network interfaces, this option
             specifies which one to use.</p></item>
-          <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item><p>Same as <c>{ip, ip_address()}</c>. If the host has many
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
             network interfaces, this option specifies which one to use.</p>
           </item>
           <tag><c>{fd, integer() >= 0}</c></tag>
           <item><p>If a socket has somehow been connected without using
             <c>gen_tcp</c>, use this option to pass the file descriptor
-            for it. If <c>{ip, ip_address()}</c> and/or
+            for it. If <c>{ip, Address}</c> and/or
             <c>{port, port_number()}</c> is combined with this option,  the
             <c>fd</c> is bound to the specified interface and port before
             connecting. If these options are not specified, it is assumed that
@@ -175,9 +175,10 @@ do_recv(Sock, Bs) ->
 	  <tag><c>local</c></tag>
 	  <item>
             <p>
-	      Sets up the socket for local address family. This option is only
-              valid together with <c>{fd, integer()}</c> when the file descriptor
-              is of local address family (e.g. a Unix Domain Socket)
+	      Sets up a Unix Domain Socket. See
+	      <seealso marker="inet#type-local_address">
+		<c>inet:local_address()</c>
+	      </seealso>
 	    </p>
           </item>
           <tag><c>{port, Port}</c></tag>
@@ -254,7 +255,7 @@ do_recv(Sock, Bs) ->
           <item><p><c>B</c> is an integer &gt;= <c>0</c>. The backlog value
             defines the maximum length that the queue of pending connections
             can grow to. Defaults to <c>5</c>.</p></item>
-          <tag><c>{ip, ip_address()}</c></tag>
+          <tag><c>{ip, Address}</c></tag>
           <item><p>If the host has many network interfaces, this option
             specifies which one to listen on.</p></item>
           <tag><c>{port, Port}</c></tag>
@@ -263,8 +264,8 @@ do_recv(Sock, Bs) ->
           <item><p>If a socket has somehow been connected without using
             <c>gen_tcp</c>, use this option to pass the file
             descriptor for it.</p></item>
-          <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item><p>Same as <c>{ip, ip_address()}</c>. If the host has many
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
             network interfaces, this option specifies which one to use.</p>
           </item>
           <tag><c>inet6</c></tag>

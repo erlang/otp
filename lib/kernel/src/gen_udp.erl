@@ -92,9 +92,9 @@ open(Port) ->
 -spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
       Port :: inet:port_number(),
       Opts :: [Option],
-      Option :: {ip, inet:ip_address()}
+      Option :: {ip, inet:socket_address()}
               | {fd, non_neg_integer()}
-              | {ifaddr, inet:ip_address()}
+              | {ifaddr, inet:socket_address()}
               | inet:address_family()
               | {port, inet:port_number()}
               | option(),
@@ -114,7 +114,7 @@ close(S) ->
 
 -spec send(Socket, Address, Port, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
-      Address :: inet:ip_address() | inet:hostname(),
+      Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
@@ -148,7 +148,7 @@ send(S, Packet) when is_port(S) ->
                   {ok, {Address, Port, Packet}} | {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
-      Address :: inet:ip_address(),
+      Address :: inet:ip_address() | inet:returned_non_ip_address(),
       Port :: inet:port_number(),
       Packet :: string() | binary(),
       Reason :: not_owner | inet:posix().
@@ -166,7 +166,7 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
       Socket :: socket(),
       Length :: non_neg_integer(),
       Timeout :: timeout(),
-      Address :: inet:ip_address(),
+      Address :: inet:ip_address() | inet:returned_non_ip_address(),
       Port :: inet:port_number(),
       Packet :: string() | binary(),
       Reason :: not_owner | inet:posix().
