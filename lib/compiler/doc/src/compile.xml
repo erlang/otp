@@ -783,8 +783,7 @@ module.beam: module.erl \
       inside a parse transform.</p>
 
       <p>The list can be retrieved with
-      <seealso marker="#env_compiler_options/0">env_compiler_options/0</seealso>
-      .</p>
+      <seealso marker="#env_compiler_options/0">env_compiler_options/0</seealso>.</p>
   </section>
 
   <section>
