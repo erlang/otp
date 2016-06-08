@@ -48,7 +48,8 @@ static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     char s[10];
     ErlNifBinary b;
     if (have_dirty_schedulers()) {
-	assert(enif_is_on_dirty_scheduler(env));
+	assert(ERL_NIF_THR_DIRTY_CPU_SCHEDULER == enif_thread_type()
+	       || ERL_NIF_THR_DIRTY_IO_SCHEDULER == enif_thread_type());
     }
     assert(argc == 3);
     enif_get_int(env, argv[0], &n);
@@ -65,7 +66,7 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     int n;
     char s[10];
     ErlNifBinary b;
-    assert(!enif_is_on_dirty_scheduler(env));
+    assert(ERL_NIF_THR_NORMAL_SCHEDULER == enif_thread_type());
     if (argc != 3)
 	return enif_make_badarg(env);
     if (have_dirty_schedulers()) {
@@ -151,7 +152,8 @@ dirty_sleeper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifPid pid;
     ErlNifEnv* msg_env = NULL;
 
-    assert(enif_is_on_dirty_scheduler(env));
+    assert(ERL_NIF_THR_DIRTY_CPU_SCHEDULER == enif_thread_type()
+	   || ERL_NIF_THR_DIRTY_IO_SCHEDULER == enif_thread_type());
 
     /* If we get a pid argument, it indicates a process involved in the
        test wants a message from us. Prior to the sleep we send a 'ready'
@@ -221,7 +223,8 @@ static ERL_NIF_TERM dirty_heap_access_nif(ErlNifEnv* env, int argc, const ERL_NI
 {
     ERL_NIF_TERM res = enif_make_list(env, 0);
     int i;
-    assert(enif_is_on_dirty_scheduler(env));
+    assert(ERL_NIF_THR_DIRTY_CPU_SCHEDULER == enif_thread_type()
+	   || ERL_NIF_THR_DIRTY_IO_SCHEDULER == enif_thread_type());
     for (i = 0; i < 1000; i++)
 	res = enif_make_list_cell(env, enif_make_copy(env, argv[0]), res);
 

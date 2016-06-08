@@ -209,6 +209,17 @@ typedef enum {
     ERL_NIF_BIN2TERM_SAFE = 0x20000000
 } ErlNifBinaryToTerm;
 
+/*
+ * Return values from enif_thread_type(). Negative values
+ * reserved for specific types of non-scheduler threads.
+ * Positive values reserved for scheduler thread types.
+ */
+
+#define ERL_NIF_THR_UNDEFINED 0
+#define ERL_NIF_THR_NORMAL_SCHEDULER 1
+#define ERL_NIF_THR_DIRTY_CPU_SCHEDULER 2
+#define ERL_NIF_THR_DIRTY_IO_SCHEDULER 3
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {
