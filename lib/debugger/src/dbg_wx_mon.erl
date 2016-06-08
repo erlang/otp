@@ -135,7 +135,7 @@ init2(CallingPid, Mode, SFile, GS) ->
 
     %% Start other necessary stuff
     dbg_wx_win:init(),     
-    dbg_wx_winman:start(), % Debugger window manager
+    _ = dbg_wx_winman:start(), % Debugger window manager
 
     %% Create monitor window
     Title = "Monitor",
@@ -339,7 +339,7 @@ gui_cmd('Delete All Modules', State) ->
     lists:foreach(fun(Mod) -> int:nn(Mod) end, int:interpreted()),
     State;
 gui_cmd({module, Mod, What}, State) ->
-    case What of
+    _ = case What of
 	delete -> int:nn(Mod);
 	view -> 
 	    Window = dbg_wx_mon_win:get_window(State#state.win),

@@ -56,7 +56,7 @@ code_area(Parent, Sizer) ->
 	       end,
     [SetStyle(Style) || Style <- Styles],
     ?stc:setKeyWords(Ed, 0, keyWords()),
-    wxSizer:add(Sizer, Ed, [{proportion,1}, {flag, ?wxEXPAND}]),
+    _ = wxSizer:add(Sizer, Ed, [{proportion,1}, {flag, ?wxEXPAND}]),
     Ed.
 
 
