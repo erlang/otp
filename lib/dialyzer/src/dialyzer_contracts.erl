@@ -591,10 +591,13 @@ remove_uses([{Var, Use}|ToRemove], Constrs0) ->
 remove_uses(_Var, _Use, []) -> [];
 remove_uses(Var, Use, [Constr|Constrs]) ->
   {V, Form} = Constr,
-  case erl_types:t_var_name(V) =:= Var of
-    true -> [{V, remove_use(Form, Use)}|Constrs];
-    false -> [Constr|remove_uses(Var, Use, Constrs)]
-  end.
+  NewConstr = case erl_types:t_var_name(V) =:= Var of
+                true ->
+                  {V, remove_use(Form, Use)};
+                false ->
+                  Constr
+              end,
+  [NewConstr|remove_uses(Var, Use, Constrs)].
 
 remove_use({var, L, V}, V) -> {var, L, '_'};
 remove_use(T, V) when is_tuple(T) ->
