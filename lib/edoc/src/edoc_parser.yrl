@@ -36,8 +36,8 @@ Terminals
 atom float integer var an_var string start_spec start_typedef start_throws
 start_ref
 
-'(' ')' ',' '.' '=>' '->' '{' '}' '[' ']' '|' '+' ':' '::' '=' '/' '//' '*'
-'#' 'where' '<<' '>>' '..' '...'.
+'(' ')' ',' '.' '=>' ':=' '->' '{' '}' '[' ']' '|' '+' ':' '::' '=' '/' '//'
+'*' '#' 'where' '<<' '>>' '..' '...'.
 
 Rootsymbol start.
 
@@ -76,7 +76,15 @@ utype_map_fields -> '$empty' : [].
 utype_map_fields -> utype_map_field : ['$1'].
 utype_map_fields -> utype_map_fields ',' utype_map_field : ['$3' | '$1'].
 
-utype_map_field -> utype '=>' utype : #t_map_field{ k_type = '$1', v_type = '$3'}.
+utype_map_field -> utype '=>' utype : #t_map_field{assoc_type = assoc,
+                                                   k_type = '$1',
+                                                   v_type = '$3'}.
+utype_map_field -> utype ':=' utype : #t_map_field{assoc_type = exact,
+                                                   k_type = '$1',
+                                                   v_type = '$3'}.
+utype_map_field -> '...' : #t_map_field{assoc_type = assoc,
+                                        k_type = any(),
+                                        v_type = any()}.
 
 utype_tuple -> '{' utypes '}' : lists:reverse('$2').
 
@@ -345,6 +353,9 @@ all_vars([#t_var{} | As]) ->
     all_vars(As);
 all_vars(As) ->
     As =:= [].
+
+any() ->
+    #t_type{name = #t_name{name = any}, args = []}.
 
 %% ---------------------------------------------------------------------
 
