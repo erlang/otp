@@ -864,6 +864,7 @@ find_executable(Config) ->
 search_executable([{Name,Paths,_StartCmd,_ChkUp,_StopCommand,_ConfigUpd,_Host,_Port}|Srvrs]) ->
     case os_find(Name,Paths) of
 	false ->
+	    ct:log("~p not found",[Name]),
 	    search_executable(Srvrs);
 	AbsName -> 
 	    ct:comment("Found ~p",[AbsName]),
@@ -880,13 +881,26 @@ os_find(Name, Paths) ->
     end.
 
 %%%----------------------------------------------------------------
-start_ftpd(Config) ->
-    {AbsName,StartCmd,_ChkUp,_StopCommand,ConfigRewrite,Host,Port} = proplists:get_value(ftpd_data, Config),
-    case StartCmd(Config, AbsName) of
+start_ftpd(Config0) ->
+    {AbsName,StartCmd,_ChkUp,_StopCommand,ConfigRewrite,Host,Port} =
+	proplists:get_value(ftpd_data, Config0),
+    case StartCmd(Config0, AbsName) of
 	{ok,StartResult} ->
-	    [{ftpd_host,Host},
-	     {ftpd_port,Port},
-	     {ftpd_start_result,StartResult} | ConfigRewrite(Config)];
+	    Config = [{ftpd_host,Host},
+		      {ftpd_port,Port},
+		      {ftpd_start_result,StartResult} | ConfigRewrite(Config0)],
+	    try
+		ftp__close(ftp__open(Config,[verbose]))
+	    of
+		Config1 when is_list(Config1) ->
+		    ct:log("Usuable ftp server ~p started on ~p:~p",[AbsName,Host,Port]),
+		    Config
+	    catch
+		Class:Exception ->
+		    ct:log("Ftp server ~p started on ~p:~p but is unusable:~n~p:~p",
+			   [AbsName,Host,Port,Class,Exception]),
+		    {skip, [AbsName," started but unusuable"]}
+	    end;
 	{error,Msg} ->
 	    {skip, [AbsName," not started: ",Msg]}
     end.
