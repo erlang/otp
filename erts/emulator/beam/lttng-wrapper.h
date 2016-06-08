@@ -77,23 +77,23 @@
     (RQ)->scheduler->no
 
 #define LTTNG_ENABLED(Name) \
-    tracepoint_enabled(com_ericsson_otp, Name)
+    tracepoint_enabled(org_erlang_otp, Name)
 
 /* include a special LTTNG_DO for do_tracepoint ? */
 #define LTTNG1(Name, Arg1) \
-    tracepoint(com_ericsson_otp, Name, (Arg1))
+    tracepoint(org_erlang_otp, Name, (Arg1))
 
 #define LTTNG2(Name, Arg1, Arg2) \
-    tracepoint(com_ericsson_otp, Name, (Arg1), (Arg2))
+    tracepoint(org_erlang_otp, Name, (Arg1), (Arg2))
 
 #define LTTNG3(Name, Arg1, Arg2, Arg3) \
-    tracepoint(com_ericsson_otp, Name, (Arg1), (Arg2), (Arg3))
+    tracepoint(org_erlang_otp, Name, (Arg1), (Arg2), (Arg3))
 
 #define LTTNG4(Name, Arg1, Arg2, Arg3, Arg4) \
-    tracepoint(com_ericsson_otp, Name, (Arg1), (Arg2), (Arg3), (Arg4))
+    tracepoint(org_erlang_otp, Name, (Arg1), (Arg2), (Arg3), (Arg4))
 
 #define LTTNG5(Name, Arg1, Arg2, Arg3, Arg4, Arg5) \
-    tracepoint(com_ericsson_otp, Name, (Arg1), (Arg2), (Arg3), (Arg4), (Arg5))
+    tracepoint(org_erlang_otp, Name, (Arg1), (Arg2), (Arg3), (Arg4), (Arg5))
 
 #else /* USE_LTTNG */
 

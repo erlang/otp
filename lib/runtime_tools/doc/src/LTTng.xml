@@ -310,7 +310,7 @@ $ make </code>
 
     <section>
         <title>BEAM Tracepoints</title>
-        <p>All tracepoints are in the domain of <c>com_ericsson_otp</c></p>
+        <p>All tracepoints are in the domain of <c>org_erlang_otp</c></p>
         <p>All Erlang types are the string equivalent in LTTng.</p>
 
         <p><em>scheduler_poll</em></p>
