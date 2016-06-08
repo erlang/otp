@@ -4741,12 +4741,13 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = maps:from_list(List),
           S2 = S1#from_form{site = TypeName, vtab = TmpV},
+          Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
           {NewType, L3, C3} =
             case Tag of
               type ->
-                from_form(Form, S2, D, L1, C1);
+                recur_limit(Fun, D, L1, TypeName, TypeNames);
               opaque ->
-                {Rep, L2, C2} = from_form(Form, S2, D, L1, C1),
+                {Rep, L2, C2} = recur_limit(Fun, D, L1, TypeName, TypeNames),
                 Rep1 = choose_opaque_type(Rep, Type),
                 Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
                          true -> Rep1;
@@ -4811,12 +4812,13 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
           List = lists:zip(ArgNames, ArgTypes),
           TmpVarTab = maps:from_list(List),
           S2 = S1#from_form{site = RemType, vtab = TmpVarTab},
+          Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
           {NewType, L3, C3} =
             case Tag of
               type ->
-                from_form(Form, S2, D, L1, C1);
+                recur_limit(Fun, D, L1, RemType, TypeNames);
               opaque ->
-                {NewRep, L2, C2} = from_form(Form, S2, D, L1, C1),
+                {NewRep, L2, C2} = recur_limit(Fun, D, L1, RemType, TypeNames),
                 NewRep1 = choose_opaque_type(NewRep, Type),
                 NewRep2 =
                   case cannot_have_opaque(NewRep1, RemType, TypeNames) of
@@ -4858,37 +4860,42 @@ choose_opaque_type(Type, DeclType) ->
     false -> DeclType
   end.
 
-record_from_form({atom, _, Name}, ModFields, S, D, L, C) ->
+record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
   #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
-  case can_unfold_more({record, Name}, TypeNames) of
+  RecordType = {record, Name},
+  case can_unfold_more(RecordType, TypeNames) of
     true ->
       M = site_module(Site),
       {ok, R} = dict:find(M, MR),
       case lookup_record(Name, R) of
         {ok, DeclFields} ->
-          NewTypeNames = [{record, Name}|TypeNames],
+          NewTypeNames = [RecordType|TypeNames],
           Site1 = {record, {M, Name, length(DeclFields)}},
           S1 = S#from_form{site = Site1, tnames = NewTypeNames},
-          {GetModRec, L1, C1} =
-            get_mod_record(ModFields, DeclFields, S1, D, L, C),
-          case GetModRec of
-            {error, FieldName} ->
-              throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
-                                          [Name, FieldName])});
-            {ok, NewFields} ->
-              S2 = S1#from_form{vtab = var_table__new()},
-              {NewFields1, L2, C2} =
-                fields_from_form(NewFields, S2, D, L1, C1),
-              Rec = t_tuple(
-                      [t_atom(Name)|[Type
-                                     || {_FieldName, Type} <- NewFields1]]),
-              {Rec, L2, C2}
-          end;
+          Fun = fun(D, L) ->
+                    {GetModRec, L1, C1} =
+                      get_mod_record(ModFields, DeclFields, S1, D, L, C),
+                    case GetModRec of
+                      {error, FieldName} ->
+                        throw({error,
+                               io_lib:format("Illegal declaration of #~w{~w}\n",
+                                             [Name, FieldName])});
+                      {ok, NewFields} ->
+                        S2 = S1#from_form{vtab = var_table__new()},
+                        {NewFields1, L2, C2} =
+                          fields_from_form(NewFields, S2, D, L1, C1),
+                        Rec = t_tuple(
+                                [t_atom(Name)|[Type
+                                               || {_FieldName, Type} <- NewFields1]]),
+                        {Rec, L2, C2}
+                    end
+                end,
+          recur_limit(Fun, D0, L0, RecordType, TypeNames);
         error ->
           throw({error, io_lib:format("Unknown record #~w{}\n", [Name])})
       end;
     false ->
-       {t_any(), L, C}
+       {t_any(), L0, C}
   end.
 
 get_mod_record([], DeclFields, _S, _D, L, C) ->
@@ -4988,6 +4995,27 @@ promote_to_mand(MKs, [E={K,_,V}|T]) ->
      true -> {K, ?mand, V};
      false -> E
    end|promote_to_mand(MKs, T)].
+
+-define(RECUR_EXPAND_LIMIT, 10).
+-define(RECUR_EXPAND_DEPTH, 2).
+
+%% If more of the limited resources is spent on the non-recursive
+%% forms, more warnings are found. And the analysis is also a bit
+%% faster.
+%%
+%% Setting REC_TYPE_LIMIT to 1 would work also work well.
+
+recur_limit(Fun, D, L, _, _) when L =< ?RECUR_EXPAND_DEPTH,
+                                  D =< ?RECUR_EXPAND_LIMIT ->
+  Fun(D, L);
+recur_limit(Fun, D, L, TypeName, TypeNames) ->
+  case is_recursive(TypeName, TypeNames) of
+    true ->
+      {T, L1, C1} = Fun(?RECUR_EXPAND_DEPTH, ?RECUR_EXPAND_LIMIT),
+      {T, L - L1, C1};
+    false ->
+      Fun(D, L)
+  end.
 
 -spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
                             mod_records(), var_table(), cache()) -> cache().
