@@ -627,6 +627,7 @@ static int is_nonzero(const char *s, size_t n)
 */
 
 /* general address encode/decode tag */
+#define INET_AF_UNSPEC      0
 #define INET_AF_INET        1
 #define INET_AF_INET6       2
 #define INET_AF_ANY         3 /* INADDR_ANY or IN6ADDR_ANY_INIT */
@@ -655,7 +656,7 @@ static int is_nonzero(const char *s, size_t n)
 
 /* INET_REQ_GETSTATUS enumeration */
 #define INET_F_OPEN         0x0001
-#define INET_F_BOUND        0x0002
+/* INET_F_BOUND removed - renumber when there comes a bigger rewrite */
 #define INET_F_ACTIVE       0x0004
 #define INET_F_LISTEN       0x0008
 #define INET_F_CON          0x0010
@@ -853,18 +854,14 @@ static int is_nonzero(const char *s, size_t n)
 
 #define INET_STATE_CLOSED          (0)
 #define INET_STATE_OPEN            (INET_F_OPEN)
-#define INET_STATE_BOUND           (INET_STATE_OPEN | INET_F_BOUND)
-#define INET_STATE_CONNECTED       (INET_STATE_BOUND | INET_F_ACTIVE)
-#define INET_STATE_LISTENING       (INET_STATE_BOUND | INET_F_LISTEN)
-#define INET_STATE_CONNECTING      (INET_STATE_BOUND | INET_F_CON)
+#define INET_STATE_CONNECTED       (INET_STATE_OPEN | INET_F_ACTIVE)
+#define INET_STATE_LISTENING       (INET_STATE_OPEN | INET_F_LISTEN)
+#define INET_STATE_CONNECTING      (INET_STATE_OPEN | INET_F_CON)
 #define INET_STATE_ACCEPTING       (INET_STATE_LISTENING | INET_F_ACC)
 #define INET_STATE_MULTI_ACCEPTING (INET_STATE_ACCEPTING | INET_F_MULTI_CLIENT)
 
 #define IS_OPEN(d) \
  (((d)->state & INET_F_OPEN) == INET_F_OPEN)
-
-#define IS_BOUND(d) \
- (((d)->state & INET_F_BOUND) == INET_F_BOUND)
 
 #define IS_CONNECTED(d) \
   (((d)->state & INET_STATE_CONNECTED) == INET_STATE_CONNECTED)
@@ -1287,6 +1284,7 @@ static int async_ref = 0;          /* async reference id generator */
 
 static ErlDrvTermData am_ok;
 static ErlDrvTermData am_undefined;
+static ErlDrvTermData am_unspec;
 static ErlDrvTermData am_tcp;
 static ErlDrvTermData am_error;
 static ErlDrvTermData am_einval;
@@ -1553,10 +1551,18 @@ static int load_address(ErlDrvTermData* spec, int i, char* buf)
 	break;
     }
 #endif
-    default: { /* INET_AF_UNDEFINED */
-        i = LOAD_ATOM(spec, i, am_undefined);
+    case INET_AF_UNSPEC: {
+        i = LOAD_ATOM(spec, i, am_unspec);
+	i = LOAD_BUF2BINARY(spec, i, buf, 0);
+	spec[i++] = ERL_DRV_TUPLE;
+	spec[i++] = 2;
 	spec[i++] = ERL_DRV_INT;
 	spec[i++] = 0;
+	break;
+    }
+    default: { /* INET_AF_UNDEFINED */
+        i = LOAD_ATOM(spec, i, am_undefined);
+	i = LOAD_BUF2BINARY(spec, i, buf, 0);
 	spec[i++] = ERL_DRV_TUPLE;
 	spec[i++] = 2;
 	spec[i++] = ERL_DRV_INT;
@@ -3823,6 +3829,7 @@ static int inet_init()
 
     INIT_ATOM(ok);
     INIT_ATOM(undefined);
+    INIT_ATOM(unspec);
     INIT_ATOM(tcp);
 #ifdef HAVE_UDP
     INIT_ATOM(udp);
@@ -4149,6 +4156,10 @@ static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
         return 0;
       }
 #endif
+    else if (family == AF_UNSPEC) {
+        dst[0] = INET_AF_UNSPEC;
+	*len = 1;
+    }
     else {
         dst[0] = INET_AF_UNDEFINED;
 	*len = 1;
@@ -4419,10 +4430,12 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
                                     char** rbuf, ErlDrvSizeT rsize)
 {
     inet_address name;
-    unsigned int sz = sizeof(name);
+    unsigned int sz;
 
     if (bound) {
         /* check that it is a socket and that the socket is bound */
+        sz = sizeof(name);
+	sys_memzero((char *) &name, sz);
         if (IS_SOCKET_ERROR(sock_name(s, (struct sockaddr*) &name, &sz)))
             return ctl_error(sock_errno(), rbuf, rsize);
         if (name.sa.sa_family != domain)
@@ -4437,10 +4450,7 @@ static ErlDrvSSizeT inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     driver_select(desc->port, desc->event, ERL_DRV_READ, 1);
 #endif
 
-    if (bound)
-        desc->state = INET_STATE_BOUND;
-    else
-        desc->state = INET_STATE_OPEN;
+    desc->state = INET_STATE_OPEN;
 
     if (type == SOCK_STREAM) { /* check if connected */
 	sz = sizeof(name);
@@ -8448,7 +8458,6 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	if (len != 4) return ctl_error(EINVAL, rbuf, rsize);
 
 	if (! IS_OPEN(desc)) return ctl_xerror(EXBADPORT, rbuf, rsize);
-	if (! IS_BOUND(desc)) return ctl_xerror(EXBADSEQ, rbuf, rsize);
 
 #ifdef HAVE_SCTP
 	if (IS_SCTP(desc) && p_sctp_getpaddrs) {
@@ -8524,7 +8533,6 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	if (len != 4) return ctl_error(EINVAL, rbuf, rsize);
 
 	if (! IS_OPEN(desc)) return ctl_xerror(EXBADPORT, rbuf, rsize);
-	if (! IS_BOUND(desc)) return ctl_xerror(EXBADSEQ, rbuf, rsize);
 
 #ifdef HAVE_SCTP
 	if (IS_SCTP(desc) && p_sctp_getladdrs) {
@@ -8546,6 +8554,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    int i;
 
 	    sz = sizeof(addr);
+	    sys_memzero((char *) &addr, sz);
 	    i = sock_name(desc->s, (struct sockaddr *) &addr, &sz);
 	    return reply_inet_addrs(i >= 0 ? 1 : i, &addr, rbuf, rsize, sz);
 	}
@@ -8559,15 +8568,13 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
 	DEBUGF(("inet_ctl(%ld): NAME\r\n", (long)desc->port)); 
 
-	if (!IS_BOUND(desc))
-	    return ctl_error(EINVAL, rbuf, rsize); /* address is not valid */
-
 	if ((ptr = desc->name_ptr) != NULL) {
 	    sz = desc->name_addr_len;
 	}
 	else {
 	    ptr = &name;
 	    sz = sizeof(name);
+	    sys_memzero((char *) &name, sz);
 	    if (IS_SOCKET_ERROR
 		(sock_name(desc->s, (struct sockaddr*)ptr, &sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
@@ -8612,11 +8619,12 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
 
-	desc->state = INET_STATE_BOUND;
+	desc->state = INET_STATE_OPEN;
 
 	port = inet_address_port(&local);
 	if (port == 0) {
 	    SOCKLEN_T adrlen = sizeof(local);
+	    sys_memzero((char *) &local, adrlen);
 	    sock_name(desc->s, &local.sa, &adrlen);
 	    port = inet_address_port(&local);
 	}
@@ -9136,8 +9144,6 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 	if (!IS_OPEN(INETP(desc)))
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
-	if (!IS_BOUND(INETP(desc)))
-	    return ctl_xerror(EXBADSEQ, rbuf, rsize);
 	if (len != 2)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	backlog = get_int16(buf);
@@ -9160,8 +9166,6 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 	if (IS_CONNECTED(INETP(desc)))
 	    return ctl_error(EISCONN, rbuf, rsize);
-	if (!IS_BOUND(INETP(desc)))
-	    return ctl_xerror(EXBADSEQ, rbuf, rsize);
 	if (IS_CONNECTING(INETP(desc)))
 	    return ctl_error(EINVAL, rbuf, rsize);
 	if (len < 6)
@@ -9262,6 +9266,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    return ctl_reply(INET_REP_OK, tbuf, 2, rbuf, rsize);
  	} else {
 	    n = sizeof(desc->inet.remote);
+	    sys_memzero((char *) &remote, n);
 	    s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &n);
 	    if (s == INVALID_SOCKET) {
 		if (sock_errno() == ERRNO_BLOCK) {
@@ -10147,6 +10152,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 	inet_async_op *this_op = desc->inet.opt;
 
 	len = sizeof(desc->inet.remote);
+	sys_memzero((char *) &remote, len);
 	s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
 	if (s == INVALID_SOCKET && sock_errno() == ERRNO_BLOCK) {
 	    /* Just try again, no real error, just a ghost trigger from poll, 
@@ -10213,6 +10219,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 
 	while (desc->inet.state == INET_STATE_MULTI_ACCEPTING) {
 	    len = sizeof(desc->inet.remote);
+	    sys_memzero((char *) &remote, len);
 	    s = sock_accept(desc->inet.s, (struct sockaddr*) &remote, &len);
 	    if (s == INVALID_SOCKET && sock_errno() == ERRNO_BLOCK) {
 		/* Just try again, no real error, keep the last return code */
@@ -10653,7 +10660,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 				 (struct sockaddr*) &desc->inet.remote, &sz);
 
 	    if (IS_SOCKET_ERROR(code)) {
-		desc->inet.state = INET_STATE_BOUND;  /* restore state */
+		desc->inet.state = INET_STATE_OPEN;  /* restore state */
 		ret =  async_error(INETP(desc), sock_errno());
 		goto done;
 	    }
@@ -10666,7 +10673,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 				   (void *)&error, &sz);
 
 	    if ((code < 0) || error) {
-		desc->inet.state = INET_STATE_BOUND;  /* restore state */
+		desc->inet.state = INET_STATE_OPEN;  /* restore state */
 		ret = async_error(INETP(desc), error);
 		goto done;
 	    }
@@ -11075,8 +11082,6 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	if (!IS_OPEN(desc))
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 
-	if (!IS_BOUND(desc))
-	    return ctl_xerror(EXBADSEQ,  rbuf, rsize);
 #ifdef HAVE_SCTP
 	if (IS_SCTP(desc)) { 
 	    inet_address remote;
@@ -11163,8 +11168,6 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
 	    if (!IS_OPEN(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
-	    if (!IS_BOUND(desc))
-		return ctl_xerror(EXBADSEQ, rbuf, rsize);
 
 	    if (len != 2)
 		return ctl_error(EINVAL, rbuf, rsize);
@@ -11211,7 +11214,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 			return ctl_error(sock_errno(), rbuf, rsize);
 		}
 
-	    desc->state = INET_STATE_BOUND;
+	    desc->state = INET_STATE_OPEN;
 
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
@@ -11228,8 +11231,6 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
 	    if (!IS_OPEN(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
-	    if (!IS_BOUND(desc))
-		return ctl_xerror(EXBADSEQ, rbuf, rsize);
 	    if (! p_sctp_peeloff)
 		return ctl_error(ENOTSUP, rbuf, rsize);
 
@@ -11270,8 +11271,6 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    /* INPUT: Timeout(4), Length(4) */
 	    if (!IS_OPEN(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
-	    if (!IS_BOUND(desc))
-		return ctl_error(EINVAL, rbuf, rsize);
 	    if (desc->active || (len != 8))
 		return ctl_error(EINVAL, rbuf, rsize);
 	    timeout = get_int32(buf);
@@ -11333,10 +11332,6 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     desc->caller = driver_caller(desc->port);
 
     if (!IS_OPEN(desc)) {
-	inet_reply_error(desc, EINVAL);
-	return;
-    }
-    if (!IS_BOUND(desc)) {
 	inet_reply_error(desc, EINVAL);
 	return;
     }
@@ -11469,6 +11464,8 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 
     while(packet_count--) {
 	unsigned int len = sizeof(other);
+
+	sys_memzero((char *) &other, sizeof(other));
 
 	/* udesc->i_buf is only kept between SCTP fragments */
 	if (udesc->i_buf == NULL) {
@@ -11665,7 +11662,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 				 (struct sockaddr*) &desc->remote, &sz);
 
 	    if (IS_SOCKET_ERROR(code)) {
-		desc->state = INET_STATE_BOUND;  /* restore state */
+		desc->state = INET_STATE_OPEN;  /* restore state */
 		ret =  async_error(desc, sock_errno());
 		goto done;
 	    }
@@ -11678,7 +11675,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 				   (void *)&error, &sz);
 
 	    if ((code < 0) || error) {
-		desc->state = INET_STATE_BOUND;  /* restore state */
+		desc->state = INET_STATE_OPEN;  /* restore state */
 		ret = async_error(desc, error);
 		goto done;
 	    }

@@ -1746,8 +1746,8 @@ enc_value_2(addr, {inet6,{IP,Port}}) ->
     [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)];
 enc_value_2(addr, {local,Addr}) ->
     %% A binary is passed as is, but anything else will be
-    %% regarded as a filename and therefore UTF-8 encoded
-    %% if the system filename encoding flag so dictates.
+    %% regarded as a filename and therefore encoded according to
+    %% the current system filename encoding.
     Bin =
 	if
 	    is_binary(Addr) ->

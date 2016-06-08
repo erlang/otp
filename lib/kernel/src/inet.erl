@@ -1296,7 +1296,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
     end.
 
 -spec open(Fd_or_OpenOpts :: integer() | list(),
-	   Addr :: socket_address(),
+	   Addr :: socket_address() | undefined,
 	   Port :: port_number(),
 	   Opts :: [socket_setopt()],
 	   Protocol :: socket_protocol(),
@@ -1316,11 +1316,16 @@ open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
 	{ok,S} ->
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
-		    case if is_list(Addr) ->
-				 bindx(S, Addr, Port);
-			    true ->
-				 prim_inet:bind(S, Addr, Port)
-			 end of
+		    case
+			case Addr of
+			    undefined ->
+				{ok, undefined};
+			    _ when is_list(Addr) ->
+				bindx(S, Addr, Port);
+			    _ ->
+				prim_inet:bind(S, Addr, Port)
+			end
+		    of
 			{ok, _} -> 
 			    inet_db:register_socket(S, Module),
 			    {ok,S};

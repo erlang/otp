@@ -59,7 +59,14 @@ open(0, Opts) ->
 	when tuple_size(BAddr) =:= 2, element(1, BAddr) =:= ?FAMILY;
 	     BAddr =:= any ->
 	    inet:open(
-	      Fd, BAddr, 0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
+	      Fd,
+	      case BAddr of
+		  any ->
+		      undefined;
+		  _ ->
+		      BAddr
+	      end,
+	      0, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)
     end.
 

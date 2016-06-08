@@ -25,6 +25,7 @@
 %% 
 
 %% family codes to open
+-define(INET_AF_UNSPEC,       0).
 -define(INET_AF_INET,         1).
 -define(INET_AF_INET6,        2).
 -define(INET_AF_ANY,          3). % Fake for ANY in any address family
