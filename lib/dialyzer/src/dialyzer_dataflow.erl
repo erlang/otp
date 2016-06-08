@@ -430,17 +430,35 @@ handle_apply(Tree, Map, State) ->
 
 handle_apply_or_call(FunInfoList, Args, ArgTypes, Map, Tree, State) ->
   None = t_none(),
+  %% Call-site analysis may be inaccurate and consider more funs than those that
+  %% are actually possible. If all of them are incorrect, then warnings can be
+  %% emitted. If at least one fun is ok, however, then no warning is emitted,
+  %% just in case the bad ones are not really possible. The last argument is
+  %% used for this, with the following encoding:
+  %%   Initial value: {none, []}
+  %%   First fun checked: {one, <List of warns>}
+  %%   More funs checked: {many, <List of warns>}
+  %% A '{one, []}' can only become '{many, []}'.
+  %% If at any point an fun does not add warnings, then the list is also
+  %% replaced with an empty list.
   handle_apply_or_call(FunInfoList, Args, ArgTypes, Map, Tree, State,
-		       [None || _ <- ArgTypes], None, false).
+		       [None || _ <- ArgTypes], None, false, {none, []}).
 
 handle_apply_or_call([{local, external}|Left], Args, ArgTypes, Map, Tree, State,
-		     _AccArgTypes, _AccRet, _HadExternal) ->
+		     _AccArgTypes, _AccRet, _HadExternal, Warns) ->
+  {HowMany, _} = Warns,
+  NewHowMany =
+    case HowMany of
+      none -> one;
+      _ -> many
+    end,
+  NewWarns = {NewHowMany, []},      
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree, State,
-		       ArgTypes, t_any(), true);
+		       ArgTypes, t_any(), true, NewWarns);
 handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
 		     Args, ArgTypes, Map, Tree,
                      #state{opaques = Opaques} = State,
-                     AccArgTypes, AccRet, HadExternal) ->
+                     AccArgTypes, AccRet, HadExternal, Warns) ->
   Any = t_any(),
   AnyArgs = [Any || _ <- Args],
   GenSig = {AnyArgs, fun(_) -> t_any() end},
@@ -586,16 +604,32 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
     end,
   NewAccRet = t_sup(AccRet, TotalRet),
   ?debug("NewAccRet: ~s\n", [t_to_string(NewAccRet)]),
+  {NewWarnings, State4} = state__remove_added_warnings(State, State3),
+  {HowMany, OldWarnings} = Warns,
+  NewWarns =
+    case HowMany of
+      none -> {one, NewWarnings};
+      _ ->
+        case OldWarnings =:= [] of
+          true -> {many, []};
+          false ->
+            case NewWarnings =:= [] of
+              true -> {many, []};
+              false -> {many, NewWarnings ++ OldWarnings}
+            end
+        end
+    end,
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree,
-		       State3, NewAccArgTypes, NewAccRet, HadExternal);
+		       State4, NewAccArgTypes, NewAccRet, HadExternal, NewWarns);
 handle_apply_or_call([], Args, _ArgTypes, Map, _Tree, State,
-		     AccArgTypes, AccRet, HadExternal) ->
+		     AccArgTypes, AccRet, HadExternal, {_, Warnings}) ->
+  State1 = state__add_warnings(Warnings, State),
   case HadExternal of
     false ->
       NewMap = enter_type_lists(Args, AccArgTypes, Map),
-      {State, NewMap, AccRet};
+      {State1, NewMap, AccRet};
     true ->
-      {had_external, State}
+      {had_external, State1}
   end.
 
 apply_fail_reason(FailedSig, FailedBif, FailedContract) ->
@@ -3037,6 +3071,14 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
           State#state{warnings = [Warn|Warnings]}
       end
   end.
+
+state__remove_added_warnings(OldState, NewState) ->
+  #state{warnings = OldWarnings} = OldState,
+  #state{warnings = NewWarnings} = NewState,
+  {NewWarnings -- OldWarnings, NewState#state{warnings = OldWarnings}}.
+
+state__add_warnings(Warns, #state{warnings = Warnings} = State) ->
+  State#state{warnings = Warns ++ Warnings}.
 
 -spec state__set_curr_fun(curr_fun(), state()) -> state().
 
