@@ -1491,6 +1491,9 @@ get_portinfo(Fd,Port) ->
 	"Port controls linked-in driver" ->
 	    Str = lists:flatten(["Linked in driver: " | val(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
+	"Port controls forker process" ->
+	    Str = lists:flatten(["Forker process: " | val(Fd)]),
+	    get_portinfo(Fd,Port#port{controls=Str});
 	"Port controls external process" ->
 	    Str = lists:flatten(["External proc: " | val(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
