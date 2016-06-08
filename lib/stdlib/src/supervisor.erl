@@ -30,7 +30,7 @@
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2, code_change/3, format_status/2]).
 -export([try_again_restart/2]).
 
 %% For release_handler only
@@ -264,8 +264,13 @@ cast(Supervisor, Req) ->
 get_callback_module(Pid) ->
     {status, _Pid, {module, _Mod},
      [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(Pid),
-    [_Header, _Data, {data, [{"State", State}]}] = Misc,
-    State#state.module.
+    case lists:keyfind(supervisor, 1, Misc) of
+	{supervisor, [{"Callback", Mod}]} ->
+	    Mod;
+	_ ->
+	    [_Header, _Data, {data, [{"State", State}]} | _] = Misc,
+	    State#state.module
+    end.
 
 %%% ---------------------------------------------------
 %%% 
@@ -1450,3 +1455,9 @@ report_progress(Child, SupName) ->
     Progress = [{supervisor, SupName},
 		{started, extract_child(Child)}],
     error_logger:info_report(progress, Progress).
+
+format_status(terminate, [_PDict, State]) ->
+    State;
+format_status(_, [_PDict, State]) ->
+    [{data, [{"State", State}]},
+     {supervisor, [{"Callback", State#state.module}]}].

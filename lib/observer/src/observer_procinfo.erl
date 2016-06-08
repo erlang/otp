@@ -317,7 +317,7 @@ fetch_state_info2(Pid, M) ->
     of
 	{status, _, {module, _},
 	 [_PDict, _SysState, _Parent, _Dbg,
-	  [Header,{data, First},{data, Second}]]} ->
+	  [Header,{data, First},{data, Second}|_]]} ->
 	    [{"Behaviour", B}, Header] ++ First ++ Second;
 	{status, _, {module, _},
 	 [_PDict, _SysState, _Parent, _Dbg,
