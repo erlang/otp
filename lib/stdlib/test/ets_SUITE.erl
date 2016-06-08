@@ -604,9 +604,9 @@ memory(Config) when is_list(Config) ->
 memory_do(Opts) ->
     L = [T1,T2,T3,T4] = fill_sets_int(1000,Opts),
     XR1 = case mem_mode(T1) of
-	      {normal,_} ->     {13836,13560,13560,13566}; %{13836,13046,13046,13052}
-	      {compressed,4} -> {11041,10865,10865,10866}; %{11041,10251,10251,10252}
-	      {compressed,8} -> {10050,9774,9774,9774} % {10050,9260,9260,9260}
+	      {normal,_} ->     {13836,13046,13046,13052}; %{13862,13072,13072,13078};
+	      {compressed,4} -> {11041,10251,10251,10252}; %{11067,10277,10277,10278};
+	      {compressed,8} -> {10050,9260,9260,9260} %{10076,9286,9286,9286}
 	  end,
     XRes1 = adjust_xmem(L, XR1),
     Res1 = {?S(T1),?S(T2),?S(T3),?S(T4)},
@@ -620,9 +620,9 @@ memory_do(Opts) ->
 		  end,
 		  L),
     XR2 = case mem_mode(T1) of
-	      {normal,_} ->     {13826,13551,13542,13548}; %{13826,13037,13028,13034};
-	      {compressed,4} -> {11031,10856,10747,10748}; %{11031,10242,10233,10234};
-	      {compressed,8} -> {10040,9765,9756,9756} %{10040,9251,9242,9242}
+	      {normal,_} ->     {13826,13037,13028,13034}; %{13852,13063,13054,13060};
+	      {compressed,4} -> {11031,10242,10233,10234}; %{11057,10268,10259,10260};
+	      {compressed,8} -> {10040,9251,9242,9242}     %10066,9277,9268,9268}
 	  end,
     XRes2 = adjust_xmem(L, XR2),
     Res2 = {?S(T1),?S(T2),?S(T3),?S(T4)},
@@ -636,9 +636,9 @@ memory_do(Opts) ->
 		  end,
 		  L),
     XR3 = case mem_mode(T1) of
-	      {normal,_} ->     {13816,13542,13524,13530}; %{13816,13028,13010,13016}
-	      {compressed,4} -> {11021,10747,10729,10730}; %{11021,10233,10215,10216}
-	      {compressed,8} -> {10030,9756,9738,9738}  %{10030,9242,9224,9224}
+	      {normal,_} ->     {13816,13028,13010,13016}; %{13842,13054,13036,13042};
+	      {compressed,4} -> {11021,10233,10215,10216}; %{11047,10259,10241,10242};
+	      {compressed,8} -> {10030,9242,9224,9224} %{10056,9268,9250,9250}
 	  end,
     XRes3 = adjust_xmem(L, XR3),
     Res3 = {?S(T1),?S(T2),?S(T3),?S(T4)},
@@ -5350,12 +5350,12 @@ verify_table_load(T) ->
     Stats = ets:info(T,stats),
     {Buckets,AvgLen,StdDev,ExpSD,_MinLen,_MaxLen,_} = Stats,
     ok = if
-	     AvgLen > 2 ->
+	     AvgLen > 7 ->
 		 io:format("Table overloaded: Stats=~p\n~p\n",
 			   [Stats, ets:info(T)]),
 		 false;
 
-	     Buckets>256, AvgLen < 0.5 ->
+	     Buckets>256, AvgLen < 6 ->
 		 io:format("Table underloaded: Stats=~p\n~p\n",
 			   [Stats, ets:info(T)]),
 		 false;
