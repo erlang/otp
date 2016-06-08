@@ -935,7 +935,7 @@
     </func>
 
     <func>
-      <name>reload_config(Required) -&gt; ValueOrElement</name>
+      <name>reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
       <fsummary>Reloads configuration file containing specified configuration
         key.</fsummary>
       <type>
