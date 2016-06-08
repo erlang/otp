@@ -66,7 +66,7 @@ $ make </code>
 
     <section>
         <title>Dyntrace Tracepoints</title>
-        <p>All tracepoints are in the domain of <c>com_ericsson_dyntrace</c></p>
+        <p>All tracepoints are in the domain of <c>org_erlang_dyntrace</c></p>
         <p>All Erlang types are the string equivalent in LTTng.</p>
 
         <p><em>process_spawn</em></p>
@@ -550,8 +550,8 @@ Eshell V8.0  (abort with ^G)
 
      <p>Enable the process_register LTTng tracepoint for Erlang.</p>
 
-     <pre>$ lttng enable-event -u com_ericsson_dyntrace:process_register
-UST event com_ericsson_dyntrace:process_register created in channel channel0</pre>
+     <pre>$ lttng enable-event -u org_erlang_dyntrace:process_register
+UST event org_erlang_dyntrace:process_register created in channel channel0</pre>
 
      <p>Enable process tracing for new processes and use <c>dyntrace</c> as tracer backend.</p>
 
@@ -573,23 +573,23 @@ Tracing started for session erlang-demo</pre>
      <pre>$ lttng stop
 Tracing stopped for session erlang-demo
 $ lttng view
-[17:20:42.561168759] (+?.?????????) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.561168759] (+?.?????????) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.66.0&gt;", name = "sasl_sup", type = "register" }
-[17:20:42.561215519] (+0.000046760) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.561215519] (+0.000046760) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.67.0&gt;", name = "sasl_safe_sup", type = "register" }
-[17:20:42.562149024] (+0.000933505) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.562149024] (+0.000933505) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.68.0&gt;", name = "alarm_handler", type = "register" }
-[17:20:42.571035803] (+0.008886779) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.571035803] (+0.008886779) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.69.0&gt;", name = "release_handler", type = "register" }
-[17:20:42.574939868] (+0.003904065) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.574939868] (+0.003904065) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.74.0&gt;", name = "os_mon_sup", type = "register" }
-[17:20:42.576818712] (+0.001878844) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.576818712] (+0.001878844) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.75.0&gt;", name = "disksup", type = "register" }
-[17:20:42.580032013] (+0.003213301) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.580032013] (+0.003213301) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.76.0&gt;", name = "memsup", type = "register" }
-[17:20:42.583046339] (+0.003014326) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.583046339] (+0.003014326) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.78.0&gt;", name = "cpu_sup", type = "register" }
-[17:20:42.586206242] (+0.003159903) elxd1168lx9 com_ericsson_dyntrace:process_register: \
+[17:20:42.586206242] (+0.003159903) elxd1168lx9 org_erlang_dyntrace:process_register: \
     { cpu_id = 5 }, { pid = "&lt;0.82.0&gt;", name = "timer_server", type = "register" }</pre>
     </section>
 </chapter>

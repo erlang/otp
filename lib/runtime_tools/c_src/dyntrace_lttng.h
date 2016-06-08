@@ -19,7 +19,7 @@
  */
 
 #undef TRACEPOINT_PROVIDER
-#define TRACEPOINT_PROVIDER com_ericsson_dyntrace
+#define TRACEPOINT_PROVIDER org_erlang_dyntrace
 
 #if !defined(DYNTRACE_LTTNG_H) || defined(TRACEPOINT_HEADER_MULTI_READ)
 #define DYNTRACE_LTTNG_H
@@ -27,22 +27,22 @@
 #include <lttng/tracepoint.h>
 
 #define LTTNG1(Name, Arg1) \
-    tracepoint(com_ericsson_dyntrace, Name, (Arg1))
+    tracepoint(org_erlang_dyntrace, Name, (Arg1))
 
 #define LTTNG2(Name, Arg1, Arg2) \
-    tracepoint(com_ericsson_dyntrace, Name, (Arg1), (Arg2))
+    tracepoint(org_erlang_dyntrace, Name, (Arg1), (Arg2))
 
 #define LTTNG3(Name, Arg1, Arg2, Arg3) \
-    tracepoint(com_ericsson_dyntrace, Name, (Arg1), (Arg2), (Arg3))
+    tracepoint(org_erlang_dyntrace, Name, (Arg1), (Arg2), (Arg3))
 
 #define LTTNG4(Name, Arg1, Arg2, Arg3, Arg4) \
-    tracepoint(com_ericsson_dyntrace, Name, (Arg1), (Arg2), (Arg3), (Arg4))
+    tracepoint(org_erlang_dyntrace, Name, (Arg1), (Arg2), (Arg3), (Arg4))
 
 #define LTTNG5(Name, Arg1, Arg2, Arg3, Arg4, Arg5) \
-    tracepoint(com_ericsson_dyntrace, Name, (Arg1), (Arg2), (Arg3), (Arg4), (Arg5))
+    tracepoint(org_erlang_dyntrace, Name, (Arg1), (Arg2), (Arg3), (Arg4), (Arg5))
 
 #define LTTNG_ENABLED(Name) \
-    tracepoint_enabled(com_ericsson_dyntrace, Name)
+    tracepoint_enabled(org_erlang_dyntrace, Name)
 
 #define LTTNG_BUFFER_SZ      (256)
 #define LTTNG_PROC_BUFFER_SZ (16)
@@ -76,7 +76,7 @@
 /* Process scheduling */
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     process_spawn,
     TP_ARGS(
         char*, p,
@@ -91,7 +91,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     process_link,
     TP_ARGS(
         char*, from,
@@ -106,7 +106,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     process_exit,
     TP_ARGS(
         char*, p,
@@ -119,7 +119,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     process_register,
     TP_ARGS(
         char*, pid,
@@ -136,7 +136,7 @@ TRACEPOINT_EVENT(
 /* Scheduled */
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     process_scheduled,
     TP_ARGS(
         char*, p,
@@ -154,7 +154,7 @@ TRACEPOINT_EVENT(
 
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     port_open,
     TP_ARGS(
         char*, pid,
@@ -169,7 +169,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     port_exit,
     TP_ARGS(
         char*, port,
@@ -182,7 +182,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     port_link,
     TP_ARGS(
         char*, from,
@@ -197,7 +197,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     port_scheduled,
     TP_ARGS(
         char*, p,
@@ -214,7 +214,7 @@ TRACEPOINT_EVENT(
 /* Call tracing */
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     function_call,
     TP_ARGS(
         char*, pid,
@@ -229,7 +229,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     function_return,
     TP_ARGS(
         char*, pid,
@@ -244,7 +244,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     function_exception,
     TP_ARGS(
         char*, pid,
@@ -261,7 +261,7 @@ TRACEPOINT_EVENT(
 /* Process messages */
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     message_send,
     TP_ARGS(
         char*, sender,
@@ -276,7 +276,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     message_receive,
     TP_ARGS(
         char*, receiver,
@@ -291,7 +291,7 @@ TRACEPOINT_EVENT(
 /* Process Memory */
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     gc_minor_start,
     TP_ARGS(
         char*, p,
@@ -308,7 +308,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     gc_minor_end,
     TP_ARGS(
         char*, p,
@@ -325,7 +325,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     gc_major_start,
     TP_ARGS(
         char*, p,
@@ -342,7 +342,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_dyntrace,
+    org_erlang_dyntrace,
     gc_major_end,
     TP_ARGS(
         char*, p,
