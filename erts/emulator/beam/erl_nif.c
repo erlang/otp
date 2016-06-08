@@ -2658,18 +2658,21 @@ done:
 }
 
 int
-enif_is_on_dirty_scheduler(ErlNifEnv* env)
+enif_thread_type(void)
 {
-    int scheduler;
-    Process *c_p;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    execution_state(env, &c_p, &scheduler);
+    if (!esdp)
+	return ERL_NIF_THR_UNDEFINED;
 
-    if (!c_p || !scheduler)
-	erts_exit(ERTS_ABORT_EXIT, "enif_is_on_dirty_scheduler: "
-		  "Invalid env");
+    if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+	return ERL_NIF_THR_NORMAL_SCHEDULER;
 
-    return scheduler < 0;
+    if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp))
+	return ERL_NIF_THR_DIRTY_CPU_SCHEDULER;
+
+    ASSERT(ERTS_SCHEDULER_IS_DIRTY_IO(esdp));
+    return ERL_NIF_THR_DIRTY_IO_SCHEDULER;
 }
 
 /* Maps */

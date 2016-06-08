@@ -10082,7 +10082,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    }
 	}
 
-	if (ERTS_IS_GC_DESIRED(p)) {
+	if (ERTS_IS_GC_DESIRED(p) && !ERTS_SCHEDULER_IS_DIRTY_IO(esdp)) {
 	    if (!(state & ERTS_PSFLG_EXITING) && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
 		int cost = scheduler_gc_proc(p, reds);
 		calls += cost;

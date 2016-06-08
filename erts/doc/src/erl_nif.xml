@@ -1101,15 +1101,6 @@ typedef enum {
       Erlang operators <c>=:=</c> and
       <c>=/=</c>.</p></desc> 
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_on_dirty_scheduler(ErlNifEnv* env)</nametext></name>
-      <fsummary>Check to see if executing on a dirty scheduler thread</fsummary>
-      <desc>
-          <p>Check to see if the current NIF is executing on a dirty scheduler thread. If
-	  executing on a dirty scheduler thread true returned; otherwise false.</p>
-	  <p>This function can only be used from a NIF-calling thread, and with an
-	  environment corresponding to currently executing processes.</p>
-      </desc>
-    </func>
     <func><name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a pid</fsummary>
       <desc><p>Return true if <c>term</c> is a pid.</p></desc>
@@ -1820,7 +1811,25 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self</seealso>.
           </p></desc>
     </func>
-
+    <func><name><ret>int</ret><nametext>enif_thread_type(void)</nametext></name>
+      <fsummary>Determine type of current thread</fsummary>
+      <desc>
+	<p>Determine the type of currently executing thread. A positive value
+	indicates a scheduler thread while a negative value or zero indicates
+	another type of thread. Currently the following specific types exist
+	(which may be extended in the future):</p>
+	<taglist>
+	  <tag><c>ERL_NIF_THR_UNDEFINED</c></tag>
+	  <value><p>Undefined thread that is not a scheduler thread.</p></value>
+	  <tag><c>ERL_NIF_THR_NORMAL_SCHEDULER</c></tag>
+	  <value><p>A normal scheduler thread.</p></value>
+	  <tag><c>ERL_NIF_THR_DIRTY_CPU_SCHEDULER</c></tag>
+	  <value><p>A dirty CPU scheduler thread.</p></value>
+	  <tag><c>ERL_NIF_THR_DIRTY_IO_SCHEDULER</c></tag>
+	  <value><p>A dirty I/O scheduler thread.</p></value>
+	</taglist>
+      </desc>
+    </func>
     <func>
       <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
       <fsummary>Get current Time Offset</fsummary>
