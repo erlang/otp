@@ -125,7 +125,7 @@ simple_exec(Config) when is_list(Config) ->
     do_simple_exec(ConnectionRef).
 
 
-simple_exec_sock(Config) ->
+simple_exec_sock(_Config) ->
     {ok, Sock} = gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, [{active,false}]),
     {ok, ConnectionRef} = ssh:connect(Sock, [{silently_accept_hosts, true},
 					     {user_interaction, false}]),
@@ -602,10 +602,10 @@ start_shell_sock_daemon_exec(Config) ->
     
     spawn_link(fun() ->
 		       {ok,Ss} = gen_tcp:connect("localhost", Port, [{active,false}]),
-		       {ok, Pid} = ssh:daemon(Ss, [{system_dir, SysDir},
-						   {user_dir, UserDir},
-						   {password, "morot"},
-						   {exec, fun ssh_exec/1}])
+		       {ok, _Pid} = ssh:daemon(Ss, [{system_dir, SysDir},
+						    {user_dir, UserDir},
+						    {password, "morot"},
+						    {exec, fun ssh_exec/1}])
 	       end),
     {ok,Sc} = gen_tcp:accept(Sl),
     {ok,ConnectionRef} = ssh:connect(Sc, [{silently_accept_hosts, true},
