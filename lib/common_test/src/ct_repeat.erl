@@ -44,13 +44,13 @@ loop_test(If,Args) when is_list(Args) ->
 	    false;
 	E = {error,_} ->
 	    io:format("Common Test error: ~p\n\n",[E]),
-	    file:set_cwd(Cwd),
+	    ok = file:set_cwd(Cwd),
 	    E;
 	{repeat,N} ->
 	    io:format("\nCommon Test: Will repeat tests ~w times.\n\n",[N]),
 	    Args1 = [{loop_info,[{repeat,1,N}]} | Args],
 	    Result = loop(If,repeat,0,N,undefined,Args1,undefined,[]),
-	    file:set_cwd(Cwd),
+	    ok = file:set_cwd(Cwd),
 	    Result;
 	{stop_time,StopTime} ->
 	    Result =
@@ -76,7 +76,7 @@ loop_test(If,Args) when is_list(Args) ->
 			Args1 = [{loop_info,[{stop_time,Secs,StopTime,1}]} | Args],
 			loop(If,stop_time,0,Secs,StopTime,Args1,TPid,[])
 		end,
-	    file:set_cwd(Cwd),
+	    ok = file:set_cwd(Cwd),
 	    Result
     end.
     

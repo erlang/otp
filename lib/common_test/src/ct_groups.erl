@@ -402,12 +402,7 @@ expand(Mod, Name, Defs) ->
     end.
 
 make_all_conf(Dir, Mod, Props, TestSpec) ->
-    case code:is_loaded(Mod) of
-	false ->
-	    code:load_abs(filename:join(Dir,atom_to_list(Mod)));
-	_ ->
-	    ok
-    end,
+    _ = load_abs(Dir, Mod),
     make_all_conf(Mod, Props, TestSpec).
 
 make_all_conf(Mod, Props, TestSpec) ->
@@ -428,16 +423,19 @@ make_all_conf(Mod, Props, TestSpec) ->
     end.
 
 make_conf(Dir, Mod, Name, Props, TestSpec) ->
+    _ = load_abs(Dir, Mod),
+    make_conf(Mod, Name, Props, TestSpec).
+
+load_abs(Dir, Mod) ->
     case code:is_loaded(Mod) of
 	false ->
 	    code:load_abs(filename:join(Dir,atom_to_list(Mod)));
 	_ ->
 	    ok
-    end,
-    make_conf(Mod, Name, Props, TestSpec).
+    end.
 
 make_conf(Mod, Name, Props, TestSpec) ->
-    case code:is_loaded(Mod) of
+    _ = case code:is_loaded(Mod) of
 	false ->
 	    code:load_file(Mod);
 	_ ->

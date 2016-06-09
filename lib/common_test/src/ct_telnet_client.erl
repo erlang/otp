@@ -272,7 +272,7 @@ send(Data, Sock, ConnName) ->
 		_:_ -> ok
 	    end
     end,
-    gen_tcp:send(Sock, Data),
+    ok = gen_tcp:send(Sock, Data),
     ok.
 
 %% [IAC,IAC] = buffer data value 255
@@ -284,7 +284,7 @@ check_msg(Sock, [?IAC | Cs], Acc) ->
     case get_cmd(Cs) of
 	{Cmd,Cs1} ->
 	    cmd_dbg("Got",Cmd),
-	    respond_cmd(Cmd, Sock),
+	    ok = respond_cmd(Cmd, Sock),
 	    check_msg(Sock, Cs1, Acc); 
 	error ->
 	    Acc

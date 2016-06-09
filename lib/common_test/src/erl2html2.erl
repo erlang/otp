@@ -62,15 +62,15 @@ convert(File, Dest, InclPath, Header) ->
 		{ok,SFd} ->
 		    case file:open(Dest,[write,raw]) of
 			{ok,DFd} ->
-			    file:write(DFd,[Header,"<pre>\n"]),
+			    ok = file:write(DFd,[Header,"<pre>\n"]),
 			    _Lines = build_html(SFd,DFd,encoding(File),Functions),
-			    file:write(DFd,["</pre>\n",footer(),
+			    ok = file:write(DFd,["</pre>\n",footer(),
 					    "</body>\n</html>\n"]),
 			    %% {_, Time2} = statistics(runtime),
 			    %% io:format("Converted ~p lines in ~.2f Seconds.~n",
 			    %% 	      [_Lines, Time2/1000]),
-			    file:close(SFd),
-			    file:close(DFd),
+			    ok = file:close(SFd),
+			    ok = file:close(DFd),
 			    ok;
 			Error ->
 			    Error
@@ -138,7 +138,7 @@ parse_non_preprocessed_file(File) ->
     case file:open(File, []) of
 	{ok,Epp} ->
 	    Forms = parse_non_preprocessed_file(Epp, File, 1),
-	    file:close(Epp),
+	    ok = file:close(Epp),
 	    {ok,Forms};
 	Error = {error,_E} ->
 	    Error
@@ -205,14 +205,14 @@ build_html(SFd,DFd,Encoding,FuncsAndCs) ->
 %% line of last expression in function found
 build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,_IsFuncDef,{F,LastL}) ->
     LastLineLink = test_server_ctrl:uri_encode(F++"-last_expr",utf8),
-	    file:write(DFd,["<a name=\"",
-			    to_raw_list(LastLineLink,Enc),"\"/>"]),
+	    ok = file:write(DFd,["<a name=\"",
+				 to_raw_list(LastLineLink,Enc),"\"/>"]),
     build_html(SFd,DFd,Enc,{ok,Str},LastL,FuncsAndCs,true,undefined);
 %% function start line found
 build_html(SFd,DFd,Enc,{ok,Str},L0,[{F,A,L0,LastL}|FuncsAndCs],
 	   _IsFuncDef,_FAndLastL) ->
     FALink = test_server_ctrl:uri_encode(F++"-"++integer_to_list(A),utf8),
-    file:write(DFd,["<a name=\"",to_raw_list(FALink,Enc),"\"/>"]),
+    ok = file:write(DFd,["<a name=\"",to_raw_list(FALink,Enc),"\"/>"]),
     build_html(SFd,DFd,Enc,{ok,Str},L0,FuncsAndCs,true,{F,LastL});
 build_html(SFd,DFd,Enc,{ok,Str},L,[{clause,L}|FuncsAndCs],
 	   _IsFuncDef,FAndLastL) ->
@@ -220,7 +220,7 @@ build_html(SFd,DFd,Enc,{ok,Str},L,[{clause,L}|FuncsAndCs],
 build_html(SFd,DFd,Enc,{ok,Str},L,FuncsAndCs,IsFuncDef,FAndLastL) ->
     LStr = line_number(L),
     Str1 = line(Str,IsFuncDef),
-    file:write(DFd,[LStr,Str1]),
+    ok = file:write(DFd,[LStr,Str1]),
     build_html(SFd,DFd,Enc,file:read_line(SFd),L+1,FuncsAndCs,false,FAndLastL);
 build_html(_SFd,_DFd,_Enc,eof,L,_FuncsAndCs,_IsFuncDef,_FAndLastL) ->
     L.

@@ -1653,7 +1653,8 @@ messages_get() ->
 %%
 %% Make sure proceeding IO from FromPid won't get rejected
 permit_io(GroupLeader, FromPid) ->
-    GroupLeader ! {permit_io,FromPid}.
+    GroupLeader ! {permit_io,FromPid},
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% sleep(Time) -> ok

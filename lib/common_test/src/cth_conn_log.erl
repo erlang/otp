@@ -170,7 +170,7 @@ post_end_per_testcase(TestCase,_Config,Return,CthState) ->
 	end,
     case ct_util:update_testdata(?MODULE, Update) of
 	deleted ->
-	    [ct_util:delete_testdata({?MODULE,ConnMod}) ||
+	    _ = [ct_util:delete_testdata({?MODULE,ConnMod}) ||
 		{ConnMod,_} <- CthState],
 	    error_logger:delete_report_handler(ct_conn_log_h);
 	{error,no_response} ->

@@ -82,7 +82,7 @@ init(Id) ->
 
 %% @doc Handling call messages
 handle_call({stop,Id}, _From, #state{ id = Id, requests = Reqs } = State) ->
-    [gen_server:reply(Req, locker_stopped) || {Req,_ReqId} <- Reqs],
+    _ = [gen_server:reply(Req, locker_stopped) || {Req,_ReqId} <- Reqs],
     {stop, normal, stopped, State};
 handle_call({stop,_Id}, _From, State) ->
     {reply, stopped, State};

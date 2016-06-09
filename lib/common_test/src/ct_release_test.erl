@@ -342,7 +342,7 @@ cleanup(Config) ->
 				 end
 			 end,
 			 AllNodes),
-    [rpc:call(Node,erlang,halt,[]) || Node <- Nodes],
+    _ = [rpc:call(Node,erlang,halt,[]) || Node <- Nodes],
     Config.
 
 %%-----------------------------------------------------------------
@@ -552,14 +552,14 @@ target_system(Apps,CreateDir,InstallDir,{FromVsn,_,AllAppsVsns,Path}) ->
 
     %% Add bin and log dirs
     BinDir = filename:join([InstallDir, "bin"]),
-    file:make_dir(BinDir),
-    file:make_dir(filename:join(InstallDir,"log")),
+    ok = make_dir(BinDir),
+    ok = make_dir(filename:join(InstallDir,"log")),
 
     %% Delete start scripts - they will be added later
     ErtsBinDir = filename:join([InstallDir, "erts-" ++ ErtsVsn, "bin"]),
-    file:delete(filename:join([ErtsBinDir, "erl"])),
-    file:delete(filename:join([ErtsBinDir, "start"])),
-    file:delete(filename:join([ErtsBinDir, "start_erl"])),
+    ok = delete_file(filename:join([ErtsBinDir, "erl"])),
+    ok = delete_file(filename:join([ErtsBinDir, "start"])),
+    ok = delete_file(filename:join([ErtsBinDir, "start_erl"])),
 
     %% Copy .boot to bin/start.boot
     copy_file(RelName++".boot",filename:join([BinDir, "start.boot"])),
@@ -680,7 +680,7 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
     %% even if install_release returned {ok,...} there might be an
     %% emulator restart (instruction restart_emulator), so we must
     %% always make sure the node is running.
-    wait_node_up(current,ToVsn,ToAppsVsns),
+    {ok, _} = wait_node_up(current,ToVsn,ToAppsVsns),
 
     [{"OTP upgrade test",ToVsn,_,current},
      {"OTP upgrade test",FromVsn,_,permanent}] =
@@ -703,7 +703,7 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
     %% even if install_release returned {ok,...} there might be an
     %% emulator restart (instruction restart_emulator), so we must
     %% always make sure the node is running.
-    wait_node_up(current,FromVsn,FromAppsVsns),
+    {ok, _} = wait_node_up(current,FromVsn,FromAppsVsns),
 
     [{"OTP upgrade test",ToVsn,_,permanent},
      {"OTP upgrade test",FromVsn,_,current}] =
@@ -854,7 +854,7 @@ copy_file(Src, Dest, Opts) ->
     case lists:member(preserve, Opts) of
         true ->
             {ok, FileInfo} = file:read_file_info(Src),
-            file:write_file_info(Dest, FileInfo);
+            ok = file:write_file_info(Dest, FileInfo);
         false ->
             ok
     end.
@@ -862,8 +862,8 @@ copy_file(Src, Dest, Opts) ->
 write_file(FName, Conts) ->
     Enc = file:native_name_encoding(),
     {ok, Fd} = file:open(FName, [write]),
-    file:write(Fd, unicode:characters_to_binary(Conts,Enc,Enc)),
-    file:close(Fd).
+    ok = file:write(Fd, unicode:characters_to_binary(Conts,Enc,Enc)),
+    ok = file:close(Fd).
 
 %% Substitute all occurrences of %Var% for Val in the given scripts
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->
@@ -943,4 +943,20 @@ rm_rf(Dir) ->
 	    ok=file:delete(Dir);
 	_ ->
 	    ok
+    end.
+
+delete_file(FileName) ->
+    case file:delete(FileName) of
+        {error, enoent} ->
+            ok;
+        Else ->
+            Else
+    end.
+
+make_dir(Dir) ->
+    case file:make_dir(Dir) of
+        {error, eexist} ->
+            ok;
+        Else ->
+            Else
     end.

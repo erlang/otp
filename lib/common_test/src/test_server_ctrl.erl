@@ -294,7 +294,7 @@ start_link(_) ->
 
 start() ->
     case gen_server:start({local,?MODULE}, ?MODULE, [], []) of
-	{ok, Pid} ->
+	{error, {already_started, Pid}} ->
 	    {ok, Pid};
 	Other ->
 	    Other
@@ -302,7 +302,7 @@ start() ->
 
 start_link() ->
     case gen_server:start_link({local,?MODULE}, ?MODULE, [], []) of
-	{ok, Pid} ->
+	{error, {already_started, Pid}} ->
 	    {ok, Pid};
 	Other ->
 	    Other
