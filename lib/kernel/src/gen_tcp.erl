@@ -96,17 +96,17 @@
         tos |
 	ipv6_v6only.
 -type connect_option() ::
-        {ip, inet:ip_address()} |
+        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:ip_address()} |
+        {ifaddr, inet:socket_address()} |
         inet:address_family() |
         {port, inet:port_number()} |
         {tcp_module, module()} |
         option().
 -type listen_option() ::
-        {ip, inet:ip_address()} |
+        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:ip_address()} |
+        {ifaddr, inet:socket_address()} |
         inet:address_family() |
         {port, inet:port_number()} |
         {backlog, B :: non_neg_integer()} |
@@ -122,7 +122,7 @@
 %%
 
 -spec connect(Address, Port, Options) -> {ok, Socket} | {error, Reason} when
-      Address :: inet:ip_address() | inet:hostname(),
+      Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
       Options :: [connect_option()],
       Socket :: socket(),
@@ -133,7 +133,7 @@ connect(Address, Port, Opts) ->
 
 -spec connect(Address, Port, Options, Timeout) ->
                      {ok, Socket} | {error, Reason} when
-      Address :: inet:ip_address() | inet:hostname(),
+      Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
       Options :: [connect_option()],
       Timeout :: timeout(),
