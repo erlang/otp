@@ -560,6 +560,11 @@ dump_externally(int to, void *to_arg, Eterm term)
 	}
     }
 
+    /* Do not handle maps */
+    if (is_map(term)) {
+        term = am_undefined;
+    }
+
     s = p = sbuf;
     erts_encode_ext(term, &p);
     erts_print(to, to_arg, "E%X:", p-s);
