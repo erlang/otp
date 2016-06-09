@@ -157,5 +157,5 @@
 -record(t_paren, {a=[], type}).		% parentheses
 
 -record(t_map, {a=[], types=[]}).
--record(t_map_field, {a=[], k_type, v_type}).
+-record(t_map_field, {a=[], assoc_type, k_type, v_type}).
 

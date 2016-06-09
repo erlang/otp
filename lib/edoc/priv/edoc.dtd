@@ -103,7 +103,7 @@
 <!ATTLIST type name CDATA #IMPLIED>
 
 <!ELEMENT union (typevar | atom | integer | float | nil | list | tuple |
-                 fun | record | abstype)+>
+                 fun | record | map | abstype)+>
 
 <!ELEMENT typevar EMPTY>
 <!ATTLIST typevar name CDATA #REQUIRED>
@@ -128,6 +128,10 @@
 <!ELEMENT record (atom, field*)>
 
 <!ELEMENT field (atom, type)>
+
+<!ELEMENT map (map_field)*>
+
+<!ELEMENT map_field (type, type)>
 
 <!ELEMENT abstype (erlangName, type*)>
 <!ATTLIST abstype

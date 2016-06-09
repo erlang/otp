@@ -146,6 +146,8 @@ scan1([$>,$>|Cs], Toks, Pos) ->
     scan1(Cs, [{'>>',Pos}|Toks], Pos);
 scan1([$-,$>|Cs], Toks, Pos) ->
     scan1(Cs, [{'->',Pos}|Toks], Pos);
+scan1([$:,$=|Cs], Toks, Pos) ->
+    scan1(Cs, [{':=',Pos}|Toks], Pos);
 scan1([$:,$:|Cs], Toks, Pos) ->
     scan1(Cs, [{'::',Pos}|Toks], Pos);
 scan1([$/,$/|Cs], Toks, Pos) ->

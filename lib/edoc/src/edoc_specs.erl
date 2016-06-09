@@ -369,11 +369,11 @@ d2e({type,_,map,any}, _Prec) ->
 d2e({type,_,map,Es}, _Prec) ->
     #t_map{types = d2e(Es) };
 d2e({type,_,map_field_assoc,[K,V]}, Prec) ->
-    T = #t_map_field{k_type = d2e(K), v_type=d2e(V) },
+    T = #t_map_field{assoc_type = assoc, k_type = d2e(K), v_type=d2e(V) },
     {P,_R} = erl_parse:type_preop_prec('#'),
     maybe_paren(P, Prec, T);
-d2e({type,_,map_field_exact,K,V}, Prec) ->
-    T = #t_map_field{k_type = d2e(K), v_type=d2e(V) },
+d2e({type,_,map_field_exact,[K,V]}, Prec) ->
+    T = #t_map_field{assoc_type = exact, k_type = d2e(K), v_type=d2e(V) },
     {P,_R} = erl_parse:type_preop_prec('#'),
     maybe_paren(P, Prec, T);
 d2e({type,_,tuple,Ts0}, _Prec) ->
