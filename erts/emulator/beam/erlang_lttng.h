@@ -20,7 +20,7 @@
 
 #ifdef USE_LTTNG
 #undef TRACEPOINT_PROVIDER
-#define TRACEPOINT_PROVIDER com_ericsson_otp
+#define TRACEPOINT_PROVIDER org_erlang_otp
 
 #undef TRACEPOINT_INCLUDE
 #define TRACEPOINT_INCLUDE "erlang_lttng.h"
@@ -33,7 +33,7 @@
 /* Schedulers */
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     scheduler_poll,
     TP_ARGS(
         int, id,
@@ -62,7 +62,7 @@ typedef struct {
 /* Port and Driver Scheduling */
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_start,
     TP_ARGS(
         char*, pid,
@@ -77,7 +77,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_init,
     TP_ARGS(
         char*, driver,
@@ -94,7 +94,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_outputv,
     TP_ARGS(
         char*, pid,
@@ -111,7 +111,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_output,
     TP_ARGS(
         char*, pid,
@@ -128,7 +128,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_ready_input,
     TP_ARGS(
         char*, pid,
@@ -143,7 +143,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_ready_output,
     TP_ARGS(
         char*, pid,
@@ -158,7 +158,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_event,
     TP_ARGS(
         char*, pid,
@@ -173,7 +173,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_timeout,
     TP_ARGS(
         char*, pid,
@@ -188,7 +188,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_stop_select,
     TP_ARGS(
         char*, driver
@@ -199,7 +199,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_flush,
     TP_ARGS(
         char*, pid,
@@ -214,7 +214,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_stop,
     TP_ARGS(
         char*, pid,
@@ -229,7 +229,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_process_exit,
     TP_ARGS(
         char*, pid,
@@ -244,7 +244,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_ready_async,
     TP_ARGS(
         char*, pid,
@@ -259,7 +259,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_finish,
     TP_ARGS(
         char*, driver
@@ -270,7 +270,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_call,
     TP_ARGS(
         char*, pid,
@@ -289,7 +289,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     driver_control,
     TP_ARGS(
         char*, pid,
@@ -310,7 +310,7 @@ TRACEPOINT_EVENT(
 /* Async pool */
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     aio_pool_get,
     TP_ARGS(
         char*, port,
@@ -323,7 +323,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     aio_pool_put,
     TP_ARGS(
         char*, port,
@@ -339,7 +339,7 @@ TRACEPOINT_EVENT(
 /* Memory Allocator */
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     carrier_create,
     TP_ARGS(
         const char*, type,
@@ -365,7 +365,7 @@ TRACEPOINT_EVENT(
 
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     carrier_destroy,
     TP_ARGS(
         const char*, type,
@@ -390,7 +390,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     carrier_pool_put,
     TP_ARGS(
         const char*, name,
@@ -405,7 +405,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-    com_ericsson_otp,
+    org_erlang_otp,
     carrier_pool_get,
     TP_ARGS(
         const char*, name,
