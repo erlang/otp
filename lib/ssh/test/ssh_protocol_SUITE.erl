@@ -26,6 +26,7 @@
 -include_lib("ssh/src/ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
 -include_lib("ssh/src/ssh_transport.hrl").
 -include_lib("ssh/src/ssh_auth.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -87,7 +88,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
-    start_std_daemon( setup_dirs( start_apps(Config))).
+    ?CHECK_CRYPTO(start_std_daemon( setup_dirs( start_apps(Config)))).
     
 end_per_suite(Config) ->
     stop_apps(Config).

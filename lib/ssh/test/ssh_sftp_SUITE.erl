@@ -26,7 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
-
+-include("ssh_test_lib.hrl").
 						% Default timetrap timeout
 -define(default_timeout, ?t:minutes(1)).
 
@@ -45,10 +45,13 @@ all() ->
 
 
 init_per_suite(Config) ->
-    ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
-	   [file:native_name_encoding(),io:getopts()]),
-    ssh:start(),
-    Config.
+    ?CHECK_CRYPTO(
+       begin
+	   ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
+		  [file:native_name_encoding(),io:getopts()]),
+	   ssh:start(),
+	   Config
+       end).
 
 end_per_suite(_onfig) ->
     ssh:stop().

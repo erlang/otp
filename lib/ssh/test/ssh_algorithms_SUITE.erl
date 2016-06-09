@@ -24,6 +24,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -70,32 +71,39 @@ two_way_tags() -> [cipher,mac,compression].
     
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ct:log("~n"
-	   "Environment:~n============~n"
-	   "os:getenv(\"HOME\") = ~p~n"
-	   "init:get_argument(home) = ~p~n~n~n"
-	   "OS ssh:~n=======~n~p~n~n~n"
-	   "Erl ssh:~n========~n~p~n~n~n"
-	   "Installed ssh client:~n=====================~n~p~n~n~n"
-	   "Installed ssh server:~n=====================~n~p~n~n~n"
-	   "Misc values:~n============~n"
-	   " -- Default dh group exchange parameters ({min,def,max}): ~p~n"
-	   " -- dh_default_groups: ~p~n"
-	   " -- Max num algorithms: ~p~n"
-	  ,[os:getenv("HOME"),
-	    init:get_argument(home),
-	    os:cmd("ssh -V"),
-	    ssh:default_algorithms(),
-	    ssh_test_lib:default_algorithms(sshc),
-	    ssh_test_lib:default_algorithms(sshd),
-	    {?DEFAULT_DH_GROUP_MIN,?DEFAULT_DH_GROUP_NBITS,?DEFAULT_DH_GROUP_MAX},
-	    public_key:dh_gex_group_sizes(),
-	    ?MAX_NUM_ALGORITHMS
-	    ]),
-    ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
-    ssh:start(),
-    [{std_simple_sftp_size,25000} % Sftp transferred data size
-     | setup_pubkey(Config)].
+    ?CHECK_CRYPTO(
+       begin
+	   ct:log("~n"
+		  "Environment:~n============~n"
+		  "os:getenv(\"HOME\") = ~p~n"
+		  "init:get_argument(home) = ~p~n~n~n"
+		  "OS ssh:~n=======~n~p~n~n~n"
+		  "Erl ssh:~n========~n~p~n~n~n"
+		  "crypto:info_lib():~n========~n~p~n~n~n"
+		  "Installed ssh client:~n=====================~n~p~n~n~n"
+		  "Installed ssh server:~n=====================~n~p~n~n~n"
+		  "Misc values:~n============~n"
+		  " -- Default dh group exchange parameters ({min,def,max}): ~p~n"
+		  " -- dh_default_groups: ~p~n"
+		  " -- Max num algorithms: ~p~n"
+		 ,[os:getenv("HOME"),
+		   init:get_argument(home),
+		   os:cmd("ssh -V"),
+		   ssh:default_algorithms(),
+		   crypto:info_lib(),
+		   ssh_test_lib:default_algorithms(sshc),
+		   ssh_test_lib:default_algorithms(sshd),
+		   {?DEFAULT_DH_GROUP_MIN,?DEFAULT_DH_GROUP_NBITS,?DEFAULT_DH_GROUP_MAX},
+		   public_key:dh_gex_group_sizes(),
+		   ?MAX_NUM_ALGORITHMS
+		  ]),
+	   ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
+	   ssh:start(),
+	   [{std_simple_sftp_size,25000} % Sftp transferred data size
+	    | setup_pubkey(Config)]
+       end
+      ).
+
 
 end_per_suite(_Config) ->
     ssh:stop().
