@@ -31,9 +31,13 @@
 
 %% Okasaki API from klacke
 -export([cons/2,head/1,tail/1,
-	 snoc/2,last/1,daeh/1,init/1,liat/1,lait/1]).
+	 snoc/2,last/1,daeh/1,init/1,liat/1]).
 
 -export_type([queue/0, queue/1]).
+
+%% Mis-spelled, deprecated.
+-export([lait/1]).
+-deprecated([lait/1]).
 
 %%--------------------------------------------------------------------------
 %% Efficient implementation of double ended fifo queues
