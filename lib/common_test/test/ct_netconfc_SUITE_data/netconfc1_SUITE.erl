@@ -124,8 +124,9 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) ->
-    case catch ssh:start() of
-	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+    (catch code:load_file(crypto)),
+    case {ssh:start(),code:is_loaded(crypto)} of
+	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("ssh started",[]),
 	    SshDir = filename:join(filename:dirname(code:which(?MODULE)),
 				   "ssh_dir"),
@@ -133,7 +134,7 @@ init_per_suite(Config) ->
 	    ct:log("netconf server started",[]),
 	    [{netconf_server,Server},{ssh_dir,SshDir}|Config];
 	Other ->
-	    ct:log("could not start ssh: ~p",[Other]),
+	    ct:log("could not start ssh or load crypto: ~p",[Other]),
 	    {skip, "SSH could not be started!"}
     end.
 
@@ -360,7 +361,7 @@ get(Config) ->
 get_a_lot(Config) ->
     SshDir = ?config(ssh_dir,Config),
     {ok,Client} = open_success(SshDir),
-    Descr = lists:append(lists:duplicate(1000,"Description of myserver! ")),
+    Descr = lists:append(lists:duplicate(100,"Description of myserver! ")),
     Server = {server,[{xmlns,"myns"}],[{name,[],["myserver"]},
 				       {description,[],[Descr]}]},
     Data = lists:duplicate(100,Server),

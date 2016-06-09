@@ -117,36 +117,62 @@ init_client(#state{client=Sock}=State) ->
     dbg("Server sending: ~p~n",["login: "]),
     R = case gen_tcp:send(Sock,"login: ") of
 	    ok ->
-		loop(State, 1);
+		loop(State);
 	    Error ->
 		Error
 	end,
     _ = gen_tcp:close(Sock),
     R.
 
-loop(State, N) ->
+loop(State=#state{client=Sock}) ->
     receive
-	{tcp,_,Data} ->
+	{tcp,Sock,Data} ->
 	    try handle_data(Data,State) of
 		{ok,State1} ->
-		    loop(State1, N);
+		    loop(State1);
 		closed ->
+		    _ = flush(State),
 		    closed
 	    catch 
 		throw:Error ->
+		    _ = flush(State),
 		    Error
 	    end;
-        {tcp_closed, _} ->
+        {tcp_closed,Sock} ->
             closed;
-	{tcp_error,_,Error} ->
+	{tcp_error,Sock,Error} ->
 	    {error,tcp,Error};
 	disconnect ->
-	    Sock = State#state.client,
 	    dbg("Server closing connection on socket ~p~n", [Sock]),
+	    timer:sleep(1000),
 	    ok = gen_tcp:close(Sock),
-	    closed;
+	    _ = flush(State);
 	stop ->
+	    _ = flush(State),
 	    stopped
+    end.
+
+flush(State=#state{client=Sock}) ->
+    receive
+	{tcp,Sock,Data} = M->
+	    dbg("Message flushed after close or error: ~p~n", [M]),
+	    try handle_data(Data,State) of
+		{ok,State1} ->
+		    flush(State1);
+		closed ->
+		    flush(State)
+	    catch
+		throw:Error ->
+		    Error
+	    end;
+	{tcp_closed,Sock} = M ->
+	    dbg("Message flushed after close or error: ~p~n", [M]),
+	    ok;
+	{tcp_error,Sock,Error} = M ->
+	    dbg("Message flushed after close or error: ~p~n", [M]),
+	    {error,tcp,Error}
+    after 100 ->
+	    ok
     end.
 
 handle_data(Cmd,#state{break=true}=State) ->

@@ -279,7 +279,7 @@ send({CM,Ch},Data) ->
 
 %%% Split into many small parts and send to client
 send_frag({CM,Ch},Data) ->
-    Sz = rand:uniform(2000),
+    Sz = rand:uniform(1000),
     case Data of
 	<<Chunk:Sz/binary,Rest/binary>> ->
 	    ssh_connection:send(CM, Ch, Chunk),
