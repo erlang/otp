@@ -344,27 +344,9 @@ binary_type(I1, I2) ->
 map_type(Fs) ->
     {first,[$#],map_pair_types(Fs)}.
 
-map_pair_types(Fs0) ->
-    Fs = replace_any_map(Fs0),
+map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/2).
 
-replace_any_map([{type,Line,map_field_assoc,[KType,VType]}]=Fs) ->
-    IsAny = fun({type,_,any,[]}) -> true;
-    %%         ({var,_,'_'}) -> true;
-               (_) -> false
-            end,
-    case IsAny(KType) andalso IsAny(VType) of
-        true ->
-            [{type,Line,map_field_assoc,any}];
-        false ->
-            Fs
-    end;
-replace_any_map([F|Fs]) ->
-    [F|replace_any_map(Fs)];
-replace_any_map([]) -> [].
-
-map_pair_type({type,_Line,map_field_assoc,any}, _Prec) ->
-    leaf("...");
 map_pair_type({type,_Line,map_field_assoc,[KType,VType]}, Prec) ->
     {list,[{cstep,[ltype(KType, Prec),leaf(" =>")],ltype(VType, Prec)}]};
 map_pair_type({type,_Line,map_field_exact,[KType,VType]}, Prec) ->

@@ -142,7 +142,7 @@
   PairList :: Pair
             | Pair, PairList
 
-  Pair :: Type := Type                         %% notes a pair that must be present
+  Pair :: Type := Type                         %% denotes a pair that must be present
         | Type => Type
 
   TList :: Type
@@ -174,19 +174,13 @@
   </p>
   <p>
     The general form of maps is <c>#{PairList}</c>. The key types in
-    <c>PairList</c> are allowed to overlap, and if they do, the leftmost pair
-    takes precedence. A map value does not belong to this type if contains a key
-    that is not in <c>PairList</c>.
+    <c>PairList</c> are allowed to overlap, and if they do, the
+    leftmost pair takes precedence. A map pair has a key in
+    <c>PairList</c> if it belongs to this type.
   </p>
   <p>
-    Because it is common to end a map type with <c>any() =&gt; any()</c> to denote
-    that keys that do not belong to any other pair in <c>PairList</c> are
-    allowed, and may map to any value, the shorthand notation <c>...</c> is
-    allowed as the last pair of a map type.
-  </p>
-  <p>
-    Notice that the syntactic representation of <c>map()</c> is <c>#{...}</c>
-    (or <c>#{_ =&gt; _}</c>, or <c>#{any() =&gt; any()}</c>), not <c>#{}</c>.
+    Notice that the syntactic representation of <c>map()</c> is
+    <c>#{any() =&gt; any()}</c> (or <c>#{_ =&gt; _}</c>), not <c>#{}</c>.
     The notation <c>#{}</c> specifies the singleton type for the empty map.
   </p>
   <p>

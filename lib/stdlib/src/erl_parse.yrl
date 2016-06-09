@@ -170,9 +170,6 @@ fun_type -> '(' top_types ')' '->' top_type
                                    : {type, ?anno('$1'), 'fun',
                                       [{type, ?anno('$1'), product, '$2'},'$5']}.
 
-map_pair_types  -> '...'           : [{type, ?anno('$1'), map_field_assoc,
-                                       [{type, ?anno('$1'), any, []},
-                                        {type, ?anno('$1'), any, []}]}].
 map_pair_types -> map_pair_type                    : ['$1'].
 map_pair_types -> map_pair_type ',' map_pair_types : ['$1'|'$3'].
 

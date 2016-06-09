@@ -901,17 +901,11 @@ t_map(Es) ->
 t_map_field(#xmlElement{content = [K,V]}=E) ->
     KElem = t_utype_elem(K),
     VElem = t_utype_elem(V),
-    AT = get_attrval(assoc_type, E),
-    IsAny = fun(["any","()"]) -> true; (_) -> false end,
-    case AT =:= "assoc" andalso IsAny(KElem) andalso IsAny(VElem) of
-        true -> "...";
-        false ->
-            AS = case AT of
-                     "assoc" -> " => ";
-                     "exact" -> " := "
-                 end,
-            KElem ++ [AS] ++ VElem
-    end.
+    AS = case get_attrval(assoc_type, E) of
+             "assoc" -> " => ";
+             "exact" -> " := "
+         end,
+    KElem ++ [AS] ++ VElem.
 
 t_record(E, Es) ->
     Name = ["#"] ++ t_type(get_elem(atom, Es)),
