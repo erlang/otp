@@ -150,6 +150,7 @@ api_tests() ->
      sockname,
      versions,
      controlling_process,
+     getstat,
      close_with_timeout,
      hibernate,
      hibernate_right_away,
@@ -689,6 +690,75 @@ controlling_process(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+getstat() ->
+    [{doc,"Test API function getstat/2"}].
+
+getstat(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server1 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib, send_recv_result, []}},
+                                   {options,  [{active, false} | ServerOpts]}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+    Server2 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib, send_recv_result, []}},
+                                   {options,  [{active, false} | ServerOpts]}]),
+    Port2 = ssl_test_lib:inet_port(Server2),
+    {ok, ActiveC} = rpc:call(ClientNode, ssl, connect,
+                          [Hostname,Port1,[{active, once}|ClientOpts]]),
+    {ok, PassiveC} = rpc:call(ClientNode, ssl, connect,
+                          [Hostname,Port2,[{active, false}|ClientOpts]]),
+
+    ct:log("Testcase ~p, Client ~p  Servers ~p, ~p ~n",
+                       [self(), self(), Server1, Server2]),
+
+    %% We only check that the values are non-zero initially
+    %% (due to the handshake), and that sending more changes the values.
+
+    %% Passive socket.
+
+    {ok, InitialStats} = ssl:getstat(PassiveC),
+    ct:pal("InitialStats  ~p~n", [InitialStats]),
+    [true] = lists:usort([0 =/= proplists:get_value(Name, InitialStats)
+        || Name <- [recv_cnt, recv_oct, recv_avg, recv_max, send_cnt, send_oct, send_avg, send_max]]),
+
+    ok = ssl:send(PassiveC, "Hello world"),
+    wait_for_send(PassiveC),
+    {ok, SStats} = ssl:getstat(PassiveC, [send_cnt, send_oct]),
+    ct:pal("SStats  ~p~n", [SStats]),
+    [true] = lists:usort([proplists:get_value(Name, SStats) =/= proplists:get_value(Name, InitialStats)
+        || Name <- [send_cnt, send_oct]]),
+
+    %% Active socket.
+
+    {ok, InitialAStats} = ssl:getstat(ActiveC),
+    ct:pal("InitialAStats  ~p~n", [InitialAStats]),
+    [true] = lists:usort([0 =/= proplists:get_value(Name, InitialAStats)
+        || Name <- [recv_cnt, recv_oct, recv_avg, recv_max, send_cnt, send_oct, send_avg, send_max]]),
+
+    _ = receive
+        {ssl, ActiveC, _} ->
+            ok
+    after
+        ?SLEEP ->
+            exit(timeout)
+    end,
+
+    ok = ssl:send(ActiveC, "Hello world"),
+    wait_for_send(ActiveC),
+    {ok, ASStats} = ssl:getstat(ActiveC, [send_cnt, send_oct]),
+    ct:pal("ASStats  ~p~n", [ASStats]),
+    [true] = lists:usort([proplists:get_value(Name, ASStats) =/= proplists:get_value(Name, InitialAStats)
+        || Name <- [send_cnt, send_oct]]),
+
+    ok.
 
 %%--------------------------------------------------------------------
 controller_dies() ->
@@ -4592,4 +4662,6 @@ first_rsa_suite([{rsa, _, _, _} = Suite| _]) ->
 first_rsa_suite([_ | Rest]) ->
     first_rsa_suite(Rest).
     
-
+wait_for_send(Socket) ->
+    %% Make sure TLS process processed send message event
+    _ = ssl:connection_information(Socket).
