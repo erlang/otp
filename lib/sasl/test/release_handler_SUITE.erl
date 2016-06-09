@@ -1761,8 +1761,6 @@ upgrade_gg(Conf) ->
     Nodes1 = [Gg1,Gg3,Gg4,Gg5] =
 	start_nodes(Conf,[Gg1Sname,Gg3Sname,Gg4Sname,Gg5Sname],"upgrade_gg"),
 
-    %% Give some time to synch nodes, then check global group info.
-    timer:sleep(1000),
     [check_gg_info(Node,Nodes1,[],Nodes1--[Node]) || Node <- Nodes1],
 
     %% register a process on each of the nodes
@@ -2449,36 +2447,26 @@ write_term_file(File,Term) ->
     ok = file:write_file(File,io_lib:format("~p.~n",[Term])).
     
 
-%% Check that global group info is correct
+%% Check that global group info is correct - try again for a maximum of 5 sec
 check_gg_info(Node,OtherAlive,OtherDead,Synced) ->
+    check_gg_info(Node,OtherAlive,OtherDead,Synced,5).
+
+check_gg_info(Node,OtherAlive,OtherDead,Synced,N) ->
     GGI = rpc:call(Node, global_group, info, []),
     GI = rpc:call(Node, global, info,[]),
     try do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) 
-    catch _:E ->
-	    ?t:format("~ncheck_gg_info failed for ~p: ~p~nwhen GGI was: ~p~n"
-		      "and GI was: ~p~n",
-		      [Node,E,GGI,GI]),
-	    %% An attempt to find out if it is only a timing issue
-	    %% that makes this fail every now and then:
-	    try_again_check(Node,GGI,GI,1),
-	    ?t:fail("check_gg_info failed")
+    catch _:E when N==0 ->
+	    ?t:format("~nERROR: check_gg_info failed for ~p:~n~p~n"
+		      "when GGI was: ~p~nand GI was: ~p~n",
+		      [Node,{E,erlang:get_stacktrace()},GGI,GI]),
+	    ?t:fail("check_gg_info failed");
+	  _:E ->
+	    ?t:format("~nWARNING: check_gg_info failed for ~p:~n~p~n"
+		      "when GGI was: ~p~nand GI was: ~p~n",
+		      [Node,{E,erlang:get_stacktrace()},GGI,GI]),
+	    timer:sleep(1000),
+	    check_gg_info(Node,OtherAlive,OtherDead,Synced,N-1)
     end.
-
-try_again_check(_Node,_GGI,_GI,6) ->
-    ok;
-try_again_check(Node,GGI,GI,N) ->
-    timer:sleep(1000),
-    case {rpc:call(Node,global_group,info,[]),
-	  rpc:call(Node,global,info,[])} of
-	{GGI,GI} ->
-	    ?t:format("~nAfter one more sek, GGI and GI are still the same"),
-	    try_again_check(Node,GGI,GI,N+1);
-	{NewGGI,NewGI} ->
-	    ?t:format("~nAfter one more sek:~nNew GGI: ~p~nNew GI: ~p~n",
-		      [NewGGI,NewGI]),
-	    try_again_check(Node,NewGGI,NewGI,N+1)
-    end.
-
 
 do_check_gg_info(OtherAlive,OtherDead,Synced,GGI,GI) ->
     {_,gg1} = lists:keyfind(own_group_name,1,GGI),
