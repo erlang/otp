@@ -168,7 +168,7 @@ typedef struct {
 
 #define ERTS_PTAB_INVALID_ID(TAG)					\
     ((Eterm)								\
-     ((((1 << ERTS_PTAB_ID_DATA_SIZE) - 1) << ERTS_PTAB_ID_DATA_SHIFT)	\
+     ((((1U << ERTS_PTAB_ID_DATA_SIZE) - 1) << ERTS_PTAB_ID_DATA_SHIFT)	\
       | (TAG)))
 
 #define erts_ptab_is_valid_id(ID)					\
