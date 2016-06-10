@@ -1334,9 +1334,17 @@ os_mremap(void *ptr, UWord old_size, UWord new_size, int try_superalign)
 #define ERTS_MMAP_RESERVE_PROT_EXEC	(ERTS_MMAP_PROT_EXEC)
 #define ERTS_MMAP_RESERVE_FLAGS		(ERTS_MMAP_FLAGS|MAP_FIXED)
 #define ERTS_MMAP_UNRESERVE_PROT	(PROT_NONE)
+#if defined(__FreeBSD__)
+#define ERTS_MMAP_UNRESERVE_FLAGS	(ERTS_MMAP_FLAGS|MAP_FIXED)
+#else
 #define ERTS_MMAP_UNRESERVE_FLAGS	(ERTS_MMAP_FLAGS|MAP_NORESERVE|MAP_FIXED)
+#endif /* __FreeBSD__ */
 #define ERTS_MMAP_VIRTUAL_PROT		(PROT_NONE)
+#if defined(__FreeBSD__)
+#define ERTS_MMAP_VIRTUAL_FLAGS		(ERTS_MMAP_FLAGS)
+#else
 #define ERTS_MMAP_VIRTUAL_FLAGS		(ERTS_MMAP_FLAGS|MAP_NORESERVE)
+#endif /* __FreeBSD__ */
 
 static int
 os_reserve_physical(char *ptr, UWord size, int exec)
