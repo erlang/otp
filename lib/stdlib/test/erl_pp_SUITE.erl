@@ -50,7 +50,8 @@
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
-          otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1]).
+          otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
+          otp_13662/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -79,7 +80,7 @@ groups() ->
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
-       otp_10302, otp_10820, otp_11100, otp_11861, pr_1014]}].
+       otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1123,6 +1124,25 @@ pr_1014(Config) ->
         compile:file(FileName, [return]),
 
     ok.
+
+otp_13662(Config) ->
+    Include = "abcdefghijabcdefghijabcdefghijabcdefghijabcde"
+              "fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.hrl",
+    IncludeFile = filename(Include, Config),
+    ok = file:write_file(IncludeFile, <<>>),
+    Ts = [{otp_13662,
+          <<"-file(\"abcdefghijabcdefghijabcdefghijabcdefghijabcde\"\n
+                   \"fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.erl\", 0).\n
+            -include(\"abcdefghijabcdefghijabcdefghijabcdefghijabcde\"
+                     \"fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.hrl\").\n
+            -include_lib(\"abcdefghijabcdefghijabcdefghijabcdefghijabcde\"
+                         \"fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.hrl\").
+            -compile(export_all).\n
+            t() ->\n
+                \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n
+                \"aaaaaaaaaaaaaaaaaaaaaa\".\n">>}
+          ],
+    compile(Config, Ts).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

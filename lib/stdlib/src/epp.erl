@@ -954,11 +954,15 @@ scan_undef(_Toks, Undef, From, St) ->
 
 %% scan_include(Tokens, IncludeToken, From, St)
 
-scan_include([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc,
-	     From, St) ->
+scan_include(Tokens0, Inc, From, St) ->
+    Tokens = coalesce_strings(Tokens0),
+    scan_include1(Tokens, Inc, From, St).
+
+scan_include1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc,
+              From, St) ->
     NewName = expand_var(NewName0),
     enter_file(NewName, Inc, From, St);
-scan_include(_Toks, Inc, From, St) ->
+scan_include1(_Toks, Inc, From, St) ->
     epp_reply(From, {error,{loc(Inc),epp,{bad,include}}}),
     wait_req_scan(St).
 
@@ -977,13 +981,17 @@ expand_lib_dir(Name) ->
 	    error
     end.
 
-scan_include_lib([{'(',_Llp},{string,_Lf,_NewName0},{')',_Lrp},{dot,_Ld}],
-                 Inc, From, St)
+scan_include_lib(Tokens0, Inc, From, St) ->
+    Tokens = coalesce_strings(Tokens0),
+    scan_include_lib1(Tokens, Inc, From, St).
+
+scan_include_lib1([{'(',_Llp},{string,_Lf,_NewName0},{')',_Lrp},{dot,_Ld}],
+                  Inc, From, St)
   when length(St#epp.sstk) >= 8 ->
     epp_reply(From, {error,{loc(Inc),epp,{depth,"include_lib"}}}),
     wait_req_scan(St);
-scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
-                 Inc, From, St) ->
+scan_include_lib1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
+                  Inc, From, St) ->
     NewName = expand_var(NewName0),
     Loc = start_loc(St#epp.location),
     case file:path_open(St#epp.path, NewName, [read]) of
@@ -1008,7 +1016,7 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
 		    wait_req_scan(St)
 	    end
     end;
-scan_include_lib(_Toks, Inc, From, St) ->
+scan_include_lib1(_Toks, Inc, From, St) ->
     epp_reply(From, {error,{loc(Inc),epp,{bad,include_lib}}}),
     wait_req_scan(St).
 
@@ -1110,8 +1118,12 @@ scan_endif(_Toks, Endif, From, St) ->
 %%  Set the current file and line to the given file and line.
 %%  Note that the line of the attribute itself is kept.
 
-scan_file([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
-           {dot,_Ld}], Tf, From, St) ->
+scan_file(Tokens0, Tf, From, St) ->
+    Tokens = coalesce_strings(Tokens0),
+    scan_file1(Tokens, Tf, From, St).
+
+scan_file1([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
+            {dot,_Ld}], Tf, From, St) ->
     Anno = erl_anno:new(Ln),
     enter_file_reply(From, Name, Anno, loc(Tf), generated),
     Ms0 = St#epp.macs,
@@ -1120,7 +1132,7 @@ scan_file([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
     NewLoc = new_location(Ln, St#epp.location, Locf),
     Delta = get_line(element(2, Tf))-Ln + St#epp.delta,
     wait_req_scan(St#epp{name2=Name,location=NewLoc,delta=Delta,macs=Ms});
-scan_file(_Toks, Tf, From, St) ->
+scan_file1(_Toks, Tf, From, St) ->
     epp_reply(From, {error,{loc(Tf),epp,{bad,file}}}),
     wait_req_scan(St).
 
@@ -1536,6 +1548,18 @@ stringify1([T | Tokens]) ->
 stringify(Ts, L) ->
     [$\s | S] = lists:flatten(stringify1(Ts)),
     [{string, L, S}].
+
+coalesce_strings([{string,A,S} | Tokens]) ->
+    coalesce_strings(Tokens, A, [S]);
+coalesce_strings([T | Tokens]) ->
+    [T | coalesce_strings(Tokens)];
+coalesce_strings([]) ->
+    [].
+
+coalesce_strings([{string,_,S}|Tokens], A, S0) ->
+    coalesce_strings(Tokens, A, [S | S0]);
+coalesce_strings(Tokens, A, S) ->
+    [{string,A,lists:append(lists:reverse(S))} | coalesce_strings(Tokens)].
 
 %% epp_request(Epp)
 %% epp_request(Epp, Request)
