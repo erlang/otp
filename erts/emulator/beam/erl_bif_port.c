@@ -139,6 +139,12 @@ sig_lookup_port(Process *c_p, Eterm id_or_name)
     return lookup_port(c_p, id_or_name, ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
 }
 
+/* Non-inline copy of sig_lookup_port to be exported */
+Port *erts_sig_lookup_port(Process *c_p, Eterm id_or_name)
+{
+    return lookup_port(c_p, id_or_name, ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+}
+
 static ERTS_INLINE Port *
 data_lookup_port(Process *c_p, Eterm id_or_name)
 {

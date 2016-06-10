@@ -361,6 +361,8 @@ Eterm erts_request_io_bytes(Process *c_p);
 #define ERTS_PORT_REDS_CONNECT		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_UNLINK		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_LINK		(CONTEXT_REDS/200)
+#define ERTS_PORT_REDS_MONITOR		(CONTEXT_REDS/200)
+#define ERTS_PORT_REDS_DEMONITOR	(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_BADSIG		(CONTEXT_REDS/200)
 #define ERTS_PORT_REDS_CONTROL		(CONTEXT_REDS/100)
 #define ERTS_PORT_REDS_CALL		(CONTEXT_REDS/50)
@@ -850,16 +852,20 @@ void erts_port_resume_procs(Port *);
 
 struct binary;
 
-#define ERTS_P2P_SIG_TYPE_BAD			0
-#define ERTS_P2P_SIG_TYPE_OUTPUT		1
-#define ERTS_P2P_SIG_TYPE_OUTPUTV		2
-#define ERTS_P2P_SIG_TYPE_CONNECT		3
-#define ERTS_P2P_SIG_TYPE_EXIT			4
-#define ERTS_P2P_SIG_TYPE_CONTROL		5
-#define ERTS_P2P_SIG_TYPE_CALL			6
-#define ERTS_P2P_SIG_TYPE_INFO			7
-#define ERTS_P2P_SIG_TYPE_LINK			8
-#define ERTS_P2P_SIG_TYPE_UNLINK		9
+enum {
+    ERTS_P2P_SIG_TYPE_BAD       = 0,
+    ERTS_P2P_SIG_TYPE_OUTPUT    = 1,
+    ERTS_P2P_SIG_TYPE_OUTPUTV   = 2,
+    ERTS_P2P_SIG_TYPE_CONNECT   = 3,
+    ERTS_P2P_SIG_TYPE_EXIT      = 4,
+    ERTS_P2P_SIG_TYPE_CONTROL   = 5,
+    ERTS_P2P_SIG_TYPE_CALL      = 6,
+    ERTS_P2P_SIG_TYPE_INFO      = 7,
+    ERTS_P2P_SIG_TYPE_LINK      = 8,
+    ERTS_P2P_SIG_TYPE_UNLINK    = 9,
+    ERTS_P2P_SIG_TYPE_MONITOR   = 10,
+    ERTS_P2P_SIG_TYPE_DEMONITOR = 11
+};
 
 #define ERTS_P2P_SIG_TYPE_BITS			4
 #define ERTS_P2P_SIG_TYPE_MASK \
@@ -921,6 +927,15 @@ struct ErtsProc2PortSigData_ {
 	struct {
 	    Eterm from;
 	} unlink;
+        struct {
+            Eterm origin;   /* who receives monitor event, pid */
+            Eterm name;     /* either name for named monitor, or port id */
+        } monitor;
+        struct {
+            Eterm origin;   /* who is at the other end of the monitor, pid */
+            Eterm name;     /* port id */
+            Uint32 ref[ERTS_MAX_REF_NUMBERS]; /* box contents of a ref */
+        } demonitor;
     } u;
 } ;
 
@@ -1016,6 +1031,29 @@ ErtsPortOpResult erts_port_unlink(Process *, Port *, Eterm, Eterm *);
 ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);
+
+/* Creates monitor between Origin and Target. Ref must be initialized to
+ * a reference (ref may be rewritten to be used to serve additionally as a
+ * signal id). Name is atom if user monitors port by name or NIL */
+ErtsPortOpResult erts_port_monitor(Process *origin, Port *target, Eterm name,
+                                   Eterm *ref);
+
+typedef enum {
+    /* Normal demonitor rules apply with locking and reductions bump */
+    ERTS_PORT_DEMONITOR_NORMAL = 1,
+    /* Relaxed demonitor rules when process is about to die, which means that
+     * pid lookup won't work, locks won't work, no reductions bump. */
+    ERTS_PORT_DEMONITOR_ORIGIN_ON_DEATHBED = 2,
+} ErtsDemonitorMode;
+
+/* Removes monitor between origin and target, identified by ref.
+ * origin_is_dying can be 0 (false, normal locking rules and reductions bump
+ * apply) or 1 (true, in case when we avoid origin locking) */
+ErtsPortOpResult erts_port_demonitor(Process *origin, ErtsDemonitorMode mode,
+                                    Port *target, Eterm ref,
+                                    Eterm *trap_ref);
+/* defined in erl_bif_port.c */
+Port *erts_sig_lookup_port(Process *c_p, Eterm id_or_name);
 
 int erts_port_output_async(Port *, Eterm, Eterm);
 

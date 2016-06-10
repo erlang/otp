@@ -21,6 +21,7 @@
 -module(monitor_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, suite/0, groups/0,
          case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
@@ -706,7 +707,7 @@ named_down(Config) when is_list(Config) ->
     spawn_opt(fun () ->
                       WFun = fun
                                  (F, hej) -> F(F, hopp);
-(F, hopp) -> F(F, hej)
+                                 (F, hopp) -> F(F, hej)
                              end,
                       NoSchedulers = erlang:system_info(schedulers_online),
                       lists:foreach(fun (_) ->
@@ -726,13 +727,14 @@ named_down(Config) when is_list(Config) ->
     NamedProc = spawn_link(fun () ->
                                    receive after infinity -> ok end
                            end),
-    true = register(Name, NamedProc),
+    ?assertEqual(true, register(Name, NamedProc)),
     unlink(NamedProc),
     exit(NamedProc, bang),
     Mon = erlang:monitor(process, Name),
-    receive {'DOWN',Mon, _, _, _} -> ok end,
-    true = register(Name, self()),
-    true = unregister(Name),
+    receive {'DOWN',Mon, _, _, bang} -> ok
+    after 3000 -> ?assert(false) end,
+    ?assertEqual(true, register(Name, self())),
+    ?assertEqual(true, unregister(Name)),
     process_flag(priority,Prio),
     ok.
 
