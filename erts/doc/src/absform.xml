@@ -152,9 +152,11 @@
     <list type="bulleted">
       <item>If L is an atom literal, then
        Rep(L) = <c>{atom,LINE,L}</c>.</item>
+      <item>If L is a character literal, then
+       Rep(L) = <c>{char,LINE,L}</c>.</item>
       <item>If L is a float literal, then
        Rep(L) = <c>{float,LINE,L}</c>.</item>
-      <item>If L is an integer or character literal, then
+      <item>If L is an integer literal, then
        Rep(L) = <c>{integer,LINE,L}</c>.</item>
       <item>If L is a string literal consisting of the characters
       <c>C_1</c>, ..., <c>C_k</c>, then

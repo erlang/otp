@@ -522,7 +522,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   ?debug("RetWithoutLocal: ~s\n", [erl_types:t_to_string(RetWithoutLocal)]),
   ?debug("BifRet: ~s\n", [erl_types:t_to_string(BifRange(NewArgTypes))]),
   ?debug("SigRange: ~s\n", [erl_types:t_to_string(SigRange)]),
-  ?debug("ContrRet: ~s\n", [erl_types:t_to_string(CRange(NewArgTypes))]),
+  ?debug("ContrRet: ~s\n", [erl_types:t_to_string(ContrRet)]),
   ?debug("LocalRet: ~s\n", [erl_types:t_to_string(LocalRet)]),
 
   State1 =
@@ -2954,10 +2954,14 @@ is_call_to_send(Tree) ->
       Arity = cerl:call_arity(Tree),
       cerl:is_c_atom(Mod)
 	andalso cerl:is_c_atom(Name)
-	andalso (cerl:atom_val(Name) =:= '!')
+        andalso is_send(cerl:atom_val(Name))
 	andalso (cerl:atom_val(Mod) =:= erlang)
 	andalso (Arity =:= 2)
   end.
+
+is_send('!') -> true;
+is_send(send) -> true;
+is_send(_) -> false.
 
 is_lc_simple_list(Tree, TreeType, State) ->
   Opaques = State#state.opaques,
@@ -3067,7 +3071,10 @@ state__add_warning(#state{warnings = Warnings, warning_mode = true} = State,
         false ->
           WarningInfo = {get_file(Ann), get_line(Ann), State#state.curr_fun},
           Warn = {Tag, WarningInfo, Msg},
-          ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)]),
+          case Tag of
+            ?WARN_CONTRACT_RANGE -> ok;
+            _ -> ?debug("MSG ~s\n", [dialyzer:format_warning(Warn)])
+          end,
           State#state{warnings = [Warn|Warnings]}
       end
   end.

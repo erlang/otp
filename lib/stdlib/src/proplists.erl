@@ -438,8 +438,9 @@ substitute_aliases_1([], P) ->
 %% @see normalize/2
 
 -spec substitute_negations(Negations, ListIn) -> ListOut when
-      Negations :: [{Key, Key}],
-      Key :: term(),
+      Negations :: [{Key1, Key2}],
+      Key1 :: term(),
+      Key2 :: term(),
       ListIn :: [term()],
       ListOut :: [term()].
 

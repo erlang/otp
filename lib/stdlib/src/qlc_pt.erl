@@ -67,8 +67,8 @@
 %%%
 
 -spec(parse_transform(Forms, Options) -> Forms2 when
-      Forms :: [erl_parse:abstract_form()],
-      Forms2 :: [erl_parse:abstract_form()],
+      Forms :: [erl_parse:abstract_form() | erl_parse:form_info()],
+      Forms2 :: [erl_parse:abstract_form() | erl_parse:form_info()],
       Options :: [Option],
       Option :: type_checker | compile:option()).
 
@@ -117,19 +117,21 @@ parse_transform(Forms0, Options) ->
         true = ets:delete(NodeInfo)
     end.
 
--spec(transform_from_evaluator(LC, Bs) -> Expr when
+-spec(transform_from_evaluator(LC, Bs) -> Return when
       LC :: erl_parse:abstract_expr(),
-      Expr :: erl_parse:abstract_expr(),
-      Bs :: erl_eval:binding_struct()).
+      Bs :: erl_eval:binding_struct(),
+      Return :: {ok, erl_parse:abstract_expr()}
+              | {not_ok, {error, module(), Reason :: term()}}).
 
 transform_from_evaluator(LC, Bindings) ->
     ?DEBUG("qlc Parse Transform (Evaluator Version)~n", []),
     transform_expression(LC, Bindings, false).
 
--spec(transform_expression(LC, Bs) -> Expr when
+-spec(transform_expression(LC, Bs) -> Return when
       LC :: erl_parse:abstract_expr(),
-      Expr :: erl_parse:abstract_expr(),
-      Bs :: erl_eval:binding_struct()).
+      Bs :: erl_eval:binding_struct(),
+      Return :: {ok, erl_parse:abstract_expr()}
+              | {not_ok, [{error, Reason :: term()}]}).
 
 transform_expression(LC, Bindings) ->
     transform_expression(LC, Bindings, true).

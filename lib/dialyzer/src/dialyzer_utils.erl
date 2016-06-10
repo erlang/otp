@@ -194,15 +194,18 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
 %%
 %% ============================================================================
 
+-type type_table() :: erl_types:type_table().
+-type mod_records()   :: dict:dict(module(), type_table()).
+
 -spec get_record_and_type_info(abstract_code()) ->
-	{'ok', dict:dict()} | {'error', string()}.
+	{'ok', type_table()} | {'error', string()}.
 
 get_record_and_type_info(AbstractCode) ->
   Module = get_module(AbstractCode),
   get_record_and_type_info(AbstractCode, Module, dict:new()).
 
--spec get_record_and_type_info(abstract_code(), module(), dict:dict()) ->
-	{'ok', dict:dict()} | {'error', string()}.
+-spec get_record_and_type_info(abstract_code(), module(), type_table()) ->
+	{'ok', type_table()} | {'error', string()}.
 
 get_record_and_type_info(AbstractCode, Module, RecDict) ->
   get_record_and_type_info(AbstractCode, Module, RecDict, "nofile").
@@ -299,92 +302,117 @@ get_record_fields([], _RecDict, Acc) ->
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
   ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
-  TempRecords1 = process_opaque_types0(TempRecords, ExpTypes),
+  Cache = erl_types:cache__new(),
+  {TempRecords1, Cache1} =
+    process_opaque_types0(TempRecords, ExpTypes, Cache),
+  %% A cache (not the field type cache) is used for speeding things up a bit.
+  VarTable = erl_types:var_table__new(),
   ModuleFun =
-    fun(Module, Record) ->
+    fun({Module, Record}, C0) ->
         RecordFun =
-          fun(Key, Value) ->
+          fun({Key, Value}, C2) ->
               case Key of
                 {record, Name} ->
                   FieldFun =
-                    fun(Arity, Fields) ->
+                    fun({Arity, Fields}, C4) ->
                         Site = {record, {Module, Name, Arity}},
-                        [{FieldName, Field,
-                          erl_types:t_from_form(Field,
-                                                ExpTypes,
-                                                Site,
-                                                TempRecords1)}
-                         || {FieldName, Field, _} <- Fields]
+                        {Fields1, C7} =
+                          lists:mapfoldl(fun({FieldName, Field, _}, C5) ->
+                                             {FieldT, C6} =
+                                               erl_types:t_from_form
+                                                 (Field, ExpTypes, Site,
+                                                  TempRecords1, VarTable,
+                                                  C5),
+                                          {{FieldName, Field, FieldT}, C6}
+                                      end, C4, Fields),
+                        {{Arity, Fields1}, C7}
                     end,
                   {FileLine, Fields} = Value,
-                  {FileLine, orddict:map(FieldFun, Fields)};
-                _Other -> Value
+                  {FieldsList, C3} =
+                    lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
+                  {{Key, {FileLine, orddict:from_list(FieldsList)}}, C3};
+                _Other -> {{Key, Value}, C2}
               end
           end,
-	dict:map(RecordFun, Record)
+        {RecordList, C1} =
+          lists:mapfoldl(RecordFun, C0, dict:to_list(Record)),
+        {{Module, dict:from_list(RecordList)}, C1}
     end,
-  NewRecords = dict:map(ModuleFun, TempRecords1),
-  ok = check_record_fields(NewRecords, ExpTypes),
+  {NewRecordsList, C1} =
+    lists:mapfoldl(ModuleFun, Cache1, dict:to_list(TempRecords1)),
+  NewRecords = dict:from_list(NewRecordsList),
+  _C8 = check_record_fields(NewRecords, ExpTypes, C1),
   dialyzer_codeserver:finalize_records(NewRecords, CServer).
 
 %% erl_types:t_from_form() substitutes the declaration of opaque types
 %% for the expanded type in some cases. To make sure the initial type,
 %% any(), is not used, the expansion is done twice.
 %% XXX: Recursive opaque types are not handled well.
-process_opaque_types0(TempRecords0, TempExpTypes) ->
-  TempRecords1 = process_opaque_types(TempRecords0, TempExpTypes),
-  process_opaque_types(TempRecords1, TempExpTypes).
+process_opaque_types0(TempRecords0, TempExpTypes, Cache) ->
+  {TempRecords1, NewCache} =
+    process_opaque_types(TempRecords0, TempExpTypes, Cache),
+  process_opaque_types(TempRecords1, TempExpTypes, NewCache).
 
-process_opaque_types(TempRecords, TempExpTypes) ->
+process_opaque_types(TempRecords, TempExpTypes, Cache) ->
+  VarTable = erl_types:var_table__new(),
   ModuleFun =
-    fun(Module, Record) ->
+    fun({Module, Record}, C0) ->
         RecordFun =
-          fun(Key, Value) ->
+          fun({Key, Value}, C2) ->
               case Key of
                 {opaque, Name, NArgs} ->
                   {{_Module, _FileLine, Form, _ArgNames}=F, _Type} = Value,
                   Site = {type, {Module, Name, NArgs}},
-                  Type = erl_types:t_from_form(Form, TempExpTypes, Site,
-                                               TempRecords),
-                  {F, Type};
-                _Other -> Value
+                  {Type, C3} =
+                    erl_types:t_from_form(Form, TempExpTypes, Site,
+                                          TempRecords, VarTable, C2),
+                  {{Key, {F, Type}}, C3};
+                _Other -> {{Key, Value}, C2}
               end
           end,
-	dict:map(RecordFun, Record)
+        {RecordList, C1} =
+          lists:mapfoldl(RecordFun, C0, dict:to_list(Record)),
+        {{Module, dict:from_list(RecordList)}, C1}
+        %% dict:map(RecordFun, Record)
     end,
-  dict:map(ModuleFun, TempRecords).
+  {TempRecordList, NewCache} =
+    lists:mapfoldl(ModuleFun, Cache, dict:to_list(TempRecords)),
+  {dict:from_list(TempRecordList), NewCache}.
+  %% dict:map(ModuleFun, TempRecords).
 
-check_record_fields(Records, TempExpTypes) ->
+check_record_fields(Records, TempExpTypes, Cache) ->
+  VarTable = erl_types:var_table__new(),
   CheckFun =
-    fun({Module, Element}) ->
-        CheckForm = fun(Form, Site) ->
-                      erl_types:t_check_record_fields(Form, TempExpTypes,
-                                                      Site, Records)
+    fun({Module, Element}, C0) ->
+        CheckForm = fun(Form, Site, C1) ->
+                        erl_types:t_check_record_fields(Form, TempExpTypes,
+                                                        Site, Records,
+                                                        VarTable, C1)
                   end,
         ElemFun =
-          fun({Key, Value}) ->
+          fun({Key, Value}, C2) ->
               case Key of
                 {record, Name} ->
                   FieldFun =
-                    fun({Arity, Fields}) ->
+                    fun({Arity, Fields}, C3) ->
                         Site = {record, {Module, Name, Arity}},
-                        _ = [ok = CheckForm(Field, Site) ||
-                              {_, Field, _} <- Fields],
-                        ok
+                        lists:foldl(fun({_, Field, _}, C4) ->
+                                        CheckForm(Field, Site, C4)
+                                    end, C3, Fields)
                     end,
                   {FileLine, Fields} = Value,
-                  Fun = fun() -> lists:foreach(FieldFun, Fields) end,
+                  Fun = fun() -> lists:foldl(FieldFun, C2, Fields) end,
                   msg_with_position(Fun, FileLine);
                 {_OpaqueOrType, Name, NArgs} ->
                   Site = {type, {Module, Name, NArgs}},
                   {{_Module, FileLine, Form, _ArgNames}, _Type} = Value,
-                  Fun = fun() -> ok = CheckForm(Form, Site) end,
+                  Fun = fun() -> CheckForm(Form, Site, C2) end,
                   msg_with_position(Fun, FileLine)
               end
           end,
-        lists:foreach(ElemFun, dict:to_list(Element))
+        lists:foldl(ElemFun, C0, dict:to_list(Element))
     end,
-  lists:foreach(CheckFun, dict:to_list(Records)).
+  lists:foldl(CheckFun, Cache, dict:to_list(Records)).
 
 msg_with_position(Fun, FileLine) ->
   try Fun()
@@ -396,7 +424,7 @@ msg_with_position(Fun, FileLine) ->
       throw({error, NewMsg})
   end.
 
--spec merge_records(dict:dict(), dict:dict()) -> dict:dict().
+-spec merge_records(mod_records(), mod_records()) -> mod_records().
 
 merge_records(NewRecords, OldRecords) ->
   dict:merge(fun(_Key, NewVal, _OldVal) -> NewVal end, NewRecords, OldRecords).
@@ -410,7 +438,7 @@ merge_records(NewRecords, OldRecords) ->
 -type spec_dict()     :: dict:dict().
 -type callback_dict() :: dict:dict().
 
--spec get_spec_info(module(), abstract_code(), dict:dict()) ->
+-spec get_spec_info(module(), abstract_code(), type_table()) ->
         {'ok', spec_dict(), callback_dict()} | {'error', string()}.
 
 get_spec_info(ModName, AbstractCode, RecordsDict) ->
@@ -676,7 +704,7 @@ format_errors([]) ->
 format_sig(Type) ->
   format_sig(Type, dict:new()).
 
--spec format_sig(erl_types:erl_type(), dict:dict()) -> string().
+-spec format_sig(erl_types:erl_type(), type_table()) -> string().
 
 format_sig(Type, RecDict) ->
   "fun(" ++ Sig = lists:flatten(erl_types:t_to_string(Type, RecDict)),

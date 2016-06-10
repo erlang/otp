@@ -49,7 +49,8 @@
       <name>parse_transform(Forms, Options) -> Forms</name>
       <fsummary>Transform Erlang forms</fsummary>
       <type>
-        <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>]</v>
+        <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>
+          | <seealso marker="erl_parse#type-form_info">erl_parse:form_info()</seealso>]</v>
         <v>Options = [<seealso marker="compile#type-option">compile:option()</seealso>]</v>
       </type>
       <desc>
