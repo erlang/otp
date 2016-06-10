@@ -441,14 +441,14 @@ clone(Dst, Strategy) ->
     end,
   spill_temp(Type, Strategy).
 
-spill_temp0(Type, 'normal') ->
+spill_temp0(Type, 'normal') when Type =/= double ->
   hipe_x86:mk_new_temp(Type);
-spill_temp0(Type, 'linearscan') ->
+spill_temp0(Type, 'linearscan') when Type =/= double ->
   hipe_x86:mk_temp(?HIPE_X86_REGISTERS:temp0(), Type).
 
-spill_temp(Type, 'normal') ->
+spill_temp(Type, 'normal') when Type =/= double ->
   hipe_x86:mk_new_temp(Type);
-spill_temp(Type, 'linearscan') ->
+spill_temp(Type, 'linearscan') when Type =/= double ->
   hipe_x86:mk_temp(?HIPE_X86_REGISTERS:temp1(), Type).
 
 %%% Make a certain reg into a clone of Dst
@@ -460,6 +460,6 @@ clone2(Dst, RegOpt) ->
       #x86_temp{} -> hipe_x86:temp_type(Dst)
     end,
   case RegOpt of
-    [] -> hipe_x86:mk_new_temp(Type);
+    [] when Type =/= double -> hipe_x86:mk_new_temp(Type);
     Reg -> hipe_x86:mk_temp(Reg, Type)
   end.
