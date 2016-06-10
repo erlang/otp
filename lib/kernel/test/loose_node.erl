@@ -57,9 +57,16 @@
 %%
 
 stop(Node) when is_atom(Node) ->
+    erlang:monitor_node(Node, true),
     rpc:cast(Node, erlang, halt, []),
-    io:format("Stopped loose node ~p~n", [Node]),
-    ok.
+    receive
+	{nodedown, Node} ->
+	   io:format("Stopped loose node ~p~n", [Node]),
+	   ok
+    after 10000 ->
+	io:format("Failed to stop loose node: ~p~n", [Node]),
+	{error, node_not_stopped}
+    end.
 
 start(Name, Args) ->
     start(Name, Args, -1).
