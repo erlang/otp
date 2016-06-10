@@ -1812,23 +1812,23 @@ enif_map_iterator_destroy(env, &amp;iter);
           </p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_thread_type(void)</nametext></name>
-      <fsummary>Determine type of current thread</fsummary>
-      <desc>
-	<p>Determine the type of currently executing thread. A positive value
-	indicates a scheduler thread while a negative value or zero indicates
-	another type of thread. Currently the following specific types exist
-	(which may be extended in the future):</p>
-	<taglist>
-	  <tag><c>ERL_NIF_THR_UNDEFINED</c></tag>
-	  <value><p>Undefined thread that is not a scheduler thread.</p></value>
-	  <tag><c>ERL_NIF_THR_NORMAL_SCHEDULER</c></tag>
-	  <value><p>A normal scheduler thread.</p></value>
-	  <tag><c>ERL_NIF_THR_DIRTY_CPU_SCHEDULER</c></tag>
-	  <value><p>A dirty CPU scheduler thread.</p></value>
-	  <tag><c>ERL_NIF_THR_DIRTY_IO_SCHEDULER</c></tag>
-	  <value><p>A dirty I/O scheduler thread.</p></value>
-	</taglist>
-      </desc>
+        <fsummary>Determine type of current thread</fsummary>
+        <desc>
+            <p>Determine the type of currently executing thread. A positive value
+                indicates a scheduler thread while a negative value or zero indicates
+                another type of thread. Currently the following specific types exist
+                (which may be extended in the future):</p>
+            <taglist>
+                <tag><c>ERL_NIF_THR_UNDEFINED</c></tag>
+                <item><p>Undefined thread that is not a scheduler thread.</p></item>
+                <tag><c>ERL_NIF_THR_NORMAL_SCHEDULER</c></tag>
+                <item><p>A normal scheduler thread.</p></item>
+                <tag><c>ERL_NIF_THR_DIRTY_CPU_SCHEDULER</c></tag>
+                <item><p>A dirty CPU scheduler thread.</p></item>
+                <tag><c>ERL_NIF_THR_DIRTY_IO_SCHEDULER</c></tag>
+                <item><p>A dirty I/O scheduler thread.</p></item>
+            </taglist>
+        </desc>
     </func>
     <func>
       <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
