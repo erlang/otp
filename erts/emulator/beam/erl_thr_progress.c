@@ -95,9 +95,9 @@
 
 #define ERTS_THR_PRGR_FTL_ERR_BLCK_POLL_INTERVAL 100
 
-#define ERTS_THR_PRGR_LFLG_BLOCK	(((erts_aint32_t) 1) << 31)
-#define ERTS_THR_PRGR_LFLG_NO_LEADER	(((erts_aint32_t) 1) << 30)
-#define ERTS_THR_PRGR_LFLG_WAITING_UM	(((erts_aint32_t) 1) << 29)
+#define ERTS_THR_PRGR_LFLG_BLOCK	((erts_aint32_t) (1U << 31))
+#define ERTS_THR_PRGR_LFLG_NO_LEADER	((erts_aint32_t) (1U << 30))
+#define ERTS_THR_PRGR_LFLG_WAITING_UM	((erts_aint32_t) (1U << 29))
 #define ERTS_THR_PRGR_LFLG_ACTIVE_MASK	(~(ERTS_THR_PRGR_LFLG_NO_LEADER	\
 					   | ERTS_THR_PRGR_LFLG_BLOCK	\
 					   | ERTS_THR_PRGR_LFLG_WAITING_UM))
@@ -142,8 +142,8 @@ init_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 #warning "Thread progress state debug is on"
 #endif
 
-#define ERTS_THR_PROGRESS_STATE_DEBUG_LEADER	(((erts_aint32_t) 1) << 0)
-#define ERTS_THR_PROGRESS_STATE_DEBUG_ACTIVE	(((erts_aint32_t) 1) << 1)
+#define ERTS_THR_PROGRESS_STATE_DEBUG_LEADER	((erts_aint32_t) (1U << 0))
+#define ERTS_THR_PROGRESS_STATE_DEBUG_ACTIVE	((erts_aint32_t) (1U << 1))
 
 #define ERTS_THR_PROGRESS_STATE_DEBUG_INIT(ID)						\
     erts_atomic32_init_nob(&intrnl->thr[(ID)].data.state_debug,				\
@@ -179,10 +179,10 @@ do {											\
 
 #endif /* ERTS_THR_PROGRESS_STATE_DEBUG */
 
-#define ERTS_THR_PRGR_BLCKR_INVALID (~((erts_aint32_t) 0))
-#define ERTS_THR_PRGR_BLCKR_UNMANAGED (((erts_aint32_t) 1) << 31)
+#define ERTS_THR_PRGR_BLCKR_INVALID        ((erts_aint32_t) (~0U))
+#define ERTS_THR_PRGR_BLCKR_UNMANAGED      ((erts_aint32_t) (1U << 31))
 
-#define ERTS_THR_PRGR_BC_FLG_NOT_BLOCKING (((erts_aint32_t) 1) << 31)
+#define ERTS_THR_PRGR_BC_FLG_NOT_BLOCKING  ((erts_aint32_t) (1U << 31))
 
 #define ERTS_THR_PRGR_BM_BITS 32
 #define ERTS_THR_PRGR_BM_SHIFT 5
@@ -1186,7 +1186,7 @@ wakeup_unmanaged_threads(ErtsThrPrgrUnmanagedWakeupData *umwd)
 	    int hbase = hix << ERTS_THR_PRGR_BM_SHIFT;
 	    int hbit;
 	    for (hbit = 0; hbit < ERTS_THR_PRGR_BM_BITS; hbit++) {
-		if (hmask & (1 << hbit)) {
+		if (hmask & (1U << hbit)) {
 		    erts_aint_t lmask;
 		    int lix = hbase + hbit;
 		    ASSERT(0 <= lix && lix < umwd->low_sz);
@@ -1195,7 +1195,7 @@ wakeup_unmanaged_threads(ErtsThrPrgrUnmanagedWakeupData *umwd)
 			int lbase = lix << ERTS_THR_PRGR_BM_SHIFT;
 			int lbit;
 			for (lbit = 0; lbit < ERTS_THR_PRGR_BM_BITS; lbit++) {
-			    if (lmask & (1 << lbit)) {
+			    if (lmask & (1U << lbit)) {
 				int id = lbase + lbit;
 				wakeup_unmanaged(id);
 			    }
