@@ -739,7 +739,7 @@ unused_unused(Unused, CFG, Target) ->
 %% Check that no register allocation opportunities were missed due to ?MODULE
 %%
 just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options,
-		Coloring, Unused) ->
+		SpillMap, Coloring, Unused) ->
   {CheckColoring, _, _} = RegAllocMod:regalloc(CFG, SpillIndex0, SpillLimit,
 					       Target, Options),
   Now   = lists:sort([{R,Kind} || {R,{Kind,_}} <- Coloring,
@@ -747,21 +747,26 @@ just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options,
   Check = lists:sort([{R,Kind} || {R,{Kind,_}} <- CheckColoring,
 				  not ordsets:is_element(R, Unused)]),
   CheckMap = maps:from_list(Check),
-  case lists:all(fun({R, spill}) -> maps:get(R, CheckMap) =:= spill;
-		    ({_,reg}) -> true
-		 end, Now)
+  SaneSpills = all_spills_sane_1(CheckColoring, SpillMap),
+  case SaneSpills
+    andalso lists:all(fun({R, spill}) -> maps:get(R, CheckMap) =:= spill;
+			 ({_,reg}) -> true
+		      end, Now)
   of
     true -> true;
     false ->
       {NowRegs, _} = _NowCount = count(Now),
       {CheckRegs, _} = _CheckCount = count(Check),
+      {M,F,A} = element(2, element(3, CFG)),
       io:fwrite(standard_error, "Colorings differ (~w, ~w)!~n"
+		"MFA: ~w:~w/~w~n"
 		"Unused: ~w~n"
 		"Now:~w~nCorrect:~w~n",
 		[Target, RegAllocMod,
+		 M,F,A,
 		 Unused,
 		 Now -- Check, Check -- Now]),
-	NowRegs >= CheckRegs
+	SaneSpills andalso NowRegs >= CheckRegs
   end.
 
 count(C) -> {length([[] || {_, reg} <- C]),
@@ -773,6 +778,15 @@ unused(LivePseudos, SpillMap, CFG, Target) ->
   PhysOSet = ordsets:from_list(Target:all_precoloured()),
   Used = ordsets:union(LivePseudos, ordsets:union(PhysOSet, SpillOSet)),
   ordsets:subtract(lists:seq(TMin, TMax), Used).
+
+%% Check that no temp that we wrote off was actually allocatable.
+all_spills_sane_1(_, Empty) when map_size(Empty) =:= 0 -> true;
+all_spills_sane_1([], _Nonempty) -> false;
+all_spills_sane_1([{T, {reg, _}}|Cs], SpillMap) ->
+  not maps:is_key(T, SpillMap) andalso all_spills_sane_1(Cs, SpillMap);
+all_spills_sane_1([{T, {spill, _}}|Cs], SpillMap) ->
+  all_spills_sane_1(Cs, maps:remove(T, SpillMap)).
+
 -endif. % DO_ASSERT
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
