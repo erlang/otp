@@ -529,7 +529,7 @@ kill_old_erlang(void){
     char* envvar = NULL;
 
     envvar = get_env(HEART_NO_KILL);
-    if (!envvar || strcmp(envvar, "TRUE") == 0)
+    if (envvar && strcmp(envvar, "TRUE") == 0)
       return;
 
     if(heart_beat_kill_pid != 0){
@@ -566,7 +566,7 @@ kill_old_erlang(void){
     char *envvar = NULL;
 
     envvar = get_env(HEART_NO_KILL);
-    if (!envvar || strcmp(envvar, "TRUE") == 0)
+    if (envvar && strcmp(envvar, "TRUE") == 0)
       return;
 
     envvar = get_env(HEART_KILL_SIGNAL);
