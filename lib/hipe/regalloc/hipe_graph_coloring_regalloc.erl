@@ -113,11 +113,6 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
 %%
 
 build_ig(CFG, Target) ->
-  try build_ig0(CFG, Target)
-  catch error:Rsn -> exit({?MODULE, build_ig, Rsn})
-  end.
-
-build_ig0(CFG, Target) ->
   Live = Target:analyze(CFG),
   NumN = Target:number_of_temporaries(CFG),  % poss. N-1?
   {IG, Spill} = build_ig_bbs(Target:labels(CFG), 
@@ -208,17 +203,8 @@ set_spill_cost(X, N, Spill) ->
 %%     * add low-degree neighbors of z to low
 %%     * restart the while-loop above
 
-color(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target, NotAllocatable) ->
-   try color_0(IG, Spill, PhysRegs, SpillIx, SpillLimit,
-	       NumNodes, Target, NotAllocatable)
-   catch
-     error:Rsn ->
-       ?error_msg("Coloring failed with ~p~n", [Rsn]),
-       ?EXIT(Rsn)
-   end.
-
-color_0(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target,
-	NotAllocatable) -> 
+color(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target,
+      NotAllocatable) ->
   ?report("simplification of IG~n", []),
   K = ordsets:size(PhysRegs),
   Nodes = list_ig(IG),
