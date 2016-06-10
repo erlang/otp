@@ -389,19 +389,12 @@ is_mem_opnd(Opnd, TempMap) ->
 	Reg = hipe_x86:temp_reg(Opnd),
 	case hipe_x86:temp_is_allocatable(Opnd) of
 	  true ->
-	    case tuple_size(TempMap) > Reg of
+	    case
+	      hipe_temp_map:is_spilled(Reg, TempMap) of
 	      true ->
-		case
-		  hipe_temp_map:is_spilled(Reg, TempMap) of
-		  true ->
-		    ?count_temp(Reg),
-		    true;
-		  false -> false
-		end;
-	      _ ->
-		%% impossible, but was true in ls post and false in normal post
-		exit({?MODULE,is_mem_opnd,Reg}),
-		false
+		?count_temp(Reg),
+		true;
+	      false -> false
 	    end;
 	  false -> true
 	end;
@@ -416,15 +409,10 @@ is_spilled(Temp, TempMap) ->
   case hipe_x86:temp_is_allocatable(Temp) of
     true ->
       Reg = hipe_x86:temp_reg(Temp),
-      case tuple_size(TempMap) > Reg of
+      case hipe_temp_map:is_spilled(Reg, TempMap) of
 	true ->
-	  case hipe_temp_map:is_spilled(Reg, TempMap) of
-	    true ->
-	      ?count_temp(Reg),
-	      true;
-	    false ->
-	      false
-	  end;
+	  ?count_temp(Reg),
+	  true;
 	false ->
 	  false
       end;

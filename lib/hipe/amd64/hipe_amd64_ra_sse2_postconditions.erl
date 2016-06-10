@@ -119,17 +119,12 @@ is_mem_opnd(Opnd, TempMap) ->
     #x86_temp{type=double} ->
       Reg = hipe_x86:temp_reg(Opnd),
       case hipe_x86:temp_is_allocatable(Opnd) of
-	true -> 
-	  case tuple_size(TempMap) > Reg of 
+	true ->
+	  case hipe_temp_map:is_spilled(Reg, TempMap) of
 	    true ->
-	      case 
-		hipe_temp_map:is_spilled(Reg, TempMap) of
-		true ->
-		  ?count_temp(Reg),
-		  true;
-		false -> false
-	      end;
-	    _ -> false
+	      ?count_temp(Reg),
+	      true;
+	    false -> false
 	  end;
 	false -> true
       end;
