@@ -4302,7 +4302,6 @@ t_to_string(?map(Pairs0,DefK,DefV), RecDict) ->
   {Pairs, ExtraEl} =
     case {DefK, DefV} of
       {?none, ?none} -> {Pairs0, []};
-      {?any, ?any} -> {Pairs0, ["..."]};
       _ -> {Pairs0 ++ [{DefK,?opt,DefV}], []}
     end,
   Tos = fun(T) -> case T of

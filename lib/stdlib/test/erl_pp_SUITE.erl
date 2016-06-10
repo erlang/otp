@@ -1112,15 +1112,14 @@ pr_1014(Config) ->
     ok = pp_forms(<<"-type t() :: #{any() => _}. ">>),
     ok = pp_forms(<<"-type t() :: #{_ => any()}. ">>),
     ok = pp_forms(<<"-type t() :: #{any() => any()}. ">>),
-    ok = pp_forms(<<"-type t() :: #{...}. ">>),
-    ok = pp_forms(<<"-type t() :: #{atom() := integer(), ...}. ">>),
+    ok = pp_forms(<<"-type t() :: #{atom() := integer(), any() => any()}. ">>),
 
     FileName = filename('pr_1014.erl', Config),
     C = <<"-module pr_1014.\n"
           "-compile export_all.\n"
           "-type m() :: #{..., a := integer()}.\n">>,
     ok = file:write_file(FileName, C),
-    {error,[{_,[{3,erl_parse,["syntax error before: ","','"]}]}],_} =
+    {error,[{_,[{3,erl_parse,["syntax error before: ","'...'"]}]}],_} =
         compile:file(FileName, [return]),
 
     ok.
