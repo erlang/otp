@@ -90,7 +90,8 @@ MODULES= \
 	random_unicode_list \
 	random_iolist \
 	error_logger_forwarder \
-	maps_SUITE
+	maps_SUITE \
+	math_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

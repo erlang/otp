@@ -72,6 +72,10 @@
       <name name="log10" arity="1"/>
       <name name="pow" arity="2"/>
       <name name="sqrt" arity="1"/>
+      <name name="fceil" arity="1"/>
+      <name name="ffloor" arity="1"/>
+      <name name="ceil" arity="1"/>
+      <name name="floor" arity="1"/>
       <fsummary>Diverse math functions</fsummary>
       <type variable="X" name_i="7"/>
       <type variable="Y" name_i="7"/>

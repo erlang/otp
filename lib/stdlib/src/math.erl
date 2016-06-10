@@ -19,13 +19,13 @@
 %%
 -module(math).
 
--export([pi/0]).
+-export([pi/0, ceil/1, floor/1]).
 
 %%% BIFs
 
 -export([sin/1, cos/1, tan/1, asin/1, acos/1, atan/1, atan2/2, sinh/1,
          cosh/1, tanh/1, asinh/1, acosh/1, atanh/1, exp/1, log/1,
-         log2/1, log10/1, pow/2, sqrt/1, erf/1, erfc/1]).
+         log2/1, log10/1, pow/2, sqrt/1, erf/1, erfc/1, fceil/1, ffloor/1]).
 
 -spec acos(X) -> float() when
       X :: number().
@@ -134,7 +134,29 @@ tan(_) ->
 tanh(_) ->
     erlang:nif_error(undef).
 
+-spec fceil(X) -> float() when
+      X :: number().
+fceil(_) ->
+    erlang:nif_error(undef).
+
+-spec ffloor(X) -> float() when
+      X :: number().
+ffloor(_) ->
+    erlang:nif_error(undef).
+
 %%% End of BIFs
+
+-spec ceil(X) -> integer() when
+      X :: number().
+ceil(Int) when is_integer(Int) -> Int;
+ceil(Float) ->
+    trunc(math:fceil(Float)).
+
+-spec floor(X) -> integer() when
+      X :: number().
+floor(Int) when is_integer(Int) -> Int;
+floor(Float) ->
+    trunc(math:ffloor(Float)).
 
 -spec pi() -> float().
 
