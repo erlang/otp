@@ -36,7 +36,7 @@ limitations under the License.
 <div id="leftnav">
 <div class="innertube">
 <img alt="Erlang logo" src="erlang-logo.png"/ >
-<!-- small><a href="glossary.html">Glossary</a> |-->
+<p/>
 <small><a href="applications.html">Applications</a><br>
 <a href="man_index.html">Modules</a></small>
 <p/>
