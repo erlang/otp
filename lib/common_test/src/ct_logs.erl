@@ -137,7 +137,8 @@ close(Info, StartDir) ->
     %% so we need to use a local copy of the log cache data
     LogCacheBin = 
 	case make_last_run_index() of
-	    {error,_} ->  % log server not responding
+	    {error, Reason} ->  % log server not responding
+		io:format("Warning! ct_logs not responding: ~p~n", [Reason]),
 		undefined;
 	    LCB ->
 		LCB
@@ -240,7 +241,7 @@ call(Msg) ->
 	Pid ->
 	    MRef = erlang:monitor(process,Pid),
 	    Ref = make_ref(),
-	    ?MODULE ! {Msg,{self(),Ref}},
+	    Pid ! {Msg,{self(),Ref}},
 	    receive
 		{Ref, Result} -> 
 		    erlang:demonitor(MRef, [flush]),
