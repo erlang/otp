@@ -38,8 +38,6 @@
 -module(diameter_config).
 -behaviour(gen_server).
 
--compile({no_auto_import, [monitor/2]}).
-
 -export([start_service/2,
          stop_service/1,
          add_transport/2,
@@ -357,7 +355,7 @@ handle_info({'DOWN', MRef, process, _, Reason}, #state{role = server} = S) ->
     {noreply, S};
 
 handle_info({monitor, SvcName, Pid}, #state{role = server} = S) ->
-    monitor(Pid, SvcName),
+    insert_monitor(Pid, SvcName),
     {noreply, S};
 
 handle_info({restart, SvcName}, #state{role = server} = S) ->
@@ -480,8 +478,8 @@ startmon(SvcName, {ok, Pid}) ->
 startmon(_, {error, _}) ->
     ok.
 
-monitor(Pid, SvcName) ->
-    MRef = erlang:monitor(process, Pid),
+insert_monitor(Pid, SvcName) ->
+    MRef = monitor(process, Pid),
     insert(#monitor{mref = MRef, service = SvcName}).
 
 %% queue_restart/2
