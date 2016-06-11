@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,18 +20,17 @@
 
 -module(diameter_lib).
 -compile({no_auto_import, [now/0]}).
--compile({nowarn_deprecated_function, [{erlang, now, 0}]}).
 
 -export([info_report/2,
          error_report/2,
          warning_report/2,
          now/0,
+         timestamp/0,
          timestamp/1,
          now_diff/1,
          micro_diff/1,
          micro_diff/2,
          time/1,
-         seed/0,
          eval/1,
          eval_name/1,
          get_stacktrace/0,
@@ -110,6 +109,16 @@ now() ->
     erlang:monotonic_time().
 
 %% ---------------------------------------------------------------------------
+%% # timestamp/0
+%% ---------------------------------------------------------------------------
+
+-spec timestamp()
+   -> erlang:timestamp().
+
+timestamp() ->
+    timestamp(now()).
+
+%% ---------------------------------------------------------------------------
 %% # timestamp/1
 %% ---------------------------------------------------------------------------
 
@@ -182,24 +191,6 @@ time(Micro) ->  %% elapsed time
     M = (Seconds rem 3600) div 60,
     S = Seconds rem 60,
     {H, M, S, Micro rem 1000000}.
-
-%% ---------------------------------------------------------------------------
-%% # seed/0
-%% ---------------------------------------------------------------------------
-
--spec seed()
-   -> {erlang:timestamp(), {integer(), integer(), integer()}}.
-
-%% Return an argument for random:seed/1.
-
-seed() ->
-    T = now(),
-    {timestamp(T), seed(T)}.
-
-%% seed/1
-
-seed(T) ->  %% monotonic time
-    {erlang:phash2(node()), T, erlang:unique_integer()}.
 
 %% ---------------------------------------------------------------------------
 %% # eval/1

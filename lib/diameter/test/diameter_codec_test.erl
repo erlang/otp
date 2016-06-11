@@ -230,13 +230,12 @@ v(Max, Ord, E)
   when Ord =< Max ->
     diameter_enum:to_list(E);
 v(Max, Ord, E) ->
-    random:seed(diameter_util:seed()),
     v(Max, Ord, E, []).
 
 v(0, _, _, Acc) ->
     Acc;
 v(N, Ord, E, Acc) ->
-    v(N-1, Ord, E, [E(random:uniform(Ord)) | Acc]).
+    v(N-1, Ord, E, [E(rand:uniform(Ord)) | Acc]).
 
 %% arity/3
 
@@ -518,15 +517,7 @@ random(M) ->
     random(0,M).
 
 random(Mn,Mx) ->
-    seed(get({?MODULE, seed})),
-    Mn + random:uniform(Mx - Mn + 1) - 1.
-
-seed(undefined) ->
-    put({?MODULE, seed}, true),
-    random:seed(diameter_util:seed());
-
-seed(true) ->
-    ok.
+    Mn + rand:uniform(Mx - Mn + 1) - 1.
 
 %% run/1
 %%
