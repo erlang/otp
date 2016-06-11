@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 -export([init/1]).
 
 -define(CHILDREN, [diameter_misc_sup,
+                   diameter_config_sup,
                    diameter_watchdog_sup,
                    diameter_peer_fsm_sup,
                    diameter_transport_sup,

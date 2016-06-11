@@ -171,8 +171,9 @@ connect(Config) ->
                                    Conns)).
 
 disconnect(Config) ->
-    lists:foreach(fun({{CN,CR},{SN,SR}}) -> ?util:disconnect(CN,CR,SN,SR) end,
-                  ?util:read_priv(Config, "cfg")).
+    [] = [{T,C} || C <- ?util:read_priv(Config, "cfg"),
+                   T <- [break(C)],
+                   T /= ok].
 
 stop_services(_Config) ->
     [] = [{H,T} || H <- ?SERVICES,
@@ -183,6 +184,13 @@ stop(_Config) ->
     ok = diameter:stop().
 
 %% ----------------------------------------
+
+break({{CN,CR},{SN,SR}}) ->
+    try
+        ?util:disconnect(CN,CR,SN,SR)
+    after
+        diameter:remove_transport(SN, SR)
+    end.
 
 server(Name, Dict) ->
     ok = diameter:start_service(Name, ?SERVICE(Name, Dict)),

@@ -428,7 +428,11 @@ remove_transports(Config) ->
            server_service = SN}
         = group(Config),
     [LRef | Cs] = ?util:read_priv(Config, "transport"),
-    [?util:disconnect(CN, C, SN, LRef) || C <- Cs].
+    try
+        [] = [T || C <- Cs, T <- [?util:disconnect(CN, C, SN, LRef)], T /= ok]
+    after
+        ok = diameter:remove_transport(SN, LRef)
+    end.
 
 stop_services(Config) ->
     #group{client_service = CN,

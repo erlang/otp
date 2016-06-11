@@ -57,7 +57,6 @@
 -define(ERROR(T), erlang:error({T, ?MODULE, ?LINE})).
 
 -define(DEFAULT_PORT, 3868).  %% RFC 3588, ch 2.1
--define(LISTENER_TIMEOUT, 30000).
 -define(DEFAULT_FRAGMENT_TIMEOUT, 1000).
 
 -define(IS_UINT32(N), (is_integer(N) andalso 0 =< N andalso 0 == N bsr 32)).
@@ -73,8 +72,10 @@
 
 %% Listener process state.
 -record(listener, {socket    :: inet:socket(),
-                   count = 1 :: non_neg_integer(),
-                   tref      :: reference() | undefined}).
+                   count = 1 :: non_neg_integer()}).  %% accepting processes
+%% The count of accepting processes was previously used to terminate
+%% the listening process, but diameter_reg:subscribe/2 is now used for
+%% this. Leave the the count for trace purposes.
 
 %% Monitor process state.
 -record(monitor,
@@ -240,6 +241,7 @@ i(#monitor{parent = Pid, transport = TPid} = S) ->
 %% gen_tcp seems to so. Links should be left to supervisors.
 
 i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
+    [_] = diameter_config:subscribe(LRef, transport), %% assert existence
     {[LA, LP], Rest} = proplists:split(Opts, [ip, port]),
     LAddrOpt = get_addr(LA, Addrs),
     LPort = get_port(LP),
@@ -248,7 +250,7 @@ i({listen, LRef, APid, {Mod, Opts, Addrs}}) ->
     true = diameter_reg:add_new({?MODULE, listener, {LRef, {LAddr, LSock}}}),
     proc_lib:init_ack({ok, self(), {LAddr, LSock}}),
     monitor(process, APid),
-    start_timer(#listener{socket = LSock}).
+    #listener{socket = LSock}.
 
 laddr([], Mod, Sock) ->
     {ok, {Addr, _Port}} = sockname(Mod, Sock),
@@ -484,13 +486,6 @@ putr(Key, Val) ->
 getr(Key) ->
     get({?MODULE, Key}).
 
-%% start_timer/1
-
-start_timer(#listener{count = 0} = S) ->
-    S#listener{tref = erlang:start_timer(?LISTENER_TIMEOUT, self(), close)};
-start_timer(S) ->
-    S.
-
 %% m/2
 %%
 %% Transition monitor state.
@@ -512,21 +507,19 @@ m({'DOWN', _, process, Pid, _}, #monitor{parent = Pid,
 %%
 %% Transition listener state.
 
-%% Another accept transport is attaching.
+%% An accepting transport is attaching.
 l({accept, TPid}, #listener{count = N} = S) ->
     monitor(process, TPid),
     S#listener{count = N+1};
 
 %% Accepting process has died.
 l({'DOWN', _, process, _, _}, #listener{count = N} = S) ->
-    start_timer(S#listener{count = N-1});
+    S#listener{count = N-1};
 
-%% Timeout after the last accepting process has died.
-l({timeout, TRef, close = T}, #listener{tref = TRef,
-                                        count = 0}) ->
-    x(T);
-l({timeout, _, close}, #listener{} = S) ->
-    S.
+%% Transport has been removed.
+l({transport, remove, _} = T, #listener{socket = Sock}) ->
+    gen_tcp:close(Sock),
+    x(T).
 
 %% t/2
 %%
