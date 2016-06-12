@@ -38,8 +38,6 @@
 -module(diameter_config).
 -behaviour(gen_server).
 
--compile({no_auto_import, [monitor/2]}).
-
 -export([start_service/2,
          stop_service/1,
          add_transport/2,
@@ -61,8 +59,7 @@
          code_change/3]).
 
 %% callbacks
--export([sync/1,      %% diameter_sync requests
-         remove/0]).  %% transport server termination
+-export([sync/1]).    %% diameter_sync requests
 
 %% debug
 -export([state/0,
@@ -72,7 +69,8 @@
 -include("diameter_internal.hrl").
 
 %% Server state.
--record(state, {id = diameter_lib:now()}).
+-record(state, {id = diameter_lib:now(),
+                role :: server | transport}).
 
 %% Registered name of the server.
 -define(SERVER, ?MODULE).
@@ -292,7 +290,7 @@ uptime() ->
 
 %% ?SERVER start.
 init([]) ->
-    {ok, #state{}};
+    {ok, #state{role = server}};
 
 %% Child start as a consequence of add_transport.
 init({SvcName, Type, Opts}) ->
@@ -302,30 +300,15 @@ init({SvcName, Type, Opts}) ->
               ?FAILURE(Reason) -> {error, Reason}
           end,
     proc_lib:init_ack({ok, self(), Res}),
-    sleep(Res).
+    loop(Res).
 
-%% sleep/1
+%% loop/1
 
-sleep({ok, _}) ->
-    sleep();
+loop({ok, _}) ->
+    gen_server:enter_loop(?MODULE, [], #state{role = transport});
 
-sleep({error, _}) ->
+loop({error, _}) ->
     ok.  %% die
-
-%% sleep/0
-
-sleep() ->
-    proc_lib:hibernate(?MODULE, remove, []).
-
-%% remove/0
-
-remove() ->
-    receive
-        {?MODULE, stop} ->
-            ok;
-        _ ->
-            sleep()
-    end.
 
 %%% ----------------------------------------------------------
 %%% # handle_call/2
@@ -334,8 +317,8 @@ remove() ->
 handle_call(state, _, State) ->
     {reply, State, State};
 
-handle_call(uptime, _, #state{id = Time} = State) ->
-    {reply, diameter_lib:now_diff(Time), State};
+handle_call(uptime, _, #state{id = Time} = S) ->
+    {reply, diameter_lib:now_diff(Time), S};
 
 handle_call(Req, From, State) ->
     ?UNEXPECTED([Req, From]),
@@ -354,30 +337,34 @@ handle_cast(Msg, State) ->
 %%% # handle_info/2
 %%% ----------------------------------------------------------
 
+%% remove_transport is telling published child to die.
+handle_info(stop, #state{role = transport} = S) ->
+    {stop, normal, S};
+
 %% A service process has died. This is most likely a consequence of
 %% stop_service, in which case the restart will find no config for the
 %% service and do nothing. The entry keyed on the monitor ref is only
 %% removed as a result of the 'DOWN' notification however.
-handle_info({'DOWN', MRef, process, _, Reason}, State) ->
+handle_info({'DOWN', MRef, process, _, Reason}, #state{role = server} = S) ->
     [#monitor{service = SvcName} = T] = select([{#monitor{mref = MRef,
                                                           _ = '_'},
                                                  [],
                                                  ['$_']}]),
     queue_restart(Reason, SvcName),
     delete_object(T),
-    {noreply, State};
+    {noreply, S};
 
-handle_info({monitor, SvcName, Pid}, State) ->
-    monitor(Pid, SvcName),
-    {noreply, State};
+handle_info({monitor, SvcName, Pid}, #state{role = server} = S) ->
+    insert_monitor(Pid, SvcName),
+    {noreply, S};
 
-handle_info({restart, SvcName}, State) ->
+handle_info({restart, SvcName}, #state{role = server} = S) ->
     restart(SvcName),
-    {noreply, State};
+    {noreply, S};
 
-handle_info(restart, State) ->
+handle_info(restart, #state{role = server} = S) ->
     restart(),
-    {noreply, State};
+    {noreply, S};
 
 handle_info(Info, State) ->
     ?UNEXPECTED([Info]),
@@ -491,8 +478,8 @@ startmon(SvcName, {ok, Pid}) ->
 startmon(_, {error, _}) ->
     ok.
 
-monitor(Pid, SvcName) ->
-    MRef = erlang:monitor(process, Pid),
+insert_monitor(Pid, SvcName) ->
+    MRef = monitor(process, Pid),
     insert(#monitor{mref = MRef, service = SvcName}).
 
 %% queue_restart/2
@@ -667,7 +654,7 @@ remove(SvcName, L) ->
 stop_child(Ref) ->
     case diameter_reg:match(?TRANSPORT_KEY(Ref)) of
         [{_, Pid}] ->  %% tell the transport-specific child to die
-            Pid ! {?MODULE, stop};
+            Pid ! stop;
         [] ->          %% already removed/dead
             ok
     end.
