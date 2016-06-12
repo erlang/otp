@@ -338,13 +338,12 @@ make_msg() ->
 %% crypto:rand_bytes/1 isn't available on all platforms (since openssl
 %% isn't) so roll our own.
 rand_bytes(N) ->
-    random:seed(diameter_util:seed()),
     rand_bytes(N, <<>>).
 
 rand_bytes(0, Bin) ->
     Bin;
 rand_bytes(N, Bin) ->
-    Oct = random:uniform(256) - 1,
+    Oct = rand:uniform(256) - 1,
     rand_bytes(N-1, <<Oct, Bin/binary>>).
 
 %% ===========================================================================

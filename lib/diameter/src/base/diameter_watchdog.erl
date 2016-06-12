@@ -125,8 +125,6 @@ i({Ack, T, Pid, {RecvData,
                  = Svc}}) ->
     monitor(process, Pid),
     wait(Ack, Pid),
-    {_, Seed} = diameter_lib:seed(),
-    random:seed(Seed),
     putr(restart, {T, Opts, Svc, SvcOpts}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),                    %%
     {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
@@ -565,7 +563,7 @@ tw(TwInit, Ms) ->
 
 tw(T)
   when is_integer(T), T >= 6000 ->
-    T - 2000 + (random:uniform(4001) - 1); %% RFC3539 jitter of +/- 2 sec.
+    T - 2000 + (rand:uniform(4001) - 1); %% RFC3539 jitter of +/- 2 sec.
 tw({M,F,A}) ->
     apply(M,F,A).
 
