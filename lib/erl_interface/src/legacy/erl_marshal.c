@@ -767,6 +767,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    ((*ext)[2]) << 8 |((*ext)[3]); 
 	*ext += 4;
     big_cont:
+
+#ifdef _MSC_VER
+#define MAX_TO_NEGATE 0x8000000000000000Ui64
+#else
+#define MAX_TO_NEGATE 0x8000000000000000ULL
+#endif
+
 	sign = *(*ext)++; 
 	if (arity > 8)             
 	    goto big_truncate;
@@ -803,23 +810,28 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    *ext += arity;
 	    return ep;
 	} else {
-	    /* Fits in a long long */
-	    int x;
-	    long long l = 0LL;
+            /* Fits in a signed long long */
+            int x;
+            unsigned long long l = 0LL;
+            long long sl;
 
-	    for(x = 0 ; x < arity ; x++) {
-		l |= ((long long)(*ext)[x]) << ((long long)(8*x));
-	    }
-	    if (sign) {
-		l = -l;
-		if (l > 0) goto big_truncate;
-	    }
+            for(x = 0 ; x < arity ; x++) {
+                l |= ((unsigned long long)(*ext)[x]) << ((unsigned long long)(8*x));
+            }
 
-	    ERL_TYPE(ep) = ERL_LONGLONG;
-	    ep->uval.llval.i = l;
-	    *ext += arity;
-	    return ep;
+            sl = (long long)l;
+
+            if (sign && l != MAX_TO_NEGATE) {
+                sl = -sl;
+                if (sl > 0) goto big_truncate;
+            }
+
+            ERL_TYPE(ep) = ERL_LONGLONG;
+            ep->uval.llval.i = sl;
+            *ext += arity;
+            return ep;
 	}
+#undef MAX_TO_NEGATE
     big_truncate: 
 	/* truncate to: (+/-) 1 */
 #ifdef DEBUG
