@@ -239,7 +239,7 @@ lbl2:
 ],ac_cv_prog_emu_cc="$CC",ac_cv_prog_emu_cc=no)
 
 if test "$ac_cv_prog_emu_cc" = no; then
-	for ac_progname in emu_cc.sh gcc-4.2 gcc; do
+	for ac_progname in emu_cc.sh gcc-4.2 clang gcc; do
   		IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS=":"
   		ac_dummy="$PATH"
   		for ac_dir in $ac_dummy; do
@@ -838,6 +838,23 @@ $trust_test
       erl_monotonic_clock_func=clock_gettime
       ;;
     no-no-no-linux*)
+      erl_monotonic_clock_func=times
+      ;;
+    CLOCK_*-*-*-qnx*)
+      case $erl_cv_clock_gettime_monotonic_$1-$erl_cv_clock_gettime_monotonic_raw in
+        CLOCK_BOOTTIME-yes|CLOCK_MONOTONIC-yes)
+	  erl_corrected_monotonic_clock=yes
+	  ;;
+	*)
+	  # We don't trust CLOCK_MONOTONIC to be NTP
+	  # adjusted on linux systems that do not have
+	  # CLOCK_MONOTONIC_RAW (although it seems to
+	  # be...)
+	  ;;
+      esac
+      erl_monotonic_clock_func=clock_gettime
+      ;;
+    no-no-no-qnx*)
       erl_monotonic_clock_func=times
       ;;
     CLOCK_*-*-*-*)
@@ -2331,6 +2348,11 @@ dnl
 dnl Check for primitives that can be used for implementing
 dnl erts_os_monotonic_time() and erts_os_system_time()
 dnl
+dnl Update: Actually times() works right on FreeBSD 6.0 and later,
+dnl but still not on NetBSD/OpenBSD - and a "better" fallback is to use
+dnl clock_gettime(CLOCK_MONOTONIC) anyway - more deterministic and here we
+dnl don't care about the accounting stuff that times() collects.
+dnl
 
 AC_DEFUN(ERL_TIME_CORRECTION,
 [
@@ -2500,6 +2522,10 @@ case $erl_monotonic_clock_func in
     AC_DEFINE(OS_MONOTONIC_TIME_USING_GETHRTIME,  [1], [Define if you want to implement erts_os_monotonic_time() using gethrtime()])
     ;;
   *)
+    ;;
+  clock_gettime_as_times)
+    AC_DEFINE(TIMES_WITH_CLOCK_GETTIME,[1],
+	[Define if you want to use clock_gettime() to simulate times()])
     ;;
 esac
 

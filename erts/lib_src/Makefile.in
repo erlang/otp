@@ -133,7 +133,8 @@ ifeq ($(CC)-$(OMIT_FP), gcc-true)
 CFLAGS += -fomit-frame-pointer
 endif
 
-CFLAGS += @WFLAGS@ @DEFS@ $(ARCHCFLAGS)
+## janl: added _GNU_SOURCE for uclibc builds
+CFLAGS += @WFLAGS@ @DEFS@ $(ARCHCFLAGS) -D_GNU_SOURCE
 
 ifeq ($(findstring -D_GNU_SOURCE,$(CFLAGS)),)
 THR_DEFS = $(ETHR_DEFS)

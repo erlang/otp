@@ -319,6 +319,18 @@ case "$with_microstate_accounting" in
     *) ;;
 esac
 
+# Tail-f special to #define SMALL_MEMORY
+AC_ARG_ENABLE(small-memory,
+AS_HELP_STRING([--enable-small-memory],
+               [build an emulator tuned to use minimal memory]),
+[ case "$enableval" in
+    no) ;;
+    *)
+       AC_DEFINE(SMALL_MEMORY,[1],
+                [Define to build an emulator tuned to use minimal memory])
+       ;;
+  esac ])
+
 dnl Magic test for clearcase.
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then
@@ -446,7 +458,8 @@ dnl ---------------------------------------------------------------------
 
 dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
 case $host_os in
-    linux*) CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE";; 
+    # Tail-f bugfix
+    *linux*) CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE";; 
     win32)
 	# The ethread library requires _WIN32_WINNT of at least 0x0403.
 	# -D_WIN32_WINNT=* from CPPFLAGS is saved in ETHR_DEFS.
@@ -2922,6 +2935,19 @@ AC_SUBST(NATIVE_LIBS_ENABLED)
 # Check for working poll().
 #
 AC_MSG_CHECKING([for working poll()])
+
+# Tail-f begin
+case "$host_os" in
+*qnx*)
+    # FIXME should probably use $erl_xcomp_poll (see below) somehow.
+    # QNX 6.x is known to have working poll() (select() has problems),
+    # but try_run test below can't figure this out on cross-compile
+    # (plus QNX needs <sys/poll.h>)
+    poll_works=yes
+    ;;
+*)
+
+
 if test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"; then
 
 poll_works=no
@@ -2959,6 +2985,11 @@ esac
 ])
 
 fi
+
+    ;;
+esac
+
+# Tail-f end
 
 case $poll_works-$host_os in
     no-*|cross-darwin*)
@@ -3470,6 +3501,9 @@ AH_BOTTOM([
 #if !defined(HAVE_ISFINITE) && !defined(HAVE_FINITE)
 # if defined(HAVE_ISINF) && defined(HAVE_ISNAN)
 #  define USE_ISINF_ISNAN
+# else
+   /* Tail-f: this may work with uClibc */
+#  define finite __finite
 # endif
 #endif
 
@@ -3535,5 +3569,11 @@ AC_CONFIG_FILES([
   ])
 
 AC_CONFIG_FILES([../make/install_dir_data.sh:../make/install_dir_data.sh.in], [chmod +x ../make/install_dir_data.sh])
+
+dnl
+dnl FIXME This one should be moved to Tail-f configure.in
+dnl (may/will break when OpenSSL-based ssl is removed from otp)
+dnl
+dnl  ../../lib/ssl/c_src/$host/Makefile:../../lib/ssl/c_src/Makefile.in
 
 AC_OUTPUT

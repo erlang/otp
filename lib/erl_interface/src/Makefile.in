@@ -100,7 +100,11 @@ endif
 else
 PURIFY =
 TYPEMARKER =
+ifeq ($(NO_FIX_ALLOC),)
 TYPE_FLAGS =
+else
+TYPE_FLAGS = -DPURIFY
+endif
 endif
 endif
 endif

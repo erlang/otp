@@ -728,6 +728,35 @@ sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t deci
 
 /* Float conversion */
 
+#ifdef __QNX__
+
+/* On QNX 6.3.2/x86, strod() (and atof()) produces
+   mantissas that are 1 bit too high in some cases, e.g.
+
+   1> F=list_to_float("7000.0").
+   2> float_to_list(F).
+   "7.00000000000000090949e+03"
+   3> binary_to_list(<<F/float>>).
+   [64,187,88,0,0,0,0,1]
+
+   sscanf() is fine though(!) */
+
+static double
+sys_strtod(const char *nptr, char **endptr)
+{
+    double d = 0.0;
+    int n = 0;
+
+    sscanf(nptr, "%lf%n", &d, &n);
+    if (endptr != NULL)
+	*endptr = nptr + n;
+    return d;
+}
+
+#else
+#define sys_strtod strtod
+#endif
+
 int
 sys_chars_to_double(char* buf, double* fp)
 {
@@ -770,14 +799,14 @@ sys_chars_to_double(char* buf, double* fp)
     errno = 0;
 #endif
     __ERTS_FP_CHECK_INIT(fpexnp);
-    *fp = strtod(buf, &t);
+    *fp = sys_strtod(buf, &t);
     __ERTS_FP_ERROR_THOROUGH(fpexnp, *fp, return -1);
     if (t != s) {		/* Whole string not scanned */
 	/* Try again with other radix char */
 	*dp = (*dp == '.') ? ',' : '.';
 	errno = 0;
 	__ERTS_FP_CHECK_INIT(fpexnp);
-	*fp = strtod(buf, &t);
+	*fp = sys_strtod(buf, &t);
 	__ERTS_FP_ERROR_THOROUGH(fpexnp, *fp, return -1);
     }
 

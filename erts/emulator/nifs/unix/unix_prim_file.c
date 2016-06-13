@@ -502,11 +502,17 @@ int efile_sync(efile_data_t *d, int data_only) {
     }
 #endif
 
-#if defined(__DARWIN__) && defined(F_FULLFSYNC)
-    if(fcntl(u->fd, F_FULLFSYNC) < 0) {
-#else
-    if(fsync(u->fd) < 0) {
-#endif
+/* Tail-f: tailf.git: 0a4b0749f79cd2e7ff3e00f8d330a15f5709b4e3
+   On MacOS: make Erlangs file:sync() use fsync() like on all
+   other platforms. (Makes CDB *significantly* faster,
+   compared to current use of fcntl(F_FULLFSYNC)).
+
+ * #if defined(__DARWIN__) && defined(F_FULLFSYNC)
+ *    if(fcntl(u->fd, F_FULLFSYNC) < 0) {
+ * #else
+ */
+     if(fsync(u->fd) < 0) {
+/* #endif */
         u->common.posix_errno = errno;
         return 0;
     }

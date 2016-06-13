@@ -234,6 +234,14 @@ case $system in
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
 	;;
+    QNX*)
+	# This is for QNX 6 - maybe works for QNX 4 too?
+	# Assumes that CC=gcc
+	SHLIB_CFLAGS="-fpic"
+	SHLIB_LD="${CC} -shared"
+	SHLIB_SUFFIX=".so"
+	SHLIB_EXTRACT_ALL=""
+	;;
     *)
 	# No dynamic loading.
 	SHLIB_CFLAGS=""
@@ -265,6 +273,8 @@ if test "$CC" = "gcc" -o `$CC -v 2>&1 | grep -c gcc` != "0" ; then
 	    *ultrix4.*)
 		;;
 	    *darwin*)
+		;;
+	    QNX*)
 		;;
 	    *)
 		SHLIB_CFLAGS="-fPIC"

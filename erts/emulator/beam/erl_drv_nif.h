@@ -119,7 +119,11 @@ typedef signed long long ErlNapiSInt64;
 #define ERL_NAPI_SINT64_MAX__ 9223372036854775807LL
 #define ERL_NAPI_SINT64_MIN__ (-ERL_NAPI_SINT64_MAX__ - 1LL)
 #else
-#  error No 64-bit integer type
+#include <stdint.h>
+typedef uint64_t ErlNapiUInt64;
+typedef int64_t ErlNapiSInt64;
+#define ERL_NAPI_SINT64_MAX__ 9223372036854775807LL
+#define ERL_NAPI_SINT64_MIN__ (-ERL_NAPI_SINT64_MAX__ - 1LL)
 #endif
 
 #if SIZEOF_VOID_P == 8
@@ -136,7 +140,9 @@ typedef signed int ErlNapiSInt;
 #    error No 32-bit integer type
 #  endif
 #else
-#  error Not support arch
+#include <stdint.h>
+typedef uintptr_t ErlNapiUInt;
+typedef intptr_t ErlNapiSInt;
 #endif
 
 #define ERTS_NAPI_TIME_ERROR__ ERL_NAPI_SINT64_MIN__

@@ -1664,9 +1664,11 @@ static unsigned int gen_challenge(void)
     s.cpu  = clock();
     s.pid  = getpid();
 #ifndef __ANDROID__
+#ifdef HAVE_GETHOSTID
     s.hid  = gethostid();
 #else
     s.hid  = 0;
+#endif
 #endif
     s.uid  = getuid();
     s.gid  = getgid();

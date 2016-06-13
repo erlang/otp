@@ -269,6 +269,8 @@ STRIP   = strip
 PERL    = @PERL@
 MKDIR	= @MKDIR@
 
+USING_GCC = @GCC@
+
 USING_MINGW=@MIXED_CYGWIN_MINGW@
 MIXED_MSYS=@MIXED_MSYS@
 
@@ -293,6 +295,14 @@ OPT_LEVEL = -O3
 endif
 
 ifeq ($(GCC),yes)
+USING_GCC = yes
+endif
+# QNX qcc is just a frontend to gcc
+ifeq ($(CC), qcc)
+USING_GCC = yes
+endif
+
+ifeq ($(USING_GCC), yes)
 ifeq ($(NO_INLINE_FUNCTIONS),true)
 GEN_OPT_FLGS = $(OPT_LEVEL) -fno-inline-functions
 else

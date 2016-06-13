@@ -162,11 +162,13 @@ void sys_tty_reset(int exit_code)
   }
 }
 
+#if 0      /* tail-f: MALLOC_USE_HASH isn't defined in current Tilera SDK */
 #ifdef __tile__
 /* Direct malloc to spread memory around the caches of multiple tiles. */
 #include <malloc.h>
 #if defined(MALLOC_USE_HASH)
 MALLOC_USE_HASH(1);
+#endif
 #endif
 #endif
 
@@ -801,7 +803,6 @@ void sys_get_pid(char *buffer, size_t buffer_size){
     /* Assume the pid is scalar and can rest in an unsigned long... */
     erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
-
 
 void sys_init_io(void) { }
 void erts_sys_alloc_init(void) { }

@@ -89,7 +89,7 @@
 
 #include <unistd.h>
 
-#if (defined(__unix__) || defined(unix)) && !defined(USG)
+#if (defined(__unix__) || defined(unix) || defined(__NetBSD__)) && !defined(USG)
 #include <sys/param.h>
 #endif
 
