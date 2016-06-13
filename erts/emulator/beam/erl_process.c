@@ -3509,7 +3509,7 @@ wake_dirty_schedulers(ErtsRunQueue *rq, int one)
 #endif
 
 #define ERTS_NO_USED_RUNQS_SHIFT 16
-#define ERTS_NO_RUNQS_MASK 0xffff
+#define ERTS_NO_RUNQS_MASK 0xffffU
 
 #if ERTS_MAX_NO_OF_SCHEDULERS > ERTS_NO_RUNQS_MASK
 #  error "Too large amount of schedulers allowed"

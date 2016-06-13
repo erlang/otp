@@ -187,7 +187,7 @@ typedef ErtsMonotonicTime ErtsSysPerfCounter;
 
 ErtsSystemTime erts_os_system_time(void);
 
-#define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
+#define ERTS_MONOTONIC_TIME_MIN ((ErtsMonotonicTime) (1ULL << 63))
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
 
 #define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
