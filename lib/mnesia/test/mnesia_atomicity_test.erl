@@ -700,11 +700,19 @@ start_restart_check(RestartOp, ReplicaNeed, Config) ->
 
     %% mnesia shall be killed at that node, where A is reading
     %% the information from
-    kill_where_to_read(TabName, N1, [N2, N3]),
+    Read = kill_where_to_read(TabName, N1, [N2, N3]),
 
     %% wait some time to let mnesia go down and spread those news around
     %% fun A shall be able to finish its job before being restarted
-    wait(500),
+    Wait = fun(Loop) ->
+		   wait(300),
+		   sys:get_status(mnesia_monitor),
+		   case lists:member(Read, mnesia_lib:val({current, db_nodes})) of
+		       true -> Loop(Loop);
+		       false -> ok
+		   end
+	   end,
+    Wait(Wait),
     A ! go_ahead,
 
     %% the sticky write doesnt work on remote nodes !!!
@@ -772,10 +780,12 @@ kill_where_to_read(TabName, N1, Nodes) ->
     Read = rpc:call(N1,mnesia,table_info, [TabName, where_to_read]),
     case lists:member(Read, Nodes) of
 	true ->
-	    mnesia_test_lib:kill_mnesia([Read]);
+	    mnesia_test_lib:kill_mnesia([Read]),
+	    Read;
 	false ->
 	    ?error("Fault while killing Mnesia: ~p~n", [Read]),
-	    mnesia_test_lib:kill_mnesia(Nodes)
+	    mnesia_test_lib:kill_mnesia(Nodes),
+	    Read
     end.
 
 sync_tid_release() ->

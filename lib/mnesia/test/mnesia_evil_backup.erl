@@ -325,7 +325,7 @@ restore(Config, Op)  ->
     end,
     ?match(ok, file:delete(File1)),
     ?match(ok, file:delete(File2)),
-    ?match([], Check() -- Before),
+    ?match([], Check() -- (Before ++ [{ok, latest_log}, {ok, previous_log}])),
 
     ?verify_mnesia(Nodes, []).
 

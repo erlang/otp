@@ -504,12 +504,21 @@ with_checkpoint(Config, Type) when is_list(Config) ->
     ?match(ok, mnesia:deactivate_checkpoint(sune)),
     ?match([], check_chkp(Nodes)),
 
+    Wait = fun(Loop) ->
+		   timer:sleep(300),
+		   sys:get_status(mnesia_monitor),
+		   case lists:member(Kill, mnesia_lib:val({current, db_nodes})) of
+		       true -> Loop(Loop);
+		       false -> ok
+		   end
+	   end,
+
     case Kill of
 	Node1 -> 
 	    ignore;
 	Node2 ->
 	    mnesia_test_lib:kill_mnesia([Kill]),
-	    timer:sleep(500),  %% Just to help debugging
+	    Wait(Wait),
 	    ?match({ok, sune, _}, mnesia:activate_checkpoint([{name, sune}, 
 		{max, mnesia:system_info(tables)}, 
 		{ram_overrides_dump, true}])),
