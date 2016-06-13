@@ -1345,18 +1345,12 @@ open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
     case prim_inet:open(Protocol, Family, Type, OpenOpts) of
 	{ok,S} ->
 	    case prim_inet:setopts(S, Opts) of
+		ok when Addr =:= undefined ->
+		    inet_db:register_socket(S, Module),
+		    {ok,S};
 		ok ->
-		    case
-			case Addr of
-			    undefined ->
-				{ok, undefined};
-			    _ when is_list(Addr) ->
-				bindx(S, Addr, Port);
-			    _ ->
-				prim_inet:bind(S, Addr, Port)
-			end
-		    of
-			{ok, _} -> 
+		    case bind(S, Addr, Port) of
+			{ok, _} ->
 			    inet_db:register_socket(S, Module),
 			    {ok,S};
 			Error  ->
@@ -1373,6 +1367,11 @@ open(FdO, Addr, Port, Opts, Protocol, Family, Type, Module)
 open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module)
   when is_integer(Fd) ->
     fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module).
+
+bind(S, Addr, Port) when is_list(Addr) ->
+    bindx(S, Addr, Port);
+bind(S, Addr, Port) ->
+    prim_inet:bind(S, Addr, Port).
 
 bindx(S, [Addr], Port0) ->
     {IP, Port} = set_bindx_port(Addr, Port0),
@@ -1414,34 +1413,36 @@ fdopen(Fd, Opts, Protocol, Family, Type, Module) ->
     fdopen(Fd, any, 0, Opts, Protocol, Family, Type, Module).
 
 fdopen(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) ->
-    IsAnyAddr = (Addr == {0,0,0,0} orelse Addr == {0,0,0,0,0,0,0,0} 
-                 orelse Addr == any),
-    Bound = Port == 0 andalso IsAnyAddr,
+    Bound =
+	%% We do not do any binding if default port+addr options
+	%% were given, in order to keep backwards compatability
+	%% with pre Erlang/OTP 17
+	case Addr of
+	    {0,0,0,0} when Port =:= 0 -> true;
+	    {0,0,0,0,0,0,0,0} when Port =:= 0 -> true;
+	    any when Port =:= 0 -> true;
+	    _ -> false
+	end,
     case prim_inet:fdopen(Protocol, Family, Type, Fd, Bound) of
 	{ok, S} ->
 	    case prim_inet:setopts(S, Opts) of
+		ok
+		  when Addr =:= undefined;
+		       Bound ->
+		    inet_db:register_socket(S, Module),
+		    {ok, S};
 		ok ->
-                    case if
-                             Bound ->
-                                 %% We do not do any binding if default
-                                 %% port+addr options where given in order
-                                 %% to keep backwards compatability with
-                                 %% pre Erlang/TOP 17
-                                 {ok, ok};
-                             is_list(Addr) ->
-                                 bindx(S, Addr, Port);
-                             true ->
-                                 prim_inet:bind(S, Addr, Port)
-                         end of
-                        {ok, _} ->
-                            inet_db:register_socket(S, Module),
-                            {ok, S};
-                        Error  ->
-                            prim_inet:close(S),
-                            Error
+		    case bind(S, Addr, Port) of
+			{ok, _} ->
+			    inet_db:register_socket(S, Module),
+			    {ok, S};
+			Error  ->
+			    prim_inet:close(S),
+			    Error
                     end;
 		Error ->
-		    prim_inet:close(S), Error
+		    prim_inet:close(S),
+		    Error
 	    end;
 	Error -> Error
     end.

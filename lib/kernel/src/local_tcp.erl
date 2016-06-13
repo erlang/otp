@@ -175,4 +175,4 @@ accept(L, Timeout) ->
 %% Create a port/socket from a file descriptor
 %%
 fdopen(Fd, Opts) ->
-    inet:fdopen(Fd, Opts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE).
+    inet:open(Fd, undefined, 0, Opts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE).
