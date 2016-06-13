@@ -127,7 +127,7 @@ handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
 	_Else ->
 	    {ok, ErrLogType} = application:get_env(sasl, errlog_type),
 	    SReport = sasl_report:format_report(group_leader(), ErrLogType,
-						tag_event(Event)),
+						tag_event(Event, local)),
 	    if is_list(SReport) ->
 		    SaslHeader = format_header(State),
 		    case LogFunc of
@@ -142,8 +142,9 @@ handle_event(Event, #eh_state{log_func = LogFunc} = State) ->
 		    ignore
 	    end
     end,
+    %% note that error_logger (unlike sasl) expects UTC time
     EReport = error_logger_tty_h:write_event(
-		tag_event(Event),io_lib),
+		tag_event(Event, utc), io_lib),
     if is_list(EReport) ->
 	    ErrHeader = format_header(State),
 	    case LogFunc of
@@ -220,7 +221,9 @@ terminate(_) ->
 terminate(_Arg, _State) ->
     ok.
 
-tag_event(Event) ->
+tag_event(Event, utc) ->
+    {calendar:universal_time(), Event};
+tag_event(Event, _) ->
     {calendar:local_time(), Event}.
 
 set_curr_func(CurrFunc, Config) ->
