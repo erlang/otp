@@ -38,7 +38,8 @@
 -export([system_check/1,
          gather_system_check_result/1]).
 
--export([request_system_task/3]).
+-export([request_system_task/3,
+         garbage_collect/1]).
 
 -export([check_process_code/3]).
 -export([copy_literals/2]).
@@ -208,6 +209,10 @@ port_info(_Result, _Item) ->
       Pid :: pid().
 
 request_system_task(_Pid, _Prio, _Request) ->
+    erlang:nif_error(undefined).
+
+-spec garbage_collect(Mode) -> 'true' when Mode :: 'major' | 'minor'.
+garbage_collect(_Mode) ->
     erlang:nif_error(undefined).
 
 -define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).

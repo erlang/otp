@@ -1604,6 +1604,12 @@ true</pre>
             the form <c>{garbage_collect,
             <anno>RequestId</anno>, <anno>GCResult</anno>}</c>.
           </item>
+
+          <tag><c>{type, 'major' | 'minor'}</c></tag>
+          <item>Triggers garbage collection of requested type. Default value is
+            <c>'major'</c>, which would trigger a fullsweep GC.
+            The option <c>'minor'</c> is considered a hint and may lead to
+            either minor or major GC run.</item>
         </taglist>
         <p>If <c><anno>Pid</anno></c> equals <c>self()</c>, and
           no <c>async</c> option has been passed, the garbage
