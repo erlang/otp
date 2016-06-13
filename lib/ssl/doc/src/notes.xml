@@ -28,6 +28,51 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 7.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct ssl:prf/5 to use the negotiated cipher suite's
+	    prf function in ssl:prf/5 instead of the default prf.</p>
+          <p>
+	    Own Id: OTP-13546</p>
+        </item>
+        <item>
+          <p>
+	    Timeouts may have the value 0, guards have been corrected
+	    to allow this</p>
+          <p>
+	    Own Id: OTP-13635</p>
+        </item>
+        <item>
+          <p>
+	    Change of internal handling of hash sign pairs as the
+	    used one enforced to much restrictions making some valid
+	    combinations unavailable.</p>
+          <p>
+	    Own Id: OTP-13670</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Create a little randomness in sending of session
+	    invalidation messages, to mitigate load when whole table
+	    is invalidated.</p>
+          <p>
+	    Own Id: OTP-13490</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 7.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
