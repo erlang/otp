@@ -821,7 +821,8 @@ handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{master_secret = MasterSecret,
 			 client_random = ClientRandom,
-			 server_random = ServerRandom} = SecParams,
+			 server_random = ServerRandom,
+			 prf_algorithm = PRFAlgorithm} = SecParams,
     Reply = try
 		SecretToUse = case Secret of
 				  _ when is_binary(Secret) -> Secret;
@@ -832,7 +833,7 @@ handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
 					     (client_random, Acc) -> [ClientRandom|Acc];
 					     (server_random, Acc) -> [ServerRandom|Acc]
 					  end, [], Seed)),
-		ssl_handshake:prf(Version, SecretToUse, Label, SeedToUse, WantedLength)
+		ssl_handshake:prf(Version, PRFAlgorithm, SecretToUse, Label, SeedToUse, WantedLength)
 	    catch
 		exit:_ -> {error, badarg};
 		error:Reason -> {error, Reason}
