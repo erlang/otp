@@ -290,8 +290,7 @@ connection(internal, #hello_request{}, #state{host = Host, port = Port,
 				    renegotiation = {Renegotiation, _}} = State0) ->
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 					Cache, CacheCb, Renegotiation, Cert),
-    %% TODO DTLS version State1 = send_handshake(Hello, State0),
-    State1 = State0,
+    State1 = send_handshake(Hello, State0),
     {Record, State} =
 	next_record(
 	  State1#state{session = Session0#session{session_id
