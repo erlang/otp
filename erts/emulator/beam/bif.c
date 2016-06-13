@@ -3869,7 +3869,24 @@ BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 {
     FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
     erts_garbage_collect(BIF_P, 0, NULL, 0);
-    BIF_RET(am_true);
+    return am_true;
+}
+
+/*
+ * Pass atom 'minor' for relaxed generational GC run. This is only
+ * recommendation, major run may still be chosen by VM.
+ * Pass atom 'major' for default behaviour - major GC run (fullsweep)
+ */
+BIF_RETTYPE
+erts_internal_garbage_collect_1(BIF_ALIST_1)
+{
+    switch (BIF_ARG_1) {
+    case am_minor:  break;
+    case am_major:  FLAGS(BIF_P) |= F_NEED_FULLSWEEP; break;
+    default:        BIF_ERROR(BIF_P, BADARG);
+    }
+    erts_garbage_collect(BIF_P, 0, NULL, 0);
+    return am_true;
 }
 
 /**********************************************************************/
