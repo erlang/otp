@@ -572,7 +572,7 @@ connect(Config) when is_list(Config) ->
     ok = gen_udp:close(S1),
     ok = gen_udp:connect(S2, Addr, P1),
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
-    ok = case gen_udp:recv(S2, 0, 5) of
+    ok = case gen_udp:recv(S2, 0, 500) of
 	     {error,econnrefused} -> ok;
 	     {error,econnreset} -> ok;
 	     Other -> Other
