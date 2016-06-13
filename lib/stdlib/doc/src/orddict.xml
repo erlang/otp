@@ -24,33 +24,35 @@
 
     <title>orddict</title>
     <prepared>Robert Virding</prepared>
-    <responsible>nobody</responsible>
+    <responsible></responsible>
     <docno></docno>
-    <approved>nobody</approved>
-    <checked>no</checked>
+    <approved></approved>
+    <checked></checked>
     <date>2007-04-16</date>
     <rev>B</rev>
-    <file>orddict.sgml</file>
+    <file>orddict.xml</file>
   </header>
   <module>orddict</module>
-  <modulesummary>Key-Value Dictionary as Ordered List</modulesummary>
+  <modulesummary>Key-value dictionary as ordered list.</modulesummary>
   <description>
-    <p><c>Orddict</c> implements a <c>Key</c> - <c>Value</c> dictionary.
+    <p>This module provides a <c>Key</c>-<c>Value</c> dictionary.
       An <c>orddict</c> is a representation of a dictionary, where a
       list of pairs is used to store the keys and values. The list is
       ordered after the keys.</p>
-    <p>This module provides exactly the same interface as the module
-      <c>dict</c> but with a defined representation. One difference is
+
+    <p>This module provides the same interface as the
+      <seealso marker="dict"><c>dict(3)</c></seealso> module
+      but with a defined representation. One difference is
       that while <c>dict</c> considers two keys as different if they
       do not match (<c>=:=</c>), this module considers two keys as
-      different if and only if they do not compare equal
-      (<c>==</c>).</p>
+      different if and only if they do not compare equal (<c>==</c>).</p>
   </description>
 
   <datatypes>
     <datatype>
       <name name="orddict" n_vars="2"/>
-      <desc><p>Dictionary as returned by <c>new/0</c>.</p></desc>
+      <desc><p>Dictionary as returned by
+        <seealso marker="#new/0"><c>new/0</c></seealso>.</p></desc>
     </datatype>
     <datatype>
       <name name="orddict" n_vars="0"/>
@@ -60,202 +62,229 @@
   <funcs>
     <func>
       <name name="append" arity="3"/>
-      <fsummary>Append a value to keys in a dictionary</fsummary>
+      <fsummary>Append a value to keys in a dictionary.</fsummary>
       <desc>
-        <p>This function appends a new <c><anno>Value</anno></c> to the current list
-          of values associated with <c><anno>Key</anno></c>.  An exception is
-          generated if the initial value associated with <c><anno>Key</anno></c> is
-          not a list of values.</p>
+        <p>Appends a new <c><anno>Value</anno></c> to the current list
+          of values associated with <c><anno>Key</anno></c>. An exception is
+          generated if the initial value associated with <c><anno>Key</anno></c>
+          is not a list of values.</p>
+        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="append_list" arity="3"/>
-      <fsummary>Append new values to keys in a dictionary</fsummary>
+      <fsummary>Append new values to keys in a dictionary.</fsummary>
       <desc>
-        <p>This function appends a list of values <c><anno>ValList</anno></c> to
-          the current list of values associated with <c><anno>Key</anno></c>. An
-          exception is generated if the initial value associated with
+        <p>Appends a list of values <c><anno>ValList</anno></c> to
+          the current list of values associated with <c><anno>Key</anno></c>.
+          An exception is generated if the initial value associated with
           <c><anno>Key</anno></c> is not a list of values.</p>
+        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="erase" arity="2"/>
-      <fsummary>Erase a key from a dictionary</fsummary>
+      <fsummary>Erase a key from a dictionary.</fsummary>
       <desc>
-        <p>This function erases all items with a given key from a
-          dictionary.</p>
+        <p>Erases all items with a specified key from a dictionary.</p>
       </desc>
     </func>
+
     <func>
       <name name="fetch" arity="2"/>
-      <fsummary>Look-up values in a dictionary</fsummary>
+      <fsummary>Look up values in a dictionary.</fsummary>
       <desc>
-        <p>This function returns the value associated with <c><anno>Key</anno></c>
-          in the dictionary <c><anno>Orddict</anno></c>. <c>fetch</c> assumes that
-          the <c><anno>Key</anno></c> is present in the dictionary and an exception
+        <p>Returns the value associated with <c><anno>Key</anno></c>
+          in dictionary <c><anno>Orddict</anno></c>. This function assumes that
+          the <c><anno>Key</anno></c> is present in the dictionary. An exception
           is generated if <c><anno>Key</anno></c> is not in the dictionary.</p>
+        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="fetch_keys" arity="1"/>
-      <fsummary>Return all keys in a dictionary</fsummary>
+      <fsummary>Return all keys in a dictionary.</fsummary>
       <desc>
-        <p>This function returns a list of all keys in the dictionary.</p>
+        <p>Returns a list of all keys in a dictionary.</p>
       </desc>
     </func>
+
     <func>
       <name name="filter" arity="2"/>
-      <fsummary>Choose elements which satisfy a predicate</fsummary>
+      <fsummary>Select elements that satisfy a predicate.</fsummary>
       <desc>
-        <p><c><anno>Orddict2</anno></c> is a dictionary of all keys and values in
-          <c><anno>Orddict1</anno></c> for which <c><anno>Pred</anno>(<anno>Key</anno>, <anno>Value</anno>)</c> is <c>true</c>.</p>
+        <p><c><anno>Orddict2</anno></c> is a dictionary of all keys and values
+          in <c><anno>Orddict1</anno></c> for which
+          <c><anno>Pred</anno>(<anno>Key</anno>, <anno>Value</anno>)</c> is
+          <c>true</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="find" arity="2"/>
-      <fsummary>Search for a key in a dictionary</fsummary>
+      <fsummary>Search for a key in a dictionary.</fsummary>
       <desc>
-        <p>This function searches for a key in a dictionary. Returns
-          <c>{ok, <anno>Value</anno>}</c> where <c><anno>Value</anno></c> is the value associated
-          with <c><anno>Key</anno></c>, or <c>error</c> if the key is not present in
-          the dictionary.</p>
+        <p>Searches for a key in a dictionary. Returns
+          <c>{ok, <anno>Value</anno>}</c>, where <c><anno>Value</anno></c> is
+          the value associated with <c><anno>Key</anno></c>, or <c>error</c> if
+          the key is not present in the dictionary.</p>
+        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="fold" arity="3"/>
-      <fsummary>Fold a function over a dictionary</fsummary>
+      <fsummary>Fold a function over a dictionary.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno></c> on successive keys and values of
           <c><anno>Orddict</anno></c> together with an extra argument <c>Acc</c>
           (short for accumulator). <c><anno>Fun</anno></c> must return a new
-          accumulator which is passed to the next call. <c><anno>Acc0</anno></c> is
-          returned if the list is empty.</p>
+          accumulator that is passed to the next call. <c><anno>Acc0</anno></c>
+          is returned if the list is empty.</p>
       </desc>
     </func>
+
     <func>
       <name name="from_list" arity="1"/>
-      <fsummary>Convert a list of pairs to a dictionary</fsummary>
+      <fsummary>Convert a list of pairs to a dictionary.</fsummary>
       <desc>
-        <p>This function converts the <c><anno>Key</anno></c> - <c><anno>Value</anno></c> list
+        <p>Converts the <c><anno>Key</anno></c>-<c><anno>Value</anno></c> list
           <c><anno>List</anno></c> to a dictionary.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Return true if the dictionary is empty.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Orddict</anno></c> has no elements,
+          otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="is_key" arity="2"/>
-      <fsummary>Test if a key is in a dictionary</fsummary>
+      <fsummary>Test if a key is in a dictionary.</fsummary>
       <desc>
-        <p>This function tests if <c><anno>Key</anno></c> is contained in
-          the dictionary <c><anno>Orddict</anno></c>.</p>
+        <p>Tests if <c><anno>Key</anno></c> is contained in
+          dictionary <c><anno>Orddict</anno></c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="map" arity="2"/>
-      <fsummary>Map a function over a dictionary</fsummary>
+      <fsummary>Map a function over a dictionary.</fsummary>
       <desc>
-        <p><c>map</c> calls <c><anno>Fun</anno></c> on successive keys and values
-          of <c><anno>Orddict1</anno></c> to return a new value for each key.</p>
+        <p>Calls <c><anno>Fun</anno></c> on successive keys and values of
+          <c><anno>Orddict1</anno></c> tvo return a new value for each key.</p>
       </desc>
     </func>
+
     <func>
       <name name="merge" arity="3"/>
-      <fsummary>Merge two dictionaries</fsummary>
+      <fsummary>Merge two dictionaries.</fsummary>
       <desc>
-        <p><c>merge</c> merges two dictionaries, <c><anno>Orddict1</anno></c> and
-          <c><anno>Orddict2</anno></c>, to create a new dictionary.  All the <c><anno>Key</anno></c>
-          - <c><anno>Value</anno></c> pairs from both dictionaries are included in
-          the new dictionary.  If a key occurs in both dictionaries then
-          <c><anno>Fun</anno></c> is called with the key and both values to return a
-          new value. <c>merge</c> could be defined as:</p>
+        <p>Merges two dictionaries, <c><anno>Orddict1</anno></c> and
+          <c><anno>Orddict2</anno></c>, to create a new dictionary. All the
+          <c><anno>Key</anno></c>-<c><anno>Value</anno></c> pairs from both
+          dictionaries are included in the new dictionary. If a key occurs in
+          both dictionaries, <c><anno>Fun</anno></c> is called with the key and
+          both values to return a new value.
+	  <c>merge/3</c> can be defined as follows, but is faster:</p>
         <code type="none">
 merge(Fun, D1, D2) ->
     fold(fun (K, V1, D) ->
                  update(K, fun (V2) -> Fun(K, V1, V2) end, V1, D)
          end, D2, D1).</code>
-        <p>but is faster.</p>
       </desc>
     </func>
+
     <func>
       <name name="new" arity="0"/>
-      <fsummary>Create a dictionary</fsummary>
+      <fsummary>Create a dictionary.</fsummary>
       <desc>
-        <p>This function creates a new dictionary.</p>
+        <p>Creates a new dictionary.</p>
       </desc>
     </func>
+
     <func>
       <name name="size" arity="1"/>
-      <fsummary>Return the number of elements in an ordered dictionary</fsummary>
+      <fsummary>Return the number of elements in an ordered dictionary.
+      </fsummary>
       <desc>
         <p>Returns the number of elements in an <c><anno>Orddict</anno></c>.</p>
       </desc>
     </func>
-    <func>
-      <name name="is_empty" arity="1"/>
-      <fsummary>Return true if the dictionary is empty</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>Orddict</anno></c> has no elements, <c>false</c> otherwise.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="store" arity="3"/>
-      <fsummary>Store a value in a dictionary</fsummary>
+      <fsummary>Store a value in a dictionary.</fsummary>
       <desc>
-        <p>This function stores a <c><anno>Key</anno></c> - <c><anno>Value</anno></c> pair in a
-          dictionary. If the <c><anno>Key</anno></c> already exists in <c><anno>Orddict1</anno></c>,
+        <p>Stores a <c><anno>Key</anno></c>-<c><anno>Value</anno></c> pair in a
+          dictionary. If the <c><anno>Key</anno></c> already exists in
+          <c><anno>Orddict1</anno></c>,
           the associated value is replaced by <c><anno>Value</anno></c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="to_list" arity="1"/>
-      <fsummary>Convert a dictionary to a list of pairs</fsummary>
+      <fsummary>Convert a dictionary to a list of pairs.</fsummary>
       <desc>
-        <p>This function converts the dictionary to a list
-          representation.</p>
+        <p>Converts a dictionary to a list representation.</p>
       </desc>
     </func>
+
     <func>
       <name name="update" arity="3"/>
-      <fsummary>Update a value in a dictionary</fsummary>
+      <fsummary>Update a value in a dictionary.</fsummary>
       <desc>
-        <p>Update a value in a dictionary by calling <c><anno>Fun</anno></c> on
-          the value to get a new value.  An exception is generated if
+        <p>Updates a value in a dictionary by calling <c><anno>Fun</anno></c>
+          on the value to get a new value. An exception is generated if
           <c><anno>Key</anno></c> is not present in the dictionary.</p>
       </desc>
     </func>
+
     <func>
       <name name="update" arity="4"/>
-      <fsummary>Update a value in a dictionary</fsummary>
+      <fsummary>Update a value in a dictionary.</fsummary>
       <desc>
-        <p>Update a value in a dictionary by calling <c><anno>Fun</anno></c> on
-          the value to get a new value.  If <c><anno>Key</anno></c> is not present
-          in the dictionary then <c><anno>Initial</anno></c> will be stored as
-          the first value. For example <c>append/3</c> could be defined
-          as:</p>
+        <p>Updates a value in a dictionary by calling <c><anno>Fun</anno></c>
+          on the value to get a new value. If <c><anno>Key</anno></c> is not
+          present in the dictionary, <c><anno>Initial</anno></c> is stored as
+          the first value. For example, <c>append/3</c> can be defined
+          as follows:</p>
         <code type="none">
 append(Key, Val, D) ->
     update(Key, fun (Old) -> Old ++ [Val] end, [Val], D).</code>
       </desc>
     </func>
+
     <func>
       <name name="update_counter" arity="3"/>
-      <fsummary>Increment a value in a dictionary</fsummary>
+      <fsummary>Increment a value in a dictionary.</fsummary>
       <desc>
-        <p>Add <c><anno>Increment</anno></c> to the value associated with <c><anno>Key</anno></c>
-          and store this value.  If <c><anno>Key</anno></c> is not present in
-          the dictionary then <c><anno>Increment</anno></c> will be stored as
+        <p>Adds <c><anno>Increment</anno></c> to the value associated with
+          <c><anno>Key</anno></c>
+          and store this value. If <c><anno>Key</anno></c> is not present in
+          the dictionary, <c><anno>Increment</anno></c> is stored as
           the first value.</p>
-        <p>This could be defined as:</p>
+        <p>This can be defined as follows, but is faster:</p>
         <code type="none">
 update_counter(Key, Incr, D) ->
     update(Key, fun (Old) -> Old + Incr end, Incr, D).</code>
-        <p>but is faster.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>Notes</title>
-    <p>The functions <c>append</c> and <c>append_list</c> are included
-      so we can store keyed values in a list <em>accumulator</em>. For
+    <marker id="notes"/>
+    <p>Functions <c>append/3</c> and <c>append_list/3</c> are included
+      so that keyed values can be stored in a list <em>accumulator</em>, for
       example:</p>
     <pre>
 > D0 = orddict:new(),
@@ -264,19 +293,18 @@ update_counter(Key, Incr, D) ->
   D3 = orddict:append(files, f2, D2),
   D4 = orddict:append(files, f3, D3),
   orddict:fetch(files, D4).
-[f1,f2,f3]    </pre>
+[f1,f2,f3]</pre>
     <p>This saves the trouble of first fetching a keyed value,
       appending a new value to the list of stored values, and storing
-      the result.
-      </p>
-    <p>The function <c>fetch</c> should be used if the key is known to
-      be in the dictionary, otherwise <c>find</c>.</p>
+      the result.</p>
+    <p>Function <c>fetch/2</c> is to be used if the key is known to
+      be in the dictionary, otherwise function <c>find/2</c>.</p>
   </section>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="dict">dict(3)</seealso>,
-      <seealso marker="gb_trees">gb_trees(3)</seealso></p>
+    <p><seealso marker="dict"><c>dict(3)</c></seealso>,
+      <seealso marker="gb_trees"><c>gb_trees(3)</c></seealso></p>
   </section>
 </erlref>
 

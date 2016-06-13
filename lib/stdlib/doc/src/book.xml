@@ -27,7 +27,7 @@
     <docno></docno>
     <date>1997-05-02</date>
     <rev>1.3</rev>
-    <file>book.sgml</file>
+    <file>book.xml</file>
   </header>
   <insidecover>
   </insidecover>
@@ -47,4 +47,5 @@
   <listofterms></listofterms>
   <index></index>
 </book>
+
 
