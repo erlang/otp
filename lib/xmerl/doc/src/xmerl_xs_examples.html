@@ -206,17 +206,17 @@ template(E)->
       </code></pre></td></tr></table>
       <p>
 	It is important to end with a call to
-	<tt>xmerl_xs:built_in_rules/2</tt>
+	<code>xmerl_xs:built_in_rules/2</code>
 	if you want any text to be written in "push" transforms. 
-	That are the ones using a lot <tt>xslapply( fun
-	template/1, E )</tt> instead of
-	<tt>value_of(select("xpath",E))</tt>,
+	That are the ones using a lot <code>xslapply( fun
+	template/1, E )</code> instead of
+	<code>value_of(select("xpath",E))</code>,
 	which is pull...
       </p>
     <hr />
 <p>The largest example is the stylesheet to transform this document
 	from the Simplified Docbook XML format to xhtml. The source
-	file is <tt>sdocbook2xhtml.erl</tt>.
+	file is <code>sdocbook2xhtml.erl</code>.
 </p>
 
   

@@ -811,7 +811,7 @@ other code).
 <dd>This creates a test set from all the modules belonging to the
 specified application, by consulting the application's `.app' file
 (see `{file, FileName}'), or if no such file exists, by testing all
-object files in the application's <tt>ebin</tt>-directory (see `{dir,
+object files in the application's <code>ebin</code>-directory (see `{dir,
 Path}'); if that does not exist, the `code:lib_dir(AppName)' directory
 is used.
 </dd>

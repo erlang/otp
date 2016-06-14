@@ -18,24 +18,24 @@
 
        <ul>
 
- 	<li>event function (<tt>
+ 	<li>event function (<code>
  	xmerl_scan:event_state/[1,2]
- 	</tt>)</li>
+ 	</code>)</li>
 
- 	<li>hook function (<tt>
+ 	<li>hook function (<code>
  	xmerl_scan:hook_state/[1,2]
- 	</tt>)</li>
+ 	</code>)</li>
 
- 	<li>fetch function (<tt>
- 	xmerl_scan:fetch_state/[1,2] </tt>)
+ 	<li>fetch function (<code>
+ 	xmerl_scan:fetch_state/[1,2] </code>)
  	</li>
 
- 	<li>continuation function (<tt>
- 	xmerl_scan:cont_state/[1,2] </tt>)
+ 	<li>continuation function (<code>
+ 	xmerl_scan:cont_state/[1,2] </code>)
  	</li>
 
- 	<li>rules function (<tt>
-       xmerl_scan:rules_state/[1,2] </tt>)
+ 	<li>rules function (<code>
+       xmerl_scan:rules_state/[1,2] </code>)
        </li>
 
  	<li>accumulator function</li>
@@ -46,16 +46,16 @@
 
        <p>For all of the above state access functions, the function
        with one argument
-       (e.g. <tt>event_state(GlobalState)</tt>)
+       (e.g. <code>event_state(GlobalState)</code>)
        will read the state variable, while the function with two
-       arguments (e.g.: <tt>event_state(NewEventState,
-       GlobalState)</tt>) will modify it.</p>
+       arguments (e.g.: <code>event_state(NewEventState,
+       GlobalState)</code>) will modify it.</p>
 
        <p>For each function, the description starts with the syntax
        for specifying the function in the
-       <a href="xmerl_scan.html#type-option_list"><tt>Option_list</tt></a>.
-       The general forms are <tt>{Tag, Fun}</tt>, or
-       <tt>{Tag, Fun, LocalState}</tt>. The
+       <a href="xmerl_scan.html#type-option_list"><code>Option_list</code></a>.
+       The general forms are <code>{Tag, Fun}</code>, or
+       <code>{Tag, Fun, LocalState}</code>. The
        second form can be used to initialize the state variable in
        question.</p>
 
@@ -68,22 +68,22 @@
  	functions, which do not really have anything to contribute to
  	the "global" user state, use their own state
  	variable instead. Another option (used in
- 	e.g. <tt>xmerl_eventp.erl</tt>) is for
+ 	e.g. <code>xmerl_eventp.erl</code>) is for
  	customization functions to share one of the local states (in
- 	<tt>xmerl_eventp.erl</tt>, the
+ 	<code>xmerl_eventp.erl</code>, the
  	continuation function and the fetch function both acces the
- 	<tt>cont_state</tt>.)</p>
+ 	<code>cont_state</code>.)</p>
 
  	<p>Functions to access user state:</p>
 
  	<ul>
 
- 	  <li><tt>
- 	  xmerl_scan:user_state(GlobalState) </tt>
+ 	  <li><code>
+ 	  xmerl_scan:user_state(GlobalState) </code>
  	  </li>
 
- 	  <li><tt>xmerl_scan:user_state(UserState,
- 	  GlobalState) </tt></li>
+ 	  <li><code>xmerl_scan:user_state(UserState,
+ 	  GlobalState) </code></li>
 
  	</ul>
 
@@ -91,8 +91,8 @@
 
  	<h4 id="sect_1.1.2">1.2 Event Function</h4>
 
- 	<p><tt>{event_fun, fun()} | {event_fun, fun(),
- 	EventState}</tt></p>
+ 	<p><code>{event_fun, fun()} | {event_fun, fun(),
+ 	EventState}</code></p>
 
  	<p>The event function is called at the beginning and at the
  	end of a parsed entity. It has the following format and
@@ -111,8 +111,8 @@
 
 
  	<h4 id="sect_1.1.3">1.3 Hook Function</h4>
- 	<p> <tt>{hook_fun, fun()} | {hook_fun, fun(),
- 	HookState}</tt></p>
+ 	<p> <code>{hook_fun, fun()} | {hook_fun, fun(),
+ 	HookState}</code></p>
 
 
 
@@ -150,7 +150,7 @@
 
  	<h4 id="sect_1.1.4">1.4 Fetch Function</h4>
  <p>
- <tt>{fetch_fun, fun()} | {fetch_fun, fun(), FetchState}</tt>
+ <code>{fetch_fun, fun()} | {fetch_fun, fun(), FetchState}</code>
  </p>
  <p>The fetch function is called in order to fetch an external resource
  (e.g. a DTD).</p>
@@ -181,7 +181,7 @@
 
  	<h4 id="sect_1.1.5">1.5 Continuation Function</h4>
  <p>
- <tt>{continuation_fun, fun()} | {continuation_fun, fun(), ContinuationState}</tt>
+ <code>{continuation_fun, fun()} | {continuation_fun, fun(), ContinuationState}</code>
  </p>
  <p>The continuation function is called when the parser encounters the end
  of the byte stream. Format and semantics:</p>
@@ -208,9 +208,9 @@
 
  	<h4 id="sect_1.1.6">1.6 Rules Functions</h4>
  	<p>
- <tt>
+ <code>
  {rules, ReadFun : fun(), WriteFun : fun(), RulesState} |
- {rules, Table : ets()}</tt>
+ {rules, Table : ets()}</code>
  </p>
  	<p>The rules functions take care of storing scanner
  	information in a rules database. User-provided rules functions
@@ -227,7 +227,7 @@
  	  table is deleted.</li>
 
  	  <li>If the user specifies an ets table via the 
- 	<tt>{rules, Table}</tt> option, the
+ 	<code>{rules, Table}</code> option, the
  	scanner uses this table. When the scanner is done, it does
  	<em>not</em> delete the table.</li>
   
@@ -263,22 +263,22 @@
  	      <tr>
  		<td>notation</td>
  		<td>NotationName</td>
- 		<td><tt>{system, SL} | {public, PIDL, SL}</tt></td>
+ 		<td><code>{system, SL} | {public, PIDL, SL}</code></td>
  	      </tr>
  	      <tr>
  		<td>elem_def</td>
  		<td>ElementName</td>
- 		<td><tt>#xmlElement{content = ContentSpec}</tt></td>
+ 		<td><code>#xmlElement{content = ContentSpec}</code></td>
  	      </tr>
  	      <tr>
  		<td>parameter_entity</td>
  		<td>PEName</td>
- 		<td><tt>PEDef</tt></td>
+ 		<td><code>PEDef</code></td>
  	      </tr>
  	      <tr>
  		<td>entity</td>
  		<td>EntityName</td>
- 	  <td><tt>EntityDef</tt></td>
+ 	  <td><code>EntityDef</code></td>
  	      </tr>
  	    </tbody>
  	  </colgroup>
@@ -306,7 +306,7 @@
 
 
  	<h4 id="sect_1.1.7">1.7 Accumulator Function</h4>
- 	<p><tt>{acc_fun, fun()}</tt></p>
+ 	<p><code>{acc_fun, fun()}</code></p>
 
  	<p>The accumulator function is called to accumulate the
  	contents of an entity.When parsing very large files, it may
@@ -315,7 +315,7 @@
 
  	<p>Note that it is possible to even modify the parsed
  	entity before accumulating it, but this must be done with
- 	care. <tt>xmerl_scan</tt> performs
+ 	care. <code>xmerl_scan</code> performs
  	post-processing of the element for namespace management. Thus,
  	the element must keep its original structure for this to
  	work.</p>
@@ -341,7 +341,7 @@
  	<p>The close function is called when a document (either the
  	main document or an external DTD) has been completely
  	parsed. When xmerl_scan was started using
- 	<tt>xmerl_scan:file/[1,2]</tt>, the
+ 	<code>xmerl_scan:file/[1,2]</code>, the
  	file will be read in full, and closed immediately, before the
  	parsing starts, so when the close function is called, it will
  	not need to actually close the file. In this case, the close

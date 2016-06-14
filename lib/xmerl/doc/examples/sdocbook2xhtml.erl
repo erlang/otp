@@ -258,10 +258,10 @@ colspec(_, Attrs,_,_)->
     [].
 
 command(Data,_,_,_)->
-    ["<b><tt>", Data, "</tt></b>"].
+    ["<b><code>", Data, "</code></b>"].
 
 computeroutput(Data,_,_,_)->
-    ["<tt>", Data, "</tt>"].
+    ["<samp>", Data, "</samp>"].
 
 copyright(Data,_,_,_)->
     [ "&copy; ", Data].
@@ -669,7 +669,7 @@ ulink(Data, Attrs, Parents, E)->
 
 %% User input is Constant Bold
 userinput(Data, Attrs, Parents, E)->
-    ["<tt><b>", Data, "</b></tt>"].
+    ["<kbd><b>", Data, "</b></kbd>"].
 
 variablelist(Data, Attrs, Parents, E)->
     markup("dl", Attrs, Data).
