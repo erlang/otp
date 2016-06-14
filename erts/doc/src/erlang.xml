@@ -4361,86 +4361,86 @@ os_prompt% </pre>
     <marker id="process_flag_max_heap_size"/>
     <func>
       <name name="process_flag" arity="2" clause_i="5"/>
-      <type name="max_heap_size"/>
       <fsummary>Sets process flag <c>max_heap_size</c> for the calling process.</fsummary>
+      <type name="max_heap_size"/>
       <desc>
         <p>
           This flag sets the maximum heap size for the calling process.
           If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
           values for <c>kill</c> and <c>error_logger</c> are used.
-          <taglist>
-            <tag><c>size</c></tag>
-            <item>
-              <p>
-                The maximum size in words of the process. If set to zero, the
-                heap size limit is disabled. Badarg will be thrown if the value is
-                smaller than
-                <seealso marker="#process_flag_min_heap_size"><c>min_heap_size</c></seealso>.
-                The size check is only done when a garbage collection is triggered.
-              </p>
-              <p>
-                <c>size</c> is the entire heap of the process when garbage collection
-                is triggered, this includes all generational heaps, the process stack, 
-                any <seealso marker="#process_flag_message_queue_data">
-                messages that are considered to be part of the heap</seealso> and any
-                extra memory that the garbage collector needs during collection.
-              </p>
-              <p>
-                <c>size</c> is the same as can be retrieved using
-                <seealso marker="#process_info_total_heap_size">
-                  <c>erlang:process_info(Pid, total_heap_size)</c></seealso>,
-                  or by adding <c>heap_block_size</c>, <c>old_heap_block_size</c>
-                  and <c>mbuf_size</c> from <seealso marker="#process_info_garbage_collection_info">
-                  <c>erlang:process_info(Pid, garbage_collection_info)</c></seealso>.
-              </p>
-            </item>
-            <tag><c>kill</c></tag>
-            <item>
-              <p>
-                When set to <c>true</c> the runtime system will send an
-                untrappable exit signal with reason <c>kill</c> to the process
-                if the maximum heap size is reached. The garbage collection
-                that triggered the <c>kill</c> will not be completed, instead the
-                process will exit as soon as is possible. When set to <c>false</c>
-                no exit signal will be sent to the process, instead it will
-                continue executing.
-              </p>
-              <p>
-                If <c>kill</c> is not defined in the map
-                the system default will be used. The default system default
-                is <c>true</c>. It can be changed by either the erl
-                <seealso marker="erl#+hmaxk">+hmaxk</seealso> option,
-                or <seealso marker="#system_flag_max_heap_size"><c>
-                erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
-              </p>
-            </item>
-            <tag><c>error_logger</c></tag>
-            <item>
-              <p>
-                When set to <c>true</c> the runtime system will send a
-                message to the current <seealso marker="kernel:error_logger"><c>error_logger</c></seealso>
-                containing details about the process when the maximum
-                heap size is reached. One <c>error_logger</c> report will
-                be sent each time the limit is reached.
-              </p>
-              <p>
-                If <c>error_logger</c> is not defined in the map the system
-                default will be used. The default system default is <c>true</c>.
-                It can be changed by either the erl <seealso marker="erl#+hmaxel">+hmaxel</seealso>
-                option, or <seealso marker="#system_flag_max_heap_size"><c>
-                erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
-              </p>
-            </item>
+        </p>
+        <taglist>
+          <tag><c>size</c></tag>
+          <item>
             <p>
-              The heap size of a process is quite hard to predict, especially the
-              amount of memory that is used during the garbage collection. When
-              contemplating using this option, it is recommended to first run
-              it in production with <c>kill</c> set to <c>false</c> and inspect
-              the <c>error_logger</c> reports to see what the normal peak sizes
-              of the processes in the system is and then tune the value
-              accordingly.
+              The maximum size in words of the process. If set to zero, the
+              heap size limit is disabled. Badarg will be thrown if the value is
+              smaller than
+              <seealso marker="#process_flag_min_heap_size"><c>min_heap_size</c></seealso>.
+              The size check is only done when a garbage collection is triggered.
             </p>
-          </taglist>
+            <p>
+              <c>size</c> is the entire heap of the process when garbage collection
+              is triggered, this includes all generational heaps, the process stack, 
+              any <seealso marker="#process_flag_message_queue_data">
+              messages that are considered to be part of the heap</seealso> and any
+              extra memory that the garbage collector needs during collection.
+            </p>
+            <p>
+              <c>size</c> is the same as can be retrieved using
+              <seealso marker="#process_info_total_heap_size">
+                <c>erlang:process_info(Pid, total_heap_size)</c></seealso>,
+                or by adding <c>heap_block_size</c>, <c>old_heap_block_size</c>
+                and <c>mbuf_size</c> from <seealso marker="#process_info_garbage_collection_info">
+                <c>erlang:process_info(Pid, garbage_collection_info)</c></seealso>.
+            </p>
+          </item>
+          <tag><c>kill</c></tag>
+          <item>
+            <p>
+              When set to <c>true</c> the runtime system will send an
+              untrappable exit signal with reason <c>kill</c> to the process
+              if the maximum heap size is reached. The garbage collection
+              that triggered the <c>kill</c> will not be completed, instead the
+              process will exit as soon as is possible. When set to <c>false</c>
+              no exit signal will be sent to the process, instead it will
+              continue executing.
+            </p>
+            <p>
+              If <c>kill</c> is not defined in the map
+              the system default will be used. The default system default
+              is <c>true</c>. It can be changed by either the erl
+              <seealso marker="erl#+hmaxk">+hmaxk</seealso> option,
+              or <seealso marker="#system_flag_max_heap_size"><c>
+              erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+            </p>
+          </item>
+          <tag><c>error_logger</c></tag>
+          <item>
+            <p>
+              When set to <c>true</c> the runtime system will send a
+              message to the current <seealso marker="kernel:error_logger"><c>error_logger</c></seealso>
+              containing details about the process when the maximum
+              heap size is reached. One <c>error_logger</c> report will
+              be sent each time the limit is reached.
+            </p>
+            <p>
+              If <c>error_logger</c> is not defined in the map the system
+              default will be used. The default system default is <c>true</c>.
+              It can be changed by either the erl <seealso marker="erl#+hmaxel">+hmaxel</seealso>
+              option, or <seealso marker="#system_flag_max_heap_size"><c>
+              erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+            </p>
+          </item>
+        </taglist>
+        <p>
+          The heap size of a process is quite hard to predict, especially the
+          amount of memory that is used during the garbage collection. When
+          contemplating using this option, it is recommended to first run
+          it in production with <c>kill</c> set to <c>false</c> and inspect
+          the <c>error_logger</c> reports to see what the normal peak sizes
+          of the processes in the system is and then tune the value
+          accordingly.
         </p>
       </desc>
     </func>
@@ -4797,8 +4797,10 @@ os_prompt% </pre>
 	       The content of <c><anno>GCInfo</anno></c> can be changed without
 	       prior notice.</p>
           </item>
-          <marker id="process_info_garbage_collection_info"/>
-          <tag><c>{garbage_collection_info, <anno>GCInfo</anno>}</c></tag>
+          <tag>
+            <marker id="process_info_garbage_collection_info"/>
+            <c>{garbage_collection_info, <anno>GCInfo</anno>}</c>
+          </tag>
           <item>
             <p><c><anno>GCInfo</anno></c> is a list containing miscellaneous
 	       detailed information about garbage collection for this process.
@@ -4986,8 +4988,10 @@ os_prompt% </pre>
             total suspend count on <c><anno>Suspendee</anno></c>,
             only the parts contributed by <c><anno>Pid</anno></c>.</p>
           </item>
-          <marker id="process_info_total_heap_size"/>
-          <tag><c>{total_heap_size, <anno>Size</anno>}</c></tag>
+          <tag>
+            <marker id="process_info_total_heap_size"/>
+            <c>{total_heap_size, <anno>Size</anno>}</c>
+          </tag>
           <item>
             <p><c><anno>Size</anno></c> is the total size, in words, of all heap
 	    fragments of the process. This includes the process stack and
@@ -6631,8 +6635,8 @@ ok
     <marker id="system_flag_max_heap_size"></marker>
     <func>
       <name name="system_flag" arity="2" clause_i="8"/>
-      <type name="max_heap_size"/>
       <fsummary>Sets system flag <c>max_heap_size</c></fsummary>
+      <type name="max_heap_size"/>
       <desc>
         <p>
           Sets the default maximum heap size settings for processes.
@@ -7136,9 +7140,9 @@ ok
       <name name="system_info" arity="1" clause_i="37"/>
       <name name="system_info" arity="1" clause_i="38"/>
       <name name="system_info" arity="1" clause_i="39"/>
+      <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
-      <fsummary>Information about the default process heap settings.</fsummary>
       <desc>
         <taglist>
           <tag><c>fullsweep_after</c></tag>
@@ -7183,7 +7187,7 @@ ok
               where <c><anno>MinHeapSize</anno></c> is the current
               system-wide minimum heap size for spawned processes.</p>
           </item>
-          <tag><marker id="system_info_message_queue_data"><c>message_queue_data</c></marker></tag>
+          <tag><marker id="system_info_message_queue_data"/><c>message_queue_data</c></tag>
           <item>
             <p>Returns the default value of the <c>message_queue_data</c>
 	    process flag which is either <c>off_heap</c>, or <c>on_heap</c>.
@@ -7664,7 +7668,7 @@ ok
               and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
-          <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
+          <tag><marker id="system_info_otp_release"/><c>otp_release</c></tag>
           <item>
           <marker id="system_info_otp_release"></marker>
             <p>Returns a string containing the OTP release number of the
@@ -8617,21 +8621,21 @@ timestamp() ->
           <tag><c>send</c></tag>
           <item>
             <p>Traces sending of messages.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_send">send</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_send_to_non_existing_process">send_to_non_existing_process</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_send"><c>send</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_send_to_non_existing_process"><c>send_to_non_existing_process</c></seealso>.</p>
           </item>
           <tag><c>'receive'</c></tag>
           <item>
             <p>Traces receiving of messages.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_receive">'receive'</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_receive"><c>'receive'</c></seealso>.</p>
           </item>
 <tag><c>call</c></tag>
           <item>
             <p>Traces certain function calls. Specify which function
               calls to trace by calling
               <seealso marker="#trace_pattern/3">erlang:trace_pattern/3</seealso>.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_call">call</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_return_from">return_from</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_call"><c>call</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_return_from"><c>return_from</c></seealso>.</p>
           </item>
           <tag><c>silent</c></tag>
           <item>
@@ -8649,9 +8653,9 @@ timestamp() ->
               specification function <c>{silent,Bool}</c>, giving
               a high degree of control of which functions with which 
               arguments that trigger the trace.</p>
-              <p>Message tags: <c><seealso marker="#trace_3_trace_messages_call">call</seealso></c>,
-              <c><seealso marker="#trace_3_trace_messages_return_from">return_from</seealso></c>, and
-              <c><seealso marker="#trace_3_trace_messages_return_to">return_to</seealso></c>. Or rather, the absence of.</p>
+              <p>Message tags: <seealso marker="#trace_3_trace_messages_call"><c>call</c></seealso>,
+              <seealso marker="#trace_3_trace_messages_return_from"><c>return_from</c></seealso>, and
+              <seealso marker="#trace_3_trace_messages_return_to"><c>return_to</c></seealso>. Or rather, the absence of.</p>
           </item>
           <tag><c>return_to</c></tag>
           <item>
@@ -8672,43 +8676,43 @@ timestamp() ->
             <p>To get trace messages containing return values from
               functions, use the <c>{return_trace}</c> match
               specification action instead.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_return_to">return_to</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_return_to"><c>return_to</c></seealso>.</p>
           </item>
           <tag><c>procs</c></tag>
           <item>
             <p>Traces process-related events.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_spawn">spawn</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_spawned">spawned</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_exit">exit</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_register">register</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_unregister">unregister</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_link">link</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_unlink">unlink</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_getting_linked">getting_linked</seealso></c>, and
-            <c><seealso marker="#trace_3_trace_messages_getting_unlinked">getting_unlinked</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_spawn"><c>spawn</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_spawned"><c>spawned</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_exit"><c>exit</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_register"><c>register</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_unregister"><c>unregister</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_link"><c>link</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_unlink"><c>unlink</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_getting_linked"><c>getting_linked</c></seealso>, and
+            <seealso marker="#trace_3_trace_messages_getting_unlinked"><c>getting_unlinked</c></seealso>.</p>
           </item>
           <tag><c>ports</c></tag>
           <item>
             <p>Traces port-related events.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_open">open</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_closed">closed</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_register">register</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_unregister">unregister</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_getting_linked">getting_linked</seealso></c>, and
-            <c><seealso marker="#trace_3_trace_messages_getting_unlinked">getting_unlinked</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_open"><c>open</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_closed"><c>closed</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_register"><c>register</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_unregister"><c>unregister</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_getting_linked"><c>getting_linked</c></seealso>, and
+            <seealso marker="#trace_3_trace_messages_getting_unlinked"><c>getting_unlinked</c></seealso>.</p>
           </item>
           <tag><c>running</c></tag>
           <item>
             <p>Traces scheduling of processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_proc">in</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_out_proc">out</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_proc"><c>in</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_out_proc"><c>out</c></seealso>.</p>
           </item>
           <tag><c>exiting</c></tag>
           <item>
             <p>Traces scheduling of exiting processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_exiting_proc">in_exiting</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_out_exiting_proc">out_exiting</seealso></c>, and
-	    <c><seealso marker="#trace_3_trace_messages_out_exited_proc">out_exited</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_exiting_proc"><c>in_exiting</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_out_exiting_proc"><c>out_exiting</c></seealso>, and
+	    <seealso marker="#trace_3_trace_messages_out_exited_proc"><c>out_exited</c></seealso>.</p>
           </item>
           <tag><c>running_procs</c></tag>
           <item>
@@ -8716,21 +8720,21 @@ timestamp() ->
             However this option also includes schedule events when the
             process executes within the context of a port without
             being scheduled out itself.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_proc">in</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_out_proc">out</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_proc"><c>in</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_out_proc"><c>out</c></seealso>.</p>
           </item>
           <tag><c>running_ports</c></tag>
           <item>
             <p>Traces scheduling of ports.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_port">in</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_out_port">out</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_port"><c>in</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_out_port"><c>out</c></seealso>.</p>
           </item>
           <tag><c>garbage_collection</c></tag>
           <item>
             <p>Traces garbage collections of processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_gc_minor_start">gc_minor_start</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_gc_max_heap_size">gc_max_heap_size</seealso></c> and
-	    <c><seealso marker="#trace_3_trace_messages_gc_minor_end">gc_minor_end</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_gc_minor_start"><c>gc_minor_start</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_gc_max_heap_size"><c>gc_max_heap_size</c></seealso> and
+	    <seealso marker="#trace_3_trace_messages_gc_minor_end"><c>gc_minor_end</c></seealso>.</p>
           </item>
           <tag><c>timestamp</c></tag>
           <item>
@@ -8758,7 +8762,7 @@ timestamp() ->
 	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso> time-stamp in all trace messages. The
             time-stamp (Ts) has the same format and value as produced by
-            <c><seealso marker="#monotonic_time-1">erlang:monotonic_time(nano_seconds)</seealso></c>.
+            <seealso marker="#monotonic_time-1"><c>erlang:monotonic_time(nano_seconds)</c></seealso>.
             This flag overrides the <c>cpu_timestamp</c> flag.</p>
           </item>
           <tag><c>strict_monotonic_timestamp</c></tag>
@@ -8768,8 +8772,8 @@ timestamp() ->
 	    monotonic time</seealso> and a monotonically increasing
 	    integer in all trace messages. The time-stamp (Ts) has the
 	    same format and value as produced by
-            <c>{<seealso marker="#monotonic_time-1">erlang:monotonic_time(nano_seconds)</seealso>,
-	    <seealso marker="#unique_integer-1">erlang:unique_integer([monotonic])</seealso>}</c>.
+            <c>{</c><seealso marker="#monotonic_time-1"><c>erlang:monotonic_time(nano_seconds)</c></seealso><c>,</c>
+	    <seealso marker="#unique_integer-1"><c>erlang:unique_integer([monotonic])</c></seealso><c>}</c>.
             This flag overrides the <c>cpu_timestamp</c> flag.</p>
           </item>
           <tag><c>arity</c></tag>

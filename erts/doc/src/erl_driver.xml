@@ -348,14 +348,14 @@
 	  all will work as before.</p>
       </item>
       <tag><marker id="time_measurement"/>Time Measurement</tag>
-      <item><p>Support for time measurement in drivers:
+      <item><p>Support for time measurement in drivers:</p>
       <list>
 	<item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
 	<item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
 	<item><seealso marker="#erl_drv_monotonic_time"><c>erl_drv_monotonic_time()</c></seealso></item>
 	<item><seealso marker="#erl_drv_time_offset"><c>erl_drv_time_offset()</c></seealso></item>
 	<item><seealso marker="#erl_drv_convert_time_unit"><c>erl_drv_convert_time_unit()</c></seealso></item>
-      </list></p>
+      </list>
       </item>
     </taglist>
   </section>
