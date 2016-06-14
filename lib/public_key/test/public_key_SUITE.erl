@@ -44,7 +44,7 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
      short_cert_issuer_hash, short_crl_issuer_hash].
 
 groups() -> 
