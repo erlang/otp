@@ -98,6 +98,7 @@
       {stdlib,"1.18"},
       {crypto, "2.0.3"},
       {public_key, "0.12"},
+      {asn1, "4.0"},
       {ssl, "5.0"}
       ]}.
    </code>
