@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.2.3</title>
+  <section><title>Inets 6.2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle multiple \t in mime types file</p>
+          <p>
+	    Own Id: OTP-13663 Aux Id: seq13132 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.3</title>
 
     <section><title>Improvements and New Features</title>
       <list>
