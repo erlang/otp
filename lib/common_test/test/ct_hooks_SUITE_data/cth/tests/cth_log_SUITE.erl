@@ -40,6 +40,7 @@ suite() ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    application:start(sasl),
     Gen = spawn(fun() -> gen() end),
     [{gen,Gen}|Config].
 
@@ -52,6 +53,7 @@ end_per_suite(Config) ->
     Gen = proplists:get_value(gen, Config),
     exit(Gen, kill),
     ct:sleep(100),
+    application:stop(sasl),
     ok.
 
 %%--------------------------------------------------------------------
@@ -90,7 +92,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 groups() ->
-    [{g1,[parallel,{repeat,10}],[tc1,tc2,tc3]}].
+    [{g1,[parallel,{repeat,10}],[tc1,tc2,tc3]},
+     {g2,[{repeat,10}],[tc1,tc2,tc3]}].
 
 %%--------------------------------------------------------------------
 %% @spec all() -> GroupsAndTestCases | {skip,Reason}
@@ -101,7 +104,7 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() -> 
-    [{group,g1}].
+    [{group,g1},{group,g2}].
 
 tc1(_) ->
     ct:sleep(100),
@@ -121,5 +124,6 @@ gen() ->
 gen_loop(N) ->
     ct:log("Logger iteration: ~p", [N]),
     error_logger:error_report(N),
-    ct:sleep(200),
+    error_logger:info_report(progress, N),
+    ct:sleep(150),
     gen_loop(N+1).
