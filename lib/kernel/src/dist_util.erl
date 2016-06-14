@@ -355,7 +355,9 @@ connection(#hs_data{other_node = Node,
 			      Socket,
 			      PType,
 			      HSData#hs_data.mf_tick,
-			      HSData#hs_data.mf_getstat},
+			      HSData#hs_data.mf_getstat,
+			      HSData#hs_data.mf_setopts,
+			      HSData#hs_data.mf_getopts},
 			     #tick{});
 		_ ->
 		    ?shutdown2(Node, connection_setup_failed)
@@ -452,7 +454,7 @@ mark_nodeup(#hs_data{kernel_pid = Kernel,
 	    ?shutdown(Node)
     end.
 
-con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat}=ConData,
+con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=ConData,
 	 Tick) ->
     receive
 	{tcp_closed, Socket} ->
@@ -487,7 +489,21 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat}=ConData,
 		    con_loop(ConData, Tick);
 		_ ->
 		    ?shutdown2(Node, get_status_failed)
-	    end
+	    end;
+	{From, Ref, {setopts, Opts}} ->
+	    Ret = case MFSetOpts of
+		      undefined -> {error, enotsup};
+		      _ -> MFSetOpts(Socket, Opts)
+		  end,
+	    From ! {Ref, Ret},
+	    con_loop(ConData, Tick);
+	{From, Ref, {getopts, Opts}} ->
+	    Ret = case MFGetOpts of
+		      undefined -> {error, enotsup};
+		      _ -> MFGetOpts(Socket, Opts)
+		  end,
+	    From ! {Ref, Ret},
+	    con_loop(ConData, Tick)
     end.
 
 
