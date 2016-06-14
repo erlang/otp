@@ -256,7 +256,7 @@ unavailable(Config) when is_list(Config) ->
 
 restart(Config) when is_list(Config) ->
     ok = application:set_env(os_mon, start_cpu_sup, true),
-    {ok, _Pid} = supervisor:restart_child(os_mon_sup, cpu_sup),
+    supervisor:restart_child(os_mon_sup, cpu_sup),
     ok.
 
 %% Aux

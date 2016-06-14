@@ -149,7 +149,7 @@ TESTCASE(round_trip_conversion)
 
     {
 	int v;
-	for (v = 8; v; v <<= 1) {
+	for (v = 8, n = 0; n < (sizeof(v)*8-4-1); v <<= 1, n++) {
 	    for (i=-4; i<4; i++) {
 		encode_decode(erl_mk_int(v+i), "INT");
 		encode_decode(erl_mk_int(-(v+i)), "NEG INT");
@@ -166,7 +166,7 @@ TESTCASE(round_trip_conversion)
     }
     {
 	long long v;
-	for (v = 8; v; v <<= 1) {
+	for (v = 8, n = 0; n < (sizeof(v)*8-4-1); v <<= 1, n++) {
 	    for (i=-4; i<4; i++) {
 		encode_decode(erl_mk_longlong(v+i), "LONGLONG");
 		encode_decode(erl_mk_longlong(-(v+i)), "NEG LONGLONG");

@@ -232,6 +232,14 @@ do_recv(Sock, Bs) ->
           that receives messages from the socket. If called by any other
           process than the current controlling process,
           <c>{error, not_owner}</c> is returned.</p>
+          <p>If the socket is set in active mode, this function
+          will transfer any messages in the mailbox of the caller
+          to the new controlling process.
+          If any other process is interacting with the socket while
+          the transfer is happening, the transfer may not work correctly
+          and messages may remain in the caller's mailbox. For instance
+          changing the sockets active mode before the transfere is complete
+          may cause this.</p>
       </desc>
     </func>
 

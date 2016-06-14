@@ -21,7 +21,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 %% Test cases
 -export([app_file/1, appup_file/1, config/1]).
@@ -35,6 +35,13 @@ all() ->
         {unix, sunos} -> [app_file, appup_file, config];
         _OS -> [app_file, appup_file]
     end.
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    application:stop(os_mon),
+    ok.
 
 %% Testing .app file
 app_file(Config) when is_list(Config) ->

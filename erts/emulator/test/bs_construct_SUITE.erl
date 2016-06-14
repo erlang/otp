@@ -23,6 +23,7 @@
 -module(bs_construct_SUITE).
 
 -export([all/0, suite/0,
+         init_per_suite/1, end_per_suite/1,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
 	 mem_leak/1, coerce_to_float/1, bjorn/1,
@@ -42,6 +43,12 @@ all() ->
      huge_float_field, huge_binary, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_add_overflow].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    application:stop(os_mon).
 
 big(1) ->
     57285702734876389752897683.
@@ -882,10 +889,14 @@ append_unit_16(Bin) ->
 
 %% Produce a large result of bs_add that, if cast to signed int, would overflow
 %% into a negative number that fits a smallnum.
-bs_add_overflow(Config) ->
+bs_add_overflow(_Config) ->
+    Memsize = memsize(),
+    io:format("Memsize = ~w Bytes~n", [Memsize]),
     case erlang:system_info(wordsize) of
 	8 ->
 	    {skip, "64-bit architecture"};
+        _ when Memsize < (2 bsl 30) ->
+	    {skip, "Less then 2 GB of memory"};
 	4 ->
 	    Large = <<0:((1 bsl 30)-1)>>,
 	    {'EXIT',{system_limit,_}} =
@@ -894,5 +905,10 @@ bs_add_overflow(Config) ->
                          Large/bits>>),
 	    ok
     end.
-    
+
 id(I) -> I.
+
+memsize() ->
+    application:ensure_all_started(os_mon),
+    {Tot,_Used,_}  = memsup:get_memory_data(),
+    Tot.

@@ -187,8 +187,13 @@ bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
     {ok, NodeSend} = start_node(bulk_sender, "+zdbbl " ++ integer_to_list(BusyBufSize)),
     _Send = spawn(NodeSend, erlang, apply, [fun sendersender/4, [self(), Recv, Bin, Terms]]),
     {Elapsed, {_TermsN, SizeN}, MonitorCount} =
-    receive {sendersender, BigRes} ->
-                BigRes
+    receive
+        %% On some platforms (windows), the time taken is 0 so we
+        %% simulate that some little time has passed.
+        {sendersender, {0.0,T,MC}} ->
+            {0.0015, T, MC};
+        {sendersender, BigRes} ->
+            BigRes
     end,
     stop_node(NodeRecv),
     stop_node(NodeSend),
@@ -1042,10 +1047,13 @@ atom_roundtrip_r15b(Config) when is_list(Config) ->
             ct:timetrap({minutes, 6}),
             AtomData = atom_data(),
             verify_atom_data(AtomData),
-            {ok, Node} = start_node(Config, [], "r15b"),
-            do_atom_roundtrip(Node, AtomData),
-            stop_node(Node),
-            ok;
+            case start_node(Config, [], "r15b") of
+                {ok, Node} ->
+                    do_atom_roundtrip(Node, AtomData),
+                    stop_node(Node);
+                {error, timeout} ->
+                    {skip,"Unable to start OTP R15B release"}
+            end;
         false ->
             {skip,"No OTP R15B available"}
     end.

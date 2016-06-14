@@ -413,7 +413,7 @@ use_interface(Config) when is_list(Config) ->
 		NH1,
 		fun() ->
 			[inet:sockname(P) ||
-			    P <- erlang:ports(),
+			    P <- inet_ports(),
 			    {ok, Port} =:= (catch inet:port(P))]
 		end),
     %% And check that it's actually listening on localhost.
@@ -705,9 +705,11 @@ try_setting_priority(TestFun, Config) ->
 get_socket_priorities() ->
     [Priority ||
 	{ok,[{priority,Priority}]} <-
-	    [inet:getopts(Port, [priority]) ||
-		Port <- erlang:ports(),
-		element(2, erlang:port_info(Port, name)) =:= "tcp_inet"]].
+	    [inet:getopts(Port, [priority]) || Port <- inet_ports()]].
+
+inet_ports() ->
+     [Port || Port <- erlang:ports(),
+              element(2, erlang:port_info(Port, name)) =:= "tcp_inet"].
 
 %%
 %% test_server side api

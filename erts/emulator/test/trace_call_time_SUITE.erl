@@ -351,7 +351,7 @@ combo(Config) when is_list(Config) ->
 %% Tests tracing of bifs
 bif(Config) when is_list(Config) ->
     P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    M = 1000000,
+    M = 5000000,
     %%
     2 = erlang:trace_pattern({erlang, binary_to_term, '_'}, true, [call_time]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_time]),
@@ -381,7 +381,7 @@ bif(Config) when is_list(Config) ->
 nif(Config) when is_list(Config) ->
     load_nif(Config),
     P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    M = 1000000,
+    M = 5000000,
     %%
     1 = erlang:trace_pattern({?MODULE, nif_dec,  '_'}, true, [call_time]),
     1 = erlang:trace_pattern({?MODULE, with_nif, '_'}, true, [call_time]),
