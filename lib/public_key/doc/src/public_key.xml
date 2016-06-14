@@ -701,6 +701,23 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
  </func>
    
   <func>
+    <name>pkix_match_dist_point(CRL, DistPoint) -> boolean()</name>
+    <fsummary>Checks whether the given distribution point matches the
+    Issuing Distribution Point of the CRL.</fsummary>
+
+    <type>
+      <v>CRL = der_encoded() | #'CertificateList'{} </v>
+      <v>DistPoint = #'DistributionPoint'{}</v>
+    </type>
+    <desc>
+      <p>Checks whether the given distribution point matches the
+      Issuing Distribution Point of the CRL, as described in RFC 5280.
+      If the CRL doesn't have an Issuing Distribution Point extension,
+      the distribution point always matches.</p>
+    </desc>
+  </func>
+
+  <func>
     <name>pkix_sign(#'OTPTBSCertificate'{}, Key) -> der_encoded()</name>
     <fsummary>Signs certificate.</fsummary>
     <type>
@@ -819,7 +836,26 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <p>Verifies a digital signature.</p>
   </desc> 
   </func>
-  
+
+  <func>
+    <name>short_name_hash(Name) -> string()</name>
+    <type>
+      <v>Name = issuer_name()</v>
+    </type>
+    <desc>
+      <p>Generates a short hash of an issuer name.  The hash is
+      returned as a string containing eight hexadecimal digits.</p>
+
+      <p>The return value of this function is the same as the result
+      of the commands <c>openssl crl -hash</c> and
+      <c>openssl x509 -issuer_hash</c>, when passed the issuer name of
+      a CRL or a certificate, respectively.  This hash is used by the
+      <c>c_rehash</c> tool to maintain a directory of symlinks to CRL
+      files, in order to facilitate looking up a CRL by its issuer
+      name.</p>
+    </desc>
+  </func>
+
 </funcs>
 
 </erlref>

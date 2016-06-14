@@ -53,8 +53,10 @@
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
 	 pkix_dist_points/1,
+	 pkix_match_dist_point/2,
 	 pkix_crl_verify/2,
-	 pkix_crl_issuer/1
+	 pkix_crl_issuer/1,
+	 short_name_hash/1
 	]).
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
@@ -524,6 +526,38 @@ pkix_dist_points(OtpCert) ->
 		[], Value).
 
 %%--------------------------------------------------------------------
+-spec pkix_match_dist_point(der_encoded() | #'CertificateList'{},
+			    #'DistributionPoint'{}) -> boolean().
+%% Description: Check whether the given distribution point matches
+%% the "issuing distribution point" of the CRL.
+%%--------------------------------------------------------------------
+pkix_match_dist_point(CRL, DistPoint) when is_binary(CRL) ->
+    pkix_match_dist_point(der_decode('CertificateList', CRL), DistPoint);
+pkix_match_dist_point(#'CertificateList'{},
+		      #'DistributionPoint'{distributionPoint = asn1_NOVALUE}) ->
+    %% No distribution point name specified - that's considered a match.
+    true;
+pkix_match_dist_point(#'CertificateList'{
+			 tbsCertList =
+			     #'TBSCertList'{
+				crlExtensions = Extensions}},
+		      #'DistributionPoint'{
+			 distributionPoint = {fullName, DPs}}) ->
+    case pubkey_cert:select_extension(?'id-ce-issuingDistributionPoint', Extensions) of
+	undefined ->
+	    %% If the CRL doesn't have an IDP extension, it
+	    %% automatically qualifies.
+	    true;
+	#'Extension'{extnValue = IDPValue} ->
+	    %% If the CRL does have an IDP extension, it must match
+	    %% the given DistributionPoint to be considered a match.
+	    IDPEncoded = der_decode('IssuingDistributionPoint', IDPValue),
+	    #'IssuingDistributionPoint'{distributionPoint = {fullName, IDPs}} =
+		pubkey_cert_records:transform(IDPEncoded, decode),
+	    pubkey_crl:match_one(IDPs, DPs)
+    end.
+
+%%--------------------------------------------------------------------
 -spec pkix_sign(#'OTPTBSCertificate'{},
 		rsa_private_key() | dsa_private_key()) -> Der::binary().
 %%
@@ -783,6 +817,17 @@ ssh_curvename2oid(<<"nistp521">>) ->  ?'secp521r1'.
 oid2ssh_curvename(?'secp256r1') -> <<"nistp256">>;
 oid2ssh_curvename(?'secp384r1') -> <<"nistp384">>;
 oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
+
+%%--------------------------------------------------------------------
+-spec short_name_hash({rdnSequence, [#'AttributeTypeAndValue'{}]}) ->
+			     string().
+
+%% Description: Generates OpenSSL-style hash of a name.
+%%--------------------------------------------------------------------
+short_name_hash({rdnSequence, _Attributes} = Name) ->
+    HashThis = encode_name_for_short_hash(Name),
+    <<HashValue:32/little, _/binary>> = crypto:hash(sha, HashThis),
+    string:to_lower(string:right(integer_to_list(HashValue, 16), 8, $0)).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1047,3 +1092,74 @@ ec_key({PubKey, PrivateKey}, Params) ->
 		    parameters = Params,
 		    publicKey = PubKey}.
 
+encode_name_for_short_hash({rdnSequence, Attributes0}) ->
+    Attributes = lists:map(fun normalise_attribute/1, Attributes0),
+    {Encoded, _} = 'OTP-PUB-KEY':'enc_RDNSequence'(Attributes, []),
+    Encoded.
+
+%% Normalise attribute for "short hash".  If the attribute value
+%% hasn't been decoded yet, decode it so we can normalise it.
+normalise_attribute([#'AttributeTypeAndValue'{
+                        type = _Type,
+                        value = Binary} = ATV]) when is_binary(Binary) ->
+    case pubkey_cert_records:transform(ATV, decode) of
+	#'AttributeTypeAndValue'{value = Binary} ->
+	    %% Cannot decode attribute; return original.
+	    [ATV];
+	DecodedATV = #'AttributeTypeAndValue'{} ->
+	    %% The new value will either be String or {Encoding,String}.
+	    normalise_attribute([DecodedATV])
+    end;
+normalise_attribute([#'AttributeTypeAndValue'{
+                        type = _Type,
+                        value = {Encoding, String}} = ATV])
+  when
+      Encoding =:= utf8String;
+      Encoding =:= printableString;
+      Encoding =:= teletexString;
+      Encoding =:= ia5String ->
+    %% These string types all give us something that the unicode
+    %% module understands.
+    NewValue = normalise_attribute_value(String),
+    [ATV#'AttributeTypeAndValue'{value = NewValue}];
+normalise_attribute([#'AttributeTypeAndValue'{
+                        type = _Type,
+                        value = String} = ATV]) when is_list(String) ->
+    %% A string returned by pubkey_cert_records:transform/2, for
+    %% certain attributes that commonly have incorrect value types.
+    NewValue = normalise_attribute_value(String),
+    [ATV#'AttributeTypeAndValue'{value = NewValue}].
+
+normalise_attribute_value(String) ->
+    Converted = unicode:characters_to_binary(String),
+    NormalisedString = normalise_string(Converted),
+    %% We can't use the encoding function for the actual type of the
+    %% attribute, since some of them don't allow utf8Strings, which is
+    %% the required encoding when creating the hash.
+    {NewBinary, _} = 'OTP-PUB-KEY':'enc_X520CommonName'({utf8String, NormalisedString}, []),
+    NewBinary.
+
+normalise_string(String) ->
+    %% Normalise attribute values as required for "short hashes", as
+    %% implemented by OpenSSL.
+
+    %% Remove ASCII whitespace from beginning and end.
+    TrimmedLeft = re:replace(String, "^[\s\f\n\r\t\v]+", "", [unicode, global]),
+    TrimmedRight = re:replace(TrimmedLeft, "[\s\f\n\r\t\v]+$", "", [unicode, global]),
+    %% Convert multiple whitespace characters to a single space.
+    Collapsed = re:replace(TrimmedRight, "[\s\f\n\r\t\v]+", "\s", [unicode, global]),
+    %% Convert ASCII characters to lowercase
+    Lower = ascii_to_lower(Collapsed),
+    %% And we're done!
+    Lower.
+
+ascii_to_lower(String) ->
+    %% Can't use string:to_lower/1, because that changes Latin-1
+    %% characters as well.
+    << <<(if $A =< C, C =< $Z ->
+                  C + ($a - $A);
+             true ->
+                  C
+          end)>>
+       ||
+        <<C>> <= iolist_to_binary(String) >>.
