@@ -169,7 +169,7 @@ init_per_testcase(TestCase, Config) when TestCase == ciphers_rsa_signed_certs;
     special_init(TestCase, Config);
 
 init_per_testcase(TestCase, Config) ->
-    ct:timetrap({seconds, 10}),
+    ct:timetrap({seconds, 20}),
     special_init(TestCase, Config).
 
 special_init(TestCase, Config)
