@@ -2115,32 +2115,36 @@ profile_runnable_proc(Process *p, Eterm status){
     Eterm *hp, msg;
     Eterm where = am_undefined;
     ErlHeapFragment *bp = NULL;
-    int use_current = 1;
+    BeamInstr *current = NULL;
 
 #ifndef ERTS_SMP
 #define LOCAL_HEAP_SIZE (4 + 6 + ERTS_TRACE_PATCH_TS_MAX_SIZE)
-
     DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
     UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 
     hp = local_heap;
 #else
+    ErtsThrPrgrDelayHandle dhndl;
     Uint hsz = 4 + 6 + patch_ts_size(erts_system_profile_ts_type)-1;
 #endif
-	
-    if (ERTS_PROC_IS_EXITING(p)) {
-        use_current = 0;
-        /* could probably set 'where' to 'exiting' here,
-         * though it's not documented as such */
-    } else {
-        if (!p->current) {
-            p->current = find_function_from_pc(p->i);
+    /* Assumptions:
+     * We possibly don't have the MAIN_LOCK for the process p here.
+     * We assume that we can read from p->current and p->i atomically
+     */
+#ifdef ERTS_SMP
+    dhndl = erts_thr_progress_unmanaged_delay(); /* suspend purge operations */
+#endif
+
+    if (!ERTS_PROC_IS_EXITING(p)) {
+        if (p->current) {
+            current = p->current;
+        } else {
+            current = find_function_from_pc(p->i);
         }
-        use_current = p->current != NULL;
     }
 
 #ifdef ERTS_SMP
-    if (!use_current) {
+    if (!current) {
 	hsz -= 4;
     }
 
@@ -2148,11 +2152,15 @@ profile_runnable_proc(Process *p, Eterm status){
     hp = bp->mem;
 #endif
 
-    if (use_current) {
-	where = TUPLE3(hp, p->current[0], p->current[1], make_small(p->current[2])); hp += 4;
+    if (current) {
+	where = TUPLE3(hp, current[0], current[1], make_small(current[2])); hp += 4;
     } else {
 	where = make_small(0);
     }
+
+#ifdef ERTS_SMP
+    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
 	
     erts_smp_mtx_lock(&smq_mtx);
 
