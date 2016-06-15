@@ -41,6 +41,10 @@
 
 -define(MANY, 1000).
 -define(SOME, 50).
+-define(BASE_TIMEOUT_SECONDS, 15).
+-define(SOME_SCALE, 20).
+-define(MANY_SCALE, 20).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -167,7 +171,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_TestCase, Config) ->
-    ct:timetrap({seconds, 90}),
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS}),
     Config.
 
 
@@ -182,6 +186,7 @@ packet_raw_passive_many_small() ->
     [{doc,"Test packet option {packet, raw} in passive mode."}].
 
 packet_raw_passive_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, raw}",
     packet(Config, Data, send, passive_raw, ?MANY, raw, false).
 
@@ -191,6 +196,7 @@ packet_raw_passive_some_big() ->
     [{doc,"Test packet option {packet, raw} in passive mode."}].
 
 packet_raw_passive_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, passive_raw, ?SOME, raw, false).
 %%--------------------------------------------------------------------
@@ -198,6 +204,7 @@ packet_0_passive_many_small() ->
     [{doc,"Test packet option {packet, 0} in passive mode."}].
 
 packet_0_passive_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 0}, equivalent to packet raw.",
     packet(Config, Data, send, passive_raw, ?MANY, 0, false).
 
@@ -206,6 +213,7 @@ packet_0_passive_some_big() ->
     [{doc,"Test packet option {packet, 0} in passive mode."}].
 
 packet_0_passive_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, passive_raw, ?SOME, 0, false).
 
@@ -214,6 +222,7 @@ packet_1_passive_many_small() ->
     [{doc,"Test packet option {packet, 1} in passive mode."}].
 
 packet_1_passive_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 1}",
     packet(Config, Data, send, passive_recv_packet, ?MANY, 1, false).
 
@@ -222,6 +231,7 @@ packet_1_passive_some_big() ->
     [{doc,"Test packet option {packet, 1} in passive mode."}].
 
 packet_1_passive_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(255, "1")),
     packet(Config, Data, send, passive_recv_packet, ?SOME, 1, false).
 
@@ -230,6 +240,7 @@ packet_2_passive_many_small() ->
     [{doc,"Test packet option {packet, 2} in passive mode"}].
 
 packet_2_passive_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 2}",
     packet(Config, Data, send, passive_recv_packet, ?MANY, 2, false).
 
@@ -238,6 +249,7 @@ packet_2_passive_some_big() ->
     [{doc,"Test packet option {packet, 2} in passive mode"}].
 
 packet_2_passive_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, passive_recv_packet, ?SOME, 2, false).
 
@@ -246,6 +258,7 @@ packet_4_passive_many_small() ->
     [{doc,"Test packet option {packet, 4} in passive mode"}].
 
 packet_4_passive_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 4}",
     packet(Config, Data, send, passive_recv_packet, ?MANY, 4, false).
 
@@ -254,6 +267,7 @@ packet_4_passive_some_big() ->
     [{doc,"Test packet option {packet, 4} in passive mode"}].
 
 packet_4_passive_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, passive_recv_packet, ?SOME, 4, false).
 
@@ -270,6 +284,7 @@ packet_raw_active_once_some_big() ->
     [{doc,"Test packet option {packet, raw} in active once mode."}].
 
 packet_raw_active_once_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send_raw, active_once_raw, ?SOME, raw, once).
 
@@ -278,6 +293,7 @@ packet_0_active_once_many_small() ->
     [{doc,"Test packet option {packet, 0} in active once mode."}].
 
 packet_0_active_once_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 0}",
     packet(Config, Data, send_raw, active_once_raw, ?MANY, 0, once).
 
@@ -286,6 +302,7 @@ packet_0_active_once_some_big() ->
     [{doc,"Test packet option {packet, 0} in active once mode."}].
 
 packet_0_active_once_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send_raw, active_once_raw, ?SOME, 0, once).
 
@@ -302,6 +319,7 @@ packet_1_active_once_some_big() ->
     [{doc,"Test packet option {packet, 1} in active once mode."}].
 
 packet_1_active_once_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(255, "1")),
     packet(Config, Data, send, active_once_packet, ?SOME, 1, once).
 
@@ -311,6 +329,7 @@ packet_2_active_once_many_small() ->
     [{doc,"Test packet option {packet, 2} in active once mode"}].
 
 packet_2_active_once_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 2}",
     packet(Config, Data, send, active_once_packet, ?MANY, 2, once).
 
@@ -319,6 +338,7 @@ packet_2_active_once_some_big() ->
     [{doc,"Test packet option {packet, 2} in active once mode"}].
 
 packet_2_active_once_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, active_once_raw, ?SOME, 2, once).
 
@@ -328,6 +348,7 @@ packet_4_active_once_many_small() ->
 
 packet_4_active_once_many_small(Config) when is_list(Config) ->
     Data = "Packet option is {packet, 4}",
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     packet(Config, Data, send, active_once_packet, ?MANY, 4, once).
 
 %%--------------------------------------------------------------------
@@ -335,6 +356,7 @@ packet_4_active_once_some_big() ->
     [{doc,"Test packet option {packet, 4} in active once mode"}].
 
 packet_4_active_once_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, active_once_packet, ?SOME, 4, once).
 
@@ -343,6 +365,7 @@ packet_raw_active_many_small() ->
     [{doc,"Test packet option {packet, raw} in active mode."}].
 
 packet_raw_active_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, raw}",
     packet(Config, Data, send_raw, active_raw, ?MANY, raw, true).
 
@@ -351,6 +374,7 @@ packet_raw_active_some_big() ->
     [{doc,"Test packet option {packet, raw} in active mode."}].
 
 packet_raw_active_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send_raw, active_raw, ?SOME, raw, true).
 
@@ -359,6 +383,7 @@ packet_0_active_many_small() ->
     [{doc,"Test packet option {packet, 0} in active mode."}].
 
 packet_0_active_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 0}",
     packet(Config, Data, send_raw, active_raw, ?MANY, 0, true).
 
@@ -375,6 +400,7 @@ packet_1_active_many_small() ->
     [{doc,"Test packet option {packet, 1} in active mode."}].
 
 packet_1_active_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 1}",
     packet(Config, Data, send, active_packet, ?MANY, 1, true).
 
@@ -383,6 +409,7 @@ packet_1_active_some_big() ->
     [{doc,"Test packet option {packet, 1} in active mode."}].
 
 packet_1_active_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(255, "1")),
     packet(Config, Data, send, active_packet, ?SOME, 1, true).
 
@@ -391,6 +418,7 @@ packet_2_active_many_small() ->
     [{doc,"Test packet option {packet, 2} in active mode"}].
 
 packet_2_active_many_small(Config) when is_list(Config) ->
+      ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 2}",
     packet(Config, Data, send, active_packet, ?MANY, 2, true).
 
@@ -407,6 +435,7 @@ packet_4_active_many_small() ->
     [{doc,"Test packet option {packet, 4} in active mode"}].
 
 packet_4_active_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, 4}",
     packet(Config, Data, send, active_packet, ?MANY, 4, true).
 
@@ -415,6 +444,7 @@ packet_4_active_some_big() ->
     [{doc,"Test packet option {packet, 4} in active mode"}].
 
 packet_4_active_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, active_packet, ?SOME, 4, true).
 
