@@ -971,7 +971,7 @@ resulting regexp is surrounded by \\_< and \\_>."
 (defvar erlang-defun-prompt-regexp (concat "^" erlang-atom-regexp "\\s *(")
   "Regexp which should match beginning of a clause.")
 
-(defvar erlang-file-name-extension-regexp "\\.[eh]rl$"
+(defvar erlang-file-name-extension-regexp "\\.erl$"
   "*Regexp which should match an Erlang file name.
 
 This regexp is used when an Erlang module name is extracted from the
@@ -1291,6 +1291,11 @@ Unfortunately, XEmacs hasn't got support for a special Font
 Lock syntax table.  The effect is that `apply' in the atom
 `foo_apply' will be highlighted as a bif.")
 
+(defvar erlang-replace-etags-tags-completion-table nil
+  "Internal flag used by advice `erlang-replace-tags-table'.
+This is non-nil when `etags-tags-completion-table' should be
+replaced by `erlang-etags-tags-completion-table'.")
+
 
 ;;; Avoid errors while compiling this file.
 
@@ -1353,6 +1358,10 @@ Lock syntax table.  The effect is that `apply' in the atom
   (if (fboundp 'called-interactively-p)
       (called-interactively-p 'interactive)
     (funcall (symbol-function 'interactive-p))))
+
+(unless (fboundp 'prog-mode)
+  (defun prog-mode ()
+    (use-local-map (make-keymap))))
 
 ;;;###autoload
 (define-derived-mode erlang-mode prog-mode "Erlang"
@@ -1539,7 +1548,9 @@ Other commands:
   (set (make-local-variable 'outline-regexp) "[[:lower:]0-9_]+ *(.*) *-> *$")
   (set (make-local-variable 'outline-level) (lambda () 1))
   (set (make-local-variable 'add-log-current-defun-function)
-       'erlang-current-defun))
+       'erlang-current-defun)
+  (set (make-local-variable 'find-tag-default-function)
+       'erlang-find-tag-for-completion))
 
 (defun erlang-font-lock-init ()
   "Initialize Font Lock for Erlang mode."
@@ -4358,10 +4369,10 @@ works under XEmacs.)"
 	 (require 'etags)
 	 ;; Test on a function available in the Emacs 19 version
 	 ;; of tags but not in the XEmacs version.
-	 (if (not (fboundp 'find-tag-noselect))
-	     ()
+         (when (fboundp 'find-tag-noselect)
 	   (erlang-tags-define-keys (current-local-map))
 	   (setq erlang-tags-installed t)))))
+
 
 
 ;; Set all keys bound to `find-tag' et.al. in the global map and the
@@ -4385,10 +4396,6 @@ works under XEmacs.)"
   (erlang-menu-substitute erlang-menu-base-items erlang-tags-function-alist)
   (erlang-menu-init))
 
-
-;; There exists a variable `find-tag-default-function'.  It is not used
-;; since `complete-tag' uses it to get current word under point.  In that
-;; situation we don't want the module to be prepended.
 
 (defun erlang-find-tag-default ()
   "Return the default tag.
@@ -4766,25 +4773,29 @@ for a tag on the form `module:tag'."
 ;;;
 ;;; The basic idea is to create a second completion table `erlang-tags-
 ;;; completion-table' containing all normal tags plus tags on the form
-;;; `module:tag'.
+;;; `module:tag' and `module:'.
 
-
-(when (and (fboundp 'etags-tags-completion-table)
+;; PENDING - Should probably make use of the
+;; `completion-at-point-functions' hook instead of this advice.
+(when (and (locate-library "etags")
+           (require 'etags)
+           (fboundp 'etags-tags-completion-table)
            (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
   (if (fboundp 'advice-add)
       ;; Emacs 24.4+
       (advice-add 'etags-tags-completion-table :around
                   (lambda (oldfun)
-                    (if (eq find-tag-default-function 'erlang-find-tag-for-completion)
+                    (if erlang-replace-etags-tags-completion-table
                         (erlang-etags-tags-completion-table)
                       (funcall oldfun)))
                   (list :name 'erlang-replace-tags-table))
     ;; Emacs 23.1-24.3
-    (defadvice etags-tags-completion-table (around erlang-replace-tags-table activate)
-      (if (eq find-tag-default-function 'erlang-find-tag-for-completion)
+    (defadvice etags-tags-completion-table (around
+                                            erlang-replace-tags-table
+                                            activate)
+      (if erlang-replace-etags-tags-completion-table
           (setq ad-return-value (erlang-etags-tags-completion-table))
         ad-do-it))))
-
 
 (defun erlang-complete-tag ()
   "Perform tags completion on the text around point.
@@ -4799,23 +4810,19 @@ about Erlang modules."
   (cond ((and erlang-tags-installed
               (fboundp 'etags-tags-completion-table)
               (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
-         ;; This depends on the advice called
-         ;; erlang-replace-tags-table above.  It is not enough to
-         ;; let-bind tags-completion-table-function since that may be
-         ;; overwritten in etags-recognize-tags-table.
-         (let ((find-tag-default-function 'erlang-find-tag-for-completion))
+         (let ((erlang-replace-etags-tags-completion-table t))
            (complete-tag)))
         ((and erlang-tags-installed
-	      (fboundp 'complete-tag)
-              (fboundp 'tags-complete-tag)) ; Emacs 19
+              (fboundp 'complete-tag)
+              (fboundp 'tags-complete-tag)) ; Emacs 19-22
 	 (let ((orig-tags-complete-tag (symbol-function 'tags-complete-tag)))
 	   (fset 'tags-complete-tag
 	     (symbol-function 'erlang-tags-complete-tag))
 	   (unwind-protect
-	       (funcall (symbol-function 'complete-tag))
+               (complete-tag)
 	     (fset 'tags-complete-tag orig-tags-complete-tag))))
 	((fboundp 'complete-tag)	; Emacs 19
-	 (funcall (symbol-function 'complete-tag)))
+         (complete-tag))
 	((fboundp 'tag-complete-symbol)	; XEmacs
 	 (funcall (symbol-function 'tag-complete-symbol)))
 	(t
@@ -4830,19 +4837,22 @@ about Erlang modules."
       (buffer-substring-no-properties start (point)))))
 
 
-
 ;; Based on `tags-complete-tag', but this one uses
 ;; `erlang-tags-completion-table' instead of `tags-completion-table'.
 ;;
 ;; This is the entry-point called by system function `completing-read'.
+;;
+;; Used for minibuffer completion in Emacs 19-24 and completion in
+;; erlang buffers in Emacs 19-22.
 (defun erlang-tags-complete-tag (string predicate what)
-  (save-excursion
-    ;; If we need to ask for the tag table, allow that.
-    (let ((enable-recursive-minibuffers t))
-      (visit-tags-table-buffer))
+  (with-current-buffer (window-buffer (minibuffer-selected-window))
+    (save-excursion
+      ;; If we need to ask for the tag table, allow that.
+      (let ((enable-recursive-minibuffers t))
+        (visit-tags-table-buffer))
     (if (eq what t)
 	(all-completions string (erlang-tags-completion-table) predicate)
-      (try-completion string (erlang-tags-completion-table) predicate))))
+      (try-completion string (erlang-tags-completion-table) predicate)))))
 
 
 ;; `tags-completion-table' calls itself recursively, make it
@@ -4860,7 +4870,6 @@ about Erlang modules."
     (fset 'tags-completion-table
 	  erlang-tags-orig-completion-table)))
 
-
 (defun erlang-tags-completion-table-1 ()
   (make-local-variable 'erlang-tags-completion-table)
   (or erlang-tags-completion-table
@@ -4871,58 +4880,61 @@ about Erlang modules."
 	(setq erlang-tags-completion-table tags-completion-table))))
 
 
+
+;; Emacs 25 expects this function to return a list (and it is ok for
+;; it to include duplicates).  Older emacsen expects an obarray.
+(defun erlang-etags-tags-completion-table ()
+  (if (>= emacs-major-version 25)
+      (erlang-etags-tags-completion-table-list)
+    (let ((obarray (make-vector 511 0)))
+      (dolist (tag (erlang-etags-tags-completion-table-list))
+        (intern tag obarray))
+      obarray)))
+
 ;; Based on `etags-tags-completion-table'.  The difference is that we
-;; add three symbols to the vector, the tag, module: and module:tag.
+;; add three strings to the list, the tag, module: and module:tag.
 ;; The module is extracted from the file name of a tag.  (This one
 ;; only works if we are looking at an `etags' file. However, this is
 ;; the only format supported by Emacs, so far.)
-(defun erlang-etags-tags-completion-table ()
-  (let ((table (make-vector 511 0))
-        (file nil)
-        (progress-reporter
-         (when (fboundp 'make-progress-reporter)
-           (make-progress-reporter
-            (format "Making erlang tags completion table for %s..." buffer-file-name)
-            (point-min) (point-max)))))
+(defun erlang-etags-tags-completion-table-list ()
+  (let ((progress-reporter
+         (make-progress-reporter
+          (format "Making tags completion table for %s..." buffer-file-name)
+          (point-min) (point-max)))
+        table module)
     (save-excursion
       (goto-char (point-min))
-      ;; This monster regexp matches an etags tag line.
-      ;;   \1 is the string to match;
-      ;;   \2 is not interesting;
-      ;;   \3 is the guessed tag name; XXX guess should be better eg DEFUN
-      ;;   \4 is not interesting;
-      ;;   \5 is the explicitly-specified tag name.
-      ;;   \6 is the line to start searching at;
-      ;;   \7 is the char to start searching at.
       (while (progn
-               (while (and
-                       (eq (following-char) ?\f)
-                       (looking-at "\f\n\\([^,\n]*\\),.*\n"))
-                 (setq file (buffer-substring
-                             (match-beginning 1) (match-end 1)))
-                 (goto-char (match-end 0)))
+               (while (and (eq (following-char) ?\f)
+                           (looking-at "\f\n\\([^,\n]*\\),.*\n"))
+                 (let ((file (buffer-substring (match-beginning 1)
+                                               (match-end 1))))
+                   (setq module (erlang-get-module-from-file-name file))
+                   (when module
+                     (push (concat module ":") table)
+                     (push (concat module ":module_info") table))
+                   (forward-line 2)))
+               ;; This regexp matches an explicit tag name or the
+               ;; place where it would start.
                (re-search-forward
-                "\
-^\\(\\([^\177]+[^-a-zA-Z0-9_$\177]+\\)?\\([-a-zA-Z0-9_$?:]+\\)\
-\[^-a-zA-Z0-9_$?:\177]*\\)\177\\(\\([^\n\001]+\\)\001\\)?\
-\\([0-9]+\\)?,\\([0-9]+\\)?\n"
+                "[\f\t\n\r()=,; ]?\177\\\(?:\\([^\n\001]+\\)\001\\)?"
                 nil t))
-        (let ((tag (if (match-beginning 5)
+        (let ((tag (if (match-beginning 1)
                        ;; There is an explicit tag name.
-                       (buffer-substring (match-beginning 5) (match-end 5))
-                     ;; No explicit tag name.  Best guess.
-                     (buffer-substring (match-beginning 3) (match-end 3))))
-              (module (and file
-                           (erlang-get-module-from-file-name file))))
-          (intern tag table)
+                       (buffer-substring (match-beginning 1) (match-end 1))
+                     ;; No explicit tag name.  Backtrack a little,
+                     ;; and look for the implicit one.
+                     (goto-char (match-beginning 0))
+                     (skip-chars-backward "^\f\t\n\r()=,; ")
+                     (buffer-substring (point) (match-beginning 0)))))
+          (forward-line 1)
+          (push tag table)
           (when (stringp module)
-            (intern (concat module ":" tag) table)
-            ;; Only the first ones will be stored in the table.
-            (intern (concat module ":") table)
-            (intern (concat module ":module_info") table))
-          (when progress-reporter
-            (progress-reporter-update progress-reporter (point))))))
+            (push (concat module ":" tag) table))
+          (progress-reporter-update progress-reporter (point)))))
     table))
+
+
 
 
 ;;; Xref backend erlang-etags
@@ -4963,10 +4975,12 @@ about Erlang modules."
              ((_backend (eql erlang-etags)) identifier)
            (erlang-xref-find-definitions identifier t))
 
-         ;; PENDING - This remains to be properly implemented.
          (cl-defmethod xref-backend-identifier-completion-table
              ((_backend (eql erlang-etags)))
-           (tags-lazy-completion-table)))))
+           (let ((erlang-replace-etags-tags-completion-table t))
+               (tags-completion-table))))))
+
+
 
 
 (defun erlang-xref-find-definitions (identifier &optional is-regexp)

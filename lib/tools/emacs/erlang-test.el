@@ -33,6 +33,7 @@
 
 (require 'ert)
 (require 'cl-lib)
+(require 'erlang)
 
 (defvar erlang-test-code
   '((nil . "-module(erlang_test).")
@@ -51,27 +52,28 @@ concatenated to form an erlang file to test on.")
 
 (ert-deftest erlang-test-tags ()
   (let* ((dir (make-temp-file "erlang-test" t))
-         (erlang-file (expand-file-name "erlang_test.erl" dir))
-         (tags-file (expand-file-name "TAGS" dir))
-         tags-file-name tags-table-list erlang-buffer)
-    (unwind-protect
-        (progn
-          (erlang-test-create-erlang-file erlang-file)
-          (erlang-test-compile-tags erlang-file tags-file)
-          (setq erlang-buffer (find-file-noselect erlang-file))
-          (with-current-buffer erlang-buffer
-            (setq-local tags-file-name tags-file))
-          ;; PENDING - setting global tags-file-name is a workaround
-          ;; for GNU Emacs bug23164.
-          (setq tags-file-name tags-file)
-          (erlang-test-xref-find-definitions erlang-file erlang-buffer))
-      (when (buffer-live-p erlang-buffer)
-        (kill-buffer erlang-buffer))
-      (let ((tags-buffer (find-buffer-visiting tags-file)))
-        (when (buffer-live-p tags-buffer)
-          (kill-buffer tags-buffer)))
-      (when (file-exists-p dir)
-        (delete-directory dir t)))))
+       (erlang-file (expand-file-name "erlang_test.erl" dir))
+       (tags-file (expand-file-name "TAGS" dir))
+       tags-file-name tags-table-list erlang-buffer)
+  (unwind-protect
+      (progn
+        (erlang-test-create-erlang-file erlang-file)
+        (erlang-test-compile-tags erlang-file tags-file)
+        (setq erlang-buffer (find-file-noselect erlang-file))
+        (with-current-buffer erlang-buffer
+          (setq-local tags-file-name tags-file))
+        ;; Setting global tags-file-name is a workaround for
+        ;; GNU Emacs bug#23164.
+        (setq tags-file-name tags-file)
+        (erlang-test-completion-table)
+        (erlang-test-xref-find-definitions erlang-file erlang-buffer))
+    (when (buffer-live-p erlang-buffer)
+      (kill-buffer erlang-buffer))
+    (let ((tags-buffer (find-buffer-visiting tags-file)))
+      (when (buffer-live-p tags-buffer)
+        (kill-buffer tags-buffer)))
+    (when (file-exists-p dir)
+      (delete-directory dir t)))))
 
 (defun erlang-test-create-erlang-file (erlang-file)
   (with-temp-file erlang-file
@@ -82,6 +84,19 @@ concatenated to form an erlang file to test on.")
   (should (zerop (call-process "etags" nil nil nil
                                "-o" tags-file
                                erlang-file))))
+
+(defun erlang-test-completion-table ()
+  (let ((erlang-replace-etags-tags-completion-table t))
+    (setq tags-completion-table nil)
+    (tags-completion-table))
+  (should (equal (sort tags-completion-table #'string-lessp)
+                 (sort (erlang-expected-completion-table) #'string-lessp))))
+
+(defun erlang-expected-completion-table ()
+  (append (cl-loop for (symbol . _) in erlang-test-code
+                   when (stringp symbol)
+                   append (list symbol (concat "erlang_test:" symbol)))
+          (list "erlang_test:" "erlang_test:module_info")))
 
 (defun erlang-test-xref-find-definitions (erlang-file erlang-buffer)
   (cl-loop for (tagname . code) in erlang-test-code
