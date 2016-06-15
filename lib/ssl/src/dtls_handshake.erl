@@ -24,8 +24,8 @@
 -include("ssl_alert.hrl").
 
 -export([client_hello/8, client_hello/9, hello/4,
-	 get_dtls_handshake/2,
-	 %%dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
+	 hello_verify_request/1, get_dtls_handshake/2,
+	 dtls_handshake_new_flight/1, dtls_handshake_new_epoch/1,
 	 encode_handshake/3]).
 
 -type dtls_handshake() :: #client_hello{} | #hello_verify_request{} | 
@@ -92,96 +92,135 @@ hello(#server_hello{server_version = Version, random = Random,
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
     end;
 
-hello(#client_hello{client_version = ClientVersion}, _Options, {_,_,_,_,ConnectionStates,_}, _Renegotiation) ->      
-    %% Return correct typ to make dialyzer happy until we have time to make the real imp.
-    HashSigns = tls_v1:default_signature_algs(dtls_v1:corresponding_tls_version(ClientVersion)),
-    {ClientVersion, {new, #session{}}, ConnectionStates, #hello_extensions{}, 
-     %% Placeholder for real hasign handling
-     hd(HashSigns)}.
+hello(#client_hello{client_version = ClientVersion} = Hello,
+      #ssl_options{versions = Versions} = SslOpts,
+      Info, Renegotiation) ->
+    Version = ssl_handshake:select_version(dtls_record, ClientVersion, Versions),
+    %%
+    %% TODO: handle Cipher Fallback
+    %%
+    handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation).
 
-%% hello(Address, Port,
-%%       #ssl_tls{epoch = _Epoch, sequence_number = _Seq,
-%% 	       version = Version} = Record) ->
-%%     case get_dtls_handshake(Record,
-%% 				dtls_handshake_new_flight(undefined)) of
-%% 	{[Hello | _], _} ->
-%% 	    hello(Address, Port, Version, Hello);
-%% 	{retransmit, HandshakeState} ->
-%% 	    {retransmit, HandshakeState}
-%%     end.
-					     
-%% hello(Address, Port, Version, Hello) ->
-%%     #client_hello{client_version = {Major, Minor},
-%% 		  random = Random,
-%% 		  session_id = SessionId,
-%% 		  cipher_suites = CipherSuites,
-%% 		  compression_methods = CompressionMethods} = Hello,
-%%     CookieData = [address_to_bin(Address, Port),
-%% 		  <<?BYTE(Major), ?BYTE(Minor)>>,
-%% 		  Random, SessionId, CipherSuites, CompressionMethods],
-%%     Cookie = crypto:hmac(sha, <<"secret">>, CookieData),
+-spec hello_verify_request(binary()) -> #hello_verify_request{}.
+%%
+%% Description: Creates a hello verify request message sent by server to
+%% verify client
+%%--------------------------------------------------------------------
+hello_verify_request(Cookie) ->
+    %% TODO: DTLS Versions?????
+    #hello_verify_request{protocol_version = {254, 255}, cookie = Cookie}.
 
-%%     case Hello of
-%% 	#client_hello{cookie = Cookie} ->
-%% 	    accept;
-%% 	_ ->
-%% 	    %% generate HelloVerifyRequest
-%% 	    HelloVerifyRequest = enc_hs(#hello_verify_request{protocol_version = Version,
-%% 									  cookie = Cookie},
-%% 						    Version, 0, 1400),
-%% 	    {reply, HelloVerifyRequest}
-%%     end.
+%%--------------------------------------------------------------------
 
 %% %%--------------------------------------------------------------------
 encode_handshake(Handshake, Version, MsgSeq) ->
     {MsgType, Bin} = enc_handshake(Handshake, Version),
     Len = byte_size(Bin),
-    EncHandshake = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(0), ?uint24(Len), Bin],
-    FragmentedHandshake = dtls_fragment(erlang:iolist_size(EncHandshake), MsgType, Len, MsgSeq, Bin, 0, []),
-    {EncHandshake, FragmentedHandshake}.
+    Enc = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(0), ?uint24(Len), Bin],
+    Frag = {MsgType, MsgSeq, Bin},
+    {Enc, Frag}.
 
 %%--------------------------------------------------------------------
--spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | binary()) ->
+-spec get_dtls_handshake(#ssl_tls{}, #dtls_hs_state{} | undefined) ->
 				{[dtls_handshake()], #dtls_hs_state{}} | {retransmit, #dtls_hs_state{}}.
 %%
 %% Description: Given a DTLS state and new data from ssl_record, collects
 %% and returns it as a list of handshake messages, also returns a new
 %% DTLS state
 %%--------------------------------------------------------------------
-get_dtls_handshake(Record, <<>>) ->
-    get_dtls_handshake_aux(Record, #dtls_hs_state{}); %% Init handshake state!?
-get_dtls_handshake(Record, HsState) ->
-    get_dtls_handshake_aux(Record, HsState).
+get_dtls_handshake(Records, undefined) ->
+    HsState = #dtls_hs_state{highest_record_seq = 0,
+			     starting_read_seq = 0,
+			     fragments = gb_trees:empty(),
+			     completed = []},
+    get_dtls_handshake(Records, HsState);
+get_dtls_handshake(Records, HsState0) when is_list(Records) ->
+    HsState1 = lists:foldr(fun get_dtls_handshake_aux/2, HsState0, Records),
+    get_dtls_handshake_completed(HsState1);
+get_dtls_handshake(Record, HsState0) when is_record(Record, ssl_tls) ->
+    HsState1 = get_dtls_handshake_aux(Record, HsState0),
+    get_dtls_handshake_completed(HsState1).
 
-%% %%--------------------------------------------------------------------
-%% -spec dtls_handshake_new_epoch(#dtls_hs_state{}) -> #dtls_hs_state{}.
-%% %%
-%% %% Description: Reset the DTLS decoder state for a new Epoch
-%% %%--------------------------------------------------------------------
+%%--------------------------------------------------------------------
+-spec dtls_handshake_new_epoch(#dtls_hs_state{}) -> #dtls_hs_state{}.
+%%
+%% Description: Reset the DTLS decoder state for a new Epoch
+%%--------------------------------------------------------------------
 %% dtls_handshake_new_epoch(<<>>) ->
 %%     dtls_hs_state_init();
-%% dtls_handshake_new_epoch(HsState) ->
-%%     HsState#dtls_hs_state{highest_record_seq = 0,
-%%   			  starting_read_seq = HsState#dtls_hs_state.current_read_seq,
-%%   			  fragments = gb_trees:empty(), completed = []}.
+dtls_handshake_new_epoch(HsState) ->
+    HsState#dtls_hs_state{highest_record_seq = 0,
+			  starting_read_seq = HsState#dtls_hs_state.current_read_seq,
+			  fragments = gb_trees:empty(), completed = []}.
 
-%% %--------------------------------------------------------------------
-%% -spec dtls_handshake_new_flight(integer() | undefined) -> #dtls_hs_state{}.
-%% %
-%% % Description: Init the DTLS decoder state for a new Flight
-%% dtls_handshake_new_flight(ExpectedReadReq) ->
-%%     #dtls_hs_state{current_read_seq = ExpectedReadReq,
-%% 		   highest_record_seq = 0,
-%% 		   starting_read_seq = 0,
-%% 		   fragments = gb_trees:empty(), completed = []}.
+%--------------------------------------------------------------------
+-spec dtls_handshake_new_flight(integer() | undefined) -> #dtls_hs_state{}.
+%
+% Description: Init the DTLS decoder state for a new Flight
+dtls_handshake_new_flight(ExpectedReadReq) ->
+    #dtls_hs_state{current_read_seq = ExpectedReadReq,
+		   highest_record_seq = 0,
+		   starting_read_seq = 0,
+		   fragments = gb_trees:empty(), completed = []}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+handle_client_hello(Version, #client_hello{session_id = SugesstedId,
+					   cipher_suites = CipherSuites,
+					   compression_methods = Compressions,
+					   random = Random,
+					   extensions = #hello_extensions{elliptic_curves = Curves,
+									  signature_algs = ClientHashSigns} = HelloExt},
+		    #ssl_options{versions = Versions,
+				 signature_algs = SupportedHashSigns} = SslOpts,
+		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, Renegotiation) ->
+    case dtls_record:is_acceptable_version(Version, Versions) of
+	true ->
+	    AvailableHashSigns = ssl_handshake:available_signature_algs(
+				   ClientHashSigns, SupportedHashSigns, Cert,
+				   dtls_v1:corresponding_tls_version(Version)),
+	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
+	    {Type, #session{cipher_suite = CipherSuite} = Session1}
+		= ssl_handshake:select_session(SugesstedId, CipherSuites, AvailableHashSigns, Compressions,
+					       Port, Session0#session{ecc = ECCCurve}, Version,
+					       SslOpts, Cache, CacheCb, Cert),
+	    case CipherSuite of
+		no_suite ->
+		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
+		_ ->
+		    {KeyExAlg,_,_,_} = ssl_cipher:suite_definition(CipherSuite),
+		    case ssl_handshake:select_hashsign(ClientHashSigns, Cert, KeyExAlg, SupportedHashSigns, Version) of
+			#alert{} = Alert ->
+			    Alert;
+			HashSign ->
+			    handle_client_hello_extensions(Version, Type, Random, CipherSuites, HelloExt,
+							   SslOpts, Session1, ConnectionStates0,
+							   Renegotiation, HashSign)
+		    end
+	    end;
+	false ->
+	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+    end.
+
+handle_client_hello_extensions(Version, Type, Random, CipherSuites,
+			HelloExt, SslOpts, Session0, ConnectionStates0, Renegotiation, HashSign) ->
+    try ssl_handshake:handle_client_hello_extensions(dtls_record, Random, CipherSuites,
+						     HelloExt, dtls_v1:corresponding_tls_version(Version),
+						     SslOpts, Session0, ConnectionStates0, Renegotiation) of
+	#alert{} = Alert ->
+	    Alert;
+	{Session, ConnectionStates, Protocol, ServerHelloExt} ->
+	    {Version, {Type, Session}, ConnectionStates, Protocol, ServerHelloExt, HashSign}
+    catch throw:Alert ->
+	    Alert
+    end.
+
 handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 			       Compression, HelloExt, SslOpt, ConnectionStates0, Renegotiation) ->
     case ssl_handshake:handle_server_hello_extensions(dtls_record, Random, CipherSuite,
-						      Compression, HelloExt, Version,
+						      Compression, HelloExt,
+						      dtls_v1:corresponding_tls_version(Version),
 						      SslOpt, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
 	    Alert;
@@ -189,16 +228,8 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
 
-dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc)
-  when byte_size(Bin) + 12 < Mss ->
-    FragmentLen = byte_size(Bin),
-    BinMsg = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragmentLen), Bin],
-    lists:reverse([BinMsg|Acc]);
-dtls_fragment(Mss, MsgType, Len, MsgSeq, Bin, Offset, Acc) ->
-    FragmentLen = Mss - 12,
-    <<Fragment:FragmentLen/bytes, Rest/binary>> = Bin,
-    BinMsg = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragmentLen), Fragment],
-    dtls_fragment(Mss, MsgType, Len, MsgSeq, Rest, Offset + FragmentLen, [BinMsg|Acc]).
+get_dtls_handshake_completed(HsState = #dtls_hs_state{completed = Completed}) ->
+    {lists:reverse(Completed), HsState#dtls_hs_state{completed = []}}.
 
 get_dtls_handshake_aux(#ssl_tls{version = Version,
  				sequence_number = SeqNo,
@@ -214,25 +245,18 @@ get_dtls_handshake_aux(Version, SeqNo,
     case reassemble_dtls_fragment(SeqNo, Type, Length, MessageSeq,
 				  FragmentOffset, FragmentLength,
 				  Body, HsState0) of
- 	{retransmit, HsState1} ->
- 	    case Rest of
- 		<<>> ->
- 		    {retransmit, HsState1};
- 		_ ->
- 		    get_dtls_handshake_aux(Version, SeqNo, Rest, HsState1)
- 	    end;
  	{HsState1, HighestSeqNo, MsgBody} ->
  	    HsState2 = dec_dtls_fragment(Version, HighestSeqNo, Type, Length, MessageSeq, MsgBody, HsState1),
  	    HsState3 = process_dtls_fragments(Version, HsState2),
  	    get_dtls_handshake_aux(Version, SeqNo, Rest, HsState3);
+
  	HsState2 ->
  	    HsState3 = process_dtls_fragments(Version, HsState2),
  	    get_dtls_handshake_aux(Version, SeqNo, Rest, HsState3)
      end;
 
 get_dtls_handshake_aux(_Version, _SeqNo, <<>>, HsState) ->
-     {lists:reverse(HsState#dtls_hs_state.completed),
-      HsState#dtls_hs_state{completed = []}}.
+    HsState.
 
 dec_dtls_fragment(Version, SeqNo, Type, Length, MessageSeq, MsgBody,
  		  HsState = #dtls_hs_state{highest_record_seq = HighestSeqNo, completed = Acc}) ->
@@ -297,12 +321,6 @@ reassemble_dtls_fragment(SeqNo, _Type, Length, MessageSeq, 0, Length,
     %%
     HsState = dtls_hs_state_process_seq(HsState0),
     {HsState, SeqNo, Body};
-
-reassemble_dtls_fragment(_SeqNo, _Type, Length, MessageSeq, 0, Length,
- 			 _Body, HsState =
- 			     #dtls_hs_state{current_read_seq = CurrentReadSeq})
-  when MessageSeq < CurrentReadSeq ->
-    {retransmit, HsState};
 
 reassemble_dtls_fragment(_SeqNo, _Type, Length, MessageSeq, 0, Length,
  			 _Body, HsState = #dtls_hs_state{current_read_seq = CurrentReadSeq})
@@ -419,6 +437,8 @@ enc_handshake(#hello_verify_request{protocol_version = {Major, Minor},
  			      ?BYTE(CookieLength),
  			      Cookie/binary>>};
 
+enc_handshake(#hello_request{}, _Version) ->
+    {?HELLO_REQUEST, <<>>};
 enc_handshake(#client_hello{client_version = {Major, Minor},
 			       random = Random,
 			       session_id = SessionID,

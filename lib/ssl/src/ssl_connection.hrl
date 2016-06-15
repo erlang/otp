@@ -84,7 +84,12 @@
 	  client_ecc,          % {Curves, PointFmt}
 	  tracker              :: pid() | 'undefined', %% Tracker process for listen socket
 	  sni_hostname = undefined,
-	  downgrade
+	  downgrade,
+	  flight_buffer = []   :: list()  %% Buffer of TLS/DTLS records, used during the TLS handshake
+				          %% to when possible pack more than on TLS record into the 
+                                          %% underlaying packet format. Introduced by DTLS - RFC 4347.
+				          %% The mecahnism is also usefull in TLS although we do not
+				          %% need to worry about packet loss in TLS.
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,

@@ -72,7 +72,8 @@ init_connection_states(Role, BeastMitigation) ->
     ConnectionEnd = record_protocol_role(Role),
     Current = initial_connection_state(ConnectionEnd, BeastMitigation),
     Pending = empty_connection_state(ConnectionEnd, BeastMitigation),
-    #connection_states{current_read = Current,
+    #connection_states{dtls_write_msg_seq = 1, % only used by dtls
+		       current_read = Current,
 		       pending_read = Pending,
 		       current_write = Current,
 		       pending_write = Pending
@@ -320,14 +321,25 @@ encode_handshake(Frag, Version,
 					   beast_mitigation = BeastMitigation,
 					   security_parameters =
 					       #security_parameters{bulk_cipher_algorithm = BCA}}} = 
-		     ConnectionStates) ->
+		     ConnectionStates)
+when is_list(Frag) ->
     case iolist_size(Frag) of
 	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
 	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
 	    encode_iolist(?HANDSHAKE, Data, Version, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
-    end.
+    end;
+%% TODO: this is a workarround for DTLS
+%%
+%% DTLS need to select the connection write state based on Epoch it wants to
+%% send this fragment in. That Epoch does not nessarily has to be the same
+%% as the current_write epoch.
+%% The right solution might be to pass the WriteState instead of the ConnectionStates,
+%% however, this will require substantion API changes.
+encode_handshake(Frag, Version, ConnectionStates) ->
+    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
+
 %%--------------------------------------------------------------------
 -spec encode_alert_record(#alert{}, ssl_version(), #connection_states{}) ->
 				 {iolist(), #connection_states{}}.
