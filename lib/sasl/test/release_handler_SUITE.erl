@@ -1920,7 +1920,7 @@ wait_nodes_up(Nodes, Tag) ->
 wait_nodes_up(Nodes0, Tag, Apps) ->
     ?t:format("wait_nodes_up(~p, ~p, ~p):",[Nodes0, Tag, Apps]),
     Nodes = fix_nodes(Nodes0),
-    wait_nodes_up(Nodes, Tag, lists:umerge(Apps,[kernel,stdlib,sasl]), 30).
+    wait_nodes_up(Nodes, Tag, lists:umerge(Apps,[kernel,stdlib,sasl]), 60).
 
 fix_nodes([{Node,InitPid}|Nodes]) ->
     [{Node,InitPid} | fix_nodes(Nodes)];
@@ -1962,7 +1962,7 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
 	    ?t:format("",[]),
 	    ok;
 	_ ->
-	    timer:sleep(1000),
+	    timer:sleep(2000),
 	    wait_nodes_up(Pang, Tag, Apps, N-1)
     end.
 
