@@ -428,7 +428,12 @@ init_connection(server, C = #connection{}, Opts) ->
 init_ssh_record(Role, Socket, Opts) ->
     {ok, PeerAddr} = inet:peername(Socket),
     KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
-    AuthMethods = proplists:get_value(auth_methods, Opts, ?SUPPORTED_AUTH_METHODS),
+    AuthMethods = proplists:get_value(auth_methods,
+				      Opts,
+				      case Role of
+					  server -> ?SUPPORTED_AUTH_METHODS;
+					  client -> undefined
+				      end),
     S0 = #ssh{role = Role,
 	      key_cb = KeyCb,
 	      opts = Opts,
@@ -794,9 +799,13 @@ handle_event(_, #ssh_msg_userauth_banner{message = Msg}, {userauth,client}, D) -
 
 handle_event(_, #ssh_msg_userauth_info_request{} = Msg, {userauth_keyboard_interactive, client},
 	     #data{ssh_params = Ssh0} = D) ->
-    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_info_request(Msg, Ssh0#ssh.io_cb, Ssh0),
-    send_bytes(Reply, D),
-    {next_state, {userauth_keyboard_interactive_info_response,client}, D#data{ssh_params = Ssh}};
+    case ssh_auth:handle_userauth_info_request(Msg, Ssh0) of
+	{ok, {Reply, Ssh}} ->
+	    send_bytes(Reply, D),
+	    {next_state, {userauth_keyboard_interactive_info_response,client}, D#data{ssh_params = Ssh}};
+	not_ok ->
+	    {next_state, {userauth,client}, D, [{next_event, internal, Msg}]}
+    end;
 
 handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive, server}, D) ->
     case ssh_auth:handle_userauth_info_response(Msg, D#data.ssh_params) of
@@ -819,7 +828,18 @@ handle_event(_, Msg = #ssh_msg_userauth_failure{}, {userauth_keyboard_interactiv
     D = D0#data{ssh_params = Ssh0#ssh{userauth_preference=Prefs}},
     {next_state, {userauth,client}, D, [{next_event, internal, Msg}]};
 
-handle_event(_, Msg=#ssh_msg_userauth_failure{}, {userauth_keyboard_interactive_info_response, client}, D) ->
+handle_event(_, Msg=#ssh_msg_userauth_failure{}, {userauth_keyboard_interactive_info_response, client},
+	     #data{ssh_params = Ssh0} = D0) ->
+    Opts = Ssh0#ssh.opts,
+    D = case proplists:get_value(password, Opts) of
+	    undefined ->
+		D0;
+	    _ ->
+		D0#data{ssh_params =
+			    Ssh0#ssh{opts =
+					 lists:keyreplace(password,1,Opts,
+							  {password,not_ok})}} % FIXME:intermodule dependency
+	end,
     {next_state, {userauth,client}, D, [{next_event, internal, Msg}]};
 
 handle_event(_, Msg=#ssh_msg_userauth_success{}, {userauth_keyboard_interactive_info_response, client}, D) ->
