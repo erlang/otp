@@ -121,10 +121,11 @@ $(HTMLDIR)/index.html + $(HTMLDIR)/applications.html: $(INDEX_SCRIPT) $(TEMPLATE
 # Check if we are building the index from source or an installed release
 	if test "$$RELEASE_ROOT" = "" ; then \
 		$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index src $(ERL_TOP) \
-		$(HTMLDIR) $(SYSTEM_VSN) -s erlang halt ;\
+		$(HTMLDIR) `cat "$(ERL_TOP)/OTP_VERSION"` -s erlang halt ;\
 	else \
 		$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index rel $(RELEASE_ROOT) \
-		$(HTMLDIR) $(SYSTEM_VSN) -s erlang halt ;\
+		$(HTMLDIR) `cat "$(RELEASE_ROOT)/releases/$(SYSTEM_VSN)/OTP_VERSION"` \
+		-s erlang halt ;\
 	fi
 
 

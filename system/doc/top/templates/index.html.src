@@ -22,7 +22,7 @@ limitations under the License.
 <html>
 <head>
   <link rel="stylesheet" href="otp_doc.css" type="text/css"/>
-  <title>Erlang/OTP #release#</title>
+  <title>Erlang/OTP #otp_base_vsn#</title>
 
 <script id="js" type="text/javascript" language="JavaScript" src="js/flipmenu/flipmenu.js">
 
@@ -74,7 +74,7 @@ limitations under the License.
 <div id="content">
 <div class="innertube">
 <center>
-<font size="+1"><b>Erlang/OTP #release#</b></font><br>
+<font size="+1"><b>Erlang/OTP #otp_base_vsn#</b></font><br>
 </center>
 <center>
 <p>
