@@ -59,7 +59,7 @@
 %%----------------------------------------------------------------------
 %% Macros
 %%----------------------------------------------------------------------
--define(default_timeout, ?t:minutes(15)).
+-define(default_timeout, test_server:minutes(15)).
 
 -define(match(ExpectedRes,Expr),
 	fun() ->
@@ -72,7 +72,7 @@
 		   _ ->
 		       io:format("###### ERROR ERROR ######~nRESULT:  ~p~n",
 				 [AcTuAlReS]),
-		       ?line exit(AcTuAlReS)
+		       exit(AcTuAlReS)
 	       end
        end()).
 %%----------------------------------------------------------------------
@@ -93,7 +93,7 @@ init_per_testcase(_Case, Config) ->
 
 end_per_testcase(_Case, Config) ->
     orber:jump_stop(),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -126,8 +126,7 @@ end_per_group(_GroupName, Config) ->
 %%====================================================================
 %% Test Cases
 %%====================================================================
-dual_ipv4v6(doc) ->
-    ["ORB configured for supporting both IPv4 and IPv6"];
+%% ORB configured for supporting both IPv4 and IPv6
 dual_ipv4v6(_Config) ->
     
     %% Starting slave node with ipv4 configured ORB

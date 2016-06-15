@@ -30,7 +30,7 @@
 -include_lib("orber/COSS/CosNaming/CosNaming_NamingContextExt.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming_NamingContext.hrl").
 
--define(default_timeout, ?t:minutes(15)).
+-define(default_timeout, test_server:minutes(15)).
 
 -define(match(ExpectedRes,Expr),
 	fun() ->
@@ -43,7 +43,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~nRESULT:  ~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -87,12 +87,12 @@ cases() ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -113,8 +113,7 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  Incomming connections - Deny
 %%-----------------------------------------------------------------
-deny_port_api(doc) -> ["Deny Access due to invalid local port"];
-deny_port_api(suite) -> [];
+%% Deny Access due to invalid local port
 deny_port_api(_Config) ->
     [IP] = ?match([_], orber:host()),
     ServerPort = orber:iiop_port(),
@@ -124,11 +123,10 @@ deny_port_api(_Config) ->
     ?match({'EXCEPTION', #'CosNaming_NamingContextExt_InvalidAddress'{}}, 
 	   orber_test_lib:remote_apply(ClientNode, corba, string_to_object, 
 	   ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
-%    ?line catch orber_test_lib:destroy_node(ClientNode, timeout),
+%    catch orber_test_lib:destroy_node(ClientNode, timeout),
     ok.
 
-deny_port_range_api(doc) -> ["Deny Access due to invalid local port range"];
-deny_port_range_api(suite) -> [];
+%% Deny Access due to invalid local port range
 deny_port_range_api(_Config) ->
     [IP] = ?match([_], orber:host()),
     ServerPort = orber:iiop_port(),
@@ -138,12 +136,11 @@ deny_port_range_api(_Config) ->
     ?match({'EXCEPTION', #'CosNaming_NamingContextExt_InvalidAddress'{}}, 
 	   orber_test_lib:remote_apply(ClientNode, corba, string_to_object, 
 				       ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
-%    ?line catch orber_test_lib:destroy_node(ClientNode, timeout),
+%    catch orber_test_lib:destroy_node(ClientNode, timeout),
     ok.
 
 
-deny_host_api(doc) -> ["Deny Access due to invalid host"];
-deny_host_api(suite) -> [];
+%% Deny Access due to invalid host
 deny_host_api(_Config) ->
     [IP] = ?match([_], orber:host()),
     {ok, ClientNode, _ClientHost} = 
@@ -153,14 +150,13 @@ deny_host_api(_Config) ->
     ?match({'EXCEPTION', #'CosNaming_NamingContextExt_InvalidAddress'{}}, 
 	   orber_test_lib:remote_apply(ClientNode, corba, string_to_object, 
 				       ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
-%    ?line catch orber_test_lib:destroy_node(ClientNode, timeout),
+%    catch orber_test_lib:destroy_node(ClientNode, timeout),
     ok.
 
 %%-----------------------------------------------------------------
 %%  Incomming connections - Allow
 %%-----------------------------------------------------------------
-allow_port_api(doc) -> ["Allow Access due to valid local port range"];
-allow_port_api(suite) -> [];
+%% Allow Access due to valid local port range
 allow_port_api(_Config) ->
     [IP] = ?match([_], orber:host()),
     ServerPort = orber:iiop_port(),
@@ -173,11 +169,10 @@ allow_port_api(_Config) ->
 					   ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
     ?match(false, 
 	   orber_test_lib:remote_apply(ClientNode, corba_object, not_existent, [IOR])),
-%    ?line catch orber_test_lib:destroy_node(ClientNode, timeout),
+%    catch orber_test_lib:destroy_node(ClientNode, timeout),
     ok.
 
-allow_port_range_api(doc) -> ["Allow Access due to valid local port range"];
-allow_port_range_api(suite) -> [];
+%% Allow Access due to valid local port range
 allow_port_range_api(_Config) ->
     [IP] = ?match([_], orber:host()),
     ServerPort = orber:iiop_port(),
@@ -190,12 +185,11 @@ allow_port_range_api(_Config) ->
 					   ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
     ?match(false, 
 	   orber_test_lib:remote_apply(ClientNode, corba_object, not_existent, [IOR])),
-%    ?line catch orber_test_lib:destroy_node(ClientNode, timeout),
+%    catch orber_test_lib:destroy_node(ClientNode, timeout),
     ok.
 
 
-allow_host_api(doc) -> ["Allow Access due to valid host"];
-allow_host_api(suite) -> [];
+%% Allow Access due to valid host
 allow_host_api(_Config) ->
     [IP] = ?match([_], orber:host()),
     {ok, ClientNode, _ClientHost} = 
@@ -208,11 +202,10 @@ allow_host_api(_Config) ->
 					   ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
     ?match(false, 
 	   orber_test_lib:remote_apply(ClientNode, corba_object, not_existent, [IOR])),
-%    ?line catch orber_test_lib:destroy_node(ClientNode, timeout),
+%    catch orber_test_lib:destroy_node(ClientNode, timeout),
     ok.
 
-local_interface_api(doc) -> ["Allow Access due to valid host via a spcific interface"];
-local_interface_api(suite) -> [];
+%% Allow Access due to valid host via a spcific interface
 local_interface_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -231,6 +224,6 @@ local_interface_api(_Config) ->
 					   ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
     ?match(false, 
 	   orber_test_lib:remote_apply(ClientNode, corba_object, not_existent, [IOR])),
-%    ?line catch orber_test_lib:destroy_node(ClientNode, timeout),
+%    catch orber_test_lib:destroy_node(ClientNode, timeout),
     ok.
 

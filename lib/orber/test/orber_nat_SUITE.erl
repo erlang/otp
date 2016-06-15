@@ -31,7 +31,7 @@
 -include_lib("orber/COSS/CosNaming/CosNaming_NamingContext.hrl").
 
 
--define(default_timeout, ?t:minutes(15)).
+-define(default_timeout, test_server:minutes(15)).
 
 -define(match(ExpectedRes,Expr),
 	fun() ->
@@ -44,7 +44,7 @@
 		   _ ->
 		       io:format("###### ERROR ERROR ######~nRESULT:  ~p~n",
 				 [AcTuAlReS]),
-		       ?line exit(AcTuAlReS)
+		       exit(AcTuAlReS)
 	       end
        end()).
 
@@ -102,7 +102,7 @@ cases() ->
 init_per_testcase(TC, Config)
  when TC =:= nat_iiop_ssl_port;
       TC =:= nat_iiop_ssl_port_local ->
-      case  ?config(crypto_started, Config) of
+      case  proplists:get_value(crypto_started, Config) of
 	  true ->
 	      case orber_test_lib:ssl_version() of
 		  no_ssl ->
@@ -128,7 +128,7 @@ end_per_testcase(_Case, Config) ->
     orber:jump_stop(),
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -152,10 +152,8 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for NAT
 %%-----------------------------------------------------------------
-
-nat_ip_address(doc) -> ["This case test if the server ORB use the correct",
-			"interface when exporting IOR:s"];
-nat_ip_address(suite) -> [];
+%% These case test if the server ORB use the correct
+%% interface when exporting IOR:s
 nat_ip_address(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -169,9 +167,6 @@ nat_ip_address(_Config) ->
 	   iop_ior:get_key(IOR)),
     ok.
 
-nat_ip_address_multiple(doc) -> ["This case test if the server ORB use the correct",
-				 "interface when exporting IOR:s"];
-nat_ip_address_multiple(suite) -> [];
 nat_ip_address_multiple(_Config) ->
     IP = orber_test_lib:get_host(),
 
@@ -185,9 +180,6 @@ nat_ip_address_multiple(_Config) ->
 	   iop_ior:get_key(IOR)),
     ok.
 
-nat_ip_address_local(doc) -> ["This case test if the server ORB use the correct",
-			      "interface when exporting IOR:s"];
-nat_ip_address_local(suite) -> [];
 nat_ip_address_local(_Config) ->
     IP = orber_test_lib:get_host(),
     {ok, ServerNode, _ServerHost} =
@@ -200,9 +192,6 @@ nat_ip_address_local(_Config) ->
 	   iop_ior:get_key(IOR)),
     ok.
 
-nat_ip_address_local_local(doc) -> ["This case test if the server ORB use the correct",
-			      "interface when exporting IOR:s"];
-nat_ip_address_local_local(suite) -> [];
 nat_ip_address_local_local(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -222,9 +211,6 @@ nat_ip_address_local_local(_Config) ->
 	   iop_ior:get_key(IOR2)),
     ok.
 
-nat_iiop_port(doc) -> ["This case test if the server ORB use the correct",
-		       "port when exporting IOR:s"];
-nat_iiop_port(suite) -> [];
 nat_iiop_port(_Config) ->
     IP = orber_test_lib:get_host(),
     {ok, ServerNode, _ServerHost} =
@@ -237,9 +223,6 @@ nat_iiop_port(_Config) ->
 	   iop_ior:get_key(IOR)),
     ok.
 
-nat_iiop_port_local(doc) -> ["This case test if the server ORB use the correct",
-		       "port when exporting IOR:s"];
-nat_iiop_port_local(suite) -> [];
 nat_iiop_port_local(_Config) ->
     IP = orber_test_lib:get_host(),
     {ok, ServerNode, _ServerHost} =
@@ -252,9 +235,6 @@ nat_iiop_port_local(_Config) ->
 	   iop_ior:get_key(IOR)),
     ok.
 
-nat_iiop_port_local_local(doc) -> ["This case test if the server ORB use the correct",
-				   "port when exporting IOR:s"];
-nat_iiop_port_local_local(suite) -> [];
 nat_iiop_port_local_local(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -286,11 +266,8 @@ nat_iiop_port_local_local(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, ssl security depth 1
 %%-----------------------------------------------------------------
-
-
-nat_iiop_ssl_port(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
-			   "Make sure NAT works for SSL"];
-nat_iiop_ssl_port(suite) -> [];
+%% SECURE MULTI ORB API tests (SSL depth 1)
+%% Make sure NAT works for SSL
 nat_iiop_ssl_port(_Config) ->
 
     IP = orber_test_lib:get_host(),
@@ -337,9 +314,6 @@ nat_iiop_ssl_port(_Config) ->
 				       remove_listen_interface, [Ref])),
     ok.
 
-nat_iiop_ssl_port_local(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
-				 "Make sure NAT works for SSL"];
-nat_iiop_ssl_port_local(suite) -> [];
 nat_iiop_ssl_port_local(_Config) ->
 
     IP = orber_test_lib:get_host(),

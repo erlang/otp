@@ -21,7 +21,7 @@
 -module(orber_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(15)).
+-define(default_timeout, test_server:minutes(15)).
 -define(application, orber).
 
 % Test server specific exports
@@ -64,21 +64,19 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
+    Dog=proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
 %
 % Test cases starts here.
 %
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
-    ?line ok=?t:app_test(orber),
+    ok=test_server:app_test(orber),
     ok.
 
 otp_9887(_Config) ->
@@ -103,10 +101,6 @@ otp_9887(_Config) ->
     ok.
 
 %% Install Orber using the load_order option.
-install_load_order(suite) ->
-    [];
-install_load_order(doc) ->
-    [];
 install_load_order(_Config) ->
     orber:jump_stop(),
     case catch install_load_order2() of
@@ -129,10 +123,6 @@ install_load_order2() ->
     ok.
 
 %% Install Orber using the local_content option.
-install_local_content(suite) ->
-    [];
-install_local_content(doc) ->
-    [];
 install_local_content(_Config) ->
     orber:jump_stop(),
     case catch install_local_content2() of
@@ -157,10 +147,6 @@ install_local_content2() ->
 
 
 %% Check for undefined functions
-undefined_functions(suite) ->
-    [];
-undefined_functions(doc) ->
-    [];
 undefined_functions(_Config) ->
     App            = orber,
     Root           = code:root_dir(),
