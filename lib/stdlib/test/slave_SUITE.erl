@@ -71,6 +71,7 @@ t_start_link(Config) when is_list(Config) ->
 
     rpc:cast(Slave1, erlang, halt, []),
     rpc:cast(Slave2, erlang, halt, []),
+    ct:sleep(250),
     is_dead(Slave1),
     is_dead(Slave2),
 
