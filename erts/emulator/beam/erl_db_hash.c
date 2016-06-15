@@ -95,8 +95,7 @@
 /* 
  * The following symbols can be manipulated to "tune" the linear hash array 
  */
-#define GROW_LIMIT(NACTIVE) ((NACTIVE)*2)
-#define SHRINK_LIMIT(NACTIVE) ((NACTIVE) / 2)
+#define CHAIN_LEN 6                 /* Medium bucket chain len      */
 
 /* Number of slots per segment */
 #define SEGSZ_EXP  8
@@ -464,7 +463,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
     int nactive = NACTIVE(tb);
-    if (nactive > SEGSZ && NITEMS(tb) < SHRINK_LIMIT(nactive)
+    if (nactive > SEGSZ && NITEMS(tb) < (nactive * CHAIN_LEN)
 	&& !IS_FIXED(tb)) {
 	shrink(tb, nactive);
     }
@@ -671,8 +670,8 @@ int db_create_hash(Process *p, DbTable *tbl)
     tb->nsegs = NSEG_1;
     tb->nslots = SEGSZ;
 
-#ifdef ERTS_SMP
     erts_smp_atomic_init_nob(&tb->is_resizing, 0);
+#ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
 	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
 	int i;
@@ -863,7 +862,7 @@ Lnew:
     WUNLOCK_HASH(lck);
     {
 	int nactive = NACTIVE(tb);       
-	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
+	if (nitems > nactive * (CHAIN_LEN+1) && !IS_FIXED(tb)) {
 	    grow(tb, nactive);
 	}
     }
@@ -2251,12 +2250,12 @@ static int db_free_table_continue_hash(DbTable *tbl)
 
     done /= 2;
     while(tb->nslots != 0) {
-	done += 1 + SEGSZ/64 + free_seg(tb, 1);
+	free_seg(tb, 1);
 
 	/*
 	 * If we have done enough work, get out here.
 	 */
-	if (done >= DELETE_RECORD_LIMIT) {
+	if (++done >= (DELETE_RECORD_LIMIT / CHAIN_LEN / SEGSZ)) {
 	    return 0;	/* Not done */
 	}
     }
@@ -2605,22 +2604,23 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 static ERTS_INLINE int
 begin_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
-	return !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
-    else
-        ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
-#endif
-    return 1;
+	return !erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1);
+    else {
+	if (erts_smp_atomic_read_nob(&tb->is_resizing))
+	    return 0;
+	erts_smp_atomic_set_nob(&tb->is_resizing, 1);
+	return 1;
+    }
 }
 
 static ERTS_INLINE void
 done_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
-	erts_atomic_set_relb(&tb->is_resizing, 0);
-#endif
+	erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    else
+	erts_smp_atomic_set_nob(&tb->is_resizing, 0);
 }
 
 /* Grow table with one new bucket.
@@ -2871,7 +2871,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                 int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
                 int nactive = NACTIVE(tb);
 
-                if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
+                if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
                     grow(tb, nactive);
                 }
             }
