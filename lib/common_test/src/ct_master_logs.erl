@@ -560,7 +560,7 @@ get_format_args(Content) ->
 
 make_dir(Dir) ->
     case file:make_dir(Dir) of
-	{error, exist} ->
+	{error, eexist} ->
 		ok;
 	    Else ->
 		Else
