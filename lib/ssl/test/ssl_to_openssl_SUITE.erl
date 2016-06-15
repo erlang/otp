@@ -1290,13 +1290,13 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
     Port = ssl_test_lib:inet_port(Server),
     Exe = "openssl",
     ClientArgs = case SNIHostname of
-                        undefined ->
-                            ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port)];
-                        _ ->
-                            ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port), "-servername", SNIHostname]
-                    end,       
+		     undefined ->
+			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname,Port);
+		     _ ->
+			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname, Port, SNIHostname)
+		 end,       
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs),  
-
+    
     %% Client check needs to be done befor server check,
     %% or server check might consume client messages
     ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
@@ -1319,13 +1319,14 @@ erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHo
     Port = ssl_test_lib:inet_port(Server),
     Exe = "openssl",
     ClientArgs = case SNIHostname of
-                        undefined ->
-                            ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port)];
-                        _ ->
-                            ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port), "-servername", SNIHostname]
-                    end,
+		     undefined ->
+			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname,Port);
+		     _ ->
+			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname, Port, SNIHostname)
+		 end,       
+
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs), 
-     
+    
     %% Client check needs to be done befor server check,
     %% or server check might consume client messages
     ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
@@ -1787,3 +1788,15 @@ workaround_openssl_s_clinent() ->
 	_  ->
 	    []
     end.
+
+openssl_client_args(false, Hostname, Port) ->
+    ["s_client", "-connect", Hostname ++ ":" ++ integer_to_list(Port)];
+openssl_client_args(true, Hostname, Port) ->
+    ["s_client",  "-no_ssl2", "-connect", Hostname ++ ":" ++ integer_to_list(Port)].
+
+openssl_client_args(false, Hostname, Port, ServerName) ->
+    ["s_client",  "-connect", Hostname ++ ":" ++ 
+	 integer_to_list(Port), "-servername", ServerName];
+openssl_client_args(true, Hostname, Port, ServerName) ->
+    ["s_client",  "-no_ssl2", "-connect", Hostname ++ ":" ++ 
+	 integer_to_list(Port), "-servername", ServerName].
