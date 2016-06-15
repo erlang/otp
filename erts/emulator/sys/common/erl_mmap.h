@@ -38,7 +38,17 @@
 #  if HAVE_MREMAP
 #    define ERTS_HAVE_OS_MREMAP 1
 #  endif
-#  if defined(MAP_FIXED) && defined(MAP_NORESERVE)
+/*
+ * MAP_NORESERVE is undefined in FreeBSD 10.x and later.
+ * This is to enable 64bit HiPE experimentally on FreeBSD.
+ * Note that on FreeBSD MAP_NORESERVE was "never implemented"
+ * even before 11.x (and the flag does not exist in /usr/src/sys/vm/mmap.c
+ * of 10.3-STABLE r301478 either), and HiPE was working on OTP 18.3.3,
+ * so mandating MAP_NORESERVE on FreeBSD might not be needed.
+ * See the following message on how MAP_NORESERVE was treated on FreeBSD:
+ * <http://lists.llvm.org/pipermail/cfe-commits/Week-of-Mon-20150202/122958.html>
+ */
+#  if defined(MAP_FIXED) && (defined(MAP_NORESERVE) || defined(__FreeBSD__))
 #    define ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION 1
 #  endif
 #endif
