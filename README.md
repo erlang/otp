@@ -36,29 +36,11 @@ Here are the [instructions for submitting patches] [2].
 
 In short:
 
-*   Go to the JIRA issue tracker at [bugs.erlang.org] [7] to see reported issues which you can contribute to. Search for issues with the status *Contribution Needed*.
+*   Submit your patch by opening a new Pull Request.
 
-*   We prefer to receive proposed updates via email on the
-    [`erlang-patches`] [3] mailing list or through a pull request.
-
-*   Pull requests will be handled once everyday and there will be 
-    essential testing before we will take a decision on the outcome
-    of the request. If the essential testings fails, the pull request
-    will be closed and you will have to fix the problem and submit another
-    pull request when this is done.
-
-*   We merge all proposed updates to the `pu` (*proposed updates*) branch,
-    typically within one working day.
-
-*   At least once a day, the contents of the `pu` branch will be built on
-    several platforms (Linux, Solaris, Mac OS X, Windows, and so on) and
-    automatic test suites will be run. We will email you if any problems are
-    found.
-
-*   If a proposed change builds and passes the tests, it will be reviewed
-    by one or more members of the Erlang/OTP team at Ericsson. The reviewer
-    may suggest improvements that are needed before the change can be accepted
-    and merged.
+*   Go to the JIRA issue tracker at [bugs.erlang.org] [7] to
+    see reported issues which you can contribute to.
+    Search for issues with the status *Contribution Needed*.
 
 
 Bug Reports
