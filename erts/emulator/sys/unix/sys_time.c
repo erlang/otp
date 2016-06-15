@@ -219,7 +219,10 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 #endif
 
     init_resp->os_monotonic_time_info.resolution = (Uint64) 1000*1000*1000;
-#if defined(HAVE_CLOCK_GETRES) && defined(MONOTONIC_CLOCK_ID)
+#if defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(MONOTONIC_CLOCK_ID)
+    init_resp->os_monotonic_time_info.resolution
+	= mach_clock_getres(&internal_state.r.o.mach.clock.monotonic);
+#elif defined(HAVE_CLOCK_GETRES) && defined(MONOTONIC_CLOCK_ID)
     {
 	struct timespec ts;
 	if (clock_getres(MONOTONIC_CLOCK_ID, &ts) == 0) {
@@ -229,9 +232,6 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 		init_resp->os_monotonic_time_info.resolution = 1;
 	}
     }
-#elif defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(MONOTONIC_CLOCK_ID)
-    init_resp->os_monotonic_time_info.resolution
-	= mach_clock_getres(&internal_state.r.o.mach.clock.monotonic);
 #endif
 
 #ifdef MONOTONIC_CLOCK_ID_STR
@@ -379,7 +379,10 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 
     init_resp->os_system_time_info.locked_use = 0;
     init_resp->os_system_time_info.resolution = (Uint64) 1000*1000*1000;
-#if defined(HAVE_CLOCK_GETRES) && defined(WALL_CLOCK_ID)
+#if defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(WALL_CLOCK_ID)
+    init_resp->os_system_time_info.resolution
+	= mach_clock_getres(&internal_state.r.o.mach.clock.wall);
+#elif defined(HAVE_CLOCK_GETRES) && defined(WALL_CLOCK_ID)
     {
 	struct timespec ts;
 	if (clock_getres(WALL_CLOCK_ID, &ts) == 0) {
@@ -389,9 +392,6 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 		init_resp->os_system_time_info.resolution = 1;
 	}
     }
-#elif defined(ERTS_HAVE_MACH_CLOCK_GETRES) && defined(WALL_CLOCK_ID)
-    init_resp->os_system_time_info.resolution
-	= mach_clock_getres(&internal_state.r.o.mach.clock.wall);
 #endif
 
 #if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME)
