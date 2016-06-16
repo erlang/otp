@@ -915,6 +915,13 @@
             number of dirty CPU schedulers online can be changed at run time via
             <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
           </p>
+	  <p>
+	    The amount of dirty CPU schedulers is limited by the amount of
+	    normal schedulers in order to limit the effect on processes
+	    executing on ordinary schedulers. If the amount of dirty CPU
+	    schedulers was allowed to be unlimited, dirty CPU bound jobs would
+	    potentially starve normal jobs.
+	  </p>
           <p>This option is ignored if the emulator doesn't have threading support
             enabled. Currently, <em>this option is experimental</em> and is supported only
             if the emulator was configured and built with support for dirty schedulers
@@ -944,7 +951,7 @@
             enabled (it's disabled by default).
           </p>
       </item>
-      <tag><marker id="+SDio"/><c><![CDATA[+SDio IOSchedulers]]></c></tag>
+      <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
       <item>
           <p>Sets the number of dirty I/O scheduler threads to create when threading
             support has been enabled. The valid range is 0-1024. By default, the number
@@ -952,6 +959,16 @@
             threads in the <seealso marker="#async_thread_pool_size">async thread pool
             </seealso>.
           </p>
+	  <p>
+	    The amount of dirty IO schedulers is not limited by the amount of
+	    normal schedulers <seealso marker="#+SDcpu">like the amount of
+	    dirty CPU schedulers</seealso>. This since only I/O bound work is
+	    expected to execute on dirty I/O schedulers. I/O bound jobs are
+	    expected to either block waiting for I/O, and/or spend a limited
+	    amount of time moving data. However, if the user should schedule CPU
+	    bound jobs on dirty I/O schedulers, these jobs might starve ordinary
+	    jobs executing on ordinary schedulers.
+	  </p>
           <p>This option is ignored if the emulator doesn't have threading support
             enabled. Currently, <em>this option is experimental</em> and is supported only
             if the emulator was configured and built with support for dirty schedulers
