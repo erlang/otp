@@ -26,8 +26,6 @@
 
 -module(grammar_SUITE).
 
-
-
 %%--------------- INCLUDES -----------------------------------
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/include/ifr_types.hrl").
@@ -46,7 +44,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------- DEFINES ------------------------------------
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 -define(match(ExpectedRes, Expr),
         fun() ->
 		AcTuAlReS = (catch (Expr)),
@@ -58,7 +56,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
  
@@ -100,18 +98,17 @@ cases() ->
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
-
 init_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -134,8 +131,6 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  simple types grammar tests
 %%-----------------------------------------------------------------
-simple_types_api(doc) -> ["CosNotification simple types grammar tests", ""];
-simple_types_api(suite) -> [];
 simple_types_api(_Config) ->
     %% Will always be true, no matter what kind of event we receive.
     {ok,T1}  = ?match({ok, _}, create_filter("2==2 and 3<4")),
@@ -208,8 +203,6 @@ simple_types_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  enum grammar tests
 %%-----------------------------------------------------------------
-enum_api(doc) -> ["CosNotification enum grammar tests", ""];
-enum_api(suite) -> [];
 enum_api(_Config) ->
     %% Accept events whose 'in' enum is set to the value 'HOUSE' or 'CAR'. 
     {ok,T1} = ?match({ok, _}, create_filter("$.\\in == HOUSE or $.\\in == CAR")),
@@ -221,13 +214,11 @@ enum_api(_Config) ->
 				      any:create({tk_enum, "IFRId", "in", ["HOUSE", "CAR"]},
 						 'GARAGE')))),
     ok.
-    
+  
 
 %%-----------------------------------------------------------------
 %%  Union grammar tests
 %%-----------------------------------------------------------------
-union_api(doc) -> ["CosNotification union grammar tests", ""];
-union_api(suite) -> [];
 union_api(_Config) ->
     {ok,T1} = ?match({ok, _}, create_filter("exist $.uni1._d and $.uni1._d == 1 and $.uni1.(1) == 10")),
     {ok,T2} = ?match({ok, _}, create_filter("default $.uni1._d and $.uni1.() == 10")),
@@ -541,8 +532,6 @@ union_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Variables grammar tests
 %%-----------------------------------------------------------------
-variable_api(doc) -> ["CosNotification variables grammar tests", ""];
-variable_api(suite) -> [];
 variable_api(_Config) ->
     %% Accept all "CommunicationsAlarm" events 
     {ok,T0} = ?match({ok, _}, create_filter("$type_name == 'CommunicationsAlarm'")),
@@ -873,8 +862,6 @@ variable_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Misc grammar tests
 %%-----------------------------------------------------------------
-positional_api(doc) -> ["CosNotification positional notation grammar tests", ""];
-positional_api(suite) -> [];
 positional_api(_Config) ->
     {ok,T1} = ?match({ok, _}, create_filter("$.3 < 80 or $.1(midterm) > $.1(final) or $.2[3] < 10")),
 
@@ -929,8 +916,6 @@ positional_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Components grammar tests
 %%-----------------------------------------------------------------
-components_api(doc) -> ["CosNotification components grammar tests", ""];
-components_api(suite) -> [];
 components_api(_Config) ->
     {ok,T1}  = ?match({ok, _}, create_filter("$ == 2")),
     ?match(true, eval(T1, ?not_CreateSE("DomainName","TypeName","EventName",
