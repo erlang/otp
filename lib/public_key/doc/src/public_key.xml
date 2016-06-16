@@ -839,6 +839,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
 
   <func>
     <name>short_name_hash(Name) -> string()</name>
+    <fsummary>Generates a short hash of an issuer name.</fsummary>
     <type>
       <v>Name = issuer_name()</v>
     </type>
