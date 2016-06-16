@@ -2363,6 +2363,8 @@ could_be_empty_branch(const pcre_uchar *code, const pcre_uchar *endcode,
   BOOL utf, compile_data *cd)
 {
 register pcre_uchar c;
+pcre_uchar tempcode = *code;
+
 for (code = first_significant_code(code + PRIV(OP_lengths)[*code], TRUE);
      code < endcode;
      code = first_significant_code(code + PRIV(OP_lengths)[c], TRUE))
@@ -2370,6 +2372,12 @@ for (code = first_significant_code(code + PRIV(OP_lengths)[*code], TRUE);
   const pcre_uchar *ccode;
 
   c = *code;
+
+  /* We check to see if this is a faulty recursion that could loop for ever,
+     and diagnose that case. */
+  if (tempcode == OP_ALT && c == OP_RECURSE) {
+      return TRUE;
+  }
 
   /* Skip over forward assertions; the other assertions are skipped by
   first_significant_code() with a TRUE final argument. */
