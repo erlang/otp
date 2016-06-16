@@ -298,7 +298,7 @@ many_restarts() ->
 
 many_restarts(Config) when is_list(Config) ->
     {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
-    loop_restart(30,Node,rpc:call(Node,erlang,whereis,[error_logger])),
+    loop_restart(50,Node,rpc:call(Node,erlang,whereis,[error_logger])),
     loose_node:stop(Node),
     ok.
 
