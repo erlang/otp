@@ -594,8 +594,7 @@ local_unbound(_Config) ->
     S = ok(gen_udp:open(0, [{ifaddr,SAddr},{active,false}])),
     C = ok(gen_udp:open(0, [local,{active,false}])),
     SAddr = ok(inet:sockname(S)),
-    {local,<<>>} = ok(inet:sockname(C)),
-    local_handshake(S, SAddr, C, {unspec,<<>>}),
+    local_handshake(S, SAddr, C, undefined),
     ok = gen_udp:close(S),
     ok = gen_udp:close(C),
     %%
@@ -634,11 +633,9 @@ local_fdopen_unbound(_Config) ->
     S = ok(gen_udp:open(0, [{ifaddr,SAddr},{active,false}])),
     C0 = ok(gen_udp:open(0, [local,{active,false}])),
     SAddr = ok(inet:sockname(S)),
-    {local,<<>>} = ok(inet:sockname(C0)),
     Fd = ok(prim_inet:getfd(C0)),
     C = ok(gen_udp:open(0, [{fd,Fd},local,{active,false}])),
-    {local,<<>>} = ok(inet:sockname(C)),
-    local_handshake(S, SAddr, C, {unspec,<<>>}),
+    local_handshake(S, SAddr, C, undefined),
     ok = gen_udp:close(S),
     ok = gen_udp:close(C),
     ok = gen_udp:close(C0),
@@ -666,16 +663,17 @@ local_handshake(S, SAddr, C, CAddr) ->
     SData = "9876543210",
     CData = "0123456789",
     ok = gen_udp:send(C, SAddr, 0, CData),
-    {CAddr, 0, CData} = ok(gen_tcp:recv(S, 112)),
-    case CAddr of
-	{unspec,_} ->
+    case ok(gen_tcp:recv(S, 112)) of
+	{{unspec,<<>>}, 0, CData} when CAddr =:= undefined ->
 	    ok;
-	_ ->
+	{{local,<<>>}, 0, CData} when CAddr =:= undefined ->
+	    ok;
+	{CAddr, 0, CData} when CAddr =/= undefined ->
 	    ok = gen_udp:send(S, CAddr, 0, SData),
 	    {SAddr, 0, SData} = ok(gen_tcp:recv(C, 112)),
 	    ok
-    end.
 
+    end.
 
 %%
 %% Utils
