@@ -769,32 +769,25 @@ enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
 
     if (scheduler > 0)
 	prt = erts_port_lookup(to_port->port_id, iflags);
-#ifdef ERTS_DIRTY_SCHEDULERS
-    else if (scheduler < 0) {
+    else {
+#ifdef ERTS_SMP
 	if (ERTS_PROC_IS_EXITING(c_p))
 	    return 0;
 	prt = erts_thr_port_lookup(to_port->port_id, iflags);
-    }
+#else
+        erts_exit(ERTS_ABORT_EXIT,
+		  "enif_port_command: called from non-scheduler "
+                  "thread on non-SMP VM");
 #endif
-    else {
-	erts_exit(ERTS_ABORT_EXIT, "enif_port_command: "
-		  "called from non-scheduler thread");
     }
 
     if (!prt)
 	res = 0;
-    else {
+    else
+        res = erts_port_output_async(prt, c_p->common.id, msg);
 
-	if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
-	    trace_port_receive(prt, c_p->common.id, am_command, msg);
-
-	res = erts_port_output_async(prt, c_p->common.id, msg);
-    }
-
-#ifdef ERTS_DIRTY_SCHEDULERS
-    if (scheduler < 0)
+    if (scheduler <= 0)
 	erts_port_dec_refc(prt);
-#endif
 
     return res;
 }
