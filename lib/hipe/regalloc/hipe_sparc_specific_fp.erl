@@ -53,11 +53,11 @@
 -export([defun_to_cfg/1,
 	 check_and_rewrite/2]).
 
-defun_to_cfg(Defun) ->
-  hipe_sparc_cfg:init(Defun).
+defun_to_cfg(AlreadyACFG) ->
+  AlreadyACFG.
 
-check_and_rewrite(Defun, Coloring) ->
-  hipe_sparc_ra_postconditions_fp:check_and_rewrite(Defun, Coloring).
+check_and_rewrite(CFG, Coloring) ->
+  hipe_sparc_ra_postconditions_fp:check_and_rewrite(CFG, Coloring).
 
 reverse_postorder(CFG) ->
   hipe_sparc_cfg:reverse_postorder(CFG).

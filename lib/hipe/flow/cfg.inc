@@ -91,6 +91,7 @@
 -define(BREADTH_ORDER,true). % for linear scan
 -define(PARAMS_NEEDED,true).
 -define(START_LABEL_UPDATE_NEEDED,true).
+-define(MAP_FOLD_NEEDED,true).
 -endif.
 
 %%=====================================================================
