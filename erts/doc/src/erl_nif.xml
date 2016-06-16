@@ -442,6 +442,24 @@ ok
 	      dirty NIF has completed.
 	    </p>
 
+	    <p>
+	      It is important to classify the dirty job correct. An I/O bound
+	      job should be classified as such and execute on a dirty I/O
+	      scheduler, and a CPU bound job should be classified as such and
+	      execute on a dirty CPU scheduler. If you classify CPU bound jobs
+	      as I/O bound jobs, dirty I/O schedulers might starve ordinary
+	      schedulers. For more information see the documentation
+	      of the <c>erl</c> command line arguments
+	      <seealso marker="erl#+SDcpu"><c>+SDcpu</c></seealso>, and
+	      <seealso marker="erl#+SDio"><c>+SDio</c></seealso> as well
+	      as <seealso marker="#enif_schedule_nif"><c>enif_schedule_nif</c></seealso>,
+	      and <seealso marker="#ErlNifFunc"><c>ErlNifFunc</c></seealso>.
+	      A job that alternates between I/O bound and CPU bound can
+	      be reclassified and rescheduled using <c>enif_schedule_nif</c>
+	      so that it exectutes on the correct type of dirty scheduler
+	      at all times.
+	    </p>
+
 	    <p>Currently known issues that are planned to be fixed:</p>
 	    <list>
 	      <item>
@@ -1702,7 +1720,7 @@ enif_map_iterator_destroy(env, &amp;iter);
           be converted to an atom, <c>enif_schedule_nif</c> returns a <c>badarg</c> exception.</p>
           <p>The <c>flags</c> argument must be set to 0 for a regular NIF, or if the emulator was built the
           experimental dirty scheduler support enabled, <c>flags</c> can be set to either <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c>
-          if the job is expected to be primarily CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for jobs that will
+          if the job is expected to be CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for jobs that will
           be I/O-bound. If dirty scheduler threads are not available in the emulator, a try to schedule such a job
           will result in a <c>badarg</c> exception.</p>
 
