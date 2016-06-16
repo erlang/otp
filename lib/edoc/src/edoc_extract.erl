@@ -32,9 +32,9 @@
 %% %% @headerfile "edoc.hrl" (disabled until it can be made private)
 -include("edoc.hrl").
 
-%% @type filename() = file:filename().
-%% @type proplist() = proplists:property().
-%% @type syntaxTree() = erl_syntax:syntaxTree().
+%% @type filename() = //kernel/file:filename().
+%% @type proplist() = //stdlib/proplists:property().
+%% @type syntaxTree() = //syntax_tools/erl_syntax:syntaxTree().
 
 %% @spec source(File::filename(), Env::edoc_env(), Options::proplist())
 %%             -> {ModuleName, edoc:edoc_module()}
@@ -639,11 +639,11 @@ file_macros(_Context, Env) ->
 %%
 %% The idea is to mimic how the @type tag works.
 %% Using @type:
-%%   @type t() = t1(). Some docs of t/0;
-%%   Further docs of t/0.
+%%```@type t() = t1(). Some docs of t/0;
+%%   Further docs of t/0.'''
 %% The same thing using -type:
-%%   -type t() :: t1(). % Some docs of t/0;
-%%   Further docs of t/0.
+%%```-type t() :: t1(). % Some docs of t/0;
+%%   Further docs of t/0.'''
 find_type_docs(Forms0, Comments, Env, File) ->
     Tree = erl_recomment:recomment_forms(Forms0, Comments),
     Forms = preprocess_forms(Tree),
