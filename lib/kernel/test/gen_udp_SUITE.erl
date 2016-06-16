@@ -61,12 +61,11 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(local, Config) ->
-    try gen_udp:open(0, [local]) of
+    case gen_udp:open(0, [local]) of
 	{ok,S} ->
 	    ok = gen_udp:close(S),
-	    Config
-    catch
-	Class:badarg when Class =:= error; Class =:= exit ->
+	    Config;
+	{error,eafnosupport} ->
 	    {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(_GroupName, Config) ->

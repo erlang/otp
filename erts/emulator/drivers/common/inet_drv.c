@@ -591,6 +591,8 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 			     (((unsigned char*) (s))[1] << 8) | \
 			     (((unsigned char*) (s))[0]))
 
+#ifdef HAVE_SYS_UN_H
+
 /* strnlen doesn't exist everywhere */
 static size_t my_strnlen(const char *s, size_t maxlen)
 {
@@ -607,6 +609,8 @@ static int is_nonzero(const char *s, size_t n)
     for (i = 0;  i < n;  i++) if (s[i] != '\0') return !0;
     return 0;
 }
+
+#endif
 
 #ifdef VALGRIND
 #  include <valgrind/memcheck.h>   
@@ -1301,6 +1305,8 @@ static ErlDrvTermData am_ssl_tls;
 static ErlDrvTermData am_udp;
 static ErlDrvTermData am_udp_passive;
 static ErlDrvTermData am_udp_error;
+#endif
+#ifdef HAVE_SYS_UN_H
 static ErlDrvTermData am_local;
 #endif
 #ifdef HAVE_SCTP
@@ -1328,7 +1334,10 @@ static ErlDrvTermData am_ipv6_v6only;
 static ErlDrvTermData am_netns;
 #endif
 
-/* speical errors for bad ports and sequences */
+static char str_eafnosupport[] = "eafnosupport";
+static char str_einval[] = "einval";
+
+/* special errors for bad ports and sequences */
 #define EXBADPORT "exbadport"
 #define EXBADSEQ  "exbadseq"
 
@@ -3846,6 +3855,8 @@ static int inet_init()
 #ifdef HAVE_UDP
     INIT_ATOM(udp_passive);
     INIT_ATOM(udp_error);
+#endif
+#ifdef HAVE_SYS_UN_H
     INIT_ATOM(local);
 #endif
     INIT_ATOM(empty_out_q);
@@ -3955,74 +3966,88 @@ static int inet_init()
 
 /*
 ** Set an inaddr structure:
-**  src = [P1,P0,X1,X2,.....]
+**  *src = [P1,P0,X1,X2,.....]
 **  dst points to a structure large enugh to keep any kind
 **  of inaddr.
 ** *len is set to length of src on call
 ** and is set to actual length of dst on return
-** return NULL on error and ptr after port address on success
+** return NULL if ok or ptr to errno string for error
 */
 static char* inet_set_address(int family, inet_address* dst,
-			      char* src, ErlDrvSizeT* len)
+			      char* *src, ErlDrvSizeT* len)
 {
     short port;
 
-    if ((family == AF_INET) && (*len >= 2+4)) {
+    switch (family) {
+    case AF_INET: {
+        if (*len < 2+4) return str_einval;
 	sys_memzero((char*)dst, sizeof(struct sockaddr_in));
-	port = get_int16(src);
+	port = get_int16(*src);
 #ifndef NO_SA_LEN
 	dst->sai.sin_len    = sizeof(struct sockaddr_in);
 #endif
 	dst->sai.sin_family = family;
 	dst->sai.sin_port   = sock_htons(port);
-	sys_memcpy(&dst->sai.sin_addr, src+2, 4);
+	sys_memcpy(&dst->sai.sin_addr, (*src)+2, 4);
 	*len = sizeof(struct sockaddr_in);
-	return src + 2+4;
+	*src += 2 + 4;
+	return NULL;
     }
 #if defined(HAVE_IN6) && defined(AF_INET6)
-    else if ((family == AF_INET6) && (*len >= 2+16)) {
+    case AF_INET6: {
+        if (*len < 2+16) return str_einval;
 	sys_memzero((char*)dst, sizeof(struct sockaddr_in6));
-	port = get_int16(src);
+	port = get_int16(*src);
 #ifndef NO_SA_LEN
 	dst->sai6.sin6_len    = sizeof(struct sockaddr_in6);
 #endif
 	dst->sai6.sin6_family = family;
 	dst->sai6.sin6_port   = sock_htons(port);
 	dst->sai6.sin6_flowinfo = 0;   /* XXX this may be set as well ?? */
-	sys_memcpy(&dst->sai6.sin6_addr, src+2, 16);
-	*len = sizeof(struct sockaddr_in6); 
-	return src + 2+16;
+	sys_memcpy(&dst->sai6.sin6_addr, (*src)+2, 16);
+	*len = sizeof(struct sockaddr_in6);
+	*src += 2 + 16;
+	return NULL;
     }
 #endif
 #ifdef HAVE_SYS_UN_H
-    else if ((family == AF_UNIX) && (*len >= 1)) {
-	int n = *((unsigned char*)src);
-	if ((*len < 1+n) || (sizeof(dst->sal.sun_path) < n+1))
-	  return NULL;
+    case AF_UNIX: {
+        int n;
+        if (*len == 0) return str_einval;
+	n = *((unsigned char*)(*src)); /* Length field */
+	if ((*len < 1+n) || (sizeof(dst->sal.sun_path) < n+1)) {
+	    return str_einval;
+	}
 	sys_memzero((char*)dst, sizeof(struct sockaddr_un));
 	dst->sal.sun_family = family;
-	sys_memcpy(dst->sal.sun_path, src+1, n);
+	sys_memcpy(dst->sal.sun_path, (*src)+1, n);
 	*len = offsetof(struct sockaddr_un, sun_path) + n;
-	return src + 1 + n;
+	*src += 1 + n;
+	return NULL;
     }
 #endif
-    return NULL;
+    }
+    return str_eafnosupport;
 }
 
 /*
 ** Set an inaddr structure, address family comes from source data,
 ** or from argument if source data specifies constant address.
 ** 
-** src = [TAG,P1,P0]           when TAG = INET_AF_ANY  | INET_AF_LOOPBACK
-** src = [TAG,P1,P0,X1,X2,...] when TAG = INET_AF_INET | INET_AF_INET6 | INET_AF_LOCAL
+** *src = [TAG,P1,P0]
+**            when TAG = INET_AF_ANY  | INET_AF_LOOPBACK
+** *src = [TAG,P1,P0,X1,X2,...]
+**            when TAG = INET_AF_INET | INET_AF_INET6 | INET_AF_LOCAL
+** *src = [TAG,Len,...]
+**            when TAG = INET_AF_LOCAL
 */
 static char *inet_set_faddress(int family, inet_address* dst,
-			       char *src, ErlDrvSizeT* len) {
+			       char* *src, ErlDrvSizeT* len) {
     int tag;
     
-    if (*len < 1) return NULL;
+    if (*len < 1) return str_einval;
     (*len) --;
-    tag = *(src ++);
+    tag = *((*src) ++);
     switch (tag) {
     case INET_AF_INET:
 	family = AF_INET;
@@ -4042,8 +4067,8 @@ static char *inet_set_faddress(int family, inet_address* dst,
     case INET_AF_LOOPBACK: {
 	int port;
 	
-	if (*len < 2) return NULL;
-	port = get_int16(src);
+	if (*len < 2) return str_einval;
+	port = get_int16(*src);
 	switch (family) {
 	case AF_INET: {
 	    struct in_addr addr;
@@ -4055,7 +4080,7 @@ static char *inet_set_faddress(int family, inet_address* dst,
 		addr.s_addr = sock_htonl(INADDR_LOOPBACK);
 		break;
 	    default:
-		return NULL;
+		return str_einval;
 	    }
 	    sys_memzero((char*)dst, sizeof(struct sockaddr_in));
 #ifndef NO_SA_LEN
@@ -4077,7 +4102,7 @@ static char *inet_set_faddress(int family, inet_address* dst,
 		paddr = &in6addr_loopback;
 		break;
 	    default:
-		return NULL;
+		return str_einval;
 	    }
 	    sys_memzero((char*)dst, sizeof(struct sockaddr_in6));
 #ifndef NO_SA_LEN
@@ -4091,12 +4116,13 @@ static char *inet_set_faddress(int family, inet_address* dst,
 	}   break;
 #       endif
 	default:
-	    return NULL;
+	    return str_einval;
 	}
-	return src + 2;
+	*src += 2;
+	return NULL;
     }   break;
     default:
-	return NULL;
+	return str_eafnosupport;
     }
     return inet_set_address(family, dst, src, len);
 }
@@ -6691,7 +6717,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case SCTP_OPT_SET_PEER_PRIMARY_ADDR:
 	{
 	    ErlDrvSizeT alen;
-	    char *after;
 	    
 	    CHKLEN(curr, ASSOC_ID_LEN);
 	    /* XXX: These 2 opts have isomorphic value data structures,
@@ -6702,12 +6727,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	    /* Fill in "arg.prim.sspp_addr": */
 	    alen  = ptr + len - curr;
-	    after = inet_set_faddress(desc->sfamily,
-				     (inet_address*) (&arg.prim.sspp_addr),
-				     curr,  &alen);
-	    if (after == NULL)
-		return -1;
-	    curr  = after;
+	    if (inet_set_faddress
+		(desc->sfamily, (inet_address*) (&arg.prim.sspp_addr),
+		 &curr,  &alen) != NULL) return -1;
 
 	    proto = IPPROTO_SCTP;
 	    if (eopt == SCTP_OPT_PRIMARY_ADDR)
@@ -6733,7 +6755,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case SCTP_OPT_PEER_ADDR_PARAMS:
 	{
 	    ErlDrvSizeT alen;
-	    char *after;
 #	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
 	    int eflags, cflags, hb_enable, hb_disable,
 		pmtud_enable, pmtud_disable;
@@ -6748,12 +6769,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	    /* Fill in "pap.spp_address": */
 	    alen  = ptr + len - curr;
-	    after = inet_set_faddress(desc->sfamily, 
-				     (inet_address*) (&arg.pap.spp_address),
-				     curr,  &alen);
-	    if (after == NULL)
-		return -1;
-	    curr = after;
+	    if (inet_set_faddress
+		(desc->sfamily, (inet_address*) (&arg.pap.spp_address),
+		 &curr,  &alen) != NULL) return -1;
 
 	    CHKLEN(curr, 4 + 2 + 3*4);
 	    
@@ -7740,7 +7758,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    struct sctp_paddrparams  ap;
 	    unsigned int             sz = sizeof(ap);
 	    int                      n;
-	    char                    *after;
+	    char                    *before, *xerror;
 	    ErlDrvSizeT              alen;
 	    
 	    if (buflen < ASSOC_ID_LEN) RETURN_ERROR(spec, -EINVAL);
@@ -7748,13 +7766,22 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    buf += ASSOC_ID_LEN;
 	    buflen -= ASSOC_ID_LEN;
 	    alen = buflen;
-	    after = inet_set_faddress(desc->sfamily,
-				      (inet_address*) (&ap.spp_address),
-				      buf, &alen);
-	    if (after == NULL) RETURN_ERROR(spec, -EINVAL);
-	    buflen -= after - buf;
-	    buf     = after;
-	    
+	    before = buf;
+	    xerror =
+	      inet_set_faddress
+	      (desc->sfamily, (inet_address*) (&ap.spp_address),
+	       &buf, &alen);
+	    if (xerror != NULL) {
+#ifdef EAFNOSUPPORT
+	        if (xerror == str_eafnosupport) {
+		    RETURN_ERROR(spec, -EAFNOSUPPORT);
+		}
+#else
+		RETURN_ERROR(spec, -EINVAL);
+#endif
+	    }
+	    buflen -= buf - before;
+
 	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_PEER_ADDR_PARAMS, 
 			    &ap, &sz) < 0) continue;
 	    /* Fill in the response: */
@@ -7980,7 +8007,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	{
 	    struct sctp_paddrinfo  pai;
 	    unsigned int           sz = sizeof(pai);
-	    char                  *after;
+	    char                  *before, *xerror;
 	    ErlDrvSizeT            alen;
 	    
 	    if (buflen < ASSOC_ID_LEN) RETURN_ERROR(spec, -EINVAL);
@@ -7988,13 +8015,22 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    buf    += ASSOC_ID_LEN;
 	    buflen -= ASSOC_ID_LEN;
 	    alen = buflen;
-	    after = inet_set_faddress(desc->sfamily,
-				      (inet_address*) (&pai.spinfo_address),
-				      buf, &alen);
-	    if (after == NULL) RETURN_ERROR(spec, -EINVAL);
-	    buflen -= after - buf;
-	    buf     = after;
-	    
+	    before = buf;
+	    xerror =
+	      inet_set_faddress
+	      (desc->sfamily, (inet_address*) (&pai.spinfo_address),
+	       &buf, &alen);
+	    if (xerror != NULL) {
+#ifdef EAFNOSUPPORT
+	        if (xerror == str_eafnosupport) {
+		    RETURN_ERROR(spec, -EAFNOSUPPORT);
+		}
+#else
+		RETURN_ERROR(spec, -EINVAL);
+#endif
+	    }
+	    buflen -= buf - before;
+
 	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_GET_PEER_ADDR_INFO,
 			    &pai, &sz) < 0) continue;
 	    /* Fill in the response: */
@@ -8511,15 +8547,16 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
     }
 
     case INET_REQ_SETPEER: { /* set fake peername Port Address */
+        char *xerror;
 	if (len == 0) {
 	    desc->peer_ptr = NULL;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
 	else if (len < 2)
 	    return ctl_error(EINVAL, rbuf, rsize);	    
-	else if (inet_set_faddress
-		 (desc->sfamily, &desc->peer_addr, buf, &len) == NULL)
-	    return ctl_error(EINVAL, rbuf, rsize);
+	else if ((xerror = inet_set_faddress
+		  (desc->sfamily, &desc->peer_addr, &buf, &len)) != NULL)
+	    return ctl_xerror(xerror, rbuf, rsize);
 	else {
 	    desc->peer_ptr = &desc->peer_addr;
 	    desc->peer_addr_len = (SOCKLEN_T) len;
@@ -8585,15 +8622,16 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
     }
 
     case INET_REQ_SETNAME: { /* set fake sockname Port Address */
+        char *xerror;
 	if (len == 0) {
 	    desc->name_ptr = NULL;
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
 	else if (len < 2)
 	    return ctl_error(EINVAL, rbuf, rsize);	    
-	else if (inet_set_faddress
-		 (desc->sfamily, &desc->name_addr, buf, &len) == NULL)
-	    return ctl_error(EINVAL, rbuf, rsize);
+	else if ((xerror = inet_set_faddress
+		  (desc->sfamily, &desc->name_addr, &buf, &len)) != NULL)
+	    return ctl_xerror(xerror, rbuf, rsize);
 	else {
 	    desc->name_ptr = &desc->name_addr;
 	    desc->name_addr_len = (SOCKLEN_T) len;
@@ -8602,7 +8640,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
     }
 
     case INET_REQ_BIND:  {      /* bind socket */
-	char tbuf[2];
+        char tbuf[2], *xerror;
 	inet_address local;
 	int port;
 
@@ -8613,8 +8651,9 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	if (desc->state != INET_STATE_OPEN)
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 
-	if (inet_set_faddress(desc->sfamily, &local, buf, &len) == NULL)
-	    return ctl_error(EINVAL, rbuf, rsize);
+	if ((xerror = inet_set_faddress
+	     (desc->sfamily, &local, &buf, &len)) != NULL)
+	    return ctl_xerror(xerror, rbuf, rsize);
 
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
@@ -9081,10 +9120,6 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	case INET_AF_INET6:
 	    domain = AF_INET6;
 	    break;
-#else
-	case INET_AF_INET6:
-	    return ctl_xerror("eafnosupport", rbuf, rsize);
-	    break;
 #endif
 #ifdef HAVE_SYS_UN_H
 	case INET_AF_LOCAL:
@@ -9092,7 +9127,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    break;
 #endif
 	default:
-	    return ctl_error(EINVAL, rbuf, rsize);
+	    return ctl_xerror(str_eafnosupport, rbuf, rsize);
 	}
 	if (buf[1] != INET_TYPE_STREAM) return ctl_error(EINVAL, rbuf, rsize);
 	return inet_ctl_open(INETP(desc), domain, SOCK_STREAM, rbuf, rsize);
@@ -9112,10 +9147,6 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	case INET_AF_INET6:
 	    domain = AF_INET6;
 	    break;
-#else
-	case INET_AF_INET6:
-	    return ctl_xerror("eafnosupport", rbuf, rsize);
-	    break;
 #endif
 #ifdef HAVE_SYS_UN_H
 	case INET_AF_LOCAL:
@@ -9123,7 +9154,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	    break;
 #endif
 	default:
-	    return ctl_error(EINVAL, rbuf, rsize);
+	    return ctl_xerror(str_eafnosupport, rbuf, rsize);
 	}
 	if (buf[1] != INET_TYPE_STREAM) return ctl_error(EINVAL, rbuf, rsize);
 
@@ -9156,7 +9187,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 
     case INET_REQ_CONNECT: {   /* do async connect */
 	int code;
-	char tbuf[2];
+	char tbuf[2], *xerror;
 	unsigned timeout;
 
 	DEBUGF(("tcp_inet_ctl(%ld): CONNECT\r\n", (long)desc->inet.port)); 
@@ -9173,9 +9204,9 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	timeout = get_int32(buf);
 	buf += 4;
 	len -= 4;
-	if (inet_set_faddress
-	    (desc->inet.sfamily, &desc->inet.remote, buf, &len) == NULL)
-	    return ctl_error(EINVAL, rbuf, rsize);
+	if ((xerror = inet_set_faddress
+	     (desc->inet.sfamily, &desc->inet.remote, &buf, &len)) != NULL)
+	    return ctl_xerror(xerror, rbuf, rsize);
 	
 	code = sock_connect(desc->inet.s, 
 			    (struct sockaddr*) &desc->inet.remote, len);
@@ -10955,16 +10986,12 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	case INET_AF_INET:  af = AF_INET; break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
 	case INET_AF_INET6: af = AF_INET6; break;
-#else
-	case INET_AF_INET6:
-	    return ctl_xerror("eafnosupport", rbuf, rsize);
-	    break;
 #endif
 #ifdef HAVE_SYS_UN_H
 	case INET_AF_LOCAL: af = AF_UNIX; break;
 #endif
 	default:
-	    return ctl_error(EINVAL, rbuf, rsize);
+	    return ctl_xerror(str_eafnosupport, rbuf, rsize);
 	}
 	switch (buf[1]) {
 	case INET_TYPE_STREAM: type = SOCK_STREAM; break;
@@ -11008,16 +11035,12 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	case INET_AF_INET:  af = AF_INET; break;
 #if defined(HAVE_IN6) && defined(AF_INET6)
 	case INET_AF_INET6: af = AF_INET6; break;
-#else
-	case INET_AF_INET6:
-	    return ctl_xerror("eafnosupport", rbuf, rsize);
-	    break;
 #endif
 #ifdef HAVE_SYS_UN_H
 	case INET_AF_LOCAL: af = AF_UNIX; break;
 #endif
 	default:
-	    return ctl_error(EINVAL, rbuf, rsize);
+	    return ctl_xerror(str_eafnosupport, rbuf, rsize);
 	}
 	switch (buf[1]) {
 	case INET_TYPE_STREAM: type = SOCK_STREAM; break;
@@ -11085,6 +11108,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 #ifdef HAVE_SCTP
 	if (IS_SCTP(desc)) { 
 	    inet_address remote;
+	    char *xerror;
 	    
 	    if (IS_CONNECTING(desc))
 		return ctl_error(EINVAL, rbuf, rsize);
@@ -11096,8 +11120,9 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
 	    /* For SCTP, we do not set the peer's addr in desc->remote, as
 	       multiple peers are possible: */
-	    if (inet_set_faddress(desc->sfamily, &remote, buf, &len) == NULL)
-		return ctl_error(EINVAL, rbuf, rsize);
+	    if ((xerror = inet_set_faddress
+		 (desc->sfamily, &remote, &buf, &len)) != NULL)
+	        return ctl_xerror(xerror, rbuf, rsize);
 	
 	    sock_select(desc, FD_CONNECT, 1);
 	    code = sock_connect(desc->s, &remote.sa, len);
@@ -11133,12 +11158,13 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	else if (len < 6)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	else {
+	    char *xerror;
 	    /* Ignore timeout */
 	    buf += 4;
 	    len -= 4;
-	    if (inet_set_faddress
-		(desc->sfamily, &desc->remote, buf, &len) == NULL)
-		return ctl_error(EINVAL, rbuf, rsize);
+	    if ((xerror = inet_set_faddress
+		 (desc->sfamily, &desc->remote, &buf, &len)) != NULL)
+	        return ctl_xerror(xerror, rbuf, rsize);
 	    
 	    code = sock_connect(desc->s,
 				(struct sockaddr*) &desc->remote, len);
@@ -11202,11 +11228,13 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
 	    while (curr < buf+len)
 		{
+		    char *xerror;
 		    /* List item format: see "inet_set_faddress": */
 		    ErlDrvSizeT alen  = buf + len - curr;
-		    curr = inet_set_faddress(desc->sfamily, &addr, curr, &alen);
-		    if (curr == NULL)
-			return ctl_error(EINVAL, rbuf, rsize);
+		    xerror = inet_set_faddress
+		      (desc->sfamily, &addr, &curr, &alen);
+		    if (xerror != NULL)
+		        return ctl_xerror(xerror, rbuf, rsize);
 
 		    /* Invoke the call: */
 		    if (p_sctp_bindx(desc->s, (struct sockaddr *)&addr, 1,
@@ -11325,6 +11353,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     inet_descriptor* desc = INETP(udesc);
     char* ptr		  = buf;
     char* qtr;
+    char* xerror;
     ErlDrvSizeT sz;
     int code;
     inet_address other;
@@ -11387,9 +11416,10 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     /* UDP socket. Even if it is connected, there is an address prefix
        here -- ignored for connected sockets: */
     sz = len;
-    qtr = inet_set_faddress(desc->sfamily, &other, ptr, &sz);
-    if (qtr == NULL) {
-	inet_reply_error(desc, EINVAL);
+    qtr = ptr;
+    xerror = inet_set_faddress(desc->sfamily, &other, &qtr, &sz);
+    if (xerror != NULL) {
+        inet_reply_error_am(desc, driver_mk_atom(xerror));
 	return;
     }
     len -= (qtr - ptr);
@@ -11975,7 +12005,7 @@ void erts_sock_close(erts_sock_t socket)
 int erts_sock_connect(erts_sock_t socket, byte *ip_addr, int len, Uint16 port)
 {
     SOCKET s = (SOCKET) socket;
-    char buf[2 + 4];
+    char buf[2 + 4], *p;
     ErlDrvSizeT blen = 6;
     inet_address addr;
 
@@ -11985,7 +12015,8 @@ int erts_sock_connect(erts_sock_t socket, byte *ip_addr, int len, Uint16 port)
     put_int16(port, buf);
     memcpy((void *) (buf + 2), (void *) ip_addr, 4);
 
-    if (!inet_set_address(AF_INET, &addr, buf, &blen))
+    p = buf;
+    if (inet_set_address(AF_INET, &addr, &p, &blen) != NULL)
 	return 0;
 
     if (IS_SOCKET_ERROR

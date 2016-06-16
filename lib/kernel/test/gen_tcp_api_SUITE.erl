@@ -71,12 +71,11 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(t_local, Config) ->
-    try gen_tcp:connect({local,<<"/">>}, 0, [], 17) of
+    case gen_tcp:connect({local,<<"/">>}, 0, []) of
+	{error,eafnosupport} ->
+	    {skip, "AF_LOCAL not supported"};
 	{error,_} ->
 	    Config
-    catch
-	Class:badarg when Class =:= error; Class =:= exit ->
-	    {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(_GroupName, Config) ->
     Config.
