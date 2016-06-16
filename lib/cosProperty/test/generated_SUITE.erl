@@ -29,7 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -40,7 +40,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -51,7 +51,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			AcTuAlReS
 		end
@@ -63,7 +63,7 @@
 		case orber_tc:check_tc(TC) of
 		    false ->
 			io:format("###### ERROR ERROR ######~n~p - ~p~n", [Op, TC]),
-			?line exit(TC);
+			exit(TC);
 		    true ->
 			true
 		end
@@ -136,24 +136,18 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
-
-
-
 
 %%-----------------------------------------------------------------
 %% Test Case: 'CosPropertyService_ConflictingProperty'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_ConflictingProperty'(doc) -> ["CosPropertyService_ConflictingProperty"];
-'CosPropertyService_ConflictingProperty'(suite) -> [];
 'CosPropertyService_ConflictingProperty'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_ConflictingProperty':tc())),
     ?match("IDL:omg.org/CosPropertyService/ConflictingProperty:1.0", 
@@ -167,8 +161,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_ConstraintNotSupported'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_ConstraintNotSupported'(doc) -> ["CosPropertyService_ConstraintNotSupported"];
-'CosPropertyService_ConstraintNotSupported'(suite) -> [];
 'CosPropertyService_ConstraintNotSupported'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_ConstraintNotSupported':tc())),
     ?match("IDL:omg.org/CosPropertyService/ConstraintNotSupported:1.0", 
@@ -182,8 +174,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_FixedProperty'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_FixedProperty'(doc) -> ["CosPropertyService_FixedProperty"];
-'CosPropertyService_FixedProperty'(suite) -> [];
 'CosPropertyService_FixedProperty'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_FixedProperty':tc())),
     ?match("IDL:omg.org/CosPropertyService/FixedProperty:1.0", 
@@ -197,8 +187,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_InvalidPropertyName'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_InvalidPropertyName'(doc) -> ["CosPropertyService_InvalidPropertyName"];
-'CosPropertyService_InvalidPropertyName'(suite) -> [];
 'CosPropertyService_InvalidPropertyName'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_InvalidPropertyName':tc())),
     ?match("IDL:omg.org/CosPropertyService/InvalidPropertyName:1.0", 
@@ -212,8 +200,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_MultipleExceptions'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_MultipleExceptions'(doc) -> ["CosPropertyService_MultipleExceptions"];
-'CosPropertyService_MultipleExceptions'(suite) -> [];
 'CosPropertyService_MultipleExceptions'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_MultipleExceptions':tc())),
     ?match("IDL:omg.org/CosPropertyService/MultipleExceptions:1.0", 
@@ -227,8 +213,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_Properties'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_Properties'(doc) -> ["CosPropertyService_Properties"];
-'CosPropertyService_Properties'(suite) -> [];
 'CosPropertyService_Properties'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_Properties':tc())),
     ?match("IDL:omg.org/CosPropertyService/Properties:1.0", 
@@ -242,8 +226,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_Property'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_Property'(doc) -> ["CosPropertyService_Property"];
-'CosPropertyService_Property'(suite) -> [];
 'CosPropertyService_Property'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_Property':tc())),
     ?match("IDL:omg.org/CosPropertyService/Property:1.0", 
@@ -257,8 +239,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyDef'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyDef'(doc) -> ["CosPropertyService_PropertyDef"];
-'CosPropertyService_PropertyDef'(suite) -> [];
 'CosPropertyService_PropertyDef'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyDef':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyDef:1.0", 
@@ -272,8 +252,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyDefs'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyDefs'(doc) -> ["CosPropertyService_PropertyDefs"];
-'CosPropertyService_PropertyDefs'(suite) -> [];
 'CosPropertyService_PropertyDefs'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyDefs':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyDefs:1.0", 
@@ -287,8 +265,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyException'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyException'(doc) -> ["CosPropertyService_PropertyException"];
-'CosPropertyService_PropertyException'(suite) -> [];
 'CosPropertyService_PropertyException'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyException':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyException:1.0", 
@@ -302,8 +278,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyExceptions'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyExceptions'(doc) -> ["CosPropertyService_PropertyExceptions"];
-'CosPropertyService_PropertyExceptions'(suite) -> [];
 'CosPropertyService_PropertyExceptions'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyExceptions':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyExceptions:1.0", 
@@ -317,8 +291,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyMode'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyMode'(doc) -> ["CosPropertyService_PropertyMode"];
-'CosPropertyService_PropertyMode'(suite) -> [];
 'CosPropertyService_PropertyMode'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyMode':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyMode:1.0", 
@@ -332,8 +304,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyModes'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyModes'(doc) -> ["CosPropertyService_PropertyModes"];
-'CosPropertyService_PropertyModes'(suite) -> [];
 'CosPropertyService_PropertyModes'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyModes':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyModes:1.0", 
@@ -347,8 +317,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyNames'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyNames'(doc) -> ["CosPropertyService_PropertyNames"];
-'CosPropertyService_PropertyNames'(suite) -> [];
 'CosPropertyService_PropertyNames'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyNames':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyNames:1.0", 
@@ -361,8 +329,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyNotFound'(doc) -> ["CosPropertyService_PropertyNotFound"];
-'CosPropertyService_PropertyNotFound'(suite) -> [];
 'CosPropertyService_PropertyNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyNotFound':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyNotFound:1.0", 
@@ -375,8 +341,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyTypes'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyTypes'(doc) -> ["CosPropertyService_PropertyTypes"];
-'CosPropertyService_PropertyTypes'(suite) -> [];
 'CosPropertyService_PropertyTypes'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_PropertyTypes':tc())),
     ?match("IDL:omg.org/CosPropertyService/PropertyTypes:1.0", 
@@ -389,8 +353,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_ReadOnlyProperty'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_ReadOnlyProperty'(doc) -> ["CosPropertyService_ReadOnlyProperty"];
-'CosPropertyService_ReadOnlyProperty'(suite) -> [];
 'CosPropertyService_ReadOnlyProperty'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_ReadOnlyProperty':tc())),
     ?match("IDL:omg.org/CosPropertyService/ReadOnlyProperty:1.0", 
@@ -403,8 +365,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_UnsupportedMode'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_UnsupportedMode'(doc) -> ["CosPropertyService_UnsupportedMode"];
-'CosPropertyService_UnsupportedMode'(suite) -> [];
 'CosPropertyService_UnsupportedMode'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_UnsupportedMode':tc())),
     ?match("IDL:omg.org/CosPropertyService/UnsupportedMode:1.0", 
@@ -417,8 +377,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_UnsupportedProperty'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_UnsupportedProperty'(doc) -> ["CosPropertyService_UnsupportedProperty"];
-'CosPropertyService_UnsupportedProperty'(suite) -> [];
 'CosPropertyService_UnsupportedProperty'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_UnsupportedProperty':tc())),
     ?match("IDL:omg.org/CosPropertyService/UnsupportedProperty:1.0", 
@@ -431,8 +389,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_UnsupportedTypeCode'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_UnsupportedTypeCode'(doc) -> ["CosPropertyService_UnsupportedTypeCode"];
-'CosPropertyService_UnsupportedTypeCode'(suite) -> [];
 'CosPropertyService_UnsupportedTypeCode'(_) ->
     ?match(true, orber_tc:check_tc('CosPropertyService_UnsupportedTypeCode':tc())),
     ?match("IDL:omg.org/CosPropertyService/UnsupportedTypeCode:1.0", 
@@ -445,8 +401,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertyNamesIterator'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertyNamesIterator'(doc) -> ["CosPropertyService_PropertyNamesIterator"];
-'CosPropertyService_PropertyNamesIterator'(suite) -> [];
 'CosPropertyService_PropertyNamesIterator'(_) ->
     ?nomatch(undefined, 'CosPropertyService_PropertyNamesIterator':oe_tc(reset)),
     ?nomatch(undefined, 'CosPropertyService_PropertyNamesIterator':oe_tc(next_one)),
@@ -465,8 +419,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertiesIterator'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertiesIterator'(doc) -> ["CosPropertyService_PropertiesIterator"];
-'CosPropertyService_PropertiesIterator'(suite) -> [];
 'CosPropertyService_PropertiesIterator'(_) ->
     ?nomatch(undefined, 'CosPropertyService_PropertiesIterator':oe_tc(reset)),
     ?nomatch(undefined, 'CosPropertyService_PropertiesIterator':oe_tc(next_one)),
@@ -486,8 +438,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertySet'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertySet'(doc) -> ["CosPropertyService_PropertySet"];
-'CosPropertyService_PropertySet'(suite) -> [];
 'CosPropertyService_PropertySet'(_) ->
     ?nomatch(undefined, 'CosPropertyService_PropertySet':oe_tc(define_property)),
     ?nomatch(undefined, 'CosPropertyService_PropertySet':oe_tc(define_properties)),
@@ -514,8 +464,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertySetDef'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertySetDef'(doc) -> ["CosPropertyService_PropertySetDef"];
-'CosPropertyService_PropertySetDef'(suite) -> [];
 'CosPropertyService_PropertySetDef'(_) ->
     ?nomatch(undefined, 'CosPropertyService_PropertySetDef':oe_tc(get_allowed_property_types)),
     ?nomatch(undefined, 'CosPropertyService_PropertySetDef':oe_tc(get_allowed_properties)),
@@ -551,8 +499,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertySetDefFactory'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertySetDefFactory'(doc) -> ["CosPropertyService_PropertySetDefFactory"];
-'CosPropertyService_PropertySetDefFactory'(suite) -> [];
 'CosPropertyService_PropertySetDefFactory'(_) ->
     ?nomatch(undefined, 'CosPropertyService_PropertySetDefFactory':oe_tc(create_propertysetdef)),
     ?nomatch(undefined, 'CosPropertyService_PropertySetDefFactory':oe_tc(create_constrained_propertysetdef)),
@@ -571,8 +517,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosPropertyService_PropertySetFactory'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosPropertyService_PropertySetFactory'(doc) -> ["CosPropertyService_PropertySetFactory"];
-'CosPropertyService_PropertySetFactory'(suite) -> [];
 'CosPropertyService_PropertySetFactory'(_) ->
     ?nomatch(undefined, 'CosPropertyService_PropertySetFactory':oe_tc(create_propertyset)),
     ?nomatch(undefined, 'CosPropertyService_PropertySetFactory':oe_tc(create_constrained_propertyset)),
