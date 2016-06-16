@@ -464,10 +464,12 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <tag><c>{padding_check, boolean()}</c></tag>
       <item><p>Affects TLS-1.0 connections only.
       If set to <c>false</c>, it disables the block cipher padding check
-      to be able to interoperate with legacy software.</p></item>
-
-        <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
+      to be able to interoperate with legacy software.</p>
+      <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
 	vulnerable to the Poodle attack.</p></warning>
+      </item>
+
+      
 
       <tag><c>{beast_mitigation, one_n_minus_one | zero_n | disabled}</c></tag>
       <item><p>Affects SSL-3.0 and TLS-1.0 connections only. Used to change the BEAST
@@ -478,11 +480,12 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <p><c>zero_n</c> - Perform 0/n BEAST mitigation.</p>
 
-      <p><c>disabled</c> - Disable BEAST mitigation.</p></item>
+      <p><c>disabled</c> - Disable BEAST mitigation.</p>
 
-        <warning><p>Using <c>{beast_mitigation, disabled}</c> makes SSL or TLS
+      <warning><p>Using <c>{beast_mitigation, disabled}</c> makes SSL or TLS
         vulnerable to the BEAST attack.</p></warning>
-    </taglist>
+      </item>
+      </taglist>
 
   </section>
   
@@ -595,7 +598,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	TLS handshake. If no lower TLS versions than 1.2 are supported,
 	the client will send a TLS signature algorithm extension
 	with the algorithms specified by this option.
-	Defaults to
+	Defaults to</p>
 	
 	<code>[
 %% SHA2
@@ -612,7 +615,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 {sha, rsa},
 {sha, dsa},
 ]</code>
-	
+<p>
 	The algorithms should be in the preferred order.
 	Selected signature algorithm can restrict which hash functions
 	that may be selected. Default support for {md5, rsa} removed in ssl-8.0
