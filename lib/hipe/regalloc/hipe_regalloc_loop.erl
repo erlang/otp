@@ -26,21 +26,20 @@
 %%-define(HIPE_INSTRUMENT_COMPILER, true). %% Turn on instrumentation.
 -include("../main/hipe.hrl").
 
-ra(Defun, SpillIndex, Options, RegAllocMod, TargetMod) ->
-  {NewDefun, Coloring, _NewSpillIndex} =
-    ra_common(Defun, SpillIndex, Options, RegAllocMod, TargetMod),
-  {NewDefun, Coloring}.
+ra(CFG, SpillIndex, Options, RegAllocMod, TargetMod) ->
+  {NewCFG, Coloring, _NewSpillIndex} =
+    ra_common(CFG, SpillIndex, Options, RegAllocMod, TargetMod),
+  {NewCFG, Coloring}.
 
-ra_fp(Defun, Options, RegAllocMod, TargetMod) ->
-  ra_common(Defun, 0, Options, RegAllocMod, TargetMod).
+ra_fp(CFG, Options, RegAllocMod, TargetMod) ->
+  ra_common(CFG, 0, Options, RegAllocMod, TargetMod).
 
-ra_common(Defun, SpillIndex, Options, RegAllocMod, TargetMod) ->
+ra_common(CFG, SpillIndex, Options, RegAllocMod, TargetMod) ->
   ?inc_counter(ra_calls_counter, 1),
-  CFG = TargetMod:defun_to_cfg(Defun),
   SpillLimit = TargetMod:number_of_temporaries(CFG),
-  alloc(Defun, CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod).
+  alloc(CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod).
 
-alloc(Defun, CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
+alloc(CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
   ?inc_counter(ra_iteration_counter, 1),
   {Coloring, _NewSpillIndex, Liveness} =
     case proplists:get_bool(ra_prespill, Options) of
@@ -50,7 +49,7 @@ alloc(Defun, CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
       false ->
 	RegAllocMod:regalloc(CFG, SpillIndex, SpillLimit, TargetMod, Options)
     end,
-  {NewDefun, DidSpill} = TargetMod:check_and_rewrite(Defun, Coloring),
+  {NewCFG, DidSpill} = TargetMod:check_and_rewrite(CFG, Coloring),
   case DidSpill of
     false -> %% No new temps, we are done.
       ?add_spills(Options, _NewSpillIndex),
@@ -66,10 +65,9 @@ alloc(Defun, CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
       %%   false ->
       %%     ok
       %% end,
-      {NewDefun, Coloring2, NewSpillIndex2};
+      {NewCFG, Coloring2, NewSpillIndex2};
     _ ->
-      NewCFG = TargetMod:defun_to_cfg(NewDefun),
       %% Since SpillLimit is used as a low-water-mark
       %% the list of temps not to spill is uninteresting.
-      alloc(NewDefun, NewCFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod)
+      alloc(NewCFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod)
   end.

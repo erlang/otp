@@ -54,8 +54,7 @@
          reverse_postorder/1]).
 
 %% callbacks for hipe_regalloc_loop
--export([defun_to_cfg/1,
-	 check_and_rewrite/2,
+-export([check_and_rewrite/2,
 	 check_and_rewrite/3]).
 
 %%----------------------------------------------------------------------------
@@ -63,9 +62,6 @@
 -include("../flow/cfg.hrl").
 
 %%----------------------------------------------------------------------------
-
-defun_to_cfg(AlreadyACFG) ->
-  AlreadyACFG.
 
 check_and_rewrite(CFG, Coloring) ->
   hipe_amd64_ra_sse2_postconditions:check_and_rewrite(CFG, Coloring).

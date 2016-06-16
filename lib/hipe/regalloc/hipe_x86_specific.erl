@@ -66,11 +66,7 @@
 	 reverse_postorder/1]).
 
 %% callbacks for hipe_regalloc_loop
--export([defun_to_cfg/1,
-	 check_and_rewrite/2]).
-
-defun_to_cfg(AlreadyACFG) ->
-  AlreadyACFG.
+-export([check_and_rewrite/2]).
 
 check_and_rewrite(CFG, Coloring) ->
   ?HIPE_X86_RA_POSTCONDITIONS:check_and_rewrite(CFG, Coloring, 'normal').
