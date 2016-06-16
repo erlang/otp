@@ -94,7 +94,7 @@ init_per_testcase(_Case, Config) ->
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = proplist:get_value(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
