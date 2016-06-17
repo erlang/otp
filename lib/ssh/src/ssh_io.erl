@@ -36,47 +36,42 @@ read_line(Prompt, Ssh) ->
     end.
 
 yes_no(Prompt, Ssh) ->
-    io:format("~s [y/n]?", [Prompt]),
+    format("~s [y/n]?", [Prompt]),
     proplists:get_value(user_pid, Ssh#ssh.opts) ! {self(), question},
     receive
+	%% I can't see that the atoms y and n are ever received, but it must
+	%% be investigated before removing
+	y -> yes;
+	n -> no;
+
 	Answer ->
 	    case trim(Answer) of
 		"y" -> yes;
 		"n" -> no;
 		"Y" -> yes;
 		"N" -> no;
-		y -> yes;
-		n -> no;
 		_ ->
-		    io:format("please answer y or n\n"),
+		    format("please answer y or n\n",[]),
 		    yes_no(Prompt, Ssh)
 	    end
     end.
 
 
-read_password(Prompt, Ssh) ->
+read_password(Prompt, #ssh{opts=Opts}) -> read_password(Prompt, Opts);
+read_password(Prompt, Opts) when is_list(Opts) ->
     format("~s", [listify(Prompt)]),
-    case is_list(Ssh) of
-	false ->
-	    proplists:get_value(user_pid, Ssh#ssh.opts) ! {self(), user_password};
-	_ ->
-	    proplists:get_value(user_pid, Ssh) ! {self(), user_password}
-    end,
+    proplists:get_value(user_pid, Opts) ! {self(), user_password},
     receive
+	"" ->
+	    read_password(Prompt, Opts);
 	Answer ->
-	    case Answer of
-		"" ->
-		    read_password(Prompt, Ssh);
-		Pass -> Pass
-	    end
+	    Answer
     end.
 
-listify(A) when is_atom(A) ->
-    atom_to_list(A);
-listify(L) when is_list(L) ->
-    L;
-listify(B) when is_binary(B)  ->
-    binary_to_list(B).
+
+listify(A) when is_atom(A)   -> atom_to_list(A);
+listify(L) when is_list(L)   -> L;
+listify(B) when is_binary(B) -> binary_to_list(B).
 
 format(Fmt, Args) ->
     io:format(Fmt, Args).
@@ -93,6 +88,3 @@ trim1([$\r|Cs]) -> trim(Cs);
 trim1([$\n|Cs]) -> trim(Cs);
 trim1([$\t|Cs]) -> trim(Cs);
 trim1(Cs) -> Cs.
-    
-
-
