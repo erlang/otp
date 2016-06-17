@@ -31,7 +31,7 @@ read_line(Prompt, Ssh) ->
     format("~s", [listify(Prompt)]),
     proplists:get_value(user_pid, Ssh) ! {self(), question},
     receive
-	Answer ->
+	Answer when is_list(Answer) ->
 	    Answer
     end.
 
@@ -44,7 +44,7 @@ yes_no(Prompt, Ssh) ->
 	y -> yes;
 	n -> no;
 
-	Answer ->
+	Answer when is_list(Answer) ->
 	    case trim(Answer) of
 		"y" -> yes;
 		"n" -> no;
@@ -62,19 +62,23 @@ read_password(Prompt, Opts) when is_list(Opts) ->
     format("~s", [listify(Prompt)]),
     proplists:get_value(user_pid, Opts) ! {self(), user_password},
     receive
-	"" ->
-	    read_password(Prompt, Opts);
-	Answer ->
-	    Answer
+	Answer when is_list(Answer) ->
+	     case trim(Answer) of
+		 "" ->
+		     read_password(Prompt, Opts);
+		 Pwd ->
+		     Pwd
+	     end
     end.
 
 
+format(Fmt, Args) ->
+    io:format(Fmt, Args).
+
+%%%================================================================
 listify(A) when is_atom(A)   -> atom_to_list(A);
 listify(L) when is_list(L)   -> L;
 listify(B) when is_binary(B) -> binary_to_list(B).
-
-format(Fmt, Args) ->
-    io:format(Fmt, Args).
 
 
 trim(Line) when is_list(Line) ->
