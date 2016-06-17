@@ -528,16 +528,17 @@ keyboard_interact_get_responses(true, Fun, _Pwd, _IoCb, Name, Instr, PromptInfos
     keyboard_interact_fun(Fun, Name, Instr, PromptInfos, NumPrompts).
 
 keyboard_interact(IoCb, Name, Instr, Prompts, Opts) ->
-    if Name /= "" -> IoCb:format("~s~n", [Name]);
-       true       -> ok
-    end,
-    if Instr /= "" -> IoCb:format("~s~n", [Instr]);
-       true        -> ok
-    end,
+    write_if_nonempty(IoCb, Name),
+    write_if_nonempty(IoCb, Instr),
     lists:map(fun({Prompt, true})  -> IoCb:read_line(Prompt, Opts);
 		 ({Prompt, false}) -> IoCb:read_password(Prompt, Opts)
 	      end,
 	      Prompts).
+
+write_if_nonempty(_, "") -> ok;
+write_if_nonempty(_, <<>>) -> ok;
+write_if_nonempty(IoCb, Text) -> IoCb:format("~s~n",[Text]).
+
 
 keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
     Prompts = lists:map(fun({Prompt, _Echo}) -> Prompt end,
