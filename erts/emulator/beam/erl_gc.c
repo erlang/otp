@@ -672,6 +672,7 @@ do_major_collection:
        killed before a GC could be done. */
     if (reds == -2) {
         ErtsProcLocks locks = ERTS_PROC_LOCKS_ALL;
+        int res;
 
         erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
         erts_send_exit_signal(p, p->common.id, p, &locks,
@@ -683,7 +684,9 @@ do_major_collection:
         erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
         /* We have to make sure that we have space for need on the heap */
-        return delay_garbage_collection(p, live_hf_end, need, fcalls);
+        res = delay_garbage_collection(p, live_hf_end, need, fcalls);
+        ERTS_MSACC_POP_STATE_M();
+        return res;
     }
 
     erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
