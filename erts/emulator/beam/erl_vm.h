@@ -148,8 +148,8 @@ typedef struct op_entry {
    char* sign;			/* Signature string. */
 } OpEntry;
 
-extern OpEntry opc[];		/* Description of all instructions. */
-extern int num_instructions;	/* Number of instruction in opc[]. */
+extern const OpEntry opc[];	/* Description of all instructions. */
+extern const int num_instructions; /* Number of instruction in opc[]. */
 
 extern Uint erts_instr_count[];
 

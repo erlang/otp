@@ -4860,7 +4860,7 @@ transform_engine(LoaderState* st)
 {
     Uint op;
     int ap;			/* Current argument. */
-    Uint* restart;		/* Where to restart if current match fails. */
+    const Uint* restart; /* Where to restart if current match fails. */
     GenOpArg var[TE_MAX_VARS];	/* Buffer for variables. */
     GenOpArg* rest_args = NULL;
     int num_rest_args = 0;
@@ -4869,7 +4869,7 @@ transform_engine(LoaderState* st)
     GenOp* instr;
     GenOp* first = st->genop;
     GenOp* keep = NULL;
-    Uint* pc;
+    const Uint* pc;
     static Uint restart_fail[1] = {TOP_fail};
 
     ASSERT(gen_opc[first->op].transform != -1);
