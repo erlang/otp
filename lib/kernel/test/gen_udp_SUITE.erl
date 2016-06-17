@@ -724,9 +724,7 @@ implicit_inet6(Host, Addr) ->
 	    implicit_inet6(S1, Active, Loopback),
 	    ok = gen_udp:close(S1),
 	    %%
-	    Localhost = "localhost",
-	    Localaddr = ok(inet:getaddr(Localhost, inet6)),
-	    io:format("~s ~p~n", [Localhost,Localaddr]),
+	    Localaddr = ok(get_localaddr()),
 	    S2 = ok(gen_udp:open(0, [{ip,Localaddr},Active])),
 	    implicit_inet6(S2, Active, Localaddr),
 	    ok = gen_udp:close(S2),
@@ -778,3 +776,17 @@ delete_local_filenames() ->
 		filelib:wildcard(
 		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
     ok.
+
+get_localaddr() ->
+    get_localaddr(["localhost", "localhost6", "ip6-localhost"]).
+
+get_localaddr([]) ->
+    {error, localaddr_not_found};
+get_localaddr([Localhost|Ls]) ->
+    case inet:getaddr(Localhost, inet6) of
+       {ok, LocalAddr} ->
+           io:format("~s ~p~n", [Localhost, LocalAddr]),
+           {ok, LocalAddr};
+       _ ->
+           get_localaddr(Ls)
+    end.
