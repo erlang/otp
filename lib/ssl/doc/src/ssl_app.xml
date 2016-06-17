@@ -45,6 +45,8 @@
       but can be configured.</item>
       <item>For security reasons DES cipher suites are no longer supported by default,
       but can be configured.</item>
+      <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
+      </item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported,
       but not Diffie Hellman Certificates cipher suites.</item>
       <item>Elliptic Curve cipher suites are supported if the Crypto 
@@ -55,10 +57,16 @@
       <item>IDEA cipher suites are not supported as they have
       become deprecated by the latest TLS specification so it is not 
       motivated to implement them.</item>
+      <item>Compression is not supported.</item>
       <item>CRL validation is supported.</item>
       <item>Policy certificate extensions are not supported.</item>
       <item>'Server Name Indication' extension
       (<url href="http://www.ietf.org/rfc/rfc6066.txt">RFC 6066</url>) is supported.</item>
+      <item>Application Layer Protocol Negotiation (ALPN) and its successor Next Protocol Negotiation (NPN)
+      are supported. </item>
+      <item>It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
+      cipher suites, but they are not enabled by default.
+      </item>
     </list>
    </description>
 
