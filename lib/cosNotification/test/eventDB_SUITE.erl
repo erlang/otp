@@ -45,7 +45,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------- DEFINES ------------------------------------
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 -define(match(ExpectedRes, Expr),
         fun() ->
 		AcTuAlReS = (catch (Expr)),
@@ -57,7 +57,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -297,14 +297,13 @@ cases() ->
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -333,12 +332,10 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB lookup API tests 
 %%-----------------------------------------------------------------
-mapping_filter_api(doc) -> ["The event DB is used to store events which cannot be", 
-			    "delivered at once. This case is supposed to test", 
-			    "that the events are delivered in the correct order", 
-			    "if a MappingFilter have benn associated.", 
-		     ""];
-mapping_filter_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. This case is supposed to test
+%% that the events are delivered in the correct order
+%% if a MappingFilter have benn associated.
 mapping_filter_api(_Config) ->
     InitQoS       = ?not_CreateInitQoS(),
     InitQoS2      = ?not_SetMaxEventsPerConsumer(InitQoS,100),
@@ -405,12 +402,10 @@ do_lookup(QoS, Events, Return, Txt, DLFilter, PrioFilter, Timeout) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB discard API tests 
 %%-----------------------------------------------------------------
-discard_api(doc) -> ["The event DB is used to store events which cannot be", 
-		     "delivered at once. If MaxEvents limit is reached there", 
-		     "different ways we can discard the. This case will test", 
-		     "all permutations of order and discard policies.",
-		     ""];
-discard_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. If MaxEvents limit is reached there
+%% different ways we can discard the. This case will test 
+%% all permutations of order and discard policies.
 discard_api(_Config) ->
     InitQoS1    = ?not_CreateInitQoS(),
     InitQoS2    = ?not_SetPriority(InitQoS1, 10),
@@ -523,11 +518,9 @@ do_discard(Events, QoS, Reply, Txt) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB lookup API tests 
 %%-----------------------------------------------------------------
-lookup_api(doc) -> ["The event DB is used to store events which cannot be", 
-		     "delivered at once. This case is supposed to test", 
-		     "that the events are delivered in the correct order.", 
-		     ""];
-lookup_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. This case is supposed to test
+%% that the events are delivered in the correct order.
 lookup_api(_Config) ->
     InitQoS       = ?not_CreateInitQoS(),
     InitQoS2      = ?not_SetMaxEventsPerConsumer(InitQoS,100),
@@ -562,11 +555,9 @@ do_lookup(QoS, Events, Return, Txt) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB max events API tests 
 %%-----------------------------------------------------------------
-max_events_api(doc) -> ["The event DB is used to store events which cannot be", 
-		     "delivered at once. If the MaxEvents QoS is updated we must be", 
-		     "able to reduce the amount of stored events.", 
-		     ""];
-max_events_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. If the MaxEvents QoS is updated we must be
+%% able to reduce the amount of stored events.
 max_events_api(_Config) ->
 
     QoS1             = ?not_CreateInitQoS(),
@@ -602,10 +593,8 @@ max_events_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB persisten events API tests 
 %%-----------------------------------------------------------------
-persisten_event_api(doc) -> ["The event DB is used to store events which cannot be", 
-			     "delivered at once.", 
-			     ""];
-persisten_event_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once.
 persisten_event_api(_Config) ->
 
     QoS1             = ?not_CreateInitQoS(),
@@ -639,11 +628,9 @@ persisten_event_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB gc API tests 
 %%-----------------------------------------------------------------
-gc_api(doc) -> ["The event DB is used to store events which cannot be", 
-		"delivered at once. If Deadline defined the events that", 
-		"are older must be discarded.", 
-		""];
-gc_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. If Deadline defined the events that
+%% are older must be discarded.
 gc_api(_Config) ->
 
     QoS1             = ?not_CreateInitQoS(),
@@ -680,11 +667,9 @@ gc_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB gc API tests 
 %%-----------------------------------------------------------------
-auto_gc_api(doc) -> ["The event DB is used to store events which cannot be", 
-		"delivered at once. If Deadline defined the events that", 
-		"are older must be discarded.", 
-		""];
-auto_gc_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. If Deadline defined the events that
+%% are older must be discarded.
 auto_gc_api(_Config) ->
 
     QoS1             = ?not_CreateInitQoS(),
@@ -717,11 +702,9 @@ auto_gc_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB start- and stop-time API tests 
 %%-----------------------------------------------------------------
-start_stop_time_api(doc) -> ["The event DB is used to store events which cannot be", 
-		"delivered at once. If Deadline defined the events that", 
-		"are older must be discarded.", 
-		""];
-start_stop_time_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. If Deadline defined the events that
+%% are older must be discarded.
 start_stop_time_api(_Config) ->
 
     QoS1             = ?not_CreateInitQoS(),
@@ -823,12 +806,10 @@ start_stop_time_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  cosNotification_eventDB order API tests 
 %%-----------------------------------------------------------------
-reorder_api(doc) -> ["The event DB is used to store events which cannot be", 
-		     "delivered at once. If the QoS is updated we must be", 
-		     "able to change the ordering of events as the discard", 
-		     "and order policies tells us.", 
-		     ""];
-reorder_api(suite) -> [];
+%% The event DB is used to store events which cannot be
+%% delivered at once. If the QoS is updated we must be
+%% able to change the ordering of events as the discard
+%% and order policies tells us.
 reorder_api(_Config) ->
     %% We need to test switching between:
     %% * Priority -> Fifo

@@ -36,7 +36,7 @@
 -include_lib("common_test/include/ct.hrl").
  
 %%--------------- DEFINES ------------------------------------
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 -define(match(ExpectedRes, Expr),
         fun() ->
                AcTuAlReS = (catch (Expr)),
@@ -122,18 +122,17 @@ cases() ->
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
- 
 init_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
  
  
 end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
  
@@ -143,7 +142,7 @@ init_per_suite(Config) ->
     orber:jump_start(),
     cosProperty:install(),
     cosProperty:install_db(),
-    ?line ?match(ok, application:start(cosProperty)),
+    ?match(ok, application:start(cosProperty)),
     if
         is_list(Config) ->
             Config;
@@ -163,8 +162,6 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  Tests app file
 %%-----------------------------------------------------------------
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
     ok=test_server:app_test(cosProperty),
     ok.
@@ -173,9 +170,6 @@ app_test(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosPropertyService_PropertySetDefFactory API tests 
 %%-----------------------------------------------------------------
-create_setdef_api(doc) -> ["CosPropertyService_PropertySetDefFactory API tests.", 
-			   ""];
-create_setdef_api(suite) -> [];
 create_setdef_api(_Config) ->
 
     ValidDefs = [#'CosPropertyService_PropertyDef'
@@ -239,9 +233,6 @@ create_setdef_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosPropertyService_PropertySetFactory API tests 
 %%-----------------------------------------------------------------
-create_set_api(doc) -> ["CosPropertyService_PropertySetFactory API tests.", 
-			   ""];
-create_set_api(suite) -> [];
 create_set_api(_Config) ->
     Valid = [#'CosPropertyService_Property'
 	     {property_name = ?id1,
@@ -296,9 +287,6 @@ create_set_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosPropertyService_PropertySetDef API tests 
 %%-----------------------------------------------------------------
-define_api(doc) -> ["CosPropertyService_PropertySet API tests.", 
-			   ""];
-define_api(suite) -> [];
 define_api(_Config) ->
     ValidDefs = [#'CosPropertyService_Property'
 		 {property_name = ?id1,
@@ -466,9 +454,6 @@ define_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosPropertyService_PropertySetDef API tests 
 %%-----------------------------------------------------------------
-define_with_mode_api(doc) -> ["CosPropertyService_PropertySetDef API tests.", 
-			   ""];
-define_with_mode_api(suite) -> [];
 define_with_mode_api(_Config) ->
     ValidDefs = [#'CosPropertyService_PropertyDef'
 		 {property_name = ?id1,
@@ -684,9 +669,6 @@ define_with_mode_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosPropertyService_PropertyNamesIterator API tests 
 %%-----------------------------------------------------------------
-names_iterator_api(doc) -> ["CosPropertyService_PropertyNamesIterator API tests.", 
-			   ""];
-names_iterator_api(suite) -> [];
 names_iterator_api(_Config) ->
     Fac = ?match({_,pseudo,_,_,_,_}, cosProperty:start_SetFactory()),
     Obj = ?match({_,pseudo,_,_,_,_}, 'CosPropertyService_PropertySetFactory':
@@ -717,9 +699,6 @@ names_iterator_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosPropertyService_PropertiesIterator API tests 
 %%-----------------------------------------------------------------
-properties_iterator_api(doc) -> ["CosPropertyService_PropertiesIterator API tests.", 
-			   ""];
-properties_iterator_api(suite) -> [];
 properties_iterator_api(_Config) ->
     Fac = ?match({_,pseudo,_,_,_,_}, cosProperty:start_SetFactory()),
     Obj = ?match({_,pseudo,_,_,_,_}, 'CosPropertyService_PropertySetFactory':

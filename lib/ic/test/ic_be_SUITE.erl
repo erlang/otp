@@ -30,7 +30,7 @@
 	 init_per_group/2,end_per_group/2,plain/1]).     
 
 
--define(OUT(X), filename:join([?config(priv_dir, Config), gen, to_list(X)])).
+-define(OUT(X), filename:join([proplists:get_value(priv_dir, Config), gen, to_list(X)])).
 
 
 %% Top of cases
@@ -56,34 +56,19 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-
-
-plain(doc) ->
-    ["Checking code for the plain backend."];
-plain(suite) -> [];
+%% Checking code for the plain backend.
 plain(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, plain),
-    
-    ?line ok = ic:gen(File,stdopts(OutDir)++[{be,erl_plain}]),
-    
+    ok = ic:gen(File,stdopts(OutDir)++[{be,erl_plain}]),
     ok.
-
-
-
 
 %%--------------------------------------------------------------------
 %%
 %% Utilities
-
-
 stdopts(OutDir) ->
     [{outdir, OutDir}, {maxerrs, infinity}].
-
-
-
-
 
 to_list(X) when is_atom(X) -> atom_to_list(X);
 to_list(X) -> X.
