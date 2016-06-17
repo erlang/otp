@@ -838,19 +838,49 @@ local_types([]) -> [];
 local_types(Es) ->
     local_defs2(get_elem(localdef, Es)).
 
+-define(LOCAL_TYPES, edoc_local_defs).
+
 local_defs2([]) -> [];
 local_defs2(Es) ->
+    case collect_local_types(Es) of
+        [] -> local_defs3(Es);
+        LocalTypes ->
+            ?LOCAL_TYPES = ets:new(?LOCAL_TYPES, [named_table]),
+            true = ets:insert(?LOCAL_TYPES, LocalTypes),
+            try
+                local_defs3(Es)
+            after
+                ets:delete(?LOCAL_TYPES)
+            end
+    end.
+
+local_defs3(Es) ->
     {type,[?NL | [{v, localdef2(E)} || E <- Es]]}.
+
+%% Does not work well for parametrized types.
+collect_local_types(Es) ->
+    lists:append([collect_local_type(E) || E <- Es]).
+
+collect_local_type(#xmlElement{content = Es}) ->
+    case get_elem(typevar, Es) of
+        [] ->
+            [{t_abstype(get_content(abstype, Es))}];
+        [_] ->
+            []
+    end.
 
 %% Like localdef/1, but does not use label_anchor/2 -- we don't want any
 %% markers or em tags in <v> tag, plain text only!
+%% When used stand-alone, EDoc generates links to local types. An ETS
+%% table holds local types, to avoid generating links to them.
 localdef2(#xmlElement{content = Es}) ->
-    case get_elem(typevar, Es) of
-	[] -> 
-	    t_utype(get_elem(type, Es));
-	[V] ->
-	    t_var(V) ++ [" = "] ++ t_utype(get_elem(type, Es))
-    end.
+    Var = case get_elem(typevar, Es) of
+              [] ->
+		  [t_abstype(get_content(abstype, Es))];
+              [V] ->
+                  t_var(V)
+          end,
+    Var ++ [" = "] ++ t_utype(get_elem(type, Es)).
 
 type_name(#xmlElement{content = Es}) ->
     t_name(get_elem(erlangName, get_content(typedef, Es))).
@@ -924,6 +954,7 @@ seealso_module(Es) ->
 	Es1 ->
 	    {section,[{title,["See also"]},{p,seq(fun see/1, Es1, [])}]}
     end.
+
 seealso_function(Es) ->
     case get_elem(see, Es) of
 	[] -> [];
@@ -995,7 +1026,14 @@ t_name([E]) ->
     end.
 
 t_utype([E]) ->
-    t_utype_elem(E).
+    flatten_type(t_utype_elem(E)).
+
+%% Make sure see also are top elements of lists.
+flatten_type(T) ->
+    [case is_integer(E) of
+         true -> [E];
+         false -> E
+     end || E <- lists:flatten(T)].
 
 t_utype_elem(E=#xmlElement{content = Es}) ->
     case get_attrval(name, E) of
@@ -1028,8 +1066,8 @@ t_type([#xmlElement{name = tuple, content = Es}]) ->
     t_tuple(Es);
 t_type([#xmlElement{name = 'fun', content = Es}]) ->
     t_fun(Es);
-t_type([#xmlElement{name = abstype, content = Es}]) ->
-    t_abstype(Es);
+t_type([E = #xmlElement{name = abstype, content = Es}]) ->
+    t_abstype(E, Es);
 t_type([#xmlElement{name = union, content = Es}]) ->
     t_union(Es);
 t_type([#xmlElement{name = record, content = Es}]) ->
@@ -1086,9 +1124,37 @@ t_map_field(E = #xmlElement{name = map_field, content = [K,V]}) ->
          end,
     [KElem ++ AS ++ VElem].
 
+t_abstype(E, Es) ->
+    see_type(E, t_abstype(Es)).
+
 t_abstype(Es) ->
     Name = t_name(get_elem(erlangName, Es)),
     [Name, "("] ++ seq(fun t_utype_elem/1, get_elem(type, Es), [")"]).
+
+see_type(E, Es0) ->
+    case get_attrval(href, E) of
+        [] -> Es0;
+        Href0 ->
+            try
+                false = is_local_type(Es0),
+                %% Fails for parametrized types:
+                Text = #xmlText{value = lists:append(Es0)},
+                {Href, Es} = otp_xmlify_a_href(Href0, [Text]),
+                [{seealso, [{marker, Href}], Es}]
+            catch
+                _:_ ->
+                    Es0
+            end
+    end.
+
+is_local_type(Es) ->
+    try
+        [_] = ets:lookup(?LOCAL_TYPES, Es),
+        true
+    catch
+        _:_->
+            false
+    end.
 
 t_union(Es) ->
     seq(fun t_utype_elem/1, Es, " | ", []).
