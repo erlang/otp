@@ -963,9 +963,7 @@
 	    The amount of dirty IO schedulers is not limited by the amount of
 	    normal schedulers <seealso marker="#+SDcpu">like the amount of
 	    dirty CPU schedulers</seealso>. This since only I/O bound work is
-	    expected to execute on dirty I/O schedulers. I/O bound jobs are
-	    expected to either block waiting for I/O, and/or spend a limited
-	    amount of time moving data. However, if the user should schedule CPU
+	    expected to execute on dirty I/O schedulers. If the user should schedule CPU
 	    bound jobs on dirty I/O schedulers, these jobs might starve ordinary
 	    jobs executing on ordinary schedulers.
 	  </p>
