@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -563,7 +563,14 @@ otp_xmlify_a_fileref(FileRef1, AppS) ->
 			 true ->
 			     case split(Marker0, "-") of
 				 [Func,Arity] ->
-				     Func++"/"++Arity;
+                                     try list_to_integer(Arity) of
+                                         _ ->
+                                             Func++"/"++Arity
+                                     catch
+                                         _:_ ->
+                                             %% This is "type-"<a-type>.
+                                             Marker0
+                                     end;
 				 _ ->
 				     Marker0
 			     end
@@ -1075,25 +1082,8 @@ t_map_field([K,V]) ->
     [t_utype_elem(K) ++ " => " ++ t_utype_elem(V)].
 
 t_abstype(Es) ->
-    case split_at_colon(t_name(get_elem(erlangName, Es)),[]) of
-	{Mod,Type} -> 
-	    [Type, "("] ++ 
-		seq(fun t_utype_elem/1, get_elem(type, Es), [")"]) ++ 
-		[" (see module ", Mod, ")"];
-	Type ->
-	    [Type, "("] ++ 
-		seq(fun t_utype_elem/1, get_elem(type, Es), [")"])
-    end.
-
-%% Split at one colon, but not at two (or more)
-split_at_colon([$:,$:|_]=Rest,Acc) ->
-    lists:reverse(Acc)++Rest;
-split_at_colon([$:|Type],Acc) ->
-    {lists:reverse(Acc),Type};
-split_at_colon([Char|Rest],Acc) ->
-    split_at_colon(Rest,[Char|Acc]);
-split_at_colon([],Acc) ->
-    lists:reverse(Acc).
+    Name = t_name(get_elem(erlangName, Es)),
+    [Name, "("] ++ seq(fun t_utype_elem/1, get_elem(type, Es), [")"]).
 
 t_union(Es) ->
     seq(fun t_utype_elem/1, Es, " | ", []).
