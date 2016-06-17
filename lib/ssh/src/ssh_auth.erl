@@ -66,11 +66,15 @@ userauth_request_msg(#ssh{userauth_methods = ServerMethods,
 
 sort_select_mthds(Clients, undefined, Servers) ->
     %% User has not expressed an opinion via option "auth_methods", use the server's prefs
-    sort_select_mthds(Clients, Servers, Servers);
+    sort_select_mthds1(Clients, Servers, string:tokens(?SUPPORTED_AUTH_METHODS,","));
 
 sort_select_mthds(Clients, Users0, Servers0) ->
     %% The User has an opinion, use the intersection of that and the Servers whishes but
     %% in the Users order
+    sort_select_mthds1(Clients, string:tokens(Users0,","), Servers0).
+
+
+sort_select_mthds1(Clients, Users0, Servers0) ->
     Servers = unique(Servers0),
     Users = unique(Users0),
     [C || Key <- Users,
