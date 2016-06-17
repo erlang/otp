@@ -2394,7 +2394,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 							     ERTS_ATOM_ENC_LATIN1,
 							     1),
 					       erts_bld_uint(hpp, hszp,
-							     opc[i].count)),
+							     erts_instr_count[i])),
 				res);
 	}
 
