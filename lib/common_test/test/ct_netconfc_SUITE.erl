@@ -55,7 +55,7 @@ check_crypto_and_ssh() ->
     (catch code:load_file(crypto)),
     case code:is_loaded(crypto) of
 	{file,_} ->
-	    case ssh:start() of
+	    case catch ssh:start() of
 		Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
 		    ct:log("ssh started",[]),
 		    ok;
