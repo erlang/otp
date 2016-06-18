@@ -1436,8 +1436,6 @@ Other commands:
   (erlang-skel-init)
   (when (fboundp 'tempo-use-tag-list)
     (tempo-use-tag-list 'erlang-tempo-tags))
-  (when (boundp 'xref-backend-functions)
-    (add-hook 'xref-backend-functions #'erlang-etags--xref-backend nil t))
   (run-hooks 'erlang-mode-hook)
   (if (zerop (buffer-size))
       (run-hooks 'erlang-new-file-hook)))
@@ -1548,9 +1546,7 @@ Other commands:
   (set (make-local-variable 'outline-regexp) "[[:lower:]0-9_]+ *(.*) *-> *$")
   (set (make-local-variable 'outline-level) (lambda () 1))
   (set (make-local-variable 'add-log-current-defun-function)
-       'erlang-current-defun)
-  (set (make-local-variable 'find-tag-default-function)
-       'erlang-find-tag-for-completion))
+       'erlang-current-defun))
 
 (defun erlang-font-lock-init ()
   "Initialize Font Lock for Erlang mode."
@@ -3233,18 +3229,16 @@ With argument, do this that many times."
   (interactive "p")
   (or arg (setq arg 1))
   (while (and (looking-at "[ \t]*[%\n]")
-	      (zerop (forward-line 1))))
+              (zerop (forward-line 1))))
   ;; Move to the next clause.
   (erlang-beginning-of-clause (- arg))
   (beginning-of-line);; Just to be sure...
   (let ((continue t))
     (while (and (not (bobp)) continue)
       (forward-line -1)
-      (skip-chars-forward " \t")
-      (if (looking-at "[%\n]")
-	  nil
-	(end-of-line)
-	(setq continue nil)))))
+      (unless (looking-at "[ \t]*[%\n]")
+        (end-of-line)
+        (setq continue nil)))))
 
 (defun erlang-mark-clause ()
   "Put mark at end of clause, point at beginning."
@@ -4352,11 +4346,6 @@ as on the old form `tag'.
 
 In the completion list, `module:tag' and `module:' shows up.
 
-Call this function from an appropriate init file, or add it to
-Erlang mode hook with the commands:
-    (add-hook 'erlang-mode-hook 'erlang-tags-init)
-    (add-hook 'erlang-shell-mode-hook 'erlang-tags-init)
-
 This function only works under Emacs 18 and Emacs 19.  Currently, It
 is not implemented under XEmacs.  (Hint: The Emacs 19 etags module
 works under XEmacs.)"
@@ -4367,11 +4356,17 @@ works under XEmacs.)"
 	 (setq erlang-tags-installed t))
 	(t
 	 (require 'etags)
-	 ;; Test on a function available in the Emacs 19 version
-	 ;; of tags but not in the XEmacs version.
-         (when (fboundp 'find-tag-noselect)
-	   (erlang-tags-define-keys (current-local-map))
-	   (setq erlang-tags-installed t)))))
+         (set (make-local-variable 'find-tag-default-function)
+              'erlang-find-tag-for-completion)
+         (if (boundp 'xref-backend-functions)
+             ;; Emacs 25+
+             (add-hook 'xref-backend-functions
+                       #'erlang-etags--xref-backend nil t)
+           ;; Test on a function available in the Emacs 19 version
+           ;; of tags but not in the XEmacs version.
+           (when (fboundp 'find-tag-noselect)
+             (erlang-tags-define-keys (current-local-map))
+             (setq erlang-tags-installed t))))))
 
 
 
@@ -4775,8 +4770,6 @@ for a tag on the form `module:tag'."
 ;;; completion-table' containing all normal tags plus tags on the form
 ;;; `module:tag' and `module:'.
 
-;; PENDING - Should probably make use of the
-;; `completion-at-point-functions' hook instead of this advice.
 (when (and (locate-library "etags")
            (require 'etags)
            (fboundp 'etags-tags-completion-table)
@@ -4807,8 +4800,7 @@ about Erlang modules."
   (condition-case nil
       (require 'etags)
     (error nil))
-  (cond ((and erlang-tags-installed
-              (fboundp 'etags-tags-completion-table)
+  (cond ((and (fboundp 'etags-tags-completion-table)
               (fboundp 'tags-lazy-completion-table)) ; Emacs 23.1+
          (let ((erlang-replace-etags-tags-completion-table t))
            (complete-tag)))
@@ -5213,19 +5205,10 @@ The following special commands are available:
   (setq comint-input-ignoredups t)
   (setq comint-scroll-show-maximum-output t)
   (setq comint-scroll-to-bottom-on-output t)
-  ;; In Emacs 19.30, `add-hook' has got a `local' flag, use it.  If
-  ;; the call fails, just call the normal `add-hook'.
-  (condition-case nil
-      (progn
-        (add-hook 'comint-output-filter-functions
-		  'inferior-erlang-strip-delete nil t)
-        (add-hook 'comint-output-filter-functions
-		  'inferior-erlang-strip-ctrl-m nil t))
-    (error
-     (funcall (symbol-function 'make-local-hook)
-	      'comint-output-filter-functions) ; obsolete as of Emacs 21.1
-     (add-hook 'comint-output-filter-functions 'inferior-erlang-strip-delete)
-     (add-hook 'comint-output-filter-functions 'inferior-erlang-strip-ctrl-m)))
+  (add-hook 'comint-output-filter-functions
+            'inferior-erlang-strip-delete nil t)
+  (add-hook 'comint-output-filter-functions
+            'inferior-erlang-strip-ctrl-m nil t)
   ;; Some older versions of comint don't have an input ring.
   (if (fboundp 'comint-read-input-ring)
       (progn
@@ -5251,6 +5234,7 @@ The following special commands are available:
 		     (define-key map [menu-bar compilation]
 		       (cons "Errors" compilation-menu-map)))
 		 map)))))
+  (erlang-tags-init)
   (run-hooks 'erlang-shell-mode-hook))
 
 
