@@ -4777,11 +4777,7 @@ for a tag on the form `module:tag'."
   (if (fboundp 'advice-add)
       ;; Emacs 24.4+
       (advice-add 'etags-tags-completion-table :around
-                  (lambda (oldfun)
-                    (if erlang-replace-etags-tags-completion-table
-                        (erlang-etags-tags-completion-table)
-                      (funcall oldfun)))
-                  (list :name 'erlang-replace-tags-table))
+                  #'erlang-etags-tags-completion-table-advice)
     ;; Emacs 23.1-24.3
     (defadvice etags-tags-completion-table (around
                                             erlang-replace-tags-table
@@ -4789,6 +4785,11 @@ for a tag on the form `module:tag'."
       (if erlang-replace-etags-tags-completion-table
           (setq ad-return-value (erlang-etags-tags-completion-table))
         ad-do-it))))
+
+(defun erlang-etags-tags-completion-table-advice (oldfun)
+  (if erlang-replace-etags-tags-completion-table
+      (erlang-etags-tags-completion-table)
+    (funcall oldfun)))
 
 (defun erlang-complete-tag ()
   "Perform tags completion on the text around point.
