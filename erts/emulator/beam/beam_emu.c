@@ -7017,7 +7017,11 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     /* The expensive case, need to build a hashmap */
     if (n > MAP_SMALL_MAP_LIMIT) {
-	res = erts_hashmap_from_ks_and_vs(p,flatmap_get_keys(mp),flatmap_get_values(mp),n);
+        ErtsHeapFactory factory;
+        erts_factory_proc_init(&factory, p);
+        res = erts_hashmap_from_ks_and_vs(&factory,flatmap_get_keys(mp),
+                                          flatmap_get_values(mp),n);
+        erts_factory_close(&factory);
     }
     return res;
 }
