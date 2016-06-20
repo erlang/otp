@@ -762,7 +762,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
             }
         }
 
-        if (res < buffsz) {
+        if (res < (buffsz + sizeof(buffsz))) {
             /* we only wrote part of the command payload. Enqueue the rest. */
             for (i = 0; i < iov_len; i++) {
                 driver_enq(port_num, io_vector[i].iov_base, io_vector[i].iov_len);
