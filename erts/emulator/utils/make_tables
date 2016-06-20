@@ -36,7 +36,6 @@ use File::Basename;
 #    <-src>/erl_am.c
 #    <-src>/erl_bif_table.c
 #    <-src>/erl_bif_wrap.c
-#    <-src>/erl_pbifs.c
 #    <-include>/erl_atom_table.h
 #    <-include>/erl_bif_table.h
 #
@@ -54,8 +53,6 @@ my %aliases;
 my $auto_alias_num = 0;
 
 my @bif;
-my @implementation;
-my @pbif;
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -80,7 +77,10 @@ while (<>) {
     if ($type eq 'atom') {
 	save_atoms(@args);
     } elsif ($type eq 'bif' or $type eq 'ubif') {
-	my($bif,$alias,$alias2) = (@args);
+	if (@args > 2) {
+	    error("$type only allows two arguments");
+	}
+	my($bif,$alias) = (@args);
 	$bif =~ m@^([a-z_.'0-9]+):(.*)/(\d)$@ or error("invalid BIF");
 	my($mod,$name,$arity) = ($1,$2,$3);
 	save_atoms($mod, $name);
@@ -94,8 +94,6 @@ while (<>) {
 	$wrapper = $alias if $type eq 'ubif';
 	push(@bif, ["am_$atom_alias{$mod}","am_$atom_alias{$name}",$arity,
 		    $alias,$wrapper]);
-        push(@pbif, $bif =~ m/^'/ && $alias =~ m/^ebif_/);
-        push(@implementation, $alias2);
     } else {
 	error("invalid line");
     }
@@ -227,25 +225,6 @@ for ($i = 0; $i < @bif; $i++) {
 #
 # Generate the package bif file.
 #
-
-open_file("$src/erl_pbifs.c");
-my $i;
-includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
-	 "erl_bif_table.h", "erl_atom_table.h");
-for ($i = 0; $i < @bif; $i++) {
-    my $arity = $bif[$i]->[2];
-    my $func = $bif[$i]->[3];
-    my $arg;
-    next unless $pbif[$i];
-    next unless $func =~ m/^ebif_(.*)/;
-    my $orig_func = $1;
-    $orig_func = $implementation[$i] if $implementation[$i];
-    print "Eterm\n";
-    print "$func(Process* p, Eterm* BIF__ARGS)\n";
-    print "{\n";
-    print "    return $orig_func(p, BIF__ARGS);\n";
-    print "}\n\n";
-}
 
 sub open_file {			# or die
     my($name) = @_;

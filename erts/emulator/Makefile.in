@@ -564,7 +564,6 @@ $(TARGET)/erl_bif_wrap.c \
 $(TARGET)/erl_bif_list.h \
 $(TARGET)/erl_atom_table.c \
 $(TARGET)/erl_atom_table.h \
-$(TARGET)/erl_pbifs.c \
 	: $(TARGET)/TABLES-GENERATED
 $(TARGET)/TABLES-GENERATED: $(ATOMS) $(BIFS) utils/make_tables
 	$(gen_verbose)LANG=C $(PERL) utils/make_tables -src $(TARGET) -include $(TARGET)\
@@ -744,7 +743,7 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_ranges.o
 
 RUN_OBJS = \
-	$(OBJDIR)/erl_pbifs.o		$(OBJDIR)/benchmark.o \
+	$(OBJDIR)/benchmark.o \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
 	$(OBJDIR)/erl_bestfit_alloc.o	$(OBJDIR)/erl_afit_alloc.o \
