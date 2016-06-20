@@ -137,23 +137,32 @@
 
 -spec regalloc(module(), target_cfg(), spillno(), spillno(), module(),
 	       proplists:proplist())
-	      -> {hipe_map(), spillno(), target_liveness()}.
-regalloc(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options) ->
-  Liveness = Target:analyze(CFG),
+	      -> {hipe_map(), spillno(), target_cfg(),
+		  undefined | target_liveness()}.
+regalloc(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options) ->
+  Liveness0 = Target:analyze(CFG0),
   {ScanBBs, Seen, SpillMap, SpillIndex1} =
-    scan_cfg(CFG, Liveness, SpillIndex0, Target),
+    scan_cfg(CFG0, Liveness0, SpillIndex0, Target),
 
   AllPrecoloured = Target:all_precoloured(),
 
-  {PartColoring, SpillIndex} =
+  {PartColoring, SpillIndex, NewCFG} =
     case proplists:get_bool(ra_partitioned, Options) of
       true when map_size(Seen) - map_size(SpillMap) - length(AllPrecoloured)
 		> ?TUNE_MIN_SPLIT_PSEUDOS ->
 	regalloc_partitioned(SpillMap, SpillIndex1, SpillLimit, ScanBBs,
-			     CFG, Target, RegAllocMod, Options);
+			     CFG0, Target, RegAllocMod, Options);
       _ ->
 	regalloc_whole(Seen, SpillMap, SpillIndex1, SpillLimit, ScanBBs,
-		       CFG, Target, RegAllocMod, Options)
+		       CFG0, Target, RegAllocMod, Options)
+    end,
+
+  %% It's not worth it to add rewriting of the liveness information; just return
+  %% 'undefined' and let it be recomputed when needed.
+  {CFG, Liveness} =
+    case NewCFG of
+      same -> {CFG0, Liveness0};
+      {rewritten, CFG1} -> {CFG1, undefined}
     end,
 
   SpillColors = [{T, {spill, S}} || {T, S} <- maps:to_list(SpillMap)],
@@ -162,13 +171,13 @@ regalloc(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options) ->
   ?ASSERT(begin
 	    MaxPhys = lists:max(AllPrecoloured) + 1,
 	    Unused = unused(live_pseudos(Seen, SpillMap, MaxPhys),
-			    SpillMap, CFG, Target),
-	    unused_unused(Unused, CFG, Target)
+			    SpillMap, CFG0, Target),
+	    unused_unused(Unused, CFG0, Target)
 	  end),
   ?ASSERT(check_coloring(Coloring, CFG, Target)), % Sanity-check
-  ?ASSERT(just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target,
-			  Options, Coloring, Unused)),
-  {Coloring, SpillIndex, Liveness}.
+  ?ASSERT(just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit,
+			  Target, Options, SpillMap, Coloring, Unused)),
+  {Coloring, SpillIndex, CFG, Liveness}.
 
 regalloc_whole(Seen, SpillMap, SpillIndex0, SpillLimit, ScanBBs,
 	       CFG, Target, RegAllocMod, Options) ->
@@ -184,7 +193,7 @@ regalloc_whole(Seen, SpillMap, SpillIndex0, SpillLimit, ScanBBs,
     RegAllocMod:regalloc(SubMod, SpillIndex0, SubSpillLimit, SubTarget,
 			 Options),
   ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
-  {translate_coloring(SubColoring, InvMap), SpillIndex}.
+  {translate_coloring(SubColoring, InvMap), SpillIndex, same}.
 
 regalloc_partitioned(SpillMap, SpillIndex0, SpillLimit, ScanBBs,
 		     CFG, Target, RegAllocMod, Options) ->
@@ -215,9 +224,11 @@ regalloc_partitioned(SpillMap, SpillIndex0, SpillLimit, ScanBBs,
 	    RegAllocMod:regalloc(SubMod, SpillIndex1, SubSpillLimit, SubTarget,
 				 Options),
 	  ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
-	  {translate_coloring(SubColoring, InvMap), SpillIndex2}
+	  {{translate_coloring(SubColoring, InvMap), Elems}, SpillIndex2}
       end, SpillIndex0, PartBBsRLList),
-  {combine_allocations(Allocations, MaxPhys), SpillIndex}.
+  {Coloring, NewCFG} =
+    combine_allocations(Allocations, MaxPhys, PartBBs, Target, CFG),
+  {Coloring, SpillIndex, NewCFG}.
 
 -spec number_and_map([target_reg()], target_liveset(), target_reg())
 		    -> {sub_map(), inv_map(), temp(), temp(), temp()}.
@@ -640,15 +651,122 @@ transform_bb(BB, SubMap) ->
   %% For now, part_bb_part() and split_bb() share representation
   transform_whole_bb(BB, SubMap).
 
-%%
-combine_allocations([A|As], MaxPhys) ->
-  {Phys, Pseuds} = lists:partition(fun({R,_}) -> R < MaxPhys end, A),
-  combine_allocations_1(As, MaxPhys, Phys, Pseuds).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Fifth pass
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Combine colorings and substitute temps in actual cfg if there were
+%% collisions.
 
-combine_allocations_1([], _MaxPhys, Phys, Pseuds) -> Phys ++ Pseuds;
-combine_allocations_1([A|As], MaxPhys, Phys, Acc) ->
+%% A temp can sometimes appear in more than one partition. For example, defining
+%% an unused value. If these are found by combine_allocations, we have to
+%% rename this temp in one of the partitions on the real cfg.
+%%
+%% We optimistically assume that there will be no such collisions, and when
+%% there are, we fix them up as they're found.
+
+-spec combine_allocations([{hipe_map(), [bb_dset_key()]}], target_reg(),
+			  part_bbs(), module(), target_cfg())
+			 -> {hipe_map(), same | {rewritten, target_cfg()}}.
+combine_allocations([{A,_}|As], MaxPhys, PartBBs, Target, CFG) ->
   {Phys, Pseuds} = lists:partition(fun({R,_}) -> R < MaxPhys end, A),
-  combine_allocations_1(As, MaxPhys, Phys, Pseuds ++ Acc).
+  {Seen, _, []} = partition_by_seen(Pseuds, #{}, [], []),
+  combine_allocations(As, MaxPhys, PartBBs, Target, Phys, Seen, Pseuds,
+		      {same, CFG}).
+
+-spec combine_allocations([{hipe_map(), [bb_dset_key()]}], target_reg(),
+			  part_bbs(), module(), hipe_map(), seen(), hipe_map(),
+			  {same|rewritten, target_cfg()})
+			 -> {hipe_map(), same | {rewritten, target_cfg()}}.
+combine_allocations([], _MaxPhys, _PartBBs, _Target, Phys, _Seen, Pseuds,
+		    CFGT) ->
+  {Phys ++ Pseuds, case CFGT of
+		     {same, _} -> same;
+		     {rewritten, _} -> CFGT
+		   end};
+combine_allocations([{A,PartElems}|As], MaxPhys, PartBBs, Target, Phys, Seen0,
+		    Acc, CFGT={_,CFG0}) ->
+  {Phys, Pseuds0} = lists:partition(fun({R,_}) -> R < MaxPhys end, A),
+  {Seen, Pseuds, Collisions} = partition_by_seen(Pseuds0, Seen0, [], []),
+  case Collisions of
+    [] -> combine_allocations(As, MaxPhys, PartBBs, Target, Phys, Seen,
+			      Pseuds++Acc, CFGT);
+    _ ->
+      %% There were collisions; rename all the temp numbers in Collisions
+      {CFG, Renamed} = rename(Collisions, PartElems, PartBBs, Target, CFG0),
+      combine_allocations(As, MaxPhys, PartBBs, Target, Phys, Seen,
+			  Pseuds++Renamed++Acc, {rewritten,CFG})
+  end.
+
+%% @doc Partitions a coloring on whether the registers are in the Seen set,
+%% adding any new registers to the set.
+-spec partition_by_seen(hipe_map(), seen(), hipe_map(), hipe_map())
+		       -> {seen(), hipe_map(), hipe_map()}.
+partition_by_seen([], Seen, Acc, Collisions) -> {Seen, Acc, Collisions};
+partition_by_seen([C={R,_}|Cs], Seen, Acc, Colls) ->
+  case Seen of
+    #{R := _} -> partition_by_seen(Cs, Seen, Acc, [C|Colls]);
+    #{}       -> partition_by_seen(Cs, Seen#{R => []}, [C|Acc], Colls)
+  end.
+
+-spec rename(hipe_map(), [bb_dset_key()], part_bbs(), module(), target_cfg())
+	    -> {target_cfg(), hipe_map()}.
+rename(CollisionList, PartElems, PartBBs, Target, CFG0) ->
+  {Map, Renamed} = new_names(CollisionList, Target, #{}, []),
+  Fun = fun(I) ->
+	    Target:subst_temps(
+	      fun(Temp) ->
+		  N = Target:reg_nr(Temp),
+		  case Map of
+		    #{N := Subst} -> Target:update_reg_nr(Subst, Temp);
+		    #{} -> Temp
+		  end
+	      end, I)
+	end,
+  {rename_1(PartElems, PartBBs, Target, Fun, CFG0), Renamed}.
+
+-type rename_map() :: #{target_reg() => target_reg()}.
+-type rename_fun() :: fun((target_instr()) -> target_instr()).
+
+-spec new_names(hipe_map(), module(), rename_map(), hipe_map())
+	       -> {rename_map(), hipe_map()}.
+new_names([], _Target, Map, Renamed) -> {Map, Renamed};
+new_names([{R,C}|As], Target, Map, Renamed) ->
+  Subst = Target:new_reg_nr(),
+  new_names(As, Target, Map#{R => Subst}, [{Subst, C} | Renamed]).
+
+%% @doc Maps over all instructions in a partition on the original CFG.
+-spec rename_1([bb_dset_key()], part_bbs(), module(), rename_fun(),
+	       target_cfg()) -> target_cfg().
+rename_1([], _PartBBs, _Target, _Fun, CFG) -> CFG;
+rename_1([{Half,L}|Es], PartBBs, Target, Fun, CFG0) ->
+  Code0 = hipe_bb:code(BB = Target:bb(CFG0, L)),
+  Code = case {Half, maps:get(L, PartBBs)} of
+	  {entry, {single,_}} -> lists:map(Fun, Code0);
+	  {entry, {split,PBBP,_}} ->
+	     map_start(Fun, part_bb_part_len(PBBP), Code0);
+	  {exit, {split,_,PBBP}} ->
+	     map_end(Fun, part_bb_part_len(PBBP), Code0);
+	  {exit, {single, _}} -> Code0
+	end,
+  CFG = Target:update_bb(CFG0, L, hipe_bb:code_update(BB, Code)),
+  rename_1(Es, PartBBs, Target, Fun, CFG).
+
+-spec part_bb_part_len(part_bb_part()) -> non_neg_integer().
+part_bb_part_len({Code, _Livein, _Liveout}) -> length(Code).
+
+%% @doc Map the first N elements of a list
+-spec map_start(fun((X) -> Y), non_neg_integer(), [X]) -> [X|Y].
+map_start(_Fun, 0, List) -> List;
+map_start(Fun, N, [E|Es]) ->
+  [Fun(E)|map_start(Fun, N-1, Es)].
+
+%% @doc Map the last N elements of a list
+-spec map_end(fun((X) -> Y), non_neg_integer(), [X]) -> [X|Y].
+map_end(Fun, N, List) ->
+  map_end(Fun, N, length(List), List).
+
+map_end(Fun, N, Len, [E|Es]) when Len > N -> [E|map_end(Fun, N, Len-1, Es)];
+map_end(Fun, N, Len, List) when Len =:= N -> lists:map(Fun, List).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Temp map ADT

@@ -39,21 +39,24 @@ ra_common(CFG, SpillIndex, Options, RegAllocMod, TargetMod) ->
   SpillLimit = TargetMod:number_of_temporaries(CFG),
   alloc(CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod).
 
-alloc(CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
+alloc(CFG0, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
   ?inc_counter(ra_iteration_counter, 1),
-  {Coloring, _NewSpillIndex, Liveness} =
+  {Coloring, _NewSpillIndex, CFG, MaybeLiveness} =
     case proplists:get_bool(ra_prespill, Options) of
       true ->
 	hipe_regalloc_prepass:regalloc(
-	  RegAllocMod, CFG, SpillIndex, SpillLimit, TargetMod, Options);
+	  RegAllocMod, CFG0, SpillIndex, SpillLimit, TargetMod, Options);
       false ->
-	RegAllocMod:regalloc(CFG, SpillIndex, SpillLimit, TargetMod, Options)
+	{C, SI, L} = RegAllocMod:regalloc(CFG0, SpillIndex, SpillLimit,
+					  TargetMod, Options),
+	{C, SI, CFG0, L}
     end,
   {NewCFG, DidSpill} = TargetMod:check_and_rewrite(CFG, Coloring),
   case DidSpill of
     false -> %% No new temps, we are done.
       ?add_spills(Options, _NewSpillIndex),
       TempMap = hipe_temp_map:cols2tuple(Coloring, TargetMod),
+      Liveness = liveness_force(TargetMod, CFG, MaybeLiveness),
       {TempMap2, NewSpillIndex2} =
 	hipe_spillmin:stackalloc(CFG, Liveness, [], SpillIndex, Options,
 				 TargetMod, TempMap),
@@ -71,3 +74,6 @@ alloc(CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
       %% the list of temps not to spill is uninteresting.
       alloc(NewCFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod)
   end.
+
+liveness_force(TargetMod, CFG, undefined) -> TargetMod:analyze(CFG);
+liveness_force(_TargetMod, _CFG, Defined) -> Defined.
