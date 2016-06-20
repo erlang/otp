@@ -2813,28 +2813,21 @@ while ((ptr = (pcre_uchar *)find_recurse(ptr, utf)) != NULL)
   int offset;
   pcre_uchar *hc;
 
-  /* See if this recursion is on the forward reference list. If so, adjust the
-  reference. */
-
-  for (hc = (pcre_uchar *)cd->start_workspace + save_hwm_offset; hc < cd->hwm; 
+  for (hc = (pcre_uchar *)cd->start_workspace + save_hwm_offset; hc < cd->hwm;
        hc += LINK_SIZE)
-    {
-    offset = (int)GET(hc, 0);
-    if (cd->start_code + offset == ptr + 1)
       {
-      PUT(hc, 0, offset + adjust);
-      break;
+          offset = (int)GET(hc, 0);
+          if (cd->start_code + offset == ptr + 1) break;
       }
-    }
 
-  /* Otherwise, adjust the recursion offset if it's after the start of this
-  group. */
-
-  if (hc >= cd->hwm)
-    {
-    offset = (int)GET(ptr, 1);
-    if (cd->start_code + offset >= group) PUT(ptr, 1, offset + adjust);
-    }
+  /* If we have not found this recursion on the forward reference list, adjust
+     the recursion's offset if it's after the start of this group. */
+  for (hc = (pcre_uchar *)cd->start_workspace + save_hwm_offset; hc < cd->hwm;
+       hc += LINK_SIZE)
+      {
+          offset = (int)GET(hc, 0);
+          PUT(hc, 0, offset + adjust);
+  }
 
   ptr += 1 + LINK_SIZE;
   }
@@ -3449,6 +3442,7 @@ add_to_class(pcre_uint8 *classbits, pcre_uchar **uchardptr, int options,
   compile_data *cd, pcre_uint32 start, pcre_uint32 end)
 {
 pcre_uint32 c;
+pcre_uint32 classbits_end = (end <= 0xff ? end : 0xff);
 int n8 = 0;
 
 /* If caseless matching is required, scan the range and process alternate
@@ -3483,7 +3477,11 @@ if ((options & PCRE_CASELESS) != 0)
       range. Otherwise, use a recursive call to add the additional range. */
 
       else if (oc < start && od >= start - 1) start = oc; /* Extend downwards */
-      else if (od > end && oc <= end + 1) end = od;       /* Extend upwards */
+      else if (od > end && oc <= end + 1)
+          {
+              end = od;       /* Extend upwards */
+              if (end > classbits_end) classbits_end = (end <= 0xff ? end : 0xff);
+          }
       else n8 += add_to_class(classbits, uchardptr, options, cd, oc, od);
       }
     }
@@ -3740,6 +3738,7 @@ pcre_uchar utf_chars[6];
 BOOL utf = FALSE;
 #endif
 
+
 /* Helper variables for OP_XCLASS opcode (for characters > 255). We define
 class_uchardata always so that it can be passed to add_to_class() always,
 though it will not be used in non-UTF 8-bit cases. This avoids having to supply
@@ -3754,6 +3753,8 @@ pcre_uchar *class_uchardata_base;
 #ifdef PCRE_DEBUG
 if (lengthptr != NULL) DPRINTF((">> start branch\n"));
 #endif
+
+save_hwm_offset = cd->hwm - cd->start_workspace;
 
 /* Set up the default and non-default settings for greediness */
 
@@ -5223,7 +5224,7 @@ for (;; ptr++)
               memcpy(code, previous, IN_UCHARS(len));
 
               while (cd->hwm > cd->start_workspace + cd->workspace_size -
-                     WORK_SIZE_SAFETY_MARGIN - 
+                     WORK_SIZE_SAFETY_MARGIN -
                      (this_hwm_offset - save_hwm_offset))
                 {
                 *errorcodeptr = expand_workspace(cd);
@@ -7104,12 +7105,14 @@ int length;
 unsigned int orig_bracount;
 unsigned int max_bracount;
 branch_chain bc;
+size_t save_hwm_offset;
 
 bc.outer = bcptr;
 bc.current_branch = code;
 
 firstchar = reqchar = 0;
 firstcharflags = reqcharflags = REQ_UNSET;
+save_hwm_offset = cd->hwm - cd->start_workspace;
 
 /* Accumulate the length for use in the pre-compile phase. Start with the
 length of the BRA and KET and any extra bytes that are required at the
