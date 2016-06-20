@@ -1506,7 +1506,9 @@ bif_type(abs, [Num], Vst) ->
 bif_type(float, _, _) -> {float,[]};
 bif_type('/', _, _) -> {float,[]};
 %% Integer operations.
+bif_type(ceil, [_], _) -> {integer,[]};
 bif_type('div', [_,_], _) -> {integer,[]};
+bif_type(floor, [_], _) -> {integer,[]};
 bif_type('rem', [_,_], _) -> {integer,[]};
 bif_type(length, [_], _) -> {integer,[]};
 bif_type(size, [_], _) -> {integer,[]};

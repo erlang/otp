@@ -718,6 +718,19 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
+      <name name="ceil" arity="1"/>
+      <fsummary>Returns the smallest integer not less than the argument</fsummary>
+      <desc>
+        <p>Returns the smallest integer not less than
+	<c><anno>Number</anno></c>.
+        For example:</p>
+        <pre>
+> <input>ceil(5.5).</input>
+6</pre>
+        <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+    <func>
       <name name="check_old_code" arity="1"/>
       <fsummary>Check if a module has old code.</fsummary>
       <desc>
@@ -1461,6 +1474,20 @@ true</pre>
 "7.1200"
 > <input>float_to_list(7.12, [{decimals, 4}, compact]).</input>
 "7.12"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="floor" arity="1"/>
+      <fsummary>Returns the largest integer not greater than the argument</fsummary>
+      <desc>
+        <p>Returns the largest integer not greater than
+	<c><anno>Number</anno></c>.
+        For example:</p>
+        <pre>
+> <input>floor(-10.5).</input>
+-11</pre>
+        <p>Allowed in guard tests.</p>
       </desc>
     </func>
 
