@@ -25,12 +25,14 @@
 -define(HIPE_X86_REGISTERS, hipe_amd64_registers).
 -define(HIPE_X86_LIVENESS, hipe_amd64_liveness).
 -define(HIPE_X86_DEFUSE, hipe_amd64_defuse).
+-define(HIPE_X86_SUBST, hipe_amd64_subst).
 -else.
 -define(HIPE_X86_SPECIFIC, hipe_x86_specific).
 -define(HIPE_X86_RA_POSTCONDITIONS, hipe_x86_ra_postconditions).
 -define(HIPE_X86_REGISTERS, hipe_x86_registers).
 -define(HIPE_X86_LIVENESS, hipe_x86_liveness).
 -define(HIPE_X86_DEFUSE, hipe_x86_defuse).
+-define(HIPE_X86_SUBST, hipe_x86_subst).
 -endif.
 
 -module(?HIPE_X86_SPECIFIC).
@@ -67,6 +69,12 @@
 
 %% callbacks for hipe_regalloc_loop
 -export([check_and_rewrite/2]).
+
+%% callbacks for hipe_regalloc_prepass
+-export([new_reg_nr/0,
+	 update_reg_nr/2,
+	 update_bb/3,
+	 subst_temps/2]).
 
 check_and_rewrite(CFG, Coloring) ->
   ?HIPE_X86_RA_POSTCONDITIONS:check_and_rewrite(CFG, Coloring, 'normal').
@@ -152,6 +160,9 @@ number_of_temporaries(_CFG) ->
 bb(CFG,L) ->
   hipe_x86_cfg:bb(CFG,L).
 
+update_bb(CFG,L,BB) ->
+  hipe_x86_cfg:bb_add(CFG,L,BB).
+
 %% X86 stuff
 
 def_use(Instruction) ->
@@ -198,6 +209,23 @@ is_move(Instruction) ->
 
 reg_nr(Reg) ->
   hipe_x86:temp_reg(Reg).
+
+new_reg_nr() ->
+  hipe_gensym:get_next_var(x86).
+
+update_reg_nr(Nr, Temp) ->
+  hipe_x86:mk_temp(Nr, hipe_x86:temp_type(Temp)).
+
+subst_temps(SubstFun, Instr) ->
+  ?HIPE_X86_SUBST:insn_temps(
+    fun(Op) ->
+	case hipe_x86:temp_is_allocatable(Op)
+	  andalso hipe_x86:temp_type(Op) =/= 'double'
+	of
+	  true -> SubstFun(Op);
+	  false -> Op
+	end
+    end, Instr).
 
 new_spill_index(SpillIndex) when is_integer(SpillIndex) ->
   SpillIndex+1.

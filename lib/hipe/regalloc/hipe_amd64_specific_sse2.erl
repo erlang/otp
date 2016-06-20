@@ -57,6 +57,12 @@
 -export([check_and_rewrite/2,
 	 check_and_rewrite/3]).
 
+%% callbacks for hipe_regalloc_prepass
+-export([new_reg_nr/0,
+	 update_reg_nr/2,
+	 update_bb/3,
+	 subst_temps/2]).
+
 %%----------------------------------------------------------------------------
 
 -include("../flow/cfg.hrl").
@@ -150,6 +156,9 @@ number_of_temporaries(_CFG) ->
 bb(CFG, L) ->
   hipe_x86_cfg:bb(CFG, L).
 
+update_bb(CFG,L,BB) ->
+  hipe_x86_cfg:bb_add(CFG,L,BB).
+
 %% AMD64 stuff
 
 def_use(Instruction) ->
@@ -185,6 +194,23 @@ is_move(Instruction) ->
  
 reg_nr(Reg) ->
   hipe_x86:temp_reg(Reg).
+
+new_reg_nr() ->
+  hipe_gensym:get_next_var(x86).
+
+update_reg_nr(Nr, _Temp) ->
+  hipe_x86:mk_temp(Nr, 'double').
+
+subst_temps(SubstFun, Instr) ->
+  hipe_amd64_subst:insn_temps(
+    fun(Op) ->
+	case hipe_x86:temp_is_allocatable(Op)
+	  andalso hipe_x86:temp_type(Op) =:= 'double'
+	of
+	  true -> SubstFun(Op);
+	  false -> Op
+	end
+    end, Instr).
 
 -spec new_spill_index(non_neg_integer()) -> pos_integer().
 new_spill_index(SpillIndex) when is_integer(SpillIndex) ->

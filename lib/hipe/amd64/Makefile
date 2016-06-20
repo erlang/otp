@@ -59,6 +59,7 @@ MODULES=hipe_amd64_assemble \
 	hipe_amd64_ra_sse2_postconditions \
 	hipe_amd64_registers \
 	hipe_amd64_spill_restore \
+	hipe_amd64_subst \
 	hipe_amd64_x87 \
 	hipe_amd64_sse2 \
 	hipe_rtl_to_amd64
