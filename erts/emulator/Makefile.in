@@ -562,6 +562,7 @@ $(TARGET)/erl_bif_table.c \
 $(TARGET)/erl_bif_table.h \
 $(TARGET)/erl_bif_wrap.c \
 $(TARGET)/erl_bif_list.h \
+$(TARGET)/erl_gc_bifs.c \
 $(TARGET)/erl_atom_table.c \
 $(TARGET)/erl_atom_table.h \
 	: $(TARGET)/TABLES-GENERATED
@@ -754,6 +755,7 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_os.o		$(OBJDIR)/erl_bif_lists.o \
 	$(OBJDIR)/erl_bif_trace.o	$(OBJDIR)/erl_bif_unique.o \
 	$(OBJDIR)/erl_bif_wrap.o \
+	$(OBJDIR)/erl_gc_bifs.o \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\

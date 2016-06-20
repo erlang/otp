@@ -53,6 +53,7 @@ my %aliases;
 my $auto_alias_num = 0;
 
 my @bif;
+my @bif_type;
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -76,7 +77,7 @@ while (<>) {
     my($type, @args) = split;
     if ($type eq 'atom') {
 	save_atoms(@args);
-    } elsif ($type eq 'bif' or $type eq 'ubif') {
+    } elsif ($type eq 'bif' or $type eq 'ubif' or $type eq 'gcbif') {
 	if (@args > 2) {
 	    error("$type only allows two arguments");
 	}
@@ -94,6 +95,7 @@ while (<>) {
 	$wrapper = $alias if $type eq 'ubif';
 	push(@bif, ["am_$atom_alias{$mod}","am_$atom_alias{$name}",$arity,
 		    $alias,$wrapper]);
+	push(@bif_type, $type);
     } else {
 	error("invalid line");
     }
@@ -164,8 +166,14 @@ typedef struct bif_entry {
     BifFunction traced;
 } BifEntry;
 
+typedef struct erts_gc_bif {
+    BifFunction bif;
+    BifFunction gc_bif;
+} ErtsGcBif;
+
 extern BifEntry bif_table[];
 extern Export* bif_export[];
+extern const ErtsGcBif erts_gc_bifs[];
 
 #define BIF_SIZE $bif_size
 
@@ -180,8 +188,12 @@ print "\n";
 
 for ($i = 0; $i < @bif; $i++) {
     my $args = join(', ', 'Process*', 'Eterm*');
-    print "Eterm $bif[$i]->[3]($args);\n";
-    print "Eterm wrap_$bif[$i]->[3]($args, UWord *I);\n";
+    my $name = $bif[$i]->[3];
+    print "Eterm $name($args);\n";
+    print "Eterm wrap_$name($args, UWord *I);\n";
+    print "Eterm erts_gc_$name(Process* p, Eterm* reg, Uint live);\n"
+	if $bif_type[$i] eq 'gcbif';
+    print "\n";
 }
 print "#endif\n";
 
@@ -223,7 +235,25 @@ for ($i = 0; $i < @bif; $i++) {
 }
 
 #
-# Generate the package bif file.
+# Generate erl_gc_bifs.c.
+#
+
+open_file("$src/erl_gc_bifs.c");
+my $i;
+includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
+	 "erl_bif_table.h");
+print "const ErtsGcBif erts_gc_bifs[] = {\n";
+for ($i = 0; $i < @bif; $i++) {
+    next unless $bif_type[$i] eq 'gcbif';
+    my $arity = $bif[$i]->[2];
+    my $func = $bif[$i]->[3];
+    print "  {$func, erts_gc_$func},\n";
+}
+print "  {0, 0}\n";
+print "};\n";
+
+#
+# Utilities follow.
 #
 
 sub open_file {			# or die
