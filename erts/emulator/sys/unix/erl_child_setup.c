@@ -123,6 +123,7 @@ static int sigchld_pipe[2];
 static int
 start_new_child(int pipes[])
 {
+    int errln = -1;
     int size, res, i, pos = 0;
     char *buff, *o_buff;
 
@@ -137,6 +138,7 @@ start_new_child(int pipes[])
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
 
     if (res <= 0) {
+        errln = __LINE__;
         goto child_error;
     }
 
@@ -148,10 +150,12 @@ start_new_child(int pipes[])
         if ((res = read(pipes[0], buff + pos, size - pos)) < 0) {
             if (errno == ERRNO_BLOCK || errno == EINTR)
                 continue;
+            errln = __LINE__;
             goto child_error;
         }
         if (res == 0) {
             errno = EPIPE;
+            errln = __LINE__;
             goto child_error;
         }
         pos += res;
@@ -201,7 +205,12 @@ start_new_child(int pipes[])
 
     if (o_buff + size != buff) {
         errno = EINVAL;
-        goto child_error;
+        errln = __LINE__;
+        fprintf(stderr,"erl_child_setup: failed with protocol "
+                "error %d on line %d", errno, errln);
+        /* we abort here as it is most likely a symptom of an
+           emulator/erl_child_setup bug */
+        abort();
     }
 
     DEBUG_PRINT("read ack");
@@ -215,10 +224,16 @@ start_new_child(int pipes[])
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
     if (res < 1) {
         errno = EPIPE;
+        errln = __LINE__;
         goto child_error;
     }
 
     DEBUG_PRINT("Do that forking business: '%s'\n",cmd);
+
+    if (wd && chdir(wd) < 0) {
+        errln = __LINE__;
+        goto child_error;
+    }
 
     /* When the dup2'ing below is done, only
        fd's 0, 1, 2 and maybe 3, 4 should survive the
@@ -228,25 +243,34 @@ start_new_child(int pipes[])
     if (flags & FORKER_FLAG_USE_STDIO) {
         /* stdin for process */
         if (flags & FORKER_FLAG_DO_WRITE &&
-            dup2(pipes[0], 0) < 0)
+            dup2(pipes[0], 0) < 0) {
+            errln = __LINE__;
             goto child_error;
+        }
         /* stdout for process */
         if (flags & FORKER_FLAG_DO_READ &&
-            dup2(pipes[1], 1) < 0)
+            dup2(pipes[1], 1) < 0) {
+            errln = __LINE__;
             goto child_error;
+        }
     }
     else {	/* XXX will fail if pipes[0] == 4 (unlikely..) */
-        if (flags & FORKER_FLAG_DO_READ && dup2(pipes[1], 4) < 0)
+        if (flags & FORKER_FLAG_DO_READ && dup2(pipes[1], 4) < 0) {
+            errln = __LINE__;
             goto child_error;
-        if (flags & FORKER_FLAG_DO_WRITE && dup2(pipes[0], 3) < 0)
+        }
+        if (flags & FORKER_FLAG_DO_WRITE && dup2(pipes[0], 3) < 0) {
+            errln = __LINE__;
             goto child_error;
+        }
     }
 
-    if (dup2(pipes[2], 2) < 0)
+    /* we do the dup2 of stderr last so that errors
+       in child_error will be printed to stderr */
+    if (dup2(pipes[2], 2) < 0) {
+        errln = __LINE__;
         goto child_error;
-
-    if (wd && chdir(wd) < 0)
-        goto child_error;
+    }
 
 #if defined(USE_SETPGRP_NOARGS)		/* SysV */
     (void) setpgrp();
@@ -268,9 +292,14 @@ start_new_child(int pipes[])
     } else {
         execle(SHELL, "sh", "-c", cmd, (char *) NULL, new_environ);
     }
+
+    DEBUG_PRINT("exec error: %d",errno);
+    _exit(errno);
+
 child_error:
-    DEBUG_PRINT("exec error: %d\r\n",errno);
-    _exit(128 + errno);
+    fprintf(stderr,"erl_child_setup: failed with error %d on line %d",
+            errno, errln);
+    _exit(errno);
 }
 
 
