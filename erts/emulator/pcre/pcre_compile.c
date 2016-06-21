@@ -2797,14 +2797,14 @@ Arguments:
   adjust     the amount by which the group is to be moved
   utf        TRUE in UTF-8 / UTF-16 / UTF-32 mode
   cd         contains pointers to tables etc.
-  save_hwm   the hwm forward reference pointer at the start of the group
+  save_hwm_offset   the hwm forward reference offset at the start of the group
 
 Returns:     nothing
 */
 
 static void
 adjust_recurse(pcre_uchar *group, int adjust, BOOL utf, compile_data *cd,
-  pcre_uchar *save_hwm)
+  size_t save_hwm_offset)
 {
 pcre_uchar *ptr = group;
 
@@ -2813,27 +2813,21 @@ while ((ptr = (pcre_uchar *)find_recurse(ptr, utf)) != NULL)
   int offset;
   pcre_uchar *hc;
 
-  /* See if this recursion is on the forward reference list. If so, adjust the
-  reference. */
-
-  for (hc = save_hwm; hc < cd->hwm; hc += LINK_SIZE)
-    {
-    offset = (int)GET(hc, 0);
-    if (cd->start_code + offset == ptr + 1)
+  for (hc = (pcre_uchar *)cd->start_workspace + save_hwm_offset; hc < cd->hwm;
+       hc += LINK_SIZE)
       {
-      PUT(hc, 0, offset + adjust);
-      break;
+          offset = (int)GET(hc, 0);
+          if (cd->start_code + offset == ptr + 1) break;
       }
-    }
 
-  /* Otherwise, adjust the recursion offset if it's after the start of this
-  group. */
-
-  if (hc >= cd->hwm)
-    {
-    offset = (int)GET(ptr, 1);
-    if (cd->start_code + offset >= group) PUT(ptr, 1, offset + adjust);
-    }
+  /* If we have not found this recursion on the forward reference list, adjust
+     the recursion's offset if it's after the start of this group. */
+  for (hc = (pcre_uchar *)cd->start_workspace + save_hwm_offset; hc < cd->hwm;
+       hc += LINK_SIZE)
+      {
+          offset = (int)GET(hc, 0);
+          PUT(hc, 0, offset + adjust);
+  }
 
   ptr += 1 + LINK_SIZE;
   }
@@ -3448,6 +3442,7 @@ add_to_class(pcre_uint8 *classbits, pcre_uchar **uchardptr, int options,
   compile_data *cd, pcre_uint32 start, pcre_uint32 end)
 {
 pcre_uint32 c;
+pcre_uint32 classbits_end = (end <= 0xff ? end : 0xff);
 int n8 = 0;
 
 /* If caseless matching is required, scan the range and process alternate
@@ -3482,7 +3477,11 @@ if ((options & PCRE_CASELESS) != 0)
       range. Otherwise, use a recursive call to add the additional range. */
 
       else if (oc < start && od >= start - 1) start = oc; /* Extend downwards */
-      else if (od > end && oc <= end + 1) end = od;       /* Extend upwards */
+      else if (od > end && oc <= end + 1)
+          {
+              end = od;       /* Extend upwards */
+              if (end > classbits_end) classbits_end = (end <= 0xff ? end : 0xff);
+          }
       else n8 += add_to_class(classbits, uchardptr, options, cd, oc, od);
       }
     }
@@ -3722,7 +3721,7 @@ const pcre_uchar *tempptr;
 const pcre_uchar *nestptr = NULL;
 pcre_uchar *previous = NULL;
 pcre_uchar *previous_callout = NULL;
-pcre_uchar *save_hwm = NULL;
+size_t save_hwm_offset = 0;
 pcre_uint8 classbits[32];
 
 /* We can fish out the UTF-8 setting once and for all into a BOOL, but we
@@ -3739,6 +3738,7 @@ pcre_uchar utf_chars[6];
 BOOL utf = FALSE;
 #endif
 
+
 /* Helper variables for OP_XCLASS opcode (for characters > 255). We define
 class_uchardata always so that it can be passed to add_to_class() always,
 though it will not be used in non-UTF 8-bit cases. This avoids having to supply
@@ -3753,6 +3753,8 @@ pcre_uchar *class_uchardata_base;
 #ifdef PCRE_DEBUG
 if (lengthptr != NULL) DPRINTF((">> start branch\n"));
 #endif
+
+save_hwm_offset = cd->hwm - cd->start_workspace;
 
 /* Set up the default and non-default settings for greediness */
 
@@ -5131,7 +5133,7 @@ for (;; ptr++)
         if (repeat_max <= 1)    /* Covers 0, 1, and unlimited */
           {
           *code = OP_END;
-          adjust_recurse(previous, 1, utf, cd, save_hwm);
+          adjust_recurse(previous, 1, utf, cd, save_hwm_offset);
           memmove(previous + 1, previous, IN_UCHARS(len));
           code++;
           if (repeat_max == 0)
@@ -5155,7 +5157,7 @@ for (;; ptr++)
           {
           int offset;
           *code = OP_END;
-          adjust_recurse(previous, 2 + LINK_SIZE, utf, cd, save_hwm);
+          adjust_recurse(previous, 2 + LINK_SIZE, utf, cd, save_hwm_offset);
           memmove(previous + 2 + LINK_SIZE, previous, IN_UCHARS(len));
           code += 2 + LINK_SIZE;
           *previous++ = OP_BRAZERO + repeat_type;
@@ -5218,26 +5220,25 @@ for (;; ptr++)
             for (i = 1; i < repeat_min; i++)
               {
               pcre_uchar *hc;
-              pcre_uchar *this_hwm = cd->hwm;
+              size_t this_hwm_offset = cd->hwm - cd->start_workspace;
               memcpy(code, previous, IN_UCHARS(len));
 
               while (cd->hwm > cd->start_workspace + cd->workspace_size -
-                     WORK_SIZE_SAFETY_MARGIN - (this_hwm - save_hwm))
+                     WORK_SIZE_SAFETY_MARGIN -
+                     (this_hwm_offset - save_hwm_offset))
                 {
-                int save_offset = save_hwm - cd->start_workspace;
-                int this_offset = this_hwm - cd->start_workspace;
                 *errorcodeptr = expand_workspace(cd);
                 if (*errorcodeptr != 0) goto FAILED;
-                save_hwm = (pcre_uchar *)cd->start_workspace + save_offset;
-                this_hwm = (pcre_uchar *)cd->start_workspace + this_offset;
                 }
 
-              for (hc = save_hwm; hc < this_hwm; hc += LINK_SIZE)
+              for (hc = (pcre_uchar *)cd->start_workspace + save_hwm_offset;
+                   hc < (pcre_uchar *)cd->start_workspace + this_hwm_offset;
+                   hc += LINK_SIZE)
                 {
                 PUT(cd->hwm, 0, GET(hc, 0) + len);
                 cd->hwm += LINK_SIZE;
                 }
-              save_hwm = this_hwm;
+              save_hwm_offset = this_hwm_offset;
               code += len;
               }
             }
@@ -5282,7 +5283,7 @@ for (;; ptr++)
         else for (i = repeat_max - 1; i >= 0; i--)
           {
           pcre_uchar *hc;
-          pcre_uchar *this_hwm = cd->hwm;
+          size_t this_hwm_offset = cd->hwm - cd->start_workspace;
 
           *code++ = OP_BRAZERO + repeat_type;
 
@@ -5304,22 +5305,19 @@ for (;; ptr++)
           copying them. */
 
           while (cd->hwm > cd->start_workspace + cd->workspace_size -
-                 WORK_SIZE_SAFETY_MARGIN - (this_hwm - save_hwm))
+              WORK_SIZE_SAFETY_MARGIN - (this_hwm_offset - save_hwm_offset))
             {
-            int save_offset = save_hwm - cd->start_workspace;
-            int this_offset = this_hwm - cd->start_workspace;
             *errorcodeptr = expand_workspace(cd);
             if (*errorcodeptr != 0) goto FAILED;
-            save_hwm = (pcre_uchar *)cd->start_workspace + save_offset;
-            this_hwm = (pcre_uchar *)cd->start_workspace + this_offset;
             }
 
-          for (hc = save_hwm; hc < this_hwm; hc += LINK_SIZE)
-            {
-            PUT(cd->hwm, 0, GET(hc, 0) + len + ((i != 0)? 2+LINK_SIZE : 1));
-            cd->hwm += LINK_SIZE;
-            }
-          save_hwm = this_hwm;
+          for (hc = (pcre_uchar *)cd->start_workspace + save_hwm_offset;
+               hc < (pcre_uchar *)cd->start_workspace + this_hwm_offset;
+               hc += LINK_SIZE) {
+              PUT(cd->hwm, 0, GET(hc, 0) + len + ((i != 0)? 2+LINK_SIZE : 1));
+              cd->hwm += LINK_SIZE;
+          }
+          save_hwm_offset = this_hwm_offset;
           code += len;
           }
 
@@ -5415,7 +5413,7 @@ for (;; ptr++)
               {
               int nlen = (int)(code - bracode);
               *code = OP_END;
-              adjust_recurse(bracode, 1 + LINK_SIZE, utf, cd, save_hwm);
+              adjust_recurse(bracode, 1 + LINK_SIZE, utf, cd, save_hwm_offset);
               memmove(bracode + 1 + LINK_SIZE, bracode, IN_UCHARS(nlen));
               code += 1 + LINK_SIZE;
               nlen += 1 + LINK_SIZE;
@@ -5531,7 +5529,7 @@ for (;; ptr++)
 
         default:
         *code = OP_END;
-        adjust_recurse(tempcode, 1 + LINK_SIZE, utf, cd, save_hwm);
+        adjust_recurse(tempcode, 1 + LINK_SIZE, utf, cd, save_hwm_offset);
         memmove(tempcode + 1 + LINK_SIZE, tempcode, IN_UCHARS(len));
         code += 1 + LINK_SIZE;
         len += 1 + LINK_SIZE;
@@ -5562,7 +5560,7 @@ for (;; ptr++)
     newoptions = options;
     skipbytes = 0;
     bravalue = OP_CBRA;
-    save_hwm = cd->hwm;
+    save_hwm_offset = cd->hwm - cd->start_workspace;
     reset_bracount = FALSE;
 
     /* First deal with various "verbs" that can be introduced by '*'. */
@@ -6769,7 +6767,7 @@ for (;; ptr++)
       if (escape == ESC_g)
         {
         const pcre_uchar *p;
-        save_hwm = cd->hwm;   /* Normally this is set when '(' is read */
+        save_hwm_offset = cd->hwm - cd->start_workspace;   /* Normally this is set when '(' is read */
         terminator = (*(++ptr) == CHAR_LESS_THAN_SIGN)?
           CHAR_GREATER_THAN_SIGN : CHAR_APOSTROPHE;
 
@@ -7107,12 +7105,14 @@ int length;
 unsigned int orig_bracount;
 unsigned int max_bracount;
 branch_chain bc;
+size_t save_hwm_offset;
 
 bc.outer = bcptr;
 bc.current_branch = code;
 
 firstchar = reqchar = 0;
 firstcharflags = reqcharflags = REQ_UNSET;
+save_hwm_offset = cd->hwm - cd->start_workspace;
 
 /* Accumulate the length for use in the pre-compile phase. Start with the
 length of the BRA and KET and any extra bytes that are required at the
