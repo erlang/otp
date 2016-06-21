@@ -4821,8 +4821,7 @@ dnl Output the result.
 dnl ----------------------------------------------------------------------
 
 dnl  Note that the output files are relative to $srcdir
-
-AC_OUTPUT(
+AC_CONFIG_FILES([
   emulator/$host/Makefile:emulator/Makefile.in
   epmd/src/$host/Makefile:epmd/src/Makefile.in
   etc/common/$host/Makefile:etc/common/Makefile.in
@@ -4832,15 +4831,22 @@ AC_OUTPUT(
   Makefile:Makefile.in
   ../make/$host/otp.mk:../make/otp.mk.in
   ../make/$host/otp_ded.mk:../make/otp_ded.mk.in
+])
+
+AC_CONFIG_FILES([../make/make_emakefile:../make/make_emakefile.in],
+                [chmod +x ../make/make_emakefile])
+
 dnl
 dnl The ones below should be moved to their respective lib
 dnl
+dnl  ../lib/ssl/c_src/$host/Makefile:../lib/ssl/c_src/Makefile.in
+AC_CONFIG_FILES([
   ../lib/ic/c_src/$host/Makefile:../lib/ic/c_src/Makefile.in
   ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in
-dnl  ../lib/ssl/c_src/$host/Makefile:../lib/ssl/c_src/Makefile.in
   ../lib/crypto/c_src/$host/Makefile:../lib/crypto/c_src/Makefile.in
   ../lib/orber/c_src/$host/Makefile:../lib/orber/c_src/Makefile.in
   ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in
   ../lib/tools/c_src/$host/Makefile:../lib/tools/c_src/Makefile.in
-  )
+  ])
 
+AC_OUTPUT
