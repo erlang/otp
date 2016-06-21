@@ -74,7 +74,7 @@
 
 //#define HARD_DEBUG
 #ifdef HARD_DEBUG
-#define DEBUG_PRINT(fmt, ...) fprintf(stderr, fmt "\r\n", ##__VA_ARGS__)
+#define DEBUG_PRINT(fmt, ...) fprintf(stderr, "%d:" fmt "\r\n", getpid(), ##__VA_ARGS__)
 #else
 #define DEBUG_PRINT(fmt, ...)
 #endif
@@ -129,7 +129,7 @@ start_new_child(int pipes[])
 
     char *cmd, *wd, **new_environ, **args = NULL;
 
-    Sint cnt, flags;
+    Sint32 cnt, flags;
 
     /* only child executes here */
 
@@ -164,7 +164,7 @@ start_new_child(int pipes[])
     o_buff = buff;
 
     flags = get_int32(buff);
-    buff += sizeof(Sint32);
+    buff += sizeof(flags);
 
     DEBUG_PRINT("flags = %d", flags);
 
@@ -181,10 +181,10 @@ start_new_child(int pipes[])
     DEBUG_PRINT("wd = %s", wd);
 
     cnt = get_int32(buff);
-    buff += sizeof(Sint32);
+    buff += sizeof(cnt);
     new_environ = malloc(sizeof(char*)*(cnt + 1));
 
-    DEBUG_PRINT("env_len = %ld", cnt);
+    DEBUG_PRINT("env_len = %d", cnt);
     for (i = 0; i < cnt; i++, buff++) {
         new_environ[i] = buff;
         while(*buff != '\0') buff++;
@@ -194,7 +194,7 @@ start_new_child(int pipes[])
     if (o_buff + size != buff) {
         /* This is a spawn executable call */
         cnt = get_int32(buff);
-        buff += sizeof(Sint32);
+        buff += sizeof(cnt);
         args = malloc(sizeof(char*)*(cnt + 1));
         for (i = 0; i < cnt; i++, buff++) {
             args[i] = buff;
@@ -228,12 +228,14 @@ start_new_child(int pipes[])
         goto child_error;
     }
 
-    DEBUG_PRINT("Do that forking business: '%s'\n",cmd);
+    DEBUG_PRINT("Set wd to: '%s'",wd);
 
     if (wd && chdir(wd) < 0) {
         errln = __LINE__;
         goto child_error;
     }
+
+    DEBUG_PRINT("Do that forking business: '%s'",cmd);
 
     /* When the dup2'ing below is done, only
        fd's 0, 1, 2 and maybe 3, 4 should survive the
@@ -297,7 +299,7 @@ start_new_child(int pipes[])
     _exit(errno);
 
 child_error:
-    fprintf(stderr,"erl_child_setup: failed with error %d on line %d",
+    fprintf(stderr,"erl_child_setup: failed with error %d on line %d\r\n",
             errno, errln);
     _exit(errno);
 }
@@ -490,7 +492,7 @@ main(int argc, char *argv[])
 
             proto.action = ErtsSysForkerProtoAction_SigChld;
             proto.u.sigchld.error_number = ibuff[1];
-            DEBUG_PRINT("send %s to %d", buff, uds_fd);
+            DEBUG_PRINT("send sigchld to %d (errno = %d)", uds_fd, ibuff[1]);
             if (write(uds_fd, &proto, sizeof(proto)) < 0) {
                 if (errno == EINTR)
                     continue;
