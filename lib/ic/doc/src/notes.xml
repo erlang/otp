@@ -31,7 +31,22 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.4</title>
+   <section><title>IC 4.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

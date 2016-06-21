@@ -33,7 +33,59 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.2.4</title>
+  <section><title>Inets 6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ftp client fixes: 1) Corrected a bug that the ftp client
+	    gen_server crashed if the listening data socket was
+	    closed.</p>
+          <p>
+	    2) Corrections of ftp client error codes so they are as
+	    defined in the reference manual</p>
+          <p>
+	    Own Id: OTP-13644</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove usage of erlang:now(). </p>
+          <p>
+	    Own Id: OTP-12441</p>
+        </item>
+        <item>
+	    <p> Add handling of DELETE Body to http client. </p>
+          <p>
+	    Own Id: OTP-13383 Aux Id: PR-972 </p>
+        </item>
+        <item>
+          <p>
+	    Removed references to mod_include and webtool from
+	    examples and tests.</p>
+          <p>
+	    Own Id: OTP-13445 Aux Id: PR-988 </p>
+        </item>
+        <item>
+          <p>
+	    Remove module inets_regexp. Module re should be used
+	    instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13561</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>
