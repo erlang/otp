@@ -1719,6 +1719,12 @@ static int get_home(char *buf, int size)
 	strcat(buf, homepath);
 	return 1;
     }
+    else {
+	int len = GetWindowsDirectory(buf, size);
+	if (len) {
+	    return (len < size);
+	}
+    }
 #else
     char* homepath = getenv("HOME");
     if (homepath) {
