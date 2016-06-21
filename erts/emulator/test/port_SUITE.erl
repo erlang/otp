@@ -91,6 +91,7 @@
     exit_status/1,
     exit_status_multi_scheduling_block/1,
     huge_env/1,
+    pipe_limit_env/1,
     input_only/1,
     iter_max_ports/1,
     line/1,
@@ -158,6 +159,7 @@ all() ->
      {group, multiple_packets}, parallell, dying_port,
      port_program_with_path, open_input_file_port,
      open_output_file_port, name1, env, huge_env, bad_env, cd,
+     pipe_limit_env,
      bad_args,
      exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
@@ -1002,6 +1004,55 @@ huge_env(Config) when is_list(Config) ->
               ct:fail("Open port failed ~p:~p",[E,R])
     end.
 
+%% Test to spawn program with command payload buffer
+%% just around pipe capacity (9f779819f6bda734c5953468f7798)
+pipe_limit_env(Config) when is_list(Config) ->
+    Cmd = "true",
+    CmdSize = command_payload_size(Cmd),
+    Limits = [4096, 16384, 65536], % Try a couple of common pipe buffer sizes
+
+    lists:foreach(fun(Lim) ->
+			  lists:foreach(fun(L) -> pipe_limit_env_do(L, Cmd, CmdSize)
+					end, lists:seq(Lim-5, Lim+5))
+		  end, Limits),
+    ok.
+
+pipe_limit_env_do(Bytes, Cmd, CmdSize) ->
+    case env_of_bytes(Bytes-CmdSize) of
+	[] -> skip;
+	Env ->
+	    try erlang:open_port({spawn,Cmd},[exit_status, {env, Env}]) of
+		P ->
+		    receive
+			{P, {exit_status,N}} = M ->
+			    %% Bug caused exit_status 150 (EINVAL+128)
+			    0 = N
+		    end
+	    catch E:R ->
+		    %% Have to catch the error here, as printing the stackdump
+		    %% in the ct log is way to heavy for some test machines.
+		    ct:fail("Open port failed ~p:~p",[E,R])
+	    end
+    end.
+
+%% environ format: KEY=VALUE\0
+env_of_bytes(Bytes) when Bytes > 3 ->
+    Env = [{"X",lists:duplicate(Bytes-3, $x)}];
+env_of_bytes(_) -> [].
+
+%% White box assumption about payload written to pipe
+%% for Cmd and current environment (see spawn_start in sys_driver.c)
+command_payload_size(Cmd) ->
+    EnvSize = lists:foldl(fun(E,Acc) -> length(E) + 1 + Acc end,
+			  0, os:getenv()),
+    {ok, PWD} = file:get_cwd(),
+    (4                      % buffsz
+     + 4                    % flags
+     + 5 + length(Cmd) + 1  % "exec $Cmd"
+     + length(PWD) + 1      % $PWD
+     + 1                    % nullbuff
+     + 4                    % env_len
+     + EnvSize).
 
 %%  Test bad 'args' options.
 bad_args(Config) when is_list(Config) ->

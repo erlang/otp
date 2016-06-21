@@ -688,6 +688,10 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
             return ERL_DRV_ERROR_ERRNO;
         }
 
+        /*
+         * Whitebox test port_SUITE:pipe_limit_env
+         * assumes this command payload format.
+         */
         io_vector[i].iov_base = (void*)&buffsz;
         io_vector[i++].iov_len = sizeof(buffsz);
 
