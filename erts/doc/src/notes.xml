@@ -541,9 +541,7 @@
 	    Own Id: OTP-13440</p>
         </item>
         <item>
-          <p>
-	    Add the following NIF API functions:</p>
-          <p>
+          <p>Add the following NIF API functions:</p>
 	    <list> <item><seealso
 	    marker="erl_nif#enif_cpu_time"><c>enif_cpu_time</c></seealso></item>
 	    <item><seealso
@@ -560,9 +558,9 @@
 	    marker="erl_nif#enif_binary_to_term"><c>enif_binary_to_term</c></seealso></item>
 	    <item><seealso
 	    marker="erl_nif#enif_port_command"><c>enif_port_command</c></seealso></item>
-	    </list></p>
+	    </list>
           <p>
-	    for details of what each function does, see the erl_nif
+	    For details of what each function does, see the erl_nif
 	    documentation.</p>
           <p>
 	    Own Id: OTP-13442</p>

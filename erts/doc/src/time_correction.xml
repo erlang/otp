@@ -35,12 +35,12 @@
 
   <section>
     <title>New Extended Time Functionality</title>
-    <note><p>As of OTP 18 (<c>ERTS</c> version 7.0) the time functionality of
-    Erlang has been extended. This includes a
+    <note><p>As from Erlang/OTP 18 (<c>ERTS</c> 7.0) the time functionality
+    has been extended. This includes a
     <seealso marker="#The_New_Time_API">new API</seealso>
     for time and
     <seealso marker="#Time_Warp_Modes">time warp
-    modes</seealso> that alter the system behavior when
+    modes</seealso> that change the system behavior when
     system time changes.</p>
 
     <p>The <seealso marker="#No_Time_Warp_Mode">default
@@ -106,14 +106,18 @@
     <section>
       <title>POSIX Time</title>
       <p>Time since
-      <url href="http://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xbd_chap03.html#tag_21_03_00_17">Epoch</url>.
+      <url href="http://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xbd_chap03.html#tag_21_03_00_17">
+      Epoch</url>.
       Epoch is defined to be 00:00:00 <seealso marker="#UTC">UTC</seealso>,
       1970-01-01.
-      <url href="http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap04.html#tag_04_14">A day in POSIX time</url>
-      is defined to be exactly 86400 seconds long. Strangely enough
+      <url href="http://pubs.opengroup.org/onlinepubs/009604499/basedefs/xbd_chap04.html#tag_04_14">
+      A day in POSIX time</url>
+      is defined to be exactly 86400 seconds long. Strangely enough,
       Epoch is defined to be a time in UTC, and UTC has another
       definition of how long a day is. Quoting the Open Group
-      <url href="http://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xbd_chap04.html#tag_21_04_15">"POSIX time is therefore not necessarily UTC, despite its appearance"</url>.
+      <url href="http://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xbd_chap04.html#tag_21_04_15">
+      "POSIX time is therefore not necessarily UTC, despite its
+      appearance"</url>.
       The effect of this is that when an UTC leap second is
       inserted, POSIX time either stops for a second, or repeats the
       last second. If an UTC leap second would be deleted (which has not
@@ -157,7 +161,8 @@
       <p>The operating systems view of
       <seealso marker="#POSIX_Time">POSIX time</seealso>. To
       retrieve it, call
-      <seealso marker="kernel:os#system_time/0"><c>os:system_time()</c></seealso>.
+      <seealso marker="kernel:os#system_time/0">
+      <c>os:system_time()</c></seealso>.
       This may or may not be an accurate view of POSIX time. This time
       may typically be adjusted both backwards and forwards without
       limitation. That is, <seealso marker="#Time_Warp">time warps</seealso>
@@ -165,25 +170,26 @@
 
       <p>To get information about the Erlang runtime
       system's source of OS system time, call
-      <seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso>.</p>
+      <seealso marker="erlang#system_info_os_system_time_source">
+      <c>erlang:system_info(os_system_time_source)</c></seealso>.</p>
     </section>
 
     <marker id="OS_Monotonic_Time"/>
     <section>
       <title>OS Monotonic Time</title>
-      <p>A monotonically increasing time provided by the operating
-      system. This time does not leap and has a relatively steady
+      <p>A monotonically increasing time provided by the OS.
+      This time does not leap and has a relatively steady
       frequency although not completely correct. However, it is not
       uncommon that OS monotonic time stops if the system is
       suspended. This time typically increases since some
       unspecified point in time that is not connected to
       <seealso marker="#OS_System_Time">OS system time</seealso>.
-      This type of time is not necessarily provided by all
-      operating systems.</p>
+      This type of time is not necessarily provided by all OSs.</p>
 
       <p>To get information about the Erlang
       runtime system's source of OS monotonic time, call
-      <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>.</p>
+      <seealso marker="erlang#system_info_os_monotonic_time_source">
+      <c>erlang:system_info(os_monotonic_time_source)</c></seealso>.</p>
     </section>
 
     <marker id="Erlang_System_Time"/>
@@ -192,7 +198,8 @@
       <p>The Erlang runtime systems view of
       <seealso marker="#POSIX_Time">POSIX time</seealso>. To
       retrieve it, call
-      <seealso marker="erlang#system_time/0"><c>erlang:system_time()</c></seealso>.</p>
+      <seealso marker="erlang#system_time/0">
+      <c>erlang:system_time()</c></seealso>.</p>
 
       <p>This time may or may not be an accurate view of POSIX time,
       and may
@@ -211,8 +218,8 @@
       <p>A monotonically increasing time provided by the
       Erlang runtime system. Erlang monotonic time increases since
       some unspecified point in time. To retrieve it, call
-      <seealso marker="erlang#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso>.
-      </p>
+      <seealso marker="erlang#monotonic_time/0">
+      <c>erlang:monotonic_time()</c></seealso>.</p>
 
       <p>The <seealso marker="#Time_Accuracy">accuracy</seealso> and
       <seealso marker="#Time_Precision">precision</seealso> of Erlang
@@ -225,7 +232,8 @@
         <item>Accuracy and precision of
           <seealso marker="#OS_System_Time">OS system time</seealso>
         </item>
-          <item><seealso marker="#Time_Warp_Modes">time warp mode</seealso> used
+        <item><seealso marker="#Time_Warp_Modes">
+          time warp mode</seealso> used
         </item>
       </list>
 
@@ -238,16 +246,17 @@
       time is the "time engine" that is used for more or less
       everything that has anything to do with time. All timers,
       regardless of it is a <c>receive ... after</c> timer, BIF timer,
-      or a timer in the <c>timer</c> module, are triggered
-      relative Erlang monotonic time. Even
+      or a timer in the
+      <seealso marker="stdlib:timer"><c>stdlib:timer</c></seealso>
+      module, are triggered relative Erlang monotonic time. Even
       <seealso marker="#Erlang_System_Time">Erlang system
       time</seealso> is based on Erlang monotonic time.
       By adding current Erlang monotonic time with current time
       offset, you get current Erlang system time.</p>
 
-      <p>To retrieve current time offset, call
-      <seealso marker="erlang#time_offset/0"><c>erlang:time_offset/0</c></seealso>.
-      </p>
+      <p>To retrieve the current time offset, call
+      <seealso marker="erlang#time_offset/0">
+      <c>erlang:time_offset/0</c></seealso>.</p>
     </section>
 
   </section>
@@ -278,7 +287,7 @@
   less potent time-keeper than an atomic clock is used.</p>
 
   <p>However, NTP is not fail-safe. The NTP server can be unavailable,
-  <c>ntp.conf</c> can be wrongly configured, or your computer may
+  <c>ntp.conf</c> can be wrongly configured, or your computer can
   sometimes be disconnected from Internet. Furthermore, you can have a
   user (or even system administrator) who thinks the correct
   way to handle Daylight Saving Time is to adjust the clock one
@@ -327,16 +336,18 @@
     implementation in the Erlang runtime system using
     OS monotonic time. To check if your system has support
     for OS monotonic time, call
-    <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>.
+    <seealso marker="erlang#system_info_os_monotonic_time_source">
+    <c>erlang:system_info(os_monotonic_time_source)</c></seealso>.
     To check if time correction is enabled on your system, call
-    <seealso marker="erlang#system_info_time_correction"><c>erlang:system_info(time_correction)</c></seealso>.</p>
+    <seealso marker="erlang#system_info_time_correction">
+    <c>erlang:system_info(time_correction)</c></seealso>.</p>
 
     <p>To enable or disable time correction, pass command-line argument
-    <seealso marker="erl#+c"><c>+c [true|false]</c></seealso>
-    to <c>erl</c>.</p>
+    <seealso marker="erl#+c"><c>+c [true|false]</c></seealso> to
+    <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
 
     <p>If time correction is disabled, Erlang monotonic time
-    may warp forwards or stop, or even freeze for extended
+    can warp forwards or stop, or even freeze for extended
     periods of time. There are then no guarantees that the frequency
     of the Erlang monotonic clock is accurate or stable.</p>
 
@@ -369,7 +380,7 @@
     <c>erlang:now/0</c> are suboptimal</em> from a performance
     and scalability perspective. So you really want to replace
     the use of it with other functionality. For examples
-    of how to replace the use of <c>erlang:now/0</c>, see Section
+    of how to replace the use of <c>erlang:now/0</c>, see section
     <seealso marker="#Dos_and_Donts">How to Work with the New
     API</seealso>.</p>
   </section>
@@ -378,7 +389,7 @@
     <title>Time Warp Modes</title>
     <marker id="Time_Warp_Modes"/>
     <p>Current <seealso marker="#Erlang_System_Time">Erlang system
-    time</seealso> is determined by adding current
+    time</seealso> is determined by adding the current
     <seealso marker="erlang#monotonic_time/0">Erlang monotonic time</seealso>
     with current
     <seealso marker="erlang#time_offset/0">time offset</seealso>. The
@@ -387,8 +398,8 @@
 
     <p>To set the time warp mode, pass command-line argument
     <seealso marker="erl#+C_"><c>+C
-    [no_time_warp|single_time_warp|multi_time_warp]</c></seealso>
-    to <c>erl</c>.</p>
+    [no_time_warp|single_time_warp|multi_time_warp]</c></seealso> to
+    <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
 
     <marker id="No_Time_Warp_Mode"/>
     <section>
@@ -398,7 +409,7 @@
       not because it is the best mode (which it is not). It is
       default <em>only</em> because this is how the runtime system
       behaved until <c>ERTS</c> 7.0.
-      Ensure that your Erlang code that may execute during a time
+      Ensure that your Erlang code that can execute during a time
       warp is <seealso marker="#Time_Warp_Safe_Code">time warp
       safe</seealso> before enabling other modes.</p>
 
@@ -422,8 +433,8 @@
     <marker id="Single_Time_Warp_Mode"/>
     <section>
       <title>Single Time Warp Mode</title>
-      <p>This mode is more or less a backwards compatibility mode
-      as of its introduction.</p>
+      <p>This mode is more or less a backward compatibility mode
+      as from its introduction.</p>
 
       <p>On an embedded system it is not uncommon that the system
       has no power supply, not even a battery, when it is
@@ -475,11 +486,12 @@
 	<item>
 	  <p>This phase begins when the user finalizes the time
 	  offset by calling
-	  <seealso marker="erlang#system_flag_time_offset"><c>erlang:system_flag(time_offset, finalize)</c></seealso>.
+	  <seealso marker="erlang#system_flag_time_offset">
+	  <c>erlang:system_flag(time_offset, finalize)</c></seealso>.
 	  The finalization can only be performed once.</p>
 
 	  <p>During finalization, the time offset is adjusted and
-	  fixated so that current Erlang system time aligns with
+	  fixed so that current Erlang system time aligns with the
 	  current OS system time. As the time offset can
 	  change during the finalization, Erlang system time
 	  can do a time warp at this point. The time offset is
@@ -488,7 +500,7 @@
 	  correction from now on also makes adjustments
 	  to align Erlang system time with OS system
 	  time. When the system is in the final phase, it behaves
-	  exactly as in the <seealso marker="#No_Time_Warp_Mode">no
+	  exactly as in <seealso marker="#No_Time_Warp_Mode">no
 	  time warp mode</seealso>.</p>
 	</item>
       </taglist>
@@ -520,7 +532,7 @@
       may behave very bad.</p>
 
       <p>Assuming that these requirements are fulfilled,
-      time correction is enabled, and that OS system time
+      time correction is enabled, and OS system time
       is adjusted using a time adjustment protocol such as NTP,
       only small adjustments of Erlang monotonic
       time are needed to keep system times
@@ -529,9 +541,10 @@
       inserted (or deleted) leap seconds.</p>
 
       <warning><p>To use this mode, ensure that
-      all Erlang code that will execute in both phases are
+      all Erlang code that will execute in both phases is
       <seealso marker="#Time_Warp_Safe_Code">time warp
       safe</seealso>.</p>
+
       <p>Code executing only in the final phase does not have
       to be able to cope with the time warp.</p></warning>
     </section>
@@ -542,13 +555,13 @@
       <p><em>Multi-time warp mode in combination with time
       correction is the preferred configuration</em>. This as
       the Erlang runtime system have better performance, scale
-      better, and behave better on almost all platforms. In
-      addition, the accuracy and precision of time measurements
+      better, and behave better on almost all platforms.
+      Also, the accuracy and precision of time measurements
       are better. Only Erlang runtime systems executing on
       ancient platforms benefit from another configuration.</p>
 
-      <p>The time offset may change at any time without limitations.
-      That is, Erlang system time may perform time warps both
+      <p>The time offset can change at any time without limitations.
+      That is, Erlang system time can perform time warps both
       forwards and backwards at <em>any</em> time. As we align
       Erlang system time with OS system time by changing
       the time offset, we can enable a time correction that tries
@@ -582,8 +595,8 @@
     such issues. To improve this, the new API spreads different
     functionality over multiple functions.</p>
 
-    <p>To be backwards compatible, <c>erlang:now/0</c>
-    remains as is, but <em>you are strongly discouraged from using
+    <p>To be backward compatible, <c>erlang:now/0</c>
+    remains "as is", but <em>you are strongly discouraged from using
     it</em>. Many use cases of <c>erlang:now/0</c>
     prevents you from using the new
     <seealso marker="#Multi_Time_Warp_Mode">multi-time warp
@@ -597,38 +610,60 @@
     <p>The new API consists of the following new BIFs:</p>
 
     <list>
-      <item><p><seealso marker="erlang#convert_time_unit/3"><c>erlang:convert_time_unit/3</c></seealso></p></item>
-      <item><p><seealso marker="erlang#monotonic_time/0"><c>erlang:monotonic_time/0</c></seealso></p></item>
-      <item><p><seealso marker="erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_time/0"><c>erlang:system_time/0</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_time/1"><c>erlang:system_time/1</c></seealso></p></item>
-      <item><p><seealso marker="erlang#time_offset/0"><c>erlang:time_offset/0</c></seealso></p></item>
-      <item><p><seealso marker="erlang#time_offset/1"><c>erlang:time_offset/1</c></seealso></p></item>
-      <item><p><seealso marker="erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso></p></item>
-      <item><p><seealso marker="erlang#unique_integer/0"><c>erlang:unique_integer/0</c></seealso></p></item>
-      <item><p><seealso marker="erlang#unique_integer/1"><c>erlang:unique_integer/1</c></seealso></p></item>
-      <item><p><seealso marker="kernel:os#system_time/0"><c>os:system_time/0</c></seealso></p></item>
-      <item><p><seealso marker="kernel:os#system_time/1"><c>os:system_time/1</c></seealso></p></item>
+      <item><p><seealso marker="erlang#convert_time_unit/3">
+        <c>erlang:convert_time_unit/3</c></seealso></p></item>
+      <item><p><seealso marker="erlang#monotonic_time/0">
+        <c>erlang:monotonic_time/0</c></seealso></p></item>
+      <item><p><seealso marker="erlang#monotonic_time/1">
+        <c>erlang:monotonic_time/1</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_time/0">
+        <c>erlang:system_time/0</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_time/1">
+        <c>erlang:system_time/1</c></seealso></p></item>
+      <item><p><seealso marker="erlang#time_offset/0">
+        <c>erlang:time_offset/0</c></seealso></p></item>
+      <item><p><seealso marker="erlang#time_offset/1">
+        <c>erlang:time_offset/1</c></seealso></p></item>
+      <item><p><seealso marker="erlang#timestamp/0">
+        <c>erlang:timestamp/0</c></seealso></p></item>
+      <item><p><seealso marker="erlang#unique_integer/0">
+        <c>erlang:unique_integer/0</c></seealso></p></item>
+      <item><p><seealso marker="erlang#unique_integer/1">
+        <c>erlang:unique_integer/1</c></seealso></p></item>
+      <item><p><seealso marker="kernel:os#system_time/0">
+        <c>os:system_time/0</c></seealso></p></item>
+      <item><p><seealso marker="kernel:os#system_time/1">
+        <c>os:system_time/1</c></seealso></p></item>
     </list>
 
-    <p>The new API also consists of extensions of the following existing BIFs:</p>
+    <p>The new API also consists of extensions of the following existing BIFs:
+    </p>
 
     <list>
-      <item><p><seealso marker="erlang#monitor/2"><c>erlang:monitor(time_offset, clock_service)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_flag_time_offset"><c>erlang:system_flag(time_offset, finalize)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_info_time_offset"><c>erlang:system_info(time_offset)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_info_time_warp_mode"><c>erlang:system_info(time_warp_mode)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_info_time_correction"><c>erlang:system_info(time_correction)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso></p></item>
-      <item><p><seealso marker="erlang#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#monitor/2">
+        <c>erlang:monitor(time_offset, clock_service)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_flag_time_offset">
+        <c>erlang:system_flag(time_offset, finalize)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_os_monotonic_time_source">
+        <c>erlang:system_info(os_monotonic_time_source)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_os_system_time_source">
+        <c>erlang:system_info(os_system_time_source)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_time_offset">
+        <c>erlang:system_info(time_offset)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_time_warp_mode">
+        <c>erlang:system_info(time_warp_mode)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_time_correction">
+        <c>erlang:system_info(time_correction)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_start_time">
+        <c>erlang:system_info(start_time)</c></seealso></p></item>
+      <item><p><seealso marker="erlang#system_info_end_time">
+        <c>erlang:system_info(end_time)</c></seealso></p></item>
     </list>
 
     <marker id="The_New_Erlang_Monotonic_Time"/>
     <section>
       <title>New Erlang Monotonic Time</title>
-      <p>Erlang monotonic time as such is new as of <c>ERTS</c> 7.0.
+      <p>Erlang monotonic time as such is new as from <c>ERTS</c> 7.0.
       It is introduced to detach time measurements, such as elapsed
       time from calendar time. In many use cases there is a need to
       measure elapsed time or specify a time relative to another point
@@ -649,7 +684,7 @@
       modes, and only fully separated in the
       <seealso marker="#Multi_Time_Warp_Mode">multi-time
       warp mode</seealso>. All other modes than the
-      multi-time warp mode are for backwards
+      multi-time warp mode are for backward
       compatibility reasons. When using these modes, the
       accuracy of Erlang monotonic time suffer, as
       the adjustments of Erlang monotonic time in these
@@ -672,15 +707,17 @@
 
       <p>To be able to react to a change in Erlang
       system time, you must be able to detect that it
-      happened. The change in Erlang system time occurs when
+      happened. The change in Erlang system time occurs when the
       current time offset is changed. We have therefore
       introduced the possibility to monitor the time offset using
-      <seealso marker="erlang#monitor/2"><c>erlang:monitor(time_offset, clock_service)</c></seealso>.
+      <seealso marker="erlang#monitor/2">
+      <c>erlang:monitor(time_offset, clock_service)</c></seealso>.
       A process monitoring the time
       offset is sent a message on the following format
       when the time offset is changed:</p>
 
-      <code type="none">{'CHANGE', MonitorReference, time_offset, clock_service, NewTimeOffset}</code>
+      <code type="none">
+{'CHANGE', MonitorReference, time_offset, clock_service, NewTimeOffset}</code>
     </section>
 
     <marker id="Unique_Values"/>
@@ -690,8 +727,8 @@
       produces unique and strictly monotonically increasing
       values. To detach this functionality from
       time measurements, we have introduced
-      <seealso marker="erlang#unique_integer/1"><c>erlang:unique_integer()</c></seealso>.
-      </p>
+      <seealso marker="erlang#unique_integer/1">
+      <c>erlang:unique_integer()</c></seealso>.</p>
     </section>
 
     <marker id="Dos_and_Donts"/>
@@ -699,27 +736,28 @@
       <title>How to Work with the New API</title>
       <p>Previously <c>erlang:now/0</c> was the only option for doing
       many things. This section deals with some things that
-      <c>erlang:now/0</c> can be used for, and how you are to
-      these using the new API.</p>
+      <c>erlang:now/0</c> can be used for, and how you use the new API.</p>
 
       <marker id="Dos_and_Donts_Retrieve_Erlang_System_Time"/>
       <section>
 	<title>Retrieve Erlang System Time</title>
 	<dont>
 	  <p>
-	    Use <c>erlang:now/0</c> to retrieve current Erlang system time.
+	    Use <c>erlang:now/0</c> to retrieve the current Erlang system time.
 	  </p>
 	</dont>
 	<do>
 	  <p>
 	    Use
-	    <seealso marker="erlang#system_time/1"><c>erlang:system_time/1</c></seealso>
-	    to retrieve current Erlang system time on the
+            <seealso marker="erlang#system_time/1">
+            <c>erlang:system_time/1</c></seealso>
+	    to retrieve the current Erlang system time on the
 	    <seealso marker="erlang#type_time_unit">time unit</seealso>
 	    of your choice.</p>
-	    <p>If you want the same format as returned by <c>erlang:now/0</c>, use
-	    <seealso marker="erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
-	   </p>
+            <p>If you want the same format as returned by <c>erlang:now/0</c>,
+            use <seealso marker="erlang#timestamp/0">
+	    <c>erlang:timestamp/0</c></seealso>.
+	  </p>
 	</do>
       </section>
 
@@ -728,28 +766,31 @@
 	<title>Measure Elapsed Time</title>
 	<dont>
 	  <p>
-	    Take timestamps with <c>erlang:now/0</c> and calculate
+	    Take time stamps with <c>erlang:now/0</c> and calculate
 	    the difference in time with
-	    <seealso marker="stdlib:timer#now_diff/2"><c>timer:now_diff/2</c></seealso>.
+            <seealso marker="stdlib:timer#now_diff/2">
+            <c>timer:now_diff/2</c></seealso> in <c>STDLIB</c>.
 	  </p>
 	</dont>
 	<do>
 	  <p>
-	    Take timestamps with
-	    <seealso marker="erlang#monotonic_time/0"><c>erlang:monotonic_time/0</c></seealso>
+	    Take time stamps with
+            <seealso marker="erlang#monotonic_time/0">
+            <c>erlang:monotonic_time/0</c></seealso>
 	    and calculate the time difference using ordinary subtraction.
-	    The result will be in <c>native</c>
+	    The result is in <c>native</c>
 	    <seealso marker="erlang#type_time_unit">time unit</seealso>.
 	    If you want to convert the
 	    result to another time unit, you can use
-	    <seealso marker="erlang#convert_time_unit/3"><c>erlang:convert_time_unit/3</c></seealso>.
-	    </p>
-
-	    <p>An easier way to do this is to use
-	    <seealso marker="erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seealso>
+            <seealso marker="erlang#convert_time_unit/3">
+            <c>erlang:convert_time_unit/3</c></seealso>.
+	  </p>
+	  <p>An easier way to do this is to use
+	    <seealso marker="erlang#monotonic_time/1">
+	    <c>erlang:monotonic_time/1</c></seealso>
 	    with the desired time unit. However, you can then lose accuracy
 	    and precision.
-	    </p>
+	  </p>
 	</do>
       </section>
 
@@ -758,7 +799,7 @@
 	<title>Determine Order of Events</title>
 	<dont>
 	  <p>
-	    Determine the order of events by saving a timestamp
+	    Determine the order of events by saving a time stamp
 	    with <c>erlang:now/0</c> when the event occurs.
 	  </p>
 	</dont>
@@ -766,8 +807,9 @@
 	  <p>
 	    Determine the order of events by saving the integer
 	    returned by
-	    <seealso marker="erlang#unique_integer/1"><c>erlang:unique_integer([monotonic])</c></seealso>
-	    when the event occurs. These integers will be strictly
+	    <seealso marker="erlang#unique_integer/1">
+	    <c>erlang:unique_integer([monotonic])</c></seealso>
+	    when the event occurs. These integers are strictly
 	    monotonically ordered on current runtime system instance
 	    corresponding to creation time.
 	  </p>
@@ -779,7 +821,7 @@
 	<title>Determine Order of Events with Time of the Event</title>
 	<dont>
 	  <p>
-	    Determine the order of events by saving a timestamp
+	    Determine the order of events by saving a time stamp
 	    with <c>erlang:now/0</c> when the event occurs.
 	  </p>
 	</dont>
@@ -795,18 +837,19 @@ Time = erlang:monotonic_time(),
 UMI = erlang:unique_integer([monotonic]),
 EventTag = {Time, UMI}</code>
 
-	    <p>These tuples will be strictly monotonically ordered
-	    on current runtime system instance according to
+	    <p>These tuples are strictly monotonically ordered
+	    on the current runtime system instance according to
 	    creation time. It is important that the
 	    monotonic time is in the first element (the most
-	    significant element when comparing 2-tuples). Using
+	    significant element when comparing two-tuples). Using
 	    the monotonic time in the tuples, you can calculate time
 	    between events.</p>
 
 	    <p>If you are interested in Erlang system time at the
 	    time when the event occurred, you can also save the time
 	    offset before or after saving the events using
-	    <seealso marker="erlang#time_offset/0"><c>erlang:time_offset/0</c></seealso>.
+	    <seealso marker="erlang#time_offset/0">
+	    <c>erlang:time_offset/0</c></seealso>.
 	    Erlang monotonic time added with the time
 	    offset corresponds to Erlang system time.</p>
 
@@ -814,7 +857,7 @@ EventTag = {Time, UMI}</code>
 	    can change, and you want to get the actual
 	    Erlang system time when the event occurred, you can
 	    save the time offset as a third element in the tuple
-	    (the least significant element when comparing 3-tuples).</p>
+	    (the least significant element when comparing three-tuples).</p>
 	</do>
       </section>
 
@@ -830,10 +873,12 @@ EventTag = {Time, UMI}</code>
 	<do>
 	  <p>
 	    Use the value returned from
-	    <seealso marker="erlang#unique_integer/0"><c>erlang:unique_integer/0</c></seealso>
+	    <seealso marker="erlang#unique_integer/0">
+	    <c>erlang:unique_integer/0</c></seealso>
 	    to create a name unique on the current runtime system
 	    instance. If you only want positive integers, you can use
-	    <seealso marker="erlang#unique_integer/1"><c>erlang:unique_integer([positive])</c></seealso>.
+	    <seealso marker="erlang#unique_integer/1">
+	    <c>erlang:unique_integer([positive])</c></seealso>.
 	  </p>
 	</do>
       </section>
@@ -849,12 +894,15 @@ EventTag = {Time, UMI}</code>
 	<do>
 	  <p>
 	    Seed random number generation using a combination of
-	    <seealso marker="erlang#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso>,
-	    <seealso marker="erlang#time_offset/0"><c>erlang:time_offset()</c></seealso>,
-	    <seealso marker="erlang#unique_integer/0"><c>erlang:unique_integer()</c></seealso>,
+	    <seealso marker="erlang#monotonic_time/0">
+	    <c>erlang:monotonic_time()</c></seealso>,
+	    <seealso marker="erlang#time_offset/0">
+	    <c>erlang:time_offset()</c></seealso>,
+	    <seealso marker="erlang#unique_integer/0">
+	    <c>erlang:unique_integer()</c></seealso>,
             and other functionality.
 	  </p>
-	  </do>
+	</do>
       </section>
 
       <p>To sum up this section: <em>Do not use <c>erlang:now/0</c>.</em></p>
@@ -867,9 +915,9 @@ EventTag = {Time, UMI}</code>
     <p>It can be required that your code must run on a variety
     of OTP installations of different OTP releases. If so, you
     cannot use the new API out of the box, as it will
-    not be available on old pre OTP 18 releases. The solution
+    not be available on old pre-OTP 18 releases. The solution
     is <em>not</em> to avoid using the new API, as your
-    code then would not benefit from the scalability
+    code would then not benefit from the scalability
     and accuracy improvements made. Instead, use the
     new API when available, and fall back on <c>erlang:now/0</c>
     when the new API is unavailable.</p>
@@ -879,16 +927,20 @@ EventTag = {Time, UMI}</code>
 
     <list type="bulleted">
       <item>
-        <seealso marker="erlang#system_info_start_time"><c>erlang:system_info(start_time)</c></seealso>
+        <seealso marker="erlang#system_info_start_time">
+	<c>erlang:system_info(start_time)</c></seealso>
       </item>
       <item>
-        <seealso marker="erlang#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso>
+        <seealso marker="erlang#system_info_end_time">
+	<c>erlang:system_info(end_time)</c></seealso>
       </item>
       <item>
-        <seealso marker="erlang#system_info_os_monotonic_time_source"><c>erlang:system_info(os_monotonic_time_source)</c></seealso>
+        <seealso marker="erlang#system_info_os_monotonic_time_source">
+	<c>erlang:system_info(os_monotonic_time_source)</c></seealso>
       </item>
       <item>
-        <seealso marker="erlang#system_info_os_system_time_source"><c>erlang:system_info(os_system_time_source)</c></seealso>)
+        <seealso marker="erlang#system_info_os_system_time_source">
+	<c>erlang:system_info(os_system_time_source)</c></seealso>)
       </item>
     </list>
 

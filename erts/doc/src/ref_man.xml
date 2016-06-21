@@ -30,16 +30,9 @@
     <file>application.xml</file>
   </header>
   <description>
-    <p>The Erlang Runtime System Application <em>ERTS</em>.</p>
-    <note>
-      <p>By default, the <c><![CDATA[erts]]></c> is only guaranteed to be compatible
-        with other Erlang/OTP components from the same release as
-        the <c><![CDATA[erts]]></c> itself. See the documentation of the system flag
-        <seealso marker="erl#compat_rel">+R</seealso> on how to communicate
-        with Erlang/OTP components from earlier releases.</p>
-    </note>
   </description>
   <xi:include href="erl_prim_loader.xml"/>
+  <xi:include href="erl_tracer.xml"/>
   <xi:include href="erlang.xml"/>
   <xi:include href="init.xml"/>
   <xi:include href="zlib.xml"/>
@@ -56,6 +49,5 @@
   <xi:include href="driver_entry.xml"/>
   <xi:include href="erts_alloc.xml"/>
   <xi:include href="erl_nif.xml"/>
-  <xi:include href="erl_tracer.xml"/>
 </application>
 
