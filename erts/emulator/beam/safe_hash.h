@@ -26,13 +26,8 @@
 #ifndef __SAFE_HASH_H__
 #define __SAFE_HASH_H__
 
-
-#ifndef __SYS_H__
 #include "sys.h"
-#endif
-
 #include "erl_alloc.h"
-
 
 typedef unsigned long SafeHashValue;
 
