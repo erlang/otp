@@ -159,8 +159,6 @@ struct erl_msacc_t_ {
 
 #if ERTS_ENABLE_MSACC
 
-#define ERTS_MSACC_INLINE ERTS_GLB_INLINE
-
 #ifdef USE_THREADS
 extern erts_tsd_key_t erts_msacc_key;
 #else
@@ -296,20 +294,20 @@ void erts_msacc_init_thread(char *type, int id, int liberty);
 #define ERTS_MSACC_PUSH_AND_SET_STATE_M(state)                    \
     ERTS_MSACC_PUSH_STATE_M(); ERTS_MSACC_SET_STATE_CACHED_M(state)
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc,Uint state,int increment);
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_m__(ErtsMsAcc *msacc,Uint state,int increment);
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_um__(ErtsMsAcc *msacc);
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_m__(ErtsMsAcc *msacc);
 
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_um__(ErtsMsAcc *msacc) {
     Uint state;
     if (msacc->unmanaged)
@@ -320,12 +318,12 @@ Uint erts_msacc_get_state_um__(ErtsMsAcc *msacc) {
     return state;
 }
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_m__(ErtsMsAcc *msacc) {
     return msacc->state;
 }
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     if (ERTS_UNLIKELY(msacc->unmanaged)) {
         erts_mtx_lock(&msacc->mtx);
@@ -342,7 +340,7 @@ void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) 
         erts_mtx_unlock(&msacc->mtx);
 }
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     ErtsSysPerfCounter prev_perf_counter;
     Sint64 diff;
