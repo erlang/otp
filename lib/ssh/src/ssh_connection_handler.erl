@@ -1315,12 +1315,10 @@ terminate(shutdown, StateName, State0) ->
     State = send_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
 					 description = "Application shutdown"},
 		     State0),
-timer:sleep(400),  %% FIXME!!! gen_tcp:shutdown instead
     finalize_termination(StateName, State);
 
 %% terminate({shutdown,Msg}, StateName, State0) when is_record(Msg,ssh_msg_disconnect)->
 %%     State = send_msg(Msg, State0),
-%% timer:sleep(400),  %% FIXME!!! gen_tcp:shutdown instead
 %%     finalize_termination(StateName, Msg, State);
 
 terminate({shutdown,_R}, StateName, State) ->
@@ -1635,7 +1633,6 @@ new_channel_id(#data{connection_state = #connection{channel_id_seed = Id} =
 disconnect(Msg=#ssh_msg_disconnect{description=Description}, _StateName, State0) ->
     State = send_msg(Msg, State0),
     disconnect_fun(Description, State),
-timer:sleep(400),
     {stop, {shutdown,Description}, State}.
 
 %%%----------------------------------------------------------------
