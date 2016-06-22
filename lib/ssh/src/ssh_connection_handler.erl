@@ -612,11 +612,14 @@ userauth(#ssh_msg_userauth_banner{message = Msg},
 
 
 userauth_keyboard_interactive(#ssh_msg_userauth_info_request{} = Msg, 
-			      #state{ssh_params = #ssh{role = client, 
-						       io_cb = IoCb} = Ssh0} = State) ->
-    {ok, {Reply, Ssh}} = ssh_auth:handle_userauth_info_request(Msg, IoCb, Ssh0),
-    send_msg(Reply, State),
-    {next_state, userauth_keyboard_interactive_info_response, next_packet(State#state{ssh_params = Ssh})};
+			      #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
+    case ssh_auth:handle_userauth_info_request(Msg, Ssh0) of
+	{ok, {Reply, Ssh}} ->
+	    send_msg(Reply, State),
+	    {next_state, userauth_keyboard_interactive_info_response, next_packet(State#state{ssh_params = Ssh})};
+	not_ok ->
+	    userauth(Msg, State)
+    end;
 
 userauth_keyboard_interactive(#ssh_msg_userauth_info_response{} = Msg, 
 			      #state{ssh_params = #ssh{role = server,
@@ -646,7 +649,18 @@ userauth_keyboard_interactive(Msg = #ssh_msg_userauth_failure{},
 
 
 userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_failure{},
-					    #state{ssh_params = #ssh{role = client}} = State) ->
+					    #state{ssh_params = #ssh{role = client,
+								     opts = Opts} = Ssh0} = State0) ->
+
+    State = case proplists:get_value(password, Opts) of
+		undefined ->
+		    State0;
+		_ ->
+		    State0#state{ssh_params =
+				     Ssh0#ssh{opts =
+						  lists:keyreplace(password,1,Opts,
+								   {password,not_ok})}}
+	    end,
     userauth(Msg, State);
 userauth_keyboard_interactive_info_response(Msg=#ssh_msg_userauth_success{},
 					    #state{ssh_params = #ssh{role = client}} = State) ->
@@ -1247,7 +1261,7 @@ init_ssh(client = Role, Vsn, Version, Options, Socket) ->
 	   end,
 
     AuthMethods = proplists:get_value(auth_methods, Options, 
-				      ?SUPPORTED_AUTH_METHODS),
+				      undefined),
     {ok, PeerAddr} = inet:peername(Socket),
     
     PeerName =  proplists:get_value(host, Options),

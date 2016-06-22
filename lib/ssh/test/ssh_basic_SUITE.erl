@@ -49,7 +49,12 @@
 	 inet6_option/1,
 	 inet_option/1,
 	 internal_error/1,
-	 known_hosts/1,  
+	 known_hosts/1,
+	 login_bad_pwd_no_retry1/1,
+	 login_bad_pwd_no_retry2/1,
+	 login_bad_pwd_no_retry3/1,
+	 login_bad_pwd_no_retry4/1,
+	 login_bad_pwd_no_retry5/1,
 	 misc_ssh_options/1,
 	 openssh_zlib_basic_test/1,  
 	 packet_size_zero/1, 
@@ -99,7 +104,8 @@ all() ->
      daemon_opt_fd,
      multi_daemon_opt_fd,
      packet_size_zero,
-     ssh_info_print
+     ssh_info_print,
+     {group, login_bad_pwd_no_retry}
     ].
 
 groups() ->
@@ -115,7 +121,13 @@ groups() ->
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {key_cb, [], [key_callback, key_callback_options]},
-     {internal_error, [], [internal_error]}
+     {internal_error, [], [internal_error]},
+     {login_bad_pwd_no_retry, [], [login_bad_pwd_no_retry1,
+				   login_bad_pwd_no_retry2,
+				   login_bad_pwd_no_retry3,
+				   login_bad_pwd_no_retry4,
+				   login_bad_pwd_no_retry5
+				  ]}
     ].
 
 
@@ -1087,6 +1099,72 @@ ssh_info_print(Config) ->
 	    ok = ssh:stop_daemon(DaemonRef)
     end.
 
+
+%%--------------------------------------------------------------------
+%% Check that a basd pwd is not tried more times. Could cause lock-out
+%% on server
+
+login_bad_pwd_no_retry1(Config) ->
+    login_bad_pwd_no_retry(Config, "keyboard-interactive,password").
+
+login_bad_pwd_no_retry2(Config) ->
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive").
+
+login_bad_pwd_no_retry3(Config) ->
+    login_bad_pwd_no_retry(Config, "password,publickey,keyboard-interactive").
+
+login_bad_pwd_no_retry4(Config) ->
+    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive").
+
+login_bad_pwd_no_retry5(Config) ->
+    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive,password,password").
+
+
+
+
+
+login_bad_pwd_no_retry(Config, AuthMethods) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    PwdFun = fun(_, _, _, undefined) -> {false, 1};
+		(_, _, _,         _) -> Parent ! retry_bad_pwd,
+					false
+	     end,
+
+    {DaemonRef, _Host, Port} = 
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, UserDir},
+			     {auth_methods, AuthMethods},
+			     {user_passwords, [{"foo","somepwd"}]},
+			     {pwdfun, PwdFun}
+			    ]),
+
+    ConnRes = ssh:connect("localhost", Port,
+			  [{silently_accept_hosts, true},
+			   {user, "foo"},
+			   {password, "badpwd"},
+			   {user_dir, UserDir},
+			   {user_interaction, false}]),
+
+    receive
+	retry_bad_pwd ->
+	    ssh:stop_daemon(DaemonRef),
+	    {fail, "Retry bad password"}
+    after 0 ->
+	    case ConnRes of
+		{error,"Unable to connect using the available authentication methods"} ->
+		    ssh:stop_daemon(DaemonRef),
+		    ok;
+		{ok,Conn} ->
+		    ssh:close(Conn),
+		    ssh:stop_daemon(DaemonRef),
+		    {fail, "Connect erroneosly succeded"}
+	    end
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

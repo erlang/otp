@@ -31,12 +31,111 @@
 -export([publickey_msg/1, password_msg/1, keyboard_interactive_msg/1,
 	 service_request_msg/1, init_userauth_request_msg/1,
 	 userauth_request_msg/1, handle_userauth_request/3,
-	 handle_userauth_info_request/3, handle_userauth_info_response/2
+	 handle_userauth_info_request/2, handle_userauth_info_response/2
 	]).
 
 %%--------------------------------------------------------------------
 %%% Internal application API
 %%--------------------------------------------------------------------
+%%%----------------------------------------------------------------
+userauth_request_msg(#ssh{userauth_methods = ServerMethods,
+			  userauth_supported_methods = UserPrefMethods, % Note: this is not documented as supported for clients
+			  userauth_preference = ClientMethods0
+			 } = Ssh0) ->
+    case sort_select_mthds(ClientMethods0, UserPrefMethods, ServerMethods) of
+	[] ->
+	    Msg = #ssh_msg_disconnect{code = ?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,
+				      description = "Unable to connect using the available authentication methods",
+				      language = "en"},
+	    {disconnect, Msg, ssh_transport:ssh_packet(Msg, Ssh0)};
+	
+	[{Pref,Module,Function,Args} | Prefs] ->
+	    Ssh = case Pref of
+		      "keyboard-interactive" -> Ssh0;
+		      _ -> Ssh0#ssh{userauth_preference = Prefs}
+		  end,
+	    case Module:Function(Args ++ [Ssh]) of
+		{not_ok, Ssh1} ->
+		    userauth_request_msg(Ssh1#ssh{userauth_preference = Prefs});
+		Result ->
+		    {Pref,Result}
+	    end
+    end.
+
+
+
+sort_select_mthds(Clients, undefined, Servers) ->
+    %% User has not expressed an opinion via option "auth_methods", use the server's prefs
+    sort_select_mthds1(Clients, Servers, string:tokens(?SUPPORTED_AUTH_METHODS,","));
+
+sort_select_mthds(Clients, Users0, Servers0) ->
+    %% The User has an opinion, use the intersection of that and the Servers whishes but
+    %% in the Users order
+    sort_select_mthds1(Clients, string:tokens(Users0,","), Servers0).
+
+
+sort_select_mthds1(Clients, Users0, Servers0) ->
+    Servers = unique(Servers0),
+    Users = unique(Users0),
+    [C || Key <- Users,
+	  lists:member(Key, Servers),
+	  C <- Clients,
+	  element(1,C) == Key].
+
+unique(L) -> 
+    lists:reverse(
+      lists:foldl(fun(E,Acc) -> 
+			  case lists:member(E,Acc) of
+			      true -> Acc;
+			      false -> [E|Acc]
+			  end
+		  end, [], L)).
+    
+
+%%%---- userauth_request_msg "callbacks"
+password_msg([#ssh{opts = Opts, io_cb = IoCb,
+		   user = User, service = Service} = Ssh0]) ->
+    {Password,Ssh} = 
+	case proplists:get_value(password, Opts) of
+	    undefined when IoCb == ssh_no_io ->
+		{not_ok, Ssh0};
+	    undefined -> 
+		{IoCb:read_password("ssh password: ",Ssh0), Ssh0};
+	    PW ->
+		%% If "password" option is given it should not be tried again
+		{PW, Ssh0#ssh{opts = lists:keyreplace(password,1,Opts,{password,not_ok})}}
+	end,
+    case Password of
+	not_ok ->
+	    {not_ok, Ssh};
+	_  ->
+	    ssh_transport:ssh_packet(
+	      #ssh_msg_userauth_request{user = User,
+					service = Service,
+					method = "password",
+					data =
+					    <<?BOOLEAN(?FALSE),
+					      ?STRING(unicode:characters_to_binary(Password))>>},
+	      Ssh)
+    end.
+
+%% See RFC 4256 for info on keyboard-interactive
+keyboard_interactive_msg([#ssh{user = User,
+			       opts = Opts,
+			       service = Service} = Ssh]) ->
+    case proplists:get_value(password, Opts) of
+	not_ok ->
+	    {not_ok,Ssh};       % No need to use a failed pwd once more
+	_ ->
+	    ssh_transport:ssh_packet(
+	      #ssh_msg_userauth_request{user = User,
+					service = Service,
+					method = "keyboard-interactive",
+					data = << ?STRING(<<"">>),
+						  ?STRING(<<>>) >> },
+	      Ssh)
+    end.
+
 publickey_msg([Alg, #ssh{user = User,
 		       session_id = SessionId,
 		       service = Service,
@@ -48,7 +147,7 @@ publickey_msg([Alg, #ssh{user = User,
 	    StrAlgo = atom_to_list(Alg),
             case encode_public_key(StrAlgo, ssh_transport:extract_public_key(PrivKey)) of
 		not_ok ->
-		    not_ok;
+		    {not_ok, Ssh};
 		PubKeyBlob ->
 		    SigData = build_sig_data(SessionId, 
 					     User, Service, PubKeyBlob, StrAlgo),
@@ -65,52 +164,15 @@ publickey_msg([Alg, #ssh{user = User,
 		      Ssh)
 	    end;
      	_Error ->
-	    not_ok
+	    {not_ok, Ssh}
     end.
 
-password_msg([#ssh{opts = Opts, io_cb = IoCb,
-		   user = User, service = Service} = Ssh]) ->
-    Password = case proplists:get_value(password, Opts) of
-		   undefined -> 
-		       user_interaction(IoCb, Ssh);
-		   PW -> 
-		       PW
-	       end,
-    case Password of
-	not_ok ->
-	    not_ok;
-	_  ->
-	    ssh_transport:ssh_packet(
-	      #ssh_msg_userauth_request{user = User,
-					service = Service,
-					method = "password",
-					data =
-					    <<?BOOLEAN(?FALSE),
-					      ?STRING(unicode:characters_to_binary(Password))>>},
-	      Ssh)
-    end.
-
-user_interaction(ssh_no_io, _) ->
-    not_ok;
-user_interaction(IoCb, Ssh) ->
-    IoCb:read_password("ssh password: ", Ssh).
-
-
-%% See RFC 4256 for info on keyboard-interactive
-keyboard_interactive_msg([#ssh{user = User,
-			       service = Service} = Ssh]) ->
-    ssh_transport:ssh_packet(
-      #ssh_msg_userauth_request{user = User,
-				service = Service,
-				method = "keyboard-interactive",
-				data = << ?STRING(<<"">>),
-					  ?STRING(<<>>) >> },
-      Ssh).
-
+%%%----------------------------------------------------------------
 service_request_msg(Ssh) ->
     ssh_transport:ssh_packet(#ssh_msg_service_request{name = "ssh-userauth"},
 			   Ssh#ssh{service = "ssh-userauth"}).
 
+%%%----------------------------------------------------------------
 init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
     case user_name(Opts) of
 	{ok, User} ->
@@ -140,34 +202,9 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 				      language = "en"})
     end.
 
-userauth_request_msg(#ssh{userauth_preference = []} = Ssh) ->    
-    Msg = #ssh_msg_disconnect{code = 
-			      ?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE,
-			      description = "Unable to connect using the available"
-			      " authentication methods",
-			      language = "en"},
-    {disconnect, Msg, ssh_transport:ssh_packet(Msg, Ssh)};
-
-userauth_request_msg(#ssh{userauth_methods = Methods, 
-			  userauth_preference = [{Pref, Module,
-					      Function, Args} | Prefs]} 
-		     = Ssh0) ->
-    Ssh = Ssh0#ssh{userauth_preference = Prefs},
-    case lists:member(Pref, Methods) of
-	true ->
-	    case Module:Function(Args ++ [Ssh]) of
-		not_ok ->
-		    userauth_request_msg(Ssh);
-		Result ->
-		    {Pref,Result}
-	    end;
-	false ->
-	    userauth_request_msg(Ssh)
-    end.
-
-
-handle_userauth_request(#ssh_msg_service_request{name = 
-						 Name = "ssh-userauth"},
+%%%----------------------------------------------------------------
+%%% called by server
+handle_userauth_request(#ssh_msg_service_request{name = Name = "ssh-userauth"},
 			_, Ssh) ->
     {ok, ssh_transport:ssh_packet(#ssh_msg_service_accept{name = Name},
 				  Ssh#ssh{service = "ssh-connection"})};
@@ -319,21 +356,28 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 				 partial_success = false}, Ssh)}.
 
 
-
-handle_userauth_info_request(
-  #ssh_msg_userauth_info_request{name = Name,
-				 instruction = Instr,
-				 num_prompts = NumPrompts,
-				 data  = Data}, IoCb, 
-  #ssh{opts = Opts} = Ssh) ->
+%%%----------------------------------------------------------------
+%%% keyboard-interactive client
+handle_userauth_info_request(#ssh_msg_userauth_info_request{name = Name,
+							    instruction = Instr,
+							    num_prompts = NumPrompts,
+							    data  = Data},
+			     #ssh{opts = Opts,
+				  io_cb = IoCb
+				 } = Ssh) ->
     PromptInfos = decode_keyboard_interactive_prompts(NumPrompts,Data),
-    Responses = keyboard_interact_get_responses(IoCb, Opts,
-					    Name, Instr, PromptInfos),
-    {ok, 
-     ssh_transport:ssh_packet(
-       #ssh_msg_userauth_info_response{num_responses = NumPrompts,
-				       data = Responses}, Ssh)}.
+    case keyboard_interact_get_responses(IoCb, Opts, Name, Instr, PromptInfos) of
+	not_ok ->
+	    not_ok;
+	Responses ->
+	    {ok, 
+	     ssh_transport:ssh_packet(
+	       #ssh_msg_userauth_info_response{num_responses = NumPrompts,
+					       data = Responses}, Ssh)}
+    end.
 
+%%%----------------------------------------------------------------
+%%% keyboard-interactive server
 handle_userauth_info_response(#ssh_msg_userauth_info_response{num_responses = 1,
 							      data = <<?UINT32(Sz), Password:Sz/binary>>},
 			      #ssh{opts = Opts,
@@ -369,11 +413,6 @@ method_preference(Algs) ->
 		       [{"publickey", ?MODULE, publickey_msg, [A]} | Acc]
 	       end, 
 	       [{"password", ?MODULE, password_msg, []},
-		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
-		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
-		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
-		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
-		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []},
 		{"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
 	       ],
 	       Algs).
@@ -473,6 +512,9 @@ keyboard_interact_get_responses(IoCb, Opts, Name, Instr, PromptInfos) ->
 				    proplists:get_value(password, Opts, undefined), IoCb, Name,
 				    Instr, PromptInfos, Opts, NumPrompts).
 
+
+keyboard_interact_get_responses(_, _, not_ok, _, _, _, _, _, _) ->
+    not_ok;
 keyboard_interact_get_responses(_, undefined, Password, _, _, _, _, _,
 				1) when Password =/= undefined ->
     [Password]; %% Password auth implemented with keyboard-interaction and passwd is known
@@ -486,16 +528,17 @@ keyboard_interact_get_responses(true, Fun, _Pwd, _IoCb, Name, Instr, PromptInfos
     keyboard_interact_fun(Fun, Name, Instr, PromptInfos, NumPrompts).
 
 keyboard_interact(IoCb, Name, Instr, Prompts, Opts) ->
-    if Name /= "" -> IoCb:format("~s~n", [Name]);
-       true       -> ok
-    end,
-    if Instr /= "" -> IoCb:format("~s~n", [Instr]);
-       true        -> ok
-    end,
+    write_if_nonempty(IoCb, Name),
+    write_if_nonempty(IoCb, Instr),
     lists:map(fun({Prompt, true})  -> IoCb:read_line(Prompt, Opts);
 		 ({Prompt, false}) -> IoCb:read_password(Prompt, Opts)
 	      end,
 	      Prompts).
+
+write_if_nonempty(_, "") -> ok;
+write_if_nonempty(_, <<>>) -> ok;
+write_if_nonempty(IoCb, Text) -> IoCb:format("~s~n",[Text]).
+
 
 keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos, NumPrompts) ->
     Prompts = lists:map(fun({Prompt, _Echo}) -> Prompt end,
