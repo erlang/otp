@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SSH client does not any longer retry a bad password given
+	    as option to ssh:connect et al.</p>
+          <p>
+	    Own Id: OTP-13674 Aux Id: TR-HU92273 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
