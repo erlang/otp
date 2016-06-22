@@ -793,13 +793,13 @@ update_cpu_info(Config) when is_list(Config) ->
     io:format("START - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
 		    [OldAff, OldOnline, erlang:system_info(scheduler_bindings)]),
     case {erlang:system_info(logical_processors_available), OldAff} of
-	      {Avail, _} when Avail == unknown; OldAff == unknown ->
+	      {Avail, _} when Avail == unknown; OldAff == unknown; OldAff == 1 ->
 		  %% Nothing much to test; just a smoke test
 		  case erlang:system_info(update_cpu_info) of
 		      unchanged -> ok;
 		      changed -> ok
 		  end;
-	      _ ->
+	      {Avail, _} ->
 		  try
 		      adjust_schedulers_online(),
 		      case erlang:system_info(schedulers_online) of
@@ -810,7 +810,7 @@ update_cpu_info(Config) when is_list(Config) ->
 			      %% unset least significant bit
 			      Aff = (OldAff band (OldAff - 1)),
 			      set_affinity_mask(Aff),
-			      Onln1 = Onln0 - 1,
+			      Onln1 = Avail - 1,
 			      case adjust_schedulers_online() of
 					{Onln0, Onln1} ->
 					    Onln1 = erlang:system_info(schedulers_online),
