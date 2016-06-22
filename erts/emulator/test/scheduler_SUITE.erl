@@ -1072,20 +1072,27 @@ scheduler_threads(Config) when is_list(Config) ->
     {Sched, HalfSchedOnln, _} = get_sstate(Config, "+SP:50"),
     %% Configure 2x scheduler threads only
     {TwiceSched, SchedOnln, _} = get_sstate(Config, "+SP 200"),
-    %% Test resetting the scheduler counts
-    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
-    {Sched, SchedOnln, _} = get_sstate(Config, ResetCmd),
-    %% Test negative +S settings, but only for SMP-enabled emulators
-    case SmpSupport of
-        false -> ok;
-        true ->
-            SchedMinus1 = Sched-1,
-            SchedOnlnMinus1 = SchedOnln-1,
-            {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
-            {Sched, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
-            {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1")
-    end,
-    ok.
+    case {erlang:system_info(logical_processors),
+	  erlang:system_info(logical_processors_available)} of
+	{LProc, LProcAvail} when is_integer(LProc), is_integer(LProcAvail) ->
+	    %% Test resetting the scheduler counts
+	    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
+	    {LProc, LProcAvail, _} = get_sstate(Config, ResetCmd),
+	    %% Test negative +S settings, but only for SMP-enabled emulators
+	    case {SmpSupport, LProc > 1, LProcAvail > 1} of
+		{true, true, true} ->
+		    SchedMinus1 = LProc-1,
+		    SchedOnlnMinus1 = LProcAvail-1,
+		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
+		    {LProc, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
+		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1"),
+		    ok;
+		_ ->
+		    {comment, "Skipped reduced amount of schedulers test due to too few logical processors"}
+	    end;
+	_ -> %% Skipped when missing info about logical processors...
+	    {comment, "Skipped reset amount of schedulers test, and reduced amount of schedulers test due to too unknown amount of logical processors"}
+    end.
 
 dirty_scheduler_threads(Config) when is_list(Config) ->
     SmpSupport = erlang:system_info(smp_support),
