@@ -197,6 +197,7 @@
 	     hipe_sparc_registers,
 	     hipe_sparc_specific,
 	     hipe_sparc_specific_fp,
+	     hipe_sparc_subst,
 	     hipe_spillcost,
 	     hipe_spillmin,
 	     hipe_spillmin_color,

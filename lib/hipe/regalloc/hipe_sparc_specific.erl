@@ -53,6 +53,12 @@
 %% callbacks for hipe_regalloc_loop
 -export([check_and_rewrite/2]).
 
+%% callbacks for hipe_regalloc_prepass
+-export([new_reg_nr/0,
+	 update_reg_nr/2,
+	 update_bb/3,
+	 subst_temps/2]).
+
 check_and_rewrite(CFG, Coloring) ->
   hipe_sparc_ra_postconditions:check_and_rewrite(CFG, Coloring, 'normal').
 
@@ -113,6 +119,9 @@ number_of_temporaries(_CFG) ->
 bb(CFG,L) ->
   hipe_sparc_cfg:bb(CFG,L).
 
+update_bb(CFG,L,BB) ->
+  hipe_sparc_cfg:bb_add(CFG,L,BB).
+
 %% SPARC stuff
 
 def_use(Instruction) ->
@@ -144,6 +153,23 @@ is_move(Instruction) ->
 
 reg_nr(Reg) ->
   hipe_sparc:temp_reg(Reg).
+
+new_reg_nr() ->
+  hipe_gensym:get_next_var(sparc).
+
+update_reg_nr(Nr, Temp) ->
+  hipe_sparc:mk_temp(Nr, hipe_sparc:temp_type(Temp)).
+
+subst_temps(SubstFun, Instr) ->
+  hipe_sparc_subst:insn_temps(
+    fun(Op) ->
+	case hipe_sparc:temp_is_allocatable(Op)
+	  andalso hipe_sparc:temp_type(Op) =/= 'double'
+	of
+	  true -> SubstFun(Op);
+	  false -> Op
+	end
+    end, Instr).
 
 %%% Linear Scan stuff
 
