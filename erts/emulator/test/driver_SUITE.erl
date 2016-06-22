@@ -401,7 +401,7 @@ try_timeouts(Port, Timeout) ->
                 true ->
                     try_timeouts(Port, Timeout div 2)
             end
-    after Timeout + ?delay ->
+    after Timeout + 100*?delay ->
               ct:fail("driver failed to timeout")
     end.
 
@@ -437,7 +437,7 @@ try_cancel(Port, Timeout) ->
                           Timeout == 0 -> ok;
                           true -> try_cancel(Port, Timeout div 2)
                       end
-              after ?delay ->
+              after 100*?delay ->
                         ct:fail("No message from driver")
               end
     end.
@@ -505,7 +505,7 @@ try_change_timer(Port, Timeout) ->
                 true ->
                     try_timeouts(Port, Timeout div 2)
             end
-    after Timeout + ?delay ->
+    after Timeout + 100*?delay ->
               ct:fail("driver failed to timeout")
     end.
 
