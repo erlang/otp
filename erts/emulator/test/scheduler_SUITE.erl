@@ -1319,11 +1319,33 @@ scheduler_suspend_test(Config, Schedulers) ->
                                         true ->
                                             ok
                                     end,
-                                    erlang:system_info(schedulers_state)
+                                    until(fun () ->
+						  {_A, B, C} = erlang:system_info(
+								 schedulers_state),
+                                              B == C
+                                          end,
+                                          erlang:monotonic_time()
+                                          + erlang:convert_time_unit(1,
+								     seconds,
+								     native)),
+				    erlang:system_info(schedulers_state)
                             end]),
     stop_node(Node),
     ok.
-    
+
+until(Pred, MaxTime) ->
+    case Pred() of
+	true ->
+	    true;
+	false ->
+	    case erlang:monotonic_time() > MaxTime of
+		true ->
+		    false;
+		false ->
+		    receive after 100 -> ok end,
+		    until(Pred, MaxTime)
+	    end
+    end.
 
 sst0_loop(0) ->
     ok;
