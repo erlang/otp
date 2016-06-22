@@ -51,6 +51,7 @@ void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
 static int print_op(int to, void *to_arg, int op, int size, BeamInstr* addr);
+static void print_bif_name(int to, void* to_arg, BifFunction bif);
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -520,7 +521,27 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    break;
 	case 'I':		/* Untagged integer. */
 	case 't':
-	    erts_print(to, to_arg, "%d", *ap);
+	    switch (op) {
+	    case op_i_gc_bif1_jIsId:
+	    case op_i_gc_bif2_jIIssd:
+	    case op_i_gc_bif3_jIIssd:
+		{
+		    const ErtsGcBif* p;
+		    BifFunction gcf = (BifFunction) *ap;
+		    for (p = erts_gc_bifs; p->bif != 0; p++) {
+			if (p->gc_bif == gcf) {
+			    print_bif_name(to, to_arg, p->bif);
+			    break;
+			}
+		    }
+		    if (p->bif == 0) {
+			erts_print(to, to_arg, "%d", (Uint)gcf);
+		    }
+		    break;
+		}
+	    default:
+		erts_print(to, to_arg, "%d", *ap);
+	    }
 	    ap++;
 	    break;
 	case 'f':		/* Destination label */
@@ -560,19 +581,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'F':		/* Function definition */
 	    break;
 	case 'b':
-	    for (i = 0; i < BIF_SIZE; i++) {
-		BifFunction bif = (BifFunction) *ap;
-		if (bif == bif_table[i].f) {
-		    break;
-		}
-	    }
-	    if (i == BIF_SIZE) {
-		erts_print(to, to_arg, "b(%d)", (Uint) *ap);
-	    } else {
-		Eterm name = bif_table[i].name;
-		unsigned arity = bif_table[i].arity;
-		erts_print(to, to_arg, "%T/%u", name, arity);
-	    }
+	    print_bif_name(to, to_arg, (BifFunction) *ap);
 	    ap++;
 	    break;
 	case 'P':	/* Byte offset into tuple (see beam_load.c) */
@@ -730,4 +739,22 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     erts_print(to, to_arg, "\n");
 
     return size;
+}
+
+static void print_bif_name(int to, void* to_arg, BifFunction bif)
+{
+    int i;
+
+    for (i = 0; i < BIF_SIZE; i++) {
+	if (bif == bif_table[i].f) {
+	    break;
+	}
+    }
+    if (i == BIF_SIZE) {
+	erts_print(to, to_arg, "b(%d)", (Uint) bif);
+    } else {
+	Eterm name = bif_table[i].name;
+	unsigned arity = bif_table[i].arity;
+	erts_print(to, to_arg, "%T/%u", name, arity);
+    }
 }
