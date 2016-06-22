@@ -311,7 +311,15 @@ scheduler_wall_time(Config) when is_list(Config) ->
            true -> exit({fullload, FullLoad})
         end,
 
-        [exit(Pid, kill) || Pid <- [P1|HalfHogs++LastHogs]],
+	KillHog = fun (HP) ->
+			  HPM = erlang:monitor(process, HP),
+			  exit(HP, kill),
+			  receive
+			      {'DOWN', HPM, process, HP, killed} ->
+				  ok
+			  end
+		  end,
+        [KillHog(Pid) || Pid <- [P1|HalfHogs++LastHogs]],
         AfterLoad = get_load(),
         {false,_} = {lists:any(fun(Load) -> Load > 25 end, AfterLoad),AfterLoad},
         true = erlang:system_flag(scheduler_wall_time, false)
