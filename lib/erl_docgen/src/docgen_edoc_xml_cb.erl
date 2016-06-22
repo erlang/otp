@@ -892,10 +892,9 @@ types(Ts) ->
 typedecl(Name, #xmlElement{content = Es}) ->
     TypedefEs = get_content(typedef, Es),
     Id = "type-"++Name,
-    [{tag, typedef(TypedefEs)},
+    [{tag, [{marker,[{id,Id}],[]}] ++ typedef(TypedefEs)},
      ?NL,
-     {item, [{marker,[{id,Id}],[]} |
-	     local_defs(get_elem(localdef, TypedefEs)) ++ fulldesc(Es)]},
+     {item, local_defs(get_elem(localdef, TypedefEs)) ++ fulldesc(Es)},
      ?NL].
 
 typedef(Es) ->
@@ -903,14 +902,14 @@ typedef(Es) ->
   	    ++ seq(fun t_utype_elem/1, get_content(argtypes, Es), [")"])),
     case get_elem(type, Es) of
  	 [] ->
-	    [{tt, Name}];
+	    Name;
  	 Type ->
-	    [{tt, Name ++ [" = "] ++ t_utype(Type)}]
+	    Name ++ [" = "] ++ t_utype(Type)
     end.
 
-local_defs([]) -> [];
+local_defs([]) -> [{p,[]}];
 local_defs(Es) ->
-    [?NL, {ul, [{li, [{tt, localdef(E)}]} || E <- Es]}].
+    [?NL, {ul, [{li, [{p, localdef(E)}]} || E <- Es]}].
 
 localdef(E = #xmlElement{content = Es}) ->
     Var = case get_elem(typevar, Es) of
