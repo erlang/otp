@@ -1208,7 +1208,7 @@ makedep_output(#compile{code=Code,options=Opts,ofile=Ofile}=St) ->
 		end,
 		{ok,St}
 	    catch
-		exit:_ ->
+		error:_ ->
 		    %% Couldn't write to output Makefile.
 		    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
 		    {error,St#compile{errors=St#compile.errors++[Err]}}
