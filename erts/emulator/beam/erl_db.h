@@ -267,7 +267,5 @@ erts_db_free_nt(ErtsAlcType_t type, void *ptr, Uint size)
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#undef ERTS_DB_ALC_MEM_UPDATE_
-
 #endif /* #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__) */
 

@@ -84,14 +84,6 @@
 
 #include "erl_db_hash.h"
 
-#ifdef MYDEBUG /* Will fail test case ets_SUITE:memory */
-#  define IF_DEBUG(x) x
-#  define MY_ASSERT(x) ASSERT(x)
-#else
-#  define IF_DEBUG(x)
-#  define MY_ASSERT(x)
-#endif
-
 /* 
  * The following symbols can be manipulated to "tune" the linear hash array 
  */
@@ -102,7 +94,7 @@
 #define SEGSZ   (1 << SEGSZ_EXP)
 #define SEGSZ_MASK (SEGSZ-1)
 
-#define NSEG_1     2 /* Size of first segment table (must be at least 2) */ 
+#define NSEG_1   (ErtsSizeofMember(DbTableHash,first_segtab) / sizeof(struct segment*))
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
@@ -318,27 +310,21 @@ struct mp_info {
 
 /* A table segment */
 struct segment {
-    HashDbTerm* buckets[SEGSZ];
-#ifdef MYDEBUG
-    int is_ext_segment;
-#endif
+    HashDbTerm* buckets[1];
 };
+#define SIZEOF_SEGMENT(N) \
+    (offsetof(struct segment,buckets) + sizeof(HashDbTerm*)*(N))
 
-/* A segment that also contains a segment table */
-struct ext_segment {    
-    struct segment s; /* The segment itself. Must be first */
-	
+/* An extended segment table */
+struct ext_segtab {
+    ErtsThrPrgrLaterOp lop;
     struct segment** prev_segtab;  /* Used when table is shrinking */
-    int nsegs;                     /* Size of segtab */
+    int prev_nsegs;                /* Size of prev_segtab */
+    int nsegs;                     /* Size of this segtab */
     struct segment* segtab[1];     /* The segment table */
 };
-#define SIZEOF_EXTSEG(NSEGS) \
-    (offsetof(struct ext_segment,segtab) + sizeof(struct segment*)*(NSEGS))
-
-#if defined(DEBUG) || defined(VALGRIND)
-#  define EXTSEG(SEGTAB_PTR) \
-    ((struct ext_segment*) (((char*)(SEGTAB_PTR)) - offsetof(struct ext_segment,segtab)))
-#endif
+#define SIZEOF_EXT_SEGTAB(NSEGS) \
+    (offsetof(struct ext_segtab,segtab) + sizeof(struct segment*)*(NSEGS))
 
 
 static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
@@ -348,41 +334,14 @@ static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
 	erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t) segtab);
     else
 	erts_smp_atomic_set_nob(&tb->segtab, (erts_aint_t) segtab);
-#ifdef VALGRIND
-    tb->top_ptr_to_segment_with_active_segtab = EXTSEG(segtab);
-#endif
 }
 
-
-/* How the table segments relate to each other:
-
-    ext_segment:                      ext_segment:              "plain" segment
-   #=================#                #================#        #=============#
-   | bucket[0]       |<--+   +------->| bucket[256]    |     +->| bucket[512] |
-   | bucket[1]       |   |   |        |       [257]    |     |  |       [513] |
-   :                 :   |   |        :                :     |  :             :
-   | bucket[255]     |   |   |        |       [511]    |     |  |       [767] |
-   |-----------------|   |   |        |----------------|     |  #=============#
-   | prev_segtab=NULL|   |   |   +--<---prev_segtab    |     |
-   | nsegs = 2       |   |   |   |    | nsegs = 256    |     |
-+->| segtab[0] -->-------+---|---|--<---segtab[0]      |<-+  |
-|  | segtab[1] -->-----------+---|--<---segtab[1]      |  |  |
-|  #=================#           |    | segtab[2] -->-----|--+    ext_segment:         
-|                                |    :                :  |      #================#
-+----------------<---------------+    | segtab[255] ->----|----->| bucket[255*256]| 
-                                      #================#  |      |                | 
-                                                          |      :                :
-                                                          |      |----------------| 
-                                                          +----<---prev_segtab    | 
-                                                                 :                :
-*/
 
 
 /*
 ** Forward decl's (static functions)
 */
-static struct ext_segment* alloc_ext_seg(DbTableHash* tb, unsigned seg_ix,
-					 struct segment** old_segtab);
+static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix);
 static int alloc_seg(DbTableHash *tb);
 static int free_seg(DbTableHash *tb, int free_records);
 static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_smp_rwmtx_t** lck_ptr,
@@ -666,9 +625,13 @@ int db_create_hash(Process *p, DbTable *tbl)
     erts_smp_atomic_init_nob(&tb->nactive, SEGSZ);
     erts_smp_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
     erts_smp_atomic_init_nob(&tb->segtab, (erts_aint_t)NULL);
-    SET_SEGTAB(tb, alloc_ext_seg(tb,0,NULL)->segtab);
+    SET_SEGTAB(tb, tb->first_segtab);
     tb->nsegs = NSEG_1;
     tb->nslots = SEGSZ;
+    tb->first_segtab[0] = (struct segment*) erts_db_alloc(ERTS_ALC_T_DB_SEG,
+                                                          (DbTable *) tb,
+                                                          SIZEOF_SEGMENT(SEGSZ));
+    sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(SEGSZ));
 
 #ifdef ERTS_SMP
     erts_smp_atomic_init_nob(&tb->is_resizing, 0);
@@ -2414,34 +2377,29 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
     return DB_ERROR_NONE;
 }
 
-static struct ext_segment* alloc_ext_seg(DbTableHash* tb, unsigned seg_ix,
-					 struct segment** old_segtab)
+static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix)
 {
-    int nsegs;
-    struct ext_segment* eseg;
+    struct segment** old_segtab = SEGTAB(tb);
+    int nsegs = 0;
+    struct ext_segtab* est;
     
+    ASSERT(seg_ix >= NSEG_1);
     switch (seg_ix) {
-    case 0: nsegs = NSEG_1; break;
-    case 1: nsegs = NSEG_2; break; 
-    default: nsegs = seg_ix + NSEG_INC; break;
-    }    
-    eseg = (struct ext_segment*) erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG,
-						   (DbTable *) tb,
-						   SIZEOF_EXTSEG(nsegs));
-    ASSERT(eseg != NULL);	
-    sys_memset(&eseg->s, 0, sizeof(struct segment));
-    IF_DEBUG(eseg->s.is_ext_segment = 1);
-    eseg->prev_segtab = old_segtab;
-    eseg->nsegs = nsegs;
-    if (old_segtab) {
-	ASSERT(nsegs > tb->nsegs);
-	sys_memcpy(eseg->segtab, old_segtab, tb->nsegs*sizeof(struct segment*));
+    case NSEG_1: nsegs = NSEG_2; break;
+    default:     nsegs = seg_ix + NSEG_INC; break;
     }
+    ASSERT(nsegs > tb->nsegs);
+    est = (struct ext_segtab*) erts_db_alloc(ERTS_ALC_T_DB_SEG,
+                                             (DbTable *) tb,
+                                             SIZEOF_EXT_SEGTAB(nsegs));
+    est->nsegs = nsegs;
+    est->prev_segtab = old_segtab;
+    est->prev_nsegs = tb->nsegs;
+    sys_memcpy(est->segtab, old_segtab, tb->nsegs*sizeof(struct segment*));
 #ifdef DEBUG
-    sys_memset(&eseg->segtab[seg_ix], 0, (nsegs-seg_ix)*sizeof(struct segment*));
+    sys_memset(&est->segtab[seg_ix], 0, (nsegs-seg_ix)*sizeof(struct segment*));
 #endif
-    eseg->segtab[seg_ix] = &eseg->s;
-    return eseg;
+    return est;
 }
 
 /* Extend table with one new segment
@@ -2449,35 +2407,31 @@ static struct ext_segment* alloc_ext_seg(DbTableHash* tb, unsigned seg_ix,
 static int alloc_seg(DbTableHash *tb)
 {    
     int seg_ix = tb->nslots >> SEGSZ_EXP;
+    struct segment** segtab;
 
-    if (seg_ix+1 == tb->nsegs) { /* New segtab needed (extended segment) */
-	struct segment** segtab = SEGTAB(tb);
-	struct ext_segment* seg = alloc_ext_seg(tb, seg_ix, segtab);
-    	if (seg == NULL) return 0;
-	segtab[seg_ix] = &seg->s;
-	/* We don't use the new segtab until next call (see "shrink race") */
+    if (seg_ix == tb->nsegs) { /* New segtab needed */
+	struct ext_segtab* est = alloc_ext_segtab(tb, seg_ix);
+        SET_SEGTAB(tb, est->segtab);
+        tb->nsegs = est->nsegs;
     }
-    else { /* Just a new plain segment */
-	struct segment** segtab;
-	if (seg_ix == tb->nsegs) { /* Time to start use segtab from last call */
-	    struct ext_segment* eseg;
-	    eseg = (struct ext_segment*) SEGTAB(tb)[seg_ix-1];
-	    MY_ASSERT(eseg!=NULL && eseg->s.is_ext_segment);
-	    SET_SEGTAB(tb, eseg->segtab);	    
-	    tb->nsegs = eseg->nsegs;
-	}
-	ASSERT(seg_ix < tb->nsegs);
-	segtab = SEGTAB(tb);
-	ASSERT(segtab[seg_ix] == NULL);
-	segtab[seg_ix] = (struct segment*) erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG,
-							     (DbTable *) tb,
-							     sizeof(struct segment));
-	if (segtab[seg_ix] == NULL) return 0;
-	sys_memset(segtab[seg_ix], 0, sizeof(struct segment));
-    }
+    ASSERT(seg_ix < tb->nsegs);
+    segtab = SEGTAB(tb);
+    segtab[seg_ix] = (struct segment*) erts_db_alloc(ERTS_ALC_T_DB_SEG,
+                                                     (DbTable *) tb,
+                                                     SIZEOF_SEGMENT(SEGSZ));
+    sys_memset(segtab[seg_ix], 0, SIZEOF_SEGMENT(SEGSZ));
     tb->nslots += SEGSZ;
     return 1;
 }
+
+#ifdef ERTS_SMP
+static void dealloc_ext_segtab(void* lop_data)
+{
+    struct ext_segtab* est = (struct ext_segtab*) lop_data;
+
+    erts_free(ERTS_ALC_T_DB_SEG, est);
+}
+#endif
 
 /* Shrink table by freeing the top segment
 ** free_records: 1=free any records in segment, 0=assume segment is empty 
@@ -2486,18 +2440,17 @@ static int free_seg(DbTableHash *tb, int free_records)
 {
     const int seg_ix = (tb->nslots >> SEGSZ_EXP) - 1;
     struct segment** const segtab = SEGTAB(tb);
-    struct ext_segment* const top = (struct ext_segment*) segtab[seg_ix];
-    int bytes;
+    struct segment* const segp = segtab[seg_ix];
     int nrecords = 0;
 
-    ASSERT(top != NULL); 
+    ASSERT(segp != NULL);
 #ifndef DEBUG
     if (free_records)
 #endif
     {	
 	int i;
 	for (i=0; i<SEGSZ; ++i) {
-	    HashDbTerm* p = top->s.buckets[i];	    
+	    HashDbTerm* p = segp->buckets[i];
 	    while(p != 0) {		
 		HashDbTerm* nxt = p->next;
 		ASSERT(free_records); /* segment not empty as assumed? */
@@ -2507,53 +2460,46 @@ static int free_seg(DbTableHash *tb, int free_records)
 	    }
 	}
     }
+    
+    if (seg_ix >= NSEG_1) {
+        struct ext_segtab* est = ErtsContainerStruct_(segtab,struct ext_segtab,segtab);
 
-    /* The "shrink race":
-     * We must avoid deallocating an extended segment while its segtab may
-     * still be used by other threads.
-     * The trick is to stop use a segtab one call earlier. That is, stop use
-     * a segtab when the segment above it is deallocated. When the segtab is
-     * later deallocated, it has not been used for a very long time.
-     * It is even theoretically safe as we have by then rehashed the entire
-     * segment, seizing *all* locks, so there cannot exist any retarded threads
-     * still hanging in BUCKET macro with an old segtab pointer.
-     * For this to work, we must of course allocate a new segtab one call
-     * earlier in alloc_seg() as well. And this is also the reason why
-     * the minimum size of the first segtab is 2 and not 1 (NSEG_1).
-     */
-    
-    if (seg_ix == tb->nsegs-1 || seg_ix==0) { /* Dealloc extended segment */
-	MY_ASSERT(top->s.is_ext_segment);   
-    	ASSERT(segtab != top->segtab || seg_ix==0);    
-	bytes = SIZEOF_EXTSEG(top->nsegs);
+        if (seg_ix == est->prev_nsegs) { /* Dealloc extended segtab */
+            ASSERT(est->prev_segtab != NULL);
+            SET_SEGTAB(tb, est->prev_segtab);
+            tb->nsegs = est->prev_nsegs;
+
+#ifdef ERTS_SMP
+            if (!tb->common.is_thread_safe) {
+                /*
+                 * Table is doing a graceful shrink operation and we must avoid
+                 * deallocating this segtab while it may still be read by other
+                 * threads. Schedule deallocation with thread progress to make
+                 * sure no lingering threads are still hanging in BUCKET macro
+                 * with an old segtab pointer.
+                 */
+                Uint sz = SIZEOF_EXT_SEGTAB(est->nsegs);
+                ASSERT(sz == ERTS_ALC_DBG_BLK_SZ(est));
+                ERTS_DB_ALC_MEM_UPDATE_(tb, sz, 0);
+                erts_schedule_thr_prgr_later_cleanup_op(dealloc_ext_segtab,
+                                                        est,
+                                                        &est->lop,
+                                                        sz);
+            }
+            else
+#endif
+                erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,
+                             SIZEOF_EXT_SEGTAB(est->nsegs));
+        }
+        else {
+
+        }
     }
-    else { /* Dealloc plain segment */
-	struct ext_segment* newtop = (struct ext_segment*) segtab[seg_ix-1];
-	MY_ASSERT(!top->s.is_ext_segment);
-	
-	if (segtab == newtop->segtab) { /* New top segment is extended */
-	    MY_ASSERT(newtop->s.is_ext_segment);
-	    if (newtop->prev_segtab != NULL) {
-		/* Time to use a smaller segtab */
-		SET_SEGTAB(tb, newtop->prev_segtab);
-		tb->nsegs = seg_ix;
-		ASSERT(tb->nsegs == EXTSEG(SEGTAB(tb))->nsegs);
-	    }
-	    else {
-		ASSERT(NSEG_1 > 2 && seg_ix==1);
-	    }
-	}
-	bytes = sizeof(struct segment);
-    }
+    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, segp, SIZEOF_SEGMENT(SEGSZ));
     
-    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb,
-		 (void*)top, bytes);
 #ifdef DEBUG
-    if (seg_ix > 0) {
-        segtab[seg_ix] = NULL;
-    } else {
-	SET_SEGTAB(tb, NULL);
-    }
+    if (seg_ix < tb->nsegs)
+        SEGTAB(tb)[seg_ix] = NULL;
 #endif
     tb->nslots -= SEGSZ;
     ASSERT(tb->nslots >= 0);
