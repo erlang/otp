@@ -11464,9 +11464,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->schedule_count = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
 
-    p->u.initial[INITIAL_MOD] = mod;
-    p->u.initial[INITIAL_FUN] = func;
-    p->u.initial[INITIAL_ARI] = (Uint) arity;
+    p->u.initial.module = mod;
+    p->u.initial.function = func;
+    p->u.initial.arity = (Uint) arity;
 
     /*
      * Must initialize binary lists here before copying binaries to process.
@@ -11508,7 +11508,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     /* No need to initialize p->fcalls. */
 
-    p->current = p->u.initial+INITIAL_MOD;
+    p->current = &p->u.initial;
 
     p->i = (BeamInstr *) beam_apply;
     p->cp = (BeamInstr *) beam_apply+1;
@@ -11769,9 +11769,9 @@ void erts_init_empty_process(Process *p)
     p->seq_trace_clock = 0;
     p->seq_trace_lastcnt = 0;
     p->seq_trace_token = NIL;
-    p->u.initial[0] = 0;
-    p->u.initial[1] = 0;
-    p->u.initial[2] = 0;
+    p->u.initial.module = 0;
+    p->u.initial.function = 0;
+    p->u.initial.arity = 0;
     p->catches = 0;
     p->cp = NULL;
     p->i = NULL;
@@ -13220,8 +13220,8 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 static void
 print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 {
-    BeamInstr* addr = find_function_from_pc(x);
-    if (addr == NULL) {
+    ErtsCodeInfo *ci = find_function_from_pc(x);
+    if (ci == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
@@ -13235,7 +13235,8 @@ print_function_from_pc(int to, void *to_arg, BeamInstr* x)
         }
     } else {
 	erts_print(to, to_arg, "%T:%T/%d + %d",
-		   addr[0], addr[1], addr[2], ((x-addr)-2) * sizeof(Eterm));
+		   ci->mfa.module, ci->mfa.function, ci->mfa.arity,
+                   (x-(BeamInstr*)ci) * sizeof(Eterm));
     }
 }
 

@@ -1311,7 +1311,9 @@ define etp-stacktrace
   set $etp_stacktrace_p = ($arg0)->stop
   set $etp_stacktrace_end = ($arg0)->hend
   printf "%% Stacktrace (%u): ", $etp_stacktrace_end-$etp_stacktrace_p
-  etp ($arg0)->cp
+  if ($arg0)->cp != 0
+    etp ($arg0)->cp
+  end
   while $etp_stacktrace_p < $etp_stacktrace_end
     if ($etp_stacktrace_p[0] & 0x3) == 0x0
       # Continuation pointer
@@ -1339,7 +1341,9 @@ define etp-stackdump
   set $etp_stackdump_p = ($arg0)->stop
   set $etp_stackdump_end = ($arg0)->hend
   printf "%% Stackdump (%u): ", $etp_stackdump_end-$etp_stackdump_p
-  etp ($arg0)->cp
+  if ($arg0)->cp != 0
+    etp ($arg0)->cp
+  end
   while $etp_stackdump_p < $etp_stackdump_end
     etp $etp_stackdump_p[0]
     set $etp_stackdump_p++

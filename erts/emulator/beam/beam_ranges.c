@@ -221,13 +221,13 @@ erts_ranges_sz(void)
 void
 erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 {
-    BeamInstr** low;
-    BeamInstr** high;
-    BeamInstr** mid;
+    ErtsCodeInfo** low;
+    ErtsCodeInfo** high;
+    ErtsCodeInfo** mid;
     Range* rp;
     BeamCodeHeader* hdr;
 
-    fi->current = NULL;
+    fi->ci = NULL;
     fi->needed = 5;
     fi->loc = LINE_INVALID_LOCATION;
     rp = find_range(pc);
@@ -240,12 +240,12 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
     high = low + hdr->num_functions;
     while (low < high) {
 	mid = low + (high-low) / 2;
-	if (pc < mid[0]) {
+	if (pc < (BeamInstr*)(mid[0])) {
 	    high = mid;
-	} else if (pc < mid[1]) {
-	    fi->current = mid[0]+2;
+	} else if (pc < (BeamInstr*)(mid[1])) {
+	    fi->ci = mid[0];
 	    if (full_info) {
-		BeamInstr** fp = hdr->functions;
+		ErtsCodeInfo** fp = hdr->functions;
 		int idx = mid - fp;
 		lookup_loc(fi, pc, hdr, idx);
 	    }
@@ -316,7 +316,7 @@ lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
 	    file = LOC_FILE(fi->loc);
 	    if (file == 0) {
 		/* Special case: Module name with ".erl" appended */
-		Atom* mod_atom = atom_tab(atom_val(fi->current[0]));
+		Atom* mod_atom = atom_tab(atom_val(fi->ci->mfa.module));
 		fi->needed += 2*(mod_atom->len+4);
 	    } else {
 		Atom* ap = atom_tab(atom_val((fi->fname_ptr)[file-1]));

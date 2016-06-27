@@ -103,7 +103,8 @@ static HashValue
 export_hash(struct export_entry* ee)
 {
     Export* x = ee->ep;
-    return EXPORT_HASH(x->code[0], x->code[1], x->code[2]);
+    return EXPORT_HASH(x->info.mfa.module, x->info.mfa.function,
+                       x->info.mfa.arity);
 }
 
 static int
@@ -111,9 +112,9 @@ export_cmp(struct export_entry* tmpl_e, struct export_entry* obj_e)
 {
     Export* tmpl = tmpl_e->ep;
     Export* obj = obj_e->ep;
-    return !(tmpl->code[0] == obj->code[0] &&
-	     tmpl->code[1] == obj->code[1] &&
-	     tmpl->code[2] == obj->code[2]);
+    return !(tmpl->info.mfa.module == obj->info.mfa.module &&
+	     tmpl->info.mfa.function == obj->info.mfa.function &&
+	     tmpl->info.mfa.arity == obj->info.mfa.arity);
 }
 
 
@@ -130,16 +131,16 @@ export_alloc(struct export_entry* tmpl_e)
 	blob = (struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
 	erts_smp_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
 	obj = &blob->exp;
-	obj->fake_op_func_info_for_hipe[0] = 0;
-	obj->fake_op_func_info_for_hipe[1] = 0;
-	obj->code[0] = tmpl->code[0];
-	obj->code[1] = tmpl->code[1];
-	obj->code[2] = tmpl->code[2];
-	obj->code[3] = (BeamInstr) em_call_error_handler;
-	obj->code[4] = 0;
+	obj->info.op =  0;
+	obj->info.native = 0;
+	obj->info.mfa.module = tmpl->info.mfa.module;
+	obj->info.mfa.function = tmpl->info.mfa.function;
+	obj->info.mfa.arity = tmpl->info.mfa.arity;
+	obj->code[0] = (BeamInstr) em_call_error_handler;
+	obj->code[1] = 0;
 
 	for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
-	    obj->addressv[ix] = obj->code+3;
+	    obj->addressv[ix] = obj->code;
 
 	    blob->entryv[ix].slot.index = -1;
 	    blob->entryv[ix].ep = &blob->exp;
@@ -224,7 +225,9 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
 	
     while (b != (HashBucket*) 0) {
 	Export* ep = ((struct export_entry*) b)->ep;
-	if (ep->code[0] == m && ep->code[1] == f && ep->code[2] == a) {
+	if (ep->info.mfa.module == m &&
+            ep->info.mfa.function == f &&
+            ep->info.mfa.arity == a) {
 	    return ep;
 	}
 	b = b->next;
@@ -237,9 +240,9 @@ static struct export_entry* init_template(struct export_templ* templ,
 {
     templ->entry.ep = &templ->exp;
     templ->entry.slot.index = -1;
-    templ->exp.code[0] = m;
-    templ->exp.code[1] = f;
-    templ->exp.code[2] = a;
+    templ->exp.info.mfa.module = m;
+    templ->exp.info.mfa.function = f;
+    templ->exp.info.mfa.arity = a;
     return &templ->entry;
 }
 
@@ -263,8 +266,8 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
 
     ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
     if (ee == NULL ||
-	(ee->ep->addressv[code_ix] == ee->ep->code+3 &&
-	 ee->ep->code[3] != (BeamInstr) BeamOp(op_i_generic_breakpoint))) {
+	(ee->ep->addressv[code_ix] == ee->ep->code &&
+	 ee->ep->code[0] != (BeamInstr) BeamOp(op_i_generic_breakpoint))) {
 	return NULL;
     }
     return ee->ep;

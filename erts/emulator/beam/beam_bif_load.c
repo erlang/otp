@@ -792,19 +792,19 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	 */
 	for (i = 0; i < export_list_size(code_ix); i++) {
 	    Export *ep = export_list(i,code_ix);
-	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
+	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->code[4] != 0) {
-		ep->addressv[code_ix] = (void *) ep->code[4];
-		ep->code[4] = 0;
+	    if (ep->code[1] != 0) {
+		ep->addressv[code_ix] = (void *) ep->code[1];
+		ep->code[1] = 0;
 	    } else {
-		if (ep->addressv[code_ix] == ep->code+3 &&
-		    ep->code[3] == (BeamInstr) em_apply_bif) {
+		if (ep->addressv[code_ix] == ep->code &&
+		    ep->code[0] == (BeamInstr) em_apply_bif) {
 		    continue;
 		}
-		ep->addressv[code_ix] = ep->code+3;
-		ep->code[3] = (BeamInstr) em_call_error_handler;
+		ep->addressv[code_ix] = ep->code;
+		ep->code[0] = (BeamInstr) em_call_error_handler;
 	    }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
@@ -819,13 +819,13 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
 	for (i = 0; i < export_list_size(code_ix); i++) {
 	    Export *ep = export_list(i,code_ix);
-	    if (ep == NULL || ep->code[0] != BIF_ARG_1) {
+	    if (ep == NULL || ep->info.mfa.module != BIF_ARG_1) {
 		continue;
 	    }
-	    if (ep->code[3] == (BeamInstr) em_apply_bif) {
+	    if (ep->code[0] == (BeamInstr) em_apply_bif) {
 		continue;
 	    }
-	    ep->code[4] = 0;
+	    ep->code[1] = 0;
 	}
     }
     erts_smp_thr_progress_unblock();
@@ -849,9 +849,9 @@ set_default_trace_pattern(Eterm module)
 				   &trace_pattern_flags,
 				   &meta_tracer);
     if (trace_pattern_is_on) {
-	Eterm mfa[1];
-	mfa[0] = module;
-	(void) erts_set_trace_pattern(0, mfa, 1,
+        ErtsCodeMFA mfa;
+        mfa.module = module;
+	(void) erts_set_trace_pattern(0, &mfa, 1,
 				      match_spec,
 				      meta_match_spec,
 				      1, trace_pattern_flags,
@@ -1710,23 +1710,23 @@ delete_code(Module* modp)
 
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export *ep = export_list(i, code_ix);
-        if (ep != NULL && (ep->code[0] == module)) {
-	    if (ep->addressv[code_ix] == ep->code+3) {
-		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+        if (ep != NULL && (ep->info.mfa.module == module)) {
+	    if (ep->addressv[code_ix] == ep->code) {
+		if (ep->code[0] == (BeamInstr) em_apply_bif) {
 		    continue;
 		}
-		else if (ep->code[3] ==
+		else if (ep->code[0] ==
 			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
-		    erts_clear_export_break(modp, ep->code+3);
+		    erts_clear_export_break(modp, &ep->info);
 		}
-		else ASSERT(ep->code[3] == (BeamInstr) em_call_error_handler
+		else ASSERT(ep->code[0] == (BeamInstr) em_call_error_handler
 			    || !erts_initialized);
 	    }
-	    ep->addressv[code_ix] = ep->code+3;
-	    ep->code[3] = (BeamInstr) em_call_error_handler;
-	    ep->code[4] = 0;
+	    ep->addressv[code_ix] = ep->code;
+	    ep->code[0] = (BeamInstr) em_call_error_handler;
+	    ep->code[1] = 0;
 	}
     }
 

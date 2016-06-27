@@ -186,4 +186,11 @@ extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
 #include "erl_term.h"
 
+#ifdef NO_JUMP_TABLE 
+#define BeamOp(Op) (Op)
+#else
+extern void** beam_ops;
+#define BeamOp(Op) beam_ops[(Op)]
+#endif
+
 #endif	/* __ERL_VM_H__ */
