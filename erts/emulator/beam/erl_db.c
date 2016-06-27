@@ -2982,6 +2982,14 @@ BIF_RETTYPE ets_select_replace_2(BIF_ALIST_2)
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
         BIF_ERROR(BIF_P, BADARG);
     }
+
+    if (tb->common.status & DB_BAG) {
+        /* Bag implementation presented both semantic consistency
+           and performance issues */
+        db_unlock(tb, LCK_WRITE_REC);
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
     safety = ITERATION_SAFETY(BIF_P,tb);
     if (safety == ITER_UNSAFE) {
         local_fix_table(tb);

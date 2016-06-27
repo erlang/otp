@@ -1495,6 +1495,10 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       <fsummary>Match the objects in an ETS table against a match_spec and
         replaces matching objects with the match_spec result</fsummary>
       <desc>
+        <warning>
+          <p>For the moment, due to performance and semantic constraints,
+            tables of type <c>bag</c> are not yet supported.</p>
+        </warning>
         <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
           <seealso marker="#match_spec">match_spec</seealso>. If the
           an object is matched, and the match_spec result is an object with the

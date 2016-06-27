@@ -1140,113 +1140,115 @@ t_select_delete(Config) when is_list(Config) ->
 t_select_replace(Config) when is_list(Config) ->
     EtsMem = etsmem(),
     Tables = fill_sets_int(10000) ++ fill_sets_int(10000, [{write_concurrency,true}]),
+
+    TestFun = fun (Table, TableType) when TableType =:= bag ->
+                      % Operation not supported; bag implementation
+                      % presented both semantic consistency and performance issues.
+                      10000 = ets:select_delete(Table, [{'_',[],[true]}]);
+
+                  (Table, TableType) ->
+                      % Replacements are differently-sized objects
+                      MatchSpec1_A = [{{'$1','$2'},
+                                       [{'<', {'rem', '$1', 5}, 2}],
+                                       [{{'$1', [$x | '$2'], stuff}}]}],
+                      MatchSpec1_B = [{{'$1','$2','_'},
+                                       [],
+                                       [{{'$1','$2'}}]}],
+                      4000 = ets:select_replace(Table, MatchSpec1_A),
+                      4000 = ets:select_replace(Table, MatchSpec1_B),
+
+                      % Replacement changes key to float equivalent
+                      MatchSpec2 = [{{'$1', '$2'},
+                                     [{'=:=', {'band', '$1', 2#11}, 2#11},
+                                      {'=/=', {'hd', '$2'}, $x}],
+                                     [{{{'*', '$1', 1.0}, '$2'}}]}],
+                      case TableType of
+                          ordered_set ->   1500 = ets:select_replace(Table, MatchSpec2);
+                          set ->           0 = ets:select_replace(Table, MatchSpec2);
+                          duplicate_bag -> 0 = ets:select_replace(Table, MatchSpec2)
+                      end,
+
+                      % Replacement is an equal object
+                      MatchSpec3 = [{{'$1', '$2'},
+                                     [{'>', {'rem', '$1', 5}, 3}],
+                                     [{{'$1', '$2'}}]}],
+                      case TableType of
+                          ordered_set   -> 1500 = ets:select_replace(Table, MatchSpec3);
+                          set           -> 2000 = ets:select_replace(Table, MatchSpec3);
+                          duplicate_bag -> 2000 = ets:select_replace(Table, MatchSpec3)
+                      end,
+
+                      check(Table,
+                            fun ({N, [$x, C | _]}) when ((N rem 5) < 2) -> (C >= $0) andalso (C =< $9);
+                                ({N, [C | _]}) when is_float(N) -> (C >= $0) andalso (C =< $9);
+                                ({N, [C | _]}) when ((N rem 5) > 3) -> (C >= $0) andalso (C =< $9);
+                                ({_, [C | _]}) -> (C >= $0) andalso (C =< $9)
+                            end,
+                            10000),
+
+                      % Replace unbound range (>)
+                      MatchSpec4 = [{{'$1', '$2'},
+                                     [{'>', '$1', 7000}],
+                                     [{{'$1', {{gt_range, '$2'}}}}]}],
+                      case TableType of
+                          ordered_set   -> 3000 = ets:select_replace(Table, MatchSpec4);
+                          set           -> 3000 = ets:select_replace(Table, MatchSpec4);
+                          duplicate_bag -> 3000 = ets:select_replace(Table, MatchSpec4)
+                      end,
+
+                      % Replace unbound range (<)
+                      MatchSpec5 = [{{'$1', '$2'},
+                                     [{'<', '$1', 3000}],
+                                     [{{'$1', {{le_range, '$2'}}}}]}],
+                      case TableType of
+                          ordered_set ->   2999 = ets:select_replace(Table, MatchSpec5);
+                          set ->           2999 = ets:select_replace(Table, MatchSpec5);
+                          duplicate_bag -> 2998 = ets:select_replace(Table, MatchSpec5)
+                      end,
+
+                      % Replace bound range
+                      MatchSpec6 = [{{'$1', '$2'},
+                                     [{'>=', '$1', 3001},
+                                      {'<', '$1', 7000}],
+                                     [{{'$1', {{range, '$2'}}}}]}],
+                      case TableType of
+                          ordered_set ->   3999 = ets:select_replace(Table, MatchSpec6);
+                          set ->           3999 = ets:select_replace(Table, MatchSpec6);
+                          duplicate_bag -> 3998 = ets:select_replace(Table, MatchSpec6)
+                      end,
+
+                      % Replace particular keys
+                      MatchSpec7 = [{{'$1', '$2'},
+                                     [{'==', '$1', 3000}],
+                                     [{{'$1', {{specific1, '$2'}}}}]},
+                                    {{'$1', '$2'},
+                                     [{'==', '$1', 7000}],
+                                     [{{'$1', {{specific2, '$2'}}}}]}],
+                      case TableType of
+                          ordered_set ->   2 = ets:select_replace(Table, MatchSpec7);
+                          set ->           2 = ets:select_replace(Table, MatchSpec7);
+                          duplicate_bag -> 4 = ets:select_replace(Table, MatchSpec7)
+                      end,
+
+                      check(Table,
+                            fun ({N, {gt_range, _}}) -> N > 7000;
+                                ({N, {le_range, _}}) -> N < 3000;
+                                ({N, {range, _}}) -> (N >= 3001) andalso (N < 7000);
+                                ({N, {specific1, _}}) -> N == 3000;
+                                ({N, {specific2, _}}) -> N == 7000
+                            end,
+                            10000),
+
+                      10000 = ets:select_delete(Table, [{'_',[],[true]}]),
+                      check(Table, fun (_) -> false end, 0)
+              end,
+
     lists:foreach(
       fun(Table) ->
-              TableType = ets:info(Table, type),
-
-              % Replacements are differently-sized objects
-              MatchSpec1_A = [{{'$1','$2'},
-                             [{'<', {'rem', '$1', 5}, 2}],
-                             [{{'$1', [$x | '$2'], stuff}}]}],
-              MatchSpec1_B = [{{'$1','$2','_'},
-                             [],
-                             [{{'$1','$2'}}]}],
-              4000 = ets:select_replace(Table, MatchSpec1_A),
-              4000 = ets:select_replace(Table, MatchSpec1_B),
-
-              % Replacement changes key to float equivalent
-              MatchSpec2 = [{{'$1', '$2'},
-                             [{'=:=', {'band', '$1', 2#11}, 2#11},
-                              {'=/=', {'hd', '$2'}, $x}],
-                             [{{{'*', '$1', 1.0}, '$2'}}]}],
-              case TableType of
-                  ordered_set ->   1500 = ets:select_replace(Table, MatchSpec2);
-                  set ->           0 = ets:select_replace(Table, MatchSpec2);
-                  bag ->           0 = ets:select_replace(Table, MatchSpec2);
-                  duplicate_bag -> 0 = ets:select_replace(Table, MatchSpec2)
-              end,
-
-              % Replacement is an equal object
-              MatchSpec3 = [{{'$1', '$2'},
-                             [{'>', {'rem', '$1', 5}, 3}],
-                             [{{'$1', '$2'}}]}],
-              case TableType of
-                  ordered_set   -> 1500 = ets:select_replace(Table, MatchSpec3);
-                  set           -> 2000 = ets:select_replace(Table, MatchSpec3);
-                  bag           -> 2000 = ets:select_replace(Table, MatchSpec3);
-                  duplicate_bag -> 2000 = ets:select_replace(Table, MatchSpec3)
-              end,
-
-              check(Table,
-                    fun ({N, [$x, C | _]}) when ((N rem 5) < 2) -> (C >= $0) andalso (C =< $9);
-                        ({N, [C | _]}) when is_float(N) -> (C >= $0) andalso (C =< $9);
-                        ({N, [C | _]}) when ((N rem 5) > 3) -> (C >= $0) andalso (C =< $9);
-                        ({_, [C | _]}) -> (C >= $0) andalso (C =< $9)
-                    end,
-                    10000),
-
-              % Replace unbound range (>)
-              MatchSpec4 = [{{'$1', '$2'},
-                             [{'>', '$1', 7000}],
-                             [{{'$1', {{gt_range, '$2'}}}}]}],
-              case TableType of
-                  ordered_set   -> 3000 = ets:select_replace(Table, MatchSpec4);
-                  set           -> 3000 = ets:select_replace(Table, MatchSpec4);
-                  bag           -> 3000 = ets:select_replace(Table, MatchSpec4);
-                  duplicate_bag -> 3000 = ets:select_replace(Table, MatchSpec4)
-              end,
-
-              % Replace unbound range (<)
-              MatchSpec5 = [{{'$1', '$2'},
-                             [{'<', '$1', 3000}],
-                             [{{'$1', {{le_range, '$2'}}}}]}],
-              case TableType of
-                  ordered_set ->   2999 = ets:select_replace(Table, MatchSpec5);
-                  set ->           2999 = ets:select_replace(Table, MatchSpec5);
-                  bag ->           2998 = ets:select_replace(Table, MatchSpec5);
-                  duplicate_bag -> 2998 = ets:select_replace(Table, MatchSpec5)
-              end,
-
-              % Replace bound range
-              MatchSpec6 = [{{'$1', '$2'},
-                             [{'>=', '$1', 3001},
-                              {'<', '$1', 7000}],
-                             [{{'$1', {{range, '$2'}}}}]}],
-              case TableType of
-                  ordered_set ->   3999 = ets:select_replace(Table, MatchSpec6);
-                  set ->           3999 = ets:select_replace(Table, MatchSpec6);
-                  bag ->           3998 = ets:select_replace(Table, MatchSpec6);
-                  duplicate_bag -> 3998 = ets:select_replace(Table, MatchSpec6)
-              end,
-
-              % Replace particular keys
-              MatchSpec7 = [{{'$1', '$2'},
-                             [{'==', '$1', 3000}],
-                             [{{'$1', {{specific1, '$2'}}}}]},
-                            {{'$1', '$2'},
-                             [{'==', '$1', 7000}],
-                             [{{'$1', {{specific2, '$2'}}}}]}],
-              case TableType of
-                  ordered_set ->   2 = ets:select_replace(Table, MatchSpec7);
-                  set ->           2 = ets:select_replace(Table, MatchSpec7);
-                  bag ->           4 = ets:select_replace(Table, MatchSpec7);
-                  duplicate_bag -> 4 = ets:select_replace(Table, MatchSpec7)
-              end,
-
-              check(Table,
-                    fun ({N, {gt_range, _}}) -> N > 7000;
-                        ({N, {le_range, _}}) -> N < 3000;
-                        ({N, {range, _}}) -> (N >= 3001) andalso (N < 7000);
-                        ({N, {specific1, _}}) -> N == 3000;
-                        ({N, {specific2, _}}) -> N == 7000
-                    end,
-                    10000),
-
-              10000 = ets:select_delete(Table, [{'_',[],[true]}]),
-              check(Table, fun (_) -> false end, 0)
+              TestFun(Table, ets:info(Table, type)),
+              ets:delete(Table)
       end,
       Tables),
-    lists:foreach(fun(Tab) -> ets:delete(Tab) end,Tables),
     verify_etsmem(EtsMem).
 
 %% Test that partly bound keys gives faster matches.
@@ -5566,7 +5568,7 @@ smp_select_replace(Config) when is_list(Config) ->
               0 = ets:info(T, size),
               ets:delete(T)
       end,
-      [ordered_set, set, bag, duplicate_bag]).
+      [ordered_set, set, duplicate_bag]).
 
 %% Test different types.
 types(Config) when is_list(Config) ->
