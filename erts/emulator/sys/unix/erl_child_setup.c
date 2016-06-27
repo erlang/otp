@@ -127,7 +127,7 @@ start_new_child(int pipes[])
     int size, res, i, pos = 0;
     char *buff, *o_buff;
 
-    char *cmd, *wd, **new_environ, **args = NULL;
+    char *cmd, *cwd, *wd, **new_environ, **args = NULL;
 
     Sint32 cnt, flags;
 
@@ -170,6 +170,10 @@ start_new_child(int pipes[])
 
     cmd = buff;
     buff += strlen(buff) + 1;
+
+    cwd = buff;
+    buff += strlen(buff) + 1;
+
     if (*buff == '\0') {
         wd = NULL;
     } else {
@@ -222,17 +226,29 @@ start_new_child(int pipes[])
             ASSERT(res == sizeof(proto));
         }
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
+
     if (res < 1) {
         errno = EPIPE;
         errln = __LINE__;
         goto child_error;
     }
 
+    DEBUG_PRINT("Set cwd to: '%s'",cwd);
+
+    if (chdir(cwd) < 0) {
+        /* This is not good, it probably means that the cwd of
+           beam is invalid. We ignore it and try anyways as
+           the child might now need a cwd or the chdir below
+           could take us to a valid directory.
+        */
+    }
+
     DEBUG_PRINT("Set wd to: '%s'",wd);
 
     if (wd && chdir(wd) < 0) {
-        errln = __LINE__;
-        goto child_error;
+        int err = errno;
+        fprintf(stderr,"spawn: Could not cd to %s\r\n", wd);
+        _exit(err);
     }
 
     DEBUG_PRINT("Do that forking business: '%s'",cmd);

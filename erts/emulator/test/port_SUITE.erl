@@ -83,6 +83,7 @@
     bad_port_messages/1,
     basic_ping/1,
     cd/1,
+    cd_relative/1,
     close_deaf_port/1,
     count_fds/1,
     dying_port/1,
@@ -137,7 +138,7 @@
     win_massive_client/1
 ]).
 
--export([do_iter_max_ports/2]).
+-export([do_iter_max_ports/2, relative_cd/0]).
 
 %% Internal exports.
 -export([tps/3]).
@@ -158,7 +159,7 @@ all() ->
      {group, multiple_packets}, parallell, dying_port,
      port_program_with_path, open_input_file_port,
      open_output_file_port, name1, env, huge_env, bad_env, cd,
-     bad_args,
+     cd_relative, bad_args,
      exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
@@ -1064,6 +1065,51 @@ cd(Config)  when is_list(Config) ->
             ct:fail({env, Other3})
     end,
     ok.
+
+%% Test that an emulator that has set it's cwd to
+%% something other then when it started, can use
+%% relative {cd,"./"} to open port and that cd will
+%% be relative the new cwd and not the original
+cd_relative(Config) ->
+
+    Program = atom_to_list(lib:progname()),
+    DataDir = proplists:get_value(data_dir, Config),
+    TestDir = filename:join(DataDir, "dir"),
+
+    Cmd = Program ++ " -pz " ++ filename:dirname(code:where_is_file("port_SUITE.beam")) ++
+    " -noshell -s port_SUITE relative_cd -s erlang halt",
+
+    _ = open_port({spawn, Cmd}, [{line, 256}, {cd, TestDir}]),
+
+    receive
+        {_, {data, {eol, String}}} ->
+            case filename_equal(String, TestDir) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({cd_relative, String})
+            end;
+        Other ->
+            ct:fail(Other)
+    end.
+
+relative_cd() ->
+
+    Program = atom_to_list(lib:progname()),
+    ok = file:set_cwd(".."),
+    {ok, Cwd} = file:get_cwd(),
+
+    Cmd = Program ++ " -pz " ++ Cwd ++
+    " -noshell -s port_test pwd -s erlang halt",
+
+    _ = open_port({spawn, Cmd}, [{line, 256}, {cd, "./dir"}, exit_status]),
+
+    receive
+        {_, {data, {eol, String}}} ->
+            io:format("~s~n",[String]);
+        Other ->
+            io:format("ERROR: ~p~n",[Other])
+    end.
 
 filename_equal(A, B) ->
     case os:type() of
