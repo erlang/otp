@@ -248,8 +248,6 @@ end_per_testcase(_TestCase, Config) ->
 
 char_fixed_lower_limit(doc) ->
     ["Tests fixed length char data type lower boundaries."];
-char_fixed_lower_limit(suite) ->
-    [];
 char_fixed_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -289,8 +287,6 @@ char_fixed_lower_limit(Config) when is_list(Config) ->
 
 char_fixed_upper_limit(doc) ->
     ["Tests fixed length char data type upper boundaries."];
-char_fixed_upper_limit(suite) ->
-    [];
 char_fixed_upper_limit(Config) when is_list(Config) ->
 
     case ?RDBMS of
@@ -340,8 +336,6 @@ char_fixed_upper_limit(Config) when is_list(Config) ->
 char_fixed_padding(doc) ->
     ["Tests that data that is shorter than the given size is padded " 
      "with blanks."];
-char_fixed_padding(suite) ->
-    [];
 char_fixed_padding(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -367,8 +361,6 @@ char_fixed_padding(Config) when is_list(Config) ->
 
 varchar_lower_limit(doc) ->
     ["Tests variable length char data type lower boundaries."];
-varchar_lower_limit(suite) ->
-    [];
 varchar_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -407,8 +399,6 @@ varchar_lower_limit(Config) when is_list(Config) ->
 
 varchar_upper_limit(doc) ->
     ["Tests variable length char data type upper boundaries."];
-varchar_upper_limit(suite) ->
-    [];
 varchar_upper_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -458,8 +448,6 @@ varchar_upper_limit(Config) when is_list(Config) ->
 varchar_no_padding(doc) ->
     ["Tests that data that is shorter than the given max size is not padded " 
      "with blanks."];
-varchar_no_padding(suite) ->
-    [];
 varchar_no_padding(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -483,8 +471,6 @@ varchar_no_padding(Config) when is_list(Config) ->
 
 text_lower_limit(doc) ->
     ["Tests 'long' char data type lower boundaries."];
-text_lower_limit(suite) ->
-    [];
 text_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -505,8 +491,6 @@ text_lower_limit(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 text_upper_limit(doc) ->
-    [];
-text_upper_limit(suite) ->
     [];
 text_upper_limit(Config) when is_list(Config) ->
     
@@ -536,8 +520,6 @@ text_upper_limit(Config) when is_list(Config) ->
 
 binary_char_fixed_lower_limit(doc) ->
     ["Tests fixed length char data type lower boundaries."];
-binary_char_fixed_lower_limit(suite) ->
-    [];
 binary_char_fixed_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -581,8 +563,6 @@ binary_char_fixed_lower_limit(Config) when is_list(Config) ->
 
 binary_char_fixed_upper_limit(doc) ->
     ["Tests fixed length char data type upper boundaries."];
-binary_char_fixed_upper_limit(suite) ->
-    [];
 binary_char_fixed_upper_limit(Config) when is_list(Config) ->
 
     case ?RDBMS of
@@ -633,8 +613,6 @@ binary_char_fixed_upper_limit(Config) when is_list(Config) ->
 binary_char_fixed_padding(doc) ->
     ["Tests that data that is shorter than the given size is padded " 
      "with blanks."];
-binary_char_fixed_padding(suite) ->
-    [];
 binary_char_fixed_padding(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -660,8 +638,6 @@ binary_char_fixed_padding(Config) when is_list(Config) ->
 
 binary_varchar_lower_limit(doc) ->
     ["Tests variable length char data type lower boundaries."];
-binary_varchar_lower_limit(suite) ->
-    [];
 binary_varchar_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -703,8 +679,6 @@ binary_varchar_lower_limit(Config) when is_list(Config) ->
 
 binary_varchar_upper_limit(doc) ->
     ["Tests variable length char data type upper boundaries."];
-binary_varchar_upper_limit(suite) ->
-    [];
 binary_varchar_upper_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -753,8 +727,6 @@ binary_varchar_upper_limit(Config) when is_list(Config) ->
 binary_varchar_no_padding(doc) ->
     ["Tests that data that is shorter than the given max size is not padded " 
      "with blanks."];
-binary_varchar_no_padding(suite) ->
-    [];
 binary_varchar_no_padding(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -778,8 +750,6 @@ binary_varchar_no_padding(Config) when is_list(Config) ->
 
 binary_text_lower_limit(doc) ->
     ["Tests 'long' char data type lower boundaries."];
-binary_text_lower_limit(suite) ->
-    [];
 binary_text_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -800,8 +770,6 @@ binary_text_lower_limit(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 binary_text_upper_limit(doc) ->
-    [];
-binary_text_upper_limit(suite) ->
     [];
 binary_text_upper_limit(Config) when is_list(Config) ->
     
@@ -832,8 +800,6 @@ binary_text_upper_limit(Config) when is_list(Config) ->
 
 tiny_int_lower_limit(doc) ->
     ["Tests integer of type tinyint."];
-tiny_int_lower_limit(suite) ->
-    [];
 tiny_int_lower_limit(Config) when is_list(Config) -> 
     case ?RDBMS of
 	postgres ->
@@ -866,8 +832,6 @@ tiny_int_lower_limit(Config) when is_list(Config) ->
 
 tiny_int_upper_limit(doc) ->
     ["Tests integer of type tinyint."];
-tiny_int_upper_limit(suite) ->
-    [];
 tiny_int_upper_limit(Config) when is_list(Config) ->
     case ?RDBMS of
 	postgres ->
@@ -900,8 +864,6 @@ tiny_int_upper_limit(Config) when is_list(Config) ->
 
 small_int_lower_limit(doc) ->
     ["Tests integer of type smallint."];
-small_int_lower_limit(suite) ->
-    [];
 small_int_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -929,8 +891,6 @@ small_int_lower_limit(Config) when is_list(Config) ->
 
 small_int_upper_limit(doc) ->
     ["Tests integer of type smallint."];
-small_int_upper_limit(suite) ->
-    [];
 small_int_upper_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -957,8 +917,6 @@ small_int_upper_limit(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 int_lower_limit(doc) ->
     ["Tests integer of type int."];
-int_lower_limit(suite) ->
-    [];
 int_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -985,8 +943,6 @@ int_lower_limit(Config) when is_list(Config) ->
 
 int_upper_limit(doc) ->
     ["Tests integer of type int."];
-int_upper_limit(suite) ->
-    [];
 int_upper_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1013,8 +969,6 @@ int_upper_limit(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 big_int_lower_limit(doc) ->
     ["Tests integer of type bigint"];
-big_int_lower_limit(suite) ->
-    [];
 big_int_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1042,8 +996,6 @@ big_int_lower_limit(Config) when is_list(Config) ->
 
 big_int_upper_limit(doc) ->
     ["Tests integer of type bigint."];
-big_int_upper_limit(suite) ->
-    [];
 big_int_upper_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1070,8 +1022,6 @@ big_int_upper_limit(Config) when is_list(Config) ->
 
 bit_false(doc) ->
     [""];
-bit_false(suite) ->
-    [];
 bit_false(Config) when is_list(Config) ->  
     case ?RDBMS of
 	oracle ->
@@ -1104,8 +1054,6 @@ bit_false(Config) when is_list(Config) ->
 
 bit_true(doc) ->
     [""];
-bit_true(suite) ->
-    [];
 bit_true(Config) when is_list(Config) ->
     case ?RDBMS of
 	oracle ->
@@ -1138,8 +1086,6 @@ bit_true(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 float_lower_limit(doc) ->
     [""];
-float_lower_limit(suite) ->
-    [];
 float_lower_limit(Config) when is_list(Config) ->   
 
     Ref = ?config(connection_ref, Config),   
@@ -1188,8 +1134,6 @@ float_lower_limit(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 float_upper_limit(doc) ->
     [""];
-float_upper_limit(suite) ->
-    [];
 float_upper_limit(Config) when is_list(Config) ->   
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1220,8 +1164,6 @@ float_upper_limit(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 float_zero(doc) ->
     ["Test the float value zero."];
-float_zero(suite) ->
-    [];
 float_zero(Config) when is_list(Config) ->   
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1239,8 +1181,6 @@ float_zero(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 real_zero(doc) ->
     ["Test the real value zero."];
-real_zero(suite) ->
-    [];
 real_zero(Config) when is_list(Config) ->   
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),

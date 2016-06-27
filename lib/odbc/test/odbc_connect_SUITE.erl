@@ -166,7 +166,6 @@ end_per_testcase_common(Config) ->
 %%-------------------------------------------------------------------------
 commit(doc)->
     ["Test the use of explicit commit"];
-commit(suite) -> [];
 commit(Config)  ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), 
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
@@ -207,7 +206,6 @@ commit(Config)  ->
 
 rollback(doc)->
     ["Test the use of explicit rollback"];
-rollback(suite) -> [];
 rollback(Config)  ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
@@ -247,7 +245,6 @@ rollback(Config)  ->
 %%-------------------------------------------------------------------------
 not_explicit_commit(doc) ->
     ["Test what happens if you try using commit on a auto_commit connection."];
-not_explicit_commit(suite) -> [];
 not_explicit_commit(_Config) ->
     {ok, Ref} = 
 	odbc:connect(?RDBMS:connection_string(), [{auto_commit, on}] ++
@@ -258,7 +255,6 @@ not_explicit_commit(_Config) ->
 %%-------------------------------------------------------------------------
 not_exist_db(doc) ->
     ["Tests valid data format but invalid data in the connection parameters."];
-not_exist_db(suite) -> [];
 not_exist_db(_Config)  ->
     {error, _} = odbc:connect("DSN=foo;UID=bar;PWD=foobar",
 			      odbc_test_lib:platform_options()),
@@ -268,7 +264,6 @@ not_exist_db(_Config)  ->
 %%-------------------------------------------------------------------------
 no_c_executable(doc) ->
     "Test what happens if the port-program can not be found";
-no_c_executable(suite) -> [];
 no_c_executable(_Config) ->
     process_flag(trap_exit, true),
     Dir = filename:nativename(filename:join(code:priv_dir(odbc), 
@@ -295,7 +290,6 @@ no_c_executable(_Config) ->
 
 port_dies(doc) ->
     "Tests what happens if the port program dies";
-port_dies(suite) -> [];
 port_dies(_Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     {status, _} = process_info(Ref, status),   
@@ -317,7 +311,6 @@ port_dies(_Config) ->
 %%-------------------------------------------------------------------------
 control_process_dies(doc) ->
     "Tests what happens if the Erlang control process dies";
-control_process_dies(suite) -> [];
 control_process_dies(_Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     process_flag(trap_exit, true),
@@ -336,7 +329,6 @@ control_process_dies(_Config) ->
 %%-------------------------------------------------------------------------
 client_dies_normal(doc) ->
     ["Client dies with reason normal."];
-client_dies_normal(suite) -> [];
 client_dies_normal(Config) when is_list(Config) ->
     Pid = spawn(?MODULE, client_normal, [self()]),
 
@@ -368,7 +360,6 @@ client_normal(Pid) ->
 %%-------------------------------------------------------------------------
 client_dies_timeout(doc) ->
     ["Client dies with reason timeout."];
-client_dies_timeout(suite) -> [];
 client_dies_timeout(Config) when is_list(Config) ->
     Pid = spawn(?MODULE, client_timeout, [self()]),
 
@@ -400,7 +391,6 @@ client_timeout(Pid) ->
 %%-------------------------------------------------------------------------
 client_dies_error(doc) ->
     ["Client dies with reason error."];
-client_dies_error(suite) -> [];
 client_dies_error(Config) when is_list(Config) ->
     Pid = spawn(?MODULE, client_error, [self()]),
 
@@ -432,7 +422,6 @@ client_error(Pid) ->
 %%-------------------------------------------------------------------------
 connect_timeout(doc) ->
     ["Test the timeout for the connect function."];
-connect_timeout(suite) -> [];
 connect_timeout(Config) when is_list(Config) ->
     {'EXIT',timeout} = (catch odbc:connect(?RDBMS:connection_string(),
 					   [{timeout, 0}] ++
@@ -445,7 +434,6 @@ connect_timeout(Config) when is_list(Config) ->
 connect_port_timeout(doc) ->
     ["Test the timeout for the port program to connect back to the odbc "
      "application within the connect function."];
-connect_port_timeout(suite) -> [];
 connect_port_timeout(Config) when is_list(Config) ->
     %% Application environment var 'port_timeout' has been set to 0 by
     %% init_per_testcase/2.
@@ -456,7 +444,6 @@ connect_port_timeout(Config) when is_list(Config) ->
 timeout(doc) ->
     ["Test that timeouts don't cause unwanted behavior sush as receiving"
      " an anwser to a previously tiemed out query."];
-timeout(suite) -> [];
 timeout(Config)  when is_list(Config) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
@@ -540,7 +527,6 @@ update_table_timeout(Table, TimeOut, Pid) ->
 many_timeouts(doc) ->
     ["Tests that many consecutive timeouts lead to that the connection "
      "is shutdown."];
-many_timeouts(suite) -> [];
 many_timeouts(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
@@ -600,7 +586,6 @@ loop_many_timouts(Ref, UpdateQuery, TimeOut) ->
 timeout_reset(doc) ->
     ["Check that the number of consecutive timouts is reset to 0 when "
      "a successful call to the database is made."];
-timeout_reset(suite) -> [];
 timeout_reset(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
@@ -697,7 +682,6 @@ loop_timout_reset(Ref, UpdateQuery, TimeOut, NumTimeouts) ->
 
 disconnect_on_timeout(doc) ->
     ["Check that disconnect after a time out works properly"]; 
-disconnect_on_timeout(suite) -> [];
 disconnect_on_timeout(Config) when is_list(Config) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
@@ -747,7 +731,6 @@ update_table_disconnect_on_timeout(Table, TimeOut, Pid) ->
 connection_closed(doc) ->
     ["Checks that you get an appropriate error message if you try to"
      " use a connection that has been closed"];
-connection_closed(suite) -> [];
 connection_closed(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
 
@@ -773,7 +756,6 @@ connection_closed(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 disable_scrollable_cursors(doc) ->
     ["Test disabling of scrollable cursors."];
-disable_scrollable_cursors(suite) -> [];
 disable_scrollable_cursors(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{scrollable_cursors, off}]),
@@ -812,7 +794,6 @@ disable_scrollable_cursors(Config) when is_list(Config) ->
 return_rows_as_lists(doc)->
     ["Test the option that a row may be returned as a list instead " 
      "of a tuple. Too be somewhat backward compatible."];
-return_rows_as_lists(suite) -> [];
 return_rows_as_lists(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{tuple_row, off}] ++ odbc_test_lib:platform_options()),
@@ -856,7 +837,6 @@ return_rows_as_lists(Config) when is_list(Config) ->
 
 api_missuse(doc)->
     ["Test that behaviour of the control process if the api is abused"];
-api_missuse(suite) -> [];
 api_missuse(Config) when is_list(Config)->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
@@ -890,7 +870,6 @@ extended_errors(doc)->
     ["Test the extended errors connection option: When off; the old behaviour of just an error "
      "string is returned on error. When on, the error string is replaced by a 3 element tuple "
      "that also exposes underlying ODBC provider error codes."];
-extended_errors(suite)  -> [];
 extended_errors(Config) when is_list(Config)->
     Table = ?config(tableName, Config),
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),

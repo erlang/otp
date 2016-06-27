@@ -174,7 +174,6 @@ end_per_testcase(_Case, Config) ->
 %%-------------------------------------------------------------------------
 stored_proc(doc)->
     ["Test stored proc with OUT param"];
-stored_proc(suite) -> [];
 stored_proc(Config) when is_list(Config) ->
     case ?RDBMS of
         X when X == oracle; X == postgres->
@@ -194,7 +193,6 @@ stored_proc(Config) when is_list(Config) ->
 
 sql_query(doc)->
     ["Test the common cases"];
-sql_query(suite) -> [];
 sql_query(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),
     Table = ?config(tableName, Config),
@@ -259,7 +257,6 @@ select_count(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 first(doc) ->
     ["Tests first/[1,2]"];
-first(suite) -> [];
 first(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),
     Table = ?config(tableName, Config),
@@ -286,7 +283,6 @@ first(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 last(doc) ->
     ["Tests last/[1,2]"];
-last(suite) -> [];
 last(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),
     Table = ?config(tableName, Config),
@@ -313,7 +309,6 @@ last(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 next(doc) ->
     ["Tests next/[1,2]"];
-next(suite) -> [];
 next(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),
     Table = ?config(tableName, Config),
@@ -339,7 +334,6 @@ next(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 prev(doc) ->
     ["Tests prev/[1,2]"];
-prev(suite) -> [];
 prev(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),
     Table = ?config(tableName, Config),
@@ -484,7 +478,6 @@ select_absolute(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 create_table_twice(doc) ->
     ["Test what happens if you try to create the same table twice."];
-create_table_twice(suite) -> [];
 create_table_twice(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -503,7 +496,6 @@ create_table_twice(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 delete_table_twice(doc) ->
     ["Test what happens if you try to delete the same table twice."];
-delete_table_twice(suite) -> [];
 delete_table_twice(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -542,7 +534,6 @@ duplicate_key(Config) when is_list(Config) ->
 not_connection_owner(doc) ->
     ["Test what happens if a process that did not start the connection"
      " tries to acess it."];
-not_connection_owner(suite) -> [];
 not_connection_owner(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -567,7 +558,6 @@ not_owner(Pid, Ref, Table) ->
 no_result_set(doc) ->
     ["Tests what happens if you try to use a function that needs an "
      "associated result set when there is none."];
-no_result_set(suite) -> [];
 no_result_set(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
 
@@ -584,8 +574,6 @@ no_result_set(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 query_error(doc) ->
     ["Test what happens if there is an error in the query."];
-query_error(suite) ->
-    [];
 query_error(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -607,8 +595,6 @@ query_error(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 multiple_select_result_sets(doc) ->
     ["Test what happens if you have a batch of select queries."];
-multiple_select_result_sets(suite) ->
-    [];
 multiple_select_result_sets(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
@@ -643,8 +629,6 @@ multiple_select_result_sets(Config) when is_list(Config) ->
 multiple_mix_result_sets(doc) ->
     ["Test what happens if you have a batch of select and other type of"
      " queries."];
-multiple_mix_result_sets(suite) ->
-    [];
 multiple_mix_result_sets(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
@@ -676,8 +660,6 @@ multiple_mix_result_sets(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 multiple_result_sets_error(doc) ->
     ["Test what happens if one of the batched queries fails."];
-multiple_result_sets_error(suite) ->
-    [];
 multiple_result_sets_error(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
@@ -711,8 +693,6 @@ multiple_result_sets_error(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_tiny_int(doc)->
     ["Test insertion of tiny ints by parameterized queries."];
-param_insert_tiny_int(suite) ->
-    [];
 param_insert_tiny_int(Config) when is_list(Config) ->
     case ?RDBMS of 
 	sqlserver ->
@@ -748,8 +728,6 @@ param_insert_tiny_int(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_small_int(doc)->
     ["Test insertion of small ints by parameterized queries."];
-param_insert_small_int(suite) ->
-    [];
 param_insert_small_int(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -780,8 +758,6 @@ param_insert_small_int(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_int(doc)->
     ["Test insertion of ints by parameterized queries."];
-param_insert_int(suite) ->
-    [];
 param_insert_int(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -812,8 +788,6 @@ param_insert_int(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_integer(doc)->
     ["Test insertion of integers by parameterized queries."];
-param_insert_integer(suite) ->
-    [];
 param_insert_integer(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -844,8 +818,6 @@ param_insert_integer(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_decimal(doc)->
     ["Test insertion of decimal numbers by parameterized queries."];
-param_insert_decimal(suite) ->
-    [];
 param_insert_decimal(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -895,8 +867,6 @@ param_insert_decimal(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_numeric(doc)->
     ["Test insertion of numeric numbers by parameterized queries."];
-param_insert_numeric(suite) ->
-    [];
 param_insert_numeric(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -946,8 +916,6 @@ param_insert_numeric(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_char(doc)->
     ["Test insertion of fixed length string by parameterized queries."];
-param_insert_char(suite) ->
-    [];
 param_insert_char(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -982,8 +950,6 @@ param_insert_char(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_character(doc)->
     ["Test insertion of fixed length string by parameterized queries."];
-param_insert_character(suite) ->
-    [];
 param_insert_character(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1019,8 +985,6 @@ param_insert_character(Config) when is_list(Config) ->
 %%------------------------------------------------------------------------
 param_insert_char_varying(doc)->
     ["Test insertion of variable length strings by parameterized queries."];
-param_insert_char_varying(suite) ->
-    [];
 param_insert_char_varying(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1056,8 +1020,6 @@ param_insert_char_varying(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_character_varying(doc)->
     ["Test insertion of variable length strings by parameterized queries."];
-param_insert_character_varying(suite) ->
-    [];
 param_insert_character_varying(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1093,8 +1055,6 @@ param_insert_character_varying(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_float(doc)->
     ["Test insertion of floats by parameterized queries."];
-param_insert_float(suite) ->
-    [];
 param_insert_float(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1132,8 +1092,6 @@ param_insert_float(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_real(doc)->
     ["Test insertion of real numbers by parameterized queries."];
-param_insert_real(suite) ->
-    [];
 param_insert_real(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1173,8 +1131,6 @@ param_insert_real(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_double(doc)->
     ["Test insertion of doubles by parameterized queries."];
-param_insert_double(suite) ->
-    [];
 param_insert_double(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1212,8 +1168,6 @@ param_insert_double(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_insert_mix(doc)->
     ["Test insertion of a mixture of datatypes by parameterized queries."];
-param_insert_mix(suite) ->
-    [];
 param_insert_mix(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1239,8 +1193,6 @@ param_insert_mix(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_update(doc)->
     ["Test parameterized update query."];
-param_update(suite) ->
-    [];
 param_update(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1303,8 +1255,6 @@ delete_nonexisting_row(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_delete(doc) ->
     ["Test parameterized delete query."];
-param_delete(suite) ->
-    [];
 param_delete(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1338,8 +1288,6 @@ param_delete(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_select(doc) ->
     ["Test parameterized select query."];
-param_select(suite) ->
-    [];
 param_select(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1368,8 +1316,6 @@ param_select(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_select_empty_params(doc) ->
     ["Test parameterized select query with no parameters."];
-param_select_empty_params(suite) ->
-    [];
 param_select_empty_params(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1398,8 +1344,6 @@ param_select_empty_params(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 param_delete_empty_params(doc) ->
     ["Test parameterized delete query with no parameters."];
-param_delete_empty_params(suite) ->
-    [];
 param_delete_empty_params(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1432,8 +1376,6 @@ param_delete_empty_params(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 describe_integer(doc) ->
     ["Test describe_table/[2,3] for integer columns."];
-describe_integer(suite) ->
-    [];
 describe_integer(Config) when is_list(Config) ->    
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1451,8 +1393,6 @@ describe_integer(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 describe_string(doc) ->
     ["Test describe_table/[2,3] for string columns."];
-describe_string(suite) ->
-    [];
 describe_string(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1472,8 +1412,6 @@ describe_string(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 describe_floating(doc) ->
     ["Test describe_table/[2,3] for floting columns."];
-describe_floating(suite) ->
-    [];
 describe_floating(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
@@ -1492,8 +1430,6 @@ describe_floating(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 describe_dec_num(doc) ->
     ["Test describe_table/[2,3] for decimal and numerical columns"];
-describe_dec_num(suite) ->
-    [];
 describe_dec_num(Config) when is_list(Config) ->
 
     Ref = ?config(connection_ref, Config),   
@@ -1513,8 +1449,6 @@ describe_dec_num(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 describe_timestamp(doc) ->
     ["Test describe_table/[2,3] for tinmestap columns"];
-describe_timestamp(suite) ->
-    [];
 describe_timestamp(Config) when is_list(Config) ->
     
     Ref = ?config(connection_ref, Config),   
@@ -1532,8 +1466,6 @@ describe_timestamp(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 describe_no_such_table(doc) ->
     ["Test what happens if you try to describe a table that does not exist."];
-describe_no_such_table(suite) ->
-    [];
 describe_no_such_table(Config) when is_list(Config) ->
 
     Ref = ?config(connection_ref, Config),   
