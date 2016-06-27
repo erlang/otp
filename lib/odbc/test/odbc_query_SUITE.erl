@@ -113,6 +113,7 @@ init_per_suite(Config) when is_list(Config) ->
 	false ->
 	    case (catch odbc:start()) of
 		ok ->
+		    ct:timetrap(?default_timeout),
 		    [{tableName, odbc_test_lib:unique_table_name()}| Config];
 		_ ->
 		    {skip, "ODBC not startable"}
@@ -144,10 +145,10 @@ end_per_suite(_Config) ->
 init_per_testcase(_Case, Config) ->
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc_test_lib:strict(Ref, ?RDBMS),
-    Dog = test_server:timetrap(?default_timeout),
-    Temp = lists:keydelete(connection_ref, 1, Config),
-    NewConfig = lists:keydelete(watchdog, 1, Temp),
-    [{watchdog, Dog}, {connection_ref, Ref} | NewConfig].
+
+    NewConfig = lists:keydelete(connection_ref, 1, Config),
+
+    [{connection_ref, Ref} | NewConfig].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
@@ -164,10 +165,7 @@ end_per_testcase(_Case, Config) ->
     Table = proplists:get_value(tableName, Config),
     {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc:sql_query(NewRef, "DROP TABLE " ++ Table), 
-    odbc:disconnect(NewRef),
-    Dog = proplists:get_value(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
+    odbc:disconnect(NewRef).
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -1080,7 +1078,7 @@ param_insert_float(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail(float_numbers_do_not_match)
+	    ct:fail(float_numbers_do_not_match)
     end,
 
     {'EXIT',{badarg,odbc,param_query,'Params'}} = 
@@ -1119,7 +1117,7 @@ param_insert_real(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail(real_numbers_do_not_match)
+	    ct:fail(real_numbers_do_not_match)
     end,
 
     {'EXIT',{badarg,odbc,param_query,'Params'}} = 
@@ -1156,7 +1154,7 @@ param_insert_double(Config) when is_list(Config) ->
 	true ->
 	    ok;
 	false ->
-	    test_server:fail(double_numbers_do_not_match)
+	    ct:fail(double_numbers_do_not_match)
     end,
 
     {'EXIT',{badarg,odbc,param_query,'Params'}} = 
@@ -1481,10 +1479,10 @@ describe_no_such_table(Config) when is_list(Config) ->
 is_driver_error(Error) ->
     case is_list(Error) of
 	true ->
-	    test_server:format("Driver error ~p~n", [Error]),
+	    ct:pal("Driver error ~p~n", [Error]),
 	    ok;
 	false ->
-	    test_server:fail(Error)
+	    ct:fail(Error)
     end.
 is_supported_multiple_resultsets(sqlserver) ->
     true;

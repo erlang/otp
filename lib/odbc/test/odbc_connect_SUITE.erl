@@ -89,6 +89,7 @@ init_per_suite(Config) when is_list(Config) ->
 					    [{auto_commit, off}] ++ odbc_test_lib:platform_options()) of
 			{ok, Ref} ->
 			    odbc:disconnect(Ref),
+			    ct:timetrap(?default_timeout),
 			    [{tableName, odbc_test_lib:unique_table_name()} | Config];
 			_  ->
 			    {skip, "ODBC is not properly setup"}
@@ -129,11 +130,8 @@ init_per_testcase(_TestCase, Config) ->
     init_per_testcase_common(Config).
 
 init_per_testcase_common(Config) ->
-    test_server:format("ODBCINI = ~p~n", [os:getenv("ODBCINI")]),
-    Dog = test_server:timetrap(?default_timeout),
-    Temp = lists:keydelete(connection_ref, 1, Config),
-    NewConfig = lists:keydelete(watchdog, 1, Temp),
-    [{watchdog, Dog} | NewConfig].
+    ct:pal("ODBCINI = ~p~n", [os:getenv("ODBCINI")]),
+    lists:keydelete(connection_ref, 1, Config).
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
@@ -157,9 +155,7 @@ end_per_testcase_common(Config) ->
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
     io:format("Drop table: ~p ~p~n", [Table, Result]),
-    odbc:disconnect(Ref),
-    Dog = proplists:get_value(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+    odbc:disconnect(Ref).
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -259,7 +255,7 @@ not_exist_db(_Config)  ->
     {error, _} = odbc:connect("DSN=foo;UID=bar;PWD=foobar",
 			      odbc_test_lib:platform_options()),
     %% So that the odbc control server can be stoped "in the correct way"
-    test_server:sleep(100).
+    ct:sleep(100).
 
 %%-------------------------------------------------------------------------
 no_c_executable(doc) ->
@@ -301,7 +297,7 @@ port_dies(_Config) ->
 	    %% Wait for exit_status from port 5000 ms (will not get a exit
 	    %% status in this case), then wait a little longer to make sure
 	    %% the port and the controlprocess has had time to terminate.
-	    test_server:sleep(10000),
+	    ct:sleep(10000),
 	    undefined = process_info(Ref, status);
 	[] ->
 	    ct:fail([erlang:port_info(P, name) || P <- erlang:ports()])  
@@ -319,7 +315,7 @@ control_process_dies(_Config) ->
 	[Port] ->
 	    {connected, Ref} = erlang:port_info(Port, connected),  
 	    exit(Ref, kill),
-	    test_server:sleep(500),
+	    ct:sleep(500),
 	    undefined = erlang:port_info(Port, connected);
 	%% Check for c-program still running, how?
 	[] ->
@@ -344,7 +340,7 @@ client_dies_normal(Config) when is_list(Config) ->
 	{'DOWN', MonitorReference, _Type, _Object, _Info} ->
 	    ok
     after 5000 ->
-	    test_server:fail(control_process_not_stopped)
+	    ct:fail(control_process_not_stopped)
     end.
 
 client_normal(Pid) ->
@@ -375,7 +371,7 @@ client_dies_timeout(Config) when is_list(Config) ->
 	{'DOWN', MonitorReference, _Type, _Object, _Info} ->
 	    ok
     after 5000 ->
-	    test_server:fail(control_process_not_stopped)
+	    ct:fail(control_process_not_stopped)
     end.
 
 client_timeout(Pid) ->
@@ -406,7 +402,7 @@ client_dies_error(Config) when is_list(Config) ->
 	{'DOWN', MonitorReference, _Type, _Object, _Info} ->
 	    ok
     after 5000 ->
-	    test_server:fail(control_process_not_stopped)
+	    ct:fail(control_process_not_stopped)
     end.
 
 client_error(Pid) ->
@@ -499,7 +495,7 @@ update_table_timeout(Table, TimeOut, Pid) ->
 	{'EXIT', timeout} ->
 	    Pid ! timout_occurred;
 	{updated, 1} ->
-	    test_server:fail(database_locker_failed)
+	    ct:fail(database_locker_failed)
     end,
 
     receive 
@@ -578,7 +574,7 @@ loop_many_timouts(Ref, UpdateQuery, TimeOut) ->
 	{'EXIT',timeout} ->
 	    loop_many_timouts(Ref, UpdateQuery, TimeOut);
 	{updated, 1} ->
-	    test_server:fail(database_locker_failed);
+	    ct:fail(database_locker_failed);
 	{error, connection_closed} ->
 	    ok
     end.
@@ -673,9 +669,9 @@ loop_timout_reset(Ref, UpdateQuery, TimeOut, NumTimeouts) ->
 	    loop_timout_reset(Ref, UpdateQuery, 
 			      TimeOut, NumTimeouts - 1);
 	{updated, 1} ->
-	    test_server:fail(database_locker_failed);
+	    ct:fail(database_locker_failed);
 	{error, connection_closed} ->
-	    test_server:fail(connection_closed_premature)
+	    ct:fail(connection_closed_premature)
     end.
 
 %%-------------------------------------------------------------------------
@@ -710,7 +706,7 @@ disconnect_on_timeout(Config) when is_list(Config) ->
 	ok ->
 	    ok = odbc:commit(Ref, commit);
 	nok ->
-	    test_server:fail(database_locker_failed)
+	    ct:fail(database_locker_failed)
     end.
 
 update_table_disconnect_on_timeout(Table, TimeOut, Pid) ->
@@ -774,10 +770,10 @@ disable_scrollable_cursors(Config) when is_list(Config) ->
 
     NextResult = ?RDBMS:selected_ID(1, next),
 
-    test_server:format("Expected: ~p~n", [NextResult]),
+    ct:pal("Expected: ~p~n", [NextResult]),
 
     Result = odbc:next(Ref),
-    test_server:format("Got: ~p~n", [Result]),
+    ct:pal("Got: ~p~n", [Result]),
     NextResult = Result,
 
     {error, scrollable_cursors_disabled} = odbc:first(Ref),
@@ -842,21 +838,21 @@ api_missuse(Config) when is_list(Config)->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     %% Serious programming fault, connetion will be shut down 
     gen_server:call(Ref, {self(), foobar, 10}, infinity),
-    test_server:sleep(10),
+    ct:sleep(10),
     undefined = process_info(Ref, status),
 
     {ok, Ref2} =  odbc:connect(?RDBMS:connection_string(),
 			       odbc_test_lib:platform_options()),
     %% Serious programming fault, connetion will be shut down 
     gen_server:cast(Ref2, {self(), foobar, 10}),
-    test_server:sleep(10),
+    ct:sleep(10),
     undefined = process_info(Ref2, status),
 
     {ok, Ref3} =  odbc:connect(?RDBMS:connection_string(),
 			       odbc_test_lib:platform_options()),
     %% Could be an innocent misstake the connection lives. 
     Ref3 ! foobar, 
-    test_server:sleep(10),
+    ct:sleep(10),
     {status, _} = process_info(Ref3, status).
 
 transaction_support_str(mysql) ->

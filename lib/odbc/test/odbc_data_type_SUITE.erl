@@ -120,6 +120,7 @@ init_per_suite(Config) when is_list(Config) ->
 	false ->
 	    case (catch odbc:start()) of
 		ok ->
+		    ct:timetrap(?default_timeout),
 		    [{tableName, odbc_test_lib:unique_table_name()}| Config];
 		_ ->
 		    {skip, "ODBC not startable"}
@@ -191,23 +192,22 @@ init_per_testcase(Case, Config) ->
 
 common_init_per_testcase(Case, Config) ->
     PlatformOptions = odbc_test_lib:platform_options(),
-    case atom_to_list(Case) of
-	"binary" ++ _  ->
-	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
-				     [{binary_strings, on}] ++ PlatformOptions);
-	LCase when LCase == "utf8";
-		   LCase == "nchar";
-		   LCase == "nvarchar" ->
-	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
-				     [{binary_strings, on}] ++ PlatformOptions);
-	_ ->
-	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), PlatformOptions)
-    end,
+    {ok, Ref} = 
+	case atom_to_list(Case) of
+	    "binary" ++ _  ->
+		odbc:connect(?RDBMS:connection_string(), 
+			     [{binary_strings, on}] ++ PlatformOptions);
+	    LCase when LCase == "utf8";
+		       LCase == "nchar";
+		       LCase == "nvarchar" ->
+		odbc:connect(?RDBMS:connection_string(), 
+			     [{binary_strings, on}] ++ PlatformOptions);
+	    _ ->
+		odbc:connect(?RDBMS:connection_string(), PlatformOptions)
+	end,
     odbc_test_lib:strict(Ref, ?RDBMS),
-    Dog = test_server:timetrap(?default_timeout),
-    Temp = lists:keydelete(connection_ref, 1, Config),
-    NewConfig = lists:keydelete(watchdog, 1, Temp),
-    [{watchdog, Dog}, {connection_ref, Ref} | NewConfig].
+    NewConfig = lists:keydelete(connection_ref, 1, Config),
+    [{connection_ref, Ref} | NewConfig].
 
 is_fixed_upper_limit(mysql) ->
     false;
@@ -237,10 +237,7 @@ end_per_testcase(_TestCase, Config) ->
     Table = proplists:get_value(tableName, Config),
     {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc:sql_query(NewRef, "DROP TABLE " ++ Table), 
-    odbc:disconnect(NewRef),
-    Dog = proplists:get_value(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
+    odbc:disconnect(NewRef).
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -1427,19 +1424,19 @@ utf8(Config) when is_list(Config) ->
 			  end,
 			  Latin1Data),
     
-    test_server:format("UnicodeIn: ~p ~n",[UnicodeIn]),
+    ct:pal("UnicodeIn: ~p ~n",[UnicodeIn]),
     {updated, _} = odbc:param_query(Ref,"INSERT INTO " ++ Table ++ "(FIELD) values(?)",
 				    [{{sql_varchar,50}, UnicodeIn}]),
     
     {selected,_,UnicodeOut} = odbc:sql_query(Ref,"SELECT * FROM " ++ Table),
 
-    test_server:format("UnicodeOut: ~p~n", [UnicodeOut]),
+    ct:pal("UnicodeOut: ~p~n", [UnicodeOut]),
      
     Result = lists:map(fun({Char}) ->
 			       unicode:characters_to_list(Char,utf8)
 		       end, UnicodeOut),
 
-    test_server:format("Result: ~p ~n", [Result]),
+    ct:pal("Result: ~p ~n", [Result]),
     
     Latin1Data = Result.
 %%------------------------------------------------------------------------
@@ -1522,21 +1519,21 @@ w_char_support(Ref, Table, CharType, Size) ->
                           end,
                           Latin1Data),
 
-    test_server:format("UnicodeIn (utf 16): ~p ~n",[UnicodeIn]),
+    ct:pal("UnicodeIn (utf 16): ~p ~n",[UnicodeIn]),
 
     {updated, _} = odbc:param_query(Ref, "INSERT INTO " ++ Table ++ "(FIELD) values(?)",
 				    [{{CharType, Size},UnicodeIn}]),
 
     {selected,_,UnicodeOut} = odbc:sql_query(Ref,"SELECT * FROM " ++ Table),
 
-    test_server:format("UnicodeOut: ~p~n", [UnicodeOut]),
+    ct:pal("UnicodeOut: ~p~n", [UnicodeOut]),
 
     PadResult = lists:map(fun({Unicode}) ->
 			       unicode:characters_to_list(Unicode,{utf16,little})
 		       end,
 		       UnicodeOut),
 
-    test_server:format("Result: ~p~n", [PadResult]),
+    ct:pal("Result: ~p~n", [PadResult]),
 
     Result = lists:map(fun(Str) -> string:strip(Str) end, PadResult),
 
