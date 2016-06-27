@@ -89,7 +89,7 @@ init_per_testcase(_TestCase, Config0) ->
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
 end_per_testcase(_TestCase, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     case Dog of 
 	undefined ->
 	    ok;

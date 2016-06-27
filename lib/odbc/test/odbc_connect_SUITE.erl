@@ -153,12 +153,12 @@ end_per_testcase(_TestCase, Config) ->
     end_per_testcase_common(Config).
 
 end_per_testcase_common(Config) ->
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
     io:format("Drop table: ~p ~p~n", [Table, Result]),
     odbc:disconnect(Ref),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
 %%-------------------------------------------------------------------------
@@ -170,7 +170,7 @@ commit(Config)  ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), 
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
 
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} = 
@@ -210,7 +210,7 @@ rollback(Config)  ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
 
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
 
     TransStr = transaction_support_str(?RDBMS),
 
@@ -448,7 +448,7 @@ timeout(Config)  when is_list(Config) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}]),
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
 
     TransStr = transaction_support_str(?RDBMS),
 
@@ -531,7 +531,7 @@ many_timeouts(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
 
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} = 
@@ -589,7 +589,7 @@ timeout_reset(doc) ->
 timeout_reset(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} = 
@@ -686,7 +686,7 @@ disconnect_on_timeout(Config) when is_list(Config) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} = 
@@ -734,7 +734,7 @@ connection_closed(doc) ->
 connection_closed(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
 
-    Table = ?config(tableName, Config), 
+    Table = proplists:get_value(tableName, Config), 
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
@@ -760,7 +760,7 @@ disable_scrollable_cursors(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{scrollable_cursors, off}]),
 
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -798,7 +798,7 @@ return_rows_as_lists(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{tuple_row, off}] ++ odbc_test_lib:platform_options()),
 
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -871,7 +871,7 @@ extended_errors(doc)->
      "string is returned on error. When on, the error string is replaced by a 3 element tuple "
      "that also exposes underlying ODBC provider error codes."];
 extended_errors(Config) when is_list(Config)->
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     {updated, _} = odbc:sql_query(Ref, "create table " ++ Table ++" ( id integer, data varchar(10))"),
 

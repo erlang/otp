@@ -158,14 +158,14 @@ init_per_testcase(_Case, Config) ->
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
 end_per_testcase(_Case, Config) ->
-    Ref = ?config(connection_ref, Config),
+    Ref = proplists:get_value(connection_ref, Config),
     ok = odbc:disconnect(Ref),
     %% Clean up if needed 
-    Table = ?config(tableName, Config),
+    Table = proplists:get_value(tableName, Config),
     {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc:sql_query(NewRef, "DROP TABLE " ++ Table), 
     odbc:disconnect(NewRef),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -177,7 +177,7 @@ stored_proc(doc)->
 stored_proc(Config) when is_list(Config) ->
     case ?RDBMS of
         X when X == oracle; X == postgres->
-            Ref = ?config(connection_ref, Config),
+            Ref = proplists:get_value(connection_ref, Config),
             {updated, _} =
                 odbc:sql_query(Ref,
                                ?RDBMS:stored_proc_integer_out()),
@@ -194,8 +194,8 @@ stored_proc(Config) when is_list(Config) ->
 sql_query(doc)->
     ["Test the common cases"];
 sql_query(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} =
 	odbc:sql_query(Ref, 
@@ -239,8 +239,8 @@ select_count(doc) ->
      " such as first."];
 select_count(sute) -> [];
 select_count(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -258,8 +258,8 @@ select_count(Config) when is_list(Config) ->
 first(doc) ->
     ["Tests first/[1,2]"];
 first(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -284,8 +284,8 @@ first(Config) when is_list(Config) ->
 last(doc) ->
     ["Tests last/[1,2]"];
 last(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -310,8 +310,8 @@ last(Config) when is_list(Config) ->
 next(doc) ->
     ["Tests next/[1,2]"];
 next(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -335,8 +335,8 @@ next(Config) when is_list(Config) ->
 prev(doc) ->
     ["Tests prev/[1,2]"];
 prev(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -364,8 +364,8 @@ select_next(doc) ->
     ["Tests select/[4,5] with CursorRelation = next "];
 select_next(suit) -> [];
 select_next(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -405,8 +405,8 @@ select_relative(doc) ->
     ["Tests select/[4,5] with CursorRelation = relative "];
 select_relative(suit) -> [];
 select_relative(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -446,8 +446,8 @@ select_absolute(doc) ->
     ["Tests select/[4,5] with CursorRelation = absolute "];
 select_absolute(suit) -> [];
 select_absolute(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = odbc:sql_query(Ref, 
 				  "CREATE TABLE " ++ Table ++
@@ -479,8 +479,8 @@ select_absolute(Config) when is_list(Config) ->
 create_table_twice(doc) ->
     ["Test what happens if you try to create the same table twice."];
 create_table_twice(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -497,8 +497,8 @@ create_table_twice(Config) when is_list(Config) ->
 delete_table_twice(doc) ->
     ["Test what happens if you try to delete the same table twice."];
 delete_table_twice(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -514,8 +514,8 @@ duplicate_key(doc) ->
     ["Test what happens if you try to use the same key twice"];
 duplicate_key(suit) -> [];
 duplicate_key(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -535,8 +535,8 @@ not_connection_owner(doc) ->
     ["Test what happens if a process that did not start the connection"
      " tries to acess it."];
 not_connection_owner(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     spawn_link(?MODULE, not_owner, [self(), Ref, Table]),
 
@@ -559,7 +559,7 @@ no_result_set(doc) ->
     ["Tests what happens if you try to use a function that needs an "
      "associated result set when there is none."];
 no_result_set(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
+    Ref = proplists:get_value(connection_ref, Config),   
 
     {error, result_set_does_not_exist} = odbc:first(Ref),
     {error, result_set_does_not_exist} = odbc:last(Ref),
@@ -575,8 +575,8 @@ no_result_set(Config) when is_list(Config) ->
 query_error(doc) ->
     ["Test what happens if there is an error in the query."];
 query_error(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -598,8 +598,8 @@ multiple_select_result_sets(doc) ->
 multiple_select_result_sets(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
-	    Ref = ?config(connection_ref, Config),   
-	    Table = ?config(tableName, Config),
+	    Ref = proplists:get_value(connection_ref, Config),   
+	    Table = proplists:get_value(tableName, Config),
 	    
 	    {updated, _} = 
 		odbc:sql_query(Ref, 
@@ -632,8 +632,8 @@ multiple_mix_result_sets(doc) ->
 multiple_mix_result_sets(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
-	    Ref = ?config(connection_ref, Config),   
-	    Table = ?config(tableName, Config),
+	    Ref = proplists:get_value(connection_ref, Config),   
+	    Table = proplists:get_value(tableName, Config),
 	    
 	    {updated, _} = 
 		odbc:sql_query(Ref, 
@@ -663,8 +663,8 @@ multiple_result_sets_error(doc) ->
 multiple_result_sets_error(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
-	    Ref = ?config(connection_ref, Config),   
-	    Table = ?config(tableName, Config),
+	    Ref = proplists:get_value(connection_ref, Config),   
+	    Table = proplists:get_value(tableName, Config),
 	    
 	    {updated, _} = 
 		odbc:sql_query(Ref, 
@@ -696,8 +696,8 @@ param_insert_tiny_int(doc)->
 param_insert_tiny_int(Config) when is_list(Config) ->
     case ?RDBMS of 
 	sqlserver ->
-	    Ref = ?config(connection_ref, Config),   
-	    Table = ?config(tableName, Config),
+	    Ref = proplists:get_value(connection_ref, Config),   
+	    Table = proplists:get_value(tableName, Config),
 	    
 	    {updated, _} = 
 		odbc:sql_query(Ref, 
@@ -729,8 +729,8 @@ param_insert_tiny_int(Config) when is_list(Config) ->
 param_insert_small_int(doc)->
     ["Test insertion of small ints by parameterized queries."];
 param_insert_small_int(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -759,8 +759,8 @@ param_insert_small_int(Config) when is_list(Config) ->
 param_insert_int(doc)->
     ["Test insertion of ints by parameterized queries."];
 param_insert_int(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -789,8 +789,8 @@ param_insert_int(Config) when is_list(Config) ->
 param_insert_integer(doc)->
     ["Test insertion of integers by parameterized queries."];
 param_insert_integer(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -819,8 +819,8 @@ param_insert_integer(Config) when is_list(Config) ->
 param_insert_decimal(doc)->
     ["Test insertion of decimal numbers by parameterized queries."];
 param_insert_decimal(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -868,8 +868,8 @@ param_insert_decimal(Config) when is_list(Config) ->
 param_insert_numeric(doc)->
     ["Test insertion of numeric numbers by parameterized queries."];
 param_insert_numeric(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -917,8 +917,8 @@ param_insert_numeric(Config) when is_list(Config) ->
 param_insert_char(doc)->
     ["Test insertion of fixed length string by parameterized queries."];
 param_insert_char(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -951,8 +951,8 @@ param_insert_char(Config) when is_list(Config) ->
 param_insert_character(doc)->
     ["Test insertion of fixed length string by parameterized queries."];
 param_insert_character(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -986,8 +986,8 @@ param_insert_character(Config) when is_list(Config) ->
 param_insert_char_varying(doc)->
     ["Test insertion of variable length strings by parameterized queries."];
 param_insert_char_varying(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1021,8 +1021,8 @@ param_insert_char_varying(Config) when is_list(Config) ->
 param_insert_character_varying(doc)->
     ["Test insertion of variable length strings by parameterized queries."];
 param_insert_character_varying(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1056,8 +1056,8 @@ param_insert_character_varying(Config) when is_list(Config) ->
 param_insert_float(doc)->
     ["Test insertion of floats by parameterized queries."];
 param_insert_float(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1093,8 +1093,8 @@ param_insert_float(Config) when is_list(Config) ->
 param_insert_real(doc)->
     ["Test insertion of real numbers by parameterized queries."];
 param_insert_real(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1132,8 +1132,8 @@ param_insert_real(Config) when is_list(Config) ->
 param_insert_double(doc)->
     ["Test insertion of doubles by parameterized queries."];
 param_insert_double(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1169,8 +1169,8 @@ param_insert_double(Config) when is_list(Config) ->
 param_insert_mix(doc)->
     ["Test insertion of a mixture of datatypes by parameterized queries."];
 param_insert_mix(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1194,8 +1194,8 @@ param_insert_mix(Config) when is_list(Config) ->
 param_update(doc)->
     ["Test parameterized update query."];
 param_update(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1228,8 +1228,8 @@ delete_nonexisting_row(doc) ->		% OTP-5759
     ["Make a delete...where with false conditions (0 rows deleted). ",
      "This used to give an error message (see ticket OTP-5759)."];
 delete_nonexisting_row(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} =
 	odbc:sql_query(Ref, "CREATE TABLE " ++ Table
@@ -1256,8 +1256,8 @@ delete_nonexisting_row(Config) when is_list(Config) ->
 param_delete(doc) ->
     ["Test parameterized delete query."];
 param_delete(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1289,8 +1289,8 @@ param_delete(Config) when is_list(Config) ->
 param_select(doc) ->
     ["Test parameterized select query."];
 param_select(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1317,8 +1317,8 @@ param_select(Config) when is_list(Config) ->
 param_select_empty_params(doc) ->
     ["Test parameterized select query with no parameters."];
 param_select_empty_params(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1345,8 +1345,8 @@ param_select_empty_params(Config) when is_list(Config) ->
 param_delete_empty_params(doc) ->
     ["Test parameterized delete query with no parameters."];
 param_delete_empty_params(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1377,8 +1377,8 @@ param_delete_empty_params(Config) when is_list(Config) ->
 describe_integer(doc) ->
     ["Test describe_table/[2,3] for integer columns."];
 describe_integer(Config) when is_list(Config) ->    
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1394,8 +1394,8 @@ describe_integer(Config) when is_list(Config) ->
 describe_string(doc) ->
     ["Test describe_table/[2,3] for string columns."];
 describe_string(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1413,8 +1413,8 @@ describe_string(Config) when is_list(Config) ->
 describe_floating(doc) ->
     ["Test describe_table/[2,3] for floting columns."];
 describe_floating(Config) when is_list(Config) ->
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1432,8 +1432,8 @@ describe_dec_num(doc) ->
     ["Test describe_table/[2,3] for decimal and numerical columns"];
 describe_dec_num(Config) when is_list(Config) ->
 
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
@@ -1451,8 +1451,8 @@ describe_timestamp(doc) ->
     ["Test describe_table/[2,3] for tinmestap columns"];
 describe_timestamp(Config) when is_list(Config) ->
     
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
     
     {updated, _} =  % Value == 0 || -1 driver dependent!
 	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
@@ -1468,8 +1468,8 @@ describe_no_such_table(doc) ->
     ["Test what happens if you try to describe a table that does not exist."];
 describe_no_such_table(Config) when is_list(Config) ->
 
-    Ref = ?config(connection_ref, Config),   
-    Table = ?config(tableName, Config),
+    Ref = proplists:get_value(connection_ref, Config),   
+    Table = proplists:get_value(tableName, Config),
 
     {error, _ } = odbc:describe_table(Ref, Table),
     ok.
