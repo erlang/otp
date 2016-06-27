@@ -52,6 +52,7 @@ MODULES= \
 	io_proto_SUITE \
 	lists_SUITE \
 	log_mf_h_SUITE \
+	math_SUITE \
 	ms_transform_SUITE \
 	proc_lib_SUITE \
 	qlc_SUITE \
