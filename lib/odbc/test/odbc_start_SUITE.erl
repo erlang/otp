@@ -127,8 +127,8 @@ app(Config) when is_list(Config) ->
 appup(Config) when is_list(Config) ->
     ok = ?t:appup_test(odbc).
 
-start(doc) -> 
-    ["Test start/stop of odbc"];
+start() -> 
+    [{doc,"Test start/stop of odbc"}].
 start(Config) when is_list(Config) -> 
     PlatformOptions = odbc_test_lib:platform_options(),
 	{error,odbc_not_started} = odbc:connect(?RDBMS:connection_string(),
@@ -160,8 +160,8 @@ start_odbc(Type) ->
     end.
 
 
-long_connection_line(doc)->
-    ["Test a connection line longer than 127 characters"];
+long_connection_line()->
+    [{doc,"Test a connection line longer than 127 characters"}].
 long_connection_line(_Config)  ->
     odbc:start(),
     String133 = "unknown_odbc_parameter=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",

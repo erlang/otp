@@ -170,8 +170,8 @@ end_per_testcase(_Case, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-stored_proc(doc)->
-    ["Test stored proc with OUT param"];
+stored_proc()->
+    [{doc, "Test stored proc with OUT param"}].
 stored_proc(Config) when is_list(Config) ->
     case ?RDBMS of
         X when X == oracle; X == postgres->
@@ -189,8 +189,8 @@ stored_proc(Config) when is_list(Config) ->
 	    {skip, "stored proc not yet supported"}
     end.
 
-sql_query(doc)->
-    ["Test the common cases"];
+sql_query()->
+    [{doc, "Test the common cases"}].
 sql_query(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
     Table = proplists:get_value(tableName, Config),
@@ -231,10 +231,10 @@ sql_query(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-select_count(doc) -> 
-    ["Tests select_count/[2,3]'s timeout, "
-     " select_count's functionality will be better tested by other tests "
-     " such as first."];
+select_count() -> 
+    [{doc, "Tests select_count/[2,3]'s timeout, "
+	   " select_count's functionality will be better tested by other tests "
+      " such as first."}].
 select_count(sute) -> [];
 select_count(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
@@ -253,8 +253,8 @@ select_count(Config) when is_list(Config) ->
 	(catch odbc:select_count(Ref, "SELECT * FROM ", -1)),
     ok.
 %%-------------------------------------------------------------------------
-first(doc) ->
-    ["Tests first/[1,2]"];
+first() ->
+    [doc, {"Tests first/[1,2]"}].
 first(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
     Table = proplists:get_value(tableName, Config),
@@ -279,8 +279,8 @@ first(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-last(doc) ->
-    ["Tests last/[1,2]"];
+last() ->
+    [{doc, "Tests last/[1,2]"}].
 last(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
     Table = proplists:get_value(tableName, Config),
@@ -305,8 +305,8 @@ last(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-next(doc) ->
-    ["Tests next/[1,2]"];
+next() ->
+    [{doc, "Tests next/[1,2]"}].
 next(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
     Table = proplists:get_value(tableName, Config),
@@ -330,8 +330,8 @@ next(Config) when is_list(Config) ->
     {'EXIT', {function_clause, _}} = (catch odbc:next(Ref, -1)),
     ok.
 %%-------------------------------------------------------------------------
-prev(doc) ->
-    ["Tests prev/[1,2]"];
+prev() ->
+    [{doc, "Tests prev/[1,2]"}].
 prev(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
     Table = proplists:get_value(tableName, Config),
@@ -358,8 +358,8 @@ prev(Config) when is_list(Config) ->
     {'EXIT', {function_clause, _}} = (catch odbc:prev(Ref, -1)),
     ok.
 %%-------------------------------------------------------------------------
-select_next(doc) ->
-    ["Tests select/[4,5] with CursorRelation = next "];
+select_next() ->
+    [{doc, "Tests select/[4,5] with CursorRelation = next "}].
 select_next(suit) -> [];
 select_next(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
@@ -399,8 +399,8 @@ select_next(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-select_relative(doc) ->
-    ["Tests select/[4,5] with CursorRelation = relative "];
+select_relative() ->
+    [{doc, "Tests select/[4,5] with CursorRelation = relative "}].
 select_relative(suit) -> [];
 select_relative(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
@@ -440,8 +440,8 @@ select_relative(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-select_absolute(doc) ->
-    ["Tests select/[4,5] with CursorRelation = absolute "];
+select_absolute() ->
+    [{doc, "Tests select/[4,5] with CursorRelation = absolute "}].
 select_absolute(suit) -> [];
 select_absolute(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),
@@ -474,8 +474,8 @@ select_absolute(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-create_table_twice(doc) ->
-    ["Test what happens if you try to create the same table twice."];
+create_table_twice() ->
+    [{doc, "Test what happens if you try to create the same table twice."}].
 create_table_twice(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -492,8 +492,8 @@ create_table_twice(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-delete_table_twice(doc) ->
-    ["Test what happens if you try to delete the same table twice."];
+delete_table_twice() ->
+    [{doc, "Test what happens if you try to delete the same table twice."}].
 delete_table_twice(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -508,8 +508,8 @@ delete_table_twice(Config) when is_list(Config) ->
     ok.
 
 %-------------------------------------------------------------------------
-duplicate_key(doc) ->
-    ["Test what happens if you try to use the same key twice"];
+duplicate_key() ->
+    [{doc, "Test what happens if you try to use the same key twice"}].
 duplicate_key(suit) -> [];
 duplicate_key(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
@@ -529,9 +529,9 @@ duplicate_key(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-not_connection_owner(doc) ->
-    ["Test what happens if a process that did not start the connection"
-     " tries to acess it."];
+not_connection_owner() ->
+    [{doc, "Test what happens if a process that did not start the connection"
+	   " tries to acess it."}].
 not_connection_owner(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -553,9 +553,9 @@ not_owner(Pid, Ref, Table) ->
     Pid ! continue.
 
 %%-------------------------------------------------------------------------
-no_result_set(doc) ->
-    ["Tests what happens if you try to use a function that needs an "
-     "associated result set when there is none."];
+no_result_set() ->
+    [{doc, "Tests what happens if you try to use a function that needs an "
+      "associated result set when there is none."}].
 no_result_set(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
 
@@ -570,8 +570,8 @@ no_result_set(Config) when is_list(Config) ->
 	odbc:select(Ref, {relative, 2}, 1),
     ok.
 %%-------------------------------------------------------------------------
-query_error(doc) ->
-    ["Test what happens if there is an error in the query."];
+query_error() ->
+    [{doc, "Test what happens if there is an error in the query."}].
 query_error(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -591,8 +591,8 @@ query_error(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-multiple_select_result_sets(doc) ->
-    ["Test what happens if you have a batch of select queries."];
+multiple_select_result_sets() ->
+    [{doc, "Test what happens if you have a batch of select queries."}].
 multiple_select_result_sets(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
@@ -624,9 +624,9 @@ multiple_select_result_sets(Config) when is_list(Config) ->
     end.
 	    
 %%-------------------------------------------------------------------------
-multiple_mix_result_sets(doc) ->
-    ["Test what happens if you have a batch of select and other type of"
-     " queries."];
+multiple_mix_result_sets() ->
+    [{doc, "Test what happens if you have a batch of select and other type of"
+      " queries."}].
 multiple_mix_result_sets(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
@@ -656,8 +656,8 @@ multiple_mix_result_sets(Config) when is_list(Config) ->
 	    {skip, "multiple result_set not supported"}
     end.
 %%-------------------------------------------------------------------------
-multiple_result_sets_error(doc) ->
-    ["Test what happens if one of the batched queries fails."];
+multiple_result_sets_error() ->
+    [{doc, "Test what happens if one of the batched queries fails."}].
 multiple_result_sets_error(Config) when is_list(Config) ->
     case ?RDBMS of
 	sqlserver ->
@@ -689,8 +689,8 @@ multiple_result_sets_error(Config) when is_list(Config) ->
     end.   
 
 %%-------------------------------------------------------------------------
-param_insert_tiny_int(doc)->
-    ["Test insertion of tiny ints by parameterized queries."];
+param_insert_tiny_int()->
+    [{doc,"Test insertion of tiny ints by parameterized queries."}].
 param_insert_tiny_int(Config) when is_list(Config) ->
     case ?RDBMS of 
 	sqlserver ->
@@ -724,8 +724,8 @@ param_insert_tiny_int(Config) when is_list(Config) ->
 	    {skip, "Type tiniyint not supported"}
     end.
 %%-------------------------------------------------------------------------
-param_insert_small_int(doc)->
-    ["Test insertion of small ints by parameterized queries."];
+param_insert_small_int()->
+    [{doc,"Test insertion of small ints by parameterized queries."}].
 param_insert_small_int(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -754,8 +754,8 @@ param_insert_small_int(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_int(doc)->
-    ["Test insertion of ints by parameterized queries."];
+param_insert_int()->
+    [{doc,"Test insertion of ints by parameterized queries."}].
 param_insert_int(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -784,8 +784,8 @@ param_insert_int(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_integer(doc)->
-    ["Test insertion of integers by parameterized queries."];
+param_insert_integer()->
+    [{doc,"Test insertion of integers by parameterized queries."}].
 param_insert_integer(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -814,8 +814,8 @@ param_insert_integer(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_decimal(doc)->
-    ["Test insertion of decimal numbers by parameterized queries."];
+param_insert_decimal()->
+    [{doc,"Test insertion of decimal numbers by parameterized queries."}].
 param_insert_decimal(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -863,8 +863,8 @@ param_insert_decimal(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_numeric(doc)->
-    ["Test insertion of numeric numbers by parameterized queries."];
+param_insert_numeric()->
+    [{doc,"Test insertion of numeric numbers by parameterized queries."}].
 param_insert_numeric(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -912,8 +912,8 @@ param_insert_numeric(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_char(doc)->
-    ["Test insertion of fixed length string by parameterized queries."];
+param_insert_char()->
+    [{doc,"Test insertion of fixed length string by parameterized queries."}].
 param_insert_char(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -946,8 +946,8 @@ param_insert_char(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_character(doc)->
-    ["Test insertion of fixed length string by parameterized queries."];
+param_insert_character()->
+    [{doc,"Test insertion of fixed length string by parameterized queries."}].
 param_insert_character(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -981,8 +981,8 @@ param_insert_character(Config) when is_list(Config) ->
     ok.
 
 %%------------------------------------------------------------------------
-param_insert_char_varying(doc)->
-    ["Test insertion of variable length strings by parameterized queries."];
+param_insert_char_varying()->
+    [{doc,"Test insertion of variable length strings by parameterized queries."}].
 param_insert_char_varying(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1016,8 +1016,8 @@ param_insert_char_varying(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_character_varying(doc)->
-    ["Test insertion of variable length strings by parameterized queries."];
+param_insert_character_varying()->
+    [{doc,"Test insertion of variable length strings by parameterized queries."}].
 param_insert_character_varying(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1051,8 +1051,8 @@ param_insert_character_varying(Config) when is_list(Config) ->
 				[{{sql_varchar, 10}, ["1", 2]}])), 
     ok.
 %%-------------------------------------------------------------------------
-param_insert_float(doc)->
-    ["Test insertion of floats by parameterized queries."];
+param_insert_float()->
+    [{doc,"Test insertion of floats by parameterized queries."}].
 param_insert_float(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1088,8 +1088,8 @@ param_insert_float(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_real(doc)->
-    ["Test insertion of real numbers by parameterized queries."];
+param_insert_real()->
+    [{doc,"Test insertion of real numbers by parameterized queries."}].
 param_insert_real(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1127,8 +1127,8 @@ param_insert_real(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_double(doc)->
-    ["Test insertion of doubles by parameterized queries."];
+param_insert_double()->
+    [{doc,"Test insertion of doubles by parameterized queries."}].
 param_insert_double(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1164,8 +1164,8 @@ param_insert_double(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_mix(doc)->
-    ["Test insertion of a mixture of datatypes by parameterized queries."];
+param_insert_mix()->
+    [{doc,"Test insertion of a mixture of datatypes by parameterized queries."}].
 param_insert_mix(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1189,8 +1189,8 @@ param_insert_mix(Config) when is_list(Config) ->
 	odbc:sql_query(Ref, "SELECT * FROM " ++ Table),
     ok.
 %%-------------------------------------------------------------------------
-param_update(doc)->
-    ["Test parameterized update query."];
+param_update()->
+    [{doc,"Test parameterized update query."}].
 param_update(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1222,9 +1222,9 @@ param_update(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-delete_nonexisting_row(doc) ->		% OTP-5759
-    ["Make a delete...where with false conditions (0 rows deleted). ",
-     "This used to give an error message (see ticket OTP-5759)."];
+delete_nonexisting_row() ->		% OTP-5759
+    [{doc, "Make a delete...where with false conditions (0 rows deleted). ",
+     "This used to give an error message (see ticket OTP-5759)."}].
 delete_nonexisting_row(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1251,8 +1251,8 @@ delete_nonexisting_row(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_delete(doc) ->
-    ["Test parameterized delete query."];
+param_delete() ->
+    [{doc,"Test parameterized delete query."}].
 param_delete(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1284,8 +1284,8 @@ param_delete(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-param_select(doc) ->
-    ["Test parameterized select query."];
+param_select() ->
+    [{doc,"Test parameterized select query."}].
 param_select(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1312,8 +1312,8 @@ param_select(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_select_empty_params(doc) ->
-    ["Test parameterized select query with no parameters."];
+param_select_empty_params() ->
+    [{doc,"Test parameterized select query with no parameters."}].
 param_select_empty_params(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1340,8 +1340,8 @@ param_select_empty_params(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_delete_empty_params(doc) ->
-    ["Test parameterized delete query with no parameters."];
+param_delete_empty_params() ->
+    [{doc,"Test parameterized delete query with no parameters."}].
 param_delete_empty_params(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1372,8 +1372,8 @@ param_delete_empty_params(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-describe_integer(doc) ->
-    ["Test describe_table/[2,3] for integer columns."];
+describe_integer() ->
+    [{doc,"Test describe_table/[2,3] for integer columns."}].
 describe_integer(Config) when is_list(Config) ->    
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1389,8 +1389,8 @@ describe_integer(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-describe_string(doc) ->
-    ["Test describe_table/[2,3] for string columns."];
+describe_string() ->
+    [{doc,"Test describe_table/[2,3] for string columns."}].
 describe_string(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1408,8 +1408,8 @@ describe_string(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-describe_floating(doc) ->
-    ["Test describe_table/[2,3] for floting columns."];
+describe_floating() ->
+    [{doc,"Test describe_table/[2,3] for floting columns."}].
 describe_floating(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1426,8 +1426,8 @@ describe_floating(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-describe_dec_num(doc) ->
-    ["Test describe_table/[2,3] for decimal and numerical columns"];
+describe_dec_num() ->
+    [{doc,"Test describe_table/[2,3] for decimal and numerical columns"}].
 describe_dec_num(Config) when is_list(Config) ->
 
     Ref = proplists:get_value(connection_ref, Config),   
@@ -1445,8 +1445,8 @@ describe_dec_num(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-describe_timestamp(doc) ->
-    ["Test describe_table/[2,3] for tinmestap columns"];
+describe_timestamp() ->
+    [{doc,"Test describe_table/[2,3] for tinmestap columns"}].
 describe_timestamp(Config) when is_list(Config) ->
     
     Ref = proplists:get_value(connection_ref, Config),   
@@ -1462,8 +1462,8 @@ describe_timestamp(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-describe_no_such_table(doc) ->
-    ["Test what happens if you try to describe a table that does not exist."];
+describe_no_such_table() ->
+    [{doc,"Test what happens if you try to describe a table that does not exist."}].
 describe_no_such_table(Config) when is_list(Config) ->
 
     Ref = proplists:get_value(connection_ref, Config),   

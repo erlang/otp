@@ -243,8 +243,8 @@ end_per_testcase(_TestCase, Config) ->
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 
-char_fixed_lower_limit(doc) ->
-    ["Tests fixed length char data type lower boundaries."];
+char_fixed_lower_limit() ->
+    [{doc,"Tests fixed length char data type lower boundaries."}].
 char_fixed_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -282,8 +282,8 @@ char_fixed_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-char_fixed_upper_limit(doc) ->
-    ["Tests fixed length char data type upper boundaries."];
+char_fixed_upper_limit() ->
+    [{doc,"Tests fixed length char data type upper boundaries."}].
 char_fixed_upper_limit(Config) when is_list(Config) ->
 
     case ?RDBMS of
@@ -330,9 +330,9 @@ char_fixed_upper_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-char_fixed_padding(doc) ->
-    ["Tests that data that is shorter than the given size is padded " 
-     "with blanks."];
+char_fixed_padding() ->
+    [{doc, "Tests that data that is shorter than the given size is padded " 
+     "with blanks."}].
 char_fixed_padding(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -356,8 +356,8 @@ char_fixed_padding(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-varchar_lower_limit(doc) ->
-    ["Tests variable length char data type lower boundaries."];
+varchar_lower_limit() ->
+    [{doc,"Tests variable length char data type lower boundaries."}].
 varchar_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -394,8 +394,8 @@ varchar_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-varchar_upper_limit(doc) ->
-    ["Tests variable length char data type upper boundaries."];
+varchar_upper_limit() ->
+    [{doc,"Tests variable length char data type upper boundaries."}].
 varchar_upper_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -442,9 +442,9 @@ varchar_upper_limit(Config) when is_list(Config) ->
     end.
 %%-------------------------------------------------------------------------
 
-varchar_no_padding(doc) ->
-    ["Tests that data that is shorter than the given max size is not padded " 
-     "with blanks."];
+varchar_no_padding() ->
+    [{doc, "Tests that data that is shorter than the given max size is not padded " 
+     "with blanks."}].
 varchar_no_padding(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -466,8 +466,8 @@ varchar_no_padding(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-text_lower_limit(doc) ->
-    ["Tests 'long' char data type lower boundaries."];
+text_lower_limit() ->
+    [{doc,"Tests 'long' char data type lower boundaries."}].
 text_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -487,8 +487,8 @@ text_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-text_upper_limit(doc) ->
-    [];
+text_upper_limit() ->
+    [{doc,"Tests 'text' char data type upper boundaries."}].
 text_upper_limit(Config) when is_list(Config) ->
     
     {skip,"Consumes too much resources" }.
@@ -515,8 +515,8 @@ text_upper_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-binary_char_fixed_lower_limit(doc) ->
-    ["Tests fixed length char data type lower boundaries."];
+binary_char_fixed_lower_limit() ->
+    [{doc,"Tests fixed length char data type lower boundaries."}].
 binary_char_fixed_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -558,8 +558,8 @@ binary_char_fixed_lower_limit(Config) when is_list(Config) ->
 		       ++ "')").
 %%-------------------------------------------------------------------------
 
-binary_char_fixed_upper_limit(doc) ->
-    ["Tests fixed length char data type upper boundaries."];
+binary_char_fixed_upper_limit() ->
+    [{doc,"Tests fixed length char data type upper boundaries."}].
 binary_char_fixed_upper_limit(Config) when is_list(Config) ->
 
     case ?RDBMS of
@@ -607,9 +607,9 @@ binary_char_fixed_upper_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-binary_char_fixed_padding(doc) ->
-    ["Tests that data that is shorter than the given size is padded " 
-     "with blanks."];
+binary_char_fixed_padding() ->
+    [{doc, "Tests that data that is shorter than the given size is padded " 
+     "with blanks."}].
 binary_char_fixed_padding(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -633,8 +633,8 @@ binary_char_fixed_padding(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-binary_varchar_lower_limit(doc) ->
-    ["Tests variable length char data type lower boundaries."];
+binary_varchar_lower_limit() ->
+    [{doc,"Tests variable length char data type lower boundaries."}].
 binary_varchar_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -674,8 +674,8 @@ binary_varchar_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-binary_varchar_upper_limit(doc) ->
-    ["Tests variable length char data type upper boundaries."];
+binary_varchar_upper_limit() ->
+    [{doc,"Tests variable length char data type upper boundaries."}].
 binary_varchar_upper_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -721,9 +721,9 @@ binary_varchar_upper_limit(Config) when is_list(Config) ->
     end.
 %%-------------------------------------------------------------------------
 
-binary_varchar_no_padding(doc) ->
-    ["Tests that data that is shorter than the given max size is not padded " 
-     "with blanks."];
+binary_varchar_no_padding() ->
+    [{doc,"Tests that data that is shorter than the given max size is not padded " 
+     "with blanks."}].
 binary_varchar_no_padding(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -745,8 +745,8 @@ binary_varchar_no_padding(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-binary_text_lower_limit(doc) ->
-    ["Tests 'long' char data type lower boundaries."];
+binary_text_lower_limit() ->
+    [{doc,"Tests 'long' char data type lower boundaries."}].
 binary_text_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -766,8 +766,8 @@ binary_text_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-binary_text_upper_limit(doc) ->
-    [];
+binary_text_upper_limit() ->
+    [{doc,"Tests text char data type upper boundaries."}].
 binary_text_upper_limit(Config) when is_list(Config) ->
     
     {skip,"Consumes too much resources" }.
@@ -795,8 +795,8 @@ binary_text_upper_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-tiny_int_lower_limit(doc) ->
-    ["Tests integer of type tinyint."];
+tiny_int_lower_limit() ->
+    [{doc,"Tests integer of type tinyint."}].
 tiny_int_lower_limit(Config) when is_list(Config) -> 
     case ?RDBMS of
 	postgres ->
@@ -827,8 +827,8 @@ tiny_int_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-tiny_int_upper_limit(doc) ->
-    ["Tests integer of type tinyint."];
+tiny_int_upper_limit() ->
+    [{doc,"Tests integer of type tinyint."}].
 tiny_int_upper_limit(Config) when is_list(Config) ->
     case ?RDBMS of
 	postgres ->
@@ -859,8 +859,8 @@ tiny_int_upper_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-small_int_lower_limit(doc) ->
-    ["Tests integer of type smallint."];
+small_int_lower_limit() ->
+    [{doc,"Tests integer of type smallint."}].
 small_int_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -886,8 +886,8 @@ small_int_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-small_int_upper_limit(doc) ->
-    ["Tests integer of type smallint."];
+small_int_upper_limit() ->
+    [{doc,"Tests integer of type smallint."}].
 small_int_upper_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -912,8 +912,8 @@ small_int_upper_limit(Config) when is_list(Config) ->
 		       ++ "')").
 
 %%-------------------------------------------------------------------------
-int_lower_limit(doc) ->
-    ["Tests integer of type int."];
+int_lower_limit() ->
+    [{doc,"Tests integer of type int."}].
 int_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -938,8 +938,8 @@ int_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-int_upper_limit(doc) ->
-    ["Tests integer of type int."];
+int_upper_limit() ->
+    [{doc,"Tests integer of type int."}].
 int_upper_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -964,8 +964,8 @@ int_upper_limit(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-big_int_lower_limit(doc) ->
-    ["Tests integer of type bigint"];
+big_int_lower_limit() ->
+    [{doc,"Tests integer of type bigint"}].
 big_int_lower_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -991,8 +991,8 @@ big_int_lower_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-big_int_upper_limit(doc) ->
-    ["Tests integer of type bigint."];
+big_int_upper_limit() ->
+    [{doc,"Tests integer of type bigint."}].
 big_int_upper_limit(Config) when is_list(Config) ->
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1017,8 +1017,6 @@ big_int_upper_limit(Config) when is_list(Config) ->
 		       ++ "')").
 %%-------------------------------------------------------------------------
 
-bit_false(doc) ->
-    [""];
 bit_false(Config) when is_list(Config) ->  
     case ?RDBMS of
 	oracle ->
@@ -1049,8 +1047,6 @@ bit_false(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-bit_true(doc) ->
-    [""];
 bit_true(Config) when is_list(Config) ->
     case ?RDBMS of
 	oracle ->
@@ -1081,8 +1077,7 @@ bit_true(Config) when is_list(Config) ->
     end.
 
 %%-------------------------------------------------------------------------
-float_lower_limit(doc) ->
-    [""];
+
 float_lower_limit(Config) when is_list(Config) ->   
 
     Ref = proplists:get_value(connection_ref, Config),   
@@ -1129,8 +1124,7 @@ float_lower_limit(Config) when is_list(Config) ->
     end.
 
 %%-------------------------------------------------------------------------
-float_upper_limit(doc) ->
-    [""];
+
 float_upper_limit(Config) when is_list(Config) ->   
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1159,8 +1153,8 @@ float_upper_limit(Config) when is_list(Config) ->
     end.
 
 %%-------------------------------------------------------------------------
-float_zero(doc) ->
-    ["Test the float value zero."];
+float_zero() ->
+    [{doc,"Test the float value zero."}].
 float_zero(Config) when is_list(Config) ->   
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1176,8 +1170,8 @@ float_zero(Config) when is_list(Config) ->
     SelectResult =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table).
 %%-------------------------------------------------------------------------
-real_zero(doc) ->
-    ["Test the real value zero."];
+real_zero() ->
+    [{doc,"Test the real value zero."}].
 real_zero(Config) when is_list(Config) ->   
     Ref = proplists:get_value(connection_ref, Config),   
     Table = proplists:get_value(tableName, Config),
@@ -1199,8 +1193,6 @@ real_zero(Config) when is_list(Config) ->
 		odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table)
     end.
 %%------------------------------------------------------------------------
-dec_long(doc) ->
-    [""];
 dec_long(suit) ->
     [];
 dec_long(Config) when is_list(Config) ->
@@ -1218,8 +1210,6 @@ dec_long(Config) when is_list(Config) ->
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     ["FIELD"] = odbc_test_lib:to_upper(Fields).
 %%------------------------------------------------------------------------
-dec_double(doc) ->
-    [""];
 dec_double(suit) ->
     [];
 dec_double(Config) when is_list(Config) ->
@@ -1266,8 +1256,6 @@ dec_double(Config) when is_list(Config) ->
     ["FIELD"] = odbc_test_lib:to_upper(Fields2).
 
 %%------------------------------------------------------------------------
-dec_bignum(doc) ->
-    [""];
 dec_bignum(suit) ->
     [];
 dec_bignum(Config) when is_list(Config) ->
@@ -1298,8 +1286,6 @@ dec_bignum(Config) when is_list(Config) ->
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     ["FIELD"] = odbc_test_lib:to_upper(Fields1).
 %%------------------------------------------------------------------------
-num_long(doc) ->
-    [""];
 num_long(suit) ->
     [];
 num_long(Config) when is_list(Config) ->
@@ -1317,8 +1303,6 @@ num_long(Config) when is_list(Config) ->
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     ["FIELD"] = odbc_test_lib:to_upper(Fields).
 %%------------------------------------------------------------------------
-num_double(doc) ->
-    [""];
 num_double(suit) ->
     [];
 num_double(Config) when is_list(Config) ->
@@ -1363,8 +1347,6 @@ num_double(Config) when is_list(Config) ->
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
      ["FIELD"] = odbc_test_lib:to_upper(Fields2).
 %%------------------------------------------------------------------------
-num_bignum(doc) ->
-    [""];
 num_bignum(suit) ->
     [];
 num_bignum(Config) when is_list(Config) ->
@@ -1396,8 +1378,8 @@ num_bignum(Config) when is_list(Config) ->
     ["FIELD"] = odbc_test_lib:to_upper(Fields1).
 
 %%------------------------------------------------------------------------
-utf8(doc) ->
-    ["Test unicode support"];
+utf8() ->
+    [{doc,"Test unicode support"}].
 utf8(suit) ->
     [];
 utf8(Config) when is_list(Config) ->
@@ -1441,8 +1423,8 @@ utf8(Config) when is_list(Config) ->
     Latin1Data = Result.
 %%------------------------------------------------------------------------
 
-nchar(doc) ->
-    ["Test unicode nchar support in sqlserver"];
+nchar() ->
+    [{doc,"Test unicode nchar support in sqlserver"}].
 nchar(suit) ->
     [];
 nchar(Config) when is_list(Config) ->
@@ -1457,8 +1439,8 @@ nchar(Config) when is_list(Config) ->
 
 %%------------------------------------------------------------------------
 
-nvarchar(doc) ->
-    ["Test 'unicode' nvarchar support"];
+nvarchar() ->
+    [{doc,"Test 'unicode' nvarchar support"}].
 nvarchar(suit) ->
     [];
 nvarchar(Config) when is_list(Config) ->
@@ -1472,8 +1454,6 @@ nvarchar(Config) when is_list(Config) ->
     w_char_support(Ref, Table, sql_wlongvarchar, 50).
 
 %%------------------------------------------------------------------------
-timestamp(doc) ->
-    [""];
 timestamp(suit) ->
     [];
 timestamp(Config) when is_list(Config) ->
