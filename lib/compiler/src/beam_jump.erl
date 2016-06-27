@@ -208,21 +208,18 @@ sharable_with_try([]) -> true.
 
 %% Eliminate all fallthroughs. Return the result reversed.
 
-eliminate_fallthroughs([I,{label,L}=Lbl|Is], Acc) ->
-    case is_unreachable_after(I) orelse is_label(I) of
+eliminate_fallthroughs([{label,L}=Lbl|Is], [I|_]=Acc) ->
+    case is_unreachable_after(I) of
 	false ->
 	    %% Eliminate fallthrough.
-	    eliminate_fallthroughs(Is, [Lbl,{jump,{f,L}},I|Acc]);
+	    eliminate_fallthroughs(Is, [Lbl,{jump,{f,L}}|Acc]);
 	true ->
-	    eliminate_fallthroughs(Is, [Lbl,I|Acc])
+	    eliminate_fallthroughs(Is, [Lbl|Acc])
     end;
 eliminate_fallthroughs([I|Is], Acc) ->
     eliminate_fallthroughs(Is, [I|Acc]);
 eliminate_fallthroughs([], Acc) -> Acc.
 
-is_label({label,_}) -> true;
-is_label(_) -> false.
-    
 %%%
 %%% (2) Move short code sequences ending in an instruction that causes an exit
 %%% to the end of the function.
