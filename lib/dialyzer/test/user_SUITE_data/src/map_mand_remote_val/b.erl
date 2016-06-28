@@ -1,0 +1,3 @@
+-module(b).
+-type t() :: binary().
+-export_type([t/0]).
