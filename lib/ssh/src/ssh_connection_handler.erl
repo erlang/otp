@@ -1206,8 +1206,9 @@ handle_event(internal, prepare_next_packet, _, D) ->
 	Sz when Sz >= Enough ->
 	    self() ! {D#data.transport_protocol, D#data.socket, <<>>};
 	_ ->
-	    inet:setopts(D#data.socket, [{active, once}])
+	    ok
     end,
+    inet:setopts(D#data.socket, [{active, once}]),
     keep_state_and_data;
 
 handle_event(info, {CloseTag,Socket}, StateName,
