@@ -155,9 +155,7 @@ share(Is0) ->
     Is = eliminate_fallthroughs(Is0, []),
     share_1(Is, #{}, [], []).
 
-share_1([{label,_}=Lbl|Is], Dict, [], Acc) ->
-    share_1(Is, Dict, [], [Lbl|Acc]);
-share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
+share_1([{label,L}=Lbl|Is], Dict0, [_|_]=Seq, Acc) ->
     case maps:find(Seq, Dict0) of
 	error ->
 	    Dict = maps:put(Seq, L, Dict0),
