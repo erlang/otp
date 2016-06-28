@@ -156,7 +156,9 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp)
 	HEAP_TOP(env->proc) = env->hp;
     }
     else {
-	env->heap_frag->used_size = hp - env->heap_frag->mem;
+	Uint usz = env->hp - env->heap_frag->mem;
+	env->proc->mbuf_sz += usz - env->heap_frag->used_size;
+	env->heap_frag->used_size = usz;
 	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
     hp = erts_heap_alloc(env->proc, need, MIN_HEAP_FRAG_SZ);
@@ -308,11 +310,14 @@ static void full_flush_env(ErlNifEnv* env)
 	    HEAP_TOP(c_p) = env->hp;
 	}
 	else {
+	    Uint usz;
 	    ASSERT(env->hp_end != HEAP_LIMIT(c_p));
 	    ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);
 
 	    HEAP_TOP(c_p) = HEAP_TOP(env->proc);
-	    env->heap_frag->used_size = env->hp - env->heap_frag->mem;
+	    usz = env->hp - env->heap_frag->mem;
+	    env->proc->mbuf_sz += usz - env->heap_frag->used_size;
+	    env->heap_frag->used_size = usz;
 
 	    ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
 
@@ -394,9 +399,12 @@ static void flush_env(ErlNifEnv* env)
 	HEAP_TOP(env->proc) = env->hp;
     }
     else {
+	Uint usz;
 	ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
 	ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);
-	env->heap_frag->used_size = env->hp - env->heap_frag->mem;
+	usz = env->hp - env->heap_frag->mem;
+	env->proc->mbuf_sz += usz - env->heap_frag->used_size;
+	env->heap_frag->used_size = usz;
 	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
 }

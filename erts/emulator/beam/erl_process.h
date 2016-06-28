@@ -1328,10 +1328,13 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp);
 ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 {
     ErlHeapFragment* hf = MBUF(p);
+    Uint sz;
 
     ASSERT(hf!=NULL && (hp - hf->mem < hf->alloc_size));
 
-    hf->used_size = hp - hf->mem;
+    sz = hp - hf->mem;
+    p->mbuf_sz -= hf->used_size - sz;
+    hf->used_size = sz;
 }	
 #endif /* inline */
 

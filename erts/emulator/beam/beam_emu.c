@@ -1960,6 +1960,8 @@ void process_main(void)
      ErtsMessage* msgp;
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
+     ERTS_CHK_MBUF_SZ(c_p);
+
      PreFetch(0, next);
      msgp = PEEK_MESSAGE(c_p);
 
@@ -2047,6 +2049,7 @@ void process_main(void)
      }
 
      ERTS_DBG_CHK_REDS(c_p, FCALLS);
+     ERTS_CHK_MBUF_SZ(c_p);
 
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2583,7 +2586,9 @@ do {						\
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2614,7 +2619,9 @@ do {						\
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2644,7 +2651,9 @@ do {						\
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2685,7 +2694,9 @@ do {						\
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2728,7 +2739,9 @@ do {						\
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2766,7 +2779,9 @@ do {						\
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2793,7 +2808,9 @@ do {						\
 	bf = (BifFunction) Arg(0);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, tmp_reg);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2843,7 +2860,9 @@ do {						\
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	live_hf_end = c_p->mbuf;
+	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, I);
+	ERTS_CHK_MBUF_SZ(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_HOLE_CHECK(c_p);
@@ -3556,11 +3575,13 @@ do {						\
 		ASSERT(c_p->scheduler_data);
 #endif
 		live_hf_end = c_p->mbuf;
+		ERTS_CHK_MBUF_SZ(c_p);
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
 		    nif_bif_result = THE_NON_VALUE;
 		erts_post_nif(&env);
+		ERTS_CHK_MBUF_SZ(c_p);
 
 		PROCESS_MAIN_CHK_LOCKS(c_p);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -3612,7 +3633,9 @@ do {						\
 		Eterm (*bf)(Process*, Eterm*, BeamInstr*) = vbf;
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 		live_hf_end = c_p->mbuf;
+		ERTS_CHK_MBUF_SZ(c_p);
 		nif_bif_result = (*bf)(c_p, reg, I);
+		ERTS_CHK_MBUF_SZ(c_p);
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
 		       is_non_value(nif_bif_result));
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);

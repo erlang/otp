@@ -517,6 +517,8 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
 	erts_proc_sched_data((p))->virtual_reds += vreds;
     }
 
+    ERTS_CHK_MBUF_SZ(p);
+
     ASSERT(CONTEXT_REDS >= erts_proc_sched_data(p)->virtual_reds);
     return reds_left;
 }
@@ -526,6 +528,8 @@ young_gen_usage(Process *p)
 {
     Uint hsz;
     Eterm *aheap;
+
+    ERTS_CHK_MBUF_SZ(p);
 
     hsz = p->mbuf_sz;
 
@@ -589,6 +593,8 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
+
+    ERTS_CHK_MBUF_SZ(p);
 
     ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls)
 	   >= erts_proc_sched_data(p)->virtual_reds);
