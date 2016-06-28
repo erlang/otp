@@ -106,8 +106,8 @@
 -type common_reason() ::  'econn' | 'eclosed' | term().
 -type file_write_error_reason() :: term(). % See file:write for more info
 
-%%-define(DBG(F,A), 'n/a').
--define(DBG(F,A), io:format(F,A)).
+-define(DBG(F,A), 'n/a').
+%%-define(DBG(F,A), io:format(F,A)).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
