@@ -528,13 +528,12 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
 	    end
     end;
 
-certify(internal, #certificate_request{hashsign_algorithms = HashSigns},
+certify(internal, #certificate_request{} = CertRequest,
 	#state{session = #session{own_certificate = Cert},
-	       key_algorithm = KeyExAlg,
+	       role = client,
 	       ssl_options = #ssl_options{signature_algs = SupportedHashSigns},
 	       negotiated_version = Version} = State0, Connection) ->
-
-    case ssl_handshake:select_hashsign(HashSigns, Cert, KeyExAlg, SupportedHashSigns, Version) of
+    case ssl_handshake:select_hashsign(CertRequest, Cert, SupportedHashSigns, Version) of
 	#alert {} = Alert ->
 	    Connection:handle_own_alert(Alert, Version, certify, State0);
 	NegotiatedHashSign -> 
