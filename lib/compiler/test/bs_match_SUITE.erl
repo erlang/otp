@@ -38,7 +38,8 @@
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
-	 bad_literals/1,good_literals/1,constant_propagation/1]).
+	 bad_literals/1,good_literals/1,constant_propagation/1,
+	 parse_xml/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -69,7 +70,7 @@ groups() ->
        no_partition,calling_a_binary,binary_in_map,
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
-       bad_literals,good_literals,constant_propagation]}].
+       bad_literals,good_literals,constant_propagation,parse_xml]}].
 
 
 init_per_suite(Config) ->
@@ -1450,6 +1451,26 @@ constant_propagation_c() ->
 	    <<X:Size/integer>> = Bin,
 	    X
     end.
+
+parse_xml(_Config) ->
+    <<"<?xmlX">> = do_parse_xml(<<"<?xmlX">>),
+    <<" ">> = do_parse_xml(<<"<?xml ">>),
+    ok.
+
+do_parse_xml(<<"<?xml"/utf8,Rest/binary>> = Bytes) ->
+    %% Delayed sub-binary creation is not safe. A buggy (development)
+    %% version of check_liveness_everywhere() in beam_utils would turn
+    %% on the optimization.
+    Rest1 = case is_next_char_whitespace(Rest) of
+		false ->
+		    Bytes;
+		true ->
+		    id(Rest)
+	    end,
+    id(Rest1).
+
+is_next_char_whitespace(<<C/utf8,_/binary>>) ->
+    C =:= $\s.
 
 
 check(F, R) ->
