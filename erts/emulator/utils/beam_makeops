@@ -475,7 +475,7 @@ sub emulator_output {
     print '#include "beam_load.h"', "\n";
     print "\n";
 
-    print "char tag_to_letter[] = {\n  ";
+    print "const char tag_to_letter[] = {\n  ";
     for ($i = 0; $i < length($genop_types); $i++) {
 	print "'$tag_type[$i]', ";
     }
@@ -489,7 +489,7 @@ sub emulator_output {
     # Generate code for specific ops.
     #
     my($spec_opnum) = 0;
-    print "OpEntry opc[] = {\n";
+    print "const OpEntry opc[] = {\n";
     foreach $key (sort keys %specific_op) {
 	$gen_to_spec{$key} = $spec_opnum;
 	$num_specific{$key} = @{$specific_op{$key}};
@@ -566,13 +566,22 @@ sub emulator_output {
 		$sep = ",";
 	    }
 	    $init .= "}";
-	    init_item($print_name, $init, $involves_r, $size, $pack, $sign, 0);
+	    init_item($print_name, $init, $involves_r, $size, $pack, $sign);
 	    $op_to_name[$spec_opnum] = $instr;
 	    $spec_opnum++;
 	}
     }
     print "};\n\n";
-    print "int num_instructions = $spec_opnum;\n\n";
+    print "const int num_instructions = $spec_opnum;\n\n";
+
+    #
+    # Print the array for instruction counts.
+    #
+
+    print "#ifdef ERTS_OPCODE_COUNTER_SUPPORT\n";
+    print "Uint erts_instr_count[$spec_opnum];\n";
+    print "#endif\n";
+    print "\n";
 
     #
     # Generate transformations.
@@ -584,7 +593,7 @@ sub emulator_output {
     # Print the generic instruction table.
     #
 
-    print "GenOpEntry gen_opc[] = {\n";
+    print "const GenOpEntry gen_opc[] = {\n";
     for ($i = 0; $i < @gen_opname; $i++) {
 	if ($i == $num_file_opcodes) {
 	    print "\n/*\n * Internal generic instructions.\n */\n\n";
@@ -678,8 +687,8 @@ sub emulator_output {
     print "#define TE_MAX_VARS $te_max_vars\n";
     print "\n";
 
-    print "extern char tag_to_letter[];\n";
-    print "extern Uint op_transform[];\n";
+    print "extern const char tag_to_letter[];\n";
+    print "extern const Uint op_transform[];\n";
     print "\n";
 
     for ($i = 0; $i < @op_to_name; $i++) {
@@ -708,7 +717,7 @@ sub emulator_output {
     print "#define DEFINE_COUNTING_LABELS";
     for ($i = 0; $i < @op_to_name; $i++) {
 	my($name) = $op_to_name[$i];
-	print " \\\nCountCase($name): opc[$i].count++; goto lb_$name;";
+	print " \\\nCountCase($name): erts_instr_count[$i]++; goto lb_$name;";
     }
     print "\n\n";
 
@@ -1417,7 +1426,7 @@ sub tr_gen {
     # Print the generated transformation engine.
     #
     my($offset) = 0;
-    print "Uint op_transform[] = {\n";
+    print "const Uint op_transform[] = {\n";
     foreach $key (sort keys %gen_transform) {
 	$gen_transform_offset{$key} = $offset;
 	my @instr = @{$gen_transform{$key}};

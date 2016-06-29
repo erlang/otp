@@ -35,7 +35,7 @@ typedef struct gen_op_entry {
    int transform;
 } GenOpEntry;
 
-extern GenOpEntry gen_opc[];
+extern const GenOpEntry gen_opc[];
 
 #ifdef NO_JUMP_TABLE 
 #define BeamOp(Op) (Op)

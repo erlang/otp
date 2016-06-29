@@ -146,11 +146,12 @@ typedef struct op_entry {
    int sz;			/* Number of loaded words. */
    char* pack;			/* Instructions for packing engine. */
    char* sign;			/* Signature string. */
-   unsigned count;		/* Number of times executed. */
 } OpEntry;
 
-extern OpEntry opc[];		/* Description of all instructions. */
-extern int num_instructions;	/* Number of instruction in opc[]. */
+extern const OpEntry opc[];	/* Description of all instructions. */
+extern const int num_instructions; /* Number of instruction in opc[]. */
+
+extern Uint erts_instr_count[];
 
 /* some constants for various table sizes etc */
 
