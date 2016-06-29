@@ -23,7 +23,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 beam_validator/1,trunc_and_friends/1]).
+	 beam_validator/1,trunc_and_friends/1,cover_safe_bifs/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -35,7 +35,8 @@ all() ->
 groups() ->
     [{p,[parallel],
       [beam_validator,
-       trunc_and_friends
+       trunc_and_friends,
+       cover_safe_bifs
       ]}].
 
 init_per_suite(Config) ->
@@ -104,3 +105,18 @@ trunc_template(Func, Bif) ->
         try begin _@Bif@(a), ok end
         catch error:badarg -> ok end,
         ok.").
+
+cover_safe_bifs(Config) ->
+    _ = get(),
+    _ = get_keys(a),
+    _ = group_leader(),
+    _ = is_alive(),
+    _ = min(Config, []),
+    _ = nodes(),
+    _ = erlang:ports(),
+    _ = pre_loaded(),
+    _ = processes(),
+    _ = registered(),
+    _ = term_to_binary(Config),
+
+    ok.
