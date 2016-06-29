@@ -5428,31 +5428,14 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 static BifFunction
 translate_gc_bif(void* gcf)
 {
-    if (gcf == erts_gc_length_1) {
-	return length_1;
-    } else if (gcf == erts_gc_size_1) {
-	return size_1;
-    } else if (gcf == erts_gc_bit_size_1) {
-	return bit_size_1;
-    } else if (gcf == erts_gc_byte_size_1) {
-	return byte_size_1;
-    } else if (gcf == erts_gc_map_size_1) {
-	return map_size_1;
-    } else if (gcf == erts_gc_abs_1) {
-	return abs_1;
-    } else if (gcf == erts_gc_float_1) {
-	return float_1;
-    } else if (gcf == erts_gc_round_1) {
-	return round_1;
-    } else if (gcf == erts_gc_trunc_1) {
-	return round_1;
-    } else if (gcf == erts_gc_binary_part_2) {
-	return binary_part_2;
-    } else if (gcf == erts_gc_binary_part_3) {
-	return binary_part_3;
-    } else {
-	erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
+    const ErtsGcBif* p;
+
+    for (p = erts_gc_bifs; p->bif != 0; p++) {
+	if (p->gc_bif == gcf) {
+	    return p->bif;
+	}
     }
+    erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
 }
 
 /*

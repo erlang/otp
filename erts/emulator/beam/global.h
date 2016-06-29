@@ -1427,18 +1427,6 @@ Eterm erts_gc_bor(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_bxor(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_bnot(Process* p, Eterm* reg, Uint live);
 
-Eterm erts_gc_length_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_binary_part_3(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live);
-
 Uint erts_current_reductions(Process* current, Process *p);
 
 int erts_print_system_version(int to, void *arg, Process *c_p);

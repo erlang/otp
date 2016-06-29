@@ -36,7 +36,6 @@ MODULES= \
 	map_SUITE \
 	match_SUITE \
 	misc_SUITE \
-	num_bif_SUITE \
 	receive_SUITE \
 	record_SUITE \
 	regressions_SUITE \
@@ -67,7 +66,6 @@ NO_OPT= \
 	map \
 	match \
 	misc \
-	num_bif \
 	receive \
 	record \
 	trycatch
@@ -78,6 +76,7 @@ INLINE= \
 	beam_block \
 	beam_bool \
 	beam_utils \
+	bif \
 	bs_bincomp \
 	bs_bit_binaries \
 	bs_construct \
@@ -91,7 +90,6 @@ INLINE= \
 	map \
 	match \
 	misc \
-	num_bif \
 	receive \
 	record
 

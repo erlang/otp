@@ -61,42 +61,26 @@
       Name :: atom(),
       Arity :: arity().
 
+%% Please keep the alphabetical order.
 guard_bif(abs, 1) -> true;
-guard_bif(float, 1) -> true;
-guard_bif(trunc, 1) -> true;
-guard_bif(round, 1) -> true;
-guard_bif(length, 1) -> true;
-guard_bif(hd, 1) -> true;
-guard_bif(tl, 1) -> true;
-guard_bif(size, 1) -> true;
+guard_bif(binary_part, 2) -> true;
+guard_bif(binary_part, 3) -> true;
 guard_bif(bit_size, 1) -> true;
 guard_bif(byte_size, 1) -> true;
 guard_bif(element, 2) -> true;
-guard_bif(self, 0) -> true;
+guard_bif(float, 1) -> true;
+guard_bif(hd, 1) -> true;
+guard_bif(length, 1) -> true;
 guard_bif(map_size, 1) -> true;
 guard_bif(node, 0) -> true;
 guard_bif(node, 1) -> true;
+guard_bif(round, 1) -> true;
+guard_bif(self, 0) -> true;
+guard_bif(size, 1) -> true;
+guard_bif(tl, 1) -> true;
+guard_bif(trunc, 1) -> true;
 guard_bif(tuple_size, 1) -> true;
-guard_bif(is_atom, 1) -> true;
-guard_bif(is_binary, 1) -> true;
-guard_bif(is_bitstring, 1) -> true;
-guard_bif(is_boolean, 1) -> true;
-guard_bif(is_float, 1) -> true;
-guard_bif(is_function, 1) -> true;
-guard_bif(is_function, 2) -> true;
-guard_bif(is_integer, 1) -> true;
-guard_bif(is_list, 1) -> true;
-guard_bif(is_map, 1) -> true;
-guard_bif(is_number, 1) -> true;
-guard_bif(is_pid, 1) -> true;
-guard_bif(is_port, 1) -> true;
-guard_bif(is_reference, 1) -> true;
-guard_bif(is_tuple, 1) -> true;
-guard_bif(is_record, 2) -> true;
-guard_bif(is_record, 3) -> true;
-guard_bif(binary_part, 2) -> true;
-guard_bif(binary_part, 3) -> true;
-guard_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
+guard_bif(Name, A) -> new_type_test(Name, A).
 
 %%  Erlang type tests.
 -spec type_test(Name, Arity) -> boolean() when
@@ -109,10 +93,11 @@ type_test(Name, Arity) ->
 %%  Erlang new-style type tests.
 -spec new_type_test(Name::atom(), Arity::arity()) -> boolean().
 
+%% Please keep the alphabetical order.
 new_type_test(is_atom, 1) -> true;
-new_type_test(is_boolean, 1) -> true;
 new_type_test(is_binary, 1) -> true;
 new_type_test(is_bitstring, 1) -> true;
+new_type_test(is_boolean, 1) -> true;
 new_type_test(is_float, 1) -> true;
 new_type_test(is_function, 1) -> true;
 new_type_test(is_function, 2) -> true;
@@ -122,10 +107,10 @@ new_type_test(is_map, 1) -> true;
 new_type_test(is_number, 1) -> true;
 new_type_test(is_pid, 1) -> true;
 new_type_test(is_port, 1) -> true;
-new_type_test(is_reference, 1) -> true;
-new_type_test(is_tuple, 1) -> true;
 new_type_test(is_record, 2) -> true;
 new_type_test(is_record, 3) -> true;
+new_type_test(is_reference, 1) -> true;
+new_type_test(is_tuple, 1) -> true;
 new_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 %%  Erlang old-style type tests.
