@@ -236,6 +236,8 @@ format_error({epp,E}) ->
     epp:format_error(E);
 format_error(write_error) ->
     "error writing file";
+format_error({write_error, Error}) ->
+    io_lib:format("error writing file: ~ts", [file:format_error(Error)]);
 format_error({rename,From,To,Error}) ->
     io_lib:format("failed to rename ~ts to ~ts: ~ts",
 		  [From,To,file:format_error(Error)]);
@@ -1206,7 +1208,7 @@ makedep_output(#compile{code=Code,options=Opts,ofile=Ofile}=St) ->
 		end,
 		{ok,St}
 	    catch
-		exit:_ ->
+		error:_ ->
 		    %% Couldn't write to output Makefile.
 		    Err = {St#compile.ifile,[{none,?MODULE,write_error}]},
 		    {error,St#compile{errors=St#compile.errors++[Err]}}
@@ -1479,8 +1481,8 @@ save_binary_1(St) ->
 			 end,
 		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end;
-	{error,_Error} ->
-	    Es = [{Tfile,[{none,compile,write_error}]}],
+	{error,Error} ->
+	    Es = [{Tfile,[{none,compile,{write_error,Error}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
@@ -1628,8 +1630,8 @@ listing(LFun, Ext, St) ->
 	    LFun(Lf, Code),
 	    ok = file:close(Lf),
 	    {ok,St};
-	{error,_Error} ->
-	    Es = [{Lfile,[{none,compile,write_error}]}],
+	{error,Error} ->
+	    Es = [{Lfile,[{none,compile,{write_error,Error}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
