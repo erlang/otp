@@ -32,6 +32,20 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix a map related bug.</p>
+          <p>
+	    Own Id: OTP-13709 Aux Id: ERL-177, PR-1115 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

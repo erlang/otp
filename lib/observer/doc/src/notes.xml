@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a crash happening when observing another node, who
+	    have a different number of schedulers than the current
+	    one.</p>
+          <p>
+	    Own Id: OTP-13702 Aux Id: ERL-171 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.2</title>
 
     <section><title>Improvements and New Features</title>
