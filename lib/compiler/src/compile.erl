@@ -43,6 +43,10 @@
 
 -type abstract_code() :: [erl_parse:abstract_form()].
 
+%% Internal representations used for 'from_asm' and 'from_beam' compilation can
+%% also be valid, but have no relevant types defined.
+-type forms() :: abstract_code() | cerl:c_module().
+
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
 -type err_info() :: {erl_anno:line() | 'none',
@@ -88,7 +92,7 @@ file(File, Opt) ->
 
 forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
 
--spec forms(abstract_code(), [option()] | option()) -> comp_ret().
+-spec forms(forms(), [option()] | option()) -> comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts++env_default_opts()]);
@@ -116,7 +120,7 @@ noenv_file(File, Opts) when is_list(Opts) ->
 noenv_file(File, Opt) ->
     noenv_file(File, [Opt|?DEFAULT_OPTIONS]).
 
--spec noenv_forms(abstract_code(), [option()] | option()) -> comp_ret().
+-spec noenv_forms(forms(), [option()] | option()) -> comp_ret().
 
 noenv_forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts]);
