@@ -1664,10 +1664,12 @@ t_map(Pairs0, DefK0, DefV0) ->
   %% define(DEBUG, true).
   try
     validate_map_elements(Pairs)
-  catch error:badarg ->      error(badarg,      [Pairs0,DefK0,DefV0]);
-	error:{badarg, E} -> error({badarg, E}, [Pairs0,DefK0,DefV0])
+  catch error:badarg -> error(badarg, [Pairs0,DefK0,DefV0])
   end,
-  ?map(Pairs, DefK, DefV).
+  case map_pairs_are_none(Pairs) of
+    true -> ?none;
+    false -> ?map(Pairs, DefK, DefV)
+  end.
 
 normalise_map_optionals([], _, _) -> [];
 normalise_map_optionals([E={K,?opt,?none}|T], DefK, DefV) ->
@@ -1684,7 +1686,6 @@ normalise_map_optionals([E={K,?opt,V}|T], DefK, DefV) ->
 normalise_map_optionals([E|T], DefK, DefV) ->
   [E|normalise_map_optionals(T, DefK, DefV)].
 
-validate_map_elements([{_,?mand,?none}|_]) -> error({badarg, none_in_mand});
 validate_map_elements([{K1,_,_}|Rest=[{K2,_,_}|_]]) ->
   case is_singleton_type(K1) andalso K1 < K2 of
     false -> error(badarg);
@@ -1696,6 +1697,10 @@ validate_map_elements([{K,_,_}]) ->
     true -> true
   end;
 validate_map_elements([]) -> true.
+
+map_pairs_are_none([]) -> false;
+map_pairs_are_none([{_,?mand,?none}|_]) -> true;
+map_pairs_are_none([_|Ps]) -> map_pairs_are_none(Ps).
 
 -spec t_is_map(erl_type()) -> boolean().
 
@@ -2833,12 +2838,7 @@ t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
 	 %% becomes mandatory in the infinumum
 	 (K, _, V1, _, V2) -> {K, ?mand, t_inf(V1, V2)}
       end, A, B),
-  %% If the infinimum of any mandatory values is ?none, the entire map infinimum
-  %% is ?none.
-  case lists:any(fun({_,?mand,?none})->true; ({_,_,_}) -> false end, Pairs) of
-    true -> t_none();
-    false -> t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV))
-  end;
+  t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV));
 t_inf(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2), _Opaques) ->
   ?matchstate(t_inf(Pres1, Pres2), t_inf(Slots1, Slots2));
 t_inf(?nil, ?nil, _Opaques) -> ?nil;
