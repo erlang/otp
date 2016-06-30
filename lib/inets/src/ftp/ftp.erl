@@ -106,8 +106,8 @@
 -type common_reason() ::  'econn' | 'eclosed' | term().
 -type file_write_error_reason() :: term(). % See file:write for more info
 
-%%-define(DBG(F,A), 'n/a').
--define(DBG(F,A), io:format(F,A)).
+-define(DBG(F,A), 'n/a').
+%%-define(DBG(F,A), io:format(F,A)).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -2099,7 +2099,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
 
 %%--------------------------------------------------------------------------
 %% Default
-handle_ctrl_result({Status, Lines}, #state{client = From} = State) 
+handle_ctrl_result({Status, _Lines}, #state{client = From} = State) 
   when From =/= undefined ->
     ctrl_result_response(Status, State, {error, Status}).
 

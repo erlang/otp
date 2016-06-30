@@ -746,7 +746,7 @@ read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
 	    message(Warnings, no_debug_info, [File]),
 	    no;
 	{ok, M, Data, UnresCalls0}  ->
-	    message(Verbose, done, [File]),
+	    message(Verbose, done_file, [File]),
             %% Remove duplicates. Identical unresolved calls on the
             %% same line are counted as _one_ unresolved call.
             UnresCalls = usort(UnresCalls0),
@@ -1842,6 +1842,8 @@ message(true, What, Arg) ->
 	set_up ->
 	    io:format("Setting up...", Arg);
 	done ->
+	    io:format("done~n", Arg);
+	done_file ->
 	    io:format("done reading ~ts~n", Arg);
 	error ->
 	    io:format("error~n", Arg);

@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A memory allocation bug in <c>group_leader/2</c> could
+	    cause an emulator crash when garbage collecting a process
+	    that had been assigned a remote group leader. This bug
+	    was introduced in ERTS version 8.0.</p>
+          <p>
+	    Own Id: OTP-13716</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

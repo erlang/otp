@@ -4305,8 +4305,9 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	    else {
 		locks &= ~ERTS_PROC_LOCK_STATUS;
 		erts_smp_proc_unlock(new_member, ERTS_PROC_LOCK_STATUS);
-		if (erts_smp_atomic32_read_nob(&new_member->state)
-		    & !(ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+		if (new_member == BIF_P
+		    || !(erts_smp_atomic32_read_nob(&new_member->state)
+			 & (ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS))) {
 		    new_member->group_leader = STORE_NC_IN_PROC(new_member,
 								BIF_ARG_1);
 		}
@@ -4326,6 +4327,7 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 							BIF_ARG_1);
 		    bp->next = new_member->mbuf;
 		    new_member->mbuf = bp;
+		    new_member->mbuf_sz += bp->used_size;
 		}
 	    }
 	}

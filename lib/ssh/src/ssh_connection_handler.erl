@@ -1026,13 +1026,13 @@ handle_event({call,From}, get_print_info, StateName, D) ->
     {keep_state_and_data, [{reply,From,Reply}]};
 
 handle_event({call,From}, {connection_info, Options}, _, D) ->
-    Info = ssh_info(Options, D, []),
+    Info = fold_keys(Options, fun conn_info/2, D),
     {keep_state_and_data, [{reply,From,Info}]};
 
 handle_event({call,From}, {channel_info,ChannelId,Options}, _, D) ->
     case ssh_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{} = Channel ->
-	    Info = ssh_channel_info(Options, Channel, []),
+	    Info = fold_keys(Options, fun chann_info/2, Channel),
 	    {keep_state_and_data, [{reply,From,Info}]};
 	undefined ->
 	    {keep_state_and_data, [{reply,From,[]}]}
@@ -1226,8 +1226,9 @@ handle_event(internal, prepare_next_packet, _, D) ->
 	Sz when Sz >= Enough ->
 	    self() ! {D#data.transport_protocol, D#data.socket, <<>>};
 	_ ->
-	    inet:setopts(D#data.socket, [{active, once}])
+	    ok
     end,
+    inet:setopts(D#data.socket, [{active, once}]),
     keep_state_and_data;
 
 handle_event(info, {CloseTag,Socket}, StateName,
@@ -1335,12 +1336,10 @@ terminate(shutdown, StateName, State0) ->
     State = send_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
 					 description = "Application shutdown"},
 		     State0),
-timer:sleep(400),  %% FIXME!!! gen_tcp:shutdown instead
     finalize_termination(StateName, State);
 
 %% terminate({shutdown,Msg}, StateName, State0) when is_record(Msg,ssh_msg_disconnect)->
 %%     State = send_msg(Msg, State0),
-%% timer:sleep(400),  %% FIXME!!! gen_tcp:shutdown instead
 %%     finalize_termination(StateName, Msg, State);
 
 terminate({shutdown,_R}, StateName, State) ->
@@ -1655,7 +1654,6 @@ new_channel_id(#data{connection_state = #connection{channel_id_seed = Id} =
 disconnect(Msg=#ssh_msg_disconnect{description=Description}, _StateName, State0) ->
     State = send_msg(Msg, State0),
     disconnect_fun(Description, State),
-timer:sleep(400),
     {stop, {shutdown,Description}, State}.
 
 %%%----------------------------------------------------------------
@@ -1664,43 +1662,43 @@ counterpart_versions(NumVsn, StrVsn, #ssh{role = server} = Ssh) ->
 counterpart_versions(NumVsn, StrVsn, #ssh{role = client} = Ssh) ->
     Ssh#ssh{s_vsn = NumVsn , s_version = StrVsn}.
 
-ssh_info([], _State, Acc) ->
-    Acc;
-ssh_info([client_version | Rest], #data{ssh_params = #ssh{c_vsn = IntVsn,
-							   c_version = StringVsn}} = State, Acc) ->
-    ssh_info(Rest, State, [{client_version, {IntVsn, StringVsn}} | Acc]);
+%%%----------------------------------------------------------------
+conn_info(client_version, #data{ssh_params=S}) -> {S#ssh.c_vsn, S#ssh.c_version};
+conn_info(server_version, #data{ssh_params=S}) -> {S#ssh.s_vsn, S#ssh.s_version};
+conn_info(peer,           #data{ssh_params=S}) -> S#ssh.peer;
+conn_info(user,                             D) -> D#data.auth_user;
+conn_info(sockname, D) -> {ok, SockName} = inet:sockname(D#data.socket),
+			  SockName;
+%% dbg options ( = not documented):
+conn_info(socket, D) -> D#data.socket;
+conn_info(chan_ids, D) -> 
+    ssh_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
+				    [Id | Acc]
+			    end, [], cache(D)).
 
-ssh_info([server_version | Rest], #data{ssh_params =#ssh{s_vsn = IntVsn,
-							  s_version = StringVsn}} = State, Acc) ->
-    ssh_info(Rest, State, [{server_version, {IntVsn, StringVsn}} | Acc]);
-ssh_info([peer | Rest], #data{ssh_params = #ssh{peer = Peer}} = State, Acc) ->
-    ssh_info(Rest, State, [{peer, Peer} | Acc]);
-ssh_info([sockname | Rest], #data{socket = Socket} = State, Acc) ->
-    {ok, SockName} = inet:sockname(Socket),
-   ssh_info(Rest, State, [{sockname, SockName}|Acc]);
-ssh_info([user | Rest], #data{auth_user = User} = State, Acc) ->
-    ssh_info(Rest, State, [{user, User}|Acc]);
-ssh_info([ _ | Rest], State, Acc) ->
-    ssh_info(Rest, State, Acc).
+%%%----------------------------------------------------------------
+chann_info(recv_window, C) ->
+    {{win_size,    C#channel.recv_window_size},
+     {packet_size, C#channel.recv_packet_size}};
+chann_info(send_window, C) ->
+    {{win_size,    C#channel.send_window_size},
+     {packet_size, C#channel.send_packet_size}};
+%% dbg options ( = not documented):
+chann_info(pid, C) ->
+    C#channel.user.
 
+%%%----------------------------------------------------------------
+%% Assisting meta function for the *_info functions
+fold_keys(Keys, Fun, Extra) ->
+    lists:foldr(fun(Key, Acc) ->
+			try Fun(Key, Extra) of
+			    Value -> [{Key,Value}|Acc]
+			catch
+			    _:_ -> Acc
+			end
+		end, [], Keys).
 
-ssh_channel_info([], _, Acc) ->
-    Acc;
-
-ssh_channel_info([recv_window | Rest], #channel{recv_window_size = WinSize,
-						   recv_packet_size = Packsize
-						  } = Channel, Acc) ->
-    ssh_channel_info(Rest, Channel, [{recv_window, {{win_size, WinSize},
-						      {packet_size, Packsize}}} | Acc]);
-ssh_channel_info([send_window | Rest], #channel{send_window_size = WinSize,
-						send_packet_size = Packsize
-					       } = Channel, Acc) ->
-    ssh_channel_info(Rest, Channel, [{send_window, {{win_size, WinSize},
-						      {packet_size, Packsize}}} | Acc]);
-ssh_channel_info([ _ | Rest], Channel, Acc) ->
-    ssh_channel_info(Rest, Channel, Acc).
-
-
+%%%----------------------------------------------------------------
 log_error(Reason) ->
     Report = io_lib:format("Erlang ssh connection handler failed with reason:~n"
 			   "    ~p~n"
@@ -1708,7 +1706,6 @@ log_error(Reason) ->
 			   "    ~p~n",
 			   [Reason, erlang:get_stacktrace()]),
     error_logger:error_report(Report).
-
 
 %%%----------------------------------------------------------------
 not_connected_filter({connection_reply, _Data}) -> true;

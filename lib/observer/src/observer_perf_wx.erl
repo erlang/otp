@@ -235,12 +235,14 @@ terminate(_Event, #state{appmon=Pid}) ->
 code_change(_, _, State) ->
     State.
 
-restart_fetcher(Node, #state{appmon=Old, panel=Panel, time=#ti{fetch=Freq}=Ti}=State) ->
+restart_fetcher(Node, #state{appmon=Old, panel=Panel, time=#ti{fetch=Freq}=Ti, wins=Wins0}=State) ->
     catch Old ! exit,
     Me = self(),
     Pid = spawn_link(Node, observer_backend, fetch_stats, [Me, round(1000/Freq)]),
     wxWindow:refresh(Panel),
-    precalc(State#state{active=true, appmon=Pid, samples=reset_data(), time=Ti#ti{tick=0}}).
+    Wins = [W#win{state=undefined} || W <- Wins0],
+    precalc(State#state{active=true, appmon=Pid, samples=reset_data(),
+			wins=Wins, time=Ti#ti{tick=0}}).
 
 reset_data() ->
     {0, queue:new()}.
@@ -253,18 +255,25 @@ add_data(Stats, {N, Q}, Wins, _, Active) ->
 
 add_data_1([#win{state={_,St}}|_]=Wins0, Last, N, {Drop, Q}, Active)
   when St /= undefined ->
-    {Wins, Stat} =
-	lists:mapfoldl(fun(Win0, Entry) ->
-			       {Win1,Stat} = add_data_2(Win0, Last, Entry),
-			       case Active of
-				   true ->
-				       Win = add_data_3(Win1, N, Drop, Stat, Q),
-				       {Win, Stat};
-				   false ->
-				       {Win1, Stat}
-			       end
-		       end, #{}, Wins0),
-    {Wins, {N,queue:in(Stat#{}, Q)}};
+    try
+	{Wins, Stat} =
+	    lists:mapfoldl(fun(Win0, Entry) ->
+				   {Win1,Stat} = add_data_2(Win0, Last, Entry),
+				   case Active of
+				       true ->
+					   Win = add_data_3(Win1, N, Drop, Stat, Q),
+					   {Win, Stat};
+				       false ->
+					   {Win1, Stat}
+				   end
+			   end, #{}, Wins0),
+	{Wins, {N,queue:in(Stat#{}, Q)}}
+    catch no_scheduler_change ->
+	    {[Win#win{state=init_data(Id, Last),
+		      info = info(Id, Last)}
+	      || #win{name=Id}=Win <- Wins0], {0,queue:new()}}
+    end;
+
 add_data_1(Wins, Stats, 1, {_, Q}, _) ->
     {[Win#win{state=init_data(Id, Stats),
 	      info = info(Id, Stats)}
@@ -409,7 +418,8 @@ collect_data(utilz, MemInfo, Max) ->
 
 calc_delta([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|calc_delta(Ss, Ps)];
-calc_delta([], []) -> [].
+calc_delta([], []) -> [];
+calc_delta(_, _) -> throw(no_scheduler_change).
 
 precalc(#state{samples=Data0, paint=Paint, time=Ti, wins=Wins0}=State) ->
     Wins = [precalc(Ti, Data0, Paint, Win) || Win <- Wins0],

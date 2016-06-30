@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3</title>
+  <section><title>Inets 6.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A debug message was accidently left enabled in the ftp
+	    client.</p>
+          <p>
+	    Own Id: OTP-13712 Aux Id: seq13143 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
