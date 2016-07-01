@@ -154,7 +154,7 @@ do_write_agent_conf(Fd, {intAgentMaxPacketSize = Tag, Val} ) ->
 do_write_agent_conf(Fd, {snmpEngineMaxMessageSize = Tag, Val} ) ->
     io:format(Fd, "{~w, ~w}.~n", [Tag, Val]);
 do_write_agent_conf(Fd, {snmpEngineID = Tag, Val} ) ->
-    io:format(Fd, "{~w, \"~s\"}.~n", [Tag, Val]);
+    io:format(Fd, "{~w, ~p}.~n", [Tag, Val]);
 do_write_agent_conf(_Fd, Crap) ->
     error({bad_agent_config, Crap}).
 
@@ -758,9 +758,9 @@ do_write_usm_conf(
    PrivP, PrivKeyC, OwnPrivKeyC,
    Public, AuthKey, PrivKey}) ->
     io:format(Fd, "{", []),
-    io:format(Fd, "\"~s\", ", [EngineID]),
-    io:format(Fd, "\"~s\", ", [UserName]),
-    io:format(Fd, "\"~s\", ", [SecName]),
+    io:format(Fd, "~p, ", [EngineID]),
+    io:format(Fd, "~p, ", [UserName]),
+    io:format(Fd, "~p, ", [SecName]),
     io:format(Fd, "~w, ",     [Clone]),
     io:format(Fd, "~w, ",     [AuthP]),
     do_write_usm2(Fd, AuthKeyC, ", "),
@@ -859,15 +859,15 @@ do_write_vacm_conf(
   {vacmSecurityToGroup,
    SecModel, SecName, GroupName}) ->
     io:format(
-      Fd, "{vacmSecurityToGroup, ~w, \"~s\", \"~s\"}.~n",
+      Fd, "{vacmSecurityToGroup, ~w, ~p, ~p}.~n",
       [SecModel, SecName, GroupName]);
 do_write_vacm_conf(
   Fd,
   {vacmAccess,
    GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV}) ->
     io:format(
-      Fd, "{vacmAccess, \"~s\", \"~s\", ~w, ~w, ~w, "
-      "\"~s\", \"~s\", \"~s\"}.~n",
+      Fd, "{vacmAccess, ~p, ~p, ~w, ~w, ~w, "
+      "~p, ~p, ~p}.~n",
       [GroupName, Prefix, SecModel, SecLevel,
        Match, RV, WV, NV]);
 do_write_vacm_conf(
@@ -875,7 +875,7 @@ do_write_vacm_conf(
   {vacmViewTreeFamily,
    ViewIndex, ViewSubtree, ViewStatus, ViewMask}) ->
     io:format(
-      Fd, "{vacmViewTreeFamily, \"~s\", ~w, ~w, ~w}.~n",
+      Fd, "{vacmViewTreeFamily, ~p, ~w, ~w, ~w}.~n",
       [ViewIndex, ViewSubtree, ViewStatus, ViewMask]);
 do_write_vacm_conf(_Fd, Crap) ->
     error({bad_vacm_config, Crap}).
