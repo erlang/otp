@@ -1037,8 +1037,7 @@ cd(Config)  when is_list(Config) ->
     Cmd = Program ++ " -pz " ++ DataDir ++
     " -noshell -s port_test pwd -s erlang halt",
     _ = open_port({spawn, Cmd},
-                  [{cd, TestDir},
-                   {line, 256}]),
+                  [{cd, TestDir}, {line, 256}]),
     receive
         {_, {data, {eol, String}}} ->
             case filename_equal(String, TestDir) of
@@ -1064,7 +1063,29 @@ cd(Config)  when is_list(Config) ->
         Other3 ->
             ct:fail({env, Other3})
     end,
-    ok.
+
+    InvalidDir = filename:join(DataDir, "invaliddir"),
+    try open_port({spawn, Cmd},
+                  [{cd, InvalidDir}, exit_status, {line, 256}]) of
+        _ ->
+            receive
+                {_, {exit_status, _}} ->
+                    ok;
+                Other4 ->
+                    ct:fail({env, Other4})
+            end
+    catch error:eacces ->
+            %% This happens on Windows
+            ok
+    end,
+
+    %% Check that there are no lingering messages
+    receive
+        Other5 ->
+            ct:fail({env, Other5})
+    after 10 ->
+            ok
+    end.
 
 %% Test that an emulator that has set it's cwd to
 %% something other then when it started, can use
