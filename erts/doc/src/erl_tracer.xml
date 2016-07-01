@@ -248,7 +248,7 @@
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag_gc">
-          trace_tag_garbage_collection()</seealso></v>
+          trace_tag_gc()</seealso></v>
         <v>TracerState = term()</v>
         <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
         <v>Result = trace | discard | remove</v>
@@ -434,7 +434,7 @@
           specified.</p>
         <p>For more information on what <c>Label</c> and <c>SeqTraceInfo</c>
           can be, see <seealso marker="kernel:seq_trace">
-          <c>kernel:seq_trace</c></seealso>.</p>
+          <c>kernel:seq_trace(3)</c></seealso>.</p>
       </desc>
     </func>
 

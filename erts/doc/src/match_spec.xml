@@ -142,7 +142,7 @@
     </list>
 
     <p>A match specification  used in
-      <seealso marker="stdlib:ets"><c>stdlib:ets</c></seealso>
+      <seealso marker="stdlib:ets"><c>stdlib:ets(3)</c></seealso>
       can be described in the following <em>informal</em> grammar:</p>
 
     <list type="bulleted">
@@ -436,9 +436,8 @@
               Erlang term on <c>stdout</c>, which is seldom what is wanted.
               Returns <c><![CDATA[true]]></c> and can only be used in the
               <c><![CDATA[MatchBody]]></c> part when tracing.</p>
-          <marker id="get_tcw"></marker>
           </item>
-        <tag><c>get_tcw</c></tag>
+        <tag><marker id="get_tcw"/><c>get_tcw</c></tag>
         <item>
           <p>Takes no argument and returns the value of the node's trace
             control word. The same is done by
@@ -447,9 +446,8 @@
             generic trace control. The trace control word can be tested and
             set both from within trace match specifications and with BIFs.
             This call is only allowed when tracing.</p>
-        <marker id="set_tcw"></marker>
         </item>
-        <tag><c>set_tcw</c></tag>
+        <tag><marker id="set_tcw"/><c>set_tcw</c></tag>
         <item>
           <p>Takes one unsigned integer argument, sets the value of
             the node's trace control word to the value of the argument,
@@ -481,7 +479,7 @@
 
     <note>
       <p>All "function calls" must be tuples, even if they take no arguments.
-        The value of <c><![CDATA[self]]></c> is  the atom()
+        The value of <c><![CDATA[self]]></c> is the atom()
         <c><![CDATA[self]]></c>, but the value of <c><![CDATA[{self}]]></c> is
         the pid() of the current process.</p>
     </note>
@@ -770,7 +768,7 @@
  {'_', [], [{set_seq_token, label, 4711}]}]
     ]]></code>
 
-    <p>As can be noted above, the parameter list can be matched aginst a
+    <p>As can be noted above, the parameter list can be matched against a
       single <c><![CDATA[MatchVariable]]></c> or an <c><![CDATA['_']]></c>.
       To replace the whole parameter list with a single variable is a special
       case. In all other cases the <c><![CDATA[MatchHead]]></c> must be a
@@ -864,8 +862,8 @@
   ['$_']}]
     ]]></code>
 
-    <p>Function <c><![CDATA[ets:test_ms/2]]></c> can be useful for testing
-      complicated <c>ets</c> matches.</p>
+    <p>Function <seealso marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2></c></seealso>
+      can be useful for testing complicated <c>ets</c> matches.</p>
   </section>
 </chapter>
 

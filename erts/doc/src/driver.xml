@@ -114,7 +114,7 @@
     <p>The <c><![CDATA[control]]></c> entry is called from the emulator
       when the Erlang code calls <c><![CDATA[port_control/3]]></c>,
       to do the actual work. We have defined a simple set of
-      commands: <c><![CDATA[connect]]></c> to log on to the database,
+      commands: <c><![CDATA[connect]]></c> to log in to the database,
       <c><![CDATA[disconnect]]></c> to log out, and <c><![CDATA[select]]></c>
       to send a SQL-query and get the result.
       All results are returned through <c><![CDATA[rbuf]]></c>.
@@ -127,7 +127,7 @@
       <c><![CDATA[sample]]></c> directory of <c><![CDATA[erts]]></c>.</p>
 
     <p>The driver entry contains the functions that
-      will be called by the emulator. In this simple example,
+      will be called by the emulator. In this example,
       only <c><![CDATA[start]]></c>, <c><![CDATA[stop]]></c>,
       and <c><![CDATA[control]]></c> are provided:</p>
 
@@ -179,7 +179,7 @@ typedef struct our_data_s {
 #define DRV_SELECT              'S'
     ]]></code>
 
-    <p>This only returns the driver structure. The macro
+    <p>This returns the driver structure. The macro
       <c><![CDATA[DRIVER_INIT]]></c> defines the only exported function.
       All the other functions are static, and will not be exported
       from the library.</p>
@@ -274,9 +274,9 @@ static int control(ErlDrvData drv_data, unsigned int command, char *buf,
 }
     ]]></code>
 
-    <p><c><![CDATA[do_connect]]></c> is where we log on to the database. If the
+    <p><c><![CDATA[do_connect]]></c> is where we log in to the database. If the
       connection was successful, we store the connection handle in the driver
-      data, and return OK. Otherwise, we return the error message
+      data, and return <c>'ok'</c>. Otherwise, we return the error message
       from postgres and store <c><![CDATA[NULL]]></c> in the driver data.</p>
 
     <code type="none"><![CDATA[
@@ -298,8 +298,8 @@ static int do_connect(const char *s, our_data_t* data, ei_x_buff* x)
     <p>If we are connected (and if the connection handle is not
       <c><![CDATA[NULL]]></c>),
       we log out from the database. We need to check if we should
-      encode an OK, as we can get here from function <c><![CDATA[stop]]></c>,
-      which does not return data to the emulator:</p>
+      encode an <c>'ok'</c>, as we can get here from function
+      <c><![CDATA[stop]]></c>, which does not return data to the emulator:</p>
 
     <code type="none"><![CDATA[
 static int do_disconnect(our_data_t* data, ei_x_buff* x)
@@ -331,7 +331,7 @@ static int do_select(const char* s, our_data_t* data, ei_x_buff* x)
     <p>Here we check the result from postgres.
       If it is data, we encode it as lists of lists with
       column data. Everything from postgres is C strings,
-      so we only use <c><![CDATA[ei_x_encode_string]]></c> to send
+      so we use <c><![CDATA[ei_x_encode_string]]></c> to send
       the result as strings to Erlang. (The head of the list
       contains the column names.)</p>
 
@@ -391,7 +391,7 @@ void encode_result(ei_x_buff* x, PGresult* res, PGconn* conn)
     <p>Before a driver can be called from Erlang, it must be
       loaded and opened. Loading is done using the <c><![CDATA[erl_ddll]]></c>
       module (the <c><![CDATA[erl_ddll]]></c> driver that loads dynamic
-      driver is actually a driver itself). If loading is OK,
+      driver is actually a driver itself). If loading is successfull,
       the port can be opened with <c><![CDATA[open_port/2]]></c>. The port
       name must match the name of the shared library and
       the name in the driver entry structure.</p>

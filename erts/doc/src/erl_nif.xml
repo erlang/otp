@@ -422,6 +422,7 @@ return term;</code>
 	      on a dirty scheduler does not have the same duration restriction
 	      as a normal NIF.
             </p>
+
             <p>
               It is important to classify the dirty job correct. An I/O bound
 	      job should be classified as such, and a CPU bound job should be
@@ -451,7 +452,7 @@ return term;</code>
               reclassified and rescheduled using <c>enif_schedule_nif</c> so
               that it executes on the correct type of dirty scheduler at all
               times. For more information see the documentation of the
-              <c>erl</c> command line arguments
+              <c>erl(1)</c> command line arguments
               <seealso marker="erl#+SDcpu"><c>+SDcpu</c></seealso>,
               and <seealso marker="erl#+SDio"><c>+SDio</c></seealso>.</p>
             <p>While a process executes a dirty NIF, some operations that
@@ -1133,8 +1134,8 @@ typedef enum {
       <desc>
         <p>If <c>term</c> is the pid of a node local process, this function
           initializes the pid variable <c>*pid</c> from it and returns
-          <c>true</c>. Otherwise returns <c>false</c>. No check is done if the
-          process is alive.</p>
+          <c>true</c>. Otherwise returns <c>false</c>. No check is done to see
+          if the process is alive.</p>
       </desc>
     </func>
 
@@ -1145,8 +1146,8 @@ typedef enum {
       <desc>
         <p>If <c>term</c> identifies a node local port, this function
           initializes the port variable <c>*port_id</c> from it and returns
-          <c>true</c>. Otherwise returns <c>false</c>. No check is done if the
-          port is alive.</p>
+          <c>true</c>. Otherwise returns <c>false</c>. No check is done to see
+          if the port is alive.</p>
       </desc>
     </func>
 
@@ -1157,8 +1158,8 @@ typedef enum {
       <fsummary>Get head and tail from a list.</fsummary>
       <desc>
         <p>Sets <c>*head</c> and <c>*tail</c> from list <c>list</c>.</p>
-        <p>Returns <c>true</c> on success, or <c>false</c> if the list is
-          empty.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if it is
+          not a list or the list is empty.</p>
       </desc>
     </func>
 
@@ -2198,7 +2199,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       </desc>
     </func>
 
-    <func><name><ret>int</ret>
+    <func>
+      <name><ret>int</ret>
       <nametext>enif_mutex_trylock(ErlNifMutex *mtx)</nametext></name>
       <fsummary></fsummary>
       <desc>
@@ -2625,7 +2627,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_thread_create(char *name,ErlNifTid
+      <name><ret>int</ret>
+        <nametext>enif_thread_create(char *name,ErlNifTid
         *tid,void * (*func)(void *),void *args,ErlNifThreadOpts
         *opts)</nametext></name>
       <fsummary></fsummary>

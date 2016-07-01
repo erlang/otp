@@ -33,9 +33,9 @@
     <file>run_erl.xml</file>
   </header>
   <com>run_erl</com>
-  <comsummary>Redirect Erlang input and output streams on Solaris.</comsummary>
+  <comsummary>Redirect Erlang input and output streams on Unix systems.</comsummary>
   <description>
-    <p>The <c><![CDATA[run_erl]]></c> program is specific to Solaris/Linux.
+    <p>The <c><![CDATA[run_erl]]></c> program is specific to Unix systems.
       This program redirects the standard input and standard
       output streams so that all output can be logged. It also lets the
       program <c><![CDATA[to_erl]]></c> connect to the Erlang console, making
@@ -85,7 +85,7 @@
                   of the standard streams from and to the command. (Both the
                   number of logs and sizes can be changed by environment
                   variables, see section <seealso
-                  marker="environment_variables">Environment Variables</seealso>
+                  marker="#environment_variables">Environment Variables</seealso>
                   below.)</p>
                 <p>When the logs are full, <c><![CDATA[run_erl]]></c> deletes
                   and reuses the oldest log file.</p>

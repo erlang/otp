@@ -128,7 +128,7 @@
       which the values can be retrieved by calling
       <c><![CDATA[init:get_argument/1]]></c>. Notice that the list of user
       flags is not exhaustive, there can be more application-specific
-      flags that instead are doscribed in the corresponding
+      flags that instead are described in the corresponding
       application documentation.</p>
     <taglist>
       <tag><c><![CDATA[--]]></c> (init flag)</tag>
@@ -580,7 +580,7 @@
         <p>For backward compatibility, the boolean value can be omitted.
           This is interpreted as <c>+c false</c>.</p>
       </item>
-      <tag><marker id="+C_"/><c><![CDATA[+C no_t<seealso marker="erlang:now/0">erlang:now()</seealso>ime_warp | single_time_warp |
+      <tag><marker id="+C_"/><c><![CDATA[+C no_time_warp | single_time_warp |
         multi_time_warp]]></c></tag>
       <item>
         <p>Sets <seealso marker="time_correction#Time_Warp_Modes">time warp
@@ -784,6 +784,39 @@
         </taglist>
         <p>See also <seealso marker="stdlib:io#printable_range/0">
           <c>io:printable_range/0</c></seealso> in <c>STDLIB</c>.</p>
+      </item>
+      <tag><marker id="+P"/><marker id="max_processes"/><c><![CDATA[+P Number]]></c></tag>
+      <item>
+	<p>Sets the maximum number of simultaneously existing processes for this
+          system if a <c>Number</c> is passed as value. Valid range for
+	<c>Number</c> is <c>[1024-134217727]</c></p>
+	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
+	the <c>Number</c> passed. Currently the runtime system often,
+	but not always, chooses a value that is a power of 2. This might,
+	however, be changed in the future. The actual value chosen can be
+	checked by calling
+	<seealso marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seealso>.</p>
+	<p>The default value is <c>262144</c></p>
+      </item>
+      <tag><marker id="+Q"/><marker id="max_ports"/><c><![CDATA[+Q Number]]></c></tag>
+      <item>
+	<p>Sets the maximum number of simultaneously existing ports for this
+          system if a Number is passed as value. Valid range for <c>Number</c>
+	is <c>[1024-134217727]</c></p>
+	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
+	the actual <c>Number</c> passed. Currently the runtime system often,
+	but not always, chooses a value that is a power of 2. This might,
+	however, be changed in the future. The actual value chosen can be
+	checked by calling
+	<seealso marker="erlang#system_info_port_limit">erlang:system_info(port_limit)</seealso>.</p>
+	<p>The default value used is normally <c>65536</c>. However, if
+	the runtime system is able to determine maximum amount of file
+	descriptors that it is allowed to open and this value is larger
+	than <c>65536</c>, the chosen value will increased to a value
+	larger or equal to the maximum amount of file descriptors that
+	can be opened.</p>
+	<p>On Windows the default value is set to <c>8196</c> because the
+	normal OS limitations are set higher than most machines can handle.</p>
       </item>
       <tag><marker id="compat_rel"/><c><![CDATA[+R ReleaseNumber]]></c></tag>
       <item>
@@ -1482,7 +1515,7 @@
           <c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c>, the runtime system
           waits indefinitely for the crash dump file to be written.</p>
         <p>This variable is used with <seealso marker="kernel:heart">
-          <c>kernel:heart</c></seealso> if <c>heart</c> is running:</p>
+          <c>kernel:heart(3)</c></seealso> if <c>heart</c> is running:</p>
         <taglist>
           <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c></tag>
           <item>Suppresses the writing a crash dump file entirely, thus

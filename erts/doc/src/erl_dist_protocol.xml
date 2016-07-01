@@ -48,7 +48,7 @@
     </item>
     <item>
       <p>Authentication (done by <seealso marker="kernel:net_kernel">
-        <c>kernel:net_kernel</c></seealso>) (3)</p>
+        <c>kernel:net_kernel(3)</c></seealso>) (3)</p>
     </item>
     <item>
       <p>Connected (4)</p> 
@@ -573,7 +573,7 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
       <p>Every message in the handshake starts with a 16-bit big-endian integer,
         which contains the message length (not counting the two initial bytes).
         In Erlang this corresponds to option <c>{packet, 2}</c> in
-        <seealso marker="kernel:gen_tcp"><c>kernel:gen_tcp</c></seealso>.
+        <seealso marker="kernel:gen_tcp"><c>kernel:gen_tcp(3)</c></seealso>.
         Notice that after the handshake, the distribution switches to 4 byte
         packet headers.</p>
     </section>
@@ -716,18 +716,18 @@ TCP connect ------------------------------------&gt;
 send_name --------------------------------------&gt;
                                                    recv_name
 
-&lt;---------------------------------------------- send_status
+  &lt;---------------------------------------------- send_status
 recv_status
 (if status was 'alive'
  send_status - - - - - - - - - - - - - - - - - -&gt;
                                                    recv_status)
                                                    ChB = gen_challenge()
                           (ChB)
-&lt;---------------------------------------------- send_challenge
+  &lt;---------------------------------------------- send_challenge
 recv_challenge
 ChA = gen_challenge(),
 OCA = out_cookie(B),
-DiA = gen_digest(ChB,OCA)
+DiA = gen_digest(ChB, OCA)
                           (ChA, DiA)
 send_challenge_reply ---------------------------&gt;
                                                    recv_challenge_reply
@@ -738,11 +738,11 @@ send_challenge_reply ---------------------------&gt;
                                                     OCB = out_cookie(A),
                                                     DiB = gen_digest (ChA, OCB)
                           (DiB)
-&lt;----------------------------------------------- send_challenge_ack
+  &lt;----------------------------------------------- send_challenge_ack
 recv_challenge_ack                                  DONE
 ICA = in_cookie(B),                                - else:
 check:                                              CLOSE
-DiB == gen_digest(ChA,ICA)?
+DiB == gen_digest(ChA, ICA)?
 - if OK:
  DONE
 - else:
@@ -754,20 +754,20 @@ DiB == gen_digest(ChA,ICA)?
       <title>Distribution Flags</title>
       <p>The following capability flags are defined:</p>
       <taglist>
-        <tag><c>-define(DFLAG_PUBLISHED,1).</c></tag>
+        <tag><c>-define(DFLAG_PUBLISHED,16#1).</c></tag>
         <item>
           <p>The node is to be published and part of the global namespace.</p>
         </item>
-        <tag><c>-define(DFLAG_ATOM_CACHE,2).</c></tag>
+        <tag><c>-define(DFLAG_ATOM_CACHE,16#2).</c></tag>
         <item>
           <p>The node implements an atom cache (obsolete).</p>
         </item>
-        <tag><c>-define(DFLAG_EXTENDED_REFERENCES,4).</c></tag>
+        <tag><c>-define(DFLAG_EXTENDED_REFERENCES,16#4).</c></tag>
         <item>
           <p>The node implements extended (3 &times; 32 bits) references. This
             is required today. If not present, the  connection is refused.</p>
         </item>
-        <tag><c>-define(DFLAG_DIST_MONITOR,8).</c></tag>
+        <tag><c>-define(DFLAG_DIST_MONITOR,16#8).</c></tag>
         <item>
           <p>The node implements distributed process monitoring.</p>
         </item>

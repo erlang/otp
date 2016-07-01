@@ -35,7 +35,7 @@
   <description>
     <p><c>erts_alloc</c> is an Erlang runtime system internal memory
       allocator library. <c>erts_alloc</c> provides the Erlang
-      runtiime system with a number of memory allocators.</p>
+      runtime system with a number of memory allocators.</p>
   </description>
 
   <section>
@@ -67,7 +67,7 @@
       <item>A fast allocator used for some frequently used
        fixed size data types.</item>
       <tag><c>exec_alloc</c></tag>
-      <item>Allocator used by the <seealso marker="hipe"><c>HiPE</c></seealso>
+      <item>Allocator used by the <seealso marker="hipe:HiPE_app"><c>HiPE</c></seealso>
         application for native executable code on specific architectures
         (x86_64).</item>
       <tag><c>std_alloc</c></tag>
@@ -330,13 +330,8 @@
             the flag is <c>false</c>, <c>mseg_alloc</c> tries to create carriers
             outside of the super carrier when the super carrier is full.</p>
 	  <note>
-            <p>Setting this flag to <c>false</c> is possibly not supported
+            <p>Setting this flag to <c>false</c> is not supported
               on all systems. The flag is then ignored.</p>
-          </note>
-          <note>
-            <p>The super carrier cannot be enabled or
-              disabled on halfword heap systems. This flag is
-              ignored on halfword heap systems.</p>
           </note>
         </item>
         <tag><marker id="MMscrfsd"/><c><![CDATA[+MMscrfsd <amount>]]></c></tag>
@@ -372,11 +367,6 @@
             <p>Setting this flag to <c>false</c> is possibly not supported on
               all systems. The flag is then ignored.</p>
           </note>
-          <note>
-            <p>The super carrier cannot be enabled or
-              disabled on halfword heap systems. This flag is
-              ignored on halfword heap systems.</p>
-          </note>
         </item>
         <tag><marker id="MMscs"/><c><![CDATA[+MMscs <size in MB>]]></c></tag>
         <item>
@@ -387,11 +377,6 @@
             carrier if it exists. Notice that the <c>alloc_util</c> framework
             can create <c>sys_alloc</c> carriers. For more information, see
             <seealso marker="#MMsco"><c>+MMsco</c></seealso>.</p>
-          <note>
-            <p>The super carrier cannot be enabled or
-              disabled on halfword heap systems. This flag is
-              ignored on halfword heap systems.</p>
-          </note>
         </item>
         <tag><marker id="MMmcs"/><c><![CDATA[+MMmcs <amount>]]></c></tag>
         <item>
@@ -476,7 +461,7 @@
             utilization value used. Once a carrier is abandoned, no new
             allocations are made in it. When an allocator instance gets an
             increased multiblock carrier need, it first tries to fetch an
-            abandoned carrier from an allocator instances of the same
+            abandoned carrier from an allocator instance of the same
             allocator type. If no abandoned carrier can be fetched, it
             creates a new empty carrier. When an abandoned carrier has been
             fetched, it will function as an ordinary carrier. This feature has
@@ -689,7 +674,7 @@
         <item>
           <p><c>exec_alloc</c> super carrier size (in MB). The amount of
             <em>virtual</em> address space reserved for native executable code
-            used by the <seealso marker="hipe"><c>HiPE</c></seealso> application
+            used by the <seealso marker="hipe:HiPE_app"><c>HiPE</c></seealso> application
             on specific architectures (x86_64). Defaults to <c>512</c>.</p>
         </item>
       </taglist>

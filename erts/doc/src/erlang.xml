@@ -147,7 +147,7 @@
               as the <c>native</c> time unit. That is, it can differ between
               runtime restarts. To get values of this type, call
               <seealso marker="kernel:os#perf_counter/0">
-              <c>os:perf_counter()</c></seealso>.</p>
+              <c>os:perf_counter/0</c></seealso>.</p>
           </item>
         </taglist>
         <p>The <c>time_unit/0</c> type can be extended.
@@ -252,7 +252,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
           compile time, the call is better written as
           <c><anno>Fun</anno>(Arg1, Arg2, ... ArgN)</c>.</p>
         <warning>
-          <p>Earlier, <c><anno>Fun</anno></c> could also be speciifed as
+          <p>Earlier, <c><anno>Fun</anno></c> could also be specified as
             <c>{Module, Function}</c>, equivalent to
             <c>apply(Module, Function, Args)</c>. <em>This use is
             deprecated and will stop working in a future release.</em></p>
@@ -352,7 +352,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
 2> binary_part(Bin,{0,2}).
 &lt;&lt;1,2&gt;&gt;</code>
       <p>For details about the <c><anno>PosLen</anno></c> semantics, see
-        <seealso marker="stdlib:binary"><c>stdlib:binary</c></seealso>.</p>
+        <seealso marker="stdlib:binary"><c>stdlib:binary(3)</c></seealso>.</p>
       <p>Allowed in guard tests.</p>
       </desc>
     </func>
@@ -643,13 +643,13 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
               is given.</p>
             <list type="bulleted">
               <item>
-                <p>When the operation is performed synchronously:
+                <p>When <c>Async</c> is <c>false</c>:
                   if <c>Info</c> is <c>true</c>, the <c>Result</c> is
                   returned by <c>erlang:cancel_timer()</c>. otherwise
                   <c>ok</c> is returned.</p>
               </item>
               <item>
-                <p>When the operation is performed asynchronously:
+                <p>When <c>Async</c> is <c>true</c>:
                   if <c>Info</c> is <c>true</c>, a message on the form
                   <c>{cancel_timer, <anno>TimerRef</anno>,
                   <anno>Result</anno>}</c> is sent to the
@@ -1928,7 +1928,7 @@ os_prompt%</pre>
           using <c>proc_lib</c> (also indirectly, such as
           <c>gen_server</c> processes), are to use
           <seealso marker="stdlib:proc_lib#hibernate/3">
-          <c>proc_lib:hibernate/3</c></seealso> in <c>STDLIB</c>
+          <c>proc_lib:hibernate/3</c></seealso>
           instead, to ensure that the exception handler continues to work
           when the process wakes up.</p>
       </desc>
@@ -2492,9 +2492,12 @@ os_prompt%</pre>
           implemented functions (NIFs) for a module. <c><anno>Path</anno></c>
           is a file path to the shareable object/dynamic library file minus
           the OS-dependent file extension (<c>.so</c> for Unix and
-          <c>.dll</c> for Windows). For information on how to
+          <c>.dll</c> for Windows). Notice that on most OSs the library has
+          to have a different name on disc when an upgrade of the nif is
+          done. If the name is the same, but the contents differ, the
+          old library may be loaded instead. For information on how to
           implement a NIF library, see
-          <seealso marker="erl_nif"><c>erl_nif</c></seealso>.</p> 
+        <seealso marker="erl_nif"><c>erl_nif(3)</c></seealso>.</p>
         <p><c><anno>LoadInfo</anno></c> can be any term. It is passed on to
           the library as part of the initialization. A good practice is
           to include a module version number to support future code
@@ -2689,8 +2692,7 @@ os_prompt%</pre>
         <p>This is a useful debugging and test tool, especially when writing
           complicated match specifications.</p>
         <p>See also
-          <seealso marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2</c></seealso>
-          in <c>STDLIB</c>.</p>
+          <seealso marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -2900,7 +2902,7 @@ RealSystem = system + MissedSystem</code>
       <type name="memory_type"/>
       <desc>
         <p>Returns the memory size in bytes allocated for memory of type
-          <c><anno>Type</anno></c>. The argument can also be specifed as a list
+          <c><anno>Type</anno></c>. The argument can also be specified as a list
           of <c>memory_type()</c> atoms, in which case a corresponding list of
           <c>{memory_type(), Size :: integer >= 0}</c> tuples is returned.</p>
         <note>
@@ -2987,7 +2989,7 @@ RealSystem = system + MissedSystem</code>
           the monitored entity. Monitors are fired when the monitored process
           or port terminates, does not exist at the moment of creation,
           or if the connection to it is lost. If the connection to it is lost,
-          we do not know if it still exixts. The monitoring is also turned off
+          we do not know if it still exists. The monitoring is also turned off
           when <seealso marker="#demonitor/1">demonitor/1</seealso> is
           called.</p>
 
@@ -3063,7 +3065,7 @@ RealSystem = system + MissedSystem</code>
         </item>
 
         <tag>Monitoring a
-          <marker id="monitor_time_offset"/>time_offset</tag>
+          <marker id="monitor_time_offset"/><c>time_offset</c></tag>
 	  <item>
 	    <p>Monitors changes in
 	      <seealso marker="#time_offset/0"><c>time offset</c></seealso>
@@ -3243,7 +3245,7 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="nif_error" arity="1"/>
-      <fsummary>Stop execution with a specifed reason.</fsummary>
+      <fsummary>Stop execution with a specified reason.</fsummary>
       <desc>
         <p>Works exactly like
          <seealso marker="#error/1"><c>error/1</c></seealso>, but
@@ -3333,9 +3335,7 @@ RealSystem = system + MissedSystem</code>
               this garbage collection can be delayed. For more
               information, see
               <seealso marker="erlang#system_info_delayed_node_table_gc">
-              <c>delayed_node_table_gc</c></seealso> in
-              <seealso marker="system_info/1">
-              <c>erlang:system_info/1</c></seealso>.</p>
+              <c>erlang:system_info(delayed_node_table_gc)</c></seealso>.</p>
           </item>
         </taglist>
         <p>Some equalities: <c>[node()] = nodes(this)</c>,
@@ -3387,11 +3387,11 @@ RealSystem = system + MissedSystem</code>
           translation or to force, for example UTF-8, supply the executable
           and/or arguments as a binary in the correct
           encoding. For details, see the module
-          <seealso marker="kernel:file"><c>kernel:file</c></seealso>, the
+          <seealso marker="kernel:file"><c>kernel:file(3)</c></seealso>, the
           function <seealso marker="kernel:file#native_name_encoding/0">
           <c>file:native_name_encoding/0</c></seealso> in <c>Kernel</c>, and
-          the <seealso marker="stdlib:unicode_usage"><c>STDLIB</c></seealso>
-          User's Guide.</p>
+          the <seealso marker="stdlib:unicode_usage">
+          <c>Using Unicode in Erlang</c></seealso> User's Guide.</p>
         <note>
           <p>The characters in the name (if specified as a list) can
             only be &gt; 255 if the Erlang virtual machine is started
@@ -3544,7 +3544,7 @@ RealSystem = system + MissedSystem</code>
               means that file wildcard expansion does not occur.
               To expand wildcards for the arguments, use
               <seealso marker="stdlib:filelib#wildcard/1">
-              <c>filelib:wildcard/1</c></seealso> in <c>STDLIB</c>.
+              <c>filelib:wildcard/1</c></seealso>.
               Notice that even if
               the program is a Unix shell script, meaning that the
               shell ultimately is invoked, wildcard expansion
@@ -4404,10 +4404,10 @@ RealSystem = system + MissedSystem</code>
           as code auto-loading depends on the correct
           operation of the error handling module.</p>
         <p>Returns the old value of the flag.</p>
-        <marker id="process_flag_min_heap_size"/>
       </desc>
     </func>
 
+    <marker id="process_flag_min_heap_size"/>
     <func>
       <name name="process_flag" arity="2" clause_i="3"/>
       <fsummary>Set process flag min_heap_size for the calling process.
@@ -5884,7 +5884,7 @@ true</pre>
             <p>Sets the <c>max_heap_size</c> process flag. The default
               <c>max_heap_size</c> is determined by command-line argument
               <seealso marker="erl#+hmax"><c>+hmax</c></seealso>
-              in <c>erl/1</c>. For more information, see the
+              in <c>erl(1)</c>. For more information, see the
               documentation of <seealso marker="#process_flag_max_heap_size">
               <c>process_flag(max_heap_size, <anno>Size</anno>)</c></seealso>.
             </p>
@@ -5896,7 +5896,7 @@ true</pre>
               or <c>on_heap</c>. The default
               <c>message_queue_data</c> process flag is determined by
               command-line argument <seealso marker="erl#+hmqd">
-              <c>+hmqd</c></seealso> in <c>erl/1</c>.
+              <c>+hmqd</c></seealso> in <c>erl(1)</c>.
               For more information, see the documentation of
               <seealso marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data,
@@ -6128,7 +6128,7 @@ true</pre>
    type => scheduler}|...]</pre>
         <p>The time unit is the same as returned by
           <seealso marker="kernel:os#perf_counter/0">
-          <c>os:perf_counter/0</c></seealso> in <c>Kernel</c>.
+          <c>os:perf_counter/0</c></seealso>.
           So, to convert it to milliseconds, you can do something like this:</p>
         <pre>
 lists:map(
@@ -6213,9 +6213,8 @@ lists:map(
             part of the <c>other</c> state.</item>
         </taglist>
         <p>The utility module
-          <seealso marker="runtime_tools:msacc"><c>msacc</c></seealso> in the
-          <c>runtime_tools</c> spplication can be used to more easily analyse
-          these statistics.</p>
+          <seealso marker="runtime_tools:msacc"><c>runtime_tools:msacc(3)</c></seealso>
+          can be used to more easily analyse these statistics.</p>
         <p>Returns <c>undefined</c> if system flag
           <seealso marker="#system_flag_microstate_accounting">
           <c>microstate_accounting</c></seealso> is turned off.</p>
@@ -6654,8 +6653,8 @@ ok
       <fsummary>Set system flag microstate_accounting.</fsummary>
       <desc>
         <p><marker id="system_flag_microstate_accounting"></marker>
-          Turns on/off microstate accounting measurements. By passing reset,
-          all counters can be reset to 0.</p>
+          Turns on/off microstate accounting measurements. When passing reset,
+          all counters are reset to 0.</p>
         <p>For more information see
           <seealso marker="#statistics_microstate_accounting">
           <c>statistics(microstate_accounting)</c></seealso>.</p>
@@ -6685,10 +6684,10 @@ ok
           processes. The size is specified in words.
           The new <c>min_bin_vhheap_size</c> effects only
           processes spawned after the change of
-          <c>min_bin_vhheap_size</c> has been made.
+          <c>min_bin_vheap_size</c> has been made.
           <c>min_bin_vheap_size</c> can be set for individual
           processes by using
-          <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso> or
+          <seealso marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seealso> or
           <seealso marker="#process_flag/2"><c>process_flag/2</c></seealso>.</p>
         <p>Returns the old value of the flag.</p>
       </desc>
@@ -6705,7 +6704,7 @@ ok
           The size is specified in words. The new <c>max_heap_size</c>
           effects only processes spawned efter the change has been made.
           <c>max_heap_size</c> can be set for individual processes using
-          <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso> or
+          <seealso marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seealso> or
           <seealso marker="#process_flag_message_queue_data">
           <c>process_flag/2</c></seealso>.</p>
         <p>Returns the old value of the flag.</p>
@@ -7253,7 +7252,7 @@ ok
               changed by using
               <seealso marker="#system_flag/2">
               <c>erlang:system_flag/2</c></seealso>.
-              <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>
+              <seealso marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seealso>
               can spawn a process that does not use the default
               settings.</p>
           </item>
@@ -7266,7 +7265,7 @@ ok
               <seealso marker="erl#+hmax"><c>+hmax</c></seealso>,
               <seealso marker="erl#+hmaxk"><c>+hmaxk</c></seealso> and
               <seealso marker="erl#+hmaxel"><c>+hmaxel</c></seealso> in
-              <c>erl/1</c>. It can also be changed at runtime using
+              <c>erl(1)</c>. It can also be changed at runtime using
               <seealso marker="#system_flag_max_heap_size">
               <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
               For more details about the <c>max_heap_size</c> process flag,
@@ -7286,7 +7285,7 @@ ok
               process flag, which is either <c>off_heap</c> or <c>on_heap</c>.
               This default is set by command-line argument
               <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso> in
-              <c>erl/1</c>. For more information on the
+              <c>erl(1)</c>. For more information on the
               <c>message_queue_data</c> process flag, see documentation of
               <seealso marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data, MQD)</c></seealso>.</p>
@@ -7434,7 +7433,7 @@ ok
               of an entry in a node table is delayed. This limit can be set
               on startup by passing command-line flag
               <seealso marker="erts:erl#+zdntgc"><c>+zdntgc</c></seealso>
-              to <c>erl/1</c>. For more information, see the documentation of
+              to <c>erl(1)</c>. For more information, see the documentation of
               the command-line flag.</p>
           </item>
           <tag><c>dirty_cpu_schedulers</c></tag>
@@ -7537,7 +7536,7 @@ ok
               in bytes. This limit can be set at startup by passing
               command-line flag
               <seealso marker="erts:erl#+zdbbl"><c>+zdbbl</c></seealso>
-              to <c>erl</c>.</p>
+              to <c>erl(1)</c>.</p>
           </item>
           <tag><c>dist_ctrl</c></tag>
           <item>
@@ -7568,7 +7567,7 @@ ok
               (for example, <c>./configure --with-dynamic-trace=dtrace</c>).
               For more information about dynamic tracing, see
               <seealso marker="runtime_tools:dyntrace">
-              <c>runtime_tools:dyntrace</c></seealso> manual page and the
+              <c>runtime_tools:dyntrace(3)</c></seealso> manual page and the
               <c>README.dtrace</c>/<c>README.systemtap</c> files in the
               Erlang source code top directory.</p>
           </item>
@@ -7602,7 +7601,7 @@ ok
           <item>
             <p>Returns the value of command-line flag
               <seealso marker="erl#+secio"><c>+secio</c></seealso> in
-              <c>erl/1</c>, which is either <c>true</c> or <c>false</c>.
+              <c>erl(1)</c>, which is either <c>true</c> or <c>false</c>.
               For information about the different values, see the
               documentation of the command-line flag.</p>
           </item>
@@ -8106,7 +8105,7 @@ ok
             <p>Returns the number of async threads in the async thread
               pool used for asynchronous driver calls
               (<seealso marker="erts:erl_driver#driver_async">
-              <c>driver_async()</c></seealso>).
+              <c>erl_driver:driver_async()</c></seealso>).
               The value is given as an integer.</p>
           </item>
           <tag><c>time_correction</c></tag>
@@ -8492,8 +8491,8 @@ ok
           </item>
         </taglist>
         <note>
-          <p><c>erlang:system_profile</c> is considered experimental
-            and its behavior can change in a future release.</p>
+          <p><c>erlang:system_profile</c> behavior can change
+            in a future release.</p>
         </note>
       </desc>
     </func>
@@ -9043,7 +9042,7 @@ timestamp() ->
               instead of sending a trace message. The tracer module
               can then ignore or change the trace message. For more details
               on how to write a tracer module, see
-              <seealso marker="erts:erl_tracer"><c>erl_tracer</c></seealso>.</p>
+              <seealso marker="erts:erl_tracer"><c>erl_tracer(3)</c></seealso>.</p>
           </item>
         </taglist>
         <p>If no <c>tracer</c> is specified, the calling process
@@ -9400,7 +9399,7 @@ timestamp() ->
       <desc>
         <p>The delivery of trace messages (generated by
           <seealso marker="#trace/3"><c>erlang:trace/3</c></seealso>,
-          <seealso marker="kernel:seq_trace"><c>kernel:seq_trace</c></seealso>,
+          <seealso marker="kernel:seq_trace"><c>kernel:seq_trace(3)</c></seealso>,
           or <seealso marker="#system_profile/2">
           <c>erlang:system_profile/2</c></seealso>)
           is dislocated on the time-line

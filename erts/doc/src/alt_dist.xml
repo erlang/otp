@@ -33,7 +33,7 @@
     <rev>PA2</rev>
     <file>alt_dist.xml</file>
   </header>
-  <p>This section describes how to implement an own carrier
+  <p>This section describes how to implement an alternative carrier
     protocol for the Erlang distribution. The distribution is normally
     carried by TCP/IP. Here is explained a method for replacing TCP/IP
     with another protocol.</p>
@@ -169,11 +169,10 @@
         necessity.</p>
 
       <p>The driver data types and the functions available to the driver
-        writer are defined in header file <c><![CDATA[erl_driver.h]]></c> (there
-        is also a deprecated version called <c><![CDATA[driver.h]]></c>, do not
-        use that one) seated in Erlang's include directory (and in
-        <c>$ERL_TOP/erts/emulator/beam</c> in the source code
-        distribution). See that file for function prototypes, and so on.</p>
+        writer are defined in header file <c><![CDATA[erl_driver.h]]></c>
+        seated in Erlang's include directory. See the
+        <seealso marker="erts:erl_driver">erl_driver</seealso> documentation
+        for details of which functions are available.</p>
 
       <p>When writing a driver to make a communications protocol available
         to Erlang, one should know just about everything worth knowing
@@ -440,9 +439,8 @@
         <tag><c>uds_finish</c></tag>
         <item>
           <p>Called when the driver is unloaded. A distribution driver will
-            actually (or hopefully) never be unloaded, but we include this for
-            completeness. To be able to clean up after oneself is always a good
-            thing.</p>
+            never be unloaded, but we include this for completeness. To be
+            able to clean up after oneself is always a good thing.</p>
         </item>
         <tag><c>uds_control</c></tag>
         <item>
@@ -465,9 +463,9 @@
 
       <p>While <c><![CDATA[net_kernel]]></c> informs different subsystems
         that the connection is coming up, the port is to accept data to send.
-        However, the port receives no data, to avoid that data arrives from
-        another node before every kernel subsystem is prepared to handle it.
-        A third mode, named <c>intermediate</c>, is used for this
+        However, the port should not receive any data, to avoid that data
+        arrives from another node before every kernel subsystem is prepared
+        to handle it. A third mode, named <c>intermediate</c>, is used for this
         intermediate stage.</p>
 
       <p>An enum is defined for the different types of ports:</p>

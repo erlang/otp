@@ -77,7 +77,7 @@
       <tag>Starting the port mapper daemon</tag>
       <item>
         <p>The daemon is started automatically by command
-          <seealso marker="erl"><c>erl</c></seealso>
+          <seealso marker="erl"><c>erl(1)</c></seealso>
           if the node is to be distributed and no running
           instance is present. If automatically launched
           environment variables must be used to change the behavior
@@ -108,7 +108,7 @@
     <title>Regular Options</title>
     <p>These options are available when starting the name server. The name
       server is normally started automatically by command
-      <seealso marker="erl"><c>erl</c></seealso> (if not already available),
+      <seealso marker="erl"><c>erl(1)</c></seealso> (if not already available),
       but it can also be started at system startup.</p>
 
     <taglist>
@@ -157,7 +157,7 @@
 	  <item>
 	    <p>Command <c>epmd -stop</c> (and the corresponding messages to
 	      <c>epmd</c>, as can be specified using <seealso
-	      marker="erl_interface:ei"><c>erl_interface:ei</c></seealso>) is
+	      marker="erl_interface:ei"><c>erl_interface:ei(3)</c></seealso>) is
 	      normally always ignored. This because it can cause a strange
 	      situation where two nodes of the same name can be alive at the
 	      same time. A node unregisters itself by only closing the

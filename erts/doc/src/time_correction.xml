@@ -247,7 +247,7 @@
       everything that has anything to do with time. All timers,
       regardless of it is a <c>receive ... after</c> timer, BIF timer,
       or a timer in the
-      <seealso marker="stdlib:timer"><c>stdlib:timer</c></seealso>
+      <seealso marker="stdlib:timer"><c>stdlib:timer(3)</c></seealso>
       module, are triggered relative Erlang monotonic time. Even
       <seealso marker="#Erlang_System_Time">Erlang system
       time</seealso> is based on Erlang monotonic time.
@@ -769,7 +769,7 @@
 	    Take time stamps with <c>erlang:now/0</c> and calculate
 	    the difference in time with
             <seealso marker="stdlib:timer#now_diff/2">
-            <c>timer:now_diff/2</c></seealso> in <c>STDLIB</c>.
+            <c>timer:now_diff/2</c></seealso>.
 	  </p>
 	</dont>
 	<do>
@@ -915,7 +915,7 @@ EventTag = {Time, UMI}</code>
     <p>It can be required that your code must run on a variety
     of OTP installations of different OTP releases. If so, you
     cannot use the new API out of the box, as it will
-    not be available on old pre-OTP 18 releases. The solution
+    not be available on releases before OTP 18. The solution
     is <em>not</em> to avoid using the new API, as your
     code would then not benefit from the scalability
     and accuracy improvements made. Instead, use the

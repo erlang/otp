@@ -131,7 +131,7 @@
         undefined</em>.</p>
       <p>When distribution flag <seealso marker="erl_dist_protocol#dflags">
         <c>DFLAG_UTF8_ATOMS</c></seealso> has been exchanged between both nodes
-        in th <seealso marker="erl_dist_protocol#distribution_handshake">
+        in the <seealso marker="erl_dist_protocol#distribution_handshake">
         distribution handshake</seealso>, all atoms in the distribution header
         are encoded in UTF-8, otherwise in Latin-1. The two
         new tags <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>
@@ -364,7 +364,7 @@
       </row>
     <tcaption>INTEGER_EXT</tcaption></table>
     <p>
-      Signed 32-bit integer in big-endian format (that is, MSB first).
+      Signed 32-bit integer in big-endian format.
     </p>
   </section>
 

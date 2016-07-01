@@ -111,11 +111,10 @@
       sent. This is convenient when matching on messages received from
       the port. (Although in the latest Erlang versions there is
       the binary syntax, which enables you to match on the beginning of
-      a binary.)
-
-    <marker id="smp_support"></marker></p>
-    <p>In the runtime system with SMP support, drivers are locked either
-      on driver level or port level (driver instance level). By default
+      a binary.)</p>
+    <p><marker id="smp_support"></marker>In the runtime system with
+      SMP support, drivers are locked either on driver level
+      or port level (driver instance level). By default
       driver level locking will be used, that is, only one emulator thread
       will execute code in the driver at a time. If port level locking
       is used, multiple emulator threads can execute code in the driver
@@ -979,7 +978,8 @@ int suggested_stack_size;</code>
           memory, in which case <c>NULL</c> is returned. (This is most
           often a wrapper for <c>malloc</c>).</p>
         <p>Memory allocated must be explicitly freed with a corresponding
-          call to <c>driver_free</c> (unless otherwise stated).</p>
+          call to <seealso marker="#driver_free"><c>driver_free</c></seealso>
+          (unless otherwise stated).</p>
         <p>This function is thread-safe.</p>
       </desc>
     </func>
@@ -1008,7 +1008,7 @@ int suggested_stack_size;</code>
     </func>
 
     <func>
-      <name><ret>long</ret><nametext>driver_async (ErlDrvPort port, unsigned
+      <name><ret>long</ret><nametext>driver_async(ErlDrvPort port, unsigned
         int* key, void (*async_invoke)(void*), void* async_data, void
         (*async_free)(void*))</nametext></name>
       <fsummary>Perform an asynchronous call within a driver.</fsummary>
@@ -1076,7 +1076,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>unsigned int</ret><nametext>driver_async_port_key (ErlDrvPort
+      <name><ret>unsigned int</ret><nametext>driver_async_port_key(ErlDrvPort
         port)</nametext></name>
       <fsummary>Calculate an async key from an ErlDrvPort.</fsummary>
       <desc>
@@ -2215,7 +2215,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           how to use this information. Implementations on some platforms
           can use other means to determine the consumed fraction
           of the time-slice. Lengthy driver callbacks should, regardless of
-          this frequently, call this function to determine if it is allowed
+          this, frequently call this function to determine if it is allowed
           to continue execution or not.</p>
         <p>This function returns a non-zero value
           if the time-slice has been exhausted, and zero if the callback is
@@ -2433,7 +2433,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
       <fsummary>Try lock a mutex.</fsummary>
       <desc>
         <marker id="erl_drv_mutex_trylock"></marker>
-        <p>Tries to lock a mutex. A thred that has currently locked the mutex
+        <p>Tries to lock a mutex. A thread that has currently locked the mutex
           <em>cannot</em> try to lock the same mutex again.</p>
         <p><c>mtx</c> is a pointer to a mutex to try to lock.</p>
         <p>Returns <c>0</c> on success, otherwise <c>EBUSY</c>.</p>
@@ -2562,7 +2562,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
           works. <c>ERL_DRV_STRING_CONS</c> builds a string list in
           reverse order (as opposed to how <c>ERL_DRV_LIST</c>
           works), concatenating the strings added to a list. The tail
-          must be specifed before <c>ERL_DRV_STRING_CONS</c>.</p>
+          must be specified before <c>ERL_DRV_STRING_CONS</c>.</p>
         <p><c>ERL_DRV_STRING</c> constructs a string, and ends
           it. (So it is the same as <c>ERL_DRV_NIL</c> followed by
           <c>ERL_DRV_STRING_CONS</c>.)</p>
@@ -2590,7 +2590,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
 	  that is, a term that has been encoded by
 	  <seealso marker="erlang#term_to_binary/2">
 	  <c>erlang:term_to_binary</c></seealso>,
-	  <seealso marker="erl_interface:ei"><c>erl_interface</c></seealso>,
+	  <seealso marker="erl_interface:ei"><c>erl_interface:ei(3)</c></seealso>,
 	  and so on.
 	  For example, if <c>binp</c> is a pointer to an <c>ErlDrvBinary</c>
 	  that contains term <c>{17, 4711}</c> encoded with the
@@ -2803,7 +2803,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
           A thread that currently has read or read/write locked the
           rwlock <em>cannot</em> try to lock the same rwlock again.</p>
         <p><c>rwlck</c>is pointer to an rwlock to try to read/write lock.</p>
-        <p>Returns <c>0</c> om success, otherwise <c>EBUSY</c>.</p>
+        <p>Returns <c>0</c> on success, otherwise <c>EBUSY</c>.</p>
         <warning>
           <p>If you leave an rwlock locked in an emulator thread
             when you let the thread out of your control, you will
