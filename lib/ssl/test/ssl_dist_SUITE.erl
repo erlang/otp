@@ -680,13 +680,15 @@ stop_ssl_node(#node_handle{connection_handler = Handler,
 	    receive
 		{'DOWN', Mon, process, Handler, Reason} ->
 		    case Reason of
-			normal -> ok;
-			_ -> exit(Reason)
+			normal ->
+			    ok;
+			_ -> 
+			    ct:pal("Down  ~p ~n", [Reason])
 		    end
 	    end;
 	Error ->
 	    erlang:demonitor(Mon, [flush]),
-	    exit(Error)
+	    ct:pal("Warning  ~p ~n", [Error])
     end.
 
 start_ssl_node(Config) ->
