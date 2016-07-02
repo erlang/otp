@@ -403,8 +403,6 @@ select_best_version(L1, _H1, _L2, H2) when L1 > H2 ->
     0;
 select_best_version(_L1, H1, L2, _H2) when L2 > H1 ->
     0;
-select_best_version(_L1, H1, L2, _H2) when L2 > H1 ->
-    0;
 select_best_version(_L1, H1, _L2, H2) ->
     erlang:min(H1, H2).
 
