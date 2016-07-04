@@ -30,91 +30,100 @@
     <docno>1</docno>
     <approved>Bjarne D&auml;cker</approved>
     <checked></checked>
-    <date>97-01-21</date>
+    <date>1997-01-21</date>
     <rev>B</rev>
-    <file>erl_internal.sgml</file>
+    <file>erl_internal.xml</file>
   </header>
   <module>erl_internal</module>
-  <modulesummary>Internal Erlang Definitions</modulesummary>
+  <modulesummary>Internal Erlang definitions.</modulesummary>
   <description>
-    <p>This module defines Erlang BIFs, guard tests and operators.
+    <p>This module defines Erlang BIFs, guard tests, and operators.
       This module is only of interest to programmers who
       manipulate Erlang code.</p>
   </description>
+
   <funcs>
     <func>
-      <name name="bif" arity="2"/>
-      <fsummary>Test for an Erlang BIF</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is an Erlang BIF
-          which is automatically recognized by the compiler, otherwise
-          <c>false</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="guard_bif" arity="2"/>
-      <fsummary>Test for an Erlang BIF allowed in guards</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is an Erlang BIF
-          which is allowed in guards, otherwise <c>false</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="type_test" arity="2"/>
-      <fsummary>Test for a valid type test</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is a valid Erlang
-          type test, otherwise <c>false</c>.</p>
-      </desc>
-    </func>
-    <func>
       <name name="arith_op" arity="2"/>
-      <fsummary>Test for an arithmetic operator</fsummary>
+      <fsummary>Test for an arithmetic operator.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is an arithmetic
-          operator, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is an arithmetic operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="bif" arity="2"/>
+      <fsummary>Test for an Erlang BIF.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c>
+          is an Erlang BIF that is automatically recognized by the compiler,
+          otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="bool_op" arity="2"/>
-      <fsummary>Test for a Boolean operator</fsummary>
+      <fsummary>Test for a Boolean operator.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a Boolean
-          operator, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a Boolean operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="comp_op" arity="2"/>
-      <fsummary>Test for a comparison operator</fsummary>
+      <fsummary>Test for a comparison operator.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a comparison
-          operator, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a comparison operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="guard_bif" arity="2"/>
+      <fsummary>Test for an Erlang BIF allowed in guards.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is
+          an Erlang BIF that is allowed in guards, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="list_op" arity="2"/>
-      <fsummary>Test for a list operator</fsummary>
+      <fsummary>Test for a list operator.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a list
-          operator, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a list operator, otherwise <c>false</c>.</p>
       </desc>
     </func>
-    <func>
-      <name name="send_op" arity="2"/>
-      <fsummary>Test for a send operator</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c> is a send
-          operator, otherwise <c>false</c>.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="op_type" arity="2"/>
-      <fsummary>Return operator type</fsummary>
+      <fsummary>Return operator type.</fsummary>
       <desc>
-        <p>Returns the <c><anno>Type</anno></c> of operator that <c><anno>OpName</anno>/<anno>Arity</anno></c>
-          belongs to, 
-          or generates a <c>function_clause</c> error if it is not an 
-          operator at all.</p>
+        <p>Returns the <c><anno>Type</anno></c> of operator that
+          <c><anno>OpName</anno>/<anno>Arity</anno></c> belongs to,
+          or generates a <c>function_clause</c> error if it is not an
+          operator.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send_op" arity="2"/>
+      <fsummary>Test for a send operator.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>OpName</anno>/<anno>Arity</anno></c>
+          is a send operator, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="type_test" arity="2"/>
+      <fsummary>Test for a valid type test.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Name</anno>/<anno>Arity</anno></c> is
+          a valid Erlang type test, otherwise <c>false</c>.</p>
       </desc>
     </func>
   </funcs>

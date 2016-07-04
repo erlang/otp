@@ -1,2 +1,2 @@
-COSTIME_VSN = 1.2.1
+COSTIME_VSN = 1.2.2
 

@@ -21,8 +21,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
-	 untuplify/1,shortcut_boolean/1,letify_guard/1,
+	 pmatch/1,mixed/1,aliases/1,non_matching_aliases/1,
+	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1]).
 	 
@@ -36,7 +36,8 @@ all() ->
 
 groups() -> 
     [{p,[parallel],
-      [pmatch,mixed,aliases,match_in_call,untuplify,
+      [pmatch,mixed,aliases,non_matching_aliases,
+       match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,
        underscore,match_map,map_vars_used,coverage,
        grab_bag]}].
@@ -143,16 +144,6 @@ aliases(Config) when is_list(Config) ->
     {a,b} = list_alias2([a,b]),
     {a,b} = list_alias3([a,b]),
 
-    %% Non-matching aliases.
-    none = mixed_aliases(<<42>>),
-    none = mixed_aliases([b]),
-    none = mixed_aliases([d]),
-    none = mixed_aliases({a,42}),
-    none = mixed_aliases(42),
-
-    %% Non-matching aliases.
-    {'EXIT',{{badmatch,42},_}} = (catch nomatch_alias(42)),
-
     ok.
 
 str_alias(V) ->
@@ -256,6 +247,33 @@ list_alias2([X,Y]=[a,b]) ->
 list_alias3([X,b]=[a,Y]) ->
     {X,Y}.
 
+non_matching_aliases(_Config) ->
+    none = mixed_aliases(<<42>>),
+    none = mixed_aliases([b]),
+    none = mixed_aliases([d]),
+    none = mixed_aliases({a,42}),
+    none = mixed_aliases(42),
+
+    {'EXIT',{{badmatch,42},_}} = (catch nomatch_alias(42)),
+    {'EXIT',{{badmatch,job},_}} = (catch entirely()),
+    {'EXIT',{{badmatch,associates},_}} = (catch printer()),
+    {'EXIT',{{badmatch,borogoves},_}} = (catch tench()),
+
+    put(perch, 0),
+    {'EXIT',{{badmatch,{spine,42}},_}} = (catch perch(42)),
+    1 = erase(perch),
+
+    put(salmon, 0),
+    {'EXIT',{{badmatch,mimsy},_}} = (catch salmon()),
+    1 = erase(salmon),
+
+    put(shark, 0),
+    {'EXIT',{{badmatch,_},_}} = (catch shark()),
+    1 = erase(shark),
+
+    {'EXIT',{{badmatch,_},_}} = (catch radio(research)),
+    ok.
+
 mixed_aliases(<<X:8>> = x) -> {a,X};
 mixed_aliases([b] = <<X:8>>) -> {b,X};
 mixed_aliases(<<X:8>> = {a,X}) -> {c,X};
@@ -265,6 +283,42 @@ mixed_aliases(_) -> none.
 nomatch_alias(I) ->
     {ok={A,B}} = id(I),
     {A,B}.
+
+entirely() ->
+    0(((Voice = true) = cool) = job),
+    [receive _ -> Voice end || banking <- printer].
+
+printer() ->
+    {[Indoor] = [] = associates},
+    [ireland || Indoor <- Indoor].
+
+tench() ->
+    E = begin
+	    [A] = [] = borogoves,
+	    A + 1
+	end,
+    E + 7 * A.
+
+perch(X) ->
+    begin
+	put(perch, get(perch)+1),
+	[A] = [] = {spine,X}
+    end.
+
+salmon() ->
+    {put(salmon, get(salmon)+1),#{key:=([A]=[])}=mimsy,exit(fail)},
+    A + 10.
+
+shark() ->
+    (hello = there) = (catch shark(put(shark, get(shark)+1), a = b)).
+
+shark(_, _) ->
+    ok.
+
+radio(research) ->
+    (connection = proof) =
+	(catch erlang:trace_pattern(catch mechanisms + assist,
+				    summary = mechanisms)).
 
 %% OTP-7018.
 

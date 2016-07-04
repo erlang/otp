@@ -106,8 +106,8 @@ new() ->
 %% Or {silent_start, Bool}, which causes error messages at startup to
 %% be suppressed. The latter can be used as a silent test of whether
 %% wx is properly installed or not.
--spec new([Option]) -> wx_object() when Option :: {debug, list() | atom()} |
-                                                  {silent_start, boolean()}.
+-spec new([Option]) -> wx_object()
+         when Option :: {'debug', list() | atom()} | {'silent_start', boolean()}.
 new(Options) when is_list(Options) ->
     Debug = proplists:get_value(debug, Options, 0),
     SilentStart = proplists:get_value(silent_start, Options, false),
@@ -118,7 +118,7 @@ new(Options) when is_list(Options) ->
     null().
 
 %% @doc Stops a wx server.
--spec destroy() -> ok.
+-spec destroy() -> 'ok'.
 destroy() ->
     wxe_server:stop(),
     erase(?WXE_IDENTIFIER),
@@ -136,7 +136,7 @@ get_env() ->
 
 %% @doc Sets the process wx environment, allows this process to use
 %% another process wx environment.
--spec set_env(wx_env()) -> ok.
+-spec set_env(wx_env()) -> 'ok'.
 set_env(#wx_env{sv=Pid, port=Port} = Env) ->
     put(?WXE_IDENTIFIER, Env),
     put(opengl_port, Port),
@@ -191,7 +191,7 @@ batch(Fun) ->
     end.
 
 %% @doc Behaves like {@link //stdlib/lists:foreach/2} but batches wx commands. See {@link batch/1}.
--spec foreach(function(), list()) -> ok.
+-spec foreach(function(), list()) -> 'ok'.
 foreach(Fun, List) ->
     ok = wxe_util:cast(?BATCH_BEGIN, <<>>),
     try lists:foreach(Fun, List)
@@ -267,7 +267,7 @@ get_memory_bin(#wx_mem{bin=Bin, size=Size}) ->
 
 %% @doc Saves the memory from deletion until release_memory/1 is called.
 %% If release_memory/1 is not called the memory will not be garbage collected.
--spec retain_memory(wx_memory()) -> ok.
+-spec retain_memory(wx_memory()) -> 'ok'.
 retain_memory(#wx_mem{bin=Bin}) ->
     wxe_util:send_bin(Bin),
     ok = wxe_util:cast(?WXE_BIN_INCR, <<>>);
@@ -279,7 +279,7 @@ retain_memory(Bin) when is_binary(Bin) ->
     wxe_util:send_bin(Bin),
     ok = wxe_util:cast(?WXE_BIN_INCR, <<>>).
 
--spec release_memory(wx_memory()) -> ok.
+-spec release_memory(wx_memory()) -> 'ok'.
 release_memory(#wx_mem{bin=Bin}) ->
     wxe_util:send_bin(Bin),
     ok = wxe_util:cast(?WXE_BIN_DECR, <<>>);
@@ -290,8 +290,8 @@ release_memory(Bin) when is_binary(Bin) ->
 %% @doc Sets debug level. If debug level is 'verbose' or 'trace'
 %% each call is printed on console. If Level is 'driver' each allocated
 %% object and deletion is printed on the console.
--spec debug(Level | [Level]) -> ok
-     when Level :: none | verbose | trace | driver | integer().
+-spec debug(Level | [Level]) -> 'ok'
+     when Level :: 'none' | 'verbose' | 'trace' | 'driver' | integer().
 
 debug(Debug) ->
     Level = calc_level(Debug),
@@ -332,7 +332,7 @@ set_debug(Level) when is_integer(Level) ->
     end.
 
 %% @doc Starts a wxErlang demo if examples directory exists and is compiled
--spec demo() -> ok | {error, atom()}.
+-spec demo() -> 'ok' | {'error', atom()}.
 demo() ->
     Priv = code:priv_dir(wx),
     Demo = filename:join([filename:dirname(Priv),examples,demo]),

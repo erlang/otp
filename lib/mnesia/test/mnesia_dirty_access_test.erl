@@ -461,77 +461,81 @@ dirty_index_update_set_xets(Config) when is_list(Config) ->
     dirty_index_update_set(Config, ext_ets).
 
 dirty_index_update_set(Config, Storage) ->
-    [Node1] = Nodes = ?acquire_nodes(1, Config), 
-    Tab = index_test, 
-    ValPos = v1, 
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    Tab = index_test,
+    ValPos = v1,
     ValPos2 = v3,
     Def = [{attributes, [k, v1, v2, v3]},
 	   {Storage, [Node1]},
-	   {index, [ValPos]}], 
-    ?match({atomic, ok}, mnesia:create_table(Tab, Def)), 
-    
+	   {index, [ValPos]}],
+    ?match({atomic, ok}, mnesia:create_table(Tab, Def)),
+
     Pat1 = {Tab, '$1',  2,   '$2', '$3'},
-    Pat2 = {Tab, '$1', '$2', '$3', '$4'}, 
-    
-    Rec1 = {Tab, 1, 2, 3, 4}, 
+    Pat2 = {Tab, '$1', '$2', '$3', '$4'},
+    Pat3 = {Tab, '_', '_', '_', {4, 14}},
+
+    Rec1 = {Tab, 1, 2, 3, {4, 14}},
     Rec2 = {Tab, 2, 2, 13, 14},
-    Rec3 = {Tab, 1, 12, 13, 14}, 
-    Rec4 = {Tab, 4, 2, 13, 14}, 
-    
+    Rec3 = {Tab, 1, 12, 13, 14},
+    Rec4 = {Tab, 4, 2, 13, 14},
+
     ?match([], mnesia:dirty_index_read(Tab, 2, ValPos)),
     ?match(ok, mnesia:dirty_write(Rec1)),
     ?match([Rec1], mnesia:dirty_index_read(Tab, 2, ValPos)),
-    
+
     ?match(ok, mnesia:dirty_write(Rec2)),
     R1 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1, Rec2], lists:sort(R1)),
-    
+
     ?match(ok, mnesia:dirty_write(Rec3)),
     R2 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec2], lists:sort(R2)),
     ?match([Rec2], mnesia:dirty_index_match_object(Pat1, ValPos)),
-    
-    {atomic, R3} = mnesia:transaction(fun() -> mnesia:match_object(Pat2) end), 
+
+    {atomic, R3} = mnesia:transaction(fun() -> mnesia:match_object(Pat2) end),
     ?match([Rec3, Rec2], lists:sort(R3)),
-    
+
     ?match(ok, mnesia:dirty_write(Rec4)),
     R4 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec2, Rec4], lists:sort(R4)),
-    
+
     ?match(ok, mnesia:dirty_delete({Tab, 4})),
     ?match([Rec2], mnesia:dirty_index_read(Tab, 2, ValPos)),
-    
+
     ?match({atomic, ok}, mnesia:del_table_index(Tab, ValPos)),
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write(Rec4) end)),
     ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos)),
     ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos2)),
-    
+
     R5 = mnesia:dirty_match_object(Pat2),
     ?match([Rec3, Rec2, Rec4], lists:sort(R5)),
-    
+
     R6 = mnesia:dirty_index_read(Tab, 2, ValPos),
-    ?match([Rec2, Rec4], lists:sort(R6)),    
-    ?match([], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec2, Rec4], lists:sort(R6)),
+    ?match([], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
     R7 = mnesia:dirty_index_read(Tab, 14, ValPos2),
     ?match([Rec3, Rec2, Rec4], lists:sort(R7)),
 
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write(Rec1) end)),
     R8 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1, Rec2, Rec4], lists:sort(R8)),
-    ?match([Rec1], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec1], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
+    ?match([Rec1], mnesia:dirty_match_object(Pat3)),
+    ?match([Rec1], mnesia:dirty_index_match_object(Pat3, ValPos2)),
+
     R9 = mnesia:dirty_index_read(Tab, 14, ValPos2),
     ?match([Rec2, Rec4], lists:sort(R9)),
 
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:delete_object(Rec2) end)),
     R10 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1, Rec4], lists:sort(R10)),
-    ?match([Rec1], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec1], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
     ?match([Rec4], mnesia:dirty_index_read(Tab, 14, ValPos2)),
 
     ?match(ok, mnesia:dirty_delete({Tab, 4})),
     R11 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1], lists:sort(R11)),
-    ?match([Rec1], mnesia:dirty_index_read(Tab, 4, ValPos2)),
+    ?match([Rec1], mnesia:dirty_index_read(Tab, {4,14}, ValPos2)),
     ?match([], mnesia:dirty_index_read(Tab, 14, ValPos2)),
     
     ?verify_mnesia(Nodes, []).

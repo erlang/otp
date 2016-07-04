@@ -91,8 +91,8 @@ init(Parent,LogDir,Nodes) ->
     Time = calendar:local_time(),
     RunDir = make_dirname(Time),
     RunDirAbs = filename:join(LogDir,RunDir),
-    file:make_dir(RunDirAbs),
-    write_details_file(RunDirAbs,{node(),Nodes}),
+    ok = make_dir(RunDirAbs),
+    _ = write_details_file(RunDirAbs,{node(),Nodes}),
 
     case basic_html() of
 	true ->
@@ -128,7 +128,7 @@ init(Parent,LogDir,Nodes) ->
 	    end
     end,
 
-    make_all_runs_index(LogDir),
+    _ = make_all_runs_index(LogDir),
     CtLogFd = open_ct_master_log(RunDirAbs),
     NodeStr = 
 	lists:flatten(lists:map(fun(N) ->
@@ -181,7 +181,7 @@ loop(State) ->
 	    lists:foreach(Fun,List),
 	    loop(State);
 	{make_all_runs_index,From} ->
-	    make_all_runs_index(State#state.logdir),
+	    _ = make_all_runs_index(State#state.logdir),
 	    return(From,State#state.logdir),
 	    loop(State);	
 	{{nodedir,Node,RunDir},From} ->
@@ -189,12 +189,12 @@ loop(State) ->
 	    return(From,ok),
 	    loop(State);	
 	stop ->
-	    make_all_runs_index(State#state.logdir),
+	    _ = make_all_runs_index(State#state.logdir),
 	    io:format(State#state.log_fd,
 		      int_header()++int_footer(),
 		      [log_timestamp(?now),"Finished!"]),
-	    close_ct_master_log(State#state.log_fd),
-	    close_nodedir_index(State#state.nodedir_ix_fd),
+	    _ = close_ct_master_log(State#state.log_fd),
+	    _ = close_nodedir_index(State#state.nodedir_ix_fd),
 	    ok
     end.
 
@@ -496,7 +496,7 @@ make_relative(Dir) ->
     ct_logs:make_relative(Dir).
 
 force_write_file(Name,Contents) ->
-    force_delete(Name),
+    _ = force_delete(Name),
     file:write_file(Name,Contents).
 
 force_delete(Name) ->
@@ -534,13 +534,34 @@ call(Msg) ->
     end.
 
 return({To,Ref},Result) ->
-    To ! {Ref, Result}.
+    To ! {Ref, Result},
+    ok.
 
 cast(Msg) ->
     case whereis(?MODULE) of
 	undefined ->
-	    {error,does_not_exist};
+	    io:format("Warning: ct_master_logs not started~n"),
+	    {_,_,Content} = Msg,
+	    FormatArgs = get_format_args(Content),
+	    _ = [io:format(Format, Args) || {Format, Args} <- FormatArgs],
+	    ok;
 	_Pid ->
-	    ?MODULE ! Msg
+	    ?MODULE ! Msg,
+	    ok
     end.
 
+get_format_args(Content) ->
+    lists:map(fun(C) ->
+		  case C of
+		      {_, FA, _} -> FA;
+		      _ -> C
+		  end
+	      end, Content).
+
+make_dir(Dir) ->
+    case file:make_dir(Dir) of
+	{error, eexist} ->
+		ok;
+	    Else ->
+		Else
+    end.

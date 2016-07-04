@@ -30,7 +30,7 @@
          erl_tracer/1, distributed_erl_tracer/1]).
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
--export([enabled/3, trace/6, load_nif/1]).
+-export([enabled/3, trace/5, load_nif/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -961,7 +961,7 @@ erl_tracer(Config) ->
     {ok, _} = dbg:p(self(), [c, timestamp]),
     {ok, _} = dbg:tp(?MODULE, dummy, []),
     ok = ?MODULE:dummy(),
-    [{Self, call, Self, Self, {?MODULE, dummy, []}, undefined, #{}}] = flush(),
+    [{Self, call, Self, Self, {?MODULE, dummy, []}, #{}}] = flush(),
     ok.
 
 %% Test that distributed erl_tracer modules work
@@ -997,10 +997,10 @@ distributed_erl_tracer(Config) ->
     {ok, {?MODULE, RNifProxy}} = dbg:get_tracer(RNode),
 
     LCall = spawn_link(LNode, fun() -> ?MODULE:dummy() end),
-    [{LCall, call, LNifProxy, LCall, {?MODULE, dummy, []}, undefined, #{}}] = flush(),
+    [{LCall, call, LNifProxy, LCall, {?MODULE, dummy, []}, #{}}] = flush(),
 
     RCall = spawn_link(RNode, fun() -> ?MODULE:dummy() end),
-    [{RCall, call, RNifProxy, RCall, {?MODULE, dummy, []}, undefined, #{}}] = flush(),
+    [{RCall, call, RNifProxy, RCall, {?MODULE, dummy, []}, #{}}] = flush(),
 
 
     ok.
@@ -1018,7 +1018,7 @@ load_nif(Config) ->
 enabled(_, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
-trace(_, _, _, _, _, _) ->
+trace(_, _, _, _, _) ->
     erlang:nif_error(nif_not_loaded).
 
 %%

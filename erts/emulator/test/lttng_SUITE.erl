@@ -44,6 +44,7 @@ suite() ->
 
 all() -> 
     [t_lttng_list,
+     t_memory_carrier,
      t_carrier_pool,
      t_async_io_pool,
      t_driver_start_stop,
@@ -52,8 +53,7 @@ all() ->
      t_driver_timeout,
      t_driver_caller,
      t_driver_flush,
-     t_scheduler_poll,
-     t_memory_carrier].
+     t_scheduler_poll].
 
 
 init_per_suite(Config) ->
@@ -80,34 +80,34 @@ end_per_testcase(Case, _Config) ->
     ok.
 
 %% Not tested yet
-%%   com_ericsson_otp:driver_process_exit
-%%   com_ericsson_otp:driver_event
+%%   org_erlang_otp:driver_process_exit
+%%   org_erlang_otp:driver_event
 
 %% tracepoints
 %%
-%%   com_ericsson_otp:carrier_pool_get
-%%   com_ericsson_otp:carrier_pool_put
-%%   com_ericsson_otp:carrier_destroy
-%%   com_ericsson_otp:carrier_create
-%%   com_ericsson_otp:aio_pool_put
-%%   com_ericsson_otp:aio_pool_get
-%%   com_ericsson_otp:driver_control
-%%   com_ericsson_otp:driver_call
-%%   com_ericsson_otp:driver_finish
-%%   com_ericsson_otp:driver_ready_async
-%%   com_ericsson_otp:driver_process_exit
-%%   com_ericsson_otp:driver_stop
-%%   com_ericsson_otp:driver_flush
-%%   com_ericsson_otp:driver_stop_select
-%%   com_ericsson_otp:driver_timeout
-%%   com_ericsson_otp:driver_event
-%%   com_ericsson_otp:driver_ready_output
-%%   com_ericsson_otp:driver_ready_input
-%%   com_ericsson_otp:driver_output
-%%   com_ericsson_otp:driver_outputv
-%%   com_ericsson_otp:driver_init
-%%   com_ericsson_otp:driver_start
-%%   com_ericsson_otp:scheduler_poll
+%%   org_erlang_otp:carrier_pool_get
+%%   org_erlang_otp:carrier_pool_put
+%%   org_erlang_otp:carrier_destroy
+%%   org_erlang_otp:carrier_create
+%%   org_erlang_otp:aio_pool_put
+%%   org_erlang_otp:aio_pool_get
+%%   org_erlang_otp:driver_control
+%%   org_erlang_otp:driver_call
+%%   org_erlang_otp:driver_finish
+%%   org_erlang_otp:driver_ready_async
+%%   org_erlang_otp:driver_process_exit
+%%   org_erlang_otp:driver_stop
+%%   org_erlang_otp:driver_flush
+%%   org_erlang_otp:driver_stop_select
+%%   org_erlang_otp:driver_timeout
+%%   org_erlang_otp:driver_event
+%%   org_erlang_otp:driver_ready_output
+%%   org_erlang_otp:driver_ready_input
+%%   org_erlang_otp:driver_output
+%%   org_erlang_otp:driver_outputv
+%%   org_erlang_otp:driver_init
+%%   org_erlang_otp:driver_start
+%%   org_erlang_otp:scheduler_poll
 
 %%
 %% Testcases
@@ -117,48 +117,48 @@ t_lttng_list(_Config) ->
     {ok, _} = cmd("lttng list -u"),
     ok.
 
-%% com_ericsson_otp:carrier_pool_get
-%% com_ericsson_otp:carrier_pool_put
+%% org_erlang_otp:carrier_pool_get
+%% org_erlang_otp:carrier_pool_put
 t_carrier_pool(Config) ->
-    case have_carriers() of
+    case have_carriers(ets_alloc) of
         false ->
             {skip, "No Memory Carriers configured on system."};
         true ->
-            ok = lttng_start_event("com_ericsson_otp:carrier_pool*", Config),
+            ok = lttng_start_event("org_erlang_otp:carrier_pool*", Config),
 
             ok = ets_load(),
 
             Res = lttng_stop_and_view(Config),
-            ok = check_tracepoint("com_ericsson_otp:carrier_pool_get", Res),
-            ok = check_tracepoint("com_ericsson_otp:carrier_pool_put", Res),
+            ok = check_tracepoint("org_erlang_otp:carrier_pool_get", Res),
+            ok = check_tracepoint("org_erlang_otp:carrier_pool_put", Res),
             ok
     end.
 
-%% com_ericsson_otp:carrier_destroy
-%% com_ericsson_otp:carrier_create
+%% org_erlang_otp:carrier_destroy
+%% org_erlang_otp:carrier_create
 t_memory_carrier(Config) ->
-    case have_carriers() of
+    case have_carriers(ets_alloc) of
         false ->
             {skip, "No Memory Carriers configured on system."};
         true ->
-            ok = lttng_start_event("com_ericsson_otp:carrier_*", Config),
+            ok = lttng_start_event("org_erlang_otp:carrier_*", Config),
 
             ok = ets_load(),
 
             Res = lttng_stop_and_view(Config),
-            ok = check_tracepoint("com_ericsson_otp:carrier_destroy", Res),
-            ok = check_tracepoint("com_ericsson_otp:carrier_create", Res),
+            ok = check_tracepoint("org_erlang_otp:carrier_destroy", Res),
+            ok = check_tracepoint("org_erlang_otp:carrier_create", Res),
             ok
     end.
 
-%% com_ericsson_otp:aio_pool_put
-%% com_ericsson_otp:aio_pool_get
+%% org_erlang_otp:aio_pool_put
+%% org_erlang_otp:aio_pool_get
 t_async_io_pool(Config) ->
     case have_async_threads() of
         false ->
             {skip, "No Async Threads configured on system."};
         true ->
-            ok = lttng_start_event("com_ericsson_otp:aio_pool_*", Config),
+            ok = lttng_start_event("org_erlang_otp:aio_pool_*", Config),
 
             Path1 = proplists:get_value(priv_dir, Config),
             {ok, [[Path2]]} = init:get_argument(home),
@@ -168,51 +168,54 @@ t_async_io_pool(Config) ->
             {ok, _} = file:list_dir(Path2),
 
             Res = lttng_stop_and_view(Config),
-            ok = check_tracepoint("com_ericsson_otp:aio_pool_put", Res),
-            ok = check_tracepoint("com_ericsson_otp:aio_pool_get", Res),
+            ok = check_tracepoint("org_erlang_otp:aio_pool_put", Res),
+            ok = check_tracepoint("org_erlang_otp:aio_pool_get", Res),
             ok
     end.
 
 
-%% com_ericsson_otp:driver_start
-%% com_ericsson_otp:driver_stop
+%% org_erlang_otp:driver_start
+%% org_erlang_otp:driver_stop
 t_driver_start_stop(Config) ->
-    ok = lttng_start_event("com_ericsson_otp:driver_*", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_*", Config),
+    timer:sleep(500),
     Path = proplists:get_value(priv_dir, Config),
     Name = filename:join(Path, "sometext.txt"),
     Bin  = txt(),
     ok = file:write_file(Name, Bin),
     {ok, Bin} = file:read_file(Name),
+    timer:sleep(500),
     Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("com_ericsson_otp:driver_start", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_stop", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_control", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_outputv", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_ready_async", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_start", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_stop", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_control", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_outputv", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_ready_async", Res),
     ok.
 
-%% com_ericsson_otp:driver_control
-%% com_ericsson_otp:driver_outputv
-%% com_ericsson_otp:driver_ready_async
+%% org_erlang_otp:driver_control
+%% org_erlang_otp:driver_outputv
+%% org_erlang_otp:driver_ready_async
 t_driver_control_ready_async(Config) ->
-    ok = lttng_start_event("com_ericsson_otp:driver_control", Config),
-    ok = lttng_start_event("com_ericsson_otp:driver_outputv", Config),
-    ok = lttng_start_event("com_ericsson_otp:driver_ready_async", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_control", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_outputv", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_ready_async", Config),
     Path = proplists:get_value(priv_dir, Config),
     Name = filename:join(Path, "sometext.txt"),
     Bin  = txt(),
     ok = file:write_file(Name, Bin),
     {ok, Bin} = file:read_file(Name),
     Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("com_ericsson_otp:driver_control", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_outputv", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_ready_async", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_control", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_outputv", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_ready_async", Res),
     ok.
 
-%% com_ericsson_otp:driver_ready_input
-%% com_ericsson_otp:driver_ready_output
+%% org_erlang_otp:driver_ready_input
+%% org_erlang_otp:driver_ready_output
 t_driver_ready_input_output(Config) ->
-    ok = lttng_start_event("com_ericsson_otp:driver_ready_*", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_ready_*", Config),
+    timer:sleep(500),
     Me = self(),
     Pid = spawn_link(fun() -> tcp_server(Me, active) end),
     receive {Pid, accept} -> ok end,
@@ -225,16 +228,17 @@ t_driver_ready_input_output(Config) ->
     ok = gen_tcp:close(Sock),
     receive {Pid, done} -> ok end,
 
+    timer:sleep(500),
     Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("com_ericsson_otp:driver_ready_input", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_ready_output", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_ready_input", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_ready_output", Res),
     ok.
 
 
-%% com_ericsson_otp:driver_stop_select
-%% com_ericsson_otp:driver_timeout
+%% org_erlang_otp:driver_stop_select
+%% org_erlang_otp:driver_timeout
 t_driver_timeout(Config) ->
-    ok = lttng_start_event("com_ericsson_otp:driver_*", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_*", Config),
     Me = self(),
     Pid = spawn_link(fun() -> tcp_server(Me, timeout) end),
     receive {Pid, accept} -> ok end,
@@ -243,16 +247,16 @@ t_driver_timeout(Config) ->
     receive {Pid, done} -> ok end,
     ok = gen_tcp:close(Sock),
     Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("com_ericsson_otp:driver_timeout", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_stop_select", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_timeout", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_stop_select", Res),
     ok.
  
-%% com_ericsson_otp:driver_call
-%% com_ericsson_otp:driver_output
-%% com_ericsson_otp:driver_init
-%% com_ericsson_otp:driver_finish
+%% org_erlang_otp:driver_call
+%% org_erlang_otp:driver_output
+%% org_erlang_otp:driver_init
+%% org_erlang_otp:driver_finish
 t_driver_caller(Config) ->
-    ok = lttng_start_event("com_ericsson_otp:driver_*", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_*", Config),
 
     Drv = 'caller_drv',
     os:putenv("CALLER_DRV_USE_OUTPUTV", "false"),
@@ -278,25 +282,25 @@ t_driver_caller(Config) ->
     erl_ddll:unload_driver(Drv),
 
     Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("com_ericsson_otp:driver_call", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_output", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_init", Res),
-    ok = check_tracepoint("com_ericsson_otp:driver_finish", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_call", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_output", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_init", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_finish", Res),
     ok.
  
-%% com_ericsson_otp:scheduler_poll
+%% org_erlang_otp:scheduler_poll
 t_scheduler_poll(Config) ->
-    ok = lttng_start_event("com_ericsson_otp:scheduler_poll", Config),
+    ok = lttng_start_event("org_erlang_otp:scheduler_poll", Config),
 
     ok = memory_load(),
 
     Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("com_ericsson_otp:scheduler_poll", Res),
+    ok = check_tracepoint("org_erlang_otp:scheduler_poll", Res),
     ok.
 
-%% com_ericsson_otp:driver_flush
+%% org_erlang_otp:driver_flush
 t_driver_flush(Config) ->
-    ok = lttng_start_event("com_ericsson_otp:driver_flush", Config),
+    ok = lttng_start_event("org_erlang_otp:driver_flush", Config),
 
     Me = self(),
     Pid = spawn_link(fun() -> tcp_server(Me, passive_no_read) end),
@@ -320,7 +324,7 @@ t_driver_flush(Config) ->
     receive {Pid, done} -> ok end,
 
     Res = lttng_stop_and_view(Config),
-    ok = check_tracepoint("com_ericsson_otp:driver_flush", Res),
+    ok = check_tracepoint("org_erlang_otp:driver_flush", Res),
     ok.
 
 %%
@@ -412,29 +416,29 @@ tcp_server(Pid, Type) ->
 txt() ->
     <<"%% tracepoints\n"
       "%%\n"
-      "%%   com_ericsson_otp:carrier_pool_get\n"
-      "%%   com_ericsson_otp:carrier_pool_put\n"
-      "%%   com_ericsson_otp:carrier_destroy\n"
-      "%%   com_ericsson_otp:carrier_create\n"
-      "%%   com_ericsson_otp:aio_pool_put\n"
-      "%%   com_ericsson_otp:aio_pool_get\n"
-      "%%   com_ericsson_otp:driver_control\n"
-      "%%   com_ericsson_otp:driver_call\n"
-      "%%   com_ericsson_otp:driver_finish\n"
-      "%%   com_ericsson_otp:driver_ready_async\n"
-      "%%   com_ericsson_otp:driver_process_exit\n"
-      "%%   com_ericsson_otp:driver_stop\n"
-      "%%   com_ericsson_otp:driver_flush\n"
-      "%%   com_ericsson_otp:driver_stop_select\n"
-      "%%   com_ericsson_otp:driver_timeout\n"
-      "%%   com_ericsson_otp:driver_event\n"
-      "%%   com_ericsson_otp:driver_ready_output\n"
-      "%%   com_ericsson_otp:driver_ready_input\n"
-      "%%   com_ericsson_otp:driver_output\n"
-      "%%   com_ericsson_otp:driver_outputv\n"
-      "%%   com_ericsson_otp:driver_init\n"
-      "%%   com_ericsson_otp:driver_start\n"
-      "%%   com_ericsson_otp:scheduler_poll">>.
+      "%%   org_erlang_otp:carrier_pool_get\n"
+      "%%   org_erlang_otp:carrier_pool_put\n"
+      "%%   org_erlang_otp:carrier_destroy\n"
+      "%%   org_erlang_otp:carrier_create\n"
+      "%%   org_erlang_otp:aio_pool_put\n"
+      "%%   org_erlang_otp:aio_pool_get\n"
+      "%%   org_erlang_otp:driver_control\n"
+      "%%   org_erlang_otp:driver_call\n"
+      "%%   org_erlang_otp:driver_finish\n"
+      "%%   org_erlang_otp:driver_ready_async\n"
+      "%%   org_erlang_otp:driver_process_exit\n"
+      "%%   org_erlang_otp:driver_stop\n"
+      "%%   org_erlang_otp:driver_flush\n"
+      "%%   org_erlang_otp:driver_stop_select\n"
+      "%%   org_erlang_otp:driver_timeout\n"
+      "%%   org_erlang_otp:driver_event\n"
+      "%%   org_erlang_otp:driver_ready_output\n"
+      "%%   org_erlang_otp:driver_ready_input\n"
+      "%%   org_erlang_otp:driver_output\n"
+      "%%   org_erlang_otp:driver_outputv\n"
+      "%%   org_erlang_otp:driver_init\n"
+      "%%   org_erlang_otp:driver_start\n"
+      "%%   org_erlang_otp:scheduler_poll">>.
 
 load_driver(Dir, Driver) ->
     case erl_ddll:load_driver(Dir, Driver) of
@@ -446,11 +450,10 @@ load_driver(Dir, Driver) ->
 
 %% check
 
-have_carriers() ->
-    Cap = element(3,erlang:system_info(allocator)),
-    case Cap -- [sys_alloc,sys_aligned_alloc] of
-        [] -> false;
-        _  -> true
+have_carriers(Alloc) ->
+    case erlang:system_info({allocator,Alloc}) of
+        false -> false;
+        _ -> true
     end.
 
 have_async_threads() ->

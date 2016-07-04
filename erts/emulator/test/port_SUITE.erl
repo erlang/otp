@@ -74,27 +74,68 @@
 %%
 
 
--export([all/0, suite/0, groups/0,
-         init_per_testcase/2, end_per_testcase/2,
-         init_per_suite/1, end_per_suite/1,
-         stream_small/1, stream_big/1,
-         basic_ping/1, slow_writes/1, bad_packet/1, bad_port_messages/1,
-         mul_basic/1, mul_slow_writes/1,
-         dying_port/1, port_program_with_path/1,
-         open_input_file_port/1, open_output_file_port/1,
-         count_fds/1,
-         iter_max_ports/1, eof/1, input_only/1, output_only/1,
-         name1/1,
-         t_binary/1, parallell/1, t_exit/1,
-         env/1, huge_env/1, bad_env/1, cd/1, exit_status/1,
-	 bad_args/1,
-         tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
-         otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
-         mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
-         exit_status_multi_scheduling_block/1, ports/1,
-         spawn_driver/1, spawn_executable/1, close_deaf_port/1,
-         port_setget_data/1,
-         unregister_name/1, parallelism_option/1]).
+-export([all/0, suite/0, groups/0, init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1]).
+-export([
+    bad_args/1,
+    bad_env/1,
+    bad_packet/1,
+    bad_port_messages/1,
+    basic_ping/1,
+    cd/1,
+    close_deaf_port/1,
+    count_fds/1,
+    dying_port/1,
+    env/1,
+    eof/1,
+    exit_status/1,
+    exit_status_multi_scheduling_block/1,
+    huge_env/1,
+    input_only/1,
+    iter_max_ports/1,
+    line/1,
+    mix_up_ports/1,
+    mon_port_invalid_type/1,
+    mon_port_bad_named/1,
+    mon_port_bad_remote_on_local/1,
+    mon_port_local/1,
+    mon_port_name_demonitor/1,
+    mon_port_named/1,
+    mon_port_origin_dies/1,
+    mon_port_pid_demonitor/1,
+    mon_port_remote_on_remote/1,
+    mon_port_driver_die/1,
+    mon_port_driver_die_demonitor/1,
+    mul_basic/1,
+    mul_slow_writes/1,
+    name1/1,
+    open_input_file_port/1,
+    open_output_file_port/1,
+    otp_3906/1,
+    otp_4389/1,
+    otp_5112/1,
+    otp_5119/1,
+    otp_6224/1,
+    output_only/1,
+    parallelism_option/1,
+    parallell/1,
+    port_program_with_path/1,
+    port_setget_data/1,
+    ports/1,
+    slow_writes/1,
+    spawn_driver/1,
+    spawn_executable/1,
+    stderr_to_stdout/1,
+    stream_big/1,
+    stream_small/1,
+    t_binary/1,
+    t_exit/1,
+    tps_16_bytes/1,
+    tps_1K/1,
+    unregister_name/1,
+    win_massive/1,
+    win_massive_client/1
+]).
 
 -export([do_iter_max_ports/2]).
 
@@ -105,12 +146,13 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 10}}].
 
-all() -> 
+all() ->
     [otp_6224, {group, stream}, basic_ping, slow_writes,
      bad_packet, bad_port_messages, {group, options},
      {group, multiple_packets}, parallell, dying_port,
@@ -123,14 +165,32 @@ all() ->
      exit_status_multi_scheduling_block, ports, spawn_driver,
      spawn_executable, close_deaf_port, unregister_name,
      port_setget_data,
-     parallelism_option].
+     parallelism_option,
+     mon_port_invalid_type,
+     mon_port_local,
+     mon_port_remote_on_remote,
+     mon_port_bad_remote_on_local,
+     mon_port_origin_dies,
+     mon_port_named,
+     mon_port_bad_named,
+     mon_port_pid_demonitor,
+     mon_port_name_demonitor,
+     mon_port_driver_die,
+     mon_port_driver_die_demonitor
+    ].
 
-groups() -> 
+groups() ->
     [{stream, [], [stream_small, stream_big]},
      {options, [], [t_binary, eof, input_only, output_only]},
      {multiple_packets, [], [mul_basic, mul_slow_writes]},
      {tps, [], [tps_16_bytes, tps_1K]}].
 
+init_per_testcase(Case, Config) when Case =:= mon_port_driver_die;
+                                     Case =:= mon_port_driver_die_demonitor ->
+    case erlang:system_info(schedulers_online) of
+        1 -> {skip, "Need 2 schedulers to run testcase"};
+        _ -> Config
+    end;
 init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
 
@@ -160,7 +220,7 @@ do_win_massive() ->
     ct:timetrap({minutes, 6}),
     SuiteDir = filename:dirname(code:which(?MODULE)),
     Ports = " +Q 8192",
-    {ok, Node} = 
+    {ok, Node} =
     test_server:start_node(win_massive,
                            slave,
                            [{args, " -pa " ++ SuiteDir ++ Ports}]),
@@ -169,7 +229,7 @@ do_win_massive() ->
     ok.
 
 win_massive_client(N) ->
-    {ok,P}=gen_tcp:listen(?WIN_MASSIVE_PORT,[{reuseaddr,true}]), 
+    {ok,P}=gen_tcp:listen(?WIN_MASSIVE_PORT,[{reuseaddr,true}]),
     L = win_massive_loop(P,N),
     Len = length(L),
     lists:foreach(fun(E) ->
@@ -278,7 +338,7 @@ bad_port_messages(Config) when is_list(Config) ->
     bad_message(PortTest, {self(),{connect,no_pid}}),
     ok.
 
-bad_message(PortTest, Message) ->    
+bad_message(PortTest, Message) ->
     P = open_port({spawn,PortTest}, []),
     P ! Message,
     receive
@@ -773,7 +833,7 @@ line(Config) when is_list(Config) ->
     S1 = lists:flatten(io_lib:format("-l~w", [length(L1)])),
     io:format("S1 = ~w, L1 = ~w~n", [S1,L1]),
     port_expect(Config,[{L1,
-                         [{eol, Packet1}, {noeol, Packet2}, eof]}], 0, 
+                         [{eol, Packet1}, {noeol, Packet2}, eof]}], 0,
                 S1, [{line,Siz},eof]),
     %% Test that lonely <CR> Don't get treated as newlines
     port_expect(Config,[{lists:append([Packet1, [13], Packet2,
@@ -844,9 +904,9 @@ env(Config)  when is_list(Config) ->
                      {"glurf","a glorfy string"}]),
 
     %% A lot of non existing variables (mingled with existing)
-    NotExistingList = [{lists:flatten(io_lib:format("V~p_not_existing",[X])),false} 
+    NotExistingList = [{lists:flatten(io_lib:format("V~p_not_existing",[X])),false}
                        ||  X <- lists:seq(1,150)],
-    ExistingList = [{lists:flatten(io_lib:format("V~p_existing",[X])),"a_value"} 
+    ExistingList = [{lists:flatten(io_lib:format("V~p_existing",[X])),"a_value"}
                     ||  X <- lists:seq(1,150)],
     env_slave(Temp, lists:sort(ExistingList ++ NotExistingList)),
     ok.
@@ -1320,22 +1380,22 @@ spawn_driver(Config) when is_list(Config) ->
     ok = load_driver(Path, "echo_drv"),
     Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
     Port ! {self(), {command, "Hello port!"}},
-    receive 
-        {Port, {data, "Hello port!"}} = Msg1 -> 
+    receive
+        {Port, {data, "Hello port!"}} = Msg1 ->
             io:format("~p~n", [Msg1]),
-            ok; 
+            ok;
         Other ->
             ct:fail({unexpected, Other})
     end,
     Port ! {self(), close},
     receive {Port, closed} -> ok end,
 
-    Port2 = erlang:open_port({spawn_driver, "echo_drv -Hello port?"}, 
+    Port2 = erlang:open_port({spawn_driver, "echo_drv -Hello port?"},
                              []),
-    receive 
-        {Port2, {data, "Hello port?"}} = Msg2 -> 
+    receive
+        {Port2, {data, "Hello port?"}} = Msg2 ->
             io:format("~p~n", [Msg2]),
-            ok; 
+            ok;
         Other2 ->
             ct:fail({unexpected2, Other2})
     end,
@@ -1354,23 +1414,23 @@ parallelism_option(Config) when is_list(Config) ->
                             [{parallelism, true}]),
     {parallelism, true} = erlang:port_info(Port, parallelism),
     Port ! {self(), {command, "Hello port!"}},
-    receive 
-        {Port, {data, "Hello port!"}} = Msg1 -> 
+    receive
+        {Port, {data, "Hello port!"}} = Msg1 ->
             io:format("~p~n", [Msg1]),
-            ok; 
+            ok;
         Other ->
             ct:fail({unexpected, Other})
     end,
     Port ! {self(), close},
     receive {Port, closed} -> ok end,
 
-    Port2 = erlang:open_port({spawn_driver, "echo_drv -Hello port?"}, 
+    Port2 = erlang:open_port({spawn_driver, "echo_drv -Hello port?"},
                              [{parallelism, false}]),
     {parallelism, false} = erlang:port_info(Port2, parallelism),
-    receive 
-        {Port2, {data, "Hello port?"}} = Msg2 -> 
+    receive
+        {Port2, {data, "Hello port?"}} = Msg2 ->
             io:format("~p~n", [Msg2]),
-            ok; 
+            ok;
         Other2 ->
             ct:fail({unexpected2, Other2})
     end,
@@ -1389,20 +1449,20 @@ spawn_executable(Config) when is_list(Config) ->
     ["echo_args"] = run_echo_args(DataDir,[binary, "echo_args"]),
     ["echo_arguments"] = run_echo_args(DataDir,["echo_arguments"]),
     ["echo_arguments"] = run_echo_args(DataDir,[binary, "echo_arguments"]),
-    [ExactFile1,"hello world","dlrow olleh"] = 
+    [ExactFile1,"hello world","dlrow olleh"] =
     run_echo_args(DataDir,[ExactFile1,"hello world","dlrow olleh"]),
     [ExactFile1] = run_echo_args(DataDir,[default]),
     [ExactFile1] = run_echo_args(DataDir,[binary, default]),
-    [ExactFile1,"hello world","dlrow olleh"] = 
+    [ExactFile1,"hello world","dlrow olleh"] =
     run_echo_args(DataDir,[switch_order,ExactFile1,"hello world",
                            "dlrow olleh"]),
-    [ExactFile1,"hello world","dlrow olleh"] = 
+    [ExactFile1,"hello world","dlrow olleh"] =
     run_echo_args(DataDir,[binary,switch_order,ExactFile1,"hello world",
                            "dlrow olleh"]),
     [ExactFile1,"hello world","dlrow olleh"] =
     run_echo_args(DataDir,[default,"hello world","dlrow olleh"]),
 
-    [ExactFile1,"hello world","dlrow olleh"] = 
+    [ExactFile1,"hello world","dlrow olleh"] =
     run_echo_args_2("\""++ExactFile1++"\" "++"\"hello world\" \"dlrow olleh\""),
     [ExactFile1,"hello world","dlrow olleh"] =
     run_echo_args_2(unicode:characters_to_binary("\""++ExactFile1++"\" "++"\"hello world\" \"dlrow olleh\"")),
@@ -1418,7 +1478,7 @@ spawn_executable(Config) when is_list(Config) ->
     [ExactFile2] = run_echo_args(SpaceDir,[]),
     ["echo_args"] = run_echo_args(SpaceDir,["echo_args"]),
     ["echo_arguments"] = run_echo_args(SpaceDir,["echo_arguments"]),
-    [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2,"hello world","dlrow olleh"] =
     run_echo_args(SpaceDir,[ExactFile2,"hello world","dlrow olleh"]),
     [ExactFile2,"hello world","dlrow olleh"] =
     run_echo_args(SpaceDir,[binary, ExactFile2,"hello world","dlrow olleh"]),
@@ -1429,16 +1489,16 @@ spawn_executable(Config) when is_list(Config) ->
     run_echo_args(SpaceDir,[binary, ExactFile2,"hello \"world\"","\"dlrow\" olleh"]),
 
     [ExactFile2] = run_echo_args(SpaceDir,[default]),
-    [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2,"hello world","dlrow olleh"] =
     run_echo_args(SpaceDir,[switch_order,ExactFile2,"hello world", "dlrow olleh"]),
-    [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2,"hello world","dlrow olleh"] =
     run_echo_args(SpaceDir,[default,"hello world","dlrow olleh"]),
-    [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2,"hello world","dlrow olleh"] =
     run_echo_args_2("\""++ExactFile2++"\" "++"\"hello world\" \"dlrow olleh\""),
     [ExactFile2,"hello world","dlrow olleh"] =
     run_echo_args_2(unicode:characters_to_binary("\""++ExactFile2++"\" "++"\"hello world\" \"dlrow olleh\"")),
 
-    ExeExt = 
+    ExeExt =
     case string:to_lower(lists:last(string:tokens(ExactFile2,"."))) of
         "exe" ->
             ".exe";
@@ -1452,17 +1512,17 @@ spawn_executable(Config) when is_list(Config) ->
     [ExactFile3] = run_echo_args(SpaceDir,Executable2,[]),
     ["echo_args"] = run_echo_args(SpaceDir,Executable2,["echo_args"]),
     ["echo_arguments"] = run_echo_args(SpaceDir,Executable2,["echo_arguments"]),
-    [ExactFile3,"hello world","dlrow olleh"] = 
+    [ExactFile3,"hello world","dlrow olleh"] =
     run_echo_args(SpaceDir,Executable2,[ExactFile3,"hello world","dlrow olleh"]),
     [ExactFile3] = run_echo_args(SpaceDir,Executable2,[default]),
-    [ExactFile3,"hello world","dlrow olleh"] = 
+    [ExactFile3,"hello world","dlrow olleh"] =
     run_echo_args(SpaceDir,Executable2,
                   [switch_order,ExactFile3,"hello world",
                    "dlrow olleh"]),
-    [ExactFile3,"hello world","dlrow olleh"] = 
+    [ExactFile3,"hello world","dlrow olleh"] =
     run_echo_args(SpaceDir,Executable2,
                   [default,"hello world","dlrow olleh"]),
-    [ExactFile3,"hello world","dlrow olleh"] = 
+    [ExactFile3,"hello world","dlrow olleh"] =
     run_echo_args_2("\""++ExactFile3++"\" "++"\"hello world\" \"dlrow olleh\""),
     [ExactFile3,"hello world","dlrow olleh"] =
     run_echo_args_2(unicode:characters_to_binary("\""++ExactFile3++"\" "++"\"hello world\" \"dlrow olleh\"")),
@@ -1510,11 +1570,11 @@ test_bat_file(Dir) ->
          <<"\r\n">>],
     file:write_file(Full,list_to_binary(D)),
     EF = filename:basename(FN),
-    [DN,"hello","world"] = 
+    [DN,"hello","world"] =
     run_echo_args(Dir,FN,
                   [default,"hello","world"]),
     %% The arg0 argumant should be ignored when running batch files
-    [DN,"hello","world"] = 
+    [DN,"hello","world"] =
     run_echo_args(Dir,FN,
                   ["knaskurt","hello","world"]),
     EF = filename:basename(DN),
@@ -1533,10 +1593,10 @@ test_sh_file(Dir) ->
          <<"done\n">>],
     file:write_file(Full,list_to_binary(D)),
     chmodplusx(Full),
-    [Full,"hello","world"] = 
+    [Full,"hello","world"] =
     run_echo_args(Dir,FN,
                   [default,"hello","world"]),
-    [Full,"hello","world of spaces"] = 
+    [Full,"hello","world of spaces"] =
     run_echo_args(Dir,FN,
                   [default,"hello","world of spaces"]),
     file:write_file(filename:join([Dir,"testfile1"]),<<"testdata1">>),
@@ -1544,7 +1604,7 @@ test_sh_file(Dir) ->
     Pattern = filename:join([Dir,"testfile*"]),
     L = filelib:wildcard(Pattern),
     2 = length(L),
-    [Full,"hello",Pattern] = 
+    [Full,"hello",Pattern] =
     run_echo_args(Dir,FN,
                   [default,"hello",Pattern]),
     ok.
@@ -1620,10 +1680,10 @@ mix_up_ports(Config) when is_list(Config) ->
     ok = load_driver(Path, "echo_drv"),
     Port = erlang:open_port({spawn, "echo_drv"}, []),
     Port ! {self(), {command, "Hello port!"}},
-    receive 
-        {Port, {data, "Hello port!"}} = Msg1 -> 
+    receive
+        {Port, {data, "Hello port!"}} = Msg1 ->
             io:format("~p~n", [Msg1]),
-            ok; 
+            ok;
         Other ->
             ct:fail({unexpected, Other})
     end,
@@ -1631,7 +1691,7 @@ mix_up_ports(Config) when is_list(Config) ->
     receive {Port, closed} -> ok end,
     loop(start, done,
          fun(P) ->
-                 Q = 
+                 Q =
                  (catch erlang:open_port({spawn, "echo_drv"}, [])),
                  %%		       io:format("~p ", [Q]),
                  if is_port(Q) ->
@@ -1642,7 +1702,7 @@ mix_up_ports(Config) when is_list(Config) ->
                  end
          end),
     Port ! {self(), {command, "Hello again port!"}},
-    receive 
+    receive
         Msg2 ->
             ct:fail({unexpected, Msg2})
     after 1000 ->
@@ -1802,7 +1862,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     %% We want to start port programs from as many schedulers as possible
     %% and we want these port programs to terminate while multi-scheduling
     %% is blocked.
-    %% 
+    %%
     NoSchedsOnln = erlang:system_info(schedulers_online),
     Parent = self(),
     io:format("SleepSecs = ~p~n", [SleepSecs]),
@@ -2214,7 +2274,7 @@ ports_snapshots(0, _, _) ->
     ok;
 ports_snapshots(Iter, TrafficPid, OtherPorts) ->
 
-    TrafficPid ! start,    
+    TrafficPid ! start,
     receive after 1 -> ok end,
 
     Snapshot = erlang:ports(),
@@ -2243,7 +2303,7 @@ ports_traffic_stopped(MaxPorts, {PortList, PortCnt}) ->
     end.
 
 ports_traffic_started(MaxPorts, {PortList, PortCnt}, EventList) ->
-    receive 
+    receive
         {Pid, stop} ->
             %%io:format("Traffic stopped in ~p\n",[self()]),
             Pid ! {self(), EventList, PortList},
@@ -2256,7 +2316,7 @@ ports_traffic_started(MaxPorts, {PortList, PortCnt}, EventList) ->
 ports_traffic_do(MaxPorts, {PortList, PortCnt}, EventList) ->
     N = uniform(MaxPorts),
     case N > PortCnt of
-        true -> % Open port	    
+        true -> % Open port
             P = open_port({spawn, "exit_drv"}, []),
             %%io:format("Created port ~p\n",[P]),
             ports_traffic_started(MaxPorts, {[P|PortList], PortCnt+1},
@@ -2270,7 +2330,7 @@ ports_traffic_do(MaxPorts, {PortList, PortCnt}, EventList) ->
                                   [{close,P}|EventList])
     end.
 
-ports_verify(Ports, PortsAfter, EventList) ->    
+ports_verify(Ports, PortsAfter, EventList) ->
     %%io:format("Candidate=~p\nEvents=~p\n", [PortsAfter, EventList]),
     case lists:sort(Ports) =:= lists:sort(PortsAfter) of
         true ->
@@ -2280,10 +2340,10 @@ ports_verify(Ports, PortsAfter, EventList) ->
             %% Note that we track the event list "backwards", undoing open/close:
             case EventList of
                 [{open,P} | Tail] ->
-                    ports_verify(Ports, lists:delete(P,PortsAfter), Tail);		    
+                    ports_verify(Ports, lists:delete(P,PortsAfter), Tail);
 
                 [{close,P} | Tail] ->
-                    ports_verify(Ports, [P | PortsAfter], Tail);		    
+                    ports_verify(Ports, [P | PortsAfter], Tail);
 
                 [] ->
                     ct:fail("Inconsistent snapshot from erlang:ports()")
@@ -2391,3 +2451,227 @@ wait_until(Fun) ->
             receive after 100 -> ok end,
             wait_until(Fun)
     end.
+
+%% Attempt to monitor pid as port, and port as pid
+mon_port_invalid_type(_Config) ->
+    Port = hd(erlang:ports()),
+    ?assertError(badarg, erlang:monitor(port, self())),
+    ?assertError(badarg, erlang:monitor(process, Port)),
+    ok.
+
+%% With local port
+mon_port_local(Config) ->
+    Port1 = create_port(Config, ["-h1", "-q"]), % will close after we send 1 byte
+    Ref1 = erlang:monitor(port, Port1),
+    ?assertMatch({proc_monitors, true, port_monitored_by, true},
+                 port_is_monitored(self(), Port1)),
+    Port1 ! {self(), {command, <<"1">>}}, % port test will close self immediately
+    receive ExitP1 -> ?assertMatch({'DOWN', Ref1, port, Port1, _}, ExitP1)
+    after 1000 -> ?assert(false) end,
+    ?assertMatch({proc_monitors, false, port_monitored_by, false},
+                 port_is_monitored(self(), Port1)),
+
+    %% Trying to re-monitor a port which exists but is not healthy will
+    %% succeed but then will immediately send DOWN
+    Ref2 = erlang:monitor(port, Port1),
+    receive ExitP2 -> ?assertMatch({'DOWN', Ref2, port, Port1, _}, ExitP2)
+    after 1000 -> ?assert(false) end,
+    ok.
+
+%% With remote port on remote node (should fail)
+mon_port_remote_on_remote(_Config) ->
+    Port3 = binary_to_term(<<131, 102,          % Ext term format: PORT_EXT
+                             100, 0, 13, "fgsfds@fgsfds", % Node :: ATOM_EXT
+                             1:32/big,          % Id
+                             0>>),              % Creation
+    ?assertError(badarg, erlang:monitor(port, Port3)),
+    ok.
+
+%% Remote port belongs to this node and does not exist
+%% Port4 produces #Port<0.167772160> which should not exist in a test run
+mon_port_bad_remote_on_local(_Config) ->
+    Port4 = binary_to_term(<<131, 102,          % Ext term format: PORT_EXT
+                             100, 0, 13, "nonode@nohost", % Node
+                             167772160:32/big,  % Id
+                             0>>),              % Creation
+    ?assertError(badarg, erlang:monitor(port, Port4)),
+    ok.
+
+%% Monitor owner (origin) dies before port is closed
+mon_port_origin_dies(Config) ->
+    Port5 = create_port(Config, ["-h1", "-q"]), % will close after we send 1 byte
+    Self5 = self(),
+    Proc5 = spawn(fun() ->
+                      Self5 ! test5_started,
+                      erlang:monitor(port, Port5),
+                      receive stop -> ok end
+                  end),
+    erlang:monitor(process, Proc5), % we want to sync with its death
+    receive test5_started -> ok
+    after 1000 -> ?assert(false) end,
+    ?assertMatch({proc_monitors, true, port_monitored_by, true},
+                 port_is_monitored(Proc5, Port5)),
+    Proc5 ! stop,
+    % receive from monitor (removing race condition)
+    receive ExitP5 -> ?assertMatch({'DOWN', _, process, Proc5, _}, ExitP5)
+    after 1000 -> ?assert(false) end,
+    ?assertMatch({proc_monitors, false, port_monitored_by, false},
+                 port_is_monitored(Proc5, Port5)),
+    Port5 ! {self(), {command, <<"1">>}}, % make port quit
+    ok.
+
+%% Monitor a named port
+mon_port_named(Config) ->
+    Name6 = test_port6,
+    Port6 = create_port(Config, ["-h1", "-q"]), % will close after we send 1 byte
+    erlang:register(Name6, Port6),
+    erlang:monitor(port, Name6),
+    ?assertMatch({proc_monitors, true, port_monitored_by, true},
+                 port_is_monitored(self(), Name6)),
+    Port6 ! {self(), {command, <<"1">>}}, % port test will close self immediately
+    receive ExitP6 -> ?assertMatch({'DOWN', _, port, {Name6, _}, _}, ExitP6)
+    after 1000 -> ?assert(false) end,
+    ?assertMatch({proc_monitors, false, port_monitored_by, false},
+                 port_is_monitored(self(), Name6)),
+    ok.
+
+%% Named does not exist: Should succeed but immediately send 'DOWN'
+mon_port_bad_named(_Config) ->
+    Name7 = test_port7,
+    erlang:monitor(port, Name7),
+    receive {'DOWN', _, port, {Name7, _}, noproc} -> ok
+    after 1000 -> ?assert(false) end,
+    ok.
+
+%% Monitor a pid and demonitor by ref
+mon_port_pid_demonitor(Config) ->
+    Port8 = create_port(Config, ["-h1", "-q"]), % will close after we send 1 byte
+    Ref8 = erlang:monitor(port, Port8),
+    ?assertMatch({proc_monitors, true, port_monitored_by, true},
+                 port_is_monitored(self(), Port8)),
+    erlang:demonitor(Ref8),
+    ?assertMatch({proc_monitors, false, port_monitored_by, false},
+                 port_is_monitored(self(), Port8)),
+    Port8 ! {self(), {command, <<"1">>}}, % port test will close self immediately
+    ok.
+
+%% Monitor by name and demonitor by ref
+mon_port_name_demonitor(Config) ->
+    Name9 = test_port9,
+    Port9 = create_port(Config, ["-h1", "-q"]), % will close after we send 1 byte
+    erlang:register(Name9, Port9),
+    Ref9 = erlang:monitor(port, Name9),
+    ?assertMatch({proc_monitors, true, port_monitored_by, true},
+                 port_is_monitored(self(), Name9)),
+    erlang:demonitor(Ref9),
+    ?assertMatch({proc_monitors, false, port_monitored_by, false},
+                 port_is_monitored(self(), Name9)),
+    Port9 ! {self(), {command, <<"1">>}}, % port test will close self immediately
+    ok.
+
+%% 1. Spawn a port which will sleep 3 seconds
+%% 2. Port driver and dies horribly (via C driver_failure call). This should
+%%    mark port as exiting or something.
+%% 3. While the command happens, a monitor is requested on the port
+mon_port_driver_die(Config) ->
+    erlang:process_flag(scheduler, 1),
+
+    Path = proplists:get_value(data_dir, Config),
+    ok = load_driver(Path, "sleep_failure_drv"),
+    Port = open_port({spawn, "sleep_failure_drv"}, []),
+
+    Self = self(),
+    erlang:spawn_opt(fun() ->
+                             timer:sleep(250),
+                             Ref = erlang:monitor(port, Port),
+                             %% Now check that msg actually arrives
+                             receive
+                                 {'DOWN', Ref, _Port2, _, _} = M -> Self ! M
+                             after 3000 -> Self ! no_down_message
+                             end
+                     end,[{scheduler, 2}]),
+    Port ! {self(), {command, "Fail, please!"}},
+    receive
+        A when is_atom(A) -> ?assertEqual(A, 'A_should_be_printed');
+        {'DOWN', _R, port, Port, noproc} -> ok;
+        {'DOWN', _R, _P, _, _} = M -> ct:fail({got_wrong_down,M})
+    after 5000 -> ?assert(false)
+    end,
+    ok.
+
+
+%% 1. Spawn a port which will sleep 3 seconds
+%% 2. Monitor port
+%% 3. Port driver and dies horribly (via C driver_failure call). This should
+%%    mark port as exiting or something.
+%% 4. While the command happens, a demonitor is requested on the port
+mon_port_driver_die_demonitor(Config) ->
+    erlang:process_flag(scheduler, 1),
+
+    Path = proplists:get_value(data_dir, Config),
+    ok = load_driver(Path, "sleep_failure_drv"),
+    Port = open_port({spawn, "sleep_failure_drv"}, []),
+
+    Self = self(),
+    erlang:spawn_opt(
+      fun() ->
+              Ref = erlang:monitor(port, Port),
+              Self ! Ref,
+              timer:sleep(250),
+              erlang:demonitor(Ref),
+              %% Now check that msg still arrives,
+              %% the demon should have arrived after
+              %% the port exited
+              receive
+                  {'DOWN', Ref, _Port2, _, _} = M -> Self ! M
+              after 3000 -> Self ! no_down_message
+              end
+      end,[{scheduler, 2}]),
+    Ref = receive R -> R end,
+    Port ! {self(), {command, "Fail, please!"}},
+    receive
+        {'DOWN', Ref, port, Port, normal} -> ok;
+        {'DOWN', _R, _P, _, _} = M -> ct:fail({got_wrong_down,M})
+    after 5000 -> ?assert(false)
+    end,
+    ok.
+
+%% @doc Makes a controllable port for testing. Underlying mechanism of this
+%% port is not important, only important is our ability to close/kill it or
+%% have it monitored.
+create_port(Config, Args) ->
+    DataDir = ?config(data_dir, Config),
+    %% Borrow port test utility from port SUITE
+    Program = filename:join([DataDir, "port_test"]),
+    erlang:open_port({spawn_executable, Program}, [{args, Args}]).
+
+%% @doc Checks if process Pid exists, and if so, if its monitoring (or not)
+%% the Port (or if port doesn't exist, we assume answer is no).
+port_is_monitored(Pid, Port) when is_pid(Pid), is_port(Port) ->
+    %% Variant for when port is a port id (port())
+    A = case erlang:process_info(Pid, monitors) of
+            undefined -> false;
+            {monitors, ProcMTargets} -> lists:member({port, Port}, ProcMTargets)
+        end,
+    B = case erlang:port_info(Port, monitored_by) of
+            undefined -> false;
+            {monitored_by, PortMonitors} -> lists:member(Pid, PortMonitors)
+        end,
+    {proc_monitors, A, port_monitored_by, B};
+port_is_monitored(Pid, PortName) when is_pid(Pid), is_atom(PortName) ->
+    %% Variant for when port is an atom
+    A = case erlang:process_info(Pid, monitors) of
+        undefined -> false;
+        {monitors, ProcMTargets} ->
+            lists:member({port, {PortName, node()}}, ProcMTargets)
+    end,
+    B = case erlang:whereis(PortName) of
+            undefined -> false; % name is not registered or is dead
+            PortId ->
+                case erlang:port_info(PortId, monitored_by) of
+                    undefined -> false; % is dead
+                    {monitored_by, PortMonitors} ->
+                        lists:member(Pid, PortMonitors)
+                end
+        end,
+    {proc_monitors, A, port_monitored_by, B}.

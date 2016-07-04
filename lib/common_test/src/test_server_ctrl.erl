@@ -294,7 +294,7 @@ start_link(_) ->
 
 start() ->
     case gen_server:start({local,?MODULE}, ?MODULE, [], []) of
-	{ok, Pid} ->
+	{error, {already_started, Pid}} ->
 	    {ok, Pid};
 	Other ->
 	    Other
@@ -302,7 +302,7 @@ start() ->
 
 start_link() ->
     case gen_server:start_link({local,?MODULE}, ?MODULE, [], []) of
-	{ok, Pid} ->
+	{error, {already_started, Pid}} ->
 	    {ok, Pid};
 	Other ->
 	    Other
@@ -512,7 +512,7 @@ init([]) ->
     TI = TI0#target_info{host=TargetHost,
 			 naming=naming(),
 			 master=TargetHost},
-    ets:new(slave_tab, [named_table,set,public,{keypos,2}]),
+    _ = ets:new(slave_tab, [named_table,set,public,{keypos,2}]),
     set_hosts([TI#target_info.host]),
     {ok,State#state{target_info=TI}}.
 
@@ -867,7 +867,7 @@ handle_call({create_priv_dir,Value}, _From, State) ->
 handle_call({testcase_callback,ModFunc}, _From, State) ->
     case ModFunc of
 	{Mod,Func} ->
-	    case code:is_loaded(Mod) of
+	    _ = case code:is_loaded(Mod) of
 		{file,_} ->
 		    ok;
 		false ->
@@ -1079,8 +1079,8 @@ terminate(_Reason, State) ->
 	false -> ok;
 	Sock -> test_server_node:stop_tracer_node(Sock)
     end,
-    kill_all_jobs(State#state.jobs),
-    test_server_node:kill_nodes(),
+    ok = kill_all_jobs(State#state.jobs),
+    _ = test_server_node:kill_nodes(),
     ok.
 
 kill_all_jobs([{_Name,JobPid}|Jobs]) ->
@@ -1125,7 +1125,7 @@ spawn_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
 init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	    RejectIoReqs, CreatePrivDir, TCCallback, ExtraTools) ->
     process_flag(trap_exit, true),
-    test_server_io:start_link(),
+    _ = test_server_io:start_link(),
     put(test_server_name, Name),
     put(test_server_dir, Dir),
     put(test_server_total_time, 0),
@@ -1199,8 +1199,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     {UnexpectedIoName,UnexpectedIoFooter} = get(test_server_unexpected_footer),
     {ok,UnexpectedIoFd} = open_html_file(UnexpectedIoName, [append]),
     io:put_chars(UnexpectedIoFd, "\n</pre>\n"++UnexpectedIoFooter),
-    file:close(UnexpectedIoFd),
-    ok.
+    ok = file:close(UnexpectedIoFd).
 
 report_severe_error(Reason) ->
     test_server_sup:framework_call(report, [severe_error,Reason]).
@@ -1927,7 +1926,7 @@ html_convert_modules([Mod|Mods]) ->
 		    Name = atom_to_list(Mod),
 		    DestFile = filename:join(DestDir,
 					     downcase(Name)++?src_listing_ext),
-		    html_possibly_convert(SrcFile1, SrcFileInfo, DestFile),
+		    _ = html_possibly_convert(SrcFile1, SrcFileInfo, DestFile),
 		    html_convert_modules(Mods)
 	    end;
 	_Other ->
@@ -2066,7 +2065,7 @@ add_init_and_end_per_suite([], LastMod, LastRef, FwMod) ->
     end.    
 
 do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
-    case code:is_loaded(Mod) of
+    _ = case code:is_loaded(Mod) of
 	false -> code:load_file(Mod);
 	_ -> ok
     end,
@@ -2140,7 +2139,6 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 %% Runs the specified tests, then displays/logs the summary.
 
 run_test_cases(TestSpec, Config, TimetrapData) ->
-    test_server:init_purify(),
     case lists:member(no_src, get(test_server_logopts)) of
 	true ->
 	    ok;
@@ -2323,7 +2321,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) when
       ((SkipTag==auto_skip_case) or (SkipTag==skip_case)) and
       ((Type==conf) or (Type==make)) ->
-    file:set_cwd(filename:dirname(get(test_server_dir))),
+    ok = file:set_cwd(filename:dirname(get(test_server_dir))),
     CurrIOHandler = get(test_server_common_io_handler),
     ParentMode = tl(Mode),
 
@@ -2339,7 +2337,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		false ->
 		    %% this is a skipped end conf for a top level parallel
 		    %% group, buffered io can be flushed
-		    handle_test_case_io_and_status(),
+		    _ = handle_test_case_io_and_status(),
 		    set_io_buffering(undefined),
 		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   false, SkipMode),
@@ -2351,7 +2349,7 @@ run_test_cases_loop([{SkipTag,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		_ ->
 		    %% this is a skipped end conf for a parallel group nested
 		    %% under a parallel group (io buffering is active)
-		    wait_for_cases(Ref),
+		    _ = wait_for_cases(Ref),
 		    {Mod,Func} = skip_case(AutoOrUser, Ref, 0, Case, Comment,
 					   true, SkipMode),
 		    ConfData = {Mod,{Func,get_name(SkipMode)},Comment},
@@ -2459,7 +2457,7 @@ run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
 
 run_test_cases_loop([{skip_case,{{Mod,all}=Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
-    skip_case(user, undefined, 0, Case, Comment, false, SkipMode),
+    _ = skip_case(user, undefined, 0, Case, Comment, false, SkipMode),
     test_server_sup:framework_call(report, [tc_user_skip,
 					    {Mod,{all,get_name(SkipMode)},
 					     Comment}]),
@@ -2489,7 +2487,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			%% collect results from the test case processes
 			%% and calc total time
 			OkSkipFail = handle_test_case_io_and_status(),
-			file:set_cwd(filename:dirname(get(test_server_dir))),
+			ok = file:set_cwd(filename:dirname(get(test_server_dir))),
 			After = ?now,
 			Before = get(test_server_parallel_start_time),
 			Elapsed = timer:now_diff(After, Before)/1000000,
@@ -3582,7 +3580,7 @@ handle_io_and_exit_loop([], [{undefined,CurrPid,CaseNum,Mod,Func}|Ps] = Cases, O
 handle_io_and_exit_loop(Refs, [{Ref,CurrPid,CaseNum,Mod,Func}|Ps] = Cases, Ok,Skip,Fail) ->
     receive
 	{started,_,CurrPid,CaseNum,Mod,Func} ->
-	    handle_io_and_exits(self(), CurrPid, CaseNum, Mod, Func, Cases),
+	    _ = handle_io_and_exits(self(), CurrPid, CaseNum, Mod, Func, Cases),
 	    Refs1 =
 		case Refs of
 		    [Ref|Rs] ->	                % must be end conf case for subgroup
@@ -3658,7 +3656,7 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
 %% about the execution time and the return value of the test case function.
 
 run_test_case(Ref, Num, Mod, Func, Args, RunInit, TimetrapData) ->
-    file:set_cwd(filename:dirname(get(test_server_dir))),
+    ok = file:set_cwd(filename:dirname(get(test_server_dir))),
     run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		   TimetrapData, [], self()).
 
@@ -3668,7 +3666,7 @@ run_test_case(Ref, Num, Mod, Func, Args, skip_init, TimetrapData, Mode) ->
 		   TimetrapData, Mode, self());
 
 run_test_case(Ref, Num, Mod, Func, Args, RunInit, TimetrapData, Mode) ->
-    file:set_cwd(filename:dirname(get(test_server_dir))),
+    ok = file:set_cwd(filename:dirname(get(test_server_dir))),
     Main = self(),
     case check_prop(parallel, Mode) of
 	false ->
@@ -3682,7 +3680,7 @@ run_test_case(Ref, Num, Mod, Func, Args, RunInit, TimetrapData, Mode) ->
 	    spawn_link(
 	      fun() ->
 		      process_flag(trap_exit, true),
-		      [put(Key, Val) || {Key,Val} <- Dictionary],
+		      _ = [put(Key, Val) || {Key,Val} <- Dictionary],
 		      set_io_buffering({tc,Main}),
 		      run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 				     TimetrapData, Mode, Main)
@@ -3699,7 +3697,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	false -> ok;
 	true ->
 	    test_server_io:start_transaction(),
-	    Main ! {started,Ref,self(),Num,Mod,Func}
+	    Main ! {started,Ref,self(),Num,Mod,Func},
+	    ok
     end,
     TSDir = get(test_server_dir),
 
@@ -3774,7 +3773,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
-	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], GrName,
+	run_test_case_apply(Mod, Func, [UpdatedArgs], GrName,
 			    RunInit, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
 	case Result of
@@ -3906,7 +3905,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	true ->
 	    test_server_io:end_transaction(),
 	    Main ! {finished,Ref,self(),Num,Mod,Func,
-		    ?mod_result(Status),{Time,RetVal,Opts}}
+		    ?mod_result(Status),{Time,RetVal,Opts}},
+		    ok
     end,
     {Time,RetVal,Opts}.
 
@@ -4329,7 +4329,7 @@ do_format_exception(Reason={Error,Stack}) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
+%% run_test_case_apply(Mod, Func, Args, Name, RunInit,
 %%                     TimetrapData) ->
 %%  {{Time,RetVal,Loc,Opts,Comment},DetectedFail,ProcessesBefore,ProcessesAfter} |
 %%  {{died,Reason,unknown,Comment},DetectedFail,ProcessesBefore,ProcessesAfter}
@@ -4343,9 +4343,9 @@ do_format_exception(Reason={Error,Stack}) ->
 %% ProcessesBefore = ProcessesAfter = integer()
 %%
 
-run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
+run_test_case_apply(Mod, Func, Args, Name, RunInit,
 		    TimetrapData) ->
-    test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
+    test_server:run_test_case_apply({Mod,Func,Args,Name,RunInit,
 				     TimetrapData}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -5276,7 +5276,8 @@ check_cross([]) ->
 %% This per application analysis writes the file cover.html in the
 %% application's run.<timestamp> directory.
 stop_cover(#cover{}=CoverInfo, TestDir) ->
-    cover_analyse(CoverInfo, TestDir);
+    cover_analyse(CoverInfo, TestDir),
+    ok;
 stop_cover(_CoverInfo, _TestDir) ->
     %% Cover is probably controlled by the framework
     ok.
@@ -5315,7 +5316,7 @@ cover_analyse(CoverInfo, TestDir) ->
 	      [?cross_coverlog_name]),
 
     io:fwrite(CoverLog, "<p>CoverFile: <code>~tp</code>\n", [CoverFile]),
-    write_cross_cover_info(TestDir,Cross),
+    ok = write_cross_cover_info(TestDir,Cross),
 
     case length(cover:imported_modules()) of
 	Imps when Imps > 0 ->
@@ -5329,7 +5330,7 @@ cover_analyse(CoverInfo, TestDir) ->
     io:fwrite(CoverLog, "<p>Excluded module(s): <code>~tp</code>\n", [Excluded]),
 
     Coverage = test_server:cover_analyse(TestDir, CoverInfo),
-    write_binary_file(filename:join(TestDir,?raw_coverlog_name),
+    ok = write_binary_file(filename:join(TestDir,?raw_coverlog_name),
 		      term_to_binary(Coverage)),
 
     case lists:filter(fun({_M,{_,_,_}}) -> false;
@@ -5344,8 +5345,8 @@ cover_analyse(CoverInfo, TestDir) ->
     end,
 
     TotPercent = write_cover_result_table(CoverLog, Coverage),
-    write_binary_file(filename:join(TestDir, ?cover_total),
-		      term_to_binary(TotPercent)).
+    ok = write_binary_file(filename:join(TestDir, ?cover_total),
+			   term_to_binary(TotPercent)).
 
 %% Cover analysis - accumulated over multiple tests
 %% This can be executed on any node after all tests are finished.
@@ -5395,7 +5396,7 @@ write_cross_cover_info(Dir,Cross) ->
 write_cross_cover_logs([{Tag,Coverage}|T],TagDirMods) ->
     case lists:keyfind(Tag,1,TagDirMods) of
 	{_,Dir,Mods} when Mods=/=[] ->
-	    write_binary_file(filename:join(Dir,?raw_cross_coverlog_name),
+	    ok = write_binary_file(filename:join(Dir,?raw_cross_coverlog_name),
 			      term_to_binary(Coverage)),
 	    CoverLogName = filename:join(Dir,?cross_coverlog_name),
 	    {ok,CoverLog} = open_html_file(CoverLogName),

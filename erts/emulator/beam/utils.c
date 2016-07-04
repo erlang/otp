@@ -2210,7 +2210,9 @@ do_allocate_logger_message(Eterm gleader, Eterm **hp, ErlOffHeap **ohp,
 
 #ifndef ERTS_SMP
 #ifdef USE_THREADS
-    if (erts_get_scheduler_data()) /* Must be scheduler thread */
+    if (!erts_get_scheduler_data()) /* Must be scheduler thread */
+	*p = NULL;
+    else
 #endif
     {
 	*p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
@@ -2226,18 +2228,10 @@ do_allocate_logger_message(Eterm gleader, Eterm **hp, ErlOffHeap **ohp,
     }
 
     /* So we have an error logger, lets build the message */
-    if (sz <= HeapWordsLeft(*p)) {
-	*ohp = &MSO(*p);
-	*hp = HEAP_TOP(*p);
-	HEAP_TOP(*p) += sz;
-    } else {
 #endif
-	*bp = new_message_buffer(sz);
-	*ohp = &(*bp)->off_heap;
-	*hp = (*bp)->mem;
-#ifndef ERTS_SMP
-    }
-#endif
+    *bp = new_message_buffer(sz);
+    *ohp = &(*bp)->off_heap;
+    *hp = (*bp)->mem;
 
     return (is_nil(gleader)
 	  ? am_noproc
@@ -3893,8 +3887,10 @@ void bin_write(int to, void *to_arg, byte* buf, size_t sz)
 }
 
 /* Fill buf with the contents of bytelist list 
-   return number of chars in list or -1 for error */
-
+ * return number of chars in list
+ * or -1 for type error
+ * or -2 for not enough buffer space (buffer contains truncated result)
+ */
 Sint
 intlist_to_buf(Eterm list, char *buf, Sint len)
 {
@@ -3917,7 +3913,7 @@ intlist_to_buf(Eterm list, char *buf, Sint len)
 	    return -1;
 	listptr = list_val(*(listptr + 1));
     }
-    return -1;			/* not enough space */
+    return -2;			/* not enough space */
 }
 
 /*

@@ -734,10 +734,11 @@ table(TraverseFun, Options) when is_function(TraverseFun) ->
 table(T1, T2) ->
     erlang:error(badarg, [T1, T2]).
 
--spec(transform_from_evaluator(LC, Bs) -> Expr when
+-spec(transform_from_evaluator(LC, Bs) -> Return when
       LC :: abstract_expr(),
-      Expr :: abstract_expr(),
-      Bs :: erl_eval:binding_struct()).
+      Bs :: erl_eval:binding_struct(),
+      Return :: {ok, abstract_expr()}
+              | {not_ok, {error, module(), Reason :: term()}}).
 
 transform_from_evaluator(LC, Bs0) ->
     qlc_pt:transform_from_evaluator(LC, Bs0).

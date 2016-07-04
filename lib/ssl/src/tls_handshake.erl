@@ -33,7 +33,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([client_hello/8, hello/4,
-	 get_tls_handshake/3, encode_handshake/2, decode_handshake/3]).
+	 get_tls_handshake/4, encode_handshake/2, decode_handshake/4]).
 
 -type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
 
@@ -133,17 +133,17 @@ encode_handshake(Package, Version) ->
     [MsgType, ?uint24(Len), Bin].
 
 %%--------------------------------------------------------------------
--spec get_tls_handshake(tls_record:tls_version(), binary(), binary() | iolist()) ->
+-spec get_tls_handshake(tls_record:tls_version(), binary(), binary() | iolist(), #ssl_options{}) ->
      {[tls_handshake()], binary()}.
 %%
 %% Description: Given buffered and new data from ssl_record, collects
 %% and returns it as a list of handshake messages, also returns leftover
 %% data.
 %%--------------------------------------------------------------------
-get_tls_handshake(Version, Data, <<>>) ->
-    get_tls_handshake_aux(Version, Data, []);
-get_tls_handshake(Version, Data, Buffer) ->
-    get_tls_handshake_aux(Version, list_to_binary([Buffer, Data]), []).
+get_tls_handshake(Version, Data, <<>>, Options) ->
+    get_tls_handshake_aux(Version, Data, Options, []);
+get_tls_handshake(Version, Data, Buffer, Options) ->
+    get_tls_handshake_aux(Version, list_to_binary([Buffer, Data]), Options, []).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -159,7 +159,8 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
 		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
-	    AvailableHashSigns = available_signature_algs(ClientHashSigns, SupportedHashSigns, Cert, Version),
+	    AvailableHashSigns = ssl_handshake:available_signature_algs(
+				   ClientHashSigns, SupportedHashSigns, Cert, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, AvailableHashSigns, Compressions,
@@ -167,7 +168,7 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
 					       SslOpts, Cache, CacheCb, Cert),
 	    case CipherSuite of 
 		no_suite ->
-		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
+                    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers);
 		_ ->
 		    {KeyExAlg,_,_,_} = ssl_cipher:suite_definition(CipherSuite),
 		    case ssl_handshake:select_hashsign(ClientHashSigns, Cert, KeyExAlg, SupportedHashSigns, Version) of
@@ -184,24 +185,24 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
     end.
 
 get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
-			Body:Length/binary,Rest/binary>>, Acc) ->
+				 Body:Length/binary,Rest/binary>>, #ssl_options{v2_hello_compatible = V2Hello} = Opts,  Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
-    Handshake = decode_handshake(Version, Type, Body),
-    get_tls_handshake_aux(Version, Rest, [{Handshake,Raw} | Acc]);
-get_tls_handshake_aux(_Version, Data, Acc) ->
+    Handshake = decode_handshake(Version, Type, Body, V2Hello),
+    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc]);
+get_tls_handshake_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
 
-decode_handshake(_, ?HELLO_REQUEST, <<>>) ->
+decode_handshake(_, ?HELLO_REQUEST, <<>>, _) ->
     #hello_request{};
 
 %% Client hello v2.
 %% The server must be able to receive such messages, from clients that
 %% are willing to use ssl v3 or higher, but have ssl v2 compatibility.
 decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor),
-				  ?UINT16(CSLength), ?UINT16(0),
-				  ?UINT16(CDLength),
-				  CipherSuites:CSLength/binary,
-				  ChallengeData:CDLength/binary>>) ->
+					    ?UINT16(CSLength), ?UINT16(0),
+					    ?UINT16(CDLength),
+					    CipherSuites:CSLength/binary,
+					    ChallengeData:CDLength/binary>>, true) ->
     #client_hello{client_version = {Major, Minor},
 		  random = ssl_v2:client_random(ChallengeData, CDLength),
 		  session_id = 0,
@@ -209,12 +210,18 @@ decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor),
 		  compression_methods = [?NULL],
 		  extensions = #hello_extensions{}
 		 };
+decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(_), ?BYTE(_),
+					    ?UINT16(CSLength), ?UINT16(0),
+					    ?UINT16(CDLength),
+					    _CipherSuites:CSLength/binary,
+					    _ChallengeData:CDLength/binary>>, false) ->
+    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION, ssl_v2_client_hello_no_supported));
 decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
-		       ?BYTE(SID_length), Session_ID:SID_length/binary,
-		       ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
-		       ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
-		       Extensions/binary>>) ->
-
+					    ?BYTE(SID_length), Session_ID:SID_length/binary,
+					    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
+					    ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
+					    Extensions/binary>>, _) ->
+    
     DecodedExtensions = ssl_handshake:decode_hello_extensions({client, Extensions}),
 
     #client_hello{
@@ -226,7 +233,7 @@ decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:3
        extensions = DecodedExtensions
       };
 
-decode_handshake(Version, Tag, Msg) ->
+decode_handshake(Version, Tag, Msg, _) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
 
 enc_handshake(#hello_request{}, _Version) ->
@@ -277,15 +284,4 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 	{ConnectionStates, ProtoExt, Protocol} ->
 	    {Version, SessionId, ConnectionStates, ProtoExt, Protocol}
     end.
-
-available_signature_algs(undefined, SupportedHashSigns, _, {Major, Minor}) when 
-      (Major >= 3) andalso (Minor >= 3) ->
-    SupportedHashSigns;
-available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns, 
-		     _, {Major, Minor}) when (Major >= 3) andalso (Minor >= 3) ->
-    sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
-				   sets:from_list(SupportedHashSigns)));
-available_signature_algs(_, _, _, _) -> 
-    undefined.
-
 

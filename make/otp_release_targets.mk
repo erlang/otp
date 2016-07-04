@@ -120,7 +120,7 @@ xmllint: $(XML_FILES)
 			echo Checking $$i; \
 			xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities $$i; \
 		else\
-			awk -F\" '/xi:include/ {print "echo Checking " $$2 ;print "xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities " $$2}' $$i |sh; \
+			awk -F\" '/xi:include/ {print "echo Checking " $$2 ;print "xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities:$(XMLLINT_SRCDIRS) " $$2}' $$i |sh; \
 		fi \
 	done
 

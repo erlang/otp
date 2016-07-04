@@ -366,7 +366,7 @@
 
 -export([subst_uses_llvm/2]).
 
--export_type([alub_cond/0]).
+-export_type([alub_cond/0, rtl/0]).
 
 %%
 %% RTL
@@ -384,6 +384,7 @@
 	      label_range,  %% {Min,Max} First and last name used for labels
 	      info=[]       %% A keylist with arbitrary information.
 	     }).
+-opaque rtl() :: #rtl{}.
 
 mk_rtl(Fun, ArgList, Closure, Leaf, Code, Data, VarRange, LabelRange) ->
   #rtl{'fun'=Fun, arglist=ArgList, code=Code, 
@@ -414,7 +415,9 @@ rtl_info_update(Rtl, Info) -> Rtl#rtl{info=Info}.
 %% move
 %%
 
-mk_move(Dst, Src) -> false = is_fpreg(Dst), false = is_fpreg(Src), #move{dst=Dst, src=Src}.
+mk_move(Dst, Src) ->
+  false = is_fpreg(Dst), false = is_fpreg(Src),
+  #move{dst=Dst, src=Src}.
 move_dst(#move{dst=Dst}) -> Dst.
 move_dst_update(M, NewDst) -> false = is_fpreg(NewDst), M#move{dst=NewDst}.
 move_src(#move{src=Src}) -> Src.

@@ -2115,32 +2115,36 @@ profile_runnable_proc(Process *p, Eterm status){
     Eterm *hp, msg;
     Eterm where = am_undefined;
     ErlHeapFragment *bp = NULL;
-    int use_current = 1;
+    BeamInstr *current = NULL;
 
 #ifndef ERTS_SMP
 #define LOCAL_HEAP_SIZE (4 + 6 + ERTS_TRACE_PATCH_TS_MAX_SIZE)
-
     DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
     UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 
     hp = local_heap;
 #else
+    ErtsThrPrgrDelayHandle dhndl;
     Uint hsz = 4 + 6 + patch_ts_size(erts_system_profile_ts_type)-1;
 #endif
-	
-    if (ERTS_PROC_IS_EXITING(p)) {
-        use_current = 0;
-        /* could probably set 'where' to 'exiting' here,
-         * though it's not documented as such */
-    } else {
-        if (!p->current) {
-            p->current = find_function_from_pc(p->i);
+    /* Assumptions:
+     * We possibly don't have the MAIN_LOCK for the process p here.
+     * We assume that we can read from p->current and p->i atomically
+     */
+#ifdef ERTS_SMP
+    dhndl = erts_thr_progress_unmanaged_delay(); /* suspend purge operations */
+#endif
+
+    if (!ERTS_PROC_IS_EXITING(p)) {
+        if (p->current) {
+            current = p->current;
+        } else {
+            current = find_function_from_pc(p->i);
         }
-        use_current = p->current != NULL;
     }
 
 #ifdef ERTS_SMP
-    if (!use_current) {
+    if (!current) {
 	hsz -= 4;
     }
 
@@ -2148,11 +2152,15 @@ profile_runnable_proc(Process *p, Eterm status){
     hp = bp->mem;
 #endif
 
-    if (use_current) {
-	where = TUPLE3(hp, p->current[0], p->current[1], make_small(p->current[2])); hp += 4;
+    if (current) {
+	where = TUPLE3(hp, current[0], current[1], make_small(current[2])); hp += 4;
     } else {
 	where = make_small(0);
     }
+
+#ifdef ERTS_SMP
+    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
 	
     erts_smp_mtx_lock(&smq_mtx);
 
@@ -2625,7 +2633,7 @@ static void init_tracer_template(ErtsTracerNif *tnif) {
 
     /* default tracer functions */
     tnif->tracers[TRACE_FUN_DEFAULT].name  = "trace";
-    tnif->tracers[TRACE_FUN_DEFAULT].arity = 6;
+    tnif->tracers[TRACE_FUN_DEFAULT].arity = 5;
     tnif->tracers[TRACE_FUN_DEFAULT].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_ENABLED].name  = "enabled";
@@ -2634,35 +2642,35 @@ static void init_tracer_template(ErtsTracerNif *tnif) {
 
     /* specific tracer functions */
     tnif->tracers[TRACE_FUN_T_SEND].name  = "trace_send";
-    tnif->tracers[TRACE_FUN_T_SEND].arity = 6;
+    tnif->tracers[TRACE_FUN_T_SEND].arity = 5;
     tnif->tracers[TRACE_FUN_T_SEND].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_RECEIVE].name  = "trace_receive";
-    tnif->tracers[TRACE_FUN_T_RECEIVE].arity = 6;
+    tnif->tracers[TRACE_FUN_T_RECEIVE].arity = 5;
     tnif->tracers[TRACE_FUN_T_RECEIVE].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_CALL].name  = "trace_call";
-    tnif->tracers[TRACE_FUN_T_CALL].arity = 6;
+    tnif->tracers[TRACE_FUN_T_CALL].arity = 5;
     tnif->tracers[TRACE_FUN_T_CALL].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_SCHED_PROC].name  = "trace_running_procs";
-    tnif->tracers[TRACE_FUN_T_SCHED_PROC].arity = 6;
+    tnif->tracers[TRACE_FUN_T_SCHED_PROC].arity = 5;
     tnif->tracers[TRACE_FUN_T_SCHED_PROC].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_SCHED_PORT].name  = "trace_running_ports";
-    tnif->tracers[TRACE_FUN_T_SCHED_PORT].arity = 6;
+    tnif->tracers[TRACE_FUN_T_SCHED_PORT].arity = 5;
     tnif->tracers[TRACE_FUN_T_SCHED_PORT].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_GC].name  = "trace_garbage_collection";
-    tnif->tracers[TRACE_FUN_T_GC].arity = 6;
+    tnif->tracers[TRACE_FUN_T_GC].arity = 5;
     tnif->tracers[TRACE_FUN_T_GC].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_PROCS].name  = "trace_procs";
-    tnif->tracers[TRACE_FUN_T_PROCS].arity = 6;
+    tnif->tracers[TRACE_FUN_T_PROCS].arity = 5;
     tnif->tracers[TRACE_FUN_T_PROCS].cb    = NULL;
 
     tnif->tracers[TRACE_FUN_T_PORTS].name  = "trace_ports";
-    tnif->tracers[TRACE_FUN_T_PORTS].arity = 6;
+    tnif->tracers[TRACE_FUN_T_PORTS].arity = 5;
     tnif->tracers[TRACE_FUN_T_PORTS].cb    = NULL;
 
     /* specific enabled functions */
@@ -2834,10 +2842,12 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
                        Eterm tag, Eterm msg, Eterm extra, Eterm pam_result)
 {
     if (tnif || (tnif = lookup_tracer_nif(tracer)) != NULL) {
-#define MAP_SIZE 3
-        Eterm argv[6], local_heap[3+MAP_SIZE /* values */ + (MAP_SIZE+1 /* keys */)];
+#define MAP_SIZE 4
+        Eterm argv[5], local_heap[3+MAP_SIZE /* values */ + (MAP_SIZE+1 /* keys */)];
         flatmap_t *map = (flatmap_t*)(local_heap+(MAP_SIZE+1));
         Eterm *map_values = flatmap_get_values(map);
+        Eterm *map_keys = local_heap + 1;
+        Uint map_elem_count = 0;
 
         topt = (tnif->tracers[topt].cb) ? topt : TRACE_FUN_DEFAULT;
         ASSERT(topt < NIF_TRACER_TYPES);
@@ -2846,31 +2856,40 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
         argv[1] = ERTS_TRACER_STATE(tracer);
         argv[2] = t_p_id;
         argv[3] = msg;
-        argv[4] = extra == THE_NON_VALUE ? am_undefined : extra;
-        argv[5] = make_flatmap(map);
+        argv[4] = make_flatmap(map);
 
         map->thing_word = MAP_HEADER_FLATMAP;
-        map->size = MAP_SIZE;
-        map->keys = TUPLE3(local_heap, am_match_spec_result, am_scheduler_id, am_timestamp);
 
-        *map_values++ = pam_result;
-        if (tracee_flags & F_TRACE_SCHED_NO)
-            *map_values++ = make_small(erts_get_scheduler_id());
-        else
-            *map_values++ = am_undefined;
+        if (extra != THE_NON_VALUE) {
+            map_keys[map_elem_count] = am_extra;
+            map_values[map_elem_count++] = extra;
+        }
+
+        if (pam_result != am_true) {
+            map_keys[map_elem_count] = am_match_spec_result;
+            map_values[map_elem_count++] = pam_result;
+        }
+
+        if (tracee_flags & F_TRACE_SCHED_NO) {
+            map_keys[map_elem_count] = am_scheduler_id;
+            map_values[map_elem_count++] = make_small(erts_get_scheduler_id());
+        }
+        map_keys[map_elem_count] = am_timestamp;
         if (tracee_flags & F_NOW_TS)
 #ifdef HAVE_ERTS_NOW_CPU
             if (erts_cpu_timestamp)
-                *map_values++ = am_cpu_timestamp;
+                map_values[map_elem_count++] = am_cpu_timestamp;
             else
 #endif
-                *map_values++ = am_timestamp;
+                map_values[map_elem_count++] = am_timestamp;
         else if (tracee_flags & F_STRICT_MON_TS)
-            *map_values++ = am_strict_monotonic;
+            map_values[map_elem_count++] = am_strict_monotonic;
         else if (tracee_flags & F_MON_TS)
-            *map_values++ = am_monotonic;
-        else
-            *map_values++ = am_undefined;
+            map_values[map_elem_count++] = am_monotonic;
+
+        map->size = map_elem_count;
+        map->keys = make_tuple(local_heap);
+        local_heap[0] = make_arityval(map_elem_count);
 
 #undef MAP_SIZE
         erts_nif_call_function(c_p, tracee ? tracee : c_p,

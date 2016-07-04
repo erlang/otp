@@ -151,7 +151,6 @@ MODULES =                 		\
 	inets_test_lib    		\
 	erl_make_certs                  \
 	ftp_SUITE 	  		\
-	ftp_suite_lib			\
 	ftp_format_SUITE  		\
 	http_format_SUITE 		\
 	httpc_SUITE	  		\
@@ -169,8 +168,6 @@ MODULES =                 		\
 	httpd_test_lib    		\
 	inets_sup_SUITE   		\
 	inets_SUITE       		\
-        inets_app_test    		\
-        inets_appup_test  		\
         tftp_test_lib			\
         tftp_SUITE                      \
 	uri_SUITE                       \

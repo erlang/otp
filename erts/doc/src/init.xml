@@ -178,14 +178,8 @@
       <name name="stop" arity="0"/>
       <fsummary>Take down an Erlang node smoothly</fsummary>
       <desc>
-        <p>All applications are taken down smoothly, all code is
-          unloaded, and all ports are closed before the system
-          terminates. If the <c>-heart</c> command line flag was given, 
-          the <c>heart</c> program is terminated before the Erlang node
-          terminates. Refer to <c>heart(3)</c> for more information.</p>
-        <p>To limit the shutdown time, the time <c>init</c> is allowed
-          to spend taking down applications, the <c>-shutdown_time</c>
-          command line flag should be used.</p>
+        <p>The same as
+	<seealso marker="#stop/1"><c>stop(0)</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -240,6 +234,11 @@
          a similar affect on how the code server works. See <seealso
          marker="kernel:code">code(3)</seealso>.</p>
 	 
+      </item>
+      <tag><c>-epmd_module Module</c></tag>
+      <item>
+        <p>Specifies the module to use for registration and lookup of
+          node names.  Defaults to <c>erl_epmd</c>.</p>
       </item>
       <tag><c>-eval Expr</c></tag>
       <item>

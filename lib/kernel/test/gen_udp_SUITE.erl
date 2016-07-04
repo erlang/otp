@@ -35,7 +35,9 @@
 
 -export([send_to_closed/1, active_n/1,
 	 buffer_size/1, binary_passive_recv/1, bad_address/1,
-	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1]).
+	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1,
+	 local_basic/1, local_unbound/1,
+	 local_fdopen/1, local_fdopen_unbound/1, local_abstract/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,10 +46,13 @@ suite() ->
 all() -> 
     [send_to_closed, buffer_size, binary_passive_recv,
      bad_address, read_packets, open_fd, connect,
-     implicit_inet6, active_n].
+     implicit_inet6, active_n,
+     {group, local}].
 
 groups() -> 
-    [].
+    [{local, [],
+      [local_basic, local_unbound,
+       local_fdopen, local_fdopen_unbound, local_abstract]}].
 
 init_per_suite(Config) ->
     Config.
@@ -55,9 +60,19 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(local, Config) ->
+    case gen_udp:open(0, [local]) of
+	{ok,S} ->
+	    ok = gen_udp:close(S),
+	    Config;
+	{error,eafnosupport} ->
+	    {skip, "AF_LOCAL not supported"}
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
+end_per_group(local, _Config) ->
+    delete_local_filenames();
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -65,7 +80,7 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
 
 %%-------------------------------------------------------------
@@ -550,6 +565,116 @@ active_n(Config) when is_list(Config) ->
     ok = gen_udp:close(S1),
     ok.
 
+
+local_basic(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    CFile = local_filename(client),
+    CAddr = {local,bin_filename(CFile)},
+    _ = file:delete(SFile),
+    _ = file:delete(CFile),
+    %%
+    S = ok(gen_udp:open(0, [{ifaddr,{local,SFile}},{active,false}])),
+    C = ok(gen_udp:open(0, [{ifaddr,{local,CFile}},{active,false}])),
+    SAddr = ok(inet:sockname(S)),
+    CAddr = ok(inet:sockname(C)),
+    local_handshake(S, SAddr, C, CAddr),
+    ok = gen_udp:close(S),
+    ok = gen_udp:close(C),
+    %%
+    ok = file:delete(SFile),
+    ok = file:delete(CFile),
+    ok.
+
+local_unbound(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    _ = file:delete(SFile),
+    %%
+    S = ok(gen_udp:open(0, [{ifaddr,SAddr},{active,false}])),
+    C = ok(gen_udp:open(0, [local,{active,false}])),
+    SAddr = ok(inet:sockname(S)),
+    local_handshake(S, SAddr, C, undefined),
+    ok = gen_udp:close(S),
+    ok = gen_udp:close(C),
+    %%
+    ok = file:delete(SFile),
+    ok.
+
+local_fdopen(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    CFile = local_filename(client),
+    CAddr = {local,bin_filename(CFile)},
+    _ = file:delete(SFile),
+    _ = file:delete(CFile),
+    %%
+    S0 = ok(gen_udp:open(0, [{ifaddr,SAddr},{active,false}])),
+    C = ok(gen_udp:open(0, [{ifaddr,{local,CFile}},{active,false}])),
+    SAddr = ok(inet:sockname(S0)),
+    CAddr = ok(inet:sockname(C)),
+    Fd = ok(prim_inet:getfd(S0)),
+    S = ok(gen_udp:open(0, [{fd,Fd},local,{active,false}])),
+    SAddr = ok(inet:sockname(S)),
+    local_handshake(S, SAddr, C, CAddr),
+    ok = gen_udp:close(S),
+    ok = gen_udp:close(S0),
+    ok = gen_udp:close(C),
+    %%
+    ok = file:delete(SFile),
+    ok = file:delete(CFile),
+    ok.
+
+local_fdopen_unbound(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    _ = file:delete(SFile),
+    %%
+    S = ok(gen_udp:open(0, [{ifaddr,SAddr},{active,false}])),
+    C0 = ok(gen_udp:open(0, [local,{active,false}])),
+    SAddr = ok(inet:sockname(S)),
+    Fd = ok(prim_inet:getfd(C0)),
+    C = ok(gen_udp:open(0, [{fd,Fd},local,{active,false}])),
+    local_handshake(S, SAddr, C, undefined),
+    ok = gen_udp:close(S),
+    ok = gen_udp:close(C),
+    ok = gen_udp:close(C0),
+    %%
+    ok = file:delete(SFile),
+    ok.
+
+local_abstract(_Config) ->
+    case os:type() of
+	{unix,linux} ->
+	    S = ok(gen_udp:open(0, [{ifaddr,{local,<<>>}},{active,false}])),
+	    C = ok(gen_udp:open(0, [{ifaddr,{local,<<>>}},{active,false}])),
+	    {local,_} = SAddr = ok(inet:sockname(S)),
+	    {local,_} = CAddr = ok(inet:sockname(C)),
+	    local_handshake(S, SAddr, C, CAddr),
+	    ok = gen_udp:close(S),
+	    ok = gen_udp:close(C),
+	    ok;
+	_ ->
+	    {skip,"AF_LOCAL Abstract Addresses only supported on Linux"}
+    end.
+
+
+local_handshake(S, SAddr, C, CAddr) ->
+    SData = "9876543210",
+    CData = "0123456789",
+    ok = gen_udp:send(C, SAddr, 0, CData),
+    case ok(gen_tcp:recv(S, 112)) of
+	{{unspec,<<>>}, 0, CData} when CAddr =:= undefined ->
+	    ok;
+	{{local,<<>>}, 0, CData} when CAddr =:= undefined ->
+	    ok;
+	{CAddr, 0, CData} when CAddr =/= undefined ->
+	    ok = gen_udp:send(S, CAddr, 0, SData),
+	    {SAddr, 0, SData} = ok(gen_tcp:recv(C, 112)),
+	    ok
+
+    end.
+
 %%
 %% Utils
 %%
@@ -572,7 +697,7 @@ connect(Config) when is_list(Config) ->
     ok = gen_udp:close(S1),
     ok = gen_udp:connect(S2, Addr, P1),
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
-    ok = case gen_udp:recv(S2, 0, 5) of
+    ok = case gen_udp:recv(S2, 0, 500) of
 	     {error,econnrefused} -> ok;
 	     {error,econnreset} -> ok;
 	     Other -> Other
@@ -599,9 +724,7 @@ implicit_inet6(Host, Addr) ->
 	    implicit_inet6(S1, Active, Loopback),
 	    ok = gen_udp:close(S1),
 	    %%
-	    Localhost = "localhost",
-	    Localaddr = ok(inet:getaddr(Localhost, inet6)),
-	    io:format("~s ~p~n", [Localhost,Localaddr]),
+	    Localaddr = ok(get_localaddr()),
 	    S2 = ok(gen_udp:open(0, [{ip,Localaddr},Active])),
 	    implicit_inet6(S2, Active, Localaddr),
 	    ok = gen_udp:close(S2),
@@ -630,4 +753,40 @@ implicit_inet6(S1, Active, Addr) ->
     {Addr,P2,"pong"} = ok(gen_udp:recv(S1, 1024)),
     ok = gen_udp:close(S2).
 
-ok({ok,V}) -> V.
+ok({ok,V}) -> V;
+ok(NotOk) ->
+    try throw(not_ok)
+    catch
+	Thrown ->
+	    erlang:raise(
+	      error, {Thrown, NotOk}, tl(erlang:get_stacktrace()))
+    end.
+
+
+local_filename(Tag) ->
+    "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_" ++ atom_to_list(Tag).
+
+bin_filename(String) ->
+    unicode:characters_to_binary(String, file:native_name_encoding()).
+
+delete_local_filenames() ->
+    _ =
+	[file:delete(F) ||
+	    F <-
+		filelib:wildcard(
+		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
+    ok.
+
+get_localaddr() ->
+    get_localaddr(["localhost", "localhost6", "ip6-localhost"]).
+
+get_localaddr([]) ->
+    {error, localaddr_not_found};
+get_localaddr([Localhost|Ls]) ->
+    case inet:getaddr(Localhost, inet6) of
+       {ok, LocalAddr} ->
+           io:format("~s ~p~n", [Localhost, LocalAddr]),
+           {ok, LocalAddr};
+       _ ->
+           get_localaddr(Ls)
+    end.

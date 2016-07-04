@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -321,7 +321,7 @@ send_bin(Tuple) when is_tuple(Tuple) ->
 %% in the frame buffer. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearIndex.xml">external</a> documentation.
--spec clearIndex(C) -> ok when C :: float().
+-spec clearIndex(C) -> 'ok' when C :: float().
 clearIndex(C) ->
   cast(5037, <<C:?GLfloat>>).
 
@@ -332,7 +332,7 @@ clearIndex(C) ->
 %% range  [0 1]. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearColor.xml">external</a> documentation.
--spec clearColor(Red, Green, Blue, Alpha) -> ok when Red :: clamp(),Green :: clamp(),Blue :: clamp(),Alpha :: clamp().
+-spec clearColor(Red, Green, Blue, Alpha) -> 'ok' when Red :: clamp(),Green :: clamp(),Blue :: clamp(),Alpha :: clamp().
 clearColor(Red,Green,Blue,Alpha) ->
   cast(5038, <<Red:?GLclampf,Green:?GLclampf,Blue:?GLclampf,Alpha:?GLclampf>>).
 
@@ -362,7 +362,7 @@ clearColor(Red,Green,Blue,Alpha) ->
 %% that buffer. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClear.xml">external</a> documentation.
--spec clear(Mask) -> ok when Mask :: integer().
+-spec clear(Mask) -> 'ok' when Mask :: integer().
 clear(Mask) ->
   cast(5039, <<Mask:?GLbitfield>>).
 
@@ -379,7 +379,7 @@ clear(Mask) ->
 %% writing. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIndexMask.xml">external</a> documentation.
--spec indexMask(Mask) -> ok when Mask :: integer().
+-spec indexMask(Mask) -> 'ok' when Mask :: integer().
 indexMask(Mask) ->
   cast(5040, <<Mask:?GLuint>>).
 
@@ -395,7 +395,7 @@ indexMask(Mask) ->
 %% enabled or disabled for entire color components. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorMask.xml">external</a> documentation.
--spec colorMask(Red, Green, Blue, Alpha) -> ok when Red :: 0|1,Green :: 0|1,Blue :: 0|1,Alpha :: 0|1.
+-spec colorMask(Red, Green, Blue, Alpha) -> 'ok' when Red :: 0|1,Green :: 0|1,Blue :: 0|1,Alpha :: 0|1.
 colorMask(Red,Green,Blue,Alpha) ->
   cast(5041, <<Red:?GLboolean,Green:?GLboolean,Blue:?GLboolean,Alpha:?GLboolean>>).
 
@@ -438,7 +438,7 @@ colorMask(Red,Green,Blue,Alpha) ->
 %% operations. ``gl:alphaFunc'' does not affect screen clear operations. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAlphaFunc.xml">external</a> documentation.
--spec alphaFunc(Func, Ref) -> ok when Func :: enum(),Ref :: clamp().
+-spec alphaFunc(Func, Ref) -> 'ok' when Func :: enum(),Ref :: clamp().
 alphaFunc(Func,Ref) ->
   cast(5042, <<Func:?GLenum,Ref:?GLclampf>>).
 
@@ -513,7 +513,7 @@ alphaFunc(Func,Ref) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendFunc.xml">external</a> documentation.
--spec blendFunc(Sfactor, Dfactor) -> ok when Sfactor :: enum(),Dfactor :: enum().
+-spec blendFunc(Sfactor, Dfactor) -> 'ok' when Sfactor :: enum(),Dfactor :: enum().
 blendFunc(Sfactor,Dfactor) ->
   cast(5043, <<Sfactor:?GLenum,Dfactor:?GLenum>>).
 
@@ -543,7 +543,7 @@ blendFunc(Sfactor,Dfactor) ->
 %% the source and destination colors. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLogicOp.xml">external</a> documentation.
--spec logicOp(Opcode) -> ok when Opcode :: enum().
+-spec logicOp(Opcode) -> 'ok' when Opcode :: enum().
 logicOp(Opcode) ->
   cast(5044, <<Opcode:?GLenum>>).
 
@@ -559,7 +559,7 @@ logicOp(Opcode) ->
 %% front-facing and back-facing. See  {@link gl:frontFace/1} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCullFace.xml">external</a> documentation.
--spec cullFace(Mode) -> ok when Mode :: enum().
+-spec cullFace(Mode) -> 'ok' when Mode :: enum().
 cullFace(Mode) ->
   cast(5045, <<Mode:?GLenum>>).
 
@@ -582,7 +582,7 @@ cullFace(Mode) ->
 %% default, counterclockwise polygons are taken to be front-facing. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFrontFace.xml">external</a> documentation.
--spec frontFace(Mode) -> ok when Mode :: enum().
+-spec frontFace(Mode) -> 'ok' when Mode :: enum().
 frontFace(Mode) ->
   cast(5046, <<Mode:?GLenum>>).
 
@@ -594,7 +594,7 @@ frontFace(Mode) ->
 %% built-in variable gl_PointSize will be used. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPointSize.xml">external</a> documentation.
--spec pointSize(Size) -> ok when Size :: float().
+-spec pointSize(Size) -> 'ok' when Size :: float().
 pointSize(Size) ->
   cast(5047, <<Size:?GLfloat>>).
 
@@ -626,7 +626,7 @@ pointSize(Size) ->
 %% , `?GL_SMOOTH_LINE_WIDTH_RANGE', and `?GL_SMOOTH_LINE_WIDTH_GRANULARITY'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLineWidth.xml">external</a> documentation.
--spec lineWidth(Width) -> ok when Width :: float().
+-spec lineWidth(Width) -> 'ok' when Width :: float().
 lineWidth(Width) ->
   cast(5048, <<Width:?GLfloat>>).
 
@@ -658,7 +658,7 @@ lineWidth(Width) ->
 %% stippling is disabled. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLineStipple.xml">external</a> documentation.
--spec lineStipple(Factor, Pattern) -> ok when Factor :: integer(),Pattern :: integer().
+-spec lineStipple(Factor, Pattern) -> 'ok' when Factor :: integer(),Pattern :: integer().
 lineStipple(Factor,Pattern) ->
   cast(5049, <<Factor:?GLint,Pattern:?GLushort>>).
 
@@ -686,7 +686,7 @@ lineStipple(Factor,Pattern) ->
 %%  control the rasterization of the polygon. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPolygonMode.xml">external</a> documentation.
--spec polygonMode(Face, Mode) -> ok when Face :: enum(),Mode :: enum().
+-spec polygonMode(Face, Mode) -> 'ok' when Face :: enum(),Mode :: enum().
 polygonMode(Face,Mode) ->
   cast(5050, <<Face:?GLenum,Mode:?GLenum>>).
 
@@ -704,7 +704,7 @@ polygonMode(Face,Mode) ->
 %% to surfaces, and for rendering solids with highlighted edges. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPolygonOffset.xml">external</a> documentation.
--spec polygonOffset(Factor, Units) -> ok when Factor :: float(),Units :: float().
+-spec polygonOffset(Factor, Units) -> 'ok' when Factor :: float(),Units :: float().
 polygonOffset(Factor,Units) ->
   cast(5051, <<Factor:?GLfloat,Units:?GLfloat>>).
 
@@ -735,7 +735,7 @@ polygonOffset(Factor,Units) ->
 %% the stipple pattern consists of all 1's. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPolygonStipple.xml">external</a> documentation.
--spec polygonStipple(Mask) -> ok when Mask :: binary().
+-spec polygonStipple(Mask) -> 'ok' when Mask :: binary().
 polygonStipple(Mask) ->
   send_bin(Mask),
   cast(5052, <<>>).
@@ -774,12 +774,12 @@ getPolygonStipple() ->
 %%  is set to `?GL_POINT' or `?GL_LINE'. See  {@link gl:polygonMode/2} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEdgeFlag.xml">external</a> documentation.
--spec edgeFlag(Flag) -> ok when Flag :: 0|1.
+-spec edgeFlag(Flag) -> 'ok' when Flag :: 0|1.
 edgeFlag(Flag) ->
   cast(5054, <<Flag:?GLboolean>>).
 
 %% @equiv edgeFlag(Flag)
--spec edgeFlagv(Flag) -> ok when Flag :: {Flag :: 0|1}.
+-spec edgeFlagv(Flag) -> 'ok' when Flag :: {Flag :: 0|1}.
 edgeFlagv({Flag}) ->  edgeFlag(Flag).
 
 %% @doc Define the scissor box
@@ -799,7 +799,7 @@ edgeFlagv({Flag}) ->  edgeFlag(Flag).
 %% window. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissor.xml">external</a> documentation.
--spec scissor(X, Y, Width, Height) -> ok when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
+-spec scissor(X, Y, Width, Height) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 scissor(X,Y,Width,Height) ->
   cast(5055, <<X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
@@ -827,7 +827,7 @@ scissor(X,Y,Width,Height) ->
 %% disabled. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClipPlane.xml">external</a> documentation.
--spec clipPlane(Plane, Equation) -> ok when Plane :: enum(),Equation :: {float(),float(),float(),float()}.
+-spec clipPlane(Plane, Equation) -> 'ok' when Plane :: enum(),Equation :: {float(),float(),float(),float()}.
 clipPlane(Plane,{E1,E2,E3,E4}) ->
   cast(5056, <<Plane:?GLenum,0:32,E1:?GLdouble,E2:?GLdouble,E3:?GLdouble,E4:?GLdouble>>).
 
@@ -884,7 +884,7 @@ getClipPlane(Plane) ->
 %%  buffers. The context is selected at GL initialization. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawBuffer.xml">external</a> documentation.
--spec drawBuffer(Mode) -> ok when Mode :: enum().
+-spec drawBuffer(Mode) -> 'ok' when Mode :: enum().
 drawBuffer(Mode) ->
   cast(5058, <<Mode:?GLenum>>).
 
@@ -909,7 +909,7 @@ drawBuffer(Mode) ->
 %%  in double-buffered configurations. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glReadBuffer.xml">external</a> documentation.
--spec readBuffer(Mode) -> ok when Mode :: enum().
+-spec readBuffer(Mode) -> 'ok' when Mode :: enum().
 readBuffer(Mode) ->
   cast(5059, <<Mode:?GLenum>>).
 
@@ -1019,13 +1019,13 @@ readBuffer(Mode) ->
 %%  and clamped to the implementation-dependent point size range. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnable.xml">external</a> documentation.
--spec enable(Cap) -> ok when Cap :: enum().
+-spec enable(Cap) -> 'ok' when Cap :: enum().
 enable(Cap) ->
   cast(5060, <<Cap:?GLenum>>).
 
 %% @doc 
 %% See {@link enable/1}
--spec disable(Cap) -> ok when Cap :: enum().
+-spec disable(Cap) -> 'ok' when Cap :: enum().
 disable(Cap) ->
   cast(5061, <<Cap:?GLenum>>).
 
@@ -1115,13 +1115,13 @@ isEnabled(Cap) ->
 %%  is called. See  {@link gl:vertexPointer/4} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnableClientState.xml">external</a> documentation.
--spec enableClientState(Cap) -> ok when Cap :: enum().
+-spec enableClientState(Cap) -> 'ok' when Cap :: enum().
 enableClientState(Cap) ->
   cast(5063, <<Cap:?GLenum>>).
 
 %% @doc 
 %% See {@link enableClientState/1}
--spec disableClientState(Cap) -> ok when Cap :: enum().
+-spec disableClientState(Cap) -> 'ok' when Cap :: enum().
 disableClientState(Cap) ->
   cast(5064, <<Cap:?GLenum>>).
 
@@ -2089,13 +2089,13 @@ getIntegerv(Pname) ->
 %%  Initially, the attribute stack is empty. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushAttrib.xml">external</a> documentation.
--spec pushAttrib(Mask) -> ok when Mask :: integer().
+-spec pushAttrib(Mask) -> 'ok' when Mask :: integer().
 pushAttrib(Mask) ->
   cast(5069, <<Mask:?GLbitfield>>).
 
 %% @doc 
 %% See {@link pushAttrib/1}
--spec popAttrib() -> ok.
+-spec popAttrib() -> 'ok'.
 popAttrib() ->
   cast(5070, <<>>).
 
@@ -2123,13 +2123,13 @@ popAttrib() ->
 %%  Initially, the client attribute stack is empty. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushClientAttrib.xml">external</a> documentation.
--spec pushClientAttrib(Mask) -> ok when Mask :: integer().
+-spec pushClientAttrib(Mask) -> 'ok' when Mask :: integer().
 pushClientAttrib(Mask) ->
   cast(5071, <<Mask:?GLbitfield>>).
 
 %% @doc 
 %% See {@link pushClientAttrib/1}
--spec popClientAttrib() -> ok.
+-spec popClientAttrib() -> 'ok'.
 popClientAttrib() ->
   cast(5072, <<>>).
 
@@ -2274,7 +2274,7 @@ getString(Name) ->
 %% state, and all changes to the frame buffer contents. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFinish.xml">external</a> documentation.
--spec finish() -> ok.
+-spec finish() -> 'ok'.
 finish() ->
   cast(5076, <<>>).
 
@@ -2292,7 +2292,7 @@ finish() ->
 %% for user input that depends on the generated image. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFlush.xml">external</a> documentation.
--spec flush() -> ok.
+-spec flush() -> 'ok'.
 flush() ->
   cast(5077, <<>>).
 
@@ -2334,7 +2334,7 @@ flush() ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glHint.xml">external</a> documentation.
--spec hint(Target, Mode) -> ok when Target :: enum(),Mode :: enum().
+-spec hint(Target, Mode) -> 'ok' when Target :: enum(),Mode :: enum().
 hint(Target,Mode) ->
   cast(5078, <<Target:?GLenum,Mode:?GLenum>>).
 
@@ -2344,7 +2344,7 @@ hint(Target,Mode) ->
 %% buffer. Values specified by ``gl:clearDepth'' are clamped to the range  [0 1]. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearDepth.xml">external</a> documentation.
--spec clearDepth(Depth) -> ok when Depth :: clamp().
+-spec clearDepth(Depth) -> 'ok' when Depth :: clamp().
 clearDepth(Depth) ->
   cast(5079, <<Depth:?GLclampd>>).
 
@@ -2385,7 +2385,7 @@ clearDepth(Depth) ->
 %% always passes. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthFunc.xml">external</a> documentation.
--spec depthFunc(Func) -> ok when Func :: enum().
+-spec depthFunc(Func) -> 'ok' when Func :: enum().
 depthFunc(Func) ->
   cast(5080, <<Func:?GLenum>>).
 
@@ -2396,7 +2396,7 @@ depthFunc(Func) ->
 %% depth buffer writing is enabled. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthMask.xml">external</a> documentation.
--spec depthMask(Flag) -> ok when Flag :: 0|1.
+-spec depthMask(Flag) -> 'ok' when Flag :: 0|1.
 depthMask(Flag) ->
   cast(5081, <<Flag:?GLboolean>>).
 
@@ -2413,7 +2413,7 @@ depthMask(Flag) ->
 %% the depth buffer range is fully utilized. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRange.xml">external</a> documentation.
--spec depthRange(Near_val, Far_val) -> ok when Near_val :: clamp(),Far_val :: clamp().
+-spec depthRange(Near_val, Far_val) -> 'ok' when Near_val :: clamp(),Far_val :: clamp().
 depthRange(Near_val,Far_val) ->
   cast(5082, <<Near_val:?GLclampd,Far_val:?GLclampd>>).
 
@@ -2425,7 +2425,7 @@ depthRange(Near_val,Far_val) ->
 %%  Values specified by ``gl:clearAccum'' are clamped to the range  [-1 1]. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearAccum.xml">external</a> documentation.
--spec clearAccum(Red, Green, Blue, Alpha) -> ok when Red :: float(),Green :: float(),Blue :: float(),Alpha :: float().
+-spec clearAccum(Red, Green, Blue, Alpha) -> 'ok' when Red :: float(),Green :: float(),Blue :: float(),Alpha :: float().
 clearAccum(Red,Green,Blue,Alpha) ->
   cast(5083, <<Red:?GLfloat,Green:?GLfloat,Blue:?GLfloat,Alpha:?GLfloat>>).
 
@@ -2484,7 +2484,7 @@ clearAccum(Red,Green,Blue,Alpha) ->
 %% to set it to, then call  {@link gl:clear/1}  with the accumulation buffer enabled. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAccum.xml">external</a> documentation.
--spec accum(Op, Value) -> ok when Op :: enum(),Value :: float().
+-spec accum(Op, Value) -> 'ok' when Op :: enum(),Value :: float().
 accum(Op,Value) ->
   cast(5084, <<Op:?GLenum,Value:?GLfloat>>).
 
@@ -2507,7 +2507,7 @@ accum(Op,Value) ->
 %%  with argument `?GL_MATRIX_MODE'. The initial value is `?GL_MODELVIEW'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixMode.xml">external</a> documentation.
--spec matrixMode(Mode) -> ok when Mode :: enum().
+-spec matrixMode(Mode) -> 'ok' when Mode :: enum().
 matrixMode(Mode) ->
   cast(5085, <<Mode:?GLenum>>).
 
@@ -2532,7 +2532,7 @@ matrixMode(Mode) ->
 %% matrix stack. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glOrtho.xml">external</a> documentation.
--spec ortho(Left, Right, Bottom, Top, Near_val, Far_val) -> ok when Left :: float(),Right :: float(),Bottom :: float(),Top :: float(),Near_val :: float(),Far_val :: float().
+-spec ortho(Left, Right, Bottom, Top, Near_val, Far_val) -> 'ok' when Left :: float(),Right :: float(),Bottom :: float(),Top :: float(),Near_val :: float(),Far_val :: float().
 ortho(Left,Right,Bottom,Top,Near_val,Far_val) ->
   cast(5086, <<Left:?GLdouble,Right:?GLdouble,Bottom:?GLdouble,Top:?GLdouble,Near_val:?GLdouble,Far_val:?GLdouble>>).
 
@@ -2562,7 +2562,7 @@ ortho(Left,Right,Bottom,Top,Near_val,Far_val) ->
 %% matrix stack. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFrustum.xml">external</a> documentation.
--spec frustum(Left, Right, Bottom, Top, Near_val, Far_val) -> ok when Left :: float(),Right :: float(),Bottom :: float(),Top :: float(),Near_val :: float(),Far_val :: float().
+-spec frustum(Left, Right, Bottom, Top, Near_val, Far_val) -> 'ok' when Left :: float(),Right :: float(),Bottom :: float(),Top :: float(),Near_val :: float(),Far_val :: float().
 frustum(Left,Right,Bottom,Top,Near_val,Far_val) ->
   cast(5087, <<Left:?GLdouble,Right:?GLdouble,Bottom:?GLdouble,Top:?GLdouble,Near_val:?GLdouble,Far_val:?GLdouble>>).
 
@@ -2580,7 +2580,7 @@ frustum(Left,Right,Bottom,Top,Near_val,Far_val) ->
 %% To query this range, call  {@link gl:getBooleanv/1}  with argument `?GL_MAX_VIEWPORT_DIMS'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewport.xml">external</a> documentation.
--spec viewport(X, Y, Width, Height) -> ok when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
+-spec viewport(X, Y, Width, Height) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 viewport(X,Y,Width,Height) ->
   cast(5088, <<X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
@@ -2605,13 +2605,13 @@ viewport(X,Y,Width,Height) ->
 %% GL state. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushMatrix.xml">external</a> documentation.
--spec pushMatrix() -> ok.
+-spec pushMatrix() -> 'ok'.
 pushMatrix() ->
   cast(5089, <<>>).
 
 %% @doc 
 %% See {@link pushMatrix/0}
--spec popMatrix() -> ok.
+-spec popMatrix() -> 'ok'.
 popMatrix() ->
   cast(5090, <<>>).
 
@@ -2625,7 +2625,7 @@ popMatrix() ->
 %%  but in some cases it is more efficient. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadIdentity.xml">external</a> documentation.
--spec loadIdentity() -> ok.
+-spec loadIdentity() -> 'ok'.
 loadIdentity() ->
   cast(5091, <<>>).
 
@@ -2645,7 +2645,7 @@ loadIdentity() ->
 %%  Projection and texture transformations are similarly defined. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadMatrix.xml">external</a> documentation.
--spec loadMatrixd(M) -> ok when M :: matrix().
+-spec loadMatrixd(M) -> 'ok' when M :: matrix().
 loadMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5092, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 loadMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -2653,7 +2653,7 @@ loadMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc 
 %% See {@link loadMatrixd/1}
--spec loadMatrixf(M) -> ok when M :: matrix().
+-spec loadMatrixf(M) -> 'ok' when M :: matrix().
 loadMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5093, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 loadMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -2668,7 +2668,7 @@ loadMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% It is either the projection matrix, modelview matrix, or the texture matrix. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultMatrix.xml">external</a> documentation.
--spec multMatrixd(M) -> ok when M :: matrix().
+-spec multMatrixd(M) -> 'ok' when M :: matrix().
 multMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5094, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 multMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -2676,7 +2676,7 @@ multMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc 
 %% See {@link multMatrixd/1}
--spec multMatrixf(M) -> ok when M :: matrix().
+-spec multMatrixf(M) -> 'ok' when M :: matrix().
 multMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5095, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 multMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -2699,13 +2699,13 @@ multMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %%  to save and restore the unrotated coordinate system. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRotate.xml">external</a> documentation.
--spec rotated(Angle, X, Y, Z) -> ok when Angle :: float(),X :: float(),Y :: float(),Z :: float().
+-spec rotated(Angle, X, Y, Z) -> 'ok' when Angle :: float(),X :: float(),Y :: float(),Z :: float().
 rotated(Angle,X,Y,Z) ->
   cast(5096, <<Angle:?GLdouble,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc 
 %% See {@link rotated/4}
--spec rotatef(Angle, X, Y, Z) -> ok when Angle :: float(),X :: float(),Y :: float(),Z :: float().
+-spec rotatef(Angle, X, Y, Z) -> 'ok' when Angle :: float(),X :: float(),Y :: float(),Z :: float().
 rotatef(Angle,X,Y,Z) ->
   cast(5097, <<Angle:?GLfloat,X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
@@ -2728,13 +2728,13 @@ rotatef(Angle,X,Y,Z) ->
 %% coordinate system. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScale.xml">external</a> documentation.
--spec scaled(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec scaled(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 scaled(X,Y,Z) ->
   cast(5098, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc 
 %% See {@link scaled/3}
--spec scalef(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec scalef(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 scalef(X,Y,Z) ->
   cast(5099, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
@@ -2753,13 +2753,13 @@ scalef(X,Y,Z) ->
 %% coordinate system. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTranslate.xml">external</a> documentation.
--spec translated(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec translated(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 translated(X,Y,Z) ->
   cast(5100, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc 
 %% See {@link translated/3}
--spec translatef(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec translatef(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 translatef(X,Y,Z) ->
   cast(5101, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
@@ -2788,7 +2788,7 @@ isList(List) ->
 %% display list are ignored. If  `Range'  is 0, nothing happens. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteLists.xml">external</a> documentation.
--spec deleteLists(List, Range) -> ok when List :: integer(),Range :: integer().
+-spec deleteLists(List, Range) -> 'ok' when List :: integer(),Range :: integer().
 deleteLists(List,Range) ->
   cast(5103, <<List:?GLuint,Range:?GLsizei>>).
 
@@ -2851,14 +2851,14 @@ genLists(Range) ->
 %% when  {@link gl:endList/0}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNewList.xml">external</a> documentation.
--spec newList(List, Mode) -> ok when List :: integer(),Mode :: enum().
+-spec newList(List, Mode) -> 'ok' when List :: integer(),Mode :: enum().
 newList(List,Mode) ->
   cast(5105, <<List:?GLuint,Mode:?GLenum>>).
 
 %% @doc glBeginList
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginList.xml">external</a> documentation.
--spec endList() -> ok.
+-spec endList() -> 'ok'.
 endList() ->
   cast(5106, <<>>).
 
@@ -2880,7 +2880,7 @@ endList() ->
 %% , and  {@link gl:pushMatrix/0}  to preserve GL state across ``gl:callList'' calls. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCallList.xml">external</a> documentation.
--spec callList(List) -> ok when List :: integer().
+-spec callList(List) -> 'ok' when List :: integer().
 callList(List) ->
   cast(5107, <<List:?GLuint>>).
 
@@ -2947,7 +2947,7 @@ callList(List) ->
 %%  to preserve GL state across ``gl:callLists'' calls. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCallLists.xml">external</a> documentation.
--spec callLists(Lists) -> ok when Lists :: [integer()].
+-spec callLists(Lists) -> 'ok' when Lists :: [integer()].
 callLists(Lists) ->
   cast(5108, <<(length(Lists)):?GLuint,
         (<< <<C:?GLuint>> || C <- Lists>>)/binary,0:(((1+length(Lists)) rem 2)*32)>>).
@@ -2961,7 +2961,7 @@ callLists(Lists) ->
 %% the others are ignored. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glListBase.xml">external</a> documentation.
--spec listBase(Base) -> ok when Base :: integer().
+-spec listBase(Base) -> 'ok' when Base :: integer().
 listBase(Base) ->
   cast(5109, <<Base:?GLuint>>).
 
@@ -3032,13 +3032,13 @@ listBase(Base) ->
 %% (3), `?GL_QUADS' (4), and `?GL_QUAD_STRIP' (2). 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBegin.xml">external</a> documentation.
--spec 'begin'(Mode) -> ok when Mode :: enum().
+-spec 'begin'(Mode) -> 'ok' when Mode :: enum().
 'begin'(Mode) ->
   cast(5110, <<Mode:?GLenum>>).
 
 %% @doc 
 %% See {@link 'begin'/1}
--spec 'end'() -> ok.
+-spec 'end'() -> 'ok'.
 'end'() ->
   cast(5111, <<>>).
 
@@ -3052,122 +3052,122 @@ listBase(Base) ->
 %% y, and   z are specified,   w defaults to 1. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertex.xml">external</a> documentation.
--spec vertex2d(X, Y) -> ok when X :: float(),Y :: float().
+-spec vertex2d(X, Y) -> 'ok' when X :: float(),Y :: float().
 vertex2d(X,Y) ->
   cast(5112, <<X:?GLdouble,Y:?GLdouble>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex2f(X, Y) -> ok when X :: float(),Y :: float().
+-spec vertex2f(X, Y) -> 'ok' when X :: float(),Y :: float().
 vertex2f(X,Y) ->
   cast(5113, <<X:?GLfloat,Y:?GLfloat>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex2i(X, Y) -> ok when X :: integer(),Y :: integer().
+-spec vertex2i(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 vertex2i(X,Y) ->
   cast(5114, <<X:?GLint,Y:?GLint>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex2s(X, Y) -> ok when X :: integer(),Y :: integer().
+-spec vertex2s(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 vertex2s(X,Y) ->
   cast(5115, <<X:?GLshort,Y:?GLshort>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex3d(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec vertex3d(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 vertex3d(X,Y,Z) ->
   cast(5116, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex3f(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec vertex3f(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 vertex3f(X,Y,Z) ->
   cast(5117, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex3i(X, Y, Z) -> ok when X :: integer(),Y :: integer(),Z :: integer().
+-spec vertex3i(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 vertex3i(X,Y,Z) ->
   cast(5118, <<X:?GLint,Y:?GLint,Z:?GLint>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex3s(X, Y, Z) -> ok when X :: integer(),Y :: integer(),Z :: integer().
+-spec vertex3s(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 vertex3s(X,Y,Z) ->
   cast(5119, <<X:?GLshort,Y:?GLshort,Z:?GLshort>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex4d(X, Y, Z, W) -> ok when X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec vertex4d(X, Y, Z, W) -> 'ok' when X :: float(),Y :: float(),Z :: float(),W :: float().
 vertex4d(X,Y,Z,W) ->
   cast(5120, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex4f(X, Y, Z, W) -> ok when X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec vertex4f(X, Y, Z, W) -> 'ok' when X :: float(),Y :: float(),Z :: float(),W :: float().
 vertex4f(X,Y,Z,W) ->
   cast(5121, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex4i(X, Y, Z, W) -> ok when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec vertex4i(X, Y, Z, W) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertex4i(X,Y,Z,W) ->
   cast(5122, <<X:?GLint,Y:?GLint,Z:?GLint,W:?GLint>>).
 
 %% @doc 
 %% See {@link vertex2d/2}
--spec vertex4s(X, Y, Z, W) -> ok when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec vertex4s(X, Y, Z, W) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertex4s(X,Y,Z,W) ->
   cast(5123, <<X:?GLshort,Y:?GLshort,Z:?GLshort,W:?GLshort>>).
 
 %% @equiv vertex2d(X,Y)
--spec vertex2dv(V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec vertex2dv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 vertex2dv({X,Y}) ->  vertex2d(X,Y).
 
 %% @equiv vertex2f(X,Y)
--spec vertex2fv(V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec vertex2fv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 vertex2fv({X,Y}) ->  vertex2f(X,Y).
 
 %% @equiv vertex2i(X,Y)
--spec vertex2iv(V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec vertex2iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 vertex2iv({X,Y}) ->  vertex2i(X,Y).
 
 %% @equiv vertex2s(X,Y)
--spec vertex2sv(V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec vertex2sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 vertex2sv({X,Y}) ->  vertex2s(X,Y).
 
 %% @equiv vertex3d(X,Y,Z)
--spec vertex3dv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec vertex3dv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 vertex3dv({X,Y,Z}) ->  vertex3d(X,Y,Z).
 
 %% @equiv vertex3f(X,Y,Z)
--spec vertex3fv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec vertex3fv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 vertex3fv({X,Y,Z}) ->  vertex3f(X,Y,Z).
 
 %% @equiv vertex3i(X,Y,Z)
--spec vertex3iv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec vertex3iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 vertex3iv({X,Y,Z}) ->  vertex3i(X,Y,Z).
 
 %% @equiv vertex3s(X,Y,Z)
--spec vertex3sv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec vertex3sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 vertex3sv({X,Y,Z}) ->  vertex3s(X,Y,Z).
 
 %% @equiv vertex4d(X,Y,Z,W)
--spec vertex4dv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
+-spec vertex4dv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
 vertex4dv({X,Y,Z,W}) ->  vertex4d(X,Y,Z,W).
 
 %% @equiv vertex4f(X,Y,Z,W)
--spec vertex4fv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
+-spec vertex4fv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
 vertex4fv({X,Y,Z,W}) ->  vertex4f(X,Y,Z,W).
 
 %% @equiv vertex4i(X,Y,Z,W)
--spec vertex4iv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec vertex4iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 vertex4iv({X,Y,Z,W}) ->  vertex4i(X,Y,Z,W).
 
 %% @equiv vertex4s(X,Y,Z,W)
--spec vertex4sv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec vertex4sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 vertex4sv({X,Y,Z,W}) ->  vertex4s(X,Y,Z,W).
 
 %% @doc Set the current normal vector
@@ -3187,52 +3187,52 @@ vertex4sv({X,Y,Z,W}) ->  vertex4s(X,Y,Z,W).
 %% Normalization is initially disabled. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNormal.xml">external</a> documentation.
--spec normal3b(Nx, Ny, Nz) -> ok when Nx :: integer(),Ny :: integer(),Nz :: integer().
+-spec normal3b(Nx, Ny, Nz) -> 'ok' when Nx :: integer(),Ny :: integer(),Nz :: integer().
 normal3b(Nx,Ny,Nz) ->
   cast(5124, <<Nx:?GLbyte,Ny:?GLbyte,Nz:?GLbyte>>).
 
 %% @doc 
 %% See {@link normal3b/3}
--spec normal3d(Nx, Ny, Nz) -> ok when Nx :: float(),Ny :: float(),Nz :: float().
+-spec normal3d(Nx, Ny, Nz) -> 'ok' when Nx :: float(),Ny :: float(),Nz :: float().
 normal3d(Nx,Ny,Nz) ->
   cast(5125, <<Nx:?GLdouble,Ny:?GLdouble,Nz:?GLdouble>>).
 
 %% @doc 
 %% See {@link normal3b/3}
--spec normal3f(Nx, Ny, Nz) -> ok when Nx :: float(),Ny :: float(),Nz :: float().
+-spec normal3f(Nx, Ny, Nz) -> 'ok' when Nx :: float(),Ny :: float(),Nz :: float().
 normal3f(Nx,Ny,Nz) ->
   cast(5126, <<Nx:?GLfloat,Ny:?GLfloat,Nz:?GLfloat>>).
 
 %% @doc 
 %% See {@link normal3b/3}
--spec normal3i(Nx, Ny, Nz) -> ok when Nx :: integer(),Ny :: integer(),Nz :: integer().
+-spec normal3i(Nx, Ny, Nz) -> 'ok' when Nx :: integer(),Ny :: integer(),Nz :: integer().
 normal3i(Nx,Ny,Nz) ->
   cast(5127, <<Nx:?GLint,Ny:?GLint,Nz:?GLint>>).
 
 %% @doc 
 %% See {@link normal3b/3}
--spec normal3s(Nx, Ny, Nz) -> ok when Nx :: integer(),Ny :: integer(),Nz :: integer().
+-spec normal3s(Nx, Ny, Nz) -> 'ok' when Nx :: integer(),Ny :: integer(),Nz :: integer().
 normal3s(Nx,Ny,Nz) ->
   cast(5128, <<Nx:?GLshort,Ny:?GLshort,Nz:?GLshort>>).
 
 %% @equiv normal3b(Nx,Ny,Nz)
--spec normal3bv(V) -> ok when V :: {Nx :: integer(),Ny :: integer(),Nz :: integer()}.
+-spec normal3bv(V) -> 'ok' when V :: {Nx :: integer(),Ny :: integer(),Nz :: integer()}.
 normal3bv({Nx,Ny,Nz}) ->  normal3b(Nx,Ny,Nz).
 
 %% @equiv normal3d(Nx,Ny,Nz)
--spec normal3dv(V) -> ok when V :: {Nx :: float(),Ny :: float(),Nz :: float()}.
+-spec normal3dv(V) -> 'ok' when V :: {Nx :: float(),Ny :: float(),Nz :: float()}.
 normal3dv({Nx,Ny,Nz}) ->  normal3d(Nx,Ny,Nz).
 
 %% @equiv normal3f(Nx,Ny,Nz)
--spec normal3fv(V) -> ok when V :: {Nx :: float(),Ny :: float(),Nz :: float()}.
+-spec normal3fv(V) -> 'ok' when V :: {Nx :: float(),Ny :: float(),Nz :: float()}.
 normal3fv({Nx,Ny,Nz}) ->  normal3f(Nx,Ny,Nz).
 
 %% @equiv normal3i(Nx,Ny,Nz)
--spec normal3iv(V) -> ok when V :: {Nx :: integer(),Ny :: integer(),Nz :: integer()}.
+-spec normal3iv(V) -> 'ok' when V :: {Nx :: integer(),Ny :: integer(),Nz :: integer()}.
 normal3iv({Nx,Ny,Nz}) ->  normal3i(Nx,Ny,Nz).
 
 %% @equiv normal3s(Nx,Ny,Nz)
--spec normal3sv(V) -> ok when V :: {Nx :: integer(),Ny :: integer(),Nz :: integer()}.
+-spec normal3sv(V) -> 'ok' when V :: {Nx :: integer(),Ny :: integer(),Nz :: integer()}.
 normal3sv({Nx,Ny,Nz}) ->  normal3s(Nx,Ny,Nz).
 
 %% @doc Set the current color index
@@ -3249,52 +3249,52 @@ normal3sv({Nx,Ny,Nz}) ->  normal3s(Nx,Ny,Nz).
 %% value that do not correspond to bits in the frame buffer are masked out. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIndex.xml">external</a> documentation.
--spec indexd(C) -> ok when C :: float().
+-spec indexd(C) -> 'ok' when C :: float().
 indexd(C) ->
   cast(5129, <<C:?GLdouble>>).
 
 %% @doc 
 %% See {@link indexd/1}
--spec indexf(C) -> ok when C :: float().
+-spec indexf(C) -> 'ok' when C :: float().
 indexf(C) ->
   cast(5130, <<C:?GLfloat>>).
 
 %% @doc 
 %% See {@link indexd/1}
--spec indexi(C) -> ok when C :: integer().
+-spec indexi(C) -> 'ok' when C :: integer().
 indexi(C) ->
   cast(5131, <<C:?GLint>>).
 
 %% @doc 
 %% See {@link indexd/1}
--spec indexs(C) -> ok when C :: integer().
+-spec indexs(C) -> 'ok' when C :: integer().
 indexs(C) ->
   cast(5132, <<C:?GLshort>>).
 
 %% @doc 
 %% See {@link indexd/1}
--spec indexub(C) -> ok when C :: integer().
+-spec indexub(C) -> 'ok' when C :: integer().
 indexub(C) ->
   cast(5133, <<C:?GLubyte>>).
 
 %% @equiv indexd(C)
--spec indexdv(C) -> ok when C :: {C :: float()}.
+-spec indexdv(C) -> 'ok' when C :: {C :: float()}.
 indexdv({C}) ->  indexd(C).
 
 %% @equiv indexf(C)
--spec indexfv(C) -> ok when C :: {C :: float()}.
+-spec indexfv(C) -> 'ok' when C :: {C :: float()}.
 indexfv({C}) ->  indexf(C).
 
 %% @equiv indexi(C)
--spec indexiv(C) -> ok when C :: {C :: integer()}.
+-spec indexiv(C) -> 'ok' when C :: {C :: integer()}.
 indexiv({C}) ->  indexi(C).
 
 %% @equiv indexs(C)
--spec indexsv(C) -> ok when C :: {C :: integer()}.
+-spec indexsv(C) -> 'ok' when C :: {C :: integer()}.
 indexsv({C}) ->  indexs(C).
 
 %% @equiv indexub(C)
--spec indexubv(C) -> ok when C :: {C :: integer()}.
+-spec indexubv(C) -> 'ok' when C :: {C :: integer()}.
 indexubv({C}) ->  indexub(C).
 
 %% @doc Set the current color
@@ -3323,162 +3323,162 @@ indexubv({C}) ->  indexub(C).
 %% are interpolated or written into a color buffer. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColor.xml">external</a> documentation.
--spec color3b(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec color3b(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 color3b(Red,Green,Blue) ->
   cast(5134, <<Red:?GLbyte,Green:?GLbyte,Blue:?GLbyte>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color3d(Red, Green, Blue) -> ok when Red :: float(),Green :: float(),Blue :: float().
+-spec color3d(Red, Green, Blue) -> 'ok' when Red :: float(),Green :: float(),Blue :: float().
 color3d(Red,Green,Blue) ->
   cast(5135, <<Red:?GLdouble,Green:?GLdouble,Blue:?GLdouble>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color3f(Red, Green, Blue) -> ok when Red :: float(),Green :: float(),Blue :: float().
+-spec color3f(Red, Green, Blue) -> 'ok' when Red :: float(),Green :: float(),Blue :: float().
 color3f(Red,Green,Blue) ->
   cast(5136, <<Red:?GLfloat,Green:?GLfloat,Blue:?GLfloat>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color3i(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec color3i(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 color3i(Red,Green,Blue) ->
   cast(5137, <<Red:?GLint,Green:?GLint,Blue:?GLint>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color3s(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec color3s(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 color3s(Red,Green,Blue) ->
   cast(5138, <<Red:?GLshort,Green:?GLshort,Blue:?GLshort>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color3ub(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec color3ub(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 color3ub(Red,Green,Blue) ->
   cast(5139, <<Red:?GLubyte,Green:?GLubyte,Blue:?GLubyte>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color3ui(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec color3ui(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 color3ui(Red,Green,Blue) ->
   cast(5140, <<Red:?GLuint,Green:?GLuint,Blue:?GLuint>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color3us(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec color3us(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 color3us(Red,Green,Blue) ->
   cast(5141, <<Red:?GLushort,Green:?GLushort,Blue:?GLushort>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4b(Red, Green, Blue, Alpha) -> ok when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
+-spec color4b(Red, Green, Blue, Alpha) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
 color4b(Red,Green,Blue,Alpha) ->
   cast(5142, <<Red:?GLbyte,Green:?GLbyte,Blue:?GLbyte,Alpha:?GLbyte>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4d(Red, Green, Blue, Alpha) -> ok when Red :: float(),Green :: float(),Blue :: float(),Alpha :: float().
+-spec color4d(Red, Green, Blue, Alpha) -> 'ok' when Red :: float(),Green :: float(),Blue :: float(),Alpha :: float().
 color4d(Red,Green,Blue,Alpha) ->
   cast(5143, <<Red:?GLdouble,Green:?GLdouble,Blue:?GLdouble,Alpha:?GLdouble>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4f(Red, Green, Blue, Alpha) -> ok when Red :: float(),Green :: float(),Blue :: float(),Alpha :: float().
+-spec color4f(Red, Green, Blue, Alpha) -> 'ok' when Red :: float(),Green :: float(),Blue :: float(),Alpha :: float().
 color4f(Red,Green,Blue,Alpha) ->
   cast(5144, <<Red:?GLfloat,Green:?GLfloat,Blue:?GLfloat,Alpha:?GLfloat>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4i(Red, Green, Blue, Alpha) -> ok when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
+-spec color4i(Red, Green, Blue, Alpha) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
 color4i(Red,Green,Blue,Alpha) ->
   cast(5145, <<Red:?GLint,Green:?GLint,Blue:?GLint,Alpha:?GLint>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4s(Red, Green, Blue, Alpha) -> ok when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
+-spec color4s(Red, Green, Blue, Alpha) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
 color4s(Red,Green,Blue,Alpha) ->
   cast(5146, <<Red:?GLshort,Green:?GLshort,Blue:?GLshort,Alpha:?GLshort>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4ub(Red, Green, Blue, Alpha) -> ok when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
+-spec color4ub(Red, Green, Blue, Alpha) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
 color4ub(Red,Green,Blue,Alpha) ->
   cast(5147, <<Red:?GLubyte,Green:?GLubyte,Blue:?GLubyte,Alpha:?GLubyte>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4ui(Red, Green, Blue, Alpha) -> ok when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
+-spec color4ui(Red, Green, Blue, Alpha) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
 color4ui(Red,Green,Blue,Alpha) ->
   cast(5148, <<Red:?GLuint,Green:?GLuint,Blue:?GLuint,Alpha:?GLuint>>).
 
 %% @doc 
 %% See {@link color3b/3}
--spec color4us(Red, Green, Blue, Alpha) -> ok when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
+-spec color4us(Red, Green, Blue, Alpha) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer().
 color4us(Red,Green,Blue,Alpha) ->
   cast(5149, <<Red:?GLushort,Green:?GLushort,Blue:?GLushort,Alpha:?GLushort>>).
 
 %% @equiv color3b(Red,Green,Blue)
--spec color3bv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec color3bv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 color3bv({Red,Green,Blue}) ->  color3b(Red,Green,Blue).
 
 %% @equiv color3d(Red,Green,Blue)
--spec color3dv(V) -> ok when V :: {Red :: float(),Green :: float(),Blue :: float()}.
+-spec color3dv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float()}.
 color3dv({Red,Green,Blue}) ->  color3d(Red,Green,Blue).
 
 %% @equiv color3f(Red,Green,Blue)
--spec color3fv(V) -> ok when V :: {Red :: float(),Green :: float(),Blue :: float()}.
+-spec color3fv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float()}.
 color3fv({Red,Green,Blue}) ->  color3f(Red,Green,Blue).
 
 %% @equiv color3i(Red,Green,Blue)
--spec color3iv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec color3iv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 color3iv({Red,Green,Blue}) ->  color3i(Red,Green,Blue).
 
 %% @equiv color3s(Red,Green,Blue)
--spec color3sv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec color3sv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 color3sv({Red,Green,Blue}) ->  color3s(Red,Green,Blue).
 
 %% @equiv color3ub(Red,Green,Blue)
--spec color3ubv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec color3ubv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 color3ubv({Red,Green,Blue}) ->  color3ub(Red,Green,Blue).
 
 %% @equiv color3ui(Red,Green,Blue)
--spec color3uiv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec color3uiv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 color3uiv({Red,Green,Blue}) ->  color3ui(Red,Green,Blue).
 
 %% @equiv color3us(Red,Green,Blue)
--spec color3usv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec color3usv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 color3usv({Red,Green,Blue}) ->  color3us(Red,Green,Blue).
 
 %% @equiv color4b(Red,Green,Blue,Alpha)
--spec color4bv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
+-spec color4bv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
 color4bv({Red,Green,Blue,Alpha}) ->  color4b(Red,Green,Blue,Alpha).
 
 %% @equiv color4d(Red,Green,Blue,Alpha)
--spec color4dv(V) -> ok when V :: {Red :: float(),Green :: float(),Blue :: float(),Alpha :: float()}.
+-spec color4dv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float(),Alpha :: float()}.
 color4dv({Red,Green,Blue,Alpha}) ->  color4d(Red,Green,Blue,Alpha).
 
 %% @equiv color4f(Red,Green,Blue,Alpha)
--spec color4fv(V) -> ok when V :: {Red :: float(),Green :: float(),Blue :: float(),Alpha :: float()}.
+-spec color4fv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float(),Alpha :: float()}.
 color4fv({Red,Green,Blue,Alpha}) ->  color4f(Red,Green,Blue,Alpha).
 
 %% @equiv color4i(Red,Green,Blue,Alpha)
--spec color4iv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
+-spec color4iv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
 color4iv({Red,Green,Blue,Alpha}) ->  color4i(Red,Green,Blue,Alpha).
 
 %% @equiv color4s(Red,Green,Blue,Alpha)
--spec color4sv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
+-spec color4sv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
 color4sv({Red,Green,Blue,Alpha}) ->  color4s(Red,Green,Blue,Alpha).
 
 %% @equiv color4ub(Red,Green,Blue,Alpha)
--spec color4ubv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
+-spec color4ubv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
 color4ubv({Red,Green,Blue,Alpha}) ->  color4ub(Red,Green,Blue,Alpha).
 
 %% @equiv color4ui(Red,Green,Blue,Alpha)
--spec color4uiv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
+-spec color4uiv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
 color4uiv({Red,Green,Blue,Alpha}) ->  color4ui(Red,Green,Blue,Alpha).
 
 %% @equiv color4us(Red,Green,Blue,Alpha)
--spec color4usv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
+-spec color4usv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer(),Alpha :: integer()}.
 color4usv({Red,Green,Blue,Alpha}) ->  color4us(Red,Green,Blue,Alpha).
 
 %% @doc Set the current texture coordinates
@@ -3496,162 +3496,162 @@ color4usv({Red,Green,Blue,Alpha}) ->  color4us(Red,Green,Blue,Alpha).
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexCoord.xml">external</a> documentation.
--spec texCoord1d(S) -> ok when S :: float().
+-spec texCoord1d(S) -> 'ok' when S :: float().
 texCoord1d(S) ->
   cast(5150, <<S:?GLdouble>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord1f(S) -> ok when S :: float().
+-spec texCoord1f(S) -> 'ok' when S :: float().
 texCoord1f(S) ->
   cast(5151, <<S:?GLfloat>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord1i(S) -> ok when S :: integer().
+-spec texCoord1i(S) -> 'ok' when S :: integer().
 texCoord1i(S) ->
   cast(5152, <<S:?GLint>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord1s(S) -> ok when S :: integer().
+-spec texCoord1s(S) -> 'ok' when S :: integer().
 texCoord1s(S) ->
   cast(5153, <<S:?GLshort>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord2d(S, T) -> ok when S :: float(),T :: float().
+-spec texCoord2d(S, T) -> 'ok' when S :: float(),T :: float().
 texCoord2d(S,T) ->
   cast(5154, <<S:?GLdouble,T:?GLdouble>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord2f(S, T) -> ok when S :: float(),T :: float().
+-spec texCoord2f(S, T) -> 'ok' when S :: float(),T :: float().
 texCoord2f(S,T) ->
   cast(5155, <<S:?GLfloat,T:?GLfloat>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord2i(S, T) -> ok when S :: integer(),T :: integer().
+-spec texCoord2i(S, T) -> 'ok' when S :: integer(),T :: integer().
 texCoord2i(S,T) ->
   cast(5156, <<S:?GLint,T:?GLint>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord2s(S, T) -> ok when S :: integer(),T :: integer().
+-spec texCoord2s(S, T) -> 'ok' when S :: integer(),T :: integer().
 texCoord2s(S,T) ->
   cast(5157, <<S:?GLshort,T:?GLshort>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord3d(S, T, R) -> ok when S :: float(),T :: float(),R :: float().
+-spec texCoord3d(S, T, R) -> 'ok' when S :: float(),T :: float(),R :: float().
 texCoord3d(S,T,R) ->
   cast(5158, <<S:?GLdouble,T:?GLdouble,R:?GLdouble>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord3f(S, T, R) -> ok when S :: float(),T :: float(),R :: float().
+-spec texCoord3f(S, T, R) -> 'ok' when S :: float(),T :: float(),R :: float().
 texCoord3f(S,T,R) ->
   cast(5159, <<S:?GLfloat,T:?GLfloat,R:?GLfloat>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord3i(S, T, R) -> ok when S :: integer(),T :: integer(),R :: integer().
+-spec texCoord3i(S, T, R) -> 'ok' when S :: integer(),T :: integer(),R :: integer().
 texCoord3i(S,T,R) ->
   cast(5160, <<S:?GLint,T:?GLint,R:?GLint>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord3s(S, T, R) -> ok when S :: integer(),T :: integer(),R :: integer().
+-spec texCoord3s(S, T, R) -> 'ok' when S :: integer(),T :: integer(),R :: integer().
 texCoord3s(S,T,R) ->
   cast(5161, <<S:?GLshort,T:?GLshort,R:?GLshort>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord4d(S, T, R, Q) -> ok when S :: float(),T :: float(),R :: float(),Q :: float().
+-spec texCoord4d(S, T, R, Q) -> 'ok' when S :: float(),T :: float(),R :: float(),Q :: float().
 texCoord4d(S,T,R,Q) ->
   cast(5162, <<S:?GLdouble,T:?GLdouble,R:?GLdouble,Q:?GLdouble>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord4f(S, T, R, Q) -> ok when S :: float(),T :: float(),R :: float(),Q :: float().
+-spec texCoord4f(S, T, R, Q) -> 'ok' when S :: float(),T :: float(),R :: float(),Q :: float().
 texCoord4f(S,T,R,Q) ->
   cast(5163, <<S:?GLfloat,T:?GLfloat,R:?GLfloat,Q:?GLfloat>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord4i(S, T, R, Q) -> ok when S :: integer(),T :: integer(),R :: integer(),Q :: integer().
+-spec texCoord4i(S, T, R, Q) -> 'ok' when S :: integer(),T :: integer(),R :: integer(),Q :: integer().
 texCoord4i(S,T,R,Q) ->
   cast(5164, <<S:?GLint,T:?GLint,R:?GLint,Q:?GLint>>).
 
 %% @doc 
 %% See {@link texCoord1d/1}
--spec texCoord4s(S, T, R, Q) -> ok when S :: integer(),T :: integer(),R :: integer(),Q :: integer().
+-spec texCoord4s(S, T, R, Q) -> 'ok' when S :: integer(),T :: integer(),R :: integer(),Q :: integer().
 texCoord4s(S,T,R,Q) ->
   cast(5165, <<S:?GLshort,T:?GLshort,R:?GLshort,Q:?GLshort>>).
 
 %% @equiv texCoord1d(S)
--spec texCoord1dv(V) -> ok when V :: {S :: float()}.
+-spec texCoord1dv(V) -> 'ok' when V :: {S :: float()}.
 texCoord1dv({S}) ->  texCoord1d(S).
 
 %% @equiv texCoord1f(S)
--spec texCoord1fv(V) -> ok when V :: {S :: float()}.
+-spec texCoord1fv(V) -> 'ok' when V :: {S :: float()}.
 texCoord1fv({S}) ->  texCoord1f(S).
 
 %% @equiv texCoord1i(S)
--spec texCoord1iv(V) -> ok when V :: {S :: integer()}.
+-spec texCoord1iv(V) -> 'ok' when V :: {S :: integer()}.
 texCoord1iv({S}) ->  texCoord1i(S).
 
 %% @equiv texCoord1s(S)
--spec texCoord1sv(V) -> ok when V :: {S :: integer()}.
+-spec texCoord1sv(V) -> 'ok' when V :: {S :: integer()}.
 texCoord1sv({S}) ->  texCoord1s(S).
 
 %% @equiv texCoord2d(S,T)
--spec texCoord2dv(V) -> ok when V :: {S :: float(),T :: float()}.
+-spec texCoord2dv(V) -> 'ok' when V :: {S :: float(),T :: float()}.
 texCoord2dv({S,T}) ->  texCoord2d(S,T).
 
 %% @equiv texCoord2f(S,T)
--spec texCoord2fv(V) -> ok when V :: {S :: float(),T :: float()}.
+-spec texCoord2fv(V) -> 'ok' when V :: {S :: float(),T :: float()}.
 texCoord2fv({S,T}) ->  texCoord2f(S,T).
 
 %% @equiv texCoord2i(S,T)
--spec texCoord2iv(V) -> ok when V :: {S :: integer(),T :: integer()}.
+-spec texCoord2iv(V) -> 'ok' when V :: {S :: integer(),T :: integer()}.
 texCoord2iv({S,T}) ->  texCoord2i(S,T).
 
 %% @equiv texCoord2s(S,T)
--spec texCoord2sv(V) -> ok when V :: {S :: integer(),T :: integer()}.
+-spec texCoord2sv(V) -> 'ok' when V :: {S :: integer(),T :: integer()}.
 texCoord2sv({S,T}) ->  texCoord2s(S,T).
 
 %% @equiv texCoord3d(S,T,R)
--spec texCoord3dv(V) -> ok when V :: {S :: float(),T :: float(),R :: float()}.
+-spec texCoord3dv(V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float()}.
 texCoord3dv({S,T,R}) ->  texCoord3d(S,T,R).
 
 %% @equiv texCoord3f(S,T,R)
--spec texCoord3fv(V) -> ok when V :: {S :: float(),T :: float(),R :: float()}.
+-spec texCoord3fv(V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float()}.
 texCoord3fv({S,T,R}) ->  texCoord3f(S,T,R).
 
 %% @equiv texCoord3i(S,T,R)
--spec texCoord3iv(V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer()}.
+-spec texCoord3iv(V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer()}.
 texCoord3iv({S,T,R}) ->  texCoord3i(S,T,R).
 
 %% @equiv texCoord3s(S,T,R)
--spec texCoord3sv(V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer()}.
+-spec texCoord3sv(V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer()}.
 texCoord3sv({S,T,R}) ->  texCoord3s(S,T,R).
 
 %% @equiv texCoord4d(S,T,R,Q)
--spec texCoord4dv(V) -> ok when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
+-spec texCoord4dv(V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
 texCoord4dv({S,T,R,Q}) ->  texCoord4d(S,T,R,Q).
 
 %% @equiv texCoord4f(S,T,R,Q)
--spec texCoord4fv(V) -> ok when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
+-spec texCoord4fv(V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
 texCoord4fv({S,T,R,Q}) ->  texCoord4f(S,T,R,Q).
 
 %% @equiv texCoord4i(S,T,R,Q)
--spec texCoord4iv(V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
+-spec texCoord4iv(V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
 texCoord4iv({S,T,R,Q}) ->  texCoord4i(S,T,R,Q).
 
 %% @equiv texCoord4s(S,T,R,Q)
--spec texCoord4sv(V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
+-spec texCoord4sv(V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
 texCoord4sv({S,T,R,Q}) ->  texCoord4s(S,T,R,Q).
 
 %% @doc Specify the raster position for pixel operations
@@ -3696,122 +3696,122 @@ texCoord4sv({S,T,R,Q}) ->  texCoord4s(S,T,R,Q).
 %% initial value. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRasterPos.xml">external</a> documentation.
--spec rasterPos2d(X, Y) -> ok when X :: float(),Y :: float().
+-spec rasterPos2d(X, Y) -> 'ok' when X :: float(),Y :: float().
 rasterPos2d(X,Y) ->
   cast(5166, <<X:?GLdouble,Y:?GLdouble>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos2f(X, Y) -> ok when X :: float(),Y :: float().
+-spec rasterPos2f(X, Y) -> 'ok' when X :: float(),Y :: float().
 rasterPos2f(X,Y) ->
   cast(5167, <<X:?GLfloat,Y:?GLfloat>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos2i(X, Y) -> ok when X :: integer(),Y :: integer().
+-spec rasterPos2i(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 rasterPos2i(X,Y) ->
   cast(5168, <<X:?GLint,Y:?GLint>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos2s(X, Y) -> ok when X :: integer(),Y :: integer().
+-spec rasterPos2s(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 rasterPos2s(X,Y) ->
   cast(5169, <<X:?GLshort,Y:?GLshort>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos3d(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec rasterPos3d(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 rasterPos3d(X,Y,Z) ->
   cast(5170, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos3f(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec rasterPos3f(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 rasterPos3f(X,Y,Z) ->
   cast(5171, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos3i(X, Y, Z) -> ok when X :: integer(),Y :: integer(),Z :: integer().
+-spec rasterPos3i(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 rasterPos3i(X,Y,Z) ->
   cast(5172, <<X:?GLint,Y:?GLint,Z:?GLint>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos3s(X, Y, Z) -> ok when X :: integer(),Y :: integer(),Z :: integer().
+-spec rasterPos3s(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 rasterPos3s(X,Y,Z) ->
   cast(5173, <<X:?GLshort,Y:?GLshort,Z:?GLshort>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos4d(X, Y, Z, W) -> ok when X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec rasterPos4d(X, Y, Z, W) -> 'ok' when X :: float(),Y :: float(),Z :: float(),W :: float().
 rasterPos4d(X,Y,Z,W) ->
   cast(5174, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos4f(X, Y, Z, W) -> ok when X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec rasterPos4f(X, Y, Z, W) -> 'ok' when X :: float(),Y :: float(),Z :: float(),W :: float().
 rasterPos4f(X,Y,Z,W) ->
   cast(5175, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos4i(X, Y, Z, W) -> ok when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec rasterPos4i(X, Y, Z, W) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 rasterPos4i(X,Y,Z,W) ->
   cast(5176, <<X:?GLint,Y:?GLint,Z:?GLint,W:?GLint>>).
 
 %% @doc 
 %% See {@link rasterPos2d/2}
--spec rasterPos4s(X, Y, Z, W) -> ok when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec rasterPos4s(X, Y, Z, W) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 rasterPos4s(X,Y,Z,W) ->
   cast(5177, <<X:?GLshort,Y:?GLshort,Z:?GLshort,W:?GLshort>>).
 
 %% @equiv rasterPos2d(X,Y)
--spec rasterPos2dv(V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec rasterPos2dv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 rasterPos2dv({X,Y}) ->  rasterPos2d(X,Y).
 
 %% @equiv rasterPos2f(X,Y)
--spec rasterPos2fv(V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec rasterPos2fv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 rasterPos2fv({X,Y}) ->  rasterPos2f(X,Y).
 
 %% @equiv rasterPos2i(X,Y)
--spec rasterPos2iv(V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec rasterPos2iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 rasterPos2iv({X,Y}) ->  rasterPos2i(X,Y).
 
 %% @equiv rasterPos2s(X,Y)
--spec rasterPos2sv(V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec rasterPos2sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 rasterPos2sv({X,Y}) ->  rasterPos2s(X,Y).
 
 %% @equiv rasterPos3d(X,Y,Z)
--spec rasterPos3dv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec rasterPos3dv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 rasterPos3dv({X,Y,Z}) ->  rasterPos3d(X,Y,Z).
 
 %% @equiv rasterPos3f(X,Y,Z)
--spec rasterPos3fv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec rasterPos3fv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 rasterPos3fv({X,Y,Z}) ->  rasterPos3f(X,Y,Z).
 
 %% @equiv rasterPos3i(X,Y,Z)
--spec rasterPos3iv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec rasterPos3iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 rasterPos3iv({X,Y,Z}) ->  rasterPos3i(X,Y,Z).
 
 %% @equiv rasterPos3s(X,Y,Z)
--spec rasterPos3sv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec rasterPos3sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 rasterPos3sv({X,Y,Z}) ->  rasterPos3s(X,Y,Z).
 
 %% @equiv rasterPos4d(X,Y,Z,W)
--spec rasterPos4dv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
+-spec rasterPos4dv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
 rasterPos4dv({X,Y,Z,W}) ->  rasterPos4d(X,Y,Z,W).
 
 %% @equiv rasterPos4f(X,Y,Z,W)
--spec rasterPos4fv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
+-spec rasterPos4fv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
 rasterPos4fv({X,Y,Z,W}) ->  rasterPos4f(X,Y,Z,W).
 
 %% @equiv rasterPos4i(X,Y,Z,W)
--spec rasterPos4iv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec rasterPos4iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 rasterPos4iv({X,Y,Z,W}) ->  rasterPos4i(X,Y,Z,W).
 
 %% @equiv rasterPos4s(X,Y,Z,W)
--spec rasterPos4sv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec rasterPos4sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 rasterPos4sv({X,Y,Z,W}) ->  rasterPos4s(X,Y,Z,W).
 
 %% @doc Draw a rectangle
@@ -3828,49 +3828,49 @@ rasterPos4sv({X,Y,Z,W}) ->  rasterPos4s(X,Y,Z,W).
 %% the rectangle is constructed with a counterclockwise winding. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRect.xml">external</a> documentation.
--spec rectd(X1, Y1, X2, Y2) -> ok when X1 :: float(),Y1 :: float(),X2 :: float(),Y2 :: float().
+-spec rectd(X1, Y1, X2, Y2) -> 'ok' when X1 :: float(),Y1 :: float(),X2 :: float(),Y2 :: float().
 rectd(X1,Y1,X2,Y2) ->
   cast(5178, <<X1:?GLdouble,Y1:?GLdouble,X2:?GLdouble,Y2:?GLdouble>>).
 
 %% @doc 
 %% See {@link rectd/4}
--spec rectf(X1, Y1, X2, Y2) -> ok when X1 :: float(),Y1 :: float(),X2 :: float(),Y2 :: float().
+-spec rectf(X1, Y1, X2, Y2) -> 'ok' when X1 :: float(),Y1 :: float(),X2 :: float(),Y2 :: float().
 rectf(X1,Y1,X2,Y2) ->
   cast(5179, <<X1:?GLfloat,Y1:?GLfloat,X2:?GLfloat,Y2:?GLfloat>>).
 
 %% @doc 
 %% See {@link rectd/4}
--spec recti(X1, Y1, X2, Y2) -> ok when X1 :: integer(),Y1 :: integer(),X2 :: integer(),Y2 :: integer().
+-spec recti(X1, Y1, X2, Y2) -> 'ok' when X1 :: integer(),Y1 :: integer(),X2 :: integer(),Y2 :: integer().
 recti(X1,Y1,X2,Y2) ->
   cast(5180, <<X1:?GLint,Y1:?GLint,X2:?GLint,Y2:?GLint>>).
 
 %% @doc 
 %% See {@link rectd/4}
--spec rects(X1, Y1, X2, Y2) -> ok when X1 :: integer(),Y1 :: integer(),X2 :: integer(),Y2 :: integer().
+-spec rects(X1, Y1, X2, Y2) -> 'ok' when X1 :: integer(),Y1 :: integer(),X2 :: integer(),Y2 :: integer().
 rects(X1,Y1,X2,Y2) ->
   cast(5181, <<X1:?GLshort,Y1:?GLshort,X2:?GLshort,Y2:?GLshort>>).
 
 %% @doc 
 %% See {@link rectd/4}
--spec rectdv(V1, V2) -> ok when V1 :: {float(),float()},V2 :: {float(),float()}.
+-spec rectdv(V1, V2) -> 'ok' when V1 :: {float(),float()},V2 :: {float(),float()}.
 rectdv({V1,V2},{V1,V2}) ->
   cast(5182, <<V1:?GLdouble,V2:?GLdouble,V1:?GLdouble,V2:?GLdouble>>).
 
 %% @doc 
 %% See {@link rectd/4}
--spec rectfv(V1, V2) -> ok when V1 :: {float(),float()},V2 :: {float(),float()}.
+-spec rectfv(V1, V2) -> 'ok' when V1 :: {float(),float()},V2 :: {float(),float()}.
 rectfv({V1,V2},{V1,V2}) ->
   cast(5183, <<V1:?GLfloat,V2:?GLfloat,V1:?GLfloat,V2:?GLfloat>>).
 
 %% @doc 
 %% See {@link rectd/4}
--spec rectiv(V1, V2) -> ok when V1 :: {integer(),integer()},V2 :: {integer(),integer()}.
+-spec rectiv(V1, V2) -> 'ok' when V1 :: {integer(),integer()},V2 :: {integer(),integer()}.
 rectiv({V1,V2},{V1,V2}) ->
   cast(5184, <<V1:?GLint,V2:?GLint,V1:?GLint,V2:?GLint>>).
 
 %% @doc 
 %% See {@link rectd/4}
--spec rectsv(V1, V2) -> ok when V1 :: {integer(),integer()},V2 :: {integer(),integer()}.
+-spec rectsv(V1, V2) -> 'ok' when V1 :: {integer(),integer()},V2 :: {integer(),integer()}.
 rectsv({V1,V2},{V1,V2}) ->
   cast(5185, <<V1:?GLshort,V2:?GLshort,V1:?GLshort,V2:?GLshort>>).
 
@@ -3898,7 +3898,7 @@ rectsv({V1,V2},{V1,V2}) ->
 %% , or  {@link gl:drawRangeElements/6}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexPointer.xml">external</a> documentation.
--spec vertexPointer(Size, Type, Stride, Ptr) -> ok when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
+-spec vertexPointer(Size, Type, Stride, Ptr) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 vertexPointer(Size,Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5186, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
 vertexPointer(Size,Type,Stride,Ptr) ->
@@ -3929,7 +3929,7 @@ vertexPointer(Size,Type,Stride,Ptr) ->
 %% , or  {@link gl:arrayElement/1}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNormalPointer.xml">external</a> documentation.
--spec normalPointer(Type, Stride, Ptr) -> ok when Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
+-spec normalPointer(Type, Stride, Ptr) -> 'ok' when Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 normalPointer(Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5188, <<Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
 normalPointer(Type,Stride,Ptr) ->
@@ -3961,7 +3961,7 @@ normalPointer(Type,Stride,Ptr) ->
 %% , or  {@link gl:arrayElement/1}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorPointer.xml">external</a> documentation.
--spec colorPointer(Size, Type, Stride, Ptr) -> ok when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
+-spec colorPointer(Size, Type, Stride, Ptr) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 colorPointer(Size,Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5190, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
 colorPointer(Size,Type,Stride,Ptr) ->
@@ -3991,7 +3991,7 @@ colorPointer(Size,Type,Stride,Ptr) ->
 %% ,  {@link gl:drawRangeElements/6} , or  {@link gl:arrayElement/1}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIndexPointer.xml">external</a> documentation.
--spec indexPointer(Type, Stride, Ptr) -> ok when Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
+-spec indexPointer(Type, Stride, Ptr) -> 'ok' when Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 indexPointer(Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5192, <<Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
 indexPointer(Type,Stride,Ptr) ->
@@ -4025,7 +4025,7 @@ indexPointer(Type,Stride,Ptr) ->
 %% or  {@link gl:drawRangeElements/6}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexCoordPointer.xml">external</a> documentation.
--spec texCoordPointer(Size, Type, Stride, Ptr) -> ok when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
+-spec texCoordPointer(Size, Type, Stride, Ptr) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 texCoordPointer(Size,Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5194, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
 texCoordPointer(Size,Type,Stride,Ptr) ->
@@ -4054,7 +4054,7 @@ texCoordPointer(Size,Type,Stride,Ptr) ->
 %% ,  {@link gl:drawRangeElements/6} , or  {@link gl:arrayElement/1}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEdgeFlagPointer.xml">external</a> documentation.
--spec edgeFlagPointer(Stride, Ptr) -> ok when Stride :: integer(),Ptr :: offset()|mem().
+-spec edgeFlagPointer(Stride, Ptr) -> 'ok' when Stride :: integer(),Ptr :: offset()|mem().
 edgeFlagPointer(Stride,Ptr) when  is_integer(Ptr) ->
   cast(5196, <<Stride:?GLsizei,Ptr:?GLuint>>);
 edgeFlagPointer(Stride,Ptr) ->
@@ -4082,7 +4082,7 @@ edgeFlagPointer(Stride,Ptr) ->
 %% and a call that follows a change to array data may access original data. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glArrayElement.xml">external</a> documentation.
--spec arrayElement(I) -> ok when I :: integer().
+-spec arrayElement(I) -> 'ok' when I :: integer().
 arrayElement(I) ->
   cast(5198, <<I:?GLint>>).
 
@@ -4103,7 +4103,7 @@ arrayElement(I) ->
 %% after ``gl:drawArrays'' returns. Attributes that aren't modified remain well defined. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArrays.xml">external</a> documentation.
--spec drawArrays(Mode, First, Count) -> ok when Mode :: enum(),First :: integer(),Count :: integer().
+-spec drawArrays(Mode, First, Count) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer().
 drawArrays(Mode,First,Count) ->
   cast(5199, <<Mode:?GLenum,First:?GLint,Count:?GLsizei>>).
 
@@ -4125,7 +4125,7 @@ drawArrays(Mode,First,Count) ->
 %% values. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElements.xml">external</a> documentation.
--spec drawElements(Mode, Count, Type, Indices) -> ok when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem().
+-spec drawElements(Mode, Count, Type, Indices) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem().
 drawElements(Mode,Count,Type,Indices) when  is_integer(Indices) ->
   cast(5200, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint>>);
 drawElements(Mode,Count,Type,Indices) ->
@@ -4153,7 +4153,7 @@ drawElements(Mode,Count,Type,Indices) ->
 %% which follows is located at the first possible floating-point aligned address. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glInterleavedArrays.xml">external</a> documentation.
--spec interleavedArrays(Format, Stride, Pointer) -> ok when Format :: enum(),Stride :: integer(),Pointer :: offset()|mem().
+-spec interleavedArrays(Format, Stride, Pointer) -> 'ok' when Format :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 interleavedArrays(Format,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5202, <<Format:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 interleavedArrays(Format,Stride,Pointer) ->
@@ -4187,7 +4187,7 @@ interleavedArrays(Format,Stride,Pointer) ->
 %%  and `?GL_SMOOTH', respectively. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShadeModel.xml">external</a> documentation.
--spec shadeModel(Mode) -> ok when Mode :: enum().
+-spec shadeModel(Mode) -> 'ok' when Mode :: enum().
 shadeModel(Mode) ->
   cast(5204, <<Mode:?GLenum>>).
 
@@ -4281,26 +4281,26 @@ shadeModel(Mode) ->
 %% attenuation factors are (1, 0, 0), resulting in no attenuation. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLight.xml">external</a> documentation.
--spec lightf(Light, Pname, Param) -> ok when Light :: enum(),Pname :: enum(),Param :: float().
+-spec lightf(Light, Pname, Param) -> 'ok' when Light :: enum(),Pname :: enum(),Param :: float().
 lightf(Light,Pname,Param) ->
   cast(5205, <<Light:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link lightf/3}
--spec lighti(Light, Pname, Param) -> ok when Light :: enum(),Pname :: enum(),Param :: integer().
+-spec lighti(Light, Pname, Param) -> 'ok' when Light :: enum(),Pname :: enum(),Param :: integer().
 lighti(Light,Pname,Param) ->
   cast(5206, <<Light:?GLenum,Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link lightf/3}
--spec lightfv(Light, Pname, Params) -> ok when Light :: enum(),Pname :: enum(),Params :: tuple().
+-spec lightfv(Light, Pname, Params) -> 'ok' when Light :: enum(),Pname :: enum(),Params :: tuple().
 lightfv(Light,Pname,Params) ->
   cast(5207, <<Light:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link lightf/3}
--spec lightiv(Light, Pname, Params) -> ok when Light :: enum(),Pname :: enum(),Params :: tuple().
+-spec lightiv(Light, Pname, Params) -> 'ok' when Light :: enum(),Pname :: enum(),Params :: tuple().
 lightiv(Light,Pname,Params) ->
   cast(5208, <<Light:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -4452,26 +4452,26 @@ getLightiv(Light,Pname) ->
 %% as in the RGBA case, determine how much above ambient the resulting index is. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLightModel.xml">external</a> documentation.
--spec lightModelf(Pname, Param) -> ok when Pname :: enum(),Param :: float().
+-spec lightModelf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 lightModelf(Pname,Param) ->
   cast(5211, <<Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link lightModelf/2}
--spec lightModeli(Pname, Param) -> ok when Pname :: enum(),Param :: integer().
+-spec lightModeli(Pname, Param) -> 'ok' when Pname :: enum(),Param :: integer().
 lightModeli(Pname,Param) ->
   cast(5212, <<Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link lightModelf/2}
--spec lightModelfv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
+-spec lightModelfv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 lightModelfv(Pname,Params) ->
   cast(5213, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link lightModelf/2}
--spec lightModeliv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
+-spec lightModeliv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 lightModeliv(Pname,Params) ->
   cast(5214, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
@@ -4539,26 +4539,26 @@ lightModeliv(Pname,Params) ->
 %% of color index lighting. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMaterial.xml">external</a> documentation.
--spec materialf(Face, Pname, Param) -> ok when Face :: enum(),Pname :: enum(),Param :: float().
+-spec materialf(Face, Pname, Param) -> 'ok' when Face :: enum(),Pname :: enum(),Param :: float().
 materialf(Face,Pname,Param) ->
   cast(5215, <<Face:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link materialf/3}
--spec materiali(Face, Pname, Param) -> ok when Face :: enum(),Pname :: enum(),Param :: integer().
+-spec materiali(Face, Pname, Param) -> 'ok' when Face :: enum(),Pname :: enum(),Param :: integer().
 materiali(Face,Pname,Param) ->
   cast(5216, <<Face:?GLenum,Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link materialf/3}
--spec materialfv(Face, Pname, Params) -> ok when Face :: enum(),Pname :: enum(),Params :: tuple().
+-spec materialfv(Face, Pname, Params) -> 'ok' when Face :: enum(),Pname :: enum(),Params :: tuple().
 materialfv(Face,Pname,Params) ->
   cast(5217, <<Face:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link materialf/3}
--spec materialiv(Face, Pname, Params) -> ok when Face :: enum(),Pname :: enum(),Params :: tuple().
+-spec materialiv(Face, Pname, Params) -> 'ok' when Face :: enum(),Pname :: enum(),Params :: tuple().
 materialiv(Face,Pname,Params) ->
   cast(5218, <<Face:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -4629,7 +4629,7 @@ getMaterialiv(Face,Pname) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorMaterial.xml">external</a> documentation.
--spec colorMaterial(Face, Mode) -> ok when Face :: enum(),Mode :: enum().
+-spec colorMaterial(Face, Mode) -> 'ok' when Face :: enum(),Mode :: enum().
 colorMaterial(Face,Mode) ->
   cast(5221, <<Face:?GLenum,Mode:?GLenum>>).
 
@@ -4651,7 +4651,7 @@ colorMaterial(Face,Mode) ->
 %% the resulting image about the current raster position. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelZoom.xml">external</a> documentation.
--spec pixelZoom(Xfactor, Yfactor) -> ok when Xfactor :: float(),Yfactor :: float().
+-spec pixelZoom(Xfactor, Yfactor) -> 'ok' when Xfactor :: float(),Yfactor :: float().
 pixelZoom(Xfactor,Yfactor) ->
   cast(5222, <<Xfactor:?GLfloat,Yfactor:?GLfloat>>).
 
@@ -4839,13 +4839,13 @@ pixelZoom(Xfactor,Yfactor) ->
 %% Boolean parameters are set to false if  `Param'  is 0 and true otherwise. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelStore.xml">external</a> documentation.
--spec pixelStoref(Pname, Param) -> ok when Pname :: enum(),Param :: float().
+-spec pixelStoref(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 pixelStoref(Pname,Param) ->
   cast(5223, <<Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link pixelStoref/2}
--spec pixelStorei(Pname, Param) -> ok when Pname :: enum(),Param :: integer().
+-spec pixelStorei(Pname, Param) -> 'ok' when Pname :: enum(),Param :: integer().
 pixelStorei(Pname,Param) ->
   cast(5224, <<Pname:?GLenum,Param:?GLint>>).
 
@@ -4997,13 +4997,13 @@ pixelStorei(Pname,Param) ->
 %%  is converted to floating point before being assigned to real-valued parameters. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelTransfer.xml">external</a> documentation.
--spec pixelTransferf(Pname, Param) -> ok when Pname :: enum(),Param :: float().
+-spec pixelTransferf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 pixelTransferf(Pname,Param) ->
   cast(5225, <<Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link pixelTransferf/2}
--spec pixelTransferi(Pname, Param) -> ok when Pname :: enum(),Param :: integer().
+-spec pixelTransferi(Pname, Param) -> 'ok' when Pname :: enum(),Param :: integer().
 pixelTransferi(Pname,Param) ->
   cast(5226, <<Pname:?GLenum,Param:?GLint>>).
 
@@ -5086,21 +5086,21 @@ pixelTransferi(Pname,Param) ->
 %% <td> A </td><td> 1 </td><td> 0 </td></tr></tbody></table>
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelMap.xml">external</a> documentation.
--spec pixelMapfv(Map, Mapsize, Values) -> ok when Map :: enum(),Mapsize :: integer(),Values :: binary().
+-spec pixelMapfv(Map, Mapsize, Values) -> 'ok' when Map :: enum(),Mapsize :: integer(),Values :: binary().
 pixelMapfv(Map,Mapsize,Values) ->
   send_bin(Values),
   cast(5227, <<Map:?GLenum,Mapsize:?GLsizei>>).
 
 %% @doc 
 %% See {@link pixelMapfv/3}
--spec pixelMapuiv(Map, Mapsize, Values) -> ok when Map :: enum(),Mapsize :: integer(),Values :: binary().
+-spec pixelMapuiv(Map, Mapsize, Values) -> 'ok' when Map :: enum(),Mapsize :: integer(),Values :: binary().
 pixelMapuiv(Map,Mapsize,Values) ->
   send_bin(Values),
   cast(5228, <<Map:?GLenum,Mapsize:?GLsizei>>).
 
 %% @doc 
 %% See {@link pixelMapfv/3}
--spec pixelMapusv(Map, Mapsize, Values) -> ok when Map :: enum(),Mapsize :: integer(),Values :: binary().
+-spec pixelMapusv(Map, Mapsize, Values) -> 'ok' when Map :: enum(),Mapsize :: integer(),Values :: binary().
 pixelMapusv(Map,Mapsize,Values) ->
   send_bin(Values),
   cast(5229, <<Map:?GLenum,Mapsize:?GLsizei>>).
@@ -5129,21 +5129,21 @@ pixelMapusv(Map,Mapsize,Values) ->
 %% symbolic constant. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetPixelMap.xml">external</a> documentation.
--spec getPixelMapfv(Map, Values) -> ok when Map :: enum(),Values :: mem().
+-spec getPixelMapfv(Map, Values) -> 'ok' when Map :: enum(),Values :: mem().
 getPixelMapfv(Map,Values) ->
   send_bin(Values),
   call(5230, <<Map:?GLenum>>).
 
 %% @doc 
 %% See {@link getPixelMapfv/2}
--spec getPixelMapuiv(Map, Values) -> ok when Map :: enum(),Values :: mem().
+-spec getPixelMapuiv(Map, Values) -> 'ok' when Map :: enum(),Values :: mem().
 getPixelMapuiv(Map,Values) ->
   send_bin(Values),
   call(5231, <<Map:?GLenum>>).
 
 %% @doc 
 %% See {@link getPixelMapfv/2}
--spec getPixelMapusv(Map, Values) -> ok when Map :: enum(),Values :: mem().
+-spec getPixelMapusv(Map, Values) -> 'ok' when Map :: enum(),Values :: mem().
 getPixelMapusv(Map,Values) ->
   send_bin(Values),
   call(5232, <<Map:?GLenum>>).
@@ -5191,7 +5191,7 @@ getPixelMapusv(Map,Values) ->
 %% or index. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBitmap.xml">external</a> documentation.
--spec bitmap(Width, Height, Xorig, Yorig, Xmove, Ymove, Bitmap) -> ok when Width :: integer(),Height :: integer(),Xorig :: float(),Yorig :: float(),Xmove :: float(),Ymove :: float(),Bitmap :: offset()|mem().
+-spec bitmap(Width, Height, Xorig, Yorig, Xmove, Ymove, Bitmap) -> 'ok' when Width :: integer(),Height :: integer(),Xorig :: float(),Yorig :: float(),Xmove :: float(),Ymove :: float(),Bitmap :: offset()|mem().
 bitmap(Width,Height,Xorig,Yorig,Xmove,Ymove,Bitmap) when  is_integer(Bitmap) ->
   cast(5233, <<Width:?GLsizei,Height:?GLsizei,Xorig:?GLfloat,Yorig:?GLfloat,Xmove:?GLfloat,Ymove:?GLfloat,Bitmap:?GLuint>>);
 bitmap(Width,Height,Xorig,Yorig,Xmove,Ymove,Bitmap) ->
@@ -5292,7 +5292,7 @@ bitmap(Width,Height,Xorig,Yorig,Xmove,Ymove,Bitmap) ->
 %% data is written into memory. See  {@link gl:pixelStoref/2}  for a description. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glReadPixels.xml">external</a> documentation.
--spec readPixels(X, Y, Width, Height, Format, Type, Pixels) -> ok when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: mem().
+-spec readPixels(X, Y, Width, Height, Format, Type, Pixels) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: mem().
 readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
   send_bin(Pixels),
   call(5235, <<X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum>>).
@@ -5537,7 +5537,7 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %% . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawPixels.xml">external</a> documentation.
--spec drawPixels(Width, Height, Format, Type, Pixels) -> ok when Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
+-spec drawPixels(Width, Height, Format, Type, Pixels) -> 'ok' when Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 drawPixels(Width,Height,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5236, <<Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
 drawPixels(Width,Height,Format,Type,Pixels) ->
@@ -5644,7 +5644,7 @@ drawPixels(Width,Height,Format,Type,Pixels) ->
 %% . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyPixels.xml">external</a> documentation.
--spec copyPixels(X, Y, Width, Height, Type) -> ok when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Type :: enum().
+-spec copyPixels(X, Y, Width, Height, Type) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Type :: enum().
 copyPixels(X,Y,Width,Height,Type) ->
   cast(5238, <<X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei,Type:?GLenum>>).
 
@@ -5707,7 +5707,7 @@ copyPixels(X,Y,Width,Height,Type) ->
 %% `?GL_ALWAYS':  Always passes. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilFunc.xml">external</a> documentation.
--spec stencilFunc(Func, Ref, Mask) -> ok when Func :: enum(),Ref :: integer(),Mask :: integer().
+-spec stencilFunc(Func, Ref, Mask) -> 'ok' when Func :: enum(),Ref :: integer(),Mask :: integer().
 stencilFunc(Func,Ref,Mask) ->
   cast(5239, <<Func:?GLenum,Ref:?GLint,Mask:?GLuint>>).
 
@@ -5725,7 +5725,7 @@ stencilFunc(Func,Ref,Mask) ->
 %%  to set front and back stencil writemasks to different values. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilMask.xml">external</a> documentation.
--spec stencilMask(Mask) -> ok when Mask :: integer().
+-spec stencilMask(Mask) -> 'ok' when Mask :: integer().
 stencilMask(Mask) ->
   cast(5240, <<Mask:?GLuint>>).
 
@@ -5786,7 +5786,7 @@ stencilMask(Mask) ->
 %% stencil action when the stencil test fails and passes, respectively. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilOp.xml">external</a> documentation.
--spec stencilOp(Fail, Zfail, Zpass) -> ok when Fail :: enum(),Zfail :: enum(),Zpass :: enum().
+-spec stencilOp(Fail, Zfail, Zpass) -> 'ok' when Fail :: enum(),Zfail :: enum(),Zpass :: enum().
 stencilOp(Fail,Zfail,Zpass) ->
   cast(5241, <<Fail:?GLenum,Zfail:?GLenum,Zpass:?GLenum>>).
 
@@ -5797,7 +5797,7 @@ stencilOp(Fail,Zfail,Zpass) ->
 %% buffer. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearStencil.xml">external</a> documentation.
--spec clearStencil(S) -> ok when S :: integer().
+-spec clearStencil(S) -> 'ok' when S :: integer().
 clearStencil(S) ->
   cast(5242, <<S:?GLint>>).
 
@@ -5876,39 +5876,39 @@ clearStencil(S) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexGen.xml">external</a> documentation.
--spec texGend(Coord, Pname, Param) -> ok when Coord :: enum(),Pname :: enum(),Param :: float().
+-spec texGend(Coord, Pname, Param) -> 'ok' when Coord :: enum(),Pname :: enum(),Param :: float().
 texGend(Coord,Pname,Param) ->
   cast(5243, <<Coord:?GLenum,Pname:?GLenum,Param:?GLdouble>>).
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGenf(Coord, Pname, Param) -> ok when Coord :: enum(),Pname :: enum(),Param :: float().
+-spec texGenf(Coord, Pname, Param) -> 'ok' when Coord :: enum(),Pname :: enum(),Param :: float().
 texGenf(Coord,Pname,Param) ->
   cast(5244, <<Coord:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGeni(Coord, Pname, Param) -> ok when Coord :: enum(),Pname :: enum(),Param :: integer().
+-spec texGeni(Coord, Pname, Param) -> 'ok' when Coord :: enum(),Pname :: enum(),Param :: integer().
 texGeni(Coord,Pname,Param) ->
   cast(5245, <<Coord:?GLenum,Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGendv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: tuple().
+-spec texGendv(Coord, Pname, Params) -> 'ok' when Coord :: enum(),Pname :: enum(),Params :: tuple().
 texGendv(Coord,Pname,Params) ->
   cast(5246, <<Coord:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,0:32,
       (<< <<C:?GLdouble>> ||C <- tuple_to_list(Params)>>)/binary>>).
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGenfv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: tuple().
+-spec texGenfv(Coord, Pname, Params) -> 'ok' when Coord :: enum(),Pname :: enum(),Params :: tuple().
 texGenfv(Coord,Pname,Params) ->
   cast(5247, <<Coord:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link texGend/3}
--spec texGeniv(Coord, Pname, Params) -> ok when Coord :: enum(),Pname :: enum(),Params :: tuple().
+-spec texGeniv(Coord, Pname, Params) -> 'ok' when Coord :: enum(),Pname :: enum(),Params :: tuple().
 texGeniv(Coord,Pname,Params) ->
   cast(5248, <<Coord:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -5955,14 +5955,14 @@ getTexGeniv(Coord,Pname) ->
 %% @doc glTexEnvf
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexEnvf.xml">external</a> documentation.
--spec texEnvf(Target, Pname, Param) -> ok when Target :: enum(),Pname :: enum(),Param :: float().
+-spec texEnvf(Target, Pname, Param) -> 'ok' when Target :: enum(),Pname :: enum(),Param :: float().
 texEnvf(Target,Pname,Param) ->
   cast(5252, <<Target:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc glTexEnvi
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexEnvi.xml">external</a> documentation.
--spec texEnvi(Target, Pname, Param) -> ok when Target :: enum(),Pname :: enum(),Param :: integer().
+-spec texEnvi(Target, Pname, Param) -> 'ok' when Target :: enum(),Pname :: enum(),Param :: integer().
 texEnvi(Target,Pname,Param) ->
   cast(5253, <<Target:?GLenum,Pname:?GLenum,Param:?GLint>>).
 
@@ -6127,14 +6127,14 @@ texEnvi(Target,Pname,Param) ->
 %% replacement. The default value is `?GL_FALSE'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexEnv.xml">external</a> documentation.
--spec texEnvfv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec texEnvfv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texEnvfv(Target,Pname,Params) ->
   cast(5254, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link texEnvfv/3}
--spec texEnviv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec texEnviv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texEnviv(Target,Pname,Params) ->
   cast(5255, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -6447,26 +6447,26 @@ getTexEnviv(Target,Pname) ->
 %% to `?GL_REPEAT'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexParameter.xml">external</a> documentation.
--spec texParameterf(Target, Pname, Param) -> ok when Target :: enum(),Pname :: enum(),Param :: float().
+-spec texParameterf(Target, Pname, Param) -> 'ok' when Target :: enum(),Pname :: enum(),Param :: float().
 texParameterf(Target,Pname,Param) ->
   cast(5258, <<Target:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link texParameterf/3}
--spec texParameteri(Target, Pname, Param) -> ok when Target :: enum(),Pname :: enum(),Param :: integer().
+-spec texParameteri(Target, Pname, Param) -> 'ok' when Target :: enum(),Pname :: enum(),Param :: integer().
 texParameteri(Target,Pname,Param) ->
   cast(5259, <<Target:?GLenum,Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link texParameterf/3}
--spec texParameterfv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec texParameterfv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterfv(Target,Pname,Params) ->
   cast(5260, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link texParameterf/3}
--spec texParameteriv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec texParameteriv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameteriv(Target,Pname,Params) ->
   cast(5261, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -6743,7 +6743,7 @@ getTexLevelParameteriv(Target,Level,Pname) ->
 %% comparison. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage1D.xml">external</a> documentation.
--spec texImage1D(Target, Level, InternalFormat, Width, Border, Format, Type, Pixels) -> ok when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
+-spec texImage1D(Target, Level, InternalFormat, Width, Border, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texImage1D(Target,Level,InternalFormat,Width,Border,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5266, <<Target:?GLenum,Level:?GLint,InternalFormat:?GLint,Width:?GLsizei,Border:?GLint,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
 texImage1D(Target,Level,InternalFormat,Width,Border,Format,Type,Pixels) ->
@@ -6865,7 +6865,7 @@ texImage1D(Target,Level,InternalFormat,Width,Border,Format,Type,Pixels) ->
 %% comparison. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage2D.xml">external</a> documentation.
--spec texImage2D(Target, Level, InternalFormat, Width, Height, Border, Format, Type, Pixels) -> ok when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
+-spec texImage2D(Target, Level, InternalFormat, Width, Height, Border, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texImage2D(Target,Level,InternalFormat,Width,Height,Border,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5268, <<Target:?GLenum,Level:?GLint,InternalFormat:?GLint,Width:?GLsizei,Height:?GLsizei,Border:?GLint,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
 texImage2D(Target,Level,InternalFormat,Width,Height,Border,Format,Type,Pixels) ->
@@ -6910,7 +6910,7 @@ texImage2D(Target,Level,InternalFormat,Width,Height,Border,Format,Type,Pixels) -
 %% . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexImage.xml">external</a> documentation.
--spec getTexImage(Target, Level, Format, Type, Pixels) -> ok when Target :: enum(),Level :: integer(),Format :: enum(),Type :: enum(),Pixels :: mem().
+-spec getTexImage(Target, Level, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Format :: enum(),Type :: enum(),Pixels :: mem().
 getTexImage(Target,Level,Format,Type,Pixels) ->
   send_bin(Pixels),
   call(5270, <<Target:?GLenum,Level:?GLint,Format:?GLenum,Type:?GLenum>>).
@@ -6943,7 +6943,7 @@ genTextures(N) ->
 %% textures. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteTextures.xml">external</a> documentation.
--spec deleteTextures(Textures) -> ok when Textures :: [integer()].
+-spec deleteTextures(Textures) -> 'ok' when Textures :: [integer()].
 deleteTextures(Textures) ->
   cast(5272, <<(length(Textures)):?GLuint,
         (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+length(Textures)) rem 2)*32)>>).
@@ -6995,7 +6995,7 @@ deleteTextures(Textures) ->
 %% ,  {@link gl:texImage2D/9} ,  {@link gl:texImage3D/10}  or another similar function. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindTexture.xml">external</a> documentation.
--spec bindTexture(Target, Texture) -> ok when Target :: enum(),Texture :: integer().
+-spec bindTexture(Target, Texture) -> 'ok' when Target :: enum(),Texture :: integer().
 bindTexture(Target,Texture) ->
   cast(5273, <<Target:?GLenum,Texture:?GLuint>>).
 
@@ -7024,7 +7024,7 @@ bindTexture(Target,Texture) ->
 %% priority of a default texture. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPrioritizeTextures.xml">external</a> documentation.
--spec prioritizeTextures(Textures, Priorities) -> ok when Textures :: [integer()],Priorities :: [clamp()].
+-spec prioritizeTextures(Textures, Priorities) -> 'ok' when Textures :: [integer()],Priorities :: [clamp()].
 prioritizeTextures(Textures,Priorities) ->
   cast(5274, <<(length(Textures)):?GLuint,
         (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+length(Textures)) rem 2)*32),(length(Priorities)):?GLuint,
@@ -7072,7 +7072,7 @@ isTexture(Texture) ->
 %% @doc glTexSubImage
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexSubImage.xml">external</a> documentation.
--spec texSubImage1D(Target, Level, Xoffset, Width, Format, Type, Pixels) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Width :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
+-spec texSubImage1D(Target, Level, Xoffset, Width, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Width :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texSubImage1D(Target,Level,Xoffset,Width,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5277, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Width:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
 texSubImage1D(Target,Level,Xoffset,Width,Format,Type,Pixels) ->
@@ -7082,7 +7082,7 @@ texSubImage1D(Target,Level,Xoffset,Width,Format,Type,Pixels) ->
 %% @doc glTexSubImage
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexSubImage.xml">external</a> documentation.
--spec texSubImage2D(Target, Level, Xoffset, Yoffset, Width, Height, Format, Type, Pixels) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
+-spec texSubImage2D(Target, Level, Xoffset, Yoffset, Width, Height, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5279, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
 texSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,Type,Pixels) ->
@@ -7118,7 +7118,7 @@ texSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,Type,Pixels) ->
 %% can be used to accomplish the conversion. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexImage1D.xml">external</a> documentation.
--spec copyTexImage1D(Target, Level, Internalformat, X, Y, Width, Border) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Border :: integer().
+-spec copyTexImage1D(Target, Level, Internalformat, X, Y, Width, Border) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Border :: integer().
 copyTexImage1D(Target,Level,Internalformat,X,Y,Width,Border) ->
   cast(5281, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei,Border:?GLint>>).
 
@@ -7149,7 +7149,7 @@ copyTexImage1D(Target,Level,Internalformat,X,Y,Width,Border) ->
 %% can be used to accomplish the conversion. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexImage2D.xml">external</a> documentation.
--spec copyTexImage2D(Target, Level, Internalformat, X, Y, Width, Height, Border) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Border :: integer().
+-spec copyTexImage2D(Target, Level, Internalformat, X, Y, Width, Height, Border) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Border :: integer().
 copyTexImage2D(Target,Level,Internalformat,X,Y,Width,Height,Border) ->
   cast(5282, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei,Border:?GLint>>).
 
@@ -7178,7 +7178,7 @@ copyTexImage2D(Target,Level,Internalformat,X,Y,Width,Height,Border) ->
 %% of the specified texture array or to texel values outside the specified subregion. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexSubImage1D.xml">external</a> documentation.
--spec copyTexSubImage1D(Target, Level, Xoffset, X, Y, Width) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer().
+-spec copyTexSubImage1D(Target, Level, Xoffset, X, Y, Width) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer().
 copyTexSubImage1D(Target,Level,Xoffset,X,Y,Width) ->
   cast(5283, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,X:?GLint,Y:?GLint,Width:?GLsizei>>).
 
@@ -7211,14 +7211,14 @@ copyTexSubImage1D(Target,Level,Xoffset,X,Y,Width) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexSubImage2D.xml">external</a> documentation.
--spec copyTexSubImage2D(Target, Level, Xoffset, Yoffset, X, Y, Width, Height) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
+-spec copyTexSubImage2D(Target, Level, Xoffset, Yoffset, X, Y, Width, Height) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 copyTexSubImage2D(Target,Level,Xoffset,Yoffset,X,Y,Width,Height) ->
   cast(5284, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc glMap
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
--spec map1d(Target, U1, U2, Stride, Order, Points) -> ok when Target :: enum(),U1 :: float(),U2 :: float(),Stride :: integer(),Order :: integer(),Points :: binary().
+-spec map1d(Target, U1, U2, Stride, Order, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Stride :: integer(),Order :: integer(),Points :: binary().
 map1d(Target,U1,U2,Stride,Order,Points) ->
   send_bin(Points),
   cast(5285, <<Target:?GLenum,0:32,U1:?GLdouble,U2:?GLdouble,Stride:?GLint,Order:?GLint>>).
@@ -7226,7 +7226,7 @@ map1d(Target,U1,U2,Stride,Order,Points) ->
 %% @doc glMap
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
--spec map1f(Target, U1, U2, Stride, Order, Points) -> ok when Target :: enum(),U1 :: float(),U2 :: float(),Stride :: integer(),Order :: integer(),Points :: binary().
+-spec map1f(Target, U1, U2, Stride, Order, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Stride :: integer(),Order :: integer(),Points :: binary().
 map1f(Target,U1,U2,Stride,Order,Points) ->
   send_bin(Points),
   cast(5286, <<Target:?GLenum,U1:?GLfloat,U2:?GLfloat,Stride:?GLint,Order:?GLint>>).
@@ -7234,7 +7234,7 @@ map1f(Target,U1,U2,Stride,Order,Points) ->
 %% @doc glMap
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
--spec map2d(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> ok when Target :: enum(),U1 :: float(),U2 :: float(),Ustride :: integer(),Uorder :: integer(),V1 :: float(),V2 :: float(),Vstride :: integer(),Vorder :: integer(),Points :: binary().
+-spec map2d(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Ustride :: integer(),Uorder :: integer(),V1 :: float(),V2 :: float(),Vstride :: integer(),Vorder :: integer(),Points :: binary().
 map2d(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
   send_bin(Points),
   cast(5287, <<Target:?GLenum,0:32,U1:?GLdouble,U2:?GLdouble,Ustride:?GLint,Uorder:?GLint,V1:?GLdouble,V2:?GLdouble,Vstride:?GLint,Vorder:?GLint>>).
@@ -7242,7 +7242,7 @@ map2d(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
 %% @doc glMap
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
--spec map2f(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> ok when Target :: enum(),U1 :: float(),U2 :: float(),Ustride :: integer(),Uorder :: integer(),V1 :: float(),V2 :: float(),Vstride :: integer(),Vorder :: integer(),Points :: binary().
+-spec map2f(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Ustride :: integer(),Uorder :: integer(),V1 :: float(),V2 :: float(),Vstride :: integer(),Vorder :: integer(),Points :: binary().
 map2f(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
   send_bin(Points),
   cast(5288, <<Target:?GLenum,U1:?GLfloat,U2:?GLfloat,Ustride:?GLint,Uorder:?GLint,V1:?GLfloat,V2:?GLfloat,Vstride:?GLint,Vorder:?GLint>>).
@@ -7278,21 +7278,21 @@ map2f(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
 %% to the nearest integer values. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMap.xml">external</a> documentation.
--spec getMapdv(Target, Query, V) -> ok when Target :: enum(),Query :: enum(),V :: mem().
+-spec getMapdv(Target, Query, V) -> 'ok' when Target :: enum(),Query :: enum(),V :: mem().
 getMapdv(Target,Query,V) ->
   send_bin(V),
   call(5289, <<Target:?GLenum,Query:?GLenum>>).
 
 %% @doc 
 %% See {@link getMapdv/3}
--spec getMapfv(Target, Query, V) -> ok when Target :: enum(),Query :: enum(),V :: mem().
+-spec getMapfv(Target, Query, V) -> 'ok' when Target :: enum(),Query :: enum(),V :: mem().
 getMapfv(Target,Query,V) ->
   send_bin(V),
   call(5290, <<Target:?GLenum,Query:?GLenum>>).
 
 %% @doc 
 %% See {@link getMapdv/3}
--spec getMapiv(Target, Query, V) -> ok when Target :: enum(),Query :: enum(),V :: mem().
+-spec getMapiv(Target, Query, V) -> 'ok' when Target :: enum(),Query :: enum(),V :: mem().
 getMapiv(Target,Query,V) ->
   send_bin(V),
   call(5291, <<Target:?GLenum,Query:?GLenum>>).
@@ -7343,42 +7343,42 @@ getMapiv(Target,Query,V) ->
 %% a normal map is enabled, no normal is generated for ``gl:evalCoord2'' commands. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalCoord.xml">external</a> documentation.
--spec evalCoord1d(U) -> ok when U :: float().
+-spec evalCoord1d(U) -> 'ok' when U :: float().
 evalCoord1d(U) ->
   cast(5292, <<U:?GLdouble>>).
 
 %% @doc 
 %% See {@link evalCoord1d/1}
--spec evalCoord1f(U) -> ok when U :: float().
+-spec evalCoord1f(U) -> 'ok' when U :: float().
 evalCoord1f(U) ->
   cast(5293, <<U:?GLfloat>>).
 
 %% @equiv evalCoord1d(U)
--spec evalCoord1dv(U) -> ok when U :: {U :: float()}.
+-spec evalCoord1dv(U) -> 'ok' when U :: {U :: float()}.
 evalCoord1dv({U}) ->  evalCoord1d(U).
 
 %% @equiv evalCoord1f(U)
--spec evalCoord1fv(U) -> ok when U :: {U :: float()}.
+-spec evalCoord1fv(U) -> 'ok' when U :: {U :: float()}.
 evalCoord1fv({U}) ->  evalCoord1f(U).
 
 %% @doc 
 %% See {@link evalCoord1d/1}
--spec evalCoord2d(U, V) -> ok when U :: float(),V :: float().
+-spec evalCoord2d(U, V) -> 'ok' when U :: float(),V :: float().
 evalCoord2d(U,V) ->
   cast(5294, <<U:?GLdouble,V:?GLdouble>>).
 
 %% @doc 
 %% See {@link evalCoord1d/1}
--spec evalCoord2f(U, V) -> ok when U :: float(),V :: float().
+-spec evalCoord2f(U, V) -> 'ok' when U :: float(),V :: float().
 evalCoord2f(U,V) ->
   cast(5295, <<U:?GLfloat,V:?GLfloat>>).
 
 %% @equiv evalCoord2d(U,V)
--spec evalCoord2dv(U) -> ok when U :: {U :: float(),V :: float()}.
+-spec evalCoord2dv(U) -> 'ok' when U :: {U :: float(),V :: float()}.
 evalCoord2dv({U,V}) ->  evalCoord2d(U,V).
 
 %% @equiv evalCoord2f(U,V)
--spec evalCoord2fv(U) -> ok when U :: {U :: float(),V :: float()}.
+-spec evalCoord2fv(U) -> 'ok' when U :: {U :: float(),V :: float()}.
 evalCoord2fv({U,V}) ->  evalCoord2f(U,V).
 
 %% @doc Define a one- or two-dimensional mesh
@@ -7413,25 +7413,25 @@ evalCoord2fv({U,V}) ->  evalCoord2f(U,V).
 %% and  {@link gl:evalPoint1/1} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMapGrid.xml">external</a> documentation.
--spec mapGrid1d(Un, U1, U2) -> ok when Un :: integer(),U1 :: float(),U2 :: float().
+-spec mapGrid1d(Un, U1, U2) -> 'ok' when Un :: integer(),U1 :: float(),U2 :: float().
 mapGrid1d(Un,U1,U2) ->
   cast(5296, <<Un:?GLint,0:32,U1:?GLdouble,U2:?GLdouble>>).
 
 %% @doc 
 %% See {@link mapGrid1d/3}
--spec mapGrid1f(Un, U1, U2) -> ok when Un :: integer(),U1 :: float(),U2 :: float().
+-spec mapGrid1f(Un, U1, U2) -> 'ok' when Un :: integer(),U1 :: float(),U2 :: float().
 mapGrid1f(Un,U1,U2) ->
   cast(5297, <<Un:?GLint,U1:?GLfloat,U2:?GLfloat>>).
 
 %% @doc 
 %% See {@link mapGrid1d/3}
--spec mapGrid2d(Un, U1, U2, Vn, V1, V2) -> ok when Un :: integer(),U1 :: float(),U2 :: float(),Vn :: integer(),V1 :: float(),V2 :: float().
+-spec mapGrid2d(Un, U1, U2, Vn, V1, V2) -> 'ok' when Un :: integer(),U1 :: float(),U2 :: float(),Vn :: integer(),V1 :: float(),V2 :: float().
 mapGrid2d(Un,U1,U2,Vn,V1,V2) ->
   cast(5298, <<Un:?GLint,0:32,U1:?GLdouble,U2:?GLdouble,Vn:?GLint,0:32,V1:?GLdouble,V2:?GLdouble>>).
 
 %% @doc 
 %% See {@link mapGrid1d/3}
--spec mapGrid2f(Un, U1, U2, Vn, V1, V2) -> ok when Un :: integer(),U1 :: float(),U2 :: float(),Vn :: integer(),V1 :: float(),V2 :: float().
+-spec mapGrid2f(Un, U1, U2, Vn, V1, V2) -> 'ok' when Un :: integer(),U1 :: float(),U2 :: float(),Vn :: integer(),V1 :: float(),V2 :: float().
 mapGrid2f(Un,U1,U2,Vn,V1,V2) ->
   cast(5299, <<Un:?GLint,U1:?GLfloat,U2:?GLfloat,Vn:?GLint,V1:?GLfloat,V2:?GLfloat>>).
 
@@ -7460,13 +7460,13 @@ mapGrid2f(Un,U1,U2,Vn,V1,V2) ->
 %% if   j=m, then the value computed from  j.&amp;Delta; v+v 1 is exactly   v 2. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalPoint.xml">external</a> documentation.
--spec evalPoint1(I) -> ok when I :: integer().
+-spec evalPoint1(I) -> 'ok' when I :: integer().
 evalPoint1(I) ->
   cast(5300, <<I:?GLint>>).
 
 %% @doc 
 %% See {@link evalPoint1/1}
--spec evalPoint2(I, J) -> ok when I :: integer(),J :: integer().
+-spec evalPoint2(I, J) -> 'ok' when I :: integer(),J :: integer().
 evalPoint2(I,J) ->
   cast(5301, <<I:?GLint,J:?GLint>>).
 
@@ -7525,13 +7525,13 @@ evalPoint2(I,J) ->
 %% computed from  j.&amp;Delta; v+v 1 is exactly   v 2. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalMesh.xml">external</a> documentation.
--spec evalMesh1(Mode, I1, I2) -> ok when Mode :: enum(),I1 :: integer(),I2 :: integer().
+-spec evalMesh1(Mode, I1, I2) -> 'ok' when Mode :: enum(),I1 :: integer(),I2 :: integer().
 evalMesh1(Mode,I1,I2) ->
   cast(5302, <<Mode:?GLenum,I1:?GLint,I2:?GLint>>).
 
 %% @doc 
 %% See {@link evalMesh1/3}
--spec evalMesh2(Mode, I1, I2, J1, J2) -> ok when Mode :: enum(),I1 :: integer(),I2 :: integer(),J1 :: integer(),J2 :: integer().
+-spec evalMesh2(Mode, I1, I2, J1, J2) -> 'ok' when Mode :: enum(),I1 :: integer(),I2 :: integer(),J1 :: integer(),J2 :: integer().
 evalMesh2(Mode,I1,I2,J1,J2) ->
   cast(5303, <<Mode:?GLenum,I1:?GLint,I2:?GLint,J1:?GLint,J2:?GLint>>).
 
@@ -7601,26 +7601,26 @@ evalMesh2(Mode,I1,I2,J1,J2) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFog.xml">external</a> documentation.
--spec fogf(Pname, Param) -> ok when Pname :: enum(),Param :: float().
+-spec fogf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 fogf(Pname,Param) ->
   cast(5304, <<Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link fogf/2}
--spec fogi(Pname, Param) -> ok when Pname :: enum(),Param :: integer().
+-spec fogi(Pname, Param) -> 'ok' when Pname :: enum(),Param :: integer().
 fogi(Pname,Param) ->
   cast(5305, <<Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link fogf/2}
--spec fogfv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
+-spec fogfv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 fogfv(Pname,Params) ->
   cast(5306, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link fogf/2}
--spec fogiv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
+-spec fogiv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 fogiv(Pname,Params) ->
   cast(5307, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
@@ -7733,7 +7733,7 @@ fogiv(Pname,Params) ->
 %% by the texture matrix. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFeedbackBuffer.xml">external</a> documentation.
--spec feedbackBuffer(Size, Type, Buffer) -> ok when Size :: integer(),Type :: enum(),Buffer :: mem().
+-spec feedbackBuffer(Size, Type, Buffer) -> 'ok' when Size :: integer(),Type :: enum(),Buffer :: mem().
 feedbackBuffer(Size,Type,Buffer) ->
   send_bin(Buffer),
   call(5308, <<Size:?GLsizei,Type:?GLenum>>).
@@ -7752,7 +7752,7 @@ feedbackBuffer(Size,Type,Buffer) ->
 %%  commands with respect to the specification of graphics primitives is maintained. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPassThrough.xml">external</a> documentation.
--spec passThrough(Token) -> ok when Token :: float().
+-spec passThrough(Token) -> 'ok' when Token :: float().
 passThrough(Token) ->
   cast(5309, <<Token:?GLfloat>>).
 
@@ -7797,7 +7797,7 @@ passThrough(Token) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSelectBuffer.xml">external</a> documentation.
--spec selectBuffer(Size, Buffer) -> ok when Size :: integer(),Buffer :: mem().
+-spec selectBuffer(Size, Buffer) -> 'ok' when Size :: integer(),Buffer :: mem().
 selectBuffer(Size,Buffer) ->
   send_bin(Buffer),
   call(5310, <<Size:?GLsizei>>).
@@ -7812,7 +7812,7 @@ selectBuffer(Size,Buffer) ->
 %%  while the render mode is not `?GL_SELECT' are ignored. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glInitNames.xml">external</a> documentation.
--spec initNames() -> ok.
+-spec initNames() -> 'ok'.
 initNames() ->
   cast(5311, <<>>).
 
@@ -7828,7 +7828,7 @@ initNames() ->
 %%  while the render mode is not `?GL_SELECT' are ignored. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadName.xml">external</a> documentation.
--spec loadName(Name) -> ok when Name :: integer().
+-spec loadName(Name) -> 'ok' when Name :: integer().
 loadName(Name) ->
   cast(5312, <<Name:?GLuint>>).
 
@@ -7852,13 +7852,13 @@ loadName(Name) ->
 %%  or  {@link gl:pushName/1}  while the render mode is not `?GL_SELECT' are ignored. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushName.xml">external</a> documentation.
--spec pushName(Name) -> ok when Name :: integer().
+-spec pushName(Name) -> 'ok' when Name :: integer().
 pushName(Name) ->
   cast(5313, <<Name:?GLuint>>).
 
 %% @doc 
 %% See {@link pushName/1}
--spec popName() -> ok.
+-spec popName() -> 'ok'.
 popName() ->
   cast(5314, <<>>).
 
@@ -7870,7 +7870,7 @@ popName() ->
 %%  is set to (0, 0, 0, 0). 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendColor.xml">external</a> documentation.
--spec blendColor(Red, Green, Blue, Alpha) -> ok when Red :: clamp(),Green :: clamp(),Blue :: clamp(),Alpha :: clamp().
+-spec blendColor(Red, Green, Blue, Alpha) -> 'ok' when Red :: clamp(),Green :: clamp(),Blue :: clamp(),Alpha :: clamp().
 blendColor(Red,Green,Blue,Alpha) ->
   cast(5315, <<Red:?GLclampf,Green:?GLclampf,Blue:?GLclampf,Alpha:?GLclampf>>).
 
@@ -7911,7 +7911,7 @@ blendColor(Red,Green,Blue,Alpha) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendEquation.xml">external</a> documentation.
--spec blendEquation(Mode) -> ok when Mode :: enum().
+-spec blendEquation(Mode) -> 'ok' when Mode :: enum().
 blendEquation(Mode) ->
   cast(5316, <<Mode:?GLenum>>).
 
@@ -7940,7 +7940,7 @@ blendEquation(Mode) ->
 %% their previous values. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawRangeElements.xml">external</a> documentation.
--spec drawRangeElements(Mode, Start, End, Count, Type, Indices) -> ok when Mode :: enum(),Start :: integer(),End :: integer(),Count :: integer(),Type :: enum(),Indices :: offset()|mem().
+-spec drawRangeElements(Mode, Start, End, Count, Type, Indices) -> 'ok' when Mode :: enum(),Start :: integer(),End :: integer(),Count :: integer(),Type :: enum(),Indices :: offset()|mem().
 drawRangeElements(Mode,Start,End,Count,Type,Indices) when  is_integer(Indices) ->
   cast(5317, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Indices:?GLuint>>);
 drawRangeElements(Mode,Start,End,Count,Type,Indices) ->
@@ -8048,7 +8048,7 @@ drawRangeElements(Mode,Start,End,Count,Type,Indices) ->
 %% uses the R, G, and B values. A four-component image uses all of the RGBA components. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage3D.xml">external</a> documentation.
--spec texImage3D(Target, Level, InternalFormat, Width, Height, Depth, Border, Format, Type, Pixels) -> ok when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
+-spec texImage3D(Target, Level, InternalFormat, Width, Height, Depth, Border, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texImage3D(Target,Level,InternalFormat,Width,Height,Depth,Border,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5319, <<Target:?GLenum,Level:?GLint,InternalFormat:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Border:?GLint,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
 texImage3D(Target,Level,InternalFormat,Width,Height,Depth,Border,Format,Type,Pixels) ->
@@ -8058,7 +8058,7 @@ texImage3D(Target,Level,InternalFormat,Width,Height,Depth,Border,Format,Type,Pix
 %% @doc glTexSubImage
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexSubImage.xml">external</a> documentation.
--spec texSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, Type, Pixels) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
+-spec texSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5321, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Zoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
 texSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,Type,Pixels) ->
@@ -8095,7 +8095,7 @@ texSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,Typ
 %% the specified subregion. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexSubImage3D.xml">external</a> documentation.
--spec copyTexSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, X, Y, Width, Height) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
+-spec copyTexSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, X, Y, Width, Height) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 copyTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,X,Y,Width,Height) ->
   cast(5323, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Zoffset:?GLint,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
@@ -8195,7 +8195,7 @@ copyTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,X,Y,Width,Height) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorTable.xml">external</a> documentation.
--spec colorTable(Target, Internalformat, Width, Format, Type, Table) -> ok when Target :: enum(),Internalformat :: enum(),Width :: integer(),Format :: enum(),Type :: enum(),Table :: offset()|mem().
+-spec colorTable(Target, Internalformat, Width, Format, Type, Table) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Format :: enum(),Type :: enum(),Table :: offset()|mem().
 colorTable(Target,Internalformat,Width,Format,Type,Table) when  is_integer(Table) ->
   cast(5324, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Format:?GLenum,Type:?GLenum,Table:?GLuint>>);
 colorTable(Target,Internalformat,Width,Format,Type,Table) ->
@@ -8220,13 +8220,13 @@ colorTable(Target,Internalformat,Width,Format,Type,Table) ->
 %%  The color tables themselves are specified by calling  {@link gl:colorTable/6} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorTableParameter.xml">external</a> documentation.
--spec colorTableParameterfv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {float(),float(),float(),float()}.
+-spec colorTableParameterfv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: {float(),float(),float(),float()}.
 colorTableParameterfv(Target,Pname,{P1,P2,P3,P4}) ->
   cast(5326, <<Target:?GLenum,Pname:?GLenum,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
 
 %% @doc 
 %% See {@link colorTableParameterfv/3}
--spec colorTableParameteriv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: {integer(),integer(),integer(),integer()}.
+-spec colorTableParameteriv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: {integer(),integer(),integer(),integer()}.
 colorTableParameteriv(Target,Pname,{P1,P2,P3,P4}) ->
   cast(5327, <<Target:?GLenum,Pname:?GLenum,P1:?GLint,P2:?GLint,P3:?GLint,P4:?GLint>>).
 
@@ -8270,7 +8270,7 @@ colorTableParameteriv(Target,Pname,{P1,P2,P3,P4}) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyColorTable.xml">external</a> documentation.
--spec copyColorTable(Target, Internalformat, X, Y, Width) -> ok when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer().
+-spec copyColorTable(Target, Internalformat, X, Y, Width) -> 'ok' when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer().
 copyColorTable(Target,Internalformat,X,Y,Width) ->
   cast(5328, <<Target:?GLenum,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei>>).
 
@@ -8295,7 +8295,7 @@ copyColorTable(Target,Internalformat,X,Y,Width) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetColorTable.xml">external</a> documentation.
--spec getColorTable(Target, Format, Type, Table) -> ok when Target :: enum(),Format :: enum(),Type :: enum(),Table :: mem().
+-spec getColorTable(Target, Format, Type, Table) -> 'ok' when Target :: enum(),Format :: enum(),Type :: enum(),Table :: mem().
 getColorTable(Target,Format,Type,Table) ->
   send_bin(Table),
   call(5329, <<Target:?GLenum,Format:?GLenum,Type:?GLenum>>).
@@ -8358,7 +8358,7 @@ getColorTableParameteriv(Target,Pname) ->
 %% is treated as a byte offset into the buffer object's data store. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorSubTable.xml">external</a> documentation.
--spec colorSubTable(Target, Start, Count, Format, Type, Data) -> ok when Target :: enum(),Start :: integer(),Count :: integer(),Format :: enum(),Type :: enum(),Data :: offset()|mem().
+-spec colorSubTable(Target, Start, Count, Format, Type, Data) -> 'ok' when Target :: enum(),Start :: integer(),Count :: integer(),Format :: enum(),Type :: enum(),Data :: offset()|mem().
 colorSubTable(Target,Start,Count,Format,Type,Data) when  is_integer(Data) ->
   cast(5332, <<Target:?GLenum,Start:?GLsizei,Count:?GLsizei,Format:?GLenum,Type:?GLenum,Data:?GLuint>>);
 colorSubTable(Target,Start,Count,Format,Type,Data) ->
@@ -8375,7 +8375,7 @@ colorSubTable(Target,Start,Count,Format,Type,Data) ->
 %% has no effect. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyColorSubTable.xml">external</a> documentation.
--spec copyColorSubTable(Target, Start, X, Y, Width) -> ok when Target :: enum(),Start :: integer(),X :: integer(),Y :: integer(),Width :: integer().
+-spec copyColorSubTable(Target, Start, X, Y, Width) -> 'ok' when Target :: enum(),Start :: integer(),X :: integer(),Y :: integer(),Width :: integer().
 copyColorSubTable(Target,Start,X,Y,Width) ->
   cast(5334, <<Target:?GLenum,Start:?GLsizei,X:?GLint,Y:?GLint,Width:?GLsizei>>).
 
@@ -8428,7 +8428,7 @@ copyColorSubTable(Target,Start,X,Y,Width) ->
 %% set by  {@link gl:pixelTransferf/2} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glConvolutionFilter1D.xml">external</a> documentation.
--spec convolutionFilter1D(Target, Internalformat, Width, Format, Type, Image) -> ok when Target :: enum(),Internalformat :: enum(),Width :: integer(),Format :: enum(),Type :: enum(),Image :: offset()|mem().
+-spec convolutionFilter1D(Target, Internalformat, Width, Format, Type, Image) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Format :: enum(),Type :: enum(),Image :: offset()|mem().
 convolutionFilter1D(Target,Internalformat,Width,Format,Type,Image) when  is_integer(Image) ->
   cast(5335, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Format:?GLenum,Type:?GLenum,Image:?GLuint>>);
 convolutionFilter1D(Target,Internalformat,Width,Format,Type,Image) ->
@@ -8485,7 +8485,7 @@ convolutionFilter1D(Target,Internalformat,Width,Format,Type,Image) ->
 %% set by  {@link gl:pixelTransferf/2} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glConvolutionFilter2D.xml">external</a> documentation.
--spec convolutionFilter2D(Target, Internalformat, Width, Height, Format, Type, Image) -> ok when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Image :: offset()|mem().
+-spec convolutionFilter2D(Target, Internalformat, Width, Height, Format, Type, Image) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Image :: offset()|mem().
 convolutionFilter2D(Target,Internalformat,Width,Height,Format,Type,Image) when  is_integer(Image) ->
   cast(5337, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Image:?GLuint>>);
 convolutionFilter2D(Target,Internalformat,Width,Height,Format,Type,Image) ->
@@ -8526,24 +8526,24 @@ convolutionFilter2D(Target,Internalformat,Width,Height,Format,Type,Image) ->
 %% image were replicated. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glConvolutionParameter.xml">external</a> documentation.
--spec convolutionParameterf(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec convolutionParameterf(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 convolutionParameterf(Target,Pname,Params) ->
   cast(5339, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @equiv convolutionParameterf(Target,Pname,Params)
--spec convolutionParameterfv(Target :: enum(),Pname :: enum(),Params) -> ok when Params :: {Params :: tuple()}.
+-spec convolutionParameterfv(Target :: enum(),Pname :: enum(),Params) -> 'ok' when Params :: {Params :: tuple()}.
 convolutionParameterfv(Target,Pname,{Params}) ->  convolutionParameterf(Target,Pname,Params).
 
 %% @doc 
 %% See {@link convolutionParameterf/3}
--spec convolutionParameteri(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec convolutionParameteri(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 convolutionParameteri(Target,Pname,Params) ->
   cast(5340, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @equiv convolutionParameteri(Target,Pname,Params)
--spec convolutionParameteriv(Target :: enum(),Pname :: enum(),Params) -> ok when Params :: {Params :: tuple()}.
+-spec convolutionParameteriv(Target :: enum(),Pname :: enum(),Params) -> 'ok' when Params :: {Params :: tuple()}.
 convolutionParameteriv(Target,Pname,{Params}) ->  convolutionParameteri(Target,Pname,Params).
 
 %% @doc Copy pixels into a one-dimensional convolution filter
@@ -8595,7 +8595,7 @@ convolutionParameteriv(Target,Pname,{Params}) ->  convolutionParameteri(Target,P
 %% set by  {@link gl:pixelTransferf/2} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyConvolutionFilter1D.xml">external</a> documentation.
--spec copyConvolutionFilter1D(Target, Internalformat, X, Y, Width) -> ok when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer().
+-spec copyConvolutionFilter1D(Target, Internalformat, X, Y, Width) -> 'ok' when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer().
 copyConvolutionFilter1D(Target,Internalformat,X,Y,Width) ->
   cast(5341, <<Target:?GLenum,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei>>).
 
@@ -8649,7 +8649,7 @@ copyConvolutionFilter1D(Target,Internalformat,X,Y,Width) ->
 %% set by  {@link gl:pixelTransferf/2} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyConvolutionFilter2D.xml">external</a> documentation.
--spec copyConvolutionFilter2D(Target, Internalformat, X, Y, Width, Height) -> ok when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
+-spec copyConvolutionFilter2D(Target, Internalformat, X, Y, Width, Height) -> 'ok' when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 copyConvolutionFilter2D(Target,Internalformat,X,Y,Width,Height) ->
   cast(5342, <<Target:?GLenum,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
@@ -8675,7 +8675,7 @@ copyConvolutionFilter2D(Target,Internalformat,X,Y,Width,Height) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetConvolutionFilter.xml">external</a> documentation.
--spec getConvolutionFilter(Target, Format, Type, Image) -> ok when Target :: enum(),Format :: enum(),Type :: enum(),Image :: mem().
+-spec getConvolutionFilter(Target, Format, Type, Image) -> 'ok' when Target :: enum(),Format :: enum(),Type :: enum(),Image :: mem().
 getConvolutionFilter(Target,Format,Type,Image) ->
   send_bin(Image),
   call(5343, <<Target:?GLenum,Format:?GLenum,Type:?GLenum>>).
@@ -8775,7 +8775,7 @@ getConvolutionParameteriv(Target,Pname) ->
 %% set by  {@link gl:pixelTransferf/2} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSeparableFilter2D.xml">external</a> documentation.
--spec separableFilter2D(Target, Internalformat, Width, Height, Format, Type, Row, Column) -> ok when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Row :: offset()|mem(),Column :: offset()|mem().
+-spec separableFilter2D(Target, Internalformat, Width, Height, Format, Type, Row, Column) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Row :: offset()|mem(),Column :: offset()|mem().
 separableFilter2D(Target,Internalformat,Width,Height,Format,Type,Row,Column) when  is_integer(Row), is_integer(Column) ->
   cast(5346, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Row:?GLuint,Column:?GLuint>>);
 separableFilter2D(Target,Internalformat,Width,Height,Format,Type,Row,Column) ->
@@ -8804,7 +8804,7 @@ separableFilter2D(Target,Internalformat,Width,Height,Format,Type,Row,Column) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetHistogram.xml">external</a> documentation.
--spec getHistogram(Target, Reset, Format, Type, Values) -> ok when Target :: enum(),Reset :: 0|1,Format :: enum(),Type :: enum(),Values :: mem().
+-spec getHistogram(Target, Reset, Format, Type, Values) -> 'ok' when Target :: enum(),Reset :: 0|1,Format :: enum(),Type :: enum(),Values :: mem().
 getHistogram(Target,Reset,Format,Type,Values) ->
   send_bin(Values),
   call(5348, <<Target:?GLenum,Reset:?GLboolean,0:24,Format:?GLenum,Type:?GLenum>>).
@@ -8868,7 +8868,7 @@ getHistogramParameteriv(Target,Pname) ->
 %% are not modified, even if  `Reset'  is `?GL_TRUE'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMinmax.xml">external</a> documentation.
--spec getMinmax(Target, Reset, Format, Types, Values) -> ok when Target :: enum(),Reset :: 0|1,Format :: enum(),Types :: enum(),Values :: mem().
+-spec getMinmax(Target, Reset, Format, Types, Values) -> 'ok' when Target :: enum(),Reset :: 0|1,Format :: enum(),Types :: enum(),Values :: mem().
 getMinmax(Target,Reset,Format,Types,Values) ->
   send_bin(Values),
   call(5351, <<Target:?GLenum,Reset:?GLboolean,0:24,Format:?GLenum,Types:?GLenum>>).
@@ -8926,7 +8926,7 @@ getMinmaxParameteriv(Target,Pname) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glHistogram.xml">external</a> documentation.
--spec histogram(Target, Width, Internalformat, Sink) -> ok when Target :: enum(),Width :: integer(),Internalformat :: enum(),Sink :: 0|1.
+-spec histogram(Target, Width, Internalformat, Sink) -> 'ok' when Target :: enum(),Width :: integer(),Internalformat :: enum(),Sink :: 0|1.
 histogram(Target,Width,Internalformat,Sink) ->
   cast(5354, <<Target:?GLenum,Width:?GLsizei,Internalformat:?GLenum,Sink:?GLboolean>>).
 
@@ -8955,7 +8955,7 @@ histogram(Target,Width,Internalformat,Sink) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMinmax.xml">external</a> documentation.
--spec minmax(Target, Internalformat, Sink) -> ok when Target :: enum(),Internalformat :: enum(),Sink :: 0|1.
+-spec minmax(Target, Internalformat, Sink) -> 'ok' when Target :: enum(),Internalformat :: enum(),Sink :: 0|1.
 minmax(Target,Internalformat,Sink) ->
   cast(5355, <<Target:?GLenum,Internalformat:?GLenum,Sink:?GLboolean>>).
 
@@ -8964,7 +8964,7 @@ minmax(Target,Internalformat,Sink) ->
 %% ``gl:resetHistogram'' resets all the elements of the current histogram table to zero. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glResetHistogram.xml">external</a> documentation.
--spec resetHistogram(Target) -> ok when Target :: enum().
+-spec resetHistogram(Target) -> 'ok' when Target :: enum().
 resetHistogram(Target) ->
   cast(5356, <<Target:?GLenum>>).
 
@@ -8975,7 +8975,7 @@ resetHistogram(Target) ->
 %% ``minimum'' element receives the maximum possible component values. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glResetMinmax.xml">external</a> documentation.
--spec resetMinmax(Target) -> ok when Target :: enum().
+-spec resetMinmax(Target) -> 'ok' when Target :: enum().
 resetMinmax(Target) ->
   cast(5357, <<Target:?GLenum>>).
 
@@ -8986,7 +8986,7 @@ resetMinmax(Target) ->
 %% but must be at least 80. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glActiveTexture.xml">external</a> documentation.
--spec activeTexture(Texture) -> ok when Texture :: enum().
+-spec activeTexture(Texture) -> 'ok' when Texture :: enum().
 activeTexture(Texture) ->
   cast(5358, <<Texture:?GLenum>>).
 
@@ -9012,7 +9012,7 @@ activeTexture(Texture) ->
 %% on each sample. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSampleCoverage.xml">external</a> documentation.
--spec sampleCoverage(Value, Invert) -> ok when Value :: clamp(),Invert :: 0|1.
+-spec sampleCoverage(Value, Invert) -> 'ok' when Value :: clamp(),Invert :: 0|1.
 sampleCoverage(Value,Invert) ->
   cast(5359, <<Value:?GLclampf,Invert:?GLboolean>>).
 
@@ -9070,7 +9070,7 @@ sampleCoverage(Value,Invert) ->
 %%  b s×|width b/w|×|height b/h|×|depth b/d|
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage3D.xml">external</a> documentation.
--spec compressedTexImage3D(Target, Level, Internalformat, Width, Height, Depth, Border, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
+-spec compressedTexImage3D(Target, Level, Internalformat, Width, Height, Depth, Border, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexImage3D(Target,Level,Internalformat,Width,Height,Depth,Border,ImageSize,Data) when  is_integer(Data) ->
   cast(5360, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Border:?GLint,ImageSize:?GLsizei,Data:?GLuint>>);
 compressedTexImage3D(Target,Level,Internalformat,Width,Height,Depth,Border,ImageSize,Data) ->
@@ -9132,7 +9132,7 @@ compressedTexImage3D(Target,Level,Internalformat,Width,Height,Depth,Border,Image
 %%  b s×|width b/w|×|height b/h|
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage2D.xml">external</a> documentation.
--spec compressedTexImage2D(Target, Level, Internalformat, Width, Height, Border, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
+-spec compressedTexImage2D(Target, Level, Internalformat, Width, Height, Border, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexImage2D(Target,Level,Internalformat,Width,Height,Border,ImageSize,Data) when  is_integer(Data) ->
   cast(5362, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Border:?GLint,ImageSize:?GLsizei,Data:?GLuint>>);
 compressedTexImage2D(Target,Level,Internalformat,Width,Height,Border,ImageSize,Data) ->
@@ -9189,7 +9189,7 @@ compressedTexImage2D(Target,Level,Internalformat,Width,Height,Border,ImageSize,D
 %%  b s×|width b/w|
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage1D.xml">external</a> documentation.
--spec compressedTexImage1D(Target, Level, Internalformat, Width, Border, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
+-spec compressedTexImage1D(Target, Level, Internalformat, Width, Border, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexImage1D(Target,Level,Internalformat,Width,Border,ImageSize,Data) when  is_integer(Data) ->
   cast(5364, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,Width:?GLsizei,Border:?GLint,ImageSize:?GLsizei,Data:?GLuint>>);
 compressedTexImage1D(Target,Level,Internalformat,Width,Border,ImageSize,Data) ->
@@ -9219,7 +9219,7 @@ compressedTexImage1D(Target,Level,Internalformat,Width,Border,ImageSize,Data) ->
 %% as a byte offset into the buffer object's data store. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexSubImage3D.xml">external</a> documentation.
--spec compressedTexSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
+-spec compressedTexSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,ImageSize,Data) when  is_integer(Data) ->
   cast(5366, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Zoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Format:?GLenum,ImageSize:?GLsizei,Data:?GLuint>>);
 compressedTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,ImageSize,Data) ->
@@ -9248,7 +9248,7 @@ compressedTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,
 %% as a byte offset into the buffer object's data store. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexSubImage2D.xml">external</a> documentation.
--spec compressedTexSubImage2D(Target, Level, Xoffset, Yoffset, Width, Height, Format, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
+-spec compressedTexSubImage2D(Target, Level, Xoffset, Yoffset, Width, Height, Format, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSize,Data) when  is_integer(Data) ->
   cast(5368, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,ImageSize:?GLsizei,Data:?GLuint>>);
 compressedTexSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSize,Data) ->
@@ -9277,7 +9277,7 @@ compressedTexSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSi
 %% as a byte offset into the buffer object's data store. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexSubImage1D.xml">external</a> documentation.
--spec compressedTexSubImage1D(Target, Level, Xoffset, Width, Format, ImageSize, Data) -> ok when Target :: enum(),Level :: integer(),Xoffset :: integer(),Width :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
+-spec compressedTexSubImage1D(Target, Level, Xoffset, Width, Format, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Width :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexSubImage1D(Target,Level,Xoffset,Width,Format,ImageSize,Data) when  is_integer(Data) ->
   cast(5370, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Width:?GLsizei,Format:?GLenum,ImageSize:?GLsizei,Data:?GLuint>>);
 compressedTexSubImage1D(Target,Level,Xoffset,Width,Format,ImageSize,Data) ->
@@ -9307,7 +9307,7 @@ compressedTexSubImage1D(Target,Level,Xoffset,Width,Format,ImageSize,Data) ->
 %% loading routine used for loading  `Target'  textures. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetCompressedTexImage.xml">external</a> documentation.
--spec getCompressedTexImage(Target, Lod, Img) -> ok when Target :: enum(),Lod :: integer(),Img :: mem().
+-spec getCompressedTexImage(Target, Lod, Img) -> 'ok' when Target :: enum(),Lod :: integer(),Img :: mem().
 getCompressedTexImage(Target,Lod,Img) ->
   send_bin(Img),
   call(5372, <<Target:?GLenum,Lod:?GLint>>).
@@ -9320,7 +9320,7 @@ getCompressedTexImage(Target,Lod,Img) ->
 %% . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClientActiveTexture.xml">external</a> documentation.
--spec clientActiveTexture(Texture) -> ok when Texture :: enum().
+-spec clientActiveTexture(Texture) -> 'ok' when Texture :: enum().
 clientActiveTexture(Texture) ->
   cast(5373, <<Texture:?GLenum>>).
 
@@ -9338,162 +9338,162 @@ clientActiveTexture(Texture) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultiTexCoord.xml">external</a> documentation.
--spec multiTexCoord1d(Target, S) -> ok when Target :: enum(),S :: float().
+-spec multiTexCoord1d(Target, S) -> 'ok' when Target :: enum(),S :: float().
 multiTexCoord1d(Target,S) ->
   cast(5374, <<Target:?GLenum,0:32,S:?GLdouble>>).
 
 %% @equiv multiTexCoord1d(Target,S)
--spec multiTexCoord1dv(Target :: enum(),V) -> ok when V :: {S :: float()}.
+-spec multiTexCoord1dv(Target :: enum(),V) -> 'ok' when V :: {S :: float()}.
 multiTexCoord1dv(Target,{S}) ->  multiTexCoord1d(Target,S).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord1f(Target, S) -> ok when Target :: enum(),S :: float().
+-spec multiTexCoord1f(Target, S) -> 'ok' when Target :: enum(),S :: float().
 multiTexCoord1f(Target,S) ->
   cast(5375, <<Target:?GLenum,S:?GLfloat>>).
 
 %% @equiv multiTexCoord1f(Target,S)
--spec multiTexCoord1fv(Target :: enum(),V) -> ok when V :: {S :: float()}.
+-spec multiTexCoord1fv(Target :: enum(),V) -> 'ok' when V :: {S :: float()}.
 multiTexCoord1fv(Target,{S}) ->  multiTexCoord1f(Target,S).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord1i(Target, S) -> ok when Target :: enum(),S :: integer().
+-spec multiTexCoord1i(Target, S) -> 'ok' when Target :: enum(),S :: integer().
 multiTexCoord1i(Target,S) ->
   cast(5376, <<Target:?GLenum,S:?GLint>>).
 
 %% @equiv multiTexCoord1i(Target,S)
--spec multiTexCoord1iv(Target :: enum(),V) -> ok when V :: {S :: integer()}.
+-spec multiTexCoord1iv(Target :: enum(),V) -> 'ok' when V :: {S :: integer()}.
 multiTexCoord1iv(Target,{S}) ->  multiTexCoord1i(Target,S).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord1s(Target, S) -> ok when Target :: enum(),S :: integer().
+-spec multiTexCoord1s(Target, S) -> 'ok' when Target :: enum(),S :: integer().
 multiTexCoord1s(Target,S) ->
   cast(5377, <<Target:?GLenum,S:?GLshort>>).
 
 %% @equiv multiTexCoord1s(Target,S)
--spec multiTexCoord1sv(Target :: enum(),V) -> ok when V :: {S :: integer()}.
+-spec multiTexCoord1sv(Target :: enum(),V) -> 'ok' when V :: {S :: integer()}.
 multiTexCoord1sv(Target,{S}) ->  multiTexCoord1s(Target,S).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord2d(Target, S, T) -> ok when Target :: enum(),S :: float(),T :: float().
+-spec multiTexCoord2d(Target, S, T) -> 'ok' when Target :: enum(),S :: float(),T :: float().
 multiTexCoord2d(Target,S,T) ->
   cast(5378, <<Target:?GLenum,0:32,S:?GLdouble,T:?GLdouble>>).
 
 %% @equiv multiTexCoord2d(Target,S,T)
--spec multiTexCoord2dv(Target :: enum(),V) -> ok when V :: {S :: float(),T :: float()}.
+-spec multiTexCoord2dv(Target :: enum(),V) -> 'ok' when V :: {S :: float(),T :: float()}.
 multiTexCoord2dv(Target,{S,T}) ->  multiTexCoord2d(Target,S,T).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord2f(Target, S, T) -> ok when Target :: enum(),S :: float(),T :: float().
+-spec multiTexCoord2f(Target, S, T) -> 'ok' when Target :: enum(),S :: float(),T :: float().
 multiTexCoord2f(Target,S,T) ->
   cast(5379, <<Target:?GLenum,S:?GLfloat,T:?GLfloat>>).
 
 %% @equiv multiTexCoord2f(Target,S,T)
--spec multiTexCoord2fv(Target :: enum(),V) -> ok when V :: {S :: float(),T :: float()}.
+-spec multiTexCoord2fv(Target :: enum(),V) -> 'ok' when V :: {S :: float(),T :: float()}.
 multiTexCoord2fv(Target,{S,T}) ->  multiTexCoord2f(Target,S,T).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord2i(Target, S, T) -> ok when Target :: enum(),S :: integer(),T :: integer().
+-spec multiTexCoord2i(Target, S, T) -> 'ok' when Target :: enum(),S :: integer(),T :: integer().
 multiTexCoord2i(Target,S,T) ->
   cast(5380, <<Target:?GLenum,S:?GLint,T:?GLint>>).
 
 %% @equiv multiTexCoord2i(Target,S,T)
--spec multiTexCoord2iv(Target :: enum(),V) -> ok when V :: {S :: integer(),T :: integer()}.
+-spec multiTexCoord2iv(Target :: enum(),V) -> 'ok' when V :: {S :: integer(),T :: integer()}.
 multiTexCoord2iv(Target,{S,T}) ->  multiTexCoord2i(Target,S,T).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord2s(Target, S, T) -> ok when Target :: enum(),S :: integer(),T :: integer().
+-spec multiTexCoord2s(Target, S, T) -> 'ok' when Target :: enum(),S :: integer(),T :: integer().
 multiTexCoord2s(Target,S,T) ->
   cast(5381, <<Target:?GLenum,S:?GLshort,T:?GLshort>>).
 
 %% @equiv multiTexCoord2s(Target,S,T)
--spec multiTexCoord2sv(Target :: enum(),V) -> ok when V :: {S :: integer(),T :: integer()}.
+-spec multiTexCoord2sv(Target :: enum(),V) -> 'ok' when V :: {S :: integer(),T :: integer()}.
 multiTexCoord2sv(Target,{S,T}) ->  multiTexCoord2s(Target,S,T).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord3d(Target, S, T, R) -> ok when Target :: enum(),S :: float(),T :: float(),R :: float().
+-spec multiTexCoord3d(Target, S, T, R) -> 'ok' when Target :: enum(),S :: float(),T :: float(),R :: float().
 multiTexCoord3d(Target,S,T,R) ->
   cast(5382, <<Target:?GLenum,0:32,S:?GLdouble,T:?GLdouble,R:?GLdouble>>).
 
 %% @equiv multiTexCoord3d(Target,S,T,R)
--spec multiTexCoord3dv(Target :: enum(),V) -> ok when V :: {S :: float(),T :: float(),R :: float()}.
+-spec multiTexCoord3dv(Target :: enum(),V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float()}.
 multiTexCoord3dv(Target,{S,T,R}) ->  multiTexCoord3d(Target,S,T,R).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord3f(Target, S, T, R) -> ok when Target :: enum(),S :: float(),T :: float(),R :: float().
+-spec multiTexCoord3f(Target, S, T, R) -> 'ok' when Target :: enum(),S :: float(),T :: float(),R :: float().
 multiTexCoord3f(Target,S,T,R) ->
   cast(5383, <<Target:?GLenum,S:?GLfloat,T:?GLfloat,R:?GLfloat>>).
 
 %% @equiv multiTexCoord3f(Target,S,T,R)
--spec multiTexCoord3fv(Target :: enum(),V) -> ok when V :: {S :: float(),T :: float(),R :: float()}.
+-spec multiTexCoord3fv(Target :: enum(),V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float()}.
 multiTexCoord3fv(Target,{S,T,R}) ->  multiTexCoord3f(Target,S,T,R).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord3i(Target, S, T, R) -> ok when Target :: enum(),S :: integer(),T :: integer(),R :: integer().
+-spec multiTexCoord3i(Target, S, T, R) -> 'ok' when Target :: enum(),S :: integer(),T :: integer(),R :: integer().
 multiTexCoord3i(Target,S,T,R) ->
   cast(5384, <<Target:?GLenum,S:?GLint,T:?GLint,R:?GLint>>).
 
 %% @equiv multiTexCoord3i(Target,S,T,R)
--spec multiTexCoord3iv(Target :: enum(),V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer()}.
+-spec multiTexCoord3iv(Target :: enum(),V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer()}.
 multiTexCoord3iv(Target,{S,T,R}) ->  multiTexCoord3i(Target,S,T,R).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord3s(Target, S, T, R) -> ok when Target :: enum(),S :: integer(),T :: integer(),R :: integer().
+-spec multiTexCoord3s(Target, S, T, R) -> 'ok' when Target :: enum(),S :: integer(),T :: integer(),R :: integer().
 multiTexCoord3s(Target,S,T,R) ->
   cast(5385, <<Target:?GLenum,S:?GLshort,T:?GLshort,R:?GLshort>>).
 
 %% @equiv multiTexCoord3s(Target,S,T,R)
--spec multiTexCoord3sv(Target :: enum(),V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer()}.
+-spec multiTexCoord3sv(Target :: enum(),V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer()}.
 multiTexCoord3sv(Target,{S,T,R}) ->  multiTexCoord3s(Target,S,T,R).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord4d(Target, S, T, R, Q) -> ok when Target :: enum(),S :: float(),T :: float(),R :: float(),Q :: float().
+-spec multiTexCoord4d(Target, S, T, R, Q) -> 'ok' when Target :: enum(),S :: float(),T :: float(),R :: float(),Q :: float().
 multiTexCoord4d(Target,S,T,R,Q) ->
   cast(5386, <<Target:?GLenum,0:32,S:?GLdouble,T:?GLdouble,R:?GLdouble,Q:?GLdouble>>).
 
 %% @equiv multiTexCoord4d(Target,S,T,R,Q)
--spec multiTexCoord4dv(Target :: enum(),V) -> ok when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
+-spec multiTexCoord4dv(Target :: enum(),V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
 multiTexCoord4dv(Target,{S,T,R,Q}) ->  multiTexCoord4d(Target,S,T,R,Q).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord4f(Target, S, T, R, Q) -> ok when Target :: enum(),S :: float(),T :: float(),R :: float(),Q :: float().
+-spec multiTexCoord4f(Target, S, T, R, Q) -> 'ok' when Target :: enum(),S :: float(),T :: float(),R :: float(),Q :: float().
 multiTexCoord4f(Target,S,T,R,Q) ->
   cast(5387, <<Target:?GLenum,S:?GLfloat,T:?GLfloat,R:?GLfloat,Q:?GLfloat>>).
 
 %% @equiv multiTexCoord4f(Target,S,T,R,Q)
--spec multiTexCoord4fv(Target :: enum(),V) -> ok when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
+-spec multiTexCoord4fv(Target :: enum(),V) -> 'ok' when V :: {S :: float(),T :: float(),R :: float(),Q :: float()}.
 multiTexCoord4fv(Target,{S,T,R,Q}) ->  multiTexCoord4f(Target,S,T,R,Q).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord4i(Target, S, T, R, Q) -> ok when Target :: enum(),S :: integer(),T :: integer(),R :: integer(),Q :: integer().
+-spec multiTexCoord4i(Target, S, T, R, Q) -> 'ok' when Target :: enum(),S :: integer(),T :: integer(),R :: integer(),Q :: integer().
 multiTexCoord4i(Target,S,T,R,Q) ->
   cast(5388, <<Target:?GLenum,S:?GLint,T:?GLint,R:?GLint,Q:?GLint>>).
 
 %% @equiv multiTexCoord4i(Target,S,T,R,Q)
--spec multiTexCoord4iv(Target :: enum(),V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
+-spec multiTexCoord4iv(Target :: enum(),V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
 multiTexCoord4iv(Target,{S,T,R,Q}) ->  multiTexCoord4i(Target,S,T,R,Q).
 
 %% @doc 
 %% See {@link multiTexCoord1d/2}
--spec multiTexCoord4s(Target, S, T, R, Q) -> ok when Target :: enum(),S :: integer(),T :: integer(),R :: integer(),Q :: integer().
+-spec multiTexCoord4s(Target, S, T, R, Q) -> 'ok' when Target :: enum(),S :: integer(),T :: integer(),R :: integer(),Q :: integer().
 multiTexCoord4s(Target,S,T,R,Q) ->
   cast(5389, <<Target:?GLenum,S:?GLshort,T:?GLshort,R:?GLshort,Q:?GLshort>>).
 
 %% @equiv multiTexCoord4s(Target,S,T,R,Q)
--spec multiTexCoord4sv(Target :: enum(),V) -> ok when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
+-spec multiTexCoord4sv(Target :: enum(),V) -> 'ok' when V :: {S :: integer(),T :: integer(),R :: integer(),Q :: integer()}.
 multiTexCoord4sv(Target,{S,T,R,Q}) ->  multiTexCoord4s(Target,S,T,R,Q).
 
 %% @doc Replace the current matrix with the specified row-major ordered matrix
@@ -9515,7 +9515,7 @@ multiTexCoord4sv(Target,{S,T,R,Q}) ->  multiTexCoord4s(Target,S,T,R,Q).
 %%  with   M T, where   T represents the transpose. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrix.xml">external</a> documentation.
--spec loadTransposeMatrixf(M) -> ok when M :: matrix().
+-spec loadTransposeMatrixf(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5390, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 loadTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -9523,7 +9523,7 @@ loadTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc 
 %% See {@link loadTransposeMatrixf/1}
--spec loadTransposeMatrixd(M) -> ok when M :: matrix().
+-spec loadTransposeMatrixd(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5391, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 loadTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -9538,7 +9538,7 @@ loadTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% It is either the projection matrix, modelview matrix, or the texture matrix. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrix.xml">external</a> documentation.
--spec multTransposeMatrixf(M) -> ok when M :: matrix().
+-spec multTransposeMatrixf(M) -> 'ok' when M :: matrix().
 multTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5392, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 multTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -9546,7 +9546,7 @@ multTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc 
 %% See {@link multTransposeMatrixf/1}
--spec multTransposeMatrixd(M) -> ok when M :: matrix().
+-spec multTransposeMatrixd(M) -> 'ok' when M :: matrix().
 multTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5393, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 multTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -9625,7 +9625,7 @@ multTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendFuncSeparate.xml">external</a> documentation.
--spec blendFuncSeparate(SfactorRGB, DfactorRGB, SfactorAlpha, DfactorAlpha) -> ok when SfactorRGB :: enum(),DfactorRGB :: enum(),SfactorAlpha :: enum(),DfactorAlpha :: enum().
+-spec blendFuncSeparate(SfactorRGB, DfactorRGB, SfactorAlpha, DfactorAlpha) -> 'ok' when SfactorRGB :: enum(),DfactorRGB :: enum(),SfactorAlpha :: enum(),DfactorAlpha :: enum().
 blendFuncSeparate(SfactorRGB,DfactorRGB,SfactorAlpha,DfactorAlpha) ->
   cast(5394, <<SfactorRGB:?GLenum,DfactorRGB:?GLenum,SfactorAlpha:?GLenum,DfactorAlpha:?GLenum>>).
 
@@ -9650,7 +9650,7 @@ blendFuncSeparate(SfactorRGB,DfactorRGB,SfactorAlpha,DfactorAlpha) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultiDrawArrays.xml">external</a> documentation.
--spec multiDrawArrays(Mode, First, Count) -> ok when Mode :: enum(),First :: [integer()],Count :: [integer()].
+-spec multiDrawArrays(Mode, First, Count) -> 'ok' when Mode :: enum(),First :: [integer()],Count :: [integer()].
 multiDrawArrays(Mode,First,Count) ->
   cast(5395, <<Mode:?GLenum,(length(First)):?GLuint,
         (<< <<C:?GLint>> || C <- First>>)/binary,0:(((length(First)) rem 2)*32),(length(Count)):?GLuint,
@@ -9669,26 +9669,26 @@ multiDrawArrays(Mode,First,Count) ->
 %%  The default value is `?GL_UPPER_LEFT'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPointParameter.xml">external</a> documentation.
--spec pointParameterf(Pname, Param) -> ok when Pname :: enum(),Param :: float().
+-spec pointParameterf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 pointParameterf(Pname,Param) ->
   cast(5396, <<Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link pointParameterf/2}
--spec pointParameterfv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
+-spec pointParameterfv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 pointParameterfv(Pname,Params) ->
   cast(5397, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link pointParameterf/2}
--spec pointParameteri(Pname, Param) -> ok when Pname :: enum(),Param :: integer().
+-spec pointParameteri(Pname, Param) -> 'ok' when Pname :: enum(),Param :: integer().
 pointParameteri(Pname,Param) ->
   cast(5398, <<Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link pointParameterf/2}
--spec pointParameteriv(Pname, Params) -> ok when Pname :: enum(),Params :: tuple().
+-spec pointParameteriv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 pointParameteriv(Pname,Params) ->
   cast(5399, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
@@ -9700,22 +9700,22 @@ pointParameteriv(Pname,Params) ->
 %% the fog color (see  {@link gl:fogf/2} ). 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFogCoord.xml">external</a> documentation.
--spec fogCoordf(Coord) -> ok when Coord :: float().
+-spec fogCoordf(Coord) -> 'ok' when Coord :: float().
 fogCoordf(Coord) ->
   cast(5400, <<Coord:?GLfloat>>).
 
 %% @equiv fogCoordf(Coord)
--spec fogCoordfv(Coord) -> ok when Coord :: {Coord :: float()}.
+-spec fogCoordfv(Coord) -> 'ok' when Coord :: {Coord :: float()}.
 fogCoordfv({Coord}) ->  fogCoordf(Coord).
 
 %% @doc 
 %% See {@link fogCoordf/1}
--spec fogCoordd(Coord) -> ok when Coord :: float().
+-spec fogCoordd(Coord) -> 'ok' when Coord :: float().
 fogCoordd(Coord) ->
   cast(5401, <<Coord:?GLdouble>>).
 
 %% @equiv fogCoordd(Coord)
--spec fogCoorddv(Coord) -> ok when Coord :: {Coord :: float()}.
+-spec fogCoorddv(Coord) -> 'ok' when Coord :: {Coord :: float()}.
 fogCoorddv({Coord}) ->  fogCoordd(Coord).
 
 %% @doc Define an array of fog coordinates
@@ -9741,7 +9741,7 @@ fogCoorddv({Coord}) ->  fogCoordd(Coord).
 %% ,  {@link gl:drawRangeElements/6} , or  {@link gl:arrayElement/1}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFogCoordPointer.xml">external</a> documentation.
--spec fogCoordPointer(Type, Stride, Pointer) -> ok when Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
+-spec fogCoordPointer(Type, Stride, Pointer) -> 'ok' when Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 fogCoordPointer(Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5402, <<Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 fogCoordPointer(Type,Stride,Pointer) ->
@@ -9778,82 +9778,82 @@ fogCoordPointer(Type,Stride,Pointer) ->
 %% are interpolated or written into a color buffer. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSecondaryColor.xml">external</a> documentation.
--spec secondaryColor3b(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec secondaryColor3b(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3b(Red,Green,Blue) ->
   cast(5404, <<Red:?GLbyte,Green:?GLbyte,Blue:?GLbyte>>).
 
 %% @equiv secondaryColor3b(Red,Green,Blue)
--spec secondaryColor3bv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec secondaryColor3bv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 secondaryColor3bv({Red,Green,Blue}) ->  secondaryColor3b(Red,Green,Blue).
 
 %% @doc 
 %% See {@link secondaryColor3b/3}
--spec secondaryColor3d(Red, Green, Blue) -> ok when Red :: float(),Green :: float(),Blue :: float().
+-spec secondaryColor3d(Red, Green, Blue) -> 'ok' when Red :: float(),Green :: float(),Blue :: float().
 secondaryColor3d(Red,Green,Blue) ->
   cast(5405, <<Red:?GLdouble,Green:?GLdouble,Blue:?GLdouble>>).
 
 %% @equiv secondaryColor3d(Red,Green,Blue)
--spec secondaryColor3dv(V) -> ok when V :: {Red :: float(),Green :: float(),Blue :: float()}.
+-spec secondaryColor3dv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float()}.
 secondaryColor3dv({Red,Green,Blue}) ->  secondaryColor3d(Red,Green,Blue).
 
 %% @doc 
 %% See {@link secondaryColor3b/3}
--spec secondaryColor3f(Red, Green, Blue) -> ok when Red :: float(),Green :: float(),Blue :: float().
+-spec secondaryColor3f(Red, Green, Blue) -> 'ok' when Red :: float(),Green :: float(),Blue :: float().
 secondaryColor3f(Red,Green,Blue) ->
   cast(5406, <<Red:?GLfloat,Green:?GLfloat,Blue:?GLfloat>>).
 
 %% @equiv secondaryColor3f(Red,Green,Blue)
--spec secondaryColor3fv(V) -> ok when V :: {Red :: float(),Green :: float(),Blue :: float()}.
+-spec secondaryColor3fv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float()}.
 secondaryColor3fv({Red,Green,Blue}) ->  secondaryColor3f(Red,Green,Blue).
 
 %% @doc 
 %% See {@link secondaryColor3b/3}
--spec secondaryColor3i(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec secondaryColor3i(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3i(Red,Green,Blue) ->
   cast(5407, <<Red:?GLint,Green:?GLint,Blue:?GLint>>).
 
 %% @equiv secondaryColor3i(Red,Green,Blue)
--spec secondaryColor3iv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec secondaryColor3iv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 secondaryColor3iv({Red,Green,Blue}) ->  secondaryColor3i(Red,Green,Blue).
 
 %% @doc 
 %% See {@link secondaryColor3b/3}
--spec secondaryColor3s(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec secondaryColor3s(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3s(Red,Green,Blue) ->
   cast(5408, <<Red:?GLshort,Green:?GLshort,Blue:?GLshort>>).
 
 %% @equiv secondaryColor3s(Red,Green,Blue)
--spec secondaryColor3sv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec secondaryColor3sv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 secondaryColor3sv({Red,Green,Blue}) ->  secondaryColor3s(Red,Green,Blue).
 
 %% @doc 
 %% See {@link secondaryColor3b/3}
--spec secondaryColor3ub(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec secondaryColor3ub(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3ub(Red,Green,Blue) ->
   cast(5409, <<Red:?GLubyte,Green:?GLubyte,Blue:?GLubyte>>).
 
 %% @equiv secondaryColor3ub(Red,Green,Blue)
--spec secondaryColor3ubv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec secondaryColor3ubv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 secondaryColor3ubv({Red,Green,Blue}) ->  secondaryColor3ub(Red,Green,Blue).
 
 %% @doc 
 %% See {@link secondaryColor3b/3}
--spec secondaryColor3ui(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec secondaryColor3ui(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3ui(Red,Green,Blue) ->
   cast(5410, <<Red:?GLuint,Green:?GLuint,Blue:?GLuint>>).
 
 %% @equiv secondaryColor3ui(Red,Green,Blue)
--spec secondaryColor3uiv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec secondaryColor3uiv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 secondaryColor3uiv({Red,Green,Blue}) ->  secondaryColor3ui(Red,Green,Blue).
 
 %% @doc 
 %% See {@link secondaryColor3b/3}
--spec secondaryColor3us(Red, Green, Blue) -> ok when Red :: integer(),Green :: integer(),Blue :: integer().
+-spec secondaryColor3us(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3us(Red,Green,Blue) ->
   cast(5411, <<Red:?GLushort,Green:?GLushort,Blue:?GLushort>>).
 
 %% @equiv secondaryColor3us(Red,Green,Blue)
--spec secondaryColor3usv(V) -> ok when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
+-spec secondaryColor3usv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
 secondaryColor3usv({Red,Green,Blue}) ->  secondaryColor3us(Red,Green,Blue).
 
 %% @doc Define an array of secondary colors
@@ -9881,7 +9881,7 @@ secondaryColor3usv({Red,Green,Blue}) ->  secondaryColor3us(Red,Green,Blue).
 %% is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSecondaryColorPointer.xml">external</a> documentation.
--spec secondaryColorPointer(Size, Type, Stride, Pointer) -> ok when Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
+-spec secondaryColorPointer(Size, Type, Stride, Pointer) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 secondaryColorPointer(Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5412, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 secondaryColorPointer(Size,Type,Stride,Pointer) ->
@@ -9927,82 +9927,82 @@ secondaryColorPointer(Size,Type,Stride,Pointer) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWindowPos.xml">external</a> documentation.
--spec windowPos2d(X, Y) -> ok when X :: float(),Y :: float().
+-spec windowPos2d(X, Y) -> 'ok' when X :: float(),Y :: float().
 windowPos2d(X,Y) ->
   cast(5414, <<X:?GLdouble,Y:?GLdouble>>).
 
 %% @equiv windowPos2d(X,Y)
--spec windowPos2dv(V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec windowPos2dv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 windowPos2dv({X,Y}) ->  windowPos2d(X,Y).
 
 %% @doc 
 %% See {@link windowPos2d/2}
--spec windowPos2f(X, Y) -> ok when X :: float(),Y :: float().
+-spec windowPos2f(X, Y) -> 'ok' when X :: float(),Y :: float().
 windowPos2f(X,Y) ->
   cast(5415, <<X:?GLfloat,Y:?GLfloat>>).
 
 %% @equiv windowPos2f(X,Y)
--spec windowPos2fv(V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec windowPos2fv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 windowPos2fv({X,Y}) ->  windowPos2f(X,Y).
 
 %% @doc 
 %% See {@link windowPos2d/2}
--spec windowPos2i(X, Y) -> ok when X :: integer(),Y :: integer().
+-spec windowPos2i(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 windowPos2i(X,Y) ->
   cast(5416, <<X:?GLint,Y:?GLint>>).
 
 %% @equiv windowPos2i(X,Y)
--spec windowPos2iv(V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec windowPos2iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 windowPos2iv({X,Y}) ->  windowPos2i(X,Y).
 
 %% @doc 
 %% See {@link windowPos2d/2}
--spec windowPos2s(X, Y) -> ok when X :: integer(),Y :: integer().
+-spec windowPos2s(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 windowPos2s(X,Y) ->
   cast(5417, <<X:?GLshort,Y:?GLshort>>).
 
 %% @equiv windowPos2s(X,Y)
--spec windowPos2sv(V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec windowPos2sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 windowPos2sv({X,Y}) ->  windowPos2s(X,Y).
 
 %% @doc 
 %% See {@link windowPos2d/2}
--spec windowPos3d(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec windowPos3d(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 windowPos3d(X,Y,Z) ->
   cast(5418, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @equiv windowPos3d(X,Y,Z)
--spec windowPos3dv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec windowPos3dv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 windowPos3dv({X,Y,Z}) ->  windowPos3d(X,Y,Z).
 
 %% @doc 
 %% See {@link windowPos2d/2}
--spec windowPos3f(X, Y, Z) -> ok when X :: float(),Y :: float(),Z :: float().
+-spec windowPos3f(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 windowPos3f(X,Y,Z) ->
   cast(5419, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
 %% @equiv windowPos3f(X,Y,Z)
--spec windowPos3fv(V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec windowPos3fv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 windowPos3fv({X,Y,Z}) ->  windowPos3f(X,Y,Z).
 
 %% @doc 
 %% See {@link windowPos2d/2}
--spec windowPos3i(X, Y, Z) -> ok when X :: integer(),Y :: integer(),Z :: integer().
+-spec windowPos3i(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 windowPos3i(X,Y,Z) ->
   cast(5420, <<X:?GLint,Y:?GLint,Z:?GLint>>).
 
 %% @equiv windowPos3i(X,Y,Z)
--spec windowPos3iv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec windowPos3iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 windowPos3iv({X,Y,Z}) ->  windowPos3i(X,Y,Z).
 
 %% @doc 
 %% See {@link windowPos2d/2}
--spec windowPos3s(X, Y, Z) -> ok when X :: integer(),Y :: integer(),Z :: integer().
+-spec windowPos3s(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 windowPos3s(X,Y,Z) ->
   cast(5421, <<X:?GLshort,Y:?GLshort,Z:?GLshort>>).
 
 %% @equiv windowPos3s(X,Y,Z)
--spec windowPos3sv(V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec windowPos3sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 windowPos3sv({X,Y,Z}) ->  windowPos3s(X,Y,Z).
 
 %% @doc Generate query object names
@@ -10032,7 +10032,7 @@ genQueries(N) ->
 %% query objects. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteQueries.xml">external</a> documentation.
--spec deleteQueries(Ids) -> ok when Ids :: [integer()].
+-spec deleteQueries(Ids) -> 'ok' when Ids :: [integer()].
 deleteQueries(Ids) ->
   cast(5423, <<(length(Ids)):?GLuint,
         (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((1+length(Ids)) rem 2)*32)>>).
@@ -10114,13 +10114,13 @@ isQuery(Id) ->
 %% is not yet complete. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQuery.xml">external</a> documentation.
--spec beginQuery(Target, Id) -> ok when Target :: enum(),Id :: integer().
+-spec beginQuery(Target, Id) -> 'ok' when Target :: enum(),Id :: integer().
 beginQuery(Target,Id) ->
   cast(5425, <<Target:?GLenum,Id:?GLuint>>).
 
 %% @doc 
 %% See {@link beginQuery/2}
--spec endQuery(Target) -> ok when Target :: enum().
+-spec endQuery(Target) -> 'ok' when Target :: enum().
 endQuery(Target) ->
   cast(5426, <<Target:?GLenum>>).
 
@@ -10236,7 +10236,7 @@ getQueryObjectuiv(Id,Pname) ->
 %% buffer object based on its initial binding target. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBuffer.xml">external</a> documentation.
--spec bindBuffer(Target, Buffer) -> ok when Target :: enum(),Buffer :: integer().
+-spec bindBuffer(Target, Buffer) -> 'ok' when Target :: enum(),Buffer :: integer().
 bindBuffer(Target,Buffer) ->
   cast(5430, <<Target:?GLenum,Buffer:?GLuint>>).
 
@@ -10251,7 +10251,7 @@ bindBuffer(Target,Buffer) ->
 %% buffer objects. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteBuffers.xml">external</a> documentation.
--spec deleteBuffers(Buffers) -> ok when Buffers :: [integer()].
+-spec deleteBuffers(Buffers) -> 'ok' when Buffers :: [integer()].
 deleteBuffers(Buffers) ->
   cast(5431, <<(length(Buffers)):?GLuint,
         (<< <<C:?GLuint>> || C <- Buffers>>)/binary,0:(((1+length(Buffers)) rem 2)*32)>>).
@@ -10323,7 +10323,7 @@ isBuffer(Buffer) ->
 %% source for GL drawing and image specification commands. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml">external</a> documentation.
--spec bufferData(Target, Size, Data, Usage) -> ok when Target :: enum(),Size :: integer(),Data :: offset()|mem(),Usage :: enum().
+-spec bufferData(Target, Size, Data, Usage) -> 'ok' when Target :: enum(),Size :: integer(),Data :: offset()|mem(),Usage :: enum().
 bufferData(Target,Size,Data,Usage) when  is_integer(Data) ->
   cast(5434, <<Target:?GLenum,0:32,Size:?GLsizeiptr,Data:?GLuint,Usage:?GLenum>>);
 bufferData(Target,Size,Data,Usage) ->
@@ -10339,7 +10339,7 @@ bufferData(Target,Size,Data,Usage) ->
 %% the buffer object's data store. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBufferSubData.xml">external</a> documentation.
--spec bufferSubData(Target, Offset, Size, Data) -> ok when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: offset()|mem().
+-spec bufferSubData(Target, Offset, Size, Data) -> 'ok' when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: offset()|mem().
 bufferSubData(Target,Offset,Size,Data) when  is_integer(Data) ->
   cast(5436, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr,Data:?GLuint>>);
 bufferSubData(Target,Offset,Size,Data) ->
@@ -10355,7 +10355,7 @@ bufferSubData(Target,Offset,Size,Data) ->
 %% together define a range beyond the bounds  of the buffer object's data store. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferSubData.xml">external</a> documentation.
--spec getBufferSubData(Target, Offset, Size, Data) -> ok when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: mem().
+-spec getBufferSubData(Target, Offset, Size, Data) -> 'ok' when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: mem().
 getBufferSubData(Target,Offset,Size,Data) ->
   send_bin(Data),
   call(5438, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
@@ -10422,7 +10422,7 @@ getBufferParameteriv(Target,Pname) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendEquationSeparate.xml">external</a> documentation.
--spec blendEquationSeparate(ModeRGB, ModeAlpha) -> ok when ModeRGB :: enum(),ModeAlpha :: enum().
+-spec blendEquationSeparate(ModeRGB, ModeAlpha) -> 'ok' when ModeRGB :: enum(),ModeAlpha :: enum().
 blendEquationSeparate(ModeRGB,ModeAlpha) ->
   cast(5440, <<ModeRGB:?GLenum,ModeAlpha:?GLenum>>).
 
@@ -10462,7 +10462,7 @@ blendEquationSeparate(ModeRGB,ModeAlpha) ->
 %% .
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawBuffers.xml">external</a> documentation.
--spec drawBuffers(Bufs) -> ok when Bufs :: [enum()].
+-spec drawBuffers(Bufs) -> 'ok' when Bufs :: [enum()].
 drawBuffers(Bufs) ->
   cast(5441, <<(length(Bufs)):?GLuint,
         (<< <<C:?GLenum>> || C <- Bufs>>)/binary,0:(((1+length(Bufs)) rem 2)*32)>>).
@@ -10524,7 +10524,7 @@ drawBuffers(Bufs) ->
 %% specify stencil action when the stencil test fails and passes, respectively. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilOpSeparate.xml">external</a> documentation.
--spec stencilOpSeparate(Face, Sfail, Dpfail, Dppass) -> ok when Face :: enum(),Sfail :: enum(),Dpfail :: enum(),Dppass :: enum().
+-spec stencilOpSeparate(Face, Sfail, Dpfail, Dppass) -> 'ok' when Face :: enum(),Sfail :: enum(),Dpfail :: enum(),Dppass :: enum().
 stencilOpSeparate(Face,Sfail,Dpfail,Dppass) ->
   cast(5442, <<Face:?GLenum,Sfail:?GLenum,Dpfail:?GLenum,Dppass:?GLenum>>).
 
@@ -10587,7 +10587,7 @@ stencilOpSeparate(Face,Sfail,Dpfail,Dppass) ->
 %% `?GL_ALWAYS':  Always passes. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilFuncSeparate.xml">external</a> documentation.
--spec stencilFuncSeparate(Face, Func, Ref, Mask) -> ok when Face :: enum(),Func :: enum(),Ref :: integer(),Mask :: integer().
+-spec stencilFuncSeparate(Face, Func, Ref, Mask) -> 'ok' when Face :: enum(),Func :: enum(),Ref :: integer(),Mask :: integer().
 stencilFuncSeparate(Face,Func,Ref,Mask) ->
   cast(5443, <<Face:?GLenum,Func:?GLenum,Ref:?GLint,Mask:?GLuint>>).
 
@@ -10605,7 +10605,7 @@ stencilFuncSeparate(Face,Func,Ref,Mask) ->
 %%  were called with  `Face'  set to `?GL_FRONT_AND_BACK'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilMaskSeparate.xml">external</a> documentation.
--spec stencilMaskSeparate(Face, Mask) -> ok when Face :: enum(),Mask :: integer().
+-spec stencilMaskSeparate(Face, Mask) -> 'ok' when Face :: enum(),Mask :: integer().
 stencilMaskSeparate(Face,Mask) ->
   cast(5444, <<Face:?GLenum,Mask:?GLuint>>).
 
@@ -10629,7 +10629,7 @@ stencilMaskSeparate(Face,Mask) ->
 %% all program objects to which it is  attached.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAttachShader.xml">external</a> documentation.
--spec attachShader(Program, Shader) -> ok when Program :: integer(),Shader :: integer().
+-spec attachShader(Program, Shader) -> 'ok' when Program :: integer(),Shader :: integer().
 attachShader(Program,Shader) ->
   cast(5445, <<Program:?GLuint,Shader:?GLuint>>).
 
@@ -10666,7 +10666,7 @@ attachShader(Program,Shader) ->
 %% effect until the next time the program object is linked.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindAttribLocation.xml">external</a> documentation.
--spec bindAttribLocation(Program, Index, Name) -> ok when Program :: integer(),Index :: integer(),Name :: string().
+-spec bindAttribLocation(Program, Index, Name) -> 'ok' when Program :: integer(),Index :: integer(),Name :: string().
 bindAttribLocation(Program,Index,Name) ->
   cast(5446, <<Program:?GLuint,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
 
@@ -10686,7 +10686,7 @@ bindAttribLocation(Program,Index,Name) ->
 %% .
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShader.xml">external</a> documentation.
--spec compileShader(Shader) -> ok when Shader :: integer().
+-spec compileShader(Shader) -> 'ok' when Shader :: integer().
 compileShader(Shader) ->
   cast(5447, <<Shader:?GLuint>>).
 
@@ -10753,7 +10753,7 @@ createShader(Type) ->
 %%  with arguments  `Program'  and `?GL_DELETE_STATUS'.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgram.xml">external</a> documentation.
--spec deleteProgram(Program) -> ok when Program :: integer().
+-spec deleteProgram(Program) -> 'ok' when Program :: integer().
 deleteProgram(Program) ->
   cast(5450, <<Program:?GLuint>>).
 
@@ -10772,7 +10772,7 @@ deleteProgram(Program) ->
 %% with arguments  `Shader'  and `?GL_DELETE_STATUS'.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteShader.xml">external</a> documentation.
--spec deleteShader(Shader) -> ok when Shader :: integer().
+-spec deleteShader(Shader) -> 'ok' when Shader :: integer().
 deleteShader(Shader) ->
   cast(5451, <<Shader:?GLuint>>).
 
@@ -10787,7 +10787,7 @@ deleteShader(Shader) ->
 %% detached.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDetachShader.xml">external</a> documentation.
--spec detachShader(Program, Shader) -> ok when Program :: integer(),Shader :: integer().
+-spec detachShader(Program, Shader) -> 'ok' when Program :: integer(),Shader :: integer().
 detachShader(Program,Shader) ->
   cast(5452, <<Program:?GLuint,Shader:?GLuint>>).
 
@@ -10802,13 +10802,13 @@ detachShader(Program,Shader) ->
 %% , or  {@link gl:multiDrawArrays/3} .
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml">external</a> documentation.
--spec disableVertexAttribArray(Index) -> ok when Index :: integer().
+-spec disableVertexAttribArray(Index) -> 'ok' when Index :: integer().
 disableVertexAttribArray(Index) ->
   cast(5453, <<Index:?GLuint>>).
 
 %% @doc 
 %% See {@link disableVertexAttribArray/1}
--spec enableVertexAttribArray(Index) -> ok when Index :: integer().
+-spec enableVertexAttribArray(Index) -> 'ok' when Index :: integer().
 enableVertexAttribArray(Index) ->
   cast(5454, <<Index:?GLuint>>).
 
@@ -11515,7 +11515,7 @@ isShader(Shader) ->
 %% log or the program that is part of the program object.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLinkProgram.xml">external</a> documentation.
--spec linkProgram(Program) -> ok when Program :: integer().
+-spec linkProgram(Program) -> 'ok' when Program :: integer().
 linkProgram(Program) ->
   cast(5472, <<Program:?GLuint>>).
 
@@ -11533,7 +11533,7 @@ linkProgram(Program) ->
 %% scanned or parsed at this time; they are simply copied into  the specified shader object.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSource.xml">external</a> documentation.
--spec shaderSource(Shader, String) -> ok when Shader :: integer(),String :: iolist().
+-spec shaderSource(Shader, String) -> 'ok' when Shader :: integer(),String :: iolist().
 shaderSource(Shader,String) ->
  StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
   cast(5473, <<Shader:?GLuint,(length(String)):?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+0) rem 8)) rem 8)>>).
@@ -11575,7 +11575,7 @@ shaderSource(Shader,String) ->
 %% the results of fragment shader execution will be undefined.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgram.xml">external</a> documentation.
--spec useProgram(Program) -> ok when Program :: integer().
+-spec useProgram(Program) -> 'ok' when Program :: integer().
 useProgram(Program) ->
   cast(5474, <<Program:?GLuint>>).
 
@@ -11643,125 +11643,125 @@ useProgram(Program) ->
 %% a single matrix, and a count greater than 1 can be used to modify an array of matrices.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniform.xml">external</a> documentation.
--spec uniform1f(Location, V0) -> ok when Location :: integer(),V0 :: float().
+-spec uniform1f(Location, V0) -> 'ok' when Location :: integer(),V0 :: float().
 uniform1f(Location,V0) ->
   cast(5475, <<Location:?GLint,V0:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2f(Location, V0, V1) -> ok when Location :: integer(),V0 :: float(),V1 :: float().
+-spec uniform2f(Location, V0, V1) -> 'ok' when Location :: integer(),V0 :: float(),V1 :: float().
 uniform2f(Location,V0,V1) ->
   cast(5476, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3f(Location, V0, V1, V2) -> ok when Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
+-spec uniform3f(Location, V0, V1, V2) -> 'ok' when Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
 uniform3f(Location,V0,V1,V2) ->
   cast(5477, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4f(Location, V0, V1, V2, V3) -> ok when Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
+-spec uniform4f(Location, V0, V1, V2, V3) -> 'ok' when Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
 uniform4f(Location,V0,V1,V2,V3) ->
   cast(5478, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform1i(Location, V0) -> ok when Location :: integer(),V0 :: integer().
+-spec uniform1i(Location, V0) -> 'ok' when Location :: integer(),V0 :: integer().
 uniform1i(Location,V0) ->
   cast(5479, <<Location:?GLint,V0:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2i(Location, V0, V1) -> ok when Location :: integer(),V0 :: integer(),V1 :: integer().
+-spec uniform2i(Location, V0, V1) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer().
 uniform2i(Location,V0,V1) ->
   cast(5480, <<Location:?GLint,V0:?GLint,V1:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3i(Location, V0, V1, V2) -> ok when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
+-spec uniform3i(Location, V0, V1, V2) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 uniform3i(Location,V0,V1,V2) ->
   cast(5481, <<Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4i(Location, V0, V1, V2, V3) -> ok when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
+-spec uniform4i(Location, V0, V1, V2, V3) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 uniform4i(Location,V0,V1,V2,V3) ->
   cast(5482, <<Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint,V3:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform1fv(Location, Value) -> ok when Location :: integer(),Value :: [float()].
+-spec uniform1fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [float()].
 uniform1fv(Location,Value) ->
   cast(5483, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<C:?GLfloat>> || C <- Value>>)/binary,0:(((length(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2fv(Location, Value) -> ok when Location :: integer(),Value :: [{float(),float()}].
+-spec uniform2fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float()}].
 uniform2fv(Location,Value) ->
   cast(5484, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3fv(Location, Value) -> ok when Location :: integer(),Value :: [{float(),float(),float()}].
+-spec uniform3fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float()}].
 uniform3fv(Location,Value) ->
   cast(5485, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4fv(Location, Value) -> ok when Location :: integer(),Value :: [{float(),float(),float(),float()}].
+-spec uniform4fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float(),float()}].
 uniform4fv(Location,Value) ->
   cast(5486, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform1iv(Location, Value) -> ok when Location :: integer(),Value :: [integer()].
+-spec uniform1iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [integer()].
 uniform1iv(Location,Value) ->
   cast(5487, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<C:?GLint>> || C <- Value>>)/binary,0:(((length(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2iv(Location, Value) -> ok when Location :: integer(),Value :: [{integer(),integer()}].
+-spec uniform2iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer()}].
 uniform2iv(Location,Value) ->
   cast(5488, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLint,V2:?GLint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3iv(Location, Value) -> ok when Location :: integer(),Value :: [{integer(),integer(),integer()}].
+-spec uniform3iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer()}].
 uniform3iv(Location,Value) ->
   cast(5489, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4iv(Location, Value) -> ok when Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
+-spec uniform4iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 uniform4iv(Location,Value) ->
   cast(5490, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix2fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
+-spec uniformMatrix2fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 uniformMatrix2fv(Location,Transpose,Value) ->
   cast(5491, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix3fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix3fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3fv(Location,Transpose,Value) ->
   cast(5492, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix4fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix4fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4fv(Location,Transpose,Value) ->
   cast(5493, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat,V13:?GLfloat,V14:?GLfloat,V15:?GLfloat,V16:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
@@ -11789,7 +11789,7 @@ uniformMatrix4fv(Location,Transpose,Value) ->
 %% information strings.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgram.xml">external</a> documentation.
--spec validateProgram(Program) -> ok when Program :: integer().
+-spec validateProgram(Program) -> 'ok' when Program :: integer().
 validateProgram(Program) ->
   cast(5494, <<Program:?GLuint>>).
 
@@ -11864,191 +11864,191 @@ validateProgram(Program) ->
 %% attribute.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttrib.xml">external</a> documentation.
--spec vertexAttrib1d(Index, X) -> ok when Index :: integer(),X :: float().
+-spec vertexAttrib1d(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttrib1d(Index,X) ->
   cast(5495, <<Index:?GLuint,0:32,X:?GLdouble>>).
 
 %% @equiv vertexAttrib1d(Index,X)
--spec vertexAttrib1dv(Index :: integer(),V) -> ok when V :: {X :: float()}.
+-spec vertexAttrib1dv(Index :: integer(),V) -> 'ok' when V :: {X :: float()}.
 vertexAttrib1dv(Index,{X}) ->  vertexAttrib1d(Index,X).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib1f(Index, X) -> ok when Index :: integer(),X :: float().
+-spec vertexAttrib1f(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttrib1f(Index,X) ->
   cast(5496, <<Index:?GLuint,X:?GLfloat>>).
 
 %% @equiv vertexAttrib1f(Index,X)
--spec vertexAttrib1fv(Index :: integer(),V) -> ok when V :: {X :: float()}.
+-spec vertexAttrib1fv(Index :: integer(),V) -> 'ok' when V :: {X :: float()}.
 vertexAttrib1fv(Index,{X}) ->  vertexAttrib1f(Index,X).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib1s(Index, X) -> ok when Index :: integer(),X :: integer().
+-spec vertexAttrib1s(Index, X) -> 'ok' when Index :: integer(),X :: integer().
 vertexAttrib1s(Index,X) ->
   cast(5497, <<Index:?GLuint,X:?GLshort>>).
 
 %% @equiv vertexAttrib1s(Index,X)
--spec vertexAttrib1sv(Index :: integer(),V) -> ok when V :: {X :: integer()}.
+-spec vertexAttrib1sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer()}.
 vertexAttrib1sv(Index,{X}) ->  vertexAttrib1s(Index,X).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib2d(Index, X, Y) -> ok when Index :: integer(),X :: float(),Y :: float().
+-spec vertexAttrib2d(Index, X, Y) -> 'ok' when Index :: integer(),X :: float(),Y :: float().
 vertexAttrib2d(Index,X,Y) ->
   cast(5498, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble>>).
 
 %% @equiv vertexAttrib2d(Index,X,Y)
--spec vertexAttrib2dv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec vertexAttrib2dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 vertexAttrib2dv(Index,{X,Y}) ->  vertexAttrib2d(Index,X,Y).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib2f(Index, X, Y) -> ok when Index :: integer(),X :: float(),Y :: float().
+-spec vertexAttrib2f(Index, X, Y) -> 'ok' when Index :: integer(),X :: float(),Y :: float().
 vertexAttrib2f(Index,X,Y) ->
   cast(5499, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat>>).
 
 %% @equiv vertexAttrib2f(Index,X,Y)
--spec vertexAttrib2fv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec vertexAttrib2fv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 vertexAttrib2fv(Index,{X,Y}) ->  vertexAttrib2f(Index,X,Y).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib2s(Index, X, Y) -> ok when Index :: integer(),X :: integer(),Y :: integer().
+-spec vertexAttrib2s(Index, X, Y) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer().
 vertexAttrib2s(Index,X,Y) ->
   cast(5500, <<Index:?GLuint,X:?GLshort,Y:?GLshort>>).
 
 %% @equiv vertexAttrib2s(Index,X,Y)
--spec vertexAttrib2sv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec vertexAttrib2sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 vertexAttrib2sv(Index,{X,Y}) ->  vertexAttrib2s(Index,X,Y).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib3d(Index, X, Y, Z) -> ok when Index :: integer(),X :: float(),Y :: float(),Z :: float().
+-spec vertexAttrib3d(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float().
 vertexAttrib3d(Index,X,Y,Z) ->
   cast(5501, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @equiv vertexAttrib3d(Index,X,Y,Z)
--spec vertexAttrib3dv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec vertexAttrib3dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 vertexAttrib3dv(Index,{X,Y,Z}) ->  vertexAttrib3d(Index,X,Y,Z).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib3f(Index, X, Y, Z) -> ok when Index :: integer(),X :: float(),Y :: float(),Z :: float().
+-spec vertexAttrib3f(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float().
 vertexAttrib3f(Index,X,Y,Z) ->
   cast(5502, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
 %% @equiv vertexAttrib3f(Index,X,Y,Z)
--spec vertexAttrib3fv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec vertexAttrib3fv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 vertexAttrib3fv(Index,{X,Y,Z}) ->  vertexAttrib3f(Index,X,Y,Z).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib3s(Index, X, Y, Z) -> ok when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
+-spec vertexAttrib3s(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
 vertexAttrib3s(Index,X,Y,Z) ->
   cast(5503, <<Index:?GLuint,X:?GLshort,Y:?GLshort,Z:?GLshort>>).
 
 %% @equiv vertexAttrib3s(Index,X,Y,Z)
--spec vertexAttrib3sv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec vertexAttrib3sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 vertexAttrib3sv(Index,{X,Y,Z}) ->  vertexAttrib3s(Index,X,Y,Z).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4Nbv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4Nbv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nbv(Index,{V1,V2,V3,V4}) ->
   cast(5504, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4Niv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4Niv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Niv(Index,{V1,V2,V3,V4}) ->
   cast(5505, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4Nsv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4Nsv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nsv(Index,{V1,V2,V3,V4}) ->
   cast(5506, <<Index:?GLuint,V1:?GLshort,V2:?GLshort,V3:?GLshort,V4:?GLshort>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4Nub(Index, X, Y, Z, W) -> ok when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec vertexAttrib4Nub(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttrib4Nub(Index,X,Y,Z,W) ->
   cast(5507, <<Index:?GLuint,X:?GLubyte,Y:?GLubyte,Z:?GLubyte,W:?GLubyte>>).
 
 %% @equiv vertexAttrib4Nub(Index,X,Y,Z,W)
--spec vertexAttrib4Nubv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec vertexAttrib4Nubv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 vertexAttrib4Nubv(Index,{X,Y,Z,W}) ->  vertexAttrib4Nub(Index,X,Y,Z,W).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4Nuiv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4Nuiv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nuiv(Index,{V1,V2,V3,V4}) ->
   cast(5508, <<Index:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4Nusv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4Nusv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nusv(Index,{V1,V2,V3,V4}) ->
   cast(5509, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4bv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4bv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4bv(Index,{V1,V2,V3,V4}) ->
   cast(5510, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4d(Index, X, Y, Z, W) -> ok when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec vertexAttrib4d(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 vertexAttrib4d(Index,X,Y,Z,W) ->
   cast(5511, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @equiv vertexAttrib4d(Index,X,Y,Z,W)
--spec vertexAttrib4dv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
+-spec vertexAttrib4dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
 vertexAttrib4dv(Index,{X,Y,Z,W}) ->  vertexAttrib4d(Index,X,Y,Z,W).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4f(Index, X, Y, Z, W) -> ok when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec vertexAttrib4f(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 vertexAttrib4f(Index,X,Y,Z,W) ->
   cast(5512, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @equiv vertexAttrib4f(Index,X,Y,Z,W)
--spec vertexAttrib4fv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
+-spec vertexAttrib4fv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
 vertexAttrib4fv(Index,{X,Y,Z,W}) ->  vertexAttrib4f(Index,X,Y,Z,W).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4iv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4iv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4iv(Index,{V1,V2,V3,V4}) ->
   cast(5513, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4s(Index, X, Y, Z, W) -> ok when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec vertexAttrib4s(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttrib4s(Index,X,Y,Z,W) ->
   cast(5514, <<Index:?GLuint,X:?GLshort,Y:?GLshort,Z:?GLshort,W:?GLshort>>).
 
 %% @equiv vertexAttrib4s(Index,X,Y,Z,W)
--spec vertexAttrib4sv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec vertexAttrib4sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 vertexAttrib4sv(Index,{X,Y,Z,W}) ->  vertexAttrib4s(Index,X,Y,Z,W).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4ubv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4ubv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4ubv(Index,{V1,V2,V3,V4}) ->
   cast(5515, <<Index:?GLuint,V1:?GLubyte,V2:?GLubyte,V3:?GLubyte,V4:?GLubyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4uiv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4uiv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4uiv(Index,{V1,V2,V3,V4}) ->
   cast(5516, <<Index:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttrib4usv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttrib4usv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4usv(Index,{V1,V2,V3,V4}) ->
   cast(5517, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
 
@@ -12092,7 +12092,7 @@ vertexAttrib4usv(Index,{V1,V2,V3,V4}) ->
 %% , see `glMultiDrawElements', or  {@link gl:drawRangeElements/6}  is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml">external</a> documentation.
--spec vertexAttribPointer(Index, Size, Type, Normalized, Stride, Pointer) -> ok when Index :: integer(),Size :: integer(),Type :: enum(),Normalized :: 0|1,Stride :: integer(),Pointer :: offset()|mem().
+-spec vertexAttribPointer(Index, Size, Type, Normalized, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Normalized :: 0|1,Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribPointer(Index,Size,Type,Normalized,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5518, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Normalized:?GLboolean,0:24,Stride:?GLsizei,Pointer:?GLuint>>);
 vertexAttribPointer(Index,Size,Type,Normalized,Stride,Pointer) ->
@@ -12101,42 +12101,42 @@ vertexAttribPointer(Index,Size,Type,Normalized,Stride,Pointer) ->
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix2x3fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix2x3fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x3fv(Location,Transpose,Value) ->
   cast(5520, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix3x2fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix3x2fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x2fv(Location,Transpose,Value) ->
   cast(5521, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix2x4fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix2x4fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x4fv(Location,Transpose,Value) ->
   cast(5522, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix4x2fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix4x2fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x2fv(Location,Transpose,Value) ->
   cast(5523, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix3x4fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix3x4fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x4fv(Location,Transpose,Value) ->
   cast(5524, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix4x3fv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix4x3fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x3fv(Location,Transpose,Value) ->
   cast(5525, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
@@ -12144,7 +12144,7 @@ uniformMatrix4x3fv(Location,Transpose,Value) ->
 %% @doc glColorMaski
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorMaski.xml">external</a> documentation.
--spec colorMaski(Index, R, G, B, A) -> ok when Index :: integer(),R :: 0|1,G :: 0|1,B :: 0|1,A :: 0|1.
+-spec colorMaski(Index, R, G, B, A) -> 'ok' when Index :: integer(),R :: 0|1,G :: 0|1,B :: 0|1,A :: 0|1.
 colorMaski(Index,R,G,B,A) ->
   cast(5526, <<Index:?GLuint,R:?GLboolean,G:?GLboolean,B:?GLboolean,A:?GLboolean>>).
 
@@ -12162,14 +12162,14 @@ getIntegeri_v(Target,Index) ->
 
 %% @doc 
 %% See {@link enable/1}
--spec enablei(Target, Index) -> ok when Target :: enum(),Index :: integer().
+-spec enablei(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 enablei(Target,Index) ->
   cast(5529, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glEnablei
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnablei.xml">external</a> documentation.
--spec disablei(Target, Index) -> ok when Target :: enum(),Index :: integer().
+-spec disablei(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 disablei(Target,Index) ->
   cast(5530, <<Target:?GLenum,Index:?GLuint>>).
 
@@ -12204,13 +12204,13 @@ isEnabledi(Target,Index) ->
 %% </td></tr></tbody></table>
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginTransformFeedback.xml">external</a> documentation.
--spec beginTransformFeedback(PrimitiveMode) -> ok when PrimitiveMode :: enum().
+-spec beginTransformFeedback(PrimitiveMode) -> 'ok' when PrimitiveMode :: enum().
 beginTransformFeedback(PrimitiveMode) ->
   cast(5532, <<PrimitiveMode:?GLenum>>).
 
 %% @doc 
 %% See {@link beginTransformFeedback/1}
--spec endTransformFeedback() -> ok.
+-spec endTransformFeedback() -> 'ok'.
 endTransformFeedback() ->
   cast(5533, <<>>).
 
@@ -12229,7 +12229,7 @@ endTransformFeedback() ->
 %% while used as an indexed target. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBufferRange.xml">external</a> documentation.
--spec bindBufferRange(Target, Index, Buffer, Offset, Size) -> ok when Target :: enum(),Index :: integer(),Buffer :: integer(),Offset :: integer(),Size :: integer().
+-spec bindBufferRange(Target, Index, Buffer, Offset, Size) -> 'ok' when Target :: enum(),Index :: integer(),Buffer :: integer(),Offset :: integer(),Size :: integer().
 bindBufferRange(Target,Index,Buffer,Offset,Size) ->
   cast(5534, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
 
@@ -12244,7 +12244,7 @@ bindBufferRange(Target,Index,Buffer,Offset,Size) ->
 %% binding point specified by  `Target' . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBufferBase.xml">external</a> documentation.
--spec bindBufferBase(Target, Index, Buffer) -> ok when Target :: enum(),Index :: integer(),Buffer :: integer().
+-spec bindBufferBase(Target, Index, Buffer) -> 'ok' when Target :: enum(),Index :: integer(),Buffer :: integer().
 bindBufferBase(Target,Index,Buffer) ->
   cast(5535, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint>>).
 
@@ -12282,7 +12282,7 @@ bindBufferBase(Target,Index,Buffer) ->
 %%  and the buffer mode is `?GL_INTERLEAVED_ATTRIBS'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTransformFeedbackVaryings.xml">external</a> documentation.
--spec transformFeedbackVaryings(Program, Varyings, BufferMode) -> ok when Program :: integer(),Varyings :: iolist(),BufferMode :: enum().
+-spec transformFeedbackVaryings(Program, Varyings, BufferMode) -> 'ok' when Program :: integer(),Varyings :: iolist(),BufferMode :: enum().
 transformFeedbackVaryings(Program,Varyings,BufferMode) ->
  VaryingsTemp = list_to_binary([[Str|[0]] || Str <- Varyings ]),
   cast(5536, <<Program:?GLuint,(length(Varyings)):?GLuint,(size(VaryingsTemp)):?GLuint,(VaryingsTemp)/binary,0:((8-((size(VaryingsTemp)+0) rem 8)) rem 8),BufferMode:?GLenum>>).
@@ -12331,7 +12331,7 @@ getTransformFeedbackVarying(Program,Index,BufSize) ->
 %% only if the selected read buffer has fixed point components and disabled otherwise. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClampColor.xml">external</a> documentation.
--spec clampColor(Target, Clamp) -> ok when Target :: enum(),Clamp :: enum().
+-spec clampColor(Target, Clamp) -> 'ok' when Target :: enum(),Clamp :: enum().
 clampColor(Target,Clamp) ->
   cast(5538, <<Target:?GLenum,Clamp:?GLenum>>).
 
@@ -12363,20 +12363,20 @@ clampColor(Target,Clamp) ->
 %% waiting for the query to complete. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginConditionalRender.xml">external</a> documentation.
--spec beginConditionalRender(Id, Mode) -> ok when Id :: integer(),Mode :: enum().
+-spec beginConditionalRender(Id, Mode) -> 'ok' when Id :: integer(),Mode :: enum().
 beginConditionalRender(Id,Mode) ->
   cast(5539, <<Id:?GLuint,Mode:?GLenum>>).
 
 %% @doc 
 %% See {@link beginConditionalRender/2}
--spec endConditionalRender() -> ok.
+-spec endConditionalRender() -> 'ok'.
 endConditionalRender() ->
   cast(5540, <<>>).
 
 %% @doc glVertexAttribIPointer
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribIPointer.xml">external</a> documentation.
--spec vertexAttribIPointer(Index, Size, Type, Stride, Pointer) -> ok when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
+-spec vertexAttribIPointer(Index, Size, Type, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribIPointer(Index,Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5541, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 vertexAttribIPointer(Index,Size,Type,Stride,Pointer) ->
@@ -12398,105 +12398,105 @@ getVertexAttribIuiv(Index,Pname) ->
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI1i(Index, X) -> ok when Index :: integer(),X :: integer().
+-spec vertexAttribI1i(Index, X) -> 'ok' when Index :: integer(),X :: integer().
 vertexAttribI1i(Index,X) ->
   cast(5545, <<Index:?GLuint,X:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI2i(Index, X, Y) -> ok when Index :: integer(),X :: integer(),Y :: integer().
+-spec vertexAttribI2i(Index, X, Y) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer().
 vertexAttribI2i(Index,X,Y) ->
   cast(5546, <<Index:?GLuint,X:?GLint,Y:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI3i(Index, X, Y, Z) -> ok when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
+-spec vertexAttribI3i(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
 vertexAttribI3i(Index,X,Y,Z) ->
   cast(5547, <<Index:?GLuint,X:?GLint,Y:?GLint,Z:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI4i(Index, X, Y, Z, W) -> ok when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec vertexAttribI4i(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttribI4i(Index,X,Y,Z,W) ->
   cast(5548, <<Index:?GLuint,X:?GLint,Y:?GLint,Z:?GLint,W:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI1ui(Index, X) -> ok when Index :: integer(),X :: integer().
+-spec vertexAttribI1ui(Index, X) -> 'ok' when Index :: integer(),X :: integer().
 vertexAttribI1ui(Index,X) ->
   cast(5549, <<Index:?GLuint,X:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI2ui(Index, X, Y) -> ok when Index :: integer(),X :: integer(),Y :: integer().
+-spec vertexAttribI2ui(Index, X, Y) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer().
 vertexAttribI2ui(Index,X,Y) ->
   cast(5550, <<Index:?GLuint,X:?GLuint,Y:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI3ui(Index, X, Y, Z) -> ok when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
+-spec vertexAttribI3ui(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
 vertexAttribI3ui(Index,X,Y,Z) ->
   cast(5551, <<Index:?GLuint,X:?GLuint,Y:?GLuint,Z:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI4ui(Index, X, Y, Z, W) -> ok when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
+-spec vertexAttribI4ui(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttribI4ui(Index,X,Y,Z,W) ->
   cast(5552, <<Index:?GLuint,X:?GLuint,Y:?GLuint,Z:?GLuint,W:?GLuint>>).
 
 %% @equiv vertexAttribI1i(Index,X)
--spec vertexAttribI1iv(Index :: integer(),V) -> ok when V :: {X :: integer()}.
+-spec vertexAttribI1iv(Index :: integer(),V) -> 'ok' when V :: {X :: integer()}.
 vertexAttribI1iv(Index,{X}) ->  vertexAttribI1i(Index,X).
 
 %% @equiv vertexAttribI2i(Index,X,Y)
--spec vertexAttribI2iv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec vertexAttribI2iv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 vertexAttribI2iv(Index,{X,Y}) ->  vertexAttribI2i(Index,X,Y).
 
 %% @equiv vertexAttribI3i(Index,X,Y,Z)
--spec vertexAttribI3iv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec vertexAttribI3iv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 vertexAttribI3iv(Index,{X,Y,Z}) ->  vertexAttribI3i(Index,X,Y,Z).
 
 %% @equiv vertexAttribI4i(Index,X,Y,Z,W)
--spec vertexAttribI4iv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec vertexAttribI4iv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 vertexAttribI4iv(Index,{X,Y,Z,W}) ->  vertexAttribI4i(Index,X,Y,Z,W).
 
 %% @equiv vertexAttribI1ui(Index,X)
--spec vertexAttribI1uiv(Index :: integer(),V) -> ok when V :: {X :: integer()}.
+-spec vertexAttribI1uiv(Index :: integer(),V) -> 'ok' when V :: {X :: integer()}.
 vertexAttribI1uiv(Index,{X}) ->  vertexAttribI1ui(Index,X).
 
 %% @equiv vertexAttribI2ui(Index,X,Y)
--spec vertexAttribI2uiv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer()}.
+-spec vertexAttribI2uiv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
 vertexAttribI2uiv(Index,{X,Y}) ->  vertexAttribI2ui(Index,X,Y).
 
 %% @equiv vertexAttribI3ui(Index,X,Y,Z)
--spec vertexAttribI3uiv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
+-spec vertexAttribI3uiv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
 vertexAttribI3uiv(Index,{X,Y,Z}) ->  vertexAttribI3ui(Index,X,Y,Z).
 
 %% @equiv vertexAttribI4ui(Index,X,Y,Z,W)
--spec vertexAttribI4uiv(Index :: integer(),V) -> ok when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
+-spec vertexAttribI4uiv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
 vertexAttribI4uiv(Index,{X,Y,Z,W}) ->  vertexAttribI4ui(Index,X,Y,Z,W).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI4bv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttribI4bv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4bv(Index,{V1,V2,V3,V4}) ->
   cast(5553, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI4sv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttribI4sv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4sv(Index,{V1,V2,V3,V4}) ->
   cast(5554, <<Index:?GLuint,V1:?GLshort,V2:?GLshort,V3:?GLshort,V4:?GLshort>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI4ubv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttribI4ubv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4ubv(Index,{V1,V2,V3,V4}) ->
   cast(5555, <<Index:?GLuint,V1:?GLubyte,V2:?GLubyte,V3:?GLubyte,V4:?GLubyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
--spec vertexAttribI4usv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec vertexAttribI4usv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4usv(Index,{V1,V2,V3,V4}) ->
   cast(5556, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
 
@@ -12529,7 +12529,7 @@ getUniformuiv(Program,Location) ->
 %%  More than one varying out variable is bound to the same color number. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFragDataLocation.xml">external</a> documentation.
--spec bindFragDataLocation(Program, Color, Name) -> ok when Program :: integer(),Color :: integer(),Name :: string().
+-spec bindFragDataLocation(Program, Color, Name) -> 'ok' when Program :: integer(),Color :: integer(),Name :: string().
 bindFragDataLocation(Program,Color,Name) ->
   cast(5558, <<Program:?GLuint,Color:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
 
@@ -12548,59 +12548,59 @@ getFragDataLocation(Program,Name) ->
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform1ui(Location, V0) -> ok when Location :: integer(),V0 :: integer().
+-spec uniform1ui(Location, V0) -> 'ok' when Location :: integer(),V0 :: integer().
 uniform1ui(Location,V0) ->
   cast(5560, <<Location:?GLint,V0:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2ui(Location, V0, V1) -> ok when Location :: integer(),V0 :: integer(),V1 :: integer().
+-spec uniform2ui(Location, V0, V1) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer().
 uniform2ui(Location,V0,V1) ->
   cast(5561, <<Location:?GLint,V0:?GLuint,V1:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3ui(Location, V0, V1, V2) -> ok when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
+-spec uniform3ui(Location, V0, V1, V2) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 uniform3ui(Location,V0,V1,V2) ->
   cast(5562, <<Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4ui(Location, V0, V1, V2, V3) -> ok when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
+-spec uniform4ui(Location, V0, V1, V2, V3) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 uniform4ui(Location,V0,V1,V2,V3) ->
   cast(5563, <<Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform1uiv(Location, Value) -> ok when Location :: integer(),Value :: [integer()].
+-spec uniform1uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [integer()].
 uniform1uiv(Location,Value) ->
   cast(5564, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<C:?GLuint>> || C <- Value>>)/binary,0:(((length(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2uiv(Location, Value) -> ok when Location :: integer(),Value :: [{integer(),integer()}].
+-spec uniform2uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer()}].
 uniform2uiv(Location,Value) ->
   cast(5565, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3uiv(Location, Value) -> ok when Location :: integer(),Value :: [{integer(),integer(),integer()}].
+-spec uniform3uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer()}].
 uniform3uiv(Location,Value) ->
   cast(5566, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4uiv(Location, Value) -> ok when Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
+-spec uniform4uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 uniform4uiv(Location,Value) ->
   cast(5567, <<Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link texParameterf/3}
--spec texParameterIiv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec texParameterIiv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterIiv(Target,Pname,Params) ->
   cast(5568, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -12608,7 +12608,7 @@ texParameterIiv(Target,Pname,Params) ->
 %% @doc glTexParameterI
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexParameterI.xml">external</a> documentation.
--spec texParameterIuiv(Target, Pname, Params) -> ok when Target :: enum(),Pname :: enum(),Params :: tuple().
+-spec texParameterIuiv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterIuiv(Target,Pname,Params) ->
   cast(5569, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLuint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
@@ -12655,21 +12655,21 @@ getTexParameterIuiv(Target,Pname) ->
 %%  and the buffer being cleared is defined. However, this is not an error. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearBuffer.xml">external</a> documentation.
--spec clearBufferiv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
+-spec clearBufferiv(Buffer, Drawbuffer, Value) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferiv(Buffer,Drawbuffer,Value) ->
   cast(5572, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link clearBufferiv/3}
--spec clearBufferuiv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
+-spec clearBufferuiv(Buffer, Drawbuffer, Value) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferuiv(Buffer,Drawbuffer,Value) ->
   cast(5573, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLuint>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link clearBufferiv/3}
--spec clearBufferfv(Buffer, Drawbuffer, Value) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
+-spec clearBufferfv(Buffer, Drawbuffer, Value) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferfv(Buffer,Drawbuffer,Value) ->
   cast(5574, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
@@ -12677,7 +12677,7 @@ clearBufferfv(Buffer,Drawbuffer,Value) ->
 %% @doc glClearBufferfi
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearBufferfi.xml">external</a> documentation.
--spec clearBufferfi(Buffer, Drawbuffer, Depth, Stencil) -> ok when Buffer :: enum(),Drawbuffer :: integer(),Depth :: float(),Stencil :: integer().
+-spec clearBufferfi(Buffer, Drawbuffer, Depth, Stencil) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Depth :: float(),Stencil :: integer().
 clearBufferfi(Buffer,Drawbuffer,Depth,Stencil) ->
   cast(5575, <<Buffer:?GLenum,Drawbuffer:?GLint,Depth:?GLfloat,Stencil:?GLint>>).
 
@@ -12690,14 +12690,14 @@ getStringi(Name,Index) ->
 %% @doc glDrawArraysInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysInstance.xml">external</a> documentation.
--spec drawArraysInstanced(Mode, First, Count, Primcount) -> ok when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer().
+-spec drawArraysInstanced(Mode, First, Count, Primcount) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer().
 drawArraysInstanced(Mode,First,Count,Primcount) ->
   cast(5577, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei>>).
 
 %% @doc glDrawElementsInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstance.xml">external</a> documentation.
--spec drawElementsInstanced(Mode, Count, Type, Indices, Primcount) -> ok when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer().
+-spec drawElementsInstanced(Mode, Count, Type, Indices, Primcount) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer().
 drawElementsInstanced(Mode,Count,Type,Indices,Primcount) when  is_integer(Indices) ->
   cast(5578, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei>>);
 drawElementsInstanced(Mode,Count,Type,Indices,Primcount) ->
@@ -12768,7 +12768,7 @@ drawElementsInstanced(Mode,Count,Type,Indices,Primcount) ->
 %% or greater than or equal to the clamped number of texels in the texel array. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexBuffer.xml">external</a> documentation.
--spec texBuffer(Target, Internalformat, Buffer) -> ok when Target :: enum(),Internalformat :: enum(),Buffer :: integer().
+-spec texBuffer(Target, Internalformat, Buffer) -> 'ok' when Target :: enum(),Internalformat :: enum(),Buffer :: integer().
 texBuffer(Target,Internalformat,Buffer) ->
   cast(5580, <<Target:?GLenum,Internalformat:?GLenum,Buffer:?GLuint>>).
 
@@ -12790,7 +12790,7 @@ texBuffer(Target,Internalformat,Buffer) ->
 %% occurs before the basevertex offset is added to the array index. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPrimitiveRestartIndex.xml">external</a> documentation.
--spec primitiveRestartIndex(Index) -> ok when Index :: integer().
+-spec primitiveRestartIndex(Index) -> 'ok' when Index :: integer().
 primitiveRestartIndex(Index) ->
   cast(5581, <<Index:?GLuint>>).
 
@@ -12860,7 +12860,7 @@ getBufferParameteri64v(Target,Pname) ->
 %%  is not zero, then  `Textarget'  must be `?GL_TEXTURE_3D'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFramebufferTexture.xml">external</a> documentation.
--spec framebufferTexture(Target, Attachment, Texture, Level) -> ok when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer().
+-spec framebufferTexture(Target, Attachment, Texture, Level) -> 'ok' when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer().
 framebufferTexture(Target,Attachment,Texture,Level) ->
   cast(5584, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint>>).
 
@@ -12876,7 +12876,7 @@ framebufferTexture(Target,Attachment,Texture,Level) ->
 %%  `Index'  must be less than the value of `?GL_MAX_VERTEX_ATTRIBUTES'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribDivisor.xml">external</a> documentation.
--spec vertexAttribDivisor(Index, Divisor) -> ok when Index :: integer(),Divisor :: integer().
+-spec vertexAttribDivisor(Index, Divisor) -> 'ok' when Index :: integer(),Divisor :: integer().
 vertexAttribDivisor(Index,Divisor) ->
   cast(5585, <<Index:?GLuint,Divisor:?GLuint>>).
 
@@ -12897,39 +12897,39 @@ vertexAttribDivisor(Index,Divisor) ->
 %% that subset of the fragment's samples is implementation dependent. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMinSampleShading.xml">external</a> documentation.
--spec minSampleShading(Value) -> ok when Value :: clamp().
+-spec minSampleShading(Value) -> 'ok' when Value :: clamp().
 minSampleShading(Value) ->
   cast(5586, <<Value:?GLclampf>>).
 
 %% @doc 
 %% See {@link blendEquation/1}
--spec blendEquationi(Buf, Mode) -> ok when Buf :: integer(),Mode :: enum().
+-spec blendEquationi(Buf, Mode) -> 'ok' when Buf :: integer(),Mode :: enum().
 blendEquationi(Buf,Mode) ->
   cast(5587, <<Buf:?GLuint,Mode:?GLenum>>).
 
 %% @doc 
 %% See {@link blendEquationSeparate/2}
--spec blendEquationSeparatei(Buf, ModeRGB, ModeAlpha) -> ok when Buf :: integer(),ModeRGB :: enum(),ModeAlpha :: enum().
+-spec blendEquationSeparatei(Buf, ModeRGB, ModeAlpha) -> 'ok' when Buf :: integer(),ModeRGB :: enum(),ModeAlpha :: enum().
 blendEquationSeparatei(Buf,ModeRGB,ModeAlpha) ->
   cast(5588, <<Buf:?GLuint,ModeRGB:?GLenum,ModeAlpha:?GLenum>>).
 
 %% @doc glBlendFunci
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendFunci.xml">external</a> documentation.
--spec blendFunci(Buf, Src, Dst) -> ok when Buf :: integer(),Src :: enum(),Dst :: enum().
+-spec blendFunci(Buf, Src, Dst) -> 'ok' when Buf :: integer(),Src :: enum(),Dst :: enum().
 blendFunci(Buf,Src,Dst) ->
   cast(5589, <<Buf:?GLuint,Src:?GLenum,Dst:?GLenum>>).
 
 %% @doc 
 %% See {@link blendFuncSeparate/4}
--spec blendFuncSeparatei(Buf, SrcRGB, DstRGB, SrcAlpha, DstAlpha) -> ok when Buf :: integer(),SrcRGB :: enum(),DstRGB :: enum(),SrcAlpha :: enum(),DstAlpha :: enum().
+-spec blendFuncSeparatei(Buf, SrcRGB, DstRGB, SrcAlpha, DstAlpha) -> 'ok' when Buf :: integer(),SrcRGB :: enum(),DstRGB :: enum(),SrcAlpha :: enum(),DstAlpha :: enum().
 blendFuncSeparatei(Buf,SrcRGB,DstRGB,SrcAlpha,DstAlpha) ->
   cast(5590, <<Buf:?GLuint,SrcRGB:?GLenum,DstRGB:?GLenum,SrcAlpha:?GLenum,DstAlpha:?GLenum>>).
 
 %% @doc glLoadTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrixARB.xml">external</a> documentation.
--spec loadTransposeMatrixfARB(M) -> ok when M :: matrix().
+-spec loadTransposeMatrixfARB(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5591, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 loadTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -12938,7 +12938,7 @@ loadTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% @doc glLoadTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrixARB.xml">external</a> documentation.
--spec loadTransposeMatrixdARB(M) -> ok when M :: matrix().
+-spec loadTransposeMatrixdARB(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5592, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 loadTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -12947,7 +12947,7 @@ loadTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% @doc glMultTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrixARB.xml">external</a> documentation.
--spec multTransposeMatrixfARB(M) -> ok when M :: matrix().
+-spec multTransposeMatrixfARB(M) -> 'ok' when M :: matrix().
 multTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5593, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 multTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -12956,7 +12956,7 @@ multTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% @doc glMultTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrixARB.xml">external</a> documentation.
--spec multTransposeMatrixdARB(M) -> ok when M :: matrix().
+-spec multTransposeMatrixdARB(M) -> 'ok' when M :: matrix().
 multTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5594, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 multTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
@@ -12965,7 +12965,7 @@ multTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightbvARB(Weights) -> ok when Weights :: [integer()].
+-spec weightbvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightbvARB(Weights) ->
   cast(5595, <<(length(Weights)):?GLuint,
         (<< <<C:?GLbyte>> || C <- Weights>>)/binary,0:((8-((length(Weights)+ 4) rem 8)) rem 8)>>).
@@ -12973,7 +12973,7 @@ weightbvARB(Weights) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightsvARB(Weights) -> ok when Weights :: [integer()].
+-spec weightsvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightsvARB(Weights) ->
   cast(5596, <<(length(Weights)):?GLuint,
         (<< <<C:?GLshort>> || C <- Weights>>)/binary,0:((8-((length(Weights)*2+ 4) rem 8)) rem 8)>>).
@@ -12981,7 +12981,7 @@ weightsvARB(Weights) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightivARB(Weights) -> ok when Weights :: [integer()].
+-spec weightivARB(Weights) -> 'ok' when Weights :: [integer()].
 weightivARB(Weights) ->
   cast(5597, <<(length(Weights)):?GLuint,
         (<< <<C:?GLint>> || C <- Weights>>)/binary,0:(((1+length(Weights)) rem 2)*32)>>).
@@ -12989,7 +12989,7 @@ weightivARB(Weights) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightfvARB(Weights) -> ok when Weights :: [float()].
+-spec weightfvARB(Weights) -> 'ok' when Weights :: [float()].
 weightfvARB(Weights) ->
   cast(5598, <<(length(Weights)):?GLuint,
         (<< <<C:?GLfloat>> || C <- Weights>>)/binary,0:(((1+length(Weights)) rem 2)*32)>>).
@@ -12997,7 +12997,7 @@ weightfvARB(Weights) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightdvARB(Weights) -> ok when Weights :: [float()].
+-spec weightdvARB(Weights) -> 'ok' when Weights :: [float()].
 weightdvARB(Weights) ->
   cast(5599, <<(length(Weights)):?GLuint,0:32,
         (<< <<C:?GLdouble>> || C <- Weights>>)/binary>>).
@@ -13005,7 +13005,7 @@ weightdvARB(Weights) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightubvARB(Weights) -> ok when Weights :: [integer()].
+-spec weightubvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightubvARB(Weights) ->
   cast(5600, <<(length(Weights)):?GLuint,
         (<< <<C:?GLubyte>> || C <- Weights>>)/binary,0:((8-((length(Weights)+ 4) rem 8)) rem 8)>>).
@@ -13013,7 +13013,7 @@ weightubvARB(Weights) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightusvARB(Weights) -> ok when Weights :: [integer()].
+-spec weightusvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightusvARB(Weights) ->
   cast(5601, <<(length(Weights)):?GLuint,
         (<< <<C:?GLushort>> || C <- Weights>>)/binary,0:((8-((length(Weights)*2+ 4) rem 8)) rem 8)>>).
@@ -13021,7 +13021,7 @@ weightusvARB(Weights) ->
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
--spec weightuivARB(Weights) -> ok when Weights :: [integer()].
+-spec weightuivARB(Weights) -> 'ok' when Weights :: [integer()].
 weightuivARB(Weights) ->
   cast(5602, <<(length(Weights)):?GLuint,
         (<< <<C:?GLuint>> || C <- Weights>>)/binary,0:(((1+length(Weights)) rem 2)*32)>>).
@@ -13029,21 +13029,21 @@ weightuivARB(Weights) ->
 %% @doc glVertexBlenARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexBlenARB.xml">external</a> documentation.
--spec vertexBlendARB(Count) -> ok when Count :: integer().
+-spec vertexBlendARB(Count) -> 'ok' when Count :: integer().
 vertexBlendARB(Count) ->
   cast(5603, <<Count:?GLint>>).
 
 %% @doc glCurrentPaletteMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCurrentPaletteMatrixARB.xml">external</a> documentation.
--spec currentPaletteMatrixARB(Index) -> ok when Index :: integer().
+-spec currentPaletteMatrixARB(Index) -> 'ok' when Index :: integer().
 currentPaletteMatrixARB(Index) ->
   cast(5604, <<Index:?GLint>>).
 
 %% @doc glMatrixIndexARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
--spec matrixIndexubvARB(Indices) -> ok when Indices :: [integer()].
+-spec matrixIndexubvARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexubvARB(Indices) ->
   cast(5605, <<(length(Indices)):?GLuint,
         (<< <<C:?GLubyte>> || C <- Indices>>)/binary,0:((8-((length(Indices)+ 4) rem 8)) rem 8)>>).
@@ -13051,7 +13051,7 @@ matrixIndexubvARB(Indices) ->
 %% @doc glMatrixIndexARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
--spec matrixIndexusvARB(Indices) -> ok when Indices :: [integer()].
+-spec matrixIndexusvARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexusvARB(Indices) ->
   cast(5606, <<(length(Indices)):?GLuint,
         (<< <<C:?GLushort>> || C <- Indices>>)/binary,0:((8-((length(Indices)*2+ 4) rem 8)) rem 8)>>).
@@ -13059,7 +13059,7 @@ matrixIndexusvARB(Indices) ->
 %% @doc glMatrixIndexARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
--spec matrixIndexuivARB(Indices) -> ok when Indices :: [integer()].
+-spec matrixIndexuivARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexuivARB(Indices) ->
   cast(5607, <<(length(Indices)):?GLuint,
         (<< <<C:?GLuint>> || C <- Indices>>)/binary,0:(((1+length(Indices)) rem 2)*32)>>).
@@ -13067,21 +13067,21 @@ matrixIndexuivARB(Indices) ->
 %% @doc glProgramStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramStringARB.xml">external</a> documentation.
--spec programStringARB(Target, Format, String) -> ok when Target :: enum(),Format :: enum(),String :: string().
+-spec programStringARB(Target, Format, String) -> 'ok' when Target :: enum(),Format :: enum(),String :: string().
 programStringARB(Target,Format,String) ->
   cast(5608, <<Target:?GLenum,Format:?GLenum,(list_to_binary([String|[0]]))/binary,0:((8-((length(String)+ 1) rem 8)) rem 8)>>).
 
 %% @doc glBindProgramARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindProgramARB.xml">external</a> documentation.
--spec bindProgramARB(Target, Program) -> ok when Target :: enum(),Program :: integer().
+-spec bindProgramARB(Target, Program) -> 'ok' when Target :: enum(),Program :: integer().
 bindProgramARB(Target,Program) ->
   cast(5609, <<Target:?GLenum,Program:?GLuint>>).
 
 %% @doc glDeleteProgramsARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgramsARB.xml">external</a> documentation.
--spec deleteProgramsARB(Programs) -> ok when Programs :: [integer()].
+-spec deleteProgramsARB(Programs) -> 'ok' when Programs :: [integer()].
 deleteProgramsARB(Programs) ->
   cast(5610, <<(length(Programs)):?GLuint,
         (<< <<C:?GLuint>> || C <- Programs>>)/binary,0:(((1+length(Programs)) rem 2)*32)>>).
@@ -13096,56 +13096,56 @@ genProgramsARB(N) ->
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
--spec programEnvParameter4dARB(Target, Index, X, Y, Z, W) -> ok when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec programEnvParameter4dARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programEnvParameter4dARB(Target,Index,X,Y,Z,W) ->
   cast(5612, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
--spec programEnvParameter4dvARB(Target, Index, Params) -> ok when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
+-spec programEnvParameter4dvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programEnvParameter4dvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5613, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
 
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
--spec programEnvParameter4fARB(Target, Index, X, Y, Z, W) -> ok when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec programEnvParameter4fARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programEnvParameter4fARB(Target,Index,X,Y,Z,W) ->
   cast(5614, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
--spec programEnvParameter4fvARB(Target, Index, Params) -> ok when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
+-spec programEnvParameter4fvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programEnvParameter4fvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5615, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
--spec programLocalParameter4dARB(Target, Index, X, Y, Z, W) -> ok when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec programLocalParameter4dARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programLocalParameter4dARB(Target,Index,X,Y,Z,W) ->
   cast(5616, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
--spec programLocalParameter4dvARB(Target, Index, Params) -> ok when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
+-spec programLocalParameter4dvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programLocalParameter4dvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5617, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
--spec programLocalParameter4fARB(Target, Index, X, Y, Z, W) -> ok when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec programLocalParameter4fARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programLocalParameter4fARB(Target,Index,X,Y,Z,W) ->
   cast(5618, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
--spec programLocalParameter4fvARB(Target, Index, Params) -> ok when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
+-spec programLocalParameter4fvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programLocalParameter4fvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5619, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
 
@@ -13180,7 +13180,7 @@ getProgramLocalParameterfvARB(Target,Index) ->
 %% @doc glGetProgramStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramStringARB.xml">external</a> documentation.
--spec getProgramStringARB(Target, Pname, String) -> ok when Target :: enum(),Pname :: enum(),String :: mem().
+-spec getProgramStringARB(Target, Pname, String) -> 'ok' when Target :: enum(),Pname :: enum(),String :: mem().
 getProgramStringARB(Target,Pname,String) ->
   send_bin(String),
   call(5624, <<Target:?GLenum,Pname:?GLenum>>).
@@ -13195,7 +13195,7 @@ getBufferParameterivARB(Target,Pname) ->
 %% @doc glDeleteObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteObjectARB.xml">external</a> documentation.
--spec deleteObjectARB(Obj) -> ok when Obj :: integer().
+-spec deleteObjectARB(Obj) -> 'ok' when Obj :: integer().
 deleteObjectARB(Obj) ->
   cast(5626, <<Obj:?GLhandleARB>>).
 
@@ -13209,7 +13209,7 @@ getHandleARB(Pname) ->
 %% @doc glDetachObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDetachObjectARB.xml">external</a> documentation.
--spec detachObjectARB(ContainerObj, AttachedObj) -> ok when ContainerObj :: integer(),AttachedObj :: integer().
+-spec detachObjectARB(ContainerObj, AttachedObj) -> 'ok' when ContainerObj :: integer(),AttachedObj :: integer().
 detachObjectARB(ContainerObj,AttachedObj) ->
   cast(5628, <<ContainerObj:?GLhandleARB,AttachedObj:?GLhandleARB>>).
 
@@ -13223,7 +13223,7 @@ createShaderObjectARB(ShaderType) ->
 %% @doc glShaderSourceARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSourceARB.xml">external</a> documentation.
--spec shaderSourceARB(ShaderObj, String) -> ok when ShaderObj :: integer(),String :: iolist().
+-spec shaderSourceARB(ShaderObj, String) -> 'ok' when ShaderObj :: integer(),String :: iolist().
 shaderSourceARB(ShaderObj,String) ->
  StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
   cast(5630, <<ShaderObj:?GLhandleARB,(length(String)):?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+4) rem 8)) rem 8)>>).
@@ -13231,7 +13231,7 @@ shaderSourceARB(ShaderObj,String) ->
 %% @doc glCompileShaderARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShaderARB.xml">external</a> documentation.
--spec compileShaderARB(ShaderObj) -> ok when ShaderObj :: integer().
+-spec compileShaderARB(ShaderObj) -> 'ok' when ShaderObj :: integer().
 compileShaderARB(ShaderObj) ->
   cast(5631, <<ShaderObj:?GLhandleARB>>).
 
@@ -13245,28 +13245,28 @@ createProgramObjectARB() ->
 %% @doc glAttachObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAttachObjectARB.xml">external</a> documentation.
--spec attachObjectARB(ContainerObj, Obj) -> ok when ContainerObj :: integer(),Obj :: integer().
+-spec attachObjectARB(ContainerObj, Obj) -> 'ok' when ContainerObj :: integer(),Obj :: integer().
 attachObjectARB(ContainerObj,Obj) ->
   cast(5633, <<ContainerObj:?GLhandleARB,Obj:?GLhandleARB>>).
 
 %% @doc glLinkProgramARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLinkProgramARB.xml">external</a> documentation.
--spec linkProgramARB(ProgramObj) -> ok when ProgramObj :: integer().
+-spec linkProgramARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 linkProgramARB(ProgramObj) ->
   cast(5634, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glUseProgramObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgramObjectARB.xml">external</a> documentation.
--spec useProgramObjectARB(ProgramObj) -> ok when ProgramObj :: integer().
+-spec useProgramObjectARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 useProgramObjectARB(ProgramObj) ->
   cast(5635, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glValidateProgramARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgramARB.xml">external</a> documentation.
--spec validateProgramARB(ProgramObj) -> ok when ProgramObj :: integer().
+-spec validateProgramARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 validateProgramARB(ProgramObj) ->
   cast(5636, <<ProgramObj:?GLhandleARB>>).
 
@@ -13336,7 +13336,7 @@ getShaderSourceARB(Obj,MaxLength) ->
 %% @doc glBindAttribLocationARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindAttribLocationARB.xml">external</a> documentation.
--spec bindAttribLocationARB(ProgramObj, Index, Name) -> ok when ProgramObj :: integer(),Index :: integer(),Name :: string().
+-spec bindAttribLocationARB(ProgramObj, Index, Name) -> 'ok' when ProgramObj :: integer(),Index :: integer(),Name :: string().
 bindAttribLocationARB(ProgramObj,Index,Name) ->
   cast(5646, <<ProgramObj:?GLhandleARB,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
 
@@ -13378,7 +13378,7 @@ isRenderbuffer(Renderbuffer) ->
 %% object to  `Target' . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindRenderbuffer.xml">external</a> documentation.
--spec bindRenderbuffer(Target, Renderbuffer) -> ok when Target :: enum(),Renderbuffer :: integer().
+-spec bindRenderbuffer(Target, Renderbuffer) -> 'ok' when Target :: enum(),Renderbuffer :: integer().
 bindRenderbuffer(Target,Renderbuffer) ->
   cast(5650, <<Target:?GLenum,Renderbuffer:?GLuint>>).
 
@@ -13400,7 +13400,7 @@ bindRenderbuffer(Target,Renderbuffer) ->
 %% renderbuffer image is specifically `not' detached from any non-bound framebuffers. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteRenderbuffers.xml">external</a> documentation.
--spec deleteRenderbuffers(Renderbuffers) -> ok when Renderbuffers :: [integer()].
+-spec deleteRenderbuffers(Renderbuffers) -> 'ok' when Renderbuffers :: [integer()].
 deleteRenderbuffers(Renderbuffers) ->
   cast(5651, <<(length(Renderbuffers)):?GLuint,
         (<< <<C:?GLuint>> || C <- Renderbuffers>>)/binary,0:(((1+length(Renderbuffers)) rem 2)*32)>>).
@@ -13440,7 +13440,7 @@ genRenderbuffers(N) ->
 %% undefined. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRenderbufferStorage.xml">external</a> documentation.
--spec renderbufferStorage(Target, Internalformat, Width, Height) -> ok when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer().
+-spec renderbufferStorage(Target, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 renderbufferStorage(Target,Internalformat,Width,Height) ->
   cast(5653, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
 
@@ -13500,7 +13500,7 @@ isFramebuffer(Framebuffer) ->
 %% object to  `Target' . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFramebuffer.xml">external</a> documentation.
--spec bindFramebuffer(Target, Framebuffer) -> ok when Target :: enum(),Framebuffer :: integer().
+-spec bindFramebuffer(Target, Framebuffer) -> 'ok' when Target :: enum(),Framebuffer :: integer().
 bindFramebuffer(Target,Framebuffer) ->
   cast(5656, <<Target:?GLenum,Framebuffer:?GLuint>>).
 
@@ -13515,7 +13515,7 @@ bindFramebuffer(Target,Framebuffer) ->
 %% had been executed with the corresponding  `Target'  and  `Framebuffer'  zero. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteFramebuffers.xml">external</a> documentation.
--spec deleteFramebuffers(Framebuffers) -> ok when Framebuffers :: [integer()].
+-spec deleteFramebuffers(Framebuffers) -> 'ok' when Framebuffers :: [integer()].
 deleteFramebuffers(Framebuffers) ->
   cast(5657, <<(length(Framebuffers)):?GLuint,
         (<< <<C:?GLuint>> || C <- Framebuffers>>)/binary,0:(((1+length(Framebuffers)) rem 2)*32)>>).
@@ -13591,19 +13591,19 @@ checkFramebufferStatus(Target) ->
 
 %% @doc 
 %% See {@link framebufferTexture/4}
--spec framebufferTexture1D(Target, Attachment, Textarget, Texture, Level) -> ok when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer().
+-spec framebufferTexture1D(Target, Attachment, Textarget, Texture, Level) -> 'ok' when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer().
 framebufferTexture1D(Target,Attachment,Textarget,Texture,Level) ->
   cast(5660, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
--spec framebufferTexture2D(Target, Attachment, Textarget, Texture, Level) -> ok when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer().
+-spec framebufferTexture2D(Target, Attachment, Textarget, Texture, Level) -> 'ok' when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer().
 framebufferTexture2D(Target,Attachment,Textarget,Texture,Level) ->
   cast(5661, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
--spec framebufferTexture3D(Target, Attachment, Textarget, Texture, Level, Zoffset) -> ok when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer(),Zoffset :: integer().
+-spec framebufferTexture3D(Target, Attachment, Textarget, Texture, Level, Zoffset) -> 'ok' when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer(),Zoffset :: integer().
 framebufferTexture3D(Target,Attachment,Textarget,Texture,Level,Zoffset) ->
   cast(5662, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint,Zoffset:?GLint>>).
 
@@ -13635,7 +13635,7 @@ framebufferTexture3D(Target,Attachment,Textarget,Texture,Level,Zoffset) ->
 %% . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFramebufferRenderbuffer.xml">external</a> documentation.
--spec framebufferRenderbuffer(Target, Attachment, Renderbuffertarget, Renderbuffer) -> ok when Target :: enum(),Attachment :: enum(),Renderbuffertarget :: enum(),Renderbuffer :: integer().
+-spec framebufferRenderbuffer(Target, Attachment, Renderbuffertarget, Renderbuffer) -> 'ok' when Target :: enum(),Attachment :: enum(),Renderbuffertarget :: enum(),Renderbuffer :: integer().
 framebufferRenderbuffer(Target,Attachment,Renderbuffertarget,Renderbuffer) ->
   cast(5663, <<Target:?GLenum,Attachment:?GLenum,Renderbuffertarget:?GLenum,Renderbuffer:?GLuint>>).
 
@@ -13751,7 +13751,7 @@ getFramebufferAttachmentParameteriv(Target,Attachment,Pname) ->
 %% independently. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenerateMipmap.xml">external</a> documentation.
--spec generateMipmap(Target) -> ok when Target :: enum().
+-spec generateMipmap(Target) -> 'ok' when Target :: enum().
 generateMipmap(Target) ->
   cast(5665, <<Target:?GLenum>>).
 
@@ -13793,7 +13793,7 @@ generateMipmap(Target) ->
 %% buffers are the same, the result of the operation is undefined. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlitFramebuffer.xml">external</a> documentation.
--spec blitFramebuffer(SrcX0, SrcY0, SrcX1, SrcY1, DstX0, DstY0, DstX1, DstY1, Mask, Filter) -> ok when SrcX0 :: integer(),SrcY0 :: integer(),SrcX1 :: integer(),SrcY1 :: integer(),DstX0 :: integer(),DstY0 :: integer(),DstX1 :: integer(),DstY1 :: integer(),Mask :: integer(),Filter :: enum().
+-spec blitFramebuffer(SrcX0, SrcY0, SrcX1, SrcY1, DstX0, DstY0, DstX1, DstY1, Mask, Filter) -> 'ok' when SrcX0 :: integer(),SrcY0 :: integer(),SrcX1 :: integer(),SrcY1 :: integer(),DstX0 :: integer(),DstY0 :: integer(),DstX1 :: integer(),DstY1 :: integer(),Mask :: integer(),Filter :: enum().
 blitFramebuffer(SrcX0,SrcY0,SrcX1,SrcY1,DstX0,DstY0,DstX1,DstY1,Mask,Filter) ->
   cast(5666, <<SrcX0:?GLint,SrcY0:?GLint,SrcX1:?GLint,SrcY1:?GLint,DstX0:?GLint,DstY0:?GLint,DstX1:?GLint,DstY1:?GLint,Mask:?GLbitfield,Filter:?GLenum>>).
 
@@ -13817,19 +13817,19 @@ blitFramebuffer(SrcX0,SrcY0,SrcX1,SrcY1,DstX0,DstY0,DstX1,DstY1,Mask,Filter) ->
 %%  are undefined. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRenderbufferStorageMultisample.xml">external</a> documentation.
--spec renderbufferStorageMultisample(Target, Samples, Internalformat, Width, Height) -> ok when Target :: enum(),Samples :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
+-spec renderbufferStorageMultisample(Target, Samples, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 renderbufferStorageMultisample(Target,Samples,Internalformat,Width,Height) ->
   cast(5667, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
--spec framebufferTextureLayer(Target, Attachment, Texture, Level, Layer) -> ok when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer(),Layer :: integer().
+-spec framebufferTextureLayer(Target, Attachment, Texture, Level, Layer) -> 'ok' when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer(),Layer :: integer().
 framebufferTextureLayer(Target,Attachment,Texture,Level,Layer) ->
   cast(5668, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint,Layer:?GLint>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
--spec framebufferTextureFaceARB(Target, Attachment, Texture, Level, Face) -> ok when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer(),Face :: enum().
+-spec framebufferTextureFaceARB(Target, Attachment, Texture, Level, Face) -> 'ok' when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer(),Face :: enum().
 framebufferTextureFaceARB(Target,Attachment,Texture,Level,Face) ->
   cast(5669, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint,Face:?GLenum>>).
 
@@ -13843,7 +13843,7 @@ framebufferTextureFaceARB(Target,Attachment,Texture,Level,Face) ->
 %% to indicate distinct subranges of the mapping which require flushing. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFlushMappedBufferRange.xml">external</a> documentation.
--spec flushMappedBufferRange(Target, Offset, Length) -> ok when Target :: enum(),Offset :: integer(),Length :: integer().
+-spec flushMappedBufferRange(Target, Offset, Length) -> 'ok' when Target :: enum(),Offset :: integer(),Length :: integer().
 flushMappedBufferRange(Target,Offset,Length) ->
   cast(5670, <<Target:?GLenum,0:32,Offset:?GLintptr,Length:?GLsizeiptr>>).
 
@@ -13858,7 +13858,7 @@ flushMappedBufferRange(Target,Offset,Length) ->
 %% array object, and any previous vertex array object binding is broken. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindVertexArray.xml">external</a> documentation.
--spec bindVertexArray(Array) -> ok when Array :: integer().
+-spec bindVertexArray(Array) -> 'ok' when Array :: integer().
 bindVertexArray(Array) ->
   cast(5671, <<Array:?GLuint>>).
 
@@ -13871,7 +13871,7 @@ bindVertexArray(Array) ->
 %% current. Unused names in  `Arrays'  are silently ignored, as is the value zero. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteVertexArrays.xml">external</a> documentation.
--spec deleteVertexArrays(Arrays) -> ok when Arrays :: [integer()].
+-spec deleteVertexArrays(Arrays) -> 'ok' when Arrays :: [integer()].
 deleteVertexArrays(Arrays) ->
   cast(5672, <<(length(Arrays)):?GLuint,
         (<< <<C:?GLuint>> || C <- Arrays>>)/binary,0:(((1+length(Arrays)) rem 2)*32)>>).
@@ -14045,7 +14045,7 @@ getUniformBlockIndex(Program,UniformBlockName) ->
 %% vertex, geometry, or fragment programming stages of program, respectively, is returned. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformBlock.xml">external</a> documentation.
--spec getActiveUniformBlockiv(Program, UniformBlockIndex, Pname, Params) -> ok when Program :: integer(),UniformBlockIndex :: integer(),Pname :: enum(),Params :: mem().
+-spec getActiveUniformBlockiv(Program, UniformBlockIndex, Pname, Params) -> 'ok' when Program :: integer(),UniformBlockIndex :: integer(),Pname :: enum(),Params :: mem().
 getActiveUniformBlockiv(Program,UniformBlockIndex,Pname,Params) ->
   send_bin(Params),
   call(5679, <<Program:?GLuint,UniformBlockIndex:?GLuint,Pname:?GLenum>>).
@@ -14095,7 +14095,7 @@ getActiveUniformBlockName(Program,UniformBlockIndex,BufSize) ->
 %% assigned to each of its active uniform blocks is reset to zero. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniformBlockBinding.xml">external</a> documentation.
--spec uniformBlockBinding(Program, UniformBlockIndex, UniformBlockBinding) -> ok when Program :: integer(),UniformBlockIndex :: integer(),UniformBlockBinding :: integer().
+-spec uniformBlockBinding(Program, UniformBlockIndex, UniformBlockBinding) -> 'ok' when Program :: integer(),UniformBlockIndex :: integer(),UniformBlockBinding :: integer().
 uniformBlockBinding(Program,UniformBlockIndex,UniformBlockBinding) ->
   cast(5681, <<Program:?GLuint,UniformBlockIndex:?GLuint,UniformBlockBinding:?GLuint>>).
 
@@ -14121,7 +14121,7 @@ uniformBlockBinding(Program,UniformBlockIndex,UniformBlockBinding) ->
 %% ,  `Writeoffset'  and  `Size'  must not overlap. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyBufferSubData.xml">external</a> documentation.
--spec copyBufferSubData(ReadTarget, WriteTarget, ReadOffset, WriteOffset, Size) -> ok when ReadTarget :: enum(),WriteTarget :: enum(),ReadOffset :: integer(),WriteOffset :: integer(),Size :: integer().
+-spec copyBufferSubData(ReadTarget, WriteTarget, ReadOffset, WriteOffset, Size) -> 'ok' when ReadTarget :: enum(),WriteTarget :: enum(),ReadOffset :: integer(),WriteOffset :: integer(),Size :: integer().
 copyBufferSubData(ReadTarget,WriteTarget,ReadOffset,WriteOffset,Size) ->
   cast(5682, <<ReadTarget:?GLenum,WriteTarget:?GLenum,ReadOffset:?GLintptr,WriteOffset:?GLintptr,Size:?GLsizeiptr>>).
 
@@ -14135,7 +14135,7 @@ copyBufferSubData(ReadTarget,WriteTarget,ReadOffset,WriteOffset,Size) ->
 %% operation is undefined if the sum would be negative. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsBaseVertex.xml">external</a> documentation.
--spec drawElementsBaseVertex(Mode, Count, Type, Indices, Basevertex) -> ok when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
+-spec drawElementsBaseVertex(Mode, Count, Type, Indices, Basevertex) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
 drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) when  is_integer(Indices) ->
   cast(5683, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
 drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) ->
@@ -14157,7 +14157,7 @@ drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) ->
 %% if the sum would be negative. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawRangeElementsBaseVertex.xml">external</a> documentation.
--spec drawRangeElementsBaseVertex(Mode, Start, End, Count, Type, Indices, Basevertex) -> ok when Mode :: enum(),Start :: integer(),End :: integer(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
+-spec drawRangeElementsBaseVertex(Mode, Start, End, Count, Type, Indices, Basevertex) -> 'ok' when Mode :: enum(),Start :: integer(),End :: integer(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
 drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) when  is_integer(Indices) ->
   cast(5685, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
 drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) ->
@@ -14174,7 +14174,7 @@ drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) ->
 %% conditions). The operation is undefined if the sum would be negative. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseVertex.xml">external</a> documentation.
--spec drawElementsInstancedBaseVertex(Mode, Count, Type, Indices, Primcount, Basevertex) -> ok when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer().
+-spec drawElementsInstancedBaseVertex(Mode, Count, Type, Indices, Primcount, Basevertex) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer().
 drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) when  is_integer(Indices) ->
   cast(5687, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint>>);
 drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) ->
@@ -14211,7 +14211,7 @@ drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) ->
 %% by using the flat qualifier when declaring the output. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProvokingVertex.xml">external</a> documentation.
--spec provokingVertex(Mode) -> ok when Mode :: enum().
+-spec provokingVertex(Mode) -> 'ok' when Mode :: enum().
 provokingVertex(Mode) ->
   cast(5689, <<Mode:?GLenum>>).
 
@@ -14263,7 +14263,7 @@ isSync(Sync) ->
 %% ``gl:deleteSync'' will silently ignore a  `Sync'  value of zero. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteSync.xml">external</a> documentation.
--spec deleteSync(Sync) -> ok when Sync :: integer().
+-spec deleteSync(Sync) -> 'ok' when Sync :: integer().
 deleteSync(Sync) ->
   cast(5692, <<Sync:?GLsync>>).
 
@@ -14311,7 +14311,7 @@ clientWaitSync(Sync,Flags,Timeout) ->
 %%  If an error occurs, ``gl:waitSync'' does not cause the GL server to block. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWaitSync.xml">external</a> documentation.
--spec waitSync(Sync, Flags, Timeout) -> ok when Sync :: integer(),Flags :: integer(),Timeout :: integer().
+-spec waitSync(Sync, Flags, Timeout) -> 'ok' when Sync :: integer(),Flags :: integer(),Timeout :: integer().
 waitSync(Sync,Flags,Timeout) ->
   cast(5694, <<Sync:?GLsync,Flags:?GLbitfield,0:32,Timeout:?GLuint64>>).
 
@@ -14380,7 +14380,7 @@ getSynciv(Sync,Pname,BufSize) ->
 %% on the multisample texture targets. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage2DMultisample.xml">external</a> documentation.
--spec texImage2DMultisample(Target, Samples, Internalformat, Width, Height, Fixedsamplelocations) -> ok when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Fixedsamplelocations :: 0|1.
+-spec texImage2DMultisample(Target, Samples, Internalformat, Width, Height, Fixedsamplelocations) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Fixedsamplelocations :: 0|1.
 texImage2DMultisample(Target,Samples,Internalformat,Width,Height,Fixedsamplelocations) ->
   cast(5697, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Fixedsamplelocations:?GLboolean>>).
 
@@ -14408,7 +14408,7 @@ texImage2DMultisample(Target,Samples,Internalformat,Width,Height,Fixedsampleloca
 %% on the multisample texture targets. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage3DMultisample.xml">external</a> documentation.
--spec texImage3DMultisample(Target, Samples, Internalformat, Width, Height, Depth, Fixedsamplelocations) -> ok when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Fixedsamplelocations :: 0|1.
+-spec texImage3DMultisample(Target, Samples, Internalformat, Width, Height, Depth, Fixedsamplelocations) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Fixedsamplelocations :: 0|1.
 texImage3DMultisample(Target,Samples,Internalformat,Width,Height,Depth,Fixedsamplelocations) ->
   cast(5698, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Fixedsamplelocations:?GLboolean>>).
 
@@ -14441,28 +14441,28 @@ getMultisamplefv(Pname,Index) ->
 %% to sample 32 x `M' + `B'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSampleMaski.xml">external</a> documentation.
--spec sampleMaski(Index, Mask) -> ok when Index :: integer(),Mask :: integer().
+-spec sampleMaski(Index, Mask) -> 'ok' when Index :: integer(),Mask :: integer().
 sampleMaski(Index,Mask) ->
   cast(5700, <<Index:?GLuint,Mask:?GLbitfield>>).
 
 %% @doc glNamedStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNamedStringARB.xml">external</a> documentation.
--spec namedStringARB(Type, Name, String) -> ok when Type :: enum(),Name :: string(),String :: string().
+-spec namedStringARB(Type, Name, String) -> 'ok' when Type :: enum(),Name :: string(),String :: string().
 namedStringARB(Type,Name,String) ->
   cast(5701, <<Type:?GLenum,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8),(list_to_binary([String|[0]]))/binary,0:((8-((length(String)+ 1) rem 8)) rem 8)>>).
 
 %% @doc glDeleteNamedStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteNamedStringARB.xml">external</a> documentation.
--spec deleteNamedStringARB(Name) -> ok when Name :: string().
+-spec deleteNamedStringARB(Name) -> 'ok' when Name :: string().
 deleteNamedStringARB(Name) ->
   cast(5702, <<(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
 
 %% @doc glCompileShaderIncludeARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShaderIncludeARB.xml">external</a> documentation.
--spec compileShaderIncludeARB(Shader, Path) -> ok when Shader :: integer(),Path :: iolist().
+-spec compileShaderIncludeARB(Shader, Path) -> 'ok' when Shader :: integer(),Path :: iolist().
 compileShaderIncludeARB(Shader,Path) ->
  PathTemp = list_to_binary([[Str|[0]] || Str <- Path ]),
   cast(5703, <<Shader:?GLuint,(length(Path)):?GLuint,(size(PathTemp)):?GLuint,(PathTemp)/binary,0:((8-((size(PathTemp)+0) rem 8)) rem 8)>>).
@@ -14491,7 +14491,7 @@ getNamedStringivARB(Name,Pname) ->
 %% @doc glBindFragDataLocationIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFragDataLocationIndexe.xml">external</a> documentation.
--spec bindFragDataLocationIndexed(Program, ColorNumber, Index, Name) -> ok when Program :: integer(),ColorNumber :: integer(),Index :: integer(),Name :: string().
+-spec bindFragDataLocationIndexed(Program, ColorNumber, Index, Name) -> 'ok' when Program :: integer(),ColorNumber :: integer(),Index :: integer(),Name :: string().
 bindFragDataLocationIndexed(Program,ColorNumber,Index,Name) ->
   cast(5707, <<Program:?GLuint,ColorNumber:?GLuint,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
 
@@ -14533,7 +14533,7 @@ genSamplers(Count) ->
 %% names in samplers are silently ignored, as is the reserved name zero. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteSamplers.xml">external</a> documentation.
--spec deleteSamplers(Samplers) -> ok when Samplers :: [integer()].
+-spec deleteSamplers(Samplers) -> 'ok' when Samplers :: [integer()].
 deleteSamplers(Samplers) ->
   cast(5710, <<(length(Samplers)):?GLuint,
         (<< <<C:?GLuint>> || C <- Samplers>>)/binary,0:(((1+length(Samplers)) rem 2)*32)>>).
@@ -14564,7 +14564,7 @@ isSampler(Sampler) ->
 %% be bound to multiple texture units simultaneously. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindSampler.xml">external</a> documentation.
--spec bindSampler(Unit, Sampler) -> ok when Unit :: integer(),Sampler :: integer().
+-spec bindSampler(Unit, Sampler) -> 'ok' when Unit :: integer(),Sampler :: integer().
 bindSampler(Unit,Sampler) ->
   cast(5712, <<Unit:?GLuint,Sampler:?GLuint>>).
 
@@ -14710,33 +14710,33 @@ bindSampler(Unit,Sampler) ->
 %% bound texture.  result is assigned to  R t. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSamplerParameter.xml">external</a> documentation.
--spec samplerParameteri(Sampler, Pname, Param) -> ok when Sampler :: integer(),Pname :: enum(),Param :: integer().
+-spec samplerParameteri(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: integer().
 samplerParameteri(Sampler,Pname,Param) ->
   cast(5713, <<Sampler:?GLuint,Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
--spec samplerParameteriv(Sampler, Pname, Param) -> ok when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
+-spec samplerParameteriv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
 samplerParameteriv(Sampler,Pname,Param) ->
   cast(5714, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
         (<< <<C:?GLint>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
--spec samplerParameterf(Sampler, Pname, Param) -> ok when Sampler :: integer(),Pname :: enum(),Param :: float().
+-spec samplerParameterf(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: float().
 samplerParameterf(Sampler,Pname,Param) ->
   cast(5715, <<Sampler:?GLuint,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
--spec samplerParameterfv(Sampler, Pname, Param) -> ok when Sampler :: integer(),Pname :: enum(),Param :: [float()].
+-spec samplerParameterfv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [float()].
 samplerParameterfv(Sampler,Pname,Param) ->
   cast(5716, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
         (<< <<C:?GLfloat>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
--spec samplerParameterIiv(Sampler, Pname, Param) -> ok when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
+-spec samplerParameterIiv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
 samplerParameterIiv(Sampler,Pname,Param) ->
   cast(5717, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
         (<< <<C:?GLint>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
@@ -14744,7 +14744,7 @@ samplerParameterIiv(Sampler,Pname,Param) ->
 %% @doc glSamplerParameterI
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSamplerParameterI.xml">external</a> documentation.
--spec samplerParameterIuiv(Sampler, Pname, Param) -> ok when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
+-spec samplerParameterIuiv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
 samplerParameterIuiv(Sampler,Pname,Param) ->
   cast(5718, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
         (<< <<C:?GLuint>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
@@ -14826,7 +14826,7 @@ getSamplerParameterIuiv(Sampler,Pname) ->
 %% that query object. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glQueryCounter.xml">external</a> documentation.
--spec queryCounter(Id, Target) -> ok when Id :: integer(),Target :: enum().
+-spec queryCounter(Id, Target) -> 'ok' when Id :: integer(),Target :: enum().
 queryCounter(Id,Target) ->
   cast(5723, <<Id:?GLuint,Target:?GLenum>>).
 
@@ -14870,7 +14870,7 @@ getQueryObjectui64v(Id,Pname) ->
 %% well defined. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysIndirect.xml">external</a> documentation.
--spec drawArraysIndirect(Mode, Indirect) -> ok when Mode :: enum(),Indirect :: offset()|mem().
+-spec drawArraysIndirect(Mode, Indirect) -> 'ok' when Mode :: enum(),Indirect :: offset()|mem().
 drawArraysIndirect(Mode,Indirect) when  is_integer(Indirect) ->
   cast(5726, <<Mode:?GLenum,Indirect:?GLuint>>);
 drawArraysIndirect(Mode,Indirect) ->
@@ -14910,7 +14910,7 @@ drawArraysIndirect(Mode,Indirect) ->
 %% well defined. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsIndirect.xml">external</a> documentation.
--spec drawElementsIndirect(Mode, Type, Indirect) -> ok when Mode :: enum(),Type :: enum(),Indirect :: offset()|mem().
+-spec drawElementsIndirect(Mode, Type, Indirect) -> 'ok' when Mode :: enum(),Type :: enum(),Indirect :: offset()|mem().
 drawElementsIndirect(Mode,Type,Indirect) when  is_integer(Indirect) ->
   cast(5728, <<Mode:?GLenum,Type:?GLenum,Indirect:?GLuint>>);
 drawElementsIndirect(Mode,Type,Indirect) ->
@@ -14919,115 +14919,115 @@ drawElementsIndirect(Mode,Type,Indirect) ->
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform1d(Location, X) -> ok when Location :: integer(),X :: float().
+-spec uniform1d(Location, X) -> 'ok' when Location :: integer(),X :: float().
 uniform1d(Location,X) ->
   cast(5730, <<Location:?GLint,0:32,X:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2d(Location, X, Y) -> ok when Location :: integer(),X :: float(),Y :: float().
+-spec uniform2d(Location, X, Y) -> 'ok' when Location :: integer(),X :: float(),Y :: float().
 uniform2d(Location,X,Y) ->
   cast(5731, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3d(Location, X, Y, Z) -> ok when Location :: integer(),X :: float(),Y :: float(),Z :: float().
+-spec uniform3d(Location, X, Y, Z) -> 'ok' when Location :: integer(),X :: float(),Y :: float(),Z :: float().
 uniform3d(Location,X,Y,Z) ->
   cast(5732, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4d(Location, X, Y, Z, W) -> ok when Location :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec uniform4d(Location, X, Y, Z, W) -> 'ok' when Location :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 uniform4d(Location,X,Y,Z,W) ->
   cast(5733, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform1dv(Location, Value) -> ok when Location :: integer(),Value :: [float()].
+-spec uniform1dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [float()].
 uniform1dv(Location,Value) ->
   cast(5734, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
         (<< <<C:?GLdouble>> || C <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform2dv(Location, Value) -> ok when Location :: integer(),Value :: [{float(),float()}].
+-spec uniform2dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float()}].
 uniform2dv(Location,Value) ->
   cast(5735, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform3dv(Location, Value) -> ok when Location :: integer(),Value :: [{float(),float(),float()}].
+-spec uniform3dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float()}].
 uniform3dv(Location,Value) ->
   cast(5736, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniform4dv(Location, Value) -> ok when Location :: integer(),Value :: [{float(),float(),float(),float()}].
+-spec uniform4dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float(),float()}].
 uniform4dv(Location,Value) ->
   cast(5737, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix2dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
+-spec uniformMatrix2dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 uniformMatrix2dv(Location,Transpose,Value) ->
   cast(5738, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix3dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix3dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3dv(Location,Transpose,Value) ->
   cast(5739, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix4dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix4dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4dv(Location,Transpose,Value) ->
   cast(5740, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble,V13:?GLdouble,V14:?GLdouble,V15:?GLdouble,V16:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix2x3dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix2x3dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x3dv(Location,Transpose,Value) ->
   cast(5741, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix2x4dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix2x4dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x4dv(Location,Transpose,Value) ->
   cast(5742, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix3x2dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix3x2dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x2dv(Location,Transpose,Value) ->
   cast(5743, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix3x4dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix3x4dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x4dv(Location,Transpose,Value) ->
   cast(5744, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix4x2dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix4x2dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x2dv(Location,Transpose,Value) ->
   cast(5745, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
--spec uniformMatrix4x3dv(Location, Transpose, Value) -> ok when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec uniformMatrix4x3dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x3dv(Location,Transpose,Value) ->
   cast(5746, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
@@ -15126,7 +15126,7 @@ getActiveSubroutineName(Program,Shadertype,Index,Bufsize) ->
 %% for the shader stage. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniformSubroutines.xml">external</a> documentation.
--spec uniformSubroutinesuiv(Shadertype, Indices) -> ok when Shadertype :: enum(),Indices :: [integer()].
+-spec uniformSubroutinesuiv(Shadertype, Indices) -> 'ok' when Shadertype :: enum(),Indices :: [integer()].
 uniformSubroutinesuiv(Shadertype,Indices) ->
   cast(5752, <<Shadertype:?GLenum,(length(Indices)):?GLuint,
         (<< <<C:?GLuint>> || C <- Indices>>)/binary,0:(((length(Indices)) rem 2)*32)>>).
@@ -15199,13 +15199,13 @@ getProgramStageiv(Program,Shadertype,Pname) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPatchParameter.xml">external</a> documentation.
--spec patchParameteri(Pname, Value) -> ok when Pname :: enum(),Value :: integer().
+-spec patchParameteri(Pname, Value) -> 'ok' when Pname :: enum(),Value :: integer().
 patchParameteri(Pname,Value) ->
   cast(5755, <<Pname:?GLenum,Value:?GLint>>).
 
 %% @doc 
 %% See {@link patchParameteri/2}
--spec patchParameterfv(Pname, Values) -> ok when Pname :: enum(),Values :: [float()].
+-spec patchParameterfv(Pname, Values) -> 'ok' when Pname :: enum(),Values :: [float()].
 patchParameterfv(Pname,Values) ->
   cast(5756, <<Pname:?GLenum,(length(Values)):?GLuint,
         (<< <<C:?GLfloat>> || C <- Values>>)/binary,0:(((length(Values)) rem 2)*32)>>).
@@ -15229,7 +15229,7 @@ patchParameterfv(Pname,Values) ->
 %% the currently bound transform feedback object. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindTransformFeedback.xml">external</a> documentation.
--spec bindTransformFeedback(Target, Id) -> ok when Target :: enum(),Id :: integer().
+-spec bindTransformFeedback(Target, Id) -> 'ok' when Target :: enum(),Id :: integer().
 bindTransformFeedback(Target,Id) ->
   cast(5757, <<Target:?GLenum,Id:?GLuint>>).
 
@@ -15242,7 +15242,7 @@ bindTransformFeedback(Target,Id) ->
 %% becomes unused, but the underlying object is not deleted until it is no longer active. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteTransformFeedbacks.xml">external</a> documentation.
--spec deleteTransformFeedbacks(Ids) -> ok when Ids :: [integer()].
+-spec deleteTransformFeedbacks(Ids) -> 'ok' when Ids :: [integer()].
 deleteTransformFeedbacks(Ids) ->
   cast(5758, <<(length(Ids)):?GLuint,
         (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((1+length(Ids)) rem 2)*32)>>).
@@ -15282,7 +15282,7 @@ isTransformFeedback(Id) ->
 %% while transform feedback is paused. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPauseTransformFeedback.xml">external</a> documentation.
--spec pauseTransformFeedback() -> ok.
+-spec pauseTransformFeedback() -> 'ok'.
 pauseTransformFeedback() ->
   cast(5761, <<>>).
 
@@ -15295,7 +15295,7 @@ pauseTransformFeedback() ->
 %% while transform feedback is paused. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glResumeTransformFeedback.xml">external</a> documentation.
--spec resumeTransformFeedback() -> ok.
+-spec resumeTransformFeedback() -> 'ok'.
 resumeTransformFeedback() ->
   cast(5762, <<>>).
 
@@ -15309,7 +15309,7 @@ resumeTransformFeedback() ->
 %% by  `Id' . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedback.xml">external</a> documentation.
--spec drawTransformFeedback(Mode, Id) -> ok when Mode :: enum(),Id :: integer().
+-spec drawTransformFeedback(Mode, Id) -> 'ok' when Mode :: enum(),Id :: integer().
 drawTransformFeedback(Mode,Id) ->
   cast(5763, <<Mode:?GLenum,Id:?GLuint>>).
 
@@ -15327,14 +15327,14 @@ drawTransformFeedback(Mode,Id) ->
 %%  with  `Stream'  set to zero. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackStream.xml">external</a> documentation.
--spec drawTransformFeedbackStream(Mode, Id, Stream) -> ok when Mode :: enum(),Id :: integer(),Stream :: integer().
+-spec drawTransformFeedbackStream(Mode, Id, Stream) -> 'ok' when Mode :: enum(),Id :: integer(),Stream :: integer().
 drawTransformFeedbackStream(Mode,Id,Stream) ->
   cast(5764, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint>>).
 
 %% @doc glBeginQueryIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQueryIndexe.xml">external</a> documentation.
--spec beginQueryIndexed(Target, Index, Id) -> ok when Target :: enum(),Index :: integer(),Id :: integer().
+-spec beginQueryIndexed(Target, Index, Id) -> 'ok' when Target :: enum(),Index :: integer(),Id :: integer().
 beginQueryIndexed(Target,Index,Id) ->
   cast(5765, <<Target:?GLenum,Index:?GLuint,Id:?GLuint>>).
 
@@ -15411,7 +15411,7 @@ beginQueryIndexed(Target,Index,Id) ->
 %% is not yet complete. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQueryIndexed.xml">external</a> documentation.
--spec endQueryIndexed(Target, Index) -> ok when Target :: enum(),Index :: integer().
+-spec endQueryIndexed(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 endQueryIndexed(Target,Index) ->
   cast(5766, <<Target:?GLenum,Index:?GLuint>>).
 
@@ -15441,7 +15441,7 @@ getQueryIndexediv(Target,Index,Pname) ->
 %% freed by the call to ``gl:releaseShaderCompiler''. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glReleaseShaderCompiler.xml">external</a> documentation.
--spec releaseShaderCompiler() -> ok.
+-spec releaseShaderCompiler() -> 'ok'.
 releaseShaderCompiler() ->
   cast(5768, <<>>).
 
@@ -15463,7 +15463,7 @@ releaseShaderCompiler() ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderBinary.xml">external</a> documentation.
--spec shaderBinary(Shaders, Binaryformat, Binary) -> ok when Shaders :: [integer()],Binaryformat :: enum(),Binary :: binary().
+-spec shaderBinary(Shaders, Binaryformat, Binary) -> 'ok' when Shaders :: [integer()],Binaryformat :: enum(),Binary :: binary().
 shaderBinary(Shaders,Binaryformat,Binary) ->
   send_bin(Binary),
   cast(5769, <<(length(Shaders)):?GLuint,
@@ -15496,14 +15496,14 @@ getShaderPrecisionFormat(Shadertype,Precisiontype) ->
 
 %% @doc 
 %% See {@link depthRange/2}
--spec depthRangef(N, F) -> ok when N :: clamp(),F :: clamp().
+-spec depthRangef(N, F) -> 'ok' when N :: clamp(),F :: clamp().
 depthRangef(N,F) ->
   cast(5771, <<N:?GLclampf,F:?GLclampf>>).
 
 %% @doc glClearDepthf
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearDepthf.xml">external</a> documentation.
--spec clearDepthf(D) -> ok when D :: clamp().
+-spec clearDepthf(D) -> 'ok' when D :: clamp().
 clearDepthf(D) ->
   cast(5772, <<D:?GLclampf>>).
 
@@ -15551,7 +15551,7 @@ getProgramBinary(Program,BufSize) ->
 %% the program was linked before saving are restored with ``gl:programBinary'' is called. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramBinary.xml">external</a> documentation.
--spec programBinary(Program, BinaryFormat, Binary) -> ok when Program :: integer(),BinaryFormat :: enum(),Binary :: binary().
+-spec programBinary(Program, BinaryFormat, Binary) -> 'ok' when Program :: integer(),BinaryFormat :: enum(),Binary :: binary().
 programBinary(Program,BinaryFormat,Binary) ->
   send_bin(Binary),
   cast(5774, <<Program:?GLuint,BinaryFormat:?GLenum>>).
@@ -15577,7 +15577,7 @@ programBinary(Program,BinaryFormat,Binary) ->
 %%  is `?GL_FALSE'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramParameter.xml">external</a> documentation.
--spec programParameteri(Program, Pname, Value) -> ok when Program :: integer(),Pname :: enum(),Value :: integer().
+-spec programParameteri(Program, Pname, Value) -> 'ok' when Program :: integer(),Pname :: enum(),Value :: integer().
 programParameteri(Program,Pname,Value) ->
   cast(5775, <<Program:?GLuint,Pname:?GLenum,Value:?GLint>>).
 
@@ -15602,7 +15602,7 @@ programParameteri(Program,Pname,Value) ->
 %% , an error is generated. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgramStages.xml">external</a> documentation.
--spec useProgramStages(Pipeline, Stages, Program) -> ok when Pipeline :: integer(),Stages :: integer(),Program :: integer().
+-spec useProgramStages(Pipeline, Stages, Program) -> 'ok' when Pipeline :: integer(),Stages :: integer(),Program :: integer().
 useProgramStages(Pipeline,Stages,Program) ->
   cast(5776, <<Pipeline:?GLuint,Stages:?GLbitfield,Program:?GLuint>>).
 
@@ -15614,7 +15614,7 @@ useProgramStages(Pipeline,Stages,Program) ->
 %% no program has been made current through a call to  {@link gl:useProgram/1} . 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glActiveShaderProgram.xml">external</a> documentation.
--spec activeShaderProgram(Pipeline, Program) -> ok when Pipeline :: integer(),Program :: integer().
+-spec activeShaderProgram(Pipeline, Program) -> 'ok' when Pipeline :: integer(),Program :: integer().
 activeShaderProgram(Pipeline,Program) ->
   cast(5777, <<Pipeline:?GLuint,Program:?GLuint>>).
 
@@ -15644,7 +15644,7 @@ createShaderProgramv(Type,Strings) ->
 %% taken from its program objects. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindProgramPipeline.xml">external</a> documentation.
--spec bindProgramPipeline(Pipeline) -> ok when Pipeline :: integer().
+-spec bindProgramPipeline(Pipeline) -> 'ok' when Pipeline :: integer().
 bindProgramPipeline(Pipeline) ->
   cast(5779, <<Pipeline:?GLuint>>).
 
@@ -15658,7 +15658,7 @@ bindProgramPipeline(Pipeline) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgramPipelines.xml">external</a> documentation.
--spec deleteProgramPipelines(Pipelines) -> ok when Pipelines :: [integer()].
+-spec deleteProgramPipelines(Pipelines) -> 'ok' when Pipelines :: [integer()].
 deleteProgramPipelines(Pipelines) ->
   cast(5780, <<(length(Pipelines)):?GLuint,
         (<< <<C:?GLuint>> || C <- Pipelines>>)/binary,0:(((1+length(Pipelines)) rem 2)*32)>>).
@@ -15790,334 +15790,334 @@ getProgramPipelineiv(Pipeline,Pname) ->
 %% a single matrix, and a count greater than 1 can be used to modify an array of matrices.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramUniform.xml">external</a> documentation.
--spec programUniform1i(Program, Location, V0) -> ok when Program :: integer(),Location :: integer(),V0 :: integer().
+-spec programUniform1i(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer().
 programUniform1i(Program,Location,V0) ->
   cast(5784, <<Program:?GLuint,Location:?GLint,V0:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform1iv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [integer()].
+-spec programUniform1iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [integer()].
 programUniform1iv(Program,Location,Value) ->
   cast(5785, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<C:?GLint>> || C <- Value>>)/binary,0:(((1+length(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform1f(Program, Location, V0) -> ok when Program :: integer(),Location :: integer(),V0 :: float().
+-spec programUniform1f(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float().
 programUniform1f(Program,Location,V0) ->
   cast(5786, <<Program:?GLuint,Location:?GLint,V0:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform1fv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [float()].
+-spec programUniform1fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [float()].
 programUniform1fv(Program,Location,Value) ->
   cast(5787, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<C:?GLfloat>> || C <- Value>>)/binary,0:(((1+length(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform1d(Program, Location, V0) -> ok when Program :: integer(),Location :: integer(),V0 :: float().
+-spec programUniform1d(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float().
 programUniform1d(Program,Location,V0) ->
   cast(5788, <<Program:?GLuint,Location:?GLint,V0:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform1dv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [float()].
+-spec programUniform1dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [float()].
 programUniform1dv(Program,Location,Value) ->
   cast(5789, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
         (<< <<C:?GLdouble>> || C <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform1ui(Program, Location, V0) -> ok when Program :: integer(),Location :: integer(),V0 :: integer().
+-spec programUniform1ui(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer().
 programUniform1ui(Program,Location,V0) ->
   cast(5790, <<Program:?GLuint,Location:?GLint,V0:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform1uiv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [integer()].
+-spec programUniform1uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [integer()].
 programUniform1uiv(Program,Location,Value) ->
   cast(5791, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<C:?GLuint>> || C <- Value>>)/binary,0:(((1+length(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2i(Program, Location, V0, V1) -> ok when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer().
+-spec programUniform2i(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer().
 programUniform2i(Program,Location,V0,V1) ->
   cast(5792, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2iv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{integer(),integer()}].
+-spec programUniform2iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer()}].
 programUniform2iv(Program,Location,Value) ->
   cast(5793, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLint,V2:?GLint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2f(Program, Location, V0, V1) -> ok when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float().
+-spec programUniform2f(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float().
 programUniform2f(Program,Location,V0,V1) ->
   cast(5794, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2fv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{float(),float()}].
+-spec programUniform2fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float()}].
 programUniform2fv(Program,Location,Value) ->
   cast(5795, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2d(Program, Location, V0, V1) -> ok when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float().
+-spec programUniform2d(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float().
 programUniform2d(Program,Location,V0,V1) ->
   cast(5796, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2dv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{float(),float()}].
+-spec programUniform2dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float()}].
 programUniform2dv(Program,Location,Value) ->
   cast(5797, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2ui(Program, Location, V0, V1) -> ok when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer().
+-spec programUniform2ui(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer().
 programUniform2ui(Program,Location,V0,V1) ->
   cast(5798, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform2uiv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{integer(),integer()}].
+-spec programUniform2uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer()}].
 programUniform2uiv(Program,Location,Value) ->
   cast(5799, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3i(Program, Location, V0, V1, V2) -> ok when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
+-spec programUniform3i(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 programUniform3i(Program,Location,V0,V1,V2) ->
   cast(5800, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3iv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer()}].
+-spec programUniform3iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer()}].
 programUniform3iv(Program,Location,Value) ->
   cast(5801, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3f(Program, Location, V0, V1, V2) -> ok when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
+-spec programUniform3f(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
 programUniform3f(Program,Location,V0,V1,V2) ->
   cast(5802, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3fv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float()}].
+-spec programUniform3fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float()}].
 programUniform3fv(Program,Location,Value) ->
   cast(5803, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3d(Program, Location, V0, V1, V2) -> ok when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
+-spec programUniform3d(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
 programUniform3d(Program,Location,V0,V1,V2) ->
   cast(5804, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble,V2:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3dv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float()}].
+-spec programUniform3dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float()}].
 programUniform3dv(Program,Location,Value) ->
   cast(5805, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3ui(Program, Location, V0, V1, V2) -> ok when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
+-spec programUniform3ui(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 programUniform3ui(Program,Location,V0,V1,V2) ->
   cast(5806, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform3uiv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer()}].
+-spec programUniform3uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer()}].
 programUniform3uiv(Program,Location,Value) ->
   cast(5807, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4i(Program, Location, V0, V1, V2, V3) -> ok when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
+-spec programUniform4i(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 programUniform4i(Program,Location,V0,V1,V2,V3) ->
   cast(5808, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint,V3:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4iv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
+-spec programUniform4iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 programUniform4iv(Program,Location,Value) ->
   cast(5809, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4f(Program, Location, V0, V1, V2, V3) -> ok when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
+-spec programUniform4f(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
 programUniform4f(Program,Location,V0,V1,V2,V3) ->
   cast(5810, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4fv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float(),float()}].
+-spec programUniform4fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float(),float()}].
 programUniform4fv(Program,Location,Value) ->
   cast(5811, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4d(Program, Location, V0, V1, V2, V3) -> ok when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
+-spec programUniform4d(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
 programUniform4d(Program,Location,V0,V1,V2,V3) ->
   cast(5812, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble,V2:?GLdouble,V3:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4dv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float(),float()}].
+-spec programUniform4dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float(),float()}].
 programUniform4dv(Program,Location,Value) ->
   cast(5813, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4ui(Program, Location, V0, V1, V2, V3) -> ok when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
+-spec programUniform4ui(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 programUniform4ui(Program,Location,V0,V1,V2,V3) ->
   cast(5814, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniform4uiv(Program, Location, Value) -> ok when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
+-spec programUniform4uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 programUniform4uiv(Program,Location,Value) ->
   cast(5815, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix2fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
+-spec programUniformMatrix2fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 programUniformMatrix2fv(Program,Location,Transpose,Value) ->
   cast(5816, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix3fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix3fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3fv(Program,Location,Transpose,Value) ->
   cast(5817, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix4fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix4fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4fv(Program,Location,Transpose,Value) ->
   cast(5818, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat,V13:?GLfloat,V14:?GLfloat,V15:?GLfloat,V16:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix2dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
+-spec programUniformMatrix2dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 programUniformMatrix2dv(Program,Location,Transpose,Value) ->
   cast(5819, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix3dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix3dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3dv(Program,Location,Transpose,Value) ->
   cast(5820, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix4dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix4dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4dv(Program,Location,Transpose,Value) ->
   cast(5821, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble,V13:?GLdouble,V14:?GLdouble,V15:?GLdouble,V16:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix2x3fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix2x3fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x3fv(Program,Location,Transpose,Value) ->
   cast(5822, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix3x2fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix3x2fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x2fv(Program,Location,Transpose,Value) ->
   cast(5823, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix2x4fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix2x4fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x4fv(Program,Location,Transpose,Value) ->
   cast(5824, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix4x2fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix4x2fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x2fv(Program,Location,Transpose,Value) ->
   cast(5825, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix3x4fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix3x4fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x4fv(Program,Location,Transpose,Value) ->
   cast(5826, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix4x3fv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix4x3fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x3fv(Program,Location,Transpose,Value) ->
   cast(5827, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix2x3dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix2x3dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x3dv(Program,Location,Transpose,Value) ->
   cast(5828, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix3x2dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix3x2dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x2dv(Program,Location,Transpose,Value) ->
   cast(5829, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix2x4dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix2x4dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x4dv(Program,Location,Transpose,Value) ->
   cast(5830, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix4x2dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix4x2dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x2dv(Program,Location,Transpose,Value) ->
   cast(5831, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix3x4dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix3x4dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x4dv(Program,Location,Transpose,Value) ->
   cast(5832, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
--spec programUniformMatrix4x3dv(Program, Location, Transpose, Value) -> ok when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
+-spec programUniformMatrix4x3dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x3dv(Program,Location,Transpose,Value) ->
   cast(5833, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
@@ -16138,7 +16138,7 @@ programUniformMatrix4x3dv(Program,Location,Transpose,Value) ->
 %% pipeline object is created with name  `Pipeline'  and the default state vector. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgramPipeline.xml">external</a> documentation.
--spec validateProgramPipeline(Pipeline) -> ok when Pipeline :: integer().
+-spec validateProgramPipeline(Pipeline) -> 'ok' when Pipeline :: integer().
 validateProgramPipeline(Pipeline) ->
   cast(5834, <<Pipeline:?GLuint>>).
 
@@ -16162,51 +16162,51 @@ getProgramPipelineInfoLog(Pipeline,BufSize) ->
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
--spec vertexAttribL1d(Index, X) -> ok when Index :: integer(),X :: float().
+-spec vertexAttribL1d(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttribL1d(Index,X) ->
   cast(5836, <<Index:?GLuint,0:32,X:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
--spec vertexAttribL2d(Index, X, Y) -> ok when Index :: integer(),X :: float(),Y :: float().
+-spec vertexAttribL2d(Index, X, Y) -> 'ok' when Index :: integer(),X :: float(),Y :: float().
 vertexAttribL2d(Index,X,Y) ->
   cast(5837, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
--spec vertexAttribL3d(Index, X, Y, Z) -> ok when Index :: integer(),X :: float(),Y :: float(),Z :: float().
+-spec vertexAttribL3d(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float().
 vertexAttribL3d(Index,X,Y,Z) ->
   cast(5838, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
--spec vertexAttribL4d(Index, X, Y, Z, W) -> ok when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
+-spec vertexAttribL4d(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 vertexAttribL4d(Index,X,Y,Z,W) ->
   cast(5839, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @equiv vertexAttribL1d(Index,X)
--spec vertexAttribL1dv(Index :: integer(),V) -> ok when V :: {X :: float()}.
+-spec vertexAttribL1dv(Index :: integer(),V) -> 'ok' when V :: {X :: float()}.
 vertexAttribL1dv(Index,{X}) ->  vertexAttribL1d(Index,X).
 
 %% @equiv vertexAttribL2d(Index,X,Y)
--spec vertexAttribL2dv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float()}.
+-spec vertexAttribL2dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float()}.
 vertexAttribL2dv(Index,{X,Y}) ->  vertexAttribL2d(Index,X,Y).
 
 %% @equiv vertexAttribL3d(Index,X,Y,Z)
--spec vertexAttribL3dv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float(),Z :: float()}.
+-spec vertexAttribL3dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
 vertexAttribL3dv(Index,{X,Y,Z}) ->  vertexAttribL3d(Index,X,Y,Z).
 
 %% @equiv vertexAttribL4d(Index,X,Y,Z,W)
--spec vertexAttribL4dv(Index :: integer(),V) -> ok when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
+-spec vertexAttribL4dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
 vertexAttribL4dv(Index,{X,Y,Z,W}) ->  vertexAttribL4d(Index,X,Y,Z,W).
 
 %% @doc glVertexAttribLPointer
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribLPointer.xml">external</a> documentation.
--spec vertexAttribLPointer(Index, Size, Type, Stride, Pointer) -> ok when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
+-spec vertexAttribLPointer(Index, Size, Type, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribLPointer(Index,Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5840, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 vertexAttribLPointer(Index,Size,Type,Stride,Pointer) ->
@@ -16223,7 +16223,7 @@ getVertexAttribLdv(Index,Pname) ->
 %% @doc glViewportArrayv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewportArrayv.xml">external</a> documentation.
--spec viewportArrayv(First, V) -> ok when First :: integer(),V :: [{float(),float(),float(),float()}].
+-spec viewportArrayv(First, V) -> 'ok' when First :: integer(),V :: [{float(),float(),float(),float()}].
 viewportArrayv(First,V) ->
   cast(5843, <<First:?GLuint,(length(V)):?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- V>>)/binary>>).
@@ -16263,20 +16263,20 @@ viewportArrayv(First,V) ->
 %% 1, v); }
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewportIndexed.xml">external</a> documentation.
--spec viewportIndexedf(Index, X, Y, W, H) -> ok when Index :: integer(),X :: float(),Y :: float(),W :: float(),H :: float().
+-spec viewportIndexedf(Index, X, Y, W, H) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),W :: float(),H :: float().
 viewportIndexedf(Index,X,Y,W,H) ->
   cast(5844, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,W:?GLfloat,H:?GLfloat>>).
 
 %% @doc 
 %% See {@link viewportIndexedf/5}
--spec viewportIndexedfv(Index, V) -> ok when Index :: integer(),V :: {float(),float(),float(),float()}.
+-spec viewportIndexedfv(Index, V) -> 'ok' when Index :: integer(),V :: {float(),float(),float(),float()}.
 viewportIndexedfv(Index,{V1,V2,V3,V4}) ->
   cast(5845, <<Index:?GLuint,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>>).
 
 %% @doc glScissorArrayv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorArrayv.xml">external</a> documentation.
--spec scissorArrayv(First, V) -> ok when First :: integer(),V :: [{integer(),integer(),integer(),integer()}].
+-spec scissorArrayv(First, V) -> 'ok' when First :: integer(),V :: [{integer(),integer(),integer(),integer()}].
 scissorArrayv(First,V) ->
   cast(5846, <<First:?GLuint,(length(V)):?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>> || {V1,V2,V3,V4} <- V>>)/binary>>).
@@ -16284,21 +16284,21 @@ scissorArrayv(First,V) ->
 %% @doc glScissorIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorIndexe.xml">external</a> documentation.
--spec scissorIndexed(Index, Left, Bottom, Width, Height) -> ok when Index :: integer(),Left :: integer(),Bottom :: integer(),Width :: integer(),Height :: integer().
+-spec scissorIndexed(Index, Left, Bottom, Width, Height) -> 'ok' when Index :: integer(),Left :: integer(),Bottom :: integer(),Width :: integer(),Height :: integer().
 scissorIndexed(Index,Left,Bottom,Width,Height) ->
   cast(5847, <<Index:?GLuint,Left:?GLint,Bottom:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc glScissorIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorIndexe.xml">external</a> documentation.
--spec scissorIndexedv(Index, V) -> ok when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
+-spec scissorIndexedv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 scissorIndexedv(Index,{V1,V2,V3,V4}) ->
   cast(5848, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
 %% @doc glDepthRangeArrayv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRangeArrayv.xml">external</a> documentation.
--spec depthRangeArrayv(First, V) -> ok when First :: integer(),V :: [{clamp(),clamp()}].
+-spec depthRangeArrayv(First, V) -> 'ok' when First :: integer(),V :: [{clamp(),clamp()}].
 depthRangeArrayv(First,V) ->
   cast(5849, <<First:?GLuint,0:32,(length(V)):?GLuint,0:32,
         (<< <<V1:?GLclampd,V2:?GLclampd>> || {V1,V2} <- V>>)/binary>>).
@@ -16306,7 +16306,7 @@ depthRangeArrayv(First,V) ->
 %% @doc glDepthRangeIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRangeIndexe.xml">external</a> documentation.
--spec depthRangeIndexed(Index, N, F) -> ok when Index :: integer(),N :: clamp(),F :: clamp().
+-spec depthRangeIndexed(Index, N, F) -> 'ok' when Index :: integer(),N :: clamp(),F :: clamp().
 depthRangeIndexed(Index,N,F) ->
   cast(5850, <<Index:?GLuint,0:32,N:?GLclampd,F:?GLclampd>>).
 
@@ -16325,7 +16325,7 @@ getDoublei_v(Target,Index) ->
 %% @doc glDebugMessageControlARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDebugMessageControlARB.xml">external</a> documentation.
--spec debugMessageControlARB(Source, Type, Severity, Ids, Enabled) -> ok when Source :: enum(),Type :: enum(),Severity :: enum(),Ids :: [integer()],Enabled :: 0|1.
+-spec debugMessageControlARB(Source, Type, Severity, Ids, Enabled) -> 'ok' when Source :: enum(),Type :: enum(),Severity :: enum(),Ids :: [integer()],Enabled :: 0|1.
 debugMessageControlARB(Source,Type,Severity,Ids,Enabled) ->
   cast(5853, <<Source:?GLenum,Type:?GLenum,Severity:?GLenum,(length(Ids)):?GLuint,
         (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((length(Ids)) rem 2)*32),Enabled:?GLboolean>>).
@@ -16333,7 +16333,7 @@ debugMessageControlARB(Source,Type,Severity,Ids,Enabled) ->
 %% @doc glDebugMessageInsertARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDebugMessageInsertARB.xml">external</a> documentation.
--spec debugMessageInsertARB(Source, Type, Id, Severity, Buf) -> ok when Source :: enum(),Type :: enum(),Id :: integer(),Severity :: enum(),Buf :: string().
+-spec debugMessageInsertARB(Source, Type, Id, Severity, Buf) -> 'ok' when Source :: enum(),Type :: enum(),Id :: integer(),Severity :: enum(),Buf :: string().
 debugMessageInsertARB(Source,Type,Id,Severity,Buf) ->
   cast(5854, <<Source:?GLenum,Type:?GLenum,Id:?GLuint,Severity:?GLenum,(list_to_binary([Buf|[0]]))/binary,0:((8-((length(Buf)+ 1) rem 8)) rem 8)>>).
 
@@ -16370,7 +16370,7 @@ getGraphicsResetStatusARB() ->
 %% value of `?gl_InstanceID'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysInstancedBaseInstance.xml">external</a> documentation.
--spec drawArraysInstancedBaseInstance(Mode, First, Count, Primcount, Baseinstance) -> ok when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer(),Baseinstance :: integer().
+-spec drawArraysInstancedBaseInstance(Mode, First, Count, Primcount, Baseinstance) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer(),Baseinstance :: integer().
 drawArraysInstancedBaseInstance(Mode,First,Count,Primcount,Baseinstance) ->
   cast(5857, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei,Baseinstance:?GLuint>>).
 
@@ -16393,7 +16393,7 @@ drawArraysInstancedBaseInstance(Mode,First,Count,Primcount,Baseinstance) ->
 %% value of `?gl_InstanceID'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseInstance.xml">external</a> documentation.
--spec drawElementsInstancedBaseInstance(Mode, Count, Type, Indices, Primcount, Baseinstance) -> ok when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Baseinstance :: integer().
+-spec drawElementsInstancedBaseInstance(Mode, Count, Type, Indices, Primcount, Baseinstance) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Baseinstance :: integer().
 drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance) when  is_integer(Indices) ->
   cast(5858, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Baseinstance:?GLuint>>);
 drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance) ->
@@ -16417,7 +16417,7 @@ drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance
 %% value of `?gl_InstanceID'. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseVertexBaseInstance.xml">external</a> documentation.
--spec drawElementsInstancedBaseVertexBaseInstance(Mode, Count, Type, Indices, Primcount, Basevertex, Baseinstance) -> ok when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer(),Baseinstance :: integer().
+-spec drawElementsInstancedBaseVertexBaseInstance(Mode, Count, Type, Indices, Primcount, Basevertex, Baseinstance) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer(),Baseinstance :: integer().
 drawElementsInstancedBaseVertexBaseInstance(Mode,Count,Type,Indices,Primcount,Basevertex,Baseinstance) when  is_integer(Indices) ->
   cast(5860, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint,Baseinstance:?GLuint>>);
 drawElementsInstancedBaseVertexBaseInstance(Mode,Count,Type,Indices,Primcount,Basevertex,Baseinstance) ->
@@ -16427,14 +16427,14 @@ drawElementsInstancedBaseVertexBaseInstance(Mode,Count,Type,Indices,Primcount,Ba
 %% @doc glDrawTransformFeedbackInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackInstance.xml">external</a> documentation.
--spec drawTransformFeedbackInstanced(Mode, Id, Primcount) -> ok when Mode :: enum(),Id :: integer(),Primcount :: integer().
+-spec drawTransformFeedbackInstanced(Mode, Id, Primcount) -> 'ok' when Mode :: enum(),Id :: integer(),Primcount :: integer().
 drawTransformFeedbackInstanced(Mode,Id,Primcount) ->
   cast(5862, <<Mode:?GLenum,Id:?GLuint,Primcount:?GLsizei>>).
 
 %% @doc glDrawTransformFeedbackStreamInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackStreamInstance.xml">external</a> documentation.
--spec drawTransformFeedbackStreamInstanced(Mode, Id, Stream, Primcount) -> ok when Mode :: enum(),Id :: integer(),Stream :: integer(),Primcount :: integer().
+-spec drawTransformFeedbackStreamInstanced(Mode, Id, Stream, Primcount) -> 'ok' when Mode :: enum(),Id :: integer(),Stream :: integer(),Primcount :: integer().
 drawTransformFeedbackStreamInstanced(Mode,Id,Stream,Primcount) ->
   cast(5863, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint,Primcount:?GLsizei>>).
 
@@ -16503,7 +16503,7 @@ getInternalformativ(Target,Internalformat,Pname,BufSize) ->
 %% respectively. 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindImageTexture.xml">external</a> documentation.
--spec bindImageTexture(Unit, Texture, Level, Layered, Layer, Access, Format) -> ok when Unit :: integer(),Texture :: integer(),Level :: integer(),Layered :: 0|1,Layer :: integer(),Access :: enum(),Format :: enum().
+-spec bindImageTexture(Unit, Texture, Level, Layered, Layer, Access, Format) -> 'ok' when Unit :: integer(),Texture :: integer(),Level :: integer(),Layered :: 0|1,Layer :: integer(),Access :: enum(),Format :: enum().
 bindImageTexture(Unit,Texture,Level,Layered,Layer,Access,Format) ->
   cast(5865, <<Unit:?GLuint,Texture:?GLuint,Level:?GLint,Layered:?GLboolean,0:24,Layer:?GLint,Access:?GLenum,Format:?GLenum>>).
 
@@ -16630,7 +16630,7 @@ bindImageTexture(Unit,Texture,Level,Layered,Layer,Access,Format) ->
 %% passes is necessary.
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMemoryBarrier.xml">external</a> documentation.
--spec memoryBarrier(Barriers) -> ok when Barriers :: integer().
+-spec memoryBarrier(Barriers) -> 'ok' when Barriers :: integer().
 memoryBarrier(Barriers) ->
   cast(5866, <<Barriers:?GLbitfield>>).
 
@@ -16663,7 +16663,7 @@ memoryBarrier(Barriers) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage1D.xml">external</a> documentation.
--spec texStorage1D(Target, Levels, Internalformat, Width) -> ok when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer().
+-spec texStorage1D(Target, Levels, Internalformat, Width) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer().
 texStorage1D(Target,Levels,Internalformat,Width) ->
   cast(5867, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei>>).
 
@@ -16708,7 +16708,7 @@ texStorage1D(Target,Levels,Internalformat,Width) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage2D.xml">external</a> documentation.
--spec texStorage2D(Target, Levels, Internalformat, Width, Height) -> ok when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
+-spec texStorage2D(Target, Levels, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 texStorage2D(Target,Levels,Internalformat,Width,Height) ->
   cast(5868, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
 
@@ -16751,21 +16751,21 @@ texStorage2D(Target,Levels,Internalformat,Width,Height) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage3D.xml">external</a> documentation.
--spec texStorage3D(Target, Levels, Internalformat, Width, Height, Depth) -> ok when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer().
+-spec texStorage3D(Target, Levels, Internalformat, Width, Height, Depth) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer().
 texStorage3D(Target,Levels,Internalformat,Width,Height,Depth) ->
   cast(5869, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei>>).
 
 %% @doc glDepthBoundsEXT
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthBoundsEXT.xml">external</a> documentation.
--spec depthBoundsEXT(Zmin, Zmax) -> ok when Zmin :: clamp(),Zmax :: clamp().
+-spec depthBoundsEXT(Zmin, Zmax) -> 'ok' when Zmin :: clamp(),Zmax :: clamp().
 depthBoundsEXT(Zmin,Zmax) ->
   cast(5870, <<Zmin:?GLclampd,Zmax:?GLclampd>>).
 
 %% @doc glStencilClearTagEXT
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilClearTagEXT.xml">external</a> documentation.
--spec stencilClearTagEXT(StencilTagBits, StencilClearTag) -> ok when StencilTagBits :: integer(),StencilClearTag :: integer().
+-spec stencilClearTagEXT(StencilTagBits, StencilClearTag) -> 'ok' when StencilTagBits :: integer(),StencilClearTag :: integer().
 stencilClearTagEXT(StencilTagBits,StencilClearTag) ->
   cast(5871, <<StencilTagBits:?GLsizei,StencilClearTag:?GLuint>>).
 

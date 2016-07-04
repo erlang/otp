@@ -35,7 +35,7 @@
 %% Macros
 %%-----------------------------------------------------------------
 
--define(default_timeout, ?t:minutes(5)).
+-define(default_timeout, test_server:minutes(5)).
 
 
 -define(match(ExpectedRes, Expr),
@@ -49,7 +49,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -89,12 +89,12 @@ cases() ->
 %%-----------------------------------------------------------------
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -129,15 +129,12 @@ end_per_suite(Config) when is_list(Config) ->
 %%-----------------------------------------------------------------
 %%  Tests app file
 %%-----------------------------------------------------------------
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
     ok=test_server:app_test(cosEventDomain),
     ok.
 
 
-event_domain_api(doc) -> ["Testing the CosEventDomain Domain API", ""];
-event_domain_api(suite) -> [];
+%% Testing the CosEventDomain Domain API
 event_domain_api(_Config) ->
 
     %% We will setup a cluster looking like:
@@ -418,8 +415,7 @@ event_domain_api(_Config) ->
 
     ok.
 
-event_domain_factory_api(doc) -> ["Testing the CosEventDomain Factory API", ""];
-event_domain_factory_api(suite) -> [];
+%% Testing the CosEventDomain Factory API
 event_domain_factory_api(_Config) ->
 
     Cyclic = #'CosNotification_Property'{name=?CycleDetection, 

@@ -125,11 +125,16 @@ restart_acceptor(Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init([ServerOpts]) ->
     RestartStrategy = one_for_one,
     MaxR = 0,
     MaxT = 3600,
-    Children = child_specs(ServerOpts),
+    Children = case proplists:get_value(asocket,ServerOpts) of
+		   undefined -> child_specs(ServerOpts);
+		   _ -> []
+	       end,
     {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
 
 %%%=========================================================================

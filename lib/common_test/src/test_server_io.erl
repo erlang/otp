@@ -215,7 +215,7 @@ handle_call({set_fd,Tag,Fd}, _From, #st{fds=Fds0,tags=Tags0,
 	   true ->
 		%% Fd ready, print anything buffered for associated Tag
 		lists:filtermap(fun({T,From,Str}) when T == Tag ->
-					output(From, Tag, Str, St1),
+					_ = output(From, Tag, Str, St1),
 					false;
 				   (_) ->
 					true
@@ -274,14 +274,15 @@ handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
 			  end
 		  end, Tags),
     GlList = gb_sets:to_list(Gls),
-    [test_server_gl:stop(GL) || GL <- GlList],
+    _ = [test_server_gl:stop(GL) || GL <- GlList],
     timer:sleep(100),
     case lists:filter(fun(GlPid) -> is_process_alive(GlPid) end, GlList) of
 	[] ->
 	    ok;
 	_ ->
 	    timer:sleep(2000),
-	    [exit(GL, kill) || GL <- GlList]
+	    [exit(GL, kill) || GL <- GlList],
+	    ok
     end,
     Empty = gb_trees:empty(),
     {ok,Shared} = test_server_gl:start_link(),
@@ -304,7 +305,7 @@ handle_call({stop,FdTags}, From, #st{fds=Fds0,tags=Tags0,
 				   none ->
 				       {Fds,Tags};
 				   {value,Fd} ->
-				       file:close(Fd),
+				       _ = file:close(Fd),
 				       {gb_trees:delete(Tag, Fds),
 					lists:delete(Tag, Tags)}
 			       end
@@ -333,7 +334,7 @@ handle_info({'EXIT',_Pid,Reason}, _St) ->
 handle_info(stop_group_leaders, #st{gls=Gls}=St) ->
     %% Stop the remaining group leaders.
     GlPids = gb_sets:to_list(Gls),
-    [test_server_gl:stop(GL) || GL <- GlPids],
+    _ = [test_server_gl:stop(GL) || GL <- GlPids],
     timer:sleep(100),
     Wait = 
 	case lists:filter(fun(GlPid) -> is_process_alive(GlPid) end, GlPids) of
@@ -344,7 +345,7 @@ handle_info(stop_group_leaders, #st{gls=Gls}=St) ->
     {noreply,St};
 handle_info(kill_group_leaders, #st{gls=Gls,stopping=From,
 				    pending_ops=Ops}=St) ->
-    [exit(GL, kill) || GL <- gb_sets:to_list(Gls)],
+    _ = [exit(GL, kill) || GL <- gb_sets:to_list(Gls)],
     if From /= undefined ->
 	    gen_server:reply(From, ok);
        true ->					% reply has been sent already
@@ -434,7 +435,7 @@ do_print_buffered(Q0, St) ->
 	eot ->
 	    Q;
 	{Tag,Str} ->
-	    do_output(Tag, Str, undefined, St),
+	    _ = do_output(Tag, Str, undefined, St),
 	    do_print_buffered(Q, St)
     end.
 
@@ -448,5 +449,5 @@ gc(#st{gls=Gls0}) ->
     InUse = ordsets:from_list(InUse0),
     Gls = gb_sets:to_list(Gls0),
     NotUsed = ordsets:subtract(Gls, InUse),
-    [test_server_gl:stop(Pid) || Pid <- NotUsed],
+    _ = [test_server_gl:stop(Pid) || Pid <- NotUsed],
     ok.

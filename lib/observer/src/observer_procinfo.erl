@@ -317,7 +317,7 @@ fetch_state_info2(Pid, M) ->
     of
 	{status, _, {module, _},
 	 [_PDict, _SysState, _Parent, _Dbg,
-	  [Header,{data, First},{data, Second}]]} ->
+	  [Header,{data, First},{data, Second}|_]]} ->
 	    [{"Behaviour", B}, Header] ++ First ++ Second;
 	{status, _, {module, _},
 	 [_PDict, _SysState, _Parent, _Dbg,
@@ -370,7 +370,7 @@ process_info_fields(Pid) ->
 		{"Priority",         priority},
 		{"Trap Exit",        trap_exit},
 		{"Reductions",       reductions},
-		{"Binary",           binary},
+		{"Binary",           fun(Data) -> stringify_bins(Data) end},
 		{"Last Calls",       last_calls},
 		{"Catch Level",      catchlevel},
 		{"Trace",            trace},
@@ -437,6 +437,11 @@ filter_monitor_info() ->
 	    [Pid || {process, Pid} <- Ms]
     end.
 
+stringify_bins(Data) ->
+    Bins = proplists:get_value(binary, Data),
+    [lists:flatten(io_lib:format("<< ~s, refc ~w>>", [observer_lib:to_str({bytes,Sz}),Refc]))
+     || {_Ptr, Sz, Refc} <- Bins].
+
 local_pid_str(Pid) ->
     %% observer can observe remote nodes
     %% There is no function to get the local
@@ -449,7 +454,6 @@ local_pid_str(Pid) ->
 global_pid_node_pref(Pid) ->
     %% Global PID node prefix : X of <X.Y.Z>
     string:strip(string:sub_word(pid_to_list(Pid),1,$.),left,$<).
-    
 
 io_get_data(Pid) ->
     Pid ! {self(), get_data_and_close},

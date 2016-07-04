@@ -26,33 +26,35 @@
 
     <title>erl_expand_records</title>
     <prepared>Hans Bolinder</prepared>
-    <responsible>nobody</responsible>
+    <responsible></responsible>
     <docno></docno>
-    <approved>nobody</approved>
-    <checked>no</checked>
+    <approved></approved>
+    <checked></checked>
     <date>2005-12-23</date>
     <rev>PA1</rev>
-    <file>erl_expand_records.sgml</file>
+    <file>erl_expand_records.xml</file>
   </header>
   <module>erl_expand_records</module>
-  <modulesummary>Expands Records in a Module</modulesummary>
+  <modulesummary>Expands records in a module.</modulesummary>
   <description>
+    <p>This module expands records in a module.</p>
   </description>
+
   <funcs>
     <func>
       <name name="module" arity="2"/>
-      <fsummary>Expand all records in a module</fsummary>
+      <fsummary>Expand all records in a module.</fsummary>
       <desc>
         <p>Expands all records in a module. The returned module has no
-          references to records, neither attributes nor code.</p>
+          references to records, attributes, or code.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p>The <seealso marker="erts:absform">abstract format</seealso>
-      documentation in ERTS User's Guide</p>
+    <p>Section <seealso marker="erts:absform">The Abstract Format</seealso>
+      in ERTS User's Guide.</p>
   </section>
 </erlref>
 

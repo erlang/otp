@@ -78,7 +78,7 @@ buttonDClick(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventbuttondclick">external documentation</a>.
 -spec buttonDClick(This, [Option]) -> boolean() when
 	This::wxMouseEvent(),
-	Option :: {but, integer()}.
+	Option :: {'but', integer()}.
 buttonDClick(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMouseEvent),
@@ -99,7 +99,7 @@ buttonDown(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventbuttondown">external documentation</a>.
 -spec buttonDown(This, [Option]) -> boolean() when
 	This::wxMouseEvent(),
-	Option :: {but, integer()}.
+	Option :: {'but', integer()}.
 buttonDown(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMouseEvent),
@@ -120,7 +120,7 @@ buttonUp(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmouseevent.html#wxmouseeventbuttonup">external documentation</a>.
 -spec buttonUp(This, [Option]) -> boolean() when
 	This::wxMouseEvent(),
-	Option :: {but, integer()}.
+	Option :: {'but', integer()}.
 buttonUp(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMouseEvent),

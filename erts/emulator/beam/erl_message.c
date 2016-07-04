@@ -1123,11 +1123,9 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	    break;
 	case am_on_heap:
 	    c_p->flags |= F_ON_HEAP_MSGQ;
+	    c_p->flags &= ~F_OFF_HEAP_MSGQ;
 	    erts_smp_atomic32_read_bor_nob(&c_p->state,
 					   ERTS_PSFLG_ON_HEAP_MSGQ);
-	    /* fall through */
-	case am_mixed:
-	    c_p->flags &= ~F_OFF_HEAP_MSGQ;
 	    /*
 	     * We are not allowed to clear ERTS_PSFLG_OFF_HEAP_MSGQ
 	     * if a off heap change is ongoing. It will be adjusted
@@ -1151,34 +1149,10 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	switch (new_state) {
 	case am_on_heap:
 	    break;
-	case am_mixed:
-	    c_p->flags &= ~F_ON_HEAP_MSGQ;
-	    erts_smp_atomic32_read_band_nob(&c_p->state,
-					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
-	    break;
 	case am_off_heap:
 	    c_p->flags &= ~F_ON_HEAP_MSGQ;
 	    erts_smp_atomic32_read_band_nob(&c_p->state,
 					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
-	    goto change_to_off_heap;
-	default:
-	    res = THE_NON_VALUE; /* badarg */
-	    break;
-	}
-	break;
-
-    case 0:
-	res = am_mixed;
-
-	switch (new_state) {
-	case am_mixed:
-	    break;
-	case am_on_heap:
-	    c_p->flags |= F_ON_HEAP_MSGQ;
-	    erts_smp_atomic32_read_bor_nob(&c_p->state,
-					   ERTS_PSFLG_ON_HEAP_MSGQ);
-	    break;
-	case am_off_heap:
 	    goto change_to_off_heap;
 	default:
 	    res = THE_NON_VALUE; /* badarg */
@@ -1371,10 +1345,10 @@ erts_prep_msgq_for_inspection(Process *c_p, Process *rp,
 
 		mpp = i == 0 ? &rp->msg.first : &mip[i-1].msgp->next;
 
-		if (rp->msg.save == &bad_mp->next)
-		    rp->msg.save = mpp;
-		if (rp->msg.last == &bad_mp->next)
-		    rp->msg.last = mpp;
+		ASSERT(*mpp == bad_mp);
+
+		erts_msgq_update_internal_pointers(&rp->msg, mpp, &bad_mp->next);
+
 		mp = mp->next;
 		*mpp = mp;
 		rp->msg.len--;
@@ -1411,12 +1385,7 @@ erts_prep_msgq_for_inspection(Process *c_p, Process *rp,
 		    sys_memcpy((void *) tmp->m, (void *) mp->m,
 			       sizeof(Eterm)*ERL_MESSAGE_REF_ARRAY_SZ); 
 		    mpp = i == 0 ? &rp->msg.first : &mip[i-1].msgp->next;
-		    tmp->next = mp->next;
-		    if (rp->msg.save == &mp->next)
-			rp->msg.save = &tmp->next;
-		    if (rp->msg.last == &mp->next)
-			rp->msg.last = &tmp->next;
-		    *mpp = tmp;
+		    erts_msgq_replace_msg_ref(&rp->msg, tmp, mpp);
 		    erts_save_message_in_proc(rp, mp);
 		    mp = tmp;
 		}
@@ -1756,7 +1725,7 @@ void erts_factory_trim_and_close(ErtsHeapFactory* factory,
     case FACTORY_MESSAGE: {
 	ErtsMessage *mp = factory->message;
 	if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
-	    if (!mp->hfrag.next) {
+	    if (!factory->heap_frags) {
 		Uint sz = factory->hp - factory->hp_start;
 		mp = erts_shrink_message(mp, sz, brefs, brefs_size);
 		factory->message = mp;

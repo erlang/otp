@@ -361,8 +361,13 @@ erts_print_system_version(int to, void *arg, Process *c_p)
 }
 
 typedef struct {
+    /* {Entity,Node} = {monitor.Name,monitor.Pid} for external by name
+     * {Entity,Node} = {monitor.Pid,NIL} for external/external by pid
+     * {Entity,Node} = {monitor.Name,erlang:node()} for internal by name */
     Eterm entity;
     Eterm node;
+    /* pid is actual target being monitored, no matter pid/port or name */
+    Eterm pid;
 } MonitorInfo;
 
 typedef struct {
@@ -420,21 +425,27 @@ static void collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp)
     EXTEND_MONITOR_INFOS(micp);
     if (is_atom(mon->pid)) { /* external by name */
 	micp->mi[micp->mi_i].entity = mon->name;
-	micp->mi[micp->mi_i].node = mon->pid;
-	micp->sz += 3; /* need one 2-tuple */
+        micp->mi[micp->mi_i].node = mon->pid;
+        micp->sz += 3; /* need one 2-tuple */
     } else if (is_external_pid(mon->pid)) { /* external by pid */
 	micp->mi[micp->mi_i].entity = mon->pid;
-	micp->mi[micp->mi_i].node = NIL;
-	micp->sz += NC_HEAP_SIZE(mon->pid);
+        micp->mi[micp->mi_i].node = NIL;
+        micp->sz += NC_HEAP_SIZE(mon->pid);
     } else if (!is_nil(mon->name)) { /* internal by name */
 	micp->mi[micp->mi_i].entity = mon->name;
-	micp->mi[micp->mi_i].node = erts_this_dist_entry->sysname;
-	micp->sz += 3; /* need one 2-tuple */
+        micp->mi[micp->mi_i].node = erts_this_dist_entry->sysname;
+        micp->sz += 3; /* need one 2-tuple */
     } else { /* internal by pid */
 	micp->mi[micp->mi_i].entity = mon->pid;
-	micp->mi[micp->mi_i].node = NIL;
+        micp->mi[micp->mi_i].node = NIL;
 	/* no additional heap space needed */
     }
+
+    /* have always pid at hand, to assist with figuring out if its a port or
+     * a process, when we monitored by name and process_info is requested.
+     * See: erl_bif_info.c:process_info_aux section for am_monitors */
+    micp->mi[micp->mi_i].pid = mon->pid;
+
     micp->mi_i++;
     micp->sz += 2 + 3; /* For a cons cell and a 2-tuple */
 }
@@ -1190,37 +1201,49 @@ process_info_aux(Process *BIF_P,
 
     case am_monitors: {
 	MonitorInfoCollection mic;
-	int i;
+        int i;
 
 	INIT_MONITOR_INFOS(mic);
-	erts_doforall_monitors(ERTS_P_MONITORS(rp),&collect_one_origin_monitor,&mic);
-	hp = HAlloc(BIF_P, 3 + mic.sz);
+        erts_doforall_monitors(ERTS_P_MONITORS(rp),
+                               &collect_one_origin_monitor, &mic);
+        hp = HAlloc(BIF_P, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
 	    if (is_atom(mic.mi[i].entity)) {
 		/* Monitor by name. 
-		 * Build {process, {Name, Node}} and cons it. 
+                 * Build {process|port, {Name, Node}} and cons it.
 		 */
 		Eterm t1, t2;
+                /* If pid is an atom, then it is a remote named monitor, which
+                   has to be a process */
+                Eterm m_type = is_port(mic.mi[i].pid) ? am_port : am_process;
+                ASSERT(is_pid(mic.mi[i].pid)
+                    || is_port(mic.mi[i].pid)
+                    || is_atom(mic.mi[i].pid));
 
 		t1 = TUPLE2(hp, mic.mi[i].entity, mic.mi[i].node);
 		hp += 3;
-		t2 = TUPLE2(hp, am_process, t1);
+                t2 = TUPLE2(hp, m_type, t1);
 		hp += 3;
 		res = CONS(hp, t2, res);
-		hp += 2;
+                hp += 2;
 	    }
 	    else {
-		/* Monitor by pid. Build {process, Pid} and cons it. */
+                /* Monitor by pid. Build {process|port, Pid} and cons it. */
 		Eterm t;
 		Eterm pid = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity);
-		t = TUPLE2(hp, am_process, pid);
+
+                Eterm m_type = is_port(mic.mi[i].pid) ? am_port : am_process;
+                ASSERT(is_pid(mic.mi[i].pid)
+                    || is_port(mic.mi[i].pid));
+
+                t = TUPLE2(hp, m_type, pid);
 		hp += 3;
 		res = CONS(hp, t, res);
-		hp += 2;
+                hp += 2;
 	    }
 	}
-	DESTROY_MONITOR_INFOS(mic);
+        DESTROY_MONITOR_INFOS(mic);
 	break;
     }
 
@@ -1564,9 +1587,6 @@ process_info_aux(Process *BIF_P,
 	    break;
 	case F_ON_HEAP_MSGQ:
 	    res = am_on_heap;
-	    break;
-	case 0:
-	    res = am_mixed;
 	    break;
 	default:
 	    res = am_error;
@@ -2809,8 +2829,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	    BIF_RET(am_off_heap);
 	case SPO_ON_HEAP_MSGQ:
 	    BIF_RET(am_on_heap);
-	case 0:
-	    BIF_RET(am_mixed);
 	default:
 	    ERTS_INTERNAL_ERROR("Inconsistent message queue management state");
 	    BIF_RET(am_error);
@@ -2885,7 +2903,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 */
 
 Eterm
-erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt, Eterm item)
+erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt,
+                   Eterm item)
 {
     Eterm res = THE_NON_VALUE;
 
@@ -2933,8 +2952,8 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt, Eterm ite
 	Eterm item;
 
 	INIT_MONITOR_INFOS(mic);
-
-	erts_doforall_monitors(ERTS_P_MONITORS(prt), &collect_one_origin_monitor, &mic);
+        erts_doforall_monitors(ERTS_P_MONITORS(prt),
+                               &collect_one_origin_monitor, &mic);
 
 	if (szp)
 	    *szp += mic.sz;
@@ -2943,20 +2962,48 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt, Eterm ite
 	    res = NIL;
 	    for (i = 0; i < mic.mi_i; i++) {
 		Eterm t;
-		item = STORE_NC(hpp, ohp, mic.mi[i].entity);
-		t = TUPLE2(*hpp, am_process, item);
+                Eterm m_type;
+
+                item = STORE_NC(hpp, ohp, mic.mi[i].entity);
+                m_type = is_port(item) ? am_port : am_process;
+                t = TUPLE2(*hpp, m_type, item);
 		*hpp += 3;
 		res = CONS(*hpp, t, res);
 		*hpp += 2;
 	    }
-	}
-
+        } // hpp
 	DESTROY_MONITOR_INFOS(mic);
 
 	if (szp) {
 	    res = am_true;
 	    goto done;
 	}
+    }
+    else if (item == am_monitored_by) {
+        MonitorInfoCollection mic;
+        int i;
+        Eterm item;
+
+        INIT_MONITOR_INFOS(mic);
+        erts_doforall_monitors(ERTS_P_MONITORS(prt),
+                               &collect_one_target_monitor, &mic);
+        if (szp)
+            *szp += mic.sz;
+
+        if (hpp) {
+            res = NIL;
+            for (i = 0; i < mic.mi_i; ++i) {
+                item = STORE_NC(hpp, ohp, mic.mi[i].entity);
+                res = CONS(*hpp, item, res);
+                *hpp += 2;
+            }
+        } // hpp
+        DESTROY_MONITOR_INFOS(mic);
+
+        if (szp) {
+            res = am_true;
+            goto done;
+        }
     }
     else if (item == am_name) {
 	int count = sys_strlen(prt->name);

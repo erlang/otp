@@ -26,6 +26,7 @@
 	 return_trace/1,
 	 send/1,
 	 receive_trace/1,
+	 receive_trace_non_scheduler/1,
 	 process_events/1,
 	 schedule/1,
 	 gc/1,
@@ -40,6 +41,7 @@ suite() ->
 
 all() ->
     [call_trace, return_trace, send, receive_trace,
+     receive_trace_non_scheduler,
      process_events, schedule, gc,
      default_tracer, tracer_port_crash].
 
@@ -182,6 +184,26 @@ receive_trace(Config) when is_list(Config) ->
     Huge = {hello,huge_data()},
     Receiver ! {hello,huge_data()},
     expect({trace_ts,Receiver,'receive',Huge,ts}),
+    ok.
+
+%% Test sending receive traces to a port.
+receive_trace_non_scheduler(Config) when is_list(Config) ->
+    start_tracer(Config),
+    S = self(),
+    Receiver = spawn(
+                 fun() ->
+                         receive
+                             go ->
+                                 Ref = S ! erlang:trace_delivered(all),
+                                 receive {trace_delivered, Ref, all} -> ok end
+                         end
+                 end),
+    trac(Receiver, true, ['receive']),
+    Receiver ! go,
+    Ref = receive R -> R end,
+    expect({trace,Receiver,'receive',go}),
+    expect({trace,Receiver,'receive',{trace_delivered, all, Ref}}),
+
     ok.
 
 %% Tests a few process events (like getting linked).

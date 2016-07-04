@@ -22,8 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 t_case/1,t_and_or/1,t_andalso/1,t_orelse/1,inside/1,overlap/1,
-	 combined/1,in_case/1,before_and_inside_if/1,
-	 slow_compilation/1]).
+	 combined/1,in_case/1,slow_compilation/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +35,7 @@ all() ->
 groups() -> 
     [{p,[parallel],
       [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,
-       combined,in_case,before_and_inside_if]}].
+       combined,in_case,slow_compilation]}].
 
 init_per_suite(Config) ->
     Config.
@@ -449,64 +448,6 @@ in_case_1_guard(LenUp, LenDw, LenN, Rotation, Count) ->
 	LenN =< 1 orelse Count < 4 -> not_loop;
 	false -> loop
     end.
-
-before_and_inside_if(Config) when is_list(Config) ->
-    no = before_and_inside_if([a], [b], delete),
-    no = before_and_inside_if([a], [b], x),
-    no = before_and_inside_if([a], [], delete),
-    no = before_and_inside_if([a], [], x),
-    no = before_and_inside_if([], [], delete),
-    yes = before_and_inside_if([], [], x),
-    yes = before_and_inside_if([], [b], delete),
-    yes = before_and_inside_if([], [b], x),
-
-    {ch1,ch2} = before_and_inside_if_2([a], [b], blah),
-    {ch1,ch2} = before_and_inside_if_2([a], [b], xx),
-    {ch1,ch2} = before_and_inside_if_2([a], [], blah),
-    {ch1,ch2} = before_and_inside_if_2([a], [], xx),
-    {no,no} = before_and_inside_if_2([], [b], blah),
-    {no,no} = before_and_inside_if_2([], [b], xx),
-    {ch1,no} = before_and_inside_if_2([], [], blah),
-    {no,ch2} = before_and_inside_if_2([], [], xx),
-    ok.
-
-%% Thanks to Simon Cornish and Kostis Sagonas.
-%% Used to crash beam_bool.
-before_and_inside_if(XDo1, XDo2, Do3) ->
-    Do1 = (XDo1 =/= []),
-    Do2 = (XDo2 =/= []),
-    if
-	%% This expression occurs in a try/catch (protected)
-	%% block, which cannot refer to variables outside of
-	%% the block that are boolean expressions.
-	Do1 =:= true;
-	Do1 =:= false, Do2 =:= false, Do3 =:= delete ->
-	    no;
-       true ->
-	    yes
-    end.
-
-%% Thanks to Simon Cornish.
-%% Used to generate code that would not set {y,0} on
-%% all paths before its use (and therefore fail
-%% validation by the beam_validator).
-before_and_inside_if_2(XDo1, XDo2, Do3) ->
-    Do1    = (XDo1 =/= []),
-    Do2    = (XDo2 =/= []),
-    CH1 = if Do1 == true;
-	     Do1 == false,Do2==false,Do3 == blah ->
-		  ch1;
-	     true ->
-		  no
-	  end,
-    CH2 = if Do1 == true;
-	     Do1 == false,Do2==false,Do3 == xx ->
-		  ch2;
-	     true ->
-		  no
-	  end,
-    {CH1,CH2}.
-
 
 -record(state, {stack = []}).
 

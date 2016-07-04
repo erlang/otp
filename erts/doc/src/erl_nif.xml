@@ -295,14 +295,14 @@ ok
       </p></item>
 
       <tag><marker id="time_measurement"/>Time Measurement</tag>
-      <item><p>Support for time measurement in NIF libraries:
+      <item><p>Support for time measurement in NIF libraries:</p>
       <list>
 	<item><seealso marker="#ErlNifTime"><c>ErlNifTime</c></seealso></item>
 	<item><seealso marker="#ErlNifTimeUnit"><c>ErlNifTimeUnit</c></seealso></item>
 	<item><seealso marker="#enif_monotonic_time"><c>enif_monotonic_time()</c></seealso></item>
 	<item><seealso marker="#enif_time_offset"><c>enif_time_offset()</c></seealso></item>
 	<item><seealso marker="#enif_convert_time_unit"><c>enif_convert_time_unit()</c></seealso></item>
-      </list></p>
+      </list>
       </item>
 
       <tag><marker id="lengthy_work"/>Long-running NIFs</tag>
@@ -322,13 +322,13 @@ ok
 	
 	<p>The
 	<seealso marker="#enif_consume_timeslice">enif_consume_timeslice()</seealso>
-	function can be used to inform the runtime system about the lenght of the
+	function can be used to inform the runtime system about the length of the
 	NIF call. It should typically always be used unless the NIF executes very
 	quickly.</p>
 
-	<p>If the NIF call is too lenghty one needs to handle this in one of the
+	<p>If the NIF call is too lengthy one needs to handle this in one of the
 	following ways in order to avoid degraded responsiveness, scheduler load
-	balancing problems, and other strange behaviours:</p>
+	balancing problems, and other strange behaviors:</p>
 
 	<taglist>
 	  <tag>Yielding NIF</tag>
@@ -385,18 +385,39 @@ ok
 	    <p>
 	      A NIF that cannot be split and cannot execute in a millisecond or
 	      less is called a "dirty NIF" because it performs work that the
-	      Erlang runtime cannot handle cleanly. Applications that make use
-	      of such functions must indicate to the runtime that the functions
-	      are dirty so they can be handled specially. To schedule a dirty
-	      NIF for execution, the appropriate flags value can be set for the
-	      NIF in its <seealso marker="#ErlNifFunc"><c>ErlNifFunc</c></seealso>
+	      ordinary schedulers of the Erlang runtime system cannot handle cleanly.
+	      Applications that make use of such functions must indicate to the
+	      runtime that the functions are dirty so they can be handled
+	      specially. This is handled by executing dirty jobs on a separate
+	      set of schedulers called dirty schedulers. A dirty NIF executing
+	      on a dirty scheduler does not have the same duration restriction
+	      as a normal NIF.
+	    </p>
+
+	    <p>
+	      It is important to classify the dirty job correct. An I/O bound
+	      job should be classified as such, and a CPU bound job should be
+	      classified as such. If you should classify CPU bound jobs
+	      as I/O bound jobs, dirty I/O schedulers might starve ordinary
+	      schedulers. I/O bound jobs are expected to either block waiting
+	      for I/O, and/or spend a limited amount of time moving data.
+	    </p>
+
+	    <p>
+	      To schedule a dirty NIF for execution, the appropriate
+	      <c>flags</c> value can be set for the NIF in its
+	      <seealso marker="#ErlNifFunc"><c>ErlNifFunc</c></seealso>
 	      entry, or the application can call
 	      <seealso marker="#enif_schedule_nif"><c>enif_schedule_nif</c></seealso>,
 	      passing to it a pointer to the dirty NIF to be executed and
 	      indicating with the <c>flags</c> argument whether it expects the
-	      operation to be CPU-bound or I/O-bound. A dirty NIF executing
-	      on a dirty scheduler does not have the same duration restriction
-	      as a normal NIF.
+	      operation to be CPU-bound or I/O-bound. A job that alternates
+	      between I/O bound and CPU bound can be reclassified and
+	      rescheduled using <c>enif_schedule_nif</c> so that it executes on
+	      the correct type of dirty scheduler at all times. For more
+	      information see the documentation of the <c>erl</c> command line
+	      arguments <seealso marker="erl#+SDcpu"><c>+SDcpu</c></seealso>,
+	      and <seealso marker="erl#+SDio"><c>+SDio</c></seealso>.
 	    </p>
 
 	    <p>
@@ -410,14 +431,14 @@ ok
 	      <seealso marker="erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
 	      block)</c></seealso>, might also take a very long time to
 	      complete. This since all ongoing dirty operations on all
-	      dirty schedulers need to complete before the the block
+	      dirty schedulers need to complete before the block
 	      operation can complete.
 	    </p>
 
 	    <p>
 	      A lot of operations communicating with a process executing a
 	      dirty NIF can, however, complete while it is executing the
-	      dirty NIF. For example, retreiving information about it via
+	      dirty NIF. For example, retrieving information about it via
 	      <c>process_info()</c>, setting its group leader,
 	      register/unregister its name, etc.
 	    </p>
@@ -425,10 +446,10 @@ ok
 	    <p>
 	      Termination of a process executing a dirty NIF can only be
 	      completed up to a certain point while it is executing the
-	      dirty NIF. All Erlang resources such as registered names,
-	      ETS tables, etc will be released. All links and monitors
+	      dirty NIF. All Erlang resources such as its registered name,
+	      its ETS tables, etc will be released. All links and monitors
 	      will be triggered. The actual execution of the NIF will
-	      however <em>not</em> be stopped. The NIF can safely contiue
+	      however <em>not</em> be stopped. The NIF can safely continue
 	      execution, allocate heap memory, etc, but it is of course better
 	      to stop executing as soon as possible. The NIF can check
 	      whether current process is alive or not using
@@ -450,8 +471,8 @@ ok
 		  collect a process in order to determine if it has
 		  references to the module, a process executing a dirty
 		  NIF might delay purging for a very long time. Delaying
-		  a purge operatin implies delaying <em>all</em> code
-		  loding operations which might cause severe problems for
+		  a purge operation implies delaying <em>all</em> code
+		  loading operations which might cause severe problems for
 		  the system as a whole.
 		</p>
 	      </item>
@@ -518,13 +539,15 @@ ok
       </item>
 
       <tag><marker id="reload"/>int (*reload)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</tag>
-     <note><p>The reload mechanism is <em>deprecated</em>. It was only intended
-     as a development feature. Do not use it as an upgrade method for
-     live production systems. It might be removed in future releases. Be sure
-     to pass <c>reload</c> as <c>NULL</c> to <seealso marker="#ERL_NIF_INIT">ERL_NIF_INIT</seealso>
-     to disable it when not used.</p>
-     </note>
-       <item><p><c>reload</c> is called when the NIF library is loaded
+     
+       <item>
+         <note><p>The reload mechanism is <em>deprecated</em>. It was only intended
+         as a development feature. Do not use it as an upgrade method for
+         live production systems. It might be removed in future releases. Be sure
+         to pass <c>reload</c> as <c>NULL</c> to <seealso marker="#ERL_NIF_INIT">ERL_NIF_INIT</seealso>
+         to disable it when not used.</p>
+         </note>
+        <p><c>reload</c> is called when the NIF library is loaded
         and there is already a previously loaded library for this
         module code.</p>
         <p>Works the same as <c>load</c>. The only difference is that
@@ -583,9 +606,9 @@ ok
       <p/>
       <code type="none">
 typedef struct {
-    const char* <em>name</em>;
-    unsigned <em>arity</em>;
-    ERL_NIF_TERM (*<em>fptr</em>)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    const char* name;
+    unsigned arity;
+    ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
     unsigned flags;
 } ErlNifFunc;
 </code>
@@ -618,8 +641,8 @@ typedef struct {
       <p/>
       <code type="none">
 typedef struct {
-    unsigned <em>size</em>;
-    unsigned char* <em>data</em>;
+    unsigned size;
+    unsigned char* data;
 } ErlNifBinary;
 </code>
         <p><c>ErlNifBinary</c> contains transient information about an
@@ -1100,15 +1123,6 @@ typedef enum {
       <desc><p>Return true if the two terms are identical. Corresponds to the
       Erlang operators <c>=:=</c> and
       <c>=/=</c>.</p></desc> 
-    </func>
-    <func><name><ret>int</ret><nametext>enif_is_on_dirty_scheduler(ErlNifEnv* env)</nametext></name>
-      <fsummary>Check to see if executing on a dirty scheduler thread</fsummary>
-      <desc>
-          <p>Check to see if the current NIF is executing on a dirty scheduler thread. If
-	  executing on a dirty scheduler thread true returned; otherwise false.</p>
-	  <p>This function can only be used from a NIF-calling thread, and with an
-	  environment corresponding to currently executing processes.</p>
-      </desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a pid</fsummary>
@@ -1709,7 +1723,7 @@ enif_map_iterator_destroy(env, &amp;iter);
           be converted to an atom, <c>enif_schedule_nif</c> returns a <c>badarg</c> exception.</p>
           <p>The <c>flags</c> argument must be set to 0 for a regular NIF, or if the emulator was built the
           experimental dirty scheduler support enabled, <c>flags</c> can be set to either <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c>
-          if the job is expected to be primarily CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for jobs that will
+          if the job is expected to be CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for jobs that will
           be I/O-bound. If dirty scheduler threads are not available in the emulator, a try to schedule such a job
           will result in a <c>badarg</c> exception.</p>
 
@@ -1820,7 +1834,25 @@ enif_map_iterator_destroy(env, &amp;iter);
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self</seealso>.
           </p></desc>
     </func>
-
+    <func><name><ret>int</ret><nametext>enif_thread_type(void)</nametext></name>
+        <fsummary>Determine type of current thread</fsummary>
+        <desc>
+            <p>Determine the type of currently executing thread. A positive value
+                indicates a scheduler thread while a negative value or zero indicates
+                another type of thread. Currently the following specific types exist
+                (which may be extended in the future):</p>
+            <taglist>
+                <tag><c>ERL_NIF_THR_UNDEFINED</c></tag>
+                <item><p>Undefined thread that is not a scheduler thread.</p></item>
+                <tag><c>ERL_NIF_THR_NORMAL_SCHEDULER</c></tag>
+                <item><p>A normal scheduler thread.</p></item>
+                <tag><c>ERL_NIF_THR_DIRTY_CPU_SCHEDULER</c></tag>
+                <item><p>A dirty CPU scheduler thread.</p></item>
+                <tag><c>ERL_NIF_THR_DIRTY_IO_SCHEDULER</c></tag>
+                <item><p>A dirty I/O scheduler thread.</p></item>
+            </taglist>
+        </desc>
+    </func>
     <func>
       <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
       <fsummary>Get current Time Offset</fsummary>

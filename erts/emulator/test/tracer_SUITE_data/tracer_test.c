@@ -36,7 +36,7 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"enabled", 3, enabled},
-    {"trace", 6, trace}
+    {"trace", 5, trace}
 };
 
 ERL_NIF_INIT(tracer_test, nif_funcs, load, NULL, upgrade, unload)
@@ -100,7 +100,7 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifPid self, to;
     ERL_NIF_TERM *tuple, msg;
     const ERL_NIF_TERM *state_tuple;
-    ASSERT(argc == 6);
+    ASSERT(argc == 5);
 
     enif_get_tuple(env, argv[1], &state_arity, &state_tuple);
 

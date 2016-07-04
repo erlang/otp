@@ -31,6 +31,7 @@
 -record(protocol_buffers, {
 	  dtls_packets = [],              %%::[binary()],  % Not yet handled decode ssl/tls packets.
           dtls_record_buffer = <<>>,      %%:: binary(),   % Buffer of incomplete records
+	  dtls_fragment_state,            %%:: [],         % DTLS fragments
           dtls_handshake_buffer = <<>>,   %%:: binary(),   % Buffer of incomplete handshakes
 	  dtls_cipher_texts = [],         %%:: [binary()],
 	  dtls_cipher_texts_next          %%:: [binary()]  % Received for Epoch not yet active

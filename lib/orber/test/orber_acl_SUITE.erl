@@ -28,7 +28,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(5)).
+-define(default_timeout, test_server:minutes(5)).
 
 -define(match(ExpectedRes,Expr),
         fun() ->
@@ -41,7 +41,7 @@
                    _ ->
                        io:format("###### ERROR ERROR ######~nRESULT:  ~p~n",
                                  [AcTuAlReS]),
-                       ?line exit(AcTuAlReS)
+                       exit(AcTuAlReS)
                end
        end()).
 
@@ -92,21 +92,19 @@ end_per_suite(Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
 %%-----------------------------------------------------------------
-%% Test Case  : 
-%% Description: 
+%% Test Case
+%% Description: Testing IPv4 Verify Operation
 %%-----------------------------------------------------------------
-ipv4_verify(doc) -> ["Testing IPv4 Verify Operation."];
-ipv4_verify(suite) -> [];
 ipv4_verify(_) ->
     ?match(true, orber_acl:verify("192.168.64.148", "192.168.64.0/17", inet)),
     ?match({false,"192.168.128.0","192.168.255.255"},
@@ -133,10 +131,8 @@ ipv4_verify(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv4 Range Operation
 %%-----------------------------------------------------------------
-ipv4_range(doc) -> ["Testing IPv4 Range Operation."];
-ipv4_range(suite) -> [];
 ipv4_range(_) ->
     ?match({ok,"192.168.0.0", "192.168.127.255"},
 	   orber_acl:range("192.168.64.0/17")),
@@ -162,10 +158,8 @@ ipv4_range(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv4 Interfaces Operation
 %%-----------------------------------------------------------------
-ipv4_interfaces(doc) -> ["Testing IPv4 Interfaces Operation."];
-ipv4_interfaces(suite) -> [];
 ipv4_interfaces(_) ->
     ?match({ok, _},
 	   orber_acl:init_acl([{tcp_in, "192.168.128.0/18", ["10.1.1.1"]},
@@ -185,19 +179,15 @@ ipv4_interfaces(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Benchmarking runtime critical IPv4 Operations
 %%-----------------------------------------------------------------
-ipv4_bm(doc) -> ["Benchmarking runtime critical IPv4 Operations."];
-ipv4_bm(suite) -> [];
 ipv4_bm(_) ->
     ?match({ok, _, _, _}, bm2([{tcp_in, "192.168.64.0/17"}], inet, "192.168.64.148")),
     ok.
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv6 Verify Operation
 %%-----------------------------------------------------------------
-ipv6_verify(doc) -> ["Testing IPv6 Verify Operation."];
-ipv6_verify(suite) -> [];
 ipv6_verify(_) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -215,10 +205,8 @@ ipv6_verify(_) ->
 	    
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv6 Range Operation
 %%-----------------------------------------------------------------
-ipv6_range(doc) -> ["Testing IPv6 Range Operation."];
-ipv6_range(suite) -> [];
 ipv6_range(_) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -233,10 +221,8 @@ ipv6_range(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv6 Interfaces Operation
 %%-----------------------------------------------------------------
-ipv6_interfaces(doc) -> ["Testing IPv6 Interfaces Operation."];
-ipv6_interfaces(suite) -> [];
 ipv6_interfaces(_) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -252,10 +238,8 @@ ipv6_interfaces(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Benchmarking runtime critical IPv6 Operations
 %%-----------------------------------------------------------------
-ipv6_bm(doc) -> ["Benchmarking runtime critical IPv6 Operations."];
-ipv6_bm(suite) -> [];
 ipv6_bm(_) ->
     case orber_test_lib:version_ok() of
 	true ->

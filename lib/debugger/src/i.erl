@@ -108,7 +108,7 @@ ib(Module,Function,Arity) ->
 
 ib(Module,Function,Arity,Cond) ->
     Breaks1 = int:all_breaks(Module),
-    int:break_in(Module,Function,Arity),
+    ok = int:break_in(Module,Function,Arity),
     Breaks2 = int:all_breaks(Module),
     lists:foreach(fun({Mod,Line}) -> int:test_at_break(Mod,Line,Cond) end,
 		  Breaks2--Breaks1).

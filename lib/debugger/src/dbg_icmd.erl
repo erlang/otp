@@ -171,10 +171,10 @@ handle_cmd(Bs, Status, Ieval) ->
 %% User control of process execution and settings
 %%====================================================================
 
-step(Meta) ->     Meta ! {user, {cmd, step}}.
-next(Meta) ->     Meta ! {user, {cmd, next}}.
-continue(Meta) -> Meta ! {user, {cmd, continue}}.
-finish(Meta) ->   Meta ! {user, {cmd, finish}}.
+step(Meta) ->     Meta ! {user, {cmd, step}}, ok.
+next(Meta) ->     Meta ! {user, {cmd, next}}, ok.
+continue(Meta) -> Meta ! {user, {cmd, continue}}, ok.
+finish(Meta) ->   Meta ! {user, {cmd, finish}}, ok.
 skip(Meta) ->     Meta ! {user, {cmd, skip}}.
 
 timeout(Meta) ->  Meta ! {user, timeout}.

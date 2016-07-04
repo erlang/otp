@@ -2116,7 +2116,7 @@ fi
 dnl Need by run_erl.
 AC_CHECK_FUNCS([openpty])
 
-AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h)
+AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h sys/un.h)
 AC_CHECK_FUNCS([getifaddrs])
 
 dnl Checks for variables in6addr_any and in6addr_loopback,
@@ -3858,17 +3858,17 @@ if test "$enable_lttng_test" = "yes" ; then
     AC_COMPILE_IFELSE(
         [AC_LANG_PROGRAM(
             [#include <lttng/tracepoint.h>
-             #define TRACEPOINT_PROVIDER com_ericsson_otp
+             #define TRACEPOINT_PROVIDER org_erlang_otp
              TRACEPOINT_EVENT(
-                 com_ericsson_otp,
+                 org_erlang_otp,
                  dummy,
                  TP_ARGS(int, my_int),
                  TP_FIELDS(ctf_integer(int, my_int, my_int)))
              #define TRACEPOINT_CREATE_PROBES
              #define TRACEPOINT_DEFINE],
-            [if(tracepoint_enabled(com_ericsson_otp,dummy)) do {} while(0)])],
+            [if(tracepoint_enabled(org_erlang_otp,dummy)) do {} while(0)])],
         [AC_MSG_RESULT([yes])],
-        [AC_MSG_ERROR([no (must be present)])])
+        [AC_MSG_ERROR([no (available in lttng-ust v2.7)])])
     if test "x$ac_cv_header_lttng_tracepoint_h" = "xyes" \
         -a "x$ac_cv_header_lttng_tracepoint_event_h" = "xyes"; then
         # No straight forward way to test for liblttng-ust when no public symbol exists,

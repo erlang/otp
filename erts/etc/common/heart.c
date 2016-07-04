@@ -119,6 +119,8 @@
 #define HEART_COMMAND_ENV          "HEART_COMMAND"
 #define ERL_CRASH_DUMP_SECONDS_ENV "ERL_CRASH_DUMP_SECONDS"
 #define HEART_KILL_SIGNAL          "HEART_KILL_SIGNAL"
+#define HEART_NO_KILL              "HEART_NO_KILL"
+
 
 #define MSG_HDR_SIZE         (2)
 #define MSG_HDR_PLUS_OP_SIZE (3)
@@ -524,6 +526,12 @@ static void
 kill_old_erlang(void){
     HANDLE erlh;
     DWORD exit_code;
+    char* envvar = NULL;
+
+    envvar = get_env(HEART_NO_KILL);
+    if (envvar && strcmp(envvar, "TRUE") == 0)
+      return;
+
     if(heart_beat_kill_pid != 0){
 	if((erlh = OpenProcess(PROCESS_TERMINATE | 
 			       SYNCHRONIZE | 
@@ -555,10 +563,14 @@ kill_old_erlang(void){
     pid_t pid;
     int i, res;
     int sig = SIGKILL;
-    char *sigenv = NULL;
+    char *envvar = NULL;
 
-    sigenv = get_env(HEART_KILL_SIGNAL);
-    if (sigenv && strcmp(sigenv, "SIGABRT") == 0) {
+    envvar = get_env(HEART_NO_KILL);
+    if (envvar && strcmp(envvar, "TRUE") == 0)
+      return;
+
+    envvar = get_env(HEART_KILL_SIGNAL);
+    if (envvar && strcmp(envvar, "SIGABRT") == 0) {
         print_error("kill signal SIGABRT requested");
         sig = SIGABRT;
     }

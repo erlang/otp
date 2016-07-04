@@ -527,15 +527,24 @@
 
     <func>
       <name>start_channel(ConnectionRef) -></name>
-      <name>start_channel(ConnectionRef, Options) -></name>
+      <name>start_channel(ConnectionRef, Options) ->
+      {ok, Pid} | {error, reason()|term()}</name>
+
       <name>start_channel(Host, Options) -></name>
-      <name>start_channel(Host, Port, Options) -> {ok, Pid} | {ok, Pid, ConnectionRef} |
-      {error, reason()|term()}</name>
+      <name>start_channel(Host, Port, Options) -> 
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
+
+      <name>start_channel(TcpSocket) -></name>
+      <name>start_channel(TcpSocket, Options) ->
+      {ok, Pid, ConnectionRef} | {error, reason()|term()}</name>
+
       <fsummary>Starts an SFTP client.</fsummary>
       <type>
         <v>Host = string()</v>
         <v>ConnectionRef = ssh_connection_ref()</v>
         <v>Port = integer()</v>
+	<v>TcpSocket = port()</v>
+	<d>The socket is supposed to be from <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso> or <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso> with option <c>{active,false}</c></d>
         <v>Options = [{Option, Value}]</v>
       </type>
       <desc>

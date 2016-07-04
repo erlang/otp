@@ -338,7 +338,8 @@
           <seealso marker="kernel:net_kernel">net_kernel(3)</seealso>.
           It is also ensured that <c><![CDATA[epmd]]></c> runs on the current host
           before Erlang is started. See
-          <seealso marker="epmd">epmd(1)</seealso>.</p>
+          <seealso marker="epmd">epmd(1)</seealso> and the
+          <seealso marker="#start_epmd"><c>-start_epmd</c></seealso> option.</p>
         <p>The name of the node will be <c><![CDATA[Name@Host]]></c>, where
           <c><![CDATA[Host]]></c> is the fully qualified host name of the current
           host. For short names, use the <c><![CDATA[-sname]]></c> flag instead.</p>
@@ -462,6 +463,21 @@
           communication between nodes running with the <c><![CDATA[-sname]]></c>
           flag and those running with the <c><![CDATA[-name]]></c> flag, as node
           names must be unique in distributed Erlang systems.</p>
+      </item>
+      <tag><marker id="start_epmd"/><c>-start_epmd true | false</c></tag>
+      <item>
+
+        <p>Specifies whether Erlang should start
+          <seealso marker="epmd">epmd</seealso> on startup. By default
+          this is <c>true</c>, but if you prefer to start epmd
+          manually, set this to <c>false</c>.</p>
+
+        <p>This only applies if Erlang is started as a distributed node,
+          i.e. if <c>-name</c> or <c>-sname</c> is specified. Otherwise,
+          epmd is not started even if <c>-start_epmd true</c> is given.</p>
+
+        <p>Note that a distributed node will fail to start if epmd is
+          not running.</p>
       </item>
       <tag><marker id="smp"/><c><![CDATA[-smp [enable|auto|disable]]]></c></tag>
       <item>
@@ -627,8 +643,7 @@
         <p>Sets the default binary virtual heap size of processes to the size
           <c><![CDATA[Size]]></c>.</p>
       </item>
-      <marker id="+hmax"/>
-      <tag><c><![CDATA[+hmax Size]]></c></tag>
+      <tag><marker id="+hmax"/><c><![CDATA[+hmax Size]]></c></tag>
       <item>
         <p>Sets the default maximum heap size of processes to the size
           <c><![CDATA[Size]]></c>. If <c>+hmax</c> is not given, the default is <c>0</c>
@@ -637,8 +652,7 @@
           <seealso marker="erlang#process_flag_max_heap_size">
             <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
       </item>
-      <marker id="+hmaxel"/>
-      <tag><c><![CDATA[+hmaxel true|false]]></c></tag>
+      <tag><marker id="+hmaxel"/><c><![CDATA[+hmaxel true|false]]></c></tag>
       <item>
         <p>Sets whether to send an error logger message for processes that reach
         the maximum heap size or not. If <c>+hmaxel</c> is not given, the default is <c>true</c>.
@@ -646,8 +660,7 @@
         <seealso marker="erlang#process_flag_max_heap_size">
           <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
       </item>
-      <marker id="+hmaxk"/>
-      <tag><c><![CDATA[+hmaxk true|false]]></c></tag>
+      <tag><marker id="+hmaxk"/><c><![CDATA[+hmaxk true|false]]></c></tag>
       <item>
         <p>Sets whether to kill processes that reach the maximum heap size or not. If
         <c>+hmaxk</c> is not given, the default is <c>true</c>. For more information,
@@ -660,11 +673,11 @@
         <p>Sets the initial process dictionary size of processes to the size
           <c><![CDATA[Size]]></c>.</p>
       </item>
-      <tag><marker id="+hmqd"><c>+hmqd off_heap|on_heap|mixed</c></marker></tag>
+      <tag><marker id="+hmqd"/><c>+hmqd off_heap|on_heap</c></tag>
       <item><p>
 	Sets the default value for the process flag
 	<c>message_queue_data</c>. If <c>+hmqd</c> is not
-	passed, <c>mixed</c> will be the default. For more information,
+	passed, <c>on_heap</c> will be the default. For more information,
 	see the documentation of
         <seealso marker="erlang#process_flag_message_queue_data"><c>process_flag(message_queue_data,
 	MQD)</c></seealso>.
@@ -902,6 +915,13 @@
             number of dirty CPU schedulers online can be changed at run time via
             <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)</seealso>.
           </p>
+	  <p>
+	    The amount of dirty CPU schedulers is limited by the amount of
+	    normal schedulers in order to limit the effect on processes
+	    executing on ordinary schedulers. If the amount of dirty CPU
+	    schedulers was allowed to be unlimited, dirty CPU bound jobs would
+	    potentially starve normal jobs.
+	  </p>
           <p>This option is ignored if the emulator doesn't have threading support
             enabled. Currently, <em>this option is experimental</em> and is supported only
             if the emulator was configured and built with support for dirty schedulers
@@ -931,7 +951,7 @@
             enabled (it's disabled by default).
           </p>
       </item>
-      <tag><marker id="+SDio"/><c><![CDATA[+SDio IOSchedulers]]></c></tag>
+      <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
       <item>
           <p>Sets the number of dirty I/O scheduler threads to create when threading
             support has been enabled. The valid range is 0-1024. By default, the number
@@ -939,6 +959,14 @@
             threads in the <seealso marker="#async_thread_pool_size">async thread pool
             </seealso>.
           </p>
+	  <p>
+	    The amount of dirty IO schedulers is not limited by the amount of
+	    normal schedulers <seealso marker="#+SDcpu">like the amount of
+	    dirty CPU schedulers</seealso>. This since only I/O bound work is
+	    expected to execute on dirty I/O schedulers. If the user should schedule CPU
+	    bound jobs on dirty I/O schedulers, these jobs might starve ordinary
+	    jobs executing on ordinary schedulers.
+	  </p>
           <p>This option is ignored if the emulator doesn't have threading support
             enabled. Currently, <em>this option is experimental</em> and is supported only
             if the emulator was configured and built with support for dirty schedulers

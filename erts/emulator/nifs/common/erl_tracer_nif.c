@@ -45,7 +45,7 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"enabled", 3, enabled},
-    {"trace", 6, trace}
+    {"trace", 5, trace}
 };
 
 
@@ -57,6 +57,7 @@ ERL_NIF_INIT(erl_tracer, nif_funcs, load, NULL, upgrade, unload)
     ATOM_DECL(cpu_timestamp);                      \
     ATOM_DECL(discard);                            \
     ATOM_DECL(exception_from);                     \
+    ATOM_DECL(extra);                              \
     ATOM_DECL(match_spec_result);                  \
     ATOM_DECL(monotonic);                          \
     ATOM_DECL(ok);                                 \
@@ -76,8 +77,7 @@ ERL_NIF_INIT(erl_tracer, nif_funcs, load, NULL, upgrade, unload)
     ATOM_DECL(gc_minor_start);                     \
     ATOM_DECL(gc_minor_end);                       \
     ATOM_DECL(gc_major_start);                     \
-    ATOM_DECL(gc_major_end);                       \
-    ATOM_DECL(undefined);
+    ATOM_DECL(gc_major_end);
 
 #define ATOM_DECL(A) static ERL_NIF_TERM atom_##A
 ATOMS
@@ -154,11 +154,6 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
               Tracee :: pid() || port() || undefined,
               Msg :: term(),
               Opts :: map()) -> ignored().
-   -spec trace(Tag :: atom(), TracerState :: pid() | port(),
-              Tracee :: pid() || port() || undefined,
-              Msg :: term(),
-              Extra :: term(),
-              Opts :: map()) -> ignored().
 */
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -167,7 +162,8 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifPort to_port;
     size_t tt_sz = 0;
     int is_port = 0;
-    ASSERT(argc == 6);
+    size_t opts_sz = 0;
+    ASSERT(argc == 5);
 
     if (!enif_get_local_pid(env, argv[1], &to_pid)) {
         if (!enif_get_local_port(env, argv[1], &to_port)) {
@@ -179,12 +175,17 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         is_port = 1;
     }
 
-    if (!enif_is_identical(argv[4], atom_undefined)) {
+    opts = argv[4];
+
+    if (!enif_get_map_size(env, opts, &opts_sz))
+        opts_sz = 0;
+
+    if (opts_sz && enif_get_map_value(env, opts, atom_extra, &value)) {
         tt[tt_sz++] = atom_trace;
         tt[tt_sz++] = argv[2];
         tt[tt_sz++] = argv[0];
         tt[tt_sz++] = argv[3];
-        tt[tt_sz++] = argv[4];
+        tt[tt_sz++] = value;
     } else {
         if (enif_is_identical(argv[0], atom_seq_trace)) {
             tt[tt_sz++] = atom_seq_trace;
@@ -198,21 +199,16 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         }
     }
 
-    opts = argv[5];
 
-    if (enif_get_map_value(env, opts, atom_match_spec_result,
-                           &value)
-        && !enif_is_identical(value, atom_true)) {
+    if (opts_sz && enif_get_map_value(env, opts, atom_match_spec_result, &value)) {
         tt[tt_sz++] = value;
     }
 
-    if (enif_get_map_value(env, opts, atom_scheduler_id, &value)
-        && !enif_is_identical(value, atom_undefined)) {
+    if (opts_sz && enif_get_map_value(env, opts, atom_scheduler_id, &value)) {
         tt[tt_sz++] = value;
     }
 
-    if (enif_get_map_value(env, opts, atom_timestamp, &value)
-        && !enif_is_identical(value, atom_undefined)) {
+    if (opts_sz && enif_get_map_value(env, opts, atom_timestamp, &value)) {
         ERL_NIF_TERM ts;
         if (enif_is_identical(value, atom_monotonic)) {
             ErlNifTime mon = enif_monotonic_time(ERL_NIF_NSEC);

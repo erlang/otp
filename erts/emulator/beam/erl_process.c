@@ -149,7 +149,7 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
-int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = 0;
+int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = SPO_ON_HEAP_MSGQ;
 int ERTS_WRITE_UNLIKELY(erts_eager_check_io) = 1;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
 int ERTS_WRITE_UNLIKELY(erts_sched_balance_util) = 0;
@@ -3509,7 +3509,7 @@ wake_dirty_schedulers(ErtsRunQueue *rq, int one)
 #endif
 
 #define ERTS_NO_USED_RUNQS_SHIFT 16
-#define ERTS_NO_RUNQS_MASK 0xffff
+#define ERTS_NO_RUNQS_MASK 0xffffU
 
 #if ERTS_MAX_NO_OF_SCHEDULERS > ERTS_NO_RUNQS_MASK
 #  error "Too large amount of schedulers allowed"
@@ -8197,7 +8197,7 @@ sched_dirty_cpu_thread_func(void *vesdp)
 #endif
     erts_thread_init_float();
 
-    process_main();
+    erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty CPU scheduler thread number %beu terminated\n",
@@ -8242,7 +8242,7 @@ sched_dirty_io_thread_func(void *vesdp)
 #endif
     erts_thread_init_float();
 
-    process_main();
+    erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Dirty I/O scheduler thread number %beu terminated\n",
@@ -9377,77 +9377,6 @@ scheduler_gc_proc(Process *c_p, int reds_left)
     return reds;
 }
 
-static ERTS_INLINE void
-clean_dirty_start(Process *p)
-{
-#if defined(ERTS_DIRTY_SCHEDULERS) && !defined(ARCH_64)
-    void *ptr = ERTS_PROC_SET_DIRTY_CPU_START(p, NULL);
-    if (ptr)
-	erts_free(ERTS_ALC_T_DIRTY_START, ptr);
-#endif
-}
-
-static ERTS_INLINE void
-save_dirty_start(ErtsSchedulerData *esdp, Process *c_p)
-{
-#ifdef ERTS_DIRTY_SCHEDULERS
-    if (ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(esdp->run_queue)) {
-	ErtsMonotonicTime time = erts_get_monotonic_time(esdp);
-#ifdef ARCH_64
-	ERTS_PROC_SET_DIRTY_CPU_START(c_p, (void *) time);
-#else
-	ErtsMonotonicTime *stimep;
-
-	stimep = (ErtsMonotonicTime *) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
-	if (!stimep) {
-	    stimep = erts_alloc(ERTS_ALC_T_DIRTY_START,
-				sizeof(ErtsMonotonicTime));
-	    ERTS_PROC_SET_DIRTY_CPU_START(c_p, (void *) stimep);
-	}
-	*stimep = time;
-#endif
-    }
-#endif
-}
-
-static ERTS_INLINE int
-get_dirty_reds(ErtsSchedulerData *esdp, Process *c_p)
-{
-
-#ifndef ERTS_DIRTY_SCHEDULERS
-    return -1;
-#else
-    ErtsMonotonicTime stime, time;
-
-    if (!ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(esdp->run_queue))
-	return 1;
-
-#ifdef ARCH_64
-    stime = (ErtsMonotonicTime) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
-#else
-    {
-	ErtsMonotonicTime *stimep;
-	stimep = (ErtsMonotonicTime *) ERTS_PROC_GET_DIRTY_CPU_START(c_p);
-	ASSERT(stimep);
-	stime = *stimep;
-    }
-#endif
-
-    time = erts_get_monotonic_time(esdp);
-
-    ASSERT(stime && stime < time);
-
-    time -= stime;
-    time = ERTS_MONOTONIC_TO_USEC(time);
-    time *= 2;
-
-    if (time > INT_MAX)
-	return INT_MAX;
-    return (int) time;
-#endif
-
-}
-
 /*
  * schedule() is called from BEAM (process_main()) or HiPE
  * (hipe_mode_switch()) when the current process is to be
@@ -9466,11 +9395,10 @@ get_dirty_reds(ErtsSchedulerData *esdp, Process *c_p)
  * so that normal processes get to run more frequently. 
  */
 
-Process *schedule(Process *p, int calls)
+Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 {
     Process *proxy_p = NULL;
     ErtsRunQueue *rq;
-    ErtsSchedulerData *esdp;
     int context_reds;
     int fcalls;
     int input_reductions;
@@ -9507,8 +9435,19 @@ Process *schedule(Process *p, int calls)
      * Clean up after the process being scheduled out.
      */
     if (!p) {	/* NULL in the very first schedule() call */
+#ifdef ERTS_DIRTY_SCHEDULERS
+	is_normal_sched = !esdp;
+	if (is_normal_sched) {
+	    esdp = erts_get_scheduler_data();
+	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+	}
+	else {
+	    ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
+	}
+#else
 	esdp = erts_get_scheduler_data();
-	is_normal_sched = !ERTS_SCHEDULER_IS_DIRTY(esdp);
+	is_normal_sched = 1;
+#endif
 	rq = erts_get_runq_current(esdp);
 	ASSERT(esdp);
 	fcalls = (int) erts_smp_atomic32_read_acqb(&function_calls);
@@ -9517,12 +9456,12 @@ Process *schedule(Process *p, int calls)
     } else {
 #ifdef ERTS_SMP
 #ifdef ERTS_DIRTY_SCHEDULERS
-	esdp = p->scheduler_data;
-	is_normal_sched = esdp != NULL;
-	if (is_normal_sched)
+	is_normal_sched = !esdp;
+	if (is_normal_sched) {
+	    esdp = p->scheduler_data;
 	    ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
+	}
 	else {
-	    esdp = erts_get_scheduler_data();
 	    ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
 	}
 #else
@@ -9541,10 +9480,7 @@ Process *schedule(Process *p, int calls)
 
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
-	if (is_normal_sched)
-	    reds = actual_reds = calls - esdp->virtual_reds;
-	else
-	    reds = actual_reds = get_dirty_reds(esdp, p);
+	reds = actual_reds = calls - esdp->virtual_reds;
 
 	ASSERT(actual_reds >= 0);
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
@@ -9994,16 +9930,9 @@ Process *schedule(Process *p, int calls)
 	    calls = 0;
 	    reds = context_reds;
 
-#ifdef ERTS_SMP
-
 	    erts_smp_runq_unlock(rq);
 
-#endif /* ERTS_SMP */
-
 	}
-
-	if (!is_normal_sched)
-	    save_dirty_start(esdp, p);
 
 #ifdef ERTS_SMP
 
@@ -10153,7 +10082,7 @@ Process *schedule(Process *p, int calls)
 	    }
 	}
 
-	if (ERTS_IS_GC_DESIRED(p)) {
+	if (ERTS_IS_GC_DESIRED(p) && !ERTS_SCHEDULER_IS_DIRTY_IO(esdp)) {
 	    if (!(state & ERTS_PSFLG_EXITING) && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
 		int cost = scheduler_gc_proc(p, reds);
 		calls += cost;
@@ -11206,6 +11135,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	flags |= F_ON_HEAP_MSGQ;
     }
 
+    ASSERT((flags & F_ON_HEAP_MSGQ) || (flags & F_OFF_HEAP_MSGQ));
+
     if (!rq)
 	rq = erts_get_runq_proc(parent);
 
@@ -11217,6 +11148,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	so->error_code = SYSTEM_LIMIT;
 	goto error;
     }
+
+    ASSERT((erts_smp_atomic32_read_nob(&p->state)
+	    & ERTS_PSFLG_ON_HEAP_MSGQ)
+	   || (erts_smp_atomic32_read_nob(&p->state)
+	       & ERTS_PSFLG_OFF_HEAP_MSGQ));
 
 #ifdef BM_COUNTERS
     processes_busy++;
@@ -11737,8 +11673,6 @@ delete_process(Process* p)
     nif_export = ERTS_PROC_SET_NIF_TRAP_EXPORT(p, NULL);
     if (nif_export)
 	erts_destroy_nif_export(nif_export);
-
-    clean_dirty_start(p);
 
     /* Cleanup psd */
 
@@ -12305,7 +12239,6 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
     ExitMonitorContext *pcontext = vpcontext;
     DistEntry *dep;
     ErtsMonitor *rmon;
-    Process *rp;
 
     switch (mon->type) {
     case MON_ORIGIN:
@@ -12334,9 +12267,10 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_deref_dist_entry(dep);
 	    }
 	} else {
-	    ASSERT(is_pid(mon->pid));
-	    if (is_internal_pid(mon->pid)) { /* local by pid or name */
-		rp = erts_pid2proc(NULL, 0, mon->pid, ERTS_PROC_LOCK_LINK);
+            ASSERT(is_pid(mon->pid) || is_port(mon->pid));
+            /* if is local by pid or name */
+            if (is_internal_pid(mon->pid)) {
+                Process *rp = erts_pid2proc(NULL, 0, mon->pid, ERTS_PROC_LOCK_LINK);
 		if (!rp) {
 		    goto done;
 		}
@@ -12346,7 +12280,17 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		    goto done;
 		}
 		erts_destroy_monitor(rmon);
-	    } else { /* remote by pid */
+            } else if (is_internal_port(mon->pid)) {
+                /* Is a local port */
+                Port *prt = erts_port_lookup_raw(mon->pid);
+                if (!prt) {
+                    goto done;
+                }
+                erts_port_demonitor(pcontext->p,
+                                    ERTS_PORT_DEMONITOR_ORIGIN_ON_DEATHBED,
+                                    prt, mon->ref, NULL);
+                return; /* let erts_port_demonitor do the deletion */
+            } else { /* remote by pid */
 		ASSERT(is_external_pid(mon->pid));
 		dep = external_pid_dist_entry(mon->pid);
 		ASSERT(dep != NULL);
@@ -12384,6 +12328,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	    erts_port_release(prt); 
 	} else if (is_internal_pid(mon->pid)) {/* local by name or pid */
 	    Eterm watched;
+            Process *rp;
 	    DeclareTmpHeapNoproc(lhp,3);
 	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_LINK
 				      | ERTS_PROC_LOCKS_MSG_SEND);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ getMetric(#wx_ref{type=ThisT,ref=ThisRef},Id)
   <<ThisRef:32/?UI,Id:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauidockart.html#wxauidockartsetcolour">external documentation</a>.
--spec setColour(This, Id, Colour) -> ok when
+-spec setColour(This, Id, Colour) -> 'ok' when
 	This::wxAuiDockArt(), Id::integer(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Id,Colour)
  when is_integer(Id),tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
@@ -72,7 +72,7 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Id,Colour)
   <<ThisRef:32/?UI,Id:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauidockart.html#wxauidockartsetfont">external documentation</a>.
--spec setFont(This, Id, Font) -> ok when
+-spec setFont(This, Id, Font) -> 'ok' when
 	This::wxAuiDockArt(), Id::integer(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT,ref=ThisRef},Id,#wx_ref{type=FontT,ref=FontRef})
  when is_integer(Id) ->
@@ -82,7 +82,7 @@ setFont(#wx_ref{type=ThisT,ref=ThisRef},Id,#wx_ref{type=FontT,ref=FontRef})
   <<ThisRef:32/?UI,Id:32/?UI,FontRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauidockart.html#wxauidockartsetmetric">external documentation</a>.
--spec setMetric(This, Id, New_val) -> ok when
+-spec setMetric(This, Id, New_val) -> 'ok' when
 	This::wxAuiDockArt(), Id::integer(), New_val::integer().
 setMetric(#wx_ref{type=ThisT,ref=ThisRef},Id,New_val)
  when is_integer(Id),is_integer(New_val) ->

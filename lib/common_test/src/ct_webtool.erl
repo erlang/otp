@@ -84,27 +84,27 @@
 %% Function = {FunctionName,Arity} | FunctionName |
 %%            {Module, FunctionName, Arity} | {Module,FunctionName}
 debug(F) -> 
-    ttb:tracer(all,[{file,"webtool.trc"}]), % tracing all nodes
-    ttb:p(all,[call,timestamp]),
+    {ok, _} = ttb:tracer(all,[{file,"webtool.trc"}]), % tracing all nodes
+    {ok, _} = ttb:p(all,[call,timestamp]),
     MS = [{'_',[],[{return_trace},{message,{caller}}]}],
-    tp(F,MS),
-    ttb:ctp(?MODULE,stop_debug), % don't want tracing of the stop_debug func
+    _ = tp(F,MS),
+    {ok, _} = ttb:ctp(?MODULE,stop_debug), % don't want tracing of the stop_debug func
     ok.
 tp(local,MS) -> % all functions
     ttb:tpl(?MODULE,MS);
 tp(global,MS) -> % all exported functions
     ttb:tp(?MODULE,MS);
 tp([{M,F,A}|T],MS) -> % Other module
-    ttb:tpl(M,F,A,MS),
+    {ok, _} = ttb:tpl(M,F,A,MS),
     tp(T,MS);
 tp([{M,F}|T],MS) when is_atom(F) -> % Other module
-    ttb:tpl(M,F,MS),
+    {ok, _} = ttb:tpl(M,F,MS),
     tp(T,MS);
 tp([{F,A}|T],MS) -> % function/arity
-    ttb:tpl(?MODULE,F,A,MS),
+    {ok, _} = ttb:tpl(?MODULE,F,A,MS),
     tp(T,MS);
 tp([F|T],MS) -> % function
-    ttb:tpl(?MODULE,F,MS),
+    {ok, _} = ttb:tpl(?MODULE,F,MS),
     tp(T,MS);
 tp([],_MS) ->
     ok.
@@ -112,10 +112,10 @@ stop_debug() ->
     ttb:stop([format]).
 
 debug_app(Mod) ->
-    ttb:tracer(all,[{file,"webtool_app.trc"},{handler,{fun out/4,true}}]),
-    ttb:p(all,[call,timestamp]),
+    {ok, _} = ttb:tracer(all,[{file,"webtool_app.trc"},{handler,{fun out/4,true}}]),
+    {ok, _} = ttb:p(all,[call,timestamp]),
     MS = [{'_',[],[{return_trace},{message,{caller}}]}],
-    ttb:tp(Mod,MS),
+    {ok, _} = ttb:tp(Mod,MS),
     ok.
    
 out(_,{trace_ts,Pid,call,MFA={M,F,A},{W,_,_},TS},_,S) 
@@ -145,7 +145,7 @@ script_start([App]) ->
     script_start([App,DefaultBrowser]);
 script_start([App,Browser]) ->
     io:format("Starting webtool...\n"),
-    start(),
+    {ok, _} = start(),
     AvailableApps = get_applications(),
     {OSType,_} = os:type(),
     case lists:keysearch(App,1,AvailableApps) of
@@ -159,14 +159,14 @@ script_start([App,Browser]) ->
 		      _ -> 
 			  "http://localhost:" ++ PortStr ++ "/" ++ StartPage
 		  end,
-	    case Browser of 
+	    _ = case Browser of 
 		none ->
 		    ok;
                 iexplore when OSType == win32->
                     io:format("Starting internet explorer...\n"),
                     {ok,R} = win32reg:open(""),
 		    Key="\\local_machine\\SOFTWARE\\Microsoft\\IE Setup\\Setup",
-                    win32reg:change_key(R,Key),
+                    ok = win32reg:change_key(R,Key),
                     {ok,Val} = win32reg:value(R,"Path"),
 		    IExplore=filename:join(win32reg:expand(Val),"iexplore.exe"),
                     os:cmd("\"" ++ IExplore ++ "\" " ++ Url);
@@ -186,7 +186,7 @@ script_start([App,Browser]) ->
 			{Port,{exit_status,_Error}} ->
 			    io:format(" not running, starting ~w...\n",
 				      [Browser]),
-			    os:cmd(BStr ++ " " ++ Url),
+			    _ = os:cmd(BStr ++ " " ++ Url),
 			    ok
 		    after ?SEND_URL_TIMEOUT ->
 			    io:format(" failed, starting ~w...\n",[Browser]),
@@ -206,7 +206,7 @@ script_start([App,Browser]) ->
 
 usage() ->
     io:format("Starting webtool...\n"),
-    start(),
+    {ok, _} = start(),
     Apps = lists:map(fun({A,_}) -> A end,get_applications()),
     io:format(
       "\nUsage: start_webtool application [ browser ]\n"
@@ -254,7 +254,12 @@ start(Path,Port) when is_integer(Port)->
 	
 start(Path,Data0)->
     Data = Data0 ++ rest_of_standard_data(),
-    gen_server:start({local,ct_web_tool},ct_webtool,{Path,Data},[]).
+    case gen_server:start({local,ct_web_tool},ct_webtool,{Path,Data},[]) of
+		{error, {already_started, Pid}} ->
+		    {ok, Pid};
+		Else ->
+		    Else
+    end.
 
 stop()->
     gen_server:call(ct_web_tool,stoppit).

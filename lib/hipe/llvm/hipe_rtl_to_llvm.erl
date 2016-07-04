@@ -13,6 +13,8 @@
 -define(WORD_WIDTH, (?bytes_to_bits(hipe_rtl_arch:word_size()))).
 -define(BRANCH_META_TAKEN, "0").
 -define(BRANCH_META_NOT_TAKEN, "1").
+-define(FIRST_FREE_META_NO, 2).
+-define(HIPE_LITERALS_META, "hipe.literals").
 
 %%------------------------------------------------------------------------------
 %% @doc Main function for translating an RTL function to LLVM Assembly. Takes as
@@ -51,8 +53,9 @@ translate(RTL, Roots) ->
     translate_instr_list(Code1, [], Relocs, Data),
   %% Create LLVM code to declare relocation symbols as external symbols along
   %% with local variables in order to use them as just any other variable
-  {FinalRelocs, ExternalDecl, LocalVars} =
+  {FinalRelocs, ExternalDecl0, LocalVars} =
     handle_relocations(Relocs1, Data, Fun),
+  ExternalDecl = add_literals_metadata(ExternalDecl0),
   %% Pass on LLVM code in order to create Fail blocks and a landingpad
   %% instruction to each one
   LLVM_Code2 = add_landingpads(LLVM_Code1, FailLabels),
@@ -266,17 +269,18 @@ trans_alub_overflow(I, Sign, Relocs) ->
   T2 = mk_temp(),
   %% T1{1}: Boolean variable indicating overflow
   I6 = hipe_llvm:mk_extractvalue(T2, ReturnType, T1, "1", []),
-  case hipe_rtl:alub_cond(I) of
-    Op when Op =:= overflow orelse Op =:= ltu ->
-      True_label = mk_jump_label(hipe_rtl:alub_true_label(I)),
-      False_label = mk_jump_label(hipe_rtl:alub_false_label(I)),
-      MetaData = branch_metadata(hipe_rtl:alub_pred(I));
-    not_overflow ->
-      True_label = mk_jump_label(hipe_rtl:alub_false_label(I)),
-      False_label = mk_jump_label(hipe_rtl:alub_true_label(I)),
-      MetaData = branch_metadata(1 - hipe_rtl:alub_pred(I))
-  end,
-  I7 = hipe_llvm:mk_br_cond(T2, True_label, False_label, MetaData),
+  {TrueLabel, FalseLabel, MetaData} =
+    case hipe_rtl:alub_cond(I) of
+      Op when Op =:= overflow orelse Op =:= ltu ->
+	{mk_jump_label(hipe_rtl:alub_true_label(I)),
+	 mk_jump_label(hipe_rtl:alub_false_label(I)),
+	 branch_metadata(hipe_rtl:alub_pred(I))};
+      not_overflow ->
+	{mk_jump_label(hipe_rtl:alub_false_label(I)),
+	 mk_jump_label(hipe_rtl:alub_true_label(I)),
+	 branch_metadata(1 - hipe_rtl:alub_pred(I))}
+    end,
+  I7 = hipe_llvm:mk_br_cond(T2, TrueLabel, FalseLabel, MetaData),
   {[I7, I6, I5, I4, I3, I2, I1], NewRelocs}.
 
 trans_alub_op(I, Sign) ->
@@ -1457,8 +1461,8 @@ handle_relocations(Relocs, Data, Fun) ->
   Relocs4 = dict:store("hipe_bifs.llvm_fix_pinned_regs.0",
                        {call, {hipe_bifs, llvm_fix_pinned_regs, 0}}, Relocs3),
   BranchMetaData = [
-    hipe_llvm:mk_branch_meta(?BRANCH_META_TAKEN, "99", "1")
-  , hipe_llvm:mk_branch_meta(?BRANCH_META_NOT_TAKEN, "1", "99")
+    hipe_llvm:mk_meta(?BRANCH_META_TAKEN,     ["branch_weights", 99, 1])
+  , hipe_llvm:mk_meta(?BRANCH_META_NOT_TAKEN, ["branch_weights", 1, 99])
   ],
   ExternalDeclarations = AtomDecl ++ ClosureDecl ++ ConstDecl ++ FunDecl ++
     ClosureLabelDecl ++ SwitchDecl ++ BranchMetaData,
@@ -1611,3 +1615,16 @@ load_constant(Label) ->
 const_to_dict(Elem, Dict) ->
   Name = "DL" ++ integer_to_list(Elem),
   dict:store(Name, {'constant', Elem}, Dict).
+
+%% @doc Export the hipe literals that LLVM needs to generate the prologue as
+%% metadata.
+add_literals_metadata(ExternalDecls) ->
+  Pairs = [hipe_llvm:mk_meta(integer_to_list(?FIRST_FREE_META_NO),
+			     ["P_NSP_LIMIT", ?P_NSP_LIMIT])
+	  ,hipe_llvm:mk_meta(integer_to_list(?FIRST_FREE_META_NO + 1),
+			     ["X86_LEAF_WORDS", ?X86_LEAF_WORDS])
+	  ,hipe_llvm:mk_meta(integer_to_list(?FIRST_FREE_META_NO + 2),
+			     ["AMD64_LEAF_WORDS", ?AMD64_LEAF_WORDS])
+	  ],
+  [hipe_llvm:mk_meta(?HIPE_LITERALS_META, Pairs) |
+   Pairs ++ ExternalDecls].

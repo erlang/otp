@@ -97,10 +97,10 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttonwxspinbutton">external documentation</a>.
 -spec new(Parent, [Option]) -> wxSpinButton() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -124,10 +124,10 @@ create(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttoncreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSpinButton(), Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'id', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSpinButton),
@@ -166,7 +166,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttonsetrange">external documentation</a>.
--spec setRange(This, MinVal, MaxVal) -> ok when
+-spec setRange(This, MinVal, MaxVal) -> 'ok' when
 	This::wxSpinButton(), MinVal::integer(), MaxVal::integer().
 setRange(#wx_ref{type=ThisT,ref=ThisRef},MinVal,MaxVal)
  when is_integer(MinVal),is_integer(MaxVal) ->
@@ -175,7 +175,7 @@ setRange(#wx_ref{type=ThisT,ref=ThisRef},MinVal,MaxVal)
   <<ThisRef:32/?UI,MinVal:32/?UI,MaxVal:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxspinbutton.html#wxspinbuttonsetvalue">external documentation</a>.
--spec setValue(This, Value) -> ok when
+-spec setValue(This, Value) -> 'ok' when
 	This::wxSpinButton(), Value::integer().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
  when is_integer(Value) ->
@@ -184,7 +184,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
   <<ThisRef:32/?UI,Value:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSpinButton()) -> ok.
+-spec destroy(This::wxSpinButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSpinButton),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

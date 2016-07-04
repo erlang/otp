@@ -284,8 +284,9 @@ icode_ssa_type(IcodeSSA, MFA, Options, Servers) ->
 	  false -> AnnIcode1
 	end,
       AnnIcode3 = icode_range_analysis(AnnIcode2, MFA, Options, Servers),
-      pp(AnnIcode3, MFA, icode, pp_range_icode, Options, Servers),
-      hipe_icode_type:unannotate_cfg(AnnIcode3)
+      AnnIcode4 = icode_eliminate_safe_calls(AnnIcode3, Options),
+      pp(AnnIcode4, MFA, icode, pp_range_icode, Options, Servers),
+      hipe_icode_type:unannotate_cfg(AnnIcode4)
   end.
 
 icode_ssa_convert(IcodeCfg, Options) ->
@@ -295,7 +296,7 @@ icode_ssa_convert(IcodeCfg, Options) ->
 icode_ssa_const_prop(IcodeSSA, Options) ->
   case proplists:get_bool(icode_ssa_const_prop, Options) of
     true ->
-      ?option_time(Tmp=hipe_icode_ssa_const_prop:propagate(IcodeSSA),
+      Tmp = ?option_time(hipe_icode_ssa_const_prop:propagate(IcodeSSA),
 		   "Icode SSA sparse conditional constant propagation", Options),
       ?option_time(hipe_icode_ssa:remove_dead_code(Tmp),
 		   "Icode SSA dead code elimination pass 1", Options);
@@ -330,6 +331,15 @@ icode_range_analysis(IcodeSSA, MFA, Options, Servers) ->
     true ->
       ?option_time(hipe_icode_range:cfg(IcodeSSA, MFA, Options, Servers), 
 		   "Icode SSA integer range analysis", Options);
+    false ->
+     IcodeSSA
+  end.
+
+icode_eliminate_safe_calls(IcodeSSA, Options) ->
+  case proplists:get_bool(icode_call_elim, Options) of
+    true ->
+      ?option_time(hipe_icode_call_elim:cfg(IcodeSSA),
+		   "Icode SSA safe call elimination", Options);
     false ->
      IcodeSSA
   end.

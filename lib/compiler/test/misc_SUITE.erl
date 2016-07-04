@@ -256,12 +256,15 @@ silly_coverage(Config) when is_list(Config) ->
 		     {jump,{f,42}}]}],99},
     expect_error(fun() -> beam_clean:module(CleanInput, []) end),
 
-    %% beam_peep
+    %% beam_peep. This is tricky. Use a select instruction with
+    %% an odd number of elements in the list to crash
+    %% prune_redundant_values/2 but not beam_clean:clean_labels/1.
     PeepInput = {?MODULE,[{foo,0}],[],
 		 [{function,foo,0,2,
 		   [{label,1},
 		    {func_info,{atom,?MODULE},{atom,foo},0},
-		    {label,2}|non_proper_list]}],99},
+		    {label,2},{select,op,r,{f,2},[{f,2}]}]}],
+		 2},
     expect_error(fun() -> beam_peep:module(PeepInput, []) end),
 
     %% beam_bsm. This is tricky. Our function must be sane enough to not crash

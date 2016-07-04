@@ -589,12 +589,6 @@
   </xsl:template>
 
   <!-- Inline elements -->
-  <xsl:template match="b">
-    <xsl:text>\fB</xsl:text>
-    <xsl:apply-templates/>
-    <xsl:text>\fR\&amp; </xsl:text>
-  </xsl:template>
-
   <xsl:template match="i">
     <xsl:text>\fI</xsl:text>
     <xsl:apply-templates/>
@@ -620,6 +614,12 @@
 
   <xsl:template match="em">
     <xsl:text>\fI</xsl:text> <xsl:apply-templates/><xsl:text>\fR\&amp;</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="strong">
+    <xsl:text>\fB</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>\fR\&amp; </xsl:text>
   </xsl:template>
 
   <xsl:template match="seealso">

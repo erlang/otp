@@ -147,11 +147,7 @@ spawn_with_binaries(Config) when is_list(Config) ->
     TwoMeg = lists:duplicate(1024, L),
     Fun = fun() -> spawn(?MODULE, binary_owner, [list_to_binary(TwoMeg)]),
 			 receive after 1 -> ok end end,
-    Iter = case test_server:purify_is_running() of
-		     true -> 10;
-		     false -> 150
-		 end,
-    test_server:do_times(Iter, Fun),
+    test_server:do_times(150, Fun),
     ok.
 
 binary_owner(Bin) when is_binary(Bin) ->
@@ -2585,7 +2581,10 @@ enable_internal_state() ->
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
     end.
 
-sys_mem_cond_run(ReqSizeMB, TestFun) when is_integer(ReqSizeMB) ->
+sys_mem_cond_run(OrigReqSizeMB, TestFun) when is_integer(OrigReqSizeMB) ->
+    %% Debug normally needs more memory, so double the requirement
+    Debug = erlang:system_info(debug_compiled),
+    ReqSizeMB = if Debug -> OrigReqSizeMB * 2; true -> OrigReqSizeMB end,
     case total_memory() of
 	TotMem when is_integer(TotMem), TotMem >= ReqSizeMB ->
 	    TestFun();

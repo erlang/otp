@@ -15,14 +15,14 @@ If you're building for any use approximating production, we ***strongly*** encou
 | Production   | R16    | [`basho-otp-16`](http://github.com/basho/otp/tree/basho-otp-16) | [`OTP_R16B02_basho10`](http://github.com/basho/otp/tree/OTP_R16B02_basho10) | [`OTP_R16B02_basho10`](http://github.com/basho/otp/tree/OTP_R16B02_basho10) |
 | Retired      | R15    | [`basho-otp-15`](http://github.com/basho/otp/tree/basho-otp-15) | [`basho_OTP_R15B01p`](http://github.com/basho/otp/tree/basho_OTP_R15B01p) | [`OTP_R15B01_basho1`](http://github.com/basho/otp/tree/OTP_R15B01_basho1) |
 | Experimental | OTP-17 | [`basho-otp-17`](http://github.com/basho/otp/tree/basho-otp-17) | _n/a_ | [`basho-otp-17`](http://github.com/basho/otp/tree/basho-otp-17) |
-| Active       | OTP-18 | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) | _n/a_ | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) |
+| Experimental | OTP-18 | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) | _n/a_ | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) |
 | Experimental | OTP-19 | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) | _n/a_ | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) |
 
 ####Branch Conventions
 
 All Basho branches are named with the prefix _basho_ - any other branch name is simply updated periodically, unchanged, from Ericsson's repository.
 
-For any given Basho OTP-***NN*** version, the current stable branch is `basho-otp-NN` and work-in-progress branches are `basho-otp-NN-some-descriptive-name`.
+For any given Basho OTP _**NN**_ version, the current stable branch is `basho-otp-NN` and work-in-progress branches are `basho-otp-NN-some-descriptive-name`.
 Updates from the main Erlang repository are merged from the appropriate maintenance branch into `basho-otp-NN` periodically, usually at tagged point releases.
 
 Further information on branches can be found in README and Release Notes files on the branches themselves.
@@ -92,5 +92,5 @@ Beginning with OTP-18, the [Apache License, Version 2.0][license] applies.
   [license]:        LICENSE.txt
   [otp_bugs]:       https://github.com/erlang/otp/wiki/Bug-reports
   [otp_patching]:   http://wiki.github.com/erlang/otp/contribution-guidelines
-  [otp_readme]:     https://github.com/erlang/otp/blob/master/README.md
+  [otp_readme]:     https://github.com/erlang/otp/blob/maint/README.md
   [otp_repo]:       http://github.com/erlang/otp

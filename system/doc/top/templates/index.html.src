@@ -22,7 +22,7 @@ limitations under the License.
 <html>
 <head>
   <link rel="stylesheet" href="otp_doc.css" type="text/css"/>
-  <title>Erlang/OTP #release#</title>
+  <title>Erlang/OTP #otp_base_vsn#</title>
 
 <script id="js" type="text/javascript" language="JavaScript" src="js/flipmenu/flipmenu.js">
 
@@ -36,7 +36,7 @@ limitations under the License.
 <div id="leftnav">
 <div class="innertube">
 <img alt="Erlang logo" src="erlang-logo.png"/ >
-<!-- small><a href="glossary.html">Glossary</a> |-->
+<p/>
 <small><a href="applications.html">Applications</a><br>
 <a href="man_index.html">Modules</a></small>
 <p/>
@@ -74,7 +74,7 @@ limitations under the License.
 <div id="content">
 <div class="innertube">
 <center>
-<font size="+1"><b>Erlang/OTP #release#</b></font><br>
+<font size="+1"><b>Erlang/OTP #otp_base_vsn#</b></font><br>
 </center>
 <center>
 <p>
@@ -108,7 +108,7 @@ In addition to the documentation here Erlang is described in several recent book
 <a href="http://shop.oreilly.com/product/0636920025818.do">"Introducing Erlang"</a> from O'Reilly.
 </li>
 <li>
-<a href="http://www.nostarch.com/erlang">"Learn You Some Erlang for Great Good!"</a> from nostarch.
+<a href="http://www.nostarch.com/erlang">"Learn You Some Erlang for Great Good!"</a> from No Starch Press.
 </li>
 <li>
 <a href="http://oreilly.com/catalog/9780596518189">"Erlang Programming"</a> from O'Reilly.
@@ -118,6 +118,9 @@ In addition to the documentation here Erlang is described in several recent book
 </li>
 <li>
 <a href="http://www.manning.com/logan">"Erlang and OTP in Action"</a> from Manning.
+</li>
+<li>
+<a href="http://shop.oreilly.com/product/0636920024149.do">"Designing for Scalability with Erlang/OTP"</a> from O'Reilly.
 </li>
 </ul>
 <p>
@@ -129,14 +132,15 @@ href="applications.html">applications</a>. An application normally contains
 Erlang <a href="man_index.html">modules</a>. Some OTP applications,
 such as the C interface <em>erl_interface</em>, are written in other languages and have no Erlang
 modules.
+<p></p>
+</li>
 
-<p>
 <li>On a Unix system you can view the manual pages from the command
 line using
 <pre>
     % erl -man &lt;module&gt;
 </pre>
-<p>
+</li>
 
 <li> You can of course use any editor you like to write Erlang
 programs, but if you use Emacs there exists editing support such as
@@ -161,23 +165,27 @@ module and function name completion (tab) if the module is loaded.
 
 <li>OpenSource users can ask questions
 and share experiences on the <a href="http://www.erlang.org/static/doc/mailinglist.html">
-Erlang questions mailing list</a>.  <p>
+Erlang questions mailing list</a>.
+<p></p>
+</li>
 
 <li>Before asking a question you can browse the <a
 href="http://www.erlang.org/pipermail/erlang-questions/">
 mailing list archive</a> and read the <a
 href="http://www.erlang.org/faq/faq.html" >Frequently
-Asked Questions</a>.  <p>
+Asked Questions</a>.
+<p></p>
+</li>
 
 <li>Additional information and links of interest for Erlang programmers can be found on the Erlang Open Source site 
 <a href="http://www.erlang.org/">http://www.erlang.org</a>.
-<p>
+</li>
 
 </ul>
 
 <center>
 <small>
-Copyright &copy; 1999-2013
+Copyright &copy; 1999-2016
 <a href="http://www.ericsson.com">Ericsson AB</a>
 </small>
 </center>

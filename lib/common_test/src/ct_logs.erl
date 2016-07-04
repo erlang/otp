@@ -137,7 +137,8 @@ close(Info, StartDir) ->
     %% so we need to use a local copy of the log cache data
     LogCacheBin = 
 	case make_last_run_index() of
-	    {error,_} ->  % log server not responding
+	    {error, Reason} ->  % log server not responding
+		io:format("Warning! ct_logs not responding: ~p~n", [Reason]),
 		undefined;
 	    LCB ->
 		LCB
@@ -149,7 +150,7 @@ close(Info, StartDir) ->
 				 ok;
 			     CacheBin ->
 				 %% save final version of the log cache to file
-				 file:write_file(?log_cache_name,CacheBin),
+				 _ = file:write_file(?log_cache_name,CacheBin),
 				 put(ct_log_cache,undefined)
 			 end
 		 end,
@@ -175,12 +176,12 @@ close(Info, StartDir) ->
 		Error ->
 		    io:format("Warning! Cleanup failed: ~p~n", [Error])
 	    end,
-	    make_all_suites_index(stop),
+	    _ = make_all_suites_index(stop),
 	    make_all_runs_index(stop),
 	    Cache2File();
        true -> 
-	    file:set_cwd(".."),
-	    make_all_suites_index(stop),
+	    ok = file:set_cwd(".."),
+	    _ = make_all_suites_index(stop),
 	    make_all_runs_index(stop),
 	    Cache2File(),
 	    case ct_util:get_profile_data(browser, StartDir) of
@@ -240,7 +241,7 @@ call(Msg) ->
 	Pid ->
 	    MRef = erlang:monitor(process,Pid),
 	    Ref = make_ref(),
-	    ?MODULE ! {Msg,{self(),Ref}},
+	    Pid ! {Msg,{self(),Ref}},
 	    receive
 		{Ref, Result} -> 
 		    erlang:demonitor(MRef, [flush]),
@@ -251,15 +252,29 @@ call(Msg) ->
     end.
 
 return({To,Ref},Result) ->
-    To ! {Ref, Result}.
+    To ! {Ref, Result},
+    ok.
 
 cast(Msg) ->
     case whereis(?MODULE) of
 	undefined ->
-	    {error,does_not_exist};
+	    io:format("Warning: ct_logs not started~n"),
+	    {_,_,_,_,_,_,Content,_} = Msg,
+	    FormatArgs = get_format_args(Content),
+	    _ = [io:format(Format, Args) || {Format, Args} <- FormatArgs],
+	    ok;
 	_Pid ->
-	    ?MODULE ! Msg
+	    ?MODULE ! Msg,
+	    ok
     end.
+
+get_format_args(Content) ->
+    lists:map(fun(C) ->
+		  case C of
+		      {_, FA, _} -> FA;
+		      {_, _} -> C
+		  end
+	      end, Content).
 
 %%%-----------------------------------------------------------------
 %%% @spec init_tc(RefreshLog) -> ok
@@ -631,7 +646,7 @@ logger(Parent, Mode, Verbosity) ->
 	end,
     %%! <---
 
-    file:make_dir(Dir),
+    _ = file:make_dir(Dir),
     AbsDir = ?abs(Dir),
     put(ct_run_dir, AbsDir),
 
@@ -671,7 +686,7 @@ logger(Parent, Mode, Verbosity) ->
 	    end
     end,
 
-    test_server_io:start_link(),
+    _ = test_server_io:start_link(),
     MiscIoName = filename:join(Dir, ?misc_io_log),
     {ok,MiscIoFd} = file:open(MiscIoName,
 			      [write,{encoding,utf8}]),
@@ -701,13 +716,13 @@ logger(Parent, Mode, Verbosity) ->
     ct_event:notify(#event{name=start_logging,node=node(),
 			   data=AbsDir}),
     make_all_runs_index(start),
-    make_all_suites_index(start),
+    _ = make_all_suites_index(start),
     case Mode of
 	interactive -> interactive_link();
 	_ -> ok
     end,
-    file:set_cwd(Dir),
-    make_last_run_index(Time),
+    ok = file:set_cwd(Dir),
+    _ = make_last_run_index(Time),
     CtLogFd = open_ctlog(?misc_io_log),
     io:format(CtLogFd,int_header()++int_footer(),
 	      [log_timestamp(?now),"Common Test Logger started"]),
@@ -721,13 +736,13 @@ logger(Parent, Mode, Verbosity) ->
 	GenLvl    -> io:format(CtLogFd, "~-25s~3w~n",
 			       ["general level",GenLvl])
     end,
-    [begin put({verbosity,Cat},VLvl),
-	   if Cat == '$unspecified' ->
+    _ = [begin put({verbosity,Cat},VLvl),
+	     if Cat == '$unspecified' ->
 		   ok;
-	      true ->
+		true ->
 		   io:format(CtLogFd, "~-25w~3w~n", [Cat,VLvl])
-	   end
-     end || {Cat,VLvl} <- Verbosity],
+	     end
+	 end || {Cat,VLvl} <- Verbosity],
     io:nl(CtLogFd),
     TcEscChars = case application:get_env(common_test, esc_chars) of
 		   {ok,ECBool} -> ECBool;
@@ -804,7 +819,7 @@ logger_loop(State) ->
 	    print_style(GL, IoFormat, State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
-	    if not RefreshLog ->
+	    _ = if not RefreshLog ->
 		    ok;
 	       true ->
 		    make_last_run_index(State#logger_state.start_time)
@@ -831,7 +846,7 @@ logger_loop(State) ->
 	    return(From,{ok,filename:basename(State#logger_state.log_dir)}),
 	    logger_loop(State);
 	{make_last_run_index,From} ->
-	    make_last_run_index(State#logger_state.start_time),
+	    _ = make_last_run_index(State#logger_state.start_time),
 	    return(From,get(ct_log_cache)),
 	    logger_loop(State);
 	{set_stylesheet,_,SSFile} when State#logger_state.stylesheet ==
@@ -1169,7 +1184,7 @@ print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
     io:format(Fd, [xhtml("<br><br>\n", "<br /><br />\n") | footer()], []),
-    file:close(Fd).
+    ok = file:close(Fd).
 
 %%%-----------------------------------------------------------------
 %%% tc_io_format/3
@@ -1773,7 +1788,7 @@ count_cases(Dir) ->
 			    %% file yet.
 			    {0,0,0,0};
 			Summary ->
-			    write_summary(SumFile, Summary),
+			    _ = write_summary(SumFile, Summary),
 			    Summary
 		    end;
 		{error, Reason} ->
@@ -2088,7 +2103,7 @@ interactive_link() ->
 	 "</body>\n",
 	 "</html>\n"
 	],
-    file:write_file("last_interactive.html",unicode:characters_to_binary(Body)),
+    _ = file:write_file("last_interactive.html",unicode:characters_to_binary(Body)),
     io:format("~n~nUpdated ~ts\n"
 	      "Any CT activities will be logged here\n",
 	      [?abs("last_interactive.html")]).
@@ -2219,9 +2234,9 @@ runentry(Dir, _, _) ->
 write_totals_file(Name,Label,Logs,Totals) ->
     AbsName = ?abs(Name),
     notify_and_lock_file(AbsName),
-    force_write_file(AbsName,
-		     term_to_binary({atom_to_list(node()),
-				     Label,Logs,Totals})),
+    _ = force_write_file(AbsName,
+			 term_to_binary({atom_to_list(node()),
+					 Label,Logs,Totals})),
     notify_and_unlock_file(AbsName).
 
 %% this function needs to convert from old formats to new so that old
@@ -2266,7 +2281,7 @@ read_totals_file(Name) ->
     Result.
 
 force_write_file(Name,Contents) ->
-    force_delete(Name),
+    _ = force_delete(Name),
     file:write_file(Name,Contents).
 
 force_delete(Name) ->
@@ -2817,18 +2832,18 @@ get_cache_data({ok,CacheBin}) ->
 		true ->
 		    {ok,CacheRec};
 		false ->
-		    file:delete(?log_cache_name),
+		    _ = file:delete(?log_cache_name),
 		    {error,old_cache_file}
 	    end;				    
 	_ ->
-	    file:delete(?log_cache_name),
+	    _ = file:delete(?log_cache_name),
 	    {error,invalid_cache_file}
     end;
 get_cache_data(NoCache) ->
     NoCache.
 
 cache_vsn() ->
-    application:load(common_test),
+    _ = application:load(common_test),
     case application:get_key(common_test,vsn) of
 	{ok,VSN} ->
 	    VSN;

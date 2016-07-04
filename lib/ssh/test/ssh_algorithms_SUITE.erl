@@ -24,11 +24,12 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--define(TIMEOUT, 10000).
+-define(TIMEOUT, 35000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -70,30 +71,39 @@ two_way_tags() -> [cipher,mac,compression].
     
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ct:log("os:getenv(\"HOME\") = ~p~n"
-	   "init:get_argument(home) = ~p",
-	   [os:getenv("HOME"), init:get_argument(home)]),
-    ct:log("~n~n"
-	   "OS ssh:~n=======~n~p~n~n~n"
-	   "Erl ssh:~n========~n~p~n~n~n"
-	   "Installed ssh client:~n=====================~n~p~n~n~n"
-	   "Installed ssh server:~n=====================~n~p~n~n~n"
-	   "Misc values:~n============~n"
-	   " -- Default dh group exchange parameters ({min,def,max}): ~p~n"
-	   " -- dh_default_groups: ~p~n"
-	   " -- Max num algorithms: ~p~n"
-	  ,[os:cmd("ssh -V"),
-	    ssh:default_algorithms(),
-	    ssh_test_lib:default_algorithms(sshc),
-	    ssh_test_lib:default_algorithms(sshd),
-	    {?DEFAULT_DH_GROUP_MIN,?DEFAULT_DH_GROUP_NBITS,?DEFAULT_DH_GROUP_MAX},
-	    public_key:dh_gex_group_sizes(),
-	    ?MAX_NUM_ALGORITHMS
-	    ]),
-    ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
-    ssh:start(),
-    [{std_simple_sftp_size,25000} % Sftp transferred data size
-     | setup_pubkey(Config)].
+    ?CHECK_CRYPTO(
+       begin
+	   ct:log("~n"
+		  "Environment:~n============~n"
+		  "os:getenv(\"HOME\") = ~p~n"
+		  "init:get_argument(home) = ~p~n~n~n"
+		  "OS ssh:~n=======~n~p~n~n~n"
+		  "Erl ssh:~n========~n~p~n~n~n"
+		  "crypto:info_lib():~n========~n~p~n~n~n"
+		  "Installed ssh client:~n=====================~n~p~n~n~n"
+		  "Installed ssh server:~n=====================~n~p~n~n~n"
+		  "Misc values:~n============~n"
+		  " -- Default dh group exchange parameters ({min,def,max}): ~p~n"
+		  " -- dh_default_groups: ~p~n"
+		  " -- Max num algorithms: ~p~n"
+		 ,[os:getenv("HOME"),
+		   init:get_argument(home),
+		   os:cmd("ssh -V"),
+		   ssh:default_algorithms(),
+		   crypto:info_lib(),
+		   ssh_test_lib:default_algorithms(sshc),
+		   ssh_test_lib:default_algorithms(sshd),
+		   {?DEFAULT_DH_GROUP_MIN,?DEFAULT_DH_GROUP_NBITS,?DEFAULT_DH_GROUP_MAX},
+		   public_key:dh_gex_group_sizes(),
+		   ?MAX_NUM_ALGORITHMS
+		  ]),
+	   ct:log("all() ->~n    ~p.~n~ngroups()->~n    ~p.~n",[all(),groups()]),
+	   ssh:start(),
+	   [{std_simple_sftp_size,25000} % Sftp transferred data size
+	    | setup_pubkey(Config)]
+       end
+      ).
+
 
 end_per_suite(_Config) ->
     ssh:stop().
@@ -109,7 +119,7 @@ init_per_group(Group, Config) ->
 	false ->
 	    %% An algorithm group
 	    Tag = proplists:get_value(name,
-				      hd(?config(tc_group_path, Config))),
+				      hd(proplists:get_value(tc_group_path, Config))),
 	    Alg = Group,
 	    PA =
 		case split(Alg) of
@@ -126,47 +136,45 @@ init_per_group(Group, Config) ->
     end.
 
 end_per_group(_Alg, Config) ->
-    case ?config(srvr_pid,Config) of
+    case proplists:get_value(srvr_pid,Config) of
 	Pid when is_pid(Pid) ->
 	    ssh:stop_daemon(Pid),
-	    ct:log("stopped ~p",[?config(srvr_addr,Config)]);
+	    ct:log("stopped ~p",[proplists:get_value(srvr_addr,Config)]);
 	_ ->
 	    ok
     end.
 
 
 
-init_per_testcase(sshc_simple_exec, Config) ->
-    start_pubkey_daemon([?config(pref_algs,Config)], Config);
-    
+init_per_testcase(sshc_simple_exec_os_cmd, Config) ->
+    start_pubkey_daemon([proplists:get_value(pref_algs,Config)], Config);
 init_per_testcase(_TC, Config) ->
     Config.
 
 
-end_per_testcase(sshc_simple_exec, Config) ->
-    case ?config(srvr_pid,Config) of
+end_per_testcase(sshc_simple_exec_os_cmd, Config) ->
+    case proplists:get_value(srvr_pid,Config) of
 	Pid when is_pid(Pid) ->
 	    ssh:stop_daemon(Pid),
-	    ct:log("stopped ~p",[?config(srvr_addr,Config)]);
+	    ct:log("stopped ~p",[proplists:get_value(srvr_addr,Config)]);
 	_ ->
 	    ok
     end;
 end_per_testcase(_TC, Config) ->
     Config.
 
-
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 %% A simple sftp transfer
 simple_sftp(Config) ->
-    {Host,Port} = ?config(srvr_addr, Config),
+    {Host,Port} = proplists:get_value(srvr_addr, Config),
     ssh_test_lib:std_simple_sftp(Host, Port, Config).
 
 %%--------------------------------------------------------------------
 %% A simple exec call
 simple_exec(Config) ->
-    {Host,Port} = ?config(srvr_addr, Config),
+    {Host,Port} = proplists:get_value(srvr_addr, Config),
     ssh_test_lib:std_simple_exec(Host, Port, Config).
 
 %%--------------------------------------------------------------------
@@ -221,18 +229,36 @@ interpolate(Is) ->
 %%--------------------------------------------------------------------
 %% Use the ssh client of the OS to connect
 
-sshc_simple_exec(Config) ->
+sshc_simple_exec_os_cmd(Config) ->
     PrivDir = ?config(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Host,Port} = ?config(srvr_addr, Config),
-    Cmd = lists:concat(["ssh -p ",Port,
-			" -C",
-			" -o UserKnownHostsFile=",KnownHosts,
-			" -o StrictHostKeyChecking=no",
-			" ",Host," 1+1."]),
-    ct:log("~p",[Cmd]),
-    OpenSsh = ssh_test_lib:open_port({spawn, Cmd}, [eof,exit_status]),
-    ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT).
+    Parent = self(),
+    Client = spawn(
+	       fun() ->
+		       Cmd = lists:concat(["ssh -p ",Port,
+					   " -C"
+					   " -o UserKnownHostsFile=",KnownHosts,
+					   " -o StrictHostKeyChecking=no"
+					   " ",Host," 1+1."]),
+		       Result = os:cmd(Cmd),
+		       ct:log("~p~n  = ~p",[Cmd, Result]),
+		       Parent ! {result, self(), Result, "2"}
+	       end),
+    receive
+	{result, Client, RawResult, Expect} ->
+	    Lines = string:tokens(RawResult, "\r\n"),
+	    case lists:any(fun(Line) -> Line==Expect end,
+			   Lines) of
+		true ->
+		    ok;
+		false ->
+		    ct:log("Bad result: ~p~nExpected: ~p~nMangled result: ~p", [RawResult,Expect,Lines]),
+		    {fail, "Bad result"}
+	    end
+    after ?TIMEOUT ->
+	    ct:fail("Did not receive answer")
+    end.
 
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
@@ -299,7 +325,7 @@ specific_test_cases(Tag, Alg, SshcAlgos, SshdAlgos) ->
 	    true ->
 		case ssh_test_lib:ssh_type() of
 		    openSSH ->
-			[sshc_simple_exec];
+			[sshc_simple_exec_os_cmd];
 		    _ ->
 			[]
 		end;
@@ -359,8 +385,8 @@ start_pubkey_daemon(Opts0, Config) ->
 
 
 setup_pubkey(Config) ->
-    DataDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, UserDir),
     ssh_test_lib:setup_rsa(DataDir, UserDir),
     ssh_test_lib:setup_ecdsa("256", DataDir, UserDir),
@@ -370,7 +396,7 @@ setup_pubkey(Config) ->
 simple_exec_group(I, Config) when is_integer(I) ->
     simple_exec_group({I,I,I}, Config);
 simple_exec_group({Min,I,Max}, Config) ->
-    {Host,Port} = ?config(srvr_addr, Config),
+    {Host,Port} = proplists:get_value(srvr_addr, Config),
     ssh_test_lib:std_simple_exec(Host, Port, Config,
 				 [{dh_gex_limits,{Min,I,Max}}]).
 

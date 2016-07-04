@@ -52,7 +52,6 @@
     <datatype>
       <name>ext_binary()</name>
       <desc>
-      <marker id="type-ext_binary"></marker>
         <p>A binary data object, structured according to
            the Erlang external term format.</p>
       </desc>
@@ -1803,6 +1802,8 @@ os_prompt% </pre>
 	  <tag>string()</tag>
 	  <item>An Erlang crash dump is produced with <c><anno>Status</anno></c>
 	  as slogan. Then the runtime system exits with status code <c>1</c>.
+	  Note that only code points in the range 0-255 may be used
+	  and the string will be truncated if longer than 200 characters.
 	  </item>
 	  <tag><c>abort</c></tag>
 	  <item>
@@ -2915,107 +2916,105 @@ os_prompt% </pre>
     <func>
       <name name="monitor" arity="2" clause_i="1"/>
       <name name="monitor" arity="2" clause_i="2"/>
+      <name name="monitor" arity="2" clause_i="3"/>
       <fsummary>Starts monitoring.</fsummary>
       <type name="registered_name"/>
       <type name="registered_process_identifier"/>
       <type name="monitor_process_identifier"/>
+      <type name="monitor_port_identifier"/>
       <desc>
-	<p>Send a monitor request of type <c><anno>Type</anno></c> to the
-	entity identified by <c><anno>Item</anno></c>. The caller of
-	<c>monitor/2</c> will later be notified by a monitor message on the
-	following format if the monitored state is changed:</p>
+	<p>Sends a monitor request of type <c><anno>Type</anno></c> to the
+	  entity identified by <c><anno>Item</anno></c>. If the monitored entity
+          does not exist or when it dies, the caller of <c>monitor/2</c> will
+          be notified by a message on the following format:</p>
         <code type="none">{Tag, <anno>MonitorRef</anno>, <anno>Type</anno>, Object, Info}</code>
 	<note><p>The monitor request is an asynchronous signal. That is, it
 	takes time before the signal reaches its destination.</p></note>
-	<p>Valid <c><anno>Type</anno></c>s:</p>
-	<taglist>
-	  <tag><marker id="monitor_process"/><c>process</c></tag>
-	  <item>
-	    <p>Monitor the existence of the process identified by
-	    <c><anno>Item</anno></c>. Valid
-	    <c><anno>Item</anno></c>s in combination with the
-	    <c>process <anno>Type</anno></c> can be any of the following:</p>
-            <taglist>
-              <tag><c>pid()</c></tag>
-              <item>
-		<p>The process identifier of the process to monitor.</p>
-              </item>
-              <tag><c>{RegisteredName, Node}</c></tag>
-              <item>
-		<p>A tuple consisting of a registered name of a process and
-		a node name. The process residing on the node <c>Node</c>
-		with the registered name <c>{RegisteredName, Node}</c> will
-		be monitored.</p>
-              </item>
-              <tag><c>RegisteredName</c></tag>
-              <item>
-		<p>The process locally registered as <c>RegisteredName</c>
-		will become monitored.</p>
-              </item>
-            </taglist>
-            <note><p>When a registered name is used, the
-	    process that has the registered name when the
-            monitor request reach its destination will be monitored.
-            The monitor is not effected if the registered name is
-            unregistered, or unregistered and later registered on another
-	    process.</p></note>
-	    <p>The monitor is triggered either when the monitored process
-	    terminates, is non existing, or if the connection to it is
-	    lost. In the case the connection to it is lost, we do not know
-	    if it still exist or not. After this type of monitor has been
-	    triggered, the monitor is automatically removed.</p>
-            <p>When the monitor is triggered a <c>'DOWN'</c> message is
-	    sent to the monitoring process. A <c>'DOWN'</c> message has
-	    the following pattern:</p>
-            <code type="none">{'DOWN', MonitorRef, Type, Object, Info}</code>
-            <p>Here <c>MonitorRef</c> and <c>Type</c> are the same as
-            described earlier, and:</p>
-            <taglist>
-              <tag><c>Object</c></tag>
-              <item>
-		<p>equals:</p>
-		<taglist>
-		  <tag><c><anno>Item</anno></c></tag>
-		  <item>If <c><anno>Item</anno></c> is specified by a
-		  process identifier.</item>
-		  <tag><c>{RegisteredName, Node}</c></tag>
-		  <item>If <c><anno>Item</anno></c> is specified as
-		  <c>RegisteredName</c>, or <c>{RegisteredName, Node}</c>
-		  where <c>Node</c> corresponds to the node that the
-		  monitored process resides on.</item>
-		</taglist>
-              </item>
-              <tag><c>Info</c></tag>
-              <item>
-		<p>Either the exit reason of the process, <c>noproc</c>
-		(non-existing process), or <c>noconnection</c> (no
-		connection to the node where the monitored process
-		resides).</p></item>
-	    </taglist>
-	    <p>The monitoring is turned off when the <c>'DOWN'</c>
-	    message is sent or when
-	    <seealso marker="#demonitor/1">demonitor/1</seealso>
-	    is called.</p>
-	    <p>If an attempt is made to monitor a process on an older node
-	    (where remote process monitoring is not implemented or
-	    where remote process monitoring by registered name is not
-	    implemented), the call fails with <c>badarg</c>.</p>
-	    <note>
-	      <p>The format of the <c>'DOWN'</c> message changed in ERTS
-	      version 5.2 (OTP R9B) for monitoring
-	      <em>by registered name</em>. Element <c>Object</c> of
-	      the <c>'DOWN'</c> message could in earlier versions
-	      sometimes be the process identifier of the monitored process and sometimes
-	      be the registered name. Now element <c>Object</c> is
-	      always a tuple consisting of the registered name and
-	      the node name. Processes on new nodes (ERTS version 5.2
-	      or higher) always get <c>'DOWN'</c> messages on
-	      the new format even if they are monitoring processes on old
-	      nodes. Processes on old nodes always get <c>'DOWN'</c>
-	      messages on the old format.</p>
-	    </note>
-	  </item>
-	  <tag><marker id="monitor_time_offset"/><c>time_offset</c></tag>
+
+        <p><c><anno>Type</anno></c> can be one of the following atoms:
+          <c>process</c>, <c>port</c> or <c>time_offset</c>.</p>
+
+        <p>A monitor is triggered only once, after that it is removed from
+          both monitoring process and the monitored entity.
+          Monitors are fired when the monitored process or port terminates,
+          does not exist at the moment of creation, or if the connection to
+          it is lost. In the case with connection, we lose knowledge about
+          the fact if it still exists or not. The monitoring is also turned off
+          when <seealso marker="#demonitor/1">demonitor/1</seealso>
+          is called.</p>
+
+        <p>When monitoring by name please note, that the <c>RegisteredName</c>
+          is resolved to <c>pid()</c> or <c>port()</c> only once
+          at the moment of monitor instantiation, later changes to the name
+          registration will not affect the existing monitor.</p>
+
+        <p>When a monitor is triggered, a <c>'DOWN'</c> message that has the
+          following pattern <c>{'DOWN', MonitorRef, Type, Object, Info}</c>
+          is sent to the monitoring process.</p>
+
+        <p>In monitor message <c>MonitorRef</c> and <c>Type</c> are the same as
+          described earlier, and:</p>
+        <taglist>
+          <tag><c>Object</c></tag>
+          <item>
+            <p>The monitored entity, which triggered the event. When monitoring
+              a local process or port, <c>Object</c> will be equal to the
+              <c>pid()</c> or <c>port()</c> that was being monitored. When
+              monitoring process or port by name, <c>Object</c> will have format
+              <c>{RegisteredName, Node}</c> where <c>RegisteredName</c> is the
+              name which has been used with <c>monitor/2</c> call and
+              <c>Node</c> is local or remote node name (for ports monitored by
+              name, <c>Node</c> is always local node name).</p>
+          </item>
+          <tag><c>Info</c></tag>
+          <item>
+            <p>Either the exit reason of the process, <c>noproc</c>
+              (process or port did not exist at the time of monitor creation),
+              or <c>noconnection</c> (no connection to the node where the
+              monitored process resides). </p></item>
+        </taglist>
+
+        <p>If an attempt is made to monitor a process on an older node
+          (where remote process monitoring is not implemented or
+          where remote process monitoring by registered name is not
+          implemented), the call fails with <c>badarg</c>.</p>
+        <note>
+          <p>The format of the <c>'DOWN'</c> message changed in ERTS
+            version 5.2 (OTP R9B) for monitoring
+            <em>by registered name</em>. Element <c>Object</c> of
+            the <c>'DOWN'</c> message could in earlier versions
+            sometimes be the process identifier of the monitored process and sometimes
+            be the registered name. Now element <c>Object</c> is
+            always a tuple consisting of the registered name and
+            the node name. Processes on new nodes (ERTS version 5.2
+            or higher) always get <c>'DOWN'</c> messages on
+            the new format even if they are monitoring processes on old
+            nodes. Processes on old nodes always get <c>'DOWN'</c>
+            messages on the old format.</p>
+        </note>
+
+        <taglist>
+        <tag>Monitoring a <marker id="monitor_process"/><c>process</c></tag>
+        <item>
+        <p>Creates monitor between the current process and another
+          process identified by <c><anno>Item</anno></c>, which can be a
+          <c>pid()</c> (local or remote), an atom <c>RegisteredName</c> or
+          a tuple <c>{RegisteredName, Node}</c> for a registered process,
+          located elsewhere.</p>
+        </item>
+
+        <tag>Monitoring a <marker id="monitor_port"/><c>port</c></tag>
+        <item>
+          <p>Creates monitor between the current process and a port
+            identified by <c><anno>Item</anno></c>, which can be a
+            <c>port()</c> (only local), an atom <c>RegisteredName</c> or
+            a tuple <c>{RegisteredName, Node}</c> for a registered port,
+            located on this node. Note, that attempt to monitor a remote port
+            will result in <c>badarg</c>.</p>
+        </item>
+
+        <tag>Monitoring a
+          <marker id="monitor_time_offset"/><c>time_offset</c></tag>
 	  <item>
 	    <p>Monitor changes in
 	    <seealso marker="#time_offset/0">time offset</seealso>
@@ -3071,15 +3070,17 @@ os_prompt% </pre>
 	    Note that you can observe the change of the time offset
 	    when calling <c>erlang:time_offset()</c> before you
 	    get the <c>'CHANGE'</c> message.</p>
-
 	  </item>
 	</taglist>
+
 	<p>Making several calls to <c>monitor/2</c> for the same
-	<c><anno>Item</anno></c> and/or <c><anno>Type</anno></c> is not
-	an error; it results in as many independent monitoring instances.</p>
+	  <c><anno>Item</anno></c> and/or <c><anno>Type</anno></c> is not
+	  an error; it results in as many independent monitoring instances.</p>
+
 	<p>The monitor functionality is expected to be extended. That is,
-	other <c><anno>Type</anno></c>s and <c><anno>Item</anno></c>s
-	are expected to be supported in	a future release.</p>
+	  other <c><anno>Type</anno></c>s and <c><anno>Item</anno></c>s
+	  are expected to be supported in a future release.</p>
+
         <note>
           <p>If or when <c>monitor/2</c> is extended, other
             possible values for <c>Tag</c>, <c>Object</c> and
@@ -4149,6 +4150,22 @@ os_prompt% </pre>
 
     <func>
       <name name="port_info" arity="2" clause_i="8"/>
+      <fsummary>Which processes are monitoring this port.</fsummary>
+      <desc>
+        <p>Returns list of pids that are monitoring given port at the
+          moment.</p>
+        <p>If the port identified by <c><anno>Port</anno></c> is not open,
+          <c>undefined</c> is returned. If the port is closed and the
+          calling process was previously linked to the port, the exit
+          signal from the port is guaranteed to be delivered before
+          <c>port_info/2</c> returns <c>undefined</c>.</p>
+        <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local
+          port identifier, or an atom.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="port_info" arity="2" clause_i="9"/>
       <fsummary>Information about the name of a port.</fsummary>
       <desc>
 	<p><c><anno>Name</anno></c> is the command name set by
@@ -4164,7 +4181,7 @@ os_prompt% </pre>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="9"/>
+      <name name="port_info" arity="2" clause_i="10"/>
       <fsummary>Information about the OS pid of a port.</fsummary>
       <desc>
 	<p><c><anno>OsPid</anno></c> is the process identifier (or equivalent)
@@ -4183,7 +4200,7 @@ os_prompt% </pre>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="10"/>
+      <name name="port_info" arity="2" clause_i="11"/>
       <fsummary>Information about the output of a port.</fsummary>
       <desc>
 	<p><c><anno>Bytes</anno></c> is the total number of bytes written
@@ -4202,7 +4219,7 @@ os_prompt% </pre>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="11"/>
+      <name name="port_info" arity="2" clause_i="12"/>
       <fsummary>Information about the parallelism hint of a port.</fsummary>
       <desc>
 	<p><c><anno>Boolean</anno></c> corresponds to the port parallelism
@@ -4213,7 +4230,7 @@ os_prompt% </pre>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="12"/>
+      <name name="port_info" arity="2" clause_i="13"/>
       <fsummary>Information about the queue size of a port.</fsummary>
       <desc>
 	<p><c><anno>Bytes</anno></c> is the total number
@@ -4230,7 +4247,7 @@ os_prompt% </pre>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="13"/>
+      <name name="port_info" arity="2" clause_i="14"/>
       <fsummary>Information about the registered name of a port.</fsummary>
       <desc>
 	<p><c><anno>RegisteredName</anno></c> is the registered name of
@@ -4344,86 +4361,86 @@ os_prompt% </pre>
     <marker id="process_flag_max_heap_size"/>
     <func>
       <name name="process_flag" arity="2" clause_i="5"/>
-      <type name="max_heap_size"/>
       <fsummary>Sets process flag <c>max_heap_size</c> for the calling process.</fsummary>
+      <type name="max_heap_size"/>
       <desc>
         <p>
           This flag sets the maximum heap size for the calling process.
           If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
           values for <c>kill</c> and <c>error_logger</c> are used.
-          <taglist>
-            <tag><c>size</c></tag>
-            <item>
-              <p>
-                The maximum size in words of the process. If set to zero, the
-                heap size limit is disabled. Badarg will be thrown if the value is
-                smaller than
-                <seealso marker="#process_flag_min_heap_size"><c>min_heap_size</c></seealso>.
-                The size check is only done when a garbage collection is triggered.
-              </p>
-              <p>
-                <c>size</c> is the entire heap of the process when garbage collection
-                is triggered, this includes all generational heaps, the process stack, 
-                any <seealso marker="#process_flag_message_queue_data">
-                messages that are considered to be part of the heap</seealso> and any
-                extra memory that the garbage collector needs during collection.
-              </p>
-              <p>
-                <c>size</c> is the same as can be retrieved using
-                <seealso marker="#process_info_total_heap_size">
-                  <c>erlang:process_info(Pid, total_heap_size)</c></seealso>,
-                  or by adding <c>heap_block_size</c>, <c>old_heap_block_size</c>
-                  and <c>mbuf_size</c> from <seealso marker="#process_info_garbage_collection_info">
-                  <c>erlang:process_info(Pid, garbage_collection_info)</c></seealso>.
-              </p>
-            </item>
-            <tag><c>kill</c></tag>
-            <item>
-              <p>
-                When set to <c>true</c> the runtime system will send an
-                untrappable exit signal with reason <c>kill</c> to the process
-                if the maximum heap size is reached. The garbage collection
-                that triggered the <c>kill</c> will not be completed, instead the
-                process will exit as soon as is possible. When set to <c>false</c>
-                no exit signal will be sent to the process, instead it will
-                continue executing.
-              </p>
-              <p>
-                If <c>kill</c> is not defined in the map
-                the system default will be used. The default system default
-                is <c>true</c>. It can be changed by either the erl
-                <seealso marker="erl#+hmaxk">+hmaxk</seealso> option,
-                or <seealso marker="#system_flag_max_heap_size"><c>
-                erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
-              </p>
-            </item>
-            <tag><c>error_logger</c></tag>
-            <item>
-              <p>
-                When set to <c>true</c> the runtime system will send a
-                message to the current <seealso marker="kernel:error_logger"><c>error_logger</c></seealso>
-                containing details about the process when the maximum
-                heap size is reached. One <c>error_logger</c> report will
-                be sent each time the limit is reached.
-              </p>
-              <p>
-                If <c>error_logger</c> is not defined in the map the system
-                default will be used. The default system default is <c>true</c>.
-                It can be changed by either the erl <seealso marker="erl#+hmaxel">+hmaxel</seealso>
-                option, or <seealso marker="#system_flag_max_heap_size"><c>
-                erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
-              </p>
-            </item>
+        </p>
+        <taglist>
+          <tag><c>size</c></tag>
+          <item>
             <p>
-              The heap size of a process is quite hard to predict, especially the
-              amount of memory that is used during the garbage collection. When
-              contemplating using this option, it is recommended to first run
-              it in production with <c>kill</c> set to <c>false</c> and inspect
-              the <c>error_logger</c> reports to see what the normal peak sizes
-              of the processes in the system is and then tune the value
-              accordingly.
+              The maximum size in words of the process. If set to zero, the
+              heap size limit is disabled. Badarg will be thrown if the value is
+              smaller than
+              <seealso marker="#process_flag_min_heap_size"><c>min_heap_size</c></seealso>.
+              The size check is only done when a garbage collection is triggered.
             </p>
-          </taglist>
+            <p>
+              <c>size</c> is the entire heap of the process when garbage collection
+              is triggered, this includes all generational heaps, the process stack, 
+              any <seealso marker="#process_flag_message_queue_data">
+              messages that are considered to be part of the heap</seealso> and any
+              extra memory that the garbage collector needs during collection.
+            </p>
+            <p>
+              <c>size</c> is the same as can be retrieved using
+              <seealso marker="#process_info_total_heap_size">
+                <c>erlang:process_info(Pid, total_heap_size)</c></seealso>,
+                or by adding <c>heap_block_size</c>, <c>old_heap_block_size</c>
+                and <c>mbuf_size</c> from <seealso marker="#process_info_garbage_collection_info">
+                <c>erlang:process_info(Pid, garbage_collection_info)</c></seealso>.
+            </p>
+          </item>
+          <tag><c>kill</c></tag>
+          <item>
+            <p>
+              When set to <c>true</c> the runtime system will send an
+              untrappable exit signal with reason <c>kill</c> to the process
+              if the maximum heap size is reached. The garbage collection
+              that triggered the <c>kill</c> will not be completed, instead the
+              process will exit as soon as is possible. When set to <c>false</c>
+              no exit signal will be sent to the process, instead it will
+              continue executing.
+            </p>
+            <p>
+              If <c>kill</c> is not defined in the map
+              the system default will be used. The default system default
+              is <c>true</c>. It can be changed by either the erl
+              <seealso marker="erl#+hmaxk">+hmaxk</seealso> option,
+              or <seealso marker="#system_flag_max_heap_size"><c>
+              erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+            </p>
+          </item>
+          <tag><c>error_logger</c></tag>
+          <item>
+            <p>
+              When set to <c>true</c> the runtime system will send a
+              message to the current <seealso marker="kernel:error_logger"><c>error_logger</c></seealso>
+              containing details about the process when the maximum
+              heap size is reached. One <c>error_logger</c> report will
+              be sent each time the limit is reached.
+            </p>
+            <p>
+              If <c>error_logger</c> is not defined in the map the system
+              default will be used. The default system default is <c>true</c>.
+              It can be changed by either the erl <seealso marker="erl#+hmaxel">+hmaxel</seealso>
+              option, or <seealso marker="#system_flag_max_heap_size"><c>
+              erlang:system_flag(max_heap_size, MaxHeapSize)</c></seealso>.
+            </p>
+          </item>
+        </taglist>
+        <p>
+          The heap size of a process is quite hard to predict, especially the
+          amount of memory that is used during the garbage collection. When
+          contemplating using this option, it is recommended to first run
+          it in production with <c>kill</c> set to <c>false</c> and inspect
+          the <c>error_logger</c> reports to see what the normal peak sizes
+          of the processes in the system is and then tune the value
+          accordingly.
         </p>
       </desc>
     </func>
@@ -4449,11 +4466,6 @@ os_prompt% </pre>
 	    placed on heap. They may however temporarily be stored
 	    off heap. This is how messages always have been stored
 	    up until ERTS version 8.0.
-	  </p></item>
-          <tag><c>mixed</c></tag>
-	  <item><p>
-	    Messages may be placed either on the heap or outside
-	    of the heap.
 	  </p></item>
         </taglist>
 	<p>
@@ -4785,8 +4797,10 @@ os_prompt% </pre>
 	       The content of <c><anno>GCInfo</anno></c> can be changed without
 	       prior notice.</p>
           </item>
-          <marker id="process_info_garbage_collection_info"/>
-          <tag><c>{garbage_collection_info, <anno>GCInfo</anno>}</c></tag>
+          <tag>
+            <marker id="process_info_garbage_collection_info"/>
+            <c>{garbage_collection_info, <anno>GCInfo</anno>}</c>
+          </tag>
           <item>
             <p><c><anno>GCInfo</anno></c> is a list containing miscellaneous
 	       detailed information about garbage collection for this process.
@@ -4869,16 +4883,25 @@ os_prompt% </pre>
             <p>A list of monitors (started by <c>monitor/2</c>)
               that are active for the process. For a local process
               monitor or a remote process monitor by a process
-              identifier, the list item is <c>{process, <anno>Pid</anno>}</c>.
-              For a remote process
-              monitor by name, the list item is
-              <c>{process, {<anno>RegName</anno>, <anno>Node</anno>}}</c>.</p>
+              identifier, the list consists of:</p>
+              <taglist>
+                <tag><c>{process, <anno>Pid</anno>}</c></tag>
+                <item>Process is monitored by pid.</item>
+                <tag><c>{process, {<anno>RegName</anno>, <anno>Node</anno>}}</c></tag>
+                <item>Local or remote process is monitored by name.</item>
+                <tag><c>{port, PortId}</c></tag>
+                <item>Local port is monitored by port id.</item>
+                <tag><c>{port, {<anno>RegName</anno>, <anno>Node</anno>}}</c></tag>
+                <item>Local port is monitored by name. Please note, that
+                  remote port monitors are not supported, so <c>Node</c> will
+                  always be the local node name.</item>
+              </taglist>
           </item>
           <tag><c>{message_queue_data, <anno>MQD</anno>}</c></tag>
           <item>
             <p>Returns the current state of the <c>message_queue_data</c>
 	    process flag. <c><anno>MQD</anno></c> is either <c>off_heap</c>,
-	    <c>on_heap</c>, or <c>mixed</c>. For more information, see the
+	    or <c>on_heap</c>. For more information, see the
 	    documentation of
             <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
 	    MQD)</c></seealso>.</p>
@@ -4965,8 +4988,10 @@ os_prompt% </pre>
             total suspend count on <c><anno>Suspendee</anno></c>,
             only the parts contributed by <c><anno>Pid</anno></c>.</p>
           </item>
-          <marker id="process_info_total_heap_size"/>
-          <tag><c>{total_heap_size, <anno>Size</anno>}</c></tag>
+          <tag>
+            <marker id="process_info_total_heap_size"/>
+            <c>{total_heap_size, <anno>Size</anno>}</c>
+          </tag>
           <item>
             <p><c><anno>Size</anno></c> is the total size, in words, of all heap
 	    fragments of the process. This includes the process stack and
@@ -5070,10 +5095,6 @@ os_prompt% </pre>
         <p>Stops the execution of the calling process with an
           exception of given class, reason, and call stack backtrace
           (<em>stacktrace</em>).</p>
-        <warning>
-          <p>This BIF is intended for debugging. Avoid to use it in applications,
-            unless you really know what you are doing.</p>
-        </warning>
         <p><c><anno>Class</anno></c> is <c>error</c>, <c>exit</c>, or
           <c>throw</c>. So, if it were not for the stacktrace,
           <c>erlang:raise(<anno>Class</anno>, <anno>Reason</anno>,
@@ -5813,7 +5834,7 @@ true</pre>
           <item>
             <p>Sets the state of the <c>message_queue_data</c> process
 	    flag. <c><anno>MQD</anno></c> should be either <c>off_heap</c>,
-	    <c>on_heap</c>, or <c>mixed</c>. The default
+	    or <c>on_heap</c>. The default
 	    <c>message_queue_data</c> process flag is determined by the
 	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso> <c>erl</c>
 	    command line argument. For more information, see the
@@ -6614,8 +6635,8 @@ ok
     <marker id="system_flag_max_heap_size"></marker>
     <func>
       <name name="system_flag" arity="2" clause_i="8"/>
-      <type name="max_heap_size"/>
       <fsummary>Sets system flag <c>max_heap_size</c></fsummary>
+      <type name="max_heap_size"/>
       <desc>
         <p>
           Sets the default maximum heap size settings for processes.
@@ -7119,9 +7140,9 @@ ok
       <name name="system_info" arity="1" clause_i="37"/>
       <name name="system_info" arity="1" clause_i="38"/>
       <name name="system_info" arity="1" clause_i="39"/>
+      <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
       <type name="max_heap_size"/>
-      <fsummary>Information about the default process heap settings.</fsummary>
       <desc>
         <taglist>
           <tag><c>fullsweep_after</c></tag>
@@ -7166,10 +7187,10 @@ ok
               where <c><anno>MinHeapSize</anno></c> is the current
               system-wide minimum heap size for spawned processes.</p>
           </item>
-          <tag><marker id="system_info_message_queue_data"><c>message_queue_data</c></marker></tag>
+          <tag><marker id="system_info_message_queue_data"/><c>message_queue_data</c></tag>
           <item>
             <p>Returns the default value of the <c>message_queue_data</c>
-	    process flag which is either <c>off_heap</c>, <c>on_heap</c>, or <c>mixed</c>.
+	    process flag which is either <c>off_heap</c>, or <c>on_heap</c>.
 	    This default is set by the <c>erl</c> command line argument
 	    <seealso marker="erl#+hmqd"><c>+hmqd</c></seealso>. For more information on the
 	    <c>message_queue_data</c> process flag, see documentation of
@@ -7647,7 +7668,7 @@ ok
               and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
-          <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
+          <tag><marker id="system_info_otp_release"/><c>otp_release</c></tag>
           <item>
           <marker id="system_info_otp_release"></marker>
             <p>Returns a string containing the OTP release number of the
@@ -8600,21 +8621,21 @@ timestamp() ->
           <tag><c>send</c></tag>
           <item>
             <p>Traces sending of messages.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_send">send</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_send_to_non_existing_process">send_to_non_existing_process</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_send"><c>send</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_send_to_non_existing_process"><c>send_to_non_existing_process</c></seealso>.</p>
           </item>
           <tag><c>'receive'</c></tag>
           <item>
             <p>Traces receiving of messages.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_receive">'receive'</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_receive"><c>'receive'</c></seealso>.</p>
           </item>
 <tag><c>call</c></tag>
           <item>
             <p>Traces certain function calls. Specify which function
               calls to trace by calling
               <seealso marker="#trace_pattern/3">erlang:trace_pattern/3</seealso>.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_call">call</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_return_from">return_from</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_call"><c>call</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_return_from"><c>return_from</c></seealso>.</p>
           </item>
           <tag><c>silent</c></tag>
           <item>
@@ -8632,9 +8653,9 @@ timestamp() ->
               specification function <c>{silent,Bool}</c>, giving
               a high degree of control of which functions with which 
               arguments that trigger the trace.</p>
-              <p>Message tags: <c><seealso marker="#trace_3_trace_messages_call">call</seealso></c>,
-              <c><seealso marker="#trace_3_trace_messages_return_from">return_from</seealso></c>, and
-              <c><seealso marker="#trace_3_trace_messages_return_to">return_to</seealso></c>. Or rather, the absence of.</p>
+              <p>Message tags: <seealso marker="#trace_3_trace_messages_call"><c>call</c></seealso>,
+              <seealso marker="#trace_3_trace_messages_return_from"><c>return_from</c></seealso>, and
+              <seealso marker="#trace_3_trace_messages_return_to"><c>return_to</c></seealso>. Or rather, the absence of.</p>
           </item>
           <tag><c>return_to</c></tag>
           <item>
@@ -8655,43 +8676,43 @@ timestamp() ->
             <p>To get trace messages containing return values from
               functions, use the <c>{return_trace}</c> match
               specification action instead.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_return_to">return_to</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_return_to"><c>return_to</c></seealso>.</p>
           </item>
           <tag><c>procs</c></tag>
           <item>
             <p>Traces process-related events.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_spawn">spawn</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_spawned">spawned</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_exit">exit</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_register">register</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_unregister">unregister</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_link">link</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_unlink">unlink</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_getting_linked">getting_linked</seealso></c>, and
-            <c><seealso marker="#trace_3_trace_messages_getting_unlinked">getting_unlinked</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_spawn"><c>spawn</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_spawned"><c>spawned</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_exit"><c>exit</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_register"><c>register</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_unregister"><c>unregister</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_link"><c>link</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_unlink"><c>unlink</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_getting_linked"><c>getting_linked</c></seealso>, and
+            <seealso marker="#trace_3_trace_messages_getting_unlinked"><c>getting_unlinked</c></seealso>.</p>
           </item>
           <tag><c>ports</c></tag>
           <item>
             <p>Traces port-related events.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_open">open</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_closed">closed</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_register">register</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_unregister">unregister</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_getting_linked">getting_linked</seealso></c>, and
-            <c><seealso marker="#trace_3_trace_messages_getting_unlinked">getting_unlinked</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_open"><c>open</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_closed"><c>closed</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_register"><c>register</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_unregister"><c>unregister</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_getting_linked"><c>getting_linked</c></seealso>, and
+            <seealso marker="#trace_3_trace_messages_getting_unlinked"><c>getting_unlinked</c></seealso>.</p>
           </item>
           <tag><c>running</c></tag>
           <item>
             <p>Traces scheduling of processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_proc">in</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_out_proc">out</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_proc"><c>in</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_out_proc"><c>out</c></seealso>.</p>
           </item>
           <tag><c>exiting</c></tag>
           <item>
             <p>Traces scheduling of exiting processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_exiting_proc">in_exiting</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_out_exiting_proc">out_exiting</seealso></c>, and
-	    <c><seealso marker="#trace_3_trace_messages_out_exited_proc">out_exited</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_exiting_proc"><c>in_exiting</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_out_exiting_proc"><c>out_exiting</c></seealso>, and
+	    <seealso marker="#trace_3_trace_messages_out_exited_proc"><c>out_exited</c></seealso>.</p>
           </item>
           <tag><c>running_procs</c></tag>
           <item>
@@ -8699,21 +8720,21 @@ timestamp() ->
             However this option also includes schedule events when the
             process executes within the context of a port without
             being scheduled out itself.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_proc">in</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_out_proc">out</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_proc"><c>in</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_out_proc"><c>out</c></seealso>.</p>
           </item>
           <tag><c>running_ports</c></tag>
           <item>
             <p>Traces scheduling of ports.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_in_port">in</seealso></c> and
-            <c><seealso marker="#trace_3_trace_messages_out_port">out</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_in_port"><c>in</c></seealso> and
+            <seealso marker="#trace_3_trace_messages_out_port"><c>out</c></seealso>.</p>
           </item>
           <tag><c>garbage_collection</c></tag>
           <item>
             <p>Traces garbage collections of processes.</p>
-            <p>Message tags: <c><seealso marker="#trace_3_trace_messages_gc_minor_start">gc_minor_start</seealso></c>,
-            <c><seealso marker="#trace_3_trace_messages_gc_max_heap_size">gc_max_heap_size</seealso></c> and
-	    <c><seealso marker="#trace_3_trace_messages_gc_minor_end">gc_minor_end</seealso></c>.</p>
+            <p>Message tags: <seealso marker="#trace_3_trace_messages_gc_minor_start"><c>gc_minor_start</c></seealso>,
+            <seealso marker="#trace_3_trace_messages_gc_max_heap_size"><c>gc_max_heap_size</c></seealso> and
+	    <seealso marker="#trace_3_trace_messages_gc_minor_end"><c>gc_minor_end</c></seealso>.</p>
           </item>
           <tag><c>timestamp</c></tag>
           <item>
@@ -8741,7 +8762,7 @@ timestamp() ->
 	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso> time-stamp in all trace messages. The
             time-stamp (Ts) has the same format and value as produced by
-            <c><seealso marker="#monotonic_time-1">erlang:monotonic_time(nano_seconds)</seealso></c>.
+            <seealso marker="#monotonic_time-1"><c>erlang:monotonic_time(nano_seconds)</c></seealso>.
             This flag overrides the <c>cpu_timestamp</c> flag.</p>
           </item>
           <tag><c>strict_monotonic_timestamp</c></tag>
@@ -8751,8 +8772,8 @@ timestamp() ->
 	    monotonic time</seealso> and a monotonically increasing
 	    integer in all trace messages. The time-stamp (Ts) has the
 	    same format and value as produced by
-            <c>{<seealso marker="#monotonic_time-1">erlang:monotonic_time(nano_seconds)</seealso>,
-	    <seealso marker="#unique_integer-1">erlang:unique_integer([monotonic])</seealso>}</c>.
+            <c>{</c><seealso marker="#monotonic_time-1"><c>erlang:monotonic_time(nano_seconds)</c></seealso><c>,</c>
+	    <seealso marker="#unique_integer-1"><c>erlang:unique_integer([monotonic])</c></seealso><c>}</c>.
             This flag overrides the <c>cpu_timestamp</c> flag.</p>
           </item>
           <tag><c>arity</c></tag>

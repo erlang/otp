@@ -108,7 +108,7 @@ isEditCancelled(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventsettooltip">external documentation</a>.
--spec setToolTip(This, ToolTip) -> ok when
+-spec setToolTip(This, ToolTip) -> 'ok' when
 	This::wxTreeEvent(), ToolTip::unicode:chardata().
 setToolTip(#wx_ref{type=ThisT,ref=ThisRef},ToolTip)
  when is_list(ToolTip) ->

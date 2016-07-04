@@ -30,7 +30,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> 
+    [].
 
 all() -> 
     [
@@ -199,7 +200,7 @@ pbdkdf2(Config) when is_list(Config) ->
 old_enc() ->
     [{doc,"Tests encode/decode RSA key encrypted with different ciphers using old PEM encryption scheme"}].
 old_enc(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     %% key generated with ssh-keygen -N hello_aes -f old_aes_128_cbc_enc_key.pem
     {ok, PemAesCbc} = file:read_file(filename:join(Datadir, "old_aes_128_cbc_enc_key.pem")),
     
@@ -226,7 +227,7 @@ check_key_info(#'PrivateKeyInfo'{privateKeyAlgorithm =
     #'RSAPrivateKey'{} = public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key)).
 
 decode_encode_key_file(File, Password, Cipher, Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     {ok, PemKey} = file:read_file(filename:join(Datadir, File)),
     
     PemEntry = public_key:pem_decode(PemKey),

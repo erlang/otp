@@ -29,7 +29,9 @@
 -include_lib("ssh/src/ssh_userauth.hrl").
 
 
-suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
+suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]},
+	    {timetrap,{minutes,3}}
+	   ].
 %%suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> [{group, opensshc_erld} 
@@ -63,8 +65,8 @@ end_per_suite(_Config) ->
 init_per_group(opensshc_erld, Config) ->
     case ssh_test_lib:ssh_type() of
 	openSSH -> 
-	    DataDir = ?config(data_dir, Config),
-	    UserDir = ?config(priv_dir, Config),
+	    DataDir = proplists:get_value(data_dir, Config),
+	    UserDir = proplists:get_value(priv_dir, Config),
 	    ssh_test_lib:setup_dsa(DataDir, UserDir),
 	    ssh_test_lib:setup_rsa(DataDir, UserDir),
 	    ssh_test_lib:setup_ecdsa("256", DataDir, UserDir),
@@ -97,7 +99,7 @@ end_per_testcase(_Func, _Conf) ->
 
 
 init_sftp_dirs(Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     SrcDir = filename:join(UserDir, "sftp_src"),
     ok = file:make_dir(SrcDir),
     SrcFile = "big_data",
@@ -127,8 +129,8 @@ openssh_client_shell(Config) ->
     
 
 openssh_client_shell(Config, Options) ->
-    SystemDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     KnownHosts = filename:join(UserDir, "known_hosts"),
     
     {ok, TracerPid} = erlang_trace(),
@@ -184,7 +186,7 @@ openssh_client_shell(Config, Options) ->
 	      end, Times),
 	    ssh:stop_daemon(ServerPid),
 	    ok
-    after 10000 ->
+    after 60*1000 ->
 	    ssh:stop_daemon(ServerPid),
 	    exit(SlavePid, kill),
 	    {fail, timeout}
@@ -200,11 +202,11 @@ openssh_client_sftp(Config) ->
 
 
 openssh_client_sftp(Config, Options) ->
-    SystemDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
-    SftpSrcDir = ?config(sftp_src_dir, Config),
-    SrcFile = ?config(src_file, Config),
-    SrcSize = ?config(sftp_size, Config),
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    SftpSrcDir = proplists:get_value(sftp_src_dir, Config),
+    SrcFile = proplists:get_value(src_file, Config),
+    SrcSize = proplists:get_value(sftp_size, Config),
     KnownHosts = filename:join(UserDir, "known_hosts"),
 
     {ok, TracerPid} = erlang_trace(),
@@ -215,6 +217,7 @@ openssh_client_sftp(Config, Options) ->
 								    {root, SftpSrcDir}])]},
 			     {failfun, fun ssh_test_lib:failfun/2} 
 			     | Options]),
+    ct:pal("ServerPid = ~p",[ServerPid]),
     ct:sleep(500),
     Cmd = lists:concat(["sftp",
 			" -b -",
@@ -231,7 +234,7 @@ openssh_client_sftp(Config, Options) ->
 		     end),
     receive
 	{SlavePid, _ClientResponse} ->
-	    ct:pal("ClientResponse = ~p",[_ClientResponse]),
+	    ct:pal("ClientResponse = ~p~nServerPid = ~p",[_ClientResponse,ServerPid]),
 	    {ok, List} = get_trace_list(TracerPid),
 %%ct:pal("List=~p",[List]),
 	    Times = find_times(List, [channel_open_close]),
@@ -260,7 +263,7 @@ openssh_client_sftp(Config, Options) ->
 	      end, Times),
 	    ssh:stop_daemon(ServerPid),
 	    ok
-    after 10000 ->
+    after 2*60*1000 ->
 	    ssh:stop_daemon(ServerPid),
 	    exit(SlavePid, kill),
 	    {fail, timeout}
@@ -274,7 +277,7 @@ variants(Tag, Config) ->
 	    [A|_] when is_atom(A) -> two_way
 	end,
     [ [{Tag,tag_value(TagType,Alg)}]
-      || Alg <- proplists:get_value(Tag, ?config(common_algs,Config))
+      || Alg <- proplists:get_value(Tag, proplists:get_value(common_algs,Config))
     ].
 
 tag_value(two_way, Alg) -> [Alg];
@@ -445,10 +448,18 @@ increment({Alg,Sz,T},[]) ->
 %%% API for the traceing
 %%% 
 get_trace_list(TracerPid) ->
+    MonRef = monitor(process, TracerPid),
     TracerPid ! {get_trace_list,self()},
     receive
-	{trace_list,L} -> {ok, pair_events(lists:reverse(L))}
-    after 5000 -> {error,no_reply}
+	{trace_list,L} ->
+	    demonitor(MonRef),
+	    {ok, pair_events(lists:reverse(L))};
+	{'DOWN', MonRef, process, TracerPid, Info} ->
+	    {error, {tracer_down,Info}}
+			      
+    after 3*60*1000 -> 
+	    demonitor(MonRef),
+	    {error,no_reply}
     end.
 
 erlang_trace() ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@
          fold/3,
          foldl/3,
          scramble/1,
-         seed/0,
          unique_string/0,
          have_sctp/0]).
 
@@ -178,21 +177,13 @@ scramble(L) ->
           [[fun s/1, L]]).
 
 s(L) ->
-    random:seed(seed()),
     s([], L).
 
 s(Acc, []) ->
     Acc;
 s(Acc, L) ->
-    {H, [T|Rest]} = lists:split(random:uniform(length(L)) - 1, L),
+    {H, [T|Rest]} = lists:split(rand:uniform(length(L)) - 1, L),
     s([T|Acc], H ++ Rest).
-
-%% ---------------------------------------------------------------------------
-%% seed/0
-
-seed() ->
-    {_,T} = diameter_lib:seed(),
-    T.
 
 %% ---------------------------------------------------------------------------
 %% unique_string/0
@@ -345,11 +336,12 @@ transport(SvcName, Ref) ->
 disconnect(Client, Ref, Server, LRef) ->
     true = diameter:subscribe(Server),
     ok = diameter:remove_transport(Client, Ref),
-    ok = receive
-             {diameter_event, Server, {down, LRef, _, _}} -> ok
-         after 10000 ->
-                 {Client, Ref, Server, LRef, process_info(self(), messages)}
-         end.
+    receive
+        {diameter_event, Server, {down, LRef, _, _}} ->
+            ok
+    after 10000 ->
+            {Client, Ref, Server, LRef, process_info(self(), messages)}
+    end.
 
 %% ---------------------------------------------------------------------------
 

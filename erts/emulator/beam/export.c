@@ -31,7 +31,7 @@
 #define EXPORT_INITIAL_SIZE   4000
 #define EXPORT_LIMIT  (512*1024)
 
-#define EXPORT_HASH(m,f,a) ((m)*(f)+(a))
+#define EXPORT_HASH(m,f,a) ((atom_val(m) * atom_val(f)) ^ (a))
 
 #ifdef DEBUG
 #  define IF_DEBUG(x) x
@@ -79,8 +79,7 @@ struct export_templ
 
 static struct export_blob* entry_to_blob(struct export_entry* ee)
 {
-    return (struct export_blob*)
-        ((char*)ee->ep - offsetof(struct export_blob,exp));
+    return ErtsContainerStruct(ee->ep, struct export_blob, exp);
 }
 
 void

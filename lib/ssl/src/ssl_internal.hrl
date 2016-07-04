@@ -133,10 +133,14 @@
 	  %% the client?
 	  honor_cipher_order = false :: boolean(),
 	  padding_check = true       :: boolean(),
+	  %%Should we use 1/n-1 or 0/n splitting to mitigate BEAST, or disable
+	  %%mitigation entirely?
+	  beast_mitigation = one_n_minus_one :: one_n_minus_one | zero_n | disabled,
 	  fallback = false           :: boolean(),
 	  crl_check                  :: boolean() | peer | best_effort, 
 	  crl_cache,
-	  signature_algs
+	  signature_algs,
+	  v2_hello_compatible        :: boolean()
 	  }).
 
 -record(socket_options,

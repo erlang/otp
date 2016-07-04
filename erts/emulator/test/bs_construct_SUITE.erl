@@ -23,6 +23,7 @@
 -module(bs_construct_SUITE).
 
 -export([all/0, suite/0,
+         init_per_suite/1, end_per_suite/1,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,
 	 not_used/1, in_guard/1,
 	 mem_leak/1, coerce_to_float/1, bjorn/1,
@@ -42,6 +43,12 @@ all() ->
      huge_float_field, huge_binary, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_add_overflow].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    application:stop(os_mon).
 
 big(1) ->
     57285702734876389752897683.
@@ -527,7 +534,7 @@ huge_float_check({'EXIT',{system_limit,_}}) -> ok;
 huge_float_check({'EXIT',{badarg,_}}) -> ok.
 
 huge_binary(Config) when is_list(Config) ->
-    ct:timetrap({seconds, 30}),
+    ct:timetrap({seconds, 60}),
     16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     garbage_collect(),
     {Shift,Return} = case free_mem() of
@@ -561,30 +568,13 @@ huge_binary(Config) when is_list(Config) ->
     end.
 
 free_mem() ->
-    Cmd = "uname; free",
-    Output = string:tokens(os:cmd(Cmd), "\n"),
-    io:format("Output from command ~p\n~p\n",[Cmd,Output]),
-    case Output of
-	[OS, ColumnNames, Values | _] ->
-	    case string:str(OS,"Linux") of
-		0 -> 
-		    io:format("Unknown OS\n",[]),
-		    undefined;
-		_ ->
-		    case {string:tokens(ColumnNames, " \t"),
-			  string:tokens(Values, " \t")} of
-			{[_,_,"free"|_],["Mem:",_,_,FreeKb|_]} ->
-			    list_to_integer(FreeKb) div 1024;
-			_ ->
-			    io:format("Failed to parse output from 'free':\n",[]),
-			    undefined
-		    end
-	    end;
-	_ ->
-	    io:format("Too few lines in output\n",[]),
-	    undefined
+    {ok,Apps} = application:ensure_all_started(os_mon),
+    Mem = memsup:get_system_memory_data(),
+    [ok = application:stop(App)||App <- Apps],
+    case proplists:get_value(free_memory,Mem) of
+        undefined -> undefined;
+        Val -> Val div 1024
     end.
-    
 
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
@@ -614,8 +604,7 @@ system_limit_32() ->
     {'EXIT',{system_limit,_}} = (catch <<42:536870912/unit:8>>),
     {'EXIT',{system_limit,_}} = (catch <<42:(id(536870912))/unit:8>>),
     {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
-    {'EXIT',{system_limit,_}} =
-	(catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
+    {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
 
     %% The size would be silently truncated, resulting in a crash.
     {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 35)>>),
@@ -627,16 +616,10 @@ system_limit_32() ->
     ok.
 
 badarg(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} =
-	(catch <<0:(id(1 bsl 100)),0:(id(-1))>>),
-    {'EXIT',{badarg,_}} =
-	(catch <<0:(id(1 bsl 100)),0:(id(-(1 bsl 70)))>>),
-    {'EXIT',{badarg,_}} =
-	(catch <<0:(id(-(1 bsl 70))),0:(id(1 bsl 100))>>),
-
-    {'EXIT',{badarg,_}} =
-	(catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
-
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-1))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(1 bsl 100)),0:(id(-(1 bsl 70)))>>),
+    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1 bsl 100))>>),
+    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1 bsl 100)))>>),
     ok.
 
 copy_writable_binary(Config) when is_list(Config) ->
@@ -906,10 +889,14 @@ append_unit_16(Bin) ->
 
 %% Produce a large result of bs_add that, if cast to signed int, would overflow
 %% into a negative number that fits a smallnum.
-bs_add_overflow(Config) ->
+bs_add_overflow(_Config) ->
+    Memsize = memsize(),
+    io:format("Memsize = ~w Bytes~n", [Memsize]),
     case erlang:system_info(wordsize) of
 	8 ->
 	    {skip, "64-bit architecture"};
+        _ when Memsize < (2 bsl 30) ->
+	    {skip, "Less then 2 GB of memory"};
 	4 ->
 	    Large = <<0:((1 bsl 30)-1)>>,
 	    {'EXIT',{system_limit,_}} =
@@ -918,5 +905,10 @@ bs_add_overflow(Config) ->
                          Large/bits>>),
 	    ok
     end.
-    
+
 id(I) -> I.
+
+memsize() ->
+    application:ensure_all_started(os_mon),
+    {Tot,_Used,_}  = memsup:get_memory_data(),
+    Tot.

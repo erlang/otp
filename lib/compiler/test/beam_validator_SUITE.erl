@@ -32,7 +32,7 @@
 	 bad_bin_match/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
-	 map_field_lists/1]).
+	 map_field_lists/1,cover_bin_opt/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -60,7 +60,7 @@ groups() ->
        freg_state,bad_bin_match,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
-       map_field_lists]}].
+       map_field_lists,cover_bin_opt]}].
 
 init_per_suite(Config) ->
     Config.
@@ -406,7 +406,123 @@ map_field_lists(Config) ->
        empty_field_list}}
     ] = Errors.
 
+%% Coverage and smoke test of beam_validator.
+cover_bin_opt(_Config) ->
+    Ms = [beam_utils_SUITE,
+	  bs_match_SUITE,
+	  bs_bincomp_SUITE,
+	  bs_bit_binaries_SUITE,
+	  bs_utf_SUITE],
+    test_lib:p_run(fun try_bin_opt/1, Ms),
+    ok.
+
+try_bin_opt(Mod) ->
+    try
+	do_bin_opt(Mod)
+    catch
+	Class:Error ->
+	    io:format("~p: ~p ~p\n~p\n",
+		      [Mod,Class,Error,erlang:get_stacktrace()]),
+	    error
+    end.
+
+do_bin_opt(Mod) ->
+    Beam = code:which(Mod),
+    {ok,{Mod,[{abstract_code,
+	       {raw_abstract_v1,Abstr}}]}} =
+	beam_lib:chunks(Beam, [abstract_code]),
+    {ok,Mod,Asm} = compile:forms(Abstr, ['S']),
+    do_bin_opt(Mod, Asm).
+
+do_bin_opt(Mod, Asm) ->
+    do_bin_opt(fun enable_bin_opt/1, Mod, Asm),
+    do_bin_opt(fun remove_bs_start_match/1, Mod, Asm),
+    do_bin_opt(fun remove_bs_save/1, Mod, Asm),
+    do_bin_opt(fun destroy_ctxt/1, Mod, Asm),
+    do_bin_opt(fun destroy_save_point/1, Mod, Asm),
+    ok.
+
+do_bin_opt(Transform, Mod, Asm0) ->
+    Asm = Transform(Asm0),
+    case compile:forms(Asm, [from_asm,no_postopt,return]) of
+	{ok,[],Code,_Warnings} when is_binary(Code) ->
+	    ok;
+	{error,Errors0,_} ->
+	    %% beam_validator must return errors, not simply crash,
+	    %% when illegal code is found.
+	    ModString = atom_to_list(Mod),
+	    [{ModString,Errors}] = Errors0,
+	    _ = [verify_bin_opt_error(E) || E <- Errors],
+	    ok
+    end.
+
+verify_bin_opt_error({beam_validator,_}) ->
+    ok.
+
+enable_bin_opt(Module) ->
+    transform_is(fun enable_bin_opt_body/1, Module).
+
+enable_bin_opt_body([_,{'%',{no_bin_opt,_Reason,_Anno}}|Is]) ->
+    enable_bin_opt_body(Is);
+enable_bin_opt_body([I|Is]) ->
+    [I|enable_bin_opt_body(Is)];
+enable_bin_opt_body([]) ->
+    [].
+
+remove_bs_start_match(Module) ->
+    transform_remove(fun({test,bs_start_match2,_,_,_,_}) -> true;
+			(_) -> false
+		     end, Module).
+
+remove_bs_save(Module) ->
+    transform_remove(fun({bs_save2,_,_}) -> true;
+			(_) -> false
+		     end, Module).
+
+destroy_save_point(Module) ->
+    transform_i(fun do_destroy_save_point/1, Module).
+
+do_destroy_save_point({I,Ctx,_Point})
+  when I =:= bs_save2; I =:= bs_restore2 ->
+    {I,Ctx,42};
+do_destroy_save_point(I) ->
+    I.
+
+destroy_ctxt(Module) ->
+    transform_i(fun do_destroy_ctxt/1, Module).
+
+do_destroy_ctxt({bs_save2=I,Ctx,Point}) ->
+    {I,destroy_reg(Ctx),Point};
+do_destroy_ctxt({bs_restore2=I,Ctx,Point}) ->
+    {I,destroy_reg(Ctx),Point};
+do_destroy_ctxt({bs_context_to_binary=I,Ctx}) ->
+    {I,destroy_reg(Ctx)};
+do_destroy_ctxt(I) ->
+    I.
+
+destroy_reg({Tag,N}) ->
+    case rand:uniform() of
+	R when R < 0.6 ->
+	    {Tag,N+1};
+	_ ->
+	    {y,N+1}
+    end.
+
 %%%-------------------------------------------------------------------------
+
+transform_remove(Remove, Module) ->
+    transform_is(fun(Is) -> [I || I <- Is, not Remove(I)] end, Module).
+
+transform_i(Transform, Module) ->
+    transform_is(fun(Is) -> [Transform(I) || I <- Is] end, Module).
+
+transform_is(Transform, {Mod,Exp,Imp,Fs0,Lc}) ->
+    Fs = [transform_is_1(Transform, F) || F <- Fs0],
+    {Mod,Exp,Imp,Fs,Lc}.
+
+transform_is_1(Transform, {function,N,A,E,Is0}) ->
+    Is = Transform(Is0),
+    {function,N,A,E,Is}.
 
 do_val(Mod, Config) ->
     Data = proplists:get_value(data_dir, Config),

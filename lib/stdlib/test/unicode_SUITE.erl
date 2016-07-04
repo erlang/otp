@@ -21,10 +21,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,	 
-	 init_per_testcase/2,
-	 end_per_testcase/2,
+-export([all/0, suite/0,groups/0,
 	 utf8_illegal_sequences_bif/1,
 	 utf16_illegal_sequences_bif/1,
 	 random_lists/1,
@@ -37,12 +34,6 @@
 	 ex_binaries_errors_utf16_big/1,
 	 ex_binaries_errors_utf32_little/1,
 	 ex_binaries_errors_utf32_big/1]).
-
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -62,18 +53,6 @@ groups() ->
        ex_binaries_errors_utf16_big,
        ex_binaries_errors_utf32_little,
        ex_binaries_errors_utf32_big]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 binaries_errors_limit(Config) when is_list(Config) ->
     setlimit(10),
@@ -761,6 +740,7 @@ leading_lo_surrogate_bif(HiSurr, LoSurr, End) when LoSurr =< End ->
 leading_lo_surrogate_bif(_, _, _) -> ok.
 
 utf8_illegal_sequences_bif(Config) when is_list(Config) ->
+    ct:timetrap({minutes,40}), %% valgrind needs a lot
     setlimit(10),
     ex_utf8_illegal_sequences_bif(Config),
     setlimit(default),

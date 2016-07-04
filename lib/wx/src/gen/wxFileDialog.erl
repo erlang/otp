@@ -101,13 +101,13 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogwxfiledialog">external documentation</a>.
 -spec new(Parent, [Option]) -> wxFileDialog() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {message, unicode:chardata()}
-		 | {defaultDir, unicode:chardata()}
-		 | {defaultFile, unicode:chardata()}
-		 | {wildCard, unicode:chardata()}
-		 | {style, integer()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {sz, {W::integer(), H::integer()}}.
+	Option :: {'message', unicode:chardata()}
+		 | {'defaultDir', unicode:chardata()}
+		 | {'defaultFile', unicode:chardata()}
+		 | {'wildCard', unicode:chardata()}
+		 | {'style', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'sz', {W::integer(), H::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -188,7 +188,7 @@ getWildcard(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetdirectory">external documentation</a>.
--spec setDirectory(This, Dir) -> ok when
+-spec setDirectory(This, Dir) -> 'ok' when
 	This::wxFileDialog(), Dir::unicode:chardata().
 setDirectory(#wx_ref{type=ThisT,ref=ThisRef},Dir)
  when is_list(Dir) ->
@@ -198,7 +198,7 @@ setDirectory(#wx_ref{type=ThisT,ref=ThisRef},Dir)
   <<ThisRef:32/?UI,(byte_size(Dir_UC)):32/?UI,(Dir_UC)/binary, 0:(((8- ((0+byte_size(Dir_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetfilename">external documentation</a>.
--spec setFilename(This, Name) -> ok when
+-spec setFilename(This, Name) -> 'ok' when
 	This::wxFileDialog(), Name::unicode:chardata().
 setFilename(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
@@ -208,7 +208,7 @@ setFilename(#wx_ref{type=ThisT,ref=ThisRef},Name)
   <<ThisRef:32/?UI,(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((0+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetfilterindex">external documentation</a>.
--spec setFilterIndex(This, FilterIndex) -> ok when
+-spec setFilterIndex(This, FilterIndex) -> 'ok' when
 	This::wxFileDialog(), FilterIndex::integer().
 setFilterIndex(#wx_ref{type=ThisT,ref=ThisRef},FilterIndex)
  when is_integer(FilterIndex) ->
@@ -217,7 +217,7 @@ setFilterIndex(#wx_ref{type=ThisT,ref=ThisRef},FilterIndex)
   <<ThisRef:32/?UI,FilterIndex:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetmessage">external documentation</a>.
--spec setMessage(This, Message) -> ok when
+-spec setMessage(This, Message) -> 'ok' when
 	This::wxFileDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
  when is_list(Message) ->
@@ -227,7 +227,7 @@ setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
   <<ThisRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetpath">external documentation</a>.
--spec setPath(This, Path) -> ok when
+-spec setPath(This, Path) -> 'ok' when
 	This::wxFileDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
  when is_list(Path) ->
@@ -237,7 +237,7 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
   <<ThisRef:32/?UI,(byte_size(Path_UC)):32/?UI,(Path_UC)/binary, 0:(((8- ((0+byte_size(Path_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledialog.html#wxfiledialogsetwildcard">external documentation</a>.
--spec setWildcard(This, WildCard) -> ok when
+-spec setWildcard(This, WildCard) -> 'ok' when
 	This::wxFileDialog(), WildCard::unicode:chardata().
 setWildcard(#wx_ref{type=ThisT,ref=ThisRef},WildCard)
  when is_list(WildCard) ->
@@ -247,7 +247,7 @@ setWildcard(#wx_ref{type=ThisT,ref=ThisRef},WildCard)
   <<ThisRef:32/?UI,(byte_size(WildCard_UC)):32/?UI,(WildCard_UC)/binary, 0:(((8- ((0+byte_size(WildCard_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFileDialog()) -> ok.
+-spec destroy(This::wxFileDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

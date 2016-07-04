@@ -99,7 +99,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                module='',                       %Module
                behaviour=[],                    %Behaviour
                exports=gb_sets:empty()	:: gb_sets:set(fa()),%Exports
-               imports=[] :: [fa()],            %Imports, an orddict()
+               imports=[] :: orddict:orddict(fa(), module()),%Imports
                compile=[],                      %Compile flags
                records=dict:new()               %Record definitions
                    :: dict:dict(atom(), {line(),Fields :: term()}),
@@ -467,7 +467,7 @@ used_vars(Exprs, BindingsList) ->
 %%  really all ordsets!
 
 -spec(module(AbsForms) -> {ok, Warnings} | {error, Errors, Warnings} when
-      AbsForms :: [erl_parse:abstract_form()],
+      AbsForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
       ErrorInfo :: error_info()).
@@ -479,7 +479,7 @@ module(Forms) ->
 
 -spec(module(AbsForms, FileName) ->
              {ok, Warnings} | {error, Errors, Warnings} when
-      AbsForms :: [erl_parse:abstract_form()],
+      AbsForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       FileName :: atom() | string(),
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
@@ -492,7 +492,7 @@ module(Forms, FileName) ->
 
 -spec(module(AbsForms, FileName, CompileOptions) ->
              {ok, Warnings} | {error, Errors, Warnings} when
-      AbsForms :: [erl_parse:abstract_form()],
+      AbsForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       FileName :: atom() | string(),
       CompileOptions :: [compile:option()],
       Warnings :: [{file:filename(),[ErrorInfo]}],

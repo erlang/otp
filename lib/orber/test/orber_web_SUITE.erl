@@ -30,7 +30,7 @@
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -43,7 +43,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -54,7 +54,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			io:format("------ CORRECT RESULT ------~n~p~n",
 				  [AcTuAlReS]),
@@ -106,7 +106,7 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     orber:jump_start(2875),
@@ -119,7 +119,7 @@ end_per_testcase(_Case, Config) ->
     orber:jump_stop(),
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -127,8 +127,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: menu
 %% Description: 
 %%-----------------------------------------------------------------
-menu(doc) -> [""];
-menu(suite) -> [];
 menu(_) ->
     Node = atom_to_list(node()),
     OK = orber_web:menu(env, [{"node", Node}]),
@@ -141,8 +139,6 @@ menu(_) ->
 %% Test Case: configure
 %% Description: 
 %%-----------------------------------------------------------------
-configure(doc) -> [""];
-configure(suite) -> [];
 configure(_) ->
     Node = atom_to_list(node()),
     ?match({'EXIT', _}, orber_web:configure(env, [])),
@@ -162,8 +158,6 @@ configure(_) ->
 %% Test Case: info
 %% Description: 
 %%-----------------------------------------------------------------
-info(doc) -> [""];
-info(suite) -> [];
 info(_) ->
     ?match({'EXIT', _}, orber_web:info(env, [])),
     ?match({'EXIT', _}, orber_web:info(env, [{"node", localhost}])),
@@ -174,8 +168,6 @@ info(_) ->
 %% Test Case: nameservice
 %% Description: 
 %%-----------------------------------------------------------------
-nameservice(doc) -> [""];
-nameservice(suite) -> [];
 nameservice(_) ->
     NodeStr = atom_to_list(node()),
     ?match({'EXIT', _}, orber_web:nameservice(env, [{"node", localhost}, 
@@ -215,8 +207,6 @@ nameservice(_) ->
 %% Test Case: ifr_select
 %% Description: 
 %%-----------------------------------------------------------------
-ifr_select(doc) -> [""];
-ifr_select(suite) -> [];
 ifr_select(_) ->
     ?match({'EXIT', _}, orber_web:ifr_select(env, [])),
     ?match({'EXIT', _}, orber_web:ifr_select(env, [{"node", localhost}])),
@@ -228,8 +218,6 @@ ifr_select(_) ->
 %% Test Case: ifr_data
 %% Description: 
 %%-----------------------------------------------------------------
-ifr_data(doc) -> [""];
-ifr_data(suite) -> [];
 ifr_data(_) ->
     ?match({'EXIT', _}, orber_web:ifr_data(env, [])),
     ?match({'EXIT', _}, orber_web:ifr_data(env, [{"node", localhost},
@@ -266,8 +254,6 @@ ifr_data(_) ->
 %% Test Case: create
 %% Description: 
 %%-----------------------------------------------------------------
-create(doc) -> [""];
-create(suite) -> [];
 create(_) ->
     NodeStr = atom_to_list(node()),
     ?match({'EXIT', _}, orber_web:create(env, [])),
@@ -347,8 +333,6 @@ create(_) ->
 %% Test Case: delete_ctx
 %% Description: 
 %%-----------------------------------------------------------------
-delete_ctx(doc) -> [""];
-delete_ctx(suite) -> [];
 delete_ctx(_) ->
     ?match({ok, _}, orber_web:delete_ctx(env, [{"node", atom_to_list(node())},
 					       {"context", "id1"}])),
@@ -363,8 +347,6 @@ delete_ctx(_) ->
 %% Test Case: add_ctx
 %% Description: 
 %%-----------------------------------------------------------------
-add_ctx(doc) -> [""];
-add_ctx(suite) -> [];
 add_ctx(_) ->
     ?match({error, _}, orber_web:add_ctx(env, [{"node", "bad_node"},
  					       {"context", "root"},
@@ -384,8 +366,6 @@ add_ctx(_) ->
 %% Test Case: delete_obj
 %% Description: 
 %%-----------------------------------------------------------------
-delete_obj(doc) -> [""];
-delete_obj(suite) -> [];
 delete_obj(_) ->
     NodeStr = atom_to_list(node()),
     ?match({error, _}, orber_web:delete_obj(env, [{"node", "bad_node"},
@@ -436,8 +416,6 @@ delete_obj(_) ->
 %% Test Case: server
 %% Description: 
 %%-----------------------------------------------------------------
-server(doc) -> [""];
-server(suite) -> [];
 server(_) ->
     NodeStr = "node=" ++ atom_to_list(node()),
     {ok, Pid} = ?match({ok,_}, orber_web_server:start()),

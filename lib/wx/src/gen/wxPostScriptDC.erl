@@ -78,7 +78,7 @@ new(#wx_ref{type=PrintDataT,ref=PrintDataRef}) ->
   <<PrintDataRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpostscriptdc.html#wxpostscriptdcsetresolution">external documentation</a>.
--spec setResolution(Ppi) -> ok when
+-spec setResolution(Ppi) -> 'ok' when
 	Ppi::integer().
 setResolution(Ppi)
  when is_integer(Ppi) ->
@@ -92,7 +92,7 @@ getResolution() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPostScriptDC()) -> ok.
+-spec destroy(This::wxPostScriptDC()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPostScriptDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

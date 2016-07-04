@@ -23,7 +23,9 @@
 -module(ssh_dbg).
 
 -export([messages/0,
-	 messages/1
+	 messages/1,
+	 messages/2,
+	 stop/0
 	]).
 
 -include("ssh.hrl").
@@ -35,37 +37,80 @@
 	  writer,
 	  acc = []}).
 %%%================================================================
-messages() -> messages(fun(String,_D) -> io:format(String) end).
-%% messages() -> messages(fun(String,Acc) -> [String|Acc] end)
+messages() ->
+    messages(fun(String,_D) -> io:format(String) end).
 
 messages(Write) when is_function(Write,2) ->
+    messages(Write, fun(X) -> X end).
+
+messages(Write, MangleArg) when is_function(Write,2),
+				is_function(MangleArg,1) ->
     catch dbg:start(),
-
-    Handler = fun msg_formater/2,
-    InitialData = #data{writer = Write},
-    {ok,_} = dbg:tracer(process, {Handler, InitialData}),
-
+    setup_tracer(Write, MangleArg),
     dbg:p(new,c),
+    dbg_ssh_messages().
+
+dbg_ssh_messages() ->
     dbg:tp(ssh_message,encode,1, x),
     dbg:tp(ssh_message,decode,1, x),
     dbg:tpl(ssh_transport,select_algorithm,3, x).
 
+%%%----------------------------------------------------------------
+stop() ->
+    dbg:stop().
+
 %%%================================================================
 msg_formater({trace,Pid,call,{ssh_message,encode,[Msg]}}, D) ->
     fmt("~nSEND ~p ~s~n", [Pid,wr_record(shrink_bin(Msg))], D);
-
-msg_formater({trace,Pid,return_from,{ssh_message,decode,1},Msg}, D) -> 
-    fmt("~nRECV ~p ~s~n", [Pid,wr_record(shrink_bin(Msg))], D);
+msg_formater({trace,_Pid,return_from,{ssh_message,encode,1},_Res}, D) -> 
+    D;
 	
+msg_formater({trace,_Pid,call,{ssh_message,decode,_}}, D) ->
+    D;
+msg_formater({trace,Pid,return_from,{ssh_message,decode,1},Msg}, D) -> 
+    fmt("~n~p RECV ~s~n", [Pid,wr_record(shrink_bin(Msg))], D);
+	
+msg_formater({trace,_Pid,call,{ssh_transport,select_algorithm,_}}, D) ->
+    D;
 msg_formater({trace,Pid,return_from,{ssh_transport,select_algorithm,3},{ok,Alg}}, D) ->
-    fmt("~nALGORITHMS ~p~n~s~n", [Pid, wr_record(Alg)], D);
+    fmt("~n~p ALGORITHMS~n~s~n", [Pid, wr_record(Alg)], D);
 
-msg_formater(_, D) -> 
-    D.
+
+msg_formater({trace,Pid,send,{tcp,Sock,Bytes},Pid}, D) ->
+    fmt("~n~p TCP SEND on ~p~n ~p~n", [Pid,Sock, shrink_bin(Bytes)], D);
+
+msg_formater({trace,Pid,send,{tcp,Sock,Bytes},Dest}, D) ->
+    fmt("~n~p TCP SEND from ~p TO ~p~n ~p~n", [Pid,Sock,Dest, shrink_bin(Bytes)], D);
+
+msg_formater({trace,Pid,send,ErlangMsg,Dest}, D) ->
+    fmt("~n~p ERL MSG SEND TO ~p~n ~p~n", [Pid,Dest, shrink_bin(ErlangMsg)], D);
+
+
+msg_formater({trace,Pid,'receive',{tcp,Sock,Bytes}}, D) ->
+    fmt("~n~p TCP RECEIVE on ~p~n ~p~n", [Pid,Sock,shrink_bin(Bytes)], D);
+
+msg_formater({trace,Pid,'receive',ErlangMsg}, D) ->
+    fmt("~n~p ERL MSG RECEIVE~n ~p~n", [Pid,shrink_bin(ErlangMsg)], D);
+
+
+msg_formater(M, D) ->
+    fmt("~nDBG ~n~p~n", [shrink_bin(M)], D).
+
+%% msg_formater(_, D) -> 
+%%     D.
 
 
 fmt(Fmt, Args,  D=#data{writer=Write,acc=Acc}) ->
     D#data{acc = Write(io_lib:format(Fmt, Args), Acc)}.
+
+%%%----------------------------------------------------------------
+setup_tracer(Write, MangleArg) ->
+    Handler = fun(Arg, D) ->
+		      msg_formater(MangleArg(Arg), D)
+	      end,
+    InitialData = #data{writer = Write},
+    {ok,_} = dbg:tracer(process, {Handler, InitialData}),
+    ok.
 
 %%%----------------------------------------------------------------
 shrink_bin(B) when is_binary(B), size(B)>100 -> {'*** SHRINKED BIN',size(B),element(1,split_binary(B,20)),'***'};

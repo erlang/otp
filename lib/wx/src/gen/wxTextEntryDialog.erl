@@ -99,10 +99,10 @@ new(Parent,Message)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
 -spec new(Parent, Message, [Option]) -> wxTextEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
-	Option :: {caption, unicode:chardata()}
-		 | {value, unicode:chardata()}
-		 | {style, integer()}
-		 | {pos, {X::integer(), Y::integer()}}.
+	Option :: {'caption', unicode:chardata()}
+		 | {'value', unicode:chardata()}
+		 | {'style', integer()}
+		 | {'pos', {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
  when is_list(Message),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -125,7 +125,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogsetvalue">external documentation</a>.
--spec setValue(This, Val) -> ok when
+-spec setValue(This, Val) -> 'ok' when
 	This::wxTextEntryDialog(), Val::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Val)
  when is_list(Val) ->
@@ -135,7 +135,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Val)
   <<ThisRef:32/?UI,(byte_size(Val_UC)):32/?UI,(Val_UC)/binary, 0:(((8- ((0+byte_size(Val_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxTextEntryDialog()) -> ok.
+-spec destroy(This::wxTextEntryDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextEntryDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

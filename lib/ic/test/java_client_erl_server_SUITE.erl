@@ -99,7 +99,7 @@ end_per_suite(Config) -> Config.
 %% Add/remove code path and watchdog before/after each test case.
 %%
 init_per_testcase(_Case, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     code:add_patha(DataDir),
 
     %% Since other test suites use the module m_i et,al, we have
@@ -115,9 +115,9 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, WatchDog}| Config].
 
 end_per_testcase(_Case, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     code:del_path(DataDir),
-    WatchDog = ?config(watchdog, Config),
+    WatchDog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
 
@@ -126,127 +126,104 @@ end_per_testcase(_Case, Config) ->
 %%
 %% Test cases
 
-marshal_ll(doc) ->
-    ["Testing marshalling of IDL long long"];
-marshal_ll(suite) -> [];
+%% Testing marshalling of IDL long long
 marshal_ll(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_ll}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_ll}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_ll]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_ull(doc) ->
-    ["Testing marshalling of IDL unsigned long long"];
-marshal_ull(suite) -> [];
+%% Testing marshalling of IDL unsigned long long
 marshal_ull(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_ull}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_ull}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_ull]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_l(doc) ->
-    ["Testing marshalling of IDL long"];
-marshal_l(suite) -> [];
+%% Testing marshalling of IDL long
 marshal_l(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_l}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_l}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_l]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_ul(doc) ->
-    ["Testing marshalling of IDL unsigned long"];
-marshal_ul(suite) -> [];
+%% Testing marshalling of IDL unsigned long
 marshal_ul(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_ul}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_ul}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_ul]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_s(doc) ->
-    ["Testing marshalling of IDL short"];
-marshal_s(suite) -> [];
+%% Testing marshalling of IDL short
 marshal_s(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_s}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_s}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_s]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_us(doc) ->
-    ["Testing marshalling of IDL unsigned short"];
-marshal_us(suite) -> [];
+%% Testing marshalling of IDL unsigned short
 marshal_us(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_us}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_us}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_us]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_c(doc) ->
-    ["Testing marshalling of IDL char"];
-marshal_c(suite) -> [];
+%% Testing marshalling of IDL char
 marshal_c(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_c}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_c}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_c]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_wc(doc) ->
-    ["Testing marshalling of IDL char"];
-marshal_wc(suite) -> [];
+%% Testing marshalling of IDL char
 marshal_wc(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_wc}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_wc}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_wc]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_str(doc) ->
-    ["Testing marshalling of IDL string"];
-marshal_str(suite) -> [];
+%% Testing marshalling of IDL string
 marshal_str(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_str}),
-    ?line ok = java(?config(java, Config), DataDir, 
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_str}),
+    ok = java(proplists:get_value(java, Config), DataDir, 
 %%% 		    "-DOtpConnection.trace=4 "
 		    "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_str]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_any_3(doc) ->
-    ["Testing marshalling of IDL any"];
-marshal_any_3(suite) -> [];
+%% Testing marshalling of IDL any
 marshal_any_3(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_any_3}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_any_3}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_any_3]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_any_2(doc) ->
-    ["Testing marshalling of IDL any"];
-marshal_any_2(suite) -> [];
 marshal_any_2(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_any_2}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_any_2}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_any_2]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
 %%--------------------------------------------------------------------

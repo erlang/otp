@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,14 +25,12 @@
 -module(diameter_reg).
 -behaviour(gen_server).
 
--compile({no_auto_import, [monitor/2]}).
-
 -export([add/1,
          add_new/1,
-         del/1,
-         repl/2,
+         remove/1,
          match/1,
-         wait/1]).
+         wait/1,
+         subscribe/2]).
 
 -export([start_link/0]).
 
@@ -46,29 +44,32 @@
 
 %% test
 -export([pids/0,
-         terms/0]).
+         terms/0,
+         subs/0,
+         waits/0]).
 
 %% debug
 -export([state/0,
          uptime/0]).
 
--include("diameter_internal.hrl").
-
 -define(SERVER, ?MODULE).
 -define(TABLE, ?MODULE).
 
-%% Table entry used to keep from starting more than one monitor on the
-%% same process. This isn't a problem but there's no point in starting
-%% multiple monitors if we can avoid it. Note that we can't have a 2-tuple
-%% keyed on Pid since a registered term can be anything. Want the entry
-%% keyed on Pid so that lookup is fast.
--define(MONITOR(Pid, MRef), {Pid, monitor, MRef}).
-
-%% Table entry containing the Term -> Pid mapping.
--define(MAPPING(Term, Pid), {Term, Pid}).
+-type key() :: term().
+-type from() :: {pid(), term()}.
+-type pattern() :: term().
 
 -record(state, {id = diameter_lib:now(),
-                q = []}). %% [{From, Pat}]
+                receivers = dict:new()
+                         :: dict:dict(pattern(), [[pid() | term()]%% subscribe
+                                                  | from()]),     %% wait
+                monitors = sets:new() :: sets:set(pid())}).
+
+%% The ?TABLE bag contains the Key -> Pid mapping, as {Key, Pid}
+%% tuples. Each pid is stored in the monitors set to ensure only one
+%% monitor for each pid: more are harmless, but unnecessary. A pattern
+%% is added to receivers a result of calls to wait/1 or subscribe/2:
+%% changes to ?TABLE causes processes to be notified as required.
 
 %% ===========================================================================
 %% # add(T)
@@ -77,18 +78,18 @@
 %% this or other assocations can be retrieved using match/1.
 %%
 %% An association is removed when the calling process dies or as a
-%% result of calling del/1. Adding the same term more than once is
-%% equivalent to adding it exactly once.
+%% result of calling remove/1. Adding the same term more than once is
+%% equivalent to adding it once.
 %%
 %% Note that since match/1 takes a pattern as argument, specifying a
 %% term that contains match variables is probably not a good idea
 %% ===========================================================================
 
--spec add(any())
+-spec add(key())
    -> true.
 
 add(T) ->
-    call({add, fun ets:insert/2, T, self()}).
+    call({add, false, T}).
 
 %% ===========================================================================
 %% # add_new(T)
@@ -97,36 +98,23 @@ add(T) ->
 %% association, false being returned if an association already exists.
 %% ===========================================================================
 
--spec add_new(any())
+-spec add_new(key())
    -> boolean().
 
 add_new(T) ->
-    call({add, fun insert_new/2, T, self()}).
+    call({add, true, T}).
 
 %% ===========================================================================
-%% # repl(T, NewT)
-%%
-%% Like add/1 but only replace an existing association on T, false
-%% being returned if it doesn't exist.
-%% ===========================================================================
-
--spec repl(any(), any())
-   -> boolean().
-
-repl(T, U) ->
-    call({repl, T, U, self()}).
-
-%% ===========================================================================
-%% # del(Term)
+%% # remove(Term)
 %%
 %% Remove any existing association of Term with self().
 %% ===========================================================================
 
--spec del(any())
+-spec remove(key())
    -> true.
 
-del(T) ->
-    call({del, T, self()}).
+remove(T) ->
+    call({remove, T}).
 
 %% ===========================================================================
 %% # match(Pat)
@@ -139,12 +127,17 @@ del(T) ->
 %% associations removed.)
 %% ===========================================================================
 
--spec match(any())
-   -> [{term(), pid()}].
+-spec match(pattern())
+   -> [{key(), pid()}].
 
 match(Pat) ->
-    ets:match_object(?TABLE, ?MAPPING(Pat, '_')).
+    match(Pat, '_').
 
+%% match/2
+
+match(Pat, Pid) ->
+    ets:match_object(?TABLE, {Pat, Pid}).
+    
 %% ===========================================================================
 %% # wait(Pat)
 %%
@@ -152,8 +145,27 @@ match(Pat) ->
 %% It's up to the caller to ensure that the wait won't be forever.
 %% ===========================================================================
 
+-spec wait(pattern())
+   -> [{key(), pid()}].
+
 wait(Pat) ->
+    _ = match(Pat),  %% ensure match can succeed
     call({wait, Pat}).
+
+%% ===========================================================================
+%% # subscribe(Pat, T)
+%%
+%% Like match/1, but additionally receive messages of the form
+%% {T, add|remove, {term(), pid()} when associations are added
+%% or removed.
+%% ===========================================================================
+
+-spec subscribe(Pat :: any(), T :: term())
+   -> [{term(), pid()}].
+
+subscribe(Pat, T) ->
+    _ = match(Pat),  %% ensure match can succeed
+    call({subscribe, Pat, T}).
 
 %% ===========================================================================
 
@@ -169,19 +181,15 @@ uptime() ->
     call(uptime).
 
 %% pids/0
-%%
-%% Return: list of {Pid, [Term, ...]}
+
+-spec pids()
+   -> [{pid(), [key()]}].
 
 pids() ->
     to_list(fun swap/1).
 
 to_list(Fun) ->
-    ets:foldl(fun(T,A) -> acc(Fun, T, A) end, orddict:new(), ?TABLE).
-
-acc(Fun, ?MAPPING(Term, Pid), Dict) ->
-    append(Fun({Term, Pid}), Dict);
-acc(_, _, Dict) ->
-    Dict.
+    ets:foldl(fun(T,D) -> append(Fun(T), D) end, orddict:new(), ?TABLE).
 
 append({K,V}, Dict) ->
     orddict:append(K, V, Dict).
@@ -189,13 +197,46 @@ append({K,V}, Dict) ->
 id(T) -> T.
 
 %% terms/0
-%%
-%% Return: list of {Term, [Pid, ...]}
+
+-spec terms()
+   -> [{key(), [pid()]}].
 
 terms() ->
     to_list(fun id/1).
 
 swap({X,Y}) -> {Y,X}.
+
+%% subs/0
+
+-spec subs()
+   -> [{pattern(), [{pid(), term()}]}].
+
+subs() ->
+    #state{receivers = RD} = state(),
+    dict:fold(fun sub/3, orddict:new(), RD).
+
+sub(Pat, Ps, Dict) ->
+    lists:foldl(fun([P|T], D) -> orddict:append(Pat, {P,T}, D);
+                   (_, D) -> D
+                end,
+                Dict,
+                Ps).
+
+%% waits/0
+
+-spec waits()
+   -> [{pattern(), [{from(), term()}]}].
+
+waits() ->
+    #state{receivers = RD} = state(),
+    dict:fold(fun wait/3, orddict:new(), RD).
+
+wait(Pat, Ps, Dict) ->
+    lists:foldl(fun({_,_} = F, D) -> orddict:append(Pat, F, D);
+                   (_, D) -> D
+                end,
+                Dict,
+                Ps).
 
 %% ----------------------------------------------------------
 %% # init/1
@@ -209,27 +250,33 @@ init(_) ->
 %% # handle_call/3
 %% ----------------------------------------------------------
 
-handle_call({add, Fun, Key, Pid}, _, S) ->
-    B = Fun(?TABLE, {Key, Pid}),
-    monitor(B andalso no_monitor(Pid), Pid),
-    {reply, B, pending(B, S)};
+handle_call({add, Uniq, Key}, {Pid, _}, S0) ->
+    Rec = {Key, Pid},
+    S1 = flush(Uniq, Rec, S0),
+    {Res, New} = insert(Uniq, Rec),
+    {Recvs, S} = add(New, Rec, S1),
+    notify(Recvs, Rec),
+    {reply, Res, S};
 
-handle_call({del, Key, Pid}, _, S) ->
-    {reply, ets:delete_object(?TABLE, ?MAPPING(Key, Pid)), S};
+handle_call({remove, Key}, {Pid, _}, S) ->
+    Rec = {Key, Pid},
+    Recvs = delete([Rec], S),
+    ets:delete_object(?TABLE, Rec),
+    notify(Recvs, remove),
+    {reply, true, S};
 
-handle_call({repl, T, U, Pid}, _, S) ->
-    MatchSpec = [{?MAPPING('$1', Pid),
-                  [{'=:=', '$1', {const, T}}],
-                  ['$_']}],
-    {reply, repl(ets:select(?TABLE, MatchSpec), U, Pid), S};
-
-handle_call({wait, Pat}, From, #state{q = Q} = S) ->
-    case find(Pat) of
-        {ok, L} ->
-            {reply, L, S};
-        false ->
-            {noreply, S#state{q = [{From, Pat} | Q]}}
+handle_call({wait, Pat}, {Pid, _} = From, #state{receivers = RD} = S) ->
+    NS = add_monitor(Pid, S),
+    case match(Pat) of
+        [_|_] = L ->
+            {reply, L, NS};
+        [] ->
+            {noreply, NS#state{receivers = dict:append(Pat, From, RD)}}
     end;
+
+handle_call({subscribe, Pat, T}, {Pid, _}, #state{receivers = RD} = S) ->
+    NS = add_monitor(Pid, S),
+    {reply, match(Pat), NS#state{receivers = dict:append(Pat, [Pid | T], RD)}};
 
 handle_call(state, _, S) ->
     {reply, S, S};
@@ -237,29 +284,24 @@ handle_call(state, _, S) ->
 handle_call(uptime, _, #state{id = Time} = S) ->
     {reply, diameter_lib:now_diff(Time), S};
 
-handle_call(Req, From, S) ->
-    ?UNEXPECTED([Req, From]),
+handle_call(_Req, _From, S) ->
     {reply, nok, S}.
 
 %% ----------------------------------------------------------
 %% # handle_cast/2
 %% ----------------------------------------------------------
 
-handle_cast(Msg, S)->
-    ?UNEXPECTED([Msg]),
+handle_cast(_Msg, S)->
     {noreply, S}.
 
 %% ----------------------------------------------------------
 %% # handle_info/2
 %% ----------------------------------------------------------
 
-handle_info({'DOWN', MRef, process, Pid, _}, S) ->
-    ets:delete_object(?TABLE, ?MONITOR(Pid, MRef)),
-    ets:match_delete(?TABLE, ?MAPPING('_', Pid)),
-    {noreply, S};
+handle_info({'DOWN', _MRef, process, Pid, _}, S) ->
+    {noreply, down(Pid, S)};
 
-handle_info(Info, S) ->
-    ?UNEXPECTED([Info]),
+handle_info(_Info, S) ->
     {noreply, S}.
 
 %% ----------------------------------------------------------
@@ -278,71 +320,166 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% ===========================================================================
 
-monitor(true, Pid) ->
-    ets:insert(?TABLE, ?MONITOR(Pid, erlang:monitor(process, Pid)));
-monitor(false, _) ->
-    ok.
+%% insert/2
 
-%% Do we need a monitor for the specified Pid?
-no_monitor(Pid) ->
-    [] == ets:match_object(?TABLE, ?MONITOR(Pid, '_')).
+insert(false, Rec) ->
+    Spec = [{'$1', [{'==', '$1', {const, Rec}}], ['$_']}],
+    X = '$end_of_table' /= ets:select(?TABLE, Spec, 1),  %% entry exists?
+    X orelse ets:insert(?TABLE, Rec),
+    {true, not X};
 
-%% insert_new/2
+insert(true, Rec) ->
+    B = ets:insert_new(?TABLE, Rec),  %% entry inserted?
+    {B, B}.
 
-insert_new(?TABLE, {Key, _} = T) ->
-    flush(ets:lookup(?TABLE, Key)),
-    ets:insert_new(?TABLE, T).
+%% add/3
 
-%% Remove any processes that are dead but for which we may not have
-%% received 'DOWN' yet. This is to ensure that add_new can be used
-%% to register a unique name each time a process restarts.
-flush(List) ->
-    lists:foreach(fun({_,P} = T) ->
-                          del(erlang:is_process_alive(P), T)
-                  end,
-                  List).
+%% Only add a single monitor for any given process, since there's no
+%% use to more.
+add(true, {_Key, Pid} = Rec, S) ->
+    NS = add_monitor(Pid, S),
+    {Recvs, RD} = add(Rec, NS),
+    {Recvs, S#state{receivers = RD}};
 
-del(Alive, T) ->
-    Alive orelse ets:delete_object(?TABLE, T).
+add(false = No, _, S) ->
+    {No, S}.
 
-%% repl/3
+%% add/2
 
-repl([?MAPPING(_, Pid) = M], Key, Pid) ->
-    ets:delete_object(?TABLE, M),
-    true = ets:insert(?TABLE, ?MAPPING(Key, Pid));
-repl([], _, _) ->
-    false.
+%% Notify processes whose patterns match the inserted key.
+add({_Key, Pid} = Rec, #state{receivers = RD}) ->
+    dict:fold(fun(Pt, Ps, A) ->
+                      add(lists:member(Rec, match(Pt, Pid)), Pt, Ps, Rec, A)
+              end,
+              {sets:new(), RD},
+              RD).
 
-%% pending/1
+%% add/5
 
-pending(true, #state{q = [_|_] = Q} = S) ->
-    S#state{q = q(lists:reverse(Q), [])}; %% retain reply order
-pending(_, S) ->
+add(true, Pat, Recvs, {_,_} = Rec, {Set, Dict}) ->
+    {lists:foldl(fun sets:add_element/2, Set, Recvs),
+     remove(fun erlang:is_list/1, Pat, Recvs, Dict)};
+
+add(false, _, _, _, Acc) ->
+    Acc.
+
+%% add_monitor/2
+
+add_monitor(Pid, #state{monitors = MS} = S) ->
+    add_monitor(sets:is_element(Pid, MS), Pid, S).
+
+%% add_monitor/3
+
+add_monitor(false, Pid, #state{monitors = MS} = S) ->
+    monitor(process, Pid),
+    S#state{monitors = sets:add_element(Pid, MS)};
+
+add_monitor(true, _, S) ->
     S.
 
-q([], Q) ->
-    Q;
-q([{From, Pat} = T | Rest], Q) ->
-    case find(Pat) of
-        {ok, L} ->
-            gen_server:reply(From, L),
-            q(Rest, Q);
-        false ->
-            q(Rest, [T|Q])
-    end.
+%% delete/2
 
-%% find/1
+delete(Recs, #state{receivers = RD}) ->
+    lists:foldl(fun(R,S) -> delete(R, RD, S) end, sets:new(), Recs).
 
-find(Pat) ->
-    try match(Pat) of
-        [] ->
-            false;
-        L ->
-            {ok, L}
-    catch
-        _:_ ->
-            {ok, []}
-    end.
+%% delete/3
+
+delete({_Key, Pid} = Rec, RD, Set) ->
+    dict:fold(fun(Pt, Ps, S) ->
+                      delete(lists:member(Rec, match(Pt, Pid)), Rec, Ps, S)
+              end,
+              Set,
+              RD).
+
+%% delete/4
+
+%% Entry matches a pattern ...
+delete(true, Rec, Recvs, Set) ->
+    lists:foldl(fun(R,S) -> sets:add_element({R, Rec}, S) end,
+                Set,
+                Recvs);
+
+%% ... or not.
+delete(false, _, _, Set) ->
+    Set.
+
+%% notify/2
+
+notify(false = No, _) ->
+    No;
+
+notify(Recvs, remove = Op) ->
+    sets:fold(fun({P,R}, N) -> send(P, R, Op), N+1 end, 0, Recvs);
+
+notify(Recvs, {_,_} = Rec) ->
+    sets:fold(fun(P,N) -> send(P, Rec, add), N+1 end, 0, Recvs).
+
+%% send/3
+
+%% No processes waiting on remove, by construction: they've either
+%% received notification at add or aren't waiting.
+send([Pid | T], Rec, Op) ->
+    Pid ! {T, Op, Rec};
+
+send({_,_} = From, Rec, add) ->
+    gen_server:reply(From, [Rec]).
+
+%% down/2
+
+down(Pid, #state{monitors = MS} = S) ->
+    NS = flush(Pid, S),
+    Recvs = delete(match('_', Pid), NS),
+    ets:match_delete(?TABLE, {'_', Pid}),
+    notify(Recvs, remove),
+    NS#state{monitors = sets:del_element(Pid, MS)}.
+
+%% flush/3
+
+%% Remove any processes that are dead but for which we may not have
+%% received 'DOWN' yet, to ensure that add_new can be used to register
+%% a unique name each time a registering process restarts.
+flush(true, {Key, Pid}, S) ->
+    Spec = [{{'$1', '$2'},
+             [{'andalso', {'==', '$1', {const, Key}},
+                          {'/=', '$2', Pid}}],
+             ['$2']}],
+    lists:foldl(fun down/2, S, [P || P <- ets:select(?TABLE, Spec),
+                                     not is_process_alive(P)]);
+
+flush(false, _, S) ->
+    S.
+
+%% flush/2
+
+%% Process has died and should no longer receive messages/replies.
+flush(Pid, #state{receivers = RD} = S)
+  when is_pid(Pid) ->
+    S#state{receivers = dict:fold(fun(Pt,Ps,D) -> flush(Pid, Pt, Ps, D) end,
+                                  RD,
+                                  RD)}.
+
+%% flush/4
+
+flush(Pid, Pat, Recvs, Dict) ->
+    remove(fun(T) -> Pid /= head(T) end, Pat, Recvs, Dict).
+
+%% head/1
+
+head([P|_]) ->
+    P;
+
+head({P,_}) ->
+    P.
+
+%% remove/4
+
+remove(Pred, Key, Values, Dict) ->
+     case lists:filter(Pred, Values) of
+         [] ->
+             dict:erase(Key, Dict);
+         Rest ->
+             dict:store(Key, Rest, Dict)
+     end.
 
 %% call/1
 

@@ -67,7 +67,7 @@
       <desc>
 	<p>The different trace tags that the tracer will be called with.
         Each trace tag is described in greater detail in
-        <seealso marker="#trace">Module:trace/6</seealso>
+        <seealso marker="#Module:trace/5">Module:trace/5</seealso>
         </p>
       </desc>
     </datatype>
@@ -81,19 +81,22 @@
     <datatype>
       <name name="trace_opts" />
       <desc>
-	<p>The options for the tracee.
+	<p>The options for the tracee.</p>
         <taglist>
           <tag><c>timestamp</c></tag>
-          <item>If not set to <c>undefined</c>, the tracer has been requested to
-          include a timestamp.</item>
+          <item>If set the tracer has been requested to include a timestamp.</item>
+          <tag><c>extra</c></tag>
+          <item>If set the tracepoint has included additonal data about
+          the trace event. What the additional data is depends on which
+          <c>TraceTag</c> has been triggered. The <c>extra</c> trace data
+          corresponds to the fifth elemnt in the trace tuples described in
+          <seealso marker="erlang#trace_3_trace_messages">erlang:trace/3</seealso>.</item>
           <tag><c>match_spec_result</c></tag>
-          <item>If not set to <c>true</c>, the tracer has been requested to
-          include the output of a match specification that was run.</item>
+          <item>If set the tracer has been requested to include the output
+          of a match specification that was run.</item>
           <tag><c>scheduler_id</c></tag>
-          <item>Set to a number if the scheduler id is to be included by the tracer.
-          Otherwise it is set to <c>undefined</c>.</item>
+          <item>Set the scheduler id is to be included by the tracer.</item>
         </taglist>
-        </p>
       </desc>
     </datatype>
     <datatype>
@@ -114,30 +117,30 @@
     <p>The following functions
       should be exported from a <c>erl_tracer</c> callback module.</p>
    <taglist>
-       <tag><seealso marker="#enabled"><c>Module:enabled/3</c></seealso></tag>
+       <tag><seealso marker="#Module:enabled/3"><c>Module:enabled/3</c></seealso></tag>
        <item>Mandatory</item>
-       <tag><seealso marker="#trace"><c>Module:trace/6</c></seealso></tag>
+       <tag><seealso marker="#Module:trace/5"><c>Module:trace/5</c></seealso></tag>
        <item>Mandatory</item>
-       <tag><seealso marker="#enabled_procs"><c>Module:enabled_procs/3</c></seealso></tag>
+       <tag><seealso marker="#Module:enabled_procs/3"><c>Module:enabled_procs/3</c></seealso></tag>
        <item>Optional</item>
-       <tag><seealso marker="#trace_procs"><c>Module:trace_procs/6</c></seealso></tag>
+       <tag><seealso marker="#Module:trace_procs/5"><c>Module:trace_procs/5</c></seealso></tag>
        <item>Optional</item>
-       <tag><seealso marker="#enabled_ports"><c>Module:enabled_ports/3</c></seealso></tag>
+       <tag><seealso marker="#Module:enabled_ports/3"><c>Module:enabled_ports/3</c></seealso></tag>
        <item>Optional</item>
-       <tag><seealso marker="#trace_ports"><c>Module:trace_ports/6</c></seealso></tag>
+       <tag><seealso marker="#Module:trace_ports/5"><c>Module:trace_ports/5</c></seealso></tag>
        <item>Optional</item>
-       <tag><seealso marker="#enabled_running_ports"><c>Module:enabled_running_ports/3</c></seealso></tag>
+       <tag><seealso marker="#Module:enabled_running_ports/3"><c>Module:enabled_running_ports/3</c></seealso></tag>
        <item>Optional</item>
-       <tag><seealso marker="#trace_running_ports"><c>Module:trace_running_ports/6</c></seealso></tag>
+       <tag><seealso marker="#Module:trace_running_ports/5"><c>Module:trace_running_ports/5</c></seealso></tag>
        <item>Optional</item>
-       <tag><seealso marker="#enabled_running_procs"><c>Module:enabled_running_procs/3</c></seealso></tag>
+       <tag><seealso marker="#Module:enabled_running_procs/3"><c>Module:enabled_running_procs/3</c></seealso></tag>
        <item>Optional</item>
-       <tag><seealso marker="#trace_running_procs"><c>Module:trace_running_procs/6</c></seealso></tag>
+       <tag><seealso marker="#Module:trace_running_procs/5"><c>Module:trace_running_procs/5</c></seealso></tag>
        <item>Optional</item>
    </taglist>
 
   </section>
-  <marker id="enabled"></marker>
+
   <funcs>
     <func>
       <name>Module:enabled(TraceTag, TracerState, Tracee) -> Result</name>
@@ -166,35 +169,33 @@
         is important that it is both fast and side effect free.</p>
       </desc>
     </func>
-    <marker id="trace"></marker>
     <func>
-      <name>Module:trace(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+      <name>Module:trace(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
       <fsummary>Check if a trace event should be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag">trace_tag()</seealso></v>
         <v>TracerState = term()</v>
         <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
         <v>FirstTraceTerm = term()</v>
-        <v>SecondTraceTerm = term() | undefined</v>
         <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
         <v>Result =  ok</v>
       </type>
       <desc>
         <p>This callback will be called when a tracepoint is triggered and
-        the <seealso marker="#enabled">Module:enabled/3</seealso>
+        the <seealso marker="#Module:enabled/3">Module:enabled/3</seealso>
         callback returned <c>trace</c>. In it any side effects needed by
         the tracer should be done. The tracepoint payload is located in
-        the <c>FirstTraceTerm</c> and <c>SecondTraceTerm</c>. The content
-        of the TraceTerms depends on which <c>TraceTag</c> has been triggered.
-        The <c>FirstTraceTerm</c> and <c>SecondTraceTerm</c> correspond to the
-        fourth and fifth slot in the trace tuples described in
+        the <c>TraceTerm</c>. The content of the TraceTerm depends on which
+        <c>TraceTag</c> has been triggered.
+        The <c>TraceTerm</c> corresponds to the
+        fourth element in the trace tuples described in
         <seealso marker="erlang#trace_3_trace_messages">erlang:trace/3</seealso>.
-        If the tuple only has four elements, <c>SecondTraceTerm</c> will be
-        <c>undefined</c>.</p>
+        If the trace tuple has five elements, the fifth element will be sent as
+        the <c>extra</c> value in the <c>Opts</c> maps.</p>
       </desc>
     </func>
     <func>
-      <name name="trace">Module:trace(seq_trace, TracerState, Label, SeqTraceInfo, undefined, Opts) -> Result</name>
+      <name name="trace">Module:trace(seq_trace, TracerState, Label, SeqTraceInfo, Opts) -> Result</name>
       <fsummary>Check if a sequence trace event should be generated.</fsummary>
       <type>
         <v>TracerState = term()</v>
@@ -212,7 +213,6 @@
       </desc>
     </func>
 
-    <marker id="enabled_procs"></marker>
     <func>
         <name>Module:enabled_procs(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -230,28 +230,25 @@
         </desc>
     </func>
 
-    <marker id="trace_procs"></marker>
     <func>
-        <name>Module:trace_procs(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_procs(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_procs">trace_tag()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result = ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_procs">Module:enabled_procs/3</seealso>
+                the <seealso marker="#Module:enabled_procs/3">Module:enabled_procs/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_procs/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_procs/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
-    <marker id="enabled_ports"></marker>
     <func>
         <name>Module:enabled_ports(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -269,28 +266,25 @@
         </desc>
     </func>
 
-    <marker id="trace_ports"></marker>
     <func>
-        <name>Module:trace_ports(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_ports(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_ports">trace_tag()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result = ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_ports">Module:enabled_ports/3</seealso>
+                the <seealso marker="#Module:enabled_ports/3">Module:enabled_ports/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_ports/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_ports/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
-    <marker id="enabled_running_procs"></marker>
     <func>
         <name>Module:enabled_running_procs(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -308,28 +302,25 @@
         </desc>
     </func>
 
-    <marker id="trace_running_procs"></marker>
     <func>
-        <name>Module:trace_running_procs(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_running_procs(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_running_procs">trace_tag_running_procs()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result = ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_running_procs">Module:enabled_running_procs/3</seealso>
+                the <seealso marker="#Module:enabled_running_procs/3">Module:enabled_running_procs/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_running_procs/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_running_procs/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
-    <marker id="enabled_running_ports"></marker>
     <func>
         <name>Module:enabled_running_ports(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -347,28 +338,25 @@
         </desc>
     </func>
 
-    <marker id="trace_running_ports"></marker>
     <func>
-        <name>Module:trace_running_ports(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_running_ports(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_running_ports">trace_tag_running_ports()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result = ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_running_ports">Module:enabled_running_ports/3</seealso>
+                the <seealso marker="#Module:enabled_running_ports/3">Module:enabled_running_ports/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_running_ports/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_running_ports/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
-    <marker id="enabled_call"></marker>
     <func>
         <name>Module:enabled_call(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -386,28 +374,25 @@
         </desc>
     </func>
 
-    <marker id="trace_call"></marker>
     <func>
-        <name>Module:trace_call(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_call(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_call">trace_tag_call()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result = ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_call">Module:enabled_call/3</seealso>
+                the <seealso marker="#Module:enabled_call/3">Module:enabled_call/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_call/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_call/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
-    <marker id="enabled_send"></marker>
     <func>
         <name>Module:enabled_send(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -425,28 +410,25 @@
         </desc>
     </func>
 
-    <marker id="trace_send"></marker>
     <func>
-        <name>Module:trace_send(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_send(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_send">trace_tag_send()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result =  ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_send">Module:enabled_send/3</seealso>
+                the <seealso marker="#Module:enabled_send/3">Module:enabled_send/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_send/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_send/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
-    <marker id="enabled_receive"></marker>
     <func>
         <name>Module:enabled_receive(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -464,28 +446,25 @@
         </desc>
     </func>
 
-    <marker id="trace_receive"></marker>
     <func>
-        <name>Module:trace_receive(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_receive(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_receive">trace_tag_receive()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result =  ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_receive">Module:enabled_receive/3</seealso>
+                the <seealso marker="#Module:enabled_receive/3">Module:enabled_receive/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_receive/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_receive/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
-    <marker id="enabled_garbage_collection"></marker>
     <func>
         <name>Module:enabled_garbage_collection(TraceTag, TracerState, Tracee) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
@@ -503,24 +482,22 @@
         </desc>
     </func>
 
-    <marker id="trace_garbage_collection"></marker>
     <func>
-        <name>Module:trace_garbage_collection(TraceTag, TracerState, Tracee, FirstTraceTerm, SecondTraceTerm, Opts) -> Result</name>
+        <name>Module:trace_garbage_collection(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result</name>
         <fsummary>Check if a trace event should be generated.</fsummary>
         <type>
             <v>TraceTag = <seealso marker="#type-trace_tag_gc">trace_tag_gc()</seealso></v>
             <v>TracerState = term()</v>
             <v>Tracee = <seealso marker="#type-tracee">tracee()</seealso></v>
             <v>FirstTraceTerm = term()</v>
-            <v>SecondTraceTerm = term() | undefined</v>
             <v>Opts = <seealso marker="#type-trace_opts">trace_opts()</seealso></v>
             <v>Result =  ok</v>
         </type>
         <desc>
             <p>This callback will be called when a tracepoint is triggered and
-                the <seealso marker="#enabled_garbage_collection">Module:enabled_garbage_collection/3</seealso>
+                the <seealso marker="#Module:enabled_garbage_collection/3">Module:enabled_garbage_collection/3</seealso>
                 callback returned <c>trace</c>.</p>
-            <p>If <c>trace_garbage_collection/6</c> is not defined <c>trace/6</c> will be called instead.</p>
+            <p>If <c>trace_garbage_collection/5</c> is not defined <c>trace/5</c> will be called instead.</p>
         </desc>
     </func>
 
@@ -561,7 +538,7 @@ ok
     <pre>
 -module(erl_msg_tracer).
 
--export([enabled/3, trace/6, load/0]).
+-export([enabled/3, trace/5, load/0]).
 
 load() ->
     erlang:load_nif("erl_msg_tracer", []).
@@ -569,7 +546,7 @@ load() ->
 enabled(_, _, _) ->
     error.
 
-trace(_, _, _,_, _, _) ->
+trace(_, _, _,_, _) ->
     error.
     </pre>
     <p>erl_msg_tracer.c</p>
@@ -587,7 +564,7 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"enabled", 3, enabled},
-    {"trace", 6, trace}
+    {"trace", 5, trace}
 };
 
 ERL_NIF_INIT(erl_msg_tracer, nif_funcs, load, NULL, upgrade, unload)
@@ -650,9 +627,8 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
  * argv[0]: TraceTag, should only be 'send'
  * argv[1]: TracerState, process to send {argv[2], argv[4]} to
  * argv[2]: Tracee
- * argv[3]: Message, ignored
- * argv[4]: Recipient
- * argv[5]: Options, ignored
+ * argv[3]: Recipient
+ * argv[4]: Options, ignored
  */
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

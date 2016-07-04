@@ -228,9 +228,6 @@ atom endian
 atom env
 atom eof
 atom eol
-atom exception_from
-atom exception_trace
-atom extended
 atom Eq='=:='
 atom Eqeq='=='
 atom erl_tracer
@@ -243,6 +240,8 @@ atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
 atom event
 atom exact_reductions
+atom exception_from
+atom exception_trace
 atom exclusive
 atom exit_status
 atom existing
@@ -251,7 +250,9 @@ atom existing_ports
 atom existing
 atom exiting
 atom exports
+atom extended
 atom external
+atom extra
 atom false
 atom fcgi
 atom fd
@@ -389,7 +390,6 @@ atom min_heap_size
 atom min_bin_vheap_size
 atom minor_version
 atom Minus='-'
-atom mixed
 atom module
 atom module_info
 atom monitored_by

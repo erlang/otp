@@ -102,10 +102,10 @@ new(Preview,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframewxpreviewframe">external documentation</a>.
 -spec new(Preview, Parent, [Option]) -> wxPreviewFrame() when
 	Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow(),
-	Option :: {title, unicode:chardata()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'title', unicode:chardata()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=PreviewT,ref=PreviewRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(PreviewT,wxPrintPreview),
@@ -120,7 +120,7 @@ new(#wx_ref{type=PreviewT,ref=PreviewRef},#wx_ref{type=ParentT,ref=ParentRef}, O
   <<PreviewRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframecreatecontrolbar">external documentation</a>.
--spec createControlBar(This) -> ok when
+-spec createControlBar(This) -> 'ok' when
 	This::wxPreviewFrame().
 createControlBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
@@ -128,7 +128,7 @@ createControlBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframecreatecanvas">external documentation</a>.
--spec createCanvas(This) -> ok when
+-spec createCanvas(This) -> 'ok' when
 	This::wxPreviewFrame().
 createCanvas(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
@@ -136,7 +136,7 @@ createCanvas(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframeinitialize">external documentation</a>.
--spec initialize(This) -> ok when
+-spec initialize(This) -> 'ok' when
 	This::wxPreviewFrame().
 initialize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
@@ -144,7 +144,7 @@ initialize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpreviewframe.html#wxpreviewframeonclosewindow">external documentation</a>.
--spec onCloseWindow(This, Event) -> ok when
+-spec onCloseWindow(This, Event) -> 'ok' when
 	This::wxPreviewFrame(), Event::wxCloseEvent:wxCloseEvent().
 onCloseWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=EventT,ref=EventRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
@@ -153,7 +153,7 @@ onCloseWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=EventT,ref=EventRef})
   <<ThisRef:32/?UI,EventRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPreviewFrame()) -> ok.
+-spec destroy(This::wxPreviewFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPreviewFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

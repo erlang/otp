@@ -51,7 +51,7 @@ init_per_testcase(Case, Config) ->
     stop_node(Case),
     Config.
 
-end_per_testcase(Case, Config) ->
+end_per_testcase(Case, _Config) ->
     stop_node(Case),
     ok.
 
@@ -61,25 +61,22 @@ stop_node(Case) ->
     rpc:call(Node,erlang,halt,[]).
 
 
-init_per_suite() ->
-    [{timetrap,2*?default_timeout}]. % making dsa files can be slow
 init_per_suite(Config) ->
-    case ssh:start() of
-	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+    (catch code:load_file(crypto)),
+    case {ssh:start(),code:is_loaded(crypto)} of
+	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("SSH started locally",[]),
-	    {ok, _} =  netconfc_test_lib:get_id_keys(Config),
-	    netconfc_test_lib:make_dsa_files(Config),
-	    ct:log("dsa files created",[]),
-	    Config;
+	    SshDir = filename:join(filename:dirname(code:which(?MODULE)),
+				   "ssh_dir"),
+	    [{ssh_dir,SshDir}|Config];
 	Other ->
-	    ct:log("could not start ssh locally: ~p",[Other]),
+	    ct:log("could not start ssh or load crypto locally: ~p",[Other]),
 	    {skip, "SSH could not be started locally!"}
     end.
 
 end_per_suite(Config) ->
     ssh:stop(),
     crypto:stop(),
-    netconfc_test_lib:remove_id_keys(Config),
     Config.
 
 %% This test case is related to seq12645
@@ -89,21 +86,20 @@ remote_crash(Config) ->
     {ok,Node} = ct_slave:start(nc_remote_crash),
     Pa = filename:dirname(code:which(?NS)),
     true = rpc:call(Node,code,add_patha,[Pa]),
-    
-    case rpc:call(Node,ssh,start,[]) of
-	Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
+    rpc:call(Node,code,load_file,[crypto]),
+    case {rpc:call(Node,ssh,start,[]),rpc:call(Node,code,is_loaded,[crypto])} of
+	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("SSH started remote",[]),
-	    Server = rpc:call(Node,?NS,start,[?config(data_dir,Config)]),
+	    ns(Node,start,[?config(ssh_dir,Config)]),
 	    ct:log("netconf server started remote",[]),
 	    remote_crash(Node,Config);
 	Other ->
-	    ct:log("could not start ssh remote: ~p",[Other]),
+	    ct:log("could not start ssh or load crypto remote: ~p",[Other]),
 	    {skip, "SSH could not be started remote!"}
     end.
 
 remote_crash(Node,Config) ->
-    DataDir = ?config(data_dir,Config),
-    {ok,Client} = open_success(Node,DataDir),
+    {ok,Client} = open_success(Node,?config(ssh_dir,Config)),
 
     ns(Node,expect_reply,[{'create-subscription',[stream]},ok]),
     ?ok = ct_netconfc:create_subscription(Client),

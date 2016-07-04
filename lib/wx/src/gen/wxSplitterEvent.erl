@@ -83,7 +83,7 @@ getWindowBeingRemoved(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsplitterevent.html#wxsplittereventsetsashposition">external documentation</a>.
--spec setSashPosition(This, Pos) -> ok when
+-spec setSashPosition(This, Pos) -> 'ok' when
 	This::wxSplitterEvent(), Pos::integer().
 setSashPosition(#wx_ref{type=ThisT,ref=ThisRef},Pos)
  when is_integer(Pos) ->

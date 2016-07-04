@@ -484,7 +484,8 @@ get_events(_, Config) ->
     {event_receiver,CTNode} ! {self(),get_events},
     Events = receive {event_receiver,Evs} -> Evs end,
     test_server:format(Level, "Stopping event receiver!~n", []),
-    {event_receiver,CTNode} ! stop,
+    {event_receiver,CTNode} ! {self(),stop},
+    receive {event_receiver,stopped} -> ok end,
     Events.
 
 er() ->
@@ -499,8 +500,9 @@ er_loop(Evs) ->
 	{From,get_events} ->
 	    From ! {event_receiver,lists:reverse(Evs)},
 	    er_loop(Evs);
-	stop ->
+	{From,stop} ->
 	    unregister(event_receiver),
+	    From ! {event_receiver,stopped},
 	    ok
     end.
 

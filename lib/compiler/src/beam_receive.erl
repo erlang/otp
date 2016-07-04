@@ -177,7 +177,8 @@ opt_recv([I|Is], D, R0, L0, Acc) ->
 	    no;
 	false ->
 	    opt_recv(Is, D, R, L, [I|Acc])
-    end.
+    end;
+opt_recv([], _, _, _, _) -> no.
 
 opt_update_regs({block,Bl}, R, L) ->
     {opt_update_regs_bl(Bl, R),L};

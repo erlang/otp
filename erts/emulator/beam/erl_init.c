@@ -585,7 +585,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "-hpds size     initial process dictionary size (default %d)\n",
 	       erts_pd_initial_size);
     erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes,\n");
-    erts_fprintf(stderr, "               valid values are: off_heap | on_heap | mixed\n");
+    erts_fprintf(stderr, "               valid values are: off_heap | on_heap\n");
 
     /*    erts_fprintf(stderr, "-i module  set the boot module (default init)\n"); */
 
@@ -1526,9 +1526,7 @@ erl_start(int argc, char **argv)
 			    erts_pd_initial_size));
             } else if (has_prefix("mqd", sub_param)) {
 		arg = get_arg(sub_param+3, argv[i+1], &i);
-		if (sys_strcmp(arg, "mixed") == 0)
-		    erts_default_spo_flags &= ~(SPO_ON_HEAP_MSGQ|SPO_OFF_HEAP_MSGQ);
-		else if (sys_strcmp(arg, "on_heap") == 0) {
+		if (sys_strcmp(arg, "on_heap") == 0) {
 		    erts_default_spo_flags &= ~SPO_OFF_HEAP_MSGQ;
 		    erts_default_spo_flags |= SPO_ON_HEAP_MSGQ;
 		}

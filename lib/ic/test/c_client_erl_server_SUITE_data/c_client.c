@@ -854,7 +854,6 @@ static int array1_test(IC_Env *env)
 	print_arr1(alr);
 	fprintf(stdout, "\n");
     }
-    free(alo);
     free(alr);
     return -1;
 }   

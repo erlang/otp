@@ -29,38 +29,38 @@
     <rev></rev>
   </header>
   <app>STDLIB</app>
-  <appsummary>The STDLIB Application</appsummary>
+  <appsummary>The STDLIB application.</appsummary>
   <description>
-    <p>The STDLIB is mandatory in the sense that the minimal system
-      based on Erlang/OTP consists of Kernel and STDLIB. The STDLIB
-      application contains no services.</p>
+    <p>The <c>STDLIB</c> application is mandatory in the sense that the minimal
+      system based on Erlang/OTP consists of <c>Kernel</c> and <c>STDLIB</c>.
+      The <c>STDLIB</c> application contains no services.</p>
   </description>
 
   <section>
     <title>Configuration</title>
-    <p>The following configuration parameters are defined for the STDLIB
-      application. See <c>app(4)</c> for more information about
-      configuration parameters.</p>
+    <p>The following configuration parameters are defined for the <c>STDLIB</c>
+      application. For more information about configuration parameters, see the
+      <seealso marker="kernel:app"><c>app(4)</c></seealso> module in Kernel.</p>
+
     <taglist>
       <tag><c>shell_esc = icl | abort</c></tag>
       <item>
-        <p>This parameter can be used to alter the behaviour of 
-          the Erlang shell when ^G is pressed.</p>
+        <p>Can be used to change the behavior of the Erlang shell when
+          <em>^G</em> is pressed.</p>
       </item>
       <tag><c>restricted_shell = module()</c></tag>
       <item>
-        <p>This parameter can be used to run the Erlang shell
-          in restricted mode.</p>
+        <p>Can be used to run the Erlang shell in restricted mode.</p>
       </item>
       <tag><c>shell_catch_exception = boolean()</c></tag>
       <item>
-        <p>This parameter can be used to set the exception handling
-	  of the Erlang shell's evaluator process.</p>
+        <p>Can be used to set the exception handling of the evaluator process of
+          Erlang shell.</p>
       </item>
       <tag><c>shell_history_length = integer() >= 0</c></tag>
       <item>
-        <p>This parameter can be used to determine how many 
-          commands are saved by the Erlang shell.</p>
+        <p>Can be used to determine how many commands are saved by the Erlang
+          shell.</p>
       </item>
       <tag><c>shell_prompt_func = {Mod, Func} | default</c></tag>
       <item>
@@ -69,27 +69,26 @@
           <item><c>Mod = atom()</c></item>
           <item><c>Func = atom()</c></item>
         </list>
-        <p>This parameter can be used to set a customized 
-          Erlang shell prompt function.</p>
+        <p>Can be used to set a customized Erlang shell prompt function.</p>
       </item>
       <tag><c>shell_saved_results = integer() >= 0</c></tag>
       <item>
-        <p>This parameter can be used to determine how many 
-          results are saved by the Erlang shell.</p>
+        <p>Can be used to determine how many results are saved by the Erlang
+          shell.</p>
       </item>
       <tag><c>shell_strings = boolean()</c></tag>
       <item>
-        <p>This parameter can be used to determine how the Erlang
-          shell outputs lists of integers.</p>
+        <p>Can be used to determine how the Erlang shell outputs lists of
+          integers.</p>
       </item>
     </taglist>
   </section>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:app">app(4)</seealso>,
-      <seealso marker="kernel:application">application(3)</seealso>, 
-      <seealso marker="shell">shell(3)</seealso>, </p>
+    <p><seealso marker="kernel:app"><c>app(4)</c></seealso>,
+      <seealso marker="kernel:application"><c>application(3)</c></seealso>,
+      <seealso marker="shell">shell(3)</seealso></p>
   </section>
 </appref>
 

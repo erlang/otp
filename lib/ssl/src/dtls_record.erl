@@ -36,11 +36,12 @@
 -export([decode_cipher_text/2]).
 
 %% Encoding
--export([encode_plain_text/4, encode_handshake/3, encode_change_cipher_spec/2]).
+-export([encode_plain_text/4, encode_tls_cipher_text/5, encode_change_cipher_spec/2]).
 
 %% Protocol version handling
--export([protocol_version/1, lowest_protocol_version/2, lowest_protocol_version/1,
-	 highest_protocol_version/1, supported_protocol_versions/0,
+-export([protocol_version/1, lowest_protocol_version/1, lowest_protocol_version/2,
+	 highest_protocol_version/1, highest_protocol_version/2,
+	 is_higher/2, supported_protocol_versions/0,
 	 is_acceptable_version/2]).
 
 %% DTLS Epoch handling
@@ -208,14 +209,6 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	false ->
 	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
-%%--------------------------------------------------------------------
--spec encode_handshake(iolist(), dtls_version(), #connection_states{}) ->
-			      {iolist(), #connection_states{}}.
-%%
-%% Description: Encodes a handshake message to send on the ssl-socket.
-%%--------------------------------------------------------------------
-encode_handshake(Frag, Version, ConnectionStates) ->
-    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec encode_change_cipher_spec(dtls_version(), #connection_states{}) ->
@@ -271,20 +264,39 @@ lowest_protocol_version(Versions) ->
 %%
 %% Description: Highest protocol version present in a list
 %%--------------------------------------------------------------------
-highest_protocol_version([Ver | Vers]) ->
-    highest_protocol_version(Ver, Vers).
+highest_protocol_version([]) ->
+    highest_protocol_version();
+highest_protocol_version(Versions) ->
+    [Ver | Vers] = Versions,
+    highest_list_protocol_version(Ver, Vers).
 
-highest_protocol_version(Version, []) ->
+%%--------------------------------------------------------------------
+-spec highest_protocol_version(dtls_version(), dtls_version()) -> dtls_version().
+%%
+%% Description: Highest protocol version of two given versions
+%%--------------------------------------------------------------------
+highest_protocol_version(Version = {M, N}, {M, O})   when N < O ->
     Version;
-highest_protocol_version(Version = {N, M}, [{N, O} | Rest])   when M < O ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version({M, _}, [Version = {M, _} | Rest]) ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version(Version = {M,_}, [{N,_} | Rest])  when M < N ->
-    highest_protocol_version(Version, Rest);
-highest_protocol_version(_, [Version | Rest]) ->
-    highest_protocol_version(Version, Rest).
+highest_protocol_version({M, _},
+			Version = {M, _}) ->
+    Version;
+highest_protocol_version(Version = {M,_},
+			{N, _}) when M < N ->
+    Version;
+highest_protocol_version(_,Version) ->
+    Version.
 
+%%--------------------------------------------------------------------
+-spec is_higher(V1 :: dtls_version(), V2::dtls_version()) -> boolean().
+%%
+%% Description: Is V1 > V2
+%%--------------------------------------------------------------------
+is_higher({M, N}, {M, O}) when N < O ->
+    true;
+is_higher({M, _}, {N, _}) when M < N ->
+    true;
+is_higher(_, _) ->
+    false.
 
 %%--------------------------------------------------------------------
 -spec supported_protocol_versions() -> [dtls_version()].
@@ -301,27 +313,33 @@ supported_protocol_versions() ->
 	{ok, []} ->
 	    lists:map(Fun, supported_protocol_versions([]));
 	{ok, Vsns} when is_list(Vsns) ->
-	    supported_protocol_versions(Vsns);
+	    supported_protocol_versions(lists:map(Fun, Vsns));
 	{ok, Vsn} ->
-	    supported_protocol_versions([Vsn])
+	    supported_protocol_versions([Fun(Vsn)])
      end.
 
 supported_protocol_versions([]) ->
-    Vsns = supported_connection_protocol_versions([]),
+    Vsns = case sufficient_dtlsv1_2_crypto_support() of
+	       true ->
+		   ?ALL_DATAGRAM_SUPPORTED_VERSIONS;
+	       false ->
+		   ?MIN_DATAGRAM_SUPPORTED_VERSIONS
+	   end,
     application:set_env(ssl, dtls_protocol_version, Vsns),
     Vsns;
 
 supported_protocol_versions([_|_] = Vsns) ->
-    Vsns.
-
-%% highest_protocol_version() ->
-%%     highest_protocol_version(supported_protocol_versions()).
-
-lowest_protocol_version() ->
-    lowest_protocol_version(supported_protocol_versions()).
-
-supported_connection_protocol_versions([]) ->
-    ?ALL_DATAGRAM_SUPPORTED_VERSIONS.
+    case sufficient_dtlsv1_2_crypto_support() of
+	true ->
+	    Vsns;
+	false ->
+	    case Vsns -- ['dtlsv1.2'] of
+		[] ->
+		    ?MIN_SUPPORTED_VERSIONS;
+		NewVsns ->
+		    NewVsns
+	    end
+    end.
 
 %%--------------------------------------------------------------------
 -spec is_acceptable_version(dtls_version(), Supported :: [dtls_version()]) -> boolean().
@@ -419,6 +437,18 @@ set_connection_state_by_epoch(ConnectionStates0 =
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+
+lowest_list_protocol_version(Ver, []) ->
+    Ver;
+lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
+    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).
+
+highest_list_protocol_version(Ver, []) ->
+    Ver;
+highest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
+    highest_list_protocol_version(highest_protocol_version(Ver1, Ver2), Rest).
+
 encode_tls_cipher_text(Type, {MajVer, MinVer}, Epoch, Seq, Fragment) ->
     Length = erlang:iolist_size(Fragment),
     [<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Epoch),
@@ -432,6 +462,16 @@ calc_mac_hash(#connection_state{mac_secret = MacSecret,
     mac_hash(Version, MacAlg, MacSecret, NewSeq, Type,
 	     Length, Fragment).
 
+highest_protocol_version() ->
+    highest_protocol_version(supported_protocol_versions()).
+
+lowest_protocol_version() ->
+    lowest_protocol_version(supported_protocol_versions()).
+
+sufficient_dtlsv1_2_crypto_support() ->
+    CryptoSupport = crypto:supports(),
+    proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
+
 mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     dtls_v1:mac_hash(Version, MacAlg, MacSecret, SeqNo, Type,
 		     Length, Fragment).
@@ -439,8 +479,3 @@ mac_hash(Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
 calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
     NewSeq = (Epoch bsl 48) + SeqNo,
     <<NewSeq:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
-
-lowest_list_protocol_version(Ver, []) ->
-    Ver;
-lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
-    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).

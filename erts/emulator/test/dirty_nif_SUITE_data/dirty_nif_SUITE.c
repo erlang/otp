@@ -19,7 +19,9 @@
  */
 #include "erl_nif.h"
 #include <assert.h>
-#ifndef __WIN32__
+#ifdef __WIN32__
+#include <windows.h>
+#else
 #include <unistd.h>
 #endif
 
@@ -46,7 +48,8 @@ static ERL_NIF_TERM dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     char s[10];
     ErlNifBinary b;
     if (have_dirty_schedulers()) {
-	assert(enif_is_on_dirty_scheduler(env));
+	assert(ERL_NIF_THR_DIRTY_CPU_SCHEDULER == enif_thread_type()
+	       || ERL_NIF_THR_DIRTY_IO_SCHEDULER == enif_thread_type());
     }
     assert(argc == 3);
     enif_get_int(env, argv[0], &n);
@@ -63,7 +66,7 @@ static ERL_NIF_TERM call_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     int n;
     char s[10];
     ErlNifBinary b;
-    assert(!enif_is_on_dirty_scheduler(env));
+    assert(ERL_NIF_THR_NORMAL_SCHEDULER == enif_thread_type());
     if (argc != 3)
 	return enif_make_badarg(env);
     if (have_dirty_schedulers()) {
@@ -146,12 +149,32 @@ static ERL_NIF_TERM call_dirty_nif_zero_args(ErlNifEnv* env, int argc, const ERL
 static ERL_NIF_TERM
 dirty_sleeper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    assert(enif_is_on_dirty_scheduler(env));
+    ErlNifPid pid;
+    ErlNifEnv* msg_env = NULL;
+
+    assert(ERL_NIF_THR_DIRTY_CPU_SCHEDULER == enif_thread_type()
+	   || ERL_NIF_THR_DIRTY_IO_SCHEDULER == enif_thread_type());
+
+    /* If we get a pid argument, it indicates a process involved in the
+       test wants a message from us. Prior to the sleep we send a 'ready'
+       message, and then after the sleep, send a 'done' message. */
+    if (argc == 1 && enif_get_local_pid(env, argv[0], &pid)) {
+        msg_env = enif_alloc_env();
+        enif_send(env, &pid, msg_env, enif_make_atom(msg_env, "ready"));
+    }
+
 #ifdef __WIN32__
     Sleep(6000);
 #else
     sleep(6);
 #endif
+
+    if (argc == 1) {
+        assert(msg_env != NULL);
+        enif_send(env, &pid, msg_env, enif_make_atom(msg_env, "done"));
+        enif_free_env(msg_env);
+    }
+
     return enif_make_atom(env, "ok");
 }
 
@@ -200,7 +223,8 @@ static ERL_NIF_TERM dirty_heap_access_nif(ErlNifEnv* env, int argc, const ERL_NI
 {
     ERL_NIF_TERM res = enif_make_list(env, 0);
     int i;
-    assert(enif_is_on_dirty_scheduler(env));
+    assert(ERL_NIF_THR_DIRTY_CPU_SCHEDULER == enif_thread_type()
+	   || ERL_NIF_THR_DIRTY_IO_SCHEDULER == enif_thread_type());
     for (i = 0; i < 1000; i++)
 	res = enif_make_list_cell(env, enif_make_copy(env, argv[0]), res);
 
@@ -216,6 +240,7 @@ static ErlNifFunc nif_funcs[] =
     {"call_dirty_nif_exception", 1, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"call_dirty_nif_zero_args", 0, call_dirty_nif_zero_args, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_sleeper", 0, dirty_sleeper, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"dirty_sleeper", 1, dirty_sleeper, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_call_while_terminated_nif", 1, dirty_call_while_terminated_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_heap_access_nif", 1, dirty_heap_access_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}
 };

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -140,7 +140,9 @@ sctp_accept(Config) ->
 -define(PEER_COUNT, 8).
 
 accept(Prot) ->
-    T = {Prot, make_ref()},
+    Ref = make_ref(),
+    true = diameter_reg:add_new({diameter_config, transport, Ref}), %% fake it
+    T = {Prot, Ref},
     [] = ?util:run(?util:scramble(acc(2*?PEER_COUNT, T, []))).
 
 acc(0, _, Acc) ->
@@ -336,13 +338,12 @@ make_msg() ->
 %% crypto:rand_bytes/1 isn't available on all platforms (since openssl
 %% isn't) so roll our own.
 rand_bytes(N) ->
-    random:seed(diameter_util:seed()),
     rand_bytes(N, <<>>).
 
 rand_bytes(0, Bin) ->
     Bin;
 rand_bytes(N, Bin) ->
-    Oct = random:uniform(256) - 1,
+    Oct = rand:uniform(256) - 1,
     rand_bytes(N-1, <<Oct, Bin/binary>>).
 
 %% ===========================================================================

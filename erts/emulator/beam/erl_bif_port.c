@@ -139,6 +139,12 @@ sig_lookup_port(Process *c_p, Eterm id_or_name)
     return lookup_port(c_p, id_or_name, ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
 }
 
+/* Non-inline copy of sig_lookup_port to be exported */
+Port *erts_sig_lookup_port(Process *c_p, Eterm id_or_name)
+{
+    return lookup_port(c_p, id_or_name, ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+}
+
 static ERTS_INLINE Port *
 data_lookup_port(Process *c_p, Eterm id_or_name)
 {
@@ -1411,7 +1417,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
                     trunc_len = val;
                     goto next_option;
                 case am_line_delimiter:
-                    if (type == TCP_PB_LINE_LF && val >= 0 && val <= 255) {
+                    if (type == TCP_PB_LINE_LF && val <= 255) {
                         delimiter = (char)val;
                         goto next_option;
                     }

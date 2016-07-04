@@ -169,7 +169,7 @@
 %%---------------------------------------------------------------------
 
 -record(icode, {'fun'		:: mfa(),
-		params		:: [icode_var()],
+		params		:: hipe_icode:params(),
 		%% TODO: merge is_closure and closure_arity into one field
 		is_closure	:: boolean(),
 		closure_arity = none	:: 'none' | arity(),

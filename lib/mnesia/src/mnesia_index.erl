@@ -513,11 +513,11 @@ db_put({dets, Ixt}, V) ->
     ok = dets:insert(Ixt, V).
 
 db_get({ram, _}=Ixt, IxKey) ->
-    Pat = [{{{IxKey, '$1'}}, [], [{{IxKey,'$1'}}]}],
+    Pat = [{{{IxKey, '$1'}}, [], [{element, 1, '$_'}]}],
     db_select(Ixt, Pat);
 db_get({{ext,_,_} = _Storage, {_,_,{_,Type}}} = Ixt, IxKey) ->
     Pat = case Type of
-	      ordered -> [{{{IxKey, '$1'}}, [], [{{IxKey,'$1'}}]}];
+	      ordered -> [{{{IxKey, '$1'}}, [], [{element, 1, '$_'}]}];
 	      bag     -> [{{IxKey, '_'}, [], ['$_']}]
 	  end,
     db_select(Ixt, Pat);

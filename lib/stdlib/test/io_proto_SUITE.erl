@@ -75,7 +75,7 @@ end_per_testcase(_Case, Config) ->
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,20}}].
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
@@ -462,6 +462,7 @@ unicode_options(Config) when is_list(Config) ->
 
 %% Tests various unicode options on random generated files.
 unicode_options_gen(Config) when is_list(Config) ->
+    ct:timetrap({minutes,30}), %% valgrind needs a alot of time
     random:seed(1240, 900586, 553728),
     PrivDir = proplists:get_value(priv_dir, Config),
     AllModes = [utf8,utf16,{utf16,big},{utf16,little},

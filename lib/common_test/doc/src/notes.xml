@@ -33,6 +33,31 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The following modules were missing in
+	    common_test.app.src: ct_groups, ct_property_test,
+	    ct_release_test, ct_webtool, ct_webtool_sup,
+	    test_server_gl. They have now been added.</p>
+          <p>
+	    Own Id: OTP-13475</p>
+        </item>
+        <item>
+          <p>
+	    Common Test printed incorrect timestamps for received
+	    error reports.</p>
+          <p>
+	    Own Id: OTP-13615 Aux Id: seq13124 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.12.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

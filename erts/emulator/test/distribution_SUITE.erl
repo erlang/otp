@@ -55,7 +55,8 @@
          bad_dist_ext_receive/1,
          bad_dist_ext_process_info/1,
          bad_dist_ext_control/1,
-         bad_dist_ext_connection_id/1]).
+         bad_dist_ext_connection_id/1,
+	 start_epmd_false/1, epmd_module/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -63,6 +64,9 @@
          dist_parallel_sender/3, dist_parallel_receiver/0,
          dist_evil_parallel_receiver/0,
          sendersender/4, sendersender2/4]).
+
+%% epmd_module exports
+-export([start_link/0, register_node/2, port_please/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -76,7 +80,8 @@ all() ->
      {group, trap_bif}, {group, dist_auto_connect},
      dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip, atom_roundtrip_r15b,
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
-     bad_dist_structure, {group, bad_dist_ext}].
+     bad_dist_structure, {group, bad_dist_ext},
+     start_epmd_false, epmd_module].
 
 groups() -> 
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -182,8 +187,13 @@ bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
     {ok, NodeSend} = start_node(bulk_sender, "+zdbbl " ++ integer_to_list(BusyBufSize)),
     _Send = spawn(NodeSend, erlang, apply, [fun sendersender/4, [self(), Recv, Bin, Terms]]),
     {Elapsed, {_TermsN, SizeN}, MonitorCount} =
-    receive {sendersender, BigRes} ->
-                BigRes
+    receive
+        %% On some platforms (windows), the time taken is 0 so we
+        %% simulate that some little time has passed.
+        {sendersender, {0.0,T,MC}} ->
+            {0.0015, T, MC};
+        {sendersender, BigRes} ->
+            BigRes
     end,
     stop_node(NodeRecv),
     stop_node(NodeSend),
@@ -1037,10 +1047,13 @@ atom_roundtrip_r15b(Config) when is_list(Config) ->
             ct:timetrap({minutes, 6}),
             AtomData = atom_data(),
             verify_atom_data(AtomData),
-            {ok, Node} = start_node(Config, [], "r15b"),
-            do_atom_roundtrip(Node, AtomData),
-            stop_node(Node),
-            ok;
+            case start_node(Config, [], "r15b") of
+                {ok, Node} ->
+                    do_atom_roundtrip(Node, AtomData),
+                    stop_node(Node);
+                {error, timeout} ->
+                    {skip,"Unable to start OTP R15B release"}
+            end;
         false ->
             {skip,"No OTP R15B available"}
     end.
@@ -1880,6 +1893,66 @@ dmsg_ext(Term) ->
 
 dmsg_bad_atom_cache_ref() ->
     [$R, 137].
+
+start_epmd_false(Config) when is_list(Config) ->
+    %% Start a node with the option -start_epmd false.
+    {ok, OtherNode} = start_node(start_epmd_false, "-start_epmd false"),
+    %% We should be able to ping it, as epmd was started by us:
+    pong = net_adm:ping(OtherNode),
+    stop_node(OtherNode),
+
+    ok.
+
+epmd_module(Config) when is_list(Config) ->
+    %% We need a relay node to test this, since the test node uses the
+    %% standard epmd module.
+    Sock1 = start_relay_node(epmd_module_node1, "-epmd_module " ++ ?MODULE_STRING),
+    Node1 = inet_rpc_nodename(Sock1),
+    %% Ask what port it's listening on - it won't have registered with
+    %% epmd.
+    {ok, {ok, Port1}} = do_inet_rpc(Sock1, application, get_env, [kernel, dist_listen_port]),
+
+    %% Start a second node, passing the port number as a secret
+    %% argument.
+    Sock2 = start_relay_node(epmd_module_node2, "-epmd_module " ++ ?MODULE_STRING
+			     ++ " -other_node_port " ++ integer_to_list(Port1)),
+    Node2 = inet_rpc_nodename(Sock2),
+    %% Node 1 can't ping node 2
+    {ok, pang} = do_inet_rpc(Sock1, net_adm, ping, [Node2]),
+    {ok, []} = do_inet_rpc(Sock1, erlang, nodes, []),
+    {ok, []} = do_inet_rpc(Sock2, erlang, nodes, []),
+    %% But node 2 can ping node 1
+    {ok, pong} = do_inet_rpc(Sock2, net_adm, ping, [Node1]),
+    {ok, [Node2]} = do_inet_rpc(Sock1, erlang, nodes, []),
+    {ok, [Node1]} = do_inet_rpc(Sock2, erlang, nodes, []),
+
+    stop_relay_node(Sock2),
+    stop_relay_node(Sock1).
+
+%% epmd_module functions:
+
+start_link() ->
+    ignore.
+
+register_node(_Name, Port) ->
+    %% Save the port number we're listening on.
+    application:set_env(kernel, dist_listen_port, Port),
+    Creation = rand:uniform(3),
+    {ok, Creation}.
+
+port_please(_Name, _Ip) ->
+    case init:get_argument(other_node_port) of
+	error ->
+	    %% None specified.  Default to 42.
+	    Port = 42,
+	    Version = 5,
+	    {port, Port, Version};
+	{ok, [[PortS]]} ->
+	    %% Port number given on command line.
+	    Port = list_to_integer(PortS),
+	    Version = 5,
+	    {port, Port, Version}
+    end.
 
 %%% Utilities
 

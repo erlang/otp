@@ -41,20 +41,26 @@ groups() ->
     [
      {check_true, [],  [{group, v2_crl},
 			{group, v1_crl},
-			{group, idp_crl}]},
+			{group, idp_crl},
+                        {group, crl_hash_dir}]},
      {check_peer, [],   [{group, v2_crl},
 			 {group, v1_crl},
-			 {group, idp_crl}]},
+			 {group, idp_crl},
+                         {group, crl_hash_dir}]},
      {check_best_effort, [], [{group, v2_crl},
 			       {group, v1_crl},
-			      {group, idp_crl}]},
+			      {group, idp_crl},
+			      {group, crl_hash_dir}]},
      {v2_crl,  [], basic_tests()},
      {v1_crl,  [], basic_tests()},
-     {idp_crl, [], basic_tests()}].
+     {idp_crl, [], basic_tests()},
+     {crl_hash_dir, [], basic_tests() ++ crl_hash_dir_tests()}].
 
 basic_tests() ->
     [crl_verify_valid, crl_verify_revoked, crl_verify_no_crl].
 
+crl_hash_dir_tests() ->
+    [crl_hash_dir_collision, crl_hash_dir_expired].
 
 init_per_suite(Config) ->
     case os:find_executable("openssl") of
@@ -97,11 +103,28 @@ init_per_group(Group, Config0) ->
 	true ->
 	    [{idp_crl, true} | Config0];
 	false ->
-	    DataDir = ?config(data_dir, Config0), 
-	    CertDir = filename:join(?config(priv_dir, Config0), Group),
+	    DataDir = proplists:get_value(data_dir, Config0), 
+	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), Group),
 	    {CertOpts, Config} = init_certs(CertDir, Group, Config0),
 	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
-	    [{cert_dir, CertDir}, {idp_crl, false} | Config]
+	    case Group of
+		crl_hash_dir ->
+		    CrlDir = filename:join(CertDir, "crls"),
+		    %% Copy CRLs to their hashed filenames.
+		    %% Find the hashes with 'openssl crl -noout -hash -in crl.pem'.
+		    populate_crl_hash_dir(CertDir, CrlDir,
+					  [{"erlangCA", "d6134ed3"},
+					   {"otpCA", "d4c8d7e5"}],
+					  replace),
+		    CrlCacheOpts = [{crl_cache,
+				     {ssl_crl_hash_dir,
+				      {internal, [{dir, CrlDir}]}}}];
+		_ ->
+		    CrlCacheOpts = []
+	    end,
+	    [{crl_cache_opts, CrlCacheOpts},
+	     {cert_dir, CertDir},
+	     {idp_crl, false} | Config]
     end.
 
 end_per_group(_GroupName, Config) ->
@@ -109,23 +132,23 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Case, Config0) ->
-    case ?config(idp_crl, Config0) of
+    case proplists:get_value(idp_crl, Config0) of
 	true ->
 	    end_per_testcase(Case, Config0),
 	    inets:start(),
 	    ssl:start(),
-	    ServerRoot = make_dir_path([?config(priv_dir, Config0), idp_crl, tmp]),
+	    ServerRoot = make_dir_path([proplists:get_value(priv_dir, Config0), idp_crl, tmp]),
 	    %% start a HTTP server to serve the CRLs
-	    {ok, Httpd} = inets:start(httpd, [{ipfamily, ?config(ipfamily, Config0)},
+	    {ok, Httpd} = inets:start(httpd, [{ipfamily, proplists:get_value(ipfamily, Config0)},
 					      {server_name, "localhost"}, {port, 0},
 					      {server_root, ServerRoot},
 					      {document_root, 
-					       filename:join(?config(priv_dir, Config0), idp_crl)}
+					       filename:join(proplists:get_value(priv_dir, Config0), idp_crl)}
 					     ]),
 	    [{port,Port}] = httpd:info(Httpd, [port]),
 	    Config = [{httpd_port, Port} | Config0],
-	    DataDir = ?config(data_dir, Config), 
-	    CertDir = filename:join(?config(priv_dir, Config0), idp_crl),
+	    DataDir = proplists:get_value(data_dir, Config), 
+	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), idp_crl),
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
 	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
 	    ct:timetrap({seconds, 6}),
@@ -137,7 +160,7 @@ init_per_testcase(Case, Config0) ->
     end.
 
 end_per_testcase(_, Config) ->
-    case ?config(idp_crl, Config) of
+    case proplists:get_value(idp_crl, Config) of
 	true ->
 	    ssl:stop(),
 	    inets:stop();
@@ -152,21 +175,22 @@ end_per_testcase(_, Config) ->
 crl_verify_valid() ->
     [{doc,"Verify a simple valid CRL chain"}].
 crl_verify_valid(Config) when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
       		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
-    ClientOpts =  case ?config(idp_crl, Config) of 
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
 			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
 			   {crl_check, Check},
 			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
 			   {verify, verify_peer}];
 		      false ->
-			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
-			   {crl_check, Check},
-			   {verify, verify_peer}]
+			  ?config(crl_cache_opts, Config) ++
+			      [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
+			       {crl_check, Check},
+			       {verify, verify_peer}]
 		  end,			  
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -178,8 +202,8 @@ crl_verify_valid(Config) when is_list(Config) ->
 crl_verify_revoked() ->
     [{doc,"Verify a simple CRL chain when peer cert is reveoked"}].
 crl_verify_revoked(Config)  when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
     ServerOpts = [{keyfile, filename:join([PrivDir, "revoked", "key.pem"])},
       		  {certfile, filename:join([PrivDir, "revoked", "cert.pem"])},
       		  {cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])}],
@@ -189,16 +213,17 @@ crl_verify_revoked(Config)  when is_list(Config) ->
     ssl_crl_cache:insert({file, filename:join([PrivDir, "erlangCA", "crl.pem"])}),
     ssl_crl_cache:insert({file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
     
-    ClientOpts =  case ?config(idp_crl, Config) of 
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
 			  [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
 			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
 			   {crl_check, Check},
 			   {verify, verify_peer}];
 		      false ->
-			  [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
-			   {crl_check, Check},
-			   {verify, verify_peer}]
+			  ?config(crl_cache_opts, Config) ++
+			      [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
+			       {crl_check, Check},
+			       {verify, verify_peer}]
 		  end,	
     
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
@@ -207,12 +232,12 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 crl_verify_no_crl() ->
     [{doc,"Verify a simple CRL chain when the CRL is missing"}].
 crl_verify_no_crl(Config) when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
       		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
-    ClientOpts =  case ?config(idp_crl, Config) of 
+    ClientOpts =  case proplists:get_value(idp_crl, Config) of 
 		      true ->	       
 			  [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
 			   {crl_check, Check},
@@ -250,6 +275,134 @@ crl_verify_no_crl(Config) when is_list(Config) ->
             %% to be revoked if we can't find the appropriate CRL.
             crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts)
     end.
+
+crl_hash_dir_collision() ->
+    [{doc,"Verify ssl_crl_hash_dir behaviour with hash collisions"}].
+crl_hash_dir_collision(Config) when is_list(Config) ->
+    PrivDir = ?config(cert_dir, Config),
+    Check = ?config(crl_check, Config),
+
+    %% Create two CAs whose names hash to the same value
+    CA1 = "hash-collision-0000000000",
+    CA2 = "hash-collision-0258497583",
+    CertsConfig = make_certs:make_config([]),
+    make_certs:intermediateCA(PrivDir, CA1, "erlangCA", CertsConfig),
+    make_certs:intermediateCA(PrivDir, CA2, "erlangCA", CertsConfig),
+
+    make_certs:enduser(PrivDir, CA1, "collision-client-1", CertsConfig),
+    make_certs:enduser(PrivDir, CA2, "collision-client-2", CertsConfig),
+
+    [ServerOpts1, ServerOpts2] =
+	[
+	 [{keyfile, filename:join([PrivDir, EndUser, "key.pem"])},
+	  {certfile, filename:join([PrivDir, EndUser, "cert.pem"])},
+	  {cacertfile, filename:join([PrivDir, EndUser, "cacerts.pem"])}]
+	 || EndUser <- ["collision-client-1", "collision-client-2"]],
+
+    %% Add CRLs for our new CAs into the CRL hash directory.
+    %% Find the hashes with 'openssl crl -noout -hash -in crl.pem'.
+    CrlDir = filename:join(PrivDir, "crls"),
+    populate_crl_hash_dir(PrivDir, CrlDir,
+			  [{CA1, "b68fc624"},
+			   {CA2, "b68fc624"}],
+			 replace),
+
+    ClientOpts = ?config(crl_cache_opts, Config) ++
+	[{cacertfile, filename:join([PrivDir, "erlangCA", "cacerts.pem"])},
+	 {crl_check, Check},
+	 {verify, verify_peer}],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Neither certificate revoked; both succeed.
+    crl_verify_valid(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts),
+    crl_verify_valid(Hostname, ServerNode, ServerOpts2, ClientNode, ClientOpts),
+
+    make_certs:revoke(PrivDir, CA1, "collision-client-1", CertsConfig),
+    populate_crl_hash_dir(PrivDir, CrlDir,
+			  [{CA1, "b68fc624"},
+			   {CA2, "b68fc624"}],
+			 replace),
+
+    %% First certificate revoked; first fails, second succeeds.
+    crl_verify_error(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts,
+                     "certificate revoked"),
+    crl_verify_valid(Hostname, ServerNode, ServerOpts2, ClientNode, ClientOpts),
+
+    make_certs:revoke(PrivDir, CA2, "collision-client-2", CertsConfig),
+    populate_crl_hash_dir(PrivDir, CrlDir,
+			  [{CA1, "b68fc624"},
+			   {CA2, "b68fc624"}],
+			 replace),
+
+    %% Second certificate revoked; both fail.
+    crl_verify_error(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts,
+                     "certificate revoked"),
+    crl_verify_error(Hostname, ServerNode, ServerOpts2, ClientNode, ClientOpts,
+                     "certificate revoked"),
+
+    ok.
+
+crl_hash_dir_expired() ->
+    [{doc,"Verify ssl_crl_hash_dir behaviour with expired CRLs"}].
+crl_hash_dir_expired(Config) when is_list(Config) ->
+    PrivDir = ?config(cert_dir, Config),
+    Check = ?config(crl_check, Config),
+
+    CA = "CRL-maybe-expired-CA",
+    %% Add "issuing distribution point", to ensure that verification
+    %% fails if there is no valid CRL.
+    CertsConfig = make_certs:make_config([{issuing_distribution_point, true}]),
+    make_certs:can_generate_expired_crls(CertsConfig)
+    	orelse throw({skip, "cannot generate CRLs with expiry date in the past"}),
+    make_certs:intermediateCA(PrivDir, CA, "erlangCA", CertsConfig),
+    EndUser = "CRL-maybe-expired",
+    make_certs:enduser(PrivDir, CA, EndUser, CertsConfig),
+
+    ServerOpts =  [{keyfile, filename:join([PrivDir, EndUser, "key.pem"])},
+		   {certfile, filename:join([PrivDir, EndUser, "cert.pem"])},
+		   {cacertfile, filename:join([PrivDir, EndUser, "cacerts.pem"])}],
+    ClientOpts = ?config(crl_cache_opts, Config) ++
+	[{cacertfile, filename:join([PrivDir, CA, "cacerts.pem"])},
+	 {crl_check, Check},
+	 {verify, verify_peer}],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% First make a CRL that expired yesterday.
+    make_certs:gencrl(PrivDir, CA, CertsConfig, -24),
+    CrlDir = filename:join(PrivDir, "crls"),
+    populate_crl_hash_dir(PrivDir, CrlDir,
+			  [{CA, "1627b4b0"}],
+			  replace),
+
+    %% Since the CRL has expired, it's treated as missing, and the
+    %% outcome depends on the crl_check setting.
+    case Check of
+        true ->
+            %% The error "revocation status undetermined" gets turned
+            %% into "bad certificate".
+            crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
+                             "bad certificate");
+        peer ->
+            crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
+                             "bad certificate");
+        best_effort ->
+            %% In "best effort" mode, we consider the certificate not
+            %% to be revoked if we can't find the appropriate CRL.
+            crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts)
+    end,
+
+    %% Now make a CRL that expires tomorrow.
+    make_certs:gencrl(PrivDir, CA, CertsConfig, 24),
+    CrlDir = filename:join(PrivDir, "crls"),
+    populate_crl_hash_dir(PrivDir, CrlDir,
+			  [{CA, "1627b4b0"}],
+			  add),
+
+    %% With a valid CRL, verification should always pass.
+    crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts),
+
+    ok.
 
 crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -297,7 +450,7 @@ is_idp(_) ->
 init_certs(_,v1_crl, Config)  -> 
     {[{v2_crls, false}], Config};
 init_certs(_, idp_crl, Config) -> 
-    Port = ?config(httpd_port, Config),
+    Port = proplists:get_value(httpd_port, Config),
     {[{crl_port,Port},
       {issuing_distribution_point, true}], Config
     };
@@ -311,3 +464,31 @@ make_dir_path(PathComponents) ->
 
 rename_crl(Filename) ->
     file:rename(Filename, Filename ++ ".notfound").
+
+populate_crl_hash_dir(CertDir, CrlDir, CAsHashes, AddOrReplace) ->
+    ok = filelib:ensure_dir(filename:join(CrlDir, "crls")),
+    case AddOrReplace of
+	replace ->
+	    %% Delete existing files, so we can override them.
+	    [ok = file:delete(FileToDelete) ||
+		{_CA, Hash} <- CAsHashes,
+		FileToDelete <- filelib:wildcard(
+				  filename:join(CrlDir, Hash ++ ".r*"))];
+	add ->
+	    ok
+    end,
+    %% Create new files, incrementing suffix if needed to find unique names.
+    [{ok, _} =
+	 file:copy(filename:join([CertDir, CA, "crl.pem"]),
+		   find_free_name(CrlDir, Hash, 0))
+     || {CA, Hash} <- CAsHashes],
+    ok.
+
+find_free_name(CrlDir, Hash, N) ->
+    Name = filename:join(CrlDir, Hash ++ ".r" ++ integer_to_list(N)),
+    case filelib:is_file(Name) of
+	true ->
+	    find_free_name(CrlDir, Hash, N + 1);
+	false ->
+	    Name
+    end.

@@ -83,6 +83,17 @@
       <c><![CDATA[SIGKILL]]></c>:</p>
     <pre>
 % <input>erl -heart -env HEART_KILL_SIGNAL SIGABRT ...</input></pre>
+  <p> If heart should <b>not</b> kill the Erlang runtime system, this can be indicated
+      using the environment variable <c><![CDATA[HEART_NO_KILL=TRUE]]></c>.
+      This can be useful if the command executed by heart takes care of this,
+      for example as part of a specific cleanup sequence. 
+      If unset, or not set to <c><![CDATA[TRUE]]></c>, the default behaviour
+      will be to kill as described above.
+  </p>
+
+    <pre>
+% <input>erl -heart -env HEART_NO_KILL 1 ...</input></pre>
+
     <p>Furthermore, <c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c> has the
       following behavior on <c>heart</c>:</p>
     <taglist>

@@ -158,10 +158,9 @@ session_id(Host) ->
 %% ---------------------------------------------------------------------------
 
 init() ->
-    {Now, Seed} = diameter_lib:seed(),
-    random:seed(Seed),
+    Now = diameter_lib:timestamp(),
     Time = time32(Now),
-    Seq  = (?INT32 band (Time bsl 20)) bor (random:uniform(1 bsl 20) - 1),
+    Seq  = (?INT32 band (Time bsl 20)) bor (rand:uniform(1 bsl 20) - 1),
     ets:insert(diameter_sequence, [{origin_state_id, Time},
 				   {session_base, Time bsl 32},
 				   {sequence, Seq}]),

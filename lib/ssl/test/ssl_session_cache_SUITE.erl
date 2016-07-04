@@ -60,8 +60,8 @@ init_per_suite(Config0) ->
 	ok ->
 	    ssl:start(),
 	    %% make rsa certs using 
-	    {ok, _} = make_certs:all(?config(data_dir, Config0),
-				     ?config(priv_dir, Config0)),
+	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
+				     proplists:get_value(priv_dir, Config0)),
 	    Config = ssl_test_lib:make_dsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
@@ -118,7 +118,7 @@ init_customized_session_cache(Type, Config) ->
 	   Config)),
     ets:new(ssl_test, [named_table, public, set]),
     ets:insert(ssl_test, {type, Type}),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap({seconds, 20}),
     Config.
 
 end_per_testcase(session_cache_process_list, Config) ->
@@ -154,8 +154,8 @@ client_unique_session() ->
       "sets up many connections"}].
 client_unique_session(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = proplists:get_value(client_opts, Config),
+    ServerOpts = proplists:get_value(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -185,8 +185,8 @@ session_cleanup() ->
      "does not grow and grow ..."}].
 session_cleanup(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
@@ -259,8 +259,8 @@ max_table_size() ->
     [{doc,"Test max limit on session table"}].
 max_table_size(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = ?config(client_verification_opts, Config),
-    ServerOpts = ?config(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_verification_opts, Config),
+    ServerOpts = proplists:get_value(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},

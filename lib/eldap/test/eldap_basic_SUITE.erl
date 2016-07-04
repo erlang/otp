@@ -28,12 +28,11 @@
 -include_lib("eldap/ebin/ELDAPv3.hrl").
 
 
--define(TIMEOUT, 120000). % 2 min
-
-
 %% Control to delete a referral object:
 -define(manageDsaIT, {control,"2.16.840.1.113730.3.4.2",false,asn1_NOVALUE}).
 
+suite() ->
+    [{timetrap,{seconds,360}}].
 
 all() ->
     [app,
@@ -94,7 +93,8 @@ connection_tests() ->
      client_side_start_tls_timeout,
      client_side_bind_timeout,
      client_side_add_timeout,
-     client_side_search_timeout
+     client_side_search_timeout,
+     close_after_tcp_error
     ].
 
 
@@ -123,7 +123,7 @@ end_per_suite(_Config) ->
 
 
 init_per_group(return_values, Config) ->
-    case ?config(ldap_server,Config) of
+    case proplists:get_value(ldap_server,Config) of
 	undefined ->
 	    {skip, "LDAP server not availble"};
 	{Host,Port} ->
@@ -131,7 +131,7 @@ init_per_group(return_values, Config) ->
 	    Config
     end;
 init_per_group(plain_api, Config0) ->
-    case ?config(ldap_server,Config0) of
+    case proplists:get_value(ldap_server,Config0) of
 	undefined ->
 	    {skip, "LDAP server not availble"};
 	Server = {Host,Port} ->
@@ -139,7 +139,7 @@ init_per_group(plain_api, Config0) ->
 	    initialize_db([{server,Server}, {ssl_flag,false}, {start_tls,false} | Config0])
     end;
 init_per_group(ssl_api, Config0) ->
-    case ?config(ldaps_server,Config0) of
+    case proplists:get_value(ldaps_server,Config0) of
 	undefined ->
 	    {skip, "LDAPS server not availble"};
 	Server = {Host,Port} ->
@@ -147,7 +147,7 @@ init_per_group(ssl_api, Config0) ->
 	    initialize_db([{server,Server}, {ssl_flag,true}, {start_tls,false} | Config0])
     end;
 init_per_group(start_tls_api, Config0) ->
-    case {?config(ldap_server,Config0), ?config(ssl_available,Config0)} of
+    case {proplists:get_value(ldap_server,Config0), proplists:get_value(ssl_available,Config0)} of
 	{undefined,true} ->
 	    {skip, "LDAP server not availble"};
 	{_,false} ->
@@ -186,18 +186,18 @@ end_per_group(_Group, Config) -> Config.
 
 
 init_per_testcase(ssl_connection, Config) ->
-    case ?config(ssl_available,Config) of
+    case proplists:get_value(ssl_available,Config) of
 	true ->
 	    SSL_Port = 9999,
-	    CertFile = filename:join(?config(data_dir,Config), "certs/server/cert.pem"),
-	    KeyFile = filename:join(?config(data_dir,Config), "certs/server/key.pem"),
+	    CertFile = filename:join(proplists:get_value(data_dir,Config), "certs/server/cert.pem"),
+	    KeyFile = filename:join(proplists:get_value(data_dir,Config), "certs/server/key.pem"),
 
 	    Parent = self(),
 	    Listener = spawn_link(
 			 fun() ->
 				 case ssl:listen(SSL_Port, [{certfile, CertFile},
 							    {keyfile, KeyFile}
-							    | ?config(tcp_listen_opts,Config)
+							    | proplists:get_value(tcp_listen_opts,Config)
 							   ]) of
 				     {ok,SSL_LSock} ->
 					 Parent ! {ok,self()},
@@ -244,7 +244,7 @@ init_per_testcase(TC, Config) ->
 	    end;
 
 	false ->
-	    case proplists:get_value(name,?config(tc_group_properties, Config)) of
+	    case proplists:get_value(name,proplists:get_value(tc_group_properties, Config)) of
 		api_not_bound ->
 		    {ok,H} = open(Config),
 		    [{handle,H} | Config];
@@ -281,7 +281,7 @@ appup(Config) when is_list(Config) ->
 
 %%%----------------------------------------------------------------
 open_ret_val_success(Config) ->
-    {Host,Port} = ?config(ldap_server,Config),
+    {Host,Port} = proplists:get_value(ldap_server,Config),
     {ok,H} = eldap:open([Host], [{port,Port}]),
     catch eldap:close(H).
 
@@ -291,7 +291,7 @@ open_ret_val_error(_Config) ->
 
 %%%----------------------------------------------------------------
 close_ret_val(Config) ->
-    {Host,Port} = ?config(ldap_server,Config),
+    {Host,Port} = proplists:get_value(ldap_server,Config),
     {ok,H} = eldap:open([Host], [{port,Port}]),
     ok = eldap:close(H).
 
@@ -309,6 +309,29 @@ tcp_connection(Config) ->
 		Other -> ct:fail("gen_tdp:accept failed: ~p",[Other])
 	    end;
 	Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+%%%----------------------------------------------------------------
+close_after_tcp_error(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
+    T = 1000,
+    case eldap:open([Host], [{timeout,T},{port,Port}|Opts]) of
+    {ok,H} ->
+        Sl = proplists:get_value(listen_socket, Config),
+        gen_tcp:close(Sl),
+        {error,{gen_tcp_error,closed}} = eldap:simple_bind(H, anon, anon),
+        ok = eldap:close(H),
+        wait_for_close(H);
+    Other -> ct:fail("eldap:open failed: ~p",[Other])
+    end.
+
+wait_for_close(H) ->
+    case erlang:is_process_alive(H) of
+        true  -> timer:sleep(100),
+                 wait_for_close(H);
+        false -> ok
     end.
 
 %%%----------------------------------------------------------------
@@ -411,37 +434,37 @@ tcp_connection_option(Config) ->
 %%%----------------------------------------------------------------
 elementary_search(Config) ->
     {ok, #eldap_search_result{entries=[_]}} =
-	eldap:search(?config(handle,Config),
-		     #eldap_search{base  = ?config(eldap_path, Config),
+	eldap:search(proplists:get_value(handle,Config),
+		     #eldap_search{base  = proplists:get_value(eldap_path, Config),
 				   filter= eldap:present("objectclass"),
 				   scope = eldap:wholeSubtree()}).
 
 %%%----------------------------------------------------------------
 search_non_existant(Config) ->
     {error, noSuchObject} =
-	eldap:search(?config(handle,Config),
-		     #eldap_search{base  = "cn=Bar," ++ ?config(eldap_path, Config),
+	eldap:search(proplists:get_value(handle,Config),
+		     #eldap_search{base  = "cn=Bar," ++ proplists:get_value(eldap_path, Config),
 				   filter= eldap:present("objectclass"),
 				   scope = eldap:wholeSubtree()}).
 
 %%%----------------------------------------------------------------
 add_when_not_bound(Config) ->
-    {error, _} = eldap:add(?config(handle,Config),
-			   "cn=Jonas Jonsson," ++ ?config(eldap_path, Config),
+    {error, _} = eldap:add(proplists:get_value(handle,Config),
+			   "cn=Jonas Jonsson," ++ proplists:get_value(eldap_path, Config),
 			   [{"objectclass", ["person"]},
 			    {"cn", ["Jonas Jonsson"]},
 			    {"sn", ["Jonsson"]}]).
 
 %%%----------------------------------------------------------------
 bind(Config) ->
-    ok = eldap:simple_bind(?config(handle,Config),
+    ok = eldap:simple_bind(proplists:get_value(handle,Config),
 			   "cn=Manager,dc=ericsson,dc=se",
 			   "hejsan").
 
 %%%----------------------------------------------------------------
 add_when_bound(Config) ->
-    ok = eldap:add(?config(handle, Config),
-		   "cn=Jonas Jonsson," ++  ?config(eldap_path, Config),
+    ok = eldap:add(proplists:get_value(handle, Config),
+		   "cn=Jonas Jonsson," ++  proplists:get_value(eldap_path, Config),
 		   [{"objectclass", ["person"]},
 		    {"cn", ["Jonas Jonsson"]},
 		    {"sn", ["Jonsson"]}]).
@@ -449,16 +472,16 @@ add_when_bound(Config) ->
 %%%----------------------------------------------------------------
 add_already_exists(Config) ->
     {error, entryAlreadyExists} =
-	eldap:add(?config(handle, Config),
-		  "cn=Jonas Jonsson," ++ ?config(eldap_path, Config),
+	eldap:add(proplists:get_value(handle, Config),
+		  "cn=Jonas Jonsson," ++ proplists:get_value(eldap_path, Config),
 		  [{"objectclass", ["person"]},
 		   {"cn", ["Jonas Jonsson"]},
 		   {"sn", ["Jonsson"]}]).
 
 %%%----------------------------------------------------------------
 more_add(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     ok = eldap:add(H, "cn=Foo Bar," ++ BasePath,
 		   [{"objectclass", ["person"]},
 		    {"cn", ["Foo Bar"]},
@@ -470,8 +493,8 @@ more_add(Config) ->
 
 %%%----------------------------------------------------------------
 add_referral(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     {ok,{referral,["ldap://nowhere.example.com"++_]}} =
 	eldap:add(H, "cn=Foo Bar,dc=notHere," ++ BasePath,
 		  [{"objectclass", ["person"]},
@@ -481,28 +504,28 @@ add_referral(Config) ->
 
 %%%----------------------------------------------------------------
 search_filter_equalityMatch(Config) ->
-    BasePath = ?config(eldap_path, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     ExpectedDN = "cn=Jonas Jonsson," ++ BasePath,
     {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
-	eldap:search(?config(handle, Config),
+	eldap:search(proplists:get_value(handle, Config),
 		     #eldap_search{base = BasePath,
 				   filter = eldap:equalityMatch("sn", "Jonsson"),
 				   scope=eldap:singleLevel()}).
 
 %%%----------------------------------------------------------------
 search_filter_substring_any(Config) ->
-    BasePath = ?config(eldap_path, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     ExpectedDN = "cn=Jonas Jonsson," ++ BasePath,
     {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
-	eldap:search(?config(handle, Config),
+	eldap:search(proplists:get_value(handle, Config),
 		     #eldap_search{base = BasePath,
 				   filter = eldap:substrings("sn", [{any, "ss"}]),
 				   scope=eldap:singleLevel()}).
 
 %%%----------------------------------------------------------------
 search_filter_initial(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     ExpectedDN = "cn=Foo Bar," ++ BasePath,
     {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
 	eldap:search(H,
@@ -512,8 +535,8 @@ search_filter_initial(Config) ->
 
 %%%----------------------------------------------------------------
 search_filter_final(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     ExpectedDN = "cn=Foo Bar," ++ BasePath,
     {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
 	eldap:search(H,
@@ -523,8 +546,8 @@ search_filter_final(Config) ->
 
 %%%----------------------------------------------------------------
 search_filter_and(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     ExpectedDN = "cn=Foo Bar," ++ BasePath,
     {ok, #eldap_search_result{entries=[#eldap_entry{object_name=ExpectedDN}]}} =
 	eldap:search(H,
@@ -535,8 +558,8 @@ search_filter_and(Config) ->
 
 %%%----------------------------------------------------------------
 search_filter_or(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     ExpectedDNs = lists:sort(["cn=Foo Bar," ++ BasePath,
 			      "ou=Team," ++ BasePath]),
     {ok, #eldap_search_result{entries=Es}} =
@@ -549,8 +572,8 @@ search_filter_or(Config) ->
 
 %%%----------------------------------------------------------------
 search_filter_and_not(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     {ok, #eldap_search_result{entries=[]}} =
 	eldap:search(H,
 		     #eldap_search{base = BasePath,
@@ -562,8 +585,8 @@ search_filter_and_not(Config) ->
 
 %%%----------------------------------------------------------------
 search_two_hits(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     DN1 = "cn=Santa Claus," ++ BasePath,
     DN2 = "cn=Jultomten," ++ BasePath,
     %% Add two objects:
@@ -594,8 +617,8 @@ search_two_hits(Config) ->
 
 %%%----------------------------------------------------------------
 search_referral(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     DN = "cn=Santa Claus,dc=notHere," ++ BasePath,
     {ok,{referral,["ldap://nowhere.example.com"++_]}} =
 	eldap:search(H, #eldap_search{base = DN,
@@ -604,8 +627,8 @@ search_referral(Config) ->
 
 %%%----------------------------------------------------------------
 modify(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     %% The object to modify
     DN = "cn=Foo Bar," ++ BasePath,
 
@@ -637,8 +660,8 @@ modify(Config) ->
 
 %%%----------------------------------------------------------------
 modify_referral(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     %% The object to modify
     DN = "cn=Foo Bar,dc=notHere," ++ BasePath,
 
@@ -650,8 +673,8 @@ modify_referral(Config) ->
 
 %%%----------------------------------------------------------------
 delete(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     %% The element to play with:
     DN = "cn=Jonas Jonsson," ++ BasePath,
 
@@ -668,16 +691,16 @@ delete(Config) ->
 
 %%%----------------------------------------------------------------
 delete_referral(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     %% The element to play with:
     DN = "cn=Jonas Jonsson,dc=notHere," ++ BasePath,
     {ok,{referral,["ldap://nowhere.example.com"++_]}} = eldap:delete(H, DN).
 
 %%%----------------------------------------------------------------
 modify_dn_delete_old(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     OrigCN = "Foo Bar",
     OriginalRDN = "cn="++OrigCN,
     DN = OriginalRDN ++ "," ++ BasePath,
@@ -722,8 +745,8 @@ modify_dn_delete_old(Config) ->
 
 %%%----------------------------------------------------------------
 modify_dn_keep_old(Config) ->
-    H = ?config(handle, Config),
-    BasePath = ?config(eldap_path, Config),
+    H = proplists:get_value(handle, Config),
+    BasePath = proplists:get_value(eldap_path, Config),
     OriginalRDN = "cn=Foo Bar",
     DN = OriginalRDN ++ "," ++ BasePath,
     NewCN = "Niclas Andre",
@@ -862,7 +885,7 @@ initialize_db(Config) ->
 
 clear_db(Config) ->
     {ok,H} = open_bind(Config),
-    Path = ?config(eldap_path, Config),
+    Path = proplists:get_value(eldap_path, Config),
     delete_old_contents(H, Path),
     eldap:close(H),
     Config.
@@ -914,20 +937,20 @@ ok(MODULE, LINE, X) ->
 
 
 cond_start_tls(H, Config) ->
-    case ?config(start_tls,Config) of
+    case proplists:get_value(start_tls,Config) of
 	true -> start_tls(H,Config);
 	_ -> Config
     end.
 
 start_tls(H, Config) ->
-    KeyFile = filename:join([?config(data_dir,Config),
+    KeyFile = filename:join([proplists:get_value(data_dir,Config),
 			     "certs/client/key.pem"
 			    ]),
     case eldap:start_tls(H, [{keyfile, KeyFile}]) of
 	ok ->
 	    [{start_tls_success,true} | Config];
 	Error ->
-	    ct:log("Start_tls on ~p failed: ~p",[?config(url,Config) ,Error]),
+	    ct:log("Start_tls on ~p failed: ~p",[proplists:get_value(url,Config) ,Error]),
 	    ct:fail("start_tls failed")
     end.
 
@@ -939,8 +962,8 @@ open_bind(Config) ->
     {ok,H}.
 
 open(Config) ->
-    {Host,Port} = ?config(server,Config),
-    SSLflag = ?config(ssl_flag,Config),
+    {Host,Port} = proplists:get_value(server,Config),
+    SSLflag = proplists:get_value(ssl_flag,Config),
     {ok,H} = eldap:open([Host], [{port,Port},{ssl,SSLflag}]),
     cond_start_tls(H, Config),
     {ok,H}.
@@ -998,7 +1021,7 @@ init_ssl_certs_et_al(Config) ->
     of
 	R when R==ok ; R=={error,{already_started,ssl}} ->
 	    try make_certs:all("/dev/null",
-			       filename:join(?config(data_dir,Config), "certs"))
+			       filename:join(proplists:get_value(data_dir,Config), "certs"))
 	    of
 		{ok,_} -> true;
 		Other ->

@@ -72,8 +72,7 @@
     <datatype>
       <name>assoc_id()</name>
       <desc>
-        <p><marker id="type-assoc_id"/>
-          An opaque term returned in, for example, <c>#sctp_paddr_change{}</c>,
+        <p>An opaque term returned in, for example, <c>#sctp_paddr_change{}</c>,
           which identifies an association for an SCTP socket. The term
           is opaque except for the special value <c>0</c>, which has a
           meaning such as "the whole endpoint" or "all future associations".</p>
@@ -88,12 +87,11 @@
     </datatype>
     <datatype>
       <name name="option_name"/>
-      <desc><marker id="type-sctp_socket"></marker></desc>
     </datatype>
     <datatype>
       <name>sctp_socket()</name>
       <desc>
-        <p><marker id="type-sctp_socket"/>Socket identifier returned from
+        <p>Socket identifier returned from
           <seealso marker="#open/0"><c>open/*</c></seealso>.</p>
         <marker id="exports"></marker>
       </desc>

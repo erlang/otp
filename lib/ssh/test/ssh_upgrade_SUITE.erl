@@ -23,6 +23,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
 
 -record(state, {
 	  config,
@@ -48,18 +49,20 @@ all() ->
     ].
 
 init_per_suite(Config0) ->
-    case ct_release_test:init(Config0) of
-	{skip, Reason} ->
-	    {skip, Reason};
-	Config ->
-	    ssh:start(),
-	    Config
-    end.
+    ?CHECK_CRYPTO(
+       case ct_release_test:init(Config0) of
+	   {skip, Reason} ->
+	       {skip, Reason};
+	   Config ->
+	       ssh:start(),
+	       Config
+       end
+      ).
 
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
     ssh:stop(),
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_rsa(UserDir).
 
 init_per_testcase(_TestCase, Config) ->
@@ -138,8 +141,8 @@ test_soft(State0, FileName) ->
 
 
 setup_server_client(#state{config=Config} = State) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 	    
     FtpRootDir = filename:join(PrivDir, "ftp_root"),
     catch file:make_dir(FtpRootDir),

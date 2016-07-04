@@ -4,14 +4,14 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2015</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -118,6 +118,59 @@ fe80::204:acff:fe17:bf38
       <name name="port_number"/>
     </datatype>
     <datatype>
+      <name name="local_address"/>
+      <desc>
+	<p>
+	  This address family only works on Unix-like systems.
+	</p>
+	<p>
+	  <c><anno>File</anno></c> is normally a file pathname
+	  in a local filesystem.  It is limited in length by the
+	  operating system, traditionally to 108 bytes.
+	</p>
+	<p>
+	  A <c>binary()</c> is passed as is to the operating system,
+	  but a <c>string()</c> is encoded according to the
+	  <seealso marker="file#native_name_encoding/0">
+	    system filename encoding mode.
+	  </seealso>
+	</p>
+	<p>
+	  Other addresses are possible, for example Linux implements
+	  "Abstract Addresses".  See the documentation for
+	  Unix Domain Sockets on your system,
+	  normally <c>unix</c> in manual section 7.
+	</p>
+	<p>
+	  In most API functions where you can use
+	  this address family the port number must be <c>0</c>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="socket_address"/>
+    </datatype>
+    <datatype>
+      <name name="returned_non_ip_address"/>
+      <desc>
+	<p>
+	  Addresses besides
+	  <seealso marker="#type-ip_address">
+	    <c>ip_address()</c>
+	  </seealso>
+	  ones that are returned from socket API functions.
+	  See in particular
+	  <seealso marker="#type-local_address">
+	    <c>local_address()</c>.
+	  </seealso>
+	  The <c>unspec</c> family corresponds to AF_UNSPEC and can
+	  occur if the other side has no socket address.
+	  The <c>undefined</c> family can only occur in the unlikely
+	  event of an address family that the VM does not recognize.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="posix"/>
       <desc>
         <p>An atom that is named from the POSIX error codes used in Unix,
@@ -128,7 +181,7 @@ fe80::204:acff:fe17:bf38
     <datatype>
       <name>socket()</name>
       <desc>
-        <p><marker id="type-socket"></marker>See
+        <p>See
           <seealso marker="gen_tcp#type-socket"><c>gen_tcp:type-socket</c></seealso>
           and
           <seealso marker="gen_udp#type-socket"><c>gen_udp:type-socket</c></seealso>.
@@ -207,6 +260,10 @@ fe80::204:acff:fe17:bf38
       <desc>
         <p>Returns a <c>hostent</c> record for the host with the specified
           hostname.</p>
+        <p>If resolver option <c>inet6</c> is <c>true</c>,
+          an IPv6 address is looked up. If that fails,
+          the IPv4 address is looked up and returned on
+          IPv6-mapped IPv4 format.</p>
       </desc>
     </func>
 
@@ -1267,4 +1324,3 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </list>
   </section>
 </erlref>
-

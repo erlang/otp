@@ -59,7 +59,7 @@ DOC_MODULES = hipe_beam_to_icode \
 	hipe_icode_pp hipe_icode_primops \
 	hipe_icode_range \
 	hipe_icode_split_arith \
-	hipe_icode_ssa hipe_icode_ssa_const_prop \
+	hipe_icode_ssa hipe_icode_ssa_const_prop hipe_icode_call_elim \
 	hipe_icode_ssa_copy_prop hipe_icode_ssa_struct_reuse \
 	hipe_icode_type $(HIPE_MODULES)
 
@@ -84,7 +84,7 @@ DOC_FILES= $(DOC_MODULES:%=$(DOCS)/%.html)
 
 include ../native.mk
 
-ERL_COMPILE_FLAGS += +warn_unused_import +warn_exported_vars +warn_missing_spec # +warn_untyped_record
+ERL_COMPILE_FLAGS += -Werror +warn_unused_import +warn_export_vars +warn_missing_spec # +warn_untyped_record
 
 # ----------------------------------------------------
 # Targets

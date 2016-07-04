@@ -21,6 +21,7 @@
 -module(ssl_dist_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -41,7 +42,9 @@
 %%--------------------------------------------------------------------
 all() ->
     [basic, payload, plain_options, plain_verify_options, nodelay_option, 
-     listen_port_options, listen_options, connect_options, use_interface].
+     listen_port_options, listen_options, connect_options, use_interface,
+     verify_fun_fail, verify_fun_pass, crl_check_pass, crl_check_fail,
+     crl_check_best_effort, crl_cache_check_pass, crl_cache_check_fail].
 
 groups() ->
     [].
@@ -106,11 +109,11 @@ common_end(_, _Config) ->
 basic() ->
     [{doc,"Test that two nodes can connect via ssl distribution"}].
 basic(Config) when is_list(Config) ->
-    NH1 = start_ssl_node(Config),
-    Node1 = NH1#node_handle.nodename,
-    NH2 = start_ssl_node(Config),
-    Node2 = NH2#node_handle.nodename,
+    gen_dist_test(basic_test, Config).
 
+basic_test(NH1, NH2, _) ->
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
 
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
@@ -158,18 +161,16 @@ basic(Config) when is_list(Config) ->
 				    ok
 			    end
 		    end)
-     end,
-    stop_ssl_node(NH1),
-    stop_ssl_node(NH2),
-    success(Config).
+     end.
 
 %%--------------------------------------------------------------------
 payload() ->
     [{doc,"Test that send a lot of data between the ssl distributed noes"}].
 payload(Config) when is_list(Config) ->
-    NH1 = start_ssl_node(Config),
+    gen_dist_test(payload_test, Config).
+
+payload_test(NH1, NH2, _) ->
     Node1 = NH1#node_handle.nodename,
-    NH2 = start_ssl_node(Config),
     Node2 = NH2#node_handle.nodename,
 
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
@@ -201,10 +202,8 @@ payload(Config) when is_list(Config) ->
 				    ok
 			    end
 		    end)
-     end,
-    stop_ssl_node(NH1),
-    stop_ssl_node(NH2),
-    success(Config).
+     end.
+
 %%--------------------------------------------------------------------
 plain_options() ->
     [{doc,"Test specifying additional options"}].
@@ -215,20 +214,17 @@ plain_options(Config) when is_list(Config) ->
 	"client_verify verify_none server_verify verify_none "
 	"server_depth 1 client_depth 1 "
 	"server_hibernate_after 500 client_hibernate_after 500",
+    gen_dist_test(plain_options_test, [{additional_dist_opts, DistOpts} | Config]).
 
-    NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+plain_options_test(NH1, NH2, _) ->
     Node1 = NH1#node_handle.nodename,
-    NH2 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
     Node2 = NH2#node_handle.nodename,
 
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
 
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
-    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
 
-    stop_ssl_node(NH1),
-    stop_ssl_node(NH2),
-    success(Config).
 %%--------------------------------------------------------------------
 plain_verify_options() ->
     [{doc,"Test specifying additional options"}].
@@ -237,20 +233,18 @@ plain_verify_options(Config) when is_list(Config) ->
 	"client_secure_renegotiate true "
 	"server_reuse_sessions true client_reuse_sessions true  "
 	"server_hibernate_after 500 client_hibernate_after 500",
+    gen_dist_test(plain_verify_options_test, [{additional_dist_opts, DistOpts} | Config]).
 
-    NH1 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
+plain_verify_options_test(NH1, NH2, _) ->
     Node1 = NH1#node_handle.nodename,
-    NH2 = start_ssl_node([{additional_dist_opts, DistOpts} | Config]),
     Node2 = NH2#node_handle.nodename,
-
+    
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
-
+    
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
-    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
 
-    stop_ssl_node(NH1),
-    stop_ssl_node(NH2),
-    success(Config).
+
 %%--------------------------------------------------------------------
 nodelay_option() ->
     [{doc,"Test specifying dist_nodelay option"}].
@@ -262,6 +256,7 @@ nodelay_option(Config) ->
     after
 	application:unset_env(kernel, dist_nodelay)
     end.
+%%--------------------------------------------------------------------
 
 listen_port_options() ->
     [{doc, "Test specifying listening ports"}].
@@ -282,32 +277,39 @@ listen_port_options(Config) when is_list(Config) ->
 	#node_handle{} ->
 	    %% If the node was able to start, it didn't take the port
 	    %% option into account.
+	    stop_ssl_node(NH1),
 	    exit(unexpected_success)
     catch
 	exit:{accept_failed, timeout} ->
 	    %% The node failed to start, as expected.
 	    ok
     end,
-
+    
     %% Try again, now specifying a high max port.
     PortOpt2 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
-        " inet_dist_listen_max 65535",
+	" inet_dist_listen_max 65535",
     NH2 = start_ssl_node([{additional_dist_opts, PortOpt2} | Config]),
-    Node2 = NH2#node_handle.nodename,
-    Name2 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node2)),
-    {ok, NodesPorts2} = apply_on_ssl_node(NH2, fun net_adm:names/0),
-    {Name2, Port2} = lists:keyfind(Name2, 1, NodesPorts2),
-
-    %% The new port should be higher:
-    if Port2 > Port1 ->
-	    ok;
-       true ->
-	    error({port, Port2, not_higher_than, Port1})
+    
+    try 
+	Node2 = NH2#node_handle.nodename,
+	Name2 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node2)),
+	{ok, NodesPorts2} = apply_on_ssl_node(NH2, fun net_adm:names/0),
+	{Name2, Port2} = lists:keyfind(Name2, 1, NodesPorts2),
+	
+	%% The new port should be higher:
+	if Port2 > Port1 ->
+		ok;
+	   true ->
+		error({port, Port2, not_higher_than, Port1})
+	end
+    catch
+	_:Reason ->
+	    stop_ssl_node(NH2),
+	    ct:fail(Reason)
     end,
-
-    stop_ssl_node(NH1),
     stop_ssl_node(NH2),
     success(Config).
+
 %%--------------------------------------------------------------------
 listen_options() ->
     [{doc, "Test inet_dist_listen_options"}].
@@ -326,28 +328,25 @@ do_listen_options(Prio, Config) ->
 	end,
 
     Options = "-kernel inet_dist_listen_options " ++ PriorityString,
-
-    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
-    NH2 = start_ssl_node([{additional_dist_opts, Options} | Config]),
-    Node2 = NH2#node_handle.nodename,
-    
+    gen_dist_test(listen_options_test, [{prio, Prio}, {additional_dist_opts, Options} | Config]).
+	
+listen_options_test(NH1, NH2, Config) ->
+    Prio = proplists:get_value(prio, Config),
+    Node2 = NH2#node_handle.nodename,    
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
 
     PrioritiesNode1 =
 	apply_on_ssl_node(NH1, fun get_socket_priorities/0),
     PrioritiesNode2 =
 	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
-
+    
     Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
-    ?t:format("Elevated1: ~p~n", [Elevated1]),
+    ct:pal("Elevated1: ~p~n", [Elevated1]),
     Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
-    ?t:format("Elevated2: ~p~n", [Elevated2]),
+    ct:pal("Elevated2: ~p~n", [Elevated2]),
     [_|_] = Elevated1,
-    [_|_] = Elevated2,
+    [_|_] = Elevated2.
 
-    stop_ssl_node(NH1),
-    stop_ssl_node(NH2),
-    success(Config).
 %%--------------------------------------------------------------------
 connect_options() ->
     [{doc, "Test inet_dist_connect_options"}].
@@ -366,9 +365,11 @@ do_connect_options(Prio, Config) ->
 	end,
 
     Options = "-kernel inet_dist_connect_options " ++ PriorityString,
+    gen_dist_test(connect_options_test, 
+		  [{prio, Prio}, {additional_dist_opts, Options} | Config]).
 
-    NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
-    NH2 = start_ssl_node([{additional_dist_opts, Options} | Config]),
+connect_options_test(NH1, NH2, Config) ->
+    Prio = proplists:get_value(prio, Config),
     Node2 = NH2#node_handle.nodename,
     
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
@@ -379,17 +380,14 @@ do_connect_options(Prio, Config) ->
 	apply_on_ssl_node(NH2, fun get_socket_priorities/0),
 
     Elevated1 = [P || P <- PrioritiesNode1, P =:= Prio],
-    ?t:format("Elevated1: ~p~n", [Elevated1]),
+    ct:pal("Elevated1: ~p~n", [Elevated1]),
     Elevated2 = [P || P <- PrioritiesNode2, P =:= Prio],
-    ?t:format("Elevated2: ~p~n", [Elevated2]),
+    ct:pal("Elevated2: ~p~n", [Elevated2]),
     %% Node 1 will have a socket with elevated priority.
     [_|_] = Elevated1,
     %% Node 2 will not, since it only applies to outbound connections.
-    [] = Elevated2,
+    [] = Elevated2.
 
-    stop_ssl_node(NH1),
-    stop_ssl_node(NH2),
-    success(Config).
 %%--------------------------------------------------------------------
 use_interface() ->
     [{doc, "Test inet_dist_use_interface"}].
@@ -400,28 +398,220 @@ use_interface(Config) when is_list(Config) ->
 
     %% Start a node, and get the port number it's listening on.
     NH1 = start_ssl_node([{additional_dist_opts, Options} | Config]),
-    Node1 = NH1#node_handle.nodename,
-    Name = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
-    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
-    {Name, Port} = lists:keyfind(Name, 1, NodesPorts),
-    
-    %% Now find the socket listening on that port, and check its sockname.
-    Sockets = apply_on_ssl_node(
-		NH1,
-		fun() ->
-			[inet:sockname(P) ||
-			    P <- erlang:ports(),
-			    {ok, Port} =:= (catch inet:port(P))]
-		end),
-    %% And check that it's actually listening on localhost.
-    [{ok,{{127,0,0,1},Port}}] = Sockets,
-
+  
+    try
+	Node1 = NH1#node_handle.nodename,
+	Name = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
+	{ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
+	{Name, Port} = lists:keyfind(Name, 1, NodesPorts),
+	
+	%% Now find the socket listening on that port, and check its sockname.
+	Sockets = apply_on_ssl_node(
+		    NH1,
+		    fun() ->
+			    [inet:sockname(P) ||
+				P <- inet_ports(),
+				{ok, Port} =:= (catch inet:port(P))]
+		    end),
+	%% And check that it's actually listening on localhost.
+	[{ok,{{127,0,0,1},Port}}] = Sockets
+    catch 
+	_:Reason ->
+	    stop_ssl_node(NH1),
+	    ct:fail(Reason)
+    end,
     stop_ssl_node(NH1),
     success(Config).
+%%--------------------------------------------------------------------
+verify_fun_fail() ->
+    [{doc,"Test specifying verify_fun with a function that always fails"}].
+verify_fun_fail(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+        "server_verify verify_peer server_verify_fun "
+	"\"{ssl_dist_SUITE,verify_fail_always,{}}\" "
+        "client_verify verify_peer client_verify_fun "
+	"\"{ssl_dist_SUITE,verify_fail_always,{}}\" ",
+    gen_dist_test(verify_fun_fail_test, [{additional_dist_opts, DistOpts} | Config]).
 
+verify_fun_fail_test(NH1, NH2, _) ->
+    Node2 = NH2#node_handle.nodename,
+    
+    pang = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %% Check that the function ran on the client node.
+    [{verify_fail_always_ran, true}] =
+        apply_on_ssl_node(NH1, fun () -> ets:tab2list(verify_fun_ran) end),
+    %% On the server node, it wouldn't run, because the server didn't
+    %% request a certificate from the client.
+    undefined =
+        apply_on_ssl_node(NH2, fun () -> ets:info(verify_fun_ran) end).
+
+
+
+%%--------------------------------------------------------------------
+verify_fun_pass() ->
+    [{doc,"Test specifying verify_fun with a function that always succeeds"}].
+verify_fun_pass(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+        "server_verify verify_peer server_verify_fun "
+	"\"{ssl_dist_SUITE,verify_pass_always,{}}\" "
+        "server_fail_if_no_peer_cert true "
+        "client_verify verify_peer client_verify_fun "
+	"\"{ssl_dist_SUITE,verify_pass_always,{}}\" ",
+    gen_dist_test(verify_fun_pass_test, [{additional_dist_opts, DistOpts} | Config]).
+
+verify_fun_pass_test(NH1, NH2, _) ->
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    %% Check that the function ran on the client node.
+    [{verify_pass_always_ran, true}] =
+        apply_on_ssl_node(NH1, fun () -> ets:tab2list(verify_fun_ran) end),
+    %% Check that it ran on the server node as well.  The server
+    %% requested and verified the client's certificate because we
+    %% passed fail_if_no_peer_cert.
+    [{verify_pass_always_ran, true}] =
+        apply_on_ssl_node(NH2, fun () -> ets:tab2list(verify_fun_ran) end).
+
+%%--------------------------------------------------------------------
+crl_check_pass() ->
+    [{doc,"Test crl_check with non-revoked certificate"}].
+crl_check_pass(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt client_crl_check true",
+    NewConfig =
+        [{many_verify_opts, true}, {additional_dist_opts, DistOpts}] ++ Config,
+    gen_dist_test(crl_check_pass_test, NewConfig).
+
+crl_check_pass_test(NH1, NH2, Config) ->
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
+
+    PrivDir = ?config(priv_dir, Config),
+    cache_crls_on_ssl_nodes(PrivDir, ["erlangCA", "otpCA"], [NH1, NH2]),
+
+    %% The server's certificate is not revoked, so connection succeeds.
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
+
+%%--------------------------------------------------------------------
+crl_check_fail() ->
+    [{doc,"Test crl_check with revoked certificate"}].
+crl_check_fail(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt client_crl_check true",
+    NewConfig =
+        [{many_verify_opts, true},
+         %% The server uses a revoked certificate.
+         {server_cert_dir, "revoked"},
+         {additional_dist_opts, DistOpts}] ++ Config,
+    gen_dist_test(crl_check_fail_test, NewConfig).
+
+crl_check_fail_test(NH1, NH2, Config) ->
+    Node2 = NH2#node_handle.nodename,
+
+    PrivDir = ?config(priv_dir, Config),
+    cache_crls_on_ssl_nodes(PrivDir, ["erlangCA", "otpCA"], [NH1, NH2]),
+
+    %% The server's certificate is revoked, so connection fails.
+    pang = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [] = apply_on_ssl_node(NH2, fun () -> nodes() end).
+
+%%--------------------------------------------------------------------
+crl_check_best_effort() ->
+    [{doc,"Test specifying crl_check as best_effort"}].
+crl_check_best_effort(Config) when is_list(Config) ->
+    DistOpts = "-ssl_dist_opt "
+        "server_verify verify_peer server_crl_check best_effort",
+    NewConfig =
+        [{many_verify_opts, true}, {additional_dist_opts, DistOpts}] ++ Config,
+   gen_dist_test(crl_check_best_effort_test, NewConfig).
+
+crl_check_best_effort_test(NH1, NH2, _Config) ->
+    %% We don't have the correct CRL at hand, but since crl_check is
+    %% best_effort, we accept it anyway.
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
+
+%%--------------------------------------------------------------------
+crl_cache_check_pass() ->
+    [{doc,"Test specifying crl_check with custom crl_cache module"}].
+crl_cache_check_pass(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    NodeDir = filename:join([PrivDir, "Certs"]),
+    DistOpts = "-ssl_dist_opt "
+        "client_crl_check true "
+        "client_crl_cache "
+	"\"{ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}\"",
+    NewConfig =
+        [{many_verify_opts, true}, {additional_dist_opts, DistOpts}] ++ Config,
+    gen_dist_test(crl_cache_check_pass_test, NewConfig).
+
+crl_cache_check_pass_test(NH1, NH2, _) ->
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
+
+%%--------------------------------------------------------------------
+crl_cache_check_fail() ->
+    [{doc,"Test custom crl_cache module with revoked certificate"}].
+crl_cache_check_fail(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    NodeDir = filename:join([PrivDir, "Certs"]),
+    DistOpts = "-ssl_dist_opt "
+        "client_crl_check true "
+        "client_crl_cache "
+	"\"{ssl_dist_SUITE,{\\\"" ++ NodeDir ++ "\\\",[]}}\"",
+    NewConfig =
+        [{many_verify_opts, true},
+         %% The server uses a revoked certificate.
+         {server_cert_dir, "revoked"},
+         {additional_dist_opts, DistOpts}] ++ Config,
+
+    gen_dist_test(crl_cache_check_fail_test, NewConfig).
+
+crl_cache_check_fail_test(NH1, NH2, _) ->
+    Node2 = NH2#node_handle.nodename,
+    pang = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    [] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [] = apply_on_ssl_node(NH2, fun () -> nodes() end).
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
+gen_dist_test(Test, Config) ->
+    NH1 = start_ssl_node(Config),
+    NH2 = start_ssl_node(Config),
+    try 
+	?MODULE:Test(NH1, NH2, Config)
+    catch
+	_:Reason ->
+	    stop_ssl_node(NH1),
+	    stop_ssl_node(NH2),
+	    ct:fail(Reason)
+    end,
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),	
+    success(Config).
 
 %% ssl_node side api
 %%
@@ -453,9 +643,11 @@ try_setting_priority(TestFun, Config) ->
 get_socket_priorities() ->
     [Priority ||
 	{ok,[{priority,Priority}]} <-
-	    [inet:getopts(Port, [priority]) ||
-		Port <- erlang:ports(),
-		element(2, erlang:port_info(Port, name)) =:= "tcp_inet"]].
+	    [inet:getopts(Port, [priority]) || Port <- inet_ports()]].
+
+inet_ports() ->
+     [Port || Port <- erlang:ports(),
+              element(2, erlang:port_info(Port, name)) =:= "tcp_inet"].
 
 %%
 %% test_server side api
@@ -502,7 +694,7 @@ start_ssl_node(Config) ->
 
 start_ssl_node(Config, XArgs) ->
     Name = mk_node_name(Config),
-    SSL = ?config(ssl_opts, Config),
+    SSL = proplists:get_value(ssl_opts, Config),
     SSLDistOpts = setup_dist_opts(Config),
     start_ssl_node_raw(Name, SSL ++ " " ++ SSLDistOpts ++ XArgs).
 
@@ -528,6 +720,19 @@ start_ssl_node_raw(Name, Args) ->
 	    exit({failed_to_start_node, Name, Error})
     end.
 
+cache_crls_on_ssl_nodes(PrivDir, CANames, NHs) ->
+    [begin
+         File = filename:join([PrivDir, "Certs", CAName, "crl.pem"]),
+         {ok, PemBin} = file:read_file(File),
+         PemEntries = public_key:pem_decode(PemBin),
+         CRLs = [ CRL || {'CertificateList', CRL, not_encrypted} 
+                             <- PemEntries],
+         ok = apply_on_ssl_node(NH, ssl_manager, insert_crls,
+                                ["no_distribution_point", CRLs, dist])
+     end
+     || NH <- NHs, CAName <- CANames],
+    ok.
+
 %%
 %% command line creation
 %%
@@ -539,7 +744,7 @@ host_name() ->
 
 mk_node_name(Config) ->
     N = erlang:unique_integer([positive]),
-    Case = ?config(testcase, Config),
+    Case = proplists:get_value(testcase, Config),
     atom_to_list(?MODULE)
 	++ "_"
 	++ atom_to_list(Case)
@@ -563,11 +768,13 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 	++ NameSw ++ " " ++ Name ++ " "
 	++ "-pa " ++ Pa ++ " "
 	++ "-run application start crypto -run application start public_key "
+	++ "-eval 'net_kernel:verbose(1)' "
 	++ "-run " ++ atom_to_list(?MODULE) ++ " cnct2tstsrvr "
 	++ host_name() ++ " "
 	++ integer_to_list(ListenPort) ++ " "
 	++ Args ++ " "
 	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
+	++ "-kernel error_logger \"{file,\\\"" ++ Pwd ++ "/error_log." ++ Name ++ "\\\"}\" "
 	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
 
 %%
@@ -792,7 +999,7 @@ do_append_files([F|Fs], RF) ->
     do_append_files(Fs, RF).
 
 setup_certs(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     NodeDir = filename:join([PrivDir, "Certs"]),
     RGenDir = filename:join([NodeDir, "rand_gen"]),
     ok = file:make_dir(NodeDir),
@@ -811,12 +1018,12 @@ setup_certs(Config) ->
     append_files([CK, CC], CKC).
 
 setup_dist_opts(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Dhfile = filename:join([DataDir, "dHParam.pem"]),
     NodeDir = filename:join([PrivDir, "Certs"]),
-    SDir = filename:join([NodeDir, "server"]),
-    CDir = filename:join([NodeDir, "client"]),
+    SDir = filename:join([NodeDir, proplists:get_value(server_cert_dir, Config, "server")]),
+    CDir = filename:join([NodeDir, proplists:get_value(client_cert_dir, Config, "client")]),
     SC = filename:join([SDir, "cert.pem"]),
     SK = filename:join([SDir, "key.pem"]),
     SKC = filename:join([SDir, "keycert.pem"]),
@@ -874,7 +1081,7 @@ add_ssl_opts_config(Config) ->
     %% just point out ssl ebin with -pa.
     %%
     try
-	Dir = ?config(priv_dir, Config),
+	Dir = proplists:get_value(priv_dir, Config),
 	LibDir = code:lib_dir(),
 	Apps = application:which_applications(),
 	{value, {stdlib, _, STDL_VSN}} = lists:keysearch(stdlib, 1, Apps),
@@ -957,3 +1164,53 @@ vsn(App) ->
      after
 	 application:stop(ssl)
      end.
+
+verify_fail_always(_Certificate, _Event, _State) ->
+    %% Create an ETS table, to record the fact that the verify function ran.
+    %% Spawn a new process, to avoid the ETS table disappearing.
+    Parent = self(),
+    spawn(
+      fun() ->
+	      ets:new(verify_fun_ran, [public, named_table]),
+	      ets:insert(verify_fun_ran, {verify_fail_always_ran, true}),
+	      Parent ! go_ahead,
+	      timer:sleep(infinity)
+      end),
+    receive go_ahead -> ok end,
+    {fail, bad_certificate}.
+
+verify_pass_always(_Certificate, _Event, State) ->
+    %% Create an ETS table, to record the fact that the verify function ran.
+    %% Spawn a new process, to avoid the ETS table disappearing.
+    Parent = self(),
+    spawn(
+      fun() ->
+	      ets:new(verify_fun_ran, [public, named_table]),
+	      ets:insert(verify_fun_ran, {verify_pass_always_ran, true}),
+	      Parent ! go_ahead,
+	      timer:sleep(infinity)
+      end),
+    receive go_ahead -> ok end,
+    {valid, State}.
+
+%% ssl_crl_cache_api callbacks
+lookup(_DistributionPoint, _DbHandle) ->
+    not_available.
+
+select({rdnSequence, NameParts}, {NodeDir, _}) ->
+    %% Extract the CN from the issuer name...
+    [CN] = [CN ||
+               [#'AttributeTypeAndValue'{
+                   type = ?'id-at-commonName',
+                   value = <<_, _, CN/binary>>}] <- NameParts],
+    %% ...and use that as the directory name to find the CRL.
+    error_logger:info_report([{found_cn, CN}]),
+    CRLFile = filename:join([NodeDir, CN, "crl.pem"]),
+    {ok, PemBin} = file:read_file(CRLFile),
+    PemEntries = public_key:pem_decode(PemBin),
+    CRLs = [ CRL || {'CertificateList', CRL, not_encrypted} 
+                        <- PemEntries],
+    CRLs.
+
+fresh_crl(_DistributionPoint, CRL) ->
+    CRL.

@@ -70,19 +70,19 @@
 %%%
 
 -spec(form(Form) -> io_lib:chars() when
-      Form :: erl_parse:abstract_form()).
+      Form :: erl_parse:abstract_form() | erl_parse:form_info()).
 
 form(Thing) ->
     form(Thing, none).
 
 -spec(form(Form, Options) -> io_lib:chars() when
-      Form :: erl_parse:abstract_form(),
+      Form :: erl_parse:abstract_form() | erl_parse:form_info(),
       Options :: options()).
 
 form(Thing, Options) ->
     ?TEST(Thing),
     State = state(Options),
-    frmt(lform(Thing, options(Options), State), State).
+    frmt(lform(Thing, options(Options)), State).
 
 -spec(attribute(Attribute) -> io_lib:chars() when
       Attribute :: erl_parse:abstract_form()).
@@ -97,7 +97,7 @@ attribute(Thing) ->
 attribute(Thing, Options) ->
     ?TEST(Thing),
     State = state(Options),
-    frmt(lattribute(Thing, options(Options), State), State).
+    frmt(lattribute(Thing, options(Options)), State).
 
 -spec(function(Function) -> io_lib:chars() when
       Function :: erl_parse:abstract_form()).
@@ -217,55 +217,55 @@ encoding(Options) ->
         unicode -> unicode
     end.
 
-lform({attribute,Line,Name,Arg}, Opts, State) ->
-    lattribute({attribute,Line,Name,Arg}, Opts, State);
-lform({function,Line,Name,Arity,Clauses}, Opts, _State) ->
+lform({attribute,Line,Name,Arg}, Opts) ->
+    lattribute({attribute,Line,Name,Arg}, Opts);
+lform({function,Line,Name,Arity,Clauses}, Opts) ->
     lfunction({function,Line,Name,Arity,Clauses}, Opts);
 %% These are specials to make it easier for the compiler.
-lform({error,E}, _Opts, _State) ->
+lform({error,E}, _Opts) ->
     leaf(format("~p\n", [{error,E}]));
-lform({warning,W}, _Opts, _State) ->
+lform({warning,W}, _Opts) ->
     leaf(format("~p\n", [{warning,W}]));
-lform({eof,_Line}, _Opts, _State) ->
+lform({eof,_Line}, _Opts) ->
     $\n.
 
-lattribute({attribute,_Line,type,Type}, Opts, _State) ->
+lattribute({attribute,_Line,type,Type}, Opts) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
-lattribute({attribute,_Line,opaque,Type}, Opts, _State) ->
+lattribute({attribute,_Line,opaque,Type}, Opts) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
-lattribute({attribute,_Line,spec,Arg}, _Opts, _State) ->
+lattribute({attribute,_Line,spec,Arg}, _Opts) ->
     [specattr(spec, Arg),leaf(".\n")];
-lattribute({attribute,_Line,callback,Arg}, _Opts, _State) ->
+lattribute({attribute,_Line,callback,Arg}, _Opts) ->
     [specattr(callback, Arg),leaf(".\n")];
-lattribute({attribute,_Line,Name,Arg}, Opts, State) ->
-    [lattribute(Name, Arg, Opts, State),leaf(".\n")].
+lattribute({attribute,_Line,Name,Arg}, Opts) ->
+    [lattribute(Name, Arg, Opts),leaf(".\n")].
 
-lattribute(module, {M,Vs}, _Opts, _State) ->
+lattribute(module, {M,Vs}, _Opts) ->
     A = a0(),
     attr("module",[{var,A,pname(M)},
                    foldr(fun(V, C) -> {cons,A,{var,A,V},C}
                          end, {nil,A}, Vs)]);
-lattribute(module, M, _Opts, _State) ->
+lattribute(module, M, _Opts) ->
     attr("module", [{var,a0(),pname(M)}]);
-lattribute(export, Falist, _Opts, _State) ->
+lattribute(export, Falist, _Opts) ->
     call({var,a0(),"-export"}, [falist(Falist)], 0, options(none));
-lattribute(import, Name, _Opts, _State) when is_list(Name) ->
+lattribute(import, Name, _Opts) when is_list(Name) ->
     attr("import", [{var,a0(),pname(Name)}]);
-lattribute(import, {From,Falist}, _Opts, _State) ->
+lattribute(import, {From,Falist}, _Opts) ->
     attr("import",[{var,a0(),pname(From)},falist(Falist)]);
-lattribute(export_type, Talist, _Opts, _State) ->
+lattribute(export_type, Talist, _Opts) ->
     call({var,a0(),"-export_type"}, [falist(Talist)], 0, options(none));
-lattribute(optional_callbacks, Falist, Opts, _State) ->
+lattribute(optional_callbacks, Falist, Opts) ->
     ArgL = try falist(Falist)
            catch _:_ -> abstract(Falist, Opts)
            end,
     call({var,a0(),"-optional_callbacks"}, [ArgL], 0, options(none));
-lattribute(file, {Name,Line}, _Opts, State) ->
-    attr("file", [{var,a0(),(State#pp.string_fun)(Name)},{integer,a0(),Line}]);
-lattribute(record, {Name,Is}, Opts, _State) ->
+lattribute(file, {Name,Line}, _Opts) ->
+    attr("file", [{string,a0(),Name},{integer,a0(),Line}]);
+lattribute(record, {Name,Is}, Opts) ->
     Nl = leaf(format("-record(~w,", [Name])),
     [{first,Nl,record_fields(Is, Opts)},$)];
-lattribute(Name, Arg, Options, _State) ->
+lattribute(Name, Arg, Options) ->
     attr(write(Name), [abstract(Arg, Options)]).
 
 abstract(Arg, #options{encoding = Encoding}) ->
@@ -344,27 +344,9 @@ binary_type(I1, I2) ->
 map_type(Fs) ->
     {first,[$#],map_pair_types(Fs)}.
 
-map_pair_types(Fs0) ->
-    Fs = replace_any_map(Fs0),
+map_pair_types(Fs) ->
     tuple_type(Fs, fun map_pair_type/2).
 
-replace_any_map([{type,Line,map_field_assoc,[KType,VType]}]=Fs) ->
-    IsAny = fun({type,_,any,[]}) -> true;
-    %%         ({var,_,'_'}) -> true;
-               (_) -> false
-            end,
-    case IsAny(KType) andalso IsAny(VType) of
-        true ->
-            [{type,Line,map_field_assoc,any}];
-        false ->
-            Fs
-    end;
-replace_any_map([F|Fs]) ->
-    [F|replace_any_map(Fs)];
-replace_any_map([]) -> [].
-
-map_pair_type({type,_Line,map_field_assoc,any}, _Prec) ->
-    leaf("...");
 map_pair_type({type,_Line,map_field_assoc,[KType,VType]}, Prec) ->
     {list,[{cstep,[ltype(KType, Prec),leaf(" =>")],ltype(VType, Prec)}]};
 map_pair_type({type,_Line,map_field_exact,[KType,VType]}, Prec) ->

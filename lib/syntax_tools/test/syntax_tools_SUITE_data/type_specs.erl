@@ -49,9 +49,12 @@
 
 -type m1() :: #{} | map().
 -type m2() :: #{a := m1(), b => #{} | fy:m2()}.
--type m3() :: #{...}.
--type m4() :: #{_ => _, ...}.
--type m5() :: #{any() => any(), ...}. % Currently printed as `#{..., ...}'.
+%-type m3() :: #{...}.
+%-type m4() :: #{_ => _, ...}.
+%-type m5() :: #{any() => any(), ...}.
+-type m3() :: #{any() => any()}.
+-type m4() :: #{_ => _, any() => any()}.
+-type m5() :: #{any() => any(), any() => any()}.
 -type b1() :: B1 :: binary() | (BitString :: bitstring()).
 
 -define(PAIR(A, B), {(A), (B)}).

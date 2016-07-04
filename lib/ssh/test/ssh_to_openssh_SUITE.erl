@@ -22,6 +22,7 @@
 -module(ssh_to_openssh_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -62,19 +63,21 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
-    case gen_tcp:connect("localhost", 22, []) of
-	{error,econnrefused} ->
-	    {skip,"No openssh deamon"};
-	_ ->
-	    ssh_test_lib:openssh_sanity_check(Config)
-    end.
+    ?CHECK_CRYPTO(
+       case gen_tcp:connect("localhost", 22, []) of
+	   {error,econnrefused} ->
+	       {skip,"No openssh deamon"};
+	   _ ->
+	       ssh_test_lib:openssh_sanity_check(Config)
+       end
+      ).
 
 end_per_suite(_Config) ->
     ok.
 
 init_per_group(erlang_server, Config) ->
-    DataDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
     ssh_test_lib:setup_rsa_known_host(DataDir, UserDir),
     Config;
@@ -87,7 +90,7 @@ init_per_group(_, Config) ->
     Config.
 
 end_per_group(erlang_server, Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(UserDir),
     ssh_test_lib:clean_rsa(UserDir),
     Config;
@@ -222,7 +225,7 @@ erlang_client_openssh_server_kexs() ->
     [{doc, "Test that we can connect with different KEXs."}].
 
 erlang_client_openssh_server_kexs(Config) when is_list(Config) ->
-    KexAlgos = try proplists:get_value(kex, ?config(common_algs,Config))
+    KexAlgos = try proplists:get_value(kex, proplists:get_value(common_algs,Config))
 	       catch _:_ -> []
 	       end,
     comment(KexAlgos),
@@ -366,8 +369,8 @@ erlang_server_openssh_client_public_key_rsa(Config) when is_list(Config) ->
 
 
 erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {public_key_alg, PubKeyAlg},
@@ -387,7 +390,7 @@ erlang_client_openssh_server_password() ->
     [{doc, "Test client password option"}].
 erlang_client_openssh_server_password(Config) when is_list(Config) ->
     %% to make sure we don't public-key-auth
-    UserDir = ?config(data_dir, Config),
+    UserDir = proplists:get_value(data_dir, Config),
     {error, Reason0} =
 	ssh:connect(any, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 					     {user, "foo"},

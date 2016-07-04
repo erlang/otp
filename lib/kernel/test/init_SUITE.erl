@@ -27,7 +27,7 @@
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
 	 many_restarts/0, many_restarts/1,
 	 get_plain_arguments/1,
-	 reboot/1, stop/1, get_status/1, script_id/1]).
+	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1]).
 -export([boot1/1, boot2/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -48,7 +48,7 @@ suite() ->
 all() -> 
     [get_arguments, get_argument, boot_var,
      many_restarts,
-     get_plain_arguments, restart, get_status, script_id,
+     get_plain_arguments, restart, stop_status, get_status, script_id,
      {group, boot}].
 
 groups() -> 
@@ -298,7 +298,7 @@ many_restarts() ->
 
 many_restarts(Config) when is_list(Config) ->
     {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
-    loop_restart(30,Node,rpc:call(Node,erlang,whereis,[error_logger])),
+    loop_restart(50,Node,rpc:call(Node,erlang,whereis,[error_logger])),
     loose_node:stop(Node),
     ok.
 
@@ -461,6 +461,20 @@ reboot(Config) when is_list(Config) ->
 	    ct:fail(system_rebooted)
     end,
     ok.
+
+%% ------------------------------------------------
+%%
+%% ------------------------------------------------
+stop_status(Config) when is_list(Config) ->
+    badarg = catch_stop([65,[66],67]),  % flat strings only
+    badarg = catch_stop([65, 666, 67]),  % only bytes in string
+    badarg = catch_stop(abort),  % 'abort' not allowed
+    badarg = catch_stop(true),  % other atoms not allowed
+    badarg = catch_stop(-1),  % no negative statuses
+    ok.
+
+catch_stop(Status) ->
+    try init:stop(Status) catch error:badarg -> badarg end.
 
 %% ------------------------------------------------
 %%

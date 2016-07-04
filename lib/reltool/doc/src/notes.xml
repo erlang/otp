@@ -38,7 +38,24 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.7</title>
+  <section><title>Reltool 0.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Modify the code as motivated by a change of the
+	    Erlang Parser (<c>undefined</c> is no longer
+	    automatically inserted to the type of record fields
+	    without an initializer). </p>
+          <p>
+	    Own Id: OTP-13033 Aux Id: OTP-12719 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7</title>
 
     <section><title>Improvements and New Features</title>
       <list>

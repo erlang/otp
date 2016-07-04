@@ -88,6 +88,6 @@ keysearch_delete(Key,N,List) ->
 %% the original data directory.
 
 get_data_dir(Config) ->
-    Data = ?config(data_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
     Opts = [{return,list}],
     re:replace(Data, "xmerl_sax_std_SUITE", "xmerl_std_SUITE", Opts).

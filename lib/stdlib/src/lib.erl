@@ -73,7 +73,7 @@ nonl([H|T]) -> [H|nonl(T)].
 
 send(To, Msg) -> To ! Msg.
 
--spec sendw(To, Msg) -> Msg when
+-spec sendw(To, Msg) -> term() when
       To :: pid() | atom() | {atom(), node()},
       Msg :: term().
 

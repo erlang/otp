@@ -30,9 +30,6 @@
     <file>application.xml</file>
   </header>
   <description>
-    <p>The Standard Erlang Libraries application, <em>STDLIB</em>,
-      contains modules for manipulating lists, strings and files etc.</p>
-    <br></br>
   </description>
   <xi:include href="stdlib_app.xml"/>
   <xi:include href="array.xml"/>

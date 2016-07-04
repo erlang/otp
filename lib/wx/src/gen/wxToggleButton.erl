@@ -96,10 +96,10 @@ new(Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttonwxtogglebutton">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxToggleButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -124,10 +124,10 @@ create(This,Parent,Id,Label)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttoncreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
 	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ThisT,wxToggleButton),
@@ -151,7 +151,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtogglebutton.html#wxtogglebuttonsetvalue">external documentation</a>.
--spec setValue(This, State) -> ok when
+-spec setValue(This, State) -> 'ok' when
 	This::wxToggleButton(), State::boolean().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},State)
  when is_boolean(State) ->
@@ -160,7 +160,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},State)
   <<ThisRef:32/?UI,(wxe_util:from_bool(State)):32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxToggleButton()) -> ok.
+-spec destroy(This::wxToggleButton()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToggleButton),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

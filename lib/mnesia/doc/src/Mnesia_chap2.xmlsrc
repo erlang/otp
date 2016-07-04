@@ -317,7 +317,7 @@
                            sex = male,
                            phone = 98108,
                            room_no = {221, 015}},
-        insert_emp(Me, 'B/SFR', [Erlang, mnesia, otp]).</code>
+        insert_emp(Emp, 'B/SFR', [Erlang, mnesia, otp]).</code>
       <note><p>For information about Funs, see "Fun Expressions" in
         section <c>Erlang Reference Manual</c> in System
         Documentation..</p>

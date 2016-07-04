@@ -185,7 +185,7 @@ handle_info({capture,Cap0}, St) ->
 	  end,
     {noreply,St#st{capture=Cap}};
 handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
-    try	io_req(Req, From, St) of
+    _ = try io_req(Req, From, St) of
 	passthrough ->
 	    group_leader() ! IoReq;
 	{EscapeHtml,Data} ->
@@ -197,7 +197,8 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 			#st{capture=none} ->
 			    ok;
 			#st{capture=CapturePid} ->
-			    CapturePid ! {captured,Data}
+			    CapturePid ! {captured,Data},
+			    ok
 		    end,
 		    case EscapeHtml andalso St#st.escape_chars of
 			true ->

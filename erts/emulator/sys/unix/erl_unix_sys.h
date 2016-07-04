@@ -163,7 +163,7 @@ typedef long long ErtsSysHrTime;
 typedef ErtsMonotonicTime ErtsSystemTime;
 typedef ErtsSysHrTime ErtsSysPerfCounter;
 
-#define ERTS_MONOTONIC_TIME_MIN (((ErtsMonotonicTime) 1) << 63)
+#define ERTS_MONOTONIC_TIME_MIN ((ErtsMonotonicTime) (1ULL << 63))
 #define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
 
 /*

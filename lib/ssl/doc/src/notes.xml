@@ -28,6 +28,205 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 8.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Server now rejects, a not requested client cert, as an
+	    incorrect handshake message and ends the connection.</p>
+          <p>
+	    Own Id: OTP-13651</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove default support for DES cipher suites</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13195</p>
+        </item>
+        <item>
+          <p>
+	    Deprecate the function <c>crypto:rand_bytes</c> and make
+	    sure that <c>crypto:strong_rand_bytes</c> is used in all
+	    places that are cryptographically significant.</p>
+          <p>
+	    Own Id: OTP-13214</p>
+        </item>
+        <item>
+          <p>
+	    Better error handling of user error during TLS upgrade.
+	    ERL-69 is solved by gen_statem rewrite of ssl
+	    application.</p>
+          <p>
+	    Own Id: OTP-13255</p>
+        </item>
+        <item>
+          <p>
+	    Provide user friendly error message when crypto rejects a
+	    key</p>
+          <p>
+	    Own Id: OTP-13256</p>
+        </item>
+        <item>
+          <p>
+	    Add ssl:getstat/1 and ssl:getstat/2</p>
+          <p>
+	    Own Id: OTP-13415</p>
+        </item>
+        <item>
+          <p>
+	    TLS distribution connections now allow specifying the
+	    options <c>verify_fun</c>, <c>crl_check</c> and
+	    <c>crl_cache</c>. See the documentation. GitHub pull req
+	    #956 contributed by Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-13429 Aux Id: Pull#956 </p>
+        </item>
+        <item>
+          <p>
+	    Remove confusing error message when closing a distributed
+	    erlang node running over TLS</p>
+          <p>
+	    Own Id: OTP-13431</p>
+        </item>
+        <item>
+          <p>
+	    Remove default support for use of md5 in TLS 1.2
+	    signature algorithms</p>
+          <p>
+	    Own Id: OTP-13463</p>
+        </item>
+        <item>
+          <p>
+	    ssl now uses gen_statem instead of gen_fsm to implement
+	    the ssl connection process, this solves some timing
+	    issues in addition to making the code more intuitive as
+	    the behaviour can be used cleanly instead of having a lot
+	    of workaround for shortcomings of the behaviour.</p>
+          <p>
+	    Own Id: OTP-13464</p>
+        </item>
+        <item>
+          <p>
+	    Phase out interoperability with clients that offer SSLv2.
+	    By default they are no longer supported, but an option to
+	    provide interoperability is offered.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13465</p>
+        </item>
+        <item>
+          <p>
+	    OpenSSL has functions to generate short (eight hex
+	    digits) hashes of issuers of certificates and CRLs. These
+	    hashes are used by the "c_rehash" script to populate
+	    directories of CA certificates and CRLs, e.g. in the
+	    Apache web server. Add functionality to let an Erlang
+	    program find the right CRL for a given certificate in
+	    such a directory.</p>
+          <p>
+	    Own Id: OTP-13530</p>
+        </item>
+        <item>
+          <p>
+	    Some legacy TLS 1.0 software does not tolerate the 1/n-1
+	    content split BEAST mitigation technique. Add a
+	    beast_mitigation SSL option (defaulting to
+	    one_n_minus_one) to select or disable the BEAST
+	    mitigation technique.</p>
+          <p>
+	    Own Id: OTP-13629</p>
+        </item>
+        <item>
+          <p>
+	    Enhance error log messages to facilitate for users to
+	    understand the error</p>
+          <p>
+	    Own Id: OTP-13632</p>
+        </item>
+        <item>
+          <p>
+	    Increased default DH params to 2048-bit</p>
+          <p>
+	    Own Id: OTP-13636</p>
+        </item>
+        <item>
+          <p>
+	    Propagate CRL unknown CA error so that public_key
+	    validation process continues correctly and determines
+	    what should happen.</p>
+          <p>
+	    Own Id: OTP-13656</p>
+        </item>
+        <item>
+          <p>
+	    Introduce a flight concept for handshake packages. This
+	    is a preparation for enabling DTLS, however it can also
+	    have a positive effects for TLS on slow and unreliable
+	    networks.</p>
+          <p>
+	    Own Id: OTP-13678</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct ssl:prf/5 to use the negotiated cipher suite's
+	    prf function in ssl:prf/5 instead of the default prf.</p>
+          <p>
+	    Own Id: OTP-13546</p>
+        </item>
+        <item>
+          <p>
+	    Timeouts may have the value 0, guards have been corrected
+	    to allow this</p>
+          <p>
+	    Own Id: OTP-13635</p>
+        </item>
+        <item>
+          <p>
+	    Change of internal handling of hash sign pairs as the
+	    used one enforced to much restrictions making some valid
+	    combinations unavailable.</p>
+          <p>
+	    Own Id: OTP-13670</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Create a little randomness in sending of session
+	    invalidation messages, to mitigate load when whole table
+	    is invalidated.</p>
+          <p>
+	    Own Id: OTP-13490</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 7.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

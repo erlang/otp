@@ -47,8 +47,6 @@
 
 -export([options/2]).
 
--export([subprocess/2]).
-
 -export([format_error/1]).
 
 -import(lists, [append/1, delete/2, filter/2, foldl/3, foreach/2, 
@@ -511,12 +509,6 @@ find_beam(Culprit) ->
 %%
 options(Options, Valid) ->
     split_options(Options, [], [], [], Valid).
-
-subprocess(Fun, Opts) ->
-    Pid = spawn_opt(Fun, Opts),
-    receive 
-	{Pid, Reply} -> Reply
-    end.
 
 format_error({error, Module, Error}) ->
     Module:format_error(Error);

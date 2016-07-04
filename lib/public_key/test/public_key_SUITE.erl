@@ -34,7 +34,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> 
+    [].
 
 all() -> 
     [app, appup,
@@ -43,7 +44,8 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl].
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
+     short_cert_issuer_hash, short_crl_issuer_hash].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, ec_pem, encrypted_pem,
@@ -108,7 +110,7 @@ appup(Config) when is_list(Config) ->
 dsa_pem() ->
     [{doc, "DSA PEM-file decode/encode"}].
 dsa_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
      [{'DSAPrivateKey', DerDSAKey, not_encrypted} = Entry0 ] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "dsa.pem")),
@@ -131,7 +133,7 @@ dsa_pem(Config) when is_list(Config) ->
 rsa_pem() ->
     [{doc, "RSA PEM-file decode/encode"}].
 rsa_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     [{'RSAPrivateKey', DerRSAKey, not_encrypted} =  Entry0 ] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
 
@@ -166,7 +168,7 @@ rsa_pem(Config) when is_list(Config) ->
 ec_pem() ->
     [{doc, "EC key PEM-file decode/encode"}].
 ec_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     {ok, ECPubPem} = file:read_file(filename:join(Datadir, "ec_pubkey.pem")),
     [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
         public_key:pem_decode(ECPubPem),
@@ -192,7 +194,7 @@ ec_pem(Config) when is_list(Config) ->
 encrypted_pem() ->
     [{doc, "Encrypted PEM-file decode/encode"}].
 encrypted_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     [{'RSAPrivateKey', DerRSAKey, not_encrypted}] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
@@ -225,7 +227,7 @@ encrypted_pem(Config) when is_list(Config) ->
 dh_pem() ->
     [{doc, "DH parametrs PEM-file decode/encode"}].
 dh_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     [{'DHParameter', _DerDH, not_encrypted} = Entry] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "dh.pem")),
     asn1_encode_decode(Entry).
@@ -235,7 +237,7 @@ dh_pem(Config) when is_list(Config) ->
 pkcs10_pem() ->
    [{doc, "PKCS-10 PEM-file decode/encode"}].
 pkcs10_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     [{'CertificationRequest', _DerPKCS10, not_encrypted} = Entry] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "req.pem")),
     asn1_encode_decode(Entry).
@@ -243,7 +245,7 @@ pkcs10_pem(Config) when is_list(Config) ->
 pkcs7_pem() ->
     [{doc, "PKCS-7 PEM-file decode/encode"}].
 pkcs7_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     [{'ContentInfo', _, not_encrypted} = Entry0] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "pkcs7_cert.pem")),
     [{'ContentInfo', _, not_encrypted} = Entry1] =
@@ -255,7 +257,7 @@ pkcs7_pem(Config) when is_list(Config) ->
 cert_pem() ->
     [{doc, "Certificate PEM-file decode/encode"}].
 cert_pem(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
    
     [{'Certificate', _, not_encrypted} = Entry0] =  
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
@@ -273,7 +275,7 @@ cert_pem(Config) when is_list(Config) ->
 ssh_rsa_public_key() ->
     [{doc, "ssh rsa public key decode/encode"}].
 ssh_rsa_public_key(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_rsa_pub")),
     [{PubKey, Attributes1}] = public_key:ssh_decode(RSARawSsh2, public_key),
@@ -299,7 +301,7 @@ ssh_rsa_public_key(Config) when is_list(Config) ->
 ssh_dsa_public_key() ->
     [{doc, "ssh dsa public key decode/encode"}].
 ssh_dsa_public_key(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, DSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_dsa_pub")),
     [{PubKey, Attributes1}] = public_key:ssh_decode(DSARawSsh2, public_key),
@@ -325,7 +327,7 @@ ssh_dsa_public_key(Config) when is_list(Config) ->
 ssh_ecdsa_public_key() ->
     [{doc, "ssh ecdsa public key decode/encode"}].
 ssh_ecdsa_public_key(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, ECDSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_ecdsa_pub")),
     [{PubKey, Attributes1}] = public_key:ssh_decode(ECDSARawSsh2, public_key),
@@ -350,7 +352,7 @@ ssh_ecdsa_public_key(Config) when is_list(Config) ->
 ssh_rfc4716_rsa_comment() ->
     [{doc, "Test comment header and rsa key"}].
 ssh_rfc4716_rsa_comment(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_rsa_comment_pub")),
     [{#'RSAPublicKey'{} = PubKey, Attributes}] =
@@ -366,7 +368,7 @@ ssh_rfc4716_rsa_comment(Config) when is_list(Config) ->
 ssh_rfc4716_dsa_comment() ->
      [{doc, "Test comment header and dsa key"}].
 ssh_rfc4716_dsa_comment(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, DSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_dsa_comment_pub")),
     [{{_, #'Dss-Parms'{}} = PubKey, Attributes}] =
@@ -386,7 +388,7 @@ ssh_rfc4716_dsa_comment(Config) when is_list(Config) ->
 ssh_rfc4716_rsa_subject() ->
     [{doc,  "Test another header value than comment"}].
 ssh_rfc4716_rsa_subject(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_subject_pub")),
     [{#'RSAPublicKey'{} = PubKey, Attributes}] =
@@ -406,7 +408,7 @@ ssh_rfc4716_rsa_subject(Config) when is_list(Config) ->
 ssh_known_hosts() ->
     [{doc, "ssh known hosts file encode/decode"}].
 ssh_known_hosts(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, SshKnownHosts} = file:read_file(filename:join(Datadir, "known_hosts")),
     [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2},
@@ -435,7 +437,7 @@ ssh_known_hosts(Config) when is_list(Config) ->
 ssh1_known_hosts() ->
     [{doc, "ssh (ver 1) known hosts file encode/decode"}].
 ssh1_known_hosts(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, SshKnownHosts} = file:read_file(filename:join(Datadir, "ssh1_known_hosts")),
     [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2},{#'RSAPublicKey'{}, Attributes3}] 
@@ -455,7 +457,7 @@ ssh1_known_hosts(Config) when is_list(Config) ->
 ssh_auth_keys() ->
     [{doc, "ssh authorized keys file encode/decode"}].
 ssh_auth_keys(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, SshAuthKeys} = file:read_file(filename:join(Datadir, "auth_keys")),
     [{#'RSAPublicKey'{}, Attributes1}, {{_, #'Dss-Parms'{}}, Attributes2},
@@ -481,7 +483,7 @@ ssh_auth_keys(Config) when is_list(Config) ->
 ssh1_auth_keys() ->
     [{doc, "ssh (ver 1) authorized keys file encode/decode"}].
 ssh1_auth_keys(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, SshAuthKeys} = file:read_file(filename:join(Datadir, "ssh1_auth_keys")),
     [{#'RSAPublicKey'{}, Attributes1},
@@ -509,7 +511,7 @@ ssh1_auth_keys(Config) when is_list(Config) ->
 ssh_openssh_public_key_with_comment() ->
     [{doc, "Test that emty lines and lines starting with # are ignored"}].
 ssh_openssh_public_key_with_comment(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok, DSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_dsa_with_comment_pub")),
     [{{_, #'Dss-Parms'{}}, _}] = public_key:ssh_decode(DSARawOpenSsh, openssh_public_key).
@@ -518,7 +520,7 @@ ssh_openssh_public_key_with_comment(Config) when is_list(Config) ->
 ssh_openssh_public_key_long_header() ->
   [{doc, "Test that long headers are handled"}].
 ssh_openssh_public_key_long_header(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
 
     {ok,RSARawOpenSsh} = file:read_file(filename:join(Datadir, "ssh_rsa_long_header_pub")),
     [{#'RSAPublicKey'{}, _}] = Decoded = public_key:ssh_decode(RSARawOpenSsh, public_key),
@@ -577,7 +579,7 @@ dsa_sign_verify(Config) when is_list(Config) ->
 	public_key:pem_entry_decode(CertKey1),
     true = public_key:pkix_verify(Cert2, {Y, #'Dss-Parms'{p=P, q=Q, g=G}}),
 
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     [DsaKey = {'DSAPrivateKey', _, _}] = 
 	erl_make_certs:pem_to_der(filename:join(Datadir, "dsa.pem")), 
     DSAPrivateKey = public_key:pem_entry_decode(DsaKey),
@@ -606,7 +608,7 @@ dsa_sign_verify(Config) when is_list(Config) ->
 pkix() ->
     [{doc, "Misc pkix tests not covered elsewhere"}].
 pkix(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     Certs0 = erl_make_certs:pem_to_der(filename:join(Datadir, "cacerts.pem")),
     Certs1 = erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
     TestTransform = fun({'Certificate', CertDer, not_encrypted}) ->
@@ -643,11 +645,10 @@ pkix(Config) when is_list(Config) ->
 		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString," erlang  ca "}}]]},
     VerifyStr = {rdnSequence, 
 		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlangca"}}],
-		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}]]},
-    VerifyStr = public_key:pkix_normalize_name(TestStr),
-
-    ok.
-
+		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}]]},   
+    VerifyStr = public_key:pkix_normalize_name(TestStr).
+    
+  
 %%--------------------------------------------------------------------
 pkix_countryname() ->
     [{doc, "Test workaround for certs that code x509countryname as utf8"}].
@@ -749,7 +750,7 @@ pkix_iso_rsa_oid() ->
  [{doc, "Test workaround for supporting certs that use ISO oids"
    " 1.3.14.3.2.29 instead of PKIX/PKCS oid"}].
 pkix_iso_rsa_oid(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     {ok, PemCert} = file:read_file(filename:join(Datadir, "rsa_ISO.pem")),
     [{_, Cert, _}] = public_key:pem_decode(PemCert),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
@@ -761,7 +762,7 @@ pkix_iso_dsa_oid() ->
  [{doc, "Test workaround for supporting certs that use ISO oids"
    "1.3.14.3.2.27 instead of PKIX/PKCS oid"}].
 pkix_iso_dsa_oid(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     {ok, PemCert} = file:read_file(filename:join(Datadir, "dsa_ISO.pem")),
     [{_, Cert, _}] = public_key:pem_decode(PemCert),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
@@ -774,7 +775,7 @@ pkix_crl() ->
     [{doc, "test pkix_crl_* functions"}].
 
 pkix_crl(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
+    Datadir = proplists:get_value(data_dir, Config),
     {ok, PemCRL} = file:read_file(filename:join(Datadir, "idp_crl.pem")),
     [{_, CRL, _}] = public_key:pem_decode(PemCRL),
     
@@ -803,6 +804,54 @@ pkix_crl(Config) when is_list(Config) ->
     #'DistributionPoint'{cRLIssuer = asn1_NOVALUE,
 			 reasons = asn1_NOVALUE,
 			 distributionPoint =  Point} = public_key:pkix_dist_point(OTPIDPCert).
+
+general_name() ->
+    [{doc, "Test that decoding of general name filed may have other values"
+      " than {rdnSequence,  Seq}"}].
+
+general_name(Config) when is_list(Config) ->
+    DummyRfc822Name = "CN=CNDummy, OU=OUDummy, O=ODummy, C=SE",
+    {ok, {1,  DummyRfc822Name}} = 
+	pubkey_cert:cert_auth_key_id(
+	  #'AuthorityKeyIdentifier'{authorityCertIssuer = 
+					[{rfc822Name, DummyRfc822Name}],
+				    authorityCertSerialNumber = 
+					1}).
+%%--------------------------------------------------------------------
+short_cert_issuer_hash() ->
+    [{doc, "Test OpenSSL-style hash for certificate issuer"}].
+
+short_cert_issuer_hash(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'Certificate', CertDER, _}] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
+
+    %% This hash value was obtained by running:
+    %% openssl x509 -in client_cert.pem -issuer_hash -noout
+    CertIssuerHash = "d4c8d7e5",
+
+    #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{issuer = Issuer}} =
+	public_key:pkix_decode_cert(CertDER, otp),
+
+    CertIssuerHash = public_key:short_name_hash(Issuer).
+
+%%--------------------------------------------------------------------
+short_crl_issuer_hash() ->
+    [{doc, "Test OpenSSL-style hash for CRL issuer"}].
+
+short_crl_issuer_hash(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'CertificateList', CrlDER, _}] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "idp_crl.pem")),
+
+    %% This hash value was obtained by running:
+    %% openssl crl -in idp_crl.pem -hash -noout
+    CrlIssuerHash = "d6134ed3",
+
+    Issuer = public_key:pkix_crl_issuer(CrlDER),
+
+    CrlIssuerHash = public_key:short_name_hash(Issuer).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

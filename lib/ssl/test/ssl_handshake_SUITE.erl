@@ -62,8 +62,8 @@ init_per_testcase(ignore_hassign_extension_pre_tls_1_2, Config0) ->
 		true ->
 		    ssl:start(),
 		    %% make rsa certs using oppenssl
-		    {ok, _} = make_certs:all(?config(data_dir, Config0),
-					     ?config(priv_dir, Config0)),
+		    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
+					     proplists:get_value(priv_dir, Config0)),
 		    Config = ssl_test_lib:cert_options(Config0),
 		    ct:timetrap({seconds, 5}),
 		    Config;
@@ -99,7 +99,8 @@ decode_hello_handshake(_Config) ->
 		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
     Version = {3, 0},
-    {Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>),
+    {Records, _Buffer} = tls_handshake:get_tls_handshake(Version, HelloPacket, <<>>, 
+							 #ssl_options{v2_hello_compatible = false}),
 
     {Hello, _Data} = hd(Records),
     #renegotiation_info{renegotiated_connection = <<0>>}
@@ -162,7 +163,7 @@ select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
 
 
 ignore_hassign_extension_pre_tls_1_2(Config) ->
-    Opts = ?config(server_opts, Config),
+    Opts = proplists:get_value(server_opts, Config),
     CertFile = proplists:get_value(certfile, Opts),
     [{_, Cert, _}] = ssl_test_lib:pem_to_der(CertFile),
     HashSigns = #hash_sign_algos{hash_sign_algos = [{sha512, rsa}, {sha, dsa}]},

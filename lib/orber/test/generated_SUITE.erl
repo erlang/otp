@@ -29,7 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -40,7 +40,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -51,7 +51,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			AcTuAlReS
 		end
@@ -63,7 +63,7 @@
 		case orber_tc:check_tc(TC) of
 		    false ->
 			io:format("###### ERROR ERROR ######~n~p - ~p~n", [Op, TC]),
-			?line exit(TC);
+			exit(TC);
 		    true ->
 			true
 		end
@@ -122,12 +122,12 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -135,8 +135,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case:'OrberApp_IFR'
 %% Description: 
 %%-----------------------------------------------------------------
-'OrberApp_IFR'(doc) -> [""];
-'OrberApp_IFR'(suite) -> [];
 'OrberApp_IFR'(_) ->
     ?nomatch(undefined, 'OrberApp_IFR':oe_tc(get_absolute_name)),
     ?nomatch(undefined, 'OrberApp_IFR':oe_tc(get_user_exception_type)),
@@ -153,8 +151,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: erlang_binary
 %% Description: 
 %%-----------------------------------------------------------------
-erlang_binary(doc) -> [""];
-erlang_binary(suite) -> [];
 erlang_binary(_) ->
     ?match(true, orber_tc:check_tc(erlang_binary:tc())),
     ?match("IDL:erlang/binary:1.0", erlang_binary:id()),
@@ -165,8 +161,6 @@ erlang_binary(_) ->
 %% Test Case: erlang_pid
 %% Description: 
 %%-----------------------------------------------------------------
-erlang_pid(doc) -> [""];
-erlang_pid(suite) -> [];
 erlang_pid(_) ->
     ?match(true, orber_tc:check_tc(erlang_pid:tc())),
     ?match("IDL:erlang/pid:1.0", erlang_pid:id()),
@@ -177,8 +171,6 @@ erlang_pid(_) ->
 %% Test Case: erlang_port
 %% Description: 
 %%-----------------------------------------------------------------
-erlang_port(doc) -> [""];
-erlang_port(suite) -> [];
 erlang_port(_) ->
     ?match(true, orber_tc:check_tc(erlang_port:tc())),
     ?match("IDL:erlang/port:1.0", erlang_port:id()),
@@ -189,8 +181,6 @@ erlang_port(_) ->
 %% Test Case: erlang_ref
 %% Description: 
 %%-----------------------------------------------------------------
-erlang_ref(doc) -> [""];
-erlang_ref(suite) -> [];
 erlang_ref(_) ->
     ?match(true, orber_tc:check_tc(erlang_ref:tc())),
     ?match("IDL:erlang/ref:1.0", erlang_ref:id()),
@@ -201,8 +191,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_Binding'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_Binding'(doc) -> [""];
-'CosNaming_Binding'(suite) -> [];
 'CosNaming_Binding'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_Binding':tc())),
     ?match("IDL:omg.org/CosNaming/Binding:1.0", 'CosNaming_Binding':id()),
@@ -213,8 +201,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_BindingList'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_BindingList'(doc) -> [""];
-'CosNaming_BindingList'(suite) -> [];
 'CosNaming_BindingList'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_BindingList':tc())),
     ?match("IDL:omg.org/CosNaming/BindingList:1.0", 'CosNaming_BindingList':id()),
@@ -225,8 +211,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_Name'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_Name'(doc) -> [""];
-'CosNaming_Name'(suite) -> [];
 'CosNaming_Name'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_Name':tc())),
     ?match("IDL:omg.org/CosNaming/Name:1.0", 'CosNaming_Name':id()),
@@ -237,8 +221,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NameComponent'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NameComponent'(doc) -> [""];
-'CosNaming_NameComponent'(suite) -> [];
 'CosNaming_NameComponent'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_NameComponent':tc())),
     ?match("IDL:omg.org/CosNaming/NameComponent:1.0", 'CosNaming_NameComponent':id()),
@@ -249,8 +231,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContextExt_InvalidAddress'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContextExt_InvalidAddress'(doc) -> [""];
-'CosNaming_NamingContextExt_InvalidAddress'(suite) -> [];
 'CosNaming_NamingContextExt_InvalidAddress'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_NamingContextExt_InvalidAddress':tc())),
     ?match("IDL:omg.org/CosNaming/NamingContextExt/InvalidAddress:1.0", 'CosNaming_NamingContextExt_InvalidAddress':id()),
@@ -261,8 +241,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContext_AlreadyBound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContext_AlreadyBound'(doc) -> [""];
-'CosNaming_NamingContext_AlreadyBound'(suite) -> [];
 'CosNaming_NamingContext_AlreadyBound'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_NamingContext_AlreadyBound':tc())),
     ?match("IDL:omg.org/CosNaming/NamingContext/AlreadyBound:1.0", 'CosNaming_NamingContext_AlreadyBound':id()),
@@ -273,8 +251,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContext_CannotProceed'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContext_CannotProceed'(doc) -> [""];
-'CosNaming_NamingContext_CannotProceed'(suite) -> [];
 'CosNaming_NamingContext_CannotProceed'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_NamingContext_CannotProceed':tc())),
     ?match("IDL:omg.org/CosNaming/NamingContext/CannotProceed:1.0", 'CosNaming_NamingContext_CannotProceed':id()),
@@ -285,8 +261,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContext_InvalidName'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContext_InvalidName'(doc) -> [""];
-'CosNaming_NamingContext_InvalidName'(suite) -> [];
 'CosNaming_NamingContext_InvalidName'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_NamingContext_InvalidName':tc())),
     ?match("IDL:omg.org/CosNaming/NamingContext/InvalidName:1.0", 'CosNaming_NamingContext_InvalidName':id()),
@@ -297,8 +271,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContext_NotEmpty'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContext_NotEmpty'(doc) -> [""];
-'CosNaming_NamingContext_NotEmpty'(suite) -> [];
 'CosNaming_NamingContext_NotEmpty'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_NamingContext_NotEmpty':tc())),
     ?match("IDL:omg.org/CosNaming/NamingContext/NotEmpty:1.0", 'CosNaming_NamingContext_NotEmpty':id()),
@@ -309,8 +281,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContext_NotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContext_NotFound'(doc) -> [""];
-'CosNaming_NamingContext_NotFound'(suite) -> [];
 'CosNaming_NamingContext_NotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosNaming_NamingContext_NotFound':tc())),
     ?match("IDL:omg.org/CosNaming/NamingContext/NotFound:1.0", 'CosNaming_NamingContext_NotFound':id()),
@@ -321,8 +291,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_BindingIterator'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_BindingIterator'(doc) -> [""];
-'CosNaming_BindingIterator'(suite) -> [];
 'CosNaming_BindingIterator'(_) ->
     ?nomatch(undefined, 'CosNaming_BindingIterator':oe_tc(next_one)),
     ?nomatch(undefined, 'CosNaming_BindingIterator':oe_tc(next_n)),
@@ -341,8 +309,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContext'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContext'(doc) -> [""];
-'CosNaming_NamingContext'(suite) -> [];
 'CosNaming_NamingContext'(_) ->
     ?nomatch(undefined, 'CosNaming_NamingContext':oe_tc(bind)),
     ?nomatch(undefined, 'CosNaming_NamingContext':oe_tc(rebind)),
@@ -368,8 +334,6 @@ erlang_ref(_) ->
 %% Test Case: 'CosNaming_NamingContexExt'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNaming_NamingContextExt'(doc) -> [""];
-'CosNaming_NamingContextExt'(suite) -> [];
 'CosNaming_NamingContextExt'(_) ->
     ?nomatch(undefined, 'CosNaming_NamingContextExt':oe_tc(to_string)),
     ?nomatch(undefined, 'CosNaming_NamingContextExt':oe_tc(to_name)),

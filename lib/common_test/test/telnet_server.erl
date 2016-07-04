@@ -59,7 +59,7 @@ init(Opts) ->
     accept(State),
     ok = gen_tcp:close(LSock),
     dbg("telnet_server closed the listen socket ~p\n", [LSock]),
-    ct:sleep(1000),
+    timer:sleep(1000),
     ok.
 
 listen(0, _Port, _Opts) ->
@@ -68,7 +68,7 @@ listen(Retries, Port, Opts) ->
     case gen_tcp:listen(Port, Opts) of
 	{error,eaddrinuse} ->
 	    dbg("Listen port not released, trying again..."),
-	    ct:sleep(5000),
+	    timer:sleep(5000),
 	    listen(Retries-1, Port, Opts);
 	Ok = {ok,_LSock} ->
 	    Ok;
@@ -117,36 +117,62 @@ init_client(#state{client=Sock}=State) ->
     dbg("Server sending: ~p~n",["login: "]),
     R = case gen_tcp:send(Sock,"login: ") of
 	    ok ->
-		loop(State, 1);
+		loop(State);
 	    Error ->
 		Error
 	end,
     _ = gen_tcp:close(Sock),
     R.
 
-loop(State, N) ->
+loop(State=#state{client=Sock}) ->
     receive
-	{tcp,_,Data} ->
+	{tcp,Sock,Data} ->
 	    try handle_data(Data,State) of
 		{ok,State1} ->
-		    loop(State1, N);
+		    loop(State1);
 		closed ->
+		    _ = flush(State),
 		    closed
 	    catch 
 		throw:Error ->
+		    _ = flush(State),
 		    Error
 	    end;
-        {tcp_closed, _} ->
+        {tcp_closed,Sock} ->
             closed;
-	{tcp_error,_,Error} ->
+	{tcp_error,Sock,Error} ->
 	    {error,tcp,Error};
 	disconnect ->
-	    Sock = State#state.client,
 	    dbg("Server closing connection on socket ~p~n", [Sock]),
+	    timer:sleep(1000),
 	    ok = gen_tcp:close(Sock),
-	    closed;
+	    _ = flush(State);
 	stop ->
+	    _ = flush(State),
 	    stopped
+    end.
+
+flush(State=#state{client=Sock}) ->
+    receive
+	{tcp,Sock,Data} = M->
+	    dbg("Message flushed after close or error: ~p~n", [M]),
+	    try handle_data(Data,State) of
+		{ok,State1} ->
+		    flush(State1);
+		closed ->
+		    flush(State)
+	    catch
+		throw:Error ->
+		    Error
+	    end;
+	{tcp_closed,Sock} = M ->
+	    dbg("Message flushed after close or error: ~p~n", [M]),
+	    ok;
+	{tcp_error,Sock,Error} = M ->
+	    dbg("Message flushed after close or error: ~p~n", [M]),
+	    {error,tcp,Error}
+    after 100 ->
+	    ok
     end.
 
 handle_data(Cmd,#state{break=true}=State) ->
@@ -193,6 +219,9 @@ handle_cmd([?AYT|T],State) ->
     %% Used when testing 'newline' option in ct_telnet:send and ct_telnet:cmd.
     send("yes\r\n> ",State),
     handle_data(T,State);
+handle_cmd([?NOP|T],State) ->
+    %% Used for 'keep alive'
+    handle_data(T,State);
 handle_cmd([_H|T],State) ->
     %% Not responding to this command
     handle_cmd(T,State);
@@ -203,6 +232,9 @@ handle_break_cmd([$q|T],State) ->
     %% Dummy cmd allowed in break mode - quit break mode
     send("\r\n> ",State),
     handle_data(T,State#state{break=false});
+handle_break_cmd([_H|T],State) ->
+    %% Unknown command i break mode - ignore
+    handle_break_cmd(T,State);
 handle_break_cmd([],State) ->
     {ok,State}.
 
@@ -220,7 +252,7 @@ do_handle_data("echo_sep " ++ Data,State) ->
     Msgs = string:tokens(Data," "),
     lists:foreach(fun(Msg) ->
 			  send(Msg,State),
-			  ct:sleep(10)
+			  timer:sleep(10)
 		  end, Msgs),
     send("\r\n> ",State),
     {ok,State};
@@ -245,7 +277,7 @@ do_handle_data("echo_loop " ++ Data,State) ->
 do_handle_data("echo_delayed_prompt "++Data,State) ->
     [MsStr|EchoData] = string:tokens(Data, " "),
     send(string:join(EchoData,"\n"),State),
-    ct:sleep(list_to_integer(MsStr)),
+    timer:sleep(list_to_integer(MsStr)),
     send("\r\n> ",State),
     {ok,State};
 do_handle_data("disconnect_after " ++WaitStr,State) ->
@@ -298,7 +330,7 @@ send_loop(T0,T,Data,State) ->
 	    ok;
        true ->
 	    send(Data,State),
-	    ct:sleep(500),
+	    timer:sleep(500),
 	    send_loop(T0,T,Data,State)
     end.
 

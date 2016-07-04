@@ -123,7 +123,7 @@ struct AOFF_Carrier_t_ {
     AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
     AOFF_RBTree_t* root;        /* Root of my block tree */
 };
-#define RBT_NODE_TO_MBC(PTR) ((AOFF_Carrier_t*)((char*)(PTR) - offsetof(AOFF_Carrier_t, rbt_node)))
+#define RBT_NODE_TO_MBC(PTR) ErtsContainerStruct((PTR), AOFF_Carrier_t, rbt_node)
 
 /* 
    To support carrier migration we keep two kinds of rb-trees:

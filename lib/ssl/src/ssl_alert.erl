@@ -73,10 +73,14 @@ reason_code(#alert{description = Description}, _) ->
 %%
 %% Description: Returns the error string for given alert.
 %%--------------------------------------------------------------------
-
-alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}}) ->
+alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined}) ->
     Mod ++ ":" ++ integer_to_list(Line) ++ ":" ++ 
-	level_txt(Level) ++" "++ description_txt(Description).
+        level_txt(Level) ++" "++ description_txt(Description);
+alert_txt(#alert{reason = Reason} = Alert) ->
+    BaseTxt = alert_txt(Alert#alert{reason = undefined}),
+    FormatDepth = 9, % Some limit on printed representation of an error
+    ReasonTxt = lists:flatten(io_lib:format("~P", [Reason, FormatDepth])),
+    BaseTxt ++ " - " ++ ReasonTxt.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -85,7 +89,7 @@ alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}}) 
 %% It is very unlikely that an correct implementation will send more than one alert at the time
 %% So it there is more than 10 warning alerts we consider it an error
 decode(<<?BYTE(Level), ?BYTE(_), _/binary>>, _, N) when Level == ?WARNING, N > ?MAX_ALERTS ->
-    ?ALERT_REC(?FATAL, ?DECODE_ERROR);
+    ?ALERT_REC(?FATAL, ?DECODE_ERROR, too_many_remote_alerts);
 decode(<<?BYTE(Level), ?BYTE(Description), Rest/binary>>, Acc, N) when Level == ?WARNING ->
     Alert = ?ALERT_REC(Level, Description),
     decode(Rest, [Alert | Acc], N + 1);
@@ -93,7 +97,7 @@ decode(<<?BYTE(Level), ?BYTE(Description), _Rest/binary>>, Acc, _) when Level ==
     Alert = ?ALERT_REC(Level, Description),
     lists:reverse([Alert | Acc]); %% No need to decode rest fatal alert will end the connection
 decode(<<?BYTE(_Level), _/binary>>, _, _) ->
-    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
+    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, failed_to_decode_remote_alert);
 decode(<<>>, Acc, _) ->
     lists:reverse(Acc, []).
 

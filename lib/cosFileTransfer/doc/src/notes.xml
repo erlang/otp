@@ -31,7 +31,22 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>cosFileTransfer 1.2</title>
+  <section><title>cosFileTransfer 1.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>cosFileTransfer 1.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

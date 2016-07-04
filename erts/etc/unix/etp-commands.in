@@ -1657,8 +1657,29 @@ end
 define etp-proc-state-int
 # Args: int
 #
-  if ($arg0 & 0xff000000)
-    printf "GARBAGE | "
+  if ($arg0 & 0x80000000)
+    printf "GARBAGE<0x80000000> | "
+  end
+  if ($arg0 & 0x40000000)
+    printf "dirty-running-sys | "
+  end
+  if ($arg0 & 0x20000000)
+    printf "dirty-running | "
+  end
+  if ($arg0 & 0x10000000)
+    printf "dirty-active-sys | "
+  end
+  if ($arg0 & 0x8000000)
+    printf "dirty-io-proc | "
+  end
+  if ($arg0 & 0x4000000)
+    printf "dirty-cpu-proc | "
+  end
+  if ($arg0 & 0x2000000)
+    printf "on-heap-msgq | "
+  end
+  if ($arg0 & 0x1000000)
+    printf "off-heap-msgq | "
   end
   if ($arg0 & 0x800000)
     printf "delayed-sys | "
@@ -1786,52 +1807,53 @@ define etp-process-info
 # Args: Process*
 #
   printf "  Pid: "
-  etp-1 ($arg0)->common.id
+  set $etp_proc = ((Process*)$arg0)
+  etp-1 $etp_proc->common.id
   printf "\n  State: "
-  etp-proc-state $arg0
+  etp-proc-state $etp_proc
   if $proxy_process != 0
-    printf "  Pointer: (Process *) %p\n", $arg0
+    printf "  Pointer: (Process *) %p\n", $etp_proc
     printf "  *** PROXY process struct *** refer to: \n"
-    etp-pid2proc-1 $arg0->common.id
+    etp-pid2proc-1 $etp_proc->common.id
     etp-process-info $proc
   else
-  if (*(((Uint32 *) &(((Process *) $arg0)->state))) & 0x4) == 0
-    if ($arg0->common.u.alive.reg)
+  if (*(((Uint32 *) &($etp_proc->state))) & 0x4) == 0
+    if ($etp_proc->common.u.alive.reg)
       printf "  Registered name: "
-      etp-1 $arg0->common.u.alive.reg->name
+      etp-1 $etp_proc->common.u.alive.reg->name
       printf "\n"
     end
   end
-  if ($arg0->current)
+  if ($etp_proc->current)
     printf "  Current function: "
-    etp-1 $arg0->current[0]
+    etp-1 $etp_proc->current[0]
     printf ":"
-    etp-1 $arg0->current[1]
-    printf "/%d\n", $arg0->current[2]
+    etp-1 $etp_proc->current[1]
+    printf "/%d\n", $etp_proc->current[2]
   end
-  if ($arg0->cp)
+  if ($etp_proc->cp)
     printf "  CP: "
-    etp-cp-1 $arg0->cp
+    etp-cp-1 $etp_proc->cp
     printf "\n"
   end
-  if ($arg0->i)
+  if ($etp_proc->i)
     printf "  I: "
-    etp-cp-1 $arg0->i
+    etp-cp-1 $etp_proc->i
     printf "\n"
   end
-  printf "  Heap size: %ld\n", $arg0->heap_sz
-  if ($arg0->old_heap)
-    printf "  Old-heap size: %ld\n", $arg0->old_hend - $arg0->old_heap
+  printf "  Heap size: %ld\n", $etp_proc->heap_sz
+  if ($etp_proc->old_heap)
+    printf "  Old-heap size: %ld\n", $etp_proc->old_hend - $etp_proc->old_heap
   end
-  printf "  Mbuf size: %ld\n", $arg0->mbuf_sz
+  printf "  Mbuf size: %ld\n", $etp_proc->mbuf_sz
   if (etp_smp_compiled)
-    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($arg0->msg.len + $arg0->msg_inq.len), $arg0->msg.len, $arg0->msg_inq.len
+    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($etp_proc->msg.len + $etp_proc->msg_inq.len), $etp_proc->msg.len, $etp_proc->msg_inq.len
   else
-    printf "  Msgq len: %d\n", $arg0->msg.len
+    printf "  Msgq len: %d\n", $etp_proc->msg.len
   end
   printf "  Parent: "
-  etp-1 $arg0->parent
-  printf "\n  Pointer: (Process *) %p\n", $arg0
+  etp-1 $etp_proc->parent
+  printf "\n  Pointer: (Process *) %p\n", $etp_proc
   end
 end
 
@@ -1897,57 +1919,58 @@ end
 define etp-process-memory-info
 # Args: Process*
 #
-  if ((*(((Uint32 *) &(((Process *) $arg0)->state)))) & 0x400000)
+  set $etp_pmem_proc = ((Process *) $arg0)
+  if ((*(((Uint32 *) &($etp_pmem_proc->state)))) & 0x400000)
     set $proxy_process = 1
   else
     set $proxy_process = 0
   end
   printf "  "
-  etp-1 $arg0->common.id
-  printf ": (Process *) %p ", $arg0
+  etp-1 $etp_pmem_proc->common.id
+  printf ": (Process *) %p ", $etp_pmem_proc
   if $proxy_process != 0
-    printf "(Process *) %p ", $arg0
+    printf "(Process *) %p ", $etp_pmem_proc
     printf "  *** PROXY process struct *** refer to next: \n"
-    etp-pid2proc-1 $arg0->common.id
+    etp-pid2proc-1 $etp_pmem_proc->common.id
     printf " -"
     etp-process-memory-info $proc
   else
-    printf " [Heap: %5ld", $arg0->heap_sz
-    if ($arg0->old_heap)
-      printf " | %5ld", $arg0->old_hend - $arg0->old_heap
+    printf " [Heap: %5ld", $etp_pmem_proc->heap_sz
+    if ($etp_pmem_proc->old_heap)
+      printf " | %5ld", $etp_pmem_proc->old_hend - $etp_pmem_proc->old_heap
     else
       printf " | none "
     end
-    printf "] [Mbuf: %5ld", $arg0->mbuf_sz
+    printf "] [Mbuf: %5ld", $etp_pmem_proc->mbuf_sz
     if (etp_smp_compiled)
-      printf " | %3ld (%3ld | %3ld)", ($arg0->msg.len + $arg0->msg_inq.len), $arg0->msg.len, $arg0->msg_inq.len
+      printf " | %3ld (%3ld | %3ld)", ($etp_pmem_proc->msg.len + $etp_pmem_proc->msg_inq.len), $etp_pmem_proc->msg.len, $etp_pmem_proc->msg_inq.len
     else
-      printf " | %3ld", $arg0->msg.len
+      printf " | %3ld", $etp_pmem_proc->msg.len
     end
     printf "] "
-    if ($arg0->i)
+    if ($etp_pmem_proc->i)
       printf " I: "
-      etp-cp-1 $arg0->i
+      etp-cp-1 $etp_pmem_proc->i
       printf " "
     end
 
-    if ($arg0->current)
-      etp-1 $arg0->current[0]
+    if ($etp_pmem_proc->current)
+      etp-1 $etp_pmem_proc->current[0]
       printf ":"
-      etp-1 $arg0->current[1]
-      printf "/%d ", $arg0->current[2]
+      etp-1 $etp_pmem_proc->current[1]
+      printf "/%d ", $etp_pmem_proc->current[2]
     end
 
-    if (*(((Uint32 *) &(((Process *) $arg0)->state))) & 0x4) == 0
-      if ($arg0->common.u.alive.reg)
-        etp-1 $arg0->common.u.alive.reg->name
+    if (*(((Uint32 *) &(((Process *) $etp_pmem_proc)->state))) & 0x4) == 0
+      if ($etp_pmem_proc->common.u.alive.reg)
+        etp-1 $etp_pmem_proc->common.u.alive.reg->name
         printf " "
       end
     end
 
-    if ($arg0->cp)
+    if ($etp_pmem_proc->cp)
       printf " CP: "
-      etp-cp-1 $arg0->cp
+      etp-cp-1 $etp_pmem_proc->cp
       printf " "
     end
     printf "\n"
@@ -2145,23 +2168,24 @@ define etp-port-info
 # Args: Port*
 #
   printf "  Port: "
-  etp-1 $arg0->common.id
-  printf "\n  Name: %s\n", $arg0->name
+  set $etp_pinfo_port = ((Port*)$arg0)
+  etp-1 $etp_pinfo_port->common.id
+  printf "\n  Name: %s\n", $etp_pinfo_port->name
   printf "  State:"
-  etp-port-state $arg0
+  etp-port-state $etp_pinfo_port
   printf "  Scheduler flags:"
-  etp-port-sched-flags $arg0
-  if (*(((Uint32 *) &(((Port *) $arg0)->state))) & 0x5C00) == 0
-    if ($arg0->common.u.alive.reg)
+  etp-port-sched-flags $etp_pinfo_port
+  if (*(((Uint32 *) &($etp_pinfo_port->state))) & 0x5C00) == 0
+    if ($etp_pinfo_port->common.u.alive.reg)
       printf "  Registered name: "
-      etp-1 $arg0->common.u.alive.reg->name
+      etp-1 $etp_pinfo_port->common.u.alive.reg->name
       printf "\n"
     end
   end
   printf "  Connected: "
-  set $connected = *(((Eterm *) &(((Port *) $arg0)->connected)))
+  set $connected = *(((Eterm *) &(((Port *) $etp_pinfo_port)->connected)))
   etp-1 $connected
-  printf "\n  Pointer: (Port *) %p\n", $arg0
+  printf "\n  Pointer: (Port *) %p\n", $etp_pinfo_port
 end
 
 document etp-port-info
@@ -3670,6 +3694,26 @@ document etp-address-to-beam-opcode
 % Arg: Instructon pointer value
 %
 % Does not work with NO_JUMP_TABLE
+%---------------------------------------------------------------------------
+end
+
+define etp-compile-debug
+  shell (cd $ERL_TOP && make emulator FLAVOR=smp TYPE=debug)
+end
+
+document etp-compile-debug
+%---------------------------------------------------------------------------
+% Re-compile the debug erlang emulator
+%---------------------------------------------------------------------------
+end
+
+define etp-compile
+  shell (cd $ERL_TOP && make emulator)
+end
+
+document etp-compile
+%---------------------------------------------------------------------------
+% Re-compile the erlang emulator
 %---------------------------------------------------------------------------
 end
 

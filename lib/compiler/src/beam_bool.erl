@@ -238,9 +238,9 @@ extend_block(BlAcc0, Fail, [{block,Is0}|OldAcc]) ->
     end;
 extend_block(BlAcc, _, OldAcc) -> {BlAcc,OldAcc}.
 
-extend_block_1([{set,[_],_,{bif,_,{f,Fail}}}=I|Is], Fail, Acc) ->
+extend_block_1([{set,[{x,_}],_,{bif,_,{f,Fail}}}=I|Is], Fail, Acc) ->
     extend_block_1(Is, Fail, [I|Acc]);
-extend_block_1([{set,[_],As,{bif,Bif,_}}=I|Is]=Is0, Fail, Acc) ->
+extend_block_1([{set,[{x,_}],As,{bif,Bif,_}}=I|Is]=Is0, Fail, Acc) ->
     case safe_bool_op(Bif, length(As)) of
 	false -> {Acc,reverse(Is0)};
 	true -> extend_block_1(Is, Fail, [I|Acc])
@@ -311,6 +311,8 @@ dst_regs([{set,[D],_,{bif,_,{f,_}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([{set,[D],_,{alloc,_,{gc_bif,_,{f,_}}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
+dst_regs([{protected,_,Bl,_}|Is], Acc) ->
+    dst_regs(Bl, dst_regs(Is, Acc));
 dst_regs([_|Is], Acc) ->
     dst_regs(Is, Acc);
 dst_regs([], Acc) -> ordsets:from_list(Acc).

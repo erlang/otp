@@ -547,7 +547,9 @@ cert_auth_key_id(#'AuthorityKeyIdentifier'{authorityCertIssuer =
     {ok, {SerialNr, decode_general_name(AuthCertIssuer)}}.
 
 decode_general_name([{directoryName, Issuer}]) ->
-    normalize_general_name(Issuer).
+    normalize_general_name(Issuer);
+decode_general_name([{_, Issuer}]) ->
+    Issuer.
 
 %% Strip all leading and trailing spaces and make
 %% sure there is no double spaces in between. 

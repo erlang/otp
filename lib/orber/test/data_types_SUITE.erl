@@ -29,7 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -42,7 +42,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -89,24 +89,22 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
 
 %%-----------------------------------------------------------------
-%% Test Case: name component handling tests
+%% Test Case: Fixed Point Datatype
 %% Description: 
 %%-----------------------------------------------------------------
-fixed_type(doc) -> ["Test the Fixed Point Datatype."];
-fixed_type(suite) -> [];
 fixed_type(_) ->
     Val1 = ?match({fixed,3,2,314}, orber_test_server:val1()),
     _Val2 = ?match({fixed,3,2,314}, orber_test_server:val2()),
@@ -165,11 +163,9 @@ fixed_type(_) ->
     ok.
 
 %%-----------------------------------------------------------------
-%% Test Case: any type
+%% Test Case: Any type
 %% Description: 
 %%-----------------------------------------------------------------
-any_type(doc) -> ["Test the Any Datatype."];
-any_type(suite) -> [];
 any_type(_) ->
     ?match(#any{typecode=undefined, value=undefined}, 
 	   any:create()),

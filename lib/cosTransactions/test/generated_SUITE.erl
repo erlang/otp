@@ -30,7 +30,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -41,7 +41,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -52,7 +52,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			AcTuAlReS
 		end
@@ -64,7 +64,7 @@
 		case orber_tc:check_tc(TC) of
 		    false ->
 			io:format("###### ERROR ERROR ######~n~p - ~p~n", [Op, TC]),
-			?line exit(TC);
+			exit(TC);
 		    true ->
 			true
 		end
@@ -133,22 +133,18 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
-
 
 %%-----------------------------------------------------------------
 %% Test Case: 'CosTransactions_HeuristicCommit'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_HeuristicCommit'(doc) -> ["CosTransactions_HeuristicCommit"];
-'CosTransactions_HeuristicCommit'(suite) -> [];
 'CosTransactions_HeuristicCommit'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_HeuristicCommit':tc())),
     ?match("IDL:omg.org/CosTransactions/HeuristicCommit:1.0", 
@@ -162,8 +158,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_HeuristicHazard'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_HeuristicHazard'(doc) -> ["CosTransactions_HeuristicHazard"];
-'CosTransactions_HeuristicHazard'(suite) -> [];
 'CosTransactions_HeuristicHazard'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_HeuristicHazard':tc())),
     ?match("IDL:omg.org/CosTransactions/HeuristicHazard:1.0", 
@@ -177,8 +171,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_HeuristicMixed'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_HeuristicMixed'(doc) -> ["CosTransactions_HeuristicMixed"];
-'CosTransactions_HeuristicMixed'(suite) -> [];
 'CosTransactions_HeuristicMixed'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_HeuristicMixed':tc())),
     ?match("IDL:omg.org/CosTransactions/HeuristicMixed:1.0", 
@@ -192,8 +184,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_HeuristicRollback'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_HeuristicRollback'(doc) -> ["CosTransactions_HeuristicRollback"];
-'CosTransactions_HeuristicRollback'(suite) -> [];
 'CosTransactions_HeuristicRollback'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_HeuristicRollback':tc())),
     ?match("IDL:omg.org/CosTransactions/HeuristicRollback:1.0", 
@@ -207,8 +197,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_Inactive'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_Inactive'(doc) -> ["CosTransactions_Inactive"];
-'CosTransactions_Inactive'(suite) -> [];
 'CosTransactions_Inactive'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_Inactive':tc())),
     ?match("IDL:omg.org/CosTransactions/Inactive:1.0", 
@@ -222,8 +210,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_InvalidControl'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_InvalidControl'(doc) -> ["CosTransactions_InvalidControl"];
-'CosTransactions_InvalidControl'(suite) -> [];
 'CosTransactions_InvalidControl'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_InvalidControl':tc())),
     ?match("IDL:omg.org/CosTransactions/InvalidControl:1.0", 
@@ -237,8 +223,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_NoTransaction'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_NoTransaction'(doc) -> ["CosTransactions_NoTransaction"];
-'CosTransactions_NoTransaction'(suite) -> [];
 'CosTransactions_NoTransaction'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_NoTransaction':tc())),
     ?match("IDL:omg.org/CosTransactions/NoTransaction:1.0", 
@@ -252,8 +236,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_NotPrepared'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_NotPrepared'(doc) -> ["CosTransactions_NotPrepared"];
-'CosTransactions_NotPrepared'(suite) -> [];
 'CosTransactions_NotPrepared'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_NotPrepared':tc())),
     ?match("IDL:omg.org/CosTransactions/NotPrepared:1.0", 
@@ -267,8 +249,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_NotSubtransaction'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_NotSubtransaction'(doc) -> ["CosTransactions_NotSubtransaction"];
-'CosTransactions_NotSubtransaction'(suite) -> [];
 'CosTransactions_NotSubtransaction'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_NotSubtransaction':tc())),
     ?match("IDL:omg.org/CosTransactions/NotSubtransaction:1.0", 
@@ -282,8 +262,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_SubtransactionsUnavailable'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_SubtransactionsUnavailable'(doc) -> ["CosTransactions_SubtransactionsUnavailable"];
-'CosTransactions_SubtransactionsUnavailable'(suite) -> [];
 'CosTransactions_SubtransactionsUnavailable'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_SubtransactionsUnavailable':tc())),
     ?match("IDL:omg.org/CosTransactions/SubtransactionsUnavailable:1.0", 
@@ -297,8 +275,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_Unavailable'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_Unavailable'(doc) -> ["CosTransactions_Unavailable"];
-'CosTransactions_Unavailable'(suite) -> [];
 'CosTransactions_Unavailable'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_Unavailable':tc())),
     ?match("IDL:omg.org/CosTransactions/Unavailable:1.0", 
@@ -312,8 +288,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_SynchronizationUnavailable'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_SynchronizationUnavailable'(doc) -> ["CosTransactions_SynchronizationUnavailable"];
-'CosTransactions_SynchronizationUnavailable'(suite) -> [];
 'CosTransactions_SynchronizationUnavailable'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_SynchronizationUnavailable':tc())),
     ?match("IDL:omg.org/CosTransactions/SynchronizationUnavailable:1.0", 
@@ -326,8 +300,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_TransIdentity'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_TransIdentity'(doc) -> ["CosTransactions_TransIdentity"];
-'CosTransactions_TransIdentity'(suite) -> [];
 'CosTransactions_TransIdentity'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_TransIdentity':tc())),
     ?match("IDL:omg.org/CosTransactions/TransIdentity:1.0", 
@@ -340,8 +312,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_PropagationContext'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_PropagationContext'(doc) -> ["CosTransactions_PropagationContext"];
-'CosTransactions_PropagationContext'(suite) -> [];
 'CosTransactions_PropagationContext'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_PropagationContext':tc())),
     ?match("IDL:omg.org/CosTransactions/PropagationContext:1.0", 
@@ -354,8 +324,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_otid_t'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_otid_t'(doc) -> ["CosTransactions_otid_t"];
-'CosTransactions_otid_t'(suite) -> [];
 'CosTransactions_otid_t'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_otid_t':tc())),
     ?match("IDL:omg.org/CosTransactions/otid_t:1.0", 
@@ -368,8 +336,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_WrongTransaction'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_WrongTransaction'(doc) -> ["CosTransactions_WrongTransaction"];
-'CosTransactions_WrongTransaction'(suite) -> [];
 'CosTransactions_WrongTransaction'(_) ->
     ?match(true, orber_tc:check_tc('CosTransactions_WrongTransaction':tc())),
     ?match("IDL:omg.org/CosTransactions/WrongTransaction:1.0", 
@@ -383,8 +349,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_Control'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_Control'(doc) -> ["CosTransactions_Control"];
-'CosTransactions_Control'(suite) -> [];
 'CosTransactions_Control'(_) ->
     ?nomatch(undefined, 'CosTransactions_Control':oe_tc(get_terminator)),
     ?nomatch(undefined, 'CosTransactions_Control':oe_tc(get_coordinator)),
@@ -402,8 +366,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_Coordinator'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_Coordinator'(doc) -> ["CosTransactions_Coordinator"];
-'CosTransactions_Coordinator'(suite) -> [];
 'CosTransactions_Coordinator'(_) ->
     ?nomatch(undefined, 'CosTransactions_Coordinator':oe_tc(get_status)),
     ?nomatch(undefined, 'CosTransactions_Coordinator':oe_tc(get_parent_status)),
@@ -435,8 +397,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_RecoveryCoordinator'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_RecoveryCoordinator'(doc) -> ["CosTransactions_RecoveryCoordinator"];
-'CosTransactions_RecoveryCoordinator'(suite) -> [];
 'CosTransactions_RecoveryCoordinator'(_) ->
     ?nomatch(undefined, 'CosTransactions_RecoveryCoordinator':oe_tc(replay_completion)),
     ?match(undefined, 'CosTransactions_RecoveryCoordinator':oe_tc(undefined)),
@@ -453,8 +413,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_Resource'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_Resource'(doc) -> ["CosTransactions_Resource"];
-'CosTransactions_Resource'(suite) -> [];
 'CosTransactions_Resource'(_) ->
     ?nomatch(undefined, 'CosTransactions_Resource':oe_tc(prepare)),
     ?nomatch(undefined, 'CosTransactions_Resource':oe_tc(rollback)),
@@ -475,8 +433,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_SubtransactionAwareResource'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_SubtransactionAwareResource'(doc) -> ["CosTransactions_SubtransactionAwareResource"];
-'CosTransactions_SubtransactionAwareResource'(suite) -> [];
 'CosTransactions_SubtransactionAwareResource'(_) ->
     ?nomatch(undefined, 'CosTransactions_SubtransactionAwareResource':oe_tc(commit_subtransaction)),
     ?nomatch(undefined, 'CosTransactions_SubtransactionAwareResource':oe_tc(rollback_subtransaction)),
@@ -500,8 +456,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_Terminator'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_Terminator'(doc) -> ["CosTransactions_Terminator"];
-'CosTransactions_Terminator'(suite) -> [];
 'CosTransactions_Terminator'(_) ->
     ?nomatch(undefined, 'CosTransactions_Terminator':oe_tc(commit)),
     ?nomatch(undefined, 'CosTransactions_Terminator':oe_tc(rollback)),
@@ -519,8 +473,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTransactions_TransactionFactory'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTransactions_TransactionFactory'(doc) -> ["CosTransactions_TransactionFactory"];
-'CosTransactions_TransactionFactory'(suite) -> [];
 'CosTransactions_TransactionFactory'(_) ->
     ?nomatch(undefined, 'CosTransactions_TransactionFactory':oe_tc(create)),
     ?nomatch(undefined, 'CosTransactions_TransactionFactory':oe_tc(recreate)),
@@ -538,8 +490,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'ETraP_Server'
 %% Description: 
 %%-----------------------------------------------------------------
-'ETraP_Server'(doc) -> ["ETraP_Server"];
-'ETraP_Server'(suite) -> [];
 'ETraP_Server'(_) ->
     ?nomatch(undefined, 'ETraP_Server':oe_tc(get_status)),
     ?nomatch(undefined, 'ETraP_Server':oe_tc(get_parent_status)),

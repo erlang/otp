@@ -898,8 +898,14 @@ t_map(Es) ->
     Fs = get_elem(map_field, Es),
     ["#{"] ++ seq(fun t_map_field/1, Fs, ["}"]).
 
-t_map_field(#xmlElement{content = [K,V]}) ->
-    t_utype_elem(K) ++ [" => "] ++ t_utype_elem(V).
+t_map_field(#xmlElement{content = [K,V]}=E) ->
+    KElem = t_utype_elem(K),
+    VElem = t_utype_elem(V),
+    AS = case get_attrval(assoc_type, E) of
+             "assoc" -> " => ";
+             "exact" -> " := "
+         end,
+    KElem ++ [AS] ++ VElem.
 
 t_record(E, Es) ->
     Name = ["#"] ++ t_type(get_elem(atom, Es)),
@@ -1133,8 +1139,12 @@ ot_tuple(Es) ->
 ot_map(Es) ->
     {type,0,map,[ot_map_field(E) || E <- get_elem(map_field,Es)]}.
 
-ot_map_field(#xmlElement{content=[K,V]}) ->
-    {type,0,map_field_assoc,ot_utype_elem(K), ot_utype_elem(V)}.
+ot_map_field(#xmlElement{content=[K,V]}=E) ->
+    A = case get_attrval(assoc_type, E) of
+            "assoc" -> map_field_assoc;
+            "exact" -> map_field_exact
+        end,
+    {type,0,A,[ot_utype_elem(K), ot_utype_elem(V)]}.
 
 ot_fun(Es) ->
     Range = ot_utype(get_elem(type, Es)),

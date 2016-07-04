@@ -128,13 +128,13 @@ MIXED_MSYS=no
 AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
 if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 	if test -x /usr/bin/msys-?.0.dll; then
-	        CFLAGS="-O2"
+	        CFLAGS="$CFLAGS -O2"
 		MIXED_MSYS=yes
 		AC_MSG_RESULT([MSYS and VC])
 		MIXED_MSYS_VC=yes
 		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_MSYS_VC"
 	elif test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
+		CFLAGS="$CFLAGS -O2"
 		MIXED_CYGWIN=yes
 		AC_MSG_RESULT([Cygwin and VC])
 		MIXED_CYGWIN_VC=yes
@@ -162,7 +162,7 @@ if test "x$MIXED_MSYS" != "xyes"; then
    AC_MSG_CHECKING(for mixed cygwin and native MinGW environment)
    if test "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
 	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
+		CFLAGS="$CFLAGS -O2"
 		MIXED_CYGWIN=yes
 		AC_MSG_RESULT([yes])
 		MIXED_CYGWIN_MINGW=yes

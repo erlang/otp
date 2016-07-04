@@ -762,6 +762,11 @@ check_mod_funs(Process *p, ErlOffHeap *off_heap, char *area, size_t area_size)
     return 0;
 }
 
+static Uint hfrag_literal_size(Eterm* start, Eterm* end,
+                               char* lit_start, Uint lit_size);
+static void hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
+                               Eterm *start, Eterm *end,
+                               char *lit_start, Uint lit_size);
 
 static Eterm
 check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls)
@@ -842,9 +847,14 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
     }
 
     /*
-     * Message queue can contains funs, but (at least currently) no
+     * Message queue can contains funs, and may contain
      * literals. If we got references to this module from the message
-     * queue, a GC cannot remove these...
+     * queue.
+     *
+     * If a literal is in the message queue we maka an explicit copy of
+     * and attach it to the heap fragment. Each message needs to be
+     * self contained, we cannot save the literal in the old_heap or
+     * any other heap than the message it self.
      */
 
     erts_smp_proc_lock(rp, ERTS_PROC_LOCK_MSGQ);
@@ -861,15 +871,31 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	    hfrag = msgp->data.heap_frag;
 	else
 	    continue;
-	for (; hfrag; hfrag = hfrag->next) {
-	    if (check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size))
-		return am_true;
-	    /* Should not contain any literals... */
-	    ASSERT(!any_heap_refs(&hfrag->mem[0],
-				  &hfrag->mem[hfrag->used_size],
-                                  literals,
-				  lit_bsize));
-	}
+        {
+            ErlHeapFragment *hf;
+            Uint lit_sz;
+            for (hf=hfrag; hf; hf = hf->next) {
+                if (check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size))
+                    return am_true;
+                lit_sz = hfrag_literal_size(&hf->mem[0], &hf->mem[hf->used_size],
+                                            literals, lit_bsize);
+            }
+            if (lit_sz > 0) {
+                ErlHeapFragment *bp = new_message_buffer(lit_sz);
+                Eterm *hp = bp->mem;
+
+                for (hf=hfrag; hf; hf = hf->next) {
+                    hfrag_literal_copy(&hp, &bp->off_heap,
+                                       &hf->mem[0], &hf->mem[hf->used_size],
+                                       literals, lit_bsize);
+                    hfrag=hf;
+                }
+                /* link new hfrag last */
+                ASSERT(hfrag->next == NULL);
+                hfrag->next = bp;
+                bp->next = NULL;
+            }
+        }
     }
 
     while (1) {
@@ -916,28 +942,25 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 		goto try_literal_gc;
 	}
 
-#ifdef DEBUG
 	/*
-	 * Message buffer fragments should not have any references
-	 * to literals, and off heap lists should already have
-	 * been moved into process off heap structure.
+	 * Message buffer fragments (matched messages) 
+         *  - off heap lists should already have been moved into
+         *    process off heap structure.
+         *  - Check for literals
 	 */
 	for (msgp = rp->msg_frag; msgp; msgp = msgp->next) {
-	    if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-		hfrag = &msgp->hfrag;
-	    else
-		hfrag = msgp->data.heap_frag;
+            hfrag = erts_message_to_heap_frag(msgp);
 	    for (; hfrag; hfrag = hfrag->next) {
 		Eterm *hp, *hp_end;
 		ASSERT(!check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size));
 
 		hp = &hfrag->mem[0];
 		hp_end = &hfrag->mem[hfrag->used_size];
-		ASSERT(!any_heap_refs(hp, hp_end, literals, lit_bsize));
+
+                if (any_heap_refs(hp, hp_end, literals, lit_bsize))
+                    goto try_literal_gc;
 	    }
 	}
-
-#endif
 
 	return am_false;
 
@@ -1036,6 +1059,80 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	}
     }
     return 0;
+}
+
+static Uint
+hfrag_literal_size(Eterm* start, Eterm* end, char* lit_start, Uint lit_size)
+{
+    Eterm* p;
+    Eterm val;
+    Uint sz = 0;
+
+    for (p = start; p < end; p++) {
+        val = *p;
+        switch (primary_tag(val)) {
+        case TAG_PRIMARY_BOXED:
+        case TAG_PRIMARY_LIST:
+            if (ErtsInArea(val, lit_start, lit_size)) {
+                sz += size_object(val);
+            }
+            break;
+        case TAG_PRIMARY_HEADER:
+            if (!header_is_transparent(val)) {
+                Eterm* new_p;
+                if (header_is_bin_matchstate(val)) {
+                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
+                    ErlBinMatchBuffer *mb = &(ms->mb);
+                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
+                        sz += size_object(mb->orig);
+                    }
+                }
+                new_p = p + thing_arityval(val);
+                ASSERT(start <= new_p && new_p < end);
+                p = new_p;
+            }
+        }
+    }
+    return sz;
+}
+
+static void
+hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
+                   Eterm *start, Eterm *end,
+                   char *lit_start, Uint lit_size) {
+    Eterm* p;
+    Eterm val;
+    Uint sz;
+
+    for (p = start; p < end; p++) {
+        val = *p;
+        switch (primary_tag(val)) {
+        case TAG_PRIMARY_BOXED:
+        case TAG_PRIMARY_LIST:
+            if (ErtsInArea(val, lit_start, lit_size)) {
+                sz = size_object(val);
+                val = copy_struct(val, sz, hpp, ohp);
+                *p = val; 
+            }
+            break;
+        case TAG_PRIMARY_HEADER:
+            if (!header_is_transparent(val)) {
+                Eterm* new_p;
+                /* matchstate in message, not possible. */
+                if (header_is_bin_matchstate(val)) {
+                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
+                    ErlBinMatchBuffer *mb = &(ms->mb);
+                    if (ErtsInArea(mb->orig, lit_start, lit_size)) {
+                        sz = size_object(mb->orig);
+                        mb->orig = copy_struct(mb->orig, sz, hpp, ohp);
+                    }
+                }
+                new_p = p + thing_arityval(val);
+                ASSERT(start <= new_p && new_p < end);
+                p = new_p;
+            }
+        }
+    }
 }
 
 #undef in_area

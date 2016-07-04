@@ -40,12 +40,10 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-app() ->
-    [{doc, "Test that the erl_docgen app file is ok"}].
+%% Test that the erl_docgen app file is ok
 app(Config) when is_list(Config) ->
-    ok = ?t:app_test(erl_docgen).
+    ok = test_server:app_test(erl_docgen).
 
-appup() ->
-    [{doc, "Test that the erl_docgen appup file is ok"}].
+%% Test that the erl_docgen appup file is ok
 appup(Config) when is_list(Config) ->
-    ok = ?t:appup_test(erl_docgen).
+    ok = test_server:appup_test(erl_docgen).

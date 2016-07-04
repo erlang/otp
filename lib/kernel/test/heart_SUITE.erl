@@ -29,11 +29,11 @@
 	 set_cmd/1, clear_cmd/1, get_cmd/1,
 	 callback_api/1,
          options_api/1,
-	 dont_drop/1, kill_pid/1]).
+	 dont_drop/1, kill_pid/1, heart_no_kill/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([start_heart_stress/1, mangle/1, suicide_by_heart/0]).
+-export([start_heart_stress/1, mangle/1, suicide_by_heart/0, non_suicide_by_heart/0]).
 
 -define(DEFAULT_TIMEOUT_SECS, 120).
 
@@ -74,7 +74,8 @@ all() -> [
 	set_cmd, clear_cmd, get_cmd,
 	callback_api,
         options_api,
-	kill_pid
+	kill_pid,
+        heart_no_kill
     ].
 
 groups() -> 
@@ -491,6 +492,30 @@ do_kill_pid(_Config) ->
 	    false
     end.
 
+
+heart_no_kill(suite) ->
+    [];
+heart_no_kill(doc) ->
+    ["Tests that heart doesn't kill the old erlang node when ",
+     "HEART_NO_KILL is set."];
+heart_no_kill(Config) when is_list(Config) ->
+    ok = do_no_kill(Config).
+
+do_no_kill(_Config) ->
+    Name = heart_test,
+    {ok,Node} = start_node_run(Name,[],non_suicide_by_heart,[]),
+    io:format("Node is ~p~n", [Node]),
+    ok = wait_for_node(Node,15),
+    io:format("wait_for_node is ~p~n", [ok]),
+    erlang:monitor_node(Node, true),
+    receive {nodedown,Node} -> false
+    after 30000 ->
+	    io:format("Node didn't die..\n"),
+	    rpc:call(Node,init,stop,[]),
+	    io:format("done init:stop..\n"),
+	    ok
+    end.
+
 wait_for_node(_,0) ->
     false;
 wait_for_node(Node,N) ->
@@ -607,6 +632,20 @@ suicide_by_heart() ->
     receive
 	{makaronipudding} ->
 	    sallad
+    end.
+
+non_suicide_by_heart() ->
+    P = open_port({spawn,"heart -ht 11 -pid "++os:getpid()},
+                  [exit_status, {env, [{"HEART_NO_KILL", "TRUE"}]},
+                   {packet,2}]),
+    receive X -> X end,
+    %% Just hang and wait for heart to timeout
+    receive
+	{P,{exit_status,_}} ->
+	    ok
+    after
+	20000 ->
+	    exit(timeout)
     end.
 
 

@@ -103,7 +103,7 @@ new(Parent)
 %% 
 -spec new(Parent, [Option]) -> wxPrintDialog() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {data, wxPrintDialogData:wxPrintDialogData()};
+	Option :: {'data', wxPrintDialogData:wxPrintDialogData()};
       (Parent, Data) -> wxPrintDialog() when
 	Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
@@ -137,7 +137,7 @@ getPrintDC(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrintDialog()) -> ok.
+-spec destroy(This::wxPrintDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

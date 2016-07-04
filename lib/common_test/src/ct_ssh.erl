@@ -962,8 +962,8 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 		    end, [], AllOpts1),
     FinalOptions = [{silently_accept_hosts,true},
 		    {user_interaction,false} | Options],
-    crypto:start(),
-    ssh:start(),
+    _ = crypto:start(),
+    _ = ssh:start(),
     Result = case ConnType of
 		 ssh ->
 		     ssh:connect(Addr, Port, FinalOptions);

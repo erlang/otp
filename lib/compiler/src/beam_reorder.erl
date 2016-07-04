@@ -87,6 +87,15 @@ reorder_1([{test,_,_,_}=I,
     %% instruction between the test instruction and the select
     %% instruction.
     reorder_1(Is, D, [S,I|Acc]);
+reorder_1([{test,_,{f,_},[Src|_]}=I|Is], D,
+	  [{get_tuple_element,Src,_,_}|_]=Acc) ->
+    %% We want to avoid code that can confuse beam_validator such as:
+    %%   is_tuple Fail Src
+    %%   test_arity Fail Src Arity
+    %%   is_map Fail Src
+    %%   get_tuple_element Src Pos Dst
+    %% Therefore, don't reorder the instructions in such cases.
+    reorder_1(Is, D, [I|Acc]);
 reorder_1([{test,_,{f,L},Ss}=I|Is0], D0,
 	  [{get_tuple_element,_,_,El}=G|Acc0]=Acc) ->
     case member(El, Ss) of

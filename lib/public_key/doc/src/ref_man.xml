@@ -36,6 +36,7 @@
     from RFC 3280 (X.509 certificates) and parts of the PKCS standard.
     </p>
   </description>
+  <xi:include href="public_key_app.xml"/>
   <xi:include href="public_key.xml"/>
 </application>
 

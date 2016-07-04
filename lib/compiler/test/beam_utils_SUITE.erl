@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
 	 apply_fun/1,apply_mf/1,bs_init/1,bs_save/1,
 	 is_not_killed/1,is_not_used_at/1,
-	 select/1,y_catch/1,otp_8949_b/1,liveopt/1]).
+	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
+	 y_registers/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -43,7 +44,9 @@ groups() ->
        select,
        y_catch,
        otp_8949_b,
-       liveopt
+       liveopt,
+       coverage,
+       y_registers
       ]}].
 
 init_per_suite(Config) ->
@@ -267,6 +270,87 @@ liveopt_fun(Peer, Cause, Origin) ->
 				       origin=Origin} ->
 	    void
     end.
+
+%% Thanks to QuickCheck.
+coverage(_Config) ->
+    42+7 = merchant([[],7,false]),
+
+    {'EXIT',{{try_clause,0},_}} = (catch resulting([0], stone)),
+    0.0 = resulting([true], stone),
+
+    {'EXIT',{if_clause,_}} = (catch clinic(false)),
+    {'EXIT',{{try_clause,"trials"},_}} = (catch clinic(true)),
+
+    {'EXIT',{function_clause,_}} = (catch town(overall, {{abc},alcohol})),
+
+    ok.
+
+%% Cover check_liveness/3.
+merchant([Merchant, Laws, Electric]) ->
+    id(42),
+    oklahoma([[] || 0 <- Merchant],
+	     if true; Electric -> Laws end) + 42.
+oklahoma([], Int) -> Int.
+
+town(overall, {{If}, Healing = alcohol})
+  when Healing#{[] => Healing}; include ->
+    [If || Healing <- awareness].
+
+%% Cover is_reg_used_at/3.
+resulting([Conservation], stone) ->
+    try 0 of
+	Conservation when Conservation -> Conservation;
+	_ when Conservation; 0 -> 0.0
+    after
+	Conservation
+    end.
+
+%% Cover is_reg_used_at_1/3.
+clinic(Damage) ->
+    if
+      Damage ->
+	  try "trials" of Damage when Damage -> Damage catch true -> [] end
+    end,
+    carefully.
+
+y_registers(_Config) ->
+    {'EXIT',{{badfun,0},_}} = (catch economic(0.0, jim)),
+    {'EXIT',{{badmatch,apartments},_}} = (catch louisiana()),
+    {a,b} = (boxes(true))({a,b}),
+    {'EXIT',{{case_clause,webmaster},_}} = (catch yellow(true)),
+    ok.
+
+economic(0.0 = Serves, Existence) ->
+    case Serves of
+	Serves -> 0
+    end,
+    Existence = jim,
+    0(),
+    Serves,
+    Existence.
+
+louisiana() ->
+    {catch necessarily,
+     try
+	 [] == reg,
+	 true = apartments
+     catch [] -> barbara
+     end}.
+
+boxes(Call) ->
+    case Call of
+	Call -> approval
+    end,
+    Call,
+    fun id/1.
+
+yellow(Hill) ->
+    case webmaster of
+	station -> eyes; Hill ->
+	    "under"
+    end,
+    Hill,
+    id(42).
 
 
 %% The identity function.

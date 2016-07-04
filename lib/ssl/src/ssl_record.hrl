@@ -40,10 +40,14 @@
 	  %% RFC 5746
 	  secure_renegotiation,
 	  client_verify_data,
-	  server_verify_data
+	  server_verify_data,
+	  %% How to do BEAST mitigation?
+	  beast_mitigation
 	 }).
 
 -record(connection_states, {
+	  dtls_write_msg_seq, %% Only used by DTLS
+
 	  current_read,
 	  pending_read,
 	  current_write,

@@ -21,7 +21,7 @@
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([run_test_case_apply/1,init_target_info/0,init_purify/0]).
+-export([run_test_case_apply/1,init_target_info/0]).
 -export([cover_compile/1,cover_analyse/2]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,10 +49,6 @@
 
 -export([break/1,break/2,break/3,continue/0,continue/1]).
 
-%%% DEBUGGER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([purify_new_leaks/0, purify_format/2, purify_new_fds_inuse/0,
-	 purify_is_running/0]).
-
 %%% PRIVATE EXPORTED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([]).
 
@@ -72,10 +68,6 @@ init_target_info() ->
 		 otp_release=OTPRel,
 		 username=test_server_sup:get_username(),
 		 cookie=atom_to_list(erlang:get_cookie())}.
-
-init_purify() ->
-    purify_new_leaks().
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cover_compile(#cover{app=App,incl=Include,excl=Exclude,cross=Cross}) ->
@@ -100,7 +92,7 @@ cover_compile(CoverInfo=#cover{app=none,incl=Include,cross=Cross}) ->
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
-	    cover:start(),			% start cover server anyway
+	    {ok, _} = start_cover(),			% start cover server anyway
 	    {ok,CoverInfo#cover{mods=[]}};
 	N ->
 	    io:fwrite("Cover compiling ~w modules - "
@@ -115,7 +107,7 @@ cover_compile(CoverInfo=#cover{app=App,excl=all,incl=Include,cross=Cross}) ->
     case length(CompileMods) of
 	0 ->
 	    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
-	    cover:start(),			% start cover server anyway
+	    {ok, _} = start_cover(),			% start cover server anyway
 	    {ok,CoverInfo#cover{mods=[]}};
 	N ->
 	    io:fwrite("Cover compiling '~w' (~w files) - "
@@ -158,7 +150,7 @@ cover_compile(CoverInfo=#cover{app=App,excl=Exclude,
 	    case length(CompileMods) of
 		0 ->
 		    io:fwrite("WARNING: No modules to cover compile!\n\n",[]),
-		    cover:start(),		% start cover server anyway
+		    {ok, _} = start_cover(),		% start cover server anyway
 		    {ok,CoverInfo#cover{mods=[]}};
 		N ->
 		    io:fwrite("Cover compiling '~w' (~w files) - "
@@ -175,11 +167,11 @@ module_names(Beams) ->
 
 
 do_cover_compile(Modules) ->
-    cover:start(),
+    {ok, _} = start_cover(),
     Sticky = prepare_cover_compile(Modules,[]),
     R = cover:compile_beam(Modules),
-    [warn_compile(Error) || Error <- R,element(1,Error)=/=ok],
-    [code:stick_mod(M) || M <- Sticky],
+    _ = [warn_compile(Error) || Error <- R,element(1,Error)=/=ok],
+    _ = [code:stick_mod(M) || M <- Sticky],
     ok.
 
 warn_compile({error,{Reason,Module}}) ->
@@ -366,9 +358,7 @@ stick_all_sticky(Node,Sticky) ->
 %% compensate timetraps for runtime delays introduced by e.g. tools like
 %% cover.
 
-run_test_case_apply({CaseNum,Mod,Func,Args,Name,
-		     RunInit,TimetrapData}) ->
-    purify_format("Test case #~w ~w:~w/1", [CaseNum, Mod, Func]),
+run_test_case_apply({Mod,Func,Args,Name,RunInit,TimetrapData}) ->
     case os:getenv("TS_RUN_VALGRIND") of
 	false ->
 	    ok;
@@ -380,7 +370,6 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,
     Result = run_test_case_apply(Mod, Func, Args, Name, RunInit,
 				 TimetrapData),
     ProcAft = erlang:system_info(process_count),
-    purify_new_leaks(),
     DetFail = get(test_server_detected_fail),
     {Result,DetFail,ProcBef,ProcAft}.
 
@@ -585,7 +574,8 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	{user_timetrap,Pid,_TrapTime,StartTime,E={user_timetrap_error,_},_} ->
 	    case update_user_timetraps(Pid, StartTime) of
 		proceed ->
-		    self() ! {abort_current_testcase,E,Pid};
+		    self() ! {abort_current_testcase,E,Pid},
+		    ok;
 		ignore ->
 		    ok
 	    end,
@@ -600,7 +590,8 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 				   true -> 
 					TrapTime
 				end,
-		    timetrap(TrapTime, TotalTime, Pid, Scale);
+		    _ = timetrap(TrapTime, TotalTime, Pid, Scale),
+		    ok;
 		ignore ->
 		    ok
 	    end,
@@ -724,7 +715,7 @@ do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal) ->
 		Supervisor = self(),
 		EndConfApply =
 		    fun() ->
-			    timetrap(TVal),
+			    _ = timetrap(TVal),
 			    %% We can't handle fails or skips here
 			    %% (neither input nor output). The error can
 			    %% be read from Conf though (tc_status).
@@ -775,7 +766,8 @@ print_end_conf_result(Mod,Func,Conf,Cause,Error) ->
 			      " ~s!\n\tReason: ~ts\n",
 			      [Mod,Func,Conf,Cause,ErrorStr])
 	end,
-    group_leader() ! {printout,12,Str2Print}.
+    group_leader() ! {printout,12,Str2Print},
+    ok.
 
 
 spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
@@ -1287,7 +1279,9 @@ user_callback({CBMod,CBFunc}, Mod, Func, InitOrEnd, Args) ->
 
 init_per_testcase(Mod, Func, Args) ->
     case code:is_loaded(Mod) of
-	false -> code:load_file(Mod);
+	false ->
+	    _ = code:load_file(Mod),
+	    ok;
 	_ -> ok
     end,
     case erlang:function_exported(Mod, init_per_testcase, 2) of
@@ -1355,7 +1349,8 @@ print_init_conf_result(Line,Cause,Reason) ->
 			      "\tLocation: ~ts\n\tReason: ~ts\n",
 			      [Cause,FormattedLoc,ReasonStr])
 	end,
-    group_leader() ! {printout,12,Str2Print}.
+    group_leader() ! {printout,12,Str2Print},
+    ok.
 
 
 end_per_testcase(Mod, Func, Conf) ->
@@ -1426,7 +1421,8 @@ print_end_tc_warning(EndFunc,Reason,Cause,Loc) ->
 			      "Reason: ~ts\nLine: ~ts\n",
 			      [EndFunc,Cause,ReasonStr,FormattedLoc])
 	end,
-    group_leader() ! {printout,12,Str2Print}.
+    group_leader() ! {printout,12,Str2Print},
+    ok.
 
 get_loc() ->
     get(test_server_loc).
@@ -1657,7 +1653,8 @@ messages_get() ->
 %%
 %% Make sure proceeding IO from FromPid won't get rejected
 permit_io(GroupLeader, FromPid) ->
-    GroupLeader ! {permit_io,FromPid}.
+    GroupLeader ! {permit_io,FromPid},
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% sleep(Time) -> ok
@@ -1829,7 +1826,6 @@ timetrap_scale_factor() ->
     timetrap_scale_factor([
 	{ 2, fun() -> has_lock_checking() end},
 	{ 3, fun() -> has_superfluous_schedulers() end},
-	{ 5, fun() -> purify_is_running() end},
 	{ 6, fun() -> is_debug() end},
 	{10, fun() -> is_cover() end}
     ]).
@@ -2129,7 +2125,8 @@ timetrap_cancel_all(TCPid, SendToServer) ->
 	    ok;
 	Timers ->
 	    [timetrap_cancel_one(Handle, false) ||
-		{Handle,Pid,_} <- Timers, Pid == TCPid]
+		{Handle,Pid,_} <- Timers, Pid == TCPid],
+	    ok
     end,
     case get(test_server_user_timetrap) of
 	undefined ->
@@ -2139,13 +2136,15 @@ timetrap_cancel_all(TCPid, SendToServer) ->
 		{UserTTSup,_StartTime} ->
 		    remove_user_timetrap(UserTTSup),
 		    put(test_server_user_timetrap,
-			proplists:delete(TCPid, UserTTs));
+			proplists:delete(TCPid, UserTTs)),
+			ok;
 		undefined ->
 		    ok
 	    end
     end,
     if SendToServer == true ->
-	    group_leader() ! {timetrap_cancel_all,TCPid,self()};
+	    group_leader() ! {timetrap_cancel_all,TCPid,self()},
+	    ok;
        true ->
 	    ok
     end,
@@ -2560,10 +2559,11 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 -spec start_job_proxy_fun(_, _) -> fun(() -> no_return()).
 start_job_proxy_fun(Master, Fun) ->
     fun () ->
-            start_job_proxy(),
+            _ = start_job_proxy(),
             receive
                 Ref ->
-                    Master ! {Ref, Fun()}
+                    Master ! {Ref, Fun()},
+                    ok
             end,
             receive after infinity -> infinity end
     end.
@@ -2729,64 +2729,25 @@ is_commercial() ->
 	_ -> true
     end.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%                     DEBUGGER INTERFACE                    %%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_is_running() -> false|true
-%%
-%% Tests if Purify is currently running.
-
-purify_is_running() ->
-    case catch erlang:system_info({error_checker, running}) of
-	{'EXIT', _} -> false;
-	Res -> Res
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_new_leaks() -> false|BytesLeaked
-%% BytesLeaked = integer()
-%%
-%% Checks for new memory leaks if Purify is active.
-%% Returns the number of bytes leaked, or false if Purify
-%% is not running.
-purify_new_leaks() ->
-    case catch erlang:system_info({error_checker, memory}) of
-	{'EXIT', _} -> false;
-	Leaked when is_integer(Leaked) -> Leaked
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_new_fds_inuse() -> false|FdsInuse
-%% FdsInuse = integer()
-%%
-%% Checks for new file descriptors in use.
-%% Returns the number of new file descriptors in use, or false
-%% if Purify is not running.
-purify_new_fds_inuse() ->
-    case catch erlang:system_info({error_checker, fd}) of
-	{'EXIT', _} -> false;
-	Inuse when is_integer(Inuse) -> Inuse
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% purify_format(Format, Args) -> ok
-%% Format = string()
-%% Args = lists()
-%%
-%% Outputs the formatted string to Purify's logfile,if Purify is active.
-purify_format(Format, Args) ->
-    (catch erlang:system_info({error_checker, io_lib:format(Format, Args)})),
-    ok.
-
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% Apply given function and reply to caller or proxy.
 %%
 do_sync_apply(Proxy, From, {M,F,A}) ->
     Result = apply(M, F, A),
-    if is_pid(Proxy) -> Proxy ! {sync_result_proxy,From,Result};
-       true -> From ! {sync_result,Result}
+    if  is_pid(Proxy) ->
+	    Proxy ! {sync_result_proxy,From,Result},
+	    ok;
+	true ->
+	    From ! {sync_result,Result},
+	    ok
     end.
+
+start_cover() ->
+    case cover:start() of
+       {error, {already_started, Pid}} ->
+           {ok, Pid};
+       Else ->
+           Else
+   end.
+

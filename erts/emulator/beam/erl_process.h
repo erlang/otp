@@ -810,25 +810,13 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_DELAYED_GC_TASK_QS		4
 #define ERTS_PSD_NIF_TRAP_EXPORT		5
 #define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	6
-#define ERTS_PSD_DIRTY_CPU_START		7
 
-#define ERTS_PSD_SIZE				8
+#define ERTS_PSD_SIZE				7
 
-#if !defined(HIPE) && !defined(ERTS_DIRTY_SCHEDULERS)
+#if !defined(HIPE)
 #  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
-#  undef ERTS_PSD_DIRTY_CPU_START
 #  undef ERTS_PSD_SIZE
 #  define ERTS_PSD_SIZE 6
-#elif !defined(HIPE)
-#  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
-#  undef ERTS_PSD_DIRTY_CPU_START
-#  undef ERTS_PSD_SIZE
-#  define ERTS_PSD_DIRTY_CPU_START		6
-#  define ERTS_PSD_SIZE 7
-#elif !defined(ERTS_DIRTY_SCHEDULERS)
-#  undef ERTS_PSD_DIRTY_CPU_START
-#  undef ERTS_PSD_SIZE
-#  define ERTS_PSD_SIZE 7
 #endif
 
 typedef struct {
@@ -960,7 +948,6 @@ struct process {
     Uint heap_sz;		/* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
-    Uint max_heap_size;         /* Maximum size of heap (in words). */
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     volatile unsigned long fp_exception;
@@ -1061,6 +1048,7 @@ struct process {
     Eterm *old_hend;            /* Heap pointers for generational GC. */
     Eterm *old_htop;
     Eterm *old_heap;
+    Uint max_heap_size;         /* Maximum size of heap (in words). */
     Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
     Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
@@ -1179,6 +1167,9 @@ void erts_check_for_holes(Process* p);
  * USR_PRIO -> User prio. i.e., prio the user has set.
  * PRQ_PRIO -> Prio queue prio, i.e., prio queue currently
  *             enqueued in. 
+ *
+ * Update etp-proc-state-int in $ERL_TOP/erts/etc/unix/etp-commands.in
+ * when changing ERTS_PSFLG_*.
  */
 #define ERTS_PSFLGS_ACT_PRIO_MASK \
     (ERTS_PSFLGS_PRIO_MASK << ERTS_PSFLGS_ACT_PRIO_OFFSET)
@@ -1339,7 +1330,7 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 {
     ErlHeapFragment* hf = MBUF(p);
 
-    ASSERT(hf!=NULL && (hp - hf->mem < (unsigned long)hf->alloc_size));
+    ASSERT(hf!=NULL && (hp - hf->mem < hf->alloc_size));
 
     hf->used_size = hp - hf->mem;
 }	
@@ -1831,7 +1822,7 @@ Eterm erts_get_schedulers_binds(Process *c_p);
 Eterm erts_set_cpu_topology(Process *c_p, Eterm term);
 Eterm erts_bind_schedulers(Process *c_p, Eterm how);
 ErtsRunQueue *erts_schedid2runq(Uint);
-Process *schedule(Process*, int);
+Process *erts_schedule(ErtsSchedulerData *, Process*, int);
 void erts_schedule_misc_op(void (*)(void *), void *);
 Eterm erl_create_process(Process*, Eterm, Eterm, Eterm, ErlSpawnOpts*);
 void erts_do_exit_process(Process*, Eterm);
@@ -2059,13 +2050,6 @@ erts_psd_set(Process *p, int ix, void *data)
   ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF))
 #define ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(P, SCB) \
   ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF, (void *) (SCB)))
-#endif
-
-#ifdef ERTS_DIRTY_SCHEDULERS
-#define ERTS_PROC_GET_DIRTY_CPU_START(P) \
-  ((void *) erts_psd_get((P), ERTS_PSD_DIRTY_CPU_START))
-#define ERTS_PROC_SET_DIRTY_CPU_START(P, DCS) \
-  ((void *) erts_psd_set((P), ERTS_PSD_DIRTY_CPU_START, (void *) (DCS)))
 #endif
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);

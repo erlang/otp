@@ -98,6 +98,7 @@
       {stdlib,"1.18"},
       {crypto, "2.0.3"},
       {public_key, "0.12"},
+      {asn1, "4.0"},
       {ssl, "5.0"}
       ]}.
    </code>
@@ -196,6 +197,9 @@ Eshell V5.0  (abort with ^G)
       <item><c>password</c></item>
       <item><c>cacertfile</c></item>
       <item><c>verify</c></item>
+      <item><c>verify_fun</c> (write as <c>{Module, Function, InitialUserState}</c>)</item>
+      <item><c>crl_check</c></item>
+      <item><c>crl_cache</c> (write as Erlang term)</item>
       <item><c>reuse_sessions</c></item>
       <item><c>secure_renegotiate</c></item>
       <item><c>depth</c></item>
@@ -203,16 +207,16 @@ Eshell V5.0  (abort with ^G)
       <item><c>ciphers</c> (use old string format)</item>
     </list>
 
+    <p>Note that <c>verify_fun</c> needs to be written in a different
+    form than the corresponding SSL option, since funs are not
+    accepted on the command line.</p>
+
     <p>The server can also take the options <c>dhfile</c> and
     <c>fail_if_no_peer_cert</c> (also prefixed).</p>
 
     <p><c>client_</c>-prefixed options are used when the distribution 
     initiates a connection to another node. <c>server_</c>-prefixed 
     options are used when accepting a connection from a remote node.</p>
-
-    <p>More complex options, such as <c>verify_fun</c>, are currently not 
-    available, but a mechanism to handle such options may be added in
-    a future release.</p>
 
     <p>Raw socket options, such as <c>packet</c> and <c>size</c> must not 
     be specified on the command line.</p>

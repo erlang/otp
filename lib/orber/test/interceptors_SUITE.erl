@@ -30,7 +30,7 @@
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -43,7 +43,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			 exit(AcTuAlReS)
 		end
 	end()).
 
@@ -54,7 +54,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			 exit(AcTuAlReS);
 		    _ ->
 			io:format("------ CORRECT RESULT ------~n~p~n",
 				  [AcTuAlReS]),
@@ -105,7 +105,7 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     corba:orb_init([{flags, (?ORB_ENV_USE_PI bor ?ORB_ENV_LOCAL_TYPECHECKING)}, 
@@ -120,7 +120,7 @@ end_per_testcase(_Case, Config) ->
     orber:jump_stop(),
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -128,8 +128,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: local_pseudo
 %% Description: 
 %%-----------------------------------------------------------------
-local_pseudo(doc) -> [""];
-local_pseudo(suite) -> [];
 local_pseudo(_) ->
     ?match({native, [?MODULE]}, orber:get_local_interceptors()),
     %% Global settings
@@ -177,8 +175,6 @@ local_pseudo(_) ->
 %% Test Case: local_default
 %% Description: 
 %%-----------------------------------------------------------------
-local_default(doc) -> [""];
-local_default(suite) -> [];
 local_default(_) ->
     ?match({native, [?MODULE]}, orber:get_local_interceptors()),
     %% Global settings
@@ -226,8 +222,6 @@ local_default(_) ->
 %% Test Case: local_local
 %% Description: 
 %%-----------------------------------------------------------------
-local_local(doc) -> [""];
-local_local(suite) -> [];
 local_local(_) ->
     ?match({native, [?MODULE]}, orber:get_local_interceptors()),
     %% Global settings
@@ -276,8 +270,6 @@ local_local(_) ->
 %% Test Case: local_global
 %% Description: 
 %%-----------------------------------------------------------------
-local_global(doc) -> [""];
-local_global(suite) -> [];
 local_global(_) ->
     ?match({native, [?MODULE]}, orber:get_local_interceptors()),
     %% Global settings

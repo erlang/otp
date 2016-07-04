@@ -34,7 +34,11 @@
 	 t_recv_timeout/1, t_recv_eof/1, t_recv_delim/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_shutdown_async/1,
-	 t_fdopen/1, t_fdconnect/1, t_implicit_inet6/1]).
+	 t_fdopen/1, t_fdconnect/1, t_implicit_inet6/1,
+	 t_local_basic/1, t_local_unbound/1, t_local_fdopen/1,
+	 t_local_fdopen_listen/1, t_local_fdopen_listen_unbound/1,
+	 t_local_fdopen_connect/1, t_local_fdopen_connect_unbound/1,
+	 t_local_abstract/1]).
 
 -export([getsockfd/0,closesockfd/1]).
 
@@ -45,12 +49,18 @@ suite() ->
 all() -> 
     [{group, t_accept}, {group, t_connect}, {group, t_recv},
      t_shutdown_write, t_shutdown_both, t_shutdown_error,
-     t_shutdown_async, t_fdopen, t_fdconnect, t_implicit_inet6].
+     t_shutdown_async, t_fdopen, t_fdconnect, t_implicit_inet6,
+     {group, t_local}].
 
 groups() -> 
     [{t_accept, [], [t_accept_timeout]},
      {t_connect, [], [t_connect_timeout, t_connect_bad]},
-     {t_recv, [], [t_recv_timeout, t_recv_eof, t_recv_delim]}].
+     {t_recv, [], [t_recv_timeout, t_recv_eof, t_recv_delim]},
+     {t_local, [],
+      [t_local_basic, t_local_unbound, t_local_fdopen,
+       t_local_fdopen_listen, t_local_fdopen_listen_unbound,
+       t_local_fdopen_connect, t_local_fdopen_connect_unbound,
+       t_local_abstract]}].
 
 
 
@@ -60,17 +70,36 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(t_local, Config) ->
+    case gen_tcp:connect({local,<<"/">>}, 0, []) of
+	{error,eafnosupport} ->
+	    {skip, "AF_LOCAL not supported"};
+	{error,_} ->
+	    Config
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(_,_Config) ->
+end_per_group(t_local, _Config) ->
+    delete_local_filenames();
+end_per_group(_, _Config) ->
     ok.
 
+
+init_per_testcase(Func, Config)
+  when Func =:= undefined -> % Insert your testcase name here
+    dbg:tracer(),
+    dbg:p(self(), c),
+    dbg:tpl(prim_inet, cx),
+    dbg:tpl(local_tcp, cx),
+    dbg:tpl(inet, cx),
+    dbg:tpl(gen_tcp, cx),
+    Config;
 init_per_testcase(_Func, Config) ->
     Config.
 
 end_per_testcase(_Func, _Config) ->
-    ok.
+    dbg:stop().
 
 %%% gen_tcp:accept/1,2
 
@@ -135,8 +164,8 @@ t_recv_delim(Config) when is_list(Config) ->
     {ok, Client} = gen_tcp:connect(localhost, Port, Opts),
     {ok, A} = gen_tcp:accept(L),
     ok = gen_tcp:send(A, "abcXefgX"),
-    {ok, "abcX"} = gen_tcp:recv(Client, 0, 0),
-    {ok, "efgX"} = gen_tcp:recv(Client, 0, 0),
+    {ok, "abcX"} = gen_tcp:recv(Client, 0, 200),
+    {ok, "efgX"} = gen_tcp:recv(Client, 0, 200),
     ok = gen_tcp:close(Client),
     ok = gen_tcp:close(A),
     ok.
@@ -279,9 +308,7 @@ t_implicit_inet6(Host, Addr) ->
 	    implicit_inet6(S1, Loopback),
 	    ok = gen_tcp:close(S1),
 	    %%
-	    Localhost = "localhost",
-	    Localaddr = ok(inet:getaddr(Localhost, inet6)),
-	    io:format("~s ~p~n", [Localhost,Localaddr]),
+	    Localaddr = ok(get_localaddr()),
 	    S2 = ok(gen_tcp:listen(0, [{ip,Localaddr}])),
 	    implicit_inet6(S2, Localaddr),
 	    ok = gen_tcp:close(S2),
@@ -307,6 +334,192 @@ implicit_inet6(S, Addr) ->
     ok = gen_tcp:close(S2),
     ok = gen_tcp:close(S1).
 
+
+
+t_local_basic(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    CFile = local_filename(client),
+    CAddr = {local,bin_filename(CFile)},
+    _ = file:delete(SFile),
+    _ = file:delete(CFile),
+    %%
+    L =
+	ok(
+	  gen_tcp:listen(0, [{ifaddr,{local,SFile}},{active,false}])),
+    C =
+	ok(
+	  gen_tcp:connect(
+	    {local,SFile}, 0, [{ifaddr,{local,CFile}},{active,false}])),
+    S = ok(gen_tcp:accept(L)),
+    SAddr = ok(inet:sockname(L)),
+    {error,enotconn} = inet:peername(L),
+    local_handshake(S, SAddr, C, CAddr),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(C),
+    %%
+    ok = file:delete(SFile),
+    ok = file:delete(CFile),
+    ok.
+
+t_local_unbound(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    _ = file:delete(SFile),
+    %%
+    L = ok(gen_tcp:listen(0, [{ifaddr,SAddr},{active,false}])),
+    C = ok(gen_tcp:connect(SAddr, 0, [{active,false}])),
+    S = ok(gen_tcp:accept(L)),
+    SAddr = ok(inet:sockname(L)),
+    {error,enotconn} = inet:peername(L),
+    local_handshake(S, SAddr, C, {local,<<>>}),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(C),
+    ok = file:delete(SFile),
+    ok.
+
+t_local_fdopen(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    _ = file:delete(SFile),
+    %%
+    L = ok(gen_tcp:listen(0, [{ifaddr,SAddr},{active,false}])),
+    C0 = ok(gen_tcp:connect(SAddr, 0, [{active,false}])),
+    Fd = ok(prim_inet:getfd(C0)),
+    ok = prim_inet:ignorefd(C0, true),
+    C = ok(gen_tcp:fdopen(Fd, [local])),
+    S = ok(gen_tcp:accept(L)),
+    SAddr = ok(inet:sockname(L)),
+    {error,enotconn} = inet:peername(L),
+    local_handshake(S, SAddr, C, {local,<<>>}),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(C0),
+    ok = file:delete(SFile),
+    ok.
+
+t_local_fdopen_listen(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    _ = file:delete(SFile),
+    L0 = ok(gen_tcp:listen(0, [{ifaddr,SAddr},{active,false}])),
+    Fd = ok(prim_inet:getfd(L0)),
+    L = ok(gen_tcp:listen(0, [{fd,Fd},local,{active,false}])),
+    C = ok(gen_tcp:connect(SAddr, 0, [{active,false}])),
+    S = ok(gen_tcp:accept(L)),
+    SAddr = ok(inet:sockname(L)),
+    {error,enotconn} = inet:peername(L),
+    local_handshake(S, SAddr, C, {local,<<>>}),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(L0),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(C),
+    ok = file:delete(SFile),
+    ok.
+
+t_local_fdopen_listen_unbound(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    _ = file:delete(SFile),
+    P = ok(prim_inet:open(tcp, local, stream)),
+    Fd = ok(prim_inet:getfd(P)),
+    L =
+	ok(gen_tcp:listen(
+	     0, [{fd,Fd},{ifaddr,SAddr},{active,false}])),
+    C = ok(gen_tcp:connect(SAddr, 0, [{active,false}])),
+    S = ok(gen_tcp:accept(L)),
+    SAddr = ok(inet:sockname(L)),
+    {error,enotconn} = inet:peername(L),
+    local_handshake(S, SAddr, C, {local,<<>>}),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(P),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(C),
+    ok = file:delete(SFile),
+    ok.
+
+t_local_fdopen_connect(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    CFile = local_filename(client),
+    CAddr = {local,bin_filename(CFile)},
+    _ = file:delete(SFile),
+    _ = file:delete(CFile),
+    L = ok(gen_tcp:listen(0, [{ifaddr,SAddr},{active,false}])),
+    P = ok(prim_inet:open(tcp, local, stream)),
+    Fd = ok(prim_inet:getfd(P)),
+    C =
+	ok(gen_tcp:connect(
+	     SAddr, 0, [{fd,Fd},{ifaddr,CAddr},{active,false}])),
+    S = ok(gen_tcp:accept(L)),
+    SAddr = ok(inet:sockname(L)),
+    {error,enotconn} = inet:peername(L),
+    local_handshake(S, SAddr, C, CAddr),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(P),
+    ok = file:delete(SFile),
+    ok.
+
+t_local_fdopen_connect_unbound(_Config) ->
+    SFile = local_filename(server),
+    SAddr = {local,bin_filename(SFile)},
+    _ = file:delete(SFile),
+    L = ok(gen_tcp:listen(0, [{ifaddr,SAddr},{active,false}])),
+    P = ok(prim_inet:open(tcp, local, stream)),
+    Fd = ok(prim_inet:getfd(P)),
+    C =	ok(gen_tcp:connect(SAddr, 0, [{fd,Fd},{active,false}])),
+    S = ok(gen_tcp:accept(L)),
+    SAddr = ok(inet:sockname(L)),
+    {error,enotconn} = inet:peername(L),
+    local_handshake(S, SAddr, C, {local,<<>>}),
+    ok = gen_tcp:close(L),
+    ok = gen_tcp:close(S),
+    ok = gen_tcp:close(C),
+    ok = gen_tcp:close(P),
+    ok = file:delete(SFile),
+    ok.
+
+t_local_abstract(_Config) ->
+    case os:type() of
+	{unix,linux} ->
+	    AbstAddr = {local,<<>>},
+	    L =
+		ok(gen_tcp:listen(
+		     0, [{ifaddr,AbstAddr},{active,false}])),
+	    {local,_} = SAddr = ok(inet:sockname(L)),
+	    C =
+		ok(gen_tcp:connect(
+		     SAddr, 0, [{ifaddr,AbstAddr},{active,false}])),
+	    {local,_} = CAddr = ok(inet:sockname(C)),
+	    S = ok(gen_tcp:accept(L)),
+	    {error,enotconn} = inet:peername(L),
+	    local_handshake(S, SAddr, C, CAddr),
+	    ok = gen_tcp:close(L),
+	    ok = gen_tcp:close(S),
+	    ok = gen_tcp:close(C),
+	    ok;
+	_ ->
+	    {skip,"AF_LOCAL Abstract Addresses only supported on Linux"}
+    end.
+
+
+local_handshake(S, SAddr, C, CAddr) ->
+    SData = "9876543210",
+    CData = "0123456789",
+    SAddr = ok(inet:sockname(S)),
+    CAddr = ok(inet:sockname(C)),
+    CAddr = ok(inet:peername(S)),
+    SAddr = ok(inet:peername(C)),
+    ok = gen_tcp:send(C, CData),
+    ok = gen_tcp:send(S, SData),
+    CData = ok(gen_tcp:recv(S, length(CData))),
+    SData = ok(gen_tcp:recv(C, length(SData))),
+    ok.
 
 %%% Utilities
 
@@ -369,8 +582,42 @@ unused_ip(A, B, C, D) ->
 	{error, _} -> {ok, {A, B, C, D}}
     end.
 
-ok({ok,V}) -> V.
+ok({ok,V}) -> V;
+ok(NotOk) ->
+    try throw(not_ok)
+    catch
+	Thrown ->
+	    erlang:raise(
+	      error, {Thrown, NotOk}, tl(erlang:get_stacktrace()))
+    end.
 
+get_localaddr() ->
+    get_localaddr(["localhost", "localhost6", "ip6-localhost"]).
+
+get_localaddr([]) ->
+    {error, localaddr_not_found};
+get_localaddr([Localhost|Ls]) ->
+    case inet:getaddr(Localhost, inet6) of
+       {ok, LocalAddr} ->
+           io:format("~s ~p~n", [Localhost, LocalAddr]),
+           {ok, LocalAddr};
+       _ ->
+           get_localaddr(Ls)
+    end.
 
 getsockfd() -> undefined.
 closesockfd(_FD) -> undefined.
+
+local_filename(Tag) ->
+    "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_" ++ atom_to_list(Tag).
+
+bin_filename(String) ->
+    unicode:characters_to_binary(String, file:native_name_encoding()).
+
+delete_local_filenames() ->
+    _ =
+	[file:delete(F) ||
+	    F <-
+		filelib:wildcard(
+		  "/tmp/" ?MODULE_STRING "_" ++ os:getpid() ++ "_*")],
+    ok.

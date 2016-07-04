@@ -463,7 +463,7 @@ doc_return_types(T, Ps0) ->
     Ps = [P || P=#arg{in=In, where=Where} <- Ps0,In =/= true, Where =/= c],
     doc_return_types2(T, Ps).
 
-doc_return_types2(void, []) ->    "ok";
+doc_return_types2(void, []) ->    "'ok'";
 doc_return_types2(void, [#arg{type=T}]) ->  doc_arg_type2(T);
 doc_return_types2(T, []) ->              doc_arg_type2(T);
 doc_return_types2(void, Ps) ->

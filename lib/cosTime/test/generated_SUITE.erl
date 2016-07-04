@@ -29,7 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -40,7 +40,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -51,7 +51,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			AcTuAlReS
 		end
@@ -63,7 +63,7 @@
 		case orber_tc:check_tc(TC) of
 		    false ->
 			io:format("###### ERROR ERROR ######~n~p - ~p~n", [Op, TC]),
-			?line exit(TC);
+			exit(TC);
 		    true ->
 			true
 		end
@@ -114,12 +114,12 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -127,8 +127,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'TimeBase_IntervalT'
 %% Description: 
 %%-----------------------------------------------------------------
-'TimeBase_IntervalT'(doc) -> ["TimeBase_IntervalT"];
-'TimeBase_IntervalT'(suite) -> [];
 'TimeBase_IntervalT'(_) ->
     ?match(true, orber_tc:check_tc('TimeBase_IntervalT':tc())),
     ?match("IDL:omg.org/TimeBase/IntervalT:1.0", 
@@ -142,8 +140,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'TimeBase_UtcT'
 %% Description: 
 %%-----------------------------------------------------------------
-'TimeBase_UtcT'(doc) -> ["TimeBase_UtcT"];
-'TimeBase_UtcT'(suite) -> [];
 'TimeBase_UtcT'(_) ->
     ?match(true, orber_tc:check_tc('TimeBase_UtcT':tc())),
     ?match("IDL:omg.org/TimeBase/UtcT:1.0", 
@@ -157,8 +153,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTime_TimeUnavailable'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTime_TimeUnavailable'(doc) -> ["CosTime_TimeUnavailable"];
-'CosTime_TimeUnavailable'(suite) -> [];
 'CosTime_TimeUnavailable'(_) ->
     ?match(true, orber_tc:check_tc('CosTime_TimeUnavailable':tc())),
     ?match("IDL:omg.org/CosTime/TimeUnavailable:1.0", 
@@ -172,8 +166,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTimerEvent_TimerEventT'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTimerEvent_TimerEventT'(doc) -> ["CosTimerEvent_TimerEventT"];
-'CosTimerEvent_TimerEventT'(suite) -> [];
 'CosTimerEvent_TimerEventT'(_) ->
     ?match(true, orber_tc:check_tc('CosTimerEvent_TimerEventT':tc())),
     ?match("IDL:omg.org/CosTimerEvent/TimerEventT:1.0", 
@@ -187,8 +179,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTime_TIO'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTime_TIO'(doc) -> ["CosTime_TIO"];
-'CosTime_TIO'(suite) -> [];
 'CosTime_TIO'(_) ->
     ?nomatch(undefined, 'CosTime_TIO':oe_tc('_get_time_interval')),
     ?nomatch(undefined, 'CosTime_TIO':oe_tc(spans)),
@@ -207,8 +197,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTime_TimeService'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTime_TimeService'(doc) -> ["CosTime_TimeService"];
-'CosTime_TimeService'(suite) -> [];
 'CosTime_TimeService'(_) ->
     ?nomatch(undefined, 'CosTime_TimeService':oe_tc(universal_time)),
     ?nomatch(undefined, 'CosTime_TimeService':oe_tc(secure_universal_time)),
@@ -229,8 +217,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTime_UTO'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTime_UTO'(doc) -> ["CosTime_UTO"];
-'CosTime_UTO'(suite) -> [];
 'CosTime_UTO'(_) ->
     ?nomatch(undefined, 'CosTime_UTO':oe_tc('_get_time')),
     ?nomatch(undefined, 'CosTime_UTO':oe_tc('_get_inaccuracy')),
@@ -253,8 +239,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTimerEvent_TimerEventHandler'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTimerEvent_TimerEventHandler'(doc) -> ["CosTimerEvent_TimerEventHandler"];
-'CosTimerEvent_TimerEventHandler'(suite) -> [];
 'CosTimerEvent_TimerEventHandler'(_) ->
     ?nomatch(undefined, 'CosTimerEvent_TimerEventHandler':oe_tc('_get_status')),
     ?nomatch(undefined, 'CosTimerEvent_TimerEventHandler':oe_tc(time_set)),
@@ -275,8 +259,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosTimerEvent_TimerEventService'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosTimerEvent_TimerEventService'(doc) -> ["CosTimerEvent_TimerEventService"];
-'CosTimerEvent_TimerEventService'(suite) -> [];
 'CosTimerEvent_TimerEventService'(_) ->
     ?nomatch(undefined, 'CosTimerEvent_TimerEventService':oe_tc(register)),
     ?nomatch(undefined, 'CosTimerEvent_TimerEventService':oe_tc(unregister)),

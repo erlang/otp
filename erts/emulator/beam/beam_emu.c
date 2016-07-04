@@ -1323,11 +1323,7 @@ void process_main(void)
 
     if (start_time != 0) {
         Sint64 diff = erts_timestamp_millis() - start_time;
-	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule
-#if defined(ERTS_SMP) && defined(ERTS_DIRTY_SCHEDULERS)
-	    && !ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p))
-#endif
-	    ) {
+	if (diff > 0 && (Uint) diff >  erts_system_monitor_long_schedule) {
 	    BeamInstr *inptr = find_function_from_pc(start_time_i);
 	    BeamInstr *outptr = find_function_from_pc(c_p->i);
 	    monitor_long_schedule_proc(c_p,inptr,outptr,(Uint) diff);
@@ -1337,7 +1333,7 @@ void process_main(void)
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-    c_p = schedule(c_p, reds_used);
+    c_p = erts_schedule(NULL, c_p, reds_used);
     ASSERT(!(c_p->flags & F_HIPE_MODE));
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     start_time = 0;
@@ -3559,12 +3555,10 @@ do {						\
 		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
-#ifdef ERTS_DIRTY_SCHEDULERS
-		if (!c_p->scheduler_data)
-		    live_hf_end = ERTS_INVALID_HFRAG_PTR; /* On dirty scheduler */
-		else
+#ifdef ERTS_SMP
+		ASSERT(c_p->scheduler_data);
 #endif
-		    live_hf_end = c_p->mbuf;
+		live_hf_end = c_p->mbuf;
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
@@ -3574,10 +3568,7 @@ do {						\
 		PROCESS_MAIN_CHK_LOCKS(c_p);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-		if (env.exiting) {
-		    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-		    goto do_schedule;
-		}
+		ASSERT(!env.exiting);
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    }
 
@@ -5160,6 +5151,278 @@ do {						\
 	FCALLS--;
 	Goto(dis_next);
     }
+}
+
+/*
+ * erts_dirty_process_main() is what dirty schedulers execute. Since they handle
+ * only NIF calls they do not need to be able to execute all BEAM
+ * instructions.
+ */
+void erts_dirty_process_main(ErtsSchedulerData *esdp)
+{
+#ifdef ERTS_DIRTY_SCHEDULERS
+    Process* c_p = NULL;
+    ErtsMonotonicTime start_time;
+#ifdef DEBUG
+    ERTS_DECLARE_DUMMY(Eterm pid);
+#endif
+
+    /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
+     * in all other cases x0 is used.
+     */
+    register Eterm* reg REG_xregs = NULL;
+
+    /*
+     * Top of heap (next free location); grows upwards.
+     */
+    register Eterm* HTOP REG_htop = NULL;
+
+    /* Stack pointer.  Grows downwards; points
+     * to last item pushed (normally a saved
+     * continuation pointer).
+     */
+    register Eterm* E REG_stop = NULL;
+
+    /*
+     * Pointer to next threaded instruction.
+     */
+    register BeamInstr *I REG_I = NULL;
+
+    ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
+
+    /*
+     * start_time always positive for dirty CPU schedulers,
+     * and negative for dirty I/O schedulers.
+     */
+
+    if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp)) {
+	start_time = erts_get_monotonic_time(NULL);
+	ASSERT(start_time >= 0);
+    }
+    else {
+	start_time = ERTS_SINT64_MIN;
+	ASSERT(start_time < 0);
+    }
+
+    goto do_dirty_schedule;
+
+ context_switch:
+    c_p->arity = I[-1];
+    c_p->current = I-3;		/* Pointer to Mod, Func, Arity */
+
+    {
+	int reds_used;
+	Eterm* argp;
+	int i;
+
+	/*
+	 * Make sure that there is enough room for the argument registers to be saved.
+	 */
+	if (c_p->arity > c_p->max_arg_reg) {
+	    /*
+	     * Yes, this is an expensive operation, but you only pay it the first
+	     * time you call a function with more than 6 arguments which is
+	     * scheduled out.  This is better than paying for 26 words of wasted
+	     * space for most processes which never call functions with more than
+	     * 6 arguments.
+	     */
+	    Uint size = c_p->arity * sizeof(c_p->arg_reg[0]);
+	    if (c_p->arg_reg != c_p->def_arg_reg) {
+		c_p->arg_reg = (Eterm *) erts_realloc(ERTS_ALC_T_ARG_REG,
+						      (void *) c_p->arg_reg,
+						      size);
+	    } else {
+		c_p->arg_reg = (Eterm *) erts_alloc(ERTS_ALC_T_ARG_REG, size);
+	    }
+	    c_p->max_arg_reg = c_p->arity;
+	}
+
+	/*
+	 * Save the argument registers and everything else.
+	 */
+
+	argp = c_p->arg_reg;
+	for (i = c_p->arity - 1; i >= 0; i--) {
+	    argp[i] = reg[i];
+	}
+	SWAPOUT;
+	c_p->i = I;
+
+    do_dirty_schedule:
+
+	if (start_time < 0) {
+	    /*
+	     * Dirty I/O scheduler:
+	     *   One reduction consumed regardless of
+	     *   time spent in the dirty NIF.
+	     */
+	    reds_used = esdp->virtual_reds + 1;
+	}
+	else {
+	    /*
+	     * Dirty CPU scheduler:
+	     *   Currently two reductions consumed per
+	     *   micro second spent in the dirty NIF.
+	     */
+	    ErtsMonotonicTime time;
+	    time = erts_get_monotonic_time(esdp);
+	    time -= start_time;
+	    time = ERTS_MONOTONIC_TO_USEC(time);
+	    time *= (CONTEXT_REDS-1)/1000 + 1;
+	    ASSERT(time >= 0);
+	    if (time == 0)
+		time = 1; /* At least one reduction */
+	    time += esdp->virtual_reds;
+	    reds_used = time > INT_MAX ? INT_MAX : (int) time;
+	}
+
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+	c_p = erts_schedule(esdp, c_p, reds_used);
+
+	if (start_time >= 0) {
+	    start_time = erts_get_monotonic_time(esdp);
+	    ASSERT(start_time >= 0);
+	}
+    }
+
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+#ifdef DEBUG
+    pid = c_p->common.id; /* Save for debugging purposes */
+#endif
+    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+
+    ASSERT(!(c_p->flags & F_HIPE_MODE));
+    ERTS_MSACC_UPDATE_CACHE_X();
+
+    reg = esdp->x_reg_array;
+    {
+	Eterm* argp;
+	int i;
+
+	argp = c_p->arg_reg;
+	for (i = c_p->arity - 1; i >= 0; i--) {
+	    reg[i] = argp[i];
+	    CHECK_TERM(reg[i]);
+	}
+
+	/*
+	 * We put the original reduction count in the process structure, to reduce
+	 * the code size (referencing a field in a struct through a pointer stored
+	 * in a register gives smaller code than referencing a global variable).
+	 */
+
+	I = c_p->i;
+
+	ASSERT(BeamOp(op_call_nif) == (BeamInstr *) *I);
+
+	/*
+	 * Set fcalls even though we ignore it, so we don't
+	 * confuse code accessing it...
+	 */
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+	    c_p->fcalls = 0;
+	else
+	    c_p->fcalls = CONTEXT_REDS;
+
+	SWAPIN;
+
+#ifdef USE_VM_PROBES
+        if (DTRACE_ENABLED(process_scheduled)) {
+            DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(fun_buf, DTRACE_TERM_BUF_SIZE);
+            dtrace_proc_str(c_p, process_buf);
+
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                strcpy(fun_buf, "<exiting>");
+            } else {
+                BeamInstr *fptr = find_function_from_pc(c_p->i);
+                if (fptr) {
+                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
+                                      (Eterm)fptr[1], (Uint)fptr[2],
+                                      NULL, fun_buf);
+                } else {
+                    erts_snprintf(fun_buf, sizeof(DTRACE_CHARBUF_NAME(fun_buf)),
+                                  "<unknown/%p>", *I);
+                }
+            }
+
+            DTRACE2(process_scheduled, process_buf, fun_buf);
+        }
+#endif
+    }
+
+    {
+#ifdef DEBUG
+	Eterm result;
+#endif
+	Eterm arity;
+
+	{
+	    /*
+	     * call_nif is always first instruction in function:
+	     *
+	     * I[-3]: Module
+	     * I[-2]: Function
+	     * I[-1]: Arity
+	     * I[0]: &&call_nif
+	     * I[1]: Function pointer to NIF function
+	     * I[2]: Pointer to erl_module_nif
+	     * I[3]: Function pointer to dirty NIF
+	     */
+	    BifFunction vbf;
+
+	    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+
+	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    c_p->current = I-3; /* current and vbf set to please handle_error */
+	    SWAPOUT;
+	    PROCESS_MAIN_CHK_LOCKS(c_p);
+	    arity = I[-1];
+	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+
+	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	    {
+		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
+		NifF* fp = vbf = (NifF*) I[1];
+		struct enif_environment_t env;
+		ASSERT(!c_p->scheduler_data);
+
+		erts_pre_dirty_nif(esdp, &env, c_p,
+				   (struct erl_module_nif*)I[2], NULL);
+
+#ifdef DEBUG
+		result =
+#else
+		(void)
+#endif
+		    (*fp)(&env, arity, reg);
+
+		erts_post_nif(&env);
+
+		ASSERT(!is_value(result));
+		ASSERT(c_p->freason == TRAP);
+		ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
+
+		PROCESS_MAIN_CHK_LOCKS(c_p);
+		ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+		ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+		if (env.exiting)
+		    goto do_dirty_schedule;
+		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	    }
+
+	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+	    ERTS_HOLE_CHECK(c_p);
+	    SWAPIN;
+	    I = c_p->i;
+	    goto context_switch;
+	}
+    }
+#endif /* ERTS_DIRTY_SCHEDULERS */
 }
 
 static BifFunction

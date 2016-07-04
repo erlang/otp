@@ -930,10 +930,13 @@ DiB == gen_digest(ChA,ICA) ?
 	  <tag><c>SEND</c></tag>
 	  <item>
 	    <p>
-	      <c>{2, Cookie, ToPid}</c>
+	      <c>{2, Unused, ToPid}</c>
 	    </p>
 	    <p>
 	    <em>Note</em> followed by <c>Message</c>
+	    </p>
+	    <p>
+	      <c>Unused</c> is kept for backward compatibility
 	    </p>
 	  </item>
 
@@ -961,10 +964,13 @@ DiB == gen_digest(ChA,ICA) ?
 	  <tag><c>REG_SEND</c></tag>
 	  <item>
 	    <p>
-	      <c>{6, FromPid, Cookie, ToName}</c>
+	      <c>{6, FromPid, Unused, ToName}</c>
 	    </p>
 	    <p>
 	    <em>Note</em> followed by <c>Message</c>
+	    </p>
+	    <p>
+	      <c>Unused</c> is kept for backward compatibility
 	    </p>
 	  </item>
 
@@ -991,10 +997,13 @@ DiB == gen_digest(ChA,ICA) ?
 	<tag><c>SEND_TT</c></tag>
 	<item>
 	<p>
-	  <c>{12, Cookie, ToPid, TraceToken}</c>
+	  <c>{12, Unused, ToPid, TraceToken}</c>
 	</p>
 	<p>
 	<em>Note</em> followed by <c>Message</c>
+	</p>
+	<p>
+	  <c>Unused</c> is kept for backward compatibility
 	</p>
 	</item>
 
@@ -1008,10 +1017,13 @@ DiB == gen_digest(ChA,ICA) ?
 	<tag><c>REG_SEND_TT</c></tag>
 	<item>
 	<p>
-	  <c>{16, FromPid, Cookie, ToName, TraceToken}</c>
+	  <c>{16, FromPid, Unused, ToName, TraceToken}</c>
 	</p>
 	<p>
 	<em>Note</em> followed by <c>Message</c>
+	</p>
+	<p>
+	  <c>Unused</c> is kept for backward compatibility
 	</p>
 	</item>
       

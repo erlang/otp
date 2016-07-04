@@ -119,7 +119,8 @@ call(Msg) ->
     end.
 
 return({To,Ref},Result) ->
-    To ! {Ref, Result}.
+    To ! {Ref, Result},
+    ok.
 
 loop(StartDir) ->
     receive
@@ -128,11 +129,11 @@ loop(StartDir) ->
 	    return(From,Result),
 	    loop(StartDir);
 	{{set_default_config,{Config,Scope}},From} ->
-	    set_config(Config,{true,Scope}),
+	    _ = set_config(Config,{true,Scope}),
 	    return(From,ok),
 	    loop(StartDir);
 	{{set_default_config,{Name,Config,Scope}},From} ->
-	    set_config(Name,Config,{true,Scope}),
+	    _ = set_config(Name,Config,{true,Scope}),
 	    return(From,ok),
 	    loop(StartDir);
 	{{delete_default_config,Scope},From} ->
@@ -149,7 +150,7 @@ loop(StartDir) ->
 	    loop(StartDir);
 	{{stop},From} ->
 	    ets:delete(?attr_table),
-	    file:set_cwd(StartDir),
+	    ok = file:set_cwd(StartDir),
 	    return(From,ok)
     end.
 
@@ -257,7 +258,7 @@ read_config_files(Opts) ->
 read_config_files_int([{Callback, File}|Files], FunToSave) ->
     case Callback:read_config(File) of
 	{ok, Config} ->
-	    FunToSave(Config, Callback, File),
+	    _ = FunToSave(Config, Callback, File),
 	    read_config_files_int(Files, FunToSave);
 	{error, {ErrorName, ErrorDetail}} ->
 	    {user_error, {ErrorName, File, ErrorDetail}};
@@ -266,6 +267,15 @@ read_config_files_int([{Callback, File}|Files], FunToSave) ->
     end;
 read_config_files_int([], _FunToSave) ->
     ok.
+
+
+read_config_files(ConfigFiles, FunToSave) ->
+    case read_config_files_int(ConfigFiles, FunToSave) of
+        {user_error, Error} ->
+            {error, Error};
+        ok ->
+            ok
+    end.
 
 store_config(Config, Callback, File) when is_tuple(Config) ->
     store_config([Config], Callback, File);
@@ -455,8 +465,12 @@ reload_conf(KeyOrName) ->
 	    undefined;
 	HandlerList ->
 	    HandlerList2 = lists:usort(HandlerList),
-	    read_config_files_int(HandlerList2, fun rewrite_config/3),
-	    get_config(KeyOrName)
+	    case read_config_files(HandlerList2, fun rewrite_config/3) of
+		ok ->
+		    get_config(KeyOrName);
+		Error ->
+		    Error
+	    end
     end.
 
 release_allocated() ->
@@ -490,16 +504,16 @@ associate(Name,_Key,Configs) ->
     associate_int(Name,Configs,os:getenv("COMMON_TEST_ALIAS_TOP")).
 
 associate_int(Name,Configs,"true") ->
-    lists:map(fun({K,_Config}) ->
+    lists:foreach(fun({K,_Config}) ->
 		      Cs = ets:match_object(
 			     ?attr_table,
 			     #ct_conf{key=element(1,K),
 				      name='_UNDEF',_='_'}),
 		      [ets:insert(?attr_table,C#ct_conf{name=Name})
 		       || C <- Cs]
-	      end,Configs);
+		  end,Configs);
 associate_int(Name,Configs,_) ->
-    lists:map(fun({K,Config}) ->
+    lists:foreach(fun({K,Config}) ->
 		      Key = if is_tuple(K) -> element(1,K);
 			       is_atom(K) -> K
 			    end,
@@ -511,7 +525,7 @@ associate_int(Name,Configs,_) ->
 		      [ets:insert(?attr_table,C#ct_conf{name=Name,
 							value=Config})
 		       || C <- Cs]
-	      end,Configs).
+		  end,Configs).
 
 
 
@@ -576,7 +590,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {file,KeyFile}) ->
     end;
 
 encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
-    crypto:start(),
+    _ = crypto:start(),
     {Key,IVec} = make_crypto_key(Key),
     case file:read_file(SrcFileName) of
 	{ok,Bin0} ->
@@ -615,7 +629,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, {file,KeyFile}) ->
     end;
 
 decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
-    crypto:start(),
+    _ = crypto:start(),
     {Key,IVec} = make_crypto_key(Key),
     case file:read_file(EncryptFileName) of
 	{ok,Bin} ->
@@ -778,14 +792,13 @@ prepare_config_list(Args) ->
 
 % TODO: add logging of the loaded configuration file to the CT FW log!!!
 add_config(Callback, []) ->
-    read_config_files_int([{Callback, []}], fun store_config/3);
+    read_config_files([{Callback, []}], fun store_config/3);
 add_config(Callback, [File|_Files]=Config) when is_list(File) ->
     lists:foreach(fun(CfgStr) ->
-	read_config_files_int([{Callback, CfgStr}], fun store_config/3) end,
+	read_config_files([{Callback, CfgStr}], fun store_config/3) end,
 	Config);
 add_config(Callback, [C|_]=Config) when is_integer(C) ->
-    read_config_files_int([{Callback, Config}], fun store_config/3),
-    ok.
+    read_config_files([{Callback, Config}], fun store_config/3).
 
 remove_config(Callback, Config) ->
     ets:match_delete(?attr_table,

@@ -1023,7 +1023,7 @@ file_write_file_info_opts(Config) when is_list(Config) ->
 			  Time <- [ 0,1,-1,100,-100,1000,-1000,10000,-10000 ]
 		      ]),
 
-    %% REM: determine date range dependent on time_t = Uint32 | Sint32 | Sint64
+    %% REM: determine date range dependent on time_t = Uint32 | Sint32 | Sint64 | Uint64
     %% Determine time_t on os:type()?
     lists:foreach(fun ({FI, Opts}) ->
 			 ok = ?PRIM_FILE_call(write_file_info, Handle, [Name, FI, Opts])
@@ -1072,9 +1072,10 @@ file_write_read_file_info_opts(Config) when is_list(Config) ->
     %ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, local}]),
     %ok = file_write_read_file_info_opts(Handle, Name, {{1930, 04, 28}, {19,30,22}}, [{time, universal}]),
     ok = file_write_read_file_info_opts(Handle, Name, 1, [{time, posix}]),
-    ok = file_write_read_file_info_opts(Handle, Name, -1, [{time, posix}]),
+    %% will not work on platforms with unsigned time_t
+    %ok = file_write_read_file_info_opts(Handle, Name, -1, [{time, posix}]),
+    %ok = file_write_read_file_info_opts(Handle, Name, -300000, [{time, posix}]),
     ok = file_write_read_file_info_opts(Handle, Name, 300000, [{time, posix}]),
-    ok = file_write_read_file_info_opts(Handle, Name, -300000, [{time, posix}]),
     ok = file_write_read_file_info_opts(Handle, Name, 0, [{time, posix}]),
 
     ok = ?PRIM_FILE:stop(Handle),

@@ -465,6 +465,14 @@ certify(internal, #certificate{asn1_certificates = []},
 	Connection:next_record(State0#state{client_certificate_requested = false}),
     Connection:next_event(certify, Record, State);
 
+certify(internal, #certificate{},
+	#state{role = server,
+	       negotiated_version = Version,
+	       ssl_options = #ssl_options{verify = verify_none}} =
+	    State, Connection) ->
+    Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
+    Connection:handle_own_alert(Alert, Version, certify, State);
+
 certify(internal, #certificate{} = Cert,
         #state{negotiated_version = Version,
 	       role = Role,
@@ -786,12 +794,24 @@ downgrade(Type, Event, State, Connection) ->
 %% Event handling functions called by state functions to handle
 %% common or unexpected events for the state.
 %%--------------------------------------------------------------------
+handle_common_event(internal, {handshake, {#hello_request{} = Handshake, _}}, connection = StateName,  
+		    #state{role = client} = State, _) ->
+    %% Should not be included in handshake history
+    {next_state, StateName, State#state{renegotiation = {true, peer}}, [{next_event, internal, Handshake}]};
+handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName, #state{role = client}, _) 
+  when StateName =/= connection ->
+    {keep_state_and_data};
+handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName, 
+		    #state{tls_handshake_history = Hs0} = State0, Connection) ->
+    %% This function handles client SNI hello extension when Handshake is
+    %% a client_hello, which needs to be determined by the connection callback.
+    %% In other cases this is a noop
+    State = Connection:handle_sni_extension(Handshake, State0),
+    HsHist = ssl_handshake:update_handshake_history(Hs0, Raw),
+    {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
+     [{next_event, internal, Handshake}]};
 handle_common_event(internal, {tls_record, TLSRecord}, StateName, State, Connection) -> 
     Connection:handle_common_event(internal, TLSRecord, StateName, State);
-handle_common_event(internal, #hello_request{}, StateName, #state{role = client} = State0, Connection)
-  when StateName =:= connection ->
-    {Record, State} = Connection:next_record(State0),
-    Connection:next_event(StateName, Record, State);
 handle_common_event(timeout, hibernate, _, _, _) ->
     {keep_state_and_data, [hibernate]};
 handle_common_event(internal, {application_data, Data}, StateName, State0, Connection) ->
@@ -875,48 +895,14 @@ handle_call({get_opts, OptTags}, From, _,
 			 socket_options = SockOpts}, _) ->
     OptsReply = get_socket_opts(Transport, Socket, OptTags, SockOpts, []),
     {keep_state_and_data, [{reply, From, OptsReply}]};
-handle_call({set_opts, Opts0}, From, connection = StateName0, 
+handle_call({set_opts, Opts0}, From, StateName, 
 	    #state{socket_options = Opts1, 
-			 protocol_cb = Connection,
 			 socket = Socket,
-			 transport_cb = Transport,
-			 user_data_buffer = Buffer} = State0, _) ->
+			 transport_cb = Transport} = State0, _) ->
     {Reply, Opts} = set_socket_opts(Transport, Socket, Opts0, Opts1, []),
-    State1 = State0#state{socket_options = Opts},
-    if 
-	Opts#socket_options.active =:= false ->
-	    hibernate_after(StateName0, State1, [{reply, From, Reply}]);
-	Buffer =:= <<>>, Opts1#socket_options.active =:= false ->
-            %% Need data, set active once
-	    {Record, State2} = Connection:next_record_if_active(State1),
-	    %% Note: Renogotiation may cause StateName0 =/= StateName
-	    case Connection:next_event(StateName0, Record, State2) of
-		{next_state, StateName, State} ->
-		    hibernate_after(StateName, State, [{reply, From, Reply}]);
-		{next_state, StateName, State, Actions} -> 
-		    hibernate_after(StateName, State, [{reply, From, Reply} | Actions]);
-		{stop, Reason, State} ->
-		    {stop, Reason, State}
-	    end;
-	Buffer =:= <<>> ->
-            %% Active once already set 
-	    hibernate_after(StateName0, State1, [{reply, From, Reply}]);
-	true ->
-	    case Connection:read_application_data(<<>>, State1) of
-		{stop, Reason, State} ->
-		    {stop, Reason, State};
-		{Record, State2} ->
-		    %% Note: Renogotiation may cause StateName0 =/= StateName
-		    case Connection:next_event(StateName0, Record, State2) of
-			{next_state, StateName, State} ->
-			    hibernate_after(StateName, State, [{reply, From, Reply}]);
-			{next_state, StateName, State, Actions} -> 
-			    hibernate_after(StateName, State, [{reply, From, Reply} | Actions]);
-			{stop, _, _} = Stop ->
-			    Stop
-		    end
-	    end
-    end;
+    State = State0#state{socket_options = Opts},
+    handle_active_option(Opts#socket_options.active, StateName, From, Reply, State);
+    
 handle_call(renegotiate, From, StateName, _, _) when StateName =/= connection ->
     {keep_state_and_data, [{reply, From, {error, already_renegotiating}}]};
 handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
@@ -1063,9 +1049,9 @@ format_status(terminate, [_, StateName, State]) ->
 					       srp_params = ?SECRET_PRINTOUT,
 					       srp_keys =  ?SECRET_PRINTOUT,
 					       premaster_secret =  ?SECRET_PRINTOUT,
-					       ssl_options = NewOptions}
+					       ssl_options = NewOptions,
+					       flight_buffer =  ?SECRET_PRINTOUT}
 		       }}]}].
-
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1134,7 +1120,7 @@ resumed_server_hello(#state{session = Session,
 server_hello(ServerHello, State0, Connection) ->
     CipherSuite = ServerHello#server_hello.cipher_suite,
     {KeyAlgorithm, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
-    State = Connection:send_handshake(ServerHello, State0),
+    State = Connection:queue_handshake(ServerHello, State0),
     State#state{key_algorithm = KeyAlgorithm}.
 
 server_hello_done(State, Connection) ->
@@ -1180,7 +1166,7 @@ certify_client(#state{client_certificate_requested = true, role = client,
 		      session = #session{own_certificate = OwnCert}}
 	       = State, Connection) ->
     Certificate = ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, client),
-    Connection:send_handshake(Certificate, State);
+    Connection:queue_handshake(Certificate, State);
 
 certify_client(#state{client_certificate_requested = false} = State, _) ->
     State.
@@ -1196,7 +1182,7 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret,
 						 Version, HashSign, PrivateKey, Handshake0) of
         #certificate_verify{} = Verified ->
-           Connection:send_handshake(Verified, State);
+           Connection:queue_handshake(Verified, State);
 	ignore ->
 	    State;
 	#alert{} = Alert ->
@@ -1290,7 +1276,7 @@ certify_server(#state{cert_db = CertDbHandle,
 		      session = #session{own_certificate = OwnCert}} = State, Connection) ->
     case ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, server) of
 	Cert = #certificate{} ->
-	    Connection:send_handshake(Cert, State);
+	    Connection:queue_handshake(Cert, State);
 	Alert = #alert{} ->
 	    throw(Alert)
     end.
@@ -1317,7 +1303,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
 
 key_exchange(#state{role = server, private_key = Key, key_algorithm = Algo} = State, _)
@@ -1342,7 +1328,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 							HashSignAlgo, ClientRandom,
 							ServerRandom,
 							PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = ECDHKeys};
 
 key_exchange(#state{role = server, key_algorithm = psk,
@@ -1364,7 +1350,7 @@ key_exchange(#state{role = server, key_algorithm = psk,
 						       HashSignAlgo, ClientRandom,
 						       ServerRandom,
 						       PrivateKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = server, key_algorithm = dhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
@@ -1385,7 +1371,7 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
 							HashSignAlgo, ClientRandom,
 							ServerRandom,
 							PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
 
 key_exchange(#state{role = server, key_algorithm = rsa_psk,
@@ -1407,7 +1393,7 @@ key_exchange(#state{role = server, key_algorithm = rsa_psk,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    ssl_options = #ssl_options{user_lookup_fun = LookupFun},
@@ -1436,7 +1422,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{srp_params = SrpParams,
 		srp_keys = Keys};
 
@@ -1446,7 +1432,7 @@ key_exchange(#state{role = client,
 		    negotiated_version = Version,
 		    premaster_secret = PremasterSecret} = State0, Connection) ->
     Msg = rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    key_algorithm = Algorithm,
@@ -1457,7 +1443,7 @@ key_exchange(#state{role = client,
        Algorithm == dhe_rsa;
        Algorithm == dh_anon ->
     Msg =  ssl_handshake:key_exchange(client, Version, {dh, DhPubKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    key_algorithm = Algorithm,
@@ -1467,7 +1453,7 @@ key_exchange(#state{role = client,
        Algorithm == ecdh_ecdsa; Algorithm == ecdh_rsa;
        Algorithm == ecdh_anon ->
     Msg = ssl_handshake:key_exchange(client, Version, {ecdh, Keys}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
@@ -1475,7 +1461,7 @@ key_exchange(#state{role = client,
 		    negotiated_version = Version} = State0, Connection) ->
     Msg =  ssl_handshake:key_exchange(client, Version, 
 				      {psk, SslOpts#ssl_options.psk_identity}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
@@ -1485,7 +1471,7 @@ key_exchange(#state{role = client,
     Msg =  ssl_handshake:key_exchange(client, Version,
 				      {dhe_psk, 
 				       SslOpts#ssl_options.psk_identity, DhPubKey}),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
 		    key_algorithm = rsa_psk,
@@ -1495,7 +1481,7 @@ key_exchange(#state{role = client,
 	     = State0, Connection) ->
     Msg = rsa_psk_key_exchange(Version, SslOpts#ssl_options.psk_identity,
 			       PremasterSecret, PublicKeyInfo),
-    Connection:send_handshake(Msg, State0);
+    Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{role = client,
 		    key_algorithm = Algorithm,
@@ -1506,7 +1492,7 @@ key_exchange(#state{role = client,
        Algorithm == srp_rsa;
        Algorithm == srp_anon ->
     Msg =  ssl_handshake:key_exchange(client, Version, {srp, ClientPubKey}),
-    Connection:send_handshake(Msg, State0).
+    Connection:queue_handshake(Msg, State0).
 
 rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
   when Algorithm == ?rsaEncryption;
@@ -1522,7 +1508,7 @@ rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
 			       {premaster_secret, PremasterSecret,
 				PublicKeyInfo});
 rsa_key_exchange(_, _, _) ->
-    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
+    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
 
 rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret, 
 		     PublicKeyInfo = {Algorithm, _, _})
@@ -1539,7 +1525,7 @@ rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret,
 			       {psk_premaster_secret, PskIdentity, PremasterSecret,
 				PublicKeyInfo});
 rsa_psk_key_exchange(_, _, _, _) ->
-    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
+    throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer, 
 						      signature_algs = SupportedHashSigns},
@@ -1553,7 +1539,7 @@ request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer,
     HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, Version, [Version]),
     Msg = ssl_handshake:certificate_request(CipherSuite, CertDbHandle, CertDbRef, 
 					    HashSigns, Version),
-    State = Connection:send_handshake(Msg, State0),
+    State = Connection:queue_handshake(Msg, State0),
     State#state{client_certificate_requested = true};
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_none}} =
@@ -1597,10 +1583,10 @@ next_protocol(#state{expecting_next_protocol_negotiation = false} = State, _) ->
     State;
 next_protocol(#state{negotiated_protocol = NextProtocol} = State0, Connection) ->
     NextProtocolMessage = ssl_handshake:next_protocol(NextProtocol),
-    Connection:send_handshake(NextProtocolMessage, State0).
+    Connection:queue_handshake(NextProtocolMessage, State0).
 
 cipher_protocol(State, Connection) ->
-    Connection:send_change_cipher(#change_cipher_spec{}, State).
+    Connection:queue_change_cipher(#change_cipher_spec{}, State).
 
 finished(#state{role = Role, negotiated_version = Version,
 		session = Session,
@@ -1876,9 +1862,12 @@ start_or_recv_cancel_timer(infinity, _RecvFrom) ->
 start_or_recv_cancel_timer(Timeout, RecvFrom) ->
     erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).
 
-hibernate_after(StateName, #state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}} = State,
+hibernate_after(connection = StateName, 
+		#state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}} = State,
 		Actions) ->
-    {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]}.
+    {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
+hibernate_after(StateName, State, Actions) ->
+    {next_state, StateName, State, Actions}.
  
 terminate_alert(normal, Version, ConnectionStates)  ->
     ssl_alert:encode(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
@@ -2032,4 +2021,39 @@ ssl_options_list([ciphers = Key | Keys], [Value | Values], Acc) ->
 ssl_options_list([Key | Keys], [Value | Values], Acc) ->
    ssl_options_list(Keys, Values, [{Key, Value} | Acc]).
 
+handle_active_option(false, connection = StateName, To, Reply, State) ->
+    hibernate_after(StateName, State, [{reply, To, Reply}]);
 
+handle_active_option(_, connection = StateName0, To, Reply, #state{protocol_cb = Connection,
+							      user_data_buffer = <<>>} = State0) ->
+    %% Need data, set active once
+    {Record, State1} = Connection:next_record_if_active(State0),
+    %% Note: Renogotiation may cause StateName0 =/= StateName
+    case Connection:next_event(StateName0, Record, State1) of
+	{next_state, StateName, State} ->
+	    hibernate_after(StateName, State, [{reply, To, Reply}]);
+	{next_state, StateName, State, Actions} -> 
+	    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+	{stop, Reason, State} ->
+	    {stop, Reason, State}
+    end;
+handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = <<>>} = State) ->
+    %% Active once already set 
+    {next_state, StateName, State, [{reply, To, Reply}]};
+
+%% user_data_buffer =/= <<>>
+handle_active_option(_, StateName0, To, Reply, #state{protocol_cb = Connection} = State0) -> 
+    case Connection:read_application_data(<<>>, State0) of
+	{stop, Reason, State} ->
+	    {stop, Reason, State};
+	{Record, State1} ->
+	    %% Note: Renogotiation may cause StateName0 =/= StateName
+	    case Connection:next_event(StateName0, Record, State1) of
+		{next_state, StateName, State} ->
+		    hibernate_after(StateName, State, [{reply, To, Reply}]);
+		{next_state, StateName, State, Actions} -> 
+		    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+		{stop, _, _} = Stop ->
+		    Stop
+	    end
+    end.

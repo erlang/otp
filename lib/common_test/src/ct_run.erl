@@ -400,21 +400,21 @@ run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
 			  [RefreshDir] -> ?abs(RefreshDir)
 		      end,
 	    {ok,Cwd} = file:get_cwd(),
-	    file:set_cwd(LogDir1),
+	    ok = file:set_cwd(LogDir1),
 	    %% give the shell time to print version etc
 	    timer:sleep(500),
 	    io:nl(),
 	    case catch ct_logs:make_all_runs_index(refresh) of
 		{'EXIT',ARReason} ->
-		    file:set_cwd(Cwd),
+		    ok = file:set_cwd(Cwd),
 		    {error,{all_runs_index,ARReason}};
 		_ ->
 		    case catch ct_logs:make_all_suites_index(refresh) of
 			{'EXIT',ASReason} ->
-			    file:set_cwd(Cwd),
+			    ok = file:set_cwd(Cwd),
 			    {error,{all_suites_index,ASReason}};
 			_ ->
-			    file:set_cwd(Cwd),
+			    ok = file:set_cwd(Cwd),
 			    io:format("Logs in ~ts refreshed!~n~n",
 				      [LogDir1]),
 			    timer:sleep(500), % time to flush io before quitting
@@ -756,8 +756,8 @@ script_start4(#opts{label = Label, profile = Profile,
 		  {ct_hooks, CTHooks},
 		  {enable_builtin_hooks,EnableBuiltinHooks}]) of
 	ok ->
-	    ct_util:start(interactive, LogDir,
-			  add_verbosity_defaults(Verbosity)),
+	    _ = ct_util:start(interactive, LogDir,
+			      add_verbosity_defaults(Verbosity)),
 	    ct_util:set_testdata({logopts, LogOpts}),
 	    log_ts_names(Specs),
 	    io:nl(),
@@ -901,9 +901,8 @@ install(Opts, LogDir) ->
 	    VarFile = variables_file_name(LogDir),
 	    case file:open(VarFile, [write]) of
 		{ok,Fd} ->
-		    [io:format(Fd, "~p.\n", [Opt]) || Opt <- ConfOpts ],
-		    file:close(Fd),
-		    ok;
+		    _ = [io:format(Fd, "~p.\n", [Opt]) || Opt <- ConfOpts],
+		    ok = file:close(Fd);
 		{error,Reason} ->
 		    io:format("CT failed to install configuration data. Please "
 			      "verify that the log directory exists and that "
@@ -960,7 +959,7 @@ run_test1(StartOpts) when is_list(StartOpts) ->
 		    false ->
 			case catch run_test2(StartOpts) of
 			    {'EXIT',Reason} ->
-				file:set_cwd(Cwd),
+				ok = file:set_cwd(Cwd),
 				{error,Reason};
 			    Result ->
 				Result
@@ -971,7 +970,7 @@ run_test1(StartOpts) when is_list(StartOpts) ->
 	    stop_trace(Tracing),
 	    exit(Res);
 	RefreshDir ->
-	    refresh_logs(?abs(RefreshDir)),
+	    ok = refresh_logs(?abs(RefreshDir)),
 	    exit(done)
     end.
 
@@ -1209,7 +1208,6 @@ run_all_specs([], _, _, TotResult) ->
     end;
 
 run_all_specs([{Specs,TS} | TSs], Opts, StartOpts, TotResult) ->
-    log_ts_names(Specs),
     Combined = #opts{config = TSConfig} = combine_test_opts(TS, Specs, Opts),
     AllConfig = merge_vals([Opts#opts.config, TSConfig]),
     try run_one_spec(TS, 
@@ -1430,7 +1428,7 @@ run_testspec1(TestSpec) ->
     io:format("~nCommon Test starting (cwd is ~ts)~n~n", [Cwd]),
     case catch run_testspec2(TestSpec) of
 	{'EXIT',Reason} ->
-	    file:set_cwd(Cwd),
+	    ok = file:set_cwd(Cwd),
 	    exit({error,Reason});
 	Result ->
 	    exit(Result)
@@ -1562,15 +1560,15 @@ refresh_logs(LogDir) ->
 	_ ->
 	    case catch ct_logs:make_all_suites_index(refresh) of
 		{'EXIT',ASReason} ->
-		    file:set_cwd(Cwd),
+		    ok = file:set_cwd(Cwd),
 		    {error,{all_suites_index,ASReason}};
 		_ ->
 		    case catch ct_logs:make_all_runs_index(refresh) of
 			{'EXIT',ARReason} ->
-			    file:set_cwd(Cwd),
+			    ok = file:set_cwd(Cwd),
 			    {error,{all_runs_index,ARReason}};
 			_ ->
-			    file:set_cwd(Cwd),
+			    ok = file:set_cwd(Cwd),
 			    io:format("Logs in ~ts refreshed!~n",[LogDir]),
 			    ok
 		    end
@@ -1610,22 +1608,34 @@ delistify(E)   -> E.
 %%% @hidden
 %%% @equiv ct:run/3
 run(TestDir, Suite, Cases) ->
-    install([]),
-    reformat_result(catch do_run(tests(TestDir, Suite, Cases), [])).
+    case install([]) of
+	ok ->
+	    reformat_result(catch do_run(tests(TestDir, Suite, Cases), []));
+	Error ->
+	    Error
+    end.
 
 %%%-----------------------------------------------------------------
 %%% @hidden
 %%% @equiv ct:run/2
 run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
-    install([]),
-    reformat_result(catch do_run(tests(TestDir, Suite), [])).
+    case install([]) of
+	ok ->
+	    reformat_result(catch do_run(tests(TestDir, Suite), []));
+	Error ->
+	    Error
+    end.
 
 %%%-----------------------------------------------------------------
 %%% @hidden
 %%% @equiv ct:run/1
 run(TestDirs) ->
-    install([]),
-    reformat_result(catch do_run(tests(TestDirs), [])).
+    case install([]) of
+	ok ->
+	    reformat_result(catch do_run(tests(TestDirs), []));
+	Error ->
+	    Error
+    end.
 
 reformat_result({'EXIT',{user_error,Reason}}) ->
     {error,Reason};
@@ -2017,7 +2027,7 @@ save_make_errors(Errors) ->
 		"Error compiling or locating the "
 		"following suites: ~n~p",[Suites]),
     %% save the info for logger
-    file:write_file(?missing_suites_info,term_to_binary(Errors)),
+    ok = file:write_file(?missing_suites_info,term_to_binary(Errors)),
     Errors.
 
 get_bad_suites([{{_TestDir,_Suite},Failed}|Errors], BadSuites) ->
@@ -2234,7 +2244,7 @@ do_run_test(Tests, Skip, Opts0) ->
 		end,
 	    application:set_env(test_server, esc_chars, EscChars),
 
-	    test_server_ctrl:start_link(local),
+	    {ok, _} = test_server_ctrl:start_link(local),
 
 	    %% let test_server expand the test tuples and count no of cases
 	    {Suites,NoOfCases} = count_test_cases(Tests, Skip),
@@ -2295,7 +2305,7 @@ do_run_test(Tests, Skip, Opts0) ->
 	    lists:foreach(fun(Suite) ->
 				  maybe_cleanup_interpret(Suite, Opts#opts.step)
 			  end, CleanUp),
-	    [code:del_path(Dir) || Dir <- AddedToPath],
+	    _ = [code:del_path(Dir) || Dir <- AddedToPath],
 
 	    %% If a severe error has occurred in the test_server,
 	    %% we will generate an exception here.
@@ -2422,7 +2432,7 @@ count_test_cases(Tests, Skip) ->
     SendResult = fun(Me, Result) -> Me ! {no_of_cases,Result} end,
     TSPid = test_server_ctrl:start_get_totals(SendResult),
     Ref = erlang:monitor(process, TSPid),
-    add_jobs(Tests, Skip, #opts{}, []),
+    _ = add_jobs(Tests, Skip, #opts{}, []),
     Counted = (catch count_test_cases1(length(Tests), 0, [], Ref)),
     erlang:demonitor(Ref, [flush]),
     case Counted of
@@ -2776,14 +2786,14 @@ maybe_interpret1(Suite, Cases, StepOpts) when is_list(Cases) ->
 
 maybe_interpret2(Suite, Cases, StepOpts) ->
     set_break_on_config(Suite, StepOpts),
-    [begin try i:ib(Suite, Case, 1) of
+    _ = [begin try i:ib(Suite, Case, 1) of
 	       _ -> ok
 	   catch
 	       _:_Error ->
 		   io:format(user, "Invalid breakpoint: ~w:~w/1~n",
 			     [Suite,Case])
 	   end
-     end || Case <- Cases, is_atom(Case)],
+ 	 end || Case <- Cases, is_atom(Case)],
     test_server_ctrl:multiply_timetraps(infinity),
     WinOp = case lists:member(keep_inactive, ensure_atom(StepOpts)) of
 		true -> no_kill;
@@ -2802,12 +2812,12 @@ set_break_on_config(Suite, StepOpts) ->
 					false -> ok
 				    end
 			    end,
-	    SetBPIfExists(init_per_suite, 1),
-	    SetBPIfExists(init_per_group, 2),
-	    SetBPIfExists(init_per_testcase, 2),
-	    SetBPIfExists(end_per_testcase, 2),
-	    SetBPIfExists(end_per_group, 2),
-	    SetBPIfExists(end_per_suite, 1);
+	    ok = SetBPIfExists(init_per_suite, 1),
+	    ok = SetBPIfExists(init_per_group, 2),
+	    ok = SetBPIfExists(init_per_testcase, 2),
+	    ok = SetBPIfExists(end_per_testcase, 2),
+	    ok = SetBPIfExists(end_per_group, 2),
+	    ok = SetBPIfExists(end_per_suite, 1);
 	false ->
 	    ok
     end.
@@ -2984,31 +2994,31 @@ add_verbosity_defaults(VLvls) ->
 %% relative dirs "post run_test erl_args" is not kept!
 rel_to_abs(CtArgs) ->
     {PA,PZ} = get_pa_pz(CtArgs, [], []),
-    [begin
+    _ = [begin
 	 Dir = rm_trailing_slash(D),
 	 Abs = make_abs(Dir),
-	 if Dir /= Abs ->
-		 code:del_path(Dir),
-		 code:del_path(Abs),		 
+	 _ = if Dir /= Abs ->
+		 _ = code:del_path(Dir),
+		 _ = code:del_path(Abs),		 
 		 io:format(user, "Converting ~p to ~p and re-inserting "
 			   "with add_pathz/1~n",
 			   [Dir, Abs]);
 	    true ->
-		 code:del_path(Dir)
+		 _ = code:del_path(Dir)
 	 end,
 	 code:add_pathz(Abs)	 
      end || D <- PZ],
-    [begin
+    _ = [begin
 	 Dir = rm_trailing_slash(D),
 	 Abs = make_abs(Dir),
-	 if Dir /= Abs ->
-		 code:del_path(Dir),
-		 code:del_path(Abs),		 
+	 _ = if Dir /= Abs ->
+		 _ = code:del_path(Dir),
+		 _ = code:del_path(Abs),		 
 		 io:format(user, "Converting ~p to ~p and re-inserting "
 			   "with add_patha/1~n",
 			   [Dir, Abs]);
 	    true ->
-		 code:del_path(Dir)
+		 _ = code:del_path(Dir)
 	 end,
 	 code:add_patha(Abs)
      end || D <- PA],

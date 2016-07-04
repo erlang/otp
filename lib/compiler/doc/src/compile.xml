@@ -40,6 +40,19 @@
 
   <funcs>
     <func>
+      <name>env_compiler_options()</name>
+      <fsummary>
+	Compiler options defined via the environment variable
+	<c>ERL_COMPILER_OPTIONS</c>
+      </fsummary>
+      <desc>
+	<p>Return compiler options given via the environment variable
+	  <c>ERL_COMPILER_OPTIONS</c>. If the value is a list, it is
+	  returned as is. If it is not a list, it is put into a list.
+	</p>
+      </desc>
+    </func>
+    <func>
       <name>file(File)</name>
       <fsummary>Compiles a file.</fsummary>
       <desc>
@@ -768,6 +781,9 @@ module.beam: module.erl \
       if you do not want the environment variable to be consulted,
       for example, if you are calling the compiler recursively from
       inside a parse transform.</p>
+
+      <p>The list can be retrieved with
+      <seealso marker="#env_compiler_options/0">env_compiler_options/0</seealso>.</p>
   </section>
 
   <section>

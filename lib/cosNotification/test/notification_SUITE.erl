@@ -44,7 +44,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------- DEFINES ------------------------------------
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 -define(match(ExpectedRes, Expr),
         fun() ->
 		AcTuAlReS = (catch (Expr)),
@@ -56,7 +56,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
  
@@ -164,18 +164,16 @@ cases() ->
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
-
 init_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
-
 
 end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -209,8 +207,6 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  Tests app file
 %%-----------------------------------------------------------------
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
     ok=test_server:app_test(cosNotification),
     ok.
@@ -219,9 +215,6 @@ app_test(_Config) ->
 %%-----------------------------------------------------------------
 %%  Persistent events max limit
 %%-----------------------------------------------------------------
-persistent_max_events_api(doc) -> ["CosNotification QoS EventReliability Persistent", 
-			       ""];
-persistent_max_events_api(suite) -> [];
 persistent_max_events_api(_Config) ->
     QoSPersistent = 
 	[#'CosNotification_Property'{name='CosNotification':'ConnectionReliability'(), 
@@ -309,10 +302,6 @@ terminated(Items) ->
 %%-----------------------------------------------------------------
 %%  Persistent events timeout
 %%-----------------------------------------------------------------
-persistent_timeout_events_api(doc) -> 
-    ["CosNotification QoS EventReliability Persistent", 
-     ""];
-persistent_timeout_events_api(suite) -> [];
 persistent_timeout_events_api(_Config) ->
     QoSPersistent = 
 	[#'CosNotification_Property'{name='CosNotification':'ConnectionReliability'(), 
@@ -394,10 +383,6 @@ persistent_timeout_events_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Persistent events max limit
 %%-----------------------------------------------------------------
-persistent_recover_events_api(doc) -> 
-    ["CosNotification QoS EventReliability Persistent", 
-     ""];
-persistent_recover_events_api(suite) -> [];
 persistent_recover_events_api(_Config) ->
     QoSPersistent = 
 	[#'CosNotification_Property'{name='CosNotification':'ConnectionReliability'(), 
@@ -484,8 +469,6 @@ persistent_recover_events_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosNotifyFilter::Filter API tests 
 %%-----------------------------------------------------------------
-mapping_filter_api(doc) -> ["CosNotifyFilter::MappingFilter API tests.", ""];
-mapping_filter_api(suite) -> [];
 mapping_filter_api(_Config) ->
     FiFac = 'CosNotifyFilter_FilterFactory':oe_create(),
     ?match({_,key,_,_,_,_}, FiFac),
@@ -514,7 +497,7 @@ mapping_filter_api(_Config) ->
 			   constraint_expr = "2==2 and 3<"},
 			  result_to_set = any:create(orber_tc:short(), 10)}])),
     %% Try adding two correct constraint_expr
-    ?line[{_,_,CID1,_},{_,_,CID2,_}]= 
+    [{_,_,CID1,_},{_,_,CID2,_}]= 
 	?match([{'CosNotifyFilter_MappingConstraintInfo',_,_,_}, {'CosNotifyFilter_MappingConstraintInfo',_,_,_}],
 	   'CosNotifyFilter_MappingFilter':add_mapping_constraints(Filter, 
 			[#'CosNotifyFilter_MappingConstraintPair'
@@ -685,8 +668,6 @@ mapping_filter_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  CosNotifyFilter::Filter API tests 
 %%-----------------------------------------------------------------
-filter_api(doc) -> ["CosNotifyFilter::Filter API tests.", ""];
-filter_api(suite) -> [];
 filter_api(_Config) ->
     Fac = cosNotificationApp:start_global_factory(?FAC_OPT),
     ?match({_,key,_,_,_,_}, Fac),
@@ -730,7 +711,7 @@ filter_api(_Config) ->
                                                              type_name = "type"}],
 			                                  constraint_expr = "2==2 and 3<"}])),
     %% Try adding two correct constraint_expr
-    ?line[{_,_,CID1},{_,_,CID2}]= 
+    [{_,_,CID1},{_,_,CID2}]= 
 	?match([{'CosNotifyFilter_ConstraintInfo',_,_}, {'CosNotifyFilter_ConstraintInfo',_,_}],
 	   'CosNotifyFilter_Filter':add_constraints(Filter, 
 			[#'CosNotifyFilter_ConstraintExp'{event_types = 
@@ -870,8 +851,6 @@ filter_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Subscription handling API tests 
 %%-----------------------------------------------------------------
-subscription_api(doc) -> ["CosNotification subscription handling", ""];
-subscription_api(suite) -> [];
 subscription_api(_Config) ->
     %% Initialize the application.
     Fac = (catch cosNotificationApp:start_global_factory(?FAC_OPT)),
@@ -1090,8 +1069,6 @@ subscription_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Filter admin API tests 
 %%-----------------------------------------------------------------
-filter_adm_api(doc) -> ["CosNotification filter admin tests", ""];
-filter_adm_api(suite) -> [];
 filter_adm_api(_Config) ->
     Fac = (catch cosNotificationApp:start_global_factory(?FAC_OPT)),
     ?match({_,key,_,_,_,_}, Fac),
@@ -1166,8 +1143,6 @@ filter_tests(Mod, Obj, Filter, Ch) ->
 %%-----------------------------------------------------------------
 %%  Creating different event pushing and pulling API tests 
 %%-----------------------------------------------------------------
-events_api(doc) -> ["CosNotification event pushing and pulling tests", ""];
-events_api(suite) -> [];
 events_api(_Config) ->
     %% Initialize the application.
     Fac = (catch cosNotificationApp:start_global_factory(?FAC_OPT)),
@@ -1550,7 +1525,7 @@ events_api_helper(Fac, Ch, _Id1) ->
     FiFac = 'CosNotifyFilter_FilterFactory':oe_create(),
     Filter = 'CosNotifyFilter_FilterFactory':create_filter(FiFac,"EXTENDED_TCL"),
     %% Add constraints to the Filter
-    ?line[{_,_,CID1},{_,_,CID2}]= 
+    [{_,_,CID1},{_,_,CID2}]= 
 	?match([{'CosNotifyFilter_ConstraintInfo',_,_}, {'CosNotifyFilter_ConstraintInfo',_,_}],
 	       'CosNotifyFilter_Filter':add_constraints(Filter, 
 			[#'CosNotifyFilter_ConstraintExp'{event_types = 
@@ -1728,8 +1703,6 @@ event_filtering(_FiFac, _Filter, _AdminConsumer, StructuredProxyPushConsumer, Pu
 %%-----------------------------------------------------------------
 %%  Creating different cosEvent API tests 
 %%-----------------------------------------------------------------
-cosevent_api(doc) -> ["CosNotification Objects tested with CosEvent API", ""];
-cosevent_api(suite) -> [];
 cosevent_api(_Config) ->
     Fac = (catch cosNotificationApp:start_global_factory(?FAC_OPT)),
     ?match({_,key,_,_,_,_}, Fac),
@@ -1844,8 +1817,6 @@ cosevent_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  AdminPropertiesAdmin API tests 
 %%-----------------------------------------------------------------
-adm_api(doc) -> ["CosNotification AdminPropertiesAdmin tests", ""];
-adm_api(suite) -> [];
 adm_api(_Config) ->
     Fac = (catch cosNotificationApp:start_global_factory(?FAC_OPT)),
     ?match({_,key,_,_,_,_}, Fac),
@@ -1892,8 +1863,6 @@ adm_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  QoSAdm API tests 
 %%-----------------------------------------------------------------
-qos_api(doc) -> ["CosNotification QoSAdmin tests", ""];
-qos_api(suite) -> [];
 qos_api(_Config) ->
     Fac = (catch cosNotificationApp:start_global_factory(?FAC_OPT)),
     ?match({_,key,_,_,_,_}, Fac),
@@ -2060,8 +2029,6 @@ qos_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  QoSAdm API tests 
 %%-----------------------------------------------------------------
-event_qos_api(doc) -> ["CosNotification QoSAdmin tests", ""];
-event_qos_api(suite) -> [];
 event_qos_api(_Config) ->
     Fac = (catch cosNotificationApp:start_global_factory(?FAC_OPT)),
     ?match({_,key,_,_,_,_}, Fac),

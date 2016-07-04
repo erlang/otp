@@ -42,7 +42,7 @@ all() ->
      create_server_hello_with_no_advertised_protocols_test].
 
 init_per_testcase(_TestCase, Config) ->
-    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()]),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
     Config.
 
@@ -53,35 +53,35 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
-encode_and_decode_client_hello_test(_Config) ->
+encode_and_decode_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(undefined),
-    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
+    Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>),
+	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>, #ssl_options{}),
     NextProtocolNegotiation = (DecodedHandshakeMessage#client_hello.extensions)#hello_extensions.next_protocol_negotiation,
     NextProtocolNegotiation = undefined.
 %%--------------------------------------------------------------------
-encode_and_decode_npn_client_hello_test(_Config) ->
+encode_and_decode_npn_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(#next_protocol_negotiation{extension_data = <<>>}),
-    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
+    Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>),
+	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,  #ssl_options{}),
     NextProtocolNegotiation = (DecodedHandshakeMessage#client_hello.extensions)#hello_extensions.next_protocol_negotiation,
     NextProtocolNegotiation = #next_protocol_negotiation{extension_data = <<>>}.
 %%--------------------------------------------------------------------
-encode_and_decode_server_hello_test(_Config) ->
+encode_and_decode_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(undefined),
-    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
+    Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>),
+	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>, #ssl_options{}),
     NextProtocolNegotiation = (DecodedHandshakeMessage#server_hello.extensions)#hello_extensions.next_protocol_negotiation,
     NextProtocolNegotiation = undefined.
 %%--------------------------------------------------------------------
-encode_and_decode_npn_server_hello_test(_Config) ->
+encode_and_decode_npn_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(#next_protocol_negotiation{extension_data = <<6, "spdy/2">>}),
-    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
+    Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>),
+	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,  #ssl_options{}),
     NextProtocolNegotiation = (DecodedHandshakeMessage#server_hello.extensions)#hello_extensions.next_protocol_negotiation,
     ct:log("~p ~n", [NextProtocolNegotiation]),
     NextProtocolNegotiation = #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}.

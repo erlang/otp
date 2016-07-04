@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ new() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAuiSimpleTabArt()) -> ok.
+-spec destroy(This::wxAuiSimpleTabArt()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiSimpleTabArt),
   wxe_util:destroy(?wxAuiSimpleTabArt_destroy,Obj),

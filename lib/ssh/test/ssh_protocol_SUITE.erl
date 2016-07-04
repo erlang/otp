@@ -26,6 +26,7 @@
 -include_lib("ssh/src/ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
 -include_lib("ssh/src/ssh_transport.hrl").
 -include_lib("ssh/src/ssh_auth.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -87,7 +88,7 @@ groups() ->
 
 
 init_per_suite(Config) ->
-    start_std_daemon( setup_dirs( start_apps(Config))).
+    ?CHECK_CRYPTO(start_std_daemon( setup_dirs( start_apps(Config)))).
     
 end_per_suite(Config) ->
     stop_apps(Config).
@@ -107,11 +108,11 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 	       gex_client_init_option_groups ->
 		   [{dh_gex_groups, [{2345, 3, 41}]}];
 	       gex_client_init_option_groups_file ->
-		   DataDir = ?config(data_dir, Config),
+		   DataDir = proplists:get_value(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test"),
 		   [{dh_gex_groups, {file,F}}];
 	       gex_client_init_option_groups_moduli_file ->
-		   DataDir = ?config(data_dir, Config),
+		   DataDir = proplists:get_value(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test.moduli"),
 		   [{dh_gex_groups, {ssh_moduli_file,F}}];
 	       _ when TC == gex_server_gex_limit ;
@@ -589,21 +590,21 @@ stop_apps(_Config) ->
 
 
 setup_dirs(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config.
 
-system_dir(Config) -> filename:join(?config(priv_dir, Config), system).
+system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).
 
-user_dir(Config) -> ?config(priv_dir, Config).
+user_dir(Config) -> proplists:get_value(priv_dir, Config).
 
 %%%----------------------------------------------------------------
 start_std_daemon(Config) ->	
     start_std_daemon(Config, []).
 
 start_std_daemon(Config, ExtraOpts) ->
-    PrivDir = ?config(priv_dir, Config), 
+    PrivDir = proplists:get_value(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     UserPasswords = [{"user1","pwd1"}],

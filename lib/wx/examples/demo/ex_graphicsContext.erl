@@ -135,6 +135,8 @@ draw(Win, Pen, Brush, Font) ->
 		    wxGraphicsContext:drawPath(Canvas, Path)
 	    end,
 	wx:foreach(F, lists:seq(1,10)),
+	wxGraphicsObject:destroy(Path),
+	wxGraphicsObject:destroy(Canvas),
 	ok
     catch _:{not_supported, _} ->
 	    Err = "wxGraphicsContext not available in this build of wxwidgets",

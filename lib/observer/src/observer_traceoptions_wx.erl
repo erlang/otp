@@ -22,8 +22,8 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
--export([process_trace/2, trace_pattern/4, select_nodes/2,
-	 output/2, select_matchspec/3]).
+-export([process_trace/2, port_trace/2, trace_pattern/4, select_nodes/2,
+	 output/2, select_matchspec/4]).
 
 process_trace(Parent, Default) ->
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Process Options",
@@ -36,12 +36,20 @@ process_trace(Parent, Default) ->
 
     FuncBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace function call", []),
     check_box(FuncBox, lists:member(functions, Default)),
+    ArityBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace arity instead of arguments", []),
+    check_box(ArityBox, lists:member(functions, Default)),
     SendBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace send message", []),
     check_box(SendBox, lists:member(send, Default)),
     RecBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace receive message", []),
     check_box(RecBox, lists:member('receive', Default)),
     EventBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace process events", []),
     check_box(EventBox, lists:member(events, Default)),
+    SchedBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace scheduling of processes", []),
+    check_box(SchedBox, lists:member(running_procs, Default)),
+    ExitBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace scheduling of exiting processes", []),
+    check_box(ExitBox, lists:member(exiting, Default)),
+    GCBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace garbage collections", []),
+    check_box(GCBox, lists:member(garbage_collection, Default)),
 
     {SpawnBox, SpwnAllRadio, SpwnFirstRadio} =
 	optionpage_top_right(Panel, RightSz, [{flag, ?wxBOTTOM},{border, 5}], "spawn"),
@@ -57,7 +65,7 @@ process_trace(Parent, Default) ->
 	{Radio, Opt} <- [{SpwnAllRadio, on_spawn}, {SpwnFirstRadio, on_first_spawn},
 			 {LinkAllRadio, on_link},  {LinkFirstRadio, on_first_link}]],
 
-    [wxSizer:add(LeftSz, CheckBox, []) || CheckBox <- [FuncBox,SendBox,RecBox,EventBox]],
+    [wxSizer:add(LeftSz, CheckBox, []) || CheckBox <- [FuncBox,ArityBox,SendBox,RecBox,EventBox,SchedBox,ExitBox,GCBox]],
     wxSizer:add(LeftSz, 150, -1),
 
     wxSizer:add(PanelSz, LeftSz, [{flag, ?wxEXPAND}, {proportion,1}]),
@@ -80,7 +88,9 @@ process_trace(Parent, Default) ->
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    All = [{SendBox, send}, {RecBox, 'receive'},
-		   {FuncBox, functions}, {EventBox, events},
+		   {FuncBox, functions}, {ArityBox, arity},
+		   {EventBox, events}, {SchedBox, running_procs},
+		   {ExitBox, exiting}, {GCBox, garbage_collection},
 		   {{SpawnBox, SpwnAllRadio}, on_spawn},
 		   {{SpawnBox,SpwnFirstRadio}, on_first_spawn},
 		   {{LinkBox, LinkAllRadio}, on_link},
@@ -98,12 +108,57 @@ process_trace(Parent, Default) ->
 	    throw(cancel)
     end.
 
+port_trace(Parent, Default) ->
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Port Options",
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER}]),
+    Panel = wxPanel:new(Dialog),
+    MainSz = wxBoxSizer:new(?wxVERTICAL),
+    OptsSz = wxStaticBoxSizer:new(?wxVERTICAL, Panel,  [{label, "Tracing options"}]),
+
+    SendBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace send message", []),
+    check_box(SendBox, lists:member(send, Default)),
+    RecBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace receive message", []),
+    check_box(RecBox, lists:member('receive', Default)),
+    EventBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace port events", []),
+    check_box(EventBox, lists:member(events, Default)),
+    SchedBox = wxCheckBox:new(Panel, ?wxID_ANY, "Trace scheduling of ports", []),
+    check_box(SchedBox, lists:member(running_ports, Default)),
+
+    [wxSizer:add(OptsSz, CheckBox, []) || CheckBox <- [SendBox,RecBox,EventBox,SchedBox]],
+    wxSizer:add(OptsSz, 150, -1),
+
+    wxPanel:setSizer(Panel, OptsSz),
+    wxSizer:add(MainSz, Panel, [{flag, ?wxEXPAND}, {proportion,1}]),
+    Buttons = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+    wxSizer:add(MainSz, Buttons, [{flag, ?wxEXPAND bor ?wxALL}, {border, 5}]),
+    wxWindow:setSizerAndFit(Dialog, MainSz),
+    wxSizer:setSizeHints(MainSz, Dialog),
+
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    All = [{SendBox, send}, {RecBox, 'receive'},
+		   {EventBox, events}, {SchedBox, running_ports}],
+	    Opts = [Id || {Tick, Id} <- All, wxCheckBox:getValue(Tick)],
+	    wxDialog:destroy(Dialog),
+	    lists:reverse(Opts);
+	?wxID_CANCEL ->
+	    wxDialog:destroy(Dialog),
+	    throw(cancel)
+    end.
+
 trace_pattern(ParentPid, Parent, Node, MatchSpecs) ->
     try
-	Module = module_selector(Parent, Node),
-	MFAs  = function_selector(Parent, Node, Module),
-	MatchSpec = select_matchspec(ParentPid, Parent, MatchSpecs),
-	{Module, [#tpattern{m=M,fa={F,A},ms=MatchSpec} || {M,F,A} <- MFAs]}
+	{Module,MFAs,MatchSpec} =
+	    case module_selector(Parent, Node) of
+		{'$trace_event',Event} ->
+		    MS = select_matchspec(ParentPid, Parent, MatchSpecs, Event),
+		    {'Events',[{'Events',Event}],MS};
+		Mod ->
+		    MFAs0 = function_selector(Parent, Node, Mod),
+		    MS = select_matchspec(ParentPid, Parent, MatchSpecs, funcs),
+		    {Mod,MFAs0,MS}
+	    end,
+	{Module, [#tpattern{m=M,fa=FA,ms=MatchSpec} || {M,FA} <- MFAs]}
     catch cancel -> cancel
     end.
 
@@ -112,7 +167,7 @@ select_nodes(Parent, Nodes) ->
     check_selector(Parent, Choices).
 
 module_selector(Parent, Node) ->
-    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Select Module",
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, "Select Module or Event",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
 			   {size, {400, 400}}]),
     Panel = wxPanel:new(Dialog),
@@ -136,7 +191,9 @@ module_selector(Parent, Node) ->
     wxWindow:setFocus(TxtCtrl),
     %% init data
     Modules = get_modules(Node),
-    AllModules = [{atom_to_list(X), X} || X <- Modules],
+    Events = [{"Messages sent",{'$trace_event',send}},
+	      {"Messages received",{'$trace_event','receive'}}],
+    AllModules = Events ++ [{atom_to_list(X), X} || X <- Modules],
     filter_listbox_data("", AllModules, ListBox),
     wxTextCtrl:connect(TxtCtrl, command_text_updated,
 		       [{callback, fun(#wx{event=#wxCommand{cmdString=Input}}, _) ->
@@ -174,9 +231,9 @@ function_selector(Parent, Node, Module) ->
 					    not(erl_internal:guard_bif(Name, Arity))]),
     ParsedChoices = parse_function_names(Choices),
     case check_selector(Parent, ParsedChoices) of
-	[] -> [{Module, '_', '_'}];
+	[] -> [{Module, {'_', '_'}}];
 	FAs ->
-	    [{Module, F, A} || {F,A} <- FAs]
+	    [{Module, {F, A}} || {F,A} <- FAs]
     end.
 
 check_selector(Parent, ParsedChoices) ->
@@ -268,7 +325,12 @@ get_checked(ListBox, Acc) ->
 	    lists:reverse(Acc)
     end.
 
-select_matchspec(Pid, Parent, MatchSpecs) ->
+select_matchspec(Pid, Parent, AllMatchSpecs, Key) ->
+    {MatchSpecs,RestMS} =
+	case lists:keytake(Key,1,AllMatchSpecs) of
+	    {value,{Key,MSs0},Rest} -> {MSs0,Rest};
+	    false -> {[],AllMatchSpecs}
+	end,
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Trace Match Specifications",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
 			   {size, {400, 400}}]),
@@ -313,8 +375,12 @@ select_matchspec(Pid, Parent, MatchSpecs) ->
     filter_listbox_data("", Choices, ListBox),
 
     Add = fun(_,_) ->
-		  case edit_ms(TextCtrl, new, Parent) of
-		      Ms = #match_spec{} -> add_and_select(-1, Ms, ListBox);
+		  case edit_ms(TextCtrl, new, Dialog) of
+		      Ms = #match_spec{} ->
+			  add_and_select(-1, Ms, ListBox),
+			  wxWindow:enable(OkButt),
+			  wxWindow:enable(EditMsBtn),
+			  wxWindow:enable(DelMsBtn);
 		      Else -> Else
 		  end
 	  end,
@@ -323,8 +389,12 @@ select_matchspec(Pid, Parent, MatchSpecs) ->
 		   case SelId >= 0 of
 		       true ->
 			   #match_spec{name=Name} = wxListBox:getClientData(ListBox,SelId),
-			   case edit_ms(TextCtrl, Name, Parent) of
-			       Ms = #match_spec{} -> add_and_select(SelId, Ms, ListBox);
+			   case edit_ms(TextCtrl, Name, Dialog) of
+			       Ms = #match_spec{} ->
+				   add_and_select(SelId, Ms, ListBox),
+				   wxWindow:enable(OkButt),
+				   wxWindow:enable(EditMsBtn),
+				   wxWindow:enable(DelMsBtn);
 			       Else -> Else
 			   end;
 		       false ->
@@ -367,7 +437,7 @@ select_matchspec(Pid, Parent, MatchSpecs) ->
 	    Count = wxListBox:getCount(ListBox),
 	    MSs = [wxListBox:getClientData(ListBox, Id) ||
 		      Id <- lists:seq(0, Count-1)],
-	    Pid ! {update_ms, MSs},
+	    Pid ! {update_ms, [{Key,MSs}|RestMS]},
 	    MS = lists:nth(SelId+1, MSs),
 	    wxDialog:destroy(Dialog),
 	    MS;

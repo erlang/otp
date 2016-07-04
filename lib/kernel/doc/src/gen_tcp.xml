@@ -79,8 +79,7 @@ do_recv(Sock, Bs) ->
     </datatype>
     <datatype>
       <name>socket()</name>
-      <desc><p><marker id="type-socket"/>
-	As returned by
+      <desc><p>As returned by
         <seealso marker="#accept/1"><c>accept/1,2</c></seealso> and
         <seealso marker="#connect/3"><c>connect/3,4</c></seealso>.</p>
         <marker id="connect"></marker>
@@ -154,17 +153,17 @@ do_recv(Sock, Bs) ->
           <c><anno>Address</anno></c> can be a hostname or an IP address.</p>
         <p>The following options are available:</p>
         <taglist>
-          <tag><c>{ip, ip_address()}</c></tag>
+          <tag><c>{ip, Address}</c></tag>
           <item><p>If the host has many network interfaces, this option
             specifies which one to use.</p></item>
-          <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item><p>Same as <c>{ip, ip_address()}</c>. If the host has many
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
             network interfaces, this option specifies which one to use.</p>
           </item>
           <tag><c>{fd, integer() >= 0}</c></tag>
           <item><p>If a socket has somehow been connected without using
             <c>gen_tcp</c>, use this option to pass the file descriptor
-            for it. If <c>{ip, ip_address()}</c> and/or
+            for it. If <c>{ip, Address}</c> and/or
             <c>{port, port_number()}</c> is combined with this option,  the
             <c>fd</c> is bound to the specified interface and port before
             connecting. If these options are not specified, it is assumed that
@@ -173,6 +172,15 @@ do_recv(Sock, Bs) ->
           <item><p>Sets up the socket for IPv4.</p></item>
           <tag><c>inet6</c></tag>
           <item><p>Sets up the socket for IPv6.</p></item>
+	  <tag><c>local</c></tag>
+	  <item>
+            <p>
+	      Sets up a Unix Domain Socket. See
+	      <seealso marker="inet#type-local_address">
+		<c>inet:local_address()</c>
+	      </seealso>
+	    </p>
+          </item>
           <tag><c>{port, Port}</c></tag>
           <item><p>Specifies which local port number to use.</p></item>
           <tag><c>{tcp_module, module()}</c></tag>
@@ -224,6 +232,14 @@ do_recv(Sock, Bs) ->
           that receives messages from the socket. If called by any other
           process than the current controlling process,
           <c>{error, not_owner}</c> is returned.</p>
+          <p>If the socket is set in active mode, this function
+          will transfer any messages in the mailbox of the caller
+          to the new controlling process.
+          If any other process is interacting with the socket while
+          the transfer is happening, the transfer may not work correctly
+          and messages may remain in the caller's mailbox. For instance
+          changing the sockets active mode before the transfere is complete
+          may cause this.</p>
       </desc>
     </func>
 
@@ -247,7 +263,7 @@ do_recv(Sock, Bs) ->
           <item><p><c>B</c> is an integer &gt;= <c>0</c>. The backlog value
             defines the maximum length that the queue of pending connections
             can grow to. Defaults to <c>5</c>.</p></item>
-          <tag><c>{ip, ip_address()}</c></tag>
+          <tag><c>{ip, Address}</c></tag>
           <item><p>If the host has many network interfaces, this option
             specifies which one to listen on.</p></item>
           <tag><c>{port, Port}</c></tag>
@@ -256,8 +272,8 @@ do_recv(Sock, Bs) ->
           <item><p>If a socket has somehow been connected without using
             <c>gen_tcp</c>, use this option to pass the file
             descriptor for it.</p></item>
-          <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item><p>Same as <c>{ip, ip_address()}</c>. If the host has many
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
             network interfaces, this option specifies which one to use.</p>
           </item>
           <tag><c>inet6</c></tag>

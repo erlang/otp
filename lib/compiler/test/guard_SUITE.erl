@@ -34,7 +34,7 @@
 	 tricky/1,rel_ops/1,rel_op_combinations/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
-	 bad_constants/1,bad_guards/1,scotland/1,
+	 bad_constants/1,bad_guards/1,
 	 guard_in_catch/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -54,7 +54,7 @@ groups() ->
        rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
-       bad_constants,bad_guards,scotland,guard_in_catch]}].
+       bad_constants,bad_guards,guard_in_catch]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1835,6 +1835,8 @@ bad_guards(Config) when is_list(Config) ->
     fc(catch bad_guards_3(not_a_map, [x])),
     fc(catch bad_guards_3(42, [x])),
 
+    fc(catch bad_guards_4()),
+
     ok.
 
 %% beam_bool used to produce GC BIF instructions whose
@@ -1852,26 +1854,11 @@ bad_guards_2(M, [_]) when M#{a := 0, b => 0}, map_size(M) ->
 bad_guards_3(M, [_]) when is_map(M) andalso M#{a := 0, b => 0}, length(M) ->
     ok.
 
-%% beam_bool would remove the initialization of {y,0}.
-%% (Thanks to Thomas Arts and QuickCheck.)
+%% v3_codegen would generate a jump to the failure label, but
+%% without initializing x(0). The code at the failure label expected
+%% x(0) to be initialized.
 
-scotland(_Config) ->
-    million = do_scotland(placed),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(false)),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(true)),
-    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(echo)),
-    ok.
-
-do_scotland(Echo) ->
-  found(case Echo of
-	    Echo when true; Echo, Echo, Echo ->
-		Echo;
-	    echo ->
-		[]
-	end,
-	Echo = placed).
-
-found(_, _) -> million.
+bad_guards_4() when not (error#{}); {not 0.0} -> freedom.
 
 %% Building maps in a guard in a 'catch' would crash v3_codegen.
 

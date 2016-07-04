@@ -29,87 +29,75 @@
     <rev></rev>
   </header>
   <module>gb_sets</module>
-  <modulesummary>General Balanced Trees</modulesummary>
+  <modulesummary>General balanced trees.</modulesummary>
   <description>
-    <p>An implementation of ordered sets using Prof. Arne Andersson's
-      General Balanced Trees. This can be much more efficient than
+    <p>This module provides ordered sets using Prof. Arne Andersson's
+      General Balanced Trees. Ordered sets can be much more efficient than
       using ordered lists, for larger sets, but depends on the
       application.</p>
+
     <p>This module considers two elements as different if and only if
       they do not compare equal (<c>==</c>).</p>
   </description>
 
   <section>
-    <title>Complexity note</title>
-    <p>The complexity on set operations is bounded by either O(|S|) or
-      O(|T| * log(|S|)), where S is the largest given set, depending
+    <title>Complexity Note</title>
+    <p>The complexity on set operations is bounded by either <em>O(|S|)</em> or
+      <em>O(|T| * log(|S|))</em>, where S is the largest given set, depending
       on which is fastest for any particular function call. For
       operating on sets of almost equal size, this implementation is
       about 3 times slower than using ordered-list sets directly. For
       sets of very different sizes, however, this solution can be
-      arbitrarily much faster; in practical cases, often between 10
-      and 100 times. This implementation is particularly suited for
+      arbitrarily much faster; in practical cases, often
+      10-100 times. This implementation is particularly suited for
       accumulating elements a few at a time, building up a large set
-      (more than 100-200 elements), and repeatedly testing for
+      (&gt; 100-200 elements), and repeatedly testing for
       membership in the current set.</p>
+
     <p>As with normal tree structures, lookup (membership testing),
-      insertion and deletion have logarithmic complexity.</p>
+      insertion, and deletion have logarithmic complexity.</p>
   </section>
 
   <section>
     <title>Compatibility</title>
-    <p>All of the following functions in this module also exist
-      and do the same thing in the <c>sets</c> and <c>ordsets</c>
+    <p>The following functions in this module also exist and provides
+      the same functionality in the
+      <seealso marker="sets"><c>sets(3)</c></seealso> and
+      <seealso marker="ordsets"><c>ordsets(3)</c></seealso>
       modules. That is, by only changing the module name for each call,
       you can try out different set representations.</p>
     <list type="bulleted">
-      <item>
-        <p><c>add_element/2</c></p>
+      <item><seealso marker="#add_element/2"><c>add_element/2</c></seealso>
       </item>
-      <item>
-        <p><c>del_element/2</c></p>
+      <item><seealso marker="#del_element/2"><c>del_element/2</c></seealso>
       </item>
-      <item>
-        <p><c>filter/2</c></p>
+      <item><seealso marker="#filter/2"><c>filter/2</c></seealso>
       </item>
-      <item>
-        <p><c>fold/3</c></p>
+      <item><seealso marker="#fold/3"><c>fold/3</c></seealso>
       </item>
-      <item>
-        <p><c>from_list/1</c></p>
+      <item><seealso marker="#from_list/1"><c>from_list/1</c></seealso>
       </item>
-      <item>
-        <p><c>intersection/1</c></p>
+      <item><seealso marker="#intersection/1"><c>intersection/1</c></seealso>
       </item>
-      <item>
-        <p><c>intersection/2</c></p>
+      <item><seealso marker="#intersection/2"><c>intersection/2</c></seealso>
       </item>
-      <item>
-        <p><c>is_element/2</c></p>
+      <item><seealso marker="#is_element/2"><c>is_element/2</c></seealso>
       </item>
-      <item>
-        <p><c>is_set/1</c></p>
+      <item><seealso marker="#is_set/1"><c>is_set/1</c></seealso>
       </item>
-      <item>
-        <p><c>is_subset/2</c></p>
+      <item><seealso marker="#is_subset/2"><c>is_subset/2</c></seealso>
       </item>
-      <item>
-        <p><c>new/0</c></p>
+      <item><seealso marker="#new/0"><c>new/0</c></seealso>
       </item>
-      <item>
-        <p><c>size/1</c></p>
+      <item><seealso marker="#size/1"><c>size/1</c></seealso>
       </item>
-      <item>
-        <p><c>subtract/2</c></p>
+      <item><seealso marker="#subtract/2"><c>subtract/2</c></seealso>
       </item>
-      <item>
-        <p><c>to_list/1</c></p>
+      <item><seealso marker="#to_list/1"><c>to_list/1</c></seealso>
       </item>
-      <item>
-        <p><c>union/1</c></p>
+      <item><seealso marker="#union/1"><c>union/1</c></seealso>
       </item>
-      <item>
-        <p><c>union/2</c></p>
+      <item><seealso marker="#union/2"><c>union/2</c></seealso>
       </item>
     </list>
   </section>
@@ -117,290 +105,369 @@
   <datatypes>
     <datatype>
       <name name="set" n_vars="1"/>
-      <desc><p>A GB set.</p></desc>
+      <desc><p>A general balanced set.</p></desc>
     </datatype>
     <datatype>
       <name name="set" n_vars="0"/>
     </datatype>
     <datatype>
       <name name="iter" n_vars="1"/>
-      <desc><p>A GB set iterator.</p></desc>
+      <desc><p>A general balanced set iterator.</p></desc>
     </datatype>
     <datatype>
       <name name="iter" n_vars="0"/>
     </datatype>
   </datatypes>
+
   <funcs>
     <func>
       <name name="add" arity="2"/>
       <name name="add_element" arity="2"/>
-      <fsummary>Add a (possibly existing) element to a set</fsummary>
+      <fsummary>Add a (possibly existing) element to a set.</fsummary>
       <desc>
         <p>Returns a new set formed from <c><anno>Set1</anno></c> with
-          <c><anno>Element</anno></c> inserted. If <c><anno>Element</anno></c> is already an
+          <c><anno>Element</anno></c> inserted. If <c><anno>Element</anno></c>
+          is already an
           element in <c><anno>Set1</anno></c>, nothing is changed.</p>
       </desc>
     </func>
+
     <func>
       <name name="balance" arity="1"/>
-      <fsummary>Rebalance tree representation of a set</fsummary>
+      <fsummary>Rebalance tree representation of a set.</fsummary>
       <desc>
-        <p>Rebalances the tree representation of <c><anno>Set1</anno></c>. Note that
-          this is rarely necessary, but may be motivated when a large
+        <p>Rebalances the tree representation of <c><anno>Set1</anno></c>.
+          Notice that
+          this is rarely necessary, but can be motivated when a large
           number of elements have been deleted from the tree without
-          further insertions. Rebalancing could then be forced in order
-          to minimise lookup times, since deletion only does not
+          further insertions. Rebalancing can then be forced
+          to minimise lookup times, as deletion does not
           rebalance the tree.</p>
       </desc>
     </func>
+
     <func>
-      <name name="delete" arity="2"/>
-      <fsummary>Remove an element from a set</fsummary>
-      <desc>
-        <p>Returns a new set formed from <c><anno>Set1</anno></c> with
-          <c><anno>Element</anno></c> removed. Assumes that <c><anno>Element</anno></c> is present
-          in <c><anno>Set1</anno></c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="delete_any" arity="2"/>
       <name name="del_element" arity="2"/>
-      <fsummary>Remove a (possibly non-existing) element from a set</fsummary>
+      <fsummary>Remove a (possibly non-existing) element from a set.</fsummary>
       <desc>
         <p>Returns a new set formed from <c><anno>Set1</anno></c> with
-          <c><anno>Element</anno></c> removed. If <c><anno>Element</anno></c> is not an element
+          <c><anno>Element</anno></c> removed. If <c><anno>Element</anno></c>
+          is not an element
           in <c><anno>Set1</anno></c>, nothing is changed.</p>
       </desc>
     </func>
+
     <func>
-      <name name="difference" arity="2"/>
-      <name name="subtract" arity="2"/>
-      <fsummary>Return the difference of two sets</fsummary>
+      <name name="delete" arity="2"/>
+      <fsummary>Remove an element from a set.</fsummary>
       <desc>
-        <p>Returns only the elements of <c><anno>Set1</anno></c> which are not also
-          elements of <c><anno>Set2</anno></c>.</p>
+        <p>Returns a new set formed from <c><anno>Set1</anno></c> with
+          <c><anno>Element</anno></c> removed. Assumes that
+          <c><anno>Element</anno></c> is present
+          in <c><anno>Set1</anno></c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="delete_any" arity="2"/>
+      <fsummary>Remove a (possibly non-existing) element from a set.</fsummary>
+      <desc>
+        <p>Returns a new set formed from <c><anno>Set1</anno></c> with
+          <c><anno>Element</anno></c> removed. If <c><anno>Element</anno></c>
+          is not an element
+          in <c><anno>Set1</anno></c>, nothing is changed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="difference" arity="2"/>
+      <fsummary>Return the difference of two sets.</fsummary>
+      <desc>
+        <p>Returns only the elements of <c><anno>Set1</anno></c> that are not
+          also elements of <c><anno>Set2</anno></c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="empty" arity="0"/>
-      <name name="new" arity="0"/>
-      <fsummary>Return an empty set</fsummary>
+      <fsummary>Return an empty set.</fsummary>
       <desc>
         <p>Returns a new empty set.</p>
       </desc>
     </func>
+
     <func>
       <name name="filter" arity="2"/>
-      <fsummary>Filter set elements</fsummary>
+      <fsummary>Filter set elements.</fsummary>
       <desc>
         <p>Filters elements in <c><anno>Set1</anno></c> using predicate function
           <c><anno>Pred</anno></c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="fold" arity="3"/>
-      <fsummary>Fold over set elements</fsummary>
+      <fsummary>Fold over set elements.</fsummary>
       <desc>
-        <p>Folds <c><anno>Function</anno></c> over every element in <c><anno>Set</anno></c>
+        <p>Folds <c><anno>Function</anno></c> over every element in
+          <c><anno>Set</anno></c>
           returning the final value of the accumulator.</p>
       </desc>
     </func>
+
     <func>
       <name name="from_list" arity="1"/>
-      <fsummary>Convert a list into a set</fsummary>
+      <fsummary>Convert a list into a set.</fsummary>
       <desc>
         <p>Returns a set of the elements in <c><anno>List</anno></c>, where
-          <c><anno>List</anno></c> may be unordered and contain duplicates.</p>
+          <c><anno>List</anno></c> can be unordered and contain duplicates.</p>
       </desc>
     </func>
+
     <func>
       <name name="from_ordset" arity="1"/>
-      <fsummary>Make a set from an ordset list</fsummary>
+      <fsummary>Make a set from an ordset list.</fsummary>
       <desc>
-        <p>Turns an ordered-set list <c><anno>List</anno></c> into a set. The list
-          must not contain duplicates.</p>
+        <p>Turns an ordered-set list <c><anno>List</anno></c> into a set.
+          The list must not contain duplicates.</p>
       </desc>
     </func>
+
     <func>
       <name name="insert" arity="2"/>
-      <fsummary>Add a new element to a set</fsummary>
+      <fsummary>Add a new element to a set.</fsummary>
       <desc>
         <p>Returns a new set formed from <c><anno>Set1</anno></c> with
-          <c><anno>Element</anno></c> inserted. Assumes that <c><anno>Element</anno></c> is not
+          <c><anno>Element</anno></c> inserted. Assumes that
+          <c><anno>Element</anno></c> is not
           present in <c><anno>Set1</anno></c>.</p>
       </desc>
     </func>
-    <func>
-      <name name="intersection" arity="2"/>
-      <fsummary>Return the intersection of two sets</fsummary>
-      <desc>
-        <p>Returns the intersection of <c><anno>Set1</anno></c> and <c><anno>Set2</anno></c>.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="intersection" arity="1"/>
-      <fsummary>Return the intersection of a list of sets</fsummary>
+      <fsummary>Return the intersection of a list of sets.</fsummary>
       <desc>
         <p>Returns the intersection of the non-empty list of sets.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="intersection" arity="2"/>
+      <fsummary>Return the intersection of two sets.</fsummary>
+      <desc>
+        <p>Returns the intersection of <c><anno>Set1</anno></c> and
+          <c><anno>Set2</anno></c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="is_disjoint" arity="2"/>
-      <fsummary>Check whether two sets are disjoint</fsummary>
+      <fsummary>Check whether two sets are disjoint.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Set1</anno></c> and
           <c><anno>Set2</anno></c> are disjoint (have no elements in common),
-	  and <c>false</c> otherwise.</p>
+	  otherwise <c>false</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="is_empty" arity="1"/>
-      <fsummary>Test for empty set</fsummary>
-      <desc>
-        <p>Returns <c>true</c> if <c><anno>Set</anno></c> is an empty set, and
-          <c>false</c> otherwise.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="is_member" arity="2"/>
       <name name="is_element" arity="2"/>
-      <fsummary>Test for membership of a set</fsummary>
+      <fsummary>Test for membership of a set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
           <c><anno>Set</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Test for empty set.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Set</anno></c> is an empty set,
+          otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_member" arity="2"/>
+      <fsummary>Test for membership of a set.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
+          <c><anno>Set</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="is_set" arity="1"/>
-      <fsummary>Test for a set</fsummary>
+      <fsummary>Test for a set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> appears to be a set,
           otherwise <c>false</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="is_subset" arity="2"/>
-      <fsummary>Test for subset</fsummary>
+      <fsummary>Test for subset.</fsummary>
       <desc>
         <p>Returns <c>true</c> when every element of <c><anno>Set1</anno></c> is
           also a member of <c><anno>Set2</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="iterator" arity="1"/>
-      <fsummary>Return an iterator for a set</fsummary>
+      <fsummary>Return an iterator for a set.</fsummary>
       <desc>
-        <p>Returns an iterator that can be used for traversing the
-          entries of <c><anno>Set</anno></c>; see <c>next/1</c>. The implementation
+        <p>Returns an iterator that can be used for traversing the entries of
+          <c><anno>Set</anno></c>; see
+          <seealso marker="#next/1"><c>next/1</c></seealso>. The implementation
           of this is very efficient; traversing the whole set using
-          <c>next/1</c> is only slightly slower than getting the list
-          of all elements using <c>to_list/1</c> and traversing that.
+          <c>next/1</c> is only slightly slower than getting the list of all
+          elements using <seealso marker="#to_list/1"><c>to_list/1</c></seealso>
+          and traversing that.
           The main advantage of the iterator approach is that it does
           not require the complete list of all elements to be built in
           memory at one time.</p>
       </desc>
     </func>
+
     <func>
       <name name="iterator_from" arity="2"/>
-      <fsummary>Return an iterator for a set starting from a specified element</fsummary>
+      <fsummary>Return an iterator for a set starting from a specified element.
+      </fsummary>
       <desc>
         <p>Returns an iterator that can be used for traversing the
-          entries of <c><anno>Set</anno></c>; see <c>next/1</c>.
+          entries of <c><anno>Set</anno></c>; see
+          <seealso marker="#next/1"><c>next/1</c></seealso>.
           The difference as compared to the iterator returned by
-          <c>iterator/1</c> is that the first element greater than
+          <seealso marker="#iterator/1"><c>iterator/1</c></seealso>
+          is that the first element greater than
           or equal to <c><anno>Element</anno></c> is returned.</p>
       </desc>
     </func>
+
     <func>
       <name name="largest" arity="1"/>
-      <fsummary>Return largest element</fsummary>
+      <fsummary>Return largest element.</fsummary>
       <desc>
         <p>Returns the largest element in <c><anno>Set</anno></c>. Assumes that
-          <c><anno>Set</anno></c> is nonempty.</p>
+          <c><anno>Set</anno></c> is not empty.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="new" arity="0"/>
+      <fsummary>Return an empty set.</fsummary>
+      <desc>
+        <p>Returns a new empty set.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="next" arity="1"/>
-      <fsummary>Traverse a set with an iterator</fsummary>
+      <fsummary>Traverse a set with an iterator.</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Element</anno>, <anno>Iter2</anno>}</c> where <c><anno>Element</anno></c> is the
-          smallest element referred to by the iterator <c><anno>Iter1</anno></c>,
+        <p>Returns <c>{<anno>Element</anno>, <anno>Iter2</anno>}</c>, where
+          <c><anno>Element</anno></c> is the smallest element referred to by
+          iterator <c><anno>Iter1</anno></c>,
           and <c><anno>Iter2</anno></c> is the new iterator to be used for
           traversing the remaining elements, or the atom <c>none</c> if
           no elements remain.</p>
       </desc>
     </func>
+
     <func>
       <name name="singleton" arity="1"/>
-      <fsummary>Return a set with one element</fsummary>
+      <fsummary>Return a set with one element.</fsummary>
       <desc>
-        <p>Returns a set containing only the element <c><anno>Element</anno></c>.</p>
+        <p>Returns a set containing only element <c><anno>Element</anno></c>.
+        </p>
       </desc>
     </func>
+
     <func>
       <name name="size" arity="1"/>
-      <fsummary>Return the number of elements in a set</fsummary>
+      <fsummary>Return the number of elements in a set.</fsummary>
       <desc>
         <p>Returns the number of elements in <c><anno>Set</anno></c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="smallest" arity="1"/>
-      <fsummary>Return smallest element</fsummary>
+      <fsummary>Return smallest element.</fsummary>
       <desc>
         <p>Returns the smallest element in <c><anno>Set</anno></c>. Assumes that
-          <c><anno>Set</anno></c> is nonempty.</p>
+          <c><anno>Set</anno></c> is not empty.</p>
       </desc>
     </func>
+
+    <func>
+      <name  name="subtract" arity="2"/>
+      <fsummary>Return the difference of two sets.</fsummary>
+      <desc>
+        <p>Returns only the elements of <c><anno>Set1</anno></c> that are not
+          also elements of <c><anno>Set2</anno></c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="take_largest" arity="1"/>
-      <fsummary>Extract largest element</fsummary>
+      <fsummary>Extract largest element.</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Element</anno>, <anno>Set2</anno>}</c>, where <c><anno>Element</anno></c> is the
-          largest element in <c><anno>Set1</anno></c>, and <c><anno>Set2</anno></c> is this set
-          with <c><anno>Element</anno></c> deleted. Assumes that <c><anno>Set1</anno></c> is
-          nonempty.</p>
+        <p>Returns <c>{<anno>Element</anno>, <anno>Set2</anno>}</c>, where
+          <c><anno>Element</anno></c> is the largest element in
+          <c><anno>Set1</anno></c>, and <c><anno>Set2</anno></c> is this set
+          with <c><anno>Element</anno></c> deleted. Assumes that
+          <c><anno>Set1</anno></c> is not empty.</p>
       </desc>
     </func>
+
     <func>
       <name name="take_smallest" arity="1"/>
-      <fsummary>Extract smallest element</fsummary>
+      <fsummary>Extract smallest element.</fsummary>
       <desc>
-        <p>Returns <c>{<anno>Element</anno>, <anno>Set2</anno>}</c>, where <c><anno>Element</anno></c> is the
-          smallest element in <c><anno>Set1</anno></c>, and <c><anno>Set2</anno></c> is this set
-          with <c><anno>Element</anno></c> deleted. Assumes that <c><anno>Set1</anno></c> is
-          nonempty.</p>
+        <p>Returns <c>{<anno>Element</anno>, <anno>Set2</anno>}</c>, where
+          <c><anno>Element</anno></c> is the smallest element in
+          <c><anno>Set1</anno></c>, and <c><anno>Set2</anno></c> is this set
+          with <c><anno>Element</anno></c> deleted. Assumes that
+          <c><anno>Set1</anno></c> is not empty.</p>
       </desc>
     </func>
+
     <func>
       <name name="to_list" arity="1"/>
-      <fsummary>Convert a set into a list</fsummary>
+      <fsummary>Convert a set into a list.</fsummary>
       <desc>
         <p>Returns the elements of <c><anno>Set</anno></c> as a list.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="union" arity="1"/>
+      <fsummary>Return the union of a list of sets.</fsummary>
+      <desc>
+        <p>Returns the merged (union) set of the list of sets.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="union" arity="2"/>
-      <fsummary>Return the union of two sets</fsummary>
+      <fsummary>Return the union of two sets.</fsummary>
       <desc>
         <p>Returns the merged (union) set of <c><anno>Set1</anno></c> and
           <c><anno>Set2</anno></c>.</p>
       </desc>
     </func>
-    <func>
-      <name name="union" arity="1"/>
-      <fsummary>Return the union of a list of sets</fsummary>
-      <desc>
-        <p>Returns the merged (union) set of the list of sets.</p>
-      </desc>
-    </func>
   </funcs>
 
   <section>
-    <title>SEE ALSO</title>
-    <p><seealso marker="gb_trees">gb_trees(3)</seealso>, 
-      <seealso marker="ordsets">ordsets(3)</seealso>, 
-      <seealso marker="sets">sets(3)</seealso></p>
+    <title>See Also</title>
+    <p><seealso marker="gb_trees"><c>gb_trees(3)</c></seealso>,
+      <seealso marker="ordsets"><c>ordsets(3)</c></seealso>,
+      <seealso marker="sets"><c>sets(3)</c></seealso></p>
   </section>
 </erlref>
 

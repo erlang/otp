@@ -73,16 +73,32 @@ migration(Cfg) ->
     end.
 
 erts_mmap(Config) when is_list(Config) ->
-    case os:type() of
-	{unix, _} ->
+    case {os:type(), mmsc_flags()} of
+	{{unix,_}, false} ->
 	    [erts_mmap_do(Config, SCO, SCRPM, SCRFSD)
 	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
-	{SkipOs,_} ->
+	{{unix,_}, Flags} ->
+	    {skipped, Flags};
+	{{SkipOs,_},_} ->
 	    {skipped,
 		   lists:flatten(["Not run on "
 				  | io_lib:format("~p",[SkipOs])])}
     end.
 
+%% Check if there are ERL_FLAGS set that will mess up this test case
+mmsc_flags() ->
+    case mmsc_flags("ERL_FLAGS") of
+	false -> mmsc_flags("ERL_ZFLAGS");
+	Flags -> Flags
+    end.
+mmsc_flags(Env) ->
+    case os:getenv(Env) of
+	false -> false;
+	V -> case string:str(V, "+MMsc") of
+		 0 -> false;
+		 P -> Env ++ "=" ++ string:substr(V, P)
+	     end
+    end.
 
 erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
     %% We use the number of schedulers + 1 * approx main carriers size

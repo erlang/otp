@@ -32,6 +32,7 @@
          image_primitives/1,
          image_colors/1,
          image_font/1,
+         image_fans/1,
          image_png_compliant/1]).
 
 suite() ->
@@ -41,6 +42,7 @@ suite() ->
 all() -> 
     [image_create_and_destroy, image_shape,
      image_primitives, image_colors, image_font,
+     image_fans,
      image_png_compliant].
 
 
@@ -71,6 +73,7 @@ image_create_and_destroy(Config) when is_list(Config) ->
 %% Image color test.
 image_colors(Config) when is_list(Config) ->
     {W,H} = get_size(proplists:get_value(max_size, Config)),
+    Dir = proplists:get_value(priv_dir, Config),
     Image = egd:create(W, H),
     put(image_size, {W,H}),
 
@@ -96,7 +99,15 @@ image_colors(Config) when is_list(Config) ->
                           ok    = egd:line(Image, get_point(), get_point(), Color)
                   end, HtmlDefaultNames),
 
-    <<_/binary>>  = egd:render(Image),
+    Png1 = <<_/binary>> = egd:render(Image,png,[{render_engine, alpha}]),
+    File1 = filename:join(Dir,"image_colors_alpha.png"),
+    ok = egd:save(Png1,File1),
+    ct:log("<p>Image alpha:</p><img src=\"~s\" />~n", [File1]),
+    Png2 = <<_/binary>> = egd:render(Image,png,[{render_engine, opaque}]),
+    File2 = filename:join(Dir,"image_colors_opaque.png"),
+    ok = egd:save(Png2,File2),
+    ct:log("<p>Image opaque:</p><img src=\"~s\" />~n", [File2]),
+
     ok = egd:destroy(Image),
     erase(image_size),
     ok.
@@ -104,6 +115,7 @@ image_colors(Config) when is_list(Config) ->
 %% Image shape API test.
 image_shape(Config) when is_list(Config) ->
     {W,H} = get_size(proplists:get_value(max_size, Config)),
+    Dir = proplists:get_value(priv_dir, Config),
     put(image_size, {W,H}),
     Im = egd:create(W, H),
 
@@ -125,15 +137,21 @@ image_shape(Config) when is_list(Config) ->
     ok = bitmap_point_has_color(Bitmap, {W,H}, Pt2, Fgc),
     ok = bitmap_point_has_color(Bitmap, {W,H}, Pt1, Fgc),
 
-    <<_/binary>> = egd:render(Im, raw_bitmap, [{render_engine, alpha}]),
+    Bin = <<_/binary>> = egd:render(Im, raw_bitmap, [{render_engine, alpha}]),
+    Png = egd_png:binary(W,H,Bin),
+    File = filename:join(Dir,"image_shape.png"),
+    ok = egd:save(Png,File),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File]),
 
     ok = egd:destroy(Im),
+
     erase(image_size),
     ok.
 
 %% Image shape API test.
 image_primitives(Config) when is_list(Config) ->
     {W,H} = get_size(proplists:get_value(max_size, Config)),
+    Dir = proplists:get_value(priv_dir, Config),
     put(image_size, {W,H}),
 
     Im0 = egd_primitives:create(W, H),
@@ -157,7 +175,11 @@ image_primitives(Config) when is_list(Config) ->
     ok = bitmap_point_has_color(Bitmap, {W,H}, Pt2, Fgc),
     ok = bitmap_point_has_color(Bitmap, {W,H}, Pt1, Fgc),
 
-    <<_/binary>> = egd_render:binary(Im2, alpha),
+    Bin = <<_/binary>> = egd_render:binary(Im2, alpha),
+    Png = egd_png:binary(W,H,Bin),
+    File = filename:join(Dir,"image_primitives.png"),
+    ok = egd:save(Png,File),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File]),
 
     erase(image_size),
     ok.
@@ -165,6 +187,7 @@ image_primitives(Config) when is_list(Config) ->
 %% Image font test.
 image_font(Config) when is_list(Config) ->
     {W,H} = get_size(proplists:get_value(max_size, Config)),
+    Dir = proplists:get_value(priv_dir, Config),
     put(image_size, {W,H}),
     Im = egd:create(W, H),
     Fgc = egd:color({0,130,0}),
@@ -185,25 +208,46 @@ image_font(Config) when is_list(Config) ->
     GlyphStr4   = "{|}~",                         % Codes 123 -> 126
 
     ok = egd:text(Im, get_point(), Font, GlyphStr1, Fgc),
-    <<_/binary>> = egd:render(Im, png),
+    Png1 = <<_/binary>> = egd:render(Im, png),
+    File1 = filename:join(Dir,"text1.png"),
+    ok = egd:save(Png1,File1),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File1]),
 
     ok = egd:text(Im, get_point(), Font, NumericStr, Fgc),
-    <<_/binary>> = egd:render(Im, png),
+    Png2 = <<_/binary>> = egd:render(Im, png),
+    File2 = filename:join(Dir,"text2.png"),
+    ok = egd:save(Png2,File2),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File2]),
 
     ok = egd:text(Im, get_point(), Font, GlyphStr2, Fgc),
-    <<_/binary>> = egd:render(Im, png),
+    Png3 = <<_/binary>> = egd:render(Im, png),
+    File3 = filename:join(Dir,"text3.png"),
+    ok = egd:save(Png3,File3),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File3]),
 
     ok = egd:text(Im, get_point(), Font, AlphaBigStr, Fgc),
-    <<_/binary>> = egd:render(Im, png),
+    Png4 = <<_/binary>> = egd:render(Im, png),
+    File4 = filename:join(Dir,"text4.png"),
+    ok = egd:save(Png4,File4),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File4]),
 
     ok = egd:text(Im, get_point(), Font, GlyphStr3, Fgc),
-    <<_/binary>> = egd:render(Im, png),
+    Png5 = <<_/binary>> = egd:render(Im, png),
+    File5 = filename:join(Dir,"text5.png"),
+    ok = egd:save(Png5,File5),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File5]),
 
     ok = egd:text(Im, get_point(), Font, AlphaSmStr, Fgc),
-    <<_/binary>> = egd:render(Im, png),
+    Png6 = <<_/binary>> = egd:render(Im, png),
+    File6 = filename:join(Dir,"text6.png"),
+    ok = egd:save(Png6,File6),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File6]),
 
     ok = egd:text(Im, get_point(), Font, GlyphStr4, Fgc),
-    <<_/binary>> = egd:render(Im, png),
+    Png7 = <<_/binary>> = egd:render(Im, png),
+    File7 = filename:join(Dir,"text7.png"),
+    ok = egd:save(Png7,File7),
+    ct:log("<p>Image:</p><img src=\"~s\" />~n", [File7]),
 
     ok = egd:destroy(Im),
     erase(image_size),
@@ -224,6 +268,65 @@ image_png_compliant(Config) when is_list(Config) ->
     erase(image_size),
     ok.
 
+image_fans(Config) when is_list(Config) ->
+    W = 1024,
+    H = 800,
+    Dir = proplists:get_value(priv_dir, Config),
+
+    Fun = fun({F,Args},Im) ->
+                  erlang:apply(egd_primitives,F,[Im|Args])
+          end,
+
+    %% fan1
+    Ops1 = gen_vertical_fan(1,{0,400},egd:color(red),1024,800,-15),
+    Ops2 = gen_horizontal_fan(1,{512,800},egd:color(green),1024,0,-15),
+
+    Im0 = egd_primitives:create(W,H),
+    Im1 = lists:foldl(Fun, Im0, Ops1 ++ Ops2),
+    Bin1 = egd_render:binary(Im1, opaque),
+    Png1 = egd_png:binary(W,H,Bin1),
+
+    File1 = filename:join(Dir,"fan1_opaque.png"),
+    ok = egd:save(Png1,File1),
+    ct:log("<p>Image opaque width 1:</p><img src=\"~s\" />~n", [File1]),
+
+    Bin2 = egd_render:binary(Im1, alpha),
+    Png2 = egd_png:binary(W,H,Bin2),
+
+    File2 = filename:join(Dir,"fan1_alpha.png"),
+    ok = egd:save(Png2,File2),
+    ct:log("<p>Image alpha width 1:</p><img src=\"~s\" />~n", [File2]),
+
+
+    %% fan2
+    Ops3 = gen_vertical_fan(7,{0,400},egd:color(red),1024,800,-15),
+    Ops4 = gen_horizontal_fan(7,{512,800},egd:color(green),1024,0,-15),
+
+    Im2 = lists:foldl(Fun, Im0, Ops3 ++ Ops4),
+    Bin3 = egd_render:binary(Im2, opaque),
+    Png3 = egd_png:binary(W,H,Bin3),
+
+    File3 = filename:join(Dir,"fan2_opaque.png"),
+    ok = egd:save(Png3,File3),
+    ct:log("<p>Image opaque width 7:</p><img src=\"~s\" />~n", [File3]),
+
+    Bin4 = egd_render:binary(Im2, alpha),
+    Png4 = egd_png:binary(W,H,Bin4),
+
+    File4 = filename:join(Dir,"fan2_alpha.png"),
+    ok = egd:save(Png4,File4),
+    ct:log("<p>Image alpha width 7:</p><img src=\"~s\" />~n", [File4]),
+    ok.
+
+gen_vertical_fan(Wd,Pt,C,X,Y,Step) when Y > 0 ->
+    [{line,[Pt,{X,Y},Wd,C]}|gen_vertical_fan(Wd,Pt,C,X,Y + Step,Step)];
+gen_vertical_fan(_,_,_,_,_,_) -> [].
+
+gen_horizontal_fan(Wd,Pt,C,X,Y,Step) when X > 0 ->
+    [{line,[Pt,{X,Y},Wd,C]}|gen_horizontal_fan(Wd,Pt,C,X + Step,Y,Step)];
+gen_horizontal_fan(_,_,_,_,_,_) -> [].
+
+
 %%----------------------------------------------------------------------
 %% Auxiliary tests
 %%----------------------------------------------------------------------
@@ -237,33 +340,6 @@ bitmap_point_has_color(Bitmap, {W,_}, {X,Y}, C) ->
         Other ->
             io:format("bitmap_point_has_color: error color was ~p, should be ~p~n", [Other, {CR,CG,CB}]),
             {error, {Other,{CR,CG,CB}}}
-    end.
-
-%% jfif header by specification
-%% 2 bytes, length
-%% 5 bytes, identifier ="JFIF\0"
-%% 2 bytes, version, (major, minor)
-%% 1 byte , units
-%% However, JFIF seems to start at 6 (7 with 1-index)?
-
-binary_is_jfif_compliant(JpegBin) ->
-    {Bin, _} = split_binary(JpegBin, 11),
-    List = binary_to_list(Bin),
-    case lists:sublist(List, 7, 4) of 
-        "JFIF" -> true;
-        Other ->
-            io:format("img -> ~p~n", [Other]),
-            false
-    end.
-
-binary_is_gif_compliant(GifBin) ->
-    {Bin, _} = split_binary(GifBin, 10),
-    List = binary_to_list(Bin),
-    case lists:sublist(List, 1,5) of
-        "GIF87" -> true;
-        Other ->
-            io:format("img -> ~p~n", [Other]),
-            false
     end.
 
 binary_is_png_compliant(PngBin) ->

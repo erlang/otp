@@ -541,6 +541,8 @@ obsolete_1(random, _, _) ->
      "use the 'rand' module instead"};
 obsolete_1(code, rehash, 0) ->
     {deprecated, "deprecated because the code path cache feature has been removed"};
+obsolete_1(queue, lait, 1) ->
+    {deprecated, {queue,liat,1}};
 
 %% Removed in OTP 19.
 

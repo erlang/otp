@@ -292,7 +292,7 @@ init(KeyOrName,{IP,Port},{Username,Password}) ->
     end.
 	    
 ftp_connect(IP,Port,Username,Password) ->
-    inets:start(),
+    _ = inets:start(),
     case inets:start(ftpc,[{host,IP},{port,Port}]) of
 	{ok,FtpPid} ->
 	    case ftp:user(FtpPid,Username,Password) of

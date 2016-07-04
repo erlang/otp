@@ -45,7 +45,6 @@
     <datatype>
       <name>socket()</name>
       <desc>
-        <marker id="type-socket"/>
         <p>As returned by
           <seealso marker="#open/1"><c>open/1,2</c></seealso>.</p>
       </desc>
@@ -86,11 +85,11 @@
           <item><p>Received <c>Packet</c> is delivered as a list.</p></item>
           <tag><c>binary</c></tag>
           <item><p>Received <c>Packet</c> is delivered as a binary.</p></item>
-          <tag><c>{ip, ip_address()}</c></tag>
+          <tag><c>{ip, Address}</c></tag>
           <item><p>If the host has many network interfaces, this option
             specifies which one to use.</p></item>
-          <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item><p>Same as <c>{ip, ip_address()}</c>. If the host has many
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
             network interfaces, this option specifies which one to
             use.</p></item>
           <tag><c>{fd, integer() >= 0}</c></tag>
@@ -105,6 +104,15 @@
           <item><p>Sets up the socket for IPv6.</p></item>
           <tag><c>inet</c></tag>
           <item><p>Sets up the socket for IPv4.</p></item>
+	  <tag><c>local</c></tag>
+	  <item>
+            <p>
+	      Sets up a Unix Domain Socket. See
+	      <seealso marker="inet#type-local_address">
+		<c>inet:local_address()</c>
+	      </seealso>
+	    </p>
+          </item>
           <tag><c>{udp_module, module()}</c></tag>
           <item><p>Overrides which callback module is used. Defaults to
             <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.</p></item>
@@ -177,8 +185,10 @@
       <name name="send" arity="4"/>
       <fsummary>Send a packet.</fsummary>
       <desc>
-        <p>Sends a packet to the specified address and port. Argument
-          <c><anno>Address</anno></c> can be a hostname or an IP address.</p>
+        <p>
+	  Sends a packet to the specified address and port. Argument
+          <c><anno>Address</anno></c> can be a hostname or a socket address.
+	</p>
       </desc>
     </func>
   </funcs>

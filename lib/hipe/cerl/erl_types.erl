@@ -80,11 +80,9 @@
 	 t_float/0,
          t_var_names/1,
 	 t_form_to_string/1,
-         t_from_form/4,
-         t_from_form/5,
+         t_from_form/6,
          t_from_form_without_remote/3,
-         t_check_record_fields/4,
-         t_check_record_fields/5,
+         t_check_record_fields/6,
 	 t_from_range/2,
 	 t_from_range_unsafe/2,
 	 t_from_term/1,
@@ -220,6 +218,8 @@
          is_opaque_type/2,
 	 is_erl_type/1,
 	 atom_to_string/1,
+	 var_table__new/0,
+         cache__new/0,
 	 map_pairwise_merge/3
 	]).
 
@@ -236,7 +236,7 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0, opaques/0, type_table/0]).
+-export_type([erl_type/0, opaques/0, type_table/0, var_table/0, cache/0]).
 
 %%-define(DEBUG, true).
 
@@ -327,7 +327,7 @@
 %% Auxiliary types and convenient macros
 %%
 
--type parse_form() :: erl_parse:abstract_expr().
+-type parse_form() :: erl_parse:abstract_type().
 -type rng_elem()   :: 'pos_inf' | 'neg_inf' | integer().
 
 -record(int_set, {set :: [integer()]}).
@@ -374,13 +374,15 @@
 -type opaques() :: [erl_type()] | 'universe'.
 
 -type record_key()   :: {'record', atom()}.
--type type_key()     :: {'type' | 'opaque', atom(), arity()}.
+-type type_key()     :: {'type' | 'opaque', mfa()}.
 -type record_value() :: [{atom(), erl_parse:abstract_expr(), erl_type()}].
--type type_value()   :: {module(), erl_type(), atom()}.
+-type type_value()   :: {{module(), {file:name(), erl_anno:line()},
+                          erl_parse:abstract_type(), ArgNames :: [atom()]},
+                         erl_type()}.
 -type type_table() :: dict:dict(record_key() | type_key(),
                                 record_value() | type_value()).
 
--type var_table() :: #{atom() => erl_type()}.
+-opaque var_table() :: #{atom() => erl_type()}.
 
 %%-----------------------------------------------------------------------------
 %% Unions
@@ -756,8 +758,8 @@ t_opaque_from_records(RecDict) ->
                  {{Module, _FileLine, _Form, ArgNames}, _Type}) ->
                  %% Args = args_to_types(ArgNames),
                  %% List = lists:zip(ArgNames, Args),
-                 %% TmpVarDict = dict:from_list(List),
-                 %% Rep = t_from_form(Type, RecDict, TmpVarDict),
+                 %% TmpVarTab = maps:to_list(List),
+                 %% Rep = t_from_form(Type, RecDict, TmpVarTab),
                  Rep = t_any(), % not used for anything right now
                  Args = [t_any() || _ <- ArgNames],
                  t_opaque(Module, Name, Args, Rep)
@@ -1662,10 +1664,12 @@ t_map(Pairs0, DefK0, DefV0) ->
   %% define(DEBUG, true).
   try
     validate_map_elements(Pairs)
-  catch error:badarg ->      error(badarg,      [Pairs0,DefK0,DefV0]);
-	error:{badarg, E} -> error({badarg, E}, [Pairs0,DefK0,DefV0])
+  catch error:badarg -> error(badarg, [Pairs0,DefK0,DefV0])
   end,
-  ?map(Pairs, DefK, DefV).
+  case map_pairs_are_none(Pairs) of
+    true -> ?none;
+    false -> ?map(Pairs, DefK, DefV)
+  end.
 
 normalise_map_optionals([], _, _) -> [];
 normalise_map_optionals([E={K,?opt,?none}|T], DefK, DefV) ->
@@ -1682,7 +1686,6 @@ normalise_map_optionals([E={K,?opt,V}|T], DefK, DefV) ->
 normalise_map_optionals([E|T], DefK, DefV) ->
   [E|normalise_map_optionals(T, DefK, DefV)].
 
-validate_map_elements([{_,?mand,?none}|_]) -> error({badarg, none_in_mand});
 validate_map_elements([{K1,_,_}|Rest=[{K2,_,_}|_]]) ->
   case is_singleton_type(K1) andalso K1 < K2 of
     false -> error(badarg);
@@ -1694,6 +1697,10 @@ validate_map_elements([{K,_,_}]) ->
     true -> true
   end;
 validate_map_elements([]) -> true.
+
+map_pairs_are_none([]) -> false;
+map_pairs_are_none([{_,?mand,?none}|_]) -> true;
+map_pairs_are_none([_|Ps]) -> map_pairs_are_none(Ps).
 
 -spec t_is_map(erl_type()) -> boolean().
 
@@ -1750,14 +1757,14 @@ map_def_val(?map(_,_,DefV)) ->
 -spec mapdict_store(t_map_pair(), t_map_dict()) -> t_map_dict().
 
 mapdict_store(E={K,_,_}, [{K,_,_}|T]) -> [E|T];
-mapdict_store(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2->
+mapdict_store(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
   [E2|mapdict_store(E1, T)];
 mapdict_store(E={_,_,_}, T) -> [E|T].
 
 -spec mapdict_insert(t_map_pair(), t_map_dict()) -> t_map_dict().
 
 mapdict_insert(E={K,_,_}, D=[{K,_,_}|_]) -> error(badarg, [E, D]);
-mapdict_insert(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2->
+mapdict_insert(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
   [E2|mapdict_insert(E1, T)];
 mapdict_insert(E={_,_,_}, T) -> [E|T].
 
@@ -1774,19 +1781,21 @@ map_pairwise_merge(F, ?map(APairs, ADefK, ADefV),
 
 map_pairwise_merge(_, [], _, _, [], _, _) -> [];
 map_pairwise_merge(F, As0, ADefK, ADefV, Bs0, BDefK, BDefV) ->
-  case {As0, Bs0} of
-    {[{K,AMNess,AV}|As], [{K, BMNess,BV}|Bs]} -> ok;
-    {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)};
-    {As,                 [{K, BMNess,BV}|Bs]} ->
-      {AMNess, AV} = {?opt, mapmerge_otherv(K, ADefK, ADefV)};
-    {[{K,AMNess,AV}|As], []=Bs} ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)}
-  end,
-  MK = K, %% Rename to make clear that we are matching below
-  case F(K, AMNess, AV, BMNess, BV) of
-    false ->         map_pairwise_merge(F,As,ADefK,ADefV,Bs,BDefK,BDefV);
-    M={MK,_,_} -> [M|map_pairwise_merge(F,As,ADefK,ADefV,Bs,BDefK,BDefV)]
+  {K1, AMNess1, AV1, As1, BMNess1, BV1, Bs1} =
+    case {As0, Bs0} of
+      {[{K,AMNess,AV}|As], [{K, BMNess,BV}|Bs]} ->
+	{K, AMNess, AV, As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs};
+      {As,                 [{K, BMNess,BV}|Bs]} ->
+        {K, ?opt, mapmerge_otherv(K, ADefK, ADefV), As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], []=Bs} ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs}
+    end,
+  MK = K1, %% Rename to make clear that we are matching below
+  case F(K1, AMNess1, AV1, BMNess1, BV1) of
+    false ->         map_pairwise_merge(F,As1,ADefK,ADefV,Bs1,BDefK,BDefV);
+    {MK,_,_}=M -> [M|map_pairwise_merge(F,As1,ADefK,ADefV,Bs1,BDefK,BDefV)]
   end.
 
 %% Folds over the pairs in two maps simultaneously in reverse key order. Missing
@@ -1803,17 +1812,19 @@ map_pairwise_merge_foldr(F, AccIn, ?map(APairs, ADefK, ADefV),
 
 map_pairwise_merge_foldr(_, Acc,   [],  _,     _,     [],  _,     _) -> Acc;
 map_pairwise_merge_foldr(F, AccIn, As0, ADefK, ADefV, Bs0, BDefK, BDefV) ->
-  case {As0, Bs0} of
-    {[{K,AMNess,AV}|As], [{K, BMNess,BV}|Bs]} -> ok;
-    {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)};
-    {As,                 [{K, BMNess,BV}|Bs]} ->
-      {AMNess, AV} = {?opt, mapmerge_otherv(K, ADefK, ADefV)};
-    {[{K,AMNess,AV}|As], []=Bs} ->
-      {BMNess, BV} = {?opt, mapmerge_otherv(K, BDefK, BDefV)}
-  end,
-  F(K, AMNess, AV, BMNess, BV,
-    map_pairwise_merge_foldr(F,AccIn,As,ADefK,ADefV,Bs,BDefK,BDefV)).
+  {K1, AMNess1, AV1, As1, BMNess1, BV1, Bs1} =
+    case {As0, Bs0} of
+      {[{K,AMNess,AV}|As], [{K,BMNess,BV}|Bs]} ->
+	{K, AMNess, AV, As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
+	{K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs};
+      {As,                 [{K,BMNess,BV}|Bs]} ->
+        {K, ?opt, mapmerge_otherv(K, ADefK, ADefV), As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], []=Bs} ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs}
+    end,
+  F(K1, AMNess1, AV1, BMNess1, BV1,
+    map_pairwise_merge_foldr(F,AccIn,As1,ADefK,ADefV,Bs1,BDefK,BDefV)).
 
 %% By observing that a missing pair in a map is equivalent to an optional pair,
 %% with ?none or DefV value, depending on whether K \in DefK, we can simplify
@@ -2827,12 +2838,7 @@ t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
 	 %% becomes mandatory in the infinumum
 	 (K, _, V1, _, V2) -> {K, ?mand, t_inf(V1, V2)}
       end, A, B),
-  %% If the infinimum of any mandatory values is ?none, the entire map infinimum
-  %% is ?none.
-  case lists:any(fun({_,?mand,?none})->true; ({_,_,_}) -> false end, Pairs) of
-    true -> t_none();
-    false -> t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV))
-  end;
+  t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV));
 t_inf(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2), _Opaques) ->
   ?matchstate(t_inf(Pres1, Pres2), t_inf(Slots1, Slots2));
 t_inf(?nil, ?nil, _Opaques) -> ?nil;
@@ -4298,7 +4304,6 @@ t_to_string(?map(Pairs0,DefK,DefV), RecDict) ->
   {Pairs, ExtraEl} =
     case {DefK, DefV} of
       {?none, ?none} -> {Pairs0, []};
-      {?any, ?any} -> {Pairs0, ["..."]};
       _ -> {Pairs0 ++ [{DefK,?opt,DefV}], []}
     end,
   Tos = fun(T) -> case T of
@@ -4410,33 +4415,30 @@ mod_name(Mod, Name) ->
 
 -type type_names() :: [type_key() | record_key()].
 
--type mta()  :: {module(), atom(), arity()}.
--type mra()  :: {module(), atom(), arity()}.
--type site() :: {'type', mta()} | {'spec', mfa()} | {'record', mra()}.
+-type mta()   :: {module(), atom(), arity()}.
+-type mra()   :: {module(), atom(), arity()}.
+-type site()  :: {'type', mta()} | {'spec', mfa()} | {'record', mra()}.
+-type cache_key() :: {module(), atom(), expand_depth(),
+                      [erl_type()], type_names()}.
+-opaque cache() :: #{cache_key() => {erl_type(), expand_limit()}}.
 
--spec t_from_form(parse_form(), sets:set(mfa()),
-                  site(), mod_records()) -> erl_type().
+-spec t_from_form(parse_form(), sets:set(mfa()), site(), mod_records(),
+                  var_table(), cache()) -> {erl_type(), cache()}.
 
-t_from_form(Form, ExpTypes, Site, RecDict) ->
-  t_from_form(Form, ExpTypes, Site, RecDict, maps:new()).
-
--spec t_from_form(parse_form(), sets:set(mfa()),
-                  site(), mod_records(), var_table()) -> erl_type().
-
-t_from_form(Form, ExpTypes, Site, RecDict, VarDict) ->
-  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, VarDict),
-  T.
+t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
+  t_from_form1(Form, ExpTypes, Site, RecDict, VarTab, Cache).
 
 %% Replace external types with with none().
 -spec t_from_form_without_remote(parse_form(), site(), type_table()) ->
-                                    erl_type().
+                                    {erl_type(), cache()}.
 
 t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
   RecDict = dict:from_list([{Module, TypeTable}]),
   ExpTypes = replace_by_none,
-  {T, _} = t_from_form1(Form, ExpTypes, Site, RecDict, maps:new()),
-  T.
+  VarTab = var_table__new(),
+  Cache = cache__new(),
+  t_from_form1(Form, ExpTypes, Site, RecDict, VarTab, Cache).
 
 %% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
 %% EXPAND_LIMIT is used for limiting the size of types by
@@ -4449,34 +4451,53 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 
 -type expand_depth() :: integer().
 
--spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
-                   site(), mod_records(), var_table()) ->
-                      {erl_type(), expand_limit()}.
+-record(from_form, {site   :: site(),
+                    xtypes :: sets:set(mfa()) | 'replace_by_none',
+                    mrecs  :: mod_records(),
+                    vtab   :: var_table(),
+                    tnames :: type_names()}).
 
-t_from_form1(Form, ET, Site, MR, V) ->
+-spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
+                   site(), mod_records(), var_table(), cache()) ->
+                      {erl_type(), cache()}.
+
+t_from_form1(Form, ET, Site, MR, V, C) ->
   TypeNames = initial_typenames(Site),
-  t_from_form1(Form, TypeNames, ET, Site, MR, V, ?EXPAND_DEPTH).
+  State = #from_form{site   = Site,
+                     xtypes = ET,
+                     mrecs  = MR,
+                     vtab   = V,
+                     tnames = TypeNames},
+  L = ?EXPAND_LIMIT,
+  {T1, L1, C1} = from_form(Form, State, ?EXPAND_DEPTH, L, C),
+  if
+    L1 =< 0 ->
+      from_form_loop(Form, State, 1, L, C1);
+    true ->
+       {T1, C1}
+  end.
 
 initial_typenames({type, _MTA}=Site) -> [Site];
 initial_typenames({spec, _MFA}) -> [];
 initial_typenames({record, _MRA}) -> [].
 
-t_from_form1(Form, TypeNames, ET, Site, MR, V, D) ->
-  L = ?EXPAND_LIMIT,
-  {T, L1} = t_from_form(Form, TypeNames, ET, Site, MR, V, D, L),
+from_form_loop(Form, State, D, Limit, C) ->
+  {T1, L1, C1} = from_form(Form, State, D, Limit, C),
+  Delta = Limit - L1,
   if
-    L1 =< 0, D > 1 ->
-      D1 = D div 2,
-      t_from_form1(Form, TypeNames, ET, Site, MR, V, D1);
+    %% Save some time by assuming next depth will exceed the limit.
+    Delta * 8 > Limit ->
+      {T1, C1};
     true ->
-      {T, L1}
+      D1 = D + 1,
+      from_form_loop(Form, State, D1, Limit, C1)
   end.
 
--spec t_from_form(parse_form(), type_names(),
-                  sets:set(mfa()) | 'replace_by_none',
-                  site(), mod_records(), var_table(),
-                  expand_depth(), expand_limit())
-                           -> {erl_type(), expand_limit()}.
+-spec from_form(parse_form(),
+                #from_form{},
+                expand_depth(),
+                expand_limit(),
+                cache()) -> {erl_type(), expand_limit(), cache()}.
 
 %% If there is something wrong with parse_form()
 %% throw({error, io_lib:chars()} is called;
@@ -4486,328 +4507,334 @@ t_from_form1(Form, TypeNames, ET, Site, MR, V, D) ->
 %%
 %% It is assumed that site_module(S) can be found in MR.
 
-t_from_form(_, _TypeNames, _ET, _S, _MR, _V, D, L) when D =< 0 ; L =< 0 ->
-  {t_any(), L};
-t_from_form({var, _L, '_'}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_any(), L};
-t_from_form({var, _L, Name}, _TypeNames, _ET, _S, _MR, V, _D, L) ->
+from_form(_, _S, D, L, C) when D =< 0 ; L =< 0 ->
+  {t_any(), L, C};
+from_form({var, _L, '_'}, _S, _D, L, C) ->
+  {t_any(), L, C};
+from_form({var, _L, Name}, S, _D, L, C) ->
+  V = S#from_form.vtab,
   case maps:find(Name, V) of
-    error -> {t_var(Name), L};
-    {ok, Val} -> {Val, L}
+    error -> {t_var(Name), L, C};
+    {ok, Val} -> {Val, L, C}
   end;
-t_from_form({ann_type, _L, [_Var, Type]}, TypeNames, ET, S, MR, V, D, L) ->
-  t_from_form(Type, TypeNames, ET, S, MR, V, D, L);
-t_from_form({paren_type, _L, [Type]}, TypeNames, ET, S, MR, V, D, L) ->
-  t_from_form(Type, TypeNames, ET, S, MR, V, D, L);
-t_from_form({remote_type, _L, [{atom, _, Module}, {atom, _, Type}, Args]},
-	    TypeNames, ET, S, MR, V, D, L) ->
-  remote_from_form(Module, Type, Args, TypeNames, ET, S, MR, V, D, L);
-t_from_form({atom, _L, Atom}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_atom(Atom), L};
-t_from_form({integer, _L, Int}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_integer(Int), L};
-t_from_form({op, _L, _Op, _Arg} = Op, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
+from_form({ann_type, _L, [_Var, Type]}, S, D, L, C) ->
+  from_form(Type, S, D, L, C);
+from_form({paren_type, _L, [Type]}, S, D, L, C) ->
+  from_form(Type, S, D, L, C);
+from_form({remote_type, _L, [{atom, _, Module}, {atom, _, Type}, Args]},
+	    S, D, L, C) ->
+  remote_from_form(Module, Type, Args, S, D, L, C);
+from_form({atom, _L, Atom}, _S, _D, L, C) ->
+  {t_atom(Atom), L, C};
+from_form({integer, _L, Int}, _S, _D, L, C) ->
+  {t_integer(Int), L, C};
+from_form({op, _L, _Op, _Arg} = Op, _S, _D, L, C) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, Val} ->
-      {t_integer(Val), L};
+      {t_integer(Val), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
   end;
-t_from_form({op, _L, _Op, _Arg1, _Arg2} = Op, _TypeNames,
-            _ET, _S, _MR, _V, _D, L) ->
+from_form({op, _L, _Op, _Arg1, _Arg2} = Op, _S, _D, L, C) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, Val} ->
-      {t_integer(Val), L};
+      {t_integer(Val), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
   end;
-t_from_form({type, _L, any, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_any(), L};
-t_from_form({type, _L, arity, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_arity(), L};
-t_from_form({type, _L, atom, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_atom(), L};
-t_from_form({type, _L, binary, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_binary(), L};
-t_from_form({type, _L, binary, [Base, Unit]} = Type,
-	    _TypeNames, _ET, _S, _MR, _V, _D, L) ->
+from_form({type, _L, any, []}, _S, _D, L, C) ->
+  {t_any(), L, C};
+from_form({type, _L, arity, []}, _S, _D, L, C) ->
+  {t_arity(), L, C};
+from_form({type, _L, atom, []}, _S, _D, L, C) ->
+  {t_atom(), L, C};
+from_form({type, _L, binary, []}, _S, _D, L, C) ->
+  {t_binary(), L, C};
+from_form({type, _L, binary, [Base, Unit]} = Type, _S, _D, L, C) ->
   case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
     {{integer, _, B}, {integer, _, U}} when B >= 0, U >= 0 ->
-      {t_bitstr(U, B), L};
+      {t_bitstr(U, B), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
-t_from_form({type, _L, bitstring, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_bitstr(), L};
-t_from_form({type, _L, bool, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_boolean(), L};	% XXX: Temporarily
-t_from_form({type, _L, boolean, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_boolean(), L};
-t_from_form({type, _L, byte, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_byte(), L};
-t_from_form({type, _L, char, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_char(), L};
-t_from_form({type, _L, float, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_float(), L};
-t_from_form({type, _L, function, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_fun(), L};
-t_from_form({type, _L, 'fun', []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_fun(), L};
-t_from_form({type, _L, 'fun', [{type, _, any}, Range]}, TypeNames,
-            ET, S, MR, V, D, L) ->
-  {T, L1} = t_from_form(Range, TypeNames, ET, S, MR, V, D - 1, L - 1),
-  {t_fun(T), L1};
-t_from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
-            TypeNames, ET, S, MR, V, D, L) ->
-  {Dom1, L1} = list_from_form(Domain, TypeNames, ET, S, MR, V, D, L),
-  {Ran1, L2} = t_from_form(Range, TypeNames, ET, S, MR, V, D, L1),
-  {t_fun(Dom1, Ran1), L2};
-t_from_form({type, _L, identifier, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_identifier(), L};
-t_from_form({type, _L, integer, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_integer(), L};
-t_from_form({type, _L, iodata, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_iodata(), L};
-t_from_form({type, _L, iolist, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_iolist(), L};
-t_from_form({type, _L, list, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_list(), L};
-t_from_form({type, _L, list, [Type]}, TypeNames, ET, S, MR, V, D, L) ->
-  {T, L1} = t_from_form(Type, TypeNames, ET, S, MR, V, D - 1, L - 1),
-  {t_list(T), L1};
-t_from_form({type, _L, map, any}, TypeNames, ET, S, MR, V, D, L) ->
-  builtin_type(map, t_map(), TypeNames, ET, S, MR, V, D, L);
-t_from_form({type, _L, map, List}, TypeNames, ET, S, MR, V, D, L) ->
-  {Pairs1, L5} =
-    fun PairsFromForm(_, L1) when L1 =< 0 -> {[{?any,?opt,?any}], L1};
-	PairsFromForm([], L1) -> {[], L1};
-	PairsFromForm([{type, _, Oper, [KF, VF]}|T], L1) ->
-	{Key, L2} = t_from_form(KF, TypeNames, ET, S, MR, V, D - 1, L1),
-	{Val, L3} = t_from_form(VF, TypeNames, ET, S, MR, V, D - 1, L2),
-	{Pairs0, L4} = PairsFromForm(T, L3 - 1),
+from_form({type, _L, bitstring, []}, _S, _D, L, C) ->
+  {t_bitstr(), L, C};
+from_form({type, _L, bool, []}, _S, _D, L, C) ->
+  {t_boolean(), L, C};	% XXX: Temporarily
+from_form({type, _L, boolean, []}, _S, _D, L, C) ->
+  {t_boolean(), L, C};
+from_form({type, _L, byte, []}, _S, _D, L, C) ->
+  {t_byte(), L, C};
+from_form({type, _L, char, []}, _S, _D, L, C) ->
+  {t_char(), L, C};
+from_form({type, _L, float, []}, _S, _D, L, C) ->
+  {t_float(), L, C};
+from_form({type, _L, function, []}, _S, _D, L, C) ->
+  {t_fun(), L, C};
+from_form({type, _L, 'fun', []}, _S, _D, L, C) ->
+  {t_fun(), L, C};
+from_form({type, _L, 'fun', [{type, _, any}, Range]}, S, D, L, C) ->
+  {T, L1, C1} = from_form(Range, S, D - 1, L - 1, C),
+  {t_fun(T), L1, C1};
+from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
+          S, D, L, C) ->
+  {Dom1, L1, C1} = list_from_form(Domain, S, D, L, C),
+  {Ran1, L2, C2} = from_form(Range, S, D, L1, C1),
+  {t_fun(Dom1, Ran1), L2, C2};
+from_form({type, _L, identifier, []}, _S, _D, L, C) ->
+  {t_identifier(), L, C};
+from_form({type, _L, integer, []}, _S, _D, L, C) ->
+  {t_integer(), L, C};
+from_form({type, _L, iodata, []}, _S, _D, L, C) ->
+  {t_iodata(), L, C};
+from_form({type, _L, iolist, []}, _S, _D, L, C) ->
+  {t_iolist(), L, C};
+from_form({type, _L, list, []}, _S, _D, L, C) ->
+  {t_list(), L, C};
+from_form({type, _L, list, [Type]}, S, D, L, C) ->
+  {T, L1, C1} = from_form(Type, S, D - 1, L - 1, C),
+  {t_list(T), L1, C1};
+from_form({type, _L, map, any}, S, D, L, C) ->
+  builtin_type(map, t_map(), S, D, L, C);
+from_form({type, _L, map, List}, S, D0, L, C) ->
+  {Pairs1, L5, C5} =
+    fun PairsFromForm(_, L1, C1) when L1 =< 0 -> {[{?any,?opt,?any}], L1, C1};
+	PairsFromForm([], L1, C1) -> {[], L1, C1};
+	PairsFromForm([{type, _, Oper, [KF, VF]}|T], L1, C1) ->
+        D = D0 - 1,
+	{Key, L2, C2} = from_form(KF, S, D, L1, C1),
+	{Val, L3, C3} = from_form(VF, S, D, L2, C2),
+	{Pairs0, L4, C4} = PairsFromForm(T, L3 - 1, C3),
 	case Oper of
-	  map_field_assoc -> {[{Key,?opt, Val}|Pairs0], L4};
-	  map_field_exact -> {[{Key,?mand,Val}|Pairs0], L4}
+	  map_field_assoc -> {[{Key,?opt, Val}|Pairs0], L4, C4};
+	  map_field_exact -> {[{Key,?mand,Val}|Pairs0], L4, C4}
 	end
-    end(List, L),
+    end(List, L, C),
   try
     {Pairs, DefK, DefV} = map_from_form(Pairs1, [], [], [], ?none, ?none),
-    {t_map(Pairs, DefK, DefV), L5}
-  catch none -> {t_none(), L5}
+    {t_map(Pairs, DefK, DefV), L5, C5}
+  catch none -> {t_none(), L5, C5}
   end;
-t_from_form({type, _L, mfa, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_mfa(), L};
-t_from_form({type, _L, module, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_module(), L};
-t_from_form({type, _L, nil, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_nil(), L};
-t_from_form({type, _L, neg_integer, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_neg_integer(), L};
-t_from_form({type, _L, non_neg_integer, []}, _TypeNames, _ET, _S, _MR,
-               _V, _D, L) ->
-  {t_non_neg_integer(), L};
-t_from_form({type, _L, no_return, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_unit(), L};
-t_from_form({type, _L, node, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_node(), L};
-t_from_form({type, _L, none, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_none(), L};
-t_from_form({type, _L, nonempty_list, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_nonempty_list(), L};
-t_from_form({type, _L, nonempty_list, [Type]}, TypeNames, ET, S, MR, V, D, L) ->
-  {T, L1} = t_from_form(Type, TypeNames, ET, S, MR, V, D, L - 1),
-  {t_nonempty_list(T), L1};
-t_from_form({type, _L, nonempty_improper_list, [Cont, Term]}, TypeNames,
-            ET, S, MR, V, D, L) ->
-  {T1, L1} = t_from_form(Cont, TypeNames, ET, S, MR, V, D, L - 1),
-  {T2, L2} = t_from_form(Term, TypeNames, ET, S, MR, V, D, L1),
-  {t_cons(T1, T2), L2};
-t_from_form({type, _L, nonempty_maybe_improper_list, []}, _TypeNames,
-            _ET, _S, _MR, _V, _D, L) ->
-  {t_cons(?any, ?any), L};
-t_from_form({type, _L, nonempty_maybe_improper_list, [Cont, Term]},
-            TypeNames, ET, S, MR, V, D, L) ->
-  {T1, L1} = t_from_form(Cont, TypeNames, ET, S, MR, V, D, L - 1),
-  {T2, L2} = t_from_form(Term, TypeNames, ET, S, MR, V, D, L1),
-  {t_cons(T1, T2), L2};
-t_from_form({type, _L, nonempty_string, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_nonempty_string(), L};
-t_from_form({type, _L, number, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_number(), L};
-t_from_form({type, _L, pid, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_pid(), L};
-t_from_form({type, _L, port, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_port(), L};
-t_from_form({type, _L, pos_integer, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_pos_integer(), L};
-t_from_form({type, _L, maybe_improper_list, []}, _TypeNames,
-            _ET, _S, _MR, _V, _D, L) ->
-  {t_maybe_improper_list(), L};
-t_from_form({type, _L, maybe_improper_list, [Content, Termination]},
-            TypeNames, ET, S, MR, V, D, L) ->
-  {T1, L1} = t_from_form(Content, TypeNames, ET, S, MR, V, D, L - 1),
-  {T2, L2} = t_from_form(Termination, TypeNames, ET, S, MR, V, D, L1),
-  {t_maybe_improper_list(T1, T2), L2};
-t_from_form({type, _L, product, Elements}, TypeNames, ET, S, MR, V, D, L) ->
-  {Lst, L1} = list_from_form(Elements, TypeNames, ET, S, MR, V, D - 1, L),
-  {t_product(Lst), L1};
-t_from_form({type, _L, range, [From, To]} = Type,
-	    _TypeNames, _ET, _S, _MR, _V, _D, L) ->
+from_form({type, _L, mfa, []}, _S, _D, L, C) ->
+  {t_mfa(), L, C};
+from_form({type, _L, module, []}, _S, _D, L, C) ->
+  {t_module(), L, C};
+from_form({type, _L, nil, []}, _S, _D, L, C) ->
+  {t_nil(), L, C};
+from_form({type, _L, neg_integer, []}, _S, _D, L, C) ->
+  {t_neg_integer(), L, C};
+from_form({type, _L, non_neg_integer, []}, _S, _D, L, C) ->
+  {t_non_neg_integer(), L, C};
+from_form({type, _L, no_return, []}, _S, _D, L, C) ->
+  {t_unit(), L, C};
+from_form({type, _L, node, []}, _S, _D, L, C) ->
+  {t_node(), L, C};
+from_form({type, _L, none, []}, _S, _D, L, C) ->
+  {t_none(), L, C};
+from_form({type, _L, nonempty_list, []}, _S, _D, L, C) ->
+  {t_nonempty_list(), L, C};
+from_form({type, _L, nonempty_list, [Type]}, S, D, L, C) ->
+  {T, L1, C1} = from_form(Type, S, D, L - 1, C),
+  {t_nonempty_list(T), L1, C1};
+from_form({type, _L, nonempty_improper_list, [Cont, Term]}, S, D, L, C) ->
+  {T1, L1, C1} = from_form(Cont, S, D, L - 1, C),
+  {T2, L2, C2} = from_form(Term, S, D, L1, C1),
+  {t_cons(T1, T2), L2, C2};
+from_form({type, _L, nonempty_maybe_improper_list, []}, _S, _D, L, C) ->
+  {t_cons(?any, ?any), L, C};
+from_form({type, _L, nonempty_maybe_improper_list, [Cont, Term]},
+          S, D, L, C) ->
+  {T1, L1, C1} = from_form(Cont, S, D, L - 1, C),
+  {T2, L2, C2} = from_form(Term, S, D, L1, C1),
+  {t_cons(T1, T2), L2, C2};
+from_form({type, _L, nonempty_string, []}, _S, _D, L, C) ->
+  {t_nonempty_string(), L, C};
+from_form({type, _L, number, []}, _S, _D, L, C) ->
+  {t_number(), L, C};
+from_form({type, _L, pid, []}, _S, _D, L, C) ->
+  {t_pid(), L, C};
+from_form({type, _L, port, []}, _S, _D, L, C) ->
+  {t_port(), L, C};
+from_form({type, _L, pos_integer, []}, _S, _D, L, C) ->
+  {t_pos_integer(), L, C};
+from_form({type, _L, maybe_improper_list, []}, _S, _D, L, C) ->
+  {t_maybe_improper_list(), L, C};
+from_form({type, _L, maybe_improper_list, [Content, Termination]},
+          S, D, L, C) ->
+  {T1, L1, C1} = from_form(Content, S, D, L - 1, C),
+  {T2, L2, C2} = from_form(Termination, S, D, L1, C1),
+  {t_maybe_improper_list(T1, T2), L2, C2};
+from_form({type, _L, product, Elements}, S, D, L, C) ->
+  {Lst, L1, C1} = list_from_form(Elements, S, D - 1, L, C),
+  {t_product(Lst), L1, C1};
+from_form({type, _L, range, [From, To]} = Type, _S, _D, L, C) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
     {{integer, _, FromVal}, {integer, _, ToVal}} ->
-      {t_from_range(FromVal, ToVal), L};
+      {t_from_range(FromVal, ToVal), L, C};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
-t_from_form({type, _L, record, [Name|Fields]}, TypeNames, ET, S, MR, V, D, L) ->
-  record_from_form(Name, Fields, TypeNames, ET, S, MR, V, D, L);
-t_from_form({type, _L, reference, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_reference(), L};
-t_from_form({type, _L, string, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_string(), L};
-t_from_form({type, _L, term, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_any(), L};
-t_from_form({type, _L, timeout, []}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_timeout(), L};
-t_from_form({type, _L, tuple, any}, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {t_tuple(), L};
-t_from_form({type, _L, tuple, Args}, TypeNames, ET, S, MR, V, D, L) ->
-  {Lst, L1} = list_from_form(Args, TypeNames, ET, S, MR, V, D - 1, L),
-  {t_tuple(Lst), L1};
-t_from_form({type, _L, union, Args}, TypeNames, ET, S, MR, V, D, L) ->
-  {Lst, L1} = list_from_form(Args, TypeNames, ET, S, MR, V, D, L),
-  {t_sup(Lst), L1};
-t_from_form({user_type, _L, Name, Args}, TypeNames, ET, S, MR, V, D, L) ->
-  type_from_form(Name, Args, TypeNames, ET, S, MR, V, D, L);
-t_from_form({type, _L, Name, Args}, TypeNames, ET, S, MR, V, D, L) ->
+from_form({type, _L, record, [Name|Fields]}, S, D, L, C) ->
+  record_from_form(Name, Fields, S, D, L, C);
+from_form({type, _L, reference, []}, _S, _D, L, C) ->
+  {t_reference(), L, C};
+from_form({type, _L, string, []}, _S, _D, L, C) ->
+  {t_string(), L, C};
+from_form({type, _L, term, []}, _S, _D, L, C) ->
+  {t_any(), L, C};
+from_form({type, _L, timeout, []}, _S, _D, L, C) ->
+  {t_timeout(), L, C};
+from_form({type, _L, tuple, any}, _S, _D, L, C) ->
+  {t_tuple(), L, C};
+from_form({type, _L, tuple, Args}, S, D, L, C) ->
+  {Lst, L1, C1} = list_from_form(Args, S, D - 1, L, C),
+  {t_tuple(Lst), L1, C1};
+from_form({type, _L, union, Args}, S, D, L, C) ->
+  {Lst, L1, C1} = list_from_form(Args, S, D, L, C),
+  {t_sup(Lst), L1, C1};
+from_form({user_type, _L, Name, Args}, S, D, L, C) ->
+  type_from_form(Name, Args, S, D, L, C);
+from_form({type, _L, Name, Args}, S, D, L, C) ->
   %% Compatibility: modules compiled before Erlang/OTP 18.0.
-  type_from_form(Name, Args, TypeNames, ET, S, MR, V, D, L);
-t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames,
-            _ET, _S, _MR, _V, _D, L) ->
+  type_from_form(Name, Args, S, D, L, C);
+from_form({opaque, _L, Name, {Mod, Args, Rep}}, _S, _D, L, C) ->
   %% XXX. To be removed.
-  {t_opaque(Mod, Name, Args, Rep), L}.
+  {t_opaque(Mod, Name, Args, Rep), L, C}.
 
-builtin_type(Name, Type, TypeNames, ET, Site, MR, V, D, L) ->
+builtin_type(Name, Type, S, D, L, C) ->
+  #from_form{site = Site, mrecs = MR} = S,
   M = site_module(Site),
   case dict:find(M, MR) of
     {ok, R} ->
       case lookup_type(Name, 0, R) of
         {_, {{_M, _FL, _F, _A}, _T}} ->
-          type_from_form(Name, [], TypeNames, ET, Site, MR, V, D, L);
+          type_from_form(Name, [], S, D, L, C);
         error ->
-          {Type, L}
+          {Type, L, C}
       end;
     error ->
-      {Type, L}
+      {Type, L, C}
   end.
 
-type_from_form(Name, Args, TypeNames, ET, Site0, MR, V, D, L) ->
+type_from_form(Name, Args, S, D, L, C) ->
+  #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
   ArgsLen = length(Args),
-  Module = site_module(Site0),
-  {ok, R} = dict:find(Module, MR),
+  Module = site_module(Site),
   TypeName = {type, {Module, Name, ArgsLen}},
+  case can_unfold_more(TypeName, TypeNames) of
+    true ->
+      {ok, R} = dict:find(Module, MR),
+      type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames,
+                      S, D, L, C);
+    false ->
+      {t_any(), L, C}
+  end.
+
+type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
   case lookup_type(Name, ArgsLen, R) of
-    {type, {{Module, _FileName, Form, ArgNames}, _Type}} ->
-      case can_unfold_more(TypeName, TypeNames) of
-        true ->
-          NewTypeNames = [TypeName|TypeNames],
-          {ArgTypes, L1} =
-            list_from_form(Args, TypeNames, ET, Site0, MR, V, D, L),
+    {Tag, {{Module, _FileName, Form, ArgNames}, Type}} ->
+      NewTypeNames = [TypeName|TypeNames],
+      S1 = S#from_form{tnames = NewTypeNames},
+      {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
+      CKey = cache_key(Module, Name, ArgTypes, TypeNames, D),
+      case cache_find(CKey, C) of
+        {CachedType, DeltaL} ->
+          {CachedType, L1 - DeltaL, C};
+        error ->
           List = lists:zip(ArgNames, ArgTypes),
           TmpV = maps:from_list(List),
-          Site = TypeName,
-          t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1);
-        false ->
-          {t_any(), L}
-      end;
-    {opaque, {{Module, _FileName, Form, ArgNames}, Type}} ->
-      case can_unfold_more(TypeName, TypeNames) of
-        true ->
-          NewTypeNames = [TypeName|TypeNames],
-          {ArgTypes, L1} =
-            list_from_form(Args, NewTypeNames, ET, Site0, MR, V, D, L),
-          List = lists:zip(ArgNames, ArgTypes),
-          TmpV = maps:from_list(List),
-          Site = TypeName,
-          {Rep, L2} =
-            t_from_form(Form, NewTypeNames, ET, Site, MR, TmpV, D, L1),
-          Rep1 = choose_opaque_type(Rep, Type),
-          Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
-                   true -> Rep1;
-                   false ->
-                     ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
-                     t_opaque(Module, Name, ArgTypes2, Rep1)
-                 end,
-          {Rep2, L2};
-        false -> {t_any(), L}
+          S2 = S1#from_form{site = TypeName, vtab = TmpV},
+          Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
+          {NewType, L3, C3} =
+            case Tag of
+              type ->
+                recur_limit(Fun, D, L1, TypeName, TypeNames);
+              opaque ->
+                {Rep, L2, C2} = recur_limit(Fun, D, L1, TypeName, TypeNames),
+                Rep1 = choose_opaque_type(Rep, Type),
+                Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
+                         true -> Rep1;
+                         false ->
+                           ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                           t_opaque(Module, Name, ArgTypes2, Rep1)
+                       end,
+                {Rep2, L2, C2}
+            end,
+          C4 = cache_put(CKey, NewType, L1 - L3, C3),
+          {NewType, L3, C4}
       end;
     error ->
-      Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
+      Msg = io_lib:format("Unable to find type ~w/~w\n",
+                          [Name, ArgsLen]),
       throw({error, Msg})
   end.
 
-remote_from_form(RemMod, Name, Args, TypeNames, ET, S, MR, V, D, L) ->
+remote_from_form(RemMod, Name, Args, S, D, L, C) ->
+  #from_form{xtypes = ET, mrecs = MR, tnames = TypeNames} = S,
   if
     ET =:= replace_by_none ->
-      {t_none(), L};
+      {t_none(), L, C};
     true ->
       ArgsLen = length(Args),
       MFA = {RemMod, Name, ArgsLen},
       case dict:find(RemMod, MR) of
         error ->
           self() ! {self(), ext_types, MFA},
-          {t_any(), L};
+          {t_any(), L, C};
         {ok, RemDict} ->
-          RemType = {type, MFA},
           case sets:is_element(MFA, ET) of
             true ->
-              case lookup_type(Name, ArgsLen, RemDict) of
-                {type, {{_Mod, _FileLine, Form, ArgNames}, _Type}} ->
-                  case can_unfold_more(RemType, TypeNames) of
-                    true ->
-                      NewTypeNames = [RemType|TypeNames],
-                      {ArgTypes, L1} = list_from_form(Args, TypeNames,
-                                                      ET, S, MR, V, D, L),
-                      List = lists:zip(ArgNames, ArgTypes),
-                      TmpVarDict = maps:from_list(List),
-                      Site = RemType,
-                      t_from_form(Form, NewTypeNames, ET,
-                                  Site, MR, TmpVarDict, D, L1);
-                    false ->
-                      {t_any(), L}
-                  end;
-                {opaque, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
-                  case can_unfold_more(RemType, TypeNames) of
-                    true ->
-                      NewTypeNames = [RemType|TypeNames],
-                      {ArgTypes, L1} = list_from_form(Args, NewTypeNames,
-                                                      ET, S, MR, V, D, L),
-                      List = lists:zip(ArgNames, ArgTypes),
-                      TmpVarDict = maps:from_list(List),
-                      Site = RemType,
-                      {NewRep, L2} =
-                        t_from_form(Form, NewTypeNames, ET, Site, MR,
-                                    TmpVarDict, D, L1),
-                      NewRep1 = choose_opaque_type(NewRep, Type),
-                      NewRep2 =
-                        case
-                          cannot_have_opaque(NewRep1, RemType, TypeNames)
-                        of
-                          true -> NewRep1;
-                          false ->
-                            ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
-                            t_opaque(Mod, Name, ArgTypes2, NewRep1)
-                        end,
-                      {NewRep2, L2};
-                    false ->
-                      {t_any(), L}
-                  end;
-                error ->
-                  Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
-                                      [RemMod, Name]),
-                  throw({error, Msg})
+              RemType = {type, MFA},
+              case can_unfold_more(RemType, TypeNames) of
+                true ->
+                  remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict,
+                                    RemType, TypeNames, S, D, L, C);
+                false ->
+                  {t_any(), L, C}
               end;
             false ->
               self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
-              {t_any(), L}
+              {t_any(), L, C}
           end
       end
+  end.
+
+remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
+                  S, D, L, C) ->
+  case lookup_type(Name, ArgsLen, RemDict) of
+    {Tag, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
+      NewTypeNames = [RemType|TypeNames],
+      S1 = S#from_form{tnames = NewTypeNames},
+      {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
+      CKey = cache_key(RemMod, Name, ArgTypes, TypeNames, D),
+      %% case error of
+      case cache_find(CKey, C) of
+        {CachedType, DeltaL} ->
+          {CachedType, L - DeltaL, C};
+        error ->
+          List = lists:zip(ArgNames, ArgTypes),
+          TmpVarTab = maps:from_list(List),
+          S2 = S1#from_form{site = RemType, vtab = TmpVarTab},
+          Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
+          {NewType, L3, C3} =
+            case Tag of
+              type ->
+                recur_limit(Fun, D, L1, RemType, TypeNames);
+              opaque ->
+                {NewRep, L2, C2} = recur_limit(Fun, D, L1, RemType, TypeNames),
+                NewRep1 = choose_opaque_type(NewRep, Type),
+                NewRep2 =
+                  case cannot_have_opaque(NewRep1, RemType, TypeNames) of
+                    true -> NewRep1;
+                    false ->
+                      ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                      t_opaque(Mod, Name, ArgTypes2, NewRep1)
+                  end,
+                {NewRep2, L2, C2}
+            end,
+          C4 = cache_put(CKey, NewType, L1 - L3, C3),
+          {NewType, L3, C4}
+      end;
+    error ->
+      Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
+                          [RemMod, Name]),
+      throw({error, Msg})
   end.
 
 subst_all_vars_to_any_list(Types) ->
@@ -4832,63 +4859,67 @@ choose_opaque_type(Type, DeclType) ->
     false -> DeclType
   end.
 
-record_from_form({atom, _, Name}, ModFields, TypeNames, ET, S, MR, V, D, L) ->
-  case can_unfold_more({record, Name}, TypeNames) of
+record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
+  #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
+  RecordType = {record, Name},
+  case can_unfold_more(RecordType, TypeNames) of
     true ->
-      M = site_module(S),
+      M = site_module(Site),
       {ok, R} = dict:find(M, MR),
       case lookup_record(Name, R) of
         {ok, DeclFields} ->
-          NewTypeNames = [{record, Name}|TypeNames],
-          S1 = {record, {M, Name, length(DeclFields)}},
-          {GetModRec, L1} = get_mod_record(ModFields, DeclFields,
-                                           NewTypeNames, ET, S1, MR, V, D, L),
-          case GetModRec of
-            {error, FieldName} ->
-              throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
-                                          [Name, FieldName])});
-            {ok, NewFields} ->
-              {NewFields1, L2} =
-                fields_from_form(NewFields, NewTypeNames, ET, S1, MR,
-                                 maps:new(), D, L1),
-              Rec = t_tuple(
-                      [t_atom(Name)|[Type
-                                     || {_FieldName, Type} <- NewFields1]]),
-              {Rec, L2}
-          end;
+          NewTypeNames = [RecordType|TypeNames],
+          Site1 = {record, {M, Name, length(DeclFields)}},
+          S1 = S#from_form{site = Site1, tnames = NewTypeNames},
+          Fun = fun(D, L) ->
+                    {GetModRec, L1, C1} =
+                      get_mod_record(ModFields, DeclFields, S1, D, L, C),
+                    case GetModRec of
+                      {error, FieldName} ->
+                        throw({error,
+                               io_lib:format("Illegal declaration of #~w{~w}\n",
+                                             [Name, FieldName])});
+                      {ok, NewFields} ->
+                        S2 = S1#from_form{vtab = var_table__new()},
+                        {NewFields1, L2, C2} =
+                          fields_from_form(NewFields, S2, D, L1, C1),
+                        Rec = t_tuple(
+                                [t_atom(Name)|[Type
+                                               || {_FieldName, Type} <- NewFields1]]),
+                        {Rec, L2, C2}
+                    end
+                end,
+          recur_limit(Fun, D0, L0, RecordType, TypeNames);
         error ->
           throw({error, io_lib:format("Unknown record #~w{}\n", [Name])})
       end;
     false ->
-       {t_any(), L}
+       {t_any(), L0, C}
   end.
 
-get_mod_record([], DeclFields, _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {{ok, DeclFields}, L};
-get_mod_record(ModFields, DeclFields, TypeNames, ET, S, MR, V, D, L) ->
+get_mod_record([], DeclFields, _S, _D, L, C) ->
+  {{ok, DeclFields}, L, C};
+get_mod_record(ModFields, DeclFields, S, D, L, C) ->
   DeclFieldsDict = lists:keysort(1, DeclFields),
-  {ModFieldsDict, L1} =
-    build_field_dict(ModFields, TypeNames, ET, S, MR, V, D, L),
+  {ModFieldsDict, L1, C1} = build_field_dict(ModFields, S, D, L, C),
   case get_mod_record_types(DeclFieldsDict, ModFieldsDict, []) of
-    {error, _FieldName} = Error -> {Error, L1};
+    {error, _FieldName} = Error -> {Error, L1, C1};
     {ok, FinalKeyDict} ->
       Fields = [lists:keyfind(FieldName, 1, FinalKeyDict)
              || {FieldName, _, _} <- DeclFields],
-      {{ok, Fields}, L1}
+      {{ok, Fields}, L1, C1}
   end.
 
-build_field_dict(FieldTypes, TypeNames, ET, S, MR, V, D, L) ->
-  build_field_dict(FieldTypes, TypeNames, ET, S, MR, V, D, L, []).
+build_field_dict(FieldTypes, S, D, L, C) ->
+  build_field_dict(FieldTypes, S, D, L, C, []).
 
 build_field_dict([{type, _, field_type, [{atom, _, Name}, Type]}|Left],
-		 TypeNames, ET, S, MR, V, D, L, Acc) ->
-  {T, L1} = t_from_form(Type, TypeNames, ET, S, MR, V, D, L - 1),
+		 S, D, L, C, Acc) ->
+  {T, L1, C1} = from_form(Type, S, D, L - 1, C),
   NewAcc = [{Name, Type, T}|Acc],
-  {Dict, L2} =
-    build_field_dict(Left, TypeNames, ET, S, MR, V, D, L1, NewAcc),
-  {Dict, L2};
-build_field_dict([], _TypeNames, _ET, _S, _MR, _V, _D, L, Acc) ->
-  {lists:keysort(1, Acc), L}.
+  build_field_dict(Left, S, D, L1, C1, NewAcc);
+build_field_dict([], _S, _D, L, C, Acc) ->
+  {lists:keysort(1, Acc), L, C}.
 
 get_mod_record_types([{FieldName, _Abstr, _DeclType}|Left1],
                      [{FieldName, TypeForm, ModType}|Left2],
@@ -4906,20 +4937,19 @@ get_mod_record_types(_, [{FieldName2, _FormType, _ModType}|_], _Acc) ->
 %% It is important to create a limited version of the record type
 %% since nested record types can otherwise easily result in huge
 %% terms.
-fields_from_form([], _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {[], L};
-fields_from_form([{Name, Abstr, _Type}|Tail], TypeNames, ET, S, MR,
-                 V, D, L) ->
-  {T, L1} = t_from_form(Abstr, TypeNames, ET, S, MR, V, D, L),
-  {F, L2} = fields_from_form(Tail, TypeNames, ET, S, MR, V, D, L1),
-  {[{Name, T}|F], L2}.
+fields_from_form([], _S, _D, L, C) ->
+  {[], L, C};
+fields_from_form([{Name, Abstr, _Type}|Tail], S, D, L, C) ->
+  {T, L1, C1} = from_form(Abstr, S, D, L, C),
+  {F, L2, C2} = fields_from_form(Tail, S, D, L1, C1),
+  {[{Name, T}|F], L2, C2}.
 
-list_from_form([], _TypeNames, _ET, _S, _MR, _V, _D, L) ->
-  {[], L};
-list_from_form([H|Tail], TypeNames, ET, S, MR, V, D, L) ->
-  {H1, L1} = t_from_form(H, TypeNames, ET, S, MR, V, D, L - 1),
-  {T1, L2} = list_from_form(Tail, TypeNames, ET, S, MR, V, D, L1),
-  {[H1|T1], L2}.
+list_from_form([], _S, _D, L, C) ->
+  {[], L, C};
+list_from_form([H|Tail], S, D, L, C) ->
+  {H1, L1, C1} = from_form(H, S, D, L - 1, C),
+  {T1, L2, C2} = list_from_form(Tail, S, D, L1, C1),
+  {[H1|T1], L2, C2}.
 
 %% Sorts, combines non-singleton pairs, and applies precendence and
 %% mandatoriness rules.
@@ -4965,79 +4995,139 @@ promote_to_mand(MKs, [E={K,_,V}|T]) ->
      false -> E
    end|promote_to_mand(MKs, T)].
 
--spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
-                            mod_records()) -> ok.
+-define(RECUR_EXPAND_LIMIT, 10).
+-define(RECUR_EXPAND_DEPTH, 2).
 
-t_check_record_fields(Form, ExpTypes, Site, RecDict) ->
-  t_check_record_fields(Form, ExpTypes, Site, RecDict, maps:new()).
+%% If more of the limited resources is spent on the non-recursive
+%% forms, more warnings are found. And the analysis is also a bit
+%% faster.
+%%
+%% Setting REC_TYPE_LIMIT to 1 would work also work well.
+
+recur_limit(Fun, D, L, _, _) when L =< ?RECUR_EXPAND_DEPTH,
+                                  D =< ?RECUR_EXPAND_LIMIT ->
+  Fun(D, L);
+recur_limit(Fun, D, L, TypeName, TypeNames) ->
+  case is_recursive(TypeName, TypeNames) of
+    true ->
+      {T, L1, C1} = Fun(?RECUR_EXPAND_DEPTH, ?RECUR_EXPAND_LIMIT),
+      {T, L - L1, C1};
+    false ->
+      Fun(D, L)
+  end.
 
 -spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
-                            mod_records(), var_table()) -> ok.
+                            mod_records(), var_table(), cache()) -> cache().
+
+t_check_record_fields(Form, ExpTypes, Site, RecDict, VarTable, Cache) ->
+  State = #from_form{site   = Site,
+                     xtypes = ExpTypes,
+                     mrecs  = RecDict,
+                     vtab   = VarTable,
+                     tnames = []},
+  check_record_fields(Form, State, Cache).
+
+-spec check_record_fields(parse_form(), #from_form{}, cache()) -> cache().
 
 %% If there is something wrong with parse_form()
 %% throw({error, io_lib:chars()} is called.
 
-t_check_record_fields({var, _L, _}, _ET, _S, _MR, _V) -> ok;
-t_check_record_fields({ann_type, _L, [_Var, Type]}, ET, S, MR, V) ->
-  t_check_record_fields(Type, ET, S, MR, V);
-t_check_record_fields({paren_type, _L, [Type]}, ET, S, MR, V) ->
-  t_check_record_fields(Type, ET, S, MR, V);
-t_check_record_fields({remote_type, _L, [{atom, _, _}, {atom, _, _}, Args]},
-                    ET, S, MR, V) ->
-  list_check_record_fields(Args, ET, S, MR, V);
-t_check_record_fields({atom, _L, _}, _ET, _S, _MR, _V) -> ok;
-t_check_record_fields({integer, _L, _}, _ET, _S, _MR, _V) -> ok;
-t_check_record_fields({op, _L, _Op, _Arg}, _ET, _S, _MR, _V) -> ok;
-t_check_record_fields({op, _L, _Op, _Arg1, _Arg2}, _ET, _S, _MR, _V) -> ok;
-t_check_record_fields({type, _L, tuple, any}, _ET, _S, _MR, _V) -> ok;
-t_check_record_fields({type, _L, map, any}, _ET, _S, _MR, _V) -> ok;
-t_check_record_fields({type, _L, binary, [_Base, _Unit]}, _ET, _S, _MR, _V) ->
-  ok;
-t_check_record_fields({type, _L, 'fun', [{type, _, any}, Range]},
-                      ET, S, MR, V) ->
-  t_check_record_fields(Range, ET, S, MR, V);
-t_check_record_fields({type, _L, range, [_From, _To]}, _ET, _S, _MR, _V) ->
-  ok;
-t_check_record_fields({type, _L, record, [Name|Fields]}, ET, S, MR, V) ->
-  check_record(Name, Fields, ET, S, MR, V);
-t_check_record_fields({type, _L, _, Args}, ET, S, MR, V) ->
-  list_check_record_fields(Args, ET, S, MR, V);
-t_check_record_fields({user_type, _L, _Name, Args}, ET, S, MR, V) ->
-  list_check_record_fields(Args, ET, S, MR, V).
+check_record_fields({var, _L, _}, _S, C) -> C;
+check_record_fields({ann_type, _L, [_Var, Type]}, S, C) ->
+  check_record_fields(Type, S, C);
+check_record_fields({paren_type, _L, [Type]}, S, C) ->
+  check_record_fields(Type, S, C);
+check_record_fields({remote_type, _L, [{atom, _, _}, {atom, _, _}, Args]},
+                    S, C) ->
+  list_check_record_fields(Args, S, C);
+check_record_fields({atom, _L, _}, _S, C) -> C;
+check_record_fields({integer, _L, _}, _S, C) -> C;
+check_record_fields({op, _L, _Op, _Arg}, _S, C) -> C;
+check_record_fields({op, _L, _Op, _Arg1, _Arg2}, _S, C) -> C;
+check_record_fields({type, _L, tuple, any}, _S, C) -> C;
+check_record_fields({type, _L, map, any}, _S, C) -> C;
+check_record_fields({type, _L, binary, [_Base, _Unit]}, _S, C) -> C;
+check_record_fields({type, _L, 'fun', [{type, _, any}, Range]}, S, C) ->
+  check_record_fields(Range, S, C);
+check_record_fields({type, _L, range, [_From, _To]}, _S, C) -> C;
+check_record_fields({type, _L, record, [Name|Fields]}, S, C) ->
+  check_record(Name, Fields, S, C);
+check_record_fields({type, _L, _, Args}, S, C) ->
+  list_check_record_fields(Args, S, C);
+check_record_fields({user_type, _L, _Name, Args}, S, C) ->
+  list_check_record_fields(Args, S, C).
 
-check_record({atom, _, Name}, ModFields, ET, Site, MR, V) ->
+check_record({atom, _, Name}, ModFields, S, C) ->
+  #from_form{site = Site, mrecs = MR} = S,
   M = site_module(Site),
   {ok, R} = dict:find(M, MR),
   {ok, DeclFields} = lookup_record(Name, R),
-  case check_fields(Name, ModFields, DeclFields, ET, Site, MR, V) of
+  case check_fields(Name, ModFields, DeclFields, S, C) of
     {error, FieldName} ->
        throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
                                    [Name, FieldName])});
-    ok -> ok
+    C1 -> C1
   end.
 
 check_fields(RecName, [{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
-             DeclFields, ET, Site0, MR, V) ->
+             DeclFields, S, C) ->
+  #from_form{site = Site0, xtypes = ET, mrecs = MR, vtab = V} = S,
   M = site_module(Site0),
   Site = {record, {M, RecName, length(DeclFields)}},
-  Type = t_from_form(Abstr, ET, Site, MR, V),
+  {Type, C1} = t_from_form(Abstr, ET, Site, MR, V, C),
   {Name, _, DeclType} = lists:keyfind(Name, 1, DeclFields),
   TypeNoVars = subst_all_vars_to_any(Type),
   case t_is_subtype(TypeNoVars, DeclType) of
     false -> {error, Name};
-    true -> check_fields(RecName, Left, DeclFields, ET, Site0, MR, V)
+    true -> check_fields(RecName, Left, DeclFields, S, C1)
   end;
-check_fields(_RecName, [], _Decl, _ET, _Site, _MR, _V) ->
-  ok.
+check_fields(_RecName, [], _Decl, _S, C) ->
+  C.
 
-list_check_record_fields([], _ET, _S, _MR, _V) ->
-  ok;
-list_check_record_fields([H|Tail], ET, S, MR, V) ->
-  ok = t_check_record_fields(H, ET, S, MR, V),
-  list_check_record_fields(Tail, ET, S, MR, V).
+list_check_record_fields([], _S, C) ->
+  C;
+list_check_record_fields([H|Tail], S, C) ->
+  C1 = check_record_fields(H, S, C),
+  list_check_record_fields(Tail, S, C1).
 
 site_module({_, {Module, _, _}}) ->
   Module.
+
+-spec cache__new() -> cache().
+
+cache__new() ->
+  maps:new().
+
+-spec cache_key(module(), atom(), [erl_type()],
+                type_names(), expand_depth()) -> cache_key().
+
+%% If TypeNames is left out from the key, the cache is smaller, and
+%% the form-to-type translation is faster. But it would be a shame if,
+%% for example, any() is used, where a more complex type should be
+%% used. There is also a slight risk of creating unnecessarily big
+%% types.
+
+cache_key(Module, Name, ArgTypes, TypeNames, D) ->
+  {Module, Name, D, ArgTypes, TypeNames}.
+
+-spec cache_find(cache_key(), cache()) ->
+                    {erl_type(), expand_limit()} | 'error'.
+
+cache_find(Key, Cache) ->
+  case maps:find(Key, Cache) of
+    {ok, Value} ->
+      Value;
+    error ->
+      error
+  end.
+
+-spec cache_put(cache_key(), erl_type(), expand_limit(), cache()) -> cache().
+
+cache_put(_Key, _Type, DeltaL, Cache) when DeltaL < 0 ->
+  %% The type is truncated; do not reuse it.
+  Cache;
+cache_put(Key, Type, DeltaL, Cache) ->
+  maps:put(Key, {Type, DeltaL}, Cache).
 
 -spec t_var_names([erl_type()]) -> [atom()].
 
@@ -5137,10 +5227,15 @@ t_form_to_string({type, _L, Name, []} = T) ->
      M = mod,
      D0 = dict:new(),
      MR = dict:from_list([{M, D0}]),
-     S = {type, {M,Name,0}},
-     V = #{},
-     {T1, _} =
-       t_from_form(T, [], sets:new(), S, MR, V, _Deep=1000, _ALot=100000),
+     Site = {type, {M,Name,0}},
+     V = var_table__new(),
+     C = cache__new(),
+     State = #from_form{site   = Site,
+                        xtypes = sets:new(),
+                        mrecs  = MR,
+                        vtab   = V,
+                        tnames = []},
+     {T1, _, _} = from_form(T, State, _Deep=1000, _ALot=1000000, C),
      t_to_string(T1)
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
@@ -5216,6 +5311,7 @@ lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
     error -> error
   end.
 
+-spec lookup_type(_, _, _) -> {'type' | 'opaque', type_value()} | 'error'.
 lookup_type(Name, Arity, RecDict) ->
   case dict:find({type, Name, Arity}, RecDict) of
     error ->
@@ -5462,6 +5558,17 @@ family(L) ->
   R = sofs:relation(L),
   F = sofs:relation_to_family(R),
   sofs:to_external(F).
+
+%%=============================================================================
+%%
+%% Interface functions for abstract data types defined in this module
+%%
+%%=============================================================================
+
+-spec var_table__new() -> var_table().
+
+var_table__new() ->
+  maps:new().
 
 %%=============================================================================
 %% Consistency-testing function(s) below

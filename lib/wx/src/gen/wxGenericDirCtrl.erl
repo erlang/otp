@@ -99,13 +99,13 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlwxgenericdirctrl">external documentation</a>.
 -spec new(Parent, [Option]) -> wxGenericDirCtrl() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {dir, unicode:chardata()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {filter, unicode:chardata()}
-		 | {defaultFilter, integer()}.
+	Option :: {'id', integer()}
+		 | {'dir', unicode:chardata()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'filter', unicode:chardata()}
+		 | {'defaultFilter', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -132,13 +132,13 @@ create(This,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlcreate">external documentation</a>.
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxGenericDirCtrl(), Parent::wxWindow:wxWindow(),
-	Option :: {id, integer()}
-		 | {dir, unicode:chardata()}
-		 | {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {filter, unicode:chardata()}
-		 | {defaultFilter, integer()}.
+	Option :: {'id', integer()}
+		 | {'dir', unicode:chardata()}
+		 | {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'filter', unicode:chardata()}
+		 | {'defaultFilter', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -156,7 +156,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlinit">external documentation</a>.
--spec init(This) -> ok when
+-spec init(This) -> 'ok' when
 	This::wxGenericDirCtrl().
 init(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -164,7 +164,7 @@ init(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlcollapsetree">external documentation</a>.
--spec collapseTree(This) -> ok when
+-spec collapseTree(This) -> 'ok' when
 	This::wxGenericDirCtrl().
 collapseTree(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -238,7 +238,7 @@ getTreeCtrl(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlrecreatetree">external documentation</a>.
--spec reCreateTree(This) -> ok when
+-spec reCreateTree(This) -> 'ok' when
 	This::wxGenericDirCtrl().
 reCreateTree(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGenericDirCtrl),
@@ -246,7 +246,7 @@ reCreateTree(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetdefaultpath">external documentation</a>.
--spec setDefaultPath(This, Path) -> ok when
+-spec setDefaultPath(This, Path) -> 'ok' when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 setDefaultPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
  when is_list(Path) ->
@@ -256,7 +256,7 @@ setDefaultPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
   <<ThisRef:32/?UI,(byte_size(Path_UC)):32/?UI,(Path_UC)/binary, 0:(((8- ((0+byte_size(Path_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetfilter">external documentation</a>.
--spec setFilter(This, Filter) -> ok when
+-spec setFilter(This, Filter) -> 'ok' when
 	This::wxGenericDirCtrl(), Filter::unicode:chardata().
 setFilter(#wx_ref{type=ThisT,ref=ThisRef},Filter)
  when is_list(Filter) ->
@@ -266,7 +266,7 @@ setFilter(#wx_ref{type=ThisT,ref=ThisRef},Filter)
   <<ThisRef:32/?UI,(byte_size(Filter_UC)):32/?UI,(Filter_UC)/binary, 0:(((8- ((0+byte_size(Filter_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetfilterindex">external documentation</a>.
--spec setFilterIndex(This, N) -> ok when
+-spec setFilterIndex(This, N) -> 'ok' when
 	This::wxGenericDirCtrl(), N::integer().
 setFilterIndex(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -275,7 +275,7 @@ setFilterIndex(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgenericdirctrl.html#wxgenericdirctrlsetpath">external documentation</a>.
--spec setPath(This, Path) -> ok when
+-spec setPath(This, Path) -> 'ok' when
 	This::wxGenericDirCtrl(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
  when is_list(Path) ->
@@ -285,7 +285,7 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
   <<ThisRef:32/?UI,(byte_size(Path_UC)):32/?UI,(Path_UC)/binary, 0:(((8- ((0+byte_size(Path_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGenericDirCtrl()) -> ok.
+-spec destroy(This::wxGenericDirCtrl()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGenericDirCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

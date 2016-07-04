@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerwxauimanager">external documentation</a>.
 -spec new([Option]) -> wxAuiManager() when
-	Option :: {managed_wnd, wxWindow:wxWindow()}
-		 | {flags, integer()}.
+	Option :: {'managed_wnd', wxWindow:wxWindow()}
+		 | {'flags', integer()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({managed_wnd, #wx_ref{type=Managed_wndT,ref=Managed_wndRef}}, Acc) ->   ?CLASS(Managed_wndT,wxWindow),[<<1:32/?UI,Managed_wndRef:32/?UI>>|Acc];
@@ -78,8 +78,8 @@ addPane(This,Window)
 %% 
 -spec addPane(This, Window, [Option]) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(),
-	Option :: {direction, integer()}
-		 | {caption, unicode:chardata()};
+	Option :: {'direction', integer()}
+		 | {'caption', unicode:chardata()};
       (This, Window, Pane_info) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo().
 addPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Options)
@@ -189,7 +189,7 @@ getPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) ->
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerhidehint">external documentation</a>.
--spec hideHint(This) -> ok when
+-spec hideHint(This) -> 'ok' when
 	This::wxAuiManager().
 hideHint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -207,7 +207,7 @@ insertPane(This,Window,Insert_location)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerinsertpane">external documentation</a>.
 -spec insertPane(This, Window, Insert_location, [Option]) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Insert_location::wxAuiPaneInfo:wxAuiPaneInfo(),
-	Option :: {insert_level, integer()}.
+	Option :: {'insert_level', integer()}.
 insertPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=Insert_locationT,ref=Insert_locationRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -220,7 +220,7 @@ insertPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#
   <<ThisRef:32/?UI,WindowRef:32/?UI,Insert_locationRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerloadpaneinfo">external documentation</a>.
--spec loadPaneInfo(This, Pane_part, Pane) -> ok when
+-spec loadPaneInfo(This, Pane_part, Pane) -> 'ok' when
 	This::wxAuiManager(), Pane_part::unicode:chardata(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 loadPaneInfo(#wx_ref{type=ThisT,ref=ThisRef},Pane_part,#wx_ref{type=PaneT,ref=PaneRef})
  when is_list(Pane_part) ->
@@ -241,7 +241,7 @@ loadPerspective(This,Perspective)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerloadperspective">external documentation</a>.
 -spec loadPerspective(This, Perspective, [Option]) -> boolean() when
 	This::wxAuiManager(), Perspective::unicode:chardata(),
-	Option :: {update, boolean()}.
+	Option :: {'update', boolean()}.
 loadPerspective(#wx_ref{type=ThisT,ref=ThisRef},Perspective, Options)
  when is_list(Perspective),is_list(Options) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -270,7 +270,7 @@ savePerspective(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetartprovider">external documentation</a>.
--spec setArtProvider(This, Art_provider) -> ok when
+-spec setArtProvider(This, Art_provider) -> 'ok' when
 	This::wxAuiManager(), Art_provider::wxAuiDockArt:wxAuiDockArt().
 setArtProvider(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Art_providerT,ref=Art_providerRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -279,7 +279,7 @@ setArtProvider(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Art_providerT,ref=Ar
   <<ThisRef:32/?UI,Art_providerRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetdocksizeconstraint">external documentation</a>.
--spec setDockSizeConstraint(This, Width_pct, Height_pct) -> ok when
+-spec setDockSizeConstraint(This, Width_pct, Height_pct) -> 'ok' when
 	This::wxAuiManager(), Width_pct::number(), Height_pct::number().
 setDockSizeConstraint(#wx_ref{type=ThisT,ref=ThisRef},Width_pct,Height_pct)
  when is_number(Width_pct),is_number(Height_pct) ->
@@ -288,7 +288,7 @@ setDockSizeConstraint(#wx_ref{type=ThisT,ref=ThisRef},Width_pct,Height_pct)
   <<ThisRef:32/?UI,0:32,Width_pct:64/?F,Height_pct:64/?F>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetflags">external documentation</a>.
--spec setFlags(This, Flags) -> ok when
+-spec setFlags(This, Flags) -> 'ok' when
 	This::wxAuiManager(), Flags::integer().
 setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
  when is_integer(Flags) ->
@@ -297,7 +297,7 @@ setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
   <<ThisRef:32/?UI,Flags:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagersetmanagedwindow">external documentation</a>.
--spec setManagedWindow(This, Managed_wnd) -> ok when
+-spec setManagedWindow(This, Managed_wnd) -> 'ok' when
 	This::wxAuiManager(), Managed_wnd::wxWindow:wxWindow().
 setManagedWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Managed_wndT,ref=Managed_wndRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -306,7 +306,7 @@ setManagedWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Managed_wndT,ref=M
   <<ThisRef:32/?UI,Managed_wndRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagershowhint">external documentation</a>.
--spec showHint(This, Rect) -> ok when
+-spec showHint(This, Rect) -> 'ok' when
 	This::wxAuiManager(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 showHint(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -315,7 +315,7 @@ showHint(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
   <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanageruninit">external documentation</a>.
--spec unInit(This) -> ok when
+-spec unInit(This) -> 'ok' when
 	This::wxAuiManager().
 unInit(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -323,7 +323,7 @@ unInit(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerupdate">external documentation</a>.
--spec update(This) -> ok when
+-spec update(This) -> 'ok' when
 	This::wxAuiManager().
 update(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -331,7 +331,7 @@ update(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAuiManager()) -> ok.
+-spec destroy(This::wxAuiManager()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiManager),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

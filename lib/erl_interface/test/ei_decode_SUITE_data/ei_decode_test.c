@@ -377,8 +377,14 @@ TESTCASE(test_ei_decode_ulong)
       EI_DECODE_2     (decode_ulong,  11, unsigned long,  ll(0x8000000000000000));
       EI_DECODE_2     (decode_ulong,  11, unsigned long,  ll(0xffffffffffffffff));
     } else {
-      EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x80000000);
-      EI_DECODE_2     (decode_ulong,  7, unsigned long,  0xffffffff);
+        if (sizeof(void*) > 4) {
+            /* Windows */
+            EI_DECODE_2_FAIL(decode_ulong,  11, unsigned long,  ll(0x8000000000000000));
+            EI_DECODE_2_FAIL(decode_ulong,  11, unsigned long,  ll(0xffffffffffffffff));
+        } else {
+            EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x80000000);
+            EI_DECODE_2     (decode_ulong,  7, unsigned long,  0xffffffff);
+        }
     }
 
     EI_DECODE_2_FAIL(decode_ulong,  9, unsigned long,  ll(0x7fffffffffff));

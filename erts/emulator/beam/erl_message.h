@@ -112,8 +112,8 @@ typedef struct erl_heap_fragment ErlHeapFragment;
 struct erl_heap_fragment {
     ErlHeapFragment* next;	/* Next heap fragment */
     ErlOffHeap off_heap;	/* Offset heap data. */
-    unsigned alloc_size;	/* Size in (half)words of mem */
-    unsigned used_size;         /* With terms to be moved to heap by GC */
+    Uint alloc_size;		/* Size in (half)words of mem */
+    Uint used_size;		/* With terms to be moved to heap by GC */
     Eterm mem[1];		/* Data */
 };
 
@@ -366,8 +366,18 @@ ERTS_GLB_FORCE_INLINE ErtsMessage *erts_shrink_message(ErtsMessage *mp, Uint sz,
 ERTS_GLB_FORCE_INLINE void erts_free_message(ErtsMessage *mp);
 ERTS_GLB_INLINE Uint erts_used_frag_sz(const ErlHeapFragment*);
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErtsMessage *msg);
+ERTS_GLB_INLINE void erts_msgq_update_internal_pointers(ErlMessageQueue *msgq,
+							ErtsMessage **newpp,
+							ErtsMessage **oldpp);
+ERTS_GLB_INLINE void erts_msgq_replace_msg_ref(ErlMessageQueue *msgq,
+					       ErtsMessage *newp,
+					       ErtsMessage **oldpp);
 
 #define ERTS_MSG_COMBINED_HFRAG ((void *) 0x1)
+
+#define erts_message_to_heap_frag(MP)                   \
+    (((MP)->data.attached == ERTS_MSG_COMBINED_HFRAG) ? \
+        &(MP)->hfrag : (MP)->data.heap_frag)
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -449,10 +459,7 @@ ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErtsMessage *msg)
     ASSERT(msg->data.attached);
     if (is_value(ERL_MESSAGE_TERM(msg))) {
 	ErlHeapFragment *bp;
-	if (msg->data.attached == ERTS_MSG_COMBINED_HFRAG)
-	    bp = &msg->hfrag;
-	else
-	    bp = msg->data.heap_frag;
+        bp = erts_message_to_heap_frag(msg);
 	return erts_used_frag_sz(bp);
     }
     else if (msg->data.dist_ext->heap_size < 0)
@@ -467,6 +474,29 @@ ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErtsMessage *msg)
 	return sz;
     }
 }
+
+ERTS_GLB_INLINE void
+erts_msgq_update_internal_pointers(ErlMessageQueue *msgq,
+				   ErtsMessage **newpp,
+				   ErtsMessage **oldpp)
+{
+    if (msgq->save == oldpp)
+	msgq->save = newpp;
+    if (msgq->last == oldpp)
+	msgq->last = newpp;
+    if (msgq->saved_last == oldpp)
+	msgq->saved_last = newpp;
+}
+
+ERTS_GLB_INLINE void
+erts_msgq_replace_msg_ref(ErlMessageQueue *msgq, ErtsMessage *newp, ErtsMessage **oldpp)
+{
+    ErtsMessage *oldp = *oldpp;
+    newp->next = oldp->next;
+    erts_msgq_update_internal_pointers(msgq, &newp->next, &oldp->next);
+    *oldpp = newp;
+}
+
 #endif
 
 #endif

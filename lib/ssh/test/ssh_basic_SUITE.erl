@@ -25,6 +25,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/include/file.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 %%-compile(export_all).
@@ -49,7 +50,12 @@
 	 inet6_option/1,
 	 inet_option/1,
 	 internal_error/1,
-	 known_hosts/1,  
+	 known_hosts/1,
+	 login_bad_pwd_no_retry1/1,
+	 login_bad_pwd_no_retry2/1,
+	 login_bad_pwd_no_retry3/1,
+	 login_bad_pwd_no_retry4/1,
+	 login_bad_pwd_no_retry5/1,
 	 misc_ssh_options/1,
 	 openssh_zlib_basic_test/1,  
 	 packet_size_zero/1, 
@@ -99,7 +105,8 @@ all() ->
      daemon_opt_fd,
      multi_daemon_opt_fd,
      packet_size_zero,
-     ssh_info_print
+     ssh_info_print,
+     {group, login_bad_pwd_no_retry}
     ].
 
 groups() ->
@@ -115,7 +122,13 @@ groups() ->
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {key_cb, [], [key_callback, key_callback_options]},
-     {internal_error, [], [internal_error]}
+     {internal_error, [], [internal_error]},
+     {login_bad_pwd_no_retry, [], [login_bad_pwd_no_retry1,
+				   login_bad_pwd_no_retry2,
+				   login_bad_pwd_no_retry3,
+				   login_bad_pwd_no_retry4,
+				   login_bad_pwd_no_retry5
+				  ]}
     ].
 
 
@@ -130,28 +143,28 @@ basic_tests() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config.
+    ?CHECK_CRYPTO(Config).
 
 end_per_suite(_Config) ->
     ssh:stop().
 
 %%--------------------------------------------------------------------
 init_per_group(dsa_key, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     Config;
 init_per_group(rsa_key, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config;
 init_per_group(ecdsa_sha2_nistp256_key, Config) ->
     case lists:member('ecdsa-sha2-nistp256',
 		      ssh_transport:default_algorithms(public_key)) of
 	true ->
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
+	    DataDir = proplists:get_value(data_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
 	    ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
 	    Config;
 	false ->
@@ -161,8 +174,8 @@ init_per_group(ecdsa_sha2_nistp384_key, Config) ->
     case lists:member('ecdsa-sha2-nistp384',
 		      ssh_transport:default_algorithms(public_key)) of
 	true ->
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
+	    DataDir = proplists:get_value(data_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
 	    ssh_test_lib:setup_ecdsa("384", DataDir, PrivDir),
 	    Config;
 	false ->
@@ -172,28 +185,28 @@ init_per_group(ecdsa_sha2_nistp521_key, Config) ->
     case lists:member('ecdsa-sha2-nistp521',
 		      ssh_transport:default_algorithms(public_key)) of
 	true ->
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
+	    DataDir = proplists:get_value(data_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
 	    ssh_test_lib:setup_ecdsa("521", DataDir, PrivDir),
 	    Config;
 	false ->
 	    {skip, unsupported_pub_key}
     end;
 init_per_group(rsa_pass_key, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_rsa_pass_pharse(DataDir, PrivDir, "Password"),
     [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
 init_per_group(dsa_pass_key, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
     [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
 init_per_group(host_user_key_differs, Config) ->
-    Data = ?config(data_dir, Config),
-    Sys = filename:join(?config(priv_dir, Config), system_rsa),
+    Data = proplists:get_value(data_dir, Config),
+    Sys = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
     SysUsr = filename:join(Sys, user),
-    Usr = filename:join(?config(priv_dir, Config), user_ecdsa_256),
+    Usr = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
     file:make_dir(Sys),
     file:make_dir(SysUsr),
     file:make_dir(Usr),
@@ -205,18 +218,18 @@ init_per_group(host_user_key_differs, Config) ->
     ssh_test_lib:setup_rsa_known_host(Sys, Usr),
     Config;
 init_per_group(key_cb, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     Config;
 init_per_group(internal_error, Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")),
     Config;
 init_per_group(dir_options, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     %% Make unreadable dir:
     Dir_unreadable = filename:join(PrivDir, "unread"),
     ok = file:make_dir(Dir_unreadable),
@@ -261,27 +274,27 @@ init_per_group(_, Config) ->
     Config.
 
 end_per_group(dsa_key, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
     Config;
 end_per_group(rsa_key, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_rsa(PrivDir),
     Config;
 end_per_group(dsa_pass_key, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
     Config;
 end_per_group(rsa_pass_key, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_rsa(PrivDir),
     Config;
 end_per_group(key_cb, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
     Config;
 end_per_group(internal_error, Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(PrivDir),
     Config;
 
@@ -290,9 +303,9 @@ end_per_group(_, Config) ->
 %%--------------------------------------------------------------------
 init_per_testcase(TC, Config) when TC==shell_no_unicode ; 
 				   TC==shell_unicode_string ->
-    PrivDir = ?config(priv_dir, Config),
-    UserDir = ?config(priv_dir, Config),
-    SysDir =  ?config(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    SysDir =  proplists:get_value(data_dir, Config),
     ssh:start(),
     Sftpd = {_Pid, _Host, Port} =       
 	ssh_test_lib:daemon([{system_dir, SysDir},
@@ -321,12 +334,12 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(TestCase, Config) when TestCase == server_password_option;
 					TestCase == server_userpassword_option ->
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     ssh_test_lib:del_dirs(UserDir),
     end_per_testcase(Config);
 end_per_testcase(TC, Config) when TC==shell_no_unicode ; 
 				  TC==shell_unicode_string ->
-    case ?config(sftpd, Config) of
+    case proplists:get_value(sftpd, Config) of
 	{Pid, _, _} ->
 	    ssh:stop_daemon(Pid),
 	    ssh:stop();
@@ -355,8 +368,8 @@ appup_test(Config) when is_list(Config) ->
 %%% some options not yet present are not decided if we should support or
 %%% if they need thier own test case.
 misc_ssh_options(Config) when is_list(Config) ->  
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     
     CMiscOpt0 = [{connect_timeout, 1000}, {user_dir, UserDir}],
     CMiscOpt1 = [{connect_timeout, infinity}, {user_dir, UserDir}],
@@ -369,8 +382,8 @@ misc_ssh_options(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Test configuring IPv4
 inet_option(Config) when is_list(Config) ->   
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     
     ClientOpts =  [{silently_accept_hosts, true},
 		   {user_dir, UserDir},
@@ -385,8 +398,8 @@ inet_option(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Test configuring IPv6
 inet6_option(Config) when is_list(Config) ->   
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     
     ClientOpts =  [{silently_accept_hosts, true},
 		   {user_dir, UserDir},
@@ -402,8 +415,8 @@ inet6_option(Config) when is_list(Config) ->
 %%% Test api function ssh_connection:exec
 exec(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
@@ -449,8 +462,8 @@ exec_compressed(Config) when is_list(Config) ->
 
 	true ->
 	    process_flag(trap_exit, true),
-	    SystemDir = filename:join(?config(priv_dir, Config), system),
-	    UserDir = ?config(priv_dir, Config), 
+	    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+	    UserDir = proplists:get_value(priv_dir, Config), 
 
 	    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 						     {preferred_algorithms,[{compression, [zlib]}]},
@@ -478,8 +491,8 @@ exec_compressed(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Idle timeout test
 idle_time(Config) ->
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
@@ -501,8 +514,8 @@ idle_time(Config) ->
 %%% Test that ssh:shell/2 works
 shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
@@ -536,9 +549,9 @@ exec_key_differs(Config, UserPKAlgs) ->
     of
 	[] ->
 	    process_flag(trap_exit, true),
-	    SystemDir = filename:join(?config(priv_dir, Config), system_rsa),
+	    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
 	    SystemUserDir = filename:join(SystemDir, user),
-	    UserDir = filename:join(?config(priv_dir, Config), user_ecdsa_256),
+	    UserDir = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
    
 	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 						       {user_dir, SystemUserDir},
@@ -570,9 +583,9 @@ exec_key_differs(Config, UserPKAlgs) ->
 %%--------------------------------------------------------------------
 exec_key_differs_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system_rsa),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
     SystemUserDir = filename:join(SystemDir, user),
-    UserDir = filename:join(?config(priv_dir, Config), user_ecdsa_256),
+    UserDir = filename:join(proplists:get_value(priv_dir, Config), user_ecdsa_256),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					       {user_dir, SystemUserDir},
@@ -597,10 +610,10 @@ exec_key_differs_fail(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 cli(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     
-    TmpDir = filename:join(?config(priv_dir,Config), "tmp"),
+    TmpDir = filename:join(proplists:get_value(priv_dir,Config), "tmp"),
     ok = ssh_test_lib:del_dirs(TmpDir),
     ok = file:make_dir(TmpDir),
 
@@ -639,8 +652,8 @@ cli(Config) when is_list(Config) ->
 %%% Test that get correct error message if you try to start a daemon
 %%% on an adress that already runs a daemon see also seq10667
 daemon_already_started(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
 
     {Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					      {user_dir, UserDir},
@@ -654,8 +667,8 @@ daemon_already_started(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% check that known_hosts is updated correctly
 known_hosts(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config), 
     
     {Pid, Host, Port} = ssh_test_lib:daemon([{user_dir, PrivDir},{system_dir, SystemDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
@@ -681,9 +694,9 @@ known_hosts(Config) when is_list(Config) ->
 %%% Test that we can use keyes protected by pass phrases
 pass_phrase(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
-    PhraseArg = ?config(pass_phrase, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    PhraseArg = proplists:get_value(pass_phrase, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
@@ -700,8 +713,8 @@ pass_phrase(Config) when is_list(Config) ->
 %%% Test that we can use key callback
 key_callback(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     NoPubKeyDir = filename:join(UserDir, "nopubkey"),
     file:make_dir(NoPubKeyDir),
 
@@ -724,8 +737,8 @@ key_callback(Config) when is_list(Config) ->
 %%% Test that we can use key callback with callback options
 key_callback_options(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
 
     NoPubKeyDir = filename:join(UserDir, "nopubkey"),
     file:make_dir(NoPubKeyDir),
@@ -751,8 +764,8 @@ key_callback_options(Config) when is_list(Config) ->
 %%% Test that client does not hang if disconnects due to internal error
 internal_error(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {user_dir, UserDir},
@@ -768,8 +781,8 @@ internal_error(Config) when is_list(Config) ->
 %%% Test ssh_connection:send/3
 send(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
@@ -788,8 +801,8 @@ send(Config) when is_list(Config) ->
 %%% Test ssh:connection_info([peername, sockname])
 peername_sockname(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
@@ -838,8 +851,8 @@ ips(Name) when is_list(Name) ->
 %%% Client receives close when server closes
 close(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(?config(priv_dir, Config), system),
-    UserDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
     
     {Server, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
@@ -861,8 +874,8 @@ close(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Simulate that we try to close an already closed connection
 double_close(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
 
@@ -881,8 +894,8 @@ double_close(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 daemon_opt_fd(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
 
@@ -908,8 +921,8 @@ daemon_opt_fd(Config) ->
 
 %%--------------------------------------------------------------------
 multi_daemon_opt_fd(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
 
@@ -943,8 +956,8 @@ multi_daemon_opt_fd(Config) ->
 
 %%--------------------------------------------------------------------
 packet_size_zero(Config) ->
-    SystemDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config), 
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config), 
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
 
@@ -974,7 +987,7 @@ packet_size_zero(Config) ->
     
 %%--------------------------------------------------------------------
 shell_no_unicode(Config) ->
-    new_do_shell(?config(io,Config),
+    new_do_shell(proplists:get_value(io,Config),
 		 [new_prompt,
 		  {type,"io:format(\"hej ~p~n\",[42])."},
 		  {expect,"hej 42"},
@@ -985,7 +998,7 @@ shell_no_unicode(Config) ->
 	      
 %%--------------------------------------------------------------------
 shell_unicode_string(Config) ->
-    new_do_shell(?config(io,Config),
+    new_do_shell(proplists:get_value(io,Config),
 		 [new_prompt,
 		  {type,"io:format(\"こにちわ~ts~n\",[\"四二\"])."},
 		  {expect,"こにちわ四二"},
@@ -1002,8 +1015,8 @@ openssh_zlib_basic_test(Config) ->
 	    {skip, io_lib:format("~p compression is not supported",[L])};
 
 	true ->
-	    SystemDir = filename:join(?config(priv_dir, Config), system),
-	    UserDir = ?config(priv_dir, Config),
+	    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+	    UserDir = proplists:get_value(priv_dir, Config),
 
 	    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 						     {user_dir, UserDir},
@@ -1023,11 +1036,11 @@ openssh_zlib_basic_test(Config) ->
 %%--------------------------------------------------------------------
 ssh_info_print(Config) ->
     %% Just check that ssh_print:info() crashes
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     PrintFile = filename:join(PrivDir,info),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     UnexpFun = fun(Msg,_Peer) ->
@@ -1089,6 +1102,72 @@ ssh_info_print(Config) ->
 
 
 %%--------------------------------------------------------------------
+%% Check that a basd pwd is not tried more times. Could cause lock-out
+%% on server
+
+login_bad_pwd_no_retry1(Config) ->
+    login_bad_pwd_no_retry(Config, "keyboard-interactive,password").
+
+login_bad_pwd_no_retry2(Config) ->
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive").
+
+login_bad_pwd_no_retry3(Config) ->
+    login_bad_pwd_no_retry(Config, "password,publickey,keyboard-interactive").
+
+login_bad_pwd_no_retry4(Config) ->
+    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive").
+
+login_bad_pwd_no_retry5(Config) ->
+    login_bad_pwd_no_retry(Config, "password,other,keyboard-interactive,password,password").
+
+
+
+
+
+login_bad_pwd_no_retry(Config, AuthMethods) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    PwdFun = fun(_, _, _, undefined) -> {false, 1};
+		(_, _, _,         _) -> Parent ! retry_bad_pwd,
+					false
+	     end,
+
+    {DaemonRef, _Host, Port} = 
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, UserDir},
+			     {auth_methods, AuthMethods},
+			     {user_passwords, [{"foo","somepwd"}]},
+			     {pwdfun, PwdFun}
+			    ]),
+
+    ConnRes = ssh:connect("localhost", Port,
+			  [{silently_accept_hosts, true},
+			   {user, "foo"},
+			   {password, "badpwd"},
+			   {user_dir, UserDir},
+			   {user_interaction, false}]),
+
+    receive
+	retry_bad_pwd ->
+	    ssh:stop_daemon(DaemonRef),
+	    {fail, "Retry bad password"}
+    after 0 ->
+	    case ConnRes of
+		{error,"Unable to connect using the available authentication methods"} ->
+		    ssh:stop_daemon(DaemonRef),
+		    ok;
+		{ok,Conn} ->
+		    ssh:close(Conn),
+		    ssh:stop_daemon(DaemonRef),
+		    {fail, "Connect erroneosly succeded"}
+	    end
+    end.
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 %% Due to timing the error message may or may not be delivered to
@@ -1103,8 +1182,8 @@ check_error(Error) ->
     ct:fail(Error).
 
 basic_test(Config) ->
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = proplists:get_value(client_opts, Config),
+    ServerOpts = proplists:get_value(server_opts, Config),
     
     {Pid, Host, Port} = ssh_test_lib:daemon(ServerOpts),
     {ok, CM} = ssh:connect(Host, Port, ClientOpts),

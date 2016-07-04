@@ -231,12 +231,9 @@ match_typegroup(T, V, Vs, Gs, Else, Env) ->
 		       Else, Env),
     typetest_clause(T, V, Body, Env).
 
-match_congroup({?binary_id, Segs}, Vs, Cs, _Else, Env) -> 
-    Ref = get_unique(),
-    Guard = cerl:c_primop(cerl:c_atom(set_label), [cerl:c_int(Ref)]),
-    NewElse = cerl:c_primop(cerl:c_atom(goto_label), [cerl:c_int(Ref)]),
-    Body = match(Vs, Cs, NewElse, Env),
-    cerl:c_clause([make_pat(?binary_id, Segs)], Guard, Body);
+match_congroup({?binary_id, Segs}, Vs, Cs, Else, Env) ->
+    Body = match(Vs, Cs, Else, Env),
+    cerl:c_clause([make_pat(?binary_id, Segs)], Body);
 
 match_congroup({D, A}, Vs, Cs, Else, Env) ->
     Vs1 = new_vars(A, Env),
@@ -415,6 +412,15 @@ make_let(Vs, A, B) ->
 
 expr(E, Env) ->
     case cerl:type(E) of
+        binary ->
+            Es = expr_list(cerl:binary_segments(E), Env),
+            cerl:update_c_binary(E, Es);
+        bitstr ->
+            V = expr(cerl:bitstr_val(E), Env),
+            Sz = expr(cerl:bitstr_size(E), Env),
+            Unit = expr(cerl:bitstr_unit(E), Env),
+            Type = expr(cerl:bitstr_type(E), Env),
+            cerl:update_c_bitstr(E, V, Sz, Unit, Type, cerl:bitstr_flags(E));
  	literal ->
 	    E;
 	var ->
@@ -583,16 +589,6 @@ is_simple(E) ->
 	_ -> false
     end.
 
-
-get_unique() ->
-  case get(unique_label) of
-    undefined ->
-      put(unique_label, 1),
-      0;
-    N ->
-      put(unique_label, N+1),
-      N
-  end.
 
 %% ---------------------------------------------------------------------
 %% Abstract datatype: environment()

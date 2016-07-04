@@ -107,31 +107,31 @@ create_win_batch(Title, Menus) ->
     Hlb = 200,
     Listbox = wxListBox:new(Panel, ?wxID_ANY, [{size,{?Wf,Hlb}},
 					       {style,?wxLB_SINGLE}]),
-    wxSizer:add(LeftSz,Listbox,[{proportion,1},{border,3},{flag,?wxEXPAND}]),
+    _ = wxSizer:add(LeftSz,Listbox,[{proportion,1},{border,3},{flag,?wxEXPAND}]),
     wxListBox:connect(Listbox, command_listbox_doubleclicked),
     wxListBox:connect(Listbox, right_down),
 
     SBox = wxStaticBox:new(Panel, ?wxID_ANY, "Auto Attach:"),
     SBS  = wxStaticBoxSizer:new(SBox, ?wxVERTICAL),
     Fbtn = wxCheckBox:new(Panel, ?autoId, "First Call"),
-    wxSizer:add(SBS,Fbtn),
+    _ = wxSizer:add(SBS,Fbtn),
     Bbtn = wxCheckBox:new(Panel, ?autoId, "On Break"),
-    wxSizer:add(SBS,Bbtn),
+    _ = wxSizer:add(SBS,Bbtn),
     Ebtn = wxCheckBox:new(Panel, ?autoId, "On Exit"),
-    wxSizer:add(SBS,Ebtn),
+    _ = wxSizer:add(SBS,Ebtn),
     wxFrame:connect(Panel, command_checkbox_clicked),
-    wxSizer:add(LeftSz,SBS, [{flag,?wxEXPAND}]),
+    _ = wxSizer:add(LeftSz,SBS, [{flag,?wxEXPAND}]),
 
     SLabel = wxStaticText:new(Panel, ?wxID_ANY, "Stack Trace:\n On (with tail)"), 
-    wxSizer:add(LeftSz,SLabel),
+    _ = wxSizer:add(LeftSz,SLabel),
     BLabel = wxStaticText:new(Panel, ?wxID_ANY, "Back Trace Size:\n 50000"), 
-    wxSizer:add(LeftSz,BLabel),
+    _ = wxSizer:add(LeftSz,BLabel),
     
     StringsBox = wxStaticBox:new(Panel, ?wxID_ANY, "Strings:"),
     StringsBS  = wxStaticBoxSizer:new(StringsBox, ?wxVERTICAL),
     Stringsbtn = wxCheckBox:new(Panel, ?stringsId, ?STRTEXT),
-    wxSizer:add(StringsBS,Stringsbtn),
-    wxSizer:add(LeftSz,StringsBS, [{flag,?wxEXPAND}]),
+    _ = wxSizer:add(StringsBS,Stringsbtn),
+    _ = wxSizer:add(LeftSz,StringsBS, [{flag,?wxEXPAND}]),
 
     %% Create list_crtl / grid
     Grid = wxListCtrl:new(Panel, [{winid, ?GRID},
@@ -169,12 +169,12 @@ create_win_batch(Title, Menus) ->
     wxWindow:setFocus(Grid),
 
     %% Put it in the window
-    wxSizer:add(MainSz, LeftSz, [{border, 3}, {flag,?wxALL bor ?wxEXPAND}]),
-    wxSizer:add(MainSz, Grid,   [{border, 3}, {flag,?wxALL bor ?wxEXPAND}, 
+    _ = wxSizer:add(MainSz, LeftSz, [{border, 3}, {flag,?wxALL bor ?wxEXPAND}]),
+    _ = wxSizer:add(MainSz, Grid,   [{border, 3}, {flag,?wxALL bor ?wxEXPAND}, 
 				 {proportion, 1}]),
 
     wxWindow:setSizer(Panel,MainSz),
-    wxSizer:fit(MainSz, Win),
+    _ = wxSizer:fit(MainSz, Win),
     wxSizer:setSizeHints(MainSz,Win),
     
     IconFile = dbg_wx_win:find_icon("erlang_bug.png"),

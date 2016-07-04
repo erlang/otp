@@ -55,13 +55,9 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_, Config) ->
-    Dog = test_server:timetrap(?t:minutes(1)),
-    NewConfig = lists:keydelete(watchdog, 1, Config),
-    [{watchdog, Dog} | NewConfig].
+    Config.
 
-end_per_testcase(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_, _) ->
     ok.
 
 %%-------------------------------------------------------------------------

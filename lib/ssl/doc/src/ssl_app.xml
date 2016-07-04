@@ -45,6 +45,8 @@
       but can be configured.</item>
       <item>For security reasons DES cipher suites are no longer supported by default,
       but can be configured.</item>
+      <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
+      </item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported,
       but not Diffie Hellman Certificates cipher suites.</item>
       <item>Elliptic Curve cipher suites are supported if the Crypto 
@@ -55,10 +57,16 @@
       <item>IDEA cipher suites are not supported as they have
       become deprecated by the latest TLS specification so it is not 
       motivated to implement them.</item>
+      <item>Compression is not supported.</item>
       <item>CRL validation is supported.</item>
       <item>Policy certificate extensions are not supported.</item>
       <item>'Server Name Indication' extension
       (<url href="http://www.ietf.org/rfc/rfc6066.txt">RFC 6066</url>) is supported.</item>
+      <item>Application Layer Protocol Negotiation (ALPN) and its successor Next Protocol Negotiation (NPN)
+      are supported. </item>
+      <item>It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
+      cipher suites, but they are not enabled by default.
+      </item>
     </list>
    </description>
 
@@ -94,7 +102,10 @@
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
       <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
-      <item><p>Maximum lifetime of the session data in seconds.</p></item>
+      <item><p>Maximum lifetime of the session data in seconds. Defaults to 24 hours which is the maximum
+      recommended lifetime by <url href="http://www.ietf.org/rfc/5246rfc.txt">RFC 5246</url>. However
+      sessions may be invalidated earlier due to the maximum limitation of the session cache table.
+      </p></item>
 
       <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
       <item><p>Name of the session cache callback module that implements
@@ -106,17 +117,25 @@
       <item><p>List of extra user-defined arguments to the <c>init</c> function
       in the session cache callback module. Defaults to <c>[]</c>.</p></item>
 
-      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c><br/>
-      <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
-      <item><p>Limits the growth of the clients/servers session cache,
-      if the maximum number of sessions is reached, the current cache entries will
-      be invalidated regardless of their remaining lifetime. Defaults to 1000.
-      </p></item>
+      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c><br/></tag>
+      <item><p>Limits the growth of the clients session cache, that is
+      how many sessions towards servers that are cached to be used by
+      new client connections.  If the maximum number of sessions is
+      reached, the current cache entries will be invalidated
+      regardless of their remaining lifetime. Defaults to
+      1000.</p></item>
+
+      <tag> <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
+      <item><p>Limits the growth of the servers session cache, that is
+      how many client sessions are cached by the server. If the
+      maximum number of sessions is reached, the current cache entries
+      will be invalidated regardless of their remaining
+      lifetime. Defaults to 1000.</p></item>
       
       <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
       <item>
 	<p>
-	  Number of milliseconds between PEM cache validations.
+	  Number of milliseconds between PEM cache validations. Defaults to 2 minutes.
 	</p>
 	<seealso
 	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
@@ -131,8 +150,6 @@
 	  shutdown gracefully. Defaults to 5000 milliseconds.   
 	</p>
       </item>
-
-      
     </taglist>
   </section>
 

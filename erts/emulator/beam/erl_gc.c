@@ -1183,22 +1183,14 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 		adjust_size = p->htop - p->heap;
             }
 
-	    goto done;
         }
+        else if (need_after > HEAP_SIZE(p)) {
+            grow_new_heap(p, next_heap_size(p, need_after, 0), objv, nobj);
+            adjust_size = p->htop - p->heap;
+        }
+	/*else: The heap size turned out to be just right. We are done. */
 
-        if (HEAP_SIZE(p) >= need_after) {
-	    /*
-	     * The heap size turned out to be just right. We are done.
-	     */
-	    goto done;
-	}
-
-        grow_new_heap(p, next_heap_size(p, need_after, 0), objv, nobj);
-	adjust_size = p->htop - p->heap;
-
-    done:
 	ASSERT(HEAP_SIZE(p) == next_heap_size(p, HEAP_SIZE(p), 0));
-	ASSERT(MBUF(p) == NULL);
 
         /* The heap usage during GC should be larger than what we end up
            after a GC, even if we grow it. If this assertion is not true
@@ -1591,6 +1583,9 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     HIGH_WATER(p) = HEAP_TOP(p);
 
+#ifdef HARDDEBUG
+    disallow_heap_frag_ref_in_heap(p);
+#endif
     remove_message_buffers(p);
 
     if (p->flags & F_ON_HEAP_MSGQ)
@@ -1603,9 +1598,6 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     adjusted = adjust_after_fullsweep(p, need, objv, nobj);
 
-#ifdef HARDDEBUG
-    disallow_heap_frag_ref_in_heap(p);
-#endif
     ErtsGcQuickSanityCheck(p);
 
     return gc_cost(size_after, adjusted ? size_after : 0);
@@ -2279,10 +2271,7 @@ move_msgq_to_heap(Process *p)
 	    }
 	    else {
 
-		if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-		    bp = &mp->hfrag;
-		else
-		    bp = mp->data.heap_frag;
+                bp = erts_message_to_heap_frag(mp);
 
 		if (bp->next)
 		    erts_move_multi_frags(&factory.hp, factory.off_heap, bp,
@@ -2296,18 +2285,13 @@ move_msgq_to_heap(Process *p)
 		    free_message_buffer(bp);
 		}
 		else {
-		    ErtsMessage *tmp = erts_alloc_message(0, NULL);
-		    sys_memcpy((void *) tmp->m, (void *) mp->m,
-			       sizeof(Eterm)*ERL_MESSAGE_REF_ARRAY_SZ); 
-		    tmp->next = mp->next;
-		    if (p->msg.save == &mp->next)
-			p->msg.save = &tmp->next;
-		    if (p->msg.last == &mp->next)
-			p->msg.last = &tmp->next;
-		    *mpp = tmp;
+		    ErtsMessage *new_mp = erts_alloc_message(0, NULL);
+		    sys_memcpy((void *) new_mp->m, (void *) mp->m,
+			       sizeof(Eterm)*ERL_MESSAGE_REF_ARRAY_SZ);
+		    erts_msgq_replace_msg_ref(&p->msg, new_mp, mpp);
 		    mp->next = NULL;
 		    erts_cleanup_messages(mp);
-		    mp = tmp;
+		    mp = new_mp;
 		}
 	    }
 
@@ -3304,11 +3288,7 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
 
     while (mp) {
 
-	if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG)
-	    bp = &mp->hfrag;
-	else
-	    bp = mp->data.heap_frag;
-
+        bp = erts_message_to_heap_frag(mp);
 	mp = mp->next;
 
     search_heap_frags:

@@ -161,6 +161,13 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 		% in the module (those that start with bs_start_match2).
 	}).
 
+%% Match context type.
+-record(ms,
+	{id=make_ref() :: reference(),		%Unique ID.
+	 valid=0 :: non_neg_integer(),		%Valid slots
+	 slots=0 :: non_neg_integer()		%Number of slots
+	}).
+
 validate_1(Is, Name, Arity, Entry, Ft) ->
     validate_2(labels(Is), Name, Arity, Entry, Ft).
 
@@ -274,7 +281,7 @@ valfun_1({bs_context_to_binary,Ctx}, #vst{current=#st{x=Xs}}=Vst) ->
     case Ctx of
 	{Tag,X} when Tag =:= x; Tag =:= y ->
 	    Type = case gb_trees:lookup(X, Xs) of
-		       {value,{match_context,_,_}} -> term;
+		       {value,#ms{}} -> term;
 		       _ -> get_term_type(Ctx, Vst)
 		   end,
 	    set_type_reg(Type, Ctx, Vst);
@@ -575,7 +582,7 @@ valfun_4({test,bs_start_match2,{f,Fail},Live,[Ctx,NeedSlots],Ctx}, Vst0) ->
     verify_live(Live, Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     BranchVst = case CtxType of
-		    {match_context,_,_} ->
+		    #ms{} ->
 			%% The failure branch will never be taken when Ctx
 			%% is a match context. Therefore, the type for Ctx
 			%% at the failure label must not be match_context
@@ -651,8 +658,10 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
     case Src of
 	{Tag,_} when Tag =:= x; Tag =:= y ->
 	    set_type_reg(map, Src, Vst);
+	{literal,Map} when is_map(Map) ->
+	    Vst;
 	_ ->
-	    Vst
+	    kill_state(Vst)
     end;
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
@@ -828,7 +837,7 @@ kill_state_1(Vst) ->
 %%  The stackframe must be initialized.
 %%  The instruction will return to the instruction following the call.
 call(Name, Live, #vst{current=St}=Vst) ->
-    verify_live(Live, Vst),
+    verify_call_args(Name, Live, Vst),
     verify_y_init(Vst),
     case return_type(Name, Vst) of
 	Type when Type =/= exception ->
@@ -840,44 +849,74 @@ call(Name, Live, #vst{current=St}=Vst) ->
 %% Tail call.
 %%  The stackframe must have a known size and be initialized.
 %%  Does not return to the instruction following the call.
-tail_call(Name, Live, Vst) ->
+tail_call(Name, Live, Vst0) ->
+    verify_y_init(Vst0),
+    Vst = deallocate(Vst0),
     verify_call_args(Name, Live, Vst),
-    verify_y_init(Vst),
     verify_no_ct(Vst),
     kill_state(Vst).
 
 verify_call_args(_, 0, #vst{}) ->
     ok;
 verify_call_args({f,Lbl}, Live, Vst) when is_integer(Live)->
-    Verify = fun(R) ->
-		     case get_move_term_type(R, Vst) of
-			 {match_context,_,_} ->
-			     verify_call_match_context(Lbl, Vst);
-			 _ ->
-			     ok
-		     end
-	     end,
-    verify_call_args_1(Live, Verify, Vst);
+    verify_local_call(Lbl, Live, Vst);
 verify_call_args(_, Live, Vst) when is_integer(Live)->
-    Verify = fun(R) -> get_term_type(R, Vst) end,
-    verify_call_args_1(Live, Verify, Vst);
+    verify_call_args_1(Live, Vst);
 verify_call_args(_, Live, _) ->
     error({bad_number_of_live_regs,Live}).
 
-verify_call_args_1(0, _, _) -> ok;
-verify_call_args_1(N, Verify, Vst) ->
+verify_call_args_1(0, _) -> ok;
+verify_call_args_1(N, Vst) ->
     X = N - 1,
-    Verify({x,X}),
-    verify_call_args_1(X, Verify, Vst).
+    get_term_type({x,X}, Vst),
+    verify_call_args_1(X, Vst).
 
-verify_call_match_context(Lbl, #vst{ft=Ft}) ->
+verify_local_call(Lbl, Live, Vst) ->
+    case all_ms_in_x_regs(Live, Vst) of
+	[{R,Ctx}] ->
+	    %% Verify that there is a suitable bs_start_match2 instruction.
+	    verify_call_match_context(Lbl, R, Vst),
+
+	    %% Since the callee has consumed the match context,
+	    %% there must be no additional copies in Y registers.
+	    #ms{id=Id} = Ctx,
+	    case ms_in_y_regs(Id, Vst) of
+		[] ->
+		    ok;
+		[_|_]=Ys ->
+		    error({multiple_match_contexts,[R|Ys]})
+	    end;
+	[_,_|_]=Xs0 ->
+	    Xs = [R || {R,_} <- Xs0],
+	    error({multiple_match_contexts,Xs});
+	[] ->
+	    ok
+    end.
+
+all_ms_in_x_regs(0, _Vst) ->
+    [];
+all_ms_in_x_regs(Live0, Vst) ->
+    Live = Live0 - 1,
+    R = {x,Live},
+    case get_move_term_type(R, Vst) of
+	#ms{}=M ->
+	    [{R,M}|all_ms_in_x_regs(Live, Vst)];
+	_ ->
+	    all_ms_in_x_regs(Live, Vst)
+    end.
+
+ms_in_y_regs(Id, #vst{current=#st{y=Ys0}}) ->
+    Ys = gb_trees:to_list(Ys0),
+    [Y || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
+
+verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
     case gb_trees:lookup(Lbl, Ft) of
 	none ->
 	    error(no_bs_start_match2);
 	{value,[{test,bs_start_match2,_,_,[Ctx,_],Ctx}|_]} ->
 	    ok;
-	{value,[{test,bs_start_match2,_,_,[Bin,_,_],Ctx}|_]} ->
-	    error({binary_and_context_regs_different,Bin,Ctx})
+	{value,[{test,bs_start_match2,_,_,_,_}=I|_]} ->
+	    error({unsuitable_bs_start_match2,I})
     end.
 
 allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
@@ -1009,7 +1048,7 @@ assert_unique_map_keys([_,_|_]=Ls) ->
 %%%
 
 bsm_match_state(Slots) ->
-    {match_context,0,Slots}.
+    #ms{slots=Slots}.
 
 bsm_validate_context(Reg, Vst) ->
     _ = bsm_get_context(Reg, Vst),
@@ -1017,7 +1056,7 @@ bsm_validate_context(Reg, Vst) ->
 
 bsm_get_context({x,X}=Reg, #vst{current=#st{x=Xs}}=_Vst) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
-	{value,{match_context,_,_}=Ctx} -> Ctx;
+	{value,#ms{}=Ctx} -> Ctx;
 	_ -> error({no_bsm_context,Reg})
     end;
 bsm_get_context(Reg, _) -> error({bad_source,Reg}).
@@ -1029,8 +1068,8 @@ bsm_save(Reg, {atom,start}, Vst) ->
     Vst;
 bsm_save(Reg, SavePoint, Vst) ->
     case bsm_get_context(Reg, Vst) of
-	{match_context,Bits,Slots} when SavePoint < Slots ->
-	    Ctx = {match_context,Bits bor (1 bsl SavePoint),Slots},
+	#ms{valid=Bits,slots=Slots}=Ctxt0 when SavePoint < Slots ->
+	    Ctx = Ctxt0#ms{valid=Bits bor (1 bsl SavePoint),slots=Slots},
 	    set_type_reg(Ctx, Reg, Vst);
 	_ -> error({illegal_save,SavePoint})
     end.
@@ -1042,7 +1081,7 @@ bsm_restore(Reg, {atom,start}, Vst) ->
     Vst;
 bsm_restore(Reg, SavePoint, Vst) ->
     case bsm_get_context(Reg, Vst) of
-	{match_context,Bits,Slots} when SavePoint < Slots ->
+	#ms{valid=Bits,slots=Slots} when SavePoint < Slots ->
 	    case Bits band (1 bsl SavePoint) of
 		0 -> error({illegal_restore,SavePoint,not_set});
 		_ -> Vst
@@ -1123,7 +1162,7 @@ assert_term(Src, Vst) ->
 %%			Thus 'exception' is never stored as type descriptor
 %%			for a register.
 %%
-%% {match_context,_,_}	A matching context for bit syntax matching. We do allow
+%% #ms{}	        A match context for bit syntax matching. We do allow
 %%			it to moved/to from stack, but otherwise it must only
 %%			be accessed by bit syntax matching instructions.
 %%
@@ -1165,11 +1204,16 @@ assert_type(WantedType, Term, Vst) ->
 assert_type(Correct, Correct) -> ok;
 assert_type(float, {float,_}) -> ok;
 assert_type(tuple, {tuple,_}) -> ok;
+assert_type(tuple, {literal,Tuple}) when is_tuple(Tuple) -> ok;
 assert_type({tuple_element,I}, {tuple,[Sz]})
   when 1 =< I, I =< Sz ->
     ok;
 assert_type({tuple_element,I}, {tuple,Sz})
   when is_integer(Sz), 1 =< I, I =< Sz ->
+    ok;
+assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
+    ok;
+assert_type(cons, {literal,[_|_]}) ->
     ok;
 assert_type(Needed, Actual) ->
     error({bad_type,{needed,Needed},{actual,Actual}}).
@@ -1225,7 +1269,7 @@ get_term_type(Src, Vst) ->
 	initialized -> error({unassigned,Src});
 	{catchtag,_} -> error({catchtag,Src});
 	{trytag,_} -> error({trytag,Src});
-	{match_context,_,_} -> error({match_context,Src});
+	#ms{} -> error({match_context,Src});
 	Type -> Type
     end.
 
@@ -1377,11 +1421,12 @@ merge_types(bool, {atom,A}) ->
     merge_bool(A);
 merge_types({atom,A}, bool) ->
     merge_bool(A);
-merge_types({match_context,B0,Slots},{match_context,B1,Slots}) ->
-    {match_context,B0 bor B1,Slots};
-merge_types({match_context,_,_}=M, _) ->
+merge_types(#ms{id=Id,valid=B0,slots=Slots}=M,
+	    #ms{id=Id,valid=B1,slots=Slots}) ->
+    M#ms{valid=B0 bor B1,slots=Slots};
+merge_types(#ms{}=M, _) ->
     M;
-merge_types(_, {match_context,_,_}=M) ->
+merge_types(_, #ms{}=M) ->
     M;
 merge_types(T1, T2) when T1 =/= T2 ->
     %% Too different. All we know is that the type is a 'term'.
@@ -1505,7 +1550,6 @@ bif_type(node, [_], _) -> {atom,[]};
 bif_type(hd, [_], _) -> term;
 bif_type(tl, [_], _) -> term;
 bif_type(get, [_], _) -> term;
-bif_type(raise, [_,_], _) -> exception;
 bif_type(Bif, _, _) when is_atom(Bif) -> term.
 
 is_bif_safe('/=', 2) -> true;
@@ -1519,6 +1563,7 @@ is_bif_safe('>=', 2) -> true;
 is_bif_safe(is_atom, 1) -> true;
 is_bif_safe(is_boolean, 1) -> true;
 is_bif_safe(is_binary, 1) -> true;
+is_bif_safe(is_bitstring, 1) -> true;
 is_bif_safe(is_float, 1) -> true;
 is_bif_safe(is_function, 1) -> true;
 is_bif_safe(is_integer, 1) -> true;
@@ -1549,8 +1594,12 @@ return_type_1(erlang, setelement, 3, Vst) ->
     Tuple = {x,1},
     TupleType =
 	case get_term_type(Tuple, Vst) of
-	    {tuple,_}=TT -> TT;
-	    _ -> {tuple,[0]}
+	    {tuple,_}=TT ->
+		TT;
+	    {literal,Lit} when is_tuple(Lit) ->
+		{tuple,tuple_size(Lit)};
+	    _ ->
+		{tuple,[0]}
 	end,
     case get_term_type({x,0}, Vst) of
 	{integer,[]} -> TupleType;

@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to TypEr.</p>
 
+<section><title>TypEr 0.9.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TypEr 0.9.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

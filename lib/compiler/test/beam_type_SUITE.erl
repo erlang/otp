@@ -21,7 +21,8 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 integers/1,coverage/1,booleans/1]).
+	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
+	 tuple/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -33,7 +34,10 @@ groups() ->
     [{p,[parallel],
       [integers,
        coverage,
-       booleans
+       booleans,
+       setelement,
+       cons,
+       tuple
       ]}].
 
 init_per_suite(Config) ->
@@ -55,6 +59,8 @@ integers(_Config) ->
     a = do_integers_2(<<0:1>>),
     {'EXIT',{{case_clause,-1},_}} = (catch do_integers_2(<<1:1>>)),
 
+    college = do_integers_3(),
+
     ok.
 
 do_integers_1(B0) ->
@@ -69,6 +75,12 @@ do_integers_2(Bin) ->
     case B of
 	0 -> a;
 	1 -> b
+    end.
+
+do_integers_3() ->
+    case try 0 after [] end of
+	0 -> college;
+	1 -> 0
     end.
 
 coverage(_Config) ->
@@ -93,6 +105,26 @@ do_booleans(B) ->
 	yes -> yes;
 	no -> no
     end.
+
+setelement(_Config) ->
+    T0 = id({a,42}),
+    {a,_} = T0,
+    {b,_} = setelement(1, T0, b),
+    ok.
+
+cons(_Config) ->
+    [did] = cons(assigned, did),
+    ok.
+
+cons(assigned, Instrument) ->
+    [Instrument] = [did].
+
+tuple(_Config) ->
+    {'EXIT',{{badmatch,{necessary}},_}} = (catch do_tuple()),
+    ok.
+
+do_tuple() ->
+    {0, _} = {necessary}.
 
 id(I) ->
     I.

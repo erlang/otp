@@ -9,12 +9,15 @@ MODULES= \
 	andor_SUITE \
 	apply_SUITE \
 	beam_block_SUITE \
+	beam_bool_SUITE \
 	beam_validator_SUITE \
 	beam_disasm_SUITE \
 	beam_except_SUITE \
+	beam_jump_SUITE \
 	beam_reorder_SUITE \
 	beam_type_SUITE \
 	beam_utils_SUITE \
+	bif_SUITE \
 	bs_bincomp_SUITE \
 	bs_bit_binaries_SUITE \
 	bs_construct_SUITE \
@@ -46,10 +49,13 @@ NO_OPT= \
 	andor \
 	apply \
 	beam_block \
+	beam_bool \
 	beam_except \
+	beam_jump \
 	beam_reorder \
 	beam_type \
 	beam_utils \
+	bif \
 	bs_construct \
         bs_match \
 	bs_utf \
@@ -70,6 +76,7 @@ INLINE= \
 	andor \
 	apply \
 	beam_block \
+	beam_bool \
 	beam_utils \
 	bs_bincomp \
 	bs_bit_binaries \

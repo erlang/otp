@@ -141,9 +141,11 @@ guard_bifs_in_erl_bif_types(_Config) ->
 shadow_comments(_Config) ->
     ensure_erl_bif_types_compiled(),
 
+    ErlangList = [{erlang,F,A} || {F,A} <- erlang:module_info(exports),
+				  not is_operator(F,A)],
     List0 = erlang:system_info(snifs),
-    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
-    List = [MFA || MFA <- List1, not is_operator(MFA)],
+    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs, M =/= erlang],
+    List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
 		       erl_bif_types:is_known(M, F, A)],
     Path = get_code_path(),
@@ -253,12 +255,15 @@ specs(_) ->
     end.
 
 is_operator({erlang,F,A}) ->
+    is_operator(F,A);
+is_operator(_) -> false.
+
+is_operator(F,A) ->
     erl_internal:arith_op(F, A) orelse
 	erl_internal:bool_op(F, A) orelse
 	erl_internal:comp_op(F, A) orelse
 	erl_internal:list_op(F, A) orelse
-	erl_internal:send_op(F, A);
-is_operator(_) -> false.
+	erl_internal:send_op(F, A).
     
 extract_specs(M, Abstr) ->
     [{make_mfa(M, Name),Spec} || {attribute,_,spec,{Name,Spec}} <- Abstr].
@@ -646,6 +651,8 @@ erlang_halt(Config) when is_list(Config) ->
     {badrpc,nodedown} = rpc:call(N2, erlang, halt, [0]),
     {ok,N3} = slave:start(H, halt_node3),
     {badrpc,nodedown} = rpc:call(N3, erlang, halt, [0,[]]),
+    {ok,N4} = slave:start(H, halt_node4),
+    {badrpc,nodedown} = rpc:call(N4, erlang, halt, [lists:duplicate(300,$x)]),
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.

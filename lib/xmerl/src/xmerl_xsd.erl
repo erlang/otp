@@ -64,12 +64,10 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
--export([
-	 validate/2,validate/3,process_validate/2,process_validate/3,
+-export([validate/2,validate/3,process_validate/2,process_validate/3,
 	 process_schema/1,process_schema/2,
 	 process_schemas/1,process_schemas/2,
-	 state2file/1,state2file/2,file2state/1,format_error/1
-	]).
+	 state2file/1,state2file/2,file2state/1,format_error/1]).
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -550,7 +548,7 @@ element_content({attribute,S=#xsd_state{scope=Scope}},Att,Env) ->
 	    {AttRef,add_ref(S,AttRef)};
 	Name ->
 	    {AttrType,S2} = attribute_type(Att,[Name|Env],S),
-	    S3  = check_cm(attribute,allowed_content(attribute,Env),AttrType,S2),
+	    S3 = check_cm(attribute,allowed_content(attribute,Env),AttrType,S2),
 	    {Attr,S4} = attribute_properties(Att#xmlElement.attributes,
 					#schema_attribute{type=AttrType},S3),
 	    Object = {attribute,
@@ -568,7 +566,7 @@ element_content({element,S},El,Env) ->
 	    %% 3.3.3 bullet 2.2
 	    S3 = element_forbidden_properties(El,S2),
 	    S4 = element_forbidden_content(El#xmlElement.content,S3),
-	    ElRef  =
+	    ElRef =
 		{element,
 		 {get_QName(Ref,El#xmlElement.namespace,reset_scope(S)),
 		  Occ}},
@@ -813,7 +811,6 @@ element_content({restriction,S},R,Env) ->
     %% base (resolved by base_type/1) or the type defined in content. 
     {CM,S2} = type(R#xmlElement.content,S,[restriction|Env]),
     S3 = check_cm(restriction,allowed_content(restriction,Env),CM,S2),
-
     {BaseTypeName,CM2,S4} = restriction_base_type(R,CM,S3), %% a QName
 %%    S5 = add_circularity_mark(BaseTypeName,S4),
     BaseTypeType = base_type_type(Env),
@@ -1178,7 +1175,7 @@ rename_redef_group(Name={LN,Scope,NS},S) ->
     NewName = {LN,['#redefine'|Scope],NS},
     case resolve({group,NewName},S) of
 	{SG=#schema_group{name=Name},_} ->
-	    save_object({group,SG#schema_group{name=NewName}},S),
+	    _ = save_object({group,SG#schema_group{name=NewName}},S),
 	    NewName;
 	_ ->
 	    failed
@@ -1735,20 +1732,20 @@ allowed_content(SorC,_Parents) when SorC==sequence;SorC==choice ->
 			{choice,{1,1}},{sequence,{1,1}},
 			{any,{1,1}}],
 		       occurance={0,unbounded}}]};
-allowed_content(E,_Parents) 
-  when E==any;E==selector;E==field;E==notation;E==include;E==import;
-       E==anyAttribute ->
-    {annotation,{0,1}};
-allowed_content(UKK,_Parents) when UKK==unique;UKK==key;UKK==keyref->
-    #chain{content=
-	      [{annotation,{0,1}},
-	       #chain{content=
-			 [{selector,{1,1}},{selector,{1,unbounded}}]}]};
-allowed_content(annotation,_Parents) ->
-    #alternative{content=[{appinfo,{1,1}},{documentation,{1,1}}],
-	    occurance={0,unbounded}};
-allowed_content(E,_Parents) when E==appinfo;E==documentation ->
-    {any,{0,unbounded}};
+%% allowed_content(E,_Parents)
+%%   when E==any;E==selector;E==field;E==notation;E==include;E==import;
+%%        E==anyAttribute ->
+%%     {annotation,{0,1}};
+%% allowed_content(UKK,_Parents) when UKK==unique;UKK==key;UKK==keyref->
+%%     #chain{content=
+%% 	      [{annotation,{0,1}},
+%% 	       #chain{content=
+%% 			 [{selector,{1,1}},{selector,{1,unbounded}}]}]};
+%% allowed_content(annotation,_Parents) ->
+%%     #alternative{content=[{appinfo,{1,1}},{documentation,{1,1}}],
+%% 	    occurance={0,unbounded}};
+%% allowed_content(E,_Parents) when E==appinfo;E==documentation ->
+%%     {any,{0,unbounded}};
 allowed_content(simpleType,_Parents) ->
     #chain{content=
 	      [{annotation,{0,1}},
@@ -1768,22 +1765,22 @@ allowed_content(restriction,Parents) ->
     end;
 allowed_content(LU,_Parent) when LU==list;LU==union ->
     #chain{content=[{annotation,{0,1}},{simpleType,{0,1}}]};
-allowed_content(schema,_) ->
-    #chain{content=
-	      [#alternative{content=
-		       [{include,{1,1}},{import,{1,1}},
-			{redefine,{1,1}},{annotation,{1,1}}],
-		       occurance={0,1}},
-	       #chain{content=
-			 [#alternative{content=
-				  [#alternative{content=
-					   [{simpleType,{1,1}},{complexType,{1,1}},
-					    {group,{1,1}},{attributeGroup,{1,1}}]},
-				   {element,{1,1}},
-				   {attribute,{1,1}},
-				   {notation,{1,1}}]},
-			  {annotation,{0,unbounded}}],
-			 occurance={0,unbounded}}]};
+%% allowed_content(schema,_) ->
+%%     #chain{content=
+%% 	      [#alternative{content=
+%% 		       [{include,{1,1}},{import,{1,1}},
+%% 			{redefine,{1,1}},{annotation,{1,1}}],
+%% 		       occurance={0,1}},
+%% 	       #chain{content=
+%% 			 [#alternative{content=
+%% 				  [#alternative{content=
+%% 					   [{simpleType,{1,1}},{complexType,{1,1}},
+%% 					    {group,{1,1}},{attributeGroup,{1,1}}]},
+%% 				   {element,{1,1}},
+%% 				   {attribute,{1,1}},
+%% 				   {notation,{1,1}}]},
+%% 			  {annotation,{0,unbounded}}],
+%% 			 occurance={0,unbounded}}]};
 allowed_content(redefine,_Parents) ->
     #alternative{content=
 	    [{annotation,{1,1}},
@@ -1803,31 +1800,31 @@ allowed_content(extension,Parents) ->
 	    allowed_content2(extension,simpleContent);
 	_ ->
 	    allowed_content2(extension,complexContent)
-    end;
-allowed_content(minExclusive,_Parents) ->
-    [];
-allowed_content(minInclusive,_Parents) ->
-    [];
-allowed_content(maxExclusive,_Parents) ->
-    [];
-allowed_content(maxInclusive,_Parents) ->
-    [];
-allowed_content(totalDigits,_Parents) ->
-    [];
-allowed_content(fractionDigits,_Parents) ->
-    [];
-allowed_content(length,_Parents) ->
-    [];
-allowed_content(minLength,_Parents) ->
-    [];
-allowed_content(maxLength,_Parents) ->
-    [];
-allowed_content(enumeration,_Parents) ->
-    [];
-allowed_content(whiteSpace,_Parents) ->
-    [];
-allowed_content(pattern,_Parents) ->
-    [].
+    end.
+%% allowed_content(minExclusive,_Parents) ->
+%%     [];
+%% allowed_content(minInclusive,_Parents) ->
+%%     [];
+%% allowed_content(maxExclusive,_Parents) ->
+%%     [];
+%% allowed_content(maxInclusive,_Parents) ->
+%%     [];
+%% allowed_content(totalDigits,_Parents) ->
+%%     [];
+%% allowed_content(fractionDigits,_Parents) ->
+%%     [];
+%% allowed_content(length,_Parents) ->
+%%     [];
+%% allowed_content(minLength,_Parents) ->
+%%     [];
+%% allowed_content(maxLength,_Parents) ->
+%%     [];
+%% allowed_content(enumeration,_Parents) ->
+%%     [];
+%% allowed_content(whiteSpace,_Parents) ->
+%%     [];
+%% allowed_content(pattern,_Parents) ->
+%%     [].
 	       
 
 
@@ -1905,9 +1902,9 @@ set_occurance(Ch = #chain{},Occ) ->
 set_occurance(Alt = #alternative{},Occ) ->
     Alt#alternative{occurance=Occ};
 set_occurance({Name,_},Occ) when is_atom(Name) ->
-    {Name,Occ};
-set_occurance(CM,_) ->
-    CM.
+    {Name,Occ}.
+%% set_occurance(CM,_) ->
+%%     CM.
 
 
 process_external_schema_once(E,Namespace,S) when is_record(E,xmlElement) ->
@@ -3436,7 +3433,7 @@ check_keys([Key=#id_constraint{selector={selector,SelectorPath},
 	    {L,S1} when length(L)==length(TargetNodeSet) -> 
 		%% Part1: 3.11.4.4.2.1
 		S2 = key_sequence_uniqueness(L,XMLEl,S1),
-		save_key(Key#id_constraint{key_sequence=L},S2),
+		_ = save_key(Key#id_constraint{key_sequence=L},S2),
 		S2;
 	    {Err,S1} ->
 		acc_errs(S1,{error_path(XMLEl,XMLEl#xmlElement.name),?MODULE,
@@ -4014,7 +4011,7 @@ merge_derived_types(XSDType,InstType,Blocks,Mode,S) ->
 	{error,S2} ->
 	    {InstType,S2};
 	{MergedType,S2} ->
-	    save_merged_type(MergedType,S2),
+	    _ = save_merged_type(MergedType,S2),
 	    {MergedType,S2}
     end.
 
@@ -4970,7 +4967,7 @@ save_schema_element(CM,S=#xsd_state{elementFormDefault = EFD,
 	      undefined -> [];
 	      _ -> TN
 	  end,
-    save_in_table({schema,TN2},Schema2,S),
+    _ = save_in_table({schema,TN2},Schema2,S),
     save_to_file(S).
 
 %% other_global_elements(S,ElementList) ->
@@ -5006,13 +5003,13 @@ save_to_file(S=#xsd_state{tab2file=TF}) ->
 	    {ok,IO}=file:open(filename:rootname(S#xsd_state.schema_name)++".tab",
 			      [write]),
 	    io:format(IO,"~p~n",[catch ets:tab2list(S#xsd_state.table)]),
-	    file:close(IO);
+	    ok = file:close(IO);
 	false ->
 	    ok;
 	IOFile ->
 	    {ok,IO}=file:open(IOFile,[write]),
 	    io:format(IO,"~p~n",[catch ets:tab2list(S#xsd_state.table)]),
-	    file:close(IO)
+	    ok = file:close(IO)
     end.
 
 save_merged_type(Type=#schema_simple_type{},S) ->
@@ -5034,25 +5031,25 @@ save_idc(unique,IDConstr,S) ->
     save_unique(IDConstr,S).
 
 save_key(Key,S) ->
-    save_object({key,Key},S),
+    _ = save_object({key,Key},S),
     S.
 
 save_keyref(KeyRef=#id_constraint{category=keyref},S) ->
     S1 = add_keyref(KeyRef,S),
-    save_object({keyref,KeyRef},S1),
+    _ = save_object({keyref,KeyRef},S1),
     S1;
 save_keyref(_,S) ->
     S.
 
 save_unique(Unique,S) ->
-    save_object({unique,Unique},S),
+    _ = save_object({unique,Unique},S),
     S.
 
 save_substitutionGroup([],S) ->
     S;
 save_substitutionGroup([{Head,Members}|SGs],S) ->
     %% save {head,[members]}
-    save_in_table({substitutionGroup,Head},Members,S),
+    _ = save_in_table({substitutionGroup,Head},Members,S),
     %% save {member,head}, an element can only be a member in one
     %% substitutionGroup
     lists:foreach(fun(X)->save_in_table({substitutionGroup_member,X},Head,S) end,Members),

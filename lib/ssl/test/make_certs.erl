@@ -172,15 +172,28 @@ revoke(Root, CA, User, C) ->
     gencrl(Root, CA, C).
 
 gencrl(Root, CA, C) ->
+    %% By default, the CRL is valid for 24 hours from now.
+    gencrl(Root, CA, C, 24).
+
+gencrl(Root, CA, C, CrlHours) ->
     CACnfFile = filename:join([Root, CA, "ca.cnf"]),
     CACRLFile = filename:join([Root, CA, "crl.pem"]),
     Cmd = [C#config.openssl_cmd, " ca"
 	   " -gencrl ",
-	   " -crlhours 24",
+	   " -crlhours ", integer_to_list(CrlHours),
 	   " -out ", CACRLFile,
 	   " -config ", CACnfFile],
     Env = [{"ROOTDIR", filename:absname(Root)}], 
     cmd(Cmd, Env).
+
+can_generate_expired_crls(C) ->
+    %% OpenSSL can generate CRLs with an expiration date in the past,
+    %% if we pass a negative number for -crlhours.  However, LibreSSL
+    %% rejects this with the error "invalid argument -24: too small".
+    %% Let's check which one we have.
+    Cmd = [C#config.openssl_cmd, " ca -crlhours -24"],
+    Output = os:cmd(Cmd),
+    0 =:= string:str(Output, "too small").
 
 verify(Root, CA, User, C) ->
     CAFile = filename:join([Root, User, "cacerts.pem"]),

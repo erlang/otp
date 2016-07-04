@@ -21,6 +21,7 @@
 -module(ssh_renegotiate_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -45,7 +46,7 @@ tests() -> [rekey, rekey_limit, renegotiate1, renegotiate2].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config.
+    ?CHECK_CRYPTO(Config).
 
 end_per_suite(_Config) ->
     ssh:stop().
@@ -108,10 +109,10 @@ rekey(Config) ->
 rekey_limit() -> [{timetrap,{seconds,400}}].
 
 rekey_limit(Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "rekey.data"),
 
-    Algs = ?config(preferred_algorithms, Config),
+    Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, Port} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							{preferred_algorithms,Algs}]),
 
@@ -154,10 +155,10 @@ rekey_limit(Config) ->
 %%% Test rekeying with simulataneous send request
 
 renegotiate1(Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate1.data"),
 
-    Algs = ?config(preferred_algorithms, Config),
+    Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							 {preferred_algorithms,Algs}]),
 
@@ -194,10 +195,10 @@ renegotiate1(Config) ->
 %%% Test rekeying with inflight messages from peer
 
 renegotiate2(Config) ->
-    UserDir = ?config(priv_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
     DataFile = filename:join(UserDir, "renegotiate2.data"),
 
-    Algs = ?config(preferred_algorithms, Config),
+    Algs = proplists:get_value(preferred_algorithms, Config),
     {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							 {preferred_algorithms,Algs}]),
 

@@ -21,7 +21,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 get_map_elements/1,otp_7345/1]).
+	 get_map_elements/1,otp_7345/1,move_opt_across_gc_bif/1]).
 
 %% The only test for the following functions is that
 %% the code compiles and is accepted by beam_validator.
@@ -35,7 +35,9 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [get_map_elements
+      [get_map_elements,
+       otp_7345,
+       move_opt_across_gc_bif
       ]}].
 
 init_per_suite(Config) ->
@@ -116,6 +118,22 @@ otp_7345(ObjRef, _RdEnv, Args) ->
 		       div
 		       10},
     id(LlUnitdataReq).
+
+
+%% Doing move optimizations across GC bifs are in general not safe.
+move_opt_across_gc_bif(_Config) ->
+    [0,true,1] = positive(speaking),
+    ok.
+
+positive(speaking) ->
+    try
+	Positive = 0,
+	[+Positive, case Positive of _ -> true end, paris([], Positive)]
+    after
+	mailing
+    end.
+
+paris([], P) -> P + 1.
 
 %%%
 %%% The only test of the following code is that it compiles.

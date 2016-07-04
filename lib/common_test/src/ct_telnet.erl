@@ -605,7 +605,7 @@ init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
 		 set_telnet_defaults(Settings,#state{})				    
 	 end,
     %% Handle old user versions of TargetMod
-    code:ensure_loaded(TargetMod),
+    _ = code:ensure_loaded(TargetMod),
     try
 	case erlang:function_exported(TargetMod,connect,7) of
 	    true ->
@@ -688,7 +688,7 @@ handle_msg({cmd,Cmd,Opts},State) ->
     debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
 
-    case {State#state.type,State#state.prompt} of
+    _ = case {State#state.type,State#state.prompt} of
 	{ts,_} ->
 	    silent_teln_expect(State#state.name,
 			       State#state.teln_pid,
@@ -735,7 +735,7 @@ handle_msg({send,Cmd,Opts},State) ->
     debug_cont_gen_log("Throwing Buffer:",[]),
     debug_log_lines(State#state.buffer),
     
-    case {State#state.type,State#state.prompt} of
+    _ = case {State#state.type,State#state.prompt} of
 	{ts,_} -> 
 	    silent_teln_expect(State#state.name,
 			       State#state.teln_pid,

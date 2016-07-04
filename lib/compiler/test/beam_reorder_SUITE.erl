@@ -21,7 +21,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 alloc/1]).
+	 alloc/1,confused_beam_validator/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -31,7 +31,8 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [alloc
+      [alloc,
+       confused_beam_validator
       ]}].
 
 init_per_suite(Config) ->
@@ -64,6 +65,17 @@ alloc_b(_U1, _U2, R) ->
     Res = id(V),
     _ = id(0),
     Res.
+
+confused_beam_validator(_Config) ->
+    {'EXIT',{{badmap,{any}},_}} = (catch efficient({any})),
+    ok.
+
+efficient({Var}=God) ->
+    id(God#{}),
+    catch
+	receive _ ->
+		Var
+	end.
 
 id(I) ->
     I.

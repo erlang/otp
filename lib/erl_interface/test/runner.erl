@@ -55,7 +55,7 @@ test(Tc, Timeout) ->
 %% Returns: {ok, Port}
 
 start({Prog, Tc}) when is_list(Prog), is_integer(Tc) ->
-    Port = open_port({spawn, Prog}, [{packet, 4}]),
+    Port = open_port({spawn, Prog}, [{packet, 4}, exit_status]),
     Command = [Tc div 256, Tc rem 256],
     Port ! {self(), {command, Command}},
     Port.
@@ -125,7 +125,9 @@ get_term(Port, Timeout) ->
 get_reply(Port, Timeout) when is_port(Port) ->
     receive
 	{Port, {data, Reply}} ->
-	    Reply
+	    Reply;
+        Fail when element(1, Fail) == Port ->
+            ct:fail("Got unexpected message from port: ~p",[Fail])
     after Timeout ->
 	    ct:fail("No response from C program")
     end.

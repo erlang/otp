@@ -99,9 +99,9 @@ new(Title,Message)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogwxprogressdialog">external documentation</a>.
 -spec new(Title, Message, [Option]) -> wxProgressDialog() when
 	Title::unicode:chardata(), Message::unicode:chardata(),
-	Option :: {maximum, integer()}
-		 | {parent, wxWindow:wxWindow()}
-		 | {style, integer()}.
+	Option :: {'maximum', integer()}
+		 | {'parent', wxWindow:wxWindow()}
+		 | {'style', integer()}.
 new(Title,Message, Options)
  when is_list(Title),is_list(Message),is_list(Options) ->
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -115,7 +115,7 @@ new(Title,Message, Options)
   <<(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((4+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogresume">external documentation</a>.
--spec resume(This) -> ok when
+-spec resume(This) -> 'ok' when
 	This::wxProgressDialog().
 resume(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxProgressDialog),
@@ -123,7 +123,7 @@ resume(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogupdate">external documentation</a>.
--spec update(This) -> ok when
+-spec update(This) -> 'ok' when
 	This::wxProgressDialog().
 update(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxProgressDialog),
@@ -141,7 +141,7 @@ update(This,Value)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogupdate">external documentation</a>.
 -spec update(This, Value, [Option]) -> boolean() when
 	This::wxProgressDialog(), Value::integer(),
-	Option :: {newmsg, unicode:chardata()}.
+	Option :: {'newmsg', unicode:chardata()}.
 update(#wx_ref{type=ThisT,ref=ThisRef},Value, Options)
  when is_integer(Value),is_list(Options) ->
   ?CLASS(ThisT,wxProgressDialog),
@@ -152,7 +152,7 @@ update(#wx_ref{type=ThisT,ref=ThisRef},Value, Options)
   <<ThisRef:32/?UI,Value:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxProgressDialog()) -> ok.
+-spec destroy(This::wxProgressDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxProgressDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

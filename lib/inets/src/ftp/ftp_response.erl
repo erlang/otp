@@ -194,5 +194,6 @@ interpret_status(?TRANS_NEG_COMPL,_,_)            -> trans_neg_compl;
 interpret_status(?PERM_NEG_COMPL,?FILE_SYSTEM,0)  -> epath;
 interpret_status(?PERM_NEG_COMPL,?FILE_SYSTEM,2)  -> epnospc;
 interpret_status(?PERM_NEG_COMPL,?FILE_SYSTEM,3)  -> efnamena; 
+interpret_status(?PERM_NEG_COMPL,?AUTH_ACC,0)     -> elogin; 
 interpret_status(?PERM_NEG_COMPL,_,_)             -> perm_neg_compl.
 

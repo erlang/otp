@@ -45,7 +45,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxPaletteChangedEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalettechangedevent.html#wxpalettechangedeventsetchangedwindow">external documentation</a>.
--spec setChangedWindow(This, Win) -> ok when
+-spec setChangedWindow(This, Win) -> 'ok' when
 	This::wxPaletteChangedEvent(), Win::wxWindow:wxWindow().
 setChangedWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WinT,ref=WinRef}) ->
   ?CLASS(ThisT,wxPaletteChangedEvent),

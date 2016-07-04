@@ -34,7 +34,7 @@
 	 cover/1, env/1, core/1,
 	 core_roundtrip/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
-	 warnings/1, pre_load_check/1
+	 warnings/1, pre_load_check/1, env_compiler_options/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -50,7 +50,8 @@ all() ->
      other_output, encrypted_abstr,
      strict_record,
      cover, env, core, core_roundtrip, asm,
-     sys_pre_attributes, dialyzer, warnings, pre_load_check].
+     sys_pre_attributes, dialyzer, warnings, pre_load_check,
+     env_compiler_options].
 
 groups() -> 
     [].
@@ -693,8 +694,7 @@ core(Config) when is_list(Config) ->
     Outdir = filename:join(PrivDir, "core"),
     ok = file:make_dir(Outdir),
 
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    TestBeams = filelib:wildcard(Wc),
+    TestBeams = get_unique_beam_files(),
     Abstr = [begin {ok,{Mod,[{abstract_code,
 				    {raw_abstract_v1,Abstr}}]}} = 
 			     beam_lib:chunks(Beam, [abstract_code]),
@@ -755,8 +755,7 @@ core_roundtrip(Config) ->
     Outdir = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME)),
     ok = file:make_dir(Outdir),
 
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    TestBeams = filelib:wildcard(Wc),
+    TestBeams = get_unique_beam_files(),
     test_lib:p_run(fun(F) -> do_core_roundtrip(F, Outdir) end, TestBeams).
 
 do_core_roundtrip(Beam, Outdir) ->
@@ -781,8 +780,13 @@ do_core_roundtrip_1(Mod, Abstr, Outdir) ->
 
     %% Primarily, test that annotations are accepted for all
     %% constructs. Secondarily, smoke test cerl_trees:label/1.
-    {Core,_} = cerl_trees:label(Core0),
-    do_core_roundtrip_2(Mod, Core, Outdir).
+    {Core1,_} = cerl_trees:label(Core0),
+    do_core_roundtrip_2(Mod, Core1, Outdir),
+
+    %% Run the inliner to force generation of variables
+    %% with numeric names.
+    {ok,Mod,Core2} = compile:forms(Abstr, [inline,to_core]),
+    do_core_roundtrip_2(Mod, Core2, Outdir).
 
 do_core_roundtrip_2(M, Core0, Outdir) ->
     CoreFile = filename:join(Outdir, atom_to_list(M)++".core"),
@@ -870,8 +874,7 @@ asm(Config) when is_list(Config) ->
     Outdir = filename:join(PrivDir, "asm"),
     ok = file:make_dir(Outdir),
 
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
-    TestBeams = filelib:wildcard(Wc),
+    TestBeams = get_unique_beam_files(),
     Res = test_lib:p_run(fun(F) -> do_asm(F, Outdir) end, TestBeams),
     Res.
 
@@ -947,8 +950,7 @@ dialyzer(Config) ->
 
 %% Test that warnings contain filenames and line numbers.
 warnings(_Config) ->
-    TestDir = filename:dirname(code:which(?MODULE)),
-    Files = filelib:wildcard(filename:join(TestDir, "*.erl")),
+    Files = get_unique_files(".erl"),
     test_lib:p_run(fun do_warnings/1, Files).
 
 do_warnings(F) ->
@@ -1091,6 +1093,23 @@ compiler_modules() ->
     FN = filename,
     [list_to_atom(FN:rootname(FN:basename(M), ".beam")) || M <- Ms].
 
+%% Test that ERL_COMPILER_OPTIONS are correctly retrieved
+%% by env_compiler_options/0
+
+env_compiler_options(_Config) ->
+    Cases = [
+        {"bin_opt_info", [bin_opt_info]},
+        {"'S'", ['S']},
+        {"{source, \"test.erl\"}", [{source, "test.erl"}]},
+        {"[{d,macro_one,1},{d,macro_two}]", [{d, macro_one, 1}, {d, macro_two}]},
+        {"[warn_export_all, warn_export_vars]", [warn_export_all, warn_export_vars]}
+    ],
+    F = fun({Env, Expected}) ->
+        true = os:putenv("ERL_COMPILER_OPTIONS", Env),
+        Expected = compile:env_compiler_options()
+    end,
+    lists:foreach(F, Cases).
+
 %%%
 %%% Utilities.
 %%%
@@ -1102,3 +1121,14 @@ compile_and_verify(Name, Target, Opts) ->
 	beam_lib:chunks(Target, [compile_info]),
     {options,BeamOpts} = lists:keyfind(options, 1, CInfo),
     Opts = BeamOpts.
+
+get_unique_beam_files() ->
+    get_unique_files(".beam").
+
+get_unique_files(Ext) ->
+    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
+    [F || F <- filelib:wildcard(Wc), not is_cloned(F, Ext)].
+
+is_cloned(File, Ext) ->
+    Mod = list_to_atom(filename:basename(File, Ext)),
+    test_lib:is_cloned_mod(Mod).

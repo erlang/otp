@@ -833,7 +833,7 @@ connect(ConnectionReferense, ConnectionStr, Options) ->
 odbc_send(Socket, Msg) -> %% Note currently all allowed messages are lists
     NewMsg = Msg ++ [?STR_TERMINATOR],
     ok = gen_tcp:send(Socket, NewMsg),
-    inet:setopts(Socket, [{active, once}]).
+    ok = inet:setopts(Socket, [{active, once}]).
 
 %%--------------------------------------------------------------------------
 connection_config(Key, Options) ->

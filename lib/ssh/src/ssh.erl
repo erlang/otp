@@ -27,7 +27,9 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
+-export([start/0, start/1, stop/0,
+	 connect/2, connect/3, connect/4,
+	 close/1, connection_info/2,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 daemon_info/1,
@@ -70,13 +72,36 @@ stop() ->
     application:stop(ssh).
 
 %%--------------------------------------------------------------------
--spec connect(string(), integer(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+-spec connect(port(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+
+-spec connect(port(),   proplists:proplist(), timeout()) -> {ok, pid()} |  {error, term()}
+           ; (string(), integer(), proplists:proplist()) -> {ok, pid()} |  {error, term()}.
+
 -spec connect(string(), integer(), proplists:proplist(), timeout()) -> {ok, pid()} |  {error, term()}.
 %%
 %% Description: Starts an ssh connection.
 %%--------------------------------------------------------------------
-connect(Host, Port, Options) ->
+connect(Socket, Options) ->
+    connect(Socket, Options, infinity).
+
+connect(Socket, Options, Timeout) when is_port(Socket) ->
+    case handle_options(Options) of
+	{error, Error} ->
+	    {error, Error};
+	{_SocketOptions, SshOptions} ->
+	    case valid_socket_to_use(Socket, Options) of
+		ok -> 
+		    {ok, {Host,_Port}} = inet:sockname(Socket),
+		    Opts =  [{user_pid,self()}, {host,fmt_host(Host)} | SshOptions],
+		    ssh_connection_handler:start_connection(client, Socket, Opts, Timeout);
+		{error,SockError} ->
+		    {error,SockError}
+	    end
+    end;
+
+connect(Host, Port, Options) when is_integer(Port), Port>0 ->
     connect(Host, Port, Options, infinity).
+
 connect(Host, Port, Options, Timeout) ->
     case handle_options(Options) of
 	{error, _Reason} = Error ->
@@ -125,7 +150,7 @@ channel_info(ConnectionRef, ChannelId, Options) ->
 
 %%--------------------------------------------------------------------
 -spec daemon(integer()) -> {ok, pid()} | {error, term()}.
--spec daemon(integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
+-spec daemon(integer()|port(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
 -spec daemon(any | inet:ip_address(), integer(), proplists:proplist()) -> {ok, pid()} | {error, term()}.
 
 %% Description: Starts a server listening for SSH connections 
@@ -134,28 +159,16 @@ channel_info(ConnectionRef, ChannelId, Options) ->
 daemon(Port) ->
     daemon(Port, []).
 
-daemon(Port, Options) ->
-    daemon(any, Port, Options).
+daemon(Port, Options) when is_integer(Port) ->
+    daemon(any, Port, Options);
+
+daemon(Socket, Options0) when is_port(Socket) ->
+    Options = daemon_shell_opt(Options0),
+    start_daemon(Socket, Options).
 
 daemon(HostAddr, Port, Options0) ->
-    Options1 = case proplists:get_value(shell, Options0) of
-		   undefined ->
-		       [{shell, {shell, start, []}}  | Options0];
-		   _ ->
-		       Options0
-	       end,
-
-    {Host, Inet, Options} = case HostAddr of
-				any ->
-				    {ok, Host0} = inet:gethostname(), 
-				    {Host0,  proplists:get_value(inet, Options1, inet), Options1};
-				{_,_,_,_} ->
-				    {HostAddr, inet, 
-				     [{ip, HostAddr} | Options1]};
-				{_,_,_,_,_,_,_,_} ->
-				    {HostAddr, inet6, 
-				     [{ip, HostAddr} | Options1]}
-			    end,
+    Options1 = daemon_shell_opt(Options0),
+    {Host, Inet, Options} = daemon_host_inet_opt(HostAddr, Options1),
     start_daemon(Host, Port, Options, Inet).
 
 %%--------------------------------------------------------------------
@@ -199,8 +212,8 @@ stop_daemon(Address, Port) ->
 stop_daemon(Address, Port, Profile) ->
     ssh_system_sup:stop_system(Address, Port, Profile).
 %%--------------------------------------------------------------------
--spec shell(string()) ->  _.
--spec shell(string(), proplists:proplist()) ->  _.
+-spec shell(port() | string()) ->  _.
+-spec shell(port() | string(), proplists:proplist()) ->  _.
 -spec shell(string(), integer(), proplists:proplist()) ->  _.
 
 %%   Host = string()
@@ -212,27 +225,34 @@ stop_daemon(Address, Port, Profile) ->
 %% and will not return until the remote shell is ended.(e.g. on
 %% exit from the shell)
 %%--------------------------------------------------------------------
+shell(Socket) when is_port(Socket) ->
+    shell(Socket, []);
 shell(Host) ->
     shell(Host, ?SSH_DEFAULT_PORT, []).
+
+shell(Socket, Options) when is_port(Socket) ->
+    start_shell( connect(Socket, Options) );
 shell(Host, Options) ->
     shell(Host, ?SSH_DEFAULT_PORT, Options).
+
 shell(Host, Port, Options) ->
-    case connect(Host, Port, Options) of
-	{ok, ConnectionRef} ->
-	    case ssh_connection:session_channel(ConnectionRef, infinity) of
-		{ok,ChannelId}  ->
-		    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
-		    Args = [{channel_cb, ssh_shell}, 
-			    {init_args,[ConnectionRef, ChannelId]},
-			    {cm, ConnectionRef}, {channel_id, ChannelId}],
-		    {ok, State} = ssh_channel:init([Args]),
-		    ssh_channel:enter_loop(State);
-		Error ->
-		    Error
-	    end;
+    start_shell( connect(Host, Port, Options) ).
+
+
+start_shell({ok, ConnectionRef}) ->
+    case ssh_connection:session_channel(ConnectionRef, infinity) of
+	{ok,ChannelId}  ->
+	    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+	    Args = [{channel_cb, ssh_shell}, 
+		    {init_args,[ConnectionRef, ChannelId]},
+		    {cm, ConnectionRef}, {channel_id, ChannelId}],
+	    {ok, State} = ssh_channel:init([Args]),
+	    ssh_channel:enter_loop(State);
 	Error ->
 	    Error
-    end.
+    end;
+start_shell(Error) ->
+    Error.
 
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
@@ -242,19 +262,128 @@ default_algorithms() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+valid_socket_to_use(Socket, Options) ->
+    case proplists:get_value(transport, Options, {tcp, gen_tcp, tcp_closed}) of
+	{tcp,_,_} ->
+	    %% Is this tcp-socket a valid socket?
+	    case {is_tcp_socket(Socket),
+		  {ok,[{active,false}]} == inet:getopts(Socket, [active])
+		 }
+	    of
+		{true, true} ->
+		    ok;
+		{true, false} ->
+		    {error, not_passive_mode};
+		_ ->
+		    {error, not_tcp_socket}
+	    end;
+	{L4,_,_} ->
+	    {error, {unsupported,L4}}
+    end.
+
+is_tcp_socket(Socket) -> {ok,[]} =/= inet:getopts(Socket, [delay_send]).
+
+
+
+daemon_shell_opt(Options) ->
+     case proplists:get_value(shell, Options) of
+	 undefined ->
+	     [{shell, {shell, start, []}}  | Options];
+	 _ ->
+	     Options
+     end.
+
+daemon_host_inet_opt(HostAddr, Options1) ->
+    case HostAddr of
+	any ->
+	    {ok, Host0} = inet:gethostname(), 
+	    {Host0,  proplists:get_value(inet, Options1, inet), Options1};
+	{_,_,_,_} ->
+	    {HostAddr, inet, 
+	     [{ip, HostAddr} | Options1]};
+	{_,_,_,_,_,_,_,_} ->
+	    {HostAddr, inet6, 
+	     [{ip, HostAddr} | Options1]}
+    end.
+
+
+start_daemon(Socket, Options) ->
+    case handle_options(Options) of
+	{error, Error} ->
+	    {error, Error};
+	{SocketOptions, SshOptions} ->
+	    case valid_socket_to_use(Socket, Options) of
+		ok -> 
+		    try 
+			do_start_daemon(Socket, [{role,server}|SshOptions], SocketOptions)
+		    catch
+			throw:bad_fd -> {error,bad_fd};
+			_C:_E -> {error,{cannot_start_daemon,_C,_E}}
+		    end;
+		{error,SockError} ->
+		    {error,SockError}
+	    end
+    end.
+
 start_daemon(Host, Port, Options, Inet) ->
     case handle_options(Options) of
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions}->
 	    try 
-		do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+		do_start_daemon(Host, Port, [{role,server}|SshOptions] , [Inet|SocketOptions])
 	    catch
 		throw:bad_fd -> {error,bad_fd};
 		_C:_E -> {error,{cannot_start_daemon,_C,_E}}
 	    end
     end.
     
+do_start_daemon(Socket, SshOptions, SocketOptions) ->
+    {ok, {IP,Port}} = 
+	try {ok,_} = inet:sockname(Socket)
+	catch
+	    _:_ -> throw(bad_socket)
+	end,
+    Host = fmt_host(IP),
+    Profile = proplists:get_value(profile, SshOptions, ?DEFAULT_PROFILE),
+    Opts = [{asocket, Socket},
+	    {asock_owner,self()},
+	    {address, Host},
+	    {port, Port},
+	    {role, server},
+	    {socket_opts, SocketOptions}, 
+	    {ssh_opts, SshOptions}],
+    {_, Callback, _} = proplists:get_value(transport, SshOptions, {tcp, gen_tcp, tcp_closed}),
+    case ssh_system_sup:system_supervisor(Host, Port, Profile) of
+	undefined ->
+	    %% It would proably make more sense to call the
+	    %% address option host but that is a too big change at the
+	    %% monent. The name is a legacy name!
+	    try sshd_sup:start_child(Opts) of
+		{error, {already_started, _}} ->
+		    {error, eaddrinuse};
+		Result = {ok,_} ->
+		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
+		    Result;
+		Result = {error, _} ->
+		    Result
+	    catch
+		exit:{noproc, _} ->
+		    {error, ssh_not_started}
+	    end;
+	Sup  ->
+	    AccPid = ssh_system_sup:acceptor_supervisor(Sup),
+	    case ssh_acceptor_sup:start_child(AccPid, Opts) of
+		{error, {already_started, _}} ->
+		    {error, eaddrinuse};
+		{ok, _} ->
+		    ssh_acceptor:handle_connection(Callback, Host, Port, Opts, Socket),
+		    {ok, Sup};
+		Other ->
+		    Other
+	    end
+    end.
+
 do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
     {Host,Port1} = 
 	try
@@ -270,7 +399,7 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 	    _:_ -> throw(bad_fd)
 	end,
     Profile = proplists:get_value(profile, SshOptions, ?DEFAULT_PROFILE),
-    {Port, WaitRequestControl, Opts} =
+    {Port, WaitRequestControl, Opts0} =
 	case Port1 of
 	    0 -> %% Allocate the socket here to get the port number...
 		{_, Callback, _} =  
@@ -284,17 +413,17 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 	    _ ->
 		{Port1, false, []}
 	end,
+    Opts = [{address, Host}, 
+	    {port, Port},
+	    {role, server},
+	    {socket_opts, SocketOptions}, 
+	    {ssh_opts, SshOptions} | Opts0],
     case ssh_system_sup:system_supervisor(Host, Port, Profile) of
 	undefined ->
 	    %% It would proably make more sense to call the
 	    %% address option host but that is a too big change at the
 	    %% monent. The name is a legacy name!
-	    try sshd_sup:start_child([{address, Host}, 
-				      {port, Port},
-				      {role, server},
-				      {socket_opts, SocketOptions}, 
-				      {ssh_opts, SshOptions}
-				      | Opts]) of
+	    try sshd_sup:start_child(Opts) of
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		Result = {ok,_} ->
@@ -308,12 +437,7 @@ do_start_daemon(Host0, Port0, SshOptions, SocketOptions) ->
 	    end;
 	Sup  ->
 	    AccPid = ssh_system_sup:acceptor_supervisor(Sup),
-	    case ssh_acceptor_sup:start_child(AccPid, [{address, Host},
-						       {port, Port},
-						       {role, server},
-						       {socket_opts, SocketOptions},
-						       {ssh_opts, SshOptions}
-						       | Opts]) of
+	    case ssh_acceptor_sup:start_child(AccPid, Opts) of
 		{error, {already_started, _}} ->
 		    {error, eaddrinuse};
 		{ok, _} ->
@@ -477,10 +601,13 @@ handle_option([{profile, _ID} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{max_random_length_padding, _Bool} = Opt|Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{tstflg, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
 
+handle_ssh_option({tstflg,_F} = Opt) -> Opt;
 handle_ssh_option({minimal_remote_max_packet_size, Value} = Opt) when is_integer(Value), Value >=0 ->
     Opt;
 handle_ssh_option({system_dir, Value} = Opt) when is_list(Value) ->
@@ -835,3 +962,8 @@ handle_user_pref_pubkey_algs([H|T], Acc) ->
 	false ->
 	    false
     end.
+
+fmt_host({A,B,C,D}) -> 
+    lists:concat([A,".",B,".",C,".",D]);
+fmt_host(T={_,_,_,_,_,_,_,_}) -> 
+    lists:flatten(string:join([io_lib:format("~.16B",[A]) || A <- tuple_to_list(T)], ":")).

@@ -23,7 +23,8 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_table/3, get_table_list/2, fetch_stats/2]).
+-export([sys_info/0, get_port_list/0,
+	 get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
 -export([etop_collect/1]).
@@ -138,6 +139,15 @@ get_mnesia_loop(Parent, '$end_of_table') ->
 get_mnesia_loop(Parent, {Match, Cont}) ->
     Parent ! {self(), Match},
     get_mnesia_loop(Parent, mnesia:select(Cont)).
+
+get_port_list() ->
+    [begin
+	 [{port_id,P}|erlang:port_info(P)] ++
+	     case erlang:port_info(P,monitors) of
+		 undefined -> [];
+		 Monitors -> [Monitors]
+	     end
+     end || P <- erlang:ports()].
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),

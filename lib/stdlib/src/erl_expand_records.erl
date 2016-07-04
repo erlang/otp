@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,8 +37,9 @@
                  checked_ra=[]        % successfully accessed records
                 }).
 
--spec(module(AbsForms, CompileOptions) -> AbsForms when
+-spec(module(AbsForms, CompileOptions) -> AbsForms2 when
       AbsForms :: [erl_parse:abstract_form()],
+      AbsForms2 :: [erl_parse:abstract_form()],
       CompileOptions :: [compile:option()]).
 
 %% Is is assumed that Fs is a valid list of forms. It should pass

@@ -92,18 +92,18 @@ open(Port) ->
 -spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
       Port :: inet:port_number(),
       Opts :: [Option],
-      Option :: {ip, inet:ip_address()}
+      Option :: {ip, inet:socket_address()}
               | {fd, non_neg_integer()}
-              | {ifaddr, inet:ip_address()}
+              | {ifaddr, inet:socket_address()}
               | inet:address_family()
               | {port, inet:port_number()}
               | option(),
       Socket :: socket(),
       Reason :: inet:posix().
 
-open(Port, Opts) ->
-    Mod = mod(Opts, undefined),
-    {ok,UP} = Mod:getserv(Port),
+open(Port, Opts0) ->
+    {Mod, Opts} = inet:udp_module(Opts0),
+    {ok, UP} = Mod:getserv(Port),
     Mod:open(UP, Opts).
 
 -spec close(Socket) -> ok when
@@ -114,7 +114,7 @@ close(S) ->
 
 -spec send(Socket, Address, Port, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
-      Address :: inet:ip_address() | inet:hostname(),
+      Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
       Packet :: iodata(),
       Reason :: not_owner | inet:posix().
@@ -148,7 +148,7 @@ send(S, Packet) when is_port(S) ->
                   {ok, {Address, Port, Packet}} | {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
-      Address :: inet:ip_address(),
+      Address :: inet:ip_address() | inet:returned_non_ip_address(),
       Port :: inet:port_number(),
       Packet :: string() | binary(),
       Reason :: not_owner | inet:posix().
@@ -166,7 +166,7 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
       Socket :: socket(),
       Length :: non_neg_integer(),
       Timeout :: timeout(),
-      Address :: inet:ip_address(),
+      Address :: inet:ip_address() | inet:returned_non_ip_address(),
       Port :: inet:port_number(),
       Packet :: string() | binary(),
       Reason :: not_owner | inet:posix().
@@ -203,32 +203,6 @@ controlling_process(S, NewOwner) ->
 %%
 %% Create a port/socket from a file descriptor 
 %%
-fdopen(Fd, Opts) ->
-    Mod = mod(Opts, undefined),
+fdopen(Fd, Opts0) ->
+    {Mod,Opts} = inet:udp_module(Opts0),
     Mod:fdopen(Fd, Opts).
-
-
-%% Get the udp_module, but IPv6 address overrides default IPv4
-mod(Address) ->
-    case inet_db:udp_module() of
-	inet_udp when tuple_size(Address) =:= 8 ->
-	    inet6_udp;
-	Mod ->
-	    Mod
-    end.
-
-%% Get the udp_module, but option udp_module|inet|inet6 overrides
-mod([{udp_module,Mod}|_], _Address) ->
-    Mod;
-mod([inet|_], _Address) ->
-    inet_udp;
-mod([inet6|_], _Address) ->
-    inet6_udp;
-mod([{ip, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([{ifaddr, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([_|Opts], Address) ->
-    mod(Opts, Address);
-mod([], Address) ->
-    mod(Address).

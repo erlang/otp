@@ -331,39 +331,88 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 
       <tag><c>{crl_check, boolean() | peer | best_effort }</c></tag>
       <item>
-	Perform CRL (Certificate Revocation List) verification
+	<p>Perform CRL (Certificate Revocation List) verification
 	<seealso marker="public_key:public_key#pkix_crls_validate-3">
 	(public_key:pkix_crls_validate/3)</seealso> on all the certificates during the path validation
 	<seealso
 	    marker="public_key:public_key#pkix_path_validation-3">(public_key:pkix_path_validation/3)
 	</seealso>
-	of the certificate chain. Defaults to false.
+	of the certificate chain. Defaults to <c>false</c>.</p>
 	
-	<p><c>peer</c> - check is only performed on
-	the peer certificate.</p>
+	<taglist>
+	  <tag><c>peer</c></tag>
+	  <item>check is only performed on the peer certificate.</item>
 
-	<p><c>best_effort</c> - if certificate revocation status can not be determined
-	it will be accepted as valid.</p>
+	  <tag><c>best_effort</c></tag>
+	  <item>if certificate revocation status can not be determined
+	  it will be accepted as valid.</item>
+	</taglist>
 
 	<p>The CA certificates specified for the connection will be used to 
 	construct the certificate chain validating the CRLs.</p>
  	
-	<p>The CRLs will be fetched from a local or external cache see
+	<p>The CRLs will be fetched from a local or external cache. See
 	<seealso marker="ssl:ssl_crl_cache_api">ssl_crl_cache_api(3)</seealso>.</p>
       </item>
 
       <tag><c>{crl_cache, {Module :: atom(), {DbHandle :: internal | term(), Args :: list()}}}</c></tag>
       <item>
-	<p>Module defaults to ssl_crl_cache with <c> DbHandle </c> internal and an
-	empty argument list. The following arguments may be specified for the internal cache.</p>
+	<p>Specify how to perform lookup and caching of certificate revocation lists.
+	<c>Module</c> defaults to <seealso marker="ssl:ssl_crl_cache">ssl_crl_cache</seealso>
+	with <c> DbHandle </c> being <c>internal</c> and an
+	empty argument list.</p>
+
+	<p>There are two implementations available:</p>
+
 	<taglist>
-	  <tag><c>{http, timeout()}</c></tag>
-	  <item><p>
-	    Enables fetching of CRLs specified as http URIs in<seealso 
-	    marker="public_key:public_key_records"> X509 certificate extensions.</seealso>
-	    Requires the OTP inets application.</p>
-	  </item>	    
-	</taglist>    
+	  <tag><c>ssl_crl_cache</c></tag>
+	  <item>
+	    <p>This module maintains a cache of CRLs.  CRLs can be
+	    added to the cache using the function <seealso
+	    marker="ssl:ssl_crl_cache#insert-1">ssl_crl_cache:insert/1</seealso>,
+	    and optionally automatically fetched through HTTP if the
+	    following argument is specified:</p>
+
+	    <taglist>
+	      <tag><c>{http, timeout()}</c></tag>
+	      <item><p>
+		Enables fetching of CRLs specified as http URIs in<seealso
+		marker="public_key:public_key_records">X509 certificate extensions</seealso>.
+		Requires the OTP inets application.</p>
+	      </item>
+	    </taglist>
+	  </item>
+
+	  <tag><c>ssl_crl_hash_dir</c></tag>
+	  <item>
+	    <p>This module makes use of a directory where CRLs are
+	    stored in files named by the hash of the issuer name.</p>
+
+	    <p>The file names consist of eight hexadecimal digits
+	    followed by <c>.rN</c>, where <c>N</c> is an integer,
+	    e.g. <c>1a2b3c4d.r0</c>.  For the first version of the
+	    CRL, <c>N</c> starts at zero, and for each new version,
+	    <c>N</c> is incremented by one.  The OpenSSL utility
+	    <c>c_rehash</c> creates symlinks according to this
+	    pattern.</p>
+
+	    <p>For a given hash value, this module finds all
+	    consecutive <c>.r*</c> files starting from zero, and those
+	    files taken together make up the revocation list.  CRL
+	    files whose <c>nextUpdate</c> fields are in the past, or
+	    that are issued by a different CA that happens to have the
+	    same name hash, are excluded.</p>
+
+	    <p>The following argument is required:</p>
+
+	    <taglist>
+	      <tag><c>{dir, string()}</c></tag>
+	      <item><p>Specifies the directory in which the CRLs can be found.</p></item>
+	    </taglist>
+
+	  </item>
+	</taglist>
+
       </item>
 
       <tag><c>{partial_chain, fun(Chain::[DerCert]) -> {trusted_ca, DerCert} |
@@ -415,12 +464,29 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <tag><c>{padding_check, boolean()}</c></tag>
       <item><p>Affects TLS-1.0 connections only.
       If set to <c>false</c>, it disables the block cipher padding check
-      to be able to interoperate with legacy software.</p></item>
-
-    </taglist>
-
-        <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
+      to be able to interoperate with legacy software.</p>
+      <warning><p>Using <c>{padding_check, boolean()}</c> makes TLS
 	vulnerable to the Poodle attack.</p></warning>
+      </item>
+
+      
+
+      <tag><c>{beast_mitigation, one_n_minus_one | zero_n | disabled}</c></tag>
+      <item><p>Affects SSL-3.0 and TLS-1.0 connections only. Used to change the BEAST
+       mitigation strategy to interoperate with legacy software.
+       Defaults to <c>one_n_minus_one</c>.</p>
+
+      <p><c>one_n_minus_one</c> - Perform 1/n-1 BEAST mitigation.</p>
+
+      <p><c>zero_n</c> - Perform 0/n BEAST mitigation.</p>
+
+      <p><c>disabled</c> - Disable BEAST mitigation.</p>
+
+      <warning><p>Using <c>{beast_mitigation, disabled}</c> makes SSL or TLS
+        vulnerable to the BEAST attack.</p></warning>
+      </item>
+      </taglist>
+
   </section>
   
   <section>
@@ -532,7 +598,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	TLS handshake. If no lower TLS versions than 1.2 are supported,
 	the client will send a TLS signature algorithm extension
 	with the algorithms specified by this option.
-	Defaults to
+	Defaults to</p>
 	
 	<code>[
 %% SHA2
@@ -549,7 +615,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 {sha, rsa},
 {sha, dsa},
 ]</code>
-	
+<p>
 	The algorithms should be in the preferred order.
 	Selected signature algorithm can restrict which hash functions
 	that may be selected. Default support for {md5, rsa} removed in ssl-8.0
@@ -692,6 +758,12 @@ fun(srp, Username :: string(), UserState :: term()) ->
       client certificate is requested. For more details see the <seealso marker="#client_signature_algs">corresponding client option</seealso>.
       </p> </item>
 
+      <tag><c>{v2_hello_compatible, boolean()}</c></tag>
+      <item>If true, the server accepts clients that send hello messages on SSL-2.0 format but offers 
+      supported SSL/TLS versions. Defaults to false, that is the server will not interoperate with clients that
+      offers SSL-2.0.
+      </item>
+     
     </taglist>
   </section>
   
@@ -877,6 +949,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc>
 	<p>Gets the values of the specified socket options.
 	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>getstat(Socket) ->
+        {ok, OptionValues} | {error, inet:posix()}</name>
+      <name>getstat(Socket, OptionNames) ->
+        {ok, OptionValues} | {error, inet:posix()}</name>
+      <fsummary>Get one or more statistic options for a socket</fsummary>
+      <type>
+    <v>Socket = sslsocket()</v>
+    <v>OptionNames = [atom()]</v>
+        <v>OptionValues = [{inet:stat_option(), integer()}]</v>
+      </type>
+      <desc>
+        <p>Gets one or more statistic options for the underlying TCP socket.</p>
+        <p>See inet:getstat/2 for statistic options description.</p>
       </desc>
     </func>
 

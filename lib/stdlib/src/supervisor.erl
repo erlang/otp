@@ -30,7 +30,7 @@
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+	 terminate/2, code_change/3, format_status/2]).
 -export([try_again_restart/2]).
 
 %% For release_handler only
@@ -246,7 +246,7 @@ check_childspecs(ChildSpecs) when is_list(ChildSpecs) ->
 check_childspecs(X) -> {error, {badarg, X}}.
 
 %%%-----------------------------------------------------------------
-%%% Called by timer:apply_after from restart/2
+%%% Called by restart/2
 -spec try_again_restart(SupRef, Child) -> ok when
       SupRef :: sup_ref(),
       Child :: child_id() | pid().
@@ -264,8 +264,13 @@ cast(Supervisor, Req) ->
 get_callback_module(Pid) ->
     {status, _Pid, {module, _Mod},
      [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(Pid),
-    [_Header, _Data, {data, [{"State", State}]}] = Misc,
-    State#state.module.
+    case lists:keyfind(supervisor, 1, Misc) of
+	{supervisor, [{"Callback", Mod}]} ->
+	    Mod;
+	_ ->
+	    [_Header, _Data, {data, [{"State", State}]} | _] = Misc,
+	    State#state.module
+    end.
 
 %%% ---------------------------------------------------
 %%% 
@@ -571,8 +576,8 @@ count_child(#child{pid = Pid, child_type = supervisor},
     end.
 
 
-%%% If a restart attempt failed, this message is sent via
-%%% timer:apply_after(0,...) in order to give gen_server the chance to
+%%% If a restart attempt failed, this message is cast
+%%% from restart/2 in order to give gen_server the chance to
 %%% check it's inbox before trying again.
 -spec handle_cast({try_again_restart, child_id() | pid()}, state()) ->
 			 {'noreply', state()} | {stop, shutdown, state()}.
@@ -790,16 +795,10 @@ restart(Child, State) ->
 		    Id = if ?is_simple(State) -> Child#child.pid;
 			    true -> Child#child.name
 			 end,
-		    {ok, _TRef} = timer:apply_after(0,
-                                                    ?MODULE,
-                                                    try_again_restart,
-                                                    [self(),Id]),
+		    ok = try_again_restart(self(), Id),
 		    {ok,NState2};
 		{try_again, NState2, #child{name=ChName}} ->
-		    {ok, _TRef} = timer:apply_after(0,
-						    ?MODULE,
-						    try_again_restart,
-						    [self(),ChName]),
+		    ok = try_again_restart(self(), ChName),
 		    {ok,NState2};
 		Other ->
 		    Other
@@ -1456,3 +1455,9 @@ report_progress(Child, SupName) ->
     Progress = [{supervisor, SupName},
 		{started, extract_child(Child)}],
     error_logger:info_report(progress, Progress).
+
+format_status(terminate, [_PDict, State]) ->
+    State;
+format_status(_, [_PDict, State]) ->
+    [{data, [{"State", State}]},
+     {supervisor, [{"Callback", State#state.module}]}].

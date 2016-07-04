@@ -189,9 +189,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <tag><c>all</c></tag>
           <item>All processes and ports in the system as well as all processes and ports
            created hereafter are to be traced.</item>
-          <tag><c>all_processes</c></tag>
+          <tag><c>processes</c></tag>
           <item>All processes in the system as well as all processes created hereafter are to be traced.</item>
-          <tag><c>all_ports</c></tag>
+          <tag><c>ports</c></tag>
           <item>All ports in the system as well as all ports created hereafter are to be traced.</item>
           <tag><c>new</c></tag>
           <item>All processes and ports created after the call is are to be traced.</item>
@@ -439,6 +439,50 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           global calls (and functions).</p>
       </desc>
     </func>
+
+
+    <func>
+      <name>tpe(Event, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
+      <fsummary>Set pattern for traced event</fsummary>
+      <type>
+	<v>Event = send | 'receive'</v>
+        <v>MatchSpec = integer() | Built-inAlias | [] | match_spec()</v>
+	<v>Built-inAlias = x | c | cx</v>
+        <v>MatchDesc = [MatchInfo]</v>
+        <v>MatchInfo = {saved, integer()} | MatchNum</v>
+        <v>MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</v>
+      </type>
+      <desc>
+        <p>This function associates a match specification with trace event
+	  <c>send</c> or <c>'receive'</c>. By default all executed <c>send</c>
+	  and <c>'receive'</c> events are traced if enabled for a process.
+	  A match specification can be used to filter traced events
+	  based on sender, receiver and/or message content.</p>
+        <p>For a description of the <c>match_spec()</c> syntax,
+          please turn to the <em>User's guide</em> part of the online
+          documentation for the runtime system (<em>erts</em>). The
+          chapter <seealso marker="erts:match_spec"><em>Match Specifications in Erlang</em></seealso>
+          explains the general match specification "language".</p>
+	<p>For <c>send</c>, the matching is done on the list <c>[Receiver, Msg]</c>.
+	  <c>Receiver</c> is the process or port identity of the receiver and
+	  <c>Msg</c> is the message term. The pid of the sending process can be
+	  accessed with the guard function <c>self/0</c>.</p>
+	<p>For <c>'receive'</c>, the matching is done on the list <c>[Node, Sender, Msg]</c>.
+	  <c>Node</c> is the node name of the sender. <c>Sender</c> is the
+	  process or port identity of the sender, or the atom
+	  <c>undefined</c> if the sender is not known (which may
+	  be the case for remote senders). <c>Msg</c> is the
+	  message term. The pid of the receiving process can be
+	  accessed with the guard function <c>self/0</c>.</p>
+        <p>All nodes added with <seealso marker="#n-1"><c>n/1</c></seealso> or
+          <seealso marker="#tracer-3"><c>tracer/3</c></seealso> will
+          be affected by this call.</p>
+        <p>The return value is the same as for
+	  <seealso marker="#tp-2"><c>tp/2</c></seealso>. The number of matched
+	  events are never larger than 1 as <c>tpe/2</c> does not
+	  accept any form of wildcards for argument <c>Event</c>.</p>
+      </desc>
+    </func>
     <func>
       <name>ctp()</name>
       <fsummary>Clear call trace pattern for the specified functions</fsummary>
@@ -560,6 +604,22 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           <p>This function works as <seealso marker="#ctp-1"><c>ctp/1</c></seealso>, but only disables
               tracing set up with <seealso marker="#tp-2"><c>tp/2</c></seealso>
               (not with <seealso marker="#tpl-2"><c>tpl/2</c></seealso>).</p>
+      </desc>
+    </func>
+    <func>
+      <name>ctpe(Event) -> {ok, MatchDesc} | {error, term()}</name>
+      <fsummary>Clear trace pattern for the specified event</fsummary>
+      <type>
+        <v>Event = send | 'receive'</v>
+        <v>MatchDesc = [MatchNum]</v>
+        <v>MatchNum = {matched, node(), 1} | {matched, node(), 0, RPCError}</v>
+      </type>
+      <desc>
+        <p>This function clears match specifications for the specified
+	  trace event (<c>send</c> or <c>'receive'</c>). It will revert back
+	  to the default behavior of tracing all triggered events.</p>
+        <p>The return value follow the same style as for
+	  <seealso marker="#ctp-1"><c>ctp/1</c></seealso>.</p>
       </desc>
     </func>
     <func>

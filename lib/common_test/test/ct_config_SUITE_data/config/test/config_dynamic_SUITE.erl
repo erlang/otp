@@ -73,8 +73,8 @@ test_get_known_variable(_)->
 % localtime will be updated in 5 seconds, check that
 test_localtime_update(_)->
     Seconds = 5,
-    LT1 = ct:get_config(localtime),
-    ct:sleep(Seconds*1000),
+    LT1 = ct:reload_config(localtime),
+    timer:sleep(Seconds*1000), % don't want scaling of this timer
     LT2 = ct:reload_config(localtime),
     case is_diff_ok(LT1, LT2, Seconds) of
 	{false, Actual, Exp}->
@@ -137,6 +137,11 @@ my_dt_to_datetime([{date, D},{time, T}])->
 is_diff_ok(DT1, DT2, Seconds)->
     GS1 = calendar:datetime_to_gregorian_seconds(my_dt_to_datetime(DT1)),
     GS2 = calendar:datetime_to_gregorian_seconds(my_dt_to_datetime(DT2)),
+    ct:log("Checking diff~n"
+	   "DT1: ~p, gregorian seconds: ~p~n"
+	   "DT2: ~p, gregorian seconds: ~p~n"
+	   "Diff: ~p",
+	   [DT1,GS1,DT2,GS2,GS2-GS1]),
     if
 	GS2-GS1 > Seconds+Seconds/2;
 	GS2-GS1 < Seconds-Seconds/2->

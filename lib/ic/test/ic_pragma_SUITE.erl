@@ -47,7 +47,7 @@
 			 end).
 %% Standard options to the ic compiler, NOTE unholy use of OutDir
 
--define(OUT(X), filename:join([?config(priv_dir, Config), gen, to_list(X)])).
+-define(OUT(X), filename:join([proplists:get_value(priv_dir, Config), gen, to_list(X)])).
 
 
 %%-----------------------------------------------------------------
@@ -105,23 +105,21 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %% Test Case: IFR registration with pragmas
 %%-----------------------------------------------------------------
-ifr_pragma_reg(doc) ->
-    ["Checks that IFR object is correctly registered under pragma engagement."];
-ifr_pragma_reg(suite) -> [];
+%% Checks that IFR object is correctly registered under pragma engagement.
 ifr_pragma_reg(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(ifr_pragma_reg_run(Config)).
 
 ifr_pragma_reg_run(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(ifr_pragma_reg),
     File0 = filename:join(DataDir, reg_m0),
-    ?line ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}]),
-    ?line ok = compile(OutDir, ifr_pragma_files()),
+    ok = compile(OutDir, ifr_pragma_files()),
     code:add_pathz(OutDir),
 
     %% OE_register for all files
-    ?line ok = 'oe_reg_m0':'oe_register'(),
+    ok = 'oe_reg_m0':'oe_register'(),
     
     %% Pragma registration test
     OE_IFR = orber_ifr:find_repository(),
@@ -132,7 +130,7 @@ ifr_pragma_reg_run(Config) ->
     check_pragma_effect(OE_IFR,"IDL:P1/M2/T4:2.4"),
     
     %% OE_unregister for all files
-    ?line ok = 'oe_reg_m0':'oe_unregister'(),
+    ok = 'oe_reg_m0':'oe_unregister'(),
     code:del_path(OutDir),
     ok.
 
@@ -157,14 +155,12 @@ check_pragma_effect(OE_IFR,ID) ->
 %%-----------------------------------------------------------------
 %% Test Case: Syntactical / Semantical error pragma definitions 
 %%-----------------------------------------------------------------
-pragma_error(doc) ->
-    ["Finds errornous pragma definitions under compilation."];
-pragma_error(suite) -> [];
+%% Finds errornous pragma definitions under compilation.
 pragma_error(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(pragma_error_run(Config)).
 
 pragma_error_run(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(pragma_error),
     File1 = filename:join(DataDir, reg_m1),
     File2 = filename:join(DataDir, reg_m2),
@@ -173,22 +169,22 @@ pragma_error_run(Config) ->
     File5 = filename:join(DataDir, reg_m5),
     File6 = filename:join(DataDir, reg_m6),
 
-    ?line error = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
+    error = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
 						   "-I" ++ DataDir}] ),
     
-    ?line error = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
+    error = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
 						   "-I" ++ DataDir}] ),
     
-    ?line error = ic:gen(File3, stdopts(OutDir)++[{preproc_flags,
+    error = ic:gen(File3, stdopts(OutDir)++[{preproc_flags,
 						   "-I" ++ DataDir}] ),
     
-    ?line ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
     
-    ?line error = ic:gen(File5, stdopts(OutDir)++[{preproc_flags,
+    error = ic:gen(File5, stdopts(OutDir)++[{preproc_flags,
 						   "-I" ++ DataDir}] ),
     
-    ?line error = ic:gen(File6, stdopts(OutDir)++[{preproc_flags,
+    error = ic:gen(File6, stdopts(OutDir)++[{preproc_flags,
 						   "-I" ++ DataDir}] ),
     ok.
 
@@ -198,25 +194,23 @@ pragma_error_run(Config) ->
 %%-----------------------------------------------------------------
 %% Test Case: IFR registration with realy uggly placed pragmas
 %%-----------------------------------------------------------------
-uggly_pragmas(doc) ->
-    ["Checks that IFR object is correctly registered under really uggly pragma engagement."];
-uggly_pragmas(suite) -> [];
+%% Checks that IFR object is correctly registered under really uggly pragma engagement.
 uggly_pragmas(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(uggly_pragmas_run(Config)).
 
 uggly_pragmas_run(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(ifr_pragma_reg),
     File0 = filename:join(DataDir, uggly),
 
-    ?line ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}]),
 
-    ?line ok = compile(OutDir, uggly_pragma_files()),
+    ok = compile(OutDir, uggly_pragma_files()),
     code:add_pathz(OutDir),
 
     %% OE_register for all files
-    ?line ok = 'oe_uggly':'oe_register'(),
+    ok = 'oe_uggly':'oe_register'(),
     
     %% Pragma registration test
     OE_IFR = orber_ifr:find_repository(),
@@ -234,7 +228,7 @@ uggly_pragmas_run(Config) ->
     check_pragma_effect(OE_IFR, "LOCAL:SomeLocalId:23"),
     
     %% OE_unregister for all files
-    ?line ok = 'oe_uggly':'oe_unregister'(),
+    ok = 'oe_uggly':'oe_unregister'(),
 
     code:del_path(OutDir),
     ok.

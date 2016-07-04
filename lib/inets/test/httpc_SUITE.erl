@@ -42,7 +42,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]}
+    ].
 
 all() ->
     [
@@ -137,8 +138,9 @@ misc() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    ct:timetrap({seconds, 30}),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     inets_test_lib:start_apps([inets]),
     ServerRoot = filename:join(PrivDir, "server_root"),
     DocRoot = filename:join(ServerRoot, "htdocs"),
@@ -147,7 +149,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     inets_test_lib:stop_apps([inets]),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     inets_test_lib:del_dirs(PrivDir),
     ok.
 
@@ -159,6 +161,7 @@ init_per_group(misc = Group, Config) ->
     Config;
 
 init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
+    ct:timetrap({seconds, 30}),
     start_apps(Group),
     StartSsl = try ssl:start()
     catch
@@ -199,7 +202,15 @@ init_per_testcase(persistent_connection, Config) ->
 		       {max_keep_alive_length, 3}], persistent_connection),
 
     Config;
-
+init_per_testcase(wait_for_whole_response, Config) ->
+    ct:timetrap({seconds, 60*3}),
+    Config;
+init_per_testcase(Case, Config) when Case == post;
+				     Case == delete;
+				     Case == post_delete;
+				     Case == post_stream ->
+    ct:timetrap({seconds, 30}),
+    Config;
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -356,7 +367,7 @@ pipeline(Config) when is_list(Config) ->
     {ok, _} = httpc:request(get, Request, [], [], pipeline),
 
     %% Make sure pipeline session is registerd
-    test_server:sleep(4000),
+    ct:sleep(4000),
     keep_alive_requests(Request, pipeline).
 
 %%--------------------------------------------------------------------
@@ -366,7 +377,7 @@ persistent_connection(Config) when is_list(Config) ->
     {ok, _} = httpc:request(get, Request, [], [], persistent),
 
     %% Make sure pipeline session is registerd
-    test_server:sleep(4000),
+    ct:sleep(4000),
     keep_alive_requests(Request, persistent).
 
 %%-------------------------------------------------------------------------
@@ -394,7 +405,7 @@ async(Config) when is_list(Config) ->
 save_to_file() ->
     [{doc, "Test to save the http body to a file"}].
 save_to_file(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     FilePath = filename:join(PrivDir, "dummy.html"),
     URL = url(group_name(Config), "/dummy.html", Config),
     Request = {URL, []},
@@ -408,7 +419,7 @@ save_to_file(Config) when is_list(Config) ->
 save_to_file_async() ->
     [{doc,"Test to save the http body to a file"}].
 save_to_file_async(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     FilePath = filename:join(PrivDir, "dummy.html"),
     URL = url(group_name(Config), "/dummy.html", Config),
     Request = {URL, []},
@@ -868,7 +879,7 @@ headers() ->
 headers(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy.html", Config),
-    DocRoot = ?config(doc_root, Config),
+    DocRoot = proplists:get_value(doc_root, Config),
 
     {ok, FileInfo} =
 	file:read_file_info(filename:join([DocRoot,"dummy.html"])),
@@ -1212,11 +1223,11 @@ not_streamed_test(Request, To) ->
     end.
 
 url(http, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
 url(https, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
 url(sim_http, End, Config) ->
@@ -1224,10 +1235,10 @@ url(sim_http, End, Config) ->
 url(sim_https, End, Config) ->
     url(https, End, Config).
 url(http, UserInfo, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     ?URL_START ++ UserInfo ++ integer_to_list(Port) ++ End;
 url(https, UserInfo, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     ?TLS_URL_START ++ UserInfo ++ integer_to_list(Port) ++ End;
 url(sim_http, UserInfo, End, Config) ->
     url(http, UserInfo, End, Config);
@@ -1235,7 +1246,7 @@ url(sim_https, UserInfo, End, Config) ->
     url(https, UserInfo, End, Config).
 
 group_name(Config) ->
-    GroupProp = ?config(tc_group_properties, Config),
+    GroupProp = proplists:get_value(tc_group_properties, Config),
     proplists:get_value(name, GroupProp).
 
 server_start(sim_http, _) ->
@@ -1257,11 +1268,11 @@ server_start(_, HttpdConfig) ->
     proplists:get_value(port, Info).
 
 server_config(http, Config) ->
-    ServerRoot = ?config(server_root, Config),
+    ServerRoot = proplists:get_value(server_root, Config),
     [{port, 0},
      {server_name,"httpc_test"},
      {server_root, ServerRoot},
-     {document_root, ?config(doc_root, Config)},
+     {document_root, proplists:get_value(doc_root, Config)},
      {bind_address, any},
      {ipfamily, inet_version()},
      {mime_type, "text/plain"},
@@ -1283,7 +1294,7 @@ start_apps(_) ->
     ok.
 
 ssl_config(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     [{certfile, filename:join(DataDir, "ssl_server_cert.pem")},
      {verify, verify_none}
     ].
@@ -1931,9 +1942,9 @@ handle_uri(_,"/once.html",_,_,Socket,_) ->
 	"Content-Length:32\r\n\r\n",
     send(Socket, Head),
     send(Socket, "<HTML><BODY>fo"),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     send(Socket, "ob"),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     send(Socket, "ar</BODY></HTML>");
 
 handle_uri(_,"/invalid_http.html",_,_,_,_) ->
@@ -2069,7 +2080,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 			      end
 		      end),
 	      MRef = erlang:monitor(process, Pid),
-	      timer:sleep(10 + random:uniform(1334)),
+	      timer:sleep(10 + rand:uniform(1334)),
 	      {Id, Pid, MRef}
       end,
       lists:seq(1, NumClients)).
@@ -2077,7 +2088,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    Time = inets_time_compat:monotonic_time(),
+    Time = erlang:monotonic_time(),
 
     receive
 	{'DOWN', _MRef, process, Pid, normal} ->
@@ -2158,7 +2169,7 @@ slowly_send_response(CSock, Answer) ->
 					    [length(Answer), Answer])),
     lists:foreach(
       fun(Char) ->
-	      timer:sleep(random:uniform(500)),
+	      timer:sleep(rand:uniform(500)),
 	      gen_tcp:send(CSock, <<Char>>)
       end,
       Response).
@@ -2177,10 +2188,9 @@ parse_connection_type(Request) ->
     end.
 
 set_random_seed() ->
-    Unique = inets_time_compat:unique_integer(),
-
+    Unique = erlang:unique_integer(),
     A = erlang:phash2([make_ref(), self(), Unique]),
-    random:seed(A, A, A).
+    rand:seed(exsplus, {A, A, A}).
 
 
 otp_8739(doc) ->

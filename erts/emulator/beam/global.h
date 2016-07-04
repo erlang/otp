@@ -62,6 +62,9 @@ struct enif_environment_t /* ErlNifEnv */
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
+extern void erts_pre_dirty_nif(ErtsSchedulerData *,
+			       struct enif_environment_t*, Process*,
+			       struct erl_module_nif*, Process* tracee);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(int to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
@@ -947,7 +950,7 @@ ERTS_GLB_INLINE Eterm erts_equeue_get(ErtsEQueue *q) {
 
 void erts_emasculate_writable_binary(ProcBin* pb);
 Eterm erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap);
-Eterm erts_new_mso_binary(Process*, byte*, int);
+Eterm erts_new_mso_binary(Process*, byte*, Uint);
 Eterm new_binary(Process*, byte*, Uint);
 Eterm erts_realloc_binary(Eterm bin, size_t size);
 
@@ -1152,6 +1155,7 @@ void print_pass_through(int, byte*, int);
 int catchlevel(Process*);
 void init_emulator(void);
 void process_main(void);
+void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
 void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);

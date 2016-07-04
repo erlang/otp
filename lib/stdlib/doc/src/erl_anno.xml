@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2015</year>
-      <year>2015</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -35,75 +35,81 @@
     <file>erl_anno.xml</file>
   </header>
   <module>erl_anno</module>
-
-  <modulesummary>
-    Abstract Datatype for the Annotations of the Erlang Compiler
+  <modulesummary>Abstract datatype for the annotations of the Erlang Compiler.
   </modulesummary>
 
   <description>
-    <p>This module implements an abstract type that is used by the
+    <p>This module provides an abstract type that is used by the
       Erlang Compiler and its helper modules for holding data such as
       column, line number, and text. The data type is a collection of
       <marker id="annotations"/><em>annotations</em> as
       described in the following.</p>
+
     <p>The Erlang Token Scanner returns tokens with a subset of
       the following annotations, depending on the options:</p>
+
     <taglist>
       <tag><c>column</c></tag>
       <item><p>The column where the token begins.</p></item>
       <tag><c>location</c></tag>
       <item><p>The line and column where the token begins, or
-        just the line if the column unknown.</p>
-      </item>
+        just the line if the column is unknown.</p></item>
       <tag><c>text</c></tag>
       <item><p>The token's text.</p></item>
     </taglist>
-    <p>From the above the following annotation is derived:</p>
+
+    <p>From this, the following annotation is derived:</p>
+
     <taglist>
       <tag><c>line</c></tag>
       <item><p>The line where the token begins.</p></item>
     </taglist>
-    <p>Furthermore, the following annotations are supported by
-      this module, and used by various modules:</p>
+
+    <p>This module also supports the following annotations,
+      which are used by various modules:</p>
+
     <taglist>
       <tag><c>file</c></tag>
       <item><p>A filename.</p></item>
       <tag><c>generated</c></tag>
       <item><p>A Boolean indicating if the abstract code is
-        compiler generated. The Erlang Compiler does not emit warnings
-        for such code.</p>
-      </item>
+        compiler-generated. The Erlang Compiler does not emit warnings
+        for such code.</p></item>
       <tag><c>record</c></tag>
       <item><p>A Boolean indicating if the origin of the abstract
-        code is a record. Used by Dialyzer to assign types to tuple
-        elements.</p>
+        code is a record. Used by
+        <seealso marker="dialyzer:dialyzer">Dialyzer</seealso>
+        to assign types to tuple elements.</p>
       </item>
     </taglist>
+
     <p>The functions
-      <seealso marker="erl_scan#column/1">column()</seealso>,
-      <seealso marker="erl_scan#end_location/1">end_location()</seealso>,
-      <seealso marker="erl_scan#line/1">line()</seealso>,
-      <seealso marker="erl_scan#location/1">location()</seealso>, and
-      <seealso marker="erl_scan#text/1">text()</seealso>
+      <seealso marker="erl_scan#column/1"><c>column()</c></seealso>,
+      <seealso marker="erl_scan#end_location/1"><c>end_location()</c></seealso>,
+      <seealso marker="erl_scan#line/1"><c>line()</c></seealso>,
+      <seealso marker="erl_scan#location/1"><c>location()</c></seealso>, and
+      <seealso marker="erl_scan#text/1"><c>text()</c></seealso>
       in the <c>erl_scan</c> module can be used for inspecting
       annotations in tokens.</p>
+
     <p>The functions
-      <seealso marker="erl_parse#map_anno/2">map_anno()</seealso>,
-      <seealso marker="erl_parse#fold_anno/3">fold_anno()</seealso>,
-      <seealso marker="erl_parse#mapfold_anno/3">mapfold_anno()</seealso>,
-      <seealso marker="erl_parse#new_anno/1">new_anno()</seealso>,
       <seealso marker="erl_parse#anno_from_term/1">
-      anno_from_term()</seealso>, and
+      <c>anno_from_term()</c></seealso>,
       <seealso marker="erl_parse#anno_to_term/1">
-      anno_to_term()</seealso> in the <c>erl_parse</c> module can be
-      used for manipulating annotations in abstract code.
-    </p>
+      <c>anno_to_term()</c></seealso>,
+      <seealso marker="erl_parse#fold_anno/3"><c>fold_anno()</c></seealso>,
+      <seealso marker="erl_parse#map_anno/2"><c>map_anno()</c></seealso>,
+      <seealso marker="erl_parse#mapfold_anno/3">
+      <c>mapfold_anno()</c></seealso>,
+      and <seealso marker="erl_parse#new_anno/1"><c>new_anno()</c></seealso>,
+      in the <c>erl_parse</c> module can be
+      used for manipulating annotations in abstract code.</p>
   </description>
 
   <datatypes>
     <datatype>
       <name>anno()</name>
-      <desc><p><marker id="type-anno"/>A collection of annotations.</p>
+      <desc><p>A collection of annotations.</p>
       </desc>
     </datatype>
     <datatype>
@@ -118,9 +124,6 @@
     </datatype>
     <datatype>
       <name name="line"></name>
-      <desc>
-      <p>To be changed to a non-negative integer in Erlang/OTP 19.0.</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="location"></name>
@@ -133,177 +136,169 @@
   <funcs>
     <func>
       <name name="column" arity="1"/>
-      <fsummary>Return the column</fsummary>
+      <fsummary>Return the column.</fsummary>
       <type name="column"></type>
       <desc>
-        <p>Returns the column of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Returns the column of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
+
     <func>
       <name name="end_location" arity="1"/>
-      <fsummary>Return the end location of the text</fsummary>
+      <fsummary>Return the end location of the text.</fsummary>
       <type name="location"></type>
       <desc>
         <p>Returns the end location of the text of the
           annotations <anno>Anno</anno>. If there is no text,
-          <c>undefined</c> is returned.
-        </p>
+          <c>undefined</c> is returned.</p>
       </desc>
     </func>
+
     <func>
       <name name="file" arity="1"/>
-      <fsummary>Return the filename</fsummary>
+      <fsummary>Return the filename.</fsummary>
       <type name="filename"></type>
       <desc>
         <p>Returns the filename of the annotations <anno>Anno</anno>.
-          If there is no filename, <c>undefined</c> is returned.
-        </p>
+          If there is no filename, <c>undefined</c> is returned.</p>
       </desc>
     </func>
+
     <func>
       <name name="from_term" arity="1"/>
-      <fsummary>Return annotations given a term</fsummary>
+      <fsummary>Return annotations given a term.</fsummary>
       <desc>
-        <p>Returns annotations with the representation <anno>Term</anno>.
-        </p>
-        <!--
-        <p>Although it is possible to create new annotations by calling
-          <c>from_term/1</c>, the intention is that one should not do
-          so - the proper way to create annotations is to call
-          <c>new/1</c> and then modify the annotations
-          by calling the <c>set_*</c> functions.</p>
-        -->
-        <p>See also <seealso marker="#to_term/1">to_term()</seealso>.
-        </p>
+        <p>Returns annotations with representation <anno>Term</anno>.</p>
+        <p>See also <seealso marker="#to_term/1">to_term()</seealso>.</p>
       </desc>
     </func>
+
     <func>
       <name name="generated" arity="1"/>
-      <fsummary>Return the generated Boolean</fsummary>
+      <fsummary>Return the generated Boolean.</fsummary>
       <type name="generated"></type>
       <desc>
-        <p>Returns <c>true</c> if the annotations <anno>Anno</anno>
-          has been marked as generated. The default is to return
-          <c>false</c>.
-        </p>
+        <p>Returns <c>true</c> if annotations <anno>Anno</anno>
+          is marked as generated. The default is to return
+          <c>false</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="is_anno" arity="1"/>
-      <fsummary>Test for a collection of annotations</fsummary>
+      <fsummary>Test for a collection of annotations.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <anno>Term</anno> is a collection of
-          annotations, <c>false</c> otherwise.</p>
+          annotations, otherwise <c>false</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="line" arity="1"/>
-      <fsummary>Return the line</fsummary>
+      <fsummary>Return the line.</fsummary>
       <type name="line"></type>
       <desc>
-        <p>Returns the line of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Returns the line of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
+
     <func>
       <name name="location" arity="1"/>
-      <fsummary>Return the location</fsummary>
+      <fsummary>Return the location.</fsummary>
       <type name="location"></type>
       <desc>
-        <p>Returns the location of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Returns the location of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
+
     <func>
       <name name="new" arity="1"/>
-      <fsummary>Create a new collection of annotations</fsummary>
+      <fsummary>Create a new collection of annotations.</fsummary>
       <type name="location"></type>
       <desc>
         <p>Creates a new collection of annotations given a location.</p>
       </desc>
     </func>
+
     <func>
       <name name="set_file" arity="2"/>
-      <fsummary>Modify the filename</fsummary>
+      <fsummary>Modify the filename.</fsummary>
       <type name="filename"></type>
       <desc>
-        <p>Modifies the filename of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Modifies the filename of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
+
     <func>
       <name name="set_generated" arity="2"/>
-      <fsummary>Modify the generated marker</fsummary>
+      <fsummary>Modify the generated marker.</fsummary>
       <type name="generated"></type>
       <desc>
-        <p>Modifies the generated marker of the annotations
-          <anno>Anno</anno>.
+        <p>Modifies the generated marker of the annotations <anno>Anno</anno>.
         </p>
       </desc>
     </func>
+
     <func>
       <name name="set_line" arity="2"/>
-      <fsummary>Modify the line</fsummary>
+      <fsummary>Modify the line.</fsummary>
       <type name="line"></type>
       <desc>
-        <p>Modifies the line of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Modifies the line of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
+
     <func>
       <name name="set_location" arity="2"/>
-      <fsummary>Modify the location</fsummary>
+      <fsummary>Modify the location.</fsummary>
       <type name="location"></type>
       <desc>
-        <p>Modifies the location of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Modifies the location of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
+
     <func>
       <name name="set_record" arity="2"/>
-      <fsummary>Modify the record marker</fsummary>
+      <fsummary>Modify the record marker.</fsummary>
       <type name="record"></type>
       <desc>
-        <p>Modifies the record marker of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Modifies the record marker of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
+
     <func>
       <name name="set_text" arity="2"/>
-      <fsummary>Modify the text</fsummary>
+      <fsummary>Modify the text.</fsummary>
       <type name="text"></type>
       <desc>
-        <p>Modifies the text of the annotations <anno>Anno</anno>.
-        </p>
+        <p>Modifies the text of the annotations <anno>Anno</anno>.</p>
       </desc>
     </func>
     <func>
+
       <name name="text" arity="1"/>
-      <fsummary>Return the text</fsummary>
+      <fsummary>Return the text.</fsummary>
       <type name="text"></type>
       <desc>
         <p>Returns the text of the annotations <anno>Anno</anno>.
-        If there is no text, <c>undefined</c> is returned.
-        </p>
+          If there is no text, <c>undefined</c> is returned.</p>
       </desc>
     </func>
+
     <func>
       <name name="to_term" arity="1"/>
-      <fsummary>Return the term representing a collection of
-        annotations</fsummary>
+      <fsummary>Return the term representing a collection of annotations.
+      </fsummary>
       <desc>
-        <p>Returns the term representing the annotations <anno>Anno</anno>.
-        </p>
-        <p>See also <seealso marker="#from_term/1">from_term()</seealso>.
-        </p>
+        <p>Returns the term representing the annotations <anno>Anno</anno>.</p>
+        <p>See also <seealso marker="#from_term/1">from_term()</seealso>.</p>
       </desc>
     </func>
   </funcs>
+
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_scan">erl_scan(3)</seealso>,
-       <seealso marker="erl_parse">erl_parse(3)</seealso>
-    </p>
+    <p><seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
+      <seealso marker="erl_scan"><c>erl_scan(3)</c></seealso></p>
   </section>
 </erlref>

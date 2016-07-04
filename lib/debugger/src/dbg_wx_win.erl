@@ -43,7 +43,8 @@
 %%   GS = term()
 %%--------------------------------------------------------------------
 init() ->
-    wx:new().
+    _ = wx:new(),
+    ok.
 
 %%--------------------------------------------------------------------
 %% create_menus(MenuBar, [Menu])
@@ -80,12 +81,12 @@ create_menus(_MB,[], _Win,Id) ->
     Id.
 
 create_menu_item(Menu, [separator|Is], Win, Id,Connect) ->
-    wxMenu:appendSeparator(Menu),
+    _ = wxMenu:appendSeparator(Menu),
     create_menu_item(Menu,Is,Win,Id+1,Connect);
 create_menu_item(Menu, [{Name, _N, cascade, Items}|Is], Win, Id0,Connect) ->
     Sub = wxMenu:new([]),
     Id = create_menu_item(Sub, Items, Win, Id0, false),
-    wxMenu:append(Menu, ?wxID_ANY, menu_name(Name,ignore), Sub),
+    _ = wxMenu:append(Menu, ?wxID_ANY, menu_name(Name,ignore), Sub),
     %% Simulate GS sub checkBox/RadioBox behaviour
     Self = self(),
     Butts = [{MI,get(MI)} || {MI,_,_} <- Items],
@@ -99,8 +100,8 @@ create_menu_item(Menu, [{Name, _N, cascade, Items}|Is], Win, Id0,Connect) ->
 		     Enabled = lists:foldl(IsChecked, [], Butts),
 		     Self ! Ev#wx{userData={Name, Enabled}}
 	     end,
-    wxMenu:connect(Win, command_menu_selected, 
-		   [{id,Id0},{lastId, Id-1},{callback,Filter}]),
+    _ = wxMenu:connect(Win, command_menu_selected,
+		       [{id,Id0},{lastId, Id-1},{callback,Filter}]),
     create_menu_item(Menu, Is, Win, Id, Connect);
 create_menu_item(Menu, [{Name,Pos}|Is], Win, Id, Connect) -> 
     MenuId = case lists:member(Name, ['Debugger']) of
@@ -168,7 +169,7 @@ add_break(Win, MenuName, Point) ->
     Delete = wxMenu:appendRadioItem(Trigger, ?wxID_ANY,"Delete"),
     Add(Delete, {break,Point,{trigger,delete}}),
 
-    wxMenu:append(Sub, ?wxID_ANY, "Trigger Action", Trigger),
+    _ = wxMenu:append(Sub, ?wxID_ANY, "Trigger Action", Trigger),
     MenuBtn = wxMenu:append(Menu,?wxID_ANY, Label, Sub),
 
     #break{mb={Menu,MenuBtn}, 

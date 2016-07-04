@@ -2159,12 +2159,23 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
     return ep;
 }
 
+/*
+ * We use this atom as sysname in local pid/port/refs
+ * for the ETS compressed format (DFLAG_INTERNAL_TAGS).
+ *
+ * We used atom '' earlier but that turned out to cause problems
+ * for buggy erl_interface/ic usage of c-nodes with empty node names.
+ * A long atom reduces risk of nodes actually called this and the length
+ * does not matter anyway as it's encoded with atom index (ATOM_INTERNAL_REF2).
+ */
+#define INTERNAL_LOCAL_SYSNAME am_await_microstate_accounting_modifications
+
 static byte*
 enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint32 dflags)
 {
     Uint on, os;
     Eterm sysname = ((is_internal_pid(pid) && (dflags & DFLAG_INTERNAL_TAGS))
-		      ? am_Empty : pid_node_name(pid));
+		      ? INTERNAL_LOCAL_SYSNAME : pid_node_name(pid));
     Uint32 creation = pid_creation(pid);
     byte* tagp = ep++;
 
@@ -2268,7 +2279,7 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
 
 static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint32 creation)
 {
-    if (sysname == am_Empty)  /* && DFLAG_INTERNAL_TAGS */
+    if (sysname == INTERNAL_LOCAL_SYSNAME)  /* && DFLAG_INTERNAL_TAGS */
 	return erts_this_node;
 
     if (sysname == erts_this_node->sysname
@@ -2555,7 +2566,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case EXTERNAL_REF_DEF: {
 	    Uint32 *ref_num;
 	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_ref(obj))
-			     ? am_Empty : ref_node_name(obj));
+			     ? INTERNAL_LOCAL_SYSNAME : ref_node_name(obj));
             Uint32 creation = ref_creation(obj);
             byte* tagp = ep++;
 
@@ -2584,7 +2595,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case PORT_DEF:
 	case EXTERNAL_PORT_DEF: {
 	    Eterm sysname = (((dflags & DFLAG_INTERNAL_TAGS) && is_internal_port(obj))
-			     ? am_Empty : port_node_name(obj));
+			     ? INTERNAL_LOCAL_SYSNAME : port_node_name(obj));
             Uint32 creation = port_creation(obj);
             byte* tagp = ep++;
 

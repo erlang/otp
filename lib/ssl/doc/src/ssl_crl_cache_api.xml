@@ -76,10 +76,13 @@
     </func>
     
     <func>
+      <name>lookup(DistributionPoint, Issuer, DbHandle) -> not_available | CRLs </name>
       <name>lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
       <fsummary> </fsummary>
       <type>
         <v> DistributionPoint = dist_point() </v>
+        <v> Issuer = <seealso
+	marker="public_key:public_key">public_key:issuer_name()</seealso> </v>
 	<v> DbHandle  = cache_ref() </v>
 	<v> CRLs = [<seealso
 	   marker="public_key:public_key">public_key:der_encoded()</seealso>] </v>
@@ -87,6 +90,18 @@
 	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>.
 	This function may choose to only look in the cache or to follow distribution point
 	links depending on how the cache is administrated. </p>
+
+	<p>The <c>Issuer</c> argument contains the issuer name of the
+	certificate to be checked.  Normally the returned CRL should
+	be issued by this issuer, except if the <c>cRLIssuer</c> field
+	of <c>DistributionPoint</c> has a value, in which case that
+	value should be used instead.</p>
+
+	<p>In an earlier version of this API, the <c>lookup</c>
+	function received two arguments, omitting <c>Issuer</c>.  For
+	compatibility, this is still supported: if there is no
+	<c>lookup/3</c> function in the callback module,
+	<c>lookup/2</c> is called instead.</p>
 	</desc>
     </func>
     

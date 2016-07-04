@@ -96,7 +96,7 @@ void dtrace_nifenv_str(ErlNifEnv *, char *);
 #endif
 
 #define MIN_HEAP_FRAG_SZ 200
-static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp);
+static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp);
 
 static ERTS_INLINE int
 is_scheduler(void)
@@ -135,7 +135,7 @@ execution_state(ErlNifEnv *env, Process **c_pp, int *schedp)
     }
 }
 
-static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
+static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, size_t need)
 {
     Eterm* hp = env->hp;
     env->hp += need;
@@ -145,7 +145,7 @@ static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
     return alloc_heap_heavy(env, need, hp);
 }
 
-static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
+static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp)
 {
     env->hp = hp;
     if (env->heap_frag == NULL) {
@@ -166,7 +166,7 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
 }
 
 #if SIZEOF_LONG != ERTS_SIZEOF_ETERM
-static ERTS_INLINE void ensure_heap(ErlNifEnv* env, unsigned may_need)
+static ERTS_INLINE void ensure_heap(ErlNifEnv* env, size_t may_need)
 {
     if (env->hp + may_need > env->hp_end) {
 	alloc_heap_heavy(env, may_need, env->hp);
@@ -178,9 +178,6 @@ static ERTS_INLINE void ensure_heap(ErlNifEnv* env, unsigned may_need)
 void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
                   Process* tracee)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
-    ErtsSchedulerData *esdp;
-#endif
     env->mod_nif = mod_nif;
     env->proc = p;
     env->hp = HEAP_TOP(p);
@@ -193,57 +190,65 @@ void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
 
     ASSERT(p->common.id != ERTS_INVALID_PID);
 
+#if defined(DEBUG) && defined(ERTS_DIRTY_SCHEDULERS)
+    {
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
+	ASSERT(esdp);
+
+	if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	    erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
+
+	    ASSERT(p->scheduler_data == esdp);
+	    ASSERT((state & (ERTS_PSFLG_RUNNING
+			     | ERTS_PSFLG_RUNNING_SYS))
+		   && !(state & (ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)));
+	}
+    }
+#endif
+}
+
+void erts_pre_dirty_nif(ErtsSchedulerData *esdp,
+			ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif,
+			Process* tracee)
+{
 #ifdef ERTS_DIRTY_SCHEDULERS
-    esdp = erts_get_scheduler_data();
+    Process *sproc;
+#ifdef DEBUG
+    erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
+
+    ASSERT(!p->scheduler_data);
+    ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING)
+	   && !(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)));
     ASSERT(esdp);
-
-    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-#ifdef DEBUG
-	erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
-
-	ASSERT(p->scheduler_data == esdp);
-	ASSERT((state & (ERTS_PSFLG_RUNNING
-			 | ERTS_PSFLG_RUNNING_SYS))
-	       && !(state & (ERTS_PSFLG_DIRTY_RUNNING
-			     | ERTS_PSFLG_DIRTY_RUNNING_SYS)));
 #endif
 
-    }
-    else {
-	Process *sproc;
-#ifdef DEBUG
-	erts_aint32_t state = erts_smp_atomic32_read_nob(&p->state);
+    erts_pre_nif(env, p, mod_nif, tracee);
 
-	ASSERT(!p->scheduler_data);
-	ASSERT((state & ERTS_PSFLG_DIRTY_RUNNING)
-	       && !(state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS)));
-#endif
+    sproc = esdp->dirty_shadow_process;
+    ASSERT(sproc);
+    ASSERT(sproc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
+    ASSERT(erts_smp_atomic32_read_nob(&sproc->state)
+	   == (ERTS_PSFLG_ACTIVE
+	       | ERTS_PSFLG_DIRTY_RUNNING
+	       | ERTS_PSFLG_PROXY));
 
-	sproc = esdp->dirty_shadow_process;
-	ASSERT(sproc);
-	ASSERT(sproc->static_flags & ERTS_STC_FLG_SHADOW_PROC);
-	ASSERT(erts_smp_atomic32_read_nob(&sproc->state)
-	       == (ERTS_PSFLG_ACTIVE
-		   | ERTS_PSFLG_DIRTY_RUNNING
-		   | ERTS_PSFLG_PROXY));
-
-	sproc->next = p;
-	sproc->common.id = p->common.id;
-	sproc->htop = p->htop;
-	sproc->stop = p->stop;
-	sproc->hend = p->hend;
-	sproc->heap = p->heap;
-	sproc->abandoned_heap = p->abandoned_heap;
-	sproc->heap_sz = p->heap_sz;
-	sproc->high_water = p->high_water;
-	sproc->old_hend = p->old_hend;
-	sproc->old_htop = p->old_htop;
-	sproc->old_heap = p->old_heap;
-	sproc->mbuf = NULL;
-	sproc->mbuf_sz = 0;
-	ERTS_INIT_OFF_HEAP(&sproc->off_heap);
-	env->proc = sproc;
-    }
+    sproc->next = p;
+    sproc->common.id = p->common.id;
+    sproc->htop = p->htop;
+    sproc->stop = p->stop;
+    sproc->hend = p->hend;
+    sproc->heap = p->heap;
+    sproc->abandoned_heap = p->abandoned_heap;
+    sproc->heap_sz = p->heap_sz;
+    sproc->high_water = p->high_water;
+    sproc->old_hend = p->old_hend;
+    sproc->old_htop = p->old_htop;
+    sproc->old_heap = p->old_heap;
+    sproc->mbuf = NULL;
+    sproc->mbuf_sz = 0;
+    ERTS_INIT_OFF_HEAP(&sproc->off_heap);
+    env->proc = sproc;
 #endif
 }
 
@@ -623,10 +628,28 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
         }
     } else {
         Uint sz = size_object(msg);
+	ErlOffHeap *ohp;
         Eterm *hp;
-        mp = erts_alloc_message(sz, &hp);
-        msg = copy_struct(msg, sz, &hp, &mp->hfrag.off_heap);
-        ASSERT(hp == mp->hfrag.mem+mp->hfrag.used_size);
+	if (env && !env->tracee) {
+	    flush_env(env);
+	    mp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
+	    cache_env(env);
+	}
+	else {
+	    erts_aint_t state = erts_smp_atomic32_read_nob(&rp->state);
+	    if (state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
+		mp = erts_alloc_message(sz, &hp);
+		ohp = sz == 0 ? NULL : &mp->hfrag.off_heap;
+	    }
+	    else {
+		ErlHeapFragment *bp = new_message_buffer(sz);
+		mp = erts_alloc_message(0, NULL);
+		mp->data.heap_frag = bp;
+		hp = bp->mem;
+		ohp = &bp->off_heap;
+	    }
+	}
+        msg = copy_struct(msg, sz, &hp, ohp);
     }
 
     ERL_MESSAGE_TERM(mp) = msg;
@@ -667,6 +690,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             erts_smp_proc_trylock(rp, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 
             if (!msgq) {
+#ifdef ERTS_SMP
+                ErtsThrPrgrDelayHandle dhndl;
+#endif
 
                 msgq = erts_alloc(ERTS_ALC_T_TRACE_MSG_QUEUE,
                                   sizeof(ErlTraceMessageQueue));
@@ -681,8 +707,15 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
                 erts_smp_proc_unlock(t_p, ERTS_PROC_LOCK_TRACE);
 
+#ifdef ERTS_SMP
+                if (!scheduler)
+                    dhndl = erts_thr_progress_unmanaged_delay();
+#endif
                 erts_schedule_flush_trace_messages(t_p->common.id);
-
+#ifdef ERTS_SMP
+                if (!scheduler)
+                    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
             } else {
                 msgq->len++;
                 *msgq->last = mp;
@@ -736,32 +769,25 @@ enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
 
     if (scheduler > 0)
 	prt = erts_port_lookup(to_port->port_id, iflags);
-#ifdef ERTS_DIRTY_SCHEDULERS
-    else if (scheduler < 0) {
+    else {
+#ifdef ERTS_SMP
 	if (ERTS_PROC_IS_EXITING(c_p))
 	    return 0;
 	prt = erts_thr_port_lookup(to_port->port_id, iflags);
-    }
+#else
+        erts_exit(ERTS_ABORT_EXIT,
+		  "enif_port_command: called from non-scheduler "
+                  "thread on non-SMP VM");
 #endif
-    else {
-	erts_exit(ERTS_ABORT_EXIT, "enif_port_command: "
-		  "called from non-scheduler thread");
     }
 
     if (!prt)
 	res = 0;
-    else {
+    else
+        res = erts_port_output_async(prt, c_p->common.id, msg);
 
-	if (IS_TRACED_FL(prt, F_TRACE_RECEIVE))
-	    trace_port_receive(prt, c_p->common.id, am_command, msg);
-
-	res = erts_port_output_async(prt, c_p->common.id, msg);
-    }
-
-#ifdef ERTS_DIRTY_SCHEDULERS
-    if (scheduler < 0)
+    if (scheduler <= 0)
 	erts_port_dec_refc(prt);
-#endif
 
     return res;
 }
@@ -770,19 +796,13 @@ ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 {
     Uint sz;
     Eterm* hp;
-#ifdef SHCOPY
-    erts_shcopy_t info;
-    INITIALIZE_SHCOPY(info);
-    sz = copy_shared_calculate(src_term, &info);
-    hp = alloc_heap(dst_env, sz);
-    src_term = copy_shared_perform(src_term, sz, &info, &hp, &MSO(dst_env->proc));
-    DESTROY_SHCOPY(info);
-    return src_term;
-#else
+    /*
+     * No preserved sharing allowed as long as literals are also preserved.
+     * Process independent environment can not be reached by purge.
+     */
     sz = size_object(src_term);
     hp = alloc_heap(dst_env, sz);
     return copy_struct(src_term, sz, &hp, &MSO(dst_env->proc));
-#endif
 }
 
 
@@ -1197,7 +1217,7 @@ Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
     Eterm orig;
     Uint offset, bit_offset, bit_size; 
 #ifdef DEBUG
-    unsigned src_size;
+    size_t src_size;
 
     ASSERT(is_binary(bin_term));
     src_size = binary_size(bin_term);
@@ -1669,7 +1689,8 @@ int enif_is_process_alive(ErlNifEnv* env, ErlNifPid *proc)
 	return !!rp;
 #else
 	erts_exit(ERTS_ABORT_EXIT, "enif_is_process_alive: "
-		  "called from non-scheduler thread");
+		  "called from non-scheduler thread "
+                  "in non-smp emulator");
 	return 0;
 #endif
     }
@@ -1694,7 +1715,8 @@ int enif_is_port_alive(ErlNifEnv *env, ErlNifPort *port)
 	return !!prt;
 #else
 	erts_exit(ERTS_ABORT_EXIT, "enif_is_port_alive: "
-		  "called from non-scheduler thread");
+		  "called from non-scheduler thread "
+                  "in non-smp emulator");
 	return 0;
 #endif
     }
@@ -2629,18 +2651,21 @@ done:
 }
 
 int
-enif_is_on_dirty_scheduler(ErlNifEnv* env)
+enif_thread_type(void)
 {
-    int scheduler;
-    Process *c_p;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    execution_state(env, &c_p, &scheduler);
+    if (!esdp)
+	return ERL_NIF_THR_UNDEFINED;
 
-    if (!c_p || !scheduler)
-	erts_exit(ERTS_ABORT_EXIT, "enif_is_on_dirty_scheduler: "
-		  "Invalid env");
+    if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
+	return ERL_NIF_THR_NORMAL_SCHEDULER;
 
-    return scheduler < 0;
+    if (ERTS_SCHEDULER_IS_DIRTY_CPU(esdp))
+	return ERL_NIF_THR_DIRTY_CPU_SCHEDULER;
+
+    ASSERT(ERTS_SCHEDULER_IS_DIRTY_IO(esdp));
+    return ERL_NIF_THR_DIRTY_IO_SCHEDULER;
 }
 
 /* Maps */

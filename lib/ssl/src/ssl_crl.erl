@@ -39,13 +39,12 @@ trusted_cert_and_path(CRL, {SerialNumber, Issuer},{Db, DbRef} = DbHandle) ->
     end;
 
 trusted_cert_and_path(CRL, issuer_not_found, {Db, DbRef} = DbHandle) -> 
-    try find_issuer(CRL, DbHandle) of
-	OtpCert ->
+    case find_issuer(CRL, DbHandle) of
+	{ok, OtpCert} ->
 	    {ok, Root, Chain} = ssl_certificate:certificate_chain(OtpCert, Db, DbRef),
-	    {ok, Root, lists:reverse(Chain)}
-    catch
-	throw:_ ->
-	    {error, issuer_not_found}
+	    {ok, Root, lists:reverse(Chain)};
+	{error, issuer_not_found} ->
+	    {ok, unknown_crl_ca, []}
     end.
 
 find_issuer(CRL, {Db,_}) ->
@@ -61,10 +60,9 @@ find_issuer(CRL, {Db,_}) ->
 	issuer_not_found ->
 	    {error, issuer_not_found}
     catch 
-	{ok, IssuerCert}  ->
-	    IssuerCert
+	{ok, _} = Result ->
+	    Result
     end.
-
 
 verify_crl_issuer(CRL, ErlCertCandidate, Issuer, NotIssuer) ->
     TBSCert =  ErlCertCandidate#'OTPCertificate'.tbsCertificate,

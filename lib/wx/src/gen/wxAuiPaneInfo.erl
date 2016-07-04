@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ bottomDockable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfobottomdockable">external documentation</a>.
 -spec bottomDockable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 bottomDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -134,7 +134,7 @@ captionVisible(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfocaptionvisible">external documentation</a>.
 -spec captionVisible(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {visible, boolean()}.
+	Option :: {'visible', boolean()}.
 captionVisible(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -171,7 +171,7 @@ closeButton(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfoclosebutton">external documentation</a>.
 -spec closeButton(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {visible, boolean()}.
+	Option :: {'visible', boolean()}.
 closeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -200,7 +200,7 @@ destroyOnClose(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfodestroyonclose">external documentation</a>.
 -spec destroyOnClose(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 destroyOnClose(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -238,7 +238,7 @@ dockable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfodockable">external documentation</a>.
 -spec dockable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 dockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -275,7 +275,7 @@ floatable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfofloatable">external documentation</a>.
 -spec floatable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 floatable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -332,7 +332,7 @@ gripper(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogripper">external documentation</a>.
 -spec gripper(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {visible, boolean()}.
+	Option :: {'visible', boolean()}.
 gripper(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -353,7 +353,7 @@ gripperTop(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfogrippertop">external documentation</a>.
 -spec gripperTop(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {attop, boolean()}.
+	Option :: {'attop', boolean()}.
 gripperTop(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -576,7 +576,7 @@ leftDockable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfoleftdockable">external documentation</a>.
 -spec leftDockable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 leftDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -615,7 +615,7 @@ maximizeButton(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfomaximizebutton">external documentation</a>.
 -spec maximizeButton(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {visible, boolean()}.
+	Option :: {'visible', boolean()}.
 maximizeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -654,7 +654,7 @@ minimizeButton(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfominimizebutton">external documentation</a>.
 -spec minimizeButton(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {visible, boolean()}.
+	Option :: {'visible', boolean()}.
 minimizeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -675,7 +675,7 @@ movable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfomovable">external documentation</a>.
 -spec movable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 movable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -706,7 +706,7 @@ paneBorder(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfopaneborder">external documentation</a>.
 -spec paneBorder(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {visible, boolean()}.
+	Option :: {'visible', boolean()}.
 paneBorder(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -727,7 +727,7 @@ pinButton(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfopinbutton">external documentation</a>.
 -spec pinButton(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {visible, boolean()}.
+	Option :: {'visible', boolean()}.
 pinButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -757,7 +757,7 @@ resizable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinforesizable">external documentation</a>.
 -spec resizable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {resizable, boolean()}.
+	Option :: {'resizable', boolean()}.
 resizable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -786,7 +786,7 @@ rightDockable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinforightdockable">external documentation</a>.
 -spec rightDockable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 rightDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -806,7 +806,7 @@ row(#wx_ref{type=ThisT,ref=ThisRef},Row)
   <<ThisRef:32/?UI,Row:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfosafeset">external documentation</a>.
--spec safeSet(This, Source) -> ok when
+-spec safeSet(This, Source) -> 'ok' when
 	This::wxAuiPaneInfo(), Source::wxAuiPaneInfo().
 safeSet(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SourceT,ref=SourceRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -834,7 +834,7 @@ show(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfoshow">external documentation</a>.
 -spec show(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {show, boolean()}.
+	Option :: {'show', boolean()}.
 show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -871,7 +871,7 @@ topDockable(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauipaneinfo.html#wxauipaneinfotopdockable">external documentation</a>.
 -spec topDockable(This, [Option]) -> wxAuiPaneInfo() when
 	This::wxAuiPaneInfo(),
-	Option :: {b, boolean()}.
+	Option :: {'b', boolean()}.
 topDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -955,7 +955,7 @@ getFloatingSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAuiPaneInfo()) -> ok.
+-spec destroy(This::wxAuiPaneInfo()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiPaneInfo),
   wxe_util:destroy(?wxAuiPaneInfo_destruct,Obj),

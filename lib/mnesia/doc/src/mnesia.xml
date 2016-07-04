@@ -2356,7 +2356,6 @@ mnesia:create_table(employee,
       <name>table(Tab [,[Option]]) -> QueryHandle</name>
       <fsummary>Return a QLC query handle.</fsummary>
       <desc>
-      <marker id="qlc_table"></marker>
       <marker id="table"></marker>
         <p>Returns a Query List Comprehension (QLC) query handle,
           see the <seealso marker="stdlib:qlc">qlc(3)</seealso>

@@ -29,7 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -40,7 +40,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -51,7 +51,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			AcTuAlReS
 		end
@@ -63,7 +63,7 @@
 		case orber_tc:check_tc(TC) of
 		    false ->
 			io:format("###### ERROR ERROR ######~n~p - ~p~n", [Op, TC]),
-			?line exit(TC);
+			exit(TC);
 		    true ->
 			true
 		end
@@ -125,12 +125,12 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -139,8 +139,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_AlreadyConnected'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_AlreadyConnected'(doc) -> [""];
-'CosEventChannelAdmin_AlreadyConnected'(suite) -> [];
 'CosEventChannelAdmin_AlreadyConnected'(_) ->
     ?match(true, orber_tc:check_tc('CosEventChannelAdmin_AlreadyConnected':tc())),
     ?match("IDL:omg.org/CosEventChannelAdmin/AlreadyConnected:1.0", 
@@ -154,8 +152,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_TypeError'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_TypeError'(doc) -> [""];
-'CosEventChannelAdmin_TypeError'(suite) -> [];
 'CosEventChannelAdmin_TypeError'(_) ->
     ?match(true, orber_tc:check_tc('CosEventChannelAdmin_TypeError':tc())),
     ?match("IDL:omg.org/CosEventChannelAdmin/TypeError:1.0", 
@@ -169,8 +165,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventComm_Disconnected'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventComm_Disconnected'(doc) -> [""];
-'CosEventComm_Disconnected'(suite) -> [];
 'CosEventComm_Disconnected'(_) ->
     ?match(true, orber_tc:check_tc('CosEventComm_Disconnected':tc())),
     ?match("IDL:omg.org/CosEventComm/Disconnected:1.0", 
@@ -183,8 +177,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_ConsumerAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_ConsumerAdmin'(doc) -> [""];
-'CosEventChannelAdmin_ConsumerAdmin'(suite) -> [];
 'CosEventChannelAdmin_ConsumerAdmin'(_) ->
     ?nomatch(undefined, 'CosEventChannelAdmin_ConsumerAdmin':oe_tc(obtain_push_supplier)),
     ?nomatch(undefined, 'CosEventChannelAdmin_ConsumerAdmin':oe_tc(obtain_pull_supplier)),
@@ -201,8 +193,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_EventChannel'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_EventChannel'(doc) -> [""];
-'CosEventChannelAdmin_EventChannel'(suite) -> [];
 'CosEventChannelAdmin_EventChannel'(_) ->
     ?nomatch(undefined, 'CosEventChannelAdmin_EventChannel':oe_tc(for_consumers)),
     ?nomatch(undefined, 'CosEventChannelAdmin_EventChannel':oe_tc(for_suppliers)),
@@ -220,8 +210,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_ProxyPullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_ProxyPullConsumer'(doc) -> [""];
-'CosEventChannelAdmin_ProxyPullConsumer'(suite) -> [];
 'CosEventChannelAdmin_ProxyPullConsumer'(_) ->
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPullConsumer':oe_tc(connect_pull_supplier)),
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPullConsumer':oe_tc(disconnect_pull_consumer)),
@@ -239,8 +227,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_ProxyPullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_ProxyPullSupplier'(doc) -> [""];
-'CosEventChannelAdmin_ProxyPullSupplier'(suite) -> [];
 'CosEventChannelAdmin_ProxyPullSupplier'(_) ->
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPullSupplier':oe_tc(connect_pull_consumer)),
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPullSupplier':oe_tc(pull)),
@@ -260,8 +246,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_ProxyPushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_ProxyPushConsumer'(doc) -> [""];
-'CosEventChannelAdmin_ProxyPushConsumer'(suite) -> [];
 'CosEventChannelAdmin_ProxyPushConsumer'(_) ->
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPushConsumer':oe_tc(connect_push_supplier)),
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPushConsumer':oe_tc(push)),
@@ -280,8 +264,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_ProxyPushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_ProxyPushSupplier'(doc) -> [""];
-'CosEventChannelAdmin_ProxyPushSupplier'(suite) -> [];
 'CosEventChannelAdmin_ProxyPushSupplier'(_) ->
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPushSupplier':oe_tc(connect_push_consumer)),
     ?nomatch(undefined, 'CosEventChannelAdmin_ProxyPushSupplier':oe_tc(disconnect_push_supplier)),
@@ -299,8 +281,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventChannelAdmin_SupplierAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventChannelAdmin_SupplierAdmin'(doc) -> [""];
-'CosEventChannelAdmin_SupplierAdmin'(suite) -> [];
 'CosEventChannelAdmin_SupplierAdmin'(_) ->
     ?nomatch(undefined, 'CosEventChannelAdmin_SupplierAdmin':oe_tc(obtain_push_consumer)),
     ?nomatch(undefined, 'CosEventChannelAdmin_SupplierAdmin':oe_tc(obtain_pull_consumer)),
@@ -317,8 +297,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'oe_CosEventComm_CAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'oe_CosEventComm_CAdmin'(doc) -> [""];
-'oe_CosEventComm_CAdmin'(suite) -> [];
 'oe_CosEventComm_CAdmin'(_) ->
     ?nomatch(undefined, 'oe_CosEventComm_CAdmin':oe_tc(obtain_push_supplier)),
     ?nomatch(undefined, 'oe_CosEventComm_CAdmin':oe_tc(obtain_pull_supplier)),
@@ -339,8 +317,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'oe_CosEventComm_Channel'
 %% Description: 
 %%-----------------------------------------------------------------
-'oe_CosEventComm_Channel'(doc) -> [""];
-'oe_CosEventComm_Channel'(suite) -> [];
 'oe_CosEventComm_Channel'(_) ->
     ?nomatch(undefined, 'oe_CosEventComm_Channel':oe_tc(for_consumers)),
     ?nomatch(undefined, 'oe_CosEventComm_Channel':oe_tc(for_suppliers)),
@@ -362,8 +338,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'oe_CosEventComm_Event'
 %% Description: 
 %%-----------------------------------------------------------------
-'oe_CosEventComm_Event'(doc) -> [""];
-'oe_CosEventComm_Event'(suite) -> [];
 'oe_CosEventComm_Event'(_) ->
     ?nomatch(undefined, 'oe_CosEventComm_Event':oe_tc(send)),
     ?nomatch(undefined, 'oe_CosEventComm_Event':oe_tc(send_sync)),
@@ -380,8 +354,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'oe_CosEventComm_PullerS'
 %% Description: 
 %%-----------------------------------------------------------------
-'oe_CosEventComm_PullerS'(doc) -> [""];
-'oe_CosEventComm_PullerS'(suite) -> [];
 'oe_CosEventComm_PullerS'(_) ->
     ?nomatch(undefined, 'oe_CosEventComm_PullerS':oe_tc(connect_pull_consumer)),
     ?nomatch(undefined, 'oe_CosEventComm_PullerS':oe_tc(pull)),
@@ -405,8 +377,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'oe_CosEventComm_PusherS'
 %% Description: 
 %%-----------------------------------------------------------------
-'oe_CosEventComm_PusherS'(doc) -> [""];
-'oe_CosEventComm_PusherS'(suite) -> [];
 'oe_CosEventComm_PusherS'(_) ->
     ?nomatch(undefined, 'oe_CosEventComm_PusherS':oe_tc(connect_push_consumer)),
     ?nomatch(undefined, 'oe_CosEventComm_PusherS':oe_tc(disconnect_push_supplier)),
@@ -428,8 +398,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventComm_PullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventComm_PullConsumer'(doc) -> [""];
-'CosEventComm_PullConsumer'(suite) -> [];
 'CosEventComm_PullConsumer'(_) ->
     ?nomatch(undefined, 'CosEventComm_PullConsumer':oe_tc(disconnect_pull_consumer)),
     ?match(undefined, 'CosEventComm_PullConsumer':oe_tc(undefined)),
@@ -445,8 +413,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventComm_PullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventComm_PullSupplier'(doc) -> [""];
-'CosEventComm_PullSupplier'(suite) -> [];
 'CosEventComm_PullSupplier'(_) ->
     ?nomatch(undefined, 'CosEventComm_PullSupplier':oe_tc(pull)),
     ?nomatch(undefined, 'CosEventComm_PullSupplier':oe_tc(try_pull)),
@@ -464,8 +430,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventComm_PushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventComm_PushConsumer'(doc) -> [""];
-'CosEventComm_PushConsumer'(suite) -> [];
 'CosEventComm_PushConsumer'(_) ->
     ?nomatch(undefined, 'CosEventComm_PushConsumer':oe_tc(push)),
     ?nomatch(undefined, 'CosEventComm_PushConsumer':oe_tc(disconnect_push_consumer)),
@@ -482,8 +446,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventComm_PushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventComm_PushSupplier'(doc) -> [""];
-'CosEventComm_PushSupplier'(suite) -> [];
 'CosEventComm_PushSupplier'(_) ->
     ?nomatch(undefined, 'CosEventComm_PushSupplier':oe_tc(disconnect_push_supplier)),
     ?match(undefined, 'CosEventComm_PushSupplier':oe_tc(undefined)),

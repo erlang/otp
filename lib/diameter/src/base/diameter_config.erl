@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,17 +38,17 @@
 -module(diameter_config).
 -behaviour(gen_server).
 
--compile({no_auto_import, [monitor/2]}).
-
 -export([start_service/2,
          stop_service/1,
          add_transport/2,
          remove_transport/2,
          have_transport/2,
-         lookup/1]).
+         lookup/1,
+         subscribe/2]).
 
-%% child server start
--export([start_link/0]).
+%% server start
+-export([start_link/0,
+         start_link/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -58,8 +58,8 @@
          handle_info/2,
          code_change/3]).
 
-%% diameter_sync requests.
--export([sync/1]).
+%% callbacks
+-export([sync/1]).    %% diameter_sync requests
 
 %% debug
 -export([state/0,
@@ -69,13 +69,17 @@
 -include("diameter_internal.hrl").
 
 %% Server state.
--record(state, {id = diameter_lib:now()}).
+-record(state, {id = diameter_lib:now(),
+                role :: server | transport}).
 
 %% Registered name of the server.
 -define(SERVER, ?MODULE).
 
 %% Table config is written to.
 -define(TABLE, ?MODULE).
+
+%% Key on which a transport-specific child registers itself.
+-define(TRANSPORT_KEY(Ref), {?MODULE, transport, Ref}).
 
 %% Workaround for dialyzer's lack of understanding of match specs.
 -type match(T)
@@ -225,6 +229,13 @@ pred(_) ->
     ?THROW(pred).
 
 %% --------------------------------------------------------------------------
+%% # subscribe/2
+%% --------------------------------------------------------------------------
+
+subscribe(Ref, T) ->
+    diameter_reg:subscribe(?TRANSPORT_KEY(Ref), T).
+
+%% --------------------------------------------------------------------------
 %% # have_transport/2
 %%
 %% Output: true | false
@@ -264,6 +275,9 @@ start_link() ->
     Options    = [{spawn_opt, diameter_lib:spawn_opts(server, [])}],
     gen_server:start_link(ServerName, Module, Args, Options).
 
+start_link(T) ->
+    proc_lib:start_link(?MODULE, init, [T], infinity, []).
+    
 state() ->
     call(state).
 
@@ -274,8 +288,27 @@ uptime() ->
 %%% # init/1
 %%% ----------------------------------------------------------
 
+%% ?SERVER start.
 init([]) ->
-    {ok, #state{}}.
+    {ok, #state{role = server}};
+
+%% Child start as a consequence of add_transport.
+init({SvcName, Type, Opts}) ->
+    Res = try
+              add(SvcName, Type, Opts)
+          catch
+              ?FAILURE(Reason) -> {error, Reason}
+          end,
+    proc_lib:init_ack({ok, self(), Res}),
+    loop(Res).
+
+%% loop/1
+
+loop({ok, _}) ->
+    gen_server:enter_loop(?MODULE, [], #state{role = transport});
+
+loop({error, _}) ->
+    ok.  %% die
 
 %%% ----------------------------------------------------------
 %%% # handle_call/2
@@ -284,8 +317,8 @@ init([]) ->
 handle_call(state, _, State) ->
     {reply, State, State};
 
-handle_call(uptime, _, #state{id = Time} = State) ->
-    {reply, diameter_lib:now_diff(Time), State};
+handle_call(uptime, _, #state{id = Time} = S) ->
+    {reply, diameter_lib:now_diff(Time), S};
 
 handle_call(Req, From, State) ->
     ?UNEXPECTED([Req, From]),
@@ -304,30 +337,34 @@ handle_cast(Msg, State) ->
 %%% # handle_info/2
 %%% ----------------------------------------------------------
 
+%% remove_transport is telling published child to die.
+handle_info(stop, #state{role = transport} = S) ->
+    {stop, normal, S};
+
 %% A service process has died. This is most likely a consequence of
 %% stop_service, in which case the restart will find no config for the
 %% service and do nothing. The entry keyed on the monitor ref is only
 %% removed as a result of the 'DOWN' notification however.
-handle_info({'DOWN', MRef, process, _, Reason}, State) ->
+handle_info({'DOWN', MRef, process, _, Reason}, #state{role = server} = S) ->
     [#monitor{service = SvcName} = T] = select([{#monitor{mref = MRef,
                                                           _ = '_'},
                                                  [],
                                                  ['$_']}]),
     queue_restart(Reason, SvcName),
     delete_object(T),
-    {noreply, State};
+    {noreply, S};
 
-handle_info({monitor, SvcName, Pid}, State) ->
-    monitor(Pid, SvcName),
-    {noreply, State};
+handle_info({monitor, SvcName, Pid}, #state{role = server} = S) ->
+    insert_monitor(Pid, SvcName),
+    {noreply, S};
 
-handle_info({restart, SvcName}, State) ->
+handle_info({restart, SvcName}, #state{role = server} = S) ->
     restart(SvcName),
-    {noreply, State};
+    {noreply, S};
 
-handle_info(restart, State) ->
+handle_info(restart, #state{role = server} = S) ->
     restart(),
-    {noreply, State};
+    {noreply, S};
 
 handle_info(Info, State) ->
     ?UNEXPECTED([Info]),
@@ -404,19 +441,22 @@ sync({start_service, SvcName, Opts}) ->
 sync({stop_service, SvcName}) ->
     stop(SvcName);
 
+%% Start a child whose only purpose is to be alive for the lifetime of
+%% the transport configuration and publish itself in diameter_reg.
+%% This is to provide a way for processes to to be notified when the
+%% configuration is removed (diameter_reg:subscribe/2).
 sync({add, SvcName, Type, Opts}) ->
-    try
-        add(SvcName, Type, Opts)
-    catch
-        ?FAILURE(Reason) -> {error, Reason}
-    end;
+    {ok, _Pid, Res} = diameter_config_sup:start_child({SvcName, Type, Opts}),
+    Res;
 
 sync({remove, SvcName, Pred}) ->
-    remove(select([{#transport{service = '$1', _ = '_'},
+    Recs = select([{#transport{service = '$1', _ = '_'},
                     [{'=:=', '$1', {const, SvcName}}],
                     ['$_']}]),
-           SvcName,
-           Pred).
+    F = fun(#transport{ref = R, type = T, options = O}) ->
+                Pred(R,T,O)
+        end,
+    remove(SvcName, lists:filter(F, Recs)).
 
 %% start/3
 
@@ -438,8 +478,8 @@ startmon(SvcName, {ok, Pid}) ->
 startmon(_, {error, _}) ->
     ok.
 
-monitor(Pid, SvcName) ->
-    MRef = erlang:monitor(process, Pid),
+insert_monitor(Pid, SvcName) ->
+    MRef = monitor(process, Pid),
     insert(#monitor{mref = MRef, service = SvcName}).
 
 %% queue_restart/2
@@ -503,6 +543,7 @@ add(SvcName, Type, Opts) ->
     ok = transport_opts(Opts),
 
     Ref = make_ref(),
+    true = diameter_reg:add_new(?TRANSPORT_KEY(Ref)),
     T = {Ref, Type, Opts},
     %% The call to the service returns error if the service isn't
     %% started yet, which is harmless. The transport will be started
@@ -594,24 +635,28 @@ start_transport(SvcName, T) ->
             No
     end.
 
-%% remove/3
+%% remove/2
 
-remove(L, SvcName, Pred) ->
-    rm(SvcName, lists:filter(fun(#transport{ref = R, type = T, options = O}) ->
-                                     Pred(R,T,O)
-                             end,
-                             L)).
-
-rm(_, []) ->
+remove(_, []) ->
     ok;
-rm(SvcName, L) ->
+
+remove(SvcName, L) ->
     Refs = lists:map(fun(#transport{ref = R}) -> R end, L),
     case stop_transport(SvcName, Refs) of
         ok ->
+            lists:foreach(fun stop_child/1, Refs),
             diameter_stats:flush(Refs),
             lists:foreach(fun delete_object/1, L);
         {error, _} = No ->
             No
+    end.
+
+stop_child(Ref) ->
+    case diameter_reg:match(?TRANSPORT_KEY(Ref)) of
+        [{_, Pid}] ->  %% tell the transport-specific child to die
+            Pid ! stop;
+        [] ->          %% already removed/dead
+            ok
     end.
 
 stop_transport(SvcName, Refs) ->

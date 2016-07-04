@@ -31,6 +31,56 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Correct a bug when adding multiple modules to an Xref
+	    server. The bug was introduced in OTP-19.0. </p>
+          <p>
+	    Own Id: OTP-13708 Aux Id: ERL-173 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update fprof to use the new 'spawned' trace event to
+	    determine when a process has been created.</p>
+          <p>
+	    Own Id: OTP-13499</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Optimize adding multiple modules to an Xref server.
+	    </p>
+          <p>
+	    Own Id: OTP-13593</p>
+        </item>
+        <item>
+          <p>
+	    Various emacs mode improvements, such as better tags
+	    support.</p>
+          <p>
+	    Own Id: OTP-13610</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
