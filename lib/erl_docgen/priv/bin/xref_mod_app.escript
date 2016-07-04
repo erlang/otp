@@ -84,7 +84,7 @@ preloaded(TopDir) ->
 %% It's OK if too much data is generated as long as all applications
 %% and all modules are mentioned.
 appmods(D) ->
-    ErlFiles = filelib:wildcard(filename:join([D,"src","*.erl"])),
+    ErlFiles = filelib:wildcard(filename:join([D,"src","**","*.erl"])),
     AppV = filename:basename(D),
     App = case string:rstr(AppV, "-") of
               0 -> AppV;
