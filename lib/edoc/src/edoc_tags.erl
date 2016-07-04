@@ -213,8 +213,10 @@ filter_tags([#tag{name = N, line = L} = T | Ts], Tags, Where, Ts1) ->
 	true ->
 	    filter_tags(Ts, Tags, Where, [T | Ts1]);
 	false ->
-	    [warning(L, Where, "tag @~s not recognized.", [N]) ||
-                Where =/= no],
+	    case Where of
+		no -> ok;
+		_ -> warning(L, Where, "tag @~s not recognized.", [N])
+	    end,
 	    filter_tags(Ts, Tags, Where, Ts1)
     end;
 filter_tags([], _, _, Ts) ->
@@ -451,7 +453,7 @@ check_type(#tag{line = L, data = Data}, P0, Ls, Ts) ->
 check_type(#t_def{type = Type}, P, Ls, Ts) ->
     check_type(Type, P, Ls, Ts);
 check_type(#t_type{name = Name, args = Args}, P, Ls, Ts) ->
-    _ = check_used_type(Name, Args, P, Ls),
+    check_used_type(Name, Args, P, Ls),
     check_types3(Args++Ts, P, Ls);
 check_type(#t_var{}, P, Ls, Ts) ->
     check_types3(Ts, P, Ls);
@@ -503,7 +505,8 @@ check_used_type(#t_name{name = N, module = Mod}=Name, Args, P, LocalTypes) ->
         false ->
             #parms{warn = W, line = L, file = File} = P,
             %% true = ets:insert(DT, TypeName),
-            [type_warning(L, File, "missing type", N, NArgs) || W]
+            _ = [type_warning(L, File, "missing type", N, NArgs) || W],
+	    ok
     end.
 
 type_warning(Line, File, S, N, NArgs) ->
