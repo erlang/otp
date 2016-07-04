@@ -135,10 +135,14 @@ split_paths([], _S, Path, Paths) ->
 
 -spec call(term()) -> term().
 call(Req) ->
+    Ref = erlang:monitor(process, ?MODULE),
     ?MODULE ! {code_call, self(), Req},
     receive 
 	{?MODULE, Reply} ->
-	    Reply
+            erlang:demonitor(Ref,[flush]),
+	    Reply;
+        {'DOWN',Ref,process,_,_} ->
+            exit({'DOWN',code_server,Req})
     end.
 
 reply(Pid, Res) ->
