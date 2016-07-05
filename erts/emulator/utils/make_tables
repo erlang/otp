@@ -91,8 +91,11 @@ while (<>) {
 	    $alias .= "${name}_$arity";
 	}
 	my $wrapper;
-	$wrapper = "wrap_$alias" if $type eq 'bif';
-	$wrapper = $alias if $type eq 'ubif';
+	if ($type eq 'bif') {
+	    $wrapper = "wrap_$alias";
+	} else {
+	    $wrapper = $alias;
+	}
 	push(@bif, ["am_$atom_alias{$mod}","am_$atom_alias{$name}",$arity,
 		    $alias,$wrapper]);
 	push(@bif_type, $type);
