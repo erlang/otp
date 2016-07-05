@@ -904,14 +904,26 @@ static int create_fifo(char *name, int perm)
  * Find a master device, open and return fd and slave device name.
  */
 
+#ifdef HAVE_WORKING_POSIX_OPENPT
+   /*
+    * Use openpty() on OpenBSD even if we have posix_openpt()
+    * as there is a race when read from master pty returns 0
+    * if child has not yet opened slave pty.
+    * (maybe other BSD's have the same problem?)
+    */
+#  if !(defined(__OpenBSD__) && defined(HAVE_OPENPTY))
+#    define TRY_POSIX_OPENPT
+#  endif
+#endif
+
 static int open_pty_master(char **ptyslave, int *sfdp)
 {
   int mfd;
 
 /* Use the posix_openpt if working, as this guarantees creation of the 
    slave device properly. */
-#if defined(HAVE_WORKING_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
-#  ifdef HAVE_WORKING_POSIX_OPENPT
+#if defined(TRY_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
+#  ifdef TRY_POSIX_OPENPT
   mfd = posix_openpt(O_RDWR);
 #  elif defined(__sun) && defined(__SVR4)
   mfd = sf_open("/dev/ptmx", O_RDWR, 0);
