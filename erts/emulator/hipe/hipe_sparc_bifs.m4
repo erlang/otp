@@ -210,8 +210,9 @@ $1:
  * gc_bif_interface_0(nbif_name, cbif_name)
  * gc_bif_interface_1(nbif_name, cbif_name)
  * gc_bif_interface_2(nbif_name, cbif_name)
+ * gc_bif_interface_3(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 0-2 parameters and
+ * Generate native interface for a BIF with 0-3 parameters and
  * standard failure mode.
  * The BIF may do a GC.
  */
@@ -291,6 +292,37 @@ $1:
 	RESTORE_CONTEXT_GC
 	NBIF_RET(2)
 	HANDLE_GOT_MBUF(2)
+	.size	$1, .-$1
+	.type	$1, #function
+#endif')
+
+define(gc_bif_interface_3,
+`
+#ifndef HAVE_$1
+#`define' HAVE_$1
+	.global $1
+$1:
+	/* Set up C argument registers. */
+	mov	P, %o0
+	NBIF_ARG(%o1,3,0)
+	NBIF_ARG(%o2,3,1)
+	NBIF_ARG(%o3,3,2)
+
+	/* Save caller-save registers and call the C function. */
+	SAVE_CONTEXT_GC
+	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
+	st 	%o2, [%o0+P_ARG1]
+	st 	%o3, [%o0+P_ARG2]
+	add	%o0, P_ARG0, %o1
+	CALL_BIF($2)
+	nop
+	TEST_GOT_MBUF
+
+	/* Restore registers. Check for exception. */
+	TEST_GOT_EXN(3)
+	RESTORE_CONTEXT_GC
+	NBIF_RET(3)
+	HANDLE_GOT_MBUF(3)
 	.size	$1, .-$1
 	.type	$1, #function
 #endif')

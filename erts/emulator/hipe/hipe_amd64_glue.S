@@ -94,6 +94,7 @@ ASYM(nbif_return):
 .nosave_exit:
 	/* switch to C stack */
 	SWITCH_ERLANG_TO_C_QUICK
+	SET_GC_SAFE
 	/* restore C callee-save registers, drop frame, return */
 	movq	(%rsp), %rbp	# kills P
 	movq	8(%rsp), %rbx
@@ -398,6 +399,7 @@ nbif_4_simple_exception:
 	movl	%eax, P_NARITY(P)	# Note: narity is a 32-bit field
 	/* find and prepare to invoke the handler */
 	SWITCH_ERLANG_TO_C_QUICK	# The cached state is clean and need not be saved.
+	SET_GC_SAFE
 	movq	P, %rdi
 	call	CSYM(hipe_handle_exception)	# Note: hipe_handle_exception() conses
 	SWITCH_C_TO_ERLANG		# %rsp updated by hipe_find_handler()

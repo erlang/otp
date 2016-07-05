@@ -46,6 +46,8 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
     /* arch-specific nstack walk state */
     struct nstack_walk_state walk_state;
 
+    ASSERT(!p->hipe.gc_is_unsafe);
+
     if (!p->hipe.nstack) {
 	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
 	return n_htop;
@@ -135,6 +137,8 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
     Eterm *old_htop, *n_htop;
     char *mature;
     Uint mature_size;
+
+    ASSERT(!p->hipe.gc_is_unsafe);
 
     if (!p->hipe.nstack) {
 	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
