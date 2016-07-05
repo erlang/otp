@@ -912,12 +912,12 @@ static int open_pty_master(char **ptyslave, int *sfdp)
    slave device properly. */
 #if defined(HAVE_WORKING_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
 #  ifdef HAVE_WORKING_POSIX_OPENPT
-  if ((mfd = posix_openpt(O_RDWR)) >= 0) {
+  mfd = posix_openpt(O_RDWR);
 #  elif defined(__sun) && defined(__SVR4)
   mfd = sf_open("/dev/ptmx", O_RDWR, 0);
+#  endif
 
   if (mfd >= 0) {
-#  endif
       if ((*ptyslave = ptsname(mfd)) != NULL &&
 	  grantpt(mfd) == 0 && 
 	  unlockpt(mfd) == 0) {
