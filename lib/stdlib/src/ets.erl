@@ -232,20 +232,20 @@ match(_) ->
 match_object(_, _) ->
     erlang:nif_error(undef).
 
--spec match_object(Tab, Pattern, Limit) -> {[Match], Continuation} |
+-spec match_object(Tab, Pattern, Limit) -> {[Object], Continuation} |
                                            '$end_of_table' when
       Tab :: tab(),
       Pattern :: match_pattern(),
       Limit :: pos_integer(),
-      Match :: [term()],
+      Object :: tuple(),
       Continuation :: continuation().
 
 match_object(_, _, _) ->
     erlang:nif_error(undef).
 
--spec match_object(Continuation) -> {[Match], Continuation} |
+-spec match_object(Continuation) -> {[Object], Continuation} |
                                     '$end_of_table' when
-      Match :: [term()],
+      Object :: tuple(),
       Continuation :: continuation().
 
 match_object(_) ->
