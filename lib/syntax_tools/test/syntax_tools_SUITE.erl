@@ -226,7 +226,7 @@ t_igor(Config) when is_list(Config) ->
 
 t_erl_tidy(Config) when is_list(Config) ->
     DataDir   = ?config(data_dir, Config),
-    File  = filename:join(DataDir,"erl_tidy_tilda.erl"),
+    File  = filename:join(DataDir,"erl_tidy_tilde.erl"),
     ok = erl_tidy:file(File, [{stdout, true}]),
     ok.
 
