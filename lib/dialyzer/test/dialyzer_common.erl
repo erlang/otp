@@ -7,7 +7,7 @@
 
 -module(dialyzer_common).
 
--export([check_plt/1, check/4, create_all_suites/0, new_tests/2]).
+-export([check_plt/1, check/4, create_all_suites/0, new_tests/2, plt_file/1]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -39,7 +39,7 @@
 
 check_plt(OutDir) ->
     io:format("Checking plt:"),
-    PltFilename = filename:join(OutDir, ?plt_filename),
+    PltFilename = plt_file(OutDir),
     case file:read_file_info(PltFilename) of
 	{ok, _} -> dialyzer_check_plt(PltFilename);
 	{error, _ } ->
@@ -62,6 +62,11 @@ check_plt(OutDir) ->
 		    obtain_plt(PltFilename)
 	    end
     end.
+
+-spec plt_file(string()) -> string().
+
+plt_file(OutDir) ->
+    filename:join(OutDir, ?plt_filename).
 
 dialyzer_check_plt(PltFilename) ->
     try dialyzer:run([{analysis_type, plt_check},
@@ -119,7 +124,7 @@ build_plt(PltFilename) ->
 		   'same' | {differ, [term()]}.
 
 check(TestCase, Opts, Dir, OutDir) ->
-    PltFilename = filename:join(OutDir, ?plt_filename),
+    PltFilename = plt_file(OutDir),
     SrcDir = filename:join(Dir, ?input_files_directory),
     ResDir = filename:join(Dir, ?result_files_directory),
     Filename = filename:join(SrcDir, atom_to_list(TestCase)),
