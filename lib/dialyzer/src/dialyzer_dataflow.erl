@@ -978,12 +978,21 @@ handle_case(Tree, Map, State) ->
           false -> State1
         end,
       Map2 = join_maps_begin(Map1),
-      {MapList, State3, Type} =
+      {MapList, State3, Type, Warns} =
 	handle_clauses(Clauses, Arg, ArgType, ArgType, State2,
-		       [], Map2, [], []),
+		       [], Map2, [], [], []),
+      %% Non-Erlang BEAM languages, such as Elixir, expand language constructs
+      %% into case statements. In that case, we do not want to warn on
+      %% individual clauses not matching unless none of them can.
+      SupressForced = is_compiler_generated(cerl:get_ann(Tree))
+	andalso not (t_is_none(Type)),
+      State4 = lists:foldl(fun({T,R,M,F}, S) ->
+			       state__add_warning(
+				 S,T,R,M,F andalso (not SupressForced))
+			   end, State3, Warns),
       Map3 = join_maps_end(MapList, Map2),
       debug_pp_map(Map3),
-      {State3, Map3, Type}
+      {State4, Map3, Type}
   end.
 
 %%----------------------------------------
@@ -1082,22 +1091,24 @@ handle_receive(Tree, Map, State) ->
                                RaceListSize + 1, State);
       false -> State
     end,
-  {MapList, State2, ReceiveType} =
+  {MapList, State2, ReceiveType, Warns} =
     handle_clauses(Clauses, ?no_arg, t_any(), t_any(), State1, [], Map,
-                   [], []),
+		   [], [], []),
+  State3 = lists:foldl(fun({T,R,M,F}, S) -> state__add_warning(S,T,R,M,F) end,
+		       State2, Warns),
   Map1 = join_maps(MapList, Map),
-  {State3, Map2, TimeoutType} = traverse(Timeout, Map1, State2),
-  Opaques = State3#state.opaques,
+  {State4, Map2, TimeoutType} = traverse(Timeout, Map1, State3),
+  Opaques = State4#state.opaques,
   case (t_is_atom(TimeoutType, Opaques) andalso
 	(t_atom_vals(TimeoutType, Opaques) =:= ['infinity'])) of
     true ->
-      {State3, Map2, ReceiveType};
+      {State4, Map2, ReceiveType};
     false ->
       Action = cerl:receive_action(Tree),
-      {State4, Map3, ActionType} = traverse(Action, Map, State3),
+      {State5, Map3, ActionType} = traverse(Action, Map, State4),
       Map4 = join_maps([Map3, Map1], Map),
       Type = t_sup(ReceiveType, ActionType),
-      {State4, Map4, Type}
+      {State5, Map4, Type}
   end.
 
 %%----------------------------------------
@@ -1245,7 +1256,7 @@ handle_tuple(Tree, Map, State) ->
 %% Clauses
 %%
 handle_clauses([C|Left], Arg, ArgType, OrigArgType, State, CaseTypes, MapIn,
-	       Acc, ClauseAcc) ->
+	       Acc, ClauseAcc, WarnAcc0) ->
   IsRaceAnalysisEnabled = is_race_analysis_enabled(State),
   State1 =
     case IsRaceAnalysisEnabled of
@@ -1258,8 +1269,8 @@ handle_clauses([C|Left], Arg, ArgType, OrigArgType, State, CaseTypes, MapIn,
           State);
       false -> State
     end,
-  {State2, ClauseMap, BodyType, NewArgType} =
-    do_clause(C, Arg, ArgType, OrigArgType, MapIn, State1),
+  {State2, ClauseMap, BodyType, NewArgType, WarnAcc} =
+    do_clause(C, Arg, ArgType, OrigArgType, MapIn, State1, WarnAcc0),
   {NewClauseAcc, State3} =
     case IsRaceAnalysisEnabled of
       true ->
@@ -1277,9 +1288,9 @@ handle_clauses([C|Left], Arg, ArgType, OrigArgType, State, CaseTypes, MapIn,
       false -> {[BodyType|CaseTypes], [ClauseMap|Acc]}
     end,
   handle_clauses(Left, Arg, NewArgType, OrigArgType, State3,
-                 NewCaseTypes, MapIn, NewAcc, NewClauseAcc);
+		 NewCaseTypes, MapIn, NewAcc, NewClauseAcc, WarnAcc);
 handle_clauses([], _Arg, _ArgType, _OrigArgType, State, CaseTypes, _MapIn, Acc,
-	       ClauseAcc) ->
+	       ClauseAcc, WarnAcc) ->
   State1 =
     case is_race_analysis_enabled(State) of
       true ->
@@ -1289,9 +1300,9 @@ handle_clauses([], _Arg, _ArgType, _OrigArgType, State, CaseTypes, _MapIn, Acc,
 	  RaceListSize + 1, State);
       false -> State
     end,
-  {lists:reverse(Acc), State1, t_sup(CaseTypes)}.
+  {lists:reverse(Acc), State1, t_sup(CaseTypes), WarnAcc}.
 
-do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
+do_clause(C, Arg, ArgType0, OrigArgType, Map, State, Warns) ->
   Pats = cerl:clause_pats(C),
   Guard = cerl:clause_guard(C),
   Body = cerl:clause_body(C),
@@ -1323,7 +1334,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
 	     [cerl_prettypr:format(C), format_type(ArgType0, State1)]),
       case state__warning_mode(State1) of
         false ->
-          {State1, Map, t_none(), ArgType0};
+	  {State1, Map, t_none(), ArgType0, Warns};
 	true ->
 	  {Msg, Force} =
 	    case t_is_none(ArgType0) of
@@ -1403,8 +1414,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
 		       {record_match, _} -> ?WARN_MATCHING;
 		       {pattern_match_cov, _} -> ?WARN_MATCHING
 		     end,
-          {state__add_warning(State1, WarnType, C, Msg, Force),
-           Map, t_none(), ArgType0}
+	  {State1, Map, t_none(), ArgType0, [{WarnType, C, Msg, Force}|Warns]}
       end;
     {Map2, PatTypes} ->
       Map3 =
@@ -1437,9 +1447,9 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
 	      false ->
 		{guard_fail_pat, [PatString, format_type(ArgType0, State1)]}
 	    end,
-	  State2 =
+	  Warn =
 	    case Reason of
-	      none -> state__add_warning(State1, ?WARN_MATCHING, C, DefaultMsg);
+	      none -> {?WARN_MATCHING, C, DefaultMsg, false};
 	      {FailGuard, Msg} ->
 		case is_compiler_generated(cerl:get_ann(FailGuard)) of
 		  false ->
@@ -1448,15 +1458,15 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
 				 {neg_guard_fail, _} -> ?WARN_MATCHING;
 				 {opaque_guard, _} -> ?WARN_OPAQUE
 			       end,
-		    state__add_warning(State1, WarnType, FailGuard, Msg);
+		    {WarnType, FailGuard, Msg, false};
 		  true ->
-		    state__add_warning(State1, ?WARN_MATCHING, C, Msg)
+		    {?WARN_MATCHING, C, Msg, false}
 		end
 	    end,
-          {State2, Map, t_none(), NewArgType};
+	  {State1, Map, t_none(), NewArgType, [Warn|Warns]};
         Map4 ->
           {RetState, RetMap, BodyType} = traverse(Body, Map4, State1),
-          {RetState, RetMap, BodyType, NewArgType}
+          {RetState, RetMap, BodyType, NewArgType, Warns}
       end
   end.
 
