@@ -54,6 +54,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <sys/wait.h>
 
 #define WANT_NONBLOCKING
@@ -79,10 +80,17 @@
 #define DEBUG_PRINT(fmt, ...)
 #endif
 
-#define ABORT(fmt, ...) do {                                            \
-        fprintf(stderr, "erl_child_setup: " fmt "\r\n", ##__VA_ARGS__); \
-        abort();                                                        \
-    } while(0)
+static char abort_reason[200]; /* for core dump inspection */
+
+static void ABORT(const char* fmt, ...)
+{
+    va_list arglist;
+    va_start(arglist, fmt);
+    vsprintf(abort_reason, fmt, arglist);
+    fprintf(stderr, "erl_child_setup: %s\r\n", abort_reason);
+    va_end(arglist);
+    abort();
+}
 
 #ifdef DEBUG
 void
