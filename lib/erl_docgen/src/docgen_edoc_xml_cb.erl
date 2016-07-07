@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -563,7 +563,14 @@ otp_xmlify_a_fileref(FileRef1, AppS) ->
 			 true ->
 			     case split(Marker0, "-") of
 				 [Func,Arity] ->
-				     Func++"/"++Arity;
+                                     try list_to_integer(Arity) of
+                                         _ ->
+                                             Func++"/"++Arity
+                                     catch
+                                         _:_ ->
+                                             %% This is "type-"<a-type>.
+                                             Marker0
+                                     end;
 				 _ ->
 				     Marker0
 			     end
@@ -831,19 +838,49 @@ local_types([]) -> [];
 local_types(Es) ->
     local_defs2(get_elem(localdef, Es)).
 
+-define(LOCAL_TYPES, edoc_local_defs).
+
 local_defs2([]) -> [];
 local_defs2(Es) ->
+    case collect_local_types(Es) of
+        [] -> local_defs3(Es);
+        LocalTypes ->
+            ?LOCAL_TYPES = ets:new(?LOCAL_TYPES, [named_table]),
+            true = ets:insert(?LOCAL_TYPES, LocalTypes),
+            try
+                local_defs3(Es)
+            after
+                ets:delete(?LOCAL_TYPES)
+            end
+    end.
+
+local_defs3(Es) ->
     {type,[?NL | [{v, localdef2(E)} || E <- Es]]}.
+
+%% Does not work well for parametrized types.
+collect_local_types(Es) ->
+    lists:append([collect_local_type(E) || E <- Es]).
+
+collect_local_type(#xmlElement{content = Es}) ->
+    case get_elem(typevar, Es) of
+        [] ->
+            [{t_abstype(get_content(abstype, Es))}];
+        [_] ->
+            []
+    end.
 
 %% Like localdef/1, but does not use label_anchor/2 -- we don't want any
 %% markers or em tags in <v> tag, plain text only!
+%% When used stand-alone, EDoc generates links to local types. An ETS
+%% table holds local types, to avoid generating links to them.
 localdef2(#xmlElement{content = Es}) ->
-    case get_elem(typevar, Es) of
-	[] -> 
-	    t_utype(get_elem(type, Es));
-	[V] ->
-	    t_var(V) ++ [" = "] ++ t_utype(get_elem(type, Es))
-    end.
+    Var = case get_elem(typevar, Es) of
+              [] ->
+		  [t_abstype(get_content(abstype, Es))];
+              [V] ->
+                  t_var(V)
+          end,
+    Var ++ [" = "] ++ t_utype(get_elem(type, Es)).
 
 type_name(#xmlElement{content = Es}) ->
     t_name(get_elem(erlangName, get_content(typedef, Es))).
@@ -855,10 +892,9 @@ types(Ts) ->
 typedecl(Name, #xmlElement{content = Es}) ->
     TypedefEs = get_content(typedef, Es),
     Id = "type-"++Name,
-    [{tag, typedef(TypedefEs)},
+    [{tag, [{marker,[{id,Id}],[]}] ++ typedef(TypedefEs)},
      ?NL,
-     {item, [{marker,[{id,Id}],[]} |
-	     local_defs(get_elem(localdef, TypedefEs)) ++ fulldesc(Es)]},
+     {item, local_defs(get_elem(localdef, TypedefEs)) ++ fulldesc(Es)},
      ?NL].
 
 typedef(Es) ->
@@ -866,14 +902,14 @@ typedef(Es) ->
   	    ++ seq(fun t_utype_elem/1, get_content(argtypes, Es), [")"])),
     case get_elem(type, Es) of
  	 [] ->
-	    [{tt, Name}];
+	    Name;
  	 Type ->
-	    [{tt, Name ++ [" = "] ++ t_utype(Type)}]
+	    Name ++ [" = "] ++ t_utype(Type)
     end.
 
-local_defs([]) -> [];
+local_defs([]) -> [{p,[]}];
 local_defs(Es) ->
-    [?NL, {ul, [{li, [{tt, localdef(E)}]} || E <- Es]}].
+    [?NL, {ul, [{li, [{p, localdef(E)}]} || E <- Es]}].
 
 localdef(E = #xmlElement{content = Es}) ->
     Var = case get_elem(typevar, Es) of
@@ -917,6 +953,7 @@ seealso_module(Es) ->
 	Es1 ->
 	    {section,[{title,["See also"]},{p,seq(fun see/1, Es1, [])}]}
     end.
+
 seealso_function(Es) ->
     case get_elem(see, Es) of
 	[] -> [];
@@ -988,7 +1025,14 @@ t_name([E]) ->
     end.
 
 t_utype([E]) ->
-    t_utype_elem(E).
+    flatten_type(t_utype_elem(E)).
+
+%% Make sure see also are top elements of lists.
+flatten_type(T) ->
+    [case is_integer(E) of
+         true -> [E];
+         false -> E
+     end || E <- lists:flatten(T)].
 
 t_utype_elem(E=#xmlElement{content = Es}) ->
     case get_attrval(name, E) of
@@ -1021,16 +1065,14 @@ t_type([#xmlElement{name = tuple, content = Es}]) ->
     t_tuple(Es);
 t_type([#xmlElement{name = 'fun', content = Es}]) ->
     t_fun(Es);
-t_type([#xmlElement{name = abstype, content = Es}]) ->
-    t_abstype(Es);
+t_type([E = #xmlElement{name = abstype, content = Es}]) ->
+    t_abstype(E, Es);
 t_type([#xmlElement{name = union, content = Es}]) ->
     t_union(Es);
 t_type([#xmlElement{name = record, content = Es}]) ->
     t_record(Es);
 t_type([#xmlElement{name = map, content = Es}]) ->
-    t_map(Es);
-t_type([#xmlElement{name = map_field, content = Es}]) ->
-    t_map_field(Es).
+    t_map(Es).
 
 t_var(E) ->
     [get_attrval(name, E)].
@@ -1065,35 +1107,53 @@ t_fun(Es) ->
 
 t_record([E|Es]) ->
     ["#", get_attrval(value, E), "{"++ seq(fun t_field/1, Es) ++"}"].
+
 t_field(#xmlElement{name=field, content=[Atom,Type]}) ->
     [get_attrval(value, Atom), "="] ++ t_utype_elem(Type).
 
 t_map(Es) ->
-    ["#{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
+    ["#{"] ++ seq(fun t_map_field/1, Es, ["}"]).
 
-t_map_field([K,V]) ->
-    [t_utype_elem(K) ++ " => " ++ t_utype_elem(V)].
+t_map_field(E = #xmlElement{name = map_field, content = [K,V]}) ->
+    KElem = t_utype_elem(K),
+    VElem = t_utype_elem(V),
+    AS = case get_attrval(assoc_type, E) of
+             "assoc" -> " => ";
+             "exact" -> " := "
+         end,
+    [KElem ++ AS ++ VElem].
+
+t_abstype(E, Es) ->
+    see_type(E, t_abstype(Es)).
 
 t_abstype(Es) ->
-    case split_at_colon(t_name(get_elem(erlangName, Es)),[]) of
-	{Mod,Type} -> 
-	    [Type, "("] ++ 
-		seq(fun t_utype_elem/1, get_elem(type, Es), [")"]) ++ 
-		[" (see module ", Mod, ")"];
-	Type ->
-	    [Type, "("] ++ 
-		seq(fun t_utype_elem/1, get_elem(type, Es), [")"])
+    Name = t_name(get_elem(erlangName, Es)),
+    [Name, "("] ++ seq(fun t_utype_elem/1, get_elem(type, Es), [")"]).
+
+see_type(E, Es0) ->
+    case get_attrval(href, E) of
+        [] -> Es0;
+        Href0 ->
+            try
+                false = is_local_type(Es0),
+                %% Fails for parametrized types:
+                Text = #xmlText{value = lists:append(Es0)},
+                {Href, Es} = otp_xmlify_a_href(Href0, [Text]),
+                [{seealso, [{marker, Href}], Es}]
+            catch
+                _:_ ->
+                    Es0
+            end
     end.
 
-%% Split at one colon, but not at two (or more)
-split_at_colon([$:,$:|_]=Rest,Acc) ->
-    lists:reverse(Acc)++Rest;
-split_at_colon([$:|Type],Acc) ->
-    {lists:reverse(Acc),Type};
-split_at_colon([Char|Rest],Acc) ->
-    split_at_colon(Rest,[Char|Acc]);
-split_at_colon([],Acc) ->
-    lists:reverse(Acc).
+is_local_type(Es) ->
+    try
+        [_] = ets:lookup(?LOCAL_TYPES, Es),
+        true
+    catch
+        _:_->
+            false
+    end.
 
 t_union(Es) ->
     seq(fun t_utype_elem/1, Es, " | ", []).

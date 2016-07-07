@@ -935,7 +935,7 @@ get_doc_env(Opts) ->
 %%     Modules = [atom()]
 %%     proplist() = [term()]
 %%
-%% @type proplist() = proplists:property().
+%% @type proplist() = //stdlib/proplists:property().
 %% @type edoc_env(). Environment information needed by EDoc for
 %% generating references. The data representation is not documented.
 %%

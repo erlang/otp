@@ -280,7 +280,7 @@ mapfoldl(_, S, []) ->
 %% =====================================================================
 %% @spec variables(syntaxTree()) -> set(atom())
 %%
-%%        set(T) = //stdlib/sets:set(T)
+%% @type set(T) = //stdlib/sets:set(T)
 %%
 %% @doc Returns the names of variables occurring in a syntax tree, The
 %% result is a set of variable names represented by atoms. Macro names
@@ -1955,7 +1955,7 @@ analyze_application(Node) ->
 
 
 %% =====================================================================
-%% @spec analyze_type_application(Node::syntaxTree()) -> typeName()
+%% @spec analyze_type_application(Node::syntaxTree()) -> TypeName
 %%
 %%          TypeName = {atom(), integer()}
 %%                   | {ModuleName, {atom(), integer()}}
