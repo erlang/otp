@@ -151,7 +151,8 @@ default_printer(Tree, Options) ->
 %% @spec parse_transform(Forms::[syntaxTree()], Options::[term()]) ->
 %%           [syntaxTree()]
 %%
-%%         syntaxTree() = erl_syntax:syntaxTree()
+%% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
+%% tree. See the {@link erl_syntax} module for details.
 %%
 %% @doc Allows Igor to work as a component of the Erlang compiler.
 %% Including the term `{parse_transform, igor}' in the
@@ -212,7 +213,7 @@ merge(Name, Files) ->
 %% @spec merge(Name::atom(), Files::[filename()], Options::[term()]) ->
 %%           [filename()]
 %%
-%%	    filename() = file:filename()
+%% @type filename() = file:filename()
 %%
 %% @doc Merges source code files to a single file. `Name'
 %% specifies the name of the resulting module - not the name of the
@@ -367,6 +368,7 @@ merge_files(Name, Files, Options) ->
 %% @spec merge_files(Name::atom(), Sources::[Forms],
 %%                   Files::[filename()], Options::[term()]) ->
 %%           {syntaxTree(), [stubDescriptor()]}
+%%
 %%     Forms = syntaxTree() | [syntaxTree()]
 %%
 %% @doc Merges source code files and syntax trees to a single syntax

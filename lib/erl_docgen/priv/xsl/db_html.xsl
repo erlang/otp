@@ -2007,10 +2007,10 @@
         </xsl:variable>
 	<xsl:choose>
 	  <xsl:when test="ancestor::datatype">
-            <a name="type-{$fname}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+            <a name="type-{$fname}"></a><span class="bold_code"><xsl:apply-templates/></span><br/>
 	  </xsl:when>
           <xsl:otherwise>
-            <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+            <a name="{$fname}-{$arity}"></a><span class="bold_code"><xsl:apply-templates/></span><br/>
           </xsl:otherwise>
 	</xsl:choose>
       </xsl:when>

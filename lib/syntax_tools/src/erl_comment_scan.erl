@@ -30,8 +30,14 @@
 
 %% =====================================================================
 
--type comment()     :: {integer(), integer(), integer(), [string()]}.
--type commentLine() :: {integer(), integer(), integer(), string()}.
+-type comment()     :: {Line:: integer(),
+                        Column:: integer(),
+                        Indentation :: integer(),
+                        Text :: [string()]}.
+-type commentLine() :: {Line :: integer(),
+                        Column :: integer(),
+                        Indent :: integer(),
+                        Text :: string()}.
 
 %% =====================================================================
 %% @spec file(FileName::file:filename()) -> [Comment]
