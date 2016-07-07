@@ -42,8 +42,9 @@
 -export([next_record/1, next_event/3]).
 
 %% Handshake handling
--export([%%renegotiate/2,
-        send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
+-export([%%renegotiate/2, 
+	 reinit_handshake_data/1, 
+	 send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
 
 %% Alert and close handling
 -export([%%send_alert/2, handle_own_alert/4, handle_close_alert/3,
@@ -138,6 +139,14 @@ send_alert(Alert, #state{negotiated_version = Version,
 	ssl_alert:encode(Alert, Version, ConnectionStates0),
     Transport:send(Socket, BinMsg),
     State0#state{connection_states = ConnectionStates}.
+
+reinit_handshake_data(#state{protocol_buffers = Buffers} = State) ->
+    State#state{premaster_secret = undefined,
+		public_key_info = undefined,
+		tls_handshake_history = ssl_handshake:init_handshake_history(),
+		protocol_buffers =
+		    Buffers#protocol_buffers{dtls_fragment_state =
+						 dtls_handshake:dtls_handshake_new_flight(0)}}.
 
 %%====================================================================
 %% tls_connection_sup API
