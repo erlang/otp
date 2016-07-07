@@ -3581,9 +3581,24 @@ document etp-block
 %---------------------------------------------------------------------------
 end
 
+define etp-smp-atomic
+  if (etp_smp_compiled)
+    set $arg1 = (($arg0).counter)
+  else
+    set $arg1 = ($arg0)
+  end
+end
+
+document etp-smp-atomic
+%---------------------------------------------------------------------------
+% Read an erts_smp_atomic_t value from $arg0 into $arg1
+%---------------------------------------------------------------------------
+end
+
 define etp-carrier-blocks
   set $etp_crr = (Carrier_t*) $arg0
-  set $etp_alc = (Allctr_t*)($etp_crr->allctr.counter & ~7)
+  etp-smp-atomic $etp_crr->allctr $etp_alc
+  set $etp_alc = (Allctr_t*)($etp_alc & ~7)
   set $etp_crr_end = ((char*)$etp_crr + ($etp_crr->chdr & ~7) - (sizeof(void*) & ~8))
   set $etp_blk = (Block_t*) ((char*)$etp_crr + $etp_alc->mbc_header_size)
   set $etp_prev_blk = 0
