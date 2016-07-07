@@ -439,6 +439,14 @@ return_test() ->
     ?RT(?MODULE,slave,2),
     shutdown(),
     ?NM,
+
+    %% Test a regression where turning off return_to tracing
+    %% on yourself would cause a segfault.
+    Pid = setup([call,return_to]),
+    erlang:trace_pattern({'_','_','_'},[],[local]),
+    apply_slave(erlang,trace,[Pid, false, [all]]),
+    shutdown(),
+
     ok.
 
 on_and_off_test() ->
