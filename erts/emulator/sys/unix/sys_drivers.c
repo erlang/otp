@@ -688,6 +688,10 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
             return ERL_DRV_ERROR_ERRNO;
         }
 
+        /*
+         * Whitebox test port_SUITE:pipe_limit_env
+         * assumes this command payload format.
+         */
         io_vector[i].iov_base = (void*)&buffsz;
         io_vector[i++].iov_len = sizeof(buffsz);
 
@@ -765,9 +769,14 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         if (res < (buffsz + sizeof(buffsz))) {
             /* we only wrote part of the command payload. Enqueue the rest. */
             for (i = 0; i < iov_len; i++) {
-                driver_enq(port_num, io_vector[i].iov_base, io_vector[i].iov_len);
+                if (res >= io_vector[i].iov_len)
+                    res -= io_vector[i].iov_len;
+                else {
+                    driver_enq(port_num, io_vector[i].iov_base + res,
+                               io_vector[i].iov_len - res);
+                    res = 0;
+                }
             }
-            driver_deq(port_num, res);
             driver_select(port_num, ofd[1], ERL_DRV_WRITE|ERL_DRV_USE, 1);
         }
 
