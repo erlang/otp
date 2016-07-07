@@ -88,7 +88,7 @@ to_upper([]) -> [].
 
 is_string([]) -> true;
 is_string([Tkn | Str]) 
-  when is_integer(Tkn) andalso (Tkn >= 0) andalso (Tkn =< 255) ->
+  when is_integer(Tkn) andalso (Tkn >= 0) ->
     is_string(Str);
 is_string(_) -> false.
 
