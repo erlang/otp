@@ -1063,6 +1063,12 @@ otp_9395_check_and_purge(cleanup,_Conf) ->
 %% OTP-9395 - performance problems when there are MANY processes
 %% Upgrade which updates many modules (brutal_purge)
 otp_9395_update_many_mods(Conf) when is_list(Conf) ->
+
+    %% "nain" is very slow - it fails this test quite often due to a
+    %% long sys call
+    %% /proc/cpuinfo: "clock: 1249MHz"
+    inet:gethostname() == {ok,"nain"} andalso throw({skip,"slow test host"}),
+
     %% Set some paths
     PrivDir = priv_dir(Conf),
     Dir = filename:join(PrivDir,"otp_9395_update_many_mods"),
@@ -1162,6 +1168,12 @@ otp_9395_update_many_mods(cleanup,_Conf) ->
 %% OTP-9395 - performance problems when there are MANY processes
 %% Upgrade which removes many modules (brutal_purge)
 otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
+
+    %% "nain" is very slow - it fails this test quite often due to a
+    %% long sys call
+    %% /proc/cpuinfo: "clock: 1249MHz"
+    inet:gethostname() == {ok,"nain"} andalso throw({skip,"slow test host"}),
+
     %% Set some paths
     PrivDir = priv_dir(Conf),
     Dir = filename:join(PrivDir,"otp_9395_rm_many_mods"),
