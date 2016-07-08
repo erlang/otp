@@ -79,6 +79,7 @@ typedef union db_table DbTable;
 
 #define DB_MUST_RESIZE 1
 #define DB_NEW_OBJECT 2
+#define DB_INC_TRY_GROW 4
 
 /* Info about a database entry while it's being updated
  * (by update_counter or update_element)
