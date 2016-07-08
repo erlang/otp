@@ -2910,6 +2910,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     HashDbTerm **bp = (HashDbTerm **) handle->bp;
     HashDbTerm *b = *bp;
     erts_smp_rwmtx_t* lck = (erts_smp_rwmtx_t*) handle->lck;
+    HashDbTerm* free_me = NULL;
 
     ERTS_SMP_LC_ASSERT(IS_HASH_WLOCKED(tb, lck));  /* locked by db_lookup_dbterm_hash */
 
@@ -2921,7 +2922,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
             b->hvalue = INVALID_HASH;
         } else {
             *bp = b->next;
-            free_term(tb, b);
+            free_me = b;
         }
 
         WUNLOCK_HASH(lck);
@@ -2930,12 +2931,15 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     } else if (handle->flags & DB_MUST_RESIZE) {
 	db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
 	WUNLOCK_HASH(lck);
-
-	free_term(tb, b);
+        free_me = b;
     }
     else {
 	WUNLOCK_HASH(lck);
     }
+
+    if (free_me)
+        free_term(tb, free_me);
+
 #ifdef DEBUG
     handle->dbterm = 0;
 #endif
