@@ -397,7 +397,9 @@ format_status(Type, Data) ->
 encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
     {Seq, ConnectionStates} = sequence(ConnectionStates0),
     {EncHandshake, Frag} = dtls_handshake:encode_handshake(Handshake, Version, Seq),
-    Hist = ssl_handshake:update_handshake_history(Hist0, EncHandshake),
+    %% DTLS does not have an equivalent version to SSLv2. So v2 hello compatibility
+    %% will always be false
+    Hist = ssl_handshake:update_handshake_history(Hist0, EncHandshake, false),
     {Frag, ConnectionStates, Hist}.
 
 encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->

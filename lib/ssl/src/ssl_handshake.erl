@@ -52,7 +52,7 @@
 %% Handle handshake messages
 -export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
-	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
+	 init_handshake_history/0, update_handshake_history/3, verify_server_key/5
 	]).
 
 %% Encode/Decode
@@ -447,7 +447,7 @@ init_handshake_history() ->
     {[], []}.
 
 %%--------------------------------------------------------------------
--spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term()) ->
+-spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term(), boolean()) ->
 				      ssl_handshake:ssl_handshake_history().
 %%
 %% Description: Update the handshake history buffer with Data.
@@ -457,14 +457,14 @@ update_handshake_history(Handshake, % special-case SSL2 client hello
 			   ?UINT16(CSLength), ?UINT16(0),
 			   ?UINT16(CDLength),
 			   CipherSuites:CSLength/binary,
-			   ChallengeData:CDLength/binary>>) ->
+			   ChallengeData:CDLength/binary>>, true) ->
     update_handshake_history(Handshake,
 			     <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
 			       ?UINT16(CSLength), ?UINT16(0),
 			       ?UINT16(CDLength),
 			       CipherSuites:CSLength/binary,
-			       ChallengeData:CDLength/binary>>);
-update_handshake_history({Handshake0, _Prev}, Data) ->
+			       ChallengeData:CDLength/binary>>, true);
+update_handshake_history({Handshake0, _Prev}, Data, _) ->
     {[Data|Handshake0], Handshake0}.
 
 %% %%--------------------------------------------------------------------

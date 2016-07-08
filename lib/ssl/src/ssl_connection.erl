@@ -803,12 +803,14 @@ handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName, #st
   when StateName =/= connection ->
     {keep_state_and_data};
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName, 
-		    #state{tls_handshake_history = Hs0} = State0, Connection) ->
+		    #state{tls_handshake_history = Hs0,
+			   ssl_options = #ssl_options{v2_hello_compatible = V2HComp}} = State0, 
+		    Connection) ->
     %% This function handles client SNI hello extension when Handshake is
     %% a client_hello, which needs to be determined by the connection callback.
     %% In other cases this is a noop
     State = Connection:handle_sni_extension(Handshake, State0),
-    HsHist = ssl_handshake:update_handshake_history(Hs0, Raw),
+    HsHist = ssl_handshake:update_handshake_history(Hs0, Raw, V2HComp),
     {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
      [{next_event, internal, Handshake}]};
 handle_common_event(internal, {tls_record, TLSRecord}, StateName, State, Connection) -> 
