@@ -565,31 +565,34 @@ apps_in_rels(Rels, Apps) ->
 
 apps_in_rel(#rel{name = RelName, rel_apps = RelApps}, Apps) ->
     Mandatory = [{RelName, kernel}, {RelName, stdlib}],
-    Other =
+    Explicit0 = [{RelName, AppName} || #rel_app{name=AppName} <- RelApps],
+    Explicit = Mandatory ++ Explicit0,
+    Deps =
 	[{RelName, AppName} ||
 	    RA <- RelApps,
-	    AppName <- [RA#rel_app.name |
+	    AppName <-
+		case lists:keyfind(RA#rel_app.name,
+				   #app.name,
+				   Apps) of
+		    App=#app{info = #app_info{applications = AA}} ->
 			%% Included applications in rel shall overwrite included
 			%% applications in .app. I.e. included applications in
 			%% .app shall only be used if it is not defined in rel.
-			case RA#rel_app.incl_apps of
-			    undefined ->
-				case lists:keyfind(RA#rel_app.name,
-						   #app.name,
-						   Apps) of
-				    #app{info = #app_info{incl_apps = IA}} ->
-					IA;
-				    false ->
-					reltool_utils:throw_error(
-					  "Release ~tp uses non existing "
-					  "application ~w",
-					  [RelName,RA#rel_app.name])
-				end;
-			    IA ->
-				IA
-			end],
-	    not lists:keymember(AppName, 2, Mandatory)],
-    more_apps_in_rels(Mandatory ++ Other, Apps, []).
+			IA = case RA#rel_app.incl_apps of
+				 undefined ->
+				     (App#app.info)#app_info.incl_apps;
+				 RelIA ->
+				     RelIA
+			     end,
+			AA ++ IA;
+		    false ->
+			reltool_utils:throw_error(
+			  "Release ~tp uses non existing "
+			  "application ~w",
+			  [RelName,RA#rel_app.name])
+		end,
+	    not lists:keymember(AppName, 2, Explicit)],
+    more_apps_in_rels(Deps, Apps, Explicit).
 
 more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
     case lists:member(RA, Acc) of
@@ -597,8 +600,8 @@ more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
 	    more_apps_in_rels(RelApps, Apps, Acc);
 	false ->
 	    case lists:keyfind(AppName, #app.name, Apps) of
-		#app{info = #app_info{applications = InfoApps}} ->
-		    Extra = [{RelName, N} || N <- InfoApps],
+		#app{info = #app_info{applications = AA, incl_apps=IA}} ->
+		    Extra = [{RelName, N} || N <- AA++IA],
 		    Acc2 = more_apps_in_rels(Extra, Apps, [RA | Acc]),
 		    more_apps_in_rels(RelApps, Apps, Acc2);
 		false ->
@@ -609,7 +612,6 @@ more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
     end;
 more_apps_in_rels([], _Apps, Acc) ->
     Acc.
-
 
 apps_init_is_included(S, Apps, RelApps, Status) ->
     lists:foldl(fun(App, AccStatus) ->
