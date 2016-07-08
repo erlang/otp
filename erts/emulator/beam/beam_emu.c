@@ -3032,6 +3032,7 @@ do {						\
 		 if (i == 0) {
 		     StoreBifResult(4, Op1);
 		 }
+		 ires = big_size(Op1);
 		 goto big_shift;
 	     }
 	 } else if (is_big(Op2)) {
@@ -3047,7 +3048,6 @@ do {						\
      
      OpCase(i_bsl_jIssd):
          GetArg2(2, Op1, Op2);
-
  do_bsl:
 	 if (is_small(Op2)) {
 	     i = signed_val(Op2);
@@ -3073,16 +3073,12 @@ do {						\
 			 StoreBifResult(4, Op1);
 		     }
 		 }
-		 Op1 = small_to_big(ires, tmp_big);
-#ifdef TAG_LITERAL_PTR
-		 Op1 |= TAG_LITERAL_PTR;
-#endif
+		 ires = 1; /* big_size(small_to_big(Op1)) */
 
 	     big_shift:
 		 if (i > 0) {	/* Left shift. */
-		     ires = big_size(Op1) + (i / D_EXP);
+		     ires += (i / D_EXP);
 		 } else {	/* Right shift. */
-		     ires = big_size(Op1);
 		     if (ires <= (-i / D_EXP))
 			 ires = 3; /* ??? */
 		     else
@@ -3101,6 +3097,9 @@ do {						\
 			 goto lb_Cl_error;
 		     }
 		     TestHeapPreserve(ires+1, Arg(1), Op1);
+		     if (is_small(Op1)) {
+			 Op1 = small_to_big(signed_val(Op1), tmp_big);
+		     }
 		     bigp = HTOP;
 		     Op1 = big_lshift(Op1, i, bigp);
 		     if (is_big(Op1)) {
@@ -3123,6 +3122,7 @@ do {						\
 		 if (i == 0) {
 		     StoreBifResult(4, Op1);
 		 }
+		 ires = big_size(Op1);
 		 goto big_shift;
 	     }
 	 } else if (is_big(Op2)) {
