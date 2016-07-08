@@ -2866,15 +2866,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             q->hvalue = hval;
             q->next = NULL;
             *bp = b = q;
-
-            {
-                int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
-                int nactive = NACTIVE(tb);
-
-                if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
-                    grow(tb, nactive);
-                }
-            }
+            flags |= DB_INC_TRY_GROW;
         } else {
             HashDbTerm *q, *next = b->next;
 
@@ -2928,13 +2920,23 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
         WUNLOCK_HASH(lck);
         erts_smp_atomic_dec_nob(&tb->common.nitems);
         try_shrink(tb);
-    } else if (handle->flags & DB_MUST_RESIZE) {
-	db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
-	WUNLOCK_HASH(lck);
-        free_me = b;
-    }
-    else {
-	WUNLOCK_HASH(lck);
+    } else {
+        if (handle->flags & DB_MUST_RESIZE) {
+            db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
+            free_me = b;
+        }
+        if (handle->flags & DB_INC_TRY_GROW) {
+            int nactive;
+            int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
+            WUNLOCK_HASH(lck);
+            nactive = NACTIVE(tb);
+
+            if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
+                grow(tb, nactive);
+            }
+        } else {
+            WUNLOCK_HASH(lck);
+        }
     }
 
     if (free_me)
