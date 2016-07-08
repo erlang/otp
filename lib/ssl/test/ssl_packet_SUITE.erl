@@ -140,6 +140,7 @@ init_per_suite(Config) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
+	    ssl:stop(),
 	    ssl:start(),
 	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
 				     proplists:get_value(priv_dir, Config)),
@@ -162,6 +163,7 @@ init_per_group(GroupName, Config) ->
 		    {skip, "Missing crypto support"}
 	    end;
 	_ ->
+	    ssl:stop(),
 	    ssl:start(),
 	    Config
     end.
