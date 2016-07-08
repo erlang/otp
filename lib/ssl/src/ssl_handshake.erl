@@ -74,7 +74,7 @@
 	]).
 
 %% MISC
--export([select_version/3, prf/6, select_hashsign/5,
+-export([select_version/3, prf/6,  select_hashsign/4, select_hashsign/5,
 	 select_hashsign_algs/3,
 	 premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
@@ -581,7 +581,7 @@ prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
 			     {atom(), atom()} | undefined  | #alert{}.
 
 %%
-%% Description: Handles signature_algorithms extension
+%% Description: Handles signature_algorithms hello extension (server)
 %%--------------------------------------------------------------------
 select_hashsign(_, undefined, _,  _, _Version) ->
     {null, anon};
@@ -593,14 +593,17 @@ select_hashsign(HashSigns, Cert, KeyExAlgo,
 select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, KeyExAlgo, SupportedHashSigns,
 		{Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
     #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    Sign = cert_sign(Algo),
-    case lists:filter(fun({sha, dsa = S}) when S == Sign ->
-			      true;
-			 ({_, dsa}) ->
-			      false;
-			 ({_, _} = Algos) ->
-			      is_acceptable_hash_sign(Algos, Sign, KeyExAlgo, SupportedHashSigns);
+    #'OTPCertificate'{tbsCertificate = TBSCert,
+		      signatureAlgorithm =  {_,SignAlgo, _}} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
+     	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+
+    Sign = sign_algo(SignAlgo),
+    SubSing = sign_algo(SubjAlgo),
+
+    case lists:filter(fun({_, S} = Algos) when S == Sign ->
+			      is_acceptable_hash_sign(Algos, Sign,
+						      SubSing, KeyExAlgo, SupportedHashSigns);
 			 (_)  ->
 			      false
 		      end, HashSigns) of
@@ -613,6 +616,49 @@ select_hashsign(_, Cert, _, _, Version) ->
     #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     select_hashsign_algs(undefined, Algo, Version).
+%%--------------------------------------------------------------------
+-spec select_hashsign(#certificate_request{},  binary(), 
+		      [atom()], ssl_record:ssl_version()) ->
+			     {atom(), atom()} | #alert{}.
+
+%%
+%% Description: Handles signature algorithms selection for certificate requests (client) 
+%%--------------------------------------------------------------------
+select_hashsign(#certificate_request{}, undefined, _, {Major, Minor})  when Major >= 3 andalso Minor >= 3->
+    %% There client does not have a certificate and will send an empty reply, the server may fail 
+    %% or accept the connection by its own preference. No signature algorihms needed as there is
+    %% no certificate to verify.
+    {undefined, undefined}; 
+ 
+select_hashsign(#certificate_request{hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSigns}, 
+				     certificate_types = Types}, Cert, SupportedHashSigns, 
+		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPCertificate'{tbsCertificate = TBSCert,
+		      signatureAlgorithm =  {_,SignAlgo, _}} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
+     	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+
+    Sign = sign_algo(SignAlgo),
+    SubSign = sign_algo(SubjAlgo),
+    
+    case is_acceptable_cert_type(SubSign, HashSigns, Types) andalso is_supported_sign(Sign, HashSigns) of
+	true ->
+	    case lists:filter(fun({_, S} = Algos) when S == SubSign ->
+				 is_acceptable_hash_sign(Algos, SupportedHashSigns);
+			    (_)  ->
+				      false
+			      end, HashSigns) of
+		[] ->
+		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
+		[HashSign | _] ->
+		    HashSign
+	    end;
+	false ->
+	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
+    end;
+select_hashsign(#certificate_request{}, Cert, _, Version) ->
+    select_hashsign(undefined, Cert, undefined, undefined, Version).
 
 %%--------------------------------------------------------------------
 -spec select_hashsign_algs({atom(), atom()}| undefined, oid(), ssl_record:ssl_version()) ->
@@ -647,6 +693,7 @@ select_hashsign_algs(undefined, ?rsaEncryption, _) ->
     {md5sha, rsa};
 select_hashsign_algs(undefined, ?'id-dsa', _) ->
     {sha, dsa}.
+
 
 %%--------------------------------------------------------------------
 -spec master_secret(atom(), ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
@@ -1143,11 +1190,13 @@ certificate_types(_, {N, M}) when N >= 3 andalso M >= 3 ->
     end;
 
 certificate_types({KeyExchange, _, _, _}, _) when KeyExchange == rsa;
+						  KeyExchange == dh_rsa;
 						  KeyExchange == dhe_rsa;
 						  KeyExchange == ecdhe_rsa ->
     <<?BYTE(?RSA_SIGN)>>;
 
-certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dhe_dss;
+certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dh_dss; 
+						   KeyExchange == dhe_dss;
 						   KeyExchange == srp_dss ->
     <<?BYTE(?DSS_SIGN)>>;
 
@@ -2164,26 +2213,72 @@ distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
 	    [{DistPoint, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs]
     end.	
 
-cert_sign(?rsaEncryption) ->
+sign_algo(?rsaEncryption) ->
     rsa;
-cert_sign(?'id-ecPublicKey') ->
+sign_algo(?'id-ecPublicKey') ->
     ecdsa;
-cert_sign(?'id-dsa') ->
+sign_algo(?'id-dsa') ->
     dsa;
-cert_sign(Alg) ->
+sign_algo(Alg) ->
     {_, Sign} =public_key:pkix_sign_types(Alg),
     Sign.
 
-is_acceptable_hash_sign({_, Sign} = Algos, Sign, _, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns);
-is_acceptable_hash_sign(Algos,_, KeyExAlgo, SupportedHashSigns) when KeyExAlgo == dh_ecdsa;
-								     KeyExAlgo == ecdh_rsa;    
-								     KeyExAlgo == ecdh_ecdsa ->
+is_acceptable_hash_sign(Algos, _, _, KeyExAlgo, SupportedHashSigns) when 
+      KeyExAlgo == dh_dss;
+      KeyExAlgo == dh_rsa;
+      KeyExAlgo == dh_ecdsa ->
+    %% dh_* could be called only dh in TLS-1.2
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign(_,_,_,_) ->
-    false.
+is_acceptable_hash_sign(Algos, rsa, ecdsa, ecdh_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, dhe_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, ecdhe_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, srp_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, rsa_psk, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, dhe_dss, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, srp_dss, SupportedHashSigns) ->  
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, _, dhe_ecdsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdhe_ecdsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when 
+      KeyExAlgo == psk;
+      KeyExAlgo == dhe_psk;
+      KeyExAlgo == srp_anon;
+      KeyExAlgo == dh_anon;
+      KeyExAlgo == ecdhe_anon     
+      ->
+    true; 
+is_acceptable_hash_sign(_,_, _,_,_) ->
+    false.					
+
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
+
+is_acceptable_cert_type(Sign, _HashSigns, Types) ->
+    lists:member(sign_type(Sign), binary_to_list(Types)).
+
+is_supported_sign(Sign, HashSigns) ->
+     [] =/=  lists:dropwhile(fun({_, S}) when S =/= Sign -> 
+				     true;
+				(_)-> 
+				     false 
+			     end, HashSigns).
+sign_type(rsa) ->
+    ?RSA_SIGN;
+sign_type(dsa) ->
+    ?DSS_SIGN;
+sign_type(ecdsa) ->
+    ?ECDSA_SIGN.
+
 
 bad_key(#'DSAPrivateKey'{}) ->
     unacceptable_dsa_key;
