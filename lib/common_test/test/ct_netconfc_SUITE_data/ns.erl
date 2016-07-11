@@ -302,10 +302,14 @@ table_trans(Fun,Args) ->
 	S ->
 	    apply(Fun,Args);
 	Pid ->
+	    Ref = erlang:monitor(process,Pid),
 	    Pid ! {table_trans,Fun,Args,self()},
 	    receive
 		{table_trans_done,Result} ->
-		    Result
+		    erlang:demonitor(Ref,[flush]),
+		    Result;
+		{'DOWN',Ref,process,Pid,Reason} ->
+		    exit({main_ns_proc_died,Reason})
 	    after 20000 ->
 		    exit(table_trans_timeout)
 	    end
