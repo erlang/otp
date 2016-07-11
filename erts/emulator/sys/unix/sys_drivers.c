@@ -554,7 +554,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
     ErtsSysDriverData *dd;
     char *cmd_line;
     char wd_buff[MAXPATHLEN+1];
-    char *wd;
+    char *wd, *cwd;
     int ifd[2], ofd[2], stderrfd;
 
     if (pipe(ifd) < 0) return ERL_DRV_ERROR_ERRNO;
@@ -631,23 +631,21 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 	return ERL_DRV_ERROR_ERRNO;
     }
 
-    if (opts->wd == NULL) {
-        if ((wd = getcwd(wd_buff, MAXPATHLEN+1)) == NULL) {
-            /* on some OSs this call opens a fd in the
-               background which means that this can
-               return EMFILE */
-            int err = errno;
-            close_pipes(ifd, ofd);
-            erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
-            if (new_environ != environ)
-                erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
-            erts_smp_rwmtx_runlock(&environ_rwmtx);
-            errno = err;
-            return ERL_DRV_ERROR_ERRNO;
-        }
-    } else {
-        wd = opts->wd;
+    if ((cwd = getcwd(wd_buff, MAXPATHLEN+1)) == NULL) {
+        /* on some OSs this call opens a fd in the
+           background which means that this can
+           return EMFILE */
+        int err = errno;
+        close_pipes(ifd, ofd);
+        erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
+        if (new_environ != environ)
+            erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
+        erts_smp_rwmtx_runlock(&environ_rwmtx);
+        errno = err;
+        return ERL_DRV_ERROR_ERRNO;
     }
+
+    wd = opts->wd;
 
     {
         struct iovec *io_vector;
@@ -659,6 +657,8 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
             | (opts->exit_status ? FORKER_FLAG_EXIT_STATUS : 0)
             | (opts->read_write & DO_READ ? FORKER_FLAG_DO_READ : 0)
             | (opts->read_write & DO_WRITE ? FORKER_FLAG_DO_WRITE : 0);
+
+        if (wd) iov_len++;
 
         /* count number of elements in environment */
         while(new_environ[env_len] != NULL)
@@ -704,9 +704,15 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         io_vector[i++].iov_len = len;
         buffsz += len;
 
-        io_vector[i].iov_base = wd;
+        io_vector[i].iov_base = cwd;
         io_vector[i].iov_len = strlen(io_vector[i].iov_base) + 1;
         buffsz += io_vector[i++].iov_len;
+
+        if (wd) {
+            io_vector[i].iov_base = wd;
+            io_vector[i].iov_len = strlen(io_vector[i].iov_base) + 1;
+            buffsz += io_vector[i++].iov_len;
+        }
 
         io_vector[i].iov_base = nullbuff;
         io_vector[i++].iov_len = 1;
