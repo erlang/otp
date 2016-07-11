@@ -3502,6 +3502,7 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         struct enif_environment_t env;
         ErlHeapFragment *orig_hf = MBUF(p);
         ErlOffHeap orig_oh = MSO(p);
+        Eterm *orig_htop = HEAP_TOP(p);
         ASSERT(is_internal_pid(p->common.id));
         MBUF(p) = NULL;
         clear_offheap(&MSO(p));
@@ -3523,6 +3524,7 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         /* restore original heap fragment list */
         MBUF(p) = orig_hf;
         MSO(p) = orig_oh;
+        HEAP_TOP(p) = orig_htop;
     } else {
         /* Nif call was done without a process context,
            so we create a phony one. */
