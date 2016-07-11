@@ -893,22 +893,550 @@ typedef struct ErlIOVec {
 
   <funcs>
     <func>
-      <name><ret>void</ret><nametext>driver_system_info(ErlDrvSysInfo *sys_info_ptr, size_t size)</nametext></name>
-      <fsummary>Get information about the Erlang runtime system</fsummary>
+      <name><ret>void</ret><nametext>add_driver_entry(ErlDrvEntry *de)</nametext></name>
+      <fsummary>Add a driver entry</fsummary>
       <desc>
-        <marker id="driver_system_info"></marker>
-        <p>This function will write information about the Erlang runtime
-          system into the
-          <seealso marker="#ErlDrvSysInfo">ErlDrvSysInfo</seealso>
-          structure referred to by the first argument. The second
-          argument should be the size of the
-          <seealso marker="#ErlDrvSysInfo">ErlDrvSysInfo</seealso>
-          structure, i.e., <c>sizeof(ErlDrvSysInfo)</c>.</p>
-        <p>See the documentation of the
-          <seealso marker="#ErlDrvSysInfo">ErlDrvSysInfo</seealso>
-          structure for information about specific fields.</p>
+        <marker id="add_driver_entry"></marker>
+        <p>This function adds a driver entry to the list of drivers
+          known by Erlang. The <seealso marker="driver_entry#init">init</seealso> function of the <c>de</c>
+          parameter is called.</p>
+        <note>
+          <p>To use this function for adding drivers residing in
+            dynamically loaded code is dangerous. If the driver code
+            for the added driver resides in the same dynamically
+            loaded module (i.e. <c>.so</c> file) as a normal
+            dynamically loaded driver (loaded with the <c>erl_ddll</c>
+            interface), the caller should call <seealso marker="#driver_lock_driver">driver_lock_driver</seealso> before
+            adding driver entries.</p>
+          <p>Use of this function is generally deprecated.</p>
+        </note>
       </desc>
     </func>
+
+    <func>
+      <name><ret>void *</ret><nametext>driver_alloc(ErlDrvSizeT size)</nametext></name>
+      <fsummary>Allocate memory</fsummary>
+      <desc>
+        <marker id="driver_alloc"></marker>
+        <p>This function allocates a memory block of the size specified
+          in <c>size</c>, and returns it. This only fails on out of
+          memory, in that case <c>NULL</c> is returned. (This is most
+          often a wrapper for <c>malloc</c>).</p>
+        <p>Memory allocated must be explicitly freed with a corresponding
+           call to <c>driver_free</c> (unless otherwise stated).</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvBinary *</ret><nametext>driver_alloc_binary(ErlDrvSizeT size)</nametext></name>
+      <fsummary>Allocate a driver binary</fsummary>
+      <desc>
+        <marker id="driver_alloc_binary"></marker>
+        <p>This function allocates a driver binary with a memory block
+          of at least <c>size</c> bytes, and returns a pointer to it,
+          or NULL on failure (out of memory). When a driver binary has
+          been sent to the emulator, it must not be altered. Every
+          allocated binary should be freed by a corresponding call to
+          <c>driver_free_binary</c> (unless otherwise stated).</p>
+        <p>Note that a driver binary has an internal reference counter,
+          this means that calling <c>driver_free_binary</c> it may not
+          actually dispose of it. If it's sent to the emulator, it may
+          be referenced there.</p>
+        <p>The driver binary has a field, <c>orig_bytes</c>, which
+          marks the start of the data in the binary.</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>long</ret><nametext>driver_async (ErlDrvPort port, unsigned int* key, void (*async_invoke)(void*), void* async_data, void (*async_free)(void*))</nametext></name>
+      <fsummary>Perform an asynchronous call within a driver</fsummary>
+      <desc>
+        <marker id="driver_async"></marker>
+        <p>This function performs an asynchronous call. The function
+          <c>async_invoke</c> is invoked in a thread separate from the
+          emulator thread. This enables the driver to perform
+          time-consuming, blocking operations without blocking the
+          emulator.</p>
+        <p>The async thread pool size can be set with the
+          <seealso marker="erl#async_thread_pool_size">+A</seealso>
+          command line argument of <seealso marker="erl">erl(1)</seealso>.
+          If no async thread pool is available, the call is made
+          synchronously in the thread calling <c>driver_async()</c>. The
+          current number of async threads in the async thread pool can be
+          retrieved via
+          <seealso marker="#driver_system_info">driver_system_info()</seealso>.</p>
+        <p>If there is a thread pool available, a thread will be
+          used. If the <c>key</c> argument is null, the threads from the
+          pool are used in a round-robin way, each call to
+          <c>driver_async</c> uses the next thread in the pool. With the
+          <c>key</c> argument set, this behaviour is changed. The two
+          same values of <c>*key</c> always get the same thread.</p>
+        <p>To make sure that a driver instance always uses the same
+          thread, the following call can be used:</p>
+        <p></p>
+        <code type="none"><![CDATA[
+    unsigned int myKey = driver_async_port_key(myPort);
+
+    r = driver_async(myPort, &myKey, myData, myFunc);
+        ]]></code>
+        <p>It is enough to initialize <c>myKey</c> once for each
+        driver instance.</p>
+        <p>If a thread is already working, the calls will be
+          queued up and executed in order. Using the same thread for
+          each driver instance ensures that the calls will be made in
+          sequence.</p>
+        <p>The <c>async_data</c> is the argument to the functions
+          <c>async_invoke</c> and <c>async_free</c>. It's typically a
+          pointer to a structure that contains a pipe or event that
+          can be used to signal that the async operation completed.
+          The data should be freed in <c>async_free</c>.</p>
+        <p>When the async operation is done, <seealso marker="driver_entry#ready_async">ready_async</seealso> driver
+          entry function is called. If <c>ready_async</c> is null in
+          the driver entry, the <c>async_free</c> function is called
+          instead.</p>
+        <p>The return value is -1 if the <c>driver_async</c> call
+          fails.</p>
+        <note>
+          <p>As of erts version 5.5.4.3 the default stack size for
+            threads in the async-thread pool is 16 kilowords,
+            i.e., 64 kilobyte on 32-bit architectures.
+            This small default size has been chosen since the
+            amount of async-threads might be quite large. The
+            default stack size is enough for drivers delivered
+            with Erlang/OTP, but might not be sufficiently large
+            for other dynamically linked in drivers that use the
+            driver_async() functionality. A suggested stack size
+            for threads in the async-thread pool can be configured
+            via the
+            <seealso marker="erl#async_thread_stack_size">+a</seealso>
+            command line argument of
+            <seealso marker="erl">erl(1)</seealso>.</p>
+        </note>
+      </desc>
+    </func>
+<func>
+      <name><ret>unsigned int</ret><nametext>driver_async_port_key (ErlDrvPort port)</nametext></name>
+      <fsummary>Calculate an async key from an ErlDrvPort</fsummary>
+      <desc>
+        <marker id="driver_async_port_key"></marker>
+        <p>This function calculates a key for later use in <seealso
+        marker="#driver_async">driver_async()</seealso>. The keys are
+        evenly distributed so that a fair mapping between port id's
+        and async thread id's is achieved.</p>
+	<note>
+	<p>Before OTP-R16, the actual port id could be used as a key
+	with proper casting, but after the rewrite of the port
+	subsystem, this is no longer the case. With this function, you
+	can achieve the same distribution based on port id's as before
+	OTP-R16.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>long</ret><nametext>driver_binary_dec_refc(ErlDrvBinary *bin)</nametext></name>
+      <fsummary>Decrement the reference count of a driver binary</fsummary>
+      <desc>
+        <marker id="driver_binary_dec_refc"></marker>
+        <p>Decrements the reference count on <c>bin</c> and returns
+          the reference count reached after the decrement.</p>
+        <p>This function is only thread-safe when the emulator with SMP
+          support is used.</p>
+        <note>
+          <p>You should normally decrement the reference count of a
+            driver binary by calling
+            <seealso marker="#driver_free_binary">driver_free_binary()</seealso>.
+            <c>driver_binary_dec_refc()</c> does <em>not</em> free
+            the binary if the reference count reaches zero. <em>Only</em>
+            use <c>driver_binary_dec_refc()</c> when you are sure
+            <em>not</em> to reach a reference count of zero.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>long</ret><nametext>driver_binary_get_refc(ErlDrvBinary *bin)</nametext></name>
+      <fsummary>Get the reference count of a driver binary</fsummary>
+      <desc>
+        <marker id="driver_binary_get_refc"></marker>
+        <p>Returns current reference count on <c>bin</c>.</p>
+        <p>This function is only thread-safe when the emulator with SMP
+          support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>long</ret><nametext>driver_binary_inc_refc(ErlDrvBinary *bin)</nametext></name>
+      <fsummary>Increment the reference count of a driver binary</fsummary>
+      <desc>
+        <marker id="driver_binary_inc_refc"></marker>
+        <p>Increments the reference count on <c>bin</c> and returns
+          the reference count reached after the increment.</p>
+        <p>This function is only thread-safe when the emulator with SMP
+          support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvTermData</ret><nametext>driver_caller(ErlDrvPort port)</nametext></name>
+      <fsummary>Return the process making the driver call</fsummary>
+      <desc>
+        <marker id="driver_caller"></marker>
+        <p>This function returns the process id of the process that
+	  made the current call to the driver. The process id can be
+	  used with <c>driver_send_term</c> to send back data to the
+	  caller. <c>driver_caller()</c> only returns valid data
+	  when currently executing in one of the following driver
+	  callbacks:</p>
+	  <taglist>
+	    <tag><seealso marker="driver_entry#start">start</seealso></tag>
+            <item>Called from <c>open_port/2</c>.</item>
+	    <tag><seealso marker="driver_entry#output">output</seealso></tag>
+            <item>Called from <c>erlang:send/2</c>, and
+	          <c>erlang:port_command/2</c></item>
+	    <tag><seealso marker="driver_entry#outputv">outputv</seealso></tag>
+            <item>Called from <c>erlang:send/2</c>, and
+	          <c>erlang:port_command/2</c></item>
+	    <tag><seealso marker="driver_entry#control">control</seealso></tag>
+            <item>Called from <c>erlang:port_control/3</c></item>
+	    <tag><seealso marker="driver_entry#call">call</seealso></tag>
+            <item>Called from <c>erlang:port_call/3</c></item>
+	  </taglist>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_cancel_timer(ErlDrvPort port)</nametext></name>
+      <fsummary>Cancel a previously set timer</fsummary>
+      <desc>
+        <marker id="driver_cancel_timer"></marker>
+        <p>This function cancels a timer set with
+          <c>driver_set_timer</c>.</p>
+        <p>The return value is 0.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_compare_monitors(const ErlDrvMonitor *monitor1, const ErlDrvMonitor *monitor2)</nametext></name>
+      <fsummary>Compare two monitors</fsummary>
+      <desc>
+        <marker id="driver_compare_monitors"></marker>
+        <p>This function is used to compare two <c>ErlDrvMonitor</c>s. It
+          can also be used to imply some artificial order on monitors,
+          for whatever reason.</p>
+        <p>The function returns 0 if <c>monitor1</c> and
+          <c>monitor2</c> are equal, &lt; 0 if <c>monitor1</c> is less
+          than <c>monitor2</c> and &gt; 0 if <c>monitor1</c> is greater
+          than <c>monitor2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvTermData</ret><nametext>driver_connected(ErlDrvPort port)</nametext></name>
+      <fsummary>Return the port owner process</fsummary>
+      <desc>
+        <marker id="driver_connected"></marker>
+        <p>This function returns the port owner process.</p>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvPort</ret><nametext>driver_create_port(ErlDrvPort port, ErlDrvTermData owner_pid, char* name, ErlDrvData drv_data)</nametext></name>
+      <fsummary>Create a new port (driver instance)</fsummary>
+      <desc>
+        <p>This function creates a new port executing the same driver
+          code as the port creating the new port.
+          A short description of the arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>The port handle of the port (driver instance) creating
+           the new port.</item>
+          <tag><c>owner_pid</c></tag>
+          <item>The process id of the Erlang process which will be
+           owner of the new port. This process will be linked
+           to the new port. You usually want to use
+          <c>driver_caller(port)</c> as <c>owner_pid</c>.</item>
+          <tag><c>name</c></tag>
+          <item>The port name of the new port. You usually want to
+           use the same port name as the driver name
+           (<seealso marker="driver_entry#driver_name">driver_name</seealso>
+           field of the
+          <seealso marker="driver_entry">driver_entry</seealso>).</item>
+          <tag><c>drv_data</c></tag>
+          <item>The driver defined handle that will be passed in subsequent
+           calls to driver call-backs. Note, that the
+          <seealso marker="driver_entry#start">driver start call-back</seealso>
+           will not be called for this new driver instance.
+           The driver defined handle is normally created in the
+          <seealso marker="driver_entry#start">driver start call-back</seealso>
+           when a port is created via
+          <seealso marker="erlang#open_port/2">erlang:open_port/2</seealso>. </item>
+        </taglist>
+        <p>The caller of <c>driver_create_port()</c> is allowed to
+          manipulate the newly created port when <c>driver_create_port()</c>
+          has returned. When
+          <seealso marker="#smp_support">port level locking</seealso>
+          is used, the creating port is, however, only allowed to
+          manipulate the newly created port until the current driver
+          call-back that was called by the emulator returns.</p>
+        <note>
+          <p>When
+            <seealso marker="#smp_support">port level locking</seealso>
+            is used, the creating port is only allowed to manipulate
+            the newly created port until the current driver call-back
+            returns.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_demonitor_process(ErlDrvPort port,  const ErlDrvMonitor *monitor)</nametext></name>
+      <fsummary>Stop monitoring a process from a driver</fsummary>
+      <desc>
+        <marker id="driver_demonitor_process"></marker>
+        <p>This function cancels a monitor created earlier. </p>
+        <p>The function returns 0 if a monitor was removed and &gt; 0
+          if the monitor did no longer exist.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvSizeT</ret><nametext>driver_deq(ErlDrvPort port, ErlDrvSizeT size)</nametext></name>
+      <fsummary>Dequeue data from the head of the driver queue</fsummary>
+      <desc>
+        <marker id="driver_deq"></marker>
+        <p>This function dequeues data by moving the head pointer
+          forward in the driver queue by <c>size</c> bytes. The data
+          in the queue will be deallocated.</p>
+        <p>The return value is the number of bytes remaining in the queue
+          or -1 on failure.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_enq(ErlDrvPort port, char* buf, ErlDrvSizeT len)</nametext></name>
+      <fsummary>Enqueue data in the driver queue</fsummary>
+      <desc>
+        <marker id="driver_enq"></marker>
+        <p>This function enqueues data in the driver queue. The data in
+          <c>buf</c> is copied (<c>len</c> bytes) and placed at the
+          end of the driver queue. The driver queue is normally used
+          in a FIFO way.</p>
+        <p>The driver queue is available to queue output from the
+          emulator to the driver (data from the driver to the emulator
+          is queued by the emulator in normal erlang message
+          queues). This can be useful if the driver has to wait for
+          slow devices etc, and wants to yield back to the
+          emulator. The driver queue is implemented as an ErlIOVec.</p>
+        <p>When the queue contains data, the driver won't close, until
+          the queue is empty.</p>
+        <p>The return value is 0.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
+      <fsummary>Enqueue binary in the driver queue</fsummary>
+      <desc>
+        <marker id="driver_enq_bin"></marker>
+        <p>This function enqueues a driver binary in the driver
+          queue. The data in <c>bin</c> at <c>offset</c> with length
+          <c>len</c> is placed at the end of the queue. This function
+          is most often faster than <c>driver_enq</c>, because the
+          data doesn't have to be copied.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+        <p>The return value is 0.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_enqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
+      <fsummary>Enqueue vector in the driver queue</fsummary>
+      <desc>
+        <marker id="driver_enqv"></marker>
+        <p>This function enqueues the data in <c>ev</c>, skipping the
+          first <c>skip</c> bytes of it, at the end of the driver
+          queue. It is faster than <c>driver_enq</c>, because the data
+          doesn't have to be copied.</p>
+        <p>The return value is 0.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_failure_atom(ErlDrvPort port, char *string)</nametext></name>
+      <name><ret>int</ret><nametext>driver_failure_posix(ErlDrvPort port, int error)</nametext></name>
+      <name><ret>int</ret><nametext>driver_failure(ErlDrvPort port, int error)</nametext></name>
+      <fsummary>Fail with error</fsummary>
+      <desc>
+        <marker id="driver_failure_atom"></marker>
+        <marker id="driver_failure_posix"></marker>
+        <marker id="driver_failure"></marker>
+        <p>These functions signal to Erlang that the driver has
+          encountered an error and should be closed. The port is
+          closed and the tuple <c>{'EXIT', error, Err}</c>, is sent to
+          the port owner process, where error is an error atom
+          (<c>driver_failure_atom</c> and
+          <c>driver_failure_posix</c>), or an integer
+          (<c>driver_failure</c>).</p>
+        <p>The driver should fail only when in severe error situations,
+          when the driver cannot possibly keep open, for instance
+          buffer allocation gets out of memory. For normal errors
+          it is more appropriate to send error codes with
+          <c>driver_output</c>.</p>
+        <p>The return value is 0.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_failure_eof(ErlDrvPort port)</nametext></name>
+      <fsummary>Fail with EOF</fsummary>
+      <desc>
+        <marker id="driver_failure_eof"></marker>
+        <p>This function signals to erlang that the driver has
+          encountered an EOF and should be closed, unless the port was
+          opened with the <c>eof</c> option, in that case eof is sent
+          to the port. Otherwise, the port is closed and an
+          <c>'EXIT'</c> message is sent to the port owner process.</p>
+        <p>The return value is 0.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>driver_free(void *ptr)</nametext></name>
+      <fsummary>Free an allocated memory block</fsummary>
+      <desc>
+        <marker id="driver_free"></marker>
+        <p>This function frees the memory pointed to by <c>ptr</c>. The
+          memory should have been allocated with
+          <c>driver_alloc</c>. All allocated memory should be
+          deallocated, just once. There is no garbage collection in
+          drivers.</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>driver_free_binary(ErlDrvBinary *bin)</nametext></name>
+      <fsummary>Free a driver binary</fsummary>
+      <desc>
+        <marker id="driver_free_binary"></marker>
+        <p>This function frees a driver binary <c>bin</c>, allocated
+          previously with <c>driver_alloc_binary</c>. Since binaries
+          in Erlang are reference counted, the binary may still be
+          around.</p>
+        <p>This function is only thread-safe when the emulator with SMP
+          support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvTermData</ret><nametext>driver_get_monitored_process(ErlDrvPort port,  const ErlDrvMonitor *monitor)</nametext></name>
+      <fsummary>Retrieve the process id from a monitor</fsummary>
+      <desc>
+        <marker id="driver_get_monitored_process"></marker>
+        <p>The function returns the process id associated with a living
+          monitor. It can be used in the <c>process_exit</c> call-back to
+          get the process  identification for the exiting process.</p>
+        <p>The function returns <c>driver_term_nil</c> if the monitor
+          no longer exists.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_get_now(ErlDrvNowData *now)</nametext></name>
+      <fsummary>Read a system timestamp</fsummary>
+      <desc>
+        <marker id="driver_get_now"></marker>
+	<warning><p><em>This function is deprecated! Do not use it!</em>
+	Use <seealso marker="#erl_drv_monotonic_time"><c>erl_drv_monotonic_time()</c></seealso>
+	(perhaps in combination with
+	<seealso marker="#erl_drv_time_offset"><c>erl_drv_time_offset()</c></seealso>)
+	instead.</p></warning>
+        <p>This function reads a timestamp into the memory pointed to by
+          the parameter <c>now</c>. See the description of <seealso marker="#ErlDrvNowData">ErlDrvNowData</seealso> for
+          specification of its fields.  </p>
+        <p>The return value is 0 unless the <c>now</c> pointer is not
+          valid, in which case it is &lt; 0.  </p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_lock_driver(ErlDrvPort port)</nametext></name>
+      <fsummary>Make sure the driver is never unloaded</fsummary>
+      <desc>
+        <marker id="driver_lock_driver"></marker>
+        <p>This function locks the driver used by the port <c>port</c>
+          in memory for the rest of the emulator process'
+          lifetime. After this call, the driver behaves as one of Erlang's
+          statically linked in drivers.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvTermData</ret><nametext>driver_mk_atom(char* string)</nametext></name>
+      <fsummary>Make an atom from a name</fsummary>
+      <desc>
+        <marker id="driver_mk_atom"></marker>
+        <p>This function returns an atom given a name
+          <c>string</c>. The atom is created and won't change, so the
+          return value may be saved and reused, which is faster than
+          looking up the atom several times.</p>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvTermData</ret><nametext>driver_mk_port(ErlDrvPort port)</nametext></name>
+      <fsummary>Make a erlang term port from a port</fsummary>
+      <desc>
+        <marker id="driver_mk_port"></marker>
+        <p>This function converts a port handle to the erlang term
+          format, usable in the <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>, and <seealso marker="#erl_drv_send_term">erl_drv_send_term()</seealso> functions.</p>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_monitor_process(ErlDrvPort port,  ErlDrvTermData process,  ErlDrvMonitor *monitor)</nametext></name>
+      <fsummary>Monitor a process from a driver</fsummary>
+      <desc>
+        <marker id="driver_monitor_process"></marker>
+        <p>Start monitoring a process from a driver. When a process is
+          monitored, a process exit will result in a call to the
+          provided <seealso marker="driver_entry#process_exit">process_exit</seealso> call-back
+          in the <seealso marker="driver_entry">ErlDrvEntry</seealso>
+          structure. The <c>ErlDrvMonitor</c> structure is filled in, for later
+          removal or compare.</p>
+        <p>The <c>process</c> parameter should be the return value of an
+          earlier call to <seealso marker="#driver_caller">driver_caller</seealso> or <seealso marker="#driver_connected">driver_connected</seealso> call.</p>
+        <p>The function returns 0 on success, &lt; 0 if no call-back is
+          provided and &gt; 0 if the process is no longer alive.</p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>int</ret><nametext>driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data from driver to port owner</fsummary>
@@ -929,21 +1457,7 @@ typedef struct ErlIOVec {
           returns 0.)</p>
       </desc>
     </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen, char *buf, ErlDrvSizeT len)</nametext></name>
-      <fsummary>Send data and binary data to port owner</fsummary>
-      <desc>
-        <marker id="driver_output2"></marker>
-        <p>The <c>driver_output2</c> function first sends <c>hbuf</c>
-          (length in <c>hlen</c>) data as a list, regardless of port
-          settings. Then <c>buf</c> is sent as a binary or list.
-          E.g. if <c>hlen</c> is 3 then the port owner process will
-          receive <c>[H1, H2, H3 | T]</c>.</p>
-        <p>The point of sending data as a list header, is to facilitate
-          matching on the data received.</p>
-        <p>The return value is 0 for normal use.</p>
-      </desc>
-    </func>
+
     <func>
       <name><ret>int</ret><nametext>driver_output_binary(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen, ErlDrvBinary* bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
       <fsummary>Send data from a driver binary to port owner</fsummary>
@@ -967,6 +1481,40 @@ typedef struct ErlIOVec {
           to 0.</p>
       </desc>
     </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_output_term(ErlDrvPort port, ErlDrvTermData* term, int n)</nametext></name>
+      <fsummary>Send term data from driver to port owner</fsummary>
+      <desc>
+        <marker id="driver_output_term"></marker>
+	<warning><p><c>driver_output_term()</c> is deprecated and will
+	            be removed in the OTP-R17 release. Use
+		    <seealso marker="#erl_drv_send_term">erl_drv_output_term()</seealso>
+		    instead.</p>
+	</warning>
+        <p>The parameters <c>term</c> and <c>n</c> do the same thing
+          as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen, char *buf, ErlDrvSizeT len)</nametext></name>
+      <fsummary>Send data and binary data to port owner</fsummary>
+      <desc>
+        <marker id="driver_output2"></marker>
+        <p>The <c>driver_output2</c> function first sends <c>hbuf</c>
+          (length in <c>hlen</c>) data as a list, regardless of port
+          settings. Then <c>buf</c> is sent as a binary or list.
+          E.g. if <c>hlen</c> is 3 then the port owner process will
+          receive <c>[H1, H2, H3 | T]</c>.</p>
+        <p>The point of sending data as a list header, is to facilitate
+          matching on the data received.</p>
+        <p>The return value is 0 for normal use.</p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>int</ret><nametext>driver_outputv(ErlDrvPort port, char* hbuf, ErlDrvSizeT hlen,  ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
       <fsummary>Send vectorized data to port owner</fsummary>
@@ -990,51 +1538,176 @@ typedef struct ErlIOVec {
           <c>driver_outputv</c> too.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>ErlDrvSizeT</ret><nametext>driver_vec_to_buf(ErlIOVec *ev, char *buf, ErlDrvSizeT len)</nametext></name>
-      <fsummary>Collect data segments into a buffer</fsummary>
+      <name><ret>ErlDrvPDL</ret><nametext>driver_pdl_create(ErlDrvPort port)</nametext></name>
+      <fsummary>Create a port data lock</fsummary>
       <desc>
-        <marker id="driver_vec_to_buf"></marker>
-        <p>This function collects several segments of data, referenced
-          by <c>ev</c>, by copying them in order to the buffer
-          <c>buf</c>, of the size <c>len</c>.</p>
-        <p>If the data is to be sent from the driver to the port owner
-          process, it is faster to use <c>driver_outputv</c>.</p>
-        <p>The return value is the space left in the buffer, i.e. if
-          the <c>ev</c> contains less than <c>len</c> bytes it's the
-          difference, and if <c>ev</c> contains <c>len</c> bytes or
-          more, it's 0. This is faster if there is more than one header byte,
-          since the binary syntax can construct integers directly from
-          the binary.</p>
+        <marker id="driver_pdl_create"></marker>
+        <p>This function creates a port data lock associated with
+          the <c>port</c>. <em>NOTE</em>: Once a port data lock has
+          been created, it has to be locked during all operations
+          on the driver queue of the <c>port</c>.</p>
+        <p>On success a newly created port data lock is returned. On
+          failure <c>NULL</c> is returned. <c>driver_pdl_create()</c> will
+          fail if <c>port</c> is invalid or if a port data lock already has
+          been associated with the <c>port</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>driver_set_timer(ErlDrvPort port, unsigned long time)</nametext></name>
-      <fsummary>Set a timer to call the driver</fsummary>
+      <name><ret>long</ret><nametext>driver_pdl_dec_refc(ErlDrvPDL pdl)</nametext></name>
+      <fsummary></fsummary>
       <desc>
-        <marker id="driver_set_timer"></marker>
-        <p>This function sets a timer on the driver, which will count
-          down and call the driver when it is timed out. The
-          <c>time</c> parameter is the time in milliseconds before the
-          timer expires.</p>
-        <p>When the timer reaches 0 and expires, the driver entry
-          function <seealso marker="driver_entry#timeout">timeout</seealso> is called.</p>
-        <p>Note that there is only one timer on each driver instance;
-          setting a new timer will replace an older one.</p>
-        <p>Return value is 0 (-1 only when the <c>timeout</c> driver
-          function is <c>NULL</c>).</p>
+        <marker id="driver_pdl_dec_refc"></marker>
+        <p>This function decrements the reference count of
+          the port data lock passed as argument (<c>pdl</c>).</p>
+        <p>The current reference count after the decrement has
+          been performed is returned.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>driver_cancel_timer(ErlDrvPort port)</nametext></name>
-      <fsummary>Cancel a previously set timer</fsummary>
+      <name><ret>long</ret><nametext>driver_pdl_get_refc(ErlDrvPDL pdl)</nametext></name>
+      <fsummary></fsummary>
       <desc>
-        <marker id="driver_cancel_timer"></marker>
-        <p>This function cancels a timer set with
-          <c>driver_set_timer</c>.</p>
+        <marker id="driver_pdl_get_refc"></marker>
+        <p>This function returns the current reference count of
+          the port data lock passed as argument (<c>pdl</c>).</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>long</ret><nametext>driver_pdl_inc_refc(ErlDrvPDL pdl)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <marker id="driver_pdl_inc_refc"></marker>
+        <p>This function increments the reference count of
+          the port data lock passed as argument (<c>pdl</c>).</p>
+        <p>The current reference count after the increment has
+          been performed is returned.</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>driver_pdl_lock(ErlDrvPDL pdl)</nametext></name>
+      <fsummary>Lock port data lock</fsummary>
+      <desc>
+        <marker id="driver_pdl_lock"></marker>
+        <p>This function locks the port data lock passed as argument
+          (<c>pdl</c>).</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>driver_pdl_unlock(ErlDrvPDL pdl)</nametext></name>
+      <fsummary>Unlock port data lock</fsummary>
+      <desc>
+        <marker id="driver_pdl_unlock"></marker>
+        <p>This function unlocks the port data lock passed as argument
+          (<c>pdl</c>).</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>SysIOVec *</ret><nametext>driver_peekq(ErlDrvPort port, int *vlen)</nametext></name>
+      <fsummary>Get the driver queue as a vector</fsummary>
+      <desc>
+        <marker id="driver_peekq"></marker>
+        <p>This function retrieves the driver queue as a pointer to an
+          array of <c>SysIOVec</c>s. It also returns the number of
+          elements in <c>vlen</c>. This is one of two ways to get data
+          out of the queue.</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+          with <c>driver_deq</c>.</p>
+        <p>The returned array is suitable to use with the Unix system
+          call <c>writev</c>.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlDrvSizeT</ret><nametext>driver_peekqv(ErlDrvPort port, ErlIOVec *ev)</nametext></name>
+      <fsummary>Get the driver queue as an IO vector</fsummary>
+      <desc>
+        <marker id="driver_peekqv"></marker>
+        <p>
+	  This function retrieves the driver queue into a supplied
+	  <c>ErlIOVec</c> <c>ev</c>. It also returns the queue size.
+	  This is one of two ways to get data out of the queue.
+	</p>
+	<p>
+	  If <c>ev</c> is <c>NULL</c> all ones i.e. <c>-1</c> type cast to
+	  <c>ErlDrvSizeT</c> is returned.
+	</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+          with <c>driver_deq</c>.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_pushq(ErlDrvPort port, char* buf, ErlDrvSizeT len)</nametext></name>
+      <fsummary>Push data at the head of the driver queue</fsummary>
+      <desc>
+        <marker id="driver_pushq"></marker>
+        <p>This function puts data at the head of the driver queue. The
+          data in <c>buf</c> is copied (<c>len</c> bytes) and placed
+          at the beginning of the queue.</p>
+        <p>The return value is 0.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_pushq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
+      <fsummary>Push binary at the head of the driver queue</fsummary>
+      <desc>
+        <marker id="driver_pushq_bin"></marker>
+        <p>This function puts data in the binary <c>bin</c>, at
+          <c>offset</c> with length <c>len</c> at the head of the
+          driver queue. It is most often faster than
+          <c>driver_pushq</c>, because the data doesn't have to be
+          copied.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
         <p>The return value is 0.</p>
       </desc>
     </func>
+
+    <func>
+      <name><ret>int</ret><nametext>driver_pushqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
+      <fsummary>Push vector at the head of the driver queue</fsummary>
+      <desc>
+        <marker id="driver_pushqv"></marker>
+        <p>This function puts the data in <c>ev</c>, skipping the first
+          <c>skip</c> bytes of it, at the head of the driver queue.
+          It is faster than <c>driver_pushq</c>, because the data
+          doesn't have to be copied.</p>
+        <p>The return value is 0.</p>
+        <p>This function can be called from an arbitrary thread if a
+          <seealso marker="#ErlDrvPDL">port data lock</seealso>
+          associated with the <c>port</c> is locked by the calling
+          thread during the call.</p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>int</ret><nametext>driver_read_timer(ErlDrvPort port, unsigned long *time_left)</nametext></name>
       <fsummary>Read the time left before timeout</fsummary>
@@ -1046,23 +1719,34 @@ typedef struct ErlIOVec {
         <p>The return value is 0.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>driver_get_now(ErlDrvNowData *now)</nametext></name>
-      <fsummary>Read a system timestamp</fsummary>
+      <name><ret>void *</ret><nametext>driver_realloc(void *ptr, ErlDrvSizeT size)</nametext></name>
+      <fsummary>Resize an allocated memory block</fsummary>
       <desc>
-        <marker id="driver_get_now"></marker>
-	<warning><p><em>This function is deprecated! Do not use it!</em>
-	Use <seealso marker="#erl_drv_monotonic_time"><c>erl_drv_monotonic_time()</c></seealso>
-	(perhaps in combination with
-	<seealso marker="#erl_drv_time_offset"><c>erl_drv_time_offset()</c></seealso>)
-	instead.</p></warning>
-        <p>This function reads a timestamp into the memory pointed to by
-          the parameter <c>now</c>. See the description of <seealso marker="#ErlDrvNowData">ErlDrvNowData</seealso> for
-          specification of its fields.  </p>
-        <p>The return value is 0 unless the <c>now</c> pointer is not
-          valid, in which case it is &lt; 0.  </p>
+        <marker id="driver_realloc"></marker>
+        <p>This function resizes a memory block, either in place, or by
+          allocating a new block, copying the data and freeing the old
+          block. A pointer is returned to the reallocated memory. On
+          failure (out of memory), <c>NULL</c> is returned. (This is
+          most often a wrapper for <c>realloc</c>.)</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
+    <func>
+      <name><ret>ErlDrvBinary *</ret><nametext>driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size)</nametext></name>
+      <fsummary>Resize a driver binary</fsummary>
+      <desc>
+        <marker id="driver_realloc_binary"></marker>
+        <p>This function resizes a driver binary, while keeping the
+          data. The resized driver binary is returned. On failure (out
+          of memory), <c>NULL</c> is returned.</p>
+        <p>This function is only thread-safe when the emulator with SMP
+          support is used.</p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>int</ret><nametext>driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on)</nametext></name>
       <fsummary>Provide an event for having the emulator call the driver</fsummary>
@@ -1116,187 +1800,47 @@ typedef struct ErlIOVec {
           <c>NULL</c>).</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>void *</ret><nametext>driver_alloc(ErlDrvSizeT size)</nametext></name>
-      <fsummary>Allocate memory</fsummary>
+      <name><ret>int</ret><nametext>driver_send_term(ErlDrvPort port, ErlDrvTermData receiver, ErlDrvTermData* term, int n)</nametext></name>
+      <fsummary>Send term data to other process than port owner process</fsummary>
       <desc>
-        <marker id="driver_alloc"></marker>
-        <p>This function allocates a memory block of the size specified
-          in <c>size</c>, and returns it. This only fails on out of
-          memory, in that case <c>NULL</c> is returned. (This is most
-          often a wrapper for <c>malloc</c>).</p>
-        <p>Memory allocated must be explicitly freed with a corresponding
-           call to <c>driver_free</c> (unless otherwise stated).</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>void *</ret><nametext>driver_realloc(void *ptr, ErlDrvSizeT size)</nametext></name>
-      <fsummary>Resize an allocated memory block</fsummary>
-      <desc>
-        <marker id="driver_realloc"></marker>
-        <p>This function resizes a memory block, either in place, or by
-          allocating a new block, copying the data and freeing the old
-          block. A pointer is returned to the reallocated memory. On
-          failure (out of memory), <c>NULL</c> is returned. (This is
-          most often a wrapper for <c>realloc</c>.)</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>void</ret><nametext>driver_free(void *ptr)</nametext></name>
-      <fsummary>Free an allocated memory block</fsummary>
-      <desc>
-        <marker id="driver_free"></marker>
-        <p>This function frees the memory pointed to by <c>ptr</c>. The
-          memory should have been allocated with
-          <c>driver_alloc</c>. All allocated memory should be
-          deallocated, just once. There is no garbage collection in
-          drivers.</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ErlDrvBinary *</ret><nametext>driver_alloc_binary(ErlDrvSizeT size)</nametext></name>
-      <fsummary>Allocate a driver binary</fsummary>
-      <desc>
-        <marker id="driver_alloc_binary"></marker>
-        <p>This function allocates a driver binary with a memory block
-          of at least <c>size</c> bytes, and returns a pointer to it,
-          or NULL on failure (out of memory). When a driver binary has
-          been sent to the emulator, it must not be altered. Every
-          allocated binary should be freed by a corresponding call to
-          <c>driver_free_binary</c> (unless otherwise stated).</p>
-        <p>Note that a driver binary has an internal reference counter,
-          this means that calling <c>driver_free_binary</c> it may not
-          actually dispose of it. If it's sent to the emulator, it may
-          be referenced there.</p>
-        <p>The driver binary has a field, <c>orig_bytes</c>, which
-          marks the start of the data in the binary.</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ErlDrvBinary *</ret><nametext>driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size)</nametext></name>
-      <fsummary>Resize a driver binary</fsummary>
-      <desc>
-        <marker id="driver_realloc_binary"></marker>
-        <p>This function resizes a driver binary, while keeping the
-          data. The resized driver binary is returned. On failure (out
-          of memory), <c>NULL</c> is returned.</p>
+        <marker id="driver_send_term"></marker>
+	<warning><p><c>driver_send_term()</c> is deprecated and will
+	            be removed in the OTP-R17 release. Use
+		    <seealso marker="#erl_drv_send_term">erl_drv_send_term()</seealso>
+		    instead.</p>
+		 <p>Also note that parameters of <c>driver_send_term()</c>
+		    cannot be properly checked by the runtime system when
+		    executed by arbitrary threads. This may cause the
+		    <c>driver_send_term()</c> function not to fail when
+		    it should.</p>
+	</warning>
+        <p>The parameters <c>term</c> and <c>n</c> do the same thing
+          as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
         <p>This function is only thread-safe when the emulator with SMP
           support is used.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>void</ret><nametext>driver_free_binary(ErlDrvBinary *bin)</nametext></name>
-      <fsummary>Free a driver binary</fsummary>
+      <name><ret>int</ret><nametext>driver_set_timer(ErlDrvPort port, unsigned long time)</nametext></name>
+      <fsummary>Set a timer to call the driver</fsummary>
       <desc>
-        <marker id="driver_free_binary"></marker>
-        <p>This function frees a driver binary <c>bin</c>, allocated
-          previously with <c>driver_alloc_binary</c>. Since binaries
-          in Erlang are reference counted, the binary may still be
-          around.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <marker id="driver_set_timer"></marker>
+        <p>This function sets a timer on the driver, which will count
+          down and call the driver when it is timed out. The
+          <c>time</c> parameter is the time in milliseconds before the
+          timer expires.</p>
+        <p>When the timer reaches 0 and expires, the driver entry
+          function <seealso marker="driver_entry#timeout">timeout</seealso> is called.</p>
+        <p>Note that there is only one timer on each driver instance;
+          setting a new timer will replace an older one.</p>
+        <p>Return value is 0 (-1 only when the <c>timeout</c> driver
+          function is <c>NULL</c>).</p>
       </desc>
     </func>
-    <func>
-      <name><ret>long</ret><nametext>driver_binary_get_refc(ErlDrvBinary *bin)</nametext></name>
-      <fsummary>Get the reference count of a driver binary</fsummary>
-      <desc>
-        <marker id="driver_binary_get_refc"></marker>
-        <p>Returns current reference count on <c>bin</c>.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>long</ret><nametext>driver_binary_inc_refc(ErlDrvBinary *bin)</nametext></name>
-      <fsummary>Increment the reference count of a driver binary</fsummary>
-      <desc>
-        <marker id="driver_binary_inc_refc"></marker>
-        <p>Increments the reference count on <c>bin</c> and returns
-          the reference count reached after the increment.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>long</ret><nametext>driver_binary_dec_refc(ErlDrvBinary *bin)</nametext></name>
-      <fsummary>Decrement the reference count of a driver binary</fsummary>
-      <desc>
-        <marker id="driver_binary_dec_refc"></marker>
-        <p>Decrements the reference count on <c>bin</c> and returns
-          the reference count reached after the decrement.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
-        <note>
-          <p>You should normally decrement the reference count of a
-            driver binary by calling
-            <seealso marker="#driver_free_binary">driver_free_binary()</seealso>.
-            <c>driver_binary_dec_refc()</c> does <em>not</em> free
-            the binary if the reference count reaches zero. <em>Only</em>
-            use <c>driver_binary_dec_refc()</c> when you are sure
-            <em>not</em> to reach a reference count of zero.</p>
-        </note>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_enq(ErlDrvPort port, char* buf, ErlDrvSizeT len)</nametext></name>
-      <fsummary>Enqueue data in the driver queue</fsummary>
-      <desc>
-        <marker id="driver_enq"></marker>
-        <p>This function enqueues data in the driver queue. The data in
-          <c>buf</c> is copied (<c>len</c> bytes) and placed at the
-          end of the driver queue. The driver queue is normally used
-          in a FIFO way.</p>
-        <p>The driver queue is available to queue output from the
-          emulator to the driver (data from the driver to the emulator
-          is queued by the emulator in normal erlang message
-          queues). This can be useful if the driver has to wait for
-          slow devices etc, and wants to yield back to the
-          emulator. The driver queue is implemented as an ErlIOVec.</p>
-        <p>When the queue contains data, the driver won't close, until
-          the queue is empty.</p>
-        <p>The return value is 0.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_pushq(ErlDrvPort port, char* buf, ErlDrvSizeT len)</nametext></name>
-      <fsummary>Push data at the head of the driver queue</fsummary>
-      <desc>
-        <marker id="driver_pushq"></marker>
-        <p>This function puts data at the head of the driver queue. The
-          data in <c>buf</c> is copied (<c>len</c> bytes) and placed
-          at the beginning of the queue.</p>
-        <p>The return value is 0.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ErlDrvSizeT</ret><nametext>driver_deq(ErlDrvPort port, ErlDrvSizeT size)</nametext></name>
-      <fsummary>Dequeue data from the head of the driver queue</fsummary>
-      <desc>
-        <marker id="driver_deq"></marker>
-        <p>This function dequeues data by moving the head pointer
-          forward in the driver queue by <c>size</c> bytes. The data
-          in the queue will be deallocated.</p>
-        <p>The return value is the number of bytes remaining in the queue
-          or -1 on failure.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-      </desc>
-    </func>
+
     <func>
       <name><ret>ErlDrvSizeT</ret><nametext>driver_sizeq(ErlDrvPort port)</nametext></name>
       <fsummary>Return the size of the driver queue</fsummary>
@@ -1310,277 +1854,43 @@ typedef struct ErlIOVec {
           thread during the call.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>driver_enq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
-      <fsummary>Enqueue binary in the driver queue</fsummary>
+      <name><ret>void</ret><nametext>driver_system_info(ErlDrvSysInfo *sys_info_ptr, size_t size)</nametext></name>
+      <fsummary>Get information about the Erlang runtime system</fsummary>
       <desc>
-        <marker id="driver_enq_bin"></marker>
-        <p>This function enqueues a driver binary in the driver
-          queue. The data in <c>bin</c> at <c>offset</c> with length
-          <c>len</c> is placed at the end of the queue. This function
-          is most often faster than <c>driver_enq</c>, because the
-          data doesn't have to be copied.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-        <p>The return value is 0.</p>
+        <marker id="driver_system_info"></marker>
+        <p>This function will write information about the Erlang runtime
+          system into the
+          <seealso marker="#ErlDrvSysInfo">ErlDrvSysInfo</seealso>
+          structure referred to by the first argument. The second
+          argument should be the size of the
+          <seealso marker="#ErlDrvSysInfo">ErlDrvSysInfo</seealso>
+          structure, i.e., <c>sizeof(ErlDrvSysInfo)</c>.</p>
+        <p>See the documentation of the
+          <seealso marker="#ErlDrvSysInfo">ErlDrvSysInfo</seealso>
+          structure for information about specific fields.</p>
       </desc>
     </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_pushq_bin(ErlDrvPort port, ErlDrvBinary *bin, ErlDrvSizeT offset, ErlDrvSizeT len)</nametext></name>
-      <fsummary>Push binary at the head of the driver queue</fsummary>
+<func>
+      <name><ret>ErlDrvSizeT</ret><nametext>driver_vec_to_buf(ErlIOVec *ev, char *buf, ErlDrvSizeT len)</nametext></name>
+      <fsummary>Collect data segments into a buffer</fsummary>
       <desc>
-        <marker id="driver_pushq_bin"></marker>
-        <p>This function puts data in the binary <c>bin</c>, at
-          <c>offset</c> with length <c>len</c> at the head of the
-          driver queue. It is most often faster than
-          <c>driver_pushq</c>, because the data doesn't have to be
-          copied.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-        <p>The return value is 0.</p>
+        <marker id="driver_vec_to_buf"></marker>
+        <p>This function collects several segments of data, referenced
+          by <c>ev</c>, by copying them in order to the buffer
+          <c>buf</c>, of the size <c>len</c>.</p>
+        <p>If the data is to be sent from the driver to the port owner
+          process, it is faster to use <c>driver_outputv</c>.</p>
+        <p>The return value is the space left in the buffer, i.e. if
+          the <c>ev</c> contains less than <c>len</c> bytes it's the
+          difference, and if <c>ev</c> contains <c>len</c> bytes or
+          more, it's 0. This is faster if there is more than one header byte,
+          since the binary syntax can construct integers directly from
+          the binary.</p>
       </desc>
     </func>
-    <func>
-      <name><ret>ErlDrvSizeT</ret><nametext>driver_peekqv(ErlDrvPort port, ErlIOVec *ev)</nametext></name>
-      <fsummary>Get the driver queue as an IO vector</fsummary>
-      <desc>
-        <marker id="driver_peekqv"></marker>
-        <p>
-	  This function retrieves the driver queue into a supplied
-	  <c>ErlIOVec</c> <c>ev</c>. It also returns the queue size.
-	  This is one of two ways to get data out of the queue.
-	</p>
-	<p>
-	  If <c>ev</c> is <c>NULL</c> all ones i.e. <c>-1</c> type cast to
-	  <c>ErlDrvSizeT</c> is returned.
-	</p>
-        <p>Nothing is removed from the queue by this function, that must be done
-          with <c>driver_deq</c>.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>SysIOVec *</ret><nametext>driver_peekq(ErlDrvPort port, int *vlen)</nametext></name>
-      <fsummary>Get the driver queue as a vector</fsummary>
-      <desc>
-        <marker id="driver_peekq"></marker>
-        <p>This function retrieves the driver queue as a pointer to an
-          array of <c>SysIOVec</c>s. It also returns the number of
-          elements in <c>vlen</c>. This is one of two ways to get data
-          out of the queue.</p>
-        <p>Nothing is removed from the queue by this function, that must be done
-          with <c>driver_deq</c>.</p>
-        <p>The returned array is suitable to use with the Unix system
-          call <c>writev</c>.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_enqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
-      <fsummary>Enqueue vector in the driver queue</fsummary>
-      <desc>
-        <marker id="driver_enqv"></marker>
-        <p>This function enqueues the data in <c>ev</c>, skipping the
-          first <c>skip</c> bytes of it, at the end of the driver
-          queue. It is faster than <c>driver_enq</c>, because the data
-          doesn't have to be copied.</p>
-        <p>The return value is 0.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_pushqv(ErlDrvPort port, ErlIOVec *ev, ErlDrvSizeT skip)</nametext></name>
-      <fsummary>Push vector at the head of the driver queue</fsummary>
-      <desc>
-        <marker id="driver_pushqv"></marker>
-        <p>This function puts the data in <c>ev</c>, skipping the first
-          <c>skip</c> bytes of it, at the head of the driver queue.
-          It is faster than <c>driver_pushq</c>, because the data
-          doesn't have to be copied.</p>
-        <p>The return value is 0.</p>
-        <p>This function can be called from an arbitrary thread if a
-          <seealso marker="#ErlDrvPDL">port data lock</seealso>
-          associated with the <c>port</c> is locked by the calling
-          thread during the call.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ErlDrvPDL</ret><nametext>driver_pdl_create(ErlDrvPort port)</nametext></name>
-      <fsummary>Create a port data lock</fsummary>
-      <desc>
-        <marker id="driver_pdl_create"></marker>
-        <p>This function creates a port data lock associated with
-          the <c>port</c>. <em>NOTE</em>: Once a port data lock has
-          been created, it has to be locked during all operations
-          on the driver queue of the <c>port</c>.</p>
-        <p>On success a newly created port data lock is returned. On
-          failure <c>NULL</c> is returned. <c>driver_pdl_create()</c> will
-          fail if <c>port</c> is invalid or if a port data lock already has
-          been associated with the <c>port</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>void</ret><nametext>driver_pdl_lock(ErlDrvPDL pdl)</nametext></name>
-      <fsummary>Lock port data lock</fsummary>
-      <desc>
-        <marker id="driver_pdl_lock"></marker>
-        <p>This function locks the port data lock passed as argument
-          (<c>pdl</c>).</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>void</ret><nametext>driver_pdl_unlock(ErlDrvPDL pdl)</nametext></name>
-      <fsummary>Unlock port data lock</fsummary>
-      <desc>
-        <marker id="driver_pdl_unlock"></marker>
-        <p>This function unlocks the port data lock passed as argument
-          (<c>pdl</c>).</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>long</ret><nametext>driver_pdl_get_refc(ErlDrvPDL pdl)</nametext></name>
-      <fsummary></fsummary>
-      <desc>
-        <marker id="driver_pdl_get_refc"></marker>
-        <p>This function returns the current reference count of
-          the port data lock passed as argument (<c>pdl</c>).</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>long</ret><nametext>driver_pdl_inc_refc(ErlDrvPDL pdl)</nametext></name>
-      <fsummary></fsummary>
-      <desc>
-        <marker id="driver_pdl_inc_refc"></marker>
-        <p>This function increments the reference count of
-          the port data lock passed as argument (<c>pdl</c>).</p>
-        <p>The current reference count after the increment has
-          been performed is returned.</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>long</ret><nametext>driver_pdl_dec_refc(ErlDrvPDL pdl)</nametext></name>
-      <fsummary></fsummary>
-      <desc>
-        <marker id="driver_pdl_dec_refc"></marker>
-        <p>This function decrements the reference count of
-          the port data lock passed as argument (<c>pdl</c>).</p>
-        <p>The current reference count after the decrement has
-          been performed is returned.</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_monitor_process(ErlDrvPort port,  ErlDrvTermData process,  ErlDrvMonitor *monitor)</nametext></name>
-      <fsummary>Monitor a process from a driver</fsummary>
-      <desc>
-        <marker id="driver_monitor_process"></marker>
-        <p>Start monitoring a process from a driver. When a process is
-          monitored, a process exit will result in a call to the
-          provided <seealso marker="driver_entry#process_exit">process_exit</seealso> call-back
-          in the <seealso marker="driver_entry">ErlDrvEntry</seealso>
-          structure. The <c>ErlDrvMonitor</c> structure is filled in, for later
-          removal or compare.</p>
-        <p>The <c>process</c> parameter should be the return value of an
-          earlier call to <seealso marker="#driver_caller">driver_caller</seealso> or <seealso marker="#driver_connected">driver_connected</seealso> call.</p>
-        <p>The function returns 0 on success, &lt; 0 if no call-back is
-          provided and &gt; 0 if the process is no longer alive.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_demonitor_process(ErlDrvPort port,  const ErlDrvMonitor *monitor)</nametext></name>
-      <fsummary>Stop monitoring a process from a driver</fsummary>
-      <desc>
-        <marker id="driver_demonitor_process"></marker>
-        <p>This function cancels a monitor created earlier. </p>
-        <p>The function returns 0 if a monitor was removed and &gt; 0
-          if the monitor did no longer exist.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_get_monitored_process(ErlDrvPort port,  const ErlDrvMonitor *monitor)</nametext></name>
-      <fsummary>Retrieve the process id from a monitor</fsummary>
-      <desc>
-        <marker id="driver_get_monitored_process"></marker>
-        <p>The function returns the process id associated with a living
-          monitor. It can be used in the <c>process_exit</c> call-back to
-          get the process  identification for the exiting process.</p>
-        <p>The function returns <c>driver_term_nil</c> if the monitor
-          no longer exists.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_compare_monitors(const ErlDrvMonitor *monitor1, const ErlDrvMonitor *monitor2)</nametext></name>
-      <fsummary>Compare two monitors</fsummary>
-      <desc>
-        <marker id="driver_compare_monitors"></marker>
-        <p>This function is used to compare two <c>ErlDrvMonitor</c>s. It
-          can also be used to imply some artificial order on monitors,
-          for whatever reason.</p>
-        <p>The function returns 0 if <c>monitor1</c> and
-          <c>monitor2</c> are equal, &lt; 0 if <c>monitor1</c> is less
-          than <c>monitor2</c> and &gt; 0 if <c>monitor1</c> is greater
-          than <c>monitor2</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>void</ret><nametext>add_driver_entry(ErlDrvEntry *de)</nametext></name>
-      <fsummary>Add a driver entry</fsummary>
-      <desc>
-        <marker id="add_driver_entry"></marker>
-        <p>This function adds a driver entry to the list of drivers
-          known by Erlang. The <seealso marker="driver_entry#init">init</seealso> function of the <c>de</c>
-          parameter is called.</p>
-        <note>
-          <p>To use this function for adding drivers residing in
-            dynamically loaded code is dangerous. If the driver code
-            for the added driver resides in the same dynamically
-            loaded module (i.e. <c>.so</c> file) as a normal
-            dynamically loaded driver (loaded with the <c>erl_ddll</c>
-            interface), the caller should call <seealso marker="#driver_lock_driver">driver_lock_driver</seealso> before
-            adding driver entries.</p>
-          <p>Use of this function is generally deprecated.</p>
-        </note>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>remove_driver_entry(ErlDrvEntry *de)</nametext></name>
-      <fsummary>Remove a driver entry</fsummary>
-      <desc>
-        <marker id="remove_driver_entry"></marker>
-        <p>This function removes a driver entry <c>de</c> previously
-          added with <c>add_driver_entry</c>.</p>
-        <p>Driver entries added by the <c>erl_ddll</c> erlang interface can
-          not be removed by using this interface.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>char *</ret><nametext>erl_errno_id(int error)</nametext></name>
-      <fsummary>Get erlang error atom name from error number</fsummary>
-      <desc>
-        <marker id="erl_errno_id"></marker>
-        <p>This function returns the atom name of the erlang error,
-          given the error number in <c>error</c>. Error atoms are:
-          <c>einval</c>, <c>enoent</c>, etc. It can be used to make
-          error terms from the driver.</p>
-      </desc>
-    </func>
+
     <func>
       <name><ret>void</ret><nametext>erl_drv_busy_msgq_limits(ErlDrvPort port, ErlDrvSizeT *low, ErlDrvSizeT *high)</nametext></name>
       <fsummary>Set and get limits for busy port message queue</fsummary>
@@ -1640,128 +1950,449 @@ typedef struct ErlIOVec {
 	function.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>void</ret><nametext>set_busy_port(ErlDrvPort port, int on)</nametext></name>
-      <fsummary>Signal or unsignal port as busy</fsummary>
+      <name><ret>void</ret><nametext>erl_drv_cond_broadcast(ErlDrvCond *cnd)</nametext></name>
+      <fsummary>Broadcast on a condition variable</fsummary>
       <desc>
-        <marker id="set_busy_port"></marker>
-        <p>This function set and unset the busy state of the port. If
-          <c>on</c> is non-zero, the port is set to busy, if it's zero the port
-          is set to not busy. You typically want to combine
-	  this feature with the <seealso marker="#erl_drv_busy_msgq_limits">busy
-	  port message queue</seealso> functionality.</p>
-	<p>Processes sending command data to the port will be suspended
-	if either the port is busy or if the port message queue
-	is busy. Suspended processes will be resumed when neither the
-	port is busy, nor the port message queue is busy. Command data
-	is in this context data passed to the port using either
-	<c>Port ! {Owner, {command, Data}}</c>, or
-	<c>port_command/[2,3]</c>.</p>
-	<p>If the
-	   <seealso marker="driver_entry#driver_flags"><![CDATA[ERL_DRV_FLAG_SOFT_BUSY]]></seealso>
-	   has been set in the
-	   <seealso marker="driver_entry">driver_entry</seealso>,
-	   data can be forced into the driver via
-	   <seealso marker="erlang#port_command/3">port_command(Port, Data, [force])</seealso>
-	   even though the driver has signaled that it is busy.
+        <marker id="erl_drv_cond_broadcast"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>cnd</c></tag>
+          <item>A pointer to a condition variable to broadcast on.</item>
+        </taglist>
+        <p>This function broadcasts on a condition variable. That is, if
+	   other threads are waiting on the condition variable being
+	   broadcast on, <em>all</em> of them will be woken.
 	</p>
-	<p>For information about busy port message queue functionality
-	see the documentation of the
-	<seealso marker="#erl_drv_busy_msgq_limits">erl_drv_busy_msgq_limits()</seealso>
-	function.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>void</ret><nametext>set_port_control_flags(ErlDrvPort port, int flags)</nametext></name>
-      <fsummary>Set flags on how to handle control entry function</fsummary>
+      <name><ret>ErlDrvCond *</ret><nametext>erl_drv_cond_create(char *name)</nametext></name>
+      <fsummary>Create a condition variable</fsummary>
       <desc>
-        <marker id="set_port_control_flags"></marker>
-        <p>This function sets flags for how the <seealso marker="driver_entry#control">control</seealso> driver entry
-          function will return data to the port owner process. (The
-          <c>control</c> function is called from <c>port_control/3</c>
-          in erlang.)</p>
-        <p>Currently there are only two meaningful values for
-          <c>flags</c>: 0 means that data is returned in a list, and
-          <c>PORT_CONTROL_FLAG_BINARY</c> means data is returned as
-          a binary from <c>control</c>.</p>
+        <marker id="erl_drv_cond_create"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>name</c></tag>
+          <item>A string identifying the created condition variable. It
+	        will be used to identify the condition variable in planned
+		future debug functionality.
+	  </item>
+        </taglist>
+        <p>This function creates a condition variable and returns a
+	   pointer to it. On failure <c>NULL</c> is returned. The driver
+	   creating the condition variable has the responsibility of
+	   destroying it before the driver is unloaded.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>driver_failure_eof(ErlDrvPort port)</nametext></name>
-      <fsummary>Fail with EOF</fsummary>
+      <name><ret>void</ret><nametext>erl_drv_cond_destroy(ErlDrvCond *cnd)</nametext></name>
+      <fsummary>Destroy a condition variable</fsummary>
       <desc>
-        <marker id="driver_failure_eof"></marker>
-        <p>This function signals to erlang that the driver has
-          encountered an EOF and should be closed, unless the port was
-          opened with the <c>eof</c> option, in that case eof is sent
-          to the port. Otherwise, the port is closed and an
-          <c>'EXIT'</c> message is sent to the port owner process.</p>
-        <p>The return value is 0.</p>
+        <marker id="erl_drv_cond_destroy"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>cnd</c></tag>
+          <item>A pointer to a condition variable to destroy.</item>
+        </taglist>
+        <p>This function destroys a condition variable previously
+	   created by
+	   <seealso marker="#erl_drv_cond_create">erl_drv_cond_create()</seealso>.
+	</p>
+      <p>This function is thread-safe.</p>
       </desc>
     </func>
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_cond_name(ErlDrvCond *cnd)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_cnd_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>cnd</c></tag>
+				<item>A pointer to an initialized condition.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the condition.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
     <func>
-      <name><ret>int</ret><nametext>driver_failure_atom(ErlDrvPort port, char *string)</nametext></name>
-      <name><ret>int</ret><nametext>driver_failure_posix(ErlDrvPort port, int error)</nametext></name>
-      <name><ret>int</ret><nametext>driver_failure(ErlDrvPort port, int error)</nametext></name>
-      <fsummary>Fail with error</fsummary>
+      <name><ret>void</ret><nametext>erl_drv_cond_signal(ErlDrvCond *cnd)</nametext></name>
+      <fsummary>Signal on a condition variable</fsummary>
       <desc>
-        <marker id="driver_failure_atom"></marker>
-        <marker id="driver_failure_posix"></marker>
-        <marker id="driver_failure"></marker>
-        <p>These functions signal to Erlang that the driver has
-          encountered an error and should be closed. The port is
-          closed and the tuple <c>{'EXIT', error, Err}</c>, is sent to
-          the port owner process, where error is an error atom
-          (<c>driver_failure_atom</c> and
-          <c>driver_failure_posix</c>), or an integer
-          (<c>driver_failure</c>).</p>
-        <p>The driver should fail only when in severe error situations,
-          when the driver cannot possibly keep open, for instance
-          buffer allocation gets out of memory. For normal errors
-          it is more appropriate to send error codes with
-          <c>driver_output</c>.</p>
-        <p>The return value is 0.</p>
+        <marker id="erl_drv_cond_signal"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>cnd</c></tag>
+          <item>A pointer to a condition variable to signal on.</item>
+        </taglist>
+        <p>This function signals on a condition variable. That is, if
+	   other threads are waiting on the condition variable being
+	   signaled, <em>one</em> of them will be woken.
+	</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_connected(ErlDrvPort port)</nametext></name>
-      <fsummary>Return the port owner process</fsummary>
+      <name><ret>void</ret><nametext>erl_drv_cond_wait(ErlDrvCond *cnd, ErlDrvMutex *mtx)</nametext></name>
+      <fsummary>Wait on a condition variable</fsummary>
       <desc>
-        <marker id="driver_connected"></marker>
-        <p>This function returns the port owner process.</p>
-        <p>Note that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <marker id="erl_drv_cond_wait"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>cnd</c></tag>
+          <item>A pointer to a condition variable to wait on.</item>
+          <tag><c>mtx</c></tag>
+          <item>A pointer to a mutex to unlock while waiting.</item>
+          <tag><c></c></tag>
+          <item></item>
+        </taglist>
+        <p>This function waits on a condition variable. The calling
+	   thread is blocked until another thread wakes it by signaling
+	   or broadcasting on the condition variable. Before the calling
+	   thread is blocked it unlocks the mutex passed as argument, and
+	   when the calling thread is woken it locks the same mutex before
+	   returning. That is, the mutex currently has to be locked by
+	   the calling thread when calling this function.
+	</p>
+	<note><p><c>erl_drv_cond_wait()</c> might return even though
+	         no-one has signaled or broadcast on the condition
+		 variable. Code calling <c>erl_drv_cond_wait()</c> should
+		 always be prepared for <c>erl_drv_cond_wait()</c>
+		 returning even though the condition that the thread was
+		 waiting for hasn't occurred. That is, when returning from
+		 <c>erl_drv_cond_wait()</c> always check if the condition
+		 has occurred, and if not call <c>erl_drv_cond_wait()</c>
+		 again.
+	</p></note>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_caller(ErlDrvPort port)</nametext></name>
-      <fsummary>Return the process making the driver call</fsummary>
+      <name><ret>int</ret><nametext>erl_drv_consume_timeslice(ErlDrvPort port, int percent)</nametext></name>
+      <fsummary>Give the runtime system a hint about how much CPU time the
+      current driver callback call has consumed</fsummary>
       <desc>
-        <marker id="driver_caller"></marker>
-        <p>This function returns the process id of the process that
-	  made the current call to the driver. The process id can be
-	  used with <c>driver_send_term</c> to send back data to the
-	  caller. <c>driver_caller()</c> only returns valid data
-	  when currently executing in one of the following driver
-	  callbacks:</p>
-	  <taglist>
-	    <tag><seealso marker="driver_entry#start">start</seealso></tag>
-            <item>Called from <c>open_port/2</c>.</item>
-	    <tag><seealso marker="driver_entry#output">output</seealso></tag>
-            <item>Called from <c>erlang:send/2</c>, and
-	          <c>erlang:port_command/2</c></item>
-	    <tag><seealso marker="driver_entry#outputv">outputv</seealso></tag>
-            <item>Called from <c>erlang:send/2</c>, and
-	          <c>erlang:port_command/2</c></item>
-	    <tag><seealso marker="driver_entry#control">control</seealso></tag>
-            <item>Called from <c>erlang:port_control/3</c></item>
-	    <tag><seealso marker="driver_entry#call">call</seealso></tag>
-            <item>Called from <c>erlang:port_call/3</c></item>
-	  </taglist>
-        <p>Note that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <marker id="erl_drv_consume_timeslice"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>Port handle of the executing port.</item>
+          <tag><c>percent</c></tag>
+          <item>Approximate consumed fraction of a full
+	  time-slice in percent.</item>
+        </taglist>
+	<p>Give the runtime system a hint about how much CPU time the
+	current driver callback call has consumed since last hint, or
+	since the start of the callback if no previous hint has been given.
+	The time is given as a fraction, in percent, of a full time-slice
+	that a port is allowed to execute before it should surrender the
+	CPU to other runnable ports or processes. Valid range is
+	<c>[1, 100]</c>. The scheduling time-slice is not an exact entity,
+	but can usually be approximated to about 1 millisecond.</p>
+
+	<p>Note that it is up to the runtime system to determine if and
+	how to	use this information. Implementations on some platforms
+	may use other means in order to determine the consumed fraction
+	of the time-slice. Lengthy driver callbacks should regardless of
+	this frequently call the <c>erl_drv_consume_timeslice()</c>
+	function in order to determine if it is allowed to continue
+	execution or not.</p>
+
+	<p><c>erl_drv_consume_timeslice()</c> returns a non-zero value
+	if the time-slice has been exhausted, and zero if the callback is
+	allowed to continue execution. If a non-zero value is
+	returned the driver callback should return as soon as possible in
+	order for the port to be able to yield.</p>
+
+	<p>This function is provided to better support co-operative scheduling,
+	improve system responsiveness, and to make it easier to prevent
+	misbehaviors of the VM due to a port monopolizing a scheduler thread.
+	It can be used when dividing length work into a number of repeated
+	driver callback calls without the need to use threads. Also see the
+	important <seealso marker="#WARNING">warning</seealso> text at the
+	beginning of this document.</p>
       </desc>
     </func>
+
+	<func>
+	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_convert_time_unit(ErlDrvTime val, ErlDrvTimeUnit from, ErlDrvTimeUnit to)</nametext></name>
+	  <fsummary>Convert time unit of a time value</fsummary>
+	  <desc>
+	    <marker id="erl_drv_convert_time_unit"></marker>
+	    <p>Arguments:</p>
+	    <taglist>
+	      <tag><c>val</c></tag>
+	      <item>Value to convert time unit for.</item>
+	      <tag><c>from</c></tag>
+	      <item>Time unit of <c>val</c>.</item>
+	      <tag><c>to</c></tag>
+	      <item>Time unit of returned value.</item>
+	    </taglist>
+	    <p>Converts the <c>val</c> value of time unit <c>from</c> to
+	    the corresponding value of time unit <c>to</c>. The result is
+	    rounded using the floor function.</p>
+	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
+	    time unit argument.</p>
+	    <p>See also:</p>
+	    <list>
+	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
+	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
+	    </list>
+	  </desc>
+	</func>
+
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_equal_tids(ErlDrvTid tid1, ErlDrvTid tid2)</nametext></name>
+      <fsummary>Compare thread identifiers for equality</fsummary>
+      <desc>
+        <marker id="erl_drv_equal_tids"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>tid1</c></tag>
+          <item>A thread identifier.</item>
+          <tag><c>tid2</c></tag>
+          <item>A thread identifier.</item>
+        </taglist>
+        <p>This function compares two thread identifiers for equality,
+	   and returns <c>0</c> it they aren't equal, and
+	   a value not equal to <c>0</c> if they are equal.</p>
+	<note><p>A Thread identifier may be reused very quickly after
+	         a thread has terminated. Therefore, if a thread
+		 corresponding to one of the involved thread identifiers
+		 has terminated since the thread identifier was saved,
+		 the result of <c>erl_drv_equal_tids()</c> might not give
+		 the expected result.
+	</p></note>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_getenv(const char *key, char *value, size_t *value_size)</nametext></name>
+      <fsummary>Get the value of an environment variable</fsummary>
+      <desc>
+        <marker id="erl_drv_getenv"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>key</c></tag>
+          <item>A null terminated string containing the
+	        name of the environment variable.</item>
+          <tag><c>value</c></tag>
+          <item>A pointer to an output buffer.</item>
+          <tag><c>value_size</c></tag>
+          <item>A pointer to an integer. The integer is both used for
+	        passing input and output sizes (see below).
+		</item>
+        </taglist>
+	<p>This function retrieves the value of an environment variable.
+	When called, <c>*value_size</c> should contain the size of
+	the <c>value</c> buffer. On success <c>0</c> is returned,
+	the value of the environment variable has been written to
+	the <c>value</c> buffer, and <c>*value_size</c> contains the
+	string length (excluding the terminating null character) of
+	the value written to the <c>value</c> buffer. On failure,
+	i.e., no such environment variable was found, a value less than
+	<c>0</c> is returned. When the size of the <c>value</c>
+	buffer is too small, a value greater than <c>0</c> is returned
+	and <c>*value_size</c> has been set to the buffer size needed.
+	</p>
+	<warning><p>Do <em>not</em> use libc's <c>getenv</c> or similar
+	         C library interfaces from a driver.
+	</p></warning>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port, ErlDrvData res)</nametext></name>
+      <fsummary>Acknowledge the start of the port</fsummary>
+      <desc>
+        <marker id="erl_drv_init_ack"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>port</c></tag>
+          <item>The port handle of the port (driver instance) creating
+           doing the acknowledgment.
+	  </item>
+          <tag><c>res</c></tag>
+          <item>The result of the port initialization. This can be the same values
+          as the return value of <seealso marker="driver_entry#start">start</seealso>,
+          i.e any of the error codes or the ErlDrvData that is to be used for this
+          port.
+          </item>
+        </taglist>
+        <p>
+          When this function is called the initiating erlang:open_port call is
+          returned as if the <seealso marker="driver_entry#start">start</seealso>
+          function had just been called. It can only be used when the
+          <seealso marker="driver_entry#driver_flags">ERL_DRV_FLAG_USE_INIT_ACK</seealso>
+          flag has been set on the linked-in driver.
+        </p>
+      </desc>
+    </func>
+
+	<func>
+	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_monotonic_time(ErlDrvTimeUnit time_unit)</nametext></name>
+	  <fsummary>Get Erlang Monotonic Time</fsummary>
+	  <desc>
+	    <marker id="erl_drv_monotonic_time"></marker>
+	    <p>Arguments:</p>
+	    <taglist>
+	      <tag><c>time_unit</c></tag>
+	      <item>Time unit of returned value.</item>
+	    </taglist>
+	    <p>
+	      Returns
+	      <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
+	      monotonic time</seealso>. Note that it is not uncommon with
+	      negative values.
+	    </p>
+	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
+	    time unit argument, or if called from a thread that is not a
+	    scheduler thread.</p>
+	    <p>See also:</p>
+	    <list>
+	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
+	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
+	    </list>
+	  </desc>
+	</func>
+
+    <func>
+      <name><ret>ErlDrvMutex *</ret><nametext>erl_drv_mutex_create(char *name)</nametext></name>
+      <fsummary>Create a mutex</fsummary>
+      <desc>
+        <marker id="erl_drv_mutex_create"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>name</c></tag>
+          <item>A string identifying the created mutex. It will be used
+	        to identify the mutex in planned future debug functionality.
+	  </item>
+        </taglist>
+        <p>This function creates a mutex and returns a pointer to it. On
+	   failure <c>NULL</c> is returned. The driver creating the mutex
+	   has the responsibility of destroying it before the driver is
+	   unloaded.
+	</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_mutex_destroy(ErlDrvMutex *mtx)</nametext></name>
+      <fsummary>Destroy a mutex</fsummary>
+      <desc>
+        <marker id="erl_drv_mutex_destroy"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>mtx</c></tag>
+          <item>A pointer to a mutex to destroy.</item>
+        </taglist>
+        <p>This function destroys a mutex previously created by
+	   <seealso marker="#erl_drv_mutex_create">erl_drv_mutex_create()</seealso>.
+	   The mutex has to be in an unlocked state before being
+	   destroyed.
+	</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_mutex_lock(ErlDrvMutex *mtx)</nametext></name>
+      <fsummary>Lock a mutex</fsummary>
+      <desc>
+        <marker id="erl_drv_mutex_lock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>mtx</c></tag>
+          <item>A pointer to a mutex to lock.</item>
+        </taglist>
+        <p>This function locks a mutex. The calling thread will be
+	   blocked until the mutex has been locked. A thread
+	   which currently has locked the mutex may <em>not</em> lock
+	   the same mutex again.
+	</p>
+	<warning><p>If you leave a mutex locked in an emulator thread
+	            when you let the thread out of your control, you will
+		    <em>very likely</em> deadlock the whole emulator.
+	</p></warning>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_mutex_name(ErlDrvMutex *mtx)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_mutex_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>mtx</c></tag>
+				<item>A pointer to an initialized mutex.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the mutex.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_mutex_trylock(ErlDrvMutex *mtx)</nametext></name>
+      <fsummary>Try lock a mutex</fsummary>
+      <desc>
+        <marker id="erl_drv_mutex_trylock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>mtx</c></tag>
+          <item>A pointer to a mutex to try to lock.</item>
+        </taglist>
+        <p>This function tries to lock a mutex. If successful <c>0</c>,
+	   is returned; otherwise, <c>EBUSY</c> is returned. A thread
+	   which currently has locked the mutex may <em>not</em> try to
+	   lock the same mutex again.
+	</p>
+	<warning><p>If you leave a mutex locked in an emulator thread
+	            when you let the thread out of your control, you will
+		    <em>very likely</em> deadlock the whole emulator.
+	</p></warning>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_mutex_unlock(ErlDrvMutex *mtx)</nametext></name>
+      <fsummary>Unlock a mutex</fsummary>
+      <desc>
+        <marker id="erl_drv_mutex_unlock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>mtx</c></tag>
+          <item>A pointer to a mutex to unlock.</item>
+        </taglist>
+        <p>This function unlocks a mutex. The mutex currently has to be
+	   locked by the calling thread.
+	</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>int</ret><nametext>erl_drv_output_term(ErlDrvTermData port, ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data from driver to port owner</fsummary>
@@ -1939,46 +2570,221 @@ ERL_DRV_MAP          int sz
           support is used.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>driver_output_term(ErlDrvPort port, ErlDrvTermData* term, int n)</nametext></name>
-      <fsummary>Send term data from driver to port owner</fsummary>
+      <name><ret>int</ret><nametext>erl_drv_putenv(const char *key, char *value)</nametext></name>
+      <fsummary>Set the value of an environment variable</fsummary>
       <desc>
-        <marker id="driver_output_term"></marker>
-	<warning><p><c>driver_output_term()</c> is deprecated and will
-	            be removed in the OTP-R17 release. Use
-		    <seealso marker="#erl_drv_send_term">erl_drv_output_term()</seealso>
-		    instead.</p>
-	</warning>
-        <p>The parameters <c>term</c> and <c>n</c> do the same thing
-          as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
-        <p>Note that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <marker id="erl_drv_putenv"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>key</c></tag>
+          <item>A null terminated string containing the
+	        name of the environment variable.</item>
+          <tag><c>value</c></tag>
+          <item>A null terminated string containing the
+	        new value of the environment variable.</item>
+        </taglist>
+        <p>This function sets the value of an environment variable.
+	   It returns <c>0</c> on success, and a value <c>!= 0</c> on
+	   failure.
+	</p>
+	<note><p>The result of passing the empty string ("") as a value
+	      is platform dependent. On some platforms the value of the
+	      variable is set to the empty string, on others, the
+	      environment variable is removed.</p>
+	</note>
+	<warning><p>Do <em>not</em> use libc's <c>putenv</c> or similar
+	         C library interfaces from a driver.
+	</p></warning>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_mk_atom(char* string)</nametext></name>
-      <fsummary>Make an atom from a name</fsummary>
+      <name><ret>ErlDrvRWLock *</ret><nametext>erl_drv_rwlock_create(char *name)</nametext></name>
+      <fsummary>Create an rwlock</fsummary>
       <desc>
-        <marker id="driver_mk_atom"></marker>
-        <p>This function returns an atom given a name
-          <c>string</c>. The atom is created and won't change, so the
-          return value may be saved and reused, which is faster than
-          looking up the atom several times.</p>
-        <p>Note that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <marker id="erl_drv_rwlock_create"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>name</c></tag>
+          <item>A string identifying the created rwlock. It will be used to
+		identify the rwlock in planned future debug functionality.
+	  </item>
+        </taglist>
+        <p>This function creates an rwlock and returns a pointer to it. On
+	   failure <c>NULL</c> is returned. The driver creating the rwlock
+	   has the responsibility of destroying it before the driver is
+	   unloaded.
+	</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>ErlDrvTermData</ret><nametext>driver_mk_port(ErlDrvPort port)</nametext></name>
-      <fsummary>Make a erlang term port from a port</fsummary>
+      <name><ret>void</ret><nametext>erl_drv_rwlock_destroy(ErlDrvRWLock *rwlck)</nametext></name>
+      <fsummary>Destroy an rwlock</fsummary>
       <desc>
-        <marker id="driver_mk_port"></marker>
-        <p>This function converts a port handle to the erlang term
-          format, usable in the <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>, and <seealso marker="#erl_drv_send_term">erl_drv_send_term()</seealso> functions.</p>
-        <p>Note that this function is <em>not</em> thread-safe, not
-          even when the emulator with SMP support is used.</p>
+        <marker id="erl_drv_rwlock_destroy"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>rwlck</c></tag>
+          <item>A pointer to an rwlock to destroy.</item>
+        </taglist>
+        <p>This function destroys an rwlock previously created by
+	   <seealso marker="#erl_drv_rwlock_create">erl_drv_rwlock_create()</seealso>.
+	   The rwlock has to be in an unlocked state before being destroyed.
+	</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
+
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_rwlock_name(ErlDrvRWLock *rwlck)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_rwlock_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>rwlck</c></tag>
+				<item>A pointer to an initialized r/w-lock.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the r/w-lock.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_rwlock_rlock(ErlDrvRWLock *rwlck)</nametext></name>
+      <fsummary>Read lock an rwlock</fsummary>
+      <desc>
+        <marker id="erl_drv_rwlock_rlock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>rwlck</c></tag>
+          <item>A pointer to an rwlock to read lock.</item>
+        </taglist>
+        <p>This function read locks an rwlock. The calling thread will be
+	   blocked until the rwlock has been read locked. A thread
+	   which currently has read or read/write locked the rwlock may
+	   <em>not</em> lock the same rwlock again.
+	</p>
+	<warning><p>If you leave an rwlock locked in an emulator thread
+	            when you let the thread out of your control, you will
+		    <em>very likely</em> deadlock the whole emulator.
+	</p></warning>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_rwlock_runlock(ErlDrvRWLock *rwlck)</nametext></name>
+      <fsummary>Read unlock an rwlock</fsummary>
+      <desc>
+        <marker id="erl_drv_rwlock_runlock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>rwlck</c></tag>
+          <item>A pointer to an rwlock to read unlock.</item>
+        </taglist>
+        <p>This function read unlocks an rwlock. The rwlock currently
+	   has to be read locked by the calling thread.
+	</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_rwlock_rwlock(ErlDrvRWLock *rwlck)</nametext></name>
+      <fsummary>Read/Write lock an rwlock</fsummary>
+      <desc>
+        <marker id="erl_drv_rwlock_rwlock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>rwlck</c></tag>
+          <item>A pointer to an rwlock to read/write lock.</item>
+        </taglist>
+        <p>This function read/write locks an rwlock. The calling thread
+	   will be blocked until the rwlock has been read/write locked.
+	   A thread which currently has read or read/write locked the
+	   rwlock may <em>not</em> lock the same rwlock again.
+	</p>
+	<warning><p>If you leave an rwlock locked in an emulator thread
+	            when you let the thread out of your control, you will
+		    <em>very likely</em> deadlock the whole emulator.
+	</p></warning>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret><nametext>erl_drv_rwlock_rwunlock(ErlDrvRWLock *rwlck)</nametext></name>
+      <fsummary>Read/Write unlock an rwlock</fsummary>
+      <desc>
+        <marker id="erl_drv_rwlock_rwunlock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>rwlck</c></tag>
+          <item>A pointer to an rwlock to read/write unlock.</item>
+        </taglist>
+        <p>This function read/write unlocks an rwlock. The rwlock
+	   currently has to be read/write locked by the calling thread.
+	</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_rwlock_tryrlock(ErlDrvRWLock *rwlck)</nametext></name>
+      <fsummary>Try to read lock an rwlock</fsummary>
+      <desc>
+        <marker id="erl_drv_rwlock_tryrlock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>rwlck</c></tag>
+          <item>A pointer to an rwlock to try to read lock.</item>
+        </taglist>
+        <p>This function tries to read lock an rwlock. If successful
+	   <c>0</c>, is returned; otherwise, <c>EBUSY</c> is returned.
+	   A thread which currently has read or read/write locked the
+	   rwlock may <em>not</em> try to lock the same rwlock again.
+	</p>
+	<warning><p>If you leave an rwlock locked in an emulator thread
+	            when you let the thread out of your control, you will
+		    <em>very likely</em> deadlock the whole emulator.
+	</p></warning>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_rwlock_tryrwlock(ErlDrvRWLock *rwlck)</nametext></name>
+      <fsummary>Try to read/write lock an rwlock</fsummary>
+      <desc>
+        <marker id="erl_drv_rwlock_tryrwlock"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>rwlck</c></tag>
+          <item>A pointer to an rwlock to try to read/write lock.</item>
+        </taglist>
+        <p>This function tries to read/write lock an rwlock. If successful
+	   <c>0</c>, is returned; otherwise, <c>EBUSY</c> is returned.
+	   A thread which currently has read or read/write locked the
+	   rwlock may <em>not</em> try to lock the same rwlock again.
+	</p>
+	<warning><p>If you leave an rwlock locked in an emulator thread
+	            when you let the thread out of your control, you will
+		    <em>very likely</em> deadlock the whole emulator.
+	</p></warning>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
     <func>
       <name><ret>int</ret><nametext>erl_drv_send_term(ErlDrvTermData port, ErlDrvTermData receiver, ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data to other process than port owner process</fsummary>
@@ -1995,199 +2801,6 @@ ERL_DRV_MAP          int sz
           as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
         <p>This function is only thread-safe when the emulator with SMP
           support is used.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_send_term(ErlDrvPort port, ErlDrvTermData receiver, ErlDrvTermData* term, int n)</nametext></name>
-      <fsummary>Send term data to other process than port owner process</fsummary>
-      <desc>
-        <marker id="driver_send_term"></marker>
-	<warning><p><c>driver_send_term()</c> is deprecated and will
-	            be removed in the OTP-R17 release. Use
-		    <seealso marker="#erl_drv_send_term">erl_drv_send_term()</seealso>
-		    instead.</p>
-		 <p>Also note that parameters of <c>driver_send_term()</c>
-		    cannot be properly checked by the runtime system when
-		    executed by arbitrary threads. This may cause the
-		    <c>driver_send_term()</c> function not to fail when
-		    it should.</p>
-	</warning>
-        <p>The parameters <c>term</c> and <c>n</c> do the same thing
-          as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>long</ret><nametext>driver_async (ErlDrvPort port, unsigned int* key, void (*async_invoke)(void*), void* async_data, void (*async_free)(void*))</nametext></name>
-      <fsummary>Perform an asynchronous call within a driver</fsummary>
-      <desc>
-        <marker id="driver_async"></marker>
-        <p>This function performs an asynchronous call. The function
-          <c>async_invoke</c> is invoked in a thread separate from the
-          emulator thread. This enables the driver to perform
-          time-consuming, blocking operations without blocking the
-          emulator.</p>
-        <p>The async thread pool size can be set with the
-          <seealso marker="erl#async_thread_pool_size">+A</seealso>
-          command line argument of <seealso marker="erl">erl(1)</seealso>.
-          If no async thread pool is available, the call is made
-          synchronously in the thread calling <c>driver_async()</c>. The
-          current number of async threads in the async thread pool can be
-          retrieved via
-          <seealso marker="#driver_system_info">driver_system_info()</seealso>.</p>
-        <p>If there is a thread pool available, a thread will be
-          used. If the <c>key</c> argument is null, the threads from the
-          pool are used in a round-robin way, each call to
-          <c>driver_async</c> uses the next thread in the pool. With the
-          <c>key</c> argument set, this behaviour is changed. The two
-          same values of <c>*key</c> always get the same thread.</p>
-        <p>To make sure that a driver instance always uses the same
-          thread, the following call can be used:</p>
-        <p></p>
-        <code type="none"><![CDATA[
-    unsigned int myKey = driver_async_port_key(myPort);
-
-    r = driver_async(myPort, &myKey, myData, myFunc);
-        ]]></code>
-        <p>It is enough to initialize <c>myKey</c> once for each
-        driver instance.</p>
-        <p>If a thread is already working, the calls will be
-          queued up and executed in order. Using the same thread for
-          each driver instance ensures that the calls will be made in
-          sequence.</p>
-        <p>The <c>async_data</c> is the argument to the functions
-          <c>async_invoke</c> and <c>async_free</c>. It's typically a
-          pointer to a structure that contains a pipe or event that
-          can be used to signal that the async operation completed.
-          The data should be freed in <c>async_free</c>.</p>
-        <p>When the async operation is done, <seealso marker="driver_entry#ready_async">ready_async</seealso> driver
-          entry function is called. If <c>ready_async</c> is null in
-          the driver entry, the <c>async_free</c> function is called
-          instead.</p>
-        <p>The return value is -1 if the <c>driver_async</c> call
-          fails.</p>
-        <note>
-          <p>As of erts version 5.5.4.3 the default stack size for
-            threads in the async-thread pool is 16 kilowords,
-            i.e., 64 kilobyte on 32-bit architectures.
-            This small default size has been chosen since the
-            amount of async-threads might be quite large. The
-            default stack size is enough for drivers delivered
-            with Erlang/OTP, but might not be sufficiently large
-            for other dynamically linked in drivers that use the
-            driver_async() functionality. A suggested stack size
-            for threads in the async-thread pool can be configured
-            via the
-            <seealso marker="erl#async_thread_stack_size">+a</seealso>
-            command line argument of
-            <seealso marker="erl">erl(1)</seealso>.</p>
-        </note>
-      </desc>
-    </func>
-    <func>
-      <name><ret>unsigned int</ret><nametext>driver_async_port_key (ErlDrvPort port)</nametext></name>
-      <fsummary>Calculate an async key from an ErlDrvPort</fsummary>
-      <desc>
-        <marker id="driver_async_port_key"></marker>
-        <p>This function calculates a key for later use in <seealso
-        marker="#driver_async">driver_async()</seealso>. The keys are
-        evenly distributed so that a fair mapping between port id's
-        and async thread id's is achieved.</p>
-	<note>
-	<p>Before OTP-R16, the actual port id could be used as a key
-	with proper casting, but after the rewrite of the port
-	subsystem, this is no longer the case. With this function, you
-	can achieve the same distribution based on port id's as before
-	OTP-R16.</p>
-	</note>
-      </desc>
-    </func>
-    <func>
-      <name><ret>int</ret><nametext>driver_lock_driver(ErlDrvPort port)</nametext></name>
-      <fsummary>Make sure the driver is never unloaded</fsummary>
-      <desc>
-        <marker id="driver_lock_driver"></marker>
-        <p>This function locks the driver used by the port <c>port</c>
-          in memory for the rest of the emulator process'
-          lifetime. After this call, the driver behaves as one of Erlang's
-          statically linked in drivers.</p>
-      </desc>
-    </func>
-    <func>
-      <name><ret>ErlDrvPort</ret><nametext>driver_create_port(ErlDrvPort port, ErlDrvTermData owner_pid, char* name, ErlDrvData drv_data)</nametext></name>
-      <fsummary>Create a new port (driver instance)</fsummary>
-      <desc>
-        <p>This function creates a new port executing the same driver
-          code as the port creating the new port.
-          A short description of the arguments:</p>
-        <taglist>
-          <tag><c>port</c></tag>
-          <item>The port handle of the port (driver instance) creating
-           the new port.</item>
-          <tag><c>owner_pid</c></tag>
-          <item>The process id of the Erlang process which will be
-           owner of the new port. This process will be linked
-           to the new port. You usually want to use
-          <c>driver_caller(port)</c> as <c>owner_pid</c>.</item>
-          <tag><c>name</c></tag>
-          <item>The port name of the new port. You usually want to
-           use the same port name as the driver name
-           (<seealso marker="driver_entry#driver_name">driver_name</seealso>
-           field of the
-          <seealso marker="driver_entry">driver_entry</seealso>).</item>
-          <tag><c>drv_data</c></tag>
-          <item>The driver defined handle that will be passed in subsequent
-           calls to driver call-backs. Note, that the
-          <seealso marker="driver_entry#start">driver start call-back</seealso>
-           will not be called for this new driver instance.
-           The driver defined handle is normally created in the
-          <seealso marker="driver_entry#start">driver start call-back</seealso>
-           when a port is created via
-          <seealso marker="erlang#open_port/2">erlang:open_port/2</seealso>. </item>
-        </taglist>
-        <p>The caller of <c>driver_create_port()</c> is allowed to
-          manipulate the newly created port when <c>driver_create_port()</c>
-          has returned. When
-          <seealso marker="#smp_support">port level locking</seealso>
-          is used, the creating port is, however, only allowed to
-          manipulate the newly created port until the current driver
-          call-back that was called by the emulator returns.</p>
-        <note>
-          <p>When
-            <seealso marker="#smp_support">port level locking</seealso>
-            is used, the creating port is only allowed to manipulate
-            the newly created port until the current driver call-back
-            returns.</p>
-        </note>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port, ErlDrvData res)</nametext></name>
-      <fsummary>Acknowledge the start of the port</fsummary>
-      <desc>
-        <marker id="erl_drv_init_ack"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>port</c></tag>
-          <item>The port handle of the port (driver instance) creating
-           doing the acknowledgment.
-	  </item>
-          <tag><c>res</c></tag>
-          <item>The result of the port initialization. This can be the same values
-          as the return value of <seealso marker="driver_entry#start">start</seealso>,
-          i.e any of the error codes or the ErlDrvData that is to be used for this
-          port.
-          </item>
-        </taglist>
-        <p>
-          When this function is called the initiating erlang:open_port call is
-          returned as if the <seealso marker="driver_entry#start">start</seealso>
-          function had just been called. It can only be used when the
-          <seealso marker="driver_entry#driver_flags">ERL_DRV_FLAG_USE_INIT_ACK</seealso>
-          flag has been set on the linked-in driver.
-        </p>
       </desc>
     </func>
 
@@ -2275,6 +2888,72 @@ ERL_DRV_MAP          int sz
     </func>
 
     <func>
+      <name><ret>void</ret><nametext>erl_drv_thread_exit(void *exit_value)</nametext></name>
+      <fsummary>Terminate calling thread</fsummary>
+      <desc>
+        <marker id="erl_drv_thread_exit"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>exit_value</c></tag>
+          <item>A pointer to an exit value or <c>NULL</c>.</item>
+        </taglist>
+        <p>This function terminates the calling thread with the exit
+	   value passed as argument. You are only allowed to terminate
+	   threads created with
+	   <seealso marker="#erl_drv_thread_create">erl_drv_thread_create()</seealso>.
+	   The exit value can later be retrieved by another thread via
+	   <seealso marker="#erl_drv_thread_join">erl_drv_thread_join()</seealso>.
+	</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_thread_join(ErlDrvTid tid, void **exit_value)</nametext></name>
+      <fsummary>Join with another thread</fsummary>
+      <desc>
+        <marker id="erl_drv_thread_join"></marker>
+        <p>Arguments:</p>
+        <taglist>
+          <tag><c>tid</c></tag>
+          <item>The thread identifier of the thread to join.</item>
+          <tag><c>exit_value</c></tag>
+          <item>A pointer to a pointer to an exit value, or <c>NULL</c>.</item>
+        </taglist>
+        <p>This function joins the calling thread with another thread, i.e.,
+	   the calling thread is blocked until the thread identified by
+	   <c>tid</c> has terminated. On success <c>0</c> is returned;
+	   otherwise, an <c>errno</c> value is returned to indicate the error.
+	   A thread can only be joined once. The behavior of joining
+	   more than once is undefined, an emulator crash is likely. If
+	   <c>exit_value == NULL</c>, the exit value of the terminated thread
+	   will be ignored; otherwise, the exit value of the terminated thread
+	   will be stored at <c>*exit_value</c>.
+	</p>
+        <p>This function is thread-safe.</p>
+      </desc>
+    </func>
+
+	<func>
+		<name><ret>char *</ret><nametext>erl_drv_thread_name(ErlDrvTid tid)</nametext></name>
+		<fsummary>Get name of driver mutex.</fsummary>
+		<desc>
+			<marker id="erl_drv_rwlock_name"></marker>
+			<p>Arguments:</p>
+			<taglist>
+				<tag><c>tid</c></tag>
+				<item>A thread identifier.</item>
+			</taglist>
+			<p>
+				Returns a pointer to the name of the thread.
+			</p>
+			<note>
+				<p>This function is intended for debugging purposes only.</p>
+			</note>
+		</desc>
+	</func>
+
+    <func>
       <name><ret>ErlDrvThreadOpts *</ret><nametext>erl_drv_thread_opts_create(char *name)</nametext></name>
       <fsummary>Create thread options</fsummary>
       <desc>
@@ -2322,53 +3001,6 @@ ERL_DRV_MAP          int sz
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_thread_exit(void *exit_value)</nametext></name>
-      <fsummary>Terminate calling thread</fsummary>
-      <desc>
-        <marker id="erl_drv_thread_exit"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>exit_value</c></tag>
-          <item>A pointer to an exit value or <c>NULL</c>.</item>
-        </taglist>
-        <p>This function terminates the calling thread with the exit
-	   value passed as argument. You are only allowed to terminate
-	   threads created with
-	   <seealso marker="#erl_drv_thread_create">erl_drv_thread_create()</seealso>.
-	   The exit value can later be retrieved by another thread via
-	   <seealso marker="#erl_drv_thread_join">erl_drv_thread_join()</seealso>.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>int</ret><nametext>erl_drv_thread_join(ErlDrvTid tid, void **exit_value)</nametext></name>
-      <fsummary>Join with another thread</fsummary>
-      <desc>
-        <marker id="erl_drv_thread_join"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>tid</c></tag>
-          <item>The thread identifier of the thread to join.</item>
-          <tag><c>exit_value</c></tag>
-          <item>A pointer to a pointer to an exit value, or <c>NULL</c>.</item>
-        </taglist>
-        <p>This function joins the calling thread with another thread, i.e.,
-	   the calling thread is blocked until the thread identified by
-	   <c>tid</c> has terminated. On success <c>0</c> is returned;
-	   otherwise, an <c>errno</c> value is returned to indicate the error.
-	   A thread can only be joined once. The behavior of joining
-	   more than once is undefined, an emulator crash is likely. If
-	   <c>exit_value == NULL</c>, the exit value of the terminated thread
-	   will be ignored; otherwise, the exit value of the terminated thread
-	   will be stored at <c>*exit_value</c>.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
       <name><ret>ErlDrvTid</ret><nametext>erl_drv_thread_self(void)</nametext></name>
       <fsummary>Get the thread identifier of the current thread</fsummary>
       <desc>
@@ -2380,406 +3012,46 @@ ERL_DRV_MAP          int sz
       </desc>
     </func>
 
-    <func>
-      <name><ret>int</ret><nametext>erl_drv_equal_tids(ErlDrvTid tid1, ErlDrvTid tid2)</nametext></name>
-      <fsummary>Compare thread identifiers for equality</fsummary>
-      <desc>
-        <marker id="erl_drv_equal_tids"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>tid1</c></tag>
-          <item>A thread identifier.</item>
-          <tag><c>tid2</c></tag>
-          <item>A thread identifier.</item>
-        </taglist>
-        <p>This function compares two thread identifiers for equality,
-	   and returns <c>0</c> it they aren't equal, and
-	   a value not equal to <c>0</c> if they are equal.</p>
-	<note><p>A Thread identifier may be reused very quickly after
-	         a thread has terminated. Therefore, if a thread
-		 corresponding to one of the involved thread identifiers
-		 has terminated since the thread identifier was saved,
-		 the result of <c>erl_drv_equal_tids()</c> might not give
-		 the expected result.
-	</p></note>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
+	<func>
+	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_time_offset(ErlDrvTimeUnit time_unit)</nametext></name>
+	  <fsummary>Get current Time Offset</fsummary>
+	  <desc>
+	    <marker id="erl_drv_time_offset"></marker>
+	    <p>Arguments:</p>
+	    <taglist>
+	      <tag><c>time_unit</c></tag>
+	      <item>Time unit of returned value.</item>
+	    </taglist>
+	    <p>Returns the current time offset between
+	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
+	    and
+	    <seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
+	    converted into the <c>time_unit</c> passed as argument.</p>
+	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
+	    time unit argument, or if called from a thread that is not a
+	    scheduler thread.</p>
+	    <p>See also:</p>
+	    <list>
+	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
+	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
+	    </list>
+	  </desc>
+	</func>
 
     <func>
-      <name><ret>ErlDrvMutex *</ret><nametext>erl_drv_mutex_create(char *name)</nametext></name>
-      <fsummary>Create a mutex</fsummary>
+      <name><ret>void *</ret><nametext>erl_drv_tsd_get(ErlDrvTSDKey key)</nametext></name>
+      <fsummary>Get thread specific data</fsummary>
       <desc>
-        <marker id="erl_drv_mutex_create"></marker>
+        <marker id="erl_drv_tsd_get"></marker>
         <p>Arguments:</p>
         <taglist>
-          <tag><c>name</c></tag>
-          <item>A string identifying the created mutex. It will be used
-	        to identify the mutex in planned future debug functionality.
-	  </item>
+          <tag><c>key</c></tag>
+          <item>A thread specific data key.</item>
         </taglist>
-        <p>This function creates a mutex and returns a pointer to it. On
-	   failure <c>NULL</c> is returned. The driver creating the mutex
-	   has the responsibility of destroying it before the driver is
-	   unloaded.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_mutex_destroy(ErlDrvMutex *mtx)</nametext></name>
-      <fsummary>Destroy a mutex</fsummary>
-      <desc>
-        <marker id="erl_drv_mutex_destroy"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>mtx</c></tag>
-          <item>A pointer to a mutex to destroy.</item>
-        </taglist>
-        <p>This function destroys a mutex previously created by
-	   <seealso marker="#erl_drv_mutex_create">erl_drv_mutex_create()</seealso>.
-	   The mutex has to be in an unlocked state before being
-	   destroyed.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_mutex_lock(ErlDrvMutex *mtx)</nametext></name>
-      <fsummary>Lock a mutex</fsummary>
-      <desc>
-        <marker id="erl_drv_mutex_lock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>mtx</c></tag>
-          <item>A pointer to a mutex to lock.</item>
-        </taglist>
-        <p>This function locks a mutex. The calling thread will be
-	   blocked until the mutex has been locked. A thread
-	   which currently has locked the mutex may <em>not</em> lock
-	   the same mutex again.
-	</p>
-	<warning><p>If you leave a mutex locked in an emulator thread
-	            when you let the thread out of your control, you will
-		    <em>very likely</em> deadlock the whole emulator.
-	</p></warning>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>int</ret><nametext>erl_drv_mutex_trylock(ErlDrvMutex *mtx)</nametext></name>
-      <fsummary>Try lock a mutex</fsummary>
-      <desc>
-        <marker id="erl_drv_mutex_trylock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>mtx</c></tag>
-          <item>A pointer to a mutex to try to lock.</item>
-        </taglist>
-        <p>This function tries to lock a mutex. If successful <c>0</c>,
-	   is returned; otherwise, <c>EBUSY</c> is returned. A thread
-	   which currently has locked the mutex may <em>not</em> try to
-	   lock the same mutex again.
-	</p>
-	<warning><p>If you leave a mutex locked in an emulator thread
-	            when you let the thread out of your control, you will
-		    <em>very likely</em> deadlock the whole emulator.
-	</p></warning>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_mutex_unlock(ErlDrvMutex *mtx)</nametext></name>
-      <fsummary>Unlock a mutex</fsummary>
-      <desc>
-        <marker id="erl_drv_mutex_unlock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>mtx</c></tag>
-          <item>A pointer to a mutex to unlock.</item>
-        </taglist>
-        <p>This function unlocks a mutex. The mutex currently has to be
-	   locked by the calling thread.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>ErlDrvCond *</ret><nametext>erl_drv_cond_create(char *name)</nametext></name>
-      <fsummary>Create a condition variable</fsummary>
-      <desc>
-        <marker id="erl_drv_cond_create"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>name</c></tag>
-          <item>A string identifying the created condition variable. It
-	        will be used to identify the condition variable in planned
-		future debug functionality.
-	  </item>
-        </taglist>
-        <p>This function creates a condition variable and returns a
-	   pointer to it. On failure <c>NULL</c> is returned. The driver
-	   creating the condition variable has the responsibility of
-	   destroying it before the driver is unloaded.</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_destroy(ErlDrvCond *cnd)</nametext></name>
-      <fsummary>Destroy a condition variable</fsummary>
-      <desc>
-        <marker id="erl_drv_cond_destroy"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>cnd</c></tag>
-          <item>A pointer to a condition variable to destroy.</item>
-        </taglist>
-        <p>This function destroys a condition variable previously
-	   created by
-	   <seealso marker="#erl_drv_cond_create">erl_drv_cond_create()</seealso>.
-	</p>
-      <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_signal(ErlDrvCond *cnd)</nametext></name>
-      <fsummary>Signal on a condition variable</fsummary>
-      <desc>
-        <marker id="erl_drv_cond_signal"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>cnd</c></tag>
-          <item>A pointer to a condition variable to signal on.</item>
-        </taglist>
-        <p>This function signals on a condition variable. That is, if
-	   other threads are waiting on the condition variable being
-	   signaled, <em>one</em> of them will be woken.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_broadcast(ErlDrvCond *cnd)</nametext></name>
-      <fsummary>Broadcast on a condition variable</fsummary>
-      <desc>
-        <marker id="erl_drv_cond_broadcast"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>cnd</c></tag>
-          <item>A pointer to a condition variable to broadcast on.</item>
-        </taglist>
-        <p>This function broadcasts on a condition variable. That is, if
-	   other threads are waiting on the condition variable being
-	   broadcast on, <em>all</em> of them will be woken.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_cond_wait(ErlDrvCond *cnd, ErlDrvMutex *mtx)</nametext></name>
-      <fsummary>Wait on a condition variable</fsummary>
-      <desc>
-        <marker id="erl_drv_cond_wait"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>cnd</c></tag>
-          <item>A pointer to a condition variable to wait on.</item>
-          <tag><c>mtx</c></tag>
-          <item>A pointer to a mutex to unlock while waiting.</item>
-          <tag><c></c></tag>
-          <item></item>
-        </taglist>
-        <p>This function waits on a condition variable. The calling
-	   thread is blocked until another thread wakes it by signaling
-	   or broadcasting on the condition variable. Before the calling
-	   thread is blocked it unlocks the mutex passed as argument, and
-	   when the calling thread is woken it locks the same mutex before
-	   returning. That is, the mutex currently has to be locked by
-	   the calling thread when calling this function.
-	</p>
-	<note><p><c>erl_drv_cond_wait()</c> might return even though
-	         no-one has signaled or broadcast on the condition
-		 variable. Code calling <c>erl_drv_cond_wait()</c> should
-		 always be prepared for <c>erl_drv_cond_wait()</c>
-		 returning even though the condition that the thread was
-		 waiting for hasn't occurred. That is, when returning from
-		 <c>erl_drv_cond_wait()</c> always check if the condition
-		 has occurred, and if not call <c>erl_drv_cond_wait()</c>
-		 again.
-	</p></note>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>ErlDrvRWLock *</ret><nametext>erl_drv_rwlock_create(char *name)</nametext></name>
-      <fsummary>Create an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_create"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>name</c></tag>
-          <item>A string identifying the created rwlock. It will be used to
-		identify the rwlock in planned future debug functionality.
-	  </item>
-        </taglist>
-        <p>This function creates an rwlock and returns a pointer to it. On
-	   failure <c>NULL</c> is returned. The driver creating the rwlock
-	   has the responsibility of destroying it before the driver is
-	   unloaded.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_destroy(ErlDrvRWLock *rwlck)</nametext></name>
-      <fsummary>Destroy an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_destroy"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>rwlck</c></tag>
-          <item>A pointer to an rwlock to destroy.</item>
-        </taglist>
-        <p>This function destroys an rwlock previously created by
-	   <seealso marker="#erl_drv_rwlock_create">erl_drv_rwlock_create()</seealso>.
-	   The rwlock has to be in an unlocked state before being destroyed.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_rlock(ErlDrvRWLock *rwlck)</nametext></name>
-      <fsummary>Read lock an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_rlock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>rwlck</c></tag>
-          <item>A pointer to an rwlock to read lock.</item>
-        </taglist>
-        <p>This function read locks an rwlock. The calling thread will be
-	   blocked until the rwlock has been read locked. A thread
-	   which currently has read or read/write locked the rwlock may
-	   <em>not</em> lock the same rwlock again.
-	</p>
-	<warning><p>If you leave an rwlock locked in an emulator thread
-	            when you let the thread out of your control, you will
-		    <em>very likely</em> deadlock the whole emulator.
-	</p></warning>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>int</ret><nametext>erl_drv_rwlock_tryrlock(ErlDrvRWLock *rwlck)</nametext></name>
-      <fsummary>Try to read lock an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_tryrlock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>rwlck</c></tag>
-          <item>A pointer to an rwlock to try to read lock.</item>
-        </taglist>
-        <p>This function tries to read lock an rwlock. If successful
-	   <c>0</c>, is returned; otherwise, <c>EBUSY</c> is returned.
-	   A thread which currently has read or read/write locked the
-	   rwlock may <em>not</em> try to lock the same rwlock again.
-	</p>
-	<warning><p>If you leave an rwlock locked in an emulator thread
-	            when you let the thread out of your control, you will
-		    <em>very likely</em> deadlock the whole emulator.
-	</p></warning>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_runlock(ErlDrvRWLock *rwlck)</nametext></name>
-      <fsummary>Read unlock an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_runlock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>rwlck</c></tag>
-          <item>A pointer to an rwlock to read unlock.</item>
-        </taglist>
-        <p>This function read unlocks an rwlock. The rwlock currently
-	   has to be read locked by the calling thread.
-	</p>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_rwlock(ErlDrvRWLock *rwlck)</nametext></name>
-      <fsummary>Read/Write lock an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_rwlock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>rwlck</c></tag>
-          <item>A pointer to an rwlock to read/write lock.</item>
-        </taglist>
-        <p>This function read/write locks an rwlock. The calling thread
-	   will be blocked until the rwlock has been read/write locked.
-	   A thread which currently has read or read/write locked the
-	   rwlock may <em>not</em> lock the same rwlock again.
-	</p>
-	<warning><p>If you leave an rwlock locked in an emulator thread
-	            when you let the thread out of your control, you will
-		    <em>very likely</em> deadlock the whole emulator.
-	</p></warning>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>int</ret><nametext>erl_drv_rwlock_tryrwlock(ErlDrvRWLock *rwlck)</nametext></name>
-      <fsummary>Try to read/write lock an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_tryrwlock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>rwlck</c></tag>
-          <item>A pointer to an rwlock to try to read/write lock.</item>
-        </taglist>
-        <p>This function tries to read/write lock an rwlock. If successful
-	   <c>0</c>, is returned; otherwise, <c>EBUSY</c> is returned.
-	   A thread which currently has read or read/write locked the
-	   rwlock may <em>not</em> try to lock the same rwlock again.
-	</p>
-	<warning><p>If you leave an rwlock locked in an emulator thread
-	            when you let the thread out of your control, you will
-		    <em>very likely</em> deadlock the whole emulator.
-	</p></warning>
-        <p>This function is thread-safe.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name><ret>void</ret><nametext>erl_drv_rwlock_rwunlock(ErlDrvRWLock *rwlck)</nametext></name>
-      <fsummary>Read/Write unlock an rwlock</fsummary>
-      <desc>
-        <marker id="erl_drv_rwlock_rwunlock"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>rwlck</c></tag>
-          <item>A pointer to an rwlock to read/write unlock.</item>
-        </taglist>
-        <p>This function read/write unlocks an rwlock. The rwlock
-	   currently has to be read/write locked by the calling thread.
+        <p>This function returns the thread specific data
+	   associated with <c>key</c> for the calling thread.
+	   If no data has been associated with <c>key</c> for
+	   the calling thread, <c>NULL</c> is returned.
 	</p>
         <p>This function is thread-safe.</p>
       </desc>
@@ -2870,291 +3142,76 @@ ERL_DRV_MAP          int sz
     </func>
 
     <func>
-      <name><ret>void *</ret><nametext>erl_drv_tsd_get(ErlDrvTSDKey key)</nametext></name>
-      <fsummary>Get thread specific data</fsummary>
+      <name><ret>char *</ret><nametext>erl_errno_id(int error)</nametext></name>
+      <fsummary>Get erlang error atom name from error number</fsummary>
       <desc>
-        <marker id="erl_drv_tsd_get"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>key</c></tag>
-          <item>A thread specific data key.</item>
-        </taglist>
-        <p>This function returns the thread specific data
-	   associated with <c>key</c> for the calling thread.
-	   If no data has been associated with <c>key</c> for
-	   the calling thread, <c>NULL</c> is returned.
-	</p>
-        <p>This function is thread-safe.</p>
+        <marker id="erl_errno_id"></marker>
+        <p>This function returns the atom name of the erlang error,
+          given the error number in <c>error</c>. Error atoms are:
+          <c>einval</c>, <c>enoent</c>, etc. It can be used to make
+          error terms from the driver.</p>
       </desc>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_putenv(const char *key, char *value)</nametext></name>
-      <fsummary>Set the value of an environment variable</fsummary>
+      <name><ret>int</ret><nametext>remove_driver_entry(ErlDrvEntry *de)</nametext></name>
+      <fsummary>Remove a driver entry</fsummary>
       <desc>
-        <marker id="erl_drv_putenv"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>key</c></tag>
-          <item>A null terminated string containing the
-	        name of the environment variable.</item>
-          <tag><c>value</c></tag>
-          <item>A null terminated string containing the
-	        new value of the environment variable.</item>
-        </taglist>
-        <p>This function sets the value of an environment variable.
-	   It returns <c>0</c> on success, and a value <c>!= 0</c> on
-	   failure.
-	</p>
-	<note><p>The result of passing the empty string ("") as a value
-	      is platform dependent. On some platforms the value of the
-	      variable is set to the empty string, on others, the
-	      environment variable is removed.</p>
-	</note>
-	<warning><p>Do <em>not</em> use libc's <c>putenv</c> or similar
-	         C library interfaces from a driver.
-	</p></warning>
-        <p>This function is thread-safe.</p>
+        <marker id="remove_driver_entry"></marker>
+        <p>This function removes a driver entry <c>de</c> previously
+          added with <c>add_driver_entry</c>.</p>
+        <p>Driver entries added by the <c>erl_ddll</c> erlang interface can
+          not be removed by using this interface.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>erl_drv_getenv(const char *key, char *value, size_t *value_size)</nametext></name>
-      <fsummary>Get the value of an environment variable</fsummary>
+      <name><ret>void</ret><nametext>set_busy_port(ErlDrvPort port, int on)</nametext></name>
+      <fsummary>Signal or unsignal port as busy</fsummary>
       <desc>
-        <marker id="erl_drv_getenv"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>key</c></tag>
-          <item>A null terminated string containing the
-	        name of the environment variable.</item>
-          <tag><c>value</c></tag>
-          <item>A pointer to an output buffer.</item>
-          <tag><c>value_size</c></tag>
-          <item>A pointer to an integer. The integer is both used for
-	        passing input and output sizes (see below).
-		</item>
-        </taglist>
-	<p>This function retrieves the value of an environment variable.
-	When called, <c>*value_size</c> should contain the size of
-	the <c>value</c> buffer. On success <c>0</c> is returned,
-	the value of the environment variable has been written to
-	the <c>value</c> buffer, and <c>*value_size</c> contains the
-	string length (excluding the terminating null character) of
-	the value written to the <c>value</c> buffer. On failure,
-	i.e., no such environment variable was found, a value less than
-	<c>0</c> is returned. When the size of the <c>value</c>
-	buffer is too small, a value greater than <c>0</c> is returned
-	and <c>*value_size</c> has been set to the buffer size needed.
+        <marker id="set_busy_port"></marker>
+        <p>This function set and unset the busy state of the port. If
+          <c>on</c> is non-zero, the port is set to busy, if it's zero the port
+          is set to not busy. You typically want to combine
+	  this feature with the <seealso marker="#erl_drv_busy_msgq_limits">busy
+	  port message queue</seealso> functionality.</p>
+	<p>Processes sending command data to the port will be suspended
+	if either the port is busy or if the port message queue
+	is busy. Suspended processes will be resumed when neither the
+	port is busy, nor the port message queue is busy. Command data
+	is in this context data passed to the port using either
+	<c>Port ! {Owner, {command, Data}}</c>, or
+	<c>port_command/[2,3]</c>.</p>
+	<p>If the
+	   <seealso marker="driver_entry#driver_flags"><![CDATA[ERL_DRV_FLAG_SOFT_BUSY]]></seealso>
+	   has been set in the
+	   <seealso marker="driver_entry">driver_entry</seealso>,
+	   data can be forced into the driver via
+	   <seealso marker="erlang#port_command/3">port_command(Port, Data, [force])</seealso>
+	   even though the driver has signaled that it is busy.
 	</p>
-	<warning><p>Do <em>not</em> use libc's <c>getenv</c> or similar
-	         C library interfaces from a driver.
-	</p></warning>
-        <p>This function is thread-safe.</p>
+	<p>For information about busy port message queue functionality
+	see the documentation of the
+	<seealso marker="#erl_drv_busy_msgq_limits">erl_drv_busy_msgq_limits()</seealso>
+	function.</p>
       </desc>
     </func>
+
     <func>
-      <name><ret>int</ret><nametext>erl_drv_consume_timeslice(ErlDrvPort port, int percent)</nametext></name>
-      <fsummary>Give the runtime system a hint about how much CPU time the
-      current driver callback call has consumed</fsummary>
+      <name><ret>void</ret><nametext>set_port_control_flags(ErlDrvPort port, int flags)</nametext></name>
+      <fsummary>Set flags on how to handle control entry function</fsummary>
       <desc>
-        <marker id="erl_drv_consume_timeslice"></marker>
-        <p>Arguments:</p>
-        <taglist>
-          <tag><c>port</c></tag>
-          <item>Port handle of the executing port.</item>
-          <tag><c>percent</c></tag>
-          <item>Approximate consumed fraction of a full
-	  time-slice in percent.</item>
-        </taglist>
-	<p>Give the runtime system a hint about how much CPU time the
-	current driver callback call has consumed since last hint, or
-	since the start of the callback if no previous hint has been given.
-	The time is given as a fraction, in percent, of a full time-slice
-	that a port is allowed to execute before it should surrender the
-	CPU to other runnable ports or processes. Valid range is
-	<c>[1, 100]</c>. The scheduling time-slice is not an exact entity,
-	but can usually be approximated to about 1 millisecond.</p>
-
-	<p>Note that it is up to the runtime system to determine if and
-	how to	use this information. Implementations on some platforms
-	may use other means in order to determine the consumed fraction
-	of the time-slice. Lengthy driver callbacks should regardless of
-	this frequently call the <c>erl_drv_consume_timeslice()</c>
-	function in order to determine if it is allowed to continue
-	execution or not.</p>
-
-	<p><c>erl_drv_consume_timeslice()</c> returns a non-zero value
-	if the time-slice has been exhausted, and zero if the callback is
-	allowed to continue execution. If a non-zero value is
-	returned the driver callback should return as soon as possible in
-	order for the port to be able to yield.</p>
-
-	<p>This function is provided to better support co-operative scheduling,
-	improve system responsiveness, and to make it easier to prevent
-	misbehaviors of the VM due to a port monopolizing a scheduler thread.
-	It can be used when dividing length work into a number of repeated
-	driver callback calls without the need to use threads. Also see the
-	important <seealso marker="#WARNING">warning</seealso> text at the
-	beginning of this document.</p>
+        <marker id="set_port_control_flags"></marker>
+        <p>This function sets flags for how the <seealso marker="driver_entry#control">control</seealso> driver entry
+          function will return data to the port owner process. (The
+          <c>control</c> function is called from <c>port_control/3</c>
+          in erlang.)</p>
+        <p>Currently there are only two meaningful values for
+          <c>flags</c>: 0 means that data is returned in a list, and
+          <c>PORT_CONTROL_FLAG_BINARY</c> means data is returned as
+          a binary from <c>control</c>.</p>
       </desc>
     </func>
-
-	<func>
-		<name><ret>char *</ret><nametext>erl_drv_cond_name(ErlDrvCond *cnd)</nametext></name>
-		<fsummary>Get name of driver mutex.</fsummary>
-		<desc>
-			<marker id="erl_drv_cnd_name"></marker>
-			<p>Arguments:</p>
-			<taglist>
-				<tag><c>cnd</c></tag>
-				<item>A pointer to an initialized condition.</item>
-			</taglist>
-			<p>
-				Returns a pointer to the name of the condition.
-			</p>
-			<note>
-				<p>This function is intended for debugging purposes only.</p>
-			</note>
-		</desc>
-	</func>
-
-	<func>
-		<name><ret>char *</ret><nametext>erl_drv_mutex_name(ErlDrvMutex *mtx)</nametext></name>
-		<fsummary>Get name of driver mutex.</fsummary>
-		<desc>
-			<marker id="erl_drv_mutex_name"></marker>
-			<p>Arguments:</p>
-			<taglist>
-				<tag><c>mtx</c></tag>
-				<item>A pointer to an initialized mutex.</item>
-			</taglist>
-			<p>
-				Returns a pointer to the name of the mutex.
-			</p>
-			<note>
-				<p>This function is intended for debugging purposes only.</p>
-			</note>
-		</desc>
-	</func>
-
-	<func>
-		<name><ret>char *</ret><nametext>erl_drv_rwlock_name(ErlDrvRWLock *rwlck)</nametext></name>
-		<fsummary>Get name of driver mutex.</fsummary>
-		<desc>
-			<marker id="erl_drv_rwlock_name"></marker>
-			<p>Arguments:</p>
-			<taglist>
-				<tag><c>rwlck</c></tag>
-				<item>A pointer to an initialized r/w-lock.</item>
-			</taglist>
-			<p>
-				Returns a pointer to the name of the r/w-lock.
-			</p>
-			<note>
-				<p>This function is intended for debugging purposes only.</p>
-			</note>
-		</desc>
-	</func>
-
-	<func>
-		<name><ret>char *</ret><nametext>erl_drv_thread_name(ErlDrvTid tid)</nametext></name>
-		<fsummary>Get name of driver mutex.</fsummary>
-		<desc>
-			<marker id="erl_drv_rwlock_name"></marker>
-			<p>Arguments:</p>
-			<taglist>
-				<tag><c>tid</c></tag>
-				<item>A thread identifier.</item>
-			</taglist>
-			<p>
-				Returns a pointer to the name of the thread.
-			</p>
-			<note>
-				<p>This function is intended for debugging purposes only.</p>
-			</note>
-		</desc>
-	</func>
-
-	<func>
-	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_monotonic_time(ErlDrvTimeUnit time_unit)</nametext></name>
-	  <fsummary>Get Erlang Monotonic Time</fsummary>
-	  <desc>
-	    <marker id="erl_drv_monotonic_time"></marker>
-	    <p>Arguments:</p>
-	    <taglist>
-	      <tag><c>time_unit</c></tag>
-	      <item>Time unit of returned value.</item>
-	    </taglist>
-	    <p>
-	      Returns
-	      <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
-	      monotonic time</seealso>. Note that it is not uncommon with
-	      negative values.
-	    </p>
-	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
-	    time unit argument, or if called from a thread that is not a
-	    scheduler thread.</p>
-	    <p>See also:</p>
-	    <list>
-	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
-	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
-	    </list>
-	  </desc>
-	</func>
-
-	<func>
-	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_time_offset(ErlDrvTimeUnit time_unit)</nametext></name>
-	  <fsummary>Get current Time Offset</fsummary>
-	  <desc>
-	    <marker id="erl_drv_time_offset"></marker>
-	    <p>Arguments:</p>
-	    <taglist>
-	      <tag><c>time_unit</c></tag>
-	      <item>Time unit of returned value.</item>
-	    </taglist>
-	    <p>Returns the current time offset between
-	    <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang monotonic time</seealso>
-	    and
-	    <seealso marker="time_correction#Erlang_System_Time">Erlang system time</seealso>
-	    converted into the <c>time_unit</c> passed as argument.</p>
-	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
-	    time unit argument, or if called from a thread that is not a
-	    scheduler thread.</p>
-	    <p>See also:</p>
-	    <list>
-	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
-	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
-	    </list>
-	  </desc>
-	</func>
-
-	<func>
-	  <name><ret>ErlDrvTime</ret><nametext>erl_drv_convert_time_unit(ErlDrvTime val, ErlDrvTimeUnit from, ErlDrvTimeUnit to)</nametext></name>
-	  <fsummary>Convert time unit of a time value</fsummary>
-	  <desc>
-	    <marker id="erl_drv_convert_time_unit"></marker>
-	    <p>Arguments:</p>
-	    <taglist>
-	      <tag><c>val</c></tag>
-	      <item>Value to convert time unit for.</item>
-	      <tag><c>from</c></tag>
-	      <item>Time unit of <c>val</c>.</item>
-	      <tag><c>to</c></tag>
-	      <item>Time unit of returned value.</item>
-	    </taglist>
-	    <p>Converts the <c>val</c> value of time unit <c>from</c> to
-	    the corresponding value of time unit <c>to</c>. The result is
-	    rounded using the floor function.</p>
-	    <p>Returns <c>ERL_DRV_TIME_ERROR</c> if called with an invalid
-	    time unit argument.</p>
-	    <p>See also:</p>
-	    <list>
-	      <item><seealso marker="#ErlDrvTime"><c>ErlDrvTime</c></seealso></item>
-	      <item><seealso marker="#ErlDrvTimeUnit"><c>ErlDrvTimeUnit</c></seealso></item>
-	    </list>
-	  </desc>
-	</func>
-
   </funcs>
   <section>
     <title>SEE ALSO</title>

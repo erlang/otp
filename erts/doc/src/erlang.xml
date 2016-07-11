@@ -74,27 +74,33 @@
         Supported time unit representations:</p>
         <taglist>
 	  <tag><c>PartsPerSecond :: integer() >= 1</c></tag>
-	  <item><p>Time unit expressed in parts per second. That is,
+	  <item>
+            <p>Time unit expressed in parts per second. That is,
 	  the time unit equals <c>1/PartsPerSecond</c> second.</p></item>
 
 	  <tag><c>seconds</c></tag>
-	  <item><p>Symbolic representation of the time unit
+	  <item>
+            <p>Symbolic representation of the time unit
 	  represented by the integer <c>1</c>.</p></item>
 
 	  <tag><c>milli_seconds</c></tag>
-	  <item><p>Symbolic representation of the time unit
+	  <item>
+            <p>Symbolic representation of the time unit
 	  represented by the integer <c>1000</c>.</p></item>
 
 	  <tag><c>micro_seconds</c></tag>
-	  <item><p>Symbolic representation of the time unit
+	  <item>
+            <p>Symbolic representation of the time unit
 	  represented by the integer <c>1000000</c>.</p></item>
 
 	  <tag><c>nano_seconds</c></tag>
-	  <item><p>Symbolic representation of the time unit
+	  <item>
+            <p>Symbolic representation of the time unit
 	  represented by the integer <c>1000000000</c>.</p></item>
 
 	  <tag><c>native</c></tag>
-	  <item><p>Symbolic representation of the native time unit
+	  <item>
+            <p>Symbolic representation of the native time unit
 	  used by the Erlang runtime system.</p>
 
 	  <p>The <c>native</c> time unit is determined at
@@ -131,7 +137,8 @@
 	  </item>
 
 	  <tag><c>perf_counter</c></tag>
-	  <item><p>Symbolic representation of the performance counter
+	  <item>
+            <p>Symbolic representation of the performance counter
           time unit used by the Erlang runtime system.</p>
 
           <p>The <c>perf_counter</c> time unit behaves much in the same way
@@ -471,17 +478,6 @@
     </func>
 
     <func>
-      <name name="bitstring_to_list" arity="1"/>
-      <fsummary>Converts a bitstring to a list.</fsummary>
-      <desc>
-        <p>Returns a list of integers corresponding to the bytes of
-          <c><anno>Bitstring</anno></c>. If the number of bits in the binary
-          is not divisible by 8, the last element of the list is a bitstring
-          containing the remaining 1-7 bits.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="binary_to_term" arity="1"/>
       <fsummary>Decodes an Erlang external term format binary.</fsummary>
       <desc>
@@ -547,6 +543,17 @@
     </func>
 
     <func>
+      <name name="bitstring_to_list" arity="1"/>
+      <fsummary>Converts a bitstring to a list.</fsummary>
+      <desc>
+        <p>Returns a list of integers corresponding to the bytes of
+          <c><anno>Bitstring</anno></c>. If the number of bits in the binary
+          is not divisible by 8, the last element of the list is a bitstring
+          containing the remaining 1-7 bits.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="bump_reductions" arity="1"/>
       <fsummary>Increments the reduction counter.</fsummary>
       <desc>
@@ -579,6 +586,16 @@
 > <input>byte_size(&lt;&lt;1,2,3&gt;&gt;).</input>
 3</pre>
         <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cancel_timer" arity="1"/>
+      <fsummary>Cancels a timer.</fsummary>
+      <desc>
+        <p>Cancels a timer. The same as calling
+	<seealso marker="#cancel_timer/2"><c>erlang:cancel_timer(TimerRef,
+	[])</c></seealso>.</p>
       </desc>
     </func>
 
@@ -674,15 +691,6 @@
           <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
           and
           <seealso marker="#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="cancel_timer" arity="1"/>
-      <fsummary>Cancels a timer.</fsummary>
-      <desc>
-        <p>Cancels a timer. The same as calling
-	<seealso marker="#cancel_timer/2"><c>erlang:cancel_timer(TimerRef,
-	[])</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -935,14 +943,16 @@
         <p>The following options are available:</p>
             <taglist>
               <tag><c>{packet_size, integer() >= 0}</c></tag>
-              <item><p>Sets the maximum allowed size of the packet body.
+              <item>
+            <p>Sets the maximum allowed size of the packet body.
                 If the packet header indicates that the length of the
                 packet is longer than the maximum allowed length, the
                 packet is considered invalid. Default is 0, which means
                 no size limit.</p>
               </item>
               <tag><c>{line_length, integer() >= 0}</c></tag>
-              <item><p>For packet type <c>line</c>, lines longer than
+              <item>
+            <p>For packet type <c>line</c>, lines longer than
               the indicated length are truncated.</p>
               <p>Option <c>line_length</c> also applies to <c>http*</c>
                 packet types as an alias for option <c>packet_size</c>
@@ -950,7 +960,8 @@
                 only intended for backward compatibility.</p>
               </item>
               <tag><c>{line_delimiter, 0 =&lt; byte() =&lt; 255}</c></tag>
-              <item><p>For packet type <c>line</c>, sets the delimiting byte.
+              <item>
+            <p>For packet type <c>line</c>, sets the delimiting byte.
                 Default is the latin1 character <c>$\n</c>.</p>
               </item>
             </taglist>
@@ -1239,7 +1250,8 @@ b</pre>
         <p>The following behavior applies if <c><anno>Reason</anno></c>
           is any term, except <c>normal</c> or <c>kill</c>:</p>
           <list type="bulleted">
-            <item>If <c><anno>Pid</anno></c> is not trapping exits,
+            <item>
+              If <c><anno>Pid</anno></c> is not trapping exits,
               <c><anno>Pid</anno></c>
               itself exits with exit reason <c><anno>Reason</anno></c>.
             </item>
@@ -1964,6 +1976,19 @@ os_prompt% </pre>
     </func>
 
     <func>
+      <name name="iolist_size" arity="1"/>
+      <fsummary>Size of an iolist.</fsummary>
+      <desc>
+        <p>Returns an integer that is the size in bytes
+          of the binary that would be the result of
+          <c>iolist_to_binary(<anno>Item</anno>)</c>, for example:</p>
+        <pre>
+> <input>iolist_size([1,2|&lt;&lt;3,4>>]).</input>
+4</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="iolist_to_binary" arity="1"/>
       <fsummary>Converts an iolist to a binary.</fsummary>
       <desc>
@@ -1978,19 +2003,6 @@ os_prompt% </pre>
 &lt;&lt;6&gt;&gt;
 > <input>iolist_to_binary([Bin1,1,[2,3,Bin2],4|Bin3]).</input>
 &lt;&lt;1,2,3,1,2,3,4,5,4,6&gt;&gt;</pre>
-      </desc>
-    </func>
-
-    <func>
-      <name name="iolist_size" arity="1"/>
-      <fsummary>Size of an iolist.</fsummary>
-      <desc>
-        <p>Returns an integer that is the size in bytes
-          of the binary that would be the result of
-          <c>iolist_to_binary(<anno>Item</anno>)</c>, for example:</p>
-        <pre>
-> <input>iolist_size([1,2|&lt;&lt;3,4>>]).</input>
-4</pre>
       </desc>
     </func>
 
@@ -3697,6 +3709,52 @@ os_prompt% </pre>
     </func>
 
     <func>
+      <name name="port_call" arity="3"/>
+      <fsummary>Performs a synchronous call to a port with term data.</fsummary>
+      <desc>
+        <p>Performs a synchronous call to a port. The meaning of
+          <c><anno>Operation</anno></c> and <c><anno>Data</anno></c>
+          depends on the port, that is,
+          on the port driver. Not all port drivers support this feature.</p>
+        <p><c><anno>Port</anno></c> is a port identifier,
+          referring to a driver.</p>
+        <p><c><anno>Operation</anno></c> is an integer, which is passed on to
+          the driver.</p>
+        <p><c><anno>Data</anno></c> is any Erlang term. This data is converted
+          to binary term format and sent to the port.</p>
+        <p>Returns a term from the driver. The meaning of the returned
+          data also depends on the port driver.</p>
+        <p>Failures:</p>
+        <taglist>
+          <tag><c>badarg</c></tag>
+          <item>
+	     If <c><anno>Port</anno></c> is not an identifier of an open port,
+	     or the registered name of an open port. If the calling
+	     process was previously linked to the closed port,
+	     identified by <c><anno>Port</anno></c>, the exit signal
+	     from the port is guaranteed to be delivered before this
+	     <c>badarg</c> exception occurs.
+	  </item>
+          <tag><c>badarg</c></tag>
+	  <item>
+	     If <c><anno>Operation</anno></c> does not fit in a 32-bit integer.
+	  </item>
+          <tag><c>badarg</c></tag>
+	  <item>
+	     If the port driver does not support synchronous control
+	     operations.
+	  </item>
+          <tag><c>badarg</c></tag>
+	  <item>
+	     If the port driver so decides for any reason (probably
+	     something wrong with <c><anno>Operation</anno></c>
+             or <c><anno>Data</anno></c>).
+	  </item>
+	</taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="port_close" arity="1"/>
       <fsummary>Closes an open port.</fsummary>
       <desc>
@@ -3946,52 +4004,6 @@ os_prompt% </pre>
 	    If the port driver so decides for any reason (probably
             something wrong with <c><anno>Operation</anno></c> or
             <c><anno>Data</anno></c>).
-	  </item>
-	</taglist>
-      </desc>
-    </func>
-
-    <func>
-      <name name="port_call" arity="3"/>
-      <fsummary>Performs a synchronous call to a port with term data.</fsummary>
-      <desc>
-        <p>Performs a synchronous call to a port. The meaning of
-          <c><anno>Operation</anno></c> and <c><anno>Data</anno></c>
-          depends on the port, that is,
-          on the port driver. Not all port drivers support this feature.</p>
-        <p><c><anno>Port</anno></c> is a port identifier,
-          referring to a driver.</p>
-        <p><c><anno>Operation</anno></c> is an integer, which is passed on to
-          the driver.</p>
-        <p><c><anno>Data</anno></c> is any Erlang term. This data is converted
-          to binary term format and sent to the port.</p>
-        <p>Returns a term from the driver. The meaning of the returned
-          data also depends on the port driver.</p>
-        <p>Failures:</p>
-        <taglist>
-          <tag><c>badarg</c></tag>
-          <item>
-	     If <c><anno>Port</anno></c> is not an identifier of an open port,
-	     or the registered name of an open port. If the calling
-	     process was previously linked to the closed port,
-	     identified by <c><anno>Port</anno></c>, the exit signal
-	     from the port is guaranteed to be delivered before this
-	     <c>badarg</c> exception occurs.
-	  </item>
-          <tag><c>badarg</c></tag>
-	  <item>
-	     If <c><anno>Operation</anno></c> does not fit in a 32-bit integer.
-	  </item>
-          <tag><c>badarg</c></tag>
-	  <item>
-	     If the port driver does not support synchronous control
-	     operations.
-	  </item>
-          <tag><c>badarg</c></tag>
-	  <item>
-	     If the port driver so decides for any reason (probably
-	     something wrong with <c><anno>Operation</anno></c>
-             or <c><anno>Data</anno></c>).
 	  </item>
 	</taglist>
       </desc>
@@ -4454,14 +4466,16 @@ os_prompt% </pre>
 	are stored. When the flag is:</p>
         <taglist>
           <tag><c>off_heap</c></tag>
-	  <item><p>
+	  <item>
+            <p>
 	    <em>All</em> messages in the message queue will be stored
 	    outside of the process heap. This implies that <em>no</em>
 	    messages in the message queue will be part of a garbage
 	    collection of the process.
 	  </p></item>
           <tag><c>on_heap</c></tag>
-	  <item><p>
+	  <item>
+            <p>
 	    All messages in the message queue will eventually be
 	    placed on heap. They may however temporarily be stored
 	    off heap. This is how messages always have been stored
@@ -5126,6 +5140,15 @@ os_prompt% </pre>
     </func>
 
     <func>
+      <name name="read_timer" arity="1"/>
+      <fsummary>Reads the state of a timer.</fsummary>
+      <desc>
+        <p>Read the state of a timer. The same as calling
+	<seealso marker="#read_timer/2"><c>erlang:read_timer(TimerRef,
+	[])</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="read_timer" arity="2"/>
       <fsummary>Reads the state of a timer.</fsummary>
       <desc>
@@ -5189,15 +5212,6 @@ os_prompt% </pre>
           <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
           and
           <seealso marker="#cancel_timer/2"><c>erlang:cancel_timer/2</c></seealso>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="read_timer" arity="1"/>
-      <fsummary>Reads the state of a timer.</fsummary>
-      <desc>
-        <p>Read the state of a timer. The same as calling
-	<seealso marker="#read_timer/2"><c>erlang:read_timer(TimerRef,
-	[])</c></seealso>.</p>
       </desc>
     </func>
 
@@ -5370,6 +5384,15 @@ true</pre>
     </func>
 
     <func>
+      <name name="send_after" arity="3"/>
+      <fsummary>Starts a timer.</fsummary>
+      <desc>
+        <p>Starts a timer. The same as calling
+	<seealso marker="#send_after/4"><c>erlang:send_after(<anno>Time</anno>,
+	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="send_after" arity="4"/>
       <fsummary>Start a timer</fsummary>
       <desc>
@@ -5380,15 +5403,6 @@ true</pre>
 	  the format of the timeout message,
 	  <c>erlang:send_after/4</c> works exactly as
 	  <seealso marker="#start_timer/4"><c>erlang:start_timer/4</c></seealso>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="send_after" arity="3"/>
-      <fsummary>Starts a timer.</fsummary>
-      <desc>
-        <p>Starts a timer. The same as calling
-	<seealso marker="#send_after/4"><c>erlang:send_after(<anno>Time</anno>,
-	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
 
@@ -5892,6 +5906,16 @@ true</pre>
     </func>
 
     <func>
+      <name name="start_timer" arity="3"/>
+      <fsummary>Starts a timer.</fsummary>
+      <desc>
+        <p>Starts a timer. The same as calling
+	<seealso marker="#start_timer/4"><c>erlang:start_timer(<anno>Time</anno>,
+	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="start_timer" arity="4"/>
       <fsummary>Starts a timer.</fsummary>
       <desc>
@@ -5958,16 +5982,6 @@ true</pre>
           <seealso marker="#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
         <p>Failure: <c>badarg</c> if the arguments do not satisfy
           the requirements specified here.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="start_timer" arity="3"/>
-      <fsummary>Starts a timer.</fsummary>
-      <desc>
-        <p>Starts a timer. The same as calling
-	<seealso marker="#start_timer/4"><c>erlang:start_timer(<anno>Time</anno>,
-	<anno>Dest</anno>, <anno>Msg</anno>, [])</c></seealso>.</p>
       </desc>
     </func>
 
@@ -6368,6 +6382,20 @@ ok
     </func>
 
     <func>
+      <name name="suspend_process" arity="1"/>
+      <fsummary>Suspends a process.</fsummary>
+      <desc>
+        <p>Suspends the process identified by
+        <c><anno>Suspendee</anno></c>. The same as calling
+	<seealso marker="#suspend_process/2">erlang:suspend_process(<anno>Suspendee</anno>,
+        [])</seealso>.</p>
+        <warning>
+          <p>This BIF is intended for debugging only.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
       <name name="suspend_process" arity="2"/>
       <fsummary>Suspends a process.</fsummary>
       <desc>
@@ -6465,20 +6493,6 @@ ok
 	  higher than 2,000,000,000 suspends and will never be lower.
 	  </item>
         </taglist>
-      </desc>
-    </func>
-
-    <func>
-      <name name="suspend_process" arity="1"/>
-      <fsummary>Suspends a process.</fsummary>
-      <desc>
-        <p>Suspends the process identified by
-        <c><anno>Suspendee</anno></c>. The same as calling
-	<seealso marker="#suspend_process/2">erlang:suspend_process(<anno>Suspendee</anno>,
-        [])</seealso>.</p>
-        <warning>
-          <p>This BIF is intended for debugging only.</p>
-        </warning>
       </desc>
     </func>
 
@@ -6750,39 +6764,48 @@ ok
            bound and can be any of the following:</p>
         <taglist>
           <tag><c>unbound</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt u</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>no_spread</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt ns</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>thread_spread</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt ts</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>processor_spread</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt ps</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>spread</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt s</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>no_node_thread_spread</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt nnts</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>no_node_processor_spread</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt nnps</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>thread_no_node_processor_spread</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt tnnps</seealso> in <c>erl(1)</c>.
           </p></item>
           <tag><c>default_bind</c></tag>
-          <item><p>Same as command-line argument
+          <item>
+            <p>Same as command-line argument
           <seealso marker="erts:erl#+sbt">+sbt db</seealso> in <c>erl(1)</c>.
           </p></item>
         </taglist>
@@ -6877,16 +6900,19 @@ ok
 	is used, the time offset state is left unchanged.</p>
         <p>Returns the old state identifier. That is:</p>
 	<list>
-	  <item><p>If <c>preliminary</c> is returned, finalization was
+	  <item>
+            <p>If <c>preliminary</c> is returned, finalization was
 	  performed and the time offset is now final.</p></item>
 
-	  <item><p>If <c>final</c> is returned, the time offset was
+	  <item>
+            <p>If <c>final</c> is returned, the time offset was
 	  already in the final state. This either because another
 	  <c>erlang:system_flag(time_offset, finalize)</c> call, or
 	  because <seealso marker="time_correction#No_Time_Warp_Mode">no
 	  time warp mode</seealso> is used.</p></item>
 
-	  <item><p>If <c>volatile</c> is returned, the time offset
+	  <item>
+            <p>If <c>volatile</c> is returned, the time offset
 	  cannot be finalized because
 	  <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
 	  time warp mode</seealso> is used.</p></item>
@@ -7468,7 +7494,8 @@ ok
             <c>dtrace</c> or <c>systemtap</c>).</p>
           </item>
 	  <tag><marker id="system_info_end_time"/><c>end_time</c></tag>
-	  <item><p>The last <seealso marker="#monotonic_time/0">Erlang monotonic
+	  <item>
+            <p>The last <seealso marker="#monotonic_time/0">Erlang monotonic
 	  time</seealso> in <c>native</c>
 	  <seealso marker="#type_time_unit">time unit</seealso> that
 	  can be represented internally in the current Erlang runtime system
@@ -7695,18 +7722,21 @@ ok
 	    introduced in the future:</p>
 	    <taglist>
 	      <tag><c>{function, Function}</c></tag>
-	      <item><p><c>Function</c> is the name of the function
+	      <item>
+            <p><c>Function</c> is the name of the function
 	      used. This tuple always exist if OS monotonic time is
 	      available to the runtime system.</p></item>
 
 	      <tag><c>{clock_id, ClockId}</c></tag>
-	      <item><p>This tuple only exist if <c>Function</c>
+	      <item>
+            <p>This tuple only exist if <c>Function</c>
 	      can be used with different clocks. <c>ClockId</c>
 	      corresponds to the clock identifier used when calling
 	      <c>Function</c>.</p></item>
 
 	      <tag><c>{resolution, OsMonotonicTimeResolution}</c></tag>
-	      <item><p>Highest possible
+	      <item>
+            <p>Highest possible
 	      <seealso marker="time_correction#Time_Resolution">resolution</seealso>
 	      of current OS monotonic time source as parts per
 	      second. If no resolution information can be retrieved
@@ -7724,7 +7754,8 @@ ok
 	      <c>OsMonotonicTimeResolution</c>.</p></item>
 
 	      <tag><c>{extended, Extended}</c></tag>
-	      <item><p><c>Extended</c> equals <c>yes</c> if
+	      <item>
+            <p><c>Extended</c> equals <c>yes</c> if
 	      the range of time values has been extended;
 	      otherwise, <c>Extended</c> equals <c>no</c>. The
 	      range needs to be extended if <c>Function</c>
@@ -7733,14 +7764,16 @@ ok
 	      value.</p></item>
 
 	      <tag><c>{parallel, Parallel}</c></tag>
-	      <item><p><c>Parallel</c> equals <c>yes</c> if
+	      <item>
+            <p><c>Parallel</c> equals <c>yes</c> if
 	      <c>Function</c> is called in parallel from multiple
 	      threads. If it is not called in parallel, because
 	      calls needs to be serialized, <c>Parallel</c> equals
 	      <c>no</c>.</p></item>
 
 	      <tag><c>{time, OsMonotonicTime}</c></tag>
-	      <item><p><c>OsMonotonicTime</c> equals current OS
+	      <item>
+            <p><c>OsMonotonicTime</c> equals current OS
 	      monotonic time in <c>native</c>
 	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
 	    </taglist>
@@ -7757,17 +7790,20 @@ ok
 	    introduced in the future:</p>
 	    <taglist>
 	      <tag><c>{function, Function}</c></tag>
-	      <item><p><c>Function</c> is the name of the funcion
-	      used.</p></item>
-
+	      <item>
+            <p><c>Function</c> is the name of the funcion
+	      used.</p>
+              </item>
 	      <tag><c>{clock_id, ClockId}</c></tag>
-	      <item><p>This tuple only exist if <c>Function</c>
+	      <item>
+            <p>This tuple only exist if <c>Function</c>
 	      can be used with different clocks. <c>ClockId</c>
 	      corresponds to the clock identifier used when calling
-	      <c>Function</c>.</p></item>
-
+	      <c>Function</c>.</p>
+              </item>
 	      <tag><c>{resolution, OsSystemTimeResolution}</c></tag>
-	      <item><p>Highest possible
+	      <item>
+            <p>Highest possible
 	      <seealso marker="time_correction#Time_Resolution">resolution</seealso>
 	      of current OS system time source as parts per
 	      second. If no resolution information can be retrieved
@@ -7782,19 +7818,22 @@ ok
 	      <seealso marker="time_correction#Time_Precision">precision</seealso>
 	      do align with the resolution. You do,
 	      however, know that the precision is not better than
-	      <c>OsSystemTimeResolution</c>.</p></item>
-
+	      <c>OsSystemTimeResolution</c>.</p>
+              </item>
 	      <tag><c>{parallel, Parallel}</c></tag>
-	      <item><p><c>Parallel</c> equals <c>yes</c> if
+	      <item>
+            <p><c>Parallel</c> equals <c>yes</c> if
 	      <c>Function</c> is called in parallel from multiple
 	      threads. If it is not called in parallel, because
 	      calls needs to be serialized, <c>Parallel</c> equals
-	      <c>no</c>.</p></item>
-
+	      <c>no</c>.</p>
+              </item>
 	      <tag><c>{time, OsSystemTime}</c></tag>
-	      <item><p><c>OsSystemTime</c> equals current OS
+	      <item>
+            <p><c>OsSystemTime</c> equals current OS
 	      system time in <c>native</c>
-	      <seealso marker="#type_time_unit">time unit</seealso>.</p></item>
+	      <seealso marker="#type_time_unit">time unit</seealso>.</p>
+              </item>
 	    </taglist>
           </item>
 	  <tag><c>port_parallelism</c></tag>
@@ -7930,7 +7969,8 @@ ok
               with SMP support, otherwise <c>false</c> is returned.</p>
           </item>
 	  <tag><marker id="system_info_start_time"/><c>start_time</c></tag>
-	  <item><p>The <seealso marker="#monotonic_time/0">Erlang monotonic
+	  <item>
+            <p>The <seealso marker="#monotonic_time/0">Erlang monotonic
 	  time</seealso> in <c>native</c>
 	  <seealso marker="#type_time_unit">time unit</seealso> at the
 	  time when current Erlang runtime system instance started. See also
@@ -7973,14 +8013,16 @@ ok
 	    <p>Returns the state of the time offset:</p>
 	  <taglist>
 	    <tag><c>preliminary</c></tag>
-	    <item><p>The time offset is preliminary, and will be changed
+	    <item>
+            <p>The time offset is preliminary, and will be changed
 	    at a later time when being finalized. The preliminary time offset
 	    is used during the preliminary phase of the
 	    <seealso marker="time_correction#Single_Time_Warp_Mode">single
 	    time warp mode</seealso>.</p></item>
 
 	    <tag><c>final</c></tag>
-	    <item><p>The time offset is final. This either because
+	    <item>
+            <p>The time offset is final. This either because
 	    <seealso marker="time_correction#No_Time_Warp_Mode">no
 	    time warp mode</seealso> is used, or because the time
 	    offset have been finalized when
@@ -7988,27 +8030,32 @@ ok
 	    time warp mode</seealso> is used.</p></item>
 
 	    <tag><c>volatile</c></tag>
-	    <item><p>The time offset is volatile. That is, it can
+	    <item>
+            <p>The time offset is volatile. That is, it can
 	    change at any time. This is because
 	    <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
 	    time warp mode</seealso> is used.</p></item>
 	  </taglist>
 	  </item>
 	  <tag><marker id="system_info_time_warp_mode"/><c>time_warp_mode</c></tag>
-	  <item><p>Returns a value identifying the
+	  <item>
+            <p>Returns a value identifying the
 	  <seealso marker="time_correction#Time_Warp_Modes">time warp
 	  mode</seealso> being used:</p>
 	  <taglist>
 	    <tag><c>no_time_warp</c></tag>
-	    <item><p>The <seealso marker="time_correction#No_Time_Warp_Mode">no
+	    <item>
+            <p>The <seealso marker="time_correction#No_Time_Warp_Mode">no
 	    time warp mode</seealso> is used.</p></item>
 
 	    <tag><c>single_time_warp</c></tag>
-	    <item><p>The <seealso marker="time_correction#Single_Time_Warp_Mode">single
+	    <item>
+            <p>The <seealso marker="time_correction#Single_Time_Warp_Mode">single
 	    time warp mode</seealso> is used.</p></item>
 
 	    <tag><c>multi_time_warp</c></tag>
-	    <item><p>The <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
+	    <item>
+            <p>The <seealso marker="time_correction#Multi_Time_Warp_Mode">multi
 	    time warp mode</seealso> is used.</p></item>
 	  </taglist>
 	  </item>
@@ -9705,42 +9752,6 @@ timestamp() ->
     </func>
 
     <func>
-      <name name="universaltime" arity="0"/>
-      <fsummary>Current date and time according to Universal Time Coordinated (UTC).</fsummary>
-      <desc>
-        <p>Returns the current date and time according to Universal
-          Time Coordinated (UTC) in the form
-          <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c> if
-          supported by the underlying OS.
-          Otherwise <c>erlang:universaltime()</c> is equivalent to
-          <c>erlang:localtime()</c>.</p>
-        <p>Example:</p>
-        <pre>
-> <input>erlang:universaltime().</input>
-{{1996,11,6},{14,18,43}}</pre>
-      </desc>
-    </func>
-
-    <func>
-      <name name="universaltime_to_localtime" arity="1"/>
-      <fsummary>Converts from Universal Time Coordinated (UTC) to local date and time.</fsummary>
-      <desc>
-        <p>Converts Universal Time Coordinated (UTC) date and time to
-          local date and time in the form
-          <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c> if
-          supported by the underlying OS.
-          Otherwise no conversion is done, and
-          <c><anno>Universaltime</anno></c> is returned.</p>
-        <p>Example:</p>
-        <pre>
-> <input>erlang:universaltime_to_localtime({{1996,11,6},{14,18,43}}).</input>
-{{1996,11,7},{15,18,43}}</pre>
-        <p>Failure: <c>badarg</c> if <c>Universaltime</c> denotes
-          an invalid date and time.</p>
-      </desc>
-    </func>
-
-    <func>
       <name name="unique_integer" arity="0"/>
       <fsummary>Get a unique integer value</fsummary>
       <desc>
@@ -9778,14 +9789,16 @@ timestamp() ->
 	<taglist>
 
 	  <tag>positive</tag>
-	  <item><p>Return only positive integers.</p>
+	  <item>
+            <p>Return only positive integers.</p>
 	  <p>Note that by passing the <c>positive</c> modifier
 	  you will get heap allocated integers (bignums)
 	  quicker.</p>
 	  </item>
 
 	  <tag>monotonic</tag>
-	  <item><p>Return
+	  <item>
+            <p>Return
 	  <seealso marker="time_correction#Strictly_Monotonically_Increasing">strictly
 	  monotonically increasing</seealso> integers
 	  corresponding to creation time. That is, the integer
@@ -9834,6 +9847,43 @@ timestamp() ->
 	</taglist>
       </desc>
     </func>
+
+    <func>
+      <name name="universaltime" arity="0"/>
+      <fsummary>Current date and time according to Universal Time Coordinated (UTC).</fsummary>
+      <desc>
+        <p>Returns the current date and time according to Universal
+          Time Coordinated (UTC) in the form
+          <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c> if
+          supported by the underlying OS.
+          Otherwise <c>erlang:universaltime()</c> is equivalent to
+          <c>erlang:localtime()</c>.</p>
+        <p>Example:</p>
+        <pre>
+> <input>erlang:universaltime().</input>
+{{1996,11,6},{14,18,43}}</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="universaltime_to_localtime" arity="1"/>
+      <fsummary>Converts from Universal Time Coordinated (UTC) to local date and time.</fsummary>
+      <desc>
+        <p>Converts Universal Time Coordinated (UTC) date and time to
+          local date and time in the form
+          <c>{{Year, Month, Day}, {Hour, Minute, Second}}</c> if
+          supported by the underlying OS.
+          Otherwise no conversion is done, and
+          <c><anno>Universaltime</anno></c> is returned.</p>
+        <p>Example:</p>
+        <pre>
+> <input>erlang:universaltime_to_localtime({{1996,11,6},{14,18,43}}).</input>
+{{1996,11,7},{15,18,43}}</pre>
+        <p>Failure: <c>badarg</c> if <c>Universaltime</c> denotes
+          an invalid date and time.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="unlink" arity="1"/>
       <fsummary>Removes a link to another process or port.</fsummary>

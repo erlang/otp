@@ -124,6 +124,7 @@ ok
      Note however that unused local stub functions will be optimized
      away by the compiler causing loading of the NIF library to fail.</p>
     </note>
+
      <p>A loaded NIF library is tied to the Erlang module code version
      that loaded it. If the module is upgraded with a new version, the
      new Erlang code will have to load its own NIF library (or maybe choose not
@@ -401,7 +402,7 @@ ok
 	      as I/O bound jobs, dirty I/O schedulers might starve ordinary
 	      schedulers. I/O bound jobs are expected to either block waiting
 	      for I/O, and/or spend a limited amount of time moving data.
-	    </p>
+            </p>
 
 	    <p>
 	      To schedule a dirty NIF for execution, the appropriate
@@ -434,7 +435,6 @@ ok
 	      dirty schedulers need to complete before the block
 	      operation can complete.
 	    </p>
-
 	    <p>
 	      A lot of operations communicating with a process executing a
 	      dirty NIF can, however, complete while it is executing the
@@ -442,7 +442,6 @@ ok
 	      <c>process_info()</c>, setting its group leader,
 	      register/unregister its name, etc.
 	    </p>
-
 	    <p>
 	      Termination of a process executing a dirty NIF can only be
 	      completed up to a certain point while it is executing the
@@ -462,7 +461,6 @@ ok
 	      heap, and process control block will be delayed until the
 	      dirty NIF has completed.
 	    </p>
-
 	    <p>Currently known issues that are planned to be fixed:</p>
 	    <list>
 	      <item>
@@ -756,11 +754,14 @@ typedef enum {
   </section>
 
   <funcs>
-    <func><name><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
+    <func>
+      <name><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
       <fsummary>Allocate dynamic memory</fsummary>
       <desc><p>Allocate memory of <c>size</c> bytes. Return NULL if allocation failed.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_alloc_binary(size_t size, ErlNifBinary* bin)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_alloc_binary(size_t size, ErlNifBinary* bin)</nametext></name>
       <fsummary>Create a new binary</fsummary>
       <desc><p>Allocate a new binary of size <c>size</c>
       bytes. Initialize the structure pointed to by <c>bin</c> to
@@ -773,7 +774,9 @@ typedef enum {
         <p>Return true on success or false if allocation failed.</p>
       </desc>
     </func>
-    <func><name><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
+
+    <func>
+      <name><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
       <fsummary>Create a new environment</fsummary>
       <desc><p>Allocate a new process independent environment. The environment can
       be used to hold terms that is not bound to any process. Such terms can
@@ -783,17 +786,15 @@ typedef enum {
       <p>Return pointer to the new environment.</p>
       </desc>
     </func>
-    <func><name><ret>void *</ret><nametext>enif_alloc_resource(ErlNifResourceType* type, unsigned size)</nametext></name>
+
+    <func>
+      <name><ret>void *</ret><nametext>enif_alloc_resource(ErlNifResourceType* type, unsigned size)</nametext></name>
       <fsummary>Allocate a memory managed resource object</fsummary>
       <desc><p>Allocate a memory managed resource object of type <c>type</c> and size <c>size</c> bytes.</p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_clear_env(ErlNifEnv* env)</nametext></name>
-      <fsummary>Clear an environment for reuse</fsummary>
-      <desc><p>Free all terms in an environment and clear it for reuse. The environment must
-      have been allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
-      </p></desc>
-    </func>
-    <func><name><ret>size_t</ret><nametext>enif_binary_to_term(ErlNifEnv *env, const unsigned char* data, size_t size, ERL_NIF_TERM *term, ErlNifBinaryToTerm opts)</nametext></name>
+
+    <func>
+      <name><ret>size_t</ret><nametext>enif_binary_to_term(ErlNifEnv *env, const unsigned char* data, size_t size, ERL_NIF_TERM *term, ErlNifBinaryToTerm opts)</nametext></name>
     <fsummary>Create a term from the external format</fsummary>
     <desc>
       <p>Create a term that is the result of decoding the binary data
@@ -812,7 +813,19 @@ typedef enum {
       </p>
     </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
+
+
+    <func>
+      <name><ret>void</ret><nametext>enif_clear_env(ErlNifEnv* env)</nametext></name>
+      <fsummary>Clear an environment for reuse</fsummary>
+      <desc><p>Free all terms in an environment and clear it for reuse. The environment must
+      have been allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
+      </p></desc>
+    </func>
+
+
+    <func>
+      <name><ret>int</ret><nametext>enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Compare two terms</fsummary>
       <desc><p>Return an integer less than, equal to, or greater than
       zero if <c>lhs</c> is found, respectively, to be less than,
@@ -820,32 +833,44 @@ typedef enum {
       operators <c>==</c>, <c>/=</c>, <c>=&lt;</c>, <c>&lt;</c>,
       <c>&gt;=</c> and <c>&gt;</c> (but <em>not</em> <c>=:=</c> or <c>=/=</c>).</p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
+
+    <func>
+      <name><ret>void</ret><nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_broadcast">erl_drv_cond_broadcast</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>ErlNifCond *</ret><nametext>enif_cond_create(char *name)</nametext></name>
+
+    <func>
+      <name><ret>ErlNifCond *</ret><nametext>enif_cond_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_create">erl_drv_cond_create</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_cond_destroy(ErlNifCond *cnd)</nametext></name>
+
+    <func>
+      <name><ret>void</ret><nametext>enif_cond_destroy(ErlNifCond *cnd)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_destroy">erl_drv_cond_destroy</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_cond_signal(ErlNifCond *cnd)</nametext></name>
+
+    <func>
+      <name><ret>void</ret><nametext>enif_cond_signal(ErlNifCond *cnd)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_signal">erl_drv_cond_signal</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx)</nametext></name>
+
+    <func>
+      <name><ret>void</ret><nametext>enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_wait">erl_drv_cond_wait</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_consume_timeslice(ErlNifEnv *env, int percent)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_consume_timeslice(ErlNifEnv *env, int percent)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Give the runtime system a hint about how much CPU time the current NIF call has consumed
     since last hint, or since the start of the NIF if no previous hint has been given.
@@ -869,8 +894,8 @@ typedef enum {
     a number of repeated NIF-calls without the need to create threads.
     See also the <seealso marker="#WARNING">warning</seealso> text at the beginning of this document.</p>
     </desc>
-
     </func>
+
 
     <func>
       <name><ret>ErlNifTime</ret><nametext>enif_convert_time_unit(ErlNifTime val, ErlNifTimeUnit from, ErlNifTimeUnit to)</nametext></name>
@@ -911,21 +936,28 @@ typedef enum {
       </desc>
     </func>
 
-    <func><name><ret>int</ret><nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext></name>
+    <func>
+      <name><ret>int</ret><nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_equal_tids">erl_drv_equal_tids</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
+
+    <func>
+      <name><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
       <fsummary>Free dynamic memory</fsummary>
       <desc><p>Free memory allocated by <c>enif_alloc</c>.</p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_free_env(ErlNifEnv* env)</nametext></name>
+
+    <func>
+      <name><ret>void</ret><nametext>enif_free_env(ErlNifEnv* env)</nametext></name>
       <fsummary>Free an environment allocated with enif_alloc_env</fsummary>
       <desc><p>Free an environment allocated with <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>.
       All terms created in the environment will be freed as well.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM term, char* buf, unsigned size, ErlNifCharEncoding encode)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM term, char* buf, unsigned size, ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Get the text representation of an atom term</fsummary>
       <desc><p>Write a null-terminated string, in the buffer pointed to by
               <c>buf</c> of size <c>size</c>, consisting of the string 
@@ -935,77 +967,102 @@ typedef enum {
               <c>term</c> is not an atom with maximum length of 
               <c>size-1</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Get the length of atom <c>term</c></fsummary>
       <desc><p>Set <c>*len</c> to the length (number of bytes excluding
       terminating null character) of the atom <c>term</c> with encoding
       <c>encode</c>. Return true on success or false if <c>term</c> is not an
       atom.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)</nametext></name>
       <fsummary>Read a floating-point number term</fsummary>
       <desc><p>Set <c>*dp</c> to the floating point value of
       <c>term</c>. Return true on success or false if <c>term</c> is not a float.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM term, int* ip)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM term, int* ip)</nametext></name>
       <fsummary>Read an integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the integer value of
       <c>term</c>. Return true on success or false if <c>term</c> is not an
       integer or is outside the bounds of type <c>int</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifSInt64* ip)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifSInt64* ip)</nametext></name>
       <fsummary>Read a 64-bit integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the integer value of
       <c>term</c>. Return true on success or false if <c>term</c> is not an
       integer or is outside the bounds of a signed 64-bit integer.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)</nametext></name>
     <fsummary>Read an local pid term</fsummary>
     <desc><p>If <c>term</c> is the pid of a node local process, initialize the
     pid variable <c>*pid</c> from it and return true. Otherwise return false.
     No check if the process is alive is done.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port_id)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_local_port(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPort* port_id)</nametext></name>
     <fsummary>Read an local port term</fsummary>
     <desc><p>If <c>term</c> identifies a node local port, initialize the
     port variable <c>*port_id</c> from it and return true. Otherwise return false.
     No check if the port is alive is done.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext></name>
       <fsummary>Get head and tail from a list</fsummary>
       <desc><p>Set <c>*head</c> and <c>*tail</c> from
       <c>list</c> and return true, or return false if <c>list</c> is not a
       non-empty list.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
       <fsummary>Get the length of list <c>term</c></fsummary>
       <desc><p>Set <c>*len</c> to the length of list <c>term</c> and return true,
       or return false if <c>term</c> is not a proper list.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
       <fsummary>Read an long integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the long integer value of <c>term</c> and
       return true, or return false if <c>term</c> is not an integer or is
       outside the bounds of type <c>long int</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)</nametext></name>
       <fsummary>Read the size of a map term</fsummary>
       <desc><p>Set <c>*size</c> to the number of key-value pairs in the map <c>term</c> and
       return true, or return false if <c>term</c> is not a map.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_map_value(ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_map_value(ErlNifEnv* env, ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value)</nametext></name>
      <fsummary>Get the value of a key in a map</fsummary>
       <desc><p>Set <c>*value</c> to the value associated with <c>key</c> in the
       map <c>map</c> and return true. Return false if <c>map</c> is not a map
       or if <c>map</c> does not contain <c>key</c>.</p></desc>
     </func>
-   <func><name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
+   <func>
+      <name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
       <fsummary>Get the pointer to a resource object</fsummary>
       <desc><p>Set <c>*objp</c> to point to the resource object referred to by <c>term</c>.</p>
       <p>Return true on success or false if <c>term</c> is not a handle to a resource object
       of type <c>type</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env, 
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env, 
                                 ERL_NIF_TERM list, char* buf, unsigned size,
                                 ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Get a C-string from a list</fsummary>
@@ -1020,7 +1077,9 @@ typedef enum {
               The written string is always null-terminated unless buffer
               <c>size</c> is less than 1.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM term, int* arity, const ERL_NIF_TERM** array)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM term, int* arity, const ERL_NIF_TERM** array)</nametext></name>
       <fsummary>Inspect the elements of a tuple</fsummary>
       <desc><p>If <c>term</c> is a tuple, set <c>*array</c> to point
       to an array containing the elements of the tuple and set
@@ -1030,29 +1089,39 @@ typedef enum {
       is zero.</p><p>Return true on success or false if <c>term</c> is not a
       tuple.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM term, unsigned int* ip)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM term, unsigned int* ip)</nametext></name>
       <fsummary>Read an unsigned integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned integer value of <c>term</c> and
       return true, or return false if <c>term</c> is not an unsigned integer or
       is outside the bounds of type <c>unsigned int</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_uint64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifUInt64* ip)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_uint64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifUInt64* ip)</nametext></name>
       <fsummary>Read an unsigned 64-bit integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned integer value of <c>term</c> and
       return true, or return false if <c>term</c> is not an unsigned integer or
       is outside the bounds of an unsigned 64-bit integer.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
       <fsummary>Read an unsigned integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned long integer value of <c>term</c>
       and return true, or return false if <c>term</c> is not an unsigned integer or is
       outside the bounds of type <c>unsigned long</c>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_getenv(const char* key, char* value, size_t *value_size)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_getenv(const char* key, char* value, size_t *value_size)</nametext></name>
       <fsummary>Get the value of an environment variable</fsummary>
       <desc><p>Same as <seealso marker="erl_driver#erl_drv_getenv">erl_drv_getenv</seealso>.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)</nametext></name>
       <fsummary>Check if an exception has been raised</fsummary>
       <desc><p>Return true if a pending exception is associated
       with the environment <c>env</c>. If <c>reason</c> is a null pointer, ignore it.
@@ -1065,13 +1134,17 @@ typedef enum {
       and <seealso marker="#enif_raise_exception">enif_raise_exception</seealso>.</p>
       </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary</fsummary>
       <desc><p>Initialize the structure pointed to by <c>bin</c> with 
               information about the binary term
       <c>bin_term</c>. Return true on success or false if <c>bin_term</c> is not a binary.</p></desc> 
     </func>
-    <func><name><ret>int</ret><nametext>enif_inspect_iolist_as_binary(ErlNifEnv* 
+
+    <func>
+      <name><ret>int</ret><nametext>enif_inspect_iolist_as_binary(ErlNifEnv* 
                                 env, ERL_NIF_TERM term, ErlNifBinary* bin)
                               </nametext></name>
       <fsummary>Inspect the content of an iolist</fsummary>
@@ -1082,81 +1155,115 @@ typedef enum {
       iolist.</p>
       </desc> 
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an atom</fsummary>
       <desc><p>Return true if <c>term</c> is an atom.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a binary</fsummary>
       <desc><p>Return true if <c>term</c> is a binary</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_current_process_alive(ErlNifEnv* env)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_current_process_alive(ErlNifEnv* env)</nametext></name>
       <fsummary>Determine if currently executing process is alive or not.</fsummary>
       <desc><p>Return true if currently executing process is currently alive; otherwise
       false.</p>
       <p>This function can only be used from a NIF-calling thread, and with an
       environment corresponding to currently executing processes.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an empty list</fsummary>
       <desc><p>Return true if <c>term</c> is an empty list.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an exception</fsummary>
       <desc><marker id="enif_is_exception"/>
         <p>Return true if <c>term</c> is an exception.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
-      <fsummary>Determine if a term is a map</fsummary>
-      <desc><p>Return true if <c>term</c> is a map, false otherwise.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
-      <fsummary>Determine if a term is a number (integer or float)</fsummary>
-      <desc><p>Return true if <c>term</c> is a number.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a fun</fsummary>
       <desc><p>Return true if <c>term</c> is a fun.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_identical(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_identical(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Erlang operator =:=</fsummary>
       <desc><p>Return true if the two terms are identical. Corresponds to the
       Erlang operators <c>=:=</c> and
       <c>=/=</c>.</p></desc> 
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a list</fsummary>
+      <desc><p>Return true if <c>term</c> is a list.</p></desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_map(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a map</fsummary>
+      <desc><p>Return true if <c>term</c> is a map, false otherwise.</p></desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_number(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a number (integer or float)</fsummary>
+      <desc><p>Return true if <c>term</c> is a number.</p></desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a pid</fsummary>
       <desc><p>Return true if <c>term</c> is a pid.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a port</fsummary>
       <desc><p>Return true if <c>term</c> is a port.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env, ErlNifPort *port_id)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_port_alive(ErlNifEnv* env, ErlNifPort *port_id)</nametext></name>
       <fsummary>Determine if a local port is alive or not.</fsummary>
       <desc><p>Return true if <c>port_id</c> is currently alive.</p>
       <p>This function is only thread-safe when the emulator with SMP support is used.
       It can only be used in a non-SMP emulator from a NIF-calling thread.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env, ErlNifPid *pid)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_process_alive(ErlNifEnv* env, ErlNifPid *pid)</nametext></name>
       <fsummary>Determine if a local process is alive or not.</fsummary>
       <desc><p>Return true if <c>pid</c> is currently alive.</p>
       <p>This function is only thread-safe when the emulator with SMP support is used.
       It can only be used in a non-SMP emulator from a NIF-calling thread.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a reference</fsummary>
       <desc><p>Return true if <c>term</c> is a reference.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a tuple</fsummary>
       <desc><p>Return true if <c>term</c> is a tuple.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
-      <fsummary>Determine if a term is a list</fsummary>
-      <desc><p>Return true if <c>term</c> is a list.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_keep_resource(void* obj)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_keep_resource(void* obj)</nametext></name>
       <fsummary>Add a reference to a resource object</fsummary>
       <desc><p>Add a reference to resource object <c>obj</c> obtained from
       <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
@@ -1164,7 +1271,9 @@ typedef enum {
       a call to <seealso marker="#enif_release_resource">enif_release_resource</seealso>
       before the object will be destructed.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the null-terminated C-string <c>name</c>
       with iso-latin-1 encoding. If the length of <c>name</c> exceeds the maximum length
@@ -1172,7 +1281,9 @@ typedef enum {
       <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
       </p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the string <c>name</c> with length <c>len</c>.
       Null-characters are treated as any other characters. If <c>len</c> is greater than the maximum length
@@ -1180,7 +1291,9 @@ typedef enum {
       <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
       </p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
       <fsummary>Make a badarg exception</fsummary>
       <desc><p>Make a badarg exception to be returned from a NIF, and associate
       it with the environment <c>env</c>. Once a NIF or any function
@@ -1200,27 +1313,35 @@ typedef enum {
       requirement is now lifted as the return value from the NIF is ignored
       if <c>enif_make_badarg</c> has been invoked.</p></note></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
       <fsummary>Make a binary term</fsummary>
       <desc><p>Make a binary term from <c>bin</c>. Any ownership of 
               the binary data will be transferred to the created term and
               <c>bin</c> should be considered read-only for the rest of the NIF
               call and then as released.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)</nametext></name>
       <fsummary>Make a copy of a term</fsummary>
       <desc><p>Make a copy of term <c>src_term</c>. The copy will be created in
       environment <c>dst_env</c>. The source term may be located in any
       environment.</p></desc>        
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
       <fsummary>Create a floating-point term</fsummary>
       <desc><p>Create a floating-point term from a <c>double</c>. If the <c>double</c> argument is
       not finite or is NaN, <c>enif_make_double</c> invokes
       <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.
       </p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding encode)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
       <desc><p>Try to create the term of an already existing atom from
       the null-terminated C-string <c>name</c> with encoding
@@ -1230,7 +1351,9 @@ typedef enum {
       allowed for an atom (255 characters), <c>enif_make_existing_atom</c>
       returns false.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
       <desc><p>Try to create the term of an already existing atom from the
       string <c>name</c> with length <c>len</c> and encoding
@@ -1240,21 +1363,29 @@ typedef enum {
       than the maximum length allowed for an atom (255 characters),
       <c>enif_make_existing_atom_len</c> returns false.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term</fsummary>
       <desc><p>Create an integer term.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i)</nametext></name>
       <fsummary>Create an integer term</fsummary>
       <desc><p>Create an integer term from a signed 64-bit integer.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
       <fsummary>Create a list term</fsummary>
       <desc><p>Create an ordinary list term of length <c>cnt</c>. Expects
       <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
       elements of the list. An empty list is returned if <c>cnt</c> is 0.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list1(ErlNifEnv* env, ERL_NIF_TERM e1)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list1(ErlNifEnv* env, ERL_NIF_TERM e1)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</nametext></name>
@@ -1269,20 +1400,60 @@ typedef enum {
       <c>enif_make_list</c>  to get a compile time error if the number of
       arguments does not match.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
       <fsummary>Create a list cell</fsummary>
       <desc><p>Create a list cell <c>[head | tail]</c>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
       <fsummary>Create a list term from an array</fsummary>
       <desc><p>Create an ordinary list containing the elements of array <c>arr</c>
       of length <c>cnt</c>. An empty list is returned if <c>cnt</c> is 0.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
       <fsummary>Create an integer term from a long int</fsummary>
       <desc><p>Create an integer term from a <c>long int</c>.</p></desc>
     </func>
-    <func><name><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv* env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_make_map_put(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Insert key-value pair in map</fsummary>
+      <desc><p>Make a copy of map <c>map_in</c> and insert <c>key</c> with
+      <c>value</c>. If <c>key</c> already exists in <c>map_in</c>, the old
+      associated value is replaced by <c>value</c>. If successful set
+      <c>*map_out</c> to the new map and return true. Return false if
+      <c>map_in</c> is not a map.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_make_map_remove(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Remove key from map</fsummary>
+      <desc><p>If map <c>map_in</c> contains <c>key</c>, make a copy of
+      <c>map_in</c> in <c>*map_out</c> and remove <c>key</c> and associated
+      value. If map <c>map_in</c> does not contain <c>key</c>, set
+      <c>*map_out</c> to <c>map_in</c>. Return true for success or false if
+      <c>map_in</c> is not a map.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_make_map_update(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM new_value, ERL_NIF_TERM* map_out)</nametext></name>
+      <fsummary>Replace value for key in map</fsummary>
+      <desc><p>Make a copy of map <c>map_in</c> and replace the old associated
+      value for <c>key</c> with <c>new_value</c>. If successful set
+      <c>*map_out</c> to the new map and return true. Return false if
+      <c>map_in</c> is not a map or if it does no contain <c>key</c>.</p>
+      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
+    </func>
+
+    <func>
+      <name><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv* env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term</fsummary>
       <desc><p>Allocate a binary of size <c>size</c> bytes and create an owning
       term. The binary data is mutable until the calling NIF returns. This is a
@@ -1292,45 +1463,27 @@ typedef enum {
       reallocated.</p><p>Return a pointer to the raw binary data and set
       <c>*termp</c> to the binary term.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_new_map(ErlNifEnv* env)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_new_map(ErlNifEnv* env)</nametext></name>
       <fsummary>Make an empty map term</fsummary>
       <desc><p>Make an empty map term.</p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_make_map_put(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value, ERL_NIF_TERM* map_out)</nametext></name>
-      <fsummary>Insert key-value pair in map</fsummary>
-      <desc><p>Make a copy of map <c>map_in</c> and insert <c>key</c> with
-      <c>value</c>. If <c>key</c> already exists in <c>map_in</c>, the old
-      associated value is replaced by <c>value</c>. If successful set
-      <c>*map_out</c> to the new map and return true. Return false if
-      <c>map_in</c> is not a map.</p>
-      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_make_map_update(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM new_value, ERL_NIF_TERM* map_out)</nametext></name>
-      <fsummary>Replace value for key in map</fsummary>
-      <desc><p>Make a copy of map <c>map_in</c> and replace the old associated
-      value for <c>key</c> with <c>new_value</c>. If successful set
-      <c>*map_out</c> to the new map and return true. Return false if
-      <c>map_in</c> is not a map or if it does no contain <c>key</c>.</p>
-      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_make_map_remove(ErlNifEnv* env, ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out)</nametext></name>
-      <fsummary>Remove key from map</fsummary>
-      <desc><p>If map <c>map_in</c> contains <c>key</c>, make a copy of
-      <c>map_in</c> in <c>*map_out</c> and remove <c>key</c> and associated
-      value. If map <c>map_in</c> does not contain <c>key</c>, set
-      <c>*map_out</c> to <c>map_in</c>. Return true for success or false if
-      <c>map_in</c> is not a map.</p>
-      <p>The <c>map_in</c> term must belong to the environment <c>env</c>.</p></desc>
-    </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid)</nametext></name>
       <fsummary>Make a pid term</fsummary>
       <desc><p>Make a pid term from <c>*pid</c>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ref(ErlNifEnv* env)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ref(ErlNifEnv* env)</nametext></name>
       <fsummary>Create a reference</fsummary>
       <desc><p>Create a reference like <seealso marker="erlang#make_ref-0">erlang:make_ref/0</seealso>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_resource(ErlNifEnv* env, void* obj)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_resource(ErlNifEnv* env, void* obj)</nametext></name>
       <fsummary>Create an opaque handle to a resource object</fsummary>
       <desc><p>Create an opaque handle to a memory managed resource object
       obtained by <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
@@ -1347,7 +1500,9 @@ typedef enum {
       same node. Other operations such as matching or <c>term_to_binary</c>
       will have unpredictable (but harmless) results.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_resource_binary(ErlNifEnv* env, void* obj, const void* data, size_t size)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_resource_binary(ErlNifEnv* env, void* obj, const void* data, size_t size)</nametext></name>
       <fsummary>Create a custom binary term</fsummary>
       <desc><p>Create a binary term that is memory managed by a resource object
       <c>obj</c> obtained by <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
@@ -1365,7 +1520,9 @@ typedef enum {
       <seealso marker="#enif_release_resource">enif_release_resource</seealso>.</p>
       </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in, ERL_NIF_TERM *list_out)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in, ERL_NIF_TERM *list_out)</nametext></name>
       <fsummary>Create the reverse of a list</fsummary>
       <desc><p>Set <c>*list_out</c> to the reverse list of the list <c>list_in</c> and return true,
       or return false if <c>list_in</c> is not a list. This function should only be used on
@@ -1373,18 +1530,24 @@ typedef enum {
       nif returns.</p>
       <p>The <c>list_in</c> term must belong to the environment <c>env</c>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string</fsummary>
       <desc><p>Create a list containing the characters of the
       null-terminated string <c>string</c> with encoding <seealso marker="#ErlNifCharEncoding">encoding</seealso>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding encoding)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string</fsummary>
       <desc><p>Create a list containing the characters of the string <c>string</c> with
       length <c>len</c> and encoding <seealso marker="#ErlNifCharEncoding">encoding</seealso>.
       Null-characters are treated as any other characters.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv* 
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv* 
       env, ERL_NIF_TERM bin_term, size_t pos, size_t size)</nametext></name>
       <fsummary>Make a subbinary term</fsummary>
       <desc><p>Make a subbinary of binary <c>bin_term</c>, starting at 
@@ -1393,13 +1556,17 @@ typedef enum {
               <c>pos+size</c> must be less or equal to the number of whole
               bytes in <c>bin_term</c>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
       <fsummary>Create a tuple term</fsummary>
       <desc><p>Create a tuple term of arity <c>cnt</c>. Expects
       <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
       elements of the tuple.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple1(ErlNifEnv* env, ERL_NIF_TERM e1)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple1(ErlNifEnv* env, ERL_NIF_TERM e1)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</nametext></name>
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</nametext></name>
@@ -1414,19 +1581,32 @@ typedef enum {
       <c>enif_make_tuple</c>  to get a compile time error if the number of
       arguments does not match.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
       <fsummary>Create a tuple term from an array</fsummary>
       <desc><p>Create a tuple containing the elements of array <c>arr</c>
       of length <c>cnt</c>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_uint(ErlNifEnv* env, unsigned int i)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_uint(ErlNifEnv* env, unsigned int i)</nametext></name>
       <fsummary>Create an unsigned integer term</fsummary>
       <desc><p>Create an integer term from an <c>unsigned int</c>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)</nametext></name>
       <fsummary>Create an unsigned integer term</fsummary>
       <desc><p>Create an integer term from an unsigned 64-bit integer.</p></desc>
     </func>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
+      <fsummary>Create an integer term from an unsigned long int</fsummary>
+      <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
+    </func>
+
     <func>
       <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_unique_integer(ErlNifEnv *env, ErlNifUniqueInteger properties)</nametext></name>
       <fsummary></fsummary>
@@ -1444,11 +1624,9 @@ typedef enum {
 	</p>
       </desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
-      <fsummary>Create an integer term from an unsigned long int</fsummary>
-      <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_map_iterator_create(ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_map_iterator_create(ErlNifEnv *env, ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry entry)</nametext></name>
       <fsummary>Create a map iterator</fsummary>
       <desc><p>Create an iterator for the map <c>map</c> by initializing the
       structure pointed to by <c>iter</c>. The <c>entry</c> argument determines
@@ -1477,42 +1655,66 @@ enif_map_iterator_destroy(env, &amp;iter);
     </note>
       </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+
+    <func>
+      <name><ret>void</ret><nametext>enif_map_iterator_destroy(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Destroy a map iterator</fsummary>
-      <desc><p>Destroy a map iterator created by
+      <desc>
+        <p>Destroy a map iterator created by
       <seealso marker="#enif_map_iterator_create">enif_map_iterator_create</seealso>.
-      </p></desc>
+      </p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_map_iterator_get_pair(ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_map_iterator_get_pair(ErlNifEnv *env, ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM *value)</nametext></name>
       <fsummary>Get key and value at current map iterator position</fsummary>
-      <desc><p>Get key and value terms at current map iterator position.
+      <desc>
+        <p>Get key and value terms at current map iterator position.
       On success set <c>*key</c> and <c>*value</c> and return true.
       Return false if the iterator is positioned at head (before first entry)
-      or tail (beyond last entry).</p></desc>
+      or tail (beyond last entry).</p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_map_iterator_is_head(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Check if map iterator is positioned before first</fsummary>
-      <desc><p>Return true if map iterator <c>iter</c> is positioned
-      before first entry.</p></desc>
+      <desc>
+        <p>Return true if map iterator <c>iter</c> is positioned
+      before first entry.</p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_map_iterator_is_tail(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Check if map iterator is positioned after last</fsummary>
-      <desc><p>Return true if map iterator <c>iter</c> is positioned
-      after last entry.</p></desc>
+      <desc>
+        <p>Return true if map iterator <c>iter</c> is positioned
+      after last entry.</p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_map_iterator_next(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Increment map iterator to point to next entry</fsummary>
-      <desc><p>Increment map iterator to point to next key-value entry.
+      <desc>
+        <p>Increment map iterator to point to next key-value entry.
       Return true if the iterator is now positioned at a valid key-value entry,
       or false if the iterator is positioned at the tail (beyond the last
-      entry).</p></desc>
+      entry).</p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_map_iterator_prev(ErlNifEnv *env, ErlNifMapIterator *iter)</nametext></name>
       <fsummary>Decrement map iterator to point to previous entry</fsummary>
-      <desc><p>Decrement map iterator to point to previous key-value entry.
+      <desc>
+        <p>Decrement map iterator to point to previous key-value entry.
       Return true if the iterator is now positioned at a valid key-value entry,
       or false if the iterator is positioned at the head (before the first
-      entry).</p></desc>
+      entry).</p>
+      </desc>
     </func>
 
     <func>
@@ -1541,41 +1743,74 @@ enif_map_iterator_destroy(env, &amp;iter);
       </desc>
     </func>
 
-    <func><name><ret>ErlNifMutex *</ret><nametext>enif_mutex_create(char *name)</nametext></name>
+    <func>
+      <name><ret>ErlNifMutex *</ret>
+      <nametext>enif_mutex_create(char *name)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_create">erl_drv_mutex_create</seealso>.
-    </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_create">erl_drv_mutex_create</seealso>.
+    </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_mutex_destroy(ErlNifMutex *mtx)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_mutex_destroy(ErlNifMutex *mtx)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_destroy">erl_drv_mutex_destroy</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_destroy">erl_drv_mutex_destroy</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_mutex_lock(ErlNifMutex *mtx)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_mutex_lock(ErlNifMutex *mtx)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_lock">erl_drv_mutex_lock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_lock">erl_drv_mutex_lock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_mutex_trylock(ErlNifMutex *mtx)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_mutex_trylock(ErlNifMutex *mtx)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_trylock">erl_drv_mutex_trylock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_trylock">erl_drv_mutex_trylock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_mutex_unlock(ErlNifMutex *mtx)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_mutex_unlock(ErlNifMutex *mtx)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_unlock">erl_drv_mutex_unlock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_unlock">erl_drv_mutex_unlock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_now_time(ErlNifEnv *env)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret>
+      <nametext>enif_now_time(ErlNifEnv *env)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Retuns an <seealso marker="erlang#now-0">erlang:now()</seealso> timestamp.
-    The enif_now_time function is <em>deprecated</em>.</p></desc>
+    <desc>
+        <p>Retuns an <seealso marker="erlang#now-0">erlang:now()</seealso> timestamp.
+    The enif_now_time function is <em>deprecated</em>.</p>
+      </desc>
     </func>
-    <func><name><ret>ErlNifResourceType *</ret><nametext>enif_open_resource_type(ErlNifEnv* env,
+
+    <func>
+      <name><ret>ErlNifResourceType *</ret>
+      <nametext>enif_open_resource_type(ErlNifEnv* env,
                              const char* module_str, const char* name,
                              ErlNifResourceDtor* dtor, ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext></name>
       <fsummary>Create or takeover a resource type</fsummary>
-      <desc><p>Create or takeover a resource type identified by the string
+      <desc>
+        <p>Create or takeover a resource type identified by the string
       <c>name</c> and give it the destructor function pointed to by <seealso marker="#ErlNifResourceDtor">dtor</seealso>.
       Argument <c>flags</c> can have the following values:</p>
       <taglist>
@@ -1600,7 +1835,10 @@ enif_map_iterator_destroy(env, &amp;iter);
        and <seealso marker="#upgrade">upgrade</seealso>.</p>
       </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_port_command(ErlNifEnv* env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_port_command(ErlNifEnv* env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg)</nametext></name>
       <fsummary>Send a port_command to to_port</fsummary>
       <desc>
         <p>This function works the same as <seealso marker="erlang#port_command-2">erlang:port_command/2</seealso>
@@ -1630,15 +1868,24 @@ enif_map_iterator_destroy(env, &amp;iter);
         <p>See also: <seealso marker="#enif_get_local_port"><c>enif_get_local_port</c></seealso>.</p>
       </desc>
     </func>
-    <func><name><ret>void *</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
+
+    <func>
+      <name><ret>void *</ret>
+      <nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
       <fsummary>Get the private data of a NIF library</fsummary>
-      <desc><p>Return the pointer to the private data that was set by <c>load</c>,
+      <desc>
+        <p>Return the pointer to the private data that was set by <c>load</c>,
       <c>reload</c> or <c>upgrade</c>.</p>
-      <p>Was previously named <c>enif_get_data</c>.</p></desc>
+      <p>Was previously named <c>enif_get_data</c>.</p>
+      </desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_raise_exception(ErlNifEnv* env, ERL_NIF_TERM reason)</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret>
+      <nametext>enif_raise_exception(ErlNifEnv* env, ERL_NIF_TERM reason)</nametext></name>
       <fsummary>Raise a NIF error exception</fsummary>
-      <desc><p>Create an error exception with the term <c>reason</c> to be returned from a NIF,
+      <desc>
+        <p>Create an error exception with the term <c>reason</c> to be returned from a NIF,
       and associate it with the environment <c>env</c>. Once a NIF or any function it calls
       invokes <c>enif_raise_exception</c>, the runtime ensures that the exception it creates
       is raised when the NIF returns, even if the NIF attempts to return a non-exception
@@ -1647,71 +1894,130 @@ enif_map_iterator_destroy(env, &amp;iter);
       to <seealso marker="#enif_is_exception">enif_is_exception</seealso>, but
       not to any other NIF API function.</p>
       <p>See also: <seealso marker="#enif_has_pending_exception">enif_has_pending_exception</seealso>
-      and <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.</p></desc>
+      and <seealso marker="#enif_make_badarg">enif_make_badarg</seealso>.</p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext></name>
       <fsummary>Change the size of a binary</fsummary>
-      <desc><p>Change the size of a binary <c>bin</c>. The source binary
+      <desc>
+        <p>Change the size of a binary <c>bin</c>. The source binary
       may be read-only, in which case it will be left untouched and
       a mutable copy is allocated and assigned to <c>*bin</c>. Return true on success,
-      false if memory allocation failed.</p></desc>
+      false if memory allocation failed.</p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifBinary* bin)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_release_binary(ErlNifBinary* bin)</nametext></name>
       <fsummary>Release a binary</fsummary>
-      <desc><p>Release a binary obtained from <c>enif_alloc_binary</c>.</p></desc>
+      <desc>
+        <p>Release a binary obtained from <c>enif_alloc_binary</c>.</p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_release_resource(void* obj)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_release_resource(void* obj)</nametext></name>
       <fsummary>Release a resource object</fsummary>
-      <desc><p>Remove a reference to resource object <c>obj</c>obtained from
+      <desc>
+        <p>Remove a reference to resource object <c>obj</c>obtained from
       <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
       The resource object will be destructed when the last reference is removed.
       Each call to <c>enif_release_resource</c> must correspond to a previous
       call to <c>enif_alloc_resource</c> or
       <seealso marker="#enif_keep_resource">enif_keep_resource</seealso>.
       References made by <seealso marker="#enif_make_resource">enif_make_resource</seealso>
-      can only be removed by the garbage collector.</p></desc>
+      can only be removed by the garbage collector.</p>
+      </desc>
     </func>
-    <func><name><ret>ErlNifRWLock *</ret><nametext>enif_rwlock_create(char *name)</nametext></name>
+
+    <func>
+      <name><ret>ErlNifRWLock *</ret>
+      <nametext>enif_rwlock_create(char *name)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_create">erl_drv_rwlock_create</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_create">erl_drv_rwlock_create</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_rwlock_destroy(ErlNifRWLock *rwlck)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_rwlock_destroy(ErlNifRWLock *rwlck)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_destroy">erl_drv_rwlock_destroy</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_destroy">erl_drv_rwlock_destroy</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_rwlock_rlock(ErlNifRWLock *rwlck)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_rwlock_rlock(ErlNifRWLock *rwlck)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rlock">erl_drv_rwlock_rlock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rlock">erl_drv_rwlock_rlock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_rwlock_runlock(ErlNifRWLock *rwlck)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_rwlock_runlock(ErlNifRWLock *rwlck)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_runlock">erl_drv_rwlock_runlock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_runlock">erl_drv_rwlock_runlock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_rwlock_rwlock(ErlNifRWLock *rwlck)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_rwlock_rwlock(ErlNifRWLock *rwlck)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rwlock">erl_drv_rwlock_rwlock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rwlock">erl_drv_rwlock_rwlock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_rwlock_rwunlock(ErlNifRWLock *rwlck)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_rwlock_rwunlock(ErlNifRWLock *rwlck)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rwunlock">erl_drv_rwlock_rwunlock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rwunlock">erl_drv_rwlock_rwunlock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_rwlock_tryrlock(ErlNifRWLock *rwlck)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_rwlock_tryrlock(ErlNifRWLock *rwlck)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrlock">erl_drv_rwlock_tryrlock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrlock">erl_drv_rwlock_tryrlock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_rwlock_tryrwlock(ErlNifRWLock *rwlck)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_rwlock_tryrwlock(ErlNifRWLock *rwlck)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrwlock">erl_drv_rwlock_tryrwlock</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrwlock">erl_drv_rwlock_tryrwlock</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM argv[])</nametext></name>
+
+    <func>
+      <name><ret>ERL_NIF_TERM</ret>
+      <nametext>enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags, ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]), int argc, const ERL_NIF_TERM argv[])</nametext></name>
       <fsummary>Schedule a NIF for execution</fsummary>
       <desc>
           <p>Schedule NIF <c>fp</c> to execute. This function allows an application to break up long-running
@@ -1736,14 +2042,23 @@ enif_map_iterator_destroy(env, &amp;iter);
           return value and use it for further operations.</p>
       </desc>
     </func>
-    <func><name><ret>ErlNifPid *</ret><nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext></name>
+
+    <func>
+      <name><ret>ErlNifPid *</ret>
+      <nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext></name>
       <fsummary>Get the pid of the calling process</fsummary>
-      <desc><p>Initialize the pid variable <c>*pid</c> to represent the
-      calling process. Return <c>pid</c>.</p></desc>
+      <desc>
+        <p>Initialize the pid variable <c>*pid</c> to represent the
+      calling process. Return <c>pid</c>.</p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
       <fsummary>Send a message to a process</fsummary>
-      <desc><p>Send a message to a process.</p>
+      <desc>
+        <p>Send a message to a process.</p>
       <taglist>
         <tag><c>env</c></tag>
               <item>The environment of the calling process. Must be NULL if and
@@ -1772,13 +2087,20 @@ enif_map_iterator_destroy(env, &amp;iter);
       erts-8.0 (OTP 19).</p></note>
       </desc>
     </func>
-    <func><name><ret>unsigned</ret><nametext>enif_sizeof_resource(void* obj)</nametext></name>
+
+    <func>
+      <name><ret>unsigned</ret>
+      <nametext>enif_sizeof_resource(void* obj)</nametext></name>
       <fsummary>Get the byte size of a resource object</fsummary>
-      <desc><p>Get the byte size of a resource object <c>obj</c> obtained by
-      <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.</p></desc>
+      <desc>
+        <p>Get the byte size of a resource object <c>obj</c> obtained by
+      <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.</p>
+      </desc>
     </func>
 
-    <func><name><ret>int</ret><nametext>enif_snprintf(char *str, size_t size, const char *format, ...)</nametext></name>
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_snprintf(char *str, size_t size, const char *format, ...)</nametext></name>
       <fsummary>Format strings and Erlang terms</fsummary>
       <desc>
           <p>Similar to <c>snprintf</c> but this format string also accepts <c>"%T"</c> which formats Erlang terms.
@@ -1787,12 +2109,18 @@ enif_map_iterator_destroy(env, &amp;iter);
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>enif_system_info(ErlNifSysInfo *sys_info_ptr, size_t size)</nametext></name>
+      <name><ret>void</ret>
+      <nametext>enif_system_info(ErlNifSysInfo *sys_info_ptr, size_t size)</nametext></name>
       <fsummary>Get information about the Erlang runtime system</fsummary>
-      <desc><p>Same as <seealso marker="erl_driver#driver_system_info">driver_system_info</seealso>.
-            </p></desc>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#driver_system_info">driver_system_info</seealso>.
+            </p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_term_to_binary(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_term_to_binary(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *bin)</nametext></name>
     <fsummary>Convert a term to the external format</fsummary>
     <desc>
       <p>Allocates a new binary with <seealso marker="#enif_alloc_binary">enif_alloc_binary</seealso>
@@ -1804,37 +2132,70 @@ enif_map_iterator_destroy(env, &amp;iter);
       </p>
     </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_create">erl_drv_thread_create</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_create">erl_drv_thread_create</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_thread_exit(void *resp)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_thread_exit(void *resp)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_exit">erl_drv_thread_exit</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_exit">erl_drv_thread_exit</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_thread_join(ErlNifTid, void **respp)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_thread_join(ErlNifTid, void **respp)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_join">erl_drv_thread_join </seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_join">erl_drv_thread_join </seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>ErlNifThreadOpts *</ret><nametext>enif_thread_opts_create(char *name)</nametext></name>
+
+    <func>
+      <name><ret>ErlNifThreadOpts *</ret>
+      <nametext>enif_thread_opts_create(char *name)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_opts_create">erl_drv_thread_opts_create</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_opts_create">erl_drv_thread_opts_create</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_thread_opts_destroy(ErlNifThreadOpts *opts)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_thread_opts_destroy(ErlNifThreadOpts *opts)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_opts_destroy">erl_drv_thread_opts_destroy</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_opts_destroy">erl_drv_thread_opts_destroy</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>ErlNifTid</ret><nametext>enif_thread_self(void)</nametext></name>
+
+    <func>
+      <name><ret>ErlNifTid</ret>
+      <nametext>enif_thread_self(void)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_thread_type(void)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_thread_type(void)</nametext></name>
         <fsummary>Determine type of current thread</fsummary>
         <desc>
             <p>Determine the type of currently executing thread. A positive value
@@ -1853,8 +2214,10 @@ enif_map_iterator_destroy(env, &amp;iter);
             </taglist>
         </desc>
     </func>
+
     <func>
-      <name><ret>ErlNifTime</ret><nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
+      <name><ret>ErlNifTime</ret>
+      <nametext>enif_time_offset(ErlNifTimeUnit time_unit)</nametext></name>
       <fsummary>Get current Time Offset</fsummary>
       <desc>
 	<marker id="enif_time_offset"></marker>
@@ -1878,25 +2241,44 @@ enif_map_iterator_destroy(env, &amp;iter);
       </desc>
     </func>
 
-    <func><name><ret>int</ret><nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext></name>
+    <func>
+      <name><ret>void *</ret>
+      <nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_create">erl_drv_tsd_key_create</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_tsd_key_destroy(ErlNifTSDKey key)</nametext></name>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_destroy">erl_drv_tsd_key_destroy</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_create">erl_drv_tsd_key_create</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void *</ret><nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_tsd_key_destroy(ErlNifTSDKey key)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_destroy">erl_drv_tsd_key_destroy</seealso>.
+          </p>
+      </desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_tsd_set(ErlNifTSDKey key, void *data)</nametext></name>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_tsd_set(ErlNifTSDKey key, void *data)</nametext></name>
     <fsummary></fsummary>
-    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set</seealso>.
-          </p></desc>
+    <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set</seealso>.
+          </p>
+      </desc>
     </func>
   </funcs>
   <section>
