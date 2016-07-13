@@ -530,9 +530,14 @@ analyse(#state{sys=Sys} = S, Apps, Status) ->
     %% Write all #app to app_tab and all #mod to mod_tab.
     Status2 = apps_init_is_included(S, Apps, RelApps, Status),
 
+    %% For each application that is not (directly or indirectly) part
+    %% of a release, but still has #app.is_included==true, propagate
+    %% is_included to the dependencies specified in the .app files.
+    app_propagate_is_included(S),
+
     %% For each module that has #mod.is_included==true, propagate
     %% is_included to the modules it uses.
-    propagate_is_included(S),
+    mod_propagate_is_included(S),
 
     %% Insert reverse dependencies - i.e. for each
     %% #mod{name=Mod, uses_mods=[UsedMod]},
@@ -565,31 +570,34 @@ apps_in_rels(Rels, Apps) ->
 
 apps_in_rel(#rel{name = RelName, rel_apps = RelApps}, Apps) ->
     Mandatory = [{RelName, kernel}, {RelName, stdlib}],
-    Other =
+    Explicit0 = [{RelName, AppName} || #rel_app{name=AppName} <- RelApps],
+    Explicit = Mandatory ++ Explicit0,
+    Deps =
 	[{RelName, AppName} ||
 	    RA <- RelApps,
-	    AppName <- [RA#rel_app.name |
+	    AppName <-
+		case lists:keyfind(RA#rel_app.name,
+				   #app.name,
+				   Apps) of
+		    App=#app{info = #app_info{applications = AA}} ->
 			%% Included applications in rel shall overwrite included
 			%% applications in .app. I.e. included applications in
 			%% .app shall only be used if it is not defined in rel.
-			case RA#rel_app.incl_apps of
-			    undefined ->
-				case lists:keyfind(RA#rel_app.name,
-						   #app.name,
-						   Apps) of
-				    #app{info = #app_info{incl_apps = IA}} ->
-					IA;
-				    false ->
-					reltool_utils:throw_error(
-					  "Release ~tp uses non existing "
-					  "application ~w",
-					  [RelName,RA#rel_app.name])
-				end;
-			    IA ->
-				IA
-			end],
-	    not lists:keymember(AppName, 2, Mandatory)],
-    more_apps_in_rels(Mandatory ++ Other, Apps, []).
+			IA = case RA#rel_app.incl_apps of
+				 undefined ->
+				     (App#app.info)#app_info.incl_apps;
+				 RelIA ->
+				     RelIA
+			     end,
+			AA ++ IA;
+		    false ->
+			reltool_utils:throw_error(
+			  "Release ~tp uses non existing "
+			  "application ~w",
+			  [RelName,RA#rel_app.name])
+		end,
+	    not lists:keymember(AppName, 2, Explicit)],
+    more_apps_in_rels(Deps, Apps, Explicit).
 
 more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
     case lists:member(RA, Acc) of
@@ -597,8 +605,8 @@ more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
 	    more_apps_in_rels(RelApps, Apps, Acc);
 	false ->
 	    case lists:keyfind(AppName, #app.name, Apps) of
-		#app{info = #app_info{applications = InfoApps}} ->
-		    Extra = [{RelName, N} || N <- InfoApps],
+		#app{info = #app_info{applications = AA, incl_apps=IA}} ->
+		    Extra = [{RelName, N} || N <- AA++IA],
 		    Acc2 = more_apps_in_rels(Extra, Apps, [RA | Acc]),
 		    more_apps_in_rels(RelApps, Apps, Acc2);
 		false ->
@@ -609,7 +617,6 @@ more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
     end;
 more_apps_in_rels([], _Apps, Acc) ->
     Acc.
-
 
 apps_init_is_included(S, Apps, RelApps, Status) ->
     lists:foldl(fun(App, AccStatus) ->
@@ -745,6 +752,100 @@ false_to_undefined(Bool) ->
         _     -> Bool
     end.
 
+get_no_rel_apps_and_dependencies(S) ->
+    ets:select(S#state.app_tab, [{#app{name='$1',
+				       is_included=true,
+				       info=#app_info{applications='$2',
+						      incl_apps='$3',
+						      _='_'},
+				       rels=[],
+				       _='_'},
+				  [],
+				  [{{'$1','$2','$3'}}]}]).
+
+app_propagate_is_included(S) ->
+    lists:foreach(
+      fun({AppName,DepNames1,DepNames2}) ->
+	      app_mark_is_included(S,AppName,DepNames1++DepNames2)
+      end,
+      get_no_rel_apps_and_dependencies(S)).
+
+app_mark_is_included(#state{app_tab=AppTab, mod_tab=ModTab, sys=Sys}=S,UsedByName,[AppName|AppNames]) ->
+    case ets:lookup(AppTab, AppName) of
+	[A] ->
+	    case A#app.is_included of
+		undefined ->
+		    %% Not yet marked => mark and propagate
+		    A2 =
+			case A#app.incl_cond of
+			    include ->
+				A#app{is_pre_included = true,
+				      is_included = true};
+			    exclude ->
+				A#app{is_pre_included = false,
+				      is_included = false};
+			    AppInclCond when AppInclCond==undefined;
+					     AppInclCond==derived  ->
+				A#app{is_included = true}
+			end,
+		    ets:insert(AppTab, A2),
+
+		    ModCond =
+			case A#app.mod_cond of
+			    undefined -> Sys#sys.mod_cond;
+			    _         -> A#app.mod_cond
+			end,
+		    Filter =
+			fun(M) ->
+				case ModCond of
+				    all     -> true;
+				    app     -> M#mod.is_app_mod;
+				    ebin    -> M#mod.is_ebin_mod;
+				    derived -> false;
+				    none    -> false
+				end
+			end,
+		    Mods = lists:filter(Filter, A#app.mods),
+		    %% Mark the modules of this app, but no need to go
+		    %% recursive on modules since this is done in
+		    %% mod_mark_is_included.
+		    [case M#mod.is_included of
+			 undefined ->
+			     M2 =
+				 case M#mod.incl_cond of
+				     include ->
+					 M#mod{is_pre_included = true,
+					       is_included = true};
+				     exclude ->
+					 M#mod{is_pre_included = false,
+					       is_included = false};
+				     ModInclCond when ModInclCond==undefined;
+						      ModInclCond==derived  ->
+					 M#mod{is_included = true}
+				 end,
+			     ets:insert(ModTab, M2);
+			 _ ->
+			     ok
+		     end || M <- Mods],
+
+		    %% Go recursive on dependencies
+		    #app{info=#app_info{applications=DepNames1,
+					incl_apps=DepNames2}} = A,
+		    app_mark_is_included(S,AppName,DepNames1++DepNames2);
+		_ ->
+		    %% Already marked
+		    ok
+	    end;
+	[] ->
+	    %% Missing app
+	    reltool_utils:throw_error(
+	      "Application ~tp uses non existing application ~w",
+	      [UsedByName,AppName])
+    end,
+    app_mark_is_included(S, UsedByName, AppNames);
+app_mark_is_included(_S, _UsedByName, []) ->
+    ok.
+
 %% Return the list for {ModName, UsesModNames} for all modules where
 %% #mod.is_included==true.
 get_all_mods_and_dependencies(S) ->
@@ -755,7 +856,7 @@ get_all_mods_and_dependencies(S) ->
 				  [],
 				  [{{'$1','$2'}}]}]).
 
-propagate_is_included(S) ->
+mod_propagate_is_included(S) ->
     case lists:flatmap(
 	   fun({ModName,UsesModNames}) ->
 		   mod_mark_is_included(S,ModName,UsesModNames,[])

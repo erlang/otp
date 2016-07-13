@@ -142,6 +142,7 @@ all() ->
      save_config,
      dependencies,
      mod_incl_cond_derived,
+     dep_in_app_not_xref,
      use_selected_vsn,
      use_selected_vsn_relative_path,
      non_standard_vsn_id,
@@ -408,7 +409,6 @@ create_release_sort(Config) ->
 	  {app,tools,[{mod_cond,app},{incl_cond,include}]}
          ]},
     %% Generate release
-
     ?msym({ok, {release, {RelName1, RelVsn},
 		{erts, _},
 		[{kernel, _},
@@ -2304,6 +2304,7 @@ dependencies(Config) ->
     ok.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test that incl_cond on mod level overwrites mod_cond on app level
 %% Uses same test applications as dependencies/1 above
 mod_incl_cond_derived(Config) ->
@@ -2343,6 +2344,40 @@ mod_incl_cond_derived(Config) ->
     %% is used by x3.
     ?msym({ok,#mod{is_included=true}}, reltool_server:get_mod(Pid,y2)),
 
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ERL-167, OTP-11993: For applications that are not included in a
+%% release spec ('rel'), dependencies in the .app files are not
+%% considered - only those found with xref.
+dep_in_app_not_xref(Config) ->
+    RelName = "Just testing...",
+    RelVsn = "1.0",
+    Sys =
+        {sys,
+         [
+	  {lib_dirs,[filename:join(datadir(Config),"dep_in_app_not_xref")]},
+	  {incl_cond,exclude},
+	  {incl_archive_filters,[]},
+	  {erts,[{incl_cond,exclude}]},
+          {boot_rel, RelName},
+          {rel, RelName, RelVsn, [kernel, stdlib]},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,derived}]},
+	  {app,z,[{incl_cond,derived}]}
+         ]},
+
+    TargetDir = filename:join([?WORK_DIR, "target_dep_in_app_not_xref"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+    ?log("~p~n",[file:list_dir(filename:join([TargetDir,"lib"]))]),
+
+    ?m(true, filelib:is_dir(filename:join([TargetDir,"lib","y-1.0"]))),
+    ?m(true, filelib:is_dir(filename:join([TargetDir,"lib","z-1.0"]))),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
