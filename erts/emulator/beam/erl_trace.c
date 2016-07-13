@@ -493,8 +493,8 @@ erts_get_system_seq_tracer(void)
     if (st != erts_tracer_nil &&
         call_enabled_tracer(st, NULL, TRACE_FUN_ENABLED,
                             am_trace_status, am_undefined) == am_remove) {
-        erts_set_system_seq_tracer(NULL, 0, erts_tracer_nil);
-        st = erts_tracer_nil;
+        st = erts_set_system_seq_tracer(NULL, 0, erts_tracer_nil);
+        ERTS_TRACER_CLEAR(&st);
     }
 
     return st;
