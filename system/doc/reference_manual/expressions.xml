@@ -1541,7 +1541,16 @@ end</pre>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
 [2,4,6]</pre>
-    <p>More examples are provoded in
+    <p>When there are no generators or bit string generators, a list comprehension
+    returns either a list with one element (the result of evaluating <c>Expr</c>)
+    if all filters are true or an empty list otherwise.</p>
+    <p><em>Example:</em></p>
+    <pre>
+1> <input>[2 || is_integer(2)].</input>
+[2]
+2> <input>[x || is_integer(x)].</input>
+[]</pre>
+    <p>More examples are provided in
     <seealso marker="doc/programming_examples:list_comprehensions">
     Programming Examples.</seealso></p>
 
