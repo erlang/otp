@@ -2826,13 +2826,7 @@ do {						\
             goto context_switch3;
         }
 
-        if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
-            if (GET_BIF_MODULE(Arg(0)) == am_ets) {
-                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
-            } else {
-                ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
-            }
-        }
+        ERTS_MSACC_SET_BIF_STATE_CACHED_X(GET_BIF_MODULE(Arg(0)), GET_BIF_ADDRESS(Arg(0)));
 
 	bf = GET_BIF_ADDRESS(Arg(0));
 
@@ -3593,13 +3587,7 @@ do {						\
                 goto context_switch;
             }
 
-            if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
-                if ((Eterm)I[-3] == am_ets) {
-                    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
-                } else {
-                    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
-                }
-            }
+            ERTS_MSACC_SET_BIF_STATE_CACHED_X((Eterm)I[-3], (BifFunction)Arg(0));
 
 	    c_p->current = I-3;	/* In case we apply process_info/1,2 or load_nif/1 */
 	    c_p->i = I;		/* In case we apply check_process_code/2. */
@@ -7000,7 +6988,11 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     /* The expensive case, need to build a hashmap */
     if (n > MAP_SMALL_MAP_LIMIT) {
-	res = erts_hashmap_from_ks_and_vs(p,flatmap_get_keys(mp),flatmap_get_values(mp),n);
+        ErtsHeapFactory factory;
+        erts_factory_proc_init(&factory, p);
+        res = erts_hashmap_from_ks_and_vs(&factory,flatmap_get_keys(mp),
+                                          flatmap_get_values(mp),n);
+        erts_factory_close(&factory);
     }
     return res;
 }

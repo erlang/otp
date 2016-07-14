@@ -98,10 +98,12 @@ Eterm* hashmap_iterator_prev(struct ErtsWStack_* s);
 int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int reject_dupkeys);
 
-#define erts_hashmap_from_ks_and_vs(P, KS, VS, N) \
-    erts_hashmap_from_ks_and_vs_extra((P), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
+#define erts_hashmap_from_ks_and_vs(F, KS, VS, N) \
+    erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
 
-Eterm  erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n,
+Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n);
+Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
+                                         Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
 
 const Eterm *erts_maps_get(Eterm key, Eterm map);

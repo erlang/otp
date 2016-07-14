@@ -8177,6 +8177,8 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     esdp->thr_id += erts_no_schedulers;
 
+    erts_msacc_init_thread("dirty_cpu_scheduler", no, 0);
+
     erts_thr_progress_register_unmanaged_thread(&callbacks);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     {
@@ -8221,6 +8223,8 @@ sched_dirty_io_thread_func(void *vesdp)
     callbacks.finalize_wait = NULL;
 
     esdp->thr_id += erts_no_schedulers + erts_no_dirty_cpu_schedulers;
+
+    erts_msacc_init_thread("dirty_io_scheduler", no, 0);
 
     erts_thr_progress_register_unmanaged_thread(&callbacks);
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -9823,8 +9827,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		goto check_activities_to_run;
 	    }
 
-            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_EMULATOR);
-
 	    /*
 	     * Take the chosen process out of the queue.
 	     */
@@ -9929,6 +9931,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    erts_smp_runq_unlock(rq);
 
 	}
+
+        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_EMULATOR);
 
 #ifdef ERTS_SMP
 

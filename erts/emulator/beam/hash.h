@@ -25,9 +25,7 @@
 #ifndef __HASH_H__
 #define __HASH_H__
 
-#ifndef __SYS_H__
 #include "sys.h"
-#endif
 
 typedef unsigned long HashValue;
 typedef struct hash Hash;
