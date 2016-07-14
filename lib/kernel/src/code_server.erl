@@ -933,14 +933,20 @@ del_ebin(Dir) ->
     filename:join(del_ebin_1(filename:split(Dir))).
 
 del_ebin_1([Parent,App,"ebin"]) ->
-    Ext = archive_extension(),
-    case filename:basename(Parent, Ext) of
-	Parent ->
-	    %% Plain directory.
+    case filename:basename(Parent) of
+	[] ->
+	    %% Parent is the root directory
 	    [Parent,App];
-	Archive ->
-	    %% Archive.
-	    [Archive]
+	_ ->
+	    Ext = archive_extension(),
+	    case filename:basename(Parent, Ext) of
+		Parent ->
+		    %% Plain directory.
+		    [Parent,App];
+		Archive ->
+		    %% Archive.
+		    [Archive]
+	    end
     end;
 del_ebin_1([H|T]) ->
     [H|del_ebin_1(T)];
