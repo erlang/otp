@@ -32,6 +32,31 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix scheduler deadlock bug in <c>ets:update_counter/4</c>
+	    when key is not found and inserting the default object
+	    causes the table to grow.</p>
+          <p>
+	    Own Id: OTP-13731 Aux Id: ERL-188 </p>
+        </item>
+        <item>
+          <p>
+	    Fix VM abort "Overrun stack and heap" in garbage
+	    collection triggered by a <c>bsl</c> operation and some
+	    very specific heap conditions.</p>
+          <p>
+	    Own Id: OTP-13732 Aux Id: seq13142 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

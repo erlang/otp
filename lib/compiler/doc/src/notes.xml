@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A literal binary matching regression was introduced in
+	    19.0 where a match could fail to resolve to the right
+	    clause. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-13738</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
