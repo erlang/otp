@@ -744,7 +744,6 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_ranges.o
 
 RUN_OBJS = \
-	$(OBJDIR)/benchmark.o \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
 	$(OBJDIR)/erl_bestfit_alloc.o	$(OBJDIR)/erl_afit_alloc.o \

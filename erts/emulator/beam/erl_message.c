@@ -697,9 +697,6 @@ erts_send_message(Process* sender,
 #ifdef SHCOPY_SEND
     erts_shcopy_t info;
 #endif
-    BM_STOP_TIMER(system);
-    BM_MESSAGE(message,sender,receiver);
-    BM_START_TIMER(send);
 
 #ifdef USE_VM_PROBES
     *sender_name = *receiver_name = '\0';
@@ -720,7 +717,6 @@ erts_send_message(Process* sender,
 #ifdef USE_VM_PROBES
 	Uint dt_utag_size = 0;
 #endif
-        BM_SWAP_TIMER(send,size);
 
         /* SHCOPY corrupts the heap between
          * copy_shared_calculate, and
@@ -747,8 +743,6 @@ erts_send_message(Process* sender,
 #else
         msize = size_object(message);
 #endif
-        BM_SWAP_TIMER(size,send);
-
         mp = erts_alloc_message_heap_state(receiver,
                                            &receiver_state,
                                            receiver_locks,
@@ -759,8 +753,6 @@ erts_send_message(Process* sender,
                                             + seq_trace_size),
                                            &hp,
                                            &ohp);
-
-        BM_SWAP_TIMER(send,copy);
 
 #ifdef SHCOPY_SEND
 	if (is_not_immed(message))
@@ -792,9 +784,6 @@ erts_send_message(Process* sender,
 		    msize, tok_label, tok_lastcnt, tok_serial);
         }
 #endif
-        BM_MESSAGE_COPIED(msize);
-        BM_SWAP_TIMER(copy,send);
-
     } else {
         Eterm *hp;
 
@@ -803,22 +792,18 @@ erts_send_message(Process* sender,
 	    msize = 0;
 	}
 	else {
-	    BM_SWAP_TIMER(send,size);
 #ifdef SHCOPY_SEND
             INITIALIZE_SHCOPY(info);
             msize = copy_shared_calculate(message, &info);
 #else
             msize = size_object(message);
 #endif
-	    BM_SWAP_TIMER(size,send);
-
 	    mp = erts_alloc_message_heap_state(receiver,
 					       &receiver_state,
 					       receiver_locks,
 					       msize,
 					       &hp,
 					       &ohp);
-	    BM_SWAP_TIMER(send,copy);
 #ifdef SHCOPY_SEND
             if (is_not_immed(message))
                 message = copy_shared_perform(message, msize, &info, &hp, ohp);
@@ -827,8 +812,6 @@ erts_send_message(Process* sender,
             if (is_not_immed(message))
                 message = copy_struct(message, msize, &hp, ohp);
 #endif
-	    BM_MESSAGE_COPIED(msz);
-	    BM_SWAP_TIMER(copy,send);
 	}
 #ifdef USE_VM_PROBES
         DTRACE6(message_send, sender_name, receiver_name,
@@ -846,8 +829,6 @@ erts_send_message(Process* sender,
 			mp, message,
                         sender->common.id);
 
-    BM_SWAP_TIMER(send,system);
-    
     return res;
 }
 
