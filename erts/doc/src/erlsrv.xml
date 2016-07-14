@@ -28,343 +28,447 @@
     <docno></docno>
     <approved></approved>
     <checked></checked>
-    <date>98-04-29</date>
+    <date>1998-04-29</date>
     <rev></rev>
     <file>erlsrv.xml</file>
   </header>
   <com>erlsrv</com>
-  <comsummary>Run the Erlang emulator as a service on Windows NT&reg;</comsummary>
+  <comsummary>Run the Erlang emulator as a service on Windows</comsummary>
   <description>
-    <p>This utility is specific to Windows NT/2000/XP&reg; (and subsequent versions of Windows) It allows Erlang
+    <p>This utility is specific to Windows NT/2000/XP (and later
+      versions of Windows). It allows Erlang
       emulators to run as services on the Windows system, allowing embedded
-      systems to start without any user needing to log in. The
+      systems to start without any user needing to log on. The
       emulator started in this way can be manipulated through the
-      Windows&reg; services applet in a manner similar to other
-      services.</p>
-    <p>Note that erlsrv is not a general service utility for Windows, but designed for embedded Erlang systems.</p> 
-    <p>As well as being the actual service, erlsrv also provides a
-      command line interface for registering, changing, starting and
-      stopping services.</p>
-    <p>To manipulate services, the logged in user should have
-      Administrator privileges on the machine. The Erlang machine
+      Windows services applet in a manner similar to other services.</p>
+
+    <p>Notice that <c>erlsrv</c> is not a general service utility for Windows,
+      but designed for embedded Erlang systems.</p> 
+
+    <p><c>erlsrv</c> also provides a command-line interface for registering,
+      changing, starting, and stopping services.</p>
+
+    <p>To manipulate services, the logged on user is to have
+      administrator privileges on the machine. The Erlang machine
       itself is (default) run as the local administrator. This can be
-      changed with the Services applet in Windows &reg;.</p>
+      changed with the Services applet in Windows.</p>
+
     <p>The processes created by the service can, as opposed to normal
-      services, be "killed" with the task manager. Killing a emulator
-      that is started by a service will trigger the "OnFail" action
-      specified for that service, which may be a reboot.</p>
-    <p>The following parameters may be specified for each Erlang
-      service:</p>
-    <list type="bulleted">
+      services, be "killed" with the task manager. Killing an emulator
+      that is started by a service triggers the "OnFail" action
+      specified for that service, which can be a reboot.</p>
+
+    <p>The following parameters can be specified for each Erlang service:</p>
+
+    <taglist>
+      <tag><c><![CDATA[StopAction]]></c></tag>
       <item>
-        <p><c><![CDATA[StopAction]]></c>: This tells <c><![CDATA[erlsrv]]></c> how to stop
+        <p>Tells <c><![CDATA[erlsrv]]></c> how to stop
           the Erlang emulator. Default is to kill it (Win32
           TerminateProcess), but this action can specify any Erlang
           shell command that will be executed in the emulator to make
           it stop. The emulator is expected to stop within 30 seconds
           after the command is issued in the shell. If the emulator is
-          not stopped, it will report a running state to the service
+          not stopped, it reports a running state to the service
           manager.</p>
       </item>
+      <tag><c><![CDATA[OnFail]]></c></tag>
       <item>
-        <p><c><![CDATA[OnFail]]></c>: This can be either of <c><![CDATA[reboot]]></c>,
-          <c><![CDATA[restart]]></c>, <c><![CDATA[restart_always]]></c> or <c><![CDATA[ignore]]></c> (the
-          default). In case of <c><![CDATA[reboot]]></c>, the NT system is
-          rebooted whenever the emulator stops (a more simple form of
-          watchdog), this could be useful for less critical systems,
-          otherwise use the heart functionality to accomplish
-          this. The restart value makes the Erlang emulator be
-          restarted (with whatever parameters are registered for the
-          service at the occasion) when it stops. If the emulator
-          stops again within 10 seconds, it is not restarted to avoid
-          an infinite loop which could completely hang the NT
-          system. <c><![CDATA[restart_always]]></c> is similar to restart, but
-          does not try to detect cyclic restarts, it is expected that
-          some other mechanism is present to avoid the problem.  The
-          default (ignore) just reports the service as stopped to the
-          service manager whenever it fails, it has to be manually
-          restarted.</p>
-        <p>On a system where release handling is
-          used, this should always be set to <c><![CDATA[ignore]]></c>. Use
-          <c><![CDATA[heart]]></c> to restart the service on failure instead.</p>
+        <p>Can be one of the following:</p>
+        <taglist>
+          <tag><c><![CDATA[reboot]]></c></tag>
+          <item>
+            <p>The Windows system is rebooted whenever the emulator stops
+              (a more simple form of watchdog). This can be useful for
+              less critical systems, otherwise use the heart functionality
+              to accomplish this.</p>
+          </item>
+          <tag><c><![CDATA[restart]]></c></tag>
+          <item>
+            <p>Makes the Erlang emulator be
+              restarted (with whatever parameters are registered for the
+              service at the occasion) when it stops. If the emulator
+              stops again within 10 seconds, it is not restarted to avoid
+              an infinite loop, which could hang the Windows system.</p>
+          </item>
+          <tag><c><![CDATA[restart_always]]></c></tag>
+          <item>
+            <p>Similar to <c><![CDATA[restart]]></c>, but does
+              not try to detect cyclic restarts; it is expected that
+              some other mechanism is present to avoid the problem.</p>
+          </item>
+          <tag><c><![CDATA[ignore]]></c> (the default)</tag>
+          <item>
+            <p>Reports the service as stopped to the service manager
+              whenever it fails; it must be manually restarted.</p>
+          </item>
+        </taglist>
+        <p>On a system where release handling is used,
+          this is always to be set to <c><![CDATA[ignore]]></c>. Use
+          <c><![CDATA[heart]]></c> to restart the service on failure
+          instead.</p>
       </item>
+      <tag><c><![CDATA[Machine]]></c></tag>
       <item>
-        <p><c><![CDATA[Machine]]></c>: The location of the Erlang
-          emulator. The default is the <c><![CDATA[erl.exe]]></c> located in the
-          same directory as erlsrv.exe. Do not specify <c><![CDATA[werl.exe]]></c>
-          as this emulator, it will not work.</p>
-        <p>If the system
-          uses release handling, this should be set to a program
-          similar to <c><![CDATA[start_erl.exe]]></c>.</p>
+        <p>The location of the Erlang emulator.
+          The default is the <c><![CDATA[erl.exe]]></c> located in the same
+          directory as <c>erlsrv.exe</c>. Do not specify
+          <c><![CDATA[werl.exe]]></c> as this emulator, it will not work.</p>
+        <p>If the system uses release handling, this is to be set to a
+          program similar to <c><![CDATA[start_erl.exe]]></c>.</p>
       </item>
+      <tag><c><![CDATA[Env]]></c></tag>
       <item>
-        <p><c><![CDATA[Env]]></c>: Specifies an <em>additional</em> environment
+        <p>Specifies an <em>extra</em> environment
           for the emulator. The environment variables specified
-          here are added to the system wide environment block that is
+          here are added to the system-wide environment block that is
           normally present when a service starts up. Variables present
-          in both the system wide environment and in the service
+          in both the system-wide environment and in the service
           environment specification will be set to the value specified
           in the service.</p>
       </item>
+      <tag><c><![CDATA[WorkDir]]></c></tag>
       <item>
-        <p><c><![CDATA[WorkDir]]></c>: The working directory for the Erlang
-          emulator, has to be on a local drive (there are no network
-          drives mounted when a service starts). Default working
-          directory for services is <c><![CDATA[%SystemDrive%%SystemPath%]]></c>.
+        <p>The working directory for the Erlang emulator.
+          Must be on a local drive (no network drives are mounted when a
+          service starts). Default working directory for services is
+          <c><![CDATA[%SystemDrive%%SystemPath%]]></c>.
           Debug log files will be placed in this directory.</p>
       </item>
+      <tag><c><![CDATA[Priority]]></c></tag>
       <item>
-        <p><c><![CDATA[Priority]]></c>: The process priority of the emulator,
-          this can be one of <c><![CDATA[realtime]]></c>, <c><![CDATA[high]]></c>, <c><![CDATA[low]]></c>
-          or <c><![CDATA[default]]></c> (the default). Real-time priority is not
-          recommended, the machine will possibly be inaccessible to
-          interactive users. High priority could be used if two Erlang
-          nodes should reside on one dedicated system and one should
-          have precedence over the other. Low process priority may be
-          used if interactive performance should not be affected by
-          the emulator process.</p>
+        <p>The process priority of the emulator. Can be one of the
+          following:</p>
+        <taglist>
+          <tag><c><![CDATA[realtime]]></c></tag>
+          <item>
+            <p>Not recommended, as the machine will possibly be
+              inaccessible to interactive users.</p>
+          </item>
+          <tag><c><![CDATA[high]]></c></tag>
+          <item>
+            <p>Can be used if two Erlang nodes are to reside on one dedicated
+              system and one is to have precedence over the other.</p>
+          </item>
+          <tag><c><![CDATA[low]]></c></tag>
+          <item>
+            <p>Can be used if interactive performance is not to be affected
+              by the emulator process.</p>
+          </item>
+          <tag><c><![CDATA[default]]></c> (the default></tag>
+          <item>
+          </item>
+        </taglist>
       </item>
+      <tag><c><![CDATA[SName or Name]]></c></tag>
       <item>
-        <p><c><![CDATA[SName or Name]]></c>: Specifies the short or long
-          node-name of the Erlang emulator. The Erlang services are
-          always distributed, default is to use the service name as
-          (short) node-name.</p>
+        <p>Specifies the short or long
+          node name of the Erlang emulator. The Erlang services are
+          always distributed. Default is to use the service name as
+          (short) nodename.</p>
       </item>
+      <tag><c><![CDATA[DebugType]]></c></tag>
       <item>
-        <p><c><![CDATA[DebugType]]></c>: Can be one of <c><![CDATA[none]]></c> (default),
-          <c><![CDATA[new]]></c>, <c><![CDATA[reuse]]></c> or <c><![CDATA[console]]></c>.
-          Specifies that output from the Erlang shell should be
+        <p>Specifies that output from the Erlang shell is to be
           sent to a "debug log". The log file is named
           &lt;servicename&gt;<c><![CDATA[.debug]]></c> or
-          &lt;servicename&gt;<c><![CDATA[.debug.]]></c>&lt;N&gt;, where &lt;N&gt; is
-          an integer between 1 and 99. The log-file is placed in the
-          working directory of the service (as specified in WorkDir). The
-          <c><![CDATA[reuse]]></c> option always reuses the same log file
-          (&lt;servicename&gt;<c><![CDATA[.debug]]></c>) and the <c><![CDATA[new]]></c> option
-          uses a separate log file for every invocation of the service
-          (&lt;servicename&gt;<c><![CDATA[.debug.]]></c>&lt;N&gt;). The <c><![CDATA[console]]></c>
-          option opens an interactive Windows&reg; console window for
-          the Erlang shell of the service. The <c><![CDATA[console]]></c> option 
-          automatically
-          disables the <c><![CDATA[StopAction]]></c> and a service started with an
-          interactive console window will not survive logouts, 
-          <c><![CDATA[OnFail]]></c> actions do not work with debug-consoles either.
-          If no <c><![CDATA[DebugType]]></c> is specified (<c><![CDATA[none]]></c>), the
-          output of the Erlang shell is discarded.</p>
-        <p>The <c><![CDATA[console]]></c><c><![CDATA[DebugType]]></c> is <em>not in any way</em>
-          intended for production. It is <em>only</em> a convenient way to
-          debug Erlang services during development. The <c><![CDATA[new]]></c> and
-          <c><![CDATA[reuse]]></c> options might seem convenient to have in a
-          production system, but one has to take into account that the
-          logs will grow indefinitely during the systems lifetime and
-          there is no way, short of restarting the service, to
-          truncate those logs. In short, the <c><![CDATA[DebugType]]></c> is
-          intended for debugging only. Logs during production are
-          better produced with the standard Erlang logging
-          facilities.</p>
+          &lt;servicename&gt;<c><![CDATA[.debug.]]></c>&lt;N&gt;,
+          where &lt;N&gt; is an integer from 1 through 99.
+          The log file is placed in the working directory of the
+          service (as specified in <c>WorkDir</c>).</p>
+        <p>Can be one of the following:</p>
+        <taglist>
+          <tag><c><![CDATA[new]]></c></tag>
+          <item>
+            <p>Uses a separate log file for every invocation of the service
+              (&lt;servicename&gt;<c><![CDATA[.debug.]]></c>&lt;N&gt;).</p>
+          </item>
+          <tag><c><![CDATA[reuse]]></c></tag>
+          <item>
+            <p>Reuses the same log file
+              (&lt;servicename&gt;<c><![CDATA[.debug]]></c>).</p>
+          </item>
+          <tag><c><![CDATA[console]]></c></tag>
+          <item>
+            <p>Opens an interactive Windows console window for the Erlang
+              shell of the service. Automatically disables the
+              <c><![CDATA[StopAction]]></c>. A service started with an
+              interactive console window does not survive logouts.
+              <c><![CDATA[OnFail]]></c> actions do not work with
+              debug consoles either.</p>
+          </item>
+          <tag><c><![CDATA[none]]></c> (the default)</tag>
+          <item>
+            <p>The output of the Erlang shell is discarded.</p>
+          </item>
+        </taglist>
+        <note>
+          <p>The <c><![CDATA[console]]></c> option is <em>not</em> intended
+            for production. It is <em>only</em> a convenient way to debug
+            Erlang services during development.</p>
+          <p>The <c><![CDATA[new]]></c> and <c><![CDATA[reuse]]></c> options
+            might seem convenient in a production system, but consider that
+            the logs grow indefinitely during the system lifetime and cannot
+            be truncated, except if the service is restarted.</p>
+          <p>In short, the <c><![CDATA[DebugType]]></c> is
+            intended for debugging only. Logs during production are
+            better produced with the standard Erlang logging facilities.</p>
+        </note>
       </item>
+      <tag><c><![CDATA[Args]]></c></tag>
       <item>
-        <p><c><![CDATA[Args]]></c>: Additional arguments passed to the
-          emulator startup program <c><![CDATA[erl.exe]]></c> (or
-          <c><![CDATA[start_erl.exe]]></c>).  Arguments that cannot be specified
-          here are <c><![CDATA[-noinput]]></c> (StopActions would not work),
-          <c><![CDATA[-name]]></c> and <c><![CDATA[-sname]]></c> (they are specified in any
-          way. The most common use is for specifying cookies and flags
-          to be passed to init:boot() (<c><![CDATA[-s]]></c>).</p>
+        <p>Passes extra arguments to the emulator startup program
+          <c><![CDATA[erl.exe]]></c> (or <c><![CDATA[start_erl.exe]]></c>).
+          Arguments that cannot be specified here are
+          <c><![CDATA[-noinput]]></c> (<c>StopActions</c> would not work),
+          <c><![CDATA[-name]]></c>, and <c><![CDATA[-sname]]></c> (they are
+          specified in any way). The most common use is for specifying cookies
+          and flags to be passed to <c>init:boot()</c>
+          (<c><![CDATA[-s]]></c>).</p>
       </item>
+      <tag><c><![CDATA[InternalServiceName]]></c></tag>
       <item>
-        <p><c><![CDATA[InternalServiceName]]></c>: Specifies the Windows&reg; internal service name (not the display name, which is the one <c>erlsrv</c> uses to identify the service).</p>
-	<p>This internal name can not be changed, it is fixed even if the service is renamed. <c>Erlsrv</c> generates a unique internal name when a service is created, it is recommended to keep to the defaut if release-handling is to be used for the application.</p>
-	<p>The internal service name can be seen in the Windows&reg; service manager if viewing <c>Properties</c> for an erlang service.</p>
+        <p>Specifies the Windows-internal service name (not the display name,
+          which is the one <c>erlsrv</c> uses to identify the service).</p>
+        <p>This internal name cannot be changed, it is fixed even if the
+          service is renamed. <c>erlsrv</c> generates a unique internal name
+          when a service is created. It is recommended to keep to the default
+          if release handling is to be used for the application.</p>
+        <p>The internal service name can be seen in the Windows service
+          manager if viewing <c>Properties</c> for an Erlang service.</p>
       </item>
+      <tag><c><![CDATA[Comment]]></c></tag>
       <item>
-        <p><c><![CDATA[Comment]]></c>: A textual comment describing the service. Not mandatory, but shows up as the service description in the Windows&reg; service manager.</p>
+        <p>A textual comment describing the service. Not mandatory, but shows
+          up as the service description in the Windows service manager.</p>
       </item>
-    </list>
-    <p>      <marker id="001"></marker>
- The naming of the service in a system that
-      uses release handling has to follow the convention
+    </taglist>
+
+    <p><marker id="001"></marker>
+      The naming of the service in a system that
+      uses release handling must follow the convention
       <em>NodeName</em>_<em>Release</em>, where <em>NodeName</em> is
-      the first part of the Erlang nodename (up to, but not including
+      the first part of the Erlang node name (up to, but not including
       the "@") and <em>Release</em> is the current release of the
       application.</p>
   </description>
+
   <funcs>
     <func>
       <name>erlsrv {set | add} &lt;service-name> [&lt;service options>]</name>
-      <fsummary>Add or modify an Erlang service</fsummary>
+      <fsummary>Add or modify an Erlang service.</fsummary>
       <desc>
-        <p>The set and add commands adds or modifies a Erlang service
-          respectively.  The simplest form of an add command would be
-          completely without options in which case all default values
+        <p>The <c>set</c> and <c>add</c> commands modifies or adds an Erlang
+          service, respectively. The simplest form of an <c>add</c> command is
+          without any options in which case all default values
           (described above) apply. The service name is mandatory.</p>
-        <p>Every option can be given without parameters, in which case
-          the default value is applied. Values to the options are
-          supplied <em>only</em> when the default should not be used
-          (i.e. <c><![CDATA[erlsrv set myservice -prio -arg]]></c> sets the
-          default priority and removes all arguments).</p>
-        <p>The following service options are currently available:</p>
+        <p>Every option can be specified without parameters, the
+          default value is then applied. Values to the options are
+          supplied <em>only</em> when the default is not to be used.
+          For example, <c><![CDATA[erlsrv set myservice -prio -arg]]></c>
+          sets the default priority and removes all arguments.</p>
+        <p>Service options:</p>
         <taglist>
-          <tag>-st[opaction] [&lt;erlang shell command&gt;]</tag>
-          <item>Defines the StopAction, the command given to the Erlang
-           shell when the service is stopped. Default is none.</item>
-          <tag>-on[fail] [{reboot | restart | restart_always}]</tag>
-          <item>Specifies the action to take when the Erlang emulator
-           stops unexpectedly. Default is to ignore.</item>
-          <tag>-m[achine] [&lt;erl-command&gt;]</tag>
-          <item>The complete path to the Erlang emulator, never use the
-           werl program for this. Default is the <c><![CDATA[erl.exe]]></c> in the
-           same directory as <c><![CDATA[erlsrv.exe]]></c>. When release handling
-           is used, this should be set to a program similar to
-          <c><![CDATA[start_erl.exe]]></c>.</item>
-          <tag>-e[nv] [&lt;variable&gt;[=&lt;value&gt;]] ...</tag>
-          <item>Edits the environment block for the service. Every
-           environment variable specified will add to the system
-           environment block. If a variable specified here has the same
-           name as a system wide environment variable, the specified
-           value overrides the system wide.  Environment variables are
-           added to this list by specifying
-           &lt;variable&gt;=&lt;value&gt; and deleted from the list by
-           specifying &lt;variable&gt; alone. The environment block is
-           automatically sorted. Any number of <c><![CDATA[-env]]></c> options can
-           be specified in one command. Default is to use the system
-           environment block unmodified (except for two additions, see
-          <seealso marker="#002">below</seealso>).</item>
-          <tag>-w[orkdir] [&lt;directory&gt;]</tag>
-          <item>The initial working directory of the Erlang
-           emulator. Default is the system directory.</item>
-          <tag>-p[riority] [{low|high|realtime}]</tag>
-          <item>The priority of the Erlang emulator. The default is the
-           Windows&reg; default priority.</item>
-          <tag>{-sn[ame] | -n[ame]} [&lt;node-name&gt;]</tag>
-          <item>The node-name of the Erlang machine, distribution is
-           mandatory. Default is <c><![CDATA[-sname <service name>]]></c>.
+          <tag><c>-st[opaction] [&lt;erlang shell command&gt;]</c></tag>
+          <item>
+            <p>Defines the <c><![CDATA[StopAction]]></c>, the command given
+              to the Erlang shell when the service is stopped.
+              Default is none.</p>
           </item>
-          <tag>-d[ebugtype] [{new|reuse|console}]</tag>
-          <item>Specifies where shell output should be sent,
-           default is that shell output is discarded. 
-           To be used only for debugging.</item>
-          <tag>-ar[gs] [&lt;limited erl arguments&gt;]</tag>
-          <item>Additional arguments to the Erlang emulator, avoid
-          <c><![CDATA[-noinput]]></c>, <c><![CDATA[-noshell]]></c> and
-          <c><![CDATA[-sname]]></c>/<c><![CDATA[-name]]></c>. Default is no additional
-           arguments. Remember that the services cookie file is not
-           necessarily the same as the interactive users. The service
-           runs as the local administrator. All arguments should be given
-           together in one string, use double quotes (") to give an
-           argument string containing spaces and use quoted quotes (\")
-           to give an quote within the argument string if
-           necessary.</item>
-	   <tag>-i[nternalservicename] [&lt;internal name&gt;]</tag>
-           <item><em>Only</em> allowed for <c>add</c>. Specifies a
-           Windows&reg; internal service name for the service, which by
-           default is set to something unique (prefixed with the
-           original service name) by erlsrv when adding a new
-           service. Specifying this is a purely cosmethic action and is
-           <em>not</em> recommended if release handling is to be
-           performed. The internal service name cannot be changed once
-           the service is created. The internal name is <em>not</em> to 
-	   be confused with the ordinary service name, which is the name 
-	   used to identify a service to erlsrv.</item>
-	   <tag>-c[omment] [&lt;short description&gt;]</tag>
-           <item>Specifies a textual comment describing the
-           service. This comment will show upp as the service description
-           in the Windows&reg; service manager.</item>
+          <tag><c>-on[fail] [{reboot | restart | restart_always}]</c></tag>
+          <item>
+            <p>The action to take when the Erlang emulator
+              stops unexpectedly. Default is to ignore.</p>
+          </item>
+          <tag><c>-m[achine] [&lt;erl-command&gt;]</c></tag>
+          <item>
+            <p>The complete path to the Erlang emulator. Never use the
+              <c>werl</c> program for this. Defaults to the
+              <c><![CDATA[erl.exe]]></c> in the same directory as
+              <c><![CDATA[erlsrv.exe]]></c>. When release handling
+              is used, this is to be set to a program similar to
+              <c><![CDATA[start_erl.exe]]></c>.</p>
+          </item>
+          <tag><c>-e[nv] [&lt;variable&gt;[=&lt;value&gt;]] ...</c></tag>
+          <item>
+            <p>Edits the environment block for the service. Every
+              environment variable specified is added to the system
+              environment block. If a variable specified here has the same
+              name as a system-wide environment variable, the specified
+              value overrides the system-wide. Environment variables are
+              added to this list by specifying
+              &lt;variable&gt;=&lt;value&gt; and deleted from the list by
+              specifying &lt;variable&gt; alone. The environment block is
+              automatically sorted. Any number of <c><![CDATA[-env]]></c>
+              options can be specified in one command. Default is to use the
+              system environment block unmodified (except for two additions,
+              see section <seealso marker="#002">Environment</seealso>
+              below).</p>
+          </item>
+          <tag><c>-w[orkdir] [&lt;directory&gt;]</c></tag>
+          <item>
+            <p>The initial working directory of the Erlang
+              emulator. Defaults to the system directory.</p>
+          </item>
+          <tag><c>-p[riority] [{low|high|realtime}]</c></tag>
+          <item>
+            <p>The priority of the Erlang emulator. Default to the
+              Windows default priority.</p>
+          </item>
+          <tag><c>{-sn[ame] | -n[ame]} [&lt;node-name&gt;]</c></tag>
+          <item>
+            <p>The node name of the Erlang machine. Distribution is mandatory.
+              Defaults to <c><![CDATA[-sname <service name>]]></c>.</p>
+          </item>
+          <tag><c>-d[ebugtype] [{new|reuse|console}]</c></tag>
+          <item>
+            <p>Specifies where shell output is to be sent.
+              Default is that shell output is discarded.
+              To be used only for debugging.</p>
+          </item>
+          <tag><c>-ar[gs] [&lt;limited erl arguments&gt;]</c></tag>
+          <item>
+            <p>Extra arguments to the Erlang emulator. Avoid
+              <c><![CDATA[-noinput]]></c>, <c><![CDATA[-noshell]]></c>, and
+              <c><![CDATA[-sname]]></c>/<c><![CDATA[-name]]></c>. Default is
+              no extra arguments. Remember that the services cookie file is not
+              necessarily the same as the interactive users. The service
+              runs as the local administrator. Specify all arguments
+              together in one string, use double quotes (") to specify an
+              argument string containing spaces, and use quoted quotes (\")
+              to specify a quote within the argument string if necessary.</p>
+          </item>
+          <tag><c>-i[nternalservicename] [&lt;internal name&gt;]</c></tag>
+          <item>
+            <p><em>Only</em> allowed for <c>add</c>. Specifies a
+              Windows-internal service name for the service, which by
+              default is set to something unique (prefixed with the
+              original service name) by <c>erlsrv</c> when adding a new
+              service. Specifying this is a purely cosmethic action and is
+              <em>not</em> recommended if release handling is to be
+              performed. The internal service name cannot be changed once
+              the service is created. The internal name is <em>not</em> to
+              be confused with the ordinary service name, which is the name
+              used to identify a service to <c>erlsrv</c>.</p>
+          </item>
+          <tag><c>-c[omment] [&lt;short description&gt;]</c></tag>
+          <item>
+            <p>Specifies a textual comment describing the
+              service. This comment shows up as the service description
+              in the Windows service manager.</p>
+          </item>
         </taglist>
       </desc>
     </func>
+
     <func>
-      <name>erlsrv {start | start_disabled | stop | disable | enable} &lt;service-name></name>
+      <name>erlsrv {start | start_disabled | stop | disable |
+        enable} &lt;service-name></name>
       <fsummary>Manipulate the current service status.</fsummary>
       <desc>
         <p>These commands are only added for convenience, the normal
           way to manipulate the state of a service is through the
-          control panels services applet. The <c><![CDATA[start]]></c> and
+          control panels services applet.</p>
+        <p>The <c><![CDATA[start]]></c> and
           <c><![CDATA[stop]]></c> commands communicates
-          with the service manager for stopping and starting a
-          service. The commands wait until the service is actually
-          stopped or started. When disabling a service, it is not
-          stopped, the disabled state will not take effect until the
-          service actually is stopped. Enabling a service sets it in
-          automatic mode, that is started at boot. This command cannot
-          set the service to manual.  </p>
-
-	<p>The <c>start_disabled</c> command operates on a service
-	regardless of if it's enabled/disabled or started/stopped.  It
-	does this by first enabling it (regardless of if it's enabled
-	or not), then starting it (if it's not already started) and
-	then disabling it. The result will be a disabled but started
-	service, regardless of its earlier state. This is useful for
-	starting services temporarily during a release upgrade. The
-	difference between using <c>start_disabled</c> and the
-	sequence <c>enable</c>, <c>start</c> and <c>disable</c> is
-	that all other <c>erlsrv</c> commands are locked out during
-	the sequence of operations in <c>start_disable</c>, making the
-	operation atomic from an <c>erlsrv</c> user's point of
-	view.</p>
-
+          with the service manager for starting and stopping a
+          service. The commands wait until the service is
+          started or stopped. When disabling a service, it is not
+          stopped, the disabled state does not take effect until the
+          service is stopped. Enabling a service sets it in
+          automatic mode, which is started at boot. This command cannot
+          set the service to manual.</p>
+        <p>The <c>start_disabled</c> command operates on a service
+          regardless of if it is enabled/disabled or started/stopped. It
+          does this by first enabling it (regardless of if it is enabled
+          or not), then starting it (if not already started), and
+          then disabling it. The result is a disabled but started
+          service, regardless of its earlier state. This is useful for
+          starting services temporarily during a release upgrade. The
+          difference between using <c>start_disabled</c> and the
+          sequence <c>enable</c>, <c>start</c>, and <c>disable</c> is
+          that all other <c>erlsrv</c> commands are locked out during
+          the sequence of operations in <c>start_disable</c>, making the
+          operation atomic from an <c>erlsrv</c> user's point of view.</p>
       </desc>
     </func>
+
     <func>
       <name>erlsrv remove &lt;service-name&gt;</name>
       <fsummary>Remove the service.</fsummary>
       <desc>
-        <p>This command removes the service completely with all its registered
-          options. It will be stopped before it is removed.</p>
+        <p>Removes the service completely with all its registered
+          options. It is stopped before it is removed.</p>
       </desc>
     </func>
+
     <func>
       <name>erlsrv list [&lt;service-name&gt;]</name>
-      <fsummary>List all Erlang services or all options for one service.</fsummary>
+      <fsummary>List all Erlang services or all options for one service.
+      </fsummary>
       <desc>
-        <p>If no service name is supplied, a brief listing of all Erlang services
-          is presented. If a service-name is supplied, all options for that
-          service are presented.</p>
+        <p>If no service name is specified, a brief listing of all Erlang
+          services is presented. If a service name is supplied, all options
+          for that service are presented.</p>
       </desc>
     </func>
+
     <func>
       <name>erlsrv help</name>
-      <fsummary>Display a brief help text</fsummary>
+      <fsummary>Display a brief help text.</fsummary>
+      <desc>
+        <p>Displays a brief help text.</p>
+      </desc>
     </func>
   </funcs>
 
   <section>
-    <title>ENVIRONMENT</title>
-    <p>      <marker id="002"></marker>
-The environment of an Erlang machine started
-      as a service will contain two special variables,
-      <c><![CDATA[ERLSRV_SERVICE_NAME]]></c>, which is the name of the service that
-      started the machine and <c><![CDATA[ERLSRV_EXECUTABLE]]></c> which is the
-      full path to the <c><![CDATA[erlsrv.exe]]></c> that can be used to manipulate
-      the service. This will come in handy when defining a heart command for
-      your service. A command file for restarting a service will
-      simply look like this:</p>
+    <title>Environment</title>
+    <p><marker id="002"></marker>
+      The environment of an Erlang machine started
+      as a service contains two special variables:</p>
+
+    <taglist>
+      <tag><c><![CDATA[ERLSRV_SERVICE_NAME]]></c></tag>
+      <item>The name of the service that started the machine.</item>
+      <tag><c><![CDATA[ERLSRV_EXECUTABLE]]></c></tag>
+      <item>The full path to the <c><![CDATA[erlsrv.exe]]></c>, which can be
+        used to manipulate the service. This comes in handy when defining a
+        heart command for your service.</item>
+    </taglist>
+
+    <p>A command file for restarting a service looks as follows:</p>
+
     <code type="none"><![CDATA[
 @echo off
 %ERLSRV_EXECUTABLE% stop %ERLSRV_SERVICE_NAME%
 %ERLSRV_EXECUTABLE% start %ERLSRV_SERVICE_NAME%    ]]></code>
+
     <p>This command file is then set as heart command.</p>
+
     <p>The environment variables can also be used to detect that we
       are running as a service and make port programs react correctly
-      to the control events generated on logout (see below).</p>
+      to the control events generated on logout (see the next section).</p>
   </section>
 
   <section>
-    <title>PORT PROGRAMS</title>
+    <title>Port Programs</title>
     <p>When a program runs in
-      the service context, it has to handle the control events that is
+      the service context, it must handle the control events that are
       sent to every program in the system when the interactive user
       logs off. This is done in different ways for programs running in
       the console subsystem and programs running as window
-      applications. An application which runs in the console subsystem
+      applications. An application running in the console subsystem
       (normal for port programs) uses the win32 function
       <c><![CDATA[SetConsoleCtrlHandler]]></c> to register a control handler
-      that returns TRUE in answer to the <c><![CDATA[CTRL_LOGOFF_EVENT]]></c>
+      that returns <c>true</c> in answer to the
+      <c><![CDATA[CTRL_LOGOFF_EVENT]]></c>
       and <c><![CDATA[CTRL_SHUTDOWN_EVENT]]></c> events. Other applications
-      just forward <c><![CDATA[WM_ENDSESSION]]></c> and
-      <c><![CDATA[WM_QUERYENDSESSION]]></c> to the default window procedure.
-      Here is a brief example in C of how to set the console control
-      handler:</p>
+      only forward <c><![CDATA[WM_ENDSESSION]]></c> and
+      <c><![CDATA[WM_QUERYENDSESSION]]></c> to the default window procedure.</p>
+
+    <p>A brief example in C of how to set the console control handler:</p>
+
     <code type="none"><![CDATA[
 #include <windows.h>
 /* 
@@ -383,7 +487,7 @@ void initialize_handler(void){
     char buffer[2];
     /* 
      * We assume we are running as a service if this  
-     * environment variable is defined
+     * environment variable is defined.
      */
     if(GetEnvironmentVariable("ERLSRV_SERVICE_NAME",buffer,
                               (DWORD) 2)){
@@ -396,29 +500,34 @@ void initialize_handler(void){
   </section>
 
   <section>
-    <title>NOTES</title>
-    <p>Even though the options are described in a Unix-like format, the case of
-      the options or commands is not relevant, and the "/" character for options
-      can be used as well as the "-" character. </p>
-    <p>Note that the program resides in the emulators
-      <c><![CDATA[bin]]></c>-directory, not in the <c><![CDATA[bin]]></c>-directory directly under
+    <title>Notes</title>
+    <p>Although the options are described in a Unix-like format, the case of
+      the options or commands is not relevant, and both character "/" and "-"
+      can be used for options.</p>
+
+    <p>Notice that the program resides in the emulator's <c><![CDATA[bin]]></c>
+      directory, not in the <c><![CDATA[bin]]></c> directory directly under
       the Erlang root. The reasons for this are the subtle problem of
       upgrading the emulator on a running system, where a new version of
       the runtime system should not need to overwrite existing (and probably
       used) executables.</p>
-    <p>To easily manipulate the Erlang services, put
+
+    <p>To manipulate the Erlang services easily, put
       the <c><![CDATA[<erlang_root>\erts-<version>\bin]]></c> directory in
-      the path instead of <c><![CDATA[<erlang_root>\bin]]></c>. The erlsrv program
-      can be found from inside Erlang by using the
+      the path instead of <c><![CDATA[<erlang_root>\bin]]></c>. The
+      <c>erlsrv</c> program can be found from inside Erlang by using the
       <c><![CDATA[os:find_executable/1]]></c> Erlang function.</p>
-    <p>For release handling to work, use <c><![CDATA[start_erl]]></c> as the Erlang
-      machine. It is also worth mentioning again that the name of the 
-      service is significant (see <seealso marker="#001">above</seealso>).</p>
+
+    <p>For release handling to work, use <c><![CDATA[start_erl]]></c> as the
+      Erlang machine. As stated <seealso marker="#001">above</seealso>,
+      the service name is significant.</p>
   </section>
 
   <section>
-    <title>SEE ALSO</title>
-    <p>start_erl(1), release_handler(3)</p>
+    <title>See Also</title>
+    <p><seealso marker="start_erl"><c>start_erl(1)</c></seealso>,
+      <seealso marker="sasl:release_handler">
+      <c>sasl:release_handler(3)</c></seealso></p>
   </section>
 </comref>
 
