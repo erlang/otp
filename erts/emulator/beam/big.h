@@ -21,17 +21,8 @@
 #ifndef __BIG_H__
 #define __BIG_H__
 
-#ifndef __SYS_H__
 #include "sys.h"
-#endif
-
-#ifndef __CONFIG_H__
-#include "erl_vm.h"
-#endif
-
-#ifndef __GLOBAL_H__
 #include "global.h"
-#endif
 
 typedef Uint     ErtsDigit;
 

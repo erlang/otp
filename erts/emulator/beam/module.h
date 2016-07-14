@@ -21,9 +21,7 @@
 #ifndef __MODULE_H__
 #define __MODULE_H__
 
-#ifndef __INDEX_H__
 #include "index.h"
-#endif
 
 struct erl_module_instance {
     BeamCodeHeader* code_hdr;

@@ -21,10 +21,7 @@
 #ifndef __ATOM_H__
 #define __ATOM_H__
 
-#ifndef __INDEX_H__
 #include "index.h"
-#endif
-
 #include "erl_atom_table.h"
 
 #define MAX_ATOM_CHARACTERS 255

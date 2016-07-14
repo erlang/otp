@@ -26,13 +26,8 @@
 #ifndef __INDEX_H__
 #define __INDEX_H__
 
-#ifndef __HASH_H__
 #include "hash.h"
-#endif
-
-#ifndef ERL_ALLOC_H__
 #include "erl_alloc.h"
-#endif
 
 typedef struct index_slot 
 {

@@ -6145,6 +6145,10 @@ lists:map(
         <taglist>
           <tag><c>scheduler</c></tag>
           <item>The main execution threads that do most of the work.</item>
+          <tag><c>dirty_cpu_scheduler</c></tag>
+          <item>The threads for long running cpu intensive work.</item>
+          <tag><c>dirty_io_scheduler</c></tag>
+          <item>The threads for long running I/O work.</item>
           <tag><c>async</c></tag>
           <item>Async threads are used by various linked-in drivers (mainly the
             file drivers) do offload non-CPU intensive work.</item>
