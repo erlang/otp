@@ -35,7 +35,6 @@
 #include "register.h"
 #include "erl_fun.h"
 #include "erl_node_tables.h"
-#include "benchmark.h"
 #include "erl_process.h"
 #include "erl_sys_driver.h"
 #include "erl_debug.h"
