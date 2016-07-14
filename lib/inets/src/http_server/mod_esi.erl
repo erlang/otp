@@ -278,7 +278,7 @@ erl(#mod{method = "PUT", entity_body = Body} = ModData,
 		{ok, [FunctionName]} ->
 		    generate_webpage(ModData, ESIBody, Modules,
 				     list_to_atom(ModuleName),
-				     FunctionName, Body,
+				     FunctionName, {undefined,Body},
 				     [{entity_body, Body} |
 				      script_elements(FuncAndInput, "")]);
 		{ok, BadRequest} ->
