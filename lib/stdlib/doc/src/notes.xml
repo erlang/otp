@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct a bug regarding typed records in the Erlang
+	    shell. The bug was introduced in OTP-19.0. </p>
+          <p>
+	    Own Id: OTP-13719 Aux Id: ERL-182 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

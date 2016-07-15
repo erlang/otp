@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -768,6 +768,8 @@ used_records({call,_,{atom,_,record_info},[A,{atom,_,Name}]}) ->
     {name, Name, A};
 used_records({call,Line,{tuple,_,[M,F]},As}) ->
     used_records({call,Line,{remote,Line,M,F},As});
+used_records({type,_,record,[{atom,_,Name}|Fs]}) ->
+  {name, Name, Fs};
 used_records(T) when is_tuple(T) ->
     {expr, tuple_to_list(T)};
 used_records(E) ->

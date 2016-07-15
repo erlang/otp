@@ -2866,15 +2866,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             q->hvalue = hval;
             q->next = NULL;
             *bp = b = q;
-
-            {
-                int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
-                int nactive = NACTIVE(tb);
-
-                if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
-                    grow(tb, nactive);
-                }
-            }
+            flags |= DB_INC_TRY_GROW;
         } else {
             HashDbTerm *q, *next = b->next;
 
@@ -2910,6 +2902,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     HashDbTerm **bp = (HashDbTerm **) handle->bp;
     HashDbTerm *b = *bp;
     erts_smp_rwmtx_t* lck = (erts_smp_rwmtx_t*) handle->lck;
+    HashDbTerm* free_me = NULL;
 
     ERTS_SMP_LC_ASSERT(IS_HASH_WLOCKED(tb, lck));  /* locked by db_lookup_dbterm_hash */
 
@@ -2921,21 +2914,34 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
             b->hvalue = INVALID_HASH;
         } else {
             *bp = b->next;
-            free_term(tb, b);
+            free_me = b;
         }
 
         WUNLOCK_HASH(lck);
         erts_smp_atomic_dec_nob(&tb->common.nitems);
         try_shrink(tb);
-    } else if (handle->flags & DB_MUST_RESIZE) {
-	db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
-	WUNLOCK_HASH(lck);
+    } else {
+        if (handle->flags & DB_MUST_RESIZE) {
+            db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
+            free_me = b;
+        }
+        if (handle->flags & DB_INC_TRY_GROW) {
+            int nactive;
+            int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
+            WUNLOCK_HASH(lck);
+            nactive = NACTIVE(tb);
 
-	free_term(tb, b);
+            if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
+                grow(tb, nactive);
+            }
+        } else {
+            WUNLOCK_HASH(lck);
+        }
     }
-    else {
-	WUNLOCK_HASH(lck);
-    }
+
+    if (free_me)
+        free_term(tb, free_me);
+
 #ifdef DEBUG
     handle->dbterm = 0;
 #endif
