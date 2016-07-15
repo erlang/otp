@@ -4358,8 +4358,7 @@ works under XEmacs.)"
 	 (require 'etags)
          (set (make-local-variable 'find-tag-default-function)
               'erlang-find-tag-for-completion)
-         (if (boundp 'xref-backend-functions)
-             ;; Emacs 25+
+         (if (>= emacs-major-version 25)
              (add-hook 'xref-backend-functions
                        #'erlang-etags--xref-backend nil t)
            ;; Test on a function available in the Emacs 19 version
@@ -5715,31 +5714,29 @@ unless the optional NO-DISPLAY is non-nil."
 (defun inferior-erlang-format-comma-opts (opts)
   (if (null opts)
       ""
-    (concat ", " (inferior-erlang-format-opts opts))))
-
-(defun inferior-erlang-format-opts (opts)
-  (concat "[" (inferior-erlang-string-join (mapcar 'inferior-erlang-format-opt
-						   opts)
-					   ", ")
-	  "]"))
+    (concat ", " (inferior-erlang-format-opt opts))))
 
 (defun inferior-erlang-format-opt (opt)
   (cond ((stringp opt) (concat "\"" opt "\""))
-	((atom opt)    (format "%s" opt))
-	((consp opt)   (concat "{" (inferior-erlang-string-join
-				    (mapcar 'inferior-erlang-format-opt
-					    (list (car opt) (cdr opt)))
-				    ", ")
-			       "}"))
-	(t (error (format "Unexpected opt %s" opt)))))
+        ((vectorp opt) (inferior-erlang-tuple (append opt nil)))
+        ((atom opt)    (format "%s" opt))
+        ((consp opt)   (if (listp (cdr opt))
+                           (inferior-erlang-list opt)
+                         (inferior-erlang-tuple (list (car opt) (cdr opt)))))
+        (t (error "Unexpected erlang compile option %s" opt))))
 
-(defun inferior-erlang-string-join (strs sep)
-  (let ((result (or (car strs) "")))
-    (setq strs (cdr strs))
-    (while strs
-      (setq result (concat result sep (car strs)))
-      (setq strs (cdr strs)))
-    result))
+(defun inferior-erlang-tuple (opts)
+  (concat "{" (mapconcat 'inferior-erlang-format-opt
+                         opts
+                         ", ")
+          "}"))
+
+(defun inferior-erlang-list (opts)
+  (concat "[" (mapconcat 'inferior-erlang-format-opt
+                         opts
+                         ", ")
+          "]"))
+
 
 (defun erlang-local-buffer-file-name ()
   ;; When editing a file remotely via tramp,

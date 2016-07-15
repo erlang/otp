@@ -132,6 +132,40 @@ concatenated to form an erlang file to test on.")
     (should (looking-back "erlang_test:"))))
 
 
+(ert-deftest erlang-test-compile-options ()
+  (erlang-test-format-opt t
+                          "t")
+  (erlang-test-format-opt nil
+                          "nil")
+  (erlang-test-format-opt (cons 1 2)
+                          "{1, 2}")
+  (erlang-test-format-opt (list 1)
+                          "[1]")
+  (erlang-test-format-opt (list 1 2)
+                          "[1, 2]")
+  (erlang-test-format-opt (list 1 2 3)
+                          "[1, 2, 3]")
+  (erlang-test-format-opt 'symbol
+                          "symbol")
+  (erlang-test-format-opt "string"
+                          "\"string\"")
+  (erlang-test-format-opt []
+                          "{}")
+  (erlang-test-format-opt [1]
+                          "{1}")
+  (erlang-test-format-opt [1 2]
+                          "{1, 2}")
+  (erlang-test-format-opt [1 2 (3 [4 5 6] 7)]
+                          "{1, 2, [3, {4, 5, 6}, 7]}"))
+
+(defun erlang-test-format-opt (elisp &optional expected-erlang)
+  (let ((erlang (inferior-erlang-format-opt elisp)))
+    (message "%s -> %s" elisp erlang)
+    (when expected-erlang
+      (should (equal erlang expected-erlang)))
+    erlang))
+
+
 (provide 'erlang-test)
 
 ;;; erlang-test.el ends here
