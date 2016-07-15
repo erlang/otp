@@ -1262,9 +1262,9 @@ handle_event(_, _, State, Data) ->
         <v>&nbsp;&nbsp;Vsn = term()</v>
         <v>OldState = NewState = term()</v>
         <v>Extra = term()</v>
-	<v>Result = {NewCallbackMode,NewState,NewData} | Reason</v>
+	<v>Result = {CallbackMode,NewState,NewData} | Reason</v>
 	<v>
-	  NewCallbackMode =
+	  CallbackMode =
 	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
 	</v>
 	<v>
@@ -1321,11 +1321,19 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  If successful, the function must return the updated
 	  internal state in an
-	  <c>{NewCallbackMode,NewState,NewData}</c> tuple.
+	  <c>{CallbackMode,NewState,NewData}</c> tuple.
 	</p>
 	<p>
-	  If the function returns <c>Reason</c>, the ongoing
-	  upgrade fails and rolls back to the old release.</p>
+	  If the function returns a failure <c>Reason</c>, the ongoing
+	  upgrade fails and rolls back to the old release.
+	  Note that <c>Reason</c> can not be a 3-tuple since that
+	  will be regarded as a
+	  <c>{CallbackMode,NewState,NewData}</c> tuple,
+	  and that a tuple matching <c>{ok,_}</c>
+	  is an invalid failure <c>Reason</c>.
+	  It is recommended to use an atom as <c>Reason</c> since
+	  it will be wrapped in an <c>{error,Reason}</c> tuple.
+	</p>
 	<p>
 	  This function can use
 	  <seealso marker="erts:erlang#throw/1"><c>erlang:throw/1</c></seealso>
