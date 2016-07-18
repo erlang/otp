@@ -16,7 +16,7 @@ If you're building for any use approximating production, we ***strongly*** encou
 | Retired      | R15    | [`basho-otp-15`](http://github.com/basho/otp/tree/basho-otp-15) | [`basho_OTP_R15B01p`](http://github.com/basho/otp/tree/basho_OTP_R15B01p) | [`OTP_R15B01_basho1`](http://github.com/basho/otp/tree/OTP_R15B01_basho1) |
 | Experimental | OTP-17 | [`basho-otp-17`](http://github.com/basho/otp/tree/basho-otp-17) | _n/a_ | [`basho-otp-17`](http://github.com/basho/otp/tree/basho-otp-17) |
 | Experimental | OTP-18 | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) | _n/a_ | [`basho-otp-18`](http://github.com/basho/otp/tree/basho-otp-18) |
-| Experimental | OTP-19 | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) | _n/a_ | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) |
+| Active       | OTP-19 | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) | _n/a_ | [`basho-otp-19`](http://github.com/basho/otp/tree/basho-otp-19) |
 
 ####Branch Conventions
 
