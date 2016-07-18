@@ -332,8 +332,6 @@ erl_init(int ncpu,
 	 int node_tab_delete_delay,
 	 ErtsDbSpinCount db_spin_count)
 {
-    init_benchmarking();
-
     erts_bif_unique_init();
     erts_init_monitors();
     erts_init_time(time_correction, time_warp_mode);
@@ -2344,8 +2342,6 @@ static __decl_noreturn void __noreturn
 erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
 {
     system_cleanup(flush_async);
-
-    save_statistics();
 
     if (erts_mtrace_enabled)
 	erts_mtrace_exit((Uint32) n);

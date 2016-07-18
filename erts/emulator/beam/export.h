@@ -21,14 +21,8 @@
 #ifndef __EXPORT_H__
 #define __EXPORT_H__
 
-#ifndef __SYS_H__
 #include "sys.h"
-#endif
-
-#ifndef __INDEX_H__
 #include "index.h"
-#endif
-
 #include "code_ix.h"
 
 /*

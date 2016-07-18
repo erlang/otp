@@ -36,6 +36,11 @@
 %% been reasonably well tested, but the possibility of errors remains.
 %% Keep backups of your original code safely stored, until you feel
 %% confident that the new, modified code can be trusted.
+%%
+%% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
+%% tree. See the {@link erl_syntax} module for details.
+%%
+%% @type filename() = file:filename().
 
 -module(erl_tidy).
 
@@ -79,7 +84,6 @@ dir(Dir) ->
 
 %% =====================================================================
 %% @spec dir(Directory::filename(), Options::[term()]) -> ok
-%%           filename() = file:filename()
 %%
 %% @doc Tidies Erlang source files in a directory and its
 %% subdirectories.
@@ -414,7 +418,7 @@ write_module(Tree, Name, Opts) ->
 
 print_module(Tree, Opts) ->
 	Printer = proplists:get_value(printer, Opts),
-	io:format(Printer(Tree, Opts)).
+	io:put_chars(Printer(Tree, Opts)).
 
 output(FD, Printer, Tree, Opts) ->
     io:put_chars(FD, Printer(Tree, Opts)),
@@ -513,7 +517,6 @@ module(Forms) ->
 %% @spec module(Forms, Options::[term()]) -> syntaxTree()
 %%
 %%          Forms = syntaxTree() | [syntaxTree()]
-%%          syntaxTree() = erl_syntax:syntaxTree()
 %%
 %% @doc Tidies a syntax tree representation of a module
 %% definition. The given `Forms' may be either a single

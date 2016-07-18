@@ -30,13 +30,18 @@
     <file>zlib.xml</file>
   </header>
   <module>zlib</module>
-  <modulesummary>Zlib Compression interface.</modulesummary>
+  <modulesummary>zlib compression interface.</modulesummary>
   <description>
-    <p>The zlib module provides an API for the zlib library
-      (http://www.zlib.org).
-      It is used to compress and decompress data. The
-      data format is described by RFCs 1950 to 1952.</p>
-    <p>A typical (compress) usage looks like:</p>
+    <p>This module provides an API for the zlib library
+      (<url href="http://www.zlib.net">www.zlib.net</url>).
+      It is used to compress and decompress data.
+      The data format is described by
+      <url href="https://www.ietf.org/rfc/rfc1950.txt">RFC 1950</url>,
+      <url href="https://www.ietf.org/rfc/rfc1951.txt">RFC 1951</url>, and
+      <url href="https://www.ietf.org/rfc/rfc1952.txt">RFC 1952</url>.</p>
+
+    <p>A typical (compress) usage is as follows:</p>
+
     <pre>
 Z = zlib:open(),
 ok = zlib:deflateInit(Z,default),
@@ -50,29 +55,25 @@ Last = zlib:deflate(Z, [], finish),
 ok = zlib:deflateEnd(Z),
 zlib:close(Z),
 list_to_binary([Compressed|Last])</pre>
+
     <p>In all functions errors, <c>{'EXIT',{Reason,Backtrace}}</c>,
-      might be thrown, where <c>Reason</c> describes the
-      error. Typical reasons are:</p>
+      can be thrown, where <c>Reason</c> describes the error.</p>
+
+    <p>Typical <c>Reasons</c>s:</p>
+
     <taglist>
       <tag><c>badarg</c></tag>
-      <item>
-        <p>Bad argument</p>
+      <item>Bad argument.
       </item>
       <tag><c>data_error</c></tag>
-      <item>
-        <p>The data contains errors</p>
+      <item>The data contains errors.
       </item>
       <tag><c>stream_error</c></tag>
-      <item>
-        <p>Inconsistent stream state</p>
-      </item>
+      <item>Inconsistent stream state.</item>
       <tag><c>einval</c></tag>
-      <item>
-        <p>Bad value or wrong function called</p>
-      </item>
+      <item>Bad value or wrong function called.</item>
       <tag><c>{need_dictionary,Adler32}</c></tag>
-      <item>
-        <p>See <c>inflate/2</c></p>
+      <item>See <seealso marker="#inflate/2"><c>inflate/2</c></seealso>.
       </item>
     </taglist>
   </description>
@@ -81,7 +82,7 @@ list_to_binary([Compressed|Last])</pre>
     <datatype>
       <name name="zstream"/>
       <desc>
-        <p>A zlib stream, see <seealso marker="#open/0">open/0</seealso>.
+        <p>A zlib stream, see <seealso marker="#open/0"><c>open/0</c></seealso>.
         </p>
        </desc>
     </datatype>
@@ -104,116 +105,144 @@ list_to_binary([Compressed|Last])</pre>
       </desc>
     </datatype>
   </datatypes>
+
   <funcs>
     <func>
-      <name name="open" arity="0"/>
-      <fsummary>Open a stream and return a stream reference</fsummary>
+      <name name="adler32" arity="2"/>
+      <fsummary>Calculate the Adler checksum.</fsummary>
       <desc>
-        <p>Open a zlib stream.</p>
+        <p>Calculates the Adler-32 checksum for <c><anno>Data</anno></c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="adler32" arity="3"/>
+      <fsummary>Calculate the Adler checksum.</fsummary>
+      <desc>
+        <p>Updates a running Adler-32 checksum for <c><anno>Data</anno></c>.
+          If <c><anno>Data</anno></c> is the empty binary or the empty iolist,
+          this function returns the required initial value for the checksum.</p>
+        <p>Example:</p>
+        <pre>
+Crc = lists:foldl(fun(Data,Crc0) ->
+                      zlib:adler32(Z, Crc0, Data),
+                  end, zlib:adler32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="adler32_combine" arity="4"/>
+      <fsummary>Combine two Adler-32 checksums.</fsummary>
+      <desc>
+        <p>Combines two Adler-32 checksums into one. For two binaries or
+          iolists, <c>Data1</c> and <c>Data2</c> with sizes of <c>Size1</c>
+          and <c><anno>Size2</anno></c>, with Adler-32 checksums
+          <c><anno>Adler1</anno></c> and <c><anno>Adler2</anno></c>.</p>
+        <p>This function returns the <c><anno>Adler</anno></c> checksum of
+          <c>[Data1,Data2]</c>, requiring only <c><anno>Adler1</anno></c>,
+          <c><anno>Adler2</anno></c>, and <c><anno>Size2</anno></c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="close" arity="1"/>
-      <fsummary>Close a stream</fsummary>
+      <fsummary>Close a stream.</fsummary>
       <desc>
         <p>Closes the stream referenced by <c><anno>Z</anno></c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="deflateInit" arity="1"/>
-      <fsummary>Initialize a session for compression</fsummary>
+      <name name="compress" arity="1"/>
+      <fsummary>Compress data with standard zlib functionality.</fsummary>
       <desc>
-        <p>Same as <c>zlib:deflateInit(<anno>Z</anno>, default)</c>.</p>
+        <p>Compresses data with zlib headers and checksum.</p>
       </desc>
     </func>
+
     <func>
-      <name name="deflateInit" arity="2"/>
-      <fsummary>Initialize a session for compression</fsummary>
+      <name name="crc32" arity="1"/>
+      <fsummary>Get current CRC.</fsummary>
       <desc>
-        <p>Initialize a zlib stream for compression.</p>
-        <p><c><anno>Level</anno></c> decides the compression level to be used, 0
-          (<c>none</c>), gives no compression at all, 1
-          (<c>best_speed</c>) gives best speed and 9
-          (<c>best_compression</c>) gives best compression.</p>
+        <p>Gets the current calculated CRC checksum.</p>
       </desc>
     </func>
+
     <func>
-      <name name="deflateInit" arity="6"/>
-      <fsummary>Initialize a session for compression</fsummary>
+      <name name="crc32" arity="2"/>
+      <fsummary>Calculate CRC.</fsummary>
       <desc>
-        <p>Initiates a zlib stream for compression.</p>
-        <p>The <c><anno>Level</anno></c> parameter decides the compression level to be
-          used, 0 (<c>none</c>), gives no compression at all, 1
-          (<c>best_speed</c>) gives best speed and 9
-          (<c>best_compression</c>) gives best compression.</p>
-        <p>The <c><anno>Method</anno></c> parameter decides which compression method to use,
-          currently the only supported method is <c>deflated</c>.</p>
-        <p>The <c><anno>WindowBits</anno></c> parameter is the base two logarithm
-          of the window size (the size of the history buffer).  It
-          should be in the range 8 through 15. Larger values
-          of this parameter result in better compression at the
-          expense of memory usage. The default value is 15 if
-          <c>deflateInit/2</c>. A negative <c><anno>WindowBits</anno></c>
-          value suppresses the zlib header (and checksum) from the
-          stream. Note that the zlib source mentions this only as a
-          undocumented feature.</p>
-        <p>The <c><anno>MemLevel</anno></c> parameter specifies how much memory
-          should be allocated for the internal compression
-          state. <c><anno>MemLevel</anno></c>=1 uses minimum memory but is slow and
-          reduces compression ratio; <c><anno>MemLevel</anno></c>=9 uses maximum
-          memory for optimal speed. The default value is 8.</p>
-        <p>The <c><anno>Strategy</anno></c> parameter is used to tune
-        the compression algorithm. Use the value <c>default</c> for
-        normal data, <c>filtered</c> for data produced by a filter (or
-        predictor), <c>huffman_only</c> to force Huffman encoding
-        only (no string match), or <c>rle</c> to limit match
-        distances to one (run-length encoding).  Filtered data
-        consists mostly of small values with a somewhat random
-        distribution. In this case, the compression algorithm is tuned
-        to compress them better. The effect of <c>filtered</c>is to
-        force more Huffman coding and less string matching; it is
-        somewhat intermediate between <c>default</c> and
-        <c>huffman_only</c>. <c>rle</c> is designed to be almost as
-        fast as <c>huffman_only</c>, but give better compression for PNG
-        image data. The <c><anno>Strategy</anno></c> parameter only
-        affects the compression ratio but not the correctness of the
-        compressed output even if it is not set appropriately.</p>
+        <p>Calculates the CRC checksum for <c><anno>Data</anno></c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="crc32" arity="3"/>
+      <fsummary>Calculate CRC.</fsummary>
+      <desc>
+        <p>Updates a running CRC checksum for <c><anno>Data</anno></c>.
+          If <c><anno>Data</anno></c> is the empty binary or the empty iolist,
+          this function returns the required initial value for the CRC.</p>
+        <p>Example:</p>
+        <pre>
+Crc = lists:foldl(fun(Data,Crc0) ->
+                      zlib:crc32(Z, Crc0, Data),
+                  end, zlib:crc32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crc32_combine" arity="4"/>
+      <fsummary>Combine two CRCs.</fsummary>
+      <desc>
+        <p>Combines two CRC checksums into one. For two binaries or iolists,
+          <c>Data1</c> and <c>Data2</c> with sizes of <c>Size1</c> and
+          <c><anno>Size2</anno></c>, with CRC checksums <c><anno>CRC1</anno></c>
+          and <c><anno>CRC2</anno></c>.</p>
+        <p>This function returns the <c><anno>CRC</anno></c> checksum of
+          <c>[Data1,Data2]</c>, requiring only <c><anno>CRC1</anno></c>,
+          <c><anno>CRC2</anno></c>, and <c><anno>Size2</anno></c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="deflate" arity="2"/>
-      <fsummary>Compress data</fsummary>
+      <fsummary>Compress data.</fsummary>
       <desc>
         <p>Same as <c>deflate(<anno>Z</anno>, <anno>Data</anno>, none)</c>.</p>
       </desc>
     </func>
+
     <func>
       <name name="deflate" arity="3"/>
-      <fsummary>Compress data</fsummary>
+      <fsummary>Compress data.</fsummary>
       <desc>
-        <p><c>deflate/3</c> compresses as much data as possible, and
-          stops when the input buffer becomes empty. It may introduce
+        <p>Compresses as much data as possible, and
+          stops when the input buffer becomes empty. It can introduce
           some output latency (reading input without producing any
           output) except when forced to flush.</p>
-        <p>If the parameter <c><anno>Flush</anno></c> is set to <c>sync</c>, all
+        <p>If <c><anno>Flush</anno></c> is set to <c>sync</c>, all
           pending output is flushed to the output buffer and the
           output is aligned on a byte boundary, so that the
           decompressor can get all input data available so far. 
-          Flushing may degrade compression for some compression algorithms and so
-          it should be used only when necessary.</p>
-        <p>If <c><anno>Flush</anno></c> is set to <c>full</c>, all output is flushed as with
-          <c>sync</c>, and the compression state is reset so that decompression can
-          restart from this point if previous compressed data has been damaged or if
-          random access is desired. Using <c>full</c> too often can seriously degrade
-          the compression.</p>
-        <p>If the parameter <c><anno>Flush</anno></c> is set to <c>finish</c>,
-          pending input is processed, pending output is flushed and
-          <c>deflate/3</c> returns. Afterwards the only possible
-          operations on the stream are <c>deflateReset/1</c> or <c>deflateEnd/1</c>.</p>
-        <p><c><anno>Flush</anno></c> can be set to <c>finish</c> immediately after
-          <c>deflateInit</c> if all compression is to be done in one step.</p>
+          Flushing can degrade compression for some compression algorithms;
+          thus, use it only when necessary.</p>
+        <p>If <c><anno>Flush</anno></c> is set to <c>full</c>, all output is
+          flushed as with <c>sync</c>, and the compression state is reset so
+          that decompression can restart from this point if previous compressed
+          data has been damaged or if random access is desired. Using
+          <c>full</c> too often can seriously degrade the compression.</p>
+        <p>If <c><anno>Flush</anno></c> is set to <c>finish</c>,
+          pending input is processed, pending output is flushed, and
+          <c>deflate/3</c> returns. Afterwards the only possible operations
+          on the stream are
+          <seealso marker="#deflateReset/1"><c>deflateReset/1</c></seealso> or
+          <seealso marker="#deflateEnd/1"><c>deflateEnd/1</c></seealso>.</p>
+        <p><c><anno>Flush</anno></c> can be set to <c>finish</c> immediately
+          after <seealso marker="#deflateInit/1"><c>deflateInit</c></seealso>
+          if all compression is to be done in one step.</p>
+        <p>Example:</p>
         <pre>
- 
 zlib:deflateInit(Z),
 B1 = zlib:deflate(Z,Data),
 B2 = zlib:deflate(Z,&lt;&lt; &gt;&gt;,finish),
@@ -221,116 +250,234 @@ zlib:deflateEnd(Z),
 list_to_binary([B1,B2])</pre>
       </desc>
     </func>
+
     <func>
-      <name name="deflateSetDictionary" arity="2"/>
-      <fsummary>Initialize the compression dictionary</fsummary>
+      <name name="deflateEnd" arity="1"/>
+      <fsummary>End deflate session.</fsummary>
       <desc>
-        <p>Initializes the compression dictionary from the given byte
-          sequence without producing any compressed output. This
-          function must be called immediately after
-          <c>deflateInit/[1|2|6]</c> or <c>deflateReset/1</c>, before
-          any call of <c>deflate/3</c>. The compressor and
-          decompressor must use exactly the same dictionary (see
-          <c>inflateSetDictionary/2</c>). The adler checksum of the
-          dictionary is returned.</p>
+        <p>Ends the deflate session and cleans all data used. Notice that this
+          function throws a <c>data_error</c> exception if the last call to
+          <seealso marker="#deflate/3"><c>deflate/3</c></seealso>
+          was not called with <c>Flush</c> set to <c>finish</c>.</p>
       </desc>
     </func>
+
     <func>
-      <name name="deflateReset" arity="1"/>
-      <fsummary>Reset the deflate session</fsummary>
+      <name name="deflateInit" arity="1"/>
+      <fsummary>Initialize a session for compression.</fsummary>
       <desc>
-        <p>This function is equivalent to <c>deflateEnd/1</c>
-          followed by <c>deflateInit/[1|2|6]</c>, but does not free
-          and reallocate all the internal compression state.  The
-          stream will keep the same compression level and any other
-          attributes.</p>
+        <p>Same as <c>zlib:deflateInit(<anno>Z</anno>, default)</c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="deflateInit" arity="2"/>
+      <fsummary>Initialize a session for compression.</fsummary>
+      <desc>
+        <p>Initializes a zlib stream for compression.</p>
+        <p><c><anno>Level</anno></c> decides the compression level to be
+          used:</p>
+        <list type="bulleted">
+          <item>0 (<c>none</c>), gives no compression</item>
+          <item>1 (<c>best_speed</c>) gives best speed</item>
+          <item>9 (<c>best_compression</c>) gives best compression</item>
+        </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="deflateInit" arity="6"/>
+      <fsummary>Initialize a session for compression.</fsummary>
+      <desc>
+        <p>Initiates a zlib stream for compression.</p>
+        <taglist>
+          <tag><c><anno>Level</anno></c></tag>
+          <item>
+            <p>Compression level to use:</p>
+            <list type="bulleted">
+              <item>0 (<c>none</c>), gives no compression</item>
+              <item>1 (<c>best_speed</c>) gives best speed</item>
+              <item>9 (<c>best_compression</c>) gives best compression</item>
+            </list>
+          </item>
+          <tag><c><anno>Method</anno></c></tag>
+          <item>
+            <p>Compression method to use, currently the only supported method
+              is <c>deflated</c>.</p>
+          </item>
+          <tag><c><anno>WindowBits</anno></c></tag>
+          <item>
+            <p>The base two logarithm of the window size (the size of the
+              history buffer). It is to be in the range 8 through 15. Larger
+              values result in better compression at the expense of memory
+              usage. Defaults to 15 if <seealso marker="#deflateInit/2">
+              <c>deflateInit/2</c></seealso> is used. A negative
+              <c><anno>WindowBits</anno></c> value suppresses the zlib header
+              (and checksum) from the stream. Notice that the zlib source
+              mentions this only as a undocumented feature.</p>
+          </item>
+          <tag><c><anno>MemLevel</anno></c></tag>
+          <item>
+            <p>Specifies how much memory is to be allocated for the internal
+              compression state: <c><anno>MemLevel</anno></c>=1 uses minimum
+              memory but is slow and reduces compression ratio;
+              <c><anno>MemLevel</anno></c>=9 uses maximum memory for optimal
+              speed. Defaults to 8.</p>
+          </item>
+          <tag><c><anno>Strategy</anno></c></tag>
+          <item>
+            <p>Tunes the compression algorithm. Use the following values:</p>
+            <list type="bulleted">
+              <item><c>default</c> for normal data</item>
+              <item><c>filtered</c> for data produced by a filter (or
+                predictor)</item>
+              <item><c>huffman_only</c> to force Huffman encoding only
+                (no string match)</item>
+              <item><c>rle</c> to limit match distances to one (run-length
+                encoding)</item>
+            </list>
+            <p>Filtered data consists mostly of small values with a somewhat
+              random distribution. In this case, the compression algorithm is
+              tuned to compress them better. The effect of <c>filtered</c> is to
+              force more Huffman coding and less string matching; it is somewhat
+              intermediate between <c>default</c> and <c>huffman_only</c>.
+              <c>rle</c> is designed to be almost as fast as
+              <c>huffman_only</c>, but gives better compression for PNG image
+              data.</p>
+            <p><c><anno>Strategy</anno></c> affects only the compression ratio,
+              but not the correctness of the compressed output even if it is not
+              set appropriately.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
     <func>
       <name name="deflateParams" arity="3"/>
-      <fsummary>Dynamicly update deflate parameters</fsummary>
+      <fsummary>Dynamicly update deflate parameters.</fsummary>
       <desc>
-        <p>Dynamically update the compression level and compression
-          strategy.  The interpretation of <c><anno>Level</anno></c> and
-          <c><anno>Strategy</anno></c> is as in <c>deflateInit/6</c>.  This can be
+        <p>Dynamically updates the compression level and compression
+          strategy. The interpretation of <c><anno>Level</anno></c> and
+          <c><anno>Strategy</anno></c> is as in
+          <seealso marker="#deflateInit/6"><c>deflateInit/6</c></seealso>.
+          This can be
           used to switch between compression and straight copy of the
           input data, or to switch to a different kind of input data
           requiring a different strategy. If the compression level is
           changed, the input available so far is compressed with the
-          old level (and may be flushed); the new level will take
-          effect only at the next call of <c>deflate/3</c>.</p>
-        <p>Before the call of <c>deflateParams</c>, the stream state must be set as for
-          a call of <c>deflate/3</c>, since the currently available input may have to
-          be compressed and flushed.</p>
+          old level (and can be flushed); the new level takes
+          effect only at the next call of
+          <seealso marker="#deflate/3"><c>deflate/3</c></seealso>.</p>
+        <p>Before the call of <c>deflateParams</c>, the stream state must be
+          set as for a call of <c>deflate/3</c>, as the currently available
+          input may have to be compressed and flushed.</p>
       </desc>
     </func>
+
     <func>
-      <name name="deflateEnd" arity="1"/>
-      <fsummary>End deflate session</fsummary>
+      <name name="deflateReset" arity="1"/>
+      <fsummary>Reset the deflate session.</fsummary>
       <desc>
-        <p>End the deflate session and cleans all data used.
-          Note that this function will throw an <c>data_error</c>
-          exception if the last call to
-          <c>deflate/3</c> was not called with <c>Flush</c> set to
-          <c>finish</c>.</p>
+        <p>Equivalent to
+          <seealso marker="#deflateEnd/1"><c>deflateEnd/1</c></seealso>
+          followed by
+          <seealso marker="#deflateInit/1"><c>deflateInit/1,2,6</c></seealso>,
+          but does not free and reallocate all the internal compression state.
+          The stream keeps the same compression level and any other
+          attributes.</p>
       </desc>
     </func>
+
     <func>
-      <name name="inflateInit" arity="1"/>
-      <fsummary>Initialize a session for decompression</fsummary>
+      <name name="deflateSetDictionary" arity="2"/>
+      <fsummary>Initialize the compression dictionary.</fsummary>
       <desc>
-        <p>Initialize a zlib stream for decompression.</p>
+        <p>Initializes the compression dictionary from the specified byte
+          sequence without producing any compressed output.</p>
+        <p>This function must be called immediately after
+          <seealso marker="#deflateInit/1"><c>deflateInit/1,2,6</c></seealso> or
+          <seealso marker="#deflateReset/1"><c>deflateReset/1</c></seealso>,
+          before any call of
+          <seealso marker="#deflate/3"><c>deflate/3</c></seealso>.
+          The compressor and decompressor must use the same dictionary (see
+          <seealso marker="#inflateSetDictionary/2">
+          <c>inflateSetDictionary/2</c></seealso>).</p>
+        <p>The Adler checksum of the dictionary is returned.</p>
       </desc>
     </func>
+
     <func>
-      <name name="inflateInit" arity="2"/>
-      <fsummary>Initialize a session for decompression</fsummary>
+      <name name="getBufSize" arity="1"/>
+      <fsummary>Get buffer size.</fsummary>
       <desc>
-        <p>Initialize decompression session on zlib stream.</p>
-        <p>The <c><anno>WindowBits</anno></c> parameter is the base two logarithm
-          of the maximum window size (the size of the history buffer).
-          It should be in the range 8 through 15.
-          The default value is 15 if <c>inflateInit/1</c> is used.
-          If a compressed stream with a larger window size is
-          given as input, inflate() will throw the <c>data_error</c>
-          exception. A negative <c><anno>WindowBits</anno></c> value makes zlib ignore the
-          zlib header (and checksum) from the stream.  Note that the zlib
-          source mentions this only as a undocumented feature.</p>
+        <p>Gets the size of the intermediate buffer.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="gunzip" arity="1"/>
+      <fsummary>Uncompress data with gz header.</fsummary>
+      <desc>
+        <p>Uncompresses data with gz headers and checksum.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="gzip" arity="1"/>
+      <fsummary>Compress data with gz header.</fsummary>
+      <desc>
+        <p>Compresses data with gz headers and checksum.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="inflate" arity="2"/>
-      <fsummary>Decompress data</fsummary>
+      <fsummary>Decompress data.</fsummary>
       <desc>
-        <p><c>inflate/2</c> decompresses as much data as possible.
-          It may introduce some output latency (reading
+        <p>Decompresses as much data as possible.
+          It can introduce some output latency (reading
           input without producing any output).</p>
         <p>If a preset dictionary is needed at this point (see
-          <c>inflateSetDictionary</c> below), <c>inflate/2</c> throws a
-          <c>{need_dictionary,Adler}</c> exception where <c>Adler</c> is 
-          the adler32 checksum of the dictionary chosen by the
-          compressor.</p>
+          <seealso marker="#inflateSetDictionary/2">
+          <c>inflateSetDictionary/2</c></seealso>), <c>inflate/2</c> throws a
+          <c>{need_dictionary,Adler}</c> exception, where <c>Adler</c> is
+          the Adler-32 checksum of the dictionary chosen by the compressor.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="inflateChunk" arity="1"/>
+      <fsummary>Read next uncompressed chunk.</fsummary>
+      <desc>
+        <p>Reads the next chunk of uncompressed data, initialized by
+          <seealso marker="#inflateChunk/2"><c>inflateChunk/2</c></seealso>.</p>
+        <p>This function is to be repeatedly called, while it returns
+          <c>{more, Decompressed}</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="inflateChunk" arity="2"/>
-      <fsummary>Decompress data with limited output size</fsummary>
+      <fsummary>Decompress data with limited output size.</fsummary>
       <desc>
-        <p>Like <c>inflate/2</c>, but decompress no more data than
-          will fit in the buffer configured via <c>setBufSize/2</c>.
+        <p>Like <seealso marker="#inflate/2"><c>inflate/2</c></seealso>,
+          but decompresses no more data than will fit in the buffer configured
+          through <seealso marker="#setBufSize/2"><c>setBufSize/2</c></seealso>.
           Is is useful when decompressing a stream with a high compression
-          ratio such that a small amount of compressed input may expand up to
-          1000 times.
-          It returns <c>{more, Decompressed}</c>, when there is more output
-          available, and <c>inflateChunk/1</c> should be used to read it.
-          It may introduce some output latency (reading
+          ratio, such that a small amount of compressed input can expand up to
+          1000 times.</p>
+        <p>This function returns <c>{more, Decompressed}</c>, when there is
+          more output available, and
+          <seealso marker="#inflateChunk/1"><c>inflateChunk/1</c></seealso>
+          is to be used to read it.</p>
+        <p>This function can introduce some output latency (reading
           input without producing any output).</p>
         <p>If a preset dictionary is needed at this point (see
-          <c>inflateSetDictionary</c> below), <c>inflateChunk/2</c> throws a
-          <c>{need_dictionary,Adler}</c> exception where <c>Adler</c> is
-          the adler32 checksum of the dictionary chosen by the
-          compressor.</p>
-
+          <seealso marker="#inflateSetDictionary/2">
+          <c>inflateSetDictionary/2</c></seealso>), this function throws a
+          <c>{need_dictionary,Adler}</c> exception, where <c>Adler</c> is
+          the Adler-32 checksum of the dictionary chosen by the compressor.</p>
+        <p>Example:</p>
         <pre>
 walk(Compressed, Handler) ->
     Z = zlib:open(),
@@ -345,32 +492,76 @@ loop(Z, Handler, {more, Uncompressed}) ->
     Handler(Uncompressed),
     loop(Z, Handler, zlib:inflateChunk(Z));
 loop(Z, Handler, Uncompressed) ->
-    Handler(Uncompressed).
-        </pre>
+    Handler(Uncompressed).</pre>
       </desc>
     </func>
+
     <func>
-      <name name="inflateChunk" arity="1"/>
-      <fsummary>Read next uncompressed chunk</fsummary>
+      <name name="inflateEnd" arity="1"/>
+      <fsummary>End inflate session.</fsummary>
       <desc>
-        <p>Read next chunk of uncompressed data, initialized by
-          <c>inflateChunk/2</c>.</p>
-        <p>This function should be repeatedly called, while it returns
-          <c>{more, Decompressed}</c>.</p>
+        <p>Ends the inflate session and cleans all data used. Notice
+          that this function throws a <c>data_error</c> exception
+          if no end of stream was found (meaning that not all data
+          has been uncompressed).</p>
       </desc>
     </func>
+
+    <func>
+      <name name="inflateInit" arity="1"/>
+      <fsummary>Initialize a session for decompression.</fsummary>
+      <desc>
+        <p>Initializes a zlib stream for decompression.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="inflateInit" arity="2"/>
+      <fsummary>Initialize a session for decompression.</fsummary>
+      <desc>
+        <p>Initializes a decompression session on zlib stream.</p>
+        <p><c><anno>WindowBits</anno></c> is the base two logarithm
+          of the maximum window size (the size of the history buffer).
+          It is to be in the range 8 through 15. Default to 15 if
+          <seealso marker="#inflateInit/1"><c>inflateInit/1</c></seealso>
+          is used.</p>
+        <p>If a compressed stream with a larger window size is specified as
+          input, <seealso marker="#inflate/2"><c>inflate/2</c></seealso>
+          throws the <c>data_error</c> exception.</p>
+        <p>A negative <c><anno>WindowBits</anno></c> value makes zlib
+          ignore the zlib header (and checksum) from the stream. Notice that
+          the zlib source mentions this only as a undocumented feature.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="inflateReset" arity="1"/>
+      <fsummary>>Reset the inflate session.</fsummary>
+      <desc>
+        <p>Equivalent to
+          <seealso marker="#inflateEnd/1"><c>inflateEnd/1</c></seealso>
+          followed by
+          <seealso marker="#inflateInit/1"><c>inflateInit/1</c></seealso>,
+          but does not free and reallocate all the internal decompression state.
+          The stream will keep attributes that could have been set by
+          <c>inflateInit/1,2</c>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="inflateSetDictionary" arity="2"/>
-      <fsummary>Initialize the decompression dictionary</fsummary>
+      <fsummary>Initialize the decompression dictionary.</fsummary>
       <desc>
-        <p>Initializes the decompression dictionary from the given
+        <p>Initializes the decompression dictionary from the specified
           uncompressed byte sequence. This function must be called
-          immediately after a call of <c>inflate/2</c> if this call
-          threw a <c>{need_dictionary,Adler}</c> exception.
-          The dictionary chosen by the
-          compressor can be determined from the Adler value thrown
-          by the call to <c>inflate/2</c>. The compressor and decompressor
-          must use exactly the same dictionary (see <c>deflateSetDictionary/2</c>).</p>
+          immediately after a call of
+          <seealso marker="#inflate/2"><c>inflate/2</c></seealso>
+          if this call threw a <c>{need_dictionary,Adler}</c> exception.
+          The dictionary chosen by the compressor can be determined from the
+          Adler value thrown by the call to <c>inflate/2</c>.
+          The compressor and decompressor must use the same dictionary (see
+          <seealso marker="#deflateSetDictionary/2">
+          <c>deflateSetDictionary/2</c></seealso>).</p>
         <p>Example:</p>
         <pre>
 unpack(Z, Compressed, Dict) ->
@@ -383,153 +574,44 @@ unpack(Z, Compressed, Dict) ->
      end.</pre>
       </desc>
     </func>
+
     <func>
-      <name name="inflateReset" arity="1"/>
-      <fsummary>>Reset the inflate session</fsummary>
+      <name name="open" arity="0"/>
+      <fsummary>Open a stream and return a stream reference.</fsummary>
       <desc>
-        <p>This function is equivalent to <c>inflateEnd/1</c> followed
-          by <c>inflateInit/1</c>, but does not free and reallocate all
-          the internal decompression state.  The stream will keep
-          attributes that may have been set by <c>inflateInit/[1|2]</c>.</p>
+        <p>Opens a zlib stream.</p>
       </desc>
     </func>
-    <func>
-      <name name="inflateEnd" arity="1"/>
-      <fsummary>End inflate session</fsummary>
-      <desc>
-        <p>End the inflate session and cleans all data used. Note
-          that this function will throw a <c>data_error</c> exception
-          if no end of stream was found (meaning that not all data
-          has been uncompressed).</p>
-      </desc>
-    </func>
+
     <func>
       <name name="setBufSize" arity="2"/>
-      <fsummary>Set buffer size</fsummary>
+      <fsummary>Set buffer size.</fsummary>
       <desc>
         <p>Sets the intermediate buffer size.</p>
       </desc>
     </func>
-    <func>
-      <name name="getBufSize" arity="1"/>
-      <fsummary>Get buffer size</fsummary>
-      <desc>
-        <p>Get the size of intermediate buffer.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="crc32" arity="1"/>
-      <fsummary>Get current CRC</fsummary>
-      <desc>
-        <p>Get the current calculated CRC checksum.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="crc32" arity="2"/>
-      <fsummary>Calculate CRC</fsummary>
-      <desc>
-        <p>Calculate the CRC checksum for <c><anno>Data</anno></c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="crc32" arity="3"/>
-      <fsummary>Calculate CRC</fsummary>
-      <desc>
-        <p>Update a running CRC checksum for <c><anno>Data</anno></c>.
-          If <c><anno>Data</anno></c> is the empty binary or the empty iolist, this function returns
-          the required initial value for the crc.</p>
-        <pre>
-Crc = lists:foldl(fun(Data,Crc0) ->
-                      zlib:crc32(Z, Crc0, Data),
-                  end, zlib:crc32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
-      </desc>
-    </func>
-    <func>
-      <name name="crc32_combine" arity="4"/>
-      <fsummary>Combine two CRC's</fsummary>
-      <desc>
-	<p>Combine two CRC checksums into one.  For two binaries or iolists,
-	  <c>Data1</c> and <c>Data2</c> with sizes of <c>Size1</c> and
-	  <c><anno>Size2</anno></c>, with CRC checksums <c><anno>CRC1</anno></c> and
-	  <c><anno>CRC2</anno></c>.  <c>crc32_combine/4</c> returns the <c><anno>CRC</anno></c>
-	  checksum of <c>[Data1,Data2]</c>, requiring
-	  only <c><anno>CRC1</anno></c>, <c><anno>CRC2</anno></c>, and <c><anno>Size2</anno></c>.
-	</p>
-      </desc>
-    </func>
-    <func>
-      <name name="adler32" arity="2"/>
-      <fsummary>Calculate the adler checksum</fsummary>
-      <desc>
-        <p>Calculate the Adler-32 checksum for <c><anno>Data</anno></c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="adler32" arity="3"/>
-      <fsummary>Calculate the adler checksum</fsummary>
-      <desc>
-        <p>Update a running Adler-32 checksum for <c><anno>Data</anno></c>.
-          If <c><anno>Data</anno></c> is the empty binary or the empty iolist, this function returns
-          the required initial value for the checksum.</p>
-        <pre>
-Crc = lists:foldl(fun(Data,Crc0) ->
-                      zlib:adler32(Z, Crc0, Data),
-                  end, zlib:adler32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
-      </desc>
-    </func>
-    <func>
-      <name name="adler32_combine" arity="4"/>
-      <fsummary>Combine two Adler-32 checksums</fsummary>
-      <desc>
-	<p>Combine two Adler-32 checksums into one.  For two binaries or iolists,
-	  <c>Data1</c> and <c>Data2</c> with sizes of <c>Size1</c> and
-	  <c><anno>Size2</anno></c>, with Adler-32 checksums <c><anno>Adler1</anno></c> and
-	  <c><anno>Adler2</anno></c>.  <c>adler32_combine/4</c> returns the <c><anno>Adler</anno></c>
-	  checksum of <c>[Data1,Data2]</c>, requiring
-	  only <c><anno>Adler1</anno></c>, <c><anno>Adler2</anno></c>, and <c><anno>Size2</anno></c>.
-	</p>
-      </desc>
-    </func>
-    <func>
-      <name name="compress" arity="1"/>
-      <fsummary>Compress data with standard zlib functionality</fsummary>
-      <desc>
-        <p>Compress data (with zlib headers and checksum).</p>
-      </desc>
-    </func>
+
     <func>
       <name name="uncompress" arity="1"/>
-      <fsummary>Uncompress data with standard zlib functionality</fsummary>
+      <fsummary>Uncompress data with standard zlib functionality.</fsummary>
       <desc>
-        <p>Uncompress data (with zlib headers and checksum).</p>
+        <p>Uncompresses data with zlib headers and checksum.</p>
       </desc>
     </func>
-    <func>
-      <name name="zip" arity="1"/>
-      <fsummary>Compress data without the zlib headers</fsummary>
-      <desc>
-        <p>Compress data (without zlib headers and checksum).</p>
-      </desc>
-    </func>
+
     <func>
       <name name="unzip" arity="1"/>
-      <fsummary>Uncompress data without the zlib headers</fsummary>
+      <fsummary>Uncompress data without the zlib headers.</fsummary>
       <desc>
-        <p>Uncompress data (without zlib headers and checksum).</p>
+        <p>Uncompresses data without zlib headers and checksum.</p>
       </desc>
     </func>
+
     <func>
-      <name name="gzip" arity="1"/>
-      <fsummary>Compress data with gz header</fsummary>
+      <name name="zip" arity="1"/>
+      <fsummary>Compress data without the zlib headers.</fsummary>
       <desc>
-        <p>Compress data (with gz headers and checksum).</p>
-      </desc>
-    </func>
-    <func>
-      <name name="gunzip" arity="1"/>
-      <fsummary>Uncompress data with gz header</fsummary>
-      <desc>
-        <p>Uncompress data (with gz headers and checksum).</p>
+        <p>Compresses data without zlib headers and checksum.</p>
       </desc>
     </func>
   </funcs>

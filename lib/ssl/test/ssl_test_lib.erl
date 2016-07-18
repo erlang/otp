@@ -385,7 +385,9 @@ cert_options(Config) ->
     SNIServerAKeyFile = filename:join([proplists:get_value(priv_dir, Config), "a.server", "key.pem"]),
     SNIServerBCertFile = filename:join([proplists:get_value(priv_dir, Config), "b.server", "cert.pem"]),
     SNIServerBKeyFile = filename:join([proplists:get_value(priv_dir, Config), "b.server", "key.pem"]),
-    [{client_opts, []}, 
+    [{client_opts, [{cacertfile, ClientCaCertFile}, 
+		    {certfile, ClientCertFile},  
+		    {keyfile, ClientKeyFile}]}, 
      {client_verification_opts, [{cacertfile, ServerCaCertFile}, 
 				{certfile, ClientCertFile},  
 				{keyfile, ClientKeyFile},
@@ -394,7 +396,7 @@ cert_options(Config) ->
 				{certfile, ClientCertFileDigitalSignatureOnly},
 				{keyfile, ClientKeyFile},
 				{ssl_imp, new}]},
-     {server_opts, [{ssl_imp, new},{reuseaddr, true}, 
+     {server_opts, [{ssl_imp, new},{reuseaddr, true}, {cacertfile, ServerCaCertFile}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
      {client_psk, [{ssl_imp, new},{reuseaddr, true},
@@ -494,7 +496,7 @@ make_ecdsa_cert(Config) ->
 				  {cacertfile, ServerCaCertFile},
 				  {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
 	     {server_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
-					 {cacertfile, ServerCaCertFile},
+					 {cacertfile, ClientCaCertFile},
 					 {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 					 {verify, verify_peer}]},
 	     {client_ecdsa_opts, [{ssl_imp, new},{reuseaddr, true},
@@ -519,7 +521,7 @@ make_ecdh_rsa_cert(Config) ->
 				     {cacertfile, ServerCaCertFile},
 				     {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
 	     {server_ecdh_rsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
-					    {cacertfile, ServerCaCertFile},
+					    {cacertfile, ClientCaCertFile},
 					    {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
 					    {verify, verify_peer}]},
 	     {client_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true},
@@ -814,6 +816,12 @@ rsa_suites(CounterPart) ->
 		    ({dhe_rsa, _, _}) ->
 			 true;
 		    ({ecdhe_rsa, _, _}) when ECC == true ->
+			 true;
+		    ({rsa, _, _, _}) ->
+			 true;
+		    ({dhe_rsa, _, _,_}) ->
+			 true;
+		    ({ecdhe_rsa, _, _,_}) when ECC == true ->
 			 true;
 		    (_) ->
 			 false

@@ -195,10 +195,16 @@ format(Node) ->
 
 %% =====================================================================
 %% @spec format(Tree::syntaxTree(), Options::[term()]) -> string()
-%%           syntaxTree() = erl_syntax:syntaxTree()
 %%
-%% @type hook() = (syntaxTree(), context(), Continuation) -> document()
-%%	    Continuation = (syntaxTree(), context()) -> document().
+%% @type syntaxTree() = erl_syntax:syntaxTree().
+%%
+%% An abstract syntax tree. See the {@link erl_syntax} module for
+%% details.
+%%
+%% @type hook() = (syntaxTree(), context(), Continuation) ->
+%%                            prettypr:document()
+%%	    Continuation = (syntaxTree(), context()) ->
+%%                            prettypr:document().
 %%
 %% A call-back function for user-controlled formatting. See {@link
 %% format/2}.
@@ -277,7 +283,7 @@ format(Node, Options) ->
 
 
 %% =====================================================================
-%% @spec best(Tree::syntaxTree()) -> empty | document()
+%% @spec best(Tree::syntaxTree()) -> empty | prettypr:document()
 %% @equiv best(Tree, [])
 
 -spec best(erl_syntax:syntaxTree()) -> 'empty' | prettypr:document().
@@ -288,7 +294,7 @@ best(Node) ->
 
 %% =====================================================================
 %% @spec best(Tree::syntaxTree(), Options::[term()]) ->
-%%           empty | document()
+%%           empty | prettypr:document()
 %%
 %% @doc Creates a fixed "best" abstract layout for a syntax tree. This
 %% is similar to the `layout/2' function, except that here, the final
@@ -310,7 +316,7 @@ best(Node, Options) ->
 
 
 %% =====================================================================
-%% @spec layout(Tree::syntaxTree()) -> document()
+%% @spec layout(Tree::syntaxTree()) -> prettypr:document()
 %% @equiv layout(Tree, [])
 
 -spec layout(erl_syntax:syntaxTree()) -> prettypr:document().
@@ -320,8 +326,7 @@ layout(Node) ->
 
 
 %% =====================================================================
-%% @spec layout(Tree::syntaxTree(), Options::[term()]) -> document()
-%%	    document() = prettypr:document()
+%% @spec layout(Tree::syntaxTree(), Options::[term()]) -> prettypr:document()
 %%
 %% @doc Creates an abstract document layout for a syntax tree. The
 %% result represents a set of possible layouts (cf. module `prettypr').

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<specs xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../specs/specs_epp_dodger.xml"/>
+  <xi:include href="../specs/specs_erl_comment_scan.xml"/>
+  <xi:include href="../specs/specs_erl_prettypr.xml"/>
+  <xi:include href="../specs/specs_erl_recomment.xml"/>
+  <xi:include href="../specs/specs_erl_syntax.xml"/>
+  <xi:include href="../specs/specs_erl_syntax_lib.xml"/>
+  <xi:include href="../specs/specs_erl_tidy.xml"/>
+  <xi:include href="../specs/specs_igor.xml"/>
+  <xi:include href="../specs/specs_merl.xml"/>
+  <xi:include href="../specs/specs_merl_transform.xml"/>
+  <xi:include href="../specs/specs_prettypr.xml"/>
+</specs>

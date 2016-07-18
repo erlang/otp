@@ -755,7 +755,7 @@ stop() ->
       Suppose that we do not want a button to lock the door,
       instead we want to ignore button events in the <c>open</c> state.
       Then we start a timer when entering the <c>open</c> state
-      and waits for it to expire while ignoring button events:
+      and wait for it to expire while ignoring button events:
     </p>
     <code type="erl"><![CDATA[
 ...

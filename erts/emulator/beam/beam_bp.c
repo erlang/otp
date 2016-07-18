@@ -858,7 +858,8 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	if (flags & MATCH_SET_RX_TRACE) {
 	    erts_trace_return(p, ep->code, result, &ERTS_TRACER(p));
 	}
-	if (flags & MATCH_SET_RETURN_TO_TRACE) {
+	if (flags & MATCH_SET_RETURN_TO_TRACE &&
+            IS_TRACED_FL(p, F_TRACE_RETURN_TO)) {
 	    /* can only happen if(local)*/
 	    if (applying) {
 		/* Apply of BIF, cp is in calling function */

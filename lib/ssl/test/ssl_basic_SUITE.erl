@@ -408,8 +408,13 @@ init_per_testcase(TestCase, Config) when TestCase == tls_ssl_accept_timeout;
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 15}),
     Config;
-init_per_testcase(clear_pem_cache, Config) ->
+init_per_testcase(TestCase, Config) when TestCase == clear_pem_cache;
+						TestCase == der_input;
+						TestCase == defaults ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    %% White box test need clean start
+    ssl:stop(),
+    ssl:start(),
     ct:timetrap({seconds, 20}),
     Config;
 init_per_testcase(raw_ssl_option, Config) ->
@@ -567,8 +572,8 @@ prf(Config) when is_list(Config) ->
 connection_info() ->
     [{doc,"Test the API function ssl:connection_information/1"}].
 connection_info(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -1144,8 +1149,8 @@ cipher_suites_mix() ->
 
 cipher_suites_mix(Config) when is_list(Config) -> 
     CipherSuites = [{ecdh_rsa,aes_128_cbc,sha256,sha256}, {rsa,aes_128_cbc,sha}],
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -4409,14 +4414,14 @@ run_suites(Ciphers, Version, Config, Type) ->
     {ClientOpts, ServerOpts} =
 	case Type of
 	    rsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
-		 ssl_test_lib:ssl_options(server_opts, Config)};
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		 ssl_test_lib:ssl_options(server_verification_opts, Config)};
 	    dsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 ssl_test_lib:ssl_options(server_dsa_opts, Config)};
 	    anonymous ->
 		%% No certs in opts!
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 ssl_test_lib:ssl_options(server_anon, Config)};
 	    psk ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
@@ -4440,31 +4445,31 @@ run_suites(Ciphers, Version, Config, Type) ->
 		{ssl_test_lib:ssl_options(client_srp_dsa, Config),
 		 ssl_test_lib:ssl_options(server_srp_dsa, Config)};
 	    ecdsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 ssl_test_lib:ssl_options(server_ecdsa_opts, Config)};
 	    ecdh_rsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)};
 	    rc4_rsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ssl_test_lib:ssl_options(server_opts, Config)]};
+		  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
 	    rc4_ecdh_rsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 [{ciphers, Ciphers} |
 		  ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)]};
 	    rc4_ecdsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 [{ciphers, Ciphers} |
 		  ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]};
 	    des_dhe_rsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ssl_test_lib:ssl_options(server_opts, Config)]};
+		  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
 	    des_rsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
+		{ssl_test_lib:ssl_options(client_verification_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ssl_test_lib:ssl_options(server_opts, Config)]}
+		  ssl_test_lib:ssl_options(server_verification_opts, Config)]}
 	end,
 
     Result =  lists:map(fun(Cipher) ->

@@ -52,6 +52,9 @@ struct hipe_process_state {
 #if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
     void (*bif_callee)(void);   /* When calling BIF's via debug wrapper */
 #endif
+#ifdef DEBUG
+    UWord gc_is_unsafe;         /* Nonzero when GC-required state is on stack */
+#endif
 };
 
 extern void hipe_arch_print_pcb(struct hipe_process_state *p);
@@ -68,6 +71,9 @@ static __inline__ void hipe_init_process(struct hipe_process_state *p)
     p->nra = NULL;
 #endif
     p->narity = 0;
+#ifdef DEBUG
+    p->gc_is_unsafe = 0;
+#endif
 }
 
 static __inline__ void hipe_delete_process(struct hipe_process_state *p)

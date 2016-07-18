@@ -8177,6 +8177,8 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     esdp->thr_id += erts_no_schedulers;
 
+    erts_msacc_init_thread("dirty_cpu_scheduler", no, 0);
+
     erts_thr_progress_register_unmanaged_thread(&callbacks);
 #ifdef ERTS_ENABLE_LOCK_CHECK
     {
@@ -8221,6 +8223,8 @@ sched_dirty_io_thread_func(void *vesdp)
     callbacks.finalize_wait = NULL;
 
     esdp->thr_id += erts_no_schedulers + erts_no_dirty_cpu_schedulers;
+
+    erts_msacc_init_thread("dirty_io_scheduler", no, 0);
 
     erts_thr_progress_register_unmanaged_thread(&callbacks);
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -9588,8 +9592,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		erts_smp_runq_lock(rq);
 	    }
 	}
-	BM_STOP_TIMER(system);
-
     }
 
     ERTS_SMP_LC_ASSERT(!is_normal_sched || !erts_thr_progress_is_blocking());
@@ -9825,10 +9827,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		goto check_activities_to_run;
 	    }
 
-            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_EMULATOR);
-
-	    BM_START_TIMER(system);
-
 	    /*
 	     * Take the chosen process out of the queue.
 	     */
@@ -9933,6 +9931,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    erts_smp_runq_unlock(rq);
 
 	}
+
+        ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_EMULATOR);
 
 #ifdef ERTS_SMP
 
@@ -11154,18 +11154,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	   || (erts_smp_atomic32_read_nob(&p->state)
 	       & ERTS_PSFLG_OFF_HEAP_MSGQ));
 
-#ifdef BM_COUNTERS
-    processes_busy++;
-#endif
-    BM_COUNT(processes_spawned);
-
-    BM_SWAP_TIMER(system,size);
 #ifdef SHCOPY_SPAWN
     arg_size = copy_shared_calculate(args, &info);
 #else
     arg_size = size_object(args);
 #endif
-    BM_SWAP_TIMER(size,system);
     heap_need = arg_size;
 
     p->flags = flags;
@@ -11242,18 +11235,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
     p->arg_reg[0] = mod;
     p->arg_reg[1] = func;
-    BM_STOP_TIMER(system);
-    BM_MESSAGE(args,p,parent);
-    BM_START_TIMER(system);
-    BM_SWAP_TIMER(system,copy);
 #ifdef SHCOPY_SPAWN
     p->arg_reg[2] = copy_shared_perform(args, arg_size, &info, &p->htop, &p->off_heap);
     DESTROY_SHCOPY(info);
 #else
     p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
 #endif
-    BM_MESSAGE_COPIED(arg_size);
-    BM_SWAP_TIMER(copy,system);
     p->arity = 3;
 
     p->fvalue = NIL;
@@ -12826,9 +12813,6 @@ erts_continue_exit_process(Process *p)
     dep = (p->flags & F_DISTRIBUTION) ? erts_this_dist_entry : NULL;
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
-#ifdef BM_COUNTERS
-    processes_busy--;
-#endif
 
     if (dep) {
 	erts_do_net_exits(dep, reason);
