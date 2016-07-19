@@ -219,9 +219,10 @@
 	    OldState :: state(),
 	    OldData :: data(),
 	    Extra :: term()) ->
-    {NewCallbackMode :: callback_mode(),
+    {CallbackMode :: callback_mode(),
      NewState :: state(),
-     NewData :: data()}.
+     NewData :: data()} |
+    (Reason :: term()).
 
 %% Format the callback module state in some sensible that is
 %% often condensed way.  For StatusOption =:= 'normal' the perferred
@@ -630,11 +631,11 @@ system_code_change(
 	    Result -> Result
 	end
     of
-	{NewCallbackMode,NewState,NewData} ->
-	    callback_mode(NewCallbackMode) orelse
-		error({callback_mode,NewCallbackMode}),
+	{CallbackMode,NewState,NewData} ->
+	    callback_mode(CallbackMode) orelse
+		error({callback_mode,CallbackMode}),
 	    {ok,
-	     S#{callback_mode := NewCallbackMode,
+	     S#{callback_mode := CallbackMode,
 		state := NewState,
 		data := NewData}};
 	{ok,_} = Error ->

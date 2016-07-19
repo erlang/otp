@@ -903,7 +903,7 @@ Please see the function `tempo-define-template'.")
     "%% gen_statem:start_link/[3,4], this function is called by the new" n
     "%% process to initialize." n
     (erlang-skel-separator-end 2)
-    "-spec init(Args :: term()) -> " n>
+    "-spec init(Args :: term()) ->" n>
     "{gen_statem:callback_mode()," n>
     "State :: term(), Data :: term()} |" n>
     "{gen_statem:callback_mode()," n>
@@ -927,7 +927,7 @@ Please see the function `tempo-define-template'.")
     "-spec state_name(" n>
     "gen_statem:event_type(), Msg :: term()," n>
     "Data :: term()) ->" n>
-    "gen_statem:state_function_result(). " n
+    "gen_statem:state_function_result()." n
     "state_name({call,Caller}, _Msg, Data) ->" n>
     "{next_state, state_name, Data, [{reply,Caller,ok}]}." n
     n
@@ -940,7 +940,7 @@ Please see the function `tempo-define-template'.")
     "-spec handle_event(" n>
     "gen_statem:event_type(), Msg :: term()," n>
     "State :: term(), Data :: term()) ->" n>
-    "gen_statem:handle_event_result(). " n
+    "gen_statem:handle_event_result()." n
     "handle_event({call,From}, _Msg, State, Data) ->" n>
     "{next_state, State, Data, [{reply,From,ok}]}." n
     n
@@ -965,9 +965,11 @@ Please see the function `tempo-define-template'.")
     "-spec code_change(" n>
     "OldVsn :: term() | {down,term()}," n>
     "State :: term(), Data :: term(), Extra :: term()) ->" n>
-    "{ok, NewState :: term(), NewData :: term()}." n
+    "{gen_statem:callback_mode()," n>
+    "NewState :: term(), NewData :: term()} |" n>
+    "(Reason :: term())." n
     "code_change(_OldVsn, State, Data, _Extra) ->" n>
-    "{ok, State, Data}." n
+    "{state_functions, State, Data}." n
     n
     (erlang-skel-double-separator-start 3)
     "%%% Internal functions" n
