@@ -1016,8 +1016,7 @@ case $ERTS_BUILD_SMP_EMU-$enable_dirty_schedulers in
      yes-yes)
 	DIRTY_SCHEDULER_SUPPORT=yes;;
      yes-default)
-	## Maybe yes for OTP 19...
-	DIRTY_SCHEDULER_SUPPORT=no;;
+	DIRTY_SCHEDULER_SUPPORT=yes;;
      no-default)
 	DIRTY_SCHEDULER_SUPPORT=no;;
      no-yes)
