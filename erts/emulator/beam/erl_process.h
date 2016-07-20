@@ -2474,6 +2474,35 @@ erts_get_atom_cache_map(Process *c_p)
 }
 #endif
 
+#ifdef __WIN32__
+/*
+ * Don't want erts_time2reds() inlined in beam_emu.c on windows since
+ * it is compiled with gcc which fails on it. Implementation is in
+ * erl_process.c on windows.
+ */
+#  define ERTS_TIME2REDS_IMPL__ erts_time2reds__
+#else
+#  define ERTS_TIME2REDS_IMPL__ erts_time2reds
+#endif
+
+ERTS_GLB_INLINE Sint64 ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start,
+					     ErtsMonotonicTime end);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Sint64
+ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start, ErtsMonotonicTime end)
+{
+    ErtsMonotonicTime time = end - start;
+    ASSERT(time >= 0);
+    time = ERTS_MONOTONIC_TO_USEC(time);
+    if (time == 0)
+	return (Sint64) 1; /* At least one reduction */
+    /* Currently two reductions per micro second */
+    time *= (CONTEXT_REDS-1)/1000 + 1;
+    return (Sint64) time;
+}
+#endif
+
 Process *erts_pid2proc_suspend(Process *,
 			       ErtsProcLocks,
 			       Eterm,

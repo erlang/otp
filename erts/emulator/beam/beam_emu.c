@@ -5261,19 +5261,14 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	else {
 	    /*
 	     * Dirty CPU scheduler:
-	     *   Currently two reductions consumed per
-	     *   micro second spent in the dirty NIF.
+	     *   Reductions based on time consumed by
+	     *   the dirty NIF.
 	     */
-	    ErtsMonotonicTime time;
-	    time = erts_get_monotonic_time(esdp);
-	    time -= start_time;
-	    time = ERTS_MONOTONIC_TO_USEC(time);
-	    time *= (CONTEXT_REDS-1)/1000 + 1;
-	    ASSERT(time >= 0);
-	    if (time == 0)
-		time = 1; /* At least one reduction */
-	    time += esdp->virtual_reds;
-	    reds_used = time > INT_MAX ? INT_MAX : (int) time;
+	    Sint64 treds;
+	    treds = erts_time2reds(start_time,
+				   erts_get_monotonic_time(esdp));
+	    treds += esdp->virtual_reds;
+	    reds_used = treds > INT_MAX ? INT_MAX : (int) treds;
 	}
 
 	PROCESS_MAIN_CHK_LOCKS(c_p);
