@@ -40,7 +40,6 @@
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls);
 static void delete_code(Module* modp);
-static void decrement_refc(BeamCodeHeader*);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 
@@ -861,8 +860,8 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
-    literals = (char*) modp->old.code_hdr->literals_start;
-    lit_bsize = (char*) modp->old.code_hdr->literals_end - literals;
+    literals = (char*) modp->old.code_hdr->literal_area->start;
+    lit_bsize = (char*) modp->old.code_hdr->literal_area->end - literals;
 
     for (msgp = rp->msg.first; msgp; msgp = msgp->next) {
 	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
@@ -994,7 +993,7 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	}
 	if (need_gc & ERTS_LITERAL_GC__) {
 	    struct erl_off_heap_header* oh;
-	    oh = modp->old.code_hdr->literals_off_heap;
+	    oh = modp->old.code_hdr->literal_area->off_heap;
 	    *redsp += lit_bsize / 64; /* Need, better value... */
 	    erts_garbage_collect_literals(rp, (Eterm*)literals, lit_bsize, oh);
 	    done_gc |= ERTS_LITERAL_GC__;
@@ -1186,8 +1185,8 @@ BIF_RETTYPE erts_internal_copy_literals_2(BIF_ALIST_2)
             res = am_aborted;
             goto done;
         }
-        erts_clrange.ptr = modp->old.code_hdr->literals_start;
-        erts_clrange.sz  = modp->old.code_hdr->literals_end - erts_clrange.ptr;
+        erts_clrange.ptr = modp->old.code_hdr->literal_area->start;
+        erts_clrange.sz  = modp->old.code_hdr->literal_area->end - erts_clrange.ptr;
         erts_clrange.pid = BIF_P->common.id;
     } else if (BIF_ARG_2 == am_false) {
         if (erts_clrange.pid != BIF_P->common.id) {
@@ -1295,10 +1294,8 @@ BIF_RETTYPE erts_internal_purge_module_1(BIF_ALIST_1)
 	    erts_cleanup_funs_on_purge(code, end);
 	    beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
 				code_ix);
-	    decrement_refc(modp->old.code_hdr);
-            if (modp->old.code_hdr->literals_start) {
-                erts_free(ERTS_ALC_T_LITERAL, modp->old.code_hdr->literals_start);
-            }
+	    erts_release_literal_area(modp->old.code_hdr->literal_area);
+	    modp->old.code_hdr->literal_area = NULL;
 	    erts_free(ERTS_ALC_T_CODE, (void *) code);
 	    modp->old.code_hdr = NULL;
 	    modp->old.code_length = 0;
@@ -1314,22 +1311,6 @@ BIF_RETTYPE erts_internal_purge_module_1(BIF_ALIST_1)
     }
     erts_release_code_write_permission();
     return ret;
-}
-
-static void
-decrement_refc(BeamCodeHeader* code_hdr)
-{
-    struct erl_off_heap_header* oh = code_hdr->literals_off_heap;
-
-    while (oh) {
-	Binary* bptr;
-	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
-	bptr = ((ProcBin*)oh)->val;
-	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
-	    erts_bin_free(bptr);
-	}
-	oh = oh->next;
-    }
 }
 
 /*

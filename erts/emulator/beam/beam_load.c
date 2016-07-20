@@ -663,7 +663,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     stp->hdr->compile_ptr = NULL;
     stp->hdr->compile_size = 0;
     stp->hdr->compile_size_on_heap = 0;
-    stp->hdr->literals_start = NULL;
+    stp->hdr->literal_area = NULL;
     stp->hdr->md5_ptr = NULL;
 
     /*
@@ -1005,8 +1005,9 @@ loader_state_dtor(Binary* magic)
 	stp->bin = 0;
     }
     if (stp->hdr != 0) {
-        if (stp->hdr->literals_start) {
-            erts_free(ERTS_ALC_T_LITERAL, stp->hdr->literals_start);
+        if (stp->hdr->literal_area) {
+	    erts_release_literal_area(stp->hdr->literal_area);
+	    stp->hdr->literal_area = NULL;
         }
 	erts_free(ERTS_ALC_T_CODE, stp->hdr);
 	stp->hdr = 0;
@@ -4560,13 +4561,16 @@ freeze_code(LoaderState* stp)
 	Eterm* ptr;
 	LiteralPatch* lp;
         ErlOffHeap code_off_heap;
+	ErtsLiteralArea *literal_area;
+	Uint lit_asize;
 
         ERTS_INIT_OFF_HEAP(&code_off_heap);
 
-        ptr = (Eterm*)erts_alloc(ERTS_ALC_T_LITERAL,
-                                 stp->total_literal_size*sizeof(Eterm));
-	code_hdr->literals_start = ptr;
-	code_hdr->literals_end = ptr + stp->total_literal_size;
+	lit_asize = ERTS_LITERAL_AREA_ALLOC_SIZE(stp->total_literal_size);
+	literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_asize);
+	ptr = &literal_area->start[0];
+	literal_area->end = ptr + stp->total_literal_size;
+
 	for (i = 0; i < stp->num_literals; i++) {
             if (is_not_immed(stp->literals[i].term)) {
                 erts_move_multi_frags(&ptr, &code_off_heap,
@@ -4576,7 +4580,7 @@ freeze_code(LoaderState* stp)
 				       ptr_val(stp->literals[i].term)));
             }
 	}
-	code_hdr->literals_off_heap = code_off_heap.first;
+	literal_area->off_heap = code_off_heap.first;
 	lp = stp->literal_patches;
 	while (lp != 0) {
 	    BeamInstr* op_ptr;
@@ -4587,6 +4591,7 @@ freeze_code(LoaderState* stp)
 	    op_ptr[0] = lit->term;
 	    lp = lp->next;
 	}
+	code_hdr->literal_area = literal_area;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
 
@@ -5642,6 +5647,28 @@ has_native(BeamCodeHeader *code_hdr)
     return result;
 }
 
+void
+erts_release_literal_area(ErtsLiteralArea* literal_area)
+{
+    struct erl_off_heap_header* oh;
+
+    if (!literal_area)
+	return;
+
+    oh = literal_area->off_heap;
+	
+    while (oh) {
+	Binary* bptr;
+	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
+	bptr = ((ProcBin*)oh)->val;
+	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
+	    erts_bin_free(bptr);
+	}
+	oh = oh->next;
+    }
+    erts_free(ERTS_ALC_T_LITERAL, literal_area);
+}
+
 int
 erts_is_module_native(BeamCodeHeader* code_hdr)
 {
@@ -6373,9 +6400,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code_hdr->compile_ptr = NULL;
     code_hdr->compile_size = 0;
     code_hdr->compile_size_on_heap = 0;
-    code_hdr->literals_start = NULL;
-    code_hdr->literals_end = NULL;
-    code_hdr->literals_off_heap = 0;
+    code_hdr->literal_area = NULL;
     code_hdr->on_load_function_ptr = NULL;
     code_hdr->line_table = NULL;
     code_hdr->md5_ptr = NULL;

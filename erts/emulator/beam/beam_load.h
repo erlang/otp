@@ -60,6 +60,15 @@ extern BeamInstr* em_call_nif;
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
 
+typedef struct {
+    struct erl_off_heap_header *off_heap;
+    Eterm *end;
+    Eterm start[1]; /* beginning of area */
+} ErtsLiteralArea;
+
+#define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
+    (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
+
 typedef struct BeamCodeLineTab_ BeamCodeLineTab;
 
 /*
@@ -89,9 +98,7 @@ typedef struct beam_code_header {
     /*
      * Literal area (constant pool).
      */
-    Eterm* literals_start;
-    Eterm* literals_end;
-    struct erl_off_heap_header* literals_off_heap;
+    ErtsLiteralArea *literal_area;
 
     /*
      * Pointer to the on_load function (or NULL if none).
@@ -120,6 +127,7 @@ typedef struct beam_code_header {
 
 }BeamCodeHeader;
 
+void erts_release_literal_area(ErtsLiteralArea* literal_area);
 int erts_is_module_native(BeamCodeHeader* code);
 
 /*
