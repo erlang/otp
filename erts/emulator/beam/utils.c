@@ -1678,17 +1678,22 @@ make_internal_hash(Eterm term)
                      * the order in which keys and values are encountered.
                      * We therefore calculate context independent hashes for all    				      .
                      * key-value pairs and then xor them together.
+                     *
+                     * We *do* need to use an initial seed for each pair, i.e. the
+                     * hash value, so the hash value is reset for each pair with 'hash'.
+                     * If we don't, no additional entropy is given to the system and the
+                     * hash collision resolution in maps:from_list/1 would fail.
                      */
                     ESTACK_PUSH(s, hash_xor_pairs);
                     ESTACK_PUSH(s, hash);
                     ESTACK_PUSH(s, HASH_MAP_TAIL);
-                    hash = 0;
-                    hash_xor_pairs = 0;
                     for (i = size - 1; i >= 0; i--) {
+                        ESTACK_PUSH(s, hash); /* initial seed for all pairs */
                         ESTACK_PUSH(s, HASH_MAP_PAIR);
                         ESTACK_PUSH(s, vs[i]);
                         ESTACK_PUSH(s, ks[i]);
                     }
+                    hash_xor_pairs = 0;
                     goto pop_next;
                 }
                 case HAMT_SUBTAG_HEAD_ARRAY:
@@ -1700,7 +1705,6 @@ make_internal_hash(Eterm term)
                     ESTACK_PUSH(s, hash_xor_pairs);
                     ESTACK_PUSH(s, hash);
                     ESTACK_PUSH(s, HASH_MAP_TAIL);
-                    hash = 0;
                     hash_xor_pairs = 0;
                 }
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
@@ -1717,6 +1721,7 @@ make_internal_hash(Eterm term)
                 while (i) {
                     if (is_list(*ptr)) {
                         Eterm* cons = list_val(*ptr);
+                        ESTACK_PUSH(s, hash); /* initial seed for all pairs */
                         ESTACK_PUSH(s, HASH_MAP_PAIR);
                         ESTACK_PUSH(s, CDR(cons));
                         ESTACK_PUSH(s, CAR(cons));
@@ -1921,7 +1926,7 @@ make_internal_hash(Eterm term)
 		}
 		case HASH_MAP_PAIR:
 		    hash_xor_pairs ^= hash;
-		    hash = 0;
+		    hash = (Uint32) ESTACK_POP(s); /* initial seed for all pairs */
 		    goto pop_next;
 
 	        case HASH_CDR:
