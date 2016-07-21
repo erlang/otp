@@ -32,24 +32,27 @@
   <modulesummary>Generic state machine behavior.</modulesummary>
   <description>
     <p>
-      This behavior module provides a state machine. Two
-      <seealso marker="#type-callback_mode"><em>callback modes</em></seealso>
-      are supported:
+      This behavior module provides a state machine.
+      Two callback flavours are supported:
     </p>
-    <list type="bulleted">
+    <taglist>
+      <tag>State Name Functions</tag>
       <item>
-        <p>One for finite-state machines
+        <p>
+	  For finite-state machines
           (<seealso marker="gen_fsm"><c>gen_fsm</c></seealso> like),
           which requires the state to be an atom and uses that state as
           the name of the current callback function
         </p>
       </item>
+      <tag>One State Function</tag>
       <item>
-        <p>One without restriction on the state data type
-          that uses one callback function for all states
+        <p>
+	  Without restriction on the state data type.
+          One callback function is used for all states.
         </p>
       </item>
-    </list>
+    </taglist>
     <note>
       <p>
         This is a new behavior in Erlang/OTP 19.0.
@@ -122,34 +125,41 @@ erlang:'!'            -----> Module:StateName/3
     </p>
     <marker id="state_function"/>
     <p>
-      The "<em>state function</em>" for a specific
+      The <em>state function</em> for a specific
       <seealso marker="#type-state">state</seealso>
       in a <c>gen_statem</c> is the callback function that is called
-      for all events in this state. It is selected depending on which
-      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-      that the implementation specifies when the server starts.
+      for all events in this state. It is selected depending on if
+      <seealso marker="#Module:handle_event/4">
+	<c>Module:handle_event/4</c>
+      </seealso>
+      is exported.  This is checked once before the first state function
+      is called after server start and once after a
+      <seealso marker="#Module:code_change/4"><c>code change</c></seealso>.
     </p>
     <p>
-      When the
-      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-      is <c>state_functions</c>, the state must be an atom and
+      When
+      <seealso marker="#Module:handle_event/4">
+	<c>Module:handle_event/4</c>
+      </seealso>
+      <em>is not</em> exported, the state must be an atom and
       is used as the state function name; see
       <seealso marker="#Module:StateName/3"><c>Module:StateName/3</c></seealso>.
       This gathers all code for a specific state
       in one function as the <c>gen_statem</c> engine
       branches depending on state name.
-      Notice that in this mode the mandatory callback function
+      Notice that in this case the mandatory callback function
       <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>
-      makes the state name <c>terminate</c> unusable.
+      renders the state name <c>terminate</c> unusable.
     </p>
     <p>
-      When the
-      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-      is <c>handle_event_function</c>, the state can be any term
-      and the state function name is
-      <seealso marker="#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>.
+      When
+      <seealso marker="#Module:handle_event/4">
+	<c>Module:handle_event/4</c>
+      </seealso>
+      <em>is</em> exported it is used as the one state function
+      and the state can be any term.
       This makes it easy to branch depending on state or event as you desire.
-      Be careful about which events you handle in which
+      Be careful though, about which events you handle in which
       states so that you do not accidentally postpone an event
       forever creating an infinite busy loop.
     </p>
@@ -235,9 +245,8 @@ erlang:'!'            -----> Module:StateName/3
     <title>Example</title>
     <p>
       The following example shows a simple pushbutton model
-      for a toggling pushbutton implemented with
-      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-      <c>state_functions</c>.
+      for a toggling pushbutton
+      implemented with <em>state name functions</em>.
       You can push the button and it replies if it went on or off,
       and you can ask for a count of how many times it has been
       pushed to switch on.
@@ -253,7 +262,6 @@ erlang:'!'            -----> Module:StateName/3
 -export([on/3,off/3]).
 
 name() -> pushbutton_statem. % The registered server name
-callback_mode() -> state_functions.
 
 %% API.  This example uses a registered name name()
 %% and does not link to the caller.
@@ -270,12 +278,12 @@ stop() ->
 terminate(_Reason, _State, _Data) ->
     void.
 code_change(_Vsn, State, Data, _Extra) ->
-    {callback_mode(),State,Data}.
+    {ok,State,Data}.
 init([]) ->
-    %% Set the callback mode and initial state + data.
+    %% Set initial state + data.
     %% Data is used only as a counter.
     State = off, Data = 0,
-    {callback_mode(),State,Data}.
+    {ok,State,Data}.
 
 
 %%% State functions
@@ -324,19 +332,14 @@ ok
     </pre>
     <p>
       To compare styles, here follows the same example using
-      <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-      <c>state_functions</c>, or rather the code to replace
-      from function <c>init/1</c> of the <c>pushbutton.erl</c>
-      example file above:
+      <em>one state function</em>, or rather the code to
+      replace the state function exports and definitions with
+      in the <c>pushbutton.erl</c> example file above:
     </p>
     <code type="erl">
-init([]) ->
-    %% Set the callback mode and initial state + data.
-    %% Data is used only as a counter.
-    State = off, Data = 0,
-    {handle_event_function,State,Data}.
-
-
+-export([handle_event/4]).
+    </code>
+    <code type="erl">
 %%% Event handling
 
 handle_event({call,From}, push, off, Data) ->
@@ -480,10 +483,11 @@ handle_event(_, _, State, Data) ->
       <name name="state_name"/>
       <desc>
 	<p>
-	  If the
-	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-	  is <c>state_functions</c>,
-	  the state must be of this type.
+	  If the callback function
+	  <seealso marker="#Module:handle_event/4">
+	    <c>Module:handle_event/4</c>
+	  </seealso>
+	  is exported the state must be of this type.
 	</p>
       </desc>
     </datatype>
@@ -518,40 +522,6 @@ handle_event(_, _, State, Data) ->
 	  implementation can generate events of types
 	  <c>timeout</c> and <c>internal</c> to itself.
 	</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="callback_mode"/>
-      <desc>
-	<p>
-	  The <em>callback mode</em> is selected when starting the
-	  <c>gen_statem</c> using the return value from
-	  <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
-	  or when calling
-	  <seealso marker="#enter_loop/5"><c>enter_loop/5,6,7</c></seealso>,
-	  and with the return value from
-	  <seealso marker="#Module:code_change/4"><c>Module:code_change/4</c></seealso>.
-	</p>
-	<taglist>
-	  <tag><c>state_functions</c></tag>
-	  <item>
-	    <p>
-	      The state must be of type
-	      <seealso marker="#type-state_name"><c>state_name()</c></seealso>
-	      and one callback function per state, that is,
-	      <seealso marker="#Module:StateName/3"><c>Module:StateName/3</c></seealso>,
-	      is used.
-	    </p>
-	  </item>
-	  <tag><c>handle_event_function</c></tag>
-	  <item>
-	    <p>
-	      The state can be any term and the callback function
-	      <seealso marker="#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
-	      is used for all states.
-	    </p>
-	  </item>
-	</taglist>
       </desc>
     </datatype>
     <datatype>
@@ -958,7 +928,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="enter_loop" arity="5"/>
+      <name name="enter_loop" arity="4"/>
       <fsummary>Enter the <c>gen_statem</c> receive loop.</fsummary>
       <desc>
 	<p>
@@ -972,7 +942,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="enter_loop" arity="6"/>
+      <name name="enter_loop" arity="5"/>
       <fsummary>Enter the <c>gen_statem</c> receive loop.</fsummary>
       <desc>
 	<p>
@@ -986,7 +956,7 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  Otherwise the same as
-	  <seealso marker="#enter_loop/7"><c>enter_loop/7</c></seealso>
+	  <seealso marker="#enter_loop/6"><c>enter_loop/7</c></seealso>
 	  with
 	  <c>Server = <anno>Server_or_Actions</anno></c> and
 	  <c>Actions = []</c>.
@@ -995,7 +965,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="enter_loop" arity="7"/>
+      <name name="enter_loop" arity="6"/>
       <fsummary>Enter the <c>gen_statem</c> receive loop.</fsummary>
       <desc>
 	<p>
@@ -1024,7 +994,7 @@ handle_event(_, _, State, Data) ->
 	  name must have been registered accordingly
 	  <em>before</em> this function is called.</p>
         <p>
-	  <c><anno>CallbackMode</anno></c>, <c><anno>State</anno></c>,
+	  <c><anno>State</anno></c>,
 	  <c><anno>Data</anno></c>, and <c><anno>Actions</anno></c>
 	  have the same meanings as in the return value of
 	  <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>.
@@ -1262,11 +1232,7 @@ handle_event(_, _, State, Data) ->
         <v>&nbsp;&nbsp;Vsn = term()</v>
         <v>OldState = NewState = term()</v>
         <v>Extra = term()</v>
-	<v>Result = {CallbackMode,NewState,NewData} | Reason</v>
-	<v>
-	  CallbackMode =
-	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
-	</v>
+	<v>Result = {ok,NewState,NewData} | Reason</v>
 	<v>
 	  OldState = NewState =
 	  <seealso marker="#type-state">state()</seealso>
@@ -1295,21 +1261,6 @@ handle_event(_, _, State, Data) ->
 	  <c>Module</c>. If no such attribute is defined, the version
 	  is the checksum of the Beam file.
 	</p>
-	<note>
-	  <p>
-	    If you would dare to change
-	    <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-	    during release upgrade/downgrade, the upgrade is no problem,
-	    as the new code surely knows what <em>callback mode</em>
-	    it needs. However, for a downgrade this function must
-	    know from argument <c>Extra</c> that comes from the
-	    <seealso marker="sasl:appup"><c>sasl:appup</c></seealso>
-	    file what <em>callback mode</em> the old code did use.
-	    It can also be possible to figure this out
-	    from argument <c>{down,Vsn}</c>, as <c>Vsn</c>
-	    in effect defines the old callback module version.
-	  </p>
-	</note>
         <p>
 	  <c>OldState</c> and <c>OldData</c> is the internal state
 	  of the <c>gen_statem</c>.
@@ -1320,17 +1271,16 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  If successful, the function must return the updated
-	  internal state in an
-	  <c>{CallbackMode,NewState,NewData}</c> tuple.
+	  internal state in an <c>{ok,NewState,NewData}</c> tuple.
 	</p>
 	<p>
 	  If the function returns a failure <c>Reason</c>, the ongoing
 	  upgrade fails and rolls back to the old release.
-	  Note that <c>Reason</c> can not be a 3-tuple since that
-	  will be regarded as a
-	  <c>{CallbackMode,NewState,NewData}</c> tuple,
+	  Note that <c>Reason</c> can not be an <c>{ok,_,_}</c> tuple
+	  since that will be regarded as an
+	  <c>{ok,NewState,NewData}</c> tuple,
 	  and that a tuple matching <c>{ok,_}</c>
-	  is an invalid failure <c>Reason</c>.
+	  is also an invalid failure <c>Reason</c>.
 	  It is recommended to use an atom as <c>Reason</c> since
 	  it will be wrapped in an <c>{error,Reason}</c> tuple.
 	</p>
@@ -1347,13 +1297,9 @@ handle_event(_, _, State, Data) ->
       <fsummary>Initialize process and internal state.</fsummary>
       <type>
         <v>Args = term()</v>
-        <v>Result = {CallbackMode,State,Data}</v>
-	<v>&nbsp;| {CallbackMode,State,Data,Actions}</v>
+        <v>Result = {ok,State,Data}</v>
+	<v>&nbsp;| {ok,State,Data,Actions}</v>
         <v>&nbsp;| {stop,Reason} | ignore</v>
-	<v>
-	  CallbackMode =
-	  <seealso marker="#type-callback_mode">callback_mode()</seealso>
-	</v>
 	<v>State = <seealso marker="#type-state">state()</seealso></v>
 	<v>
 	  Data = <seealso marker="#type-data">data()</seealso>
@@ -1381,11 +1327,8 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  If the initialization is successful, the function is to
-	  return <c>{CallbackMode,State,Data}</c> or
-	  <c>{CallbackMode,State,Data,Actions}</c>.
-	  <c>CallbackMode</c> selects the
-	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-	  of the <c>gen_statem</c>.
+	  return <c>{ok,State,Data}</c> or
+	  <c>{ok,State,Data,Actions}</c>.
 	  <c>State</c> is the initial
 	  <seealso marker="#type-state"><c>state()</c></seealso>
 	  and <c>Data</c> the initial server
@@ -1546,11 +1489,15 @@ handle_event(_, _, State, Data) ->
 	  Whenever a <c>gen_statem</c> receives an event from
 	  <seealso marker="#call/2"><c>call/2</c></seealso>,
 	  <seealso marker="#cast/2"><c>cast/2</c></seealso>, or
-	  as a normal process message, one of these functions is called. If
-	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
-	  is <c>state_functions</c>, <c>Module:StateName/3</c> is called,
-	  and if it is <c>handle_event_function</c>,
-	  <c>Module:handle_event/4</c> is called.
+	  as a normal process message, one of these functions is called.
+	  If <c>Module:handle_event/4</c> is exported it is called
+	  with the current <c>State</c> as an argument.
+	  Otherwise <c>Module:StateName/3</c> is called where
+	  <c>StateName = State</c> but must be an atom.
+	  If no function is exported for a particular <c>StateName</c>,
+	  for example if <c>State</c> is not an atom,
+	  the <c>gen_statem</c> terminates with an error
+	  pinpointing the undefined state function.
 	</p>
 	<p>
 	  If <c>EventType</c> is
