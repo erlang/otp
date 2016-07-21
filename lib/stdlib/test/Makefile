@@ -47,6 +47,7 @@ MODULES= \
 	gen_fsm_SUITE \
 	gen_server_SUITE \
 	gen_statem_SUITE \
+	gen_statem_SUITE_handle_event \
 	id_transform_SUITE \
 	io_SUITE \
 	io_proto_SUITE \

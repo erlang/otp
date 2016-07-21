@@ -24,6 +24,8 @@
 -compile(export_all).
 -behaviour(gen_statem).
 
+-define(HANDLE_EVENT_MODULE, gen_statem_SUITE_handle_event).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 suite() ->
@@ -42,28 +44,28 @@ all() ->
      hibernate, enter_loop].
 
 groups() ->
-    [{start, [],
-      [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11, start12, next_events]},
-     {start_handle_event, [],
-      [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11, start12, next_events]},
-     {stop, [],
-      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
-     {stop_handle_event, [],
-      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
-     {abnormal, [], [abnormal1, abnormal2]},
-     {abnormal_handle_event, [], [abnormal1, abnormal2]},
-     {sys, [],
-      [sys1, code_change,
-       call_format_status,
-       error_format_status, terminate_crash_format,
-       get_state, replace_state]},
-     {sys_handle_event, [],
-      [sys1,
-       call_format_status,
-       error_format_status, terminate_crash_format,
-       get_state, replace_state]}].
+    [{start, [], tcs(start)},
+     {start_handle_event, [], tcs(start)},
+     {stop, [], tcs(stop)},
+     {stop_handle_event, [], tcs(stop)},
+     {abnormal, [], tcs(abnormal)},
+     {abnormal_handle_event, [], tcs(abnormal)},
+     {sys, [], tcs(sys)},
+     {sys_handle_event, [], tcs(sys)}].
+
+tcs(start) ->
+    [start1, start2, start3, start4, start5, start6, start7,
+     start8, start9, start10, start11, start12, next_events];
+tcs(stop) ->
+    [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
+tcs(abnormal) ->
+    [abnormal1, abnormal2];
+tcs(sys) ->
+    [sys1, code_change,
+     call_format_status,
+     error_format_status, terminate_crash_format,
+     get_state, replace_state].
+
 
 init_per_suite(Config) ->
     Config.
@@ -112,7 +114,7 @@ end_per_testcase(_CaseName, Config) ->
 start1(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
-    {ok,Pid0} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid0} = gen_statem:start_link(module(Config), [], []),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
     stop_it(Pid0),
@@ -126,7 +128,7 @@ start1(Config) ->
 %% anonymous w. shutdown
 start2(Config) ->
     %% Dont link when shutdown
-    {ok,Pid0} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid0} = gen_statem:start(module(Config), [], []),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
     stopped = gen_statem:call(Pid0, {stop,shutdown}),
@@ -138,14 +140,14 @@ start3(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
     {ok,Pid0} =
-	gen_statem:start(?MODULE, start_arg(Config, []), [{timeout,5}]),
+	gen_statem:start(module(Config), [], [{timeout,5}]),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
     stop_it(Pid0),
 
     {error,timeout} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, sleep), [{timeout,5}]),
+	  module(Config), sleep, [{timeout,5}]),
 
     %%process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
@@ -154,7 +156,7 @@ start3(Config) ->
 start4(Config) ->
     OldFl = process_flag(trap_exit, true),
 
-    ignore = gen_statem:start(?MODULE, start_arg(Config, ignore), []),
+    ignore = gen_statem:start(module(Config), ignore, []),
 
     process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
@@ -163,14 +165,14 @@ start4(Config) ->
 start5(Config) ->
     OldFl = process_flag(trap_exit, true),
 
-    {error,stopped} = gen_statem:start(?MODULE, start_arg(Config, stop), []),
+    {error,stopped} = gen_statem:start(module(Config), stop, []),
 
     process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
 
 %% anonymous linked
 start6(Config) ->
-    {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start_link(module(Config), [], []),
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
     stop_it(Pid),
@@ -182,11 +184,11 @@ start7(Config) ->
     STM = {global,my_stm},
 
     {ok,Pid} =
-	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(STM, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(STM, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(STM, module(Config), [], []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
@@ -204,9 +206,9 @@ start8(Config) ->
     STM = {local,Name},
 
     {ok,Pid} =
-	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(STM, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(STM, module(Config), [], []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
@@ -224,9 +226,9 @@ start9(Config) ->
     STM = {local,Name},
 
     {ok,Pid} =
-	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(STM, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(STM, module(Config), [], []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
@@ -242,11 +244,11 @@ start10(Config) ->
     STM = {global,my_stm},
 
     {ok,Pid} =
-	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(STM, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(STM, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(STM, module(Config), [], []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
@@ -263,19 +265,19 @@ start11(Config) ->
     GlobalSTM = {global,Name},
 
     {ok,Pid} =
-	gen_statem:start_link(LocalSTM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(LocalSTM, module(Config), [], []),
     stop_it(Pid),
 
     {ok,_Pid1} =
-	gen_statem:start_link(LocalSTM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(LocalSTM, module(Config), [], []),
     stop_it(Name),
 
     {ok,Pid2} =
-	gen_statem:start(GlobalSTM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(GlobalSTM, module(Config), [], []),
     stop_it(Pid2),
     receive after 1 -> true end,
     Result =
-	gen_statem:start(GlobalSTM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(GlobalSTM, module(Config), [], []),
     ct:log("Result = ~p~n",[Result]),
     {ok,_Pid3} = Result,
     stop_it(GlobalSTM),
@@ -288,11 +290,11 @@ start12(Config) ->
     VIA = {via,dummy_via,my_stm},
 
     {ok,Pid} =
-	gen_statem:start_link(VIA, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(VIA, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start_link(VIA, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start_link(VIA, module(Config), [], []),
     {error,{already_started,Pid}} =
-	gen_statem:start(VIA, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(VIA, module(Config), [], []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
@@ -305,7 +307,7 @@ start12(Config) ->
 
 %% Anonymous, reason 'normal'
 stop1(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(module(Config), [], []),
     ok = gen_statem:stop(Pid),
     false = erlang:is_process_alive(Pid),
     noproc =
@@ -313,14 +315,14 @@ stop1(Config) ->
 
 %% Anonymous, other reason
 stop2(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(module(Config), [], []),
     ok = gen_statem:stop(Pid, other_reason, infinity),
     false = erlang:is_process_alive(Pid),
     ok.
 
 %% Anonymous, invalid timeout
 stop3(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(module(Config), [], []),
     _ =
 	?EXPECT_FAILURE(
 	   gen_statem:stop(Pid, other_reason, invalid_timeout),
@@ -334,7 +336,7 @@ stop3(Config) ->
 stop4(Config) ->
     {ok,Pid} =
 	gen_statem:start(
-	  {local,to_stop},?MODULE, start_arg(Config, []), []),
+	  {local,to_stop},module(Config), [], []),
     ok = gen_statem:stop(to_stop),
     false = erlang:is_process_alive(Pid),
     noproc =
@@ -346,7 +348,7 @@ stop5(Config) ->
     Name = to_stop,
     {ok,Pid} =
 	gen_statem:start(
-	  {local,Name},?MODULE, start_arg(Config, []), []),
+	  {local,Name},module(Config), [], []),
     ok = gen_statem:stop({Name,node()}),
     false = erlang:is_process_alive(Pid),
     noproc =
@@ -356,7 +358,7 @@ stop5(Config) ->
 %% Globally registered name
 stop6(Config) ->
     STM = {global,to_stop},
-    {ok,Pid} = gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(STM, module(Config), [], []),
     ok = gen_statem:stop(STM),
     false = erlang:is_process_alive(Pid),
     noproc =
@@ -367,7 +369,7 @@ stop6(Config) ->
 stop7(Config) ->
     VIA = {via,dummy_via,to_stop},
     dummy_via:reset(),
-    {ok,Pid} = gen_statem:start(VIA, ?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(VIA, module(Config), [], []),
     ok = gen_statem:stop(VIA),
     false = erlang:is_process_alive(Pid),
     noproc =
@@ -383,7 +385,7 @@ stop8(Config) ->
     {ok,Pid} =
 	rpc:call(
 	  NodeName, gen_statem,start,
-	  [?MODULE,start_arg(Config, []),[]]),
+	  [module(Config),[],[]]),
     ok = gen_statem:stop(Pid),
     false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
     noproc =
@@ -405,7 +407,7 @@ stop9(Config) ->
     {ok,Pid} =
 	rpc:call(
 	  NodeName, gen_statem, start,
-	  [LocalSTM,?MODULE,start_arg(Config, []),[]]),
+	  [LocalSTM,module(Config),[],[]]),
     ok = gen_statem:stop(STM),
     undefined = rpc:call(NodeName,erlang,whereis,[Name]),
     false = rpc:call(NodeName,erlang,is_process_alive,[Pid]),
@@ -426,7 +428,7 @@ stop10(Config) ->
     {ok,Pid} =
 	rpc:call(
 	  NodeName, gen_statem, start,
-	  [STM,?MODULE,start_arg(Config, []),[]]),
+	  [STM,module(Config),[],[]]),
     global:sync(),
     ok = gen_statem:stop(STM),
     false = rpc:call(NodeName, erlang, is_process_alive, [Pid]),
@@ -443,7 +445,7 @@ abnormal1(Config) ->
     LocalSTM = {local,Name},
 
     {ok, _Pid} =
-	gen_statem:start(LocalSTM, ?MODULE, start_arg(Config, []), []),
+	gen_statem:start(LocalSTM, module(Config), [], []),
 
     %% timeout call.
     delayed = gen_statem:call(Name, {delayed_answer,1}, 100),
@@ -458,7 +460,7 @@ abnormal1(Config) ->
 %% trap exit since we must link to get the real bad_return_ error
 abnormal2(Config) ->
     OldFl = process_flag(trap_exit, true),
-    {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start_link(module(Config), [], []),
 
     %% bad return value in the gen_statem loop
     {{bad_return_value,badreturn},_} =
@@ -475,7 +477,7 @@ abnormal2(Config) ->
 shutdown(Config) ->
     process_flag(trap_exit, true),
 
-    {ok,Pid0} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
+    {ok,Pid0} = gen_statem:start_link(module(Config), [], []),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
     stopped = gen_statem:call(Pid0, {stop,{shutdown,reason}}),
@@ -513,7 +515,9 @@ stop_and_reply(_Config) ->
 		      {stop_and_reply,Reason,
 		       [R1,{reply,From2,Reply2}]}
 	      end},
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?HANDLE_EVENT_MODULE, {map_statem,Machine}, []),
 
     Self = self(),
     Tag1 = make_ref(),
@@ -580,7 +584,10 @@ event_order(_Config) ->
 		      Result
 	      end},
 
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?HANDLE_EVENT_MODULE, {map_statem,Machine}, []),
+
     Self = self(),
     Tag1 = make_ref(),
     gen_statem:cast(STM, {reply,{Self,Tag1},ok1}),
@@ -611,7 +618,7 @@ event_order(_Config) ->
 
 
 sys1(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(module(Config), [], []),
     {status, Pid, {module,gen_statem}, _} = sys:get_status(Pid),
     sys:suspend(Pid),
     Parent = self(),
@@ -634,18 +641,25 @@ sys1(Config) ->
     stop_it(Pid).
 
 code_change(Config) ->
-    Mode = handle_event_function,
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    Module = module(Config),
+    Mode =
+	case Module of
+	    ?MODULE ->
+		state_functions;
+	    ?HANDLE_EVENT_MODULE ->
+		handle_event_function
+	end,
+    {ok,Pid} = gen_statem:start(Module, [], []),
     {idle,data} = sys:get_state(Pid),
     sys:suspend(Pid),
-    sys:change_code(Pid, ?MODULE, old_vsn, Mode),
+    sys:change_code(Pid, Module, old_vsn, extra),
     sys:resume(Pid),
-    {idle,{old_vsn,data,Mode}} = sys:get_state(Pid),
+    {idle,{old_vsn,data,extra}} = sys:get_state(Pid),
     Mode = gen_statem:call(Pid, get_callback_mode),
     stop_it(Pid).
 
 call_format_status(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(module(Config), [], []),
     Status = sys:get_status(Pid),
     {status,Pid,_Mod,[_PDict,running,_,_, Data]} = Status,
     [format_status_called|_] = lists:reverse(Data),
@@ -655,7 +669,7 @@ call_format_status(Config) ->
     %% already checked by the previous test)
     {ok, Pid2} =
 	gen_statem:start(
-	  {local, gstm}, ?MODULE, start_arg(Config, []), []),
+	  {local, gstm}, module(Config), [], []),
     Status2 = sys:get_status(gstm),
     {status,Pid2,_Mod,[_PDict2,running,_,_,Data2]} = Status2,
     [format_status_called|_] = lists:reverse(Data2),
@@ -666,7 +680,7 @@ call_format_status(Config) ->
     GlobalName1 = {global,"CallFormatStatus"},
     {ok,Pid3} =
 	gen_statem:start(
-	  GlobalName1, ?MODULE, start_arg(Config, []), []),
+	  GlobalName1, module(Config), [], []),
     Status3 = sys:get_status(GlobalName1),
     {status,Pid3,_Mod,[_PDict3,running,_,_,Data3]} = Status3,
     [format_status_called|_] = lists:reverse(Data3),
@@ -674,7 +688,7 @@ call_format_status(Config) ->
     GlobalName2 = {global,{name, "term"}},
     {ok,Pid4} =
 	gen_statem:start(
-	  GlobalName2, ?MODULE, start_arg(Config, []), []),
+	  GlobalName2, module(Config), [], []),
     Status4 = sys:get_status(GlobalName2),
     {status,Pid4,_Mod,[_PDict4,running,_,_, Data4]} = Status4,
     [format_status_called|_] = lists:reverse(Data4),
@@ -684,7 +698,7 @@ call_format_status(Config) ->
     %% pid or atom
     dummy_via:reset(),
     ViaName1 = {via,dummy_via,"CallFormatStatus"},
-    {ok,Pid5} = gen_statem:start(ViaName1, ?MODULE, start_arg(Config, []), []),
+    {ok,Pid5} = gen_statem:start(ViaName1, module(Config), [], []),
     Status5 = sys:get_status(ViaName1),
     {status,Pid5,_Mod, [_PDict5,running,_,_, Data5]} = Status5,
     [format_status_called|_] = lists:reverse(Data5),
@@ -692,7 +706,7 @@ call_format_status(Config) ->
     ViaName2 = {via,dummy_via,{name,"term"}},
     {ok, Pid6} =
 	gen_statem:start(
-	  ViaName2, ?MODULE, start_arg(Config, []), []),
+	  ViaName2, module(Config), [], []),
     Status6 = sys:get_status(ViaName2),
     {status,Pid6,_Mod,[_PDict6,running,_,_,Data6]} = Status6,
     [format_status_called|_] = lists:reverse(Data6),
@@ -706,7 +720,7 @@ error_format_status(Config) ->
     Data = "called format_status",
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,Data}), []),
+	  module(Config), {data,Data}, []),
     %% bad return value in the gen_statem loop
     {{bad_return_value,badreturn},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
@@ -742,7 +756,7 @@ terminate_crash_format(Config) ->
     Data = crash_terminate,
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,Data}), []),
+	  module(Config), {data,Data}, []),
     stop_it(Pid),
     Self = self(),
     receive
@@ -777,7 +791,7 @@ get_state(Config) ->
     State = self(),
     {ok,Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,State}), []),
+	  module(Config), {data,State}, []),
     {idle,State} = sys:get_state(Pid),
     {idle,State} = sys:get_state(Pid, 5000),
     stop_it(Pid),
@@ -786,7 +800,7 @@ get_state(Config) ->
     %% already checked by the previous test)
     {ok,Pid2} =
 	gen_statem:start(
-	  {local,gstm}, ?MODULE, start_arg(Config, {data,State}), []),
+	  {local,gstm}, module(Config), {data,State}, []),
     {idle,State} = sys:get_state(gstm),
     {idle,State} = sys:get_state(gstm, 5000),
     stop_it(Pid2),
@@ -794,7 +808,7 @@ get_state(Config) ->
     %% check that get_state works when pid is sys suspended
     {ok,Pid3} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,State}), []),
+	  module(Config), {data,State}, []),
     {idle,State} = sys:get_state(Pid3),
     ok = sys:suspend(Pid3),
     {idle,State} = sys:get_state(Pid3, 5000),
@@ -806,7 +820,7 @@ replace_state(Config) ->
     State = self(),
     {ok, Pid} =
 	gen_statem:start(
-	  ?MODULE, start_arg(Config, {data,State}), []),
+	  module(Config), {data,State}, []),
     {idle,State} = sys:get_state(Pid),
     NState1 = "replaced",
     Replace1 = fun({StateName, _}) -> {StateName,NState1} end,
@@ -839,7 +853,7 @@ hibernate(Config) ->
 
     {ok,Pid0} =
 	gen_statem:start_link(
-	  ?MODULE, start_arg(Config, hiber_now), []),
+	  module(Config), hiber_now, []),
     is_in_erlang_hibernate(Pid0),
     stop_it(Pid0),
     receive
@@ -849,7 +863,7 @@ hibernate(Config) ->
     end,
 
     {ok,Pid} =
-	gen_statem:start_link(?MODULE, start_arg(Config, hiber), []),
+	gen_statem:start_link(module(Config), hiber, []),
     true = ({current_function,{erlang,hibernate,3}} =/=
 		erlang:process_info(Pid,current_function)),
     hibernating = gen_statem:call(Pid, hibernate_sync),
@@ -1029,11 +1043,7 @@ enter_loop(_Config) ->
     end,
 
     %% Process not started using proc_lib
-    CallbackMode = state_functions,
-    Pid4 =
-	spawn_link(
-	  gen_statem, enter_loop,
-	  [?MODULE,[],CallbackMode,state0,[]]),
+    Pid4 = spawn_link(gen_statem, enter_loop, [?MODULE,[],state0,[]]),
     receive
 	{'EXIT',Pid4,process_was_not_started_by_proc_lib} ->
 	    ok
@@ -1107,27 +1117,22 @@ enter_loop(Reg1, Reg2) ->
 	anon -> ignore
     end,
     proc_lib:init_ack({ok, self()}),
-    CallbackMode = state_functions,
     case Reg2 of
 	local ->
-	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [], {local,armitage});
+	    gen_statem:enter_loop(?MODULE, [], state0, [], {local,armitage});
 	global ->
-	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [], {global,armitage});
+	    gen_statem:enter_loop(?MODULE, [], state0, [], {global,armitage});
 	via ->
 	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [],
-	      {via, dummy_via, armitage});
+	      ?MODULE, [], state0, [], {via, dummy_via, armitage});
 	anon ->
-	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [])
+	    gen_statem:enter_loop(?MODULE, [], state0, [])
     end.
 
 
 %% Test the order for multiple {next_event,T,C}
 next_events(Config) ->
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+    {ok,Pid} = gen_statem:start(module(Config), [], []),
     ok = gen_statem:cast(Pid, next_event),
     {state,next_events,[]} = gen_statem:call(Pid, get),
     ok = gen_statem:stop(Pid),
@@ -1244,12 +1249,14 @@ verify_empty_msgq() ->
     [] = flush(),
     ok.
 
-start_arg(Config, Arg) ->
+module(Config) ->
     case lists:keyfind(callback_mode, 1, Config) of
-	{_,CallbackMode} ->
-	    {callback_mode,CallbackMode,Arg};
+	{_,handle_event_function} ->
+	    ?HANDLE_EVENT_MODULE;
+	{_,state_functions} ->
+	    ?MODULE;
 	false ->
-	    Arg
+	    ?MODULE
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1266,33 +1273,24 @@ init(stop_shutdown) ->
     {stop,shutdown};
 init(sleep) ->
     ?t:sleep(1000),
-    {state_functions,idle,data};
+    {ok,idle,data};
 init(hiber) ->
-    {state_functions,hiber_idle,[]};
+    {ok,hiber_idle,[]};
 init(hiber_now) ->
-    {state_functions,hiber_idle,[],[hibernate]};
+    {ok,hiber_idle,[],[hibernate]};
 init({data, Data}) ->
-    {state_functions,idle,Data};
-init({callback_mode,CallbackMode,Arg}) ->
-    case init(Arg) of
-	{_,State,Data,Ops} ->
-	    {CallbackMode,State,Data,Ops};
-	{_,State,Data} ->
-	    {CallbackMode,State,Data};
-	Other ->
-	    Other
-    end;
+    {ok,idle,Data};
 init({map_statem,#{init := Init}=Machine}) ->
     case Init() of
 	{ok,State,Data,Ops} ->
-	    {handle_event_function,State,[Data|Machine],Ops};
+	    {ok,State,[Data|Machine],Ops};
 	{ok,State,Data} ->
-	    {handle_event_function,State,[Data|Machine]};
+	    {ok,State,[Data|Machine]};
 	Other ->
 	    Other
     end;
 init([]) ->
-    {state_functions,idle,data}.
+    {ok,idle,data}.
 
 terminate(_, _State, crash_terminate) ->
     exit({crash,terminate});
@@ -1505,10 +1503,10 @@ handle_common_events(cast, {'alive?',Pid}, _, Data) ->
 handle_common_events(_, _, _, _) ->
     undefined.
 
-handle_event({call,From}, get_callback_mode, _, _) ->
+handle_event_function({call,From}, get_callback_mode, _, _) ->
     {keep_state_and_data,{reply,From,handle_event_function}};
 %% Wrapper state machine that uses a map state machine spec
-handle_event(
+handle_event_function(
   Type, Event, State, [Data|Machine])
   when is_map(Machine) ->
     #{State := HandleEvent} = Machine,
@@ -1539,7 +1537,7 @@ handle_event(
 %% Wrap the state in a 1 element list just to test non-atom
 %% states.  Note that the state from init/1 is not wrapped
 %% so both atom and non-atom states are tested.
-handle_event(Type, Event, State, Data) ->
+handle_event_function(Type, Event, State, Data) ->
     StateName = unwrap_state(State),
     try ?MODULE:StateName(Type, Event, Data) of
 	Result ->
@@ -1567,8 +1565,8 @@ wrap_result(Result) ->
 
 
 
-code_change(OldVsn, State, Data, CallbackMode) ->
-    {CallbackMode,State,{OldVsn,Data,CallbackMode}}.
+code_change(OldVsn, State, Data, Extra) ->
+    {ok,State,{OldVsn,Data,Extra}}.
 
 format_status(terminate, [_Pdict,State,Data]) ->
     {formatted,State,Data};
