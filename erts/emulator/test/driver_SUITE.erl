@@ -114,7 +114,7 @@
 -define(MAX_DATA_SIZE, 16384).
 
 % This is the allowed delay when testing the driver timer functionality
--define(delay, 100).
+-define(delay, 400).
 
 -define(heap_binary_size, 64).
 
