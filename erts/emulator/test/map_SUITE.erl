@@ -77,6 +77,7 @@
          t_ets/1,
          t_dets/1,
          t_tracing/1,
+         t_hash_entropy/1,
 
          %% instruction-level tests
          t_has_map_fields/1,
@@ -140,6 +141,7 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           t_pdict,
           t_ets,
           t_tracing,
+          t_hash_entropy,
 
           %% instruction-level tests
           t_has_map_fields,
@@ -3019,6 +3021,39 @@ do_badmap_17(Config) ->
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
 
+
+%% OTP-13763
+t_hash_entropy(Config) when is_list(Config)  ->
+    %% entropy bug in 18.3, 19.0
+    M1 = maps:from_list([{#{"id" => I}, ok}||I <- lists:seq(1,50000)]),
+
+    #{ #{"id" => 100} := ok,
+       #{"id" => 200} := ok,
+       #{"id" => 300} := ok,
+       #{"id" => 400} := ok,
+       #{"id" => 500} := ok,
+       #{"id" => 600} := ok,
+       #{"id" => 700} := ok,
+       #{"id" => 800} := ok,
+       #{"id" => 900} := ok,
+       #{"id" => 25061} := ok,
+       #{"id" => 39766} := ok } = M1,
+
+    M0 = maps:from_list([{I,ok}||I <- lists:seq(1,33)]),
+    M2 = maps:from_list([{M0#{"id" => I}, ok}||I <- lists:seq(1,50000)]),
+
+    ok = maps:get(M0#{"id" => 100}, M2),
+    ok = maps:get(M0#{"id" => 200}, M2),
+    ok = maps:get(M0#{"id" => 300}, M2),
+    ok = maps:get(M0#{"id" => 400}, M2),
+    ok = maps:get(M0#{"id" => 500}, M2),
+    ok = maps:get(M0#{"id" => 600}, M2),
+    ok = maps:get(M0#{"id" => 700}, M2),
+    ok = maps:get(M0#{"id" => 800}, M2),
+    ok = maps:get(M0#{"id" => 900}, M2),
+    ok = maps:get(M0#{"id" => 25061}, M2),
+    ok = maps:get(M0#{"id" => 39766}, M2),
+    ok.
 
 %% OTP-13146
 %% Provoke major GC with a lot of "fat" maps on external format in msg queue
