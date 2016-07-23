@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 7.3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix scheduler deadlock bug in <c>ets:update_counter/4</c>
+	    when key is not found and inserting the default object
+	    causes the table to grow.</p>
+          <p>
+	    Own Id: OTP-13731 Aux Id: ERL-188 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

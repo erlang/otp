@@ -33,6 +33,24 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.12.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the telnet server would pause during transmission of a
+	    line of text before terminating the line, the
+	    ct_telnet:expect/3 function would print the line twice in
+	    the test case HTML log. This problem has been fixed.</p>
+          <p>
+	    Own Id: OTP-13730 Aux Id: seq13135 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.12.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
