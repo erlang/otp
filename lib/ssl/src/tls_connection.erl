@@ -70,8 +70,6 @@
 %% gen_statem callbacks
 -export([terminate/3, code_change/4, format_status/2]).
  
--define(GEN_STATEM_CB_MODE, state_functions).
-
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
@@ -169,9 +167,9 @@ init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     try 
 	State = ssl_connection:ssl_config(State0#state.ssl_options, Role, State0),
-	gen_statem:enter_loop(?MODULE, [], ?GEN_STATEM_CB_MODE, init, State)
+	gen_statem:enter_loop(?MODULE, [], init, State)
     catch throw:Error ->
-	gen_statem:enter_loop(?MODULE, [], ?GEN_STATEM_CB_MODE, error, {Error, State0}) 
+	gen_statem:enter_loop(?MODULE, [], error, {Error, State0}) 
     end.
 
 %%--------------------------------------------------------------------
@@ -457,9 +455,9 @@ format_status(Type, Data) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, StateName, State0, {Direction, From, To}) ->
     State = convert_state(State0, Direction, From, To),
-    {?GEN_STATEM_CB_MODE, StateName, State};
+    {ok, StateName, State};
 code_change(_OldVsn, StateName, State, _) ->
-    {?GEN_STATEM_CB_MODE, StateName, State}.
+    {ok, StateName, State}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
