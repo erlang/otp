@@ -2376,7 +2376,7 @@ no_priority_inversion2(Config) when is_list(Config) ->
 				       [{priority, max}, monitor, link])
 		     end,
 		     lists:seq(1, 2*erlang:system_info(schedulers))),
-    receive after 500 -> ok end,
+    receive after 2000 -> ok end,
     {PL, ML} = spawn_opt(fun () ->
 			       tok_loop()
 		       end,
