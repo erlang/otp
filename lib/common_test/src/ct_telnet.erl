@@ -954,7 +954,7 @@ log(#state{name=Name,teln_pid=TelnPid,host=Host,port=Port},
 			true  ->
 			    ok;
 			false ->
-			    ct_gen_conn:cont_log(String,Args)
+			    ct_gen_conn:cont_log_no_timestamp(String,Args)
 		    end;
 	       
 	       ForcePrint == true ->
@@ -965,7 +965,7 @@ log(#state{name=Name,teln_pid=TelnPid,host=Host,port=Port},
 			    %% called
 			    ct_gen_conn:log(heading(Action,Name1),String,Args);
 			false ->
-			    ct_gen_conn:cont_log(String,Args)
+			    ct_gen_conn:cont_log_no_timestamp(String,Args)
 		    end
 	    end
     end.
@@ -1224,7 +1224,6 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
     EOMod = if TotalTO /= infinity -> EO#eo{total_timeout=trunc(TotalTO)};
 	       true                -> EO
 	    end,
-
     ExpectFun = case EOMod#eo.seq of
 		    true -> fun() ->
 				    seq_expect(Name,Pid,Data,Pattern,Acc,EOMod)
@@ -1247,38 +1246,34 @@ teln_expect1(Name,Pid,Data,Pattern,Acc,EO=#eo{idle_timeout=IdleTO,
 			    true ->
 				 IdleTO
 			 end,
+	    {PatOrPats1,Acc1,Rest1} = case NotFinished of
+					 {nomatch,Rest0} ->
+					     %% one expect
+					     {Pattern,[],Rest0};
+					 {continue,Pats0,Acc0,Rest0} ->
+					     %% sequence
+					     {Pats0,Acc0,Rest0}
+				     end,
 	    case timer:tc(ct_gen_conn, do_within_time, [Fun,BreakAfter]) of
-		{_,{error,Reason}} -> 
+		{_,{error,Reason}} ->
 		    %% A timeout will occur when the telnet connection
 		    %% is idle for EO#eo.idle_timeout milliseconds.
+		    if Rest1 /= [] ->
+			    log(name_or_pid(Name,Pid),"       ~ts",[Rest1]);
+		       true ->
+			    ok
+		    end,
 		    {error,Reason};
 		{_,{ok,Data1}} when TotalTO == infinity ->
-		    case NotFinished of
-			{nomatch,Rest} ->
-			    %% One expect
-			    teln_expect1(Name,Pid,Rest++Data1,
-					 Pattern,[],EOMod);
-			{continue,Patterns1,Acc1,Rest} ->
-			    %% Sequence
-			    teln_expect1(Name,Pid,Rest++Data1,
-					 Patterns1,Acc1,EOMod)
-		    end;
+		    teln_expect1(Name,Pid,Rest1++Data1,PatOrPats1,Acc1,EOMod);
 		{Elapsed,{ok,Data1}} ->
 		    TVal = TotalTO - (Elapsed/1000),
 		    if TVal =< 0 ->
 			    {error,timeout};
 		       true ->
 			    EO1 = EO#eo{total_timeout = TVal},
-			    case NotFinished of
-				{nomatch,Rest} ->
-				    %% One expect
-				    teln_expect1(Name,Pid,Rest++Data1,
-						 Pattern,[],EO1);
-				{continue,Patterns1,Acc1,Rest} ->
-				    %% Sequence
-				    teln_expect1(Name,Pid,Rest++Data1,
-						 Patterns1,Acc1,EO1)
-			    end
+			    teln_expect1(Name,Pid,Rest1++Data1,
+					 PatOrPats1,Acc1,EO1)
 		    end
 	    end
     end.
@@ -1416,14 +1411,14 @@ match_lines(Name,Pid,Data,Patterns,EO) ->
     case one_line(Data,[]) of
 	{noline,Rest} when FoundPrompt=/=false ->
 	    %% This is the line including the prompt
-	    case match_line(Name,Pid,Rest,Patterns,FoundPrompt,EO) of
+	    case match_line(Name,Pid,Rest,Patterns,FoundPrompt,false,EO) of
 		nomatch ->
 		    {nomatch,prompt};
 		{Tag,Match} ->
 		    {Tag,Match,[]}
 	    end;
 	{noline,Rest} when EO#eo.prompt_check==false ->
-	    case match_line(Name,Pid,Rest,Patterns,false,EO) of
+	    case match_line(Name,Pid,Rest,Patterns,false,false,EO) of
 		nomatch ->
 		    {nomatch,Rest};
 		{Tag,Match} ->
@@ -1432,7 +1427,7 @@ match_lines(Name,Pid,Data,Patterns,EO) ->
 	{noline,Rest} ->
 	    {nomatch,Rest};
 	{Line,Rest} ->
-	    case match_line(Name,Pid,Line,Patterns,false,EO) of
+	    case match_line(Name,Pid,Line,Patterns,false,true,EO) of
 		nomatch ->
 		    match_lines(Name,Pid,Rest,Patterns,EO);
 		{Tag,Match} ->
@@ -1440,45 +1435,50 @@ match_lines(Name,Pid,Data,Patterns,EO) ->
 	    end
     end.
     
-
 %% For one line, match each pattern
-match_line(Name,Pid,Line,Patterns,FoundPrompt,EO) ->
-    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,match).
+match_line(Name,Pid,Line,Patterns,FoundPrompt,Terminated,EO) ->
+    match_line(Name,Pid,Line,Patterns,FoundPrompt,Terminated,EO,match).
 
-match_line(Name,Pid,Line,[prompt|Patterns],false,EO,RetTag) ->
-    match_line(Name,Pid,Line,Patterns,false,EO,RetTag);
-match_line(Name,Pid,Line,[prompt|_Patterns],FoundPrompt,_EO,RetTag) ->
+match_line(Name,Pid,Line,[prompt|Patterns],false,Term,EO,RetTag) ->
+    match_line(Name,Pid,Line,Patterns,false,Term,EO,RetTag);
+match_line(Name,Pid,Line,[prompt|_Patterns],FoundPrompt,_Term,_EO,RetTag) ->
     log(name_or_pid(Name,Pid),"       ~ts",[Line]),
     log(name_or_pid(Name,Pid),"PROMPT: ~ts",[FoundPrompt]),
     {RetTag,{prompt,FoundPrompt}};
-match_line(Name,Pid,Line,[{prompt,PromptType}|_Patterns],FoundPrompt,_EO,RetTag) 
-  when PromptType==FoundPrompt ->
+match_line(Name,Pid,Line,[{prompt,PromptType}|_Patterns],FoundPrompt,_Term,
+	   _EO,RetTag) when PromptType==FoundPrompt ->
     log(name_or_pid(Name,Pid),"       ~ts",[Line]),
     log(name_or_pid(Name,Pid),"PROMPT: ~ts",[FoundPrompt]),
     {RetTag,{prompt,FoundPrompt}};
-match_line(Name,Pid,Line,[{prompt,PromptType}|Patterns],FoundPrompt,EO,RetTag) 
+match_line(Name,Pid,Line,[{prompt,PromptType}|Patterns],FoundPrompt,Term,
+	   EO,RetTag) 
   when PromptType=/=FoundPrompt ->
-    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,RetTag);
-match_line(Name,Pid,Line,[{Tag,Pattern}|Patterns],FoundPrompt,EO,RetTag) ->
+    match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
+match_line(Name,Pid,Line,[{Tag,Pattern}|Patterns],FoundPrompt,Term,EO,RetTag) ->
     case re:run(Line,Pattern,[{capture,all,list}]) of
 	nomatch ->
-	    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,RetTag);
+	    match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 	{match,Match} ->
 	    log(name_or_pid(Name,Pid),"MATCH: ~ts",[Line]),
 	    {RetTag,{Tag,Match}}
     end;
-match_line(Name,Pid,Line,[Pattern|Patterns],FoundPrompt,EO,RetTag) ->
+match_line(Name,Pid,Line,[Pattern|Patterns],FoundPrompt,Term,EO,RetTag) ->
     case re:run(Line,Pattern,[{capture,all,list}]) of
 	nomatch ->
-	    match_line(Name,Pid,Line,Patterns,FoundPrompt,EO,RetTag);
+	    match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 	{match,Match} ->
 	    log(name_or_pid(Name,Pid),"MATCH: ~ts",[Line]),
 	    {RetTag,Match}
     end;
-match_line(Name,Pid,Line,[],FoundPrompt,EO,match) ->
-    match_line(Name,Pid,Line,EO#eo.haltpatterns,FoundPrompt,EO,halt);
-match_line(Name,Pid,Line,[],_FoundPrompt,_EO,halt) ->
+match_line(Name,Pid,Line,[],FoundPrompt,Term,EO,match) ->
+    match_line(Name,Pid,Line,EO#eo.haltpatterns,FoundPrompt,Term,EO,halt);
+%% print any terminated line that can not be matched
+match_line(Name,Pid,Line,[],_FoundPrompt,true,_EO,halt) ->
     log(name_or_pid(Name,Pid),"       ~ts",[Line]),
+    nomatch;
+%% if there's no line termination, Line is saved as Rest (above) and will
+%% be printed later
+match_line(_Name,_Pid,_Line,[],_FoundPrompt,false,_EO,halt) ->
     nomatch.
 
 one_line([$\n|Rest],Line) ->

@@ -27,7 +27,7 @@
 
 -export([start/4, stop/1, get_conn_pid/1, check_opts/1]).
 -export([call/2, call/3, return/2, do_within_time/2]).
--export([log/3, start_log/1, cont_log/2, end_log/0]).
+-export([log/3, start_log/1, cont_log/2, cont_log_no_timestamp/2, end_log/0]).
 
 %%----------------------------------------------------------------------
 %% Exported types
@@ -173,6 +173,14 @@ start_log(Heading) ->
 %%% @see ct_logs:cont_log/2
 cont_log(Format,Args) ->
     log(cont_log,[Format,Args]).
+
+%%%-----------------------------------------------------------------
+%%% @spec cont_log_no_timestamp(Format,Args) -> ok
+%%%
+%%% @doc Log activities on the current connection (tool-internal use only).
+%%% @see ct_logs:cont_log/2
+cont_log_no_timestamp(Format,Args) ->
+    log(cont_log_no_timestamp,[Format,Args]).
 
 %%%-----------------------------------------------------------------
 %%% @spec end_log() -> ok

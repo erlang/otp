@@ -32,7 +32,7 @@
 -export([init/2, close/2, init_tc/1, end_tc/1]).
 -export([register_groupleader/2, unregister_groupleader/1]).
 -export([get_log_dir/0, get_log_dir/1]).
--export([log/3, start_log/1, cont_log/2, end_log/0]).
+-export([log/3, start_log/1, cont_log/2, cont_log_no_timestamp/2, end_log/0]).
 -export([set_stylesheet/2, clear_stylesheet/1]).
 -export([add_external_logs/1, add_link/3]).
 -export([make_last_run_index/0]).
@@ -373,6 +373,20 @@ cont_log(Format,Args) ->
     ok.
 
 %%%-----------------------------------------------------------------
+%%% @spec cont_log_no_timestamp(Format,Args) -> ok
+%%% 
+%%% @doc Adds information about an activity (tool-internal use only).
+%%%
+%%% @see start_log/1
+%%% @see end_log/0
+cont_log_no_timestamp([],[]) ->
+    ok;
+cont_log_no_timestamp(Format,Args) ->
+    cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
+	  [{Format,Args}],true}),
+    ok.
+
+%%%-----------------------------------------------------------------
 %%% @spec end_log() -> ok
 %%% 
 %%% @doc Ends the logging of an activity (tool-internal use only).
@@ -594,7 +608,6 @@ div_header(Class,Printer) ->
 	++ Printer ++ " " ++ log_timestamp(?now) ++ " ***</b>".
 div_footer() ->
     "</pre></div>\n<pre>".
-
 
 maybe_log_timestamp() ->
     {MS,S,US} = ?now,
