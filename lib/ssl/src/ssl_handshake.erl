@@ -1305,8 +1305,40 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
     end.
 
 select_version(RecordCB, ClientVersion, Versions) ->
-    ServerVersion = RecordCB:highest_protocol_version(Versions),
-    RecordCB:lowest_protocol_version(ClientVersion, ServerVersion).
+    do_select_version(RecordCB, ClientVersion, Versions).
+
+do_select_version(_, ClientVersion, []) ->
+    ClientVersion;
+do_select_version(RecordCB, ClientVersion, [Version | Versions]) ->
+    case RecordCB:is_higher(Version, ClientVersion) of
+	true ->
+	    %% Version too high for client - keep looking
+	    do_select_version(RecordCB, ClientVersion, Versions);
+	false ->
+	    %% Version ok for client - look for a higher
+	    do_select_version(RecordCB, ClientVersion, Versions, Version)
+    end.
+%%
+do_select_version(_, _, [], GoodVersion) ->
+    GoodVersion;
+do_select_version(
+  RecordCB, ClientVersion, [Version | Versions], GoodVersion) ->
+    BetterVersion =
+	case RecordCB:is_higher(Version, ClientVersion) of
+	    true ->
+		%% Version too high for client
+		GoodVersion;
+	    false ->
+		%% Version ok for client
+		case RecordCB:is_higher(Version, GoodVersion) of
+		    true ->
+			%% Use higher version
+			Version;
+		    false ->
+			GoodVersion
+		end
+	end,
+    do_select_version(RecordCB, ClientVersion, Versions, BetterVersion).
 
 renegotiation_info(_, client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
