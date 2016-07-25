@@ -54,9 +54,20 @@ concatenated to form an erlang file to test on.")
   (let* ((dir (make-temp-file "erlang-test" t))
          (erlang-file (expand-file-name "erlang_test.erl" dir))
          (tags-file (expand-file-name "TAGS" dir))
-         tags-file-name tags-table-list erlang-buffer)
+         (old-tags-file-name (default-value 'tags-file-name))
+         (old-tags-table-list (default-value 'tags-table-list))
+         tags-file-name
+         tags-table-list
+         tags-table-set-list
+         erlang-buffer
+         erlang-mode-hook
+         prog-mode-hook
+         erlang-shell-mode-hook
+         tags-add-tables)
     (unwind-protect
         (progn
+          (setq-default tags-file-name nil)
+          (setq-default tags-table-list nil)
           (erlang-test-create-erlang-file erlang-file)
           (erlang-test-compile-tags erlang-file tags-file)
           (setq erlang-buffer (find-file-noselect erlang-file))
@@ -74,7 +85,9 @@ concatenated to form an erlang file to test on.")
         (when (buffer-live-p tags-buffer)
           (kill-buffer tags-buffer)))
       (when (file-exists-p dir)
-        (delete-directory dir t)))))
+        (delete-directory dir t))
+      (setq-default tags-file-name old-tags-file-name)
+      (setq-default tags-table-list old-tags-table-list))))
 
 (defun erlang-test-create-erlang-file (erlang-file)
   (with-temp-file erlang-file
@@ -121,7 +134,7 @@ concatenated to form an erlang file to test on.")
   (with-temp-buffer
     (erlang-mode)
     (setq-local tags-file-name tags-file)
-    (insert "erlang_test:fun")
+    (insert "\nerlang_test:fun")
     (erlang-complete-tag)
     (should (looking-back "erlang_test:function"))
     (insert "\nfun")
