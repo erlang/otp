@@ -230,7 +230,11 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
 							  process_info(self(),
 								       binary))),
     process_flag(trap_exit, OT),
-    ok.
+    try
+	blipp:blupp(Bin)
+    catch
+	_ : _ -> ok
+    end.
 
 dirty_heap_access(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config),
