@@ -282,7 +282,7 @@ cl_check_log(none) ->
 cl_check_log(Output) ->
   io:format("  Check output file `~s' for details\n", [Output]).
 
--spec format_warning(raw_warning()) -> string().
+-spec format_warning(raw_warning() | dial_warning()) -> string().
 
 format_warning(W) ->
   format_warning(W, basename).
