@@ -43,7 +43,7 @@
          lost_exit/1, link_to_dead/1, link_to_dead_new_node/1,
          applied_monitor_node/1, ref_port_roundtrip/1, nil_roundtrip/1,
          trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
-         stop_dist/1, 
+         stop_dist/1,
          dist_auto_connect_never/1, dist_auto_connect_once/1,
          dist_parallel_send/1,
          atom_roundtrip/1,
@@ -72,7 +72,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 4}}].
 
-all() -> 
+all() ->
     [ping, {group, bulk_send}, {group, local_send},
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
      link_to_dead_new_node, applied_monitor_node,
@@ -83,7 +83,7 @@ all() ->
      bad_dist_structure, {group, bad_dist_ext},
      start_epmd_false, epmd_module].
 
-groups() -> 
+groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
      {local_send, [],
       [local_send_small, local_send_big, local_send_legal]},
@@ -844,59 +844,50 @@ dist_auto_connect_once(Config) when is_list(Config) ->
 %% Result is sent here through relay node.
 dist_auto_connect_never(Config) when is_list(Config) ->
     Self = self(),
-    {ok, RelayNode} = 
-    start_node(dist_auto_connect_relay),
-    spawn(RelayNode, 
+    {ok, RelayNode} = start_node(dist_auto_connect_relay),
+    spawn(RelayNode,
           fun() ->
                   register(dist_auto_connect_relay, self()),
-                  dist_auto_connect_relay(Self) 
+                  dist_auto_connect_relay(Self)
           end),
     {ok, Handle} = dist_auto_connect_start(dist_auto_connect, never),
-    Result = 
-    receive
-        {do_dist_auto_connect, ok} ->
-            ok;
-        {do_dist_auto_connect, Error} ->
-            {error, Error};
-        Other ->
-            {error, Other}
-    after 32000 ->
-              timeout
-    end,
+    Result = receive
+                 {do_dist_auto_connect, ok} ->
+                     ok;
+                 {do_dist_auto_connect, Error} ->
+                     {error, Error};
+                 Other ->
+                     {error, Other}
+             after 32000 ->
+                       timeout
+             end,
     stop_node(RelayNode),
-    Stopped =  dist_auto_connect_stop(Handle),
-    Junk = 
-    receive 
-        {do_dist_auto_connect, _} = J -> 
-            J 
-    after 0 -> 
-              ok 
-    end,
+    Stopped = dist_auto_connect_stop(Handle),
+    Junk = receive
+               {do_dist_auto_connect, _} = J -> J
+           after 0 -> ok
+           end,
     {ok, ok, ok} = {Result, Stopped, Junk},
     ok.
 
 
 do_dist_auto_connect([never]) ->
     Node = list_to_atom("dist_auto_connect_relay@" ++ hostname()),
-    io:format("~p:do_dist_auto_connect([false]) Node=~p~n", 
-              [?MODULE, Node]),
+    io:format("~p:do_dist_auto_connect([false]) Node=~p~n", [?MODULE, Node]),
     Ping = net_adm:ping(Node),
-    io:format("~p:do_dist_auto_connect([false]) Ping=~p~n", 
-              [?MODULE, Ping]),
+    io:format("~p:do_dist_auto_connect([false]) Ping=~p~n", [?MODULE, Ping]),
     Result = case Ping of
                  pang -> ok;
                  _ -> {error, Ping}
              end,
-    io:format("~p:do_dist_auto_connect([false]) Result=~p~n", 
-              [?MODULE, Result]),
+    io:format("~p:do_dist_auto_connect([false]) Result=~p~n", [?MODULE, Result]),
     net_kernel:connect_node(Node),
     catch {dist_auto_connect_relay, Node} ! {do_dist_auto_connect, Result};
 %    receive after 1000 -> ok end,
 %    halt();
 
 do_dist_auto_connect(Arg) ->
-    io:format("~p:do_dist_auto_connect(~p)~n", 
-              [?MODULE, Arg]),
+    io:format("~p:do_dist_auto_connect(~p)~n", [?MODULE, Arg]),
     receive after 10000 -> ok end,
     halt().
 
@@ -912,11 +903,11 @@ dist_auto_connect_start(Name, Value) when is_list(Name), is_atom(Value) ->
             [%"xterm -e ",
              atom_to_list(lib:progname()),
              %	     " -noinput ",
-             " -detached ", 
+             " -detached ",
              long_or_short(), " ", Name,
              " -setcookie ", Cookie,
              " -pa ", ModuleDir,
-             " -s ", atom_to_list(?MODULE), 
+             " -s ", atom_to_list(?MODULE),
              " do_dist_auto_connect ", ValueStr,
              " -kernel dist_auto_connect ", ValueStr]),
     io:format("~p:dist_auto_connect_start() cmd: ~p~n", [?MODULE, Cmd]),
@@ -947,7 +938,7 @@ dist_auto_connect_stop(Port, Node, Pid, N) when is_integer(N) ->
     end.
 
 
-dist_auto_connect_relay(Parent) ->	    
+dist_auto_connect_relay(Parent) ->
     receive X ->
                 catch Parent ! X
     end,
@@ -1321,7 +1312,7 @@ get_conflicting_unicode_atoms(CIX, N) ->
 start_monitor(Offender,P) ->
     Parent = self(),
     Q = spawn(Offender,
-              fun () -> 
+              fun () ->
                       Ref = erlang:monitor(process,P),
                       Parent ! {self(),ref,Ref},
                       receive
@@ -1458,8 +1449,8 @@ bad_dist_structure(Config) when is_list(Config) ->
     pong = rpc:call(Victim, net_adm, ping, [Offender]),
     P ! two,
     P ! check_msgs,
-    receive 
-        {P, messages_checked} -> ok 
+    receive
+        {P, messages_checked} -> ok
     after 5000 ->
               exit(victim_is_dead)
     end,
@@ -1765,7 +1756,7 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
                   pong = net_adm:ping(Node),
                   DPrt = dport(Node),
                   Bad1 = case WhereToPutSelf of
-                             0 -> 
+                             0 ->
                                  Bad;
                              N when N > 0 ->
                                  setelement(N,Bad,self())
@@ -1779,8 +1770,8 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
                   port_command(DPrt, DData),
                   Parent ! {DData,Done}
           end),
-    receive 
-        {WhatSent,Done} -> 
+    receive
+        {WhatSent,Done} ->
             io:format("Offender sent ~p~n",[WhatSent]),
             ok
     after 5000 ->
@@ -1887,7 +1878,7 @@ dmsg_fake_hdr2() ->
      1, size(A2), A2,
      2, size(A3), A3].
 
-dmsg_ext(Term) ->	
+dmsg_ext(Term) ->
     <<131, Res/binary>> = term_to_binary(Term),
     Res.
 
@@ -1972,7 +1963,7 @@ start_node(Name, Args, Rel) when is_atom(Name), is_list(Rel) ->
                  [] -> [];
                  _ -> [{erl,[{release,Rel}]}]
              end,
-    test_server:start_node(Name, slave, 
+    test_server:start_node(Name, slave,
                            [{args,
                              Args++" -setcookie "++Cookie++" -pa \""++Pa++"\""}
                             | RelArg]);
@@ -2040,17 +2031,15 @@ inet_rpc_server_loop(Sock) ->
 start_relay_node(Node, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Cookie = "NOT"++atom_to_list(erlang:get_cookie()),
-    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 4}, 
-                                     {active, false}]),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 4}, {active, false}]),
     {ok, Port} = inet:port(LSock),
     {ok, Host} = inet:gethostname(),
     RunArg = "-run " ++ atom_to_list(?MODULE) ++ " inet_rpc_server " ++
     Host ++ " " ++ integer_to_list(Port),
-    {ok, NN} = 
-    test_server:start_node(Node, peer, 
-                           [{args, Args ++
-                             " -setcookie "++Cookie++" -pa "++Pa++" "++
-                             RunArg}]),
+    {ok, NN} = test_server:start_node(Node, peer,
+                                      [{args, Args ++
+                                        " -setcookie "++Cookie++" -pa "++Pa++" "++
+                                        RunArg}]),
     [N,H] = string:tokens(atom_to_list(NN),"@"),
     {ok, Sock} = gen_tcp:accept(LSock),
     pang = net_adm:ping(NN),
@@ -2066,7 +2055,7 @@ wait_dead(N,H,0) ->
 wait_dead(N,H,X) ->
     case erl_epmd:port_please(N,H) of
         {port,_,_} ->
-            receive 
+            receive
             after 1000 ->
                       ok
             end,
