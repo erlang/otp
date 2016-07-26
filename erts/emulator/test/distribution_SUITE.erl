@@ -66,7 +66,7 @@
          sendersender/4, sendersender2/4]).
 
 %% epmd_module exports
--export([start_link/0, register_node/2, port_please/2]).
+-export([start_link/0, register_node/2, register_node/3, port_please/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -1925,7 +1925,9 @@ epmd_module(Config) when is_list(Config) ->
 start_link() ->
     ignore.
 
-register_node(_Name, Port) ->
+register_node(Name, Port) ->
+    register_node(Name, Port, inet_tcp).
+register_node(_Name, Port, _Driver) ->
     %% Save the port number we're listening on.
     application:set_env(kernel, dist_listen_port, Port),
     Creation = rand:uniform(3),
