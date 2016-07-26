@@ -117,7 +117,7 @@ handle_call({listen, Driver, Name}, _From, State) ->
 	    {ok, WorldTcpAddress} = get_tcp_address(World),
 	    {_,Port} = WorldTcpAddress#net_address.address,
 	    ErlEpmd = net_kernel:epmd_module(),
-	    case ErlEpmd:register_node(Name, Port) of
+	    case ErlEpmd:register_node(Name, Port, Driver) of
 		{ok, Creation} ->
 		    {reply, {ok, {Socket, TcpAddress, Creation}},
 		     State#state{listen={Socket, World}}};
