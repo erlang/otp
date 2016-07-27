@@ -28,7 +28,36 @@
 start() ->
     register(erts_code_purger, self()),
     process_flag(trap_exit, true),
-    loop().
+    try
+	%% Pass bad arguments to copy_literals() in
+	%% order to determine purge strategy used
+	%% by the VM...
+	Res = erts_internal:copy_literals(4711, badarg),
+	exit({copy_literals_returned, Res})
+    catch
+	error : badarg -> %% VM use old purge strategy
+	    old_loop();
+	error : notsup -> %% VM use new purge strategy
+	    loop();
+	Type : Reason ->
+	    %% This should not be possible...
+	    exit({"Unexpected copy_literals() behaviour",
+		  {Type, Reason}})
+    end.
+
+old_loop() ->
+    _ = receive
+	{purge,Mod,From,Ref} when is_atom(Mod), is_pid(From) ->
+	    Res = do_old_purge(Mod),
+	    From ! {reply, purge, Res, Ref};
+
+	{soft_purge,Mod,From,Ref} when is_atom(Mod), is_pid(From) ->
+	    Res = do_old_soft_purge(Mod),
+	    From ! {reply, soft_purge, Res, Ref};
+
+	_Other -> ignore
+    end,
+    old_loop().
 
 loop() ->
     _ = receive
@@ -61,7 +90,7 @@ purge(Mod) when is_atom(Mod) ->
     end.
 
 
-do_purge(Mod) ->
+do_old_purge(Mod) ->
     case erts_internal:copy_literals(Mod, true) of
         false ->
             {false, false};
@@ -71,6 +100,11 @@ do_purge(Mod) ->
 	    WasPurged = erts_internal:purge_module(Mod),
             {WasPurged, DidKill}
     end.
+
+do_purge(Mod) ->
+    DidKill = check_proc_code(erlang:processes(), Mod, true),
+    WasPurged = erts_internal:purge_module(Mod),
+    {WasPurged, DidKill}.
 
 %% soft_purge(Module)
 %% Purge old code only if no procs remain that run old code.
@@ -86,7 +120,7 @@ soft_purge(Mod) ->
     end.
 
 
-do_soft_purge(Mod) ->
+do_old_soft_purge(Mod) ->
     case erts_internal:copy_literals(Mod, true) of
 	false ->
 	    true;
@@ -100,6 +134,12 @@ do_soft_purge(Mod) ->
 		    erts_internal:purge_module(Mod),
 		    true
 	    end
+    end.
+
+do_soft_purge(Mod) ->
+    case check_proc_code(erlang:processes(), Mod, false) of
+	false -> false;
+	true -> erts_internal:purge_module(Mod)
     end.
 
 %%
@@ -283,8 +323,7 @@ cpc_sched_kill(Pid,
 
 cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid, AllowGc) ->
     erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
-						{allow_gc, AllowGc},
-						{copy_literals, true}]).
+						{allow_gc, AllowGc}]).
 
 cpc_request_gc(CpcS, [Pid|Pids]) ->
     cpc_request(CpcS, Pid, true),

@@ -37,11 +37,40 @@
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
 
+Process *erts_code_purger = NULL;
+
+ErtsLiteralArea *erts_copy_literal_area = NULL;
+#ifdef ERTS_NEW_PURGE_STRATEGY
+Process *erts_literal_area_collector = NULL;
+
+typedef struct ErtsLiteralAreaRef_ ErtsLiteralAreaRef;
+struct ErtsLiteralAreaRef_ {
+    ErtsLiteralAreaRef *next;
+    ErtsLiteralArea *literal_area;
+};
+
+struct {
+    erts_smp_mtx_t mtx;
+    ErtsLiteralAreaRef *first;
+    ErtsLiteralAreaRef *last;
+} release_literal_areas;
+#endif
+
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls);
 static void delete_code(Module* modp);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
+
+void
+erts_beam_bif_load_init(void)
+{
+#ifdef ERTS_NEW_PURGE_STRATEGY
+    erts_smp_mtx_init(&release_literal_areas.mtx, "release_literal_areas");
+    release_literal_areas.first = NULL;
+    release_literal_areas.last = NULL;
+#endif
+}
 
 BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 {
@@ -767,6 +796,311 @@ static void hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
                                Eterm *start, Eterm *end,
                                char *lit_start, Uint lit_size);
 
+#ifdef ERTS_NEW_PURGE_STRATEGY
+
+Eterm
+erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed)
+{
+    ErtsLiteralArea *la;
+    ErtsMessage *msgp;
+    struct erl_off_heap_header* oh;
+    char *literals;
+    Uint lit_bsize;
+    ErlHeapFragment *hfrag;
+
+    la = erts_copy_literal_area;
+    if (!la)
+	return am_ok;
+
+    oh = la->off_heap;
+    literals = (char *) &la->start[0];
+    lit_bsize = (char *) la->end - literals;
+
+    /*
+     * If a literal is in the message queue we make an explicit copy of
+     * it and attach it to the heap fragment. Each message needs to be
+     * self contained, we cannot save the literal in the old_heap or
+     * any other heap than the message it self.
+     */
+
+    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+
+    for (msgp = c_p->msg.first; msgp; msgp = msgp->next) {
+	ErlHeapFragment *hf;
+	Uint lit_sz = 0;
+
+	*redsp += 1;
+
+	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
+	    hfrag = &msgp->hfrag;
+	else if (is_value(ERL_MESSAGE_TERM(msgp)) && msgp->data.heap_frag)
+	    hfrag = msgp->data.heap_frag;
+	else
+	    continue; /* Content on heap or in external term format... */
+
+	for (hf = hfrag; hf; hf = hf->next) {
+	    lit_sz += hfrag_literal_size(&hf->mem[0], &hf->mem[hf->used_size],
+					literals, lit_bsize);
+	    *redsp += 1;
+	}
+
+	*redsp += lit_sz / 16; /* Better value needed... */
+	if (lit_sz > 0) {
+	    ErlHeapFragment *bp = new_message_buffer(lit_sz);
+	    Eterm *hp = bp->mem;
+
+	    for (hf = hfrag; hf; hf = hf->next) {
+		hfrag_literal_copy(&hp, &bp->off_heap,
+				   &hf->mem[0], &hf->mem[hf->used_size],
+				   literals, lit_bsize);
+		hfrag = hf;
+	    }
+
+	    /* link new hfrag last */
+	    ASSERT(hfrag->next == NULL);
+	    hfrag->next = bp;
+	    bp->next = NULL;
+        }
+    }
+
+    if (gc_allowed) {
+	/*
+	 * Current implementation first tests without
+	 * allowing GC, and then restarts the operation
+	 * allowing GC if it is needed. It is therfore
+	 * very likely that we will need the GC (although
+	 * this is not completely certain). We go for
+	 * the GC directly instead of scanning everything
+	 * one more time...
+	 */
+	goto literal_gc;
+    }
+
+    *redsp += 2;
+    if (any_heap_ref_ptrs(&c_p->fvalue, &c_p->fvalue+1, literals, lit_bsize)) {
+	c_p->freason = EXC_NULL;
+	c_p->fvalue = NIL;
+	c_p->ftrace = NIL;
+    }
+
+    if (any_heap_ref_ptrs(c_p->stop, c_p->hend, literals, lit_bsize))
+	goto literal_gc;
+    *redsp += 1;
+    if (any_heap_refs(c_p->heap, c_p->htop, literals, lit_bsize))
+	goto literal_gc;
+    *redsp += 1;
+    if (any_heap_refs(c_p->old_heap, c_p->old_htop, literals, lit_bsize))
+	goto literal_gc;
+
+    /* Check dictionary */
+    *redsp += 1;
+    if (c_p->dictionary) {
+	Eterm* start = ERTS_PD_START(c_p->dictionary);
+	Eterm* end = start + ERTS_PD_SIZE(c_p->dictionary);
+
+	if (any_heap_ref_ptrs(start, end, literals, lit_bsize))
+	    goto literal_gc;
+    }
+
+    /* Check heap fragments */
+    for (hfrag = c_p->mbuf; hfrag; hfrag = hfrag->next) {
+	Eterm *hp, *hp_end;
+
+	*redsp += 1;
+
+	hp = &hfrag->mem[0];
+	hp_end = &hfrag->mem[hfrag->used_size];
+	if (any_heap_refs(hp, hp_end, literals, lit_bsize))
+	    goto literal_gc;
+    }
+
+    /*
+     * Message buffer fragments (matched messages) 
+     *  - off heap lists should already have been moved into
+     *    process off heap structure.
+     *  - Check for literals
+     */
+    for (msgp = c_p->msg_frag; msgp; msgp = msgp->next) {
+	hfrag = erts_message_to_heap_frag(msgp);
+	for (; hfrag; hfrag = hfrag->next) {
+	    Eterm *hp, *hp_end;
+	    ASSERT(!check_mod_funs(c_p, &hfrag->off_heap, mod_start, mod_size));
+
+	    *redsp += 1;
+
+	    hp = &hfrag->mem[0];
+	    hp_end = &hfrag->mem[hfrag->used_size];
+
+	    if (any_heap_refs(hp, hp_end, literals, lit_bsize))
+		goto literal_gc;
+	}
+    }
+
+    return am_ok;
+
+literal_gc:
+
+    if (!gc_allowed)
+	return am_need_gc;
+
+    if (c_p->flags & F_DISABLE_GC)
+	return THE_NON_VALUE;
+
+    FLAGS(c_p) |= F_NEED_FULLSWEEP;
+
+    *redsp += erts_garbage_collect_nobump(c_p, 0, c_p->arg_reg, c_p->arity, fcalls);
+
+    erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize, oh);
+
+    *redsp += lit_bsize / 64; /* Need, better value... */
+
+    return am_ok;
+}
+
+static Eterm
+check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls)
+{
+    BeamInstr* start;
+    char* mod_start;
+    Uint mod_size;
+    Eterm* sp;
+    int done_gc = 0;
+    ErtsMessage *msgp;
+    ErlHeapFragment *hfrag;
+
+    /*
+     * Pick up limits for the module.
+     */
+    start = (BeamInstr*) modp->old.code_hdr;
+    mod_start = (char *) start;
+    mod_size = modp->old.code_length;
+
+    /*
+     * Check if current instruction or continuation pointer points into module.
+     */
+    if (ErtsInArea(rp->i, mod_start, mod_size)
+	|| ErtsInArea(rp->cp, mod_start, mod_size)) {
+	return am_true;
+    }
+
+    /*
+     * Check all continuation pointers stored on the stack.
+     */
+    for (sp = rp->stop; sp < STACK_START(rp); sp++) {
+	if (is_CP(*sp) && ErtsInArea(cp_val(*sp), mod_start, mod_size)) {
+	    return am_true;
+	}
+    }
+
+    /* 
+     * Check all continuation pointers stored in stackdump
+     * and clear exception stackdump if there is a pointer
+     * to the module.
+     */
+    if (rp->ftrace != NIL) {
+	struct StackTrace *s;
+	ASSERT(is_list(rp->ftrace));
+	s = (struct StackTrace *) big_val(CDR(list_val(rp->ftrace)));
+	if ((s->pc && ErtsInArea(s->pc, mod_start, mod_size)) ||
+	    (s->current && ErtsInArea(s->current, mod_start, mod_size))) {
+	    rp->freason = EXC_NULL;
+	    rp->fvalue = NIL;
+	    rp->ftrace = NIL;
+	} else {
+	    int i;
+	    for (i = 0;  i < s->depth;  i++) {
+		if (ErtsInArea(s->trace[i], mod_start, mod_size)) {
+		    rp->freason = EXC_NULL;
+		    rp->fvalue = NIL;
+		    rp->ftrace = NIL;
+		    break;
+		}
+	    }
+	}
+    }
+
+    /*
+     * Message queue can contains funs.
+     */
+
+    erts_smp_proc_lock(rp, ERTS_PROC_LOCK_MSGQ);
+    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
+    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
+
+    for (msgp = rp->msg.first; msgp; msgp = msgp->next) {
+	ErlHeapFragment *hf;
+	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
+	    hfrag = &msgp->hfrag;
+	else if (is_value(ERL_MESSAGE_TERM(msgp)) && msgp->data.heap_frag)
+	    hfrag = msgp->data.heap_frag;
+	else
+	    continue;
+
+	for (hf = hfrag; hf; hf = hf->next) {
+	    if (check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size))
+		return am_true;
+	}
+    }
+
+    while (1) {
+
+	/* Check heap, stack etc... */
+	if (check_mod_funs(rp, &rp->off_heap, mod_start, mod_size))
+	    goto try_gc;
+
+#ifdef DEBUG
+	/* Check heap fragments */
+	for (hfrag = rp->mbuf; hfrag; hfrag = hfrag->next) {
+	    /* Off heap lists should already have been moved into process */
+	    ASSERT(!check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size));
+	}
+
+	/*
+	 * Message buffer fragments (matched messages) 
+         *  - off heap lists should already have been moved into
+         *    process off heap structure.
+         *  - Check for literals
+	 */
+	for (msgp = rp->msg_frag; msgp; msgp = msgp->next) {
+            hfrag = erts_message_to_heap_frag(msgp);
+	    for (; hfrag; hfrag = hfrag->next) {
+		Eterm *hp, *hp_end;
+		ASSERT(!check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size));
+	    }
+	}
+#endif
+
+	return am_false;
+
+    try_gc:
+
+	if (rp->flags & F_DISABLE_GC) {
+	    /*
+	     * Cannot proceed. Process has disabled gc in order to
+	     * safely leave inconsistent data on the heap and/or
+	     * off heap lists. Need to wait for gc to be enabled
+	     * again.
+	     */ 
+	    return THE_NON_VALUE;
+	}
+
+	if (done_gc)
+	    return am_true;
+
+	if (!(flags & ERTS_CPC_ALLOW_GC))
+	    return am_aborted;
+
+	FLAGS(rp) |= F_NEED_FULLSWEEP;
+	*redsp += erts_garbage_collect_nobump(rp, 0, rp->arg_reg, rp->arity, fcalls);
+	done_gc = 1;
+    }
+
+}
+
+#else /* !ERTS_NEW_PURGE_STRATEGY, i.e, old style purge... */
+
 static Eterm
 check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls)
 {
@@ -860,8 +1194,14 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MSGQ);
 
-    literals = (char*) modp->old.code_hdr->literal_area->start;
-    lit_bsize = (char*) modp->old.code_hdr->literal_area->end - literals;
+    if (modp->old.code_hdr->literal_area) {
+	literals = (char*) modp->old.code_hdr->literal_area->start;
+	lit_bsize = (char*) modp->old.code_hdr->literal_area->end - literals;
+    }
+    else {
+	literals = NULL;
+	lit_bsize = 0;
+    }
 
     for (msgp = rp->msg.first; msgp; msgp = msgp->next) {
 	if (msgp->data.attached == ERTS_MSG_COMBINED_HFRAG)
@@ -902,12 +1242,6 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	/* Check heap, stack etc... */
 	if (check_mod_funs(rp, &rp->off_heap, mod_start, mod_size))
 	    goto try_gc;
-        if (!(flags & ERTS_CPC_COPY_LITERALS)) {
-            /* Process ok. May contain old literals but we will be called
-             * again before module is purged.
-             */
-            return am_false;
-        }
 	if (any_heap_ref_ptrs(&rp->fvalue, &rp->fvalue+1, literals, lit_bsize)) {
 	    rp->freason = EXC_NULL;
 	    rp->fvalue = NIL;
@@ -1005,6 +1339,8 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 #undef ERTS_LITERAL_GC__
 
 }
+
+#endif /*  !ERTS_NEW_PURGE_STRATEGY */
 
 static int
 any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
@@ -1136,11 +1472,72 @@ hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
 
 #undef in_area
 
+#ifdef ERTS_NEW_PURGE_STRATEGY
+
+ErtsThrPrgrLaterOp later_literal_area_switch;
+
+static void
+complete_literal_area_switch(void *unused)
+{
+    Process *p = erts_literal_area_collector;
+    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    erts_resume(p, ERTS_PROC_LOCK_STATUS);
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+}
+
+#endif /* ERTS_NEW_PURGE_STRATEGY */
+
+BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
+{
+#ifndef ERTS_NEW_PURGE_STRATEGY
+    BIF_ERROR(BIF_P, EXC_NOTSUP);
+#else
+    ErtsLiteralAreaRef *la_ref;
+
+    if (BIF_P != erts_literal_area_collector)
+	BIF_ERROR(BIF_P, EXC_NOTSUP);
+
+    erts_smp_mtx_lock(&release_literal_areas.mtx);
+
+    la_ref = release_literal_areas.first;
+    if (la_ref) {
+	release_literal_areas.first = la_ref->next;
+	if (!release_literal_areas.first)
+	    release_literal_areas.last = NULL;
+    }
+
+    erts_smp_mtx_unlock(&release_literal_areas.mtx);
+
+    if (erts_copy_literal_area)
+	erts_release_literal_area(erts_copy_literal_area);
+
+    if (!la_ref) {
+	erts_copy_literal_area = NULL;
+	BIF_RET(am_false);
+    }
+
+    erts_copy_literal_area = la_ref->literal_area;
+
+    erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
+
+#ifndef ERTS_SMP
+    BIF_RET(am_true);
+#else
+    erts_schedule_thr_prgr_later_op(complete_literal_area_switch,
+				    NULL,
+				    &later_literal_area_switch);
+    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+#endif
+
+#endif /* ERTS_NEW_PURGE_STRATEGY */
+}
+
+#ifndef ERTS_NEW_PURGE_STRATEGY
+
 #ifdef ERTS_SMP
 static void copy_literals_commit(void*);
 #endif
-
-copy_literals_t erts_clrange = {NULL, 0, THE_NON_VALUE};
 
 /* copy literals
  *
@@ -1157,11 +1554,18 @@ copy_literals_t erts_clrange = {NULL, 0, THE_NON_VALUE};
  *  ...
  */
 
+#endif
 
 BIF_RETTYPE erts_internal_copy_literals_2(BIF_ALIST_2)
 {
+#ifdef ERTS_NEW_PURGE_STRATEGY
+    BIF_ERROR(BIF_P, EXC_NOTSUP);
+#else
     ErtsCodeIndex code_ix;
     Eterm res = am_true;
+
+    if (BIF_P != erts_code_purger)
+	BIF_ERROR(BIF_P, EXC_NOTSUP);
 
     if (is_not_atom(BIF_ARG_1) || (am_true != BIF_ARG_2 && am_false != BIF_ARG_2)) {
         BIF_ERROR(BIF_P, BADARG);
@@ -1180,22 +1584,13 @@ BIF_RETTYPE erts_internal_copy_literals_2(BIF_ALIST_2)
             res = am_false;
             goto done;
         }
-        if (erts_clrange.ptr != NULL
-            && !(BIF_P->static_flags & ERTS_STC_FLG_SYSTEM_PROC)) {
+        if (erts_copy_literal_area) {
             res = am_aborted;
             goto done;
         }
-        erts_clrange.ptr = modp->old.code_hdr->literal_area->start;
-        erts_clrange.sz  = modp->old.code_hdr->literal_area->end - erts_clrange.ptr;
-        erts_clrange.pid = BIF_P->common.id;
+	erts_copy_literal_area = modp->old.code_hdr->literal_area;
     } else if (BIF_ARG_2 == am_false) {
-        if (erts_clrange.pid != BIF_P->common.id) {
-            res = am_false;
-            goto done;
-        }
-        erts_clrange.ptr = NULL;
-        erts_clrange.sz  = 0;
-        erts_clrange.pid = THE_NON_VALUE;
+	erts_copy_literal_area = NULL;
     }
 
 #ifdef ERTS_SMP
@@ -1209,7 +1604,10 @@ BIF_RETTYPE erts_internal_copy_literals_2(BIF_ALIST_2)
 done:
     erts_release_code_write_permission();
     BIF_RET(res);
+#endif
 }
+
+#ifndef ERTS_NEW_PURGE_STRATEGY
 
 #ifdef ERTS_SMP
 static void copy_literals_commit(void* null) {
@@ -1227,6 +1625,7 @@ static void copy_literals_commit(void* null) {
 }
 #endif /* ERTS_SMP */
 
+#endif
 
 /* Do the actualy module purging and return:
  * true for success
@@ -1241,6 +1640,7 @@ BIF_RETTYPE erts_internal_purge_module_1(BIF_ALIST_1)
     Module* modp;
     int is_blocking = 0;
     Eterm ret;
+    ErtsLiteralArea *literals = NULL;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -1294,7 +1694,7 @@ BIF_RETTYPE erts_internal_purge_module_1(BIF_ALIST_1)
 	    erts_cleanup_funs_on_purge(code, end);
 	    beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
 				code_ix);
-	    erts_release_literal_area(modp->old.code_hdr->literal_area);
+	    literals = modp->old.code_hdr->literal_area;
 	    modp->old.code_hdr->literal_area = NULL;
 	    erts_free(ERTS_ALC_T_CODE, (void *) code);
 	    modp->old.code_hdr = NULL;
@@ -1310,6 +1710,38 @@ BIF_RETTYPE erts_internal_purge_module_1(BIF_ALIST_1)
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     }
     erts_release_code_write_permission();
+
+#ifdef ERTS_NEW_PURGE_STRATEGY
+
+    if (literals) {
+	ErtsLiteralAreaRef *ref;
+	ref = erts_alloc(ERTS_ALC_T_LITERAL_REF,
+			 sizeof(ErtsLiteralAreaRef));
+	ref->literal_area = literals;
+	ref->next = NULL;
+	erts_smp_mtx_lock(&release_literal_areas.mtx);
+	if (release_literal_areas.last) {
+	    release_literal_areas.last->next = ref;
+	    release_literal_areas.last = ref;
+	}
+	else {
+	    release_literal_areas.first = ref;
+	    release_literal_areas.last = ref;
+	}
+	erts_smp_mtx_unlock(&release_literal_areas.mtx);
+	erts_queue_message(erts_literal_area_collector,
+			   0,
+			   erts_alloc_message(0, NULL),
+			   am_copy_literals,
+			   BIF_P->common.id);
+    }
+
+#else /* !ERTS_NEW_PURGE_STRATEGY */
+
+    erts_release_literal_area(literals);
+
+#endif
+
     return ret;
 }
 

@@ -42,6 +42,7 @@
 
 -export([check_process_code/3]).
 -export([copy_literals/2]).
+-export([release_literal_area_switch/0]).
 -export([purge_module/1]).
 
 -export([flush_monitor_messages/3]).
@@ -211,7 +212,6 @@ request_system_task(_Pid, _Prio, _Request) ->
     erlang:nif_error(undefined).
 
 -define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).
--define(ERTS_CPC_COPY_LITERALS, (1 bsl 1)).
 
 -spec check_process_code(Module, Flags) -> boolean() when
       Module :: module(),
@@ -223,7 +223,7 @@ check_process_code(_Module, _Flags) ->
       Pid :: pid(),
       Module :: module(),
       RequestId :: term(),
-      Option :: {async, RequestId} | {allow_gc, boolean()} | {copy_literals, boolean()},
+      Option :: {async, RequestId} | {allow_gc, boolean()},
       OptionList :: [Option],
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
@@ -265,8 +265,6 @@ get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, Flags) ->
     get_cpc_opts(Options, AsyncTuple, Flags);
 get_cpc_opts([{allow_gc, AllowGC} | Options], Async, Flags) ->
     get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_ALLOW_GC, AllowGC));
-get_cpc_opts([{copy_literals, CopyLit} | Options], Async, Flags) ->
-    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_COPY_LITERALS, CopyLit));
 get_cpc_opts([], Async, Flags) ->
     {Async, Flags}.
 
@@ -279,6 +277,11 @@ cpc_flags(OldFlags, Bit, false) ->
       Module :: module(),
       Bool :: boolean().
 copy_literals(_Mod, _Bool) ->
+    erlang:nif_error(undefined).
+
+-spec release_literal_area_switch() -> 'true' | 'false'.
+
+release_literal_area_switch() ->
     erlang:nif_error(undefined).
 
 -spec purge_module(Module) -> boolean() when

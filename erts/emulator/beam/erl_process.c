@@ -448,6 +448,9 @@ int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 typedef enum {
     ERTS_PSTT_GC,	/* Garbage Collect */
     ERTS_PSTT_CPC,	/* Check Process Code */
+#ifdef ERTS_NEW_PURGE_STRATEGY
+    ERTS_PSTT_CLA,	/* Copy Literal Area */
+#endif
     ERTS_PSTT_COHMQ,    /* Change off heap message queue */
     ERTS_PSTT_FTMQ      /* Flush trace msg queue */
 } ErtsProcSysTaskType;
@@ -10393,6 +10396,27 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    break;
         }
+#ifdef ERTS_NEW_PURGE_STRATEGY
+	case ERTS_PSTT_CLA: {
+	    int fcalls;
+            int cla_reds = 0;
+	    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+		fcalls = reds;
+	    else
+		fcalls = reds - CONTEXT_REDS;
+	    st_res = erts_proc_copy_literal_area(c_p,
+						 &cla_reds,
+						 fcalls,
+						 st->arg[0] == am_true);
+            reds -= cla_reds;
+	    if (is_non_value(st_res)) {
+		/* Needed gc, but gc was disabled */
+		save_gc_task(c_p, st, st_prio);
+		st = NULL;
+	    }
+	    break;
+        }
+#endif
 	case ERTS_PSTT_COHMQ:
 	    reds -= erts_complete_off_heap_message_queue_change(c_p);
 	    st_res = am_true;
@@ -10443,14 +10467,15 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 
 	switch (st->type) {
 	case ERTS_PSTT_GC:
-	    st_res = am_false;
-	    break;
 	case ERTS_PSTT_CPC:
-	    st_res = am_false;
-	    break;
 	case ERTS_PSTT_COHMQ:
 	    st_res = am_false;
 	    break;
+#ifdef ERTS_NEW_PURGE_STRATEGY
+	case ERTS_PSTT_CLA:
+	    st_res = am_ok;
+	    break;
+#endif
 #ifdef ERTS_SMP
         case ERTS_PSTT_FTMQ:
 	    reds -= erts_flush_trace_messages(c_p, ERTS_PROC_LOCK_MAIN);
@@ -10571,6 +10596,17 @@ erts_internal_request_system_task_3(BIF_ALIST_3)
 	if (!rp)
 	    goto noproc;
 	break;
+
+#ifdef ERTS_NEW_PURGE_STRATEGY
+    case am_copy_literals:
+	if (st->arg[0] != am_true && st->arg[0] != am_false)
+	    goto badarg;
+	st->type = ERTS_PSTT_CLA;
+	noproc_res = am_ok;
+	if (!rp)
+	    goto noproc;
+	break;
+#endif
 
     default:
 	goto badarg;

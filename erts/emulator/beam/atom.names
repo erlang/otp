@@ -176,6 +176,7 @@ atom const
 atom context_switches
 atom control
 atom copy
+atom copy_literals
 atom counters
 atom cpu
 atom cpu_timestamp
@@ -407,6 +408,7 @@ atom named_table
 atom namelist
 atom native
 atom native_addresses
+atom need_gc
 atom Neq='=/='
 atom Neqeq='/='
 atom net_kernel

@@ -50,6 +50,7 @@ extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_apply_bif;
 extern BeamInstr* em_call_nif;
 
+struct ErtsLiteralArea_;
 
 /*
  * The following variables keep a sorted list of address ranges for
@@ -59,15 +60,6 @@ extern BeamInstr* em_call_nif;
 
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
-
-typedef struct {
-    struct erl_off_heap_header *off_heap;
-    Eterm *end;
-    Eterm start[1]; /* beginning of area */
-} ErtsLiteralArea;
-
-#define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
-    (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
 
 typedef struct BeamCodeLineTab_ BeamCodeLineTab;
 
@@ -98,7 +90,7 @@ typedef struct beam_code_header {
     /*
      * Literal area (constant pool).
      */
-    ErtsLiteralArea *literal_area;
+    struct ErtsLiteralArea_ *literal_area;
 
     /*
      * Pointer to the on_load function (or NULL if none).
@@ -127,8 +119,10 @@ typedef struct beam_code_header {
 
 }BeamCodeHeader;
 
-void erts_release_literal_area(ErtsLiteralArea* literal_area);
+void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 int erts_is_module_native(BeamCodeHeader* code);
+
+void erts_beam_bif_load_init(void);
 
 /*
  * Layout of the line table.
