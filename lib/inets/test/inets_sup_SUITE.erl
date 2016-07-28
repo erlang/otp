@@ -33,7 +33,7 @@ suite() ->
 
 all() -> 
     [default_tree, ftpc_worker, tftpd_worker, 
-     httpd_subtree, httpd_subtree_profile,
+     httpd_config, httpd_subtree, httpd_subtree_profile,
      httpc_subtree].
 
 groups() -> 
@@ -51,6 +51,29 @@ init_per_suite(Config) ->
 end_per_suite(_) ->
     inets:stop(),
     ok.
+
+init_per_testcase(httpd_config, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, "root"),
+    ok = file:make_dir(Dir),
+
+    FallbackConfig = [{port, 0},
+		      {server_name,"www.test"},
+		      {modules, [mod_get]},
+		      {server_root, Dir},
+		      {document_root, Dir},
+		      {bind_address, any},
+		      {ipfamily, inet6fb4}],
+    try
+	inets:stop(),
+	inets:start(),
+	inets:start(httpd, FallbackConfig),
+	Config
+    catch
+	_:Reason ->
+	    inets:stop(),
+	    exit({failed_starting_inets, Reason})
+    end;
 
 init_per_testcase(httpd_subtree, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config), 			   
@@ -192,6 +215,11 @@ tftpd_worker(Config) when is_list(Config) ->
     ct:sleep(5000),
     [] = supervisor:which_children(tftp_sup),
     ok.
+
+httpd_config() ->
+    [{doc, "Makes sure the httpd config works for inet6fb4."}].
+httpd_config(Config) when is_list(Config) ->
+    Config. % All the work is done in the init_per_testcase
 
 httpd_subtree() ->
     [{doc, "Makes sure the httpd sub tree is correct."}].
