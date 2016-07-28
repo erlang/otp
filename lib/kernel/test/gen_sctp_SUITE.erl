@@ -117,7 +117,11 @@ xfer_min(Config) when is_list(Config) ->
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
+    StatOpts =
+	[recv_avg,recv_cnt,recv_max,recv_oct,
+	 send_avg,send_cnt,send_max,send_oct],
     {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
+    {ok,SbStat1} = inet:getstat(Sb, StatOpts),
     {ok,Pb} = inet:port(Sb),
     ok = gen_sctp:listen(Sb, true),
 
@@ -212,6 +216,8 @@ xfer_min(Config) when is_list(Config) ->
 			assoc_id=SbAssocId}} =
 	recv_event(log_ok(gen_sctp:recv(Sb, infinity))),
     ok = gen_sctp:close(Sa),
+    {ok,SbStat2} = inet:getstat(Sb, StatOpts),
+    [] = filter_stat_eq(SbStat1, SbStat2),
     ok = gen_sctp:close(Sb),
 
     receive
@@ -219,6 +225,18 @@ xfer_min(Config) when is_list(Config) ->
     after 17 -> ok
     end,
     ok.
+
+filter_stat_eq([], []) ->
+    [];
+filter_stat_eq([{Tag,Val1}=Stat|SbStat1], [{Tag,Val2}|SbStat2]) ->
+    if
+	Val1 == Val2 ->
+	    [Stat|filter_stat_eq(SbStat1, SbStat2)];
+	true ->
+	    filter_stat_eq(SbStat1, SbStat2)
+    end.
+
+
 
 %% Minimal data transfer in active mode.
 xfer_active(Config) when is_list(Config) ->
