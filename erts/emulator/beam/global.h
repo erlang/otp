@@ -1113,23 +1113,34 @@ do {                                                                    \
 } while(0)
 
 /* copy.c */
+typedef struct {
+    Eterm *lit_purge_ptr;
+    Uint lit_purge_sz;
+} erts_literal_area_t;
+
+#define INITIALIZE_LITERAL_PURGE_AREA(Area)      \
+    do {                                         \
+        (Area).lit_purge_ptr = erts_clrange.ptr; \
+        (Area).lit_purge_sz  = erts_clrange.sz;  \
+    } while(0)
+
 Eterm copy_object_x(Eterm, Process*, Uint);
 #define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
-Uint size_object_x(Eterm,Eterm*,Uint,Uint);
-#define size_object(Term) size_object_x(Term,NULL,0,0)
-#define size_object_litopt(Term,LitPtr,LitSz) size_object_x(Term,LitPtr,LitSz,1)
+Uint size_object_x(Eterm, erts_literal_area_t*);
+#define size_object(Term) size_object_x(Term,NULL)
+#define size_object_litopt(Term,LitArea) size_object_x(Term,LitArea)
 
 Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
 Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Uint size_shared(Eterm);
 
-Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint* bsz, Eterm *lit_ptr, Uint lit_sz, Uint litopt);
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
-    copy_struct_x(Obj,Sz,HPP,OH,NULL,NULL,0,0)
-#define copy_struct_litopt(Obj,Sz,HPP,OH,LitPtr,LitSz) \
-    copy_struct_x(Obj,Sz,HPP,OH,NULL,LitPtr,LitSz,1)
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,NULL)
+#define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
 
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 

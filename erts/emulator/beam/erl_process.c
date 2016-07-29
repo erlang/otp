@@ -11100,8 +11100,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     erts_shcopy_t info;
     INITIALIZE_SHCOPY(info);
 #else
-    Eterm *lit_purge_ptr = erts_clrange.ptr;
-    Uint lit_purge_sz = erts_clrange.sz;
+    erts_literal_area_t litarea;
+    INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
 
     erts_smp_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -11160,7 +11160,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #ifdef SHCOPY_SPAWN
     arg_size = copy_shared_calculate(args, &info);
 #else
-    arg_size = size_object_litopt(args, lit_purge_ptr, lit_purge_sz);
+    arg_size = size_object_litopt(args, &litarea);
 #endif
     heap_need = arg_size;
 
@@ -11242,8 +11242,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->arg_reg[2] = copy_shared_perform(args, arg_size, &info, &p->htop, &p->off_heap);
     DESTROY_SHCOPY(info);
 #else
-    p->arg_reg[2] = copy_struct_litopt(args, arg_size, &p->htop, &p->off_heap,
-                                       lit_purge_ptr, lit_purge_sz);
+    p->arg_reg[2] = copy_struct_litopt(args, arg_size, &p->htop, &p->off_heap, &litarea);
 #endif
     p->arity = 3;
 

@@ -76,16 +76,17 @@ Eterm copy_object_x(Eterm obj, Process* to, Uint extra)
         (lit_purge_ptr <= (PTR) &&                   \
         (PTR) < (lit_purge_ptr + lit_purge_sz))))
 
-Uint size_object_x(Eterm obj, Eterm *lit_purge_ptr, Uint lit_purge_sz, Uint litopt)
+Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 {
     Uint sum = 0;
     Eterm* ptr;
     int arity;
+    Eterm *lit_purge_ptr = litopt ? litopt->lit_purge_ptr : NULL;
+    Uint   lit_purge_sz  = litopt ? litopt->lit_purge_sz  : 0;
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
 #endif
     DECLARE_ESTACK(s);
-
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] size_object %p\n", mypid, obj));
 
     for (;;) {
@@ -608,8 +609,7 @@ cleanup:
 /*
  *  Copy a structure to a heap.
  */
-Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint *bsz,
-                    Eterm *lit_purge_ptr, Uint lit_purge_sz, Uint litopt)
+Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint *bsz, erts_literal_area_t *litopt)
 {
     char* hstart;
     Uint hsize;
@@ -626,6 +626,8 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
     Eterm hdr;
     Eterm *hend;
     int i;
+    Eterm *lit_purge_ptr = litopt ? litopt->lit_purge_ptr : NULL;
+    Uint   lit_purge_sz  = litopt ? litopt->lit_purge_sz  : 0;
 #ifdef DEBUG
     Eterm org_obj = obj;
     Uint org_sz = sz;
@@ -1383,7 +1385,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL, 0, 0); /* copy literal */
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;
@@ -1451,7 +1453,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
-                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL, 0, 0); /* copy literal */
+                    *resp = copy_struct_x(obj, hbot - hp, &hp, off_heap, &bsz, NULL); /* copy literal */
                     hbot -= bsz;
                 }
 		goto cleanup_next;

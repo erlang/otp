@@ -697,8 +697,8 @@ erts_send_message(Process* sender,
 #ifdef SHCOPY_SEND
     erts_shcopy_t info;
 #else
-    Eterm *lit_purge_ptr = erts_clrange.ptr;
-    Uint lit_purge_sz = erts_clrange.sz;
+    erts_literal_area_t litarea;
+    INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
 
 #ifdef USE_VM_PROBES
@@ -744,7 +744,7 @@ erts_send_message(Process* sender,
         INITIALIZE_SHCOPY(info);
         msize = copy_shared_calculate(message, &info);
 #else
-        msize = size_object_litopt(message, lit_purge_ptr, lit_purge_sz);
+        msize = size_object_litopt(message, &litarea);
 #endif
         mp = erts_alloc_message_heap_state(receiver,
                                            &receiver_state,
@@ -763,8 +763,7 @@ erts_send_message(Process* sender,
         DESTROY_SHCOPY(info);
 #else
 	if (is_not_immed(message))
-            message = copy_struct_litopt(message, msize, &hp, ohp,
-                                         lit_purge_ptr, lit_purge_sz);
+            message = copy_struct_litopt(message, msize, &hp, ohp, &litarea);
 #endif
 	if (is_immed(stoken))
 	    token = stoken;
@@ -800,7 +799,7 @@ erts_send_message(Process* sender,
             INITIALIZE_SHCOPY(info);
             msize = copy_shared_calculate(message, &info);
 #else
-            msize = size_object_litopt(message, lit_purge_ptr, lit_purge_sz);
+            msize = size_object_litopt(message, &litarea);
 #endif
 	    mp = erts_alloc_message_heap_state(receiver,
 					       &receiver_state,
@@ -814,8 +813,7 @@ erts_send_message(Process* sender,
             DESTROY_SHCOPY(info);
 #else
             if (is_not_immed(message))
-                message = copy_struct_litopt(message, msize, &hp, ohp,
-                                             lit_purge_ptr, lit_purge_sz);
+                message = copy_struct_litopt(message, msize, &hp, ohp, &litarea);
 #endif
 	}
 #ifdef USE_VM_PROBES
