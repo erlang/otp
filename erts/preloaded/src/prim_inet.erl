@@ -2401,13 +2401,13 @@ get_addrs([F|Addrs]) ->
     {Addr,Rest} = get_addr(F, Addrs),
     [Addr|get_addrs(Rest)].
 
-get_addr(?INET_AF_LOCAL, [0]) ->
-    {{local,<<>>},[]};
 get_addr(?INET_AF_LOCAL, [N|Addr]) ->
     {A,Rest} = lists:split(N, Addr),
     {{local,iolist_to_binary(A)},Rest};
+get_addr(?INET_AF_UNSPEC, Rest) ->
+    {{unspec,<<>>},Rest};
 get_addr(?INET_AF_UNDEFINED, Rest) ->
-    {{undefined,0},Rest};
+    {{undefined,<<>>},Rest};
 get_addr(Family, [P1,P0|Addr]) ->
     {IP,Rest} = get_ip(Family, Addr),
     {{IP,?u16(P1, P0)},Rest}.
