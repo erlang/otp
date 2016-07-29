@@ -81,6 +81,23 @@ nstack_walk_init_sdesc(const Process *p, struct nstack_walk_state *state)
 #endif
 }
 
+static inline const struct sdesc*
+nstack_walk_init_sdesc_ignore_trap(const Process *p,
+				   struct nstack_walk_state *state)
+{
+#ifdef SKIP_YOUNGEST_FRAME
+    unsigned long ra = p->hipe.nsp[0];
+    const struct sdesc *sdesc;
+    if (ra == (unsigned long)nbif_stack_trap_ra)
+	ra = (unsigned long)p->hipe.ngra;
+    sdesc = hipe_find_sdesc(ra);
+    state->sdesc0 = sdesc;
+    return sdesc;
+#else
+    return nstack_walk_init_sdesc(p, state);
+#endif
+}
+
 static inline void nstack_walk_update_trap(Process *p, const struct sdesc *sdesc0)
 {
 #ifdef SKIP_YOUNGEST_FRAME

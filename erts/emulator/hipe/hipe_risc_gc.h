@@ -51,6 +51,19 @@ nstack_walk_init_sdesc(const Process *p, struct nstack_walk_state *state)
     return sdesc;
 }
 
+static inline const struct sdesc*
+nstack_walk_init_sdesc_ignore_trap(const Process *p,
+				   struct nstack_walk_state *state)
+{
+    unsigned long ra = (unsigned long)p->hipe.nra;
+    const struct sdesc *sdesc;
+    if (ra == (unsigned long)&nbif_stack_trap_ra)
+	ra = (unsigned long)p->hipe.ngra;
+    sdesc = hipe_find_sdesc(ra);
+    state->sdesc0 = sdesc;
+    return sdesc;
+}
+
 static inline void nstack_walk_update_trap(Process *p, const struct sdesc *sdesc0)
 {
     Eterm *nsp = p->hipe.nsp;

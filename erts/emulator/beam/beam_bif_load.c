@@ -37,6 +37,10 @@
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
 
+#ifdef HIPE
+#  include "hipe_stack.h"
+#endif
+
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls);
 static void delete_code(Module* modp);
@@ -916,6 +920,10 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	}
 	if (any_heap_ref_ptrs(rp->stop, rp->hend, literals, lit_bsize))
 	    goto try_literal_gc;
+#ifdef HIPE
+	if (nstack_any_heap_ref_ptrs(rp, literals, lit_bsize))
+	    goto try_literal_gc;
+#endif
 	if (any_heap_refs(rp->heap, rp->htop, literals, lit_bsize))
 	    goto try_literal_gc;
 	if (any_heap_refs(rp->old_heap, rp->old_htop, literals, lit_bsize))
