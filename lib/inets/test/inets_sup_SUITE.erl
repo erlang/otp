@@ -219,7 +219,7 @@ tftpd_worker(Config) when is_list(Config) ->
 httpd_config() ->
     [{doc, "Makes sure the httpd config works for inet6fb4."}].
 httpd_config(Config) when is_list(Config) ->
-    Config. % All the work is done in the init_per_testcase
+    do_httpd_subtree(Config, default).
 
 httpd_subtree() ->
     [{doc, "Makes sure the httpd sub tree is correct."}].
