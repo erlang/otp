@@ -2252,10 +2252,12 @@ move_msgq_to_heap(Process *p)
 		    ASSERT(mp->data.dist_ext->heap_size >= 0);
 		    if (is_not_nil(ERL_MESSAGE_TOKEN(mp))) {
 			bp = erts_dist_ext_trailer(mp->data.dist_ext);
+                        /* Tokens does not use literal optimization */
 			ERL_MESSAGE_TOKEN(mp) = copy_struct(ERL_MESSAGE_TOKEN(mp),
 							    bp->used_size,
-							    &factory.hp,
-							    factory.off_heap);
+                                                            &factory.hp,
+                                                            factory.off_heap);
+
 			erts_cleanup_offheap(&bp->off_heap);
 		    }
 		    ERL_MESSAGE_TERM(mp) = erts_decode_dist_ext(&factory,
