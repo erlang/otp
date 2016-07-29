@@ -627,7 +627,9 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             MBUF(&menv->phony_proc) = NULL;
         }
     } else {
-        Uint sz = size_object(msg);
+        Eterm *lit_purge_ptr = erts_clrange.ptr;
+        Uint lit_purge_sz = erts_clrange.sz;
+        Uint sz = size_object_litopt(msg, lit_purge_ptr, lit_purge_sz);
 	ErlOffHeap *ohp;
         Eterm *hp;
 	if (env && !env->tracee) {
@@ -649,7 +651,8 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 		ohp = &bp->off_heap;
 	    }
 	}
-        msg = copy_struct(msg, sz, &hp, ohp);
+        msg = copy_struct_litopt(msg, sz, &hp, ohp,
+                                 lit_purge_ptr, lit_purge_sz);
     }
 
     ERL_MESSAGE_TERM(mp) = msg;
