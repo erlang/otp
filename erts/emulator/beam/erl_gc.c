@@ -885,6 +885,58 @@ erts_garbage_collect_hibernate(Process* p)
 }
 
 
+/*
+ * HiPE native code stack scanning procedures:
+ * - fullsweep_nstack()
+ * - gensweep_nstack()
+ * - offset_nstack()
+ * - sweep_literals_nstack()
+ */
+#if defined(HIPE)
+
+#define GENSWEEP_NSTACK(p,old_htop,n_htop)				\
+	do {								\
+		Eterm *tmp_old_htop = old_htop;				\
+		Eterm *tmp_n_htop = n_htop;				\
+		gensweep_nstack((p), &tmp_old_htop, &tmp_n_htop);	\
+		old_htop = tmp_old_htop;				\
+		n_htop = tmp_n_htop;					\
+	} while(0)
+
+/*
+ * offset_nstack() can ignore the descriptor-based traversal the other
+ * nstack procedures use and simply call offset_heap_ptr() instead.
+ * This relies on two facts:
+ * 1. The only live non-Erlang terms on an nstack are return addresses,
+ *    and they will be skipped thanks to the low/high range check.
+ * 2. Dead values, even if mistaken for pointers into the low/high area,
+ *    can be offset safely since they won't be dereferenced.
+ *
+ * XXX: WARNING: If HiPE starts storing other non-Erlang values on the
+ * nstack, such as floats, then this will have to be changed.
+ */
+static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
+				      char* area, Uint area_size)
+{
+    if (p->hipe.nstack) {
+	ASSERT(p->hipe.nsp && p->hipe.nstend);
+	offset_heap_ptr(hipe_nstack_start(p), hipe_nstack_used(p),
+			offs, area, area_size);
+    }
+    else {
+	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
+    }
+}
+
+#else /* !HIPE */
+
+#define fullsweep_nstack(p,n_htop)		        	(n_htop)
+#define GENSWEEP_NSTACK(p,old_htop,n_htop)	        	do{}while(0)
+#define offset_nstack(p,offs,area,area_size)	        	do{}while(0)
+#define sweep_literals_nstack(p,old_htop,area,area_size)	(old_htop)
+
+#endif /* HIPE */
+
 void
 erts_garbage_collect_literals(Process* p, Eterm* literals,
 			      Uint byte_lit_size,
@@ -947,7 +999,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     area_size = byte_lit_size;
     n = setup_rootset(p, p->arg_reg, p->arity, &rootset);
     roots = rootset.roots;
-    old_htop = p->old_htop;
+    old_htop = sweep_literals_nstack(p, p->old_htop, area, area_size);
     while (n--) {
         Eterm* g_ptr = roots->v;
         Uint g_sz = roots->sz;
@@ -1213,56 +1265,6 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
      */
     return -1;
 }
-
-/*
- * HiPE native code stack scanning procedures:
- * - fullsweep_nstack()
- * - gensweep_nstack()
- * - offset_nstack()
- */
-#if defined(HIPE)
-
-#define GENSWEEP_NSTACK(p,old_htop,n_htop)				\
-	do {								\
-		Eterm *tmp_old_htop = old_htop;				\
-		Eterm *tmp_n_htop = n_htop;				\
-		gensweep_nstack((p), &tmp_old_htop, &tmp_n_htop);	\
-		old_htop = tmp_old_htop;				\
-		n_htop = tmp_n_htop;					\
-	} while(0)
-
-/*
- * offset_nstack() can ignore the descriptor-based traversal the other
- * nstack procedures use and simply call offset_heap_ptr() instead.
- * This relies on two facts:
- * 1. The only live non-Erlang terms on an nstack are return addresses,
- *    and they will be skipped thanks to the low/high range check.
- * 2. Dead values, even if mistaken for pointers into the low/high area,
- *    can be offset safely since they won't be dereferenced.
- *
- * XXX: WARNING: If HiPE starts storing other non-Erlang values on the
- * nstack, such as floats, then this will have to be changed.
- */
-static ERTS_INLINE void offset_nstack(Process* p, Sint offs,
-				      char* area, Uint area_size)
-{
-    if (p->hipe.nstack) {
-	ASSERT(p->hipe.nsp && p->hipe.nstend);
-	offset_heap_ptr(hipe_nstack_start(p), hipe_nstack_used(p),
-			offs, area, area_size);
-    }
-    else {
-	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
-    }
-}
-
-#else /* !HIPE */
-
-#define fullsweep_nstack(p,n_htop)		(n_htop)
-#define GENSWEEP_NSTACK(p,old_htop,n_htop)	do{}while(0)
-#define offset_nstack(p,offs,area,area_size)	do{}while(0)
-
-#endif /* HIPE */
 
 static void
 do_minor(Process *p, ErlHeapFragment *live_hf_end,

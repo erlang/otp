@@ -70,6 +70,7 @@ MODULES= \
 	guard_SUITE \
 	hash_SUITE \
 	hibernate_SUITE \
+	hipe_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
 	map_SUITE \
