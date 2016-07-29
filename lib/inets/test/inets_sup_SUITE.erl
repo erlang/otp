@@ -52,9 +52,9 @@ end_per_suite(_) ->
     inets:stop(),
     ok.
 
-init_per_testcase(httpd_config, Config) ->
+init_per_testcase(httpd_config = TC, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    Dir = filename:join(PrivDir, "root"),
+    Dir = filename:join(PrivDir, TC),
     ok = file:make_dir(Dir),
 
     FallbackConfig = [{port, 0},
@@ -75,9 +75,9 @@ init_per_testcase(httpd_config, Config) ->
 	    exit({failed_starting_inets, Reason})
     end;
 
-init_per_testcase(httpd_subtree, Config) ->
+init_per_testcase(httpd_subtree = TC, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config), 			   
-    Dir = filename:join(PrivDir, "root"),
+    Dir = filename:join(PrivDir, TC),
     ok = file:make_dir(Dir),
 
     SimpleConfig  = [{port, 0},
@@ -98,9 +98,9 @@ init_per_testcase(httpd_subtree, Config) ->
 	    exit({failed_starting_inets, Reason})
     end;
 
-init_per_testcase(httpd_subtree_profile, Config) ->
+init_per_testcase(httpd_subtree_profile = TC, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config), 			   
-    Dir = filename:join(PrivDir, "root"),
+    Dir = filename:join(PrivDir, TC),
     ok = file:make_dir(Dir),
 
     SimpleConfig  = [{port, 0},
