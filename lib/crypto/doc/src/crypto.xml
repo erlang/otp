@@ -454,6 +454,24 @@
     </func>
 
     <func>
+      <name>cmac(Type, Key, Data) -> Mac</name>
+      <name>cmac(Type, Key, Data, MacLength) -> Mac</name>
+      <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
+      <type>
+        <v>Type = block_cipher()</v>
+        <v>Key = iodata()</v>
+        <v>Data = iodata()</v>
+        <v>MacLength = integer()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <type>
