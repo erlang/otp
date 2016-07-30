@@ -1362,7 +1362,7 @@ static ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ErlNifBinary         key;
     ErlNifBinary         data;
     ERL_NIF_TERM         ret;
-    unsigned             ret_size;
+    size_t               ret_size;
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key)
         || !(cipherp = get_cipher_type(argv[0], key.size))
