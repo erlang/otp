@@ -877,12 +877,12 @@ check_process_code(Process* rp, Module* modp, Uint flags, int *redsp, int fcalls
 	    continue;
         {
             ErlHeapFragment *hf;
-            Uint lit_sz;
+            Uint lit_sz = 0;
             for (hf=hfrag; hf; hf = hf->next) {
                 if (check_mod_funs(rp, &hfrag->off_heap, mod_start, mod_size))
                     return am_true;
-                lit_sz = hfrag_literal_size(&hf->mem[0], &hf->mem[hf->used_size],
-                                            literals, lit_bsize);
+                lit_sz += hfrag_literal_size(&hf->mem[0], &hf->mem[hf->used_size],
+                                             literals, lit_bsize);
             }
             if (lit_sz > 0) {
                 ErlHeapFragment *bp = new_message_buffer(lit_sz);

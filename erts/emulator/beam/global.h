@@ -1085,8 +1085,8 @@ typedef struct {
     Eterm* shtable_start;
     ErtsAlcType_t shtable_alloc_type;
     Uint literal_size;
-    Eterm *range_ptr;
-    Uint  range_sz;
+    Eterm *lit_purge_ptr;
+    Uint lit_purge_sz;
 } erts_shcopy_t;
 
 #define INITIALIZE_SHCOPY(info)                         \
@@ -1095,8 +1095,8 @@ do {                                                    \
     info.bitstore_start = info.bitstore_default;        \
     info.shtable_start = info.shtable_default;          \
     info.literal_size = 0;                              \
-    info.range_ptr = erts_clrange.ptr;                  \
-    info.range_sz  = erts_clrange.sz;                   \
+    info.lit_purge_ptr = erts_clrange.ptr;              \
+    info.lit_purge_sz  = erts_clrange.sz;               \
 } while(0)
 
 #define DESTROY_SHCOPY(info)                                            \
@@ -1113,18 +1113,35 @@ do {                                                                    \
 } while(0)
 
 /* copy.c */
+typedef struct {
+    Eterm *lit_purge_ptr;
+    Uint lit_purge_sz;
+} erts_literal_area_t;
+
+#define INITIALIZE_LITERAL_PURGE_AREA(Area)      \
+    do {                                         \
+        (Area).lit_purge_ptr = erts_clrange.ptr; \
+        (Area).lit_purge_sz  = erts_clrange.sz;  \
+    } while(0)
+
 Eterm copy_object_x(Eterm, Process*, Uint);
 #define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
-Uint size_object(Eterm);
+Uint size_object_x(Eterm, erts_literal_area_t*);
+#define size_object(Term) size_object_x(Term,NULL)
+#define size_object_litopt(Term,LitArea) size_object_x(Term,LitArea)
+
 Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
 Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Uint size_shared(Eterm);
 
-Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint* bsz);
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
-    copy_struct_x(Obj,Sz,HPP,OH,NULL)
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,NULL)
+#define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
+
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,

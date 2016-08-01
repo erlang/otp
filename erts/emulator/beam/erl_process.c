@@ -11099,6 +11099,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #ifdef SHCOPY_SPAWN
     erts_shcopy_t info;
     INITIALIZE_SHCOPY(info);
+#else
+    erts_literal_area_t litarea;
+    INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
 
     erts_smp_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -11157,7 +11160,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #ifdef SHCOPY_SPAWN
     arg_size = copy_shared_calculate(args, &info);
 #else
-    arg_size = size_object(args);
+    arg_size = size_object_litopt(args, &litarea);
 #endif
     heap_need = arg_size;
 
@@ -11181,7 +11184,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     }
     p->schedule_count = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
-    
+
     p->u.initial[INITIAL_MOD] = mod;
     p->u.initial[INITIAL_FUN] = func;
     p->u.initial[INITIAL_ARI] = (Uint) arity;
@@ -11239,7 +11242,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->arg_reg[2] = copy_shared_perform(args, arg_size, &info, &p->htop, &p->off_heap);
     DESTROY_SHCOPY(info);
 #else
-    p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
+    p->arg_reg[2] = copy_struct_litopt(args, arg_size, &p->htop, &p->off_heap, &litarea);
 #endif
     p->arity = 3;
 
