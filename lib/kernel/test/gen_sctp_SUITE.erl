@@ -117,7 +117,11 @@ xfer_min(Config) when is_list(Config) ->
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
+    StatOpts =
+	[recv_avg,recv_cnt,recv_max,recv_oct,
+	 send_avg,send_cnt,send_max,send_oct],
     {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
+    {ok,SbStat1} = inet:getstat(Sb, StatOpts),
     {ok,Pb} = inet:port(Sb),
     ok = gen_sctp:listen(Sb, true),
 
@@ -212,6 +216,8 @@ xfer_min(Config) when is_list(Config) ->
 			assoc_id=SbAssocId}} =
 	recv_event(log_ok(gen_sctp:recv(Sb, infinity))),
     ok = gen_sctp:close(Sa),
+    {ok,SbStat2} = inet:getstat(Sb, StatOpts),
+    [] = filter_stat_eq(SbStat1, SbStat2),
     ok = gen_sctp:close(Sb),
 
     receive
@@ -219,6 +225,18 @@ xfer_min(Config) when is_list(Config) ->
     after 17 -> ok
     end,
     ok.
+
+filter_stat_eq([], []) ->
+    [];
+filter_stat_eq([{Tag,Val1}=Stat|SbStat1], [{Tag,Val2}|SbStat2]) ->
+    if
+	Val1 == Val2 ->
+	    [Stat|filter_stat_eq(SbStat1, SbStat2)];
+	true ->
+	    filter_stat_eq(SbStat1, SbStat2)
+    end.
+
+
 
 %% Minimal data transfer in active mode.
 xfer_active(Config) when is_list(Config) ->
@@ -383,26 +401,28 @@ def_sndrcvinfo(Config) when is_list(Config) ->
        assoc_id=S2AssocId} = S2AssocChange =
 	log_ok(gen_sctp:connect(S2, Loopback, P1, [])),
     ?LOGVAR(S2AssocChange),
-    case recv_event(log_ok(gen_sctp:recv(S1))) of
-	{Loopback,P2,
-	 #sctp_assoc_change{
-	    state=comm_up,
-	    error=0,
-	    assoc_id=S1AssocId}} ->
-	    ?LOGVAR(S1AssocId);
-	{Loopback,P2,
-	 #sctp_paddr_change{
-	    state=addr_confirmed,
-	    error=0,
-	    assoc_id=S1AssocId}} ->
-	    ?LOGVAR(S1AssocId),
+    S1AssocId =
+	case recv_event(log_ok(gen_sctp:recv(S1))) of
 	    {Loopback,P2,
 	     #sctp_assoc_change{
 		state=comm_up,
 		error=0,
-		assoc_id=S1AssocId}} =
-		recv_event(log_ok(gen_sctp:recv(S1)))
-    end,
+		assoc_id=AssocId}} ->
+		AssocId;
+	    {Loopback,P2,
+	     #sctp_paddr_change{
+		state=addr_confirmed,
+		error=0,
+		assoc_id=AssocId}} ->
+		{Loopback,P2,
+		 #sctp_assoc_change{
+		    state=comm_up,
+		    error=0,
+		    assoc_id=AssocId}} =
+		    recv_event(log_ok(gen_sctp:recv(S1))),
+		AssocId
+	end,
+    ?LOGVAR(S1AssocId),
 
     #sctp_sndrcvinfo{
        ppid=17, context=0, timetolive=0} = %, assoc_id=S1AssocId} =
@@ -1055,6 +1075,7 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     Addr = {127,0,0,1},
     Stream = 0,
     Timeout = 333,
+    StartTime = timestamp(),
     S1 = socket_open([{ifaddr,Addr}|SockOpts], Timeout),
     ?LOGVAR(S1),
     P1 = socket_call(S1, get_port),
@@ -1077,7 +1098,7 @@ peeloff(Config, SockOpts) when is_list(Config) ->
 		    state=comm_up,
 		    assoc_id=AssocId2}}} -> AssocId2
 	after Timeout ->
-		socket_bailout([S1,S2])
+		socket_bailout([S1,S2], StartTime)
 	end,
     ?LOGVAR(S2Ai),
     S1Ai =
@@ -1087,7 +1108,7 @@ peeloff(Config, SockOpts) when is_list(Config) ->
 		    state=comm_up,
 		    assoc_id=AssocId1}}} -> AssocId1
 	after Timeout ->
-		socket_bailout([S1,S2])
+		socket_bailout([S1,S2], StartTime)
 	end,
     ?LOGVAR(S1Ai),
     %%
@@ -1095,13 +1116,13 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     receive
 	{S1,{Addr,P2,S1Ai,Stream,<<"Number one">>}} -> ok
     after Timeout ->
-	    socket_bailout([S1,S2])
+	    socket_bailout([S1,S2], StartTime)
     end,
     socket_call(S2, {send,Socket1,S1Ai,Stream,<<"Number two">>}),
     receive
 	{S2,{Addr,P1,S2Ai,Stream,<<"Number two">>}} -> ok
     after Timeout ->
-	    socket_bailout([S1,S2])
+	    socket_bailout([S1,S2], StartTime)
     end,
     %%
     S3 = socket_peeloff(Socket1, S1Ai, SockOpts, Timeout),
@@ -1120,31 +1141,31 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     receive
 	{S2,{Addr,P3,S2Ai,Stream,<<"Number three">>}} -> ok
     after Timeout ->
-	    socket_bailout([S1,S2,S3])
+	    socket_bailout([S1,S2,S3], StartTime)
     end,
     socket_call(S3, {send,Socket2,S2Ai,Stream,<<"Number four">>}),
     receive
 	{S3,{Addr,P2,S3Ai,Stream,<<"Number four">>}} -> ok
     after Timeout ->
-	    socket_bailout([S1,S2,S3])
+	    socket_bailout([S1,S2,S3], StartTime)
     end,
     %%
     inet:i(sctp),
-    socket_close_verbose(S1),
-    socket_close_verbose(S2),
+    socket_close_verbose(S1, StartTime),
+    socket_close_verbose(S2, StartTime),
     receive
 	{S3,{Addr,P2,#sctp_shutdown_event{assoc_id=S3Ai_X}}} ->
 	    match_unless_solaris(S3Ai, S3Ai_X)
     after Timeout ->
-	    socket_bailout([S3])
+	    socket_bailout([S3], StartTime)
     end,
     receive
 	{S3,{Addr,P2,#sctp_assoc_change{state=shutdown_comp,
 					assoc_id=S3Ai}}} -> ok
     after Timeout ->
-	    socket_bailout([S3])
+	    socket_bailout([S3], StartTime)
     end,
-    socket_close_verbose(S3),
+    socket_close_verbose(S3, StartTime),
     [] = flush(),
     ok.
 
@@ -1156,6 +1177,7 @@ buffers(Config) when is_list(Config) ->
     Addr = {127,0,0,1},
     Stream = 1,
     Timeout = 3333,
+    StartTime = timestamp(),
     S1 = socket_open([{ip,Addr}], Timeout),
     ?LOGVAR(S1),
     P1 = socket_call(S1, get_port),
@@ -1174,7 +1196,7 @@ buffers(Config) when is_list(Config) ->
 		    state=comm_up,
 		    assoc_id=AssocId2}}} -> AssocId2
 	after Timeout ->
-		socket_bailout([S1,S2])
+		socket_bailout([S1,S2], StartTime)
 	end,
     S1Ai =
 	receive
@@ -1183,7 +1205,7 @@ buffers(Config) when is_list(Config) ->
 		    state=comm_up,
 		    assoc_id=AssocId1}}} -> AssocId1
 	after Timeout ->
-		socket_bailout([S1,S2])
+		socket_bailout([S1,S2], StartTime)
 	end,
     %%
     socket_call(S1, {setopts,[{recbuf,Limit}]}),
@@ -1197,22 +1219,22 @@ buffers(Config) when is_list(Config) ->
     receive
 	{S1,{Addr,P2,S1Ai,Stream,Data}} -> ok
     after Timeout ->
-	    socket_bailout([S1,S2])
+	    socket_bailout([S1,S2], StartTime)
     end,
     %%
-    socket_close_verbose(S1),
+    socket_close_verbose(S1, StartTime),
     receive
 	{S2,{Addr,P1,#sctp_shutdown_event{assoc_id=S2Ai}}} -> ok
     after Timeout ->
-	    socket_bailout([S2])
+	    socket_bailout([S2], StartTime)
     end,
     receive
 	{S2,{Addr,P1,#sctp_assoc_change{state=shutdown_comp,
 					assoc_id=S2Ai}}} -> ok
     after Timeout ->
-	    socket_bailout([S2])
+	    socket_bailout([S2], StartTime)
     end,
-    socket_close_verbose(S2),
+    socket_close_verbose(S2, StartTime),
     [] = flush(),
     ok.
 
@@ -1521,8 +1543,8 @@ socket_peeloff(Socket, AssocId, SocketOpts, Timeout) ->
 	end,
     s_start(Starter, Timeout).
 
-socket_close_verbose(S) ->
-    History = socket_history(socket_close(S)),
+socket_close_verbose(S, StartTime) ->
+    History = socket_history(socket_close(S), StartTime),
     io:format("socket_close ~p:~n    ~p.~n", [S,History]),
     History.
 
@@ -1535,19 +1557,19 @@ socket_call(S, Request) ->
 %% socket_get(S, Key) ->
 %%     s_req(S, {get,Key}).
 
-socket_bailout([S|Ss]) ->
-    History = socket_history(socket_close(S)),
+socket_bailout([S|Ss], StartTime) ->
+    History = socket_history(socket_close(S), StartTime),
     io:format("bailout ~p:~n    ~p.~n", [S,History]),
-    socket_bailout(Ss);
-socket_bailout([]) ->
+    socket_bailout(Ss, StartTime);
+socket_bailout([], _) ->
     io:format("flush: ~p.~n", [flush()]),
     ct:fail(socket_bailout).
 
-socket_history({State,Flush}) ->
+socket_history({State,Flush}, StartTime) ->
     {lists:keysort(
        2,
        lists:flatten(
-	 [[{Key,Val} || Val <- Vals]
+	 [[{Key,{TS-StartTime,Val}} || {TS,Val} <- Vals]
 	  || {Key,Vals} <- gb_trees:to_list(State)])),
      Flush}.
 
@@ -1610,14 +1632,12 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	{Parent,Ref,exit} ->
 	    ok = gen_sctp:close(Socket),
 	    Key = exit,
-	    Val = {now(),Socket},
-	    NewState = gb_push(Key, Val, State),
+	    NewState = gb_push(Key, Socket, State),
 	    Parent ! {self(),Ref,{NewState,flush()}};
 	{Parent,Ref,{Msg}} ->
 	    Result = Handler(Msg),
 	    Key = req,
-	    Val = {now(),{Msg,Result}},
-	    NewState = gb_push(Key, Val, State),
+	    NewState = gb_push(Key, {Msg,Result}, State),
 	    Parent ! {self(),Ref,Result},
 	    s_loop(Socket, Timeout, Parent, Handler, NewState);
 	%% {Parent,Ref,{get,Key}} ->
@@ -1627,16 +1647,15 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	 {[#sctp_sndrcvinfo{stream=Stream,assoc_id=AssocId}=SRI],Data}}
 	  when not is_tuple(Data) ->
 	    case gb_get({assoc_change,AssocId}, State) of
-		[{_,{Addr,Port,
-		     #sctp_assoc_change{
-			state=comm_up,
-			inbound_streams=Is}}}|_]
+		[{Addr,Port,
+		  #sctp_assoc_change{
+		     state=comm_up,
+		     inbound_streams=Is}}|_]
 		  when 0 =< Stream, Stream < Is-> ok;
 		[] -> ok
 	    end,
 	    Key = {msg,AssocId,Stream},
-	    Val = {now(),{Addr,Port,SRI,Data}},
-	    NewState = gb_push(Key, Val, State),
+	    NewState = gb_push(Key, {Addr,Port,SRI,Data}, State),
 	    Parent ! {self(),{Addr,Port,AssocId,Stream,Data}},
 	    again(Socket),
 	    s_loop(Socket, Timeout, Parent, Handler, NewState);
@@ -1647,13 +1666,12 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 		[] -> ok
 	    end,
 	    Key = {assoc_change,AssocId},
-	    Val = {now(),{Addr,Port,SAC}},
 	    case {gb_get(Key, State),St} of
 		{[],_} -> ok;
-		{[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_],_}
+		{[{Addr,Port,#sctp_assoc_change{state=comm_up}}|_],_}
 		  when St =:= comm_lost; St =:= shutdown_comp -> ok
 	    end,
-	    NewState = gb_push(Key, Val, State),
+	    NewState = gb_push(Key, {Addr,Port,SAC}, State),
 	    Parent ! {self(),{Addr,Port,SAC}},
 	    again(Socket),
 	    s_loop(Socket, Timeout, Parent, Handler, NewState);
@@ -1667,14 +1685,13 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 		[] -> ok
 	    end,
 	    case {gb_get({assoc_change,AssocId}, State),St} of
-		{[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_],_}
+		{[{Addr,Port,#sctp_assoc_change{state=comm_up}}|_],_}
 		  when St =:= addr_available;
 		       St =:= addr_confirmed -> ok;
 		{[],addr_confirmed} -> ok
 	    end,
 	    Key = {paddr_change,AssocId},
-	    Val = {now(),{Addr,Port,SPC}},
-	    NewState = gb_push(Key, Val, State),
+	    NewState = gb_push(Key, {Addr,Port,SPC}, State),
 	    again(Socket),
 	    s_loop(Socket, Timeout, Parent, Handler, NewState);
 	{sctp,Socket,Addr,Port,
@@ -1684,12 +1701,11 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 		[] -> ok
 	    end,
 	    case gb_get({assoc_change,AssocId}, State) of
-		[{_,{Addr,Port,#sctp_assoc_change{state=comm_up}}}|_] -> ok;
+		[{Addr,Port,#sctp_assoc_change{state=comm_up}}|_] -> ok;
 		[] -> ok
 	    end,
 	    Key = {shutdown_event,AssocId},
-	    Val = {now(),{Addr,Port}},
-	    NewState = gb_push(Key, Val, State),
+	    NewState = gb_push(Key, {Addr,Port}, State),
 	    Parent ! {self(), {Addr,Port,SSE}},
 	    again(Socket),
 	    s_loop(Socket, Timeout, Parent, Handler, NewState);
@@ -1707,11 +1723,12 @@ again(Socket) ->
     end.
 
 gb_push(Key, Val, GBT) ->
+    TS = timestamp(),
     case gb_trees:lookup(Key, GBT) of
 	none ->
-	    gb_trees:insert(Key, [Val], GBT);
+	    gb_trees:insert(Key, [{TS,Val}], GBT);
 	{value,V} ->
-	    gb_trees:update(Key, [Val|V], GBT)
+	    gb_trees:update(Key, [{TS,Val}|V], GBT)
     end.
 
 gb_get(Key, GBT) ->
@@ -1719,7 +1736,7 @@ gb_get(Key, GBT) ->
 	none ->
 	    [];
 	{value,V} ->
-	    V
+	    [Val || {_TS,Val} <- V]
     end.
 
 match_unless_solaris(A, B) ->
@@ -1727,3 +1744,6 @@ match_unless_solaris(A, B) ->
 	{unix,sunos} -> B;
 	_ -> A = B
     end.
+
+timestamp() ->
+    erlang:monotonic_time().
