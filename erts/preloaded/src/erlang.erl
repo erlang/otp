@@ -48,7 +48,7 @@
 	 await_sched_wall_time_modifications/2,
 	 gather_gc_info_result/1]).
 
--deprecated([hash/2, now/0]).
+-deprecated([now/0]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn_link/1]}).
@@ -116,7 +116,7 @@
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/0, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
 -export([group_leader/2]).
--export([halt/0, halt/1, halt/2, hash/2,
+-export([halt/0, halt/1, halt/2,
 	 has_prepared_code_on_load/1, hibernate/3]).
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
@@ -1026,13 +1026,6 @@ halt(Status) ->
       Options :: [Option],
       Option :: {flush, boolean()}.
 halt(_Status, _Options) ->
-    erlang:nif_error(undefined).
-
-%% hash/2
--spec erlang:hash(Term, Range) -> pos_integer() when
-      Term :: term(),
-      Range :: pos_integer().
-hash(_Term, _Range) ->
     erlang:nif_error(undefined).
 
 %% has_prepared_code_on_load/1
