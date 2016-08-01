@@ -1955,26 +1955,6 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="hash" arity="2"/>
-      <fsummary>Hash function (deprecated).</fsummary>
-      <desc>
-        <p>Returns a hash value for <c><anno>Term</anno></c> within the range
-          <c>1..<anno>Range</anno></c>. The maximum range is 1..2^27-1.</p>
-        <warning>
-          <p><em>This BIF is deprecated, as the hash value can differ on
-            different architectures.</em> The hash values for integer
-            terms &gt; 2^27 and large binaries are
-            poor. The BIF is retained for backward compatibility
-            reasons (it can have been used to hash records into a file),
-            but all new code is to use one of the BIFs
-            <seealso marker="#phash/2"><c>erlang:phash/2</c></seealso> or
-            <seealso marker="#phash2/1"><c>erlang:phash2/1,2</c></seealso>
-            instead.</p>
-        </warning>
-      </desc>
-    </func>
-
-    <func>
       <name name="hd" arity="1"/>
       <fsummary>Head of a list.</fsummary>
       <desc>
@@ -3818,9 +3798,6 @@ RealSystem = system + MissedSystem</code>
           <c><anno>Term</anno></c> within the range
           <c>1..<anno>Range</anno></c>. The maximum value for
           <c><anno>Range</anno></c> is 2^32.</p>
-        <p>This BIF can be used instead of the old deprecated BIF
-          <c>erlang:hash/2</c>, as it calculates better hashes for
-          all data types, but consider using <c>phash2/1,2</c> instead.</p>
       </desc>
     </func>
 
