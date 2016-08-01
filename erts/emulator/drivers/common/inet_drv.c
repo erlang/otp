@@ -11407,6 +11407,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	VALGRIND_MAKE_MEM_DEFINED(mhdr.msg_control, mhdr.msg_controllen); /*suppress "uninitialised bytes"*/
 	mhdr.msg_flags          = 0;            /* Not used with "sendmsg"   */
 	
+	inet_output_count(desc, data_len);
 	/* Now do the actual sending. NB: "flags" in "sendmsg" itself are NOT
 	   used: */
 	code = sock_sendmsg(desc->s, &mhdr, 0);
