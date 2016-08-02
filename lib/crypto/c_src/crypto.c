@@ -37,7 +37,9 @@
 #include <openssl/opensslconf.h>
 
 #include <openssl/crypto.h>
+#ifndef OPENSSL_NO_DES
 #include <openssl/des.h>
+#endif /* #ifndef OPENSSL_NO_DES */
 /* #include <openssl/idea.h> This is not supported on the openssl OTP requires */
 #include <openssl/dsa.h>
 #include <openssl/rsa.h>
@@ -461,17 +463,18 @@ struct cipher_type_t {
 struct cipher_type_t cipher_types[] =
 {
     {{"rc2_cbc"}, {&EVP_rc2_cbc}},
+#ifndef OPENSSL_NO_DES
     {{"des_cbc"}, {&EVP_des_cbc}},
     {{"des_cfb"}, {&EVP_des_cfb8}},
     {{"des_ecb"}, {&EVP_des_ecb}},
     {{"des_ede3_cbc"}, {&EVP_des_ede3_cbc}},
     {{"des_ede3_cbf"},
 #ifdef HAVE_DES_ede3_cfb_encrypt
-     {&EVP_des_ede3_cfb8}
+     {&EVP_des_ede3_cfb8}},
 #else
-     {NULL}
+     {NULL}},
 #endif
-    },
+#endif /* #ifndef OPENSSL_NO_DES */
     {{"blowfish_cbc"}, {&EVP_bf_cbc}},
     {{"blowfish_cfb64"}, {&EVP_bf_cfb64}},
     {{"blowfish_ofb64"}, {&EVP_bf_ofb}},
