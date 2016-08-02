@@ -41,9 +41,8 @@
 -export([request_system_task/3]).
 
 -export([check_process_code/3]).
--export([copy_literals/2]).
 -export([release_literal_area_switch/0]).
--export([purge_module/1]).
+-export([purge_module/2]).
 
 -export([flush_monitor_messages/3]).
 
@@ -273,20 +272,15 @@ cpc_flags(OldFlags, Bit, true) ->
 cpc_flags(OldFlags, Bit, false) ->
     OldFlags band (bnot Bit).
 
--spec copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
-      Module :: module(),
-      Bool :: boolean().
-copy_literals(_Mod, _Bool) ->
-    erlang:nif_error(undefined).
-
 -spec release_literal_area_switch() -> 'true' | 'false'.
 
 release_literal_area_switch() ->
     erlang:nif_error(undefined).
 
--spec purge_module(Module) -> boolean() when
-      Module :: module().
-purge_module(_Module) ->
+-spec purge_module(Module, Op) -> boolean() when
+      Module :: module(),
+      Op :: 'prepare' | 'abort' | 'complete'.
+purge_module(_Module, _Op) ->
     erlang:nif_error(undefined).
 
 -spec system_check(Type) -> 'ok' when

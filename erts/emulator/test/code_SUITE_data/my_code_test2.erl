@@ -18,9 +18,15 @@
 %% %CopyrightEnd%
 %%
 
--module(my_code_test).
+-module(my_code_test2).
 
--export([make_fun/1]).
+-export([make_fun/1, make_fun2/0]).
 
 make_fun(A) ->
     fun(X) -> A + X end.
+
+make_fun2() ->
+    fun (F1,F2) ->
+	    F1(),
+	    F2()
+    end.

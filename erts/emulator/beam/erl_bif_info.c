@@ -2886,6 +2886,27 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(AM_tag);
 #endif
     }
+    else if (ERTS_IS_ATOM_STR("check_process_code",BIF_ARG_1)) {
+	Eterm terms[3];
+	Sint length = 1;
+	Uint sz = 0;
+	Eterm *hp, res;
+	DECL_AM(direct_references);
+
+	terms[0] = AM_direct_references;
+#if !defined(ERTS_NEW_PURGE_STRATEGY)
+	{
+	    DECL_AM(indirect_references);
+	    terms[1] = AM_indirect_references;
+	    terms[2] = am_copy_literals;
+	    length = 3;
+	}
+#endif
+	erts_bld_list(NULL, &sz, length, terms);
+	hp = HAlloc(BIF_P, sz);
+	res = erts_bld_list(&hp, NULL, length, terms);
+	BIF_RET(res);
+    }
 
     BIF_ERROR(BIF_P, BADARG);
 }

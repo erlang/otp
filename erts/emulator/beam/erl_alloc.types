@@ -368,6 +368,7 @@ type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
 type	CODE		LONG_LIVED	CODE		code
 type	LITERAL		LITERAL 	CODE		literal
 type	LITERAL_REF	SHORT_LIVED	CODE		literal_area_ref
+type	PURGE_DATA	SHORT_LIVED	CODE		purge_data
 type	DB_HEIR_DATA	STANDARD	ETS		db_heir_data
 type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data

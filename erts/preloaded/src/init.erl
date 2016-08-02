@@ -670,9 +670,9 @@ unload(_) ->
     do_unload(sub([heart|erlang:pre_loaded()],erlang:loaded())).
 
 do_unload([M|Mods]) ->
-    catch erts_internal:purge_module(M),
+    catch erlang:purge_module(M),
     catch erlang:delete_module(M),
-    catch erts_internal:purge_module(M),
+    catch erlang:purge_module(M),
     do_unload(Mods);
 do_unload([]) ->
     purge_all_hipe_refs(),

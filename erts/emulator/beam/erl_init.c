@@ -2260,14 +2260,19 @@ erl_start(int argc, char **argv)
 	Eterm pid;
 
 	pid = erl_system_process_otp(otp_ring0_pid, "erts_code_purger");
-	erts_code_purger = erts_proc_lookup(pid);
-	ASSERT(erts_code_purger);
+	erts_code_purger
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
 	erts_proc_inc_refc(erts_code_purger); 
 
 #ifdef ERTS_NEW_PURGE_STRATEGY
 	pid = erl_system_process_otp(otp_ring0_pid, "erts_literal_area_collector");
-	erts_literal_area_collector = erts_proc_lookup(pid);
-	ASSERT(erts_literal_area_collector);
+	erts_literal_area_collector
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_literal_area_collector
+	       && erts_literal_area_collector->common.id == pid);
 	erts_proc_inc_refc(erts_literal_area_collector);
 #endif
 

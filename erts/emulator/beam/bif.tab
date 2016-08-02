@@ -644,8 +644,7 @@ bif erts_debug:map_info/1
 # New in 19.0
 #
 
-bif erts_internal:copy_literals/2
-bif erts_internal:purge_module/1
+bif erts_internal:purge_module/2
 bif binary:split/2
 bif binary:split/3
 bif erts_debug:size_shared/1

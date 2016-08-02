@@ -764,6 +764,29 @@
             and the operation was requested
             by passing option <c>{allow_gc, false}</c>.</p></item>
         </taglist>
+	<note>
+	<p>
+	  Up until ERTS version 8.*, the check process code operation
+	  checks for all types of references to the old code. That is,
+	  direct references (e.g. return addresses on the process
+	  stack), indirect references (<c>fun</c>s in process
+	  context), and references to literals in the code.
+	</p>
+	<p>
+	  As of ERTS version 9.0, the check process code operation
+	  only checks for direct references to the code. Indirect
+	  references via <c>fun</c>s will be ignored. If such
+	  <c>fun</c>s exist and are used after a purge of the old
+	  code, an exception will be raised upon usage (same as
+	  the case when the <c>fun</c> is received by the process
+	  after the purge). Literals will be taken care of (copied)
+	  at a  later stage. This behavior can as of ERTS version
+	  8.1 be enabled when
+	  <seealso marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring">building OTP</seealso>,
+	  and will automatically be enabled if dirty scheduler
+	  support is enabled.
+	</p>
+	</note>
         <p>See also <seealso marker="kernel:code">code(3)</seealso>.</p>
         <p>Failures:</p>
         <taglist>
