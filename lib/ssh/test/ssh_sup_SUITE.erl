@@ -105,16 +105,16 @@ sshc_subtree(Config) when is_list(Config) ->
     {ok, Pid1} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD},{user_dir, UserDir}]),
-    [{_, _,supervisor,[ssh_connection_handler]}] =
+    [{_, _,worker,[ssh_connection_handler]}] =
 	supervisor:which_children(sshc_sup),
     {ok, Pid2} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_interaction, false},
 					  {user, ?USER}, {password, ?PASSWD}, {user_dir, UserDir}]),
-    [{_,_,supervisor,[ssh_connection_handler]}, 
-     {_,_,supervisor,[ssh_connection_handler]}] = 
+    [{_,_,worker,[ssh_connection_handler]}, 
+     {_,_,worker,[ssh_connection_handler]}] = 
 	supervisor:which_children(sshc_sup),
     ssh:close(Pid1),
-    [{_,_,supervisor,[ssh_connection_handler]}] = 
+    [{_,_,worker,[ssh_connection_handler]}] = 
 	supervisor:which_children(sshc_sup),
     ssh:close(Pid2),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
