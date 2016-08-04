@@ -30,6 +30,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Upgrade of an established client connection could crash
+	    because the ssh client supervisors children had wrong
+	    type. This is fixed now.</p>
+          <p>
+	    Own Id: OTP-13782 Aux Id: seq13158 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.2.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
