@@ -40,7 +40,7 @@
 ** DB_FINE_LOCKED set. The table variable is_thread_safe will then indicate
 ** if operations need to obtain fine grained locks or not. Some operations
 ** will for example always use exclusive table lock to guarantee
-** a higher level of atomicy.
+** a higher level of atomicity.
 */
 
 /* FIXATION:

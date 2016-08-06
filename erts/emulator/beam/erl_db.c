@@ -1094,7 +1094,7 @@ BIF_RETTYPE ets_insert_2(BIF_ALIST_2)
 
     CHECK_TABLES();
 
-    /* Write lock table if more than one object to keep atomicy */
+    /* Write lock table if more than one object to keep atomicity */
     kind = ((is_list(BIF_ARG_2) && CDR(list_val(BIF_ARG_2)) != NIL)
 	    ? LCK_WRITE : LCK_WRITE_REC);
 
@@ -1164,7 +1164,7 @@ BIF_RETTYPE ets_insert_new_2(BIF_ALIST_2)
 	    Eterm lookup_ret;
 	    DbTableMethod* meth;
 
-	    /* More than one object, use LCK_WRITE to keep atomicy */
+	    /* More than one object, use LCK_WRITE to keep atomicity */
 	    kind = LCK_WRITE;
 	    tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, kind);
 	    if (tb == NULL) {
