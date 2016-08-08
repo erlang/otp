@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,8 +119,10 @@ groups() ->
 			   ]},
      {htaccess, [], [htaccess_1_1, htaccess_1_0, htaccess_0_9]},
      {security, [], [security_1_1, security_1_0]}, %% Skip 0.9 as causes timing issus in test code
-     {http_1_1, [], [host, chunked, expect, cgi, cgi_chunked_encoding_test,
-		     trace, range, if_modified_since, mod_esi_chunk_timeout] ++ http_head() ++ http_get() ++ load()},
+     {http_1_1, [],
+      [host, chunked, expect, cgi, cgi_chunked_encoding_test,
+       trace, range, if_modified_since, mod_esi_chunk_timeout,
+       esi_put] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_0_9, [], http_head() ++ http_get() ++ load()}
     ].
@@ -283,20 +285,50 @@ init_per_testcase(Case, Config) when Case == host; Case == trace ->
 	     http_1_1 ->
 		 httpd_1_1
 	 end,
-    [{version_cb, Cb} | proplists:delete(version_cb, Config)];
+    dbg(
+      Case,
+      [{version_cb, Cb} | proplists:delete(version_cb, Config)],
+      init);
 
 init_per_testcase(range, Config) ->
     ct:timetrap({seconds, 20}),
     DocRoot = proplists:get_value(doc_root, Config),
     create_range_data(DocRoot),
-    Config;
+    dbg(range, Config, init);
 
-init_per_testcase(_, Config) ->
+init_per_testcase(Case, Config) ->
     ct:timetrap({seconds, 20}),
-    Config.
+    dbg(Case, Config, init).
 
-end_per_testcase(_Case, _Config) ->
-    ok.
+end_per_testcase(Case, Config) ->
+    dbg(Case, Config, 'end').
+
+
+dbg(Case, Config, Status) ->
+    Cases = [esi_put],
+    case lists:member(Case, Cases) of
+	true ->
+	    case Status of
+		init ->
+		    dbg:tracer(),
+		    dbg:p(all, c),
+		    dbg:tpl(httpd_example, cx),
+		    dbg:tpl(mod_esi, generate_webpage, cx),
+		    io:format("dbg: started~n"),
+		    Config;
+		'end' ->
+		    io:format("dbg: stopped~n"),
+		    dbg:stop_clear(),
+		    ok
+	    end;
+	false ->
+	    case Status of
+		init ->
+		    Config;
+		'end' ->
+		    ok
+	    end
+    end.
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -765,6 +797,14 @@ esi(Config) when is_list(Config) ->
     ok = http_status("GET /cgi-bin/erl/httpd_example:peer ",
 	  	     Config, [{statuscode, 200},
 	 	      {header, "peer-cert-exist", peer(Config)}]).
+
+%%-------------------------------------------------------------------------
+esi_put() ->
+    [{doc, "Test mod_esi PUT"}].
+
+esi_put(Config) when is_list(Config) ->
+    ok = http_status("PUT /cgi-bin/erl/httpd_example/put/123342234123 ",
+		     Config, [{statuscode, 200}]).
  
 %%-------------------------------------------------------------------------
 mod_esi_chunk_timeout(Config) when is_list(Config) -> 
