@@ -54,6 +54,9 @@ static struct {
 Process *erts_code_purger = NULL;
 
 ErtsLiteralArea *erts_copy_literal_area = NULL;
+#ifdef ERTS_DIRTY_SCHEDULERS
+Process *erts_dirty_process_code_checker;
+#endif
 #ifdef ERTS_NEW_PURGE_STRATEGY
 Process *erts_literal_area_collector = NULL;
 
@@ -579,6 +582,43 @@ BIF_RETTYPE erts_internal_check_process_code_2(BIF_ALIST_2)
 
 badarg:
     BIF_ERROR(BIF_P, BADARG);
+}
+
+BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
+{
+#if !defined(ERTS_DIRTY_SCHEDULERS)
+    BIF_ERROR(BIF_P, EXC_NOTSUP);
+#else
+    Process *rp;
+    int reds = 0;
+    Eterm res;
+
+    if (BIF_P != erts_dirty_process_code_checker)
+	BIF_ERROR(BIF_P, EXC_NOTSUP);
+
+    if (is_not_internal_pid(BIF_ARG_1))
+	BIF_ERROR(BIF_P, BADARG);
+
+    if (is_not_atom(BIF_ARG_2))
+	BIF_ERROR(BIF_P, BADARG);
+
+    rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
+				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
+    if (rp == ERTS_PROC_LOCK_BUSY)
+	ERTS_BIF_YIELD2(bif_export[BIF_erts_internal_check_dirty_process_code_2],
+			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    if (!rp)
+	BIF_RET(am_false);
+	
+    res = erts_check_process_code(rp, BIF_ARG_2, 0, &reds, BIF_P->fcalls);
+
+    if (BIF_P != rp)
+	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+
+    ASSERT(is_value(res));
+
+    BIF_RET2(res, reds);
+#endif
 }
 
 BIF_RETTYPE delete_module_1(BIF_ALIST_1)

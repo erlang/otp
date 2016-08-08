@@ -462,22 +462,6 @@ ok
 	      heap, and process control block will be delayed until the
 	      dirty NIF has completed.
 	    </p>
-
-	    <p>Currently known issues that are planned to be fixed:</p>
-	    <list>
-	      <item>
-		<p>
-		  Since purging of a module currently might need to garbage
-		  collect a process in order to determine if it has
-		  references to the module, a process executing a dirty
-		  NIF might delay purging for a very long time. Delaying
-		  a purge operation implies delaying <em>all</em> code
-		  loading operations which might cause severe problems for
-		  the system as a whole.
-		</p>
-	      </item>
-	    </list>
-
 	  </item>
 	</taglist>
 

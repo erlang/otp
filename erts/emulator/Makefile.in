@@ -605,7 +605,8 @@ PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam
+			$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_code_checker.beam
 
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.

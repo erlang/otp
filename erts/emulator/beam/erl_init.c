@@ -2276,6 +2276,16 @@ erl_start(int argc, char **argv)
 	erts_proc_inc_refc(erts_literal_area_collector);
 #endif
 
+#ifdef ERTS_DIRTY_SCHEDULERS
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker");
+	erts_dirty_process_code_checker
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_dirty_process_code_checker
+	       && erts_dirty_process_code_checker->common.id == pid);
+	erts_proc_inc_refc(erts_dirty_process_code_checker);
+#endif
+
     }
 
 #ifdef ERTS_SMP

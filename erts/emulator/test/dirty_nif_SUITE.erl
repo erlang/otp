@@ -33,7 +33,8 @@
 	 dirty_nif_exception/1, call_dirty_nif_exception/1,
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
 	 dirty_heap_access/1, dirty_process_info/1,
-	 dirty_process_register/1, dirty_process_trace/1]).
+	 dirty_process_register/1, dirty_process_trace/1,
+	 code_purge/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -48,7 +49,8 @@ all() ->
      dirty_heap_access,
      dirty_process_info,
      dirty_process_register,
-     dirty_process_trace].
+     dirty_process_trace,
+     code_purge].
 
 init_per_suite(Config) ->
     try erlang:system_info(dirty_cpu_schedulers) of
@@ -348,6 +350,75 @@ dirty_process_trace(Config) when is_list(Config) ->
 	      end,
 	      ok
       end).
+
+dirty_code_test_code() ->
+    "
+-module(dirty_code_test).
+
+-export([func/1]).
+
+func(Fun) ->
+  Fun(),
+  blipp:blapp().
+
+".
+
+code_purge(Config) when is_list(Config) ->
+    Path = ?config(data_dir, Config),
+    File = filename:join(Path, "dirty_code_test.erl"),
+    ok = file:write_file(File, dirty_code_test_code()),
+    {ok, dirty_code_test, Bin} = compile:file(File, [binary]),
+    {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
+    Start = erlang:monotonic_time(),
+    {Pid1, Mon1} = spawn_monitor(fun () ->
+				       dirty_code_test:func(fun () ->
+								    %% Sleep for 6 seconds
+								    %% in dirty nif...
+								    dirty_sleeper()
+							    end)
+			       end),
+    {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
+    {Pid2, Mon2} = spawn_monitor(fun () ->
+				       dirty_code_test:func(fun () ->
+								    %% Sleep for 6 seconds
+								    %% in dirty nif...
+								    dirty_sleeper()
+							    end)
+				 end),
+    receive
+	{'DOWN', Mon1, process, Pid1, _} ->
+	    ct:fail(premature_death)
+    after 100 ->
+	    ok
+    end,
+    true = erlang:purge_module(dirty_code_test),
+    receive
+	{'DOWN', Mon1, process, Pid1, Reason} ->
+	    killed = Reason
+    end,
+    receive
+	{'DOWN', Mon2, process, Pid2, _} ->
+	    ct:fail(premature_death)
+    after 100 ->
+	    ok
+    end,
+    true = erlang:delete_module(dirty_code_test),
+    receive
+	{'DOWN', Mon2, process, Pid2, _} ->
+	    ct:fail(premature_death)
+    after 100 ->
+	    ok
+    end,
+    true = erlang:purge_module(dirty_code_test),
+    receive
+	{'DOWN', Mon2, process, Pid2, Reason} ->
+	    killed = Reason
+    end,
+    End = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(End-Start, native, milli_seconds),
+    io:format("Time=~p~n", [Time]),
+    true = Time =< 1000,
+    ok.
 
 %%
 %% Internal...
