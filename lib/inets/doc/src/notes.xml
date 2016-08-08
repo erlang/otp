@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.1</title>
+  <section><title>Inets 6.3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    PUT and DELETE support has been added to mod_esi</p>
+          <p>
+	    Own Id: OTP-13688 Aux Id: seq13149 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
