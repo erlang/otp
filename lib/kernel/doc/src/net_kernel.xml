@@ -116,6 +116,21 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
+      <name name="getopts" arity="2"/>
+      <fsummary>Get distribution socket options.</fsummary>
+      <desc>
+        <p>Get one or more options for the distribution socket
+	connected to <c><anno>Node</anno></c>.</p>
+        <p>If <c><anno>Node</anno></c> is a connected node
+	the return value is the same as from
+	<seealso marker="inet#getopts/2"><c>inet:getopts(Sock, Options)</c></seealso>
+	where <c>Sock</c> is the distribution socket for <c><anno>Node</anno></c>.</p>
+	<p>Returns <c>ignored</c> if the local node is not alive or
+	<c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not connected.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="monitor_nodes" arity="1"/>
       <name name="monitor_nodes" arity="2"/>
       <fsummary>Subscribe to node status change messages.</fsummary>
@@ -285,6 +300,27 @@ $ <input>erl -sname foobar</input></pre>
               <c><anno>NewNetTicktime</anno></c> seconds.</p>
           </item>
         </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="setopts" arity="2"/>
+      <fsummary>Set distribution socket options.</fsummary>
+      <desc>
+        <p>Set one or more options for distribution sockets.
+	Argument <c><anno>Node</anno></c> can be either one node name
+	or the atom <c>new</c> to affect the distribution sockets of all
+	future connected nodes.</p>
+        <p>The return value is the same as from
+	<seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+	or <c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not
+	a connected node or <c>new</c>.</p>
+	<p>If <c><anno>Node</anno></c> is <c>new</c> the <c><anno>Options</anno></c>
+	will then also be added to kernel configration parameters
+	<seealso marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seealso>
+	and
+	<seealso marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seealso>.</p>
+	<p>Returns <c>ignored</c> if the local node is not alive.</p>
       </desc>
     </func>
 
