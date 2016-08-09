@@ -1295,7 +1295,7 @@ format_status(Opt, PDict, #{module := Module}, State, Data) ->
 		_:_ ->
 		    format_status_default(
 		      Opt, State,
-		      "Module:format_status/2 crashed")
+		      atom_to_list(Module) ++ ":format_status/2 crashed")
 	    end;
 	false ->
 	    format_status_default(Opt, State, Data)
@@ -1303,10 +1303,10 @@ format_status(Opt, PDict, #{module := Module}, State, Data) ->
 
 %% The default Module:format_status/2
 format_status_default(Opt, State, Data) ->
-    SSD = {State,Data},
+    StateData = {State,Data},
     case Opt of
 	terminate ->
-	    SSD;
+	    StateData;
 	_ ->
-	    [{data,[{"State",SSD}]}]
+	    [{data,[{"State",StateData}]}]
     end.

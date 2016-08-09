@@ -608,7 +608,7 @@ init(Args) ->
 	callback function <c>terminate(shutdown, State, Data)</c>.
       </p>
       <p>
-	In the following example, function <c>terminate/3</c>
+	In this example, function <c>terminate/3</c>
 	locks the door if it is open, so we do not accidentally leave the door
 	open when the supervision tree terminates:
       </p>
@@ -1217,7 +1217,8 @@ format_status(Opt, [_PDict,State,Data]) ->
       <seealso marker="stdlib:gen_statem#Module:format_status/2"><c>Module:format_status/2</c></seealso>
       function. If you do not, a default implementation is used that
       does the same as this example function without filtering
-      the <c>Data</c> term, that is, <c>StateData = {State,Data}</c>.
+      the <c>Data</c> term, that is, <c>StateData = {State,Data}</c>,
+      in this example containing sensitive information.
     </p>
   </section>
 
