@@ -226,11 +226,13 @@ extensions() ->
       Command :: atom() | io_lib:chars().
 cmd(Cmd) ->
     validate(Cmd),
-    {SpawnCmd, SpawnOpts, SpawnInput} = mk_cmd(os:type(), Cmd),
+    {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), Cmd),
     Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
-                                         stream, in, eof, hide | SpawnOpts]),
+                                         stream, in, hide | SpawnOpts]),
+    MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
-    Bytes = get_data(Port, []),
+    Bytes = get_data(Port, MonRef, Eot, []),
+    demonitor(MonRef, [flush]),
     String = unicode:characters_to_list(Bytes),
     if  %% Convert to unicode list if possible otherwise return bytes
 	is_list(String) -> String;
@@ -243,7 +245,7 @@ mk_cmd({win32,Wtype}, Cmd) ->
                   {false,_} -> lists:concat(["cmd /c", Cmd]);
                   {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
               end,
-    {Command, [], []};
+    {Command, [], [], <<>>};
 mk_cmd(OsType,Cmd) when is_atom(Cmd) ->
     mk_cmd(OsType, atom_to_list(Cmd));
 mk_cmd(_,Cmd) ->
@@ -252,7 +254,8 @@ mk_cmd(_,Cmd) ->
     {"/bin/sh -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
-     ["(", unicode:characters_to_binary(Cmd), "\n); exit\n"]}.
+     ["(", unicode:characters_to_binary(Cmd), "\n); echo \"\^D\"\n"],
+     <<$\^D>>}.
 
 validate(Atom) when is_atom(Atom) ->
     ok;
@@ -267,16 +270,18 @@ validate1([List|Rest]) when is_list(List) ->
 validate1([]) ->
     ok.
 
-get_data(Port, Sofar) ->
+get_data(Port, MonRef, Eot, Sofar) ->
     receive
 	{Port, {data, Bytes}} ->
-	    get_data(Port, [Sofar,Bytes]);
-	{Port, eof} ->
-	    Port ! {self(), close},
-	    receive
-		{Port, closed} ->
-		    true
-	    end,
+            case eot(Bytes, Eot) of
+                more ->
+                    get_data(Port, MonRef, Eot, [Sofar,Bytes]);
+                Last ->
+                    Port ! {self(), close},
+                    flush_until_closed(Port),
+                    iolist_to_binary([Sofar, Last])
+            end;
+        {'DOWN', MonRef, _, _ , _} ->
 	    receive
 		{'EXIT',  Port,  _} ->
 		    ok
@@ -284,4 +289,21 @@ get_data(Port, Sofar) ->
 		    ok
 	    end,
 	    iolist_to_binary(Sofar)
+    end.
+
+eot(_Bs, <<>>) ->
+    more;
+eot(Bs, Eot) ->
+    case binary:match(Bs, Eot) of
+        nomatch -> more;
+        {Pos, _} ->
+            binary:part(Bs,{0, Pos})
+    end.
+
+flush_until_closed(Port) ->
+    receive
+        {Port, {data, _Bytes}} ->
+            flush_until_closed(Port);
+        {Port, closed} ->
+            true
     end.
