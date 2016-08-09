@@ -28,6 +28,26 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 8.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The TLS/SSL protocol version selection for the SSL server
+	    has been corrected to follow RFC 5246 Appendix E.1
+	    especially in case where the list of supported versions
+	    has gaps. Now the server selects the highest protocol
+	    version it supports that is not higher than what the
+	    client supports.</p>
+          <p>
+	    Own Id: OTP-13753 Aux Id: seq13150 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

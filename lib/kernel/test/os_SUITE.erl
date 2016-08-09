@@ -24,7 +24,8 @@
 	 init_per_testcase/2,end_per_testcase/2]).
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
-         large_output_command/1, perf_counter_api/1]).
+         large_output_command/1, background_command/0, background_command/1,
+         perf_counter_api/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -35,7 +36,7 @@ suite() ->
 all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
-     large_output_command, perf_counter_api].
+     large_output_command, background_command, perf_counter_api].
 
 groups() ->
     [].
@@ -52,6 +53,13 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(background_command, Config) ->
+    case os:type() of
+        {win32, _} ->
+            {skip,"Should not work on windows"};
+        _ ->
+            Config
+    end;
 init_per_testcase(_TC,Config) ->
     Config.
 
@@ -261,12 +269,20 @@ deep_list_command(Config) when is_list(Config) ->
     %% FYI: [$e, $c, "ho"] =:= io_lib:format("ec~s", ["ho"])
     ok.
 
-%% Test to take sure that the correct data is
+%% Test to make sure that the correct data is
 %% received when doing large commands.
 large_output_command(Config) when is_list(Config) ->
     %% Maximum allowed on windows is 8192, so we test well below that
     AAA = lists:duplicate(7000, $a),
     comp(AAA,os:cmd("echo " ++ AAA)).
+
+%% Test that it is possible on unix to start a background task using os:cmd.
+background_command() ->
+    [{timetrap, {seconds, 5}}].
+background_command(_Config) ->
+    %% This testcase fails when the os:cmd takes
+    %% longer then the 5 second timeout
+    os:cmd("sleep 10&").
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->
