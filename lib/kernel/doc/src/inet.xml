@@ -151,6 +151,12 @@ fe80::204:acff:fe17:bf38
       <name name="socket_address"/>
     </datatype>
     <datatype>
+      <name name="socket_getopt"/>
+    </datatype>
+    <datatype>
+      <name name="socket_setopt"/>
+    </datatype>
+    <datatype>
       <name name="returned_non_ip_address"/>
       <desc>
 	<p>
@@ -327,8 +333,6 @@ fe80::204:acff:fe17:bf38
     <func>
       <name name="getopts" arity="2"/>
       <fsummary>Get one or more options for a socket.</fsummary>
-      <type name="socket_getopt"/>
-      <type name="socket_setopt"/>
       <desc>
         <p>Gets one or more options for a socket. For a list of available
           options, see
@@ -580,7 +584,6 @@ get_tcpi_sacked(Sock) ->
     <func>
       <name name="setopts" arity="2"/>
       <fsummary>Set one or more options for a socket.</fsummary>
-      <type name="socket_setopt"/>
       <desc>
         <p>Sets one or more options for a socket.</p>
         <p>The following options are available:</p>
