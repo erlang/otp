@@ -240,6 +240,7 @@ int main(int argc, char **argv)
   int off_argv;
   int calculated_pipename = 0;
   int highest_pipe_num = 0;
+  int sleepy_child = 0;
 
   program_name = argv[0];
 
@@ -249,6 +250,11 @@ int main(int argc, char **argv)
   }
 
   init_outbuf();
+
+  if (!strcmp(argv[1],"-sleepy-child")) {  /* For test purpose only */
+      sleepy_child = 1;
+      ++i;
+  }
 
   if (!strcmp(argv[1],"-daemon")) {
       daemon_init();
@@ -392,6 +398,9 @@ int main(int argc, char **argv)
     exit(1);
   }
   if (childpid == 0) {
+      if (sleepy_child)
+	  sleep(1);
+
     /* Child */
     sf_close(mfd);
     /* disassociate from control terminal */
