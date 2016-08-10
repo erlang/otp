@@ -16,7 +16,7 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-{"5.0",
+{"5.0.1",
  %% Up from - max one major revision back
  [{<<"5\\.0(\\.[0-9]+)*">>,[restart_new_emulator]},       % OTP-19.*
   {<<"4\\.[0-2](\\.[0-9]+)*">>,[restart_new_emulator]}],  % OTP-18.*
