@@ -67,16 +67,20 @@ expr_grp([Field | FS], Bs0, Lf, Acc) ->
 expr_grp([], Bs0, _Lf, Acc) ->
     {value,Acc,Bs0}.
 
+eval_field({bin_element, _, {string, _, S}, {integer,_,8}, [integer,{unit,1},unsigned,big]}, Bs0, _Fun) ->
+    Latin1 = [C band 16#FF || C <- S],
+    {list_to_binary(Latin1),Bs0};
 eval_field({bin_element, _, {string, _, S}, default, default}, Bs0, _Fun) ->
     Latin1 = [C band 16#FF || C <- S],
     {list_to_binary(Latin1),Bs0};
-eval_field({bin_element, Line, {string, _, S}, Size0, Options0}, Bs, _Fun) ->
-    {_Size,[Type,_Unit,_Sign,Endian]} = 
+eval_field({bin_element, Line, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
+    {Size1,[Type,{unit,Unit},Sign,Endian]} =
         make_bit_type(Line, Size0, Options0),
-    Res = << <<(eval_exp_field1(C, no_size, no_unit,
-				Type, Endian, no_sign))/binary>> ||
+    {value,Size,Bs1} = Fun(Size1, Bs0),
+    Res = << <<(eval_exp_field1(C, Size, Unit,
+				Type, Endian, Sign))/binary>> ||
 	      C <- S >>,
-    {Res,Bs};
+    {Res,Bs1};
 eval_field({bin_element,Line,E,Size0,Options0}, Bs0, Fun) ->
     {value,V,Bs1} = Fun(E, Bs0),
     {Size1,[Type,{unit,Unit},Sign,Endian]} = 

@@ -901,7 +901,7 @@ try_after(As, St0) ->
 expr_bin(Es0, Anno, St0) ->
     case constant_bin(Es0) of
 	error ->
-	    {Es,Eps,St} = expr_bin_1(Es0, St0),
+	    {Es,Eps,St} = expr_bin_1(bin_expand_strings(Es0), St0),
 	    {#ibinary{anno=#a{anno=Anno},segments=Es},Eps,St};
 	Bin ->
 	    {#c_literal{anno=Anno,val=Bin},[],St0}
@@ -923,7 +923,8 @@ constant_bin(Es) ->
 constant_bin_1(Es) ->
     verify_suitable_fields(Es),
     EmptyBindings = erl_eval:new_bindings(),
-    EvalFun = fun({integer,_,I}, B) -> {value,I,B};
+    EvalFun = fun({string,_,S}, B) -> {value,S,B};
+		 ({integer,_,I}, B) -> {value,I,B};
 		 ({char,_,C}, B) -> {value,C,B};
 		 ({float,_,F}, B) -> {value,F,B};
 		 ({atom,_,undefined}, B) -> {value,undefined,B}
@@ -944,6 +945,9 @@ verify_suitable_fields([{bin_element,_,Val,SzTerm,Opts}|Es]) ->
     end,
     {unit,Unit} = keyfind(unit, 1, Opts),
     case {SzTerm,Val} of
+	{{atom,_,undefined},{string,_,_}} ->
+	    %% UTF-8/16/32.
+	    ok;
 	{{atom,_,undefined},{char,_,_}} ->
 	    %% UTF-8/16/32.
 	    ok;
@@ -982,6 +986,14 @@ count_bits(Int) ->
 
 count_bits_1(0, Bits) -> Bits;
 count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
+
+bin_expand_strings(Es) ->
+    foldr(fun ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
+		  foldr(fun (C, Es2) ->
+				[{bin_element,Line,{char,Line,C},Sz,Ts}|Es2]
+			end, Es1, S);
+	      (E, Es1) -> [E|Es1]
+	  end, [], Es).
 
 expr_bin_1(Es, St) ->
     foldr(fun (E, {Ces,Esp,St0}) ->
@@ -1394,6 +1406,9 @@ bc_elem_size({bin,_,El}, St0) ->
 bc_elem_size(_, _) ->
     throw(impossible).
 
+bc_elem_size_1([{bin_element,_,{string,_,String},{integer,_,N},Flags}|Es], Bits, Vars) ->
+    {unit,U} = keyfind(unit, 1, Flags),
+    bc_elem_size_1(Es, Bits+U*N*length(String), Vars);
 bc_elem_size_1([{bin_element,_,_,{integer,_,N},Flags}|Es], Bits, Vars) ->
     {unit,U} = keyfind(unit, 1, Flags),
     bc_elem_size_1(Es, Bits+U*N, Vars);
@@ -1513,6 +1528,9 @@ bc_list_length(_, _) ->
 bc_bin_size({bin,_,Els}) ->
     bc_bin_size_1(Els, 0).
 
+bc_bin_size_1([{bin_element,_,{string,_,String},{integer,_,Sz},Flags}|Els], N) ->
+    {unit,U} = keyfind(unit, 1, Flags),
+    bc_bin_size_1(Els, N+U*Sz*length(String));
 bc_bin_size_1([{bin_element,_,_,{integer,_,Sz},Flags}|Els], N) ->
     {unit,U} = keyfind(unit, 1, Flags),
     bc_bin_size_1(Els, N+U*Sz);
@@ -1736,7 +1754,7 @@ pat_alias_map_pairs_1([]) -> [].
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
-pat_bin(Ps, St) -> [pat_segment(P, St) || P <- Ps].
+pat_bin(Ps, St) -> [pat_segment(P, St) || P <- bin_expand_strings(Ps)].
 
 pat_segment({bin_element,L,Val,Size,[Type,{unit,Unit}|Flags]}, St) ->
     Anno = lineno_anno(L, St),
