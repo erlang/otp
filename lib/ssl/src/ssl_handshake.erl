@@ -658,7 +658,7 @@ select_hashsign(#certificate_request{hashsign_algorithms = #hash_sign_algos{hash
 	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
     end;
 select_hashsign(#certificate_request{}, Cert, _, Version) ->
-    select_hashsign(undefined, Cert, undefined, undefined, Version).
+    select_hashsign(undefined, Cert, undefined, [], Version).
 
 %%--------------------------------------------------------------------
 -spec select_hashsign_algs({atom(), atom()}| undefined, oid(), ssl_record:ssl_version()) ->
