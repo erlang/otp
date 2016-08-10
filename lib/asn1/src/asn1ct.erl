@@ -221,9 +221,8 @@ check_pass(#st{code=M,file=File,includes=Includes,
 	    {error,St#st{error=Reason}}
     end.
 
-save_pass(#st{code=M,erule=Erule,dbfile=DbFile}=St) ->
+save_pass(#st{code=M,erule=Erule}=St) ->
     ok = asn1ct_check:storeindb(#state{erule=Erule}, M),
-    asn1_db:dbsave(DbFile,M#module.name),
     {ok,St}.
 
 parse_listing(#st{code=Code,outfile=OutFile0}=St) ->
