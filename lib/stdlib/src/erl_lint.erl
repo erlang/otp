@@ -238,7 +238,11 @@ format_error({removed_type, MNA, ReplacementMNA, Rel}) ->
     io_lib:format("the type ~s was removed in ~s; use ~s instead",
                   [format_mna(MNA), Rel, format_mna(ReplacementMNA)]);
 format_error({obsolete_guard, {F, A}}) ->
-    io_lib:format("~p/~p obsolete", [F, A]);
+    io_lib:format("~p/~p obsolete (use is_~p/~p)", [F, A, F, A]);
+format_error({obsolete_guard_overridden,Test}) ->
+    io_lib:format("obsolete ~s/1 (meaning is_~s/1) is illegal when "
+		  "there is a local/imported function named is_~p/1 ",
+		  [Test,Test,Test]);
 format_error({too_many_arguments,Arity}) ->
     io_lib:format("too many arguments (~w) - "
 		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
@@ -3618,15 +3622,25 @@ obsolete_guard({call,Line,{atom,Lr,F},As}, St0) ->
 	false ->
 	    deprecated_function(Line, erlang, F, As, St0);
 	true ->
-	    case is_warn_enabled(obsolete_guard, St0) of
-		true ->
-		    add_warning(Lr,{obsolete_guard, {F, Arity}}, St0);
-		false ->
-		    St0
-	    end
+	    St = case is_warn_enabled(obsolete_guard, St0) of
+		     true ->
+			 add_warning(Lr, {obsolete_guard, {F, Arity}}, St0);
+		     false ->
+			 St0
+		 end,
+	    test_overriden_by_local(Lr, F, Arity, St)
     end;
 obsolete_guard(_G, St) ->
     St.
+
+test_overriden_by_local(Line, OldTest, Arity, St) ->
+    ModernTest = list_to_atom("is_"++atom_to_list(OldTest)),
+    case is_local_function(St#lint.locals, {ModernTest, Arity}) of
+	true ->
+	    add_error(Line, {obsolete_guard_overridden,OldTest}, St);
+	false ->
+	    St
+    end.
 
 %% keyword_warning(Line, Atom, State) -> State.
 %%  Add warning for atoms that will be reserved keywords in the future.
