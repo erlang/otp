@@ -735,7 +735,10 @@ proc_timeout_common(Process *proc, void *tmr)
     if (tmr == (void *) erts_smp_atomic_cmpxchg_mb(&proc->common.timer,
 						   ERTS_PTMR_TIMEDOUT,
 						   (erts_aint_t) tmr)) {
-	erts_aint32_t state = erts_smp_atomic32_read_acqb(&proc->state);
+	erts_aint32_t state;
+	erts_smp_proc_lock(proc, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	state = erts_smp_atomic32_read_acqb(&proc->state);
+	erts_smp_proc_unlock(proc, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	if (!(state & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_EXITING)))
 	    erts_schedule_process(proc, state, 0);
 	return 1;
