@@ -384,7 +384,7 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 			connections =
 			ets:new(sys_dist,[named_table,
 					  protected,
-					  {keypos, 2}]),
+					  {keypos, #connection.node}]),
 			listen = Listeners,
 			allowed = [],
 			verbose = 0
