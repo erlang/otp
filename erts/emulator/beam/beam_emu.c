@@ -2166,7 +2166,10 @@ void process_main(void)
 	     c_p->i = (BeamInstr *) Arg(0); /* L1 */
 	     SWAPOUT;
 	     c_p->arity = 0;
-	     erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
+
+	     if (!ERTS_PTMR_IS_TIMED_OUT(c_p))
+		 erts_smp_atomic32_read_band_relb(&c_p->state,
+						  ~ERTS_PSFLG_ACTIVE);
 	     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     c_p->current = NULL;
