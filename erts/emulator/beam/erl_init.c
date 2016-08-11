@@ -2350,14 +2350,15 @@ erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
     if (erts_mtrace_enabled)
 	erts_mtrace_exit((Uint32) n);
 
+    if (fmt != NULL && *fmt != '\0')
+	erl_error(fmt, args2);	/* Print error message. */
+
     /* Produce an Erlang core dump if error */
     if (((n == ERTS_ERROR_EXIT && erts_no_crash_dump == 0) || n == ERTS_DUMP_EXIT)
 	&& erts_initialized) {
 	erl_crash_dump_v((char*) NULL, 0, fmt, args1);
     }
 
-    if (fmt != NULL && *fmt != '\0')
-	  erl_error(fmt, args2);	/* Print error message. */
     sys_tty_reset(n);
 
     if (n == ERTS_INTR_EXIT)
