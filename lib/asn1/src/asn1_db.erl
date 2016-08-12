@@ -106,7 +106,9 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             loop(State);
         {save, OutFile, Mod} ->
             [{_,Mtab}] = ets:lookup(Table, Mod),
-            ok = ets:tab2file(Mtab, OutFile),
+	    TempFile = OutFile ++ ".#temp",
+            ok = ets:tab2file(Mtab, TempFile),
+	    ok = file:rename(TempFile, OutFile),
             loop(State);
         {From, {new, Mod, Erule}} ->
             [] = ets:lookup(Table, Mod),	%Assertion.

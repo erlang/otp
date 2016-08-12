@@ -34,12 +34,16 @@ run_dialyzer() ->
 
 compile(File, Config, Options) -> compile_all([File], Config, Options).
 
-compile_all(Files, Config, Options) ->
+compile_all(Files, Config, Options0) ->
     DataDir = proplists:get_value(data_dir, Config),
     CaseDir = proplists:get_value(case_dir, Config),
-    [compile_file(filename:join(DataDir, F), [{outdir, CaseDir},
-					      debug_info|Options])
-         || F <- Files],
+    Options = [{outdir,CaseDir},debug_info|Options0],
+
+    Comp = fun(F) ->
+		   compile_file(filename:join(DataDir, F), Options)
+	   end,
+    p_run(Comp, Files),
+
     dialyze(Files, Options),
     ok.
 
@@ -94,9 +98,9 @@ compile_file(File, Options) ->
     try
         ok = asn1ct:compile(File, [warnings_as_errors|Options])
     catch
-        Class:Reason ->
-	    ct:print("Failed to compile ~s\n", [File]),
-            erlang:error({compile_failed, {File, Options}, {Class, Reason}})
+        _:Reason ->
+	    ct:print("Failed to compile ~s\n~p", [File,Reason]),
+            error
     end.
 
 compile_erlang(Mod, Config, Options) ->
@@ -219,3 +223,38 @@ ber_get_len(<<0:1,L:7,T/binary>>) ->
 ber_get_len(<<1:1,Octets:7,T0/binary>>) ->
     <<L:Octets/unit:8,T/binary>> = T0,
     {L,T}.
+
+%% p_run(fun(Data) -> ok|error, List) -> ok
+%%  Will fail the test case if there were any errors.
+
+p_run(Test, List) ->
+    S = erlang:system_info(schedulers),
+    N = case test_server:is_cover() of
+	    false ->
+		S + 1;
+	    true ->
+		%% Cover is running. Using too many processes
+		%% could slow us down.
+		min(S, 4)
+	end,
+    %%io:format("p_run: ~p parallel processes\n", [N]),
+    p_run_loop(Test, List, N, [], 0).
+
+p_run_loop(_, [], _, [], Errors) ->
+    case Errors of
+	0 -> ok;
+	N -> ct:fail({N,errors})
+    end;
+p_run_loop(Test, [H|T], N, Refs, Errors) when length(Refs) < N ->
+    {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),
+    p_run_loop(Test, T, N, [Ref|Refs], Errors);
+p_run_loop(Test, List, N, Refs0, Errors0) ->
+    receive
+	{'DOWN',Ref,process,_,Res} ->
+	    Errors = case Res of
+			 ok -> Errors0;
+			 error -> Errors0+1
+		     end,
+	    Refs = Refs0 -- [Ref],
+	    p_run_loop(Test, List, N, Refs, Errors)
+    end.
