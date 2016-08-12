@@ -54,14 +54,10 @@
 	 reinit_handshake_data/1,  handle_sni_extension/2]).
 
 %% Alert and close handling
--export([send_alert/2, handle_own_alert/4, handle_close_alert/3,
-	 handle_normal_shutdown/3, 
-	 close/5, alert_user/6, alert_user/9
-	]).
+-export([send_alert/2, close/5]).
 
 %% Data handling
--export([write_application_data/3, read_application_data/2,
-	 passive_receive/2,  next_record_if_active/1, handle_common_event/4]).
+-export([passive_receive/2, next_record_if_active/1, handle_common_event/4]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -251,7 +247,7 @@ hello(internal, #client_hello{client_version = ClientVersion,
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
         #alert{} = Alert ->
-            handle_own_alert(Alert, ClientVersion, hello, State);
+            ssl_connection:handle_own_alert(Alert, ClientVersion, hello, State);
         {Version, {Type, Session},
 	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
 	    Protocol = case Protocol0 of
@@ -275,7 +271,7 @@ hello(internal, #server_hello{} = Hello,
 	     ssl_options = SslOptions} = State) ->
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, ReqVersion, hello, State);
+	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello, State);
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
 					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
@@ -375,7 +371,7 @@ handle_info({Protocol, _, Data}, StateName,
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
-	    handle_normal_shutdown(Alert, StateName, State0), 
+	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
 	    {stop, {shutdown, own_alert}}
     end;
 handle_info({CloseTag, Socket}, StateName,
@@ -395,14 +391,14 @@ handle_info({CloseTag, Socket}, StateName,
 	    %%invalidate_session(Role, Host, Port, Session)
 	    ok
     end,
-    handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+    ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     {stop, {shutdown, transport_closed}};
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
 
 handle_common_event(internal, #alert{} = Alert, StateName, 
 		    #state{negotiated_version = Version} = State) ->
-    handle_own_alert(Alert, Version, StateName, State);
+    ssl_connection:handle_own_alert(Alert, Version, StateName, State);
 
 %%% TLS record protocol level handshake messages 
 handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
@@ -423,7 +419,7 @@ handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data},
 		{next_state, StateName, State, Events}
 	end
     catch throw:#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State0)
+	    ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
     end;
 %%% TLS record protocol level application data messages 
 handle_common_event(internal, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
@@ -438,12 +434,15 @@ handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, Sta
 	Alerts = [_|_] ->
 	    handle_alerts(Alerts,  {next_state, StateName, State});
 	[] ->
-	    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, empty_alert), Version, StateName, State);
+	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, empty_alert), 
+					    Version, StateName, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State)
+	    ssl_connection:handle_own_alert(Alert, Version, StateName, State)
     catch
 	_:_ ->
-	    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, alert_decode_error), Version, StateName, State)  
+	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, alert_decode_error),
+					    Version, StateName, State)  
+
     end;
 %% Ignore unknown TLS record level protocol messages
 handle_common_event(internal, #ssl_tls{type = _Unknown}, StateName, State) ->
@@ -586,7 +585,7 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
 	    {Record, State} = next_record(State0),
 	    next_event(StateName, Record, State);
 	_ ->
-	    {Record, State} = read_application_data(<<>>, State0),
+	    {Record, State} = ssl_connection:read_application_data(<<>>, State0),
 	    next_event(StateName, Record, State)
     end.
 
@@ -612,164 +611,6 @@ next_event(StateName, Record, State, Actions) ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
 
-read_application_data(Data, #state{user_application = {_Mon, Pid},
-				   socket = Socket,
-				   transport_cb = Transport,
-				   socket_options = SOpts,
-				   bytes_to_read = BytesToRead,
-				   start_or_recv_from = RecvFrom,
-				   timer = Timer,
-				   user_data_buffer = Buffer0,
-				   tracker = Tracker} = State0) ->
-    Buffer1 = if 
-		  Buffer0 =:= <<>> -> Data;
-		  Data =:= <<>> -> Buffer0;
-		  true -> <<Buffer0/binary, Data/binary>>
-	      end,
-    case get_data(SOpts, BytesToRead, Buffer1) of
-	{ok, ClientData, Buffer} -> % Send data
-	    SocketOpt = deliver_app_data(Transport, Socket, SOpts, ClientData, Pid, RecvFrom, Tracker),
-	    cancel_timer(Timer),
-	    State = State0#state{user_data_buffer = Buffer,
-				 start_or_recv_from = undefined,
-				 timer = undefined,
-				 bytes_to_read = undefined,
-				 socket_options = SocketOpt 
-				},
-	    if
-		SocketOpt#socket_options.active =:= false; Buffer =:= <<>> -> 
-		    %% Passive mode, wait for active once or recv
-		    %% Active and empty, get more data
-		    next_record_if_active(State);
-	 	true -> %% We have more data
- 		    read_application_data(<<>>, State)
-	    end;
-	{more, Buffer} -> % no reply, we need more data
-	    next_record(State0#state{user_data_buffer = Buffer});
-	{passive, Buffer} ->
-	    next_record_if_active(State0#state{user_data_buffer = Buffer});
-	{error,_Reason} -> %% Invalid packet in packet mode
-	    deliver_packet_error(Transport, Socket, SOpts, Buffer1, Pid, RecvFrom, Tracker),
-	    {stop, normal, State0}
-    end.
-
-%% Picks ClientData 
-get_data(_, _, <<>>) ->
-    {more, <<>>};
-%% Recv timed out save buffer data until next recv
-get_data(#socket_options{active=false}, undefined, Buffer) ->
-    {passive, Buffer};
-get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer) 
-  when Raw =:= raw; Raw =:= 0 ->   %% Raw Mode
-    if 
-	Active =/= false orelse BytesToRead =:= 0  ->
-	    %% Active true or once, or passive mode recv(0)  
-	    {ok, Buffer, <<>>};
-	byte_size(Buffer) >= BytesToRead ->  
-	    %% Passive Mode, recv(Bytes) 
-	    <<Data:BytesToRead/binary, Rest/binary>> = Buffer,
-	    {ok, Data, Rest};
-	true ->
-	    %% Passive Mode not enough data
-	    {more, Buffer}
-    end;
-get_data(#socket_options{packet=Type, packet_size=Size}, _, Buffer) ->
-    PacketOpts = [{packet_size, Size}], 
-    case decode_packet(Type, Buffer, PacketOpts) of
-	{more, _} ->
-	    {more, Buffer};
-	Decoded ->
-	    Decoded
-    end.
-
-decode_packet({http, headers}, Buffer, PacketOpts) ->
-    decode_packet(httph, Buffer, PacketOpts);
-decode_packet({http_bin, headers}, Buffer, PacketOpts) ->
-    decode_packet(httph_bin, Buffer, PacketOpts);
-decode_packet(Type, Buffer, PacketOpts) ->
-    erlang:decode_packet(Type, Buffer, PacketOpts).
-
-%% Just like with gen_tcp sockets, an ssl socket that has been configured with
-%% {packet, http} (or {packet, http_bin}) will automatically switch to expect
-%% HTTP headers after it sees a HTTP Request or HTTP Response line. We
-%% represent the current state as follows:
-%%    #socket_options.packet =:= http: Expect a HTTP Request/Response line
-%%    #socket_options.packet =:= {http, headers}: Expect HTTP Headers
-%% Note that if the user has explicitly configured the socket to expect
-%% HTTP headers using the {packet, httph} option, we don't do any automatic
-%% switching of states.
-deliver_app_data(Transport, Socket, SOpts = #socket_options{active=Active, packet=Type},
-		 Data, Pid, From, Tracker) ->
-    send_or_reply(Active, Pid, From, format_reply(Transport, Socket, SOpts, Data, Tracker)),
-    SO = case Data of
-	     {P, _, _, _} when ((P =:= http_request) or (P =:= http_response)),
-			       ((Type =:= http) or (Type =:= http_bin)) ->
-	         SOpts#socket_options{packet={Type, headers}};
-	     http_eoh when tuple_size(Type) =:= 2 ->
-                 % End of headers - expect another Request/Response line
-	         {Type1, headers} = Type,
-	         SOpts#socket_options{packet=Type1};
-	     _ ->
-	         SOpts
-	 end,
-    case Active of
-        once ->
-            SO#socket_options{active=false};
-	_ ->
-	    SO
-    end.
-
-format_reply(_, _,#socket_options{active = false, mode = Mode, packet = Packet,
-				  header = Header}, Data, _) ->
-    {ok, do_format_reply(Mode, Packet, Header, Data)};
-format_reply(Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
-						header = Header}, Data, Tracker) ->
-    {ssl, ssl_socket:socket(self(), Transport, Socket, ?MODULE, Tracker), 
-     do_format_reply(Mode, Packet, Header, Data)}.
-
-deliver_packet_error(Transport, Socket, SO= #socket_options{active = Active}, Data, Pid, From, Tracker) ->
-    send_or_reply(Active, Pid, From, format_packet_error(Transport, Socket, SO, Data, Tracker)).
-
-format_packet_error(_, _,#socket_options{active = false, mode = Mode}, Data, _) ->
-    {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
-format_packet_error(Transport, Socket, #socket_options{active = _, mode = Mode}, Data, Tracker) ->
-    {ssl_error, ssl_socket:socket(self(), Transport, Socket, ?MODULE, Tracker), 
-     {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
-
-do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
-    header(N, Data);
-do_format_reply(binary, _, _, Data) ->
-    Data;
-do_format_reply(list, Packet, _, Data)
-  when Packet == http; Packet == {http, headers};
-       Packet == http_bin; Packet == {http_bin, headers};
-       Packet == httph; Packet == httph_bin ->
-    Data;
-do_format_reply(list, _,_, Data) ->
-    binary_to_list(Data).
-
-header(0, <<>>) ->
-    <<>>;
-header(_, <<>>) ->
-    [];
-header(0, Binary) ->
-    Binary;
-header(N, Binary) ->
-    <<?BYTE(ByteN), NewBinary/binary>> = Binary,
-    [ByteN | header(N-1, NewBinary)].
-
-send_or_reply(false, _Pid, From, Data) when From =/= undefined ->
-    gen_statem:reply(From, Data);
-%% Can happen when handling own alert or tcp error/close and there is
-%% no outstanding gen_fsm sync events
-send_or_reply(false, no_pid, _, _) ->
-    ok;
-send_or_reply(_, Pid, _From, Data) ->
-    send_user(Pid, Data).
-
-send_user(Pid, Msg) ->
-    Pid ! Msg.
-
 tls_handshake_events([]) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake));
 tls_handshake_events(Packets) ->
@@ -777,55 +618,7 @@ tls_handshake_events(Packets) ->
 		      {next_event, internal, {handshake, Packet}}
 	      end, Packets).
 
-write_application_data(Data0, From, 
-		       #state{socket = Socket,
-			      negotiated_version = Version,
-			      transport_cb = Transport,
-			      connection_states = ConnectionStates0,
-			      socket_options = SockOpts,
-			      ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}} = State) ->
-    Data = encode_packet(Data0, SockOpts),
-    
-    case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
-	true ->
-	    renegotiate(State#state{renegotiation = {true, internal}}, 
-			[{next_event, {call, From}, {application_data, Data0}}]);
-	false ->
-	    {Msgs, ConnectionStates} = ssl_record:encode_data(Data, Version, ConnectionStates0),
-	    Result = Transport:send(Socket, Msgs),
-	        ssl_connection:hibernate_after(connection, State#state{connection_states = ConnectionStates}, 
-					       [{reply, From, Result}])
-    end.
 
-encode_packet(Data, #socket_options{packet=Packet}) ->
-    case Packet of
-	1 -> encode_size_packet(Data, 8,  (1 bsl 8) - 1);
-	2 -> encode_size_packet(Data, 16, (1 bsl 16) - 1);
-	4 -> encode_size_packet(Data, 32, (1 bsl 32) - 1);
-	_ -> Data
-    end.
-
-encode_size_packet(Bin, Size, Max) ->
-    Len = erlang:byte_size(Bin),
-    case Len > Max of
-	true  -> throw({error, {badarg, {packet_to_large, Len, Max}}});
-	false -> <<Len:Size, Bin/binary>>
-    end.
-
-time_to_renegotiate(_Data, 
-		    #connection_states{current_write = 
-					   #connection_state{sequence_number = Num}}, 
-		    RenegotiateAt) ->
-    
-    %% We could do test:
-    %% is_time_to_renegotiate((erlang:byte_size(_Data) div ?MAX_PLAIN_TEXT_LENGTH) + 1, RenegotiateAt),
-    %% but we chose to have a some what lower renegotiateAt and a much cheaper test 
-    is_time_to_renegotiate(Num, RenegotiateAt).
-
-is_time_to_renegotiate(N, M) when N < M->
-    false;
-is_time_to_renegotiate(_,_) ->
-    true.
 renegotiate(#state{role = client} = State, Actions) ->
     %% Handle same way as if server requested
     %% the renegotiation
@@ -855,131 +648,10 @@ handle_alerts([], Result) ->
 handle_alerts(_, {stop,_} = Stop) ->
     Stop;
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
-     handle_alerts(Alerts, handle_alert(Alert, StateName, State));
+     handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State));
 handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
-     handle_alerts(Alerts, handle_alert(Alert, StateName, State)).
-handle_alert(#alert{level = ?FATAL} = Alert, StateName,
-	     #state{socket = Socket, transport_cb = Transport, 
-		    ssl_options = SslOpts, start_or_recv_from = From, host = Host,
-		    port = Port, session = Session, user_application = {_Mon, Pid},
-		    role = Role, socket_options = Opts, tracker = Tracker}) ->
-    invalidate_session(Role, Host, Port, Session),
-    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
-    alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role),
-    {stop, normal};
+     handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State)).
 
-handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	     StateName, State) -> 
-    handle_normal_shutdown(Alert, StateName, State),
-    {stop, {shutdown, peer_close}};
-
-handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{ssl_options = SslOpts, renegotiation = {true, internal}} = State) ->
-    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
-    handle_normal_shutdown(Alert, StateName, State),
-    {stop, {shutdown, peer_close}};
-
-handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{ssl_options = SslOpts, renegotiation = {true, From}} = State0) ->
-    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
-    gen_statem:reply(From, {error, renegotiation_rejected}),
-    {Record, State} = next_record(State0),
-    %% Go back to connection!
-    next_event(connection, Record, State);
-
-%% Gracefully log and ignore all other warning alerts
-handle_alert(#alert{level = ?WARNING} = Alert, StateName,
-	     #state{ssl_options = SslOpts} = State0) ->
-    log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
-    {Record, State} = next_record(State0),
-    next_event(StateName, Record, State).
-
-alert_user(Transport, Tracker, Socket, connection, Opts, Pid, From, Alert, Role) ->
-    alert_user(Transport, Tracker, Socket, Opts#socket_options.active, Pid, From, Alert, Role);
-alert_user(Transport, Tracker, Socket,_, _, _, From, Alert, Role) ->
-    alert_user(Transport, Tracker, Socket, From, Alert, Role).
-
-alert_user(Transport, Tracker, Socket, From, Alert, Role) ->
-    alert_user(Transport, Tracker, Socket, false, no_pid, From, Alert, Role).
-
-alert_user(_, _, _, false = Active, Pid, From,  Alert, Role) when From =/= undefined ->
-    %% If there is an outstanding ssl_accept | recv
-    %% From will be defined and send_or_reply will
-    %% send the appropriate error message.
-    ReasonCode = ssl_alert:reason_code(Alert, Role),
-    send_or_reply(Active, Pid, From, {error, ReasonCode});
-alert_user(Transport, Tracker, Socket, Active, Pid, From, Alert, Role) ->
-    case ssl_alert:reason_code(Alert, Role) of
-	closed ->
-	    send_or_reply(Active, Pid, From,
-			  {ssl_closed, ssl_socket:socket(self(), 
-							 Transport, Socket, ?MODULE, Tracker)});
-	ReasonCode ->
-	    send_or_reply(Active, Pid, From,
-			  {ssl_error, ssl_socket:socket(self(), 
-							Transport, Socket, ?MODULE, Tracker), ReasonCode})
-    end.
-
-log_alert(true, Info, Alert) ->
-    Txt = ssl_alert:alert_txt(Alert),
-    error_logger:format("SSL: ~p: ~s\n", [Info, Txt]);
-log_alert(false, _, _) ->
-    ok.
-
-handle_own_alert(Alert, Version, StateName, 
-		 #state{transport_cb = Transport,
-			socket = Socket,
-			connection_states = ConnectionStates,
-			ssl_options = SslOpts} = State) ->
-    try %% Try to tell the other side
-	{BinMsg, _} =
-	ssl_alert:encode(Alert, Version, ConnectionStates),
-	Transport:send(Socket, BinMsg)
-    catch _:_ ->  %% Can crash if we are in a uninitialized state
-	    ignore
-    end,
-    try %% Try to tell the local user
-	log_alert(SslOpts#ssl_options.log_alert, StateName, Alert),
-	handle_normal_shutdown(Alert,StateName, State)
-    catch _:_ ->
-	    ok
-    end,
-    {stop, {shutdown, own_alert}}.
-
-handle_normal_shutdown(Alert, _, #state{socket = Socket,
-					transport_cb = Transport,
-					start_or_recv_from = StartFrom,
-					tracker = Tracker,
-					role = Role, renegotiation = {false, first}}) ->
-    alert_user(Transport, Tracker,Socket, StartFrom, Alert, Role);
-
-handle_normal_shutdown(Alert, StateName, #state{socket = Socket,
-						socket_options = Opts,
-						transport_cb = Transport,
-						user_application = {_Mon, Pid},
-						tracker = Tracker,
-						start_or_recv_from = RecvFrom, role = Role}) ->
-    alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role).
-
-handle_close_alert(Data, StateName, State0) ->
-    case next_tls_record(Data, State0) of
-	{#ssl_tls{type = ?ALERT, fragment = EncAlerts}, State} ->
-	    [Alert|_] = decode_alerts(EncAlerts),
-	    handle_normal_shutdown(Alert, StateName, State);
-	_ ->
-	    ok
-    end.
-
-cancel_timer(undefined) ->
-    ok;
-cancel_timer(Timer) ->
-    erlang:cancel_timer(Timer),
-    ok.
-
-invalidate_session(client, Host, Port, Session) ->
-    ssl_manager:invalidate_session(Host, Port, Session);
-invalidate_session(server, _, Port, Session) ->
-    ssl_manager:invalidate_session(Port, Session).
 
 %% User closes or recursive call!
 close({close, Timeout}, Socket, Transport = gen_tcp, _,_) ->

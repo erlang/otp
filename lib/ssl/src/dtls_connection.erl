@@ -58,8 +58,6 @@
 	 read_application_data/2,
 	 passive_receive/2,  next_record_if_active/1%, 
 	 %%handle_common_event/4,
-	 %handle_packet/3
-	]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -241,7 +239,7 @@ hello(internal, #client_hello{client_version = ClientVersion,
     case dtls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, ClientVersion, hello, State);
+	   ssl_connection:handle_own_alert(Alert, ClientVersion, hello, State);
 	{Version, {Type, Session},
 	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
 	    Protocol = case Protocol0 of
@@ -265,7 +263,7 @@ hello(internal, #server_hello{} = Hello,
 	     ssl_options = SslOptions} = State) ->
     case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, ReqVersion, hello, State);
+	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello, State);
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
 					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
@@ -344,7 +342,7 @@ handle_info({Protocol, _, Data}, StateName,
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
-	    handle_normal_shutdown(Alert, StateName, State0), 
+	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
 	    {stop, {shutdown, own_alert}}
      end;
 handle_info({CloseTag, Socket}, StateName,
@@ -364,7 +362,7 @@ handle_info({CloseTag, Socket}, StateName,
 	    %%invalidate_session(Role, Host, Port, Session)
 	    ok
     end,
-    handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+    ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
     {stop, {shutdown, transport_closed}};
 handle_info(Msg, StateName, State) ->
     ssl_connection:handle_info(Msg, StateName, State).
@@ -471,8 +469,8 @@ finish_pack_records({[], Acc}) ->
 finish_pack_records({Buf, Acc}) ->
     lists:reverse([lists:reverse(Buf)|Acc]).
 
-%% decode_alerts(Bin) ->
-%%     ssl_alert:decode(Bin).
+decode_alerts(Bin) ->
+    ssl_alert:decode(Bin).
 
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
@@ -560,7 +558,7 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
 	    {Record, State} = next_record(State0),
 	    next_event(StateName, Record, State);
 	_ ->
-	    {Record, State} = read_application_data(<<>>, State0),
+	    {Record, State} = ssl_connection:read_application_data(<<>>, State0),
 	    next_event(StateName, Record, State)
     end.
 
