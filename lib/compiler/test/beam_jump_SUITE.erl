@@ -21,7 +21,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 undefined_label/1]).
+	 undefined_label/1,ambiguous_catch_try_state/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -32,7 +32,8 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [undefined_label
+      [undefined_label,
+       ambiguous_catch_try_state
       ]}].
 
 init_per_suite(Config) ->
@@ -57,3 +58,17 @@ flights(0, [], []) when [], 0; 0.0, [], false ->
     clark;
 flights(_, Reproduction, introduction) when false, Reproduction ->
     responsible.
+
+%% [ERL-209] beam_jump would share 'catch' blocks, causing an
+%% ambiguous_catch_try_state error in beam_validator.
+
+ambiguous_catch_try_state(_Config) ->
+    {{'EXIT',{{case_clause,song},_}},{'EXIT',{{case_clause,song},_}}} =
+	checks(42),
+    ok.
+
+river() -> song.
+
+checks(Wanted) ->
+    %% Must be one line to cause the unsafe optimization.
+    {catch case river() of sheet -> begin +Wanted, if "da" -> Wanted end end end, catch case river() of sheet -> begin + Wanted, if "da" -> Wanted end end end}.

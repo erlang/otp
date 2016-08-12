@@ -167,10 +167,16 @@ share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
     end;
 share_1([{func_info,_,_,_}=I|Is], _, [], Acc) ->
     reverse(Is, [I|Acc]);
+share_1([{'catch',_,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
 share_1([{'try',_,_}=I|Is], Dict0, Seq, Acc) ->
     Dict = clean_non_sharable(Dict0),
     share_1(Is, Dict, [I|Seq], Acc);
 share_1([{try_case,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
+share_1([{catch_end,_}=I|Is], Dict0, Seq, Acc) ->
     Dict = clean_non_sharable(Dict0),
     share_1(Is, Dict, [I|Seq], Acc);
 share_1([I|Is], Dict, Seq, Acc) ->
@@ -182,18 +188,18 @@ share_1([I|Is], Dict, Seq, Acc) ->
     end.
 
 clean_non_sharable(Dict) ->
-    %% We are passing in or out of a 'try' block. Remove
-    %% sequences that should not shared over the boundaries
-    %% of a 'try' block. Since the end of the sequence must match,
-    %% the only possible match between a sequence outside and
-    %% a sequence inside the 'try' block is a sequence that ends
-    %% with an instruction that causes an exception. Any sequence
-    %% that causes an exception must contain a line/1 instruction.
+    %% We are passing in or out of a 'catch' or 'try' block. Remove
+    %% sequences that should not be shared over the boundaries of the
+    %% block. Since the end of the sequence must match, the only
+    %% possible match between a sequence outside and a sequence inside
+    %% the 'catch'/'try' block is a sequence that ends with an
+    %% instruction that causes an exception. Any sequence that causes
+    %% an exception must contain a line/1 instruction.
     maps:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
 
 sharable_with_try([{line,_}|_]) ->
     %% This sequence may cause an exception and may potentially
-    %% match a sequence on the other side of the 'try' block
+    %% match a sequence on the other side of the 'catch'/'try' block
     %% boundary.
     false;
 sharable_with_try([_|Is]) ->
