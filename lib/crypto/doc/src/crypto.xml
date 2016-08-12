@@ -41,6 +41,9 @@
         <p>Hmac functions - <url href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication (RFC 2104) </url></p>
       </item>
       <item>
+        <p>Cmac functions - <url href="http://www.ietf.org/rfc/rfc4493.txt">The AES-CMAC Algorithm (RFC 4493)</url></p>
+      </item>
+      <item>
         <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
         Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
       </item>
