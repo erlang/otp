@@ -597,7 +597,7 @@ next_event(connection = StateName, no_record, State0, Actions) ->
 	{no_record, State} ->
 	    ssl_connection:hibernate_after(StateName, State, Actions);
 	{#ssl_tls{} = Record, State} ->
-	    {next_state, StateName, State, [{next_event, internal, {tls_record, Record}} | Actions]};
+	    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
 	{#alert{} = Alert, State} ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end;
@@ -606,7 +606,7 @@ next_event(StateName, Record, State, Actions) ->
 	no_record ->
 	    {next_state, StateName, State, Actions};
 	#ssl_tls{} = Record ->
-	    {next_state, StateName, State, [{next_event, internal, {tls_record, Record}} | Actions]};
+	    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
 	#alert{} = Alert ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.

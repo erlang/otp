@@ -47,17 +47,12 @@
 	 send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
 
 %% Alert and close handling
--export([%%send_alert/2, handle_own_alert/4, handle_close_alert/3,
-	 handle_normal_shutdown/3 %%, close/5
-	 %%alert_user/6, alert_user/9
-	]).
+%%-export([%%send_alert/2, close/5]).
 
 %% Data handling
 
--export([%%write_application_data/3, 
-	 read_application_data/2,
-	 passive_receive/2,  next_record_if_active/1%, 
-	 %%handle_common_event/4,
+-export([passive_receive/2,  next_record_if_active/1, handle_common_event/4
+	]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -370,6 +365,51 @@ handle_info(Msg, StateName, State) ->
 handle_call(Event, From, StateName, State) ->
     ssl_connection:handle_call(Event, From, StateName, State, ?MODULE).
 
+handle_common_event(internal, #alert{} = Alert, StateName, 
+		    #state{negotiated_version = Version} = State) ->
+    ssl_connection:handle_own_alert(Alert, Version, StateName, State);
+
+%%% DTLS record protocol level handshake messages 
+handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE} = Record, 
+		    StateName, 
+		    #state{protocol_buffers =
+			       #protocol_buffers{dtls_packets = Packets0,
+						 dtls_fragment_state = HsState0} = Buffers,
+			   negotiated_version = Version} = State0) ->
+    try
+	{Packets1, HsState} = dtls_handshake:get_dtls_handshake(Record, HsState0),
+	State =
+	    State0#state{protocol_buffers =
+			     Buffers#protocol_buffers{dtls_fragment_state = HsState}},
+	Events = dtls_handshake_events(Packets0 ++ Packets1),
+	case StateName of
+	    connection ->
+		ssl_connection:hibernate_after(StateName, State, Events);
+	    _ ->
+		{next_state, StateName, State, Events}
+	end
+    catch throw:#alert{} = Alert ->
+	    ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
+    end;
+%%% DTLS record protocol level application data messages 
+handle_common_event(internal, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
+    {next_state, StateName, State, [{next_event, internal, {application_data, Data}}]};
+%%% DTLS record protocol level change cipher messages
+handle_common_event(internal, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
+    {next_state, StateName, State, [{next_event, internal, #change_cipher_spec{type = Data}}]};
+%%% DTLS record protocol level Alert messages
+handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
+		    #state{negotiated_version = Version} = State) ->
+    case decode_alerts(EncAlerts) of
+	Alerts = [_|_] ->
+	    handle_alerts(Alerts,  {next_state, StateName, State});
+	#alert{} = Alert ->
+	    ssl_connection:handle_own_alert(Alert, Version, StateName, State)
+    end;
+%% Ignore unknown TLS record level protocol messages
+handle_common_event(internal, #ssl_tls{type = _Unknown}, StateName, State) ->
+    {next_state, StateName, State}.
+
 %%--------------------------------------------------------------------
 %% Description:This function is called by a gen_fsm when it is about
 %% to terminate. It should be the opposite of Module:init/1 and do any
@@ -392,6 +432,15 @@ format_status(Type, Data) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+dtls_handshake_events([]) ->
+    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake));
+dtls_handshake_events(Packets) ->
+    lists:map(fun(Packet) ->
+		      {next_event, internal, {handshake, Packet}}
+	      end, Packets).
+
+
 encode_handshake(Handshake, Version, ConnectionStates0, Hist0) ->
     {Seq, ConnectionStates} = sequence(ConnectionStates0),
     {EncHandshake, Frag} = dtls_handshake:encode_handshake(Handshake, Version, Seq),
@@ -570,7 +619,7 @@ next_event(connection = StateName, no_record, State0, Actions) ->
 	{no_record, State} ->
 	    ssl_connection:hibernate_after(StateName, State, Actions);
 	{#ssl_tls{} = Record, State} ->
-	    {next_state, StateName, State, [{next_event, internal, {dtls_record, Record}} | Actions]};
+	    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
 	{#alert{} = Alert, State} ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end;
@@ -579,19 +628,10 @@ next_event(StateName, Record, State, Actions) ->
 	no_record ->
 	    {next_state, StateName, State, Actions};
 	#ssl_tls{} = Record ->
-	    {next_state, StateName, State, [{next_event, internal, {dtls_record, Record}} | Actions]};
+	    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
 	#alert{} = Alert ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
-
-read_application_data(_,State) ->
-    {#ssl_tls{fragment = <<"place holder">>}, State}.
-
-handle_own_alert(_,_,_, State) -> %% Place holder
-    {stop, {shutdown, own_alert}, State}.
-
-handle_normal_shutdown(_, _, _State) -> %% Place holder
-    ok.
 
 %% TODO This generates dialyzer warnings, has to be handled differently.
 %% handle_packet(Address, Port, Packet) ->
@@ -643,3 +683,12 @@ handle_normal_shutdown(_, _, _State) -> %% Place holder
 
 sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
     {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.
+
+handle_alerts([], Result) ->
+    Result;
+handle_alerts(_, {stop,_} = Stop) ->
+    Stop;
+handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
+     handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State));
+handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
+     handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State)).
