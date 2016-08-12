@@ -57,7 +57,7 @@ generations of breakpoints are kept and indentified by index of 0 and
 1. The global atomic variables `erts_active_bp_index` will determine
 which generation of breakpoints running code will use.
 
-### Atomicy Without Atomic Operations
+### Atomicity Without Atomic Operations
 
 Not using the code loading generations (or any other code duplication)
 means that `trace_pattern` must at some point write to the active beam
