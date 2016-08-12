@@ -129,6 +129,13 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_CHECK_TOOL(LD, [ld])
 
+_search_path=/bin:/usr/bin:/usr/local/bin:$PATH
+
+AC_PATH_PROG(ENV, [env], false, $_search_path)
+if test "$ac_cv_path_ENV" = false; then
+  AC_MSG_ERROR([No 'env' command found])
+fi
+
 #
 # We need GNU make, complain if we can't find it
 #

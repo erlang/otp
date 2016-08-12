@@ -166,7 +166,7 @@ release_docs_spec: docs
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html/java/$(JAVA_PKG_PATH)"
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	(/bin/cp -rf  ../html "$(RELSYSDIR)/doc")
+	($(CP) -rf  ../html "$(RELSYSDIR)/doc")
 
 #	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTML_FILES) \
 #		"$(RELSYSDIR)/doc/html"
