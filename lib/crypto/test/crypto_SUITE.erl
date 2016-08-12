@@ -152,6 +152,14 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(info, Config) ->
     Config;
+init_per_testcase(cmac, Config) ->
+    case crypto:info_lib() of
+        [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer > 16#10001000 ->
+            Config;
+        _Else ->
+            % The CMAC functionality was introduced in OpenSSL 1.0.1
+            {skip, "OpenSSL is too old"}
+    end;
 init_per_testcase(_Name,Config) ->
     Config.
 
