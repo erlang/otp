@@ -32,6 +32,29 @@
   <p>This document describes the changes made to the ERTS application.</p>
 
 
+<section><title>Erts 8.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race that could cause a lost wakeup of a process
+	    that timed out in a <c>receive ... after</c>. This bug
+	    was introduced in ERTS version 7.0.</p>
+          <p>
+	    Own Id: OTP-13798 Aux Id: OTP-11997 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed segfault after writing an erl crash dump.</p>
+          <p>
+	    Own Id: OTP-13799</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
