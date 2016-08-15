@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@
  * DB_FINE_LOCKED set. The table variable is_thread_safe will then indicate
  * if operations need to obtain fine grained locks or not. Some operations
  * will for example always use exclusive table lock to guarantee
- * a higher level of atomicy.
+ * a higher level of atomicity.
  */
 
 /*
@@ -552,11 +552,6 @@ hash_to_ix(DbTableNestedHash *tb, HashValue hval)
     return ix;
 }
 
-#define EQ_REL(x, y, y_base)                    \
-    (is_same(x, NULL, y, y_base)                \
-     || (is_not_both_immed((x), (y))            \
-         && eq_rel((x), NULL, (y), y_base)))
-
 /*
  * Has this object the specified key? Can be pseudo-deleted.
  */
@@ -573,7 +568,7 @@ has_key(DbTableNestedHash *tb, RootDbTerm *rp1, Eterm key, HashValue hval)
         : rp2->dt.dbterm.tpl;
     itemKey = GETKEY(tb, base);
     ASSERT(!is_header(itemKey));
-    return EQ_REL(key, itemKey, base);
+    return EQ(key, itemKey);
 }
 
 static ERTS_INLINE TrunkDbTerm *
@@ -808,7 +803,6 @@ create_stage_3_root(DbTableNestedHash *tb, RootDbTerm *rp2)
 {
     int nitems = 0;
     Eterm object;
-    Eterm *base;
     DbTerm *dbterm = NULL;
     TrunkDbTerm *tp1, *tp2, *tp3;
     TrunkDbTerm **tpp;
@@ -819,10 +813,9 @@ create_stage_3_root(DbTableNestedHash *tb, RootDbTerm *rp2)
     do {
         if (tb->common.compress) {
             dbterm = db_alloc_tmp_uncompressed(&tb->common, &tp2->dbterm);
-            object = make_tuple_rel(dbterm->tpl, NULL);
+            object = make_tuple(dbterm->tpl);
         } else {
-            base = HALFWORD_HEAP ? tp2->dbterm.tpl : NULL;
-            object = make_tuple_rel(tp2->dbterm.tpl, base);
+            object = make_tuple(tp2->dbterm.tpl);
         }
         *tpp = new_trunk_dbterm(tb, object, 1);
         if (tp1 == NULL) {
@@ -933,7 +926,6 @@ static RootDbTerm *
 create_stage_2_root(DbTableNestedHash *tb, RootDbTerm *rp2, RootDbTerm *rp3)
 {
     Eterm object;
-    Eterm *base;
     DbTerm *dbterm;
     RootDbTerm *nrp, *rp1;
     TrunkDbTerm *tp;
@@ -949,12 +941,11 @@ create_stage_2_root(DbTableNestedHash *tb, RootDbTerm *rp2, RootDbTerm *rp3)
         ASSERT(nrp->hvalue == rp2->hvalue);
         if (tb->common.compress) {
             dbterm = db_alloc_tmp_uncompressed(&tb->common, &rp2->dt.dbterm);
-            object = make_tuple_rel(dbterm->tpl, NULL);
+            object = make_tuple(dbterm->tpl);
             tp = new_trunk_dbterm(tb, object, 0);
             db_free_tmp_uncompressed(dbterm);
         } else {
-            base = HALFWORD_HEAP ? rp2->dt.dbterm.tpl : NULL;
-            object = make_tuple_rel(rp2->dt.dbterm.tpl, base);
+            object = make_tuple(rp2->dt.dbterm.tpl);
             tp = new_trunk_dbterm(tb, object, 0);
         }
         *tpp = MAKE_TRUNK(tp, 0);
@@ -1794,17 +1785,14 @@ db_match_dbterm_nhash(DbTableNestedHash *tb, Process *c_p, Binary *bprog,
 {
     Uint32 dummy;
     Eterm res;
-    Eterm *base;
     if (tb->common.compress) {
 	*uncomp_dbterm = dbterm =
             db_alloc_tmp_uncompressed(&tb->common, dbterm);
-	base = NULL;
     } else {
         *uncomp_dbterm = NULL;
-        base = HALFWORD_HEAP ? dbterm->tpl : NULL;
     }
-    *object = make_tuple_rel(dbterm->tpl, base);
-    res = db_prog_match(c_p, bprog, *object, base, NULL, 0,
+    *object = make_tuple(dbterm->tpl);
+    res = db_prog_match(c_p, c_p, bprog, *object, NULL, 0,
                         ERTS_PAM_COPY_RESULT | ERTS_PAM_CONTIGUOUS_TUPLE,
                         &dummy);
     return res == am_true;
@@ -2657,7 +2645,7 @@ db_select_chunk_nhash(Process *p, DbTable *tbl, Eterm pattern,
         }
     }
     match_list = rest = NIL;
-    rest_tail = NULL;
+    match_tail = rest_tail = NULL;
     rp2 = ROOT_PTR(rp1);
     if (HAS_TAIL(rp1))
         tp = TRUNK_PTR(rp2->dt.tail.trunk);
@@ -3803,7 +3791,7 @@ db_delete_all_objects_nhash(Process *p, DbTable *tbl)
  * Display hash table contents (for dump)
  */
 static void
-db_print_nhash(int to, void *to_arg, int show, DbTable *tbl)
+db_print_nhash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
 {
     int i;
     Eterm key, obj;
@@ -3853,19 +3841,19 @@ db_print_nhash(int to, void *to_arg, int show, DbTable *tbl)
             if (HAS_TAIL(rp1)) {
                 if (tb->common.compress) {
                     key = GETKEY(tb, tp->dbterm.tpl);
-                    erts_print(to, to_arg, "key=%R", key, tp->dbterm.tpl);
+                    erts_print(to, to_arg, "key=%T", key);
                 } else {
-                    obj = make_tuple_rel(tp->dbterm.tpl, tp->dbterm.tpl);
-                    erts_print(to, to_arg, "%R", obj, tp->dbterm.tpl);
+                    obj = make_tuple(tp->dbterm.tpl);
+                    erts_print(to, to_arg, "%T", obj);
                 }
                 NEXT_DBTERM_2(rp1, rp2, tp);
             } else {
                 if (tb->common.compress) {
                     key = GETKEY(tb, rp2->dt.dbterm.tpl);
-                    erts_print(to, to_arg, "key=%R", key, rp2->dt.dbterm.tpl);
+                    erts_print(to, to_arg, "key=%T", key);
                 } else {
-                    obj = make_tuple_rel(rp2->dt.dbterm.tpl, tp->dbterm.tpl);
-                    erts_print(to, to_arg, "%R", obj, rp2->dt.dbterm.tpl);
+                    obj = make_tuple(rp2->dt.dbterm.tpl);
+                    erts_print(to, to_arg, "%T", obj);
                 }
                 NEXT_DBTERM_1(rp1, rp2, tp);
             }
