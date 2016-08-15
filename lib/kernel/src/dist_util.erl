@@ -143,7 +143,11 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
     ChallengeB = recv_challenge_reply(HSData, ChallengeA, MyCookie),
     send_challenge_ack(HSData, gen_digest(ChallengeB, HisCookie)),
     ?debug({dist_util, self(), accept_connection, Node}),
-    connection(HSData).
+    connection(HSData);
+
+handshake_other_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
+    handshake_other_started(convert_old_hsdata(OldHsData)).
+
 
 %%
 %% check if connecting node is allowed to connect
@@ -330,7 +334,20 @@ handshake_we_started(#hs_data{request_type=ReqType,
 			 gen_digest(ChallengeA,HisCookie)),
     reset_timer(NewHSData#hs_data.timer),
     recv_challenge_ack(NewHSData, MyChallenge, MyCookie),
-    connection(NewHSData).
+    connection(NewHSData);
+
+handshake_we_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
+    handshake_we_started(convert_old_hsdata(OldHsData)).
+
+convert_old_hsdata({hs_data, KP, ON, TN, S, T, TF, A, OV, OF, OS, FS, FR,
+		    FS_PRE, FS_POST, FG, FA, MFT, MFG, RT}) ->
+    #hs_data{
+       kernel_pid = KP, other_node = ON, this_node = TN, socket = S, timer = T,
+       this_flags = TF, allowed = A, other_version = OV, other_flags = OF,
+       other_started = OS, f_send = FS, f_recv = FR, f_setopts_pre_nodeup = FS_PRE,
+       f_setopts_post_nodeup = FS_POST, f_getll = FG, f_address = FA,
+       mf_tick = MFT, mf_getstat = MFG, request_type = RT}.
+
 
 %% --------------------------------------------------------------
 %% The connection has been established.
