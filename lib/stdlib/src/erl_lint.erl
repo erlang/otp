@@ -27,7 +27,7 @@
 
 -export([module/1,module/2,module/3,format_error/1]).
 -export([exprs/2,exprs_opt/3,used_vars/2]). % Used from erl_eval.erl.
--export([is_pattern_expr/1,is_guard_test/1,is_guard_test/2]).
+-export([is_pattern_expr/1,is_guard_test/1,is_guard_test/2,is_guard_test/3]).
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
@@ -1769,7 +1769,8 @@ bit_size({atom,_Line,all}, _Vt, St, _Check) -> {all,[],St};
 bit_size(Size, Vt, St, Check) ->
     %% Try to safely evaluate Size if constant to get size,
     %% otherwise just treat it as an expression.
-    case is_gexpr(Size, St#lint.records) of
+    Info = is_guard_test2_info(St),
+    case is_gexpr(Size, Info) of
         true ->
             case erl_eval:partial_eval(Size) of
                 {integer,_ILn,I} -> {I,[],St};
@@ -2004,77 +2005,104 @@ gexpr_list(Es, Vt, St) ->
 
 %% is_guard_test(Expression) -> boolean().
 %%  Test if a general expression is a guard test.
+%%
+%%  Note: Only use this function in contexts where there can be
+%%  no definition of a local function that may override a guard BIF
+%%  (for example, in the shell).
 -spec is_guard_test(Expr) -> boolean() when
       Expr :: erl_parse:abstract_expr().
 
 is_guard_test(E) ->
-    is_guard_test2(E, dict:new()).
+    is_guard_test2(E, {dict:new(),fun(_) -> false end}).
 
 %% is_guard_test(Expression, Forms) -> boolean().
 is_guard_test(Expression, Forms) ->
+    is_guard_test(Expression, Forms, fun(_) -> false end).
+
+
+%% is_guard_test(Expression, Forms, IsOverridden) -> boolean().
+%%  Test if a general expression is a guard test.
+%%
+%%  IsOverridden({Name,Arity}) should return 'true' if Name/Arity is
+%%  a local or imported function in the module. If the abstract code has
+%%  passed through erl_expand_records, any call without an explicit
+%%  module is to a local function, so IsOverridden can be defined as:
+%%
+%%    fun(_) -> true end
+%%
+-spec is_guard_test(Expr, Forms, IsOverridden) -> boolean() when
+      Expr :: erl_parse:abstract_expr(),
+      Forms :: [erl_parse:abstract_form() | erl_parse:form_info()],
+      IsOverridden :: fun((fa()) -> boolean()).
+
+is_guard_test(Expression, Forms, IsOverridden) ->
     RecordAttributes = [A || A = {attribute, _, record, _D} <- Forms],
     St0 = foldl(fun(Attr0, St1) ->
                         Attr = set_file(Attr0, "none"),
                         attribute_state(Attr, St1)
                 end, start(), RecordAttributes),
-    is_guard_test2(set_file(Expression, "nofile"), St0#lint.records).
+    is_guard_test2(set_file(Expression, "nofile"),
+		   {St0#lint.records,IsOverridden}).
 
 %% is_guard_test2(Expression, RecordDefs :: dict:dict()) -> boolean().
-is_guard_test2({call,Line,{atom,Lr,record},[E,A]}, RDs) ->
-    is_gexpr({call,Line,{atom,Lr,is_record},[E,A]}, RDs);
-is_guard_test2({call,_Line,{atom,_La,Test},As}=Call, RDs) ->
-    case erl_internal:type_test(Test, length(As)) of
-        true -> is_gexpr_list(As, RDs);
-        false -> is_gexpr(Call, RDs)
-    end;
-is_guard_test2(G, RDs) ->
+is_guard_test2({call,Line,{atom,Lr,record},[E,A]}, Info) ->
+    is_gexpr({call,Line,{atom,Lr,is_record},[E,A]}, Info);
+is_guard_test2({call,_Line,{atom,_La,Test},As}=Call, {_,IsOverridden}=Info) ->
+    A = length(As),
+    not IsOverridden({Test,A}) andalso
+	case erl_internal:type_test(Test, A) of
+	    true -> is_gexpr_list(As, Info);
+	    false -> is_gexpr(Call, Info)
+	end;
+is_guard_test2(G, Info) ->
     %%Everything else is a guard expression.
-    is_gexpr(G, RDs).
+    is_gexpr(G, Info).
 
 %% is_guard_expr(Expression) -> boolean().
 %%  Test if an expression is a guard expression.
 
 is_guard_expr(E) -> is_gexpr(E, []).
 
-is_gexpr({var,_L,_V}, _RDs) -> true;
-is_gexpr({char,_L,_C}, _RDs) -> true;
-is_gexpr({integer,_L,_I}, _RDs) -> true;
-is_gexpr({float,_L,_F}, _RDs) -> true;
-is_gexpr({atom,_L,_A}, _RDs) -> true;
-is_gexpr({string,_L,_S}, _RDs) -> true;
-is_gexpr({nil,_L}, _RDs) -> true;
-is_gexpr({cons,_L,H,T}, RDs) -> is_gexpr_list([H,T], RDs);
-is_gexpr({tuple,_L,Es}, RDs) -> is_gexpr_list(Es, RDs);
-%%is_gexpr({struct,_L,_Tag,Es}, RDs) ->
-%%    is_gexpr_list(Es, RDs);
-is_gexpr({record_index,_L,_Name,Field}, RDs) ->
-    is_gexpr(Field, RDs);
-is_gexpr({record_field,_L,Rec,_Name,Field}, RDs) ->
-    is_gexpr_list([Rec,Field], RDs);
-is_gexpr({record,L,Name,Inits}, RDs) ->
-    is_gexpr_fields(Inits, L, Name, RDs);
-is_gexpr({bin,_L,Fs}, RDs) ->
+is_gexpr({var,_L,_V}, _Info) -> true;
+is_gexpr({char,_L,_C}, _Info) -> true;
+is_gexpr({integer,_L,_I}, _Info) -> true;
+is_gexpr({float,_L,_F}, _Info) -> true;
+is_gexpr({atom,_L,_A}, _Info) -> true;
+is_gexpr({string,_L,_S}, _Info) -> true;
+is_gexpr({nil,_L}, _Info) -> true;
+is_gexpr({cons,_L,H,T}, Info) -> is_gexpr_list([H,T], Info);
+is_gexpr({tuple,_L,Es}, Info) -> is_gexpr_list(Es, Info);
+%%is_gexpr({struct,_L,_Tag,Es}, Info) ->
+%%    is_gexpr_list(Es, Info);
+is_gexpr({record_index,_L,_Name,Field}, Info) ->
+    is_gexpr(Field, Info);
+is_gexpr({record_field,_L,Rec,_Name,Field}, Info) ->
+    is_gexpr_list([Rec,Field], Info);
+is_gexpr({record,L,Name,Inits}, Info) ->
+    is_gexpr_fields(Inits, L, Name, Info);
+is_gexpr({bin,_L,Fs}, Info) ->
     all(fun ({bin_element,_Line,E,Sz,_Ts}) ->
-                is_gexpr(E, RDs) and (Sz =:= default orelse is_gexpr(Sz, RDs))
+                is_gexpr(E, Info) and (Sz =:= default orelse is_gexpr(Sz, Info))
         end, Fs);
-is_gexpr({call,_L,{atom,_Lf,F},As}, RDs) ->
+is_gexpr({call,_L,{atom,_Lf,F},As}, {_,IsOverridden}=Info) ->
     A = length(As),
-    erl_internal:guard_bif(F, A) andalso is_gexpr_list(As, RDs);
-is_gexpr({call,_L,{remote,_Lr,{atom,_Lm,erlang},{atom,_Lf,F}},As}, RDs) ->
+    not IsOverridden({F,A}) andalso erl_internal:guard_bif(F, A)
+	andalso is_gexpr_list(As, Info);
+is_gexpr({call,_L,{remote,_Lr,{atom,_Lm,erlang},{atom,_Lf,F}},As}, Info) ->
     A = length(As),
     (erl_internal:guard_bif(F, A) orelse is_gexpr_op(F, A))
-        andalso is_gexpr_list(As, RDs);
-is_gexpr({call,L,{tuple,Lt,[{atom,Lm,erlang},{atom,Lf,F}]},As}, RDs) ->
-    is_gexpr({call,L,{remote,Lt,{atom,Lm,erlang},{atom,Lf,F}},As}, RDs);
-is_gexpr({op,_L,Op,A}, RDs) ->
-    is_gexpr_op(Op, 1) andalso is_gexpr(A, RDs);
-is_gexpr({op,_L,'andalso',A1,A2}, RDs) ->
-    is_gexpr_list([A1,A2], RDs);
-is_gexpr({op,_L,'orelse',A1,A2}, RDs) ->
-    is_gexpr_list([A1,A2], RDs);
-is_gexpr({op,_L,Op,A1,A2}, RDs) ->
-    is_gexpr_op(Op, 2) andalso is_gexpr_list([A1,A2], RDs);
-is_gexpr(_Other, _RDs) -> false.
+        andalso is_gexpr_list(As, Info);
+is_gexpr({call,L,{tuple,Lt,[{atom,Lm,erlang},{atom,Lf,F}]},As}, Info) ->
+    is_gexpr({call,L,{remote,Lt,{atom,Lm,erlang},{atom,Lf,F}},As}, Info);
+is_gexpr({op,_L,Op,A}, Info) ->
+    is_gexpr_op(Op, 1) andalso is_gexpr(A, Info);
+is_gexpr({op,_L,'andalso',A1,A2}, Info) ->
+    is_gexpr_list([A1,A2], Info);
+is_gexpr({op,_L,'orelse',A1,A2}, Info) ->
+    is_gexpr_list([A1,A2], Info);
+is_gexpr({op,_L,Op,A1,A2}, Info) ->
+    is_gexpr_op(Op, 2) andalso is_gexpr_list([A1,A2], Info);
+is_gexpr(_Other, _Info) -> false.
 
 is_gexpr_op(Op, A) ->
     try erl_internal:op_type(Op, A) of
@@ -2086,14 +2114,14 @@ is_gexpr_op(Op, A) ->
     catch _:_ -> false
     end.
 
-is_gexpr_list(Es, RDs) -> all(fun (E) -> is_gexpr(E, RDs) end, Es).
+is_gexpr_list(Es, Info) -> all(fun (E) -> is_gexpr(E, Info) end, Es).
 
-is_gexpr_fields(Fs, L, Name, RDs) ->
+is_gexpr_fields(Fs, L, Name, {RDs,_}=Info) ->
     IFs = case dict:find(Name, RDs) of
               {ok,{_Line,Fields}} -> Fs ++ init_fields(Fs, L, Fields);
               error  -> Fs
           end,
-    all(fun ({record_field,_Lf,_Name,V}) -> is_gexpr(V, RDs);
+    all(fun ({record_field,_Lf,_Name,V}) -> is_gexpr(V, Info);
             (_Other) -> false end, IFs).
 
 %% exprs(Sequence, VarTable, State) ->
@@ -3197,13 +3225,20 @@ lc_quals([{b_generate,_Line,P,E} | Qs], Vt0, Uvt0, St0) ->
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St1),
     lc_quals(Qs, Vt, Uvt, St);
 lc_quals([F|Qs], Vt, Uvt, St0) ->
-    {Fvt,St1} = case is_guard_test2(F, St0#lint.records) of
+    Info = is_guard_test2_info(St0),
+    {Fvt,St1} = case is_guard_test2(F, Info) of
 		    true -> guard_test(F, Vt, St0);
 		    false -> expr(F, Vt, St0)
 		end,
     lc_quals(Qs, vtupdate(Fvt, Vt), Uvt, St1);
 lc_quals([], Vt, Uvt, St) ->
     {Vt, Uvt, St}.
+
+is_guard_test2_info(#lint{records=RDs,locals=Locals,imports=Imports}) ->
+    {RDs,fun(FA) ->
+		 is_local_function(Locals, FA) orelse
+		     is_imported_function(Imports, FA)
+	 end}.
 
 handle_generator(P,E,Vt,Uvt,St0) ->
     {Evt,St1} = expr(E, Vt, St0),
