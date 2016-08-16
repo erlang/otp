@@ -403,12 +403,11 @@ other_output(Config) when is_list(Config) ->
 	       end],
 
     io:put_chars("to_exp (file)"),
-    {ok,simple,Expand} = compile:file(Simple, [to_exp,binary,time]),
-    case Expand of
-	{simple,Exports,Forms} when is_list(Exports), is_list(Forms) -> ok
-    end,
+    {ok,[],Expand} = compile:file(Simple, [to_exp,binary,time]),
+    true = is_list(Expand),
+    {attribute,_,module,simple} = lists:keyfind(module, 3, Expand),
     io:put_chars("to_exp (forms)"),
-    {ok,simple,Expand} = compile:forms(PP, [to_exp,binary,time]),
+    {ok,[],Expand} = compile:forms(PP, [to_exp,binary,time]),
 
     io:put_chars("to_core (file)"),
     {ok,simple,Core} = compile:file(Simple, [to_core,binary,time]),
