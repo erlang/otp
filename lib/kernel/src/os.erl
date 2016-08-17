@@ -279,15 +279,11 @@ get_data(Port, MonRef, Eot, Sofar) ->
                 Last ->
                     Port ! {self(), close},
                     flush_until_closed(Port),
+                    flush_exit(Port),
                     iolist_to_binary([Sofar, Last])
             end;
         {'DOWN', MonRef, _, _ , _} ->
-	    receive
-		{'EXIT',  Port,  _} ->
-		    ok
-	    after 1 ->				% force context switch
-		    ok
-	    end,
+	    flush_exit(Port),
 	    iolist_to_binary(Sofar)
     end.
 
@@ -306,4 +302,12 @@ flush_until_closed(Port) ->
             flush_until_closed(Port);
         {Port, closed} ->
             true
+    end.
+
+flush_exit(Port) ->
+    receive
+        {'EXIT',  Port,  _} ->
+            ok
+    after 1 ->				% force context switch
+            ok
     end.
