@@ -582,7 +582,7 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
 	_ ->
-	    Error = {bad_return_value,Result},
+	    Error = {bad_return_from_init,Result},
 	    proc_lib:init_ack(Starter, {error,Error}),
 	    exit(Error)
     end.
@@ -656,11 +656,11 @@ format_status(
 
 print_event(Dev, {in,Event}, {Name,_}) ->
     io:format(
-      Dev, "*DBG* ~p received ~s~n",
+      Dev, "*DBG* ~p receive ~s~n",
       [Name,event_string(Event)]);
 print_event(Dev, {out,Reply,{To,_Tag}}, {Name,_}) ->
     io:format(
-      Dev, "*DBG* ~p sent ~p to ~p~n",
+      Dev, "*DBG* ~p send ~p to ~p~n",
       [Name,Reply,To]);
 print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
     StateString =
@@ -992,7 +992,9 @@ loop_event_result(
 	      State, Data, P, Event, State, Actions);
 	_ ->
 	    terminate(
-	      error, {bad_return_value,Result}, ?STACKTRACE(),
+	      error,
+	      {bad_return_from_state_function,Result},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, Data, P)
     end.
 
@@ -1029,7 +1031,9 @@ loop_event_actions(
 		      Postpone, Hibernate, Timeout, NextEvents);
 		false ->
 		    terminate(
-		      error, {bad_action,Action}, ?STACKTRACE(),
+		      error,
+		      {bad_action_from_state_function,Action},
+		      ?STACKTRACE(),
 		      Debug, S, [Event|Events], State, NewData, P)
 	    end;
 	{next_event,Type,Content} ->
@@ -1042,7 +1046,9 @@ loop_event_actions(
 		      [{Type,Content}|NextEvents]);
 		false ->
 		    terminate(
-		      error, {bad_action,Action}, ?STACKTRACE(),
+		      error,
+		      {bad_action_from_state_function,Action},
+		      ?STACKTRACE(),
 		      Debug, S, [Event|Events], State, NewData, P)
 	    end;
 	%% Actions that set options
@@ -1053,7 +1059,9 @@ loop_event_actions(
 	      NewPostpone, Hibernate, Timeout, NextEvents);
 	{postpone,_} ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P);
 	postpone ->
 	    loop_event_actions(
@@ -1067,7 +1075,9 @@ loop_event_actions(
 	      Postpone, NewHibernate, Timeout, NextEvents);
 	{hibernate,_} ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P);
 	hibernate ->
 	    loop_event_actions(
@@ -1086,7 +1096,9 @@ loop_event_actions(
 	      Postpone, Hibernate, NewTimeout, NextEvents);
 	{timeout,_,_} ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P);
 	infinity -> % Clear timer - it will never trigger
 	    loop_event_actions(
@@ -1101,7 +1113,9 @@ loop_event_actions(
 	      Postpone, Hibernate, NewTimeout, NextEvents);
 	_ ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P)
     end;
 %%
@@ -1173,7 +1187,9 @@ do_reply_then_terminate(
 	      NewDebug, S, Q, State, Data, P, Rs);
 	_ ->
 	    terminate(
-	      error, {bad_action,R}, ?STACKTRACE(),
+	      error,
+	      {bad_reply_action_from_state_function,R},
+	      ?STACKTRACE(),
 	      Debug, S, Q, State, Data, P)
     end.
 
