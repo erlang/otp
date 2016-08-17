@@ -25,7 +25,7 @@
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
-         perf_counter_api/1]).
+         message_leak/1, perf_counter_api/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -36,7 +36,8 @@ suite() ->
 all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
-     large_output_command, background_command, perf_counter_api].
+     large_output_command, background_command, message_leak,
+     perf_counter_api].
 
 groups() ->
     [].
@@ -283,6 +284,23 @@ background_command(_Config) ->
     %% This testcase fails when the os:cmd takes
     %% longer then the 5 second timeout
     os:cmd("sleep 10&").
+
+%% Test that message does not leak to the calling process
+message_leak(_Config) ->
+    process_flag(trap_exit, true),
+
+    os:cmd("echo hello"),
+    [] = receive_all(),
+
+    case os:type() of
+        {unix, _} ->
+            os:cmd("while true; do echo hello; done&"),
+            [] = receive_all();
+        _ ->
+            ok % Cannot background on non-unix
+    end,
+
+    process_flag(trap_exit, false).
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->

@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When calling os:cmd from a process that has set trap_exit
+	    to true an 'EXIT' message would be left in the message
+	    queue. This bug was introduced in kernel vsn 5.0.1.</p>
+          <p>
+	    Own Id: OTP-13813</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
