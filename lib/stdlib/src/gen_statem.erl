@@ -557,9 +557,15 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 	Result ->
 	    init_result(Starter, Parent, ServerRef, Module, Result, Opts);
 	Class:Reason ->
+	    Stacktrace = erlang:get_stacktrace(),
+	    Name = gen:get_proc_name(ServerRef),
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
-	    erlang:raise(Class, Reason, erlang:get_stacktrace())
+	    error_info(
+	      Class, Reason, Stacktrace,
+	      #{name => Name, callback_mode => undefined},
+	      [], [], undefined),
+	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
 %%---------------------------------------------------------------------------
@@ -582,8 +588,14 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
 	_ ->
+	    Name = gen:get_proc_name(ServerRef),
+	    gen:unregister_name(ServerRef),
 	    Error = {bad_return_from_init,Result},
 	    proc_lib:init_ack(Starter, {error,Error}),
+	    error_info(
+	      error, Error, ?STACKTRACE(),
+	      #{name => Name, callback_mode => undefined},
+	      [], [], undefined),
 	    exit(Error)
     end.
 
@@ -837,31 +849,6 @@ loop_events_done(Parent, Debug, S, Timer, State, Data, P, Hibernate) ->
 
 loop_event(
   Parent, Debug,
-  #{callback_mode := undefined,
-    module := Module} = S,
-  Events,
-  State, Data, P, Event, Hibernate) ->
-    %% Cache the callback_mode() value
-    case
-	try Module:callback_mode()
-	catch
-	    Result -> Result
-	end
-    of
-	CallbackMode ->
-	    case callback_mode(CallbackMode) of
-		true ->
-		    loop_event(
-		      Parent, Debug,
-		      S#{callback_mode := CallbackMode},
-		      Events,
-		      State, Data, P, Event, Hibernate);
-		false ->
-		    error({callback_mode,CallbackMode})
-	    end
-    end;
-loop_event(
-  Parent, Debug,
   #{callback_mode := CallbackMode,
     module := Module} = S,
   Events,
@@ -878,22 +865,36 @@ loop_event(
     %%
     try
 	case CallbackMode of
+	    undefined ->
+		Module:callback_mode();
 	    state_functions ->
-		Module:State(Type, Content, Data);
+		erlang:apply(Module, State, [Type,Content,Data]);
 	    handle_event_function ->
 		Module:handle_event(Type, Content, State, Data)
-	end of
+	end
+    of
+	Result when CallbackMode =:= undefined ->
+	    loop_event_callback_mode(
+	      Parent, Debug, S, Events, State, Data, P, Event, Result);
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, State, Data, P, Event, Result)
     catch
+	Result when CallbackMode =:= undefined ->
+	    loop_event_callback_mode(
+	      Parent, Debug, S, Events, State, Data, P, Event, Result);
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, State, Data, P, Event, Result);
-	error:badarg when CallbackMode =:= state_functions ->
+	error:badarg ->
 	    case erlang:get_stacktrace() of
-		[{erlang,apply,[Module,State,_],_}|Stacktrace] ->
-		    Args = [Type,Content,Data],
+		[{erlang,apply,
+		  [Module,State,[Type,Content,Data]=Args],
+		  _}
+		 |Stacktrace]
+		  when CallbackMode =:= state_functions ->
+		    %% We get here e.g if apply fails
+		    %% due to State not being an atom
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
@@ -905,24 +906,29 @@ loop_event(
 		      Debug, S, [Event|Events], State, Data, P)
 	    end;
 	error:undef ->
-	    %% Process an undef to check for the simple mistake
+	    %% Process undef to check for the simple mistake
 	    %% of calling a nonexistent state function
+	    %% to make the undef more precise
 	    case erlang:get_stacktrace() of
-		[{Module,State,
-		  [Type,Content,Data]=Args,
-		  _}
+		[{Module,callback_mode,[]=Args,_}
 		 |Stacktrace]
-		when CallbackMode =:= state_functions ->
+		  when CallbackMode =:= undefined ->
+		    terminate(
+		      error,
+		      {undef_callback,{Module,callback_mode,Args}},
+		      Stacktrace,
+		      Debug, S, [Event|Events], State, Data, P);
+		[{Module,State,[Type,Content,Data]=Args,_}
+		 |Stacktrace]
+		  when CallbackMode =:= state_functions ->
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
 		      Stacktrace,
 		      Debug, S, [Event|Events], State, Data, P);
-		[{Module,handle_event,
-		  [Type,Content,State,Data]=Args,
-		  _}
+		[{Module,handle_event,[Type,Content,State,Data]=Args,_}
 		 |Stacktrace]
-		when CallbackMode =:= handle_event_function ->
+		  when CallbackMode =:= handle_event_function ->
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,handle_event,Args}},
@@ -937,6 +943,25 @@ loop_event(
 	    Stacktrace = erlang:get_stacktrace(),
 	    terminate(
 	      Class, Reason, Stacktrace,
+	      Debug, S, [Event|Events], State, Data, P)
+    end.
+
+%% Interpret callback_mode() result
+loop_event_callback_mode(
+  Parent, Debug, S, Events, State, Data, P, Event, CallbackMode) ->
+    case callback_mode(CallbackMode) of
+	true ->
+	    Hibernate = false, % We have already GC:ed recently
+	    loop_event(
+	      Parent, Debug,
+	      S#{callback_mode := CallbackMode},
+	      Events,
+	      State, Data, P, Event, Hibernate);
+	false ->
+	    terminate(
+	      error,
+	      {bad_return_from_callback_mode,CallbackMode},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, Data, P)
     end.
 
@@ -1208,8 +1233,9 @@ terminate(
 	C:R ->
 	    ST = erlang:get_stacktrace(),
 	    error_info(
-	      C, R, ST, Debug, S, Q, P,
+	      C, R, ST, S, Q, P,
 	      format_status(terminate, get(), S, State, Data)),
+	    sys:print_log(Debug),
 	    erlang:raise(C, R, ST)
     end,
     case Reason of
@@ -1218,8 +1244,9 @@ terminate(
 	{shutdown,_} -> ok;
 	_ ->
 	    error_info(
-	      Class, Reason, Stacktrace, Debug, S, Q, P,
-	      format_status(terminate, get(), S, State, Data))
+	      Class, Reason, Stacktrace, S, Q, P,
+	      format_status(terminate, get(), S, State, Data)),
+	    sys:print_log(Debug)
     end,
     case Stacktrace of
 	[] ->
@@ -1229,7 +1256,7 @@ terminate(
     end.
 
 error_info(
-  Class, Reason, Stacktrace, Debug,
+  Class, Reason, Stacktrace,
   #{name := Name, callback_mode := CallbackMode},
   Q, P, FmtData) ->
     {FixedReason,FixedStacktrace} =
@@ -1296,9 +1323,7 @@ error_info(
 	  case FixedStacktrace of
 	      [] -> [];
 	      _ -> [FixedStacktrace]
-	  end),
-    sys:print_log(Debug),
-    ok.
+	  end).
 
 
 %% Call Module:format_status/2 or return a default value
