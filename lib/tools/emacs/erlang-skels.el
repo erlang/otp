@@ -499,6 +499,7 @@ Please see the function `tempo-define-template'.")
     "%%                     {stop, Reason}" n
     (erlang-skel-separator-end 2)
     "init([]) ->" n>
+    "process_flag(trap_exit, true)," n>
     "{ok, #state{}}." n
     n
     (erlang-skel-separator-start 2)
@@ -742,6 +743,7 @@ Please see the function `tempo-define-template'.")
     "%%                     {stop, StopReason}" n
     (erlang-skel-separator-end 2)
     "init([]) ->" n>
+    "process_flag(trap_exit, true)," n>
     "{ok, state_name, #state{}}." n
     n
     (erlang-skel-separator-start 2)
@@ -919,6 +921,7 @@ Please see the function `tempo-define-template'.")
     "ignore |" n>
     "{stop, Reason :: term()}." n
     "init([]) ->" n>
+    "process_flag(trap_exit, true)," n>
     "{ok, state_name, #data{}}." n
     n
     (erlang-skel-separator-start 2)
@@ -1029,6 +1032,7 @@ Please see the function `tempo-define-template'.")
     "ignore |" n>
     "{stop, Reason :: term()}." n
     "init([]) ->" n>
+    "process_flag(trap_exit, true)," n>
     "{ok, state_name, #data{}}." n
     n
     (erlang-skel-separator-start 2)
