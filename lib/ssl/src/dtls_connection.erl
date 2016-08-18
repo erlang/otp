@@ -42,7 +42,7 @@
 -export([next_record/1, next_event/3]).
 
 %% Handshake handling
--export([%%renegotiate/2, 
+-export([renegotiate/2, 
 	 reinit_handshake_data/1, 
 	 send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
 
@@ -683,6 +683,25 @@ next_event(StateName, Record, State, Actions) ->
 
 sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
     {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.
+
+renegotiate(#state{role = client} = State, Actions) ->
+    %% Handle same way as if server requested
+    %% the renegotiation
+    Hs0 = ssl_handshake:init_handshake_history(),
+    {next_state, connection, State#state{tls_handshake_history = Hs0,
+					 protocol_buffers = #protocol_buffers{}},
+     [{next_event, internal, #hello_request{}} | Actions]};
+
+renegotiate(#state{role = server,
+		   connection_states = CS0} = State0, Actions) ->
+    HelloRequest = ssl_handshake:hello_request(),
+    State1 = send_handshake(HelloRequest, 
+			    State0#state{connection_states =
+					     CS0#connection_states{dtls_write_msg_seq = 0}}),
+    Hs0 = ssl_handshake:init_handshake_history(),
+    {Record, State} = next_record(State1#state{tls_handshake_history = Hs0,
+					       protocol_buffers = #protocol_buffers{}}),
+    next_event(hello, Record, State, Actions).
 
 handle_alerts([], Result) ->
     Result;
