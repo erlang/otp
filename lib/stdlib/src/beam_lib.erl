@@ -55,7 +55,7 @@
 
 -type beam() :: module() | file:filename() | binary().
 
--type forms()     :: [erl_parse:abstract_form()].
+-type forms()     :: [erl_parse:abstract_form() | erl_parse:form_info()].
 
 -type abst_code() :: {AbstVersion :: atom(), forms()} | 'no_abstract_code'.
 -type dataB()     :: binary().
