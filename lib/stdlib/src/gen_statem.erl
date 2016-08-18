@@ -666,14 +666,14 @@ format_status(
 %% them, not as the real erlang messages.  Use trace for that.
 %%---------------------------------------------------------------------------
 
-print_event(Dev, {in,Event}, {Name,_}) ->
+print_event(Dev, {in,Event}, {Name,State}) ->
     io:format(
-      Dev, "*DBG* ~p receive ~s~n",
-      [Name,event_string(Event)]);
-print_event(Dev, {out,Reply,{To,_Tag}}, {Name,_}) ->
+      Dev, "*DBG* ~p receive ~s in state ~p~n",
+      [Name,event_string(Event),State]);
+print_event(Dev, {out,Reply,{To,_Tag}}, {Name,State}) ->
     io:format(
-      Dev, "*DBG* ~p send ~p to ~p~n",
-      [Name,Reply,To]);
+      Dev, "*DBG* ~p send ~p to ~p from state ~p~n",
+      [Name,Reply,To,State]);
 print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
     StateString =
 	case NextState of
@@ -1064,8 +1064,10 @@ loop_event_actions(
 	{next_event,Type,Content} ->
 	    case event_type(Type) of
 		true ->
+		    NewDebug =
+			sys_debug(Debug, S, State, {in,{Type,Content}}),
 		    loop_event_actions(
-		      Parent, Debug, S, Events,
+		      Parent, NewDebug, S, Events,
 		      State, NewData, P, Event, NextState, Actions,
 		      Postpone, Hibernate, Timeout,
 		      [{Type,Content}|NextEvents]);
