@@ -47,7 +47,7 @@
 	 send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
 
 %% Alert and close handling
-%%-export([%%send_alert/2, close/5]).
+-export([send_alert/2, close/5]).
 
 %% Data handling
 
@@ -132,6 +132,12 @@ send_alert(Alert, #state{negotiated_version = Version,
 	ssl_alert:encode(Alert, Version, ConnectionStates0),
     Transport:send(Socket, BinMsg),
     State0#state{connection_states = ConnectionStates}.
+
+close(downgrade, _,_,_,_) ->
+    ok;
+%% Other
+close(_, Socket, Transport, _,_) ->
+    Transport:close(Socket).
 
 reinit_handshake_data(#state{protocol_buffers = Buffers} = State) ->
     State#state{premaster_secret = undefined,
