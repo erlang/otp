@@ -55,7 +55,7 @@
 %%   When stop is returned in one of the functions above with Reason =
 %% normal | shutdown | Term, terminate(State) is called. It lets the
 %% user module clean up, it is always called when server terminates or
-%% when wxObject() in the driver is deleted. If the Parent process
+%% when wx_object() in the driver is deleted. If the Parent process
 %% terminates the Module:terminate/2 function is called. <br/>
 %% terminate(Reason, State)
 %%
@@ -171,58 +171,59 @@
 
 
 %%  -----------------------------------------------------------------
-%% @spec (Mod, Args, Options) -> wxWindow:wxWindow() 
-%%   Mod = atom() 
-%%   Args = term()
-%%   Options = [{timeout, Timeout} | {debug, [Flag]}]
-%%   Flag = trace | log | {logfile, File} | statistics | debug
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-spec start(Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()} when
+      Mod::atom(),
+      Args::term(),
+      Flag::trace | log | {logfile, string()} | statistics | debug,
+      Options::[{timeout, timeout()} | {debug, [Flag]}].
 start(Mod, Args, Options) ->
     gen_response(gen:start(?MODULE, nolink, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
-	    
-%% @spec (Name, Mod, Args, Options) -> wxWindow:wxWindow() 
-%%   Name = {local, atom()}
-%%   Mod = atom() 
-%%   Args = term()
-%%   Options = [{timeout, Timeout} | {debug, [Flag]}]
-%%   Flag = trace | log | {logfile, File} | statistics | debug
+
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-spec start(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
+      Name::{local, atom()},
+      Mod::atom(),
+      Args::term(),
+      Flag::trace | log | {logfile, string()} | statistics | debug,
+      Options::[{timeout, timeout()} | {debug, [Flag]}].
 start(Name, Mod, Args, Options) ->
     gen_response(gen:start(?MODULE, nolink, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
 
-%% @spec (Mod, Args, Options) -> wxWindow:wxWindow() 
-%%   Mod = atom() 
-%%   Args = term()
-%%   Options = [{timeout, Timeout} | {debug, [Flag]}]
-%%   Flag = trace | log | {logfile, File} | statistics | debug
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-spec start_link(Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
+      Mod::atom(),
+      Args::term(),
+      Flag::trace | log | {logfile, string()} | statistics | debug,
+      Options::[{timeout, timeout()} | {debug, [Flag]}].
 start_link(Mod, Args, Options) ->
     gen_response(gen:start(?MODULE, link, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
 
-%% @spec (Name, Mod, Args, Options) -> wxWindow:wxWindow() 
-%%   Name = {local, atom()}
-%%   Mod = atom() 
-%%   Args = term()
-%%   Options = [{timeout, Timeout} | {debug, [Flag]}]
-%%   Flag = trace | log | {logfile, File} | statistics | debug
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-spec start_link(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
+      Name::{local, atom()},
+      Mod::atom(),
+      Args::term(),
+      Flag::trace | log | {logfile, string()} | statistics | debug,
+      Options::[{timeout, timeout()} | {debug, [Flag]}].
 start_link(Name, Mod, Args, Options) ->
     gen_response(gen:start(?MODULE, link, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
-    
+
 gen_response({ok, Pid}) ->
     receive {ack, Pid, Ref = #wx_ref{}} -> Ref end;
 gen_response(Reply) ->
     Reply.
 
-%% @spec (Ref::wxObject()|atom()|pid()) -> ok
 %% @doc Stops a generic wx_object server with reason 'normal'.
 %% Invokes terminate(Reason,State) in the server. The call waits until
 %% the process is terminated. If the process does not exist, an
 %% exception is raised.
+-spec stop(Obj) -> ok when
+      Obj::wx:wx_object()|atom()|pid().
 stop(Ref = #wx_ref{state=Pid}) when is_pid(Pid) ->
     try
 	gen:stop(Pid)
@@ -236,11 +237,14 @@ stop(Name) when is_atom(Name) orelse is_pid(Name) ->
 	    erlang:error({ExitReason, {?MODULE, stop, [Name]}})
     end.
 
-%% @spec (Ref::wxObject()|atom()|pid(), Reason::term(), Timeout::timeout()) -> ok
 %% @doc Stops a generic wx_object server with the given Reason.
 %% Invokes terminate(Reason,State) in the server. The call waits until
 %% the process is terminated. If the call times out, or if the process
 %% does not exist, an exception is raised.
+-spec stop(Obj, Reason, Timeout) -> ok when
+      Obj::wx:wx_object()|atom()|pid(),
+      Reason::term(),
+      Timeout::timeout().
 stop(Ref = #wx_ref{state=Pid}, Reason, Timeout) when is_pid(Pid) ->
     try
 	gen:stop(Pid, Reason, Timeout)
@@ -254,12 +258,14 @@ stop(Name, Reason, Timeout) when is_atom(Name) orelse is_pid(Name) ->
 	    erlang:error({ExitReason, {?MODULE, stop, [Name, Reason, Timeout]}})
     end.
 
-%% @spec (Ref::wxObject()|atom()|pid(), Request::term()) -> term()
 %% @doc Make a call to a wx_object server.
 %% The call waits until it gets a result.
 %% Invokes handle_call(Request, From, State) in the server
+-spec call(Obj, Request) -> term() when
+      Obj::wx:wx_object()|atom()|pid(),
+      Request::term().
 call(Ref = #wx_ref{state=Pid}, Request) when is_pid(Pid) ->
-    try 
+    try
 	{ok,Res} = gen:call(Pid, '$gen_call', Request, infinity),
 	Res
     catch _:Reason ->
@@ -272,10 +278,13 @@ call(Name, Request) when is_atom(Name)  orelse is_pid(Name) ->
     catch _:Reason ->
             erlang:error({Reason, {?MODULE, call, [Name, Request]}})
     end.
-    
-%% @spec (Ref::wxObject()|atom()|pid(), Request::term(), Timeout::integer()) -> term()
+
 %% @doc Make a call to a wx_object server with a timeout.
 %% Invokes handle_call(Request, From, State) in server
+-spec call(Obj, Request, Timeout) -> term() when
+      Obj::wx:wx_object()|atom()|pid(),
+      Request::term(),
+      Timeout::integer().
 call(Ref = #wx_ref{state=Pid}, Request, Timeout) when is_pid(Pid) ->
     try
 	{ok,Res} = gen:call(Pid, '$gen_call', Request, Timeout),
@@ -291,10 +300,11 @@ call(Name, Request, Timeout) when is_atom(Name) orelse is_pid(Name) ->
             erlang:error({Reason, {?MODULE, call, [Name, Request, Timeout]}})
     end.
 
-%% @spec (Ref::wxObject()|atom()|pid(), Request::term()) -> ok
 %% @doc Make a cast to a wx_object server.
 %% Invokes handle_cast(Request, State) in the server
-
+-spec cast(Obj, Request) -> ok when
+      Obj::wx:wx_object()|atom()|pid(),
+      Request::term().
 cast(#wx_ref{state=Pid}, Request) when is_pid(Pid) ->
     Pid ! {'$gen_cast',Request},
     ok;
@@ -302,21 +312,23 @@ cast(Name, Request) when is_atom(Name) orelse is_pid(Name) ->
     Name ! {'$gen_cast',Request},
     ok.
 
-%% @spec (Ref::wxObject()) -> pid()
 %% @doc Get the pid of the object handle.
+-spec get_pid(Obj) -> pid() when
+      Obj::wx:wx_object()|atom()|pid().
 get_pid(#wx_ref{state=Pid}) when is_pid(Pid) ->
     Pid.
 
-%% @spec (Ref::wxObject(), pid()) -> wxObject()
 %% @doc Sets the controlling process of the object handle.
+-spec set_pid(Obj, pid()) -> wx:wx_object() when
+      Obj::wx:wx_object()|atom()|pid().
 set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
     R#wx_ref{state=Pid}.
 
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
-%% @spec (From::tuple(), Reply::term()) -> pid()
 %% @doc Get the pid of the object handle.
+-spec reply({pid(), Tag::term()}, Reply::term()) -> pid().
 reply({To, Tag}, Reply) ->
     catch To ! {Tag, Reply}.
 
