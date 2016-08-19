@@ -67,6 +67,7 @@ int load_native_gui()
 int start_native_gui(wxe_data *sd)
 {
   int res;
+  ErlDrvThreadOpts *opts = NULL;
   wxe_status_m = erl_drv_mutex_create((char *) "wxe_status_m");
   wxe_status_c = erl_drv_cond_create((char *)"wxe_status_c");
 
@@ -78,8 +79,11 @@ int start_native_gui(wxe_data *sd)
   res = erl_drv_steal_main_thread((char *)"wxwidgets",
 				  &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL);
 #else
+  opts = erl_drv_thread_opts_create((char *)"wx thread");
+  opts->suggested_stack_size = 8192;
   res = erl_drv_thread_create((char *)"wxwidgets",
-			      &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL);
+			      &wxe_thread,wxe_main_loop,(void *) sd->pdl,opts);
+  erl_drv_thread_opts_destroy(opts);
 #endif
   if(res == 0) {
     erl_drv_mutex_lock(wxe_status_m);
