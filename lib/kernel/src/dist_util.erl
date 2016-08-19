@@ -143,7 +143,11 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
     ChallengeB = recv_challenge_reply(HSData, ChallengeA, MyCookie),
     send_challenge_ack(HSData, gen_digest(ChallengeB, HisCookie)),
     ?debug({dist_util, self(), accept_connection, Node}),
-    connection(HSData).
+    connection(HSData);
+
+handshake_other_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
+    handshake_other_started(convert_old_hsdata(OldHsData)).
+
 
 %%
 %% check if connecting node is allowed to connect
@@ -330,7 +334,20 @@ handshake_we_started(#hs_data{request_type=ReqType,
 			 gen_digest(ChallengeA,HisCookie)),
     reset_timer(NewHSData#hs_data.timer),
     recv_challenge_ack(NewHSData, MyChallenge, MyCookie),
-    connection(NewHSData).
+    connection(NewHSData);
+
+handshake_we_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
+    handshake_we_started(convert_old_hsdata(OldHsData)).
+
+convert_old_hsdata({hs_data, KP, ON, TN, S, T, TF, A, OV, OF, OS, FS, FR,
+		    FS_PRE, FS_POST, FG, FA, MFT, MFG, RT}) ->
+    #hs_data{
+       kernel_pid = KP, other_node = ON, this_node = TN, socket = S, timer = T,
+       this_flags = TF, allowed = A, other_version = OV, other_flags = OF,
+       other_started = OS, f_send = FS, f_recv = FR, f_setopts_pre_nodeup = FS_PRE,
+       f_setopts_post_nodeup = FS_POST, f_getll = FG, f_address = FA,
+       mf_tick = MFT, mf_getstat = MFG, request_type = RT}.
+
 
 %% --------------------------------------------------------------
 %% The connection has been established.
@@ -350,15 +367,15 @@ connection(#hs_data{other_node = Node,
 	    mark_nodeup(HSData,Address),
 	    case FPostNodeup(Socket) of
 		ok ->
-		    con_loop(HSData#hs_data.kernel_pid, 
-			     Node, 
-			     Socket, 
-			     Address,
-			     HSData#hs_data.this_node, 
-			     PType,
-			     #tick{},
-			     HSData#hs_data.mf_tick,
-			     HSData#hs_data.mf_getstat);
+		    con_loop({HSData#hs_data.kernel_pid,
+			      Node,
+			      Socket,
+			      PType,
+			      HSData#hs_data.mf_tick,
+			      HSData#hs_data.mf_getstat,
+			      HSData#hs_data.mf_setopts,
+			      HSData#hs_data.mf_getopts},
+			     #tick{});
 		_ ->
 		    ?shutdown2(Node, connection_setup_failed)
 	    end;
@@ -454,8 +471,8 @@ mark_nodeup(#hs_data{kernel_pid = Kernel,
 	    ?shutdown(Node)
     end.
 
-con_loop(Kernel, Node, Socket, TcpAddress,
-	 MyNode, Type, Tick, MFTick, MFGetstat) ->
+con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=ConData,
+	 Tick) ->
     receive
 	{tcp_closed, Socket} ->
 	    ?shutdown2(Node, connection_closed);
@@ -468,15 +485,12 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 		_ ->
 		    ignore_it
 	    end,
-	    con_loop(Kernel, Node, Socket, TcpAddress, MyNode, Type,
-		     Tick, MFTick, MFGetstat);
+	    con_loop(ConData, Tick);
 	{Kernel, tick} ->
 	    case send_tick(Socket, Tick, Type, 
 			   MFTick, MFGetstat) of
 		{ok, NewTick} ->
-		    con_loop(Kernel, Node, Socket, TcpAddress,
-			     MyNode, Type, NewTick, MFTick,  
-			     MFGetstat);
+		    con_loop(ConData, NewTick);
 		{error, not_responding} ->
  		    error_msg("** Node ~p not responding **~n"
  			      "** Removing (timedout) connection **~n",
@@ -489,13 +503,24 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 	    case MFGetstat(Socket) of
 		{ok, Read, Write, _} ->
 		    From ! {self(), get_status, {ok, Read, Write}},
-		    con_loop(Kernel, Node, Socket, TcpAddress, 
-			     MyNode, 
-			     Type, Tick, 
-			     MFTick, MFGetstat);
+		    con_loop(ConData, Tick);
 		_ ->
 		    ?shutdown2(Node, get_status_failed)
-	    end
+	    end;
+	{From, Ref, {setopts, Opts}} ->
+	    Ret = case MFSetOpts of
+		      undefined -> {error, enotsup};
+		      _ -> MFSetOpts(Socket, Opts)
+		  end,
+	    From ! {Ref, Ret},
+	    con_loop(ConData, Tick);
+	{From, Ref, {getopts, Opts}} ->
+	    Ret = case MFGetOpts of
+		      undefined -> {error, enotsup};
+		      _ -> MFGetOpts(Socket, Opts)
+		  end,
+	    From ! {Ref, Ret},
+	    con_loop(ConData, Tick)
     end.
 
 

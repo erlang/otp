@@ -25,6 +25,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
+	 setopts/1,
 	 table_waste/1, net_setuptime/1,
 	 inet_dist_options_options/1,
 
@@ -42,6 +43,8 @@
 -export([get_socket_priorities/0,
 	 tick_cli_test/1, tick_cli_test1/1,
 	 tick_serv_test/2, tick_serv_test1/1,
+	 run_remote_test/1,
+	 setopts_do/2,
 	 keep_conn/1, time_ping/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -66,6 +69,7 @@ suite() ->
 
 all() -> 
     [tick, tick_change, illegal_nodenames, hidden_node,
+     setopts,
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes}].
 
@@ -281,6 +285,165 @@ tick_cli_test1(Node) ->
 		    end
 	    end
     end.
+
+setopts(Config) when is_list(Config) ->
+    register(setopts_regname, self()),
+    [N1,N2,N3,N4] = get_nodenames(4, setopts),
+
+    {_N1F,Port1} = start_node_unconnected(N1, ?MODULE, run_remote_test,
+					["setopts_do", atom_to_list(node()), "1", "ping"]),
+    0 = wait_for_port_exit(Port1),
+
+    {_N2F,Port2} = start_node_unconnected(N2, ?MODULE, run_remote_test,
+				 ["setopts_do", atom_to_list(node()), "2", "ping"]),
+    0 = wait_for_port_exit(Port2),
+
+    {ok, LSock} = gen_tcp:listen(0, [{packet,2}, {active,false}]),
+    {ok, LTcpPort} = inet:port(LSock),
+
+    {N3F,Port3} = start_node_unconnected(N3, ?MODULE, run_remote_test,
+					["setopts_do", atom_to_list(node()),
+					 "1", integer_to_list(LTcpPort)]),
+    wait_and_connect(LSock, N3F, Port3),
+    0 = wait_for_port_exit(Port3),
+
+    {N4F,Port4} = start_node_unconnected(N4, ?MODULE, run_remote_test,
+					["setopts_do", atom_to_list(node()),
+					 "2", integer_to_list(LTcpPort)]),
+    wait_and_connect(LSock, N4F, Port4),
+    0 = wait_for_port_exit(Port4),
+
+    ok.
+
+wait_and_connect(LSock, NodeName, NodePort) ->
+    {ok, Sock} = gen_tcp:accept(LSock),
+    {ok, "Connect please"} = gen_tcp:recv(Sock, 0),
+    flush_from_port(NodePort),
+    pong = net_adm:ping(NodeName),
+    gen_tcp:send(Sock, "Connect done"),
+    gen_tcp:close(Sock).
+
+
+flush_from_port(Port) ->
+    flush_from_port(Port, 10).
+
+flush_from_port(Port, Timeout) ->
+    receive
+	{Port,{data,String}} ->
+	    io:format("~p: ~s\n", [Port, String]),
+	    flush_from_port(Port, Timeout)
+    after Timeout ->
+	    timeout
+    end.
+
+wait_for_port_exit(Port) ->
+    case (receive M -> M end) of
+	{Port,{exit_status,Status}} ->
+	    Status;
+	{Port,{data,String}} ->
+	    io:format("~p: ~s\n", [Port, String]),
+	    wait_for_port_exit(Port)
+    end.
+
+run_remote_test([FuncStr, TestNodeStr | Args]) ->
+    Status = try
+	io:format("Node ~p started~n", [node()]),
+	TestNode = list_to_atom(TestNodeStr),
+	io:format("Node ~p spawning function ~p~n", [node(), FuncStr]),
+	{Pid,Ref} = spawn_monitor(?MODULE, list_to_atom(FuncStr), [TestNode, Args]),
+	io:format("Node ~p waiting for function ~p~n", [node(), FuncStr]),
+	receive
+	    {'DOWN', Ref, process, Pid, normal} ->
+		0;
+	    Other ->
+		io:format("Node ~p got unexpected msg: ~p\n",[node(), Other]),
+		1
+	end
+    catch
+	C:E ->
+	    io:format("Node ~p got EXCEPTION ~p:~p\nat ~p\n",
+		      [node(), C, E, erlang:get_stacktrace()]),
+	    2
+    end,
+    io:format("Node ~p doing halt(~p).\n",[node(), Status]),
+    erlang:halt(Status).
+
+% Do the actual test on the remote node
+setopts_do(TestNode, [OptNr, ConnectData]) ->
+    [] = nodes(),
+    {Opt, Val} = opt_from_nr(OptNr),
+    ok = net_kernel:setopts(new, [{Opt, Val}]),
+
+    [] = nodes(),
+    {error, noconnection} = net_kernel:getopts(TestNode, [Opt]),
+
+    case ConnectData of
+	"ping" ->  % We connect
+	    net_adm:ping(TestNode);
+	TcpPort -> % Other connect
+	    {ok, Sock} = gen_tcp:connect("localhost", list_to_integer(TcpPort),
+					 [{active,false},{packet,2}]),
+	    ok = gen_tcp:send(Sock, "Connect please"),
+	    {ok, "Connect done"} = gen_tcp:recv(Sock, 0),
+	    gen_tcp:close(Sock)
+    end,
+    [TestNode] = nodes(),
+    {ok, [{Opt,Val}]} = net_kernel:getopts(TestNode, [Opt]),
+    {error, noconnection} = net_kernel:getopts('pixie@fairyland', [Opt]),
+
+    NewVal = change_val(Val),
+    ok = net_kernel:setopts(TestNode, [{Opt, NewVal}]),
+    {ok, [{Opt,NewVal}]} = net_kernel:getopts(TestNode, [Opt]),
+
+    ok = net_kernel:setopts(TestNode, [{Opt, Val}]),
+    {ok, [{Opt,Val}]} = net_kernel:getopts(TestNode, [Opt]),
+
+    ok.
+
+opt_from_nr("1") -> {nodelay, true};
+opt_from_nr("2") -> {nodelay, false}.
+
+change_val(true)  -> false;
+change_val(false) -> true.
+
+start_node_unconnected(Name, Mod, Func, Args) ->
+    FullName = full_node_name(Name),
+    CmdLine = mk_node_cmdline(Name,Mod,Func,Args),
+    io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
+    case open_port({spawn, CmdLine}, [exit_status]) of
+	Port when is_port(Port) ->
+	    {FullName, Port};
+	Error ->
+	    exit({failed_to_start_node, FullName, Error})
+    end.
+
+full_node_name(PreName) ->
+    HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
+				 atom_to_list(node())),
+    list_to_atom(atom_to_list(PreName) ++ HostSuffix).
+
+mk_node_cmdline(Name,Mod,Func,Args) ->
+    Static = "-noinput",
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok,[[P]]} -> P;
+	       _ -> exit(no_progname_argument_found)
+	   end,
+    NameSw = case net_kernel:longnames() of
+		 false -> "-sname ";
+		 true -> "-name ";
+		 _ -> exit(not_distributed_node)
+	     end,
+    {ok, Pwd} = file:get_cwd(),
+    NameStr = atom_to_list(Name),
+    Prog ++ " "
+	++ Static ++ " "
+	++ NameSw ++ " " ++ NameStr
+	++ " -pa " ++ Pa
+	++ " -env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr
+	++ " -setcookie " ++ atom_to_list(erlang:get_cookie())
+	++ " -run " ++ atom_to_list(Mod) ++ " " ++ atom_to_list(Func)
+	++ " " ++ string:join(Args, " ").
 
 
 %% OTP-4255.
