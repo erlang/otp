@@ -51,7 +51,7 @@
 %% Handshake handling
 -export([renegotiate/2, send_handshake/2, 
 	 queue_handshake/2, queue_change_cipher/2,
-	 reinit_handshake_data/1,  handle_sni_extension/2]).
+	 reinit_handshake_data/1,  select_sni_extension/1]).
 
 %% Alert and close handling
 -export([send_alert/2, close/5]).
@@ -143,6 +143,11 @@ reinit_handshake_data(State) ->
        public_key_info = undefined,
        tls_handshake_history = ssl_handshake:init_handshake_history()
      }.
+
+select_sni_extension(#client_hello{extensions = HelloExtensions}) ->
+    HelloExtensions#hello_extensions.sni;
+select_sni_extension(_) ->
+    undefined.
 
 %%====================================================================
 %% tls_connection_sup API
@@ -521,23 +526,6 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, Us
 	   flight_buffer = []
 	  }.
 
-
-update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
-    SSLOption = 
-	case OrigSSLOptions#ssl_options.sni_fun of
-	    undefined ->
-		proplists:get_value(SNIHostname, 
-				    OrigSSLOptions#ssl_options.sni_hosts);
-	    SNIFun ->
-		SNIFun(SNIHostname)
-	end,
-    case SSLOption of
-        undefined ->
-            undefined;
-        _ ->
-            ssl:handle_options(SSLOption, OrigSSLOptions)
-    end.
-
 next_tls_record(Data, #state{protocol_buffers = #protocol_buffers{tls_record_buffer = Buf0,
 						tls_cipher_texts = CT0} = Buffers} = State0) ->
     case tls_record:get_tls_records(Data, Buf0) of
@@ -690,42 +678,16 @@ convert_options_partial_chain(Options, up) ->
 convert_options_partial_chain(Options, down) ->
     list_to_tuple(proplists:delete(partial_chain, tuple_to_list(Options))).
 
-handle_sni_extension(#client_hello{extensions = HelloExtensions}, State0) ->
-    case HelloExtensions#hello_extensions.sni of
-	undefined ->
-	    State0;
-	#sni{hostname = Hostname} ->
-	    NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
-	    case NewOptions of
-		undefined ->
-		    State0;
-		_ ->
-		    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} = 
-			ssl_config:init(NewOptions, State0#state.role),
-		    State0#state{
-		      session = State0#state.session#session{own_certificate = OwnCert},
-		      file_ref_db = FileRefHandle,
-		      cert_db_ref = Ref,
-		      cert_db = CertDbHandle,
-		      crl_db = CRLDbHandle,
-		      session_cache = CacheHandle,
-		      private_key = Key,
-		      diffie_hellman_params = DHParams,
-		      ssl_options = NewOptions,
-		      sni_hostname = Hostname
-		     }
-	    end
-    end;
-handle_sni_extension(_, State) ->
-    State.
-
-gen_handshake(GenConnection, StateName, Type, Event, #state{negotiated_version = Version} = State) ->
+gen_handshake(GenConnection, StateName, Type, Event, 
+	      #state{negotiated_version = Version} = State) ->
     try GenConnection:StateName(Type, Event, State, ?MODULE) of
 	Result ->
 	    Result
     catch 
 	_:_ ->
-	    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data), Version, StateName, State)  
+	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+						       malformed_handshake_data),
+					    Version, StateName, State)  
     end.
 	    
 gen_info(Event, connection = StateName,  #state{negotiated_version = Version} = State) ->
@@ -734,7 +696,9 @@ gen_info(Event, connection = StateName,  #state{negotiated_version = Version} = 
 	    Result
     catch 
 	_:_ ->
-	    handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, malformed_data), Version, StateName, State)  
+	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, 
+						       malformed_data), 
+					    Version, StateName, State)  
     end;
 
 gen_info(Event, StateName, #state{negotiated_version = Version} = State) ->
@@ -743,6 +707,8 @@ gen_info(Event, StateName, #state{negotiated_version = Version} = State) ->
 	    Result
     catch 
         _:_ ->
-	    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data), Version, StateName, State)  
+	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
+						       malformed_handshake_data), 
+					    Version, StateName, State)  
     end.
 	    

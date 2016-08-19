@@ -44,7 +44,8 @@
 %% Handshake handling
 -export([renegotiate/2, 
 	 reinit_handshake_data/1, 
-	 send_handshake/2, queue_handshake/2, queue_change_cipher/2]).
+	 send_handshake/2, queue_handshake/2, queue_change_cipher/2,
+	 select_sni_extension/1]).
 
 %% Alert and close handling
 -export([send_alert/2, close/5]).
@@ -146,6 +147,11 @@ reinit_handshake_data(#state{protocol_buffers = Buffers} = State) ->
 		protocol_buffers =
 		    Buffers#protocol_buffers{dtls_fragment_state =
 						 dtls_handshake:dtls_handshake_new_flight(0)}}.
+
+select_sni_extension(#client_hello{extensions = HelloExtensions}) ->
+    HelloExtensions#hello_extensions.sni;
+select_sni_extension(_) ->
+    undefined.
 
 %%====================================================================
 %% tls_connection_sup API

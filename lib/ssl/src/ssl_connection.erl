@@ -813,10 +813,12 @@ handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
 		    #state{tls_handshake_history = Hs0,
 			   ssl_options = #ssl_options{v2_hello_compatible = V2HComp}} = State0, 
 		    Connection) ->
+   
+    PossibleSNI = Connection:select_sni_extension(Handshake),
     %% This function handles client SNI hello extension when Handshake is
     %% a client_hello, which needs to be determined by the connection callback.
     %% In other cases this is a noop
-    State = Connection:handle_sni_extension(Handshake, State0),
+    State = handle_sni_extension(PossibleSNI, State0),
     HsHist = ssl_handshake:update_handshake_history(Hs0, Raw, V2HComp),
     {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
      [{next_event, internal, Handshake}]};
@@ -2404,3 +2406,43 @@ invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);
 invalidate_session(server, _, Port, Session) ->
     ssl_manager:invalidate_session(Port, Session).
+
+handle_sni_extension(undefined, State) ->
+    State;
+handle_sni_extension(#sni{hostname = Hostname}, State0) ->
+    NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
+    case NewOptions of
+	undefined ->
+	    State0;
+	_ ->
+	    {ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, Key, DHParams} = 
+		ssl_config:init(NewOptions, State0#state.role),
+	    State0#state{
+	      session = State0#state.session#session{own_certificate = OwnCert},
+	      file_ref_db = FileRefHandle,
+	      cert_db_ref = Ref,
+	      cert_db = CertDbHandle,
+	      crl_db = CRLDbHandle,
+	      session_cache = CacheHandle,
+	      private_key = Key,
+	      diffie_hellman_params = DHParams,
+	      ssl_options = NewOptions,
+	      sni_hostname = Hostname
+	     }
+    end.
+
+update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
+    SSLOption = 
+	case OrigSSLOptions#ssl_options.sni_fun of
+	    undefined ->
+		proplists:get_value(SNIHostname, 
+				    OrigSSLOptions#ssl_options.sni_hosts);
+	    SNIFun ->
+		SNIFun(SNIHostname)
+	end,
+    case SSLOption of
+        undefined ->
+            undefined;
+        _ ->
+            ssl:handle_options(SSLOption, OrigSSLOptions)
+    end.
