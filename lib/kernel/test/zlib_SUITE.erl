@@ -290,6 +290,18 @@ api_inflateSetDictionary(Config) when is_list(Config) ->
 
 %% Test inflateGetDictionary.
 api_inflateGetDictionary(Config) when is_list(Config) ->
+    Z1 = zlib:open(),
+    IsOperationSupported =
+        case catch zlib:inflateGetDictionary(Z1) of
+            {'EXIT',{einval,_}} -> true;
+            {'EXIT',{enotsup,_}} -> false
+        end,
+    _ = zlib:close(Z1),
+    api_inflateGetDictionary_if_supported(IsOperationSupported).
+
+api_inflateGetDictionary_if_supported(false) ->
+    {skip, "inflateGetDictionary/1 unsupported in current setup"};
+api_inflateGetDictionary_if_supported(true) ->
     % Compress payload using custom dictionary
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1)),
