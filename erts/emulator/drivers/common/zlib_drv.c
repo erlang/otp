@@ -252,6 +252,7 @@ static int zlib_output(ZLibData* d)
     return zlib_output_init(d);
 }
 
+#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
 static int zlib_inflate_get_dictionary(ZLibData* d)
 {
     ErlDrvBinary* dbin = driver_alloc_binary(INFL_DICT_SZ);
@@ -263,6 +264,7 @@ static int zlib_inflate_get_dictionary(ZLibData* d)
     driver_free_binary(dbin);
     return res;
 }
+#endif
 
 static int zlib_inflate(ZLibData* d, int flush)
 {
@@ -603,9 +605,14 @@ static ErlDrvSSizeT zlib_ctl(ErlDrvData drv_data, unsigned int command, char *bu
 	return zlib_return(res, rbuf, rlen);
 
     case INFLATE_GETDICT:
+#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
         if (d->state != ST_INFLATE) goto badarg;
         res = zlib_inflate_get_dictionary(d);
         return zlib_return(res, rbuf, rlen);
+#else
+        errno = ENOTSUP;
+        return zlib_return(Z_ERRNO, rbuf, rlen);
+#endif
 
     case INFLATE_SYNC:
 	if (d->state != ST_INFLATE) goto badarg;
