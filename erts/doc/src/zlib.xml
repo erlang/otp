@@ -583,6 +583,7 @@ unpack(Z, Compressed, Dict) ->
           by the stream. This function must be called between
           <seealso marker="#inflateInit/1"><c>inflateInit/1,2</c></seealso>
           and <seealso marker="#inflateEnd/1"><c>inflateEnd</c></seealso>.</p>
+        <p>Only supported if ERTS was compiled with zlib >= 1.2.8.</p>
       </desc>
     </func>
 
