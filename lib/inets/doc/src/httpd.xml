@@ -455,7 +455,7 @@ text/plain	asc txt</pre>
 	directory. Several files can be given, in which case the server
 	returns the first it finds, for example:</p>
 	
-	<code>{directory_index, ["index.hml", "welcome.html"]}</code>
+	<code>{directory_index, ["index.html", "welcome.html"]}</code>
 	
 	<p>Access to http://your.server.org/docs/ would return
 	http://your.server.org/docs/index.html or
