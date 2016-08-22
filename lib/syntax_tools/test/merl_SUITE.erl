@@ -29,12 +29,14 @@
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
--export([merl_smoke_test/1]).
+-export([merl_smoke_test/1,
+         transform_parse_error_test/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [merl_smoke_test].
+    [merl_smoke_test,
+     transform_parse_error_test].
 
 groups() -> 
     [].
@@ -82,6 +84,21 @@ merl_smoke_test(Config) when is_list(Config) ->
                            ?Q("{foo, _@Bar, '@Baz'}") -> ?Q("{_@Bar, _@Baz}")
                        end
                    end)),
+    ok.
+
+transform_parse_error_test(_Config) ->
+    ?assertEqual("merl:quote(\"{\")",
+                 f(merl_transform:parse_transform(
+                     [?Q("merl:quote(\"{\")")], []))),
+    ?assertEqual("merl:quote(2, \"{\")",
+                 f(merl_transform:parse_transform(
+                     [?Q("merl:quote(2, \"{\")")], []))),
+    ?assertEqual("merl:qquote(\"{\", [{var, V}])",
+                 f(merl_transform:parse_transform(
+                     [?Q("merl:qquote(\"{\", [{var, V}])")], []))),
+    ?assertEqual("merl:qquote(2, \"{\", [{var, V}])",
+                 f(merl_transform:parse_transform(
+                     [?Q("merl:qquote(2, \"{\", [{var, V}])")], []))),
     ok.
 
 %% utilities

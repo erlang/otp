@@ -104,10 +104,15 @@ expand_qquote([Text, Env], T, Line) ->
     case erl_syntax:is_literal(Text) of
         true ->
             As = [Line, erl_syntax:concrete(Text)],
-            %% expand further if possible
-            expand(merl:qquote(Line, "merl:subst(_@tree, _@env)",
-                               [{tree, eval_call(Line, quote, As, T)},
-                                {env, Env}]));
+            case eval_call(Line, quote, As, failed) of
+                failed ->
+                    T;
+                T1 ->
+                    %% expand further if possible
+                    expand(merl:qquote(Line, "merl:subst(_@tree, _@env)",
+                                       [{tree, T1},
+                                        {env, Env}]))
+            end;
         false ->
             T
     end;
