@@ -41,6 +41,15 @@ all() ->
      create_server_hello_with_advertised_protocols_test,
      create_server_hello_with_no_advertised_protocols_test].
 
+init_per_suite(Config) ->
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+	    Config
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
+
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
