@@ -303,13 +303,13 @@ typedef struct LoaderState {
      * Atom table.
      */
 
-    int num_atoms;		/* Number of atoms in atom table. */
+    unsigned int num_atoms;	/* Number of atoms in atom table. */
     Eterm* atom;		/* Atom table. */
 
     int num_exps;		/* Number of exports. */
     ExportEntry* export;	/* Pointer to export table. */
 
-    int num_imports;		/* Number of imports. */
+    unsigned int num_imports;   /* Number of imports. */
     ImportEntry* import;	/* Import entry (translated information). */
 
     /*
@@ -1375,13 +1375,13 @@ load_atom_table(LoaderState* stp)
 static int
 load_import_table(LoaderState* stp)
 {
-    int i;
+    unsigned int i;
 
     GetInt(stp, 4, stp->num_imports);
     stp->import = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 			     stp->num_imports * sizeof(ImportEntry));
     for (i = 0; i < stp->num_imports; i++) {
-	int n;
+	unsigned int n;
 	Eterm mod;
 	Eterm func;
 	Uint arity;
@@ -1389,17 +1389,17 @@ load_import_table(LoaderState* stp)
 
 	GetInt(stp, 4, n);
 	if (n >= stp->num_atoms) {
-	    LoadError2(stp, "import entry %d: invalid atom number %d", i, n);
+	    LoadError2(stp, "import entry %u: invalid atom number %u", i, n);
 	}
 	mod = stp->import[i].module = stp->atom[n];
 	GetInt(stp, 4, n);
 	if (n >= stp->num_atoms) {
-	    LoadError2(stp, "import entry %d: invalid atom number %d", i, n);
+	    LoadError2(stp, "import entry %u: invalid atom number %u", i, n);
 	}
 	func = stp->import[i].function = stp->atom[n];
 	GetInt(stp, 4, arity);
 	if (arity > MAX_REG) {
-	    LoadError2(stp, "import entry %d: invalid arity %d", i, arity);
+	    LoadError2(stp, "import entry %u: invalid arity %d", i, arity);
 	}
 	stp->import[i].arity = arity;
 	stp->import[i].patches = 0;
