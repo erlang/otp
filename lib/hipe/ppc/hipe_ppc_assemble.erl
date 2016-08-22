@@ -175,7 +175,8 @@ do_slwi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 32 ->
   {Dst, Src1, {sh,N}, {mb,0}, {me,31-N}}.
 
 do_srwi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 32 ->
-  {Dst, Src1, {sh,32-N}, {mb,N}, {me,31}}.
+  %% SH should be 0 (not 32) when N is 0
+  {Dst, Src1, {sh,(32-N) band 31}, {mb,N}, {me,31}}.
 
 do_srawi_src2({uimm,N}) when  is_integer(N), 0 =< N, N < 32 -> {sh,N}.
 
@@ -184,7 +185,8 @@ do_sldi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 64 ->
   {Dst, Src1, {sh6,N}, {me6,63-N}}.
 
 do_srdi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 64 ->
-  {Dst, Src1, {sh6,64-N}, {mb6,N}}.
+  %% SH should be 0 (not 64) when N is 0
+  {Dst, Src1, {sh6,(64-N) band 63}, {mb6,N}}.
 
 do_sradi_src2({uimm,N}) when is_integer(N), 0 =< N, N < 64 -> {sh6,N}.
 
