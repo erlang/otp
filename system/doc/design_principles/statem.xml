@@ -33,8 +33,8 @@
   <p>
     This section is to be read with the
     <seealso marker="stdlib:gen_statem"><c>gen_statem(3)</c></seealso>
-    manual page in <c>STDLIB</c>, where all interface functions and callback
-    functions are described in detail.
+    manual page in <c>STDLIB</c>, where all interface functions
+    and callback functions are described in detail.
   </p>
   <note>
     <p>
@@ -52,7 +52,7 @@
   <section>
     <title>Event-Driven State Machines</title>
     <p>
-      Established Automata theory does not deal much with
+      Established Automata Theory does not deal much with
       how a state transition is triggered,
       but assumes that the output is a function
       of the input (and the state) and that they are
@@ -94,39 +94,53 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 <!-- =================================================================== -->
 
   <section>
-    <marker id="callback_modes" />
-    <title>Callback Modes</title>
+    <marker id="callback_flavours" />
+    <title>Callback Flavours</title>
     <p>
-      The <c>gen_statem</c> behavior supports two callback modes:
+      The <c>gen_statem</c> behavior supports two callback flavours:
     </p>
-    <list type="bulleted">
+    <taglist>
+      <tag>State Name Functions</tag>
       <item>
         <p>
-          In mode
-	  <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>,
-          the state transition rules are written as some Erlang
-          functions, which conform to the following convention:
+          The state transition rules are written as Erlang functions,
+	  conforming to the following convention:
         </p>
         <pre>
 StateName(EventType, EventContent, Data) ->
     .. code for actions here ...
     {next_state, NewStateName, NewData}.</pre>
+        <p>
+	  This flavour is used if no
+	  <seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	    <c>Module:handle_event/4</c>
+	  </seealso>
+	  function is exported.
+	</p>
       </item>
+      <tag>One State Function</tag>
       <item>
         <p>
-          In mode
-	  <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>,
-          only one Erlang function provides all state transition rules:
+          Exactly one Erlang function provides all state transition rules:
         </p>
         <pre>
 handle_event(EventType, EventContent, State, Data) ->
     .. code for actions here ...
     {next_state, NewState, NewData}</pre>
+        <p>
+	  This flavour is used if
+	  <seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	    <c>Module:handle_event/4</c>
+	  </seealso>
+	  is an exported function.
+	</p>
       </item>
-    </list>
+    </taglist>
     <p>
-      Both these modes allow other return tuples; see
-      <seealso marker="stdlib:gen_statem#Module:StateName/3"><c>Module:StateName/3</c></seealso>
+      Both these callback flavours allow other return tuples; see
+      <seealso marker="stdlib:gen_statem#Module:StateName/3">
+	<c>Module:StateName/3</c>
+      </seealso>
       in the <c>gen_statem</c> manual page.
       These other return tuples can, for example, stop the machine,
       execute state transition actions on the machine engine itself,
@@ -134,10 +148,10 @@ handle_event(EventType, EventContent, State, Data) ->
     </p>
 
     <section>
-      <title>Choosing the Callback Mode</title>
+      <title>Choosing the Callback Flavour</title>
       <p>
 	The two
-	<seealso marker="#callback_modes">callback modes</seealso>
+	<seealso marker="#callback_flavours">callback flavours</seealso>
 	give different possibilities
 	and restrictions, but one goal remains:
 	you want to handle all possible combinations of
@@ -151,7 +165,7 @@ handle_event(EventType, EventContent, State, Data) ->
 	You can also use a mix of these strategies.
       </p>
       <p>
-	With <c>state_functions</c>, you are restricted to use
+	With <em>state name functions</em>, you are restricted to use
 	atom-only states, and the <c>gen_statem</c> engine
 	branches depending on state name for you.
 	This encourages the callback module to gather
@@ -160,25 +174,27 @@ handle_event(EventType, EventContent, State, Data) ->
 	hence to focus on one state at the time.
       </p>
       <p>
-	This mode fits well when you have a regular state diagram,
+	This callback flavour fits well when you have a regular state diagram,
 	like the ones in this chapter, which describes all events and actions
 	belonging to a state visually around that state,
 	and each state has its unique name.
       </p>
       <p>
-	With <c>handle_event_function</c>, you are free to mix strategies,
+	With <em>one state function</em>, you are free to mix strategies,
 	as all events and states are handled in the same callback function.
       </p>
       <p>
-	This mode works equally well when you want to focus on
+	This callback flavour works equally well when you want to focus on
 	one event at the time or on
 	one state at the time, but function
-	<seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
+	<seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	  <c>Module:handle_event/4</c>
+	</seealso>
 	quickly grows too large to handle without branching to
 	helper functions.
       </p>
       <p>
-	The mode enables the use of non-atom states, for example,
+	This flavour enables the use of non-atom states, for example,
 	complex states or even hierarchical states.
 	If, for example, a state diagram is largely alike
 	for the client side and the server side of a protocol,
@@ -197,8 +213,9 @@ handle_event(EventType, EventContent, State, Data) ->
   <section>
     <title>Example</title>
     <p>
-      This example starts off as equivalent to the example in section
-      <seealso marker="fsm"><c>gen_fsm</c> Behavior</seealso>.
+      This example starts off as equivalent to the example
+      in the section for the
+      <seealso marker="fsm"><c>gen_fsm</c></seealso> Behaviour.
       In later sections, additions and tweaks are made
       using features in <c>gen_statem</c> that <c>gen_fsm</c> does not have.
       The end of this chapter provides the example again
@@ -226,7 +243,6 @@ handle_event(EventType, EventContent, State, Data) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock).
--define(CALLBACK_MODE, state_functions).
 
 -export([start_link/1]).
 -export([button/1]).
@@ -242,7 +258,7 @@ button(Digit) ->
 init(Code) ->
     do_lock(),
     Data = #{code => Code, remaining => Code},
-    {?CALLBACK_MODE,locked,Data}.
+    {ok,locked,Data}.
 
 locked(
   cast, {button,Digit},
@@ -273,7 +289,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {?CALLBACK_MODE,State,Data}.
+    {ok,State,Data}.
     ]]></code>
     <p>The code is explained in the next sections.</p>
   </section>
@@ -343,13 +359,7 @@ start_link(Code) ->
     <p>
       If name registration succeeds, the new <c>gen_statem</c> process
       calls callback function <c>code_lock:init(Code)</c>.
-      This function is expected to return <c>{CallbackMode,State,Data}</c>,
-      where
-      <seealso marker="#callback_modes"><c>CallbackMode</c></seealso>
-      selects callback module state function mode, in this case
-      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>state_functions</c></seealso>
-      through macro <c>?CALLBACK_MODE</c>. That is, each state
-      has got its own handler function.
+      This function is expected to return <c>{ok,State,Data}</c>.
       <c>State</c> is the initial state of the <c>gen_statem</c>,
       in this case <c>locked</c>; assuming that the door is locked to begin
       with. <c>Data</c> is the internal server data of the <c>gen_statem</c>.
@@ -363,7 +373,7 @@ start_link(Code) ->
 init(Code) ->
     do_lock(),
     Data = #{code => Code, remaining => Code},
-    {?CALLBACK_MODE,locked,Data}.
+    {ok,locked,Data}.
     ]]></code>
     <p>Function
       <seealso marker="stdlib:gen_statem#start_link/3"><c>gen_statem:start_link</c></seealso>
@@ -524,17 +534,16 @@ handle_event({call,From}, code_length, #{code := Code} = Data) ->
   <section>
     <title>One Event Handler</title>
     <p>
-      If mode <c>handle_event_function</c> is used,
+      If callback flavour <em>one state function</em> is used,
       all events are handled in
-      <seealso marker="stdlib:gen_statem#Module:handle_event/4"><c>Module:handle_event/4</c></seealso>
+      <seealso marker="stdlib:gen_statem#Module:handle_event/4">
+	<c>Module:handle_event/4</c>
+      </seealso>
       and we can (but do not have to) use an event-centered approach
       where we first branch depending on event
       and then depending on state:
     </p>
     <code type="erl"><![CDATA[
-...
--define(CALLBACK_MODE, handle_event_function).
-
 ...
 -export([handle_event/4]).
 
@@ -651,7 +660,9 @@ stop() ->
       These are ordered by returning a list of
       <seealso marker="stdlib:gen_statem#type-action">actions</seealso>
       in the
-      <seealso marker="stdlib:gen_statem#type-state_function_result">return tuple</seealso>
+      <seealso marker="stdlib:gen_statem#type-state_function_result">
+	return tuple
+      </seealso>
       from the
       <seealso marker="stdlib:gen_statem#Module:StateName/3">callback function</seealso>.
       These state transition actions affect the <c>gen_statem</c>
@@ -962,14 +973,10 @@ do_unlock() ->
     </p>
     <code type="erl"><![CDATA[
 ...
--define(CALLBACK_MODE, state_functions).
-
-...
-
 init(Code) ->
     process_flag(trap_exit, true),
     Data = #{code => Code},
-    enter(?CALLBACK_MODE, locked, Data).
+    enter(ok, locked, Data).
 
 ...
 
@@ -1019,15 +1026,14 @@ enter(Tag, State, Data) ->
     </p>
 
     <section>
-      <title>Callback Mode: state_functions</title>
+      <title>State Name Functions</title>
       <p>
-	Using state functions:
+	Using state name functions:
       </p>
       <code type="erl"><![CDATA[
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock_2).
--define(CALLBACK_MODE, state_functions).
 
 -export([start_link/1,stop/0]).
 -export([button/1,code_length/0]).
@@ -1047,7 +1053,7 @@ code_length() ->
 init(Code) ->
     process_flag(trap_exit, true),
     Data = #{code => Code},
-    enter(?CALLBACK_MODE, locked, Data).
+    enter(ok, locked, Data).
 
 locked(internal, enter, #{code := Code} = Data) ->
     do_lock(),
@@ -1091,12 +1097,12 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {?CALLBACK_MODE,State,Data}.
+    {ok,State,Data}.
       ]]></code>
     </section>
 
     <section>
-      <title>Callback Mode: handle_event_function</title>
+      <title>One State Function</title>
       <p>
         This section describes what to change in the example
         to use one <c>handle_event/4</c> function.
@@ -1105,9 +1111,6 @@ code_change(_Vsn, State, Data, _Extra) ->
         entry actions, so this example first branches depending on state:
       </p>
       <code type="erl"><![CDATA[
-...
--define(CALLBACK_MODE, handle_event_function).
-
 ...
 -export([handle_event/4]).
 
@@ -1217,11 +1220,12 @@ format_status(Opt, [_PDict,State,Data]) ->
   <section>
     <title>Complex State</title>
     <p>
-      The callback mode
-      <seealso marker="stdlib:gen_statem#type-callback_mode"><c>handle_event_function</c></seealso>
-      enables using a non-atom state as described in section
-      <seealso marker="#callback_modes">Callback Modes</seealso>,
-      for example, a complex state term like a tuple.
+      The callback flavour 
+      <seealso marker="#callback_flavours">
+	<em>one state function</em>
+      </seealso>
+      allows using any term as the state,
+      for example a complex state term like a tuple.
     </p>
     <p>
       One reason to use this is when you have
@@ -1273,7 +1277,6 @@ format_status(Opt, [_PDict,State,Data]) ->
 -module(code_lock).
 -behaviour(gen_statem).
 -define(NAME, code_lock_3).
--define(CALLBACK_MODE, handle_event_function).
 
 -export([start_link/2,stop/0]).
 -export([button/1,code_length/0,set_lock_button/1]).
@@ -1296,7 +1299,7 @@ set_lock_button(LockButton) ->
 init({Code,LockButton}) ->
     process_flag(trap_exit, true),
     Data = #{code => Code, remaining => undefined, timer => undefined},
-    enter(?CALLBACK_MODE, {locked,LockButton}, Data, []).
+    enter(ok, {locked,LockButton}, Data, []).
 
 handle_event(
   {call,From}, {set_lock_button,NewLockButton},
@@ -1366,7 +1369,7 @@ terminate(_Reason, State, _Data) ->
     State =/= locked andalso do_lock(),
     ok.
 code_change(_Vsn, State, Data, _Extra) ->
-    {?CALLBACK_MODE,State,Data}.
+    {ok,State,Data}.
 format_status(Opt, [_PDict,State,Data]) ->
     StateData =
 	{State,

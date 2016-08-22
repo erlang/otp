@@ -374,14 +374,12 @@ init_connection_handler(Role, Socket, Opts) ->
 	S ->
 	    gen_statem:enter_loop(?MODULE,
 				  [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
-				  handle_event_function,
 				  {hello,Role},
 				  S)
     catch
 	_:Error ->
 	    gen_statem:enter_loop(?MODULE,
 				  [],
-				  handle_event_function,
 				  {init_error,Error},
 				  S0)
     end.
@@ -1401,12 +1399,12 @@ fmt_stat_rec(FieldNames, Rec, Exclude) ->
 		  state_name(),
 		  #data{},
 		  term()
-		 ) -> {gen_statem:callback_mode(), state_name(), #data{}}.
+		 ) -> {ok, state_name(), #data{}}.
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 code_change(_OldVsn, StateName, State, _Extra) ->
-    {handle_event_function, StateName, State}.
+    {ok, StateName, State}.
 
 
 %%====================================================================
