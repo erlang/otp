@@ -12279,7 +12279,6 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
                 erts_port_demonitor(pcontext->p,
                                     ERTS_PORT_DEMONITOR_ORIGIN_ON_DEATHBED,
                                     prt, mon->ref, NULL);
-                return; /* let erts_port_demonitor do the deletion */
             } else { /* remote by pid */
 		ASSERT(is_external_pid(mon->pid));
 		dep = external_pid_dist_entry(mon->pid);
