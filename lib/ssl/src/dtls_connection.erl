@@ -97,10 +97,11 @@ send_handshake(Handshake, State) ->
     send_handshake_flight(queue_handshake(Handshake, State)).
 
 queue_flight_buffer(Msg, #state{negotiated_version = Version,
-				connection_states = #connection_states{
-				  current_write =
-				      #connection_state{epoch = Epoch}},
+				connection_states = ConnectionStates,
 				flight_buffer = Flight} = State) ->
+    ConnectionState = 
+	ssl_record:current_connection_state(ConnectionStates, write),
+    Epoch = maps:get(epoch, ConnectionState),
     State#state{flight_buffer = Flight ++ [{Version, Epoch, Msg}]}.
 
 queue_handshake(Handshake, #state{negotiated_version = Version,
@@ -494,12 +495,12 @@ encode_handshake_record(_Version, _Epoch, _Space, _MsgType, _MsgSeq, _Len, <<>>,
 encode_handshake_record(Version, Epoch, Space, MsgType, MsgSeq, Len, Bin,
 			Offset, MRS, Encoded0, CS0) ->
     MaxFragmentLen = Space - 25,
-    case Bin of
-	<<BinFragment:MaxFragmentLen/bytes, Rest/binary>> ->
-	    ok;
+    {BinFragment, Rest} =
+	case Bin of
+	<<BinFragment0:MaxFragmentLen/bytes, Rest0/binary>> ->
+	    {BinFragment0, Rest0};
 	_ ->
-	    BinFragment = Bin,
-	    Rest = <<>>
+	    {Bin, <<>>}
     end,
     FragLength = byte_size(BinFragment),
     Frag = [MsgType, ?uint24(Len), ?uint16(MsgSeq), ?uint24(Offset), ?uint24(FragLength), BinFragment],
@@ -536,7 +537,7 @@ decode_alerts(Bin) ->
 initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag}) ->
     #ssl_options{beast_mitigation = BeastMitigation} = SSLOptions,
-    ConnectionStates = ssl_record:init_connection_states(Role, BeastMitigation),
+    ConnectionStates = dtls_record:init_connection_states(Role, BeastMitigation),
     
     SessionCacheCb = case application:get_env(ssl, session_cb) of
 			 {ok, Cb} when is_atom(Cb) ->
@@ -693,8 +694,8 @@ next_event(StateName, Record, State, Actions) ->
 %% address_to_bin({A,B,C,D,E,F,G,H}, Port) ->
 %%     <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16,Port:16>>.
 
-sequence(#connection_states{dtls_write_msg_seq = Seq} = CS) ->
-    {Seq, CS#connection_states{dtls_write_msg_seq = Seq + 1}}.
+sequence(#{write_msg_seq := Seq} = ConnectionState) ->
+    {Seq, ConnectionState#{write_msg_seq => Seq + 1}}.
 
 renegotiate(#state{role = client} = State, Actions) ->
     %% Handle same way as if server requested
@@ -707,9 +708,10 @@ renegotiate(#state{role = client} = State, Actions) ->
 renegotiate(#state{role = server,
 		   connection_states = CS0} = State0, Actions) ->
     HelloRequest = ssl_handshake:hello_request(),
+    CS = CS0#{write_msg_seq => 0},
     State1 = send_handshake(HelloRequest, 
 			    State0#state{connection_states =
-					     CS0#connection_states{dtls_write_msg_seq = 0}}),
+					     CS}),
     Hs0 = ssl_handshake:init_handshake_history(),
     {Record, State} = next_record(State1#state{tls_handshake_history = Hs0,
 					       protocol_buffers = #protocol_buffers{}}),

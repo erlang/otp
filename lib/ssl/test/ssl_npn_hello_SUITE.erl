@@ -135,15 +135,12 @@ create_server_handshake(Npn) ->
 				     }, Vsn).
 
 create_connection_states() ->
-    #connection_states{
-       pending_read = #connection_state{
-			 security_parameters = #security_parameters{
+    #{pending_read => #{security_parameters => #security_parameters{
 						  server_random = <<1:256>>,
 						  compression_algorithm = 1,
 						  cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA
 						 }
-			},
-       current_read = #connection_state {
-			 secure_renegotiation = false
-			}
-      }.
+		       },
+      current_read => #{secure_renegotiation => false
+       }
+     }.

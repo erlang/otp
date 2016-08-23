@@ -35,7 +35,7 @@
 %% Internal application API
 %%====================================================================
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), #connection_states{},
+-spec client_hello(host(), inet:port_number(), ssl_record:connection_states(),
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
@@ -48,7 +48,7 @@ client_hello(Host, Port, ConnectionStates, SslOpts,
 		 Cache, CacheCb, Renegotiation, OwnCert).
 
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), term(), #connection_states{},
+-spec client_hello(host(), inet:port_number(), term(), ssl_record:connection_states(),
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
@@ -61,7 +61,7 @@ client_hello(Host, Port, Cookie, ConnectionStates,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version =  dtls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = Pending#connection_state.security_parameters,
+    SecParams = maps:get(security_parameters, Pending),
     CipherSuites = ssl_handshake:available_suites(UserSuites, Version),
 
     Extensions = ssl_handshake:client_hello_extensions(Host, dtls_v1:corresponding_tls_version(Version), CipherSuites,

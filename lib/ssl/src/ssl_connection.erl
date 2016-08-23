@@ -271,7 +271,7 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 
 %%--------------------------------------------------------------------
 -spec handle_session(#server_hello{}, ssl_record:ssl_version(),
-		     binary(), #connection_states{}, _,_, #state{}) ->
+		     binary(), ssl_record:connection_states(), _,_, #state{}) ->
 			    gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 handle_session(#server_hello{cipher_suite = CipherSuite,
@@ -918,9 +918,8 @@ handle_call(renegotiate, From, StateName, _, _) when StateName =/= connection ->
 handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
 	    #state{connection_states = ConnectionStates,
 		   negotiated_version = Version}, _) ->
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{master_secret = MasterSecret,
 			 client_random = ClientRandom,
 			 server_random = ServerRandom,
@@ -1414,9 +1413,8 @@ key_exchange(#state{role = server, key_algorithm = Algo,
        Algo == dhe_rsa;
        Algo == dh_anon ->
     DHKeys = public_key:generate_key(Params),
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Msg = ssl_handshake:key_exchange(server, ssl:tls_version(Version), {dh, DHKeys, Params,
@@ -1439,9 +1437,8 @@ key_exchange(#state{role = server, key_algorithm = Algo,
        Algo == ecdh_anon ->
 
     ECDHKeys = public_key:generate_key(select_curve(State0)),
-    ConnectionState =
+    #{security_parameters := SecParams} = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Msg =  ssl_handshake:key_exchange(server, ssl:tls_version(Version), 
@@ -1462,9 +1459,8 @@ key_exchange(#state{role = server, key_algorithm = psk,
 		    connection_states = ConnectionStates0,
 		    negotiated_version = Version
 		   } = State0, Connection) ->
-    ConnectionState =
+    #{security_parameters := SecParams} = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Msg = ssl_handshake:key_exchange(server, ssl:tls_version(Version), 
@@ -1483,9 +1479,8 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
 		    negotiated_version = Version
 		   } = State0, Connection) ->
     DHKeys = public_key:generate_key(Params),
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Msg =  ssl_handshake:key_exchange(server, ssl:tls_version(Version), 
@@ -1507,9 +1502,8 @@ key_exchange(#state{role = server, key_algorithm = rsa_psk,
 		    connection_states = ConnectionStates0,
 		    negotiated_version = Version
 		   } = State0, Connection) ->
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Msg =  ssl_handshake:key_exchange(server, ssl:tls_version(Version), 
@@ -1537,9 +1531,8 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 	       Keys0 = {_,_} ->
 		   Keys0
 	   end,
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Msg =  ssl_handshake:key_exchange(server, ssl:tls_version(Version),
@@ -1658,8 +1651,8 @@ request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer,
 			   cert_db = CertDbHandle,
 			   cert_db_ref = CertDbRef,
 			   negotiated_version = Version} = State0, Connection) ->
-    #connection_state{security_parameters =
-			  #security_parameters{cipher_suite = CipherSuite}} =
+    #{security_parameters :=
+	  #security_parameters{cipher_suite = CipherSuite}} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     TLSVersion =  ssl:tls_version(Version),
     HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, 
@@ -1868,11 +1861,11 @@ is_anonymous(_) ->
     false.
 
 get_current_prf(CStates, Direction) ->
-	CS = ssl_record:current_connection_state(CStates, Direction),
-	CS#connection_state.security_parameters#security_parameters.prf_algorithm.
+    #{security_parameters := SecParams} = ssl_record:current_connection_state(CStates, Direction),
+    SecParams#security_parameters.prf_algorithm.
 get_pending_prf(CStates, Direction) ->
-	CS = ssl_record:pending_connection_state(CStates, Direction),
-	CS#connection_state.security_parameters#security_parameters.prf_algorithm.
+    #{security_parameters := SecParams} = ssl_record:pending_connection_state(CStates, Direction),
+    SecParams#security_parameters.prf_algorithm.
 
 opposite_role(client) ->
     server;
@@ -2201,8 +2194,7 @@ encode_size_packet(Bin, Size, Max) ->
     end.
 
 time_to_renegotiate(_Data, 
-		    #connection_states{current_write = 
-					   #connection_state{sequence_number = Num}}, 
+		    #{current_write := #{sequence_number := Num}}, 
 		    RenegotiateAt) ->
     
     %% We could do test:
