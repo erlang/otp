@@ -8169,7 +8169,8 @@ sched_thread_func(void *vesdp)
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(NULL);
 #endif
 
-    process_main();
+    process_main(esdp->x_reg_array, esdp->f_reg_array);
+
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
 	     "Scheduler thread number %beu terminated\n",

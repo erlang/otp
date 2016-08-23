@@ -2302,7 +2302,7 @@ erl_start(int argc, char **argv)
 #endif
 	set_main_stack_size();
 	erts_sched_init_time_sup(esdp);
-	process_main();
+	process_main(esdp->x_reg_array, esdp->f_reg_array);
     }
 #endif
 }

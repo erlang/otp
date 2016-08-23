@@ -1078,7 +1078,7 @@ static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 void
 init_emulator(void)
 {
-    process_main();
+    process_main(0, 0);
 }
 
 /*
@@ -1225,7 +1225,7 @@ init_emulator(void)
  * the instructions' C labels to the loader.
  * The second call starts execution of BEAM code. This call never returns.
  */
-void process_main(void)
+void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 {
     static int init_done = 0;
     Process* c_p = NULL;
@@ -1237,7 +1237,7 @@ void process_main(void)
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
      */
-    register Eterm* reg REG_xregs = NULL;
+    register Eterm* reg REG_xregs = x_reg_array;
 
     /*
      * Top of heap (next free location); grows upwards.
@@ -1264,7 +1264,7 @@ void process_main(void)
      * X registers and floating point registers are located in
      * scheduler specific data.
      */
-    register FloatDef *freg;
+    register FloatDef *freg = f_reg_array;
 
     /*
      * For keeping the negative old value of 'reds' when call saving is active.
@@ -1350,8 +1350,6 @@ void process_main(void)
 	start_time_i = c_p->i;
     }
 
-    reg = erts_proc_sched_data(c_p)->x_reg_array;
-    freg = erts_proc_sched_data(c_p)->f_reg_array;
     ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
