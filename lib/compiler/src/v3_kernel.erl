@@ -1791,13 +1791,9 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 	end,
     Fun = #k_fdef{anno=#k{us=[],ns=[],a=A},func=Fname,arity=Arity,
 		  vars=Vs ++ Fvs,body=B1},
-    %% Set dummy values for Index and Uniq -- the real values will
-    %% be assigned by beam_asm.
-    Index = Uniq = 0,
     {#k_bif{anno=#k{us=Free,ns=lit_list_vars(Rs),a=A},
- 	    op=#k_internal{name=make_fun,arity=length(Free)+3},
- 	    args=[#k_atom{val=Fname},#k_int{val=Arity},
- 		  #k_int{val=Index},#k_int{val=Uniq}|Fvs],
+	    op=#k_internal{name=make_fun,arity=length(Free)+2},
+	    args=[#k_atom{val=Fname},#k_int{val=Arity}|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
 uexpr(Lit, {break,Rs0}, St0) ->

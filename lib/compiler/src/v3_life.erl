@@ -211,7 +211,6 @@ body_try(#k_try{anno=A,arg=Ka,vars=Vs,body=Kb,evars=Evs,handler=Kh,ret=Rs},
        i=I,vdb=Tdb1,a=A#k.a}.
 
 %% call_op(Op) -> Op.
-%% bif_op(Op) -> Op.
 %% test_op(Op) -> Op.
 %%  Do any necessary name translations here to munge into beam format.
 
@@ -219,28 +218,14 @@ call_op(#k_local{name=N}) -> N;
 call_op(#k_remote{mod=M,name=N}) -> {remote,atomic(M),atomic(N)};
 call_op(Other) -> variable(Other).
 
-bif_op(#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=N}}) -> N;
-bif_op(#k_internal{name=N}) -> N.
-
 test_op(#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=N}}) -> N.
 
 %% k_bif(Anno, Op, [Arg], [Ret], Vdb) -> Expr.
-%%  Build bifs, do special handling of internal some calls.
+%%  Build bifs.
 
-k_bif(_A, #k_internal{name=dsetelement,arity=3}, As, []) ->
-    {bif,dsetelement,atomic_list(As),[]};
-k_bif(_A, #k_internal{name=bs_context_to_binary=Op,arity=1}, As, []) ->
-    {bif,Op,atomic_list(As),[]};
-k_bif(_A, #k_internal{name=bs_init_writable=Op,arity=1}, As, Rs) ->
-    {bif,Op,atomic_list(As),var_list(Rs)};
-k_bif(_A, #k_internal{name=make_fun},
-      [#k_atom{val=Fun},#k_int{val=Arity},
-       #k_int{val=Index},#k_int{val=Uniq}|Free],
-      Rs) ->
-    {bif,{make_fun,Fun,Arity,Index,Uniq},var_list(Free),var_list(Rs)};
-k_bif(_A, Op, As, Rs) ->
-    %% The general case.
-    Name = bif_op(Op),
+k_bif(_A, #k_internal{name=Name}, As, Rs) ->
+    {internal,Name,atomic_list(As),var_list(Rs)};
+k_bif(_A, #k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Name}}, As, Rs) ->
     Ar = length(As),
     case is_gc_bif(Name, Ar) of
 	false ->
@@ -390,7 +375,6 @@ is_gc_bif(node, 0) -> false;
 is_gc_bif(node, 1) -> false;
 is_gc_bif(element, 2) -> false;
 is_gc_bif(get, 1) -> false;
-is_gc_bif(raise, 2) -> false;
 is_gc_bif(tuple_size, 1) -> false;
 is_gc_bif(Bif, Arity) ->
     not (erl_internal:bool_op(Bif, Arity) orelse
