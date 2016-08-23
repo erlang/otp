@@ -1734,15 +1734,15 @@ uexpr(#k_receive_accept{anno=A}, _, St) ->
     {#k_receive_accept{anno=#k{us=[],ns=[],a=A}},[],St};
 uexpr(#k_receive_next{anno=A}, _, St) ->
     {#k_receive_next{anno=#k{us=[],ns=[],a=A}},[],St};
-uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0}=Try,
+uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       {break,Rs0}=Br, St0) ->
     case is_in_guard(St0) of
 	true ->
 	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
 	    #k_atom{val=false} = H0,		%Assertion.
 	    {A1,Bu,St1} = uexpr(A0, Br, St0),
-	    {Try#k_try{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
-		       arg=A1,ret=Rs0},Bu,St1};
+	    {#k_protected{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
+			  arg=A1,ret=Rs0},Bu,St1};
 	false ->
 	    {Avs,St1} = new_vars(length(Vs), St0),
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
