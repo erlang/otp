@@ -1783,6 +1783,10 @@ read_code_header(LoaderState* stp)
      */
 
     GetInt(stp, 4, head_size);
+    if (head_size > stp->file_left) {
+	LoadError2(stp, "invalid code header size %u; bytes left %u",
+		   head_size, stp->file_left);
+    }
     stp->code_start = stp->file_p + head_size;
     stp->code_size = stp->file_left - head_size;
     stp->file_left = head_size;
