@@ -60,7 +60,8 @@
 	]).
 
 %%% Behaviour callbacks
--export([handle_event/4, terminate/3, format_status/2, code_change/4]).
+-export([callback_mode/0, handle_event/4, terminate/3,
+	 format_status/2, code_change/4]).
 
 %%% Exports not intended to be used :). They are used for spawning and tests
 -export([init_connection_handler/3,	   % proc_lib:spawn needs this
@@ -374,14 +375,12 @@ init_connection_handler(Role, Socket, Opts) ->
 	S ->
 	    gen_statem:enter_loop(?MODULE,
 				  [], %%[{debug,[trace,log,statistics,debug]} || Role==server],
-				  handle_event_function,
 				  {hello,Role},
 				  S)
     catch
 	_:Error ->
 	    gen_statem:enter_loop(?MODULE,
 				  [],
-				  handle_event_function,
 				  {init_error,Error},
 				  S0)
     end.
@@ -503,6 +502,9 @@ init_ssh_record(Role, Socket, Opts) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 %%% ######## Error in the initialisation ####
+
+callback_mode() ->
+    handle_event_function.
 
 handle_event(_, _Event, {init_error,Error}, _) ->
     case Error of
@@ -1401,12 +1403,12 @@ fmt_stat_rec(FieldNames, Rec, Exclude) ->
 		  state_name(),
 		  #data{},
 		  term()
-		 ) -> {gen_statem:callback_mode(), state_name(), #data{}}.
+		 ) -> {ok, state_name(), #data{}}.
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 code_change(_OldVsn, StateName, State, _Extra) ->
-    {handle_event_function, StateName, State}.
+    {ok, StateName, State}.
 
 
 %%====================================================================

@@ -37,33 +37,32 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, event_order,
+     shutdown, stop_and_reply, event_order, code_change,
      {group, sys},
      hibernate, enter_loop].
 
 groups() ->
-    [{start, [],
-      [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11, start12, next_events]},
-     {start_handle_event, [],
-      [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11, start12, next_events]},
-     {stop, [],
-      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
-     {stop_handle_event, [],
-      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
-     {abnormal, [], [abnormal1, abnormal2]},
-     {abnormal_handle_event, [], [abnormal1, abnormal2]},
-     {sys, [],
-      [sys1, code_change,
-       call_format_status,
-       error_format_status, terminate_crash_format,
-       get_state, replace_state]},
-     {sys_handle_event, [],
-      [sys1,
-       call_format_status,
-       error_format_status, terminate_crash_format,
-       get_state, replace_state]}].
+    [{start, [], tcs(start)},
+     {start_handle_event, [], tcs(start)},
+     {stop, [], tcs(stop)},
+     {stop_handle_event, [], tcs(stop)},
+     {abnormal, [], tcs(abnormal)},
+     {abnormal_handle_event, [], tcs(abnormal)},
+     {sys, [], tcs(sys)},
+     {sys_handle_event, [], tcs(sys)}].
+
+tcs(start) ->
+    [start1, start2, start3, start4, start5, start6, start7,
+     start8, start9, start10, start11, start12, next_events];
+tcs(stop) ->
+    [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
+tcs(abnormal) ->
+    [abnormal1, abnormal2];
+tcs(sys) ->
+    [sys1, call_format_status,
+     error_format_status, terminate_crash_format,
+     get_state, replace_state].
+
 
 init_per_suite(Config) ->
     Config.
@@ -461,10 +460,10 @@ abnormal2(Config) ->
     {ok,Pid} = gen_statem:start_link(?MODULE, start_arg(Config, []), []),
 
     %% bad return value in the gen_statem loop
-    {{bad_return_value,badreturn},_} =
+    {{bad_return_from_state_function,badreturn},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
     receive
-	{'EXIT',Pid,{bad_return_value,badreturn}} -> ok
+	{'EXIT',Pid,{bad_return_from_state_function,badreturn}} -> ok
     after 5000 ->
 	    ct:fail(gen_statem_did_not_die)
     end,
@@ -633,11 +632,13 @@ sys1(Config) ->
     sys:resume(Pid),
     stop_it(Pid).
 
-code_change(Config) ->
-    Mode = handle_event_function,
-    {ok,Pid} = gen_statem:start(?MODULE, start_arg(Config, []), []),
+code_change(_Config) ->
+    {ok,Pid} =
+	gen_statem:start(
+	  ?MODULE, {callback_mode,state_functions,[]}, []),
     {idle,data} = sys:get_state(Pid),
     sys:suspend(Pid),
+    Mode = handle_event_function,
     sys:change_code(Pid, ?MODULE, old_vsn, Mode),
     sys:resume(Pid),
     {idle,{old_vsn,data,Mode}} = sys:get_state(Pid),
@@ -708,7 +709,7 @@ error_format_status(Config) ->
 	gen_statem:start(
 	  ?MODULE, start_arg(Config, {data,Data}), []),
     %% bad return value in the gen_statem loop
-    {{bad_return_value,badreturn},_} =
+    {{bad_return_from_state_function,badreturn},_} =
 	?EXPECT_FAILURE(gen_statem:call(Pid, badreturn), Reason),
     receive
 	{error,_,
@@ -716,7 +717,7 @@ error_format_status(Config) ->
 	  "** State machine"++_,
 	  [Pid,{{call,_},badreturn},
 	   {formatted,idle,Data},
-	   error,{bad_return_value,badreturn}|_]}} ->
+	   error,{bad_return_from_state_function,badreturn}|_]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
 	    error_logger_forwarder:unregister(),
@@ -1029,11 +1030,7 @@ enter_loop(_Config) ->
     end,
 
     %% Process not started using proc_lib
-    CallbackMode = state_functions,
-    Pid4 =
-	spawn_link(
-	  gen_statem, enter_loop,
-	  [?MODULE,[],CallbackMode,state0,[]]),
+    Pid4 = spawn_link(gen_statem, enter_loop, [?MODULE,[],state0,[]]),
     receive
 	{'EXIT',Pid4,process_was_not_started_by_proc_lib} ->
 	    ok
@@ -1107,21 +1104,18 @@ enter_loop(Reg1, Reg2) ->
 	anon -> ignore
     end,
     proc_lib:init_ack({ok, self()}),
-    CallbackMode = state_functions,
     case Reg2 of
 	local ->
 	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [], {local,armitage});
+	      ?MODULE, [], state0, [], {local,armitage});
 	global ->
 	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [], {global,armitage});
+	      ?MODULE, [], state0, [], {global,armitage});
 	via ->
 	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [],
-	      {via, dummy_via, armitage});
+	      ?MODULE, [], state0, [], {via, dummy_via, armitage});
 	anon ->
-	    gen_statem:enter_loop(
-	      ?MODULE, [], CallbackMode, state0, [])
+	    gen_statem:enter_loop(?MODULE, [], state0, [])
     end.
 
 
@@ -1266,33 +1260,39 @@ init(stop_shutdown) ->
     {stop,shutdown};
 init(sleep) ->
     ?t:sleep(1000),
-    {state_functions,idle,data};
+    {ok,idle,data};
 init(hiber) ->
-    {state_functions,hiber_idle,[]};
+    {ok,hiber_idle,[]};
 init(hiber_now) ->
-    {state_functions,hiber_idle,[],[hibernate]};
+    {ok,hiber_idle,[],[hibernate]};
 init({data, Data}) ->
-    {state_functions,idle,Data};
+    {ok,idle,Data};
 init({callback_mode,CallbackMode,Arg}) ->
-    case init(Arg) of
-	{_,State,Data,Ops} ->
-	    {CallbackMode,State,Data,Ops};
-	{_,State,Data} ->
-	    {CallbackMode,State,Data};
-	Other ->
-	    Other
-    end;
+    ets:new(?MODULE, [named_table,private]),
+    ets:insert(?MODULE, {callback_mode,CallbackMode}),
+    init(Arg);
 init({map_statem,#{init := Init}=Machine}) ->
+    ets:new(?MODULE, [named_table,private]),
+    ets:insert(?MODULE, {callback_mode,handle_event_function}),
     case Init() of
 	{ok,State,Data,Ops} ->
-	    {handle_event_function,State,[Data|Machine],Ops};
+	    {ok,State,[Data|Machine],Ops};
 	{ok,State,Data} ->
-	    {handle_event_function,State,[Data|Machine]};
+	    {ok,State,[Data|Machine]};
 	Other ->
 	    Other
     end;
 init([]) ->
-    {state_functions,idle,data}.
+    {ok,idle,data}.
+
+callback_mode() ->
+    try ets:lookup(?MODULE, callback_mode) of
+	[{callback_mode,CallbackMode}] ->
+	    CallbackMode
+    catch
+	error:badarg ->
+	    state_functions
+    end.
 
 terminate(_, _State, crash_terminate) ->
     exit({crash,terminate});
@@ -1568,7 +1568,12 @@ wrap_result(Result) ->
 
 
 code_change(OldVsn, State, Data, CallbackMode) ->
-    {CallbackMode,State,{OldVsn,Data,CallbackMode}}.
+    io:format(
+      "code_change(~p, ~p, ~p, ~p)~n", [OldVsn,State,Data,CallbackMode]),
+    ets:insert(?MODULE, {callback_mode,CallbackMode}),
+    io:format(
+      "code_change(~p, ~p, ~p, ~p)~n", [OldVsn,State,Data,CallbackMode]),
+    {ok,State,{OldVsn,Data,CallbackMode}}.
 
 format_status(terminate, [_Pdict,State,Data]) ->
     {formatted,State,Data};

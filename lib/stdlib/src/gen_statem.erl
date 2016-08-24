@@ -24,7 +24,7 @@
    [start/3,start/4,start_link/3,start_link/4,
     stop/1,stop/3,
     cast/2,call/2,call/3,
-    enter_loop/5,enter_loop/6,enter_loop/7,
+    enter_loop/4,enter_loop/5,enter_loop/6,
     reply/1,reply/2]).
 
 %% gen callbacks
@@ -63,8 +63,8 @@
 	{To :: pid(), Tag :: term()}. % Reply-to specifier for call
 
 -type state() ::
-	state_name() | % For state callback function StateName/5
-	term(). % For state callback function handle_event/5
+	state_name() | % For StateName/3 callback functios
+	term(). % For handle_event/4 callback function
 
 -type state_name() :: atom().
 
@@ -174,28 +174,33 @@
 %% an {ok, ...} tuple.  Thereafter the state callbacks are called
 %% for all events to this server.
 -callback init(Args :: term()) ->
-    {callback_mode(), state(), data()} |
-    {callback_mode(), state(), data(), [action()] | action()} |
+    {ok, state(), data()} |
+    {ok, state(), data(), [action()] | action()} |
     'ignore' |
     {'stop', Reason :: term()}.
 
-%% Example state callback for callback_mode() =:= state_functions
-%% state name 'state_name'.
+%% This callback shall return the callback mode of the callback module.
 %%
-%% In this mode all states has to be type state_name() i.e atom().
+%% It is called once after init/0 and code_change/4 but before
+%% the first state callback StateName/3 or handle_event/4.
+-callback callback_mode() -> callback_mode().
+
+%% Example state callback for StateName = 'state_name'
+%% when callback_mode() =:= state_functions.
 %%
-%% Note that state callbacks and only state callbacks have arity 5
-%% and that is intended.
+%% In this mode all states has to be of type state_name() i.e atom().
+%%
+%% Note that the only callbacks that have arity 3 are these
+%% StateName/3 callbacks and terminate/3, so the state name
+%% 'terminate' is unusable in this mode.
 -callback state_name(
 	    event_type(),
 	    EventContent :: term(),
 	    Data :: data()) ->
     state_function_result().
 %%
-%% State callback for callback_mode() =:= handle_event_function.
-%%
-%% Note that state callbacks and only state callbacks have arity 5
-%% and that is intended.
+%% State callback for all states
+%% when callback_mode() =:= handle_event_function.
 -callback handle_event(
 	    event_type(),
 	    EventContent :: term(),
@@ -219,9 +224,7 @@
 	    OldState :: state(),
 	    OldData :: data(),
 	    Extra :: term()) ->
-    {CallbackMode :: callback_mode(),
-     NewState :: state(),
-     NewData :: data()} |
+    {ok, NewState :: state(), NewData :: data()} |
     (Reason :: term()).
 
 %% Format the callback module state in some sensible that is
@@ -240,10 +243,13 @@
    [init/1, % One may use enter_loop/5,6,7 instead
     format_status/2, % Has got a default implementation
     %%
-    state_name/3, % Example for callback_mode =:= state_functions:
-    %% there has to be a StateName/5 callback function for every StateName.
+    state_name/3, % Example for callback_mode() =:= state_functions:
+    %% there has to be a StateName/3 callback function
+    %% for every StateName in your state machine but the state name
+    %% 'state_name' does of course not have to be used.
     %%
-    handle_event/4]). % For callback_mode =:= handle_event_function
+    handle_event/4 % For callback_mode() =:= handle_event_function
+   ]).
 
 %% Type validation functions
 callback_mode(CallbackMode) ->
@@ -451,43 +457,35 @@ reply({To,Tag}, Reply) when is_pid(To) ->
 %% the same arguments as you would have returned from init/1
 -spec enter_loop(
 	Module :: module(), Opts :: [debug_opt()],
-	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data()) ->
 			no_return().
-enter_loop(Module, Opts, CallbackMode, State, Data) ->
-    enter_loop(Module, Opts, CallbackMode, State, Data, self()).
+enter_loop(Module, Opts, State, Data) ->
+    enter_loop(Module, Opts, State, Data, self()).
 %%
 -spec enter_loop(
 	Module :: module(), Opts :: [debug_opt()],
-	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data(),
 	Server_or_Actions ::
 	  server_name() | pid() | [action()]) ->
 			no_return().
-enter_loop(Module, Opts, CallbackMode, State, Data, Server_or_Actions) ->
+enter_loop(Module, Opts, State, Data, Server_or_Actions) ->
     if
 	is_list(Server_or_Actions) ->
-	    enter_loop(
-	      Module, Opts, CallbackMode, State, Data,
-	      self(), Server_or_Actions);
+	    enter_loop(Module, Opts, State, Data, self(), Server_or_Actions);
 	true ->
-	    enter_loop(
-	      Module, Opts, CallbackMode, State, Data,
-	      Server_or_Actions, [])
+	    enter_loop(Module, Opts, State, Data, Server_or_Actions, [])
     end.
 %%
 -spec enter_loop(
 	Module :: module(), Opts :: [debug_opt()],
-	CallbackMode :: callback_mode(),
 	State :: state(), Data :: data(),
 	Server :: server_name() | pid(),
 	Actions :: [action()] | action()) ->
 			no_return().
-enter_loop(Module, Opts, CallbackMode, State, Data, Server, Actions) ->
+enter_loop(Module, Opts, State, Data, Server, Actions) ->
     is_atom(Module) orelse error({atom,Module}),
-    callback_mode(CallbackMode) orelse error({callback_mode,CallbackMode}),
     Parent = gen:get_parent(),
-    enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent).
+    enter(Module, Opts, State, Data, Server, Actions, Parent).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -515,7 +513,7 @@ send(Proc, Msg) ->
     end.
 
 %% Here the init_it/6 and enter_loop/5,6,7 functions converge
-enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent) ->
+enter(Module, Opts, State, Data, Server, Actions, Parent) ->
     %% The values should already have been type checked
     Name = gen:get_proc_name(Server),
     Debug = gen:debug_options(Name, Opts),
@@ -531,7 +529,7 @@ enter(Module, Opts, CallbackMode, State, Data, Server, Actions, Parent) ->
 		[Actions,{postpone,false}]
 	end,
     S =	#{
-      callback_mode => CallbackMode,
+      callback_mode => undefined,
       module => Module,
       name => Name,
       %% All fields below will be replaced according to the arguments to
@@ -559,9 +557,15 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 	Result ->
 	    init_result(Starter, Parent, ServerRef, Module, Result, Opts);
 	Class:Reason ->
+	    Stacktrace = erlang:get_stacktrace(),
+	    Name = gen:get_proc_name(ServerRef),
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
-	    erlang:raise(Class, Reason, erlang:get_stacktrace())
+	    error_info(
+	      Class, Reason, Stacktrace,
+	      #{name => Name, callback_mode => undefined},
+	      [], [], undefined),
+	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
 %%---------------------------------------------------------------------------
@@ -569,30 +573,12 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 
 init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
     case Result of
-	{CallbackMode,State,Data} ->
-	    case callback_mode(CallbackMode) of
-		true ->
-		    proc_lib:init_ack(Starter, {ok,self()}),
-		    enter(
-		      Module, Opts, CallbackMode, State, Data,
-		      ServerRef, [], Parent);
-		false ->
-		    Error = {callback_mode,CallbackMode},
-		    proc_lib:init_ack(Starter, {error,Error}),
-		    exit(Error)
-	    end;
-	{CallbackMode,State,Data,Actions} ->
-	    case callback_mode(CallbackMode) of
-		true ->
-		    proc_lib:init_ack(Starter, {ok,self()}),
-		    enter(
-		      Module, Opts, CallbackMode, State, Data,
-		      ServerRef, Actions, Parent);
-		false ->
-		    Error = {callback_mode,CallbackMode},
-		    proc_lib:init_ack(Starter, {error,Error}),
-		    exit(Error)
-	    end;
+	{ok,State,Data} ->
+	    proc_lib:init_ack(Starter, {ok,self()}),
+	    enter(Module, Opts, State, Data, ServerRef, [], Parent);
+	{ok,State,Data,Actions} ->
+	    proc_lib:init_ack(Starter, {ok,self()}),
+	    enter(Module, Opts, State, Data, ServerRef, Actions, Parent);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -602,8 +588,14 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
 	_ ->
-	    Error = {bad_return_value,Result},
+	    Name = gen:get_proc_name(ServerRef),
+	    gen:unregister_name(ServerRef),
+	    Error = {bad_return_from_init,Result},
 	    proc_lib:init_ack(Starter, {error,Error}),
+	    error_info(
+	      error, Error, ?STACKTRACE(),
+	      #{name => Name, callback_mode => undefined},
+	      [], [], undefined),
 	    exit(Error)
     end.
 
@@ -631,11 +623,9 @@ system_code_change(
 	    Result -> Result
 	end
     of
-	{CallbackMode,NewState,NewData} ->
-	    callback_mode(CallbackMode) orelse
-		error({callback_mode,CallbackMode}),
+	{ok,NewState,NewData} ->
 	    {ok,
-	     S#{callback_mode := CallbackMode,
+	     S#{callback_mode := undefined,
 		state := NewState,
 		data := NewData}};
 	{ok,_} = Error ->
@@ -676,14 +666,14 @@ format_status(
 %% them, not as the real erlang messages.  Use trace for that.
 %%---------------------------------------------------------------------------
 
-print_event(Dev, {in,Event}, {Name,_}) ->
+print_event(Dev, {in,Event}, {Name,State}) ->
     io:format(
-      Dev, "*DBG* ~p received ~s~n",
-      [Name,event_string(Event)]);
-print_event(Dev, {out,Reply,{To,_Tag}}, {Name,_}) ->
+      Dev, "*DBG* ~p receive ~s in state ~p~n",
+      [Name,event_string(Event),State]);
+print_event(Dev, {out,Reply,{To,_Tag}}, {Name,State}) ->
     io:format(
-      Dev, "*DBG* ~p sent ~p to ~p~n",
-      [Name,Reply,To]);
+      Dev, "*DBG* ~p send ~p to ~p from state ~p~n",
+      [Name,Reply,To,State]);
 print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
     StateString =
 	case NextState of
@@ -875,22 +865,36 @@ loop_event(
     %%
     try
 	case CallbackMode of
+	    undefined ->
+		Module:callback_mode();
 	    state_functions ->
-		Module:State(Type, Content, Data);
+		erlang:apply(Module, State, [Type,Content,Data]);
 	    handle_event_function ->
 		Module:handle_event(Type, Content, State, Data)
-	end of
+	end
+    of
+	Result when CallbackMode =:= undefined ->
+	    loop_event_callback_mode(
+	      Parent, Debug, S, Events, State, Data, P, Event, Result);
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, State, Data, P, Event, Result)
     catch
+	Result when CallbackMode =:= undefined ->
+	    loop_event_callback_mode(
+	      Parent, Debug, S, Events, State, Data, P, Event, Result);
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, State, Data, P, Event, Result);
-	error:badarg when CallbackMode =:= state_functions ->
+	error:badarg ->
 	    case erlang:get_stacktrace() of
-		[{erlang,apply,[Module,State,_],_}|Stacktrace] ->
-		    Args = [Type,Content,Data],
+		[{erlang,apply,
+		  [Module,State,[Type,Content,Data]=Args],
+		  _}
+		 |Stacktrace]
+		  when CallbackMode =:= state_functions ->
+		    %% We get here e.g if apply fails
+		    %% due to State not being an atom
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
@@ -902,24 +906,29 @@ loop_event(
 		      Debug, S, [Event|Events], State, Data, P)
 	    end;
 	error:undef ->
-	    %% Process an undef to check for the simple mistake
+	    %% Process undef to check for the simple mistake
 	    %% of calling a nonexistent state function
+	    %% to make the undef more precise
 	    case erlang:get_stacktrace() of
-		[{Module,State,
-		  [Type,Content,Data]=Args,
-		  _}
+		[{Module,callback_mode,[]=Args,_}
 		 |Stacktrace]
-		when CallbackMode =:= state_functions ->
+		  when CallbackMode =:= undefined ->
+		    terminate(
+		      error,
+		      {undef_callback,{Module,callback_mode,Args}},
+		      Stacktrace,
+		      Debug, S, [Event|Events], State, Data, P);
+		[{Module,State,[Type,Content,Data]=Args,_}
+		 |Stacktrace]
+		  when CallbackMode =:= state_functions ->
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,State,Args}},
 		      Stacktrace,
 		      Debug, S, [Event|Events], State, Data, P);
-		[{Module,handle_event,
-		  [Type,Content,State,Data]=Args,
-		  _}
+		[{Module,handle_event,[Type,Content,State,Data]=Args,_}
 		 |Stacktrace]
-		when CallbackMode =:= handle_event_function ->
+		  when CallbackMode =:= handle_event_function ->
 		    terminate(
 		      error,
 		      {undef_state_function,{Module,handle_event,Args}},
@@ -934,6 +943,25 @@ loop_event(
 	    Stacktrace = erlang:get_stacktrace(),
 	    terminate(
 	      Class, Reason, Stacktrace,
+	      Debug, S, [Event|Events], State, Data, P)
+    end.
+
+%% Interpret callback_mode() result
+loop_event_callback_mode(
+  Parent, Debug, S, Events, State, Data, P, Event, CallbackMode) ->
+    case callback_mode(CallbackMode) of
+	true ->
+	    Hibernate = false, % We have already GC:ed recently
+	    loop_event(
+	      Parent, Debug,
+	      S#{callback_mode := CallbackMode},
+	      Events,
+	      State, Data, P, Event, Hibernate);
+	false ->
+	    terminate(
+	      error,
+	      {bad_return_from_callback_mode,CallbackMode},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, Data, P)
     end.
 
@@ -989,7 +1017,9 @@ loop_event_result(
 	      State, Data, P, Event, State, Actions);
 	_ ->
 	    terminate(
-	      error, {bad_return_value,Result}, ?STACKTRACE(),
+	      error,
+	      {bad_return_from_state_function,Result},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, Data, P)
     end.
 
@@ -1026,20 +1056,26 @@ loop_event_actions(
 		      Postpone, Hibernate, Timeout, NextEvents);
 		false ->
 		    terminate(
-		      error, {bad_action,Action}, ?STACKTRACE(),
+		      error,
+		      {bad_action_from_state_function,Action},
+		      ?STACKTRACE(),
 		      Debug, S, [Event|Events], State, NewData, P)
 	    end;
 	{next_event,Type,Content} ->
 	    case event_type(Type) of
 		true ->
+		    NewDebug =
+			sys_debug(Debug, S, State, {in,{Type,Content}}),
 		    loop_event_actions(
-		      Parent, Debug, S, Events,
+		      Parent, NewDebug, S, Events,
 		      State, NewData, P, Event, NextState, Actions,
 		      Postpone, Hibernate, Timeout,
 		      [{Type,Content}|NextEvents]);
 		false ->
 		    terminate(
-		      error, {bad_action,Action}, ?STACKTRACE(),
+		      error,
+		      {bad_action_from_state_function,Action},
+		      ?STACKTRACE(),
 		      Debug, S, [Event|Events], State, NewData, P)
 	    end;
 	%% Actions that set options
@@ -1050,7 +1086,9 @@ loop_event_actions(
 	      NewPostpone, Hibernate, Timeout, NextEvents);
 	{postpone,_} ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P);
 	postpone ->
 	    loop_event_actions(
@@ -1064,7 +1102,9 @@ loop_event_actions(
 	      Postpone, NewHibernate, Timeout, NextEvents);
 	{hibernate,_} ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P);
 	hibernate ->
 	    loop_event_actions(
@@ -1083,7 +1123,9 @@ loop_event_actions(
 	      Postpone, Hibernate, NewTimeout, NextEvents);
 	{timeout,_,_} ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P);
 	infinity -> % Clear timer - it will never trigger
 	    loop_event_actions(
@@ -1098,7 +1140,9 @@ loop_event_actions(
 	      Postpone, Hibernate, NewTimeout, NextEvents);
 	_ ->
 	    terminate(
-	      error, {bad_action,Action}, ?STACKTRACE(),
+	      error,
+	      {bad_action_from_state_function,Action},
+	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, NewData, P)
     end;
 %%
@@ -1170,7 +1214,9 @@ do_reply_then_terminate(
 	      NewDebug, S, Q, State, Data, P, Rs);
 	_ ->
 	    terminate(
-	      error, {bad_action,R}, ?STACKTRACE(),
+	      error,
+	      {bad_reply_action_from_state_function,R},
+	      ?STACKTRACE(),
 	      Debug, S, Q, State, Data, P)
     end.
 
@@ -1189,8 +1235,9 @@ terminate(
 	C:R ->
 	    ST = erlang:get_stacktrace(),
 	    error_info(
-	      C, R, ST, Debug, S, Q, P,
+	      C, R, ST, S, Q, P,
 	      format_status(terminate, get(), S, State, Data)),
+	    sys:print_log(Debug),
 	    erlang:raise(C, R, ST)
     end,
     case Reason of
@@ -1199,8 +1246,9 @@ terminate(
 	{shutdown,_} -> ok;
 	_ ->
 	    error_info(
-	      Class, Reason, Stacktrace, Debug, S, Q, P,
-	      format_status(terminate, get(), S, State, Data))
+	      Class, Reason, Stacktrace, S, Q, P,
+	      format_status(terminate, get(), S, State, Data)),
+	    sys:print_log(Debug)
     end,
     case Stacktrace of
 	[] ->
@@ -1210,7 +1258,7 @@ terminate(
     end.
 
 error_info(
-  Class, Reason, Stacktrace, Debug,
+  Class, Reason, Stacktrace,
   #{name := Name, callback_mode := CallbackMode},
   Q, P, FmtData) ->
     {FixedReason,FixedStacktrace} =
@@ -1277,9 +1325,7 @@ error_info(
 	  case FixedStacktrace of
 	      [] -> [];
 	      _ -> [FixedStacktrace]
-	  end),
-    sys:print_log(Debug),
-    ok.
+	  end).
 
 
 %% Call Module:format_status/2 or return a default value
@@ -1292,7 +1338,7 @@ format_status(Opt, PDict, #{module := Module}, State, Data) ->
 		_:_ ->
 		    format_status_default(
 		      Opt, State,
-		      "Module:format_status/2 crashed")
+		      atom_to_list(Module) ++ ":format_status/2 crashed")
 	    end;
 	false ->
 	    format_status_default(Opt, State, Data)
@@ -1300,10 +1346,10 @@ format_status(Opt, PDict, #{module := Module}, State, Data) ->
 
 %% The default Module:format_status/2
 format_status_default(Opt, State, Data) ->
-    SSD = {State,Data},
+    StateData = {State,Data},
     case Opt of
 	terminate ->
-	    SSD;
+	    StateData;
 	_ ->
-	    [{data,[{"State",SSD}]}]
+	    [{data,[{"State",StateData}]}]
     end.
