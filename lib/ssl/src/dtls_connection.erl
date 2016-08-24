@@ -65,9 +65,7 @@
 	 hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
 	 connection/3]). 
 %% gen_statem callbacks
--export([terminate/3, code_change/4, format_status/2]).
-
--define(GEN_STATEM_CB_MODE, state_functions).
+-export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
 
 %%====================================================================
 %% Internal application API
@@ -161,11 +159,14 @@ init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 =  initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     try
 	State = ssl_connection:ssl_config(State0#state.ssl_options, Role, State0),
-	gen_statem:enter_loop(?MODULE, [], ?GEN_STATEM_CB_MODE, init, State)
+	gen_statem:enter_loop(?MODULE, [], init, State)
     catch
 	throw:Error ->
-	    gen_statem:enter_loop(?MODULE, [], ?GEN_STATEM_CB_MODE, error, {Error,State0})
+	    gen_statem:enter_loop(?MODULE, [], error, {Error,State0})
     end.
+
+callback_mode() ->
+    state_functions.
 
 %%--------------------------------------------------------------------
 %% State functionsconnection/2
@@ -376,7 +377,7 @@ terminate(Reason, StateName, State) ->
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
 code_change(_OldVsn, StateName, State, _Extra) ->
-    {?GEN_STATEM_CB_MODE, StateName, State}.
+    {ok, StateName, State}.
 
 format_status(Type, Data) ->
     ssl_connection:format_status(Type, Data).
