@@ -2133,22 +2133,26 @@ time_unit_conversion(Process *c_p, Eterm term, ErtsMonotonicTime val, ErtsMonoto
 
     /* Convert to common user specified time units */
     switch (term) {
+    case am_second:
     case am_seconds:
     case make_small(1):
 	result = ERTS_MONOTONIC_TO_SEC(val) + muloff*ERTS_MONOTONIC_OFFSET_SEC;
 	ERTS_BIF_PREP_RET(ret, make_time_val(c_p, result));
 	break;
+    case am_millisecond:
     case am_milli_seconds:
     case make_small(1000):
 	result = ERTS_MONOTONIC_TO_MSEC(val) + muloff*ERTS_MONOTONIC_OFFSET_MSEC;
 	ERTS_BIF_PREP_RET(ret, make_time_val(c_p, result));
 	break;
+    case am_microsecond:
     case am_micro_seconds:
     case make_small(1000*1000):
 	result = ERTS_MONOTONIC_TO_USEC(val) + muloff*ERTS_MONOTONIC_OFFSET_USEC;
 	ERTS_BIF_PREP_RET(ret, make_time_val(c_p, result));
 	break;
 #ifdef ARCH_64
+    case am_nanosecond:
     case am_nano_seconds:
     case make_small(1000*1000*1000):
 	result = ERTS_MONOTONIC_TO_NSEC(val) + muloff*ERTS_MONOTONIC_OFFSET_NSEC;
@@ -2159,7 +2163,7 @@ time_unit_conversion(Process *c_p, Eterm term, ErtsMonotonicTime val, ErtsMonoto
 	Eterm value, native_res;
 #ifndef ARCH_64
 	Sint user_res;
-	if (term == am_nano_seconds)
+	if (term == am_nanosecond || term == am_nano_seconds)
 	    goto to_nano_seconds;
 	if (term_to_Sint(term, &user_res)) {
 	    if (user_res == 1000*1000*1000) {

@@ -384,8 +384,10 @@ atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds
+atom microsecond
 atom microstate_accounting
 atom milli_seconds
+atom millisecond
 atom min_heap_size
 atom min_bin_vheap_size
 atom minor_version
@@ -402,6 +404,7 @@ atom more
 atom multi_scheduling
 atom multiline
 atom nano_seconds
+atom nanosecond
 atom name
 atom named_table
 atom namelist
@@ -554,6 +557,7 @@ atom schedulers_online
 atom scheme
 atom scientific
 atom scope
+atom second
 atom seconds
 atom send_to_non_existing_process
 atom sensitive
