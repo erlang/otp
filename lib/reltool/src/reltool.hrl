@@ -154,19 +154,19 @@
 
 -record(app_info,
         {
-          description  = ""        :: string(),
-          id           = ""        :: string(),
-          vsn          = ""        :: app_vsn(),
-          modules      = []        :: [mod_name()],
-          maxP         = infinity  :: integer() | infinity,
-          maxT         = infinity  :: integer() | infinity,
-          registered   = []        :: [atom()],
-          incl_apps    = []        :: [app_name()],
-          applications = []        :: [app_name()],
-          env          = []        :: [{atom(), term()}],
-          mod          = undefined :: {mod_name(), [term()]} | undefined,
-          start_phases = undefined :: [{atom(), term()}] | undefined,
-          runtime_dependencies = [] :: [string()]
+          description  = ""        :: '_' | string(),
+          id           = ""        :: '_' | string(),
+          vsn          = ""        :: '_' | app_vsn(),
+          modules      = []        :: '_' | [mod_name()],
+          maxP         = infinity  :: '_' | integer() | infinity,
+          maxT         = infinity  :: '_' | integer() | infinity,
+          registered   = []        :: '_' | [atom()],
+          incl_apps    = []        :: '_' | '$3' | [app_name()],
+          applications = []        :: '_' | '$2' | [app_name()],
+          env          = []        :: '_' | [{atom(), term()}],
+          mod          = undefined :: '_' | {mod_name(), [term()]} | undefined,
+          start_phases = undefined :: '_' | [{atom(), term()}] | undefined,
+          runtime_dependencies = [] :: '_' | [string()]
 	}).
 
 -record(regexp, {source, compiled}).
