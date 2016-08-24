@@ -113,7 +113,7 @@ check([#timeout_rec{timeout = Timeout,
 	      [type_str(Type),
 	       time_str(Timeout),
 	       SuccessStr,
-	       time_str(TimeoutDiff, erlang:convert_time_unit(1, seconds, native))]),
+	       time_str(TimeoutDiff, erlang:convert_time_unit(1, second, native))]),
     check(TORs, NeedRes, NewOk);
 check([], _NeedRes, Ok) ->
     Ok.
@@ -143,13 +143,13 @@ unit_str(Res) -> Res.
 to_diff(Timeout, Start, Stop) ->
     %% 'Timeout' in milli seconds
     %% 'Start', 'Stop', and result in native unit
-    (Stop - Start) - erlang:convert_time_unit(Timeout, milli_seconds, native).
+    (Stop - Start) - erlang:convert_time_unit(Timeout, millisecond, native).
 
 ms(Time) ->
-    erlang:convert_time_unit(Time, native, milli_seconds).
+    erlang:convert_time_unit(Time, native, millisecond).
 
 max_late() ->
-    erlang:convert_time_unit(?MAX_LATE_MS, milli_seconds, native).
+    erlang:convert_time_unit(?MAX_LATE_MS, millisecond, native).
 
 receive_after(Timeout) ->
     Start = erlang:monotonic_time(),

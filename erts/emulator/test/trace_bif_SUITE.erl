@@ -289,9 +289,9 @@ receive_trace_msg_ts_return_to({trace_ts, Pid, return_to, {M,F,A}}, PrevTs, TsTy
 make_ts(timestamp) ->
     erlang:now();
 make_ts(monotonic_timestamp) ->
-    erlang:monotonic_time(nano_seconds);
+    erlang:monotonic_time(nanosecond);
 make_ts(strict_monotonic_timestamp) ->
-    MT = erlang:monotonic_time(nano_seconds),
+    MT = erlang:monotonic_time(nanosecond),
     UMI = erlang:unique_integer([monotonic]),
     {MT, UMI}.
 

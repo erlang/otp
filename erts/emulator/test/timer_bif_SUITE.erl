@@ -489,7 +489,7 @@ registered_process(Config) when is_list(Config) ->
 same_time_yielding(Config) when is_list(Config) ->
     Mem = mem(),
     SchdlrsOnln = erlang:system_info(schedulers_online),
-    Tmo = erlang:monotonic_time(milli_seconds) + 3000,
+    Tmo = erlang:monotonic_time(millisecond) + 3000,
     Tmrs = lists:map(fun (I) ->
                              process_flag(scheduler, (I rem SchdlrsOnln) + 1),
                              erlang:start_timer(Tmo, self(), hej, [{abs, true}])
@@ -497,7 +497,7 @@ same_time_yielding(Config) when is_list(Config) ->
                      lists:seq(1, (?TIMEOUT_YIELD_LIMIT*3+1)*SchdlrsOnln)),
     true = mem_larger_than(Mem),
     lists:foreach(fun (Tmr) -> receive {timeout, Tmr, hej} -> ok end end, Tmrs),
-    Done = erlang:monotonic_time(milli_seconds),
+    Done = erlang:monotonic_time(millisecond),
     true = Done >= Tmo,
     case erlang:system_info(build_type) of
         opt -> true = Done < Tmo + 200;
@@ -517,10 +517,10 @@ same_time_yielding_with_cancel_other(Config) when is_list(Config) ->
 
 do_cancel_tmrs(Tmo, Tmrs, Tester) ->
     BeginCancel = erlang:convert_time_unit(Tmo,
-                                           milli_seconds,
-                                           micro_seconds) - 100,
+                                           millisecond,
+                                           microsecond) - 100,
     busy_wait_until(fun () ->
-                            erlang:monotonic_time(micro_seconds) >= BeginCancel
+                            erlang:monotonic_time(microsecond) >= BeginCancel
                     end),
     lists:foreach(fun (Tmr) ->
                           erlang:cancel_timer(Tmr,
@@ -535,7 +535,7 @@ do_cancel_tmrs(Tmo, Tmrs, Tester) ->
 same_time_yielding_with_cancel_test(Other, Accessor) ->
     Mem = mem(),
     SchdlrsOnln = erlang:system_info(schedulers_online),
-    Tmo = erlang:monotonic_time(milli_seconds) + 3000,
+    Tmo = erlang:monotonic_time(millisecond) + 3000,
     Tester = self(),
     Cancelor = case Other of
                    false ->
@@ -656,7 +656,7 @@ get_msg() ->
 start_slave() ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = atom_to_list(?MODULE)
-    ++ "-" ++ integer_to_list(erlang:system_time(seconds))
+    ++ "-" ++ integer_to_list(erlang:system_time(second))
     ++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
     {ok, Node} = test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
     Node.

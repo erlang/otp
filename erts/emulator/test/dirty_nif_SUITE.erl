@@ -145,9 +145,9 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
     [ok] = mcall(Node,
                  [fun() ->
                           ok = erlang:load_nif(NifLib, []),
-			  Start = erlang:monotonic_time(milli_seconds),
+			  Start = erlang:monotonic_time(millisecond),
                           ok = test_dirty_scheduler_exit(),
-			  End = erlang:monotonic_time(milli_seconds),
+			  End = erlang:monotonic_time(millisecond),
 			  io:format("Time=~p ms~n", [End-Start]),
 			  ok
                   end]),
@@ -400,7 +400,7 @@ start_node(Config, Args) when is_list(Config) ->
 			++ "-"
 			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
-			++ integer_to_list(erlang:system_time(seconds))
+			++ integer_to_list(erlang:system_time(second))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).

@@ -309,13 +309,13 @@ receiver(T0, TimeSec, Main, {P1,P1N}, {P2,P2N}) ->
 
 %% uncomment lines below to get life sign (debug)
 receiver(T0, Time, Main, P1,P1N,P1Rs, P2,P2N,P2Rs, 0) ->
-    %    T = erlang:convert_time_unit(erlang:monotonic_time() - T0, native, milli_seconds),
+    %    T = erlang:convert_time_unit(erlang:monotonic_time() - T0, native, millisecond),
     %    erlang:display({round(T/1000),P1Rs,P2Rs}),
     receiver(T0, Time, Main, P1,P1N,P1Rs, P2,P2N,P2Rs, 100000);
 
 receiver(T0, Time, Main, P1,P1N,P1Rs, P2,P2N,P2Rs, C) ->
     Remain = Time - erlang:convert_time_unit(erlang:monotonic_time() - T0,
-                                             native, milli_seconds), % test time remaining
+                                             native, millisecond), % test time remaining
     Remain1 = if Remain < 0 ->
                      0;
                  true ->

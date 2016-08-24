@@ -1978,10 +1978,10 @@ do_it(Tracer, Low, Normal, High, Max) ->
 do_it(Tracer, Low, Normal, High, Max, RedsPerSchedLimit) ->
     OldPrio = process_flag(priority, max),
     go_work(Low, Normal, High, Max),
-    StartWait = erlang:monotonic_time(milli_seconds),
+    StartWait = erlang:monotonic_time(millisecond),
     %% Give the emulator a chance to balance the load...
     wait_balance(5),
-    EndWait = erlang:monotonic_time(milli_seconds),
+    EndWait = erlang:monotonic_time(millisecond),
     BalanceWait = EndWait-StartWait,
     erlang:display({balance_wait, BalanceWait}),
     Timeout = (15 - 4)*60*1000 - BalanceWait,
@@ -2181,7 +2181,7 @@ start_node(Config, Args) when is_list(Config) ->
 			++ "-"
 			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
-			++ integer_to_list(erlang:system_time(seconds))
+			++ integer_to_list(erlang:system_time(second))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).

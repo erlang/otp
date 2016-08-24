@@ -1092,7 +1092,7 @@ wait_until(Pred) ->
 get_nodefirstname_string() ->
     atom_to_list(?MODULE)
     ++ "-"
-    ++ integer_to_list(erlang:system_time(seconds))
+    ++ integer_to_list(erlang:system_time(second))
     ++ "-"
     ++ integer_to_list(erlang:unique_integer([positive])).
 
