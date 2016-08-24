@@ -354,7 +354,7 @@ run_tc({Name,Fun}, St) ->
     T1 = erlang:monotonic_time(),
     Val = (catch Fun(St)),
     T2 = erlang:monotonic_time(),
-    Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
+    Elapsed = erlang:convert_time_unit(T2 - T1, native, millisecond),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
     io:format(" ~-30s: ~10.3f s ~12s\n",

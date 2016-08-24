@@ -129,7 +129,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
 	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso> and a monotonically increasing
 	    integer. The time-stamp has the same format and value
-	    as produced by <c>{erlang:monotonic_time(nano_seconds),
+	    as produced by <c>{erlang:monotonic_time(nanosecond),
 	    erlang:unique_integer([monotonic])}</c>.</p>
           </item>
           <tag><c>set_token(monotonic_timestamp, <anno>Bool</anno>)</c></tag>
@@ -141,7 +141,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
 	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso>. The time-stamp has the same
 	    format and value as produced by
-	    <c>erlang:monotonic_time(nano_seconds)</c>.</p>
+	    <c>erlang:monotonic_time(nanosecond)</c>.</p>
           </item>
         </taglist>
 	  <p>If multiple timestamp flags are passed, <c>timestamp</c> has
