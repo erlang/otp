@@ -87,7 +87,8 @@
 /* 
  * The following symbols can be manipulated to "tune" the linear hash array 
  */
-#define CHAIN_LEN 6                 /* Medium bucket chain len      */
+#define GROW_LIMIT(NACTIVE) ((NACTIVE)*1)
+#define SHRINK_LIMIT(NACTIVE) ((NACTIVE) / 2)
 
 /*
 ** We want the first mandatory segment to be small (to reduce minimal footprint)
@@ -434,7 +435,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
     int nactive = NACTIVE(tb);
-    if (nactive > FIRST_SEGSZ && NITEMS(tb) < (nactive * CHAIN_LEN)
+    if (nactive > FIRST_SEGSZ && NITEMS(tb) < SHRINK_LIMIT(nactive)
 	&& !IS_FIXED(tb)) {
 	shrink(tb, nactive);
     }
@@ -837,7 +838,7 @@ Lnew:
     WUNLOCK_HASH(lck);
     {
 	int nactive = NACTIVE(tb);       
-	if (nitems > nactive * (CHAIN_LEN+1) && !IS_FIXED(tb)) {
+	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
 	    grow(tb, nactive);
 	}
     }
@@ -2891,7 +2892,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
             WUNLOCK_HASH(lck);
             nactive = NACTIVE(tb);
 
-            if (nitems > nactive * (CHAIN_LEN + 1) && !IS_FIXED(tb)) {
+            if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
                 grow(tb, nactive);
             }
         } else {
