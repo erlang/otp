@@ -89,10 +89,20 @@
  */
 #define CHAIN_LEN 6                 /* Medium bucket chain len      */
 
-/* Number of slots per segment */
-#define SEGSZ_EXP  8
-#define SEGSZ   (1 << SEGSZ_EXP)
-#define SEGSZ_MASK (SEGSZ-1)
+/*
+** We want the first mandatory segment to be small (to reduce minimal footprint)
+** and larger extra segments (to reduce number of alloc/free calls).
+*/
+
+/* Number of slots in first segment */
+#define FIRST_SEGSZ_EXP  8
+#define FIRST_SEGSZ      (1 << FIRST_SEGSZ_EXP)
+#define FIRST_SEGSZ_MASK (FIRST_SEGSZ - 1)
+
+/* Number of slots per extra segment */
+#define EXT_SEGSZ_EXP  11
+#define EXT_SEGSZ   (1 << EXT_SEGSZ_EXP)
+#define EXT_SEGSZ_MASK (EXT_SEGSZ-1)
 
 #define NSEG_1   (ErtsSizeofMember(DbTableHash,first_segtab) / sizeof(struct segment*))
 #define NSEG_2   256 /* Size of second segment table */
@@ -115,7 +125,9 @@
 #define NACTIVE(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nactive))
 #define NITEMS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->common.nitems))
 
-#define BUCKET(tb, i) SEGTAB(tb)[(i) >> SEGSZ_EXP]->buckets[(i) & SEGSZ_MASK]
+#define SLOT_IX_TO_SEG_IX(i) (((i)+(EXT_SEGSZ-FIRST_SEGSZ)) >> EXT_SEGSZ_EXP)
+
+#define BUCKET(tb, i) SEGTAB(tb)[SLOT_IX_TO_SEG_IX(i)]->buckets[(i) & EXT_SEGSZ_MASK]
 
 /*
  * When deleting a table, the number of records to delete.
@@ -422,7 +434,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
     int nactive = NACTIVE(tb);
-    if (nactive > SEGSZ && NITEMS(tb) < (nactive * CHAIN_LEN)
+    if (nactive > FIRST_SEGSZ && NITEMS(tb) < (nactive * CHAIN_LEN)
 	&& !IS_FIXED(tb)) {
 	shrink(tb, nactive);
     }
@@ -621,17 +633,17 @@ int db_create_hash(Process *p, DbTable *tbl)
 {
     DbTableHash *tb = &tbl->hash;
 
-    erts_smp_atomic_init_nob(&tb->szm, SEGSZ_MASK);
-    erts_smp_atomic_init_nob(&tb->nactive, SEGSZ);
+    erts_smp_atomic_init_nob(&tb->szm, FIRST_SEGSZ_MASK);
+    erts_smp_atomic_init_nob(&tb->nactive, FIRST_SEGSZ);
     erts_smp_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
     erts_smp_atomic_init_nob(&tb->segtab, (erts_aint_t)NULL);
     SET_SEGTAB(tb, tb->first_segtab);
     tb->nsegs = NSEG_1;
-    tb->nslots = SEGSZ;
+    tb->nslots = FIRST_SEGSZ;
     tb->first_segtab[0] = (struct segment*) erts_db_alloc(ERTS_ALC_T_DB_SEG,
                                                           (DbTable *) tb,
-                                                          SIZEOF_SEGMENT(SEGSZ));
-    sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(SEGSZ));
+                                                          SIZEOF_SEGMENT(FIRST_SEGSZ));
+    sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(FIRST_SEGSZ));
 
 #ifdef ERTS_SMP
     erts_smp_atomic_init_nob(&tb->is_resizing, 0);
@@ -649,7 +661,7 @@ int db_create_hash(Process *p, DbTable *tbl)
 	    erts_smp_rwmtx_init_opt_x(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
 				      "db_hash_slot", make_small(i));
 	}
-	/* This important property is needed to guarantee that the buckets
+	/* This important property is needed to guarantee the two buckets
     	 * involved in a grow/shrink operation it protected by the same lock:
 	 */
 	ASSERT(erts_smp_atomic_read_nob(&tb->nactive) % DB_HASH_LOCK_CNT == 0);
@@ -2213,12 +2225,12 @@ static int db_free_table_continue_hash(DbTable *tbl)
 
     done /= 2;
     while(tb->nslots != 0) {
-	free_seg(tb, 1);
+	done += 1 + EXT_SEGSZ/64 + free_seg(tb, 1);
 
 	/*
 	 * If we have done enough work, get out here.
 	 */
-	if (++done >= (DELETE_RECORD_LIMIT / CHAIN_LEN / SEGSZ)) {
+	if (done >= DELETE_RECORD_LIMIT) {
 	    return 0;	/* Not done */
 	}
     }
@@ -2406,9 +2418,10 @@ static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix)
 */
 static int alloc_seg(DbTableHash *tb)
 {    
-    int seg_ix = tb->nslots >> SEGSZ_EXP;
+    int seg_ix = SLOT_IX_TO_SEG_IX(tb->nslots);
     struct segment** segtab;
 
+    ASSERT(seg_ix > 0);
     if (seg_ix == tb->nsegs) { /* New segtab needed */
 	struct ext_segtab* est = alloc_ext_segtab(tb, seg_ix);
         SET_SEGTAB(tb, est->segtab);
@@ -2418,9 +2431,9 @@ static int alloc_seg(DbTableHash *tb)
     segtab = SEGTAB(tb);
     segtab[seg_ix] = (struct segment*) erts_db_alloc(ERTS_ALC_T_DB_SEG,
                                                      (DbTable *) tb,
-                                                     SIZEOF_SEGMENT(SEGSZ));
-    sys_memset(segtab[seg_ix], 0, SIZEOF_SEGMENT(SEGSZ));
-    tb->nslots += SEGSZ;
+                                                     SIZEOF_SEGMENT(EXT_SEGSZ));
+    sys_memset(segtab[seg_ix], 0, SIZEOF_SEGMENT(EXT_SEGSZ));
+    tb->nslots += EXT_SEGSZ;
     return 1;
 }
 
@@ -2438,9 +2451,10 @@ static void dealloc_ext_segtab(void* lop_data)
 */
 static int free_seg(DbTableHash *tb, int free_records)
 {
-    const int seg_ix = (tb->nslots >> SEGSZ_EXP) - 1;
+    const int seg_ix = SLOT_IX_TO_SEG_IX(tb->nslots) - 1;
     struct segment** const segtab = SEGTAB(tb);
     struct segment* const segp = segtab[seg_ix];
+    Uint seg_sz;
     int nrecords = 0;
 
     ASSERT(segp != NULL);
@@ -2448,8 +2462,8 @@ static int free_seg(DbTableHash *tb, int free_records)
     if (free_records)
 #endif
     {	
-	int i;
-	for (i=0; i<SEGSZ; ++i) {
+	int i = (seg_ix == 0) ? FIRST_SEGSZ : EXT_SEGSZ;
+	while (i--) {
 	    HashDbTerm* p = segp->buckets[i];
 	    while(p != 0) {		
 		HashDbTerm* nxt = p->next;
@@ -2495,13 +2509,14 @@ static int free_seg(DbTableHash *tb, int free_records)
 
         }
     }
-    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, segp, SIZEOF_SEGMENT(SEGSZ));
+    seg_sz = (seg_ix == 0) ? FIRST_SEGSZ : EXT_SEGSZ;
+    erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable *)tb, segp, SIZEOF_SEGMENT(seg_sz));
     
 #ifdef DEBUG
     if (seg_ix < tb->nsegs)
         SEGTAB(tb)[seg_ix] = NULL;
 #endif
-    tb->nslots -= SEGSZ;
+    tb->nslots -= seg_sz;
     ASSERT(tb->nslots >= 0);
     return nrecords;
 }
@@ -2589,7 +2604,7 @@ static void grow(DbTableHash* tb, int nactive)
     /* Ensure that the slot nactive exists */
     if (nactive == tb->nslots) {
 	/* Time to get a new segment */    
-	ASSERT((nactive & SEGSZ_MASK) == 0);
+        ASSERT(((nactive-FIRST_SEGSZ) & EXT_SEGSZ_MASK) == 0);
 	if (!alloc_seg(tb)) goto abort;	    
     }
     ASSERT(nactive < tb->nslots);
@@ -2668,7 +2683,7 @@ static void shrink(DbTableHash* tb, int nactive)
 	int dst_ix = src_ix & low_szm;
 
 	ASSERT(dst_ix < src_ix);
-	ASSERT(nactive > SEGSZ);
+	ASSERT(nactive > FIRST_SEGSZ);
 	lck = WLOCK_HASH(tb, dst_ix);
 	/* Double check for racing table fixers */
 	if (!IS_FIXED(tb)) {
@@ -2697,7 +2712,7 @@ static void shrink(DbTableHash* tb, int nactive)
 	    }
 	    WUNLOCK_HASH(lck);
 	    
-	    if (tb->nslots - src_ix >= SEGSZ) {
+	    if (tb->nslots - src_ix >= EXT_SEGSZ) {
 		free_seg(tb, 0);
 	    }
 	}
