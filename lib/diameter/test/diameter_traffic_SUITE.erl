@@ -248,17 +248,14 @@ all() ->
 groups() ->
     Ts = tc(),
     Sctp = ?util:have_sctp(),
-    [{?util:name([R,D,A,C]), [parallel], Ts} || R <- ?ENCODINGS,
-                                                D <- ?RFCS,
-                                                A <- ?ENCODINGS,
-                                                C <- ?CONTAINERS]
+    [{B, [P], Ts} || {B,P} <- [{true, shuffle}, {false, parallel}]]
         ++
         [{?util:name([T,R,D,A,C,SD,CD]),
           [],
           [start_services,
            add_transports,
            result_codes,
-           {group, ?util:name([R,D,A,C])},
+           {group, SD orelse CD},
            remove_transports,
            stop_services]}
          || T <- ?TRANSPORTS,
