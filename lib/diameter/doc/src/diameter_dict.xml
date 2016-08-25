@@ -153,7 +153,7 @@ Example:</p>
 <p>
 Defines the name of the generated dictionary module.
 Can occur at most once and defaults to the name of the dictionary file
-minus any extension if unspecified.
+minus any extension.
 The section has empty content.</p>
 
 <p>

@@ -150,7 +150,7 @@ Options <c>binary</c>,
 <c>packet</c> and <c>active</c> cannot be specified.
 Also, option <c>port</c> can be specified for a listening transport
 to specify the local listening port, the default being the standardized
-3868 if unspecified.
+3868.
 Note that the option <c>ip</c> specifies the local address.</p>
 
 <p>

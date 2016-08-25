@@ -159,8 +159,7 @@ Has one the following types.</p>
 <p>
 Unique identifier for the application in the scope of the
 service.
-Defaults to the value of the <c>dictionary</c> option if
-unspecified.</p>
+Defaults to the value of the <c>dictionary</c> option.</p>
 </item>
 
 <tag><c>{dictionary, atom()}</c></tag>
@@ -187,7 +186,7 @@ Initial callback state.
 The prevailing state is passed to some
 &man_app;
 callbacks, which can then return a new state.
-Defaults to the value of the <c>alias</c> option if unspecified.</p>
+Defaults to the value of the <c>alias</c> option.</p>
 </item>
 
 <tag><c>{call_mutates_state, true|false}</c></tag>
@@ -195,7 +194,7 @@ Defaults to the value of the <c>alias</c> option if unspecified.</p>
 <p>
 Whether or not the &app_pick_peer;
 application callback can modify the application state.
-Defaults to <c>false</c> if unspecified.</p>
+Defaults to <c>false</c>.</p>
 
 <warning>
 <p>
@@ -228,7 +227,7 @@ question is as if a callback had taken place and returned
 <c>{error, failure}</c>.</p>
 
 <p>
-Defaults to <c>discard</c> if unspecified.</p>
+Defaults to <c>discard</c>.</p>
 </item>
 
 <tag><c>{request_errors, answer_3xxx|answer|callback}</c></tag>
@@ -249,7 +248,7 @@ place and its return value determines the answer sent to the peer, if
 any.</p>
 
 <p>
-Defaults to <c>answer_3xxx</c> if unspecified.</p>
+Defaults to <c>answer_3xxx</c>.</p>
 
 <note>
 <p>
@@ -1328,7 +1327,7 @@ Defaults to the list configured on the service if not specified.</p>
 Term passed as the third argument to the &transport_start; function of
 the relevant &transport_module; in order to
 start a transport process.
-Defaults to the empty list if unspecified.</p>
+Defaults to the empty list.</p>
 
 <p>
 The 3-tuple form additionally specifies an interval, in milliseconds,
@@ -1354,7 +1353,7 @@ To listen on both SCTP and TCP, define one transport for each.</p>
 <item>
 <p>
 Module implementing a transport process as defined in &man_transport;.
-Defaults to <c>diameter_tcp</c> if unspecified.</p>
+Defaults to <c>diameter_tcp</c>.</p>
 
 <p>
 Multiple <c>transport_module</c> and &transport_config;
@@ -1412,7 +1411,7 @@ the callback.</p>
 
 <p>
 An integer value must be at least 6000 as required by RFC 3539.
-Defaults to 30000 if unspecified.</p>
+Defaults to 30000.</p>
 </item>
 
 </taglist>
