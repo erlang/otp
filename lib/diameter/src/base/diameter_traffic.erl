@@ -911,7 +911,7 @@ failed(Rec, FailedAvp, Dict) ->
         {'Failed-AVP', [FailedAvp]}
     catch
         error: _ ->
-            Avps = Dict:'get-'('AVP', Rec),
+            Avps = Dict:'#get-'('AVP', Rec),
             A = #diameter_avp{name = 'Failed-AVP',
                               value = FailedAvp},
             {'AVP', [A|Avps]}
