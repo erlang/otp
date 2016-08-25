@@ -813,6 +813,9 @@ trace_send(Process *p, Eterm to, Eterm msg)
     ErtsTracerNif *tnif = NULL;
     ErtsTracingEvent* te;
     Eterm pam_result;
+#ifdef ERTS_SMP
+    ErtsThrPrgrDelayHandle dhndl;
+#endif
 
     ASSERT(ARE_TRACE_FLAGS_ON(p, F_TRACE_SEND));
 
@@ -837,6 +840,10 @@ trace_send(Process *p, Eterm to, Eterm msg)
     } else
         pam_result = am_true;
 
+#ifdef ERTS_SMP
+    dhndl = erts_thr_progress_unmanaged_delay();
+#endif
+
     if (is_internal_pid(to)) {
 	if (!erts_proc_lookup(to))
 	    goto send_to_non_existing_process;
@@ -852,6 +859,11 @@ trace_send(Process *p, Eterm to, Eterm msg)
         send_to_tracer_nif(p, &p->common, p->common.id, tnif, TRACE_FUN_T_SEND,
                            operation, msg, to, pam_result);
     }
+
+#ifdef ERTS_SMP
+    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
+
     erts_match_set_release_result_trace(p, pam_result);
 }
 
@@ -1166,6 +1178,8 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
     ErtsTracerNif *tnif = NULL;
     Eterm transformed_args[MAX_ARG];
     ErtsTracer pre_ms_tracer = erts_tracer_nil;
+
+    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN);
 
     ASSERT(tracer);
     if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
