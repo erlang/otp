@@ -45,7 +45,7 @@
 			  "erts-6.0",
 			  "kernel-3.0",
 			  "public_key-1.1",
-			  "stdlib-3.0"
+			  "stdlib-3.1"
 			 ]}]}.
 
 
