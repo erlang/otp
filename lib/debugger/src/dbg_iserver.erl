@@ -214,7 +214,6 @@ handle_call({new_process, Pid, Meta, Function}, _From, State) ->
 
 %% Code loading
 handle_call({load, Mod, Src, Bin}, _From, State) ->
-
     %% Create an ETS table for storing information about the module
     Db = State#state.db,
     ModDb = ets:new(Mod, [ordered_set, public]),
@@ -285,23 +284,28 @@ handle_call({contents, Mod, Pid}, _From, State) ->
     {reply, {ok, Bin}, State};
 handle_call({raw_contents, Mod, Pid}, _From, State) ->
     Db = State#state.db,
-    [{{Mod, refs}, ModDbs}] = ets:lookup(Db, {Mod, refs}),
-    ModDb = if
-		Pid =:= any -> hd(ModDbs);
-		true ->
-		    lists:foldl(fun(T, not_found) ->
-					[{T, Pids}] = ets:lookup(Db, T),
-					case lists:member(Pid, Pids) of
-					    true -> T;
-					    false -> not_found
-					end;
-				   (_T, T) -> T
-				end,
-				not_found,
-				ModDbs)
-	    end,
-    [{mod_raw, Bin}] = ets:lookup(ModDb, mod_raw),
-    {reply, {ok, Bin}, State};
+    case ets:lookup(Db, {Mod, refs}) of
+	[{{Mod, refs}, ModDbs}] ->
+	    ModDb = 
+		if
+		    Pid =:= any -> hd(ModDbs);
+		    true ->
+			lists:foldl(fun(T, not_found) ->
+					    [{T, Pids}] = ets:lookup(Db, T),
+					    case lists:member(Pid, Pids) of
+						true -> T;
+						false -> not_found
+					    end;
+				       (_T, T) -> T
+				    end,
+				    not_found,
+				    ModDbs)
+		end,
+	    [{mod_raw, Bin}] = ets:lookup(ModDb, mod_raw),
+	    {reply, {ok, Bin}, State};
+	[] ->					% code not interpreted
+	    {reply, not_found, State}
+    end;
 handle_call({is_interpreted, Mod, Name, Arity}, _From, State) ->
     Db = State#state.db,
     Reply = case ets:lookup(Db, {Mod, refs}) of
