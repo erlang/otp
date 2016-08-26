@@ -1359,6 +1359,8 @@ AC_ARG_ENABLE(builtin-zlib,
 Z_LIB=
 
 if test "x$enable_builtin_zlib" = "xyes"; then
+  AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
+            [Define if your zlib version defines inflateGetDictionary.])
   AC_MSG_NOTICE([Using our own built-in zlib source])
 else
 AC_MSG_CHECKING(for zlib 1.2.5 or higher)
@@ -1385,6 +1387,11 @@ error
  AC_MSG_RESULT(no)
 ])
 LIBS=$zlib_save_LIBS
+
+AC_MSG_CHECKING(for zlib inflateGetDictionary presence)
+AC_SEARCH_LIBS(inflateGetDictionary, [z],
+               AC_DEFINE(HAVE_ZLIB_INFLATEGETDICTIONARY, 1,
+                         [Define if your zlib version defines inflateGetDictionary.]))
 fi
 AC_SUBST(Z_LIB)
 

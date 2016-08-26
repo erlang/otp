@@ -44,29 +44,33 @@
 #define INFLATE_INIT    8
 #define INFLATE_INIT2   9
 #define INFLATE_SETDICT 10
-#define INFLATE_SYNC    11
-#define INFLATE_RESET   12
-#define INFLATE_END     13
-#define INFLATE         14
+#define INFLATE_GETDICT 11
+#define INFLATE_SYNC    12
+#define INFLATE_RESET   13
+#define INFLATE_END     14
+#define INFLATE         15
 
-#define CRC32_0         15
-#define CRC32_1         16
-#define CRC32_2         17
+#define CRC32_0         16
+#define CRC32_1         17
+#define CRC32_2         18
 
-#define SET_BUFSZ       18
-#define GET_BUFSZ       19
-#define GET_QSIZE       20
+#define SET_BUFSZ       19
+#define GET_BUFSZ       20
+#define GET_QSIZE       21
 
-#define ADLER32_1       21
-#define ADLER32_2       22
+#define ADLER32_1       22
+#define ADLER32_2       23
 
-#define CRC32_COMBINE   23
-#define ADLER32_COMBINE 24
+#define CRC32_COMBINE   24
+#define ADLER32_COMBINE 25
 
-#define INFLATE_CHUNK   25
+#define INFLATE_CHUNK   26
 
 
 #define DEFAULT_BUFSZ   4000
+
+/* According to zlib documentation, it can never exceed this */
+#define INFL_DICT_SZ    32768
 
 /* This flag is used in the same places, where zlib return codes
  * (Z_OK, Z_STREAM_END, Z_NEED_DICT) are. So, we need to set it to
@@ -247,6 +251,20 @@ static int zlib_output(ZLibData* d)
     }
     return zlib_output_init(d);
 }
+
+#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
+static int zlib_inflate_get_dictionary(ZLibData* d)
+{
+    ErlDrvBinary* dbin = driver_alloc_binary(INFL_DICT_SZ);
+    uInt dlen = 0;
+    int res = inflateGetDictionary(&d->s, (unsigned char*)dbin->orig_bytes, &dlen);
+    if ((res == Z_OK) && (driver_output_binary(d->port, NULL, 0, dbin, 0, dlen) < 0)) {
+        res = Z_ERRNO;
+    }
+    driver_free_binary(dbin);
+    return res;
+}
+#endif
 
 static int zlib_inflate(ZLibData* d, int flush)
 {
@@ -585,6 +603,16 @@ static ErlDrvSSizeT zlib_ctl(ErlDrvData drv_data, unsigned int command, char *bu
 	if (d->state != ST_INFLATE) goto badarg;
 	res = inflateSetDictionary(&d->s, (unsigned char*)buf, len);
 	return zlib_return(res, rbuf, rlen);
+
+    case INFLATE_GETDICT:
+#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
+        if (d->state != ST_INFLATE) goto badarg;
+        res = zlib_inflate_get_dictionary(d);
+        return zlib_return(res, rbuf, rlen);
+#else
+        errno = ENOTSUP;
+        return zlib_return(Z_ERRNO, rbuf, rlen);
+#endif
 
     case INFLATE_SYNC:
 	if (d->state != ST_INFLATE) goto badarg;

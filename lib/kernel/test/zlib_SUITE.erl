@@ -83,7 +83,7 @@ groups() ->
       [api_open_close, api_deflateInit,
        api_deflateSetDictionary, api_deflateReset,
        api_deflateParams, api_deflate, api_deflateEnd,
-       api_inflateInit, api_inflateSetDictionary,
+       api_inflateInit, api_inflateSetDictionary, api_inflateGetDictionary,
        api_inflateSync, api_inflateReset, api_inflate, api_inflateChunk,
        api_inflateEnd, api_setBufsz, api_getBufsz, api_crc32,
        api_adler32, api_getQSize, api_un_compress, api_un_zip,
@@ -287,6 +287,42 @@ api_inflateSetDictionary(Config) when is_list(Config) ->
     Dict = <<1,1,1,1,1>>,
     ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z1,Dict)),
     ?m(ok, zlib:close(Z1)).
+
+%% Test inflateGetDictionary.
+api_inflateGetDictionary(Config) when is_list(Config) ->
+    Z1 = zlib:open(),
+    IsOperationSupported =
+        case catch zlib:inflateGetDictionary(Z1) of
+            {'EXIT',{einval,_}} -> true;
+            {'EXIT',{enotsup,_}} -> false
+        end,
+    _ = zlib:close(Z1),
+    api_inflateGetDictionary_if_supported(IsOperationSupported).
+
+api_inflateGetDictionary_if_supported(false) ->
+    {skip, "inflateGetDictionary/1 unsupported in current setup"};
+api_inflateGetDictionary_if_supported(true) ->
+    % Compress payload using custom dictionary
+    Z1 = zlib:open(),
+    ?m(ok, zlib:deflateInit(Z1)),
+    Dict = <<"foobar barfoo foo bar far boo">>,
+    ?m(_, zlib:deflateSetDictionary(Z1, Dict)),
+    Payload = <<"foobarbarbar">>,
+    Compressed = zlib:deflate(Z1, Payload, finish),
+    ?m(ok, zlib:close(Z1)),
+
+    % Decompress and test dictionary extraction
+    Z2 = zlib:open(),
+    ?m(ok, zlib:inflateInit(Z2)),
+    ?m(<<>>, iolist_to_binary(zlib:inflateGetDictionary(Z2))),
+    ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z2, Dict)),
+    ?m({'EXIT',{{need_dictionary,_},_}}, zlib:inflate(Z2, Compressed)),
+    ?m(ok, zlib:inflateSetDictionary(Z2, Dict)),
+    ?m(Dict, iolist_to_binary(zlib:inflateGetDictionary(Z2))),
+    ?m(Payload, iolist_to_binary(zlib:inflate(Z2, Compressed))),
+    ?m(ok, zlib:close(Z2)),
+    ?m(?BARG, zlib:inflateSetDictionary(Z2, Dict)),
+    ok.
 
 %% Test inflateSync.
 api_inflateSync(Config) when is_list(Config) ->
