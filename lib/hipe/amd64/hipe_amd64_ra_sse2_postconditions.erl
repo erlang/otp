@@ -87,14 +87,21 @@ do_fp_unop(I, TempMap) ->
 %%% Fix an fmove op.
 do_fmove(I, TempMap) ->
   #fmove{src=Src,dst=Dst} = I,
-  case is_mem_opnd(Dst, TempMap) and is_mem_opnd(Src, TempMap) of
+  case
+    (is_mem_opnd(Src, TempMap) andalso is_mem_opnd(Dst, TempMap))
+    orelse (is_mem_opnd(Src, TempMap) andalso (not is_float_temp(Dst)))
+    orelse ((not is_float_temp(Src)) andalso is_mem_opnd(Dst, TempMap))
+  of
     true ->
-      Tmp = clone(Src),
+      Tmp = spill_temp(double),
       {[#fmove{src=Src, dst=Tmp},I#fmove{src=Tmp,dst=Dst}],
        true};
     false ->
       {[I], false}
   end.
+
+is_float_temp(#x86_temp{type=Type}) -> Type =:= double;
+is_float_temp(#x86_mem{}) -> false.
 
 %%% Check if an operand denotes a memory cell (mem or pseudo).
 
@@ -102,7 +109,7 @@ is_mem_opnd(Opnd, TempMap) ->
   R =
     case Opnd of
       #x86_mem{} -> true;
-      #x86_temp{} -> 
+      #x86_temp{type=double} ->
 	Reg = hipe_x86:temp_reg(Opnd),
 	case hipe_x86:temp_is_allocatable(Opnd) of
 	  true -> 
@@ -176,6 +183,9 @@ clone(Dst) ->
       #x86_mem{} -> hipe_x86:mem_type(Dst);
       #x86_temp{} -> hipe_x86:temp_type(Dst)
     end,
+  spill_temp(Type).
+
+spill_temp(Type) ->
   hipe_x86:mk_new_temp(Type).
 
 %%% Make a certain reg into a clone of Dst

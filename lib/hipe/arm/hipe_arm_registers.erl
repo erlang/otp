@@ -67,6 +67,8 @@
 -define(R15, 15).
 -define(LAST_PRECOLOURED, 15). % must handle both GPR and FPR ranges
 
+-define(LR, ?R14).
+
 -define(ARG0, ?R1).
 -define(ARG1, ?R2).
 -define(ARG2, ?R3).
@@ -114,7 +116,7 @@ stack_pointer() -> ?STACK_POINTER.
 
 proc_pointer() -> ?PROC_POINTER.
 
-lr() -> ?R14.
+lr() -> ?LR.
 
 pc() -> ?R15.
 
@@ -198,7 +200,9 @@ call_clobbered() ->		% does the RA strip the type or not?
   ].
 
 tailcall_clobbered() ->		% tailcall crapola needs one temp
-  [{?TEMP1,tagged},{?TEMP1,untagged}].
+  [{?TEMP1,tagged},{?TEMP1,untagged}
+  ,{?LR,tagged},{?LR,untagged}
+  ].
 
 live_at_return() ->
   [%%{?LR,untagged},
