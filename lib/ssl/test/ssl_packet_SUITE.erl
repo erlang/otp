@@ -41,7 +41,7 @@
 
 -define(MANY, 1000).
 -define(SOME, 50).
--define(BASE_TIMEOUT_SECONDS, 15).
+-define(BASE_TIMEOUT_SECONDS, 30).
 -define(SOME_SCALE, 20).
 -define(MANY_SCALE, 20).
 
