@@ -148,10 +148,11 @@ mk_shift_ir(S, Dst, Src1, ShiftOp, Src2) ->
   mk_li(Tmp, Src1,
 	mk_shift_rr(S, Dst, Tmp, ShiftOp, Src2)).
 
-mk_shift_ri(S, Dst, Src1, ShiftOp, Src2) when is_integer(Src2) ->
-  if Src2 >= 0, Src2 < 32 -> ok;
-     true -> io:format("~w: excessive immediate shift ~w\n", [?MODULE,Src2])
-  end,
+mk_shift_ri(S, Dst, Src1, ShiftOp, 0)
+  when ShiftOp =:= lsl; ShiftOp =:= lsr; ShiftOp =:= asr ->
+  [hipe_arm:mk_move(S, Dst, Src1)];
+mk_shift_ri(S, Dst, Src1, ShiftOp, Src2)
+  when is_integer(Src2), Src2 > 0, Src2 < 32 ->
   Am1 = {Src1,ShiftOp,Src2},
   [hipe_arm:mk_move(S, Dst, Am1)].
 
