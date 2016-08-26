@@ -90,17 +90,14 @@ is called in response to an incoming Diameter request message.</p>
 
 </list>
 
-</description>
-
-<note>
 <p>
-The arities given for the the callback functions here assume no extra
-arguments.
+The arities for the the callback functions here assume no extra arguments.
 All functions will also be passed any extra arguments configured with
 the callback module itself when calling &mod_start_service;
 and, for the call-specific callbacks, any extra arguments passed to
 &mod_call;.</p>
-</note>
+
+</description>
 
 <!-- ===================================================================== -->
 <!-- ===================================================================== -->
@@ -110,9 +107,8 @@ and, for the call-specific callbacks, any extra arguments passed to
 
 <taglist>
 
-<marker id="capabilities"/>
-
-<tag><c>capabilities() = #diameter_caps{}</c></tag>
+<tag>
+<marker id="capabilities"/><c>capabilities() = #diameter_caps{}</c></tag>
 <item>
 <p>
 A record containing the identities of
@@ -126,9 +122,8 @@ Optional or possibly multiple values are encoded as lists of values,
 mandatory values as the bare value.</p>
 </item>
 
-<marker id="message"/>
-
-<tag><c>message() = &codec_message;</c></tag>
+<tag>
+<marker id="message"/><c>message() = &codec_message;</c></tag>
 <item>
 <p>
 The representation of a Diameter message as passed to
@@ -136,9 +131,8 @@ The representation of a Diameter message as passed to
 
 </item>
 
-<marker id="packet"/>
-
-<tag><c>packet() = &codec_packet;</c></tag>
+<tag>
+<marker id="packet"/><c>packet() = &codec_packet;</c></tag>
 <item>
 <p>
 A container for incoming and outgoing Diameter messages that's passed
@@ -146,25 +140,22 @@ through encode/decode and transport.
 Fields should not be set in return values except as documented.</p>
 </item>
 
-<marker id="peer_ref"/>
-
-<tag><c>peer_ref() = term()</c></tag>
+<tag>
+<marker id="peer_ref"/><c>peer_ref() = term()</c></tag>
 <item>
 <p>
 A term identifying a transport connection with a Diameter peer.</p>
 </item>
 
-<marker id="peer"/>
-
-<tag><c>peer() = {&peer_ref;, &capabilities;}</c></tag>
+<tag>
+<marker id="peer"/><c>peer() = {&peer_ref;, &capabilities;}</c></tag>
 <item>
 <p>
 A tuple representing a Diameter peer connection.</p>
 </item>
 
-<marker id="state"/>
-
-<tag><c>state() = term()</c></tag>
+<tag>
+<marker id="state"/><c>state() = term()</c></tag>
 <item>
 <p>
 The state maintained by the application callback functions
