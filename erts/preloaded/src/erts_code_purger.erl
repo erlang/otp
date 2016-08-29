@@ -140,24 +140,13 @@ do_soft_purge(Mod) ->
 %%   - false, and any processes refer 'Mod', false will
 %%     returned; otherwise, true.
 %%
-%%   Requests will be sent to all processes identified by
-%%   Pids at once, but without allowing GC to be performed.
-%%   Check process code operations that are aborted due to
-%%   GC need, will be restarted allowing GC. However, only
-%%   ?MAX_CPC_GC_PROCS outstanding operation allowing GC at
-%%   a time will be allowed. This in order not to blow up
-%%   memory wise.
-%%
-%%   We also only allow ?MAX_CPC_NO_OUTSTANDING_KILLS
+%%   We only allow ?MAX_CPC_NO_OUTSTANDING_KILLS
 %%   outstanding kills. This both in order to avoid flooding
 %%   our message queue with 'DOWN' messages and limiting the
 %%   amount of memory used to keep references to all
 %%   outstanding kills.
 %%
 
-%% We maybe should allow more than two outstanding
-%% GC requests, but for now we play it safe...
--define(MAX_CPC_GC_PROCS, 2).
 -define(MAX_CPC_NO_OUTSTANDING_KILLS, 10).
 
 -record(cpc_static, {hard, module, tag}).
@@ -172,84 +161,54 @@ check_proc_code(Pids, Mod, Hard) ->
     CpcS = #cpc_static{hard = Hard,
 		       module = Mod,
 		       tag = Tag},
-    check_proc_code(CpcS, cpc_init(CpcS, Pids, 0), 0, [], #cpc_kill{}, true).
+    check_proc_code(CpcS, cpc_init(CpcS, Pids, 0), #cpc_kill{}, true).
 
-check_proc_code(#cpc_static{hard = true}, 0, 0, [],
+check_proc_code(#cpc_static{hard = true}, 0,
 		#cpc_kill{outstanding = [], waiting = [], killed = Killed},
 		true) ->
     %% No outstanding requests. We did a hard check, so result is whether or
     %% not we killed any processes...
     Killed;
-check_proc_code(#cpc_static{hard = false}, 0, 0, [], _KillState, Success) ->
+check_proc_code(#cpc_static{hard = false}, 0, _KillState, Success) ->
     %% No outstanding requests and we did a soft check...
     Success;
-check_proc_code(#cpc_static{hard = false, tag = Tag} = CpcS, NoReq0, NoGcReq0,
-		[], _KillState, false) ->
+check_proc_code(#cpc_static{hard = false, tag = Tag} = CpcS, NoReq, _KillState, false) ->
     %% Failed soft check; just cleanup the remaining replies corresponding
     %% to the requests we've sent...
-    {NoReq1, NoGcReq1} = receive
-			     {check_process_code, {Tag, _P, GC}, _Res} ->
-				 case GC of
-				     false -> {NoReq0-1, NoGcReq0};
-				     true -> {NoReq0, NoGcReq0-1}
-				 end
-			 end,
-    check_proc_code(CpcS, NoReq1, NoGcReq1, [], _KillState, false);
-check_proc_code(#cpc_static{tag = Tag} = CpcS, NoReq0, NoGcReq0, NeedGC0,
-		KillState0, Success) ->
-
-    %% Check if we should request a GC operation
-    {NoGcReq1, NeedGC1} = case NoGcReq0 < ?MAX_CPC_GC_PROCS of
-			      GcOpAllowed when GcOpAllowed == false;
-					       NeedGC0 == [] ->
-				  {NoGcReq0, NeedGC0};
-			      _ ->
-				  {NoGcReq0+1, cpc_request_gc(CpcS,NeedGC0)}
-			  end,
+    receive {check_process_code, {Tag, _P}, _Res} -> ok end,
+    check_proc_code(CpcS, NoReq-1, _KillState, false);
+check_proc_code(#cpc_static{tag = Tag} = CpcS, NoReq0, KillState0, Success) ->
 
     %% Wait for a cpc reply or 'DOWN' message
-    {NoReq1, NoGcReq2, Pid, Result, KillState1} = cpc_recv(Tag,
-							   NoReq0,
-							   NoGcReq1,
-							   KillState0),
+    {NoReq1, Pid, Result, KillState1} = cpc_recv(Tag, NoReq0, KillState0),
 
     %% Check the result of the reply
     case Result of
-	aborted ->
-	    %% Operation aborted due to the need to GC in order to
-	    %% determine if the process is referring the module.
-	    %% Schedule the operation for restart allowing GC...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, [Pid|NeedGC1], KillState1,
-			    Success);
 	false ->
 	    %% Process not referring the module; done with this process...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1, KillState1,
-			    Success);
+	    check_proc_code(CpcS, NoReq1, KillState1, Success);
 	true ->
 	    %% Process referring the module...
 	    case CpcS#cpc_static.hard of
 		false ->
 		    %% ... and soft check. The whole operation failed so
 		    %% no point continuing; clean up and fail...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, [], KillState1,
-				    false);
+		    check_proc_code(CpcS, NoReq1, KillState1, false);
 		true ->
 		    %% ... and hard check; schedule kill of it...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-				    cpc_sched_kill(Pid, KillState1), Success)
+		    check_proc_code(CpcS, NoReq1, cpc_sched_kill(Pid, KillState1), Success)
 	    end;
 	'DOWN' ->
 	    %% Handled 'DOWN' message
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-			    KillState1, Success)
+	    check_proc_code(CpcS, NoReq1, KillState1, Success)
     end.
 
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = []} = KillState) ->
+cpc_recv(Tag, NoReq, #cpc_kill{outstanding = []} = KillState) ->
     receive
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
+	{check_process_code, {Tag, Pid}, Res} ->
+	    cpc_handle_cpc(NoReq, Pid, Res, KillState)
     end;
-cpc_recv(Tag, NoReq, NoGcReq,
+cpc_recv(Tag, NoReq,
 	 #cpc_kill{outstanding = [R0, R1, R2, R3, R4 | _]} = KillState) ->
     receive
 	{'DOWN', R, process, _, _} when R == R0;
@@ -257,21 +216,21 @@ cpc_recv(Tag, NoReq, NoGcReq,
 					R == R2;
 					R == R3;
 					R == R4 ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState);
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
+	    cpc_handle_down(NoReq, R, KillState);
+	{check_process_code, {Tag, Pid}, Res} ->
+	    cpc_handle_cpc(NoReq, Pid, Res, KillState)
     end;
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = [R|_]} = KillState) ->
+cpc_recv(Tag, NoReq, #cpc_kill{outstanding = [R|_]} = KillState) ->
     receive
 	{'DOWN', R, process, _, _} ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState);
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
+	    cpc_handle_down(NoReq, R, KillState);
+	{check_process_code, {Tag, Pid}, Res} ->
+	    cpc_handle_cpc(NoReq, Pid, Res, KillState)
     end.
 
-cpc_handle_down(NoReq, NoGcReq, R, #cpc_kill{outstanding = Rs,
-					     no_outstanding = N} = KillState) ->
-    {NoReq, NoGcReq, undefined, 'DOWN',
+cpc_handle_down(NoReq, R, #cpc_kill{outstanding = Rs,
+				    no_outstanding = N} = KillState) ->
+    {NoReq, undefined, 'DOWN',
      cpc_sched_kill_waiting(KillState#cpc_kill{outstanding = cpc_list_rm(R, Rs),
 					       no_outstanding = N-1})}.
 
@@ -280,10 +239,8 @@ cpc_list_rm(R, [R|Rs]) ->
 cpc_list_rm(R0, [R1|Rs]) ->
     [R1|cpc_list_rm(R0, Rs)].
 
-cpc_handle_cpc(NoReq, NoGcReq, false, Pid, Res, KillState) ->
-    {NoReq-1, NoGcReq, Pid, Res, KillState};
-cpc_handle_cpc(NoReq, NoGcReq, true, Pid, Res, KillState) ->
-    {NoReq, NoGcReq-1, Pid, Res, KillState}.
+cpc_handle_cpc(NoReq, Pid, Res, KillState) ->
+    {NoReq-1, Pid, Res, KillState}.
 
 cpc_sched_kill_waiting(#cpc_kill{waiting = []} = KillState) ->
     KillState;
@@ -308,18 +265,13 @@ cpc_sched_kill(Pid,
 		       no_outstanding = N+1,
 		       killed = true}.
 
-cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid, AllowGc) ->
-    erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
-						{allow_gc, AllowGc}]).
-
-cpc_request_gc(CpcS, [Pid|Pids]) ->
-    cpc_request(CpcS, Pid, true),
-    Pids.
+cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid) ->
+    erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid}}]).
 
 cpc_init(_CpcS, [], NoReqs) ->
     NoReqs;
 cpc_init(CpcS, [Pid|Pids], NoReqs) ->
-    cpc_request(CpcS, Pid, false),
+    cpc_request(CpcS, Pid),
     cpc_init(CpcS, Pids, NoReqs+1).
 
 % end of check_proc_code() implementation.

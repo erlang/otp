@@ -22,8 +22,7 @@
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1, 
          versions/1,new_binary_types/1, call_purged_fun_code_gone/1,
 	 call_purged_fun_code_reload/1, call_purged_fun_code_there/1,
-         t_check_process_code/1,t_check_old_code/1,
-         t_check_process_code_ets/1,
+         t_check_old_code/1,
          external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
          make_stub_many_funs/1,constant_pools/1,constant_refc_binaries/1,
          false_dependency/1,coverage/1,fun_confusion/1,
@@ -36,8 +35,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [versions, new_binary_types, call_purged_fun_code_gone,
-     call_purged_fun_code_reload, call_purged_fun_code_there, t_check_process_code,
-     t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
+     call_purged_fun_code_reload, call_purged_fun_code_there,
+     t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
      constant_pools, constant_refc_binaries, false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags].
@@ -276,98 +275,6 @@ call_purged_fun_test(Priv, Data, Type) ->
     end,
     ok.
 
-t_check_process_code(Config) when is_list(Config) ->
-    case check_process_code_handle(indirect_references) of
-	false -> {skipped, "check_process_code() ignores funs"};
-	true -> t_check_process_code_test(Config)
-    end.
-
-t_check_process_code_test(Config) ->
-    Priv = proplists:get_value(priv_dir, Config),
-    Data = proplists:get_value(data_dir, Config),
-    File = filename:join(Data, "my_code_test"),
-    Code = filename:join(Priv, "my_code_test"),
-
-    catch erlang:purge_module(my_code_test),
-    catch erlang:delete_module(my_code_test),
-    catch erlang:purge_module(my_code_test),
-
-    {ok,my_code_test} = c:c(File, [{outdir,Priv}]),
-
-    MyFun = fun(X, Y) -> X + Y end,	%Confuse things.
-    F = my_code_test:make_fun(42),
-    2 = fun_refc(F),
-    MyFun2 = fun(X, Y) -> X * Y end,	%Confuse things.
-    44 = F(2),
-
-    %% Delete the module and call the fun again.
-    true = erlang:delete_module(my_code_test),
-    2 = fun_refc(F),
-    45 = F(3),
-    {'EXIT',{undef,_}} = (catch my_code_test:make_fun(33)),
-
-    %% The fun should still be there, preventing purge.
-    true = erlang:check_process_code(self(), my_code_test),
-    gc(),
-    gc(),					%Place funs on the old heap.
-    true = erlang:check_process_code(self(), my_code_test),
-
-    %% Using the funs here guarantees that they will not be prematurely garbed.
-    48 = F(6),
-    3 = MyFun(1, 2),
-    12 = MyFun2(3, 4),
-
-    %% Kill all funs.
-    t_check_process_code1(Code, []).
-
-%% The real fun was killed, but we have some fakes which look similar.
-
-t_check_process_code1(Code, Fakes) ->
-    MyFun = fun(X, Y) -> X + Y + 1 end,	%Confuse things.
-    false = erlang:check_process_code(self(), my_code_test),
-    4 = MyFun(1, 2),
-    t_check_process_code2(Code, Fakes).
-
-t_check_process_code2(Code, _) ->
-    false = erlang:check_process_code(self(), my_code_test),
-    true = erlang:purge_module(my_code_test),
-
-    %% In the next test we will load the same module twice.
-    {module,my_code_test} = code:load_abs(Code),
-    F = my_code_test:make_fun(37),
-    2 = fun_refc(F),
-    false = erlang:check_process_code(self(), my_code_test),
-    {module,my_code_test} = code:load_abs(Code),
-    2 = fun_refc(F),
-
-    %% Still false because the fun with the same identify is found
-    %% in the current code.
-    false = erlang:check_process_code(self(), my_code_test),
-
-    %% Some fake funs in the same module should not do any difference.
-    false = erlang:check_process_code(self(), my_code_test),
-
-    38 = F(1),
-    t_check_process_code3(Code, F, []).
-
-t_check_process_code3(Code, F, Fakes) ->
-    Pid = spawn_link(fun() -> body(F, Fakes) end),
-    true = erlang:purge_module(my_code_test),
-    false = erlang:check_process_code(self(), my_code_test),
-    false = erlang:check_process_code(Pid, my_code_test),
-
-    true = erlang:delete_module(my_code_test),
-    true = erlang:check_process_code(self(), my_code_test),
-    true = erlang:check_process_code(Pid, my_code_test),
-    39 = F(2),
-    t_check_process_code4(Code, Pid).
-
-t_check_process_code4(_Code, Pid) ->
-    Pid ! drop_funs,
-    receive after 1 -> ok end,
-    false = erlang:check_process_code(Pid, my_code_test),
-    ok.
-
 body(F, Fakes) ->
     receive
         jog ->
@@ -387,72 +294,6 @@ gc() ->
     erlang:garbage_collect(),
     gc1().
 gc1() -> ok.
-
-%% Test check_process_code/2 in combination with a fun obtained from an ets table.
-t_check_process_code_ets(Config) when is_list(Config) ->
-    case check_process_code_handle(indirect_references) of
-	false ->
-	    {skipped, "check_process_code() ignores funs"};
-	true ->
-	    case test_server:is_native(?MODULE) of
-		true ->
-		    {skip,"Native code"};
-		false ->
-		    do_check_process_code_ets(Config)
-	    end
-    end.
-
-do_check_process_code_ets(Config) ->
-    Priv = proplists:get_value(priv_dir, Config),
-    Data = proplists:get_value(data_dir, Config),
-    File = filename:join(Data, "my_code_test"),
-
-    catch erlang:purge_module(my_code_test),
-    catch erlang:delete_module(my_code_test),
-    catch erlang:purge_module(my_code_test),
-    {ok,my_code_test} = c:c(File, [{outdir,Priv}]),
-
-    T = ets:new(my_code_test, []),
-    ets:insert(T, {7,my_code_test:make_fun(107)}),
-    ets:insert(T, {8,my_code_test:make_fun(108)}),
-    erlang:delete_module(my_code_test),
-    false = erlang:check_process_code(self(), my_code_test),
-    Body = fun() ->
-                   [{7,F1}] = ets:lookup(T, 7),
-                   [{8,F2}] = ets:lookup(T, 8),
-                   IdleLoop = fun() -> receive _X -> ok end end,
-                   RecLoop = fun(Again) ->
-                                     receive
-                                         call -> 110 = F1(3),
-                                                 100 = F2(-8),
-                                                 Again(Again);
-                                         {drop_funs,To} ->
-                                             To ! funs_dropped,
-                                             IdleLoop()
-                                     end
-                             end,
-                   true = erlang:check_process_code(self(), my_code_test),
-                   RecLoop(RecLoop)
-           end,
-    Pid = spawn_link(Body),
-    receive after 1 -> ok end,
-    true = erlang:check_process_code(Pid, my_code_test),
-    Pid ! call,
-    Pid ! {drop_funs,self()},
-
-    receive
-        funs_dropped -> ok;
-        Other -> ct:fail({unexpected,Other})
-    after 10000 ->
-              ct:fail(no_funs_dropped_answer)
-    end,
-
-    false = erlang:check_process_code(Pid, my_code_test),
-    ok.
-
-fun_refc(F) ->
-    {refc,Count} = erlang:fun_info(F, refc),
-    Count.
 
 
 %% Test the erlang:check_old_code/1 BIF.
@@ -1136,9 +977,6 @@ flush() ->
     receive _ -> flush() after 0 -> ok end.
 
 id(I) -> I.
-
-check_process_code_handle(What) ->
-    lists:member(What, erlang:system_info(check_process_code)).
 
 wait_until(Fun) ->
     case Fun() of

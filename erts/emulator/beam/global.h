@@ -1000,12 +1000,8 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg);
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* beam_bif_load.c */
-#define ERTS_CPC_ALLOW_GC      (1 << 0)
-#define ERTS_CPC_ALL           ERTS_CPC_ALLOW_GC
-Eterm erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp, int fcalls);
-#ifdef ERTS_NEW_PURGE_STRATEGY
+Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
 Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
-#endif
 
 typedef struct ErtsLiteralArea_ {
     struct erl_off_heap_header *off_heap;
@@ -1017,9 +1013,7 @@ typedef struct ErtsLiteralArea_ {
     (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
 
 extern ErtsLiteralArea *erts_copy_literal_area;
-#ifdef ERTS_NEW_PURGE_STRATEGY
 extern Process *erts_literal_area_collector;
-#endif
 #ifdef ERTS_DIRTY_SCHEDULERS
 extern Process *erts_dirty_process_code_checker;
 #endif
