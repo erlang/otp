@@ -20,7 +20,8 @@
 
 -module(code_SUITE).
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1, 
-         versions/1,new_binary_types/1,
+         versions/1,new_binary_types/1, call_purged_fun_code_gone/1,
+	 call_purged_fun_code_reload/1, call_purged_fun_code_there/1,
          t_check_process_code/1,t_check_old_code/1,
          t_check_process_code_ets/1,
          external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
@@ -34,7 +35,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [versions, new_binary_types, t_check_process_code,
+    [versions, new_binary_types, call_purged_fun_code_gone,
+     call_purged_fun_code_reload, call_purged_fun_code_there, t_check_process_code,
      t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
      constant_pools, constant_refc_binaries, false_dependency,
@@ -127,11 +129,168 @@ new_binary_types(Config) when is_list(Config) ->
                                                     bit_sized_binary(Bin))),
     ok.
 
+call_purged_fun_code_gone(Config) when is_list(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    call_purged_fun_test(Priv, Data, code_gone),
+    ok.
+
+call_purged_fun_code_reload(Config) when is_list(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    Path = code:get_path(),
+    true = code:add_path(Priv),
+    try
+	call_purged_fun_test(Priv, Data, code_reload)
+    after
+	code:set_path(Path)
+    end,
+    ok.
+
+call_purged_fun_code_there(Config) when is_list(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    call_purged_fun_test(Priv, Data, code_there),
+    ok.
+
+call_purged_fun_test(Priv, Data, Type) ->
+    File = filename:join(Data, "my_code_test2"),
+    Code = filename:join(Priv, "my_code_test2"),
+
+    catch erlang:purge_module(my_code_test2),
+    catch erlang:delete_module(my_code_test2),
+    catch erlang:purge_module(my_code_test2),
+
+    {ok,my_code_test2} = c:c(File, [{outdir,Priv}]),
+
+    T = ets:new(my_code_test2_fun_table, []),
+    ets:insert(T, {my_fun,my_code_test2:make_fun(4711)}),
+    ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),
+
+    spawn(fun () ->
+		  [{my_fun2,F2}] = ets:lookup(T, my_fun2),
+		  F2(fun () ->
+			     receive after infinity -> ok end
+		     end,
+		     fun () -> ok end),
+		  exit(completed)
+	  end),
+
+    PurgeType = case Type of
+		    code_gone ->
+			ok = file:delete(Code++".beam"),
+			true;
+		    code_reload ->
+			true;
+		    code_there ->
+			false
+		end,
+
+    true = erlang:delete_module(my_code_test2),
+
+    Purge = start_purge(my_code_test2, PurgeType),
+
+    {P0, M0} = spawn_monitor(fun () ->
+				     [{my_fun,F}] = ets:lookup(T, my_fun),
+				     4712 = F(1),
+				     exit(completed)
+			     end),
+
+    wait_until(fun () ->
+		       {status, suspended}
+			   == process_info(P0, status)
+	       end),
+
+    ok = continue_purge(Purge),
+
+    {P1, M1} = spawn_monitor(fun () ->
+				     [{my_fun,F}] = ets:lookup(T, my_fun),
+				     4713 = F(2),
+				     exit(completed)
+			     end),
+    {P2, M2} = spawn_monitor(fun () ->
+				     [{my_fun,F}] = ets:lookup(T, my_fun),
+				     4714 = F(3),
+				     exit(completed)
+			     end),
+
+    wait_until(fun () ->
+		       {status, suspended}
+			   == process_info(P1, status)
+	       end),
+    wait_until(fun () ->
+		       {status, suspended}
+			   == process_info(P2, status)
+	       end),
+
+    {current_function,
+     {erts_code_purger,
+      pending_purge_lambda,
+      3}} = process_info(P0, current_function),
+    {current_function,
+     {erts_code_purger,
+      pending_purge_lambda,
+      3}} = process_info(P1, current_function),
+    {current_function,
+     {erts_code_purger,
+      pending_purge_lambda,
+      3}} = process_info(P2, current_function),
+
+    case Type of
+	code_there ->
+	    false = complete_purge(Purge);
+	_ ->
+	    {true, true} = complete_purge(Purge)
+    end,
+
+    case Type of
+	code_gone ->
+	    receive
+		{'DOWN', M0, process, P0, Reason0} ->
+		    {undef, _} = Reason0
+	    end,
+	    receive
+		{'DOWN', M1, process, P1, Reason1} ->
+		    {undef, _} = Reason1
+	    end,
+	    receive
+		{'DOWN', M2, process, P2, Reason2} ->
+		    {undef, _} = Reason2
+	    end;
+	_ ->
+	    receive
+		{'DOWN', M0, process, P0, Reason0} ->
+		    completed = Reason0
+	    end,
+	    receive
+		{'DOWN', M1, process, P1, Reason1} ->
+		    completed = Reason1
+	    end,
+	    receive
+		{'DOWN', M2, process, P2, Reason2} ->
+		    completed = Reason2
+	    end,
+	    catch erlang:purge_module(my_code_test2),
+	    catch erlang:delete_module(my_code_test2),
+	    catch erlang:purge_module(my_code_test2)
+    end,
+    ok.
+
 t_check_process_code(Config) when is_list(Config) ->
+    case check_process_code_handle(indirect_references) of
+	false -> {skipped, "check_process_code() ignores funs"};
+	true -> t_check_process_code_test(Config)
+    end.
+
+t_check_process_code_test(Config) ->
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "my_code_test"),
     Code = filename:join(Priv, "my_code_test"),
+
+    catch erlang:purge_module(my_code_test),
+    catch erlang:delete_module(my_code_test),
+    catch erlang:purge_module(my_code_test),
 
     {ok,my_code_test} = c:c(File, [{outdir,Priv}]),
 
@@ -231,11 +390,16 @@ gc1() -> ok.
 
 %% Test check_process_code/2 in combination with a fun obtained from an ets table.
 t_check_process_code_ets(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
-        true ->
-            {skip,"Native code"};
-        false ->
-            do_check_process_code_ets(Config)
+    case check_process_code_handle(indirect_references) of
+	false ->
+	    {skipped, "check_process_code() ignores funs"};
+	true ->
+	    case test_server:is_native(?MODULE) of
+		true ->
+		    {skip,"Native code"};
+		false ->
+		    do_check_process_code_ets(Config)
+	    end
     end.
 
 do_check_process_code_ets(Config) ->
@@ -243,8 +407,9 @@ do_check_process_code_ets(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "my_code_test"),
 
-    erlang:purge_module(my_code_test),
-    erlang:delete_module(my_code_test),
+    catch erlang:purge_module(my_code_test),
+    catch erlang:delete_module(my_code_test),
+    catch erlang:purge_module(my_code_test),
     {ok,my_code_test} = c:c(File, [{outdir,Priv}]),
 
     T = ets:new(my_code_test, []),
@@ -295,8 +460,8 @@ t_check_old_code(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "my_code_test"),
 
-    erlang:purge_module(my_code_test),
-    erlang:delete_module(my_code_test),
+    catch erlang:purge_module(my_code_test),
+    catch erlang:delete_module(my_code_test),
     catch erlang:purge_module(my_code_test),
 
     false = erlang:check_old_code(my_code_test),
@@ -971,3 +1136,39 @@ flush() ->
     receive _ -> flush() after 0 -> ok end.
 
 id(I) -> I.
+
+check_process_code_handle(What) ->
+    lists:member(What, erlang:system_info(check_process_code)).
+
+wait_until(Fun) ->
+    case Fun() of
+	true ->
+	    ok;
+	false ->
+	    receive after 100 -> ok end,
+	    wait_until(Fun)
+    end.
+
+start_purge(Mod, Type) when is_atom(Mod)
+			    andalso ((Type == true)
+				     orelse (Type == false)) ->
+    Ref = make_ref(),
+    erts_code_purger ! {test_purge, Mod, self(), Type, Ref},
+    receive
+	{started, Ref} ->
+	    Ref
+    end.
+
+continue_purge(Ref) when is_reference(Ref) ->
+    erts_code_purger ! {continue, Ref},
+    receive
+	{continued, Ref} ->
+	    ok
+    end.
+
+complete_purge(Ref) when is_reference(Ref) ->
+    erts_code_purger ! {complete, Ref},
+    receive
+	{test_purge, Res, Ref} ->
+	    Res
+    end.

@@ -1767,7 +1767,7 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
-void erts_schedule_flush_trace_messages(Eterm pid);
+void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);
 int erts_flush_trace_messages(Process *c_p, ErtsProcLocks locks);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)

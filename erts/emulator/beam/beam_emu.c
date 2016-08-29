@@ -5382,7 +5382,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 		ASSERT(!c_p->scheduler_data);
 
 		erts_pre_dirty_nif(esdp, &env, c_p,
-				   (struct erl_module_nif*)I[2], NULL);
+				   (struct erl_module_nif*)I[2]);
 
 #ifdef DEBUG
 		result =
@@ -5391,7 +5391,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 #endif
 		    (*fp)(&env, arity, reg);
 
-		erts_post_nif(&env);
+		erts_post_dirty_nif(&env);
 
 		ASSERT(!is_value(result));
 		ASSERT(c_p->freason == TRAP);
@@ -6509,34 +6509,49 @@ call_fun(Process* p,		/* Current process. */
 		 * representation (the module has never been loaded),
 		 * or the module defining the fun has been unloaded.
 		 */
-		module = fe->module;
-		if ((modp = erts_get_module(module, code_ix)) != NULL
-		    && modp->curr.code_hdr != NULL) {
-		    /*
-		     * There is a module loaded, but obviously the fun is not
-		     * defined in it. We must not call the error_handler
-		     * (or we will get into an infinite loop).
-		     */
-		    goto badfun;
-		}
-		
-		/*
-		 * No current code for this module. Call the error_handler module
-		 * to attempt loading the module.
-		 */
 
-		ep = erts_find_function(erts_proc_get_error_handler(p),
-					am_undefined_lambda, 3, code_ix);
-		if (ep == NULL) {	/* No error handler */
-		    p->current = NULL;
-		    p->freason = EXC_UNDEF;
-		    return NULL;
+		module = fe->module;
+
+		ERTS_SMP_READ_MEMORY_BARRIER;
+		if (fe->pend_purge_address) {
+		    /*
+		     * The system is currently trying to purge the
+		     * module containing this fun. Suspend the process
+		     * and let it try again when the purge operation is
+		     * done (may succeed or not).
+		     */
+		    ep = erts_suspend_process_on_pending_purge_lambda(p);
+		    ASSERT(ep);
+		}
+		else {
+		    if ((modp = erts_get_module(module, code_ix)) != NULL
+			&& modp->curr.code_hdr != NULL) {
+			/*
+			 * There is a module loaded, but obviously the fun is not
+			 * defined in it. We must not call the error_handler
+			 * (or we will get into an infinite loop).
+			 */
+			goto badfun;
+		    }
+		
+		    /*
+		     * No current code for this module. Call the error_handler module
+		     * to attempt loading the module.
+		     */
+
+		    ep = erts_find_function(erts_proc_get_error_handler(p),
+					    am_undefined_lambda, 3, code_ix);
+		    if (ep == NULL) {	/* No error handler */
+			p->current = NULL;
+			p->freason = EXC_UNDEF;
+			return NULL;
+		    }
 		}
 		reg[0] = module;
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-		return ep->addressv[erts_active_code_ix()];
+		return ep->addressv[code_ix];
 	    }
 	}
     } else if (is_export_header(hdr)) {

@@ -488,18 +488,6 @@ return term;</code>
               sending process is not alive. Deallocation of certain internal
               resources, such as process heap and process control block, is
               delayed until the dirty NIF has completed.</p>
-            <p>Known issue that are planned to be fixed:</p>
-            <list type="bulleted">
-              <item>
-                <p>As purging of a module might need to garbage
-                  collect a process to determine if it has
-                  references to the module, a process executing a dirty
-                  NIF can delay purging for a very long time. Delaying
-                  a purge operation implies delaying <em>all</em> code
-                  loading operations, which can cause severe problems for
-                  the system as a whole.</p>
-              </item>
-            </list>
           </item>
         </taglist>
       </item>

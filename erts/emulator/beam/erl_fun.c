@@ -199,14 +199,13 @@ erts_erase_fun_entry(ErlFunEntry* fe)
 }
 
 void
-erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
+erts_fun_purge_prepare(BeamInstr* start, BeamInstr* end)
 {
     int limit;
     HashBucket** bucket;
-    ErlFunEntry* to_delete = NULL;
     int i;
 
-    erts_fun_write_lock();
+    erts_fun_read_lock();
     limit = erts_fun_table.size;
     bucket = erts_fun_table.bucket;
     for (i = 0; i < limit; i++) {
@@ -217,22 +216,51 @@ erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
 	    BeamInstr* addr = fe->address;
 
 	    if (start <= addr && addr < end) {
+		fe->pend_purge_address = addr;
+		ERTS_SMP_WRITE_MEMORY_BARRIER;
 		fe->address = unloaded_fun;
-		if (erts_refc_dectest(&fe->refc, 0) == 0) {
-		    fe->address = (void *) to_delete;
-		    to_delete = fe;
-		}
+		erts_purge_state_add_fun(fe);
 	    }
 	    b = b->next;
 	}
     }
+    erts_fun_read_unlock();
+}
 
-    while (to_delete != NULL) {
-	ErlFunEntry* next = (ErlFunEntry *) to_delete->address;
-	erts_erase_fun_entry_unlocked(to_delete);
-	to_delete = next;
+void
+erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
+{
+    Uint ix;
+
+    for (ix = 0; ix < no; ix++) {
+	ErlFunEntry *fe = funs[ix];
+	if (fe->address == unloaded_fun)
+	    fe->address = fe->pend_purge_address;
+	fe->pend_purge_address = NULL;
     }
-    erts_fun_write_unlock();
+}
+
+void
+erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no)
+{
+    Uint ix;
+
+    for (ix = 0; ix < no; ix++)
+	funs[ix]->pend_purge_address = NULL;
+}
+
+void
+erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
+{
+    Uint ix;
+
+    for (ix = 0; ix < no; ix++) {
+	ErlFunEntry *fe = funs[ix];
+	fe->pend_purge_address = NULL;
+	if (erts_refc_dectest(&fe->refc, 0) == 0)
+	    erts_erase_fun_entry(fe);
+    }
+    ERTS_SMP_WRITE_MEMORY_BARRIER;
 }
 
 void
@@ -294,6 +322,7 @@ fun_alloc(ErlFunEntry* template)
     obj->module = template->module;
     erts_refc_init(&obj->refc, -1);
     obj->address = unloaded_fun;
+    obj->pend_purge_address = NULL;
 #ifdef HIPE
     obj->native_address = NULL;
 #endif

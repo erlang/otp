@@ -382,6 +382,7 @@ erl_init(int ncpu,
     erts_init_unicode(); /* after RE to get access to PCRE unicode */
     erts_init_external();
     erts_init_map();
+    erts_beam_bif_load_init();
     erts_delay_trap = erts_export_put(am_erlang, am_delay_trap, 2);
     erts_late_init_process();
 #if HAVE_ERTS_MSEG
@@ -2248,7 +2249,42 @@ erl_start(int argc, char **argv)
     otp_ring0_pid = erl_first_process_otp("otp_ring0", NULL, 0,
 					  boot_argc, boot_argv);
 
-    (void) erl_system_process_otp(otp_ring0_pid, "erts_code_purger");
+    {
+	/*
+	 * The erts_code_purger and the erts_literal_area_collector
+	 * system processes are *always* alive. If they terminate
+	 * they bring the whole VM down.
+	 */
+	Eterm pid;
+
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_code_purger");
+	erts_code_purger
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
+	erts_proc_inc_refc(erts_code_purger); 
+
+#ifdef ERTS_NEW_PURGE_STRATEGY
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_literal_area_collector");
+	erts_literal_area_collector
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_literal_area_collector
+	       && erts_literal_area_collector->common.id == pid);
+	erts_proc_inc_refc(erts_literal_area_collector);
+#endif
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker");
+	erts_dirty_process_code_checker
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_dirty_process_code_checker
+	       && erts_dirty_process_code_checker->common.id == pid);
+	erts_proc_inc_refc(erts_dirty_process_code_checker);
+#endif
+
+    }
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
