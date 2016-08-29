@@ -5382,7 +5382,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 		ASSERT(!c_p->scheduler_data);
 
 		erts_pre_dirty_nif(esdp, &env, c_p,
-				   (struct erl_module_nif*)I[2], NULL);
+				   (struct erl_module_nif*)I[2]);
 
 #ifdef DEBUG
 		result =
@@ -5391,7 +5391,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 #endif
 		    (*fp)(&env, arity, reg);
 
-		erts_post_nif(&env);
+		erts_post_dirty_nif(&env);
 
 		ASSERT(!is_value(result));
 		ASSERT(c_p->freason == TRAP);

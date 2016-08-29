@@ -100,6 +100,32 @@ static ERL_NIF_TERM send_from_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 	return result;
 }
 
+static ERL_NIF_TERM send_wait_from_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM result;
+    ErlNifPid pid;
+    ErlNifEnv* menv;
+    int res;
+
+    if (!enif_get_local_pid(env, argv[0], &pid))
+	return enif_make_badarg(env);
+    result = enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_pid(env, &pid));
+    menv = enif_alloc_env();
+    res = enif_send(env, &pid, menv, result);
+    enif_free_env(menv);
+
+#ifdef __WIN32__
+    Sleep(2000);
+#else
+    sleep(2);
+#endif
+
+    if (!res)
+	return enif_make_badarg(env);
+    else
+	return result;
+}
+
 static ERL_NIF_TERM call_dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     switch (argc) {
@@ -237,6 +263,7 @@ static ErlNifFunc nif_funcs[] =
     {"lib_loaded", 0, lib_loaded},
     {"call_dirty_nif", 3, call_dirty_nif},
     {"send_from_dirty_nif", 1, send_from_dirty_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"send_wait_from_dirty_nif", 1, send_wait_from_dirty_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"call_dirty_nif_exception", 1, call_dirty_nif_exception, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"call_dirty_nif_zero_args", 0, call_dirty_nif_zero_args, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_sleeper", 0, dirty_sleeper, ERL_NIF_DIRTY_JOB_IO_BOUND},

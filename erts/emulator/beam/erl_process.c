@@ -9538,15 +9538,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	p->reds += actual_reds;
 
-#ifdef ERTS_SMP
-	erts_smp_proc_lock(p, ERTS_PROC_LOCK_TRACE);
-        if (p->trace_msg_q) {
-            erts_smp_proc_unlock(p, ERTS_PROC_LOCK_TRACE);
-            erts_schedule_flush_trace_messages(p->common.id);
-        } else
-            erts_smp_proc_unlock(p, ERTS_PROC_LOCK_TRACE);
-#endif
-
 	state = erts_smp_atomic32_read_nob(&p->state);
 
 	if (IS_TRACED(p)) {
@@ -9566,7 +9557,15 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    }
 	}
 
-	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+
+#ifdef ERTS_SMP
+        if (p->trace_msg_q) {
+	    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            erts_schedule_flush_trace_messages(p, 1);
+	    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+	}
+#endif
 
         /* have to re-read state after taking lock */
         state = erts_smp_atomic32_read_nob(&p->state);
@@ -9574,9 +9573,11 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 #ifdef ERTS_SMP
 	if (is_normal_sched && (state & ERTS_PSFLG_PENDING_EXIT))
 	    erts_handle_pending_exit(p, (ERTS_PROC_LOCK_MAIN
+					 | ERTS_PROC_LOCK_TRACE
 					 | ERTS_PROC_LOCK_STATUS));
 	if (p->pending_suspenders) 
 	    handle_pending_suspend(p, (ERTS_PROC_LOCK_MAIN
+				       | ERTS_PROC_LOCK_TRACE
 				       | ERTS_PROC_LOCK_STATUS));
 #endif
 
@@ -9596,7 +9597,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	p->scheduler_data = NULL;
 #endif
 
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
+	erts_smp_proc_unlock(p, (ERTS_PROC_LOCK_MAIN
+				 | ERTS_PROC_LOCK_STATUS
+				 | ERTS_PROC_LOCK_TRACE));
 
         ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_OTHER);
 
@@ -10808,16 +10811,95 @@ erts_schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type)
     }
 }
 
+
 void
 erts_schedule_complete_off_heap_message_queue_change(Eterm pid)
 {
     erts_schedule_generic_sys_task(pid, ERTS_PSTT_COHMQ);
 }
 
-void
-erts_schedule_flush_trace_messages(Eterm pid)
+#ifdef ERTS_DIRTY_SCHEDULERS
+
+static void
+flush_dirty_trace_messages(void *vpid)
 {
+    Process *proc;
+    Eterm pid;
+#ifdef ARCH_64
+    pid = (Eterm) vpid;
+#else
+    pid = *((Eterm *) vpid);
+    erts_free(ERTS_ALC_T_DIRTY_SL, vpid);
+#endif
+
+    proc = erts_proc_lookup(pid);
+    if (proc)
+	(void) erts_flush_trace_messages(proc, 0);
+}
+
+#endif /* ERTS_DIRTY_SCHEDULERS */
+
+void
+erts_schedule_flush_trace_messages(Process *proc, int force_on_proc)
+{
+#ifdef ERTS_SMP
+    ErtsThrPrgrDelayHandle dhndl;
+#endif
+    Eterm pid = proc->common.id;
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_aint32_t state;
+
+    if (!force_on_proc) {
+	state = erts_smp_atomic32_read_nob(&proc->state);
+	if (state & (ERTS_PSFLG_DIRTY_RUNNING
+		     | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+	    goto sched_flush_dirty;
+	}
+    }
+#endif
+
+#ifdef ERTS_SMP
+    dhndl = erts_thr_progress_unmanaged_delay();
+#endif
+
     erts_schedule_generic_sys_task(pid, ERTS_PSTT_FTMQ);
+
+#ifdef ERTS_SMP
+    erts_thr_progress_unmanaged_continue(dhndl);
+#endif
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (!force_on_proc) {
+	state = erts_smp_atomic32_read_mb(&proc->state);
+	if (state & (ERTS_PSFLG_DIRTY_RUNNING
+		     | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+	    void *vargp;
+
+	sched_flush_dirty:
+	    /*
+	     * We traced 'proc' from another thread than
+	     * it is executing on, and it is executing
+	     * on a dirty scheduler. It might take a
+	     * significant amount of time before it is
+	     * scheduled out (where it gets opportunity
+	     * to flush messages). We therefore schedule
+	     * the flush on the first ordinary scheduler.
+	     */
+
+#ifdef ARCH_64
+	    vargp = (void *) pid;
+#else
+	    {
+		Eterm *argp = erts_alloc(ERTS_ALC_T_DIRTY_SL, sizeof(Eterm));
+		*argp = pid;
+		vargp = (void *) argp;
+	    }
+#endif
+	    erts_schedule_misc_aux_work(1, flush_dirty_trace_messages, vargp);
+	}
+    }
+#endif
 }
 
 static void

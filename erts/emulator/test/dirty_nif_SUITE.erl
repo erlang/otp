@@ -34,7 +34,7 @@
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
 	 dirty_heap_access/1, dirty_process_info/1,
 	 dirty_process_register/1, dirty_process_trace/1,
-	 code_purge/1]).
+	 code_purge/1, dirty_nif_send_traced/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -50,7 +50,8 @@ all() ->
      dirty_process_info,
      dirty_process_register,
      dirty_process_trace,
-     code_purge].
+     code_purge,
+     dirty_nif_send_traced].
 
 init_per_suite(Config) ->
     try erlang:system_info(dirty_cpu_schedulers) of
@@ -393,8 +394,8 @@ code_purge(Config) when is_list(Config) ->
     end,
     true = erlang:purge_module(dirty_code_test),
     receive
-	{'DOWN', Mon1, process, Pid1, Reason} ->
-	    killed = Reason
+	{'DOWN', Mon1, process, Pid1, Reason1} ->
+	    killed = Reason1
     end,
     receive
 	{'DOWN', Mon2, process, Pid2, _} ->
@@ -411,13 +412,41 @@ code_purge(Config) when is_list(Config) ->
     end,
     true = erlang:purge_module(dirty_code_test),
     receive
-	{'DOWN', Mon2, process, Pid2, Reason} ->
-	    killed = Reason
+	{'DOWN', Mon2, process, Pid2, Reason2} ->
+	    killed = Reason2
     end,
     End = erlang:monotonic_time(),
     Time = erlang:convert_time_unit(End-Start, native, milli_seconds),
     io:format("Time=~p~n", [Time]),
     true = Time =< 1000,
+    ok.
+
+dirty_nif_send_traced(Config) when is_list(Config) ->
+    Parent = self(),
+    Rcvr = spawn_link(fun() ->
+			      Self = self(),
+			      receive {ok, Self} -> ok end,
+			      Parent ! {Self, received}
+		      end),
+    Sndr = spawn_link(fun () ->
+			      receive {Parent, go} -> ok end,
+			      {ok, Rcvr} = send_wait_from_dirty_nif(Rcvr),
+			      Parent ! {self(), sent}
+		      end),
+    1 = erlang:trace(Sndr, true, [send]),
+    Start = erlang:monotonic_time(),
+    Sndr ! {self(), go},
+    receive {trace, Sndr, send, {ok, Rcvr}, Rcvr} -> ok end,
+    receive {Rcvr, received} -> ok end,
+    End1 = erlang:monotonic_time(),
+    Time1 = erlang:convert_time_unit(End1-Start, native, 1000),
+    io:format("Time1: ~p milliseconds~n", [Time1]),
+    true = Time1 < 500,
+    receive {Sndr, sent} -> ok end,
+    End2 = erlang:monotonic_time(),
+    Time2 = erlang:convert_time_unit(End2-Start, native, 1000),
+    io:format("Time2: ~p milliseconds~n", [Time2]),
+    true = Time2 >= 1900,
     ok.
 
 %%
@@ -502,6 +531,7 @@ mcall(Node, Funs) ->
 lib_loaded() -> false.
 call_dirty_nif(_,_,_) -> ?nif_stub.
 send_from_dirty_nif(_) -> ?nif_stub.
+send_wait_from_dirty_nif(_) -> ?nif_stub.
 call_dirty_nif_exception(_) -> ?nif_stub.
 call_dirty_nif_zero_args() -> ?nif_stub.
 dirty_call_while_terminated_nif(_) -> ?nif_stub.
