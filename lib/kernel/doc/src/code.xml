@@ -651,6 +651,11 @@ ok = code:finish_loading(Prepared),
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old. If some processes still linger in the old code,
           these processes are killed before the code is removed.</p>
+	<note><p>As of ERTS version 9.0, a process is only considered
+	to be lingering in the code if it has direct references to the code.
+	For more information see documentation of
+	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	which is used in order to determine this.</p></note>
         <p>Returns <c>true</c> if successful and any process is needed to
           be killed, otherwise <c>false</c>.</p>
       </desc>
@@ -661,6 +666,11 @@ ok = code:finish_loading(Prepared),
       <desc>
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old, but only if no processes linger in it.</p>
+	<note><p>As of ERTS version 9.0, a process is only considered
+	to be lingering in the code if it has direct references to the code.
+	For more information see documentation of
+	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	which is used in order to determine this.</p></note>
         <p>Returns <c>false</c> if the module cannot be purged because
           of processes lingering in old code, otherwise <c>true</c>.</p>
       </desc>

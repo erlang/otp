@@ -65,6 +65,7 @@ atom undefined_lambda
 atom DOWN='DOWN'
 atom UP='UP'
 atom EXIT='EXIT'
+atom abort
 atom aborted
 atom abs_path
 atom absoluteURI
@@ -165,6 +166,7 @@ atom commandv
 atom compact
 atom compat_rel
 atom compile
+atom complete
 atom compressed
 atom config_h
 atom convert_time_unit
@@ -176,6 +178,7 @@ atom const
 atom context_switches
 atom control
 atom copy
+atom copy_literals
 atom counters
 atom cpu
 atom cpu_timestamp
@@ -235,6 +238,7 @@ atom erlang
 atom ERROR='ERROR'
 atom error_handler
 atom error_logger
+atom erts_code_purger
 atom erts_internal
 atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
@@ -407,6 +411,7 @@ atom named_table
 atom namelist
 atom native
 atom native_addresses
+atom need_gc
 atom Neq='=/='
 atom Neqeq='/='
 atom net_kernel
@@ -485,6 +490,7 @@ atom pause
 atom pending
 atom pending_driver
 atom pending_process
+atom pending_purge_lambda
 atom pending_reload
 atom permanent
 atom pid
@@ -494,6 +500,7 @@ atom port_count
 atom port_limit
 atom port_op
 atom positive
+atom prepare
 atom print
 atom priority
 atom private

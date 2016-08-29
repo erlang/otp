@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,27 +17,16 @@
 %% 
 %% %CopyrightEnd%
 %%
-{application, erts, [
-	{description, "ERTS  CXC 138 10"},
-	{vsn, "%VSN%"},
-	{modules, [
-		%% preloaded
-		erlang,
-		erl_prim_loader,
-		erts_internal,
-		init,
-		otp_ring0,
-		erts_code_purger,
-		prim_eval,
-		prim_file,
-		prim_inet,
-		prim_zip,
-		zlib
-	    ]},
-	{registered, []},
-	{applications, []},
-	{env, []},
-	{runtime_dependencies, ["stdlib-3.0", "kernel-5.0", "sasl-3.0.1"]}
-    ]}.
 
-%% vim: ft=erlang
+-module(my_code_test2).
+
+-export([make_fun/1, make_fun2/0]).
+
+make_fun(A) ->
+    fun(X) -> A + X end.
+
+make_fun2() ->
+    fun (F1,F2) ->
+	    F1(),
+	    F2()
+    end.

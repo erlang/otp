@@ -96,6 +96,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },
+    {	"purge_state",		      		NULL			},
     {	"proc_status",				"pid"			},
     {	"proc_trace",				"pid"			},
     {   "ports_snapshot",                       NULL                    },
@@ -112,6 +113,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"export_tab",				NULL			},
     {	"fun_tab",				NULL			},
     {	"environ",				NULL			},
+#ifdef ERTS_NEW_PURGE_STRATEGY
+    {	"release_literal_areas",		NULL			},
+#endif
 #endif
     {	"efile_drv",				"address"		},
     {	"drv_ev_state_grow",			NULL,   		},

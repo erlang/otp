@@ -22,7 +22,7 @@
 %% Purpose : Implement system process erts_code_purger
 %%           to handle code module purging.
 
--export([start/0, purge/1, soft_purge/1]).
+-export([start/0, purge/1, soft_purge/1, pending_purge_lambda/3]).
 
 -spec start() -> term().
 start() ->
@@ -40,10 +40,43 @@ loop() ->
 	    Res = do_soft_purge(Mod),
 	    From ! {reply, soft_purge, Res, Ref};
 
+	{test_purge, Mod, From, Type, Ref} when is_atom(Mod), is_pid(From) ->
+	     do_test_purge(Mod, From, Type, Ref);
+
 	_Other -> ignore
     end,
     loop().
 
+%%
+%% Processes that tries to call a fun that belongs to
+%% a module that currently is being purged will end
+%% up here (pending_purge_lambda) in a suspended state.
+%% When the purge operation completes or aborts (soft
+%% purge that failed) these processes will be resumed.
+%%
+pending_purge_lambda(_Module, Fun, Args) ->
+    %%
+    %% When the process is resumed, the following
+    %% scenarios exist:
+    %% * The code that the fun refers to is still
+    %%   there due to a failed soft purge. The
+    %%   call to the fun will succeed via apply/2.
+    %% * The code was purged, and a current version
+    %%   of the module is loaded which does not
+    %%   contain this fun. The call will result
+    %%   in an exception being raised.
+    %% * The code was purged, and no current
+    %%   version of the module is loaded. An attempt
+    %%   to load the module (via the error_handler)
+    %%   will be made. This may or may not succeed.
+    %%   If the module is loaded, it may or may
+    %%   not contain the fun. The call will
+    %%   succeed if the error_handler was able
+    %%   to load the module and loaded module
+    %%   contains this fun; otherwise, an exception
+    %%   will be raised.
+    %%
+    apply(Fun, Args).
 
 %% purge(Module)
 %%  Kill all processes running code from *old* Module, and then purge the
@@ -60,16 +93,14 @@ purge(Mod) when is_atom(Mod) ->
 	    Result
     end.
 
-
 do_purge(Mod) ->
-    case erts_internal:copy_literals(Mod, true) of
-        false ->
-            {false, false};
-        true ->
-            DidKill = check_proc_code(erlang:processes(), Mod, true),
-            true = erts_internal:copy_literals(Mod, false),
-	    WasPurged = erts_internal:purge_module(Mod),
-            {WasPurged, DidKill}
+    case erts_internal:purge_module(Mod, prepare) of
+	false ->
+	    {false, false};
+	true ->
+	    DidKill = check_proc_code(erlang:processes(), Mod, true),
+	    true = erts_internal:purge_module(Mod, complete),
+	    {true, DidKill}
     end.
 
 %% soft_purge(Module)
@@ -85,21 +116,17 @@ soft_purge(Mod) ->
 	    Result
     end.
 
-
 do_soft_purge(Mod) ->
-    case erts_internal:copy_literals(Mod, true) of
+    case erts_internal:purge_module(Mod, prepare) of
 	false ->
 	    true;
 	true ->
-	    DoPurge = check_proc_code(erlang:processes(), Mod, false),
-	    true = erts_internal:copy_literals(Mod, false),
-	    case DoPurge of
-		false ->
-		    false;
-		true ->
-		    erts_internal:purge_module(Mod),
-		    true
-	    end
+	    Res = check_proc_code(erlang:processes(), Mod, false),
+	    erts_internal:purge_module(Mod,
+				       case Res of
+					   false -> abort;
+					   true -> complete
+				       end)
     end.
 
 %%
@@ -283,8 +310,7 @@ cpc_sched_kill(Pid,
 
 cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid, AllowGc) ->
     erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
-						{allow_gc, AllowGc},
-						{copy_literals, true}]).
+						{allow_gc, AllowGc}]).
 
 cpc_request_gc(CpcS, [Pid|Pids]) ->
     cpc_request(CpcS, Pid, true),
@@ -297,3 +323,72 @@ cpc_init(CpcS, [Pid|Pids], NoReqs) ->
     cpc_init(CpcS, Pids, NoReqs+1).
 
 % end of check_proc_code() implementation.
+
+%%
+%% FOR TESTING ONLY
+%%
+%% do_test_purge() is for testing only. The purge is done
+%% as usual, but the tester can control when to enter the
+%% specific phases.
+%%
+do_test_purge(Mod, From, Type, Ref) when Type == true; Type == false ->
+    Mon = erlang:monitor(process, From),
+    Res = case Type of
+	      true -> do_test_hard_purge(Mod, From, Ref, Mon);
+	      false -> do_test_soft_purge(Mod, From, Ref, Mon)
+	  end,
+    From ! {test_purge, Res, Ref},
+    erlang:demonitor(Mon, [flush]),
+    ok;
+do_test_purge(_, _, _, _) ->
+    ok.
+
+do_test_soft_purge(Mod, From, Ref, Mon) ->
+    PrepRes = erts_internal:purge_module(Mod, prepare),
+    TestRes = test_progress(started, From, Mon, Ref, ok),
+    case PrepRes of
+	false ->
+	    _ = test_progress(continued, From, Mon, Ref, TestRes),
+	    true;
+	true ->
+	    Res = check_proc_code(erlang:processes(), Mod, false),
+	    _ = test_progress(continued, From, Mon, Ref, TestRes),
+	    erts_internal:purge_module(Mod,
+				       case Res of
+					   false -> abort;
+					   true -> complete
+				       end)
+    end.
+
+do_test_hard_purge(Mod, From, Ref, Mon) ->
+    PrepRes = erts_internal:purge_module(Mod, prepare),
+    TestRes = test_progress(started, From, Mon, Ref, ok),
+    case PrepRes of
+	false ->
+	    _ = test_progress(continued, From, Mon, Ref, TestRes),
+	    {false, false};
+	true ->
+	    DidKill = check_proc_code(erlang:processes(), Mod, true),
+	    _ = test_progress(continued, From, Mon, Ref, TestRes),
+	    true = erts_internal:purge_module(Mod, complete),
+	    {true, DidKill}
+    end.
+
+test_progress(_State, _From, _Mon, _Ref, died) ->
+    %% Test process died; continue so we wont
+    %% leave the system in an inconsistent
+    %% state...
+    died;
+test_progress(started, From, Mon, Ref, ok) ->
+    From ! {started, Ref},
+    receive
+	{'DOWN', Mon, process, From, _} -> died;
+	{continue, Ref} -> ok
+    end;
+test_progress(continued, From, Mon, Ref, ok) ->
+    From ! {continued, Ref},
+    receive
+	{'DOWN', Mon, process, From, _} -> died;
+	{complete, Ref} -> ok
+    end.
+
