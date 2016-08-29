@@ -1458,7 +1458,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         specification returned <c>true</c>.</fsummary>
       <desc>
         <p>Matches the objects in table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specificationc</seealso>. If the
+          <seealso marker="#match_spec">match specification</seealso>. If the
           match specification returns <c>true</c> for an object, that object
           considered a match and is counted. For any other result from
           the match specification the object is not considered a match and is
