@@ -365,7 +365,7 @@ restart(Config) when is_list(Config) ->
     %% Ok, the node is up, now the real test test begins.
     erlang:monitor_node(Node, true),
     SysProcs0 = rpc:call(Node, ?MODULE, find_system_processes, []),
-    [InitPid, PurgerPid, LitCollectorPid] = SysProcs0,
+    [InitPid, PurgerPid, LitCollectorPid, DirtyCodePid] = SysProcs0,
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     Procs = rpc:call(Node, erlang, processes, []),
@@ -381,7 +381,7 @@ restart(Config) when is_list(Config) ->
     ok = wait_restart(30, Node),
 
     SysProcs1 = rpc:call(Node, ?MODULE, find_system_processes, []),
-    [InitPid1, PurgerPid1, LitCollectorPid1] = SysProcs1,
+    [InitPid1, PurgerPid1, LitCollectorPid1, DirtyCodePid1] = SysProcs1,
 
     %% Still the same init process!
     InitPid1 = rpc:call(Node, erlang, whereis, [init]),
@@ -399,6 +399,14 @@ restart(Config) when is_list(Config) ->
 	_ ->
 	    LitCollectorP = pid_to_list(LitCollectorPid),
 	    LitCollectorP = pid_to_list(LitCollectorPid1)
+    end,
+
+    %% and same dirty process code checker process!
+    case DirtyCodePid of
+	undefined -> undefined = DirtyCodePid1;
+	_ ->
+	    DirtyCodeP = pid_to_list(DirtyCodePid),
+	    DirtyCodeP = pid_to_list(DirtyCodePid1)
     end,
 
     NewProcs0 = rpc:call(Node, erlang, processes, []),
@@ -424,7 +432,8 @@ restart(Config) when is_list(Config) ->
 
 -record(sys_procs, {init,
 		    code_purger,
-		    literal_collector}).
+		    literal_collector,
+		    dirty_proc_checker}).
 
 find_system_processes() ->
     find_system_procs(processes(), #sys_procs{}).
@@ -432,7 +441,8 @@ find_system_processes() ->
 find_system_procs([], SysProcs) ->
     [SysProcs#sys_procs.init,
      SysProcs#sys_procs.code_purger,
-     SysProcs#sys_procs.literal_collector];
+     SysProcs#sys_procs.literal_collector,
+     SysProcs#sys_procs.dirty_proc_checker];
 find_system_procs([P|Ps], SysProcs) ->
     case process_info(P, initial_call) of
 	{initial_call,{otp_ring0,start,2}} ->
@@ -444,6 +454,9 @@ find_system_procs([P|Ps], SysProcs) ->
 	{initial_call,{erts_literal_area_collector,start,0}} ->
 	    undefined = SysProcs#sys_procs.literal_collector,
 	    find_system_procs(Ps, SysProcs#sys_procs{literal_collector = P});
+	{initial_call,{erts_dirty_process_code_checker,start,0}} ->
+	    undefined = SysProcs#sys_procs.dirty_proc_checker,
+	    find_system_procs(Ps, SysProcs#sys_procs{dirty_proc_checker = P});
 	_ ->
 	    find_system_procs(Ps, SysProcs)
     end.

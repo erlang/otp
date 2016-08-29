@@ -161,6 +161,7 @@ bif erts_internal:port_close/1
 bif erts_internal:port_connect/2
 
 bif erts_internal:request_system_task/3
+bif erts_internal:request_system_task/4
 bif erts_internal:check_process_code/2
 
 bif erts_internal:map_to_tuple_keys/1
@@ -644,6 +645,8 @@ bif erts_debug:map_info/1
 # New in 19.0
 #
 
+bif erts_internal:is_process_executing_dirty/1
+bif erts_internal:check_dirty_process_code/2
 bif erts_internal:purge_module/2
 bif binary:split/2
 bif binary:split/3

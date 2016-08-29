@@ -38,9 +38,11 @@
 -export([system_check/1,
          gather_system_check_result/1]).
 
--export([request_system_task/3]).
+-export([request_system_task/3, request_system_task/4]).
 
 -export([check_process_code/3]).
+-export([check_dirty_process_code/2]).
+-export([is_process_executing_dirty/1]).
 -export([release_literal_area_switch/0]).
 -export([purge_module/2]).
 
@@ -204,10 +206,22 @@ port_info(_Result, _Item) ->
 -spec request_system_task(Pid, Prio, Request) -> 'ok' when
       Prio :: 'max' | 'high' | 'normal' | 'low',
       Request :: {'garbage_collect', term()}
-	       | {'check_process_code', term(), module(), non_neg_integer()},
+	       | {'check_process_code', term(), module(), non_neg_integer()}
+	       | {'copy_literals', term(), boolean()},
       Pid :: pid().
 
 request_system_task(_Pid, _Prio, _Request) ->
+    erlang:nif_error(undefined).
+
+-spec request_system_task(RequesterPid, TargetPid, Prio, Request) -> 'ok' | 'dirty_execution' when
+      Prio :: 'max' | 'high' | 'normal' | 'low',
+      Request :: {'garbage_collect', term()}
+	       | {'check_process_code', term(), module(), non_neg_integer()}
+	       | {'copy_literals', term(), boolean()},
+      RequesterPid :: pid(),
+      TargetPid :: pid().
+
+request_system_task(_RequesterPid, _TargetPid, _Prio, _Request) ->
     erlang:nif_error(undefined).
 
 -define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).
@@ -271,6 +285,17 @@ cpc_flags(OldFlags, Bit, true) ->
     OldFlags bor Bit;
 cpc_flags(OldFlags, Bit, false) ->
     OldFlags band (bnot Bit).
+
+-spec check_dirty_process_code(Pid,Module) -> 'true' | 'false' when
+      Pid :: pid(),
+      Module :: module().
+check_dirty_process_code(_Pid,_Module) ->
+    erlang:nif_error(undefined).
+
+-spec is_process_executing_dirty(Pid) -> 'true' | 'false' when
+      Pid :: pid().
+is_process_executing_dirty(_Pid) ->
+    erlang:nif_error(undefined).
 
 -spec release_literal_area_switch() -> 'true' | 'false'.
 

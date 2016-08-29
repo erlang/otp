@@ -1017,6 +1017,9 @@ extern ErtsLiteralArea *erts_copy_literal_area;
 #ifdef ERTS_NEW_PURGE_STRATEGY
 extern Process *erts_literal_area_collector;
 #endif
+#ifdef ERTS_DIRTY_SCHEDULERS
+extern Process *erts_dirty_process_code_checker;
+#endif
 
 extern Process *erts_code_purger;
 
