@@ -824,8 +824,6 @@ handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName,
 		    #state{negotiated_version = Version} = State, Connection) ->
     Connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, 
 				StateName, State);
-handle_common_event(internal, _, _, _, _) ->
-    {keep_state_and_data, [postpone]};
 handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} = State, 
 		    Connection) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
