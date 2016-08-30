@@ -214,7 +214,19 @@ dump_core(#core_search_conf{ cerl = Cerl }, Core) ->
 format_core(Conf, {ignore, Core}) ->
     format_core(Conf, Core, "[ignored] ");
 format_core(Conf, Core) ->
-    format_core(Conf, Core, "").
+    format_core(Conf, Core, ""),
+
+    %% Try print (log dir) name of offending application
+    CoreDir = filename:dirname(Core),
+    lists:foreach(fun(TestDir) ->
+			  case filelib:is_dir(filename:join(CoreDir,TestDir)) of
+			      true ->
+				  io:format("  from ~s~n", [TestDir]);
+			      false ->
+				  no
+			  end
+		  end,
+		  filelib:wildcard("*.logs", CoreDir)).
 
 format_core(#core_search_conf{file = false}, Core, Ignore) ->
     io:format("  ~s~s " ++ time_fstr() ++ "~s~n",
