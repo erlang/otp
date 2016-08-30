@@ -74,7 +74,7 @@ all() ->
 %% Basic start_timer/3 functionality
 start_timer_1(Config) when is_list(Config) ->
     Ref1 = erlang:start_timer(1000, self(), plopp),
-    ok   = get(1100, {timeout, Ref1, plopp}),
+    ok   = get(1400, {timeout, Ref1, plopp}),
 
     false = erlang:read_timer(Ref1),
     false = erlang:cancel_timer(Ref1),
@@ -83,12 +83,12 @@ start_timer_1(Config) when is_list(Config) ->
     Ref2  = erlang:start_timer(1000, self(), plapp),
     Left2 = erlang:cancel_timer(Ref2),
     UpperLimit = 1000,
-    true = (Left2 > 900) and (Left2 =< UpperLimit),
+    true = (Left2 > 600) and (Left2 =< UpperLimit),
     empty = get_msg(),
     false = erlang:cancel_timer(Ref2),
 
     Ref3 = erlang:start_timer(1000, self(), plopp),
-    no_message = get(900, {timeout, Ref3, plopp}),
+    no_message = get(600, {timeout, Ref3, plopp}),
     ok.
 
 %% Basic send_after/3 functionality

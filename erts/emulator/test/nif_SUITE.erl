@@ -1443,6 +1443,17 @@ otp_9828_loop(Bin, Val) ->
 
 
 consume_timeslice(Config) when is_list(Config) ->
+    case {erlang:system_info(debug_compiled),
+	  erlang:system_info(lock_checking)} of
+	{false, false} ->
+	    consume_timeslice_test(Config);
+	{false, true} ->
+	    {skipped, "Lock checking enabled"};
+	_ ->
+	    {skipped, "Debug compiled"}
+    end.
+
+consume_timeslice_test(Config) when is_list(Config) ->
     CONTEXT_REDS = 2000,
     Me = self(),
     Go = make_ref(),
