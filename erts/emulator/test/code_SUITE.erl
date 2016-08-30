@@ -22,7 +22,7 @@
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1, 
          versions/1,new_binary_types/1, call_purged_fun_code_gone/1,
 	 call_purged_fun_code_reload/1, call_purged_fun_code_there/1,
-         t_check_old_code/1,
+         multi_proc_purge/1, t_check_old_code/1,
          external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
          make_stub_many_funs/1,constant_pools/1,constant_refc_binaries/1,
          false_dependency/1,coverage/1,fun_confusion/1,
@@ -36,7 +36,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [versions, new_binary_types, call_purged_fun_code_gone,
      call_purged_fun_code_reload, call_purged_fun_code_there,
-     t_check_old_code, external_fun, get_chunk,
+     multi_proc_purge, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
      constant_pools, constant_refc_binaries, false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags].
@@ -273,6 +273,64 @@ call_purged_fun_test(Priv, Data, Type) ->
 	    catch erlang:delete_module(my_code_test2),
 	    catch erlang:purge_module(my_code_test2)
     end,
+    ok.
+
+multi_proc_purge(Config) when is_list(Config) ->
+    %%
+    %% Make sure purge requests aren't lost when
+    %% purger process is working.
+    %%
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    File1 = filename:join(Data, "my_code_test"),
+    File2 = filename:join(Data, "my_code_test2"),
+    
+    {ok,my_code_test} = c:c(File1, [{outdir,Priv}]),
+    {ok,my_code_test2} = c:c(File2, [{outdir,Priv}]),
+    erlang:delete_module(my_code_test),
+    erlang:delete_module(my_code_test2),
+
+    Self = self(),
+
+    Fun1 = fun () ->
+		   erts_code_purger:purge(my_code_test),
+		   Self ! {self(), done}
+	   end,
+    Fun2 = fun () ->
+		   erts_code_purger:soft_purge(my_code_test2),
+		   Self ! {self(), done}
+	   end,
+    Fun3 = fun () ->
+		   erts_code_purger:purge('__nonexisting_module__'),
+		   Self ! {self(), done}
+	   end,
+    Fun4 = fun () ->
+		   erts_code_purger:soft_purge('__another_nonexisting_module__'),
+		   Self ! {self(), done}
+	   end,
+
+    Pid1 = spawn_link(Fun1),
+    Pid2 = spawn_link(Fun2),
+    Pid3 = spawn_link(Fun3),
+    Pid4 = spawn_link(Fun4),
+    Pid5 = spawn_link(Fun1),
+    Pid6 = spawn_link(Fun2),
+    Pid7 = spawn_link(Fun3),
+    receive after 50 -> ok end,
+    Pid8 = spawn_link(Fun4),
+    Pid9 = spawn_link(Fun1),
+    Pid10 = spawn_link(Fun2),
+    Pid11 = spawn_link(Fun3),
+    Pid12 = spawn_link(Fun4),
+    Pid13 = spawn_link(Fun1),
+    receive after 50 -> ok end,
+    Pid14 = spawn_link(Fun2),
+    Pid15 = spawn_link(Fun3),
+    Pid16 = spawn_link(Fun4),
+
+    lists:foreach(fun (P) -> receive {P, done} -> ok end end,
+		  [Pid1, Pid2, Pid3, Pid4, Pid5, Pid6, Pid7, Pid8,
+		   Pid9, Pid10, Pid11, Pid12, Pid13, Pid14, Pid15, Pid16]),
     ok.
 
 body(F, Fakes) ->
