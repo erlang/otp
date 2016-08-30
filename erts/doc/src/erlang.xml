@@ -84,22 +84,22 @@
             <p>Time unit expressed in parts per second. That is,
               the time unit equals <c>1/PartsPerSecond</c> second.</p>
           </item>
-          <tag><c>seconds</c></tag>
+          <tag><c>second</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1</c>.</p>
           </item>
-          <tag><c>milli_seconds</c></tag>
+          <tag><c>millisecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1000</c>.</p>
           </item>
-          <tag><c>micro_seconds</c></tag>
+          <tag><c>microsecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1000000</c>.</p>
           </item>
-          <tag><c>nano_seconds</c></tag>
+          <tag><c>nanosecond</c></tag>
           <item>
             <p>Symbolic representation of the time unit
               represented by the integer <c>1000000000</c>.</p>
@@ -119,7 +119,7 @@
             <p>One can get an approximation of the <c>native</c>
               time unit by calling
               <seealso marker="erlang:convert_time_unit/3">
-              <c>erlang:convert_time_unit(1, seconds, native)</c></seealso>.
+              <c>erlang:convert_time_unit(1, second, native)</c></seealso>.
               The result equals the number
               of whole <c>native</c> time units per second. If
               the number of <c>native</c> time units per second does not
@@ -149,11 +149,36 @@
               <seealso marker="kernel:os#perf_counter/0">
               <c>os:perf_counter/0</c></seealso>.</p>
           </item>
+	  <tag><seealso marker="#type_deprecated_time_unit"><c>deprecated_time_unit()</c></seealso></tag>
+	  <item><p>
+	    Deprecated symbolic representations kept for backwards-compatibility.
+	  </p></item>
         </taglist>
         <p>The <c>time_unit/0</c> type can be extended.
           To convert time values between time units, use
           <seealso marker="#convert_time_unit/3">
           <c>erlang:convert_time_unit/3</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="deprecated_time_unit"></name>
+      <desc><marker id="type_deprecated_time_unit"/>
+	<p>The <seealso marker="#type_time_unit"><c>time_unit()</c></seealso>
+	type also consist of the following <em>deprecated</em> symbolic
+	time units:</p>
+	<taglist>
+	  <tag><c>seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>second</c></seealso>.</p></item>
+
+	  <tag><c>milli_seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>millisecond</c></seealso>.</p></item>
+
+	  <tag><c>micro_seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>microsecond</c></seealso>.</p></item>
+
+	  <tag><c>nano_seconds</c></tag>
+	  <item><p>Same as <seealso marker="#type_time_unit"><c>nanosecond</c></seealso>.</p></item>
+	</taglist>
       </desc>
     </datatype>
   </datatypes>
@@ -8474,7 +8499,7 @@ ok
               <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
               monotonic time</seealso>. The time stamp (Ts) has the same
               format and value as produced by
-              <c>erlang:monotonic_time(nano_seconds)</c>.</p>
+              <c>erlang:monotonic_time(nanosecond)</c>.</p>
           </item>
           <tag><c>runnable_procs</c></tag>
           <item>
@@ -8502,7 +8527,7 @@ ok
               <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
               monotonic time</seealso> and a monotonically increasing
               integer. The time stamp (Ts) has the same format and value
-              as produced by <c>{erlang:monotonic_time(nano_seconds),
+              as produced by <c>{erlang:monotonic_time(nanosecond),
               erlang:unique_integer([monotonic])}</c>.</p>
           </item>
           <tag><c>timestamp</c></tag>
@@ -8732,7 +8757,7 @@ ok
         <p>The <c>erlang:timestamp()</c> BIF is equivalent to:</p>
 <code type="none">
 timestamp() ->
-    ErlangSystemTime = erlang:system_time(micro_seconds),
+    ErlangSystemTime = erlang:system_time(microsecond),
     MegaSecs = ErlangSystemTime div 1000000000000,
     Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
     MicroSecs = ErlangSystemTime rem 1000000,
@@ -9013,7 +9038,7 @@ timestamp() ->
               monotonic time</seealso> time stamp in all trace messages. The
               time stamp (Ts) has the same format and value as produced by
               <seealso marker="#monotonic_time-1">
-              <c>erlang:monotonic_time(nano_seconds)</c></seealso>.
+              <c>erlang:monotonic_time(nanosecond)</c></seealso>.
               This flag overrides flag <c>cpu_timestamp</c>.</p>
           </item>
           <tag><c>strict_monotonic_timestamp</c></tag>
@@ -9024,7 +9049,7 @@ timestamp() ->
               integer in all trace messages. The time stamp (Ts) has the
               same format and value as produced by <c>{</c>
               <seealso marker="#monotonic_time-1">
-              <c>erlang:monotonic_time(nano_seconds)</c></seealso><c>,</c>
+              <c>erlang:monotonic_time(nanosecond)</c></seealso><c>,</c>
               <seealso marker="#unique_integer-1">
               <c>erlang:unique_integer([monotonic])</c></seealso><c>}</c>.
               This flag overrides flag <c>cpu_timestamp</c>.</p>

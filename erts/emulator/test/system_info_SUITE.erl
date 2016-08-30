@@ -508,7 +508,7 @@ start_node(Config, Envs) when is_list(Config) ->
                         ++ "-"
                         ++ atom_to_list(proplists:get_value(testcase, Config))
                         ++ "-"
-                        ++ integer_to_list(erlang:system_time(seconds))
+                        ++ integer_to_list(erlang:system_time(second))
                         ++ "-"
                         ++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, peer, [{args, "-pa "++Pa}, {env, Envs}]).

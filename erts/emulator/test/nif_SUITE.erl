@@ -1703,7 +1703,7 @@ nif_raise_exceptions(NifFunc) ->
                 end, ok, ExcTerms).
 
 -define(ERL_NIF_TIME_ERROR, -9223372036854775808).
--define(TIME_UNITS, [seconds, milli_seconds, micro_seconds, nano_seconds]).
+-define(TIME_UNITS, [second, millisecond, microsecond, nanosecond]).
 
 nif_monotonic_time(Config) ->
     ?ERL_NIF_TIME_ERROR = monotonic_time(invalid_time_unit),
@@ -1769,8 +1769,8 @@ chk_toffs([TU|TUs]) ->
     chk_toffs(TUs).
 
 nif_convert_time_unit(Config) ->
-    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, seconds, invalid_time_unit),
-    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, seconds),
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, second, invalid_time_unit),
+    ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, second),
     ?ERL_NIF_TIME_ERROR = convert_time_unit(0, invalid_time_unit, invalid_time_unit),
     lists:foreach(fun (Offset) ->
                           lists:foreach(fun (Diff) ->
@@ -1819,7 +1819,7 @@ nif_convert_time_unit(Config) ->
 ctu_loop(0) ->
     ok;
 ctu_loop(N) ->
-    chk_ctu(erlang:monotonic_time(nano_seconds)),
+    chk_ctu(erlang:monotonic_time(nanosecond)),
     ctu_loop(N-1).
 
 chk_ctu(Time) ->
@@ -1834,7 +1834,7 @@ chk_ctu(Time, [FromTU|FromTUs]) ->
 chk_ctu(_Time, _FromTU, []) ->
     ok;
 chk_ctu(Time, FromTU, [ToTU|ToTUs]) ->
-    T = erlang:convert_time_unit(Time, nano_seconds, FromTU),
+    T = erlang:convert_time_unit(Time, nanosecond, FromTU),
     TE = erlang:convert_time_unit(T, FromTU, ToTU),
     TN = convert_time_unit(T, FromTU, ToTU),
     case TE =:= TN of

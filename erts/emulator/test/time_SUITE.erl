@@ -295,7 +295,7 @@ timestamp(Config) when is_list(Config) ->
 
 os_system_time_offset() ->
     erlang:convert_time_unit(os:system_time() - erlang:monotonic_time(),
-			     native, micro_seconds).
+			     native, microsecond).
 
 had_time_warp(Secs) ->
     had_time_warp(os_system_time_offset(), Secs).
@@ -488,12 +488,12 @@ check_time_warp_mode(Config, TimeCorrection, TimeWarpMode) ->
     MonotonicTimeUnit = rpc:call(Node,
 				       erlang,
 				       convert_time_unit,
-				       [1, seconds, native]),
+				       [1, second, native]),
     UpMilliSeconds = erlang:convert_time_unit(MonotonicTime - StartTime,
 					      MonotonicTimeUnit,
-					      milli_seconds),
+					      millisecond),
     io:format("UpMilliSeconds=~p~n", [UpMilliSeconds]),
-    End = erlang:monotonic_time(milli_seconds),
+    End = erlang:monotonic_time(millisecond),
     stop_node(Node),
     try
 	true = (UpMilliSeconds > (98*MonotonicityTimeout) div 100),
@@ -810,10 +810,10 @@ do_check_erlang_timestamp(Done, Mon, TO) ->
     MaxMon = erlang:monotonic_time(),
     TsMin = erlang:convert_time_unit(MinMon+TO,
 				     native,
-				     micro_seconds),
+				     microsecond),
     TsMax = erlang:convert_time_unit(MaxMon+TO,
 				     native,
-				     micro_seconds),
+				     microsecond),
     TsTime = (MegaSec*1000000+Sec)*1000000+MicroSec,
     case (TsMin =< TsTime) andalso (TsTime =< TsMax) of
 	true ->

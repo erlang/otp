@@ -1011,7 +1011,7 @@ get_names(N, T, Acc) ->
                                     ++ "-"
                                     ++ atom_to_list(T)
                                     ++ "-"
-                                    ++ integer_to_list(erlang:system_time(seconds))
+                                    ++ integer_to_list(erlang:system_time(second))
                                     ++ "-"
                                     ++ integer_to_list(erlang:unique_integer([positive]))) | Acc]).
 

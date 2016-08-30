@@ -1950,7 +1950,7 @@ port_please(_Name, _Ip) ->
 %%% Utilities
 
 timestamp() ->
-    erlang:monotonic_time(milli_seconds).
+    erlang:monotonic_time(millisecond).
 
 start_node(X) ->
     start_node(X, [], []).
@@ -1974,7 +1974,7 @@ start_node(Config, Args, Rel) when is_list(Config), is_list(Rel) ->
                          ++ "-"
                          ++ atom_to_list(proplists:get_value(testcase, Config))
                          ++ "-"
-                         ++ integer_to_list(erlang:system_time(seconds))
+                         ++ integer_to_list(erlang:system_time(second))
                          ++ "-"
                          ++ integer_to_list(erlang:unique_integer([positive])))),
     start_node(Name, Args, Rel).
@@ -2091,7 +2091,7 @@ node_monitor(Master) ->
                                   Master ! {nodeup, node(), Node}
                           end,
                           Nodes0),
-            io:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Nodes0]),
+            io:format("~p ~p: ~p~n", [node(), erlang:system_time(microsecond), Nodes0]),
             node_monitor_loop(Master);
         false ->
             net_kernel:monitor_nodes(false, Opts),
@@ -2112,7 +2112,7 @@ node_monitor_loop(Master) ->
     receive
         {nodeup, Node, _InfoList} = Msg ->
             Master ! {nodeup, node(), Node},
-            io:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
+            io:format("~p ~p: ~p~n", [node(), erlang:system_time(microsecond), Msg]),
             node_monitor_loop(Master);
         {nodedown, Node, InfoList} = Msg ->
             Reason = case lists:keysearch(nodedown_reason, 1, InfoList) of
@@ -2120,7 +2120,7 @@ node_monitor_loop(Master) ->
                          _ -> undefined
                      end,
             Master ! {nodedown, node(), Node, Reason},
-            io:format("~p ~p: ~p~n", [node(), erlang:system_time(micro_seconds), Msg]),
+            io:format("~p ~p: ~p~n", [node(), erlang:system_time(microsecond), Msg]),
             node_monitor_loop(Master)
     end.
 
