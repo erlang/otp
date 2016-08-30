@@ -2726,7 +2726,6 @@ static void shrink(DbTableHash* tb, int nactive)
     done_resizing(tb);
 }
 
-
 /* Search a list of tuples for a matching key */
 
 static HashDbTerm* search_list(DbTableHash* tb, Eterm key, 
@@ -2977,6 +2976,48 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
     stats->std_dev_expected = sqrt(stats->avg_chain_len * (1 - 1.0/NACTIVE(tb)));
     stats->kept_items = kept_items;
 }
+
+/* For testing only */
+Eterm erts_ets_hash_get_memstate(Process* p, DbTableHash* tb)
+{
+    Eterm seg_cnt;
+    while (!begin_resizing(tb))
+        /*spinn*/;
+
+    seg_cnt = make_small(SLOT_IX_TO_SEG_IX(tb->nslots));
+    done_resizing(tb);
+    return seg_cnt;
+}
+/* For testing only */
+Eterm erts_ets_hash_restore_memstate(DbTableHash* tb, Eterm memstate)
+{
+    int seg_cnt, target;
+    int nactive;
+
+    if (!is_small(memstate))
+        return make_small(__LINE__);
+
+    target = signed_val(memstate);
+    if (target < 1)
+        return make_small(__LINE__);
+    while (1) {
+        while (!begin_resizing(tb))
+            /*spin*/;
+        seg_cnt = SLOT_IX_TO_SEG_IX(tb->nslots);
+        nactive = NACTIVE(tb);
+        done_resizing(tb);
+
+        if (target == seg_cnt)
+            return am_ok;
+        if (IS_FIXED(tb))
+            return make_small(__LINE__);
+        if (target < seg_cnt)
+            shrink(tb, nactive);
+        else
+            grow(tb, nactive);
+    }
+}
+
 #ifdef HARDDEBUG
 
 void db_check_table_hash(DbTable *tbl)

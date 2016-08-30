@@ -90,6 +90,8 @@ extern Export ets_select_continue_exp;
 extern erts_smp_atomic_t erts_ets_misc_mem_size;
 
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
+Eterm erts_ets_get_meta_state(Process* p);
+Eterm erts_ets_restore_meta_state(Process* p, Eterm target_state);
 
 Uint erts_db_get_max_tabs(void);
 

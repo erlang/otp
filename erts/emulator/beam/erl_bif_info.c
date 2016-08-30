@@ -3547,6 +3547,10 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    size_t words = (sizeof(DbTable) + sizeof(Uint) - 1)/sizeof(Uint);
 	    BIF_RET(make_small((Uint) words));
 	}
+        else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
+            /* Used by ets_SUITE (stdlib) */
+            BIF_RET(erts_ets_get_meta_state(BIF_P));
+        }
 	else if (ERTS_IS_ATOM_STR("check_io_debug", BIF_ARG_1)) {
 	    /* Used by driver_SUITE (emulator) */
 	    Uint sz, *szp;
@@ -4279,6 +4283,10 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                 FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
             }
             BIF_RET(am_ok);
+        }
+        else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
+            /* Used by ets_SUITE (stdlib) */
+            BIF_RET(erts_ets_restore_meta_state(BIF_P, BIF_ARG_2));
         }
     }
 
