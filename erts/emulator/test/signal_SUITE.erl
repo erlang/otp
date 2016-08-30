@@ -484,7 +484,7 @@ repeat(Fun, N) when is_integer(N)  ->
 start_node(Config) ->
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-" ++ integer_to_list(erlang:system_time(seconds))
+			++ "-" ++ integer_to_list(erlang:system_time(second))
 			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).

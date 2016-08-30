@@ -1708,28 +1708,36 @@ error:
 
 static int get_home(char *buf, int size)
 {
-    char* homedrive;
-    char* homepath;
-    
 #ifdef __WIN32__
-    homedrive = getenv("HOMEDRIVE");
-    homepath = getenv("HOMEPATH");
-#else
-    homedrive = "";
-    homepath = getenv("HOME");
-#endif
+    char* homedrive = getenv("HOMEDRIVE");
+    char* homepath = getenv("HOMEPATH");
     
-    if (!homedrive || !homepath) {
-	buf[0] = '.';
-	buf[1] = '\0';
-	return 1;
-    } else if (strlen(homedrive)+strlen(homepath) < size-1) {
+    if (homedrive && homepath) {
+	if (strlen(homedrive)+strlen(homepath) >= size)
+	    return 0;
 	strcpy(buf, homedrive);
 	strcat(buf, homepath);
 	return 1;
     }
-    
-    return 0;
+    else {
+	int len = GetWindowsDirectory(buf, size);
+	if (len) {
+	    return (len < size);
+	}
+    }
+#else
+    char* homepath = getenv("HOME");
+    if (homepath) {
+	if (strlen(homepath) >= size)
+	    return 0;
+	strcpy(buf, homepath);
+	return 1;
+    }
+#endif
+
+    buf[0] = '.';
+    buf[1] = '\0';
+    return 1;
 }
 
 

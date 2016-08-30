@@ -697,7 +697,7 @@ mixer(Config) when is_list(Config) ->
 named_down(Config) when is_list(Config) ->
     Name = list_to_atom(atom_to_list(?MODULE)
                         ++ "-named_down-"
-                        ++ integer_to_list(erlang:system_time(seconds))
+                        ++ integer_to_list(erlang:system_time(second))
                         ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Prio = process_flag(priority,high),
     %% Spawn a bunch of high prio cpu bound processes to prevent

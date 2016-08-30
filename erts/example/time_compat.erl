@@ -272,6 +272,10 @@ system_flag(Flag, Value) ->
 %%
 
 integer_time_unit(native) -> 1000*1000;
+integer_time_unit(nanosecond) -> 1000*1000*1000;
+integer_time_unit(microsecond) -> 1000*1000;
+integer_time_unit(millisecond) -> 1000;
+integer_time_unit(second) -> 1;
 integer_time_unit(nano_seconds) -> 1000*1000*1000;
 integer_time_unit(micro_seconds) -> 1000*1000;
 integer_time_unit(milli_seconds) -> 1000;

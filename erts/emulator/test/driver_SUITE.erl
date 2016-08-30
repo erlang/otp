@@ -2427,7 +2427,7 @@ erl_millisecs() ->
     erl_millisecs(erlang:monotonic_time()).
 
 erl_millisecs(MonotonicTime) ->
-    (1000*MonotonicTime)/erlang:convert_time_unit(1,seconds,native).
+    (1000*MonotonicTime)/erlang:convert_time_unit(1,second,native).
 
 %% Start/stop drivers.
 start_driver(Config, Name, Binary) ->
@@ -2481,7 +2481,7 @@ start_node(Config) when is_list(Config) ->
                         ++ "-"
                         ++ atom_to_list(proplists:get_value(testcase, Config))
                         ++ "-"
-                        ++ integer_to_list(erlang:system_time(seconds))
+                        ++ integer_to_list(erlang:system_time(second))
                         ++ "-"
                         ++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa}]).

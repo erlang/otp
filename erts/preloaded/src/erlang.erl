@@ -59,6 +59,7 @@
 
 -export_type([timestamp/0]).
 -export_type([time_unit/0]).
+-export_type([deprecated_time_unit/0]).
 
 -type ext_binary() :: binary().
 -type timestamp() :: {MegaSecs :: non_neg_integer(),
@@ -67,12 +68,20 @@
 
 -type time_unit() ::
 	pos_integer()
-      | 'seconds'
+      | 'second'
+      | 'millisecond'
+      | 'microsecond'
+      | 'nanosecond'
+      | 'native'
+      | 'perf_counter'
+      | deprecated_time_unit().
+
+%% Deprecated symbolic units...
+-type deprecated_time_unit() ::
+      'seconds'
       | 'milli_seconds'
       | 'micro_seconds'
-      | 'nano_seconds'
-      | 'native'
-      | 'perf_counter'.
+      | 'nano_seconds'.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
@@ -1365,19 +1374,33 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 	FU = case FromUnit of
 		 native -> erts_internal:time_unit();
                  perf_counter -> erts_internal:perf_counter_unit();
+		 nanosecond -> 1000*1000*1000;
+		 microsecond -> 1000*1000;
+		 millisecond -> 1000;
+		 second -> 1;
+
+		 %% Deprecated symbolic units...
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
 		 seconds -> 1;
+
 		 _ when FromUnit > 0 -> FromUnit
 	     end,
 	TU = case ToUnit of
 		 native -> erts_internal:time_unit();
                  perf_counter -> erts_internal:perf_counter_unit();
+		 nanosecond -> 1000*1000*1000;
+		 microsecond -> 1000*1000;
+		 millisecond -> 1000;
+		 second -> 1;
+
+		 %% Deprecated symbolic units...
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
 		 seconds -> 1;
+
 		 _ when ToUnit > 0 -> ToUnit
 	     end,
 	case Time < 0 of

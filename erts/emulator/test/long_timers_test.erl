@@ -248,20 +248,20 @@ to_diff(Timeout, Start, Stop) ->
     (Stop - Start) - Timeout*1000.
 
 ms(Time) ->
-    erlang:convert_time_unit(Time, micro_seconds, milli_seconds).
+    erlang:convert_time_unit(Time, microsecond, millisecond).
 
 max_late() ->
-    erlang:convert_time_unit(?MAX_LATE_MS, milli_seconds, micro_seconds).
+    erlang:convert_time_unit(?MAX_LATE_MS, millisecond, microsecond).
 
 receive_after(Timeout) ->
-    Start = erlang:monotonic_time(micro_seconds),
+    Start = erlang:monotonic_time(microsecond),
     receive
 	{get_result, ?REG_NAME} ->
 	    ?REG_NAME ! #timeout_rec{pid = self(),
 				     type = receive_after,
 				     timeout = Timeout}
     after Timeout ->
-	    Stop = erlang:monotonic_time(micro_seconds),
+	    Stop = erlang:monotonic_time(microsecond),
 	    receive
 		{get_result, ?REG_NAME} ->
 		    ?REG_NAME ! #timeout_rec{pid = self(),
@@ -276,7 +276,7 @@ receive_after(Timeout) ->
 driver(Timeout) ->
     Port = open_port({spawn, ?DRV_NAME},[]),
     link(Port),
-    Start = erlang:monotonic_time(micro_seconds),
+    Start = erlang:monotonic_time(microsecond),
     erlang:port_command(Port, <<?START_TIMER, Timeout:32>>),
     receive
 	{get_result, ?REG_NAME} ->
@@ -284,7 +284,7 @@ driver(Timeout) ->
 				     type = driver,
 				     timeout = Timeout};
 	{Port,{data,[?TIMER]}} ->
-	    Stop = erlang:monotonic_time(micro_seconds),
+	    Stop = erlang:monotonic_time(microsecond),
 	    unlink(Port),
 	    true = erlang:port_close(Port),
 	    receive
@@ -299,7 +299,7 @@ driver(Timeout) ->
     end.
 
 bif_timer(Timeout) ->
-    Start = erlang:monotonic_time(micro_seconds),
+    Start = erlang:monotonic_time(microsecond),
     Tmr = erlang:start_timer(Timeout, self(), ok),
     receive
 	{get_result, ?REG_NAME} ->
@@ -307,7 +307,7 @@ bif_timer(Timeout) ->
 				     type = bif_timer,
 				     timeout = Timeout};
 	{timeout, Tmr, ok} ->
-	    Stop = erlang:monotonic_time(micro_seconds),
+	    Stop = erlang:monotonic_time(microsecond),
 	    receive
 		{get_result, ?REG_NAME} ->
 		    ?REG_NAME ! #timeout_rec{pid = self(),
@@ -335,7 +335,7 @@ test(Starter, DrvDir, StartDone) ->
 	    ok
     end,
     UtilData = new_util(),
-    Start = erlang:monotonic_time(micro_seconds),
+    Start = erlang:monotonic_time(microsecond),
     TORs = lists:map(fun (Min) ->
 			     TO = Min*60*1000,
 			     [#timeout_rec{pid = spawn_opt(
@@ -370,13 +370,13 @@ new_util() ->
 
 new_util(UtilData) ->
     Util = cpu_sup:util(),
-    Time = erlang:monotonic_time(micro_seconds),
+    Time = erlang:monotonic_time(microsecond),
     [{Time, Util} | UtilData].
 
 test_loop(TORs, Start, UtilData) ->
     receive
 	{get_result, ?REG_NAME, Pid} ->
-	    End = erlang:monotonic_time(micro_seconds),
+	    End = erlang:monotonic_time(microsecond),
 	    EndUtilData = new_util(UtilData),
 	    Pid ! {result, ?REG_NAME, get_test_results(TORs), Start, End, EndUtilData},
 	    erl_ddll:unload_driver(?DRV_NAME),

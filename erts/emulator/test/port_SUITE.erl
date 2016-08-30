@@ -1986,7 +1986,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     Parent = self(),
     io:format("SleepSecs = ~p~n", [SleepSecs]),
     PortProg = "sleep " ++ integer_to_list(SleepSecs),
-    Start = erlang:monotonic_time(micro_seconds),
+    Start = erlang:monotonic_time(microsecond),
     NoProcs = case NoSchedsOnln of
                   NProcs when NProcs < ?EXIT_STATUS_MSB_MAX_PROCS ->
                       NProcs;
@@ -2060,12 +2060,12 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
                              receive {P, started, SIds} -> SIds end
                      end,
                      Procs),
-    StartedTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
+    StartedTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
     erlang:system_flag(multi_scheduling, block),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
-    DoneTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
+    DoneTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("DoneTime = ~p~n", [DoneTime]),
     true = DoneTime > SleepSecs,
     ok = verify_multi_scheduling_blocked(),
