@@ -1264,7 +1264,7 @@ client_check_result(Port, DataExpected, DataReceived) ->
                 _ ->
                     client_check_result(Port, DataExpected, NewData)
             end
-    after 3000 ->
+    after 20000 ->
 	    ct:fail({"Time out on openSSL Client", {expected, DataExpected},
 		     {got, DataReceived}})   
     end.
