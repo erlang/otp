@@ -9408,6 +9408,14 @@ erts_set_process_priority(Process *p, Eterm value)
     }
 }
 
+#ifdef __WIN32__
+Sint64
+erts_time2reds(ErtsMonotonicTime start, ErtsMonotonicTime end)
+{
+    return ERTS_TIME2REDS_IMPL__(start, end);
+}
+#endif
+
 static int
 scheduler_gc_proc(Process *c_p, int reds_left)
 {
