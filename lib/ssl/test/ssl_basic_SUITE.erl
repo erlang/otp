@@ -340,7 +340,7 @@ init_per_testcase(TestCase, Config) when TestCase == client_renegotiate;
 					 TestCase == renegotiate_dos_mitigate_passive;
 					 TestCase == renegotiate_dos_mitigate_absolute ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 30}),
+    ct:timetrap({seconds, 90}),
     Config;
 
 init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
@@ -350,6 +350,11 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
 					 TestCase == ciphers_dsa_signed_certs;
 					 TestCase == ciphers_dsa_signed_certs_openssl_names;
 					 TestCase == anonymous_cipher_suites;
+					 TestCase == ciphers_ecdsa_signed_certs;
+					 TestCase == ciphers_ecdsa_signed_certs_openssl_names;
+					 TestCase == anonymous_cipher_suites;
+					 TestCase == psk_anon_cipher_suites;
+					 TestCase == psk_anon_with_hint_cipher_suites;
 					 TestCase == versions_option,
 					 TestCase == tls_tcp_connect_big ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),

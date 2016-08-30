@@ -104,8 +104,13 @@ init_per_testcase(TestCase, Config) when TestCase == server_echos_passive_huge;
 					 TestCase == client_echos_passive_huge;
 					 TestCase == client_echos_active_once_huge;
 					 TestCase == client_echos_active_huge ->
-    ct:timetrap({seconds, 90}),
-    Config;
+    case erlang:system_info(system_architecture) of
+	"sparc-sun-solaris2.10" ->
+	    {skip,"Will take to long time on an old Sparc"};
+	_ ->
+	    ct:timetrap({seconds, 90}),
+	    Config
+    end;
 
 init_per_testcase(TestCase, Config) when TestCase == server_echos_passive_big;
 					 TestCase == server_echos_active_once_big;
