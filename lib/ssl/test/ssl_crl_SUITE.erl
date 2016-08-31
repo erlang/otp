@@ -72,7 +72,7 @@ init_per_suite(Config) ->
 		false ->
 		    {skip, io_lib:format("Bad openssl version: ~p",[OpenSSL_version])};
 		_ ->
-		    catch crypto:stop(),
+		    end_per_suite(Config),
 		    try crypto:start() of
 			ok ->
 			    {ok, Hostname0} = inet:gethostname(),
