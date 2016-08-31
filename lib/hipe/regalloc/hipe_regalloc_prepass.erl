@@ -44,7 +44,7 @@
 %%    hipe_regalloc_loop iteration, skipping directly to rewrite without ever
 %%    calling RegAllocMod.
 -module(hipe_regalloc_prepass).
--export([regalloc/6]).
+-export([regalloc/6, regalloc_initial/6]).
 
 -ifndef(DEBUG).
 -compile(inline).
@@ -137,12 +137,37 @@
 
 -spec regalloc(module(), target_cfg(), spillno(), spillno(), module(),
 	       proplists:proplist())
-	      -> {hipe_map(), spillno(), target_cfg(),
-		  undefined | target_liveness()}.
-regalloc(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options) ->
+	      -> {hipe_map(), spillno(), target_liveness()}.
+regalloc(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options) ->
+  Liveness = Target:analyze(CFG),
+  {Coloring, SpillIndex, same} =
+    regalloc_1(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options,
+	       Liveness),
+  {Coloring, SpillIndex, Liveness}.
+
+%% regalloc_initial/6 is allowed to introduce new temporaries, unlike regalloc/6
+-spec regalloc_initial(module(), target_cfg(), spillno(), spillno(), module(),
+		       proplists:proplist())
+		      -> {hipe_map(), spillno(), target_cfg(),
+			  undefined | target_liveness()}.
+regalloc_initial(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options) ->
   Liveness0 = Target:analyze(CFG0),
+  {Coloring, SpillIndex, NewCFG} =
+    regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
+	       Liveness0),
+  %% It's not worth it to add rewriting of the liveness information; just return
+  %% 'undefined' and let it be recomputed when needed.
+  {CFG, Liveness} =
+    case NewCFG of
+      same -> {CFG0, Liveness0};
+      {rewritten, CFG1} -> {CFG1, undefined}
+    end,
+  {Coloring, SpillIndex, CFG, Liveness}.
+
+regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
+	   Liveness) ->
   {ScanBBs, Seen, SpillMap, SpillIndex1} =
-    scan_cfg(CFG0, Liveness0, SpillIndex0, Target),
+    scan_cfg(CFG0, Liveness, SpillIndex0, Target),
 
   AllPrecoloured = Target:all_precoloured(),
 
@@ -157,14 +182,6 @@ regalloc(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options) ->
 		       CFG0, Target, RegAllocMod, Options)
     end,
 
-  %% It's not worth it to add rewriting of the liveness information; just return
-  %% 'undefined' and let it be recomputed when needed.
-  {CFG, Liveness} =
-    case NewCFG of
-      same -> {CFG0, Liveness0};
-      {rewritten, CFG1} -> {CFG1, undefined}
-    end,
-
   SpillColors = [{T, {spill, S}} || {T, S} <- maps:to_list(SpillMap)],
   Coloring = SpillColors ++ PartColoring,
 
@@ -174,10 +191,17 @@ regalloc(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options) ->
 			    SpillMap, CFG0, Target),
 	    unused_unused(Unused, CFG0, Target)
 	  end),
-  ?ASSERT(check_coloring(Coloring, CFG, Target)), % Sanity-check
+  ?ASSERT(begin
+	    CFG =
+	      case NewCFG of
+		same -> CFG0;
+		{rewritten, CFG1} -> CFG1
+	      end,
+	    check_coloring(Coloring, CFG, Target)
+	  end), % Sanity-check
   ?ASSERT(just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit,
 			  Target, Options, SpillMap, Coloring, Unused)),
-  {Coloring, SpillIndex, CFG, Liveness}.
+  {Coloring, SpillIndex, NewCFG}.
 
 regalloc_whole(Seen, SpillMap, SpillIndex0, SpillLimit, ScanBBs,
 	       CFG, Target, RegAllocMod, Options) ->
