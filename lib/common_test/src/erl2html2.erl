@@ -130,6 +130,8 @@ parse_preprocessed_file(Epp, File, InCorrectFile) ->
 	    throw({error,Reason,InCorrectFile});
 	{error,_Reason} ->
 	    parse_preprocessed_file(Epp, File, InCorrectFile);
+	{warning,_} ->
+	    parse_preprocessed_file(Epp, File, InCorrectFile);
 	{eof,_Location} ->
 	    []
     end.

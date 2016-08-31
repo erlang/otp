@@ -342,5 +342,7 @@ check_includes2(Epp, File, ObjMTime) ->
 	    epp:close(Epp),
 	    false;
 	{error, _Error} ->
+	    check_includes2(Epp, File, ObjMTime);
+	{warning, _Warning} ->
 	    check_includes2(Epp, File, ObjMTime)
     end.
