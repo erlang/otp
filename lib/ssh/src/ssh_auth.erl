@@ -264,12 +264,23 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 			SessionId, 
 			#ssh{opts = Opts,
 			     userauth_supported_methods = Methods} = Ssh) ->
-    <<?BYTE(HaveSig), ?UINT32(ALen), BAlg:ALen/binary, 
-     ?UINT32(KLen), KeyBlob:KLen/binary, SigWLen/binary>> = Data,
-    Alg = binary_to_list(BAlg),
+
+    <<?BYTE(HaveSig),
+      ?UINT32(ALen), BAlg:ALen/binary,
+      Rest/binary>> = Data,
+
+    {KeyBlob,  SigWLen} = 
+	case Rest of 
+	    <<?UINT32(KLen0), KeyBlob0:KLen0/binary, SigWLen0/binary>> ->
+		{KeyBlob0,  SigWLen0};
+	    <<>> ->
+		{<<>>, <<>>}
+	end,
+
     case HaveSig of
 	?TRUE ->
-	    case verify_sig(SessionId, User, "ssh-connection", Alg,
+	    case verify_sig(SessionId, User, "ssh-connection", 
+			    binary_to_list(BAlg),
 			    KeyBlob, SigWLen, Opts) of
 		true ->
 		    {authorized, User, 
@@ -284,7 +295,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 	?FALSE ->
 	    {not_authorized, {User, undefined},
 	     ssh_transport:ssh_packet(
-	       #ssh_msg_userauth_pk_ok{algorithm_name = Alg,
+	       #ssh_msg_userauth_pk_ok{algorithm_name = binary_to_list(BAlg),
 				       key_blob = KeyBlob}, Ssh)}
     end;
 

@@ -180,21 +180,19 @@ simple_exec(Config) ->
 %%--------------------------------------------------------------------
 %% Testing if no group matches
 simple_exec_groups_no_match_too_small(Config) ->
-    try simple_exec_group({400,500,600}, Config)
-    of
-	_ -> ct:fail("Exec though no group available")
-    catch
-	error:{badmatch,{error,"No possible diffie-hellman-group-exchange group found"}} ->
-	    ok
-    end.
+    try_exec_simple_group({400,500,600}, Config).
 
 simple_exec_groups_no_match_too_large(Config) ->
-    try simple_exec_group({9200,9500,9700}, Config)
+    try_exec_simple_group({9200,9500,9700}, Config).
+
+
+try_exec_simple_group(Group, Config) ->
+    try simple_exec_group(Group, Config)
     of
 	_ -> ct:fail("Exec though no group available")
     catch
-	error:{badmatch,{error,"No possible diffie-hellman-group-exchange group found"}} ->
-	    ok
+	error:{badmatch,{error,"No possible diffie-hellman-group-exchange group found"}} -> ok;
+	error:{badmatch,{error,"Connection closed"}} -> ok
     end.
 
 %%--------------------------------------------------------------------
