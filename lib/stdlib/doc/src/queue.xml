@@ -401,7 +401,7 @@
     </func>
 
     <func>
-      <name name="liat" arity="1"/>v
+      <name name="liat" arity="1"/>
       <fsummary>Remove the tail item from a queue.</fsummary>
       <desc>
         <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
