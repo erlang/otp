@@ -102,6 +102,7 @@ erts_heap_alloc(Process* p, Uint need, Uint xtra)
     if (bp != NULL && need <= (bp->alloc_size - bp->used_size)) {
 	Eterm* ret = bp->mem + bp->used_size;
 	bp->used_size += need;
+	p->mbuf_sz += need;
 	return ret;
     }
 #ifdef DEBUG
@@ -124,7 +125,7 @@ erts_heap_alloc(Process* p, Uint need, Uint xtra)
     MBUF(p) = bp;
     bp->alloc_size = n;
     bp->used_size = need;
-    MBUF_SIZE(p) += n;
+    MBUF_SIZE(p) += need;
     bp->off_heap.first = NULL;
     bp->off_heap.overhead = 0;
     return bp->mem;
