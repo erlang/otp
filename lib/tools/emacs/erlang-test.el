@@ -52,28 +52,42 @@ concatenated to form an erlang file to test on.")
 
 (ert-deftest erlang-test-tags ()
   (let* ((dir (make-temp-file "erlang-test" t))
-       (erlang-file (expand-file-name "erlang_test.erl" dir))
-       (tags-file (expand-file-name "TAGS" dir))
-       tags-file-name tags-table-list erlang-buffer)
-  (unwind-protect
-      (progn
-        (erlang-test-create-erlang-file erlang-file)
-        (erlang-test-compile-tags erlang-file tags-file)
-        (setq erlang-buffer (find-file-noselect erlang-file))
-        (with-current-buffer erlang-buffer
-          (setq-local tags-file-name tags-file))
-        ;; Setting global tags-file-name is a workaround for
-        ;; GNU Emacs bug#23164.
-        (setq tags-file-name tags-file)
-        (erlang-test-completion-table)
-        (erlang-test-xref-find-definitions erlang-file erlang-buffer))
-    (when (buffer-live-p erlang-buffer)
-      (kill-buffer erlang-buffer))
-    (let ((tags-buffer (find-buffer-visiting tags-file)))
-      (when (buffer-live-p tags-buffer)
-        (kill-buffer tags-buffer)))
-    (when (file-exists-p dir)
-      (delete-directory dir t)))))
+         (erlang-file (expand-file-name "erlang_test.erl" dir))
+         (tags-file (expand-file-name "TAGS" dir))
+         (old-tags-file-name (default-value 'tags-file-name))
+         (old-tags-table-list (default-value 'tags-table-list))
+         tags-file-name
+         tags-table-list
+         tags-table-set-list
+         erlang-buffer
+         erlang-mode-hook
+         prog-mode-hook
+         erlang-shell-mode-hook
+         tags-add-tables)
+    (unwind-protect
+        (progn
+          (setq-default tags-file-name nil)
+          (setq-default tags-table-list nil)
+          (erlang-test-create-erlang-file erlang-file)
+          (erlang-test-compile-tags erlang-file tags-file)
+          (setq erlang-buffer (find-file-noselect erlang-file))
+          (with-current-buffer erlang-buffer
+            (setq-local tags-file-name tags-file))
+          ;; Setting global tags-file-name is a workaround for
+          ;; GNU Emacs bug#23164.
+          (setq tags-file-name tags-file)
+          (erlang-test-complete-at-point tags-file)
+          (erlang-test-completion-table)
+          (erlang-test-xref-find-definitions erlang-file erlang-buffer))
+      (when (buffer-live-p erlang-buffer)
+        (kill-buffer erlang-buffer))
+      (let ((tags-buffer (find-buffer-visiting tags-file)))
+        (when (buffer-live-p tags-buffer)
+          (kill-buffer tags-buffer)))
+      (when (file-exists-p dir)
+        (delete-directory dir t))
+      (setq-default tags-file-name old-tags-file-name)
+      (setq-default tags-table-list old-tags-table-list))))
 
 (defun erlang-test-create-erlang-file (erlang-file)
   (with-temp-file erlang-file
@@ -115,6 +129,54 @@ concatenated to form an erlang file to test on.")
                         (file-truename (buffer-file-name))))
   (should (eq expected-line (line-number-at-pos)))
   (should (= (point-at-bol) (point))))
+
+(defun erlang-test-complete-at-point (tags-file)
+  (with-temp-buffer
+    (erlang-mode)
+    (setq-local tags-file-name tags-file)
+    (insert "\nerlang_test:fun")
+    (erlang-complete-tag)
+    (should (looking-back "erlang_test:function"))
+    (insert "\nfun")
+    (erlang-complete-tag)
+    (should (looking-back "function"))
+    (insert "\nerlang_")
+    (erlang-complete-tag)
+    (should (looking-back "erlang_test:"))))
+
+
+(ert-deftest erlang-test-compile-options ()
+  (erlang-test-format-opt t
+                          "t")
+  (erlang-test-format-opt nil
+                          "nil")
+  (erlang-test-format-opt (cons 1 2)
+                          "{1, 2}")
+  (erlang-test-format-opt (list 1)
+                          "[1]")
+  (erlang-test-format-opt (list 1 2)
+                          "[1, 2]")
+  (erlang-test-format-opt (list 1 2 3)
+                          "[1, 2, 3]")
+  (erlang-test-format-opt 'symbol
+                          "symbol")
+  (erlang-test-format-opt "string"
+                          "\"string\"")
+  (erlang-test-format-opt []
+                          "{}")
+  (erlang-test-format-opt [1]
+                          "{1}")
+  (erlang-test-format-opt [1 2]
+                          "{1, 2}")
+  (erlang-test-format-opt [1 2 (3 [4 5 6] 7)]
+                          "{1, 2, [3, {4, 5, 6}, 7]}"))
+
+(defun erlang-test-format-opt (elisp &optional expected-erlang)
+  (let ((erlang (inferior-erlang-format-opt elisp)))
+    (message "%s -> %s" elisp erlang)
+    (when expected-erlang
+      (should (equal erlang expected-erlang)))
+    erlang))
 
 
 (provide 'erlang-test)
