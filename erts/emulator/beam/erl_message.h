@@ -499,4 +499,15 @@ erts_msgq_replace_msg_ref(ErlMessageQueue *msgq, ErtsMessage *newp, ErtsMessage 
 
 #endif
 
+Uint erts_mbuf_size(Process *p);
+#if defined(DEBUG) || 0
+#  define ERTS_CHK_MBUF_SZ(P)				\
+    do {						\
+	Uint actual_mbuf_sz__ = erts_mbuf_size((P));	\
+	ERTS_ASSERT((P)->mbuf_sz >= actual_mbuf_sz__);	\
+    } while (0)
+#else
+#  define ERTS_CHK_MBUF_SZ(P) ((void) 1)
+#endif
+
 #endif
