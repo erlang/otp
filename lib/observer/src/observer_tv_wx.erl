@@ -124,6 +124,8 @@ handle_event(#wx{id=Id}, State = #state{node=Node, grid=Grid, opt=Opt0})
 	  end,
     case get_tables2(Node, Opt) of
 	Error = {error, _} ->
+            Id =:= ?ID_MNESIA andalso
+                wxMenuBar:check(observer_wx:get_menubar(), ?ID_ETS, true),
 	    self() ! Error,
 	    {noreply, State};
 	Tables ->
@@ -217,22 +219,32 @@ handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
             {noreply, State#state{tabs=Tabs}}
     end;
 
-handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
+handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt0,
 					   timer=Timer0}) ->
-    Tables = get_tables(Node, Opt),
+    {Tables, Opt} = case Opt0#opt.type =:= mnesia andalso get_tables2(Node, Opt0) of
+                        Ts when is_list(Ts) ->
+                            {Ts, Opt0};
+                        _ -> % false or error getting mnesia tables
+                            Opt1 = Opt0#opt{type=ets},
+                            {get_tables(Node, Opt1), Opt1}
+                    end,
     Tabs = update_grid(Grid, Opt, Tables),
     wxWindow:setFocus(Grid),
     create_menus(Parent, Opt),
     Timer = observer_lib:start_timer(Timer0),
-    {noreply, State#state{node=Node, tabs=Tabs, timer=Timer}};
+    {noreply, State#state{node=Node, tabs=Tabs, timer=Timer, opt=Opt}};
 
 handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({error, Error}, State) ->
+handle_info({error, Error}, #state{opt=Opt}=State) ->
     handle_error(Error),
-    {noreply, State};
+    case Opt#opt.type of
+        mnesia -> wxMenuBar:check(observer_wx:get_menubar(), ?ID_ETS, true);
+        _ -> ok
+    end,
+    {noreply, State#state{opt=Opt#opt{type=ets}}};
 
 handle_info(_Event, State) ->
     {noreply, State}.
