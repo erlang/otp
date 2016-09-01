@@ -24,28 +24,31 @@
 
 ra(CFG0, Options) ->
   %% hipe_ppc_pp:pp(hipe_ppc_cfg:linearise(CFG0)),
-  {CFG1, Coloring_fp, SpillIndex}
+  {CFG1, _FPLiveness1, Coloring_fp, SpillIndex}
     = case proplists:get_bool(inline_fp, Options) of
 	true ->
-	  hipe_regalloc_loop:ra_fp(CFG0, Options,
+	  FPLiveness0 = hipe_ppc_specific_fp:analyze(CFG0),
+	  hipe_regalloc_loop:ra_fp(CFG0, FPLiveness0, Options,
 				   hipe_coalescing_regalloc,
 				   hipe_ppc_specific_fp);
 	false ->
-	  {CFG0,[],0}
+	  {CFG0,undefined,[],0}
       end,
   %% hipe_ppc_pp:pp(hipe_ppc_cfg:linearise(CFG1)),
-  {CFG2, Coloring}
+  GPLiveness1 = hipe_ppc_specific:analyze(CFG1),
+  {CFG2, _GPLiveness2, Coloring}
     = case proplists:get_value(regalloc, Options, coalescing) of
 	coalescing ->
-	  ra(CFG1, SpillIndex, Options, hipe_coalescing_regalloc);
+	  ra(CFG1, GPLiveness1, SpillIndex, Options, hipe_coalescing_regalloc);
 	optimistic ->
-	  ra(CFG1, SpillIndex, Options, hipe_optimistic_regalloc);
+	  ra(CFG1, GPLiveness1, SpillIndex, Options, hipe_optimistic_regalloc);
 	graph_color ->
-	  ra(CFG1, SpillIndex, Options, hipe_graph_coloring_regalloc);
+	  ra(CFG1, GPLiveness1, SpillIndex, Options,
+	     hipe_graph_coloring_regalloc);
 	linear_scan ->
-	  hipe_ppc_ra_ls:ra(CFG1, SpillIndex, Options);
+	  hipe_ppc_ra_ls:ra(CFG1, GPLiveness1, SpillIndex, Options);
 	naive ->
-	  hipe_ppc_ra_naive:ra(CFG1, Coloring_fp, Options);
+	  hipe_ppc_ra_naive:ra(CFG1, GPLiveness1, Coloring_fp, Options);
         _ ->
 	  exit({unknown_regalloc_compiler_option,
 		proplists:get_value(regalloc,Options)})
@@ -53,5 +56,6 @@ ra(CFG0, Options) ->
   %% hipe_ppc_pp:pp(hipe_ppc_cfg:linearise(CFG2)),
   hipe_ppc_ra_finalise:finalise(CFG2, Coloring, Coloring_fp).
 
-ra(CFG, SpillIndex, Options, RegAllocMod) ->
-  hipe_regalloc_loop:ra(CFG, SpillIndex, Options, RegAllocMod, hipe_ppc_specific).
+ra(CFG, Liveness, SpillIndex, Options, RegAllocMod) ->
+  hipe_regalloc_loop:ra(CFG, Liveness, SpillIndex, Options, RegAllocMod,
+			hipe_ppc_specific).

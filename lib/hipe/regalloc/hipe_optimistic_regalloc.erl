@@ -29,7 +29,7 @@
 %%-----------------------------------------------------------------------
 
 -module(hipe_optimistic_regalloc).
--export([regalloc/5]).
+-export([regalloc/6]).
 
 -ifndef(DEBUG).
 %%-define(DEBUG,true).
@@ -81,12 +81,11 @@
 %%   SpillIndex2 -- A new spill index
 %%-----------------------------------------------------------------------
 -ifdef(COMPARE_ITERATED_OPTIMISTIC).
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
+regalloc(CFG, Liveness, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("optimistic ~w\n",[Target]),
   ?debug_msg("CFG: ~p\n",[CFG]),
   %% Build interference graph
   ?debug_msg("Build IG\n",[]),
-  Liveness = Target:analyze(CFG),
   IG_O = hipe_ig:build(CFG, Liveness, Target),
   IG = hipe_ig:build(CFG, Liveness, Target),
   ?debug_msg("adjlist: ~p\n",[hipe_ig:adj_list(IG)]),
@@ -219,14 +218,13 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   SortedColoring_O = {sort_stack(element(1, Coloring_O)), element(2, Coloring_O)},
   ?debug_msg("SortedColoring_O ~p\n",[SortedColoring_O]),
   sanity_compare(SortedColoring_O, SortedColoring),
-  {Coloring,SpillIndex2,Liveness}.
+  {Coloring,SpillIndex2}.
 -else.
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
+regalloc(CFG, Liveness, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("optimistic ~w\n",[Target]),
   ?debug_msg("CFG: ~p\n",[CFG]),
   %% Build interference graph
   ?debug_msg("Build IG\n",[]),
-  Liveness = Target:analyze(CFG),
   IG = hipe_ig:build(CFG, Liveness, Target),
   ?debug_msg("adjlist: ~p\n",[hipe_ig:adj_list(IG)]),
   ?debug_msg("IG:\n",[]),
@@ -321,7 +319,7 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("Build mapping _N ~w\n",[Node_sets2]),
   {Coloring, SpillIndex2} = build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
   ?debug_msg("Coloring ~p\n",[Coloring]),
-  {Coloring,SpillIndex2,Liveness}.
+  {Coloring,SpillIndex2}.
 -endif.
 
 %%----------------------------------------------------------------------

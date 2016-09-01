@@ -30,7 +30,7 @@
 %%-----------------------------------------------------------------------
 
 -module(hipe_coalescing_regalloc).
--export([regalloc/5]).
+-export([regalloc/6]).
 
 %%-ifndef(DEBUG).
 %%-define(DEBUG,true).
@@ -54,10 +54,9 @@
 %%   SpillIndex2 -- A new spill index
 %%-----------------------------------------------------------------------
 
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
+regalloc(CFG, Liveness, SpillIndex, SpillLimit, Target, _Options) ->
   %% Build interference graph
   ?debug_msg("Build IG\n", []),
-  Liveness = Target:analyze(CFG),
   IG = hipe_ig:build(CFG, Liveness, Target),
   %% io:format("IG: ~p\n", [IG]),
 
@@ -98,7 +97,7 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   {Coloring, SpillIndex2} =
     build_namelist(Node_sets2, SpillIndex, Alias0, Color1),
   ?debug_msg("Coloring ~p\n", [Coloring]),
-  {Coloring, SpillIndex2, Liveness}.
+  {Coloring, SpillIndex2}.
 
 %%----------------------------------------------------------------------
 %% Function:    do_coloring

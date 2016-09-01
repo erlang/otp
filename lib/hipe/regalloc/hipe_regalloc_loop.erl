@@ -21,32 +21,32 @@
 %%% Common wrapper for graph_coloring and coalescing regallocs.
 
 -module(hipe_regalloc_loop).
--export([ra/5, ra_fp/4]).
+-export([ra/6, ra_fp/5]).
 
 %%-define(HIPE_INSTRUMENT_COMPILER, true). %% Turn on instrumentation.
 -include("../main/hipe.hrl").
 
-ra(CFG, SpillIndex, Options, RegAllocMod, TargetMod) ->
-  {NewCFG, Coloring, _NewSpillIndex} =
-    ra_common(CFG, SpillIndex, Options, RegAllocMod, TargetMod),
-  {NewCFG, Coloring}.
+ra(CFG, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod) ->
+  {NewCFG, Liveness, Coloring, _NewSpillIndex} =
+    ra_common(CFG, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod),
+  {NewCFG, Liveness, Coloring}.
 
-ra_fp(CFG, Options, RegAllocMod, TargetMod) ->
-  ra_common(CFG, 0, Options, RegAllocMod, TargetMod).
+ra_fp(CFG, Liveness, Options, RegAllocMod, TargetMod) ->
+  ra_common(CFG, Liveness, 0, Options, RegAllocMod, TargetMod).
 
-ra_common(CFG0, SpillIndex, Options, RegAllocMod, TargetMod) ->
+ra_common(CFG0, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod) ->
   ?inc_counter(ra_calls_counter, 1),
   SpillLimit0 = TargetMod:number_of_temporaries(CFG0),
-  {Coloring, _, CFG, MaybeLiveness} =
-    call_allocator_initial(CFG0, SpillLimit0, SpillIndex, Options, RegAllocMod,
-			   TargetMod),
+  {Coloring, _, CFG, Liveness} =
+    call_allocator_initial(CFG0, Liveness0, SpillLimit0, SpillIndex, Options,
+			   RegAllocMod, TargetMod),
   %% The first iteration, the hipe_regalloc_prepass may create new temps, these
   %% should not end up above SpillLimit.
   SpillLimit = TargetMod:number_of_temporaries(CFG),
-  alloc(Coloring, CFG, MaybeLiveness, SpillLimit, SpillIndex, Options,
+  alloc(Coloring, CFG, Liveness, SpillLimit, SpillIndex, Options,
 	RegAllocMod, TargetMod).
 
-alloc(Coloring, CFG0, MaybeLiveness0, SpillLimit, SpillIndex, Options,
+alloc(Coloring, CFG0, Liveness, SpillLimit, SpillIndex, Options,
       RegAllocMod, TargetMod) ->
   ?inc_counter(ra_iteration_counter, 1),
   {CFG, DidSpill} = TargetMod:check_and_rewrite(CFG0, Coloring),
@@ -54,7 +54,6 @@ alloc(Coloring, CFG0, MaybeLiveness0, SpillLimit, SpillIndex, Options,
     false -> %% No new temps, we are done.
       ?add_spills(Options, _NewSpillIndex),
       TempMap = hipe_temp_map:cols2tuple(Coloring, TargetMod),
-      Liveness = liveness_force(TargetMod, CFG0, MaybeLiveness0),
       {TempMap2, NewSpillIndex2} =
 	hipe_spillmin:stackalloc(CFG0, Liveness, [], SpillIndex, Options,
 				 TargetMod, TempMap),
@@ -66,37 +65,36 @@ alloc(Coloring, CFG0, MaybeLiveness0, SpillLimit, SpillIndex, Options,
       %%   false ->
       %%     ok
       %% end,
-      {CFG, Coloring2, NewSpillIndex2};
+      {CFG, Liveness, Coloring2, NewSpillIndex2};
     _ ->
       %% Since SpillLimit is used as a low-water-mark
       %% the list of temps not to spill is uninteresting.
-      {NewColoring, _NewSpillIndex, Liveness} =
-	call_allocator(CFG, SpillLimit, SpillIndex, Options, RegAllocMod,
-		       TargetMod),
+      {NewColoring, _NewSpillIndex} =
+	call_allocator(CFG, Liveness, SpillLimit, SpillIndex, Options,
+		       RegAllocMod, TargetMod),
       alloc(NewColoring, CFG, Liveness, SpillLimit, SpillIndex, Options,
 	    RegAllocMod, TargetMod)
   end.
 
-call_allocator_initial(CFG, SpillLimit, SpillIndex, Options, RegAllocMod,
-		       TargetMod) ->
+call_allocator_initial(CFG, Liveness, SpillLimit, SpillIndex, Options,
+		       RegAllocMod, TargetMod) ->
   case proplists:get_bool(ra_prespill, Options) of
     true ->
       hipe_regalloc_prepass:regalloc_initial(
-	RegAllocMod, CFG, SpillIndex, SpillLimit, TargetMod, Options);
+	RegAllocMod, CFG, Liveness, SpillIndex, SpillLimit, TargetMod, Options);
     false ->
-      {C, SI, L} = RegAllocMod:regalloc(CFG, SpillIndex, SpillLimit,
-					TargetMod, Options),
-      {C, SI, CFG, L}
+      {C, SI} = RegAllocMod:regalloc(CFG, Liveness, SpillIndex, SpillLimit,
+				     TargetMod, Options),
+      {C, SI, CFG, Liveness}
   end.
 
-call_allocator(CFG, SpillLimit, SpillIndex, Options, RegAllocMod, TargetMod) ->
+call_allocator(CFG, Liveness, SpillLimit, SpillIndex, Options, RegAllocMod,
+	       TargetMod) ->
   case proplists:get_bool(ra_prespill, Options) of
     true ->
       hipe_regalloc_prepass:regalloc(
-	RegAllocMod, CFG, SpillIndex, SpillLimit, TargetMod, Options);
+	RegAllocMod, CFG, Liveness, SpillIndex, SpillLimit, TargetMod, Options);
     false ->
-      RegAllocMod:regalloc(CFG, SpillIndex, SpillLimit, TargetMod, Options)
+      RegAllocMod:regalloc(CFG, Liveness, SpillIndex, SpillLimit, TargetMod,
+			   Options)
   end.
-
-liveness_force(TargetMod, CFG, undefined) -> TargetMod:analyze(CFG);
-liveness_force(_TargetMod, _CFG, Defined) -> Defined.

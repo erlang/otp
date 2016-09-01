@@ -56,7 +56,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_ls_regalloc).
--export([regalloc/7, regalloc/8]).
+-export([regalloc/8]).
 
 %%-define(DEBUG,1).
 -define(HIPE_INSTRUMENT_COMPILER, true).
@@ -95,19 +95,8 @@
 %%   </ol>
 %% @end
 %%-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
-regalloc(CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
-  regalloc(CFG, undefined, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target).
-
-regalloc(CFG, Liveness0, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
+regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
   ?debug_msg("LinearScan: ~w\n", [erlang:statistics(runtime)]),
-  %%     Step 1: Calculate liveness (Call external implementation.)
-  Liveness = case Liveness0 of
-	       undefined ->
-		 L=liveness(CFG, Target),
-		 ?debug_msg("liveness (done)~w\n", [erlang:statistics(runtime)]),
-		 L;
-	       _ -> Liveness0
-	     end,
   USIntervals = calculate_intervals(CFG, Liveness,
 				    Entrypoints, Options, Target),
   ?debug_msg("intervals (done) ~w\n", [erlang:statistics(runtime)]),
@@ -119,7 +108,7 @@ regalloc(CFG, Liveness0, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, 
   {Coloring, NewSpillIndex}
     = allocate(Intervals, PhysRegs, SpillIndex, DontSpill, Target),
   ?debug_msg("allocation (done) ~w\n", [erlang:statistics(runtime)]),
-  {Coloring, NewSpillIndex, Liveness}.
+  {Coloring, NewSpillIndex}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                    %%
@@ -759,9 +748,6 @@ create_freeregs([]) ->
 %% XXX: Make this efficient somehow...
 %% 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-liveness(CFG, Target) ->
-  Target:analyze(CFG).
 
 bb(CFG, L, Target) ->
   Target:bb(CFG,L).

@@ -44,7 +44,7 @@
 %%    hipe_regalloc_loop iteration, skipping directly to rewrite without ever
 %%    calling RegAllocMod.
 -module(hipe_regalloc_prepass).
--export([regalloc/6, regalloc_initial/6]).
+-export([regalloc/7, regalloc_initial/7]).
 
 -ifndef(DEBUG).
 -compile(inline).
@@ -135,37 +135,35 @@
 -type temp() :: non_neg_integer().
 -type label() :: non_neg_integer().
 
--spec regalloc(module(), target_cfg(), spillno(), spillno(), module(),
-	       proplists:proplist())
-	      -> {hipe_map(), spillno(), target_liveness()}.
-regalloc(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options) ->
-  Liveness = Target:analyze(CFG),
+-spec regalloc(module(), target_cfg(), target_liveness(), spillno(), spillno(),
+	       module(), proplists:proplist())
+	      -> {hipe_map(), spillno()}.
+regalloc(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, Target,
+	 Options) ->
   {Coloring, SpillIndex, same} =
     regalloc_1(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options,
 	       Liveness),
-  {Coloring, SpillIndex, Liveness}.
+  {Coloring, SpillIndex}.
 
-%% regalloc_initial/6 is allowed to introduce new temporaries, unlike
-%% regalloc/6.
-%% In order for regalloc/6 to never introduce temporaries, regalloc/6 must never
-%% choose to do split allocation unless regalloc_initial/6 does. This is the
+%% regalloc_initial/7 is allowed to introduce new temporaries, unlike
+%% regalloc/7.
+%% In order for regalloc/7 to never introduce temporaries, regalloc/7 must never
+%% choose to do split allocation unless regalloc_initial/7 does. This is the
 %% reason that the splitting heuristic is solely based on the number of basic
 %% blocks, which does not change during the register allocation loop.
--spec regalloc_initial(module(), target_cfg(), spillno(), spillno(), module(),
-		       proplists:proplist())
+-spec regalloc_initial(module(), target_cfg(), target_liveness(), spillno(),
+		       spillno(), module(), proplists:proplist())
 		      -> {hipe_map(), spillno(), target_cfg(),
-			  undefined | target_liveness()}.
-regalloc_initial(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options) ->
-  Liveness0 = Target:analyze(CFG0),
+			  target_liveness()}.
+regalloc_initial(RegAllocMod, CFG0, Liveness0, SpillIndex0, SpillLimit, Target,
+		 Options) ->
   {Coloring, SpillIndex, NewCFG} =
     regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
 	       Liveness0),
-  %% It's not worth it to add rewriting of the liveness information; just return
-  %% 'undefined' and let it be recomputed when needed.
   {CFG, Liveness} =
     case NewCFG of
       same -> {CFG0, Liveness0};
-      {rewritten, CFG1} -> {CFG1, undefined}
+      {rewritten, CFG1} -> {CFG1, Target:analyze(CFG1)}
     end,
   {Coloring, SpillIndex, CFG, Liveness}.
 
@@ -204,7 +202,7 @@ regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
 	      end,
 	    check_coloring(Coloring, CFG, Target)
 	  end), % Sanity-check
-  ?ASSERT(just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit,
+  ?ASSERT(just_as_good_as(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit,
 			  Target, Options, SpillMap, Coloring, Unused)),
   {Coloring, SpillIndex, NewCFG}.
 
@@ -218,8 +216,8 @@ regalloc_whole(Seen, SpillMap, SpillIndex0, SpillLimit, ScanBBs,
   BBs = transform_whole_cfg(ScanBBs, SubMap),
   SubMod = #cfg{cfg=CFG, bbs=BBs, max_reg=MaxR},
   SubTarget = #?MODULE{target=Target, max_phys=MaxPhys, inv=InvMap, sub=SubMap},
-  {SubColoring, SpillIndex, _} =
-    RegAllocMod:regalloc(SubMod, SpillIndex0, SubSpillLimit, SubTarget,
+  {SubColoring, SpillIndex} =
+    RegAllocMod:regalloc(SubMod, SubMod, SpillIndex0, SubSpillLimit, SubTarget,
 			 Options),
   ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
   {translate_coloring(SubColoring, InvMap), SpillIndex, same}.
@@ -249,9 +247,9 @@ regalloc_partitioned(SpillMap, SpillIndex0, SpillLimit, ScanBBs,
 	  SubMod = #cfg{cfg=CFG, bbs=BBs, max_reg=MaxR, rpostorder=RPost},
 	  SubTarget = #?MODULE{target=Target, max_phys=MaxPhys, inv=InvMap,
 			       sub=SubMap},
-	  {SubColoring, SpillIndex2, _} =
-	    RegAllocMod:regalloc(SubMod, SpillIndex1, SubSpillLimit, SubTarget,
-				 Options),
+	  {SubColoring, SpillIndex2} =
+	    RegAllocMod:regalloc(SubMod, SubMod, SpillIndex1, SubSpillLimit,
+				 SubTarget, Options),
 	  ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
 	  {{translate_coloring(SubColoring, InvMap), Elems}, SpillIndex2}
       end, SpillIndex0, PartBBsRLList),
@@ -885,10 +883,10 @@ unused_unused(Unused, CFG, Target) ->
 %%%%%%%%%%%%%%%%%%%%
 %% Check that no register allocation opportunities were missed due to ?MODULE
 %%
-just_as_good_as(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options,
-		SpillMap, Coloring, Unused) ->
-  {CheckColoring, _, _} = RegAllocMod:regalloc(CFG, SpillIndex0, SpillLimit,
-					       Target, Options),
+just_as_good_as(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, Target,
+		Options, SpillMap, Coloring, Unused) ->
+  {CheckColoring, _} = RegAllocMod:regalloc(CFG, Liveness, SpillIndex0,
+					    SpillLimit, Target, Options),
   Now   = lists:sort([{R,Kind} || {R,{Kind,_}} <- Coloring,
 				  not ordsets:is_element(R, Unused)]),
   Check = lists:sort([{R,Kind} || {R,{Kind,_}} <- CheckColoring,

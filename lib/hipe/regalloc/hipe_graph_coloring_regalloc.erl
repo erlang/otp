@@ -51,7 +51,7 @@
 %% 
 
 -module(hipe_graph_coloring_regalloc).
--export([regalloc/5]).
+-export([regalloc/6]).
 
 %%-ifndef(DO_ASSERT).
 %%-define(DO_ASSERT, true).
@@ -77,12 +77,13 @@
 %% that the coloring agrees with the interference graph (that is, that
 %% no neighbors have the same register or spill location).
 
-%% @spec regalloc(#cfg{}, non_neg_fixnum(), non_neg_fixnum(), atom(), list()) -> {, non_neg_fixnum()}
+%% @spec regalloc(#cfg{}, liveness(), non_neg_fixnum(), non_neg_fixnum(),
+%%                atom(), list()) -> {, non_neg_fixnum()}
 
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
+regalloc(CFG, Live, SpillIndex, SpillLimit, Target, _Options) ->
   PhysRegs = Target:allocatable(),
   ?report2("building IG~n", []),
-  {IG, Spill, Live} = build_ig(CFG, Target),
+  {IG, Spill} = build_ig(CFG, Live, Target),
 
   %% check_ig(IG),
   ?report3("graph: ~p~nphysical regs: ~p~n", [list_ig(IG), PhysRegs]),
@@ -102,7 +103,7 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   Coloring = [{X, {reg, X}} || X <- NotAllocatable] ++ Cols,
   ?ASSERT(check_coloring(Coloring, IG, Target)),
 
-  {Coloring, NewSpillIndex, Live}.
+  {Coloring, NewSpillIndex}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -112,8 +113,7 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
 %% Returns {Interference_graph, Spill_cost_dictionary}
 %%
 
-build_ig(CFG, Target) ->
-  Live = Target:analyze(CFG),
+build_ig(CFG, Live, Target) ->
   NumN = Target:number_of_temporaries(CFG),  % poss. N-1?
   {IG, Spill} = build_ig_bbs(Target:labels(CFG), 
 			     CFG, 
@@ -121,7 +121,7 @@ build_ig(CFG, Target) ->
 			     empty_ig(NumN), 
 			     empty_spill(NumN),
 			     Target),
-  {normalize_ig(IG), Spill, Live}.
+  {normalize_ig(IG), Spill}.
 
 build_ig_bbs([], _CFG, _Live, IG, Spill, _Target) ->
   {IG, Spill};

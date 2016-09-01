@@ -35,7 +35,7 @@
 -endif.
 
 -module(?HIPE_X86_RA_LS).
--export([ra/4,ra_fp/3]).
+-export([ra/4,ra_fp/4]).
 -define(HIPE_INSTRUMENT_COMPILER, true). %% Turn on instrumentation.
 -include("../main/hipe.hrl").
 
@@ -45,7 +45,7 @@ ra(CFG, Liveness, SpillIndex, Options) ->
   ?inc_counter(bbs_counter, length(hipe_x86_cfg:labels(CFG))),
   alloc(CFG, Liveness, SpillIndex, SpillLimit, Options).
 
-ra_fp(CFG, Options, TargetMod) ->
+ra_fp(CFG, Liveness, Options, TargetMod) ->
   ?inc_counter(ra_calls_counter,1),
   %% ?inc_counter(ra_caller_saves_counter,count_caller_saves(CFG)),
   SpillIndex = 0,
@@ -55,9 +55,8 @@ ra_fp(CFG, Options, TargetMod) ->
   ?inc_counter(ra_iteration_counter,1),
   %% ?HIPE_X86_PP:pp(Defun),
 
-  {Coloring,NewSpillIndex,Liveness} =
-    regalloc(CFG,
-	     undefined,
+  {Coloring,NewSpillIndex} =
+    regalloc(CFG, Liveness,
 	     TargetMod:allocatable('linearscan'),
 	     [hipe_x86_cfg:start_label(CFG)],
 	     SpillIndex, SpillLimit, Options,
@@ -72,15 +71,14 @@ ra_fp(CFG, Options, TargetMod) ->
   Coloring2 =
     hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), TempMap2),
   ?add_spills(Options, NewSpillIndex),
-  {NewCFG, Coloring2, NewSpillIndex2, Liveness}.
+  {NewCFG, Liveness, Coloring2, NewSpillIndex2}.
 
-alloc(CFG, Liveness0, SpillIndex, SpillLimit, Options) ->
+alloc(CFG, Liveness, SpillIndex, SpillLimit, Options) ->
   ?inc_counter(ra_iteration_counter,1), 
   %% ?HIPE_X86_PP:pp(Defun),	
-  {Coloring, NewSpillIndex, Liveness} =
+  {Coloring, NewSpillIndex} =
     regalloc(
-      CFG,
-      Liveness0,
+      CFG, Liveness,
       ?HIPE_X86_REGISTERS:allocatable()--
       [?HIPE_X86_REGISTERS:temp1(),
        ?HIPE_X86_REGISTERS:temp0()],
@@ -104,9 +102,9 @@ alloc(CFG, Liveness0, SpillIndex, SpillLimit, Options) ->
       ok
   end,
   ?add_spills(Options, NewSpillIndex),
-  {NewCFG, Coloring2}.
+  {NewCFG, Liveness, Coloring2}.
 
-regalloc(CFG,Liveness,PhysRegs,Entrypoints, SpillIndex, DontSpill, Options,
+regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options,
 	 Target) ->
-  hipe_ls_regalloc:regalloc(CFG,Liveness,PhysRegs,Entrypoints, SpillIndex,
+  hipe_ls_regalloc:regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex,
 			    DontSpill, Options, Target).

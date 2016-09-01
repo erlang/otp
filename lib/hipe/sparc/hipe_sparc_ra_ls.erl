@@ -21,16 +21,16 @@
 %% Linear Scan register allocator for SPARC
 
 -module(hipe_sparc_ra_ls).
--export([ra/3]).
+-export([ra/4]).
 
-ra(CFG, SpillIndex, Options) ->
+ra(CFG, Liveness, SpillIndex, Options) ->
   SpillLimit = hipe_sparc_specific:number_of_temporaries(CFG),
-  alloc(CFG, SpillIndex, SpillLimit, Options).
+  alloc(CFG, Liveness, SpillIndex, SpillLimit, Options).
 
-alloc(CFG, SpillIndex, SpillLimit, Options) ->
-  {Coloring, _NewSpillIndex, Liveness} =
+alloc(CFG, Liveness, SpillIndex, SpillLimit, Options) ->
+  {Coloring, _NewSpillIndex} =
     regalloc(
-      CFG,
+      CFG, Liveness,
       hipe_sparc_registers:allocatable_gpr()--
       [hipe_sparc_registers:temp3(),
        hipe_sparc_registers:temp2(),
@@ -47,8 +47,9 @@ alloc(CFG, SpillIndex, SpillLimit, Options) ->
 			     hipe_sparc_specific, TempMap),
   Coloring2 =
     hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), TempMap2),
-  {NewCFG, Coloring2}.
+  {NewCFG, Liveness, Coloring2}.
 
-regalloc(CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
-  hipe_ls_regalloc:regalloc(
-    CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target).
+regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options,
+	 Target) ->
+  hipe_ls_regalloc:regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex,
+			    DontSpill, Options, Target).

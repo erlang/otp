@@ -33,13 +33,13 @@
 -endif.
 
 -module(?HIPE_X86_RA_NAIVE).
--export([ra/3]).
+-export([ra/4]).
 
 -include("../x86/hipe_x86.hrl").
 -define(HIPE_INSTRUMENT_COMPILER, true). % enable instrumentation
 -include("../main/hipe.hrl").
 
-ra(CFG0, Coloring_fp, Options) ->
+ra(CFG0, Liveness, Coloring_fp, Options) ->
   CFG = hipe_x86_cfg:map_bbs(fun do_bb/2, CFG0),
   NofSpilledFloats = count_non_float_spills(Coloring_fp),
   NofFloats = length(Coloring_fp),
@@ -48,7 +48,7 @@ ra(CFG0, Coloring_fp, Options) ->
 	      NofSpilledFloats -
 	      NofFloats),
   TempMap = [],
-  {CFG,
+  {CFG, Liveness,
    TempMap}.
 
 do_bb(_Lbl, BB) ->
