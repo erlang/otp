@@ -215,16 +215,16 @@
         <p>Defines the <c>First..Last</c> port range for the listener
           socket of a distributed Erlang node.</p>
       </item>
-      <marker id="inet_dist_listen_options"></marker>
       <tag><c>{inet_dist_listen_options, Opts}</c></tag>
       <item>
+	<marker id="inet_dist_listen_options"></marker>
         <p>Defines a list of extra socket options to be used when opening the
 	  listening socket for a distributed Erlang node.
 	  See <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>.</p>
       </item>
-      <marker id="inet_dist_connect_options"></marker>
       <tag><c>{inet_dist_connect_options, Opts}</c></tag>
       <item>
+	<marker id="inet_dist_connect_options"></marker>
         <p>Defines a list of extra socket options to be used when connecting to
 	  other distributed Erlang nodes.
 	  See <seealso marker="gen_tcp#connect/4"><c>gen_tcp:connect/4</c></seealso>.</p>
