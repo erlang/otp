@@ -4749,7 +4749,7 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
                 {Rep, L2, C2} = recur_limit(Fun, D, L1, TypeName, TypeNames),
                 Rep1 = choose_opaque_type(Rep, Type),
                 Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
-                         true -> Rep1;
+                         true -> Rep;
                          false ->
                            ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
                            t_opaque(Module, Name, ArgTypes2, Rep1)
@@ -4821,7 +4821,7 @@ remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
                 NewRep1 = choose_opaque_type(NewRep, Type),
                 NewRep2 =
                   case cannot_have_opaque(NewRep1, RemType, TypeNames) of
-                    true -> NewRep1;
+                    true -> NewRep;
                     false ->
                       ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
                       t_opaque(Mod, Name, ArgTypes2, NewRep1)
