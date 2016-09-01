@@ -60,8 +60,8 @@
 -define(TUNE_TOO_FEW_BBS, 256).
 
 %% Ignore the ra_partitioned option (and do whole function RA instead) when
-%% there are fewer than ?TUNE_MIN_SPLIT_PSEUDOS non-spilled used pseudos.
--define(TUNE_MIN_SPLIT_PSEUDOS, 1024).
+%% there are fewer than ?TUNE_MIN_SPLIT_BBS basic blocks.
+-define(TUNE_MIN_SPLIT_BBS, 384).
 
 %% We present a "pseudo-target" to the register allocator we wrap.
 %% Note: all arities are +1 as we're currently using the parameterised module
@@ -145,7 +145,12 @@ regalloc(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options) ->
 	       Liveness),
   {Coloring, SpillIndex, Liveness}.
 
-%% regalloc_initial/6 is allowed to introduce new temporaries, unlike regalloc/6
+%% regalloc_initial/6 is allowed to introduce new temporaries, unlike
+%% regalloc/6.
+%% In order for regalloc/6 to never introduce temporaries, regalloc/6 must never
+%% choose to do split allocation unless regalloc_initial/6 does. This is the
+%% reason that the splitting heuristic is solely based on the number of basic
+%% blocks, which does not change during the register allocation loop.
 -spec regalloc_initial(module(), target_cfg(), spillno(), spillno(), module(),
 		       proplists:proplist())
 		      -> {hipe_map(), spillno(), target_cfg(),
@@ -169,12 +174,11 @@ regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
   {ScanBBs, Seen, SpillMap, SpillIndex1} =
     scan_cfg(CFG0, Liveness, SpillIndex0, Target),
 
-  AllPrecoloured = Target:all_precoloured(),
-
   {PartColoring, SpillIndex, NewCFG} =
-    case proplists:get_bool(ra_partitioned, Options) of
-      true when map_size(Seen) - map_size(SpillMap) - length(AllPrecoloured)
-		> ?TUNE_MIN_SPLIT_PSEUDOS ->
+    case proplists:get_bool(ra_partitioned, Options)
+      andalso length(Target:labels(CFG0)) > ?TUNE_MIN_SPLIT_BBS
+    of
+      true ->
 	regalloc_partitioned(SpillMap, SpillIndex1, SpillLimit, ScanBBs,
 			     CFG0, Target, RegAllocMod, Options);
       _ ->
@@ -186,6 +190,7 @@ regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
   Coloring = SpillColors ++ PartColoring,
 
   ?ASSERT(begin
+	    AllPrecoloured = Target:all_precoloured(),
 	    MaxPhys = lists:max(AllPrecoloured) + 1,
 	    Unused = unused(live_pseudos(Seen, SpillMap, MaxPhys),
 			    SpillMap, CFG0, Target),
