@@ -768,19 +768,9 @@ picky_contract_check(CSig0, Sig0, MFA, WarningInfo, Contract, RecDict, Acc) ->
   end.
 
 extra_contract_warning(MFA, WarningInfo, Contract, CSig, Sig, RecDict) ->
-  %% We do not want to depend upon erl_types:t_to_string() possibly
-  %% hiding the contents of opaque types.
-  SigUnopaque = erl_types:t_unopaque(Sig),
-  CSigUnopaque = erl_types:t_unopaque(CSig),
-  SigString0 =
-    lists:flatten(dialyzer_utils:format_sig(SigUnopaque, RecDict)),
-  ContractString0 =
-    lists:flatten(dialyzer_utils:format_sig(CSigUnopaque, RecDict)),
-  %% The only difference is in record fields containing 'undefined' or not.
-  IsUndefRecordFieldsRelated = SigString0 =:= ContractString0,
   {IsRemoteTypesRelated, SubtypeRelation} =
     is_remote_types_related(Contract, CSig, Sig, MFA, RecDict),
-  case IsUndefRecordFieldsRelated orelse IsRemoteTypesRelated of
+  case IsRemoteTypesRelated of
     true ->
       no_warning;
     false ->
