@@ -1390,7 +1390,7 @@ o0_opts(_TargetArch) ->
   [concurrent_comp, {regalloc,linear_scan}].
 
 o1_opts(TargetArch) ->
-  Common = [inline_fp, pmatch, peephole,
+  Common = [inline_fp, pmatch, peephole, ra_prespill, ra_partitioned,
 	    icode_ssa_const_prop, icode_ssa_copy_prop, icode_inline_bifs,
 	    rtl_ssa, rtl_ssa_const_prop, rtl_ssapre,
 	    spillmin_color, use_indexing, remove_comments,
