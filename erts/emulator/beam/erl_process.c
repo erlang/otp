@@ -448,9 +448,7 @@ int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 typedef enum {
     ERTS_PSTT_GC,	/* Garbage Collect */
     ERTS_PSTT_CPC,	/* Check Process Code */
-#ifdef ERTS_NEW_PURGE_STRATEGY
     ERTS_PSTT_CLA,	/* Copy Literal Area */
-#endif
     ERTS_PSTT_COHMQ,    /* Change off heap message queue */
     ERTS_PSTT_FTMQ      /* Flush trace msg queue */
 } ErtsProcSysTaskType;
@@ -10438,7 +10436,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 		fcalls = reds - CONTEXT_REDS;
 	    st_res = erts_check_process_code(c_p,
 					     st->arg[0],
-                                             unsigned_val(st->arg[1]),
 					     &cpc_reds,
 					     fcalls);
             reds -= cpc_reds;
@@ -10449,7 +10446,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    break;
         }
-#ifdef ERTS_NEW_PURGE_STRATEGY
 	case ERTS_PSTT_CLA: {
 	    int fcalls;
             int cla_reds = 0;
@@ -10469,7 +10465,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    break;
         }
-#endif
 	case ERTS_PSTT_COHMQ:
 	    reds -= erts_complete_off_heap_message_queue_change(c_p);
 	    st_res = am_true;
@@ -10524,11 +10519,9 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	case ERTS_PSTT_COHMQ:
 	    st_res = am_false;
 	    break;
-#ifdef ERTS_NEW_PURGE_STRATEGY
 	case ERTS_PSTT_CLA:
 	    st_res = am_ok;
 	    break;
-#endif
 #ifdef ERTS_SMP
         case ERTS_PSTT_FTMQ:
 	    reds -= erts_flush_trace_messages(c_p, ERTS_PROC_LOCK_MAIN);
@@ -10703,8 +10696,6 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
     case am_check_process_code:
 	if (is_not_atom(st->arg[0]))
 	    goto badarg;
-	if (is_not_small(st->arg[1]) || (unsigned_val(st->arg[1]) & ~ERTS_CPC_ALL))
-	    goto badarg;
 	noproc_res = am_false;
 	st->type = ERTS_PSTT_CPC;
 	if (!rp)
@@ -10720,7 +10711,6 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 #endif
 	break;
 
-#ifdef ERTS_NEW_PURGE_STRATEGY
     case am_copy_literals:
 	if (st->arg[0] != am_true && st->arg[0] != am_false)
 	    goto badarg;
@@ -10729,7 +10719,6 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	if (!rp)
 	    goto noproc;
 	break;
-#endif
 
     default:
 	goto badarg;

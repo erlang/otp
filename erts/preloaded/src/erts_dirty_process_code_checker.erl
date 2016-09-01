@@ -48,8 +48,7 @@ handle_request({Requester,
 		Prio,
 		{check_process_code,
 		 ReqId,
-		 Module,
-		 _Flags} = Op}) ->
+		 Module} = Op}) ->
     %%
     %% Target may have stopped executing dirty since the
     %% initial request was made. Check its current state

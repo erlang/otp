@@ -42,7 +42,7 @@
  */
 
 /* for -Wmissing-prototypes :-( */
-extern Eterm hipe_erts_internal_check_process_code_2(BIF_ALIST_2);
+extern Eterm hipe_erts_internal_check_process_code_1(BIF_ALIST_1);
 extern Eterm hipe_show_nstack_1(BIF_ALIST_1);
 
 /* Used when a BIF can trigger a stack walk. */
@@ -51,12 +51,12 @@ static __inline__ void hipe_set_narity(Process *p, unsigned int arity)
     p->hipe.narity = arity;
 }
 
-Eterm hipe_erts_internal_check_process_code_2(BIF_ALIST_2)
+Eterm hipe_erts_internal_check_process_code_1(BIF_ALIST_1)
 {
     Eterm ret;
 
-    hipe_set_narity(BIF_P, 2);
-    ret = erts_internal_check_process_code_2(BIF_P, BIF__ARGS);
+    hipe_set_narity(BIF_P, 1);
+    ret = erts_internal_check_process_code_1(BIF_P, BIF__ARGS);
     hipe_set_narity(BIF_P, 0);
     return ret;
 }
