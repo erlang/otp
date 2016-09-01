@@ -1016,7 +1016,10 @@ typedef struct ErtsLiteralArea_ {
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
     (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
 
-extern ErtsLiteralArea *erts_copy_literal_area;
+extern erts_smp_atomic_t erts_copy_literal_area__;
+#define ERTS_COPY_LITERAL_AREA()					\
+    ((ErtsLiteralArea *) erts_smp_atomic_read_nob(&erts_copy_literal_area__))
+
 #ifdef ERTS_NEW_PURGE_STRATEGY
 extern Process *erts_literal_area_collector;
 #endif
@@ -1107,7 +1110,7 @@ typedef struct {
 
 #define INITIALIZE_SHCOPY(info)                         \
 do {                                                    \
-    ErtsLiteralArea *larea__ = erts_copy_literal_area;	\
+    ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();\
     info.queue_start = info.queue_default;              \
     info.bitstore_start = info.bitstore_default;        \
     info.shtable_start = info.shtable_default;          \
