@@ -71,7 +71,7 @@
       </list>
     </warning>
 
-    <p>As from <c>ERTS</c> 5.5.3 the driver interface has been extended
+    <p>As from ERTS 5.5.3 the driver interface has been extended
       (see <seealso marker="driver_entry#extended_marker">
       <c>extended marker</c></seealso>). The extended interface introduces
       <seealso marker="#version_management">version management</seealso>,
@@ -81,7 +81,7 @@
       initialization, and some new driver API functions.</p>
 
     <note>
-      <p>As from <c>ERTS</c> 5.9 old drivers must be recompiled
+      <p>As from ERTS 5.9 old drivers must be recompiled
         and use the extended interface. They must also be adjusted to the
         <seealso marker="#rewrites_for_64_bits">
         64-bit capable driver interface</seealso>.</p>
@@ -406,7 +406,7 @@
   <section>
     <marker id="rewrites_for_64_bits"/>
     <title>Rewrites for 64-Bit Driver Interface</title>
-    <p><c>ERTS</c> 5.9 introduced two new integer types,
+    <p>ERTS 5.9 introduced two new integer types,
       <seealso marker="#ErlDrvSizeT"><c>ErlDrvSizeT</c></seealso> and
       <seealso marker="#ErlDrvSSizeT"><c>ErlDrvSSizeT</c></seealso>,
       which can hold 64-bit sizes if necessary.</p>
@@ -423,7 +423,7 @@
       to get better warnings. Try to find a similar flag if you use
       another compiler.</p>
 
-    <p>The following is a checklist for rewriting a pre <c>ERTS</c> 5.9 driver,
+    <p>The following is a checklist for rewriting a pre ERTS 5.9 driver,
       most important first:</p>
 
     <taglist>
@@ -717,7 +717,7 @@ typedef struct ErlDrvBinary {
         <p>Notice that as a driver binary is shared by the driver and
           the emulator. A binary received from the emulator or sent to
           the emulator must not be changed by the driver.</p>
-        <p>Since <c>ERTS</c> 5.5 (Erlang/OTP R11B), <c>orig_bytes</c> is
+        <p>Since ERTS 5.5 (Erlang/OTP R11B), <c>orig_bytes</c> is
           guaranteed to be properly aligned for storage of an array of
           doubles (usually 8-byte aligned).</p>
       </item>
@@ -1058,7 +1058,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <p>The return value is <c>-1</c> if the <c>driver_async</c> call
           fails.</p>
         <note>
-          <p>As from <c>ERTS</c> 5.5.4.3 the default stack size for
+          <p>As from ERTS 5.5.4.3 the default stack size for
             threads in the async-thread pool is 16 kilowords,
             that is, 64 kilobyte on 32-bit architectures.
             This small default size has been chosen because the
@@ -2534,11 +2534,11 @@ ERL_DRV_MAP          int sz</pre>
 	<p>The unsigned integer data type <c>ErlDrvUInt</c> and the
 	  signed integer data type <c>ErlDrvSInt</c> are 64 bits wide
 	  on a 64-bit runtime system and 32 bits wide on a 32-bit
-	  runtime system. They were introduced in <c>ERTS</c> 5.6
+	  runtime system. They were introduced in ERTS 5.6
 	  and replaced some of the <c>int</c> arguments in the list above.</p>
 	<p>The unsigned integer data type <c>ErlDrvUInt64</c> and the
 	  signed integer data type <c>ErlDrvSInt64</c> are always 64 bits
-	  wide. They were introduced in <c>ERTS</c> 5.7.4.</p>
+	  wide. They were introduced in ERTS 5.7.4.</p>
 	<p>To build the tuple <c>{tcp, Port, [100 | Binary]}</c>, the
 	  following call can be made.</p>
 	<code type="none"><![CDATA[
@@ -2630,7 +2630,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
           <c>ERL_DRV_BINARY</c> and the <c>ErlDrvBinary</c> in question.</p>
         <p>The <c>ERL_DRV_UINT</c>, <c>ERL_DRV_BUF2BINARY</c>, and
           <c>ERL_DRV_EXT2TERM</c> term types were introduced in
-          <c>ERTS</c> 5.6.</p>
+          ERTS 5.6.</p>
         <p>This function is only thread-safe when the emulator with SMP
           support is used.</p>
       </desc>
@@ -3213,7 +3213,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     <title>See Also</title>
     <p><seealso marker="driver_entry"><c>driver_entry(3)</c></seealso>,
       <seealso marker="erlang"><c>erlang(3)</c></seealso>,
-      <seealso marker="kernel:erl_ddll"><c>kernel:erl_ddll(3)</c></seealso>,
+      <seealso marker="kernel:erl_ddll"><c>erl_ddll(3)</c></seealso>,
       section <seealso marker="alt_dist">How to Implement an Alternative
       Carrier for the Erlang Distribution></seealso> in the User's Guide</p>
   </section>

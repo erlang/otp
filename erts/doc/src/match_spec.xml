@@ -142,7 +142,7 @@
     </list>
 
     <p>A match specification  used in
-      <seealso marker="stdlib:ets"><c>stdlib:ets(3)</c></seealso>
+      <seealso marker="stdlib:ets"><c>ets(3)</c></seealso>
       can be described in the following <em>informal</em> grammar:</p>
 
     <list type="bulleted">
@@ -678,7 +678,7 @@
           </item>
           <item>
             <p>If the match specification is executed when selecting objects
-              from an <c>ets</c> table:</p>
+              from an ETS table:</p>
             <p>Evaluate the expressions in order and return the value of
               the last expression (typically there is only one expression
               in this context).</p>
@@ -691,11 +691,11 @@
   <section>
     <marker id="differences_ets_tracing"/>
     <title>Differences between Match Specifications in ETS and Tracing</title>
-    <p><c>ets</c> match specifications produce a return value.
+    <p>ETS match specifications produce a return value.
         Usually the <c><![CDATA[MatchBody]]></c> contains one single
         <c><![CDATA[ConditionExpression]]></c> that defines the return value
         without any side effects. Calls with side effects are not allowed in
-        the <c>ets</c> context.</p>
+        the ETS context.</p>
 
     <p>When tracing there is no return value to produce, the
       match specification either matches or does not. The effect when the
@@ -824,7 +824,7 @@
 
   <section>
     <title>ETS Examples</title>
-    <p>Match all objects in an <c>ets</c> table, where the first element is
+    <p>Match all objects in an ETS table, where the first element is
       the atom <c>'strider'</c> and the tuple arity is 3, and return the whole
       object:</p>
 
@@ -834,7 +834,7 @@
   ['$_']}]
     ]]></code>
 
-    <p>Match all objects in an <c>ets</c> table with arity &gt; 1 and the first
+    <p>Match all objects in an ETS table with arity &gt; 1 and the first
       element is 'gandalf', and return element 2:</p>
 
     <code type="none"><![CDATA[
@@ -863,7 +863,7 @@
     ]]></code>
 
     <p>Function <seealso marker="stdlib:ets#test_ms/2"><c>ets:test_ms/2></c></seealso>
-      can be useful for testing complicated <c>ets</c> matches.</p>
+      can be useful for testing complicated ETS matches.</p>
   </section>
 </chapter>
 

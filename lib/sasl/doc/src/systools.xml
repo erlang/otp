@@ -85,7 +85,7 @@
           </item>
           <item>
             <p>If the emulator needs to be restarted after upgrading or
-              downgrading, that is, if the <c>ERTS</c> version differs
+              downgrading, that is, if the ERTS version differs
               between <c>Name.rel</c> and <c>Name2.rel</c></p>
           </item>
         </list>
@@ -201,10 +201,10 @@
           between the applications. Where there are no dependencies,
           the order in the <c>.rel</c> file is kept.</p>
         <p>The function fails if the mandatory
-          applications <c>Kernel</c> and <c>STDLIB</c> are not
+          applications Kernel and STDLIB are not
           included in the <c>.rel</c> file and have start
           type <c>permanent</c> (which is default).</p>
-        <p>If <c>SASL</c> is not included as an application in
+        <p>If SASL is not included as an application in
           the <c>.rel</c> file, a warning is issued because such a
           release cannot be used in an upgrade. To turn off this
           warning, add option <c>no_warn_sasl</c>.</p>

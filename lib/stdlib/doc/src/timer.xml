@@ -253,7 +253,7 @@
           is needed. This is useful during development, but in a
           target system the server is to be started explicitly. Use
           configuration parameters for
-          <seealso marker="kernel:index"><c>Kernel</c></seealso> for this.</p>
+          <seealso marker="kernel:index">Kernel</seealso> for this.</p>
       </desc>
     </func>
 

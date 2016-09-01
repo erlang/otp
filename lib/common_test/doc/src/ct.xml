@@ -777,7 +777,7 @@
           caught by any installed event manager.</p>
 
         <p>See also
-          <seealso marker="stdlib:gen_event"><c>stdlib:gen_event(3)</c></seealso>.</p>
+          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1236,7 +1236,7 @@
         <v>Millisecs = integer() | float()</v>
       </type>
       <desc><marker id="sleep-1"/>
-        <p>This function, similar to <c>timer:sleep/1</c> in <c>STDLIB</c>, 
+        <p>This function, similar to <c>timer:sleep/1</c> in STDLIB,
           suspends the test case for a specified time.
           However, this function also multiplies <c>Time</c> with the
           <c>multiply_timetraps</c> value (if set) and under certain
@@ -1330,7 +1330,7 @@
           caught by any installed event manager.</p>
 
         <p>See also
-          <seealso marker="stdlib:gen_event"><c>stdlib:gen_event(3)</c></seealso>.
+          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.
         </p>
       </desc>
     </func>

@@ -42,7 +42,7 @@
 
     <p><c>init</c> reads the boot script, which contains instructions on
       how to initiate the system. For more information about boot scripts, see
-      <seealso marker="sasl:script"><c>sasl:script(4)</c></seealso>.</p>
+      <seealso marker="sasl:script"><c>script(4)</c></seealso>.</p>
 
     <p><c>init</c> also contains functions to restart, reboot, and stop
       the system.</p>
@@ -154,7 +154,7 @@
           terminates. If command-line flag <c>-heart</c> was specified,
           the <c>heart</c> program tries to reboot the system. For more
           information, see
-          <seealso marker="kernel:heart"><c>kernel:heart(3)</c></seealso>.</p>
+          <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
         <p>To limit the shutdown time, the time <c>init</c> is allowed
           to spend taking down applications, command-line flag
           <c>-shutdown_time</c> is to be used.</p>
@@ -207,7 +207,7 @@
           command-line flag <c>-heart</c> was specified, the <c>heart</c>
           program is terminated before the Erlang node terminates.
           For more information, see
-          <seealso marker="kernel:heart"><c>kernel:heart(3)</c></seealso>.</p>
+          <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
         <p>To limit the shutdown time, the time <c>init</c> is allowed
           to spend taking down applications, command-line flag
           <c>-shutdown_time</c> is to be used.</p>
@@ -254,9 +254,9 @@
           useful when you want to elaborate with code loading from
           archives without editing the <c>boot script</c>. For more
           information about interpretation of boot scripts, see
-          <seealso marker="sasl:script"><c>sasl:script(4)</c></seealso>.
+          <seealso marker="sasl:script"><c>script(4)</c></seealso>.
           The flag has also a similar effect on how the code server works; see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </item>
       <tag><c>-epmd_module Module</c></tag>
       <item>
@@ -361,7 +361,7 @@ error</pre>
   <section>
     <title>See Also</title>
     <p><seealso marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>, 
-      <seealso marker="kernel:heart"><c>kernel:heart(3)</c></seealso></p>
+      <seealso marker="kernel:heart"><c>heart(3)</c></seealso></p>
   </section>
 </erlref>
 

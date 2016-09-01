@@ -269,10 +269,10 @@
     
     <p>As parameter <c>Config</c> is a list of key-value tuples, that is,
     a data type called a property list, it can be handled by the
-    <seealso marker="stdlib:proplists"><c>stdlib:proplists</c></seealso> module. 
+    <seealso marker="stdlib:proplists"><c>proplists</c></seealso> module.
     A value can, for example, be searched for and returned with function 
     <seealso marker="stdlib:proplists#get_value-2"><c>proplists:get_value/2</c></seealso>.
-    Also, or alternatively, the general <seealso marker="stdlib:lists"><c>stdlib:lists</c></seealso> 
+    Also, or alternatively, the general <seealso marker="stdlib:lists"><c>lists</c></seealso>
     module contains useful functions. Normally, the only operations 
     performed on <c>Config</c> is insert (adding a tuple to the head of the list) 
     and lookup. <c>Common Test</c> provides a simple macro named <c>?config</c>, 
@@ -652,7 +652,7 @@
     <title>Parallel Test Cases and I/O</title>
     <p>A parallel test case has a private I/O server as its group leader. 
       (For a description of the group leader concept, see
-      <seealso marker="erts:index"><c>ERTS</c></seealso>). 
+      <seealso marker="erts:index">ERTS</seealso>).
       The central I/O server process, which handles the output from 
       regular test cases and configuration functions, does not respond to I/O messages
       during execution of parallel groups. This is important to understand
@@ -1032,8 +1032,8 @@
  6. Categorized error, importance = 99</pre>
 
     <p>The arguments <c>Format</c> and <c>FormatArgs</c> in <c>ct:log/print/pal</c> are
-    always passed on to the <c>stdlib</c> function <c>io:format/3</c> (For details,
-    see the <seealso marker="stdlib:io"><c>stdlib:io</c></seealso> manual page).</p>
+    always passed on to the STDLIB function <c>io:format/3</c> (For details,
+    see the <seealso marker="stdlib:io"><c>io</c></seealso> manual page).</p>
 
     <p><c>ct:pal/4</c> and <c>ct:log/5</c> add headers to strings being printed to the
     log file. The strings are also wrapped in div tags with a CSS class

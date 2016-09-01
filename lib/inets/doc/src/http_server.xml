@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2015</year>
+      <year>2004</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,8 +40,8 @@
        <item>Secure Sockets Layer (SSL)</item>
        <item>Erlang Scripting Interface (ESI)</item>
        <item>Common Gateway Interface (CGI)</item>
-       <item>User Authentication (using <c>Mnesia</c>, 
-       <c>Dets</c> or plain text database)</item>
+       <item>User Authentication (using Mnesia,
+       Dets or plain text database)</item>
        <item>Common Logfile Format (with or without disk_log(3) support)</item>
        <item>URL Aliasing</item>
        <item>Action Mappings</item>
@@ -563,7 +563,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
       <title>mod_auth - User Authentication</title>
         <p>The <seealso marker="mod_auth">mod_auth(3)</seealso> 
 	module provides for basic user authentication using
-	textual files, <c>Dets</c> databases as well as <c>Mnesia</c> databases.</p>
+	textual files, Dets databases as well as Mnesia databases.</p>
       <p>Uses the following Erlang Web Server API interaction data:
       </p>
       <list type="bulleted">
@@ -580,15 +580,15 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
       <section>
 	<title>Mnesia As Authentication Database</title>
 	
-	<p>If <c>Mnesia</c> is used as storage method, <c>Mnesia</c> must be
-	  started before the HTTP server. The first time <c>Mnesia</c> is
+	<p>If Mnesia is used as storage method, Mnesia must be
+	  started before the HTTP server. The first time Mnesia is
 	  started, the schema and the tables must be created before
-	  <c>Mnesia</c> is started. A simple example of a module with two
-	  functions that creates and start <c>Mnesia</c> is provided
+	  Mnesia is started. A simple example of a module with two
+	  functions that creates and start Mnesia is provided
 	  here. Function <c>first_start/0</c> is to be used the first
 	  time. It creates the schema and the tables.
 	  <c>start/0</c> is to be used in consecutive startups. 
-	  <c>start/0</c> starts <c>Mnesia</c> and waits for the tables to
+	  <c>start/0</c> starts Mnesia and waits for the tables to
 	  be initiated. This function must only be used when the
 	  schema and the tables are already created.</p>
 	
@@ -616,25 +616,25 @@ start() ->
     mnesia:start(),
     mnesia:wait_for_tables([httpd_user, httpd_group], 60000).  </code>
 	
-	<p>To create the <c>Mnesia</c> tables, we use two records defined in
+	<p>To create the Mnesia tables, we use two records defined in
 	  <c>mod_auth.hrl</c>, so that file must be included. <c>first_start/0</c> 
 	  creates a schema that specifies on which nodes the database is to reside. 
-	  Then it starts <c>Mnesia</c> and creates the tables. The first argument 
+	  Then it starts Mnesia and creates the tables. The first argument
 	  is the name of the tables, the second argument is a list of options of 
 	  how to create the table, see 
-	  <seealso marker="mnesia:mnesia"><c>mnesia</c></seealso>, documentation for 
+	  <seealso marker="mnesia:mnesia"><c>mnesia(3)</c></seealso>, documentation for
 	  more information. As the implementation of the <c>mod_auth_mnesia</c> 
 	  saves one row for each user, the type must be <c>bag</c>.
 	  When the schema and the tables are created, function
 	  <seealso marker="mnesia:mnesia#start-0">mnesia:start/0</seealso>
-	  is used to start <c>Mnesia</c>  and 
-	  waits for the tables to be loaded. <c>Mnesia</c> uses the
+	  is used to start Mnesia  and
+	  waits for the tables to be loaded. Mnesia uses the
 	  directory specified as <c>mnesia_dir</c> at startup if specified,
-	  otherwise <c>Mnesia</c> uses the current directory. For security
-	  reasons, ensure that the <c>Mnesia</c> tables are stored outside
+	  otherwise Mnesia uses the current directory. For security
+	  reasons, ensure that the Mnesia tables are stored outside
 	  the document tree of the HTTP server. If they are placed in the
 	  directory which it protects, clients can download the tables. 
-	  Only the <c>Dets</c> and <c>Mnesia</c> storage
+	  Only the Dets and Mnesia storage
 	  methods allow writing of dynamic user data to disk. <c>plain</c> is
 	  a read only method.</p>
       </section>
@@ -669,7 +669,7 @@ start() ->
     <section>
       <title>mod_disk_log - Logging Using Disk_Log.</title>
         <p>Standard logging using the "Common Logfile Format" and
-	<seealso marker="kernel:disk_log">kernel:disk_log(3)</seealso>.</p>
+	<seealso marker="kernel:disk_log">disk_log(3)</seealso>.</p>
         <p>Uses the following Erlang Web Server API interaction data:
       </p>
         <list type="bulleted">

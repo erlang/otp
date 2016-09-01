@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2015</year>
+      <year>2004</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -72,7 +72,7 @@
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
-    <seealso marker="kernel:inet">inet(3)</seealso> manual page in <c>Kernel</c>.</p>
+    <seealso marker="kernel:inet">inet(3)</seealso> manual page in Kernel.</p>
     <p><c>socket_opt()</c> = See the options used by
     <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> <c>gen_tcp(3)</c> and 
     <seealso marker="ssl:ssl">ssl(3)</seealso> connect(s)</p>

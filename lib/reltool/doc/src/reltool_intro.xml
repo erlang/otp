@@ -34,7 +34,7 @@
     <rev>%VSN%</rev>
     <file>reltool_intro.xml</file>
   </header>
-  <p><c>Reltool</c> is a release management tool. It analyses a given
+  <p>Reltool is a release management tool. It analyses a given
   Erlang/OTP installation and determines various dependencies between
   applications. The <c>graphical</c> frontend depicts the dependencies and
   enables interactive customization of a target system. The backend provides a
@@ -82,7 +82,7 @@
     and about the Erlang/OTP development system:</p>
     <list type="bulleted">
       <item>
-        <p>the Reference Manual of <c>Reltool</c></p>
+        <p>the Reference Manual of Reltool</p>
       </item>
       <item>
         <p>the Erlang/OTP <c>System Principles</c></p>

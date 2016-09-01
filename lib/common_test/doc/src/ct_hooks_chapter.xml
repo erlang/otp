@@ -374,7 +374,7 @@
      <title>Example CTH</title>
      <p>The following CTH logs information about a test run into a format 
        parseable by <seealso marker="kernel:file#consult-1">file:consult/1</seealso> 
-       (in <c>Kernel</c>):
+       (in Kernel):
      </p>
      <code>
  %%% @doc Common Test Example Common Test Hook module.
@@ -499,13 +499,13 @@
        <tag><c>cth_log_redirect</c></tag>
        <item>
        <p>Built-in</p>
-       <p>Captures all <c>error_logger</c> and <c>SASL</c> logging 
+       <p>Captures all <c>error_logger</c> and SASL logging
 	events and prints them to the current test case log. If an event cannot be 
 	associated with a test case, it is printed in the <c>Common Test</c> framework log. 
 	This happens for test cases running in parallel and events occuring
 	in-between test cases. You can configure the level of
-	<seealso marker="sasl:sasl_app"><c>SASL</c></seealso> events report
-	using the normal <c>SASL</c> mechanisms.</p>
+	<seealso marker="sasl:sasl_app">SASL</seealso> events report
+	using the normal SASL mechanisms.</p>
        </item>
        <tag><c>cth_surefire</c></tag>
        <item>

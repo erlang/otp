@@ -274,7 +274,7 @@
 
     <note><p>Directories passed to <c>Common Test</c> can have either relative or absolute paths.</p></note>
 
-    <note><p>Any start flags to the Erlang runtime system (application <c>ERTS</c>) can also be passed as
+    <note><p>Any start flags to the Erlang runtime system (application ERTS) can also be passed as
              parameters to <c>ct_run</c>. It is, for example, useful to be able to
 	     pass directories to be added to the Erlang code server search path
 	     with flag <c>-pa</c> or <c>-pz</c>. If you have common help- or library 
@@ -286,7 +286,7 @@
 	  <p>The absolute path of directory <c>chat_server/ebin</c>
 	     is here passed to the code server. This is essential because relative
 	     paths are stored by the code server as relative, and <c>Common Test</c> changes 
-	     the current working directory of <c>ERTS</c> during the test run.</p>
+	     the current working directory of ERTS during the test run.</p>
     </note>
     
     <p>The <c>ct_run</c> program sets the exit status before shutting down. The following values
@@ -1258,7 +1258,7 @@
       <p>The minor log files contain full details of every single test
 	case, each in a separate file. This way, it is
 	straightforward	to compare the latest results to that of previous
-	test runs, even if the set of test cases changes. If application <c>SASL</c> 
+	test runs, even if the set of test cases changes. If application SASL
 	is running, its logs are also printed to the current minor log file by the
 	<seealso marker="common_test:ct_hooks_chapter#builtin_cths">
 	  cth_log_redirect built-in hook</seealso>.

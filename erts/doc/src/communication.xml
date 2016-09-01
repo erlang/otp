@@ -89,9 +89,9 @@
     <p>Examples of major implementation changes:</p>
 
     <list type="bulleted">
-      <item>As from <c>ERTS</c> 5.5.2 exit signals to processes are truly
+      <item>As from ERTS 5.5.2 exit signals to processes are truly
       asynchronously delivered.</item>
-      <item>As from <c>ERTS</c> 5.10 all signals from processes to ports
+      <item>As from ERTS 5.10 all signals from processes to ports
       are truly asynchronously delivered.</item>
     </list>
   </section>

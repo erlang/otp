@@ -546,8 +546,8 @@
             <p>The handling of applications included in releases has
             been improved. Applications that are required to be
             started before other applications in a release are now
-            automatically included in the release. The <c>kernel</c>
-            and <c>stdlib</c> applications are always included as
+            automatically included in the release. The Kernel
+            and STDLIB applications are always included as
             they are mandatory.</p>
             <p>Applications that are (explicitly or implicitly)
             included in a release are now automatically included as

@@ -151,7 +151,7 @@ ApplicationVersion = string()</code>
           application is allowed to be started. <c>systools</c> uses
           this list to generate correct start scripts. Defaults to
           the empty list, but notice that all applications have
-          dependencies to (at least) <c>Kernel</c> and <c>STDLIB</c>.</p>
+          dependencies to (at least) Kernel and STDLIB.</p>
       </item>
       <tag><c>env</c></tag>
       <item>
@@ -171,7 +171,7 @@ ApplicationVersion = string()</code>
           implemented as a supervision tree, otherwise the application
           controller does not know how to start it. <c>mod</c>
           can be omitted for applications without processes, typically
-          code libraries, for example, <c>STDLIB</c>.</p>
+          code libraries, for example, STDLIB.</p>
       </item>
       <tag><c>start_phases</c></tag>
       <item>
@@ -236,7 +236,7 @@ ApplicationVersion = string()</code>
   <section>
     <title>See Also</title>
     <p><seealso marker="application"><c>application(3)</c></seealso>,
-      <seealso marker="sasl:systools"><c>sasl:systools(3)</c></seealso></p>
+      <seealso marker="sasl:systools"><c>systools(3)</c></seealso></p>
   </section>
 </fileref>
 

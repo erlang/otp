@@ -3482,7 +3482,7 @@
 	    types (for instance, <c>ensure_loaded/1</c> now only
 	    accepts an atom as documented; it used to accept a string
 	    too).</p>
-	    <p><c>Dialyzer</c> will generally emit warnings for any
+	    <p>Dialyzer will generally emit warnings for any
 	    calls that use undocumented argument types. Even if the
 	    call happens to still work in R12B, you should correct
 	    your code. A future release will adhere to the

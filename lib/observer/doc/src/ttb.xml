@@ -485,7 +485,7 @@ ttb:p(all, call).</input></pre>
 	 <p>For a description of the <c>match_spec()</c> syntax, 
 	   see section
 	   <seealso marker="erts:match_spec"><c>Match Specifications in Erlang</c></seealso>
-	   in <c>ERTS</c>, which explains the general match specification "language".
+	   in ERTS, which explains the general match specification "language".
           </p>
         <note>
           <p>The <em>system tracer</em> for sequential tracing is

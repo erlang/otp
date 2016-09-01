@@ -526,7 +526,7 @@
         </item>
         <item>
           <p>
-	    The <c>stdlib</c> reference manual is updated to show
+	    The STDLIB reference manual is updated to show
 	    correct information about the return value of
 	    <c>gen_fsm:reply/2</c>.</p>
           <p>
@@ -6236,7 +6236,7 @@
             documentation for <c>compile</c> on how to provide the key
             for encrypting, and the documentation for <c>beam_lib</c>
             on how to provide the key for decryption so that tools such
-            as the Debugger, <c>xref</c>, or <c>cover</c> can be used.</p>
+            as the Debugger, Xref, or Cover can be used.</p>
           <p>The <c>beam_lib:chunks/2</c> functions now accepts an
             additional chunk type <c>compile_info</c> to retrieve
             the compilation information directly as a term. (Thanks

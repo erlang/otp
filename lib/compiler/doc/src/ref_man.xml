@@ -30,7 +30,7 @@
     <file>application.sgml</file>
   </header>
   <description>
-    <p>The <c>Compiler</c> application compiles Erlang
+    <p>The Compiler application compiles Erlang
       code to byte-code. The highly compact byte-code is executed by
       the Erlang emulator.</p>
   </description>

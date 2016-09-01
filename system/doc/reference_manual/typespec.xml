@@ -47,7 +47,7 @@
     <list type="bulleted">
       <item>To document function interfaces</item>
       <item>To provide more information for bug detection tools,
-      such as <c>Dialyzer</c></item>
+      such as Dialyzer</item>
       <item>To be exploited by documentation tools, such as EDoc, for
       generating program documentation of various forms</item>
     </list>

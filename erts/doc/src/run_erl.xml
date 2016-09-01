@@ -174,7 +174,7 @@
           without Daylight Saving Time), rather than in local time.
           This does not affect data coming from Erlang,
           only the logs output directly by <c>run_erl</c>. Application
-          <c>SASL</c> can be modified accordingly by setting the Erlang
+          SASL can be modified accordingly by setting the Erlang
           application variable <c><![CDATA[utc_log]]></c> to
           <c><![CDATA[true]]></c>.</p>
       </item>

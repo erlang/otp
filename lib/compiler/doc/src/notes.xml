@@ -280,7 +280,7 @@
         <item>
           <p>
 	    The <c>cerl</c> and <c>cerl_trees</c> modules in the
-	    <c>compiler</c> application are now documented.</p>
+	    Compiler application are now documented.</p>
           <p>
 	    Own Id: OTP-11978</p>
         </item>
@@ -1982,7 +1982,7 @@
 	    <c>RightExpr</c> or vice versa. The evaluation order is
 	    only important if the expressions contains and/or depends
 	    on operations with side-effects, such as message passing
-	    or <c>ets</c> operations.</p>
+	    or ETS operations.</p>
           <p>
 	    Own Id: OTP-7206</p>
         </item>

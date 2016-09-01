@@ -303,9 +303,9 @@ erlc +export_all file.erl</pre>
   <section>
     <title>See Also</title>
     <p><seealso marker="erl"><c>erl(1)</c></seealso>,
-      <seealso marker="compiler:compile"><c>compiler:compile(3)</c></seealso>,
-      <seealso marker="parsetools:yecc"><c>parsetools:yecc(3)</c></seealso>,
-      <seealso marker="snmp:snmp"><c>snmp:snmp(3)</c></seealso></p>
+      <seealso marker="compiler:compile"><c>compile(3)</c></seealso>,
+      <seealso marker="parsetools:yecc"><c>yecc(3)</c></seealso>,
+      <seealso marker="snmp:snmp"><c>snmp(3)</c></seealso></p>
   </section>
 </comref>
 

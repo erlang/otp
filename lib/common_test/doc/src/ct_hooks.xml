@@ -94,7 +94,7 @@
           <seealso marker="#Module:id-1"><c>ct_hooks:id/1</c></seealso>,
           or a <c>reference</c> (created using
           <seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>
-          in <c>ERTS</c>) if
+          in ERTS) if
           <seealso marker="#Module:id-1"><c>ct_hooks:id/1</c></seealso>
           is not implemented.</p>
 

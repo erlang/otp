@@ -234,7 +234,7 @@
        operand of the intersection operator <c>*</c> is implicitly
        converted to the more special type of the second operand.</item>
       <tag><c>xref:q(s, "(Mod) tools").</c></tag>
-      <item>All modules of the <c>tools</c> application.</item>
+      <item>All modules of the Tools application.</item>
       <tag><c>xref:q(s, '"xref_.*" : Mod').</c></tag>
       <item>All modules with a name beginning with <c>xref_</c>.</item>
       <tag><c>xref:q(s, "# E&nbsp;|&nbsp;X&nbsp;").</c></tag>
@@ -252,9 +252,9 @@
       <tag><c>xref:q(s, "XC * (ME - strict ME)").</c></tag>
       <item>External calls within some module.</item>
       <tag><c>xref:q(s, "E&nbsp;|||&nbsp;kernel").</c></tag>
-      <item>All calls within the <c>kernel</c> application. </item>
+      <item>All calls within the Kernel application. </item>
       <tag><c>xref:q(s, "closure&nbsp;E&nbsp;|&nbsp;kernel&nbsp;||&nbsp;kernel").</c></tag>
-      <item>All direct and indirect calls within the <c>kernel</c>
+      <item>All direct and indirect calls within the Kernel
        application. Both the calling and the used functions of
        indirect calls are defined in modules of the kernel
        application, but it is possible that some functions outside
