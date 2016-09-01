@@ -1238,9 +1238,12 @@ handle_event(internal, prepare_next_packet, _, D) ->
 handle_event(info, {CloseTag,Socket}, StateName,
 	     D = #data{socket = Socket,
 		       transport_close_tag = CloseTag}) ->
-    disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-				   description = "Connection closed"},
-	       StateName, D);
+    %% Simulate a disconnect from the peer
+    handle_event(info,
+		 #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+				     description = "Connection closed"},
+		 StateName,
+		 D);
 
 handle_event(info, {timeout, {_, From} = Request}, _,
 	     #data{connection_state = #connection{requests = Requests} = C0} = D) ->
