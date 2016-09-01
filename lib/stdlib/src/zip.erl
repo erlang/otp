@@ -279,7 +279,8 @@ do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
     case file_name_search(F, Files) of
 	{#zip_file{offset = Offset},_}=ZFile ->
 	    In1 = Input({seek, bof, Offset}, In0),
-	    case get_z_file(In1, Z, Input, Output, [], fun silent/1, CWD, ZFile) of
+	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
+			    CWD, ZFile, fun all/1) of
 		{file, R, _In2} -> {ok, R};
 		_ -> throw(file_not_found)
 	    end;
@@ -1403,9 +1404,10 @@ get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
 	true ->
 	    In1 = Input({seek, bof, Offset}, In0),
 	    {In2, Acc1} =
-		case get_z_file(In1, Z, Input, Output, OpO, FB, CWD, ZFile) of
+		case get_z_file(In1, Z, Input, Output, OpO, FB,
+				CWD, ZFile, Filter) of
 		    {file, GZD, Inx} -> {Inx, [GZD | Acc0]};
-		    {dir, Inx} -> {Inx, Acc0}
+		    {_, Inx}       -> {Inx, Acc0}
 		end,
 	    get_z_files(Rest, Z, In2, Opts, Acc1);
 	_ ->
@@ -1413,7 +1415,8 @@ get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
     end.
 
 %% get a file from the archive, reading chunks
-get_z_file(In0, Z, Input, Output, OpO, FB, CWD, {ZipFile,Extra}) ->
+get_z_file(In0, Z, Input, Output, OpO, FB,
+	   CWD, {ZipFile,Extra}, Filter) ->
     case Input({read, ?LOCAL_FILE_HEADER_SZ}, In0) of
 	{eof, In1} ->
 	    {eof, In1};
@@ -1433,29 +1436,64 @@ get_z_file(In0, Z, Input, Output, OpO, FB, CWD, {ZipFile,Extra}) ->
 			       end,
 	    {BFileN, In3} = Input({read, FileNameLen + ExtraLen}, In1),
 	    {FileName, _} = get_file_name_extra(FileNameLen, ExtraLen, BFileN),
-	    FileName1 = add_cwd(CWD, FileName),
-	    case lists:last(FileName) of
-		$/ ->
-		    %% perhaps this should always be done?
-		    Output({ensure_dir,FileName1},[]),
-		    {dir, In3};
-		_ ->
-		    %% FileInfo = local_file_header_to_file_info(LH)
-		    %%{Out, In4, CRC, UncompSize} =
-		    {Out, In4, CRC, _UncompSize} =
-			get_z_data(CompMethod, In3, FileName1,
-				   CompSize, Input, Output, OpO, Z),
-		    In5 = skip_z_data_descriptor(GPFlag, Input, In4),
-		    %% TODO This should be fixed some day:
-		    %% In5 = Input({set_file_info, FileName, FileInfo#file_info{size=UncompSize}}, In4),
-		    FB(FileName),
-		    CRC =:= CRC32 orelse throw({bad_crc, FileName}),
-		    {file, Out, In5}
+	    ReadAndWrite =
+		case check_valid_location(CWD, FileName) of
+		    {true,FileName1} ->
+			true;
+		    {false,FileName1} ->
+			Filter({ZipFile#zip_file{name = FileName1},Extra})
+		end,
+	    case ReadAndWrite of
+		true ->
+		    case lists:last(FileName) of
+			$/ ->
+			    %% perhaps this should always be done?
+			    Output({ensure_dir,FileName1},[]),
+			    {dir, In3};
+			_ ->
+			    %% FileInfo = local_file_header_to_file_info(LH)
+			    %%{Out, In4, CRC, UncompSize} =
+			    {Out, In4, CRC, _UncompSize} =
+				get_z_data(CompMethod, In3, FileName1,
+					   CompSize, Input, Output, OpO, Z),
+			    In5 = skip_z_data_descriptor(GPFlag, Input, In4),
+			    %% TODO This should be fixed some day:
+			    %% In5 = Input({set_file_info, FileName, 
+			    %% FileInfo#file_info{size=UncompSize}}, In4),
+			    FB(FileName),
+			    CRC =:= CRC32 orelse throw({bad_crc, FileName}),
+			    {file, Out, In5}
+		    end;
+		false ->
+		    {ignore, In3}
 	    end;
 	_ ->
 	    throw(bad_local_file_header)
     end.
 
+%% make sure FileName doesn't have relative path that points over CWD
+check_valid_location(CWD, FileName) ->
+    %% check for directory traversal exploit
+    case check_dir_level(filename:split(FileName), 0) of
+	{FileOrDir,Level} when Level < 0 ->
+	    CWD1 = if CWD == "" -> "./";
+		      true      -> CWD
+		   end,
+	    error_logger:format("Illegal path: ~ts, extracting in ~ts~n",
+				[add_cwd(CWD,FileName),CWD1]),
+	    {false,add_cwd(CWD, FileOrDir)};
+        _ ->
+	    {true,add_cwd(CWD, FileName)}
+    end.
+
+check_dir_level([FileOrDir], Level) ->
+    {FileOrDir,Level};
+check_dir_level(["." | Parts], Level) ->
+    check_dir_level(Parts, Level);
+check_dir_level([".." | Parts], Level) ->
+    check_dir_level(Parts, Level-1);
+check_dir_level([_Dir | Parts], Level) ->
+    check_dir_level(Parts, Level+1).
 
 get_file_name_extra(FileNameLen, ExtraLen, B) ->
     case B of
