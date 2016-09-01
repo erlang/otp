@@ -260,43 +260,45 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  service = "ssh-connection",
 						  method = "publickey",
-						  data = Data}, 
+						  data = <<?BYTE(?FALSE),
+							   ?UINT32(ALen), BAlg:ALen/binary,
+							   ?UINT32(KLen), KeyBlob:KLen/binary,
+							   _/binary
+							 >>
+						 }, 
 			SessionId, 
 			#ssh{opts = Opts,
 			     userauth_supported_methods = Methods} = Ssh) ->
 
-    <<?BYTE(HaveSig),
-      ?UINT32(ALen), BAlg:ALen/binary,
-      Rest/binary>> = Data,
+    {not_authorized, {User, undefined},
+     ssh_transport:ssh_packet(
+       #ssh_msg_userauth_pk_ok{algorithm_name = binary_to_list(BAlg),
+			       key_blob = KeyBlob}, Ssh)};
 
-    {KeyBlob,  SigWLen} = 
-	case Rest of 
-	    <<?UINT32(KLen0), KeyBlob0:KLen0/binary, SigWLen0/binary>> ->
-		{KeyBlob0,  SigWLen0};
-	    <<>> ->
-		{<<>>, <<>>}
-	end,
-
-    case HaveSig of
-	?TRUE ->
-	    case verify_sig(SessionId, User, "ssh-connection", 
-			    binary_to_list(BAlg),
-			    KeyBlob, SigWLen, Opts) of
-		true ->
-		    {authorized, User, 
-		     ssh_transport:ssh_packet(
-		       #ssh_msg_userauth_success{}, Ssh)};
-		false ->
-		    {not_authorized, {User, undefined}, 
-		     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
-			     authentications = Methods,
-			     partial_success = false}, Ssh)}
-	    end;
-	?FALSE ->
-	    {not_authorized, {User, undefined},
+handle_userauth_request(#ssh_msg_userauth_request{user = User,
+						  service = "ssh-connection",
+						  method = "publickey",
+						  data = <<?BYTE(?TRUE),
+							   ?UINT32(ALen), BAlg:ALen/binary,
+							   ?UINT32(KLen), KeyBlob:KLen/binary,
+							   SigWLen/binary>>
+						 }, 
+			SessionId, 
+			#ssh{opts = Opts,
+			     userauth_supported_methods = Methods} = Ssh) ->
+    
+    case verify_sig(SessionId, User, "ssh-connection", 
+		    binary_to_list(BAlg),
+		    KeyBlob, SigWLen, Opts) of
+	true ->
+	    {authorized, User, 
 	     ssh_transport:ssh_packet(
-	       #ssh_msg_userauth_pk_ok{algorithm_name = binary_to_list(BAlg),
-				       key_blob = KeyBlob}, Ssh)}
+	       #ssh_msg_userauth_success{}, Ssh)};
+	false ->
+	    {not_authorized, {User, undefined}, 
+	     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
+					 authentications = Methods,
+					 partial_success = false}, Ssh)}
     end;
 
 handle_userauth_request(#ssh_msg_userauth_request{user = User,
@@ -484,6 +486,8 @@ get_password_option(Opts, User) ->
 	false -> proplists:get_value(password, Opts, false)
     end.
 	    
+%%pre_verify_sig(SessionId, User, Service, Alg, KeyBlob, Opts) ->
+
 verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
     {ok, Key} = decode_public_key_v2(KeyBlob, Alg),
     KeyCb =  proplists:get_value(key_cb, Opts, ssh_file),
