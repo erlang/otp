@@ -57,10 +57,13 @@ static struct {
 
 Process *erts_code_purger = NULL;
 
-ErtsLiteralArea *erts_copy_literal_area = NULL;
 #ifdef ERTS_DIRTY_SCHEDULERS
 Process *erts_dirty_process_code_checker;
 #endif
+erts_smp_atomic_t erts_copy_literal_area__;
+#define ERTS_SET_COPY_LITERAL_AREA(LA)			\
+    erts_smp_atomic_set_nob(&erts_copy_literal_area__,	\
+			    (erts_aint_t) (LA))
 #ifdef ERTS_NEW_PURGE_STRATEGY
 Process *erts_literal_area_collector = NULL;
 
@@ -112,6 +115,8 @@ erts_beam_bif_load_init(void)
     release_literal_areas.first = NULL;
     release_literal_areas.last = NULL;
 #endif
+    erts_smp_atomic_init_nob(&erts_copy_literal_area__,
+			     (erts_aint_t) NULL);
 
     init_purge_state();
 }
@@ -893,7 +898,7 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
     Uint lit_bsize;
     ErlHeapFragment *hfrag;
 
-    la = erts_copy_literal_area;
+    la = ERTS_COPY_LITERAL_AREA();
     if (!la)
 	return am_ok;
 
@@ -1486,16 +1491,33 @@ hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
 
 #ifdef ERTS_NEW_PURGE_STRATEGY
 
+#ifdef ERTS_SMP
+
 ErtsThrPrgrLaterOp later_literal_area_switch;
 
-#ifdef ERTS_SMP
+typedef struct {
+    ErtsThrPrgrLaterOp lop;
+    ErtsLiteralArea *la;
+} ErtsLaterReleasLiteralArea;
+
 static void
-complete_literal_area_switch(void *unused)
+later_release_literal_area(void *vlrlap)
+{
+    ErtsLaterReleasLiteralArea *lrlap;
+    lrlap = (ErtsLaterReleasLiteralArea *) vlrlap;
+    erts_release_literal_area(lrlap->la);
+    erts_free(ERTS_ALC_T_RELEASE_LAREA, vlrlap);
+}
+
+static void
+complete_literal_area_switch(void *literal_area)
 {
     Process *p = erts_literal_area_collector;
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     erts_resume(p, ERTS_PROC_LOCK_STATUS);
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    if (literal_area)
+	erts_release_literal_area((ErtsLiteralArea *) literal_area);
 }
 #endif
 
@@ -1506,6 +1528,7 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 #ifndef ERTS_NEW_PURGE_STRATEGY
     BIF_ERROR(BIF_P, EXC_NOTSUP);
 #else
+    ErtsLiteralArea *unused_la;
     ErtsLiteralAreaRef *la_ref;
 
     if (BIF_P != erts_literal_area_collector)
@@ -1522,26 +1545,45 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 
     erts_smp_mtx_unlock(&release_literal_areas.mtx);
 
-    if (erts_copy_literal_area)
-	erts_release_literal_area(erts_copy_literal_area);
+    unused_la = ERTS_COPY_LITERAL_AREA();
 
     if (!la_ref) {
-	erts_copy_literal_area = NULL;
+	ERTS_SET_COPY_LITERAL_AREA(NULL);
+	if (unused_la) {
+#ifdef ERTS_SMP
+	    ErtsLaterReleasLiteralArea *lrlap;
+	    lrlap = erts_alloc(ERTS_ALC_T_RELEASE_LAREA,
+			       sizeof(ErtsLaterReleasLiteralArea));
+	    lrlap->la = unused_la;
+	    erts_schedule_thr_prgr_later_cleanup_op(
+		later_release_literal_area,
+		(void *) lrlap,
+		&lrlap->lop,
+		(sizeof(ErtsLaterReleasLiteralArea)
+		 + sizeof(ErtsLiteralArea)
+		 + ((unused_la->end
+		     - &unused_la->start[0])
+		    - 1)*(sizeof(Eterm))));
+#else
+	    erts_release_literal_area(unused_la);
+#endif
+	}
 	BIF_RET(am_false);
     }
 
-    erts_copy_literal_area = la_ref->literal_area;
+    ERTS_SET_COPY_LITERAL_AREA(la_ref->literal_area);
 
     erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
 
-#ifndef ERTS_SMP
-    BIF_RET(am_true);
-#else
+#ifdef ERTS_SMP
     erts_schedule_thr_prgr_later_op(complete_literal_area_switch,
-				    NULL,
+				    unused_la,
 				    &later_literal_area_switch);
     erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
     ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+#else
+    erts_release_literal_area(unused_la);
+    BIF_RET(am_true);
 #endif
 
 #endif /* ERTS_NEW_PURGE_STRATEGY */
@@ -1723,8 +1765,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		end = (BeamInstr *)((char *)code + modp->old.code_length);
 		erts_fun_purge_prepare(code, end);
 #if !defined(ERTS_NEW_PURGE_STRATEGY)
-		ASSERT(!erts_copy_literal_area);
-		erts_copy_literal_area = modp->old.code_hdr->literal_area;
+		ASSERT(!ERTS_COPY_LITERAL_AREA());
+		ERTS_SET_COPY_LITERAL_AREA(modp->old.code_hdr->literal_area);
 #endif
 	    }
 	    erts_runlock_old_code(code_ix);
@@ -1766,8 +1808,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	erts_fun_purge_abort_prepare(purge_state.funs, purge_state.fe_ix);
 
 #if !defined(ERTS_NEW_PURGE_STRATEGY)
-	ASSERT(erts_copy_literal_area);
-	erts_copy_literal_area = NULL;
+	ASSERT(ERTS_COPY_LITERAL_AREA());
+	ERTS_SET_COPY_LITERAL_AREA(NULL);
 #endif
 #ifndef ERTS_SMP
 	erts_fun_purge_abort_finalize(purge_state.funs, purge_state.fe_ix);
@@ -1879,8 +1921,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
 #if !defined(ERTS_NEW_PURGE_STRATEGY)
 
-	ASSERT(erts_copy_literal_area == literals);
-	erts_copy_literal_area = NULL;
+	ASSERT(ERTS_COPY_LITERAL_AREA() == literals);
+	ERTS_SET_COPY_LITERAL_AREA(NULL);
 	erts_release_literal_area(literals);
 
 #else /* ERTS_NEW_PURGE_STRATEGY */
