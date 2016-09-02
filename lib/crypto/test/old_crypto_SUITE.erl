@@ -59,6 +59,7 @@
 	 des_ecb/1,
 	 des3_cbc/1,
 	 des3_cbf/1,
+	 des3_cfb/1,
 	 rc2_cbc/1,
 	 aes_cfb/1,
 	 aes_cbc/1,
@@ -102,7 +103,7 @@ groups() ->
        hmac_rfc2202, hmac_rfc4231_sha224, hmac_rfc4231_sha256,
        hmac_rfc4231_sha384, hmac_rfc4231_sha512,
        des_cbc, aes_cfb, aes_cbc,
-       des_cfb, des_cfb_iter, des3_cbc, des3_cbf, rc2_cbc,
+       des_cfb, des_cfb_iter, des3_cbc, des3_cbf, des3_cfb, rc2_cbc,
        aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
        rand_uniform_test, strong_rand_test,
        rsa_verify_test, dsa_verify_test, rsa_sign_test,
@@ -1138,10 +1139,23 @@ des3_cbf(Config) when is_list(Config) ->
     case openssl_version() of
 	V when V < 16#90705F -> {skipped,"OpenSSL version too old"};
 	_ ->
-	    if_supported(des3_cbf, fun des3_cbf_do/0)
+	    if_supported(des3_cbf, fun des3_cfb_do/0)
     end.
 
-des3_cbf_do() ->
+%%
+%%
+des3_cfb(doc) ->
+    "Encrypt and decrypt according to CFB 3DES, and check the result.";
+des3_cfb(suite) ->
+    [];
+des3_cfb(Config) when is_list(Config) ->
+    case openssl_version() of
+	V when V < 16#90705F -> {skipped,"OpenSSL version too old"};
+	_ ->
+	    if_supported(des3_cfb, fun des3_cfb_do/0)
+    end.
+
+des3_cfb_do() ->
     ?line Key1 = hexstr2bin("0123456789abcdef"),
     ?line Key2 = hexstr2bin("fedcba9876543210"),
     ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),

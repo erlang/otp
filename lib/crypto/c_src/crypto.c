@@ -473,7 +473,14 @@ struct cipher_type_t cipher_types[] =
     {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}},
     {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}},
     {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}},
-    {{"des_ede3_cbf"},
+    {{"des_ede3_cbf"}, /* Misspelled, retained */
+#ifdef HAVE_DES_ede3_cfb_encrypt
+     {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
+#else
+     {NULL}
+#endif
+    },
+    {{"des_ede3_cfb"},
 #ifdef HAVE_DES_ede3_cfb_encrypt
      {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
 #else
@@ -757,7 +764,7 @@ static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
 static int algo_pubkey_cnt;
 static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
 static int algo_cipher_cnt;
-static ERL_NIF_TERM algo_cipher[22]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[23]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
@@ -798,6 +805,7 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3");
 #ifdef HAVE_DES_ede3_cfb_encrypt
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cfb");
 #endif
 #endif
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
