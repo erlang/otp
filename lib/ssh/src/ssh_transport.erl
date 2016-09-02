@@ -46,7 +46,7 @@
 	 handle_kex_ecdh_reply/2,
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
-	 sign/3, verify/4]).
+	 sha/1, sign/3, verify/4]).
 
 %%% For test suites
 -export([pack/3]).
@@ -1619,6 +1619,11 @@ kex_h(SSH, Key, Min, NBits, Max, Prime, Gen, E, F, K) ->
     crypto:hash(sha((SSH#ssh.algorithms)#alg.kex), L).
   
 
+sha('ssh-rsa') -> sha;
+sha('ssh-dss') -> sha;
+sha('ecdsa-sha2-nistp256') -> sha(secp256r1);
+sha('ecdsa-sha2-nistp384') -> sha(secp384r1);
+sha('ecdsa-sha2-nistp521') -> sha(secp521r1);
 sha(secp256r1) -> sha256;
 sha(secp384r1) -> sha384;
 sha(secp521r1) -> sha512;

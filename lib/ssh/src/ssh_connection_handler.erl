@@ -822,8 +822,20 @@ handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_inte
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    retry_fun(User, Reason, D),
 	    send_bytes(Reply, D),
-	    {next_state, {userauth,server}, D#data{ssh_params = Ssh}}
+	    {next_state, {userauth,server}, D#data{ssh_params = Ssh}};
+
+	{authorized_but_one_more, _User,  {Reply, Ssh}} ->
+	    send_bytes(Reply, D),
+	    {next_state, {userauth_keyboard_interactive_extra,server}, D#data{ssh_params = Ssh}}
     end;
+
+handle_event(_, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboard_interactive_extra, server}, D) ->
+    {authorized, User, {Reply, Ssh}} = ssh_auth:handle_userauth_info_response({extra,Msg}, D#data.ssh_params),
+    send_bytes(Reply, D),
+    D#data.starter ! ssh_connected,
+    connected_fun(User, "keyboard-interactive", D),
+    {next_state, {connected,server}, D#data{auth_user = User,
+					    ssh_params = Ssh#ssh{authenticated = true}}};
 
 handle_event(_, Msg = #ssh_msg_userauth_failure{}, {userauth_keyboard_interactive, client},
 	     #data{ssh_params = Ssh0} = D0) ->
