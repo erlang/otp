@@ -32,20 +32,20 @@
     <rev>B</rev>
     <file>error_logging.xml</file>
     </header>
-  <p>The <c>SASL</c> application introduces three types of reports:</p>
+  <p>The SASL application introduces three types of reports:</p>
   <list type="bulleted">
     <item>Supervisor report</item>
     <item>Progress report</item>
     <item>Crash report</item>
   </list>
-  <p>When the <c>SASL</c> application is started, it adds a handler that 
+  <p>When the SASL application is started, it adds a handler that
     formats and writes these reports, as specified in the configuration
-    parameters for <c>SASL</c>, that is, the environment variables
-    in the <c>SASL</c> application specification, which is found in the 
-    <c>.app</c> file of <c>SASL</c>. For details, see the
+    parameters for SASL, that is, the environment variables
+    in the SASL application specification, which is found in the
+    <c>.app</c> file of SASL. For details, see the
     <seealso marker="sasl_app"><c>sasl(6)</c></seealso> application in the
     Reference Manual and the <seealso marker="kernel:app"><c>app(4)</c></seealso>
-    file in the <c>Kernel</c> Reference Manual.</p>
+    file in the Kernel Reference Manual.</p>
 
   <section>
     <title>Supervisor Report</title>
@@ -180,14 +180,14 @@
     <p>The report browser is used to browse and format error reports
       written by the error logger handler 
       <seealso marker="stdlib:log_mf_h"><c>log_mf_h</c></seealso> 
-      defined in <c>STDLIB</c>.</p>
+      defined in STDLIB.</p>
     <p>The <c>log_mf_h</c> handler writes all reports to a
       report logging directory, which is specified when
-      configuring the <c>SASL</c> application.</p>
+      configuring the SASL application.</p>
     <p>If the report browser is
       used offline, the reports can be copied to another directory
       specified when starting the browser. If no such directory
-      is specified, the browser reads reports from the <c>SASL</c>
+      is specified, the browser reads reports from the SASL
       <c>error_logger_mf_dir</c>.</p>
 
     <section>

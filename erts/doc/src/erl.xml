@@ -46,7 +46,7 @@
       you want to redirect standard input or output.</p>
 
     <note>
-      <p>As from <c>ERTS</c> 5.9 (Erlang/OTP R15B) the runtime system does by
+      <p>As from ERTS 5.9 (Erlang/OTP R15B) the runtime system does by
         default <em>not</em> bind schedulers to logical processors.
 	For more information, see system flag
 	<seealso marker="#+sbt"><c>+sbt</c></seealso>.</p>
@@ -103,7 +103,7 @@
 	  emulator flags. <c><![CDATA[-s my_init]]></c> is an init flag,
 	  interpreted by <c><![CDATA[init]]></c>.
 	  <c><![CDATA[-sname arnie]]></c> is a user flag, stored by
-	  <c><![CDATA[init]]></c>. It is read by <c>Kernel</c> and causes the
+	  <c><![CDATA[init]]></c>. It is read by Kernel and causes the
 	  Erlang runtime system to become distributed. Finally, everything after
 	  <c><![CDATA[-extra]]></c> (that is, <c><![CDATA[+bertie]]></c>) is
 	  considered as plain arguments.</p>
@@ -143,9 +143,9 @@
         <p>Sets the application configuration parameter <c><![CDATA[Par]]></c>
           to the value <c><![CDATA[Val]]></c> for the application
           <c><![CDATA[Application]]></c>; see
-          <seealso marker="kernel:app"><c>kernel:app(4)</c></seealso> and
+          <seealso marker="kernel:app"><c>app(4)</c></seealso> and
           <seealso marker="kernel:application">
-          <c>kernel:application(3)</c></seealso>.</p>
+          <c>application(3)</c></seealso>.</p>
       </item>
       <tag><marker id="args_file"/><c><![CDATA[-args_file FileName]]></c></tag>
       <item>
@@ -192,12 +192,12 @@
           <c><![CDATA[Dir]]></c>. Used when applications are installed in
           another directory than <c><![CDATA[$ROOT/lib]]></c>; see
           <seealso marker="sasl:systools#make_script/1">
-          <c>systools:make_script/1,2</c></seealso> in <c>SASL</c>.</p>
+          <c>systools:make_script/1,2</c></seealso> in SASL.</p>
       </item>
       <tag><c><![CDATA[-code_path_cache]]></c></tag>
       <item>
         <p>Enables the code path cache of the code server; see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-compile Mod1 Mod2 ...]]></c></tag>
       <item>
@@ -212,16 +212,16 @@
         <p>Specifies the name of a configuration file,
           <c><![CDATA[Config.config]]></c>, which is used to configure
           applications; see
-          <seealso marker="kernel:app"><c>kernel:app(4)</c></seealso> and
+          <seealso marker="kernel:app"><c>app(4)</c></seealso> and
           <seealso marker="kernel:application">
-          <c>kernel:application(3)</c></seealso>.</p>
+          <c>application(3)</c></seealso>.</p>
       </item>
       <tag><marker id="connect_all"/><c><![CDATA[-connect_all false]]></c></tag>
       <item>
         <p>If this flag is present, <c><![CDATA[global]]></c> does not maintain
           a fully connected network of distributed Erlang nodes, and then
           global name registration cannot be used; see
-          <seealso marker="kernel:global"><c>kernel:global(3)</c></seealso>.</p>
+          <seealso marker="kernel:global"><c>global(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-cookie Cookie]]></c></tag>
       <item>
@@ -266,7 +266,7 @@
       <item>
         <p>Starts heartbeat monitoring of the Erlang runtime system;
           see <seealso marker="kernel:heart">
-          <c>kernel:heart(3)</c></seealso>.</p>
+          <c>heart(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-hidden]]></c></tag>
       <item>
@@ -278,13 +278,13 @@
           nodes are part of the result from <c><![CDATA[nodes/0]]></c> on the
           other node. See also hidden global groups;
           <seealso marker="kernel:global_group">
-          <c>kernel:global_group(3)</c></seealso>.</p>
+          <c>global_group(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-hosts Hosts]]></c></tag>
       <item>
         <p>Specifies the IP addresses for the hosts on which Erlang boot servers
           are running, see <seealso marker="kernel:erl_boot_server">
-          <c>kernel:erl_boot_server(3)</c></seealso>. This flag
+          <c>erl_boot_server(3)</c></seealso>. This flag
           is mandatory if flag <c><![CDATA[-loader inet]]></c> is present.</p>
         <p>The IP addresses must be specified in the standard form (four
           decimal numbers separated by periods, for example,
@@ -338,7 +338,7 @@
       <item>
         <p>Makes the Erlang runtime system invoke <c><![CDATA[make:all()]]></c>
           in the current working directory and then terminate; see
-          <seealso marker="tools:make"><c>tools:make(3)</c></seealso>. Implies
+          <seealso marker="tools:make"><c>make(3)</c></seealso>. Implies
           <c><![CDATA[-noinput]]></c>.</p>
       </item>
       <tag><c><![CDATA[-man Module]]></c></tag>
@@ -351,7 +351,7 @@
         <p>Indicates if the system is to load code dynamically
           (<c><![CDATA[interactive]]></c>), or if all code is to be loaded
           during system initialization (<c><![CDATA[embedded]]></c>); see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.
           Defaults to <c><![CDATA[interactive]]></c>.</p>
       </item>
       <tag><c><![CDATA[-name Name]]></c></tag>
@@ -359,7 +359,7 @@
         <p>Makes the Erlang runtime system into a distributed node.
           This flag invokes all network servers necessary for a node to
           become distributed; see <seealso marker="kernel:net_kernel">
-          <c>kernel:net_kernel(3)</c></seealso>. It is also ensured that
+          <c>net_kernel(3)</c></seealso>. It is also ensured that
           <c><![CDATA[epmd]]></c> runs on the current host before Erlang is
           started; see <seealso marker="epmd"><c>epmd(1)</c></seealso>.and the
           <seealso marker="#start_epmd"><c>-start_epmd</c></seealso> option.</p>
@@ -383,7 +383,7 @@
       <item>
         <p>Disables the sticky directory facility of the Erlang code
           server; see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-oldshell]]></c></tag>
       <item>
@@ -394,23 +394,23 @@
       <item>
         <p>Adds the specified directories to the beginning of the code
           path, similar to <c><![CDATA[code:add_pathsa/1]]></c>; see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.
 	  As an alternative to <c>-pa</c>, if several directories are
 	  to be prepended to the code path and the directories have a
 	  common parent directory, that parent directory can be
 	  specified in environment variable <c>ERL_LIBS</c>; see
-	  <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+	  <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-pz Dir1 Dir2 ...]]></c></tag>
       <item>
         <p>Adds the specified directories to the end of the code path,
           similar to <c><![CDATA[code:add_pathsz/1]]></c>; see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-path Dir1 Dir2 ...]]></c></tag>
       <item>
         <p>Replaces the path specified in the boot script; see
-          <seealso marker="sasl:script"><c>sasl:script(4)</c></seealso>.</p>
+          <seealso marker="sasl:script"><c>script(4)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-proto_dist Proto]]></c></tag>
       <item>
@@ -436,7 +436,7 @@
       <item>
         <p>Specifies an alternative to <c><![CDATA[rsh]]></c> for starting a
           slave node on a remote host; see
-          <seealso marker="stdlib:slave"><c>stdlib:slave(3)</c></seealso>.</p>
+          <seealso marker="stdlib:slave"><c>slave(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[-run Mod [Func [Arg1, Arg2, ...]]]]></c> (init
         flag)</tag>
@@ -612,11 +612,11 @@
       </item>
       <tag><marker id="+e"/><c><![CDATA[+e Number]]></c></tag>
       <item>
-        <p>Sets the maximum number of <c>ets</c> tables.</p>
+        <p>Sets the maximum number of ETS tables.</p>
       </item>
       <tag><c><![CDATA[+ec]]></c></tag>
       <item>
-        <p>Forces option <c>compressed</c> on all <c>ets</c> tables.
+        <p>Forces option <c>compressed</c> on all ETS tables.
           Only intended for test and evaluation.</p>
       </item>
       <tag><marker id="file_name_encoding"></marker>
@@ -627,11 +627,11 @@
           code points &gt; 255.</p>
         <p>For more information about Unicode filenames, see section
           <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seealso> in the <c>STDLIB</c> User's Guide. Notice that
+          Filenames</seealso> in the STDLIB User's Guide. Notice that
           this value also applies to command-line parameters and environment
           variables (see section <seealso
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Enviroment and Parameters</seealso> in the <c>STDLIB</c>
+          Unicode in Enviroment and Parameters</seealso> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
@@ -663,11 +663,11 @@
           points to an invalid filename.</p>
         <p>For more information about Unicode filenames, see section
           <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seealso> in the <c>STDLIB</c> User's Guide. Notice that
+          Filenames</seealso> in the STDLIB User's Guide. Notice that
           this value also applies to command-line parameters and environment
           variables (see section <seealso
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Enviroment and Parameters</seealso> in the <c>STDLIB</c>
+          Unicode in Enviroment and Parameters</seealso> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
@@ -684,11 +684,11 @@
           selected, then <c>w</c>, <c>i</c>, or <c>e</c> have no effect.</p>
         <p>For more information about Unicode filenames, see section
           <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seealso> in the <c>STDLIB</c> User's Guide. Notice that
+          Filenames</seealso> in the STDLIB User's Guide. Notice that
           this value also applies to command-line parameters and environment
           variables (see section <seealso
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Enviroment and Parameters</seealso> in the <c>STDLIB</c>
+          Unicode in Enviroment and Parameters</seealso> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
@@ -783,7 +783,7 @@
             example, your font does not cover all Unicode characters.</item>
         </taglist>
         <p>See also <seealso marker="stdlib:io#printable_range/0">
-          <c>io:printable_range/0</c></seealso> in <c>STDLIB</c>.</p>
+          <c>io:printable_range/0</c></seealso> in STDLIB.</p>
       </item>
       <tag><marker id="+P"/><marker id="max_processes"/><c><![CDATA[+P Number]]></c></tag>
       <item>
@@ -838,7 +838,7 @@
       </item>
       <tag><c><![CDATA[+r]]></c></tag>
       <item>
-        <p>Forces <c>ets</c> memory block to be moved on realloc.</p>
+        <p>Forces ETS memory block to be moved on realloc.</p>
       </item>
       <tag><marker id="+rg"/><c><![CDATA[+rg ReaderGroupsLimit]]></c></tag>
       <item>
@@ -1268,7 +1268,7 @@
           <item>
             <p>Enables or disables eager check I/O scheduling. Defaults
               to <c>true</c>. The default was changed from <c>false</c>
-              as from <c>ERTS</c> 7.0. The behavior before this
+              as from ERTS 7.0. The behavior before this
               flag was introduced corresponds to <c>+secio false</c>.</p>
             <p>The flag effects when schedulers will check for I/O
               operations possible to execute, and when such I/O operations
@@ -1365,7 +1365,7 @@
           <tag><marker id="+sws"/><c>+sws default|legacy</c></tag>
           <item>
             <p>Sets scheduler wakeup strategy. Default strategy changed in
-              <c>ERTS</c> 5.10 (Erlang/OTP R16A). This strategy was known as
+              ERTS 5.10 (Erlang/OTP R16A). This strategy was known as
               <c>proposal</c> in Erlang/OTP R15. The <c>legacy</c> strategy
               was used as default from R13 up to and including R15.</p>
             <note>
@@ -1446,7 +1446,7 @@
           The current mapping can be retrieved using
           <c><![CDATA[error_logger:warning_map/0]]></c>. For more information,
           see <seealso marker="kernel:error_logger#warning_map/0">
-          <c>error_logger:warning_map/0</c></seealso> in <c>Kernel</c>.</p>
+          <c>error_logger:warning_map/0</c></seealso> in Kernel.</p>
       </item>
       <tag><c><![CDATA[+zFlag Value]]></c></tag>
       <item>
@@ -1515,7 +1515,7 @@
           <c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c>, the runtime system
           waits indefinitely for the crash dump file to be written.</p>
         <p>This variable is used with <seealso marker="kernel:heart">
-          <c>kernel:heart(3)</c></seealso> if <c>heart</c> is running:</p>
+          <c>heart(3)</c></seealso> if <c>heart</c> is running:</p>
         <taglist>
           <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c></tag>
           <item>Suppresses the writing a crash dump file entirely, thus
@@ -1558,7 +1558,7 @@
       <item>
         <p>Contains a list of additional library directories that the code
           server searches for applications and adds to the code path; see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </item>
       <tag><c><![CDATA[ERL_EPMD_ADDRESS]]></c></tag>
       <item>
@@ -1631,14 +1631,14 @@ code:load_abs("..../user_default").    ]]></code>
       <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>,
       <seealso marker="init"><c>init(3)</c></seealso>,
       <seealso marker="kernel:application">
-        <c>kernel:application(3)</c></seealso>,
-      <seealso marker="kernel:auth"><c>kernel:auth(3)</c></seealso>,
-      <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>,
+        <c>application(3)</c></seealso>,
+      <seealso marker="kernel:auth"><c>auth(3)</c></seealso>,
+      <seealso marker="kernel:code"><c>code(3)</c></seealso>,
       <seealso marker="kernel:erl_boot_server">
-        <c>kernel:erl_boot_server(3)</c></seealso>,
-      <seealso marker="kernel:heart"><c>kernel:heart(3)</c></seealso>,
-      <seealso marker="kernel:net_kernel"><c>kernel:net_kernel(3)</c></seealso>,
-      <seealso marker="tools:make"><c>tools:make(3)</c></seealso></p>
+        <c>erl_boot_server(3)</c></seealso>,
+      <seealso marker="kernel:heart"><c>heart(3)</c></seealso>,
+      <seealso marker="kernel:net_kernel"><c>net_kernel(3)</c></seealso>,
+      <seealso marker="tools:make"><c>make(3)</c></seealso></p>
   </section>
 </comref>
 

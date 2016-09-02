@@ -246,7 +246,7 @@
           If it satisfies the request, it is used, otherwise a new
           carrier is created. The implementation has a time
           complexity that is constant.</p>
-        <p>As from <c>ERTS</c> 5.6.1 the emulator refuses to
+        <p>As from ERTS 5.6.1 the emulator refuses to
           use this strategy on other allocators than <c>temp_alloc</c>.
           This because it only causes problems for other allocators.</p>
       </item>
@@ -454,7 +454,7 @@
             enabled) is passed instead of a <c><![CDATA[<utilization>]]></c>,
             a recomended non-zero utilization value is used. The value
             chosen depends on the allocator type and can be changed between
-            <c>ERTS</c> versions. Defaults to <c>de</c>, but this
+            ERTS versions. Defaults to <c>de</c>, but this
             can be changed in the future.</p>
           <p>Carriers are abandoned when
             memory utilization in the allocator instance falls below the
@@ -617,7 +617,7 @@
             SMP support is <c>NoSchedulers+1</c> instances. Each scheduler
             uses a lock-free instance of its own and other threads use
             a common instance.</p>
-          <p>Before <c>ERTS</c> 5.9 it was possible to configure
+          <p>Before ERTS 5.9 it was possible to configure
             a smaller number of thread-specific instances than schedulers.
             This is, however, not possible anymore.</p>
         </item>
@@ -688,7 +688,7 @@
           <p>A map over current allocations is kept by the emulator.
             The allocation map can be retrieved through module
             <seealso marker="tools:instrument">
-            <c>tools:instrument(3)</c></seealso>. <c>+Mim true</c>
+            <c>instrument(3)</c></seealso>. <c>+Mim true</c>
             implies <c>+Mis true</c>. <c>+Mim true</c> is the same as flag
             <seealso marker="erl#instr"><c>-instr</c></seealso> in 
             <c>erl(1)</c>.</p>
@@ -698,7 +698,7 @@
           <p>Status over allocated memory is kept by the emulator.
             The allocation status can be retrieved through module
             <seealso marker="tools:instrument">
-            <c>tools:instrument(3)</c></seealso>.</p>
+            <c>instrument(3)</c></seealso>.</p>
         </item>
         <tag><marker id="Mit"/><c>+Mit X</c></tag>
         <item>
@@ -737,10 +737,10 @@
               <p>Disables features that cannot be enabled while creating an
                 allocator configuration with
                 <seealso marker="runtime_tools:erts_alloc_config">
-                <c>runtime_tools:erts_alloc_config(3)</c></seealso>.</p>
+                <c>erts_alloc_config(3)</c></seealso>.</p>
               <note>
                 <p>This option is to be used only while running
-                  <c>runtime_tools:erts_alloc_config(3)</c>, <em>not</em> when
+                  <c>erts_alloc_config(3)</c>, <em>not</em> when
                   using the created configuration.</p>
               </note>
             </item>
@@ -780,7 +780,7 @@
     </note>
 
     <p>The <seealso marker="runtime_tools:erts_alloc_config">
-      <c>runtime_tools:erts_alloc_config(3)</c></seealso>
+      <c>erts_alloc_config(3)</c></seealso>
       tool can be used to aid creation of an
       <c>erts_alloc</c> configuration that is suitable for a limited
       number of runtime scenarios.</p>
@@ -791,9 +791,9 @@
     <p><seealso marker="erl"><c>erl(1)</c></seealso>,
       <seealso marker="erlang"><c>erlang(3)</c></seealso>,
       <seealso marker="runtime_tools:erts_alloc_config">
-      <c>runtime_tools:erts_alloc_config(3)</c></seealso>,
+      <c>erts_alloc_config(3)</c></seealso>,
       <seealso marker="tools:instrument">
-      <c>tools:instrument(3)</c></seealso></p>
+      <c>instrument(3)</c></seealso></p>
   </section>
 </cref>
 

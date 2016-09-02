@@ -31,14 +31,14 @@
   <app>STDLIB</app>
   <appsummary>The STDLIB application.</appsummary>
   <description>
-    <p>The <c>STDLIB</c> application is mandatory in the sense that the minimal
-      system based on Erlang/OTP consists of <c>Kernel</c> and <c>STDLIB</c>.
-      The <c>STDLIB</c> application contains no services.</p>
+    <p>The STDLIB application is mandatory in the sense that the minimal
+      system based on Erlang/OTP consists of Kernel and STDLIB.
+      The STDLIB application contains no services.</p>
   </description>
 
   <section>
     <title>Configuration</title>
-    <p>The following configuration parameters are defined for the <c>STDLIB</c>
+    <p>The following configuration parameters are defined for the STDLIB
       application. For more information about configuration parameters, see the
       <seealso marker="kernel:app"><c>app(4)</c></seealso> module in Kernel.</p>
 

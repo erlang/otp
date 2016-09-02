@@ -30,7 +30,7 @@
     <file>asn1_introduction.xml</file>
   </header>
 
-  <p>The <c>ASN.1</c> application provides the following:</p>
+  <p>The ASN.1 application provides the following:</p>
 
   <list type="bulleted">
     <item>An ASN.1 compiler for Erlang, which generates encode and

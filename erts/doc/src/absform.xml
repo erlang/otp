@@ -41,21 +41,21 @@
 
   <list type="bulleted">
     <item><seealso marker="stdlib:epp">
-      <c>stdlib:epp(3)</c></seealso></item>
+      <c>epp(3)</c></seealso></item>
     <item><seealso marker="stdlib:erl_eval">
-      <c>stdlib:erl_eval(3)</c></seealso></item>
+      <c>erl_eval(3)</c></seealso></item>
     <item><seealso marker="stdlib:erl_lint">
-      <c>stdlib:erl_lint(3)</c></seealso></item>
+      <c>erl_lint(3)</c></seealso></item>
     <item><seealso marker="stdlib:erl_parse">
-      <c>sdlib:erl_parse(3)</c></seealso></item>
+      <c>erl_parse(3)</c></seealso></item>
     <item><seealso marker="stdlib:erl_pp">
-      <c>stdlib:erl_pp(3)</c></seealso></item>
+      <c>erl_pp(3)</c></seealso></item>
     <item><seealso marker="stdlib:io">
-      <c>stdlib:io(3)</c></seealso></item>
+      <c>io(3)</c></seealso></item>
   </list>
 
   <p>The functions are also used as input and output for parse transforms, see
-    the <seealso marker="compiler:compile"><c>compiler:compile(3)</c></seealso>
+    the <seealso marker="compiler:compile"><c>compile(3)</c></seealso>
     module.</p>
 
   <p>We use the function <c>Rep</c> to denote the mapping from an Erlang source
@@ -177,8 +177,8 @@
       <title>Representation of Parse Errors and End-of-File</title>
       <p>In addition to the representations of forms, the list that represents
         a module declaration (as returned by functions in
-        <seealso marker="stdlib:epp"><c>stdlib:epp(3)</c></seealso> and
-        <seealso marker="stdlib:erl_parse"><c>sdlib:erl_parse(3)</c></seealso>)
+        <seealso marker="stdlib:epp"><c>epp(3)</c></seealso> and
+        <seealso marker="stdlib:erl_parse"><c>erl_parse(3)</c></seealso>)
         can contain the following:</p>
 
       <list type="bulleted">

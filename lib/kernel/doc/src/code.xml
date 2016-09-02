@@ -86,11 +86,11 @@
       an <c>ebin</c> directory are ignored.</p>
     <p>All application directories found in the additional directories
       appears before the standard OTP applications, except for the
-      <c>Kernel</c> and <c>STDLIB</c> applications, which are placed before
+      Kernel and STDLIB applications, which are placed before
       any additional applications. In other words, modules found in any
       of the additional library directories override modules with
-      the same name in OTP, except for modules in <c>Kernel</c> and
-      <c>STDLIB</c>.</p>
+      the same name in OTP, except for modules in Kernel and
+      STDLIB.</p>
     <p>Environment variable <c>ERL_LIBS</c> (if defined) is to contain
       a colon-separated (for Unix-like systems) or semicolon-separated
       (for Windows) list of additional libraries.</p>
@@ -151,7 +151,7 @@ zip:create("mnesia-4.4.7.ez",
      <c>$OTPROOT/lib/mnesia.ez/mnesia/ebin</c> or
      <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
 
-    <p>The code server uses module <c>erl_prim_loader</c> in <c>ERTS</c>
+    <p>The code server uses module <c>erl_prim_loader</c> in ERTS
      (possibly through <c>erl_boot_server</c>) to read code files from
      archives. However, the functions in <c>erl_prim_loader</c> can also be
      used by other applications to read files from archives. For
@@ -688,9 +688,9 @@ ok = code:finish_loading(Prepared),
         <p>Normally, <c><anno>Loaded</anno></c> is the absolute filename
           <c>Filename</c> from which the code is obtained. If the module
           is preloaded (see
-          <seealso marker="sasl:script"><c>sasl:script(4)</c></seealso>),
+          <seealso marker="sasl:script"><c>script(4)</c></seealso>),
           <c>Loaded==preloaded</c>. If the module is Cover-compiled (see
-          <seealso marker="tools:cover"><c>tools:cover(3)</c></seealso>),
+          <seealso marker="tools:cover"><c>cover(3)</c></seealso>),
           <c>Loaded==cover_compiled</c>.</p>
       </desc>
     </func>

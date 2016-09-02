@@ -274,8 +274,8 @@
         marker="stdlib:io"><c>io</c></seealso> module, the file
         handling, the <seealso
         marker="stdlib:unicode"><c>unicode</c></seealso> module, and
-        the bit syntax). Today most modules in <c>Kernel</c> and
-        <c>STDLIB</c>, as well as the VM are Unicode-aware.</p>
+        the bit syntax). Today most modules in Kernel and
+        STDLIB, as well as the VM are Unicode-aware.</p>
       </item>
       <tag>File I/O</tag>
       <item>
@@ -765,7 +765,7 @@ Eshell V5.10.1  (abort with ^G)
     file system). The Unicode character list is used to denote
     filenames or directory names. If the file system content is
     listed, you also get Unicode lists as return value. The support
-    lies in the <c>Kernel</c> and <c>STDLIB</c> modules, which is why
+    lies in the Kernel and STDLIB modules, which is why
     most applications (that does not explicitly require the filenames
     to be in the ISO Latin-1 range) benefit from the Unicode support
     without change.</p>
@@ -843,7 +843,7 @@ Eshell V5.10.1  (abort with ^G)
       <title>Notes About Raw Filenames</title>
       <marker id="notes-about-raw-filenames"/>
       <p>Raw filenames were introduced together with Unicode filename support
-        in <c>ERTS</c> 5.8.2 (Erlang/OTP R14B01). The reason &quot;raw
+        in ERTS 5.8.2 (Erlang/OTP R14B01). The reason &quot;raw
         filenames&quot; were introduced in the system was
 	to be able to represent
         filenames, specified in different encodings on the same system,

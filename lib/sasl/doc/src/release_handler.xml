@@ -31,7 +31,7 @@
   <module>release_handler</module>
   <modulesummary>Unpacking and Installation of Release Packages</modulesummary>
   <description>
-    <p>The <em>release handler</em> process belongs to the <c>SASL</c>
+    <p>The <em>release handler</em> process belongs to the SASL
       application, which is responsible for <em>release handling</em>,
       that is, unpacking, installation, and removal of release packages.</p>
     <p>An introduction to release handling and an example is provided in
@@ -44,7 +44,7 @@
       directory of the previous version of the release, where
       <c>$ROOT</c> is the installation root directory,
       <seealso marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seealso>.
-      Another <c>releases</c> directory can be specified using the <c>SASL</c>
+      Another <c>releases</c> directory can be specified using the SASL
       configuration parameter <c>releases_dir</c> or the OS environment
       variable <c>RELDIR</c>. The release handler must have write access
       to this directory to install the new release.
@@ -56,7 +56,7 @@
       <item>A boot script, <c>Name.boot</c></item>
     </list>
     <p>The <c>.rel</c> file contains information about the release: its name,
-      version, and which <c>ERTS</c> and application versions it uses.</p>
+      version, and which ERTS and application versions it uses.</p>
     <p>A release package can also contain:</p>
     <list type="bulleted">
       <item>A release upgrade file, <c>relup</c></item>
@@ -115,7 +115,7 @@
       <em>System Documentation</em>. In this case, the system
       configuration file <c>sys.config</c> is mandatory.</p>
     <p>The installation of a new release can restart the system. Which
-      program to use is specified by the <c>SASL</c> configuration
+      program to use is specified by the SASL configuration
       parameter <c>start_prg</c>, which defaults
       to <c>$ROOT/bin/start</c>.</p>
     <p>The emulator restart on Windows NT expects that the system is
@@ -132,7 +132,7 @@
       is made permanent.</p>
     <p>The release handler at a node running on a diskless machine,
       or with a read-only file system, must be configured accordingly
-      using the following <c>SASL</c> configuration parameters (for
+      using the following SASL configuration parameters (for
       details, see <seealso marker="sasl_app">sasl(6)</seealso>):</p>
     <taglist>
       <tag><c>masters</c></tag>
@@ -287,7 +287,7 @@
 	  returned, the emulator is restarted
 	  before the upgrade instructions are executed. This
 	  occurs if the emulator or any of the applications
-          <c>Kernel</c>, <c>STDLIB</c>, or <c>SASL</c>
+          Kernel, STDLIB, or SASL
 	  are updated. The new emulator version
 	  and these core applications execute after the restart.
 	  For all other applications the old versions are
@@ -310,13 +310,13 @@
           <tag><c>code_change_timeout</c></tag>
             <item><p>Defines the time-out
             for all calls to 
-	    <seealso marker="stdlib:sys#change_code/4"><c>stdlib:sys:change_code</c></seealso>. 
+	    <seealso marker="stdlib:sys#change_code/4"><c>sys:change_code</c></seealso>.
 	    If no value is specified or <c>default</c> is specified, the 
 	    default value defined in <c>sys</c> is used.</p></item>
           <tag><c>suspend_timeout</c></tag>
             <item><p>Defines the time-out for 
             all calls to 
-	    <seealso marker="stdlib:sys#suspend/1"><c>stdlib:sys:suspend</c></seealso>. 
+	    <seealso marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seealso>.
 	    If no value is specified, the values defined by the <c>Timeout</c> 
 	    parameter of the <c>upgrade</c> or <c>suspend</c> instructions are used.
             If <c>default</c> is specified, the default value defined in
@@ -342,7 +342,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 => {ok,NewVsn}</code>
             <p>If <c>NewVsn</c> is installed with option
               <c>{update_paths,true}</c>, then
-              <seealso marker="kernel:code#lib_dir/1"><c>kernel:code:lib_dir(myapp)</c></seealso> 
+              <seealso marker="kernel:code#lib_dir/1"><c>code:lib_dir(myapp)</c></seealso>
 	      returns <c>/home/user/myapp-1.0</c>.</p></item>
         </taglist>
 	<note>
@@ -801,7 +801,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           is an atom named from the Posix error codes, such as
           <c>enoent</c>, <c>eacces</c>, or <c>eisdir</c>. See
           <seealso marker="kernel:file"><c>file(3)</c></seealso>
-          in <c>Kernel</c>.</p></item>
+          in Kernel.</p></item>
       <tag><c>Posix</c></tag>
         <item><p>Some file operation failed, as for the previous item in
           the list.</p></item>

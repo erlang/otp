@@ -60,7 +60,7 @@
           for example,
           <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
           For information about archive files, see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -87,7 +87,7 @@
           for example,
           <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
           For information about archive files, see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -98,18 +98,18 @@
         <p>Retrieves information about a file. Returns
           <c>{ok, <anno>FileInfo</anno>}</c> if successful, otherwise
           <c>error</c>. <c><anno>FileInfo</anno></c> is a record
-          <c>file_info</c>, defined in the <c>Kernel</c> include file
+          <c>file_info</c>, defined in the Kernel include file
           <c>file.hrl</c>. Include the following directive in the module
           from which the function is called:</p>
         <code type="none">
 -include_lib("kernel/include/file.hrl").</code>
         <p>For more information about the record <c>file_info</c>, see
-          <seealso marker="kernel:file"><c>kernel:file(3)</c></seealso>.</p>
+          <seealso marker="kernel:file"><c>file(3)</c></seealso>.</p>
         <p><c><anno>Filename</anno></c> can also be a file in an archive,
           for example,
           <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia</c>.
           For information about archive files, see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -167,7 +167,7 @@
           can use. This flag is mandatory if flag <c>-loader inet</c>
           is present. On each host, there must be on Erlang node
           with the <seealso marker="kernel:erl_boot_server">
-          <c>kernel:erl_boot_server(3)</c></seealso>,
+          <c>erl_boot_server(3)</c></seealso>,
           which handles the load requests.
           <c>Hosts</c> is a list of IP addresses (hostnames
           are not acceptable).</p>
@@ -184,7 +184,7 @@
     <title>See Also</title>
     <p><seealso marker="init"><c>init(3)</c></seealso>,
       <seealso marker="kernel:erl_boot_server">
-      <c>kernel:erl_boot_server(3)</c></seealso></p>
+      <c>erl_boot_server(3)</c></seealso></p>
   </section>
 </erlref>
 

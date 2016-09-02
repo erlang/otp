@@ -329,7 +329,7 @@
         </item>
         <item>
           <p>
-	    The <c>asn1</c> application would fail to build if the
+	    The ASN.1 application would fail to build if the
 	    <c>.erlang</c> file printed something to standard output.</p>
           <p>
 	    Own Id: OTP-11360</p>
@@ -997,7 +997,7 @@
 	    also been extended. </item><item> The <c>configure</c>
 	    scripts of <c>erl_interface</c> and <c>odbc</c> now
 	    search for thread libraries and thread library quirks the
-	    same way as <c>erts</c> do. </item><item> The
+	    same way as ERTS do. </item><item> The
 	    <c>configure</c> script of the <c>odbc</c> application
 	    now also looks for odbc libraries in <c>lib64</c> and
 	    <c>lib/64</c> directories when building on a 64-bit
