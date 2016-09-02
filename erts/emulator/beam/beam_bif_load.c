@@ -944,8 +944,13 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
     }
 
     if (any_heap_ref_ptrs(c_p->stop, c_p->hend, literals, lit_bsize))
+	goto literal_gc;   
+    *redsp += 1;
+#ifdef HIPE
+    if (nstack_any_heap_ref_ptrs(c_p, literals, lit_bsize))
 	goto literal_gc;
     *redsp += 1;
+#endif
     if (any_heap_refs(c_p->heap, c_p->htop, literals, lit_bsize))
 	goto literal_gc;
     *redsp += 1;
