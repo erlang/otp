@@ -51,6 +51,9 @@ t_copy_literals(Config) when is_list(Config) ->
     true = erlang:delete_module(literals),
     true = erlang:purge_module(literals),
 
+    %% Give the literal collector some time to work...
+    receive after 2000 -> ok end,
+
     %% check that the ex-literals are ok
     [a,b,c] = ref_cell:call(PA, get),
     {a,b,c} = ref_cell:call(PB, get),
