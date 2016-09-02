@@ -45,8 +45,10 @@
       <name name="module" arity="2"/>
       <fsummary>Expand all records in a module.</fsummary>
       <desc>
-        <p>Expands all records in a module. The returned module has no
-          references to records, attributes, or code.</p>
+        <p>Expands all records in a module to use explicit tuple
+        operations and adds explicit module names to calls to BIFs and
+        imported functions.  The returned module has no references to
+        records, attributes, or code.</p>
       </desc>
     </func>
   </funcs>

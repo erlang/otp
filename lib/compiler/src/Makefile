@@ -88,7 +88,6 @@ MODULES =  \
 	sys_core_fold_lists \
 	sys_core_inline \
 	sys_pre_attributes \
-	sys_pre_expand \
 	v3_codegen \
 	v3_core \
 	v3_kernel \
@@ -198,7 +197,6 @@ $(EBIN)/sys_core_dsetel.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
-$(EBIN)/sys_pre_expand.beam: ../../stdlib/include/erl_bits.hrl
 $(EBIN)/v3_codegen.beam: v3_life.hrl
 $(EBIN)/v3_core.beam: core_parse.hrl
 $(EBIN)/v3_kernel.beam: core_parse.hrl v3_kernel.hrl

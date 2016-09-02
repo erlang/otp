@@ -2053,7 +2053,7 @@ munge_expr({bin_element,Line,Value,Size,TypeSpecifierList}, Vars) ->
     {MungedValue,Vars2} = munge_expr(Value, Vars),
     {MungedSize,Vars3} = munge_expr(Size, Vars2),
     {{bin_element,Line,MungedValue,MungedSize,TypeSpecifierList},Vars3};
-munge_expr(Form, Vars) -> % var|char|integer|float|string|atom|nil|eof|default
+munge_expr(Form, Vars) ->
     {Form, Vars}.
 
 munge_exprs([Expr|Exprs], Vars, MungedExprs) when Vars#vars.is_guard=:=true,

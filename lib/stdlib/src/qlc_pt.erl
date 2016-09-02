@@ -1870,7 +1870,8 @@ prep_expr(E, F, S, BF, Imported) ->
 
 unify_column(Frame, Var, Col, BindFun, Imported) ->
     A = anno0(),
-    Call = {call,A,{atom,A,element},[{integer,A,Col}, {var,A,Var}]},
+    Call = {call,A,{remote,A,{atom,A,erlang},{atom,A,element}},
+	    [{integer,A,Col}, {var,A,Var}]},
     element_calls(Call, Frame, BindFun, Imported).
 
 %% cons_tuple is used for representing {V1, ..., Vi | TupleTail}.
@@ -1880,6 +1881,8 @@ unify_column(Frame, Var, Col, BindFun, Imported) ->
 %% about the size of the tuple is known.
 element_calls({call,_,{remote,_,{atom,_,erlang},{atom,_,element}},
                [{integer,_,I},Term0]}, F0, BF, Imported) when I > 0 ->
+    %% Note: erl_expand_records ensures that all calls to element/2
+    %% have an explicit "erlang:" prefix.
     TupleTail = unique_var(),
     VarsL = [unique_var() || _ <- lists:seq(1, I)],
     Vars = VarsL ++ TupleTail,
@@ -1887,10 +1890,6 @@ element_calls({call,_,{remote,_,{atom,_,erlang},{atom,_,element}},
     VarI = lists:nth(I, VarsL),
     {Term, F} = element_calls(Term0, F0, BF, Imported),
     {VarI, unify('=:=', Tuple, Term, F, BF, Imported)};
-element_calls({call,L1,{atom,_,element}=E,As}, F0, BF, Imported) ->
-    %% erl_expand_records should add "erlang:"...
-    element_calls({call,L1,{remote,L1,{atom,L1,erlang},E}, As}, F0, BF,
-                  Imported);
 element_calls(T, F0, BF, Imported) when is_tuple(T) ->
     {L, F} = element_calls(tuple_to_list(T), F0, BF, Imported),
     {list_to_tuple(L), F};
