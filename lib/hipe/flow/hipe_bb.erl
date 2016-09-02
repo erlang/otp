@@ -41,6 +41,8 @@
 
 -include("hipe_bb.hrl").
 
+-export_type([bb/0]).
+
 %%
 %% Constructs a basic block.
 %% Returns a basic block: {bb, Code}

@@ -23,13 +23,14 @@
 -export([finalise/3]).
 -include("hipe_sparc.hrl").
 
-finalise(Defun, TempMap, FPMap0) ->
-  Code = hipe_sparc:defun_code(Defun),
-  {_, SpillLimit} = hipe_sparc:defun_var_range(Defun),
+finalise(CFG, TempMap, FPMap0) ->
+  {_, SpillLimit} = hipe_gensym:var_range(sparc),
   Map = mk_ra_map(TempMap, SpillLimit),
   FPMap1 = mk_ra_map_fp(FPMap0, SpillLimit),
-  NewCode = ra_code(Code, Map, FPMap1, []),
-  Defun#defun{code=NewCode}.
+  hipe_sparc_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map, FPMap1) end, CFG).
+
+ra_bb(BB, Map, FpMap) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, FpMap, [])).
 
 ra_code([I|Insns], Map, FPMap, Accum) ->
   ra_code(Insns, Map, FPMap, [ra_insn(I, Map, FPMap) | Accum]);

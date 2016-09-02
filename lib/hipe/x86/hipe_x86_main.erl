@@ -53,19 +53,23 @@
 ?RTL_TO_X86(MFA, RTL, Options) ->
   Translated = ?option_time(?HIPE_RTL_TO_X86:translate(RTL),
 			    "RTL-to-"?X86STR, Options),
-  SpillRest = 
+  TransCFG = ?option_time(hipe_x86_cfg:init(Translated),
+			  ?X86STR" to cfg", Options),
+  SpillRestCFG =
     case proplists:get_bool(caller_save_spill_restore, Options) of
       true ->
-	?option_time(?HIPE_X86_SPILL_RESTORE:spill_restore(Translated, Options),
+	?option_time(?HIPE_X86_SPILL_RESTORE:spill_restore(TransCFG, Options),
 		     ?X86STR" spill restore", Options);
       false ->
-	Translated
+	TransCFG
     end,
-  Allocated  = ?option_time(?HIPE_X86_RA:ra(SpillRest, Options),
-			    ?X86STR" register allocation", Options),
-  Framed     = ?option_time(?HIPE_X86_FRAME:frame(Allocated, Options), 
-			    ?X86STR" frame", Options),
-  Finalised  = ?option_time(hipe_x86_postpass:postpass(Framed, Options),
-			    ?X86STR" finalise", Options),
+  AllocatedCFG = ?option_time(?HIPE_X86_RA:ra(SpillRestCFG, Options),
+			       ?X86STR" register allocation", Options),
+  FramedCFG    = ?option_time(?HIPE_X86_FRAME:frame(AllocatedCFG, Options),
+			       ?X86STR" frame", Options),
+  Framed       = ?option_time(hipe_x86_cfg:linearise(FramedCFG),
+			      ?X86STR" linearise", Options),
+  Finalised    = ?option_time(hipe_x86_postpass:postpass(Framed, Options),
+			      ?X86STR" finalise", Options),
   ?HIPE_X86_PP:optional_pp(Finalised, MFA, Options),
   {native, ?X86TAG, {unprofiled, Finalised}}.

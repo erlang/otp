@@ -625,7 +625,7 @@ conv_return(I, Map, Data) ->
   {I2, Map0, Data}.
 
 conv_store(I, Map, Data) ->
-  {Base1, Map0} = conv_dst(hipe_rtl:store_base(I), Map), % no immediates allowed
+  {Base1, Map0} = conv_src(hipe_rtl:store_base(I), Map),
   {Src, Map1} = conv_src(hipe_rtl:store_src(I), Map0),
   {Base2, Map2} = conv_src(hipe_rtl:store_offset(I), Map1),
   StOp = conv_stop(hipe_rtl:store_size(I)),
@@ -649,13 +649,27 @@ mk_store(StOp, Src, Base1, Base2) ->
   end.
 
 mk_store2(StOp, Src, Base1, Base2) ->
-  case hipe_sparc:is_temp(Base2) of
+  case hipe_sparc:is_temp(Base1) of
     true ->
-      mk_store_rr(StOp, Src, Base1, Base2);
+      case hipe_sparc:is_temp(Base2) of
+	true ->
+	  mk_store_rr(StOp, Src, Base1, Base2);
+	_ ->
+	  mk_store_ri(StOp, Src, Base1, Base2)
+      end;
     _ ->
-      mk_store_ri(StOp, Src, Base1, Base2)
+      case hipe_sparc:is_temp(Base2) of
+	true ->
+	  mk_store_ri(StOp, Src, Base2, Base1);
+	_ ->
+	  mk_store_ii(StOp, Src, Base1, Base2)
+      end
   end.
   
+mk_store_ii(StOp, Src, Base, Disp) ->
+  Tmp = new_untagged_temp(),
+  mk_set(Base, Tmp, mk_store_ri(StOp, Src, Tmp, Disp)).
+
 mk_store_ri(StOp, Src, Base, Disp) ->
   hipe_sparc:mk_store(StOp, Src, Base, Disp, 'new', []).
 

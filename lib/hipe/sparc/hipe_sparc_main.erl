@@ -24,12 +24,14 @@
 
 rtl_to_sparc(MFA, RTL, Options) ->
   Defun1 = hipe_rtl_to_sparc:translate(RTL),
+  CFG1 = hipe_sparc_cfg:init(Defun1),
   %% io:format("~w: after translate\n", [?MODULE]),
   %% hipe_sparc_pp:pp(Defun1),
-  Defun2 = hipe_sparc_ra:ra(Defun1, Options),
+  CFG2 = hipe_sparc_ra:ra(CFG1, Options),
   %% io:format("~w: after regalloc\n", [?MODULE]),
-  %% hipe_sparc_pp:pp(Defun2),
-  Defun3 = hipe_sparc_frame:frame(Defun2),
+  %% hipe_sparc_pp:pp(hipe_sparc_cfg:linearise(CFG2)),
+  CFG3 = hipe_sparc_frame:frame(CFG2),
+  Defun3 = hipe_sparc_cfg:linearise(CFG3),
   %% io:format("~w: after frame\n", [?MODULE]),
   %% hipe_sparc_pp:pp(Defun3),
   Defun4 = hipe_sparc_finalise:finalise(Defun3),

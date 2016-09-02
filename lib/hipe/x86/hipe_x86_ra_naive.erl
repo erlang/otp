@@ -39,9 +39,8 @@
 -define(HIPE_INSTRUMENT_COMPILER, true). % enable instrumentation
 -include("../main/hipe.hrl").
 
-ra(X86Defun, Coloring_fp, Options) ->
-  #defun{code=Code0} = X86Defun,
-  Code1 = do_insns(Code0),
+ra(CFG0, Coloring_fp, Options) ->
+  CFG = hipe_x86_cfg:map_bbs(fun do_bb/2, CFG0),
   NofSpilledFloats = count_non_float_spills(Coloring_fp),
   NofFloats = length(Coloring_fp),
   ?add_spills(Options, hipe_gensym:get_var(x86) -
@@ -49,9 +48,11 @@ ra(X86Defun, Coloring_fp, Options) ->
 	      NofSpilledFloats -
 	      NofFloats),
   TempMap = [],
-  {X86Defun#defun{code=Code1,
-		  var_range={0, hipe_gensym:get_var(x86)}},
+  {CFG,
    TempMap}.
+
+do_bb(_Lbl, BB) ->
+  hipe_bb:code_update(BB, do_insns(hipe_bb:code(BB))).
 
 count_non_float_spills(Coloring_fp) ->
   count_non_float_spills(Coloring_fp, 0).

@@ -23,15 +23,12 @@
 -module(hipe_arm_ra_ls).
 -export([ra/3]).
 
-ra(Defun, SpillIndex, Options) ->
-  NewDefun = Defun, %% hipe_${ARCH}_ra_rename:rename(Defun,Options),
-  CFG = hipe_arm_cfg:init(NewDefun),
+ra(CFG, SpillIndex, Options) ->
   SpillLimit = hipe_arm_specific:number_of_temporaries(CFG),
-  alloc(NewDefun, SpillIndex, SpillLimit, Options).
+  alloc(CFG, SpillIndex, SpillLimit, Options).
 
-alloc(Defun, SpillIndex, SpillLimit, Options) ->
-  CFG = hipe_arm_cfg:init(Defun),
-  {Coloring, _NewSpillIndex} =
+alloc(CFG, SpillIndex, SpillLimit, Options) ->
+  {Coloring, _NewSpillIndex, Liveness} =
     regalloc(
       CFG,
       hipe_arm_registers:allocatable_gpr()--
@@ -41,16 +38,16 @@ alloc(Defun, SpillIndex, SpillLimit, Options) ->
       [hipe_arm_cfg:start_label(CFG)],
       SpillIndex, SpillLimit, Options,
       hipe_arm_specific),
-  {NewDefun, _DidSpill} =
+  {NewCFG, _DidSpill} =
     hipe_arm_ra_postconditions:check_and_rewrite(
-      Defun, Coloring, 'linearscan'),
+      CFG, Coloring, 'linearscan'),
   TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_arm_specific),
   {SpillMap, _NewSpillIndex2} =
-    hipe_spillmin:stackalloc(CFG, [], SpillIndex, Options,
+    hipe_spillmin:stackalloc(CFG, Liveness, [], SpillIndex, Options,
 			     hipe_arm_specific, TempMap),
   Coloring2 =
     hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), SpillMap),
-  {NewDefun, Coloring2}.
+  {NewCFG, Coloring2}.
 
 regalloc(CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
   hipe_ls_regalloc:regalloc(

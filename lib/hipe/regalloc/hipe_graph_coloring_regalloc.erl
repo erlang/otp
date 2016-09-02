@@ -82,7 +82,7 @@
 regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   PhysRegs = Target:allocatable(),
   ?report2("building IG~n", []),
-  {IG, Spill} = build_ig(CFG, Target),
+  {IG, Spill, Live} = build_ig(CFG, Target),
 
   %% check_ig(IG),
   ?report3("graph: ~p~nphysical regs: ~p~n", [list_ig(IG), PhysRegs]),
@@ -102,7 +102,7 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   Coloring = [{X, {reg, X}} || X <- NotAllocatable] ++ Cols,
   ?ASSERT(check_coloring(Coloring, IG, Target)),
 
-  {Coloring, NewSpillIndex}.
+  {Coloring, NewSpillIndex, Live}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -126,7 +126,7 @@ build_ig0(CFG, Target) ->
 			     empty_ig(NumN), 
 			     empty_spill(NumN),
 			     Target),
-  {normalize_ig(IG), Spill}.
+  {normalize_ig(IG), Spill, Live}.
 
 build_ig_bbs([], _CFG, _Live, IG, Spill, _Target) ->
   {IG, Spill};

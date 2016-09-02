@@ -53,11 +53,11 @@
 -export([defun_to_cfg/1,
 	 check_and_rewrite/2]).
 
-defun_to_cfg(Defun) ->
-  hipe_arm_cfg:init(Defun).
+defun_to_cfg(AlreadyACFG) ->
+  AlreadyACFG.
 
-check_and_rewrite(Defun, Coloring) ->
-  hipe_arm_ra_postconditions:check_and_rewrite(Defun, Coloring, 'normal').
+check_and_rewrite(CFG, Coloring) ->
+  hipe_arm_ra_postconditions:check_and_rewrite(CFG, Coloring, 'normal').
 
 reverse_postorder(CFG) ->
   hipe_arm_cfg:reverse_postorder(CFG).

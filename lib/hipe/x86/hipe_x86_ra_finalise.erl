@@ -25,23 +25,36 @@
 -define(HIPE_X86_RA_FINALISE,	hipe_amd64_ra_finalise).
 -define(HIPE_X86_REGISTERS,	hipe_amd64_registers).
 -define(HIPE_X86_X87,		hipe_amd64_x87).
+-define(HIPE_X86_SSE2,		hipe_amd64_sse2).
+-define(IF_HAS_SSE2(Expr),	Expr).
 -else.
 -define(HIPE_X86_RA_FINALISE,	hipe_x86_ra_finalise).
 -define(HIPE_X86_REGISTERS,	hipe_x86_registers).
 -define(HIPE_X86_X87,		hipe_x86_x87).
+-define(IF_HAS_SSE2(Expr),).
 -endif.
 
 -module(?HIPE_X86_RA_FINALISE).
 -export([finalise/4]).
 -include("../x86/hipe_x86.hrl").
 
-finalise(Defun, TempMap, FpMap, Options) ->
-  Defun1 = finalise_ra(Defun, TempMap, FpMap, Options),
+finalise(CFG0, TempMap, FpMap, Options) ->
+  CFG1 = finalise_ra(CFG0, TempMap, FpMap, Options),
   case proplists:get_bool(x87, Options) of
     true ->
-      ?HIPE_X86_X87:map(Defun1);
+      ?HIPE_X86_X87:map(CFG1);
     _ ->
-      Defun1
+      case
+	proplists:get_bool(inline_fp, Options)
+	and (proplists:get_value(regalloc, Options) =:= linear_scan)
+      of
+	%% Ugly, but required to avoid Dialyzer complaints about "Unknown
+	%% function" hipe_x86_sse2:map/1
+	?IF_HAS_SSE2(true ->
+			?HIPE_X86_SSE2:map(CFG1);)
+	false ->
+	  CFG1
+      end
   end.
 
 %%%
@@ -50,15 +63,16 @@ finalise(Defun, TempMap, FpMap, Options) ->
 %%% but I just want this to work now)
 %%%
 
-finalise_ra(Defun, [], [], _Options) ->
-  Defun;
-finalise_ra(Defun, TempMap, FpMap, Options) ->
-  Code = hipe_x86:defun_code(Defun),
-  {_, SpillLimit} = hipe_x86:defun_var_range(Defun),
+finalise_ra(CFG, [], [], _Options) ->
+  CFG;
+finalise_ra(CFG, TempMap, FpMap, Options) ->
+  {_, SpillLimit} = hipe_gensym:var_range(x86),
   Map = mk_ra_map(TempMap, SpillLimit),
   FpMap0 = mk_ra_map_fp(FpMap, SpillLimit, Options),
-  NewCode = ra_code(Code, Map, FpMap0),
-  Defun#defun{code=NewCode}.
+  hipe_x86_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map, FpMap0) end, CFG).
+
+ra_bb(BB, Map, FpMap) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, FpMap)).
 
 ra_code(Code, Map, FpMap) ->
   [ra_insn(I, Map, FpMap) || I <- Code].
