@@ -591,12 +591,6 @@ select_fail_do(Opts) ->
 
 
 -define(S(T),ets:info(T,memory)).
--define(TAB_STRUCT_SZ, erts_debug:get_internal_state('DbTable_words')).
-%%-define(NORMAL_TAB_STRUCT_SZ, 26). %% SunOS5.8, 32-bit, non smp, private heap
-%%
-%% The hardcoded expected memory sizes (in words) are the ones we expect on:
-%%   SunOS5.8, 32-bit, non smp, private heap
-%%
 
 %% Whitebox test of ets:info(X, memory).
 memory(Config) when is_list(Config) ->
@@ -698,25 +692,15 @@ chk_normal_tab_struct_size() ->
 	      erlang:system_info(smp_support),
 	      erlang:system_info(heap_type)},
     io:format("System = ~p~n", [System]),
-    io:format("?TAB_STRUCT_SZ=~p~n", [?TAB_STRUCT_SZ]),
     ok.
-
-sizeof_ext_segtab() ->
-    case {erlang:system_info(wordsize),
-	  erlang:system_info(smp_support)} of
-	{4,true} -> 5 + 3;
-	{4,false} -> 3 + 3;
-	{8,true} -> 4 + 2;
-	{8,false} -> 3 + 2
-    end.
 
 adjust_xmem([_T1,_T2,_T3,_T4], {A0,B0,C0,D0} = _Mem0, EstCnt) ->
     %% Adjust for 64-bit, smp, and os:
     %%   Table struct size may differ.
 
-    TabDiff = ?TAB_STRUCT_SZ,
-    HTabDiff = TabDiff + EstCnt*sizeof_ext_segtab(),
-    {A0+TabDiff, B0+HTabDiff, C0+HTabDiff, D0+HTabDiff}.
+    {TabSz, EstSz} = erts_debug:get_internal_state('DbTable_words'),
+    HTabSz = TabSz + EstCnt*EstSz,
+    {A0+TabSz, B0+HTabSz, C0+HTabSz, D0+HTabSz}.
 
 %% Misc. whitebox tests
 t_whitebox(Config) when is_list(Config) ->    

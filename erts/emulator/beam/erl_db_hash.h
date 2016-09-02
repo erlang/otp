@@ -107,6 +107,7 @@ typedef struct {
 }DbHashStats;
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);
+Eterm erts_ets_hash_sizeof_ext_segtab(void);
 Eterm erts_ets_hash_get_memstate(Process*, DbTableHash* tb);
 Eterm erts_ets_hash_restore_memstate(DbTableHash* tb, Eterm memstate);
 

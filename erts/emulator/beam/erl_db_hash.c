@@ -2978,6 +2978,11 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
 }
 
 /* For testing only */
+Eterm erts_ets_hash_sizeof_ext_segtab(void)
+{
+    return make_small(((SIZEOF_EXT_SEGTAB(0)-1) / sizeof(UWord)) + 1);
+}
+/* For testing only */
 Eterm erts_ets_hash_get_memstate(Process* p, DbTableHash* tb)
 {
     Eterm seg_cnt;

@@ -3545,7 +3545,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	else if (ERTS_IS_ATOM_STR("DbTable_words", BIF_ARG_1)) {
 	    /* Used by ets_SUITE (stdlib) */
 	    size_t words = (sizeof(DbTable) + sizeof(Uint) - 1)/sizeof(Uint);
-	    BIF_RET(make_small((Uint) words));
+            Eterm* hp = HAlloc(BIF_P ,3);
+	    BIF_RET(TUPLE2(hp, make_small((Uint) words),
+                           erts_ets_hash_sizeof_ext_segtab()));
 	}
         else if (ERTS_IS_ATOM_STR("DbTable_meta", BIF_ARG_1)) {
             /* Used by ets_SUITE (stdlib) */
