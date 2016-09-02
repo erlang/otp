@@ -58,7 +58,7 @@
 	 des_cfb_iter/1,
 	 des_ecb/1,
 	 des3_cbc/1,
-	 des3_cfb/1,
+	 des3_cbf/1,
 	 rc2_cbc/1,
 	 aes_cfb/1,
 	 aes_cbc/1,
@@ -102,7 +102,7 @@ groups() ->
        hmac_rfc2202, hmac_rfc4231_sha224, hmac_rfc4231_sha256,
        hmac_rfc4231_sha384, hmac_rfc4231_sha512,
        des_cbc, aes_cfb, aes_cbc,
-       des_cfb, des_cfb_iter, des3_cbc, des3_cfb, rc2_cbc,
+       des_cfb, des_cfb_iter, des3_cbc, des3_cbf, rc2_cbc,
        aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
        rand_uniform_test, strong_rand_test,
        rsa_verify_test, dsa_verify_test, rsa_sign_test,
@@ -969,6 +969,9 @@ des_cbc(doc) ->
 des_cbc(suite) ->
     [];
 des_cbc(Config) when is_list(Config) ->
+    if_supported(des_cbc, fun des_cbc_do/0).
+
+des_cbc_do() ->
     ?line Key =  hexstr2bin("0123456789abcdef"),
     ?line IVec = hexstr2bin("1234567890abcdef"),
     ?line Plain = "Now is the time for all ",
@@ -992,6 +995,9 @@ des_cbc_iter(doc) ->
 des_cbc_iter(suite) ->
     [];
 des_cbc_iter(Config) when is_list(Config) ->
+    if_supported(des_cbc, fun des_cbc_iter_do/0).
+
+des_cbc_iter_do() ->
     ?line Key =  hexstr2bin("0123456789abcdef"),
     ?line IVec = hexstr2bin("1234567890abcdef"),
     ?line Plain1 = "Now is the time ",
@@ -1011,6 +1017,9 @@ des_cfb(doc) ->
 des_cfb(suite) ->
     [];
 des_cfb(Config) when is_list(Config) ->
+    if_supported(des_cfb, fun des_cfb_do/0).
+
+des_cfb_do() ->
     ?line Key =  hexstr2bin("0123456789abcdef"),
     ?line IVec = hexstr2bin("1234567890abcdef"),
     ?line Plain = "Now is the",
@@ -1027,6 +1036,9 @@ des_cfb_iter(doc) ->
 des_cfb_iter(suite) ->
     [];
 des_cfb_iter(Config) when is_list(Config) ->
+    if_supported(des_cfb, fun des_cfb_iter_do/0).
+
+des_cfb_iter_do() ->
     ?line Key =  hexstr2bin("0123456789abcdef"),
     ?line IVec = hexstr2bin("1234567890abcdef"),
     ?line Plain1 = "Now i",
@@ -1045,6 +1057,9 @@ des_ecb(doc) ->
 des_ecb(suite) ->
     [];
 des_ecb(Config) when is_list(Config) ->
+    if_supported(des_ecb, fun des_ecb_do/0).
+
+des_ecb_do() ->
     ?line Key =  hexstr2bin("0123456789abcdef"),
     ?line Cipher1 = crypto:des_ecb_encrypt(Key, "Now is t"),
     ?line m(Cipher1, hexstr2bin("3fa40e8a984d4815")),
@@ -1081,6 +1096,9 @@ des3_cbc(doc) ->
 des3_cbc(suite) ->
     [];
 des3_cbc(Config) when is_list(Config) ->
+    if_supported(des3_cbc, fun des3_cbc_do/0).
+
+des3_cbc_do() ->
     ?line Key1 = hexstr2bin("0123456789abcdef"),
     ?line Key2 = hexstr2bin("fedcba9876543210"),
     ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),
@@ -1112,17 +1130,18 @@ des3_cbc(Config) when is_list(Config) ->
 
 %%
 %%
-des3_cfb(doc) ->
+des3_cbf(doc) ->
     "Encrypt and decrypt according to CFB 3DES, and check the result.";
-des3_cfb(suite) ->
+des3_cbf(suite) ->
     [];
-des3_cfb(Config) when is_list(Config) ->
+des3_cbf(Config) when is_list(Config) ->
     case openssl_version() of
 	V when V < 16#90705F -> {skipped,"OpenSSL version too old"};
-	_ -> des3_cfb_do()
+	_ ->
+	    if_supported(des3_cbf, fun des3_cbf_do/0)
     end.
 
-des3_cfb_do() ->
+des3_cbf_do() ->
     ?line Key1 = hexstr2bin("0123456789abcdef"),
     ?line Key2 = hexstr2bin("fedcba9876543210"),
     ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),
