@@ -63,7 +63,6 @@
 	     sys_core_fold_lists,
 	     sys_core_inline,
 	     sys_pre_attributes,
-	     sys_pre_expand,
 	     v3_codegen,
 	     v3_core,
 	     v3_kernel,
