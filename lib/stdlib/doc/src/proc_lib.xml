@@ -59,9 +59,9 @@
     <p>When a process that is started using <c>proc_lib</c> terminates
       abnormally (that is, with another exit reason than <c>normal</c>,
       <c>shutdown</c>, or <c>{shutdown,Term}</c>), a <em>crash report</em>
-      is generated, which is written to terminal by the default <c>SASL</c>
+      is generated, which is written to terminal by the default SASL
       event handler. That is, the crash report is normally only visible
-      if the <c>SASL</c> application is started; see
+      if the SASL application is started; see
       <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso> and section
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
       in the SASL User's Guide.</p>

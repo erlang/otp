@@ -320,7 +320,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seealso> in <c>ERTS</c>.</p>
+          <seealso marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seealso> in ERTS.</p>
       </desc>
     </func>
 
@@ -330,7 +330,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seealso> in <c>ERTS</c>.</p>
+          <seealso marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seealso> in ERTS.</p>
       </desc>
     </func>
 

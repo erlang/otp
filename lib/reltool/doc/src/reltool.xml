@@ -47,7 +47,7 @@
 
     <p>The tool uses an installed Erlang/OTP system as input.
     <c>root_dir</c> is the root directory of the analysed system and
-    it defaults to the system executing <c>reltool</c>. Applications
+    it defaults to the system executing Reltool. Applications
     may also be located outside <c>root_dir</c>. <c>lib_dirs</c>
     defines library directories where additional applications
     may reside and it defaults to the directories
@@ -56,7 +56,7 @@
 
     <p>An application directory <c>AppDir</c> under a library
     directory is recognized by the existence of an <c>AppDir/ebin</c>
-    directory. If this does not exist, <c>reltool</c> will not
+    directory. If this does not exist, Reltool will not
     consider <c>AppDir</c> at all when looking for applications.</p>
 
     <p>It is recommended that application directories are named as the
@@ -81,14 +81,14 @@
       <tag><c>config</c></tag>
       <item>
         <p>This is the main option and it controls the configuration
-           of <c>reltool</c>.  It can either be a <c>sys</c> tuple or
+           of Reltool.  It can either be a <c>sys</c> tuple or
            a name of a <c>file</c> containing a sys tuple.</p>
       </item>
 
       <tag><c>trap_exit</c></tag>
       <item>
         <p>This option controls the error handling behavior of
-           <c>reltool</c>.  By default the window processes traps
+           Reltool.  By default the window processes traps
            exit, but this behavior can altered by setting
            <c>trap_exit</c> to <c>false</c>.</p>
       </item>

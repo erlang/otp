@@ -216,7 +216,7 @@ do_recv(Sock, Bs) ->
           time-out in milliseconds. Defaults to <c>infinity</c>.</p>
         <note>
           <p>The default values for options specified to <c>connect</c> can
-            be affected by the <c>Kernel</c> configuration parameter
+            be affected by the Kernel configuration parameter
             <c>inet_default_connect_options</c>. For details, see
             <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
         </note>
@@ -293,7 +293,7 @@ do_recv(Sock, Bs) ->
           <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
         <note>
           <p>The default values for options specified to <c>listen</c> can
-            be affected by the <c>Kernel</c> configuration parameter
+            be affected by the Kernel configuration parameter
             <c>inet_default_listen_options</c>. For details, see
             <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
         </note>
@@ -307,7 +307,7 @@ do_recv(Sock, Bs) ->
       <type_desc variable="HttpPacket">See the description of
         <c>HttpPacket</c> in
         <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
-      in <c>ERTS</c>.
+      in ERTS.
       </type_desc>
       <desc>
         <p>Receives a packet from a socket in passive

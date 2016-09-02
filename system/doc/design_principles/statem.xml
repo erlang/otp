@@ -33,7 +33,7 @@
   <p>
     This section is to be read with the
     <seealso marker="stdlib:gen_statem"><c>gen_statem(3)</c></seealso>
-    manual page in <c>STDLIB</c>, where all interface functions and callback
+    manual page in STDLIB, where all interface functions and callback
     functions are described in detail.
   </p>
   <note>
@@ -310,7 +310,7 @@ start_link(Code) ->
           as <c>{global,Name}</c>, then the <c>gen_statem</c> is
           registered using
           <seealso marker="kernel:global#register_name/2"><c>global:register_name/2</c></seealso>
-          in <c>Kernel</c>.
+          in Kernel.
         </p>
       </item>
       <item>

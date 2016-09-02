@@ -87,13 +87,13 @@
           the new one.</p>
         <p><c>NewState</c> is stored as <c>hash_state</c> among the
           other <c>frag_properties</c>.</p>
-        <p>As a part of the <c>add_frag</c> procedure, <c>Mnesia</c> iterates
+        <p>As a part of the <c>add_frag</c> procedure, Mnesia iterates
           over all fragments corresponding to the <c>IterFrags</c> numbers
           and starts <c>key_to_frag_number(NewState,RecordKey)</c> for
           each record. If the new fragment differs from the old
           fragment, the record is moved to the new fragment.</p>
         <p>As the <c>add_frag</c> procedure is a part of a schema
-          transaction, <c>Mnesia</c> acquires write locks on the
+          transaction, Mnesia acquires write locks on the
           affected tables. That is, both the fragments corresponding
           to <c>IterFrags</c> and those corresponding to
           <c>AdditionalLockFrags</c>.</p>
@@ -112,7 +112,7 @@
       <desc>
         <p><c>NewState</c> is stored as <c>hash_state</c> among the
           other <c>frag_properties</c>.</p>
-        <p>As a part of the <c>del_frag</c> procedure, <c>Mnesia</c> iterates
+        <p>As a part of the <c>del_frag</c> procedure, Mnesia iterates
           over all fragments corresponding to the <c>IterFrags</c> numbers
           and starts <c>key_to_frag_number(NewState,RecordKey)</c> for
           each record. If the new fragment differs from the old
@@ -120,7 +120,7 @@
         <p>Notice that all records in the last fragment must be moved to
           another fragment, as the entire fragment is deleted.</p>
         <p>As the <c>del_frag</c> procedure is a part of a schema
-          transaction, <c>Mnesia</c> acquires write locks on the
+          transaction, Mnesia acquires write locks on the
           affected tables. That is, both the fragments corresponding
           to <c>IterFrags</c> and those corresponding to
           <c>AdditionalLockFrags</c>.</p>
@@ -134,7 +134,7 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Starts whenever <c>Mnesia</c> needs to determine
+        <p>Starts whenever Mnesia needs to determine
           which fragment a certain record belongs to. It is typically
           started at <c>read</c>, <c>write</c>, and <c>delete</c>.</p>
       </desc>
@@ -149,7 +149,7 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>This function is called whenever <c>Mnesia</c> needs to determine
+        <p>This function is called whenever Mnesia needs to determine
           which fragments that need to be searched for a <c>MatchSpec</c>.
           It is typically called by <c>select</c> and
           <c>match_object</c>.</p>

@@ -136,7 +136,7 @@
               (see
               <seealso marker="erts:absform">The Abstract Format</seealso>
               in ERTS User's Guide) in the compiled beam module. Tools
-	      such as <c>Debugger</c>, <c>Xref</c>, and <c>Cover</c> require 
+	      such as Debugger, Xref, and Cover require
 	      the debug information to be included.</p>
 
             <p><em>Warning</em>: Source code can be reconstructed from
@@ -544,7 +544,7 @@ module.beam: module.erl \
 	    compiler to be deprecated. Notice that the compiler does not know
 	      about attribute <c>-deprecated()</c>, but uses an
 	      assembled list of deprecated functions in Erlang/OTP. To
-	      do a more general check, the <c>Xref</c> tool can be used.
+	      do a more general check, the Xref tool can be used.
 	      See also
 	      <seealso marker="tools:xref#deprecated_function">xref(3)</seealso>
               and the function
@@ -846,7 +846,7 @@ pi() -> 3.1416.
   <section>
     <title>Inlining of List Functions</title>
     <p>The compiler can also inline various list manipulation functions
-      from the module <c>list</c> in <c>STDLIB</c>.</p>
+      from the module <c>list</c> in STDLIB.</p>
 
     <p>This feature must be explicitly enabled with a compiler option or a
       <c>-compile()</c> attribute in the source module.</p>

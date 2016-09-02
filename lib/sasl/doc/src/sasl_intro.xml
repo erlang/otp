@@ -32,7 +32,7 @@
 
   <section>
     <title>Scope</title>
-    <p>The <c>SASL</c> application provides support for:</p>
+    <p>The SASL application provides support for:</p>
     <list type="bulleted">
       <item>Error logging</item>
       <item>Alarm handling</item>

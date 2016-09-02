@@ -391,7 +391,7 @@
           <item>
             <p><c>{hash, Hash}</c> - Describes which BIF is
               used to calculate the hash values of the objects stored in the
-              <c>dets</c> table. Possible values of <c>Hash</c>:</p>
+              Dets table. Possible values of <c>Hash</c>:</p>
             <list>
               <item>
                 <p><c>hash</c> - Implies that the <c>erlang:hash/2</c> BIF

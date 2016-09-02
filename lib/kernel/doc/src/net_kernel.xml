@@ -55,7 +55,7 @@ $ <input>erl -sname foobar</input></pre>
       <seealso marker="erts:erl"><c>erl</c></seealso>.</p>
     <p>Normally, connections are established automatically when
       another node is referenced. This functionality can be disabled
-      by setting <c>Kernel</c> configuration parameter
+      by setting Kernel configuration parameter
       <c>dist_auto_connect</c> to <c>false</c>, see
       <seealso marker="kernel_app"><c>kernel(6)</c></seealso>. In this case,
       connections must be established explicitly by calling
@@ -146,7 +146,7 @@ $ <input>erl -sname foobar</input></pre>
           are stopped. Two
           option lists are considered the same if they contain the same
           set of options.</p>
-        <p>As from <c>Kernel</c> version 2.11.4, and <c>ERTS</c> version
+        <p>As from Kernel version 2.11.4, and ERTS version
           5.5.4, the following is guaranteed:</p>
         <list type="bulleted">
           <item><p><c>nodeup</c> messages are delivered before delivery
@@ -156,13 +156,13 @@ $ <input>erl -sname foobar</input></pre>
             messages from the remote node that have been passed
             through the connection have been delivered.</p></item>
         </list>
-        <p>Notice that this is <em>not</em> guaranteed for <c>Kernel</c>
+        <p>Notice that this is <em>not</em> guaranteed for Kernel
           versions before 2.11.4.</p>
-        <p>As from <c>Kernel</c> version 2.11.4, subscriptions can also be
+        <p>As from Kernel version 2.11.4, subscriptions can also be
           made before the <c>net_kernel</c> server is started, that is,
           <c>net_kernel:monitor_nodes/[1,2]</c> does not return
           <c>ignored</c>.</p>
-        <p>As from <c>Kernel</c> version 2.13, and <c>ERTS</c> version
+        <p>As from Kernel version 2.13, and ERTS version
           5.7, the following is guaranteed:</p>
         <list type="bulleted">
           <item><p><c>nodeup</c> messages are delivered after the
@@ -172,7 +172,7 @@ $ <input>erl -sname foobar</input></pre>
 	    corresponding node has disappeared in results from
 	    <c>erlang:nodes/X</c>.</p></item>
         </list>
-        <p>Notice that this is <em>not</em> guaranteed for <c>Kernel</c>
+        <p>Notice that this is <em>not</em> guaranteed for Kernel
           versions before 2.13.</p>
         <p>The format of the node status change messages depends on
           <c><anno>Options</anno></c>. If <c><anno>Options</anno></c> is

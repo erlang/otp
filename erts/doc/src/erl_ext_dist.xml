@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2015</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -119,7 +119,7 @@
     <tcaption>Compressed Data Format when Expanded</tcaption></table>
     <marker id="utf8_atoms"/>
     <note>
-      <p>As from <c>ERTS</c> 5.10 (OTP R16) support
+      <p>As from ERTS 5.10 (OTP R16) support
         for UTF-8 encoded atoms has been introduced in the external format.
         However, only characters that can be encoded using Latin-1 (ISO-8859-1)
         are currently supported in atoms. The support for UTF-8 encoded atoms
@@ -149,9 +149,9 @@
     <title>Distribution Header</title>
     <p>
       <marker id="distribution_header"/>
-      As from <c>ERTS</c> 5.7.2 the old atom cache protocol was
+      As from ERTS 5.7.2 the old atom cache protocol was
       dropped and a new one was introduced. This protocol
-      introduced the distribution header. Nodes with an <c>ERTS</c> version
+      introduced the distribution header. Nodes with an ERTS version
       earlier than 5.7.2 can still communicate with new nodes,
       but no distribution header and no atom cache are used.</p>
     <p>
@@ -799,7 +799,7 @@
       </p>
       <note>
 	<p>
-	  <c>SMALL_ATOM_EXT</c> was introduced in <c>ERTS</c> 5.7.2 and
+	  <c>SMALL_ATOM_EXT</c> was introduced in ERTS 5.7.2 and
 	  require an exchange of distribution flag
 	  <seealso marker="erl_dist_protocol#dflags">
 	  <c>DFLAG_SMALL_ATOM_TAGS</c></seealso> in the

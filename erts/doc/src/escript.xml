@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2015</year>
+      <year>2007</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -101,7 +101,7 @@ io:setopts([{encoding, unicode}])</code>
             is <c>latin1</c>, as the script runs in a non-interactive terminal
             (see section
             <seealso marker="stdlib:unicode_usage#unicode_options_summary">
-            Summary of Options</seealso>) in the <c>STDLIB</c> User's Guide.</p>
+            Summary of Options</seealso>) in the STDLIB User's Guide.</p>
         </note>
         <p>On the third line (or second line depending on the presence
           of the Emacs directive), arguments can be specified to
@@ -193,7 +193,7 @@ halt(1).</pre>
           as one of the emulator flags. <c>Module</c> must be the
           name of a module that has an exported <c>main/1</c>
           function. For more information about archives and code loading, see
-          <seealso marker="kernel:code"><c>kernel:code(3)</c></seealso>.</p>
+          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
         <p>It is often very convenient to have a header in
           the escript, especially on Unix platforms. However, the header
           is optional, so you directly can "execute"

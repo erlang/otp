@@ -138,7 +138,7 @@
             <p>File information as in
               <seealso marker="kernel:file#read_file_info/1">
               <c>file:read_file_info/1</c></seealso>
-	    in <c>Kernel</c></p>
+	    in Kernel</p>
           </item>
           <tag><c>comment</c></tag>
           <item>
@@ -345,7 +345,7 @@
               prepended to filenames when extracting them from the
               zip archive. (Acting like
 	      <seealso marker="kernel:file#set_cwd/1">
-              <c>file:set_cwd/1</c></seealso> in <c>Kernel</c>,
+              <c>file:set_cwd/1</c></seealso> in Kernel,
 	      but without changing the global <c>cwd</c> property.)</p>
           </item>
         </taglist>
@@ -420,7 +420,7 @@
               (<c>cwd</c>). This is prepended to filenames when adding them,
               although not in the zip archive (acting like
 	      <seealso marker="kernel:file#set_cwd/1">
-              <c>file:set_cwd/1</c></seealso> in <c>Kernel</c>, but without
+              <c>file:set_cwd/1</c></seealso> in Kernel, but without
               changing the global <c>cwd</c> property.).</p>
           </item>
           <tag><c>{compress, <anno>What</anno>}</c></tag>

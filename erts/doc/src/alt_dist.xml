@@ -40,7 +40,7 @@
 
   <p>The section is a step-by-step explanation of the
     <c><![CDATA[uds_dist]]></c> example application (in the
-    <c>Kernel</c> application <c><![CDATA[examples]]></c> directory). The
+    Kernel application <c><![CDATA[examples]]></c> directory). The
     <c><![CDATA[uds_dist]]></c> application implements distribution over Unix
     domain sockets and is written for the Sun Solaris 2 operating environment.
     The mechanisms are however general and apply to any operating system Erlang
@@ -379,15 +379,15 @@
         (line 40) can be used to implement an interface similar to
         Unix <c><![CDATA[writev]]></c> for output. The Erlang runtime
         system could previously not use <c>outputv</c> for the
-        distribution, but it can as from <c>ERTS</c> 5.7.2.
-        As this driver was written before <c>ERTS</c> 5.7.2 it does 
+        distribution, but it can as from ERTS 5.7.2.
+        As this driver was written before ERTS 5.7.2 it does
         not use the <c>outputv</c> callback. Using the <c>outputv</c>
         callback is preferred, as it reduces copying of data. (We
         will however use scatter/gather I/O internally in the driver.)</p>
 
-      <p>As from <c>ERTS</c> 5.5.3 the driver interface was extended with
+      <p>As from ERTS 5.5.3 the driver interface was extended with
         version control and the possibility to pass capability information.
-        Capability flags are present on line 48. As from <c>ERTS</c> 5.7.4 flag
+        Capability flags are present on line 48. As from ERTS 5.7.4 flag
         <seealso marker="driver_entry#driver_flags">
         <c>ERL_DRV_FLAG_SOFT_BUSY</c></seealso> is required for drivers that
         are to be used by the distribution. The soft busy flag implies that the

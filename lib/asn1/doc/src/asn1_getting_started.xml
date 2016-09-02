@@ -678,7 +678,7 @@ ok
  1081,32,1043,1085,1086,1084]</pre>
 
       <p>For details, see the <seealso marker="stdlib:unicode">unicode</seealso>
-      module in <c>stdlib</c>.</p>
+      module in STDLIB.</p>
 
       <p>In the following example, this ASN.1 specification is used:</p>
       <pre>
