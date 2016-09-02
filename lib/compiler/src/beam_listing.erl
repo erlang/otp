@@ -49,10 +49,6 @@ module(Stream, {Mod,Exp,Attr,Code,NumLabels}) ->
 			[Name, Arity, Entry]),
 	      io:put_chars(Stream, format_asm(Asm))
       end, Code);
-module(Stream, {Mod,Exp,Inter}) ->
-    %% Other kinds of intermediate formats.
-    io:fwrite(Stream, "~w.~n~p.~n", [Mod,Exp]),
-    foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Inter);
 module(Stream, [_|_]=Fs) ->
     %% Form-based abstract format.
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
