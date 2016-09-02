@@ -1902,6 +1902,31 @@ header_decode_two_bytes_one_sent_passive(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+
+packet(Config, Data, Send, Recv, Quantity, Packet, Active) when Packet == 0;
+								Packet == raw ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, Send ,[Data, Quantity]}},
+					{options, [{nodelay, true},{packet, Packet} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, Recv, [Data, Quantity]}},
+					{options, [{active, Active}, {nodelay, true},
+						   {packet, Packet} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client);
+
 packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
