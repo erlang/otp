@@ -452,11 +452,7 @@ timer_delay(Config) when is_list(Config) ->
     TimeBefore = erlang:monotonic_time(),
     Timeout0 = 350,
     erlang:port_command(Port, <<?DELAY_START_TIMER,Timeout0:32>>),
-    Timeout = Timeout0 +
-    case os:type() of
-        {win32,_} -> 0;			%Driver doesn't sleep on Windows.
-        _ -> 1000
-    end,
+    Timeout = Timeout0 + 1000,
     receive
         {Port,{data,[?TIMER]}} ->
             Elapsed = erl_millisecs() - erl_millisecs(TimeBefore),
