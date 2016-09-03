@@ -78,6 +78,7 @@
 (autoload 'erlang-find-tag-other-window "erlang"
   "Like `find-tag-other-window'.  Capable of retreiving Erlang modules.")
 
+(autoload 'erlang-edoc-mode "erlang-edoc" "Toggle Erlang-Edoc mode on or off." t)
 
 ;;
 ;; Associate files extensions ".erl" and ".hrl" with Erlang mode.
