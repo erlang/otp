@@ -58,7 +58,7 @@ count_non_float_spills(Coloring_fp) ->
   count_non_float_spills(Coloring_fp, 0).
 
 count_non_float_spills([{_,To}|Tail], Num) ->
-  case ?HIPE_X86_SPECIFIC_FP:is_precoloured(To) of
+  case ?HIPE_X86_SPECIFIC_FP:is_precoloured(To, no_context) of
     true ->
       count_non_float_spills(Tail, Num);
     false ->

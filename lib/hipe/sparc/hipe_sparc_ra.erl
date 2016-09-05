@@ -27,15 +27,15 @@ ra(CFG0, Options) ->
   {CFG1, _FPLiveness1, Coloring_fp, SpillIndex}
     = case proplists:get_bool(inline_fp, Options) of
 	true ->
-	  FPLiveness0 = hipe_sparc_specific_fp:analyze(CFG0),
+	  FPLiveness0 = hipe_sparc_specific_fp:analyze(CFG0, no_context),
 	  hipe_regalloc_loop:ra_fp(CFG0, FPLiveness0, Options,
 				   hipe_coalescing_regalloc,
-				   hipe_sparc_specific_fp);
+				   hipe_sparc_specific_fp, no_context);
 	false ->
 	  {CFG0,undefined,[],0}
       end,
   %% hipe_sparc_pp:pp(hipe_sparc_cfg:linearise(CFG1)),
-  GPLiveness1 = hipe_sparc_specific:analyze(CFG1),
+  GPLiveness1 = hipe_sparc_specific:analyze(CFG1, no_context),
   {CFG2, _GPLiveness2, Coloring}
     = case proplists:get_value(regalloc, Options, coalescing) of
 	coalescing ->
@@ -57,4 +57,4 @@ ra(CFG0, Options) ->
 
 ra(CFG, Liveness, SpillIndex, Options, RegAllocMod) ->
   hipe_regalloc_loop:ra(CFG, Liveness, SpillIndex, Options, RegAllocMod,
-			hipe_sparc_specific).
+			hipe_sparc_specific, no_context).

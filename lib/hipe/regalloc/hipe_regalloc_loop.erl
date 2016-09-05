@@ -21,42 +21,44 @@
 %%% Common wrapper for graph_coloring and coalescing regallocs.
 
 -module(hipe_regalloc_loop).
--export([ra/6, ra_fp/5]).
+-export([ra/7, ra_fp/6]).
 
 %%-define(HIPE_INSTRUMENT_COMPILER, true). %% Turn on instrumentation.
 -include("../main/hipe.hrl").
 
-ra(CFG, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod) ->
+ra(CFG, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod, TargetCtx) ->
   {NewCFG, Liveness, Coloring, _NewSpillIndex} =
-    ra_common(CFG, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod),
+    ra_common(CFG, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod,
+	      TargetCtx),
   {NewCFG, Liveness, Coloring}.
 
-ra_fp(CFG, Liveness, Options, RegAllocMod, TargetMod) ->
-  ra_common(CFG, Liveness, 0, Options, RegAllocMod, TargetMod).
+ra_fp(CFG, Liveness, Options, RegAllocMod, TargetMod, TargetCtx) ->
+  ra_common(CFG, Liveness, 0, Options, RegAllocMod, TargetMod, TargetCtx).
 
-ra_common(CFG0, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod) ->
+ra_common(CFG0, Liveness0, SpillIndex, Options, RegAllocMod, TargetMod,
+	  TargetCtx) ->
   ?inc_counter(ra_calls_counter, 1),
-  SpillLimit0 = TargetMod:number_of_temporaries(CFG0),
+  SpillLimit0 = TargetMod:number_of_temporaries(CFG0, TargetCtx),
   {Coloring, _, CFG, Liveness} =
     call_allocator_initial(CFG0, Liveness0, SpillLimit0, SpillIndex, Options,
-			   RegAllocMod, TargetMod),
+			   RegAllocMod, TargetMod, TargetCtx),
   %% The first iteration, the hipe_regalloc_prepass may create new temps, these
   %% should not end up above SpillLimit.
-  SpillLimit = TargetMod:number_of_temporaries(CFG),
+  SpillLimit = TargetMod:number_of_temporaries(CFG, TargetCtx),
   alloc(Coloring, CFG, Liveness, SpillLimit, SpillIndex, Options,
-	RegAllocMod, TargetMod).
+	RegAllocMod, TargetMod, TargetCtx).
 
 alloc(Coloring, CFG0, Liveness, SpillLimit, SpillIndex, Options,
-      RegAllocMod, TargetMod) ->
+      RegAllocMod, TargetMod, TargetCtx) ->
   ?inc_counter(ra_iteration_counter, 1),
-  {CFG, DidSpill} = TargetMod:check_and_rewrite(CFG0, Coloring),
+  {CFG, DidSpill} = TargetMod:check_and_rewrite(CFG0, Coloring, TargetCtx),
   case DidSpill of
     false -> %% No new temps, we are done.
       ?add_spills(Options, _NewSpillIndex),
-      TempMap = hipe_temp_map:cols2tuple(Coloring, TargetMod),
+      TempMap = hipe_temp_map:cols2tuple(Coloring, TargetMod, TargetCtx),
       {TempMap2, NewSpillIndex2} =
 	hipe_spillmin:stackalloc(CFG0, Liveness, [], SpillIndex, Options,
-				 TargetMod, TempMap),
+				 TargetMod, TargetCtx, TempMap),
       Coloring2 = 
 	hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), TempMap2),
       %% case proplists:get_bool(verbose_spills, Options) of
@@ -71,30 +73,32 @@ alloc(Coloring, CFG0, Liveness, SpillLimit, SpillIndex, Options,
       %% the list of temps not to spill is uninteresting.
       {NewColoring, _NewSpillIndex} =
 	call_allocator(CFG, Liveness, SpillLimit, SpillIndex, Options,
-		       RegAllocMod, TargetMod),
+		       RegAllocMod, TargetMod, TargetCtx),
       alloc(NewColoring, CFG, Liveness, SpillLimit, SpillIndex, Options,
-	    RegAllocMod, TargetMod)
+	    RegAllocMod, TargetMod, TargetCtx)
   end.
 
 call_allocator_initial(CFG, Liveness, SpillLimit, SpillIndex, Options,
-		       RegAllocMod, TargetMod) ->
+		       RegAllocMod, TargetMod, TargetCtx) ->
   case proplists:get_bool(ra_prespill, Options) of
     true ->
       hipe_regalloc_prepass:regalloc_initial(
-	RegAllocMod, CFG, Liveness, SpillIndex, SpillLimit, TargetMod, Options);
+	RegAllocMod, CFG, Liveness, SpillIndex, SpillLimit, TargetMod,
+	TargetCtx, Options);
     false ->
       {C, SI} = RegAllocMod:regalloc(CFG, Liveness, SpillIndex, SpillLimit,
-				     TargetMod, Options),
+				     TargetMod, TargetCtx, Options),
       {C, SI, CFG, Liveness}
   end.
 
 call_allocator(CFG, Liveness, SpillLimit, SpillIndex, Options, RegAllocMod,
-	       TargetMod) ->
+	       TargetMod, TargetCtx) ->
   case proplists:get_bool(ra_prespill, Options) of
     true ->
       hipe_regalloc_prepass:regalloc(
-	RegAllocMod, CFG, Liveness, SpillIndex, SpillLimit, TargetMod, Options);
+	RegAllocMod, CFG, Liveness, SpillIndex, SpillLimit, TargetMod,
+	TargetCtx, Options);
     false ->
       RegAllocMod:regalloc(CFG, Liveness, SpillIndex, SpillLimit, TargetMod,
-			   Options)
+			   TargetCtx, Options)
   end.

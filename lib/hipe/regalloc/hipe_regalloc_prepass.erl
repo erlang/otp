@@ -44,7 +44,7 @@
 %%    hipe_regalloc_loop iteration, skipping directly to rewrite without ever
 %%    calling RegAllocMod.
 -module(hipe_regalloc_prepass).
--export([regalloc/7, regalloc_initial/7]).
+-export([regalloc/8, regalloc_initial/8]).
 
 -ifndef(DEBUG).
 -compile(inline).
@@ -64,8 +64,6 @@
 -define(TUNE_MIN_SPLIT_BBS, 384).
 
 %% We present a "pseudo-target" to the register allocator we wrap.
-%% Note: all arities are +1 as we're currently using the parameterised module
-%% facility to store context data.
 -export([analyze/2,
 	 all_precoloured/1,
 	 allocatable/1,
@@ -89,16 +87,15 @@
 	 var_range/2,
 	 reverse_postorder/2]).
 
-%% Eww, parameterised module. Can we fix it without having to touch all the
-%% register allocators?
--record(?MODULE,
-	{target   :: module()
-	,sub      :: sub_map() % Translates temp numbers found in CFG and understood by
-			       % Target to temp numbers passed to RegAllocMod.
-	,inv      :: inv_map() % Translates temp numbers passed to RegAllocMod
-			       % to temp numbers found in CFG and understood by
-			       % Target
-	,max_phys :: temp()    % Exclusive upper bound on physical registers
+-record(prepass_ctx,
+	{target_mod :: module()
+	,target_ctx :: target_context()
+	,sub        :: sub_map() % Translates temp numbers found in CFG and understood by
+				 % Target to temp numbers passed to RegAllocMod.
+	,inv        :: inv_map() % Translates temp numbers passed to RegAllocMod
+				 % to temp numbers found in CFG and understood by
+				 % Target
+	,max_phys   :: temp()    % Exclusive upper bound on physical registers
 	}).
 
 -record(cfg,
@@ -131,18 +128,19 @@
 -type target_reg() :: non_neg_integer().
 -type target_liveness() :: any().
 -type target_liveset() :: ordsets:ordset(target_reg()).
+-type target_context() :: any().
 -type spillno() :: non_neg_integer().
 -type temp() :: non_neg_integer().
 -type label() :: non_neg_integer().
 
 -spec regalloc(module(), target_cfg(), target_liveness(), spillno(), spillno(),
-	       module(), proplists:proplist())
+	       module(), target_context(), proplists:proplist())
 	      -> {hipe_map(), spillno()}.
-regalloc(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, Target,
-	 Options) ->
+regalloc(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, TargetMod,
+	 TargetCtx, Options) ->
   {Coloring, SpillIndex, same} =
-    regalloc_1(RegAllocMod, CFG, SpillIndex0, SpillLimit, Target, Options,
-	       Liveness),
+    regalloc_1(RegAllocMod, CFG, SpillIndex0, SpillLimit, TargetMod,
+	       TargetCtx, Options, Liveness),
   {Coloring, SpillIndex}.
 
 %% regalloc_initial/7 is allowed to introduce new temporaries, unlike
@@ -152,47 +150,48 @@ regalloc(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, Target,
 %% reason that the splitting heuristic is solely based on the number of basic
 %% blocks, which does not change during the register allocation loop.
 -spec regalloc_initial(module(), target_cfg(), target_liveness(), spillno(),
-		       spillno(), module(), proplists:proplist())
+		       spillno(), module(), target_context(),
+		       proplists:proplist())
 		      -> {hipe_map(), spillno(), target_cfg(),
 			  target_liveness()}.
-regalloc_initial(RegAllocMod, CFG0, Liveness0, SpillIndex0, SpillLimit, Target,
-		 Options) ->
+regalloc_initial(RegAllocMod, CFG0, Liveness0, SpillIndex0, SpillLimit,
+		 TargetMod, TargetCtx, Options) ->
   {Coloring, SpillIndex, NewCFG} =
-    regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
-	       Liveness0),
+    regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, TargetMod, TargetCtx,
+	       Options, Liveness0),
   {CFG, Liveness} =
     case NewCFG of
       same -> {CFG0, Liveness0};
-      {rewritten, CFG1} -> {CFG1, Target:analyze(CFG1)}
+      {rewritten, CFG1} -> {CFG1, TargetMod:analyze(CFG1, TargetCtx)}
     end,
   {Coloring, SpillIndex, CFG, Liveness}.
 
-regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
-	   Liveness) ->
+regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, TargetMod, TargetCtx,
+	   Options, Liveness) ->
   {ScanBBs, Seen, SpillMap, SpillIndex1} =
-    scan_cfg(CFG0, Liveness, SpillIndex0, Target),
+    scan_cfg(CFG0, Liveness, SpillIndex0, TargetMod, TargetCtx),
 
   {PartColoring, SpillIndex, NewCFG} =
     case proplists:get_bool(ra_partitioned, Options)
-      andalso length(Target:labels(CFG0)) > ?TUNE_MIN_SPLIT_BBS
+      andalso length(TargetMod:labels(CFG0, TargetCtx)) > ?TUNE_MIN_SPLIT_BBS
     of
       true ->
 	regalloc_partitioned(SpillMap, SpillIndex1, SpillLimit, ScanBBs,
-			     CFG0, Target, RegAllocMod, Options);
+			     CFG0, TargetMod, TargetCtx, RegAllocMod, Options);
       _ ->
 	regalloc_whole(Seen, SpillMap, SpillIndex1, SpillLimit, ScanBBs,
-		       CFG0, Target, RegAllocMod, Options)
+		       CFG0, TargetMod, TargetCtx, RegAllocMod, Options)
     end,
 
   SpillColors = [{T, {spill, S}} || {T, S} <- maps:to_list(SpillMap)],
   Coloring = SpillColors ++ PartColoring,
 
   ?ASSERT(begin
-	    AllPrecoloured = Target:all_precoloured(),
+	    AllPrecoloured = TargetMod:all_precoloured(TargetCtx),
 	    MaxPhys = lists:max(AllPrecoloured) + 1,
 	    Unused = unused(live_pseudos(Seen, SpillMap, MaxPhys),
-			    SpillMap, CFG0, Target),
-	    unused_unused(Unused, CFG0, Target)
+			    SpillMap, CFG0, TargetMod, TargetCtx),
+	    unused_unused(Unused, CFG0, TargetMod, TargetCtx)
 	  end),
   ?ASSERT(begin
 	    CFG =
@@ -200,40 +199,43 @@ regalloc_1(RegAllocMod, CFG0, SpillIndex0, SpillLimit, Target, Options,
 		same -> CFG0;
 		{rewritten, CFG1} -> CFG1
 	      end,
-	    check_coloring(Coloring, CFG, Target)
+	    check_coloring(Coloring, CFG, TargetMod, TargetCtx)
 	  end), % Sanity-check
   ?ASSERT(just_as_good_as(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit,
-			  Target, Options, SpillMap, Coloring, Unused)),
+			  TargetMod, TargetCtx, Options, SpillMap, Coloring,
+			  Unused)),
   {Coloring, SpillIndex, NewCFG}.
 
 regalloc_whole(Seen, SpillMap, SpillIndex0, SpillLimit, ScanBBs,
-	       CFG, Target, RegAllocMod, Options) ->
-  AllPrecoloured = Target:all_precoloured(),
+	       CFG, TargetMod, TargetCtx, RegAllocMod, Options) ->
+  AllPrecoloured = TargetMod:all_precoloured(TargetCtx),
   MaxPhys = lists:max(AllPrecoloured) + 1,
   LivePseudos = live_pseudos(Seen, SpillMap, MaxPhys),
   {SubMap, InvMap, MaxPhys, MaxR, SubSpillLimit} =
     number_and_map(AllPrecoloured, LivePseudos, SpillLimit),
   BBs = transform_whole_cfg(ScanBBs, SubMap),
   SubMod = #cfg{cfg=CFG, bbs=BBs, max_reg=MaxR},
-  SubTarget = #?MODULE{target=Target, max_phys=MaxPhys, inv=InvMap, sub=SubMap},
+  SubContext = #prepass_ctx{target_mod=TargetMod, target_ctx=TargetCtx,
+			    max_phys=MaxPhys, inv=InvMap, sub=SubMap},
   {SubColoring, SpillIndex} =
-    RegAllocMod:regalloc(SubMod, SubMod, SpillIndex0, SubSpillLimit, SubTarget,
-			 Options),
-  ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
+    RegAllocMod:regalloc(SubMod, SubMod, SpillIndex0, SubSpillLimit, ?MODULE,
+			 SubContext, Options),
+  ?ASSERT(check_coloring(SubColoring, SubMod, ?MODULE, SubContext)),
   {translate_coloring(SubColoring, InvMap), SpillIndex, same}.
 
 regalloc_partitioned(SpillMap, SpillIndex0, SpillLimit, ScanBBs,
-		     CFG, Target, RegAllocMod, Options) ->
-  AllPrecoloured = Target:all_precoloured(),
+		     CFG, TargetMod, TargetCtx, RegAllocMod, Options) ->
+  AllPrecoloured = TargetMod:all_precoloured(TargetCtx),
   MaxPhys = lists:max(AllPrecoloured) + 1,
 
-  DSets0 = initial_dsets(CFG, Target),
+  DSets0 = initial_dsets(CFG, TargetMod, TargetCtx),
   PartBBList = part_cfg(ScanBBs, SpillMap, MaxPhys),
   DSets1 = join_whole_blocks(PartBBList, DSets0),
   {PartBBsRLList, DSets2} = merge_small_parts(DSets1),
   {PartBBs, DSets3} = merge_pointless_splits(PartBBList, ScanBBs, DSets2),
   SeenMap = collect_seenmap(PartBBsRLList, PartBBs),
-  {RPostMap, _DSets4} = part_order(Target:reverse_postorder(CFG), DSets3),
+  {RPostMap, _DSets4} = part_order(TargetMod:reverse_postorder(CFG, TargetCtx),
+				   DSets3),
 
   {Allocations, SpillIndex} =
     lists:mapfoldl(
@@ -245,16 +247,17 @@ regalloc_partitioned(SpillMap, SpillIndex0, SpillLimit, ScanBBs,
 	    number_and_map(AllPrecoloured, LivePseudos, SpillLimit),
 	  BBs = transform_cfg(Elems, PartBBs, SubMap),
 	  SubMod = #cfg{cfg=CFG, bbs=BBs, max_reg=MaxR, rpostorder=RPost},
-	  SubTarget = #?MODULE{target=Target, max_phys=MaxPhys, inv=InvMap,
-			       sub=SubMap},
+	  SubContext = #prepass_ctx{target_mod=TargetMod, target_ctx=TargetCtx,
+				    max_phys=MaxPhys, inv=InvMap, sub=SubMap},
 	  {SubColoring, SpillIndex2} =
 	    RegAllocMod:regalloc(SubMod, SubMod, SpillIndex1, SubSpillLimit,
-				 SubTarget, Options),
-	  ?ASSERT(check_coloring(SubColoring, SubMod, SubTarget)),
+				 ?MODULE, SubContext, Options),
+	  ?ASSERT(check_coloring(SubColoring, SubMod, ?MODULE, SubContext)),
 	  {{translate_coloring(SubColoring, InvMap), Elems}, SpillIndex2}
       end, SpillIndex0, PartBBsRLList),
   {Coloring, NewCFG} =
-    combine_allocations(Allocations, MaxPhys, PartBBs, Target, CFG),
+    combine_allocations(Allocations, MaxPhys, PartBBs, TargetMod, TargetCtx,
+			CFG),
   {Coloring, SpillIndex, NewCFG}.
 
 -spec number_and_map([target_reg()], target_liveset(), target_reg())
@@ -306,16 +309,18 @@ translate_coloring(SubColoring, InvMap) ->
 -type spill_state() :: #spill_state{}.
 -type spill_map()   :: #{target_reg() => spillno()}.
 
--spec scan_cfg(target_cfg(), target_liveness(), spillno(), module())
+-spec scan_cfg(target_cfg(), target_liveness(), spillno(), module(),
+	       target_context())
 	      -> {scan_bbs()
 		 ,seen()
 		 ,spill_map()
 		 ,spillno()
 		 }.
-scan_cfg(CFG, Liveness, SpillIndex0, Target) ->
+scan_cfg(CFG, Liveness, SpillIndex0, TgtMod, TgtCtx) ->
   State0 = #spill_state{map=#{}, ix=SpillIndex0},
   {BBs, Seen, #spill_state{map=Spill, ix=SpillIndex}} =
-    scan_bbs(Target:labels(CFG), CFG, Liveness, #{}, State0, #{}, Target),
+    scan_bbs(TgtMod:labels(CFG,TgtCtx), CFG, Liveness, #{}, State0, #{}, TgtMod,
+	     TgtCtx),
   {BBs, Seen, Spill, SpillIndex}.
 
 -type seen() :: #{target_reg() => []}. % set
@@ -323,65 +328,69 @@ scan_cfg(CFG, Liveness, SpillIndex0, Target) ->
 -type scan_bbs() :: #{label() => scan_bb()}.
 
 -spec scan_bbs([label()], target_cfg(), target_liveness(), seen(),
-	       spill_state(), scan_bbs(), module())
+	       spill_state(), scan_bbs(), module(), target_context())
 	      -> {scan_bbs(), seen(), spill_state()}.
-scan_bbs([], _CFG, _Liveness, Seen, State, BBs, _Target) ->
+scan_bbs([], _CFG, _Liveness, Seen, State, BBs, _TgtMod, _TgtCtx) ->
   {BBs, Seen, State};
-scan_bbs([L|Ls], CFG, Liveness, Seen0, State0, BBs, Target) ->
-  Liveout = t_liveout(Liveness, L, Target),
+scan_bbs([L|Ls], CFG, Liveness, Seen0, State0, BBs, TgtMod, TgtCtx) ->
+  Liveout = t_liveout(Liveness, L, TgtMod, TgtCtx),
   {Code, Livein, Seen, State} =
-    scan_bb(lists:reverse(hipe_bb:code(Target:bb(CFG, L))), Liveout, Seen0,
-	    State0, [], Target),
+    scan_bb(lists:reverse(hipe_bb:code(TgtMod:bb(CFG, L, TgtCtx))), Liveout,
+	    Seen0, State0, [], TgtMod, TgtCtx),
   BB = {Code, Livein, Liveout},
-  scan_bbs(Ls, CFG, Liveness, Seen, State, BBs#{L=>BB}, Target).
+  scan_bbs(Ls, CFG, Liveness, Seen, State, BBs#{L=>BB}, TgtMod, TgtCtx).
 
 -spec scan_bb([target_instr()], target_liveset(), seen(), spill_state(),
-	      [instr()], module())
+	      [instr()], module(), target_context())
 	     -> {[instr()]
 		,target_liveset()
 		,seen()
 		,spill_state()
 		}.
-scan_bb([], Live, Seen, State, IAcc, _Target) ->
+scan_bb([], Live, Seen, State, IAcc, _TgtMod, _TgtCtx) ->
   {IAcc, Live, Seen, State};
-scan_bb([I|Is], Live0, Seen0, State0, IAcc0, Target) ->
-  {TDef, TUse} = Target:def_use(I),
-  ?ASSERT(TDef =:= Target:defines(I)),
-  ?ASSERT(TUse =:= Target:uses(I)),
-  Def = ordsets:from_list(reg_names(TDef, Target)),
-  Use = ordsets:from_list(reg_names(TUse, Target)),
+scan_bb([I|Is], Live0, Seen0, State0, IAcc0, TgtMod, TgtCtx) ->
+  {TDef, TUse} = TgtMod:def_use(I,TgtCtx),
+  ?ASSERT(TDef =:= TgtMod:defines(I,TgtCtx)),
+  ?ASSERT(TUse =:= TgtMod:uses(I,TgtCtx)),
+  Def = ordsets:from_list(reg_names(TDef, TgtMod, TgtCtx)),
+  Use = ordsets:from_list(reg_names(TUse, TgtMod, TgtCtx)),
   Live = ordsets:union(Use, ToSpill = ordsets:subtract(Live0, Def)),
   Seen = add_seen(Def, add_seen(Use, Seen0)),
-  NewI = #instr{defuse={Def, Use}, is_move=Target:is_move(I)},
+  NewI = #instr{defuse={Def, Use}, is_move=TgtMod:is_move(I,TgtCtx)},
   IAcc = [NewI|IAcc0],
   State =
-    case Target:defines_all_alloc(I) of
+    case TgtMod:defines_all_alloc(I,TgtCtx) of
       false -> State0;
-      true -> spill_all(ToSpill, Target, State0)
+      true -> spill_all(ToSpill, TgtMod, TgtCtx, State0)
     end,
   %% We can drop "no-ops" here; where (if anywhere) is it worth it?
-  scan_bb(Is, Live, Seen, State, IAcc, Target).
+  scan_bb(Is, Live, Seen, State, IAcc, TgtMod, TgtCtx).
 
--spec t_liveout(target_liveness(), label(), module()) -> target_liveset().
-t_liveout(Liveness, L, Target) ->
+-spec t_liveout(target_liveness(), label(), module(), target_context()) ->
+		   target_liveset().
+t_liveout(Liveness, L, TgtMod, TgtCtx) ->
   %% FIXME: unnecessary sort; liveout is sorted, reg_names(...) should be sorted
   %% or consist of a few sorted subsequences (per type)
-  ordsets:from_list(reg_names(Target:liveout(Liveness, L), Target)).
+  ordsets:from_list(reg_names(TgtMod:liveout(Liveness, L, TgtCtx), TgtMod,
+			      TgtCtx)).
 
--spec reg_names([target_temp()], module()) -> [target_reg()].
-reg_names(Regs, Target) ->
-  [Target:reg_nr(X) || X <- Regs].
+-spec reg_names([target_temp()], module(), target_context()) -> [target_reg()].
+reg_names(Regs, TgtMod, TgtCtx) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
 
 -spec add_seen([target_reg()], seen()) -> seen().
 add_seen([], Seen) -> Seen;
 add_seen([R|Rs], Seen) -> add_seen(Rs, Seen#{R=>[]}).
 
--spec spill_all([target_reg()], module(), spill_state()) -> spill_state().
-spill_all([], _Target, State) -> State;
-spill_all([R|Rs], Target, State=#spill_state{map=Map, ix=Ix}) ->
-  case Target:is_precoloured(R) or maps:is_key(R, Map) of
-    true -> spill_all(Rs, Target, State);
-    false -> spill_all(Rs, Target, State#spill_state{map=Map#{R=>Ix}, ix=Ix+1})
+-spec spill_all([target_reg()], module(), target_context(), spill_state()) ->
+		   spill_state().
+spill_all([], _TgtMod, _TgtCtx, State) -> State;
+spill_all([R|Rs], TgtMod, TgtCtx, State=#spill_state{map=Map, ix=Ix}) ->
+  case TgtMod:is_precoloured(R,TgtCtx) or maps:is_key(R, Map) of
+    true -> spill_all(Rs, TgtMod, TgtCtx, State);
+    false -> spill_all(Rs, TgtMod, TgtCtx,
+		       State#spill_state{map=Map#{R=>Ix}, ix=Ix+1})
   end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -558,9 +567,9 @@ map_append(Key, Elem, Map) ->
 -type bb_dsets() :: dsets(bb_dset_key()).
 -type bb_dsets_rllist() :: [{bb_dset_key(), [bb_dset_key()]}].
 
--spec initial_dsets(target_cfg(), module()) -> bb_dsets().
-initial_dsets(CFG, Target) ->
-  Labels = Target:labels(CFG),
+-spec initial_dsets(target_cfg(), module(), target_context()) -> bb_dsets().
+initial_dsets(CFG, TgtMod, TgtCtx) ->
+  Labels = TgtMod:labels(CFG, TgtCtx),
   DSets0 = dsets_new(lists:append([[{entry,L},{exit,L}] || L <- Labels])),
   Edges = lists:append([[{L, S} || S <- hipe_gen_cfg:succ(CFG, L)]
 			|| L <- Labels]),
@@ -692,35 +701,36 @@ transform_bb(BB, SubMap) ->
 %% there are, we fix them up as they're found.
 
 -spec combine_allocations([{hipe_map(), [bb_dset_key()]}], target_reg(),
-			  part_bbs(), module(), target_cfg())
+			  part_bbs(), module(), target_context(), target_cfg())
 			 -> {hipe_map(), same | {rewritten, target_cfg()}}.
-combine_allocations([{A,_}|As], MaxPhys, PartBBs, Target, CFG) ->
+combine_allocations([{A,_}|As], MaxPhys, PartBBs, TgtMod, TgtCtx, CFG) ->
   {Phys, Pseuds} = lists:partition(fun({R,_}) -> R < MaxPhys end, A),
   {Seen, _, []} = partition_by_seen(Pseuds, #{}, [], []),
-  combine_allocations(As, MaxPhys, PartBBs, Target, Phys, Seen, Pseuds,
+  combine_allocations(As, MaxPhys, PartBBs, TgtMod, TgtCtx, Phys, Seen, Pseuds,
 		      {same, CFG}).
 
 -spec combine_allocations([{hipe_map(), [bb_dset_key()]}], target_reg(),
-			  part_bbs(), module(), hipe_map(), seen(), hipe_map(),
-			  {same|rewritten, target_cfg()})
+			  part_bbs(), module(), target_context(), hipe_map(),
+			  seen(), hipe_map(), {same|rewritten, target_cfg()})
 			 -> {hipe_map(), same | {rewritten, target_cfg()}}.
-combine_allocations([], _MaxPhys, _PartBBs, _Target, Phys, _Seen, Pseuds,
-		    CFGT) ->
+combine_allocations([], _MaxPhys, _PartBBs, _TgtMod, _TgtCtx, Phys, _Seen,
+		    Pseuds, CFGT) ->
   {Phys ++ Pseuds, case CFGT of
 		     {same, _} -> same;
 		     {rewritten, _} -> CFGT
 		   end};
-combine_allocations([{A,PartElems}|As], MaxPhys, PartBBs, Target, Phys, Seen0,
-		    Acc, CFGT={_,CFG0}) ->
+combine_allocations([{A,PartElems}|As], MaxPhys, PartBBs, TgtMod, TgtCtx, Phys,
+		    Seen0, Acc, CFGT={_,CFG0}) ->
   {Phys, Pseuds0} = lists:partition(fun({R,_}) -> R < MaxPhys end, A),
   {Seen, Pseuds, Collisions} = partition_by_seen(Pseuds0, Seen0, [], []),
   case Collisions of
-    [] -> combine_allocations(As, MaxPhys, PartBBs, Target, Phys, Seen,
+    [] -> combine_allocations(As, MaxPhys, PartBBs, TgtMod, TgtCtx, Phys, Seen,
 			      Pseuds++Acc, CFGT);
     _ ->
       %% There were collisions; rename all the temp numbers in Collisions
-      {CFG, Renamed} = rename(Collisions, PartElems, PartBBs, Target, CFG0),
-      combine_allocations(As, MaxPhys, PartBBs, Target, Phys, Seen,
+      {CFG, Renamed} = rename(Collisions, PartElems, PartBBs, TgtMod, TgtCtx,
+			      CFG0),
+      combine_allocations(As, MaxPhys, PartBBs, TgtMod, TgtCtx, Phys, Seen,
 			  Pseuds++Renamed++Acc, {rewritten,CFG})
   end.
 
@@ -735,38 +745,40 @@ partition_by_seen([C={R,_}|Cs], Seen, Acc, Colls) ->
     #{}       -> partition_by_seen(Cs, Seen#{R => []}, [C|Acc], Colls)
   end.
 
--spec rename(hipe_map(), [bb_dset_key()], part_bbs(), module(), target_cfg())
+-spec rename(hipe_map(), [bb_dset_key()], part_bbs(), module(),
+	     target_context(), target_cfg())
 	    -> {target_cfg(), hipe_map()}.
-rename(CollisionList, PartElems, PartBBs, Target, CFG0) ->
-  {Map, Renamed} = new_names(CollisionList, Target, #{}, []),
+rename(CollisionList, PartElems, PartBBs, TgtMod, TgtCtx, CFG0) ->
+  {Map, Renamed} = new_names(CollisionList, TgtMod, TgtCtx, #{}, []),
   Fun = fun(I) ->
-	    Target:subst_temps(
+	    TgtMod:subst_temps(
 	      fun(Temp) ->
-		  N = Target:reg_nr(Temp),
+		  N = TgtMod:reg_nr(Temp, TgtCtx),
 		  case Map of
-		    #{N := Subst} -> Target:update_reg_nr(Subst, Temp);
+		    #{N := Subst} -> TgtMod:update_reg_nr(Subst, Temp, TgtCtx);
 		    #{} -> Temp
 		  end
-	      end, I)
+	      end, I, TgtCtx)
 	end,
-  {rename_1(PartElems, PartBBs, Target, Fun, CFG0), Renamed}.
+  {rename_1(PartElems, PartBBs, TgtMod, TgtCtx, Fun, CFG0), Renamed}.
 
 -type rename_map() :: #{target_reg() => target_reg()}.
 -type rename_fun() :: fun((target_instr()) -> target_instr()).
 
--spec new_names(hipe_map(), module(), rename_map(), hipe_map())
+-spec new_names(hipe_map(), module(), target_context(), rename_map(),
+		hipe_map())
 	       -> {rename_map(), hipe_map()}.
-new_names([], _Target, Map, Renamed) -> {Map, Renamed};
-new_names([{R,C}|As], Target, Map, Renamed) ->
-  Subst = Target:new_reg_nr(),
-  new_names(As, Target, Map#{R => Subst}, [{Subst, C} | Renamed]).
+new_names([], _TgtMod, _TgtCtx, Map, Renamed) -> {Map, Renamed};
+new_names([{R,C}|As], TgtMod, TgtCtx, Map, Renamed) ->
+  Subst = TgtMod:new_reg_nr(TgtCtx),
+  new_names(As, TgtMod, TgtCtx, Map#{R => Subst}, [{Subst, C} | Renamed]).
 
 %% @doc Maps over all instructions in a partition on the original CFG.
--spec rename_1([bb_dset_key()], part_bbs(), module(), rename_fun(),
-	       target_cfg()) -> target_cfg().
-rename_1([], _PartBBs, _Target, _Fun, CFG) -> CFG;
-rename_1([{Half,L}|Es], PartBBs, Target, Fun, CFG0) ->
-  Code0 = hipe_bb:code(BB = Target:bb(CFG0, L)),
+-spec rename_1([bb_dset_key()], part_bbs(), module(), target_context(),
+	       rename_fun(), target_cfg()) -> target_cfg().
+rename_1([], _PartBBs, _TgtMod, _TgtCtx, _Fun, CFG) -> CFG;
+rename_1([{Half,L}|Es], PartBBs, TgtMod, TgtCtx, Fun, CFG0) ->
+  Code0 = hipe_bb:code(BB = TgtMod:bb(CFG0, L, TgtCtx)),
   Code = case {Half, maps:get(L, PartBBs)} of
 	  {entry, {single,_}} -> lists:map(Fun, Code0);
 	  {entry, {split,PBBP,_}} ->
@@ -775,8 +787,8 @@ rename_1([{Half,L}|Es], PartBBs, Target, Fun, CFG0) ->
 	     map_end(Fun, part_bb_part_len(PBBP), Code0);
 	  {exit, {single, _}} -> Code0
 	end,
-  CFG = Target:update_bb(CFG0, L, hipe_bb:code_update(BB, Code)),
-  rename_1(Es, PartBBs, Target, Fun, CFG).
+  CFG = TgtMod:update_bb(CFG0, L, hipe_bb:code_update(BB, Code), TgtCtx),
+  rename_1(Es, PartBBs, TgtMod, TgtCtx, Fun, CFG).
 
 -spec part_bb_part_len(part_bb_part()) -> non_neg_integer().
 part_bb_part_len({Code, _Livein, _Liveout}) -> length(Code).
@@ -829,14 +841,14 @@ smap_get_all_partial([T|Ts], SMap={s,Map}) when is_integer(T) ->
 -define(report2(X,Y), ?IF_DEBUG_LEVEL(2,?msg(X, Y),ok)). 
 -define(report3(X,Y), ?IF_DEBUG_LEVEL(3,?msg(X, Y),ok)).
 
-check_coloring(Coloring, CFG, Target) ->
+check_coloring(Coloring, CFG, TgtMod, TgtCtx) ->
   ?report0("checking coloring ~p~n",[Coloring]),
-  IG = hipe_ig:build(CFG, Target:analyze(CFG), Target),
+  IG = hipe_ig:build(CFG, TgtMod:analyze(CFG,TgtCtx), TgtMod, TgtCtx),
   check_cols(hipe_vectors:list(hipe_ig:adj_list(IG)),
-	     init_coloring(Coloring, Target)).
+	     init_coloring(Coloring, TgtMod, TgtCtx)).
 
-init_coloring(Xs, Target) ->
-  hipe_temp_map:cols2tuple(Xs, Target).
+init_coloring(Xs, TgtMod, TgtCtx) ->
+  hipe_temp_map:cols2tuple(Xs, TgtMod, TgtCtx).
 
 check_color_of(X, Cols) ->
   case hipe_temp_map:find(X, Cols) of
@@ -870,8 +882,8 @@ valid_coloring(X, C, [{Y,C}|Ys]) ->
 valid_coloring(X, C, [_|Ys]) ->
   valid_coloring(X, C, Ys).
 
-unused_unused(Unused, CFG, Target) ->
-  IG = hipe_ig:build(CFG, Target:analyze(CFG), Target),
+unused_unused(Unused, CFG, TgtMod, TgtCtx) ->
+  IG = hipe_ig:build(CFG, TgtMod:analyze(CFG,TgtCtx), TgtMod, TgtCtx),
   lists:all(fun(R) -> case hipe_ig:get_node_degree(R, IG) of
 			0 -> true;
 			Deg ->
@@ -883,10 +895,11 @@ unused_unused(Unused, CFG, Target) ->
 %%%%%%%%%%%%%%%%%%%%
 %% Check that no register allocation opportunities were missed due to ?MODULE
 %%
-just_as_good_as(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, Target,
-		Options, SpillMap, Coloring, Unused) ->
-  {CheckColoring, _} = RegAllocMod:regalloc(CFG, Liveness, SpillIndex0,
-					    SpillLimit, Target, Options),
+just_as_good_as(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, TgtMod,
+		TgtCtx, Options, SpillMap, Coloring, Unused) ->
+  {CheckColoring, _} =
+    RegAllocMod:regalloc(CFG, Liveness, SpillIndex0, SpillLimit, TgtMod, TgtCtx,
+			 Options),
   Now   = lists:sort([{R,Kind} || {R,{Kind,_}} <- Coloring,
 				  not ordsets:is_element(R, Unused)]),
   Check = lists:sort([{R,Kind} || {R,{Kind,_}} <- CheckColoring,
@@ -907,7 +920,7 @@ just_as_good_as(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, Target,
 		"MFA: ~w:~w/~w~n"
 		"Unused: ~w~n"
 		"Now:~w~nCorrect:~w~n",
-		[Target, RegAllocMod,
+		[TgtMod, RegAllocMod,
 		 M,F,A,
 		 Unused,
 		 Now -- Check, Check -- Now]),
@@ -917,10 +930,10 @@ just_as_good_as(RegAllocMod, CFG, Liveness, SpillIndex0, SpillLimit, Target,
 count(C) -> {length([[] || {_, reg} <- C]),
 	     length([[] || {_, spill} <- C])}.
 
-unused(LivePseudos, SpillMap, CFG, Target) ->
-  {TMin, TMax} = Target:var_range(CFG),
+unused(LivePseudos, SpillMap, CFG, TgtMod, TgtCtx) ->
+  {TMin, TMax} = TgtMod:var_range(CFG,TgtCtx),
   SpillOSet = ordsets:from_list(maps:keys(SpillMap)),
-  PhysOSet = ordsets:from_list(Target:all_precoloured()),
+  PhysOSet = ordsets:from_list(TgtMod:all_precoloured(TgtCtx)),
   Used = ordsets:union(LivePseudos, ordsets:union(PhysOSet, SpillOSet)),
   ordsets:subtract(lists:seq(TMin, TMax), Used).
 
@@ -943,8 +956,8 @@ bb(Cfg=#cfg{bbs=BBs}, Ix, _ModRec) ->
     #{Ix := #transformed_bb{bb=BB}} -> BB;
     _ -> error(badarg, [Cfg, Ix])
   end.
-args(Arity, #?MODULE{target=Target, sub=SubM}) ->
-  smap_get(Target:args(Arity), SubM).
+args(Arity, #prepass_ctx{target_mod=TgtMod, target_ctx=TgtCtx, sub=SubM}) ->
+  smap_get(TgtMod:args(Arity,TgtCtx), SubM).
 labels(#cfg{bbs=BBs}, _ModRec) -> maps:keys(BBs).
 livein(#cfg{bbs=BBs}, Lb, _SubMod) ->
   #{Lb := #transformed_bb{livein=Livein}} = BBs,
@@ -956,28 +969,38 @@ uses(I, MR) -> element(2, def_use(I, MR)).
 defines(I, MR) -> element(1, def_use(I, MR)).
 def_use(#instr{defuse=DefUse}, _ModRec) -> DefUse.
 is_move(#instr{is_move=IM}, _ModRec) -> IM.
-is_fixed(Reg, #?MODULE{target=Target,inv=InvM}) ->
-  Target:is_fixed(imap_get(Reg, InvM)). % XXX: Is this hot?
-is_global(Reg, #?MODULE{target=Target,max_phys=MaxPhys}) when Reg < MaxPhys ->
-  Target:is_global(Reg). % assume id-map
-is_precoloured(Reg, #?MODULE{max_phys=MaxPhys}) -> Reg < MaxPhys.
+is_fixed(Reg, #prepass_ctx{target_mod=TgtMod,target_ctx=TgtCtx,inv=InvM}) ->
+  TgtMod:is_fixed(imap_get(Reg, InvM),TgtCtx). % XXX: Is this hot?
+is_global(Reg, #prepass_ctx{target_mod=TgtMod,target_ctx=TgtCtx,
+			    max_phys=MaxPhys}) when Reg < MaxPhys ->
+  TgtMod:is_global(Reg,TgtCtx). % assume id-map
+is_precoloured(Reg, #prepass_ctx{max_phys=MaxPhys}) -> Reg < MaxPhys.
 reg_nr(Reg, _ModRec) -> Reg. % After mapping (naturally)
-non_alloc(#cfg{cfg=CFG}, #?MODULE{target=Target,sub=SubM}) ->
-  smap_get_all_partial(reg_names(Target:non_alloc(CFG), Target), SubM).
+non_alloc(#cfg{cfg=CFG}, #prepass_ctx{target_mod=TgtMod,target_ctx=TgtCtx,
+				  sub=SubM}) ->
+  smap_get_all_partial(reg_names(TgtMod:non_alloc(CFG,TgtCtx), TgtMod, TgtCtx),
+		       SubM).
 number_of_temporaries(#cfg{max_reg=MaxR}, _ModRec) -> MaxR.
-allocatable(#?MODULE{target=Target}) -> Target:allocatable(). % assume id-map
+allocatable(#prepass_ctx{target_mod=TgtMod, target_ctx=TgtCtx}) ->
+  TgtMod:allocatable(TgtCtx). % assume id-map
 physical_name(Reg, _ModRec) -> Reg.
-all_precoloured(#?MODULE{target=Target}) -> Target:all_precoloured(). % dito
-var_range(#cfg{cfg=_CFG, max_reg=MaxReg}, #?MODULE{target=_Target}) ->
-  ?ASSERT(begin {TgtMin, _} = _Target:var_range(_CFG), TgtMin =:= 0 end),
+all_precoloured(#prepass_ctx{target_mod=TgtMod, target_ctx=TgtCtx}) ->
+  TgtMod:all_precoloured(TgtCtx). % dito
+var_range(#cfg{cfg=_CFG, max_reg=MaxReg},
+	  #prepass_ctx{target_mod=_TgtMod, target_ctx=_TgtCtx}) ->
+  ?ASSERT(begin {TgtMin, _} = _TgtMod:var_range(_CFG,_TgtCtx),
+		TgtMin =:= 0
+	  end),
   {0, MaxReg-1}.
 
-postorder(#cfg{cfg=CFG,rpostorder=undefined}, #?MODULE{target=Target}) ->
-  Target:postorder(CFG);
+postorder(#cfg{cfg=CFG,rpostorder=undefined},
+	  #prepass_ctx{target_mod=TgtMod,target_ctx=TgtCtx}) ->
+  TgtMod:postorder(CFG,TgtCtx);
 postorder(#cfg{rpostorder=Labels}, _ModRec) when is_list(Labels) ->
   lists:reverse(Labels).
 
-reverse_postorder(#cfg{cfg=CFG,rpostorder=undefined}, #?MODULE{target=Target}) ->
-  Target:reverse_postorder(CFG);
+reverse_postorder(#cfg{cfg=CFG,rpostorder=undefined},
+		  #prepass_ctx{target_mod=TgtMod,target_ctx=TgtCtx}) ->
+  TgtMod:reverse_postorder(CFG,TgtCtx);
 reverse_postorder(#cfg{rpostorder=Labels}, _ModRec) when is_list(Labels) ->
   Labels.

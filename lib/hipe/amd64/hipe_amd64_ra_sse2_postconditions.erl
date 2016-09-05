@@ -34,7 +34,7 @@ check_and_rewrite(AMD64CFG, Coloring) ->
 
 check_and_rewrite(AMD64CFG, Coloring, Strategy) ->
   %%io:format("Converting\n"),
-  TempMap = hipe_temp_map:cols2tuple(Coloring,hipe_amd64_specific_sse2),
+  TempMap = hipe_temp_map:cols2tuple(Coloring,hipe_amd64_specific_sse2,no_context),
   %%io:format("Rewriting\n"),
   do_bbs(hipe_x86_cfg:labels(AMD64CFG), TempMap, Strategy, AMD64CFG, false).
 
@@ -144,7 +144,7 @@ clone(Dst, Strategy) ->
 spill_temp(Type, 'normal') ->
   hipe_x86:mk_new_temp(Type);
 spill_temp(double, 'linearscan') ->
-  hipe_x86:mk_temp(hipe_amd64_specific_sse2:temp0(), double);
+  hipe_x86:mk_temp(hipe_amd64_specific_sse2:temp0(no_context), double);
 spill_temp(Type, 'linearscan') when Type =:= tagged; Type =/= untagged ->
   %% We can make a new temp here since we have yet to allocate registers for
   %% these types

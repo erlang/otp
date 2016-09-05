@@ -41,7 +41,7 @@
 
 -module(hipe_spillmin_color).
 
--export([stackalloc/7]).
+-export([stackalloc/8]).
 
 %%-ifndef(DO_ASSERT).
 %%-define(DO_ASSERT, true).
@@ -66,11 +66,15 @@
 %%  where Location is {spill,M}.
 %% {spill,M} denotes the Mth spilled node
 
+-type target_context() :: any().
+
 -spec stackalloc(#cfg{}, _, [_], non_neg_integer(),
-		 comp_options(), module(), hipe_temp_map()) ->
+		 comp_options(), module(), target_context(), hipe_temp_map()) ->
                                 {hipe_spill_map(), non_neg_integer()}.
 
-stackalloc(CFG, Live, _StackSlots, SpillIndex, _Options, Target, TempMap) ->
+stackalloc(CFG, Live, _StackSlots, SpillIndex, _Options, TargetMod,
+	   TargetContext, TempMap) ->
+  Target = {TargetMod, TargetContext},
   ?report2("building IG~n", []),
   {IG, NumNodes} = build_ig(CFG, Live, Target, TempMap),
   {Cols, MaxColors} = 
@@ -189,7 +193,7 @@ build_ig0(CFG, Live, Target, TempMap) ->
   TempMapping = map_spilled_temporaries(TempMap),
   TempMappingTable = setup_ets(TempMapping),
   NumSpilled = length(TempMapping),
-  IG = build_ig_bbs(Target:labels(CFG), CFG, Live, empty_ig(NumSpilled),
+  IG = build_ig_bbs(labels(CFG, Target), CFG, Live, empty_ig(NumSpilled),
 		    Target, TempMap, TempMappingTable),
   ets:delete(TempMappingTable),
   {normalize_ig(IG), NumSpilled}.
@@ -539,18 +543,21 @@ is_visited(X, Vis) ->
 %% *** INTERFACES TO OTHER MODULES ***
 %%
 
-liveout(CFG, L, Target) ->
-  ordsets:from_list(reg_names(Target:liveout(CFG, L), Target)).
+labels(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:labels(CFG, TgtCtx).
 
-bb(CFG, L, Target) ->
-   hipe_bb:code(Target:bb(CFG, L)).
+liveout(CFG, L, Target={TgtMod,TgtCtx}) ->
+  ordsets:from_list(reg_names(TgtMod:liveout(CFG, L, TgtCtx), Target)).
 
-def_use(X, Target, TempMap) ->
-  Defines = [Y || Y <- reg_names(Target:defines(X), Target), 
+bb(CFG, L, {TgtMod,TgtCtx}) ->
+   hipe_bb:code(TgtMod:bb(CFG, L, TgtCtx)).
+
+def_use(X, Target={TgtMod,TgtCtx}, TempMap) ->
+  Defines = [Y || Y <- reg_names(TgtMod:defines(X,TgtCtx), Target),
 		  hipe_temp_map:is_spilled(Y, TempMap)],
-  Uses = [Z || Z <- reg_names(Target:uses(X), Target), 
+  Uses = [Z || Z <- reg_names(TgtMod:uses(X,TgtCtx), Target),
 	       hipe_temp_map:is_spilled(Z, TempMap)],
   {Defines, Uses}.
 
-reg_names(Regs, Target) ->
-  [Target:reg_nr(X) || X <- Regs].
+reg_names(Regs, {TgtMod,TgtCtx}) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].

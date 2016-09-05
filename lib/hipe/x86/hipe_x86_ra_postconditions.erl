@@ -42,7 +42,7 @@
 
 check_and_rewrite(CFG, Coloring, Strategy) ->
   %% io:format("Converting\n"),
-  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC, no_context),
   %% io:format("Rewriting\n"),
   do_bbs(hipe_x86_cfg:labels(CFG), TempMap, Strategy, CFG, false).
 

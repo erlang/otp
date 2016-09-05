@@ -27,15 +27,15 @@ ra(CFG0, Options) ->
   {CFG1, _FPLiveness1, Coloring_fp, SpillIndex}
     = case proplists:get_bool(inline_fp, Options) of
 	true ->
-	  FPLiveness0 = hipe_ppc_specific_fp:analyze(CFG0),
+	  FPLiveness0 = hipe_ppc_specific_fp:analyze(CFG0, no_context),
 	  hipe_regalloc_loop:ra_fp(CFG0, FPLiveness0, Options,
 				   hipe_coalescing_regalloc,
-				   hipe_ppc_specific_fp);
+				   hipe_ppc_specific_fp, no_context);
 	false ->
 	  {CFG0,undefined,[],0}
       end,
   %% hipe_ppc_pp:pp(hipe_ppc_cfg:linearise(CFG1)),
-  GPLiveness1 = hipe_ppc_specific:analyze(CFG1),
+  GPLiveness1 = hipe_ppc_specific:analyze(CFG1, no_context),
   {CFG2, _GPLiveness2, Coloring}
     = case proplists:get_value(regalloc, Options, coalescing) of
 	coalescing ->
@@ -58,4 +58,4 @@ ra(CFG0, Options) ->
 
 ra(CFG, Liveness, SpillIndex, Options, RegAllocMod) ->
   hipe_regalloc_loop:ra(CFG, Liveness, SpillIndex, Options, RegAllocMod,
-			hipe_ppc_specific).
+			hipe_ppc_specific, no_context).

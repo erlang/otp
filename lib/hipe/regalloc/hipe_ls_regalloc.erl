@@ -56,7 +56,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_ls_regalloc).
--export([regalloc/8]).
+-export([regalloc/9]).
 
 %%-define(DEBUG,1).
 -define(HIPE_INSTRUMENT_COMPILER, true).
@@ -95,7 +95,9 @@
 %%   </ol>
 %% @end
 %%-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
-regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
+regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options,
+	 TargetMod, TargetContext) ->
+  Target = {TargetMod, TargetContext},
   ?debug_msg("LinearScan: ~w\n", [erlang:statistics(runtime)]),
   USIntervals = calculate_intervals(CFG, Liveness,
 				    Entrypoints, Options, Target),
@@ -122,32 +124,33 @@ regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, T
 %%  Liveness: A map of live-in and live-out sets for each Basic-Block.
 %%  Entrypoints: A set of BB names that have external entrypoints.
 %%
-calculate_intervals(CFG,Liveness,_Entrypoints, Options, Target) ->
+calculate_intervals(CFG,Liveness,_Entrypoints, Options,
+		    Target={TgtMod,TgtCtx}) ->
   %% Add start point for the argument registers.
   Args = arg_vars(CFG, Target),
   Interval = 
-    add_def_point(Args, 0, empty_interval(Target:number_of_temporaries(CFG))),
+    add_def_point(Args, 0, empty_interval(number_of_temporaries(CFG, Target))),
   %% Interval = add_livepoint(Args, 0, empty_interval()),
   Worklist =
     case proplists:get_value(ls_order, Options) of
       reversepostorder ->
-	Target:reverse_postorder(CFG);
+	TgtMod:reverse_postorder(CFG, TgtCtx);
       breadth ->
-	Target:breadthorder(CFG);
+	TgtMod:breadthorder(CFG, TgtCtx);
       postorder ->
-	Target:postorder(CFG);
+	TgtMod:postorder(CFG, TgtCtx);
       inorder ->
-	Target:inorder(CFG);
+	TgtMod:inorder(CFG, TgtCtx);
       reverse_inorder ->
-	Target:reverse_inorder(CFG);
+	TgtMod:reverse_inorder(CFG, TgtCtx);
       preorder ->
-	Target:preorder(CFG);
+	TgtMod:preorder(CFG, TgtCtx);
       prediction ->
-	Target:predictionorder(CFG);
+	TgtMod:predictionorder(CFG, TgtCtx);
       random ->
-	Target:labels(CFG);
+	TgtMod:labels(CFG, TgtCtx);
       _ ->
-	Target:reverse_postorder(CFG)
+	TgtMod:reverse_postorder(CFG, TgtCtx)
     end,
   %% ?inc_counter(bbs_counter, length(Worklist)),
   %% ?debug_msg("No BBs ~w\n",[length(Worklist)]),
@@ -287,7 +290,7 @@ allocate([RegInt|RIS], Free, Active, Alloc, SpillIndex, DontSpill, Target) ->
 			   alloc(OtherTemp,NewPhys,NewAlloc),
 			   SpillIndex, DontSpill, Target);
 		false ->
-		  NewSpillIndex = Target:new_spill_index(SpillIndex),
+		  NewSpillIndex = new_spill_index(SpillIndex, Target),
 		  {NewAlloc2, NewActive4} = 
 		    spill(OtherTemp, OtherEnd, OtherStart, NewActive3, 
 			  NewAlloc, SpillIndex, DontSpill, Target),
@@ -303,7 +306,7 @@ allocate([RegInt|RIS], Free, Active, Alloc, SpillIndex, DontSpill, Target) ->
       case NewFree of 
 	[] -> 
 	  %% No physical registers available, we have to spill.
-	  NewSpillIndex = Target:new_spill_index(SpillIndex),
+	  NewSpillIndex = new_spill_index(SpillIndex, Target),
 	  {NewAlloc, NewActive2} = 
 	    spill(Temp, endpoint(RegInt), startpoint(RegInt),
 		  Active, Alloc, SpillIndex, DontSpill, Target),
@@ -749,35 +752,41 @@ create_freeregs([]) ->
 %% 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-bb(CFG, L, Target) ->
-  Target:bb(CFG,L).
+bb(CFG, L, {TgtMod, TgtCtx}) ->
+  TgtMod:bb(CFG,L,TgtCtx).
 
-livein(Liveness,L, Target) ->
-  regnames(Target:livein(Liveness,L), Target).
+livein(Liveness,L, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:livein(Liveness,L,TgtCtx), Target).
 
-liveout(Liveness,L, Target) ->
-  regnames(Target:liveout(Liveness,L), Target).
+liveout(Liveness,L, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:liveout(Liveness,L,TgtCtx), Target).
 
-uses(I, Target) ->
-  regnames(Target:uses(I), Target).
+uses(I, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:uses(I,TgtCtx), Target).
 
-defines(I, Target) ->
-  regnames(Target:defines(I), Target).
+defines(I, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:defines(I,TgtCtx), Target).
 
-is_precoloured(R, Target) ->
-  Target:is_precoloured(R).
+is_precoloured(R, {TgtMod,TgtCtx}) ->
+  TgtMod:is_precoloured(R,TgtCtx).
 
-is_global(R, Target) ->
-  Target:is_global(R).
+is_global(R, {TgtMod,TgtCtx}) ->
+  TgtMod:is_global(R,TgtCtx).
 
-physical_name(R, Target) ->
-  Target:physical_name(R).
+new_spill_index(SpillIndex, {TgtMod,TgtCtx}) ->
+  TgtMod:new_spill_index(SpillIndex, TgtCtx).
 
-regnames(Regs, Target) ->
-  [Target:reg_nr(X) || X <- Regs].
+number_of_temporaries(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:number_of_temporaries(CFG, TgtCtx).
 
-arg_vars(CFG, Target) ->
-  Target:args(CFG).
+physical_name(R, {TgtMod,TgtCtx}) ->
+  TgtMod:physical_name(R,TgtCtx).
 
-is_arg(Reg, Target) ->
-  Target:is_arg(Reg).
+regnames(Regs, {TgtMod,TgtCtx}) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
+
+arg_vars(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:args(CFG,TgtCtx).
+
+is_arg(Reg, {TgtMod,TgtCtx}) ->
+  TgtMod:is_arg(Reg,TgtCtx).

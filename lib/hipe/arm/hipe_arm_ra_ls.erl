@@ -24,7 +24,7 @@
 -export([ra/4]).
 
 ra(CFG, Liveness, SpillIndex, Options) ->
-  SpillLimit = hipe_arm_specific:number_of_temporaries(CFG),
+  SpillLimit = hipe_arm_specific:number_of_temporaries(CFG, no_context),
   alloc(CFG, Liveness, SpillIndex, SpillLimit, Options).
 
 alloc(CFG, Liveness, SpillIndex, SpillLimit, Options) ->
@@ -37,19 +37,19 @@ alloc(CFG, Liveness, SpillIndex, SpillLimit, Options) ->
        hipe_arm_registers:temp1()],
       [hipe_arm_cfg:start_label(CFG)],
       SpillIndex, SpillLimit, Options,
-      hipe_arm_specific),
+      hipe_arm_specific, no_context),
   {NewCFG, _DidSpill} =
     hipe_arm_ra_postconditions:check_and_rewrite(
       CFG, Coloring, 'linearscan'),
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_arm_specific),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_arm_specific, no_context),
   {SpillMap, _NewSpillIndex2} =
     hipe_spillmin:stackalloc(CFG, Liveness, [], SpillIndex, Options,
-			     hipe_arm_specific, TempMap),
+			     hipe_arm_specific, no_context, TempMap),
   Coloring2 =
     hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), SpillMap),
   {NewCFG, Liveness, Coloring2}.
 
 regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options,
-	 Target) ->
+	 TgtMod, TgtCtx) ->
   hipe_ls_regalloc:regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex,
-			    DontSpill, Options, Target).
+			    DontSpill, Options, TgtMod, TgtCtx).
