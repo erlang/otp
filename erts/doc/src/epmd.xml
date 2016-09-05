@@ -34,24 +34,23 @@
   </header>
 
   <com>epmd</com>
-  <comsummary>
-    <p>Erlang Port Mapper Daemon</p>
+  <comsummary>Erlang Port Mapper Daemon</comsummary>
+
+  <description>
 
     <taglist>
       <tag><c><![CDATA[epmd [-d|-debug] [DbgExtra...] [-address Addresses]
-        [-port No] [-daemon] [-relaxed_command_check]]]></c></tag>
+      [-port No] [-daemon] [-relaxed_command_check]]]></c></tag>
       <item>
 	<p>Starts the port mapper daemon.</p>
       </item>
       <tag><c><![CDATA[epmd [-d|-debug] [-port No]
-        [-names|-kill|-stop Name]]]></c></tag>
+      [-names|-kill|-stop Name]]]></c></tag>
       <item>
 	<p>Communicates with a running port mapper daemon.</p>
       </item>
     </taglist>
-  </comsummary>
 
-  <description>
     <p>This daemon acts as a name server on all hosts involved in
       distributed Erlang computations. When an Erlang node starts,
       the node has a name and it obtains an address from the host
