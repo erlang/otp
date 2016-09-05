@@ -40,6 +40,7 @@
 -define(SLEEP, 500).
 -define(RENEGOTIATION_DISABLE_TIME, 12000).
 -define(CLEAN_SESSION_DB, 60000).
+-define(SEC_RENEGOTIATION_TIMEOUT, 30).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -340,7 +341,7 @@ init_per_testcase(TestCase, Config) when TestCase == client_renegotiate;
 					 TestCase == renegotiate_dos_mitigate_passive;
 					 TestCase == renegotiate_dos_mitigate_absolute ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 90}),
+    ct:timetrap({seconds, ?SEC_RENEGOTIATION_TIMEOUT + 5}),
     Config;
 
 init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
@@ -4298,7 +4299,7 @@ erlang_ssl_receive(Socket, Data) ->
 	    erlang_ssl_receive(Socket, tl(Data));
 	Other ->
 	    ct:fail({unexpected_message, Other})
-    after ?SLEEP * 3 *  test_server:timetrap_scale_factor() ->
+    after timer:seconds(?SEC_RENEGOTIATION_TIMEOUT) * test_server:timetrap_scale_factor() ->
 	    ct:fail({did_not_get, Data})
     end.
 
