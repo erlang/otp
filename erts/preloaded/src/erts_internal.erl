@@ -304,7 +304,7 @@ release_literal_area_switch() ->
 
 -spec purge_module(Module, Op) -> boolean() when
       Module :: module(),
-      Op :: 'prepare' | 'abort' | 'complete'.
+      Op :: 'prepare' | 'prepare_on_load' | 'abort' | 'complete'.
 purge_module(_Module, _Op) ->
     erlang:nif_error(undefined).
 

@@ -22,7 +22,8 @@
 %% Purpose : Implement system process erts_code_purger
 %%           to handle code module purging.
 
--export([start/0, purge/1, soft_purge/1, pending_purge_lambda/3]).
+-export([start/0, purge/1, soft_purge/1, pending_purge_lambda/3,
+	 finish_after_on_load/2]).
 
 -spec start() -> term().
 start() ->
@@ -39,6 +40,11 @@ loop() ->
 	{soft_purge,Mod,From,Ref} when is_atom(Mod), is_pid(From) ->
 	    Res = do_soft_purge(Mod),
 	    From ! {reply, soft_purge, Res, Ref};
+
+	{finish_after_on_load,{Mod,Keep},From,Ref}
+	      when is_atom(Mod), is_pid(From) ->
+	    Res = do_finish_after_on_load(Mod, Keep),
+	    From ! {reply, finish_after_on_load, Res, Ref};
 
 	{test_purge, Mod, From, Type, Ref} when is_atom(Mod), is_pid(From) ->
 	     do_test_purge(Mod, From, Type, Ref);
@@ -128,6 +134,35 @@ do_soft_purge(Mod) ->
 					   true -> complete
 				       end)
     end.
+
+%% finish_after_on_load(Module, Keep)
+%% Finish after running on_load function. If Keep is false,
+%% purge the code for the on_load function.
+
+finish_after_on_load(Mod, Keep) ->
+    Ref = make_ref(),
+    erts_code_purger ! {finish_after_on_load, {Mod,Keep}, self(), Ref},
+    receive
+	{reply, finish_after_on_load, Result, Ref} ->
+	    Result
+    end.
+
+do_finish_after_on_load(Mod, Keep) ->
+    erlang:finish_after_on_load(Mod, Keep),
+    case Keep of
+	true ->
+	    ok;
+	false ->
+	    case erts_internal:purge_module(Mod, prepare_on_load) of
+		false ->
+		    true;
+		true ->
+		    _ = check_proc_code(erlang:processes(), Mod, true),
+		    true = erts_internal:purge_module(Mod, complete)
+	    end
+    end.
+
+
 
 %%
 %% check_proc_code(Pids, Mod, Hard) - Send asynchronous

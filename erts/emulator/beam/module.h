@@ -39,6 +39,7 @@ typedef struct erl_module {
 
     struct erl_module_instance curr;
     struct erl_module_instance old; /* protected by "old_code" rwlock */
+    struct erl_module_instance* on_load;
 } Module; 
 
 Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
