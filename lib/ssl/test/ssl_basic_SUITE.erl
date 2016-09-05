@@ -441,7 +441,9 @@ init_per_testcase(accept_pool, Config) ->
 	    ssl_test_lib:ct_log_supported_protocol_versions(Config),
 	    Config
     end;
-
+init_per_testcase(controller_dies, Config) ->
+    ct:timetrap({seconds, 10}),
+    Config;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 5}),
