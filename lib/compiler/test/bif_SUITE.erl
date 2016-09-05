@@ -67,9 +67,9 @@ food(Curriculum) ->
 	     0
      end, Curriculum].
 
-%% Test trunc/1, round/1.
+%% Test trunc/1, round/1, floor/1, ceil/1.
 trunc_and_friends(_Config) ->
-    Bifs = [trunc,round],
+    Bifs = [trunc,round,floor,ceil],
     Fs = trunc_and_friends_1(Bifs),
     Mod = ?FUNCTION_NAME,
     Calls = [begin

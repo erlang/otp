@@ -560,6 +560,9 @@ type(erlang, byte_size, 1, Xs, Opaques) ->
   strict(erlang, byte_size, 1, Xs,
 	 fun (_) -> t_non_neg_integer() end, Opaques);
 %% Guard bif, needs to be here.
+type(erlang, ceil, 1, Xs, Opaques) ->
+  strict(erlang, ceil, 1, Xs, fun (_) -> t_integer() end, Opaques);
+%% Guard bif, needs to be here.
 %% Also much more expressive than anything you could write in a spec...
 type(erlang, element, 2, Xs, Opaques) ->
   strict(erlang, element, 2, Xs,
@@ -587,6 +590,9 @@ type(erlang, element, 2, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, float, 1, Xs, Opaques) ->
   strict(erlang, float, 1, Xs, fun (_) -> t_float() end, Opaques);
+%% Guard bif, needs to be here.
+type(erlang, floor, 1, Xs, Opaques) ->
+  strict(erlang, floor, 1, Xs, fun (_) -> t_integer() end, Opaques);
 %% Guard bif, needs to be here.
 type(erlang, hd, 1, Xs, Opaques) ->
   strict(erlang, hd, 1, Xs, fun ([X]) -> t_cons_hd(X) end, Opaques);
@@ -2341,6 +2347,9 @@ arg_types(erlang, bit_size, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, byte_size, 1) ->
   [t_bitstr()];
+%% Guard bif, needs to be here.
+arg_types(erlang, ceil, 1) ->
+  [t_number()];
 arg_types(erlang, halt, 0) ->
   [];
 arg_types(erlang, halt, 1) ->
@@ -2359,6 +2368,9 @@ arg_types(erlang, element, 2) ->
   [t_pos_fixnum(), t_tuple()];
 %% Guard bif, needs to be here.
 arg_types(erlang, float, 1) ->
+  [t_number()];
+%% Guard bif, needs to be here.
+arg_types(erlang, floor, 1) ->
   [t_number()];
 %% Guard bif, needs to be here.
 arg_types(erlang, hd, 1) ->

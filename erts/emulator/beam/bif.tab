@@ -659,6 +659,15 @@ bif erlang:has_prepared_code_on_load/1
 bif maps:take/2
 
 #
+# New in 20.0
+#
+
+gcbif erlang:floor/1
+gcbif erlang:ceil/1
+bif math:floor/1
+bif math:ceil/1
+
+#
 # Obsolete
 #
 
