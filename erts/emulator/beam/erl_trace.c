@@ -3157,7 +3157,7 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
            Not sure if it is worth it, we save 4 words (sizeof(ErlHeapFragment))
            per tracer. */
         Eterm *hp = erts_alloc(ERTS_ALC_T_HEAP_FRAG,
-                               2*sizeof(Eterm) + sizeof(ErtsThrPrgrLaterOp));
+                               3*sizeof(Eterm) + sizeof(ErtsThrPrgrLaterOp));
         *tracer = CONS(hp, ERTS_TRACER_MODULE(new_tracer),
                        ERTS_TRACER_STATE(new_tracer));
     } else {
