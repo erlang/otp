@@ -1640,10 +1640,19 @@ get_unit({bin_element,_,_,_,Flags}) ->
     U.
 
 %% is_guard_test(Expression) -> true | false.
-%%  Test if a general expression is a guard test.  Use erl_lint here
-%%  as it now allows sys_pre_expand transformed source.
+%%  Test if a general expression is a guard test.
+%%
+%%  Note that a local function overrides a BIF with the same name.
+%%  For example, if there is a local function named is_list/1,
+%%  any unqualified call to is_list/1 will be to the local function.
+%%  The guard function must be explicitly called as erlang:is_list/1.
 
-is_guard_test(E) -> erl_lint:is_guard_test(E).
+is_guard_test(E) ->
+    %% erl_expand_records has added a module prefix to any call
+    %% to a BIF or imported function. Any call without a module
+    %% prefix that remains must therefore be to a local function.
+    IsOverridden = fun({_,_}) -> true end,
+    erl_lint:is_guard_test(E, [], IsOverridden).
 
 %% novars(Expr, State) -> {Novars,[PreExpr],State}.
 %%  Generate a novars expression, basically a call or a safe.  At this

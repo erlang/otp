@@ -36,6 +36,7 @@ MODULES= \
 	map_SUITE \
 	match_SUITE \
 	misc_SUITE \
+	overridden_bif_SUITE \
 	receive_SUITE \
 	record_SUITE \
 	regressions_SUITE \
@@ -66,6 +67,7 @@ NO_OPT= \
 	map \
 	match \
 	misc \
+	overridden_bif \
 	receive \
 	record \
 	trycatch
@@ -90,6 +92,7 @@ INLINE= \
 	map \
 	match \
 	misc \
+	overridden_bif \
 	receive \
 	record
 

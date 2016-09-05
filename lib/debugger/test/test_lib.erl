@@ -23,8 +23,15 @@
 
 -export([interpret/1]).
 
+%% Used by test case that override BIFs.
+-export([binary/1]).
+
 interpret(Mod) when is_atom(Mod) ->
     case lists:member(Mod, int:interpreted()) of
 	true -> ok;
 	false -> {module,Mod} = i:ii(Mod)
     end.
+
+%% This is for overridden_bif_SUITE.
+binary(N) ->
+    N rem 10 =:= 0.

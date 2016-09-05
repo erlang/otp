@@ -41,6 +41,7 @@
         }).
 
 -record(state, {imp,
+		overridden,
                 maxargs,
                 records,
                 xwarnings = [],
@@ -184,7 +185,9 @@ initiate(Forms0, Imported) ->
     exclude_integers_from_unique_line_numbers(Forms0, NodeInfo),
     ?DEBUG("node info0 ~p~n",
            [lists:sort(ets:tab2list(NodeInfo))]),
+    IsOverridden = set_up_overridden(Forms0),
     State0 = #state{imp = Imported,
+		    overridden = IsOverridden,
                     maxargs = ?EVAL_MAX_NUM_OF_ARGS,
                     records = record_attributes(Forms0),
                     node_info = NodeInfo},
@@ -1519,36 +1522,35 @@ filter_info(FilterData, AllIVs, Dependencies, State) ->
 %% to be placed after further generators (the docs states otherwise, but 
 %% this seems to be common practice).
 filter_list(FilterData, Dependencies, State) ->
-    RDs = State#state.records,
-    sel_gf(FilterData, 1, Dependencies, RDs, [], []).
+    sel_gf(FilterData, 1, Dependencies, State, [], []).
 
 sel_gf([], _N, _Deps, _RDs, _Gens, _Gens1) ->
     [];
-sel_gf([{#qid{no = N}=Id,{fil,F}}=Fil | FData], N, Deps, RDs, Gens, Gens1) ->
-    case erl_lint:is_guard_test(F, RDs) of
+sel_gf([{#qid{no = N}=Id,{fil,F}}=Fil | FData], N, Deps, State, Gens, Gens1) ->
+    case is_guard_test(F, State) of
         true ->
             {Id,GIds} = lists:keyfind(Id, 1, Deps),
             case length(GIds) =< 1 of
                 true ->
                     case generators_in_scope(GIds, Gens1) of
                         true ->
-                            [Fil|sel_gf(FData, N+1, Deps, RDs, Gens, Gens1)];
+                            [Fil|sel_gf(FData, N+1, Deps, State, Gens, Gens1)];
                         false ->
-                            sel_gf(FData, N + 1, Deps, RDs, [], [])
+                            sel_gf(FData, N + 1, Deps, State, [], [])
                     end;
                 false ->
                     case generators_in_scope(GIds, Gens) of
                         true ->
-                            [Fil | sel_gf(FData, N + 1, Deps, RDs, Gens, [])];
+                            [Fil | sel_gf(FData, N + 1, Deps, State, Gens, [])];
                         false ->
-                            sel_gf(FData, N + 1, Deps, RDs, [], [])
+                            sel_gf(FData, N + 1, Deps, State, [], [])
                     end
             end;
         false ->
-            sel_gf(FData, N + 1, Deps, RDs, [], [])
+            sel_gf(FData, N + 1, Deps, State, [], [])
     end;
-sel_gf(FData, N, Deps, RDs, Gens, Gens1) ->
-    sel_gf(FData, N + 1, Deps, RDs, [N | Gens], [N | Gens1]).
+sel_gf(FData, N, Deps, State, Gens, Gens1) ->
+    sel_gf(FData, N + 1, Deps, State, [N | Gens], [N | Gens1]).
 
 generators_in_scope(GenIds, GenNumbers) ->
     lists:all(fun(#qid{no=N}) -> lists:member(N, GenNumbers) end, GenIds).
@@ -2483,7 +2485,7 @@ filter(E, L, QIVs, S, RL, Fun, Go, GoI, IVs, State) ->
     %% This is the "guard semantics" used in ordinary list
     %% comprehension: if a filter looks like a guard test, it returns
     %% 'false' rather than fails.
-    Body = case erl_lint:is_guard_test(E, State#state.records) of
+    Body = case is_guard_test(E, State) of
                true -> 
                    CT = {clause,L,[],[[E]],[{call,L,?V(Fun),NAsT}]},
                    CF = {clause,L,[],[[?A(true)]],[{call,L,?V(Fun),NAsF}]},
@@ -2886,6 +2888,26 @@ family_list(L) ->
 
 family(L) ->
     sofs:relation_to_family(sofs:relation(L)).
+
+is_guard_test(E, #state{records = RDs, overridden = IsOverridden}) ->
+    erl_lint:is_guard_test(E, RDs, IsOverridden).
+
+%% In code that has been run through erl_expand_records, a guard
+%% test will never contain calls without an explicit module
+%% prefix.  Unfortunately, this module runs *some* of the code
+%% through erl_expand_records, but not all of it.
+%%
+%% Therefore, we must set up our own list of local and imported functions
+%% that will override a BIF with the same name.
+
+set_up_overridden(Forms) ->
+    Locals = [{Name,Arity} || {function,_,Name,Arity,_} <- Forms],
+    Imports0 = [Fs || {attribute,_,import,Fs} <- Forms],
+    Imports1 = lists:flatten(Imports0),
+    Imports2 = [Fs || {_,Fs} <- Imports1],
+    Imports = lists:flatten(Imports2),
+    Overridden = gb_sets:from_list(Imports ++ Locals),
+    fun(FA) -> gb_sets:is_element(FA, Overridden) end.
 
 -ifdef(debug).
 display_forms(Forms) ->

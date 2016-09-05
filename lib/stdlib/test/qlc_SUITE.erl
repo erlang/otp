@@ -58,7 +58,7 @@
 -export([ 
 	  badarg/1, nested_qlc/1, unused_var/1, lc/1, fun_clauses/1,
 	  filter_var/1, single/1, exported_var/1, generator_vars/1,
-	  nomatch/1, errors/1, pattern/1, 
+	  nomatch/1, errors/1, pattern/1, overridden_bif/1,
 
 	  eval/1, cursor/1, fold/1, eval_unique/1, eval_cache/1, append/1, 
 	  evaluator/1, string_to_handle/1, table/1, process_dies/1, 
@@ -126,7 +126,7 @@ groups() ->
     [{parse_transform, [],
       [badarg, nested_qlc, unused_var, lc, fun_clauses,
        filter_var, single, exported_var, generator_vars,
-       nomatch, errors, pattern]},
+       nomatch, errors, pattern, overridden_bif]},
      {evaluation, [],
       [eval, cursor, fold, eval_unique, eval_cache, append,
        evaluator, string_to_handle, table, process_dies, sort,
@@ -466,6 +466,23 @@ pattern(Config) when is_list(Config) ->
        ],
     run(Config, <<"-record(a, {k,v}).
                          -record(k, {t,v}).\n">>, Ts),
+    ok.
+
+%% Override a guard BIF with an imported or local function.
+overridden_bif(Config) ->
+    Ts = [
+	  <<"[2] = qlc:e(qlc:q([P || P <- [1,2,3], port(P)])),
+             [10] = qlc:e(qlc:q([P || P <- [0,9,10,11,12],
+                                      (is_reference(P) andalso P > 5)])),
+             Empty = gb_sets:empty(), Single = gb_sets:singleton(42),
+             GbSets = [Empty,Single],
+             [Single] = qlc:e(qlc:q([S || S <- GbSets, size(S) =/= 0]))
+            ">>
+	 ],
+    run(Config, "-import(gb_sets, [size/1]).
+                 -compile({no_auto_import, [size/1, is_reference/1]}).
+                 port(N) -> N rem 2 =:= 0.
+                 is_reference(N) -> N rem 10 =:= 0.\n", Ts),
     ok.
 
 

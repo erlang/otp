@@ -486,30 +486,10 @@ expr({'try',Anno,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
     CatchCs = icr_clauses(CatchCs0, Lc),
     As = expr_list(As0),
     {'try',ln(Anno),Es,CaseCs,CatchCs,As};
-expr({lc,Anno,E0,Gs0}, _Lc) ->			%R8.
-    Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,pattern(P0),expr(Qs, false)};
-		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,pattern(P0),expr(Qs, false)};
-		       (Expr) ->
-			   case erl_lint:is_guard_test(Expr) of
-			       true -> {guard,guard([[Expr]])};
-			       false -> expr(Expr, false)
-			   end
-		   end, Gs0),
-    {lc,ln(Anno),expr(E0, false),Gs};
-expr({bc,Anno,E0,Gs0}, _Lc) ->			%R12.
-    Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,pattern(P0),expr(Qs, false)};
-		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,pattern(P0),expr(Qs, false)};
-		       (Expr) ->
-			   case erl_lint:is_guard_test(Expr) of
-			       true -> {guard,guard([[Expr]])};
-			       false -> expr(Expr, false)
-			   end
-		   end, Gs0),
-    {bc,ln(Anno),expr(E0, false),Gs};
+expr({lc,_,_,_}=Compr, _Lc) ->
+    expr_lc_bc(Compr);
+expr({bc,_,_,_}=Compr, _Lc) ->
+    expr_lc_bc(Compr);
 expr({match,Anno,P0,E0}, _Lc) ->
     E1 = expr(E0, false),
     P1 = pattern(P0),
@@ -559,6 +539,23 @@ make_bit_type(Line, default, Type0) ->
 make_bit_type(_Line, Size, Type0) ->            %Integer or 'all'
     {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
     {Size,erl_bits:as_list(Bt)}.
+
+expr_lc_bc({Tag,Anno,E0,Gs0}) ->
+    Gs = lists:map(fun ({generate,L,P0,Qs}) ->
+			   {generate,L,pattern(P0),expr(Qs, false)};
+		       ({b_generate,L,P0,Qs}) -> %R12.
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
+		       (Expr) ->
+			   case is_guard_test(Expr) of
+			       true -> {guard,guard([[Expr]])};
+			       false -> expr(Expr, false)
+			   end
+		   end, Gs0),
+    {Tag,ln(Anno),expr(E0, false),Gs}.
+
+is_guard_test(Expr) ->
+    IsOverridden = fun({_,_}) -> true end,
+    erl_lint:is_guard_test(Expr, [], IsOverridden).
 
 %% The debugger converts both strings "abc" and lists [67, 68, 69]
 %% into {value, Line, [67, 68, 69]}, making it impossible to later
