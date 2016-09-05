@@ -254,7 +254,19 @@ mk_cmd(_,Cmd) ->
     {"/bin/sh -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
-     ["(", unicode:characters_to_binary(Cmd), "\n); echo \"\^D\"\n"],
+     %%
+     %% The </dev/null closes stdin, which means that programs
+     %% that use a closed stdin as an termination indicator works.
+     %% An example of such a program is 'more'.
+     %%
+     %% The "echo ^D" is used to indicate that the program has executed
+     %% and we should return any output we have gotten. We cannot use
+     %% termination of the child or closing of stdin/stdout as then
+     %% starting background jobs from os:cmd will block os:cmd.
+     %%
+     %% I tried changing this to be "better", but got bombarded with
+     %% backwards incompatibility bug reports, so leave this as it is.
+     ["(", unicode:characters_to_binary(Cmd), "\n) </dev/null; echo \"\^D\"\n"],
      <<$\^D>>}.
 
 validate(Atom) when is_atom(Atom) ->

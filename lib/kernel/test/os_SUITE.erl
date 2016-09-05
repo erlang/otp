@@ -25,7 +25,7 @@
 -export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
-         message_leak/1, perf_counter_api/1]).
+         message_leak/1, close_stdin/0, close_stdin/1, perf_counter_api/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +37,7 @@ all() ->
     [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
-     perf_counter_api].
+     close_stdin, perf_counter_api].
 
 groups() ->
     [].
@@ -54,7 +54,8 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(background_command, Config) ->
+init_per_testcase(TC, Config)
+  when TC =:= background_command; TC =:= close_stdin ->
     case os:type() of
         {win32, _} ->
             {skip,"Should not work on windows"};
@@ -301,6 +302,16 @@ message_leak(_Config) ->
     end,
 
     process_flag(trap_exit, false).
+
+%% Test that os:cmd closes stdin of the program that is executed
+close_stdin() ->
+    [{timetrap, {seconds, 5}}].
+close_stdin(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Fds = filename:join(DataDir, "my_fds"),
+
+    "-1" = os:cmd(Fds).
+
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->
