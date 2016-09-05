@@ -699,6 +699,7 @@ leader_update(ErtsThrPrgrData *tpd)
 	    tpd->leader_state.chk_next_ix = no_managed;
 	    erts_atomic32_set_nob(&intrnl->misc.data.umrefc_ix.current,
 				  (erts_aint32_t) new_umrefc_ix);
+	    tpd->leader_state.umrefc_ix.current = new_umrefc_ix;
 	    ETHR_MEMBAR(ETHR_StoreLoad);
 	    refc = erts_atomic_read_nob(&intrnl->umrefc[umrefc_ix].refc);
 	    ASSERT(refc >= 0);
