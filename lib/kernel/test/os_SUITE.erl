@@ -294,7 +294,7 @@ message_leak(_Config) ->
 
     case os:type() of
         {unix, _} ->
-            os:cmd("while true; do echo hello; done&"),
+            os:cmd("for i in $(seq 1 100); do echo hello; done&"),
             [] = receive_all();
         _ ->
             ok % Cannot background on non-unix
