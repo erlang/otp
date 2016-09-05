@@ -1196,7 +1196,7 @@ void print_pass_through(int, byte*, int);
 /* beam_emu.c */
 int catchlevel(Process*);
 void init_emulator(void);
-void process_main(void);
+void process_main(Eterm* x_reg_array, FloatDef* f_reg_array);
 void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
