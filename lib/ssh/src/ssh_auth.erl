@@ -140,7 +140,7 @@ publickey_msg([Alg, #ssh{user = User,
 		       session_id = SessionId,
 		       service = Service,
 		       opts = Opts} = Ssh]) ->
-    Hash = sha, %% Maybe option?!
+    Hash = ssh_transport:sha(Alg),
     KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
     case KeyCb:user_key(Alg, Opts) of
 	{ok, PrivKey} ->
@@ -495,7 +495,7 @@ verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
 	    <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
 	    <<?UINT32(AlgLen), _Alg:AlgLen/binary,
 	      ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-	    ssh_transport:verify(PlainText, sha, Sig, Key);
+	    ssh_transport:verify(PlainText, ssh_transport:sha(list_to_atom(Alg)), Sig, Key);
 	false ->
 	    false
     end.
