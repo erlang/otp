@@ -41,7 +41,7 @@
 %% Internal application API
 %%====================================================================
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), #connection_states{},
+-spec client_hello(host(), inet:port_number(), ssl_record:connection_states(),
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
@@ -54,8 +54,7 @@ client_hello(Host, Port, ConnectionStates,
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version = tls_record:highest_protocol_version(Versions),
-    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = Pending#connection_state.security_parameters,
+    #{security_parameters := SecParams} = ssl_record:pending_connection_state(ConnectionStates, read),
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),     
     Extensions = ssl_handshake:client_hello_extensions(Host, Version, 
 						       AvailableCipherSuites,
@@ -78,14 +77,14 @@ client_hello(Host, Port, ConnectionStates,
 
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
-	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
-				    atom(), #connection_states{}, 
+	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
+				    atom(), ssl_record:connection_states(), 
 				    binary() | undefined, ssl_cipher:key_algo()},
 	    boolean()) ->
 		   {tls_record:tls_version(), session_id(), 
-		    #connection_states{}, alpn | npn, binary() | undefined}|
+		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
-		    #connection_states{}, binary() | undefined, 
+		    ssl_record:connection_states(), binary() | undefined, 
 		    #hello_extensions{}, {ssl_cipher:hash(), ssl_cipher:sign_algo()} | undefined} |
 		   #alert{}.
 %%

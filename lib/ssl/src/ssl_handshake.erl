@@ -51,8 +51,8 @@
 
 %% Handle handshake messages
 -export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
-	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
-	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
+	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
+	 init_handshake_history/0, update_handshake_history/3, verify_server_key/5
 	]).
 
 %% Encode/Decode
@@ -94,15 +94,14 @@ hello_request() ->
     #hello_request{}.
 
 %%--------------------------------------------------------------------
--spec server_hello(#session{}, ssl_record:ssl_version(), #connection_states{},
+-spec server_hello(#session{}, ssl_record:ssl_version(), ssl_record:connection_states(),
 		   #hello_extensions{}) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
 %%--------------------------------------------------------------------
 server_hello(SessionId, Version, ConnectionStates, Extensions) ->
-    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = Pending#connection_state.security_parameters,
-
+    #{security_parameters := SecParams} = 
+	ssl_record:pending_connection_state(ConnectionStates, read),
     #server_hello{server_version = Version,
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
                   compression_method =
@@ -335,9 +334,8 @@ verify_server_key(#server_key_params{params_bin = EncParams,
 				     signature = Signature},
 		  HashSign = {HashAlgo, _},
 		  ConnectionStates, Version, PubKeyInfo) ->
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Hash = server_key_exchange_hash(HashAlgo,
@@ -447,7 +445,7 @@ init_handshake_history() ->
     {[], []}.
 
 %%--------------------------------------------------------------------
--spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term()) ->
+-spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term(), boolean()) ->
 				      ssl_handshake:ssl_handshake_history().
 %%
 %% Description: Update the handshake history buffer with Data.
@@ -457,14 +455,14 @@ update_handshake_history(Handshake, % special-case SSL2 client hello
 			   ?UINT16(CSLength), ?UINT16(0),
 			   ?UINT16(CDLength),
 			   CipherSuites:CSLength/binary,
-			   ChallengeData:CDLength/binary>>) ->
+			   ChallengeData:CDLength/binary>>, true) ->
     update_handshake_history(Handshake,
 			     <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
 			       ?UINT16(CSLength), ?UINT16(0),
 			       ?UINT16(CDLength),
 			       CipherSuites:CSLength/binary,
-			       ChallengeData:CDLength/binary>>);
-update_handshake_history({Handshake0, _Prev}, Data) ->
+			       ChallengeData:CDLength/binary>>, true);
+update_handshake_history({Handshake0, _Prev}, Data, _) ->
     {[Data|Handshake0], Handshake0}.
 
 %% %%--------------------------------------------------------------------
@@ -696,33 +694,32 @@ select_hashsign_algs(undefined, ?'id-dsa', _) ->
 
 
 %%--------------------------------------------------------------------
--spec master_secret(atom(), ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
-		   client | server) -> {binary(), #connection_states{}} | #alert{}.
+-spec master_secret(ssl_record:ssl_version(), #session{} | binary(), ssl_record:connection_states(),
+		   client | server) -> {binary(), ssl_record:connection_states()} | #alert{}.
 %%
 %% Description: Sets or calculates the master secret and calculate keys,
 %% updating the pending connection states. The Mastersecret and the update
 %% connection states are returned or an alert if the calculation fails.
 %%-------------------------------------------------------------------
-master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
+master_secret(Version, #session{master_secret = Mastersecret},
 	      ConnectionStates, Role) ->
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
-    try master_secret(RecordCB, Version, Mastersecret, SecParams,
+    try master_secret(Version, Mastersecret, SecParams,
 		      ConnectionStates, Role)
     catch
 	exit:_ ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, key_calculation_failure)
     end;
 
-master_secret(RecordCB, Version, PremasterSecret, ConnectionStates, Role) ->
-    ConnectionState =
+master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
+    
     #security_parameters{prf_algorithm = PrfAlgo,
 			 client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
-    try master_secret(RecordCB, Version,
+    try master_secret(Version,
 		      calc_master_secret(Version,PrfAlgo,PremasterSecret,
 					 ClientRandom, ServerRandom),
 		      SecParams, ConnectionStates, Role)
@@ -1343,29 +1340,29 @@ do_select_version(
 renegotiation_info(_, client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
 renegotiation_info(_RecordCB, server, ConnectionStates, false) ->
-    CS  = ssl_record:current_connection_state(ConnectionStates, read),
-    case CS#connection_state.secure_renegotiation of
+    ConnectionState  = ssl_record:current_connection_state(ConnectionStates, read),
+    case maps:get(secure_renegotiation, ConnectionState) of
 	true ->
 	    #renegotiation_info{renegotiated_connection = ?byte(0)};
 	false ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 renegotiation_info(_RecordCB, client, ConnectionStates, true) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    case CS#connection_state.secure_renegotiation of
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    case  maps:get(secure_renegotiation, ConnectionState) of
 	true ->
-	    Data = CS#connection_state.client_verify_data,
+	    Data = maps:get(client_verify_data, ConnectionState),
 	    #renegotiation_info{renegotiated_connection = Data};
 	false ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 
 renegotiation_info(_RecordCB, server, ConnectionStates, true) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    case CS#connection_state.secure_renegotiation of
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    case maps:get(secure_renegotiation, ConnectionState) of
 	true ->
-	    CData = CS#connection_state.client_verify_data,
-	    SData  =CS#connection_state.server_verify_data,
+	    CData = maps:get(client_verify_data, ConnectionState),
+	    SData = maps:get(server_verify_data, ConnectionState),
 	    #renegotiation_info{renegotiated_connection = <<CData/binary, SData/binary>>};
 	false ->
 	    #renegotiation_info{renegotiated_connection = undefined}
@@ -1388,9 +1385,9 @@ handle_renegotiation_info(_RecordCB, _, undefined, ConnectionStates, false, _, _
 
 handle_renegotiation_info(_RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
 			  ConnectionStates, true, _, _) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    CData = CS#connection_state.client_verify_data,
-    SData = CS#connection_state.server_verify_data,
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    CData = maps:get(client_verify_data, ConnectionState),
+    SData = maps:get(server_verify_data, ConnectionState),
     case <<CData/binary, SData/binary>> == ClientServerVerify of
 	true ->
 	    {ok, ConnectionStates};
@@ -1404,8 +1401,8 @@ handle_renegotiation_info(_RecordCB, server, #renegotiation_info{renegotiated_co
 	  true ->
               ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {server_renegotiation, empty_renegotiation_info_scsv});
 	  false ->
-	      CS = ssl_record:current_connection_state(ConnectionStates, read),
-	      Data = CS#connection_state.client_verify_data,
+	      ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+	      Data =  maps:get(client_verify_data, ConnectionState),
 	      case Data == ClientVerify of
 		  true ->
 		      {ok, ConnectionStates};
@@ -1426,8 +1423,8 @@ handle_renegotiation_info(RecordCB, server, undefined, ConnectionStates, true, S
      end.
 
 handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    case {SecureRenegotation, CS#connection_state.secure_renegotiation} of
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    case {SecureRenegotation, maps:get(secure_renegotiation, ConnectionState)} of
 	{_, true} ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, already_secure);
 	{true, false} ->
@@ -1645,7 +1642,7 @@ calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
-master_secret(_RecordCB, Version, MasterSecret,
+master_secret(Version, MasterSecret,
 	      #security_parameters{
 		 bulk_cipher_algorithm = BCA,
 		 client_random = ClientRandom,
@@ -1728,18 +1725,16 @@ hello_pending_connection_states(_RecordCB, Role, Version, CipherSuite, Random, C
 				    NewWriteSecParams,
 				    ConnectionStates).
 
-hello_security_parameters(client, Version, ConnectionState, CipherSuite, Random,
+hello_security_parameters(client, Version, #{security_parameters := SecParams}, CipherSuite, Random,
 			  Compression) ->
-    SecParams = ConnectionState#connection_state.security_parameters,
     NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
     NewSecParams#security_parameters{
       server_random = Random,
       compression_algorithm = Compression
      };
 
-hello_security_parameters(server, Version, ConnectionState, CipherSuite, Random,
+hello_security_parameters(server, Version, #{security_parameters := SecParams}, CipherSuite, Random,
 			  Compression) ->
-    SecParams = ConnectionState#connection_state.security_parameters,
     NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
     NewSecParams#security_parameters{
       client_random = Random,
