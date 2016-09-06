@@ -5436,7 +5436,8 @@ smp_select_delete(Config) when is_list(Config) ->
 			Eq+1
 		end, 
 		0, TotCnts),
-    verify_table_load(T),
+    %% May fail as select_delete does not shrink table (enough)
+    %%verify_table_load(T),
     LeftInTab = ets:select_delete(T, [{{'$1','$1'}, [], [true]}]),
     0 = ets:info(T,size),
     false = ets:info(T,fixed),
