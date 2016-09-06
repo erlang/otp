@@ -47,11 +47,13 @@ init([]) ->
     SessionCertManager = session_and_cert_manager_child_spec(),
     TLSConnetionManager = tls_connection_manager_child_spec(),
     %% Not supported yet
-    %%DTLSConnetionManager = tls_connection_manager_child_spec(),
+    %%DTLSConnetionManager = dtls_connection_manager_child_spec(),
     %% Handles emulated options so that they inherited by the accept socket, even when setopts is performed on 
     %% the listen socket
     ListenOptionsTracker = listen_options_tracker_child_spec(), 
-    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, TLSConnetionManager, ListenOptionsTracker]}}.
+    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, TLSConnetionManager, 
+				    %%DTLSConnetionManager, 
+				    ListenOptionsTracker]}}.
 
 
 manager_opts() ->
@@ -93,14 +95,13 @@ tls_connection_manager_child_spec() ->
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 %% dtls_connection_manager_child_spec() ->
-%%     Name = dtls_connection,  
+%%     Name = dtls_connection,
 %%     StartFunc = {dtls_connection_sup, start_link, []},
-%%     Restart = permanent, 
+%%     Restart = permanent,
 %%     Shutdown = 4000,
 %%     Modules = [dtls_connection, ssl_connection],
 %%     Type = supervisor,
 %%     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
 
 listen_options_tracker_child_spec() ->
     Name = ssl_socket,  

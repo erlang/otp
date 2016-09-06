@@ -32,7 +32,7 @@
 -include("ssl_cipher.hrl").
 
 %% Handling of incoming data
--export([get_tls_records/2]).
+-export([get_tls_records/2, init_connection_states/2]).
 
 %% Decoding
 -export([decode_cipher_text/3]).
@@ -56,12 +56,28 @@
 %%====================================================================
 %% Internal application API
 %%====================================================================
+%%--------------------------------------------------------------------
+-spec init_connection_states(client | server, one_n_minus_one | zero_n | disabled) ->
+ 				    ssl_record:connection_states().
+%% %
+						%
+%% Description: Creates a connection_states record with appropriate
+%% values for the initial SSL connection setup.
+%%--------------------------------------------------------------------
+init_connection_states(Role, BeastMitigation) ->
+    ConnectionEnd = ssl_record:record_protocol_role(Role),
+    Current = initial_connection_state(ConnectionEnd, BeastMitigation),
+    Pending = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation),
+    #{current_read  => Current,
+      pending_read  => Pending,
+      current_write => Current,
+      pending_write => Pending}.
 
 %%--------------------------------------------------------------------
 -spec get_tls_records(binary(), binary()) -> {[binary()], binary()} | #alert{}.
 %%			     
-%% Description: Given old buffer and new data from TCP, packs up a records
 %% and returns it as a list of tls_compressed binaries also returns leftover
+%% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
 get_tls_records(Data, <<>>) ->
@@ -129,63 +145,61 @@ get_tls_records_aux(Data, Acc) ->
 	end.
 
 encode_plain_text(Type, Version, Data,
-		  #connection_states{current_write =
-					 #connection_state{
-					    sequence_number = Seq,
-					    compression_state=CompS0,
-					    security_parameters=
-						#security_parameters{
-						   cipher_type = ?AEAD,
-						   compression_algorithm=CompAlg}
-					   }= WriteState0} = ConnectionStates) ->
+		  #{current_write :=
+			#{sequence_number := Seq,
+			  compression_state := CompS0,
+			  security_parameters :=
+			      #security_parameters{
+				 cipher_type = ?AEAD,
+				 compression_algorithm = CompAlg}
+			 }= WriteState0} = ConnectionStates) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    WriteState1 = WriteState0#connection_state{compression_state = CompS1},
+    WriteState1 = WriteState0#{compression_state => CompS1},
     AAD = calc_aad(Type, Version, WriteState1),
     {CipherFragment, WriteState} = ssl_record:cipher_aead(Version, Comp, WriteState1, AAD),
     CipherText = encode_tls_cipher_text(Type, Version, CipherFragment),
-    {CipherText, ConnectionStates#connection_states{current_write = WriteState#connection_state{sequence_number = Seq +1}}};
+    {CipherText, ConnectionStates#{current_write => WriteState#{sequence_number => Seq +1}}};
 
 encode_plain_text(Type, Version, Data,
-		  #connection_states{current_write =
-					 #connection_state{
-					    sequence_number = Seq,
-					    compression_state=CompS0,
-					    security_parameters=
-						#security_parameters{compression_algorithm=CompAlg}
-					   }= WriteState0} = ConnectionStates) ->
+		  #{current_write :=
+			#{sequence_number := Seq,
+			  compression_state := CompS0,
+			  security_parameters :=
+			      #security_parameters{compression_algorithm = CompAlg}
+			 }= WriteState0} = ConnectionStates) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    WriteState1 = WriteState0#connection_state{compression_state = CompS1},
+    WriteState1 = WriteState0#{compression_state => CompS1},
     MacHash = calc_mac_hash(Type, Version, Comp, WriteState1),
     {CipherFragment, WriteState} = ssl_record:cipher(Version, Comp, WriteState1, MacHash),
     CipherText = encode_tls_cipher_text(Type, Version, CipherFragment),
-    {CipherText, ConnectionStates#connection_states{current_write = WriteState#connection_state{sequence_number = Seq +1}}}.
+    {CipherText, ConnectionStates#{current_write => WriteState#{sequence_number => Seq +1}}};
+encode_plain_text(_,_,_, CS) ->
+    exit({cs, CS}).
 
 %%--------------------------------------------------------------------
--spec decode_cipher_text(#ssl_tls{}, #connection_states{}, boolean()) ->
-				{#ssl_tls{}, #connection_states{}}| #alert{}.
+-spec decode_cipher_text(#ssl_tls{}, ssl_record:connection_states(), boolean()) ->
+				{#ssl_tls{}, ssl_record:connection_states()}| #alert{}.
 %%
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    fragment = CipherFragment} = CipherText,
-		   #connection_states{current_read =
-					  #connection_state{
-					     compression_state = CompressionS0,
-					     sequence_number = Seq,
-					     security_parameters=
-						 #security_parameters{
-						    cipher_type = ?AEAD,
-						    compression_algorithm=CompAlg}
-					    } = ReadState0} = ConnnectionStates0, _) ->
+		   #{current_read :=
+			 #{compression_state := CompressionS0,
+			   sequence_number := Seq,
+			   security_parameters :=
+			       #security_parameters{
+				  cipher_type = ?AEAD,
+				  compression_algorithm = CompAlg}
+			  } = ReadState0} = ConnnectionStates0, _) ->
     AAD = calc_aad(Type, Version, ReadState0),
     case ssl_record:decipher_aead(Version, CipherFragment, ReadState0, AAD) of
 	{PlainFragment, ReadState1} ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
-	    ConnnectionStates = ConnnectionStates0#connection_states{
-				  current_read = ReadState1#connection_state{
-						   sequence_number = Seq + 1,
-						   compression_state = CompressionS1}},
+	    ConnnectionStates = ConnnectionStates0#{
+				  current_read => ReadState1#{sequence_number => Seq + 1,
+							      compression_state => CompressionS1}},
 	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
 	#alert{} = Alert ->
 	    Alert
@@ -193,13 +207,12 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 
 decode_cipher_text(#ssl_tls{type = Type, version = Version,
 			    fragment = CipherFragment} = CipherText,
-		   #connection_states{current_read =
-					  #connection_state{
-					     compression_state = CompressionS0,
-					     sequence_number = Seq,
-					     security_parameters=
-						 #security_parameters{compression_algorithm=CompAlg}
-					    } = ReadState0} = ConnnectionStates0, PaddingCheck) ->
+		   #{current_read :=
+			 #{compression_state := CompressionS0,
+			   sequence_number := Seq,
+			   security_parameters :=
+			       #security_parameters{compression_algorithm = CompAlg}
+			  } = ReadState0} = ConnnectionStates0, PaddingCheck) ->
     case ssl_record:decipher(Version, CipherFragment, ReadState0, PaddingCheck) of
 	{PlainFragment, Mac, ReadState1} ->
 	    MacHash = calc_mac_hash(Type, Version, PlainFragment, ReadState1),
@@ -207,10 +220,10 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 		true ->
 		    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 								   PlainFragment, CompressionS0),
-		    ConnnectionStates = ConnnectionStates0#connection_states{
-					  current_read = ReadState1#connection_state{
-							   sequence_number = Seq + 1,
-							   compression_state = CompressionS1}},
+		    ConnnectionStates = ConnnectionStates0#{
+					  current_read => ReadState1#{
+							    sequence_number => Seq + 1,
+							    compression_state => CompressionS1}},
 		    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
 		false ->
 			?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
@@ -375,6 +388,18 @@ is_acceptable_version(_,_) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+initial_connection_state(ConnectionEnd, BeastMitigation) ->
+    #{security_parameters =>
+	  ssl_record:initial_security_params(ConnectionEnd),
+      sequence_number => 0,
+      beast_mitigation => BeastMitigation,
+      compression_state  => undefined,
+      cipher_state  => undefined,
+      mac_secret  => undefined,
+      secure_renegotiation => undefined,
+      client_verify_data => undefined,
+      server_verify_data => undefined
+     }.
 
 lowest_list_protocol_version(Ver, []) ->
     Ver;
@@ -413,15 +438,15 @@ sufficient_tlsv1_2_crypto_support() ->
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
 
 calc_mac_hash(Type, Version,
-	      PlainFragment, #connection_state{sequence_number = SeqNo,
-					       mac_secret = MacSecret,
-					       security_parameters =
-						   SecPars}) ->
+	      PlainFragment, #{sequence_number := SeqNo,
+			       mac_secret := MacSecret,
+			       security_parameters:=
+				   SecPars}) ->
     Length = erlang:iolist_size(PlainFragment),
     mac_hash(Version, SecPars#security_parameters.mac_algorithm,
 	     MacSecret, SeqNo, Type,
 	     Length, PlainFragment).
 
 calc_aad(Type, {MajVer, MinVer},
-	 #connection_state{sequence_number = SeqNo}) ->
+	 #{sequence_number := SeqNo}) ->
     <<SeqNo:64/integer, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.

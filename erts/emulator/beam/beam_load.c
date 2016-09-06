@@ -2635,6 +2635,10 @@ load_code(LoaderState* stp)
 	     * End of code found.
 	     */
 	case op_int_code_end:
+	    if (function_number != stp->num_functions) {
+		LoadError2(stp, "too few functions (%u) in module (header said %u)",
+			   function_number, stp->num_functions);
+	    }
 	    stp->codev_size = codev_size;
 	    stp->ci = ci;
 	    stp->function = THE_NON_VALUE;

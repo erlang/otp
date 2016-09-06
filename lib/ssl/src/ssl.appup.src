@@ -7,5 +7,5 @@
  [
   {<<"^8[.]0([.][0-9]+)?$">>, [{restart_application, ssl}]},
   {<<"^[3-7][.][^.].*">>, [{restart_application, ssl}]}
- ]
+  ]
 }.

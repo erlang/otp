@@ -43,7 +43,7 @@
      renegotiate/1, prf/5, negotiated_protocol/1, negotiated_next_protocol/1,
 	 connection_information/1, connection_information/2]).
 %% Misc
--export([handle_options/2]).
+-export([handle_options/2, tls_version/1]).
 
 -deprecated({negotiated_next_protocol, 1, next_major_release}).
 -deprecated({connection_info, 1, next_major_release}).
@@ -606,6 +606,11 @@ format_error(Error) ->
         Other ->
             Other
     end.
+
+tls_version({3, _} = Version) ->
+    Version;
+tls_version({254, _} = Version) ->
+    dtls_v1:corresponding_tls_version(Version).
 
 %%%--------------------------------------------------------------
 %%% Internal functions
