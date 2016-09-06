@@ -23,12 +23,12 @@
   {vsn, "%VSN%"},
   {modules, [
              %% Compiler modules (not in the runtime part of the app)
-%             snmpc,
-%             snmpc_lib,
-%             snmpc_mib_gram,
-%             snmpc_mib_to_hrl,
-%             snmpc_misc,
-%             snmpc_tok,
+             snmpc,
+             snmpc_lib,
+             snmpc_mib_gram,
+             snmpc_mib_to_hrl,
+             snmpc_misc,
+             snmpc_tok,
 
              %% Application modules
              snmp,
