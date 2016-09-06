@@ -39,6 +39,7 @@
          gather_system_check_result/1]).
 
 -export([request_system_task/3, request_system_task/4]).
+-export([garbage_collect/1]).
 
 -export([check_process_code/3]).
 -export([check_dirty_process_code/2]).
@@ -205,7 +206,8 @@ port_info(_Result, _Item) ->
 
 -spec request_system_task(Pid, Prio, Request) -> 'ok' when
       Prio :: 'max' | 'high' | 'normal' | 'low',
-      Request :: {'garbage_collect', term()}
+      Type :: 'major' | 'minor',
+      Request :: {'garbage_collect', term(), Type}
 	       | {'check_process_code', term(), module()}
 	       | {'copy_literals', term(), boolean()},
       Pid :: pid().
@@ -222,6 +224,11 @@ request_system_task(_Pid, _Prio, _Request) ->
       TargetPid :: pid().
 
 request_system_task(_RequesterPid, _TargetPid, _Prio, _Request) ->
+    erlang:nif_error(undefined).
+
+-spec garbage_collect(Mode) -> 'true' when Mode :: 'major' | 'minor'.
+
+garbage_collect(_Mode) ->
     erlang:nif_error(undefined).
 
 -spec check_process_code(Module) -> boolean() when

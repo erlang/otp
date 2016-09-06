@@ -446,7 +446,8 @@ int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 #endif
 
 typedef enum {
-    ERTS_PSTT_GC,	/* Garbage Collect */
+    ERTS_PSTT_GC_MAJOR,	/* Garbage Collect: Fullsweep */
+    ERTS_PSTT_GC_MINOR,	/* Garbage Collect: Generational */
     ERTS_PSTT_CPC,	/* Check Process Code */
     ERTS_PSTT_CLA,	/* Copy Literal Area */
     ERTS_PSTT_COHMQ,    /* Change off heap message queue */
@@ -10413,7 +10414,8 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    break;
 
 	switch (st->type) {
-	case ERTS_PSTT_GC:
+        case ERTS_PSTT_GC_MAJOR:
+        case ERTS_PSTT_GC_MINOR:
 	    if (c_p->flags & F_DISABLE_GC) {
 		save_gc_task(c_p, st, st_prio);
 		st = NULL;
@@ -10421,7 +10423,9 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    }
 	    else {
 		if (!garbage_collected) {
-		    FLAGS(c_p) |= F_NEED_FULLSWEEP;
+                    if (st->type == ERTS_PSTT_GC_MAJOR) {
+                        FLAGS(c_p) |= F_NEED_FULLSWEEP;
+                    }
 		    reds -= scheduler_gc_proc(c_p, reds);
 		    garbage_collected = 1;
 		}
@@ -10515,7 +10519,8 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	    break;
 
 	switch (st->type) {
-	case ERTS_PSTT_GC:
+        case ERTS_PSTT_GC_MAJOR:
+        case ERTS_PSTT_GC_MINOR:
 	case ERTS_PSTT_CPC:
 	case ERTS_PSTT_COHMQ:
 	    st_res = am_false;
@@ -10688,9 +10693,13 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
     switch (req_type) {
 
     case am_garbage_collect:
-	st->type = ERTS_PSTT_GC;
-	noproc_res = am_false;
-	if (!rp)
+        switch (st->arg[0]) {
+        case am_minor:  st->type = ERTS_PSTT_GC_MINOR; break;
+        case am_major:  st->type = ERTS_PSTT_GC_MAJOR; break;
+        default: goto badarg;
+        }
+        noproc_res = am_false;
+        if (!rp)
 	    goto noproc;
 	break;
 

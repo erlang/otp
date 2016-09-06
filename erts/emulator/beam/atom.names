@@ -366,6 +366,7 @@ atom long_schedule
 atom low
 atom Lt='<'
 atom machine
+atom major
 atom match
 atom match_limit
 atom match_limit_recursion
@@ -395,6 +396,7 @@ atom milli_seconds
 atom millisecond
 atom min_heap_size
 atom min_bin_vheap_size
+atom minor
 atom minor_version
 atom Minus='-'
 atom module
