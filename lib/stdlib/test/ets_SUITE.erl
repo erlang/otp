@@ -1902,7 +1902,7 @@ evil_counter(I,Opts) ->
 	     end,
     Start = Start0 + rand:uniform(100000),
     ets:insert(T, {dracula,Start}),
-    Iter = 40000,
+    Iter = 40000 div syrup_factor(),
     End = Start + Iter,
     End = evil_counter_1(Iter, T),
     ets:delete(T).
@@ -3296,7 +3296,8 @@ evil_delete_owner(Name, Flags, Data, Fix) ->
 
 exit_large_table_owner(Config) when is_list(Config) ->
     %%Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
-    FEData = fun(Do) -> repeat_while(fun(500000) -> {false,ok};
+    Laps = 500000 div syrup_factor(),
+    FEData = fun(Do) -> repeat_while(fun(I) when I =:= Laps -> {false,ok};
 					(I) -> Do({erlang:phash2(I, 16#ffffff),I}),
 					       {true, I+1}
 				     end, 1)
@@ -3312,7 +3313,8 @@ exit_large_table_owner_do(Opts,{FEData,Config}) ->
 exit_many_large_table_owner(Config) when is_list(Config) ->
     ct:timetrap({minutes,30}), %% valgrind needs a lot
     %%Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 500000)],
-    FEData = fun(Do) -> repeat_while(fun(500000) -> {false,ok};
+    Laps = 500000 div syrup_factor(),
+    FEData = fun(Do) -> repeat_while(fun(I) when I =:= Laps -> {false,ok};
 					(I) -> Do({erlang:phash2(I, 16#ffffff),I}),
 					       {true, I+1}
 				     end, 1)
@@ -4265,7 +4267,8 @@ heavy_lookup_element_do(Opts) ->
     Tab = ets_new(foobar_table, [set, protected, {keypos, 2} | Opts]),
     ok = fill_tab2(Tab, 0, 7000),
     %% lookup ALL elements 50 times
-    _ = [do_lookup_element(Tab, 6999, 1) || _ <- lists:seq(1, 50)],
+    Laps = 50 div syrup_factor(),
+    _ = [do_lookup_element(Tab, 6999, 1) || _ <- lists:seq(1, Laps)],
     true = ets:delete(Tab),
     verify_etsmem(EtsMem).
 
@@ -4289,6 +4292,7 @@ heavy_concurrent(Config) when is_list(Config) ->
 
 do_heavy_concurrent(Opts) ->
     Size = 10000,
+    Laps = 10000 div syrup_factor(),
     EtsMem = etsmem(),
     Tab = ets_new(blupp, [set, public, {keypos, 2} | Opts]),
     ok = fill_tab2(Tab, 0, Size),
@@ -4296,7 +4300,7 @@ do_heavy_concurrent(Opts) ->
 	      fun (N) ->
 		      my_spawn_link(
 			fun () ->
-				do_heavy_concurrent_proc(Tab, Size, N)
+				do_heavy_concurrent_proc(Tab, Laps, N)
 			end)
 	      end,
 	      lists:seq(1, 500)),
@@ -6274,3 +6278,9 @@ do_tc(Do, Report) ->
     T2 = erlang:monotonic_time(),
     Elapsed = erlang:convert_time_unit(T2 - T1, native, milli_seconds),
     Report(Elapsed).
+
+syrup_factor() ->
+    case erlang:system_info(build_type) of
+        valgrind -> 20;
+        _ -> 1
+    end.
