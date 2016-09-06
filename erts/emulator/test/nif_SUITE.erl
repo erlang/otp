@@ -174,11 +174,33 @@ upgrade(Config) when is_list(Config) ->
     true = erlang:delete_module(nif_mod),
     [] = nif_mod_call_history(),    
 
+    %% Repeat upgrade again but from old (deleted) instance
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+    undefined = nif_mod:lib_version(),
+    1 = call(Pid,lib_version),
+    [{lib_version,1,9,109}] = nif_mod_call_history(),
+
+    ok = nif_mod:load_nif_lib(Config, 1),
+    1 = nif_mod:lib_version(),
+    [{upgrade,1,10,110},{lib_version,1,11,111}] = nif_mod_call_history(),
+
+    upgraded = call(Pid,upgrade),
+    false = check_process_code(Pid, nif_mod),
+    true = erlang:purge_module(nif_mod),
+    [{unload,1,12,112}] = nif_mod_call_history(),
+
+    1 = nif_mod:lib_version(),
+    [{lib_version,1,13,113}] = nif_mod_call_history(),
+
+    true = erlang:delete_module(nif_mod),
+    [] = nif_mod_call_history(),
+
+
     Pid ! die,
     {'DOWN', MRef, process, Pid, normal} = receive_any(),
     false = check_process_code(Pid, nif_mod),
     true = erlang:purge_module(nif_mod),
-    [{unload,1,9,109}] = nif_mod_call_history(),    
+    [{unload,1,14,114}] = nif_mod_call_history(),
 
     %% Module upgrade with different lib version
     {module,nif_mod} = erlang:load_module(nif_mod,Bin),
@@ -215,11 +237,38 @@ upgrade(Config) when is_list(Config) ->
     true = erlang:delete_module(nif_mod),
     [] = nif_mod_call_history(),    
 
+
+    %% Reverse upgrade but from old (deleted) instance
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+    undefined = nif_mod:lib_version(),
+    [] = nif_mod_call_history(),
+    2 = call(Pid2,lib_version),
+    [{lib_version,2,4,204}] = nif_mod_call_history(),
+
+    ok = nif_mod:load_nif_lib(Config, 1),
+    1 = nif_mod:lib_version(),
+    [{upgrade,1,1,101},{lib_version,1,2,102}] = nif_mod_call_history(),
+
+    2 = call(Pid2,lib_version),
+    [{lib_version,2,5,205}] = nif_mod_call_history(),
+
+    upgraded = call(Pid2,upgrade),
+    false = check_process_code(Pid2, nif_mod),
+    true = erlang:purge_module(nif_mod),
+    [{unload,2,6,206}] = nif_mod_call_history(),
+
+    1 = nif_mod:lib_version(),
+    [{lib_version,1,3,103}] = nif_mod_call_history(),
+
+    true = erlang:delete_module(nif_mod),
+    [] = nif_mod_call_history(),
+
+
     Pid2 ! die,
     {'DOWN', MRef2, process, Pid2, normal} = receive_any(),
     false= check_process_code(Pid2, nif_mod),
     true = erlang:purge_module(nif_mod),
-    [{unload,2,4,204}] = nif_mod_call_history(),    
+    [{unload,1,4,104}] = nif_mod_call_history(),
 
     true = lists:member(?MODULE, erlang:system_info(taints)),
     true = lists:member(nif_mod, erlang:system_info(taints)),
