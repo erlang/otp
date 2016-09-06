@@ -194,6 +194,7 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
 #ifdef ERTS_SMP
 #  define DB_HASH_LOCK_MASK (DB_HASH_LOCK_CNT-1)
 #  define GET_LOCK(tb,hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck)
+#  define GET_LOCK_MAYBE(tb,hval) ((tb)->common.is_thread_safe ? NULL : GET_LOCK(tb,hval))
 
 /* Fine grained read lock */
 static ERTS_INLINE erts_smp_rwmtx_t* RLOCK_HASH(DbTableHash* tb, HashValue hval)
@@ -330,7 +331,9 @@ struct segment {
 
 /* An extended segment table */
 struct ext_segtab {
+#ifdef ERTS_SMP
     ErtsThrPrgrLaterOp lop;
+#endif
     struct segment** prev_segtab;  /* Used when table is shrinking */
     int prev_nsegs;                /* Size of prev_segtab */
     int nsegs;                     /* Size of this segtab */
@@ -355,14 +358,14 @@ static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
 ** Forward decl's (static functions)
 */
 static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix);
-static int alloc_seg(DbTableHash *tb);
+static void alloc_seg(DbTableHash *tb);
 static int free_seg(DbTableHash *tb, int free_records);
 static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_smp_rwmtx_t** lck_ptr,
 			HashDbTerm *list);
 static HashDbTerm* search_list(DbTableHash* tb, Eterm key, 
 			       HashValue hval, HashDbTerm *list);
-static void shrink(DbTableHash* tb, int nactive);
-static void grow(DbTableHash* tb, int nactive);
+static void shrink(DbTableHash* tb, int nitems);
+static void grow(DbTableHash* tb, int nitems);
 static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 			   Uint sz, DbTableHash*);
 static int analyze_pattern(DbTableHash *tb, Eterm pattern, 
@@ -435,9 +438,10 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
 static ERTS_INLINE void try_shrink(DbTableHash* tb)
 {
     int nactive = NACTIVE(tb);
-    if (nactive > FIRST_SEGSZ && NITEMS(tb) < SHRINK_LIMIT(nactive)
+    int nitems = NITEMS(tb);
+    if (nactive > FIRST_SEGSZ && nitems < SHRINK_LIMIT(nactive)
 	&& !IS_FIXED(tb)) {
-	shrink(tb, nactive);
+	shrink(tb, nitems);
     }
 }	
 
@@ -839,7 +843,7 @@ Lnew:
     {
 	int nactive = NACTIVE(tb);       
 	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
-	    grow(tb, nactive);
+	    grow(tb, nitems);
 	}
     }
     CHECK_TABLES();
@@ -2417,7 +2421,7 @@ static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix)
 
 /* Extend table with one new segment
 */
-static int alloc_seg(DbTableHash *tb)
+static void alloc_seg(DbTableHash *tb)
 {    
     int seg_ix = SLOT_IX_TO_SEG_IX(tb->nslots);
     struct segment** segtab;
@@ -2435,7 +2439,6 @@ static int alloc_seg(DbTableHash *tb)
                                                      SIZEOF_SEGMENT(EXT_SEGSZ));
     sys_memset(segtab[seg_ix], 0, SIZEOF_SEGMENT(EXT_SEGSZ));
     tb->nslots += EXT_SEGSZ;
-    return 1;
 }
 
 #ifdef ERTS_SMP
@@ -2505,9 +2508,6 @@ static int free_seg(DbTableHash *tb, int free_records)
 #endif
                 erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,
                              SIZEOF_EXT_SEGTAB(est->nsegs));
-        }
-        else {
-
         }
     }
     seg_sz = (seg_ix == 0) ? FIRST_SEGSZ : EXT_SEGSZ;
@@ -2584,85 +2584,93 @@ done_resizing(DbTableHash* tb)
 #endif
 }
 
-/* Grow table with one new bucket.
+/* Grow table with one or more new buckets.
 ** Allocate new segment if needed.
 */
-static void grow(DbTableHash* tb, int nactive)
+static void grow(DbTableHash* tb, int nitems)
 {
     HashDbTerm** pnext;
     HashDbTerm** to_pnext;
     HashDbTerm* p;
     erts_smp_rwmtx_t* lck;
-    int from_ix;
+    int nactive;
+    int from_ix, to_ix;
     int szm;
+    int loop_limit = 5;
 
-    if (!begin_resizing(tb))
-	return; /* already in progress */
-    if (NACTIVE(tb) != nactive) {
-	goto abort; /* already done (race) */
-    }
+    do {
+        if (!begin_resizing(tb))
+            return; /* already in progress */
+        nactive = NACTIVE(tb);
+        if (nitems <= GROW_LIMIT(nactive)) {
+            goto abort; /* already done (race) */
+        }
 
-    /* Ensure that the slot nactive exists */
-    if (nactive == tb->nslots) {
-	/* Time to get a new segment */    
-        ASSERT(((nactive-FIRST_SEGSZ) & EXT_SEGSZ_MASK) == 0);
-	if (!alloc_seg(tb)) goto abort;	    
-    }
-    ASSERT(nactive < tb->nslots);
+        /* Ensure that the slot nactive exists */
+        if (nactive == tb->nslots) {
+            /* Time to get a new segment */
+            ASSERT(((nactive-FIRST_SEGSZ) & EXT_SEGSZ_MASK) == 0);
+            alloc_seg(tb);
+        }
+        ASSERT(nactive < tb->nslots);
 
-    szm = erts_smp_atomic_read_nob(&tb->szm);
-    if (nactive <= szm) {
-	from_ix = nactive & (szm >> 1);
-    } else {
-	ASSERT(nactive == szm+1);
-	from_ix = 0;
-	szm = (szm<<1) | 1;
-    }
+        szm = erts_smp_atomic_read_nob(&tb->szm);
+        if (nactive <= szm) {
+            from_ix = nactive & (szm >> 1);
+        } else {
+            ASSERT(nactive == szm+1);
+            from_ix = 0;
+            szm = (szm<<1) | 1;
+        }
+        to_ix = nactive;
 
-    lck = WLOCK_HASH(tb, from_ix);
-    /* Now a final double check (with the from_ix lock held)
-     * that we did not get raced by a table fixer.
-     */
-    if (IS_FIXED(tb)) {
-	WUNLOCK_HASH(lck);
-	goto abort;
-    }
-    erts_smp_atomic_inc_nob(&tb->nactive);
-    if (from_ix == 0) {
-	if (DB_USING_FINE_LOCKING(tb))
-	    erts_smp_atomic_set_relb(&tb->szm, szm);
-	else
-	    erts_smp_atomic_set_nob(&tb->szm, szm);
-    }
-    done_resizing(tb);
+        lck = WLOCK_HASH(tb, from_ix);
+        ERTS_SMP_ASSERT(lck == GET_LOCK_MAYBE(tb,to_ix));
+        /* Now a final double check (with the from_ix lock held)
+         * that we did not get raced by a table fixer.
+         */
+        if (IS_FIXED(tb)) {
+            WUNLOCK_HASH(lck);
+            goto abort;
+        }
+        erts_smp_atomic_set_nob(&tb->nactive, ++nactive);
+        if (from_ix == 0) {
+            if (DB_USING_FINE_LOCKING(tb))
+                erts_smp_atomic_set_relb(&tb->szm, szm);
+            else
+                erts_smp_atomic_set_nob(&tb->szm, szm);
+        }
+        done_resizing(tb);
 
-    /* Finally, let's split the bucket. We try to do it in a smart way
-       to keep link order and avoid unnecessary updates of next-pointers */
-    pnext = &BUCKET(tb, from_ix);
-    p = *pnext;
-    to_pnext = &BUCKET(tb, nactive);
-    while (p != NULL) {
-	if (p->hvalue == INVALID_HASH) { /* rare but possible with fine locking */
-	    *pnext = p->next;
-	    free_term(tb, p);
-	    p = *pnext;
-	}
-	else {
-	    int ix = p->hvalue & szm;
-	    if (ix != from_ix) {
-		ASSERT(ix == (from_ix ^ ((szm+1)>>1)));
-		*to_pnext = p;
-		/* Swap "from" and "to": */
-		from_ix = ix;
-		to_pnext = pnext;
-	    }
-	    pnext = &p->next;
-	    p = *pnext;		
-	}
-    }
-    *to_pnext = NULL;
+        /* Finally, let's split the bucket. We try to do it in a smart way
+           to keep link order and avoid unnecessary updates of next-pointers */
+        pnext = &BUCKET(tb, from_ix);
+        p = *pnext;
+        to_pnext = &BUCKET(tb, to_ix);
+        while (p != NULL) {
+            if (p->hvalue == INVALID_HASH) { /* rare but possible with fine locking */
+                *pnext = p->next;
+                free_term(tb, p);
+                p = *pnext;
+            }
+            else {
+                int ix = p->hvalue & szm;
+                if (ix != from_ix) {
+                    ASSERT(ix == (from_ix ^ ((szm+1)>>1)));
+                    *to_pnext = p;
+                    /* Swap "from" and "to": */
+                    from_ix = ix;
+                    to_pnext = pnext;
+                }
+                pnext = &p->next;
+                p = *pnext;
+            }
+        }
+        *to_pnext = NULL;
+        WUNLOCK_HASH(lck);
 
-    WUNLOCK_HASH(lck);
+    }while (--loop_limit && nitems > GROW_LIMIT(nactive));
+
     return;
    
 abort:
@@ -2673,56 +2681,75 @@ abort:
 /* Shrink table by joining top bucket.
 ** Remove top segment if it gets empty.
 */
-static void shrink(DbTableHash* tb, int nactive)
-{     
-    if (!begin_resizing(tb))
-	return; /* already in progress */
-    if (NACTIVE(tb) == nactive) {
-	erts_smp_rwmtx_t* lck;
-	int src_ix = nactive - 1;
-	int low_szm = erts_smp_atomic_read_nob(&tb->szm) >> 1;
-	int dst_ix = src_ix & low_szm;
+static void shrink(DbTableHash* tb, int nitems)
+{
+    HashDbTerm** src_bp;
+    HashDbTerm** dst_bp;
+    HashDbTerm** bp;
+    erts_smp_rwmtx_t* lck;
+    int src_ix, dst_ix, low_szm;
+    int nactive;
+    int loop_limit = 5;
 
-	ASSERT(dst_ix < src_ix);
-	ASSERT(nactive > FIRST_SEGSZ);
-	lck = WLOCK_HASH(tb, dst_ix);
-	/* Double check for racing table fixers */
-	if (!IS_FIXED(tb)) {
-	    HashDbTerm** src_bp = &BUCKET(tb, src_ix);
-	    HashDbTerm** dst_bp = &BUCKET(tb, dst_ix);
-	    HashDbTerm** bp = src_bp;
+    do {
+        if (!begin_resizing(tb))
+            return; /* already in progress */
+        nactive = NACTIVE(tb);
+        if (!(nactive > FIRST_SEGSZ && nitems < SHRINK_LIMIT(nactive))) {
+            goto abort; /* already done (race) */
+        }
+        src_ix = nactive - 1;
+        low_szm = erts_smp_atomic_read_nob(&tb->szm) >> 1;
+        dst_ix = src_ix & low_szm;
 
-	    /* Q: Why join lists by appending "dst" at the end of "src"?
-	       A: Must step through "src" anyway to purge pseudo deleted. */
-	    while(*bp != NULL) {
-		if ((*bp)->hvalue == INVALID_HASH) {
-		    HashDbTerm* deleted = *bp;
-		    *bp = deleted->next;
-		    free_term(tb, deleted);
-		} else {
-		    bp = &(*bp)->next;
-		}
-	    }
-	    *bp = *dst_bp;
-	    *dst_bp = *src_bp;
-	    *src_bp = NULL;
-	    
-	    erts_smp_atomic_set_nob(&tb->nactive, src_ix);
-	    if (dst_ix == 0) {
-		erts_smp_atomic_set_relb(&tb->szm, low_szm);
-	    }
-	    WUNLOCK_HASH(lck);
-	    
-	    if (tb->nslots - src_ix >= EXT_SEGSZ) {
-		free_seg(tb, 0);
-	    }
-	}
-	else {
-	    WUNLOCK_HASH(lck);
-	}
+        ASSERT(dst_ix < src_ix);
+        ASSERT(nactive > FIRST_SEGSZ);
+        lck = WLOCK_HASH(tb, dst_ix);
+        ERTS_SMP_ASSERT(lck == GET_LOCK_MAYBE(tb,src_ix));
+        /* Double check for racing table fixers */
+        if (IS_FIXED(tb)) {
+            WUNLOCK_HASH(lck);
+            goto abort;
+        }
 
-    }
-    /*else already done */
+        src_bp = &BUCKET(tb, src_ix);
+        dst_bp = &BUCKET(tb, dst_ix);
+        bp = src_bp;
+
+        /*
+         * We join lists by appending "dst" at the end of "src"
+         * as we must step through "src" anyway to purge pseudo deleted.
+         */
+        while(*bp != NULL) {
+            if ((*bp)->hvalue == INVALID_HASH) {
+                HashDbTerm* deleted = *bp;
+                *bp = deleted->next;
+                free_term(tb, deleted);
+            } else {
+                bp = &(*bp)->next;
+            }
+        }
+        *bp = *dst_bp;
+        *dst_bp = *src_bp;
+        *src_bp = NULL;
+
+        nactive = src_ix;
+        erts_smp_atomic_set_nob(&tb->nactive, nactive);
+        if (dst_ix == 0) {
+            erts_smp_atomic_set_relb(&tb->szm, low_szm);
+        }
+        WUNLOCK_HASH(lck);
+
+        if (tb->nslots - src_ix >= EXT_SEGSZ) {
+            free_seg(tb, 0);
+        }
+        done_resizing(tb);
+
+    } while (--loop_limit
+             && nactive > FIRST_SEGSZ && nitems < SHRINK_LIMIT(nactive));
+    return;
+
+abort:
     done_resizing(tb);
 }
 
@@ -2892,7 +2919,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
             nactive = NACTIVE(tb);
 
             if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
-                grow(tb, nactive);
+                grow(tb, nitems);
             }
         } else {
             WUNLOCK_HASH(lck);
@@ -2997,7 +3024,6 @@ Eterm erts_ets_hash_get_memstate(Process* p, DbTableHash* tb)
 Eterm erts_ets_hash_restore_memstate(DbTableHash* tb, Eterm memstate)
 {
     int seg_cnt, target;
-    int nactive;
 
     if (!is_small(memstate))
         return make_small(__LINE__);
@@ -3009,7 +3035,6 @@ Eterm erts_ets_hash_restore_memstate(DbTableHash* tb, Eterm memstate)
         while (!begin_resizing(tb))
             /*spin*/;
         seg_cnt = SLOT_IX_TO_SEG_IX(tb->nslots);
-        nactive = NACTIVE(tb);
         done_resizing(tb);
 
         if (target == seg_cnt)
@@ -3017,9 +3042,9 @@ Eterm erts_ets_hash_restore_memstate(DbTableHash* tb, Eterm memstate)
         if (IS_FIXED(tb))
             return make_small(__LINE__);
         if (target < seg_cnt)
-            shrink(tb, nactive);
+            shrink(tb, 0);
         else
-            grow(tb, nactive);
+            grow(tb, INT_MAX);
     }
 }
 
@@ -3031,7 +3056,7 @@ void db_check_table_hash(DbTable *tbl)
     HashDbTerm* list;
     int j;
     
-    for (j = 0; j < tb->nactive; j++) {
+    for (j = 0; j < NACTIVE(tb); j++) {
 	if ((list = BUCKET(tb,j)) != 0) {
 	    while (list != 0) {
 		if (!is_tuple(make_tuple(list->dbterm.tpl))) {

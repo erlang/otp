@@ -50,17 +50,19 @@ typedef struct db_table_hash_fine_locks {
 typedef struct db_table_hash {
     DbTableCommon common;
 
+    /* SMP: szm and nactive are write-protected by is_resizing or table write lock */
+    erts_smp_atomic_t szm;     /* current size mask. */
+    erts_smp_atomic_t nactive; /* Number of "active" slots */
+
     erts_smp_atomic_t segtab;  /* The segment table (struct segment**) */
     struct segment* first_segtab[1];
-    erts_smp_atomic_t szm;     /* current size mask. */
-    
+
     /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
     int nslots;       /* Total number of slots */
     int nsegs;        /* Size of segment table */
 
     /* List of slots where elements have been deleted while table was fixed */
     erts_smp_atomic_t fixdel;  /* (FixedDeletion*) */	
-    erts_smp_atomic_t nactive; /* Number of "active" slots */
 #ifdef ERTS_SMP
     erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
     DbTableHashFineLocks* locks;
