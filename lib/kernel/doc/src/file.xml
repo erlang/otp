@@ -79,7 +79,7 @@
     <seealso marker="#list_dir_all"><c>list_dir_all/1</c></seealso> and
     <seealso marker="#read_link_all"><c>read_link_all/1</c></seealso>.</p>
 
-    <p>See also section <seealso marker="stdlib:unicode_usage#notes-about-raw-filenames">Notes About Raw Filenames</seealso> in the STDLIB User´s Giude.</p>
+    <p>See also section <seealso marker="stdlib:unicode_usage#notes-about-raw-filenames">Notes About Raw Filenames</seealso> in the STDLIB User's Guide.</p>
 
   </description>
 
