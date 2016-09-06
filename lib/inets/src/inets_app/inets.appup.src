@@ -18,16 +18,10 @@
 %% %CopyrightEnd%
 {"%VSN%",
  [
-  {<<"6.3.1">>,
-   [{load_module, mod_esi, soft_purge, soft_purge, []}
-   ]},
   {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ],
  [
-  {<<"6.3.1">>,
-   [{load_module, mod_esi, soft_purge, soft_purge, []}
-   ]},
   {<<"6\\..*">>,[{restart_application, inets}]},
   {<<"5\\..*">>,[{restart_application, inets}]}
  ]
