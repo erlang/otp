@@ -59,7 +59,8 @@
 
 -export([parse/1, parse/2, 
 	 scheme_defaults/0, 
-	 encode/1, decode/1]).
+         encode/1, decode/1,
+         encode_binary/1, decode_binary/1]).
 
 -export_type([scheme/0, default_scheme_port_number/0]).
 
@@ -108,6 +109,20 @@ reserved() ->
 encode(URI) ->
     Reserved = reserved(), 
     lists:append([uri_encode(Char, Reserved) || Char <- URI]).
+
+encode_binary(URI) ->
+    Reserved = reserved(),
+    << <<(uri_encode(Char, Reserved))/binary>> || <<Char>> <= URI >>.
+
+decode_binary(URI) ->
+    do_decode_binary(URI).
+
+do_decode_binary(<<$%, Hex:2/binary, Rest/bits>>) ->
+    <<(binary_to_integer(Hex, 16)), (do_decode_binary(Rest))/binary>>;
+do_decode_binary(<<First:1/binary, Rest/bits>>) ->
+    <<First/binary, (do_decode_binary(Rest))/binary>>;
+do_decode_binary(<<>>) ->
+    <<>>.
 
 decode(String) ->
     do_decode(String).
@@ -232,6 +247,14 @@ uri_encode(Char, Reserved) ->
 	    [ $% | http_util:integer_to_hexlist(Char)];
 	false ->
 	    [Char]
+    end.
+
+uri_encode_binary(Char, Reserved) ->
+    case sets:is_element(Char, Reserved) of
+        true ->
+            << $%, (integer_to_binary(Char, 16))/binary >>;
+        false ->
+            <<Char>>
     end.
 
 hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
