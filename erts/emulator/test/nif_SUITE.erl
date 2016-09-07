@@ -29,6 +29,7 @@
 -export([all/0, suite/0,
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload/1, upgrade/1, heap_frag/1,
+         t_on_load/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1,
 	 maps/1,
 	 api_macros/1,
@@ -68,6 +69,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, reload, upgrade, heap_frag, types, many_args,
+     t_on_load,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      resource_takeover, threading, send, send2, send3,
@@ -83,10 +85,19 @@ all() ->
      nif_port_command,
      nif_snprintf].
 
+init_per_testcase(t_on_load, Config) ->
+    ets:new(nif_SUITE, [named_table]),
+    Config;
 init_per_testcase(_Case, Config) ->
     Config.
 
+end_per_testcase(t_on_load, _Config) ->
+    ets:delete(nif_SUITE),
+    testcase_cleanup();
 end_per_testcase(_Func, _Config) ->
+    testcase_cleanup().
+
+testcase_cleanup() ->
     P1 = code:purge(nif_mod),
     Del = code:delete(nif_mod),
     P2 = code:purge(nif_mod),
@@ -274,6 +285,132 @@ upgrade(Config) when is_list(Config) ->
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
     ok.
+
+%% Test loading/upgrade in on_load
+t_on_load(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+    ensure_lib_loaded(Config),
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors,
+                                           {d,'USE_ON_LOAD'}]),
+
+    %% Use ETS to tell nif_mod:on_load what to do
+    ets:insert(nif_SUITE, {data_dir, Data}),
+    ets:insert(nif_SUITE, {lib_version, 1}),
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
+    hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    {Pid,MRef} = nif_mod:start(),
+    1 = call(Pid,lib_version),
+    [{lib_version,1,3,103}] = nif_mod_call_history(),
+
+    %% Module upgrade with same lib-version
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
+    1 = nif_mod:lib_version(),
+    1 = call(Pid,lib_version),
+    [{upgrade,1,4,104},{lib_version,1,5,105},{lib_version,1,6,106}] = nif_mod_call_history(),
+
+    upgraded = call(Pid,upgrade),
+    false = check_process_code(Pid, nif_mod),
+    true = code:soft_purge(nif_mod),
+    [{unload,1,7,107}] = nif_mod_call_history(),
+
+    1 = nif_mod:lib_version(),
+    [{lib_version,1,8,108}] = nif_mod_call_history(),
+
+    true = code:delete(nif_mod),
+    [] = nif_mod_call_history(),
+
+    %% Repeat upgrade again but from old (deleted) instance
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
+    [{upgrade,1,9,109}] = nif_mod_call_history(),
+    1 = nif_mod:lib_version(),
+    1 = call(Pid,lib_version),
+    [{lib_version,1,10,110},{lib_version,1,11,111}] = nif_mod_call_history(),
+
+    upgraded = call(Pid,upgrade),
+    false = check_process_code(Pid, nif_mod),
+    true = code:soft_purge(nif_mod),
+    [{unload,1,12,112}] = nif_mod_call_history(),
+
+    1 = nif_mod:lib_version(),
+    [{lib_version,1,13,113}] = nif_mod_call_history(),
+
+    true = code:delete(nif_mod),
+    [] = nif_mod_call_history(),
+
+
+    Pid ! die,
+    {'DOWN', MRef, process, Pid, normal} = receive_any(),
+    false = check_process_code(Pid, nif_mod),
+    true = code:soft_purge(nif_mod),
+    [{unload,1,14,114}] = nif_mod_call_history(),
+
+    %% Module upgrade with different lib version
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
+    hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    [{load,1,1,101},{get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    1 = nif_mod:lib_version(),
+    {Pid2,MRef2} = nif_mod:start(),
+    1 = call(Pid2,lib_version),
+    [{lib_version,1,3,103},{lib_version,1,4,104}] = nif_mod_call_history(),
+
+    true = ets:insert(nif_SUITE,{lib_version,2}),
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
+    [{upgrade,2,1,201}] = nif_mod_call_history(),
+
+    2 = nif_mod:lib_version(),
+    1 = call(Pid2,lib_version),
+    [{lib_version,2,2,202},{lib_version,1,5,105}] = nif_mod_call_history(),
+
+    upgraded = call(Pid2,upgrade),
+    false = check_process_code(Pid2, nif_mod),
+    true = code:soft_purge(nif_mod),
+    [{unload,1,6,106}] = nif_mod_call_history(),
+
+    2 = nif_mod:lib_version(),
+    2 = call(Pid2,lib_version),
+    [{lib_version,2,3,203},{lib_version,2,4,204}] = nif_mod_call_history(),
+
+    true = code:delete(nif_mod),
+    [] = nif_mod_call_history(),
+
+    %% Reverse upgrade but from old (deleted) instance
+    ets:insert(nif_SUITE,{lib_version,1}),
+    {module,nif_mod} = code:load_binary(nif_mod,File,Bin),
+    [{upgrade,1,1,101}] = nif_mod_call_history(),
+
+    1 = nif_mod:lib_version(),
+    2 = call(Pid2,lib_version),
+    [{lib_version,1,2,102},{lib_version,2,5,205}] = nif_mod_call_history(),
+
+    upgraded = call(Pid2,upgrade),
+    false = check_process_code(Pid2, nif_mod),
+    true = code:soft_purge(nif_mod),
+    [{unload,2,6,206}] = nif_mod_call_history(),
+
+    1 = nif_mod:lib_version(),
+    [{lib_version,1,3,103}] = nif_mod_call_history(),
+
+    true = code:delete(nif_mod),
+    [] = nif_mod_call_history(),
+
+
+    Pid2 ! die,
+    {'DOWN', MRef2, process, Pid2, normal} = receive_any(),
+    false= check_process_code(Pid2, nif_mod),
+    true = code:soft_purge(nif_mod),
+    [{unload,1,4,104}] = nif_mod_call_history(),
+
+    true = lists:member(?MODULE, erlang:system_info(taints)),
+    true = lists:member(nif_mod, erlang:system_info(taints)),
+    verify_tmpmem(TmpMem),
+    ok.
+
 
 %% Test NIF building heap fragments
 heap_frag(Config) when is_list(Config) ->    
