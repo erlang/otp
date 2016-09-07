@@ -494,9 +494,9 @@ t_contains_opaque(?function(Domain, Range), Opaques) ->
   t_contains_opaque(Domain, Opaques)
   orelse t_contains_opaque(Range, Opaques);
 t_contains_opaque(?identifier(_Types), _Opaques) -> false;
-t_contains_opaque(?integer(_Types), _Opaques) -> false;
 t_contains_opaque(?int_range(_From, _To), _Opaques) -> false;
 t_contains_opaque(?int_set(_Set), _Opaques) -> false;
+t_contains_opaque(?integer(_Types), _Opaques) -> false;
 t_contains_opaque(?list(Type, Tail, _), Opaques) ->
   t_contains_opaque(Type, Opaques) orelse t_contains_opaque(Tail, Opaques);
 t_contains_opaque(?map(_, _, _) = Map, Opaques) ->
