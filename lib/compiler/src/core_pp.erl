@@ -179,7 +179,7 @@ format_1(#c_tuple{es=Es}, Ctxt) ->
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
      $}
     ];
-format_1(#c_map{arg=#c_literal{anno=[],val=M},es=Es}, Ctxt)
+format_1(#c_map{arg=#c_literal{val=M},es=Es}, Ctxt)
   when is_map(M), map_size(M) =:= 0 ->
     ["~{",
      format_hseq(Es, ",", add_indent(Ctxt, 1), fun format/2),
