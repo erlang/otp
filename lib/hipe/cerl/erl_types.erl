@@ -159,6 +159,7 @@
 	 t_map_get/2, t_map_get/3,
 	 t_map_is_key/2, t_map_is_key/3,
 	 t_map_update/2, t_map_update/3,
+	 t_map_pairwise_merge/4,
 	 t_map_put/2, t_map_put/3,
 	 t_matchstate/0,
 	 t_matchstate/2,
@@ -219,8 +220,7 @@
 	 is_erl_type/1,
 	 atom_to_string/1,
 	 var_table__new/0,
-         cache__new/0,
-	 map_pairwise_merge/3
+	 cache__new/0
 	]).
 
 %%-define(DO_ERL_TYPES_TEST, true).
@@ -1768,13 +1768,26 @@ mapdict_insert(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
   [E2|mapdict_insert(E1, T)];
 mapdict_insert(E={_,_,_}, T) -> [E|T].
 
+-type map_pairwise_merge_fun() :: fun((erl_type(),
+				       t_map_mandatoriness(), erl_type(),
+				       t_map_mandatoriness(), erl_type())
+				      -> t_map_pair() | false).
+
+-spec t_map_pairwise_merge(map_pairwise_merge_fun(), erl_type(), erl_type(),
+			   opaques()) -> t_map_dict().
+t_map_pairwise_merge(F, MapA, MapB, Opaques) ->
+  do_opaque(MapA, Opaques,
+	    fun(UMapA) ->
+		do_opaque(MapB, Opaques,
+			  fun(UMapB) ->
+			      map_pairwise_merge(F, UMapA, UMapB)
+			  end)
+	    end).
+
 %% Merges the pairs of two maps together. Missing pairs become (?opt, DefV) or
 %% (?opt, ?none), depending on whether K \in DefK.
--spec map_pairwise_merge(fun((erl_type(),
-			      t_map_mandatoriness(), erl_type(),
-			      t_map_mandatoriness(), erl_type())
-			     -> t_map_pair() | false),
-			 erl_type(), erl_type()) -> t_map_dict().
+-spec map_pairwise_merge(map_pairwise_merge_fun(), erl_type(), erl_type())
+			-> t_map_dict().
 map_pairwise_merge(F, ?map(APairs, ADefK, ADefV),
 		       ?map(BPairs, BDefK, BDefV)) ->
   map_pairwise_merge(F, APairs, ADefK, ADefV, BPairs, BDefK, BDefV).
