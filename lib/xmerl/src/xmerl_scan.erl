@@ -111,12 +111,15 @@
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
 %% </dl>
+%% @type xmlElement() = #xmlElement{}.
+%% The record definition is found in xmerl.hrl.
+%% @type xmlDocument() = #xmlDocument{}.
+%% The record definition is found in xmerl.hrl.
 %% @type document() = xmlElement() | xmlDocument(). <p>
 %% The document returned by <tt>xmerl_scan:string/[1,2]</tt> and
 %% <tt>xmerl_scan:file/[1,2]</tt>. The type of the returned record depends on
 %% the value of the document option passed to the function.
 %% </p>
-
 
 -module(xmerl_scan).
 -vsn('0.20').

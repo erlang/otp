@@ -45,7 +45,6 @@
 %       XSLT package which is written i C++.
 % See also the <a href="xmerl_xs_examples.html">Tutorial</a>.
 %     </p>
-
 -module(xmerl_xs).
 
 -export([xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
@@ -71,15 +70,13 @@
 %%    xslapply(fun template/1, E),
 %%    "&lt;/h1>"];
 %% </pre>
-
 xslapply(Fun, EList) when is_list(EList) ->
-    lists:map( Fun, EList);
+    lists:map(Fun, EList);
 xslapply(Fun, E = #xmlElement{})->
     lists:map( Fun, E#xmlElement.content).
 
-
 %% @spec value_of(E) -> List
-%%   E = unknown()
+%%   E = term()
 %%
 %% @doc Concatenates all text nodes within the tree.
 %%

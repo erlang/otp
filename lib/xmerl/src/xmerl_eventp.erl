@@ -25,6 +25,90 @@
 %% Each contain more elaborate settings of xmerl_scan that makes usage of
 %% the customization functions.
 %% 
+%% @type xmlElement() = #xmlElement{}.
+%%
+%% @type option_list(). <p>Options allow to customize the behaviour of the
+%%     scanner.
+%% See also <a href="xmerl_examples.html">tutorial</a> on customization
+%% functions.
+%% </p>
+%% <p>
+%% Possible options are:
+%% </p>
+%% <dl>
+%%  <dt><code>{acc_fun, Fun}</code></dt>
+%%    <dd>Call back function to accumulate contents of entity.</dd>
+%%  <dt><code>{continuation_fun, Fun} |
+%%            {continuation_fun, Fun, ContinuationState}</code></dt>
+%%    <dd>Call back function to decide what to do if the scanner runs into EOF
+%%     before the document is complete.</dd>
+%%  <dt><code>{event_fun, Fun} |
+%%            {event_fun, Fun, EventState}</code></dt>
+%%    <dd>Call back function to handle scanner events.</dd>
+%%  <dt><code>{fetch_fun, Fun} |
+%%            {fetch_fun, Fun, FetchState}</code></dt>
+%%    <dd>Call back function to fetch an external resource.</dd>
+%%  <dt><code>{hook_fun, Fun} |
+%%            {hook_fun, Fun, HookState}</code></dt>
+%%    <dd>Call back function to process the document entities once
+%%     identified.</dd>
+%%  <dt><code>{close_fun, Fun}</code></dt>
+%%    <dd>Called when document has been completely parsed.</dd>
+%%  <dt><code>{rules, ReadFun, WriteFun, RulesState} |
+%%            {rules, Rules}</code></dt>
+%%    <dd>Handles storing of scanner information when parsing.</dd>
+%%  <dt><code>{user_state, UserState}</code></dt>
+%%    <dd>Global state variable accessible from all customization functions</dd>
+%%
+%%  <dt><code>{fetch_path, PathList}</code></dt>
+%%    <dd>PathList is a list of
+%%     directories to search when fetching files. If the file in question
+%%     is not in the fetch_path, the URI will be used as a file
+%%     name.</dd>
+%%  <dt><code>{space, Flag}</code></dt>
+%%    <dd>'preserve' (default) to preserve spaces, 'normalize' to
+%%    accumulate consecutive whitespace and replace it with one space.</dd>
+%%  <dt><code>{line, Line}</code></dt>
+%%    <dd>To specify starting line for scanning in document which contains
+%%    fragments of XML.</dd>
+%%  <dt><code>{namespace_conformant, Flag}</code></dt>
+%%    <dd>Controls whether to behave as a namespace conformant XML parser,
+%%    'false' (default) to not otherwise 'true'.</dd>
+%%  <dt><code>{validation, Flag}</code></dt>
+%%    <dd>Controls whether to process as a validating XML parser:
+%%    'off' (default) no validation, or validation 'dtd' by DTD or 'schema'
+%%    by XML Schema. 'false' and 'true' options are obsolete
+%%    (i.e. they may be removed in a future release), if used 'false'
+%%    equals 'off' and 'true' equals 'dtd'.</dd>
+%%  <dt><code>{schemaLocation, [{Namespace,Link}|...]}</code></dt>
+%%    <dd>Tells explicitly which XML Schema documents to use to validate
+%%    the XML document. Used together with the
+%%    <code>{validation,schema}</code> option.</dd>
+%%  <dt><code>{quiet, Flag}</code></dt>
+%%    <dd>Set to 'true' if xmerl should behave quietly and not output any
+%%    information to standard output (default 'false').</dd>
+%%  <dt><code>{doctype_DTD, DTD}</code></dt>
+%%    <dd>Allows to specify DTD name when it isn't available in the XML
+%%    document. This option has effect only together with
+%%    <code>{validation,'dtd'</code> option.</dd>
+%%  <dt><code>{xmlbase, Dir}</code></dt>
+%%    <dd>XML Base directory. If using string/1 default is current directory.
+%%    If using file/1 default is directory of given file.</dd>
+%%  <dt><code>{encoding, Enc}</code></dt>
+%%    <dd>Set default character set used (default UTF-8).
+%%    This character set is used only if not explicitly given by the XML
+%%    declaration. </dd>
+%%  <dt><code>{document, Flag}</code></dt>
+%%    <dd>Set to 'true' if xmerl should return a complete XML document
+%%    as an xmlDocument record (default 'false').</dd>
+%%  <dt><code>{comments, Flag}</code></dt>
+%%    <dd>Set to 'false' if xmerl should skip comments otherwise they will
+%%    be returned as xmlComment records (default 'true').</dd>
+%%  <dt><code>{default_attrs, Flag}</code></dt>
+%%    <dd>Set to 'true' if xmerl should add to elements missing attributes
+%%    with a defined default value (default 'false').</dd>
+%% </dl> 
+%% 
 -module(xmerl_eventp).
 -vsn('0.19').
 -date('03-09-17').
