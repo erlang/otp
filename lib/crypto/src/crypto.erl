@@ -283,7 +283,7 @@ cmac(Type, Key, Data, MacSize) ->
 %% Ecrypt/decrypt %%%
 
 -spec block_encrypt(des_cbc | des_cfb |
-                    des3_cbc | des3_cbf | des_ede3 |
+                    des3_cbc | des3_cbf | des3_cfb | des_ede3 |
                     blowfish_cbc | blowfish_cfb64 | blowfish_ofb64 |
                     aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | aes_ige256 |
 		    aes_cbc |
@@ -310,6 +310,9 @@ block_encrypt(Type, Key0, Ivec, Data) when Type =:= des3_cbc;
 block_encrypt(des3_cbf, Key0, Ivec, Data) ->
     Key = check_des3_key(Key0),
     block_crypt_nif(des_ede3_cbf, Key, Ivec, Data, true);
+block_encrypt(des3_cfb, Key0, Ivec, Data) ->
+    Key = check_des3_key(Key0),
+    block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, true);
 block_encrypt(aes_ige256, Key, Ivec, Data) ->
     aes_ige_crypt_nif(Key, Ivec, Data, true);
 block_encrypt(aes_gcm, Key, Ivec, {AAD, Data}) ->
@@ -320,7 +323,7 @@ block_encrypt(chacha20_poly1305, Key, Ivec, {AAD, Data}) ->
     chacha20_poly1305_encrypt(Key, Ivec, AAD, Data).
 
 -spec block_decrypt(des_cbc | des_cfb |
-                    des3_cbc | des3_cbf | des_ede3 |
+                    des3_cbc | des3_cbf | des3_cfb | des_ede3 |
                     blowfish_cbc | blowfish_cfb64 | blowfish_ofb64 |
                     aes_cbc128 | aes_cfb8 | aes_cfb128 | aes_cbc256 | aes_ige256 |
 		    aes_cbc |
@@ -347,6 +350,9 @@ block_decrypt(Type, Key0, Ivec, Data) when Type =:= des3_cbc;
 block_decrypt(des3_cbf, Key0, Ivec, Data) ->
     Key = check_des3_key(Key0),
     block_crypt_nif(des_ede3_cbf, Key, Ivec, Data, false);
+block_decrypt(des3_cfb, Key0, Ivec, Data) ->
+    Key = check_des3_key(Key0),
+    block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, false);
 block_decrypt(aes_ige256, Key, Ivec, Data) ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
 block_decrypt(aes_gcm, Key, Ivec, {AAD, Data, Tag}) ->
@@ -870,10 +876,10 @@ des_ede3_cbc_decrypt(Key1, Key2, Key3, IVec, Data) ->
 			     binary().
 
 des3_cfb_encrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_encrypt(des3_cbf, [Key1, Key2, Key3], IVec, Data).
+    block_encrypt(des3_cfb, [Key1, Key2, Key3], IVec, Data).
 
 des3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
-    block_decrypt(des3_cbf, [Key1, Key2, Key3], IVec, Data).
+    block_decrypt(des3_cfb, [Key1, Key2, Key3], IVec, Data).
 
 %%
 %% Blowfish

@@ -139,7 +139,7 @@
      <code>stream_cipher() = rc4 | aes_ctr </code>
 
      <code>block_cipher() =  aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
-     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | rc2_cbc </code>
+     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc </code>
 
      <code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code>
 
@@ -164,7 +164,7 @@
      </p>
      <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
      aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc | des_cfb |
-     des3_cbc | des3_cbf | des_ede3 | rc2_cbc | rc4 </code>
+     des3_cbc | des3_cfb | des_ede3 | rc2_cbc | rc4 </code>
      <code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
