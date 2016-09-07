@@ -145,7 +145,7 @@ init_per_testcase(TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     end_per_testcase(TestCase, Config),
-    ssl:start(),	
+    ssl_test_lib:clean_start(),	
     ct:timetrap({seconds, 15}),
     Config.
 
