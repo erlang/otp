@@ -468,7 +468,8 @@ bitstr(#c_bitstr{val=Val,size=Size}=BinSeg, Sub) ->
 %%  Currently, we don't attempt to check binaries because they
 %%  are difficult to check.
 
-is_safe_simple(#c_var{}, _) -> true;
+is_safe_simple(#c_var{}=Var, _) ->
+    not cerl:is_c_fname(Var);
 is_safe_simple(#c_cons{hd=H,tl=T}, Sub) ->
     is_safe_simple(H, Sub) andalso is_safe_simple(T, Sub);
 is_safe_simple(#c_tuple{es=Es}, Sub) -> is_safe_simple_list(Es, Sub);
