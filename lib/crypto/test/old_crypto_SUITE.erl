@@ -1080,7 +1080,9 @@ rc2_cbc(doc) ->
     "Encrypt and decrypt according to RC2 CBC and check the result. "
     "Example stripped out from public_key application test";
 rc2_cbc(Config) when is_list(Config) ->
-   
+    if_supported(rc2_cbc, fun rc2_cbc_do/0).
+
+rc2_cbc_do() ->
     Key = <<146,210,160,124,215,227,153,239,227,17,222,140,3,93,27,191>>,
     IV = <<72,91,135,182,25,42,35,210>>,
 

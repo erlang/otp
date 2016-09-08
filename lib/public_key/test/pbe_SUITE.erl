@@ -219,7 +219,12 @@ pbes2() ->
 pbes2(Config) when is_list(Config) ->
     decode_encode_key_file("pbes2_des_cbc_enc_key.pem", "password", "DES-CBC", Config),
     decode_encode_key_file("pbes2_des_ede3_cbc_enc_key.pem", "password", "DES-EDE3-CBC", Config),   
-    decode_encode_key_file("pbes2_rc2_cbc_enc_key.pem", "password", "RC2-CBC", Config).
+    case lists:member(rc2_cbc, proplists:get_value(ciphers, crypto:supports())) of
+	true ->
+	    decode_encode_key_file("pbes2_rc2_cbc_enc_key.pem", "password", "RC2-CBC", Config);
+	false ->
+	    ok
+    end.
 
 check_key_info(#'PrivateKeyInfo'{privateKeyAlgorithm =
 				     #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?rsaEncryption},
