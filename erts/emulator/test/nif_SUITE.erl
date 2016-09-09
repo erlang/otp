@@ -1651,6 +1651,7 @@ consume_timeslice(Config) when is_list(Config) ->
     end.
 
 consume_timeslice_test(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
     CONTEXT_REDS = 2000,
     Me = self(),
     Go = make_ref(),
@@ -1727,7 +1728,7 @@ consume_timeslice_test(Config) when is_list(Config) ->
 	    io:format("Reductions = ~p~n", [Reductions]),
 	    ok;
 	{RedDiff, Reductions} ->
-	    ct:fail({unexpected_reduction_count, Reductions})
+	    ct:fail({unexpected_reduction_count, Reductions, ExpReds})
     end,
     
     none = next_msg(P),
