@@ -2271,7 +2271,7 @@ int enif_consume_timeslice(ErlNifEnv* env, int percent)
  * NIF exports need a few more items than the Export struct provides,
  * including the erl_module_nif* and a NIF function pointer, so the
  * NifExport below adds those. The Export member must be first in the
- * struct. The saved_mfa, exception_thrown, saved_argc, rootset_extra, and
+ * struct. The saved_current, exception_thrown, saved_argc, rootset_extra, and
  * rootset members are used to track the MFA, any pending exception, and
  * arguments of the top NIF in case a chain of one or more
  * enif_schedule_nif() calls results in an exception, since in that case
@@ -2285,7 +2285,7 @@ typedef struct {
     Export exp;
     struct erl_module_nif* m;
     NativeFunPtr fp;
-    Eterm saved_mfa[3];
+    BeamInstr *saved_current;
     int exception_thrown;
     int saved_argc;
     int rootset_extra;
@@ -2396,9 +2396,8 @@ init_nif_sched_data(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirec
 	reg[i] = (Eterm) argv[i];
     }
     if (need_save) {
-	ep->saved_mfa[0] = proc->current[0];
-	ep->saved_mfa[1] = proc->current[1];
-	ep->saved_mfa[2] = proc->current[2];
+	ASSERT(proc->current);
+	ep->saved_current = proc->current;
 	ep->saved_argc = argc;
     }
     proc->i = (BeamInstr*) ep->exp.addressv[0];
@@ -2421,21 +2420,21 @@ static void
 restore_nif_mfa(Process* proc, NifExport* ep, int exception)
 {
     int i;
-    Eterm* reg = erts_proc_sched_data(proc)->x_reg_array;
 
     ERTS_SMP_LC_ASSERT(!(proc->static_flags
 			 & ERTS_STC_FLG_SHADOW_PROC));
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(proc)
 		       & ERTS_PROC_LOCK_MAIN);
 
-    proc->current[0] = ep->saved_mfa[0];
-    proc->current[1] = ep->saved_mfa[1];
-    proc->current[2] = ep->saved_mfa[2];
-    if (exception)
+    ASSERT(ep->saved_current != &ep->exp.code[0]);
+    proc->current = ep->saved_current;
+    ep->saved_current = NULL;
+    if (exception) {
+	Eterm* reg = erts_proc_sched_data(proc)->x_reg_array;
 	for (i = 0; i < ep->saved_argc; i++)
 	    reg[i] = ep->rootset[i+1];
+    }
     ep->saved_argc = 0;
-    ep->saved_mfa[0] = THE_NON_VALUE;
 }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -2510,6 +2509,7 @@ execute_dirty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
      */
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
     ASSERT(ep && fp);
+
     ep->fp = NULL;
     erts_smp_atomic32_read_band_mb(&proc->state, ~(ERTS_PSFLG_DIRTY_CPU_PROC
 						   | ERTS_PSFLG_DIRTY_IO_PROC));
@@ -2594,7 +2594,7 @@ schedule_dirty_nif(ErlNifEnv* env, int flags, int argc, const ERL_NIF_TERM argv[
     }
 
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
-    need_save = (ep == NULL || is_non_value(ep->saved_mfa[0]));
+    need_save = (ep == NULL || !ep->saved_current);
     result = init_nif_sched_data(env, execute_dirty_nif, fp, need_save, argc, argv);
     if (scheduler <= 0)
 	erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
@@ -2672,7 +2672,7 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
     }
 
     ep = (NifExport*) ERTS_PROC_GET_NIF_TRAP_EXPORT(proc);
-    need_save = (ep == NULL || is_non_value(ep->saved_mfa[0]));
+    need_save = (ep == NULL || !ep->saved_current);
 
     if (flags) {
 #ifdef ERTS_DIRTY_SCHEDULERS
