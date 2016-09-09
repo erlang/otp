@@ -119,9 +119,13 @@ init_per_group(fips, Config) ->
         enabled ->
             Config;
         not_enabled ->
-            true = crypto:enable_fips_mode(true),
-            enabled = crypto:info_fips(),
-            Config;
+            case crypto:enable_fips_mode(true) of
+		true ->
+		    enabled = crypto:info_fips(),
+		    Config;
+		false ->
+		    {skip, "Failed to enable FIPS mode"}
+	    end;
         not_supported ->
             {skip, "FIPS mode not supported"}
     end;
