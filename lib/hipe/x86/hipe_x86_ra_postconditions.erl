@@ -42,7 +42,7 @@
 
 check_and_rewrite(CFG, Coloring, Strategy) ->
   %% io:format("Converting\n"),
-  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC, no_context),
   %% io:format("Rewriting\n"),
   do_bbs(hipe_x86_cfg:labels(CFG), TempMap, Strategy, CFG, false).
 
@@ -389,19 +389,12 @@ is_mem_opnd(Opnd, TempMap) ->
 	Reg = hipe_x86:temp_reg(Opnd),
 	case hipe_x86:temp_is_allocatable(Opnd) of
 	  true ->
-	    case tuple_size(TempMap) > Reg of
+	    case
+	      hipe_temp_map:is_spilled(Reg, TempMap) of
 	      true ->
-		case
-		  hipe_temp_map:is_spilled(Reg, TempMap) of
-		  true ->
-		    ?count_temp(Reg),
-		    true;
-		  false -> false
-		end;
-	      _ ->
-		%% impossible, but was true in ls post and false in normal post
-		exit({?MODULE,is_mem_opnd,Reg}),
-		false
+		?count_temp(Reg),
+		true;
+	      false -> false
 	    end;
 	  false -> true
 	end;
@@ -416,15 +409,10 @@ is_spilled(Temp, TempMap) ->
   case hipe_x86:temp_is_allocatable(Temp) of
     true ->
       Reg = hipe_x86:temp_reg(Temp),
-      case tuple_size(TempMap) > Reg of
+      case hipe_temp_map:is_spilled(Reg, TempMap) of
 	true ->
-	  case hipe_temp_map:is_spilled(Reg, TempMap) of
-	    true ->
-	      ?count_temp(Reg),
-	      true;
-	    false ->
-	      false
-	  end;
+	  ?count_temp(Reg),
+	  true;
 	false ->
 	  false
       end;
@@ -441,14 +429,14 @@ clone(Dst, Strategy) ->
     end,
   spill_temp(Type, Strategy).
 
-spill_temp0(Type, 'normal') ->
+spill_temp0(Type, 'normal') when Type =/= double ->
   hipe_x86:mk_new_temp(Type);
-spill_temp0(Type, 'linearscan') ->
+spill_temp0(Type, 'linearscan') when Type =/= double ->
   hipe_x86:mk_temp(?HIPE_X86_REGISTERS:temp0(), Type).
 
-spill_temp(Type, 'normal') ->
+spill_temp(Type, 'normal') when Type =/= double ->
   hipe_x86:mk_new_temp(Type);
-spill_temp(Type, 'linearscan') ->
+spill_temp(Type, 'linearscan') when Type =/= double ->
   hipe_x86:mk_temp(?HIPE_X86_REGISTERS:temp1(), Type).
 
 %%% Make a certain reg into a clone of Dst
@@ -460,6 +448,6 @@ clone2(Dst, RegOpt) ->
       #x86_temp{} -> hipe_x86:temp_type(Dst)
     end,
   case RegOpt of
-    [] -> hipe_x86:mk_new_temp(Type);
+    [] when Type =/= double -> hipe_x86:mk_new_temp(Type);
     Reg -> hipe_x86:mk_temp(Reg, Type)
   end.

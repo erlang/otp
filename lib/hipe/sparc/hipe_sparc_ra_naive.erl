@@ -20,11 +20,11 @@
 %%
 
 -module(hipe_sparc_ra_naive).
--export([ra/3]).
+-export([ra/4]).
 
 -include("hipe_sparc.hrl").
 
-ra(CFG, _Coloring_fp, _Options) ->	% -> {CFG, Coloring}
+ra(CFG, Liveness, _Coloring_fp, _Options) ->	% -> {CFG, Liveness, Coloring}
   {NewCFG,_DidSpill} =
     hipe_sparc_ra_postconditions:check_and_rewrite2(CFG, [], 'naive'),
-  {NewCFG, []}.
+  {NewCFG, Liveness, []}.

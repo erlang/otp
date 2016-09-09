@@ -1354,6 +1354,8 @@ opt_keys() ->
      pp_rtl_lcm,
      pp_rtl_ssapre,
      pp_rtl_linear,
+     ra_partitioned,
+     ra_prespill,
      regalloc,
      remove_comments,
      rtl_ssa,
@@ -1388,7 +1390,7 @@ o0_opts(_TargetArch) ->
   [concurrent_comp, {regalloc,linear_scan}].
 
 o1_opts(TargetArch) ->
-  Common = [inline_fp, pmatch, peephole,
+  Common = [inline_fp, pmatch, peephole, ra_prespill, ra_partitioned,
 	    icode_ssa_const_prop, icode_ssa_copy_prop, icode_inline_bifs,
 	    rtl_ssa, rtl_ssa_const_prop, rtl_ssapre,
 	    spillmin_color, use_indexing, remove_comments,
@@ -1458,6 +1460,8 @@ opt_negations() ->
    {no_pp_native, pp_native},
    {no_pp_rtl_lcm, pp_rtl_lcm},
    {no_pp_rtl_ssapre, pp_rtl_ssapre},
+   {no_ra_partitioned, ra_partitioned},
+   {no_ra_prespill, ra_prespill},
    {no_remove_comments, remove_comments},
    {no_rtl_ssa, rtl_ssa},
    {no_rtl_ssa_const_prop, rtl_ssa_const_prop},

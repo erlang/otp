@@ -21,34 +21,35 @@
 %%% Linear Scan register allocator for PowerPC
 
 -module(hipe_ppc_ra_ls).
--export([ra/3]).
+-export([ra/4]).
 
-ra(CFG, SpillIndex, Options) ->
-  SpillLimit = hipe_ppc_specific:number_of_temporaries(CFG),
-  alloc(CFG, SpillIndex, SpillLimit, Options).
+ra(CFG, Liveness, SpillIndex, Options) ->
+  SpillLimit = hipe_ppc_specific:number_of_temporaries(CFG, no_context),
+  alloc(CFG, Liveness, SpillIndex, SpillLimit, Options).
 
-alloc(CFG, SpillIndex, SpillLimit, Options) ->
-  {Coloring, _NewSpillIndex, Liveness} =
+alloc(CFG, Liveness, SpillIndex, SpillLimit, Options) ->
+  {Coloring, _NewSpillIndex} =
     regalloc(
-      CFG,
+      CFG, Liveness,
       hipe_ppc_registers:allocatable_gpr()--
       [hipe_ppc_registers:temp3(),
        hipe_ppc_registers:temp2(),
        hipe_ppc_registers:temp1()],
       [hipe_ppc_cfg:start_label(CFG)],
       SpillIndex, SpillLimit, Options,
-      hipe_ppc_specific),
+      hipe_ppc_specific, no_context),
   {NewCFG, _DidSpill} =
     hipe_ppc_ra_postconditions:check_and_rewrite(
       CFG, Coloring, 'linearscan'),
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_ppc_specific),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_ppc_specific, no_context),
   {TempMap2,_NewSpillIndex2} =
     hipe_spillmin:stackalloc(CFG, Liveness, [], SpillIndex, Options,
-			     hipe_ppc_specific, TempMap),
+			     hipe_ppc_specific, no_context, TempMap),
   Coloring2 =
     hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), TempMap2),
-  {NewCFG, Coloring2}.
+  {NewCFG, Liveness, Coloring2}.
 
-regalloc(CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
-  hipe_ls_regalloc:regalloc(
-    CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target).
+regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options,
+	 TgtMod, TgtCtx) ->
+  hipe_ls_regalloc:regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex,
+			    DontSpill, Options, TgtMod, TgtCtx).

@@ -26,7 +26,8 @@
 -include("hipe_sparc.hrl").
 
 check_and_rewrite(CFG, Coloring) ->
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific_fp),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific_fp,
+				     no_context),
   do_bbs(hipe_sparc_cfg:labels(CFG), TempMap, CFG, false).
 
 do_bbs([], _TempMap, CFG, DidSpill) -> {CFG, DidSpill};

@@ -1,8 +1,7 @@
-%% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +18,4 @@
 %% %CopyrightEnd%
 %%
 
--module(hipe_ppc_ra_naive).
--export([ra/4]).
-
--include("hipe_ppc.hrl").
-
-ra(CFG, Liveness, _Coloring_fp, _Options) ->	% -> {CFG, Liveness, Coloring}
-  {NewCFG,_DidSpill} =
-    hipe_ppc_ra_postconditions:check_and_rewrite2(CFG, [], 'naive'),
-  {NewCFG, Liveness, []}.
+-include("../x86/hipe_x86_subst.erl").

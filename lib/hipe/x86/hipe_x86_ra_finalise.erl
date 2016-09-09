@@ -244,49 +244,27 @@ mk_ra_map(TempMap, SpillLimit) ->
 	      gb_trees:empty(),
 	      TempMap).
 
-conv_ra_maplet(MapLet = {From,To}, SpillLimit, IsPrecoloured) ->
+conv_ra_maplet({From,To}, SpillLimit, IsPrecoloured)
+  when is_integer(From), From =< SpillLimit ->
   %% From should be a pseudo, or a hard reg mapped to itself.
-  if is_integer(From), From =< SpillLimit ->
-      case ?HIPE_X86_REGISTERS:IsPrecoloured(From) of
-	false -> [];
-	_ ->
-	  case To of
-	    {reg, From} -> [];
-	    _ -> exit({?MODULE,conv_ra_maplet,MapLet})
-	  end
-      end;
-     true -> exit({?MODULE,conv_ra_maplet,MapLet})
+  case ?HIPE_X86_REGISTERS:IsPrecoloured(From) of
+    false -> ok;
+    _ -> To = {reg, From}, ok
   end,
   %% end of From check
   case To of
-    {reg, NewReg} ->
+    {reg, NewReg} when is_integer(NewReg) ->
       %% NewReg should be a hard reg, or a pseudo mapped
       %% to itself (formals are handled this way).
-      if is_integer(NewReg) ->
-	  case ?HIPE_X86_REGISTERS:IsPrecoloured(NewReg) of
-	    true -> [];
-	    _ -> if From =:= NewReg -> [];
-		    true ->
-		     exit({?MODULE,conv_ra_maplet,MapLet})
-		 end
-	  end;
-	 true -> exit({?MODULE,conv_ra_maplet,MapLet})
-      end,
-      %% end of NewReg check
+      true = (?HIPE_X86_REGISTERS:IsPrecoloured(NewReg) orelse From =:= NewReg),
       {From, NewReg};
-    {spill, SpillIndex} ->
-      %% SpillIndex should be >= 0.
-      if is_integer(SpillIndex), SpillIndex >= 0 -> [];
-	 true -> exit({?MODULE,conv_ra_maplet,MapLet})
-      end,
-      %% end of SpillIndex check
+    {spill, SpillIndex} when is_integer(SpillIndex), SpillIndex >= 0 ->
       ToTempNum = SpillLimit+SpillIndex+1,
       MaxTempNum = hipe_gensym:get_var(x86),
       if MaxTempNum >= ToTempNum -> ok;
 	 true -> hipe_gensym:set_var(x86, ToTempNum)
       end,
-      {From, ToTempNum};
-    _ -> exit({?MODULE,conv_ra_maplet,MapLet})
+      {From, ToTempNum}
   end.
 
 mk_ra_map_x87(FpMap, SpillLimit) ->

@@ -62,6 +62,7 @@ MODULES=hipe_rtl_to_x86 \
 	hipe_x86_ra_postconditions \
 	hipe_x86_registers \
 	hipe_x86_spill_restore \
+	hipe_x86_subst \
 	hipe_x86_x87
 
 HRL_FILES=hipe_x86.hrl

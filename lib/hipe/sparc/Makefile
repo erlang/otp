@@ -63,7 +63,8 @@ MODULES=hipe_rtl_to_sparc \
 	hipe_sparc_ra_naive \
 	hipe_sparc_ra_postconditions \
 	hipe_sparc_ra_postconditions_fp \
-	hipe_sparc_registers
+	hipe_sparc_registers \
+	hipe_sparc_subst
 
 HRL_FILES=hipe_sparc.hrl
 ERL_FILES=$(MODULES:%=%.erl)

@@ -63,6 +63,7 @@ MODULES=hipe_ppc \
 	hipe_ppc_ra_postconditions \
 	hipe_ppc_ra_postconditions_fp \
 	hipe_ppc_registers \
+	hipe_ppc_subst \
 	hipe_rtl_to_ppc
 
 HRL_FILES=hipe_ppc.hrl

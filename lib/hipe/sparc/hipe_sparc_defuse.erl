@@ -23,6 +23,7 @@
 -export([insn_def_all/1, insn_use_all/1]).
 -export([insn_def_gpr/1, insn_use_gpr/1]).
 -export([insn_def_fpr/1, insn_use_fpr/1]).
+-export([insn_defs_all_gpr/1, insn_defs_all_fpr/1]).
 -include("hipe_sparc.hrl").
 
 %%%
@@ -49,6 +50,12 @@ insn_def_gpr(I) ->
     #rdy{dst=Dst} -> [Dst];
     #sethi{dst=Dst} -> [Dst];
     _ -> []
+  end.
+
+insn_defs_all_gpr(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 call_clobbered_gpr() ->
@@ -113,6 +120,12 @@ insn_def_fpr(I) ->
     #pseudo_fload{dst=Dst} -> [Dst];
     #pseudo_fmove{dst=Dst} -> [Dst];
     _ -> []
+  end.
+
+insn_defs_all_fpr(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 call_clobbered_fpr() ->

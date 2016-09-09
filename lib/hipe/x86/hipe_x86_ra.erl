@@ -49,27 +49,24 @@ code_size(CFG) ->
 
 ra(CFG0, Options) ->
   %% hipe_x86_cfg:pp(CFG0),
-  {CFG1, Coloring_fp, SpillIndex, Liveness} =
-    case ra_fp(CFG0, Options) of
-      {G, C, I} -> {G, C, I, undefined};
-      {_,_,_,_}=T -> T
-    end,
+  Liveness0 = ?HIPE_X86_SPECIFIC:analyze(CFG0, no_context),
+  {CFG1, Liveness, Coloring_fp, SpillIndex} = ra_fp(CFG0, Liveness0, Options),
   %% hipe_x86_cfg:pp(CFG1),
   ?start_ra_instrumentation(Options,
 			    code_size(CFG1),
 			    element(2,hipe_gensym:var_range(x86))),
-  {CFG2, Coloring}
+  {CFG2, _, Coloring}
     = case proplists:get_value(regalloc, Options, coalescing) of
 	coalescing ->
-	  ra(CFG1, SpillIndex, Options, hipe_coalescing_regalloc);
+	  ra(CFG1, Liveness, SpillIndex, Options, hipe_coalescing_regalloc);
 	optimistic ->
-	  ra(CFG1, SpillIndex, Options, hipe_optimistic_regalloc);
+	  ra(CFG1, Liveness, SpillIndex, Options, hipe_optimistic_regalloc);
 	graph_color ->
-	  ra(CFG1, SpillIndex, Options, hipe_graph_coloring_regalloc);
+	  ra(CFG1, Liveness, SpillIndex, Options, hipe_graph_coloring_regalloc);
 	linear_scan ->
 	  ?HIPE_X86_RA_LS:ra(CFG1, Liveness, SpillIndex, Options);
 	naive ->
-	  ?HIPE_X86_RA_NAIVE:ra(CFG1, Coloring_fp, Options);
+	  ?HIPE_X86_RA_NAIVE:ra(CFG1, Liveness, Coloring_fp, Options);
         _ ->
 	  exit({unknown_regalloc_compiler_option,
 		proplists:get_value(regalloc,Options)})
@@ -80,11 +77,12 @@ ra(CFG0, Options) ->
   %% hipe_x86_cfg:pp(CFG2),
   ?HIPE_X86_RA_FINALISE:finalise(CFG2, Coloring, Coloring_fp, Options).
 
-ra(CFG, SpillIndex, Options, RegAllocMod) ->
-  hipe_regalloc_loop:ra(CFG, SpillIndex, Options, RegAllocMod, ?HIPE_X86_SPECIFIC).
+ra(CFG, Liveness, SpillIndex, Options, RegAllocMod) ->
+  hipe_regalloc_loop:ra(CFG, Liveness, SpillIndex, Options, RegAllocMod,
+			?HIPE_X86_SPECIFIC, no_context).
 
 -ifdef(HIPE_AMD64).
-ra_fp(CFG, Options) ->
+ra_fp(CFG, Liveness, Options) ->
   Regalloc0 = proplists:get_value(regalloc, Options),
   {Regalloc, TargetMod} =
     case proplists:get_bool(inline_fp, Options) and (Regalloc0 =/= naive) of
@@ -96,25 +94,30 @@ ra_fp(CFG, Options) ->
 	end
     end,
   case Regalloc of
-    coalescing  -> ra_fp(CFG, Options, hipe_coalescing_regalloc, TargetMod);
-    optimistic  -> ra_fp(CFG, Options, hipe_optimistic_regalloc, TargetMod);
-    graph_color -> ra_fp(CFG, Options, hipe_graph_coloring_regalloc,
-			 TargetMod);
-    linear_scan -> hipe_amd64_ra_ls:ra_fp(CFG, Options, TargetMod);
-    naive -> {CFG,[],0};
+    coalescing ->
+      ra_fp(CFG, Liveness, Options, hipe_coalescing_regalloc, TargetMod);
+    optimistic ->
+      ra_fp(CFG, Liveness, Options, hipe_optimistic_regalloc, TargetMod);
+    graph_color ->
+      ra_fp(CFG, Liveness, Options, hipe_graph_coloring_regalloc, TargetMod);
+    linear_scan -> hipe_amd64_ra_ls:ra_fp(CFG, Liveness, Options, TargetMod,
+					  no_context);
+    naive -> {CFG,Liveness,[],0};
     _ ->
       exit({unknown_regalloc_compiler_option,
 	    proplists:get_value(regalloc,Options)})
   end.
 
-ra_fp(CFG, Options, RegAllocMod, TargetMod) ->
-  hipe_regalloc_loop:ra_fp(CFG, Options, RegAllocMod, TargetMod).
+ra_fp(CFG, Liveness, Options, RegAllocMod, TargetMod) ->
+  hipe_regalloc_loop:ra_fp(CFG, Liveness, Options, RegAllocMod, TargetMod,
+			   no_context).
 -else.
-ra_fp(CFG, Options) ->
+ra_fp(CFG, Liveness, Options) ->
   case proplists:get_bool(inline_fp, Options) of
     true ->
-      hipe_x86_ra_ls:ra_fp(CFG, Options, hipe_x86_specific_x87);
+      hipe_x86_ra_ls:ra_fp(CFG, Liveness, Options, hipe_x86_specific_x87,
+			   no_context);
     false ->
-      {CFG,[],0}
+      {CFG,Liveness,[],0}
   end.
 -endif.

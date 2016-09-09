@@ -35,66 +35,64 @@
 -endif.
 
 -module(?HIPE_X86_RA_LS).
--export([ra/4,ra_fp/3]).
+-export([ra/4,ra_fp/5]).
 -define(HIPE_INSTRUMENT_COMPILER, true). %% Turn on instrumentation.
 -include("../main/hipe.hrl").
 
 ra(CFG, Liveness, SpillIndex, Options) ->
   SpillLimit = ?HIPE_X86_SPECIFIC:number_of_temporaries(
-		 CFG),
+		 CFG, no_context),
   ?inc_counter(bbs_counter, length(hipe_x86_cfg:labels(CFG))),
   alloc(CFG, Liveness, SpillIndex, SpillLimit, Options).
 
-ra_fp(CFG, Options, TargetMod) ->
+ra_fp(CFG, Liveness, Options, TargetMod, TargetCtx) ->
   ?inc_counter(ra_calls_counter,1),
   %% ?inc_counter(ra_caller_saves_counter,count_caller_saves(CFG)),
   SpillIndex = 0,
-  SpillLimit = TargetMod:number_of_temporaries(CFG),
+  SpillLimit = TargetMod:number_of_temporaries(CFG, TargetCtx),
   ?inc_counter(bbs_counter, length(hipe_x86_cfg:labels(CFG))),
 
   ?inc_counter(ra_iteration_counter,1),
   %% ?HIPE_X86_PP:pp(Defun),
 
-  {Coloring,NewSpillIndex,Liveness} =
-    regalloc(CFG,
-	     undefined,
-	     TargetMod:allocatable('linearscan'),
+  {Coloring,NewSpillIndex} =
+    regalloc(CFG, Liveness,
+	     TargetMod:allocatable('linearscan', TargetCtx),
 	     [hipe_x86_cfg:start_label(CFG)],
 	     SpillIndex, SpillLimit, Options,
-	     TargetMod),
+	     TargetMod, TargetCtx),
 
   {NewCFG, _DidSpill} =
-    TargetMod:check_and_rewrite(CFG, Coloring, 'linearscan'),
-  TempMap = hipe_temp_map:cols2tuple(Coloring, TargetMod),
+    TargetMod:check_and_rewrite(CFG, Coloring, 'linearscan', TargetCtx),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, TargetMod, TargetCtx),
   {TempMap2, NewSpillIndex2} =
     hipe_spillmin:stackalloc(CFG, Liveness, [], SpillIndex, Options,
-			     TargetMod, TempMap),
+			     TargetMod, TargetCtx, TempMap),
   Coloring2 =
     hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), TempMap2),
   ?add_spills(Options, NewSpillIndex),
-  {NewCFG, Coloring2, NewSpillIndex2, Liveness}.
+  {NewCFG, Liveness, Coloring2, NewSpillIndex2}.
 
-alloc(CFG, Liveness0, SpillIndex, SpillLimit, Options) ->
+alloc(CFG, Liveness, SpillIndex, SpillLimit, Options) ->
   ?inc_counter(ra_iteration_counter,1), 
   %% ?HIPE_X86_PP:pp(Defun),	
-  {Coloring, NewSpillIndex, Liveness} =
+  {Coloring, NewSpillIndex} =
     regalloc(
-      CFG,
-      Liveness0,
+      CFG, Liveness,
       ?HIPE_X86_REGISTERS:allocatable()--
       [?HIPE_X86_REGISTERS:temp1(),
        ?HIPE_X86_REGISTERS:temp0()],
       [hipe_x86_cfg:start_label(CFG)],
       SpillIndex, SpillLimit, Options,
-      ?HIPE_X86_SPECIFIC),
+      ?HIPE_X86_SPECIFIC, no_context),
   {NewCFG, _DidSpill} =
     ?HIPE_X86_RA_POSTCONDITIONS:check_and_rewrite(
       CFG, Coloring, 'linearscan'),
   %% ?HIPE_X86_PP:pp(NewDefun),
-  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, ?HIPE_X86_SPECIFIC, no_context),
   {TempMap2,NewSpillIndex2} =
     hipe_spillmin:stackalloc(CFG, Liveness, [], SpillIndex, Options,
-			     ?HIPE_X86_SPECIFIC, TempMap),
+			     ?HIPE_X86_SPECIFIC, no_context, TempMap),
   Coloring2 = 
     hipe_spillmin:mapmerge(hipe_temp_map:to_substlist(TempMap), TempMap2),
   case proplists:get_bool(verbose_spills, Options) of
@@ -104,9 +102,9 @@ alloc(CFG, Liveness0, SpillIndex, SpillLimit, Options) ->
       ok
   end,
   ?add_spills(Options, NewSpillIndex),
-  {NewCFG, Coloring2}.
+  {NewCFG, Liveness, Coloring2}.
 
-regalloc(CFG,Liveness,PhysRegs,Entrypoints, SpillIndex, DontSpill, Options,
-	 Target) ->
-  hipe_ls_regalloc:regalloc(CFG,Liveness,PhysRegs,Entrypoints, SpillIndex,
-			    DontSpill, Options, Target).
+regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options,
+	 TgtMod, TgtCtx) ->
+  hipe_ls_regalloc:regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex,
+			    DontSpill, Options, TgtMod, TgtCtx).

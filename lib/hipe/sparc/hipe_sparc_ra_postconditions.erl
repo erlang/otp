@@ -26,7 +26,7 @@
 -include("hipe_sparc.hrl").
 
 check_and_rewrite(CFG, Coloring, Allocator) ->
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific),
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific, no_context),
   check_and_rewrite2(CFG, TempMap, Allocator).
 
 check_and_rewrite2(CFG, TempMap, Allocator) ->
