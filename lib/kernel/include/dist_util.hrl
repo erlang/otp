@@ -29,7 +29,7 @@
 -endif.
 
 -ifdef(dist_trace).
--define(trace(Fmt,Args), io:format("~p ~p:~s",[erlang:now(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
+-define(trace(Fmt,Args), io:format("~p ~p:~s",[erlang:timestamp(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
 % Use the one below for config-file (early boot) connection tracing
 %-define(trace(Fmt,Args), erlang:display([erlang:now(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
 -define(trace_factor,8).

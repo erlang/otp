@@ -26,15 +26,13 @@
 
 %%-define(dist_debug, true).
 
-%-define(DBG,erlang:display([?MODULE,?LINE])).
-
 -ifdef(dist_debug).
 -define(debug(Term), erlang:display(Term)).
 -else.
 -define(debug(Term), ok).
 -endif.
 
--ifdef(DEBUG).
+-ifdef(dist_debug).
 -define(connect_failure(Node,Term),
 	io:format("Net Kernel 2: Failed connection to node ~p, reason ~p~n",
 		  [Node,Term])).
