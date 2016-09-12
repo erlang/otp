@@ -60,7 +60,7 @@ init_per_testcase(ignore_hassign_extension_pre_tls_1_2, Config0) ->
 	ok ->
 	    case is_supported(sha512) of
 		true ->
-		    ssl:start(),
+		    ssl_test_lib:clean_start(),
 		    %% make rsa certs using oppenssl
 		    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					     proplists:get_value(priv_dir, Config0)),

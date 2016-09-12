@@ -1355,3 +1355,19 @@ ct_log_supported_protocol_versions(Config) ->
 	_ ->
 	    ct:log("TLS/SSL version ~p~n ", [tls_record:supported_protocol_versions()])
     end.
+
+clean_env() ->
+    application:unset_env(ssl, protocol_version),
+    application:unset_env(ssl, session_lifetime),
+    application:unset_env(ssl, session_cb),
+    application:unset_env(ssl, session_cb_init_args),
+    application:unset_env(ssl, session_cache_client_max),
+    application:unset_env(ssl, session_cache_server_max),
+    application:unset_env(ssl, ssl_pem_cache_clean),
+    application:unset_env(ssl, alert_timeout).
+
+clean_start() ->
+    ssl:stop(),
+    application:load(ssl),
+    clean_env(),
+    ssl:start().
