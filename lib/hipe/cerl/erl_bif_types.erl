@@ -124,7 +124,7 @@
 		    t_map_entries/2,
 		    t_map_put/3,
 		    t_map_update/3,
-		    map_pairwise_merge/3
+		    t_map_pairwise_merge/4
 		   ]).
 
 -ifdef(DO_ERL_BIF_TYPES_TEST).
@@ -1695,10 +1695,10 @@ type(maps, merge, 2, Xs, Opaques) ->
 	     BDefK = t_map_def_key(MapB, Opaques),
 	     ADefV = t_map_def_val(MapA, Opaques),
 	     BDefV = t_map_def_val(MapB, Opaques),
-	     t_map(map_pairwise_merge(
+	     t_map(t_map_pairwise_merge(
 		     fun(K, _,     _,  mandatory, V) -> {K, mandatory, V};
 			(K, MNess, VA, optional, VB) -> {K, MNess, t_sup(VA,VB)}
-		     end, MapA, MapB),
+		     end, MapA, MapB, Opaques),
 		   t_sup(ADefK, BDefK), t_sup(ADefV, BDefV))
 	 end, Opaques);
 type(maps, put, 3, Xs, Opaques) ->
