@@ -141,6 +141,16 @@
 	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
 	
       </item>
+
+      <tag><c><![CDATA[bypass_pem_cache = boolean() <optional>]]></c></tag>
+      <item>
+	<p>Introduced in ssl-8.0.2. Disables the PEM-cache.
+	The PEM cache has proven to be a bottleneck, until the
+	implementation has been improved this can be used as
+	a workaround. Defaults to false.
+	</p>
+      </item>
+      
       <tag><c><![CDATA[alert_timeout = integer() <optional>]]></c></tag>
       <item>
 	<p>
