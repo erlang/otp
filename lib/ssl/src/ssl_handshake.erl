@@ -1216,13 +1216,18 @@ certificate_authorities(CertDbHandle, CertDbRef) ->
 	  end,
     list_to_binary([Enc(Cert) || {_, Cert} <- Authorities]).
 
-certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
+certificate_authorities_from_db(CertDbHandle, CertDbRef) when is_reference(CertDbRef) ->
     ConnectionCerts = fun({{Ref, _, _}, Cert}, Acc) when Ref  == CertDbRef ->
 			      [Cert | Acc];
 			 (_, Acc) ->
 			      Acc
 		      end,
-    ssl_pkix_db:foldl(ConnectionCerts, [], CertDbHandle).
+    ssl_pkix_db:foldl(ConnectionCerts, [], CertDbHandle);
+certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
+    %% Cache disabled, Ref contains data
+    lists:foldl(fun({decoded, {_Key,Cert}}, Acc) -> [Cert | Acc] end,
+		[], CertDbData).
+
 
 %%-------------Extension handling --------------------------------
 
