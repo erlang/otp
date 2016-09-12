@@ -1092,6 +1092,15 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               The option is ignored on platforms where it is not
               implemented. Use with caution.</p>
           </item>
+          <tag><c>{tclass, Integer}</c></tag>
+          <item>
+            <p>
+	      Sets <c>IPV6_TCLASS IP</c> level options on platforms
+	      where this is implemented. The behavior and allowed range
+	      varies between different systems.
+              The option is ignored on platforms where it is not
+              implemented. Use with caution.</p>
+          </item>
         </taglist>
         <p>In addition to these options, <em>raw</em>
           option specifications can be used. The raw options are
