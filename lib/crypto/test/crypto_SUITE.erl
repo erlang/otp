@@ -159,7 +159,7 @@ groups() ->
      {no_blowfish_cfb64, [], [no_support, no_block]},
      {no_blowfish_ofb64, [], [no_support, no_block]},
      {no_aes_ige256, [], [no_support, no_block]},
-     {no_chacha20_poly1305, [], [no_support, no_block]},
+     {no_chacha20_poly1305, [], [no_support, no_aead]},
      {no_rc2_cbc, [], [no_support, no_block]},
      {no_rc4, [], [no_support, no_stream]}
     ].
@@ -222,7 +222,8 @@ init_per_group(GroupName, Config) ->
         "no_" ++ TypeStr ->
             %% Negated test case: check the algorithm is not supported
             %% (e.g. due to FIPS mode limitations)
-            [{type, list_to_atom(TypeStr)} | Config];
+            TypeAtom = list_to_atom(TypeStr),
+            [{type, TypeAtom} | group_config(TypeAtom, Config)];
         _Other ->
             %% Regular test case: skip if the algorithm is not supported
             case is_supported(GroupName) of
@@ -340,18 +341,28 @@ block(Config) when is_list(Config) ->
 no_block() ->
      [{doc, "Test disabled block ciphers"}].
 no_block(Config) when is_list(Config) ->
-    Type = ?config(type, Config),
-    Args = case Type of
-               des_ecb ->
-                   [Type, <<"Key">>, <<"Hi There">>];
-               blowfish_ecb ->
-                   [Type, <<"Key">>, <<"Hi There">>];
-               _ ->
-                   [Type, <<"Key">>, <<"Ivec">>, <<"Hi There">>]
-           end,
+    Blocks = proplists:get_value(block, Config),
+    Args = case Blocks of
+	       [{_Type, _Key, _PlainText} = A | _] ->
+		   tuple_to_list(A);
+	       [{_Type, _Key, _IV, _PlainText} = A | _] ->
+		   tuple_to_list(A);
+	       [{Type, Key, IV, PlainText, _CipherText} | _] ->
+		   [Type, Key, IV, PlainText]
+	   end,
     N = length(Args),
     notsup(fun crypto:block_encrypt/N, Args),
     notsup(fun crypto:block_decrypt/N, Args).
+%%--------------------------------------------------------------------
+no_aead() ->
+     [{doc, "Test disabled aead ciphers"}].
+no_aead(Config) when is_list(Config) ->
+    [{Type, Key, PlainText, Nonce, AAD, CipherText, CipherTag} | _] =
+	proplists:get_value(aead, Config),
+    EncryptArgs = [Type, Key, Nonce, {AAD, PlainText}],
+    DecryptArgs = [Type, Key, Nonce, {AAD, CipherText, CipherTag}],
+    notsup(fun crypto:block_encrypt/4, EncryptArgs),
+    notsup(fun crypto:block_decrypt/4, DecryptArgs).
 %%--------------------------------------------------------------------
 stream() ->
       [{doc, "Test stream ciphers"}].
