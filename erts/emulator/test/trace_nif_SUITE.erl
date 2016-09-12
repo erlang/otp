@@ -265,10 +265,16 @@ nif_process() ->
     nif_process().    
 
 load_nif(Config) ->    
-    Path = proplists:get_value(data_dir, Config),
+    case is_nif_loaded() of
+        true ->
+            ok;
+        false ->
+            Path = proplists:get_value(data_dir, Config),
+            ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0)
+    end.
 
-    ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0).
-
+is_nif_loaded() ->
+    false.
 
 nif() ->
     {"Stub0",[]}. %exit("nif/0 stub called").
