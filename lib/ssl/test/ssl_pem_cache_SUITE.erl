@@ -43,7 +43,7 @@ init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-	    ssl:start(),
+	    ssl_test_lib:clean_start(),
 	    %% make rsa certs using oppenssl
 	    {ok, _} =  make_certs:all(proplists:get_value(data_dir, Config0),
 				      proplists:get_value(priv_dir, Config0)),
@@ -63,14 +63,15 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(pem_cleanup = Case, Config) ->
-    end_per_testcase(Case, Config) ,
     application:load(ssl),
+    end_per_testcase(Case, Config) ,
     application:set_env(ssl, ssl_pem_cache_clean, ?CLEANUP_INTERVAL),
     ssl:start(),
     ct:timetrap({minutes, 1}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
+    ssl_test_lib:clean_env(),
     ssl:stop(),
     Config.
 

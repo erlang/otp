@@ -250,7 +250,7 @@ init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-	    ssl:start(),
+	    ssl_test_lib:clean_start(),
 	    %% make rsa certs using oppenssl
 	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 				     proplists:get_value(priv_dir, Config0)),
@@ -307,6 +307,7 @@ init_per_testcase(protocol_versions, Config)  ->
 init_per_testcase(reuse_session_expired, Config)  ->
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:clean_env(),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
     application:set_env(ssl, session_delay_cleanup_time, 500),
     ssl:start(),
@@ -316,6 +317,7 @@ init_per_testcase(reuse_session_expired, Config)  ->
 init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:clean_env(),
     application:set_env(ssl, protocol_version, []),
     ssl:start(),
     ct:timetrap({seconds, 5}),
@@ -452,6 +454,11 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
     application:unset_env(ssl, session_delay_cleanup_time),
+    end_per_testcase(default_action, Config);
+
+end_per_testcase(Case, Config) when Case == protocol_versions;
+				    Case == empty_protocol_versions->
+    application:unset_env(ssl, protocol_versions),
     end_per_testcase(default_action, Config);
 
 end_per_testcase(_TestCase, Config) ->

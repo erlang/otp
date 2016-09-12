@@ -119,12 +119,7 @@ init_per_suite(Config0) ->
 	    catch crypto:stop(),
 	    try crypto:start() of
 		ok ->
-		    ssl:stop(),
-		    application:load(ssl),
-		    ct:pal("Before clean: Version: ~p", [ssl:versions()]),
-		    application:unset_env(ssl, protocol_version),
-		    ct:pal("After clean: Version: ~p", [ssl:versions()]),
-		    ssl:start(),
+		    ssl_test_lib:clean_start(),
 		    {ok,  _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					      proplists:get_value(priv_dir, Config0)),
 		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
