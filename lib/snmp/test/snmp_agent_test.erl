@@ -647,22 +647,22 @@ init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
 init_per_group_ipv6(GroupName, Config, Init) ->
+    {ok, Hostname0} = inet:gethostname(),
     case ct:require(ipv6_hosts) of
 	ok ->
-	    case gen_udp:open(0, [inet6]) of
-		{ok, S} ->
-		    ok = gen_udp:close(S),
-		    Init(
-		      snmp_test_lib:init_group_top_dir(
-			GroupName,
-			[{ipfamily, inet6},
-			 {ip, ?LOCALHOST(inet6)}
-			 | lists:keydelete(ip, 1, Config)]));
-		{error, _} ->
-		    {skip, "Host seems to not support IPv6"}
-	    end;
+	  case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
+	      true ->
+		  Init(
+		    snmp_test_lib:init_group_top_dir(
+		      GroupName,
+		      [{ipfamily, inet6},
+		       {ip, ?LOCALHOST(inet6)}
+		       | lists:keydelete(ip, 1, Config)]));
+	      false ->
+		  {skip, "Host does not support IPV6"}
+	  end;
 	_ ->
-	    {skip, "Host does not support IPV6"}
+	    {skip, "Test config ipv6_hosts is missing"}
     end.
 
 end_per_group(all_tcs, Config) ->

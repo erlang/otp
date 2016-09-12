@@ -583,38 +583,38 @@ init_per_group(event_tests_mt = GroupName, Config) ->
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(ipv6_mt = GroupName, Config) ->
+    {ok, Hostname0} = inet:gethostname(),
     case ct:require(ipv6_hosts) of
 	ok ->
-	    case gen_udp:open(0, [inet6]) of
-		{ok, S} ->
-		    ok = gen_udp:close(S),
+	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
+		true ->
 		    ipv6_init(
 		      snmp_test_lib:init_group_top_dir(
 			GroupName,
 			[{manager_net_if_module, snmpm_net_if_mt}
 			 | Config]));
-		{error, _} ->
-		    {skip, "Host seems to not support IPv6"}
+		false ->
+		    {skip, "Host does not support IPv6"}
 	    end;
 	_ ->
-	    {skip, "Host does not support IPV6"}
+	    {skip, "Test config ipv6_hosts is missing"}
     end;
 init_per_group(ipv6 = GroupName, Config) -> 
+    {ok, Hostname0} = inet:gethostname(),
     case ct:require(ipv6_hosts) of
 	ok ->
-	    case gen_udp:open(0, [inet6]) of
-		{ok, S} ->
-		    ok = gen_udp:close(S),
+	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
+		true ->
 		    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
-		{error, _} ->
-		    {skip, "Host seems to not support IPv6"}
+		false ->
+		    {skip, "Host does not support IPv6"}
 	    end;
 	_ ->
-	    {skip, "Host does not support IPV6"}
+	    {skip, "Test config ipv6_hosts is missing"}
     end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
-   
+
 end_per_group(_GroupName, Config) ->
     %% Do we really need to do this?
     lists:keydelete(snmp_group_top_dir, 1, Config).
