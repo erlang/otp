@@ -47,7 +47,7 @@ trusted_cert_and_path(CRL, issuer_not_found, {Db, DbRef} = DbHandle) ->
 	    {ok, unknown_crl_ca, []}
     end.
 
-find_issuer(CRL, {Db,_}) ->
+find_issuer(CRL, {Db,DbRef}) ->
     Issuer = public_key:pkix_normalize_name(public_key:pkix_crl_issuer(CRL)),
     IsIssuerFun =
 	fun({_Key, {_Der,ErlCertCandidate}}, Acc) ->
@@ -55,14 +55,26 @@ find_issuer(CRL, {Db,_}) ->
 	   (_, Acc) ->
 		Acc
 	end,
-    
-    try ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, Db) of
-	issuer_not_found ->
-	    {error, issuer_not_found}
-    catch 
-	{ok, _} = Result ->
-	    Result
+    if is_reference(DbRef) -> % actual DB exists
+	try ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, Db) of
+	    issuer_not_found ->
+		{error, issuer_not_found}
+	catch
+	    {ok, _} = Result ->
+		Result
+	end;
+       is_tuple(DbRef), element(1,DbRef) =:= extracted -> % cache bypass byproduct
+	{extracted, CertsData} = DbRef,
+	Certs = [Entry || {decoded, Entry} <- CertsData],
+	try lists:foldl(IsIssuerFun, issuer_not_found, Certs) of
+	    issuer_not_found ->
+		{error, issuer_not_found}
+	catch
+	    {ok, _} = Result ->
+		Result
+	end
     end.
+
 
 verify_crl_issuer(CRL, ErlCertCandidate, Issuer, NotIssuer) ->
     TBSCert =  ErlCertCandidate#'OTPCertificate'.tbsCertificate,
