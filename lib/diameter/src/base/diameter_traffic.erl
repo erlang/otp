@@ -123,8 +123,16 @@ peer_up(TPid) ->
 %% ---------------------------------------------------------------------------
 
 peer_down(TPid) ->
-    ets:delete(?REQUEST_TABLE, TPid),
-    failover(TPid).
+    ets:delete_object(?REQUEST_TABLE, {TPid}),
+    lists:foreach(fun failover/1, ets:lookup(?REQUEST_TABLE, TPid)).
+%% Note that a request process can store its request after failover
+%% notifications are sent here: insert_request/2 sends the notification
+%% in that case.
+
+%% failover/1
+
+failover({_TPid, {Pid, TRef}}) ->
+    Pid ! {failover, TRef}.
 
 %% ---------------------------------------------------------------------------
 %% incr/4
@@ -1452,7 +1460,7 @@ make_request_packet(#diameter_packet{header = Hdr} = Pkt,
 make_request_packet(Msg, Pkt) ->
     Pkt#diameter_packet{msg = Msg}.
 
-%% make_retransmit_packet/2
+%% make_retransmit_packet/1
 
 make_retransmit_packet(#diameter_packet{msg = [#diameter_header{} = Hdr
                                                | Avps]}
@@ -1703,16 +1711,13 @@ send_request(TPid, #diameter_packet{bin = Bin} = Pkt, Req, _SvcName, Timeout)
   when node() == node(TPid) ->
     Seqs = diameter_codec:sequence_numbers(Bin),
     TRef = erlang:start_timer(Timeout, self(), TPid),
-    Entry = {Seqs, Req, TRef},
+    Entry = {Seqs, #request{handler = Pid} = Req, TRef},
 
-    %% Ensure that request table is cleaned even if we receive an exit
-    %% signal. An alternative would be to simply trap exits, but
-    %% callbacks are applied in this process, and these could possibly
-    %% be expecting the prevailing behaviour.
-    Self = self(),
-    spawn(fun() -> diameter_lib:wait([Self]), erase_request(Entry) end),
+    %% Ensure that request table is cleaned even if the process is
+    %% killed.
+    spawn(fun() -> diameter_lib:wait([Pid]), delete_request(Entry) end),
 
-    store_request(Entry, TPid),
+    insert_request(Entry),
     send(TPid, Pkt),
     TRef;
 
@@ -1774,6 +1779,8 @@ retransmit({TPid, Caps, App}
                SvcName,
                Timeout,
                []).
+%% When sending a binary, it's up to prepare_retransmit to modify it
+%% accordingly.
 
 retransmit({send, Msg},
            Transport,
@@ -1818,15 +1825,21 @@ resend_request(Pkt0,
     TRef = send_request(TPid, Pkt, Req, SvcName, Tmo),
     {TRef, Req}.
 
-%% store_request/2
+%% insert_request/1
 
-store_request(T, TPid) ->
-    ets:insert(?REQUEST_TABLE, T),
-    ets:member(?REQUEST_TABLE, TPid)
-        orelse begin
-                   {_Seqs, _Req, TRef} = T,
-                   self() ! {failover, TRef}  %% failover/1 may have missed
-               end.
+insert_request({_Seqs, #request{transport = TPid}, TRef} = T) ->
+    ets:insert(?REQUEST_TABLE, [T, {TPid, {self(), TRef}}]),
+    is_peer_up(TPid)
+        orelse (self() ! {failover, TRef}).  %% failover/1 may have missed
+
+%% is_peer_up/1
+%%
+%% Is the entry written by peer_up/1 and deleted by peer_down/1 still
+%% in the request table?
+
+is_peer_up(TPid) ->
+    Spec = [{{TPid}, [], ['$_']}],
+    '$end_of_table' /= ets:select(?REQUEST_TABLE, Spec, 1).
 
 %% lookup_request/2
 %%
@@ -1846,16 +1859,11 @@ lookup_request(Msg, TPid) ->
             false
     end.
 
-%% erase_request/1
+%% delete_request/1
 
-erase_request(T) ->
-    ets:delete_object(?REQUEST_TABLE, T).
-
-%% match_requests/1
-
-match_requests(TPid) ->
-    Pat = {'_', #request{transport = TPid, _ = '_'}, '_'},
-    ets:select(?REQUEST_TABLE, [{Pat, [], ['$_']}]).
+delete_request({_Seqs, #request{handler = Pid, transport = TPid}, TRef} = T) ->
+    Spec = [{R, [], [true]} || R <- [T, {TPid, {Pid, TRef}}]],
+    ets:select_delete(?REQUEST_TABLE, Spec).
 
 %% have_request/2
 
@@ -1863,28 +1871,6 @@ have_request(Pkt, TPid) ->
     Seqs = diameter_codec:sequence_numbers(Pkt),
     Pat = {Seqs, #request{transport = TPid, _ = '_'}, '_'},
     '$end_of_table' /= ets:select(?REQUEST_TABLE, [{Pat, [], ['$_']}], 1).
-
-%% ---------------------------------------------------------------------------
-%% # failover/1-2
-%% ---------------------------------------------------------------------------
-
-failover(TPid)
-  when is_pid(TPid) ->
-    lists:foreach(fun failover/1, match_requests(TPid));
-%% Note that a request process can store its request after failover
-%% notifications are sent here: store_request/2 sends the notification
-%% in that case.
-
-%% Failover as a consequence of peer_down/1: inform the
-%% request process.
-failover({_, Req, TRef}) ->
-    #request{handler = Pid,
-             packet = #diameter_packet{msg = M}}
-        = Req,
-    M /= undefined andalso (Pid ! {failover, TRef}).
-%% Failover is not performed when msg = binary() since sending
-%% pre-encoded binaries is only partially supported. (Mostly for
-%% test.)
 
 %% get_destination/2
 
