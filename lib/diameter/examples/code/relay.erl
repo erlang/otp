@@ -53,7 +53,7 @@
                         {'Auth-Application-Id', [16#FFFFFFFF]},
                         {string_decode, false},
                         {application, [{alias, relay},
-                                       {dictionary, diameter_relay},
+                                       {dictionary, diameter_gen_relay},
                                        {module, relay_cb}]}]).
 
 %% start/1
