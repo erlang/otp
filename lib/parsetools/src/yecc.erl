@@ -1978,7 +1978,8 @@ output_goto(St, [{_Nonterminal, []} | Go], StateInfo) ->
     output_goto(St, Go, StateInfo);
 output_goto(St0, [{Nonterminal, List} | Go], StateInfo) ->
     F = function_name(yeccgoto, Nonterminal),
-    St10 = output_goto1(St0, List, F, StateInfo, true),
+    St05 = fwrite(St0, <<"-dialyzer({nowarn_function, ~w/7}).\n">>, [F]),
+    St10 = output_goto1(St05, List, F, StateInfo, true),
     St = output_goto_fini(F, Nonterminal, St10),
     output_goto(St, Go, StateInfo);
 output_goto(St, [], _StateInfo) ->
