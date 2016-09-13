@@ -808,9 +808,11 @@ validate_bs_skip_utf(Fail, Ctx, Live, Vst0) ->
 %% A possibility for garbage collection must not occur between setelement/3 and
 %% set_tuple_element/3.
 %%
+%% Note that #vst.current will be 'none' if the instruction is unreachable.
+%%
 val_dsetel({move,_,_}, Vst) ->
     Vst;
-val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=St}=Vst) ->
+val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=#st{}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=true}};
 val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
     error(illegal_context_for_set_tuple_element);
