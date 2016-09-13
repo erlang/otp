@@ -37,7 +37,7 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, event_order, code_change,
+     shutdown, stop_and_reply, enter_events, event_order, code_change,
      {group, sys},
      hibernate, enter_loop].
 
@@ -556,7 +556,8 @@ stop_and_reply(_Config) ->
 		      {stop_and_reply,Reason,
 		       [R1,{reply,From2,Reply2}]}
 	      end},
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
+    {ok,STM} =
+	gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
 
     Self = self(),
     Tag1 = make_ref(),
@@ -569,6 +570,61 @@ stop_and_reply(_Config) ->
 	Other1 ->
 	    ct:fail({unexpected,Other1})
     end,
+
+    {noproc,_} =
+	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
+    case flush() of
+	[] ->
+	    ok;
+	Other2 ->
+	    ct:fail({unexpected,Other2})
+    end.
+
+
+
+enter_events(_Config) ->
+    process_flag(trap_exit, true),
+    Self = self(),
+
+    Machine =
+	%% Abusing the internal format of From...
+	#{init =>
+	      fun () ->
+		      {ok,start,1}
+	      end,
+	  start =>
+	      fun (enter, Prev, N) ->
+		      Self ! {enter,start,Prev,N},
+		      {keep_state,N + 1};
+		  (internal, Prev, N) ->
+		      Self ! {internal,start,Prev,N},
+		      {keep_state,N + 1};
+		  ({call,From}, echo, N) ->
+		      {next_state,wait,N + 1,{reply,From,{echo,start,N}}};
+		  ({call,From}, {stop,Reason}, N) ->
+		      {stop_and_reply,Reason,[{reply,From,{stop,N}}],N + 1}
+	      end,
+	  wait =>
+	      fun (enter, Prev, N) ->
+		      Self ! {enter,wait,Prev,N},
+		      {keep_state,N + 1};
+		  ({call,From}, echo, N) ->
+		      {next_state,start,N + 1,
+		       [{next_event,internal,wait},
+			{reply,From,{echo,wait,N}}]}
+	      end},
+    {ok,STM} =
+	gen_statem:start_link(
+	  ?MODULE, {map_statem,Machine,[state_entry_events]}, []),
+
+    [{enter,start,start,1}] = flush(),
+    {echo,start,2} = gen_statem:call(STM, echo),
+    [{enter,wait,start,3}] = flush(),
+    {wait,[4|_]} = sys:get_state(STM),
+    {echo,wait,4} = gen_statem:call(STM, echo),
+    [{enter,start,wait,5},{internal,start,wait,6}] = flush(),
+    {stop,7} = gen_statem:call(STM, {stop,bye}),
+    [{'EXIT',STM,bye}] = flush(),
 
     {noproc,_} =
 	?EXPECT_FAILURE(gen_statem:call(STM, hej), Reason),
@@ -623,7 +679,7 @@ event_order(_Config) ->
 		      Result
 	      end},
 
-    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine}, []),
+    {ok,STM} = gen_statem:start_link(?MODULE, {map_statem,Machine,[]}, []),
     Self = self(),
     Tag1 = make_ref(),
     gen_statem:cast(STM, {reply,{Self,Tag1},ok1}),
@@ -1315,9 +1371,9 @@ init({callback_mode,CallbackMode,Arg}) ->
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,CallbackMode}),
     init(Arg);
-init({map_statem,#{init := Init}=Machine}) ->
+init({map_statem,#{init := Init}=Machine,Modes}) ->
     ets:new(?MODULE, [named_table,private]),
-    ets:insert(?MODULE, {callback_mode,handle_event_function}),
+    ets:insert(?MODULE, {callback_mode,[handle_event_function|Modes]}),
     case Init() of
 	{ok,State,Data,Ops} ->
 	    {ok,State,[Data|Machine],Ops};

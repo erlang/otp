@@ -53,7 +53,7 @@
     action/0]).
 
 %% Fix problem for doc build
--export_type([transition_option/0]).
+-export_type([state_entry_mode/0,transition_option/0]).
 
 %%%==========================================================================
 %%% Interface functions.
@@ -72,9 +72,10 @@
 
 -type event_type() ::
 	{'call',From :: from()} | 'cast' |
-	'info' | 'timeout' | 'internal'.
+	'info' | 'timeout' | 'enter' | 'internal'.
 
 -type callback_mode() :: 'state_functions' | 'handle_event_function'.
+-type state_entry_mode() :: 'state_entry_events'.
 
 -type transition_option() ::
 	postpone() | hibernate() | event_timeout().
@@ -183,7 +184,9 @@
 %%
 %% It is called once after init/0 and code_change/4 but before
 %% the first state callback StateName/3 or handle_event/4.
--callback callback_mode() -> callback_mode().
+-callback callback_mode() ->
+    callback_mode() |
+    [callback_mode() | state_entry_mode()].
 
 %% Example state callback for StateName = 'state_name'
 %% when callback_mode() =:= state_functions.
@@ -556,19 +559,27 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
 	end,
     S =	#{
       callback_mode => undefined,
+      state_entry_events => false,
       module => Module,
       name => Name,
-      %% All fields below will be replaced according to the arguments to
+      %% The rest of the fields are set from to the arguments to
       %% loop_event_actions/10 when it finally loops back to loop/3
-      state => State,
-      data => Data,
-      postponed => P,
-      hibernate => false,
-      timer => undefined},
+      %% in loop_events_done/8
+      %%
+      %% Marker for initial state, cleared immediately when used
+      init_state => true
+     },
     NewDebug = sys_debug(Debug, S, State, {enter,Event,State}),
-    loop_event_actions(
-      Parent, NewDebug, S, Events,
-      State, Data, P, Event, State, NewActions).
+    case call_callback_mode(S) of
+	{ok,NewS} ->
+	    loop_event_actions(
+	      Parent, NewDebug, NewS, Events,
+	      State, Data, P, Event, State, NewActions);
+	{Class,Reason,Stacktrace} ->
+	    terminate(
+	      Class, Reason, Stacktrace,
+	      NewDebug, S, [Event|Events], State, Data, P)
+    end.
 
 %%%==========================================================================
 %%%  gen callbacks
@@ -866,13 +877,93 @@ loop_events(
 loop_events_done(Parent, Debug, S, Timer, State, Data, P, Hibernate) ->
     NewS =
 	S#{
-	  state := State,
-	  data := Data,
-	  postponed := P,
-	  hibernate := Hibernate,
-	  timer := Timer},
+	  state => State,
+	  data => Data,
+	  postponed => P,
+	  hibernate => Hibernate,
+	  timer => Timer},
     loop(Parent, Debug, NewS).
 
+
+
+parse_callback_mode([], CBMode, SEntry) ->
+    {CBMode,SEntry};
+parse_callback_mode([H|T], CBMode, SEntry) ->
+    case callback_mode(H) of
+	true ->
+	    parse_callback_mode(T, H, SEntry);
+	false ->
+	    case H of
+		state_entry_events ->
+		    parse_callback_mode(T, CBMode, true);
+		_ ->
+		    {undefined,SEntry}
+	    end
+    end;
+parse_callback_mode(_, _CBMode, SEntry) ->
+    {undefined,SEntry}.
+
+call_callback_mode(S, CallbackMode) ->
+    case
+	parse_callback_mode(
+	  if
+	      is_atom(CallbackMode) ->
+		  [CallbackMode];
+	      true ->
+		  CallbackMode
+	  end, undefined, false)
+    of
+	{undefined,_} ->
+	    {error,
+	     {bad_return_from_callback_mode,CallbackMode},
+	     ?STACKTRACE()};
+	{CBMode,SEntry} ->
+	    {ok,
+	     S#{
+	       callback_mode := CBMode,
+	       state_entry_events := SEntry}}
+    end.
+
+call_callback_mode(#{module := Module} = S) ->
+    try Module:callback_mode() of
+	CallbackMode ->
+	    call_callback_mode(S, CallbackMode)
+    catch
+	CallbackMode ->
+	    call_callback_mode(S, CallbackMode);
+	error:undef ->
+	    %% Process undef to check for the simple mistake
+	    %% of calling a nonexistent state function
+	    %% to make the undef more precise
+	    case erlang:get_stacktrace() of
+		[{Module,callback_mode,[]=Args,_}
+		 |Stacktrace] ->
+		    {error,
+		     {undef_callback,{Module,callback_mode,Args}},
+		     Stacktrace};
+		Stacktrace ->
+		    {error,undef,Stacktrace}
+	    end;
+	Class:Reason ->
+	    {Class,Reason,erlang:get_stacktrace()}
+    end.
+
+loop_event(
+  Parent, Debug,
+  #{callback_mode := undefined} = S,
+  Events,
+  State, Data, P, Event, Hibernate) ->
+    %% This happens after code_change/4
+    case call_callback_mode(S) of
+	{ok,NewS} ->
+	    loop_event(
+	      Parent, Debug, NewS, Events,
+	      State, Data, P, Event, Hibernate);
+	{Class,Reason,Stacktrace} ->
+	    terminate(
+	      Class, Reason, Stacktrace,
+	      Debug, S, [Event|Events], State, Data, P)
+    end;
 loop_event(
   Parent, Debug,
   #{callback_mode := CallbackMode,
@@ -891,24 +982,16 @@ loop_event(
     %%
     try
 	case CallbackMode of
-	    undefined ->
-		Module:callback_mode();
 	    state_functions ->
 		erlang:apply(Module, State, [Type,Content,Data]);
 	    handle_event_function ->
 		Module:handle_event(Type, Content, State, Data)
 	end
     of
-	Result when CallbackMode =:= undefined ->
-	    loop_event_callback_mode(
-	      Parent, Debug, S, Events, State, Data, P, Event, Result);
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, State, Data, P, Event, Result)
     catch
-	Result when CallbackMode =:= undefined ->
-	    loop_event_callback_mode(
-	      Parent, Debug, S, Events, State, Data, P, Event, Result);
 	Result ->
 	    loop_event_result(
 	      Parent, Debug, S, Events, State, Data, P, Event, Result);
@@ -936,14 +1019,6 @@ loop_event(
 	    %% of calling a nonexistent state function
 	    %% to make the undef more precise
 	    case erlang:get_stacktrace() of
-		[{Module,callback_mode,[]=Args,_}
-		 |Stacktrace]
-		  when CallbackMode =:= undefined ->
-		    terminate(
-		      error,
-		      {undef_callback,{Module,callback_mode,Args}},
-		      Stacktrace,
-		      Debug, S, [Event|Events], State, Data, P);
 		[{Module,State,[Type,Content,Data]=Args,_}
 		 |Stacktrace]
 		  when CallbackMode =:= state_functions ->
@@ -969,25 +1044,6 @@ loop_event(
 	    Stacktrace = erlang:get_stacktrace(),
 	    terminate(
 	      Class, Reason, Stacktrace,
-	      Debug, S, [Event|Events], State, Data, P)
-    end.
-
-%% Interpret callback_mode() result
-loop_event_callback_mode(
-  Parent, Debug, S, Events, State, Data, P, Event, CallbackMode) ->
-    case callback_mode(CallbackMode) of
-	true ->
-	    Hibernate = false, % We have already GC:ed recently
-	    loop_event(
-	      Parent, Debug,
-	      S#{callback_mode := CallbackMode},
-	      Events,
-	      State, Data, P, Event, Hibernate);
-	false ->
-	    terminate(
-	      error,
-	      {bad_return_from_callback_mode,CallbackMode},
-	      ?STACKTRACE(),
 	      Debug, S, [Event|Events], State, Data, P)
     end.
 
@@ -1174,7 +1230,7 @@ loop_event_actions(
 %%
 %% End of actions list
 loop_event_actions(
-  Parent, Debug, S, Events,
+  Parent, Debug, #{state_entry_events := SEEvents} = S, Events,
   State, NewData, P0, Event, NextState, [],
   Postpone, Hibernate, Timeout, NextEvents) ->
     %%
@@ -1196,7 +1252,25 @@ loop_event_actions(
 		{lists:reverse(P1, Events),[]}
 	end,
     %% Place next events first in queue
-    Q = lists:reverse(NextEvents, Q2),
+    Q3 = lists:reverse(NextEvents, Q2),
+    %% State entry events
+    Q =
+	case SEEvents of
+	    true ->
+		%% Generate state entry events
+		case
+		    (NextState =/= State)
+		    orelse maps:is_key(init_state, S)
+		of
+		    true ->
+			%% State change or initial state
+			[{enter,State}|Q3];
+		    false ->
+			Q3
+		end;
+	    false ->
+		Q3
+	end,
     %%
     NewDebug =
 	sys_debug(
@@ -1208,7 +1282,15 @@ loop_event_actions(
 		  {consume,Event,NextState}
 	  end),
     loop_events(
-      Parent, NewDebug, S, Q, NextState, NewData, P, Hibernate, Timeout).
+      Parent, NewDebug,
+      %% Avoid infinite loop in initial state with state entry events
+      case maps:is_key(init_state, S) of
+	  true ->
+	      maps:remove(init_state, S);
+	  false ->
+	      S
+      end,
+      Q, NextState, NewData, P, Hibernate, Timeout).
 
 %%---------------------------------------------------------------------------
 %% Server helpers
@@ -1285,7 +1367,9 @@ terminate(
 
 error_info(
   Class, Reason, Stacktrace,
-  #{name := Name, callback_mode := CallbackMode},
+  #{name := Name,
+    callback_mode := CallbackMode,
+    state_entry_events := SEEvents},
   Q, P, FmtData) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
@@ -1312,6 +1396,13 @@ error_info(
 		end;
 	    _ -> {Reason,Stacktrace}
 	end,
+    CBMode =
+	 case SEEvents of
+	     true ->
+		 [CallbackMode,state_entry_events];
+	     false ->
+		 CallbackMode
+	 end,
     error_logger:format(
       "** State machine ~p terminating~n" ++
 	  case Q of
@@ -1338,8 +1429,9 @@ error_info(
 	   [] -> [];
 	   [Event|_] -> [Event]
        end] ++
-	  [FmtData,Class,FixedReason,
-	   CallbackMode] ++
+	  [FmtData,
+	   Class,FixedReason,
+	   CBMode] ++
 	  case Q of
 	      [_|[_|_] = Events] -> [Events];
 	      _ -> []
