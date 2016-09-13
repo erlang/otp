@@ -68,6 +68,7 @@
 	 log/1, log/2, log/3, log/4, log/5,
 	 print/1, print/2, print/3, print/4,
 	 pal/1, pal/2, pal/3, pal/4,
+         set_verbosity/2, get_verbosity/1,
 	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
 	 fail/1, fail/2, comment/1, comment/2, make_priv_dir/0,
 	 testcases/2, userdata/2, userdata/3,
@@ -713,6 +714,24 @@ pal(X1,X2,X3) ->
 %%% and <c>Importance</c>.</p>
 pal(Category,Importance,Format,Args) ->
     ct_logs:tc_pal(Category,Importance,Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec set_verbosity(Category, Level) -> ok
+%%%      Category = default | atom()
+%%%      Level = integer()
+%%%
+%%% @doc Set the verbosity level for a category
+set_verbosity(Category, Level) ->
+    ct_util:set_verbosity({Category,Level}).
+
+%%%-----------------------------------------------------------------
+%%% @spec get_verbosity(Category) -> Level | undefined
+%%%      Category = default | atom()
+%%%      Level = integer()
+%%%
+%%% @doc Read the verbosity level for a category
+get_verbosity(Category) ->
+    ct_util:get_verbosity(Category).
 
 %%%-----------------------------------------------------------------
 %%% @spec capture_start() -> ok
