@@ -385,53 +385,79 @@ call(ServerRef, Request) ->
 -spec call(
 	ServerRef :: server_ref(),
 	Request :: term(),
-	Timeout :: timeout()) ->
+	Timeout ::
+	  timeout() |
+	  {'clean_timeout',T :: timeout()} |
+	  {'dirty_timeout',T :: timeout()}) ->
 		  Reply :: term().
-call(ServerRef, Request, infinity) ->
-    try gen:call(ServerRef, '$gen_call', Request, infinity) of
-	{ok,Reply} ->
-	    Reply
-    catch
-	Class:Reason ->
-	    erlang:raise(
-	      Class,
-	      {Reason,{?MODULE,call,[ServerRef,Request,infinity]}},
-	      erlang:get_stacktrace())
-    end;
 call(ServerRef, Request, Timeout) ->
-    %% Call server through proxy process to dodge any late reply
-    Ref = make_ref(),
-    Self = self(),
-    Pid = spawn(
-	    fun () ->
-		    Self !
-			try gen:call(
-			      ServerRef, '$gen_call', Request, Timeout) of
-			    Result ->
-				{Ref,Result}
-			catch Class:Reason ->
-				{Ref,Class,Reason,erlang:get_stacktrace()}
-			end
-	    end),
-    Mref = monitor(process, Pid),
-    receive
-	{Ref,Result} ->
-	    demonitor(Mref, [flush]),
-	    case Result of
+    case parse_timeout(Timeout) of
+	{dirty_timeout,T} ->
+	    try gen:call(ServerRef, '$gen_call', Request, T) of
 		{ok,Reply} ->
 		    Reply
+	    catch
+		Class:Reason ->
+		    erlang:raise(
+		      Class,
+		      {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
+		      erlang:get_stacktrace())
 	    end;
-	{Ref,Class,Reason,Stacktrace} ->
-	    demonitor(Mref, [flush]),
-	    erlang:raise(
-	      Class,
-	      {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
-	      Stacktrace);
-	{'DOWN',Mref,_,_,Reason} ->
-	    %% There is a theoretical possibility that the
-	    %% proxy process gets killed between try--of and !
-	    %% so this clause is in case of that
-	    exit(Reason)
+	{clean_timeout,T} ->
+	    %% Call server through proxy process to dodge any late reply
+	    Ref = make_ref(),
+	    Self = self(),
+	    Pid = spawn(
+		    fun () ->
+			    Self !
+				try gen:call(
+				      ServerRef, '$gen_call', Request, T) of
+				    Result ->
+					{Ref,Result}
+				catch Class:Reason ->
+					{Ref,Class,Reason,
+					 erlang:get_stacktrace()}
+				end
+		    end),
+	    Mref = monitor(process, Pid),
+	    receive
+		{Ref,Result} ->
+		    demonitor(Mref, [flush]),
+		    case Result of
+			{ok,Reply} ->
+			    Reply
+		    end;
+		{Ref,Class,Reason,Stacktrace} ->
+		    demonitor(Mref, [flush]),
+		    erlang:raise(
+		      Class,
+		      {Reason,{?MODULE,call,[ServerRef,Request,Timeout]}},
+		      Stacktrace);
+		{'DOWN',Mref,_,_,Reason} ->
+		    %% There is a theoretical possibility that the
+		    %% proxy process gets killed between try--of and !
+		    %% so this clause is in case of that
+		    exit(Reason)
+	    end;
+	Error when is_atom(Error) ->
+	    erlang:error(Error, [ServerRef,Request,Timeout])
+    end.
+
+parse_timeout(Timeout) ->
+    case Timeout of
+	{clean_timeout,infinity} ->
+	    {dirty_timeout,infinity};
+	{clean_timeout,_} ->
+	    Timeout;
+	{dirty_timeout,_} ->
+	    Timeout;
+	{_,_} ->
+	    %% Be nice and throw a badarg for speling errors
+	    badarg;
+	infinity ->
+	    {dirty_timeout,infinity};
+	T ->
+	    {clean_timeout,T}
     end.
 
 %% Reply from a state machine callback to whom awaits in call/2

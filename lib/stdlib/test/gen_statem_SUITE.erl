@@ -57,7 +57,7 @@ tcs(start) ->
 tcs(stop) ->
     [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
 tcs(abnormal) ->
-    [abnormal1, abnormal2];
+    [abnormal1, abnormal1clean, abnormal1dirty, abnormal2];
 tcs(sys) ->
     [sys1, call_format_status,
      error_format_status, terminate_crash_format,
@@ -451,7 +451,51 @@ abnormal1(Config) ->
 	   gen_statem:call(Name, {delayed_answer,1000}, 10),
 	   Reason),
     ok = gen_statem:stop(Name),
+    ?t:sleep(1100),
     ok = verify_empty_msgq().
+
+%% Check that time outs in calls work
+abnormal1clean(Config) ->
+    Name = abnormal1clean,
+    LocalSTM = {local,Name},
+
+    {ok, _Pid} =
+	gen_statem:start(LocalSTM, ?MODULE, start_arg(Config, []), []),
+
+    %% timeout call.
+    delayed =
+	gen_statem:call(Name, {delayed_answer,1}, {clean_timeout,100}),
+    {timeout,_} =
+	?EXPECT_FAILURE(
+	   gen_statem:call(
+	     Name, {delayed_answer,1000}, {clean_timeout,10}),
+	   Reason),
+    ok = gen_statem:stop(Name),
+    ?t:sleep(1100),
+    ok = verify_empty_msgq().
+
+%% Check that time outs in calls work
+abnormal1dirty(Config) ->
+    Name = abnormal1dirty,
+    LocalSTM = {local,Name},
+
+    {ok, _Pid} =
+	gen_statem:start(LocalSTM, ?MODULE, start_arg(Config, []), []),
+
+    %% timeout call.
+    delayed =
+	gen_statem:call(Name, {delayed_answer,1}, {dirty_timeout,100}),
+    {timeout,_} =
+	?EXPECT_FAILURE(
+	   gen_statem:call(
+	     Name, {delayed_answer,1000}, {dirty_timeout,10}),
+	   Reason),
+    ok = gen_statem:stop(Name),
+    ?t:sleep(1100),
+    case flush() of
+	[{Ref,delayed}] when is_reference(Ref) ->
+	    ok
+    end.
 
 %% Check that bad return values makes the stm crash. Note that we must
 %% trap exit since we must link to get the real bad_return_ error

@@ -919,18 +919,40 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<note>
 	  <p>
-	    For <c><anno>Timeout</anno> =/= infinity</c>,
+	    For <c><anno>Timeout</anno> &lt; infinity</c>,
 	    to avoid getting a late reply in the caller's
-	    inbox, this function spawns a proxy process that
+	    inbox if the caller should catch exceptions,
+	    this function spawns a proxy process that
 	    does the call. A late reply gets delivered to the
 	    dead proxy process, hence gets discarded. This is
 	    less efficient than using
-	    <c><anno>Timeout</anno> =:= infinity</c>.
+	    <c><anno>Timeout</anno> == infinity</c>.
 	  </p>
 	</note>
 	<p>
-	  The call can fail, for example, if the <c>gen_statem</c> dies
-	  before or during this function call.
+	  <c><anno>Timeout</anno></c> can also be a tuple
+	  <c>{clean_timeout,<anno>T</anno>}</c> or
+	  <c>{dirty_timeout,<anno>T</anno>}</c>, where
+	  <c><anno>T</anno></c> is the timeout time.
+	  <c>{clean_timeout,<anno>T</anno>}</c> works like
+	  just <c>T</c> described in the note above
+	  and uses a proxy process for <c>T &lt; infinity</c>,
+	  while <c>{dirty_timeout,<anno>T</anno>}</c>
+	  bypasses the proxy process which is more lightweight.
+	</p>
+	<note>
+	  <p>
+	    If you combine catching exceptions from this function
+	    with <c>{dirty_timeout,<anno>T</anno>}</c>
+	    to avoid that the calling process dies when the call
+	    times out, you will have to be prepared to handle
+	    a late reply.
+	    So why not just allow the calling process to die?
+	  </p>
+	</note>
+	<p>
+	  The call can also fail, for example, if the <c>gen_statem</c>
+	  dies before or during this function call.
 	</p>
       </desc>
     </func>
