@@ -342,7 +342,7 @@ syntax(Config) when is_list(Config) ->
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
             ?line L1 = 31 + SzYeccPre,
-            ?line L2 = 38 + SzYeccPre
+            ?line L2 = 39 + SzYeccPre
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -360,7 +360,7 @@ syntax(Config) when is_list(Config) ->
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
             ?line L1 = 31 + SzYeccPre,
-            ?line L2 = 38 + SzYeccPre
+            ?line L2 = 39 + SzYeccPre
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -1623,7 +1623,7 @@ otp_7292(Config) when is_list(Config) ->
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
             L1 = 41 + SzYeccPre,
-            L2 = 48 + SzYeccPre
+            L2 = 49 + SzYeccPre
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1641,7 +1641,7 @@ otp_7292(Config) when is_list(Config) ->
                    [{_,[{16,_,{unused_function,{foo,0}}}]}]} = 
                 compile:file(Parserfile1, [basic_validation, return]),
             ?line L1 = 40 + SzYeccPre,
-            ?line L2 = 47 + SzYeccPre
+            ?line L2 = 48 + SzYeccPre
     end(),
 
     file:delete(YeccPre),
