@@ -2689,7 +2689,7 @@ os_prompt%</pre>
           to the last occurrence is used. Example:</p>
         <pre>
 > <input>erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).</input>
-{{[],aa,[],[],zz}</pre>
+{[],aa,[],[],zz}</pre>
       </desc>
     </func>
 
