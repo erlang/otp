@@ -1494,6 +1494,7 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl,
 		    match_list = CONS(hp, match_res, match_list);
 		    ++got;
 		}
+                --num_left;
 	    }
 	    current = current->next;
 	}	
@@ -1511,7 +1512,6 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl,
 	    }
 	}
 	else { /* Key is variable */
-	    --num_left;
 
 	    if ((slot_ix=next_slot(tb,slot_ix,&lck)) == 0) {
 		slot_ix = -1;
