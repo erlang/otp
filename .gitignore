@@ -143,6 +143,7 @@ JAVADOC-GENERATED
 
 /make/output.mk
 /make/emd2exml
+/make/make_emakefile
 
 # Created by "out_build update_primary"
 /bootstrap/primary_compiler/
