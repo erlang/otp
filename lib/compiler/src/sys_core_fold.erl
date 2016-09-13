@@ -83,10 +83,11 @@
 -ifdef(DEBUG).
 -define(ASSERT(E),
 	case E of
-	    true -> ok;
+	    true ->
+		ok;
 	    false ->
 		io:format("~p, line ~p: assertion failed\n", [?MODULE,?LINE]),
-		exit(assertion_failed)
+		error(assertion_failed)
 	end).
 -else.
 -define(ASSERT(E), ignore).
@@ -3442,12 +3443,18 @@ format_error(bin_var_used_in_guard) ->
 verify_scope(E, #sub{s=Scope}) ->
     Free0 = cerl_trees:free_variables(E),
     Free = [V || V <- Free0, not is_tuple(V)],	%Ignore function names.
-    case ordsets:is_subset(Free, cerl_sets:to_list(Scope)) of
-	true -> true;
+    case is_subset_of_scope(Free, Scope) of
+	true ->
+	    true;
 	false ->
 	    io:format("~p\n", [E]),
 	    io:format("~p\n", [Free]),
-	    io:format("~p\n", [cerl_sets:to_list(Scope)]),
+	    io:format("~p\n", [ordsets:from_list(cerl_sets:to_list(Scope))]),
 	    false
     end.
+
+is_subset_of_scope([V|Vs], Scope) ->
+    cerl_sets:is_element(V, Scope) andalso is_subset_of_scope(Vs, Scope);
+is_subset_of_scope([], _) -> true.
+
 -endif.
