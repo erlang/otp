@@ -536,7 +536,7 @@ t_accept_inet6_tclass(Config) when is_list(Config) ->
 	    ok = gen_tcp:close(L),
 	    ok;
 	{error,_} ->
-	    {skip,"IPv6 not supported"}
+	    {skip,"IPv6 TCLASS not supported"}
     end.
 
 

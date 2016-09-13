@@ -6231,16 +6231,14 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 #else
 	    continue;
 #endif
-	case INET_OPT_TCLASS:
 #if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	case INET_OPT_TCLASS:
 	    proto = SOL_IPV6;
 	    type = IPV6_TCLASS;
 	    propagate = 1;
 	    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_TCLASS=%d\r\n",
 		    (long)desc->port, desc->s, ival));
 	    break;
-#else
-	    continue;
 #endif
 
 	case TCP_OPT_NODELAY:
@@ -6675,8 +6673,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    continue; /* Option not supported -- ignore it */
 #	endif
 
-	case INET_OPT_TCLASS:
 #       if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	case INET_OPT_TCLASS:
 	{
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_IPV6;
@@ -6685,8 +6683,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz  = sizeof  ( arg.ival);
 	    break;
 	}
-#	else
-	    continue; /* Option not supported -- ignore it */
 #	endif
 
 
@@ -7197,8 +7193,7 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    type = IPV6_TCLASS;
 	    break;
 #else
-	    *ptr++ = opt;
-	    put_int32(0, ptr);
+	    TRUNCATE_TO(0,ptr);
 	    continue;
 #endif
 	case INET_OPT_REUSEADDR: 
