@@ -2018,10 +2018,10 @@ case_opt_lit_1(_, []) -> [].
 %%  the clauses where it is actually needed.
 
 case_opt_data(E, Cs0) ->
-    Es = cerl:data_es(E),
     TypeSig = {cerl:data_type(E),cerl:data_arity(E)},
-    try case_opt_data_1(Cs0, Es, TypeSig) of
+    try case_opt_data_1(Cs0, TypeSig) of
 	Cs ->
+	    Es = cerl:data_es(E),
 	    {ok,Es,Cs}
     catch
 	throw:impossible ->
@@ -2029,44 +2029,47 @@ case_opt_data(E, Cs0) ->
 	    {error,Cs0}
     end.
 
-case_opt_data_1([{[P0|Ps0],C,PsAcc,Bs0}|Cs], Es, TypeSig) ->
+case_opt_data_1([{[P0|Ps0],C,PsAcc,Bs0}|Cs], TypeSig) ->
     P = case_opt_compiler_generated(P0),
-    BindTo = #c_var{name=dummy},
-    {Ps1,[{BindTo,_}|Bs1]} = case_data_pat_alias(P, BindTo, TypeSig, []),
-    [{Ps1++Ps0,C,PsAcc,Bs1++Bs0}|case_opt_data_1(Cs, Es, TypeSig)];
-case_opt_data_1([], _, _) -> [].
+    {Ps1,Bs} = case_opt_data_2(P, TypeSig, Bs0),
+    [{Ps1++Ps0,C,PsAcc,Bs}|case_opt_data_1(Cs, TypeSig)];
+case_opt_data_1([], _) -> [].
 
-case_data_pat_alias(P, BindTo0, TypeSig, Bs0) ->
-    case cerl:type(P) of
-	alias ->
-	    %% Recursively handle the pattern and bind to
-	    %% the alias variable.
-	    BindTo = cerl:alias_var(P),
-	    Apat0 = cerl:alias_pat(P),
-	    Ann = [compiler_generated],
-	    Apat = cerl:set_ann(Apat0, Ann),
-	    {Ps,Bs} = case_data_pat_alias(Apat, BindTo, TypeSig, Bs0),
-	    {Ps,[{BindTo0,BindTo}|Bs]};
-	var ->
-	    %% Here we will need to actually build the data and bind
-	    %% it to the variable.
+case_opt_data_2(P, TypeSig, Bs0) ->
+    case case_analyze_pat(P) of
+	{[],Pat} when Pat =/= none ->
+	    DataEs = cerl:data_es(P),
+	    {DataEs,Bs0};
+	{[V|Vs],none} ->
 	    {Type,Arity} = TypeSig,
 	    Ann = [compiler_generated],
 	    Vars = make_vars(Ann, Arity),
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
-	    Bs = [{BindTo0,P},{P,Data}|Bs0],
+	    Bs = [{V,Data} | [{Var,V} || Var <- Vs] ++ Bs0],
 	    {Vars,Bs};
-	_ ->
-	    %% Since case_opt_nomatch/3 has removed all clauses that
-	    %% cannot match, we KNOW that this clause must match and
-	    %% that the pattern must be a data constructor.
-	    %% Here we must build the data and bind it to the variable.
+	{[V|Vs],Pat} when Pat =/= none ->
 	    {Type,_} = TypeSig,
-	    DataEs = cerl:data_es(P),
+	    DataEs = cerl:data_es(Pat),
 	    Vars = pat_to_expr_list(DataEs),
 	    Ann = [compiler_generated],
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
-	    {DataEs,[{BindTo0,Data}]}
+	    Bs = [{V,Data} | [{Var,V} || Var <- Vs] ++ Bs0],
+	    {DataEs,Bs}
+    end.
+
+case_analyze_pat(P) ->
+    case_analyze_pat_1(P, [], none).
+
+case_analyze_pat_1(P, Vs, Pat) ->
+    case cerl:type(P) of
+	alias ->
+	    V = cerl:alias_var(P),
+	    Apat = cerl:alias_pat(P),
+	    case_analyze_pat_1(Apat, [V|Vs], Pat);
+	var ->
+	    {[P|Vs],Pat};
+	_ ->
+	    {Vs,P}
     end.
 
 %% pat_to_expr(Pattern) -> Expression.
