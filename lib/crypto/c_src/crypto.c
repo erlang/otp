@@ -2216,7 +2216,7 @@ static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     DSA *dsa;
     int i;
 
-    if (!argv[0] == atom_sha
+    if (argv[0] != atom_sha
         || !enif_inspect_binary(env, argv[1], &digest_bin)
         || digest_bin.size != SHA_DIGEST_LENGTH
         || !enif_inspect_binary(env, argv[2], &sign_bin)
@@ -2542,7 +2542,7 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     DSA* dsa;
     int i;
 
-    if (!argv[0] == atom_sha
+    if (argv[0] != atom_sha
         || !enif_inspect_binary(env, argv[1], &digest_bin)
         || digest_bin.size != SHA_DIGEST_LENGTH) {
 	return enif_make_badarg(env);
