@@ -277,6 +277,7 @@ packet_raw_active_once_many_small() ->
     [{doc,"Test packet option {packet, raw} in active once mode."}].
 
 packet_raw_active_once_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, raw}",
     packet(Config, Data, send_raw, active_once_raw, ?MANY, raw, once).
 
@@ -393,6 +394,7 @@ packet_0_active_some_big() ->
     [{doc,"Test packet option {packet, 0} in active mode."}].
 
 packet_0_active_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, active_raw, ?SOME, 0, true).
 
@@ -428,6 +430,7 @@ packet_2_active_some_big() ->
     [{doc,"Test packet option {packet, 2} in active mode"}].
 
 packet_2_active_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, active_packet, ?SOME, 2, true).
 
@@ -1901,6 +1904,31 @@ header_decode_two_bytes_one_sent_passive(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+
+packet(Config, Data, Send, Recv, Quantity, Packet, Active) when Packet == 0;
+								Packet == raw ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, Send ,[Data, Quantity]}},
+					{options, [{nodelay, true},{packet, Packet} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, Recv, [Data, Quantity]}},
+					{options, [{active, Active}, {nodelay, true},
+						   {packet, Packet} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client);
+
 packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
