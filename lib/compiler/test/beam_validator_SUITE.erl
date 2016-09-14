@@ -32,7 +32,8 @@
 	 bad_bin_match/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
-	 map_field_lists/1,cover_bin_opt/1]).
+	 map_field_lists/1,cover_bin_opt/1,
+	 val_dsetel/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -60,7 +61,7 @@ groups() ->
        freg_state,bad_bin_match,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
-       map_field_lists,cover_bin_opt]}].
+       map_field_lists,cover_bin_opt,val_dsetel]}].
 
 init_per_suite(Config) ->
     Config.
@@ -546,3 +547,23 @@ beam_val(M) ->
     _ = [io:put_chars(beam_validator:format_error(E)) ||
 	    E <- Errors],
     Errors.
+
+%%%-------------------------------------------------------------------------
+
+val_dsetel(_Config) ->
+    self() ! 13,
+    {'EXIT',{{try_clause,participating},_}} = (catch night(0)),
+    ok.
+
+night(Turned) ->
+    receive
+	13 ->
+	    try participating of engine -> 16 after false end
+    end,
+    %% The setelement/3 call is unreachable.
+    Turned(setelement(#{true => Turned},
+		      participating(Turned, "suit", 40, []),
+		      Turned < Turned)),
+    ok.
+
+participating(_, _, _, _) -> ok.
