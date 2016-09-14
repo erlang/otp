@@ -811,7 +811,13 @@ clear_namedb([], _) ->
 %% Dir must be a complete pathname (not only a name).
 insert_dir(Dir, Db) ->
     Splitted = filename:split(Dir),
-    Name = get_name_from_splitted(Splitted),
+    case get_name_from_splitted(Splitted) of
+	Name when Name /= "ebin", Name /= "." ->
+	    Name;
+	_ ->
+	    SplittedAbsName = filename:split(absname(Dir)),
+	    Name = get_name_from_splitted(SplittedAbsName)
+    end,
     AppDir = filename:join(del_ebin_1(Splitted)),
     do_insert_name(Name, AppDir, Db).
 
@@ -952,6 +958,10 @@ del_ebin_1([Parent,App,"ebin"]) ->
 		    [Archive]
 	    end
     end;
+del_ebin_1(Path = [_App,"ebin"]) ->
+    del_ebin_1(filename:split(absname(filename:join(Path))));
+del_ebin_1(["ebin"]) ->
+    del_ebin_1(filename:split(absname("ebin")));
 del_ebin_1([H|T]) ->
     [H|del_ebin_1(T)];
 del_ebin_1([]) ->
