@@ -150,6 +150,7 @@ static void move_msgq_to_heap(Process *p);
 static int reached_max_heap_size(Process *p, Uint total_heap_size,
                                  Uint extra_heap_size, Uint extra_old_heap_size);
 static void init_gc_info(ErtsGCInfo *gcip);
+static Uint64 next_vheap_size(Process* p, Uint64 vheap, Uint64 vheap_sz);
 
 #ifdef HARDDEBUG
 static void disallow_heap_frag_ref_in_heap(Process* p);
@@ -385,6 +386,11 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	 * up the hibernation by an ordinary GC...
 	 */
 	return result;
+    }
+
+    if (!p->mbuf) {
+	/* Must have GC:d in BIF call... invalidate live_hf_end */
+	live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
 
     if (is_non_value(result)) {
@@ -747,6 +753,9 @@ do_major_collection:
      */
     p->last_old_htop = p->old_htop;
 #endif
+
+    ASSERT(!p->mbuf);
+    ASSERT(!ERTS_IS_GC_DESIRED(p));
 
     return reds;
 }
@@ -2250,7 +2259,9 @@ copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 static void
 move_msgq_to_heap(Process *p)
 {
+    
     ErtsMessage **mpp = &p->msg.first;
+    Uint64 pre_oh = MSO(p).overhead;
 
     while (*mpp) {
 	ErtsMessage *mp = *mpp;
@@ -2292,6 +2303,11 @@ move_msgq_to_heap(Process *p)
 	}
 
 	mpp = &(*mpp)->next;
+    }
+
+    if (pre_oh != MSO(p).overhead) {
+	/* Got new binaries; update vheap size... */
+	BIN_VHEAP_SZ(p) = next_vheap_size(p, MSO(p).overhead, BIN_VHEAP_SZ(p));
     }
 }
 
