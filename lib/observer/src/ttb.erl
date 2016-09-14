@@ -78,6 +78,11 @@ do_tracer(Nodes0,PI,Client,Traci) ->
 
 do_tracer(Clients,PI,Traci) ->
     Shell = proplists:get_value(shell, Traci, false),
+    IpPortSpec =
+	case proplists:get_value(queue_size, Traci) of
+	    undefined -> 0;
+	    QS -> {0,QS}
+	end,
     DefShell = fun(Trace) -> dbg:dhandler(Trace, standard_io) end,
     {ClientSucc,Succ} =
 	lists:foldl(
@@ -98,7 +103,7 @@ do_tracer(Clients,PI,Traci) ->
 				 [_,H] = string:tokens(atom_to_list(N),"@"),
 				 H
 			 end,
-		  case catch dbg:tracer(N,port,dbg:trace_port(ip,0)) of
+		  case catch dbg:tracer(N,port,dbg:trace_port(ip,IpPortSpec)) of
 		      {ok,N} ->
 			  {ok,Port} = dbg:trace_port_control(N,get_listen_port),
 			  {ok,T} = dbg:get_tracer(N),
@@ -160,6 +165,8 @@ opt([{resume,MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{resume, {true, MSec}}|Traci]});
 opt([{flush,MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{flush, MSec}|Traci]});
+opt([{queue_size,QueueSize}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{queue_size,QueueSize}|Traci]});
 opt([],Opt) ->
     ensure_opt(Opt).
 
