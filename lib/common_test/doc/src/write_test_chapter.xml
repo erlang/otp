@@ -1031,6 +1031,10 @@
  4. Categorized info, importance = 25
  6. Categorized error, importance = 99</pre>
 
+    <p>The functions <seealso marker="ct#set_verbosity-2"><c>ct:set_verbosity/2</c></seealso>
+    and <seealso marker="ct#get_verbosity-1"><c>ct:get_verbosity/1</c></seealso> may be used
+    to modify and read verbosity levels during test execution.</p>
+
     <p>The arguments <c>Format</c> and <c>FormatArgs</c> in <c>ct:log/print/pal</c> are
     always passed on to the STDLIB function <c>io:format/3</c> (For details,
     see the <seealso marker="stdlib:io"><c>io</c></seealso> manual page).</p>
