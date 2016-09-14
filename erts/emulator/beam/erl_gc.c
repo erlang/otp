@@ -535,9 +535,19 @@ young_gen_usage(Process *p)
 
     if (p->flags & F_ON_HEAP_MSGQ) {
 	ErtsMessage *mp;
-	for (mp = p->msg.first; mp; mp = mp->next)
+	for (mp = p->msg.first; mp; mp = mp->next) {
+	    /*
+	     * We leave not yet decoded distribution messages
+	     * as they are in the queue since it is not
+	     * possible to determine a maximum size until
+	     * actual decoding. However, we use their estimated
+	     * size when calculating need, and by this making
+	     * it more likely that they will fit on the heap
+	     * when actually decoded.
+	     */
 	    if (mp->data.attached)
 		hsz += erts_msg_attached_data_size(mp);
+	}
     }
 
     aheap = p->abandoned_heap;
@@ -2250,39 +2260,22 @@ move_msgq_to_heap(Process *p)
 
 	if (mp->data.attached) {
 	    ErlHeapFragment *bp;
-	    ErtsHeapFactory factory;
 
-	    erts_factory_proc_prealloc_init(&factory, p,
-					    erts_msg_attached_data_size(mp));
-
-	    if (is_non_value(ERL_MESSAGE_TERM(mp))) {
-		if (mp->data.dist_ext) {
-		    ASSERT(mp->data.dist_ext->heap_size >= 0);
-		    if (is_not_nil(ERL_MESSAGE_TOKEN(mp))) {
-			bp = erts_dist_ext_trailer(mp->data.dist_ext);
-                        /* Tokens does not use literal optimization */
-			ERL_MESSAGE_TOKEN(mp) = copy_struct(ERL_MESSAGE_TOKEN(mp),
-							    bp->used_size,
-                                                            &factory.hp,
-                                                            factory.off_heap);
-
-			erts_cleanup_offheap(&bp->off_heap);
-		    }
-		    ERL_MESSAGE_TERM(mp) = erts_decode_dist_ext(&factory,
-								mp->data.dist_ext);
-		    erts_free_dist_ext_copy(mp->data.dist_ext);
-		    mp->data.dist_ext = NULL;
-		}
-	    }
-	    else {
+	    /*
+	     * We leave not yet decoded distribution messages
+	     * as they are in the queue since it is not
+	     * possible to determine a maximum size until
+	     * actual decoding...
+	     */
+	    if (is_value(ERL_MESSAGE_TERM(mp))) {
 
                 bp = erts_message_to_heap_frag(mp);
 
 		if (bp->next)
-		    erts_move_multi_frags(&factory.hp, factory.off_heap, bp,
+		    erts_move_multi_frags(&p->htop, &p->off_heap, bp,
 					  mp->m, ERL_MESSAGE_REF_ARRAY_SZ, 0);
 		else
-		    copy_one_frag(&factory.hp, factory.off_heap, bp,
+		    copy_one_frag(&p->htop, &p->off_heap, bp,
 				  mp->m, ERL_MESSAGE_REF_ARRAY_SZ);
 
 		if (mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
@@ -2299,8 +2292,6 @@ move_msgq_to_heap(Process *p)
 		    mp = new_mp;
 		}
 	    }
-
-	    erts_factory_close(&factory);
 	}
 
 	mpp = &(*mpp)->next;
