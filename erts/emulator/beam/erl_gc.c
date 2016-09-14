@@ -388,6 +388,11 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 	return result;
     }
 
+    if (!p->mbuf) {
+	/* Must have GC:d in BIF call... invalidate live_hf_end */
+	live_hf_end = ERTS_INVALID_HFRAG_PTR;
+    }
+
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
 	  #if HIPE
