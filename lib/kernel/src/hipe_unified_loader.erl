@@ -195,7 +195,7 @@ load_common(Mod, Bin, Beam, Architecture) ->
       CalleeMFAs = find_callee_mfas(Refs, Architecture),
       %% Write the code to memory.
       {CodeAddress,Trampolines} =
-	enter_code(CodeSize, CodeBinary, CalleeMFAs, Mod, Beam),
+	enter_code(CodeSize, CodeBinary, CalleeMFAs),
       %% Construct CalleeMFA-to-trampoline mapping.
       TrampolineMap = mk_trampoline_map(CalleeMFAs, Trampolines,
                                         Architecture),
@@ -863,9 +863,8 @@ assert_local_patch(Address) when is_integer(Address) ->
 
 %% Beam: nil() | binary()  (used as a flag)
 
-enter_code(CodeSize, CodeBinary, CalleeMFAs, Mod, Beam) ->
+enter_code(CodeSize, CodeBinary, CalleeMFAs) ->
   true = byte_size(CodeBinary) =:= CodeSize,
-  hipe_bifs:update_code_size(Mod, Beam, CodeSize),
   {CodeAddress,Trampolines} = hipe_bifs:enter_code(CodeBinary, CalleeMFAs),
   ?init_assert_patch(CodeAddress, byte_size(CodeBinary)),
   {CodeAddress,Trampolines}.

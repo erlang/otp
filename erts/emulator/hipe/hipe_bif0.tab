@@ -56,9 +56,6 @@ bif hipe_bifs:set_native_address/3
 bif hipe_bifs:set_funinfo_native_address/3
 #bif hipe_bifs:invalidate_funinfo_native_addresses/1
 
-bif hipe_bifs:update_code_size/3
-bif hipe_bifs:code_size/1
-
 bif hipe_bifs:enter_sdesc/1
 
 bif hipe_bifs:bif_address/3

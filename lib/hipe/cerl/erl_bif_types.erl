@@ -1105,9 +1105,6 @@ type(hipe_bifs, system_crc, 0, _, _Opaques) ->
 type(hipe_bifs, term_to_word, 1, Xs, Opaques) ->
   strict(hipe_bifs, term_to_word, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques);
-type(hipe_bifs, update_code_size, 3, Xs, Opaques) ->
-  strict(hipe_bifs, update_code_size, 3, Xs,
-	 fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, write_u8, 2, Xs, Opaques) ->
   strict(hipe_bifs, write_u8, 2, Xs, fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, write_u32, 2, Xs, Opaques) ->
@@ -2537,8 +2534,6 @@ arg_types(hipe_bifs, system_crc, 0) ->
   [];
 arg_types(hipe_bifs, term_to_word, 1) ->
   [t_any()];
-arg_types(hipe_bifs, update_code_size, 3) ->
-  [t_atom(), t_sup(t_nil(), t_binary()), t_integer()];
 arg_types(hipe_bifs, write_u8, 2) ->
   [t_integer(), t_byte()];
 arg_types(hipe_bifs, write_u32, 2) ->
