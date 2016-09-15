@@ -58,7 +58,7 @@ static __inline__ unsigned int max(unsigned int x, unsigned int y)
 
 static __inline__ void hipe_arch_glue_init(void)
 {
-    static struct sdesc_with_exnra nbif_return_sdesc = {
+    static struct hipe_sdesc_with_exnra nbif_return_sdesc = {
 	.exnra = (unsigned long)nbif_fail,
 	.sdesc = {
 	    .bucket = { .hvalue = (unsigned long)nbif_return },

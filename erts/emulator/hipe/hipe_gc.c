@@ -38,7 +38,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
     /* known nstack walk state */
     Eterm *nsp;
     Eterm *nsp_end;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
     unsigned int sdesc_size;
     unsigned long ra;
     unsigned int i;
@@ -123,7 +123,7 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
     /* known nstack walk state */
     Eterm *nsp;
     Eterm *nsp_end;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
     unsigned int sdesc_size;
     unsigned long ra;
     unsigned int i;
@@ -244,7 +244,7 @@ Eterm *sweep_literals_nstack(Process *p, Eterm *old_htop, char *area,
     /* known nstack walk state */
     Eterm *nsp;
     Eterm *nsp_end;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
     /* arch-specific nstack walk state */
     struct nstack_walk_state walk_state;
 
@@ -311,7 +311,7 @@ nstack_any_heap_ref_ptrs(Process *rp, char* mod_start, Uint mod_size)
 {
     Eterm *nsp;
     Eterm *nsp_end;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
     /* arch-specific nstack walk state */
     struct nstack_walk_state walk_state;
 

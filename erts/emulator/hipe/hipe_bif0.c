@@ -665,7 +665,7 @@ BIF_RETTYPE hipe_bifs_set_native_address_3(BIF_ALIST_3)
 
 BIF_RETTYPE hipe_bifs_enter_sdesc_1(BIF_ALIST_1)
 {
-    struct sdesc *sdesc;
+    struct hipe_sdesc *sdesc;
 
     sdesc = hipe_decode_sdesc(BIF_ARG_1);
     if (!sdesc) {
