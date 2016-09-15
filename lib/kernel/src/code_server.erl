@@ -1392,11 +1392,10 @@ finish_on_load(PidRef, OnLoadRes, #state{on_load=OnLoad0}=St0) ->
 
 finish_on_load_1(Mod, OnLoadRes, Waiting, St) ->
     Keep = OnLoadRes =:= ok,
-    erlang:finish_after_on_load(Mod, Keep),
+    erts_code_purger:finish_after_on_load(Mod, Keep),
     Res = case Keep of
 	      false ->
 		  _ = finish_on_load_report(Mod, OnLoadRes),
-		  _ = erts_code_purger:purge(Mod),
 		  {error,on_load_failure};
 	      true ->
 		  {module,Mod}
