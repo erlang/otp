@@ -229,15 +229,15 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch, Architecture) ->
       %% Patch references to code labels in data seg.
       ok = patch_consts(LabelMap, ConstAddr, CodeAddress, WriteWord),
       %% Find out which functions are being loaded (and where).
-      %% Note: Addresses are sorted descending.
-      {MFAs,Addresses} = exports(ExportMap, CodeAddress),
+      %% Note: FunDefs are sorted descending.
+      {MFAs,FunDefs} = exports(ExportMap, CodeAddress),
       %% Remove references to old versions of the module.
       ReferencesToPatch = get_refs_from(MFAs, []),
       %% io:format("References to patch: ~w~n", [ReferencesToPatch]),
       ok = remove_refs_from(MFAs),
       %% Patch all dynamic references in the code.
       %%  Function calls, Atoms, Constants, System calls
-      ok = patch(Refs, CodeAddress, ConstMap2, Addresses, TrampolineMap),
+      ok = patch(Refs, CodeAddress, ConstMap2, FunDefs, TrampolineMap),
 
       %% Tell the system where the loaded funs are. 
       %%  (patches the BEAM code to redirect to native.)
@@ -250,23 +250,23 @@ load_common(Mod, Bin, Beam, OldReferencesToPatch, Architecture) ->
 	  lists:foreach(fun({FE, DestAddress}) ->
 			    hipe_bifs:set_native_address_in_fe(FE, DestAddress)
 			end, erase(closures_to_patch)),
-	  export_funs(Addresses),
+	  export_funs(FunDefs),
 	  ok;
 	BeamBinary when is_binary(BeamBinary) ->
 	  %% Find all closures in the code.
 	  [] = erase(closures_to_patch),	%Clean up, assertion.
 	  ClosurePatches = find_closure_patches(Refs),
 	  AddressesOfClosuresToPatch =
-	    calculate_addresses(ClosurePatches, CodeAddress, Addresses),
-	  export_funs(Addresses),
+	    calculate_addresses(ClosurePatches, CodeAddress, FunDefs),
+	  export_funs(FunDefs),
 	  export_funs(Mod, MD5, BeamBinary,
-                      Addresses, AddressesOfClosuresToPatch)
+                      FunDefs, AddressesOfClosuresToPatch)
       end,
       %% Redirect references to the old module to the new module's BEAM stub.
       patch_to_emu_step2(OldReferencesToPatch),
       %% Patch referring functions to call the new function
       %% The call to export_funs/1 above updated the native addresses
-      %% for the targets, so passing 'Addresses' is not needed.
+      %% for the targets, so passing 'FunDefs' is not needed.
       redirect(ReferencesToPatch),
       %% Final clean up.
       _ = erase(hipe_patch_closures),
@@ -373,29 +373,29 @@ trampoline_map_lookup(Primop, Map) ->
 exports(ExportMap, BaseAddress) ->
   exports(ExportMap, BaseAddress, [], []).
 
-exports([Offset,M,F,A,IsClosure,IsExported|Rest], BaseAddress, MFAs, Addresses) ->
+exports([Offset,M,F,A,IsClosure,IsExported|Rest], BaseAddress, MFAs, FunDefs) ->
   case IsExported andalso erlang:is_builtin(M, F, A) of
     true ->
-      exports(Rest, BaseAddress, MFAs, Addresses);
+      exports(Rest, BaseAddress, MFAs, FunDefs);
     _false ->
       MFA = {M,F,A},
       Address = BaseAddress + Offset,
       FunDef = #fundef{address=Address, mfa=MFA, is_closure=IsClosure,
 		       is_exported=IsExported},
-      exports(Rest, BaseAddress, [MFA|MFAs], [FunDef|Addresses])
+      exports(Rest, BaseAddress, [MFA|MFAs], [FunDef|FunDefs])
   end;
-exports([], _, MFAs, Addresses) ->
-  {MFAs, Addresses}.
+exports([], _, MFAs, FunDefs) ->
+  {MFAs, FunDefs}.
 
 mod({M,_F,_A}) -> M.
 
 %%------------------------------------------------------------------------
 
-calculate_addresses(PatchOffsets, Base, Addresses) ->
+calculate_addresses(PatchOffsets, Base, FunDefs) ->
   RemoteOrLocal = local, % closure code refs are local
   [{Data,
     offsets_to_addresses(Offsets, Base),
-    get_native_address(DestMFA, Addresses, RemoteOrLocal)} || 
+    get_native_address(DestMFA, FunDefs, RemoteOrLocal)} ||
     {{DestMFA,_,_}=Data,Offsets} <- PatchOffsets].
 
 offsets_to_addresses(Os, Base) ->
@@ -424,7 +424,7 @@ find_closure_refs([], Refs) ->
 
 %%------------------------------------------------------------------------
 
-export_funs([FunDef | Addresses]) ->
+export_funs([FunDef | FunDefs]) ->
   #fundef{address=Address, mfa=MFA, is_closure=IsClosure,
 	  is_exported=IsExported} = FunDef,
   ?IF_DEBUG({M,F,A} = MFA, no_debug),
@@ -439,19 +439,19 @@ export_funs([FunDef | Addresses]) ->
      end, no_debug),
   hipe_bifs:set_funinfo_native_address(MFA, Address, IsExported),
   hipe_bifs:set_native_address(MFA, Address, IsClosure),
-  export_funs(Addresses);
+  export_funs(FunDefs);
 export_funs([]) ->
   ok.
 
-export_funs(Mod, MD5, Beam, Addresses, ClosuresToPatch) ->
-  Fs = [{F,A,Address} || #fundef{address=Address, mfa={_M,F,A}} <- Addresses],
+export_funs(Mod, MD5, Beam, FunDefs, ClosuresToPatch) ->
+  Fs = [{F,A,Address} || #fundef{address=Address, mfa={_M,F,A}} <- FunDefs],
   Mod = code:make_stub_module(Mod, Beam, {Fs,ClosuresToPatch,MD5}),
   ok.
 
 %%========================================================================
 %% Patching 
 %%  @spec patch(refs(), BaseAddress::integer(), ConstAndZone::term(),
-%%              Addresses::term(), TrampolineMap::term()) -> 'ok'.
+%%              FunDefs::term(), TrampolineMap::term()) -> 'ok'.
 %%   @type refs()=[{RefType::integer(), Reflist::reflist()} | refs()]
 %%
 %%   @type reflist()=   [{Data::term(), Offsets::offests()}|reflist()]
@@ -463,39 +463,39 @@ export_funs(Mod, MD5, Beam, Addresses, ClosuresToPatch) ->
 %%  (we use this to look up the address of a referred function only once).
 %%
 
-patch([{Type,SortedRefs}|Rest], CodeAddress, ConstMap2, Addresses, TrampolineMap) ->
+patch([{Type,SortedRefs}|Rest], CodeAddress, ConstMap2, FunDefs, TrampolineMap) ->
   ?debug_msg("Patching ~w at [~w+offset] with ~w\n",
 	     [Type,CodeAddress,SortedRefs]),
   case ?EXT2PATCH_TYPE(Type) of 
     call_local -> 
-      patch_call(SortedRefs, CodeAddress, Addresses, 'local', TrampolineMap);
+      patch_call(SortedRefs, CodeAddress, FunDefs, 'local', TrampolineMap);
     call_remote ->
-      patch_call(SortedRefs, CodeAddress, Addresses, 'remote', TrampolineMap);
+      patch_call(SortedRefs, CodeAddress, FunDefs, 'remote', TrampolineMap);
     Other -> 
-      patch_all(Other, SortedRefs, CodeAddress, {ConstMap2,CodeAddress}, Addresses)
+      patch_all(Other, SortedRefs, CodeAddress, {ConstMap2,CodeAddress}, FunDefs)
   end,
-  patch(Rest, CodeAddress, ConstMap2, Addresses, TrampolineMap);
+  patch(Rest, CodeAddress, ConstMap2, FunDefs, TrampolineMap);
 patch([], _, _, _, _) -> ok.
 
 %%----------------------------------------------------------------
 %% Handle a 'call_local' or 'call_remote' patch.
 %%
-patch_call([{DestMFA,Offsets}|SortedRefs], BaseAddress, Addresses, RemoteOrLocal, TrampolineMap) ->
+patch_call([{DestMFA,Offsets}|SortedRefs], BaseAddress, FunDefs, RemoteOrLocal, TrampolineMap) ->
   case bif_address(DestMFA) of
     false ->
-      %% Previous code used mfa_to_address(DestMFA, Addresses)
+      %% Previous code used mfa_to_address(DestMFA, FunDefs)
       %% here for local calls. That is wrong because even local
-      %% destinations may not be present in Addresses: they may
+      %% destinations may not be present in FunDefs: they may
       %% not have been compiled yet, or they may be BEAM-only
       %% functions (e.g. module_info).
-      DestAddress = get_native_address(DestMFA, Addresses, RemoteOrLocal),
+      DestAddress = get_native_address(DestMFA, FunDefs, RemoteOrLocal),
       Trampoline = trampoline_map_get(DestMFA, TrampolineMap),
-      patch_mfa_call_list(Offsets, BaseAddress, DestMFA, DestAddress, Addresses, RemoteOrLocal, Trampoline);
+      patch_mfa_call_list(Offsets, BaseAddress, DestMFA, DestAddress, FunDefs, RemoteOrLocal, Trampoline);
     BifAddress when is_integer(BifAddress) ->
       Trampoline = trampoline_map_lookup(DestMFA, TrampolineMap),
       patch_bif_call_list(Offsets, BaseAddress, BifAddress, Trampoline)
   end,
-  patch_call(SortedRefs, BaseAddress, Addresses, RemoteOrLocal, TrampolineMap);
+  patch_call(SortedRefs, BaseAddress, FunDefs, RemoteOrLocal, TrampolineMap);
 patch_call([], _, _, _, _) ->
   ok.
 
@@ -506,12 +506,12 @@ patch_bif_call_list([Offset|Offsets], BaseAddress, BifAddress, Trampoline) ->
   patch_bif_call_list(Offsets, BaseAddress, BifAddress, Trampoline);
 patch_bif_call_list([], _, _, _) -> ok.
 
-patch_mfa_call_list([Offset|Offsets], BaseAddress, DestMFA, DestAddress, Addresses, RemoteOrLocal, Trampoline) ->
+patch_mfa_call_list([Offset|Offsets], BaseAddress, DestMFA, DestAddress, FunDefs, RemoteOrLocal, Trampoline) ->
   CallAddress = BaseAddress+Offset,
-  add_ref(DestMFA, CallAddress, Addresses, 'call', Trampoline, RemoteOrLocal),
+  add_ref(DestMFA, CallAddress, FunDefs, 'call', Trampoline, RemoteOrLocal),
   ?ASSERT(assert_local_patch(CallAddress)),
   patch_call_insn(CallAddress, DestAddress, Trampoline),
-  patch_mfa_call_list(Offsets, BaseAddress, DestMFA, DestAddress, Addresses, RemoteOrLocal, Trampoline);
+  patch_mfa_call_list(Offsets, BaseAddress, DestMFA, DestAddress, FunDefs, RemoteOrLocal, Trampoline);
 patch_mfa_call_list([], _, _, _, _, _, _) -> ok.
 
 patch_call_insn(CallAddress, DestAddress, Trampoline) ->
@@ -522,33 +522,33 @@ patch_call_insn(CallAddress, DestAddress, Trampoline) ->
 %% ____________________________________________________________________
 %% 
 
-patch_all(Type, [{Dest,Offsets}|Rest], BaseAddress, ConstAndZone, Addresses)->
-  patch_all_offsets(Type, Dest, Offsets, BaseAddress, ConstAndZone, Addresses),
-  patch_all(Type, Rest, BaseAddress, ConstAndZone, Addresses);
+patch_all(Type, [{Dest,Offsets}|Rest], BaseAddress, ConstAndZone, FunDefs)->
+  patch_all_offsets(Type, Dest, Offsets, BaseAddress, ConstAndZone, FunDefs),
+  patch_all(Type, Rest, BaseAddress, ConstAndZone, FunDefs);
 patch_all(_, [], _, _, _) -> ok.
 
 patch_all_offsets(Type, Data, [Offset|Offsets], BaseAddress,
-		  ConstAndZone, Addresses) ->
+		  ConstAndZone, FunDefs) ->
   ?debug_msg("Patching ~w at [~w+~w] with ~w\n",
 	     [Type,BaseAddress,Offset, Data]),
   Address = BaseAddress + Offset,
-  patch_offset(Type, Data, Address, ConstAndZone, Addresses),
+  patch_offset(Type, Data, Address, ConstAndZone, FunDefs),
   ?debug_msg("Patching done\n",[]),
-  patch_all_offsets(Type, Data, Offsets, BaseAddress, ConstAndZone, Addresses);
+  patch_all_offsets(Type, Data, Offsets, BaseAddress, ConstAndZone, FunDefs);
 patch_all_offsets(_, _, [], _, _, _) -> ok.
 
 %%----------------------------------------------------------------
 %% Handle any patch type except 'call_local' or 'call_remote'.
 %%
-patch_offset(Type, Data, Address, ConstAndZone, Addresses) ->
+patch_offset(Type, Data, Address, ConstAndZone, FunDefs) ->
   case Type of
     load_address ->
-      patch_load_address(Data, Address, ConstAndZone, Addresses);
+      patch_load_address(Data, Address, ConstAndZone, FunDefs);
     load_atom ->
       Atom = Data,
       patch_atom(Address, Atom);
     sdesc ->
-      patch_sdesc(Data, Address, ConstAndZone, Addresses);
+      patch_sdesc(Data, Address, ConstAndZone, FunDefs);
     x86_abs_pcrel ->
       patch_instr(Address, Data, x86_abs_pcrel)
     %% _ ->
@@ -561,37 +561,37 @@ patch_atom(Address, Atom) ->
   patch_instr(Address, hipe_bifs:atom_to_word(Atom), atom).
 
 patch_sdesc(?STACK_DESC(SymExnRA, FSize, Arity, Live),
-	    Address, {_ConstMap2,CodeAddress}, _Addresses) ->
+	    Address, {_ConstMap2,CodeAddress}, _FunDefs) ->
   ExnRA =
     case SymExnRA of
       [] -> 0; % No catch
       LabelOffset -> CodeAddress + LabelOffset
     end,
   ?ASSERT(assert_local_patch(Address)),
-  DBG_MFA = ?IF_DEBUG(address_to_mfa_lth(Address, _Addresses), {undefined,undefined,0}),
+  DBG_MFA = ?IF_DEBUG(address_to_mfa_lth(Address, _FunDefs), {undefined,undefined,0}),
   hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live, DBG_MFA}).
 
 
 %%----------------------------------------------------------------
 %% Handle a 'load_address'-type patch.
 %%
-patch_load_address(Data, Address, ConstAndZone, Addresses) ->
+patch_load_address(Data, Address, ConstAndZone, FunDefs) ->
   case Data of
     {local_function,DestMFA} ->
-      patch_load_mfa(Address, DestMFA, Addresses, 'local');
+      patch_load_mfa(Address, DestMFA, FunDefs, 'local');
     {remote_function,DestMFA} ->
-      patch_load_mfa(Address, DestMFA, Addresses, 'remote');
+      patch_load_mfa(Address, DestMFA, FunDefs, 'remote');
     {constant,Name} ->
       {ConstMap2,_CodeAddress} = ConstAndZone,
       ConstAddress = find_const(Name, ConstMap2),
       patch_instr(Address, ConstAddress, constant);
     {closure,{DestMFA,Uniq,Index}} ->
-      patch_closure(DestMFA, Uniq, Index, Address, Addresses);
+      patch_closure(DestMFA, Uniq, Index, Address, FunDefs);
     {c_const,CConst} ->
       patch_instr(Address, bif_address(CConst), c_const)
   end.
 
-patch_closure(DestMFA, Uniq, Index, Address, Addresses) ->
+patch_closure(DestMFA, Uniq, Index, Address, FunDefs) ->
   case get(hipe_patch_closures) of
     false ->
       []; % This is taken care of when registering the module.
@@ -602,7 +602,7 @@ patch_closure(DestMFA, Uniq, Index, Address, Addresses) ->
       %% address into the fun entry to ensure that the native code cannot
       %% be called until it has been completely fixed up.
       RemoteOrLocal = local, % closure code refs are local
-      DestAddress = get_native_address(DestMFA, Addresses, RemoteOrLocal),
+      DestAddress = get_native_address(DestMFA, FunDefs, RemoteOrLocal),
       BEAMAddress = hipe_bifs:fun_to_address(DestMFA),
       FE = hipe_bifs:get_fe(mod(DestMFA), {Uniq, Index, BEAMAddress}),
       put(closures_to_patch, [{FE,DestAddress}|get(closures_to_patch)]),
@@ -616,12 +616,12 @@ patch_closure(DestMFA, Uniq, Index, Address, Addresses) ->
 %% Patch an instruction loading the address of an MFA.
 %% RemoteOrLocal ::= 'remote' | 'local'
 %%
-patch_load_mfa(CodeAddress, DestMFA, Addresses, RemoteOrLocal) ->
+patch_load_mfa(CodeAddress, DestMFA, FunDefs, RemoteOrLocal) ->
   DestAddress =
     case bif_address(DestMFA) of
       false ->
-	NativeAddress = get_native_address(DestMFA, Addresses, RemoteOrLocal),
-	add_ref(DestMFA, CodeAddress, Addresses, 'load_mfa', [], RemoteOrLocal),
+	NativeAddress = get_native_address(DestMFA, FunDefs, RemoteOrLocal),
+	add_ref(DestMFA, CodeAddress, FunDefs, 'load_mfa', [], RemoteOrLocal),
 	NativeAddress;
       BifAddress when is_integer(BifAddress) ->
 	BifAddress
@@ -772,7 +772,7 @@ find_const(ConstNo, []) ->
 %%----------------------------------------------------------------
 %% Record that the code at address 'Address' has a reference
 %% of type 'RefType' ('call' or 'load_mfa') to 'CalleeMFA'.
-%% 'Addresses' must be an address-descending list from exports/2.
+%% 'FunDefs' must be an address-descending list from exports/2.
 %%
 %% If 'RefType' is 'call', then 'Trampoline' may be the address
 %% of a stub branching to 'CalleeMFA', where the stub is reachable
@@ -785,8 +785,8 @@ find_const(ConstNo, []) ->
 %% -record(ref, {caller_mfa, address, ref_type, trampoline, remote_or_local}).
 %%
 
-add_ref(CalleeMFA, Address, Addresses, RefType, Trampoline, RemoteOrLocal) ->
-  CallerMFA = address_to_mfa_lth(Address, Addresses),
+add_ref(CalleeMFA, Address, FunDefs, RefType, Trampoline, RemoteOrLocal) ->
+  CallerMFA = address_to_mfa_lth(Address, FunDefs),
   %% just a sanity assertion below
   true = case RemoteOrLocal of
 	   local ->
@@ -904,13 +904,13 @@ remove_refs_from(MFAs) ->
 %%--------------------------------------------------------------------
 
 %% To find the native code of an MFA we need to look in 3 places:
-%%  1. If it is compiled now look in the Addresses data structure.
+%%  1. If it is compiled now look in the FunDefs data structure.
 %%  2. Then look in native_addresses from module info. 
 %%  3. Then (the function might have been singled compiled) look in
 %%      hipe_funinfo
 %%  If all else fails create a native stub for the MFA 
-get_native_address(MFA, Addresses, RemoteOrLocal) ->
-  case mfa_to_address(MFA, Addresses, RemoteOrLocal) of
+get_native_address(MFA, FunDefs, RemoteOrLocal) ->
+  case mfa_to_address(MFA, FunDefs, RemoteOrLocal) of
     Adr when is_integer(Adr) -> Adr;
     false ->
       IsRemote =
