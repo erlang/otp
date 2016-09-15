@@ -118,8 +118,8 @@ protected(#k_protected{anno=A,arg=Ts,ret=Rs}, I, Vdb) ->
 
 %% expr(Kexpr, I, Vdb) -> Expr.
 
-expr(#k_test{anno=A,op=Op,args=As}, I, _Vdb) ->
-    #l{ke={test,test_op(Op),atomic_list(As)},i=I,a=A#k.a};
+expr(#k_test{anno=A,op=Op,args=As,inverted=Inverted}, I, _Vdb) ->
+    #l{ke={test,test_op(Op),atomic_list(As),Inverted},i=I,a=A#k.a};
 expr(#k_call{anno=A,op=Op,args=As,ret=Rs}, I, _Vdb) ->
     #l{ke={call,call_op(Op),atomic_list(As),var_list(Rs)},i=I,a=A#k.a};
 expr(#k_enter{anno=A,op=Op,args=As}, I, _Vdb) ->

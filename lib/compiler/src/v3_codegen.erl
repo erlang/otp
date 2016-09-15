@@ -363,7 +363,7 @@ bsm_rename_ctx(#l{ke={match,Ms0,Rs}}=L, Old, New, InProt) ->
 bsm_rename_ctx(#l{ke={guard_match,Ms0,Rs}}=L, Old, New, InProt) ->
     Ms = bsm_rename_ctx(Ms0, Old, New, InProt),
     L#l{ke={guard_match,Ms,Rs}};
-bsm_rename_ctx(#l{ke={test,_,_}}=L, _, _, _) -> L;
+bsm_rename_ctx(#l{ke={test,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={bif,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={gc_bif,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={set,_,_}}=L, _, _, _) -> L;
@@ -1051,8 +1051,15 @@ guard_cg(#l{ke={protected,Ts,Rs},i=I,vdb=Pdb}, Fail, _Vdb, Bef, St) ->
     protected_cg(Ts, Rs, Fail, I, Pdb, Bef, St);
 guard_cg(#l{ke={block,Ts},i=I,vdb=Bdb}, Fail, _Vdb, Bef, St) ->
     guard_cg_list(Ts, Fail, I, Bdb, Bef, St);
-guard_cg(#l{ke={test,Test,As},i=I,vdb=_Tdb}, Fail, Vdb, Bef, St) ->
-    test_cg(Test, As, Fail, I, Vdb, Bef, St);
+guard_cg(#l{ke={test,Test,As,Inverted},i=I,vdb=_Tdb}, Fail, Vdb, Bef, St0) ->
+    case Inverted of
+	false ->
+	    test_cg(Test, As, Fail, I, Vdb, Bef, St0);
+	true ->
+	    {Psucc,St1} = new_label(St0),
+	    {Is,Aft,St2} = test_cg(Test, As, Psucc, I, Vdb, Bef, St1),
+	    {Is++[{jump,{f,Fail}},{label,Psucc}],Aft,St2}
+    end;
 guard_cg(G, _Fail, Vdb, Bef, St) ->
     %%ok = io:fwrite("cg ~w: ~p~n", [?LINE,{G,Fail,Vdb,Bef}]),
     {Gis,Aft,St1} = cg(G, Vdb, Bef, St),
@@ -1103,6 +1110,13 @@ test_cg(is_map, [A], Fail, I, Vdb, Bef, St) ->
     Arg = cg_reg_arg_prefer_y(A, Bef),
     Aft = clear_dead(Bef, I, Vdb),
     {[{test,is_map,{f,Fail},[Arg]}],Aft,St};
+test_cg(is_boolean, [{atom,Val}], Fail, I, Vdb, Bef, St) ->
+    Aft = clear_dead(Bef, I, Vdb),
+    Is = case is_boolean(Val) of
+	     true -> [];
+	     false -> [{jump,{f,Fail}}]
+	 end,
+    {Is,Aft,St};
 test_cg(Test, As, Fail, I, Vdb, Bef, St) ->
     Args = cg_reg_args(As, Bef),
     Aft = clear_dead(Bef, I, Vdb),

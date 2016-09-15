@@ -1,0 +1,98 @@
+module 'cover_v3_kernel_5' ['cover_v3_kernel_5'/0,
+			    'module_info'/0,
+			    'module_info'/1]
+    attributes []
+'cover_v3_kernel_5'/0 =
+    %% Line 4
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      %% Line 5
+	      case apply 'strange_case'/1
+		       (1) of
+		<'ok'> when 'true' ->
+		    %% Line 6
+		    case apply 'strange_case'/1
+			     (2) of
+		      <'ok'> when 'true' ->
+			  %% Line 7
+			  case apply 'strange_case'/1
+				   (42) of
+			    <'error'> when 'true' ->
+				%% Line 8
+				case apply 'strange_case'/1
+					 ('atom') of
+				  <'error'> when 'true' ->
+				      %% Line 9
+				      'ok'
+				  ( <_cor3> when 'true' ->
+					primop 'match_fail'
+					    ({'badmatch',_cor3})
+				    -| ['compiler_generated'] )
+				end
+			    ( <_cor2> when 'true' ->
+				  primop 'match_fail'
+				      ({'badmatch',_cor2})
+			      -| ['compiler_generated'] )
+			  end
+		      ( <_cor1> when 'true' ->
+			    primop 'match_fail'
+				({'badmatch',_cor1})
+			-| ['compiler_generated'] )
+		    end
+		( <_cor0> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_cor0})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'cover_v3_kernel_5',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'strange_case'/1 =
+    %% Line 12
+    fun (_cor0) ->
+	case _cor0 of
+	  <X> when
+	        case X of
+	          <1> when 'true' -> 'true'
+	          <2> when 'true' -> 'true'
+		  <Other> when 'true' -> X
+	        end ->
+	      'ok'
+	  %% Line 13
+	  <_cor4> when 'true' ->
+	      'error'
+	  ( <_cor3> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_cor3})
+		  -| [{'function_name',{'strange_case',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'module_info'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('cover_v3_kernel_5')
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'module_info',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'module_info'/1 =
+    fun (_cor0) ->
+	case _cor0 of
+	  <X> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('cover_v3_kernel_5', X)
+	  ( <_cor1> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_cor1})
+		  -| [{'function_name',{'module_info',1}}] )
+	    -| ['compiler_generated'] )
+	end
+end
