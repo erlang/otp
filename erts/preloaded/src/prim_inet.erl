@@ -347,7 +347,17 @@ accept_opts(L, S) ->
     case getopts(L, [active, nodelay, keepalive, delay_send, priority, tos]) of
 	{ok, Opts} ->
 	    case setopts(S, Opts) of
-		ok -> {ok, S};
+		ok ->
+		    case getopts(L, [tclass]) of
+			{ok, []} ->
+			    {ok, S};
+			{ok, TClassOpts} ->
+			    case setopts(S, TClassOpts) of
+				ok ->
+				    {ok, S};
+				Error -> close(S), Error
+			    end
+		    end;
 		Error -> close(S), Error
 	    end;
 	Error ->
@@ -1196,6 +1206,7 @@ enc_opt(sndbuf)          -> ?INET_OPT_SNDBUF;
 enc_opt(recbuf)          -> ?INET_OPT_RCVBUF;
 enc_opt(priority)        -> ?INET_OPT_PRIORITY;
 enc_opt(tos)             -> ?INET_OPT_TOS;
+enc_opt(tclass)          -> ?INET_OPT_TCLASS;
 enc_opt(nodelay)         -> ?TCP_OPT_NODELAY;
 enc_opt(multicast_if)    -> ?UDP_OPT_MULTICAST_IF;
 enc_opt(multicast_ttl)   -> ?UDP_OPT_MULTICAST_TTL;
@@ -1255,6 +1266,7 @@ dec_opt(?INET_OPT_SNDBUF)         -> sndbuf;
 dec_opt(?INET_OPT_RCVBUF)         -> recbuf;
 dec_opt(?INET_OPT_PRIORITY)       -> priority;
 dec_opt(?INET_OPT_TOS)            -> tos;
+dec_opt(?INET_OPT_TCLASS)         -> tclass;
 dec_opt(?TCP_OPT_NODELAY)         -> nodelay;
 dec_opt(?UDP_OPT_MULTICAST_IF)    -> multicast_if;
 dec_opt(?UDP_OPT_MULTICAST_TTL)   -> multicast_ttl;
@@ -1329,6 +1341,7 @@ type_opt_1(sndbuf)          -> int;
 type_opt_1(recbuf)          -> int;
 type_opt_1(priority)        -> int;
 type_opt_1(tos)             -> int;
+type_opt_1(tclass)          -> int;
 type_opt_1(nodelay)         -> bool;
 type_opt_1(ipv6_v6only)     -> bool;
 %% multicast
