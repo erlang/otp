@@ -198,6 +198,11 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return address;
 }
 
+void  hipe_free_code(void* code, unsigned int bytes)
+{
+    /*SVERK: Leaking code memory */
+}
+
 static unsigned int *alloc_stub(Uint nrwords, unsigned int **tramp_callemu)
 {
     unsigned int *address;
@@ -227,6 +232,11 @@ static unsigned int *alloc_stub(Uint nrwords, unsigned int **tramp_callemu)
     }
     *tramp_callemu = (unsigned int*)((char*)curseg.base + SEGMENT_NRBYTES) - 2;
     return address;
+}
+
+void hipe_free_native_stub(void* stub)
+{
+    /*SVERK: Leaking code stub */
 }
 
 /*

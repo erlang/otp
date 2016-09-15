@@ -9,6 +9,8 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     %% Load version 1 of upgradee
     code_SUITE:compile_load(upgradee, Dir, 1, Upgradee1),
 
+    Tracer = start_tracing(),
+
     ?line 1 = upgradee:exp1(),
     ?line 1 = upgradee:exp1exp2(),
     ?line 1 = upgradee:exp1loc2(),
@@ -56,6 +58,16 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc1),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc2),
 
+    Env1 = "Env1",
+    put(loc1_fun, upgradee:get_local_fun(Env1)),
+    erlang:display(sverk_break),
+    ?line {1,Env1} = (get(loc1_fun))(),
+
+    put(exp1exp2_fun, upgradee:get_exp1exp2_fun()),
+    ?line 1 = (get(exp1exp2_fun))(),
+
+    ?line 13 = check_tracing(Tracer),
+
     %%
     %% Load version 1 of other
     %%
@@ -77,6 +89,8 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc1loc2),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, exp2),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc2),
+
+    ?line 5 = check_tracing(Tracer),
 
     %%
     %% Load version 2 of upgradee
@@ -130,6 +144,15 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, exp2),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc2),
 
+    ?line {1,Env1} = (get(loc1_fun))(),
+    Env2 = "Env2",
+    put(loc2_fun, upgradee:get_local_fun(Env2)),
+    ?line {2,Env2} = (get(loc2_fun))(),
+
+    ?line 2 = (get(exp1exp2_fun))(),
+
+    ?line 10 = check_tracing(Tracer),
+
     %%
     %% Load version 2 of other
     %%
@@ -182,17 +205,26 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc1loc2),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc2),
 
+    ?line {1,Env1} = (get(loc1_fun))(),
+    ?line {2,Env2} = (get(loc2_fun))(),
+    ?line 2 = (get(exp1exp2_fun))(),
+
+    ?line 10 = check_tracing(Tracer),
 
     %%
     %% Upgrade proxy to version 2
     %%
     P ! upgrade_order,
 
-    
+    %%
+    io:format("Purge version 1 of 'upgradee'\n",[]),
+    %%
+    put(loc1_fun,undefined),
+    code:purge(upgradee),
+
     %%
     io:format("Delete version 2 of 'upgradee'\n",[]),
     %%
-    code:purge(upgradee),
     code:delete(upgradee),
     
     ?line {'EXIT',{undef,_}} = (catch upgradee:exp2()),
@@ -239,21 +271,73 @@ run(Dir, Upgradee1, Upgradee2, Other1, Other2) ->
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, exp1loc2),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc1loc2),
     ?line {'EXIT',{undef,_}} = proxy_call(P, other, loc2),
+
+    ?line {'EXIT',{undef,_}} = (catch (get(exp1exp2_fun))()),
     
+    ?line 14 = check_tracing(Tracer),
+
     unlink(P),
     exit(P, die_please),
 
     io:format("Purge 'upgradee'\n",[]),
+    put(loc2_fun,undefined),
     code:purge(upgradee),
 
     io:format("Delete and purge 'other'\n",[]),
     code:purge(other),
     code:delete(other),
     code:purge(other),
+
+    stop_tracing(Tracer),
     ok.
 
 proxy_call(Pid, CallType, Func) ->
     Pid ! {self(), CallType, Func},
     receive
 	{Pid, call_result, Func, Ret} -> Ret
+    end.
+
+
+start_tracing() ->
+    Self = self(),
+    {Tracer,_} = spawn_opt(fun() -> tracer_loop(Self) end, [link,monitor]),
+    ?line 1 = erlang:trace_pattern({error_handler,undefined_function,3},
+				   true, [global]),
+    ?line 1 = erlang:trace(Self, true, [call,{tracer,Tracer}]),
+    Tracer.
+
+
+tracer_loop(Receiver) ->
+    receive
+	die_please ->
+	    ok;
+	{do_trace_delivered, Tracee} ->
+	    _ = erlang:trace_delivered(Tracee),
+	    tracer_loop(Receiver);
+
+	Msg ->
+	    Receiver ! Msg,
+	    tracer_loop(Receiver)
+    end.
+
+check_tracing(Tracer) ->
+    Tracer ! {do_trace_delivered, self()},
+    check_tracing_loop(0).
+
+check_tracing_loop(N) ->
+    Self = self(),
+    receive
+	{trace, _Pid, call, {_M, _F, _Args}} = Msg ->
+	    io:format("Trace: ~p\n",[Msg]),
+	    check_tracing_loop(N+1);
+	{trace_delivered, Self, _} ->
+	    N
+    end.
+
+
+stop_tracing(Tracer) ->
+    erlang:trace(self(), false, [call]),
+    Tracer ! die_please,
+    receive
+	{'DOWN', _, process, Tracer, _} -> ok
     end.

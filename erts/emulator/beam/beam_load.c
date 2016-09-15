@@ -482,7 +482,8 @@ static void free_literal_fragment(ErlHeapFragment*);
 static void loader_state_dtor(Binary* magic);
 static Eterm stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 				  Eterm group_leader, Eterm module,
-				  BeamCodeHeader* code, Uint size);
+				  BeamCodeHeader* code, Uint size,
+				  void* hipe_code_start, UWord hipe_code_size);
 static int init_iff_file(LoaderState* stp, byte* code, Uint size);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
@@ -842,9 +843,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 	    erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 		       sizeof(struct erl_module_instance));
 	inst_p = mod_tab_p->on_load;
-	inst_p->nif = 0;
-        inst_p->num_breakpoints = 0;
-        inst_p->num_traced_exports = 0;
+        erts_module_instance_init(inst_p);
     }
 
     inst_p->code_hdr = stp->hdr;
@@ -1094,7 +1093,8 @@ loader_state_dtor(Binary* magic)
 static Eterm
 stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm module,
-		     BeamCodeHeader* code_hdr, Uint size)
+		     BeamCodeHeader* code_hdr, Uint size,
+		     void* hipe_code_start, UWord hipe_code_size)
 {
     Module* modp;
     Eterm retval;
@@ -1117,6 +1117,17 @@ stub_insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     modp->curr.code_hdr = code_hdr;
     modp->curr.code_length = size;
     modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
+#if defined(HIPE)
+    DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "insert_new_code new_hipe_refs = %p", modp->new_hipe_refs);
+    modp->curr.first_hipe_ref = modp->new_hipe_refs;
+    modp->curr.first_hipe_sdesc = modp->new_hipe_sdesc;
+    modp->curr.hipe_code_start = hipe_code_start;
+    modp->new_hipe_refs = NULL;
+    modp->new_hipe_sdesc = NULL;
+# ifdef DEBUG
+    modp->curr.hipe_code_size  = hipe_code_size;
+# endif
+#endif
 
     /*
      * Update ranges (used for finding a function from a PC value).
@@ -4773,9 +4784,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	}
 	ep = erts_export_put(stp->module, stp->export[i].function,
 			     stp->export[i].arity);
-	if (!on_load) {
-	    ep->addressv[erts_staging_code_ix()] = address;
-	} else {
+	if (on_load) {
 	    /*
 	     * on_load: Don't make any of the exported functions
 	     * callable yet. Keep any function in the current
@@ -4783,6 +4792,8 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 	     */
 	    ep->code[4] = (BeamInstr) address;
 	}
+        else
+            ep->addressv[erts_staging_code_ix()] = address;
     }
 
     /*
@@ -5989,17 +6000,12 @@ code_module_md5_1(BIF_ALIST_1)
 static BeamInstr*
 make_stub(BeamInstr* fp, Eterm mod, Eterm func, Uint arity, Uint native, BeamInstr OpCode)
 {
+    DBG_TRACE_MFA(mod,func,arity,"make beam stub at %p", &fp[5]);
     fp[0] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
     fp[1] = native;
     fp[2] = mod;
     fp[3] = func;
     fp[4] = arity;
-#ifdef HIPE
-    if (native) {
-	fp[5] = BeamOpCode(op_move_return_n);
-	hipe_mfa_save_orig_beam_op(mod, func, arity, fp+5);
-    }
-#endif
     fp[5] = OpCode;
     return fp + WORDS_PER_FUNCTION;
 }
@@ -6087,6 +6093,8 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
 	if (stp->export[i].function == function && stp->export[i].arity == arity) {
 	    Export* ep = erts_export_put(mod, function, arity);
 	    ep->addressv[erts_staging_code_ix()] = fp+5;
+	    DBG_TRACE_MFA(mod,function,arity,"set beam stub at %p in export at %p (code_ix=%d)",
+			  fp+5, ep, erts_staging_code_ix());
 	    return;
 	}
     }
@@ -6282,6 +6290,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     byte* temp_alloc = NULL;
     byte* bytes;
     Uint size;
+    UWord hipe_code_start = NULL, hipe_code_size = 0;
 
     /*
      * Must initialize stp->lambdas here because the error handling code
@@ -6297,7 +6306,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	goto error;
     }
     tp = tuple_val(Info);
-    if (tp[0] != make_arityval(3)) {
+    if (tp[0] != make_arityval(5)) {
       goto error;
     }
     Funcs = tp[1];
@@ -6313,6 +6322,15 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	goto error;
     }
     size = binary_size(Beam);
+
+#ifdef HIPE
+    if (!term_to_Uint(tp[4], &hipe_code_start))
+        goto error;
+# ifdef DEBUG
+    if (!term_to_Uint(tp[5], &hipe_code_size))
+        goto error;
+# endif
+#endif
 
     /*
      * Scan the Beam binary and read the interesting sections.
@@ -6476,7 +6494,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      */
 
     rval = stub_insert_new_code(p, 0, p->group_leader, Mod,
-				code_hdr, code_size);
+				code_hdr, code_size,
+				(void*)hipe_code_start, hipe_code_size);
     if (rval != NIL) {
 	goto error;
     }
@@ -6517,3 +6536,46 @@ static int safe_mul(UWord a, UWord b, UWord* resp)
     }
 }
 
+#ifdef ENABLE_DBG_TRACE_MFA
+
+#define MFA_MAX 10
+Eterm dbg_trace_m[MFA_MAX];
+Eterm dbg_trace_f[MFA_MAX];
+Uint  dbg_trace_a[MFA_MAX];
+unsigned int dbg_trace_ix = 0;
+
+void dbg_set_traced_mfa(const char* m, const char* f, Uint a)
+{
+    unsigned i = dbg_trace_ix++;
+    ASSERT(i < MFA_MAX);
+    dbg_trace_m[i] = am_atom_put(m, strlen(m));
+    dbg_trace_f[i] = am_atom_put(f, strlen(f));
+    dbg_trace_a[i] = a;
+}
+
+int dbg_is_traced_mfa(Eterm m, Eterm f, Uint a)
+{
+    unsigned int i;
+    for (i = 0; i < dbg_trace_ix; ++i) {
+        if (m == dbg_trace_m[i] &&
+            (!f || (f == dbg_trace_f[i] && a == dbg_trace_a[i]))) {
+
+            return i+1;
+        }
+    }
+    return 0;
+}
+
+void dbg_vtrace_mfa(unsigned ix, const char* format, ...)
+{
+    va_list arglist;
+    va_start(arglist, format);
+    ASSERT(--ix < MFA_MAX);
+    erts_fprintf(stderr, "MFA TRACE %T:%T/%u: ",
+                 dbg_trace_m[ix], dbg_trace_f[ix], (int)dbg_trace_a[ix]);
+
+    erts_vfprintf(stderr, format, arglist);
+    va_end(arglist);
+}
+
+#endif /* ENABLE_DBG_TRACE_MFA */

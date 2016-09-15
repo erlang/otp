@@ -483,23 +483,25 @@ load_binary(Config) when is_list(Config) ->
     code:delete(code_b_test),
     ok.
 
+
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    %%T = [beam, hipe],
-    T = [beam],
+    T = [beam, hipe],
+    %%T = [beam],
+    %%T = [hipe],
 
-    [upgrade_do(DataDir, Client, U1, U2, O1, O2)
-     || Client<-T, U1<-T, U2<-T, O1<-T, O2<-T],
-
+    [upgrade_do(DataDir, Client, T) || Client <- T],
     ok.
 
-upgrade_do(DataDir, Client, U1, U2, O1, O2) ->
+upgrade_do(DataDir, Client, T) ->
     compile_load(upgrade_client, DataDir, undefined, Client),
-    upgrade_client:run(DataDir, U1, U2, O1, O2),
+    [upgrade_client:run(DataDir, U1, U2, O1, O2)
+     || U1<-T, U2<-T, O1<-T, O2<-T],
     ok.
 
 compile_load(Mod, Dir, Ver, CodeType) ->
+    erlang:display({"{{{{{{{{{{{{{{{{Loading",Mod,Ver,CodeType}),
     Version = case Ver of
 	undefined ->
 	    io:format("Compiling '~p' as ~p\n", [Mod, CodeType]),
@@ -516,9 +518,15 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     CompOpts = [binary, report] ++ Target ++ Version,
 
     Src = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
+    T1 = erlang:now(),
     {ok,Mod,Code} = compile:file(Src, CompOpts),
+    T2 = erlang:now(),
     ObjFile = filename:basename(Src,".erl") ++ ".beam",
     {module,Mod} = code:load_binary(Mod, ObjFile, Code),
+    T3 = erlang:now(),
+    io:format("Compile time ~p ms, Load time ~p ms\n",
+	      [timer:now_diff(T2,T1) div 1000, timer:now_diff(T3,T2) div 1000]),
+    erlang:display({"}}}}}}}}}}}}}}}Loaded",Mod,Ver,CodeType}),
     ok.
 
 dir_req(Config) when is_list(Config) ->
@@ -810,8 +818,6 @@ check_funs({'$M_EXPR','$F_EXPR',_},
 	    {code_server,start_link,1}]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{erlang,spawn_link,1},{code_server,start_link,1}]) -> 0;
-check_funs({'$M_EXPR',module_info,1},
-	   [{hipe_unified_loader,patch_to_emu_step1,1} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',2},
 	   [{hipe_unified_loader,write_words,3} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',2},
@@ -823,11 +829,7 @@ check_funs({'$M_EXPR','$F_EXPR',2},
 	    {hipe_unified_loader,sort_and_write,5} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{lists,foreach,2},
-	    {hipe_unified_loader,patch_consts,3} | _]) -> 0;
-check_funs({'$M_EXPR','$F_EXPR',1},
-	   [{lists,foreach,2},
-	    {hipe_unified_loader,mark_referred_from,1},
-	    {hipe_unified_loader,get_refs_from,2}| _]) -> 0;
+	    {hipe_unified_loader,patch_consts,4} | _]) -> 0;
 check_funs({'$M_EXPR',warning_msg,2},
 	   [{code_server,finish_on_load_report,2} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},

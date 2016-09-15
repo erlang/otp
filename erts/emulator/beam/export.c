@@ -145,6 +145,9 @@ export_alloc(struct export_entry* tmpl_e)
 	    blob->entryv[ix].ep = &blob->exp;
 	}
 	ix = 0;
+
+	DBG_TRACE_MFA(obj->code[0], obj->code[1], obj->code[2],
+		      "export allocation at %p", obj);
     }
     else { /* Existing entry in another table, use free entry in blob */
 	blob = entry_to_blob(tmpl_e);
@@ -163,9 +166,14 @@ export_free(struct export_entry* obj)
     obj->slot.index = -1;
     for (i=0; i < ERTS_NUM_CODE_IX; i++) {
 	if (blob->entryv[i].slot.index >= 0) {
+	    DBG_TRACE_MFA(blob->exp.code[0], blob->exp.code[1], blob->exp.code[2],
+			  "export entry slot %u freed for %p",
+			  (obj - blob->entryv), &blob->exp);
 	    return;
 	}
     }
+    DBG_TRACE_MFA(blob->exp.code[0], blob->exp.code[1], blob->exp.code[2],
+		      "export blob deallocation at %p", &blob->exp);
     erts_free(ERTS_ALC_T_EXPORT, blob);
     erts_smp_atomic_add_nob(&total_entries_bytes, -sizeof(*blob));
 }

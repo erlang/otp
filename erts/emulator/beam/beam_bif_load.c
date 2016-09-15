@@ -36,6 +36,12 @@
 #include "erl_nif.h"
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
+#ifdef HIPE
+#  include "hipe_bif0.h"
+#  define IF_HIPE(X) (X)
+#else
+#  define IF_HIPE(X) (0)
+#endif
 
 #ifdef HIPE
 #  include "hipe_stack.h"
@@ -169,6 +175,11 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     if (res == BIF_ARG_1) {
 	erts_end_staging_code_ix();
 	erts_commit_staging_code_ix();
+#ifdef HIPE
+        if (!modp)
+	    modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
+        hipe_redirect_to_module(modp);
+#endif
     }
     else {
 	erts_abort_staging_code_ix();
@@ -241,7 +252,7 @@ struct m {
     Uint exception;
 };
 
-static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int);
+static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int, int);
 #ifdef ERTS_SMP
 static void smp_code_ix_commiter(void*);
 
@@ -377,8 +388,9 @@ finish_loading_1(BIF_ALIST_1)
     for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
-	    erts_is_default_trace_enabled()) {
-	    /* tracing involved, fallback with thread blocking */
+	    erts_is_default_trace_enabled() ||
+	    IF_HIPE(hipe_need_blocking(p[i].modp))) {
+	    /* tracing or hipe need thread blocking */
 	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_smp_thr_progress_block();
 	    is_blocking = 1;
@@ -436,32 +448,36 @@ finish_loading_1(BIF_ALIST_1)
     }
 
 done:
-    return staging_epilogue(BIF_P, do_commit, res, is_blocking, p, n);
+    return staging_epilogue(BIF_P, do_commit, res, is_blocking, p, n, 1);
 }
 
 static Eterm
 staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
-		 struct m* loaded, int nloaded)
+		 struct m* mods, int nmods, int free_mods)
 {    
 #ifdef ERTS_SMP
     if (is_blocking || !commit)
 #endif
     {
 	if (commit) {
+	    int i;
 	    erts_end_staging_code_ix();
 	    erts_commit_staging_code_ix();
-	    if (loaded) {
-		int i;
-		for (i=0; i < nloaded; i++) {		
-		    set_default_trace_pattern(loaded[i].module);
+
+	    for (i=0; i < nmods; i++) {
+		if (mods[i].modp->curr.code_hdr) {
+		    set_default_trace_pattern(mods[i].module);
 		}
+	      #ifdef HIPE
+		hipe_redirect_to_module(mods[i].modp);
+	      #endif
 	    }
 	}
 	else {
 	    erts_abort_staging_code_ix();
 	}
-	if (loaded) {
-	    erts_free(ERTS_ALC_T_LOADER_TMP, loaded);
+	if (free_mods) {
+	    erts_free(ERTS_ALC_T_LOADER_TMP, mods);
 	}
 	if (is_blocking) {
 	    erts_smp_thr_progress_unblock();
@@ -474,8 +490,8 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
     else {
 	ASSERT(is_value(res));
 
-	if (loaded) {
-	    erts_free(ERTS_ALC_T_LOADER_TMP, loaded);
+	if (free_mods) {
+	    erts_free(ERTS_ALC_T_LOADER_TMP, mods);
 	}
 	erts_end_staging_code_ix();
 	/*
@@ -653,8 +669,9 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	}
 	else {
 	    if (modp->curr.num_breakpoints > 0 ||
-		modp->curr.num_traced_exports > 0) {
-		/* we have tracing, retry single threaded */
+		modp->curr.num_traced_exports > 0 ||
+		IF_HIPE(hipe_need_blocking(modp))) {
+		/* tracing or hipe need to go single threaded */
 		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		erts_smp_thr_progress_block();
 		is_blocking = 1;
@@ -668,7 +685,14 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	    success = 1;
 	}
     }
-    return staging_epilogue(BIF_P, success, res, is_blocking, NULL, 0);  
+    {
+	struct m mod;
+	Eterm retval;
+	mod.module = BIF_ARG_1;
+	mod.modp = modp;
+	retval = staging_epilogue(BIF_P, success, res, is_blocking, &mod, 1, 0);
+	return retval;
+    }
 }
 
 BIF_RETTYPE module_loaded_1(BIF_ALIST_1)
@@ -809,6 +833,9 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
 	set_default_trace_pattern(BIF_ARG_1);
+      #ifdef HIPE
+        hipe_redirect_to_module(modp);
+      #endif
     } else if (BIF_ARG_2 == am_false) {
 	int i;
 
@@ -1619,15 +1646,18 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		/*
 		 * Unload any NIF library
 		 */
-		if (modp->old.nif != NULL) {
+		if (modp->old.nif != NULL
+		    || IF_HIPE(hipe_purge_need_blocking(modp))) {
 		    /* ToDo: Do unload nif without blocking */
 		    erts_rwunlock_old_code(code_ix);
 		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		    erts_smp_thr_progress_block();
 		    is_blocking = 1;
 		    erts_rwlock_old_code(code_ix);
-		    erts_unload_nif(modp->old.nif);
-		    modp->old.nif = NULL;
+		    if (modp->old.nif) {
+		      erts_unload_nif(modp->old.nif);
+		      modp->old.nif = NULL;
+		    }
 		}
 
 		/*
@@ -1646,7 +1676,9 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		modp->old.code_length = 0;
 		modp->old.catches = BEAM_CATCHES_NIL;
 		erts_remove_from_ranges(code);
-
+#ifdef HIPE
+		hipe_purge_module(modp);
+#endif
 		ERTS_BIF_PREP_RET(ret, am_true);
 	    }
 
@@ -1719,6 +1751,8 @@ delete_code(Module* modp)
 			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
+		    DBG_TRACE_MFA(ep->code[0],ep->code[1],ep->code[2],
+				  "export trace cleared, code_ix=%d", code_ix);
 		    erts_clear_export_break(modp, ep->code+3);
 		}
 		else ASSERT(ep->code[3] == (BeamInstr) em_call_error_handler
@@ -1727,17 +1761,16 @@ delete_code(Module* modp)
 	    ep->addressv[code_ix] = ep->code+3;
 	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
+	    DBG_TRACE_MFA(ep->code[0],ep->code[1],ep->code[2],
+			  "export invalidation, code_ix=%d", code_ix);
 	}
     }
 
     ASSERT(modp->curr.num_breakpoints == 0);
     ASSERT(modp->curr.num_traced_exports == 0);
+    DBG_TRACE_MFA(make_atom(modp->module), 0, 0, "delete_code old.first_hipe_ref=%p", modp->curr.first_hipe_ref);
     modp->old = modp->curr;
-    modp->curr.code_hdr = NULL;
-    modp->curr.code_length = 0;
-    modp->curr.catches = BEAM_CATCHES_NIL;
-    modp->curr.nif = NULL;
-
+    erts_module_instance_init(&modp->curr);
 }
 
 
@@ -1751,9 +1784,11 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
      * if not, delete old code; error if old code already exists.
      */
 
-    if (modp->curr.code_hdr && modp->old.code_hdr)  {
-	return am_not_purged;
-    } else if (!modp->old.code_hdr) { /* Make the current version old. */
+    if (modp->curr.code_hdr) {
+	if (modp->old.code_hdr)  {
+	    return am_not_purged;
+	}
+	/* Make the current version old. */
 	delete_code(modp);
     }
     return NIL;

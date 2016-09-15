@@ -6105,6 +6105,7 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     Uint sz;
     int i;
 
+    DBG_TRACE_MFA(fi[0], fi[1], fi[2], "call_error_handler");
     /*
      * Search for the error_handler module.
      */

@@ -184,6 +184,15 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
+void hipe_free_code(void* code, unsigned int bytes)
+{
+    /* SVERK: Leak !!!
+    ALLOC_CODE_STATS(--nr_allocs);
+    ALLOC_CODE_STATS(total_alloc -= bytes);
+
+    erts_free(ERTS_ALC_T_HIPE_EXEC, code);*/
+}
+
 void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
 {
     /*
@@ -262,6 +271,11 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
     /* I-cache flush? */
 
     return code;
+}
+
+void hipe_free_native_stub(void* stub)
+{
+    /* SVERK: leak leak drip drop */
 }
 
 void hipe_arch_print_pcb(struct hipe_process_state *p)

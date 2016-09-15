@@ -37,12 +37,12 @@ struct hipe_sdesc {
     } bucket;
     unsigned int fsize : 23;    /* frame size */
     unsigned int has_exnra : 1; /* exn handler presence flag */
-    unsigned int arity : 8;
-#ifdef DEBUG
-    Eterm dbg_M, dbg_F;
-    unsigned dbg_A;
-#endif
-    unsigned int livebits[1]; /* size depends on arch & data in summary field */
+    unsigned int stk_nargs : 8; /* arguments on stack */
+    Uint32 m_aix;
+    Uint32 f_aix;
+    Uint32 a;
+    struct hipe_sdesc* next_in_modi;
+    Uint32 livebits[1]; /* size depends on arch & data in summary field */
 };
 
 struct hipe_sdesc_with_exnra {
@@ -55,9 +55,10 @@ static __inline__ unsigned int sdesc_fsize(const struct hipe_sdesc *sdesc)
     return sdesc->fsize;
 }
 
+/* Nr of arguments pushed on stack */
 static __inline__ unsigned int sdesc_arity(const struct hipe_sdesc *sdesc)
 {
-    return sdesc->arity;
+    return sdesc->stk_nargs;
 }
 
 static __inline__ unsigned long sdesc_exnra(const struct hipe_sdesc *sdesc)
@@ -79,8 +80,9 @@ struct hipe_sdesc_table {
 extern struct hipe_sdesc_table hipe_sdesc_table;
 
 extern struct hipe_sdesc *hipe_put_sdesc(struct hipe_sdesc*);
+extern void hipe_destruct_sdesc(struct hipe_sdesc*);
 extern void hipe_init_sdesc_table(struct hipe_sdesc*);
-extern struct hipe_sdesc *hipe_decode_sdesc(Eterm);
+extern struct hipe_sdesc *hipe_decode_sdesc(Eterm, int* do_commitp);
 
 #if !defined(__GNUC__) || (__GNUC__ < 2) || (__GNUC__ == 2 && __GNUC_MINOR__ < 96)
 #define __builtin_expect(x, expected_value) (x)

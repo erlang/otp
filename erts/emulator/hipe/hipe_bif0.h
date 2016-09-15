@@ -42,7 +42,10 @@ extern void hipe_primop_set_trampoline(Eterm name, void *trampoline);
 #endif
 
 /* needed in beam_load.c */
-void hipe_mfa_save_orig_beam_op(Eterm m, Eterm f, unsigned int a, Eterm *pc);
+int hipe_need_blocking(Module*);
+int hipe_purge_need_blocking(Module*);
+void hipe_purge_module(Module*);
+void hipe_redirect_to_module(Module* modp);
 
 /* these are also needed in hipe_amd64.c */
 extern void *term_to_address(Eterm);

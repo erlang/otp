@@ -1060,8 +1060,8 @@ type(hipe_bifs, enter_code, 2, Xs, Opaques) ->
 			     t_sup(t_nil(), t_binary())]) end, Opaques);
 type(hipe_bifs, enter_sdesc, 1, Xs, Opaques) ->
   strict(hipe_bifs, enter_sdesc, 1, Xs, fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, find_na_or_make_stub, 2, Xs, Opaques) ->
-  strict(hipe_bifs, find_na_or_make_stub, 2, Xs,
+type(hipe_bifs, find_na_or_make_stub, 1, Xs, Opaques) ->
+  strict(hipe_bifs, find_na_or_make_stub, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques); % address
 type(hipe_bifs, fun_to_address, 1, Xs, Opaques) ->
   strict(hipe_bifs, fun_to_address, 1, Xs,
@@ -1071,12 +1071,6 @@ type(hipe_bifs, get_fe, 2, Xs, Opaques) ->
 type(hipe_bifs, get_rts_param, 1, Xs, Opaques) ->
   strict(hipe_bifs, get_rts_param, 1, Xs,
 	 fun (_) -> t_sup(t_integer(), t_nil()) end, Opaques);
-type(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs, Opaques) ->
-  strict(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs,
-	 fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, mark_referred_from, 1, Xs, Opaques) ->
-  strict(hipe_bifs, mark_referred_from, 1, Xs,
-	 fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, merge_term, 1, Xs, Opaques) ->
   strict(hipe_bifs, merge_term, 1, Xs, fun ([X]) -> X end, Opaques);
 type(hipe_bifs, nstack_used_size, 0, _, _Opaques) ->
@@ -1088,9 +1082,6 @@ type(hipe_bifs, patch_insn, 3, Xs, Opaques) ->
 type(hipe_bifs, primop_address, 1, Xs, Opaques) ->
   strict(hipe_bifs, primop_address, 1, Xs,
 	 fun (_) -> t_sup(t_integer(), t_atom('false')) end, Opaques);
-type(hipe_bifs, redirect_referred_from, 1, Xs, Opaques) ->
-  strict(hipe_bifs, redirect_referred_from, 1, Xs,
-	 fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, ref, 1, Xs, Opaques) ->
   strict(hipe_bifs, ref, 1, Xs, fun (_) -> t_immarray() end, Opaques);
 type(hipe_bifs, ref_get, 1, Xs, Opaques) ->
@@ -2469,8 +2460,7 @@ arg_types(hipe_bifs, add_ref, 2) ->
   [t_mfa(), t_tuple([t_mfa(),
 		     t_integer(),
 		     t_sup(t_atom('call'), t_atom('load_mfa')),
-		     t_trampoline(),
-		     t_sup(t_atom('remote'), t_atom('local'))])];
+		     t_trampoline()])];
 arg_types(hipe_bifs, alloc_data, 2) ->
   [t_integer(), t_integer()];
 arg_types(hipe_bifs, array, 2) ->
@@ -2511,18 +2501,14 @@ arg_types(hipe_bifs, enter_code, 2) ->
   [t_binary(), t_sup(t_nil(), t_tuple())];
 arg_types(hipe_bifs, enter_sdesc, 1) ->
   [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa()])];
-arg_types(hipe_bifs, find_na_or_make_stub, 2) ->
-  [t_mfa(), t_boolean()];
+arg_types(hipe_bifs, find_na_or_make_stub, 1) ->
+  [t_mfa()];
 arg_types(hipe_bifs, fun_to_address, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, get_fe, 2) ->
   [t_atom(), t_tuple([t_integer(), t_integer(), t_integer()])];
 arg_types(hipe_bifs, get_rts_param, 1) ->
   [t_fixnum()];
-arg_types(hipe_bifs, invalidate_funinfo_native_addresses, 1) ->
-  [t_list(t_mfa())];
-arg_types(hipe_bifs, mark_referred_from, 1) ->
-  [t_mfa()];
 arg_types(hipe_bifs, merge_term, 1) ->
   [t_any()];
 arg_types(hipe_bifs, nstack_used_size, 0) ->
@@ -2533,8 +2519,6 @@ arg_types(hipe_bifs, patch_insn, 3) ->
   [t_integer(), t_integer(), t_insn_type()];
 arg_types(hipe_bifs, primop_address, 1) ->
   [t_atom()];
-arg_types(hipe_bifs, redirect_referred_from, 1) ->
-  [t_mfa()];
 arg_types(hipe_bifs, ref, 1) ->
   [t_immediate()];
 arg_types(hipe_bifs, ref_get, 1) ->

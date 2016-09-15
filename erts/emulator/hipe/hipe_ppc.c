@@ -214,6 +214,11 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return address;
 }
 
+void hipe_free_code(void* code, unsigned int bytes)
+{
+    /*SVERK: Leaking code memory */
+}
+
 static unsigned int *alloc_stub(Uint nrwords)
 {
     unsigned int *address;
@@ -239,6 +244,11 @@ static unsigned int *alloc_stub(Uint nrwords)
 	/* commit to new segment, ignore leftover space in old segment */
     }
     return address;
+}
+
+void hipe_free_native_stub(void* stub)
+{
+    /*SVERK: Leaking code stubs */
 }
 
 static void patch_imm16(Uint32 *address, unsigned int imm16)

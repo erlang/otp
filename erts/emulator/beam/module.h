@@ -30,6 +30,14 @@ struct erl_module_instance {
     struct erl_module_nif* nif;
     int num_breakpoints;
     int num_traced_exports;
+#ifdef HIPE
+    struct hipe_ref* first_hipe_ref;  /* all external hipe calls from this module */
+    struct hipe_sdesc* first_hipe_sdesc;  /* all stack descriptors for this module */
+    void* hipe_code_start;
+# ifdef DEBUG
+    UWord hipe_code_size;
+# endif
+#endif
 };
 
 typedef struct erl_module {
@@ -40,10 +48,17 @@ typedef struct erl_module {
     struct erl_module_instance curr;
     struct erl_module_instance old; /* protected by "old_code" rwlock */
     struct erl_module_instance* on_load;
+#ifdef HIPE
+    struct hipe_mfa_info* first_hipe_mfa;
+    struct hipe_ref* new_hipe_refs;
+    struct hipe_sdesc* new_hipe_sdesc;
+#endif
 } Module; 
 
+void erts_module_instance_init(struct erl_module_instance* modi);
 Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
 Module* erts_put_module(Eterm mod);
+Module* erts_put_active_module(Eterm mod); /* only while blocked */
 
 void init_module_table(void);
 void module_start_staging(void);

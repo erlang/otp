@@ -65,18 +65,14 @@ nstack_walk_init_sdesc(const Process *p, struct nstack_walk_state *state)
     state->sdesc0 = sdesc;
     return sdesc;
 #else
-    unsigned int nstkarity = p->hipe.narity - NR_ARG_REGS;
-    if ((int)nstkarity < 0)
-	nstkarity = 0;
     state->sdesc0[0].fsize = 0;
     state->sdesc0[0].has_exnra = 0;
-    state->sdesc0[0].arity = nstkarity;
+    state->sdesc0[0].stk_nargs = (p->hipe.narity < NR_ARG_REGS ? 0 :
+                                  p->hipe.narity - NR_ARG_REGS);
     state->sdesc0[0].livebits[0] = 0;
-# ifdef DEBUG
-    state->sdesc0[0].dbg_M = 0;
-    state->sdesc0[0].dbg_F = am_undefined;
-    state->sdesc0[0].dbg_A = 0;
-# endif
+    state->sdesc0[0].m_aix = 0;
+    state->sdesc0[0].f_aix = atom_val(am_undefined);
+    state->sdesc0[0].a     = 0;
     /* XXX: this appears to prevent a gcc-4.1.1 bug on x86 */
     __asm__ __volatile__("" : : "m"(*state) : "memory");
     return &state->sdesc0[0];

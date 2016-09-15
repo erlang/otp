@@ -130,6 +130,13 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
     return alloc_code(nrbytes);
 }
 
+void hipe_free_code(void* code)
+{
+    ALLOC_CODE_STATS(--nr_allocs);
+    /*ALLOC_CODE_STATS(total_alloc += alloc_bytes);*/
+    erts_free(ERTS_ALC_T_HIPE_EXEC, code);
+}
+
 /* Make stub for native code calling exported beam function.
 */
 void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
@@ -232,6 +239,14 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
     /* I-cache flush? */
 
     return code;
+}
+
+void hipe_free_native_stub(void* stub)
+{
+    ALLOC_CODE_STATS(++nr_allocs);
+    /*ALLOC_CODE_STATS(total_alloc += alloc_bytes);*/
+
+    erts_free(ERTS_ALC_T_HIPE_EXEC, stub);
 }
 
 void hipe_arch_print_pcb(struct hipe_process_state *p)
