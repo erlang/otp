@@ -620,6 +620,21 @@
     </func>
 
     <func>
+      <name>get_verbosity(Category) -&gt; Level | undefined</name>
+      <fsummary>Read the verbosity level for a logging category.</fsummary>
+      <type>
+        <v>Category = default | atom()</v>
+        <v>Level = integer()</v>
+      </type>
+      <desc><marker id="get_verbosity-1"/>
+        <p>This function returns the verbosity level for the specified logging
+	category. See the <seealso marker="write_test_chapter#logging">
+	User's Guide</seealso> for details. Use the value <c>default</c> to read
+	the general verbosity level.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>install(Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Installs configuration files and event handlers.</fsummary>
       <type>
@@ -1221,6 +1236,21 @@
           as in test specification files.</p>
 
         <p><c>Reason</c> indicates the type of error encountered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>set_verbosity(Category, Level) -&gt; ok</name>
+      <fsummary>Set the verbosity level for a logging category.</fsummary>
+      <type>
+        <v>Category = default | atom()</v>
+        <v>Level = integer()</v>
+      </type>
+      <desc><marker id="set_verbosity-2"/>
+        <p>Use this function to set, or modify, the verbosity level for a logging
+	category. See the <seealso marker="write_test_chapter#logging">
+	User's Guide</seealso> for details. Use the value <c>default</c> to set the
+	general verbosity level.</p>
       </desc>
     </func>
 
