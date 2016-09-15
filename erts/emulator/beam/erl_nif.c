@@ -3206,18 +3206,20 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     if (init_func != NULL)
       handle = init_func;
 
+    this_mi = &module_p->curr;
+    prev_mi = &module_p->old;
     if (in_area(caller, module_p->old.code_hdr, module_p->old.code_length)) {
-	if (module_p->old.code_hdr->on_load_function_ptr) {
-	    this_mi = &module_p->old;
+	ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
+			     "module '%T' not allowed", mod_atom);
+	goto error;
+    } else if (module_p->on_load) {
+	ASSERT(module_p->on_load->code_hdr->on_load_function_ptr);
+	if (module_p->curr.code_hdr) {
 	    prev_mi = &module_p->curr;
 	} else {
-	    ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
-				 "module '%T' not allowed", mod_atom);
-	    goto error;
+	    prev_mi = &module_p->old;
 	}
-    } else {
-	this_mi = &module_p->curr;
-	prev_mi = &module_p->old;
+	this_mi = module_p->on_load;
     }
 
     if (init_func == NULL &&

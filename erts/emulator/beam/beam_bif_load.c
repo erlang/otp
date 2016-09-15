@@ -53,6 +53,7 @@ static struct {
     ErlFunEntry *def_funs[10];
     Uint fe_size;
     Uint fe_ix;
+    struct erl_module_instance saved_old;
 } purge_state;
 
 Process *erts_code_purger = NULL;
@@ -103,6 +104,8 @@ init_purge_state(void)
     purge_state.fe_size = sizeof(purge_state.def_funs);
     purge_state.fe_size /= sizeof(purge_state.def_funs[0]);
     purge_state.fe_ix = 0;
+
+    purge_state.saved_old.code_hdr = 0;
 }
 
 void
@@ -727,10 +730,13 @@ BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
     Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
 
-    if (modp && modp->old.code_hdr) {
-	BIF_TRAP_CODE_PTR_0(BIF_P, modp->old.code_hdr->on_load_function_ptr);
+    if (!modp || !modp->on_load) {
+	BIF_ERROR(BIF_P, BADARG);
     }
-    else {
+    if (modp->on_load->code_hdr) {
+	BIF_TRAP_CODE_PTR_0(BIF_P,
+			    modp->on_load->code_hdr->on_load_function_ptr);
+    } else {
 	BIF_ERROR(BIF_P, BADARG);
     }
 }
@@ -753,14 +759,14 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
-    if (!modp || !modp->old.code_hdr) {
+    if (!modp || !modp->on_load || !modp->on_load->code_hdr) {
     error:
 	erts_smp_thr_progress_unblock();
         erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (modp->old.code_hdr->on_load_function_ptr == NULL) {
+    if (modp->on_load->code_hdr->on_load_function_ptr == NULL) {
 	goto error;
     }
     if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
@@ -769,14 +775,17 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
     if (BIF_ARG_2 == am_true) {
 	int i;
-	struct erl_module_instance t;
 
 	/*
-	 * Swap old and new code.
+	 * Make the code with the on_load function current.
 	 */
-	t = modp->curr;
-	modp->curr = modp->old;
-	modp->old = t;
+
+	if (modp->curr.code_hdr) {
+	    modp->old = modp->curr;
+	}
+	modp->curr = *modp->on_load;
+	erts_free(ERTS_ALC_T_PREPARED_CODE, modp->on_load);
+	modp->on_load = 0;
 
 	/*
 	 * The on_load function succeded. Fix up export entries.
@@ -1444,7 +1453,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
     switch (BIF_ARG_2) {
 
-    case am_prepare: {
+    case am_prepare:
+    case am_prepare_on_load: {
 	/*
 	 * Prepare for purge by marking all fun
 	 * entries referring to the code to purge
@@ -1469,7 +1479,22 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    /*
 	     * Any code to purge?
 	     */
-	    erts_rlock_old_code(code_ix);
+
+	    if (BIF_ARG_2 == am_prepare_on_load) {
+                erts_rwlock_old_code(code_ix);
+	    } else {
+		erts_rlock_old_code(code_ix);
+	    }
+
+	    if (BIF_ARG_2 == am_prepare_on_load) {
+		ASSERT(modp->on_load);
+		ASSERT(modp->on_load->code_hdr);
+		purge_state.saved_old = modp->old;
+		modp->old = *modp->on_load;
+		erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) modp->on_load);
+		modp->on_load = 0;
+	    }
+
 	    if (!modp->old.code_hdr)
 		res = am_false;
 	    else {
@@ -1483,7 +1508,12 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		end = (BeamInstr *)((char *)code + modp->old.code_length);
 		erts_fun_purge_prepare(code, end);
 	    }
-	    erts_runlock_old_code(code_ix);
+
+            if (BIF_ARG_2 == am_prepare_on_load) {
+                erts_rwunlock_old_code(code_ix);
+	    } else {
+                erts_runlock_old_code(code_ix);
+	    }
 	}
 	
 #ifndef ERTS_SMP
@@ -1616,7 +1646,13 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		modp->old.code_length = 0;
 		modp->old.catches = BEAM_CATCHES_NIL;
 		erts_remove_from_ranges(code);
+
 		ERTS_BIF_PREP_RET(ret, am_true);
+	    }
+
+	    if (purge_state.saved_old.code_hdr) {
+		modp->old = purge_state.saved_old;
+		purge_state.saved_old.code_hdr = 0;
 	    }
 	    erts_rwunlock_old_code(code_ix);
 	}

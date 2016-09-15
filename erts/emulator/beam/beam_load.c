@@ -833,11 +833,20 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
     size = stp->loaded_size;
     erts_total_code_size += size;
-    if (stp->on_load) {
-	inst_p = &mod_tab_p->old;
-    } else {
+
+    if (!stp->on_load) {
 	inst_p = &mod_tab_p->curr;
+    } else {
+	mod_tab_p->on_load =
+	    (struct erl_module_instance *)
+	    erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+		       sizeof(struct erl_module_instance));
+	inst_p = mod_tab_p->on_load;
+	inst_p->nif = 0;
+        inst_p->num_breakpoints = 0;
+        inst_p->num_traced_exports = 0;
     }
+
     inst_p->code_hdr = stp->hdr;
     inst_p->code_length = size;
 

@@ -85,6 +85,7 @@ static Module* module_alloc(Module* tmpl)
     obj->old.num_breakpoints  = 0;
     obj->curr.num_traced_exports = 0;
     obj->old.num_traced_exports = 0;
+    obj->on_load = 0;
     return obj;
 }
 
@@ -201,6 +202,7 @@ void module_start_staging(void)
 
 	dst_mod->curr = src_mod->curr;
 	dst_mod->old = src_mod->old;
+	dst_mod->on_load = src_mod->on_load;
     }
 
     /*
@@ -214,6 +216,7 @@ void module_start_staging(void)
 
 	dst_mod->curr = src_mod->curr;
 	dst_mod->old = src_mod->old;
+	dst_mod->on_load = src_mod->on_load;
     }
     newsz = index_table_sz(dst);
     erts_smp_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));

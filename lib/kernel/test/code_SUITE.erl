@@ -36,6 +36,7 @@
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
+	 on_load_deleted/1,
 	 big_boot_embedded/1,
 	 native_early_modules/1, get_mode/1,
 	 normalized_paths/1]).
@@ -66,6 +67,7 @@ all() ->
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors, on_load_update,
      on_load_purge, on_load_self_call, on_load_pending,
+     on_load_deleted,
      big_boot_embedded, native_early_modules, get_mode, normalized_paths].
 
 groups() ->
@@ -1600,6 +1602,98 @@ on_load_pending(_Config) ->
 	{'DOWN',Ref2,process,_,normal} -> ok
     end,
     ok = Mod:t(),
+    ok.
+
+on_load_deleted(_Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    R0 = fun() ->
+		 Tree = ?Q(["-module('@Mod@').\n",
+			    "-on_load(f/0).\n",
+			    "f() -> ok.\n"]),
+		 merl:print(Tree),
+		 {ok,Mod,Code} = merl:compile(Tree),
+		 {module,Mod} = code:load_binary(Mod, "", Code)
+	 end,
+    delete_before_reload(Mod, R0),
+    delete_before_reload(Mod, R0),
+
+    R1 = fun() ->
+		 Tree = ?Q(["-module('@Mod@').\n",
+			    "-on_load(f/0).\n",
+			    "f() -> fail.\n"]),
+		 merl:print(Tree),
+		 {ok,Mod,Code} = merl:compile(Tree),
+		 {error,on_load_failure} = code:load_binary(Mod, "", Code)
+	 end,
+    delete_before_reload(Mod, R1),
+    delete_before_reload(Mod, R1),
+
+    OtherMod = list_to_atom(lists:concat([Mod,"_42"])),
+    OtherTree = ?Q(["-module('@OtherMod@').\n"]),
+    merl:print(OtherTree),
+    {ok,OtherMod,OtherCode} = merl:compile(OtherTree),
+
+    R2 = fun() ->
+		 RegName = 'on_load__registered_name',
+		 Tree = ?Q(["-module('@Mod@').\n",
+			    "-on_load(f/0).\n",
+			    "f() ->\n",
+			    "  register('@RegName@', self()),\n",
+			    "  receive _ -> ok end.\n"]),
+		 merl:print(Tree),
+		 {ok,Mod,Code} = merl:compile(Tree),
+		 spawn(fun() ->
+			       {module,Mod} = code:load_binary(Mod, "", Code)
+		       end),
+		 receive after 1 -> ok end,
+		 {module,OtherMod} = code:load_binary(OtherMod, "",
+						      OtherCode),
+		 RegName ! stop
+	 end,
+    delete_before_reload(Mod, R2),
+
+    ok.
+
+delete_before_reload(Mod, Reload) ->
+    false = check_old_code(Mod),
+
+    Tree1 = ?Q(["-module('@Mod@').\n",
+		"-export([f/1]).\n",
+		"f(Parent) ->\n",
+		"  register('@Mod@', self()),\n",
+		"  Parent ! started,\n",
+		"  receive _ -> ok end.\n"]),
+    merl:print(Tree1),
+    {ok,Mod,Code1} = merl:compile(Tree1),
+
+    Self = self(),
+    spawn(fun() ->
+		  {module,Mod} = code:load_binary(Mod, "", Code1),
+		  Mod:f(Self)
+	  end),
+    receive started -> ok end,
+
+    true = code:delete(Mod),
+    true = check_old_code(Mod),
+
+    Reload(),
+
+    %% When loading the the module with the -on_load() function,
+    %% the reference to the old code would be lost. Make sure that
+    %% the old code is remembered and is still preventing the
+    %% purge.
+    false = code:soft_purge(Mod),
+
+    %% Get rid of the old code.
+    Mod ! stop,
+    receive after 1 -> ok end,
+    true = code:soft_purge(Mod),
+
+    %% Unload the version of the module with the -on_load() function.
+    true = code:delete(Mod),
+    true = code:soft_purge(Mod),
+
     ok.
 
 

@@ -29,6 +29,16 @@
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
+-ifdef(USE_ON_LOAD).
+-on_load(on_load/0).
+
+on_load() ->
+    [{data_dir, Path}] = ets:lookup(nif_SUITE, data_dir),
+    [{lib_version, Ver}] = ets:lookup(nif_SUITE, lib_version),
+    erlang:load_nif(filename:join(Path,libname(Ver)), []).
+
+-endif.
+
 load_nif_lib(Config, Ver) ->
     load_nif_lib(Config, Ver, []).
 
